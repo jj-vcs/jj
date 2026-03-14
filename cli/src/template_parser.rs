@@ -97,6 +97,9 @@ impl Rule {
             Self::function_arguments => None,
             Self::lambda => None,
             Self::formal_parameters => None,
+            Self::map => None,
+            Self::map_entries => None,
+            Self::map_entry => None,
             Self::pattern_identifier => None,
             Self::pattern => None,
             Self::pattern_value_expression => None,
@@ -300,6 +303,7 @@ pub enum ExpressionKind<'i> {
     FunctionCall(Box<FunctionCallNode<'i>>),
     MethodCall(Box<MethodCallNode<'i>>),
     Lambda(Box<LambdaNode<'i>>),
+    Map(Vec<MapNodeEntry<'i>>),
     /// Identity node to preserve the span in the source template text.
     AliasExpanded(AliasId<'i>, Box<ExpressionNode<'i>>),
 }
@@ -341,6 +345,17 @@ impl<'i> FoldableExpression<'i> for ExpressionKind<'i> {
                     body: folder.fold_expression(lambda.body)?,
                 });
                 Ok(Self::Lambda(lambda))
+            }
+            Self::Map(entries) => {
+                let entries = entries
+                    .into_iter()
+                    .map(|(key, value)| {
+                        let key = folder.fold_expression(key)?;
+                        let value = folder.fold_expression(value)?;
+                        Ok((key, value))
+                    })
+                    .try_collect()?;
+                Ok(ExpressionKind::Map(entries))
             }
             Self::AliasExpanded(id, subst) => {
                 let subst = Box::new(folder.fold_expression(*subst)?);
@@ -423,6 +438,8 @@ pub struct LambdaNode<'i> {
     pub body: ExpressionNode<'i>,
 }
 
+pub type MapNodeEntry<'i> = (ExpressionNode<'i>, ExpressionNode<'i>);
+
 fn parse_identifier_or_literal(pair: Pair<Rule>) -> ExpressionKind {
     assert!(matches!(
         pair.as_rule(),
@@ -474,6 +491,19 @@ fn parse_lambda_node(pair: Pair<Rule>) -> TemplateParseResult<LambdaNode> {
         params_span,
         body,
     })
+}
+
+fn parse_map_node(entries_pair: Pair<Rule>) -> TemplateParseResult<Vec<MapNodeEntry>> {
+    assert_eq!(entries_pair.as_rule(), Rule::map);
+    entries_pair
+        .into_inner()
+        .map(|pair| {
+            let [key_pair, value_pair] = pair.into_inner().collect_array().unwrap();
+            let key = parse_template_node(key_pair)?;
+            let value = parse_template_node(value_pair)?;
+            Ok((key, value))
+        })
+        .try_collect()
 }
 
 fn parse_string_literal(pair: Pair<Rule>) -> String {
@@ -531,6 +561,7 @@ fn parse_term_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> {
             let lambda = Box::new(parse_lambda_node(expr)?);
             ExpressionKind::Lambda(lambda)
         }
+        Rule::map => ExpressionKind::Map(parse_map_node(expr)?),
         // Ignore inner span to preserve parenthesized expression as such.
         Rule::template => parse_template_node(expr)?.kind,
         other => panic!("unexpected term: {other:?}"),
@@ -937,6 +968,13 @@ mod tests {
                 });
                 ExpressionKind::Lambda(lambda)
             }
+            ExpressionKind::Map(entries) => {
+                let entries = entries
+                    .into_iter()
+                    .map(|(key, value)| (normalize_tree(key), normalize_tree(value)))
+                    .collect();
+                ExpressionKind::Map(entries)
+            }
             ExpressionKind::AliasExpanded(_, subst) => normalize_tree(*subst).kind,
         };
         ExpressionNode {
@@ -1160,6 +1198,50 @@ mod tests {
 
         // Boolean literal cannot be used as a parameter name
         assert!(parse_template("|false| a").is_err());
+    }
+
+    #[test]
+    fn test_map_syntax() {
+        fn unwrap_map(node: ExpressionNode<'_>) -> Vec<MapNodeEntry<'_>> {
+            match node.kind {
+                ExpressionKind::Map(entries) => entries,
+                _ => panic!("unexpected expression: {node:?}"),
+            }
+        }
+
+        let entries = unwrap_map(parse_template("{}").unwrap());
+        assert_eq!(entries.len(), 0);
+        let entries = unwrap_map(parse_template("{a => b, c => d}").unwrap());
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].0.kind, ExpressionKind::Identifier("a"));
+        assert_eq!(entries[0].1.kind, ExpressionKind::Identifier("b"));
+        assert_eq!(entries[1].0.kind, ExpressionKind::Identifier("c"));
+        assert_eq!(entries[1].1.kind, ExpressionKind::Identifier("d"));
+
+        // Binding
+        assert_eq!(
+            parse_normalized("{a ++ b => c ++ d, e => f}"),
+            parse_normalized("{(a ++ b) => (c ++ d), (e) => (f)}"),
+        );
+        assert_eq!(
+            parse_normalized("{{a => b} => {c => d}}"),
+            parse_normalized("{({a => b}) => ({c => d})}"),
+        );
+        assert_eq!(
+            parse_normalized("{a:'b' => c:'d'}"),
+            parse_normalized("{(a:'b') => (c:'d')}"),
+        );
+
+        // Trailing comma
+        assert!(parse_template("{,}").is_err());
+        assert!(parse_template("{a => b,}").is_ok());
+        assert!(parse_template("{a => b,,}").is_err());
+        assert!(parse_template("{a => b,,c => d}").is_err());
+        assert!(parse_template("{, a => b}").is_err());
+        assert!(parse_template("{ a=>b , c => d , }").is_ok());
+
+        // Key-value pair cannot be parenthesized
+        assert!(parse_template("{(a => b)}").is_err());
     }
 
     #[test]
@@ -1492,6 +1574,12 @@ mod tests {
         assert_eq!(
             with_aliases([("A", "a ++ b")]).parse_normalized("|A| A"),
             parse_normalized("|A| (a ++ b)"),
+        );
+
+        // Map entries should be expanded.
+        assert_eq!(
+            with_aliases([("A", "a"), ("B", "b")]).parse_normalized("{A => !B}"),
+            parse_normalized("{a => !b}"),
         );
 
         // Infinite recursion, where the top-level error isn't of RecursiveAlias kind.
