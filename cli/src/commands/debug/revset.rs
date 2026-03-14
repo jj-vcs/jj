@@ -67,7 +67,10 @@ pub async fn cmd_debug_revset(
 
     let symbol_resolver = jj_lib::revset_util::default_symbol_resolver(
         repo,
-        command.revset_extensions().symbol_resolvers(),
+        workspace_command
+            .env()
+            .revset_extensions()
+            .symbol_resolvers(),
         workspace_command.id_prefix_context(),
     );
     let mut expression = expression.resolve_user_expression(repo, &symbol_resolver)?;
