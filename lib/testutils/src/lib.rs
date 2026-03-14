@@ -83,6 +83,56 @@ pub mod git;
 pub mod proptest;
 pub mod test_backend;
 
+/// Error wrapper for tests that captures backtrace and caller location.
+///
+/// Does NOT implement `Error` to avoid conflicting blanket trait
+/// implementations.
+pub struct ErrorAndBacktrace {
+    pub inner: Box<dyn std::error::Error + Send + Sync>,
+    pub location: &'static std::panic::Location<'static>,
+    pub backtrace: std::backtrace::Backtrace,
+}
+
+/// Convenient return type for test functions.
+pub type TestResult = Result<(), ErrorAndBacktrace>;
+
+impl<E: std::error::Error + Send + Sync + 'static> From<E> for ErrorAndBacktrace {
+    #[track_caller]
+    fn from(err: E) -> Self {
+        Self {
+            inner: Box::new(err),
+            location: std::panic::Location::caller(),
+            backtrace: std::backtrace::Backtrace::capture(),
+        }
+    }
+}
+
+impl std::fmt::Display for ErrorAndBacktrace {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}\n\nLocation: {}", self.inner, self.location)?;
+        match self.backtrace.status() {
+            std::backtrace::BacktraceStatus::Captured => {
+                write!(f, "\n\n{}", self.backtrace)?;
+            }
+            _ => {
+                write!(
+                    f,
+                    "\n\nnote: run with `RUST_BACKTRACE=1` environment variable to display a \
+                     backtrace"
+                )?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl std::fmt::Debug for ErrorAndBacktrace {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Debug is what the test harness actually prints for Result::Err
+        std::fmt::Display::fmt(self, f)
+    }
+}
+
 pub const HERMETIC_GIT_CONFIGS: &[(&str, &str)] = &[
     // gitoxide uses "main" as the default branch name, whereas git uses "master". This also
     // prevents git CLI from issuing the initial branch name advice.
