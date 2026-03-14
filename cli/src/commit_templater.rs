@@ -81,6 +81,10 @@ use jj_lib::signing::Verification;
 use jj_lib::store::Store;
 use jj_lib::trailer;
 use jj_lib::trailer::Trailer;
+use jj_lib::workspace::DefaultWorkspaceLoaderFactory;
+use jj_lib::workspace::WorkspaceLoaderFactory as _;
+use jj_lib::workspace_store::SimpleWorkspaceStore;
+use jj_lib::workspace_store::WorkspaceStore as _;
 use once_cell::unsync::OnceCell;
 use pollster::FutureExt as _;
 use serde::Serialize as _;
@@ -1772,6 +1776,42 @@ impl WorkspaceRef {
     pub fn target(&self) -> &Commit {
         &self.target
     }
+
+    /// Returns the root path of the workspace.
+    fn root(&self, path_converter: &RepoPathUiConverter) -> Result<String, TemplatePropertyError> {
+        let RepoPathUiConverter::Fs { cwd: _, base } = path_converter;
+        // TODO: Stop reconstructing the workspace loader here once we've
+        // decided which object should own the workspace store.
+        let workspace_loader = DefaultWorkspaceLoaderFactory.create(base)?;
+        let repo_path = workspace_loader.repo_path().to_owned();
+        let workspace_store = SimpleWorkspaceStore::load(&repo_path)?;
+        let workspace_path = workspace_store
+            .get_workspace_path(self.name())?
+            .ok_or_else(|| {
+                TemplatePropertyError(
+                    format!(
+                        "Workspace has no recorded path: {}",
+                        self.name().as_symbol()
+                    )
+                    .into(),
+                )
+            })?;
+        let full_path = repo_path.join(workspace_path);
+        let path = dunce::canonicalize(&full_path).map_err(|err| {
+            TemplatePropertyError(
+                format!(
+                    "Failed to resolve workspace root: {}: {}: {err}",
+                    self.name().as_symbol(),
+                    full_path.display()
+                )
+                .into(),
+            )
+        })?;
+        // TODO: Return PathBuf once the templater has a filesystem path type.
+        path.into_os_string()
+            .into_string()
+            .map_err(|_| TemplatePropertyError("Invalid UTF-8 sequence in path".into()))
+    }
 }
 
 impl Template for WorkspaceRef {
@@ -1801,6 +1841,15 @@ fn builtin_workspace_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'rep
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|ws_ref| ws_ref.target);
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "root",
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let path_converter = language.path_converter;
+            let out_property = self_property.and_then(move |ws_ref| ws_ref.root(path_converter));
             Ok(out_property.into_dyn_wrapped())
         },
     );

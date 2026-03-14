@@ -236,6 +236,9 @@ Thanks to the people who made this release happen!
   the root path of the specified workspace (defaults to the current one). When
   given a workspace that was created before this release, it errors out.
 
+* `WorkspaceRef` templates now provide a `.root()` method to show the absolute
+  path to each workspace root.
+
 * `jj git push --bookmark <name>` will now automatically track the bookmark if
   it isn't tracked with any remote already.
 
