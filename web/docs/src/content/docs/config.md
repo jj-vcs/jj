@@ -1268,12 +1268,8 @@ path to such a program:
 
 ```toml
 [fix.tools.biome]
-
-# Linux and macOS
-command = ["$root/node_modules/@biomejs/cli-linux-x64/biome"]
-
-# Windows
-command = ["$root\\node_modules\\@biomejs\\cli-win32-x64\\biome.exe"]
+command = ["$root/node_modules/@biomejs/biome/bin/biome", "format", "--stdin-file-path=$path"]
+patterns = ["glob:'**/*.ts'", "glob:'**/*.tsx'"]
 ```
 
 ### Execution order of tools
