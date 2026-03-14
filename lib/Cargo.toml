@@ -29,6 +29,10 @@ name = "runner"
 name = "diff_bench"
 harness = false
 
+[[bench]]
+name = "revset_graph_bench"
+harness = false
+
 [dependencies]
 async-trait = { workspace = true }
 blake2 = { workspace = true }
@@ -91,7 +95,7 @@ testutils = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 
 [target.'cfg(unix)'.dev-dependencies]
-nix = { workspace = true, features = [ "fs" ] }
+nix = { workspace = true, features = ["fs"] }
 
 [features]
 default = ["git"]
