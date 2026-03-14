@@ -50,12 +50,12 @@ use jj_lib::revset::UserRevsetExpression;
 use jj_lib::settings::RemoteSettingsMap;
 use jj_lib::str_util::StringExpression;
 use jj_lib::str_util::StringMatcher;
+use jj_lib::user_error::revset_parse_error_hint;
 use thiserror::Error;
 
 use crate::command_error::CommandError;
 use crate::command_error::config_error_with_message;
 use crate::command_error::print_parse_diagnostics;
-use crate::command_error::revset_parse_error_hint;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
 use crate::templater::TemplateRenderer;

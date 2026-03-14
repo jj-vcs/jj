@@ -134,6 +134,7 @@ use jj_lib::str_util::StringMatcher;
 use jj_lib::str_util::StringPattern;
 use jj_lib::transaction::Transaction;
 use jj_lib::transaction::TransactionCommitError;
+use jj_lib::user_error::UserError;
 use jj_lib::working_copy;
 use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::LockedWorkingCopy;
@@ -158,6 +159,7 @@ use tracing_chrome::ChromeLayerBuilder;
 use tracing_subscriber::prelude::*;
 
 use crate::command_error::CommandError;
+use crate::command_error::clap_error;
 use crate::command_error::cli_error;
 use crate::command_error::config_error_with_message;
 use crate::command_error::handle_command_result;
@@ -2192,7 +2194,7 @@ to the current parents may contain changes from multiple commits.
             let wc_expr = RevsetExpression::commit(wc_commit_id.clone());
             let is_immutable = match self.env.find_immutable_commit(tx.repo(), &wc_expr).await {
                 Ok(commit_id) => commit_id.is_some(),
-                Err(CommandError { error, .. }) => {
+                Err(CommandError(UserError { error, .. })) => {
                     writeln!(
                         ui.warning_default(),
                         "Failed to check mutability of the new working-copy revision."
@@ -3897,7 +3899,8 @@ fn parse_early_args(
                 .action(ArgAction::Count),
         )
         .ignore_errors(true)
-        .try_get_matches_from(args)?;
+        .try_get_matches_from(args)
+        .map_err(clap_error)?;
     let args = EarlyArgs::from_arg_matches(&early_matches).unwrap();
 
     let mut config_layers = parse_config_args(&args.merged_config_args(&early_matches))?;
@@ -3988,7 +3991,8 @@ fn handle_shell_completion(
         // for completing aliases
         app.allow_external_subcommands(true)
     })
-    .try_complete(args.iter(), Some(cwd))?;
+    .try_complete(args.iter(), Some(cwd))
+    .map_err(clap_error)?;
     assert!(
         ran_completion,
         "This function should not be called without the COMPLETE variable set."
@@ -4525,7 +4529,7 @@ fn map_clap_cli_error(err: clap::Error, ui: &Ui, config: &StackedConfig) -> Comm
             // experiments with `jj`
             "clone" | "init" => {
                 let cmd = cmd.clone();
-                return CommandError::from(remove_useless_error_context(err))
+                return clap_error(remove_useless_error_context(err))
                     .hinted(format!(
                         "You probably want `jj git {cmd}`. See also `jj help git`."
                     ))
@@ -4534,7 +4538,7 @@ fn map_clap_cli_error(err: clap::Error, ui: &Ui, config: &StackedConfig) -> Comm
                     ));
             }
             "amend" => {
-                return CommandError::from(remove_useless_error_context(err))
+                return clap_error(remove_useless_error_context(err))
                     .hinted(
                         r#"You probably want `jj squash`. You can configure `aliases.amend = ["squash"]` if you want `jj amend` to work."#);
             }
@@ -4549,10 +4553,10 @@ fn map_clap_cli_error(err: clap::Error, ui: &Ui, config: &StackedConfig) -> Comm
     {
         // Suppress the error, it's less important than the original error.
         if let Ok(template_aliases) = load_template_aliases(ui, config) {
-            return CommandError::from(err).hinted(format_template_aliases_hint(&template_aliases));
+            return clap_error(err).hinted(format_template_aliases_hint(&template_aliases));
         }
     }
-    CommandError::from(err)
+    clap_error(err)
 }
 
 fn format_template_aliases_hint(template_aliases: &TemplateAliasesMap) -> String {
