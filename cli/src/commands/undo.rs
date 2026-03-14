@@ -151,6 +151,16 @@ pub async fn cmd_undo(
             .await?;
     }
 
+    // Prevent restoring to the root operation, which has no working copy and
+    // would leave the repo in an unusable state (many commands would fail with
+    // "This command requires a working copy").
+    if op_to_restore.parent_ids().is_empty() {
+        return Err(user_error(
+            "Cannot undo: restoring to root operation would leave the repo without a working copy",
+        )
+        .hinted("Use `jj redo` to restore a working state"));
+    }
+
     let mut tx = workspace_command.start_transaction();
     let new_view = view_with_desired_portions_restored(
         op_to_restore.view().await?.store_view(),

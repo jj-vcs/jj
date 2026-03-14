@@ -20,18 +20,33 @@ fn test_undo_root_operation() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
+    // When there is only one non-root operation in history, undo would restore to
+    // the root operation which has no working copy and would leave the repo
+    // unusable. We prevent this and show a helpful error instead. (Issue #8153)
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Undid operation: 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
-    Restored to operation: 000000000000 root()
+    Error: Cannot undo: restoring to root operation would leave the repo without a working copy
+    Hint: Use `jj redo` to restore a working state
     [EOF]
+    [exit status: 1]
     ");
+}
+
+#[test]
+fn test_undo_root_operation_no_colocate() {
+    // Reproduces the exact scenario from issue #8153
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--no-colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Cannot undo root operation
+    Error: Cannot undo: restoring to root operation would leave the repo without a working copy
+    Hint: Use `jj redo` to restore a working state
     [EOF]
     [exit status: 1]
     ");
