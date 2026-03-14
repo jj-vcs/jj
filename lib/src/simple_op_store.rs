@@ -942,6 +942,7 @@ mod tests {
     use maplit::btreemap;
     use maplit::hashmap;
     use maplit::hashset;
+    use testutils::TestResult;
 
     use super::*;
     use crate::hex_util;
@@ -1064,29 +1065,31 @@ mod tests {
     }
 
     #[test]
-    fn test_read_write_view() {
+    fn test_read_write_view() -> TestResult {
         let temp_dir = new_temp_dir();
         let root_data = RootOperationData {
             root_commit_id: CommitId::from_hex("000000"),
         };
-        let store = SimpleOpStore::init(temp_dir.path(), root_data).unwrap();
+        let store = SimpleOpStore::init(temp_dir.path(), root_data)?;
         let view = create_view();
-        let view_id = store.write_view(&view).block_on().unwrap();
-        let read_view = store.read_view(&view_id).block_on().unwrap();
+        let view_id = store.write_view(&view).block_on()?;
+        let read_view = store.read_view(&view_id).block_on()?;
         assert_eq!(read_view, view);
+        Ok(())
     }
 
     #[test]
-    fn test_read_write_operation() {
+    fn test_read_write_operation() -> TestResult {
         let temp_dir = new_temp_dir();
         let root_data = RootOperationData {
             root_commit_id: CommitId::from_hex("000000"),
         };
-        let store = SimpleOpStore::init(temp_dir.path(), root_data).unwrap();
+        let store = SimpleOpStore::init(temp_dir.path(), root_data)?;
         let operation = create_operation();
-        let op_id = store.write_operation(&operation).block_on().unwrap();
-        let read_operation = store.read_operation(&op_id).block_on().unwrap();
+        let op_id = store.write_operation(&operation).block_on()?;
+        let read_operation = store.read_operation(&op_id).block_on()?;
         assert_eq!(read_operation, operation);
+        Ok(())
     }
 
     #[test]

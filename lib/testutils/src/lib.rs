@@ -83,6 +83,97 @@ pub mod git;
 pub mod proptest;
 pub mod test_backend;
 
+/// Error wrapper for tests that captures backtrace and caller location.
+///
+/// Does NOT implement `Error` to avoid conflicting blanket trait
+/// implementations.
+pub struct ErrorAndBacktrace {
+    pub inner: Box<dyn std::error::Error + Send + Sync>,
+    pub location: &'static std::panic::Location<'static>,
+    pub backtrace: backtrace::Backtrace,
+}
+
+/// Convenient return type for test functions.
+pub type TestResult = Result<(), ErrorAndBacktrace>;
+
+impl<E: std::error::Error + Send + Sync + 'static> From<E> for ErrorAndBacktrace {
+    #[track_caller]
+    fn from(err: E) -> Self {
+        Self {
+            inner: Box::new(err),
+            location: std::panic::Location::caller(),
+            backtrace: backtrace::Backtrace::new_unresolved(),
+        }
+    }
+}
+
+impl std::fmt::Display for ErrorAndBacktrace {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}\n\nLocation: {}", self.inner, self.location)?;
+        let enabled = env::var_os("RUST_BACKTRACE").is_some_and(|v| !v.is_empty() && v != "0");
+        if !enabled {
+            write!(
+                f,
+                "\n\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace"
+            )?;
+            return Ok(());
+        }
+        let is_full = env::var_os("RUST_BACKTRACE").is_some_and(|v| v == "full");
+        let mut bt = self.backtrace.clone();
+        bt.resolve();
+        // Find the range of interesting frames by looking for the short
+        // backtrace markers that the test harness inserts.
+        let frames = bt.frames();
+        let begin_marker = frames.iter().position(|frame| {
+            frame.symbols().iter().any(|s| {
+                s.name()
+                    .is_some_and(|n| format!("{n:#}").contains("__rust_begin_short_backtrace"))
+            })
+        });
+        let end_frames = if let Some(idx) = begin_marker.filter(|_| !is_full) {
+            &frames[..idx]
+        } else {
+            frames
+        };
+        write!(f, "\nstack backtrace:")?;
+        for (i, frame) in end_frames.iter().enumerate() {
+            let symbols = frame.symbols();
+            if symbols.is_empty() {
+                write!(f, "\n{i:>4}: <unknown>")?;
+            }
+            for (si, symbol) in symbols.iter().enumerate() {
+                let name = symbol
+                    .name()
+                    .map(|n| format!("{n:#}"))
+                    .unwrap_or_else(|| "<unknown>".to_string());
+                if si == 0 {
+                    write!(f, "\n{i:>4}: {name}")?;
+                } else {
+                    write!(f, "\n      {name}")?;
+                }
+                if let (Some(file), Some(line)) = (symbol.filename(), symbol.lineno()) {
+                    write!(f, "\n             at {}:{line}", file.display())?;
+                }
+            }
+        }
+        if !is_full && begin_marker.is_some() {
+            write!(
+                f,
+                "\nnote: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose \
+                 backtrace."
+            )?;
+        }
+        Ok(())
+    }
+}
+
+impl std::fmt::Debug for ErrorAndBacktrace {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Debug is what the test harness actually prints for Result::Err
+        std::fmt::Display::fmt(self, f)
+    }
+}
+
 pub const HERMETIC_GIT_CONFIGS: &[(&str, &str)] = &[
     // gitoxide uses "main" as the default branch name, whereas git uses "master". This also
     // prevents git CLI from issuing the initial branch name advice.
