@@ -41,6 +41,7 @@ use crate::templater::TemplatePropertyExt as _;
 /// registered to extract properties from the self object.
 pub struct GenericTemplateLanguage<'a, C> {
     settings: UserSettings,
+    environment: HashMap<String, String>,
     build_fn_table: GenericTemplateBuildFnTable<'a, C>,
 }
 
@@ -51,18 +52,20 @@ where
     /// Sets up environment with no keywords.
     ///
     /// New keyword functions can be registered by `add_keyword()`.
-    pub fn new(settings: &UserSettings) -> Self {
-        Self::with_keywords(HashMap::new(), settings)
+    pub fn new(environment: &HashMap<String, String>, settings: &UserSettings) -> Self {
+        Self::with_keywords(HashMap::new(), environment, settings)
     }
 
     /// Sets up environment with the given `keywords` table.
     pub fn with_keywords(
         keywords: GenericTemplateBuildKeywordFnMap<'a, C>,
+        environment: &HashMap<String, String>,
         settings: &UserSettings,
     ) -> Self {
         Self {
             // Clone settings to keep lifetime simple. It's cheap.
             settings: settings.clone(),
+            environment: environment.clone(),
             build_fn_table: GenericTemplateBuildFnTable {
                 core: CoreTemplateBuildFnTable::builtin(),
                 keywords,
@@ -98,6 +101,10 @@ where
     C: serde::Serialize + 'a,
 {
     type Property = GenericTemplatePropertyKind<'a, C>;
+
+    fn environment(&self) -> &HashMap<String, String> {
+        &self.environment
+    }
 
     fn settings(&self) -> &UserSettings {
         &self.settings
