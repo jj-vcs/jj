@@ -373,15 +373,13 @@ fn test_import_refs_reimport() -> TestResult {
     let commit2 = empty_git_commit(&git_repo, "refs/heads/main", &[commit1]);
     let commit3 = empty_git_commit(&git_repo, "refs/heads/feature1", &[commit2]);
     let commit4 = empty_git_commit(&git_repo, "refs/heads/feature2", &[commit2]);
-    let pgp_key_oid = git_repo.write_blob(b"my PGP key").unwrap().detach();
-    git_repo
-        .reference(
-            "refs/tags/my-gpg-key",
-            pgp_key_oid,
-            gix::refs::transaction::PreviousValue::MustNotExist,
-            "",
-        )
-        .unwrap();
+    let pgp_key_oid = git_repo.write_blob(b"my PGP key")?.detach();
+    git_repo.reference(
+        "refs/tags/my-gpg-key",
+        pgp_key_oid,
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "",
+    )?;
 
     let mut tx = repo.start_transaction();
     let stats = git::import_refs(tx.repo_mut(), &import_options).block_on()?;
@@ -529,11 +527,7 @@ fn test_import_refs_reimport_git_head_does_not_count() -> TestResult {
 
     // Delete the bookmark and re-import. The commit should still be there since
     // HEAD points to it
-    git_repo
-        .find_reference("refs/heads/main")
-        .unwrap()
-        .delete()
-        .unwrap();
+    git_repo.find_reference("refs/heads/main")?.delete()?;
     git::import_head(tx.repo_mut()).block_on()?;
     git::import_refs(tx.repo_mut(), &import_options).block_on()?;
     tx.repo_mut().rebase_descendants().block_on()?;
@@ -590,14 +584,12 @@ fn test_import_refs_reimport_git_head_with_moved_ref() -> TestResult {
     let mut tx = repo.start_transaction();
     let commit1 = write_random_commit(tx.repo_mut());
     let commit2 = write_random_commit(tx.repo_mut());
-    git_repo
-        .reference(
-            "refs/heads/main",
-            git_id(&commit1),
-            gix::refs::transaction::PreviousValue::Any,
-            "test",
-        )
-        .unwrap();
+    git_repo.reference(
+        "refs/heads/main",
+        git_id(&commit1),
+        gix::refs::transaction::PreviousValue::Any,
+        "test",
+    )?;
     testutils::git::set_head_to_id(&git_repo, git_id(&commit1));
 
     // Import HEAD and main.
@@ -608,14 +600,12 @@ fn test_import_refs_reimport_git_head_with_moved_ref() -> TestResult {
     assert!(tx.repo().view().heads().contains(commit2.id()));
 
     // Move both HEAD and main to commit2 (by e.g. `git commit --amend` command)
-    git_repo
-        .reference(
-            "refs/heads/main",
-            git_id(&commit2),
-            gix::refs::transaction::PreviousValue::Any,
-            "test",
-        )
-        .unwrap();
+    git_repo.reference(
+        "refs/heads/main",
+        git_id(&commit2),
+        gix::refs::transaction::PreviousValue::Any,
+        "test",
+    )?;
     testutils::git::set_head_to_id(&git_repo, git_id(&commit2));
 
     // Reimport HEAD and main, which abandons the old main branch.
@@ -1061,11 +1051,7 @@ fn test_import_refs_reimport_with_deleted_abandoned_untracked_remote_ref() -> Te
     // x feature-b@origin (hidden)
     // o feature-a@origin
     let mut tx = repo.start_transaction();
-    let jj_commit_remote_b = tx
-        .repo()
-        .store()
-        .get_commit(&jj_id(commit_remote_b))
-        .unwrap();
+    let jj_commit_remote_b = tx.repo().store().get_commit(&jj_id(commit_remote_b))?;
     tx.repo_mut().record_abandoned_commit(&jj_commit_remote_b);
     tx.repo_mut().rebase_descendants().block_on()?;
     let repo = tx.commit("test").block_on()?;
@@ -1139,14 +1125,12 @@ fn test_import_refs_reimport_absent_tracked_remote_bookmarks() -> TestResult {
 
     // foo: commit1
     // foo@origin: absent -> commit2 (= descendant of commit1)
-    git_repo
-        .reference(
-            "refs/remotes/origin/foo",
-            git_id(&commit2),
-            gix::refs::transaction::PreviousValue::Any,
-            "test",
-        )
-        .unwrap();
+    git_repo.reference(
+        "refs/remotes/origin/foo",
+        git_id(&commit2),
+        gix::refs::transaction::PreviousValue::Any,
+        "test",
+    )?;
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).block_on()?;
     let repo = tx.commit("test").block_on()?;
@@ -1214,14 +1198,12 @@ fn test_import_refs_reimport_absent_tracked_remote_tags() -> TestResult {
 
     // foo: commit2
     // foo@git: absent -> commit3 (= sibling of commit4)
-    git_repo
-        .reference(
-            "refs/tags/foo",
-            git_id(&commit3),
-            gix::refs::transaction::PreviousValue::Any,
-            "test",
-        )
-        .unwrap();
+    git_repo.reference(
+        "refs/tags/foo",
+        git_id(&commit3),
+        gix::refs::transaction::PreviousValue::Any,
+        "test",
+    )?;
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).block_on()?;
     let repo = tx.commit("test").block_on()?;
@@ -1306,14 +1288,12 @@ fn test_import_refs_reimport_git_head_with_fixed_ref() -> TestResult {
     let mut tx = repo.start_transaction();
     let commit1 = write_random_commit(tx.repo_mut());
     let commit2 = write_random_commit(tx.repo_mut());
-    git_repo
-        .reference(
-            "refs/heads/main",
-            git_id(&commit1),
-            gix::refs::transaction::PreviousValue::Any,
-            "test",
-        )
-        .unwrap();
+    git_repo.reference(
+        "refs/heads/main",
+        git_id(&commit1),
+        gix::refs::transaction::PreviousValue::Any,
+        "test",
+    )?;
     testutils::git::set_head_to_id(&git_repo, git_id(&commit1));
 
     // Import HEAD and main.
@@ -1352,11 +1332,7 @@ fn test_import_refs_reimport_all_from_root_removed() -> TestResult {
     assert!(tx.repo().view().heads().contains(&jj_id(commit)));
 
     // Remove all git refs and re-import
-    git_repo
-        .find_reference("refs/heads/main")
-        .unwrap()
-        .delete()
-        .unwrap();
+    git_repo.find_reference("refs/heads/main")?.delete()?;
     git::import_refs(tx.repo_mut(), &import_options).block_on()?;
     tx.repo_mut().rebase_descendants().block_on()?;
     assert!(!tx.repo().view().heads().contains(&jj_id(commit)));
@@ -1383,11 +1359,7 @@ fn test_import_refs_reimport_abandoning_disabled() -> TestResult {
     assert!(tx.repo().view().heads().contains(&jj_id(commit2)));
 
     // Remove the `delete-me` bookmark and re-import
-    git_repo
-        .find_reference("refs/heads/delete-me")
-        .unwrap()
-        .delete()
-        .unwrap();
+    git_repo.find_reference("refs/heads/delete-me")?.delete()?;
     git::import_refs(tx.repo_mut(), &import_options).block_on()?;
     tx.repo_mut().rebase_descendants().block_on()?;
     assert!(tx.repo().view().heads().contains(&jj_id(commit2)));
@@ -1809,10 +1781,8 @@ fn test_import_refs_detached_head() -> TestResult {
     // the set of heads
     test_data
         .git_repo
-        .find_reference("refs/heads/main")
-        .unwrap()
-        .delete()
-        .unwrap();
+        .find_reference("refs/heads/main")?
+        .delete()?;
     testutils::git::set_head_to_id(&test_data.git_repo, commit1);
 
     let mut tx = test_data.repo.start_transaction();
@@ -1844,7 +1814,7 @@ fn test_export_refs_no_detach() -> TestResult {
     mut_repo.rebase_descendants().block_on()?;
 
     // Do an initial export to make sure `main` is considered
-    let stats = git::export_refs(mut_repo).unwrap();
+    let stats = git::export_refs(mut_repo)?;
     assert!(stats.failed_bookmarks.is_empty());
     assert!(stats.failed_tags.is_empty());
     assert_eq!(
@@ -1856,11 +1826,7 @@ fn test_export_refs_no_detach() -> TestResult {
         b"refs/heads/main"
     );
     assert_eq!(
-        git_repo
-            .find_reference("refs/heads/main")
-            .unwrap()
-            .target()
-            .id(),
+        git_repo.find_reference("refs/heads/main")?.target().id(),
         commit1
     );
     Ok(())
@@ -1873,14 +1839,12 @@ fn test_export_refs_bookmark_changed() -> TestResult {
     let import_options = default_import_options();
     let git_repo = test_data.git_repo;
     let commit = empty_git_commit(&git_repo, "refs/heads/main", &[]);
-    git_repo
-        .reference(
-            "refs/heads/feature",
-            commit,
-            gix::refs::transaction::PreviousValue::MustNotExist,
-            "test",
-        )
-        .unwrap();
+    git_repo.reference(
+        "refs/heads/feature",
+        commit,
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "test",
+    )?;
     testutils::git::set_symbolic_reference(&git_repo, "HEAD", "refs/heads/feature");
 
     let mut tx = test_data.repo.start_transaction();
@@ -1888,7 +1852,7 @@ fn test_export_refs_bookmark_changed() -> TestResult {
     git::import_head(mut_repo).block_on()?;
     git::import_refs(mut_repo, &import_options).block_on()?;
     mut_repo.rebase_descendants().block_on()?;
-    let stats = git::export_refs(mut_repo).unwrap();
+    let stats = git::export_refs(mut_repo)?;
     assert!(stats.failed_bookmarks.is_empty());
     assert!(stats.failed_tags.is_empty());
 
@@ -1896,7 +1860,7 @@ fn test_export_refs_bookmark_changed() -> TestResult {
         .set_parents(vec![jj_id(commit)])
         .write_unwrap();
     mut_repo.set_local_bookmark_target("main".as_ref(), RefTarget::normal(new_commit.id().clone()));
-    let stats = git::export_refs(mut_repo).unwrap();
+    let stats = git::export_refs(mut_repo)?;
     assert!(stats.failed_bookmarks.is_empty());
     assert!(stats.failed_tags.is_empty());
     assert_eq!(
@@ -1905,10 +1869,8 @@ fn test_export_refs_bookmark_changed() -> TestResult {
     );
     assert_eq!(
         git_repo
-            .find_reference("refs/heads/main")
-            .unwrap()
-            .peel_to_commit()
-            .unwrap()
+            .find_reference("refs/heads/main")?
+            .peel_to_commit()?
             .id(),
         git_id(&new_commit)
     );
@@ -1931,15 +1893,11 @@ fn test_export_refs_tag_changed() -> TestResult {
 
     let commit = empty_git_commit(&git_repo, "refs/tags/lightweight-change", &[]);
     let constraint = gix::refs::transaction::PreviousValue::MustNotExist;
-    git_repo
-        .tag_reference("lightweight-delete", commit, constraint)
-        .unwrap();
+    git_repo.tag_reference("lightweight-delete", commit, constraint)?;
     for name in ["annotated-change", "annotated-delete"] {
         let kind = gix::object::Kind::Commit;
         let constraint = gix::refs::transaction::PreviousValue::MustNotExist;
-        git_repo
-            .tag(name, commit, kind, None, "", constraint)
-            .unwrap();
+        git_repo.tag(name, commit, kind, None, "", constraint)?;
     }
 
     let mut tx = test_data.repo.start_transaction();
@@ -1948,7 +1906,7 @@ fn test_export_refs_tag_changed() -> TestResult {
     let stats = git::import_refs(mut_repo, &import_options).block_on()?;
     assert_eq!(stats.changed_remote_tags.len(), 4);
     mut_repo.rebase_descendants().block_on()?;
-    let stats = git::export_refs(mut_repo).unwrap();
+    let stats = git::export_refs(mut_repo)?;
     assert!(stats.failed_bookmarks.is_empty());
     assert!(stats.failed_tags.is_empty());
 
@@ -1961,7 +1919,7 @@ fn test_export_refs_tag_changed() -> TestResult {
     mut_repo.set_local_tag_target("annotated-change".as_ref(), new_target.clone());
     mut_repo.set_local_tag_target("annotated-delete".as_ref(), RefTarget::absent());
     mut_repo.set_local_tag_target("new".as_ref(), new_target.clone());
-    let stats = git::export_refs(mut_repo).unwrap();
+    let stats = git::export_refs(mut_repo)?;
     assert!(stats.failed_bookmarks.is_empty());
     assert!(stats.failed_tags.is_empty());
     assert_eq!(
@@ -1983,40 +1941,32 @@ fn test_export_refs_tag_changed() -> TestResult {
     assert_eq!(mut_repo.get_git_ref("refs/tags/new".as_ref()), new_target);
     assert_eq!(
         git_repo
-            .find_reference("refs/tags/lightweight-change")
-            .unwrap()
-            .peel_to_commit()
-            .unwrap()
+            .find_reference("refs/tags/lightweight-change")?
+            .peel_to_commit()?
             .id(),
         git_id(&new_commit)
     );
     assert!(
         git_repo
-            .try_find_reference("refs/tags/lightweight-delete")
-            .unwrap()
+            .try_find_reference("refs/tags/lightweight-delete")?
             .is_none()
     );
     assert_eq!(
         git_repo
-            .find_reference("refs/tags/annotated-change")
-            .unwrap()
-            .peel_to_commit()
-            .unwrap()
+            .find_reference("refs/tags/annotated-change")?
+            .peel_to_commit()?
             .id(),
         git_id(&new_commit)
     );
     assert!(
         git_repo
-            .try_find_reference("refs/tags/annotated-delete")
-            .unwrap()
+            .try_find_reference("refs/tags/annotated-delete")?
             .is_none()
     );
     assert_eq!(
         git_repo
-            .find_reference("refs/tags/new")
-            .unwrap()
-            .peel_to_commit()
-            .unwrap()
+            .find_reference("refs/tags/new")?
+            .peel_to_commit()?
             .id(),
         git_id(&new_commit)
     );
@@ -2037,7 +1987,7 @@ fn test_export_refs_current_bookmark_changed() -> TestResult {
     git::import_head(mut_repo).block_on()?;
     git::import_refs(mut_repo, &import_options).block_on()?;
     mut_repo.rebase_descendants().block_on()?;
-    let stats = git::export_refs(mut_repo).unwrap();
+    let stats = git::export_refs(mut_repo)?;
     assert!(stats.failed_bookmarks.is_empty());
     assert!(stats.failed_tags.is_empty());
 
@@ -2045,7 +1995,7 @@ fn test_export_refs_current_bookmark_changed() -> TestResult {
         .set_parents(vec![jj_id(commit1)])
         .write_unwrap();
     mut_repo.set_local_bookmark_target("main".as_ref(), RefTarget::normal(new_commit.id().clone()));
-    let stats = git::export_refs(mut_repo).unwrap();
+    let stats = git::export_refs(mut_repo)?;
     assert!(stats.failed_bookmarks.is_empty());
     assert!(stats.failed_tags.is_empty());
     assert_eq!(
@@ -2054,15 +2004,13 @@ fn test_export_refs_current_bookmark_changed() -> TestResult {
     );
     assert_eq!(
         git_repo
-            .find_reference("refs/heads/main")
-            .unwrap()
-            .peel_to_commit()
-            .unwrap()
+            .find_reference("refs/heads/main")?
+            .peel_to_commit()?
             .id()
             .detach(),
         git_id(&new_commit)
     );
-    assert!(git_repo.head().unwrap().is_detached(), "HEAD is detached");
+    assert!(git_repo.head()?.is_detached(), "HEAD is detached");
     Ok(())
 }
 
@@ -2079,8 +2027,7 @@ fn test_export_refs_worktree_head_changed() -> TestResult {
         .args(["worktree", "add", "-b", "wt-branch"])
         .arg(&worktree_dir)
         .current_dir(git_repo.workdir().unwrap())
-        .output()
-        .unwrap();
+        .output()?;
     assert!(
         output.status.success(),
         "Failed to create worktree: {}",
@@ -2100,12 +2047,12 @@ fn test_export_refs_worktree_head_changed() -> TestResult {
         "wt-branch".as_ref(),
         RefTarget::normal(new_commit.id().clone()),
     );
-    let stats = git::export_refs(mut_repo).unwrap();
+    let stats = git::export_refs(mut_repo)?;
     assert!(stats.failed_bookmarks.is_empty());
     assert!(stats.failed_tags.is_empty());
 
-    let git_repo_wt = gix::open(&worktree_dir).unwrap();
-    assert!(git_repo_wt.head().unwrap().is_detached());
+    let git_repo_wt = gix::open(&worktree_dir)?;
+    assert!(git_repo_wt.head()?.is_detached());
     Ok(())
 }
 
@@ -2122,8 +2069,7 @@ fn test_export_refs_worktree_no_detach() -> TestResult {
         .args(["worktree", "add", "-b", "wt-branch"])
         .arg(&worktree_dir)
         .current_dir(git_repo.workdir().unwrap())
-        .output()
-        .unwrap();
+        .output()?;
     assert!(
         output.status.success(),
         "Failed to create worktree: {}",
@@ -2143,12 +2089,12 @@ fn test_export_refs_worktree_no_detach() -> TestResult {
         "other-branch".as_ref(),
         RefTarget::normal(new_commit.id().clone()),
     );
-    let stats = git::export_refs(mut_repo).unwrap();
+    let stats = git::export_refs(mut_repo)?;
     assert!(stats.failed_bookmarks.is_empty());
     assert!(stats.failed_tags.is_empty());
 
-    let git_repo_wt = gix::open(&worktree_dir).unwrap();
-    assert!(!git_repo_wt.head().unwrap().is_detached());
+    let git_repo_wt = gix::open(&worktree_dir)?;
+    assert!(!git_repo_wt.head()?.is_detached());
     assert_eq!(
         git_repo_wt.head_name().unwrap().unwrap().as_bstr(),
         b"refs/heads/wt-branch"
@@ -2170,7 +2116,7 @@ fn test_export_refs_current_tag_changed() -> TestResult {
     git::import_head(mut_repo).block_on()?;
     git::import_refs(mut_repo, &import_options).block_on()?;
     mut_repo.rebase_descendants().block_on()?;
-    let stats = git::export_refs(mut_repo).unwrap();
+    let stats = git::export_refs(mut_repo)?;
     assert!(stats.failed_bookmarks.is_empty());
     assert!(stats.failed_tags.is_empty());
 
@@ -2178,7 +2124,7 @@ fn test_export_refs_current_tag_changed() -> TestResult {
         .set_parents(vec![jj_id(commit1)])
         .write_unwrap();
     mut_repo.set_local_tag_target("v1.0".as_ref(), RefTarget::normal(new_commit.id().clone()));
-    let stats = git::export_refs(mut_repo).unwrap();
+    let stats = git::export_refs(mut_repo)?;
     assert!(stats.failed_bookmarks.is_empty());
     assert!(stats.failed_tags.is_empty());
     assert_eq!(
@@ -2187,15 +2133,13 @@ fn test_export_refs_current_tag_changed() -> TestResult {
     );
     assert_eq!(
         git_repo
-            .find_reference("refs/tags/v1.0")
-            .unwrap()
-            .peel_to_commit()
-            .unwrap()
+            .find_reference("refs/tags/v1.0")?
+            .peel_to_commit()?
             .id()
             .detach(),
         git_id(&new_commit)
     );
-    assert!(git_repo.head().unwrap().is_detached());
+    assert!(git_repo.head()?.is_detached());
     Ok(())
 }
 
@@ -2212,24 +2156,22 @@ fn test_export_refs_unborn_git_bookmark(move_placeholder_ref: bool) -> TestResul
     git::import_head(mut_repo).block_on()?;
     git::import_refs(mut_repo, &import_options).block_on()?;
     mut_repo.rebase_descendants().block_on()?;
-    let stats = git::export_refs(mut_repo).unwrap();
+    let stats = git::export_refs(mut_repo)?;
     assert!(stats.failed_bookmarks.is_empty());
     assert!(stats.failed_tags.is_empty());
-    assert!(git_repo.head().unwrap().is_unborn(), "HEAD is unborn");
+    assert!(git_repo.head()?.is_unborn(), "HEAD is unborn");
 
     let new_commit = write_random_commit(mut_repo);
     mut_repo.set_local_bookmark_target("main".as_ref(), RefTarget::normal(new_commit.id().clone()));
     if move_placeholder_ref {
-        git_repo
-            .reference(
-                "refs/jj/root",
-                git_id(&new_commit),
-                gix::refs::transaction::PreviousValue::MustNotExist,
-                "",
-            )
-            .unwrap();
+        git_repo.reference(
+            "refs/jj/root",
+            git_id(&new_commit),
+            gix::refs::transaction::PreviousValue::MustNotExist,
+            "",
+        )?;
     }
-    let stats = git::export_refs(mut_repo).unwrap();
+    let stats = git::export_refs(mut_repo)?;
     assert!(stats.failed_bookmarks.is_empty());
     assert!(stats.failed_tags.is_empty());
     assert_eq!(
@@ -2238,15 +2180,13 @@ fn test_export_refs_unborn_git_bookmark(move_placeholder_ref: bool) -> TestResul
     );
     assert_eq!(
         git_repo
-            .find_reference("refs/heads/main")
-            .unwrap()
-            .peel_to_commit()
-            .unwrap()
+            .find_reference("refs/heads/main")?
+            .peel_to_commit()?
             .id(),
         git_id(&new_commit)
     );
     // HEAD should no longer point to refs/heads/main
-    assert!(git_repo.head().unwrap().is_unborn(), "HEAD is unborn");
+    assert!(git_repo.head()?.is_unborn(), "HEAD is unborn");
     // The placeholder ref should be deleted if any
     assert!(git_repo.find_reference("refs/jj/root").is_err());
     Ok(())
@@ -2267,14 +2207,12 @@ fn test_export_import_sequence() -> TestResult {
     let commit_c = write_random_commit(mut_repo);
 
     // Import the bookmark pointing to A
-    git_repo
-        .reference(
-            "refs/heads/main",
-            git_id(&commit_a),
-            gix::refs::transaction::PreviousValue::Any,
-            "test",
-        )
-        .unwrap();
+    git_repo.reference(
+        "refs/heads/main",
+        git_id(&commit_a),
+        gix::refs::transaction::PreviousValue::Any,
+        "test",
+    )?;
     git::import_refs(mut_repo, &import_options).block_on()?;
     assert_eq!(
         mut_repo.get_git_ref("refs/heads/main".as_ref()),
@@ -2285,7 +2223,7 @@ fn test_export_import_sequence() -> TestResult {
     mut_repo.set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit_b.id().clone()));
 
     // Export the bookmark to git
-    let stats = git::export_refs(mut_repo).unwrap();
+    let stats = git::export_refs(mut_repo)?;
     assert!(stats.failed_bookmarks.is_empty());
     assert!(stats.failed_tags.is_empty());
     assert_eq!(
@@ -2294,14 +2232,12 @@ fn test_export_import_sequence() -> TestResult {
     );
 
     // Modify the bookmark in git to point to C
-    git_repo
-        .reference(
-            "refs/heads/main",
-            git_id(&commit_c),
-            gix::refs::transaction::PreviousValue::Any,
-            "test",
-        )
-        .unwrap();
+    git_repo.reference(
+        "refs/heads/main",
+        git_id(&commit_c),
+        gix::refs::transaction::PreviousValue::Any,
+        "test",
+    )?;
 
     // Import from git
     git::import_refs(mut_repo, &import_options).block_on()?;
@@ -2350,7 +2286,7 @@ fn test_import_export_non_tracking_bookmark() -> TestResult {
     );
 
     // Export the bookmark to git
-    let stats = git::export_refs(mut_repo).unwrap();
+    let stats = git::export_refs(mut_repo)?;
     assert!(stats.failed_bookmarks.is_empty());
     assert!(stats.failed_tags.is_empty());
     assert_eq!(
@@ -2963,7 +2899,7 @@ fn test_reset_head_to_root() -> TestResult {
 
     // Set Git HEAD to commit2's parent (i.e. commit1)
     git::reset_head(tx.repo_mut(), &commit2).block_on()?;
-    assert!(git_repo.head().unwrap().is_detached(), "HEAD is detached");
+    assert!(git_repo.head()?.is_detached(), "HEAD is detached");
     assert_eq!(
         tx.repo().git_head(),
         RefTarget::normal(commit1.id().clone())
@@ -2971,18 +2907,16 @@ fn test_reset_head_to_root() -> TestResult {
 
     // Set Git HEAD back to root
     git::reset_head(tx.repo_mut(), &commit1).block_on()?;
-    assert!(git_repo.head().unwrap().is_unborn(), "HEAD is unborn");
+    assert!(git_repo.head()?.is_unborn(), "HEAD is unborn");
     assert!(tx.repo().git_head().is_absent());
 
     // Move placeholder ref as if new commit were created by git
-    git_repo
-        .reference(
-            "refs/jj/root",
-            git_id(&commit1),
-            gix::refs::transaction::PreviousValue::MustNotExist,
-            "",
-        )
-        .unwrap();
+    git_repo.reference(
+        "refs/jj/root",
+        git_id(&commit1),
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "",
+    )?;
     git::reset_head(tx.repo_mut(), &commit2).block_on()?;
     assert!(git_repo.head_id().is_ok());
     assert_eq!(
@@ -2993,7 +2927,7 @@ fn test_reset_head_to_root() -> TestResult {
 
     // Set Git HEAD back to root
     git::reset_head(tx.repo_mut(), &commit1).block_on()?;
-    assert!(git_repo.head().unwrap().is_unborn(), "HEAD is unborn");
+    assert!(git_repo.head()?.is_unborn(), "HEAD is unborn");
     assert!(tx.repo().git_head().is_absent());
     // The placeholder ref should be deleted
     assert!(git_repo.find_reference("refs/jj/root").is_err());
@@ -3138,7 +3072,7 @@ fn test_reset_head_with_index_no_conflict() -> TestResult {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let workspace_root = temp_dir.path().join("repo");
-    gix::init(&workspace_root).unwrap();
+    gix::init(&workspace_root)?;
     let (_workspace, repo) =
         Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
             .block_on()?;
@@ -3189,7 +3123,7 @@ fn test_reset_head_with_index_merge_conflict() -> TestResult {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let workspace_root = temp_dir.path().join("repo");
-    gix::init(&workspace_root).unwrap();
+    gix::init(&workspace_root)?;
     let (_workspace, repo) =
         Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
             .block_on()?;
@@ -3291,7 +3225,7 @@ fn test_reset_head_with_index_file_directory_conflict() -> TestResult {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let workspace_root = temp_dir.path().join("repo");
-    gix::init(&workspace_root).unwrap();
+    gix::init(&workspace_root)?;
     let (_workspace, repo) =
         Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
             .block_on()?;
@@ -3343,7 +3277,7 @@ fn test_init() -> TestResult {
     let jj_repo_dir = temp_dir.path().join("jj");
     let git_repo = testutils::git::init_bare(git_repo_dir);
     let initial_git_commit = empty_git_commit(&git_repo, "refs/heads/main", &[]);
-    std::fs::create_dir(&jj_repo_dir).unwrap();
+    std::fs::create_dir(&jj_repo_dir)?;
     let repo = &ReadonlyRepo::init(
         &settings,
         &jj_repo_dir,
@@ -3354,7 +3288,7 @@ fn test_init() -> TestResult {
                 git_repo.path(),
             )?))
         },
-        Signer::from_settings(&settings).unwrap(),
+        Signer::from_settings(&settings)?,
         ReadonlyRepo::default_op_store_initializer(),
         ReadonlyRepo::default_op_heads_store_initializer(),
         ReadonlyRepo::default_index_store_initializer(),
@@ -3370,14 +3304,13 @@ fn test_init() -> TestResult {
 #[test]
 fn test_fetch_empty_repo() -> TestResult {
     let test_data = GitRepoData::create();
-    let subprocess_options =
-        GitSubprocessOptions::from_settings(test_data.repo.settings()).unwrap();
+    let subprocess_options = GitSubprocessOptions::from_settings(test_data.repo.settings())?;
     let import_options = default_import_options();
 
     let mut tx = test_data.repo.start_transaction();
-    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options).unwrap();
-    fetch_all_with(&mut fetcher, "origin".as_ref()).unwrap();
-    let default_branch = fetcher.get_default_branch("origin".as_ref()).unwrap();
+    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options)?;
+    fetch_all_with(&mut fetcher, "origin".as_ref())?;
+    let default_branch = fetcher.get_default_branch("origin".as_ref())?;
     let stats = fetcher.import_refs().block_on()?;
     // No default bookmark and no refs
     assert_eq!(default_branch, None);
@@ -3390,15 +3323,14 @@ fn test_fetch_empty_repo() -> TestResult {
 #[test]
 fn test_fetch_initial_commit_head_is_not_set() -> TestResult {
     let test_data = GitRepoData::create();
-    let subprocess_options =
-        GitSubprocessOptions::from_settings(test_data.repo.settings()).unwrap();
+    let subprocess_options = GitSubprocessOptions::from_settings(test_data.repo.settings())?;
     let import_options = default_import_options();
     let initial_git_commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
 
     let mut tx = test_data.repo.start_transaction();
-    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options).unwrap();
-    fetch_all_with(&mut fetcher, "origin".as_ref()).unwrap();
-    let default_branch = fetcher.get_default_branch("origin".as_ref()).unwrap();
+    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options)?;
+    fetch_all_with(&mut fetcher, "origin".as_ref())?;
+    let default_branch = fetcher.get_default_branch("origin".as_ref())?;
     let stats = fetcher.import_refs().block_on()?;
     // No default bookmark because the origin repo's HEAD wasn't set
     assert_eq!(default_branch, None);
@@ -3435,8 +3367,7 @@ fn test_fetch_initial_commit_head_is_not_set() -> TestResult {
 #[test]
 fn test_fetch_initial_commit_head_is_set() -> TestResult {
     let test_data = GitRepoData::create();
-    let subprocess_options =
-        GitSubprocessOptions::from_settings(test_data.repo.settings()).unwrap();
+    let subprocess_options = GitSubprocessOptions::from_settings(test_data.repo.settings())?;
     let import_options = default_import_options();
     let initial_git_commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
     testutils::git::set_symbolic_reference(&test_data.origin_repo, "HEAD", "refs/heads/main");
@@ -3445,20 +3376,17 @@ fn test_fetch_initial_commit_head_is_set() -> TestResult {
         "refs/heads/main",
         &[initial_git_commit],
     );
-    test_data
-        .origin_repo
-        .reference(
-            "refs/tags/v1.0",
-            new_git_commit,
-            gix::refs::transaction::PreviousValue::MustNotExist,
-            "",
-        )
-        .unwrap();
+    test_data.origin_repo.reference(
+        "refs/tags/v1.0",
+        new_git_commit,
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "",
+    )?;
 
     let mut tx = test_data.repo.start_transaction();
-    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options).unwrap();
-    fetch_all_with(&mut fetcher, "origin".as_ref()).unwrap();
-    let default_branch = fetcher.get_default_branch("origin".as_ref()).unwrap();
+    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options)?;
+    fetch_all_with(&mut fetcher, "origin".as_ref())?;
+    let default_branch = fetcher.get_default_branch("origin".as_ref())?;
     let stats = fetcher.import_refs().block_on()?;
 
     assert_eq!(default_branch, Some("main".into()));
@@ -3469,15 +3397,13 @@ fn test_fetch_initial_commit_head_is_set() -> TestResult {
 #[test]
 fn test_fetch_success() -> TestResult {
     let mut test_data = GitRepoData::create();
-    let subprocess_options =
-        GitSubprocessOptions::from_settings(test_data.repo.settings()).unwrap();
+    let subprocess_options = GitSubprocessOptions::from_settings(test_data.repo.settings())?;
     let import_options = auto_track_import_options();
     let initial_git_commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
 
     let mut tx = test_data.repo.start_transaction();
-    let mut fetcher =
-        GitFetch::new(tx.repo_mut(), subprocess_options.clone(), &import_options).unwrap();
-    fetch_all_with(&mut fetcher, "origin".as_ref()).unwrap();
+    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options.clone(), &import_options)?;
+    fetch_all_with(&mut fetcher, "origin".as_ref())?;
     fetcher.import_refs().block_on()?;
     test_data.repo = tx.commit("test").block_on()?;
 
@@ -3487,20 +3413,17 @@ fn test_fetch_success() -> TestResult {
         "refs/heads/main",
         &[initial_git_commit],
     );
-    test_data
-        .origin_repo
-        .reference(
-            "refs/tags/v1.0",
-            new_git_commit,
-            gix::refs::transaction::PreviousValue::MustNotExist,
-            "",
-        )
-        .unwrap();
+    test_data.origin_repo.reference(
+        "refs/tags/v1.0",
+        new_git_commit,
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "",
+    )?;
 
     let mut tx = test_data.repo.start_transaction();
-    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options).unwrap();
-    fetch_all_with(&mut fetcher, "origin".as_ref()).unwrap();
-    let default_branch = fetcher.get_default_branch("origin".as_ref()).unwrap();
+    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options)?;
+    fetch_all_with(&mut fetcher, "origin".as_ref())?;
+    let default_branch = fetcher.get_default_branch("origin".as_ref())?;
     let stats = fetcher.import_refs().block_on()?;
     // The default bookmark is "main"
     assert_eq!(default_branch, Some("main".into()));
@@ -3581,15 +3504,13 @@ fn test_fetch_prune_deleted_ref() {
 #[test]
 fn test_fetch_no_default_branch() -> TestResult {
     let test_data = GitRepoData::create();
-    let subprocess_options =
-        GitSubprocessOptions::from_settings(test_data.repo.settings()).unwrap();
+    let subprocess_options = GitSubprocessOptions::from_settings(test_data.repo.settings())?;
     let import_options = default_import_options();
     let initial_git_commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
 
     let mut tx = test_data.repo.start_transaction();
-    let mut fetcher =
-        GitFetch::new(tx.repo_mut(), subprocess_options.clone(), &import_options).unwrap();
-    fetch_all_with(&mut fetcher, "origin".as_ref()).unwrap();
+    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options.clone(), &import_options)?;
+    fetch_all_with(&mut fetcher, "origin".as_ref())?;
     fetcher.import_refs().block_on()?;
 
     empty_git_commit(
@@ -3602,9 +3523,9 @@ fn test_fetch_no_default_branch() -> TestResult {
     // we point it to initial_git_commit.
     testutils::git::set_head_to_id(&test_data.origin_repo, initial_git_commit);
 
-    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options).unwrap();
-    fetch_all_with(&mut fetcher, "origin".as_ref()).unwrap();
-    let default_branch = fetcher.get_default_branch("origin".as_ref()).unwrap();
+    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options)?;
+    fetch_all_with(&mut fetcher, "origin".as_ref())?;
+    let default_branch = fetcher.get_default_branch("origin".as_ref())?;
     fetcher.import_refs().block_on()?;
     // There is no default bookmark
     assert_eq!(default_branch, None);
@@ -3614,19 +3535,18 @@ fn test_fetch_no_default_branch() -> TestResult {
 #[test]
 fn test_fetch_empty_refspecs() -> TestResult {
     let test_data = GitRepoData::create();
-    let subprocess_options =
-        GitSubprocessOptions::from_settings(test_data.repo.settings()).unwrap();
+    let subprocess_options = GitSubprocessOptions::from_settings(test_data.repo.settings())?;
     let import_options = default_import_options();
     empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
 
     // Base refspecs shouldn't be respected
     let mut tx = test_data.repo.start_transaction();
-    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options).unwrap();
+    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options)?;
     let ref_expr = GitFetchRefExpression {
         bookmark: StringExpression::none(),
         tag: StringExpression::none(),
     };
-    fetch_with(&mut fetcher, "origin".as_ref(), ref_expr).unwrap();
+    fetch_with(&mut fetcher, "origin".as_ref(), ref_expr)?;
     fetcher.import_refs().block_on()?;
     assert_eq!(
         tx.repo_mut()
@@ -3912,12 +3832,11 @@ fn test_fetch_no_such_remote() {
 fn test_fetch_multiple_branches() -> TestResult {
     let test_data = GitRepoData::create();
     let _initial_git_commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
-    let subprocess_options =
-        GitSubprocessOptions::from_settings(test_data.repo.settings()).unwrap();
+    let subprocess_options = GitSubprocessOptions::from_settings(test_data.repo.settings())?;
     let import_options = default_import_options();
 
     let mut tx = test_data.repo.start_transaction();
-    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options).unwrap();
+    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options)?;
     let ref_expr = GitFetchRefExpression {
         bookmark: StringExpression::union_all(vec![
             StringExpression::exact("main"),
@@ -3926,7 +3845,7 @@ fn test_fetch_multiple_branches() -> TestResult {
         ]),
         tag: StringExpression::none(),
     };
-    fetch_with(&mut fetcher, "origin".as_ref(), ref_expr).unwrap();
+    fetch_with(&mut fetcher, "origin".as_ref(), ref_expr)?;
     let stats = fetcher.import_refs().block_on()?;
 
     assert_eq!(
@@ -3943,8 +3862,7 @@ fn test_fetch_multiple_branches() -> TestResult {
 #[test]
 fn test_fetch_local_remote_conflicts() -> TestResult {
     let test_data = GitRepoData::create();
-    let subprocess_options =
-        GitSubprocessOptions::from_settings(test_data.repo.settings()).unwrap();
+    let subprocess_options = GitSubprocessOptions::from_settings(test_data.repo.settings())?;
     let import_options = auto_track_import_options();
 
     let fetch_import = |mut_repo: &mut MutableRepo| {
@@ -4070,8 +3988,7 @@ fn test_fetch_with_tag_changes() -> TestResult {
 #[test]
 fn test_fetch_with_explicit_tag_patterns() -> TestResult {
     let test_data = GitRepoData::create();
-    let subprocess_options =
-        GitSubprocessOptions::from_settings(test_data.repo.settings()).unwrap();
+    let subprocess_options = GitSubprocessOptions::from_settings(test_data.repo.settings())?;
     let import_options = default_import_options();
 
     let fetch_import = |mut_repo: &mut MutableRepo, tag: StringExpression| {
@@ -4161,8 +4078,7 @@ fn test_fetch_with_explicit_tag_patterns() -> TestResult {
 #[test]
 fn test_fetch_export_annotated_tags() -> TestResult {
     let test_data = GitRepoData::create();
-    let subprocess_options =
-        GitSubprocessOptions::from_settings(test_data.repo.settings()).unwrap();
+    let subprocess_options = GitSubprocessOptions::from_settings(test_data.repo.settings())?;
     let import_options = default_import_options();
 
     let fetch_import = |mut_repo: &mut MutableRepo| {
@@ -4190,8 +4106,7 @@ fn test_fetch_export_annotated_tags() -> TestResult {
     let constraint = gix::refs::transaction::PreviousValue::MustNotExist;
     let tag2_oid = test_data
         .origin_repo
-        .tag("tag2", commit2, kind, None, "", constraint)
-        .unwrap()
+        .tag("tag2", commit2, kind, None, "", constraint)?
         .id();
     let target1 = RefTarget::normal(jj_id(commit1));
     let target2 = RefTarget::normal(jj_id(commit2));
@@ -4221,7 +4136,7 @@ fn test_fetch_export_annotated_tags() -> TestResult {
     };
     tx.repo_mut()
         .set_local_tag_target("tag3.4".as_ref(), target4.clone());
-    git::export_refs(tx.repo_mut()).unwrap();
+    git::export_refs(tx.repo_mut())?;
     let repo = tx.commit("test").block_on()?;
 
     assert_eq!(repo.view().get_local_tag("tag1".as_ref()), &target1);
@@ -4254,29 +4169,17 @@ fn test_fetch_export_annotated_tags() -> TestResult {
     );
 
     assert_eq!(
-        test_data
-            .git_repo
-            .find_reference("refs/tags/tag1")
-            .unwrap()
-            .id(),
+        test_data.git_repo.find_reference("refs/tags/tag1")?.id(),
         commit1
     );
     // Exported local tag should point to the original annotated tag
     assert_eq!(
-        test_data
-            .git_repo
-            .find_reference("refs/tags/tag2")
-            .unwrap()
-            .id(),
+        test_data.git_repo.find_reference("refs/tags/tag2")?.id(),
         tag2_oid
     );
     // Locally-moved tag shouldn't point to the original remote tag target
     assert_eq!(
-        test_data
-            .git_repo
-            .find_reference("refs/tags/tag3.4")
-            .unwrap()
-            .id(),
+        test_data.git_repo.find_reference("refs/tags/tag3.4")?.id(),
         git_id(&commit4)
     );
     Ok(())
@@ -4287,7 +4190,7 @@ fn test_fetch_with_fetch_tags_override() -> TestResult {
     let source_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let source_repo = &source_repo.repo;
     let source_git_repo = get_git_repo(source_repo);
-    let git_settings = GitSettings::from_settings(source_repo.settings()).unwrap();
+    let git_settings = GitSettings::from_settings(source_repo.settings())?;
     let import_options = default_import_options();
 
     let commit1 = empty_git_commit(&source_git_repo, "refs/heads/main", &[]);
@@ -4347,8 +4250,7 @@ fn test_fetch_with_fetch_tags_override() -> TestResult {
         None,
         gix::remote::fetch::Tags::None,
         &StringExpression::all(),
-    )
-    .unwrap();
+    )?;
     let _repo = tx.commit("test").block_on()?;
     // Reload after Git configuration change.
     let repo = &test_repo
@@ -4378,8 +4280,7 @@ fn test_fetch_with_fetch_tags_override() -> TestResult {
         None,
         gix::remote::fetch::Tags::All,
         &StringExpression::all(),
-    )
-    .unwrap();
+    )?;
     let _repo = tx.commit("test").block_on()?;
     // Reload after Git configuration change.
     let repo = &test_repo
@@ -4405,8 +4306,7 @@ fn test_fetch_with_fetch_tags_override() -> TestResult {
 #[test]
 fn test_fetch_rejected_tag_updates() -> TestResult {
     let test_data = GitRepoData::create();
-    let subprocess_options =
-        GitSubprocessOptions::from_settings(test_data.repo.settings()).unwrap();
+    let subprocess_options = GitSubprocessOptions::from_settings(test_data.repo.settings())?;
     let import_options = default_import_options();
 
     // Create tagged commit at remote.
@@ -4419,12 +4319,12 @@ fn test_fetch_rejected_tag_updates() -> TestResult {
     let target2 = RefTarget::normal(commit2.id().clone());
     tx.repo_mut()
         .set_local_tag_target("tag".as_ref(), target2.clone());
-    git::export_refs(tx.repo_mut()).unwrap();
+    git::export_refs(tx.repo_mut())?;
     let repo = tx.commit("test").block_on()?;
 
     // Tags shouldn't be "force" updated. (#7528)
     let mut tx = repo.start_transaction();
-    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options).unwrap();
+    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options)?;
     let ref_expr = GitFetchRefExpression {
         bookmark: StringExpression::all(),
         // Disable explicit tag fetching to test FetchTagsOverride::AllTags
@@ -4433,7 +4333,7 @@ fn test_fetch_rejected_tag_updates() -> TestResult {
     assert_matches!(
         fetcher.fetch(
             "origin".as_ref(),
-            expand_fetch_refspecs("origin".as_ref(), ref_expr).unwrap(),
+            expand_fetch_refspecs("origin".as_ref(), ref_expr)?,
             &mut NullCallback,
             None,
             Some(FetchTagsOverride::AllTags),
@@ -4540,7 +4440,7 @@ fn test_push_bookmarks_success() -> TestResult {
     let mut setup = set_up_push_repos(&settings, &temp_dir);
     let clone_repo = get_git_repo(&setup.jj_repo);
     let mut tx = setup.jj_repo.start_transaction();
-    let subprocess_options = GitSubprocessOptions::from_settings(&settings).unwrap();
+    let subprocess_options = GitSubprocessOptions::from_settings(&settings)?;
     let import_options = default_import_options();
 
     let targets = GitBranchPushTargets {
@@ -4559,8 +4459,7 @@ fn test_push_bookmarks_success() -> TestResult {
         &targets,
         &mut NullCallback,
         &GitPushOptions::default(),
-    )
-    .unwrap();
+    )?;
     insta::assert_debug_snapshot!(stats, @r#"
     GitPushStats {
         pushed: [
@@ -4576,16 +4475,14 @@ fn test_push_bookmarks_success() -> TestResult {
 
     // Check that the ref got updated in the source repo
     let source_repo = testutils::git::open(&setup.source_repo_dir);
-    let new_target = source_repo.find_reference("refs/heads/main").unwrap();
+    let new_target = source_repo.find_reference("refs/heads/main")?;
     let new_oid = git_id(&setup.child_of_main_commit);
     assert_eq!(new_target.target().id(), new_oid);
 
     // Check that the ref got updated in the cloned repo. This just tests our
     // assumptions about libgit2 because we want the refs/remotes/origin/main
     // bookmark to be updated.
-    let new_target = clone_repo
-        .find_reference("refs/remotes/origin/main")
-        .unwrap();
+    let new_target = clone_repo.find_reference("refs/remotes/origin/main")?;
     assert_eq!(new_target.target().id(), new_oid);
 
     // Check that the repo view got updated
@@ -4617,7 +4514,7 @@ fn test_push_bookmarks_deletion() -> TestResult {
     let mut setup = set_up_push_repos(&settings, &temp_dir);
     let clone_repo = get_git_repo(&setup.jj_repo);
     let mut tx = setup.jj_repo.start_transaction();
-    let subprocess_options = GitSubprocessOptions::from_settings(&settings).unwrap();
+    let subprocess_options = GitSubprocessOptions::from_settings(&settings)?;
     let import_options = default_import_options();
 
     let source_repo = testutils::git::open(&setup.source_repo_dir);
@@ -4640,8 +4537,7 @@ fn test_push_bookmarks_deletion() -> TestResult {
         &targets,
         &mut NullCallback,
         &GitPushOptions::default(),
-    )
-    .unwrap();
+    )?;
     insta::assert_debug_snapshot!(stats, @r#"
     GitPushStats {
         pushed: [
@@ -4692,7 +4588,7 @@ fn test_push_bookmarks_mixed_deletion_and_addition() -> TestResult {
     let temp_dir = testutils::new_temp_dir();
     let mut setup = set_up_push_repos(&settings, &temp_dir);
     let mut tx = setup.jj_repo.start_transaction();
-    let subprocess_options = GitSubprocessOptions::from_settings(&settings).unwrap();
+    let subprocess_options = GitSubprocessOptions::from_settings(&settings)?;
     let import_options = default_import_options();
 
     let targets = GitBranchPushTargets {
@@ -4720,8 +4616,7 @@ fn test_push_bookmarks_mixed_deletion_and_addition() -> TestResult {
         &targets,
         &mut NullCallback,
         &GitPushOptions::default(),
-    )
-    .unwrap();
+    )?;
     insta::assert_debug_snapshot!(stats, @r#"
     GitPushStats {
         pushed: [
@@ -4740,7 +4635,7 @@ fn test_push_bookmarks_mixed_deletion_and_addition() -> TestResult {
 
     // Check that the topic ref got updated in the source repo
     let source_repo = testutils::git::open(&setup.source_repo_dir);
-    let new_target = source_repo.find_reference("refs/heads/topic").unwrap();
+    let new_target = source_repo.find_reference("refs/heads/topic")?;
     assert_eq!(
         new_target.target().id(),
         git_id(&setup.child_of_main_commit)
@@ -4907,8 +4802,7 @@ fn test_push_bookmarks_partial_success() {
 #[test]
 fn test_push_bookmarks_unmapped_refs() -> TestResult {
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
-    let subprocess_options =
-        GitSubprocessOptions::from_settings(test_repo.repo.settings()).unwrap();
+    let subprocess_options = GitSubprocessOptions::from_settings(test_repo.repo.settings())?;
     let remote_git_repo = testutils::git::init_bare(test_repo.env.root().join("remote"));
 
     // Add remote with refspecs that map only specific branch
@@ -4920,8 +4814,7 @@ fn test_push_bookmarks_unmapped_refs() -> TestResult {
         None,
         gix::remote::fetch::Tags::default(),
         &StringExpression::exact("dummy"),
-    )
-    .unwrap();
+    )?;
     let repo = tx.commit("set up remote").block_on()?;
     // Reload after Git configuration change.
     let repo = test_repo
@@ -4934,14 +4827,12 @@ fn test_push_bookmarks_unmapped_refs() -> TestResult {
     let commit2a = write_random_commit(tx.repo_mut());
     let commit2b = write_random_commit(tx.repo_mut());
     // Add conflicting remote bookmark
-    git_repo
-        .reference(
-            "refs/remotes/origin/bookmark2",
-            git_id(&commit2a),
-            gix::refs::transaction::PreviousValue::MustNotExist,
-            "",
-        )
-        .unwrap();
+    git_repo.reference(
+        "refs/remotes/origin/bookmark2",
+        git_id(&commit2a),
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "",
+    )?;
     let targets = GitBranchPushTargets {
         branch_updates: vec![
             (
@@ -4967,8 +4858,7 @@ fn test_push_bookmarks_unmapped_refs() -> TestResult {
         &targets,
         &mut NullCallback,
         &GitPushOptions::default(),
-    )
-    .unwrap();
+    )?;
     insta::assert_debug_snapshot!(stats, @r#"
     GitPushStats {
         pushed: [
@@ -5000,10 +4890,8 @@ fn test_push_bookmarks_unmapped_refs() -> TestResult {
     // Check that the remote refs are exported to Git
     assert_eq!(
         git_repo
-            .find_reference("refs/remotes/origin/bookmark1")
-            .unwrap()
-            .into_fully_peeled_id()
-            .unwrap(),
+            .find_reference("refs/remotes/origin/bookmark1")?
+            .into_fully_peeled_id()?,
         git_id(&commit1)
     );
 
@@ -5425,7 +5313,7 @@ fn test_rewrite_imported_commit() -> TestResult {
     git::import_refs(tx.repo_mut(), &import_options).block_on()?;
     tx.repo_mut().rebase_descendants().block_on()?;
     let repo = tx.commit("test").block_on()?;
-    let imported_commit = repo.store().get_commit(&jj_id(git_commit)).unwrap();
+    let imported_commit = repo.store().get_commit(&jj_id(git_commit))?;
 
     // Try to create identical commit with different change id.
     let mut tx = repo.start_transaction();
@@ -5451,14 +5339,12 @@ fn test_rewrite_imported_commit() -> TestResult {
 
     // The index should be consistent with the store.
     assert_eq!(
-        repo.resolve_change_id(imported_commit.change_id())
-            .unwrap()
+        repo.resolve_change_id(imported_commit.change_id())?
             .and_then(ResolvedChangeTargets::into_visible),
         Some(vec![imported_commit.id().clone()]),
     );
     assert_eq!(
-        repo.resolve_change_id(authored_commit.change_id())
-            .unwrap()
+        repo.resolve_change_id(authored_commit.change_id())?
             .and_then(ResolvedChangeTargets::into_visible),
         Some(vec![authored_commit.id().clone()]),
     );
@@ -5511,18 +5397,17 @@ fn test_concurrent_write_commit() -> TestResult {
     // All unique commits should be preserved.
     let repo = repo.reload_at_head().block_on()?;
     for (commit_id, change_ids) in &commit_change_ids {
-        let commit = repo.store().get_commit(commit_id).unwrap();
+        let commit = repo.store().get_commit(commit_id)?;
         assert_eq!(commit.id(), commit_id);
         assert!(change_ids.contains(commit.change_id()));
     }
 
     // The index should be consistent with the store.
     for commit_id in commit_change_ids.keys() {
-        assert!(repo.index().has_id(commit_id).unwrap());
-        let commit = repo.store().get_commit(commit_id).unwrap();
+        assert!(repo.index().has_id(commit_id)?);
+        let commit = repo.store().get_commit(commit_id)?;
         assert_eq!(
-            repo.resolve_change_id(commit.change_id())
-                .unwrap()
+            repo.resolve_change_id(commit.change_id())?
                 .and_then(ResolvedChangeTargets::into_visible),
             Some(vec![commit_id.clone()]),
         );
@@ -5646,11 +5531,10 @@ fn test_concurrent_read_write_commit() -> TestResult {
     // The index should be consistent with the store.
     let repo = repo.reload_at_head().block_on()?;
     for commit_id in &commit_ids {
-        assert!(repo.index().has_id(commit_id).unwrap());
-        let commit = repo.store().get_commit(commit_id).unwrap();
+        assert!(repo.index().has_id(commit_id)?);
+        let commit = repo.store().get_commit(commit_id)?;
         assert_eq!(
-            repo.resolve_change_id(commit.change_id())
-                .unwrap()
+            repo.resolve_change_id(commit.change_id())?
                 .and_then(ResolvedChangeTargets::into_visible),
             Some(vec![commit_id.clone()]),
         );
@@ -5771,7 +5655,7 @@ fn test_shallow_commits_lack_parents() -> TestResult {
         "unshallowed commits have correct parents"
     );
     // FIXME: new ancestors should be indexed
-    assert!(!repo.index().has_id(&jj_id(a)).unwrap());
+    assert!(!repo.index().has_id(&jj_id(a))?);
     Ok(())
 }
 
@@ -5787,8 +5671,7 @@ fn test_remote_remove_refs() -> TestResult {
         None,
         Default::default(),
         &StringExpression::all(),
-    )
-    .unwrap();
+    )?;
     let _repo = tx.commit("test").block_on()?;
     // Reload after Git configuration change.
     let repo = &test_repo
@@ -5803,42 +5686,31 @@ fn test_remote_remove_refs() -> TestResult {
     let commit_tag_foobar_a = empty_git_commit(&git_repo, "refs/jj/remote-tags/foobar/a", &[]);
 
     let mut tx = repo.start_transaction();
-    git::remove_remote(tx.repo_mut(), "foo".as_ref()).unwrap();
+    git::remove_remote(tx.repo_mut(), "foo".as_ref())?;
     let repo = &tx.commit("remove").block_on()?;
 
     let git_repo = get_git_repo(repo);
     // remote bookmarks
+    assert!(git_repo.try_find_reference("refs/remotes/foo/a")?.is_none());
     assert!(
         git_repo
-            .try_find_reference("refs/remotes/foo/a")
-            .unwrap()
-            .is_none()
-    );
-    assert!(
-        git_repo
-            .try_find_reference("refs/remotes/foo/x/y")
-            .unwrap()
+            .try_find_reference("refs/remotes/foo/x/y")?
             .is_none()
     );
     assert_eq!(
-        git_repo
-            .find_reference("refs/remotes/foobar/a")
-            .unwrap()
-            .id(),
+        git_repo.find_reference("refs/remotes/foobar/a")?.id(),
         commit_foobar_a,
     );
 
     // remote tags
     assert!(
         git_repo
-            .try_find_reference("refs/jj/remote-tags/foo/x/y")
-            .unwrap()
+            .try_find_reference("refs/jj/remote-tags/foo/x/y")?
             .is_none()
     );
     assert_eq!(
         git_repo
-            .find_reference("refs/jj/remote-tags/foobar/a")
-            .unwrap()
+            .find_reference("refs/jj/remote-tags/foobar/a")?
             .id(),
         commit_tag_foobar_a,
     );
@@ -5857,8 +5729,7 @@ fn test_remote_rename_refs() -> TestResult {
         None,
         Default::default(),
         &StringExpression::all(),
-    )
-    .unwrap();
+    )?;
     let _repo = tx.commit("test").block_on()?;
     // Reload after Git configuration change.
     let repo = &test_repo
@@ -5873,60 +5744,43 @@ fn test_remote_rename_refs() -> TestResult {
     let commit_tag_foobar_a = empty_git_commit(&git_repo, "refs/jj/remote-tags/foobar/a", &[]);
 
     let mut tx = repo.start_transaction();
-    git::rename_remote(tx.repo_mut(), "foo".as_ref(), "bar".as_ref()).unwrap();
+    git::rename_remote(tx.repo_mut(), "foo".as_ref(), "bar".as_ref())?;
     let repo = &tx.commit("rename").block_on()?;
 
     let git_repo = get_git_repo(repo);
     // remote bookmarks
+    assert!(git_repo.try_find_reference("refs/remotes/foo/a")?.is_none());
     assert!(
         git_repo
-            .try_find_reference("refs/remotes/foo/a")
-            .unwrap()
-            .is_none()
-    );
-    assert!(
-        git_repo
-            .try_find_reference("refs/remotes/foo/x/y")
-            .unwrap()
+            .try_find_reference("refs/remotes/foo/x/y")?
             .is_none()
     );
     assert_eq!(
-        git_repo.find_reference("refs/remotes/bar/a").unwrap().id(),
+        git_repo.find_reference("refs/remotes/bar/a")?.id(),
         commit_foo_a,
     );
     assert_eq!(
-        git_repo
-            .find_reference("refs/remotes/bar/x/y")
-            .unwrap()
-            .id(),
+        git_repo.find_reference("refs/remotes/bar/x/y")?.id(),
         commit_foo_x_y,
     );
     assert_eq!(
-        git_repo
-            .find_reference("refs/remotes/foobar/a")
-            .unwrap()
-            .id(),
+        git_repo.find_reference("refs/remotes/foobar/a")?.id(),
         commit_foobar_a,
     );
 
     // remote tags
     assert!(
         git_repo
-            .try_find_reference("refs/jj/remote-tags/foo/x/y")
-            .unwrap()
+            .try_find_reference("refs/jj/remote-tags/foo/x/y")?
             .is_none()
     );
     assert_eq!(
-        git_repo
-            .find_reference("refs/jj/remote-tags/bar/x/y")
-            .unwrap()
-            .id(),
+        git_repo.find_reference("refs/jj/remote-tags/bar/x/y")?.id(),
         commit_tag_foo_x_y,
     );
     assert_eq!(
         git_repo
-            .find_reference("refs/jj/remote-tags/foobar/a")
-            .unwrap()
+            .find_reference("refs/jj/remote-tags/foobar/a")?
             .id(),
         commit_tag_foobar_a,
     );
@@ -5958,8 +5812,7 @@ fn test_remote_add_with_tags_specification(fetch_tags: gix::remote::fetch::Tags)
         None,
         fetch_tags,
         &StringExpression::all(),
-    )
-    .unwrap();
+    )?;
     let _repo = tx.commit("test").block_on()?;
 
     // Reload after Git configuration change.
@@ -6088,7 +5941,7 @@ fn test_remote_add_with_refspecs() -> TestResult {
     let mut tx = test_repo.repo.start_transaction();
     let bookmark_expr = StringExpression::union_all(vec![
         StringExpression::exact("bar"),
-        StringExpression::pattern(StringPattern::glob("foo*").unwrap()),
+        StringExpression::pattern(StringPattern::glob("foo*")?),
     ])
     .intersection(StringExpression::exact("foobar").negated());
     git::add_remote(
@@ -6098,8 +5951,7 @@ fn test_remote_add_with_refspecs() -> TestResult {
         None,
         gix::remote::fetch::Tags::default(),
         &bookmark_expr,
-    )
-    .unwrap();
+    )?;
     let repo = tx.commit("test").block_on()?;
 
     // Reload after Git configuration change.
@@ -6107,7 +5959,7 @@ fn test_remote_add_with_refspecs() -> TestResult {
         .env
         .load_repo_at_head(repo.settings(), test_repo.repo_path());
     let git_repo = get_git_repo(repo);
-    let remote = git_repo.find_remote("origin").unwrap();
+    let remote = git_repo.find_remote("origin")?;
     insta::assert_debug_snapshot!(remote.refspecs(gix::remote::Direction::Fetch), @r#"
     [
         RefSpec {

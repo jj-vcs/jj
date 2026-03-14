@@ -491,11 +491,9 @@ fn test_accumulate_predecessors() -> TestResult {
     // Stabilize commit IDs
     let mut config = testutils::base_user_config();
     let mut layer = ConfigLayer::empty(ConfigSource::User);
-    layer
-        .set_value("debug.commit-timestamp", "2001-02-03T04:05:06+07:00")
-        .unwrap();
+    layer.set_value("debug.commit-timestamp", "2001-02-03T04:05:06+07:00")?;
     config.add_layer(layer);
-    let settings = UserSettings::from_config(config).unwrap();
+    let settings = UserSettings::from_config(config)?;
 
     let test_repo = TestRepo::init_with_settings(&settings);
     let repo_0 = test_repo.repo;

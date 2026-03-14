@@ -124,8 +124,7 @@ fn test_bad_locking_children(backend: TestRepoBackend) -> TestResult {
         &machine1_root,
         &StoreFactories::default(),
         &default_working_copy_factories(),
-    )
-    .unwrap();
+    )?;
     let machine1_repo = machine1_workspace.repo_loader().load_at_head().block_on()?;
     let mut machine1_tx = machine1_repo.start_transaction();
     let child1 = write_random_commit_with_parents(machine1_tx.repo_mut(), &[&initial]);
@@ -139,8 +138,7 @@ fn test_bad_locking_children(backend: TestRepoBackend) -> TestResult {
         &machine2_root,
         &StoreFactories::default(),
         &default_working_copy_factories(),
-    )
-    .unwrap();
+    )?;
     let machine2_repo = machine2_workspace.repo_loader().load_at_head().block_on()?;
     let mut machine2_tx = machine2_repo.start_transaction();
     let child2 = write_random_commit_with_parents(machine2_tx.repo_mut(), &[&initial]);
@@ -155,8 +153,7 @@ fn test_bad_locking_children(backend: TestRepoBackend) -> TestResult {
         &merged_path,
         &StoreFactories::default(),
         &default_working_copy_factories(),
-    )
-    .unwrap();
+    )?;
     let merged_repo = merged_workspace.repo_loader().load_at_head().block_on()?;
     assert!(merged_repo.view().heads().contains(child1.id()));
     assert!(merged_repo.view().heads().contains(child2.id()));

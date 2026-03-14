@@ -106,7 +106,7 @@ fn test_exec_bit_checkout() -> TestResult {
     };
 
     // Checkout commits and ensure the filesystem is updated correctly.
-    assert!(!fs::exists(path).unwrap());
+    assert!(!fs::exists(path)?);
     for exec in [true, false, true] {
         checkout_exec_commit(exec);
         assert_file_executable(path, exec);
@@ -134,20 +134,20 @@ fn test_exec_bit_snapshot() -> TestResult {
     };
 
     // Snapshot tree values when the file is/isn't executable.
-    fs::write(path, "initial content").unwrap();
+    fs::write(path, "initial content")?;
     snapshot_assert_exec_bit(false);
 
-    fs::write(path, "first change").unwrap();
+    fs::write(path, "first change")?;
     snapshot_assert_exec_bit(false);
 
     set_file_executable(path, true);
     snapshot_assert_exec_bit(true);
 
-    fs::write(path, "second change").unwrap();
+    fs::write(path, "second change")?;
     snapshot_assert_exec_bit(true);
 
     // Back to the same contents as before, but different exec bit.
-    fs::write(path, "first change").unwrap();
+    fs::write(path, "first change")?;
     set_file_executable(path, false);
     snapshot_assert_exec_bit(false);
 

@@ -195,21 +195,21 @@ fn test_resolve_symbol_commit_id() -> TestResult {
 
     // Test lookup by full commit id
     assert_eq!(
-        resolve_symbol(repo.as_ref(), "019f179b4479a4f3d1373b772866037929e4f63c",).unwrap(),
+        resolve_symbol(repo.as_ref(), "019f179b4479a4f3d1373b772866037929e4f63c",)?,
         vec![commits[0].id().clone()]
     );
     assert_eq!(
-        resolve_symbol(repo.as_ref(), "019fd357eb2a4904c348b62d1f4cc2ac222cdbc7",).unwrap(),
+        resolve_symbol(repo.as_ref(), "019fd357eb2a4904c348b62d1f4cc2ac222cdbc7",)?,
         vec![commits[1].id().clone()]
     );
     assert_eq!(
-        resolve_symbol(repo.as_ref(), "017dc442a1d77bb1620a1a32863580ae81543d7d",).unwrap(),
+        resolve_symbol(repo.as_ref(), "017dc442a1d77bb1620a1a32863580ae81543d7d",)?,
         vec![commits[2].id().clone()]
     );
 
     // Test commit id prefix
     assert_eq!(
-        resolve_symbol(repo.as_ref(), "017").unwrap(),
+        resolve_symbol(repo.as_ref(), "017")?,
         vec![commits[2].id().clone()]
     );
     assert_matches!(
@@ -242,7 +242,7 @@ fn test_resolve_symbol_commit_id() -> TestResult {
         workspace: None,
     };
     assert_matches!(
-        parse(&mut RevsetDiagnostics::new(), "present(01)", &context).unwrap()
+        parse(&mut RevsetDiagnostics::new(), "present(01)", &context)?
             .resolve_user_expression(repo.as_ref(), &symbol_resolver),
         Err(RevsetResolutionError::AmbiguousCommitIdPrefix(s)) if s == "01"
     );
@@ -256,18 +256,14 @@ fn test_resolve_symbol_commit_id() -> TestResult {
         resolve_symbol(
             repo.as_ref(),
             "commit_id(019f179b4479a4f3d1373b772866037929e4f63c)",
-        )
-        .unwrap(),
+        )?,
         vec![commits[0].id().clone()]
     );
     assert_eq!(
-        resolve_symbol(repo.as_ref(), "commit_id(019f1)").unwrap(),
+        resolve_symbol(repo.as_ref(), "commit_id(019f1)")?,
         vec![commits[0].id().clone()]
     );
-    assert_eq!(
-        resolve_symbol(repo.as_ref(), "commit_id(12345)").unwrap(),
-        vec![]
-    );
+    assert_eq!(resolve_symbol(repo.as_ref(), "commit_id(12345)")?, vec![]);
     assert_matches!(
         resolve_symbol(repo.as_ref(), "commit_id('')"),
         Err(RevsetResolutionError::AmbiguousCommitIdPrefix(s)) if s.is_empty()
@@ -350,25 +346,25 @@ fn test_resolve_symbol_change_id(readonly: bool) -> TestResult {
 
     // Test lookup by full change id
     assert_eq!(
-        resolve_symbol(repo, "zvlyxpuvtsoopsqzlkorrpqrszrqvlnx").unwrap(),
+        resolve_symbol(repo, "zvlyxpuvtsoopsqzlkorrpqrszrqvlnx")?,
         vec![commits[0].id().clone()]
     );
     assert_eq!(
-        resolve_symbol(repo, "zvzowopwpuymrlmonvnuruunomzqmlsy").unwrap(),
+        resolve_symbol(repo, "zvzowopwpuymrlmonvnuruunomzqmlsy")?,
         vec![commits[1].id().clone()]
     );
     assert_eq!(
-        resolve_symbol(repo, "zvlynszrxlvlwvkwkwsymrpypvtsszor").unwrap(),
+        resolve_symbol(repo, "zvlynszrxlvlwvkwkwsymrpypvtsszor")?,
         vec![commits[2].id().clone()]
     );
 
     // Test change id prefix
     assert_eq!(
-        resolve_symbol(repo, "zvlyx").unwrap(),
+        resolve_symbol(repo, "zvlyx")?,
         vec![commits[0].id().clone()]
     );
     assert_eq!(
-        resolve_symbol(repo, "zvlyn").unwrap(),
+        resolve_symbol(repo, "zvlyn")?,
         vec![commits[2].id().clone()]
     );
     assert_matches!(
@@ -382,14 +378,8 @@ fn test_resolve_symbol_change_id(readonly: bool) -> TestResult {
 
     // Test that commit and changed id don't conflict ("040" and "zvz" are the
     // same).
-    assert_eq!(
-        resolve_symbol(repo, "040").unwrap(),
-        vec![commits[3].id().clone()]
-    );
-    assert_eq!(
-        resolve_symbol(repo, "zvz").unwrap(),
-        vec![commits[1].id().clone()]
-    );
+    assert_eq!(resolve_symbol(repo, "040")?, vec![commits[3].id().clone()]);
+    assert_eq!(resolve_symbol(repo, "zvz")?, vec![commits[1].id().clone()]);
 
     // Test non-hex string
     assert_matches!(
@@ -402,14 +392,14 @@ fn test_resolve_symbol_change_id(readonly: bool) -> TestResult {
 
     // Test change_id() function, which is roughly equivalent to present(id)
     assert_eq!(
-        resolve_symbol(repo, "change_id(zvlyxpuvtsoopsqzlkorrpqrszrqvlnx)").unwrap(),
+        resolve_symbol(repo, "change_id(zvlyxpuvtsoopsqzlkorrpqrszrqvlnx)")?,
         vec![commits[0].id().clone()]
     );
     assert_eq!(
-        resolve_symbol(repo, "change_id(zvlyx)").unwrap(),
+        resolve_symbol(repo, "change_id(zvlyx)")?,
         vec![commits[0].id().clone()]
     );
-    assert_eq!(resolve_symbol(repo, "change_id(xyzzy)").unwrap(), vec![]);
+    assert_eq!(resolve_symbol(repo, "change_id(xyzzy)")?, vec![]);
     assert_matches!(
         resolve_symbol(repo, "change_id('')"),
         Err(RevsetResolutionError::AmbiguousChangeIdPrefix(s)) if s.is_empty()
@@ -475,15 +465,15 @@ fn test_resolve_symbol_hidden_change_id() -> TestResult {
 
     let change_id = commit1.change_id();
     assert_eq!(
-        resolve_symbol(repo.as_ref(), &format!("{change_id}")).unwrap(),
+        resolve_symbol(repo.as_ref(), &format!("{change_id}"))?,
         vec![commit2.id().clone()]
     );
     assert_eq!(
-        resolve_symbol(repo.as_ref(), &format!("{change_id}/0")).unwrap(),
+        resolve_symbol(repo.as_ref(), &format!("{change_id}/0"))?,
         vec![commit2.id().clone()]
     );
     assert_eq!(
-        resolve_symbol(repo.as_ref(), &format!("{change_id}/1")).unwrap(),
+        resolve_symbol(repo.as_ref(), &format!("{change_id}/1"))?,
         vec![commit1.id().clone()]
     );
     assert_matches!(
@@ -491,7 +481,7 @@ fn test_resolve_symbol_hidden_change_id() -> TestResult {
         Err(RevsetResolutionError::NoSuchRevision { .. })
     );
     assert_eq!(
-        resolve_symbol(repo.as_ref(), &format!("change_id({change_id})")).unwrap(),
+        resolve_symbol(repo.as_ref(), &format!("change_id({change_id})"))?,
         vec![commit2.id().clone()]
     );
 
@@ -507,11 +497,11 @@ fn test_resolve_symbol_hidden_change_id() -> TestResult {
             if name == change_id.to_string() && candidates.is_empty()
     );
     assert_eq!(
-        resolve_symbol(repo.as_ref(), &format!("{change_id}/0")).unwrap(),
+        resolve_symbol(repo.as_ref(), &format!("{change_id}/0"))?,
         vec![commit2.id().clone()]
     );
     assert_eq!(
-        resolve_symbol(repo.as_ref(), &format!("{change_id}/1")).unwrap(),
+        resolve_symbol(repo.as_ref(), &format!("{change_id}/1"))?,
         vec![commit1.id().clone()]
     );
     assert_matches!(
@@ -519,7 +509,7 @@ fn test_resolve_symbol_hidden_change_id() -> TestResult {
         Err(RevsetResolutionError::NoSuchRevision { .. })
     );
     assert_eq!(
-        resolve_symbol(repo.as_ref(), &format!("change_id({change_id})")).unwrap(),
+        resolve_symbol(repo.as_ref(), &format!("change_id({change_id})"))?,
         vec![]
     );
     Ok(())
@@ -552,23 +542,17 @@ fn test_resolve_symbol_in_different_disambiguation_context() -> TestResult {
     // Sanity check
     let change_hex = commit2.change_id().reverse_hex();
     assert_eq!(
-        symbol_resolver
-            .resolve_symbol(repo2.as_ref(), &change_hex[0..1])
-            .unwrap(),
+        symbol_resolver.resolve_symbol(repo2.as_ref(), &change_hex[0..1])?,
         commit2.id().clone()
     );
     assert_eq!(
-        symbol_resolver
-            .resolve_symbol(repo2.as_ref(), &commit2.id().hex()[0..1])
-            .unwrap(),
+        symbol_resolver.resolve_symbol(repo2.as_ref(), &commit2.id().hex()[0..1])?,
         commit2.id().clone()
     );
 
     // Change ID is disambiguated within repo2, then resolved in repo1.
     assert_eq!(
-        symbol_resolver
-            .resolve_symbol(repo1.as_ref(), &change_hex[0..1])
-            .unwrap(),
+        symbol_resolver.resolve_symbol(repo1.as_ref(), &change_hex[0..1])?,
         commit1.id().clone()
     );
 
@@ -1365,9 +1349,7 @@ fn test_evaluate_expression_root_and_checkout() -> TestResult {
     );
 
     // Can find the current working-copy commit
-    mut_repo
-        .set_wc_commit(WorkspaceName::DEFAULT.to_owned(), commit1.id().clone())
-        .unwrap();
+    mut_repo.set_wc_commit(WorkspaceName::DEFAULT.to_owned(), commit1.id().clone())?;
     assert_eq!(
         resolve_commit_ids_in_workspace(mut_repo, "@", &test_workspace.workspace, None),
         vec![commit1.id().clone()]
@@ -1376,8 +1358,7 @@ fn test_evaluate_expression_root_and_checkout() -> TestResult {
     // Shouldn't panic by unindexed commit ID
     let symbol_resolver = default_symbol_resolver(tx.repo());
     let expression = RevsetExpression::commit(commit1.id().clone())
-        .resolve_user_expression(tx.repo(), &symbol_resolver)
-        .unwrap();
+        .resolve_user_expression(tx.repo(), &symbol_resolver)?;
     assert!(expression.evaluate(tx.base_repo().as_ref()).is_err());
     Ok(())
 }
@@ -5188,7 +5169,7 @@ fn test_reverse_graph() -> TestResult {
         repo.as_ref(),
         &[&commit_a, &commit_c, &commit_d, &commit_e, &commit_f],
     );
-    let commits = reverse_graph(revset.iter_graph(), |id| id).unwrap();
+    let commits = reverse_graph(revset.iter_graph(), |id| id)?;
     assert_eq!(commits.len(), 5);
     assert_eq!(commits[0].0, *commit_a.id());
     assert_eq!(commits[1].0, *commit_c.id());
@@ -5252,9 +5233,9 @@ fn test_revset_containing_fn() -> TestResult {
     let revset = revset_for_commits(repo.as_ref(), &[&commit_b, &commit_d]);
 
     let revset_has_commit = revset.containing_fn();
-    assert!(!revset_has_commit(commit_a.id()).unwrap());
-    assert!(revset_has_commit(commit_b.id()).unwrap());
-    assert!(!revset_has_commit(commit_c.id()).unwrap());
-    assert!(revset_has_commit(commit_d.id()).unwrap());
+    assert!(!revset_has_commit(commit_a.id())?);
+    assert!(revset_has_commit(commit_b.id())?);
+    assert!(!revset_has_commit(commit_c.id())?);
+    assert!(revset_has_commit(commit_d.id())?);
     Ok(())
 }

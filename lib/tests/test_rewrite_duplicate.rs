@@ -142,9 +142,6 @@ fn test_duplicate_linear_contents() -> TestResult {
     assert_tree_eq!(stats.duplicated_commits[commit_b.id()].tree(), tree_1_2);
     let [head_id] = tx.repo().view().heads().iter().collect_array().unwrap();
     assert_ne!(head_id, commit_e.id());
-    assert_tree_eq!(
-        tx.repo().store().get_commit(head_id).unwrap().tree(),
-        tree_1_2
-    );
+    assert_tree_eq!(tx.repo().store().get_commit(head_id)?.tree(), tree_1_2);
     Ok(())
 }

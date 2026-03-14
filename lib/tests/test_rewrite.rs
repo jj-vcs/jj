@@ -1302,8 +1302,7 @@ fn test_rebase_descendants_contents() -> TestResult {
     assert_eq!(rebase_map.len(), 1);
     let new_commit_c = repo
         .store()
-        .get_commit(rebase_map.get(commit_c.id()).unwrap())
-        .unwrap();
+        .get_commit(rebase_map.get(commit_c.id()).unwrap())?;
 
     let tree_b = commit_b.tree();
     let tree_c = commit_c.tree();
@@ -1392,7 +1391,7 @@ fn test_rebase_descendants_bookmark_move_two_steps() -> TestResult {
     let heads = tx.repo().view().heads();
     assert_eq!(heads.len(), 1);
     let c3_id = heads.iter().next().unwrap().clone();
-    let commit_c3 = repo.store().get_commit(&c3_id).unwrap();
+    let commit_c3 = repo.store().get_commit(&c3_id)?;
     assert_ne!(commit_c3.id(), commit_c2.id());
     assert_eq!(commit_c3.parent_ids(), vec![commit_b2.id().clone()]);
     assert_eq!(
@@ -1907,14 +1906,11 @@ fn test_rebase_descendants_update_checkout() -> TestResult {
     let ws2_name = WorkspaceNameBuf::from("ws2");
     let ws3_name = WorkspaceNameBuf::from("ws3");
     tx.repo_mut()
-        .set_wc_commit(ws1_name.clone(), commit_b.id().clone())
-        .unwrap();
+        .set_wc_commit(ws1_name.clone(), commit_b.id().clone())?;
     tx.repo_mut()
-        .set_wc_commit(ws2_name.clone(), commit_b.id().clone())
-        .unwrap();
+        .set_wc_commit(ws2_name.clone(), commit_b.id().clone())?;
     tx.repo_mut()
-        .set_wc_commit(ws3_name.clone(), commit_a.id().clone())
-        .unwrap();
+        .set_wc_commit(ws3_name.clone(), commit_a.id().clone())?;
     let repo = tx.commit("test").block_on()?;
 
     let mut tx = repo.start_transaction();
@@ -1952,14 +1948,11 @@ fn test_rebase_descendants_update_checkout_abandoned() -> TestResult {
     let ws2_name = WorkspaceNameBuf::from("ws2");
     let ws3_name = WorkspaceNameBuf::from("ws3");
     tx.repo_mut()
-        .set_wc_commit(ws1_name.clone(), commit_b.id().clone())
-        .unwrap();
+        .set_wc_commit(ws1_name.clone(), commit_b.id().clone())?;
     tx.repo_mut()
-        .set_wc_commit(ws2_name.clone(), commit_b.id().clone())
-        .unwrap();
+        .set_wc_commit(ws2_name.clone(), commit_b.id().clone())?;
     tx.repo_mut()
-        .set_wc_commit(ws3_name.clone(), commit_a.id().clone())
-        .unwrap();
+        .set_wc_commit(ws3_name.clone(), commit_a.id().clone())?;
     let repo = tx.commit("test").block_on()?;
 
     let mut tx = repo.start_transaction();
@@ -1975,8 +1968,7 @@ fn test_rebase_descendants_update_checkout_abandoned() -> TestResult {
     );
     let checkout = repo
         .store()
-        .get_commit(repo.view().get_wc_commit_id(&ws1_name).unwrap())
-        .unwrap();
+        .get_commit(repo.view().get_wc_commit_id(&ws1_name).unwrap())?;
     assert_eq!(checkout.parent_ids(), vec![commit_a.id().clone()]);
     assert_eq!(repo.view().get_wc_commit_id(&ws3_name), Some(commit_a.id()));
     Ok(())
@@ -2002,8 +1994,7 @@ fn test_rebase_descendants_update_checkout_abandoned_merge() -> TestResult {
     let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b, &commit_c]);
     let ws_name = WorkspaceName::DEFAULT.to_owned();
     tx.repo_mut()
-        .set_wc_commit(ws_name.clone(), commit_d.id().clone())
-        .unwrap();
+        .set_wc_commit(ws_name.clone(), commit_d.id().clone())?;
     let repo = tx.commit("test").block_on()?;
 
     let mut tx = repo.start_transaction();
@@ -2012,7 +2003,7 @@ fn test_rebase_descendants_update_checkout_abandoned_merge() -> TestResult {
     let repo = tx.commit("test").block_on()?;
 
     let new_checkout_id = repo.view().get_wc_commit_id(&ws_name).unwrap();
-    let checkout = repo.store().get_commit(new_checkout_id).unwrap();
+    let checkout = repo.store().get_commit(new_checkout_id)?;
     assert_eq!(
         checkout.parent_ids(),
         vec![commit_b.id().clone(), commit_c.id().clone()]
@@ -2206,8 +2197,7 @@ fn test_rebase_abandoning_empty() -> TestResult {
 
     let workspace = WorkspaceNameBuf::from("ws");
     tx.repo_mut()
-        .set_wc_commit(workspace.clone(), commit_e.id().clone())
-        .unwrap();
+        .set_wc_commit(workspace.clone(), commit_e.id().clone())?;
 
     let rebase_options = RebaseOptions {
         empty: EmptyBehavior::AbandonAllEmpty,
@@ -2232,7 +2222,7 @@ fn test_rebase_abandoning_empty() -> TestResult {
         .get_wc_commit_id(&workspace)
         .unwrap()
         .clone();
-    let new_wc_commit = tx.repo().store().get_commit(&new_wc_commit_id).unwrap();
+    let new_wc_commit = tx.repo().store().get_commit(&new_wc_commit_id)?;
     assert_eq!(new_wc_commit.parent_ids(), &[new_commit_c.id().clone()]);
 
     assert_eq!(

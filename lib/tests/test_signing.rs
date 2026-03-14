@@ -82,11 +82,11 @@ fn manual(backend: TestRepoBackend) -> TestResult {
         .write_unwrap();
     tx.commit("test").block_on()?;
 
-    let commit1 = repo.store().get_commit(commit1.id()).unwrap();
-    assert_eq!(commit1.verification().unwrap(), good_verification());
+    let commit1 = repo.store().get_commit(commit1.id())?;
+    assert_eq!(commit1.verification()?, good_verification());
 
-    let commit2 = repo.store().get_commit(commit2.id()).unwrap();
-    assert_eq!(commit2.verification().unwrap(), None);
+    let commit2 = repo.store().get_commit(commit2.id())?;
+    assert_eq!(commit2.verification()?, None);
     Ok(())
 }
 
@@ -110,8 +110,8 @@ fn keep_on_rewrite(backend: TestRepoBackend) -> TestResult {
     let mut_repo = tx.repo_mut();
     let rewritten = mut_repo.rewrite_commit(&commit).write_unwrap();
 
-    let commit = repo.store().get_commit(rewritten.id()).unwrap();
-    assert_eq!(commit.verification().unwrap(), good_verification());
+    let commit = repo.store().get_commit(rewritten.id())?;
+    assert_eq!(commit.verification()?, good_verification());
     Ok(())
 }
 
@@ -138,8 +138,8 @@ fn manual_drop_on_rewrite(backend: TestRepoBackend) -> TestResult {
         .set_sign_behavior(SignBehavior::Drop)
         .write_unwrap();
 
-    let commit = repo.store().get_commit(rewritten.id()).unwrap();
-    assert_eq!(commit.verification().unwrap(), None);
+    let commit = repo.store().get_commit(rewritten.id())?;
+    assert_eq!(commit.verification()?, None);
     Ok(())
 }
 
@@ -159,8 +159,8 @@ fn forced(backend: TestRepoBackend) -> TestResult {
         .write_unwrap();
     tx.commit("test").block_on()?;
 
-    let commit = repo.store().get_commit(commit.id()).unwrap();
-    assert_eq!(commit.verification().unwrap(), good_verification());
+    let commit = repo.store().get_commit(commit.id())?;
+    assert_eq!(commit.verification()?, good_verification());
     Ok(())
 }
 
@@ -178,8 +178,8 @@ fn configured(backend: TestRepoBackend) -> TestResult {
     let commit = write_random_commit(tx.repo_mut());
     tx.commit("test").block_on()?;
 
-    let commit = repo.store().get_commit(commit.id()).unwrap();
-    assert_eq!(commit.verification().unwrap(), good_verification());
+    let commit = repo.store().get_commit(commit.id())?;
+    assert_eq!(commit.verification()?, good_verification());
     Ok(())
 }
 
@@ -199,14 +199,14 @@ fn drop_behavior(backend: TestRepoBackend) -> TestResult {
         .write_unwrap();
     tx.commit("test").block_on()?;
 
-    let original_commit = repo.store().get_commit(commit.id()).unwrap();
-    assert_eq!(original_commit.verification().unwrap(), good_verification());
+    let original_commit = repo.store().get_commit(commit.id())?;
+    assert_eq!(original_commit.verification()?, good_verification());
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let rewritten = mut_repo.rewrite_commit(&original_commit).write_unwrap();
 
-    let rewritten_commit = repo.store().get_commit(rewritten.id()).unwrap();
-    assert_eq!(rewritten_commit.verification().unwrap(), None);
+    let rewritten_commit = repo.store().get_commit(rewritten.id())?;
+    assert_eq!(rewritten_commit.verification()?, None);
     Ok(())
 }
