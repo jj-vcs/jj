@@ -15,38 +15,20 @@
 //! Utility for parsing and evaluating user-provided revset expressions.
 
 use std::collections::HashMap;
-use std::io;
-use std::sync::Arc;
 
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
-use futures::stream::LocalBoxStream;
 use itertools::Itertools as _;
-use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
-use jj_lib::config::ConfigNamePathBuf;
-use jj_lib::config::ConfigSource;
-use jj_lib::config::StackedConfig;
 use jj_lib::formatter::Formatter;
-use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::ref_name::RefNameBuf;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteNameBuf;
-use jj_lib::repo::Repo;
 use jj_lib::revset;
-use jj_lib::revset::ResolvedRevsetExpression;
-use jj_lib::revset::Revset;
 use jj_lib::revset::RevsetDiagnostics;
-use jj_lib::revset::RevsetEvaluationError;
-use jj_lib::revset::RevsetExpression;
-use jj_lib::revset::RevsetExtensions;
-use jj_lib::revset::RevsetParseContext;
 use jj_lib::revset::RevsetParseError;
-use jj_lib::revset::RevsetResolutionError;
-use jj_lib::revset::RevsetStreamExt as _;
-use jj_lib::revset::SymbolResolver;
-use jj_lib::revset::SymbolResolverExtension;
-use jj_lib::revset::UserRevsetExpression;
+use jj_lib::revset_util::RevsetExpressionEvaluator;
+pub use jj_lib::revset_util::try_resolve_trunk_alias;
 use jj_lib::settings::RemoteSettingsMap;
 use jj_lib::str_util::StringExpression;
 use jj_lib::str_util::StringMatcher;
@@ -60,169 +42,6 @@ use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
-
-const USER_IMMUTABLE_HEADS: &str = "immutable_heads";
-
-#[derive(Debug, Error)]
-pub enum UserRevsetEvaluationError {
-    #[error(transparent)]
-    Resolution(RevsetResolutionError),
-    #[error(transparent)]
-    Evaluation(RevsetEvaluationError),
-}
-
-/// Wrapper around `UserRevsetExpression` to provide convenient methods.
-pub struct RevsetExpressionEvaluator<'repo> {
-    repo: &'repo dyn Repo,
-    extensions: Arc<RevsetExtensions>,
-    id_prefix_context: &'repo IdPrefixContext,
-    expression: Arc<UserRevsetExpression>,
-}
-
-impl<'repo> RevsetExpressionEvaluator<'repo> {
-    pub fn new(
-        repo: &'repo dyn Repo,
-        extensions: Arc<RevsetExtensions>,
-        id_prefix_context: &'repo IdPrefixContext,
-        expression: Arc<UserRevsetExpression>,
-    ) -> Self {
-        Self {
-            repo,
-            extensions,
-            id_prefix_context,
-            expression,
-        }
-    }
-
-    /// Returns the underlying expression.
-    pub fn expression(&self) -> &Arc<UserRevsetExpression> {
-        &self.expression
-    }
-
-    /// Intersects the underlying expression with the `other` expression.
-    pub fn intersect_with(&mut self, other: &Arc<UserRevsetExpression>) {
-        self.expression = self.expression.intersection(other);
-    }
-
-    /// Resolves user symbols in the expression, returns new expression.
-    pub fn resolve(&self) -> Result<Arc<ResolvedRevsetExpression>, RevsetResolutionError> {
-        let symbol_resolver = default_symbol_resolver(
-            self.repo,
-            self.extensions.symbol_resolvers(),
-            self.id_prefix_context,
-        );
-        self.expression
-            .resolve_user_expression(self.repo, &symbol_resolver)
-    }
-
-    /// Evaluates the expression.
-    pub fn evaluate(&self) -> Result<Box<dyn Revset + 'repo>, UserRevsetEvaluationError> {
-        self.resolve()
-            .map_err(UserRevsetEvaluationError::Resolution)?
-            .evaluate(self.repo)
-            .map_err(UserRevsetEvaluationError::Evaluation)
-    }
-
-    /// Evaluates the expression to an iterator over commit ids. Entries are
-    /// sorted in reverse topological order.
-    pub fn evaluate_to_commit_ids(
-        &self,
-    ) -> Result<
-        LocalBoxStream<'repo, Result<CommitId, RevsetEvaluationError>>,
-        UserRevsetEvaluationError,
-    > {
-        Ok(self.evaluate()?.stream())
-    }
-
-    /// Evaluates the expression to an iterator over commit objects. Entries are
-    /// sorted in reverse topological order.
-    pub fn evaluate_to_commits(
-        &self,
-    ) -> Result<
-        LocalBoxStream<'repo, Result<Commit, RevsetEvaluationError>>,
-        UserRevsetEvaluationError,
-    > {
-        Ok(self
-            .evaluate()?
-            .stream()
-            .commits(self.repo.store())
-            .boxed_local())
-    }
-}
-
-pub(super) fn warn_user_redefined_builtin(
-    ui: &Ui,
-    config: &StackedConfig,
-    table_name: &ConfigNamePathBuf,
-) -> io::Result<()> {
-    let checked_mutability_builtins = ["mutable()", "immutable()", "builtin_immutable_heads()"];
-    for layer in config
-        .layers()
-        .iter()
-        .skip_while(|layer| layer.source == ConfigSource::Default)
-    {
-        let Ok(Some(table)) = layer.look_up_table(table_name) else {
-            continue;
-        };
-        for decl in checked_mutability_builtins
-            .iter()
-            .filter(|decl| table.contains_key(decl))
-        {
-            writeln!(
-                ui.warning_default(),
-                "Redefining `{table_name}.{decl}` is not recommended; redefine \
-                 `immutable_heads()` instead",
-            )?;
-        }
-    }
-    Ok(())
-}
-
-/// Wraps the given `IdPrefixContext` in `SymbolResolver` to be passed in to
-/// `evaluate()`.
-pub fn default_symbol_resolver<'a>(
-    repo: &'a dyn Repo,
-    extensions: &[impl AsRef<dyn SymbolResolverExtension>],
-    id_prefix_context: &'a IdPrefixContext,
-) -> SymbolResolver<'a> {
-    SymbolResolver::new(repo, extensions).with_id_prefix_context(id_prefix_context)
-}
-
-/// Parses user-configured expression defining the heads of the immutable set.
-/// Includes the root commit.
-pub fn parse_immutable_heads_expression(
-    diagnostics: &mut RevsetDiagnostics,
-    context: &RevsetParseContext,
-) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
-    let (_, _, immutable_heads_str) = context
-        .aliases_map
-        .get_function(USER_IMMUTABLE_HEADS, 0)
-        .unwrap();
-    let heads = revset::parse(diagnostics, immutable_heads_str, context)?;
-    Ok(heads.union(&RevsetExpression::root()))
-}
-
-/// Parses and resolves `trunk()` alias to detect name resolution error in it.
-///
-/// Returns `None` if the alias couldn't be parsed. Returns `Err` if the parsed
-/// expression had name resolution error.
-pub(super) fn try_resolve_trunk_alias(
-    repo: &dyn Repo,
-    context: &RevsetParseContext,
-) -> Result<Option<Arc<ResolvedRevsetExpression>>, RevsetResolutionError> {
-    let (_, _, revset_str) = context
-        .aliases_map
-        .get_function("trunk", 0)
-        .expect("trunk() should be defined by default");
-    let Ok(expression) = revset::parse(&mut RevsetDiagnostics::new(), revset_str, context) else {
-        return Ok(None);
-    };
-    // Not using IdPrefixContext since trunk() revset shouldn't contain short
-    // prefixes.
-    let symbol_resolver = SymbolResolver::new(repo, context.extensions.symbol_resolvers());
-    let resolved = expression.resolve_user_expression(repo, &symbol_resolver)?;
-    Ok(Some(resolved))
-}
 
 pub(super) async fn evaluate_revset_to_single_commit<'a>(
     revision_str: &str,

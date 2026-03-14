@@ -56,6 +56,7 @@ use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetParseError;
 use crate::revset::RevsetParseErrorKind;
 use crate::revset::RevsetResolutionError;
+use crate::revset_util::UserRevsetEvaluationError;
 use crate::secure_config::SecureConfigError;
 use crate::str_util::StringPatternParseError;
 use crate::trailer::TrailerParseError;
@@ -446,6 +447,15 @@ impl From<WalkPredecessorsError> for UserError {
 impl From<TrailerParseError> for UserError {
     fn from(err: TrailerParseError) -> Self {
         user_error(err)
+    }
+}
+
+impl From<UserRevsetEvaluationError> for UserError {
+    fn from(err: UserRevsetEvaluationError) -> Self {
+        match err {
+            UserRevsetEvaluationError::Resolution(err) => err.into(),
+            UserRevsetEvaluationError::Evaluation(err) => err.into(),
+        }
     }
 }
 

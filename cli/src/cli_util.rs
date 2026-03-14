@@ -126,6 +126,7 @@ use jj_lib::revset::RevsetStreamExt as _;
 use jj_lib::revset::RevsetWorkspaceContext;
 use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::revset::UserRevsetExpression;
+use jj_lib::revset_util::RevsetExpressionEvaluator;
 use jj_lib::rewrite::restore_tree;
 use jj_lib::settings::HumanByteSize;
 use jj_lib::settings::UserSettings;
@@ -189,7 +190,6 @@ use crate::merge_tools::MergeToolConfigError;
 use crate::operation_templater::OperationTemplateLanguage;
 use crate::operation_templater::OperationTemplateLanguageExtension;
 use crate::revset_util;
-use crate::revset_util::RevsetExpressionEvaluator;
 use crate::revset_util::parse_union_name_patterns;
 use crate::template_builder;
 use crate::template_builder::TemplateLanguage;
@@ -961,7 +961,7 @@ impl WorkspaceCommandEnvironment {
         ui: &Ui,
     ) -> Result<Arc<UserRevsetExpression>, CommandError> {
         let mut diagnostics = RevsetDiagnostics::new();
-        let expression = revset_util::parse_immutable_heads_expression(
+        let expression = jj_lib::revset_util::parse_immutable_heads_expression(
             &mut diagnostics,
             &self.revset_parse_context(),
         )
@@ -3251,7 +3251,9 @@ pub fn load_revset_aliases(ui: &Ui, config: &StackedConfig) -> Result<RevsetAlia
     let aliases_map = load_aliases_map(config, &table_name, |args| {
         writeln!(ui.warning_default(), "{args}")
     })?;
-    revset_util::warn_user_redefined_builtin(ui, config, &table_name)?;
+    jj_lib::revset_util::warn_user_redefined_builtin(config, &table_name, |args| {
+        writeln!(ui.warning_default(), "{args}")
+    })?;
     Ok(aliases_map)
 }
 

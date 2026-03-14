@@ -23,7 +23,6 @@ use jj_lib::revset::RevsetDiagnostics;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::print_parse_diagnostics;
-use crate::revset_util;
 use crate::ui::Ui;
 
 /// Evaluate revset to full commit IDs
@@ -66,7 +65,7 @@ pub async fn cmd_debug_revset(
         return Ok(());
     }
 
-    let symbol_resolver = revset_util::default_symbol_resolver(
+    let symbol_resolver = jj_lib::revset_util::default_symbol_resolver(
         repo,
         command.revset_extensions().symbol_resolvers(),
         workspace_command.id_prefix_context(),

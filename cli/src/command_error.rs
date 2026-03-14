@@ -23,6 +23,7 @@ use jj_lib::formatter::FormatRecorder;
 use jj_lib::formatter::Formatter;
 use jj_lib::formatter::FormatterExt as _;
 use jj_lib::revset;
+use jj_lib::revset_util::UserRevsetEvaluationError;
 use jj_lib::user_error::ErrorHint;
 use jj_lib::user_error::UserError;
 pub use jj_lib::user_error::UserErrorKind as CommandErrorKind;
@@ -38,7 +39,6 @@ use crate::merge_tools::MergeToolConfigError;
 use crate::merge_tools::MergeToolPartialResolutionError;
 use crate::revset_util::BookmarkNameParseError;
 use crate::revset_util::TagNameParseError;
-use crate::revset_util::UserRevsetEvaluationError;
 use crate::template_parser::TemplateParseError;
 use crate::template_parser::TemplateParseErrorKind;
 use crate::ui::Ui;
@@ -230,15 +230,6 @@ impl From<TempTextEditError> for CommandError {
         let mut cmd_err = user_error(err);
         cmd_err.extend_hints(hint);
         cmd_err
-    }
-}
-
-impl From<UserRevsetEvaluationError> for CommandError {
-    fn from(err: UserRevsetEvaluationError) -> Self {
-        match err {
-            UserRevsetEvaluationError::Resolution(err) => err.into(),
-            UserRevsetEvaluationError::Evaluation(err) => err.into(),
-        }
     }
 }
 
