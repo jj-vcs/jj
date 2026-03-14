@@ -229,6 +229,9 @@ pub(crate) async fn cmd_squash(
     workspace_command
         .check_rewritable(sources.iter().chain(&pre_existing_destination).ids())
         .await?;
+    let derive_tracked_from_ignores = workspace_command
+        .settings()
+        .get_bool("snapshot.derive-tracked-from-ignores")?;
 
     // prepare the tx description before possibly rebasing the source commits
     let source_ids: Vec<_> = sources.iter().ids().collect();
@@ -315,8 +318,16 @@ pub(crate) async fn cmd_squash(
     let text_editor = tx.base_workspace_helper().text_editor()?;
     let squashed_description = SquashedDescription::from_args(args);
 
-    let source_commits =
-        select_diff(ui, &tx, &sources, &destination, &matcher, &diff_selector).await?;
+    let source_commits = select_diff(
+        ui,
+        &tx,
+        &sources,
+        &destination,
+        &matcher,
+        &diff_selector,
+        derive_tracked_from_ignores,
+    )
+    .await?;
 
     print_unmatched_explicit_paths(
         ui,
@@ -468,6 +479,7 @@ async fn select_diff(
     destination: &Commit,
     matcher: &dyn Matcher,
     diff_selector: &DiffSelector,
+    derive_tracked_from_ignores: bool,
 ) -> Result<Vec<CommitWithSelection>, CommandError> {
     let mut source_commits = vec![];
     for source in sources {
@@ -500,6 +512,7 @@ async fn select_diff(
                 ),
                 matcher,
                 format_instructions,
+                derive_tracked_from_ignores,
             )
             .await?;
         source_commits.push(CommitWithSelection {
