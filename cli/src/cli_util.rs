@@ -15,7 +15,6 @@
 use std::borrow::Cow;
 use std::cell::OnceCell;
 use std::collections::BTreeMap;
-use std::collections::HashMap;
 use std::collections::HashSet;
 use std::env;
 use std::ffi::OsString;
@@ -24,17 +23,17 @@ use std::fmt::Debug;
 use std::io;
 use std::io::Write as _;
 use std::mem;
+use std::ops::Deref;
+use std::ops::DerefMut;
 use std::path::Path;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::str::FromStr;
 use std::sync::Arc;
-use std::sync::LazyLock;
 use std::time::SystemTime;
 
 use bstr::ByteVec as _;
-use chrono::TimeZone as _;
 use clap::ArgAction;
 use clap::ArgMatches;
 use clap::Command;
@@ -66,13 +65,11 @@ use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigSource;
 use jj_lib::config::ConfigValue;
 use jj_lib::config::StackedConfig;
-use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::dsl_util::load_aliases_map;
 use jj_lib::fileset;
 use jj_lib::fileset::FilesetAliasesMap;
 use jj_lib::fileset::FilesetDiagnostics;
 use jj_lib::fileset::FilesetExpression;
-use jj_lib::fileset::FilesetParseContext;
 use jj_lib::formatter::FormatRecorder;
 use jj_lib::formatter::Formatter;
 use jj_lib::formatter::FormatterExt as _;
@@ -99,7 +96,6 @@ use jj_lib::ref_name::RefNameBuf;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::ref_name::WorkspaceName;
-use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::CheckOutCommitError;
 use jj_lib::repo::EditCommitError;
 use jj_lib::repo::MutableRepo;
@@ -121,9 +117,7 @@ use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetExtensions;
 use jj_lib::revset::RevsetFilterPredicate;
 use jj_lib::revset::RevsetFunction;
-use jj_lib::revset::RevsetParseContext;
 use jj_lib::revset::RevsetStreamExt as _;
-use jj_lib::revset::RevsetWorkspaceContext;
 use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::revset::UserRevsetExpression;
 use jj_lib::revset_util::RevsetExpressionEvaluator;
@@ -155,6 +149,7 @@ use jj_lib::workspace::WorkspaceLoader;
 use jj_lib::workspace::WorkspaceLoaderFactory;
 use jj_lib::workspace::default_working_copy_factories;
 use jj_lib::workspace::get_working_copy_factory;
+use jj_lib::workspace_util::WorkspaceEnvironment;
 use pollster::FutureExt as _;
 use tracing::instrument;
 use tracing_chrome::ChromeLayerBuilder;
@@ -163,7 +158,6 @@ use tracing_subscriber::prelude::*;
 use crate::command_error::CommandError;
 use crate::command_error::clap_error;
 use crate::command_error::cli_error;
-use crate::command_error::config_error_with_message;
 use crate::command_error::handle_command_result;
 use crate::command_error::internal_error;
 use crate::command_error::internal_error_with_message;
@@ -523,10 +517,25 @@ impl CommandHelper {
                 ui.hint_default(),
                 "Use `jj config edit --repo` to adjust the `trunk()` alias."
             )?;
-            env.revset_aliases_map
+            env.revset_aliases_map()
                 .insert("trunk()", fallback)
                 .expect("valid syntax");
-            env.reload_revset_expressions(ui)?;
+            let mut immutable_heads_diagnostics = RevsetDiagnostics::new();
+            let mut short_prefixes_diagnostics = RevsetDiagnostics::new();
+            env.reload_revset_expressions(
+                &mut immutable_heads_diagnostics,
+                &mut short_prefixes_diagnostics,
+            )?;
+            print_parse_diagnostics(
+                ui,
+                "In `revset-aliases.immutable_heads()`",
+                &immutable_heads_diagnostics,
+            )?;
+            print_parse_diagnostics(
+                ui,
+                "In `revsets.short-prefixes`",
+                &short_prefixes_diagnostics,
+            )?;
         }
         WorkspaceCommandHelper::new(ui, workspace, repo, env, self.is_at_head_operation())
     }
@@ -687,7 +696,37 @@ impl CommandHelper {
         ui: &Ui,
         workspace: &Workspace,
     ) -> Result<WorkspaceCommandEnvironment, CommandError> {
-        WorkspaceCommandEnvironment::new(ui, self, workspace)
+        let mut env = WorkspaceEnvironment::new(
+            workspace,
+            self.cwd().to_owned(),
+            self.data.revset_extensions.clone(),
+            |args| writeln!(ui.warning_default(), "{args}"),
+        )?;
+
+        let mut immutable_heads_diagnostics = RevsetDiagnostics::new();
+        let mut short_prefixes_diagnostics = RevsetDiagnostics::new();
+        env.reload_revset_expressions(
+            &mut immutable_heads_diagnostics,
+            &mut short_prefixes_diagnostics,
+        )?;
+        print_parse_diagnostics(
+            ui,
+            "In `revset-aliases.immutable_heads()`",
+            &immutable_heads_diagnostics,
+        )?;
+        print_parse_diagnostics(
+            ui,
+            "In `revsets.short-prefixes`",
+            &short_prefixes_diagnostics,
+        )?;
+
+        let template_aliases_map = load_template_aliases(ui, workspace.settings().config())?;
+
+        Ok(WorkspaceCommandEnvironment {
+            env,
+            command: self.clone(),
+            template_aliases_map,
+        })
     }
 
     /// Returns true if the working copy to be loaded is writable, and therefore
@@ -817,218 +856,17 @@ fn load_advance_bookmarks_matcher(
     }
 }
 
-/// Metadata and configuration loaded for a specific workspace.
+/// Metadata and configuration loaded for a specific workspace and command.
+// TODO: WorkspaceCommandEnvironment is vestigial. It exists because templating
+// is part of the CLI, but template parsing & usage code is coupled with the
+// other workspace state that resides in lib.
 pub struct WorkspaceCommandEnvironment {
+    env: WorkspaceEnvironment,
     command: CommandHelper,
-    settings: UserSettings,
-    fileset_aliases_map: FilesetAliasesMap,
-    revset_extensions: Arc<RevsetExtensions>,
-    revset_aliases_map: RevsetAliasesMap,
     template_aliases_map: TemplateAliasesMap,
-    default_ignored_remote: Option<&'static RemoteName>,
-    revsets_use_glob_by_default: bool,
-    path_converter: RepoPathUiConverter,
-    workspace_name: WorkspaceNameBuf,
-    immutable_heads_expression: Arc<UserRevsetExpression>,
-    short_prefixes_expression: Option<Arc<UserRevsetExpression>>,
-    conflict_marker_style: ConflictMarkerStyle,
 }
 
 impl WorkspaceCommandEnvironment {
-    #[instrument(skip_all)]
-    fn new(ui: &Ui, command: &CommandHelper, workspace: &Workspace) -> Result<Self, CommandError> {
-        let settings = workspace.settings();
-        let fileset_aliases_map = load_fileset_aliases(ui, settings.config())?;
-        let revset_aliases_map = load_revset_aliases(ui, settings.config())?;
-        let template_aliases_map = load_template_aliases(ui, settings.config())?;
-        let default_ignored_remote = default_ignored_remote_name(workspace.repo_loader().store());
-        let path_converter = RepoPathUiConverter::Fs {
-            cwd: command.cwd().to_owned(),
-            base: workspace.workspace_root().to_owned(),
-        };
-        let mut env = Self {
-            command: command.clone(),
-            settings: settings.clone(),
-            fileset_aliases_map,
-            revset_aliases_map,
-            revset_extensions: command.data.revset_extensions.clone(),
-            template_aliases_map,
-            default_ignored_remote,
-            revsets_use_glob_by_default: settings.get("ui.revsets-use-glob-by-default")?,
-            path_converter,
-            workspace_name: workspace.workspace_name().to_owned(),
-            immutable_heads_expression: RevsetExpression::root(),
-            short_prefixes_expression: None,
-            conflict_marker_style: settings.get("ui.conflict-marker-style")?,
-        };
-        env.reload_revset_expressions(ui)?;
-        Ok(env)
-    }
-
-    pub(crate) fn path_converter(&self) -> &RepoPathUiConverter {
-        &self.path_converter
-    }
-
-    pub fn workspace_name(&self) -> &WorkspaceName {
-        &self.workspace_name
-    }
-
-    pub fn revset_extensions(&self) -> &Arc<RevsetExtensions> {
-        &self.revset_extensions
-    }
-
-    /// Parsing context for fileset expressions specified by command arguments.
-    pub(crate) fn fileset_parse_context(&self) -> FilesetParseContext<'_> {
-        FilesetParseContext {
-            aliases_map: &self.fileset_aliases_map,
-            path_converter: &self.path_converter,
-        }
-    }
-
-    /// Parsing context for fileset expressions loaded from config files.
-    pub(crate) fn fileset_parse_context_for_config(&self) -> FilesetParseContext<'_> {
-        // TODO: bump MSRV to 1.91.0 to leverage const PathBuf::new()
-        static ROOT_PATH_CONVERTER: LazyLock<RepoPathUiConverter> =
-            LazyLock::new(|| RepoPathUiConverter::Fs {
-                cwd: PathBuf::new(),
-                base: PathBuf::new(),
-            });
-        FilesetParseContext {
-            aliases_map: &self.fileset_aliases_map,
-            path_converter: &ROOT_PATH_CONVERTER,
-        }
-    }
-
-    pub(crate) fn revset_parse_context(&self) -> RevsetParseContext<'_> {
-        let workspace_context = RevsetWorkspaceContext {
-            path_converter: &self.path_converter,
-            workspace_name: &self.workspace_name,
-        };
-        let now = if let Some(timestamp) = self.settings.commit_timestamp() {
-            chrono::Local
-                .timestamp_millis_opt(timestamp.timestamp.0)
-                .unwrap()
-        } else {
-            chrono::Local::now()
-        };
-        RevsetParseContext {
-            aliases_map: &self.revset_aliases_map,
-            local_variables: HashMap::new(),
-            user_email: self.settings.user_email(),
-            date_pattern_context: now.into(),
-            default_ignored_remote: self.default_ignored_remote,
-            fileset_aliases_map: &self.fileset_aliases_map,
-            use_glob_by_default: self.revsets_use_glob_by_default,
-            extensions: &self.revset_extensions,
-            workspace: Some(workspace_context),
-        }
-    }
-
-    /// Creates fresh new context which manages cache of short commit/change ID
-    /// prefixes. New context should be created per repo view (or operation.)
-    pub fn new_id_prefix_context(&self) -> IdPrefixContext {
-        let context = IdPrefixContext::new(self.revset_extensions.clone());
-        match &self.short_prefixes_expression {
-            None => context,
-            Some(expression) => context.disambiguate_within(expression.clone()),
-        }
-    }
-
-    /// Updates parsed revset expressions.
-    fn reload_revset_expressions(&mut self, ui: &Ui) -> Result<(), CommandError> {
-        self.immutable_heads_expression = self.load_immutable_heads_expression(ui)?;
-        self.short_prefixes_expression = self.load_short_prefixes_expression(ui)?;
-        Ok(())
-    }
-
-    /// User-configured expression defining the immutable set.
-    pub fn immutable_expression(&self) -> Arc<UserRevsetExpression> {
-        // Negated ancestors expression `~::(<heads> | root())` is slightly
-        // easier to optimize than negated union `~(::<heads> | root())`.
-        self.immutable_heads_expression.ancestors()
-    }
-
-    /// User-configured expression defining the heads of the immutable set.
-    pub fn immutable_heads_expression(&self) -> &Arc<UserRevsetExpression> {
-        &self.immutable_heads_expression
-    }
-
-    /// User-configured conflict marker style for materializing conflicts
-    pub fn conflict_marker_style(&self) -> ConflictMarkerStyle {
-        self.conflict_marker_style
-    }
-
-    fn load_immutable_heads_expression(
-        &self,
-        ui: &Ui,
-    ) -> Result<Arc<UserRevsetExpression>, CommandError> {
-        let mut diagnostics = RevsetDiagnostics::new();
-        let expression = jj_lib::revset_util::parse_immutable_heads_expression(
-            &mut diagnostics,
-            &self.revset_parse_context(),
-        )
-        .map_err(|e| config_error_with_message("Invalid `revset-aliases.immutable_heads()`", e))?;
-        print_parse_diagnostics(ui, "In `revset-aliases.immutable_heads()`", &diagnostics)?;
-        Ok(expression)
-    }
-
-    fn load_short_prefixes_expression(
-        &self,
-        ui: &Ui,
-    ) -> Result<Option<Arc<UserRevsetExpression>>, CommandError> {
-        let revset_string = self
-            .settings
-            .get_string("revsets.short-prefixes")
-            .optional()?
-            .map_or_else(|| self.settings.get_string("revsets.log"), Ok)?;
-        if revset_string.is_empty() {
-            Ok(None)
-        } else {
-            let mut diagnostics = RevsetDiagnostics::new();
-            let expression = revset::parse(
-                &mut diagnostics,
-                &revset_string,
-                &self.revset_parse_context(),
-            )
-            .map_err(|err| config_error_with_message("Invalid `revsets.short-prefixes`", err))?;
-            print_parse_diagnostics(ui, "In `revsets.short-prefixes`", &diagnostics)?;
-            Ok(Some(expression))
-        }
-    }
-
-    /// Returns first immutable commit.
-    async fn find_immutable_commit(
-        &self,
-        repo: &dyn Repo,
-        to_rewrite_expr: &Arc<ResolvedRevsetExpression>,
-        ignore_immutable: bool,
-    ) -> Result<Option<CommitId>, CommandError> {
-        let immutable_expression = if ignore_immutable {
-            UserRevsetExpression::root()
-        } else {
-            self.immutable_expression()
-        };
-
-        // Not using self.id_prefix_context() because the disambiguation data
-        // must not be calculated and cached against arbitrary repo. It's also
-        // unlikely that the immutable expression contains short hashes.
-        let id_prefix_context = IdPrefixContext::new(self.revset_extensions.clone());
-        let immutable_expr = RevsetExpressionEvaluator::new(
-            repo,
-            self.revset_extensions.clone(),
-            &id_prefix_context,
-            immutable_expression,
-        )
-        .resolve()
-        .map_err(|e| config_error_with_message("Invalid `revset-aliases.immutable_heads()`", e))?;
-
-        let mut commit_id_iter = immutable_expr
-            .intersection(to_rewrite_expr)
-            .evaluate(repo)?
-            .stream();
-        Ok(commit_id_iter.try_next().await?)
-    }
-
     pub fn template_aliases_map(&self) -> &TemplateAliasesMap {
         &self.template_aliases_map
     }
@@ -1065,18 +903,33 @@ impl WorkspaceCommandEnvironment {
     ) -> CommitTemplateLanguage<'a> {
         CommitTemplateLanguage::new(
             repo,
-            &self.path_converter,
-            &self.workspace_name,
+            &self.env.path_converter,
+            &self.env.workspace_name,
             self.revset_parse_context(),
             id_prefix_context,
             self.immutable_expression(),
-            self.conflict_marker_style,
+            self.env.conflict_marker_style,
             &self.command.data.commit_template_extensions,
         )
     }
 
     pub fn operation_template_extensions(&self) -> &[Arc<dyn OperationTemplateLanguageExtension>] {
         &self.command.data.operation_template_extensions
+    }
+}
+
+// TODO: I don't think this is needed if we do encapsulation right.
+impl Deref for WorkspaceCommandEnvironment {
+    type Target = WorkspaceEnvironment;
+
+    fn deref(&self) -> &Self::Target {
+        &self.env
+    }
+}
+// TODO: I don't think this is needed if we do encapsulation right.
+impl DerefMut for WorkspaceCommandEnvironment {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.env
     }
 }
 
@@ -1800,7 +1653,7 @@ to the current parents may contain changes from multiple commits.
     ) -> RevsetExpressionEvaluator<'_> {
         RevsetExpressionEvaluator::new(
             self.repo().as_ref(),
-            self.env.revset_extensions.clone(),
+            self.env.revset_extensions().clone(),
             self.id_prefix_context(),
             expression,
         )
@@ -1966,10 +1819,10 @@ to the current parents may contain changes from multiple commits.
 
             // Not using self.id_prefix_context() for consistency with
             // find_immutable_commit().
-            let id_prefix_context = IdPrefixContext::new(self.env.revset_extensions.clone());
+            let id_prefix_context = IdPrefixContext::new(self.env.revset_extensions().clone());
             let (lower_bound, upper_bound) = RevsetExpressionEvaluator::new(
                 repo,
-                self.env.revset_extensions.clone(),
+                self.env.revset_extensions().clone(),
                 &id_prefix_context,
                 self.env.immutable_expression(),
             )
@@ -2208,7 +2061,7 @@ to the current parents may contain changes from multiple commits.
                 .await
             {
                 Ok(commit_id) => commit_id.is_some(),
-                Err(CommandError(UserError { error, .. })) => {
+                Err(UserError { error, .. }) => {
                     writeln!(
                         ui.warning_default(),
                         "Failed to check mutability of the new working-copy revision."

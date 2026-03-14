@@ -197,24 +197,3 @@ pub fn default_symbol_resolver<'a>(
 ) -> SymbolResolver<'a> {
     SymbolResolver::new(repo, extensions).with_id_prefix_context(id_prefix_context)
 }
-/// Parses and resolves `trunk()` alias to detect name resolution error in it.
-///
-/// Returns `None` if the alias couldn't be parsed. Returns `Err` if the parsed
-/// expression had name resolution error.
-pub fn try_resolve_trunk_alias(
-    repo: &dyn Repo,
-    context: &RevsetParseContext,
-) -> Result<Option<Arc<ResolvedRevsetExpression>>, RevsetResolutionError> {
-    let (_, _, revset_str) = context
-        .aliases_map
-        .get_function("trunk", 0)
-        .expect("trunk() should be defined by default");
-    let Ok(expression) = revset::parse(&mut RevsetDiagnostics::new(), revset_str, context) else {
-        return Ok(None);
-    };
-    // Not using IdPrefixContext since trunk() revset shouldn't contain short
-    // prefixes.
-    let symbol_resolver = SymbolResolver::new(repo, context.extensions.symbol_resolvers());
-    let resolved = expression.resolve_user_expression(repo, &symbol_resolver)?;
-    Ok(Some(resolved))
-}
