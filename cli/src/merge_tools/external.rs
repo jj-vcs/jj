@@ -383,6 +383,7 @@ pub async fn edit_diff_external(
     instructions: Option<&str>,
     base_ignores: Arc<GitIgnoreFile>,
     default_conflict_marker_style: ConflictMarkerStyle,
+    derive_tracked_from_ignores: bool,
 ) -> Result<MergedTree, DiffEditError> {
     let conflict_marker_style = editor
         .conflict_marker_style
@@ -419,7 +420,9 @@ pub async fn edit_diff_external(
         }));
     }
 
-    diffedit_wc.snapshot_results(base_ignores).await
+    diffedit_wc
+        .snapshot_results(base_ignores, derive_tracked_from_ignores)
+        .await
 }
 
 /// Generates textual diff by the specified `tool` and writes into `writer`.
