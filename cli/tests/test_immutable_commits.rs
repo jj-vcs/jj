@@ -559,7 +559,7 @@ fn test_rewrite_immutable_commands() {
     [exit status: 1]
     "#);
     // squash -r
-    let output = work_dir.run_jj(["squash", "-r=subject(b)"]);
+    let output = work_dir.run_jj(["squash", "-r=subject(b)|subject(b)-"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: Commit 9d190342454d is immutable
