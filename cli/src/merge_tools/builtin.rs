@@ -778,6 +778,7 @@ mod tests {
     use proptest_state_machine::prop_state_machine;
     use test_case::test_matrix;
     use testutils::TestRepo;
+    use testutils::TestResult;
     use testutils::assert_tree_eq;
     use testutils::dump_tree;
     use testutils::proptest::Transition;
@@ -1135,7 +1136,7 @@ mod tests {
     fn test_edit_diff_builtin_apply_diff_should_preserve_copy_id(
         create_left_tree: impl FnOnce(&Arc<Store>, &RepoPath, &CopyId) -> MergedTree,
         create_right_tree: impl FnOnce(&Arc<Store>, &RepoPath, &CopyId) -> MergedTree,
-    ) {
+    ) -> TestResult {
         let test_repo = TestRepo::init();
         let store = test_repo.repo.store();
 
@@ -1159,26 +1160,23 @@ mod tests {
             }
         }
         let tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        let actual_copy_ids = tree
-            .path_value(file_path)
-            .block_on()
-            .unwrap()
-            .map(|tree_value| {
-                let Some(TreeValue::File { copy_id, .. }) = tree_value else {
-                    panic!("The path should point to an existing file.");
-                };
-                copy_id.clone()
-            });
+        let actual_copy_ids = tree.path_value(file_path).block_on()?.map(|tree_value| {
+            let Some(TreeValue::File { copy_id, .. }) = tree_value else {
+                panic!("The path should point to an existing file.");
+            };
+            copy_id.clone()
+        });
         assert_eq!(
             actual_copy_ids.resolve_trivial(SameChange::Accept),
             Some(&copy_id),
             "Expect the copy id of the file to be resolved to {copy_id:?}, but got \
              {actual_copy_ids:?}."
         );
+        Ok(())
     }
 
     #[test]
-    fn test_edit_merge_builtin_should_preserve_copy_id() {
+    fn test_edit_merge_builtin_should_preserve_copy_id() -> TestResult {
         let test_repo = TestRepo::init();
         let store = test_repo.repo.store();
 
@@ -1203,30 +1201,27 @@ mod tests {
             .copy_id(new_copy_id.clone());
         let tree = tree_builder.write_merged_tree();
 
-        let merge_tool_file = MergeToolFile::from_tree_and_path(&tree, file_path)
-            .block_on()
-            .unwrap();
+        let merge_tool_file = MergeToolFile::from_tree_and_path(&tree, file_path).block_on()?;
         let merge_file = make_merge_file(&merge_tool_file, store.merge_options()).unwrap();
         let tree = apply_merge_builtin(store, &tree, vec![file_path.to_owned()], &[merge_file])
-            .block_on()
-            .unwrap();
+            .block_on()?;
 
-        let actual_copy_ids =
-            tree.path_value(file_path)
-                .block_on()
-                .unwrap()
-                .into_map(|tree_value| {
-                    let Some(TreeValue::File { copy_id, .. }) = tree_value else {
-                        panic!("The path should point to an existing file.");
-                    };
-                    copy_id
-                });
+        let actual_copy_ids = tree
+            .path_value(file_path)
+            .block_on()?
+            .into_map(|tree_value| {
+                let Some(TreeValue::File { copy_id, .. }) = tree_value else {
+                    panic!("The path should point to an existing file.");
+                };
+                copy_id
+            });
         assert_eq!(
             actual_copy_ids.resolve_trivial(SameChange::Accept),
             Some(&new_copy_id),
             "Expect the copy id of the file to be resolved to {new_copy_id:?}, but got \
              {actual_copy_ids:?}."
         );
+        Ok(())
     }
 
     #[test]
@@ -2022,7 +2017,7 @@ mod tests {
     }
 
     #[test]
-    fn test_edit_diff_builtin_with_matcher() {
+    fn test_edit_diff_builtin_with_matcher() -> TestResult {
         let test_repo = TestRepo::init();
         let store = test_repo.repo.store();
 
@@ -2050,22 +2045,22 @@ mod tests {
 
         assert_eq!(changed_files, vec![matched_path.to_owned()]);
 
-        let result_tree = apply_diff_builtin(store, &left_tree, &right_tree, changed_files, &files)
-            .block_on()
-            .unwrap();
+        let result_tree =
+            apply_diff_builtin(store, &left_tree, &right_tree, changed_files, &files).block_on()?;
 
         assert_eq!(
-            result_tree.path_value(matched_path).block_on().unwrap(),
-            left_tree.path_value(matched_path).block_on().unwrap()
+            result_tree.path_value(matched_path).block_on()?,
+            left_tree.path_value(matched_path).block_on()?
         );
         assert_eq!(
-            result_tree.path_value(unmatched_path).block_on().unwrap(),
-            right_tree.path_value(unmatched_path).block_on().unwrap()
+            result_tree.path_value(unmatched_path).block_on()?,
+            right_tree.path_value(unmatched_path).block_on()?
         );
+        Ok(())
     }
 
     #[test]
-    fn test_make_merge_sections() {
+    fn test_make_merge_sections() -> TestResult {
         let test_repo = TestRepo::init();
         let store = test_repo.repo.store();
 
@@ -2097,13 +2092,11 @@ mod tests {
         }
 
         let merge = Merge::from_vec(vec![
-            to_file_id(left_tree.path_value(path).block_on().unwrap()),
-            to_file_id(base_tree.path_value(path).block_on().unwrap()),
-            to_file_id(right_tree.path_value(path).block_on().unwrap()),
+            to_file_id(left_tree.path_value(path).block_on()?),
+            to_file_id(base_tree.path_value(path).block_on()?),
+            to_file_id(right_tree.path_value(path).block_on()?),
         ]);
-        let content = extract_as_single_hunk(&merge, store, path)
-            .block_on()
-            .unwrap();
+        let content = extract_as_single_hunk(&merge, store, path).block_on()?;
         let merge_result = files::merge_hunks(&content, store.merge_options());
         let sections = make_merge_sections(merge_result).unwrap();
         insta::assert_debug_snapshot!(sections, @r#"
@@ -2155,6 +2148,7 @@ mod tests {
             },
         ]
         "#);
+        Ok(())
     }
 
     prop_state_machine! {

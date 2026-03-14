@@ -30,6 +30,7 @@ use maplit::hashset;
 use pollster::FutureExt as _;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
+use testutils::TestResult;
 use testutils::assert_rebased_onto;
 use testutils::create_random_commit;
 use testutils::create_random_tree;
@@ -53,51 +54,49 @@ fn index_has_id(index: &dyn Index, commit_id: &CommitId) -> bool {
 }
 
 #[test]
-fn test_edit() {
+fn test_edit() -> TestResult {
     // Test that MutableRepo::edit() uses the requested commit (not a new child)
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
     let wc_commit = write_random_commit(tx.repo_mut());
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
 
     let mut tx = repo.start_transaction();
     let ws_name = WorkspaceName::DEFAULT.to_owned();
-    tx.repo_mut()
-        .edit(ws_name.clone(), &wc_commit)
-        .block_on()
-        .unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+    tx.repo_mut().edit(ws_name.clone(), &wc_commit).block_on()?;
+    let repo = tx.commit("test").block_on()?;
     assert_eq!(repo.view().get_wc_commit_id(&ws_name), Some(wc_commit.id()));
+    Ok(())
 }
 
 #[test]
-fn test_checkout() {
+fn test_checkout() -> TestResult {
     // Test that MutableRepo::check_out() creates a child
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
     let wc_commit_parent = write_random_commit(tx.repo_mut());
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
 
     let mut tx = repo.start_transaction();
     let ws_name = WorkspaceName::DEFAULT.to_owned();
     let wc_commit = tx
         .repo_mut()
         .check_out(ws_name.clone(), &wc_commit_parent)
-        .block_on()
-        .unwrap();
+        .block_on()?;
     assert_eq!(wc_commit.tree_ids(), wc_commit_parent.tree_ids());
     assert_eq!(wc_commit.parent_ids().len(), 1);
     assert_eq!(&wc_commit.parent_ids()[0], wc_commit_parent.id());
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
     assert_eq!(repo.view().get_wc_commit_id(&ws_name), Some(wc_commit.id()));
+    Ok(())
 }
 
 #[test]
-fn test_edit_previous_not_empty() {
+fn test_edit_previous_not_empty() -> TestResult {
     // Test that MutableRepo::edit() does not usually abandon the previous
     // commit.
     let test_repo = TestRepo::init();
@@ -107,22 +106,20 @@ fn test_edit_previous_not_empty() {
     let mut_repo = tx.repo_mut();
     let old_wc_commit = write_random_commit(mut_repo);
     let ws_name = WorkspaceName::DEFAULT.to_owned();
-    mut_repo
-        .edit(ws_name.clone(), &old_wc_commit)
-        .block_on()
-        .unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+    mut_repo.edit(ws_name.clone(), &old_wc_commit).block_on()?;
+    let repo = tx.commit("test").block_on()?;
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let new_wc_commit = write_random_commit(mut_repo);
-    mut_repo.edit(ws_name, &new_wc_commit).block_on().unwrap();
-    mut_repo.rebase_descendants().block_on().unwrap();
+    mut_repo.edit(ws_name, &new_wc_commit).block_on()?;
+    mut_repo.rebase_descendants().block_on()?;
     assert!(mut_repo.view().heads().contains(old_wc_commit.id()));
+    Ok(())
 }
 
 #[test]
-fn test_edit_previous_empty() {
+fn test_edit_previous_empty() -> TestResult {
     // Test that MutableRepo::edit() abandons the previous commit if it was
     // empty.
     let test_repo = TestRepo::init();
@@ -137,22 +134,20 @@ fn test_edit_previous_empty() {
         )
         .write_unwrap();
     let ws_name = WorkspaceName::DEFAULT.to_owned();
-    mut_repo
-        .edit(ws_name.clone(), &old_wc_commit)
-        .block_on()
-        .unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+    mut_repo.edit(ws_name.clone(), &old_wc_commit).block_on()?;
+    let repo = tx.commit("test").block_on()?;
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let new_wc_commit = write_random_commit(mut_repo);
-    mut_repo.edit(ws_name, &new_wc_commit).block_on().unwrap();
-    mut_repo.rebase_descendants().block_on().unwrap();
+    mut_repo.edit(ws_name, &new_wc_commit).block_on()?;
+    mut_repo.rebase_descendants().block_on()?;
     assert!(!mut_repo.view().heads().contains(old_wc_commit.id()));
+    Ok(())
 }
 
 #[test]
-fn test_edit_previous_empty_merge() {
+fn test_edit_previous_empty_merge() -> TestResult {
     // Test that MutableRepo::edit() abandons the previous commit if it was
     // an empty merge commit.
     let test_repo = TestRepo::init();
@@ -168,8 +163,7 @@ fn test_edit_previous_empty_merge() {
         (empty_tree, "empty".into()),
         (old_parent2.tree(), "old parent 2".into()),
     ]))
-    .block_on()
-    .unwrap();
+    .block_on()?;
     let old_wc_commit = mut_repo
         .new_commit(
             vec![old_parent1.id().clone(), old_parent2.id().clone()],
@@ -178,22 +172,20 @@ fn test_edit_previous_empty_merge() {
         .set_tree(old_parent_tree)
         .write_unwrap();
     let ws_name = WorkspaceName::DEFAULT.to_owned();
-    mut_repo
-        .edit(ws_name.clone(), &old_wc_commit)
-        .block_on()
-        .unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+    mut_repo.edit(ws_name.clone(), &old_wc_commit).block_on()?;
+    let repo = tx.commit("test").block_on()?;
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let new_wc_commit = write_random_commit(mut_repo);
-    mut_repo.edit(ws_name, &new_wc_commit).block_on().unwrap();
-    mut_repo.rebase_descendants().block_on().unwrap();
+    mut_repo.edit(ws_name, &new_wc_commit).block_on()?;
+    mut_repo.rebase_descendants().block_on()?;
     assert!(!mut_repo.view().heads().contains(old_wc_commit.id()));
+    Ok(())
 }
 
 #[test]
-fn test_edit_previous_empty_with_description() {
+fn test_edit_previous_empty_with_description() -> TestResult {
     // Test that MutableRepo::edit() does not abandon the previous commit if it
     // has a non-empty description.
     let test_repo = TestRepo::init();
@@ -209,22 +201,20 @@ fn test_edit_previous_empty_with_description() {
         .set_description("not empty")
         .write_unwrap();
     let ws_name = WorkspaceName::DEFAULT.to_owned();
-    mut_repo
-        .edit(ws_name.clone(), &old_wc_commit)
-        .block_on()
-        .unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+    mut_repo.edit(ws_name.clone(), &old_wc_commit).block_on()?;
+    let repo = tx.commit("test").block_on()?;
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let new_wc_commit = write_random_commit(mut_repo);
-    mut_repo.edit(ws_name, &new_wc_commit).block_on().unwrap();
-    mut_repo.rebase_descendants().block_on().unwrap();
+    mut_repo.edit(ws_name, &new_wc_commit).block_on()?;
+    mut_repo.rebase_descendants().block_on()?;
     assert!(mut_repo.view().heads().contains(old_wc_commit.id()));
+    Ok(())
 }
 
 #[test]
-fn test_edit_previous_empty_with_local_bookmark() {
+fn test_edit_previous_empty_with_local_bookmark() -> TestResult {
     // Test that MutableRepo::edit() does not abandon the previous commit if it
     // is pointed by local bookmark.
     let test_repo = TestRepo::init();
@@ -240,22 +230,20 @@ fn test_edit_previous_empty_with_local_bookmark() {
         .write_unwrap();
     mut_repo.set_local_bookmark_target("b".as_ref(), RefTarget::normal(old_wc_commit.id().clone()));
     let ws_name = WorkspaceName::DEFAULT.to_owned();
-    mut_repo
-        .edit(ws_name.clone(), &old_wc_commit)
-        .block_on()
-        .unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+    mut_repo.edit(ws_name.clone(), &old_wc_commit).block_on()?;
+    let repo = tx.commit("test").block_on()?;
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let new_wc_commit = write_random_commit(mut_repo);
-    mut_repo.edit(ws_name, &new_wc_commit).block_on().unwrap();
-    mut_repo.rebase_descendants().block_on().unwrap();
+    mut_repo.edit(ws_name, &new_wc_commit).block_on()?;
+    mut_repo.rebase_descendants().block_on()?;
     assert!(mut_repo.view().heads().contains(old_wc_commit.id()));
+    Ok(())
 }
 
 #[test]
-fn test_edit_previous_empty_with_local_tag() {
+fn test_edit_previous_empty_with_local_tag() -> TestResult {
     // Test that MutableRepo::edit() does not abandon the previous commit if it
     // is pointed by local tag.
     let test_repo = TestRepo::init();
@@ -271,22 +259,20 @@ fn test_edit_previous_empty_with_local_tag() {
         .write_unwrap();
     mut_repo.set_local_tag_target("t".as_ref(), RefTarget::normal(old_wc_commit.id().clone()));
     let ws_name = WorkspaceName::DEFAULT.to_owned();
-    mut_repo
-        .edit(ws_name.clone(), &old_wc_commit)
-        .block_on()
-        .unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+    mut_repo.edit(ws_name.clone(), &old_wc_commit).block_on()?;
+    let repo = tx.commit("test").block_on()?;
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let new_wc_commit = write_random_commit(mut_repo);
-    mut_repo.edit(ws_name, &new_wc_commit).block_on().unwrap();
-    mut_repo.rebase_descendants().block_on().unwrap();
+    mut_repo.edit(ws_name, &new_wc_commit).block_on()?;
+    mut_repo.rebase_descendants().block_on()?;
     assert!(mut_repo.view().heads().contains(old_wc_commit.id()));
+    Ok(())
 }
 
 #[test]
-fn test_edit_previous_empty_with_other_workspace() {
+fn test_edit_previous_empty_with_other_workspace() -> TestResult {
     // Test that MutableRepo::edit() does not abandon the previous commit if it
     // is pointed by another workspace
     let test_repo = TestRepo::init();
@@ -301,27 +287,24 @@ fn test_edit_previous_empty_with_other_workspace() {
         )
         .write_unwrap();
     let ws_name = WorkspaceName::DEFAULT.to_owned();
-    mut_repo
-        .edit(ws_name.clone(), &old_wc_commit)
-        .block_on()
-        .unwrap();
+    mut_repo.edit(ws_name.clone(), &old_wc_commit).block_on()?;
     let other_ws_name = WorkspaceNameBuf::from("other");
     mut_repo
         .edit(other_ws_name.clone(), &old_wc_commit)
-        .block_on()
-        .unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+        .block_on()?;
+    let repo = tx.commit("test").block_on()?;
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let new_wc_commit = write_random_commit(mut_repo);
-    mut_repo.edit(ws_name, &new_wc_commit).block_on().unwrap();
-    mut_repo.rebase_descendants().block_on().unwrap();
+    mut_repo.edit(ws_name, &new_wc_commit).block_on()?;
+    mut_repo.rebase_descendants().block_on()?;
     assert!(mut_repo.view().heads().contains(old_wc_commit.id()));
+    Ok(())
 }
 
 #[test]
-fn test_edit_previous_empty_non_head() {
+fn test_edit_previous_empty_non_head() -> TestResult {
     // Test that MutableRepo::edit() does not abandon the previous commit if it
     // was empty and is not a head
     let test_repo = TestRepo::init();
@@ -339,25 +322,23 @@ fn test_edit_previous_empty_non_head() {
         .new_commit(vec![old_wc_commit.id().clone()], old_wc_commit.tree())
         .write_unwrap();
     let ws_name = WorkspaceName::DEFAULT.to_owned();
-    mut_repo
-        .edit(ws_name.clone(), &old_wc_commit)
-        .block_on()
-        .unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+    mut_repo.edit(ws_name.clone(), &old_wc_commit).block_on()?;
+    let repo = tx.commit("test").block_on()?;
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let new_wc_commit = write_random_commit(mut_repo);
-    mut_repo.edit(ws_name, &new_wc_commit).block_on().unwrap();
-    mut_repo.rebase_descendants().block_on().unwrap();
+    mut_repo.edit(ws_name, &new_wc_commit).block_on()?;
+    mut_repo.rebase_descendants().block_on()?;
     assert_eq!(
         *mut_repo.view().heads(),
         hashset! {old_child.id().clone(), new_wc_commit.id().clone()}
     );
+    Ok(())
 }
 
 #[test]
-fn test_edit_initial() {
+fn test_edit_initial() -> TestResult {
     // Test that MutableRepo::edit() can be used on the initial working-copy commit
     // in a workspace
     let test_repo = TestRepo::init();
@@ -365,20 +346,18 @@ fn test_edit_initial() {
 
     let mut tx = repo.start_transaction();
     let wc_commit = write_random_commit(tx.repo_mut());
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
 
     let mut tx = repo.start_transaction();
     let ws_name = WorkspaceNameBuf::from("new-workspace");
-    tx.repo_mut()
-        .edit(ws_name.clone(), &wc_commit)
-        .block_on()
-        .unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+    tx.repo_mut().edit(ws_name.clone(), &wc_commit).block_on()?;
+    let repo = tx.commit("test").block_on()?;
     assert_eq!(repo.view().get_wc_commit_id(&ws_name), Some(wc_commit.id()));
+    Ok(())
 }
 
 #[test]
-fn test_edit_hidden_commit() {
+fn test_edit_hidden_commit() -> TestResult {
     // Test that MutableRepo::edit() edits a hidden commit and updates
     // the view head ids.
     let test_repo = TestRepo::init();
@@ -392,17 +371,15 @@ fn test_edit_hidden_commit() {
 
     let mut tx = repo.start_transaction();
     let ws_name = WorkspaceName::DEFAULT.to_owned();
-    tx.repo_mut()
-        .edit(ws_name.clone(), &wc_commit)
-        .block_on()
-        .unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+    tx.repo_mut().edit(ws_name.clone(), &wc_commit).block_on()?;
+    let repo = tx.commit("test").block_on()?;
     assert_eq!(repo.view().get_wc_commit_id(&ws_name), Some(wc_commit.id()));
     assert_eq!(*repo.view().heads(), hashset! {wc_commit.id().clone()});
+    Ok(())
 }
 
 #[test]
-fn test_add_head_success() {
+fn test_add_head_success() -> TestResult {
     // Test that MutableRepo::add_head() adds the head, and that it's still there
     // after commit. It should also be indexed.
     let test_repo = TestRepo::init();
@@ -419,16 +396,17 @@ fn test_add_head_success() {
 
     assert!(!mut_repo.view().heads().contains(new_commit.id()));
     assert!(!index_has_id(mut_repo.index(), new_commit.id()));
-    mut_repo.add_head(&new_commit).block_on().unwrap();
+    mut_repo.add_head(&new_commit).block_on()?;
     assert!(mut_repo.view().heads().contains(new_commit.id()));
     assert!(index_has_id(mut_repo.index(), new_commit.id()));
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
     assert!(repo.view().heads().contains(new_commit.id()));
     assert!(index_has_id(repo.index(), new_commit.id()));
+    Ok(())
 }
 
 #[test]
-fn test_add_head_ancestor() {
+fn test_add_head_ancestor() -> TestResult {
     // Test that MutableRepo::add_head() does not add a head if it's an ancestor of
     // an existing head.
     let test_repo = TestRepo::init();
@@ -438,17 +416,18 @@ fn test_add_head_ancestor() {
     let commit1 = write_random_commit(tx.repo_mut());
     let commit2 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
     let commit3 = write_random_commit_with_parents(tx.repo_mut(), &[&commit2]);
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
 
     assert_eq!(repo.view().heads(), &hashset! {commit3.id().clone()});
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    mut_repo.add_head(&commit1).block_on().unwrap();
+    mut_repo.add_head(&commit1).block_on()?;
     assert_eq!(repo.view().heads(), &hashset! {commit3.id().clone()});
+    Ok(())
 }
 
 #[test]
-fn test_add_head_not_immediate_child() {
+fn test_add_head_not_immediate_child() -> TestResult {
     // Test that MutableRepo::add_head() can be used for adding a head that is not
     // an immediate child of a current head.
     let test_repo = TestRepo::init();
@@ -456,7 +435,7 @@ fn test_add_head_not_immediate_child() {
 
     let mut tx = repo.start_transaction();
     let initial = write_random_commit(tx.repo_mut());
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
 
     // Create some commits outside of the repo by using a temporary transaction.
     // Then add one of them as a head.
@@ -471,7 +450,7 @@ fn test_add_head_not_immediate_child() {
     assert_eq!(repo.view().heads(), &hashset! {initial.id().clone()});
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    mut_repo.add_head(&child).block_on().unwrap();
+    mut_repo.add_head(&child).block_on()?;
     assert_eq!(
         mut_repo.view().heads(),
         &hashset! {initial.id().clone(), child.id().clone()}
@@ -479,10 +458,11 @@ fn test_add_head_not_immediate_child() {
     assert!(index_has_id(mut_repo.index(), initial.id()));
     assert!(index_has_id(mut_repo.index(), rewritten.id()));
     assert!(index_has_id(mut_repo.index(), child.id()));
+    Ok(())
 }
 
 #[test]
-fn test_remove_head() {
+fn test_remove_head() -> TestResult {
     // Test that MutableRepo::remove_head() removes the head, and that it's still
     // removed after commit. It should remain in the index, since we otherwise would
     // have to reindex everything.
@@ -493,7 +473,7 @@ fn test_remove_head() {
     let commit1 = write_random_commit(tx.repo_mut());
     let commit2 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
     let commit3 = write_random_commit_with_parents(tx.repo_mut(), &[&commit2]);
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -506,7 +486,7 @@ fn test_remove_head() {
     assert!(index_has_id(mut_repo.index(), commit1.id()));
     assert!(index_has_id(mut_repo.index(), commit2.id()));
     assert!(index_has_id(mut_repo.index(), commit3.id()));
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
     let heads = repo.view().heads().clone();
     assert!(!heads.contains(commit3.id()));
     assert!(!heads.contains(commit2.id()));
@@ -514,10 +494,11 @@ fn test_remove_head() {
     assert!(index_has_id(repo.index(), commit1.id()));
     assert!(index_has_id(repo.index(), commit2.id()));
     assert!(index_has_id(repo.index(), commit3.id()));
+    Ok(())
 }
 
 #[test]
-fn test_has_changed() {
+fn test_has_changed() -> TestResult {
     // Test that MutableRepo::has_changed() reports changes iff the view has changed
     // (e.g. not after setting a bookmark to point to where it was already
     // pointing).
@@ -542,14 +523,14 @@ fn test_has_changed() {
         remote_symbol("main", "origin"),
         normal_remote_ref(commit1.id()),
     );
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
     // Test the setup
     assert_eq!(repo.view().heads(), &hashset! {commit1.id().clone()});
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
 
-    mut_repo.add_head(&commit1).block_on().unwrap();
+    mut_repo.add_head(&commit1).block_on()?;
     mut_repo
         .set_wc_commit(ws_name.clone(), commit1.id().clone())
         .unwrap();
@@ -565,7 +546,7 @@ fn test_has_changed() {
     mut_repo.set_remote_bookmark(remote_symbol("stable", "origin"), RemoteRef::absent());
     assert!(!mut_repo.has_changes());
 
-    mut_repo.add_head(&commit2).block_on().unwrap();
+    mut_repo.add_head(&commit2).block_on()?;
     assert!(mut_repo.has_changes());
     mut_repo.remove_head(commit2.id());
     assert!(!mut_repo.has_changes());
@@ -595,10 +576,11 @@ fn test_has_changed() {
         normal_remote_ref(commit1.id()),
     );
     assert!(!mut_repo.has_changes());
+    Ok(())
 }
 
 #[test]
-fn test_rebase_descendants_simple() {
+fn test_rebase_descendants_simple() -> TestResult {
     // There are many additional tests of this functionality in `test_rewrite.rs`.
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
@@ -609,7 +591,7 @@ fn test_rebase_descendants_simple() {
     let commit3 = write_random_commit_with_parents(tx.repo_mut(), &[&commit2]);
     let commit4 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
     let commit5 = write_random_commit_with_parents(tx.repo_mut(), &[&commit4]);
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -628,10 +610,11 @@ fn test_rebase_descendants_simple() {
     let rebase_map =
         rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
     assert_eq!(rebase_map.len(), 0);
+    Ok(())
 }
 
 #[test]
-fn test_rebase_descendants_divergent_rewrite() {
+fn test_rebase_descendants_divergent_rewrite() -> TestResult {
     // Test rebasing descendants when one commit was rewritten to several other
     // commits. There are many additional tests of this functionality in
     // `test_rewrite.rs`.
@@ -642,7 +625,7 @@ fn test_rebase_descendants_divergent_rewrite() {
     let commit1 = write_random_commit(tx.repo_mut());
     let commit2 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
     let _commit3 = write_random_commit_with_parents(tx.repo_mut(), &[&commit2]);
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -657,6 +640,7 @@ fn test_rebase_descendants_divergent_rewrite() {
     let rebase_map =
         rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
     assert!(rebase_map.is_empty());
+    Ok(())
 }
 
 #[test]
@@ -683,7 +667,7 @@ fn test_rename_remote() {
 }
 
 #[test]
-fn test_remove_wc_commit_previous_not_discardable() {
+fn test_remove_wc_commit_previous_not_discardable() -> TestResult {
     // Test that MutableRepo::remove_wc_commit() does not usually abandon the
     // previous commit.
     let test_repo = TestRepo::init();
@@ -693,21 +677,19 @@ fn test_remove_wc_commit_previous_not_discardable() {
     let mut_repo = tx.repo_mut();
     let old_wc_commit = write_random_commit(mut_repo);
     let ws_name = WorkspaceName::DEFAULT.to_owned();
-    mut_repo
-        .edit(ws_name.clone(), &old_wc_commit)
-        .block_on()
-        .unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+    mut_repo.edit(ws_name.clone(), &old_wc_commit).block_on()?;
+    let repo = tx.commit("test").block_on()?;
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    mut_repo.remove_wc_commit(&ws_name).block_on().unwrap();
-    mut_repo.rebase_descendants().block_on().unwrap();
+    mut_repo.remove_wc_commit(&ws_name).block_on()?;
+    mut_repo.rebase_descendants().block_on()?;
     assert!(mut_repo.view().heads().contains(old_wc_commit.id()));
+    Ok(())
 }
 
 #[test]
-fn test_remove_wc_commit_previous_discardable() {
+fn test_remove_wc_commit_previous_discardable() -> TestResult {
     // Test that MutableRepo::remove_wc_commit() abandons the previous commit
     // if it was discardable.
     let test_repo = TestRepo::init();
@@ -722,21 +704,19 @@ fn test_remove_wc_commit_previous_discardable() {
         )
         .write_unwrap();
     let ws_name = WorkspaceName::DEFAULT.to_owned();
-    mut_repo
-        .edit(ws_name.clone(), &old_wc_commit)
-        .block_on()
-        .unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+    mut_repo.edit(ws_name.clone(), &old_wc_commit).block_on()?;
+    let repo = tx.commit("test").block_on()?;
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    mut_repo.remove_wc_commit(&ws_name).block_on().unwrap();
-    mut_repo.rebase_descendants().block_on().unwrap();
+    mut_repo.remove_wc_commit(&ws_name).block_on()?;
+    mut_repo.rebase_descendants().block_on()?;
     assert!(!mut_repo.view().heads().contains(old_wc_commit.id()));
+    Ok(())
 }
 
 #[test]
-fn test_reparent_descendants() {
+fn test_reparent_descendants() -> TestResult {
     // Test that MutableRepo::reparent_descendants() reparents descendants of
     // rewritten commits without altering their content.
     let test_repo = TestRepo::init();
@@ -761,7 +741,7 @@ fn test_reparent_descendants() {
         mut_repo
             .set_local_bookmark_target(bookmark.as_ref(), RefTarget::normal(commit.id().clone()));
     }
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
 
     // Rewrite "commit_a".
     let mut tx = repo.start_transaction();
@@ -770,11 +750,11 @@ fn test_reparent_descendants() {
         .rewrite_commit(&commit_a)
         .set_tree(create_random_tree(&repo))
         .write_unwrap();
-    let reparented = mut_repo.reparent_descendants().block_on().unwrap();
+    let reparented = mut_repo.reparent_descendants().block_on()?;
     // "child_a_b", "grandchild_a_b" and "child_a" (3 commits) must have been
     // reparented.
     assert_eq!(reparented, 3);
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
 
     for (bookmark, commit) in [
         ("b", &commit_b),
@@ -804,10 +784,11 @@ fn test_reparent_descendants() {
             assert_ne!(parent_ids, rewritten_parent_ids);
         }
     }
+    Ok(())
 }
 
 #[test]
-fn test_bookmark_hidden_commit() {
+fn test_bookmark_hidden_commit() -> TestResult {
     // Test that MutableRepo::set_local_bookmark_target() on a hidden commit makes
     // it visible.
     let test_repo = TestRepo::init();
@@ -817,13 +798,14 @@ fn test_bookmark_hidden_commit() {
     let mut tx = repo.start_transaction();
     let commit = write_random_commit(tx.repo_mut());
     tx.repo_mut().remove_head(commit.id());
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
     // Test the setup
     assert_eq!(*repo.view().heads(), hashset! {root_commit.id().clone()});
 
     let mut tx = repo.start_transaction();
     tx.repo_mut()
         .set_local_bookmark_target("b".as_ref(), RefTarget::normal(commit.id().clone()));
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
     assert_eq!(*repo.view().heads(), hashset! {commit.id().clone()});
+    Ok(())
 }

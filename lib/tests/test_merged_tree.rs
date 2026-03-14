@@ -48,6 +48,7 @@ use jj_lib::repo_path::RepoPathBuf;
 use pollster::FutureExt as _;
 use pretty_assertions::assert_eq;
 use testutils::TestRepo;
+use testutils::TestResult;
 use testutils::TestTreeBuilder;
 use testutils::assert_tree_eq;
 use testutils::create_single_tree;
@@ -80,7 +81,7 @@ fn diff_stream_equals_iter(tree1: &MergedTree, tree2: &MergedTree, matcher: &dyn
 /// Test that a tree built with no changes on top of an add/add conflict gets
 /// resolved.
 #[test]
-fn test_merged_tree_builder_resolves_conflict() {
+fn test_merged_tree_builder_resolves_conflict() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
     let store = repo.store();
@@ -100,12 +101,13 @@ fn test_merged_tree_builder_resolves_conflict() {
         ConflictLabels::from_vec(vec!["tree 2".into(), "tree 1".into(), "tree 3".into()]),
     );
     let tree_builder = MergedTreeBuilder::new(base_tree);
-    let tree = tree_builder.write_tree().block_on().unwrap();
+    let tree = tree_builder.write_tree().block_on()?;
     assert_eq!(*tree.tree_ids(), Merge::resolved(tree2.id().clone()));
+    Ok(())
 }
 
 #[test]
-fn test_path_value_and_entries() {
+fn test_path_value_and_entries() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -156,7 +158,7 @@ fn test_path_value_and_entries() {
 
     // Get the root tree
     assert_eq!(
-        merged_tree.path_value(RepoPath::root()).block_on().unwrap(),
+        merged_tree.path_value(RepoPath::root()).block_on()?,
         Merge::from_removes_adds(
             vec![Some(TreeValue::Tree(tree1.id().clone()))],
             vec![
@@ -167,50 +169,35 @@ fn test_path_value_and_entries() {
     );
     // Get file path without conflict
     assert_eq!(
-        merged_tree
-            .path_value(resolved_file_path)
-            .block_on()
-            .unwrap(),
-        Merge::resolved(tree1.path_value(resolved_file_path).block_on().unwrap()),
+        merged_tree.path_value(resolved_file_path).block_on()?,
+        Merge::resolved(tree1.path_value(resolved_file_path).block_on()?),
     );
     // Get directory path without conflict
     assert_eq!(
-        merged_tree
-            .path_value(resolved_dir_path)
-            .block_on()
-            .unwrap(),
-        Merge::resolved(tree1.path_value(resolved_dir_path).block_on().unwrap()),
+        merged_tree.path_value(resolved_dir_path).block_on()?,
+        Merge::resolved(tree1.path_value(resolved_dir_path).block_on()?),
     );
     // Get missing path
     assert_eq!(
-        merged_tree.path_value(missing_path).block_on().unwrap(),
+        merged_tree.path_value(missing_path).block_on()?,
         Merge::absent()
     );
     // Get modify/delete conflict (some None values)
     assert_eq!(
-        merged_tree
-            .path_value(modify_delete_path)
-            .block_on()
-            .unwrap(),
+        merged_tree.path_value(modify_delete_path).block_on()?,
         Merge::from_removes_adds(
-            vec![tree1.path_value(modify_delete_path).block_on().unwrap()],
-            vec![
-                tree2.path_value(modify_delete_path).block_on().unwrap(),
-                None
-            ]
+            vec![tree1.path_value(modify_delete_path).block_on()?],
+            vec![tree2.path_value(modify_delete_path).block_on()?, None]
         ),
     );
     // Get file/dir conflict path
     assert_eq!(
-        merged_tree
-            .path_value(file_dir_conflict_path)
-            .block_on()
-            .unwrap(),
+        merged_tree.path_value(file_dir_conflict_path).block_on()?,
         Merge::from_removes_adds(
-            vec![tree1.path_value(file_dir_conflict_path).block_on().unwrap()],
+            vec![tree1.path_value(file_dir_conflict_path).block_on()?],
             vec![
-                tree2.path_value(file_dir_conflict_path).block_on().unwrap(),
-                tree3.path_value(file_dir_conflict_path).block_on().unwrap()
+                tree2.path_value(file_dir_conflict_path).block_on()?,
+                tree3.path_value(file_dir_conflict_path).block_on()?
             ]
         ),
     );
@@ -221,8 +208,7 @@ fn test_path_value_and_entries() {
     assert_eq!(
         merged_tree
             .path_value(file_dir_conflict_sub_path)
-            .block_on()
-            .unwrap(),
+            .block_on()?,
         Merge::absent(),
     );
 
@@ -269,10 +255,11 @@ fn test_path_value_and_entries() {
         })
         .collect_vec();
     assert_eq!(actual_entries, expected_entries);
+    Ok(())
 }
 
 #[test]
-fn test_resolve_success() {
+fn test_resolve_success() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -335,13 +322,14 @@ fn test_resolve_success() {
         ]),
         ConflictLabels::from_vec(vec!["left".into(), "base".into(), "right".into()]),
     );
-    let resolved_tree = tree.resolve().block_on().unwrap();
+    let resolved_tree = tree.resolve().block_on()?;
     assert!(resolved_tree.tree_ids().is_resolved());
     assert_tree_eq!(resolved_tree, expected);
+    Ok(())
 }
 
 #[test]
-fn test_resolve_root_becomes_empty() {
+fn test_resolve_root_becomes_empty() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
     let store = repo.store();
@@ -361,12 +349,13 @@ fn test_resolve_root_becomes_empty() {
         ]),
         ConflictLabels::from_vec(vec!["side 1".into(), "base 1".into(), "side 2".into()]),
     );
-    let resolved = tree.resolve().block_on().unwrap();
+    let resolved = tree.resolve().block_on()?;
     assert_tree_eq!(resolved, store.empty_merged_tree());
+    Ok(())
 }
 
 #[test]
-fn test_resolve_with_conflict() {
+fn test_resolve_with_conflict() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -407,7 +396,7 @@ fn test_resolve_with_conflict() {
             "side 3".into(),
         ]),
     );
-    let resolved_tree = tree.resolve().block_on().unwrap();
+    let resolved_tree = tree.resolve().block_on()?;
     assert_tree_eq!(
         resolved_tree,
         MergedTree::new(
@@ -420,10 +409,11 @@ fn test_resolve_with_conflict() {
             ConflictLabels::from_vec(vec!["side 2".into(), "base 2".into(), "side 3".into()]),
         )
     );
+    Ok(())
 }
 
 #[test]
-fn test_resolve_with_conflict_containing_empty_subtree() {
+fn test_resolve_with_conflict_containing_empty_subtree() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -443,12 +433,13 @@ fn test_resolve_with_conflict_containing_empty_subtree() {
         ]),
         ConflictLabels::from_vec(vec!["left".into(), "base".into(), "right".into()]),
     );
-    let resolved_tree = tree.clone().resolve().block_on().unwrap();
+    let resolved_tree = tree.clone().resolve().block_on()?;
     assert_tree_eq!(resolved_tree, tree);
+    Ok(())
 }
 
 #[test]
-fn test_conflict_iterator() {
+fn test_conflict_iterator() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -575,7 +566,7 @@ fn test_conflict_iterator() {
     );
 
     // After we resolve conflicts, there are only non-trivial conflicts left
-    let tree = tree.resolve().block_on().unwrap();
+    let tree = tree.resolve().block_on()?;
     let conflicts = tree
         .conflicts()
         .map(|(path, conflict)| (path, conflict.unwrap()))
@@ -598,10 +589,11 @@ fn test_conflict_iterator() {
             ),
         ]
     );
+    Ok(())
 }
 
 #[test]
-fn test_conflict_iterator_higher_arity() {
+fn test_conflict_iterator_higher_arity() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -670,11 +662,12 @@ fn test_conflict_iterator_higher_arity() {
             (three_sided_path.to_owned(), conflict_at(three_sided_path))
         ]
     );
+    Ok(())
 }
 
 /// Diff two resolved trees
 #[test]
-fn test_diff_resolved() {
+fn test_diff_resolved() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -712,8 +705,8 @@ fn test_diff_resolved() {
         (
             modified_path.to_owned(),
             (
-                Merge::resolved(before.path_value(modified_path).block_on().unwrap()),
-                Merge::resolved(after.path_value(modified_path).block_on().unwrap())
+                Merge::resolved(before.path_value(modified_path).block_on()?),
+                Merge::resolved(after.path_value(modified_path).block_on()?)
             ),
         )
     );
@@ -722,7 +715,7 @@ fn test_diff_resolved() {
         (
             removed_path.to_owned(),
             (
-                Merge::resolved(before.path_value(removed_path).block_on().unwrap()),
+                Merge::resolved(before.path_value(removed_path).block_on()?),
                 Merge::absent()
             ),
         )
@@ -733,11 +726,12 @@ fn test_diff_resolved() {
             added_path.to_owned(),
             (
                 Merge::absent(),
-                Merge::resolved(after.path_value(added_path).block_on().unwrap())
+                Merge::resolved(after.path_value(added_path).block_on()?)
             ),
         )
     );
     diff_stream_equals_iter(&before_merged, &after_merged, &EverythingMatcher);
+    Ok(())
 }
 
 fn create_copy_records(paths: &[(&RepoPath, &RepoPath)]) -> CopyRecords {
@@ -754,7 +748,7 @@ fn create_copy_records(paths: &[(&RepoPath, &RepoPath)]) -> CopyRecords {
 
 /// Diff two resolved trees
 #[test]
-fn test_diff_copy_tracing() {
+fn test_diff_copy_tracing() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -800,8 +794,8 @@ fn test_diff_copy_tracing() {
                 target: modified_path.to_owned()
             },
             Diff::new(
-                Merge::resolved(before.path_value(modified_path).block_on().unwrap()),
-                Merge::resolved(after.path_value(modified_path).block_on().unwrap())
+                Merge::resolved(before.path_value(modified_path).block_on()?),
+                Merge::resolved(after.path_value(modified_path).block_on()?)
             ),
         )
     );
@@ -813,8 +807,8 @@ fn test_diff_copy_tracing() {
                 target: copied_path.to_owned(),
             },
             Diff::new(
-                Merge::resolved(before.path_value(modified_path).block_on().unwrap()),
-                Merge::resolved(after.path_value(copied_path).block_on().unwrap()),
+                Merge::resolved(before.path_value(modified_path).block_on()?),
+                Merge::resolved(after.path_value(copied_path).block_on()?),
             ),
         )
     );
@@ -826,16 +820,17 @@ fn test_diff_copy_tracing() {
                 target: added_path.to_owned(),
             },
             Diff::new(
-                Merge::resolved(before.path_value(removed_path).block_on().unwrap()),
-                Merge::resolved(after.path_value(added_path).block_on().unwrap())
+                Merge::resolved(before.path_value(removed_path).block_on()?),
+                Merge::resolved(after.path_value(added_path).block_on()?)
             ),
         )
     );
     diff_stream_equals_iter(&before_merged, &after_merged, &EverythingMatcher);
+    Ok(())
 }
 
 #[test]
-fn test_diff_copy_tracing_file_and_dir() {
+fn test_diff_copy_tracing_file_and_dir() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -877,8 +872,8 @@ fn test_diff_copy_tracing_file_and_dir() {
                 target: repo_path_buf("a/file"),
             },
             Diff::new(
-                before.path_value(repo_path("b/file")).block_on().unwrap(),
-                after.path_value(repo_path("a/file")).block_on().unwrap(),
+                before.path_value(repo_path("b/file")).block_on()?,
+                after.path_value(repo_path("a/file")).block_on()?,
             ),
         )
     );
@@ -890,8 +885,8 @@ fn test_diff_copy_tracing_file_and_dir() {
                 target: repo_path_buf("b"),
             },
             Diff::new(
-                before.path_value(repo_path("a")).block_on().unwrap(),
-                after.path_value(repo_path("b")).block_on().unwrap(),
+                before.path_value(repo_path("a")).block_on()?,
+                after.path_value(repo_path("b")).block_on()?,
             ),
         )
     );
@@ -903,17 +898,18 @@ fn test_diff_copy_tracing_file_and_dir() {
                 target: repo_path_buf("c/file"),
             },
             Diff::new(
-                before.path_value(repo_path("c")).block_on().unwrap(),
-                after.path_value(repo_path("c/file")).block_on().unwrap(),
+                before.path_value(repo_path("c")).block_on()?,
+                after.path_value(repo_path("c/file")).block_on()?,
             ),
         )
     );
     diff_stream_equals_iter(&before, &after, &EverythingMatcher);
+    Ok(())
 }
 
 /// Diff two conflicted trees
 #[test]
-fn test_diff_conflicted() {
+fn test_diff_conflicted() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -1039,10 +1035,11 @@ fn test_diff_conflicted() {
         .collect_vec();
     assert_eq!(actual_diff, expected_diff);
     diff_stream_equals_iter(&right_merged, &left_merged, &EverythingMatcher);
+    Ok(())
 }
 
 #[test]
-fn test_diff_dir_file() {
+fn test_diff_dir_file() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -1313,11 +1310,12 @@ fn test_diff_dir_file() {
         assert_eq!(actual_diff, expected_diff);
         diff_stream_equals_iter(&left_merged, &right_merged, &matcher);
     }
+    Ok(())
 }
 
 /// Merge 3 resolved trees that can be resolved
 #[test]
-fn test_merge_simple() {
+fn test_merge_simple() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -1337,14 +1335,14 @@ fn test_merge_simple() {
         (base1_merged, "base 1".into()),
         (side2_merged, "side 2".into()),
     ]))
-    .block_on()
-    .unwrap();
+    .block_on()?;
     assert_tree_eq!(merged, expected_merged);
+    Ok(())
 }
 
 /// Merge 3 resolved trees that can be partially resolved
 #[test]
-fn test_merge_partial_resolution() {
+fn test_merge_partial_resolution() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -1375,15 +1373,15 @@ fn test_merge_partial_resolution() {
         (base1_merged, "base 1".into()),
         (side2_merged, "side 2".into()),
     ]))
-    .block_on()
-    .unwrap();
+    .block_on()?;
     assert_tree_eq!(merged, expected_merged);
+    Ok(())
 }
 
 /// Merge 3 trees where each one is a 3-way conflict and the result is arrived
 /// at by only simplifying the conflict (no need to recurse)
 #[test]
-fn test_merge_simplify_only() {
+fn test_merge_simplify_only() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -1428,16 +1426,16 @@ fn test_merge_simplify_only() {
         (base1_merged, "base 1".into()),
         (side2_merged, "side 2".into()),
     ]))
-    .block_on()
-    .unwrap();
+    .block_on()?;
     assert_tree_eq!(merged, expected_merged);
+    Ok(())
 }
 
 /// Merge 3 trees with 3+1+1 terms (i.e. a 5-way conflict) such that resolving
 /// the conflict between the trees leads to two trees being the same, so the
 /// result is a 3-way conflict.
 #[test]
-fn test_merge_simplify_result() {
+fn test_merge_simplify_result() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -1490,14 +1488,14 @@ fn test_merge_simplify_result() {
         (base1_merged, "base 1".into()),
         (side2_merged, "side 2".into()),
     ]))
-    .block_on()
-    .unwrap();
+    .block_on()?;
     assert_tree_eq!(merged, expected_merged);
+    Ok(())
 }
 
 /// Test that resolved trees take their labels from `MergeLabels`.
 #[test]
-fn test_merge_simplify_result_with_resolved_labels() {
+fn test_merge_simplify_result_with_resolved_labels() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -1546,9 +1544,9 @@ fn test_merge_simplify_result_with_resolved_labels() {
         (base1_merged, "".into()),
         (side2_merged, "side 2".into()),
     ]))
-    .block_on()
-    .unwrap();
+    .block_on()?;
     assert_tree_eq!(merged, expected_merged);
+    Ok(())
 }
 
 /// Test that we simplify content-level conflicts before passing them to
@@ -1557,7 +1555,7 @@ fn test_merge_simplify_result_with_resolved_labels() {
 /// This is what happens when you squash a conflict resolution into a conflict
 /// and it gets propagated to a child where the conflict is different.
 #[test]
-fn test_merge_simplify_file_conflict() {
+fn test_merge_simplify_file_conflict() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -1678,8 +1676,7 @@ fn test_merge_simplify_file_conflict() {
         (parent_merged, "parent".into()),
         (child2_merged, "child 2".into()),
     ]))
-    .block_on()
-    .unwrap();
+    .block_on()?;
     assert_tree_eq!(merged, expected_merged);
 
     // Also test the setup by checking that the unsimplified content conflict cannot
@@ -1700,12 +1697,13 @@ fn test_merge_simplify_file_conflict() {
         ],
     );
     assert!(files::try_merge(&text_merge.flatten(), repo.store().merge_options()).is_none());
+    Ok(())
 }
 
 /// Like `test_merge_simplify_file_conflict()`, but some of the conflicts are
 /// absent.
 #[test]
-fn test_merge_simplify_file_conflict_with_absent() {
+fn test_merge_simplify_file_conflict_with_absent() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -1743,9 +1741,9 @@ fn test_merge_simplify_file_conflict_with_absent() {
         (parent_merged, "parent".into()),
         (child2_merged, "child 2".into()),
     ]))
-    .block_on()
-    .unwrap();
+    .block_on()?;
     assert_tree_eq!(merged, expected_merged);
+    Ok(())
 }
 
 #[test]
@@ -2118,7 +2116,7 @@ fn collect_diffs(
 }
 
 #[test]
-fn test_copy_diffstream_no_history_change() {
+fn test_copy_diffstream_no_history_change() -> TestResult {
     // CASE: edit foo.txt contents, no history changes
     let test_repo = testutils::TestRepo::init();
     let repo = &test_repo.repo;
@@ -2128,18 +2126,19 @@ fn test_copy_diffstream_no_history_change() {
     let histories = write_copy_histories(repo, &[(foo, vec![]), (bar, vec![foo])]);
 
     let left = create_tree_with_copy_history(repo, &histories, &[(foo, "foo"), (bar, "bar")]);
-    let foo_val_left = left.path_value(foo).block_on().unwrap();
+    let foo_val_left = left.path_value(foo).block_on()?;
     let right =
         create_tree_with_copy_history(repo, &histories, &[(foo, "edited foo"), (bar, "bar")]);
-    let foo_val_right = right.path_value(foo).block_on().unwrap();
+    let foo_val_right = right.path_value(foo).block_on()?;
     assert_eq!(
         collect_diffs(&left, &right),
         [expected_normal(foo, &foo_val_left, &foo_val_right)],
     );
+    Ok(())
 }
 
 #[test]
-fn test_copy_diffstream_copy() {
+fn test_copy_diffstream_copy() -> TestResult {
     // CASE: Copy foo.txt -> bar.txt
     let test_repo = testutils::TestRepo::init();
     let repo = &test_repo.repo;
@@ -2149,14 +2148,14 @@ fn test_copy_diffstream_copy() {
     let histories = write_copy_histories(repo, &[(foo, vec![]), (bar, vec![foo])]);
 
     let left = create_tree_with_copy_history(repo, &histories, &[(foo, "foo")]);
-    let foo_val = left.path_value(foo).block_on().unwrap();
+    let foo_val = left.path_value(foo).block_on()?;
 
     let right = create_tree_with_copy_history(
         repo,
         &histories,
         &[(foo, "foo"), (bar, "bar - copied from foo")],
     );
-    let bar_val = right.path_value(bar).block_on().unwrap();
+    let bar_val = right.path_value(bar).block_on()?;
 
     assert_eq!(
         collect_diffs(&left, &right),
@@ -2168,10 +2167,11 @@ fn test_copy_diffstream_copy() {
         collect_diffs(&right, &left),
         [expected_deletion(bar, &bar_val)],
     );
+    Ok(())
 }
 
 #[test]
-fn test_copy_diffstream_rename() {
+fn test_copy_diffstream_rename() -> TestResult {
     // CASE: remove foo.txt; bar.txt should show up as a Rename
     let test_repo = testutils::TestRepo::init();
     let repo = &test_repo.repo;
@@ -2181,9 +2181,9 @@ fn test_copy_diffstream_rename() {
     let histories = write_copy_histories(repo, &[(foo, vec![]), (bar, vec![foo])]);
 
     let left = create_tree_with_copy_history(repo, &histories, &[(foo, "foo")]);
-    let foo_val = left.path_value(foo).block_on().unwrap();
+    let foo_val = left.path_value(foo).block_on()?;
     let right = create_tree_with_copy_history(repo, &histories, &[(bar, "bar - renamed from foo")]);
-    let bar_val = right.path_value(bar).block_on().unwrap();
+    let bar_val = right.path_value(bar).block_on()?;
     assert_eq!(
         collect_diffs(&left, &right),
         [
@@ -2204,10 +2204,11 @@ fn test_copy_diffstream_rename() {
             expected_rename(bar, &bar_val, foo, &foo_val),
         ],
     );
+    Ok(())
 }
 
 #[test]
-fn test_copy_diffstream_file_dir_mismatch() {
+fn test_copy_diffstream_file_dir_mismatch() -> TestResult {
     // CASE: file / dir mismatch
     let test_repo = testutils::TestRepo::init();
     let repo = &test_repo.repo;
@@ -2218,10 +2219,10 @@ fn test_copy_diffstream_file_dir_mismatch() {
         write_copy_histories(repo, &[(file_dir_path, vec![]), (file_dir_subpath, vec![])]);
     let left =
         create_tree_with_copy_history(repo, &histories, &[(file_dir_path, "a file for now")]);
-    let file_val = left.path_value(file_dir_path).block_on().unwrap();
+    let file_val = left.path_value(file_dir_path).block_on()?;
     let right =
         create_tree_with_copy_history(repo, &histories, &[(file_dir_subpath, "parent is a dir")]);
-    let subpath_val = right.path_value(file_dir_subpath).block_on().unwrap();
+    let subpath_val = right.path_value(file_dir_subpath).block_on()?;
     assert_eq!(
         collect_diffs(&left, &right),
         [
@@ -2238,10 +2239,11 @@ fn test_copy_diffstream_file_dir_mismatch() {
             expected_deletion(file_dir_subpath, &subpath_val),
         ],
     );
+    Ok(())
 }
 
 #[test]
-fn test_copy_diffstream_symlink_mismatch() {
+fn test_copy_diffstream_symlink_mismatch() -> TestResult {
     // CASE: file / symlink mismatch
     let test_repo = testutils::TestRepo::init();
     let repo = &test_repo.repo;
@@ -2249,12 +2251,12 @@ fn test_copy_diffstream_symlink_mismatch() {
     let path = repo_path("file_or_symlink");
     let histories = write_copy_histories(repo, &[(path, vec![])]);
     let left = create_tree_with_copy_history(repo, &histories, &[(path, "a file for now")]);
-    let file_val = left.path_value(path).block_on().unwrap();
+    let file_val = left.path_value(path).block_on()?;
 
     let mut builder = TestTreeBuilder::new(repo.store().clone());
     builder.symlink(path, "./symlink_target");
     let right = builder.write_merged_tree();
-    let symlink_val = right.path_value(path).block_on().unwrap();
+    let symlink_val = right.path_value(path).block_on()?;
 
     assert_eq!(
         collect_diffs(&left, &right),
@@ -2271,10 +2273,11 @@ fn test_copy_diffstream_symlink_mismatch() {
             expected_creation(path, &file_val),
         ],
     );
+    Ok(())
 }
 
 #[test]
-fn test_copy_diffstream_symlink_with_history() {
+fn test_copy_diffstream_symlink_with_history() -> TestResult {
     let test_repo = testutils::TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -2286,7 +2289,7 @@ fn test_copy_diffstream_symlink_with_history() {
         &histories,
         &[(path, "a file for now"), (other_path, "other file")],
     );
-    let file_val = left.path_value(path).block_on().unwrap();
+    let file_val = left.path_value(path).block_on()?;
 
     let mut builder = TestTreeBuilder::new(repo.store().clone());
     builder.symlink(path, "./symlink_target");
@@ -2294,8 +2297,8 @@ fn test_copy_diffstream_symlink_with_history() {
         .file(other_path, "other file")
         .copy_history(&histories[other_path]);
     let right = builder.write_merged_tree();
-    let symlink_val = right.path_value(path).block_on().unwrap();
-    let other_val = right.path_value(other_path).block_on().unwrap();
+    let symlink_val = right.path_value(path).block_on()?;
+    let other_val = right.path_value(other_path).block_on()?;
 
     assert_eq!(
         collect_diffs(&left, &right),
@@ -2309,10 +2312,11 @@ fn test_copy_diffstream_symlink_with_history() {
             expected_copy(other_path, &other_val, path, &file_val),
         ],
     );
+    Ok(())
 }
 
 #[test]
-fn test_copy_diffstream_distinct_histories() {
+fn test_copy_diffstream_distinct_histories() -> TestResult {
     // CASE: same path, unrelated ancestries; e.g. a path is created, then
     // deleted, then recreated.
     let test_repo = testutils::TestRepo::init();
@@ -2341,10 +2345,10 @@ fn test_copy_diffstream_distinct_histories() {
     .collect();
 
     let left = create_tree_with_copy_history(repo, &histories1, &[(foo, "first foo")]);
-    let foo_val1 = left.path_value(foo).block_on().unwrap();
+    let foo_val1 = left.path_value(foo).block_on()?;
 
     let right = create_tree_with_copy_history(repo, &histories2, &[(foo, "second foo")]);
-    let foo_val2 = right.path_value(foo).block_on().unwrap();
+    let foo_val2 = right.path_value(foo).block_on()?;
     assert_eq!(
         collect_diffs(&left, &right),
         [
@@ -2354,10 +2358,11 @@ fn test_copy_diffstream_distinct_histories() {
             expected_creation(foo, &foo_val2),
         ],
     );
+    Ok(())
 }
 
 #[test]
-fn test_copy_diffstream_dest_conflict() {
+fn test_copy_diffstream_dest_conflict() -> TestResult {
     let test_repo = testutils::TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -2367,7 +2372,7 @@ fn test_copy_diffstream_dest_conflict() {
 
     // CASE: skip rename detection when there are conflicts
     let left = create_tree_with_copy_history(repo, &histories, &[(foo, "foo")]);
-    let foo_val = left.path_value(foo).block_on().unwrap();
+    let foo_val = left.path_value(foo).block_on()?;
 
     let right1 =
         create_tree_with_copy_history(repo, &histories, &[(bar, "foobar - renamed from foo")]);
@@ -2392,11 +2397,11 @@ fn test_copy_diffstream_dest_conflict() {
                 }],
                 [
                     CopyHistoryDiffTerm {
-                        target_value: right1.path_value(bar).block_on().unwrap().first().clone(),
+                        target_value: right1.path_value(bar).block_on()?.first().clone(),
                         sources: vec![],
                     },
                     CopyHistoryDiffTerm {
-                        target_value: right2.path_value(bar).block_on().unwrap().first().clone(),
+                        target_value: right2.path_value(bar).block_on()?.first().clone(),
                         sources: vec![],
                     },
                 ],
@@ -2407,10 +2412,11 @@ fn test_copy_diffstream_dest_conflict() {
         expected_deletion(foo, &foo_val),
     ];
     assert_eq!(collect_diffs(&left, &right), expected);
+    Ok(())
 }
 
 #[test]
-fn test_copy_diffstream_source_conflict() {
+fn test_copy_diffstream_source_conflict() -> TestResult {
     let test_repo = testutils::TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -2420,7 +2426,7 @@ fn test_copy_diffstream_source_conflict() {
 
     // CASE: conflict in source rather than target
     let base_tree = create_tree_with_copy_history(repo, &histories, &[(foo, "foo")]);
-    let foo_val = base_tree.path_value(foo).block_on().unwrap();
+    let foo_val = base_tree.path_value(foo).block_on()?;
 
     let left1 = create_tree_with_copy_history(repo, &histories, &[(foo, "Foo V1")]);
     let left2 = create_tree_with_copy_history(repo, &histories, &[(foo, "foo vX")]);
@@ -2435,7 +2441,7 @@ fn test_copy_diffstream_source_conflict() {
     let right = create_tree_with_copy_history(repo, &histories, &[(bar, "Foo v1.X")]);
     let expected = [
         // bar.txt is not matched against a conflicted source, despite being renamed from foo.txt
-        expected_creation(bar, &right.path_value(bar).block_on().unwrap()),
+        expected_creation(bar, &right.path_value(bar).block_on()?),
         // Conflicted foo.txt is deleted
         (
             foo.to_owned(),
@@ -2446,8 +2452,8 @@ fn test_copy_diffstream_source_conflict() {
                     Merge::from_removes_adds(
                         [foo_val.first().clone()],
                         [
-                            left1.path_value(foo).block_on().unwrap().first().clone(),
-                            left2.path_value(foo).block_on().unwrap().first().clone(),
+                            left1.path_value(foo).block_on()?.first().clone(),
+                            left2.path_value(foo).block_on()?.first().clone(),
                         ],
                     ),
                 )],
@@ -2455,10 +2461,11 @@ fn test_copy_diffstream_source_conflict() {
         ),
     ];
     assert_eq!(collect_diffs(&left, &right), expected);
+    Ok(())
 }
 
 #[test]
-fn test_copy_diffstream_source_and_dest_conflicts() {
+fn test_copy_diffstream_source_and_dest_conflicts() -> TestResult {
     let test_repo = testutils::TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -2468,7 +2475,7 @@ fn test_copy_diffstream_source_and_dest_conflicts() {
 
     // CASE: conflict in both source and target
     let base_tree = create_tree_with_copy_history(repo, &histories, &[(foo, "foo")]);
-    let foo_val = base_tree.path_value(foo).block_on().unwrap();
+    let foo_val = base_tree.path_value(foo).block_on()?;
 
     let left1 = create_tree_with_copy_history(repo, &histories, &[(foo, "Foo V1")]);
     let left2 = create_tree_with_copy_history(repo, &histories, &[(foo, "foo vX")]);
@@ -2482,10 +2489,10 @@ fn test_copy_diffstream_source_and_dest_conflicts() {
 
     let right1 =
         create_tree_with_copy_history(repo, &histories, &[(bar, "foobar - renamed from foo")]);
-    let bar1_val = right1.path_value(bar).block_on().unwrap();
+    let bar1_val = right1.path_value(bar).block_on()?;
     let right2 =
         create_tree_with_copy_history(repo, &histories, &[(bar, "foobaz - renamed from foo")]);
-    let bar2_val = right2.path_value(bar).block_on().unwrap();
+    let bar2_val = right2.path_value(bar).block_on()?;
     let right = MergedTree::merge(Merge::from_vec(vec![
         (right1.clone(), "right1".into()),
         (base_tree.clone(), "base_tree".into()),
@@ -2522,8 +2529,8 @@ fn test_copy_diffstream_source_and_dest_conflicts() {
                     Merge::from_removes_adds(
                         [foo_val.first().clone()],
                         [
-                            left1.path_value(foo).block_on().unwrap().first().clone(),
-                            left2.path_value(foo).block_on().unwrap().first().clone(),
+                            left1.path_value(foo).block_on()?.first().clone(),
+                            left2.path_value(foo).block_on()?.first().clone(),
                         ],
                     ),
                 )],
@@ -2531,10 +2538,11 @@ fn test_copy_diffstream_source_and_dest_conflicts() {
         ),
     ];
     assert_eq!(collect_diffs(&left, &right), expected);
+    Ok(())
 }
 
 #[test]
-fn test_copy_diffstream_multiple_descendants() {
+fn test_copy_diffstream_multiple_descendants() -> TestResult {
     let test_repo = testutils::TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -2554,11 +2562,11 @@ fn test_copy_diffstream_multiple_descendants() {
 
     // CASE: foo has multiple descendants, do we match against the nearest one?
     let left = create_tree_with_copy_history(repo, &histories, &[(gru, "gru")]);
-    let gru_val = left.path_value(gru).block_on().unwrap();
+    let gru_val = left.path_value(gru).block_on()?;
 
     let right = create_tree_with_copy_history(repo, &histories, &[(bar, "bar"), (qux, "qux")]);
-    let bar_val = right.path_value(bar).block_on().unwrap();
-    let qux_val = right.path_value(qux).block_on().unwrap();
+    let bar_val = right.path_value(bar).block_on()?;
+    let qux_val = right.path_value(qux).block_on()?;
     assert_eq!(
         collect_diffs(&left, &right),
         [
@@ -2581,10 +2589,11 @@ fn test_copy_diffstream_multiple_descendants() {
             expected_deletion(qux, &qux_val),
         ],
     );
+    Ok(())
 }
 
 #[test]
-fn test_copy_diffstream_same_path_parent() {
+fn test_copy_diffstream_same_path_parent() -> TestResult {
     let test_repo = testutils::TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -2600,8 +2609,7 @@ fn test_copy_diffstream_same_path_parent() {
         .store()
         .backend()
         .write_copy(&foo_history1)
-        .block_on()
-        .unwrap();
+        .block_on()?;
 
     let foo_history2 = CopyHistory {
         current_path: foo.to_owned(),
@@ -2612,13 +2620,12 @@ fn test_copy_diffstream_same_path_parent() {
         .store()
         .backend()
         .write_copy(&foo_history2)
-        .block_on()
-        .unwrap();
+        .block_on()?;
 
     let left = create_tree_with_copy_id(repo, &[(foo, "Original Foo", &foo_copyid1)]);
     let right = create_tree_with_copy_id(repo, &[(foo, "Foo NG", &foo_copyid2)]);
-    let old_foo_val = left.path_value(foo).block_on().unwrap();
-    let new_foo_val = right.path_value(foo).block_on().unwrap();
+    let old_foo_val = left.path_value(foo).block_on()?;
+    let new_foo_val = right.path_value(foo).block_on()?;
 
     assert_eq!(
         collect_diffs(&left, &right),
@@ -2639,10 +2646,11 @@ fn test_copy_diffstream_same_path_parent() {
             expected_normal(foo, &new_foo_val, &old_foo_val),
         ],
     );
+    Ok(())
 }
 
 #[test]
-fn test_copy_diffstream_merge_oneway() {
+fn test_copy_diffstream_merge_oneway() -> TestResult {
     let test_repo = testutils::TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -2653,12 +2661,7 @@ fn test_copy_diffstream_merge_oneway() {
         parents: vec![],
         salt: vec![],
     };
-    let foo_copyid = repo
-        .store()
-        .backend()
-        .write_copy(&foo_history)
-        .block_on()
-        .unwrap();
+    let foo_copyid = repo.store().backend().write_copy(&foo_history).block_on()?;
 
     let bar = repo_path("bar.txt");
     let bar_history_orig = CopyHistory {
@@ -2670,8 +2673,7 @@ fn test_copy_diffstream_merge_oneway() {
         .store()
         .backend()
         .write_copy(&bar_history_orig)
-        .block_on()
-        .unwrap();
+        .block_on()?;
     let bar_history_merged = CopyHistory {
         current_path: bar.to_owned(),
         parents: vec![foo_copyid.clone(), bar_copyid_orig.clone()],
@@ -2681,8 +2683,7 @@ fn test_copy_diffstream_merge_oneway() {
         .store()
         .backend()
         .write_copy(&bar_history_merged)
-        .block_on()
-        .unwrap();
+        .block_on()?;
 
     let left = create_tree_with_copy_id(
         repo,
@@ -2695,9 +2696,9 @@ fn test_copy_diffstream_merge_oneway() {
             (bar, "foobar - combined foo and bar", &bar_copyid_merged),
         ],
     );
-    let foo_val = left.path_value(foo).block_on().unwrap();
-    let old_bar_val = left.path_value(bar).block_on().unwrap();
-    let new_bar_val = right.path_value(bar).block_on().unwrap();
+    let foo_val = left.path_value(foo).block_on()?;
+    let old_bar_val = left.path_value(bar).block_on()?;
+    let new_bar_val = right.path_value(bar).block_on()?;
 
     assert_eq!(
         collect_diffs(&left, &right),
@@ -2766,10 +2767,11 @@ fn test_copy_diffstream_merge_oneway() {
             expected_copy(bar, &new_bar_val, foo, &foo_val),
         ],
     );
+    Ok(())
 }
 
 #[test]
-fn test_copy_diffstream_merge_twoway() {
+fn test_copy_diffstream_merge_twoway() -> TestResult {
     let test_repo = testutils::TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -2784,8 +2786,7 @@ fn test_copy_diffstream_merge_twoway() {
         .store()
         .backend()
         .write_copy(&foo_history_orig)
-        .block_on()
-        .unwrap();
+        .block_on()?;
 
     let bar = repo_path("bar.txt");
     let bar_history_orig = CopyHistory {
@@ -2797,8 +2798,7 @@ fn test_copy_diffstream_merge_twoway() {
         .store()
         .backend()
         .write_copy(&bar_history_orig)
-        .block_on()
-        .unwrap();
+        .block_on()?;
 
     let foo_history_merged = CopyHistory {
         current_path: foo.to_owned(),
@@ -2809,8 +2809,7 @@ fn test_copy_diffstream_merge_twoway() {
         .store()
         .backend()
         .write_copy(&foo_history_merged)
-        .block_on()
-        .unwrap();
+        .block_on()?;
     let bar_history_merged = CopyHistory {
         current_path: bar.to_owned(),
         parents: vec![foo_copyid_orig.clone(), bar_copyid_orig.clone()],
@@ -2820,8 +2819,7 @@ fn test_copy_diffstream_merge_twoway() {
         .store()
         .backend()
         .write_copy(&bar_history_merged)
-        .block_on()
-        .unwrap();
+        .block_on()?;
 
     let left = create_tree_with_copy_id(
         repo,
@@ -2837,10 +2835,10 @@ fn test_copy_diffstream_merge_twoway() {
             (bar, "foobar - combined foo and bar", &bar_copyid_merged),
         ],
     );
-    let old_foo_val = left.path_value(foo).block_on().unwrap();
-    let old_bar_val = left.path_value(bar).block_on().unwrap();
-    let new_foo_val = right.path_value(foo).block_on().unwrap();
-    let new_bar_val = right.path_value(bar).block_on().unwrap();
+    let old_foo_val = left.path_value(foo).block_on()?;
+    let old_bar_val = left.path_value(bar).block_on()?;
+    let new_foo_val = right.path_value(foo).block_on()?;
+    let new_bar_val = right.path_value(bar).block_on()?;
 
     assert_eq!(
         collect_diffs(&left, &right),
@@ -2899,10 +2897,11 @@ fn test_copy_diffstream_merge_twoway() {
     //        expected_copy(bar, &new_bar_val, foo, &old_foo_val),
     //    ],
     //);
+    Ok(())
 }
 
 #[test]
-fn test_copy_diffstream_rename_overwrite() {
+fn test_copy_diffstream_rename_overwrite() -> TestResult {
     let test_repo = testutils::TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -2916,8 +2915,7 @@ fn test_copy_diffstream_rename_overwrite() {
         .store()
         .backend()
         .write_copy(&foo_history_orig)
-        .block_on()
-        .unwrap();
+        .block_on()?;
 
     let bar = repo_path("bar.txt");
     let bar_history_orig = CopyHistory {
@@ -2929,8 +2927,7 @@ fn test_copy_diffstream_rename_overwrite() {
         .store()
         .backend()
         .write_copy(&bar_history_orig)
-        .block_on()
-        .unwrap();
+        .block_on()?;
     let bar_history_copied = CopyHistory {
         current_path: bar.to_owned(),
         parents: vec![foo_copyid_orig.clone()],
@@ -2940,8 +2937,7 @@ fn test_copy_diffstream_rename_overwrite() {
         .store()
         .backend()
         .write_copy(&bar_history_copied)
-        .block_on()
-        .unwrap();
+        .block_on()?;
 
     let left = create_tree_with_copy_id(
         repo,
@@ -2951,9 +2947,9 @@ fn test_copy_diffstream_rename_overwrite() {
         ],
     );
     let right = create_tree_with_copy_id(repo, &[(bar, "renamed from foo", &bar_copyid_copied)]);
-    let foo_val = left.path_value(foo).block_on().unwrap();
-    let old_bar_val = left.path_value(bar).block_on().unwrap();
-    let new_bar_val = right.path_value(bar).block_on().unwrap();
+    let foo_val = left.path_value(foo).block_on()?;
+    let old_bar_val = left.path_value(bar).block_on()?;
+    let new_bar_val = right.path_value(bar).block_on()?;
 
     assert_eq!(
         collect_diffs(&left, &right),
@@ -2987,8 +2983,7 @@ fn test_copy_diffstream_rename_overwrite() {
         .store()
         .backend()
         .write_copy(&foo_history_copied)
-        .block_on()
-        .unwrap();
+        .block_on()?;
     let right2 = create_tree_with_copy_id(
         repo,
         &[(
@@ -2997,7 +2992,7 @@ fn test_copy_diffstream_rename_overwrite() {
             &foo_copyid_copied,
         )],
     );
-    let final_foo_val = right2.path_value(foo).block_on().unwrap();
+    let final_foo_val = right2.path_value(foo).block_on()?;
 
     assert_eq!(
         collect_diffs(&left, &right2),
@@ -3020,10 +3015,11 @@ fn test_copy_diffstream_rename_overwrite() {
             expected_normal(foo, &final_foo_val, &foo_val),
         ],
     );
+    Ok(())
 }
 
 #[test]
-fn test_copy_diffstream_double_rename() {
+fn test_copy_diffstream_double_rename() -> TestResult {
     let test_repo = testutils::TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -3037,8 +3033,7 @@ fn test_copy_diffstream_double_rename() {
         .store()
         .backend()
         .write_copy(&foo_history_orig)
-        .block_on()
-        .unwrap();
+        .block_on()?;
 
     let bar = repo_path("bar.txt");
     let bar_history_orig = CopyHistory {
@@ -3050,8 +3045,7 @@ fn test_copy_diffstream_double_rename() {
         .store()
         .backend()
         .write_copy(&bar_history_orig)
-        .block_on()
-        .unwrap();
+        .block_on()?;
 
     let foo_history_copied = CopyHistory {
         current_path: foo.to_owned(),
@@ -3062,8 +3056,7 @@ fn test_copy_diffstream_double_rename() {
         .store()
         .backend()
         .write_copy(&foo_history_copied)
-        .block_on()
-        .unwrap();
+        .block_on()?;
     let bar_history_copied = CopyHistory {
         current_path: bar.to_owned(),
         parents: vec![foo_copyid_orig.clone()],
@@ -3073,8 +3066,7 @@ fn test_copy_diffstream_double_rename() {
         .store()
         .backend()
         .write_copy(&bar_history_copied)
-        .block_on()
-        .unwrap();
+        .block_on()?;
 
     let left = create_tree_with_copy_id(
         repo,
@@ -3090,10 +3082,10 @@ fn test_copy_diffstream_double_rename() {
             (bar, "originally foo", &bar_copyid_copied),
         ],
     );
-    let old_foo_val = left.path_value(foo).block_on().unwrap();
-    let old_bar_val = left.path_value(bar).block_on().unwrap();
-    let new_foo_val = right.path_value(foo).block_on().unwrap();
-    let new_bar_val = right.path_value(bar).block_on().unwrap();
+    let old_foo_val = left.path_value(foo).block_on()?;
+    let old_bar_val = left.path_value(bar).block_on()?;
+    let new_foo_val = right.path_value(foo).block_on()?;
+    let new_bar_val = right.path_value(bar).block_on()?;
 
     assert_eq!(
         collect_diffs(&left, &right),
@@ -3122,4 +3114,5 @@ fn test_copy_diffstream_double_rename() {
             expected_rename(bar, &new_bar_val, foo, &old_foo_val),
         ],
     );
+    Ok(())
 }

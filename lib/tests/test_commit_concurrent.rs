@@ -22,6 +22,7 @@ use jj_lib::repo::Repo as _;
 use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::TestRepoBackend;
+use testutils::TestResult;
 use testutils::TestWorkspace;
 use testutils::write_random_commit;
 
@@ -45,7 +46,7 @@ fn count_non_merge_operations(repo: &Arc<ReadonlyRepo>) -> usize {
 
 #[test_case(TestRepoBackend::Simple ; "simple backend")]
 #[test_case(TestRepoBackend::Git ; "git backend")]
-fn test_commit_parallel(backend: TestRepoBackend) {
+fn test_commit_parallel(backend: TestRepoBackend) -> TestResult {
     // This loads a Repo instance and creates and commits many concurrent
     // transactions from it. It then reloads the repo. That should merge all the
     // operations and all commits should be visible.
@@ -63,7 +64,7 @@ fn test_commit_parallel(backend: TestRepoBackend) {
             });
         }
     });
-    let repo = repo.reload_at_head().block_on().unwrap();
+    let repo = repo.reload_at_head().block_on()?;
     // One commit per thread plus the commit from the initial working-copy on top of
     // the root commit
     assert_eq!(repo.view().heads().len(), num_threads + 1);
@@ -71,11 +72,12 @@ fn test_commit_parallel(backend: TestRepoBackend) {
     // One additional operation for the root operation, one for checking out the
     // initial commit.
     assert_eq!(count_non_merge_operations(&repo), num_threads + 2);
+    Ok(())
 }
 
 #[test_case(TestRepoBackend::Simple ; "simple backend")]
 #[test_case(TestRepoBackend::Git ; "git backend")]
-fn test_commit_parallel_instances(backend: TestRepoBackend) {
+fn test_commit_parallel_instances(backend: TestRepoBackend) -> TestResult {
     // Like the test above but creates a new repo instance for every thread, which
     // makes it behave very similar to separate processes.
     let settings = testutils::user_settings();
@@ -102,4 +104,5 @@ fn test_commit_parallel_instances(backend: TestRepoBackend) {
     // One additional operation for the root operation, one for checking out the
     // initial commit.
     assert_eq!(count_non_merge_operations(&repo), num_threads + 2);
+    Ok(())
 }

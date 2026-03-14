@@ -1573,6 +1573,7 @@ mod tests {
     use gix::objs::CommitRef;
     use indoc::indoc;
     use pollster::FutureExt as _;
+    use testutils::TestResult;
 
     use super::*;
     use crate::config::StackedConfig;
@@ -1609,7 +1610,7 @@ mod tests {
     }
 
     #[test]
-    fn read_plain_git_commit() {
+    fn read_plain_git_commit() -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
@@ -1702,7 +1703,7 @@ mod tests {
             .collect_vec();
         assert_eq!(git_refs, vec![git_commit_id2]);
 
-        let commit = backend.read_commit(&commit_id).block_on().unwrap();
+        let commit = backend.read_commit(&commit_id).block_on()?;
         assert_eq!(&commit.change_id, &change_id);
         assert_eq!(commit.parents, vec![CommitId::from_bytes(&[0; 20])]);
         assert_eq!(commit.predecessors, vec![]);
@@ -1731,8 +1732,7 @@ mod tests {
                 RepoPath::root(),
                 &TreeId::from_bytes(root_tree_id.as_bytes()),
             )
-            .block_on()
-            .unwrap();
+            .block_on()?;
         let mut root_entries = root_tree.entries();
         let dir = root_entries.next().unwrap();
         assert_eq!(root_entries.next(), None);
@@ -1747,8 +1747,7 @@ mod tests {
                 RepoPath::from_internal_string("dir").unwrap(),
                 &TreeId::from_bytes(dir_tree_id.as_bytes()),
             )
-            .block_on()
-            .unwrap();
+            .block_on()?;
         let mut entries = dir_tree.entries();
         let file = entries.next().unwrap();
         let symlink = entries.next().unwrap();
@@ -1768,13 +1767,14 @@ mod tests {
             &TreeValue::Symlink(SymlinkId::from_bytes(blob2.as_bytes()))
         );
 
-        let commit2 = backend.read_commit(&commit_id2).block_on().unwrap();
+        let commit2 = backend.read_commit(&commit_id2).block_on()?;
         assert_eq!(commit2.parents, vec![commit_id.clone()]);
         assert_eq!(commit.predecessors, vec![]);
         assert_eq!(
             commit.root_tree,
             Merge::resolved(TreeId::from_bytes(root_tree_id.as_bytes()))
         );
+        Ok(())
     }
 
     #[test]
@@ -1824,7 +1824,7 @@ mod tests {
     }
 
     #[test]
-    fn read_signed_git_commit() {
+    fn read_signed_git_commit() -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
@@ -1866,14 +1866,14 @@ mod tests {
 
         let commit = backend
             .read_commit(&CommitId::from_bytes(git_commit_id.as_bytes()))
-            .block_on()
-            .unwrap();
+            .block_on()?;
 
         let sig = commit.secure_sig.expect("failed to read the signature");
 
         // converting to string for nicer assert diff
         assert_eq!(str::from_utf8(&sig.sig).unwrap(), secure_sig);
         assert_eq!(str::from_utf8(&sig.data).unwrap(), commit_str);
+        Ok(())
     }
 
     #[test]
@@ -1947,7 +1947,7 @@ mod tests {
     }
 
     #[test]
-    fn round_trip_change_id_via_git_header() {
+    fn round_trip_change_id_via_git_header() -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
 
@@ -1972,9 +1972,8 @@ mod tests {
             secure_sig: None,
         };
 
-        let (initial_commit_id, _init_commit) =
-            backend.write_commit(commit, None).block_on().unwrap();
-        let commit = backend.read_commit(&initial_commit_id).block_on().unwrap();
+        let (initial_commit_id, _init_commit) = backend.write_commit(commit, None).block_on()?;
+        let commit = backend.read_commit(&initial_commit_id).block_on()?;
         assert_eq!(
             commit.change_id, original_change_id,
             "The change-id header did not roundtrip"
@@ -1987,13 +1986,13 @@ mod tests {
             GitBackend::init_external(&settings, &empty_store_path, git_repo.path()).unwrap();
         let no_extra_commit = no_extra_backend
             .read_commit(&initial_commit_id)
-            .block_on()
-            .unwrap();
+            .block_on()?;
 
         assert_eq!(
             no_extra_commit.change_id, original_change_id,
             "The change-id header did not roundtrip"
         );
+        Ok(())
     }
 
     #[test]
@@ -2044,7 +2043,7 @@ mod tests {
 
     /// Test that parents get written correctly
     #[test]
-    fn git_commit_parents() {
+    fn git_commit_parents() -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
@@ -2078,7 +2077,7 @@ mod tests {
         // Only root commit as parent
         commit.parents = vec![backend.root_commit_id().clone()];
         let first_id = write_commit(commit.clone()).unwrap().0;
-        let first_commit = backend.read_commit(&first_id).block_on().unwrap();
+        let first_commit = backend.read_commit(&first_id).block_on()?;
         assert_eq!(first_commit, commit);
         let first_git_commit = git_repo.find_commit(git_id(&first_id)).unwrap();
         assert!(first_git_commit.parent_ids().collect_vec().is_empty());
@@ -2086,7 +2085,7 @@ mod tests {
         // Only non-root commit as parent
         commit.parents = vec![first_id.clone()];
         let second_id = write_commit(commit.clone()).unwrap().0;
-        let second_commit = backend.read_commit(&second_id).block_on().unwrap();
+        let second_commit = backend.read_commit(&second_id).block_on()?;
         assert_eq!(second_commit, commit);
         let second_git_commit = git_repo.find_commit(git_id(&second_id)).unwrap();
         assert_eq!(
@@ -2097,7 +2096,7 @@ mod tests {
         // Merge commit
         commit.parents = vec![first_id.clone(), second_id.clone()];
         let merge_id = write_commit(commit.clone()).unwrap().0;
-        let merge_commit = backend.read_commit(&merge_id).block_on().unwrap();
+        let merge_commit = backend.read_commit(&merge_id).block_on()?;
         assert_eq!(merge_commit, commit);
         let merge_git_commit = git_repo.find_commit(git_id(&merge_id)).unwrap();
         assert_eq!(
@@ -2111,10 +2110,11 @@ mod tests {
             write_commit(commit),
             Err(BackendError::Unsupported(message)) if message.contains("root commit")
         );
+        Ok(())
     }
 
     #[test]
-    fn write_tree_conflicts() {
+    fn write_tree_conflicts() -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
@@ -2158,7 +2158,7 @@ mod tests {
         // When writing a tree-level conflict, the root tree on the git side has the
         // individual trees as subtrees.
         let read_commit_id = write_commit(commit.clone()).unwrap().0;
-        let read_commit = backend.read_commit(&read_commit_id).block_on().unwrap();
+        let read_commit = backend.read_commit(&read_commit_id).block_on()?;
         assert_eq!(read_commit, commit);
         let git_commit = git_repo
             .find_commit(gix::ObjectId::from_bytes_or_panic(
@@ -2220,7 +2220,7 @@ mod tests {
         // regular git tree.
         commit.root_tree = Merge::resolved(create_tree(5));
         let read_commit_id = write_commit(commit.clone()).unwrap().0;
-        let read_commit = backend.read_commit(&read_commit_id).block_on().unwrap();
+        let read_commit = backend.read_commit(&read_commit_id).block_on()?;
         assert_eq!(read_commit, commit);
         let git_commit = git_repo
             .find_commit(gix::ObjectId::from_bytes_or_panic(
@@ -2231,10 +2231,11 @@ mod tests {
             Merge::resolved(TreeId::from_bytes(git_commit.tree_id().unwrap().as_bytes())),
             commit.root_tree
         );
+        Ok(())
     }
 
     #[test]
-    fn commit_has_ref() {
+    fn commit_has_ref() -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
         let backend = GitBackend::init_internal(&settings, temp_dir.path()).unwrap();
@@ -2258,7 +2259,7 @@ mod tests {
             committer: signature,
             secure_sig: None,
         };
-        let commit_id = backend.write_commit(commit, None).block_on().unwrap().0;
+        let commit_id = backend.write_commit(commit, None).block_on()?.0;
         let git_refs = git_repo.references().unwrap();
         let git_ref_ids: Vec<_> = git_refs
             .prefixed("refs/jj/keep/")
@@ -2280,6 +2281,7 @@ mod tests {
             .map(|x| x.unwrap().id().detach())
             .collect();
         assert!(git_ref_ids.iter().any(|id| *id == git_id(&commit_id)));
+        Ok(())
     }
 
     #[test]
@@ -2324,7 +2326,7 @@ mod tests {
     }
 
     #[test]
-    fn overlapping_git_commit_id() {
+    fn overlapping_git_commit_id() -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
         let backend = GitBackend::init_internal(&settings, temp_dir.path()).unwrap();
@@ -2350,10 +2352,7 @@ mod tests {
         // committer timestamp of the commit it actually writes.
         let (commit_id2, mut actual_commit2) = write_commit(commit2.clone()).unwrap();
         // The returned matches the ID
-        assert_eq!(
-            backend.read_commit(&commit_id2).block_on().unwrap(),
-            actual_commit2
-        );
+        assert_eq!(backend.read_commit(&commit_id2).block_on()?, actual_commit2);
         assert_ne!(commit_id2, commit_id1);
         // The committer timestamp should differ
         assert_ne!(
@@ -2363,10 +2362,11 @@ mod tests {
         // The rest of the commit should be the same
         actual_commit2.committer.timestamp.timestamp = commit2.committer.timestamp.timestamp;
         assert_eq!(actual_commit2, commit2);
+        Ok(())
     }
 
     #[test]
-    fn write_signed_commit() {
+    fn write_signed_commit() -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
         let backend = GitBackend::init_internal(&settings, temp_dir.path()).unwrap();
@@ -2390,8 +2390,7 @@ mod tests {
 
         let (id, commit) = backend
             .write_commit(commit, Some(&mut signer as &mut SigningFn))
-            .block_on()
-            .unwrap();
+            .block_on()?;
 
         let git_repo = backend.git_repo();
         let obj = git_repo
@@ -2410,7 +2409,7 @@ mod tests {
 
         let returned_sig = commit.secure_sig.expect("failed to return the signature");
 
-        let commit = backend.read_commit(&id).block_on().unwrap();
+        let commit = backend.read_commit(&id).block_on()?;
 
         let sig = commit.secure_sig.expect("failed to read the signature");
         assert_eq!(&sig, &returned_sig);
@@ -2427,6 +2426,7 @@ mod tests {
 
         initial
         ");
+        Ok(())
     }
 
     fn git_id(commit_id: &CommitId) -> gix::ObjectId {
