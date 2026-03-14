@@ -4907,12 +4907,8 @@ to keep the file sorted alphabetically and remove any duplicate words.</p>
 stored inside <code>node_modules</code>. Use the <code>$root</code> variable to create an absolute
 path to such a program:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[fix.tools.biome]</span>
-
-<span class="c1"># Linux and macOS</span>
-<span class="n">command</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;$root/node_modules/@biomejs/cli-linux-x64/biome&quot;</span><span class="p">]</span>
-
-<span class="c1"># Windows</span>
-<span class="n">command</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;$root</span><span class="se">\\</span><span class="s2">node_modules</span><span class="se">\\</span><span class="s2">@biomejs</span><span class="se">\\</span><span class="s2">cli-win32-x64</span><span class="se">\\</span><span class="s2">biome.exe&quot;</span><span class="p">]</span>
+<span class="n">command</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;$root/node_modules/@biomejs/biome/bin/biome&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;format&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;--stdin-file-path=$path&quot;</span><span class="p">]</span>
+<span class="n">patterns</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;glob:&#39;**/*.ts&#39;&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;glob:&#39;**/*.tsx&#39;&quot;</span><span class="p">]</span>
 </code></pre></div>
 <h3 id="execution-order-of-tools">Execution order of tools<a class="headerlink" href="#execution-order-of-tools" title="Permanent link">&para;</a></h3>
 <p>If two or more tools affect the same file, they are executed in the ascending
