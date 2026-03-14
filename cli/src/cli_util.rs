@@ -67,6 +67,7 @@ use jj_lib::config::ConfigSource;
 use jj_lib::config::ConfigValue;
 use jj_lib::config::StackedConfig;
 use jj_lib::conflicts::ConflictMarkerStyle;
+use jj_lib::dsl_util::load_aliases_map;
 use jj_lib::fileset;
 use jj_lib::fileset::FilesetAliasesMap;
 use jj_lib::fileset::FilesetDiagnostics;
@@ -176,7 +177,6 @@ use crate::config::ConfigArgKind;
 use crate::config::ConfigEnv;
 use crate::config::RawConfig;
 use crate::config::config_from_environment;
-use crate::config::load_aliases_map;
 use crate::config::parse_config_args;
 use crate::description_util::TextEditor;
 use crate::diff_util;
@@ -3239,17 +3239,18 @@ pub fn has_tracked_remote_tags(repo: &dyn Repo, tag: &RefName) -> bool {
 pub fn load_fileset_aliases(
     ui: &Ui,
     config: &StackedConfig,
-) -> Result<FilesetAliasesMap, CommandError> {
+) -> Result<FilesetAliasesMap, UserError> {
     let table_name = ConfigNamePathBuf::from_iter(["fileset-aliases"]);
-    load_aliases_map(ui, config, &table_name)
+    load_aliases_map(config, &table_name, |args| {
+        writeln!(ui.warning_default(), "{args}")
+    })
 }
 
-pub fn load_revset_aliases(
-    ui: &Ui,
-    config: &StackedConfig,
-) -> Result<RevsetAliasesMap, CommandError> {
+pub fn load_revset_aliases(ui: &Ui, config: &StackedConfig) -> Result<RevsetAliasesMap, UserError> {
     let table_name = ConfigNamePathBuf::from_iter(["revset-aliases"]);
-    let aliases_map = load_aliases_map(ui, config, &table_name)?;
+    let aliases_map = load_aliases_map(config, &table_name, |args| {
+        writeln!(ui.warning_default(), "{args}")
+    })?;
     revset_util::warn_user_redefined_builtin(ui, config, &table_name)?;
     Ok(aliases_map)
 }
@@ -3257,9 +3258,11 @@ pub fn load_revset_aliases(
 pub fn load_template_aliases(
     ui: &Ui,
     config: &StackedConfig,
-) -> Result<TemplateAliasesMap, CommandError> {
+) -> Result<TemplateAliasesMap, UserError> {
     let table_name = ConfigNamePathBuf::from_iter(["template-aliases"]);
-    load_aliases_map(ui, config, &table_name)
+    load_aliases_map(config, &table_name, |args| {
+        writeln!(ui.warning_default(), "{args}")
+    })
 }
 
 /// Helper to reformat content of log-like commands.
