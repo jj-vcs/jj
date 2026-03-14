@@ -24,6 +24,7 @@ use jj_lib::revset::ResolvedExpression;
 use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::TestRepo;
+use testutils::TestResult;
 use testutils::write_random_commit;
 use testutils::write_random_commit_with_parents;
 
@@ -51,7 +52,7 @@ fn missing(commit: &Commit) -> GraphEdge<CommitId> {
 #[test_case(false, 0; "keep transitive edges")]
 #[test_case(true, 0; "skip transitive edges")]
 #[test_matrix(true, 60..64; "skip transitive edges")]
-fn test_graph_iterator_linearized(skip_transitive_edges: bool, padding: u32) {
+fn test_graph_iterator_linearized(skip_transitive_edges: bool, padding: u32) -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -72,7 +73,7 @@ fn test_graph_iterator_linearized(skip_transitive_edges: bool, padding: u32) {
     let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
     let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
     let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b, &commit_c]);
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
     let root_commit = repo.store().root_commit();
 
     let revset = revset_for_commits(repo.as_ref(), &[&commit_a, &commit_d]);
@@ -85,12 +86,13 @@ fn test_graph_iterator_linearized(skip_transitive_edges: bool, padding: u32) {
     assert_eq!(commits[1].0, *commit_a.id());
     assert_eq!(commits[0].1, vec![indirect(&commit_a)]);
     assert_eq!(commits[1].1, vec![missing(&root_commit)]);
+    Ok(())
 }
 
 #[test_case(false, 0; "keep transitive edges")]
 #[test_case(true, 0; "skip transitive edges")]
 #[test_matrix(true, 58..64; "skip transitive edges")]
-fn test_graph_iterator_virtual_octopus(skip_transitive_edges: bool, padding: u32) {
+fn test_graph_iterator_virtual_octopus(skip_transitive_edges: bool, padding: u32) -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -115,7 +117,7 @@ fn test_graph_iterator_virtual_octopus(skip_transitive_edges: bool, padding: u32
     let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a, &commit_b]);
     let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b, &commit_c]);
     let commit_f = write_random_commit_with_parents(tx.repo_mut(), &[&commit_d, &commit_e]);
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
     let root_commit = repo.store().root_commit();
 
     let revset = revset_for_commits(repo.as_ref(), &[&commit_a, &commit_b, &commit_c, &commit_f]);
@@ -139,12 +141,13 @@ fn test_graph_iterator_virtual_octopus(skip_transitive_edges: bool, padding: u32
     assert_eq!(commits[1].1, vec![missing(&root_commit)]);
     assert_eq!(commits[2].1, vec![missing(&root_commit)]);
     assert_eq!(commits[3].1, vec![missing(&root_commit)]);
+    Ok(())
 }
 
 #[test_case(false, 0; "keep transitive edges")]
 #[test_case(true, 0; "skip transitive edges")]
 #[test_matrix(true, 59..64; "skip transitive edges")]
-fn test_graph_iterator_simple_fork(skip_transitive_edges: bool, padding: u32) {
+fn test_graph_iterator_simple_fork(skip_transitive_edges: bool, padding: u32) -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -169,7 +172,7 @@ fn test_graph_iterator_simple_fork(skip_transitive_edges: bool, padding: u32) {
     let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
     let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
     let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_d]);
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
     let root_commit = repo.store().root_commit();
 
     let revset = revset_for_commits(repo.as_ref(), &[&commit_a, &commit_c, &commit_e]);
@@ -184,12 +187,13 @@ fn test_graph_iterator_simple_fork(skip_transitive_edges: bool, padding: u32) {
     assert_eq!(commits[0].1, vec![indirect(&commit_a)]);
     assert_eq!(commits[1].1, vec![indirect(&commit_a)]);
     assert_eq!(commits[2].1, vec![missing(&root_commit)]);
+    Ok(())
 }
 
 #[test_case(false, 0; "keep transitive edges")]
 #[test_case(true, 0; "skip transitive edges")]
 #[test_matrix(true, 58..64; "skip transitive edges")]
-fn test_graph_iterator_multiple_missing(skip_transitive_edges: bool, padding: u32) {
+fn test_graph_iterator_multiple_missing(skip_transitive_edges: bool, padding: u32) -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -213,7 +217,7 @@ fn test_graph_iterator_multiple_missing(skip_transitive_edges: bool, padding: u3
     let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a, &commit_b]);
     let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b, &commit_c]);
     let commit_f = write_random_commit_with_parents(tx.repo_mut(), &[&commit_d, &commit_e]);
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
     let root_commit = repo.store().root_commit();
 
     let revset = revset_for_commits(repo.as_ref(), &[&commit_b, &commit_f]);
@@ -229,12 +233,13 @@ fn test_graph_iterator_multiple_missing(skip_transitive_edges: bool, padding: u3
         vec![missing(&commit_a), indirect(&commit_b), missing(&commit_c)]
     );
     assert_eq!(commits[1].1, vec![missing(&root_commit)]);
+    Ok(())
 }
 
 #[test_case(false, 0; "keep transitive edges")]
 #[test_case(true, 0; "skip transitive edges")]
 #[test_matrix(true, 58..64; "skip transitive edges")]
-fn test_graph_iterator_edge_to_ancestor(skip_transitive_edges: bool, padding: u32) {
+fn test_graph_iterator_edge_to_ancestor(skip_transitive_edges: bool, padding: u32) -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -261,7 +266,7 @@ fn test_graph_iterator_edge_to_ancestor(skip_transitive_edges: bool, padding: u3
     let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b, &commit_c]);
     let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_c]);
     let commit_f = write_random_commit_with_parents(tx.repo_mut(), &[&commit_d, &commit_e]);
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
 
     let revset = revset_for_commits(repo.as_ref(), &[&commit_c, &commit_d, &commit_f]);
     let commits: Vec<_> = revset
@@ -279,12 +284,13 @@ fn test_graph_iterator_edge_to_ancestor(skip_transitive_edges: bool, padding: u3
     }
     assert_eq!(commits[1].1, vec![missing(&commit_b), direct(&commit_c)]);
     assert_eq!(commits[2].1, vec![missing(&commit_a)]);
+    Ok(())
 }
 
 #[test_case(false, 0; "keep transitive edges")]
 #[test_case(true, 0; "skip transitive edges")]
 #[test_matrix(true, 54..64; "skip transitive edges")]
-fn test_graph_iterator_edge_escapes_from_(skip_transitive_edges: bool, padding: u32) {
+fn test_graph_iterator_edge_escapes_from_(skip_transitive_edges: bool, padding: u32) -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -319,7 +325,7 @@ fn test_graph_iterator_edge_escapes_from_(skip_transitive_edges: bool, padding: 
     let commit_h = write_random_commit_with_parents(tx.repo_mut(), &[&commit_f]);
     let commit_i = write_random_commit_with_parents(tx.repo_mut(), &[&commit_e, &commit_h]);
     let commit_j = write_random_commit_with_parents(tx.repo_mut(), &[&commit_g, &commit_i]);
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
     let root_commit = repo.store().root_commit();
 
     let revset = revset_for_commits(
@@ -349,4 +355,5 @@ fn test_graph_iterator_edge_escapes_from_(skip_transitive_edges: bool, padding: 
     assert_eq!(commits[2].1, vec![indirect(&commit_a)]);
     assert_eq!(commits[3].1, vec![indirect(&commit_a)]);
     assert_eq!(commits[4].1, vec![missing(&root_commit)]);
+    Ok(())
 }
