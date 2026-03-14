@@ -21,6 +21,7 @@ use jj_lib::working_copy::CheckoutError;
 use jj_lib::workspace::Workspace;
 use jj_lib::workspace::default_working_copy_factories;
 use pollster::FutureExt as _;
+use testutils::TestResult;
 use testutils::TestWorkspace;
 use testutils::assert_tree_eq;
 use testutils::commit_with_tree;
@@ -31,7 +32,7 @@ use testutils::repo_path_buf;
 use testutils::write_working_copy_file;
 
 #[test]
-fn test_concurrent_checkout() {
+fn test_concurrent_checkout() -> TestResult {
     // Test that we error out if a concurrent checkout is detected (i.e. if the
     // working-copy commit changed on disk after we read it).
     let settings = testutils::user_settings();
@@ -50,8 +51,7 @@ fn test_concurrent_checkout() {
     let ws1 = &mut test_workspace1.workspace;
     // The operation ID is not correct, but that doesn't matter for this test
     ws1.check_out(repo.op_id().clone(), None, &commit1)
-        .block_on()
-        .unwrap();
+        .block_on()?;
 
     // Check out tree2 from another process (simulated by another workspace
     // instance)
@@ -64,15 +64,10 @@ fn test_concurrent_checkout() {
         )
         .unwrap();
         // Reload commit from the store associated with the workspace
-        let repo = ws2
-            .repo_loader()
-            .load_at(repo.operation())
-            .block_on()
-            .unwrap();
+        let repo = ws2.repo_loader().load_at(repo.operation()).block_on()?;
         let commit2 = repo.store().get_commit(commit2.id()).unwrap();
         ws2.check_out(repo.op_id().clone(), Some(&tree1), &commit2)
-            .block_on()
-            .unwrap();
+            .block_on()?;
     }
 
     // Checking out another tree (via the first workspace instance) should now fail.
@@ -91,10 +86,11 @@ fn test_concurrent_checkout() {
     )
     .unwrap();
     assert_tree_eq!(*ws3.working_copy().tree().unwrap(), tree2);
+    Ok(())
 }
 
 #[test]
-fn test_checkout_parallel() {
+fn test_checkout_parallel() -> TestResult {
     // Test that concurrent checkouts by different processes (simulated by using
     // different repo instances) is safe.
     let settings = testutils::user_settings();
@@ -117,8 +113,7 @@ fn test_checkout_parallel() {
     test_workspace
         .workspace
         .check_out(repo.op_id().clone(), None, &commit)
-        .block_on()
-        .unwrap();
+        .block_on()?;
 
     thread::scope(|s| {
         for tree in &trees {
@@ -169,10 +164,11 @@ fn test_checkout_parallel() {
             });
         }
     });
+    Ok(())
 }
 
 #[test]
-fn test_racy_checkout() {
+fn test_racy_checkout() -> TestResult {
     let mut test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
     let op_id = repo.op_id().clone();
@@ -185,9 +181,7 @@ fn test_racy_checkout() {
     let mut num_matches = 0;
     for _ in 0..100 {
         let ws = &mut test_workspace.workspace;
-        ws.check_out(op_id.clone(), None, &commit)
-            .block_on()
-            .unwrap();
+        ws.check_out(op_id.clone(), None, &commit).block_on()?;
         assert_eq!(
             std::fs::read(path.to_fs_path_unchecked(&workspace_root)).unwrap(),
             b"1".to_vec()
@@ -203,4 +197,5 @@ fn test_racy_checkout() {
         write_working_copy_file(&workspace_root, path, "1");
     }
     assert_eq!(num_matches, 0);
+    Ok(())
 }

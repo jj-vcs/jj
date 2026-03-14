@@ -487,6 +487,7 @@ mod tests {
     use itertools::Itertools as _;
     use pollster::FutureExt as _;
     use test_case::test_case;
+    use testutils::TestResult;
 
     use super::*;
     use crate::tests::new_temp_dir;
@@ -691,30 +692,32 @@ mod tests {
     }
 
     #[test]
-    fn test_blocking_async_reader() {
+    fn test_blocking_async_reader() -> TestResult {
         let input = b"hello";
         let sync_reader = Cursor::new(&input);
         let mut async_reader = BlockingAsyncReader::new(sync_reader);
 
         let mut buf = [0u8; 3];
-        let num_bytes_read = async_reader.read(&mut buf).block_on().unwrap();
+        let num_bytes_read = async_reader.read(&mut buf).block_on()?;
         assert_eq!(num_bytes_read, 3);
         assert_eq!(&buf, &input[0..3]);
 
-        let num_bytes_read = async_reader.read(&mut buf).block_on().unwrap();
+        let num_bytes_read = async_reader.read(&mut buf).block_on()?;
         assert_eq!(num_bytes_read, 2);
         assert_eq!(&buf[0..2], &input[3..5]);
+        Ok(())
     }
 
     #[test]
-    fn test_blocking_async_reader_read_to_end() {
+    fn test_blocking_async_reader_read_to_end() -> TestResult {
         let input = b"hello";
         let sync_reader = Cursor::new(&input);
         let mut async_reader = BlockingAsyncReader::new(sync_reader);
 
         let mut buf = vec![];
-        let num_bytes_read = async_reader.read_to_end(&mut buf).block_on().unwrap();
+        let num_bytes_read = async_reader.read_to_end(&mut buf).block_on()?;
         assert_eq!(num_bytes_read, input.len());
         assert_eq!(&buf, &input);
+        Ok(())
     }
 }

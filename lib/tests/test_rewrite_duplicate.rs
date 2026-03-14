@@ -22,12 +22,13 @@ use jj_lib::transaction::Transaction;
 use pollster::FutureExt as _;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
+use testutils::TestResult;
 use testutils::assert_tree_eq;
 use testutils::create_tree;
 use testutils::repo_path;
 
 #[test]
-fn test_duplicate_linear_contents() {
+fn test_duplicate_linear_contents() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -67,7 +68,7 @@ fn test_duplicate_linear_contents() {
         .repo_mut()
         .new_commit(vec![commit_d.id().clone()], tree_2.clone())
         .write_unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
 
     let duplicate_in_between = |tx: &mut Transaction,
                                 target_commits: &[&CommitId],
@@ -145,4 +146,5 @@ fn test_duplicate_linear_contents() {
         tx.repo().store().get_commit(head_id).unwrap().tree(),
         tree_1_2
     );
+    Ok(())
 }

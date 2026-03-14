@@ -71,6 +71,7 @@ use test_case::test_case;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
 use testutils::TestRepoBackend;
+use testutils::TestResult;
 use testutils::TestWorkspace;
 use testutils::create_random_commit;
 use testutils::create_tree;
@@ -151,7 +152,7 @@ fn test_resolve_symbol_empty_string() {
 }
 
 #[test]
-fn test_resolve_symbol_commit_id() {
+fn test_resolve_symbol_commit_id() -> TestResult {
     let settings = testutils::user_settings();
     // Test only with git so we can get predictable commit ids
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
@@ -183,7 +184,7 @@ fn test_resolve_symbol_commit_id() {
             .write_unwrap();
         commits.push(commit);
     }
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
 
     // Test the test setup
     insta::assert_snapshot!(commits.iter().map(|c| c.id().hex()).join("\n"), @"
@@ -275,11 +276,12 @@ fn test_resolve_symbol_commit_id() {
         resolve_symbol(repo.as_ref(), "commit_id(0)"),
         Err(RevsetResolutionError::AmbiguousCommitIdPrefix(s)) if s == "0"
     );
+    Ok(())
 }
 
 #[test_case(false ; "mutable")]
 #[test_case(true ; "readonly")]
-fn test_resolve_symbol_change_id(readonly: bool) {
+fn test_resolve_symbol_change_id(readonly: bool) -> TestResult {
     // Test only with git so we can get predictable commit ids
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
@@ -340,7 +342,7 @@ fn test_resolve_symbol_change_id(readonly: bool) {
 
     let _readonly_repo;
     let repo: &dyn Repo = if readonly {
-        _readonly_repo = tx.commit("test").block_on().unwrap();
+        _readonly_repo = tx.commit("test").block_on()?;
         _readonly_repo.as_ref()
     } else {
         tx.repo_mut()
@@ -416,6 +418,7 @@ fn test_resolve_symbol_change_id(readonly: bool) {
         resolve_symbol(repo, "change_id(z)"),
         Err(RevsetResolutionError::AmbiguousChangeIdPrefix(s)) if s == "z"
     );
+    Ok(())
 }
 
 #[test]
@@ -455,7 +458,7 @@ fn test_resolve_symbol_divergent_change_id() {
 }
 
 #[test]
-fn test_resolve_symbol_hidden_change_id() {
+fn test_resolve_symbol_hidden_change_id() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -467,8 +470,8 @@ fn test_resolve_symbol_hidden_change_id() {
         .rewrite_commit(&commit1)
         .set_description("updated commit")
         .write_unwrap();
-    tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("rewrite commit").block_on().unwrap();
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("rewrite commit").block_on()?;
 
     let change_id = commit1.change_id();
     assert_eq!(
@@ -495,8 +498,8 @@ fn test_resolve_symbol_hidden_change_id() {
     // Abandon the new commit as well so that there are only hidden commits.
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit2);
-    tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("abandon commit").block_on().unwrap();
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("abandon commit").block_on()?;
 
     assert_matches!(
         resolve_symbol(repo.as_ref(), &format!("{change_id}")),
@@ -519,10 +522,11 @@ fn test_resolve_symbol_hidden_change_id() {
         resolve_symbol(repo.as_ref(), &format!("change_id({change_id})")).unwrap(),
         vec![]
     );
+    Ok(())
 }
 
 #[test]
-fn test_resolve_symbol_in_different_disambiguation_context() {
+fn test_resolve_symbol_in_different_disambiguation_context() -> TestResult {
     let test_repo = TestRepo::init();
     let repo0 = &test_repo.repo;
 
@@ -532,12 +536,12 @@ fn test_resolve_symbol_in_different_disambiguation_context() {
     for _ in 0..50 {
         write_random_commit(tx.repo_mut());
     }
-    let repo1 = tx.commit("test").block_on().unwrap();
+    let repo1 = tx.commit("test").block_on()?;
 
     let mut tx = repo1.start_transaction();
     let commit2 = tx.repo_mut().rewrite_commit(&commit1).write_unwrap();
-    tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo2 = tx.commit("test").block_on().unwrap();
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo2 = tx.commit("test").block_on()?;
 
     // Set up disambiguation index which only contains the commit2.id().
     let id_prefix_context = IdPrefixContext::new(Arc::new(RevsetExtensions::default()))
@@ -574,6 +578,7 @@ fn test_resolve_symbol_in_different_disambiguation_context() {
         symbol_resolver.resolve_symbol(repo1.as_ref(), &commit2.id().hex()[0..1]),
         Err(RevsetResolutionError::NoSuchRevision { .. })
     );
+    Ok(())
 }
 
 #[test]
@@ -1254,7 +1259,7 @@ fn resolve_commit_ids_in_workspace(
 }
 
 #[test]
-fn test_evaluate_expression_with_hidden_revisions() {
+fn test_evaluate_expression_with_hidden_revisions() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
     let root_commit_id = repo.store().root_commit_id();
@@ -1270,12 +1275,12 @@ fn test_evaluate_expression_with_hidden_revisions() {
     let commit2 = write_random_commit(mut_repo);
     let commit3 = write_random_commit_with_parents(mut_repo, &[&commit1]);
     let commit4 = write_random_commit_with_parents(mut_repo, &[&commit3]);
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit3);
     tx.repo_mut().record_abandoned_commit(&commit4);
-    tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("test").block_on()?;
 
     // Sanity check
     assert_eq!(
@@ -1330,15 +1335,16 @@ fn test_evaluate_expression_with_hidden_revisions() {
         ]
         .map(Clone::clone)
     );
+    Ok(())
 }
 
 #[test]
-fn test_evaluate_expression_root_and_checkout() {
+fn test_evaluate_expression_root_and_checkout() -> TestResult {
     let test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
 
     let root_operation = repo.loader().root_operation().block_on();
-    let root_repo = repo.reload_at(&root_operation).block_on().unwrap();
+    let root_repo = repo.reload_at(&root_operation).block_on()?;
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -1373,6 +1379,7 @@ fn test_evaluate_expression_root_and_checkout() {
         .resolve_user_expression(tx.repo(), &symbol_resolver)
         .unwrap();
     assert!(expression.evaluate(tx.base_repo().as_ref()).is_err());
+    Ok(())
 }
 
 #[test]
@@ -4097,7 +4104,7 @@ fn test_evaluate_expression_committer() {
 }
 
 #[test]
-fn test_evaluate_expression_at_operation() {
+fn test_evaluate_expression_at_operation() -> TestResult {
     let test_repo = TestRepo::init();
     let repo0 = &test_repo.repo;
     let root_commit = repo0.store().root_commit();
@@ -4113,7 +4120,7 @@ fn test_evaluate_expression_at_operation() {
         "commit1_ref".as_ref(),
         RefTarget::normal(commit1_op1.id().clone()),
     );
-    let repo1 = tx.commit("test").block_on().unwrap();
+    let repo1 = tx.commit("test").block_on()?;
 
     let mut tx = repo1.start_transaction();
     let commit1_op2 = tx
@@ -4124,8 +4131,8 @@ fn test_evaluate_expression_at_operation() {
     let commit3_op2 = create_random_commit(tx.repo_mut())
         .set_description("commit3@op2")
         .write_unwrap();
-    tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo2 = tx.commit("test").block_on().unwrap();
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo2 = tx.commit("test").block_on()?;
 
     let mut tx = repo2.start_transaction();
     let _commit4_op3 = create_random_commit(tx.repo_mut())
@@ -4223,6 +4230,7 @@ fn test_evaluate_expression_at_operation() {
         try_resolve_commit_ids(repo2.as_ref(), "at_operation(000000000000-, all())"),
         Err(RevsetResolutionError::Other(_))
     );
+    Ok(())
 }
 
 #[test]
@@ -4898,7 +4906,7 @@ fn test_evaluate_expression_diff_lines_non_utf8() {
 
 #[test_case(false; "without changed-path index")]
 #[test_case(true; "with changed-path index")]
-fn test_evaluate_expression_diff_lines_conflict(indexed: bool) {
+fn test_evaluate_expression_diff_lines_conflict(indexed: bool) -> TestResult {
     let test_workspace = TestWorkspace::init();
     let repo = if indexed {
         build_changed_path_index(&test_workspace.repo)
@@ -4921,8 +4929,7 @@ fn test_evaluate_expression_diff_lines_conflict(indexed: bool) {
         (tree1, "tree 1".into()),
         (tree3, "tree 3".into()),
     ]))
-    .block_on()
-    .unwrap();
+    .block_on()?;
     let commit2 = create_commit(vec![commit1.id().clone()], tree4);
 
     assert_eq!(
@@ -4963,6 +4970,7 @@ fn test_evaluate_expression_diff_lines_conflict(indexed: bool) {
         resolve_commit_ids(mut_repo, "diff_lines_removed('2')"),
         vec![]
     );
+    Ok(())
 }
 
 #[test_case(false; "without changed-path index")]
@@ -5062,7 +5070,7 @@ fn test_evaluate_expression_file_merged_parents(indexed: bool) {
 }
 
 #[test]
-fn test_evaluate_expression_conflict() {
+fn test_evaluate_expression_conflict() -> TestResult {
     let test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
 
@@ -5085,8 +5093,7 @@ fn test_evaluate_expression_conflict() {
         (tree1, "tree 1".into()),
         (tree3, "tree 3".into()),
     ]))
-    .block_on()
-    .unwrap();
+    .block_on()?;
     let commit4 = create_commit(vec![commit3.id().clone()], tree4);
 
     // Only commit4 has a conflict
@@ -5094,10 +5101,11 @@ fn test_evaluate_expression_conflict() {
         resolve_commit_ids(mut_repo, "conflicts()"),
         vec![commit4.id().clone()]
     );
+    Ok(())
 }
 
 #[test]
-fn test_evaluate_expression_divergent() {
+fn test_evaluate_expression_divergent() -> TestResult {
     let test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
 
@@ -5113,7 +5121,7 @@ fn test_evaluate_expression_divergent() {
 
     let change_id = commit1.change_id();
 
-    let repo = tx.commit("Divergent commits").block_on().unwrap();
+    let repo = tx.commit("Divergent commits").block_on()?;
 
     assert_matches!(
         resolve_symbol(repo.as_ref(), &format!("{change_id}")),
@@ -5128,8 +5136,8 @@ fn test_evaluate_expression_divergent() {
 
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit1);
-    tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("abandon commit").block_on().unwrap();
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("abandon commit").block_on()?;
 
     assert_eq!(resolve_commit_ids(repo.as_ref(), "divergent()"), vec![]);
 
@@ -5142,10 +5150,11 @@ fn test_evaluate_expression_divergent() {
         resolve_commit_ids(repo.as_ref(), "at_operation(@-, divergent())"),
         vec![commit2.id().clone(), commit1.id().clone()]
     );
+    Ok(())
 }
 
 #[test]
-fn test_reverse_graph() {
+fn test_reverse_graph() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -5173,7 +5182,7 @@ fn test_reverse_graph() {
     let commit_d = write_random_commit_with_parents(mut_repo, &[&commit_c]);
     let commit_e = write_random_commit_with_parents(mut_repo, &[&commit_c]);
     let commit_f = write_random_commit_with_parents(mut_repo, &[&commit_d, &commit_e]);
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
 
     let revset = revset_for_commits(
         repo.as_ref(),
@@ -5200,6 +5209,7 @@ fn test_reverse_graph() {
     assert_eq!(commits[2].1, vec![GraphEdge::direct(commit_f.id().clone())]);
     assert_eq!(commits[3].1, vec![GraphEdge::direct(commit_f.id().clone())]);
     assert_eq!(commits[4].1, vec![]);
+    Ok(())
 }
 
 #[test]
@@ -5227,7 +5237,7 @@ fn test_no_such_revision_suggestion() {
 }
 
 #[test]
-fn test_revset_containing_fn() {
+fn test_revset_containing_fn() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -5237,7 +5247,7 @@ fn test_revset_containing_fn() {
     let commit_b = write_random_commit(mut_repo);
     let commit_c = write_random_commit(mut_repo);
     let commit_d = write_random_commit(mut_repo);
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
 
     let revset = revset_for_commits(repo.as_ref(), &[&commit_b, &commit_d]);
 
@@ -5246,4 +5256,5 @@ fn test_revset_containing_fn() {
     assert!(revset_has_commit(commit_b.id()).unwrap());
     assert!(!revset_has_commit(commit_c.id()).unwrap());
     assert!(revset_has_commit(commit_d.id()).unwrap());
+    Ok(())
 }

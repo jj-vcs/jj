@@ -26,6 +26,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::store::Store;
 use pollster::FutureExt as _;
+use testutils::TestResult;
 use testutils::TestTreeBuilder;
 use testutils::TestWorkspace;
 use testutils::repo_path;
@@ -89,7 +90,7 @@ fn prepare_exec_commits(ws: &TestWorkspace, repo_path: &RepoPath) -> (Commit, Co
 /// Test that checking out a tree writes the correct executable bit to the
 /// filesystem.
 #[test]
-fn test_exec_bit_checkout() {
+fn test_exec_bit_checkout() -> TestResult {
     let mut ws = TestWorkspace::init();
     let path = &ws.workspace.workspace_root().join("file");
     let repo_path = repo_path("file");
@@ -110,11 +111,12 @@ fn test_exec_bit_checkout() {
         checkout_exec_commit(exec);
         assert_file_executable(path, exec);
     }
+    Ok(())
 }
 
 /// Test that snapshotting files stores the correct executable bit in the tree.
 #[test]
-fn test_exec_bit_snapshot() {
+fn test_exec_bit_snapshot() -> TestResult {
     let mut ws = TestWorkspace::init();
     let path = &ws.workspace.workspace_root().join("file");
     let repo_path = repo_path("file");
@@ -151,4 +153,5 @@ fn test_exec_bit_snapshot() {
 
     set_file_executable(path, true);
     snapshot_assert_exec_bit(true);
+    Ok(())
 }

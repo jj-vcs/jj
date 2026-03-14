@@ -37,6 +37,7 @@ use pollster::FutureExt as _;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
 use testutils::TestRepoBackend;
+use testutils::TestResult;
 
 fn stable_settings() -> UserSettings {
     let mut config = testutils::base_user_config();
@@ -49,7 +50,7 @@ fn stable_settings() -> UserSettings {
 }
 
 #[test]
-fn test_id_prefix() {
+fn test_id_prefix() -> TestResult {
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
     let root_commit_id = repo.store().root_commit_id();
@@ -75,7 +76,7 @@ fn test_id_prefix() {
     for _ in 0..25 {
         commits.push(create_commit(commits.last().unwrap().id()));
     }
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
 
     // Print the commit IDs and change IDs for reference
     let commit_prefixes = commits
@@ -249,10 +250,11 @@ fn test_id_prefix() {
     let expression = RevsetExpression::symbol("nonexistent".to_string());
     let context = context.disambiguate_within(expression);
     assert!(context.populate(repo.as_ref()).is_err());
+    Ok(())
 }
 
 #[test]
-fn test_id_prefix_divergent() {
+fn test_id_prefix_divergent() -> TestResult {
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
     let root_commit_id = repo.store().root_commit_id();
@@ -290,7 +292,7 @@ fn test_id_prefix_divergent() {
         second_commit.clone(),
         third_commit_divergent_with_second.clone(),
     ];
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
 
     // Print the commit IDs and change IDs for reference
     let change_prefixes = commits
@@ -390,10 +392,11 @@ fn test_id_prefix_divergent() {
         shortest_change_prefix_len(&index, first_commit.change_id()),
         3
     );
+    Ok(())
 }
 
 #[test]
-fn test_id_prefix_hidden() {
+fn test_id_prefix_hidden() -> TestResult {
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
     let root_commit_id = repo.store().root_commit_id();
@@ -461,8 +464,8 @@ fn test_id_prefix_hidden() {
 
     let hidden_commit = &commits[8];
     tx.repo_mut().record_abandoned_commit(hidden_commit);
-    tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("test").block_on()?;
 
     let prefix = |x: &str| HexPrefix::try_from_hex(x).unwrap();
     let shortest_commit_prefix_len = |index: &IdPrefixIndex, commit_id| {
@@ -537,6 +540,7 @@ fn test_id_prefix_hidden() {
         resolve_change_prefix(&index, prefix(&hidden_commit.change_id().hex()[..2])),
         NoMatch
     );
+    Ok(())
 }
 
 #[test]

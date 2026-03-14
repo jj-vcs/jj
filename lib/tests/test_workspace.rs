@@ -23,6 +23,7 @@ use jj_lib::workspace::default_working_copy_factories;
 use jj_lib::workspace::default_working_copy_factory;
 use pollster::FutureExt as _;
 use testutils::TestEnvironment;
+use testutils::TestResult;
 use testutils::TestWorkspace;
 
 #[test]
@@ -44,7 +45,7 @@ fn test_load_bad_path() {
 }
 
 #[test]
-fn test_init_additional_workspace() {
+fn test_init_additional_workspace() -> TestResult {
     let settings = testutils::user_settings();
     let test_workspace = TestWorkspace::init_with_settings(&settings);
     let workspace = &test_workspace.workspace;
@@ -59,8 +60,7 @@ fn test_init_additional_workspace() {
         &*default_working_copy_factory(),
         ws2_name.clone(),
     )
-    .block_on()
-    .unwrap();
+    .block_on()?;
     let wc_commit_id = repo.view().get_wc_commit_id(&ws2_name);
     assert_ne!(wc_commit_id, None);
     let wc_commit_id = wc_commit_id.unwrap();
@@ -98,10 +98,11 @@ fn test_init_additional_workspace() {
         dunce::canonicalize(workspace.repo_path()).unwrap()
     );
     assert_eq!(same_workspace.workspace_root(), ws2.workspace_root());
+    Ok(())
 }
 
 #[test]
-fn test_init_additional_workspace_absolute_path_compat() {
+fn test_init_additional_workspace_absolute_path_compat() -> TestResult {
     let settings = testutils::user_settings();
     let test_workspace = TestWorkspace::init_with_settings(&settings);
     let workspace = &test_workspace.workspace;
@@ -116,8 +117,7 @@ fn test_init_additional_workspace_absolute_path_compat() {
         &*default_working_copy_factory(),
         ws2_name.clone(),
     )
-    .block_on()
-    .unwrap();
+    .block_on()?;
 
     let repo_file_path = ws2_root.join(".jj").join("repo");
     let abs_repo_path = dunce::canonicalize(workspace.repo_path()).unwrap();
@@ -138,11 +138,12 @@ fn test_init_additional_workspace_absolute_path_compat() {
     assert_eq!(same_workspace.workspace_name(), &ws2_name);
     assert_eq!(*same_workspace.repo_path(), abs_repo_path);
     assert_eq!(same_workspace.workspace_root(), ws2.workspace_root());
+    Ok(())
 }
 
 #[cfg(unix)]
 #[test]
-fn test_init_additional_workspace_non_utf8_path() {
+fn test_init_additional_workspace_non_utf8_path() -> TestResult {
     use std::ffi::OsStr;
     use std::os::unix::ffi::OsStrExt as _;
 
@@ -155,14 +156,12 @@ fn test_init_additional_workspace_non_utf8_path() {
              filesystem for path {:?}",
             test_env.root()
         );
-        return;
+        return Ok(());
     }
 
     let ws1_root = test_env.root().join(OsStr::from_bytes(b"ws1_root\xe0"));
     std::fs::create_dir(&ws1_root).unwrap();
-    let (ws1, repo) = Workspace::init_simple(&settings, &ws1_root)
-        .block_on()
-        .unwrap();
+    let (ws1, repo) = Workspace::init_simple(&settings, &ws1_root).block_on()?;
 
     let ws2_name = WorkspaceNameBuf::from("ws2");
     let ws2_root = test_env.root().join(OsStr::from_bytes(b"ws2_root\xe0"));
@@ -174,8 +173,7 @@ fn test_init_additional_workspace_non_utf8_path() {
         &*default_working_copy_factory(),
         ws2_name.clone(),
     )
-    .block_on()
-    .unwrap();
+    .block_on()?;
     assert_eq!(ws2.workspace_name(), &ws2_name);
     assert_eq!(
         *ws2.repo_path(),
@@ -198,6 +196,7 @@ fn test_init_additional_workspace_non_utf8_path() {
         dunce::canonicalize(ws1.repo_path()).unwrap()
     );
     assert_eq!(same_workspace.workspace_root(), ws2.workspace_root());
+    Ok(())
 }
 
 /// Test cross-thread access to a workspace, which requires it to be Send
