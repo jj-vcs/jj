@@ -13,6 +13,8 @@
 // limitations under the License.
 
 use std::collections::HashMap;
+use std::collections::HashSet;
+use std::io::Write as _;
 
 use clap_complete::ArgValueCompleter;
 use indexmap::IndexSet;
@@ -24,6 +26,7 @@ use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::print_updated_commits;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::ui::Ui;
@@ -98,6 +101,7 @@ pub(crate) async fn cmd_parallelize(
         new_target_parents.insert(commit.id().clone(), new_parents);
     }
 
+    let rewritten_ids = needs_rewrite.iter().copied().collect::<HashSet<_>>();
     workspace_command.check_rewritable(needs_rewrite)?;
     let mut tx = workspace_command.start_transaction();
 
@@ -148,6 +152,25 @@ pub(crate) async fn cmd_parallelize(
             },
         )
         .await?;
+
+    let rewritten_commits = target_commits
+        .iter()
+        .filter(|c| rewritten_ids.contains(c.id()))
+        .collect::<Vec<_>>();
+    if let Some(mut formatter) = ui.status_formatter()
+        && !rewritten_commits.is_empty()
+    {
+        writeln!(
+            formatter,
+            "Parallelized {} commits:",
+            rewritten_commits.len()
+        )?;
+        print_updated_commits(
+            formatter.as_mut(),
+            &tx.base_workspace_helper().commit_summary_template(),
+            rewritten_commits,
+        )?;
+    }
 
     tx.finish(ui, format!("parallelize {} commits", target_commits.len()))
 }

@@ -618,6 +618,11 @@ fn test_parallelize_complex_nonlinear_target() {
     let output = work_dir.run_jj(["parallelize", "subject(0)::subject(4)"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Parallelized 4 commits:
+      royxmykx 095be6de (empty) 4
+      mzvwutvl 46cc2c45 (empty) 3
+      zsuskuln 5664a1d6 (empty) 2
+      kkmpptxz 883b398b (empty) 1
     Working copy  (@) now at: yostqsxw d6bb6520 (empty) 3c
     Parent commit (@-)      : rlvkpnrz 973f85cf (empty) 0
     Parent commit (@-)      : mzvwutvl 47ec86fe (empty) 3
