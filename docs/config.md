@@ -1843,6 +1843,23 @@ copy. However, first [ignore](working-copy.md#ignored-files) them or remove them
 from the `snapshot.auto-track` patterns; otherwise they will be immediately
 tracked again.
 
+If you set `snapshot.derive-tracked-from-ignores`, ignored files will be treated
+as if they don't exist:
+- A file that was previously in the repo but then added to `.gitignore` will
+  show up as deleted in subsequent snapshots. This is different than the
+  behavior when `snapshot.derive-tracked-from-ignores = false`, for which
+  adding a tracked file to `.gitignore` will _not_ remove it from the snapshot.
+- Removing a file from `.gitignore` will make it show up as added (assuming it
+  isn't filtered out another way, e.g. because of `snapshot.auto-track` or
+  `snapshot.max-new-file-size`).
+Using this option opts out of the tracking/untracking system for files,
+treating `.gitignore` as the source of truth for what should be snapshotted.
+Because of this, `jj file track` and `jj file untrack` will error and tell you
+to update `.gitignore` instead.
+Note that files are still filtered by `snapshot.auto-track`, so if you use
+`snapshot.derive-tracked-from-ignores`, you probably want to leave the former
+set to `all()` (the default).
+
 ### Maximum size for new files
 
 By default, as an anti-footgun measure, `jj` will refuse to add new files to the
