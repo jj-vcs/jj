@@ -18,7 +18,8 @@ Jujutsu's core tenets are:
  * All operations must be able to scale to Google-scale repos (lots of commits,
    lots of files): Laziness is important, must avoid accessing data
    unnecessarily.
- * Having as few states as possible.
+ * Strive to be modeless: If at all possible commands should work consistently
+   and as the user expects in every situation.
  * Make it incredibly hard to lose work in your repo.
  * Concurrent modifications to the repo should be safe.
  * Allow concurrent edits on any commit, pending or finished.
