@@ -95,6 +95,28 @@ your company's interests, do feel free to approve it.
 This project follows [Google's Open Source Community
 Guidelines](https://opensource.google/conduct/).
 
+
+### Deprecations and Removals
+
+If your PR removes or renames an option, a command, or config option don't
+remove it immediately. Instead implement a warning that the command, command
+option, or config option is deprecated and will be removed in
+jj `v<current> + 6`. Also add `// TODO: remove in jj<version+6>+` comment so
+other contributors can remove it later. As we currently release monthly this
+translates to a six month deprecation period. This is something the project
+does to not break users and their workflows and gives them the option to
+provide feedback on features we plan to remove or supersede with other
+approaches.
+
+Larger changes such as changing the index format of the default index or moving
+repo-level configuration out of the repository or deriving the evolog from the
+op-log must be supported for at least a year (12 releases).
+
+Some things are required to be supported for even longer but that is in the end
+a maintainer decision. Some examples of this were the `jj checkout/merge`
+commands (removed after 24 months/releases) or the `--destination` flag for
+which there is no final removal date yet.
+
 ## Contributing large patches
 
 Before sending a PR for a large change which designs/redesigns or reworks an
