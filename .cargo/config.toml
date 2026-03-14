@@ -1,0 +1,12 @@
+[target.'cfg(target_family = "windows")']
+linker = "rust-lld.exe"
+rustflags = [
+    # NOTE: on Windows, build with the static CRT, so that produced .exe files don't
+    # depend on vcruntime140.dll; otherwise the user requires visual studio if they
+    # download a raw .exe e.g. from the CI system
+    "-Ctarget-feature=+crt-static",
+
+    # Without this, at opt-level = 0 (dev profile) the compiler will generate code
+    # with enough async futures that the default 1MiB stack will overflow.
+    "-Clink-arg=/STACK:8388608" # 8MiB
+]
