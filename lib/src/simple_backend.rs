@@ -545,25 +545,25 @@ mod tests {
 
         // Only root commit as parent
         commit.parents = vec![backend.root_commit_id().clone()];
-        let first_id = write_commit(commit.clone()).unwrap().0;
+        let first_id = write_commit(commit.clone())?.0;
         let first_commit = backend.read_commit(&first_id).block_on()?;
         assert_eq!(first_commit, commit);
 
         // Only non-root commit as parent
         commit.parents = vec![first_id.clone()];
-        let second_id = write_commit(commit.clone()).unwrap().0;
+        let second_id = write_commit(commit.clone())?.0;
         let second_commit = backend.read_commit(&second_id).block_on()?;
         assert_eq!(second_commit, commit);
 
         // Merge commit
         commit.parents = vec![first_id.clone(), second_id.clone()];
-        let merge_id = write_commit(commit.clone()).unwrap().0;
+        let merge_id = write_commit(commit.clone())?.0;
         let merge_commit = backend.read_commit(&merge_id).block_on()?;
         assert_eq!(merge_commit, commit);
 
         // Merge commit with root as one parent
         commit.parents = vec![first_id, backend.root_commit_id().clone()];
-        let root_merge_id = write_commit(commit.clone()).unwrap().0;
+        let root_merge_id = write_commit(commit.clone())?.0;
         let root_merge_commit = backend.read_commit(&root_merge_id).block_on()?;
         assert_eq!(root_merge_commit, commit);
         Ok(())
