@@ -14,6 +14,7 @@
 
 #![expect(missing_docs)]
 
+mod backoff;
 #[cfg(unix)]
 mod unix;
 #[cfg(windows)]
