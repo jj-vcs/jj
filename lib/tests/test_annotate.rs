@@ -33,6 +33,7 @@ use jj_lib::revset::RevsetExpression;
 use pollster::FutureExt as _;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
+use testutils::TestResult;
 use testutils::create_tree;
 use testutils::read_file;
 use testutils::repo_path;
@@ -149,7 +150,7 @@ fn test_annotate_linear() {
 }
 
 #[test]
-fn test_annotate_merge_simple() {
+fn test_annotate_merge_simple() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -222,9 +223,7 @@ fn test_annotate_merge_simple() {
     ");
 
     // Calculate incrementally
-    let mut annotator = FileAnnotator::from_commit(&commit4, file_path)
-        .block_on()
-        .unwrap();
+    let mut annotator = FileAnnotator::from_commit(&commit4, file_path).block_on()?;
     assert_eq!(annotator.pending_commits().collect_vec(), [commit4.id()]);
     insta::assert_snapshot!(format_annotation(tx.repo(), &annotator.to_annotation()), @"
     commit4:1*: 2
@@ -240,8 +239,7 @@ fn test_annotate_merge_simple() {
                 commit2.id().clone(),
             ]),
         )
-        .block_on()
-        .unwrap();
+        .block_on()?;
     assert_eq!(annotator.pending_commits().collect_vec(), [commit1.id()]);
     insta::assert_snapshot!(format_annotation(tx.repo(), &annotator.to_annotation()), @"
     commit2:1 : 2
@@ -253,14 +251,14 @@ fn test_annotate_merge_simple() {
             tx.repo(),
             &RevsetExpression::commits(vec![commit1.id().clone()]),
         )
-        .block_on()
-        .unwrap();
+        .block_on()?;
     assert!(annotator.pending_commits().next().is_none());
     insta::assert_snapshot!(format_annotation(tx.repo(), &annotator.to_annotation()), @"
     commit2:1 : 2
     commit1:1 : 1
     commit3:2 : 3
     ");
+    Ok(())
 }
 
 #[test]

@@ -38,6 +38,7 @@ use pollster::FutureExt as _;
 use proptest::prelude::*;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
+use testutils::TestResult;
 
 fn stable_settings() -> UserSettings {
     let mut config = testutils::base_user_config();
@@ -165,7 +166,7 @@ fn verify_optimized(
 }
 
 #[test]
-fn test_mostly_linear() {
+fn test_mostly_linear() -> TestResult {
     let settings = stable_settings();
     let test_repo = TestRepo::init_with_settings(&settings);
     let repo = test_repo.repo;
@@ -192,7 +193,7 @@ fn test_mostly_linear() {
     let commits = vec![
         commit0, commit1, commit2, commit3, commit4, commit5, commit6, commit7, commit8, commit9,
     ];
-    let repo = tx.commit("a").block_on().unwrap();
+    let repo = tx.commit("a").block_on()?;
 
     // Commit ids for reference
     insta::assert_snapshot!(
@@ -218,10 +219,11 @@ fn test_mostly_linear() {
     proptest!(|(expression in arb_expression(commit_ids, visible_heads))| {
         verify_optimized(repo.as_ref(), &expression)?;
     });
+    Ok(())
 }
 
 #[test]
-fn test_weird_merges() {
+fn test_weird_merges() -> TestResult {
     let settings = stable_settings();
     let test_repo = TestRepo::init_with_settings(&settings);
     let repo = test_repo.repo;
@@ -246,7 +248,7 @@ fn test_weird_merges() {
     let commits = vec![
         commit0, commit1, commit2, commit3, commit4, commit5, commit6, commit7, commit8,
     ];
-    let repo = tx.commit("a").block_on().unwrap();
+    let repo = tx.commit("a").block_on()?;
 
     // Commit ids for reference
     insta::assert_snapshot!(
@@ -271,10 +273,11 @@ fn test_weird_merges() {
     proptest!(|(expression in arb_expression(commit_ids, visible_heads))| {
         verify_optimized(repo.as_ref(), &expression)?;
     });
+    Ok(())
 }
 
 #[test]
-fn test_feature_branches() {
+fn test_feature_branches() -> TestResult {
     let settings = stable_settings();
     let test_repo = TestRepo::init_with_settings(&settings);
     let repo = test_repo.repo;
@@ -303,18 +306,18 @@ fn test_feature_branches() {
     let commit3 = write_new_commit(tx.repo_mut(), "3", [&commit0]);
     let commit4 = write_new_commit(tx.repo_mut(), "4", [&commit3]);
     let commit5 = write_new_commit(tx.repo_mut(), "5", [&commit4]);
-    let repo = tx.commit("a").block_on().unwrap();
+    let repo = tx.commit("a").block_on()?;
 
     // Merge branch 2
     let mut tx = repo.start_transaction();
     let commit6 = write_new_commit(tx.repo_mut(), "6", [&commit0, &commit2]);
-    let repo = tx.commit("a").block_on().unwrap();
+    let repo = tx.commit("a").block_on()?;
 
     // Fetch merged branch 7
     let mut tx = repo.start_transaction();
     let commit7 = write_new_commit(tx.repo_mut(), "7", [&commit6]);
     let commit8 = write_new_commit(tx.repo_mut(), "8", [&commit6, &commit7]);
-    let repo = tx.commit("a").block_on().unwrap();
+    let repo = tx.commit("a").block_on()?;
 
     // Merge branch 5
     let mut tx = repo.start_transaction();
@@ -322,7 +325,7 @@ fn test_feature_branches() {
     let commits = vec![
         commit0, commit1, commit2, commit3, commit4, commit5, commit6, commit7, commit8, commit9,
     ];
-    let repo = tx.commit("a").block_on().unwrap();
+    let repo = tx.commit("a").block_on()?;
 
     // Commit ids for reference
     insta::assert_snapshot!(
@@ -351,10 +354,11 @@ fn test_feature_branches() {
     proptest!(|(expression in arb_expression(commit_ids, visible_heads))| {
         verify_optimized(repo.as_ref(), &expression)?;
     });
+    Ok(())
 }
 
 #[test]
-fn test_rewritten() {
+fn test_rewritten() -> TestResult {
     let settings = stable_settings();
     let test_repo = TestRepo::init_with_settings(&settings);
     let repo = test_repo.repo;
@@ -374,7 +378,7 @@ fn test_rewritten() {
     let commit4 = write_new_commit(tx.repo_mut(), "4", [&commit1]);
     let commit5 = write_new_commit(tx.repo_mut(), "5", [&commit4, &commit2]);
     let mut commits = vec![commit0, commit1, commit2, commit3, commit4, commit5];
-    let repo = tx.commit("a").block_on().unwrap();
+    let repo = tx.commit("a").block_on()?;
 
     // Rewrite 2, rebase 3 and 5
     let mut tx = repo.start_transaction();
@@ -385,13 +389,13 @@ fn test_rewritten() {
         .write_unwrap();
     commits.push(commit2b);
     commits.extend(rebase_descendants(tx.repo_mut()));
-    let repo = tx.commit("b").block_on().unwrap();
+    let repo = tx.commit("b").block_on()?;
 
     // Abandon 4, rebase 5
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commits[4]);
     commits.extend(rebase_descendants(tx.repo_mut()));
-    let repo = tx.commit("c").block_on().unwrap();
+    let repo = tx.commit("c").block_on()?;
 
     // Commit ids for reference
     insta::assert_snapshot!(
@@ -419,4 +423,5 @@ fn test_rewritten() {
     proptest!(|(expression in arb_expression(commit_ids, visible_heads))| {
         verify_optimized(repo.as_ref(), &expression)?;
     });
+    Ok(())
 }
