@@ -691,6 +691,12 @@ mod tests {
             ]
         );
 
+        // C is only a neighbor of B
+        assert!(!state.are_graph_neighbors(1, 0));
+        assert!(!state.are_graph_neighbors(1, 1));
+        assert!(state.are_graph_neighbors(1, 2));
+        assert!(!state.are_graph_neighbors(1, 3));
+
         // Update parents and head order and check that the commit order changes.
         state.commits.get_mut(commit_a.id()).unwrap().parents = vec![commit_c.id().clone()];
         state.commits.get_mut(commit_b.id()).unwrap().parents =
@@ -706,6 +712,12 @@ mod tests {
                 commit_b.id().clone(),
             ]
         );
+
+        // C is now a neighbor of A and B
+        assert!(!state.are_graph_neighbors(2, 0));
+        assert!(state.are_graph_neighbors(2, 1));
+        assert!(!state.are_graph_neighbors(2, 2));
+        assert!(state.are_graph_neighbors(2, 3));
         Ok(())
     }
 
