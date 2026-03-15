@@ -1219,6 +1219,7 @@ impl WorkspaceCommandHelper {
         #[cfg(feature = "git")]
         if self.working_copy_shared_with_git {
             self.import_git_head(ui, &git_import_export_lock)
+                .block_on()
                 .map_err(snapshot_command_error)?;
         }
         // Because the Git refs (except HEAD) aren't imported yet, the ref
@@ -1231,6 +1232,7 @@ impl WorkspaceCommandHelper {
         #[cfg(feature = "git")]
         if self.working_copy_shared_with_git {
             self.import_git_refs(ui, &git_import_export_lock)
+                .block_on()
                 .map_err(snapshot_command_error)?;
         }
         Ok(stats)
@@ -1259,14 +1261,14 @@ impl WorkspaceCommandHelper {
     /// working-copy contents won't be updated.
     #[cfg(feature = "git")]
     #[instrument(skip_all)]
-    fn import_git_head(
+    async fn import_git_head(
         &mut self,
         ui: &Ui,
         git_import_export_lock: &GitImportExportLock,
     ) -> Result<(), CommandError> {
         assert!(self.may_update_working_copy);
         let mut tx = self.start_transaction();
-        jj_lib::git::import_head(tx.repo_mut()).block_on()?;
+        jj_lib::git::import_head(tx.repo_mut()).await?;
         if !tx.repo().has_changes() {
             return Ok(());
         }
@@ -1280,17 +1282,17 @@ impl WorkspaceCommandHelper {
             let wc_commit = tx
                 .repo_mut()
                 .check_out(workspace_name, &new_git_head_commit)
-                .block_on()?;
+                .await?;
             let mut locked_ws = self.workspace.start_working_copy_mutation()?;
             // The working copy was presumably updated by the git command that updated
             // HEAD, so we just need to reset our working copy
             // state to it without updating working copy files.
-            locked_ws.locked_wc().reset(&wc_commit).block_on()?;
-            tx.repo_mut().rebase_descendants().block_on()?;
-            self.user_repo = ReadonlyUserRepo::new(tx.commit("import git head").block_on()?);
+            locked_ws.locked_wc().reset(&wc_commit).await?;
+            tx.repo_mut().rebase_descendants().await?;
+            self.user_repo = ReadonlyUserRepo::new(tx.commit("import git head").await?);
             locked_ws
                 .finish(self.user_repo.repo.op_id().clone())
-                .block_on()?;
+                .await?;
             if old_git_head.is_present() {
                 writeln!(
                     ui.status(),
@@ -1302,7 +1304,7 @@ impl WorkspaceCommandHelper {
         } else {
             // Unlikely, but the HEAD ref got deleted by git?
             self.finish_transaction(ui, tx, "import git head", git_import_export_lock)
-                .block_on()?;
+                .await?;
         }
         Ok(())
     }
@@ -1317,7 +1319,7 @@ impl WorkspaceCommandHelper {
     /// the working copy parent if the repository is colocated.
     #[cfg(feature = "git")]
     #[instrument(skip_all)]
-    fn import_git_refs(
+    async fn import_git_refs(
         &mut self,
         ui: &Ui,
         git_import_export_lock: &GitImportExportLock,
@@ -1328,7 +1330,7 @@ impl WorkspaceCommandHelper {
         let import_options =
             crate::git_util::load_git_import_options(ui, &git_settings, &remote_settings)?;
         let mut tx = self.start_transaction();
-        let stats = git::import_refs(tx.repo_mut(), &import_options).block_on()?;
+        let stats = git::import_refs(tx.repo_mut(), &import_options).await?;
         crate::git_util::print_git_import_stats_summary(ui, &stats)?;
         if !tx.repo().has_changes() {
             return Ok(());
@@ -1336,7 +1338,7 @@ impl WorkspaceCommandHelper {
 
         let mut tx = tx.into_inner();
         // Rebase here to show slightly different status message.
-        let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
+        let num_rebased = tx.repo_mut().rebase_descendants().await?;
         if num_rebased > 0 {
             writeln!(
                 ui.status(),
@@ -1344,7 +1346,7 @@ impl WorkspaceCommandHelper {
             )?;
         }
         self.finish_transaction(ui, tx, "import git refs", git_import_export_lock)
-            .block_on()?;
+            .await?;
         writeln!(
             ui.status(),
             "Done importing changes from the underlying Git repo."
@@ -2015,6 +2017,7 @@ to the current parents may contain changes from multiple commits.
                 let old_tree = wc_commit.tree();
                 let new_tree = commit.tree();
                 export_working_copy_changes_to_git(ui, mut_repo, &old_tree, &new_tree)
+                    .await
                     .map_err(snapshot_command_error)?;
             }
 
@@ -2476,20 +2479,20 @@ to the current parents may contain changes from multiple commits.
 }
 
 #[cfg(feature = "git")]
-pub fn export_working_copy_changes_to_git(
+pub async fn export_working_copy_changes_to_git(
     ui: &Ui,
     mut_repo: &mut MutableRepo,
     old_tree: &MergedTree,
     new_tree: &MergedTree,
 ) -> Result<(), CommandError> {
     let repo = mut_repo.base_repo().as_ref();
-    jj_lib::git::update_intent_to_add(repo, old_tree, new_tree).block_on()?;
+    jj_lib::git::update_intent_to_add(repo, old_tree, new_tree).await?;
     let stats = jj_lib::git::export_refs(mut_repo)?;
     crate::git_util::print_git_export_stats(ui, &stats)?;
     Ok(())
 }
 #[cfg(not(feature = "git"))]
-pub fn export_working_copy_changes_to_git(
+pub async fn export_working_copy_changes_to_git(
     _ui: &Ui,
     _mut_repo: &mut MutableRepo,
     _old_tree: &MergedTree,

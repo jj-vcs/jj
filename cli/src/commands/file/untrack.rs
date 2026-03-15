@@ -106,7 +106,7 @@ Make sure they're ignored, then try again.",
         writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
     }
     if working_copy_shared_with_git {
-        export_working_copy_changes_to_git(ui, tx.repo_mut(), &wc_tree, &new_commit.tree())?;
+        export_working_copy_changes_to_git(ui, tx.repo_mut(), &wc_tree, &new_commit.tree()).await?;
     }
     let repo = tx.commit("untrack paths").await?;
     locked_ws.finish(repo.op_id().clone()).await?;
