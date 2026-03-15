@@ -128,6 +128,7 @@ use jj_lib::str_util::StringExpression;
 use jj_lib::str_util::StringMatcher;
 use jj_lib::str_util::StringPattern;
 use jj_lib::transaction::Transaction;
+use jj_lib::transaction::TransactionCommitError;
 use jj_lib::working_copy;
 use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::LockedWorkingCopy;
@@ -414,6 +415,23 @@ impl CommandHelper {
             template_builder::parse(language, &mut diagnostics, template_text, &aliases)?;
         print_parse_diagnostics(ui, "In template expression", &diagnostics)?;
         Ok(template)
+    }
+
+    pub fn should_commit_transaction(&self) -> bool {
+        !self.global_args().no_integrate_operation
+    }
+
+    async fn maybe_commit_transaction(
+        &self,
+        tx: Transaction,
+        description: impl Into<String>,
+    ) -> Result<Arc<ReadonlyRepo>, TransactionCommitError> {
+        let unpublished_op = tx.write(description).await?;
+        if self.should_commit_transaction() {
+            unpublished_op.publish().await
+        } else {
+            Ok(unpublished_op.leave_unpublished())
+        }
     }
 
     pub fn workspace_loader(&self) -> Result<&dyn WorkspaceLoader, CommandError> {
@@ -1084,6 +1102,7 @@ pub struct WorkspaceCommandHelper {
     // TODO: Parsed template can be cached if it doesn't capture 'repo lifetime
     commit_summary_template_text: String,
     op_summary_template_text: String,
+    may_snapshot_working_copy: bool,
     may_update_working_copy: bool,
     working_copy_shared_with_git: bool,
 }
@@ -1121,8 +1140,11 @@ impl WorkspaceCommandHelper {
         let settings = workspace.settings();
         let commit_summary_template_text = settings.get_string("templates.commit_summary")?;
         let op_summary_template_text = settings.get_string("templates.op_summary")?;
-        let may_update_working_copy =
+        let may_publish_operation =
+            loaded_at_head && !env.command.global_args().no_integrate_operation;
+        let may_snapshot_working_copy =
             loaded_at_head && !env.command.global_args().ignore_working_copy;
+        let may_update_working_copy = may_snapshot_working_copy && may_publish_operation;
         let working_copy_shared_with_git =
             crate::git_util::is_colocated_git_workspace(&workspace, &repo);
 
@@ -1132,6 +1154,7 @@ impl WorkspaceCommandHelper {
             env,
             commit_summary_template_text,
             op_summary_template_text,
+            may_snapshot_working_copy,
             may_update_working_copy,
             working_copy_shared_with_git,
         };
@@ -1154,6 +1177,8 @@ impl WorkspaceCommandHelper {
         } else {
             let hint = if self.env.command.global_args().ignore_working_copy {
                 "Don't use --ignore-working-copy."
+            } else if self.env.command.global_args().no_integrate_operation {
+                "Don't use --no-integrate-operation."
             } else {
                 "Don't use --at-op."
             };
@@ -1185,7 +1210,7 @@ impl WorkspaceCommandHelper {
         &mut self,
         ui: &Ui,
     ) -> Result<SnapshotStats, SnapshotWorkingCopyError> {
-        if !self.may_update_working_copy {
+        if !self.may_snapshot_working_copy {
             return Ok(SnapshotStats::default());
         }
 
@@ -1295,10 +1320,17 @@ impl WorkspaceCommandHelper {
             // state to it without updating working copy files.
             locked_ws.locked_wc().reset(&wc_commit).await?;
             tx.repo_mut().rebase_descendants().await?;
-            self.user_repo = ReadonlyUserRepo::new(tx.commit("import git head").await?);
-            locked_ws
-                .finish(self.user_repo.repo.op_id().clone())
-                .await?;
+            self.user_repo = ReadonlyUserRepo::new(
+                self.env
+                    .command
+                    .maybe_commit_transaction(tx, "import git head")
+                    .await?,
+            );
+            if self.env.command.should_commit_transaction() {
+                locked_ws
+                    .finish(self.user_repo.repo.op_id().clone())
+                    .await?;
+            }
             if old_git_head.is_present() {
                 writeln!(
                     ui.status(),
@@ -2028,8 +2060,10 @@ to the current parents may contain changes from multiple commits.
                     .map_err(snapshot_command_error)?;
             }
 
-            let repo = tx
-                .commit("snapshot working copy")
+            let repo = self
+                .env
+                .command
+                .maybe_commit_transaction(tx, "snapshot working copy")
                 .await
                 .map_err(snapshot_command_error)?;
             self.user_repo = ReadonlyUserRepo::new(repo);
@@ -2064,10 +2098,12 @@ to the current parents may contain changes from multiple commits.
             .map_err(snapshot_command_error)?;
         }
 
-        locked_ws
-            .finish(self.user_repo.repo.op_id().clone())
-            .await
-            .map_err(snapshot_command_error)?;
+        if self.env.command.should_commit_transaction() {
+            locked_ws
+                .finish(self.user_repo.repo.op_id().clone())
+                .await
+                .map_err(snapshot_command_error)?;
+        }
         Ok(stats)
     }
 
@@ -2205,7 +2241,7 @@ to the current parents may contain changes from multiple commits.
             .transpose()?;
 
         #[cfg(feature = "git")]
-        if self.working_copy_shared_with_git {
+        if self.working_copy_shared_with_git && self.env.command.should_commit_transaction() {
             use std::error::Error as _;
             if let Some(wc_commit) = &maybe_new_wc_commit {
                 // Export Git HEAD while holding the git-head lock to prevent races:
@@ -2227,7 +2263,12 @@ to the current parents may contain changes from multiple commits.
             crate::git_util::print_git_export_stats(ui, &stats)?;
         }
 
-        self.user_repo = ReadonlyUserRepo::new(tx.commit(description).await?);
+        self.user_repo = ReadonlyUserRepo::new(
+            self.env
+                .command
+                .maybe_commit_transaction(tx, description)
+                .await?,
+        );
 
         // Update working copy before reporting repo changes, so that
         // potential errors while reporting changes (broken pipe, etc)
@@ -2380,6 +2421,14 @@ to the current parents may contain changes from multiple commits.
                     .iter()
                     .map(|commit| commit.id().clone())
                     .collect(),
+            )?;
+        }
+
+        if !self.env.command.should_commit_transaction() {
+            writeln!(
+                fmt,
+                "Operation left uncommitted because --no-integrate-operation was requested: {}",
+                short_operation_hash(self.repo().op_id())
             )?;
         }
 
@@ -3485,6 +3534,23 @@ pub struct GlobalArgs {
     /// implies `--ignore-working-copy`.
     #[arg(long, global = true)]
     pub ignore_working_copy: bool,
+
+    /// Run the command as usual but don't integrate any operations
+    ///
+    /// When this option is given, the operations will still be created as usual
+    /// but they will not be integrated to the operation log. The working copy
+    /// will also not be updated.
+    ///
+    /// The command will print the resulting operation id. You can pass that to
+    /// e.g. `jj --at-op` to inspect the resulting repo state, or you can pass
+    /// it to `jj op restore` to restore the repo to that state. You can also
+    /// the id to `jj op integrate` to reintegrate the operation.
+    ///
+    /// Note that this does *not* prevent side effects outside the repo. For
+    /// example, `jj git push --no-integrate-operation` will still perform the
+    /// push.
+    #[arg(long, global = true)]
+    pub no_integrate_operation: bool,
 
     /// Allow rewriting immutable commits
     ///
