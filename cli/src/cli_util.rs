@@ -2061,7 +2061,7 @@ to the current parents may contain changes from multiple commits.
         Ok(stats)
     }
 
-    fn update_working_copy(
+    async fn update_working_copy(
         &mut self,
         ui: &Ui,
         maybe_old_commit: Option<&Commit>,
@@ -2073,7 +2073,8 @@ to the current parents may contain changes from multiple commits.
             &mut self.workspace,
             maybe_old_commit,
             new_commit,
-        )?;
+        )
+        .await?;
         self.print_updated_working_copy_stats(ui, maybe_old_commit, new_commit, &stats)
     }
 
@@ -2223,7 +2224,8 @@ to the current parents may contain changes from multiple commits.
         // don't leave the working copy in a stale state.
         if self.may_update_working_copy {
             if let Some(new_commit) = &maybe_new_wc_commit {
-                self.update_working_copy(ui, maybe_old_wc_commit.as_ref(), new_commit)?;
+                self.update_working_copy(ui, maybe_old_wc_commit.as_ref(), new_commit)
+                    .await?;
             } else {
                 // It seems the workspace was deleted, so we shouldn't try to
                 // update it.
@@ -3086,7 +3088,7 @@ pub fn print_unmatched_explicit_paths<'a>(
     Ok(())
 }
 
-pub fn update_working_copy(
+pub async fn update_working_copy(
     repo: &Arc<ReadonlyRepo>,
     workspace: &mut Workspace,
     old_commit: Option<&Commit>,
@@ -3097,7 +3099,7 @@ pub fn update_working_copy(
     // warning for most commands (but be an error for the checkout command)
     let stats = workspace
         .check_out(repo.op_id().clone(), old_tree.as_ref(), new_commit)
-        .block_on()
+        .await
         .map_err(|err| {
             internal_error_with_message(
                 format!("Failed to check out commit {}", new_commit.id().hex()),
