@@ -690,6 +690,12 @@ mod tests {
             ]
         );
 
+        // C is only a neighbor of B
+        assert!(!state.are_graph_neighbors(1, 0));
+        assert!(!state.are_graph_neighbors(1, 1));
+        assert!(state.are_graph_neighbors(1, 2));
+        assert!(!state.are_graph_neighbors(1, 3));
+
         // Update parents and head order and check that the commit order changes.
         state.commits.get_mut(commit_a.id()).unwrap().parents = vec![commit_c.id().clone()];
         state.commits.get_mut(commit_b.id()).unwrap().parents =
@@ -705,6 +711,12 @@ mod tests {
                 commit_b.id().clone(),
             ]
         );
+
+        // C is now a neighbor of A and B
+        assert!(!state.are_graph_neighbors(2, 0));
+        assert!(state.are_graph_neighbors(2, 1));
+        assert!(!state.are_graph_neighbors(2, 2));
+        assert!(state.are_graph_neighbors(2, 3));
     }
 
     #[test]
@@ -713,16 +725,16 @@ mod tests {
         let store = test_repo.repo.store();
         let empty_tree = store.empty_merged_tree();
 
-        // Swap C and D:
-        // f           f
-        // |           |
-        // D e         C e
-        // |\|         |\|
-        // B C    =>   B D
-        // |/          |/
-        // A           A
-        // |           |
-        // root        root
+        // Construct the graph:
+        // f
+        // |
+        // D e
+        // |\|
+        // B C
+        // |/
+        // A
+        // |
+        // root
         //
         // Lowercase nodes are external to the set
         let mut tx = test_repo.repo.start_transaction();
@@ -760,7 +772,17 @@ mod tests {
             ]
         );
 
-        // Swap C and D and check result
+        // Swap D and C:
+        // f           f
+        // |           |
+        // D e         C e
+        // |\|         |\|
+        // B C    =>   B D
+        // |/          |/
+        // A           A
+        // |           |
+        // root        root
+        //
         state.swap_commits(0, 2);
         assert_eq!(state.head_order, vec![commit_c.id().clone()]);
         assert_eq!(
@@ -788,6 +810,99 @@ mod tests {
         assert_eq!(
             *state.commits.get(commit_f.id()).unwrap().parents,
             vec![commit_c.id().clone()],
+        );
+
+        // Swap B and D:
+        // f           f
+        // |           |
+        // C e         C e
+        // |\|         |\|
+        // B D    =>   D B
+        // |/          |/
+        // A           A
+        // |           |
+        // root        root
+        //
+        state.swap_commits(1, 2);
+        assert_eq!(state.head_order, vec![commit_c.id().clone()]);
+        assert_eq!(
+            state.current_order,
+            vec![
+                commit_c.id().clone(),
+                commit_d.id().clone(),
+                commit_b.id().clone(),
+                commit_a.id().clone()
+            ]
+        );
+        assert_eq!(state.current_selection, 1);
+        assert_eq!(
+            *state.commits.get(commit_c.id()).unwrap().parents,
+            vec![commit_d.id().clone(), commit_b.id().clone()],
+        );
+        assert_eq!(
+            *state.commits.get(commit_d.id()).unwrap().parents,
+            vec![commit_a.id().clone()],
+        );
+        assert_eq!(
+            *state.commits.get(commit_b.id()).unwrap().parents,
+            vec![commit_a.id().clone()],
+        );
+        assert_eq!(
+            *state.commits.get(commit_e.id()).unwrap().parents,
+            vec![commit_b.id().clone()],
+        );
+
+        // Swap A and C:
+        // f           f
+        // |           |
+        // C e         A e
+        // |\|         |\|
+        // D B    =>   D B
+        // |/          |/
+        // A           C
+        // |           |
+        // root        root
+        //
+        state.swap_commits(3, 0);
+        assert_eq!(state.head_order, vec![commit_a.id().clone()]);
+        assert_eq!(
+            state.current_order,
+            vec![
+                commit_a.id().clone(),
+                commit_d.id().clone(),
+                commit_b.id().clone(),
+                commit_c.id().clone()
+            ]
+        );
+        assert_eq!(state.current_selection, 1);
+        assert_eq!(
+            *state.commits.get(commit_a.id()).unwrap().parents,
+            vec![commit_d.id().clone(), commit_b.id().clone()],
+        );
+        assert_eq!(
+            *state.commits.get(commit_d.id()).unwrap().parents,
+            vec![commit_c.id().clone()],
+        );
+        assert_eq!(
+            *state.commits.get(commit_b.id()).unwrap().parents,
+            vec![commit_c.id().clone()],
+        );
+        assert_eq!(
+            *state.commits.get(commit_f.id()).unwrap().parents,
+            vec![commit_a.id().clone()],
+        );
+
+        // No-op swap
+        state.swap_commits(0, 0);
+        assert_eq!(state.current_selection, 1);
+        assert_eq!(
+            state.current_order,
+            vec![
+                commit_a.id().clone(),
+                commit_d.id().clone(),
+                commit_b.id().clone(),
+                commit_c.id().clone()
+            ]
         );
     }
 

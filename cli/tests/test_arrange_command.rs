@@ -25,6 +25,29 @@ fn test_arrange_bad_revisions() {
     create_commit(&work_dir, "b", &["a"]);
     create_commit(&work_dir, "c", &["b"]);
 
+    let output = work_dir.run_jj(["arrange", "--config=revsets.arrange="]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Failed to parse revset: Syntax error
+    Caused by:  --> 1:1
+      |
+    1 | 
+      | ^---
+      |
+      = expected <expression>
+    Hint: See https://docs.jj-vcs.dev/latest/revsets/ or use `jj help -k revsets` for revsets syntax and how to quote symbols.
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = work_dir.run_jj(["arrange", "-r", "root()"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: The root commit 000000000000 is immutable
+    [EOF]
+    [exit status: 1]
+    ");
+
     let output = work_dir.run_jj(["arrange", "none()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
