@@ -630,34 +630,6 @@ fn test_bookmark_rename() {
     [exit status: 1]
     ");
 
-    // Rename to the same name is an error (bookmark already exists)
-    let output = work_dir.run_jj(["bookmark", "rename", "blocal1", "blocal1"]);
-    insta::assert_snapshot!(output, @"
-    ------- stderr -------
-    Error: Bookmark already exists: blocal1
-    [EOF]
-    [exit status: 1]
-    ");
-
-    // Rename to the same name with --overwrite-existing is a noop
-    let output = work_dir.run_jj([
-        "bookmark",
-        "rename",
-        "--overwrite-existing",
-        "blocal1",
-        "blocal1",
-    ]);
-    insta::assert_snapshot!(output, @"");
-
-    let output = work_dir.run_jj([
-        "bookmark",
-        "rename",
-        "--overwrite-existing",
-        "blocal1",
-        "bexist",
-    ]);
-    insta::assert_snapshot!(output, @"");
-
     work_dir.run_jj(["new"]).success();
     work_dir.run_jj(["describe", "-m=commit-2"]).success();
     work_dir
@@ -689,7 +661,7 @@ fn test_bookmark_rename() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Add bookmark bremote2 to 79b00f5a00d0
+      Add bookmark bremote2 to a9d7418c1c3f
     [EOF]
     ");
     work_dir
@@ -708,84 +680,235 @@ fn test_bookmark_rename() {
     [EOF]
     ");
 
-    // overwrite-existing where the overwritten bookmark has a present+tracked
-    // remote: the tracked state should be dropped and local should move.
-    work_dir
-        .run_jj(["op", "restore", &op_id_after_rename])
-        .success();
-    work_dir.run_jj(["new"]).success();
-    work_dir.run_jj(["describe", "-m=commit-3"]).success();
-    work_dir
-        .run_jj(["bookmark", "create", "boverwrite"])
-        .success();
-    work_dir
-        .run_jj(["git", "push", "--allow-new", "-b=boverwrite"])
-        .success();
-    // Now rename bremote2 -> boverwrite with --overwrite-existing.
-    // boverwrite@origin was tracked; after overwrite it should be untracked
-    // and the local should point to bremote2's target (commit-2).
-    let output = work_dir.run_jj([
-        "bookmark",
-        "rename",
-        "--overwrite-existing",
-        "bremote2",
-        "boverwrite",
-    ]);
-    insta::assert_snapshot!(output, @"
-    ------- stderr -------
-    Warning: The renamed bookmark already exists on the remote 'origin', tracking state was dropped.
-    Hint: To track the existing remote bookmark, run `jj bookmark track boverwrite --remote=origin`
-    Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
-    Working copy  (@) now at: qwyusntz f5374493 (empty) (no description set)
-    Parent commit (@-)      : uuuvxpvw 95cd2f9e boverwrite@origin | (empty) commit-3
-    [EOF]
-    ");
-    let output = work_dir.run_jj(["bookmark", "list", "--all", "boverwrite"]);
-    insta::assert_snapshot!(output, @"
-    boverwrite: lylxulpl 79b00f5a (empty) commit-2
-    boverwrite@origin: uuuvxpvw 95cd2f9e (empty) commit-3
-    [EOF]
-    ");
-
-    // overwrite-existing where old bookmark has no tracked remote on the same
-    // remote as the overwritten bookmark: should warn about dropped tracking.
-    work_dir
-        .run_jj(["op", "restore", &op_id_after_rename])
-        .success();
-    work_dir.run_jj(["new"]).success();
-    work_dir.run_jj(["describe", "-m=commit-3"]).success();
-    work_dir.run_jj(["bookmark", "create", "bpushed"]).success();
-    work_dir
-        .run_jj(["git", "push", "--allow-new", "-b=bpushed"])
-        .success();
-    // blocal1 was renamed from blocal and has no tracked remotes.
-    // Renaming blocal1 -> bpushed should warn that bpushed@origin tracking was
-    // dropped since blocal1 wasn't tracked on origin.
-    let output = work_dir.run_jj([
-        "bookmark",
-        "rename",
-        "--overwrite-existing",
-        "bexist",
-        "bpushed",
-    ]);
-    insta::assert_snapshot!(output, @"
-    ------- stderr -------
-    Warning: Tracking of remote bookmark bpushed@origin was dropped.
-    Hint: Use `jj bookmark track` to re-track if needed.
-    Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
-    Working copy  (@) now at: zkyosouw b7492c1d (empty) (no description set)
-    Parent commit (@-)      : soqnvnyz 0e52e7ce bpushed@origin | (empty) commit-3
-    [EOF]
-    ");
-
     // rename an untracked bookmark
-    work_dir
-        .run_jj(["op", "restore", &op_id_after_rename])
-        .success();
     work_dir
         .run_jj(["bookmark", "untrack", "buntracked"])
         .success();
     let output = work_dir.run_jj(["bookmark", "rename", "buntracked", "buntracked2"]);
+    insta::assert_snapshot!(output, @"");
+}
+
+#[test]
+fn test_bookmark_rename_overwrite() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Set up remotes
+    let absent_tracked = test_env.env_root().join("repo1");
+    git::init_bare(absent_tracked);
+    work_dir
+        .run_jj(["git", "remote", "add", "absent-tracked", "../repo1"])
+        .success();
+    let absent_untracked = test_env.env_root().join("repo2");
+    git::init_bare(absent_untracked);
+    work_dir
+        .run_jj(["git", "remote", "add", "absent-untracked", "../repo2"])
+        .success();
+    let present_tracked = test_env.env_root().join("repo3");
+    git::init_bare(present_tracked);
+    work_dir
+        .run_jj(["git", "remote", "add", "present-tracked", "../repo3"])
+        .success();
+    let present_untracked = test_env.env_root().join("repo4");
+    git::init_bare(present_untracked);
+    work_dir
+        .run_jj(["git", "remote", "add", "present-untracked", "../repo4"])
+        .success();
+
+    // Set up commits
+    work_dir.run_jj(["describe", "-m=OLD"]).success();
+    work_dir.run_jj(["bookmark", "create", "OLD"]).success();
+    work_dir.run_jj(["new", "root()", "-m=NEW"]).success();
+    work_dir.run_jj(["bookmark", "create", "NEW"]).success();
+
+    // Construct bookmark state
+    work_dir
+        .run_jj([
+            "git",
+            "push",
+            "--remote=present-tracked",
+            "--named=old-present-tracked=OLD",
+            "--named=old-present-untracked=OLD",
+            "--named=new-absent-tracked=NEW",
+            "--named=new-present-tracked=NEW",
+            "--named=new-present-untracked=NEW",
+        ])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "track", "--remote=*", "old-*", "new-*"])
+        .success();
+    work_dir
+        .run_jj([
+            "git",
+            "push",
+            "--remote=present-untracked",
+            "--bookmark=old-*",
+            "--bookmark=new-*",
+        ])
+        .success();
+    work_dir
+        .run_jj(["git", "push", "--remote=absent-tracked", "--bookmark=old-*"])
+        .success();
+    work_dir
+        .run_jj([
+            "git",
+            "push",
+            "--remote=absent-untracked",
+            "--bookmark=old-*",
+        ])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "untrack", "--remote=*-untracked", "*"])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "untrack", "--remote=*", "old-present-untracked"])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r=OLD", "old-absent-tracked"])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "track", "--remote=*", "old-*-tracked"])
+        .success();
+
+    // Confirm initial state:
+    // Old bookmark disposition is based on their name:
+    // - Remotely absent or present, locally tracked or untracked.
+    // - Remotely absent, locally untracked bookmarks do not exist.
+    // - Skip above case, they are not valid old bookmark names.
+    // New bookmark disposition is based on their remote's name:
+    // - Remotely absent or present, tracked or untracked.
+    // - Remotely absent and untracked bookmarks do not exist;
+    // - They will not be shown, but are valid new bookmark names.
+    // - Bookmark name shows what it will be overwritten with.
+    let output = get_bookmark_output(&work_dir);
+    insta::assert_snapshot!(output, @"
+    NEW: vruxwmqv 1dc62c0c (empty) NEW
+    OLD: qpvuntsm 107793b4 (empty) OLD
+    new-absent-tracked: vruxwmqv 1dc62c0c (empty) NEW
+      @absent-tracked (not created yet)
+      @present-tracked: vruxwmqv 1dc62c0c (empty) NEW
+    new-absent-tracked@present-untracked: vruxwmqv 1dc62c0c (empty) NEW
+    new-present-tracked: vruxwmqv 1dc62c0c (empty) NEW
+      @absent-tracked (not created yet)
+      @present-tracked: vruxwmqv 1dc62c0c (empty) NEW
+    new-present-tracked@present-untracked: vruxwmqv 1dc62c0c (empty) NEW
+    new-present-untracked: vruxwmqv 1dc62c0c (empty) NEW
+      @absent-tracked (not created yet)
+      @present-tracked: vruxwmqv 1dc62c0c (empty) NEW
+    new-present-untracked@present-untracked: vruxwmqv 1dc62c0c (empty) NEW
+    old-absent-tracked: qpvuntsm 107793b4 (empty) OLD
+      @absent-tracked (not created yet)
+      @absent-untracked (not created yet)
+      @present-tracked (not created yet)
+      @present-untracked (not created yet)
+    old-present-tracked: qpvuntsm 107793b4 (empty) OLD
+      @absent-tracked: qpvuntsm 107793b4 (empty) OLD
+      @absent-untracked: qpvuntsm 107793b4 (empty) OLD
+      @present-tracked: qpvuntsm 107793b4 (empty) OLD
+      @present-untracked: qpvuntsm 107793b4 (empty) OLD
+    old-present-untracked: qpvuntsm 107793b4 (empty) OLD
+    old-present-untracked@absent-tracked: qpvuntsm 107793b4 (empty) OLD
+    old-present-untracked@absent-untracked: qpvuntsm 107793b4 (empty) OLD
+    old-present-untracked@present-tracked: qpvuntsm 107793b4 (empty) OLD
+    old-present-untracked@present-untracked: qpvuntsm 107793b4 (empty) OLD
+    [EOF]
+    ");
+
+    // Exercise all combinations by renaming old to new
+    let output = work_dir.run_jj([
+        "bookmark",
+        "rename",
+        "--overwrite-existing",
+        "old-absent-tracked",
+        "new-absent-tracked",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: The renamed bookmark already exists on the remote 'present-tracked', tracking state was dropped.
+    Hint: To track the existing remote bookmark, run `jj bookmark track new-absent-tracked --remote=present-tracked`
+    Warning: The renamed bookmark already exists on the remote 'present-untracked', tracking state was dropped.
+    Hint: To track the existing remote bookmark, run `jj bookmark track new-absent-tracked --remote=present-untracked`
+    [EOF]
+    ");
+    let output = work_dir.run_jj([
+        "bookmark",
+        "rename",
+        "--overwrite-existing",
+        "old-present-tracked",
+        "new-present-tracked",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: The renamed bookmark already exists on the remote 'present-tracked', tracking state was dropped.
+    Hint: To track the existing remote bookmark, run `jj bookmark track new-present-tracked --remote=present-tracked`
+    Warning: The renamed bookmark already exists on the remote 'present-untracked', tracking state was dropped.
+    Hint: To track the existing remote bookmark, run `jj bookmark track new-present-tracked --remote=present-untracked`
+    Warning: Tracked remote bookmarks for bookmark old-present-tracked were not renamed.
+    Hint: To rename the bookmark on the remote, you can `jj git push --bookmark old-present-tracked` first (to delete it on the remote), and then `jj git push --bookmark new-present-tracked`. `jj git push --all --deleted` would also be sufficient.
+    [EOF]
+    ");
+    let output = work_dir.run_jj([
+        "bookmark",
+        "rename",
+        "--overwrite-existing",
+        "old-present-untracked",
+        "new-present-untracked",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Tracking of remote bookmark new-present-untracked@present-tracked was dropped.
+    Hint: Use `jj bookmark track` to re-track if needed.
+    [EOF]
+    ");
+
+    // Confirm end state:
+    // old-absent-tracked is completely forgotten
+    // old-present-tracked is pending deletion on all remotes
+    // old-present-untracked is locally forgotten
+    // old-present-untracked is untracked on all remotes
+    // new-*-tracked are pending creation on remotes were they were absent
+    // new-*-tracked are no longer tracked on remotes where they were present
+    // new-present-untracked is locally updated
+    // new-present-untracked is no longer tracked on remotes where it was present
+    // new-present-untracked is forgotten on remotes where it was absent
+    let output = get_bookmark_output(&work_dir);
+    insta::assert_snapshot!(output, @"
+    NEW: vruxwmqv 1dc62c0c (empty) NEW
+    OLD: qpvuntsm 107793b4 (empty) OLD
+    new-absent-tracked: qpvuntsm 107793b4 (empty) OLD
+      @absent-tracked (not created yet)
+      @absent-untracked (not created yet)
+    new-absent-tracked@present-tracked: vruxwmqv 1dc62c0c (empty) NEW
+    new-absent-tracked@present-untracked: vruxwmqv 1dc62c0c (empty) NEW
+    new-present-tracked: qpvuntsm 107793b4 (empty) OLD
+      @absent-tracked (not created yet)
+      @absent-untracked (not created yet)
+    new-present-tracked@present-tracked: vruxwmqv 1dc62c0c (empty) NEW
+    new-present-tracked@present-untracked: vruxwmqv 1dc62c0c (empty) NEW
+    new-present-untracked: qpvuntsm 107793b4 (empty) OLD
+    new-present-untracked@present-tracked: vruxwmqv 1dc62c0c (empty) NEW
+    new-present-untracked@present-untracked: vruxwmqv 1dc62c0c (empty) NEW
+    old-present-tracked (deleted)
+      @absent-tracked: qpvuntsm 107793b4 (empty) OLD
+      @absent-untracked: qpvuntsm 107793b4 (empty) OLD
+      @present-tracked: qpvuntsm 107793b4 (empty) OLD
+      @present-untracked: qpvuntsm 107793b4 (empty) OLD
+    old-present-untracked@absent-tracked: qpvuntsm 107793b4 (empty) OLD
+    old-present-untracked@absent-untracked: qpvuntsm 107793b4 (empty) OLD
+    old-present-untracked@present-tracked: qpvuntsm 107793b4 (empty) OLD
+    old-present-untracked@present-untracked: qpvuntsm 107793b4 (empty) OLD
+    [EOF]
+    ");
+
+    // Renaming an extant bookmark to itself is a no-op.
+    let output = work_dir.run_jj([
+        "bookmark",
+        "rename",
+        "--overwrite-existing",
+        "new-present-tracked",
+        "new-present-tracked",
+    ]);
     insta::assert_snapshot!(output, @"");
 }
 
