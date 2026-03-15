@@ -98,7 +98,9 @@ pub(crate) async fn cmd_absorb(
         writeln!(ui.warning_default(), "Skipping {ui_path}: {reason}")?;
     }
 
-    workspace_command.check_rewritable(selected_trees.target_commits.keys())?;
+    workspace_command
+        .check_rewritable(selected_trees.target_commits.keys())
+        .await?;
 
     let mut tx = workspace_command.start_transaction();
     let stats = absorb_hunks(tx.repo_mut(), &source, selected_trees.target_commits).await?;

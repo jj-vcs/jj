@@ -423,7 +423,9 @@ pub async fn cmd_gerrit_upload(
         let target_expr = workspace_command
             .parse_union_revsets(ui, &args.revisions)?
             .resolve()?;
-        workspace_command.check_rewritable_expr(&target_expr)?;
+        workspace_command
+            .check_rewritable_expr(&target_expr)
+            .await?;
         target_expr
             .evaluate(workspace_command.repo().as_ref())?
             .stream()

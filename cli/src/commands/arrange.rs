@@ -98,7 +98,9 @@ pub(crate) async fn cmd_arrange(
             .parse_union_revsets(ui, &[&*args.revisions_pos, &*args.revisions_opt].concat())?
     }
     .resolve()?;
-    workspace_command.check_rewritable_expr(&target_expression)?;
+    workspace_command
+        .check_rewritable_expr(&target_expression)
+        .await?;
 
     let gaps_revset = target_expression
         .connected()

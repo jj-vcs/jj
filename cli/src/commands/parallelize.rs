@@ -98,7 +98,7 @@ pub(crate) async fn cmd_parallelize(
         new_target_parents.insert(commit.id().clone(), new_parents);
     }
 
-    workspace_command.check_rewritable(needs_rewrite)?;
+    workspace_command.check_rewritable(needs_rewrite).await?;
     let mut tx = workspace_command.start_transaction();
 
     // If a commit outside the target set has a commit in the target set as parent,

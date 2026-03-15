@@ -437,7 +437,9 @@ async fn plan_rebase_revisions(
     let target_expr = workspace_command
         .parse_union_revsets(ui, revisions)?
         .resolve()?;
-    workspace_command.check_rewritable_expr(&target_expr)?;
+    workspace_command
+        .check_rewritable_expr(&target_expr)
+        .await?;
     let target_commit_ids: Vec<_> = target_expr
         .evaluate(workspace_command.repo().as_ref())?
         .iter()
@@ -476,7 +478,9 @@ async fn plan_rebase_source(
     rebase_destination: &RebaseDestinationArgs,
 ) -> Result<MoveCommitsLocation, CommandError> {
     let source_commit_ids = Vec::from_iter(workspace_command.resolve_revsets_ordered(ui, source)?);
-    workspace_command.check_rewritable(&source_commit_ids)?;
+    workspace_command
+        .check_rewritable(&source_commit_ids)
+        .await?;
 
     let (new_parent_ids, new_child_ids) = compute_commit_location(
         ui,
@@ -533,7 +537,9 @@ async fn plan_rebase_branch(
     let roots_expression = RevsetExpression::commits(new_parent_ids.clone())
         .range(&RevsetExpression::commits(branch_commit_ids))
         .roots();
-    workspace_command.check_rewritable_expr(&roots_expression)?;
+    workspace_command
+        .check_rewritable_expr(&roots_expression)
+        .await?;
     let root_commit_ids: Vec<_> = roots_expression
         .evaluate(workspace_command.repo().as_ref())
         .unwrap()

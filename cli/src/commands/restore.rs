@@ -132,7 +132,7 @@ pub(crate) async fn cmd_restore(
             .await?;
         from_commits = to_commit.parents().await?;
     }
-    workspace_command.check_rewritable([to_commit.id()])?;
+    workspace_command.check_rewritable([to_commit.id()]).await?;
 
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
     let matcher = fileset_expression.to_matcher();

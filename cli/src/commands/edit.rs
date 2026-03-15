@@ -57,7 +57,9 @@ pub(crate) async fn cmd_edit(
         .or(args.revision_opt.as_ref())
         .expect("either positional or -r arg should be provided");
     let new_commit = workspace_command.resolve_single_rev(ui, revision_arg)?;
-    workspace_command.check_rewritable([new_commit.id()])?;
+    workspace_command
+        .check_rewritable([new_commit.id()])
+        .await?;
     if workspace_command.get_wc_commit_id() == Some(new_commit.id()) {
         writeln!(ui.status(), "Already editing that commit")?;
     } else {

@@ -207,7 +207,9 @@ impl SplitArgs {
         workspace_command: &WorkspaceCommandHelper,
     ) -> Result<ResolvedSplitArgs, CommandError> {
         let target_commit = workspace_command.resolve_single_rev(ui, &self.revision)?;
-        workspace_command.check_rewritable([target_commit.id()])?;
+        workspace_command
+            .check_rewritable([target_commit.id()])
+            .await?;
         let repo = workspace_command.repo();
         let fileset_expression = workspace_command.parse_file_patterns(ui, &self.paths)?;
         let matcher = fileset_expression.to_matcher();

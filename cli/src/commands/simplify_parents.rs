@@ -61,7 +61,7 @@ pub(crate) async fn cmd_simplify_parents(
                     .resolve()?,
             )
     };
-    workspace_command.check_rewritable_expr(&revs)?;
+    workspace_command.check_rewritable_expr(&revs).await?;
     let commit_ids: Vec<_> = revs
         .evaluate(workspace_command.repo().as_ref())?
         .stream()

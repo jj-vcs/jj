@@ -226,7 +226,9 @@ pub(crate) async fn cmd_squash(
         pre_existing_destination = Some(parents.pop().unwrap());
     }
 
-    workspace_command.check_rewritable(sources.iter().chain(&pre_existing_destination).ids())?;
+    workspace_command
+        .check_rewritable(sources.iter().chain(&pre_existing_destination).ids())
+        .await?;
 
     // prepare the tx description before possibly rebasing the source commits
     let source_ids: Vec<_> = sources.iter().ids().collect();

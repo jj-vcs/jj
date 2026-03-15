@@ -1882,16 +1882,16 @@ to the current parents may contain changes from multiple commits.
         self.commit_summary_template().format(commit, formatter)
     }
 
-    pub fn check_rewritable<'a>(
+    pub async fn check_rewritable<'a>(
         &self,
         commits: impl IntoIterator<Item = &'a CommitId>,
     ) -> Result<(), CommandError> {
         let commit_ids = commits.into_iter().cloned().collect_vec();
         let to_rewrite_expr = RevsetExpression::commits(commit_ids);
-        self.check_rewritable_expr(&to_rewrite_expr)
+        self.check_rewritable_expr(&to_rewrite_expr).await
     }
 
-    pub fn check_rewritable_expr(
+    pub async fn check_rewritable_expr(
         &self,
         to_rewrite_expr: &Arc<ResolvedRevsetExpression>,
     ) -> Result<(), CommandError> {
@@ -1903,7 +1903,7 @@ to the current parents may contain changes from multiple commits.
             user_error(format!("The root commit {commit_id:.12} is immutable"))
         } else {
             let mut error = user_error(format!("Commit {commit_id:.12} is immutable"));
-            let commit = repo.store().get_commit(&commit_id)?;
+            let commit = repo.store().get_commit_async(&commit_id).await?;
             error.add_formatted_hint_with(|formatter| {
                 write!(formatter, "Could not modify commit: ")?;
                 self.write_commit_summary(formatter, &commit)?;
@@ -3391,7 +3391,9 @@ pub async fn compute_commit_location(
         };
 
     if !new_child_ids.is_empty() {
-        workspace_command.check_rewritable(new_child_ids.iter())?;
+        workspace_command
+            .check_rewritable(new_child_ids.iter())
+            .await?;
         ensure_no_commit_loop(
             workspace_command.repo().as_ref(),
             &RevsetExpression::commits(new_child_ids.clone()),

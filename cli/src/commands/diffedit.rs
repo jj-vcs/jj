@@ -116,7 +116,9 @@ pub(crate) async fn cmd_diffedit(
         base_commits = target_commit.parents().await?;
         diff_description = "The diff initially shows the commit's changes.".to_string();
     }
-    workspace_command.check_rewritable([target_commit.id()])?;
+    workspace_command
+        .check_rewritable([target_commit.id()])
+        .await?;
 
     let diff_editor = workspace_command.diff_editor(ui, args.tool.as_deref())?;
     let mut tx = workspace_command.start_transaction();

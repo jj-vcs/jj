@@ -162,7 +162,9 @@ pub(crate) async fn cmd_metaedit(
         workspace_command.parse_revset(ui, &RevisionArg::AT)?
     }
     .resolve()?;
-    workspace_command.check_rewritable_expr(&target_expr)?;
+    workspace_command
+        .check_rewritable_expr(&target_expr)
+        .await?;
     let commit_ids: Vec<_> = target_expr
         .evaluate(workspace_command.repo().as_ref())?
         .stream()

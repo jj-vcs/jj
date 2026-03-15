@@ -263,7 +263,7 @@ pub(crate) async fn move_to_commit(
     // We're editing, just move to the target commit.
     if args.should_edit {
         // We're editing, the target must be rewritable.
-        workspace_command.check_rewritable([target.id()])?;
+        workspace_command.check_rewritable([target.id()]).await?;
         let mut tx = workspace_command.start_transaction();
         tx.edit(&target)?;
         tx.finish(

@@ -84,7 +84,9 @@ pub async fn cmd_sign(
     }
     .resolve()?;
 
-    workspace_command.check_rewritable_expr(&revset_expression)?;
+    workspace_command
+        .check_rewritable_expr(&revset_expression)
+        .await?;
 
     let to_sign: IndexSet<Commit> = revset_expression
         .evaluate(workspace_command.repo().as_ref())?

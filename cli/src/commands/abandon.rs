@@ -80,7 +80,9 @@ pub(crate) async fn cmd_abandon(
         }
         .resolve()?;
         let visible_expr = target_expr.intersection(&RevsetExpression::visible_heads().ancestors());
-        workspace_command.check_rewritable_expr(&visible_expr)?;
+        workspace_command
+            .check_rewritable_expr(&visible_expr)
+            .await?;
         let visible: IndexSet<_> = visible_expr
             .evaluate(workspace_command.repo().as_ref())?
             .stream()
