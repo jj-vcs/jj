@@ -73,8 +73,8 @@ pub struct WorkspaceAddArgs {
     /// the new working-copy commit will be created with all these revisions as
     /// parents, i.e. the working-copy commit will exist as if you had run `jj
     /// new r1 r2 r3 ...`.
-    #[arg(long, short, value_name = "REVSETS")]
-    revision: Vec<RevisionArg>,
+    #[arg(long = "revision", short, value_name = "REVSETS", alias = "revisions")]
+    revisions: Vec<RevisionArg>,
 
     /// The change description to use
     #[arg(long = "message", short, value_name = "MESSAGE")]
@@ -178,7 +178,7 @@ pub async fn cmd_workspace_add(
 
     // If no parent revisions are specified, create a working-copy commit based
     // on the parent of the current working-copy commit.
-    let parents = if args.revision.is_empty() {
+    let parents = if args.revisions.is_empty() {
         // Check out parents of the current workspace's working-copy commit, or the
         // root if there is no working-copy commit in the current workspace.
         if let Some(old_wc_commit_id) = tx
@@ -196,7 +196,7 @@ pub async fn cmd_workspace_add(
         }
     } else {
         old_workspace_command
-            .resolve_some_revsets(ui, &args.revision)?
+            .resolve_some_revsets(ui, &args.revisions)?
             .iter()
             .map(|id| tx.repo().store().get_commit(id))
             .try_collect()?

@@ -430,19 +430,19 @@ fn test_aliases_are_resolved(shell: Shell) {
     match shell {
         Shell::Bash => {
             insta::assert_snapshot!(output, @"
-            --revisions
+            --revision
             --reversed[EOF]
             ");
         }
         Shell::Zsh => {
             insta::assert_snapshot!(output, @"
-            --revisions:Which revisions to show
+            --revision:Which revisions to show
             --reversed:Show revisions in the opposite order (older revisions first)[EOF]
             ");
         }
         Shell::Fish => {
             insta::assert_snapshot!(output, @"
-            --revisions	Which revisions to show
+            --revision	Which revisions to show
             --reversed	Show revisions in the opposite order (older revisions first)
             [EOF]
             ");
@@ -519,21 +519,21 @@ fn test_default_command_is_resolved(shell: Shell) {
     match shell {
         Shell::Bash => {
             insta::assert_snapshot!(output, @"
-            --revisions
+            --revision
             --limit
             [EOF]
             ");
         }
         Shell::Zsh => {
             insta::assert_snapshot!(output, @"
-            --revisions:Which revisions to show
+            --revision:Which revisions to show
             --limit:Limit number of revisions to show
             [EOF]
             ");
         }
         Shell::Fish => {
             insta::assert_snapshot!(output, @"
-            --revisions	Which revisions to show
+            --revision	Which revisions to show
             --limit	Limit number of revisions to show
             [EOF]
             ");

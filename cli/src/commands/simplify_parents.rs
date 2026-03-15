@@ -32,7 +32,7 @@ pub(crate) struct SimplifyParentsArgs {
     /// If both `--source` and `--revisions` are not provided, this defaults to
     /// the `revsets.simplify-parents` setting, or `reachable(@, mutable())`
     /// if it is not set.
-    #[arg(long, short, value_name = "REVSETS")]
+    #[arg(long = "revision", short, value_name = "REVSETS", alias = "revisions")]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     revisions: Vec<RevisionArg>,
 }
