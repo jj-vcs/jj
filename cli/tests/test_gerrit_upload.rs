@@ -832,3 +832,68 @@ fn test_gerrit_upload_rejected_by_remote() {
     [exit status: 1]
     ");
 }
+
+#[test]
+fn test_gerrit_upload_private_commits_blocked() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "remote"])
+        .success();
+    let remote_dir = test_env.work_dir("remote");
+    create_commit(&remote_dir, "a", &[]);
+    test_env
+        .run_jj_in(".", ["git", "clone", "remote", "local"])
+        .success();
+    test_env.add_config(r#"gerrit.default-remote="origin""#);
+    test_env.add_config(r#"gerrit.default-remote-branch="main""#);
+    let local_dir = test_env.work_dir("local");
+
+    test_env.add_config(r#"git.private-commits = "description('private*')""#);
+    create_commit(&local_dir, "private-stuff", &["a@origin"]);
+
+    let output = local_dir.run_jj(["gerrit", "upload", "-r", "@", "--dry-run"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Won't upload commit 6450da38ac8d since it is private
+    Hint: Rejected commit: mzvwutvl 6450da38 private-stuff | private-stuff
+    Hint: Configured git.private-commits: 'description('private*')'
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
+fn test_gerrit_upload_allow_private_override() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "remote"])
+        .success();
+    let remote_dir = test_env.work_dir("remote");
+    create_commit(&remote_dir, "a", &[]);
+    test_env
+        .run_jj_in(".", ["git", "clone", "remote", "local"])
+        .success();
+    test_env.add_config(r#"gerrit.default-remote="origin""#);
+    test_env.add_config(r#"gerrit.default-remote-branch="main""#);
+    let local_dir = test_env.work_dir("local");
+
+    test_env.add_config(r#"git.private-commits = "description('private*')""#);
+    create_commit(&local_dir, "private-stuff", &["a@origin"]);
+
+    // With --allow-private, the private commit check should be skipped.
+    // The command may fail later (e.g. during push), but not on the private check.
+    let output = local_dir.run_jj([
+        "gerrit",
+        "upload",
+        "-r",
+        "@",
+        "--dry-run",
+        "--allow-private",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
+    Dry-run: Would push mzvwutvl 6450da38 private-stuff | private-stuff
+    [EOF]
+    ");
+}
