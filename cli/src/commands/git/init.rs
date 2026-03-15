@@ -214,7 +214,7 @@ async fn do_init(
             let repo = init_git_refs(ui, repo, command.string_args(), colocated).await?;
             let mut workspace_command = command.for_workable_repo(ui, workspace, repo)?;
             maybe_add_gitignore(&workspace_command)?;
-            workspace_command.maybe_snapshot(ui)?;
+            workspace_command.maybe_snapshot(ui).await?;
             maybe_set_repository_level_trunk_alias(
                 ui,
                 &git::get_git_repo(workspace_command.repo().store())?,

@@ -454,7 +454,8 @@ impl CommandHelper {
     ) -> Result<(WorkspaceCommandHelper, SnapshotStats), CommandError> {
         let mut workspace_command = self.workspace_helper_no_snapshot(ui)?;
 
-        let (workspace_command, stats) = match workspace_command.maybe_snapshot_impl(ui) {
+        let (workspace_command, stats) = match workspace_command.maybe_snapshot_impl(ui).block_on()
+        {
             Ok(stats) => (workspace_command, stats),
             Err(SnapshotWorkingCopyError::Command(err)) => return Err(err),
             Err(SnapshotWorkingCopyError::StaleWorkingCopy(err)) => {
@@ -633,6 +634,7 @@ impl CommandHelper {
                 // should be no data loss at least.
                 let fresh_stats = workspace_command
                     .maybe_snapshot_impl(ui)
+                    .await
                     .map_err(|err| err.into_command_error())?;
                 let merged_stats = {
                     let SnapshotStats {
@@ -1179,7 +1181,10 @@ impl WorkspaceCommandHelper {
     /// call [`print_snapshot_stats`] with the [`SnapshotStats`] returned by
     /// this function to present possible untracked files to the user.
     #[instrument(skip_all)]
-    fn maybe_snapshot_impl(&mut self, ui: &Ui) -> Result<SnapshotStats, SnapshotWorkingCopyError> {
+    async fn maybe_snapshot_impl(
+        &mut self,
+        ui: &Ui,
+    ) -> Result<SnapshotStats, SnapshotWorkingCopyError> {
         if !self.may_update_working_copy {
             return Ok(SnapshotStats::default());
         }
@@ -1199,7 +1204,7 @@ impl WorkspaceCommandHelper {
             let op_heads_store = repo.loader().op_heads_store();
             let op_heads = op_heads_store
                 .get_op_heads()
-                .block_on()
+                .await
                 .map_err(snapshot_command_error)?;
             if std::slice::from_ref(repo.op_id()) != op_heads {
                 let op = self
@@ -1210,7 +1215,7 @@ impl WorkspaceCommandHelper {
                 let current_repo = repo
                     .loader()
                     .load_at(&op)
-                    .block_on()
+                    .await
                     .map_err(snapshot_command_error)?;
                 self.user_repo = ReadonlyUserRepo::new(current_repo);
             }
@@ -1219,20 +1224,20 @@ impl WorkspaceCommandHelper {
         #[cfg(feature = "git")]
         if self.working_copy_shared_with_git {
             self.import_git_head(ui, &git_import_export_lock)
-                .block_on()
+                .await
                 .map_err(snapshot_command_error)?;
         }
         // Because the Git refs (except HEAD) aren't imported yet, the ref
         // pointing to the new working-copy commit might not be exported.
         // In that situation, the ref would be conflicted anyway, so export
         // failure is okay.
-        let stats = self.snapshot_working_copy(ui).block_on()?;
+        let stats = self.snapshot_working_copy(ui).await?;
 
         // import_git_refs() can rebase the working-copy commit.
         #[cfg(feature = "git")]
         if self.working_copy_shared_with_git {
             self.import_git_refs(ui, &git_import_export_lock)
-                .block_on()
+                .await
                 .map_err(snapshot_command_error)?;
         }
         Ok(stats)
@@ -1243,10 +1248,11 @@ impl WorkspaceCommandHelper {
     ///
     /// Returns whether a snapshot was taken.
     #[instrument(skip_all)]
-    pub fn maybe_snapshot(&mut self, ui: &Ui) -> Result<bool, CommandError> {
+    pub async fn maybe_snapshot(&mut self, ui: &Ui) -> Result<bool, CommandError> {
         let op_id_before = self.repo().op_id().clone();
         let stats = self
             .maybe_snapshot_impl(ui)
+            .await
             .map_err(|err| err.into_command_error())?;
         print_snapshot_stats(ui, &stats, self.env().path_converter())?;
         let op_id_after = self.repo().op_id();
@@ -1433,6 +1439,7 @@ to the current parents may contain changes from multiple commits.
         self.user_repo = ReadonlyUserRepo::new(repo);
 
         self.maybe_snapshot_impl(ui)
+            .await
             .map_err(|err| err.into_command_error())
     }
 
