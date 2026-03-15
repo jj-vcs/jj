@@ -54,7 +54,7 @@ fn test_walk_predecessors_basic() {
     let mut tx = repo1.start_transaction();
     let commit2 = tx
         .repo_mut()
-        .rewrite_commit(&commit1)
+        .rewrite_commit(&commit1).block_on()
         .set_description("rewritten")
         .write_unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
@@ -97,7 +97,7 @@ fn test_walk_predecessors_basic_legacy_op() {
     let mut tx = repo1.start_transaction();
     let commit2 = tx
         .repo_mut()
-        .rewrite_commit(&commit1)
+        .rewrite_commit(&commit1).block_on()
         .set_description("rewritten")
         .write_unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
@@ -136,14 +136,14 @@ fn test_walk_predecessors_concurrent_ops() {
     let mut tx2 = repo1.start_transaction();
     let commit2 = tx2
         .repo_mut()
-        .rewrite_commit(&commit1)
+        .rewrite_commit(&commit1).block_on()
         .set_description("rewritten 2")
         .write_unwrap();
     tx2.repo_mut().rebase_descendants().block_on().unwrap();
     let mut tx3 = repo1.start_transaction();
     let commit3 = tx3
         .repo_mut()
-        .rewrite_commit(&commit1)
+        .rewrite_commit(&commit1).block_on()
         .set_description("rewritten 3")
         .write_unwrap();
     tx3.repo_mut().rebase_descendants().block_on().unwrap();
@@ -158,12 +158,12 @@ fn test_walk_predecessors_concurrent_ops() {
     let mut tx = repo4.start_transaction();
     let commit4 = tx
         .repo_mut()
-        .rewrite_commit(&commit2)
+        .rewrite_commit(&commit2).block_on()
         .set_description("rewritten 4")
         .write_unwrap();
     let commit5 = tx
         .repo_mut()
-        .rewrite_commit(&commit3)
+        .rewrite_commit(&commit3).block_on()
         .set_description("rewritten 5")
         .write_unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
@@ -210,7 +210,7 @@ fn test_walk_predecessors_multiple_predecessors_across_ops() {
     let mut tx = repo2.start_transaction();
     let commit3 = tx
         .repo_mut()
-        .rewrite_commit(&commit2)
+        .rewrite_commit(&commit2).block_on()
         .set_predecessors(vec![commit2.id().clone(), commit1.id().clone()])
         .set_description("rewritten")
         .write_unwrap();
@@ -247,7 +247,7 @@ fn test_walk_predecessors_multiple_predecessors_within_op() {
     let mut tx = repo1.start_transaction();
     let commit3 = tx
         .repo_mut()
-        .rewrite_commit(&commit1)
+        .rewrite_commit(&commit1).block_on()
         .set_predecessors(vec![commit1.id().clone(), commit2.id().clone()])
         .set_description("rewritten")
         .write_unwrap();
@@ -282,12 +282,12 @@ fn test_walk_predecessors_transitive() {
     let mut tx = repo1.start_transaction();
     let commit2 = tx
         .repo_mut()
-        .rewrite_commit(&commit1)
+        .rewrite_commit(&commit1).block_on()
         .set_description("rewritten 2")
         .write_unwrap();
     let commit3 = tx
         .repo_mut()
-        .rewrite_commit(&commit2)
+        .rewrite_commit(&commit2).block_on()
         .set_description("rewritten 3")
         .write_unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
@@ -323,17 +323,17 @@ fn test_walk_predecessors_transitive_graph_order() {
     let commit1 = write_random_commit(tx.repo_mut());
     let commit2 = tx
         .repo_mut()
-        .rewrite_commit(&commit1)
+        .rewrite_commit(&commit1).block_on()
         .set_description("rewritten 2")
         .write_unwrap();
     let commit3 = tx
         .repo_mut()
-        .rewrite_commit(&commit2)
+        .rewrite_commit(&commit2).block_on()
         .set_description("rewritten 3")
         .write_unwrap();
     let commit4 = tx
         .repo_mut()
-        .rewrite_commit(&commit1)
+        .rewrite_commit(&commit1).block_on()
         .set_description("rewritten 4")
         .write_unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
@@ -342,7 +342,7 @@ fn test_walk_predecessors_transitive_graph_order() {
     let mut tx = repo1.start_transaction();
     let commit5 = tx
         .repo_mut()
-        .rewrite_commit(&commit4)
+        .rewrite_commit(&commit4).block_on()
         .set_predecessors(vec![commit4.id().clone(), commit3.id().clone()])
         .set_description("rewritten 5")
         .write_unwrap();
@@ -389,7 +389,7 @@ fn test_walk_predecessors_unsimplified() {
     let mut tx = repo1.start_transaction();
     let commit2 = tx
         .repo_mut()
-        .rewrite_commit(&commit1)
+        .rewrite_commit(&commit1).block_on()
         .set_description("rewritten 2")
         .write_unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
@@ -398,7 +398,7 @@ fn test_walk_predecessors_unsimplified() {
     let mut tx = repo2.start_transaction();
     let commit3 = tx
         .repo_mut()
-        .rewrite_commit(&commit1)
+        .rewrite_commit(&commit1).block_on()
         .set_predecessors(vec![commit1.id().clone(), commit2.id().clone()])
         .set_description("rewritten 3")
         .write_unwrap();
@@ -499,7 +499,7 @@ fn test_accumulate_predecessors() {
     }
 
     fn rewrite_commit(repo: &mut MutableRepo, predecessors: &[&Commit], desc: &str) -> Commit {
-        repo.rewrite_commit(predecessors[0])
+        repo.rewrite_commit(predecessors[0]).block_on()
             .set_predecessors(predecessors.iter().map(|c| c.id().clone()).collect())
             .set_description(desc)
             .write_unwrap()

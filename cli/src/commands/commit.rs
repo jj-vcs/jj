@@ -172,7 +172,7 @@ new working-copy commit.
         )?;
     }
 
-    let mut commit_builder = tx.repo_mut().rewrite_commit(&commit).detach();
+    let mut commit_builder = tx.repo_mut().rewrite_commit(&commit).await.detach();
     commit_builder.set_tree(tree);
     if args.reset_author {
         commit_builder.set_author(commit_builder.committer().clone());

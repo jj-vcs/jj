@@ -581,6 +581,7 @@ pub async fn cmd_gerrit_upload(
         let new_commit = tx
             .repo_mut()
             .rewrite_commit(&original_commit)
+            .await
             .set_description(new_description)
             .set_parents(new_parents)
             // Set the timestamp back to the timestamp of the original commit.

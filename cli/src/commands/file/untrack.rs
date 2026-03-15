@@ -68,6 +68,7 @@ pub(crate) async fn cmd_file_untrack(
     let new_commit = tx
         .repo_mut()
         .rewrite_commit(&wc_commit)
+        .await
         .set_tree(new_tree)
         .write()
         .await?;

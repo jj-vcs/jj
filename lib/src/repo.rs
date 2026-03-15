@@ -964,9 +964,11 @@ impl MutableRepo {
     }
 
     /// Returns a [`CommitBuilder`] to rewrite an existing commit in the repo.
-    pub fn rewrite_commit(&mut self, predecessor: &Commit) -> CommitBuilder<'_> {
+    pub async fn rewrite_commit(&mut self, predecessor: &Commit) -> CommitBuilder<'_> {
         let settings = self.base_repo.settings();
-        DetachedCommitBuilder::for_rewrite_from(self, settings, predecessor).attach(self)
+        DetachedCommitBuilder::for_rewrite_from(self, settings, predecessor)
+            .await
+            .attach(self)
         // CommitBuilder::write will record the rewrite in
         // `self.rewritten_commits`
     }
@@ -1466,7 +1468,7 @@ impl MutableRepo {
         let mut num_reparented = 0;
         self.transform_descendants(roots, async |rewriter| {
             if rewriter.parents_changed() {
-                let builder = rewriter.reparent();
+                let builder = rewriter.reparent().await;
                 builder.write().await?;
                 num_reparented += 1;
             }

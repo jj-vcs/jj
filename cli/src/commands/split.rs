@@ -291,7 +291,7 @@ pub(crate) async fn cmd_split(
 
     // Create the first commit, which includes the changes selected by the user.
     let first_commit = {
-        let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
+        let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).await.detach();
         commit_builder.set_tree(target.selected_tree.clone());
         if use_move_flags {
             commit_builder.clear_rewrite_source();
@@ -359,7 +359,7 @@ pub(crate) async fn cmd_split(
         } else {
             vec![first_commit.id().clone()]
         };
-        let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
+        let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).await.detach();
         commit_builder.set_parents(parents).set_tree(new_tree);
         let mut show_editor = args.editor;
         if !use_move_flags {
