@@ -467,7 +467,7 @@ impl CommandHelper {
                 // auto-update-stale, so let's do that now. We need to do it up here, not at a
                 // lower level (e.g. inside snapshot_working_copy()) to avoid recursive locking
                 // of the working copy.
-                self.recover_stale_working_copy(ui)?
+                self.recover_stale_working_copy(ui).block_on()?
             }
         };
 
@@ -559,16 +559,16 @@ impl CommandHelper {
     /// Note that unless you have a good reason not to do so, you should always
     /// call [`print_snapshot_stats`] with the [`SnapshotStats`] returned by
     /// this function to present possible untracked files to the user.
-    pub fn recover_stale_working_copy(
+    pub async fn recover_stale_working_copy(
         &self,
         ui: &Ui,
     ) -> Result<(WorkspaceCommandHelper, SnapshotStats), CommandError> {
         let workspace = self.load_workspace()?;
         let op_id = workspace.working_copy().operation_id();
 
-        match workspace.repo_loader().load_operation(op_id).block_on() {
+        match workspace.repo_loader().load_operation(op_id).await {
             Ok(op) => {
-                let repo = workspace.repo_loader().load_at(&op).block_on()?;
+                let repo = workspace.repo_loader().load_at(&op).await?;
                 let mut workspace_command = self.for_workable_repo(ui, workspace, repo)?;
                 workspace_command.check_working_copy_writable()?;
 
@@ -578,12 +578,12 @@ impl CommandHelper {
                 // fine if we picked the new wc_commit_id.
                 let stale_stats = workspace_command
                     .snapshot_working_copy(ui)
-                    .block_on()
+                    .await
                     .map_err(|err| err.into_command_error())?;
 
                 let wc_commit_id = workspace_command.get_wc_commit_id().unwrap();
                 let repo = workspace_command.repo().clone();
-                let stale_wc_commit = repo.store().get_commit(wc_commit_id)?;
+                let stale_wc_commit = repo.store().get_commit_async(wc_commit_id).await?;
 
                 let mut workspace_command = self.workspace_helper_no_snapshot(ui)?;
 
@@ -595,7 +595,7 @@ impl CommandHelper {
                     &desired_wc_commit,
                     &repo,
                 )
-                .block_on()?
+                .await?
                 {
                     WorkingCopyFreshness::Fresh | WorkingCopyFreshness::Updated(_) => {
                         drop(locked_ws);
@@ -611,7 +611,8 @@ impl CommandHelper {
                             repo.op_id().clone(),
                             &stale_wc_commit,
                             &desired_wc_commit,
-                        )?;
+                        )
+                        .await?;
                         workspace_command.print_updated_working_copy_stats(
                             ui,
                             Some(&stale_wc_commit),
@@ -650,7 +651,9 @@ impl CommandHelper {
                 )?;
 
                 let mut workspace_command = self.workspace_helper_no_snapshot(ui)?;
-                let stats = workspace_command.create_and_check_out_recovery_commit(ui)?;
+                let stats = workspace_command
+                    .create_and_check_out_recovery_commit(ui)
+                    .await?;
                 Ok((workspace_command, stats))
             }
             Err(e) => Err(e.into()),
@@ -1396,7 +1399,7 @@ impl WorkspaceCommandHelper {
         Ok((locked_ws, wc_commit))
     }
 
-    fn create_and_check_out_recovery_commit(
+    async fn create_and_check_out_recovery_commit(
         &mut self,
         ui: &Ui,
     ) -> Result<SnapshotStats, CommandError> {
@@ -1417,14 +1420,14 @@ what the parent commits are supposed to be. That means that the diff compared
 to the current parents may contain changes from multiple commits.
 ",
         )
-        .block_on()?;
+        .await?;
 
         writeln!(
             ui.status(),
             "Created and checked out recovery commit {}",
             short_commit_hash(new_commit.id())
         )?;
-        locked_ws.finish(repo.op_id().clone()).block_on()?;
+        locked_ws.finish(repo.op_id().clone()).await?;
         self.user_repo = ReadonlyUserRepo::new(repo);
 
         self.maybe_snapshot_impl(ui)
@@ -1961,7 +1964,7 @@ to the current parents may contain changes from multiple commits.
             .map_err(snapshot_command_error)?;
 
         let Some((repo, wc_commit)) =
-            handle_stale_working_copy(locked_ws.locked_wc(), repo, &workspace_name)?
+            handle_stale_working_copy(locked_ws.locked_wc(), repo, &workspace_name).await?
         else {
             // If the workspace has been deleted, it's unclear what to do, so we just skip
             // committing the working copy.
@@ -2707,7 +2710,7 @@ pub fn start_repo_transaction(repo: &Arc<ReadonlyRepo>, string_args: &[String]) 
 ///
 /// Returns Ok(None) if the workspace doesn't exist in the repo (presumably
 /// because it was deleted).
-fn handle_stale_working_copy(
+async fn handle_stale_working_copy(
     locked_wc: &mut dyn LockedWorkingCopy,
     repo: Arc<ReadonlyRepo>,
     workspace_name: &WorkspaceName,
@@ -2723,12 +2726,12 @@ fn handle_stale_working_copy(
         return Ok(None);
     };
     let old_op_id = locked_wc.old_operation_id().clone();
-    match WorkingCopyFreshness::check_stale(locked_wc, &wc_commit, &repo).block_on() {
+    match WorkingCopyFreshness::check_stale(locked_wc, &wc_commit, &repo).await {
         Ok(WorkingCopyFreshness::Fresh) => Ok(Some((repo, wc_commit))),
         Ok(WorkingCopyFreshness::Updated(wc_operation)) => {
             let repo = repo
                 .reload_at(&wc_operation)
-                .block_on()
+                .await
                 .map_err(snapshot_command_error)?;
             if let Some(wc_commit) = get_wc_commit(&repo)? {
                 Ok(Some((repo, wc_commit)))
@@ -2777,8 +2780,8 @@ See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy \
     }
 }
 
-fn update_stale_working_copy(
-    mut locked_ws: LockedWorkspace,
+async fn update_stale_working_copy(
+    mut locked_ws: LockedWorkspace<'_>,
     op_id: OperationId,
     stale_commit: &Commit,
     new_commit: &Commit,
@@ -2793,14 +2796,14 @@ fn update_stale_working_copy(
     let stats = locked_ws
         .locked_wc()
         .check_out(new_commit)
-        .block_on()
+        .await
         .map_err(|err| {
             internal_error_with_message(
                 format!("Failed to check out commit {}", new_commit.id().hex()),
                 err,
             )
         })?;
-    locked_ws.finish(op_id).block_on()?;
+    locked_ws.finish(op_id).await?;
 
     Ok(stats)
 }
