@@ -17,13 +17,17 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
+use futures::StreamExt as _;
+use futures::future::BoxFuture;
+use futures::stream::FuturesUnordered;
+
 use crate::backend;
 use crate::backend::BackendResult;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
-use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponentBuf;
+use crate::repo_path::RepoPathTree;
 use crate::store::Store;
 use crate::tree::Tree;
 
@@ -128,38 +132,49 @@ impl TreeBuilder {
     async fn get_base_trees(
         &self,
     ) -> BackendResult<BTreeMap<RepoPathBuf, BTreeMap<RepoPathComponentBuf, TreeValue>>> {
-        let store = &self.store;
-        let mut tree_cache = {
-            let dir = RepoPathBuf::root();
-            let tree = store.get_tree(dir.clone(), &self.base_tree_id).await?;
-            BTreeMap::from([(dir, tree)])
-        };
-
-        async fn populate_trees<'a>(
-            tree_cache: &'a mut BTreeMap<RepoPathBuf, Tree>,
-            store: &Arc<Store>,
-            dir: &RepoPath,
-        ) -> BackendResult<&'a Tree> {
-            // `if let Some(tree) = ...` doesn't pass lifetime check as of Rust 1.84.0
-            if tree_cache.contains_key(dir) {
-                return Ok(tree_cache.get(dir).unwrap());
-            }
-            let (parent, basename) = dir.split().expect("root must be populated");
-            let tree_fut = populate_trees(tree_cache, store, parent);
-            let tree = Box::pin(tree_fut)
-                .await?
-                .sub_tree(basename)
-                .await?
-                .unwrap_or_else(|| Tree::empty(store.clone(), dir.to_owned()));
-            Ok(tree_cache.entry(dir.to_owned()).or_insert(tree))
-        }
-
+        // All base trees we need
+        let mut needed_dirs: RepoPathTree<()> = RepoPathTree::default();
         for path in self.overrides.keys() {
-            let parent = path.parent().unwrap();
-            populate_trees(&mut tree_cache, store, parent).await?;
+            if let Some(dir) = path.parent() {
+                needed_dirs.add(dir);
+            }
         }
 
-        Ok(tree_cache
+        let mut tree_reads: FuturesUnordered<BoxFuture<'_, BackendResult<(RepoPathBuf, Tree)>>> =
+            FuturesUnordered::new();
+
+        // Schedule reading the root tree
+        tree_reads.push(Box::pin(async move {
+            let root_dir = RepoPathBuf::root();
+            let tree = self
+                .store
+                .get_tree(root_dir.clone(), &self.base_tree_id)
+                .await?;
+            Ok((root_dir, tree))
+        }));
+
+        let mut base_trees = BTreeMap::new();
+        while let Some(result) = tree_reads.next().await {
+            let (dir, tree) = result?;
+
+            if let Some(node) = needed_dirs.get(&dir) {
+                for (basename, _child) in node.children() {
+                    let basename = basename.to_owned();
+                    let sub_dir = dir.join(&basename);
+                    let tree = tree.clone();
+                    tree_reads.push(Box::pin(async move {
+                        let sub_tree = tree
+                            .sub_tree(&basename)
+                            .await?
+                            .unwrap_or_else(|| Tree::empty(self.store.clone(), sub_dir.clone()));
+                        Ok((sub_dir, sub_tree))
+                    }));
+                }
+            }
+            base_trees.insert(dir, tree);
+        }
+
+        Ok(base_trees
             .into_iter()
             .map(|(dir, tree)| {
                 let entries = tree
