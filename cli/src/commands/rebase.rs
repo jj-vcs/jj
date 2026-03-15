@@ -384,11 +384,11 @@ pub(crate) async fn cmd_rebase(
     let mut workspace_command = command.workspace_helper(ui)?;
 
     let loc = if !args.revisions.is_empty() {
-        plan_rebase_revisions(ui, &workspace_command, &args.revisions, &args.destination)?
+        plan_rebase_revisions(ui, &workspace_command, &args.revisions, &args.destination).await?
     } else if !args.source.is_empty() {
-        plan_rebase_source(ui, &workspace_command, &args.source, &args.destination)?
+        plan_rebase_source(ui, &workspace_command, &args.source, &args.destination).await?
     } else {
-        plan_rebase_branch(ui, &workspace_command, &args.branch, &args.destination)?
+        plan_rebase_branch(ui, &workspace_command, &args.branch, &args.destination).await?
     };
 
     let target_ids = match &loc.target {
@@ -428,7 +428,7 @@ pub(crate) async fn cmd_rebase(
     Ok(())
 }
 
-fn plan_rebase_revisions(
+async fn plan_rebase_revisions(
     ui: &Ui,
     workspace_command: &WorkspaceCommandHelper,
     revisions: &[RevisionArg],
@@ -450,7 +450,8 @@ fn plan_rebase_revisions(
         rebase_destination.insert_after.as_deref(),
         rebase_destination.insert_before.as_deref(),
         "rebased commits",
-    )?;
+    )
+    .await?;
     if rebase_destination.onto.is_some() {
         for id in &target_commit_ids {
             if new_parent_ids.contains(id) {
@@ -468,7 +469,7 @@ fn plan_rebase_revisions(
     })
 }
 
-fn plan_rebase_source(
+async fn plan_rebase_source(
     ui: &Ui,
     workspace_command: &WorkspaceCommandHelper,
     source: &[RevisionArg],
@@ -484,7 +485,8 @@ fn plan_rebase_source(
         rebase_destination.insert_after.as_deref(),
         rebase_destination.insert_before.as_deref(),
         "rebased commits",
-    )?;
+    )
+    .await?;
     if rebase_destination.onto.is_some() {
         for id in &source_commit_ids {
             let commit = workspace_command.repo().store().get_commit(id)?;
@@ -499,7 +501,7 @@ fn plan_rebase_source(
     })
 }
 
-fn plan_rebase_branch(
+async fn plan_rebase_branch(
     ui: &Ui,
     workspace_command: &WorkspaceCommandHelper,
     branch: &[RevisionArg],
@@ -526,7 +528,8 @@ fn plan_rebase_branch(
         rebase_destination.insert_after.as_deref(),
         rebase_destination.insert_before.as_deref(),
         "rebased commits",
-    )?;
+    )
+    .await?;
     let roots_expression = RevsetExpression::commits(new_parent_ids.clone())
         .range(&RevsetExpression::commits(branch_commit_ids))
         .roots();

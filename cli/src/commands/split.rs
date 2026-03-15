@@ -226,7 +226,8 @@ impl SplitArgs {
                 self.insert_after.as_deref(),
                 self.insert_before.as_deref(),
                 "split-out commit",
-            )?
+            )
+            .await?
         } else {
             Default::default()
         };

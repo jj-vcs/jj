@@ -255,7 +255,8 @@ pub(crate) async fn cmd_squash(
             args.insert_after.as_deref(),
             args.insert_before.as_deref(),
             "squashed commit",
-        )?;
+        )
+        .await?;
         let parent_commits: Vec<_> = parent_ids
             .iter()
             .map(|commit_id| {

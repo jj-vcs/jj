@@ -109,7 +109,8 @@ pub(crate) async fn cmd_revert(
         args.insert_after.as_deref(),
         args.insert_before.as_deref(),
         "reverted commits",
-    )?;
+    )
+    .await?;
     let transaction_description = if to_revert.len() == 1 {
         format!("revert commit {}", to_revert[0].id().hex())
     } else {

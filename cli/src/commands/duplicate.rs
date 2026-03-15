@@ -126,14 +126,17 @@ pub(crate) async fn cmd_duplicate(
         if args.onto.is_none() && args.insert_after.is_none() && args.insert_before.is_none() {
             None
         } else {
-            Some(compute_commit_location(
-                ui,
-                &workspace_command,
-                args.onto.as_deref(),
-                args.insert_after.as_deref(),
-                args.insert_before.as_deref(),
-                "duplicated commits",
-            )?)
+            Some(
+                compute_commit_location(
+                    ui,
+                    &workspace_command,
+                    args.onto.as_deref(),
+                    args.insert_after.as_deref(),
+                    args.insert_before.as_deref(),
+                    "duplicated commits",
+                )
+                .await?,
+            )
         };
 
     let mut tx = workspace_command.start_transaction();
