@@ -17,6 +17,9 @@ readme = { workspace = true }
 [dependencies]
 async-trait = { workspace = true }
 bstr = { workspace = true }
+color-eyre = { workspace = true }
+ctor = { workspace = true }
+eyre = { workspace = true }
 futures = { workspace = true }
 gix = { workspace = true, features = [
     "status",

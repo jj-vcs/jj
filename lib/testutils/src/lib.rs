@@ -83,6 +83,14 @@ pub mod git;
 pub mod proptest;
 pub mod test_backend;
 
+#[ctor::ctor]
+fn init_color_eyre() {
+    drop(color_eyre::install());
+}
+
+/// Convenient return type for test functions.
+pub type TestResult = eyre::Result<()>;
+
 pub const HERMETIC_GIT_CONFIGS: &[(&str, &str)] = &[
     // gitoxide uses "main" as the default branch name, whereas git uses "master". This also
     // prevents git CLI from issuing the initial branch name advice.

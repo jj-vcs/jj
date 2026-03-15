@@ -610,6 +610,7 @@ mod tests {
     use pollster::FutureExt as _;
     use testutils::CommitBuilderExt as _;
     use testutils::TestRepo;
+    use testutils::TestResult;
 
     use super::*;
 
@@ -631,15 +632,16 @@ mod tests {
     }
 
     #[test]
-    fn test_update_commit_order_empty() {
-        let mut state = State::new(vec![], vec![]).block_on().unwrap();
+    fn test_update_commit_order_empty() -> TestResult {
+        let mut state = State::new(vec![], vec![]).block_on()?;
         assert_eq!(state.head_order, vec![]);
         state.update_commit_order();
         assert_eq!(state.current_order, vec![]);
+        Ok(())
     }
 
     #[test]
-    fn test_update_commit_order_reorder() {
+    fn test_update_commit_order_reorder() -> TestResult {
         let test_repo = TestRepo::init();
         let store = test_repo.repo.store();
         let empty_tree = store.empty_merged_tree();
@@ -670,8 +672,7 @@ mod tests {
             ],
             vec![],
         )
-        .block_on()
-        .unwrap();
+        .block_on()?;
 
         // The initial head order is determined by the input order
         assert_eq!(
@@ -705,10 +706,11 @@ mod tests {
                 commit_b.id().clone(),
             ]
         );
+        Ok(())
     }
 
     #[test]
-    fn test_swap_commits() {
+    fn test_swap_commits() -> TestResult {
         let test_repo = TestRepo::init();
         let store = test_repo.repo.store();
         let empty_tree = store.empty_merged_tree();
@@ -747,8 +749,7 @@ mod tests {
             ],
             vec![commit_e.clone(), commit_f.clone()],
         )
-        .block_on()
-        .unwrap();
+        .block_on()?;
         assert_eq!(state.head_order, vec![commit_d.id().clone()]);
         assert_eq!(
             state.current_order,
@@ -789,10 +790,11 @@ mod tests {
             *state.commits.get(commit_f.id()).unwrap().parents,
             vec![commit_c.id().clone()],
         );
+        Ok(())
     }
 
     #[test]
-    fn test_execute_plan_reorder() {
+    fn test_execute_plan_reorder() -> TestResult {
         let test_repo = TestRepo::init();
         let store = test_repo.repo.store();
         let empty_tree = store.empty_merged_tree();
@@ -830,7 +832,7 @@ mod tests {
         plan.rewrites.get_mut(commit_f.id()).unwrap().new_parents = vec![commit_a.id().clone()];
 
         let rewritten = plan.execute(tx.repo_mut()).block_on().unwrap();
-        tx.repo_mut().rebase_descendants().block_on().unwrap();
+        tx.repo_mut().rebase_descendants().block_on()?;
         assert_eq!(
             rewritten.keys().collect::<HashSet<_>>(),
             hashset![
@@ -854,10 +856,11 @@ mod tests {
         assert_eq!(new_commit_d.parent_ids(), &[new_commit_b.id().clone()]);
         assert_eq!(new_commit_e.parent_ids(), &[new_commit_a.id().clone()]);
         assert_eq!(new_commit_f.parent_ids(), &[new_commit_a.id().clone()]);
+        Ok(())
     }
 
     #[test]
-    fn test_execute_plan_abandon() {
+    fn test_execute_plan_abandon() -> TestResult {
         let test_repo = TestRepo::init();
         let store = test_repo.repo.store();
         let empty_tree = store.empty_merged_tree();
@@ -892,7 +895,7 @@ mod tests {
         };
 
         let rewritten = plan.execute(tx.repo_mut()).block_on().unwrap();
-        tx.repo_mut().rebase_descendants().block_on().unwrap();
+        tx.repo_mut().rebase_descendants().block_on()?;
         assert_eq!(rewritten.keys().sorted().collect_vec(), vec![commit_d.id()]);
         let new_commit_d = rewritten.get(commit_d.id()).unwrap();
         assert_eq!(new_commit_d.parent_ids(), &[commit_a.id().clone()]);
@@ -900,5 +903,6 @@ mod tests {
             *tx.repo_mut().view().heads(),
             hashset![commit_b.id().clone(), new_commit_d.id().clone()]
         );
+        Ok(())
     }
 }

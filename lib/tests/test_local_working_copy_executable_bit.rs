@@ -26,6 +26,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::store::Store;
 use pollster::FutureExt as _;
+use testutils::TestResult;
 use testutils::TestTreeBuilder;
 use testutils::TestWorkspace;
 use testutils::repo_path;
@@ -89,7 +90,7 @@ fn prepare_exec_commits(ws: &TestWorkspace, repo_path: &RepoPath) -> (Commit, Co
 /// Test that checking out a tree writes the correct executable bit to the
 /// filesystem.
 #[test]
-fn test_exec_bit_checkout() {
+fn test_exec_bit_checkout() -> TestResult {
     let mut ws = TestWorkspace::init();
     let path = &ws.workspace.workspace_root().join("file");
     let repo_path = repo_path("file");
@@ -105,16 +106,17 @@ fn test_exec_bit_checkout() {
     };
 
     // Checkout commits and ensure the filesystem is updated correctly.
-    assert!(!fs::exists(path).unwrap());
+    assert!(!fs::exists(path)?);
     for exec in [true, false, true] {
         checkout_exec_commit(exec);
         assert_file_executable(path, exec);
     }
+    Ok(())
 }
 
 /// Test that snapshotting files stores the correct executable bit in the tree.
 #[test]
-fn test_exec_bit_snapshot() {
+fn test_exec_bit_snapshot() -> TestResult {
     let mut ws = TestWorkspace::init();
     let path = &ws.workspace.workspace_root().join("file");
     let repo_path = repo_path("file");
@@ -132,23 +134,24 @@ fn test_exec_bit_snapshot() {
     };
 
     // Snapshot tree values when the file is/isn't executable.
-    fs::write(path, "initial content").unwrap();
+    fs::write(path, "initial content")?;
     snapshot_assert_exec_bit(false);
 
-    fs::write(path, "first change").unwrap();
+    fs::write(path, "first change")?;
     snapshot_assert_exec_bit(false);
 
     set_file_executable(path, true);
     snapshot_assert_exec_bit(true);
 
-    fs::write(path, "second change").unwrap();
+    fs::write(path, "second change")?;
     snapshot_assert_exec_bit(true);
 
     // Back to the same contents as before, but different exec bit.
-    fs::write(path, "first change").unwrap();
+    fs::write(path, "first change")?;
     set_file_executable(path, false);
     snapshot_assert_exec_bit(false);
 
     set_file_executable(path, true);
     snapshot_assert_exec_bit(true);
+    Ok(())
 }

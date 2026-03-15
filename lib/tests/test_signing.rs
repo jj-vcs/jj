@@ -14,6 +14,7 @@ use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepoBackend;
+use testutils::TestResult;
 use testutils::TestWorkspace;
 use testutils::create_random_commit;
 use testutils::write_random_commit;
@@ -62,7 +63,7 @@ fn good_verification() -> Option<Verification> {
 
 #[test_case(TestRepoBackend::Simple ; "simple backend")]
 #[test_case(TestRepoBackend::Git ; "git backend")]
-fn manual(backend: TestRepoBackend) {
+fn manual(backend: TestRepoBackend) -> TestResult {
     let settings = user_settings(SignBehavior::Own);
 
     let signer = Signer::new(Some(Box::new(TestSigningBackend)), vec![]);
@@ -79,17 +80,18 @@ fn manual(backend: TestRepoBackend) {
         .set_sign_behavior(SignBehavior::Own)
         .set_author(someone_else())
         .write_unwrap();
-    tx.commit("test").block_on().unwrap();
+    tx.commit("test").block_on()?;
 
-    let commit1 = repo.store().get_commit(commit1.id()).unwrap();
-    assert_eq!(commit1.verification().unwrap(), good_verification());
+    let commit1 = repo.store().get_commit(commit1.id())?;
+    assert_eq!(commit1.verification()?, good_verification());
 
-    let commit2 = repo.store().get_commit(commit2.id()).unwrap();
-    assert_eq!(commit2.verification().unwrap(), None);
+    let commit2 = repo.store().get_commit(commit2.id())?;
+    assert_eq!(commit2.verification()?, None);
+    Ok(())
 }
 
 #[test_case(TestRepoBackend::Git ; "git backend")]
-fn keep_on_rewrite(backend: TestRepoBackend) {
+fn keep_on_rewrite(backend: TestRepoBackend) -> TestResult {
     let settings = user_settings(SignBehavior::Own);
 
     let signer = Signer::new(Some(Box::new(TestSigningBackend)), vec![]);
@@ -102,18 +104,19 @@ fn keep_on_rewrite(backend: TestRepoBackend) {
     let commit = create_random_commit(tx.repo_mut())
         .set_sign_behavior(SignBehavior::Own)
         .write_unwrap();
-    tx.commit("test").block_on().unwrap();
+    tx.commit("test").block_on()?;
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let rewritten = mut_repo.rewrite_commit(&commit).write_unwrap();
 
-    let commit = repo.store().get_commit(rewritten.id()).unwrap();
-    assert_eq!(commit.verification().unwrap(), good_verification());
+    let commit = repo.store().get_commit(rewritten.id())?;
+    assert_eq!(commit.verification()?, good_verification());
+    Ok(())
 }
 
 #[test_case(TestRepoBackend::Git ; "git backend")]
-fn manual_drop_on_rewrite(backend: TestRepoBackend) {
+fn manual_drop_on_rewrite(backend: TestRepoBackend) -> TestResult {
     let settings = user_settings(SignBehavior::Own);
 
     let signer = Signer::new(Some(Box::new(TestSigningBackend)), vec![]);
@@ -126,7 +129,7 @@ fn manual_drop_on_rewrite(backend: TestRepoBackend) {
     let commit = create_random_commit(tx.repo_mut())
         .set_sign_behavior(SignBehavior::Own)
         .write_unwrap();
-    tx.commit("test").block_on().unwrap();
+    tx.commit("test").block_on()?;
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -135,12 +138,13 @@ fn manual_drop_on_rewrite(backend: TestRepoBackend) {
         .set_sign_behavior(SignBehavior::Drop)
         .write_unwrap();
 
-    let commit = repo.store().get_commit(rewritten.id()).unwrap();
-    assert_eq!(commit.verification().unwrap(), None);
+    let commit = repo.store().get_commit(rewritten.id())?;
+    assert_eq!(commit.verification()?, None);
+    Ok(())
 }
 
 #[test_case(TestRepoBackend::Git ; "git backend")]
-fn forced(backend: TestRepoBackend) {
+fn forced(backend: TestRepoBackend) -> TestResult {
     let settings = user_settings(SignBehavior::Force);
 
     let signer = Signer::new(Some(Box::new(TestSigningBackend)), vec![]);
@@ -153,14 +157,15 @@ fn forced(backend: TestRepoBackend) {
     let commit = create_random_commit(tx.repo_mut())
         .set_author(someone_else())
         .write_unwrap();
-    tx.commit("test").block_on().unwrap();
+    tx.commit("test").block_on()?;
 
-    let commit = repo.store().get_commit(commit.id()).unwrap();
-    assert_eq!(commit.verification().unwrap(), good_verification());
+    let commit = repo.store().get_commit(commit.id())?;
+    assert_eq!(commit.verification()?, good_verification());
+    Ok(())
 }
 
 #[test_case(TestRepoBackend::Git ; "git backend")]
-fn configured(backend: TestRepoBackend) {
+fn configured(backend: TestRepoBackend) -> TestResult {
     let settings = user_settings(SignBehavior::Own);
 
     let signer = Signer::new(Some(Box::new(TestSigningBackend)), vec![]);
@@ -171,14 +176,15 @@ fn configured(backend: TestRepoBackend) {
     let repo = repo.clone();
     let mut tx = repo.start_transaction();
     let commit = write_random_commit(tx.repo_mut());
-    tx.commit("test").block_on().unwrap();
+    tx.commit("test").block_on()?;
 
-    let commit = repo.store().get_commit(commit.id()).unwrap();
-    assert_eq!(commit.verification().unwrap(), good_verification());
+    let commit = repo.store().get_commit(commit.id())?;
+    assert_eq!(commit.verification()?, good_verification());
+    Ok(())
 }
 
 #[test_case(TestRepoBackend::Git ; "git backend")]
-fn drop_behavior(backend: TestRepoBackend) {
+fn drop_behavior(backend: TestRepoBackend) -> TestResult {
     let settings = user_settings(SignBehavior::Drop);
 
     let signer = Signer::new(Some(Box::new(TestSigningBackend)), vec![]);
@@ -191,15 +197,16 @@ fn drop_behavior(backend: TestRepoBackend) {
     let commit = create_random_commit(tx.repo_mut())
         .set_sign_behavior(SignBehavior::Own)
         .write_unwrap();
-    tx.commit("test").block_on().unwrap();
+    tx.commit("test").block_on()?;
 
-    let original_commit = repo.store().get_commit(commit.id()).unwrap();
-    assert_eq!(original_commit.verification().unwrap(), good_verification());
+    let original_commit = repo.store().get_commit(commit.id())?;
+    assert_eq!(original_commit.verification()?, good_verification());
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let rewritten = mut_repo.rewrite_commit(&original_commit).write_unwrap();
 
-    let rewritten_commit = repo.store().get_commit(rewritten.id()).unwrap();
-    assert_eq!(rewritten_commit.verification().unwrap(), None);
+    let rewritten_commit = repo.store().get_commit(rewritten.id())?;
+    assert_eq!(rewritten_commit.verification()?, None);
+    Ok(())
 }

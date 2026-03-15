@@ -15,21 +15,22 @@
 use jj_lib::repo::RepoLoader;
 use pollster::FutureExt as _;
 use testutils::TestRepo;
+use testutils::TestResult;
 use testutils::write_random_commit;
 
 #[test]
-fn test_load_at_operation() {
+fn test_load_at_operation() -> TestResult {
     let settings = testutils::user_settings();
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
     let commit = write_random_commit(tx.repo_mut());
-    let repo = tx.commit("add commit").block_on().unwrap();
+    let repo = tx.commit("add commit").block_on()?;
 
     let mut tx = repo.start_transaction();
     tx.repo_mut().remove_head(commit.id());
-    tx.commit("remove commit").block_on().unwrap();
+    tx.commit("remove commit").block_on()?;
 
     // If we load the repo at head, we should not see the commit since it was
     // removed
@@ -37,9 +38,8 @@ fn test_load_at_operation() {
         &settings,
         test_repo.repo_path(),
         &test_repo.env.default_store_factories(),
-    )
-    .unwrap();
-    let head_repo = loader.load_at_head().block_on().unwrap();
+    )?;
+    let head_repo = loader.load_at_head().block_on()?;
     assert!(!head_repo.view().heads().contains(commit.id()));
 
     // If we load the repo at the previous operation, we should see the commit since
@@ -48,8 +48,8 @@ fn test_load_at_operation() {
         &settings,
         test_repo.repo_path(),
         &test_repo.env.default_store_factories(),
-    )
-    .unwrap();
-    let old_repo = loader.load_at(repo.operation()).block_on().unwrap();
+    )?;
+    let old_repo = loader.load_at(repo.operation()).block_on()?;
     assert!(old_repo.view().heads().contains(commit.id()));
+    Ok(())
 }

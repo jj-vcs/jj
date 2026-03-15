@@ -44,6 +44,7 @@ use pollster::FutureExt as _;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
 use testutils::TestRepoBackend;
+use testutils::TestResult;
 use testutils::assert_tree_eq;
 use testutils::commit_with_tree;
 use testutils::create_random_commit;
@@ -106,11 +107,11 @@ fn list_dir(dir: &Path) -> Vec<String> {
 }
 
 #[test]
-fn test_gc() {
+fn test_gc() -> TestResult {
     // TODO: Better way to disable the test if git command couldn't be executed
     if !is_external_tool_installed("git") {
         eprintln!("Skipping because git command might fail to run");
-        return;
+        return Ok(());
     }
 
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
@@ -142,7 +143,7 @@ fn test_gc() {
         .set_parents(vec![commit_f.id().clone()])
         .set_predecessors(vec![commit_d.id().clone()])
         .write_unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
     assert_eq!(
         *repo.view().heads(),
         hashset! {
@@ -170,8 +171,7 @@ fn test_gc() {
     // Empty index, but all kept by file modification time
     // (Beware that this invokes "git gc" and refs will be packed.)
     repo.store()
-        .gc(base_index.as_index(), SystemTime::UNIX_EPOCH)
-        .unwrap();
+        .gc(base_index.as_index(), SystemTime::UNIX_EPOCH)?;
     assert_eq!(
         collect_no_gc_refs(git_repo_path),
         hashset! {
@@ -191,7 +191,7 @@ fn test_gc() {
     let now = || SystemTime::now() + Duration::from_secs(1);
 
     // All reachable: redundant no-gc refs will be removed
-    repo.store().gc(repo.index(), now()).unwrap();
+    repo.store().gc(repo.index(), now())?;
     assert_eq!(
         collect_no_gc_refs(git_repo_path),
         hashset! {
@@ -203,14 +203,14 @@ fn test_gc() {
 
     // G is no longer reachable
     let mut mut_index = base_index.start_modification();
-    mut_index.add_commit(&commit_a).block_on().unwrap();
-    mut_index.add_commit(&commit_b).block_on().unwrap();
-    mut_index.add_commit(&commit_c).block_on().unwrap();
-    mut_index.add_commit(&commit_d).block_on().unwrap();
-    mut_index.add_commit(&commit_e).block_on().unwrap();
-    mut_index.add_commit(&commit_f).block_on().unwrap();
-    mut_index.add_commit(&commit_h).block_on().unwrap();
-    repo.store().gc(mut_index.as_index(), now()).unwrap();
+    mut_index.add_commit(&commit_a).block_on()?;
+    mut_index.add_commit(&commit_b).block_on()?;
+    mut_index.add_commit(&commit_c).block_on()?;
+    mut_index.add_commit(&commit_d).block_on()?;
+    mut_index.add_commit(&commit_e).block_on()?;
+    mut_index.add_commit(&commit_f).block_on()?;
+    mut_index.add_commit(&commit_h).block_on()?;
+    repo.store().gc(mut_index.as_index(), now())?;
     assert_eq!(
         collect_no_gc_refs(git_repo_path),
         hashset! {
@@ -222,11 +222,11 @@ fn test_gc() {
 
     // D|E|H are no longer reachable
     let mut mut_index = base_index.start_modification();
-    mut_index.add_commit(&commit_a).block_on().unwrap();
-    mut_index.add_commit(&commit_b).block_on().unwrap();
-    mut_index.add_commit(&commit_c).block_on().unwrap();
-    mut_index.add_commit(&commit_f).block_on().unwrap();
-    repo.store().gc(mut_index.as_index(), now()).unwrap();
+    mut_index.add_commit(&commit_a).block_on()?;
+    mut_index.add_commit(&commit_b).block_on()?;
+    mut_index.add_commit(&commit_c).block_on()?;
+    mut_index.add_commit(&commit_f).block_on()?;
+    repo.store().gc(mut_index.as_index(), now())?;
     assert_eq!(
         collect_no_gc_refs(git_repo_path),
         hashset! {
@@ -237,8 +237,8 @@ fn test_gc() {
 
     // B|C|F are no longer reachable
     let mut mut_index = base_index.start_modification();
-    mut_index.add_commit(&commit_a).block_on().unwrap();
-    repo.store().gc(mut_index.as_index(), now()).unwrap();
+    mut_index.add_commit(&commit_a).block_on()?;
+    repo.store().gc(mut_index.as_index(), now())?;
     assert_eq!(
         collect_no_gc_refs(git_repo_path),
         hashset! {
@@ -247,15 +247,16 @@ fn test_gc() {
     );
 
     // All unreachable
-    repo.store().gc(base_index.as_index(), now()).unwrap();
+    repo.store().gc(base_index.as_index(), now())?;
     assert_eq!(collect_no_gc_refs(git_repo_path), hashset! {});
+    Ok(())
 }
 
 #[test]
-fn test_gc_extra_table() {
+fn test_gc_extra_table() -> TestResult {
     if !is_external_tool_installed("git") {
         eprintln!("Skipping because git command might fail to run");
-        return;
+        return Ok(());
     }
 
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
@@ -289,7 +290,7 @@ fn test_gc_extra_table() {
     for _ in 0..4 {
         write_random_commit(tx.repo_mut());
     }
-    tx.commit("test").block_on().unwrap();
+    tx.commit("test").block_on()?;
     // The first 3 will be squashed into one table segment
     assert_eq!(collect_extra_segment_num_entries(), [3, 1]);
     assert_eq!(list_dir(&extra_path).len(), 5 + 1);
@@ -299,18 +300,19 @@ fn test_gc_extra_table() {
     let index = repo.readonly_index().as_index();
 
     // All segments should be kept by modification time
-    repo.store().gc(index, SystemTime::UNIX_EPOCH).unwrap();
+    repo.store().gc(index, SystemTime::UNIX_EPOCH)?;
     assert_eq!(collect_extra_segment_num_entries(), [3, 1]);
     assert_eq!(list_dir(&extra_path).len(), 5 + 1);
 
     // All unreachable segments should be removed
     let now = SystemTime::now() + Duration::from_secs(1);
-    repo.store().gc(index, now).unwrap();
+    repo.store().gc(index, now)?;
     assert_eq!(collect_extra_segment_num_entries(), [3, 1]);
     assert_eq!(list_dir(&extra_path).len(), 2 + 1);
 
     // Ensure that repo is still loadable
     load_repo();
+    Ok(())
 }
 
 #[test]
