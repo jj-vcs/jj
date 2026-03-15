@@ -3024,6 +3024,14 @@ mod tests {
             env.parse_err_kind("if(timestamp_range, true, false)"),
             TemplateParseErrorKind::Expression(_)
         );
+        assert_matches!(
+            env.parse_err_kind("if(if(true, true), true, false)"),
+            TemplateParseErrorKind::Expression(_)
+        );
+        assert_matches!(
+            env.parse_err_kind("if(sl0.map(|s| s), true, false)"),
+            TemplateParseErrorKind::Expression(_)
+        );
     }
 
     #[test]
@@ -3177,6 +3185,10 @@ mod tests {
             TemplateParseErrorKind::Expression(_)
         );
         assert_matches!(
+            env.parse_err_kind("if(true, true) >= if(true, true)"),
+            TemplateParseErrorKind::Expression(_)
+        );
+        assert_matches!(
             env.parse_err_kind("str_list.map(|s| s) >= str_list.map(|s| s)"),
             TemplateParseErrorKind::Expression(_)
         );
@@ -3289,6 +3301,10 @@ mod tests {
         );
         assert_matches!(
             env.parse_err_kind("label('', '') == label('', '')"),
+            TemplateParseErrorKind::Expression(_)
+        );
+        assert_matches!(
+            env.parse_err_kind("if(true, true) == if(true, true)"),
             TemplateParseErrorKind::Expression(_)
         );
         assert_matches!(
@@ -4675,8 +4691,8 @@ mod tests {
             env.render_ok("join('|', str_list, 42, none_int, some_int)"),
             @"foo bar|42||67");
         insta::assert_snapshot!(
-            env.render_ok("join('|', cfg_val, email, signature)"),
-            @r#"{ foo = "bar" }|me@example.com|User <user@example.com>"#);
+            env.render_ok("join('|', cfg_val, email, signature, if(true, 42), if(false, 42))"),
+            @r#"{ foo = "bar" }|me@example.com|User <user@example.com>|42|"#);
         insta::assert_snapshot!(
             env.render_ok("join('|', timestamp, timestamp_range, str_list.map(|x| x))"),
             @"1970-01-01 00:00:00.000 +00:00|1970-01-01 00:00:00.000 +00:00 - 1970-01-01 00:00:00.000 +00:00|foo bar");
