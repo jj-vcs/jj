@@ -17,8 +17,11 @@
 
 use std::fs::File;
 use std::fs::OpenOptions;
+use std::io;
 use std::os::windows::fs::OpenOptionsExt as _;
 use std::path::PathBuf;
+use std::thread;
+use std::time::Duration;
 
 use tracing::instrument;
 
@@ -37,20 +40,36 @@ impl FileLock {
     pub fn lock(path: PathBuf) -> Result<Self, FileLockError> {
         tracing::info!("Attempting to lock {path:?}");
 
-        let file = OpenOptions::new()
-            .create(true)
-            .write(true)
-            // Don't share delete access. This ensures that
-            // std::fs::remove_file (which uses DeleteFileW) will fail if any
-            // other process has the file open — so deletion in Drop only
-            // succeeds when we're the last handle holder.
-            .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE)
-            .open(&path)
-            .map_err(|err| FileLockError {
-                message: "Failed to open lock file",
-                path: path.clone(),
-                err,
-            })?;
+        // Another process's Drop may briefly put the file in "pending delete"
+        // state, causing ERROR_ACCESS_DENIED. Retry, as this is transient.
+        let mut retries = 0..1000;
+        let file = loop {
+            match OpenOptions::new()
+                .create(true)
+                .write(true)
+                // Don't share delete access. This ensures that
+                // std::fs::remove_file (which uses DeleteFileW) will fail if any
+                // other process has the file open — so deletion in Drop only
+                // succeeds when we're the last handle holder.
+                .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE)
+                .open(&path)
+            {
+                Ok(file) => break file,
+                Err(err)
+                    if err.kind() == io::ErrorKind::PermissionDenied
+                        && retries.next().is_some() =>
+                {
+                    thread::sleep(Duration::from_millis(1));
+                }
+                Err(err) => {
+                    return Err(FileLockError {
+                        message: "Failed to open lock file",
+                        path,
+                        err,
+                    });
+                }
+            }
+        };
 
         // Acquire exclusive lock (blocks until available)
         file.lock().map_err(|err| FileLockError {
