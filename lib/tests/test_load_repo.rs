@@ -37,6 +37,7 @@ fn test_load_at_operation() {
         &settings,
         test_repo.repo_path(),
         &test_repo.env.default_store_factories(),
+        None,
     )
     .unwrap();
     let head_repo = loader.load_at_head().block_on().unwrap();
@@ -48,6 +49,7 @@ fn test_load_at_operation() {
         &settings,
         test_repo.repo_path(),
         &test_repo.env.default_store_factories(),
+        None,
     )
     .unwrap();
     let old_repo = loader.load_at(repo.operation()).block_on().unwrap();
