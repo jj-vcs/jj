@@ -85,7 +85,19 @@ pub mod test_backend;
 
 #[ctor::ctor]
 fn init_color_eyre() {
-    drop(color_eyre::install());
+    drop(
+        color_eyre::config::HookBuilder::default()
+            .add_frame_filter(Box::new(|frames| {
+                frames.retain(|frame| {
+                    frame
+                        .name
+                        .as_ref()
+                        .map(|name| name.starts_with("jj_"))
+                        .unwrap_or(false)
+                });
+            }))
+            .install(),
+    );
 }
 
 /// Convenient return type for test functions.
