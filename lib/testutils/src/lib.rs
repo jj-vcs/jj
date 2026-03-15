@@ -85,6 +85,13 @@ pub mod test_backend;
 
 #[ctor::ctor]
 fn init_color_eyre() {
+    // Enable backtrace capture by default in tests
+    if std::env::var("RUST_BACKTRACE").is_err() {
+        unsafe {
+            std::env::set_var("RUST_BACKTRACE", "1");
+        }
+    }
+
     drop(
         color_eyre::config::HookBuilder::default()
             .add_frame_filter(Box::new(|frames| {
