@@ -1,13 +1,3 @@
-[profile.dev]
-debug = "none"
-incremental = false
-
-[target.x86_64-unknown-linux-gnu]
-rustflags = ["-Clink-arg=-fuse-ld=mold"]
-
-[target.aarch64-unknown-linux-gnu]
-rustflags = ["-Clink-arg=-fuse-ld=mold"]
-
 [target.'cfg(target_family = "windows")']
 linker = "rust-lld.exe"
 # NOTE: on Windows, build with the static CRT, so that produced .exe files don't
