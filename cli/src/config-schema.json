@@ -756,6 +756,11 @@
                     ],
                     "description": "New files with a size in bytes above this threshold are not snapshotted, unless the threshold is 0",
                     "default": "1MiB"
+                },
+                "derive-tracked-from-ignores": {
+                    "type": "boolean",
+                    "description": "Track a file if and only if it is not ignored. If a file was previously tracked and then it gets ignored, this will cause the snapshot to see it as a delete.",
+                    "default": false
                 }
             }
         },

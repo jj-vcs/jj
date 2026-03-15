@@ -297,6 +297,7 @@ impl DiffEditor {
         trees: Diff<&MergedTree>,
         matcher: &dyn Matcher,
         format_instructions: impl FnOnce() -> String,
+        derive_tracked_from_ignores: bool,
     ) -> Result<MergedTree, DiffEditError> {
         match &self.tool {
             DiffEditTool::Builtin => {
@@ -315,6 +316,7 @@ impl DiffEditor {
                     instructions.as_deref(),
                     self.base_ignores.clone(),
                     self.conflict_marker_style,
+                    derive_tracked_from_ignores,
                 )
                 .await
             }
