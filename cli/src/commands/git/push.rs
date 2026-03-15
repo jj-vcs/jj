@@ -33,6 +33,7 @@ use jj_lib::git::GitBranchPushTargets;
 use jj_lib::git::GitPushOptions;
 use jj_lib::git::GitSettings;
 use jj_lib::index::IndexResult;
+use jj_lib::merge::Diff;
 use jj_lib::op_store::RefTarget;
 use jj_lib::operation::Operation;
 use jj_lib::ref_name::RefName;
@@ -41,7 +42,6 @@ use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteNameBuf;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::refs::BookmarkPushAction;
-use jj_lib::refs::BookmarkPushUpdate;
 use jj_lib::refs::LocalAndRemoteRef;
 use jj_lib::refs::classify_bookmark_push_action;
 use jj_lib::repo::Repo;
@@ -508,7 +508,7 @@ pub async fn cmd_git_push(
 /// Returns the list of commits which need to be signed.
 fn validate_commits_ready_to_push(
     ui: &Ui,
-    bookmark_updates: &[(RefNameBuf, BookmarkPushUpdate)],
+    bookmark_updates: &[(RefNameBuf, Diff<Option<CommitId>>)],
     remote: &RemoteName,
     tx: &WorkspaceCommandTransaction,
     args: &GitPushArgs,
@@ -519,7 +519,7 @@ fn validate_commits_ready_to_push(
 
     let new_heads = bookmark_updates
         .iter()
-        .filter_map(|(_, update)| update.new_target.clone())
+        .filter_map(|(_, update)| update.after.clone())
         .collect_vec();
     let old_heads = repo
         .view()
@@ -605,8 +605,8 @@ async fn sign_commits_before_push(
     tx: &mut WorkspaceCommandTransaction<'_>,
     commits_to_sign: Vec<Commit>,
     sign_behavior: SignBehavior,
-    bookmark_updates: Vec<(RefNameBuf, BookmarkPushUpdate)>,
-) -> Result<(usize, Vec<(RefNameBuf, BookmarkPushUpdate)>), CommandError> {
+    bookmark_updates: Vec<(RefNameBuf, Diff<Option<CommitId>>)>,
+) -> Result<(usize, Vec<(RefNameBuf, Diff<Option<CommitId>>)>), CommandError> {
     let commit_ids: IndexSet<CommitId> = commits_to_sign.iter().ids().cloned().collect();
     let mut old_to_new_commits_map: HashMap<CommitId, CommitId> = HashMap::new();
     let mut num_rebased_descendants = 0;
@@ -647,10 +647,10 @@ async fn sign_commits_before_push(
         .map(|(bookmark_name, update)| {
             (
                 bookmark_name,
-                BookmarkPushUpdate {
-                    old_target: update.old_target,
-                    new_target: update
-                        .new_target
+                Diff {
+                    before: update.before,
+                    after: update
+                        .after
                         .map(|id| old_to_new_commits_map.get(&id).cloned().unwrap_or(id)),
                 },
             )
@@ -663,7 +663,7 @@ async fn sign_commits_before_push(
 fn print_commits_ready_to_push(
     formatter: &mut dyn Formatter,
     repo: &dyn Repo,
-    bookmark_updates: &[(RefNameBuf, BookmarkPushUpdate)],
+    bookmark_updates: &[(RefNameBuf, Diff<Option<CommitId>>)],
 ) -> Result<(), CommandError> {
     let to_direction =
         |old_target: &CommitId, new_target: &CommitId| -> IndexResult<BookmarkMoveDirection> {
@@ -678,7 +678,7 @@ fn print_commits_ready_to_push(
         };
 
     for (bookmark_name, update) in bookmark_updates {
-        match (&update.old_target, &update.new_target) {
+        match (&update.before, &update.after) {
             (Some(old_target), Some(new_target)) => {
                 let bookmark_name = bookmark_name.as_symbol();
                 let old = short_commit_hash(old_target);
@@ -778,7 +778,7 @@ fn classify_bookmark_update(
     targets: LocalAndRemoteRef,
     allow_new: bool,
     allow_delete: bool,
-) -> Result<Option<BookmarkPushUpdate>, RejectedBookmarkUpdateReason> {
+) -> Result<Option<Diff<Option<CommitId>>>, RejectedBookmarkUpdateReason> {
     let push_action = classify_bookmark_push_action(targets);
     match push_action {
         BookmarkPushAction::AlreadyMatches => Ok(None),
@@ -816,7 +816,7 @@ fn classify_bookmark_update(
                 )),
             })
         }
-        BookmarkPushAction::Update(update) if update.new_target.is_none() && !allow_delete => {
+        BookmarkPushAction::Update(update) if update.after.is_none() && !allow_delete => {
             Err(RejectedBookmarkUpdateReason {
                 message: format!(
                     "Refusing to push deleted bookmark {name}",

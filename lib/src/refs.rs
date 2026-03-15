@@ -20,6 +20,7 @@ use crate::backend::CommitId;
 use crate::index::Index;
 use crate::index::IndexResult;
 use crate::iter_util::fallible_position;
+use crate::merge::Diff;
 use crate::merge::Merge;
 use crate::merge::SameChange;
 use crate::merge::trivial_merge;
@@ -200,15 +201,9 @@ pub struct LocalAndRemoteRef<'a> {
     pub remote_ref: &'a RemoteRef,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash)]
-pub struct BookmarkPushUpdate {
-    pub old_target: Option<CommitId>,
-    pub new_target: Option<CommitId>,
-}
-
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum BookmarkPushAction {
-    Update(BookmarkPushUpdate),
+    Update(Diff<Option<CommitId>>),
     AlreadyMatches,
     LocalConflicted,
     RemoteConflicted,
@@ -229,10 +224,10 @@ pub fn classify_bookmark_push_action(targets: LocalAndRemoteRef) -> BookmarkPush
     } else if targets.remote_ref.is_present() && !targets.remote_ref.is_tracked() {
         BookmarkPushAction::RemoteUntracked
     } else {
-        BookmarkPushAction::Update(BookmarkPushUpdate {
-            old_target: remote_target.as_normal().cloned(),
-            new_target: local_target.as_normal().cloned(),
-        })
+        BookmarkPushAction::Update(Diff::new(
+            remote_target.as_normal().cloned(),
+            local_target.as_normal().cloned(),
+        ))
     }
 }
 
@@ -277,10 +272,7 @@ mod tests {
         };
         assert_eq!(
             classify_bookmark_push_action(targets),
-            BookmarkPushAction::Update(BookmarkPushUpdate {
-                old_target: None,
-                new_target: Some(commit_id1),
-            })
+            BookmarkPushAction::Update(Diff::new(None, Some(commit_id1)))
         );
     }
 
@@ -293,10 +285,7 @@ mod tests {
         };
         assert_eq!(
             classify_bookmark_push_action(targets),
-            BookmarkPushAction::Update(BookmarkPushUpdate {
-                old_target: Some(commit_id1),
-                new_target: None,
-            })
+            BookmarkPushAction::Update(Diff::new(Some(commit_id1), None))
         );
     }
 
@@ -310,10 +299,7 @@ mod tests {
         };
         assert_eq!(
             classify_bookmark_push_action(targets),
-            BookmarkPushAction::Update(BookmarkPushUpdate {
-                old_target: Some(commit_id1),
-                new_target: Some(commit_id2),
-            })
+            BookmarkPushAction::Update(Diff::new(Some(commit_id1), Some(commit_id2)))
         );
     }
 

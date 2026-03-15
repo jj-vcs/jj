@@ -66,6 +66,7 @@ use jj_lib::git::load_default_fetch_bookmarks;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::hex_util;
 use jj_lib::index::ResolvedChangeTargets;
+use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::LocalRemoteRefTarget;
@@ -76,7 +77,6 @@ use jj_lib::ref_name::GitRefNameBuf;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteRefSymbol;
-use jj_lib::refs::BookmarkPushUpdate;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
@@ -4611,10 +4611,10 @@ fn test_push_bookmarks_success() {
     let targets = GitBranchPushTargets {
         branch_updates: vec![(
             "main".into(),
-            BookmarkPushUpdate {
-                old_target: Some(setup.main_commit.id().clone()),
-                new_target: Some(setup.child_of_main_commit.id().clone()),
-            },
+            Diff::new(
+                Some(setup.main_commit.id().clone()),
+                Some(setup.child_of_main_commit.id().clone()),
+            ),
         )],
     };
     let stats = git::push_branches(
@@ -4693,10 +4693,7 @@ fn test_push_bookmarks_deletion() {
     let targets = GitBranchPushTargets {
         branch_updates: vec![(
             "main".into(),
-            BookmarkPushUpdate {
-                old_target: Some(setup.main_commit.id().clone()),
-                new_target: None,
-            },
+            Diff::new(Some(setup.main_commit.id().clone()), None),
         )],
     };
     let stats = git::push_branches(
@@ -4766,17 +4763,11 @@ fn test_push_bookmarks_mixed_deletion_and_addition() {
         branch_updates: vec![
             (
                 "main".into(),
-                BookmarkPushUpdate {
-                    old_target: Some(setup.main_commit.id().clone()),
-                    new_target: None,
-                },
+                Diff::new(Some(setup.main_commit.id().clone()), None),
             ),
             (
                 "topic".into(),
-                BookmarkPushUpdate {
-                    old_target: None,
-                    new_target: Some(setup.child_of_main_commit.id().clone()),
-                },
+                Diff::new(None, Some(setup.child_of_main_commit.id().clone())),
             ),
         ],
     };
@@ -4858,10 +4849,10 @@ fn test_push_bookmarks_not_fast_forward() {
     let targets = GitBranchPushTargets {
         branch_updates: vec![(
             "main".into(),
-            BookmarkPushUpdate {
-                old_target: Some(setup.main_commit.id().clone()),
-                new_target: Some(setup.sideways_commit.id().clone()),
-            },
+            Diff::new(
+                Some(setup.main_commit.id().clone()),
+                Some(setup.sideways_commit.id().clone()),
+            ),
         )],
     };
     let stats = git::push_branches(
@@ -4904,17 +4895,17 @@ fn test_push_bookmarks_partial_success() {
         branch_updates: vec![
             (
                 "main".into(),
-                BookmarkPushUpdate {
-                    old_target: Some(setup.main_commit.id().clone()),
-                    new_target: Some(setup.child_of_main_commit.id().clone()),
-                },
+                Diff::new(
+                    Some(setup.main_commit.id().clone()),
+                    Some(setup.child_of_main_commit.id().clone()),
+                ),
             ),
             (
                 "other".into(),
-                BookmarkPushUpdate {
-                    old_target: Some(setup.main_commit.id().clone()), // bad old state
-                    new_target: Some(setup.child_of_main_commit.id().clone()),
-                },
+                Diff::new(
+                    Some(setup.main_commit.id().clone()), // bad old state
+                    Some(setup.child_of_main_commit.id().clone()),
+                ),
             ),
         ],
     };
@@ -5014,17 +5005,11 @@ fn test_push_bookmarks_unmapped_refs() {
         branch_updates: vec![
             (
                 "bookmark1".into(),
-                BookmarkPushUpdate {
-                    old_target: None,
-                    new_target: Some(commit1.id().clone()),
-                },
+                Diff::new(None, Some(commit1.id().clone())),
             ),
             (
                 "bookmark2".into(),
-                BookmarkPushUpdate {
-                    old_target: None,
-                    new_target: Some(commit2b.id().clone()),
-                },
+                Diff::new(None, Some(commit2b.id().clone())),
             ),
         ],
     };
@@ -5408,10 +5393,10 @@ fn test_push_environment_options() {
     let targets = GitBranchPushTargets {
         branch_updates: vec![(
             "main".into(),
-            BookmarkPushUpdate {
-                old_target: Some(setup.main_commit.id().clone()),
-                new_target: Some(setup.child_of_main_commit.id().clone()),
-            },
+            Diff::new(
+                Some(setup.main_commit.id().clone()),
+                Some(setup.child_of_main_commit.id().clone()),
+            ),
         )],
     };
 

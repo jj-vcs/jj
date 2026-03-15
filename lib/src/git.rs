@@ -51,6 +51,7 @@ use crate::git_subprocess::GitSubprocessContext;
 use crate::git_subprocess::GitSubprocessError;
 use crate::index::IndexError;
 use crate::matchers::EverythingMatcher;
+use crate::merge::Diff;
 use crate::merged_tree::MergedTree;
 use crate::merged_tree::TreeDiffEntry;
 use crate::object_id::ObjectId as _;
@@ -66,7 +67,6 @@ use crate::ref_name::RemoteName;
 use crate::ref_name::RemoteNameBuf;
 use crate::ref_name::RemoteRefSymbol;
 use crate::ref_name::RemoteRefSymbolBuf;
-use crate::refs::BookmarkPushUpdate;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::repo_path::RepoPath;
@@ -3049,7 +3049,7 @@ pub enum GitPushError {
 
 #[derive(Clone, Debug)]
 pub struct GitBranchPushTargets {
-    pub branch_updates: Vec<(RefNameBuf, BookmarkPushUpdate)>,
+    pub branch_updates: Vec<(RefNameBuf, Diff<Option<CommitId>>)>,
 }
 
 pub struct GitRefUpdate {
@@ -3087,8 +3087,8 @@ pub fn push_branches(
         .iter()
         .map(|(name, update)| GitRefUpdate {
             qualified_name: format!("refs/heads/{name}", name = name.as_str()).into(),
-            expected_current_target: update.old_target.clone(),
-            new_target: update.new_target.clone(),
+            expected_current_target: update.before.clone(),
+            new_target: update.after.clone(),
         })
         .collect_vec();
 
@@ -3126,7 +3126,7 @@ pub fn push_branches(
     };
     for (name, update) in pushed_branch_updates().filter(|(name, _)| is_exported_bookmark(name)) {
         let new_remote_ref = RemoteRef {
-            target: RefTarget::resolved(update.new_target.clone()),
+            target: RefTarget::resolved(update.after.clone()),
             state: RemoteRefState::Tracked,
         };
         mut_repo.set_remote_bookmark(name.to_remote_symbol(remote), new_remote_ref);
@@ -3198,13 +3198,13 @@ pub fn push_updates(
 /// Builds diff of remote bookmarks corresponding to the given `pushed_updates`.
 fn build_pushed_bookmarks_to_export<'a>(
     remote: &RemoteName,
-    pushed_updates: impl IntoIterator<Item = (&'a RefName, &'a BookmarkPushUpdate)>,
+    pushed_updates: impl IntoIterator<Item = (&'a RefName, &'a Diff<Option<CommitId>>)>,
 ) -> RefsToExport {
     let mut to_update = Vec::new();
     let mut to_delete = Vec::new();
     for (name, update) in pushed_updates {
         let symbol = name.to_remote_symbol(remote);
-        match (update.old_target.as_ref(), update.new_target.as_ref()) {
+        match (update.before.as_ref(), update.after.as_ref()) {
             (old, Some(new)) => {
                 let old_oid = old.map(|id| gix::ObjectId::from_bytes_or_panic(id.as_bytes()));
                 let new_oid = gix::ObjectId::from_bytes_or_panic(new.as_bytes());
