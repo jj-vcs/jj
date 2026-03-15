@@ -142,6 +142,7 @@ pub async fn cmd_bookmark_set(
             names = bookmark_names.iter().map(|n| n.as_symbol()).join(", "),
             id = target_commit.id().hex()
         ),
-    )?;
+    )
+    .await?;
     Ok(())
 }

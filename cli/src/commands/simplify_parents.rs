@@ -115,7 +115,8 @@ pub(crate) async fn cmd_simplify_parents(
             )?;
         }
     }
-    tx.finish(ui, format!("simplify {num_orig_commits} commits"))?;
+    tx.finish(ui, format!("simplify {num_orig_commits} commits"))
+        .await?;
 
     Ok(())
 }

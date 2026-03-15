@@ -182,7 +182,7 @@ pub(crate) async fn cmd_abandon(
             to_abandon.len() - 1
         )
     };
-    tx.finish(ui, transaction_description)?;
+    tx.finish(ui, transaction_description).await?;
 
     #[cfg(feature = "git")]
     if jj_lib::git::get_git_backend(workspace_command.repo().store()).is_ok() {

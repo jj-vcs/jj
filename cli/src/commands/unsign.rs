@@ -129,7 +129,7 @@ pub async fn cmd_unsign(
             commits.len() - 1
         ),
     };
-    tx.finish(ui, transaction_description)?;
+    tx.finish(ui, transaction_description).await?;
 
     Ok(())
 }

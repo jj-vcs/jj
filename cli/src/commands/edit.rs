@@ -63,7 +63,8 @@ pub(crate) async fn cmd_edit(
     } else {
         let mut tx = workspace_command.start_transaction();
         tx.edit(&new_commit)?;
-        tx.finish(ui, format!("edit commit {}", new_commit.id().hex()))?;
+        tx.finish(ui, format!("edit commit {}", new_commit.id().hex()))
+            .await?;
     }
     Ok(())
 }

@@ -344,6 +344,6 @@ pub(crate) async fn cmd_describe(
     if num_reparented > 0 {
         writeln!(ui.status(), "Rebased {num_reparented} descendant commits")?;
     }
-    tx.finish(ui, tx_description)?;
+    tx.finish(ui, tx_description).await?;
     Ok(())
 }

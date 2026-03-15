@@ -132,4 +132,5 @@ pub(crate) async fn cmd_file_chmod(
             commit.id().hex(),
         ),
     )
+    .await
 }

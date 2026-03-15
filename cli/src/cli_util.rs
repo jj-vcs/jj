@@ -1298,7 +1298,8 @@ impl WorkspaceCommandHelper {
             }
         } else {
             // Unlikely, but the HEAD ref got deleted by git?
-            self.finish_transaction(ui, tx, "import git head", git_import_export_lock)?;
+            self.finish_transaction(ui, tx, "import git head", git_import_export_lock)
+                .block_on()?;
         }
         Ok(())
     }
@@ -1339,7 +1340,8 @@ impl WorkspaceCommandHelper {
                 "Rebased {num_rebased} descendant commits off of commits rewritten from git"
             )?;
         }
-        self.finish_transaction(ui, tx, "import git refs", git_import_export_lock)?;
+        self.finish_transaction(ui, tx, "import git refs", git_import_export_lock)
+            .block_on()?;
         writeln!(
             ui.status(),
             "Done importing changes from the underlying Git repo."
@@ -2118,14 +2120,14 @@ to the current parents may contain changes from multiple commits.
         }
     }
 
-    fn finish_transaction(
+    async fn finish_transaction(
         &mut self,
         ui: &Ui,
         mut tx: Transaction,
         description: impl Into<String>,
         _git_import_export_lock: &GitImportExportLock,
     ) -> Result<(), CommandError> {
-        let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
+        let num_rebased = tx.repo_mut().rebase_descendants().await?;
         if num_rebased > 0 {
             writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
         }
@@ -2148,10 +2150,8 @@ to the current parents may contain changes from multiple commits.
                 }
             };
             if is_immutable {
-                let wc_commit = tx.repo().store().get_commit(wc_commit_id)?;
-                tx.repo_mut()
-                    .check_out(name.clone(), &wc_commit)
-                    .block_on()?;
+                let wc_commit = tx.repo().store().get_commit_async(wc_commit_id).await?;
+                tx.repo_mut().check_out(name.clone(), &wc_commit).await?;
                 writeln!(
                     ui.warning_default(),
                     "The working-copy commit in workspace '{name}' became immutable, so a new \
@@ -2200,7 +2200,7 @@ to the current parents may contain changes from multiple commits.
                 // This can still fail if HEAD was updated concurrently by another JJ process
                 // (overlapping transaction) or a non-JJ process (e.g., git checkout). In that
                 // case, the actual state will be imported on the next snapshot.
-                match jj_lib::git::reset_head(tx.repo_mut(), wc_commit).block_on() {
+                match jj_lib::git::reset_head(tx.repo_mut(), wc_commit).await {
                     Ok(()) => {}
                     Err(err @ jj_lib::git::GitResetHeadError::UpdateHeadRef(_)) => {
                         writeln!(ui.warning_default(), "{err}")?;
@@ -2213,7 +2213,7 @@ to the current parents may contain changes from multiple commits.
             crate::git_util::print_git_export_stats(ui, &stats)?;
         }
 
-        self.user_repo = ReadonlyUserRepo::new(tx.commit(description).block_on()?);
+        self.user_repo = ReadonlyUserRepo::new(tx.commit(description).await?);
 
         // Update working copy before reporting repo changes, so that
         // potential errors while reporting changes (broken pipe, etc)
@@ -2586,7 +2586,7 @@ impl WorkspaceCommandTransaction<'_> {
         self.helper.env.parse_template(ui, &language, template_text)
     }
 
-    pub fn finish(self, ui: &Ui, description: impl Into<String>) -> Result<(), CommandError> {
+    pub async fn finish(self, ui: &Ui, description: impl Into<String>) -> Result<(), CommandError> {
         if !self.tx.repo().has_changes() {
             writeln!(ui.status(), "Nothing changed.")?;
             return Ok(());
@@ -2596,6 +2596,7 @@ impl WorkspaceCommandTransaction<'_> {
         let git_import_export_lock = self.helper.lock_git_import_export()?;
         self.helper
             .finish_transaction(ui, self.tx, description, &git_import_export_lock)
+            .await
     }
 
     /// Returns the wrapped [`Transaction`] for circumstances where

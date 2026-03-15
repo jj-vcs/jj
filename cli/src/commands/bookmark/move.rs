@@ -160,6 +160,7 @@ pub async fn cmd_bookmark_move(
                 .join(", "),
             id = target_commit.id().hex()
         ),
-    )?;
+    )
+    .await?;
     Ok(())
 }

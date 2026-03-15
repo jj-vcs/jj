@@ -246,6 +246,7 @@ pub(crate) async fn cmd_fix(
         summary.num_checked_commits
     )?;
     tx.finish(ui, format!("fixed {} commits", summary.num_fixed_commits))
+        .await
 }
 
 /// Invokes all matching tools (if any) to file_to_fix. If the content is

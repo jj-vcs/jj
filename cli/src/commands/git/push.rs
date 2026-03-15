@@ -493,7 +493,7 @@ pub async fn cmd_git_push(
     // TODO: On partial success, locally-created --change/--named bookmarks will
     // be committed. It's probably better to remove failed local bookmarks.
     if push_stats.all_ok() || push_stats.some_exported() {
-        tx.finish(ui, tx_description)?;
+        tx.finish(ui, tx_description).await?;
     }
     if push_stats.all_ok() {
         Ok(())

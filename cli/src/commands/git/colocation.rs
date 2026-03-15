@@ -253,7 +253,7 @@ async fn cmd_git_colocation_disable(
     let mut workspace_command = reload_workspace_helper(ui, command, workspace_command).await?;
 
     // And finally, remove the git HEAD reference
-    remove_git_head(ui, &mut workspace_command)?;
+    remove_git_head(ui, &mut workspace_command).await?;
 
     writeln!(
         ui.status(),
@@ -301,20 +301,20 @@ async fn set_git_head_to_wc_parent(
     let mut tx = workspace_command.start_transaction();
     git::reset_head(tx.repo_mut(), wc_commit).await?;
     if tx.repo().has_changes() {
-        tx.finish(ui, "set git head to working copy parent")?;
+        tx.finish(ui, "set git head to working copy parent").await?;
     }
     Ok(())
 }
 
 /// Remove the git HEAD reference
-fn remove_git_head(
+async fn remove_git_head(
     ui: &mut Ui,
     workspace_command: &mut crate::cli_util::WorkspaceCommandHelper,
 ) -> Result<(), CommandError> {
     let mut tx = workspace_command.start_transaction();
     tx.repo_mut().set_git_head_target(RefTarget::absent());
     if tx.repo().has_changes() {
-        tx.finish(ui, "remove git head reference")?;
+        tx.finish(ui, "remove git head reference").await?;
     }
     Ok(())
 }

@@ -242,7 +242,8 @@ pub async fn cmd_git_fetch(
             "fetch from git remote(s) {}",
             matching_remotes.iter().map(|n| n.as_symbol()).join(",")
         ),
-    )?;
+    )
+    .await?;
     Ok(())
 }
 

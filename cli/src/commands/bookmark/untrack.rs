@@ -137,6 +137,7 @@ pub async fn cmd_bookmark_untrack(
     tx.finish(
         ui,
         format!("untrack remote bookmark {}", symbols.iter().join(", ")),
-    )?;
+    )
+    .await?;
     Ok(())
 }

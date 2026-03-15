@@ -276,6 +276,6 @@ pub(crate) async fn cmd_new(
         tx.advance_bookmarks(advanceable_bookmarks, &target)?;
     }
 
-    tx.finish(ui, "new empty commit")?;
+    tx.finish(ui, "new empty commit").await?;
     Ok(())
 }

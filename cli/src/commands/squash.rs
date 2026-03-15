@@ -429,7 +429,7 @@ pub(crate) async fn cmd_squash(
             }
         }
     }
-    tx.finish(ui, tx_description)?;
+    tx.finish(ui, tx_description).await?;
     Ok(())
 }
 

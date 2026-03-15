@@ -172,7 +172,8 @@ pub async fn cmd_undo(
     tx.finish(
         ui,
         format!("{UNDO_OP_DESC_PREFIX}{}", op_to_restore.id().hex()),
-    )?;
+    )
+    .await?;
 
     Ok(())
 }

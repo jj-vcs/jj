@@ -108,6 +108,7 @@ pub async fn cmd_tag_set(
             names = args.names.iter().map(|n| n.as_symbol()).join(", "),
             id = target_commit.id()
         ),
-    )?;
+    )
+    .await?;
     Ok(())
 }

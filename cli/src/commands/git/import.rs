@@ -46,6 +46,6 @@ pub async fn cmd_git_import(
     git::import_head(tx.repo_mut()).await?;
     let stats = git::import_refs(tx.repo_mut(), &import_options).await?;
     print_git_import_stats(ui, &tx, &stats)?;
-    tx.finish(ui, "import git refs")?;
+    tx.finish(ui, "import git refs").await?;
     Ok(())
 }

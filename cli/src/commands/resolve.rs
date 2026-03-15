@@ -121,7 +121,8 @@ pub(crate) async fn cmd_resolve(
     tx.finish(
         ui,
         format!("Resolve conflicts in commit {}", commit.id().hex()),
-    )?;
+    )
+    .await?;
 
     // Print conflicts that are still present after resolution if the workspace
     // working copy is not at the commit. Otherwise, the conflicting paths will

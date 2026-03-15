@@ -237,7 +237,7 @@ fn choose_commit<'a>(
         .ok_or_else(|| user_error("ambiguous target commit"))
 }
 
-pub(crate) fn move_to_commit(
+pub(crate) async fn move_to_commit(
     ui: &mut Ui,
     command: &CommandHelper,
     direction: Direction,
@@ -269,12 +269,14 @@ pub(crate) fn move_to_commit(
         tx.finish(
             ui,
             format!("{cmd}: {current_short} -> editing {target_short}"),
-        )?;
+        )
+        .await?;
         return Ok(());
     }
     let mut tx = workspace_command.start_transaction();
     // Move the working-copy commit to the new parent.
     tx.check_out(&target)?;
-    tx.finish(ui, format!("{cmd}: {current_short} -> {target_short}"))?;
+    tx.finish(ui, format!("{cmd}: {current_short} -> {target_short}"))
+        .await?;
     Ok(())
 }

@@ -68,6 +68,7 @@ pub async fn cmd_tag_delete(
             "delete tag {names}",
             names = matched_tags.iter().map(|(n, _)| n.as_symbol()).join(", ")
         ),
-    )?;
+    )
+    .await?;
     Ok(())
 }

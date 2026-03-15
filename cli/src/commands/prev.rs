@@ -88,5 +88,5 @@ pub(crate) async fn cmd_prev(
     command: &CommandHelper,
     args: &PrevArgs,
 ) -> Result<(), CommandError> {
-    move_to_commit(ui, command, Direction::Prev, &MovementArgs::from(args))
+    move_to_commit(ui, command, Direction::Prev, &MovementArgs::from(args)).await
 }

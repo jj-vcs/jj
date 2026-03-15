@@ -224,6 +224,7 @@ pub async fn cmd_workspace_add(
             "create initial working-copy commit in workspace {name}",
             name = workspace_name.as_symbol()
         ),
-    )?;
+    )
+    .await?;
     Ok(())
 }

@@ -150,4 +150,5 @@ pub(crate) async fn cmd_parallelize(
         .await?;
 
     tx.finish(ui, format!("parallelize {} commits", target_commits.len()))
+        .await
 }

@@ -212,6 +212,7 @@ pub async fn cmd_bookmark_advance(
                 .join(", "),
             id = target_commit.id().hex()
         ),
-    )?;
+    )
+    .await?;
     Ok(())
 }

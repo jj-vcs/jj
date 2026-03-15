@@ -163,7 +163,8 @@ don't make any changes, then the operation will be aborted.",
                 "Rebased {num_rebased} descendant commits{extra_msg}"
             )?;
         }
-        tx.finish(ui, format!("edit commit {}", target_commit.id().hex()))?;
+        tx.finish(ui, format!("edit commit {}", target_commit.id().hex()))
+            .await?;
     }
     print_unmatched_explicit_paths(
         ui,

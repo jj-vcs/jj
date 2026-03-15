@@ -411,7 +411,8 @@ pub(crate) async fn cmd_split(
         tx.write_commit_summary(formatter.as_mut(), &second_commit)?;
         writeln!(formatter)?;
     }
-    tx.finish(ui, format!("split commit {}", target.commit.id().hex()))?;
+    tx.finish(ui, format!("split commit {}", target.commit.id().hex()))
+        .await?;
     Ok(())
 }
 

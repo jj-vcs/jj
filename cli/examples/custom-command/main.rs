@@ -49,7 +49,7 @@ async fn run_custom_command(
                 .set_description("Frobnicated!")
                 .write()
                 .await?;
-            tx.finish(ui, "frobnicate")?;
+            tx.finish(ui, "frobnicate").await?;
             writeln!(
                 ui.status(),
                 "Frobnicated revision: {}",

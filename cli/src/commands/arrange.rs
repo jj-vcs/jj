@@ -156,7 +156,7 @@ pub(crate) async fn cmd_arrange(
         let mut tx = workspace_command.start_transaction();
         let rewrites = new_state.to_rewrite_plan();
         rewrites.execute(tx.repo_mut()).await?;
-        tx.finish(ui, "arrange revisions")?;
+        tx.finish(ui, "arrange revisions").await?;
         Ok(())
     } else {
         Err(user_error("Canceled by user"))

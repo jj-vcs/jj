@@ -93,6 +93,6 @@ pub async fn cmd_workspace_forget(
         )
     };
 
-    tx.finish(ui, description)?;
+    tx.finish(ui, description).await?;
     Ok(())
 }

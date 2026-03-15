@@ -266,7 +266,8 @@ pub async fn cmd_git_clone(
             tx.finish(
                 ui,
                 format!("check out git remote's branch: {}", name.as_symbol()),
-            )?;
+            )
+            .await?;
         }
     }
 
@@ -315,7 +316,8 @@ async fn configure_remote(
         fetch_tags.as_fetch_tags(),
         &ref_expr.bookmark,
     )?;
-    tx.finish(ui, format!("add git remote {}", remote_name.as_symbol()))?;
+    tx.finish(ui, format!("add git remote {}", remote_name.as_symbol()))
+        .await?;
     // Reload workspace to apply new remote configuration to
     // gix::ThreadSafeRepository behind the store.
     let workspace = command.load_workspace_at(
@@ -436,6 +438,7 @@ async fn fetch_new_remote(
              `git.auto-local-bookmark` is enabled."
         )?;
     }
-    tx.finish(ui, "fetch from git remote into empty repo")?;
+    tx.finish(ui, "fetch from git remote into empty repo")
+        .await?;
     Ok((working_branch.map(ToOwned::to_owned), working_is_default))
 }

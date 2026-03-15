@@ -228,7 +228,7 @@ async fn do_init(
                     tx.check_out(&git_head_commit)?;
                 }
                 if tx.repo().has_changes() {
-                    tx.finish(ui, "import git head")?;
+                    tx.finish(ui, "import git head").await?;
                 }
             }
             print_trackable_remote_bookmarks(ui, workspace_command.repo().view())?;

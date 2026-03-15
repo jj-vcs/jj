@@ -215,6 +215,7 @@ pub(crate) async fn cmd_duplicate(
             )?;
         }
     }
-    tx.finish(ui, format!("duplicate {num_to_duplicate} commit(s)"))?;
+    tx.finish(ui, format!("duplicate {num_to_duplicate} commit(s)"))
+        .await?;
     Ok(())
 }

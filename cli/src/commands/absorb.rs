@@ -131,7 +131,8 @@ pub(crate) async fn cmd_absorb(
             "absorb changes into {} commits",
             stats.rewritten_destinations.len()
         ),
-    )?;
+    )
+    .await?;
 
     if let Some(mut formatter) = ui.status_formatter()
         && let Some(commit) = &stats.rewritten_source

@@ -165,7 +165,8 @@ pub async fn cmd_bookmark_rename(
             old_bookmark = old_bookmark.as_symbol(),
             new_bookmark = new_bookmark.as_symbol()
         ),
-    )?;
+    )
+    .await?;
 
     if tracked_present_old_remotes_exist {
         writeln!(

@@ -146,7 +146,7 @@ pub(crate) async fn cmd_bisect_run(
                 }
 
                 let cmd = get_command(args);
-                let evaluation = evaluate_commit(ui, &mut workspace_command, cmd, &commit)?;
+                let evaluation = evaluate_commit(ui, &mut workspace_command, cmd, &commit).await?;
 
                 {
                     let mut formatter = ui.stdout_formatter();
@@ -232,7 +232,7 @@ fn get_command(args: &BisectRunArgs) -> std::process::Command {
     }
 }
 
-fn evaluate_commit(
+async fn evaluate_commit(
     ui: &mut Ui,
     workspace_command: &mut WorkspaceCommandHelper,
     mut cmd: std::process::Command,
@@ -244,7 +244,8 @@ fn evaluate_commit(
     tx.finish(
         ui,
         format!("Updated to revision {commit_id_hex} for bisection"),
-    )?;
+    )
+    .await?;
 
     let jj_executable_path = std::env::current_exe().map_err(|err| {
         internal_error_with_message("Could not get path for the jj executable", err)
