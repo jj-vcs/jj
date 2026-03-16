@@ -16,7 +16,10 @@ use std::cmp::min;
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use futures::StreamExt as _;
 use futures::TryStreamExt as _;
+use futures::stream;
+use futures::stream::LocalBoxStream;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
@@ -28,7 +31,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
-use jj_lib::revset::RevsetIteratorExt as _;
+use jj_lib::revset::RevsetStreamExt as _;
 use pollster::FutureExt as _;
 use tracing::instrument;
 
@@ -170,9 +173,10 @@ pub(crate) async fn cmd_log(
             min(lower, limit)
         } else {
             revset
-                .iter()
+                .stream()
                 .take(limit)
-                .process_results(|iter| iter.count())?
+                .try_fold(0, |count, _| async move { Ok(count + 1) })
+                .await?
         };
         let mut formatter = ui.stdout_formatter();
         writeln!(formatter, "{count}")?;
@@ -323,17 +327,17 @@ pub(crate) async fn cmd_log(
                 }
             }
         } else {
-            let iter: Box<dyn Iterator<Item = Result<CommitId, RevsetEvaluationError>>> = {
-                let forward_iter = revset.iter().take(args.limit.unwrap_or(usize::MAX));
+            let id_stream: LocalBoxStream<Result<CommitId, RevsetEvaluationError>> = {
+                let forward_iter = revset.stream().take(args.limit.unwrap_or(usize::MAX));
                 if args.reversed {
-                    let entries: Vec<_> = forward_iter.try_collect()?;
-                    Box::new(entries.into_iter().rev().map(Ok))
+                    let entries: Vec<_> = forward_iter.try_collect().await?;
+                    stream::iter(entries.into_iter().rev().map(Ok)).boxed_local()
                 } else {
-                    Box::new(forward_iter)
+                    forward_iter.boxed_local()
                 }
             };
-            for commit_or_error in iter.commits(store) {
-                let commit = commit_or_error?;
+            let mut commit_stream = id_stream.commits(store);
+            while let Some(commit) = commit_stream.try_next().await? {
                 with_content_format
                     .write(formatter, |formatter| template.format(&commit, formatter))?;
                 if let Some(renderer) = &diff_renderer {
