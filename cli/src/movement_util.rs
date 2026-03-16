@@ -15,14 +15,14 @@
 use std::io::Write as _;
 use std::sync::Arc;
 
-use itertools::Itertools as _;
+use futures::TryStreamExt as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
-use jj_lib::revset::RevsetIteratorExt as _;
+use jj_lib::revset::RevsetStreamExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
@@ -149,7 +149,7 @@ impl Direction {
     }
 }
 
-fn get_target_commit(
+async fn get_target_commit(
     ui: &mut Ui,
     workspace_command: &WorkspaceCommandHelper,
     direction: Direction,
@@ -182,9 +182,10 @@ fn get_target_commit(
 
     let targets: Vec<Commit> = target_revset
         .evaluate(workspace_command.repo().as_ref())?
-        .iter()
+        .stream()
         .commits(workspace_command.repo().store())
-        .try_collect()?;
+        .try_collect()
+        .await?;
 
     let target = match targets.as_slice() {
         [target] => target,
@@ -192,9 +193,10 @@ fn get_target_commit(
             // We found no ancestor/descendant.
             let start_commits: Vec<Commit> = start_revset
                 .evaluate(workspace_command.repo().as_ref())?
-                .iter()
+                .stream()
                 .commits(workspace_command.repo().store())
-                .try_collect()?;
+                .try_collect()
+                .await?;
             return Err(direction.target_not_found_error(workspace_command, args, &start_commits));
         }
         commits => choose_commit(ui, workspace_command, direction, commits)?,
@@ -256,7 +258,7 @@ pub(crate) async fn move_to_commit(
         conflict: args.conflict,
     };
 
-    let target = get_target_commit(ui, &workspace_command, direction, current_wc_id, &args)?;
+    let target = get_target_commit(ui, &workspace_command, direction, current_wc_id, &args).await?;
     let current_short = short_commit_hash(current_wc_id);
     let target_short = short_commit_hash(target.id());
     let cmd = direction.cmd();
