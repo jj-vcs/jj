@@ -21,13 +21,12 @@ use std::convert::Infallible;
 use std::fmt;
 use std::iter;
 use std::ops::Range;
-use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::Arc;
 
 use bstr::BString;
-use futures::Stream;
 use futures::StreamExt as _;
+use futures::stream::LocalBoxStream;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
 
@@ -164,13 +163,11 @@ impl<I: AsCompositeIndex + Clone> Revset for RevsetImpl<I> {
         Box::new(iter::from_fn(move || walk.next(index.as_composite())))
     }
 
-    fn stream<'a>(
-        &self,
-    ) -> Pin<Box<dyn Stream<Item = Result<CommitId, RevsetEvaluationError>> + 'a>>
+    fn stream<'a>(&self) -> LocalBoxStream<'a, Result<CommitId, RevsetEvaluationError>>
     where
         Self: 'a,
     {
-        Box::pin(futures::stream::iter(self.iter()))
+        futures::stream::iter(self.iter()).boxed_local()
     }
 
     fn commit_change_ids<'a>(
@@ -199,11 +196,11 @@ impl<I: AsCompositeIndex + Clone> Revset for RevsetImpl<I> {
 
     fn stream_graph<'a>(
         &self,
-    ) -> Pin<Box<dyn Stream<Item = Result<GraphNode<CommitId>, RevsetEvaluationError>> + 'a>>
+    ) -> LocalBoxStream<'a, Result<GraphNode<CommitId>, RevsetEvaluationError>>
     where
         Self: 'a,
     {
-        Box::pin(futures::stream::iter(self.iter_graph()))
+        futures::stream::iter(self.iter_graph()).boxed_local()
     }
 
     fn is_empty(&self) -> bool {

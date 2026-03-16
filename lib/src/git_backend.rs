@@ -34,6 +34,7 @@ use std::sync::MutexGuard;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
+use futures::StreamExt as _;
 use futures::stream::BoxStream;
 use gix::bstr::BString;
 use gix::objs::CommitRefIter;
@@ -1459,7 +1460,7 @@ impl Backend for GitBackend {
                 },
             )
             .map_err(|err| BackendError::Other(err.into()))?;
-        Ok(Box::pin(futures::stream::iter(records)))
+        Ok(futures::stream::iter(records).boxed())
     }
 
     #[tracing::instrument(skip(self, index))]

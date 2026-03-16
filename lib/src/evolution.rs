@@ -88,7 +88,7 @@ pub fn walk_predecessors<'repo>(
     repo: &'repo ReadonlyRepo,
     start_commits: &[CommitId],
 ) -> impl Iterator<Item = Result<CommitEvolutionEntry, WalkPredecessorsError>> + use<'repo> {
-    let op_ancestors = Box::pin(op_walk::walk_ancestors(slice::from_ref(repo.operation())));
+    let op_ancestors = op_walk::walk_ancestors(slice::from_ref(repo.operation())).boxed();
     WalkPredecessors {
         repo,
         op_ancestors,

@@ -28,6 +28,7 @@ use std::time::SystemTime;
 use async_trait::async_trait;
 use blake2::Blake2b512;
 use blake2::Digest as _;
+use futures::StreamExt as _;
 use futures::stream;
 use futures::stream::BoxStream;
 use pollster::FutureExt as _;
@@ -343,7 +344,7 @@ impl Backend for SimpleBackend {
         _root: &CommitId,
         _head: &CommitId,
     ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
-        Ok(Box::pin(stream::empty()))
+        Ok(stream::empty().boxed())
     }
 
     fn gc(&self, _index: &dyn Index, _keep_newer: SystemTime) -> BackendResult<()> {

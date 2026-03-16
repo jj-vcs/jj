@@ -21,12 +21,12 @@ use std::convert::Infallible;
 use std::fmt;
 use std::ops::ControlFlow;
 use std::ops::Range;
-use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::LazyLock;
 
 use futures::Stream;
 use futures::StreamExt as _;
+use futures::stream::LocalBoxStream;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
 use thiserror::Error;
@@ -3429,9 +3429,8 @@ pub trait Revset: fmt::Debug {
         Self: 'a;
 
     /// Streams in topological order with children before parents.
-    fn stream<'a>(
-        &self,
-    ) -> Pin<Box<dyn Stream<Item = Result<CommitId, RevsetEvaluationError>> + 'a>>
+    // TODO: Relax to BoxStream?
+    fn stream<'a>(&self) -> LocalBoxStream<'a, Result<CommitId, RevsetEvaluationError>>
     where
         Self: 'a;
 
@@ -3454,7 +3453,7 @@ pub trait Revset: fmt::Debug {
     /// children before parents.
     fn stream_graph<'a>(
         &self,
-    ) -> Pin<Box<dyn Stream<Item = Result<GraphNode<CommitId>, RevsetEvaluationError>> + 'a>>
+    ) -> LocalBoxStream<'a, Result<GraphNode<CommitId>, RevsetEvaluationError>>
     where
         Self: 'a;
 

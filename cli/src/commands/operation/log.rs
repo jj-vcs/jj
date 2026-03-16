@@ -12,13 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::pin::Pin;
 use std::slice;
 
 use clap_complete::ArgValueCandidates;
-use futures::Stream;
 use futures::StreamExt as _;
 use futures::stream;
+use futures::stream::BoxStream;
 use itertools::Itertools as _;
 use jj_lib::graph::GraphEdge;
 use jj_lib::graph::reverse_graph;
@@ -225,14 +224,15 @@ async fn do_op_log(
             let edges = ids.iter().cloned().map(GraphEdge::direct).collect();
             Ok((op, edges))
         });
-        let mut stream_nodes: Pin<Box<dyn Stream<Item = _>>> = if args.reversed {
-            Box::pin(stream::iter(
+        let mut stream_nodes: BoxStream<'_, _> = if args.reversed {
+            stream::iter(
                 reverse_graph(stream.collect::<Vec<_>>().await.into_iter(), Operation::id)?
                     .into_iter()
                     .map(Ok),
-            ))
+            )
+            .boxed()
         } else {
-            Box::pin(stream)
+            stream.boxed()
         };
         while let Some(node) = stream_nodes.next().await {
             let (op, edges) = node?;
@@ -254,12 +254,10 @@ async fn do_op_log(
             )?;
         }
     } else {
-        let mut stream: Pin<Box<dyn Stream<Item = _>>> = if args.reversed {
-            Box::pin(stream::iter(
-                stream.collect::<Vec<_>>().await.into_iter().rev(),
-            ))
+        let mut stream: BoxStream<'_, _> = if args.reversed {
+            stream::iter(stream.collect::<Vec<_>>().await.into_iter().rev()).boxed()
         } else {
-            Box::pin(stream)
+            stream.boxed()
         };
         while let Some(op) = stream.next().await {
             let op = op?;

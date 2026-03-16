@@ -273,11 +273,9 @@ impl MergedTree {
     ) -> TreeDiffStream<'matcher> {
         let concurrency = self.store().concurrency();
         if concurrency <= 1 {
-            Box::pin(futures::stream::iter(TreeDiffIterator::new(
-                self, other, matcher,
-            )))
+            futures::stream::iter(TreeDiffIterator::new(self, other, matcher)).boxed()
         } else {
-            Box::pin(TreeDiffStreamImpl::new(self, other, matcher, concurrency))
+            TreeDiffStreamImpl::new(self, other, matcher, concurrency).boxed()
         }
     }
 
@@ -306,9 +304,7 @@ impl MergedTree {
         other: &Self,
         matcher: &'matcher dyn Matcher,
     ) -> TreeDiffStream<'matcher> {
-        Box::pin(DiffStreamForFileSystem::new(
-            self.diff_stream_internal(other, matcher),
-        ))
+        DiffStreamForFileSystem::new(self.diff_stream_internal(other, matcher)).boxed()
     }
 
     /// Like `diff_stream()` but takes the given copy records into account.
@@ -319,12 +315,7 @@ impl MergedTree {
         copy_records: &'a CopyRecords,
     ) -> BoxStream<'a, CopiesTreeDiffEntry> {
         let stream = self.diff_stream(other, matcher);
-        Box::pin(CopiesTreeDiffStream::new(
-            stream,
-            self.clone(),
-            other.clone(),
-            copy_records,
-        ))
+        CopiesTreeDiffStream::new(stream, self.clone(), other.clone(), copy_records).boxed()
     }
 
     /// Like `diff_stream()` but takes CopyHistory into account.
@@ -334,7 +325,7 @@ impl MergedTree {
         matcher: &'a dyn Matcher,
     ) -> BoxStream<'a, CopyHistoryTreeDiffEntry> {
         let stream = self.diff_stream(other, matcher);
-        Box::pin(CopyHistoryDiffStream::new(stream, self, other))
+        CopyHistoryDiffStream::new(stream, self, other).boxed()
     }
 
     /// Merges the provided trees into a single `MergedTree`. Any conflicts will
@@ -926,22 +917,24 @@ impl Stream for TreeDiffStreamImpl<'_> {
 }
 
 fn stream_without_trees(stream: TreeDiffStream) -> TreeDiffStream {
-    Box::pin(stream.filter_map(|mut entry| async move {
-        let skip_tree = |merge: MergedTreeValue| {
-            if merge.is_tree() {
-                Merge::absent()
-            } else {
-                merge
-            }
-        };
-        entry.values = entry.values.map(|diff| diff.map(skip_tree));
+    stream
+        .filter_map(|mut entry| async move {
+            let skip_tree = |merge: MergedTreeValue| {
+                if merge.is_tree() {
+                    Merge::absent()
+                } else {
+                    merge
+                }
+            };
+            entry.values = entry.values.map(|diff| diff.map(skip_tree));
 
-        // Filter out entries where neither side is present.
-        let any_present = entry.values.as_ref().map_or(true, |diff| {
-            diff.before.is_present() || diff.after.is_present()
-        });
-        any_present.then_some(entry)
-    }))
+            // Filter out entries where neither side is present.
+            let any_present = entry.values.as_ref().map_or(true, |diff| {
+                diff.before.is_present() || diff.after.is_present()
+            });
+            any_present.then_some(entry)
+        })
+        .boxed()
 }
 
 /// Adapts a `TreeDiffStream` to emit a added file at a given path after a

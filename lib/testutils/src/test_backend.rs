@@ -26,6 +26,7 @@ use std::sync::MutexGuard;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
+use futures::StreamExt as _;
 use futures::stream;
 use futures::stream::BoxStream;
 use jj_lib::backend::Backend;
@@ -423,7 +424,7 @@ impl Backend for TestBackend {
         _root: &CommitId,
         _head: &CommitId,
     ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
-        Ok(Box::pin(stream::empty()))
+        Ok(stream::empty().boxed())
     }
 
     fn gc(&self, _index: &dyn Index, _keep_newer: SystemTime) -> BackendResult<()> {
