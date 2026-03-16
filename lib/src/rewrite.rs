@@ -826,7 +826,7 @@ pub async fn compute_move_commits(
     let mut roots = target_roots.iter().cloned().collect_vec();
     roots.extend(new_children.iter().ids().cloned());
 
-    let descendants = repo.find_descendants_for_rebase(roots.clone())?;
+    let descendants = repo.find_descendants_for_rebase(roots.clone()).await?;
     let commit_new_parents_map = descendants
         .iter()
         .map(|commit| -> BackendResult<_> {

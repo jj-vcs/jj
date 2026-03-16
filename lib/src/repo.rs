@@ -25,6 +25,7 @@ use std::path::Path;
 use std::slice;
 use std::sync::Arc;
 
+use futures::TryStreamExt as _;
 use futures::future::try_join_all;
 use itertools::Itertools as _;
 use once_cell::sync::OnceCell;
@@ -92,7 +93,7 @@ use crate::refs::merge_remote_refs;
 use crate::revset;
 use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExpression;
-use crate::revset::RevsetIteratorExt as _;
+use crate::revset::RevsetStreamExt as _;
 use crate::rewrite::CommitRewriter;
 use crate::rewrite::RebaseOptions;
 use crate::rewrite::RebasedCommit;
@@ -1141,6 +1142,7 @@ impl MutableRepo {
     ) -> BackendResult<()> {
         self.update_all_references(options).await?;
         self.update_heads()
+            .await
             .map_err(|err| err.into_backend_error())?;
         Ok(())
     }
@@ -1237,7 +1239,7 @@ impl MutableRepo {
         Ok(())
     }
 
-    fn update_heads(&mut self) -> Result<(), RevsetEvaluationError> {
+    async fn update_heads(&mut self) -> Result<(), RevsetEvaluationError> {
         let old_commits_expression =
             RevsetExpression::commits(self.parent_mapping.keys().cloned().collect())
                 .intersection(&RevsetExpression::visible_heads().ancestors());
@@ -1246,8 +1248,9 @@ impl MutableRepo {
             .minus(&old_commits_expression);
         let heads_to_add: Vec<_> = heads_to_add_expression
             .evaluate(self)?
-            .iter()
-            .try_collect()?;
+            .stream()
+            .try_collect()
+            .await?;
 
         let mut view = self.view().store_view().clone();
         for commit_id in self.parent_mapping.keys() {
@@ -1260,7 +1263,10 @@ impl MutableRepo {
 
     /// Find descendants of `root`, unless they've already been rewritten
     /// (according to `parent_mapping`).
-    pub fn find_descendants_for_rebase(&self, roots: Vec<CommitId>) -> BackendResult<Vec<Commit>> {
+    pub async fn find_descendants_for_rebase(
+        &self,
+        roots: Vec<CommitId>,
+    ) -> BackendResult<Vec<Commit>> {
         let to_visit_revset = RevsetExpression::commits(roots)
             .descendants()
             .minus(&RevsetExpression::commits(
@@ -1269,9 +1275,10 @@ impl MutableRepo {
             .evaluate(self)
             .map_err(|err| err.into_backend_error())?;
         let to_visit = to_visit_revset
-            .iter()
+            .stream()
             .commits(self.store())
             .try_collect()
+            .await
             .map_err(|err| err.into_backend_error())?;
         Ok(to_visit)
     }
@@ -1356,7 +1363,7 @@ impl MutableRepo {
         options: &RewriteRefsOptions,
         callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()>,
     ) -> BackendResult<()> {
-        let descendants = self.find_descendants_for_rebase(roots)?;
+        let descendants = self.find_descendants_for_rebase(roots).await?;
         self.transform_commits(descendants, new_parents_map, options, callback)
             .await
     }
