@@ -80,7 +80,7 @@ jobs:
         toolchain: 1.89
         # comma-separated list of extra targets to install
         targets: ${{ matrix.extra_targets }}
-    - uses: taiki-e/install-action@a37010ded18ff788be4440302bd6830b1ae50d8b
+    - uses: taiki-e/install-action@de6bbd1333b8f331563d54a051e542c7dfef81c3
       with:
         tool: nextest
     - name: Install mold
@@ -136,7 +136,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: cachix/install-nix-action@19effe9fe722874e6d46dd7182e4b8b7a43c4a99
+      - uses: cachix/install-nix-action@1ca7d21a94afc7c957383a2d217460d980de4934
       - run: nix flake check -L --show-trace
 
   check-protos:
@@ -216,7 +216,7 @@ jobs:
         with:
           python-version: 3.11
       - name: Install uv
-        uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           # If you bump the version, also update docs/contributing.md
           # and all other workflows that install uv
@@ -257,7 +257,7 @@ jobs:
         with:
           python-version: 3.11
       - name: Install uv
-        uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           # If you bump the version, also update docs/contributing.md
           # and all other workflows that install uv
@@ -274,7 +274,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install uv
-        uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
       # 'only-managed' means that uv will always download Python, even
       # if the runner happens to provide a compatible version
       - name: Check that `mkdocs` can build the docs
@@ -292,7 +292,7 @@ jobs:
           persist-credentials: false
 
       - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
 
       - name: Run zizmor
         run: uvx zizmor --format sarif . > results.sarif
@@ -300,7 +300,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@0d579ffd059c29b07949a3cce3983f0780820c98
+        uses: github/codeql-action/upload-sarif@b1bff81932f5cdfc8695c7752dcee935dcd061c8
         with:
           sarif_file: results.sarif
           category: zizmor
