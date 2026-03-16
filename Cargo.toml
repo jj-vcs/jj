@@ -18,7 +18,7 @@ keywords = ["VCS", "DVCS", "SCM", "Git", "Mercurial"]
 
 [workspace.dependencies]
 ansi-to-tui = "8.0.1"
-assert_cmd = "2.1.2"
+assert_cmd = "2.2.0"
 assert_matches = "1.5.0"
 async-trait = "0.1.89"
 blake2 = "0.10.6"
@@ -28,14 +28,14 @@ chrono = { version = "0.4.44", default-features = false, features = [
     "clock",
     "serde",
 ] }
-clap = { version = "4.5.60", features = [
+clap = { version = "4.6.0", features = [
     "derive",
     "deprecated",
     "wrap_help",
     "string",
 ] }
-clap_complete = { version = "4.5.66", features = ["unstable-dynamic"] }
-clap_complete_nushell = "4.5.10"
+clap_complete = { version = "4.6.0", features = ["unstable-dynamic"] }
+clap_complete_nushell = "4.6.0"
 # Update clap-markdown manually since test_generate_md_cli_help snapshot
 # will need regenerating.
 clap-markdown = "=0.1.5"
@@ -70,7 +70,7 @@ libc = { version = "0.2.183" }
 maplit = "1.0.2"
 nix = "0.31.2"
 num_cpus = "1.17.0"
-once_cell = "1.21.3"
+once_cell = "1.21.4"
 pest = "2.8.6"
 pest_derive = "2.8.6"
 pollster = "0.4.0"
@@ -107,7 +107,7 @@ smallvec = { version = "1.15.1", features = [
 strsim = "0.11.1"
 syn = "2.0.111"
 rustversion = "1.0.22"
-tempfile = "3.26.0"
+tempfile = "3.27.0"
 test-case = "3.3.1"
 textwrap = "0.16.2"
 thiserror = "2.0.17"
@@ -117,7 +117,7 @@ toml = "1.0.6"
 toml_edit = { version = "0.25.4", features = ["serde"] }
 tracing = "0.1.44"
 tracing-chrome = "0.7.2"
-tracing-subscriber = { version = "0.3.22", default-features = false, features = [
+tracing-subscriber = { version = "0.3.23", default-features = false, features = [
     "std",
     "ansi",
     "env-filter",
@@ -126,7 +126,7 @@ tracing-subscriber = { version = "0.3.22", default-features = false, features = 
 unicode-width = "0.2.2"
 watchman_client = "0.9.0"
 whoami = "2.1.1"
-winreg = "0.55"
+winreg = "0.56"
 
 # put all inter-workspace libraries, i.e. those that use 'path = ...' here in
 # their own (alphabetically sorted) block
