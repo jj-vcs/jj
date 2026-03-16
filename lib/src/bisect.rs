@@ -15,22 +15,28 @@
 //! Bisect a range of commits.
 
 use std::collections::HashSet;
+use std::pin::pin;
 use std::sync::Arc;
 
-use itertools::Itertools as _;
+use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use thiserror::Error;
 
+use crate::backend::BackendError;
 use crate::backend::CommitId;
 use crate::commit::Commit;
 use crate::repo::Repo;
 use crate::revset::ResolvedRevsetExpression;
 use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExpression;
-use crate::revset::RevsetIteratorExt as _;
+use crate::revset::RevsetStreamExt as _;
 
 /// An error that occurred while bisecting
 #[derive(Error, Debug)]
 pub enum BisectionError {
+    /// Failed to read data from the backend
+    #[error("Failed to read data from the backend involved in bisection")]
+    BackendError(#[from] BackendError),
     /// Failed to evaluate a revset
     #[error("Failed to evaluate a revset involved in bisection")]
     RevsetEvaluationError(#[from] RevsetEvaluationError),
@@ -100,11 +106,16 @@ pub enum NextStep {
 impl<'repo> Bisector<'repo> {
     /// Create a new bisector. The range's heads are assumed to be bad.
     /// Parents of the range's roots are assumed to be good.
-    pub fn new(
+    pub async fn new(
         repo: &'repo dyn Repo,
         input_range: Arc<ResolvedRevsetExpression>,
     ) -> Result<Self, BisectionError> {
-        let bad_commits = input_range.heads().evaluate(repo)?.iter().try_collect()?;
+        let bad_commits = input_range
+            .heads()
+            .evaluate(repo)?
+            .stream()
+            .try_collect()
+            .await?;
         Ok(Self {
             repo,
             input_range,
@@ -190,13 +201,18 @@ impl<'repo> Bisector<'repo> {
     }
 
     /// Returns the number of remaining candidate commits to evaluate.
-    pub fn remaining_count(&self) -> Result<usize, BisectionError> {
-        Ok(self.candidates().evaluate(self.repo)?.iter().count())
+    pub async fn remaining_count(&self) -> Result<usize, BisectionError> {
+        Ok(self
+            .candidates()
+            .evaluate(self.repo)?
+            .stream()
+            .count()
+            .await)
     }
 
     /// Find the next commit to evaluate, or determine that there are no more
     /// steps.
-    pub fn next_step(&mut self) -> Result<NextStep, BisectionError> {
+    pub async fn next_step(&mut self) -> Result<NextStep, BisectionError> {
         if self.aborted {
             return Ok(NextStep::Done(BisectionResult::Abort));
         }
@@ -206,17 +222,17 @@ impl<'repo> Bisector<'repo> {
         // TODO: Handle long ranges of skipped revisions better
         let to_evaluate_expr = self.candidates().bisect().latest(1);
         let to_evaluate_set = to_evaluate_expr.evaluate(self.repo)?;
-        if let Some(commit) = to_evaluate_set
-            .iter()
-            .commits(self.repo.store())
-            .next()
-            .transpose()?
-        {
+        if let Some(commit_id) = pin!(to_evaluate_set.stream()).try_next().await? {
+            let commit = self.repo.store().get_commit_async(&commit_id).await?;
             Ok(NextStep::Evaluate(commit))
         } else {
             let bad_expr = RevsetExpression::commits(self.bad_commits.iter().cloned().collect());
             let bad_roots = bad_expr.roots().evaluate(self.repo)?;
-            let bad_commits: Vec<_> = bad_roots.iter().commits(self.repo.store()).try_collect()?;
+            let bad_commits: Vec<_> = bad_roots
+                .stream()
+                .commits(self.repo.store())
+                .try_collect()
+                .await?;
             if bad_commits.is_empty() {
                 Ok(NextStep::Done(BisectionResult::Indeterminate))
             } else {

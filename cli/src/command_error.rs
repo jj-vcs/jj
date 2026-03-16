@@ -757,6 +757,7 @@ impl From<FixError> for CommandError {
 impl From<BisectionError> for CommandError {
     fn from(err: BisectionError) -> Self {
         match err {
+            BisectionError::BackendError(_) => user_error(err),
             BisectionError::RevsetEvaluationError(_) => user_error(err),
         }
     }

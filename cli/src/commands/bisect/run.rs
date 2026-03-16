@@ -125,14 +125,14 @@ pub(crate) async fn cmd_bisect_run(
 
     let initial_repo = workspace_command.repo().clone();
 
-    let mut bisector = Bisector::new(initial_repo.as_ref(), input_range)?;
+    let mut bisector = Bisector::new(initial_repo.as_ref(), input_range).await?;
     let bisection_result = loop {
-        match bisector.next_step()? {
+        match bisector.next_step().await? {
             jj_lib::bisect::NextStep::Evaluate(commit) => {
                 {
                     let mut formatter = ui.stdout_formatter();
                     // TODO: Show a graph of the current range instead?
-                    let remaining = bisector.remaining_count()?;
+                    let remaining = bisector.remaining_count().await?;
                     let steps = ((remaining + 1) as f64).log2().ceil() as usize;
                     writeln!(
                         formatter,
