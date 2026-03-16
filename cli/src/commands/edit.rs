@@ -56,7 +56,9 @@ pub(crate) async fn cmd_edit(
         .as_ref()
         .or(args.revision_opt.as_ref())
         .expect("either positional or -r arg should be provided");
-    let new_commit = workspace_command.resolve_single_rev(ui, revision_arg)?;
+    let new_commit = workspace_command
+        .resolve_single_rev(ui, revision_arg)
+        .await?;
     workspace_command
         .check_rewritable([new_commit.id()])
         .await?;

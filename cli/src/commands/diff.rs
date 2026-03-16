@@ -127,11 +127,13 @@ pub(crate) async fn cmd_diff(
     let to_tree;
     let mut copy_records = CopyRecords::default();
     if args.from.is_some() || args.to.is_some() {
-        let resolve_revision = |r: &Option<RevisionArg>| {
-            workspace_command.resolve_single_rev(ui, r.as_ref().unwrap_or(&RevisionArg::AT))
+        let resolve_revision = async |r: &Option<RevisionArg>| {
+            workspace_command
+                .resolve_single_rev(ui, r.as_ref().unwrap_or(&RevisionArg::AT))
+                .await
         };
-        let from = resolve_revision(&args.from)?;
-        let to = resolve_revision(&args.to)?;
+        let from = resolve_revision(&args.from).await?;
+        let to = resolve_revision(&args.to).await?;
         from_tree = from.tree();
         to_tree = to.tree();
 

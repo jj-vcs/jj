@@ -73,7 +73,7 @@ pub(crate) async fn cmd_absorb(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
 
-    let source_commit = workspace_command.resolve_single_rev(ui, &args.from)?;
+    let source_commit = workspace_command.resolve_single_rev(ui, &args.from).await?;
     let destinations = workspace_command
         .parse_union_revsets(ui, &args.into)?
         .resolve()?;

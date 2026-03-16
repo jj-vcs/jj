@@ -74,7 +74,8 @@ pub(crate) async fn cmd_file_annotate(
     let workspace_command = command.workspace_helper(ui)?;
     let repo = workspace_command.repo();
     let starting_commit = workspace_command
-        .resolve_single_rev(ui, args.revision.as_ref().unwrap_or(&RevisionArg::AT))?;
+        .resolve_single_rev(ui, args.revision.as_ref().unwrap_or(&RevisionArg::AT))
+        .await?;
     let file_path = workspace_command.parse_file_path(&args.path)?;
     let file_value = starting_commit.tree().path_value(&file_path).await?;
     let ui_path = workspace_command.format_file_path(&file_path);

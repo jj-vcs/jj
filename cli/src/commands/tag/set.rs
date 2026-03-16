@@ -56,7 +56,9 @@ pub async fn cmd_tag_set(
     args: &TagSetArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
-    let target_commit = workspace_command.resolve_single_rev(ui, &args.revision)?;
+    let target_commit = workspace_command
+        .resolve_single_rev(ui, &args.revision)
+        .await?;
     let repo = workspace_command.repo().as_ref();
 
     let mut new_count = 0;

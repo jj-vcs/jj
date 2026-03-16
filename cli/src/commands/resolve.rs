@@ -82,7 +82,9 @@ pub(crate) async fn cmd_resolve(
     let mut workspace_command = command.workspace_helper(ui)?;
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
     let matcher = fileset_expression.to_matcher();
-    let commit = workspace_command.resolve_single_rev(ui, &args.revision)?;
+    let commit = workspace_command
+        .resolve_single_rev(ui, &args.revision)
+        .await?;
     let tree = commit.tree();
     let conflicts = tree.conflicts_matching(&matcher).collect_vec();
 

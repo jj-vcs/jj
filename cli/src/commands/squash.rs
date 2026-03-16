@@ -203,7 +203,8 @@ pub(crate) async fn cmd_squash(
             pre_existing_destination = None;
         } else {
             let destination = workspace_command
-                .resolve_single_rev(ui, args.into.as_ref().unwrap_or(&RevisionArg::AT))?;
+                .resolve_single_rev(ui, args.into.as_ref().unwrap_or(&RevisionArg::AT))
+                .await?;
             // remove the destination from the sources
             sources.retain(|source| source.id() != destination.id());
             pre_existing_destination = Some(destination);
@@ -214,7 +215,8 @@ pub(crate) async fn cmd_squash(
         sources.reverse();
     } else {
         let source = workspace_command
-            .resolve_single_rev(ui, args.revision.as_ref().unwrap_or(&RevisionArg::AT))?;
+            .resolve_single_rev(ui, args.revision.as_ref().unwrap_or(&RevisionArg::AT))
+            .await?;
         let mut parents = source.parents().await?;
         if parents.len() != 1 {
             return Err(

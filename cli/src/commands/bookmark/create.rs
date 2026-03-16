@@ -52,7 +52,9 @@ pub async fn cmd_bookmark_create(
     args: &BookmarkCreateArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
-    let target_commit = workspace_command.resolve_single_rev(ui, &args.revision)?;
+    let target_commit = workspace_command
+        .resolve_single_rev(ui, &args.revision)
+        .await?;
     let repo = workspace_command.repo().as_ref();
     let view = repo.view();
     let bookmark_names = &args.names;

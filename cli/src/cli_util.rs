@@ -1693,7 +1693,7 @@ to the current parents may contain changes from multiple commits.
 
     /// Resolve a revset to a single revision. Return an error if the revset is
     /// empty or has multiple revisions.
-    pub fn resolve_single_rev(
+    pub async fn resolve_single_rev(
         &self,
         ui: &Ui,
         revision_arg: &RevisionArg,
@@ -1706,7 +1706,7 @@ to the current parents may contain changes from multiple commits.
 
     /// Evaluates revset expressions to set of commit IDs. The
     /// returned set preserves the order of the input expressions.
-    pub fn resolve_revsets_ordered(
+    pub async fn resolve_revsets_ordered(
         &self,
         ui: &Ui,
         revision_args: &[RevisionArg],
@@ -1723,12 +1723,12 @@ to the current parents may contain changes from multiple commits.
 
     /// Evaluates revset expressions to non-empty set of commit IDs. The
     /// returned set preserves the order of the input expressions.
-    pub fn resolve_some_revsets(
+    pub async fn resolve_some_revsets(
         &self,
         ui: &Ui,
         revision_args: &[RevisionArg],
     ) -> Result<IndexSet<CommitId>, CommandError> {
-        let all_commits = self.resolve_revsets_ordered(ui, revision_args)?;
+        let all_commits = self.resolve_revsets_ordered(ui, revision_args).await?;
         if all_commits.is_empty() {
             Err(user_error("Empty revision set"))
         } else {
@@ -3350,11 +3350,12 @@ pub async fn compute_commit_location(
     commit_type: &str,
 ) -> Result<(Vec<CommitId>, Vec<CommitId>), CommandError> {
     let resolve_revisions =
-        |revisions: Option<&[RevisionArg]>| -> Result<Option<Vec<CommitId>>, CommandError> {
+        async |revisions: Option<&[RevisionArg]>| -> Result<Option<Vec<CommitId>>, CommandError> {
             if let Some(revisions) = revisions {
                 Ok(Some(
                     workspace_command
-                        .resolve_revsets_ordered(ui, revisions)?
+                        .resolve_revsets_ordered(ui, revisions)
+                        .await?
                         .into_iter()
                         .collect_vec(),
                 ))
@@ -3362,9 +3363,9 @@ pub async fn compute_commit_location(
                 Ok(None)
             }
         };
-    let destination_commit_ids = resolve_revisions(destination)?;
-    let after_commit_ids = resolve_revisions(insert_after)?;
-    let before_commit_ids = resolve_revisions(insert_before)?;
+    let destination_commit_ids = resolve_revisions(destination).await?;
+    let after_commit_ids = resolve_revisions(insert_after).await?;
+    let before_commit_ids = resolve_revisions(insert_before).await?;
 
     let (new_parent_ids, new_child_ids) =
         match (destination_commit_ids, after_commit_ids, before_commit_ids) {

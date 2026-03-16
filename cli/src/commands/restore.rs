@@ -119,14 +119,17 @@ pub(crate) async fn cmd_restore(
     }
     if args.from.is_some() || args.into.is_some() {
         to_commit = workspace_command
-            .resolve_single_rev(ui, args.into.as_ref().unwrap_or(&RevisionArg::AT))?;
+            .resolve_single_rev(ui, args.into.as_ref().unwrap_or(&RevisionArg::AT))
+            .await?;
         let from_commit = workspace_command
-            .resolve_single_rev(ui, args.from.as_ref().unwrap_or(&RevisionArg::AT))?;
+            .resolve_single_rev(ui, args.from.as_ref().unwrap_or(&RevisionArg::AT))
+            .await?;
         from_tree = from_commit.tree();
         from_commits = vec![from_commit];
     } else {
         to_commit = workspace_command
-            .resolve_single_rev(ui, args.changes_in.as_ref().unwrap_or(&RevisionArg::AT))?;
+            .resolve_single_rev(ui, args.changes_in.as_ref().unwrap_or(&RevisionArg::AT))
+            .await?;
         from_tree = to_commit
             .parent_tree(workspace_command.repo().as_ref())
             .await?;

@@ -206,7 +206,9 @@ impl SplitArgs {
         ui: &Ui,
         workspace_command: &WorkspaceCommandHelper,
     ) -> Result<ResolvedSplitArgs, CommandError> {
-        let target_commit = workspace_command.resolve_single_rev(ui, &self.revision)?;
+        let target_commit = workspace_command
+            .resolve_single_rev(ui, &self.revision)
+            .await?;
         workspace_command
             .check_rewritable([target_commit.id()])
             .await?;

@@ -51,6 +51,7 @@ use jj_lib::rewrite::CommitRewriter;
 use jj_lib::signing::SignBehavior;
 use jj_lib::str_util::StringExpression;
 use jj_lib::view::View;
+use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
@@ -320,7 +321,7 @@ pub async fn cmd_git_push(
 
         // --change and --named don't move existing bookmarks. If they did, be
         // careful to not select old state by -r/--revisions and bookmark names.
-        let change_bookmark_names = create_change_bookmarks(ui, &mut tx, &args.change)?;
+        let change_bookmark_names = create_change_bookmarks(ui, &mut tx, &args.change).await?;
         let created_bookmark_names: Vec<RefNameBuf> = args
             .named
             .iter()
@@ -887,16 +888,17 @@ fn create_explicitly_named_bookmarks(
     ensure_new_bookmark_name(tx.repo(), &name)?;
     let revision = tx
         .base_workspace_helper()
-        .resolve_single_rev(ui, &revision_str.to_string().into())?;
+        .resolve_single_rev(ui, &revision_str.to_string().into())
+        .block_on()?;
     tx.repo_mut()
         .set_local_bookmark_target(&name, RefTarget::normal(revision.id().clone()));
     Ok(name)
 }
 
 /// Creates bookmarks based on the change IDs.
-fn create_change_bookmarks(
+async fn create_change_bookmarks(
     ui: &Ui,
-    tx: &mut WorkspaceCommandTransaction,
+    tx: &mut WorkspaceCommandTransaction<'_>,
     changes: &[RevisionArg],
 ) -> Result<Vec<RefNameBuf>, CommandError> {
     if changes.is_empty() {
@@ -907,7 +909,8 @@ fn create_change_bookmarks(
 
     let all_commits: Vec<_> = tx
         .base_workspace_helper()
-        .resolve_some_revsets(ui, changes)?
+        .resolve_some_revsets(ui, changes)
+        .await?
         .iter()
         .map(|id| tx.repo().store().get_commit(id))
         .try_collect()?;

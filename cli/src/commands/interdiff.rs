@@ -86,10 +86,12 @@ pub(crate) async fn cmd_interdiff(
     args: &InterdiffArgs,
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui)?;
-    let from =
-        workspace_command.resolve_single_rev(ui, args.from.as_ref().unwrap_or(&RevisionArg::AT))?;
-    let to =
-        workspace_command.resolve_single_rev(ui, args.to.as_ref().unwrap_or(&RevisionArg::AT))?;
+    let from = workspace_command
+        .resolve_single_rev(ui, args.from.as_ref().unwrap_or(&RevisionArg::AT))
+        .await?;
+    let to = workspace_command
+        .resolve_single_rev(ui, args.to.as_ref().unwrap_or(&RevisionArg::AT))
+        .await?;
     let repo = workspace_command.repo();
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
     let matcher = fileset_expression.to_matcher();

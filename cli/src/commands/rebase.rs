@@ -477,7 +477,11 @@ async fn plan_rebase_source(
     source: &[RevisionArg],
     rebase_destination: &RebaseDestinationArgs,
 ) -> Result<MoveCommitsLocation, CommandError> {
-    let source_commit_ids = Vec::from_iter(workspace_command.resolve_revsets_ordered(ui, source)?);
+    let source_commit_ids = Vec::from_iter(
+        workspace_command
+            .resolve_revsets_ordered(ui, source)
+            .await?,
+    );
     workspace_command
         .check_rewritable(&source_commit_ids)
         .await?;
@@ -514,13 +518,15 @@ async fn plan_rebase_branch(
     let branch_commit_ids: Vec<_> = if branch.is_empty() {
         vec![
             workspace_command
-                .resolve_single_rev(ui, &RevisionArg::AT)?
+                .resolve_single_rev(ui, &RevisionArg::AT)
+                .await?
                 .id()
                 .clone(),
         ]
     } else {
         workspace_command
-            .resolve_revsets_ordered(ui, branch)?
+            .resolve_revsets_ordered(ui, branch)
+            .await?
             .into_iter()
             .collect()
     };
