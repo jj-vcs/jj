@@ -116,8 +116,8 @@ use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetExtensions;
 use jj_lib::revset::RevsetFilterPredicate;
 use jj_lib::revset::RevsetFunction;
-use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::revset::RevsetParseContext;
+use jj_lib::revset::RevsetStreamExt as _;
 use jj_lib::revset::RevsetWorkspaceContext;
 use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::revset::UserRevsetExpression;
@@ -987,7 +987,7 @@ impl WorkspaceCommandEnvironment {
     }
 
     /// Returns first immutable commit.
-    fn find_immutable_commit(
+    async fn find_immutable_commit(
         &self,
         repo: &dyn Repo,
         to_rewrite_expr: &Arc<ResolvedRevsetExpression>,
@@ -1014,8 +1014,8 @@ impl WorkspaceCommandEnvironment {
         let mut commit_id_iter = immutable_expr
             .intersection(to_rewrite_expr)
             .evaluate(repo)?
-            .iter();
-        Ok(commit_id_iter.next().transpose()?)
+            .stream();
+        Ok(commit_id_iter.try_next().await?)
     }
 
     pub fn template_aliases_map(&self) -> &TemplateAliasesMap {
@@ -1911,7 +1911,11 @@ to the current parents may contain changes from multiple commits.
         to_rewrite_expr: &Arc<ResolvedRevsetExpression>,
     ) -> Result<(), CommandError> {
         let repo = self.repo().as_ref();
-        let Some(commit_id) = self.env.find_immutable_commit(repo, to_rewrite_expr)? else {
+        let Some(commit_id) = self
+            .env
+            .find_immutable_commit(repo, to_rewrite_expr)
+            .await?
+        else {
             return Ok(());
         };
         let error = if &commit_id == repo.store().root_commit_id() {
@@ -2154,7 +2158,7 @@ to the current parents may contain changes from multiple commits.
             // the unresolvable trunk() issue gets addressed differently, it
             // should be okay to propagate the error.
             let wc_expr = RevsetExpression::commit(wc_commit_id.clone());
-            let is_immutable = match self.env.find_immutable_commit(tx.repo(), &wc_expr) {
+            let is_immutable = match self.env.find_immutable_commit(tx.repo(), &wc_expr).await {
                 Ok(commit_id) => commit_id.is_some(),
                 Err(CommandError { error, .. }) => {
                     writeln!(
@@ -2245,7 +2249,7 @@ to the current parents may contain changes from multiple commits.
             }
         }
 
-        self.report_repo_changes(ui, &old_repo)?;
+        self.report_repo_changes(ui, &old_repo).await?;
 
         let settings = self.settings();
         let missing_user_name = settings.user_name().is_empty();
@@ -2281,7 +2285,7 @@ to the current parents may contain changes from multiple commits.
 
     /// Inform the user about important changes to the repo since the previous
     /// operation (when `old_repo` was loaded).
-    fn report_repo_changes(
+    async fn report_repo_changes(
         &self,
         ui: &Ui,
         old_repo: &Arc<ReadonlyRepo>,
@@ -2305,16 +2309,17 @@ to the current parents may contain changes from multiple commits.
         let added_conflicts_expr = old_heads.range(&new_heads).intersection(&conflicts);
 
         let get_commits =
-            |expr: Arc<ResolvedRevsetExpression>| -> Result<Vec<Commit>, CommandError> {
+            async |expr: Arc<ResolvedRevsetExpression>| -> Result<Vec<Commit>, CommandError> {
                 let commits = expr
                     .evaluate(new_repo)?
-                    .iter()
+                    .stream()
                     .commits(new_repo.store())
-                    .try_collect()?;
+                    .try_collect()
+                    .await?;
                 Ok(commits)
             };
-        let removed_conflict_commits = get_commits(removed_conflicts_expr)?;
-        let added_conflict_commits = get_commits(added_conflicts_expr)?;
+        let removed_conflict_commits = get_commits(removed_conflicts_expr).await?;
+        let added_conflict_commits = get_commits(added_conflicts_expr).await?;
 
         fn commits_by_change_id(commits: &[Commit]) -> IndexMap<&ChangeId, Vec<&Commit>> {
             let mut result: IndexMap<&ChangeId, Vec<&Commit>> = IndexMap::new();
@@ -2383,13 +2388,14 @@ to the current parents may contain changes from multiple commits.
                     .iter()
                     .map(|commit| commit.id().clone())
                     .collect(),
-            )?;
+            )
+            .await?;
         }
 
         Ok(())
     }
 
-    pub fn report_repo_conflicts(
+    pub async fn report_repo_conflicts(
         &self,
         fmt: &mut dyn Formatter,
         repo: &ReadonlyRepo,
@@ -2406,9 +2412,10 @@ to the current parents may contain changes from multiple commits.
             .evaluate(repo)?;
 
         let root_conflict_commits: Vec<_> = root_conflicts_revset
-            .iter()
+            .stream()
             .commits(repo.store())
-            .try_collect()?;
+            .try_collect()
+            .await?;
 
         // The common part of these strings is not extracted, to avoid i18n issues.
         let instruction = if only_one_conflicted_commit {
@@ -3380,8 +3387,9 @@ pub async fn compute_commit_location(
                 let new_child_ids: Vec<_> = RevsetExpression::commits(after_commit_ids.clone())
                     .children()
                     .evaluate(workspace_command.repo().as_ref())?
-                    .iter()
-                    .try_collect()?;
+                    .stream()
+                    .try_collect()
+                    .await?;
 
                 (after_commit_ids, new_child_ids)
             }
@@ -3418,7 +3426,8 @@ pub async fn compute_commit_location(
             &RevsetExpression::commits(new_child_ids.clone()),
             &RevsetExpression::commits(new_parent_ids.clone()),
             commit_type,
-        )?;
+        )
+        .await?;
     }
 
     if new_parent_ids.is_empty() {
@@ -3430,7 +3439,7 @@ pub async fn compute_commit_location(
 
 /// Ensure that there is no possible cycle between the potential children and
 /// parents of the given commits.
-fn ensure_no_commit_loop(
+async fn ensure_no_commit_loop(
     repo: &ReadonlyRepo,
     children_expression: &Arc<ResolvedRevsetExpression>,
     parents_expression: &Arc<ResolvedRevsetExpression>,
@@ -3439,10 +3448,10 @@ fn ensure_no_commit_loop(
     if let Some(commit_id) = children_expression
         .dag_range_to(parents_expression)
         .evaluate(repo)?
-        .iter()
-        .next()
+        .stream()
+        .try_next()
+        .await?
     {
-        let commit_id = commit_id?;
         return Err(user_error(format!(
             "Refusing to create a loop: commit {} would be both an ancestor and a descendant of \
              the {commit_type}",

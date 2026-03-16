@@ -170,7 +170,9 @@ pub(crate) async fn cmd_status(
                 .try_collect()
                 .await?;
 
-            workspace_command.report_repo_conflicts(formatter, repo, ancestors_conflicts)?;
+            workspace_command
+                .report_repo_conflicts(formatter, repo, ancestors_conflicts)
+                .await?;
         } else {
             for parent in wc_commit.parents().await? {
                 if parent.has_conflict() {
