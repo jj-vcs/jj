@@ -38,8 +38,12 @@ pub async fn cmd_bench_is_ancestor(
     args: &BenchIsAncestorArgs,
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui)?;
-    let ancestor_commit = workspace_command.resolve_single_rev(ui, &args.ancestor)?;
-    let descendant_commit = workspace_command.resolve_single_rev(ui, &args.descendant)?;
+    let ancestor_commit = workspace_command
+        .resolve_single_rev(ui, &args.ancestor)
+        .await?;
+    let descendant_commit = workspace_command
+        .resolve_single_rev(ui, &args.descendant)
+        .await?;
     let index = workspace_command.repo().index();
     let routine = || index.is_ancestor(ancestor_commit.id(), descendant_commit.id());
     run_bench(

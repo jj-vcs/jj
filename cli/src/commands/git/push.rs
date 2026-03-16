@@ -22,6 +22,8 @@ use std::iter;
 use clap::ArgGroup;
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
@@ -391,7 +393,8 @@ pub async fn cmd_git_push(
             remote,
             &args.revisions,
             use_default_revset,
-        )?;
+        )
+        .await?;
         for &(name, targets) in &bookmarks_targeted {
             if !seen_bookmarks.insert(name) {
                 continue;
@@ -985,7 +988,7 @@ fn find_bookmarks_to_push<'a>(
     Ok(matching_bookmarks)
 }
 
-fn find_bookmarks_targeted_by_revisions<'a>(
+async fn find_bookmarks_targeted_by_revisions<'a>(
     ui: &Ui,
     workspace_command: &'a WorkspaceCommandHelper,
     remote: &RemoteName,
@@ -1005,11 +1008,12 @@ fn find_bookmarks_targeted_by_revisions<'a>(
         )
         .range(&RevsetExpression::working_copy(workspace_name.to_owned()))
         .intersection(&RevsetExpression::bookmarks(StringExpression::all()));
-        let mut commit_ids = workspace_command
+        let commit_ids = workspace_command
             .attach_revset_evaluator(expression)
             .evaluate_to_commit_ids()?
             .peekable();
-        if commit_ids.peek().is_none() {
+        let mut commit_ids = std::pin::pin!(commit_ids);
+        if commit_ids.as_mut().peek().await.is_none() {
             writeln!(
                 ui.warning_default(),
                 "No bookmarks found in the default push revset: \
@@ -1017,22 +1021,23 @@ fn find_bookmarks_targeted_by_revisions<'a>(
                 remote = remote.as_symbol()
             )?;
         }
-        for commit_id in commit_ids {
-            revision_commit_ids.insert(commit_id?);
+        while let Some(commit_id) = commit_ids.as_mut().try_next().await? {
+            revision_commit_ids.insert(commit_id);
         }
     }
     for rev_arg in revisions {
         let mut expression = workspace_command.parse_revset(ui, rev_arg)?;
         expression.intersect_with(&RevsetExpression::bookmarks(StringExpression::all()));
-        let mut commit_ids = expression.evaluate_to_commit_ids()?.peekable();
-        if commit_ids.peek().is_none() {
+        let commit_ids = expression.evaluate_to_commit_ids()?.peekable();
+        let mut commit_ids = std::pin::pin!(commit_ids);
+        if commit_ids.as_mut().as_mut().peek().await.is_none() {
             writeln!(
                 ui.warning_default(),
                 "No bookmarks point to the specified revisions: {rev_arg}"
             )?;
         }
-        for commit_id in commit_ids {
-            revision_commit_ids.insert(commit_id?);
+        while let Some(commit_id) = commit_ids.try_next().await? {
+            revision_commit_ids.insert(commit_id);
         }
     }
     let bookmarks_targeted = workspace_command

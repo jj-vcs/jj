@@ -16,7 +16,7 @@ use std::collections::HashSet;
 use std::rc::Rc;
 
 use clap_complete::ArgValueCandidates;
-use itertools::Itertools as _;
+use futures::TryStreamExt as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::str_util::StringExpression;
@@ -138,7 +138,7 @@ pub async fn cmd_tag_list(
         // Intersects with the set of local tag targets to minimize the lookup
         // space.
         expression.intersect_with(&RevsetExpression::tags(StringExpression::all()));
-        expression.evaluate_to_commit_ids()?.try_collect()?
+        expression.evaluate_to_commit_ids()?.try_collect().await?
     } else {
         HashSet::new()
     };

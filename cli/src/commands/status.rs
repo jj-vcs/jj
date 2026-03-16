@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::copies::CopyRecords;
 use jj_lib::merge::Diff;
@@ -166,7 +167,8 @@ pub(crate) async fn cmd_status(
                         .minus(&workspace_command.env().immutable_expression()),
                 )
                 .evaluate_to_commit_ids()?
-                .try_collect()?;
+                .try_collect()
+                .await?;
 
             workspace_command.report_repo_conflicts(formatter, repo, ancestors_conflicts)?;
         } else {

@@ -14,6 +14,7 @@
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use futures::TryStreamExt as _;
 use futures::future::try_join_all;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
@@ -154,11 +155,11 @@ pub(crate) async fn cmd_diff(
                     .minus(target_expression),
             )
             .evaluate_to_commit_ids()?;
-        if let Some(commit_id) = gaps_revset.next() {
+        if let Some(commit_id) = gaps_revset.try_next().await? {
             return Err(
                 user_error("Cannot diff revsets with gaps in.").hinted(format!(
                     "Revision {} would need to be in the set.",
-                    short_commit_hash(&commit_id?)
+                    short_commit_hash(&commit_id)
                 )),
             );
         }

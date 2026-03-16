@@ -16,6 +16,7 @@ use std::cmp::min;
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
@@ -220,8 +221,8 @@ pub(crate) async fn cmd_log(
 
                 let has_commit = revset.containing_fn();
 
-                for prio in prio_revset.evaluate_to_commit_ids()? {
-                    let prio = prio?;
+                let mut prio_stream = prio_revset.evaluate_to_commit_ids()?;
+                while let Some(prio) = prio_stream.try_next().await? {
                     if has_commit(&prio)? {
                         forward_iter.prioritize_branch(prio);
                     }

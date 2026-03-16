@@ -18,6 +18,7 @@ use std::collections::HashMap;
 use std::io;
 use std::sync::Arc;
 
+use futures::stream::LocalBoxStream;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
@@ -125,10 +126,10 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
     pub fn evaluate_to_commit_ids(
         &self,
     ) -> Result<
-        Box<dyn Iterator<Item = Result<CommitId, RevsetEvaluationError>> + 'repo>,
+        LocalBoxStream<'repo, Result<CommitId, RevsetEvaluationError>>,
         UserRevsetEvaluationError,
     > {
-        Ok(self.evaluate()?.iter())
+        Ok(self.evaluate()?.stream())
     }
 
     /// Evaluates the expression to an iterator over commit objects. Entries are

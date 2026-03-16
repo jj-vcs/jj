@@ -47,6 +47,7 @@ use clap::error::ContextKind;
 use clap::error::ContextValue;
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use futures::TryStreamExt as _;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use indoc::indoc;
@@ -1714,8 +1715,9 @@ to the current parents may contain changes from multiple commits.
         let mut all_commits = IndexSet::new();
         for revision_arg in revision_args {
             let expression = self.parse_revset(ui, revision_arg)?;
-            for commit_id in expression.evaluate_to_commit_ids()? {
-                all_commits.insert(commit_id?);
+            let mut stream = expression.evaluate_to_commit_ids()?;
+            while let Some(commit_id) = stream.try_next().await? {
+                all_commits.insert(commit_id);
             }
         }
         Ok(all_commits)

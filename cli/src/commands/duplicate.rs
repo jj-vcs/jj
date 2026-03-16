@@ -16,6 +16,7 @@ use std::io::Write as _;
 
 use bstr::ByteVec as _;
 use clap_complete::ArgValueCompleter;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::CommitId;
@@ -113,7 +114,8 @@ pub(crate) async fn cmd_duplicate(
             workspace_command.parse_revset(ui, &RevisionArg::AT)?
         }
         .evaluate_to_commit_ids()?
-        .try_collect()?; // in reverse topological order
+        .try_collect()
+        .await?; // in reverse topological order
     if to_duplicate.is_empty() {
         writeln!(ui.status(), "No revisions to duplicate.")?;
         return Ok(());
