@@ -17,7 +17,7 @@ use std::sync::Arc;
 
 use clap::ArgGroup;
 use clap_complete::ArgValueCompleter;
-use itertools::Itertools as _;
+use futures::TryStreamExt as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::object_id::ObjectId as _;
@@ -442,8 +442,9 @@ async fn plan_rebase_revisions(
         .await?;
     let target_commit_ids: Vec<_> = target_expr
         .evaluate(workspace_command.repo().as_ref())?
-        .iter()
-        .try_collect()?; // in reverse topological order
+        .stream()
+        .try_collect()
+        .await?; // in reverse topological order
 
     let (new_parent_ids, new_child_ids) = compute_commit_location(
         ui,
@@ -549,8 +550,9 @@ async fn plan_rebase_branch(
     let root_commit_ids: Vec<_> = roots_expression
         .evaluate(workspace_command.repo().as_ref())
         .unwrap()
-        .iter()
-        .try_collect()?;
+        .stream()
+        .try_collect()
+        .await?;
     if rebase_destination.onto.is_some() {
         for id in &root_commit_ids {
             let commit = workspace_command.repo().store().get_commit(id)?;
