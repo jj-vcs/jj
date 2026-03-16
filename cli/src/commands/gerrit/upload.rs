@@ -19,7 +19,6 @@ use std::sync::Arc;
 
 use bstr::BStr;
 use futures::TryStreamExt as _;
-use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::git;
@@ -450,7 +449,8 @@ pub async fn cmd_gerrit_upload(
                 .range(&RevsetExpression::commits(revisions.clone())),
         )
         .evaluate_to_commits()?
-        .try_collect()?;
+        .try_collect()
+        .await?;
 
     // Note: This transaction is intentionally never finished. This way, the
     // Change-Id is never part of the commit description in jj.

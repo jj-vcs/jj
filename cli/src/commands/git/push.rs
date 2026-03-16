@@ -434,7 +434,8 @@ pub async fn cmd_git_push(
         None
     };
     let commits_to_sign =
-        validate_commits_ready_to_push(ui, &bookmark_updates, remote, &tx, args, sign_behavior)?;
+        validate_commits_ready_to_push(ui, &bookmark_updates, remote, &tx, args, sign_behavior)
+            .await?;
     if !args.dry_run
         && !commits_to_sign.is_empty()
         && let Some(sign_behavior) = sign_behavior
@@ -510,11 +511,11 @@ pub async fn cmd_git_push(
 /// information, are not conflicted, etc.).
 ///
 /// Returns the list of commits which need to be signed.
-fn validate_commits_ready_to_push(
+async fn validate_commits_ready_to_push(
     ui: &Ui,
     bookmark_updates: &[(RefNameBuf, BookmarkPushUpdate)],
     remote: &RemoteName,
-    tx: &WorkspaceCommandTransaction,
+    tx: &WorkspaceCommandTransaction<'_>,
     args: &GitPushArgs,
     sign_behavior: Option<SignBehavior>,
 ) -> Result<Vec<Commit>, CommandError> {
@@ -549,11 +550,10 @@ fn validate_commits_ready_to_push(
 
     let mut commits_to_sign = vec![];
 
-    for commit in workspace_helper
+    let mut commit_stream = workspace_helper
         .attach_revset_evaluator(commits_to_push)
-        .evaluate_to_commits()?
-    {
-        let commit = commit?;
+        .evaluate_to_commits()?;
+    while let Some(commit) = commit_stream.try_next().await? {
         let mut reasons = vec![];
         if commit.description().is_empty() && !args.allow_empty_description {
             reasons.push("it has no description");

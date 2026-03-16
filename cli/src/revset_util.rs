@@ -18,6 +18,8 @@ use std::collections::HashMap;
 use std::io;
 use std::sync::Arc;
 
+use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use futures::stream::LocalBoxStream;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
@@ -37,10 +39,10 @@ use jj_lib::revset::RevsetDiagnostics;
 use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetExtensions;
-use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::revset::RevsetParseContext;
 use jj_lib::revset::RevsetParseError;
 use jj_lib::revset::RevsetResolutionError;
+use jj_lib::revset::RevsetStreamExt as _;
 use jj_lib::revset::SymbolResolver;
 use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::revset::UserRevsetExpression;
@@ -137,10 +139,14 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
     pub fn evaluate_to_commits(
         &self,
     ) -> Result<
-        impl Iterator<Item = Result<Commit, RevsetEvaluationError>> + use<'repo>,
+        LocalBoxStream<'repo, Result<Commit, RevsetEvaluationError>>,
         UserRevsetEvaluationError,
     > {
-        Ok(self.evaluate()?.iter().commits(self.repo.store()))
+        Ok(self
+            .evaluate()?
+            .stream()
+            .commits(self.repo.store())
+            .boxed_local())
     }
 }
 
@@ -218,12 +224,16 @@ pub(super) fn try_resolve_trunk_alias(
     Ok(Some(resolved))
 }
 
-pub(super) fn evaluate_revset_to_single_commit<'a>(
+pub(super) async fn evaluate_revset_to_single_commit<'a>(
     revision_str: &str,
     expression: &RevsetExpressionEvaluator<'_>,
     commit_summary_template: impl FnOnce() -> TemplateRenderer<'a, Commit>,
 ) -> Result<Commit, CommandError> {
-    let commits: Vec<_> = expression.evaluate_to_commits()?.take(6).try_collect()?;
+    let commits: Vec<_> = expression
+        .evaluate_to_commits()?
+        .take(6)
+        .try_collect()
+        .await?;
     match commits.as_slice() {
         [commit] => Ok(commit.clone()),
         [] => Err(user_error(format!(

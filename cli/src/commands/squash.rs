@@ -17,6 +17,7 @@ use std::iter::once;
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use futures::TryStreamExt as _;
 use indoc::formatdoc;
 use itertools::Itertools as _;
 use jj_lib::commit::Commit;
@@ -198,7 +199,8 @@ pub(crate) async fn cmd_squash(
             workspace_command.parse_union_revsets(ui, &args.from)?
         }
         .evaluate_to_commits()?
-        .try_collect()?;
+        .try_collect()
+        .await?;
         if insert_destination_commit {
             pre_existing_destination = None;
         } else {

@@ -1703,6 +1703,7 @@ to the current parents may contain changes from multiple commits.
         revset_util::evaluate_revset_to_single_commit(revision_arg.as_ref(), &expression, || {
             self.commit_summary_template()
         })
+        .await
     }
 
     /// Evaluates revset expressions to set of commit IDs. The

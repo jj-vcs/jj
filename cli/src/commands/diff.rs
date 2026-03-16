@@ -166,11 +166,13 @@ pub(crate) async fn cmd_diff(
         let heads: Vec<_> = workspace_command
             .attach_revset_evaluator(target_expression.heads())
             .evaluate_to_commits()?
-            .try_collect()?;
+            .try_collect()
+            .await?;
         let roots: Vec<_> = workspace_command
             .attach_revset_evaluator(target_expression.roots())
             .evaluate_to_commits()?
-            .try_collect()?;
+            .try_collect()
+            .await?;
 
         // Collect parents outside of revset to preserve parent order
         let parents: IndexSet<_> = try_join_all(roots.iter().map(|c| c.parents()))
