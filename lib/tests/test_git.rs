@@ -2919,10 +2919,7 @@ fn test_reset_head_detached_out_of_sync() -> TestResult {
     );
 
     // External process updates HEAD to point to commit5
-    testutils::git::set_head_to_id(
-        &git_repo,
-        gix::ObjectId::from_bytes_or_panic(commit5.id().as_bytes()),
-    );
+    testutils::git::set_head_to_id(&git_repo, git_id(&commit5));
 
     // {expected: commit1, actual: commit5} -> commit1 (= commit3's parent):
     // works because the expected HEAD is unchanged.

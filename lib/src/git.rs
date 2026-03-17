@@ -160,6 +160,16 @@ fn validate_remote_name(name: &RemoteName) -> Result<(), GitRemoteNameError> {
     }
 }
 
+/// Converts [`CommitId`] of valid length to [`gix::oid`].
+fn oid_from_commit_id(id: &CommitId) -> &gix::oid {
+    gix::oid::from_bytes_unchecked(id.as_bytes())
+}
+
+/// Converts [`CommitId`] of valid length to [`gix::ObjectId`].
+fn owned_oid_from_commit_id(id: &CommitId) -> gix::ObjectId {
+    gix::ObjectId::from_bytes_or_panic(id.as_bytes())
+}
+
 /// Type of Git ref to be imported or exported.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum GitRefKind {
@@ -869,9 +879,7 @@ fn collect_changed_refs_to_import(
             continue;
         }
         let old_git_target = known_git_refs.get(full_name).copied().flatten();
-        let old_git_oid = old_git_target
-            .as_normal()
-            .map(|id| gix::oid::from_bytes_unchecked(id.as_bytes()));
+        let old_git_oid = old_git_target.as_normal().map(oid_from_commit_id);
         let Some(oid) = resolve_git_ref_to_commit_id(&git_ref, old_git_oid) else {
             // Skip (or remove existing) invalid refs.
             continue;
@@ -922,10 +930,7 @@ fn collect_changed_remote_tags_to_import(
             .get(&symbol)
             .copied()
             .unwrap_or_else(|| RemoteRef::absent_ref());
-        let old_git_oid = old_remote_ref
-            .target
-            .as_normal()
-            .map(|id| gix::oid::from_bytes_unchecked(id.as_bytes()));
+        let old_git_oid = old_remote_ref.target.as_normal().map(oid_from_commit_id);
         let Some(oid) = resolve_git_ref_to_commit_id(&git_ref, old_git_oid) else {
             // Skip (or remove existing) invalid refs.
             continue;
@@ -1398,7 +1403,7 @@ fn collect_changed_refs_to_export(
             continue;
         }
         let old_oid = if let Some(id) = old_target.as_normal() {
-            Some(gix::ObjectId::from_bytes_or_panic(id.as_bytes()))
+            Some(owned_oid_from_commit_id(id))
         } else if old_target.has_conflict() {
             // The old git ref should only be a conflict if there were concurrent import
             // operations while the value changed. Don't overwrite these values.
@@ -1409,7 +1414,7 @@ fn collect_changed_refs_to_export(
             None
         };
         if let Some(id) = new_target.as_normal() {
-            let new_oid = gix::ObjectId::from_bytes_or_panic(id.as_bytes());
+            let new_oid = owned_oid_from_commit_id(id);
             to_update.push((symbol.to_owned(), (old_oid, new_oid)));
         } else if new_target.has_conflict() {
             // Skip conflicts and leave the old value in git_refs
@@ -1648,7 +1653,7 @@ pub async fn reset_head(
             // symbolic ref as such.
             let actual_head = git_repo.head().map_err(GitResetHeadError::from_git)?;
             if actual_head.is_detached() {
-                let id = gix::ObjectId::from_bytes_or_panic(id.as_bytes());
+                let id = owned_oid_from_commit_id(id);
                 gix::refs::transaction::PreviousValue::MustExistAndMatch(id.into())
             } else {
                 // Just overwrite symbolic ref, which is unusual. Alternatively,
@@ -1659,9 +1664,7 @@ pub async fn reset_head(
             // Just overwrite if unborn (or conflict), which is also unusual.
             gix::refs::transaction::PreviousValue::MustExist
         };
-        let new_oid = new_head_target
-            .as_normal()
-            .map(|id| gix::ObjectId::from_bytes_or_panic(id.as_bytes()));
+        let new_oid = new_head_target.as_normal().map(owned_oid_from_commit_id);
         update_git_head(&git_repo, expected_ref, new_oid)
             .map_err(|err| GitResetHeadError::UpdateHeadRef(err.into()))?;
         mut_repo.set_git_head_target(new_head_target);
@@ -3205,12 +3208,12 @@ fn build_pushed_bookmarks_to_export<'a>(
         let symbol = name.to_remote_symbol(remote);
         match (update.before.as_ref(), update.after.as_ref()) {
             (old, Some(new)) => {
-                let old_oid = old.map(|id| gix::ObjectId::from_bytes_or_panic(id.as_bytes()));
-                let new_oid = gix::ObjectId::from_bytes_or_panic(new.as_bytes());
+                let old_oid = old.map(owned_oid_from_commit_id);
+                let new_oid = owned_oid_from_commit_id(new);
                 to_update.push((symbol.to_owned(), (old_oid, new_oid)));
             }
             (Some(old), None) => {
-                let old_oid = gix::ObjectId::from_bytes_or_panic(old.as_bytes());
+                let old_oid = owned_oid_from_commit_id(old);
                 to_delete.push((symbol.to_owned(), old_oid));
             }
             (None, None) => panic!("old/new targets should differ"),
