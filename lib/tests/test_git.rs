@@ -209,6 +209,29 @@ fn fetch_with(
     fetcher.fetch(remote, refspecs, &mut NullCallback, depth, fetch_tags)
 }
 
+// TODO: Make this behavior default and replace with fetch_import_all() (#7528)
+fn fetch_import_all_remote_tags(mut_repo: &mut MutableRepo, remote: &RemoteName) -> GitImportStats {
+    let git_settings = GitSettings::from_settings(mut_repo.base_repo().settings()).unwrap();
+    let import_options = default_import_options();
+    let mut fetcher = GitFetch::new(
+        mut_repo,
+        git_settings.to_subprocess_options(),
+        &import_options,
+    )
+    .unwrap();
+    let ref_expr = GitFetchRefExpression {
+        bookmark: StringExpression::all(),
+        tag: StringExpression::all(),
+    };
+    let refspecs = expand_fetch_refspecs(remote, ref_expr).unwrap();
+    let depth = None;
+    let fetch_tags = Some(FetchTagsOverride::NoTags);
+    fetcher
+        .fetch(remote, refspecs, &mut NullCallback, depth, fetch_tags)
+        .unwrap();
+    fetcher.import_refs().block_on().unwrap()
+}
+
 fn push_status_rejected_references(push_stats: GitPushStats) -> Vec<GitRefNameBuf> {
     assert!(push_stats.pushed.is_empty());
     assert!(push_stats.remote_rejected.is_empty());
@@ -4399,6 +4422,7 @@ fn test_push_bookmarks_success() -> TestResult {
                 Some(setup.child_of_main_commit.id().clone()),
             ),
         )],
+        tags: vec![],
     };
     let stats = git::push_refs(
         tx.repo_mut(),
@@ -4474,6 +4498,7 @@ fn test_push_bookmarks_deletion() -> TestResult {
             "main".into(),
             Diff::new(Some(setup.main_commit.id().clone()), None),
         )],
+        tags: vec![],
     };
     let stats = git::push_refs(
         tx.repo_mut(),
@@ -4547,6 +4572,7 @@ fn test_push_bookmarks_mixed_deletion_and_addition() -> TestResult {
                 Diff::new(None, Some(setup.child_of_main_commit.id().clone())),
             ),
         ],
+        tags: vec![],
     };
     let stats = git::push_refs(
         tx.repo_mut(),
@@ -4629,6 +4655,7 @@ fn test_push_bookmarks_not_fast_forward() -> TestResult {
                 Some(setup.sideways_commit.id().clone()),
             ),
         )],
+        tags: vec![],
     };
     let stats = git::push_refs(
         tx.repo_mut(),
@@ -4683,6 +4710,7 @@ fn test_push_bookmarks_partial_success() -> TestResult {
                 ),
             ),
         ],
+        tags: vec![],
     };
     let stats = git::push_refs(
         tx.repo_mut(),
@@ -4783,6 +4811,7 @@ fn test_push_bookmarks_unmapped_refs() -> TestResult {
                 Diff::new(None, Some(commit2b.id().clone())),
             ),
         ],
+        tags: vec![],
     };
     let stats = git::push_refs(
         tx.repo_mut(),
@@ -4849,6 +4878,362 @@ fn test_push_bookmarks_unmapped_refs() -> TestResult {
         view.get_remote_bookmark(remote_symbol("bookmark2", "origin")),
         RemoteRef::absent_ref()
     );
+    Ok(())
+}
+
+#[test]
+fn test_push_new_tags() -> TestResult {
+    let test_data = GitRepoData::create();
+    let subprocess_options = GitSubprocessOptions::from_settings(test_data.repo.settings())?;
+    let import_options = default_import_options();
+    let origin_repo = test_data.origin_repo;
+    let git_repo = test_data.git_repo;
+
+    // Create lightweight and annotated tags pointing to the same commit.
+    let commit1_oid = empty_git_commit(&git_repo, "refs/tags/lightweight", &[]);
+    let kind = gix::object::Kind::Commit;
+    let constraint = gix::refs::transaction::PreviousValue::MustNotExist;
+    let annotated_tag1_oid = git_repo
+        .tag("annotated", commit1_oid, kind, None, "", constraint)?
+        .id()
+        .detach();
+    let mut tx = test_data.repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &import_options).block_on()?;
+
+    let update = Diff::new(None, Some(jj_id(commit1_oid)));
+    let targets = GitPushRefTargets {
+        bookmarks: vec![],
+        tags: vec![
+            ("lightweight".into(), update.clone()),
+            ("annotated".into(), update.clone()),
+        ],
+    };
+    let stats = git::push_refs(
+        tx.repo_mut(),
+        subprocess_options,
+        "origin".as_ref(),
+        &targets,
+        &mut NullCallback,
+        &GitPushOptions::default(),
+    )?;
+    assert_eq!(stats.pushed.len(), 2);
+    assert!(stats.all_ok());
+
+    // Lightweight and annotated tags should be created in the remote repo.
+    assert_eq!(
+        origin_repo.find_reference("refs/tags/lightweight")?.id(),
+        commit1_oid
+    );
+    assert_eq!(
+        origin_repo.find_reference("refs/tags/annotated")?.id(),
+        annotated_tag1_oid
+    );
+
+    // Remote tags should also be recorded locally.
+    let view = tx.repo().view();
+    assert_eq!(
+        *view.get_remote_tag(remote_symbol("lightweight", "origin")),
+        RemoteRef {
+            target: RefTarget::normal(jj_id(commit1_oid)),
+            state: RemoteRefState::Tracked,
+        },
+    );
+    assert_eq!(
+        *view.get_remote_tag(remote_symbol("annotated", "origin")),
+        RemoteRef {
+            target: RefTarget::normal(jj_id(commit1_oid)),
+            state: RemoteRefState::Tracked,
+        },
+    );
+
+    // There should be no changes to be imported from the Git repo.
+    let repo = tx.commit("test").block_on()?;
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &import_options).block_on()?;
+    assert!(!tx.repo().has_changes());
+    Ok(())
+}
+
+#[test]
+fn test_push_deleted_tags() -> TestResult {
+    let test_data = GitRepoData::create();
+    let subprocess_options = GitSubprocessOptions::from_settings(test_data.repo.settings())?;
+    let import_options = default_import_options();
+    let origin_repo = test_data.origin_repo;
+
+    // Create lightweight and annotated tags remotely.
+    let commit1_oid = empty_git_commit(&origin_repo, "refs/tags/lightweight", &[]);
+    let kind = gix::object::Kind::Commit;
+    let constraint = gix::refs::transaction::PreviousValue::MustNotExist;
+    origin_repo.tag("annotated", commit1_oid, kind, None, "", constraint)?;
+
+    // Fetch and delete local tags.
+    let mut tx = test_data.repo.start_transaction();
+    fetch_import_all_remote_tags(tx.repo_mut(), "origin".as_ref());
+    tx.repo_mut()
+        .set_local_tag_target("lightweight".as_ref(), RefTarget::absent());
+    tx.repo_mut()
+        .set_local_tag_target("annotated".as_ref(), RefTarget::absent());
+    git::export_refs(tx.repo_mut()).unwrap();
+    // Remote tags should still exist locally.
+    let view = tx.repo().view();
+    assert_eq!(
+        *view.get_remote_tag(remote_symbol("lightweight", "origin")),
+        RemoteRef {
+            target: RefTarget::normal(jj_id(commit1_oid)),
+            state: RemoteRefState::Tracked,
+        },
+    );
+    assert_eq!(
+        *view.get_remote_tag(remote_symbol("annotated", "origin")),
+        RemoteRef {
+            target: RefTarget::normal(jj_id(commit1_oid)),
+            state: RemoteRefState::Tracked,
+        },
+    );
+
+    let update = Diff::new(Some(jj_id(commit1_oid)), None);
+    let targets = GitPushRefTargets {
+        bookmarks: vec![],
+        tags: vec![
+            ("lightweight".into(), update.clone()),
+            ("annotated".into(), update.clone()),
+        ],
+    };
+    let stats = git::push_refs(
+        tx.repo_mut(),
+        subprocess_options,
+        "origin".as_ref(),
+        &targets,
+        &mut NullCallback,
+        &GitPushOptions::default(),
+    )?;
+    assert_eq!(stats.pushed.len(), 2);
+    assert!(stats.all_ok());
+
+    // Lightweight and annotated tags should be deleted in the remote repo.
+    assert!(
+        origin_repo
+            .try_find_reference("refs/tags/lightweight")?
+            .is_none()
+    );
+    assert!(
+        origin_repo
+            .try_find_reference("refs/tags/annotated")?
+            .is_none()
+    );
+
+    // Remote tags should also be deleted locally.
+    let view = tx.repo().view();
+    assert_eq!(
+        *view.get_remote_tag(remote_symbol("lightweight", "origin")),
+        RemoteRef::absent()
+    );
+    assert_eq!(
+        *view.get_remote_tag(remote_symbol("annotated", "origin")),
+        RemoteRef::absent()
+    );
+
+    // There should be no changes to be imported from the Git repo.
+    let repo = tx.commit("test").block_on()?;
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &import_options).block_on()?;
+    assert!(!tx.repo().has_changes());
+    Ok(())
+}
+
+#[test]
+fn test_push_moved_tags_without_fetching() -> TestResult {
+    let test_data = GitRepoData::create();
+    let subprocess_options = GitSubprocessOptions::from_settings(test_data.repo.settings())?;
+    let import_options = default_import_options();
+    let origin_repo = test_data.origin_repo;
+    let git_repo = test_data.git_repo;
+
+    // Create lightweight and annotated tags pointing to the same commit.
+    let commit1_oid = empty_git_commit(&git_repo, "refs/tags/lightweight", &[]);
+    let kind = gix::object::Kind::Commit;
+    let constraint = gix::refs::transaction::PreviousValue::MustNotExist;
+    git_repo.tag("annotated", commit1_oid, kind, None, "", constraint)?;
+    let mut tx = test_data.repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &import_options).block_on()?;
+
+    // Push new tags
+    let update = Diff::new(None, Some(jj_id(commit1_oid)));
+    let targets = GitPushRefTargets {
+        bookmarks: vec![],
+        tags: vec![
+            ("lightweight".into(), update.clone()),
+            ("annotated".into(), update.clone()),
+        ],
+    };
+    let stats = git::push_refs(
+        tx.repo_mut(),
+        subprocess_options.clone(),
+        "origin".as_ref(),
+        &targets,
+        &mut NullCallback,
+        &GitPushOptions::default(),
+    )?;
+    assert_eq!(stats.pushed.len(), 2);
+    assert!(stats.all_ok());
+
+    // Move pushed tags
+    let commit2_oid = empty_git_commit(&git_repo, "refs/tags/lightweight", &[commit1_oid]);
+    let kind = gix::object::Kind::Commit;
+    let constraint = gix::refs::transaction::PreviousValue::MustExist;
+    let annotated_tag2_oid = git_repo
+        .tag("annotated", commit2_oid, kind, None, "", constraint)?
+        .id()
+        .detach();
+    git::import_refs(tx.repo_mut(), &import_options).block_on()?;
+
+    // Push moved tags
+    let update = Diff::new(Some(jj_id(commit1_oid)), Some(jj_id(commit2_oid)));
+    let targets = GitPushRefTargets {
+        bookmarks: vec![],
+        tags: vec![
+            ("lightweight".into(), update.clone()),
+            ("annotated".into(), update.clone()),
+        ],
+    };
+    let stats = git::push_refs(
+        tx.repo_mut(),
+        subprocess_options.clone(),
+        "origin".as_ref(),
+        &targets,
+        &mut NullCallback,
+        &GitPushOptions::default(),
+    )?;
+    assert_eq!(stats.pushed.len(), 2);
+    assert!(stats.all_ok());
+
+    // Lightweight and annotated tags should be updated in the remote repo.
+    assert_eq!(
+        origin_repo.find_reference("refs/tags/lightweight")?.id(),
+        commit2_oid
+    );
+    assert_eq!(
+        origin_repo.find_reference("refs/tags/annotated")?.id(),
+        annotated_tag2_oid
+    );
+
+    // Remote tags should also be recorded locally.
+    let view = tx.repo().view();
+    assert_eq!(
+        *view.get_remote_tag(remote_symbol("lightweight", "origin")),
+        RemoteRef {
+            target: RefTarget::normal(jj_id(commit2_oid)),
+            state: RemoteRefState::Tracked,
+        },
+    );
+    assert_eq!(
+        *view.get_remote_tag(remote_symbol("annotated", "origin")),
+        RemoteRef {
+            target: RefTarget::normal(jj_id(commit2_oid)),
+            state: RemoteRefState::Tracked,
+        },
+    );
+
+    // There should be no changes to be imported from the Git repo.
+    let repo = tx.commit("test").block_on()?;
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &import_options).block_on()?;
+    assert!(!tx.repo().has_changes());
+    Ok(())
+}
+
+#[test]
+fn test_push_deleted_tags_without_fetching() -> TestResult {
+    let test_data = GitRepoData::create();
+    let subprocess_options = GitSubprocessOptions::from_settings(test_data.repo.settings())?;
+    let import_options = default_import_options();
+    let origin_repo = test_data.origin_repo;
+    let git_repo = test_data.git_repo;
+
+    // Create lightweight and annotated tags pointing to the same commit.
+    let commit1_oid = empty_git_commit(&git_repo, "refs/tags/lightweight", &[]);
+    let kind = gix::object::Kind::Commit;
+    let constraint = gix::refs::transaction::PreviousValue::MustNotExist;
+    git_repo.tag("annotated", commit1_oid, kind, None, "", constraint)?;
+    let mut tx = test_data.repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &import_options).block_on()?;
+
+    // Push new tags
+    let update = Diff::new(None, Some(jj_id(commit1_oid)));
+    let targets = GitPushRefTargets {
+        bookmarks: vec![],
+        tags: vec![
+            ("lightweight".into(), update.clone()),
+            ("annotated".into(), update.clone()),
+        ],
+    };
+    let stats = git::push_refs(
+        tx.repo_mut(),
+        subprocess_options.clone(),
+        "origin".as_ref(),
+        &targets,
+        &mut NullCallback,
+        &GitPushOptions::default(),
+    )?;
+    assert_eq!(stats.pushed.len(), 2);
+    assert!(stats.all_ok());
+
+    // Delete pushed tags
+    tx.repo_mut()
+        .set_local_tag_target("lightweight".as_ref(), RefTarget::absent());
+    tx.repo_mut()
+        .set_local_tag_target("annotated".as_ref(), RefTarget::absent());
+    git::export_refs(tx.repo_mut()).unwrap();
+
+    // Push deleted tags
+    let update = Diff::new(Some(jj_id(commit1_oid)), None);
+    let targets = GitPushRefTargets {
+        bookmarks: vec![],
+        tags: vec![
+            ("lightweight".into(), update.clone()),
+            ("annotated".into(), update.clone()),
+        ],
+    };
+    let stats = git::push_refs(
+        tx.repo_mut(),
+        subprocess_options.clone(),
+        "origin".as_ref(),
+        &targets,
+        &mut NullCallback,
+        &GitPushOptions::default(),
+    )?;
+    assert_eq!(stats.pushed.len(), 2);
+    assert!(stats.all_ok());
+
+    // Lightweight and annotated tags should be deleted in the remote repo.
+    assert!(
+        origin_repo
+            .try_find_reference("refs/tags/lightweight")?
+            .is_none()
+    );
+    assert!(
+        origin_repo
+            .try_find_reference("refs/tags/annotated")?
+            .is_none()
+    );
+
+    // Remote tags should also be deleted locally.
+    let view = tx.repo().view();
+    assert_eq!(
+        *view.get_remote_tag(remote_symbol("lightweight", "origin")),
+        RemoteRef::absent()
+    );
+    assert_eq!(
+        *view.get_remote_tag(remote_symbol("annotated", "origin")),
+        RemoteRef::absent()
+    );
+
+    // There should be no changes to be imported from the Git repo.
+    let repo = tx.commit("test").block_on()?;
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &import_options).block_on()?;
+    assert!(!tx.repo().has_changes());
     Ok(())
 }
 
@@ -5168,6 +5553,7 @@ fn test_push_environment_options() -> TestResult {
                 Some(setup.child_of_main_commit.id().clone()),
             ),
         )],
+        tags: vec![],
     };
 
     git::push_refs(

@@ -486,6 +486,7 @@ pub async fn cmd_git_push(
 
     let targets = GitPushRefTargets {
         bookmarks: bookmark_updates,
+        tags: vec![], // TODO
     };
     let git_settings = GitSettings::from_settings(tx.settings())?;
     let options = GitPushOptions {

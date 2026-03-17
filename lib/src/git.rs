@@ -3065,6 +3065,8 @@ pub enum GitPushError {
 pub struct GitPushRefTargets {
     /// Bookmark or branch `(name, [expected_target, new_target])`s to push.
     pub bookmarks: Vec<(RefNameBuf, Diff<Option<CommitId>>)>,
+    /// Tag `(name, [expected_target, new_target])`s to push.
+    pub tags: Vec<(RefNameBuf, Diff<Option<CommitId>>)>,
 }
 
 pub struct GitRefUpdate {
@@ -3096,16 +3098,35 @@ pub fn push_refs(
 ) -> Result<GitPushStats, GitPushError> {
     validate_remote_name(remote)?;
 
-    let ref_updates = targets
-        .bookmarks
-        .iter()
-        .map(|(name, update)| GitRefUpdate {
+    let git_repo = get_git_repo(mut_repo.store())?;
+    let to_tag_target = |name: &RefName, remote: &RemoteName, id: &CommitId| {
+        let remote_matcher = StringMatcher::exact(remote);
+        let oid = owned_oid_from_commit_id(id);
+        find_git_tag_oid_to_copy(mut_repo.view(), &git_repo, name, &remote_matcher, &oid)
+            .unwrap_or(oid)
+    };
+    let ref_updates = itertools::chain(
+        targets.bookmarks.iter().map(|(name, update)| GitRefUpdate {
             qualified_name: format!("refs/heads/{name}", name = name.as_str()).into(),
             targets: update
                 .as_ref()
                 .map(|id| id.as_ref().map(owned_oid_from_commit_id)),
-        })
-        .collect_vec();
+        }),
+        targets.tags.iter().map(|(name, update)| GitRefUpdate {
+            qualified_name: format!("refs/tags/{name}", name = name.as_str()).into(),
+            targets: Diff {
+                before: update
+                    .before
+                    .as_ref()
+                    .map(|id| to_tag_target(name, remote, id)),
+                after: update
+                    .after
+                    .as_ref()
+                    .map(|id| to_tag_target(name, REMOTE_NAME_FOR_LOCAL_GIT_REPO, id)),
+            },
+        }),
+    )
+    .collect_vec();
 
     let push_stats = push_updates(
         mut_repo,
@@ -3119,19 +3140,32 @@ pub fn push_refs(
 
     let pushed: HashSet<&GitRefName> = push_stats.pushed.iter().map(AsRef::as_ref).collect();
     let pushed_bookmark_updates = || {
-        iter::zip(&targets.bookmarks, &ref_updates)
+        iter::zip(&targets.bookmarks, &ref_updates[..targets.bookmarks.len()])
             .filter(|(_, ref_update)| pushed.contains(&*ref_update.qualified_name))
-            .map(|((name, update), _)| (name.as_ref(), update))
+            .map(|((name, update), _)| (&**name, update))
+    };
+    let pushed_tag_updates = || {
+        iter::zip(&targets.tags, &ref_updates[targets.bookmarks.len()..])
+            .filter(|(_, ref_update)| pushed.contains(&*ref_update.qualified_name))
+            .map(|((name, update), ref_update)| (&**name, update, ref_update))
     };
 
     // The remote refs in Git should usually be updated by `git push`. In that
     // case, this only updates our record about the last exported state.
     let unexported_bookmarks = {
-        let git_repo =
-            get_git_repo(mut_repo.store()).expect("backend type should have been tested");
         let refs = build_pushed_bookmarks_to_export(remote, pushed_bookmark_updates());
         export_refs_to_git(mut_repo, &git_repo, GitRefKind::Bookmark, refs)
     };
+    // Update remote tags so we can look up annotated tag oid without fetching.
+    // Since remote tags should never be imported without fetching from the
+    // remote, update failure isn't a hard error.
+    for (name, _, ref_update) in pushed_tag_updates() {
+        let symbol = name.to_remote_symbol(remote);
+        let edit = to_remote_tag_ref_update(symbol, ref_update.targets.after);
+        if let Err(err) = git_repo.edit_reference(edit) {
+            tracing::warn!(?symbol, ?err, "failed to update remote tag ref");
+        }
+    }
 
     debug_assert!(unexported_bookmarks.is_sorted_by_key(|(symbol, _)| symbol));
     let is_exported_bookmark = |name: &RefName| {
@@ -3145,6 +3179,13 @@ pub fn push_refs(
             state: RemoteRefState::Tracked,
         };
         mut_repo.set_remote_bookmark(name.to_remote_symbol(remote), new_remote_ref);
+    }
+    for (name, update, _) in pushed_tag_updates() {
+        let new_remote_ref = RemoteRef {
+            target: RefTarget::resolved(update.after.clone()),
+            state: RemoteRefState::Tracked,
+        };
+        mut_repo.set_remote_tag(name.to_remote_symbol(remote), new_remote_ref);
     }
 
     // TODO: Maybe we can add new stats type which stores RemoteRefSymbol in
@@ -3240,6 +3281,37 @@ fn build_pushed_bookmarks_to_export<'a>(
         to_update,
         to_delete,
         failed: vec![],
+    }
+}
+
+/// Constructs `RefEdit` to update pushed remote tag ref.
+fn to_remote_tag_ref_update(
+    symbol: RemoteRefSymbol<'_>,
+    new_oid: Option<gix::ObjectId>,
+) -> gix::refs::transaction::RefEdit {
+    // No constraint on existing ref because remote tag ref shouldn't be moved
+    // externally, and should always point to the actual remote ref.
+    let expected = gix::refs::transaction::PreviousValue::Any;
+    let change = match new_oid {
+        Some(oid) => gix::refs::transaction::Change::Update {
+            log: gix::refs::transaction::LogChange::default(),
+            expected,
+            new: oid.into(),
+        },
+        None => gix::refs::transaction::Change::Delete {
+            expected,
+            log: gix::refs::transaction::RefLog::AndReference,
+        },
+    };
+    let name = format!(
+        "{REMOTE_TAG_REF_NAMESPACE}{remote}/{name}",
+        remote = symbol.remote.as_str(),
+        name = symbol.name.as_str()
+    );
+    gix::refs::transaction::RefEdit {
+        change,
+        name: name.try_into().expect("pushed ref name should be valid"),
+        deref: false,
     }
 }
 
