@@ -25,7 +25,7 @@ use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::graph::GraphEdge;
 use jj_lib::graph::GraphEdgeType;
-use jj_lib::graph::TopoGroupedGraphIterator;
+use jj_lib::graph::TopoGroupedGraphStream;
 use jj_lib::graph::reverse_graph;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetEvaluationError;
@@ -220,8 +220,8 @@ pub(crate) async fn cmd_log(
         if !args.no_graph {
             let mut raw_output = formatter.raw()?;
             let mut graph = get_graphlog(graph_style, raw_output.as_mut());
-            let iter: Box<dyn Iterator<Item = _>> = {
-                let mut forward_iter = TopoGroupedGraphIterator::new(revset.iter_graph(), |id| id);
+            let mut stream: LocalBoxStream<_> = {
+                let mut forward_iter = TopoGroupedGraphStream::new(revset.stream_graph(), |id| id);
 
                 let has_commit = revset.containing_fn();
 
@@ -232,18 +232,18 @@ pub(crate) async fn cmd_log(
                     }
                 }
 
-                // The input to TopoGroupedGraphIterator shouldn't be truncated
+                // The input to TopoGroupedGraphStream shouldn't be truncated
                 // because the prioritized commit must exist in the input set.
-                let forward_iter = forward_iter.take(args.limit.unwrap_or(usize::MAX));
+                let forward_stream = forward_iter.take(args.limit.unwrap_or(usize::MAX));
                 if args.reversed {
-                    Box::new(reverse_graph(forward_iter, |id| id)?.into_iter().map(Ok))
+                    let nodes: Vec<_> = forward_stream.collect().await;
+                    let nodes = reverse_graph(nodes.into_iter(), |id: &CommitId| id)?;
+                    stream::iter(nodes.into_iter().map(Ok)).boxed_local()
                 } else {
-                    Box::new(forward_iter)
+                    forward_stream.boxed_local()
                 }
             };
-            for node in iter {
-                let (commit_id, edges) = node?;
-
+            while let Some((commit_id, edges)) = stream.try_next().await? {
                 // The graph is keyed by (CommitId, is_synthetic)
                 let mut graphlog_edges = vec![];
                 // TODO: Should we update revset.iter_graph() to yield a `has_missing` flag
