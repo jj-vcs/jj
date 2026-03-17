@@ -30,6 +30,7 @@ use super::backoff::BackoffIterator;
 
 const FILE_SHARE_READ: u32 = 1;
 const FILE_SHARE_WRITE: u32 = 2;
+const ERROR_SHARING_VIOLATION: u32 = 32;
 
 pub struct FileLock {
     path: PathBuf,
@@ -92,7 +93,10 @@ fn try_create_file(path: &Path) -> io::Result<File> {
         match options.open(path) {
             Ok(file) => return Ok(file),
             // The file may be open for deletion in Drop.
-            Err(err) if err.kind() == io::ErrorKind::PermissionDenied => {
+            Err(err)
+                if err.kind() == io::ErrorKind::PermissionDenied
+                    || err.raw_os_error() == Some(ERROR_SHARING_VIOLATION as _) =>
+            {
                 let Some(duration) = backoff_iterator.next() else {
                     return Err(err);
                 };
