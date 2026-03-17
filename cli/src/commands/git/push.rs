@@ -41,9 +41,9 @@ use jj_lib::ref_name::RefNameBuf;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteNameBuf;
 use jj_lib::ref_name::RemoteRefSymbol;
-use jj_lib::refs::BookmarkPushAction;
 use jj_lib::refs::LocalAndRemoteRef;
-use jj_lib::refs::classify_bookmark_push_action;
+use jj_lib::refs::RefPushAction;
+use jj_lib::refs::classify_ref_push_action;
 use jj_lib::repo::Repo;
 use jj_lib::revset::RemoteRefSymbolExpression;
 use jj_lib::revset::RevsetExpression;
@@ -779,10 +779,10 @@ fn classify_bookmark_update(
     allow_new: bool,
     allow_delete: bool,
 ) -> Result<Option<Diff<Option<CommitId>>>, RejectedBookmarkUpdateReason> {
-    let push_action = classify_bookmark_push_action(targets);
+    let push_action = classify_ref_push_action(targets);
     match push_action {
-        BookmarkPushAction::AlreadyMatches => Ok(None),
-        BookmarkPushAction::LocalConflicted => Err(RejectedBookmarkUpdateReason {
+        RefPushAction::AlreadyMatches => Ok(None),
+        RefPushAction::LocalConflicted => Err(RejectedBookmarkUpdateReason {
             message: format!(
                 "Bookmark {name} is conflicted",
                 name = remote_symbol.name.as_symbol()
@@ -792,11 +792,11 @@ fn classify_bookmark_update(
                     .to_owned(),
             ),
         }),
-        BookmarkPushAction::RemoteConflicted => Err(RejectedBookmarkUpdateReason {
+        RefPushAction::RemoteConflicted => Err(RejectedBookmarkUpdateReason {
             message: format!("Bookmark {remote_symbol} is conflicted"),
             hint: Some("Run `jj git fetch` to update the conflicted remote bookmark.".to_owned()),
         }),
-        BookmarkPushAction::RemoteUntracked => Err(RejectedBookmarkUpdateReason {
+        RefPushAction::RemoteUntracked => Err(RejectedBookmarkUpdateReason {
             message: format!("Non-tracking remote bookmark {remote_symbol} exists"),
             hint: Some(format!(
                 "Run `jj bookmark track {name} --remote={remote}` to import the remote bookmark.",
@@ -806,7 +806,7 @@ fn classify_bookmark_update(
         }),
         // TODO: deprecate --allow-new and make classify_bookmark_push_action()
         // reject untracked remote?
-        BookmarkPushAction::Update(_) if !targets.remote_ref.is_tracked() && !allow_new => {
+        RefPushAction::Update(_) if !targets.remote_ref.is_tracked() && !allow_new => {
             Err(RejectedBookmarkUpdateReason {
                 message: format!("Refusing to create new remote bookmark {remote_symbol}"),
                 hint: Some(format!(
@@ -816,7 +816,7 @@ fn classify_bookmark_update(
                 )),
             })
         }
-        BookmarkPushAction::Update(update) if update.after.is_none() && !allow_delete => {
+        RefPushAction::Update(update) if update.after.is_none() && !allow_delete => {
             Err(RejectedBookmarkUpdateReason {
                 message: format!(
                     "Refusing to push deleted bookmark {name}",
@@ -829,7 +829,7 @@ fn classify_bookmark_update(
                 ),
             })
         }
-        BookmarkPushAction::Update(update) => Ok(Some(update)),
+        RefPushAction::Update(update) => Ok(Some(update)),
     }
 }
 
