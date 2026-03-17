@@ -270,7 +270,10 @@ revsets (expressions) as arguments.
 
 * `reachable(srcs, domain)`: All commits reachable from `srcs` within
   `domain`, traversing all parent and child edges. `srcs` outside `domain` are
-  not considered even if a parent or child edge would reach into `domain`.
+  not considered even if a parent or child edge would reach into `domain`. More
+  precisely, this is the set of commits `c` in `domain` such that there exists a
+  path from `c` to a commit in `srcs`, or from a commit in `srcs` to `c` fully
+  contained in `domain`.
 
   This is useful for finding all related commits in a branch or feature without
   traversing outside a defined scope. For example, `reachable(@, mutable())`
