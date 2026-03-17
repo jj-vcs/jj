@@ -5108,8 +5108,7 @@ fn test_push_updates_unexpectedly_moved_sideways_on_remote() {
         let subprocess_options = GitSubprocessOptions::from_settings(&settings).unwrap();
         let targets = [GitRefUpdate {
             qualified_name: "refs/heads/main".into(),
-            expected_current_target: Some(setup.sideways_commit.id().clone()),
-            new_target: target,
+            targets: Diff::new(Some(setup.sideways_commit.id().clone()), target),
         }];
         git::push_updates(
             setup.jj_repo.as_ref(),
@@ -5193,8 +5192,7 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote() {
         let subprocess_options = GitSubprocessOptions::from_settings(&settings).unwrap();
         let targets = [GitRefUpdate {
             qualified_name: "refs/heads/main".into(),
-            expected_current_target: Some(setup.parent_of_main_commit.id().clone()),
-            new_target: target,
+            targets: Diff::new(Some(setup.parent_of_main_commit.id().clone()), target),
         }];
         git::push_updates(
             setup.jj_repo.as_ref(),
@@ -5258,8 +5256,7 @@ fn test_push_updates_unexpectedly_exists_on_remote() {
         let subprocess_options = GitSubprocessOptions::from_settings(&settings).unwrap();
         let targets = [GitRefUpdate {
             qualified_name: "refs/heads/main".into(),
-            expected_current_target: None,
-            new_target: target,
+            targets: Diff::new(None, target),
         }];
         git::push_updates(
             setup.jj_repo.as_ref(),
@@ -5300,8 +5297,10 @@ fn test_push_updates_success() {
         "origin".as_ref(),
         &[GitRefUpdate {
             qualified_name: "refs/heads/main".into(),
-            expected_current_target: Some(setup.main_commit.id().clone()),
-            new_target: Some(setup.child_of_main_commit.id().clone()),
+            targets: Diff::new(
+                Some(setup.main_commit.id().clone()),
+                Some(setup.child_of_main_commit.id().clone()),
+            ),
         }],
         &mut NullCallback,
         &GitPushOptions::default(),
@@ -5347,8 +5346,10 @@ fn test_push_updates_no_such_remote() {
         "invalid-remote".as_ref(),
         &[GitRefUpdate {
             qualified_name: "refs/heads/main".into(),
-            expected_current_target: Some(setup.main_commit.id().clone()),
-            new_target: Some(setup.child_of_main_commit.id().clone()),
+            targets: Diff::new(
+                Some(setup.main_commit.id().clone()),
+                Some(setup.child_of_main_commit.id().clone()),
+            ),
         }],
         &mut NullCallback,
         &GitPushOptions::default(),
@@ -5368,8 +5369,10 @@ fn test_push_updates_invalid_remote() {
         "http://invalid-remote".as_ref(),
         &[GitRefUpdate {
             qualified_name: "refs/heads/main".into(),
-            expected_current_target: Some(setup.main_commit.id().clone()),
-            new_target: Some(setup.child_of_main_commit.id().clone()),
+            targets: Diff::new(
+                Some(setup.main_commit.id().clone()),
+                Some(setup.child_of_main_commit.id().clone()),
+            ),
         }],
         &mut NullCallback,
         &GitPushOptions::default(),
@@ -6103,8 +6106,10 @@ fn test_push_updates_with_options() {
         "origin".as_ref(),
         &[GitRefUpdate {
             qualified_name: "refs/heads/main".into(),
-            expected_current_target: Some(setup.main_commit.id().clone()),
-            new_target: Some(setup.child_of_main_commit.id().clone()),
+            targets: Diff::new(
+                Some(setup.main_commit.id().clone()),
+                Some(setup.child_of_main_commit.id().clone()),
+            ),
         }],
         &mut callback,
         &GitPushOptions {

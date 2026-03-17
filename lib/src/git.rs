@@ -3054,12 +3054,11 @@ pub struct GitBranchPushTargets {
 
 pub struct GitRefUpdate {
     pub qualified_name: GitRefNameBuf,
-    /// Expected position on the remote or None if we expect the ref to not
-    /// exist on the remote
+    /// Expected position on the remote and new position to push.
     ///
-    /// This is sourced from the local remote-tracking branch.
-    pub expected_current_target: Option<CommitId>,
-    pub new_target: Option<CommitId>,
+    /// The expected position is sourced from the local remote-tracking branch.
+    /// This should be `None` if we expect the ref to not exist on the remote.
+    pub targets: Diff<Option<CommitId>>,
 }
 
 /// Miscellaneous options for Git push command.
@@ -3087,8 +3086,7 @@ pub fn push_branches(
         .iter()
         .map(|(name, update)| GitRefUpdate {
             qualified_name: format!("refs/heads/{name}", name = name.as_str()).into(),
-            expected_current_target: update.before.clone(),
-            new_target: update.after.clone(),
+            targets: update.clone(),
         })
         .collect_vec();
 
@@ -3159,9 +3157,9 @@ pub fn push_updates(
     for update in updates {
         qualified_remote_refs_expected_locations.insert(
             update.qualified_name.as_ref(),
-            update.expected_current_target.as_ref(),
+            update.targets.before.as_ref(),
         );
-        if let Some(new_target) = &update.new_target {
+        if let Some(new_target) = &update.targets.after {
             // We always force-push. We use the push_negotiation callback in
             // `push_refs` to check that the refs did not unexpectedly move on
             // the remote.

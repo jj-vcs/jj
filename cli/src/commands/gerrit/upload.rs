@@ -26,6 +26,7 @@ use jj_lib::git;
 use jj_lib::git::GitPushOptions;
 use jj_lib::git::GitRefUpdate;
 use jj_lib::git::GitSubprocessOptions;
+use jj_lib::merge::Diff;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
@@ -637,8 +638,7 @@ pub async fn cmd_gerrit_upload(
             remote.as_ref(),
             &[GitRefUpdate {
                 qualified_name: remote_ref.clone().into(),
-                expected_current_target: None,
-                new_target: Some(new_commit.id().clone()),
+                targets: Diff::new(None, Some(new_commit.id().clone())),
             }],
             &mut GitSubprocessUi::new(ui),
             &push_options,
