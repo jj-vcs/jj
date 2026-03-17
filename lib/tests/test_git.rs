@@ -42,7 +42,6 @@ use jj_lib::config::ConfigSource;
 use jj_lib::git;
 use jj_lib::git::FailedRefExportReason;
 use jj_lib::git::FetchTagsOverride;
-use jj_lib::git::GitBranchPushTargets;
 use jj_lib::git::GitFetch;
 use jj_lib::git::GitFetchError;
 use jj_lib::git::GitFetchRefExpression;
@@ -51,6 +50,7 @@ use jj_lib::git::GitImportOptions;
 use jj_lib::git::GitImportStats;
 use jj_lib::git::GitPushError;
 use jj_lib::git::GitPushOptions;
+use jj_lib::git::GitPushRefTargets;
 use jj_lib::git::GitPushStats;
 use jj_lib::git::GitRefKind;
 use jj_lib::git::GitRefUpdate;
@@ -4608,8 +4608,8 @@ fn test_push_bookmarks_success() {
     let subprocess_options = GitSubprocessOptions::from_settings(&settings).unwrap();
     let import_options = default_import_options();
 
-    let targets = GitBranchPushTargets {
-        branch_updates: vec![(
+    let targets = GitPushRefTargets {
+        bookmarks: vec![(
             "main".into(),
             Diff::new(
                 Some(setup.main_commit.id().clone()),
@@ -4617,7 +4617,7 @@ fn test_push_bookmarks_success() {
             ),
         )],
     };
-    let stats = git::push_branches(
+    let stats = git::push_refs(
         tx.repo_mut(),
         subprocess_options,
         "origin".as_ref(),
@@ -4690,13 +4690,13 @@ fn test_push_bookmarks_deletion() {
     // Test the setup
     assert!(source_repo.find_reference("refs/heads/main").is_ok());
 
-    let targets = GitBranchPushTargets {
-        branch_updates: vec![(
+    let targets = GitPushRefTargets {
+        bookmarks: vec![(
             "main".into(),
             Diff::new(Some(setup.main_commit.id().clone()), None),
         )],
     };
-    let stats = git::push_branches(
+    let stats = git::push_refs(
         tx.repo_mut(),
         subprocess_options,
         "origin".as_ref(),
@@ -4759,8 +4759,8 @@ fn test_push_bookmarks_mixed_deletion_and_addition() {
     let subprocess_options = GitSubprocessOptions::from_settings(&settings).unwrap();
     let import_options = default_import_options();
 
-    let targets = GitBranchPushTargets {
-        branch_updates: vec![
+    let targets = GitPushRefTargets {
+        bookmarks: vec![
             (
                 "main".into(),
                 Diff::new(Some(setup.main_commit.id().clone()), None),
@@ -4771,7 +4771,7 @@ fn test_push_bookmarks_mixed_deletion_and_addition() {
             ),
         ],
     };
-    let stats = git::push_branches(
+    let stats = git::push_refs(
         tx.repo_mut(),
         subprocess_options,
         "origin".as_ref(),
@@ -4846,8 +4846,8 @@ fn test_push_bookmarks_not_fast_forward() {
     let mut tx = setup.jj_repo.start_transaction();
     let subprocess_options = GitSubprocessOptions::from_settings(&settings).unwrap();
 
-    let targets = GitBranchPushTargets {
-        branch_updates: vec![(
+    let targets = GitPushRefTargets {
+        bookmarks: vec![(
             "main".into(),
             Diff::new(
                 Some(setup.main_commit.id().clone()),
@@ -4855,7 +4855,7 @@ fn test_push_bookmarks_not_fast_forward() {
             ),
         )],
     };
-    let stats = git::push_branches(
+    let stats = git::push_refs(
         tx.repo_mut(),
         subprocess_options,
         "origin".as_ref(),
@@ -4891,8 +4891,8 @@ fn test_push_bookmarks_partial_success() {
     let mut tx = setup.jj_repo.start_transaction();
     let subprocess_options = GitSubprocessOptions::from_settings(&settings).unwrap();
 
-    let targets = GitBranchPushTargets {
-        branch_updates: vec![
+    let targets = GitPushRefTargets {
+        bookmarks: vec![
             (
                 "main".into(),
                 Diff::new(
@@ -4909,7 +4909,7 @@ fn test_push_bookmarks_partial_success() {
             ),
         ],
     };
-    let stats = git::push_branches(
+    let stats = git::push_refs(
         tx.repo_mut(),
         subprocess_options,
         "origin".as_ref(),
@@ -5001,8 +5001,8 @@ fn test_push_bookmarks_unmapped_refs() {
             "",
         )
         .unwrap();
-    let targets = GitBranchPushTargets {
-        branch_updates: vec![
+    let targets = GitPushRefTargets {
+        bookmarks: vec![
             (
                 "bookmark1".into(),
                 Diff::new(None, Some(commit1.id().clone())),
@@ -5013,7 +5013,7 @@ fn test_push_bookmarks_unmapped_refs() {
             ),
         ],
     };
-    let stats = git::push_branches(
+    let stats = git::push_refs(
         tx.repo_mut(),
         subprocess_options,
         "origin".as_ref(),
@@ -5393,8 +5393,8 @@ fn test_push_environment_options() {
         .environment
         .insert("GIT_TRACE".into(), trace_path.clone().into());
 
-    let targets = GitBranchPushTargets {
-        branch_updates: vec![(
+    let targets = GitPushRefTargets {
+        bookmarks: vec![(
             "main".into(),
             Diff::new(
                 Some(setup.main_commit.id().clone()),
@@ -5403,7 +5403,7 @@ fn test_push_environment_options() {
         )],
     };
 
-    git::push_branches(
+    git::push_refs(
         tx.repo_mut(),
         subprocess_options,
         "origin".as_ref(),

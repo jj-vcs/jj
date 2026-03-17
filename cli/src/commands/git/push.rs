@@ -29,8 +29,8 @@ use jj_lib::commit::Commit;
 use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::git;
-use jj_lib::git::GitBranchPushTargets;
 use jj_lib::git::GitPushOptions;
+use jj_lib::git::GitPushRefTargets;
 use jj_lib::git::GitSettings;
 use jj_lib::index::IndexResult;
 use jj_lib::merge::Diff;
@@ -473,15 +473,15 @@ pub async fn cmd_git_push(
         return Ok(());
     }
 
-    let targets = GitBranchPushTargets {
-        branch_updates: bookmark_updates,
+    let targets = GitPushRefTargets {
+        bookmarks: bookmark_updates,
     };
     let git_settings = GitSettings::from_settings(tx.settings())?;
     let options = GitPushOptions {
         extra_args: vec![],
         remote_push_options: args.option.clone(),
     };
-    let push_stats = git::push_branches(
+    let push_stats = git::push_refs(
         tx.repo_mut(),
         git_settings.to_subprocess_options(),
         remote,

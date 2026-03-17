@@ -3048,8 +3048,9 @@ pub enum GitPushError {
 }
 
 #[derive(Clone, Debug)]
-pub struct GitBranchPushTargets {
-    pub branch_updates: Vec<(RefNameBuf, Diff<Option<CommitId>>)>,
+pub struct GitPushRefTargets {
+    /// Bookmark or branch `(name, [expected_target, new_target])`s to push.
+    pub bookmarks: Vec<(RefNameBuf, Diff<Option<CommitId>>)>,
 }
 
 pub struct GitRefUpdate {
@@ -3070,19 +3071,19 @@ pub struct GitPushOptions {
     pub remote_push_options: Vec<String>,
 }
 
-/// Pushes the specified branches and updates the repo view accordingly.
-pub fn push_branches(
+/// Pushes the specified refs and updates the repo view accordingly.
+pub fn push_refs(
     mut_repo: &mut MutableRepo,
     subprocess_options: GitSubprocessOptions,
     remote: &RemoteName,
-    targets: &GitBranchPushTargets,
+    targets: &GitPushRefTargets,
     callback: &mut dyn GitSubprocessCallback,
     options: &GitPushOptions,
 ) -> Result<GitPushStats, GitPushError> {
     validate_remote_name(remote)?;
 
     let ref_updates = targets
-        .branch_updates
+        .bookmarks
         .iter()
         .map(|(name, update)| GitRefUpdate {
             qualified_name: format!("refs/heads/{name}", name = name.as_str()).into(),
@@ -3101,8 +3102,8 @@ pub fn push_branches(
     tracing::debug!(?push_stats);
 
     let pushed: HashSet<&GitRefName> = push_stats.pushed.iter().map(AsRef::as_ref).collect();
-    let pushed_branch_updates = || {
-        iter::zip(&targets.branch_updates, &ref_updates)
+    let pushed_bookmark_updates = || {
+        iter::zip(&targets.bookmarks, &ref_updates)
             .filter(|(_, ref_update)| pushed.contains(&*ref_update.qualified_name))
             .map(|((name, update), _)| (name.as_ref(), update))
     };
@@ -3112,7 +3113,7 @@ pub fn push_branches(
     let unexported_bookmarks = {
         let git_repo =
             get_git_repo(mut_repo.store()).expect("backend type should have been tested");
-        let refs = build_pushed_bookmarks_to_export(remote, pushed_branch_updates());
+        let refs = build_pushed_bookmarks_to_export(remote, pushed_bookmark_updates());
         export_refs_to_git(mut_repo, &git_repo, GitRefKind::Bookmark, refs)
     };
 
@@ -3122,7 +3123,7 @@ pub fn push_branches(
             .binary_search_by_key(&name, |(symbol, _)| &symbol.name)
             .is_err()
     };
-    for (name, update) in pushed_branch_updates().filter(|(name, _)| is_exported_bookmark(name)) {
+    for (name, update) in pushed_bookmark_updates().filter(|(name, _)| is_exported_bookmark(name)) {
         let new_remote_ref = RemoteRef {
             target: RefTarget::resolved(update.after.clone()),
             state: RemoteRefState::Tracked,
