@@ -394,12 +394,15 @@ fn to_git_ref_name(kind: GitRefKind, symbol: RemoteRefSymbol<'_>) -> Option<GitR
     }
 }
 
-fn to_remote_tag_ref_name(symbol: RemoteRefSymbol<'_>) -> Option<GitRefNameBuf> {
+fn to_git_or_remote_tag_ref_name(symbol: RemoteRefSymbol<'_>) -> GitRefNameBuf {
     let RemoteRefSymbol { name, remote } = symbol;
     let name = name.as_str();
     let remote = remote.as_str();
-    (remote != REMOTE_NAME_FOR_LOCAL_GIT_REPO)
-        .then(|| format!("{REMOTE_TAG_REF_NAMESPACE}{remote}/{name}").into())
+    if remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
+        format!("refs/tags/{name}").into()
+    } else {
+        format!("{REMOTE_TAG_REF_NAMESPACE}{remote}/{name}").into()
+    }
 }
 
 #[derive(Debug, Error)]
@@ -1251,7 +1254,14 @@ fn export_refs_to_git(
             GitRefKind::Bookmark => None,
             // Copy existing tag ref, which may point to annotated tag object.
             GitRefKind::Tag => {
-                find_git_tag_oid_to_copy(mut_repo.view(), git_repo, &symbol.name, &new_commit_oid)
+                let remote_matcher = StringMatcher::all();
+                find_git_tag_oid_to_copy(
+                    mut_repo.view(),
+                    git_repo,
+                    &symbol.name,
+                    &remote_matcher,
+                    &new_commit_oid,
+                )
             }
         };
         if let Err(reason) = update_git_ref(
@@ -1442,17 +1452,18 @@ fn find_git_tag_oid_to_copy(
     view: &View,
     git_repo: &gix::Repository,
     name: &RefName,
+    remote_matcher: &StringMatcher,
     commit_oid: &gix::oid,
 ) -> Option<gix::ObjectId> {
     // Filter candidates by tag name and known commit id first
-    view.remote_tags_matching(&StringMatcher::exact(name), &StringMatcher::all())
+    view.remote_tags_matching(&StringMatcher::exact(name), remote_matcher)
         .filter(|(_, remote_ref)| {
             let maybe_id = remote_ref.tracked_target().as_normal();
             maybe_id.is_some_and(|id| id.as_bytes() == commit_oid.as_bytes())
         })
         // Query existing Git ref and tag object
         .filter_map(|(symbol, _)| {
-            let git_ref_name = to_remote_tag_ref_name(symbol)?;
+            let git_ref_name = to_git_or_remote_tag_ref_name(symbol);
             git_repo.find_reference(git_ref_name.as_str()).ok()
         })
         // This usually holds because remote tags are managed by jj, but jj's
