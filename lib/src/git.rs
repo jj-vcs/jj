@@ -293,13 +293,13 @@ impl NegativeRefSpec {
 /// remote it's being pushed to
 pub(crate) struct RefToPush<'a> {
     pub(crate) refspec: &'a RefSpec,
-    pub(crate) expected_location: Option<&'a CommitId>,
+    pub(crate) expected_location: Option<&'a gix::oid>,
 }
 
 impl<'a> RefToPush<'a> {
     fn new(
         refspec: &'a RefSpec,
-        expected_locations: &'a HashMap<&GitRefName, Option<&CommitId>>,
+        expected_locations: &'a HashMap<&GitRefName, Option<&gix::oid>>,
     ) -> Self {
         let expected_location = *expected_locations
             .get(GitRefName::new(&refspec.destination))
@@ -3062,7 +3062,7 @@ pub struct GitRefUpdate {
     ///
     /// The expected position is sourced from the local remote-tracking branch.
     /// This should be `None` if we expect the ref to not exist on the remote.
-    pub targets: Diff<Option<CommitId>>,
+    pub targets: Diff<Option<gix::ObjectId>>,
 }
 
 /// Miscellaneous options for Git push command.
@@ -3090,7 +3090,9 @@ pub fn push_refs(
         .iter()
         .map(|(name, update)| GitRefUpdate {
             qualified_name: format!("refs/heads/{name}", name = name.as_str()).into(),
-            targets: update.clone(),
+            targets: update
+                .as_ref()
+                .map(|id| id.as_ref().map(owned_oid_from_commit_id)),
         })
         .collect_vec();
 
@@ -3161,13 +3163,16 @@ pub fn push_updates(
     for update in updates {
         qualified_remote_refs_expected_locations.insert(
             update.qualified_name.as_ref(),
-            update.targets.before.as_ref(),
+            update.targets.before.as_deref(),
         );
         if let Some(new_target) = &update.targets.after {
             // We always force-push. We use the push_negotiation callback in
             // `push_refs` to check that the refs did not unexpectedly move on
             // the remote.
-            refspecs.push(RefSpec::forced(new_target.hex(), &update.qualified_name));
+            refspecs.push(RefSpec::forced(
+                new_target.to_string(),
+                &update.qualified_name,
+            ));
         } else {
             // Prefixing this with `+` to force-push or not should make no
             // difference. The push negotiation happens regardless, and wouldn't

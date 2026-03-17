@@ -638,7 +638,12 @@ pub async fn cmd_gerrit_upload(
             remote.as_ref(),
             &[GitRefUpdate {
                 qualified_name: remote_ref.clone().into(),
-                targets: Diff::new(None, Some(new_commit.id().clone())),
+                targets: Diff::new(
+                    None,
+                    Some(gix::ObjectId::from_bytes_or_panic(
+                        new_commit.id().as_bytes(),
+                    )),
+                ),
             }],
             &mut GitSubprocessUi::new(ui),
             &push_options,

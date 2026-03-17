@@ -4873,11 +4873,12 @@ fn test_push_updates_unexpectedly_moved_sideways_on_remote() -> TestResult {
     // For each test, we check that the push succeeds if and only if the bookmark
     // conflict `jj git fetch` would generate resolves to the push destination.
 
-    let attempt_push_expecting_sideways = |target: Option<CommitId>| {
+    let attempt_push_expecting_sideways = |target: Option<&Commit>| {
         let subprocess_options = GitSubprocessOptions::from_settings(&settings).unwrap();
         let targets = [GitRefUpdate {
             qualified_name: "refs/heads/main".into(),
-            targets: Diff::new(Some(setup.sideways_commit.id().clone()), target),
+            targets: Diff::new(Some(&setup.sideways_commit), target)
+                .map(|commit| commit.map(git_id)),
         }];
         git::push_updates(
             setup.jj_repo.as_ref(),
@@ -4896,7 +4897,7 @@ fn test_push_updates_unexpectedly_moved_sideways_on_remote() -> TestResult {
 
     assert_eq!(
         push_status_rejected_references(attempt_push_expecting_sideways(Some(
-            setup.child_of_main_commit.id().clone()
+            &setup.child_of_main_commit
         ))?),
         vec!["refs/heads/main".to_owned()]
     );
@@ -4909,20 +4910,20 @@ fn test_push_updates_unexpectedly_moved_sideways_on_remote() -> TestResult {
     // push should fail.
     assert_eq!(
         push_status_rejected_references(attempt_push_expecting_sideways(Some(
-            setup.sideways_commit.id().clone()
+            &setup.sideways_commit
         ))?),
         vec!["refs/heads/main".to_owned()]
     );
 
     assert_eq!(
         push_status_rejected_references(attempt_push_expecting_sideways(Some(
-            setup.parent_of_main_commit.id().clone()
+            &setup.parent_of_main_commit
         ))?),
         vec!["refs/heads/main".to_owned()]
     );
 
     // Moving the bookmark to the same place it already is is OK.
-    let stats = attempt_push_expecting_sideways(Some(setup.main_commit.id().clone()))?;
+    let stats = attempt_push_expecting_sideways(Some(&setup.main_commit))?;
     insta::assert_debug_snapshot!(stats, @r#"
     GitPushStats {
         pushed: [
@@ -4957,11 +4958,12 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote() -> TestResult {
     // For each test, we check that the push succeeds if and only if the bookmark
     // conflict `jj git fetch` would generate resolves to the push destination.
 
-    let attempt_push_expecting_parent = |target: Option<CommitId>| {
+    let attempt_push_expecting_parent = |target: Option<&Commit>| {
         let subprocess_options = GitSubprocessOptions::from_settings(&settings).unwrap();
         let targets = [GitRefUpdate {
             qualified_name: "refs/heads/main".into(),
-            targets: Diff::new(Some(setup.parent_of_main_commit.id().clone()), target),
+            targets: Diff::new(Some(&setup.parent_of_main_commit), target)
+                .map(|commit| commit.map(git_id)),
         }];
         git::push_updates(
             setup.jj_repo.as_ref(),
@@ -4980,7 +4982,7 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote() -> TestResult {
 
     assert_eq!(
         push_status_rejected_references(attempt_push_expecting_parent(Some(
-            setup.sideways_commit.id().clone()
+            &setup.sideways_commit
         ))?),
         ["refs/heads/main"].map(GitRefNameBuf::from)
     );
@@ -4992,7 +4994,7 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote() -> TestResult {
     // should fail.
     assert_eq!(
         push_status_rejected_references(attempt_push_expecting_parent(Some(
-            setup.parent_of_main_commit.id().clone()
+            &setup.parent_of_main_commit
         ))?),
         ["refs/heads/main"].map(GitRefNameBuf::from)
     );
@@ -5000,7 +5002,7 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote() -> TestResult {
     // git is strict about honoring the expected location on --force-with-lease
     assert_eq!(
         push_status_rejected_references(attempt_push_expecting_parent(Some(
-            setup.child_of_main_commit.id().clone()
+            &setup.child_of_main_commit
         ))?),
         ["refs/heads/main"].map(GitRefNameBuf::from)
     );
@@ -5022,11 +5024,11 @@ fn test_push_updates_unexpectedly_exists_on_remote() -> TestResult {
     // For each test, we check that the push succeeds if and only if the bookmark
     // conflict `jj git fetch` would generate resolves to the push destination.
 
-    let attempt_push_expecting_absence = |target: Option<CommitId>| {
+    let attempt_push_expecting_absence = |target: Option<&Commit>| {
         let subprocess_options = GitSubprocessOptions::from_settings(&settings).unwrap();
         let targets = [GitRefUpdate {
             qualified_name: "refs/heads/main".into(),
-            targets: Diff::new(None, target),
+            targets: Diff::new(None, target).map(|commit| commit.map(git_id)),
         }];
         git::push_updates(
             setup.jj_repo.as_ref(),
@@ -5040,7 +5042,7 @@ fn test_push_updates_unexpectedly_exists_on_remote() -> TestResult {
 
     assert_eq!(
         push_status_rejected_references(attempt_push_expecting_absence(Some(
-            setup.parent_of_main_commit.id().clone()
+            &setup.parent_of_main_commit
         ))?),
         ["refs/heads/main"].map(GitRefNameBuf::from)
     );
@@ -5048,7 +5050,7 @@ fn test_push_updates_unexpectedly_exists_on_remote() -> TestResult {
     // Git is strict with enforcing the expected location
     assert_eq!(
         push_status_rejected_references(attempt_push_expecting_absence(Some(
-            setup.child_of_main_commit.id().clone()
+            &setup.child_of_main_commit
         ))?),
         ["refs/heads/main"].map(GitRefNameBuf::from)
     );
@@ -5068,10 +5070,8 @@ fn test_push_updates_success() -> TestResult {
         "origin".as_ref(),
         &[GitRefUpdate {
             qualified_name: "refs/heads/main".into(),
-            targets: Diff::new(
-                Some(setup.main_commit.id().clone()),
-                Some(setup.child_of_main_commit.id().clone()),
-            ),
+            targets: Diff::new(&setup.main_commit, &setup.child_of_main_commit)
+                .map(|commit| Some(git_id(commit))),
         }],
         &mut NullCallback,
         &GitPushOptions::default(),
@@ -5115,10 +5115,8 @@ fn test_push_updates_no_such_remote() -> TestResult {
         "invalid-remote".as_ref(),
         &[GitRefUpdate {
             qualified_name: "refs/heads/main".into(),
-            targets: Diff::new(
-                Some(setup.main_commit.id().clone()),
-                Some(setup.child_of_main_commit.id().clone()),
-            ),
+            targets: Diff::new(&setup.main_commit, &setup.child_of_main_commit)
+                .map(|commit| Some(git_id(commit))),
         }],
         &mut NullCallback,
         &GitPushOptions::default(),
@@ -5139,10 +5137,8 @@ fn test_push_updates_invalid_remote() -> TestResult {
         "http://invalid-remote".as_ref(),
         &[GitRefUpdate {
             qualified_name: "refs/heads/main".into(),
-            targets: Diff::new(
-                Some(setup.main_commit.id().clone()),
-                Some(setup.child_of_main_commit.id().clone()),
-            ),
+            targets: Diff::new(&setup.main_commit, &setup.child_of_main_commit)
+                .map(|commit| Some(git_id(commit))),
         }],
         &mut NullCallback,
         &GitPushOptions::default(),
@@ -5843,10 +5839,8 @@ fn test_push_updates_with_options() -> TestResult {
         "origin".as_ref(),
         &[GitRefUpdate {
             qualified_name: "refs/heads/main".into(),
-            targets: Diff::new(
-                Some(setup.main_commit.id().clone()),
-                Some(setup.child_of_main_commit.id().clone()),
-            ),
+            targets: Diff::new(&setup.main_commit, &setup.child_of_main_commit)
+                .map(|commit| Some(git_id(commit))),
         }],
         &mut callback,
         &GitPushOptions {
