@@ -8335,7 +8335,7 @@ does not match the <code>jj help</code> output exactly.</p>
 <p><code>-c</code>, <code>--conflicted</code> — Show conflicted bookmarks only</p>
 </li>
 <li>
-<p><code>-r</code>, <code>--revisions &lt;REVSETS&gt;</code> — Show bookmarks whose local targets are in the given revisions</p>
+<p><code>-r</code>, <code>--revision &lt;REVSETS&gt;</code> — Show bookmarks whose local targets are in the given revisions</p>
 <p>Note that <code>-r deleted_bookmark</code> will not work since <code>deleted_bookmark</code> wouldn't have a local target.</p>
 </li>
 <li>
@@ -9039,7 +9039,7 @@ configuration.</p>
 <h6 id="options_31"><strong>Options:</strong><a class="headerlink" href="#options_31" title="Permanent link">&para;</a></h6>
 <ul>
 <li>
-<p><code>-r</code>, <code>--revisions &lt;REVISIONS&gt;</code> — The revset, selecting which revisions are sent in to Gerrit</p>
+<p><code>-r</code>, <code>--revision &lt;REVSETS&gt;</code> — The revset, selecting which revisions are sent in to Gerrit</p>
 <p>This can be any arbitrary set of commits. Note that when you push a commit at the head of a stack, all ancestors are pushed too. This means that <code>jj gerrit upload -r foo</code> is equivalent to <code>jj gerrit upload -r 'mutable()::foo</code>.</p>
 <p>If this is not provided, it will check whether @ has a description. * If it does, it will upload @ * Otherwise, it will upload @-</p>
 </li>
@@ -9308,7 +9308,7 @@ configuration.</p>
 <p>The set of private commits can be configured by the <code>git.private-commits</code> setting. The default is <code>none()</code>, meaning all commits are eligible to be pushed.</p>
 </li>
 <li>
-<p><code>-r</code>, <code>--revisions &lt;REVSETS&gt;</code> — Push bookmarks pointing to these commits (can be repeated)</p>
+<p><code>-r</code>, <code>--revision &lt;REVSETS&gt;</code> — Push bookmarks pointing to these commits (can be repeated)</p>
 </li>
 <li>
 <p><code>-c</code>, <code>--change &lt;REVSETS&gt;</code> — Push this commit by creating a bookmark (can be repeated)</p>
@@ -9495,7 +9495,7 @@ configuration.</p>
 <h6 id="options_40"><strong>Options:</strong><a class="headerlink" href="#options_40" title="Permanent link">&para;</a></h6>
 <ul>
 <li>
-<p><code>-r</code>, <code>--revisions &lt;REVSETS&gt;</code> — Which revisions to show</p>
+<p><code>-r</code>, <code>--revision &lt;REVSETS&gt;</code> — Which revisions to show</p>
 <p>If no paths nor revisions are specified, this defaults to the <code>revsets.log</code> setting.</p>
 </li>
 <li>
@@ -10181,7 +10181,7 @@ J           J
 <p>If none of <code>-b</code>, <code>-s</code>, or <code>-r</code> is provided, then the default is <code>-b @</code>.</p>
 </li>
 <li>
-<p><code>-r</code>, <code>--revisions &lt;REVSETS&gt;</code> — Rebase the given revisions, rebasing descendants onto this revision's parent(s)</p>
+<p><code>-r</code>, <code>--revision &lt;REVSETS&gt;</code> — Rebase the given revisions, rebasing descendants onto this revision's parent(s)</p>
 <p>Unlike <code>-s</code> or <code>-b</code>, you may <code>jj rebase -r</code> a revision <code>A</code> onto a descendant of <code>A</code>.</p>
 <p>If none of <code>-b</code>, <code>-s</code>, or <code>-r</code> is provided, then the default is <code>-b @</code>.</p>
 </li>
@@ -10257,10 +10257,10 @@ J           J
 <p>Apply the reverse of the given revision(s)</p>
 <p>The reverse of each of the given revisions is applied sequentially in reverse topological order at the given location.</p>
 <p>The description of the new revisions can be customized with the <code>templates.revert_description</code> config variable.</p>
-<p><strong>Usage:</strong> <code>jj revert --revisions &lt;REVSETS&gt; &lt;--onto &lt;REVSETS&gt;|--insert-after &lt;REVSETS&gt;|--insert-before &lt;REVSETS&gt;&gt;</code></p>
+<p><strong>Usage:</strong> <code>jj revert --revision &lt;REVSETS&gt; &lt;--onto &lt;REVSETS&gt;|--insert-after &lt;REVSETS&gt;|--insert-before &lt;REVSETS&gt;&gt;</code></p>
 <h6 id="options_53"><strong>Options:</strong><a class="headerlink" href="#options_53" title="Permanent link">&para;</a></h6>
 <ul>
-<li><code>-r</code>, <code>--revisions &lt;REVSETS&gt;</code> — The revision(s) to apply the reverse of</li>
+<li><code>-r</code>, <code>--revision &lt;REVSETS&gt;</code> — The revision(s) to apply the reverse of</li>
 <li><code>-o</code>, <code>--onto &lt;REVSETS&gt;</code> [alias: <code>destination</code>] — The revision(s) to apply the reverse changes on top of</li>
 <li><code>-A</code>, <code>--insert-after &lt;REVSETS&gt;</code> [alias: <code>after</code>] — The revision(s) to insert the reverse changes after (can be repeated to create a merge commit)</li>
 <li><code>-B</code>, <code>--insert-before &lt;REVSETS&gt;</code> [alias: <code>before</code>] — The revision(s) to insert the reverse changes before (can be repeated to create a merge commit)</li>
@@ -10315,7 +10315,7 @@ J           J
 <h6 id="options_55"><strong>Options:</strong><a class="headerlink" href="#options_55" title="Permanent link">&para;</a></h6>
 <ul>
 <li>
-<p><code>-r</code>, <code>--revisions &lt;REVSETS&gt;</code> — What revision(s) to sign</p>
+<p><code>-r</code>, <code>--revision &lt;REVSETS&gt;</code> — What revision(s) to sign</p>
 <p>If no revisions are specified, this defaults to the <code>revsets.sign</code> setting.</p>
 <p>Note that revisions are always re-signed.</p>
 <p>While that leads to discomfort for users, which sign with hardware devices, as of now we cannot reliably check if a commit is already signed by the user without creating a signature (see <a href="https://github.com/jj-vcs/jj/issues/5786">#5786</a>).</p>
@@ -10333,7 +10333,7 @@ J           J
 <ul>
 <li><code>-s</code>, <code>--source &lt;REVSETS&gt;</code> — Simplify specified revision(s) together with their trees of descendants (can be repeated)</li>
 <li>
-<p><code>-r</code>, <code>--revisions &lt;REVSETS&gt;</code> — Simplify specified revision(s) (can be repeated)</p>
+<p><code>-r</code>, <code>--revision &lt;REVSETS&gt;</code> — Simplify specified revision(s) (can be repeated)</p>
 <p>If both <code>--source</code> and <code>--revisions</code> are not provided, this defaults to the <code>revsets.simplify-parents</code> setting, or <code>reachable(@, mutable())</code> if it is not set.</p>
 </li>
 </ul>
@@ -10545,7 +10545,7 @@ achieved with <code>jj new</code>.</p>
 <li><code>-a</code>, <code>--all-remotes</code> — Show all tracked and untracked remote tags including the ones whose targets are synchronized with the local tags</li>
 <li><code>-c</code>, <code>--conflicted</code> — Show conflicted tags only</li>
 <li>
-<p><code>-r</code>, <code>--revisions &lt;REVSETS&gt;</code> — Show tags whose local targets are in the given revisions</p>
+<p><code>-r</code>, <code>--revision &lt;REVSETS&gt;</code> — Show tags whose local targets are in the given revisions</p>
 <p>Note that <code>-r deleted_tag</code> will not work since <code>deleted_tag</code> wouldn't have a local target.</p>
 </li>
 <li>
@@ -10589,7 +10589,7 @@ achieved with <code>jj new</code>.</p>
 <p><strong>Usage:</strong> <code>jj unsign [OPTIONS]</code></p>
 <h6 id="options_62"><strong>Options:</strong><a class="headerlink" href="#options_62" title="Permanent link">&para;</a></h6>
 <ul>
-<li><code>-r</code>, <code>--revisions &lt;REVSETS&gt;</code> — What revision(s) to unsign</li>
+<li><code>-r</code>, <code>--revision &lt;REVSETS&gt;</code> — What revision(s) to unsign</li>
 </ul>
 <h2 id="jj-util"><code>jj util</code><a class="headerlink" href="#jj-util" title="Permanent link">&para;</a></h2>
 <p>Infrequently used commands such as for generating shell completions</p>
