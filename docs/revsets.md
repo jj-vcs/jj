@@ -349,6 +349,10 @@ revsets (expressions) as arguments.
   the revset `heads(::x_1 & ::x_2 & ... & ::x_N)`, where `x_{1..N}` are commits
   in `x`. If `x` resolves to a single commit, `fork_point(x)` resolves to `x`.
 
+  `fork_point(x | y)` is what `git merge-base x y` calculates (but unlike `git
+  merge-base --fork-point`, the `fork_point()` function does *not* take a
+  bookmark's history into account).
+
 * `merge_point(x)`: The merge point of all commits in `x`. Similar to the fork
   point, the merge point is the common descendant(s) of all commits in `x` which
   do not have any ancestors that are also common descendants of all commits in
