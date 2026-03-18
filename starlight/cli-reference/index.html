@@ -662,7 +662,7 @@ does not match the <code dir="auto">jj help</code> output exactly.</p><p>Run <co
 <p><code dir="auto">-c</code>, <code dir="auto">--conflicted</code> — Show conflicted bookmarks only</p>
 </li>
 <li>
-<p><code dir="auto">-r</code>, <code dir="auto">--revisions &#x3C;REVSETS></code> — Show bookmarks whose local targets are in the given revisions</p>
+<p><code dir="auto">-r</code>, <code dir="auto">--revision &#x3C;REVSETS></code> — Show bookmarks whose local targets are in the given revisions</p>
 <p>Note that <code dir="auto">-r deleted_bookmark</code> will not work since <code dir="auto">deleted_bookmark</code> wouldn't have a local target.</p>
 </li>
 <li>
@@ -1371,7 +1371,7 @@ configuration.</p>
 <div class="sl-heading-wrapper level-h6"><h6 id="options-31"><strong>Options:</strong></h6><a class="sl-anchor-link" href="#options-31"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Options:”</span></a></div>
 <ul>
 <li>
-<p><code dir="auto">-r</code>, <code dir="auto">--revisions &#x3C;REVISIONS></code> — The revset, selecting which revisions are sent in to Gerrit</p>
+<p><code dir="auto">-r</code>, <code dir="auto">--revision &#x3C;REVSETS></code> — The revset, selecting which revisions are sent in to Gerrit</p>
 <p>This can be any arbitrary set of commits. Note that when you push a commit at the head of a stack, all ancestors are pushed too. This means that <code dir="auto">jj gerrit upload -r foo</code> is equivalent to <code dir="auto">jj gerrit upload -r 'mutable()::foo</code>.</p>
 <p>If this is not provided, it will check whether @ has a description. * If it does, it will upload @ * Otherwise, it will upload @-</p>
 </li>
@@ -1652,7 +1652,7 @@ Do not fetch any tags</li>
 <p>The set of private commits can be configured by the <code dir="auto">git.private-commits</code> setting. The default is <code dir="auto">none()</code>, meaning all commits are eligible to be pushed.</p>
 </li>
 <li>
-<p><code dir="auto">-r</code>, <code dir="auto">--revisions &#x3C;REVSETS></code> — Push bookmarks pointing to these commits (can be repeated)</p>
+<p><code dir="auto">-r</code>, <code dir="auto">--revision &#x3C;REVSETS></code> — Push bookmarks pointing to these commits (can be repeated)</p>
 </li>
 <li>
 <p><code dir="auto">-c</code>, <code dir="auto">--change &#x3C;REVSETS></code> — Push this commit by creating a bookmark (can be repeated)</p>
@@ -1859,7 +1859,7 @@ Show a tutorial to get started with jj</li>
 <div class="sl-heading-wrapper level-h6"><h6 id="options-40"><strong>Options:</strong></h6><a class="sl-anchor-link" href="#options-40"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Options:”</span></a></div>
 <ul>
 <li>
-<p><code dir="auto">-r</code>, <code dir="auto">--revisions &#x3C;REVSETS></code> — Which revisions to show</p>
+<p><code dir="auto">-r</code>, <code dir="auto">--revision &#x3C;REVSETS></code> — Which revisions to show</p>
 <p>If no paths nor revisions are specified, this defaults to the <code dir="auto">revsets.log</code> setting.</p>
 </li>
 <li>
@@ -2455,7 +2455,7 @@ case):</p>
 <p>If none of <code dir="auto">-b</code>, <code dir="auto">-s</code>, or <code dir="auto">-r</code> is provided, then the default is <code dir="auto">-b @</code>.</p>
 </li>
 <li>
-<p><code dir="auto">-r</code>, <code dir="auto">--revisions &#x3C;REVSETS></code> — Rebase the given revisions, rebasing descendants onto this revision's parent(s)</p>
+<p><code dir="auto">-r</code>, <code dir="auto">--revision &#x3C;REVSETS></code> — Rebase the given revisions, rebasing descendants onto this revision's parent(s)</p>
 <p>Unlike <code dir="auto">-s</code> or <code dir="auto">-b</code>, you may <code dir="auto">jj rebase -r</code> a revision <code dir="auto">A</code> onto a descendant of <code dir="auto">A</code>.</p>
 <p>If none of <code dir="auto">-b</code>, <code dir="auto">-s</code>, or <code dir="auto">-r</code> is provided, then the default is <code dir="auto">-b @</code>.</p>
 </li>
@@ -2545,10 +2545,10 @@ case):</p>
 <p>Apply the reverse of the given revision(s)</p>
 <p>The reverse of each of the given revisions is applied sequentially in reverse topological order at the given location.</p>
 <p>The description of the new revisions can be customized with the <code dir="auto">templates.revert_description</code> config variable.</p>
-<p><strong>Usage:</strong> <code dir="auto">jj revert --revisions &#x3C;REVSETS> &#x3C;--onto &#x3C;REVSETS>|--insert-after &#x3C;REVSETS>|--insert-before &#x3C;REVSETS>></code></p>
+<p><strong>Usage:</strong> <code dir="auto">jj revert --revision &#x3C;REVSETS> &#x3C;--onto &#x3C;REVSETS>|--insert-after &#x3C;REVSETS>|--insert-before &#x3C;REVSETS>></code></p>
 <div class="sl-heading-wrapper level-h6"><h6 id="options-53"><strong>Options:</strong></h6><a class="sl-anchor-link" href="#options-53"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Options:”</span></a></div>
 <ul>
-<li><code dir="auto">-r</code>, <code dir="auto">--revisions &#x3C;REVSETS></code> — The revision(s) to apply the reverse of</li>
+<li><code dir="auto">-r</code>, <code dir="auto">--revision &#x3C;REVSETS></code> — The revision(s) to apply the reverse of</li>
 <li><code dir="auto">-o</code>, <code dir="auto">--onto &#x3C;REVSETS></code> [alias: <code dir="auto">destination</code>] — The revision(s) to apply the reverse changes on top of</li>
 <li><code dir="auto">-A</code>, <code dir="auto">--insert-after &#x3C;REVSETS></code> [alias: <code dir="auto">after</code>] — The revision(s) to insert the reverse changes after (can be repeated to create a merge commit)</li>
 <li><code dir="auto">-B</code>, <code dir="auto">--insert-before &#x3C;REVSETS></code> [alias: <code dir="auto">before</code>] — The revision(s) to insert the reverse changes before (can be repeated to create a merge commit)</li>
@@ -2613,7 +2613,7 @@ case):</p>
 <div class="sl-heading-wrapper level-h6"><h6 id="options-55"><strong>Options:</strong></h6><a class="sl-anchor-link" href="#options-55"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Options:”</span></a></div>
 <ul>
 <li>
-<p><code dir="auto">-r</code>, <code dir="auto">--revisions &#x3C;REVSETS></code> — What revision(s) to sign</p>
+<p><code dir="auto">-r</code>, <code dir="auto">--revision &#x3C;REVSETS></code> — What revision(s) to sign</p>
 <p>If no revisions are specified, this defaults to the <code dir="auto">revsets.sign</code> setting.</p>
 <p>Note that revisions are always re-signed.</p>
 <p>While that leads to discomfort for users, which sign with hardware devices, as of now we cannot reliably check if a commit is already signed by the user without creating a signature (see <a href="https://github.com/jj-vcs/jj/issues/5786">#5786</a>).</p>
@@ -2633,7 +2633,7 @@ case):</p>
 <p><code dir="auto">-s</code>, <code dir="auto">--source &#x3C;REVSETS></code> — Simplify specified revision(s) together with their trees of descendants (can be repeated)</p>
 </li>
 <li>
-<p><code dir="auto">-r</code>, <code dir="auto">--revisions &#x3C;REVSETS></code> — Simplify specified revision(s) (can be repeated)</p>
+<p><code dir="auto">-r</code>, <code dir="auto">--revision &#x3C;REVSETS></code> — Simplify specified revision(s) (can be repeated)</p>
 <p>If both <code dir="auto">--source</code> and <code dir="auto">--revisions</code> are not provided, this defaults to the <code dir="auto">revsets.simplify-parents</code> setting, or <code dir="auto">reachable(@, mutable())</code> if it is not set.</p>
 </li>
 </ul>
@@ -2847,7 +2847,7 @@ achieved with <code dir="auto">jj new</code>.</p>
 <p><code dir="auto">-c</code>, <code dir="auto">--conflicted</code> — Show conflicted tags only</p>
 </li>
 <li>
-<p><code dir="auto">-r</code>, <code dir="auto">--revisions &#x3C;REVSETS></code> — Show tags whose local targets are in the given revisions</p>
+<p><code dir="auto">-r</code>, <code dir="auto">--revision &#x3C;REVSETS></code> — Show tags whose local targets are in the given revisions</p>
 <p>Note that <code dir="auto">-r deleted_tag</code> will not work since <code dir="auto">deleted_tag</code> wouldn't have a local target.</p>
 </li>
 <li>
@@ -2891,7 +2891,7 @@ achieved with <code dir="auto">jj new</code>.</p>
 <p><strong>Usage:</strong> <code dir="auto">jj unsign [OPTIONS]</code></p>
 <div class="sl-heading-wrapper level-h6"><h6 id="options-62"><strong>Options:</strong></h6><a class="sl-anchor-link" href="#options-62"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Options:”</span></a></div>
 <ul>
-<li><code dir="auto">-r</code>, <code dir="auto">--revisions &#x3C;REVSETS></code> — What revision(s) to unsign</li>
+<li><code dir="auto">-r</code>, <code dir="auto">--revision &#x3C;REVSETS></code> — What revision(s) to unsign</li>
 </ul>
 <div class="sl-heading-wrapper level-h2"><h2 id="jj-util"><code dir="auto">jj util</code></h2><a class="sl-anchor-link" href="#jj-util"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “jj util”</span></a></div>
 <p>Infrequently used commands such as for generating shell completions</p>
