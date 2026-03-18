@@ -637,6 +637,8 @@ pub fn parse_maybe_bare(
 mod tests {
     use std::path::PathBuf;
 
+    use testutils::TestResult;
+
     use super::*;
 
     fn repo_path_buf(value: impl Into<String>) -> RepoPathBuf {
@@ -669,7 +671,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_file_pattern() {
+    fn test_parse_file_pattern() -> TestResult {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
         let context = FilesetParseContext {
@@ -683,17 +685,17 @@ mod tests {
 
         // cwd-relative patterns
         insta::assert_debug_snapshot!(
-            parse(".").unwrap(),
+            parse(".")?,
             @r#"Pattern(PrefixPath("cur"))"#);
         insta::assert_debug_snapshot!(
-            parse("..").unwrap(),
+            parse("..")?,
             @r#"Pattern(PrefixPath(""))"#);
         assert!(parse("../..").is_err());
         insta::assert_debug_snapshot!(
-            parse("foo").unwrap(),
+            parse("foo")?,
             @r#"Pattern(PrefixPath("cur/foo"))"#);
         insta::assert_debug_snapshot!(
-            parse("*.*").unwrap(),
+            parse("*.*")?,
             @r#"
         Pattern(
             PrefixGlob {
@@ -708,34 +710,35 @@ mod tests {
         )
         "#);
         insta::assert_debug_snapshot!(
-            parse("cwd:.").unwrap(),
+            parse("cwd:.")?,
             @r#"Pattern(PrefixPath("cur"))"#);
         insta::assert_debug_snapshot!(
-            parse("cwd-file:foo").unwrap(),
+            parse("cwd-file:foo")?,
             @r#"Pattern(FilePath("cur/foo"))"#);
         insta::assert_debug_snapshot!(
-            parse("file:../foo/bar").unwrap(),
+            parse("file:../foo/bar")?,
             @r#"Pattern(FilePath("foo/bar"))"#);
 
         // workspace-relative patterns
         insta::assert_debug_snapshot!(
-            parse("root:.").unwrap(),
+            parse("root:.")?,
             @r#"Pattern(PrefixPath(""))"#);
         assert!(parse("root:..").is_err());
         insta::assert_debug_snapshot!(
-            parse("root:foo/bar").unwrap(),
+            parse("root:foo/bar")?,
             @r#"Pattern(PrefixPath("foo/bar"))"#);
         insta::assert_debug_snapshot!(
-            parse("root-file:bar").unwrap(),
+            parse("root-file:bar")?,
             @r#"Pattern(FilePath("bar"))"#);
 
         insta::assert_debug_snapshot!(
             parse("file:(foo|bar)").unwrap_err().kind(),
             @r#"Expression("Expected string")"#);
+        Ok(())
     }
 
     #[test]
-    fn test_parse_glob_pattern() {
+    fn test_parse_glob_pattern() -> TestResult {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
         let context = FilesetParseContext {
@@ -750,23 +753,23 @@ mod tests {
 
         // cwd-relative, without meta characters
         insta::assert_debug_snapshot!(
-            parse(r#"cwd-glob:"foo""#).unwrap(),
+            parse(r#"cwd-glob:"foo""#)?,
             @r#"Pattern(FilePath("cur*/foo"))"#);
         // Strictly speaking, glob:"" shouldn't match a file named <cwd>, but
         // file pattern doesn't distinguish "foo/" from "foo".
         insta::assert_debug_snapshot!(
-            parse(r#"glob:"""#).unwrap(),
+            parse(r#"glob:"""#)?,
             @r#"Pattern(FilePath("cur*"))"#);
         insta::assert_debug_snapshot!(
-            parse(r#"glob:".""#).unwrap(),
+            parse(r#"glob:".""#)?,
             @r#"Pattern(FilePath("cur*"))"#);
         insta::assert_debug_snapshot!(
-            parse(r#"glob:"..""#).unwrap(),
+            parse(r#"glob:"..""#)?,
             @r#"Pattern(FilePath(""))"#);
 
         // cwd-relative, with meta characters
         insta::assert_debug_snapshot!(
-            parse(r#"glob:"*""#).unwrap(), @r#"
+            parse(r#"glob:"*""#)?, @r#"
         Pattern(
             FileGlob {
                 dir: "cur*",
@@ -780,7 +783,7 @@ mod tests {
         )
         "#);
         insta::assert_debug_snapshot!(
-            parse(r#"glob:"./*""#).unwrap(), @r#"
+            parse(r#"glob:"./*""#)?, @r#"
         Pattern(
             FileGlob {
                 dir: "cur*",
@@ -794,7 +797,7 @@ mod tests {
         )
         "#);
         insta::assert_debug_snapshot!(
-            parse(r#"glob:"../*""#).unwrap(), @r#"
+            parse(r#"glob:"../*""#)?, @r#"
         Pattern(
             FileGlob {
                 dir: "",
@@ -809,7 +812,7 @@ mod tests {
         "#);
         // glob:"**" is equivalent to root-glob:"<cwd>/**", not root-glob:"**"
         insta::assert_debug_snapshot!(
-            parse(r#"glob:"**""#).unwrap(), @r#"
+            parse(r#"glob:"**""#)?, @r#"
         Pattern(
             FileGlob {
                 dir: "cur*",
@@ -823,7 +826,7 @@ mod tests {
         )
         "#);
         insta::assert_debug_snapshot!(
-            parse(r#"glob:"../foo/b?r/baz""#).unwrap(), @r#"
+            parse(r#"glob:"../foo/b?r/baz""#)?, @r#"
         Pattern(
             FileGlob {
                 dir: "foo",
@@ -847,7 +850,7 @@ mod tests {
         if cfg!(windows) {
             // cwd-relative, with Windows path separators
             insta::assert_debug_snapshot!(
-                parse(r#"glob:"..\\foo\\*\\bar""#).unwrap(), @r#"
+                parse(r#"glob:"..\\foo\\*\\bar""#)?, @r#"
             Pattern(
                 FileGlob {
                     dir: "foo",
@@ -863,7 +866,7 @@ mod tests {
         } else {
             // backslash is an escape character on Unix
             insta::assert_debug_snapshot!(
-                parse(r#"glob:"..\\foo\\*\\bar""#).unwrap(), @r#"
+                parse(r#"glob:"..\\foo\\*\\bar""#)?, @r#"
             Pattern(
                 FileGlob {
                     dir: "cur*",
@@ -880,18 +883,18 @@ mod tests {
 
         // workspace-relative, without meta characters
         insta::assert_debug_snapshot!(
-            parse(r#"root-glob:"foo""#).unwrap(),
+            parse(r#"root-glob:"foo""#)?,
             @r#"Pattern(FilePath("foo"))"#);
         insta::assert_debug_snapshot!(
-            parse(r#"root-glob:"""#).unwrap(),
+            parse(r#"root-glob:"""#)?,
             @r#"Pattern(FilePath(""))"#);
         insta::assert_debug_snapshot!(
-            parse(r#"root-glob:".""#).unwrap(),
+            parse(r#"root-glob:".""#)?,
             @r#"Pattern(FilePath(""))"#);
 
         // workspace-relative, with meta characters
         insta::assert_debug_snapshot!(
-            parse(r#"root-glob:"*""#).unwrap(), @r#"
+            parse(r#"root-glob:"*""#)?, @r#"
         Pattern(
             FileGlob {
                 dir: "",
@@ -905,7 +908,7 @@ mod tests {
         )
         "#);
         insta::assert_debug_snapshot!(
-            parse(r#"root-glob:"foo/bar/b[az]""#).unwrap(), @r#"
+            parse(r#"root-glob:"foo/bar/b[az]""#)?, @r#"
         Pattern(
             FileGlob {
                 dir: "foo/bar",
@@ -919,7 +922,7 @@ mod tests {
         )
         "#);
         insta::assert_debug_snapshot!(
-            parse(r#"root-glob:"foo/bar/b{ar,az}""#).unwrap(), @r#"
+            parse(r#"root-glob:"foo/bar/b{ar,az}""#)?, @r#"
         Pattern(
             FileGlob {
                 dir: "foo/bar",
@@ -940,7 +943,7 @@ mod tests {
         // workspace-relative, backslash escape without meta characters
         if cfg!(not(windows)) {
             insta::assert_debug_snapshot!(
-                parse(r#"root-glob:'foo/bar\baz'"#).unwrap(), @r#"
+                parse(r#"root-glob:'foo/bar\baz'"#)?, @r#"
             Pattern(
                 FileGlob {
                     dir: "foo",
@@ -954,10 +957,11 @@ mod tests {
             )
             "#);
         }
+        Ok(())
     }
 
     #[test]
-    fn test_parse_glob_pattern_case_insensitive() {
+    fn test_parse_glob_pattern_case_insensitive() -> TestResult {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
         let context = FilesetParseContext {
@@ -971,7 +975,7 @@ mod tests {
 
         // cwd-relative case-insensitive glob
         insta::assert_debug_snapshot!(
-            parse(r#"glob-i:"*.TXT""#).unwrap(), @r#"
+            parse(r#"glob-i:"*.TXT""#)?, @r#"
         Pattern(
             FileGlob {
                 dir: "cur",
@@ -987,7 +991,7 @@ mod tests {
 
         // cwd-relative case-insensitive glob with more specific pattern
         insta::assert_debug_snapshot!(
-            parse(r#"cwd-glob-i:"[Ff]oo""#).unwrap(), @r#"
+            parse(r#"cwd-glob-i:"[Ff]oo""#)?, @r#"
         Pattern(
             FileGlob {
                 dir: "cur",
@@ -1003,7 +1007,7 @@ mod tests {
 
         // workspace-relative case-insensitive glob
         insta::assert_debug_snapshot!(
-            parse(r#"root-glob-i:"*.Rs""#).unwrap(), @r#"
+            parse(r#"root-glob-i:"*.Rs""#)?, @r#"
         Pattern(
             FileGlob {
                 dir: "",
@@ -1019,7 +1023,7 @@ mod tests {
 
         // case-insensitive pattern with directory component (should not split the path)
         insta::assert_debug_snapshot!(
-            parse(r#"glob-i:"SubDir/*.rs""#).unwrap(), @r#"
+            parse(r#"glob-i:"SubDir/*.rs""#)?, @r#"
         Pattern(
             FileGlob {
                 dir: "cur",
@@ -1035,7 +1039,7 @@ mod tests {
 
         // case-sensitive pattern with directory component (should split the path)
         insta::assert_debug_snapshot!(
-            parse(r#"glob:"SubDir/*.rs""#).unwrap(), @r#"
+            parse(r#"glob:"SubDir/*.rs""#)?, @r#"
         Pattern(
             FileGlob {
                 dir: "cur/SubDir",
@@ -1051,7 +1055,7 @@ mod tests {
 
         // case-insensitive pattern with leading dots (should split dots but not dirs)
         insta::assert_debug_snapshot!(
-            parse(r#"glob-i:"../SomeDir/*.rs""#).unwrap(), @r#"
+            parse(r#"glob-i:"../SomeDir/*.rs""#)?, @r#"
         Pattern(
             FileGlob {
                 dir: "",
@@ -1067,7 +1071,7 @@ mod tests {
 
         // case-insensitive pattern with single leading dot
         insta::assert_debug_snapshot!(
-            parse(r#"glob-i:"./SomeFile*.txt""#).unwrap(), @r#"
+            parse(r#"glob-i:"./SomeFile*.txt""#)?, @r#"
         Pattern(
             FileGlob {
                 dir: "cur",
@@ -1080,10 +1084,11 @@ mod tests {
             },
         )
         "#);
+        Ok(())
     }
 
     #[test]
-    fn test_parse_prefix_glob_pattern() {
+    fn test_parse_prefix_glob_pattern() -> TestResult {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
         let context = FilesetParseContext {
@@ -1098,21 +1103,21 @@ mod tests {
 
         // cwd-relative, without meta/case-insensitive characters
         insta::assert_debug_snapshot!(
-            parse("cwd-prefix-glob:'foo'").unwrap(),
+            parse("cwd-prefix-glob:'foo'")?,
             @r#"Pattern(PrefixPath("cur*/foo"))"#);
         insta::assert_debug_snapshot!(
-            parse("prefix-glob:'.'").unwrap(),
+            parse("prefix-glob:'.'")?,
             @r#"Pattern(PrefixPath("cur*"))"#);
         insta::assert_debug_snapshot!(
-            parse("cwd-prefix-glob-i:'..'").unwrap(),
+            parse("cwd-prefix-glob-i:'..'")?,
             @r#"Pattern(PrefixPath(""))"#);
         insta::assert_debug_snapshot!(
-            parse("prefix-glob-i:'../_'").unwrap(),
+            parse("prefix-glob-i:'../_'")?,
             @r#"Pattern(PrefixPath("_"))"#);
 
         // cwd-relative, with meta characters
         insta::assert_debug_snapshot!(
-            parse("cwd-prefix-glob:'*'").unwrap(), @r#"
+            parse("cwd-prefix-glob:'*'")?, @r#"
         Pattern(
             PrefixGlob {
                 dir: "cur*",
@@ -1128,7 +1133,7 @@ mod tests {
 
         // cwd-relative, with case-insensitive characters
         insta::assert_debug_snapshot!(
-            parse("cwd-prefix-glob-i:'../foo'").unwrap(), @r#"
+            parse("cwd-prefix-glob-i:'../foo'")?, @r#"
         Pattern(
             PrefixGlob {
                 dir: "",
@@ -1144,15 +1149,15 @@ mod tests {
 
         // workspace-relative, without meta/case-insensitive characters
         insta::assert_debug_snapshot!(
-            parse("root-prefix-glob:'foo'").unwrap(),
+            parse("root-prefix-glob:'foo'")?,
             @r#"Pattern(PrefixPath("foo"))"#);
         insta::assert_debug_snapshot!(
-            parse("root-prefix-glob-i:'.'").unwrap(),
+            parse("root-prefix-glob-i:'.'")?,
             @r#"Pattern(PrefixPath(""))"#);
 
         // workspace-relative, with meta characters
         insta::assert_debug_snapshot!(
-            parse("root-prefix-glob:'*'").unwrap(), @r#"
+            parse("root-prefix-glob:'*'")?, @r#"
         Pattern(
             PrefixGlob {
                 dir: "",
@@ -1168,7 +1173,7 @@ mod tests {
 
         // workspace-relative, with case-insensitive characters
         insta::assert_debug_snapshot!(
-            parse("root-prefix-glob-i:'_/foo'").unwrap(), @r#"
+            parse("root-prefix-glob-i:'_/foo'")?, @r#"
         Pattern(
             PrefixGlob {
                 dir: "_",
@@ -1181,10 +1186,11 @@ mod tests {
             },
         )
         "#);
+        Ok(())
     }
 
     #[test]
-    fn test_parse_function() {
+    fn test_parse_function() -> TestResult {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
         let context = FilesetParseContext {
@@ -1196,8 +1202,8 @@ mod tests {
         };
         let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &context);
 
-        insta::assert_debug_snapshot!(parse("all()").unwrap(), @"All");
-        insta::assert_debug_snapshot!(parse("none()").unwrap(), @"None");
+        insta::assert_debug_snapshot!(parse("all()")?, @"All");
+        insta::assert_debug_snapshot!(parse("none()")?, @"None");
         insta::assert_debug_snapshot!(parse("all(x)").unwrap_err().kind(), @r#"
         InvalidArguments {
             name: "all",
@@ -1212,10 +1218,11 @@ mod tests {
             ],
         }
         "#);
+        Ok(())
     }
 
     #[test]
-    fn test_parse_compound_expression() {
+    fn test_parse_compound_expression() -> TestResult {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
         let context = FilesetParseContext {
@@ -1227,13 +1234,13 @@ mod tests {
         };
         let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &context);
 
-        insta::assert_debug_snapshot!(parse("~x").unwrap(), @r#"
+        insta::assert_debug_snapshot!(parse("~x")?, @r#"
         Difference(
             All,
             Pattern(PrefixPath("cur/x")),
         )
         "#);
-        insta::assert_debug_snapshot!(parse("x|y|root:z").unwrap(), @r#"
+        insta::assert_debug_snapshot!(parse("x|y|root:z")?, @r#"
         UnionAll(
             [
                 Pattern(PrefixPath("cur/x")),
@@ -1242,7 +1249,7 @@ mod tests {
             ],
         )
         "#);
-        insta::assert_debug_snapshot!(parse("x|y&z").unwrap(), @r#"
+        insta::assert_debug_snapshot!(parse("x|y&z")?, @r#"
         UnionAll(
             [
                 Pattern(PrefixPath("cur/x")),
@@ -1253,6 +1260,7 @@ mod tests {
             ],
         )
         "#);
+        Ok(())
     }
 
     #[test]

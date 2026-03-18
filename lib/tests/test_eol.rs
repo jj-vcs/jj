@@ -28,6 +28,7 @@ use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepoBackend;
+use testutils::TestResult;
 use testutils::TestWorkspace;
 use testutils::assert_tree_eq;
 use testutils::base_user_config;
@@ -314,7 +315,7 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
 }
 
 #[test]
-fn test_eol_conversion_input_output_snapshot_conflicts() {
+fn test_eol_conversion_input_output_snapshot_conflicts() -> TestResult {
     let contents =
         create_conflict_snapshot_and_read(r#"working-copy.eol-conversion = "input-output""#);
     for line in contents.lines_with_terminator() {
@@ -324,10 +325,11 @@ fn test_eol_conversion_input_output_snapshot_conflicts() {
             line.to_str_lossy().as_ref()
         );
     }
+    Ok(())
 }
 
 #[test]
-fn test_eol_conversion_input_snapshot_conflicts() {
+fn test_eol_conversion_input_snapshot_conflicts() -> TestResult {
     let contents = create_conflict_snapshot_and_read(r#"working-copy.eol-conversion = "input""#);
     for line in contents.lines_with_terminator() {
         assert!(
@@ -336,10 +338,11 @@ fn test_eol_conversion_input_snapshot_conflicts() {
             line.to_str_lossy().as_ref()
         );
     }
+    Ok(())
 }
 
 #[test]
-fn test_eol_conversion_none_snapshot_conflicts() {
+fn test_eol_conversion_none_snapshot_conflicts() -> TestResult {
     let contents = create_conflict_snapshot_and_read(r#"working-copy.eol-conversion = "none""#);
     // We only check the last line, because it is only guaranteed that the last line
     // is not the conflict markers. The conflict markers in the store are supposed
@@ -350,6 +353,7 @@ fn test_eol_conversion_none_snapshot_conflicts() {
         "{:?} should end with CRLF",
         line.to_str_lossy().as_ref()
     );
+    Ok(())
 }
 
 struct UpdateConflictsTestConfig {
@@ -395,7 +399,7 @@ fn test_eol_conversion_update_conflicts(
         expected_conflict_side1,
         expected_conflict_side2,
     }: UpdateConflictsTestConfig,
-) {
+) -> TestResult {
     // Create a conflict commit with 2 given contents on one file, checkout that
     // conflict with the given EOL conversion settings, and test if the EOL matches.
 
@@ -404,9 +408,7 @@ fn test_eol_conversion_update_conflicts(
     let mut test_workspace =
         TestWorkspace::init_with_backend_and_settings(TestRepoBackend::Git, &user_settings);
     let file_repo_path = repo_path("test-eol-file");
-    let file_disk_path = file_repo_path
-        .to_fs_path(test_workspace.workspace.workspace_root())
-        .unwrap();
+    let file_disk_path = file_repo_path.to_fs_path(test_workspace.workspace.workspace_root())?;
 
     // The commit graph:
     // C (conflict)
@@ -426,23 +428,21 @@ fn test_eol_conversion_update_conflicts(
         .repo_mut()
         .new_commit(vec![root_commit.id().clone()], tree)
         .write_unwrap();
-    tx.commit("commit parent 2").block_on().unwrap();
+    tx.commit("commit parent 2").block_on()?;
 
     // Reload the repo to pick up the new commits.
-    test_workspace.repo = test_workspace.repo.reload_at_head().block_on().unwrap();
+    test_workspace.repo = test_workspace.repo.reload_at_head().block_on()?;
     // Create the merge commit.
-    let tree = merge_commit_trees(&*test_workspace.repo, &[parent1_commit, parent2_commit])
-        .block_on()
-        .unwrap();
+    let tree =
+        merge_commit_trees(&*test_workspace.repo, &[parent1_commit, parent2_commit]).block_on()?;
     let merge_commit = commit_with_tree(test_workspace.repo.store(), tree);
 
     // Checkout the merge commit.
     test_workspace
         .workspace
         .check_out(test_workspace.repo.op_id().clone(), None, &merge_commit)
-        .block_on()
-        .unwrap();
-    let contents = std::fs::read(&file_disk_path).unwrap();
+        .block_on()?;
+    let contents = std::fs::read(&file_disk_path)?;
     for line in contents.lines_with_terminator() {
         assert!(
             line.ends_with_str(expected_eol),
@@ -459,6 +459,7 @@ fn test_eol_conversion_update_conflicts(
     let sides = hunk.iter().collect::<Vec<_>>();
     assert_eq!(sides[0], expected_conflict_side1);
     assert_eq!(sides[2], expected_conflict_side2);
+    Ok(())
 }
 
 #[test_case(Config {

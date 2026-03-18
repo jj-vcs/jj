@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use indoc::indoc;
+use testutils::TestResult;
 use testutils::git;
 
 use crate::common::CommandOutput;
@@ -1918,7 +1919,7 @@ fn test_git_push_deleted() {
 }
 
 #[test]
-fn test_git_push_conflicting_bookmarks() {
+fn test_git_push_conflicting_bookmarks() -> TestResult {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
@@ -1931,10 +1932,8 @@ fn test_git_push_conflicting_bookmarks() {
 
     // Forget remote ref, move local ref, then fetch to create conflict.
     git_repo
-        .find_reference("refs/remotes/origin/bookmark2")
-        .unwrap()
-        .delete()
-        .unwrap();
+        .find_reference("refs/remotes/origin/bookmark2")?
+        .delete()?;
     work_dir.run_jj(["git", "import"]).success();
     work_dir
         .run_jj(["new", "root()", "-m=description 3"])
@@ -2003,6 +2002,7 @@ fn test_git_push_conflicting_bookmarks() {
       Move forward bookmark bookmark1 from 749c2e6d999f to 9bb0f427b517
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
@@ -2579,7 +2579,7 @@ fn test_git_push_sign_on_push() {
 }
 
 #[test]
-fn test_git_push_rejected_by_remote() {
+fn test_git_push_rejected_by_remote() -> TestResult {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
@@ -2603,12 +2603,12 @@ fn test_git_push_rejected_by_remote() {
         .join("hooks")
         .join("update");
 
-    std::fs::write(&hook_path, "#!/bin/sh\nexit 1").unwrap();
+    std::fs::write(&hook_path, "#!/bin/sh\nexit 1")?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt as _;
 
-        std::fs::set_permissions(&hook_path, std::fs::Permissions::from_mode(0o700)).unwrap();
+        std::fs::set_permissions(&hook_path, std::fs::Permissions::from_mode(0o700))?;
     }
 
     // create new commit on top of bookmark1
@@ -2646,6 +2646,7 @@ fn test_git_push_rejected_by_remote() {
         [exit status: 1]
         ");
     });
+    Ok(())
 }
 
 #[test]

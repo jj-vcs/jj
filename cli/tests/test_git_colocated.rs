@@ -15,6 +15,7 @@
 use std::fmt::Write as _;
 use std::path::Path;
 
+use testutils::TestResult;
 use testutils::git;
 
 use crate::common::CommandOutput;
@@ -22,7 +23,7 @@ use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
 
 #[test]
-fn test_git_colocated() {
+fn test_git_colocated() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
     let git_repo = git::init(work_dir.root());
@@ -40,7 +41,7 @@ fn test_git_colocated() {
     git::checkout_tree_index(&git_repo, tree_id);
     assert_eq!(work_dir.read_file("file"), b"contents");
     insta::assert_snapshot!(
-        git_repo.head_id().unwrap().to_string(),
+        git_repo.head_id()?.to_string(),
         @"97358f54806c7cd005ed5ade68a779595efbae7e"
     );
 
@@ -55,7 +56,7 @@ fn test_git_colocated() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        git_repo.head_id().unwrap().to_string(),
+        git_repo.head_id()?.to_string(),
         @"97358f54806c7cd005ed5ade68a779595efbae7e"
     );
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
@@ -74,7 +75,7 @@ fn test_git_colocated() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        git_repo.head_id().unwrap().to_string(),
+        git_repo.head_id()?.to_string(),
         @"97358f54806c7cd005ed5ade68a779595efbae7e"
     );
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
@@ -92,9 +93,9 @@ fn test_git_colocated() {
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
-    assert!(git_repo.head().unwrap().is_detached());
+    assert!(git_repo.head()?.is_detached());
     insta::assert_snapshot!(
-        git_repo.head_id().unwrap().to_string(),
+        git_repo.head_id()?.to_string(),
         @"9dfe8c7005c8dff6078ecdfd953c6bfddc633c90"
     );
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
@@ -102,10 +103,12 @@ fn test_git_colocated() {
     Last imported/exported Git HEAD: 9dfe8c7005c8dff6078ecdfd953c6bfddc633c90
     [EOF]
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_intent_to_add() {
+fn test_git_colocated_intent_to_add() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env
         .run_jj_in(".", ["git", "init", "--colocate", "repo"])
@@ -165,10 +168,12 @@ fn test_git_colocated_intent_to_add() {
     Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 .gitignore
     Unconflicted Mode(FILE) 0839b2e9412b ctime=0:0 mtime=0:0 size=0 flags=0 file1.txt
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_unborn_bookmark() {
+fn test_git_colocated_unborn_bookmark() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
     let git_repo = git::init(work_dir.root());
@@ -200,9 +205,9 @@ fn test_git_colocated_unborn_bookmark() {
     work_dir
         .run_jj(["git", "init", "--git-repo", "."])
         .success();
-    assert!(git_repo.head().unwrap().is_unborn());
+    assert!(git_repo.head()?.is_unborn());
     assert_eq!(
-        git_repo.head_name().unwrap().unwrap().as_bstr(),
+        git_repo.head_name()?.unwrap().as_bstr(),
         b"refs/heads/master"
     );
     insta::assert_snapshot!(get_log_output(&work_dir), @"
@@ -226,9 +231,9 @@ fn test_git_colocated_unborn_bookmark() {
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
-    assert!(git_repo.head().unwrap().is_unborn());
+    assert!(git_repo.head()?.is_unborn());
     assert_eq!(
-        git_repo.head_name().unwrap().unwrap().as_bstr(),
+        git_repo.head_name()?.unwrap().as_bstr(),
         b"refs/heads/master"
     );
     insta::assert_snapshot!(get_log_output(&work_dir), @"
@@ -262,9 +267,9 @@ fn test_git_colocated_unborn_bookmark() {
     Parent commit (@-)      : zsuskuln ff536684 (no description set)
     [EOF]
     ");
-    assert!(git_repo.head().unwrap().is_detached());
+    assert!(git_repo.head()?.is_detached());
     insta::assert_snapshot!(
-        git_repo.head_id().unwrap().to_string(),
+        git_repo.head_id()?.to_string(),
         @"ff5366846b039b25c6c4998fa74dca821c246243"
     );
     insta::assert_snapshot!(get_log_output(&work_dir), @"
@@ -305,7 +310,7 @@ fn test_git_colocated_unborn_bookmark() {
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
-    assert!(git_repo.head().unwrap().is_unborn());
+    assert!(git_repo.head()?.is_unborn());
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  88e8407a4f0a5e6f40a7c6c494106764adc00fed
     │ ○  2dd7385602e703388fd266b939bba6f57a1439d3
@@ -355,13 +360,12 @@ fn test_git_colocated_unborn_bookmark() {
     Last imported/exported Git HEAD: bb21bc2dce2af92973fdd6d42686d77bd16bc466
     [EOF]
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_export_bookmarks_on_snapshot() {
-    // Checks that we export bookmarks that were changed only because the working
-    // copy was snapshotted
-
+fn test_git_colocated_export_bookmarks_on_snapshot() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
     let git_repo = git::init(work_dir.root());
@@ -389,14 +393,15 @@ fn test_git_colocated_export_bookmarks_on_snapshot() {
     [EOF]
     ");
     insta::assert_snapshot!(git_repo
-        .find_reference("refs/heads/foo")
-        .unwrap()
+        .find_reference("refs/heads/foo")?
         .id()
         .to_string(), @"00fc09f48ccf5c8b025a0f93b0ec3b0e4294a598");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_rebase_on_import() {
+fn test_git_colocated_rebase_on_import() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
     let git_repo = git::init(work_dir.root());
@@ -419,22 +424,18 @@ fn test_git_colocated_rebase_on_import() {
     // Move `master` backwards, which should result in commit2 getting hidden,
     // and the working-copy commit rebased.
     let parent_commit = git_repo
-        .find_reference("refs/heads/master")
-        .unwrap()
-        .peel_to_commit()
-        .unwrap()
+        .find_reference("refs/heads/master")?
+        .peel_to_commit()?
         .parent_ids()
         .next()
         .unwrap()
         .detach();
-    git_repo
-        .reference(
-            "refs/heads/master",
-            parent_commit,
-            gix::refs::transaction::PreviousValue::Any,
-            "update ref",
-        )
-        .unwrap();
+    git_repo.reference(
+        "refs/heads/master",
+        parent_commit,
+        gix::refs::transaction::PreviousValue::Any,
+        "update ref",
+    )?;
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  d46583362b91d0e172aec469ea1689995540de81
     ○  cbd6c887108743a4abb0919305646a6a914a665e master add a file
@@ -449,10 +450,12 @@ fn test_git_colocated_rebase_on_import() {
     Done importing changes from the underlying Git repo.
     [EOF]
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_bookmarks() {
+fn test_git_colocated_bookmarks() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
     let git_repo = git::init(work_dir.root());
@@ -476,12 +479,12 @@ fn test_git_colocated_bookmarks() {
         .run_jj(["bookmark", "create", "-r@", "master"])
         .success();
     insta::assert_snapshot!(
-        git_repo.find_reference("refs/heads/master").unwrap().target().id().to_string(),
+        git_repo.find_reference("refs/heads/master")?.target().id().to_string(),
         @"95e79774f8e7c785fc36da2b798ecfe0dc864e02"
     );
-    assert!(git_repo.head().unwrap().is_detached());
+    assert!(git_repo.head()?.is_detached());
     insta::assert_snapshot!(
-        git_repo.head_id().unwrap().to_string(),
+        git_repo.head_id()?.to_string(),
         @"e8849ae12c709f2321908879bc724fdb2ab8a781"
     );
 
@@ -491,14 +494,12 @@ fn test_git_colocated_bookmarks() {
         .success()
         .stdout
         .into_raw();
-    git_repo
-        .reference(
-            "refs/heads/master",
-            gix::ObjectId::from_hex(target_id.as_bytes()).unwrap(),
-            gix::refs::transaction::PreviousValue::Any,
-            "test",
-        )
-        .unwrap();
+    git_repo.reference(
+        "refs/heads/master",
+        gix::ObjectId::from_hex(target_id.as_bytes())?,
+        gix::refs::transaction::PreviousValue::Any,
+        "test",
+    )?;
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  507c0edcfc028f714f3c7a3027cb141f6610e867
     │ ○  b51ab2e2c88fe2d38bd7ca6946c4d87f281ce7e2 master foo
@@ -513,10 +514,12 @@ fn test_git_colocated_bookmarks() {
     Done importing changes from the underlying Git repo.
     [EOF]
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_bookmark_forget() {
+fn test_git_colocated_bookmark_forget() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
     git::init(work_dir.root());
@@ -550,10 +553,12 @@ fn test_git_colocated_bookmark_forget() {
     // explaining this, see `test_bookmark_forget_export` in
     // `test_bookmark_command.rs`.
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_bookmark_at_root() {
+fn test_git_colocated_bookmark_at_root() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env
         .run_jj_in(".", ["git", "init", "--colocate", "repo"])
@@ -593,10 +598,12 @@ fn test_git_colocated_bookmark_at_root() {
       foo@git: Ref cannot point to the root commit in Git
     [EOF]
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_conflicting_git_refs() {
+fn test_git_colocated_conflicting_git_refs() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
     git::init(work_dir.root());
@@ -620,10 +627,12 @@ fn test_git_colocated_conflicting_git_refs() {
         [EOF]
         "#);
     });
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_checkout_non_empty_working_copy() {
+fn test_git_colocated_checkout_non_empty_working_copy() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
     let git_repo = git::init(work_dir.root());
@@ -645,7 +654,7 @@ fn test_git_colocated_checkout_non_empty_working_copy() {
     git::checkout_tree_index(&git_repo, tree_id);
     assert_eq!(work_dir.read_file("file"), b"contents");
     insta::assert_snapshot!(
-        git_repo.head_id().unwrap().to_string(),
+        git_repo.head_id()?.to_string(),
         @"97358f54806c7cd005ed5ade68a779595efbae7e"
     );
 
@@ -662,7 +671,7 @@ fn test_git_colocated_checkout_non_empty_working_copy() {
     ");
 
     assert_eq!(
-        git_repo.head_name().unwrap().unwrap().as_bstr(),
+        git_repo.head_name()?.unwrap().as_bstr(),
         b"refs/heads/master"
     );
 
@@ -679,10 +688,12 @@ fn test_git_colocated_checkout_non_empty_working_copy() {
     Last imported/exported Git HEAD: 97358f54806c7cd005ed5ade68a779595efbae7e
     [EOF]
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_fetch_deleted_or_moved_bookmark() {
+fn test_git_colocated_fetch_deleted_or_moved_bookmark() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     let origin_dir = test_env.work_dir("origin");
@@ -743,10 +754,12 @@ fn test_git_colocated_fetch_deleted_or_moved_bookmark() {
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_rebase_dirty_working_copy() {
+fn test_git_colocated_rebase_dirty_working_copy() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
     let git_repo = git::init(work_dir.root());
@@ -761,11 +774,7 @@ fn test_git_colocated_rebase_dirty_working_copy() {
 
     // Make the working-copy dirty, delete the checked out bookmark.
     work_dir.write_file("file", "new");
-    git_repo
-        .find_reference("refs/heads/feature")
-        .unwrap()
-        .delete()
-        .unwrap();
+    git_repo.find_reference("refs/heads/feature")?.delete()?;
 
     // Because the working copy is dirty, the new working-copy commit will be
     // diverged. Therefore, the feature bookmark has change-delete conflict.
@@ -794,21 +803,22 @@ fn test_git_colocated_rebase_dirty_working_copy() {
 
     // The working-copy content shouldn't be lost.
     insta::assert_snapshot!(work_dir.read_file("file"), @"new");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_external_checkout() {
+fn test_git_colocated_external_checkout() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
     let git_repo = git::init(work_dir.root());
-    let git_check_out_ref = |name| {
+    let git_check_out_ref = |name| -> TestResult {
         let target = git_repo
-            .find_reference(name)
-            .unwrap()
-            .into_fully_peeled_id()
-            .unwrap()
+            .find_reference(name)?
+            .into_fully_peeled_id()?
             .detach();
         git::set_head_to_id(&git_repo, target);
+        Ok(())
     };
 
     work_dir.run_jj(["git", "init", "--git-repo=."]).success();
@@ -830,7 +840,7 @@ fn test_git_colocated_external_checkout() {
     ");
 
     // Check out another bookmark by external command
-    git_check_out_ref("refs/heads/master");
+    git_check_out_ref("refs/heads/master")?;
 
     // The old working-copy commit gets abandoned, but the whole bookmark should not
     // be abandoned. (#1042)
@@ -860,7 +870,7 @@ fn test_git_colocated_external_checkout() {
     ");
 
     // Check out another bookmark by external command
-    git_check_out_ref("refs/heads/master");
+    git_check_out_ref("refs/heads/master")?;
 
     // The old working-copy commit shouldn't be abandoned. (#3747)
     insta::assert_snapshot!(get_log_output(&work_dir), @"
@@ -876,11 +886,13 @@ fn test_git_colocated_external_checkout() {
     Reset the working copy parent to the new Git HEAD.
     [EOF]
     ");
+
+    Ok(())
 }
 
 #[test]
 #[cfg_attr(windows, ignore = "uses POSIX sh")]
-fn test_git_colocated_concurrent_checkout() {
+fn test_git_colocated_concurrent_checkout() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env
         .run_jj_in(".", ["git", "init", "--colocate", "repo"])
@@ -945,10 +957,12 @@ fn test_git_colocated_concurrent_checkout() {
     Reset the working copy parent to the new Git HEAD.
     [EOF]
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_squash_undo() {
+fn test_git_colocated_squash_undo() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
     git::init(work_dir.root());
@@ -977,10 +991,12 @@ fn test_git_colocated_squash_undo() {
     ◆  zzzzzzzzzzzz 000000000000
     [EOF]
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_undo_head_move() {
+fn test_git_colocated_undo_head_move() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
     let git_repo = git::init(work_dir.root());
@@ -988,9 +1004,9 @@ fn test_git_colocated_undo_head_move() {
 
     // Create new HEAD
     work_dir.run_jj(["new"]).success();
-    assert!(git_repo.head().unwrap().is_detached());
+    assert!(git_repo.head()?.is_detached());
     insta::assert_snapshot!(
-        git_repo.head_id().unwrap().to_string(),
+        git_repo.head_id()?.to_string(),
         @"e8849ae12c709f2321908879bc724fdb2ab8a781");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  43444d88b0096888ebfd664c0cf792c9d15e3f14
@@ -1006,7 +1022,7 @@ fn test_git_colocated_undo_head_move() {
 
     // HEAD should be unset
     work_dir.run_jj(["undo"]).success();
-    assert!(git_repo.head().unwrap().is_unborn());
+    assert!(git_repo.head()?.is_unborn());
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
@@ -1033,9 +1049,9 @@ fn test_git_colocated_undo_head_move() {
     Last imported/exported Git HEAD: 23e6e06a7471634da3567ef975fadf883082658f
     [EOF]
     ");
-    assert!(git_repo.head().unwrap().is_detached());
+    assert!(git_repo.head()?.is_detached());
     insta::assert_snapshot!(
-        git_repo.head_id().unwrap().to_string(),
+        git_repo.head_id()?.to_string(),
         @"23e6e06a7471634da3567ef975fadf883082658f");
 
     // HEAD should be moved back
@@ -1048,9 +1064,9 @@ fn test_git_colocated_undo_head_move() {
     Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
     ");
-    assert!(git_repo.head().unwrap().is_detached());
+    assert!(git_repo.head()?.is_detached());
     insta::assert_snapshot!(
-        git_repo.head_id().unwrap().to_string(),
+        git_repo.head_id()?.to_string(),
         @"e8849ae12c709f2321908879bc724fdb2ab8a781");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  23e6e06a7471634da3567ef975fadf883082658f
@@ -1063,10 +1079,12 @@ fn test_git_colocated_undo_head_move() {
     Last imported/exported Git HEAD: e8849ae12c709f2321908879bc724fdb2ab8a781
     [EOF]
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_update_index_preserves_timestamps() {
+fn test_git_colocated_update_index_preserves_timestamps() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env
         .run_jj_in(".", ["git", "init", "--colocate", "repo"])
@@ -1153,10 +1171,12 @@ fn test_git_colocated_update_index_preserves_timestamps() {
     Unconflicted Mode(FILE) 28d2718c947b ctime=0:0 mtime=0:0 size=0 flags=0 file2.txt
     Unconflicted Mode(FILE) 528557ab3a42 ctime=0:0 mtime=0:0 size=0 flags=0 file3.txt
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_update_index_merge_conflict() {
+fn test_git_colocated_update_index_merge_conflict() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env
         .run_jj_in(".", ["git", "init", "--colocate", "repo"])
@@ -1247,10 +1267,12 @@ fn test_git_colocated_update_index_merge_conflict() {
     Unconflicted Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 flags=0 left.txt
     Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 flags=0 right.txt
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_update_index_rebase_conflict() {
+fn test_git_colocated_update_index_rebase_conflict() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env
         .run_jj_in(".", ["git", "init", "--colocate", "repo"])
@@ -1347,10 +1369,12 @@ fn test_git_colocated_update_index_rebase_conflict() {
     Unconflicted Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 flags=0 left.txt
     Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 flags=0 right.txt
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_update_index_3_sided_conflict() {
+fn test_git_colocated_update_index_3_sided_conflict() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env
         .run_jj_in(".", ["git", "init", "--colocate", "repo"])
@@ -1467,6 +1491,8 @@ fn test_git_colocated_update_index_3_sided_conflict() {
     Unconflicted Mode(FILE) 7b44e11df720 ctime=0:0 mtime=0:0 size=0 flags=0 side-2.txt
     Unconflicted Mode(FILE) 42f37a71bf20 ctime=0:0 mtime=0:0 size=0 flags=0 side-3.txt
     ");
+
+    Ok(())
 }
 
 #[must_use]
@@ -1547,7 +1573,7 @@ fn get_index_state(repo_path: &Path) -> String {
 }
 
 #[test]
-fn test_git_colocated_unreachable_commits() {
+fn test_git_colocated_unreachable_commits() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
     let git_repo = git::init(work_dir.root());
@@ -1563,7 +1589,7 @@ fn test_git_colocated_unreachable_commits() {
     )
     .commit_id;
     insta::assert_snapshot!(
-        git_repo.head_id().unwrap().to_string(),
+        git_repo.head_id()?.to_string(),
         @"cd740e230992f334de13a0bd0b35709b3f7a89af"
     );
 
@@ -1577,13 +1603,9 @@ fn test_git_colocated_unreachable_commits() {
         &[commit1],
     )
     .commit_id;
-    git_repo
-        .find_reference("refs/heads/dummy")
-        .unwrap()
-        .delete()
-        .unwrap();
+    git_repo.find_reference("refs/heads/dummy")?.delete()?;
     insta::assert_snapshot!(
-        git_repo.head_id().unwrap().to_string(),
+        git_repo.head_id()?.to_string(),
         @"cd740e230992f334de13a0bd0b35709b3f7a89af"
     );
 
@@ -1598,7 +1620,7 @@ fn test_git_colocated_unreachable_commits() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        git_repo.head_id().unwrap().to_string(),
+        git_repo.head_id()?.to_string(),
         @"cd740e230992f334de13a0bd0b35709b3f7a89af"
     );
 
@@ -1610,10 +1632,12 @@ fn test_git_colocated_unreachable_commits() {
     [EOF]
     [exit status: 1]
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_operation_cleanup() {
+fn test_git_colocated_operation_cleanup() -> TestResult {
     let test_env = TestEnvironment::default();
     let output = test_env.run_jj_in(".", ["git", "init", "--colocate", "repo"]);
     insta::assert_snapshot!(output, @r#"
@@ -1657,19 +1681,19 @@ fn test_git_colocated_operation_cleanup() {
     let output = std::process::Command::new("git")
         .current_dir(work_dir.root())
         .args(["rebase", "main"])
-        .output()
-        .unwrap();
+        .output()?;
     assert!(!output.status.success());
 
     // Check that we’re in the middle of a conflicted rebase.
-    assert!(std::fs::exists(work_dir.root().join(".git").join("rebase-merge")).unwrap());
+    assert!(std::fs::exists(
+        work_dir.root().join(".git").join("rebase-merge")
+    )?);
     let output = std::process::Command::new("git")
         .current_dir(work_dir.root())
         .args(["status", "--porcelain=v1"])
-        .output()
-        .unwrap();
+        .output()?;
     assert!(output.status.success());
-    insta::assert_snapshot!(String::from_utf8(output.stdout).unwrap(), @"UU file");
+    insta::assert_snapshot!(String::from_utf8(output.stdout)?, @"UU file");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  588c505e689d116180684778b29c540fe7180268
     ○  cf3bb116ded416d9b202e71303f260e504c2eeb9 main 2
@@ -1710,14 +1734,17 @@ fn test_git_colocated_operation_cleanup() {
     ");
 
     // Check that the operation was correctly aborted.
-    assert!(!std::fs::exists(work_dir.root().join(".git").join("rebase-merge")).unwrap());
+    assert!(!std::fs::exists(
+        work_dir.root().join(".git").join("rebase-merge")
+    )?);
     let output = std::process::Command::new("git")
         .current_dir(work_dir.root())
         .args(["status", "--porcelain=v1"])
-        .output()
-        .unwrap();
+        .output()?;
     assert!(output.status.success());
-    insta::assert_snapshot!(String::from_utf8(output.stdout).unwrap(), @"");
+    insta::assert_snapshot!(String::from_utf8(output.stdout)?, @"");
+
+    Ok(())
 }
 
 #[must_use]

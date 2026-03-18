@@ -796,6 +796,7 @@ mod tests {
     use indoc::indoc;
     use jj_lib::config::ConfigLayer;
     use jj_lib::config::ConfigSource;
+    use testutils::TestResult;
 
     use super::*;
 
@@ -815,36 +816,39 @@ mod tests {
     }
 
     #[test]
-    fn test_plaintext_formatter() {
+    fn test_plaintext_formatter() -> TestResult {
         // Test that PlainTextFormatter ignores labels.
         let mut output: Vec<u8> = vec![];
         let mut formatter = PlainTextFormatter::new(&mut output);
         formatter.push_label("warning");
-        write!(formatter, "hello").unwrap();
+        write!(formatter, "hello")?;
         formatter.pop_label();
         insta::assert_snapshot!(to_snapshot_string(output), @"hello[EOF]");
+        Ok(())
     }
 
     #[test]
-    fn test_plaintext_formatter_ansi_codes_in_text() {
+    fn test_plaintext_formatter_ansi_codes_in_text() -> TestResult {
         // Test that ANSI codes in the input text are NOT escaped.
         let mut output: Vec<u8> = vec![];
         let mut formatter = PlainTextFormatter::new(&mut output);
-        write!(formatter, "\x1b[1mactually bold\x1b[0m").unwrap();
+        write!(formatter, "\x1b[1mactually bold\x1b[0m")?;
         insta::assert_snapshot!(to_snapshot_string(output), @"[1mactually bold[0m[EOF]");
+        Ok(())
     }
 
     #[test]
-    fn test_sanitizing_formatter_ansi_codes_in_text() {
+    fn test_sanitizing_formatter_ansi_codes_in_text() -> TestResult {
         // Test that ANSI codes in the input text are escaped.
         let mut output: Vec<u8> = vec![];
         let mut formatter = SanitizingFormatter::new(&mut output);
-        write!(formatter, "\x1b[1mnot actually bold\x1b[0m").unwrap();
+        write!(formatter, "\x1b[1mnot actually bold\x1b[0m")?;
         insta::assert_snapshot!(to_snapshot_string(output), @"␛[1mnot actually bold␛[0m[EOF]");
+        Ok(())
     }
 
     #[test]
-    fn test_color_formatter_color_codes() {
+    fn test_color_formatter_color_codes() -> TestResult {
         // Test the color code for each color.
         // Use the color name as the label.
         let config = config_from_string(indoc! {"
@@ -866,14 +870,14 @@ mod tests {
             bright-cyan = 'bright cyan'
             bright-white = 'bright white'
         "});
-        let colors: IndexMap<String, String> = config.get("colors").unwrap();
+        let colors: IndexMap<String, String> = config.get("colors")?;
         let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
         for (label, color) in &colors {
             formatter.push_label(label);
-            write!(formatter, " {color} ").unwrap();
+            write!(formatter, " {color} ")?;
             formatter.pop_label();
-            writeln!(formatter).unwrap();
+            writeln!(formatter)?;
         }
         drop(formatter);
         insta::assert_snapshot!(to_snapshot_string(output), @"
@@ -895,6 +899,7 @@ mod tests {
         [38;5;15m bright white [39m
         [EOF]
         ");
+        Ok(())
     }
 
     #[test]
@@ -956,7 +961,7 @@ mod tests {
     }
 
     #[test]
-    fn test_color_formatter_ansi256() {
+    fn test_color_formatter_ansi256() -> TestResult {
         let config = config_from_string(
             r#"
         [colors]
@@ -965,25 +970,26 @@ mod tests {
         "#,
         );
         let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
         formatter.push_label("purple-bg");
-        write!(formatter, " purple background ").unwrap();
+        write!(formatter, " purple background ")?;
         formatter.pop_label();
-        writeln!(formatter).unwrap();
+        writeln!(formatter)?;
         formatter.push_label("gray");
-        write!(formatter, " gray ").unwrap();
+        write!(formatter, " gray ")?;
         formatter.pop_label();
-        writeln!(formatter).unwrap();
+        writeln!(formatter)?;
         drop(formatter);
         insta::assert_snapshot!(to_snapshot_string(output), @"
         [38;5;15m[48;5;93m purple background [39m[49m
         [38;5;244m gray [39m
         [EOF]
         ");
+        Ok(())
     }
 
     #[test]
-    fn test_color_formatter_hex_colors() {
+    fn test_color_formatter_hex_colors() -> TestResult {
         // Test the color code for each color.
         let config = config_from_string(indoc! {"
             [colors]
@@ -991,14 +997,14 @@ mod tests {
             white = '#ffffff'
             pastel-blue = '#AFE0D9'
         "});
-        let colors: IndexMap<String, String> = config.get("colors").unwrap();
+        let colors: IndexMap<String, String> = config.get("colors")?;
         let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
         for label in colors.keys() {
             formatter.push_label(&label.replace(' ', "-"));
-            write!(formatter, " {label} ").unwrap();
+            write!(formatter, " {label} ")?;
             formatter.pop_label();
-            writeln!(formatter).unwrap();
+            writeln!(formatter)?;
         }
         drop(formatter);
         insta::assert_snapshot!(to_snapshot_string(output), @"
@@ -1007,10 +1013,11 @@ mod tests {
         [38;2;175;224;217m pastel-blue [39m
         [EOF]
         ");
+        Ok(())
     }
 
     #[test]
-    fn test_color_formatter_single_label() {
+    fn test_color_formatter_single_label() -> TestResult {
         // Test that a single label can be colored and that the color is reset
         // afterwards.
         let config = config_from_string(
@@ -1019,19 +1026,20 @@ mod tests {
         "#,
         );
         let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
-        write!(formatter, " before ").unwrap();
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
+        write!(formatter, " before ")?;
         formatter.push_label("inside");
-        write!(formatter, " inside ").unwrap();
+        write!(formatter, " inside ")?;
         formatter.pop_label();
-        write!(formatter, " after ").unwrap();
+        write!(formatter, " after ")?;
         drop(formatter);
         insta::assert_snapshot!(
             to_snapshot_string(output), @" before [38;5;2m inside [39m after [EOF]");
+        Ok(())
     }
 
     #[test]
-    fn test_color_formatter_attributes() {
+    fn test_color_formatter_attributes() -> TestResult {
         // Test that each attribute of the style can be set and that they can be
         // combined in a single rule or by using multiple rules.
         let config = config_from_string(
@@ -1047,45 +1055,45 @@ mod tests {
         "#,
         );
         let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
         formatter.push_label("red_fg");
-        write!(formatter, " fg only ").unwrap();
+        write!(formatter, " fg only ")?;
         formatter.pop_label();
-        writeln!(formatter).unwrap();
+        writeln!(formatter)?;
         formatter.push_label("blue_bg");
-        write!(formatter, " bg only ").unwrap();
+        write!(formatter, " bg only ")?;
         formatter.pop_label();
-        writeln!(formatter).unwrap();
+        writeln!(formatter)?;
         formatter.push_label("bold_font");
-        write!(formatter, " bold only ").unwrap();
+        write!(formatter, " bold only ")?;
         formatter.pop_label();
-        writeln!(formatter).unwrap();
+        writeln!(formatter)?;
         formatter.push_label("dim_font");
-        write!(formatter, " dim only ").unwrap();
+        write!(formatter, " dim only ")?;
         formatter.pop_label();
-        writeln!(formatter).unwrap();
+        writeln!(formatter)?;
         formatter.push_label("italic_text");
-        write!(formatter, " italic only ").unwrap();
+        write!(formatter, " italic only ")?;
         formatter.pop_label();
-        writeln!(formatter).unwrap();
+        writeln!(formatter)?;
         formatter.push_label("underlined_text");
-        write!(formatter, " underlined only ").unwrap();
+        write!(formatter, " underlined only ")?;
         formatter.pop_label();
-        writeln!(formatter).unwrap();
+        writeln!(formatter)?;
         formatter.push_label("reversed_colors");
-        write!(formatter, " reverse only ").unwrap();
+        write!(formatter, " reverse only ")?;
         formatter.pop_label();
-        writeln!(formatter).unwrap();
+        writeln!(formatter)?;
         formatter.push_label("multiple");
-        write!(formatter, " single rule ").unwrap();
+        write!(formatter, " single rule ")?;
         formatter.pop_label();
-        writeln!(formatter).unwrap();
+        writeln!(formatter)?;
         formatter.push_label("red_fg");
         formatter.push_label("blue_bg");
-        write!(formatter, " two rules ").unwrap();
+        write!(formatter, " two rules ")?;
         formatter.pop_label();
         formatter.pop_label();
-        writeln!(formatter).unwrap();
+        writeln!(formatter)?;
         drop(formatter);
         insta::assert_snapshot!(to_snapshot_string(output), @"
         [38;5;1m fg only [39m
@@ -1099,10 +1107,11 @@ mod tests {
         [38;5;1m[48;5;4m two rules [39m[49m
         [EOF]
         ");
+        Ok(())
     }
 
     #[test]
-    fn test_color_formatter_bold_reset() {
+    fn test_color_formatter_bold_reset() -> TestResult {
         // Test that we don't lose other attributes when we reset the bold attribute.
         let config = config_from_string(indoc! {"
             [colors]
@@ -1111,26 +1120,27 @@ mod tests {
             stop_bold = { bold = false }
         "});
         let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
         formatter.push_label("not_bold");
-        write!(formatter, " not bold ").unwrap();
+        write!(formatter, " not bold ")?;
         formatter.push_label("bold_font");
-        write!(formatter, " bold ").unwrap();
+        write!(formatter, " bold ")?;
         formatter.push_label("stop_bold");
-        write!(formatter, " stop bold ").unwrap();
+        write!(formatter, " stop bold ")?;
         formatter.pop_label();
-        write!(formatter, " bold again ").unwrap();
+        write!(formatter, " bold again ")?;
         formatter.pop_label();
-        write!(formatter, " not bold again ").unwrap();
+        write!(formatter, " not bold again ")?;
         formatter.pop_label();
         drop(formatter);
         insta::assert_snapshot!(
             to_snapshot_string(output),
             @"[3m[4m[38;5;1m[48;5;4m not bold [1m bold [0m[3m[4m[38;5;1m[48;5;4m stop bold [1m bold again [0m[3m[4m[38;5;1m[48;5;4m not bold again [23m[24m[39m[49m[EOF]");
+        Ok(())
     }
 
     #[test]
-    fn test_color_formatter_dim_reset() {
+    fn test_color_formatter_dim_reset() -> TestResult {
         // Test that we don't lose other attributes when we reset the dim attribute.
         let config = config_from_string(indoc! {"
             [colors]
@@ -1139,26 +1149,27 @@ mod tests {
             stop_dim = { dim = false }
         "});
         let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
         formatter.push_label("not_dim");
-        write!(formatter, " not dim ").unwrap();
+        write!(formatter, " not dim ")?;
         formatter.push_label("dim_font");
-        write!(formatter, " dim ").unwrap();
+        write!(formatter, " dim ")?;
         formatter.push_label("stop_dim");
-        write!(formatter, " stop dim ").unwrap();
+        write!(formatter, " stop dim ")?;
         formatter.pop_label();
-        write!(formatter, " dim again ").unwrap();
+        write!(formatter, " dim again ")?;
         formatter.pop_label();
-        write!(formatter, " not dim again ").unwrap();
+        write!(formatter, " not dim again ")?;
         formatter.pop_label();
         drop(formatter);
         insta::assert_snapshot!(
             to_snapshot_string(output),
             @"[3m[4m[38;5;1m[48;5;4m not dim [2m dim [0m[3m[4m[38;5;1m[48;5;4m stop dim [2m dim again [0m[3m[4m[38;5;1m[48;5;4m not dim again [23m[24m[39m[49m[EOF]");
+        Ok(())
     }
 
     #[test]
-    fn test_color_formatter_bold_to_dim() {
+    fn test_color_formatter_bold_to_dim() -> TestResult {
         // Test that we don't lose bold when we reset the dim attribute.
         let config = config_from_string(indoc! {"
             [colors]
@@ -1166,27 +1177,28 @@ mod tests {
             dim_font = { dim = true }
         "});
         let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
         formatter.push_label("bold_font");
-        write!(formatter, " bold ").unwrap();
+        write!(formatter, " bold ")?;
         formatter.push_label("dim_font");
-        write!(formatter, " bold&dim ").unwrap();
+        write!(formatter, " bold&dim ")?;
         formatter.pop_label();
-        write!(formatter, " bold again ").unwrap();
+        write!(formatter, " bold again ")?;
         formatter.pop_label();
         drop(formatter);
         insta::assert_snapshot!(
             to_snapshot_string(output),
             @"[1m bold [2m bold&dim [0m[1m bold again [0m[EOF]");
+        Ok(())
     }
 
     #[test]
-    fn test_formatter_reset_on_flush() {
+    fn test_formatter_reset_on_flush() -> TestResult {
         let config = config_from_string("colors.red = 'red'");
         let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
         formatter.push_label("red");
-        write!(formatter, "foo").unwrap();
+        write!(formatter, "foo")?;
         formatter.pop_label();
 
         // without flush()
@@ -1194,13 +1206,13 @@ mod tests {
             to_snapshot_string(formatter.output.clone()), @"[38;5;1mfoo[EOF]");
 
         // flush() should emit the reset sequence.
-        formatter.flush().unwrap();
+        formatter.flush()?;
         insta::assert_snapshot!(
             to_snapshot_string(formatter.output.clone()), @"[38;5;1mfoo[39m[EOF]");
 
         // New color sequence should be emitted as the state was reset.
         formatter.push_label("red");
-        write!(formatter, "bar").unwrap();
+        write!(formatter, "bar")?;
         formatter.pop_label();
 
         // drop() should emit the reset sequence.
@@ -1212,22 +1224,23 @@ mod tests {
         let mut output: Vec<u8> = vec![];
         let mut formatter = PlainTextFormatter::new(&mut output);
         formatter.push_label("red");
-        write!(formatter, "foo").unwrap();
+        write!(formatter, "foo")?;
         formatter.pop_label();
-        formatter.flush().unwrap();
+        formatter.flush()?;
         insta::assert_snapshot!(to_snapshot_string(formatter.output.clone()), @"foo[EOF]");
 
         let mut output: Vec<u8> = vec![];
         let mut formatter = SanitizingFormatter::new(&mut output);
         formatter.push_label("red");
-        write!(formatter, "foo").unwrap();
+        write!(formatter, "foo")?;
         formatter.pop_label();
-        formatter.flush().unwrap();
+        formatter.flush()?;
         insta::assert_snapshot!(to_snapshot_string(formatter.output.clone()), @"foo[EOF]");
+        Ok(())
     }
 
     #[test]
-    fn test_color_formatter_no_space() {
+    fn test_color_formatter_no_space() -> TestResult {
         // Test that two different colors can touch.
         let config = config_from_string(
             r#"
@@ -1236,22 +1249,23 @@ mod tests {
         "#,
         );
         let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
-        write!(formatter, "before").unwrap();
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
+        write!(formatter, "before")?;
         formatter.push_label("red");
-        write!(formatter, "first").unwrap();
+        write!(formatter, "first")?;
         formatter.pop_label();
         formatter.push_label("green");
-        write!(formatter, "second").unwrap();
+        write!(formatter, "second")?;
         formatter.pop_label();
-        write!(formatter, "after").unwrap();
+        write!(formatter, "after")?;
         drop(formatter);
         insta::assert_snapshot!(
             to_snapshot_string(output), @"before[38;5;1mfirst[38;5;2msecond[39mafter[EOF]");
+        Ok(())
     }
 
     #[test]
-    fn test_color_formatter_ansi_codes_in_text() {
+    fn test_color_formatter_ansi_codes_in_text() -> TestResult {
         // Test that ANSI codes in the input text are escaped.
         let config = config_from_string(
             r#"
@@ -1259,17 +1273,18 @@ mod tests {
         "#,
         );
         let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
         formatter.push_label("red");
-        write!(formatter, "\x1b[1mnot actually bold\x1b[0m").unwrap();
+        write!(formatter, "\x1b[1mnot actually bold\x1b[0m")?;
         formatter.pop_label();
         drop(formatter);
         insta::assert_snapshot!(
             to_snapshot_string(output), @"[38;5;1m␛[1mnot actually bold␛[0m[39m[EOF]");
+        Ok(())
     }
 
     #[test]
-    fn test_color_formatter_nested() {
+    fn test_color_formatter_nested() -> TestResult {
         // A color can be associated with a combination of labels. A more specific match
         // overrides a less specific match. After the inner label is removed, the outer
         // color is used again (we don't reset).
@@ -1281,24 +1296,25 @@ mod tests {
         "#,
         );
         let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
-        write!(formatter, " before outer ").unwrap();
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
+        write!(formatter, " before outer ")?;
         formatter.push_label("outer");
-        write!(formatter, " before inner ").unwrap();
+        write!(formatter, " before inner ")?;
         formatter.push_label("inner");
-        write!(formatter, " inside inner ").unwrap();
+        write!(formatter, " inside inner ")?;
         formatter.pop_label();
-        write!(formatter, " after inner ").unwrap();
+        write!(formatter, " after inner ")?;
         formatter.pop_label();
-        write!(formatter, " after outer ").unwrap();
+        write!(formatter, " after outer ")?;
         drop(formatter);
         insta::assert_snapshot!(
             to_snapshot_string(output),
             @" before outer [38;5;4m before inner [38;5;2m inside inner [38;5;4m after inner [39m after outer [EOF]");
+        Ok(())
     }
 
     #[test]
-    fn test_color_formatter_partial_match() {
+    fn test_color_formatter_partial_match() -> TestResult {
         // A partial match doesn't count
         let config = config_from_string(
             r#"
@@ -1306,18 +1322,19 @@ mod tests {
         "#,
         );
         let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
         formatter.push_label("outer");
-        write!(formatter, " not colored ").unwrap();
+        write!(formatter, " not colored ")?;
         formatter.push_label("inner");
-        write!(formatter, " colored ").unwrap();
+        write!(formatter, " colored ")?;
         formatter.pop_label();
-        write!(formatter, " not colored ").unwrap();
+        write!(formatter, " not colored ")?;
         formatter.pop_label();
         drop(formatter);
         insta::assert_snapshot!(
             to_snapshot_string(output),
             @" not colored [38;5;2m colored [39m not colored [EOF]");
+        Ok(())
     }
 
     #[test]
@@ -1387,7 +1404,7 @@ mod tests {
     }
 
     #[test]
-    fn test_color_formatter_normal_color() {
+    fn test_color_formatter_normal_color() -> TestResult {
         // The "default" color resets the color. It is possible to reset only the
         // background or only the foreground.
         let config = config_from_string(
@@ -1398,26 +1415,27 @@ mod tests {
         "#,
         );
         let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
         formatter.push_label("outer");
-        write!(formatter, "Blue on yellow, ").unwrap();
+        write!(formatter, "Blue on yellow, ")?;
         formatter.push_label("default_fg");
-        write!(formatter, " default fg, ").unwrap();
+        write!(formatter, " default fg, ")?;
         formatter.pop_label();
-        write!(formatter, " and back.\nBlue on yellow, ").unwrap();
+        write!(formatter, " and back.\nBlue on yellow, ")?;
         formatter.push_label("default_bg");
-        write!(formatter, " default bg, ").unwrap();
+        write!(formatter, " default bg, ")?;
         formatter.pop_label();
-        write!(formatter, " and back.").unwrap();
+        write!(formatter, " and back.")?;
         drop(formatter);
         insta::assert_snapshot!(to_snapshot_string(output), @"
         [38;5;4m[48;5;3mBlue on yellow, [39m default fg, [38;5;4m and back.[39m[49m
         [38;5;4m[48;5;3mBlue on yellow, [49m default bg, [48;5;3m and back.[39m[49m[EOF]
         ");
+        Ok(())
     }
 
     #[test]
-    fn test_color_formatter_sibling() {
+    fn test_color_formatter_sibling() -> TestResult {
         // A partial match on one rule does not eliminate other rules.
         let config = config_from_string(
             r#"
@@ -1426,18 +1444,19 @@ mod tests {
         "#,
         );
         let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
         formatter.push_label("outer1");
         formatter.push_label("inner2");
-        write!(formatter, " hello ").unwrap();
+        write!(formatter, " hello ")?;
         formatter.pop_label();
         formatter.pop_label();
         drop(formatter);
         insta::assert_snapshot!(to_snapshot_string(output), @"[38;5;2m hello [39m[EOF]");
+        Ok(())
     }
 
     #[test]
-    fn test_color_formatter_reverse_order() {
+    fn test_color_formatter_reverse_order() -> TestResult {
         // Rules don't match labels out of order
         let config = config_from_string(
             r#"
@@ -1445,18 +1464,19 @@ mod tests {
         "#,
         );
         let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
         formatter.push_label("outer");
         formatter.push_label("inner");
-        write!(formatter, " hello ").unwrap();
+        write!(formatter, " hello ")?;
         formatter.pop_label();
         formatter.pop_label();
         drop(formatter);
         insta::assert_snapshot!(to_snapshot_string(output), @" hello [EOF]");
+        Ok(())
     }
 
     #[test]
-    fn test_color_formatter_innermost_wins() {
+    fn test_color_formatter_innermost_wins() -> TestResult {
         // When two labels match, the innermost one wins.
         let config = config_from_string(
             r#"
@@ -1467,26 +1487,27 @@ mod tests {
         "#,
         );
         let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
         formatter.push_label("a");
-        write!(formatter, " a1 ").unwrap();
+        write!(formatter, " a1 ")?;
         formatter.push_label("b");
-        write!(formatter, " b1 ").unwrap();
+        write!(formatter, " b1 ")?;
         formatter.push_label("c");
-        write!(formatter, " c ").unwrap();
+        write!(formatter, " c ")?;
         formatter.pop_label();
-        write!(formatter, " b2 ").unwrap();
+        write!(formatter, " b2 ")?;
         formatter.pop_label();
-        write!(formatter, " a2 ").unwrap();
+        write!(formatter, " a2 ")?;
         formatter.pop_label();
         drop(formatter);
         insta::assert_snapshot!(
             to_snapshot_string(output),
             @"[38;5;1m a1 [38;5;2m b1 [38;5;3m c [38;5;2m b2 [38;5;1m a2 [39m[EOF]");
+        Ok(())
     }
 
     #[test]
-    fn test_color_formatter_dropped() {
+    fn test_color_formatter_dropped() -> TestResult {
         // Test that the style gets reset if the formatter is dropped without popping
         // all labels.
         let config = config_from_string(
@@ -1495,16 +1516,17 @@ mod tests {
         "#,
         );
         let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
         formatter.push_label("outer");
         formatter.push_label("inner");
-        write!(formatter, " inside ").unwrap();
+        write!(formatter, " inside ")?;
         drop(formatter);
         insta::assert_snapshot!(to_snapshot_string(output), @"[38;5;2m inside [39m[EOF]");
+        Ok(())
     }
 
     #[test]
-    fn test_color_formatter_debug() {
+    fn test_color_formatter_debug() -> TestResult {
         // Behaves like the color formatter, but surrounds each write with <<...>>,
         // adding the active labels before the actual content separated by a ::.
         let config = config_from_string(
@@ -1513,16 +1535,16 @@ mod tests {
         "#,
         );
         let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, true).unwrap();
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, true)?;
         formatter.push_label("outer");
         formatter.push_label("inner");
-        write!(formatter, " inside ").unwrap();
+        write!(formatter, " inside ")?;
         formatter.pop_label();
         formatter.pop_label();
         // Matching debug styles are not separated.
         formatter.push_label("outer");
         formatter.push_label("inner");
-        write!(formatter, " inside two ").unwrap();
+        write!(formatter, " inside two ")?;
         formatter.pop_label();
         formatter.pop_label();
         drop(formatter);
@@ -1530,10 +1552,11 @@ mod tests {
             to_snapshot_string(output),
             @"[38;5;2m<<outer inner:: inside  inside two >>[39m[EOF]",
         );
+        Ok(())
     }
 
     #[test]
-    fn test_labeled_scope() {
+    fn test_labeled_scope() -> TestResult {
         let config = config_from_string(indoc! {"
             [colors]
             outer = 'blue'
@@ -1541,10 +1564,10 @@ mod tests {
             'outer inner' = 'green'
         "});
         let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
-        writeln!(formatter.labeled("outer"), "outer").unwrap();
-        writeln!(formatter.labeled("outer").labeled("inner"), "outer-inner").unwrap();
-        writeln!(formatter.labeled("inner"), "inner").unwrap();
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
+        writeln!(formatter.labeled("outer"), "outer")?;
+        writeln!(formatter.labeled("outer").labeled("inner"), "outer-inner")?;
+        writeln!(formatter.labeled("inner"), "inner")?;
         drop(formatter);
         insta::assert_snapshot!(to_snapshot_string(output), @"
         [38;5;4mouter[39m
@@ -1552,10 +1575,11 @@ mod tests {
         [38;5;1minner[39m
         [EOF]
         ");
+        Ok(())
     }
 
     #[test]
-    fn test_heading_labeled_writer() {
+    fn test_heading_labeled_writer() -> TestResult {
         let config = config_from_string(
             r#"
         colors.inner = "green"
@@ -1563,41 +1587,43 @@ mod tests {
         "#,
         );
         let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
         formatter.labeled("inner").with_heading("Should be noop: ");
         let mut writer = formatter.labeled("inner").with_heading("Heading: ");
-        write!(writer, "Message").unwrap();
-        writeln!(writer, " continues").unwrap();
+        write!(writer, "Message")?;
+        writeln!(writer, " continues")?;
         drop(writer);
         drop(formatter);
         insta::assert_snapshot!(to_snapshot_string(output), @"
         [38;5;1mHeading: [38;5;2mMessage continues[39m
         [EOF]
         ");
+        Ok(())
     }
 
     #[test]
-    fn test_heading_labeled_writer_empty_string() {
+    fn test_heading_labeled_writer_empty_string() -> TestResult {
         let mut output: Vec<u8> = vec![];
         let mut formatter = PlainTextFormatter::new(&mut output);
         let mut writer = formatter.labeled("inner").with_heading("Heading: ");
         // write_fmt() is called even if the format string is empty. I don't
         // know if that's guaranteed, but let's record the current behavior.
-        write!(writer, "").unwrap();
-        write!(writer, "").unwrap();
+        write!(writer, "")?;
+        write!(writer, "")?;
         drop(writer);
         insta::assert_snapshot!(to_snapshot_string(output), @"Heading: [EOF]");
+        Ok(())
     }
 
     #[test]
-    fn test_format_recorder() {
+    fn test_format_recorder() -> TestResult {
         let mut recorder = FormatRecorder::new(false);
-        write!(recorder, " outer1 ").unwrap();
+        write!(recorder, " outer1 ")?;
         recorder.push_label("inner");
-        write!(recorder, " inner1 ").unwrap();
-        write!(recorder, " inner2 ").unwrap();
+        write!(recorder, " inner1 ")?;
+        write!(recorder, " inner2 ")?;
         recorder.pop_label();
-        write!(recorder, " outer2 ").unwrap();
+        write!(recorder, " outer2 ")?;
 
         insta::assert_snapshot!(
             to_snapshot_string(recorder.data()),
@@ -1606,8 +1632,8 @@ mod tests {
         // Replayed output should be labeled.
         let config = config_from_string(r#" colors.inner = "red" "#);
         let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
-        recorder.replay(&mut formatter).unwrap();
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
+        recorder.replay(&mut formatter)?;
         drop(formatter);
         insta::assert_snapshot!(
             to_snapshot_string(output),
@@ -1615,51 +1641,49 @@ mod tests {
 
         // Replayed output should be split at push/pop_label() call.
         let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
-        recorder
-            .replay_with(&mut formatter, |formatter, range| {
-                let data = &recorder.data()[range];
-                write!(formatter, "<<{}>>", str::from_utf8(data).unwrap())
-            })
-            .unwrap();
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
+        recorder.replay_with(&mut formatter, |formatter, range| {
+            let data = &recorder.data()[range];
+            write!(formatter, "<<{}>>", str::from_utf8(data).unwrap())
+        })?;
         drop(formatter);
         insta::assert_snapshot!(
             to_snapshot_string(output),
             @"<< outer1 >>[38;5;1m<< inner1  inner2 >>[39m<< outer2 >>[EOF]");
+        Ok(())
     }
 
     #[test]
-    fn test_raw_format_recorder() {
+    fn test_raw_format_recorder() -> TestResult {
         // Note: similar to test_format_recorder above
         let mut recorder = FormatRecorder::new(false);
-        write!(recorder.raw().unwrap(), " outer1 ").unwrap();
+        write!(recorder.raw()?, " outer1 ")?;
         recorder.push_label("inner");
-        write!(recorder.raw().unwrap(), " inner1 ").unwrap();
-        write!(recorder.raw().unwrap(), " inner2 ").unwrap();
+        write!(recorder.raw()?, " inner1 ")?;
+        write!(recorder.raw()?, " inner2 ")?;
         recorder.pop_label();
-        write!(recorder.raw().unwrap(), " outer2 ").unwrap();
+        write!(recorder.raw()?, " outer2 ")?;
 
         // Replayed raw escape sequences are labeled.
         let config = config_from_string(r#" colors.inner = "red" "#);
         let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
-        recorder.replay(&mut formatter).unwrap();
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
+        recorder.replay(&mut formatter)?;
         drop(formatter);
         insta::assert_snapshot!(
             to_snapshot_string(output), @" outer1 [38;5;1m inner1  inner2 [39m outer2 [EOF]");
 
         let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
-        recorder
-            .replay_with(&mut formatter, |_formatter, range| {
-                panic!(
-                    "Called with {:?} when all output should be raw",
-                    str::from_utf8(&recorder.data()[range]).unwrap()
-                );
-            })
-            .unwrap();
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
+        recorder.replay_with(&mut formatter, |_formatter, range| {
+            panic!(
+                "Called with {:?} when all output should be raw",
+                str::from_utf8(&recorder.data()[range]).unwrap()
+            );
+        })?;
         drop(formatter);
         insta::assert_snapshot!(
             to_snapshot_string(output), @" outer1 [38;5;1m inner1  inner2 [39m outer2 [EOF]");
+        Ok(())
     }
 }

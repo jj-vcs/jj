@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use testutils::TestResult;
+
 use crate::common::TestEnvironment;
 use crate::common::create_commit;
 use crate::common::create_commit_with_files;
@@ -774,7 +776,7 @@ fn test_gerrit_upload_bad_change_ids() {
 }
 
 #[test]
-fn test_gerrit_upload_rejected_by_remote() {
+fn test_gerrit_upload_rejected_by_remote() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env
         .run_jj_in(".", ["git", "init", "--colocate", "remote"])
@@ -790,12 +792,12 @@ fn test_gerrit_upload_rejected_by_remote() {
         .join("hooks")
         .join("update");
 
-    std::fs::write(&hook_path, "#!/bin/sh\nexit 1").unwrap();
+    std::fs::write(&hook_path, "#!/bin/sh\nexit 1")?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt as _;
 
-        std::fs::set_permissions(&hook_path, std::fs::Permissions::from_mode(0o700)).unwrap();
+        std::fs::set_permissions(&hook_path, std::fs::Permissions::from_mode(0o700))?;
     }
 
     test_env
@@ -831,4 +833,5 @@ fn test_gerrit_upload_rejected_by_remote() {
     [EOF]
     [exit status: 1]
     ");
+    Ok(())
 }

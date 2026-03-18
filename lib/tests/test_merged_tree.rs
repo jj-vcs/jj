@@ -1747,7 +1747,7 @@ fn test_merge_simplify_file_conflict_with_absent() -> TestResult {
 }
 
 #[test]
-fn test_diff_with_trees_dir_added_removed() {
+fn test_diff_with_trees_dir_added_removed() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -1803,10 +1803,11 @@ fn test_diff_with_trees_dir_added_removed() {
     assert!(diff_rev[1].1.1.is_absent()); // After: Absent
 
     diff_stream_equals_iter(&tree1_merged, &tree2_merged, &EverythingMatcher);
+    Ok(())
 }
 
 #[test]
-fn test_diff_with_trees_recursive_modification() {
+fn test_diff_with_trees_recursive_modification() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -1854,10 +1855,11 @@ fn test_diff_with_trees_recursive_modification() {
     assert!(diff[3].1.1.is_present());
 
     diff_stream_equals_iter(&merged1, &merged2, &EverythingMatcher);
+    Ok(())
 }
 
 #[test]
-fn test_diff_with_trees_no_modifications() {
+fn test_diff_with_trees_no_modifications() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -1891,10 +1893,11 @@ fn test_diff_with_trees_no_modifications() {
     assert_eq!(diff_rev.len(), 0);
 
     diff_stream_equals_iter(&tree1_merged, &tree2_merged, &EverythingMatcher);
+    Ok(())
 }
 
 #[test]
-fn test_diff_with_trees_files_matcher_for_file() {
+fn test_diff_with_trees_files_matcher_for_file() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -1930,10 +1933,11 @@ fn test_diff_with_trees_files_matcher_for_file() {
     assert_ne!(before, after);
 
     diff_stream_equals_iter(&merged1, &merged2, &matcher);
+    Ok(())
 }
 
 #[test]
-fn test_diff_with_trees_glob_matcher_for_path() {
+fn test_diff_with_trees_glob_matcher_for_path() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -1954,8 +1958,7 @@ fn test_diff_with_trees_glob_matcher_for_path() {
     let glob = GlobBuilder::new("**/m")
         .literal_separator(true)
         .case_insensitive(false)
-        .build()
-        .unwrap();
+        .build()?;
     builder.add(RepoPath::root(), &glob);
     let matcher = builder.build();
     // Just make sure the matcher is configured as expected.
@@ -1985,10 +1988,11 @@ fn test_diff_with_trees_glob_matcher_for_path() {
     assert_ne!(diff[1].1.0, diff[1].1.1); // IDs should differ
 
     diff_stream_equals_iter(&merged1, &merged2, &matcher);
+    Ok(())
 }
 
 #[test]
-fn test_diff_with_trees_files_matcher_for_intermediate_directory() {
+fn test_diff_with_trees_files_matcher_for_intermediate_directory() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -2027,6 +2031,7 @@ fn test_diff_with_trees_files_matcher_for_intermediate_directory() {
     assert_eq!(diff.len(), 0);
 
     diff_stream_equals_iter(&merged1, &merged2, &matcher);
+    Ok(())
 }
 
 fn expected_creation(

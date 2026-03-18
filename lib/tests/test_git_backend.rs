@@ -316,7 +316,7 @@ fn test_gc_extra_table() -> TestResult {
 }
 
 #[test]
-fn test_copy_detection() {
+fn test_copy_detection() -> TestResult {
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
 
@@ -368,10 +368,11 @@ fn test_copy_detection() {
         get_copy_records(store, Some(paths), &commit_c, &commit_c),
         HashMap::default(),
     );
+    Ok(())
 }
 
 #[test]
-fn test_copy_detection_file_and_dir() {
+fn test_copy_detection_file_and_dir() -> TestResult {
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
 
@@ -406,10 +407,11 @@ fn test_copy_detection_file_and_dir() {
             "c/file".to_owned() => "c".to_owned(),
         }
     );
+    Ok(())
 }
 
 #[test]
-fn test_jj_trees_header_with_one_tree() {
+fn test_jj_trees_header_with_one_tree() -> TestResult {
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = test_repo.repo;
     let git_backend = get_git_backend(&repo);
@@ -424,15 +426,15 @@ fn test_jj_trees_header_with_one_tree() {
         MergedTree::resolved(repo.store().clone(), tree_1.id().clone()),
     );
     let git_commit_id = gix::ObjectId::from_bytes_or_panic(commit.id().as_bytes());
-    let git_commit = git_repo.find_commit(git_commit_id).unwrap();
+    let git_commit = git_repo.find_commit(git_commit_id)?;
 
     // Add `jj:trees` with a single tree which is different from the Git commit tree
-    let mut new_commit: gix::objs::Commit = git_commit.decode().unwrap().try_into().unwrap();
+    let mut new_commit: gix::objs::Commit = git_commit.decode()?.try_into()?;
     new_commit.extra_headers = vec![(
         JJ_TREES_COMMIT_HEADER.into(),
         tree_2.id().to_string().into(),
     )];
-    let new_commit_id = git_repo.write_object(&new_commit).unwrap();
+    let new_commit_id = git_repo.write_object(&new_commit)?;
     let new_commit_id = CommitId::from_bytes(new_commit_id.as_bytes());
 
     // Import new commit into `jj` repo. This should fail, because allowing a
@@ -447,10 +449,11 @@ fn test_jj_trees_header_with_one_tree() {
         },
     )
     "#);
+    Ok(())
 }
 
 #[test]
-fn test_conflict_headers_roundtrip() {
+fn test_conflict_headers_roundtrip() -> TestResult {
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = test_repo.repo;
 
@@ -495,8 +498,6 @@ fn test_conflict_headers_roundtrip() {
     // Clear cached commit to ensure it is re-read.
     repo.store().clear_caches();
     // Conflict trees and labels should be preserved on read.
-    assert_tree_eq!(
-        repo.store().get_commit(commit.id()).unwrap().tree(),
-        merged_tree
-    );
+    assert_tree_eq!(repo.store().get_commit(commit.id())?.tree(), merged_tree);
+    Ok(())
 }

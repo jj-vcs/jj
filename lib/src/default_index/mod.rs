@@ -57,6 +57,7 @@ mod tests {
     use itertools::Itertools as _;
     use smallvec::smallvec_inline;
     use test_case::test_case;
+    use testutils::TestResult;
 
     use super::changed_path::CompositeChangedPathIndex;
     use super::composite::AsCompositeIndex as _;
@@ -121,11 +122,11 @@ mod tests {
 
     #[test_case(false; "memory")]
     #[test_case(true; "file")]
-    fn index_empty(on_disk: bool) {
+    fn index_empty(on_disk: bool) -> TestResult {
         let temp_dir = new_temp_dir();
         let mutable_segment = MutableCommitIndexSegment::full(TEST_FIELD_LENGTHS);
         let index_segment: Box<DynCommitIndexSegment> = if on_disk {
-            let saved_index = mutable_segment.save_in(temp_dir.path()).unwrap();
+            let saved_index = mutable_segment.save_in(temp_dir.path())?;
             // Stats are as expected
             let stats = get_commit_index_stats(&saved_index);
             assert_eq!(stats.num_commits, 0);
@@ -144,11 +145,12 @@ mod tests {
         assert!(index.entry_by_id(&CommitId::from_hex("000000")).is_none());
         assert!(index.entry_by_id(&CommitId::from_hex("aaa111")).is_none());
         assert!(index.entry_by_id(&CommitId::from_hex("ffffff")).is_none());
+        Ok(())
     }
 
     #[test_case(false; "memory")]
     #[test_case(true; "file")]
-    fn index_root_commit(on_disk: bool) {
+    fn index_root_commit(on_disk: bool) -> TestResult {
         let temp_dir = new_temp_dir();
         let mut new_change_id = change_id_generator();
         let mut mutable_segment = MutableCommitIndexSegment::full(TEST_FIELD_LENGTHS);
@@ -187,6 +189,7 @@ mod tests {
             SmallGlobalCommitPositionsVec::new()
         );
         assert_eq!(entry.parents().len(), 0);
+        Ok(())
     }
 
     #[test]
@@ -203,7 +206,7 @@ mod tests {
     #[test_case(false, true; "full on disk")]
     #[test_case(true, false; "incremental in memory")]
     #[test_case(true, true; "incremental on disk")]
-    fn index_multiple_commits(incremental: bool, on_disk: bool) {
+    fn index_multiple_commits(incremental: bool, on_disk: bool) -> TestResult {
         let temp_dir = new_temp_dir();
         let mut new_change_id = change_id_generator();
         let mut mutable_segment = MutableCommitIndexSegment::full(TEST_FIELD_LENGTHS);
@@ -317,11 +320,12 @@ mod tests {
             entry_5.parents().nth(1).unwrap().position(),
             GlobalCommitPosition(2)
         );
+        Ok(())
     }
 
     #[test_case(false; "in memory")]
     #[test_case(true; "on disk")]
-    fn index_many_parents(on_disk: bool) {
+    fn index_many_parents(on_disk: bool) -> TestResult {
         let temp_dir = new_temp_dir();
         let mut new_change_id = change_id_generator();
         let mut mutable_segment = MutableCommitIndexSegment::full(TEST_FIELD_LENGTHS);
@@ -382,10 +386,11 @@ mod tests {
             ]
         );
         assert_eq!(entry_6.generation_number(), 2);
+        Ok(())
     }
 
     #[test]
-    fn resolve_commit_id_prefix() {
+    fn resolve_commit_id_prefix() -> TestResult {
         let temp_dir = new_temp_dir();
         let mut new_change_id = change_id_generator();
         let mut mutable_segment = MutableCommitIndexSegment::full(TEST_FIELD_LENGTHS);
@@ -399,7 +404,7 @@ mod tests {
         mutable_segment.add_commit_data(id_2.clone(), new_change_id(), &[]);
 
         // Write the first three commits to one file and build the remainder on top.
-        let initial_file = mutable_segment.save_in(temp_dir.path()).unwrap();
+        let initial_file = mutable_segment.save_in(temp_dir.path())?;
         mutable_segment = MutableCommitIndexSegment::incremental(initial_file);
 
         let id_3 = CommitId::from_hex("055444");
@@ -453,11 +458,12 @@ mod tests {
             index.resolve_commit_id_prefix(&HexPrefix::try_from_hex("0554").unwrap()),
             PrefixResolution::AmbiguousMatch
         );
+        Ok(())
     }
 
     #[test]
     #[expect(clippy::redundant_clone)] // allow id_n.clone()
-    fn neighbor_commit_ids() {
+    fn neighbor_commit_ids() -> TestResult {
         let temp_dir = new_temp_dir();
         let mut new_change_id = change_id_generator();
         let mut mutable_segment = MutableCommitIndexSegment::full(TEST_FIELD_LENGTHS);
@@ -471,7 +477,7 @@ mod tests {
         mutable_segment.add_commit_data(id_2.clone(), new_change_id(), &[]);
 
         // Write the first three commits to one file and build the remainder on top.
-        let initial_file = mutable_segment.save_in(temp_dir.path()).unwrap();
+        let initial_file = mutable_segment.save_in(temp_dir.path())?;
         mutable_segment = MutableCommitIndexSegment::incremental(initial_file.clone());
 
         let id_3 = CommitId::from_hex("055444");
@@ -582,10 +588,11 @@ mod tests {
             composite_index.resolve_neighbor_commit_ids(&CommitId::from_hex("ffffff")),
             (Some(id_4.clone()), None),
         );
+        Ok(())
     }
 
     #[test]
-    fn shortest_unique_commit_id_prefix() {
+    fn shortest_unique_commit_id_prefix() -> TestResult {
         let temp_dir = new_temp_dir();
         let mut new_change_id = change_id_generator();
         let mut mutable_segment = MutableCommitIndexSegment::full(TEST_FIELD_LENGTHS);
@@ -599,7 +606,7 @@ mod tests {
         mutable_segment.add_commit_data(id_2.clone(), new_change_id(), &[]);
 
         // Write the first three commits to one file and build the remainder on top.
-        let initial_file = mutable_segment.save_in(temp_dir.path()).unwrap();
+        let initial_file = mutable_segment.save_in(temp_dir.path())?;
         mutable_segment = MutableCommitIndexSegment::incremental(initial_file);
 
         let id_3 = CommitId::from_hex("055444");
@@ -636,10 +643,11 @@ mod tests {
             index.shortest_unique_commit_id_prefix_len(&CommitId::from_hex("ffffff")),
             1
         );
+        Ok(())
     }
 
     #[test]
-    fn resolve_change_id_prefix() {
+    fn resolve_change_id_prefix() -> TestResult {
         let temp_dir = new_temp_dir();
         let mut new_commit_id = commit_id_generator();
         let local_positions_vec = |positions: &[u32]| -> SmallLocalCommitPositionsVec {
@@ -673,7 +681,7 @@ mod tests {
         mutable_segment.add_commit_data(new_commit_id(), id_2.clone(), &[]);
 
         // Write these commits to one file and build the remainder on top.
-        let initial_file = mutable_segment.save_in(temp_dir.path()).unwrap();
+        let initial_file = mutable_segment.save_in(temp_dir.path())?;
         mutable_segment = MutableCommitIndexSegment::incremental(initial_file.clone());
 
         mutable_segment.add_commit_data(new_commit_id(), id_3.clone(), &[]);
@@ -813,10 +821,11 @@ mod tests {
             index.resolve_change_id_prefix(&HexPrefix::try_from_hex("0554").unwrap()),
             PrefixResolution::AmbiguousMatch
         );
+        Ok(())
     }
 
     #[test]
-    fn neighbor_change_ids() {
+    fn neighbor_change_ids() -> TestResult {
         let temp_dir = new_temp_dir();
         let mut new_commit_id = commit_id_generator();
 
@@ -840,7 +849,7 @@ mod tests {
         mutable_segment.add_commit_data(new_commit_id(), id_2.clone(), &[]);
 
         // Write these commits to one file and build the remainder on top.
-        let initial_file = mutable_segment.save_in(temp_dir.path()).unwrap();
+        let initial_file = mutable_segment.save_in(temp_dir.path())?;
         mutable_segment = MutableCommitIndexSegment::incremental(initial_file.clone());
 
         mutable_segment.add_commit_data(new_commit_id(), id_3.clone(), &[]);
@@ -962,10 +971,11 @@ mod tests {
             index.resolve_neighbor_change_ids(&ChangeId::from_hex("ffffffff")),
             (Some(id_4.clone()), None),
         );
+        Ok(())
     }
 
     #[test]
-    fn shortest_unique_change_id_prefix() {
+    fn shortest_unique_change_id_prefix() -> TestResult {
         let temp_dir = new_temp_dir();
         let mut new_commit_id = commit_id_generator();
 
@@ -989,7 +999,7 @@ mod tests {
         mutable_segment.add_commit_data(new_commit_id(), id_2.clone(), &[]);
 
         // Write these commits to one file and build the remainder on top.
-        let initial_file = mutable_segment.save_in(temp_dir.path()).unwrap();
+        let initial_file = mutable_segment.save_in(temp_dir.path())?;
         mutable_segment = MutableCommitIndexSegment::incremental(initial_file.clone());
 
         mutable_segment.add_commit_data(new_commit_id(), id_3.clone(), &[]);
@@ -1025,10 +1035,11 @@ mod tests {
             index.shortest_unique_change_id_prefix_len(&ChangeId::from_hex("ffffffff")),
             1
         );
+        Ok(())
     }
 
     #[test]
-    fn test_is_ancestor() {
+    fn test_is_ancestor() -> TestResult {
         let mut new_change_id = change_id_generator();
         let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         // 5
@@ -1062,10 +1073,11 @@ mod tests {
         assert!(!is_ancestor(&index, &id_3, &id_5));
         assert!(!is_ancestor(&index, &id_2, &id_4));
         assert!(!is_ancestor(&index, &id_4, &id_2));
+        Ok(())
     }
 
     #[test]
-    fn test_common_ancestors() {
+    fn test_common_ancestors() -> TestResult {
         let mut new_change_id = change_id_generator();
         let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         // 5
@@ -1156,10 +1168,11 @@ mod tests {
             vec![id_2.clone(), id_1.clone()]
         );
         assert_eq!(common_ancestors(&index, &[id_1, id_2], &[id_3]), vec![id_0]);
+        Ok(())
     }
 
     #[test]
-    fn test_common_ancestors_criss_cross() {
+    fn test_common_ancestors_criss_cross() -> TestResult {
         let mut new_change_id = change_id_generator();
         let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         // 3 4
@@ -1181,10 +1194,11 @@ mod tests {
         let mut common_ancestors = common_ancestors(&index, &[id_3], &[id_4]);
         common_ancestors.sort();
         assert_eq!(common_ancestors, vec![id_1, id_2]);
+        Ok(())
     }
 
     #[test]
-    fn test_common_ancestors_merge_with_ancestor() {
+    fn test_common_ancestors_merge_with_ancestor() -> TestResult {
         let mut new_change_id = change_id_generator();
         let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         // 4   5
@@ -1208,10 +1222,11 @@ mod tests {
         let mut common_ancestors = common_ancestors(&index, &[id_4], &[id_5]);
         common_ancestors.sort();
         assert_eq!(common_ancestors, vec![id_2]);
+        Ok(())
     }
 
     #[test]
-    fn test_heads() {
+    fn test_heads() -> TestResult {
         let mut new_change_id = change_id_generator();
         let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         // 5
@@ -1235,57 +1250,49 @@ mod tests {
         index.add_commit_data(id_5.clone(), new_change_id(), &[id_4.clone(), id_2.clone()]);
 
         // Empty input
-        assert!(index.heads(&mut [].iter()).unwrap().is_empty());
+        assert!(index.heads(&mut [].iter())?.is_empty());
         // Single head
-        assert_eq!(
-            index.heads(&mut [id_4.clone()].iter()).unwrap(),
-            vec![id_4.clone()]
-        );
+        assert_eq!(index.heads(&mut [id_4.clone()].iter())?, vec![id_4.clone()]);
         // Single head and parent
         assert_eq!(
-            index.heads(&mut [id_4.clone(), id_1].iter()).unwrap(),
+            index.heads(&mut [id_4.clone(), id_1].iter())?,
             vec![id_4.clone()]
         );
         // Single head and grand-parent
         assert_eq!(
-            index.heads(&mut [id_4.clone(), id_0].iter()).unwrap(),
+            index.heads(&mut [id_4.clone(), id_0].iter())?,
             vec![id_4.clone()]
         );
         // Multiple heads
         assert_eq!(
-            index
-                .heads(&mut [id_3.clone(), id_4.clone()].iter())
-                .unwrap(),
+            index.heads(&mut [id_3.clone(), id_4.clone()].iter())?,
             vec![id_4.clone(), id_3.clone()]
         );
         // Duplicated inputs
         assert_eq!(
-            index
-                .heads(&mut [id_4.clone(), id_3.clone(), id_4.clone()].iter())
-                .unwrap(),
+            index.heads(&mut [id_4.clone(), id_3.clone(), id_4.clone()].iter())?,
             vec![id_4.clone(), id_3.clone()]
         );
         // Merge commit and ancestors
         assert_eq!(
-            index.heads(&mut [id_5.clone(), id_2].iter()).unwrap(),
+            index.heads(&mut [id_5.clone(), id_2].iter())?,
             vec![id_5.clone()]
         );
         // Merge commit and other commit
         assert_eq!(
-            index
-                .heads(&mut [id_5.clone(), id_3.clone()].iter())
-                .unwrap(),
+            index.heads(&mut [id_5.clone(), id_3.clone()].iter())?,
             vec![id_5.clone(), id_3.clone()]
         );
 
         assert_eq!(
-            index.all_heads_for_gc().unwrap().collect_vec(),
+            index.all_heads_for_gc()?.collect_vec(),
             vec![id_3.clone(), id_5.clone()]
         );
+        Ok(())
     }
 
     #[test]
-    fn test_heads_range_with_filter() {
+    fn test_heads_range_with_filter() -> TestResult {
         let mut new_change_id = change_id_generator();
         let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         // 5
@@ -1407,5 +1414,6 @@ mod tests {
             heads_range(&[], &[&id_5], &(1..2), &|id| id != id_5),
             vec![id_2.clone()]
         );
+        Ok(())
     }
 }

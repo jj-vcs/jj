@@ -15,6 +15,7 @@
 use std::io::Write as _;
 
 use indoc::indoc;
+use testutils::TestResult;
 use testutils::git;
 
 use crate::common::CommandOutput;
@@ -615,7 +616,7 @@ fn test_git_fetch_from_remote_with_slashes() {
 }
 
 #[test]
-fn test_git_fetch_prune_before_updating_tips() {
+fn test_git_fetch_prune_before_updating_tips() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -629,17 +630,15 @@ fn test_git_fetch_prune_before_updating_tips() {
     ");
 
     // Remove origin bookmark in git repo and create origin/subname
-    let mut origin_reference = git_repo.find_reference("refs/heads/origin").unwrap();
-    let commit_id = origin_reference.peel_to_commit().unwrap().id().detach();
-    origin_reference.delete().unwrap();
-    git_repo
-        .reference(
-            "refs/heads/origin/subname",
-            commit_id,
-            gix::refs::transaction::PreviousValue::MustNotExist,
-            "create new reference",
-        )
-        .unwrap();
+    let mut origin_reference = git_repo.find_reference("refs/heads/origin")?;
+    let commit_id = origin_reference.peel_to_commit()?.id().detach();
+    origin_reference.delete()?;
+    git_repo.reference(
+        "refs/heads/origin/subname",
+        commit_id,
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "create new reference",
+    )?;
 
     work_dir.run_jj(["git", "fetch"]).success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
@@ -647,6 +646,7 @@ fn test_git_fetch_prune_before_updating_tips() {
       @origin: qmyrypzk ab8b299e message
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
@@ -722,7 +722,7 @@ fn test_git_fetch_conflicting_bookmarks_colocated() {
 }
 
 #[test]
-fn test_git_fetch_tags_by_name() {
+fn test_git_fetch_tags_by_name() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -730,15 +730,12 @@ fn test_git_fetch_tags_by_name() {
     // Create remote branches and tags
     let origin_git_repo = add_git_remote(&test_env, &work_dir, "origin");
     let commit1_oid = origin_git_repo
-        .find_reference("refs/heads/origin")
-        .unwrap()
+        .find_reference("refs/heads/origin")?
         .id()
         .detach();
     for name in ["tag1", "tag2", "tag3"] {
         let constraint = gix::refs::transaction::PreviousValue::MustNotExist;
-        origin_git_repo
-            .tag_reference(name, commit1_oid, constraint)
-            .unwrap();
+        origin_git_repo.tag_reference(name, commit1_oid, constraint)?;
     }
 
     // --tag disables default refspecs
@@ -787,14 +784,8 @@ fn test_git_fetch_tags_by_name() {
     // Move and delete tags at remote
     let commit2_oid = add_commit_to_branch(&origin_git_repo, "origin", "commit 2");
     let constraint = gix::refs::transaction::PreviousValue::MustExistAndMatch(commit1_oid.into());
-    origin_git_repo
-        .tag_reference("tag1", commit2_oid, constraint)
-        .unwrap();
-    origin_git_repo
-        .find_reference("refs/tags/tag2")
-        .unwrap()
-        .delete()
-        .unwrap();
+    origin_git_repo.tag_reference("tag1", commit2_oid, constraint)?;
+    origin_git_repo.find_reference("refs/tags/tag2")?.delete()?;
 
     // Fetch tag changes
     let output = work_dir.run_jj(["git", "fetch", "--tag=*"]);
@@ -812,6 +803,7 @@ fn test_git_fetch_tags_by_name() {
       @origin: qmyrypzk ab8b299e message
     [EOF]
     ");
+    Ok(())
 }
 
 // Helper functions to test obtaining multiple bookmarks at once and changed
@@ -1915,7 +1907,7 @@ fn test_git_fetch_remote_only_bookmark() {
 }
 
 #[test]
-fn test_git_fetch_preserve_commits_across_repos() {
+fn test_git_fetch_preserve_commits_across_repos() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.add_config("remotes.upstream.auto-track-bookmarks = '*'");
     test_env.add_config("remotes.fork.auto-track-bookmarks = '*'");
@@ -1960,18 +1952,14 @@ fn test_git_fetch_preserve_commits_across_repos() {
     git::fetch(upstream_repo.git_dir(), "fork");
 
     let base_id = upstream_repo
-        .find_reference("refs/heads/upstream")
-        .unwrap()
-        .peel_to_commit()
-        .unwrap()
+        .find_reference("refs/heads/upstream")?
+        .peel_to_commit()?
         .id()
         .detach();
 
     let fork_id = upstream_repo
-        .find_reference("refs/remotes/fork/feature")
-        .unwrap()
-        .peel_to_commit()
-        .unwrap()
+        .find_reference("refs/remotes/fork/feature")?
+        .peel_to_commit()?
         .id()
         .detach();
 
@@ -1984,11 +1972,7 @@ fn test_git_fetch_preserve_commits_across_repos() {
     );
 
     // remove branch on the fork
-    fork_repo
-        .find_reference("refs/heads/feature")
-        .unwrap()
-        .delete()
-        .unwrap();
+    fork_repo.find_reference("refs/heads/feature")?.delete()?;
 
     // fetch again on the jj repo, first looking at fork and then at upstream
     work_dir
@@ -2011,6 +1995,7 @@ fn test_git_fetch_preserve_commits_across_repos() {
       @upstream: trrkvuqr f3e9250b merge
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]

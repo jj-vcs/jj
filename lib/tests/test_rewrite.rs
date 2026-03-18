@@ -111,7 +111,7 @@ fn test_merge_criss_cross() -> TestResult {
 }
 
 #[test]
-fn test_find_recursive_merge_commits() {
+fn test_find_recursive_merge_commits() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -126,8 +126,7 @@ fn test_find_recursive_merge_commits() {
         tx.repo().store(),
         tx.repo().index(),
         vec![commit_d.id().clone(), commit_e.id().clone()],
-    )
-    .unwrap();
+    )?;
 
     assert_eq!(
         commit_id_merge,
@@ -139,6 +138,7 @@ fn test_find_recursive_merge_commits() {
             commit_e.id().clone(),
         ])
     );
+    Ok(())
 }
 
 #[test]

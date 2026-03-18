@@ -14,6 +14,8 @@
 
 use std::path::PathBuf;
 
+use testutils::TestResult;
+
 use crate::common::TestEnvironment;
 
 /// Integrating an already integrated operation is a no-op
@@ -35,7 +37,7 @@ fn test_integrate_integrated_operation() {
 }
 
 #[test]
-fn test_integrate_sibling_operation() {
+fn test_integrate_sibling_operation() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -51,8 +53,7 @@ fn test_integrate_sibling_operation() {
     std::fs::rename(
         heads_dir.join(&unintegrated_id),
         heads_dir.join(&base_op_id),
-    )
-    .unwrap();
+    )?;
     // We use --ignore-working-copy to prevent the automatic reloading of the repo
     // at the unintegrated operation that's mentioned in
     // `.jj/working_copy/checkout`.
@@ -92,10 +93,11 @@ fn test_integrate_sibling_operation() {
     ○  000000000000 root()
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_integrate_rebase_descendants() {
+fn test_integrate_rebase_descendants() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -114,8 +116,7 @@ fn test_integrate_rebase_descendants() {
     std::fs::rename(
         heads_dir.join(&unintegrated_id),
         heads_dir.join(&base_op_id),
-    )
-    .unwrap();
+    )?;
 
     // We use --ignore-working-copy to prevent the automatic reloading of the repo
     // at the unintegrated operation that's mentioned in
@@ -177,10 +178,11 @@ fn test_integrate_rebase_descendants() {
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_integrate_concurrent_operations() {
+fn test_integrate_concurrent_operations() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -196,8 +198,7 @@ fn test_integrate_concurrent_operations() {
     std::fs::rename(
         heads_dir.join(&unintegrated_id),
         heads_dir.join(&base_op_id),
-    )
-    .unwrap();
+    )?;
 
     // We use --ignore-working-copy to prevent the automatic reloading of the repo
     // at the unintegrated operation that's mentioned in
@@ -249,4 +250,5 @@ fn test_integrate_concurrent_operations() {
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
+    Ok(())
 }

@@ -594,6 +594,7 @@ pub(super) async fn collect_changed_paths(
 #[cfg(test)]
 mod tests {
     use test_case::test_case;
+    use testutils::TestResult;
 
     use super::*;
     use crate::tests::new_temp_dir;
@@ -627,7 +628,7 @@ mod tests {
     }
 
     #[test]
-    fn test_composite_empty() {
+    fn test_composite_empty() -> TestResult {
         let temp_dir = new_temp_dir();
         let mut index = CompositeChangedPathIndex::empty(GlobalCommitPosition(0));
         assert_eq!(index.start_commit_pos(), Some(GlobalCommitPosition(0)));
@@ -643,18 +644,19 @@ mod tests {
         assert_eq!(collect_changed_paths(&index, GlobalCommitPosition(0)), None);
 
         // Empty segment shouldn't be saved on disk
-        index.save_in(temp_dir.path()).unwrap();
+        index.save_in(temp_dir.path())?;
         assert!(index.mutable_segment.is_none());
         assert!(index.readonly_segments.is_empty());
         assert_eq!(index.start_commit_pos(), Some(GlobalCommitPosition(0)));
         assert_eq!(index.next_mutable_commit_pos(), None);
         assert_eq!(index.num_commits(), 0);
+        Ok(())
     }
 
     #[test_case(false, false; "mutable")]
     #[test_case(true, false; "readonly")]
     #[test_case(true, true; "readonly, reloaded")]
-    fn test_composite_some_commits(on_disk: bool, reload: bool) {
+    fn test_composite_some_commits(on_disk: bool, reload: bool) -> TestResult {
         let temp_dir = new_temp_dir();
         let start_commit_pos = GlobalCommitPosition(1);
         let mut index = CompositeChangedPathIndex::empty(start_commit_pos);
@@ -669,7 +671,7 @@ mod tests {
         );
         assert_eq!(index.num_commits(), 4);
         if on_disk {
-            index.save_in(temp_dir.path()).unwrap();
+            index.save_in(temp_dir.path())?;
             assert!(index.mutable_segment.is_none());
             assert_eq!(index.readonly_segments.len(), 1);
             assert_eq!(index.next_mutable_commit_pos(), None);
@@ -681,8 +683,7 @@ mod tests {
                 .iter()
                 .map(|segment| segment.id().clone())
                 .collect_vec();
-            index =
-                CompositeChangedPathIndex::load(temp_dir.path(), start_commit_pos, &ids).unwrap();
+            index = CompositeChangedPathIndex::load(temp_dir.path(), start_commit_pos, &ids)?;
         }
         if let [segment] = &*index.readonly_segments {
             assert_eq!(segment.num_local_commits(), 4);
@@ -712,52 +713,55 @@ mod tests {
             Some(vec![])
         );
         assert_eq!(collect_changed_paths(&index, GlobalCommitPosition(5)), None);
+        Ok(())
     }
 
     #[test]
-    fn test_composite_empty_commits() {
+    fn test_composite_empty_commits() -> TestResult {
         let temp_dir = new_temp_dir();
         let mut index = CompositeChangedPathIndex::empty(GlobalCommitPosition(0));
         index.make_mutable();
         // An empty commits table can be serialized/deserialized if forced
         let segment = index.mutable_segment.take().unwrap();
-        let segment = segment.save_in(temp_dir.path()).unwrap();
+        let segment = segment.save_in(temp_dir.path())?;
         index.readonly_segments.push(segment);
         assert_eq!(collect_changed_paths(&index, GlobalCommitPosition(0)), None);
+        Ok(())
     }
 
     #[test]
-    fn test_composite_empty_changed_paths() {
+    fn test_composite_empty_changed_paths() -> TestResult {
         let temp_dir = new_temp_dir();
         let mut index = CompositeChangedPathIndex::empty(GlobalCommitPosition(0));
         index.make_mutable();
         index.add_changed_paths(vec![]);
         // An empty paths table can be serialized/deserialized
         assert_eq!(index.num_commits(), 1);
-        index.save_in(temp_dir.path()).unwrap();
+        index.save_in(temp_dir.path())?;
         assert_eq!(
             collect_changed_paths(&index, GlobalCommitPosition(0)),
             Some(vec![])
         );
+        Ok(())
     }
 
     #[test_case(false; "with mutable")]
     #[test_case(true; "fully readonly")]
-    fn test_composite_segmented(on_disk: bool) {
+    fn test_composite_segmented(on_disk: bool) -> TestResult {
         let temp_dir = new_temp_dir();
         let mut index = CompositeChangedPathIndex::empty(GlobalCommitPosition(1));
         index.make_mutable();
         index.add_changed_paths(vec![repo_path_buf("b")]);
-        index.save_in(temp_dir.path()).unwrap();
+        index.save_in(temp_dir.path())?;
         index.make_mutable();
         index.add_changed_paths(vec![repo_path_buf("c")]);
         index.add_changed_paths(vec![repo_path_buf("a/b"), repo_path_buf("b")]);
-        index.save_in(temp_dir.path()).unwrap();
+        index.save_in(temp_dir.path())?;
         index.make_mutable();
         index.add_changed_paths(vec![repo_path_buf("d")]);
         index.add_changed_paths(vec![repo_path_buf("a/c"), repo_path_buf("c")]);
         if on_disk {
-            index.save_in(temp_dir.path()).unwrap();
+            index.save_in(temp_dir.path())?;
             assert!(index.mutable_segment.is_none());
             assert_eq!(index.readonly_segments.len(), 3);
             assert_eq!(index.next_mutable_commit_pos(), None);
@@ -804,37 +808,38 @@ mod tests {
             Some(vec![repo_path("a/c"), repo_path("c")])
         );
         assert_eq!(collect_changed_paths(&index, GlobalCommitPosition(6)), None);
+        Ok(())
     }
 
     #[test]
-    fn test_composite_squash_segments() {
+    fn test_composite_squash_segments() -> TestResult {
         let temp_dir = new_temp_dir();
         let mut index = CompositeChangedPathIndex::empty(GlobalCommitPosition(0));
         index.make_mutable();
         index.add_changed_paths(vec![repo_path_buf("0")]);
         index.maybe_squash_with_ancestors();
-        index.save_in(temp_dir.path()).unwrap();
+        index.save_in(temp_dir.path())?;
         assert_eq!(index.readonly_segments.len(), 1);
         assert_eq!(index.readonly_segments[0].num_local_commits(), 1);
 
         index.make_mutable();
         index.add_changed_paths(vec![repo_path_buf("1")]);
         index.maybe_squash_with_ancestors();
-        index.save_in(temp_dir.path()).unwrap();
+        index.save_in(temp_dir.path())?;
         assert_eq!(index.readonly_segments.len(), 1);
         assert_eq!(index.readonly_segments[0].num_local_commits(), 2);
 
         index.make_mutable();
         index.add_changed_paths(vec![repo_path_buf("2")]);
         index.maybe_squash_with_ancestors();
-        index.save_in(temp_dir.path()).unwrap();
+        index.save_in(temp_dir.path())?;
         assert_eq!(index.readonly_segments.len(), 1);
         assert_eq!(index.readonly_segments[0].num_local_commits(), 3);
 
         index.make_mutable();
         index.add_changed_paths(vec![repo_path_buf("3")]);
         index.maybe_squash_with_ancestors();
-        index.save_in(temp_dir.path()).unwrap();
+        index.save_in(temp_dir.path())?;
         assert_eq!(index.readonly_segments.len(), 2);
         assert_eq!(index.readonly_segments[0].num_local_commits(), 3);
         assert_eq!(index.readonly_segments[1].num_local_commits(), 1);
@@ -843,7 +848,7 @@ mod tests {
         index.add_changed_paths(vec![repo_path_buf("4")]);
         index.add_changed_paths(vec![repo_path_buf("5")]);
         index.maybe_squash_with_ancestors();
-        index.save_in(temp_dir.path()).unwrap();
+        index.save_in(temp_dir.path())?;
         assert_eq!(index.readonly_segments.len(), 1);
         assert_eq!(index.readonly_segments[0].num_local_commits(), 6);
 
@@ -872,5 +877,6 @@ mod tests {
             collect_changed_paths(&index, GlobalCommitPosition(5)),
             Some(vec![repo_path("5")])
         );
+        Ok(())
     }
 }

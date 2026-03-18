@@ -14,6 +14,7 @@
 
 use indoc::indoc;
 use regex::Regex;
+use testutils::TestResult;
 
 use crate::common::TestEnvironment;
 
@@ -165,7 +166,7 @@ fn test_snapshot_large_file_restore() {
 }
 
 #[test]
-fn test_materialize_and_snapshot_different_conflict_markers() {
+fn test_materialize_and_snapshot_different_conflict_markers() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -259,6 +260,7 @@ fn test_materialize_and_snapshot_different_conflict_markers() {
      line 3
     [EOF]
     "#);
+    Ok(())
 }
 
 #[test]
@@ -291,7 +293,7 @@ fn test_snapshot_invalid_ignore_pattern() {
 }
 
 #[test]
-fn test_conflict_marker_length_stored_in_working_copy() {
+fn test_conflict_marker_length_stored_in_working_copy() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -352,7 +354,7 @@ fn test_conflict_marker_length_stored_in_working_copy() {
 
     // The timestamps in the `jj debug local-working-copy` output change, so we want
     // to remove them before asserting the snapshot
-    let timestamp_regex = Regex::new(r"\b\d{10,}\b").unwrap();
+    let timestamp_regex = Regex::new(r"\b\d{10,}\b")?;
     let redact_output = |output: String| {
         let output = timestamp_regex.replace_all(&output, "<timestamp>");
         output.into_owned()
@@ -464,6 +466,7 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     Normal { exec_bit: ExecBit(false) }           130 <timestamp> None "file"
     [EOF]
     "#);
+    Ok(())
 }
 
 #[test]
@@ -540,7 +543,7 @@ fn test_submodule_ignored() {
 }
 
 #[test]
-fn test_snapshot_jjconflict_trees() {
+fn test_snapshot_jjconflict_trees() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env
         .run_jj_in(".", ["git", "init", "repo", "--colocate"])
@@ -585,8 +588,7 @@ fn test_snapshot_jjconflict_trees() {
     let output = std::process::Command::new("git")
         .current_dir(work_dir.root())
         .args(["reset", "--hard", "HEAD"])
-        .output()
-        .unwrap();
+        .output()?;
     assert!(output.status.success());
 
     // We should see a warning regarding '.jjconflict' trees being checked out.
@@ -608,4 +610,5 @@ fn test_snapshot_jjconflict_trees() {
     Hint: You can use `jj abandon` to discard the working copy changes.
     [EOF]
     ");
+    Ok(())
 }

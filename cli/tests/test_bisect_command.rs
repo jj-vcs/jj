@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use testutils::TestResult;
+
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
@@ -33,14 +35,14 @@ fn test_bisect_run_missing_command() {
 }
 
 #[test]
-fn test_bisect_run_empty_revset() {
+fn test_bisect_run_empty_revset() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let bisector_path = fake_bisector_path();
     let bisection_script = test_env.set_up_fake_bisector();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(&bisection_script, ["fail"].join("\0")).unwrap();
+    std::fs::write(&bisection_script, ["fail"].join("\0"))?;
     insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=none()", &bisector_path]), @"
     Search complete. To discard any revisions created during search, run:
       jj op restore 8f47435a3990
@@ -50,10 +52,11 @@ fn test_bisect_run_empty_revset() {
     [EOF]
     [exit status: 1]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_bisect_run() {
+fn test_bisect_run() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let bisector_path = fake_bisector_path();
     let bisection_script = test_env.set_up_fake_bisector();
@@ -67,7 +70,7 @@ fn test_bisect_run() {
     create_commit(&work_dir, "e", &["d"]);
     create_commit(&work_dir, "f", &["e"]);
 
-    std::fs::write(&bisection_script, ["fail"].join("\0")).unwrap();
+    std::fs::write(&bisection_script, ["fail"].join("\0"))?;
     insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @r"
     Bisecting: 5 revisions left to test after this (roughly 3 steps)
     Now evaluating: royxmykx dffaa0d4 c | c
@@ -106,7 +109,7 @@ fn test_bisect_run() {
     ");
 
     // Try with legacy command argument
-    std::fs::write(&bisection_script, ["fail"].join("\0")).unwrap();
+    std::fs::write(&bisection_script, ["fail"].join("\0"))?;
     // Testing only stderr to avoid a variable op id in the stdout.
     insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", "--command", &bisector_path]).success().stderr, @"
     Warning: `--command` is deprecated; use positional arguments instead: `jj bisect run --range=... -- $FAKE_BISECTOR_PATH`
@@ -130,6 +133,7 @@ fn test_bisect_run() {
     ◆  zzzzzzzzzzzz 000000000000 '' files:
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
@@ -292,7 +296,7 @@ fn test_bisect_run_with_args() {
 }
 
 #[test]
-fn test_bisect_run_crash() {
+fn test_bisect_run_crash() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let bisector_path = fake_bisector_path();
     let bisection_script = test_env.set_up_fake_bisector();
@@ -307,7 +311,7 @@ fn test_bisect_run_crash() {
     create_commit(&work_dir, "f", &["e"]);
 
     // bisector crash is equivalent to a failure
-    std::fs::write(&bisection_script, ["crash"].join("\0")).unwrap();
+    std::fs::write(&bisection_script, ["crash"].join("\0"))?;
     insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @r"
     Bisecting: 5 revisions left to test after this (roughly 3 steps)
     Now evaluating: royxmykx dffaa0d4 c | c
@@ -332,10 +336,11 @@ fn test_bisect_run_crash() {
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_bisect_run_abort() {
+fn test_bisect_run_abort() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let bisector_path = fake_bisector_path();
     let bisection_script = test_env.set_up_fake_bisector();
@@ -347,7 +352,7 @@ fn test_bisect_run_abort() {
     create_commit(&work_dir, "c", &["b"]);
 
     // stop immediately on failure
-    std::fs::write(&bisection_script, ["abort"].join("\0")).unwrap();
+    std::fs::write(&bisection_script, ["abort"].join("\0"))?;
     insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @r"
     Bisecting: 2 revisions left to test after this (roughly 2 steps)
     Now evaluating: rlvkpnrz 7d980be7 a | a
@@ -365,10 +370,11 @@ fn test_bisect_run_abort() {
     [EOF]
     [exit status: 1]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_bisect_run_skip() {
+fn test_bisect_run_skip() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let bisector_path = fake_bisector_path();
     let bisection_script = test_env.set_up_fake_bisector();
@@ -379,7 +385,7 @@ fn test_bisect_run_skip() {
     create_commit(&work_dir, "a", &[]);
     create_commit(&work_dir, "b", &["a"]);
 
-    std::fs::write(&bisection_script, ["skip"].join("\0")).unwrap();
+    std::fs::write(&bisection_script, ["skip"].join("\0"))?;
     insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @r"
     Bisecting: 1 revisions left to test after this (roughly 1 steps)
     Now evaluating: rlvkpnrz 7d980be7 a | a
@@ -396,6 +402,7 @@ fn test_bisect_run_skip() {
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
@@ -441,7 +448,7 @@ fn test_bisect_run_multiple_results() {
 }
 
 #[test]
-fn test_bisect_run_write_file() {
+fn test_bisect_run_write_file() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let bisector_path = fake_bisector_path();
     let bisection_script = test_env.set_up_fake_bisector();
@@ -457,8 +464,7 @@ fn test_bisect_run_write_file() {
     std::fs::write(
         &bisection_script,
         ["write new-file\nsome contents", "fail"].join("\0"),
-    )
-    .unwrap();
+    )?;
     insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @r"
     Bisecting: 4 revisions left to test after this (roughly 3 steps)
     Now evaluating: zsuskuln 123b4d91 b | b
@@ -507,10 +513,11 @@ fn test_bisect_run_write_file() {
     ○  create bookmark e pointing to commit 62d30ded0e8fdf8cf87012e6223898b97977fc8e
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_bisect_run_jj_command() {
+fn test_bisect_run_jj_command() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let bisector_path = fake_bisector_path();
     let bisection_script = test_env.set_up_fake_bisector();
@@ -523,7 +530,7 @@ fn test_bisect_run_jj_command() {
     create_commit(&work_dir, "d", &["c"]);
     create_commit(&work_dir, "e", &["d"]);
 
-    std::fs::write(&bisection_script, ["jj new -mtesting", "fail"].join("\0")).unwrap();
+    std::fs::write(&bisection_script, ["jj new -mtesting", "fail"].join("\0"))?;
     insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @r"
     Bisecting: 4 revisions left to test after this (roughly 3 steps)
     Now evaluating: zsuskuln 123b4d91 b | b
@@ -578,6 +585,7 @@ fn test_bisect_run_jj_command() {
     ○  create bookmark e pointing to commit 62d30ded0e8fdf8cf87012e6223898b97977fc8e
     [EOF]
     ");
+    Ok(())
 }
 
 #[must_use]

@@ -15,6 +15,7 @@
 use std::fs;
 
 use insta::assert_snapshot;
+use testutils::TestResult;
 
 use crate::common::TestEnvironment;
 
@@ -244,7 +245,7 @@ fn test_util_exec_sets_env() {
 }
 
 #[test]
-fn test_install_man_pages() {
+fn test_install_man_pages() -> TestResult {
     let test_env = TestEnvironment::default();
 
     // no man pages present
@@ -257,7 +258,8 @@ fn test_install_man_pages() {
 
     // confirm something is now present
     assert!(man_dir.is_dir());
-    assert!(fs::read_dir(man_dir).unwrap().next().is_some());
+    assert!(fs::read_dir(man_dir)?.next().is_some());
+    Ok(())
 }
 
 #[test]

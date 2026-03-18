@@ -14,6 +14,7 @@
 
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
+use testutils::TestResult;
 use testutils::git;
 
 use crate::common::CommandOutput;
@@ -21,7 +22,7 @@ use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
 
 #[test]
-fn test_resolution_of_git_tracking_bookmarks() {
+fn test_resolution_of_git_tracking_bookmarks() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -62,10 +63,11 @@ fn test_resolution_of_git_tracking_bookmarks() {
     a7f9930bb6d54ba39e6c254135b9bfe32041fea4 old_message
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_git_export_conflicting_git_refs() {
+fn test_git_export_conflicting_git_refs() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -88,10 +90,11 @@ fn test_git_export_conflicting_git_refs() {
         [EOF]
         "#);
     });
+    Ok(())
 }
 
 #[test]
-fn test_git_export_undo() {
+fn test_git_export_undo() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -149,10 +152,11 @@ fn test_git_export_undo() {
     ~
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_git_import_undo() {
+fn test_git_import_undo() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -164,15 +168,13 @@ fn test_git_import_undo() {
         .success()
         .stdout
         .into_raw();
-    let commit_id = gix::ObjectId::from_hex(commit_id.as_bytes()).unwrap();
-    git_repo
-        .reference(
-            "refs/heads/a",
-            commit_id,
-            gix::refs::transaction::PreviousValue::Any,
-            "",
-        )
-        .unwrap();
+    let commit_id = gix::ObjectId::from_hex(commit_id.as_bytes())?;
+    git_repo.reference(
+        "refs/heads/a",
+        commit_id,
+        gix::refs::transaction::PreviousValue::Any,
+        "",
+    )?;
 
     // Initial state we will return to after `undo`. There are no bookmarks.
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
@@ -210,10 +212,11 @@ fn test_git_import_undo() {
       @git: qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_git_import_move_export_with_default_undo() {
+fn test_git_import_move_export_with_default_undo() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -225,15 +228,13 @@ fn test_git_import_move_export_with_default_undo() {
         .success()
         .stdout
         .into_raw();
-    let commit_id = gix::ObjectId::from_hex(commit_id.as_bytes()).unwrap();
-    git_repo
-        .reference(
-            "refs/heads/a",
-            commit_id,
-            gix::refs::transaction::PreviousValue::Any,
-            "",
-        )
-        .unwrap();
+    let commit_id = gix::ObjectId::from_hex(commit_id.as_bytes())?;
+    git_repo.reference(
+        "refs/heads/a",
+        commit_id,
+        gix::refs::transaction::PreviousValue::Any,
+        "",
+    )?;
 
     // Initial state we will try to return to after `op restore`. There are no
     // bookmarks.
@@ -306,10 +307,11 @@ fn test_git_import_move_export_with_default_undo() {
       @git: royxmykx e7d0d5fd (empty) (no description set)
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_git_import_export_stats_color() {
+fn test_git_import_export_stats_color() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -339,16 +341,14 @@ fn test_git_import_export_stats_color() {
     [EOF]
     "#);
 
-    let other_commit_id = gix::ObjectId::from_hex(other_commit_id.as_bytes()).unwrap();
+    let other_commit_id = gix::ObjectId::from_hex(other_commit_id.as_bytes())?;
     for name in ["refs/heads/foo", "refs/heads/bar", "refs/tags/baz"] {
-        git_repo
-            .reference(
-                name,
-                other_commit_id,
-                gix::refs::transaction::PreviousValue::Any,
-                "",
-            )
-            .unwrap();
+        git_repo.reference(
+            name,
+            other_commit_id,
+            gix::refs::transaction::PreviousValue::Any,
+            "",
+        )?;
     }
 
     let output = work_dir
@@ -361,6 +361,7 @@ fn test_git_import_export_stats_color() {
     tag: [38;5;5mbaz@git[39m [new] 
     [EOF]
     ");
+    Ok(())
 }
 
 #[must_use]

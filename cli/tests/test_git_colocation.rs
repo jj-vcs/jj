@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use testutils::TestResult;
+
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
@@ -34,7 +36,7 @@ fn read_git_target(workspace_root: &std::path::Path) -> String {
 }
 
 #[test]
-fn test_git_colocation_enable_success() {
+fn test_git_colocation_enable_success() -> TestResult {
     let test_env = TestEnvironment::default();
 
     // Initialize a non-colocated Jujutsu/Git workspace
@@ -82,8 +84,7 @@ fn test_git_colocation_enable_success() {
     assert_eq!(read_git_target(workspace_root), "../../../.git");
 
     // Verify .jj/.gitignore was created
-    let gitignore_content =
-        std::fs::read_to_string(workspace_root.join(".jj").join(".gitignore")).unwrap();
+    let gitignore_content = std::fs::read_to_string(workspace_root.join(".jj").join(".gitignore"))?;
     assert_eq!(gitignore_content, "/*\n");
 
     // Verify that Git HEAD was set correctly
@@ -99,6 +100,7 @@ fn test_git_colocation_enable_success() {
     set git head to working copy parent
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
@@ -154,7 +156,7 @@ fn test_git_colocation_enable_already_colocated() {
 }
 
 #[test]
-fn test_git_colocation_enable_with_existing_git_dir() {
+fn test_git_colocation_enable_with_existing_git_dir() -> TestResult {
     let test_env = TestEnvironment::default();
 
     // Initialize a non-colocated Jujutsu/Git repo
@@ -168,8 +170,8 @@ fn test_git_colocation_enable_with_existing_git_dir() {
     let workspace_root = work_dir.root();
 
     // Create a .git directory manually
-    std::fs::create_dir(workspace_root.join(".git")).unwrap();
-    std::fs::write(workspace_root.join(".git").join("dummy"), "dummy").unwrap();
+    std::fs::create_dir(workspace_root.join(".git"))?;
+    std::fs::write(workspace_root.join(".git").join("dummy"), "dummy")?;
 
     // Try to colocate - should fail
     let output = work_dir.run_jj(["git", "colocation", "enable"]);
@@ -179,6 +181,7 @@ fn test_git_colocation_enable_with_existing_git_dir() {
     [EOF]
     [exit status: 1]
     ");
+    Ok(())
 }
 
 #[test]

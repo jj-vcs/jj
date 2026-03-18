@@ -14,12 +14,13 @@
 
 use std::io::Write as _;
 
+use testutils::TestResult;
 use testutils::git;
 
 use crate::common::TestEnvironment;
 
 #[test]
-fn test_gitignores() {
+fn test_gitignores() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
     git::init(work_dir.root());
@@ -30,24 +31,20 @@ fn test_gitignores() {
     // Say in core.excludesFiles that we don't want file1, file2, or file3
     let mut file = std::fs::OpenOptions::new()
         .append(true)
-        .open(work_dir.root().join(".git").join("config"))
-        .unwrap();
+        .open(work_dir.root().join(".git").join("config"))?;
     // Put the file in "~/my-ignores" so we also test that "~" expands to "$HOME"
-    file.write_all(b"[core]\nexcludesFile=~/my-ignores\n")
-        .unwrap();
+    file.write_all(b"[core]\nexcludesFile=~/my-ignores\n")?;
     drop(file);
     std::fs::write(
         test_env.home_dir().join("my-ignores"),
         "file1\nfile2\nfile3",
-    )
-    .unwrap();
+    )?;
 
     // Say in .git/info/exclude that we actually do want file2 and file3
     let mut file = std::fs::OpenOptions::new()
         .append(true)
-        .open(work_dir.root().join(".git").join("info").join("exclude"))
-        .unwrap();
-    file.write_all(b"!file2\n!file3").unwrap();
+        .open(work_dir.root().join(".git").join("info").join("exclude"))?;
+    file.write_all(b"!file2\n!file3")?;
     drop(file);
 
     // Say in .gitignore (in the working copy) that we actually do not want file2
@@ -67,10 +64,11 @@ fn test_gitignores() {
     A file3
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_gitignores_relative_excludes_file_path() {
+fn test_gitignores_relative_excludes_file_path() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
     test_env
@@ -79,12 +77,10 @@ fn test_gitignores_relative_excludes_file_path() {
 
     let mut file = std::fs::OpenOptions::new()
         .append(true)
-        .open(work_dir.root().join(".git").join("config"))
-        .unwrap();
-    file.write_all(b"[core]\nexcludesFile=../my-ignores\n")
-        .unwrap();
+        .open(work_dir.root().join(".git").join("config"))?;
+    file.write_all(b"[core]\nexcludesFile=../my-ignores\n")?;
     drop(file);
-    std::fs::write(test_env.env_root().join("my-ignores"), "ignored\n").unwrap();
+    std::fs::write(test_env.env_root().join("my-ignores"), "ignored\n")?;
 
     work_dir.write_file("ignored", "");
     work_dir.write_file("not-ignored", "");
@@ -102,6 +98,7 @@ fn test_gitignores_relative_excludes_file_path() {
     A repo/not-ignored
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]

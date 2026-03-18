@@ -17,6 +17,7 @@ use std::path::PathBuf;
 
 use itertools::Itertools as _;
 use regex::Regex;
+use testutils::TestResult;
 use testutils::git;
 
 use crate::common::CommandOutput;
@@ -376,7 +377,7 @@ fn test_op_log_no_graph_null_terminated() {
 }
 
 #[test]
-fn test_op_log_template() {
+fn test_op_log_template() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -417,7 +418,7 @@ fn test_op_log_template() {
 'format_time_range(time_range)' = 'time_range.end().ago() ++ ", lasted " ++ time_range.duration()'
         "#,
     );
-    let regex = Regex::new(r"\d\d years").unwrap();
+    let regex = Regex::new(r"\d\d years")?;
     let output = work_dir.run_jj(["op", "log"]);
     insta::assert_snapshot!(
         output.normalize_stdout_with(|s| regex.replace_all(&s, "NN years").into_owned()), @"
@@ -426,6 +427,7 @@ fn test_op_log_template() {
     ○  000000000000 root()
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
@@ -975,7 +977,7 @@ fn test_op_abandon_multiple_heads() {
 }
 
 #[test]
-fn test_op_recover_from_bad_gc() {
+fn test_op_recover_from_bad_gc() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env
         .run_jj_in(".", ["git", "init", "repo", "--colocate"])
@@ -1014,7 +1016,7 @@ fn test_op_recover_from_bad_gc() {
         .success();
     let bad_commit_id = output.stdout.into_raw();
     insta::assert_snapshot!(bad_commit_id, @"4e123bae951c3216a145dbcd56d60522739d362e");
-    std::fs::remove_file(git_object_path(&bad_commit_id)).unwrap();
+    std::fs::remove_file(git_object_path(&bad_commit_id))?;
 
     // Do concurrent modification to make the situation even worse. At this
     // point, the index can be loaded, so this command succeeds.
@@ -1079,10 +1081,11 @@ fn test_op_recover_from_bad_gc() {
     Concurrent modification detected, resolving automatically.
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_op_corrupted_operation_file() {
+fn test_op_corrupted_operation_file() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -1097,7 +1100,7 @@ fn test_op_corrupted_operation_file() {
     assert!(op_file_path.exists());
 
     // truncated
-    std::fs::write(&op_file_path, b"").unwrap();
+    std::fs::write(&op_file_path, b"")?;
     let output = work_dir.run_jj(["op", "log"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -1110,7 +1113,7 @@ fn test_op_corrupted_operation_file() {
     ");
 
     // undecodable
-    std::fs::write(&op_file_path, b"\0").unwrap();
+    std::fs::write(&op_file_path, b"\0")?;
     let output = work_dir.run_jj(["op", "log"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -1121,6 +1124,7 @@ fn test_op_corrupted_operation_file() {
     [EOF]
     [exit status: 255]
     ");
+    Ok(())
 }
 
 #[test]

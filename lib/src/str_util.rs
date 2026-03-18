@@ -597,6 +597,7 @@ mod tests {
     use assert_matches::assert_matches;
     use itertools::Itertools as _;
     use maplit::btreemap;
+    use testutils::TestResult;
 
     use super::*;
 
@@ -617,14 +618,11 @@ mod tests {
     }
 
     #[test]
-    fn test_string_pattern_to_glob() {
+    fn test_string_pattern_to_glob() -> TestResult {
         assert_eq!(StringPattern::all().to_glob(), Some("*".into()));
         assert_eq!(StringPattern::exact("a").to_glob(), Some("a".into()));
         assert_eq!(StringPattern::exact("*").to_glob(), Some("[*]".into()));
-        assert_eq!(
-            StringPattern::glob("*").unwrap().to_glob(),
-            Some("*".into())
-        );
+        assert_eq!(StringPattern::glob("*")?.to_glob(), Some("*".into()));
         assert_eq!(
             StringPattern::Substring("a".into()).to_glob(),
             Some("*a*".into())
@@ -633,6 +631,7 @@ mod tests {
             StringPattern::Substring("*".into()).to_glob(),
             Some("*[*]*".into())
         );
+        Ok(())
     }
 
     #[test]
@@ -768,73 +767,63 @@ mod tests {
     }
 
     #[test]
-    fn test_glob_pattern_to_matcher() {
+    fn test_glob_pattern_to_matcher() -> TestResult {
         assert_matches!(
-            StringPattern::glob("").unwrap().to_matcher(),
+            StringPattern::glob("")?.to_matcher(),
             StringMatcher::Exact(_)
         );
         assert_matches!(
-            StringPattern::glob("x").unwrap().to_matcher(),
+            StringPattern::glob("x")?.to_matcher(),
             StringMatcher::Exact(_)
         );
         assert_matches!(
-            StringPattern::glob("x?").unwrap().to_matcher(),
+            StringPattern::glob("x?")?.to_matcher(),
             StringMatcher::Fn(_)
         );
+        assert_matches!(StringPattern::glob("*")?.to_matcher(), StringMatcher::All);
         assert_matches!(
-            StringPattern::glob("*").unwrap().to_matcher(),
-            StringMatcher::All
-        );
-        assert_matches!(
-            StringPattern::glob(r"\\").unwrap().to_matcher(),
+            StringPattern::glob(r"\\")?.to_matcher(),
             StringMatcher::Fn(_) // or Exact(r"\")
         );
 
         assert_matches!(
-            StringPattern::glob_i("").unwrap().to_matcher(),
+            StringPattern::glob_i("")?.to_matcher(),
             StringMatcher::Fn(_) // or Exact
         );
         assert_matches!(
-            StringPattern::glob_i("x").unwrap().to_matcher(),
+            StringPattern::glob_i("x")?.to_matcher(),
             StringMatcher::Fn(_)
         );
         assert_matches!(
-            StringPattern::glob_i("x?").unwrap().to_matcher(),
+            StringPattern::glob_i("x?")?.to_matcher(),
             StringMatcher::Fn(_)
         );
-        assert_matches!(
-            StringPattern::glob_i("*").unwrap().to_matcher(),
-            StringMatcher::All
-        );
+        assert_matches!(StringPattern::glob_i("*")?.to_matcher(), StringMatcher::All);
+        Ok(())
     }
 
     #[test]
-    fn test_regex_pattern_to_matcher() {
+    fn test_regex_pattern_to_matcher() -> TestResult {
+        assert_matches!(StringPattern::regex("")?.to_matcher(), StringMatcher::All);
         assert_matches!(
-            StringPattern::regex("").unwrap().to_matcher(),
-            StringMatcher::All
-        );
-        assert_matches!(
-            StringPattern::regex("x").unwrap().to_matcher(),
+            StringPattern::regex("x")?.to_matcher(),
             StringMatcher::Fn(_)
         );
         assert_matches!(
-            StringPattern::regex(".").unwrap().to_matcher(),
+            StringPattern::regex(".")?.to_matcher(),
             StringMatcher::Fn(_)
         );
 
+        assert_matches!(StringPattern::regex_i("")?.to_matcher(), StringMatcher::All);
         assert_matches!(
-            StringPattern::regex_i("").unwrap().to_matcher(),
-            StringMatcher::All
-        );
-        assert_matches!(
-            StringPattern::regex_i("x").unwrap().to_matcher(),
+            StringPattern::regex_i("x")?.to_matcher(),
             StringMatcher::Fn(_)
         );
         assert_matches!(
-            StringPattern::regex_i(".").unwrap().to_matcher(),
+            StringPattern::regex_i(".")?.to_matcher(),
             StringMatcher::Fn(_)
         );
+        Ok(())
     }
 
     #[test]

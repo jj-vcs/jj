@@ -21,6 +21,7 @@ use jj_lib::file_util::check_symlink_support;
 use jj_lib::file_util::symlink_file;
 #[cfg(unix)]
 use regex::Regex;
+use testutils::TestResult;
 
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
@@ -150,17 +151,17 @@ fn test_chmod_regular_conflict() {
 }
 
 #[test]
-fn test_chmod_nonfile() {
-    if !check_symlink_support().unwrap() {
+fn test_chmod_nonfile() -> TestResult {
+    if !check_symlink_support()? {
         eprintln!("Skipping test because symlink isn't supported");
-        return;
+        return Ok(());
     }
 
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    symlink_file("target", work_dir.root().join("symlink")).unwrap();
+    symlink_file("target", work_dir.root().join("symlink"))?;
     let output = work_dir.run_jj(["show"]);
     insta::assert_snapshot!(output, @"
     Commit ID: 82976318a088d30054540d1a11ffb4c79fb5d47e
@@ -182,6 +183,7 @@ fn test_chmod_nonfile() {
     [EOF]
     [exit status: 1]
     ");
+    Ok(())
 }
 
 // TODO: Test demonstrating that conflicts whose *base* is not a file are
@@ -301,7 +303,7 @@ fn test_chmod_file_dir_deletion_conflicts() {
 
 #[cfg(unix)]
 #[test]
-fn test_chmod_exec_bit_settings() {
+fn test_chmod_exec_bit_settings() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -309,7 +311,7 @@ fn test_chmod_exec_bit_settings() {
 
     // The timestamps in the `jj debug local-working-copy` output change, so we want
     // to remove them before asserting the snapshot
-    let timestamp_regex = Regex::new(r"\b\d{10,}\b").unwrap();
+    let timestamp_regex = Regex::new(r"\b\d{10,}\b")?;
     let redact_timestamp = |output: String| {
         let output = timestamp_regex.replace_all(&output, "<timestamp>");
         output.into_owned()
@@ -405,6 +407,7 @@ fn test_chmod_exec_bit_settings() {
     Normal { exec_bit: ExecBit(true) }             5 <timestamp> None "file"
     [EOF]
     "#);
+    Ok(())
 }
 
 #[cfg(unix)]

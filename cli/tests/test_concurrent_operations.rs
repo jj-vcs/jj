@@ -13,13 +13,14 @@
 // limitations under the License.
 
 use itertools::Itertools as _;
+use testutils::TestResult;
 
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
 
 #[test]
-fn test_concurrent_operation_divergence() {
+fn test_concurrent_operation_divergence() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -63,6 +64,7 @@ fn test_concurrent_operation_divergence() {
     Concurrent modification detected, resolving automatically.
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
@@ -149,7 +151,7 @@ fn test_concurrent_operations_wc_modified() {
 }
 
 #[test]
-fn test_concurrent_snapshot_wc_reloadable() {
+fn test_concurrent_snapshot_wc_reloadable() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -201,8 +203,7 @@ fn test_concurrent_snapshot_wc_reloadable() {
     std::fs::rename(
         op_heads_dir.join(op_id_after_snapshot),
         op_heads_dir.join(op_id_before_snapshot),
-    )
-    .unwrap();
+    )?;
     work_dir.write_file("child2", "");
     let output = work_dir.run_jj(["describe", "-m", "new child2"]);
     insta::assert_snapshot!(output, @"
@@ -225,10 +226,11 @@ fn test_concurrent_snapshot_wc_reloadable() {
     ◆
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_git_head_race_condition() {
+fn test_git_head_race_condition() -> TestResult {
     // Test for race condition where concurrent jj processes create divergent
     // operations when importing/exporting Git HEAD. This test spawns two
     // processes in parallel: one running `jj debug snapshot` repeatedly
@@ -342,8 +344,7 @@ fn test_git_head_race_condition() {
     std::process::Command::new("git")
         .current_dir(work_dir.root())
         .args(["checkout", "-q", &initial_commit])
-        .status()
-        .unwrap();
+        .status()?;
 
     let last_op = work_dir
         .run_jj(["op", "log", "-T", "description", "--limit=1"])
@@ -355,6 +356,7 @@ fn test_git_head_race_condition() {
         last_op.contains(IMPORT_GIT_HEAD),
         "Expected last operation to contain '{IMPORT_GIT_HEAD}', got: {last_op:?}"
     );
+    Ok(())
 }
 
 #[must_use]

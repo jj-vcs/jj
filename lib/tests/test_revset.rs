@@ -141,7 +141,7 @@ fn build_changed_path_index(repo: &ReadonlyRepo) -> Arc<ReadonlyRepo> {
 }
 
 #[test]
-fn test_resolve_symbol_empty_string() {
+fn test_resolve_symbol_empty_string() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -149,6 +149,7 @@ fn test_resolve_symbol_empty_string() {
         resolve_symbol(repo.as_ref(), r#""""#),
         Err(RevsetResolutionError::EmptyString)
     );
+    Ok(())
 }
 
 #[test]
@@ -412,7 +413,7 @@ fn test_resolve_symbol_change_id(readonly: bool) -> TestResult {
 }
 
 #[test]
-fn test_resolve_symbol_divergent_change_id() {
+fn test_resolve_symbol_divergent_change_id() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -430,11 +431,11 @@ fn test_resolve_symbol_divergent_change_id() {
                 && visible_targets == vec![(0, commit2.id().clone()), (1, commit1.id().clone())]
     );
     assert_eq!(
-        resolve_symbol(tx.repo(), &format!("{change_id}/0")).unwrap(),
+        resolve_symbol(tx.repo(), &format!("{change_id}/0"))?,
         vec![commit2.id().clone()]
     );
     assert_eq!(
-        resolve_symbol(tx.repo(), &format!("{change_id}/1")).unwrap(),
+        resolve_symbol(tx.repo(), &format!("{change_id}/1"))?,
         vec![commit1.id().clone()]
     );
     assert_matches!(
@@ -442,9 +443,10 @@ fn test_resolve_symbol_divergent_change_id() {
         Err(RevsetResolutionError::NoSuchRevision { .. })
     );
     assert_eq!(
-        resolve_symbol(tx.repo(), &format!("change_id({change_id})")).unwrap(),
+        resolve_symbol(tx.repo(), &format!("change_id({change_id})"))?,
         vec![commit2.id().clone(), commit1.id().clone()]
     );
+    Ok(())
 }
 
 #[test]
@@ -566,7 +568,7 @@ fn test_resolve_symbol_in_different_disambiguation_context() -> TestResult {
 }
 
 #[test]
-fn test_resolve_working_copy() {
+fn test_resolve_working_copy() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -589,10 +591,8 @@ fn test_resolve_working_copy() {
     assert_eq!(
         RevsetExpression::working_copy(ws1.clone())
             .present()
-            .resolve_user_expression(tx.repo(), &symbol_resolver)
-            .unwrap()
-            .evaluate(tx.repo())
-            .unwrap()
+            .resolve_user_expression(tx.repo(), &symbol_resolver)?
+            .evaluate(tx.repo())?
             .iter()
             .map(Result::unwrap)
             .collect_vec(),
@@ -602,11 +602,9 @@ fn test_resolve_working_copy() {
 
     // Add some workspaces
     tx.repo_mut()
-        .set_wc_commit(ws1.clone(), commit1.id().clone())
-        .unwrap();
+        .set_wc_commit(ws1.clone(), commit1.id().clone())?;
     tx.repo_mut()
-        .set_wc_commit(ws2.clone(), commit2.id().clone())
-        .unwrap();
+        .set_wc_commit(ws2.clone(), commit2.id().clone())?;
     let symbol_resolver = default_symbol_resolver(tx.repo());
     let resolve = |name: WorkspaceNameBuf| -> Vec<CommitId> {
         RevsetExpression::working_copy(name)
@@ -623,10 +621,11 @@ fn test_resolve_working_copy() {
     assert_eq!(resolve(ws1), vec![commit1.id().clone()]);
     // Can resolve an explicit checkout
     assert_eq!(resolve(ws2), vec![commit2.id().clone()]);
+    Ok(())
 }
 
 #[test]
-fn test_resolve_working_copies() {
+fn test_resolve_working_copies() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -640,11 +639,9 @@ fn test_resolve_working_copies() {
 
     // add one commit to each working copy
     tx.repo_mut()
-        .set_wc_commit(ws1.clone(), commit1.id().clone())
-        .unwrap();
+        .set_wc_commit(ws1.clone(), commit1.id().clone())?;
     tx.repo_mut()
-        .set_wc_commit(ws2.clone(), commit2.id().clone())
-        .unwrap();
+        .set_wc_commit(ws2.clone(), commit2.id().clone())?;
     let symbol_resolver = default_symbol_resolver(tx.repo());
     let resolve = || -> Vec<CommitId> {
         RevsetExpression::working_copies()
@@ -659,10 +656,11 @@ fn test_resolve_working_copies() {
 
     // ensure our output has those two commits
     assert_eq!(resolve(), vec![commit2.id().clone(), commit1.id().clone()]);
+    Ok(())
 }
 
 #[test]
-fn test_resolve_symbol_bookmarks_only() {
+fn test_resolve_symbol_bookmarks_only() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
     let new_remote_ref = |target| RemoteRef {
@@ -732,7 +730,7 @@ fn test_resolve_symbol_bookmarks_only() {
 
     // Local only
     assert_eq!(
-        resolve_symbol(mut_repo, "local").unwrap(),
+        resolve_symbol(mut_repo, "local")?,
         vec![commit1.id().clone()],
     );
     insta::assert_debug_snapshot!(
@@ -762,29 +760,29 @@ fn test_resolve_symbol_bookmarks_only() {
     }
     "#);
     assert_eq!(
-        resolve_symbol(mut_repo, "remote@origin").unwrap(),
+        resolve_symbol(mut_repo, "remote@origin")?,
         vec![commit2.id().clone()],
     );
 
     // Local/remote/git
     assert_eq!(
-        resolve_symbol(mut_repo, "local-remote").unwrap(),
+        resolve_symbol(mut_repo, "local-remote")?,
         vec![commit3.id().clone()],
     );
     assert_eq!(
-        resolve_symbol(mut_repo, "local-remote@origin").unwrap(),
+        resolve_symbol(mut_repo, "local-remote@origin")?,
         vec![commit4.id().clone()],
     );
     assert_eq!(
-        resolve_symbol(mut_repo, r#""local-remote@origin""#).unwrap(),
+        resolve_symbol(mut_repo, r#""local-remote@origin""#)?,
         vec![commit5.id().clone()],
     );
     assert_eq!(
-        resolve_symbol(mut_repo, "local-remote@mirror").unwrap(),
+        resolve_symbol(mut_repo, "local-remote@mirror")?,
         vec![commit3.id().clone()],
     );
     assert_eq!(
-        resolve_symbol(mut_repo, "local-remote@git").unwrap(),
+        resolve_symbol(mut_repo, "local-remote@git")?,
         vec![commit3.id().clone()],
     );
 
@@ -802,11 +800,11 @@ fn test_resolve_symbol_bookmarks_only() {
                 && targets == vec![commit5.id().clone(), commit4.id().clone()]
     );
     assert_eq!(
-        resolve_symbol(mut_repo, "bookmarks(local-conflicted)").unwrap(),
+        resolve_symbol(mut_repo, "bookmarks(local-conflicted)")?,
         vec![commit3.id().clone(), commit2.id().clone()],
     );
     assert_eq!(
-        resolve_symbol(mut_repo, "remote_bookmarks(remote-conflicted, origin)").unwrap(),
+        resolve_symbol(mut_repo, "remote_bookmarks(remote-conflicted, origin)")?,
         vec![commit5.id().clone(), commit4.id().clone()],
     );
 
@@ -910,10 +908,11 @@ fn test_resolve_symbol_bookmarks_only() {
         ],
     }
     "#);
+    Ok(())
 }
 
 #[test]
-fn test_resolve_symbol_tags() {
+fn test_resolve_symbol_tags() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -939,7 +938,7 @@ fn test_resolve_symbol_tags() {
 
     // Tag precedes bookmark
     assert_eq!(
-        resolve_symbol(mut_repo, "tag-bookmark").unwrap(),
+        resolve_symbol(mut_repo, "tag-bookmark")?,
         vec![commit1.id().clone()],
     );
 
@@ -950,23 +949,22 @@ fn test_resolve_symbol_tags() {
 
     // "@" (quoted) can be resolved, and root is a normal symbol.
     let ws_name = WorkspaceName::DEFAULT.to_owned();
-    mut_repo
-        .set_wc_commit(ws_name.clone(), commit1.id().clone())
-        .unwrap();
+    mut_repo.set_wc_commit(ws_name.clone(), commit1.id().clone())?;
     mut_repo.set_local_tag_target("@".as_ref(), RefTarget::normal(commit2.id().clone()));
     mut_repo.set_local_tag_target("root".as_ref(), RefTarget::normal(commit3.id().clone()));
     assert_eq!(
-        resolve_symbol(mut_repo, r#""@""#).unwrap(),
+        resolve_symbol(mut_repo, r#""@""#)?,
         vec![commit2.id().clone()]
     );
     assert_eq!(
-        resolve_symbol(mut_repo, "root").unwrap(),
+        resolve_symbol(mut_repo, "root")?,
         vec![commit3.id().clone()]
     );
+    Ok(())
 }
 
 #[test]
-fn test_resolve_symbol_remote_tags_or_bookmarks() {
+fn test_resolve_symbol_remote_tags_or_bookmarks() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
     let new_remote_ref = |target| RemoteRef {
@@ -1021,7 +1019,7 @@ fn test_resolve_symbol_remote_tags_or_bookmarks() {
 
     // Tag precedes bookmark
     assert_eq!(
-        resolve_symbol(mut_repo, "tag-bookmark@origin").unwrap(),
+        resolve_symbol(mut_repo, "tag-bookmark@origin")?,
         vec![commit3.id().clone()],
     );
 
@@ -1048,10 +1046,11 @@ fn test_resolve_symbol_remote_tags_or_bookmarks() {
         ],
     }
     "#);
+    Ok(())
 }
 
 #[test]
-fn test_resolve_symbol_git_refs() {
+fn test_resolve_symbol_git_refs() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -1101,7 +1100,7 @@ fn test_resolve_symbol_git_refs() {
         RefTarget::normal(commit4.id().clone()),
     );
     assert_eq!(
-        resolve_symbol(mut_repo, "refs/heads/bookmark").unwrap(),
+        resolve_symbol(mut_repo, "refs/heads/bookmark")?,
         vec![commit4.id().clone()]
     );
 
@@ -1124,7 +1123,7 @@ fn test_resolve_symbol_git_refs() {
     "#);
     // heads/bookmark does get resolved to the git ref refs/heads/bookmark
     assert_eq!(
-        resolve_symbol(mut_repo, "heads/bookmark").unwrap(),
+        resolve_symbol(mut_repo, "heads/bookmark")?,
         vec![commit5.id().clone()]
     );
 
@@ -1155,6 +1154,7 @@ fn test_resolve_symbol_git_refs() {
             if symbol == "refs/heads/conflicted"
                 && targets == vec![commit1.id().clone(), commit3.id().clone()]
     );
+    Ok(())
 }
 
 fn resolve_commit_ids(repo: &dyn Repo, revset_str: &str) -> Vec<CommitId> {
@@ -1526,7 +1526,7 @@ fn test_evaluate_expression_roots() {
 }
 
 #[test]
-fn test_evaluate_expression_parents() {
+fn test_evaluate_expression_parents() -> TestResult {
     let test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
 
@@ -1543,9 +1543,7 @@ fn test_evaluate_expression_parents() {
     assert_eq!(resolve_commit_ids(mut_repo, "root()-"), vec![]);
 
     // Can find parents of the current working-copy commit
-    mut_repo
-        .set_wc_commit(WorkspaceName::DEFAULT.to_owned(), commit2.id().clone())
-        .unwrap();
+    mut_repo.set_wc_commit(WorkspaceName::DEFAULT.to_owned(), commit2.id().clone())?;
     assert_eq!(
         resolve_commit_ids_in_workspace(mut_repo, "@-", &test_workspace.workspace, None,),
         vec![commit1.id().clone()]
@@ -1620,6 +1618,7 @@ fn test_evaluate_expression_parents() {
         ),
         vec![commit1.id().clone(), root_commit.id().clone()]
     );
+    Ok(())
 }
 
 #[test]

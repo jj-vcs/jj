@@ -17,6 +17,7 @@ use std::ffi::OsString;
 use indoc::indoc;
 use itertools::Itertools as _;
 use regex::Regex;
+use testutils::TestResult;
 
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
@@ -736,7 +737,7 @@ fn test_early_args() {
 }
 
 #[test]
-fn test_config_args() {
+fn test_config_args() -> TestResult {
     let test_env = TestEnvironment::default();
     let list_config = |args: &[&str]| {
         test_env.run_jj_in(
@@ -751,15 +752,13 @@ fn test_config_args() {
             test.key1 = 'file1'
             test.key2 = 'file1'
         "},
-    )
-    .unwrap();
+    )?;
     std::fs::write(
         test_env.env_root().join("file2.toml"),
         indoc! {"
             test.key3 = 'file2'
         "},
-    )
-    .unwrap();
+    )?;
 
     let output = list_config(&["--config=test.key1=arg1"]);
     insta::assert_snapshot!(output, @r#"
@@ -825,6 +824,7 @@ fn test_config_args() {
         [exit status: 1]
         ");
     });
+    Ok(())
 }
 
 #[test]
@@ -967,10 +967,10 @@ fn test_conditional_config_environments() {
 
 /// Test that `jj` command works with the default configuration.
 #[test]
-fn test_default_config() {
+fn test_default_config() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let config_dir = test_env.env_root().join("empty-config");
-    std::fs::create_dir(&config_dir).unwrap();
+    std::fs::create_dir(&config_dir)?;
     test_env.set_config_path(&config_dir);
 
     let envs_to_drop = test_env
@@ -1013,7 +1013,7 @@ fn test_default_config() {
     let _guard = insta_settings.bind_to_scope();
 
     let maskable_op_user = {
-        let maskable_re = Regex::new(r"^[a-zA-Z0-9\-._]+$").unwrap();
+        let maskable_re = Regex::new(r"^[a-zA-Z0-9\-._]+$")?;
         let hostname = whoami::hostname().expect("hostname should be set");
         let username = whoami::username().expect("username should be set");
         maskable_re.is_match(&hostname) && maskable_re.is_match(&username)
@@ -1074,6 +1074,7 @@ fn test_default_config() {
         [EOF]
         ");
     }
+    Ok(())
 }
 
 #[test]

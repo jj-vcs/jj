@@ -15,6 +15,7 @@
 use std::path::PathBuf;
 
 use test_case::test_case;
+use testutils::TestResult;
 
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
@@ -45,7 +46,7 @@ fn get_recorded_dates(work_dir: &TestWorkDir, revset: &str) -> CommandOutput {
 }
 
 #[test]
-fn test_split_by_paths() {
+fn test_split_by_paths() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -74,8 +75,7 @@ fn test_split_by_paths() {
             "dump editor1",
         ]
         .join("\0"),
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj([
         "split",
         "file2",
@@ -91,7 +91,7 @@ fn test_split_by_paths() {
     ");
     // Trailers should be added to the editor template
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor0"))?, @r#"
     JJ: Enter a description for the selected changes.
 
 
@@ -136,7 +136,7 @@ fn test_split_by_paths() {
     ");
 
     // Insert an empty commit after @- with "split ."
-    std::fs::write(&edit_script, "").unwrap();
+    std::fs::write(&edit_script, "")?;
     let output = work_dir.run_jj(["split", "-r", "@-", "."]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -167,7 +167,7 @@ fn test_split_by_paths() {
     work_dir.run_jj(["abandon", "@-"]).success();
 
     // Insert an empty commit before @- with "split nonexistent"
-    std::fs::write(&edit_script, "").unwrap();
+    std::fs::write(&edit_script, "")?;
     let output = work_dir.run_jj(["split", "-r", "@-", "nonexistent"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -208,10 +208,11 @@ fn test_split_by_paths() {
     Parent commit (@-)      : uyznsvlq 971ccc0b (no description set)
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_split_with_non_empty_description() {
+fn test_split_with_non_empty_description() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -231,8 +232,7 @@ fn test_split_with_non_empty_description() {
             "write\npart 2",
         ]
         .join("\0"),
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["split", "file1"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -244,7 +244,7 @@ fn test_split_with_non_empty_description() {
     ");
 
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor1"))?, @r#"
     JJ: Enter a description for the selected changes.
     test
 
@@ -255,7 +255,7 @@ fn test_split_with_non_empty_description() {
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor2")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor2"))?, @r#"
     JJ: Enter a description for the remaining changes.
     test
 
@@ -271,10 +271,11 @@ fn test_split_with_non_empty_description() {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_split_with_default_description() {
+fn test_split_with_default_description() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -287,8 +288,7 @@ fn test_split_with_default_description() {
     std::fs::write(
         edit_script,
         ["dump editor1", "next invocation\n", "dump editor2"].join("\0"),
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["split", "file1"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -304,7 +304,7 @@ fn test_split_with_default_description() {
     // default value we set. The second commit will inherit the empty
     // description from the commit being split.
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor1"))?, @r#"
     JJ: Enter a description for the selected changes.
 
 
@@ -323,10 +323,11 @@ fn test_split_with_default_description() {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_split_with_descendants() {
+fn test_split_with_descendants() -> TestResult {
     // Configure the environment and make the initial commits.
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
@@ -364,8 +365,7 @@ fn test_split_with_descendants() {
             "write\nAdd file2",
         ]
         .join("\0"),
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["split", "file1", "-r", "qpvu"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -388,7 +388,7 @@ fn test_split_with_descendants() {
     // The commit we're splitting has a description, so the user will be
     // prompted to enter a description for each of the commits.
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor1"))?, @r#"
     JJ: Enter a description for the selected changes.
     Add file1 & file2
 
@@ -399,7 +399,7 @@ fn test_split_with_descendants() {
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor2")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor2"))?, @r#"
     JJ: Enter a description for the remaining changes.
     Add file1 & file2
 
@@ -450,12 +450,13 @@ fn test_split_with_descendants() {
        -- operation 8f47435a3990 add workspace 'default'
     [EOF]
     ");
+    Ok(())
 }
 
 // This test makes sure that the children of the commit being split retain any
 // other parents which weren't involved in the split.
 #[test]
-fn test_split_with_merge_child() {
+fn test_split_with_merge_child() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -481,8 +482,7 @@ fn test_split_with_merge_child() {
     std::fs::write(
         edit_script,
         ["write\nAdd file1", "next invocation\n", "write\nAdd file2"].join("\0"),
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["split", "-rsubject(a)", "file1"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -504,12 +504,13 @@ fn test_split_with_merge_child() {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
 // Split a commit with no descendants into siblings. Also tests that the default
 // description is set correctly on the first commit.
-fn test_split_parallel_no_descendants() {
+fn test_split_parallel_no_descendants() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -528,8 +529,7 @@ fn test_split_parallel_no_descendants() {
     std::fs::write(
         edit_script,
         ["dump editor1", "next invocation\n", "dump editor2"].join("\0"),
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["split", "--parallel", "file1"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -553,7 +553,7 @@ fn test_split_parallel_no_descendants() {
     // default value we set. The second commit will inherit the empty
     // description from the commit being split.
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor1"))?, @r#"
     JJ: Enter a description for the selected changes.
 
 
@@ -600,10 +600,11 @@ fn test_split_parallel_no_descendants() {
        -- operation 8f47435a3990 add workspace 'default'
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_split_parallel_with_descendants() {
+fn test_split_parallel_with_descendants() -> TestResult {
     // Configure the environment and make the initial commits.
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
@@ -645,8 +646,7 @@ fn test_split_parallel_with_descendants() {
             "write\nAdd file2",
         ]
         .join("\0"),
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["split", "--parallel", "file1"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -672,7 +672,7 @@ fn test_split_parallel_with_descendants() {
     // The commit we're splitting has a description, so the user will be
     // prompted to enter a description for each of the sibling commits.
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor1"))?, @r#"
     JJ: Enter a description for the selected changes.
     Add file1 & file2
 
@@ -683,7 +683,7 @@ fn test_split_parallel_with_descendants() {
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor2")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor2"))?, @r#"
     JJ: Enter a description for the remaining changes.
     Add file1 & file2
 
@@ -693,12 +693,13 @@ fn test_split_parallel_with_descendants() {
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
+    Ok(())
 }
 
 // This test makes sure that the children of the commit being split retain any
 // other parents which weren't involved in the split.
 #[test]
-fn test_split_parallel_with_merge_child() {
+fn test_split_parallel_with_merge_child() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -724,8 +725,7 @@ fn test_split_parallel_with_merge_child() {
     std::fs::write(
         edit_script,
         ["write\nAdd file1", "next invocation\n", "write\nAdd file2"].join("\0"),
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["split", "-rsubject(a)", "--parallel", "file1"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -749,10 +749,11 @@ fn test_split_parallel_with_merge_child() {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_split_parallel_with_conflict() {
+fn test_split_parallel_with_conflict() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let diff_editor = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -776,8 +777,7 @@ fn test_split_parallel_with_conflict() {
     std::fs::write(
         diff_editor,
         ["write file\nline 1\nline 2.1\nline 3\n"].join("\0"),
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["split", "--parallel", "-i", "-m="]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -839,11 +839,12 @@ fn test_split_parallel_with_conflict() {
     line 3
     [EOF]
     ");
+    Ok(())
 }
 
 // Make sure `jj split` would refuse to split an empty commit.
 #[test]
-fn test_split_empty() {
+fn test_split_empty() -> TestResult {
     let mut test_env = TestEnvironment::default();
     test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -875,10 +876,11 @@ fn test_split_empty() {
     Parent commit (@-)      : kkmpptxz cd55fd14 (empty) abc
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_split_message_editor_avoids_unc() {
+fn test_split_message_editor_avoids_unc() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -887,19 +889,19 @@ fn test_split_message_editor_avoids_unc() {
     work_dir.write_file("file1", "foo");
     work_dir.write_file("file2", "foo");
 
-    std::fs::write(edit_script, "dump-path path").unwrap();
+    std::fs::write(edit_script, "dump-path path")?;
     work_dir.run_jj(["split", "file2"]).success();
 
-    let edited_path =
-        PathBuf::from(std::fs::read_to_string(test_env.env_root().join("path")).unwrap());
+    let edited_path = PathBuf::from(std::fs::read_to_string(test_env.env_root().join("path"))?);
     // While `assert!(!edited_path.starts_with("//?/"))` could work here in most
     // cases, it fails when it is not safe to strip the prefix, such as paths
     // over 260 chars.
     assert_eq!(edited_path, dunce::simplified(&edited_path));
+    Ok(())
 }
 
 #[test]
-fn test_split_interactive() {
+fn test_split_interactive() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     let diff_editor = test_env.set_up_fake_diff_editor();
@@ -908,10 +910,10 @@ fn test_split_interactive() {
 
     work_dir.write_file("file1", "foo\n");
     work_dir.write_file("file2", "bar\n");
-    std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
+    std::fs::write(edit_script, ["dump editor"].join("\0"))?;
 
     let diff_script = ["rm file2", "dump JJ-INSTRUCTIONS instrs"].join("\0");
-    std::fs::write(diff_editor, diff_script).unwrap();
+    std::fs::write(diff_editor, diff_script)?;
 
     // Split the working commit interactively and select only file1
     let output = work_dir.run_jj(["split"]);
@@ -925,7 +927,7 @@ fn test_split_interactive() {
     ");
 
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @"
+        std::fs::read_to_string(test_env.env_root().join("instrs"))?, @"
     You are splitting a commit into two: qpvuntsm f5700f8e (no description set)
 
     The diff initially shows the changes in the commit you're splitting.
@@ -936,7 +938,7 @@ fn test_split_interactive() {
     ");
 
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
     JJ: Enter a description for the selected changes.
 
 
@@ -958,10 +960,11 @@ fn test_split_interactive() {
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_split_interactive_with_paths() {
+fn test_split_interactive_with_paths() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     let diff_editor = test_env.set_up_fake_diff_editor();
@@ -975,7 +978,7 @@ fn test_split_interactive_with_paths() {
     work_dir.write_file("file2", "bar\n");
     work_dir.write_file("file3", "baz\n");
 
-    std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
+    std::fs::write(edit_script, ["dump editor"].join("\0"))?;
     // On the before side, file2 is empty. On the after side, it contains "bar".
     // The "reset file2" copies the empty version from the before side to the
     // after side, effectively "unselecting" the changes and leaving only the
@@ -987,7 +990,7 @@ fn test_split_interactive_with_paths() {
         "reset file2",
     ]
     .join("\0");
-    std::fs::write(diff_editor, diff_script).unwrap();
+    std::fs::write(diff_editor, diff_script)?;
 
     // Select file1 and file2 by args, then select file1 interactively via the diff
     // script.
@@ -1002,7 +1005,7 @@ fn test_split_interactive_with_paths() {
     ");
 
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
     JJ: Enter a description for the selected changes.
 
 
@@ -1029,6 +1032,7 @@ fn test_split_interactive_with_paths() {
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
+    Ok(())
 }
 
 // When a commit is split, the second commit produced by the split becomes the
@@ -1036,7 +1040,7 @@ fn test_split_interactive_with_paths() {
 // target of the split. This test does a split where the target commit is the
 // working copy commit for two different workspaces.
 #[test]
-fn test_split_with_multiple_workspaces_same_working_copy() {
+fn test_split_with_multiple_workspaces_same_working_copy() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "main"]).success();
@@ -1069,8 +1073,7 @@ fn test_split_with_multiple_workspaces_same_working_copy() {
     std::fs::write(
         &edit_script,
         ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
-    )
-    .unwrap();
+    )?;
     main_dir.run_jj(["split", "file2"]).success();
     // The working copy for both workspaces will be the second split commit.
     insta::assert_snapshot!(get_workspace_log_output(&main_dir), @"
@@ -1085,8 +1088,7 @@ fn test_split_with_multiple_workspaces_same_working_copy() {
     std::fs::write(
         &edit_script,
         ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
-    )
-    .unwrap();
+    )?;
     main_dir.run_jj(["split", "file2", "--parallel"]).success();
     insta::assert_snapshot!(get_workspace_log_output(&main_dir), @"
     @  yostqsxwqrlt default@ second@ second-commit
@@ -1095,12 +1097,13 @@ fn test_split_with_multiple_workspaces_same_working_copy() {
     ◆  zzzzzzzzzzzz
     [EOF]
     ");
+    Ok(())
 }
 
 // A workspace should only have its working copy commit updated if the target
 // commit is the working copy commit.
 #[test]
-fn test_split_with_multiple_workspaces_different_working_copy() {
+fn test_split_with_multiple_workspaces_different_working_copy() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "main"]).success();
@@ -1129,8 +1132,7 @@ fn test_split_with_multiple_workspaces_different_working_copy() {
     std::fs::write(
         &edit_script,
         ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
-    )
-    .unwrap();
+    )?;
     main_dir.run_jj(["split", "file2"]).success();
     // Only the working copy commit for the default workspace changes.
     insta::assert_snapshot!(get_workspace_log_output(&main_dir), @"
@@ -1147,8 +1149,7 @@ fn test_split_with_multiple_workspaces_different_working_copy() {
     std::fs::write(
         &edit_script,
         ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
-    )
-    .unwrap();
+    )?;
     main_dir.run_jj(["split", "file2", "--parallel"]).success();
     insta::assert_snapshot!(get_workspace_log_output(&main_dir), @"
     @  vruxwmqvtpmx default@ second-commit
@@ -1159,10 +1160,11 @@ fn test_split_with_multiple_workspaces_different_working_copy() {
     ◆  zzzzzzzzzzzz
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_split_with_non_empty_description_and_trailers() {
+fn test_split_with_non_empty_description_and_trailers() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -1182,8 +1184,7 @@ fn test_split_with_non_empty_description_and_trailers() {
             "write\npart 2",
         ]
         .join("\0"),
-    )
-    .unwrap();
+    )?;
 
     test_env.add_config(
         r#"[templates]
@@ -1200,7 +1201,7 @@ fn test_split_with_non_empty_description_and_trailers() {
     ");
 
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor1"))?, @r#"
     JJ: Enter a description for the selected changes.
     test
 
@@ -1213,7 +1214,7 @@ fn test_split_with_non_empty_description_and_trailers() {
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor2")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor2"))?, @r#"
     JJ: Enter a description for the remaining changes.
     test
 
@@ -1231,10 +1232,11 @@ fn test_split_with_non_empty_description_and_trailers() {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_split_with_message() {
+fn test_split_with_message() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -1288,10 +1290,11 @@ fn test_split_with_message() {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_split_move_first_commit() {
+fn test_split_move_first_commit() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -1547,6 +1550,7 @@ fn test_split_move_first_commit() {
     ◆  zzzzzzzzzzzz
     [EOF]
     ");
+    Ok(())
 }
 
 enum BookmarkBehavior {
@@ -1559,7 +1563,7 @@ enum BookmarkBehavior {
 #[test_case(BookmarkBehavior::Default; "default_behavior")]
 #[test_case(BookmarkBehavior::MoveBookmarkToChild; "move_bookmark_to_child")]
 #[test_case(BookmarkBehavior::LeaveBookmarkWithTarget; "leave_bookmark_with_target")]
-fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
+fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "main"]).success();
@@ -1595,8 +1599,7 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
     std::fs::write(
         &edit_script,
         ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
-    )
-    .unwrap();
+    )?;
     let output = main_dir.run_jj(["split", "file2"]);
     match bookmark_behavior {
         BookmarkBehavior::LeaveBookmarkWithTarget => {
@@ -1646,8 +1649,7 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
     std::fs::write(
         &edit_script,
         ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
-    )
-    .unwrap();
+    )?;
     main_dir.run_jj(["split", "file2", "--parallel"]).success();
     match bookmark_behavior {
         BookmarkBehavior::LeaveBookmarkWithTarget => {
@@ -1673,10 +1675,11 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
             }
         }
     }
+    Ok(())
 }
 
 #[test]
-fn test_split_with_editor_and_message_args() {
+fn test_split_with_editor_and_message_args() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -1698,8 +1701,7 @@ fn test_split_with_editor_and_message_args() {
             "write\nedited message 2",
         ]
         .join("\0"),
-    )
-    .unwrap();
+    )?;
     work_dir
         .run_jj([
             "split",
@@ -1712,7 +1714,7 @@ fn test_split_with_editor_and_message_args() {
 
     // Verify editor was opened for the first commit with message from command line
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor1"))?, @r#"
     JJ: Enter a description for the selected changes.
     message from command line
 
@@ -1725,7 +1727,7 @@ fn test_split_with_editor_and_message_args() {
 
     // Verify editor was opened for the second commit with the original description
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor2")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor2"))?, @r#"
     JJ: Enter a description for the remaining changes.
     original description
 
@@ -1741,10 +1743,11 @@ fn test_split_with_editor_and_message_args() {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_split_with_editor_and_empty_message() {
+fn test_split_with_editor_and_empty_message() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -1768,8 +1771,7 @@ fn test_split_with_editor_and_empty_message() {
             "write\nsecond commit",
         ]
         .join("\0"),
-    )
-    .unwrap();
+    )?;
     work_dir
         .run_jj([
             "split",
@@ -1785,7 +1787,7 @@ fn test_split_with_editor_and_empty_message() {
     // Verify editor was opened for the first commit with trailers added to the
     // empty message
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor1"))?, @r#"
     JJ: Enter a description for the selected changes.
 
 
@@ -1799,7 +1801,7 @@ fn test_split_with_editor_and_empty_message() {
     "#);
     // Verify editor was opened for the second commit with the original description
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor2")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor2"))?, @r#"
     JJ: Enter a description for the remaining changes.
     original description
 
@@ -1817,10 +1819,11 @@ fn test_split_with_editor_and_empty_message() {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_split_with_editor_without_message() {
+fn test_split_with_editor_without_message() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -1843,13 +1846,12 @@ fn test_split_with_editor_without_message() {
             "write\nfrom editor2",
         ]
         .join("\0"),
-    )
-    .unwrap();
+    )?;
     work_dir.run_jj(["split", "--editor", "file1"]).success();
 
     // Verify editor was opened for the first commit
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor0"))?, @r#"
     JJ: Enter a description for the selected changes.
     original description
 
@@ -1861,7 +1863,7 @@ fn test_split_with_editor_without_message() {
     "#);
     // Verify editor was opened for the second commit
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor1"))?, @r#"
     JJ: Enter a description for the remaining changes.
     original description
 
@@ -1877,4 +1879,5 @@ fn test_split_with_editor_without_message() {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ");
+    Ok(())
 }

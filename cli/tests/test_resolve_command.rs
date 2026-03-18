@@ -15,6 +15,7 @@
 use std::path::Path;
 
 use indoc::indoc;
+use testutils::TestResult;
 
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
@@ -27,7 +28,7 @@ fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
 }
 
 #[test]
-fn test_resolution() {
+fn test_resolution() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let editor_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -68,8 +69,7 @@ fn test_resolution() {
     std::fs::write(
         &editor_script,
         ["dump editor0", "write\nresolution\n"].join("\0"),
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["resolve"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -81,7 +81,7 @@ fn test_resolution() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @"");
+        std::fs::read_to_string(test_env.env_root().join("editor0"))?, @"");
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
     diff --git a/file b/file
     index 0000000000..88425ec521 100644
@@ -108,7 +108,7 @@ fn test_resolution() {
 
     // Try again with --tool=<name>
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
-    std::fs::write(&editor_script, "write\nresolution\n").unwrap();
+    std::fs::write(&editor_script, "write\nresolution\n")?;
     let output = work_dir.run_jj([
         "resolve",
         "--config=ui.merge-editor='false'",
@@ -154,8 +154,7 @@ fn test_resolution() {
     std::fs::write(
         &editor_script,
         ["dump editor1", "write\nresolution\n"].join("\0"),
-    )
-    .unwrap();
+    )?;
     work_dir
         .run_jj([
             "resolve",
@@ -163,7 +162,7 @@ fn test_resolution() {
         ])
         .success();
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor1"))?, @r#"
     <<<<<<< conflict 1 of 1
     %%%%%%% diff from: rlvkpnrz 1792382a "base"
     \\\\\\\        to: zsuskuln 45537d53 "a"
@@ -211,8 +210,7 @@ fn test_resolution() {
             "},
         ]
         .join("\0"),
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj([
         "resolve",
         "--config=merge-tools.fake-editor.merge-tool-edits-conflict-markers=true",
@@ -237,7 +235,7 @@ fn test_resolution() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor2")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor2"))?, @r#"
     <<<<<<< conflict 1 of 1
     %%%%%%% diff from: rlvkpnrz 1792382a "base"
     \\\\\\\        to: zsuskuln 45537d53 "a"
@@ -292,8 +290,7 @@ fn test_resolution() {
             "},
         ]
         .join("\0"),
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["resolve"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -305,7 +302,7 @@ fn test_resolution() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor3")).unwrap(), @"");
+        std::fs::read_to_string(test_env.env_root().join("editor3"))?, @"");
     // Note the "Resolved" below
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
     diff --git a/file b/file
@@ -357,8 +354,7 @@ fn test_resolution() {
             "},
         ]
         .join("\0"),
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj([
         "resolve",
         "--config=merge-tools.fake-editor.merge-tool-edits-conflict-markers=true",
@@ -384,7 +380,7 @@ fn test_resolution() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor4")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor4"))?, @r#"
     <<<<<<< zsuskuln 45537d53 "a"
     a
     ||||||| rlvkpnrz 1792382a "base"
@@ -438,8 +434,7 @@ fn test_resolution() {
             "fail",
         ]
         .join("\0"),
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj([
         "resolve",
         "--config=merge-tools.fake-editor.merge-conflict-exit-codes=[1]",
@@ -464,7 +459,7 @@ fn test_resolution() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor5")).unwrap(), @"");
+        std::fs::read_to_string(test_env.env_root().join("editor5"))?, @"");
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
     diff --git a/file b/file
     --- a/file
@@ -506,8 +501,7 @@ fn test_resolution() {
             "fail",
         ]
         .join("\0"),
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj([
         "resolve",
         "--config=merge-tools.fake-editor.merge-conflict-exit-codes=[1]",
@@ -520,10 +514,11 @@ fn test_resolution() {
     [EOF]
     [exit status: 1]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_files_still_have_conflicts() {
+fn test_files_still_have_conflicts() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let editor_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -567,7 +562,7 @@ fn test_files_still_have_conflicts() {
     let setup_opid = work_dir.current_operation_id();
 
     // partially resolve the conflict from an unaffected sibling
-    std::fs::write(&editor_script, "write\nresolution\n").unwrap();
+    std::fs::write(&editor_script, "write\nresolution\n")?;
     let output = work_dir.run_jj([
         "resolve",
         "-r",
@@ -613,6 +608,7 @@ fn test_files_still_have_conflicts() {
     file2    2-sided conflict
     [EOF]
     ");
+    Ok(())
 }
 
 fn check_resolve_produces_input_file(
@@ -644,7 +640,7 @@ fn check_resolve_produces_input_file(
 }
 
 #[test]
-fn test_normal_conflict_input_files() {
+fn test_normal_conflict_input_files() -> TestResult {
     let mut test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -682,10 +678,11 @@ fn test_normal_conflict_input_files() {
     check_resolve_produces_input_file(&mut test_env, "repo", "file", "base", "base\n");
     check_resolve_produces_input_file(&mut test_env, "repo", "file", "left", "a\n");
     check_resolve_produces_input_file(&mut test_env, "repo", "file", "right", "b\n");
+    Ok(())
 }
 
 #[test]
-fn test_baseless_conflict_input_files() {
+fn test_baseless_conflict_input_files() -> TestResult {
     let mut test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -722,10 +719,11 @@ fn test_baseless_conflict_input_files() {
     check_resolve_produces_input_file(&mut test_env, "repo", "file", "base", "");
     check_resolve_produces_input_file(&mut test_env, "repo", "file", "left", "a\n");
     check_resolve_produces_input_file(&mut test_env, "repo", "file", "right", "b\n");
+    Ok(())
 }
 
 #[test]
-fn test_too_many_parents() {
+fn test_too_many_parents() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -755,10 +753,11 @@ fn test_too_many_parents() {
     [EOF]
     [exit status: 1]
     "#);
+    Ok(())
 }
 
 #[test]
-fn test_simplify_conflict_sides() {
+fn test_simplify_conflict_sides() -> TestResult {
     let mut test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -836,8 +835,7 @@ fn test_simplify_conflict_sides() {
             2_edited
             >>>>>>> conflict 1 of 1 ends
         "},
-    )
-    .unwrap();
+    )?;
     let work_dir = test_env.work_dir("repo");
     let output = work_dir.run_jj([
         "resolve",
@@ -879,10 +877,11 @@ fn test_simplify_conflict_sides() {
     fileB    2-sided conflict
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_edit_delete_conflict_input_files() {
+fn test_edit_delete_conflict_input_files() -> TestResult {
     let mut test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -920,10 +919,11 @@ fn test_edit_delete_conflict_input_files() {
     check_resolve_produces_input_file(&mut test_env, "repo", "file", "base", "base\n");
     check_resolve_produces_input_file(&mut test_env, "repo", "file", "left", "a\n");
     check_resolve_produces_input_file(&mut test_env, "repo", "file", "right", "");
+    Ok(())
 }
 
 #[test]
-fn test_file_vs_dir() {
+fn test_file_vs_dir() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -964,10 +964,11 @@ fn test_file_vs_dir() {
     [EOF]
     [exit status: 1]
     "#);
+    Ok(())
 }
 
 #[test]
-fn test_description_with_dir_and_deletion() {
+fn test_description_with_dir_and_deletion() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -1018,10 +1019,11 @@ fn test_description_with_dir_and_deletion() {
     [EOF]
     [exit status: 1]
     "#);
+    Ok(())
 }
 
 #[test]
-fn test_resolve_conflicts_with_executable() {
+fn test_resolve_conflicts_with_executable() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let editor_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -1080,7 +1082,7 @@ fn test_resolve_conflicts_with_executable() {
     let setup_opid = work_dir.current_operation_id();
 
     // Test resolving the conflict in "file1", which should produce an executable
-    std::fs::write(&editor_script, b"write\nresolution1\n").unwrap();
+    std::fs::write(&editor_script, b"write\nresolution1\n")?;
     let output = work_dir.run_jj(["resolve", "file1"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -1125,7 +1127,7 @@ fn test_resolve_conflicts_with_executable() {
 
     // Test resolving the conflict in "file2", which should produce an executable
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
-    std::fs::write(&editor_script, b"write\nresolution2\n").unwrap();
+    std::fs::write(&editor_script, b"write\nresolution2\n")?;
     let output = work_dir.run_jj(["resolve", "file2"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -1251,10 +1253,11 @@ fn test_resolve_conflicts_with_executable() {
     ->>>>>>> conflict 1 of 1 ends
     [EOF]
     "#);
+    Ok(())
 }
 
 #[test]
-fn test_resolve_change_delete_executable() {
+fn test_resolve_change_delete_executable() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let editor_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -1414,7 +1417,7 @@ fn test_resolve_change_delete_executable() {
     "#);
     let output = work_dir.run_jj(["file", "chmod", "--quiet", "n", "file2"]);
     insta::assert_snapshot!(output, @"");
-    std::fs::write(&editor_script, "write\nresolved\n").unwrap();
+    std::fs::write(&editor_script, "write\nresolved\n")?;
     let output = work_dir.run_jj(["resolve", "file2"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -1478,10 +1481,11 @@ fn test_resolve_change_delete_executable() {
     file5 - x
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_pass_path_argument() {
+fn test_pass_path_argument() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let editor_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -1519,8 +1523,7 @@ fn test_pass_path_argument() {
         file\0write
         resolution
         \0"},
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj([
         "resolve",
         "file",
@@ -1567,10 +1570,11 @@ fn test_pass_path_argument() {
     [EOF]
     [exit status: 2]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_resolve_long_conflict_markers() {
+fn test_resolve_long_conflict_markers() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let editor_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -1619,8 +1623,7 @@ fn test_resolve_long_conflict_markers() {
         >>>>>>>
         \0fail
         "},
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["resolve"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -1686,8 +1689,7 @@ fn test_resolve_long_conflict_markers() {
         >>>>>>>>>>>
         \0fail
         "},
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj([
         "resolve",
         "--config=merge-tools.fake-editor.merge-tool-edits-conflict-markers=true",
@@ -1712,7 +1714,7 @@ fn test_resolve_long_conflict_markers() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
     <<<<<<<<<<< conflict 1 of 1
     +++++++++++ zsuskuln 10d994ef "a"
     <<<<<<< a
@@ -1762,8 +1764,7 @@ fn test_resolve_long_conflict_markers() {
         >>>>>>>>>>>
         \0fail
         "},
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj([
         "resolve",
         r#"--config=merge-tools.fake-editor.merge-args=["$output", "$marker_length"]"#,
@@ -1809,10 +1810,11 @@ fn test_resolve_long_conflict_markers() {
     file    2-sided conflict
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_multiple_conflicts() {
+fn test_multiple_conflicts() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let editor_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -1901,7 +1903,7 @@ fn test_multiple_conflicts() {
     ");
 
     // Check that we can manually pick which of the conflicts to resolve first
-    std::fs::write(&editor_script, "expect\n\0write\nresolution another_file\n").unwrap();
+    std::fs::write(&editor_script, "expect\n\0write\nresolution another_file\n")?;
     let output = work_dir.run_jj(["resolve", "another_file"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -1946,7 +1948,7 @@ fn test_multiple_conflicts() {
 
     // Repeat the above with the `--quiet` option.
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
-    std::fs::write(&editor_script, "expect\n\0write\nresolution another_file\n").unwrap();
+    std::fs::write(&editor_script, "expect\n\0write\nresolution another_file\n")?;
     let output = work_dir.run_jj(["resolve", "--quiet", "another_file"]);
     insta::assert_snapshot!(output, @"");
 
@@ -1963,8 +1965,7 @@ fn test_multiple_conflicts() {
             "write\nsecond resolution for auto-chosen file\n",
         ]
         .join("\0"),
-    )
-    .unwrap();
+    )?;
     work_dir.run_jj(["resolve"]).success();
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
     diff --git a/another_file b/another_file
@@ -2010,10 +2011,11 @@ fn test_multiple_conflicts() {
     [EOF]
     [exit status: 2]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_multiple_conflicts_with_error() {
+fn test_multiple_conflicts_with_error() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let editor_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -2076,8 +2078,7 @@ fn test_multiple_conflicts_with_error() {
     std::fs::write(
         &editor_script,
         ["write\nresolution1\n", "next invocation\n"].join("\0"),
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["resolve"]);
     insta::assert_snapshot!(output.normalize_stderr_exit_status(), @"
     ------- stderr -------
@@ -2129,8 +2130,7 @@ fn test_multiple_conflicts_with_error() {
     std::fs::write(
         &editor_script,
         ["write\nresolution1\n", "next invocation\n", "fail"].join("\0"),
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["resolve"]);
     insta::assert_snapshot!(output.normalize_stderr_exit_status(), @"
     ------- stderr -------
@@ -2179,7 +2179,7 @@ fn test_multiple_conflicts_with_error() {
 
     // Test immediately failing to resolve any conflict
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
-    std::fs::write(&editor_script, "fail").unwrap();
+    std::fs::write(&editor_script, "fail")?;
     let output = work_dir.run_jj(["resolve"]);
     insta::assert_snapshot!(output.normalize_stderr_exit_status(), @"
     ------- stderr -------
@@ -2195,10 +2195,11 @@ fn test_multiple_conflicts_with_error() {
     file2    2-sided conflict
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_resolve_with_contents_of_side() {
+fn test_resolve_with_contents_of_side() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -2311,4 +2312,5 @@ fn test_resolve_with_contents_of_side() {
     [EOF]
     [exit status: 2]
     ");
+    Ok(())
 }

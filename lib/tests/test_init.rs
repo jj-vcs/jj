@@ -132,25 +132,26 @@ fn test_init_external_git() -> TestResult {
 
 #[test_case(TestRepoBackend::Simple ; "simple backend")]
 #[test_case(TestRepoBackend::Git ; "git backend")]
-fn test_init_with_default_config(backend: TestRepoBackend) {
+fn test_init_with_default_config(backend: TestRepoBackend) -> TestResult {
     // Test that we can create a repo without setting any non-default config
-    let settings = UserSettings::from_config(StackedConfig::with_defaults()).unwrap();
+    let settings = UserSettings::from_config(StackedConfig::with_defaults())?;
     let test_workspace = TestWorkspace::init_with_backend_and_settings(backend, &settings);
     let repo = &test_workspace.repo;
     let wc_commit_id = repo
         .view()
         .get_wc_commit_id(WorkspaceName::DEFAULT)
         .unwrap();
-    let wc_commit = repo.store().get_commit(wc_commit_id).unwrap();
+    let wc_commit = repo.store().get_commit(wc_commit_id)?;
     assert_eq!(wc_commit.author().name, "".to_string());
     assert_eq!(wc_commit.author().email, "".to_string());
     assert_eq!(wc_commit.committer().name, "".to_string());
     assert_eq!(wc_commit.committer().email, "".to_string());
+    Ok(())
 }
 
 #[test_case(TestRepoBackend::Simple ; "simple backend")]
 #[test_case(TestRepoBackend::Git ; "git backend")]
-fn test_init_checkout(backend: TestRepoBackend) {
+fn test_init_checkout(backend: TestRepoBackend) -> TestResult {
     // Test the contents of the working-copy commit after init
     let settings = testutils::user_settings();
     let test_workspace = TestWorkspace::init_with_backend_and_settings(backend, &settings);
@@ -159,7 +160,7 @@ fn test_init_checkout(backend: TestRepoBackend) {
         .view()
         .get_wc_commit_id(WorkspaceName::DEFAULT)
         .unwrap();
-    let wc_commit = repo.store().get_commit(wc_commit_id).unwrap();
+    let wc_commit = repo.store().get_commit(wc_commit_id)?;
     assert_tree_eq!(wc_commit.tree(), repo.store().empty_merged_tree());
     assert_eq!(
         wc_commit.store_commit().parents,
@@ -175,6 +176,7 @@ fn test_init_checkout(backend: TestRepoBackend) {
         repo.operation().predecessors_for_commit(wc_commit.id()),
         Some([])
     );
+    Ok(())
 }
 
 #[cfg(unix)]

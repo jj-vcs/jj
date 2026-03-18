@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use testutils::TestResult;
 use testutils::git;
 
 use crate::common::TestEnvironment;
@@ -45,7 +46,7 @@ fn test_git_root_git_backend_colocated() {
 }
 
 #[test]
-fn test_git_root_git_backend_external_git_dir() {
+fn test_git_root_git_backend_external_git_dir() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("").create_dir("repo");
     let git_repo_work_dir = test_env.work_dir("git-repo");
@@ -64,7 +65,7 @@ fn test_git_root_git_backend_external_git_dir() {
     git::checkout_tree_index(&git_repo, tree_id);
     assert_eq!(git_repo_work_dir.read_file("file"), b"contents");
     insta::assert_snapshot!(
-        git_repo.head_id().unwrap().to_string(),
+        git_repo.head_id()?.to_string(),
         @"97358f54806c7cd005ed5ade68a779595efbae7e"
     );
 
@@ -82,6 +83,7 @@ fn test_git_root_git_backend_external_git_dir() {
     $TEST_ENV/git-repo/.git
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]

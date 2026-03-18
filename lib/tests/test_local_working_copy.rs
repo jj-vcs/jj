@@ -124,21 +124,22 @@ fn to_owned_path_vec(paths: &[&RepoPath]) -> Vec<RepoPathBuf> {
 }
 
 #[test]
-fn test_root() {
+fn test_root() -> TestResult {
     // Test that the working copy is clean and empty after init.
     let mut test_workspace = TestWorkspace::init();
 
     let wc = test_workspace.workspace.working_copy();
-    assert_eq!(wc.sparse_patterns().unwrap(), vec![RepoPathBuf::root()]);
-    let new_tree = test_workspace.snapshot().unwrap();
+    assert_eq!(wc.sparse_patterns()?, vec![RepoPathBuf::root()]);
+    let new_tree = test_workspace.snapshot()?;
     let repo = &test_workspace.repo;
     let wc_commit_id = repo
         .view()
         .get_wc_commit_id(WorkspaceName::DEFAULT)
         .unwrap();
-    let wc_commit = repo.store().get_commit(wc_commit_id).unwrap();
+    let wc_commit = repo.store().get_commit(wc_commit_id)?;
     assert_tree_eq!(new_tree, wc_commit.tree());
     assert_tree_eq!(new_tree, repo.store().empty_merged_tree());
+    Ok(())
 }
 
 #[test_case(TestRepoBackend::Simple ; "simple backend")]
@@ -1478,7 +1479,7 @@ fn test_snapshot_special_file() -> TestResult {
 }
 
 #[test]
-fn test_gitignores() {
+fn test_gitignores() -> TestResult {
     // Tests that .gitignore files are respected.
 
     let mut test_workspace = TestWorkspace::init();
@@ -1495,10 +1496,10 @@ fn test_gitignores() {
     testutils::write_working_copy_file(&workspace_root, gitignore_path, "ignored\n");
     testutils::write_working_copy_file(&workspace_root, modified_path, "1");
     testutils::write_working_copy_file(&workspace_root, removed_path, "1");
-    std::fs::create_dir(workspace_root.join("dir")).unwrap();
+    std::fs::create_dir(workspace_root.join("dir"))?;
     testutils::write_working_copy_file(&workspace_root, subdir_modified_path, "1");
 
-    let tree1 = test_workspace.snapshot().unwrap();
+    let tree1 = test_workspace.snapshot()?;
     let files1 = tree1.entries().map(|(name, _value)| name).collect_vec();
     assert_eq!(
         files1,
@@ -1517,12 +1518,12 @@ fn test_gitignores() {
     );
     testutils::write_working_copy_file(&workspace_root, added_path, "2");
     testutils::write_working_copy_file(&workspace_root, modified_path, "2");
-    std::fs::remove_file(removed_path.to_fs_path_unchecked(&workspace_root)).unwrap();
+    std::fs::remove_file(removed_path.to_fs_path_unchecked(&workspace_root))?;
     testutils::write_working_copy_file(&workspace_root, ignored_path, "2");
     testutils::write_working_copy_file(&workspace_root, subdir_modified_path, "2");
     testutils::write_working_copy_file(&workspace_root, subdir_ignored_path, "2");
 
-    let tree2 = test_workspace.snapshot().unwrap();
+    let tree2 = test_workspace.snapshot()?;
     let files2 = tree2.entries().map(|(name, _value)| name).collect_vec();
     assert_eq!(
         files2,
@@ -1533,6 +1534,7 @@ fn test_gitignores() {
             modified_path,
         ])
     );
+    Ok(())
 }
 
 #[test]
@@ -1580,7 +1582,7 @@ fn test_gitignores_in_ignored_dir() -> TestResult {
 }
 
 #[test]
-fn test_gitignores_checkout_never_overwrites_ignored() {
+fn test_gitignores_checkout_never_overwrites_ignored() -> TestResult {
     // Tests that a .gitignore'd file doesn't get overwritten if check out a commit
     // where the file is tracked.
 
@@ -1611,7 +1613,8 @@ fn test_gitignores_checkout_never_overwrites_ignored() {
     // Check that the old contents are in the working copy
     let path = workspace_root.join("modified");
     assert!(path.is_file());
-    assert_eq!(std::fs::read(&path).unwrap(), b"garbage");
+    assert_eq!(std::fs::read(&path)?, b"garbage");
+    Ok(())
 }
 
 #[test]
@@ -1698,7 +1701,7 @@ fn test_gitignores_ignored_directory_already_tracked() -> TestResult {
 }
 
 #[test]
-fn test_dotgit_ignored() {
+fn test_dotgit_ignored() -> TestResult {
     // Tests that .git directories and files are always ignored (we could accept
     // them if the backend is not git).
 
@@ -1709,27 +1712,28 @@ fn test_dotgit_ignored() {
     // Test with a .git/ directory (with a file in, since we don't write empty
     // trees)
     let dotgit_path = workspace_root.join(".git");
-    std::fs::create_dir(&dotgit_path).unwrap();
+    std::fs::create_dir(&dotgit_path)?;
     testutils::write_working_copy_file(&workspace_root, repo_path(".git/file"), "contents");
-    let new_tree = test_workspace.snapshot().unwrap();
+    let new_tree = test_workspace.snapshot()?;
     let empty_tree = store.empty_merged_tree();
     assert_tree_eq!(new_tree, empty_tree);
-    std::fs::remove_dir_all(&dotgit_path).unwrap();
+    std::fs::remove_dir_all(&dotgit_path)?;
 
     // Test with a .git file
     testutils::write_working_copy_file(&workspace_root, repo_path(".git"), "contents");
-    let new_tree = test_workspace.snapshot().unwrap();
+    let new_tree = test_workspace.snapshot()?;
     assert_tree_eq!(new_tree, empty_tree);
-    std::fs::remove_file(workspace_root.join(".git")).unwrap();
+    std::fs::remove_file(workspace_root.join(".git"))?;
 
     // Test a nested repository foo/ containing .git and f.
     let foo_path = workspace_root.join("foo");
-    std::fs::create_dir(&foo_path).unwrap();
+    std::fs::create_dir(&foo_path)?;
     testutils::write_working_copy_file(&workspace_root, repo_path("foo/.git"), "");
     testutils::write_working_copy_file(&workspace_root, repo_path("foo/f"), "contents");
-    let new_tree = test_workspace.snapshot().unwrap();
+    let new_tree = test_workspace.snapshot()?;
     assert_tree_eq!(new_tree, empty_tree);
-    std::fs::remove_dir_all(&foo_path).unwrap();
+    std::fs::remove_dir_all(&foo_path)?;
+    Ok(())
 }
 
 #[test_case(""; "ignore nothing")]
@@ -2207,7 +2211,7 @@ fn test_check_out_reserved_file_path(file_path_str: &str) -> TestResult {
     locked_ws.locked_wc().reset(&commit1).block_on()?;
     locked_ws.finish(repo.op_id().clone()).block_on()?;
     if ![".git", ".jj"].contains(&file_path_str) {
-        std::fs::create_dir_all(disk_path.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(disk_path.parent().unwrap())?;
         std::fs::write(&disk_path, "")?;
     }
 
@@ -2266,7 +2270,7 @@ fn test_check_out_reserved_file_path_icase_fs(file_path_str: &str) -> TestResult
     let mut locked_ws = ws.start_working_copy_mutation()?;
     locked_ws.locked_wc().reset(&commit1).block_on()?;
     locked_ws.finish(repo.op_id().clone()).block_on()?;
-    std::fs::create_dir_all(disk_path.parent().unwrap()).unwrap();
+    std::fs::create_dir_all(disk_path.parent().unwrap())?;
     std::fs::write(&disk_path, "")?;
 
     // Check out empty tree, which tries to remove the file.
@@ -2332,7 +2336,7 @@ fn test_check_out_reserved_file_path_hfs_plus(file_path_str: &str) -> TestResult
     let mut locked_ws = ws.start_working_copy_mutation()?;
     locked_ws.locked_wc().reset(&commit1).block_on()?;
     locked_ws.finish(repo.op_id().clone()).block_on()?;
-    std::fs::create_dir_all(disk_path.parent().unwrap()).unwrap();
+    std::fs::create_dir_all(disk_path.parent().unwrap())?;
     std::fs::write(&disk_path, "")?;
 
     // Check out empty tree, which tries to remove the file.
@@ -2407,7 +2411,7 @@ fn test_check_out_reserved_file_path_vfat(
     locked_ws.locked_wc().reset(&commit1).block_on()?;
     locked_ws.finish(repo.op_id().clone()).block_on()?;
     if is_vfat {
-        std::fs::create_dir_all(vfat_disk_path.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(vfat_disk_path.parent().unwrap())?;
         std::fs::write(&vfat_disk_path, "")?;
     }
 
@@ -2696,7 +2700,7 @@ fn fsmonitor_gitignore_rescan_subtree() -> TestResult {
 }
 
 #[test]
-fn test_snapshot_max_new_file_size() {
+fn test_snapshot_max_new_file_size() -> TestResult {
     let mut test_workspace = TestWorkspace::init();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
     let small_path = repo_path("small");
@@ -2705,8 +2709,7 @@ fn test_snapshot_max_new_file_size() {
     std::fs::write(
         small_path.to_fs_path_unchecked(&workspace_root),
         vec![0; limit],
-    )
-    .unwrap();
+    )?;
     let options = SnapshotOptions {
         max_new_file_size: limit as u64,
         ..empty_snapshot_options()
@@ -2717,8 +2720,7 @@ fn test_snapshot_max_new_file_size() {
     std::fs::write(
         small_path.to_fs_path_unchecked(&workspace_root),
         vec![0; limit + 1],
-    )
-    .unwrap();
+    )?;
     let (old_tree, _stats) = test_workspace
         .snapshot_with_options(&options)
         .expect("existing files may grow beyond the size limit");
@@ -2727,8 +2729,7 @@ fn test_snapshot_max_new_file_size() {
     std::fs::write(
         large_path.to_fs_path_unchecked(&workspace_root),
         vec![0; limit + 1],
-    )
-    .unwrap();
+    )?;
     let (new_tree, stats) = test_workspace
         .snapshot_with_options(&options)
         .expect("snapshot should not fail because of new files beyond the size limit");
@@ -2753,13 +2754,11 @@ fn test_snapshot_max_new_file_size() {
             .parent()
             .unwrap()
             .to_fs_path_unchecked(&workspace_root),
-    )
-    .unwrap();
+    )?;
     std::fs::rename(
         large_path.to_fs_path_unchecked(&workspace_root),
         sub_large_path.to_fs_path_unchecked(&workspace_root),
-    )
-    .unwrap();
+    )?;
     let (new_tree, stats) = test_workspace
         .snapshot_with_options(&options)
         .expect("snapshot should not fail because of new files beyond the size limit");
@@ -2776,6 +2775,7 @@ fn test_snapshot_max_new_file_size() {
         stats.untracked_paths.values().next().unwrap(),
         UntrackedReason::FileTooLarge { .. }
     );
+    Ok(())
 }
 
 #[test]
@@ -2787,12 +2787,12 @@ fn test_snapshot_symlink_use_forward_slash() -> TestResult {
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
     let target = repo_path("target/link/target.txt");
     let target_path = target.to_fs_path(&workspace_root)?;
-    std::fs::create_dir_all(target_path.parent().unwrap()).unwrap();
+    std::fs::create_dir_all(target_path.parent().unwrap())?;
     std::fs::write(&target_path, "a\n")?;
     let link = repo_path("link/link.txt");
     let link_path = link.to_fs_path(&workspace_root)?;
     let link_contents = "../target/link/target.txt";
-    std::fs::create_dir_all(link_path.parent().unwrap()).unwrap();
+    std::fs::create_dir_all(link_path.parent().unwrap())?;
     symlink_file(link_contents, link_path)?;
 
     let tree = test_workspace
@@ -2887,14 +2887,14 @@ fn test_snapshot_and_update_valid_symlink(
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
     let target = repo_path("target/link/target.txt");
     let target_path = target.to_fs_path(&workspace_root)?;
-    std::fs::create_dir_all(target_path.parent().unwrap()).unwrap();
+    std::fs::create_dir_all(target_path.parent().unwrap())?;
     // Unique contents that it's unlikely that we match accidentally.
     let file_contents = b"18bHZD165T@C\n";
     std::fs::write(&target_path, file_contents)?;
     let link = repo_path("link/link.txt");
     let link_path = link.to_fs_path(&workspace_root)?;
     let link_contents = get_link_target(&link_path, &target_path);
-    std::fs::create_dir_all(link_path.parent().unwrap()).unwrap();
+    std::fs::create_dir_all(link_path.parent().unwrap())?;
     symlink_file(&link_contents, &link_path)?;
     std::fs::read_link(&link_path).expect("The symlink itself should exist.");
     assert_eq!(std::fs::read(&link_path)?, file_contents);
@@ -2946,13 +2946,13 @@ fn test_snapshot_and_update_valid_symlink(
 }
 
 #[test]
-fn test_always_store_empty_tree() {
+fn test_always_store_empty_tree() -> TestResult {
     let mut test_workspace = TestWorkspace::init_with_backend(TestRepoBackend::Git);
-    let git_backend = get_git_backend(test_workspace.repo.store()).unwrap();
+    let git_backend = get_git_backend(test_workspace.repo.store())?;
     let git_repo = git_backend.git_repo();
     let empty_tree_id = gix::ObjectId::empty_tree(gix::hash::Kind::Sha1);
 
-    test_workspace.snapshot().unwrap();
+    test_workspace.snapshot()?;
 
     let mut buf = Vec::new();
     // Use objects.find as it doesn't short-circuit when asked for the empty tree
@@ -2962,4 +2962,5 @@ fn test_always_store_empty_tree() {
         .expect("empty tree should be stored in the git repo");
     assert_eq!(empty_tree.kind, gix::objs::Kind::Tree);
     assert!(empty_tree.data.is_empty());
+    Ok(())
 }

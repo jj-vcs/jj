@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use testutils::TestResult;
+
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
@@ -353,7 +355,7 @@ fn test_restore_restore_descendants() {
 }
 
 #[test]
-fn test_restore_interactive() {
+fn test_restore_interactive() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let diff_editor = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -389,7 +391,7 @@ fn test_restore_interactive() {
         "dump JJ-INSTRUCTIONS instrs",
     ]
     .join("\0");
-    std::fs::write(diff_editor, diff_script).unwrap();
+    std::fs::write(diff_editor, diff_script)?;
 
     // Restore file1 and file3
     let output = work_dir.run_jj(["restore", "-i", "--from=@-"]);
@@ -402,7 +404,7 @@ fn test_restore_interactive() {
     ");
 
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @"
+        std::fs::read_to_string(test_env.env_root().join("instrs"))?, @"
     You are restoring changes from: rlvkpnrz 6c8d5b87 a | a
     to commit: zsuskuln 38153274 b | b
 
@@ -446,10 +448,11 @@ fn test_restore_interactive() {
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_restore_interactive_merge() {
+fn test_restore_interactive_merge() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let diff_editor = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -487,7 +490,7 @@ fn test_restore_interactive_merge() {
         "dump JJ-INSTRUCTIONS instrs",
     ]
     .join("\0");
-    std::fs::write(diff_editor, diff_script).unwrap();
+    std::fs::write(diff_editor, diff_script)?;
 
     // Restore file1 and file3
     let output = work_dir.run_jj(["restore", "-i"]);
@@ -501,7 +504,7 @@ fn test_restore_interactive_merge() {
     ");
 
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @"
+        std::fs::read_to_string(test_env.env_root().join("instrs"))?, @"
     You are restoring changes from: rlvkpnrz 78059355 a | a
                                     zsuskuln ca7e57cd b | b
     to commit: royxmykx e37470c3 c | c
@@ -524,10 +527,11 @@ fn test_restore_interactive_merge() {
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_restore_interactive_with_paths() {
+fn test_restore_interactive_with_paths() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let diff_editor = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -561,7 +565,7 @@ fn test_restore_interactive_with_paths() {
         "reset file2",
     ]
     .join("\0");
-    std::fs::write(diff_editor, diff_script).unwrap();
+    std::fs::write(diff_editor, diff_script)?;
 
     // Restore file1 (file2 is reset by interactive editor)
     let output = work_dir.run_jj(["restore", "-i", "file1", "file2"]);
@@ -586,6 +590,7 @@ fn test_restore_interactive_with_paths() {
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
+    Ok(())
 }
 
 #[must_use]

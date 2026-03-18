@@ -14,6 +14,7 @@
 
 use indoc::indoc;
 use regex::Regex;
+use testutils::TestResult;
 use testutils::git;
 
 use crate::common::TestEnvironment;
@@ -117,7 +118,7 @@ fn test_log_author_timestamp() {
 }
 
 #[test]
-fn test_log_author_timestamp_ago() {
+fn test_log_author_timestamp_ago() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -129,11 +130,12 @@ fn test_log_author_timestamp_ago() {
     let output = work_dir
         .run_jj(&["log", "--no-graph", "-T", template])
         .success();
-    let line_re = Regex::new(r"[0-9]+ years ago").unwrap();
+    let line_re = Regex::new(r"[0-9]+ years ago")?;
     assert!(
         output.stdout.raw().lines().all(|x| line_re.is_match(x)),
         "expected every line to match regex"
     );
+    Ok(())
 }
 
 #[test]
@@ -1111,7 +1113,7 @@ fn test_short_prefix_in_transaction() {
 }
 
 #[test]
-fn test_log_diff_predefined_formats() {
+fn test_log_diff_predefined_formats() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -1125,8 +1127,7 @@ fn test_log_diff_predefined_formats() {
     std::fs::rename(
         work_dir.root().join("rename-source"),
         work_dir.root().join("rename-target"),
-    )
-    .unwrap();
+    )?;
 
     let template = r#"
     concat(
@@ -1281,8 +1282,7 @@ fn test_log_diff_predefined_formats() {
             diff.color-words.max-inline-alternation = 0
             diff.git.context = 1
         "},
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj([
         "log",
         "--config-file=../config-good.toml",
@@ -1336,8 +1336,7 @@ fn test_log_diff_predefined_formats() {
     std::fs::write(
         test_env.env_root().join("config-bad.toml"),
         "diff.git.context = 'not an integer'\n",
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj([
         "log",
         "--config-file=../config-bad.toml",
@@ -1438,6 +1437,7 @@ fn test_log_diff_predefined_formats() {
     * total_added=0 total_removed=0
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
@@ -1632,12 +1632,12 @@ fn test_conflicted_files() {
 
 #[cfg(unix)]
 #[test]
-fn test_file_list_symlink() {
+fn test_file_list_symlink() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    std::os::unix::fs::symlink("symlink_target", work_dir.root().join("symlink")).unwrap();
+    std::os::unix::fs::symlink("symlink_target", work_dir.root().join("symlink"))?;
 
     let template = r#"separate(" ", path, "[" ++ file_type ++ "]") ++ "\n""#;
     let output = work_dir.run_jj(["file", "list", "-T", template]);
@@ -1645,6 +1645,7 @@ fn test_file_list_symlink() {
     symlink [symlink]
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]

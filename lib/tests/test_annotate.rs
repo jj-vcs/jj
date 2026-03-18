@@ -113,7 +113,7 @@ fn format_annotation(repo: &dyn Repo, annotation: &FileAnnotation) -> String {
 }
 
 #[test]
-fn test_annotate_linear() {
+fn test_annotate_linear() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -147,6 +147,7 @@ fn test_annotate_linear() {
     commit2:2 : 2b
     commit3:2 : 3
     ");
+    Ok(())
 }
 
 #[test]
@@ -262,7 +263,7 @@ fn test_annotate_merge_simple() -> TestResult {
 }
 
 #[test]
-fn test_annotate_merge_split() {
+fn test_annotate_merge_split() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -299,10 +300,11 @@ fn test_annotate_merge_split() {
     commit3:2 : 3
     commit4:5 : 4
     ");
+    Ok(())
 }
 
 #[test]
-fn test_annotate_merge_split_interleaved() {
+fn test_annotate_merge_split_interleaved() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -351,10 +353,11 @@ fn test_annotate_merge_split_interleaved() {
     commit5:2 : 5
     commit2:2 : 2b
     ");
+    Ok(())
 }
 
 #[test]
-fn test_annotate_merge_dup() {
+fn test_annotate_merge_dup() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -403,10 +406,11 @@ fn test_annotate_merge_dup() {
     commit1:1 : 1
     commit3:2 : 3
     ");
+    Ok(())
 }
 
 #[test]
-fn test_annotate_file_directory_transition() {
+fn test_annotate_file_directory_transition() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -423,4 +427,5 @@ fn test_annotate_file_directory_transition() {
     drop(create_commit);
 
     insta::assert_snapshot!(annotate(tx.repo(), &commit2, file_path2), @"commit2:1 : 2");
+    Ok(())
 }

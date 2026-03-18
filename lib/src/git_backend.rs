@@ -1760,7 +1760,7 @@ mod tests {
     }
 
     #[test]
-    fn read_git_commit_without_importing() {
+    fn read_git_commit_without_importing() -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
@@ -1772,20 +1772,17 @@ mod tests {
             email: GIT_EMAIL.into(),
             time: gix::date::Time::now_utc(),
         };
-        let empty_tree_id =
-            gix::ObjectId::from_hex(b"4b825dc642cb6eb9a060e54bf8d69288fbee4904").unwrap();
-        let git_commit_id = git_repo
-            .commit_as(
-                signature.to_ref(&mut TimeBuf::default()),
-                signature.to_ref(&mut TimeBuf::default()),
-                "refs/heads/main",
-                "git commit message",
-                empty_tree_id,
-                [] as [gix::ObjectId; 0],
-            )
-            .unwrap();
+        let empty_tree_id = gix::ObjectId::from_hex(b"4b825dc642cb6eb9a060e54bf8d69288fbee4904")?;
+        let git_commit_id = git_repo.commit_as(
+            signature.to_ref(&mut TimeBuf::default()),
+            signature.to_ref(&mut TimeBuf::default()),
+            "refs/heads/main",
+            "git commit message",
+            empty_tree_id,
+            [] as [gix::ObjectId; 0],
+        )?;
 
-        let backend = GitBackend::init_external(&settings, store_path, git_repo.path()).unwrap();
+        let backend = GitBackend::init_external(&settings, store_path, git_repo.path())?;
 
         // read_commit() without import_head_commits() works as of now. This might be
         // changed later.
@@ -1797,12 +1794,12 @@ mod tests {
         );
         assert!(
             backend
-                .cached_extra_metadata_table()
-                .unwrap()
+                .cached_extra_metadata_table()?
                 .get_value(git_commit_id.as_bytes())
                 .is_some(),
             "extra metadata should have been be created"
         );
+        Ok(())
     }
 
     #[test]
@@ -2260,10 +2257,10 @@ mod tests {
     }
 
     #[test]
-    fn import_head_commits_duplicates() {
+    fn import_head_commits_duplicates() -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
-        let backend = GitBackend::init_internal(&settings, temp_dir.path()).unwrap();
+        let backend = GitBackend::init_internal(&settings, temp_dir.path())?;
         let git_repo = backend.git_repo();
 
         let signature = gix::actor::Signature {
@@ -2271,8 +2268,7 @@ mod tests {
             email: GIT_EMAIL.into(),
             time: gix::date::Time::now_utc(),
         };
-        let empty_tree_id =
-            gix::ObjectId::from_hex(b"4b825dc642cb6eb9a060e54bf8d69288fbee4904").unwrap();
+        let empty_tree_id = gix::ObjectId::from_hex(b"4b825dc642cb6eb9a060e54bf8d69288fbee4904")?;
         let git_commit_id = git_repo
             .commit_as(
                 signature.to_ref(&mut TimeBuf::default()),
@@ -2281,23 +2277,19 @@ mod tests {
                 "git commit message",
                 empty_tree_id,
                 [] as [gix::ObjectId; 0],
-            )
-            .unwrap()
+            )?
             .detach();
         let commit_id = CommitId::from_bytes(git_commit_id.as_bytes());
 
         // Ref creation shouldn't fail because of duplicated head ids.
-        backend
-            .import_head_commits([&commit_id, &commit_id])
-            .unwrap();
+        backend.import_head_commits([&commit_id, &commit_id])?;
         assert!(
             git_repo
-                .references()
-                .unwrap()
-                .prefixed("refs/jj/keep/")
-                .unwrap()
+                .references()?
+                .prefixed("refs/jj/keep/")?
                 .any(|git_ref| git_ref.unwrap().id().detach() == git_commit_id)
         );
+        Ok(())
     }
 
     #[test]

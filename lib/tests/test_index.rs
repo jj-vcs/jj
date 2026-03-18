@@ -96,7 +96,7 @@ fn is_ancestor(
 }
 
 #[test]
-fn test_index_commits_empty_repo() {
+fn test_index_commits_empty_repo() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -111,6 +111,7 @@ fn test_index_commits_empty_repo() {
             .unwrap(),
         0
     );
+    Ok(())
 }
 
 #[test]
@@ -600,7 +601,7 @@ fn commits_by_level(repo: &Arc<ReadonlyRepo>) -> Vec<u32> {
 }
 
 #[test]
-fn test_index_commits_incremental_squashed() {
+fn test_index_commits_incremental_squashed() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
     let repo = create_n_commits(repo, 1);
@@ -658,6 +659,7 @@ fn test_index_commits_incremental_squashed() {
     let repo = create_n_commits(&repo, 10);
     let repo = create_n_commits(&repo, 10);
     assert_eq!(commits_by_level(&repo), vec![71, 20]);
+    Ok(())
 }
 
 #[test]
@@ -797,16 +799,14 @@ fn test_reindex_missing_commit() -> TestResult {
 
 /// Test that .jj/repo/index/type is created when the repo is created.
 #[test]
-fn test_index_store_type() {
+fn test_index_store_type() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
     assert_eq!(as_readonly_index(repo).num_commits(), 1);
     let index_store_type_path = test_repo.repo_path().join("index").join("type");
-    assert_eq!(
-        std::fs::read_to_string(index_store_type_path).unwrap(),
-        "default"
-    );
+    assert_eq!(std::fs::read_to_string(index_store_type_path)?, "default");
+    Ok(())
 }
 
 #[test]

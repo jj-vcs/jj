@@ -19,6 +19,7 @@ use std::path::PathBuf;
 use indoc::formatdoc;
 use indoc::indoc;
 use jj_lib::file_util::symlink_file;
+use testutils::TestResult;
 
 use crate::common::TestEnvironment;
 use crate::common::to_toml_value;
@@ -548,7 +549,7 @@ fn test_relative_paths() {
 }
 
 #[test]
-fn test_relative_tool_path_from_subdirectory() {
+fn test_relative_tool_path_from_subdirectory() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -558,7 +559,7 @@ fn test_relative_tool_path_from_subdirectory() {
     let formatter_name = formatter_path.file_name().unwrap().to_str().unwrap();
     let tool_dir = work_dir.create_dir("tools");
     let workspace_formatter_path = tool_dir.root().join(formatter_name);
-    std::fs::copy(formatter_path, &workspace_formatter_path).unwrap();
+    std::fs::copy(formatter_path, &workspace_formatter_path)?;
     work_dir.write_file(".gitignore", "tools/\n");
     let formatter_relative_path = PathBuf::from_iter(["$root", "tools", formatter_name]);
     test_env.add_config(format!(
@@ -623,6 +624,7 @@ fn test_relative_tool_path_from_subdirectory() {
     NESTED CONTENT
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
@@ -1253,14 +1255,14 @@ fn test_missing_command() {
 }
 
 #[test]
-fn test_fix_file_types() {
+fn test_fix_file_types() -> TestResult {
     let mut test_env = TestEnvironment::default();
     set_up_fake_formatter(&mut test_env, &["--uppercase"]);
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
     work_dir.write_file("file", "content");
     work_dir.create_dir("dir");
-    symlink_file("file", work_dir.root().join("link")).unwrap();
+    symlink_file("file", work_dir.root().join("link"))?;
 
     let output = work_dir.run_jj(["fix", "-s", "@"]);
     insta::assert_snapshot!(output, @"
@@ -1273,20 +1275,21 @@ fn test_fix_file_types() {
     ");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
     insta::assert_snapshot!(output, @"CONTENT[EOF]");
+    Ok(())
 }
 
 #[cfg(unix)]
 #[test]
-fn test_fix_executable() {
+fn test_fix_executable() -> TestResult {
     let mut test_env = TestEnvironment::default();
     set_up_fake_formatter(&mut test_env, &["--uppercase"]);
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
     let path = work_dir.root().join("file");
     work_dir.write_file("file", "content");
-    let mut permissions = std::fs::metadata(&path).unwrap().permissions();
+    let mut permissions = std::fs::metadata(&path)?.permissions();
     permissions.set_mode(permissions.mode() | 0o111);
-    std::fs::set_permissions(&path, permissions).unwrap();
+    std::fs::set_permissions(&path, permissions)?;
 
     let output = work_dir.run_jj(["fix", "-s", "@"]);
     insta::assert_snapshot!(output, @"
@@ -1299,8 +1302,9 @@ fn test_fix_executable() {
     ");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
     insta::assert_snapshot!(output, @"CONTENT[EOF]");
-    let executable = std::fs::metadata(&path).unwrap().permissions().mode() & 0o111;
+    let executable = std::fs::metadata(&path)?.permissions().mode() & 0o111;
     assert_eq!(executable, 0o111);
+    Ok(())
 }
 
 #[test]

@@ -18,6 +18,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use indoc::indoc;
+use testutils::TestResult;
 use testutils::git;
 
 use crate::common::TestEnvironment;
@@ -666,7 +667,7 @@ fn test_git_remote_with_slashes() {
 }
 
 #[test]
-fn test_git_remote_with_branch_config() {
+fn test_git_remote_with_branch_config() -> TestResult {
     let test_env = TestEnvironment::default();
 
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -677,13 +678,12 @@ fn test_git_remote_with_branch_config() {
 
     let mut config_file = fs::OpenOptions::new()
         .append(true)
-        .open(work_dir.root().join(".jj/repo/store/git/config"))
-        .unwrap();
+        .open(work_dir.root().join(".jj/repo/store/git/config"))?;
     // `git clone` adds branch configuration like this.
     let eol = if cfg!(windows) { "\r\n" } else { "\n" };
-    write!(config_file, "[branch \"test\"]{eol}").unwrap();
-    write!(config_file, "\tremote = foo{eol}").unwrap();
-    write!(config_file, "\tmerge = refs/heads/test{eol}").unwrap();
+    write!(config_file, "[branch \"test\"]{eol}")?;
+    write!(config_file, "\tremote = foo{eol}")?;
+    write!(config_file, "\tmerge = refs/heads/test{eol}")?;
     drop(config_file);
 
     let output = work_dir.run_jj(["git", "remote", "rename", "foo", "bar"]);
@@ -701,6 +701,7 @@ fn test_git_remote_with_branch_config() {
     	url = http://example.com/repo
     	fetch = +refs/heads/*:refs/remotes/bar/*
     "#);
+    Ok(())
 }
 
 #[test]

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use test_case::test_case;
+use testutils::TestResult;
 use testutils::git;
 
 use crate::common::CommandOutput;
@@ -1647,7 +1648,7 @@ fn test_workspaces_root() {
 }
 
 #[test]
-fn test_workspaces_relative_path() {
+fn test_workspaces_relative_path() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_dir = test_env.work_dir("main");
@@ -1657,8 +1658,8 @@ fn test_workspaces_relative_path() {
         .success();
 
     let repo_file = test_env.env_root().join("secondary/.jj/repo");
-    let repo_path_bytes = std::fs::read(&repo_file).unwrap();
-    let stored_path = String::from_utf8(repo_path_bytes).unwrap();
+    let repo_path_bytes = std::fs::read(&repo_file)?;
+    let stored_path = String::from_utf8(repo_path_bytes)?;
     assert_eq!(stored_path, "../../main/.jj/repo");
 
     let secondary_dir = test_env.work_dir("secondary");
@@ -1695,10 +1696,11 @@ fn test_workspaces_relative_path() {
     $TEST_ENV/secondary
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_workspaces_root_unavailable() {
+fn test_workspaces_root_unavailable() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_dir = test_env.work_dir("main");
@@ -1707,7 +1709,7 @@ fn test_workspaces_root_unavailable() {
         .run_jj(["workspace", "add", "../secondary"])
         .success();
 
-    std::fs::remove_dir_all(test_env.env_root().join("secondary")).unwrap();
+    std::fs::remove_dir_all(test_env.env_root().join("secondary"))?;
 
     let output = main_dir.run_jj(["workspace", "root", "--name", "secondary"]);
     insta::assert_snapshot!(output.normalize_backslash().strip_stderr_last_line(), @"
@@ -1716,6 +1718,7 @@ fn test_workspaces_root_unavailable() {
     [EOF]
     [exit status: 1]
     ");
+    Ok(())
 }
 
 #[test]

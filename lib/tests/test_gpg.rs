@@ -12,6 +12,7 @@ use jj_lib::gpg_signing::GpgsmBackend;
 use jj_lib::signing::SigStatus;
 use jj_lib::signing::SignError;
 use jj_lib::signing::SigningBackend as _;
+use testutils::TestResult;
 use testutils::ensure_running_outside_ci;
 use testutils::is_external_tool_installed;
 
@@ -178,7 +179,7 @@ macro_rules! socket_path_length_guard {
                 "Skipping test because the temporary directory's path is too long for unix domain \
                  sockets on macOS"
             );
-            return;
+            return Ok(());
         }
     }};
 }
@@ -190,7 +191,7 @@ macro_rules! gpg_guard {
         if !is_external_tool_installed("gpg") {
             ensure_running_outside_ci("`gpg` must be in the PATH");
             eprintln!("Skipping test because gpg is not installed on the system");
-            return;
+            return Ok(());
         }
     };
 }
@@ -202,7 +203,7 @@ macro_rules! gpgsm_guard {
         if !is_external_tool_installed("gpgsm") {
             ensure_running_outside_ci("`gpgsm` must be in the PATH");
             eprintln!("Skipping test because gpgsm is not installed on the system");
-            return;
+            return Ok(());
         }
     };
 }
@@ -229,15 +230,15 @@ fn gpgsm_backend(env: &GpgsmEnvironment) -> GpgsmBackend {
 
 #[test]
 #[cfg_attr(windows, ignore = "stuck randomly on Windows CI #3140")] // FIXME
-fn gpg_signing_roundtrip() {
+fn gpg_signing_roundtrip() -> TestResult {
     gpg_guard!();
 
     let env = GpgEnvironment::new().unwrap();
     let backend = gpg_backend(&env);
     let data = b"hello world";
-    let signature = backend.sign(data, None).unwrap();
+    let signature = backend.sign(data, None)?;
 
-    let check = backend.verify(data, &signature).unwrap();
+    let check = backend.verify(data, &signature)?;
     assert_eq!(check.status, SigStatus::Good);
     assert_eq!(check.key.unwrap(), "638785CB16FEA061");
     assert_eq!(
@@ -245,26 +246,27 @@ fn gpg_signing_roundtrip() {
         "Someone (jj test signing key) <someone@example.com>"
     );
 
-    let check = backend.verify(b"so so bad", &signature).unwrap();
+    let check = backend.verify(b"so so bad", &signature)?;
     assert_eq!(check.status, SigStatus::Bad);
     assert_eq!(check.key.unwrap(), "638785CB16FEA061");
     assert_eq!(
         check.display.unwrap(),
         "Someone (jj test signing key) <someone@example.com>"
     );
+    Ok(())
 }
 
 #[test]
 #[cfg_attr(windows, ignore = "stuck randomly on Windows CI #3140")] // FIXME
-fn gpg_signing_roundtrip_explicit_key() {
+fn gpg_signing_roundtrip_explicit_key() -> TestResult {
     gpg_guard!();
 
     let env = GpgEnvironment::new().unwrap();
     let backend = gpg_backend(&env);
     let data = b"hello world";
-    let signature = backend.sign(data, Some("Someone Else")).unwrap();
+    let signature = backend.sign(data, Some("Someone Else"))?;
 
-    assert_debug_snapshot!(backend.verify(data, &signature).unwrap(), @r#"
+    assert_debug_snapshot!(backend.verify(data, &signature)?, @r#"
     Verification {
         status: Good,
         key: Some(
@@ -275,7 +277,7 @@ fn gpg_signing_roundtrip_explicit_key() {
         ),
     }
     "#);
-    assert_debug_snapshot!(backend.verify(b"so so bad", &signature).unwrap(), @r#"
+    assert_debug_snapshot!(backend.verify(b"so so bad", &signature)?, @r#"
     Verification {
         status: Bad,
         key: Some(
@@ -286,11 +288,12 @@ fn gpg_signing_roundtrip_explicit_key() {
         ),
     }
     "#);
+    Ok(())
 }
 
 #[test]
 #[cfg_attr(windows, ignore = "stuck randomly on Windows CI #3140")] // FIXME
-fn gpg_unknown_key() {
+fn gpg_unknown_key() -> TestResult {
     gpg_guard!();
 
     let env = GpgEnvironment::new().unwrap();
@@ -302,7 +305,7 @@ fn gpg_unknown_key() {
     e+U6bvqw3pOBoI53Th35drQ0qPI+jAE=
     =kwsk
     -----END PGP SIGNATURE-----";
-    assert_debug_snapshot!(backend.verify(b"hello world", signature).unwrap(), @r#"
+    assert_debug_snapshot!(backend.verify(b"hello world", signature)?, @r#"
     Verification {
         status: Unknown,
         key: Some(
@@ -311,7 +314,7 @@ fn gpg_unknown_key() {
         display: None,
     }
     "#);
-    assert_debug_snapshot!(backend.verify(b"so bad", signature).unwrap(), @r#"
+    assert_debug_snapshot!(backend.verify(b"so bad", signature)?, @r#"
     Verification {
         status: Unknown,
         key: Some(
@@ -320,11 +323,12 @@ fn gpg_unknown_key() {
         display: None,
     }
     "#);
+    Ok(())
 }
 
 #[test]
 #[cfg_attr(windows, ignore = "stuck randomly on Windows CI #3140")] // FIXME
-fn gpg_invalid_signature() {
+fn gpg_invalid_signature() -> TestResult {
     gpg_guard!();
 
     let env = GpgEnvironment::new().unwrap();
@@ -345,20 +349,20 @@ fn gpg_invalid_signature() {
         backend.verify(&b"a".repeat(100 * 1024), signature),
         Err(SignError::InvalidSignatureFormat)
     );
+    Ok(())
 }
 
 #[test]
 #[cfg_attr(windows, ignore = "stuck randomly on Windows CI #3140")] // FIXME
-fn gpgsm_signing_roundtrip() {
+fn gpgsm_signing_roundtrip() -> TestResult {
     gpgsm_guard!();
 
     let env = GpgsmEnvironment::new().unwrap();
     let backend = gpgsm_backend(&env);
     let data = b"hello world";
-    let signature = backend.sign(data, None);
-    let signature = signature.unwrap();
+    let signature = backend.sign(data, None)?;
 
-    let check = backend.verify(data, &signature).unwrap();
+    let check = backend.verify(data, &signature)?;
     assert_eq!(check.status, SigStatus::Good);
     assert_eq!(check.key.unwrap(), GPGSM_FINGERPRINT);
     assert_eq!(
@@ -366,26 +370,27 @@ fn gpgsm_signing_roundtrip() {
         "/CN=JJ Cert/O=GPGSM Signing Test/EMail=someone@example.com"
     );
 
-    let check = backend.verify(b"so so bad", &signature).unwrap();
+    let check = backend.verify(b"so so bad", &signature)?;
     assert_eq!(check.status, SigStatus::Bad);
     assert_eq!(check.key.unwrap(), GPGSM_FINGERPRINT);
     assert_eq!(
         check.display.unwrap(),
         "/CN=JJ Cert/O=GPGSM Signing Test/EMail=someone@example.com"
     );
+    Ok(())
 }
 
 #[test]
 #[cfg_attr(windows, ignore = "stuck randomly on Windows CI #3140")] // FIXME
-fn gpgsm_signing_roundtrip_explicit_key() {
+fn gpgsm_signing_roundtrip_explicit_key() -> TestResult {
     gpgsm_guard!();
 
     let env = GpgsmEnvironment::new().unwrap();
     let backend = gpgsm_backend(&env);
     let data = b"hello world";
-    let signature = backend.sign(data, Some("someone@example.com")).unwrap();
+    let signature = backend.sign(data, Some("someone@example.com"))?;
 
-    assert_debug_snapshot!(backend.verify(data, &signature).unwrap(), @r#"
+    assert_debug_snapshot!(backend.verify(data, &signature)?, @r#"
     Verification {
         status: Good,
         key: Some(
@@ -396,7 +401,7 @@ fn gpgsm_signing_roundtrip_explicit_key() {
         ),
     }
     "#);
-    assert_debug_snapshot!(backend.verify(b"so so bad", &signature).unwrap(), @r#"
+    assert_debug_snapshot!(backend.verify(b"so so bad", &signature)?, @r#"
     Verification {
         status: Bad,
         key: Some(
@@ -407,11 +412,12 @@ fn gpgsm_signing_roundtrip_explicit_key() {
         ),
     }
     "#);
+    Ok(())
 }
 
 #[test]
 #[cfg_attr(windows, ignore = "stuck randomly on Windows CI #3140")] // FIXME
-fn gpgsm_unknown_key() {
+fn gpgsm_unknown_key() -> TestResult {
     gpgsm_guard!();
 
     let env = GpgsmEnvironment::new().unwrap();
@@ -434,25 +440,26 @@ fn gpgsm_unknown_key() {
     xiNbRmGtEonl9d8JS/IAAAAAAAA=
     -----END SIGNED MESSAGE-----
     ";
-    assert_debug_snapshot!(backend.verify(b"hello world", signature).unwrap(), @r#"
+    assert_debug_snapshot!(backend.verify(b"hello world", signature)?, @r#"
     Verification {
         status: Unknown,
         key: None,
         display: None,
     }
     "#);
-    assert_debug_snapshot!(backend.verify(b"so bad", signature).unwrap(), @r#"
+    assert_debug_snapshot!(backend.verify(b"so bad", signature)?, @r#"
     Verification {
         status: Unknown,
         key: None,
         display: None,
     }
     "#);
+    Ok(())
 }
 
 #[test]
 #[cfg_attr(windows, ignore = "stuck randomly on Windows CI #3140")] // FIXME
-fn gpgsm_invalid_signature() {
+fn gpgsm_invalid_signature() -> TestResult {
     gpgsm_guard!();
 
     let env = GpgsmEnvironment::new().unwrap();
@@ -472,4 +479,5 @@ fn gpgsm_invalid_signature() {
         backend.verify(&b"a".repeat(100 * 1024), signature),
         Err(SignError::InvalidSignatureFormat)
     );
+    Ok(())
 }

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use testutils::TestResult;
 use testutils::git;
 
 use crate::common::CommandOutput;
@@ -1176,21 +1177,18 @@ fn test_bookmark_forget_glob() {
 }
 
 #[test]
-fn test_bookmark_delete_glob() {
+fn test_bookmark_delete_glob() -> TestResult {
     // Set up a git repo with a bookmark and a jj repo that has it as a remote.
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
     let git_repo_path = test_env.env_root().join("git-repo");
     let git_repo = git::init_bare(git_repo_path);
-    let blob_oid = git_repo.write_blob(b"content").unwrap();
-    let mut tree_editor = git_repo
-        .edit_tree(gix::ObjectId::empty_tree(gix::hash::Kind::default()))
-        .unwrap();
-    tree_editor
-        .upsert("file", gix::object::tree::EntryKind::Blob, blob_oid)
-        .unwrap();
-    let _tree_id = tree_editor.write().unwrap();
+    let blob_oid = git_repo.write_blob(b"content")?;
+    let mut tree_editor =
+        git_repo.edit_tree(gix::ObjectId::empty_tree(gix::hash::Kind::default()))?;
+    tree_editor.upsert("file", gix::object::tree::EntryKind::Blob, blob_oid)?;
+    let _tree_id = tree_editor.write()?;
     work_dir
         .run_jj(["git", "remote", "add", "origin", "../git-repo"])
         .success();
@@ -1302,6 +1300,7 @@ fn test_bookmark_delete_glob() {
     [EOF]
     [exit status: 1]
     ");
+    Ok(())
 }
 
 #[test]
@@ -1580,7 +1579,7 @@ fn test_bookmark_forget_deleted_or_nonexistent_bookmark() {
 }
 
 #[test]
-fn test_bookmark_track_untrack() {
+fn test_bookmark_track_untrack() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -1786,6 +1785,7 @@ fn test_bookmark_track_untrack() {
     ◆   000000000000
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
@@ -1877,7 +1877,7 @@ fn test_bookmark_track_conflict() {
 }
 
 #[test]
-fn test_bookmark_track_untrack_patterns() {
+fn test_bookmark_track_untrack_patterns() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -2034,10 +2034,11 @@ fn test_bookmark_track_untrack_patterns() {
       @origin (not created yet)
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_bookmark_track_absent() {
+fn test_bookmark_track_absent() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -2117,10 +2118,11 @@ fn test_bookmark_track_absent() {
       @remote2 (not created yet)
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_bookmark_list() {
+fn test_bookmark_list() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
 
@@ -2374,10 +2376,11 @@ fn test_bookmark_list() {
     Hint: Bookmarks marked as deleted can be *deleted permanently* on the remote by running `jj git push --deleted`. Use `jj bookmark forget` if you don't want that.
     [EOF]
     "#);
+    Ok(())
 }
 
 #[test]
-fn test_bookmark_list_filtered() {
+fn test_bookmark_list_filtered() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
@@ -2626,6 +2629,7 @@ fn test_bookmark_list_filtered() {
     [EOF]
     [exit status: 1]
     ");
+    Ok(())
 }
 
 #[test]
@@ -2661,7 +2665,7 @@ fn test_bookmark_list_quoted_name() {
 }
 
 #[test]
-fn test_bookmark_list_much_remote_divergence() {
+fn test_bookmark_list_much_remote_divergence() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
 
@@ -2717,10 +2721,11 @@ fn test_bookmark_list_much_remote_divergence() {
       @origin (ahead by at least 10 commits, behind by at least 10 commits): uyznsvlq a52367f8 (empty) remote-unsync
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_bookmark_list_tracked() {
+fn test_bookmark_list_tracked() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     test_env.add_config("remotes.upstream.auto-track-bookmarks = '*'");
@@ -2919,6 +2924,7 @@ fn test_bookmark_list_tracked() {
       @origin (ahead by 1 commits, behind by 1 commits): zsuskuln 553203ba (empty) remote-unsync
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
@@ -3289,7 +3295,7 @@ fn test_bad_auto_track_bookmarks() {
 }
 
 #[test]
-fn test_bookmark_advance_default() {
+fn test_bookmark_advance_default() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -3309,13 +3315,13 @@ fn test_bookmark_advance_default() {
     work_dir.run_jj(["describe", "-m", "a"]).success();
     work_dir.run_jj(["bookmark", "create", "A"]).success();
     work_dir.run_jj(["new", "-m", "b"]).success();
-    std::fs::write(work_dir.root().join("file"), "content").unwrap();
+    std::fs::write(work_dir.root().join("file"), "content")?;
     work_dir.run_jj(["bookmark", "create", "B"]).success();
     work_dir.run_jj(["new", "-m", "c"]).success();
-    std::fs::write(work_dir.root().join("file"), "new_content").unwrap();
+    std::fs::write(work_dir.root().join("file"), "new_content")?;
     work_dir.run_jj(["new", "-m", "d"]).success();
     work_dir.run_jj(["new", "-m", "e"]).success();
-    std::fs::write(work_dir.root().join("file"), "newer_content").unwrap();
+    std::fs::write(work_dir.root().join("file"), "newer_content")?;
 
     insta::assert_snapshot!(get_log(), @r"
     @  vruxwmqv e
@@ -3421,7 +3427,7 @@ fn test_bookmark_advance_default() {
 
     // No bookmark to push.
     work_dir.run_jj(["new", "root()"]).success();
-    std::fs::write(work_dir.root().join("file"), "content").unwrap();
+    std::fs::write(work_dir.root().join("file"), "content")?;
     work_dir.run_jj(["new"]).success();
     let output = work_dir.run_jj(["bookmark", "advance"]);
     insta::assert_snapshot!(output, @r"
@@ -3433,7 +3439,7 @@ fn test_bookmark_advance_default() {
 
     // Not valid target.
     work_dir.run_jj(["new", "root()"]).success();
-    std::fs::write(work_dir.root().join("file"), "content").unwrap();
+    std::fs::write(work_dir.root().join("file"), "content")?;
     work_dir.run_jj(["new"]).success();
     let output = work_dir.run_jj(["bookmark", "advance", "-t", "none()"]);
     insta::assert_snapshot!(output, @"
@@ -3457,6 +3463,7 @@ fn test_bookmark_advance_default() {
     [EOF]
     [exit status: 1]
     ");
+    Ok(())
 }
 
 #[must_use]

@@ -83,8 +83,7 @@ fn fix_file(store: &Store, file_to_fix: &FileToFix) -> Result<Option<FileId>, Fi
         let new_content = rest.to_ascii_uppercase();
         let new_file_id = store
             .write_file(&file_to_fix.repo_path, &mut new_content.as_slice())
-            .block_on()
-            .unwrap();
+            .block_on()?;
         Ok(Some(new_file_id))
     } else if let Some(rest) = old_content.strip_prefix(b"error:") {
         Err(make_fix_content_error(str::from_utf8(rest).unwrap()))
@@ -195,7 +194,7 @@ fn test_empty_commit() -> TestResult {
 }
 
 #[test]
-fn test_fixer_fails() {
+fn test_fixer_fails() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -219,6 +218,7 @@ fn test_fixer_fails() {
 
     let error = result.err().unwrap();
     assert_eq!(error.to_string(), "Forced failure: boo");
+    Ok(())
 }
 
 #[test]
@@ -448,7 +448,7 @@ fn test_parallel_fixer_does_not_change_content() -> TestResult {
 }
 
 #[test]
-fn test_parallel_fixer_no_changes_upon_partial_failure() {
+fn test_parallel_fixer_no_changes_upon_partial_failure() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -482,6 +482,7 @@ fn test_parallel_fixer_no_changes_upon_partial_failure() {
     .block_on();
     let error = result.err().unwrap();
     assert_eq!(error.to_string(), "Forced failure: boo7");
+    Ok(())
 }
 
 #[test]
