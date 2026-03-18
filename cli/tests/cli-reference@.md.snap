@@ -2289,6 +2289,9 @@ Compare changes to the repository between two operations
 * `--context <CONTEXT>` — Number of lines of context to show
 * `--ignore-all-space` — Ignore whitespace when comparing lines
 * `--ignore-space-change` — Ignore changes in amount of whitespace when comparing lines
+* `--show-changes-in <REVSETS>` — Show only changed revisions matching the given revset expression
+
+   If no revisions are specified, this defaults to the `revsets.op-diff-changes-in` setting.
 
 
 
@@ -2352,6 +2355,9 @@ Like other commands, `jj op log` snapshots the current working-copy changes and 
 * `--context <CONTEXT>` — Number of lines of context to show
 * `--ignore-all-space` — Ignore whitespace when comparing lines
 * `--ignore-space-change` — Ignore changes in amount of whitespace when comparing lines
+* `--show-changes-in <REVSETS>` — Show only changed revisions matching the given revset expression
+
+   If no revisions are specified, this defaults to the `revsets.op-diff-changes-in` setting.
 
 
 
@@ -2461,6 +2467,9 @@ Show changes to the repository in an operation
 * `--context <CONTEXT>` — Number of lines of context to show
 * `--ignore-all-space` — Ignore whitespace when comparing lines
 * `--ignore-space-change` — Ignore changes in amount of whitespace when comparing lines
+* `--show-changes-in <REVSETS>` — Show only changed revisions matching the given revset expression
+
+   If no revisions are specified, this defaults to the `revsets.op-diff-changes-in` setting.
 
 
 

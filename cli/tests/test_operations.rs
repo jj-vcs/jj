@@ -2320,6 +2320,7 @@ fn test_op_diff_word_wrap() {
         work_dir.run_jj_with(|cmd| {
             cmd.args(args)
                 .arg(format!("--config=ui.log-word-wrap={word_wrap}"))
+                .arg("--config=revset-aliases.'immutable_heads()'='root()'")
                 .env("COLUMNS", columns.to_string())
         })
     };
@@ -3134,6 +3135,713 @@ fn test_op_log_anonymize() {
     │  add workspace 'default'
     ○  000000000000 root()
     [EOF]
+    ");
+}
+
+#[test]
+fn test_op_immutable_revisions() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    test_env.add_config(r#"revset-aliases."immutable_heads()" = "tags() | bookmarks()""#);
+    test_env.add_config(r#"revsets.op-diff-changes-in = "mutable() | immutable_heads()""#);
+
+    // 1. Basic addition and removal elision
+    // Create a stack of 5 commits, all immutable.
+    for i in 1..=5 {
+        work_dir
+            .run_jj(["new", "@", "-m", &format!("commit {i}")])
+            .success();
+    }
+    work_dir.run_jj(["tag", "set", "t1", "-r", "@"]).success();
+
+    // Move working copy away
+    work_dir.run_jj(["new", "root()"]).success();
+
+    // Abandon the immutable stack
+    work_dir
+        .run_jj(["abandon", "--ignore-immutable", "::t1 & ~root()"])
+        .success();
+    insta::assert_snapshot!(work_dir.run_jj(["op", "show"]), @"
+    52517772e194 test-username@host.example.com default@ 2001-02-03 04:05:15.000 +07:00 - 2001-02-03 04:05:15.000 +07:00
+    abandon commit 9c86781f3fe9097ffc530e65fd2ab4aff1e654bd and 5 more
+    args: jj abandon --ignore-immutable '::t1 & ~root()'
+
+    Changed commits:
+    ○  - royxmykx/0 9c86781f (hidden) (empty) commit 5
+       (Elided 5 newly removed revisions)
+    [EOF]
+    ");
+
+    // Undo
+    work_dir.run_jj(["op", "revert"]).success();
+    insta::assert_snapshot!(work_dir.run_jj(["op", "show"]), @"
+    f9e504c0dd85 test-username@host.example.com default@ 2001-02-03 04:05:17.000 +07:00 - 2001-02-03 04:05:17.000 +07:00
+    revert operation 52517772e194b55d56c84c18b868306d9077e768cfe6e33f886ffb621bcc681f8e508e1fd53a8be18470f76c14d8fd00e6a2775c92fab8d6de6553f33a2de4fd
+    args: jj op revert
+
+    Changed commits:
+    ○  + royxmykx 9c86781f (empty) commit 5
+       (Elided 5 newly added revisions)
+    [EOF]
+    ");
+
+    // 2. Multiple branches elision
+    work_dir.run_jj(["new", "t1", "-m", "f1 1"]).success();
+    work_dir.run_jj(["new", "@", "-m", "f1 2"]).success();
+    work_dir.run_jj(["new", "@", "-m", "f1 3"]).success();
+    work_dir.run_jj(["tag", "set", "f1", "-r", "@"]).success();
+
+    work_dir.run_jj(["new", "t1", "-m", "f2 1"]).success();
+    work_dir.run_jj(["new", "@", "-m", "f2 2"]).success();
+    work_dir.run_jj(["new", "@", "-m", "f2 3"]).success();
+    work_dir.run_jj(["tag", "set", "f2", "-r", "@"]).success();
+
+    // Move WC away
+    work_dir.run_jj(["new", "root()"]).success();
+
+    // Abandon both chains
+    work_dir
+        .run_jj(["abandon", "--ignore-immutable", "(::f1 | ::f2) & ~root()"])
+        .success();
+    let op_id_for_diff = work_dir.current_operation_id();
+    insta::assert_snapshot!(work_dir.run_jj(["op", "show"]), @"
+    f90e225dba79 test-username@host.example.com default@ 2001-02-03 04:05:28.000 +07:00 - 2001-02-03 04:05:28.000 +07:00
+    abandon commit e7f51c58b0862dc0c255d9efd11fb9a89f07eb88 and 11 more
+    args: jj abandon --ignore-immutable '(::f1 | ::f2) & ~root()'
+
+    Changed commits:
+    ○  - xtnwkqum/0 e7f51c58 (hidden) (empty) f2 3
+    ╷ ○  - kxryzmor/0 c800ddaf (hidden) (empty) f1 3
+    ╭─╯
+    ○  - royxmykx/0 9c86781f (hidden) (empty) commit 5
+       (Elided 9 newly removed revisions)
+    [EOF]
+    ");
+
+    // Use `--show-changes-in none()` to see only elisions
+    insta::assert_snapshot!(work_dir.run_jj(["op", "show", "--show-changes-in", "none()"]), @"
+    f90e225dba79 test-username@host.example.com default@ 2001-02-03 04:05:28.000 +07:00 - 2001-02-03 04:05:28.000 +07:00
+    abandon commit e7f51c58b0862dc0c255d9efd11fb9a89f07eb88 and 11 more
+    args: jj abandon --ignore-immutable '(::f1 | ::f2) & ~root()'
+
+    Changed commits:
+       (Elided 10+ newly removed revisions)
+    [EOF]
+    ");
+
+    // 3. Case where both added and removed immutable revisions are elided.
+    work_dir.run_jj(["new", "root()", "-m", "mix-a1"]).success();
+    for i in 2..=5 {
+        work_dir
+            .run_jj(["new", "@", "-m", &format!("mix-a{i}")])
+            .success();
+    }
+    work_dir
+        .run_jj(["bookmark", "set", "ba", "-r", "@"])
+        .success();
+
+    work_dir.run_jj(["new", "root()", "-m", "mix-b1"]).success();
+    for i in 2..=5 {
+        work_dir
+            .run_jj(["new", "@", "-m", &format!("mix-b{i}")])
+            .success();
+    }
+    work_dir
+        .run_jj(["bookmark", "set", "bb", "-r", "@"])
+        .success();
+
+    // Rebase bb chain onto ba head.
+    work_dir
+        .run_jj(["rebase", "--ignore-immutable", "-s", "bb----", "-d", "ba"])
+        .success();
+    insta::assert_snapshot!(work_dir.run_jj(["op", "show"]), @"
+    9d3cfa89448a test-username@host.example.com default@ 2001-02-03 04:05:43.000 +07:00 - 2001-02-03 04:05:43.000 +07:00
+    rebase commit c09af48da0b4dcbbe6be869823d17bf6cd73a4db and descendants
+    args: jj rebase --ignore-immutable -s bb---- -d ba
+
+    Changed commits:
+    ○  + nsrwusvy caaf0759 (empty) (no description set)
+    │  - nsrwusvy/1 76ebe692 (hidden) (empty) (no description set)
+    ○  + wvmqtotl 44827d4a bb | (empty) mix-b5
+       - wvmqtotl/1 c117dbab (hidden) (empty) mix-b5
+       (Elided 4 newly added and 4 newly removed revisions)
+
+    Changed working copy default@:
+    + nsrwusvy caaf0759 (empty) (no description set)
+    - nsrwusvy/1 76ebe692 (hidden) (empty) (no description set)
+
+    Changed local bookmarks:
+    bb:
+    + wvmqtotl 44827d4a bb | (empty) mix-b5
+    - wvmqtotl/1 c117dbab (hidden) (empty) mix-b5
+    [EOF]
+    ");
+
+    // Use `--show-changes-in none()` to see only elisions
+    insta::assert_snapshot!(work_dir.run_jj(["op", "show", "--show-changes-in", "none()"]), @"
+    9d3cfa89448a test-username@host.example.com default@ 2001-02-03 04:05:43.000 +07:00 - 2001-02-03 04:05:43.000 +07:00
+    rebase commit c09af48da0b4dcbbe6be869823d17bf6cd73a4db and descendants
+    args: jj rebase --ignore-immutable -s bb---- -d ba
+
+    Changed commits:
+       (Elided 6 newly added and 6 newly removed revisions)
+
+    Changed working copy default@:
+    + nsrwusvy caaf0759 (empty) (no description set)
+    - nsrwusvy/1 76ebe692 (hidden) (empty) (no description set)
+
+    Changed local bookmarks:
+    bb:
+    + wvmqtotl 44827d4a bb | (empty) mix-b5
+    - wvmqtotl/1 c117dbab (hidden) (empty) mix-b5
+    [EOF]
+    ");
+
+    // 4. Case where exactly one immutable revision is elided (singular "revision")
+    work_dir
+        .run_jj(["new", "root()", "-m", "single-1"])
+        .success();
+    work_dir.run_jj(["new", "@", "-m", "single-2"]).success();
+    work_dir
+        .run_jj(["tag", "set", "ts", "-r", "@", "--allow-move"])
+        .success();
+    // Abandon to see single removal elision
+    work_dir
+        .run_jj(["abandon", "--ignore-immutable", "::ts & ~root()"])
+        .success();
+    insta::assert_snapshot!(work_dir.run_jj(["op", "show"]), @"
+    f5a4f77da069 test-username@host.example.com default@ 2001-02-03 04:05:49.000 +07:00 - 2001-02-03 04:05:49.000 +07:00
+    abandon commit 0a2e24c8d8d8010243ed72f9c50ee69b57291eff and 1 more
+    args: jj abandon --ignore-immutable '::ts & ~root()'
+
+    Changed commits:
+    ○  + sryyqqkq 46f2f483 (empty) (no description set)
+       - sryyqqkq/1 d41cf466 (hidden) (empty) (no description set)
+    ○  - ukwxllxp/0 0a2e24c8 (hidden) (empty) single-2
+       (Elided 1 newly removed revisions)
+
+    Changed working copy default@:
+    + sryyqqkq 46f2f483 (empty) (no description set)
+    - sryyqqkq/1 d41cf466 (hidden) (empty) (no description set)
+    [EOF]
+    ");
+
+    // Undo to see single addition elision
+    work_dir.run_jj(["op", "revert"]).success();
+    insta::assert_snapshot!(work_dir.run_jj(["op", "show"]), @"
+    3d2e63a4b374 test-username@host.example.com default@ 2001-02-03 04:05:51.000 +07:00 - 2001-02-03 04:05:51.000 +07:00
+    revert operation f5a4f77da0696b42e0acbd785ebe11040e31e15bebf4d2bd4b09a521af16dba25d9df24e4ce06185485edfcfe8a634dc1853e3542a9baeb6c5b7606e4b3f6d0a
+    args: jj op revert
+
+    Changed commits:
+    ○  + sryyqqkq d41cf466 (empty) (no description set)
+    │  - sryyqqkq/0 46f2f483 (hidden) (empty) (no description set)
+    ○  + ukwxllxp 0a2e24c8 (empty) single-2
+       (Elided 1 newly added revisions)
+
+    Changed working copy default@:
+    + sryyqqkq d41cf466 (empty) (no description set)
+    - sryyqqkq/0 46f2f483 (hidden) (empty) (no description set)
+    [EOF]
+    ");
+
+    // 5. op diff and op log tests
+    insta::assert_snapshot!(work_dir.run_jj(["op", "diff", "--from", &op_id_for_diff]), @"
+    From operation: f90e225dba79 (2001-02-03 08:05:28) abandon commit e7f51c58b0862dc0c255d9efd11fb9a89f07eb88 and 11 more
+      To operation: 3d2e63a4b374 (2001-02-03 08:05:51) revert operation f5a4f77da0696b42e0acbd785ebe11040e31e15bebf4d2bd4b09a521af16dba25d9df24e4ce06185485edfcfe8a634dc1853e3542a9baeb6c5b7606e4b3f6d0a
+
+    Changed commits:
+    ○  + sryyqqkq d41cf466 (empty) (no description set)
+    ○  + ukwxllxp 0a2e24c8 (empty) single-2
+    ○  + wvmqtotl 44827d4a bb | (empty) mix-b5
+    ○  + pkstwlsy 2e898f29 ba | (empty) mix-a5
+    ○  - tlkvzzqu/0 3f6d698d (hidden) (empty) (no description set)
+       (Elided 9 newly added revisions)
+
+    Changed working copy default@:
+    + sryyqqkq d41cf466 (empty) (no description set)
+    - tlkvzzqu/0 3f6d698d (hidden) (empty) (no description set)
+
+    Changed local bookmarks:
+    ba:
+    + pkstwlsy 2e898f29 ba | (empty) mix-a5
+    - (absent)
+    bb:
+    + wvmqtotl 44827d4a bb | (empty) mix-b5
+    - (absent)
+
+    Changed local tags:
+    ts:
+    + ukwxllxp 0a2e24c8 (empty) single-2
+    - (absent)
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(work_dir.run_jj(["op", "log", "-p", "--limit", "1"]), @"
+    @  3d2e63a4b374 test-username@host.example.com default@ 2001-02-03 04:05:51.000 +07:00 - 2001-02-03 04:05:51.000 +07:00
+    │  revert operation f5a4f77da0696b42e0acbd785ebe11040e31e15bebf4d2bd4b09a521af16dba25d9df24e4ce06185485edfcfe8a634dc1853e3542a9baeb6c5b7606e4b3f6d0a
+    │  args: jj op revert
+    │
+    │  Changed commits:
+    │  ○  + sryyqqkq d41cf466 (empty) (no description set)
+    │  │  - sryyqqkq/0 46f2f483 (hidden) (empty) (no description set)
+    │  ○  + ukwxllxp 0a2e24c8 (empty) single-2
+    │     Modified commit description:
+    │             1: single-2
+    │     (Elided 1 newly added revisions)
+    │
+    │  Changed working copy default@:
+    │  + sryyqqkq d41cf466 (empty) (no description set)
+    │  - sryyqqkq/0 46f2f483 (hidden) (empty) (no description set)
+    [EOF]
+    ");
+
+    // 6. Accuracy: Show local heads of affected set even if they have immutable
+    // descendants elsewhere (e.g. already hidden).
+    // root -> c1 -> c2 -> c3 (all immutable)
+    work_dir.run_jj(["new", "root()", "-m", "acc-c1"]).success();
+    let c1_id = work_dir
+        .run_jj(["log", "-T", "commit_id", "-r", "@", "--no-graph"])
+        .stdout
+        .raw()
+        .trim()
+        .to_string();
+    work_dir.run_jj(["new", "@", "-m", "acc-c2"]).success();
+    let c2_id = work_dir
+        .run_jj(["log", "-T", "commit_id", "-r", "@", "--no-graph"])
+        .stdout
+        .raw()
+        .trim()
+        .to_string();
+    work_dir.run_jj(["new", "@", "-m", "acc-c3"]).success();
+    let c3_id = work_dir
+        .run_jj(["log", "-T", "commit_id", "-r", "@", "--no-graph"])
+        .stdout
+        .raw()
+        .trim()
+        .to_string();
+
+    // Use c2_id to ensure the hidden c2 is shown.
+    test_env.add_config(format!(
+        r#"revsets.op-diff-changes-in = "mutable() | (all() & {c2_id})""#,
+    ));
+
+    // Track all with bookmarks.
+    work_dir
+        .run_jj(["bookmark", "create", "ba1", "-r", &c1_id])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "create", "ba2", "-r", &c2_id])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "create", "ba3", "-r", &c3_id])
+        .success();
+    work_dir.run_jj(["new", "root()"]).success();
+
+    // Operation A: Hide acc-c3 by abandoning it. c1 and c2 remain visible via
+    // bookmarks.
+    work_dir
+        .run_jj(["abandon", "--ignore-immutable", "-r", &c3_id])
+        .success();
+    let op_a = work_dir.current_operation_id();
+
+    // Operation B: Abandon c1 and c2. Both become hidden.
+    // newly_hidden = {c1, c2}.
+    // Option 1 (Fix) shows the head (c2) and elides the parent (c1).
+    work_dir
+        .run_jj(["abandon", "--ignore-immutable", "-r", &c1_id, "-r", &c2_id])
+        .success();
+    let op_b = work_dir.current_operation_id();
+
+    // With --show-changes-in all(), the diff should show both c1 and c2 as
+    // newly hidden.
+    let output = work_dir.run_jj([
+        "op",
+        "diff",
+        "--from",
+        &op_a,
+        "--to",
+        &op_b,
+        "--show-changes-in",
+        "all()",
+    ]);
+    insta::assert_snapshot!(output, @"
+    From operation: db293dfe6244 (2001-02-03 08:06:05) abandon commit 5ff32b4e633551c9d0e40760cd4f8b61937395c6
+      To operation: 10ca7b3a86f8 (2001-02-03 08:06:06) abandon commit 61c625114e83805c3b25709d71cebedcf2be7406 and 1 more
+
+    Changed commits:
+    ○  - knltnxnu/0 61c62511 (hidden) (empty) acc-c2
+    ○  - vkywoywq/0 a35cc4a3 (hidden) (empty) acc-c1
+
+    Changed local bookmarks:
+    ba1:
+    + (absent)
+    - vkywoywq/0 a35cc4a3 (hidden) (empty) acc-c1
+    ba2:
+    + (absent)
+    - knltnxnu/0 61c62511 (hidden) (empty) acc-c2
+    [EOF]
+    ");
+
+    // Without --show-changes-in, the diff should show c2 as the head
+    // of the newly hidden set and elide c1.
+    let output = work_dir.run_jj(["op", "diff", "--from", &op_a, "--to", &op_b]);
+    insta::assert_snapshot!(output, @"
+    From operation: db293dfe6244 (2001-02-03 08:06:05) abandon commit 5ff32b4e633551c9d0e40760cd4f8b61937395c6
+      To operation: 10ca7b3a86f8 (2001-02-03 08:06:06) abandon commit 61c625114e83805c3b25709d71cebedcf2be7406 and 1 more
+
+    Changed commits:
+    ○  - knltnxnu/0 61c62511 (hidden) (empty) acc-c2
+       (Elided 1 newly removed revisions)
+
+    Changed local bookmarks:
+    ba1:
+    + (absent)
+    - vkywoywq/0 a35cc4a3 (hidden) (empty) acc-c1
+    ba2:
+    + (absent)
+    - knltnxnu/0 61c62511 (hidden) (empty) acc-c2
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_op_show_revset_expression_resolution() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    test_env.add_config(
+        r#"
+[templates]
+commit_summary = 'commit_id.short() ++ " " ++ description.first_line()'
+[template-aliases]
+'format_short_id(id)' = 'id.substr(0, 12)'
+'format_short_change_id_with_change_offset(commit)' = 'commit.change_id().short()'
+"#,
+    );
+
+    // 1. Initial commits.
+    work_dir.run_jj(["new", "root()", "-m", "base"]).success();
+
+    // 2. Create bookmark_x (op_create).
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "bookmark_x"])
+        .success();
+    let op_create = work_dir.current_operation_id();
+
+    // 3. Create a stack of 2 commits.
+    for i in 1..=2 {
+        work_dir
+            .run_jj(["new", "@", "-m", &format!("stack {i}")])
+            .success();
+    }
+    work_dir
+        .run_jj(["bookmark", "set", "bookmark_x", "-r@"])
+        .success();
+
+    // 4. Rebase the stack (op_rebase).
+    work_dir
+        .run_jj(["new", "root()", "-m", "new_base"])
+        .success();
+    let new_base = "@";
+    work_dir
+        .run_jj(["rebase", "-s", "bookmark_x-", "-d", new_base])
+        .success();
+    let op_rebase = work_dir.current_operation_id();
+
+    // Configure op-diff-changes-in to require 'bookmark_x'.
+    test_env.add_config(r#"revsets.op-diff-changes-in = "bookmark_x""#);
+
+    // 5. Test op show for op_rebase: should show ELISION summary.
+    // bookmark_x exists in both states of the rebase.
+    insta::assert_snapshot!(work_dir.run_jj(["op", "show", &op_rebase]), @"
+    ce91c7903087 test-username@host.example.com default@ 2001-02-03 04:05:14.000 +07:00 - 2001-02-03 04:05:14.000 +07:00
+    rebase commit 0f12cf5c679b373cb1ee0fa3e441c2f5030c4dc9 and descendants
+    args: jj rebase -s bookmark_x- -d @
+
+    Changed commits:
+    ○  + 3cafca23bb81 stack 2
+       - 5456f1af47ed stack 2
+       (Elided 1 newly added and 1 newly removed revisions)
+
+    Changed local bookmarks:
+    bookmark_x:
+    + 3cafca23bb81 stack 2
+    - 5456f1af47ed stack 2
+    [EOF]
+    ");
+
+    // 6. Test op show for op_create: should show WARNING.
+    // bookmark_x did not exist in the 'from' state.
+    insta::assert_snapshot!(work_dir.run_jj(["op", "show", &op_create]), @"
+    d3ffb3ae407a test-username@host.example.com default@ 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    create bookmark bookmark_x pointing to commit 2308e5a241f7a47f186b0686ffb17aa613a727d7
+    args: jj bookmark create -r@ bookmark_x
+
+    Warning: Could not resolve revset expression for elision: Revision `bookmark_x` doesn't exist
+       (Use --show-changes-in=all() to see all changes)
+
+    Changed local bookmarks:
+    bookmark_x:
+    + 2308e5a241f7 base
+    - (absent)
+    [EOF]
+    ");
+
+    // 7. Test op show for op_create with the flag: should show all changes and NO
+    //    WARNING.
+    insta::assert_snapshot!(work_dir.run_jj(["op", "show", &op_create, "--show-changes-in", "all()"]), @"
+    d3ffb3ae407a test-username@host.example.com default@ 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    create bookmark bookmark_x pointing to commit 2308e5a241f7a47f186b0686ffb17aa613a727d7
+    args: jj bookmark create -r@ bookmark_x
+
+    Changed local bookmarks:
+    bookmark_x:
+    + 2308e5a241f7 base
+    - (absent)
+    [EOF]
+    ");
+
+    // 8. Test op diff from BEFORE creation to op_rebase: should show WARNING.
+    let op_before_create = format!("{op_create}-");
+    insta::assert_snapshot!(work_dir.run_jj(["op", "diff", "--from", &op_before_create, "--to", &op_rebase]), @"
+    From operation: 2bd218a33e22 (2001-02-03 08:05:08) new empty commit
+      To operation: ce91c7903087 (2001-02-03 08:05:14) rebase commit 0f12cf5c679b373cb1ee0fa3e441c2f5030c4dc9 and descendants
+
+    Warning: Could not resolve revset expression for elision: Revision `bookmark_x` doesn't exist
+       (Use --show-changes-in=all() to see all changes)
+
+    Changed working copy default@:
+    + 6b753f7043b4 new_base
+    - 2308e5a241f7 base
+
+    Changed local bookmarks:
+    bookmark_x:
+    + 3cafca23bb81 stack 2
+    - (absent)
+    [EOF]
+    ");
+
+    // 9. Test op diff with the flag: should show all changes and NO WARNING.
+    insta::assert_snapshot!(work_dir.run_jj([
+        "op",
+        "diff",
+        "--from",
+        &op_before_create,
+        "--to",
+        &op_rebase,
+        "--show-changes-in",
+        "all()",
+    ]), @"
+    From operation: 2bd218a33e22 (2001-02-03 08:05:08) new empty commit
+      To operation: ce91c7903087 (2001-02-03 08:05:14) rebase commit 0f12cf5c679b373cb1ee0fa3e441c2f5030c4dc9 and descendants
+
+    Changed commits:
+    ○  + 3cafca23bb81 stack 2
+    ○  + e7bd1678832f stack 1
+    ○  + 6b753f7043b4 new_base
+
+    Changed working copy default@:
+    + 6b753f7043b4 new_base
+    - 2308e5a241f7 base
+
+    Changed local bookmarks:
+    bookmark_x:
+    + 3cafca23bb81 stack 2
+    - (absent)
+    [EOF]
+    ");
+
+    // 10. Test op log -p: should show BOTH behaviors.
+    test_env.add_config(r#"revsets.op-diff-changes-in = "mutable() | bookmark_x""#);
+    insta::assert_snapshot!(work_dir.run_jj(["op", "log", "-p", "--limit", "6"]), @"
+    @  ce91c7903087 test-username@host.example.com default@ 2001-02-03 04:05:14.000 +07:00 - 2001-02-03 04:05:14.000 +07:00
+    │  rebase commit 0f12cf5c679b373cb1ee0fa3e441c2f5030c4dc9 and descendants
+    │  args: jj rebase -s bookmark_x- -d @
+    │
+    │  Changed commits:
+    │  ○  + 3cafca23bb81 stack 2
+    │  │  - 5456f1af47ed stack 2
+    │  ○  + e7bd1678832f stack 1
+    │     - 0f12cf5c679b stack 1
+    │
+    │  Changed local bookmarks:
+    │  bookmark_x:
+    │  + 3cafca23bb81 stack 2
+    │  - 5456f1af47ed stack 2
+    ○  86f2ef744e62 test-username@host.example.com default@ 2001-02-03 04:05:13.000 +07:00 - 2001-02-03 04:05:13.000 +07:00
+    │  new empty commit
+    │  args: jj new 'root()' -m new_base
+    │
+    │  Changed commits:
+    │  ○  + 6b753f7043b4 new_base
+    │     Modified commit description:
+    │             1: new_base
+    │
+    │  Changed working copy default@:
+    │  + 6b753f7043b4 new_base
+    │  - 5456f1af47ed stack 2
+    ○  460a7cedc5a7 test-username@host.example.com default@ 2001-02-03 04:05:12.000 +07:00 - 2001-02-03 04:05:12.000 +07:00
+    │  point bookmark bookmark_x to commit 5456f1af47edb52cfd73d582364cc4dd6ddb08cf
+    │  args: jj bookmark set bookmark_x -r@
+    │
+    │  Changed local bookmarks:
+    │  bookmark_x:
+    │  + 5456f1af47ed stack 2
+    │  - 2308e5a241f7 base
+    ○  f64dfa7b064f test-username@host.example.com default@ 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    │  new empty commit
+    │  args: jj new @ -m 'stack 2'
+    │
+    │  Changed commits:
+    │  ○  + 5456f1af47ed stack 2
+    │     Modified commit description:
+    │             1: stack 2
+    │
+    │  Changed working copy default@:
+    │  + 5456f1af47ed stack 2
+    │  - 0f12cf5c679b stack 1
+    ○  a6bc21ea52ed test-username@host.example.com default@ 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    │  new empty commit
+    │  args: jj new @ -m 'stack 1'
+    │
+    │  Changed commits:
+    │  ○  + 0f12cf5c679b stack 1
+    │     Modified commit description:
+    │             1: stack 1
+    │
+    │  Changed working copy default@:
+    │  + 0f12cf5c679b stack 1
+    │  - 2308e5a241f7 base
+    ○  d3ffb3ae407a test-username@host.example.com default@ 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    │  create bookmark bookmark_x pointing to commit 2308e5a241f7a47f186b0686ffb17aa613a727d7
+    │  args: jj bookmark create -r@ bookmark_x
+    │
+    │  Warning: Could not resolve revset expression for elision: Revision `bookmark_x` doesn't exist
+    │     (Use --show-changes-in=all() to see all changes)
+    │
+    │  Changed local bookmarks:
+    │  bookmark_x:
+    │  + 2308e5a241f7 base
+    │  - (absent)
+    [EOF]
+    ");
+
+    // 11. Test op log -p with the flag: should show all changes and NO WARNING.
+    insta::assert_snapshot!(work_dir.run_jj([
+        "op",
+        "log",
+        "-p",
+        "--limit",
+        "6",
+        "--show-changes-in",
+        "all()",
+    ]), @"
+    @  ce91c7903087 test-username@host.example.com default@ 2001-02-03 04:05:14.000 +07:00 - 2001-02-03 04:05:14.000 +07:00
+    │  rebase commit 0f12cf5c679b373cb1ee0fa3e441c2f5030c4dc9 and descendants
+    │  args: jj rebase -s bookmark_x- -d @
+    │
+    │  Changed commits:
+    │  ○  + 3cafca23bb81 stack 2
+    │  │  - 5456f1af47ed stack 2
+    │  ○  + e7bd1678832f stack 1
+    │     - 0f12cf5c679b stack 1
+    │
+    │  Changed local bookmarks:
+    │  bookmark_x:
+    │  + 3cafca23bb81 stack 2
+    │  - 5456f1af47ed stack 2
+    ○  86f2ef744e62 test-username@host.example.com default@ 2001-02-03 04:05:13.000 +07:00 - 2001-02-03 04:05:13.000 +07:00
+    │  new empty commit
+    │  args: jj new 'root()' -m new_base
+    │
+    │  Changed commits:
+    │  ○  + 6b753f7043b4 new_base
+    │     Modified commit description:
+    │             1: new_base
+    │
+    │  Changed working copy default@:
+    │  + 6b753f7043b4 new_base
+    │  - 5456f1af47ed stack 2
+    ○  460a7cedc5a7 test-username@host.example.com default@ 2001-02-03 04:05:12.000 +07:00 - 2001-02-03 04:05:12.000 +07:00
+    │  point bookmark bookmark_x to commit 5456f1af47edb52cfd73d582364cc4dd6ddb08cf
+    │  args: jj bookmark set bookmark_x -r@
+    │
+    │  Changed local bookmarks:
+    │  bookmark_x:
+    │  + 5456f1af47ed stack 2
+    │  - 2308e5a241f7 base
+    ○  f64dfa7b064f test-username@host.example.com default@ 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    │  new empty commit
+    │  args: jj new @ -m 'stack 2'
+    │
+    │  Changed commits:
+    │  ○  + 5456f1af47ed stack 2
+    │     Modified commit description:
+    │             1: stack 2
+    │
+    │  Changed working copy default@:
+    │  + 5456f1af47ed stack 2
+    │  - 0f12cf5c679b stack 1
+    ○  a6bc21ea52ed test-username@host.example.com default@ 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    │  new empty commit
+    │  args: jj new @ -m 'stack 1'
+    │
+    │  Changed commits:
+    │  ○  + 0f12cf5c679b stack 1
+    │     Modified commit description:
+    │             1: stack 1
+    │
+    │  Changed working copy default@:
+    │  + 0f12cf5c679b stack 1
+    │  - 2308e5a241f7 base
+    ○  d3ffb3ae407a test-username@host.example.com default@ 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    │  create bookmark bookmark_x pointing to commit 2308e5a241f7a47f186b0686ffb17aa613a727d7
+    │  args: jj bookmark create -r@ bookmark_x
+    │
+    │  Changed local bookmarks:
+    │  bookmark_x:
+    │  + 2308e5a241f7 base
+    │  - (absent)
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_op_diff_invalid_revset() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Invalid flag value
+    insta::assert_snapshot!(work_dir.run_jj(["op", "diff", "--show-changes-in", "invalid("]), @"
+    ------- stderr -------
+    Error: Invalid `--show-changes-in` expression: invalid(
+    Caused by:  --> 1:9
+      |
+    1 | invalid(
+      |         ^---
+      |
+      = expected <strict_identifier> or <expression>
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // Invalid config value
+    test_env.add_config(r#"revsets.op-diff-changes-in = "invalid(""#);
+    insta::assert_snapshot!(work_dir.run_jj(["op", "diff"]), @"
+    ------- stderr -------
+    Config error: Invalid `revsets.op-diff-changes-in`
+    Caused by:  --> 1:9
+      |
+    1 | invalid(
+      |         ^---
+      |
+      = expected <strict_identifier> or <expression>
+    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
+    [EOF]
+    [exit status: 1]
     ");
 }
 

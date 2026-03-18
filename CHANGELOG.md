@@ -38,6 +38,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The `config()` template function now accepts a `Stringify` expression instead 
   of `LiteralString`. This allows looking up configuration values dynamically.
 
+* `jj op show`, `jj op diff`, `jj op log -p` now only show "interesting"
+  revisions by default (defined by `revsets.op-diff-changes-in`). A new flag,
+  `--show-changes-in`, can be used to override this. [#6083](https://github.com/jj-vcs/jj/issues/6083)
+
 ### Fixed bugs
 
 * `.gitignore` with UTF-8 BOM can now be parsed correctly.

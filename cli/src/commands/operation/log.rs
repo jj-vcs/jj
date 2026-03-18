@@ -26,6 +26,7 @@ use jj_lib::op_walk;
 use jj_lib::operation::Operation;
 use jj_lib::repo::RepoLoader;
 
+use super::diff::parse_op_diff_changes_in;
 use super::diff::show_op_diff;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
@@ -94,6 +95,13 @@ pub struct OperationLogArgs {
 
     #[command(flatten)]
     diff_format: DiffFormatArgs,
+
+    /// Show only changed revisions matching the given revset expression
+    ///
+    /// If no revisions are specified, this defaults to the
+    /// `revsets.op-diff-changes-in` setting.
+    #[arg(long, value_name = "REVSETS")]
+    show_changes_in: Option<String>,
 }
 
 pub async fn cmd_op_log(
@@ -157,6 +165,8 @@ async fn do_op_log(
     let diff_formats = diff_formats_for_log(settings, &args.diff_format, args.patch)?;
     let maybe_show_op_diff = if args.op_diff || !diff_formats.is_empty() {
         let template_text = settings.get_string("templates.commit_summary")?;
+        let op_diff_changes_expr =
+            parse_op_diff_changes_in(ui, settings, workspace_env, args.show_changes_in.as_deref())?;
         let show = async move |ui: &Ui,
                                formatter: &mut dyn Formatter,
                                op: &Operation,
@@ -194,6 +204,7 @@ async fn do_op_log(
             }
             show_op_diff(
                 ui,
+                workspace_env,
                 formatter,
                 repo.as_ref(),
                 &parent_repo,
@@ -202,6 +213,7 @@ async fn do_op_log(
                 (!args.no_graph).then_some(graph_style),
                 with_content_format,
                 diff_renderer.as_ref(),
+                op_diff_changes_expr.clone(),
             )
             .await
         };

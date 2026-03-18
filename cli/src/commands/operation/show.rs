@@ -16,6 +16,7 @@ use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::operation::Operation;
 
+use super::diff::parse_op_diff_changes_in;
 use super::diff::show_op_diff;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
@@ -69,6 +70,13 @@ pub struct OperationShowArgs {
 
     #[command(flatten)]
     diff_format: DiffFormatArgs,
+
+    /// Show only changed revisions matching the given revset expression
+    ///
+    /// If no revisions are specified, this defaults to the
+    /// `revsets.op-diff-changes-in` setting.
+    #[arg(long, value_name = "REVSETS")]
+    show_changes_in: Option<String>,
 }
 
 pub async fn cmd_op_show(
@@ -123,6 +131,9 @@ pub async fn cmd_op_show(
             .labeled(["op_show", "operation"])
     };
 
+    let op_diff_changes_expr =
+        parse_op_diff_changes_in(ui, settings, workspace_env, args.show_changes_in.as_deref())?;
+
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
     template.format(&op, formatter.as_mut())?;
@@ -135,6 +146,7 @@ pub async fn cmd_op_show(
         }
         show_op_diff(
             ui,
+            workspace_env,
             formatter.as_mut(),
             repo.as_ref(),
             &parent_repo,
@@ -143,6 +155,7 @@ pub async fn cmd_op_show(
             (!args.no_graph).then_some(graph_style),
             &with_content_format,
             diff_renderer.as_ref(),
+            op_diff_changes_expr,
         )
         .await?;
     }
