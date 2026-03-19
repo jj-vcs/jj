@@ -45,6 +45,7 @@ use testutils::write_random_commit_with_parents;
 fn get_predecessors(repo: &ReadonlyRepo, id: &CommitId) -> Vec<CommitId> {
     let entries: Vec<_> = walk_predecessors(repo, slice::from_ref(id))
         .try_collect()
+        .block_on()
         .expect("unreachable predecessors shouldn't be visited");
     let first = entries
         .first()
