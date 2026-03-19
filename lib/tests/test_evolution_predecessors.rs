@@ -15,6 +15,8 @@
 use std::slice;
 
 use assert_matches::assert_matches;
+use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
@@ -38,6 +40,7 @@ use testutils::write_random_commit;
 fn collect_predecessors(repo: &ReadonlyRepo, start_commit: &CommitId) -> Vec<CommitEvolutionEntry> {
     walk_predecessors(repo, slice::from_ref(start_commit))
         .try_collect()
+        .block_on()
         .unwrap()
 }
 
@@ -441,7 +444,9 @@ fn test_walk_predecessors_direct_cycle_within_op() {
         loader.load_at(&op).block_on().unwrap()
     };
     assert_matches!(
-        walk_predecessors(&repo1, slice::from_ref(commit1.id())).next(),
+        walk_predecessors(&repo1, slice::from_ref(commit1.id()))
+            .next()
+            .block_on(),
         Some(Err(WalkPredecessorsError::CycleDetected(_)))
     );
 }
@@ -470,7 +475,9 @@ fn test_walk_predecessors_indirect_cycle_within_op() {
         loader.load_at(&op).block_on().unwrap()
     };
     assert_matches!(
-        walk_predecessors(&repo1, slice::from_ref(commit3.id())).next(),
+        walk_predecessors(&repo1, slice::from_ref(commit3.id()))
+            .next()
+            .block_on(),
         Some(Err(WalkPredecessorsError::CycleDetected(_)))
     );
 }

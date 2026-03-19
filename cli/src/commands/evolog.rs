@@ -15,6 +15,7 @@
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use futures::TryStreamExt as _;
+use futures::executor::block_on_stream;
 use itertools::Itertools as _;
 use jj_lib::commit::Commit;
 use jj_lib::evolution::CommitEvolutionEntry;
@@ -144,7 +145,7 @@ pub(crate) async fn cmd_evolog(
     let formatter = formatter.as_mut();
 
     let repo = workspace_command.repo();
-    let evolution_entries = walk_predecessors(repo, &start_commit_ids);
+    let evolution_entries = block_on_stream(walk_predecessors(repo, &start_commit_ids));
     if !args.no_graph {
         let mut raw_output = formatter.raw()?;
         let mut graph = get_graphlog(graph_style, raw_output.as_mut());
