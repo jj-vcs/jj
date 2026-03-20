@@ -2124,6 +2124,7 @@ fn test_git_fetch_remotely_rewritten() {
     │  -- operation 747e22d526e2 fetch from git remote(s) origin
     ○  kkmpptxz/1 test.user@example.com 2001-02-03 08:05:09 eedc2709 (hidden)
        (empty) bookmarked
+
     ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:14 f30445f7
     │  (empty) modified
     │  -- operation 747e22d526e2 fetch from git remote(s) origin
@@ -2165,6 +2166,7 @@ fn test_git_fetch_remotely_rewritten() {
     │  -- operation 747e22d526e2 fetch from git remote(s) origin
     ○  kkmpptxz/1 test.user@example.com 2001-02-03 08:05:09 eedc2709 (hidden)
        (empty) bookmarked
+
     ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:14 f30445f7
     │  (empty) modified
     │  -- operation 747e22d526e2 fetch from git remote(s) origin
@@ -2236,6 +2238,7 @@ fn test_git_fetch_remotely_rewritten_no_synthetic_predecessors() {
     insta::assert_snapshot!(output, @"
     ◆  kkmpptxz test.user@example.com 2001-02-03 08:05:14 book@origin 3ee37bc8
        (empty) bookmarked
+
     ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:14 f30445f7
        (empty) modified
     [EOF]
