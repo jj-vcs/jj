@@ -621,4 +621,43 @@ mod tests {
         assert!(result.duplicates.is_empty());
         assert!(result.unexpected.is_empty());
     }
+
+    #[test]
+    fn test_parse_bulk_edit_message_with_ignored_content() {
+        let result = parse_bulk_edit_message(
+            indoc! {"
+                JJ: describe 1 -------
+                Description 1
+                JJ: directive ignored
+                JJ: foo bar baz
+                JJ: describe 2
+                Description 2
+
+                JJ: ignore-rest
+                ignored content
+
+                JJ: describe 3 --
+                Description 3
+                JJ: ignore-rest still-ignored
+                additional ignored content
+            "},
+            &indexmap! {
+                "1".to_string() => &1,
+                "2".to_string() => &2,
+                "3".to_string() => &3,
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            result.descriptions,
+            hashmap! {
+                1 => "Description 1\n".to_string(),
+                2 => "Description 2\n".to_string(),
+                3 => "Description 3\n".to_string(),
+            }
+        );
+        assert!(result.missing.is_empty());
+        assert!(result.duplicates.is_empty());
+        assert!(result.unexpected.is_empty());
+    }
 }
