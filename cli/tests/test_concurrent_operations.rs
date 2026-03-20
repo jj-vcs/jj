@@ -43,7 +43,7 @@ fn test_concurrent_operation_divergence() -> TestResult {
     // "op log --at-op" should work without merging the head operations
     let output = work_dir.run_jj(["op", "log", "--at-op=801df1b86ae7"]);
     insta::assert_snapshot!(output, @"
-    @  801df1b86ae7 test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    @  801df1b86ae7 test-username@host.example.com default@ 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
     │  describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
     │  args: jj describe -m 'message 2' --at-op @-
     ○  90267f31f904 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00

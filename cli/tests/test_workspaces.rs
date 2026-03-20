@@ -1472,7 +1472,7 @@ fn test_workspaces_forget_multi_transaction() {
     // the op log should have the multiple valid workspaces forgotten in a single tx
     let output = main_dir.run_jj(["op", "log", "--limit", "1"]);
     insta::assert_snapshot!(output, @"
-    @  90493ae75198 test-username@host.example.com 2001-02-03 04:05:12.000 +07:00 - 2001-02-03 04:05:12.000 +07:00
+    @  90493ae75198 test-username@host.example.com default@ 2001-02-03 04:05:12.000 +07:00 - 2001-02-03 04:05:12.000 +07:00
     │  forget workspaces second, third
     │  args: jj workspace forget second third fourth
     [EOF]
@@ -1778,7 +1778,7 @@ fn test_debug_snapshot() {
     work_dir.run_jj(["debug", "snapshot"]).success();
     let output = work_dir.run_jj(["op", "log"]);
     insta::assert_snapshot!(output, @"
-    @  a60628738654 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    @  a60628738654 test-username@host.example.com default@ 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
     │  snapshot working copy
     │  args: jj debug snapshot
     ○  90267f31f904 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
@@ -1789,10 +1789,10 @@ fn test_debug_snapshot() {
     work_dir.run_jj(["describe", "-m", "initial"]).success();
     let output = work_dir.run_jj(["op", "log"]);
     insta::assert_snapshot!(output, @"
-    @  e6e34553de88 test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    @  e6e34553de88 test-username@host.example.com default@ 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
     │  describe commit 006bd1130b84e90ab082adeabd7409270d5a86da
     │  args: jj describe -m initial
-    ○  a60628738654 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    ○  a60628738654 test-username@host.example.com default@ 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
     │  snapshot working copy
     │  args: jj debug snapshot
     ○  90267f31f904 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00

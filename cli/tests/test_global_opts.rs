@@ -1065,7 +1065,7 @@ fn test_default_config() -> TestResult {
     let output = run_jj(&work_dir, &["op", "log", time_config]);
     if maskable_op_user {
         insta::assert_snapshot!(output, @"
-        @  <id> <user>@<host> <date-time>
+        @  <id> <user>@<host> default@ <date-time>
         │  new empty commit
         │  args: jj new
         ○  <id> <user>@<host> <date-time>

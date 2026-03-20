@@ -544,6 +544,20 @@ where
         },
     );
     map.insert(
+        "workspace_name",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|op| {
+                op.metadata()
+                    .workspace_name
+                    .as_ref()
+                    .map(|name| format!("{}@", name.as_symbol()))
+                    .unwrap_or_default()
+            });
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
         "time",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;

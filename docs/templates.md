@@ -413,6 +413,9 @@ This type cannot be printed. The following methods are defined.
 * `.time() -> TimestampRange`
 * `.user() -> String`
 * `.snapshot() -> Boolean`: True if the operation is a snapshot operation.
+* `.workspace_name() -> String`: The name of the workspace the operation was
+  created from. An empty string if the operation wasn't created from a
+  workspace.
 * `.root() -> Boolean`: True if the operation is the root operation.
 * `.parents() -> List<Operation>`
 
