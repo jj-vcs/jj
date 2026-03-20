@@ -247,60 +247,63 @@ pub(crate) async fn cmd_log(
                     display_stream.boxed_local()
                 }
             };
-            while let Some((key, edges)) = stream.try_next().await? {
-                if !key.1 {
-                    let mut buffer = vec![];
-                    let commit = store.get_commit_async(&key.0).await?;
-                    let within_graph = with_content_format.sub_width(graph.width(&key, &edges));
-                    within_graph
-                        .write(ui.new_formatter(&mut buffer).as_mut(), async |formatter| {
-                            template.format(&commit, formatter)
-                        })
-                        .await?;
-                    if let Some(renderer) = &diff_renderer {
-                        let mut formatter = ui.new_formatter(&mut buffer);
-                        renderer
-                            .show_patch(
-                                ui,
-                                formatter.as_mut(),
-                                &commit,
-                                matcher.as_ref(),
-                                within_graph.width(),
+            while let Some((node, edges)) = stream.try_next().await? {
+                let mut label_buffer = vec![];
+                let commit = match &node {
+                    DisplayNode::Present(commit_id) => {
+                        let commit = store.get_commit_async(commit_id).await?;
+                        let within_graph =
+                            with_content_format.sub_width(graph.width(&node, &edges));
+                        within_graph
+                            .write(
+                                ui.new_formatter(&mut label_buffer).as_mut(),
+                                async |formatter| template.format(&commit, formatter),
                             )
                             .await?;
+                        if let Some(renderer) = &diff_renderer {
+                            let mut formatter = ui.new_formatter(&mut label_buffer);
+                            renderer
+                                .show_patch(
+                                    ui,
+                                    formatter.as_mut(),
+                                    &commit,
+                                    matcher.as_ref(),
+                                    within_graph.width(),
+                                )
+                                .await?;
+                        }
+
+                        let tree = commit.tree();
+                        // TODO: propagate errors
+                        explicit_paths
+                            .retain(|&path| tree.path_value(path).block_on().unwrap().is_absent());
+
+                        Some(commit)
                     }
+                    DisplayNode::IndirectPath { .. } => {
+                        // Give the (elided revisions) label only for intermediate missing nodes
+                        let within_graph =
+                            with_content_format.sub_width(graph.width(&node, &edges));
+                        within_graph
+                            .write(
+                                ui.new_formatter(&mut label_buffer).as_mut(),
+                                async |formatter| {
+                                    writeln!(formatter.labeled("elided"), "(elided revisions)")
+                                },
+                            )
+                            .await?;
+                        None
+                    }
+                    DisplayNode::MissingParentsOf(..) => None,
+                };
 
-                    let commit = Some(commit);
-                    let node_symbol = format_template(ui, &commit, &node_template);
-                    graph.add_node(
-                        &key,
-                        &edges,
-                        &node_symbol,
-                        &String::from_utf8_lossy(&buffer),
-                    )?;
-
-                    let tree = commit.map(|c| c.tree()).unwrap();
-                    // TODO: propagate errors
-                    explicit_paths
-                        .retain(|&path| tree.path_value(path).block_on().unwrap().is_absent());
-                } else {
-                    let real_key = (key.0.clone(), false);
-                    let edges = [GraphEdge::direct(real_key)];
-                    let mut buffer = vec![];
-                    let within_graph = with_content_format.sub_width(graph.width(&key, &edges));
-                    within_graph
-                        .write(ui.new_formatter(&mut buffer).as_mut(), async |formatter| {
-                            writeln!(formatter.labeled("elided"), "(elided revisions)")
-                        })
-                        .await?;
-                    let node_symbol = format_template(ui, &None, &node_template);
-                    graph.add_node(
-                        &key,
-                        &edges,
-                        &node_symbol,
-                        &String::from_utf8_lossy(&buffer),
-                    )?;
-                }
+                let node_symbol = format_template(ui, &commit, &node_template);
+                graph.add_node(
+                    &node,
+                    &edges,
+                    &node_symbol,
+                    &String::from_utf8_lossy(&label_buffer),
+                )?;
             }
         } else {
             let id_stream: LocalBoxStream<Result<CommitId, RevsetEvaluationError>> = {
@@ -372,7 +375,16 @@ pub(crate) async fn cmd_log(
     Ok(())
 }
 
-type MaybeSyntheticCommit = (CommitId, bool);
+/// Indicates how the graph node should be displayed.
+#[derive(Clone, PartialEq, Eq, Hash)]
+enum DisplayNode {
+    /// Prints the commit normally
+    Present(CommitId),
+    /// Prints the "(elided revisions)" between child and (present) ancestor
+    IndirectPath { child: CommitId, ancestor: CommitId },
+    /// Prints the representation of all elided parents of the commit
+    MissingParentsOf(CommitId),
+}
 
 /// Convert a revision graph into a display-suitable format.
 ///
@@ -382,49 +394,61 @@ type MaybeSyntheticCommit = (CommitId, bool);
 fn edges_to_display<'a, E: 'a>(
     input: impl stream::Stream<Item = Result<GraphNode<CommitId, CommitId>, E>> + 'a,
     use_elided_nodes: bool,
-) -> impl stream::Stream<Item = Result<GraphNode<MaybeSyntheticCommit, MaybeSyntheticCommit>, E>> {
+) -> impl stream::Stream<Item = Result<GraphNode<DisplayNode, DisplayNode>, E>> + 'a {
     stream::unfold(
         (
-            std::collections::VecDeque::<(CommitId, bool)>::new(),
+            std::collections::VecDeque::<GraphNode<DisplayNode, DisplayNode>>::new(),
             Box::pin(input.fuse()),
         ),
         move |(mut pending, mut input)| async move {
             if let Some(node) = pending.pop_front() {
-                return Some((Ok((node, vec![])), (pending, input)));
+                return Some((Ok(node), (pending, input)));
             }
             let item = input.next().await?;
             let (node, edges) = match item {
                 Ok(v) => v,
                 Err(e) => return Some((Err(e), (pending, input))),
             };
-            // The graph is keyed by (CommitId, is_synthetic)
-            let mut graphlog_edges = vec![];
-            // TODO: Should we update revset.stream_graph() to yield a `has_missing` flag
-            // instead of all the missing edges since we don't care about
-            // where they point here anyway?
-            let mut missing_edge_id = None;
+            let mut has_missing_parents = false;
+            let mut new_edges = Vec::with_capacity(edges.len());
             for edge in edges {
                 match edge.edge_type {
-                    GraphEdgeType::Missing => {
-                        missing_edge_id = Some(edge.target);
-                    }
                     GraphEdgeType::Direct => {
-                        graphlog_edges.push(GraphEdge::direct((edge.target, false)));
+                        new_edges.push(GraphEdge::direct(DisplayNode::Present(edge.target)));
                     }
                     GraphEdgeType::Indirect => {
-                        if use_elided_nodes {
-                            pending.push_back((edge.target.clone(), true));
-                            graphlog_edges.push(GraphEdge::direct((edge.target, true)));
+                        if !use_elided_nodes {
+                            // print the elided nodes using a dashed line
+                            new_edges.push(GraphEdge::indirect(DisplayNode::Present(edge.target)));
                         } else {
-                            graphlog_edges.push(GraphEdge::indirect((edge.target, false)));
+                            // create a synthetic elided nodes, use direct edges
+                            let synthetic_node = DisplayNode::IndirectPath {
+                                child: node.clone(),
+                                ancestor: edge.target.clone(),
+                            };
+                            let real_target = DisplayNode::Present(edge.target);
+                            pending.push_back((
+                                synthetic_node.clone(),
+                                vec![GraphEdge::direct(real_target)],
+                            ));
+                            new_edges.push(GraphEdge::direct(synthetic_node));
+                        }
+                    }
+                    GraphEdgeType::Missing => {
+                        if use_elided_nodes && !has_missing_parents {
+                            // print missing parents as a single elided node
+                            has_missing_parents = true;
+                            let node = DisplayNode::MissingParentsOf(node.clone());
+                            pending.push_back((node.clone(), vec![]));
+                            new_edges.push(GraphEdge::direct(node));
                         }
                     }
                 }
             }
-            if let Some(missing_edge_id) = missing_edge_id {
-                graphlog_edges.push(GraphEdge::missing((missing_edge_id, false)));
-            }
-            Some((Ok(((node, false), graphlog_edges)), (pending, input)))
+            Some((
+                Ok((DisplayNode::Present(node), new_edges)),
+                (pending, input),
+            ))
         },
     )
 }
