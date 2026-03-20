@@ -172,12 +172,13 @@ key = "some-key"
     │
     ○  Commit ID: eec44cafe0dc853b67cc7e14ca4fe3b80d3687f1
     │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
-    ~  Author   : Test User <test.user@example.com> (2001-02-03 08:05:08)
-       Committer: Test User <test.user@example.com> (2001-02-03 08:05:11)
-       Signature: good signature by test-display another-key
-
-           one
-
+    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:08)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:11)
+    │  Signature: good signature by test-display another-key
+    │
+    │      one
+    │
+    ~
     [EOF]
     ");
 }

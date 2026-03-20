@@ -62,8 +62,7 @@ fn test_log_parents() {
     let output = work_dir.run_jj(["log", "-T", template, "-r@", "--color=always"]);
     insta::assert_snapshot!(output, @"
     [1m[38;5;2m@[0m  [1m[38;5;4m1[0m[38;5;8mc1c[39m [1m[38;5;4me[0m[38;5;8m884[39m
-    │
-    ~
+    [38;5;8m~[39m
     [EOF]
     ");
 
@@ -1686,7 +1685,6 @@ fn test_signature_templates() {
     insta::assert_snapshot!(output, @"
     @  rlvkpnrz test.user 2001-02-03 08:05:09 eb0e9b58 [✓︎] (empty) signed
     ○  qpvuntsm test.user 2001-02-03 08:05:08 0604e056 (empty) unsigned
-    │
     ~
     [EOF]
     ");
@@ -1713,12 +1711,13 @@ fn test_signature_templates() {
     │
     ○  Commit ID: 0604e056feaf8ee553fae4e06d4bfc57cdd319d6
     │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
-    ~  Author   : Test User <test.user@example.com> (2001-02-03 08:05:08)
-       Committer: Test User <test.user@example.com> (2001-02-03 08:05:08)
-       Signature: (no signature)
-
-           unsigned
-
+    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:08)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:08)
+    │  Signature: (no signature)
+    │
+    │      unsigned
+    │
+    ~
     [EOF]
     ");
 
@@ -1732,7 +1731,6 @@ fn test_signature_templates() {
     insta::assert_snapshot!(output, @"
     @  rlvkpnrz test.user 2001-02-03 08:05:09 eb0e9b58 status: good (empty) signed
     ○  qpvuntsm test.user 2001-02-03 08:05:08 0604e056 status: <Error: No CryptographicSignature available> (empty) unsigned
-    │
     ~
     [EOF]
     ");

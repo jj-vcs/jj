@@ -27,7 +27,6 @@ fn test_alias_basic() {
     let output = work_dir.run_jj(["bk"]);
     insta::assert_snapshot!(output, @"
     @  my-bookmark
-    │
     ~
     [EOF]
     ");

@@ -148,14 +148,14 @@ fn test_alias_in_revset_or_template() {
     insta::assert_snapshot!(output, @"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:08 093c3c96
     │  (no description set)
-    ~  A file1
+    │  A file1
+    ~
     [EOF]
     ");
 
     let output = work_dir.run_jj(["log", "-r@", "-Tself.diff('star').summary()"]);
     insta::assert_snapshot!(output, @"
     @  A file1
-    │
     ~
     [EOF]
     ");
