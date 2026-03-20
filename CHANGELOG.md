@@ -40,6 +40,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   remote's fetch URL or effective push URL.
   [#413](https://github.com/jj-vcs/jj/issues/413)
 
+* `jj log --reversed` now correctly shows elided nodes.
+
 ## [0.42.0] - 2026-06-04
 
 ### Release highlights
@@ -87,6 +89,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   launched once per changed file, making it possible to use per-file tools like
   `vimdiff` for editing.
 
+* The final `~` shown in `jj log` now respects `ui.log-synthetic-elided-nodes`
+  and uses the `log_node` template.
+
 ### Fixed bugs
 
 * `jj git remote add` now reports an error instead of panicking when the
@@ -103,28 +108,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * The `builtin_log_redacted` template now also redacts workspace names.
 
-### Contributors
-
-Thanks to the people who made this release happen!
-
-* Alex Jaspersen (@ajaspers)
-* Archer (@archer-321)
-* ase (@adamse)
-* Austin Seipp (@thoughtpolice)
-* David Rieber (@drieber)
-* Eyüp Can Akman (@eyupcanakman)
-* Jakub Stasiak (@jstasiak)
-* James Dixon (@lemonase)
-* Joseph Lou (@josephlou5)
-* Laurynas Keturakis (@laulauland)
-* Luna Schwalbe (@lunagl)
-* Martin von Zweigbergk (@martinvonz)
-* Niko Savola (@nikosavola)
-* OlshaMB (@OlshaMB)
-* Sergey Kasmy (@SergeyKasmy)
-* truffle (@truffle-dev)
-* Vincent Ging Ho Yim (@cenviity)
-* Yuya Nishihara (@yuja)
 
 ## [0.41.0] - 2026-05-06
 
