@@ -897,6 +897,61 @@ fn test_log_reversed() {
 }
 
 #[test]
+fn test_log_reversed_disconnected_components() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create a linear chain: root <- A <- B <- C
+    // plus a branch off A:  A <- D (working copy)
+    //
+    //   C  D (@)
+    //   |  |
+    //   B  |
+    //   |/
+    //   A
+    //   |
+    //  root
+    work_dir.run_jj(["new", "root()", "-m", "A"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "a", "-r", "@"])
+        .success();
+    work_dir.run_jj(["new", "-m", "B"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "b", "-r", "@"])
+        .success();
+    work_dir.run_jj(["new", "-m", "C"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "c", "-r", "@"])
+        .success();
+    work_dir.run_jj(["new", "a", "-m", "D"]).success();
+
+    // Forward: two disconnected components
+    let output = work_dir.run_jj(["log", "-r", ".. ~ a", "-T", "description"]);
+    insta::assert_snapshot!(output, @r"
+    @  D
+    │
+    ~
+
+    ○  C
+    ○  B
+    │
+    ~
+    [EOF]
+    ");
+
+    // Reversed: two disconnected components, order flipped
+    let output = work_dir.run_jj(["log", "-r", ".. ~ a", "-T", "description", "--reversed"]);
+    insta::assert_snapshot!(output, @r"
+    ○  B
+    ○  C
+
+    @  D
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_log_filtered_by_path() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

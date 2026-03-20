@@ -1280,9 +1280,13 @@ fn test_op_diff() {
 
     Changed commits:
     ○  + skovwzlu 854c38b8 Commit 4
+
     ○  + rnnslrkn 4ff62539 bookmark-2@origin | Commit 2
+
     ○  + rnnkyono 11671e4c bookmark-3@origin | Commit 3
+
     ○  + pukowqtp 0cb7e07e bookmark-1 | Commit 1
+
     ○  + qpvuntsm e8849ae1 (empty) (no description set)
 
     Changed working copy default@:
@@ -1325,9 +1329,13 @@ fn test_op_diff() {
 
     Changed commits:
     ○  - skovwzlu/0 854c38b8 (hidden) Commit 4
+
     ○  - rnnslrkn/0 4ff62539 (hidden) Commit 2
+
     ○  - rnnkyono/0 11671e4c (hidden) Commit 3
+
     ○  - pukowqtp/0 0cb7e07e (hidden) Commit 1
+
     ○  - qpvuntsm/0 e8849ae1 (hidden) (empty) (no description set)
 
     Changed working copy default@:
@@ -1488,7 +1496,9 @@ fn test_op_diff() {
 
     Changed commits:
     ○  + kulxwnxm e1a239a5 bookmark-2@origin | Commit 5
+
     ○  + zkmtkqvo 0dee6313 bookmark-1?? bookmark-1@origin | Commit 4
+
     ○  - rnnkyono/0 11671e4c (hidden) Commit 3
 
     Changed local bookmarks:
@@ -1827,6 +1837,7 @@ fn test_op_diff_patch() {
 
     Changed commits:
     ○  + yqosqzyt c97a8573 (empty) (no description set)
+
     ○  - mzvwutvl/0 6cbd01ae (hidden) (empty) (no description set)
 
     Changed working copy default@:
@@ -1925,6 +1936,7 @@ fn test_op_diff_sibling() {
     │    A file1
     ○  - zsuskuln/0 47b9525e (hidden) A.2
        A file2
+
     ○  + qpvuntsm b1ca67e2 (empty) B
        - qpvuntsm/1 e8849ae1 (hidden) (empty) (no description set)
 
@@ -1950,6 +1962,7 @@ fn test_op_diff_sibling() {
 
     Changed commits:
     ○  - qpvuntsm/0 b1ca67e2 (hidden) (empty) B
+
     ○    + mzvwutvl 08c63613 (empty) A
     ├─╮
     │ ○  + kkmpptxz 6c70a4f7 A.1
@@ -2054,6 +2067,7 @@ fn test_op_diff_divergent_change() {
     Changed commits:
     ○  + rlvkpnrz/0 c5cad9ab (divergent) 2b
        - rlvkpnrz/4 4f7a567a (hidden) (empty) (no description set)
+
     ○  + rlvkpnrz/2 f189cafa (divergent) 2a
        - rlvkpnrz/4 4f7a567a (hidden) (empty) (no description set)
 
@@ -2116,6 +2130,7 @@ fn test_op_diff_divergent_change() {
        @@ -1,1 +1,2 @@
         1
        +2b
+
     ○  + rlvkpnrz/2 f189cafa (divergent) 2a
        - rlvkpnrz/4 4f7a567a (hidden) (empty) (no description set)
        diff --git a/JJ-COMMIT-DESCRIPTION b/JJ-COMMIT-DESCRIPTION
@@ -2192,6 +2207,7 @@ fn test_op_diff_divergent_change() {
     Changed commits:
     ○  + rlvkpnrz/1 c5cad9ab (divergent) 2b
        - rlvkpnrz/0 17d68d92 (hidden) 2ab
+
     ○  + rlvkpnrz/3 f189cafa (divergent) 2a
        - rlvkpnrz/0 17d68d92 (hidden) 2ab
 
@@ -2343,17 +2359,21 @@ fn test_op_diff_word_wrap() {
        Commit 1
        some-file | 1 +
        1 file changed, 1 insertion(+), 0 deletions(-)
+
     ○  + skovwzlu 854c38b8 Commit 4
        some-file | 1 +
        1 file changed, 1 insertion(+), 0 deletions(-)
+
     ○  + rnnslrkn 4ff62539 bookmark-2@origin
        | Commit 2
        some-file | 1 +
        1 file changed, 1 insertion(+), 0 deletions(-)
+
     ○  + rnnkyono 11671e4c bookmark-3@origin
        | Commit 3
        some-file | 1 +
        1 file changed, 1 insertion(+), 0 deletions(-)
+
     ○  - qpvuntsm/0 e8849ae1 (hidden)
        (empty) (no description set)
        0 files changed, 0 insertions(+), 0 deletions(-)
@@ -2405,15 +2425,19 @@ fn test_op_diff_word_wrap() {
     ○  + 0 1 2
        3 4 5 6
        7 8 9
+
     ○  + 0 1 2
        3 4 5 6
        7 8 9
+
     ○  + 0 1 2
        3 4 5 6
        7 8 9
+
     ○  + 0 1 2
        3 4 5 6
        7 8 9
+
     ○  - 0 1 2
        3 4 5 6
        7 8 9
@@ -2550,8 +2574,11 @@ fn test_op_show() {
 
     Changed commits:
     ○  + skovwzlu 854c38b8 Commit 4
+
     ○  + rnnslrkn 4ff62539 bookmark-2@origin | Commit 2
+
     ○  + rnnkyono 11671e4c bookmark-3@origin | Commit 3
+
     ○  + pukowqtp 0cb7e07e bookmark-1@origin | Commit 1
 
     Changed local tags:
@@ -2631,7 +2658,9 @@ fn test_op_show() {
 
     Changed commits:
     ○  + kulxwnxm e1a239a5 bookmark-2@origin | Commit 5
+
     ○  + zkmtkqvo 0dee6313 bookmark-1?? bookmark-1@origin | Commit 4
+
     ○  - rnnkyono/0 11671e4c (hidden) Commit 3
 
     Changed local bookmarks:
@@ -2738,6 +2767,7 @@ fn test_op_show() {
 
     Changed commits:
     ○  + tlkvzzqu 8f340dd7 (empty) new commit
+
     ○  - qpvuntsm/0 e8849ae1 (hidden) (empty) (no description set)
 
     Changed working copy default@:
@@ -2934,6 +2964,7 @@ fn test_op_show_patch() {
 
     Changed commits:
     ○  + yqosqzyt c97a8573 (empty) (no description set)
+
     ○  - mzvwutvl/0 6cbd01ae (hidden) (empty) (no description set)
 
     Changed working copy default@:
@@ -2951,6 +2982,7 @@ fn test_op_show_patch() {
     │
     │  Changed commits:
     │  ○  + yqosqzyt c97a8573 (empty) (no description set)
+    │
     │  ○  - mzvwutvl/0 6cbd01ae (hidden) (empty) (no description set)
     │
     │  Changed working copy default@:
@@ -3318,6 +3350,7 @@ fn test_op_immutable_revisions() {
     Changed commits:
     ○  + sryyqqkq 46f2f483 (empty) (no description set)
        - sryyqqkq/1 d41cf466 (hidden) (empty) (no description set)
+
     ○  - ukwxllxp/0 0a2e24c8 (hidden) (empty) single-2
        (Elided 1 newly removed revisions)
 
@@ -3354,8 +3387,10 @@ fn test_op_immutable_revisions() {
     Changed commits:
     ○  + sryyqqkq d41cf466 (empty) (no description set)
     ○  + ukwxllxp 0a2e24c8 (empty) single-2
+
     ○  + wvmqtotl 44827d4a bb | (empty) mix-b5
     ○  + pkstwlsy 2e898f29 ba | (empty) mix-a5
+
     ○  - tlkvzzqu/0 3f6d698d (hidden) (empty) (no description set)
        (Elided 9 newly added revisions)
 
