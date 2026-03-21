@@ -50,18 +50,18 @@ fn test_evolog_with_or_without_diff() {
     // Color
     let output = work_dir.run_jj(["--color=always", "evolog"]);
     insta::assert_snapshot!(output, @"
-    [1m[38;5;2m@[0m  [1m[38;5;13mr[38;5;8mlvkpnrz[39m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:10[39m [38;5;12m3[38;5;8m3c10ace[39m[0m
+    [1m[38;5;2m@[0m  [1m[38;5;13mr[2mlvkpnrz[0m[1m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:10[39m [38;5;12m3[2m3c10ace[0m[1m[0m
     │  [1mmy description[0m
-    │  [38;5;8m--[39m operation [38;5;4m6db8cd4108b4[39m snapshot working copy
-    [1m[38;5;1m×[0m  [1m[39mr[0m[38;5;8mlvkpnrz[1m[39m/1[0m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:09[39m [1m[38;5;4mcd[0m[38;5;8mf175ef[39m (hidden) [38;5;1m(conflict)[39m
+    │  [2m--[0m operation [38;5;4m6db8cd4108b4[39m snapshot working copy
+    [1m[38;5;1m×[0m  [1m[39mr[0m[2m[38;5;5mlvkpnrz[0m[1m/1[0m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:09[39m [1m[38;5;4mcd[0m[2m[38;5;4mf175ef[0m (hidden) [38;5;1m(conflict)[39m
     │  my description
-    │  [38;5;8m--[39m operation [38;5;4m631cc2c28fbc[39m rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
-    ○  [1m[39mr[0m[38;5;8mlvkpnrz[1m[39m/2[0m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:09[39m [1m[38;5;4m5[0m[38;5;8m1e08f95[39m (hidden)
+    │  [2m--[0m operation [38;5;4m631cc2c28fbc[39m rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
+    ○  [1m[39mr[0m[2m[38;5;5mlvkpnrz[0m[1m/2[0m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:09[39m [1m[38;5;4m5[0m[2m[38;5;4m1e08f95[0m (hidden)
     │  my description
-    │  [38;5;8m--[39m operation [38;5;4m826347115e2d[39m snapshot working copy
-    ○  [1m[39mr[0m[38;5;8mlvkpnrz[1m[39m/3[0m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:08[39m [1m[38;5;4mb[0m[38;5;8m955b72e[39m (hidden)
+    │  [2m--[0m operation [38;5;4m826347115e2d[39m snapshot working copy
+    ○  [1m[39mr[0m[2m[38;5;5mlvkpnrz[0m[1m/3[0m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:08[39m [1m[38;5;4mb[0m[2m[38;5;4m955b72e[0m (hidden)
        [38;5;2m(empty)[39m my description
-       [38;5;8m--[39m operation [38;5;4me0f8e58b3800[39m new empty commit
+       [2m--[0m operation [38;5;4me0f8e58b3800[39m new empty commit
     [EOF]
     ");
 
@@ -233,9 +233,9 @@ fn test_evolog_template() {
     ");
     let output = work_dir.run_jj(["evolog", "-r@", "--color=debug"]);
     insta::assert_snapshot!(output, @"
-    [1m[38;5;2m<<evolog commit node working_copy mutable::@>>[0m  [1m[38;5;13m<<evolog working_copy mutable commit change_id shortest prefix::k>>[38;5;8m<<evolog working_copy mutable commit change_id shortest rest::kmpptxz>>[39m<<evolog working_copy mutable:: >>[38;5;3m<<evolog working_copy mutable commit author email local::test.user>><<evolog working_copy mutable commit author email::@>><<evolog working_copy mutable commit author email domain::example.com>>[39m<<evolog working_copy mutable:: >>[38;5;14m<<evolog working_copy mutable commit committer timestamp local format::2001-02-03 08:05:09>>[39m<<evolog working_copy mutable:: >>[38;5;12m<<evolog working_copy mutable commit commit_id shortest prefix::2>>[38;5;8m<<evolog working_copy mutable commit commit_id shortest rest::b17ac71>>[39m<<evolog working_copy mutable::>>[0m
+    [1m[38;5;2m<<evolog commit node working_copy mutable::@>>[0m  [1m[38;5;13m<<evolog working_copy mutable commit change_id shortest prefix::k>>[2m<<evolog working_copy mutable commit change_id shortest rest::kmpptxz>>[0m[1m<<evolog working_copy mutable:: >>[38;5;3m<<evolog working_copy mutable commit author email local::test.user>><<evolog working_copy mutable commit author email::@>><<evolog working_copy mutable commit author email domain::example.com>>[39m<<evolog working_copy mutable:: >>[38;5;14m<<evolog working_copy mutable commit committer timestamp local format::2001-02-03 08:05:09>>[39m<<evolog working_copy mutable:: >>[38;5;12m<<evolog working_copy mutable commit commit_id shortest prefix::2>>[2m<<evolog working_copy mutable commit commit_id shortest rest::b17ac71>>[0m[1m<<evolog working_copy mutable::>>[0m
        [1m[38;5;10m<<evolog working_copy mutable empty::(empty)>>[39m<<evolog working_copy mutable:: >>[38;5;10m<<evolog working_copy mutable empty description placeholder::(no description set)>>[39m<<evolog working_copy mutable::>>[0m
-       [38;5;8m<<evolog separator::-->>[39m<<evolog:: operation >>[38;5;4m<<evolog operation id short::2931515731a6>>[39m<<evolog:: >><<evolog operation description first_line::add workspace 'default'>><<evolog::>>
+       [2m<<evolog separator::-->>[0m<<evolog:: operation >>[38;5;4m<<evolog operation id short::2931515731a6>>[39m<<evolog:: >><<evolog operation description first_line::add workspace 'default'>><<evolog::>>
     [EOF]
     ");
 
@@ -248,7 +248,7 @@ fn test_evolog_template() {
     ");
     let output = work_dir.run_jj(["evolog", "-rmain@origin", "--color=debug"]);
     insta::assert_snapshot!(output, @"
-    [1m[38;5;14m<<evolog commit node immutable::◆>>[0m  [1m[38;5;5m<<evolog immutable commit change_id shortest prefix::q>>[0m[38;5;8m<<evolog immutable commit change_id shortest rest::pvuntsm>>[39m<<evolog immutable:: >>[38;5;3m<<evolog immutable commit author email local::test.user>><<evolog immutable commit author email::@>><<evolog immutable commit author email domain::example.com>>[39m<<evolog immutable:: >>[38;5;6m<<evolog immutable commit committer timestamp local format::2001-02-03 08:05:07>>[39m<<evolog immutable:: >>[38;5;5m<<evolog immutable commit bookmarks name::main>><<evolog immutable commit bookmarks::@>><<evolog immutable commit bookmarks remote::origin>>[39m<<evolog immutable:: >>[1m[38;5;4m<<evolog immutable commit commit_id shortest prefix::e>>[0m[38;5;8m<<evolog immutable commit commit_id shortest rest::8849ae1>>[39m<<evolog immutable::>>
+    [1m[38;5;14m<<evolog commit node immutable::◆>>[0m  [1m[38;5;5m<<evolog immutable commit change_id shortest prefix::q>>[0m[2m[38;5;5m<<evolog immutable commit change_id shortest rest::pvuntsm>>[0m<<evolog immutable:: >>[38;5;3m<<evolog immutable commit author email local::test.user>><<evolog immutable commit author email::@>><<evolog immutable commit author email domain::example.com>>[39m<<evolog immutable:: >>[38;5;6m<<evolog immutable commit committer timestamp local format::2001-02-03 08:05:07>>[39m<<evolog immutable:: >>[38;5;5m<<evolog immutable commit bookmarks name::main>><<evolog immutable commit bookmarks::@>><<evolog immutable commit bookmarks remote::origin>>[39m<<evolog immutable:: >>[1m[38;5;4m<<evolog immutable commit commit_id shortest prefix::e>>[0m[2m[38;5;4m<<evolog immutable commit commit_id shortest rest::8849ae1>>[0m<<evolog immutable::>>
        [38;5;2m<<evolog immutable empty::(empty)>>[39m<<evolog immutable:: >>[38;5;2m<<evolog immutable empty description placeholder::(no description set)>>[39m<<evolog immutable::>>
     [EOF]
     ");
@@ -261,7 +261,7 @@ fn test_evolog_template() {
     ");
     let output = work_dir.run_jj(["evolog", "-rroot()", "--color=debug"]);
     insta::assert_snapshot!(output, @"
-    [1m[38;5;14m<<evolog commit node immutable::◆>>[0m  [1m[38;5;5m<<evolog immutable commit change_id shortest prefix::z>>[0m[38;5;8m<<evolog immutable commit change_id shortest rest::zzzzzzz>>[39m<<evolog immutable:: >>[38;5;2m<<evolog immutable root::root()>>[39m<<evolog immutable:: >>[1m[38;5;4m<<evolog immutable commit commit_id shortest prefix::0>>[0m[38;5;8m<<evolog immutable commit commit_id shortest rest::0000000>>[39m<<evolog immutable::>>
+    [1m[38;5;14m<<evolog commit node immutable::◆>>[0m  [1m[38;5;5m<<evolog immutable commit change_id shortest prefix::z>>[0m[2m[38;5;5m<<evolog immutable commit change_id shortest rest::zzzzzzz>>[0m<<evolog immutable:: >>[38;5;2m<<evolog immutable root::root()>>[39m<<evolog immutable:: >>[1m[38;5;4m<<evolog immutable commit commit_id shortest prefix::0>>[0m[2m[38;5;4m<<evolog immutable commit commit_id shortest rest::0000000>>[0m<<evolog immutable::>>
     [EOF]
     ");
 

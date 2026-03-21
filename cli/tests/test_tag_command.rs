@@ -278,11 +278,11 @@ fn test_tag_list() {
 
     insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "--color=always"]), @"
     [38;5;5mconflicted_tag[39m [38;5;1m(conflicted)[39m:
-      - [1m[38;5;5mrl[0m[38;5;8mvkpnrz[39m [1m[38;5;4m8[0m[38;5;8m93e67dc[39m [38;5;2m(empty)[39m commit1
-      + [1m[38;5;5mzs[0m[38;5;8muskuln[39m [1m[38;5;4m7[0m[38;5;8m6abdd20[39m [38;5;2m(empty)[39m commit2
-      + [1m[38;5;5mr[0m[38;5;8moyxmykx[39m [1m[38;5;4m1[0m[38;5;8m3c4e819[39m [38;5;2m(empty)[39m commit3
-    [38;5;5mtest_tag[39m: [1m[38;5;5mrl[0m[38;5;8mvkpnrz[39m [1m[38;5;4m8[0m[38;5;8m93e67dc[39m [38;5;2m(empty)[39m commit1
-    [38;5;5mtest_tag2[39m: [1m[38;5;5mzs[0m[38;5;8muskuln[39m [1m[38;5;4m7[0m[38;5;8m6abdd20[39m [38;5;2m(empty)[39m commit2
+      - [1m[38;5;5mrl[0m[2m[38;5;5mvkpnrz[0m [1m[38;5;4m8[0m[2m[38;5;4m93e67dc[0m [38;5;2m(empty)[39m commit1
+      + [1m[38;5;5mzs[0m[2m[38;5;5muskuln[0m [1m[38;5;4m7[0m[2m[38;5;4m6abdd20[0m [38;5;2m(empty)[39m commit2
+      + [1m[38;5;5mr[0m[2m[38;5;5moyxmykx[0m [1m[38;5;4m1[0m[2m[38;5;4m3c4e819[0m [38;5;2m(empty)[39m commit3
+    [38;5;5mtest_tag[39m: [1m[38;5;5mrl[0m[2m[38;5;5mvkpnrz[0m [1m[38;5;4m8[0m[2m[38;5;4m93e67dc[0m [38;5;2m(empty)[39m commit1
+    [38;5;5mtest_tag2[39m: [1m[38;5;5mzs[0m[2m[38;5;5muskuln[0m [1m[38;5;4m7[0m[2m[38;5;4m6abdd20[0m [38;5;2m(empty)[39m commit2
     [EOF]
     ");
 

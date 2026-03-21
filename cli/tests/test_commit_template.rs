@@ -60,7 +60,7 @@ fn test_log_parents() {
     let template = r#"parents.map(|c| c.commit_id().shortest(4))"#;
     let output = work_dir.run_jj(["log", "-T", template, "-r@", "--color=always"]);
     insta::assert_snapshot!(output, @"
-    [1m[38;5;2m@[0m  [1m[38;5;4m1[0m[38;5;8mc1c[39m [1m[38;5;4me[0m[38;5;8m884[39m
+    [1m[38;5;2m@[0m  [1m[38;5;4m1[0m[2m[38;5;4mc1c[0m [1m[38;5;4me[0m[2m[38;5;4m884[0m
     │
     ~
     [EOF]
@@ -287,22 +287,22 @@ fn test_log_default() {
     // Color
     let output = work_dir.run_jj(["log", "--color=always"]);
     insta::assert_snapshot!(output, @"
-    [1m[38;5;2m@[0m  [1m[38;5;13mk[38;5;8mkmpptxz[39m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:09[39m [38;5;13mmy-bookmark[39m [38;5;12mc[38;5;8m938c088[39m[0m
+    [1m[38;5;2m@[0m  [1m[38;5;13mk[2mkmpptxz[0m[1m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:09[39m [38;5;13mmy-bookmark[39m [38;5;12mc[2m938c088[0m[1m[0m
     │  [1m[38;5;10m(empty)[39m description 1[0m
-    ○  [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:08[39m [1m[38;5;4m007[0m[38;5;8m859d3[39m
+    ○  [1m[38;5;5mq[0m[2m[38;5;5mpvuntsm[0m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:08[39m [1m[38;5;4m007[0m[2m[38;5;4m859d3[0m
     │  add a file
-    [1m[38;5;14m◆[0m  [1m[38;5;5mz[0m[38;5;8mzzzzzzz[39m [38;5;2mroot()[39m [1m[38;5;4m000[0m[38;5;8m00000[39m
+    [1m[38;5;14m◆[0m  [1m[38;5;5mz[0m[2m[38;5;5mzzzzzzz[0m [38;5;2mroot()[39m [1m[38;5;4m000[0m[2m[38;5;4m00000[0m
     [EOF]
     ");
 
     // Color without graph
     let output = work_dir.run_jj(["log", "--color=always", "--no-graph"]);
     insta::assert_snapshot!(output, @"
-    [1m[38;5;13mk[38;5;8mkmpptxz[39m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:09[39m [38;5;13mmy-bookmark[39m [38;5;12mc[38;5;8m938c088[39m[0m
+    [1m[38;5;13mk[2mkmpptxz[0m[1m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:09[39m [38;5;13mmy-bookmark[39m [38;5;12mc[2m938c088[0m[1m[0m
     [1m[38;5;10m(empty)[39m description 1[0m
-    [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:08[39m [1m[38;5;4m007[0m[38;5;8m859d3[39m
+    [1m[38;5;5mq[0m[2m[38;5;5mpvuntsm[0m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:08[39m [1m[38;5;4m007[0m[2m[38;5;4m859d3[0m
     add a file
-    [1m[38;5;5mz[0m[38;5;8mzzzzzzz[39m [38;5;2mroot()[39m [1m[38;5;4m000[0m[38;5;8m00000[39m
+    [1m[38;5;5mz[0m[2m[38;5;5mzzzzzzz[0m [38;5;2mroot()[39m [1m[38;5;4m000[0m[2m[38;5;4m00000[0m
     [EOF]
     ");
 }
@@ -406,29 +406,29 @@ fn test_log_builtin_templates_colored() {
         .success();
 
     insta::assert_snapshot!(render(r#"builtin_log_oneline"#), @"
-    [1m[38;5;2m@[0m  [1m[38;5;13mr[38;5;8mlvkpnrz[39m [38;5;9m(no email set)[39m [38;5;14m2001-02-03 08:05:08[39m [38;5;13mmy-bookmark[39m [38;5;12ma[38;5;8mec3ec96[39m [38;5;10m(empty)[39m [38;5;10m(no description set)[39m[0m
-    ○  [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [38;5;3mtest.user[39m [38;5;6m2001-02-03 08:05:07[39m [1m[38;5;4me[0m[38;5;8m8849ae1[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
-    [1m[38;5;14m◆[0m  [1m[38;5;5mz[0m[38;5;8mzzzzzzz[39m [38;5;2mroot()[39m [1m[38;5;4m0[0m[38;5;8m0000000[39m
+    [1m[38;5;2m@[0m  [1m[38;5;13mr[2mlvkpnrz[0m[1m [38;5;9m(no email set)[39m [38;5;14m2001-02-03 08:05:08[39m [38;5;13mmy-bookmark[39m [38;5;12ma[2mec3ec96[0m[1m [38;5;10m(empty)[39m [38;5;10m(no description set)[39m[0m
+    ○  [1m[38;5;5mq[0m[2m[38;5;5mpvuntsm[0m [38;5;3mtest.user[39m [38;5;6m2001-02-03 08:05:07[39m [1m[38;5;4me[0m[2m[38;5;4m8849ae1[0m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
+    [1m[38;5;14m◆[0m  [1m[38;5;5mz[0m[2m[38;5;5mzzzzzzz[0m [38;5;2mroot()[39m [1m[38;5;4m0[0m[2m[38;5;4m0000000[0m
     [EOF]
     ");
 
     insta::assert_snapshot!(render(r#"builtin_log_compact"#), @"
-    [1m[38;5;2m@[0m  [1m[38;5;13mr[38;5;8mlvkpnrz[39m [38;5;9m(no email set)[39m [38;5;14m2001-02-03 08:05:08[39m [38;5;13mmy-bookmark[39m [38;5;12ma[38;5;8mec3ec96[39m[0m
+    [1m[38;5;2m@[0m  [1m[38;5;13mr[2mlvkpnrz[0m[1m [38;5;9m(no email set)[39m [38;5;14m2001-02-03 08:05:08[39m [38;5;13mmy-bookmark[39m [38;5;12ma[2mec3ec96[0m[1m[0m
     │  [1m[38;5;10m(empty)[39m [38;5;10m(no description set)[39m[0m
-    ○  [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:07[39m [1m[38;5;4me[0m[38;5;8m8849ae1[39m
+    ○  [1m[38;5;5mq[0m[2m[38;5;5mpvuntsm[0m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:07[39m [1m[38;5;4me[0m[2m[38;5;4m8849ae1[0m
     │  [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
-    [1m[38;5;14m◆[0m  [1m[38;5;5mz[0m[38;5;8mzzzzzzz[39m [38;5;2mroot()[39m [1m[38;5;4m0[0m[38;5;8m0000000[39m
+    [1m[38;5;14m◆[0m  [1m[38;5;5mz[0m[2m[38;5;5mzzzzzzz[0m [38;5;2mroot()[39m [1m[38;5;4m0[0m[2m[38;5;4m0000000[0m
     [EOF]
     ");
 
     insta::assert_snapshot!(render(r#"builtin_log_comfortable"#), @"
-    [1m[38;5;2m@[0m  [1m[38;5;13mr[38;5;8mlvkpnrz[39m [38;5;9m(no email set)[39m [38;5;14m2001-02-03 08:05:08[39m [38;5;13mmy-bookmark[39m [38;5;12ma[38;5;8mec3ec96[39m[0m
+    [1m[38;5;2m@[0m  [1m[38;5;13mr[2mlvkpnrz[0m[1m [38;5;9m(no email set)[39m [38;5;14m2001-02-03 08:05:08[39m [38;5;13mmy-bookmark[39m [38;5;12ma[2mec3ec96[0m[1m[0m
     │  [1m[38;5;10m(empty)[39m [38;5;10m(no description set)[39m[0m
     │
-    ○  [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:07[39m [1m[38;5;4me[0m[38;5;8m8849ae1[39m
+    ○  [1m[38;5;5mq[0m[2m[38;5;5mpvuntsm[0m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:07[39m [1m[38;5;4me[0m[2m[38;5;4m8849ae1[0m
     │  [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
     │
-    [1m[38;5;14m◆[0m  [1m[38;5;5mz[0m[38;5;8mzzzzzzz[39m [38;5;2mroot()[39m [1m[38;5;4m0[0m[38;5;8m0000000[39m
+    [1m[38;5;14m◆[0m  [1m[38;5;5mz[0m[2m[38;5;5mzzzzzzz[0m [38;5;2mroot()[39m [1m[38;5;4m0[0m[2m[38;5;4m0000000[0m
 
     [EOF]
     ");
@@ -475,29 +475,29 @@ fn test_log_builtin_templates_colored_debug() {
         .success();
 
     insta::assert_snapshot!(render(r#"builtin_log_oneline"#), @"
-    [1m[38;5;2m<<log commit node working_copy mutable::@>>[0m  [1m[38;5;13m<<log commit working_copy mutable change_id shortest prefix::r>>[38;5;8m<<log commit working_copy mutable change_id shortest rest::lvkpnrz>>[39m<<log commit working_copy mutable:: >>[38;5;9m<<log commit working_copy mutable email placeholder::(no email set)>>[39m<<log commit working_copy mutable:: >>[38;5;14m<<log commit working_copy mutable committer timestamp local format::2001-02-03 08:05:08>>[39m<<log commit working_copy mutable:: >>[38;5;13m<<log commit working_copy mutable bookmarks name::my-bookmark>>[39m<<log commit working_copy mutable:: >>[38;5;12m<<log commit working_copy mutable commit_id shortest prefix::a>>[38;5;8m<<log commit working_copy mutable commit_id shortest rest::ec3ec96>>[39m<<log commit working_copy mutable:: >>[38;5;10m<<log commit working_copy mutable empty::(empty)>>[39m<<log commit working_copy mutable:: >>[38;5;10m<<log commit working_copy mutable empty description placeholder::(no description set)>>[39m<<log commit working_copy mutable::>>[0m
-    <<log commit node mutable::○>>  [1m[38;5;5m<<log commit mutable change_id shortest prefix::q>>[0m[38;5;8m<<log commit mutable change_id shortest rest::pvuntsm>>[39m<<log commit mutable:: >>[38;5;3m<<log commit mutable author email local::test.user>>[39m<<log commit mutable:: >>[38;5;6m<<log commit mutable committer timestamp local format::2001-02-03 08:05:07>>[39m<<log commit mutable:: >>[1m[38;5;4m<<log commit mutable commit_id shortest prefix::e>>[0m[38;5;8m<<log commit mutable commit_id shortest rest::8849ae1>>[39m<<log commit mutable:: >>[38;5;2m<<log commit mutable empty::(empty)>>[39m<<log commit mutable:: >>[38;5;2m<<log commit mutable empty description placeholder::(no description set)>>[39m<<log commit mutable::>>
-    [1m[38;5;14m<<log commit node immutable::◆>>[0m  [1m[38;5;5m<<log commit immutable change_id shortest prefix::z>>[0m[38;5;8m<<log commit immutable change_id shortest rest::zzzzzzz>>[39m<<log commit immutable:: >>[38;5;2m<<log commit immutable root::root()>>[39m<<log commit immutable:: >>[1m[38;5;4m<<log commit immutable commit_id shortest prefix::0>>[0m[38;5;8m<<log commit immutable commit_id shortest rest::0000000>>[39m<<log commit immutable::>>
+    [1m[38;5;2m<<log commit node working_copy mutable::@>>[0m  [1m[38;5;13m<<log commit working_copy mutable change_id shortest prefix::r>>[2m<<log commit working_copy mutable change_id shortest rest::lvkpnrz>>[0m[1m<<log commit working_copy mutable:: >>[38;5;9m<<log commit working_copy mutable email placeholder::(no email set)>>[39m<<log commit working_copy mutable:: >>[38;5;14m<<log commit working_copy mutable committer timestamp local format::2001-02-03 08:05:08>>[39m<<log commit working_copy mutable:: >>[38;5;13m<<log commit working_copy mutable bookmarks name::my-bookmark>>[39m<<log commit working_copy mutable:: >>[38;5;12m<<log commit working_copy mutable commit_id shortest prefix::a>>[2m<<log commit working_copy mutable commit_id shortest rest::ec3ec96>>[0m[1m<<log commit working_copy mutable:: >>[38;5;10m<<log commit working_copy mutable empty::(empty)>>[39m<<log commit working_copy mutable:: >>[38;5;10m<<log commit working_copy mutable empty description placeholder::(no description set)>>[39m<<log commit working_copy mutable::>>[0m
+    <<log commit node mutable::○>>  [1m[38;5;5m<<log commit mutable change_id shortest prefix::q>>[0m[2m[38;5;5m<<log commit mutable change_id shortest rest::pvuntsm>>[0m<<log commit mutable:: >>[38;5;3m<<log commit mutable author email local::test.user>>[39m<<log commit mutable:: >>[38;5;6m<<log commit mutable committer timestamp local format::2001-02-03 08:05:07>>[39m<<log commit mutable:: >>[1m[38;5;4m<<log commit mutable commit_id shortest prefix::e>>[0m[2m[38;5;4m<<log commit mutable commit_id shortest rest::8849ae1>>[0m<<log commit mutable:: >>[38;5;2m<<log commit mutable empty::(empty)>>[39m<<log commit mutable:: >>[38;5;2m<<log commit mutable empty description placeholder::(no description set)>>[39m<<log commit mutable::>>
+    [1m[38;5;14m<<log commit node immutable::◆>>[0m  [1m[38;5;5m<<log commit immutable change_id shortest prefix::z>>[0m[2m[38;5;5m<<log commit immutable change_id shortest rest::zzzzzzz>>[0m<<log commit immutable:: >>[38;5;2m<<log commit immutable root::root()>>[39m<<log commit immutable:: >>[1m[38;5;4m<<log commit immutable commit_id shortest prefix::0>>[0m[2m[38;5;4m<<log commit immutable commit_id shortest rest::0000000>>[0m<<log commit immutable::>>
     [EOF]
     ");
 
     insta::assert_snapshot!(render(r#"builtin_log_compact"#), @"
-    [1m[38;5;2m<<log commit node working_copy mutable::@>>[0m  [1m[38;5;13m<<log commit working_copy mutable change_id shortest prefix::r>>[38;5;8m<<log commit working_copy mutable change_id shortest rest::lvkpnrz>>[39m<<log commit working_copy mutable:: >>[38;5;9m<<log commit working_copy mutable email placeholder::(no email set)>>[39m<<log commit working_copy mutable:: >>[38;5;14m<<log commit working_copy mutable committer timestamp local format::2001-02-03 08:05:08>>[39m<<log commit working_copy mutable:: >>[38;5;13m<<log commit working_copy mutable bookmarks name::my-bookmark>>[39m<<log commit working_copy mutable:: >>[38;5;12m<<log commit working_copy mutable commit_id shortest prefix::a>>[38;5;8m<<log commit working_copy mutable commit_id shortest rest::ec3ec96>>[39m<<log commit working_copy mutable::>>[0m
+    [1m[38;5;2m<<log commit node working_copy mutable::@>>[0m  [1m[38;5;13m<<log commit working_copy mutable change_id shortest prefix::r>>[2m<<log commit working_copy mutable change_id shortest rest::lvkpnrz>>[0m[1m<<log commit working_copy mutable:: >>[38;5;9m<<log commit working_copy mutable email placeholder::(no email set)>>[39m<<log commit working_copy mutable:: >>[38;5;14m<<log commit working_copy mutable committer timestamp local format::2001-02-03 08:05:08>>[39m<<log commit working_copy mutable:: >>[38;5;13m<<log commit working_copy mutable bookmarks name::my-bookmark>>[39m<<log commit working_copy mutable:: >>[38;5;12m<<log commit working_copy mutable commit_id shortest prefix::a>>[2m<<log commit working_copy mutable commit_id shortest rest::ec3ec96>>[0m[1m<<log commit working_copy mutable::>>[0m
     │  [1m[38;5;10m<<log commit working_copy mutable empty::(empty)>>[39m<<log commit working_copy mutable:: >>[38;5;10m<<log commit working_copy mutable empty description placeholder::(no description set)>>[39m<<log commit working_copy mutable::>>[0m
-    <<log commit node mutable::○>>  [1m[38;5;5m<<log commit mutable change_id shortest prefix::q>>[0m[38;5;8m<<log commit mutable change_id shortest rest::pvuntsm>>[39m<<log commit mutable:: >>[38;5;3m<<log commit mutable author email local::test.user>><<log commit mutable author email::@>><<log commit mutable author email domain::example.com>>[39m<<log commit mutable:: >>[38;5;6m<<log commit mutable committer timestamp local format::2001-02-03 08:05:07>>[39m<<log commit mutable:: >>[1m[38;5;4m<<log commit mutable commit_id shortest prefix::e>>[0m[38;5;8m<<log commit mutable commit_id shortest rest::8849ae1>>[39m<<log commit mutable::>>
+    <<log commit node mutable::○>>  [1m[38;5;5m<<log commit mutable change_id shortest prefix::q>>[0m[2m[38;5;5m<<log commit mutable change_id shortest rest::pvuntsm>>[0m<<log commit mutable:: >>[38;5;3m<<log commit mutable author email local::test.user>><<log commit mutable author email::@>><<log commit mutable author email domain::example.com>>[39m<<log commit mutable:: >>[38;5;6m<<log commit mutable committer timestamp local format::2001-02-03 08:05:07>>[39m<<log commit mutable:: >>[1m[38;5;4m<<log commit mutable commit_id shortest prefix::e>>[0m[2m[38;5;4m<<log commit mutable commit_id shortest rest::8849ae1>>[0m<<log commit mutable::>>
     │  [38;5;2m<<log commit mutable empty::(empty)>>[39m<<log commit mutable:: >>[38;5;2m<<log commit mutable empty description placeholder::(no description set)>>[39m<<log commit mutable::>>
-    [1m[38;5;14m<<log commit node immutable::◆>>[0m  [1m[38;5;5m<<log commit immutable change_id shortest prefix::z>>[0m[38;5;8m<<log commit immutable change_id shortest rest::zzzzzzz>>[39m<<log commit immutable:: >>[38;5;2m<<log commit immutable root::root()>>[39m<<log commit immutable:: >>[1m[38;5;4m<<log commit immutable commit_id shortest prefix::0>>[0m[38;5;8m<<log commit immutable commit_id shortest rest::0000000>>[39m<<log commit immutable::>>
+    [1m[38;5;14m<<log commit node immutable::◆>>[0m  [1m[38;5;5m<<log commit immutable change_id shortest prefix::z>>[0m[2m[38;5;5m<<log commit immutable change_id shortest rest::zzzzzzz>>[0m<<log commit immutable:: >>[38;5;2m<<log commit immutable root::root()>>[39m<<log commit immutable:: >>[1m[38;5;4m<<log commit immutable commit_id shortest prefix::0>>[0m[2m[38;5;4m<<log commit immutable commit_id shortest rest::0000000>>[0m<<log commit immutable::>>
     [EOF]
     ");
 
     insta::assert_snapshot!(render(r#"builtin_log_comfortable"#), @"
-    [1m[38;5;2m<<log commit node working_copy mutable::@>>[0m  [1m[38;5;13m<<log commit working_copy mutable change_id shortest prefix::r>>[38;5;8m<<log commit working_copy mutable change_id shortest rest::lvkpnrz>>[39m<<log commit working_copy mutable:: >>[38;5;9m<<log commit working_copy mutable email placeholder::(no email set)>>[39m<<log commit working_copy mutable:: >>[38;5;14m<<log commit working_copy mutable committer timestamp local format::2001-02-03 08:05:08>>[39m<<log commit working_copy mutable:: >>[38;5;13m<<log commit working_copy mutable bookmarks name::my-bookmark>>[39m<<log commit working_copy mutable:: >>[38;5;12m<<log commit working_copy mutable commit_id shortest prefix::a>>[38;5;8m<<log commit working_copy mutable commit_id shortest rest::ec3ec96>>[39m<<log commit working_copy mutable::>>[0m
+    [1m[38;5;2m<<log commit node working_copy mutable::@>>[0m  [1m[38;5;13m<<log commit working_copy mutable change_id shortest prefix::r>>[2m<<log commit working_copy mutable change_id shortest rest::lvkpnrz>>[0m[1m<<log commit working_copy mutable:: >>[38;5;9m<<log commit working_copy mutable email placeholder::(no email set)>>[39m<<log commit working_copy mutable:: >>[38;5;14m<<log commit working_copy mutable committer timestamp local format::2001-02-03 08:05:08>>[39m<<log commit working_copy mutable:: >>[38;5;13m<<log commit working_copy mutable bookmarks name::my-bookmark>>[39m<<log commit working_copy mutable:: >>[38;5;12m<<log commit working_copy mutable commit_id shortest prefix::a>>[2m<<log commit working_copy mutable commit_id shortest rest::ec3ec96>>[0m[1m<<log commit working_copy mutable::>>[0m
     │  [1m[38;5;10m<<log commit working_copy mutable empty::(empty)>>[39m<<log commit working_copy mutable:: >>[38;5;10m<<log commit working_copy mutable empty description placeholder::(no description set)>>[39m<<log commit working_copy mutable::>>[0m
     │  <<log commit::>>
-    <<log commit node mutable::○>>  [1m[38;5;5m<<log commit mutable change_id shortest prefix::q>>[0m[38;5;8m<<log commit mutable change_id shortest rest::pvuntsm>>[39m<<log commit mutable:: >>[38;5;3m<<log commit mutable author email local::test.user>><<log commit mutable author email::@>><<log commit mutable author email domain::example.com>>[39m<<log commit mutable:: >>[38;5;6m<<log commit mutable committer timestamp local format::2001-02-03 08:05:07>>[39m<<log commit mutable:: >>[1m[38;5;4m<<log commit mutable commit_id shortest prefix::e>>[0m[38;5;8m<<log commit mutable commit_id shortest rest::8849ae1>>[39m<<log commit mutable::>>
+    <<log commit node mutable::○>>  [1m[38;5;5m<<log commit mutable change_id shortest prefix::q>>[0m[2m[38;5;5m<<log commit mutable change_id shortest rest::pvuntsm>>[0m<<log commit mutable:: >>[38;5;3m<<log commit mutable author email local::test.user>><<log commit mutable author email::@>><<log commit mutable author email domain::example.com>>[39m<<log commit mutable:: >>[38;5;6m<<log commit mutable committer timestamp local format::2001-02-03 08:05:07>>[39m<<log commit mutable:: >>[1m[38;5;4m<<log commit mutable commit_id shortest prefix::e>>[0m[2m[38;5;4m<<log commit mutable commit_id shortest rest::8849ae1>>[0m<<log commit mutable::>>
     │  [38;5;2m<<log commit mutable empty::(empty)>>[39m<<log commit mutable:: >>[38;5;2m<<log commit mutable empty description placeholder::(no description set)>>[39m<<log commit mutable::>>
     │  <<log commit::>>
-    [1m[38;5;14m<<log commit node immutable::◆>>[0m  [1m[38;5;5m<<log commit immutable change_id shortest prefix::z>>[0m[38;5;8m<<log commit immutable change_id shortest rest::zzzzzzz>>[39m<<log commit immutable:: >>[38;5;2m<<log commit immutable root::root()>>[39m<<log commit immutable:: >>[1m[38;5;4m<<log commit immutable commit_id shortest prefix::0>>[0m[38;5;8m<<log commit immutable commit_id shortest rest::0000000>>[39m<<log commit immutable::>>
+    [1m[38;5;14m<<log commit node immutable::◆>>[0m  [1m[38;5;5m<<log commit immutable change_id shortest prefix::z>>[0m[2m[38;5;5m<<log commit immutable change_id shortest rest::zzzzzzz>>[0m<<log commit immutable:: >>[38;5;2m<<log commit immutable root::root()>>[39m<<log commit immutable:: >>[1m[38;5;4m<<log commit immutable commit_id shortest prefix::0>>[0m[2m[38;5;4m<<log commit immutable commit_id shortest rest::0000000>>[0m<<log commit immutable::>>
        <<log commit::>>
     [EOF]
     ");
@@ -568,11 +568,11 @@ fn test_log_evolog_divergence() {
     // Color
     let output = work_dir.run_jj(["log", "--color=always"]);
     insta::assert_snapshot!(output, @"
-    [1m[38;5;2m@[0m  [1m[38;5;9mq[38;5;8mpvuntsm[38;5;9m/1[39m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:08[39m [38;5;12m55[38;5;8m6daeb7[39m [38;5;9m(divergent)[39m[0m
+    [1m[38;5;2m@[0m  [1m[38;5;9mq[2mpvuntsm[0m[1m[38;5;9m/1[39m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:08[39m [38;5;12m55[2m6daeb7[0m[1m [38;5;9m(divergent)[39m[0m
     │  [1mdescription 1[0m
-    │ ○  [1m[38;5;1mq[0m[38;5;8mpvuntsm[1m[38;5;1m/0[0m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:10[39m [1m[38;5;4m5c[0m[38;5;8mea51a1[39m [38;5;1m(divergent)[39m
+    │ ○  [1m[38;5;1mq[0m[2m[38;5;1mpvuntsm[0m[1m[38;5;1m/0[0m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:10[39m [1m[38;5;4m5c[0m[2m[38;5;4mea51a1[0m [38;5;1m(divergent)[39m
     ├─╯  description 2
-    [1m[38;5;14m◆[0m  [1m[38;5;5mz[0m[38;5;8mzzzzzzz[39m [38;5;2mroot()[39m [1m[38;5;4m0[0m[38;5;8m0000000[39m
+    [1m[38;5;14m◆[0m  [1m[38;5;5mz[0m[2m[38;5;5mzzzzzzz[0m [38;5;2mroot()[39m [1m[38;5;4m0[0m[2m[38;5;4m0000000[0m
     [EOF]
     ");
 
@@ -594,15 +594,15 @@ fn test_log_evolog_divergence() {
     // Colored evolog
     let output = work_dir.run_jj(["evolog", "--color=always"]);
     insta::assert_snapshot!(output, @"
-    [1m[38;5;2m@[0m  [1m[38;5;9mq[38;5;8mpvuntsm[38;5;9m/1[39m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:08[39m [38;5;12m55[38;5;8m6daeb7[39m [38;5;9m(divergent)[39m[0m
+    [1m[38;5;2m@[0m  [1m[38;5;9mq[2mpvuntsm[0m[1m[38;5;9m/1[39m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:08[39m [38;5;12m55[2m6daeb7[0m[1m [38;5;9m(divergent)[39m[0m
     │  [1mdescription 1[0m
-    │  [38;5;8m--[39m operation [38;5;4mfec5a045b947[39m describe commit d0c049cd993a8d3a2e69ba6df98788e264ea9fa1
-    ○  [1m[39mq[0m[38;5;8mpvuntsm[1m[39m/2[0m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:08[39m [1m[38;5;4md[0m[38;5;8m0c049cd[39m (hidden)
+    │  [2m--[0m operation [38;5;4mfec5a045b947[39m describe commit d0c049cd993a8d3a2e69ba6df98788e264ea9fa1
+    ○  [1m[39mq[0m[2m[38;5;5mpvuntsm[0m[1m/2[0m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:08[39m [1m[38;5;4md[0m[2m[38;5;4m0c049cd[0m (hidden)
     │  [38;5;3m(no description set)[39m
-    │  [38;5;8m--[39m operation [38;5;4m911e64a1b666[39m snapshot working copy
-    ○  [1m[39mq[0m[38;5;8mpvuntsm[1m[39m/3[0m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:07[39m [1m[38;5;4me[0m[38;5;8m8849ae1[39m (hidden)
+    │  [2m--[0m operation [38;5;4m911e64a1b666[39m snapshot working copy
+    ○  [1m[39mq[0m[2m[38;5;5mpvuntsm[0m[1m/3[0m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:07[39m [1m[38;5;4me[0m[2m[38;5;4m8849ae1[0m (hidden)
        [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
-       [38;5;8m--[39m operation [38;5;4m8f47435a3990[39m add workspace 'default'
+       [2m--[0m operation [38;5;4m8f47435a3990[39m add workspace 'default'
     [EOF]
     ");
 }
@@ -806,11 +806,11 @@ fn test_log_git_head() {
 
     let output = work_dir.run_jj(["log", "--color=always"]);
     insta::assert_snapshot!(output, @"
-    [1m[38;5;2m@[0m  [1m[38;5;13mr[38;5;8mlvkpnrz[39m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:09[39m [38;5;12m6[38;5;8m87fadfd[39m[0m
+    [1m[38;5;2m@[0m  [1m[38;5;13mr[2mlvkpnrz[0m[1m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:09[39m [38;5;12m6[2m87fadfd[0m[1m[0m
     │  [1minitial[0m
-    ○  [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:07[39m [1m[38;5;4me[0m[38;5;8m8849ae1[39m
+    ○  [1m[38;5;5mq[0m[2m[38;5;5mpvuntsm[0m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:07[39m [1m[38;5;4me[0m[2m[38;5;4m8849ae1[0m
     │  [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
-    [1m[38;5;14m◆[0m  [1m[38;5;5mz[0m[38;5;8mzzzzzzz[39m [38;5;2mroot()[39m [1m[38;5;4m0[0m[38;5;8m0000000[39m
+    [1m[38;5;14m◆[0m  [1m[38;5;5mz[0m[2m[38;5;5mzzzzzzz[0m [38;5;2mroot()[39m [1m[38;5;4m0[0m[2m[38;5;4m0000000[0m
     [EOF]
     ");
 }

@@ -362,7 +362,7 @@ fn test_config_list_origin() {
         "test-key",
     ]);
     insta::assert_snapshot!(output, @r#"
-    [38;5;8m<<config_list overridden name::# test-key>><<config_list overridden:: = >><<config_list overridden value::"test-val">><<config_list overridden:: # >><<config_list overridden source::user>><<config_list overridden:: >><<config_list overridden path::$TEST_ENV/config/config.toml>><<config_list overridden::>>[39m
+    [2m[38;5;2m<<config_list overridden name::# test-key>>[39m<<config_list overridden:: = >>[38;5;3m<<config_list overridden value::"test-val">>[39m<<config_list overridden:: # >>[38;5;4m<<config_list overridden source::user>>[39m<<config_list overridden:: >>[38;5;5m<<config_list overridden path::$TEST_ENV/config/config.toml>>[39m<<config_list overridden::>>[0m
     [38;5;2m<<config_list name::test-key>>[39m<<config_list:: = >>[38;5;3m<<config_list value::"test-cli-val">>[39m<<config_list:: # >>[38;5;4m<<config_list source::cli>>[39m<<config_list::>>
     [EOF]
     "#);
@@ -461,7 +461,7 @@ fn test_config_layer_override_default() {
         "--include-overridden",
     ]);
     insta::assert_snapshot!(output, @r#"
-    [38;5;8m# merge-tools.vimdiff.program = "user"[39m
+    [2m[38;5;2m# merge-tools.vimdiff.program[39m = [38;5;3m"user"[39m[0m
     [38;5;2mmerge-tools.vimdiff.program[39m = [38;5;3m"repo"[39m
     [EOF]
     "#);
