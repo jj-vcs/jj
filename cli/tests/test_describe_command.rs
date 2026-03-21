@@ -771,6 +771,35 @@ fn test_multiple_message_args() {
 }
 
 #[test]
+fn test_describe_description_file_removed() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Description file misplaced by the user or a faulty editor
+    std::fs::write(edit_script, "delete").unwrap();
+    let output = work_dir.run_jj(["describe"]);
+    insta::with_settings!({
+        filters => [
+            (r"(access|in) .*(editor-)[^.]*(\.jjdescription)\b", "$1 <redacted>$2<redacted>$3"),
+            ("The system cannot find the file specified.", "No such file or directory"),
+        ],
+    }, {
+        insta::assert_snapshot!(output, @"
+        ------- stderr -------
+        Error: Failed to edit description
+        Caused by:
+        1: Cannot access <redacted>editor-<redacted>.jjdescription
+        2: No such file or directory (os error 2)
+        Hint: Edited description is left in <redacted>editor-<redacted>.jjdescription
+        [EOF]
+        [exit status: 1]
+        ");
+    });
+}
+
+#[test]
 fn test_describe_stdin_description() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

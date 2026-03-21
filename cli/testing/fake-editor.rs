@@ -85,6 +85,11 @@ fn main() {
                     panic!("Failed to write file {}", args.file.to_str().unwrap())
                 });
             }
+            ["delete"] => {
+                fs::remove_file(&args.file).unwrap_or_else(|_| {
+                    panic!("Failed to delete file {}", args.file.to_str().unwrap())
+                });
+            }
             _ => {
                 eprintln!("fake-editor: unexpected command: {command}");
                 exit(1)
