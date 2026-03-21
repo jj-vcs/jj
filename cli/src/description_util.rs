@@ -81,11 +81,6 @@ impl TextEditor {
         Ok(Self { editor, dir: None })
     }
 
-    pub fn with_temp_dir(mut self, dir: impl Into<PathBuf>) -> Self {
-        self.dir = Some(dir.into());
-        self
-    }
-
     /// Opens the given `path` in editor.
     pub fn edit_file(&self, path: impl AsRef<Path>) -> Result<(), TextEditError> {
         let mut cmd = self.editor.to_command();
@@ -318,7 +313,7 @@ pub fn try_combine_messages(sources: &[Commit], destination: &Commit) -> Option<
 
 /// Produces a combined description with "JJ: " comment lines.
 ///
-/// This includes empty descriptins too, so the user doesn't have to wonder why
+/// This includes empty descriptions too, so the user doesn't have to wonder why
 /// they only see 2 descriptions when they combined 3 commits.
 pub async fn combine_messages_for_editing(
     ui: &Ui,
