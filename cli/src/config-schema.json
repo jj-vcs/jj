@@ -517,6 +517,14 @@
                     "type": "boolean",
                     "description": "Whether to colocate the working copy with the git repository",
                     "default": true
+                },
+                "ignore-filters": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "Names of `.gitattributes` filter attributes whose matching files should be excluded from snapshots",
+                    "default": ["lfs"]
                 }
             }
         },
