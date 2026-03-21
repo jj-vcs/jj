@@ -55,10 +55,12 @@ macro_rules! impl_id_type {
     ($name:ident, $hex_method:ident) => {
         #[allow(dead_code)]
         impl $name {
+            /// Creates a new instance of this id type from the given bytes.
             pub fn new(value: Vec<u8>) -> Self {
                 Self(value)
             }
 
+            /// Creates a new instance of this id type from the given byte slice.
             pub fn from_bytes(bytes: &[u8]) -> Self {
                 Self(bytes.to_vec())
             }
