@@ -631,7 +631,7 @@ where
     II2: IntoIterator<Item = T>,
     NI: IntoIterator<Item = T>,
 {
-    let neighbors_fn = move |node: &T| to_infallible_iter(neighbors_fn(node));
+    let neighbors_fn = move |node: &T| Ok(neighbors_fn(node).into_iter());
     let Ok(node) = closest_common_node_ok(
         to_infallible_iter(set1),
         to_infallible_iter(set2),
@@ -649,13 +649,13 @@ pub fn closest_common_node_ok<T, ID, E, II1, II2, NI>(
     set1: II1,
     set2: II2,
     id_fn: impl Fn(&T) -> ID,
-    mut neighbors_fn: impl FnMut(&T) -> NI,
+    mut neighbors_fn: impl FnMut(&T) -> Result<NI, E>,
 ) -> Result<Option<T>, E>
 where
     ID: Hash + Eq,
     II1: IntoIterator<Item = Result<T, E>>,
     II2: IntoIterator<Item = Result<T, E>>,
-    NI: IntoIterator<Item = Result<T, E>>,
+    NI: IntoIterator<Item = T>,
 {
     let mut visited1 = HashSet::new();
     let mut visited2 = HashSet::new();
@@ -674,8 +674,13 @@ where
                 return Ok(Some(node));
             }
             if visited1.insert(id) {
-                for neighbor in neighbors_fn(&node) {
-                    new_work1.push(neighbor);
+                match neighbors_fn(&node) {
+                    Ok(neighbors) => {
+                        for neighbor in neighbors {
+                            new_work1.push(Ok(neighbor));
+                        }
+                    }
+                    Err(err) => new_work1.push(Err(err)),
                 }
             }
         }
@@ -689,8 +694,13 @@ where
                 return Ok(Some(node));
             }
             if visited2.insert(id) {
-                for neighbor in neighbors_fn(&node) {
-                    new_work2.push(neighbor);
+                match neighbors_fn(&node) {
+                    Ok(neighbors) => {
+                        for neighbor in neighbors {
+                            new_work2.push(Ok(neighbor));
+                        }
+                    }
+                    Err(err) => new_work2.push(Err(err)),
                 }
             }
         }
@@ -1421,10 +1431,10 @@ mod tests {
     #[test]
     fn test_closest_common_node_ok() {
         let neighbors = hashmap! {
-            'A' => vec![Err('Y')],
-            'B' => vec![Ok('A')],
-            'C' => vec![Ok('A')],
-            'D' => vec![Err('X')],
+            'A' => Err('Y'),
+            'B' => Ok(vec!['A']),
+            'C' => Ok(vec!['A']),
+            'D' => Err('X'),
         };
         let id_fn = |node: &char| *node;
         let neighbors_fn = |node: &char| neighbors[node].clone();

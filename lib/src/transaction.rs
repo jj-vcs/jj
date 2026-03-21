@@ -16,7 +16,6 @@
 
 use std::sync::Arc;
 
-use itertools::Itertools as _;
 use pollster::FutureExt as _;
 use thiserror::Error;
 
@@ -101,10 +100,7 @@ impl Transaction {
             self.parent_ops.iter().cloned().map(Ok),
             [Ok(other_op.clone())],
             |op: &Operation| op.id().clone(),
-            |op: &Operation| match op.parents().block_on() {
-                Ok(parents) => parents.into_iter().map(Ok).collect_vec(),
-                Err(err) => vec![Err(err)],
-            },
+            |op: &Operation| op.parents().block_on(),
         )?
         .unwrap();
         let repo_loader = self.base_repo().loader();
