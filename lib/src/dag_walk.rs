@@ -37,8 +37,8 @@ where
     II: IntoIterator<Item = T>,
     NI: IntoIterator<Item = T>,
 {
-    let neighbors_fn = move |node: &T| to_infallibe_iter(neighbors_fn(node));
-    dfs_ok(to_infallibe_iter(start), id_fn, neighbors_fn).map(|Ok(node)| node)
+    let neighbors_fn = move |node: &T| to_infallible_iter(neighbors_fn(node));
+    dfs_ok(to_infallible_iter(start), id_fn, neighbors_fn).map(|Ok(node)| node)
 }
 
 /// Traverses nodes from `start` in depth-first order.
@@ -571,8 +571,8 @@ where
     II: IntoIterator<Item = T>,
     NI: IntoIterator<Item = T>,
 {
-    let neighbors_fn = move |node: &T| to_infallibe_iter(neighbors_fn(node));
-    let Ok(node) = heads_ok(to_infallibe_iter(start), id_fn, neighbors_fn);
+    let neighbors_fn = move |node: &T| to_infallible_iter(neighbors_fn(node));
+    let Ok(node) = heads_ok(to_infallible_iter(start), id_fn, neighbors_fn);
     node
 }
 
@@ -631,10 +631,10 @@ where
     II2: IntoIterator<Item = T>,
     NI: IntoIterator<Item = T>,
 {
-    let neighbors_fn = move |node: &T| to_infallibe_iter(neighbors_fn(node));
+    let neighbors_fn = move |node: &T| to_infallible_iter(neighbors_fn(node));
     let Ok(node) = closest_common_node_ok(
-        to_infallibe_iter(set1),
-        to_infallibe_iter(set2),
+        to_infallible_iter(set1),
+        to_infallible_iter(set2),
         id_fn,
         neighbors_fn,
     );
@@ -703,7 +703,7 @@ fn to_ok_iter<T, E>(iter: impl IntoIterator<Item = T>) -> impl Iterator<Item = R
     iter.into_iter().map(Ok)
 }
 
-fn to_infallibe_iter<T>(
+fn to_infallible_iter<T>(
     iter: impl IntoIterator<Item = T>,
 ) -> impl Iterator<Item = Result<T, Infallible>> {
     to_ok_iter(iter)
