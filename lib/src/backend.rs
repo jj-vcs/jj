@@ -309,15 +309,6 @@ pub enum TreeValue {
 }
 
 impl TreeValue {
-    pub fn hex(&self) -> String {
-        match self {
-            Self::File { id, .. } => id.hex(),
-            Self::Symlink(id) => id.hex(),
-            Self::Tree(id) => id.hex(),
-            Self::GitSubmodule(id) => id.hex(),
-        }
-    }
-
     pub fn copy_id(&self) -> Option<&CopyId> {
         match self {
             Self::File { copy_id, .. } => Some(copy_id),
