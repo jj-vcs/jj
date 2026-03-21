@@ -19,6 +19,8 @@ use std::process::exit;
 
 use clap::Parser;
 use itertools::Itertools as _;
+#[cfg(unix)]
+use nix::sys::signal;
 
 /// A fake editor, useful for testing
 // It's overkill to use clap for a single argument, but we already use it in many other places...
@@ -89,6 +91,13 @@ fn main() {
                 fs::remove_file(&args.file).unwrap_or_else(|_| {
                     panic!("Failed to delete file {}", args.file.to_str().unwrap())
                 });
+            }
+            ["crash"] => {
+                // Coredump generation varies by UNIX and is irrelevant to tests
+                // Prefer raising SIGTERM to crash without dumping core
+                #[cfg(unix)]
+                let _ = signal::raise(signal::Signal::SIGTERM);
+                std::process::abort()
             }
             _ => {
                 eprintln!("fake-editor: unexpected command: {command}");

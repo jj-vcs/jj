@@ -800,6 +800,44 @@ fn test_describe_description_file_removed() {
 }
 
 #[test]
+fn test_describe_editor_crashes() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    std::fs::write(edit_script, "crash").unwrap();
+    let output = work_dir.run_jj(["describe"]);
+    insta::with_settings!({
+        filters => [
+            (r"\bEditor '[^']*'", "Editor '<redacted>'"),
+            (r"in .*(editor-)[^.]*(\.jjdescription)\b", "in <redacted>$1<redacted>$2"),
+        ],
+    }, {
+        if cfg!(unix) {
+            insta::assert_snapshot!(output, @"
+            ------- stderr -------
+            Error: Failed to edit description
+            Caused by: Editor '<redacted>' exited with signal: 15 (SIGTERM)
+            Hint: Edited description is left in <redacted>editor-<redacted>.jjdescription
+            [EOF]
+            [exit status: 1]
+            ");
+        } else if cfg!(windows) {
+            // abort produces STATUS_STACK_BUFFER_OVERRUN (0xc0000409)
+            insta::assert_snapshot!(output, @r"
+            ------- stderr -------
+            Error: Failed to edit description
+            Caused by: Editor '<redacted>' exited with exit code: 0xc0000409
+            Hint: Edited description is left in <redacted>editor-<redacted>.jjdescription
+            [EOF]
+            [exit status: 1]
+            ");
+        }
+    });
+}
+
+#[test]
 fn test_describe_stdin_description() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
