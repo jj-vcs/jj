@@ -1179,38 +1179,25 @@ fn test_operations() {
 
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
-    work_dir
-        .run_jj(["describe", "-m", "description 0"])
-        .success();
-    work_dir
-        .run_jj(["describe", "-m", "description 1"])
-        .success();
-    work_dir
-        .run_jj(["describe", "-m", "description 2"])
-        .success();
-    work_dir
-        .run_jj(["describe", "-m", "description 3"])
-        .success();
-    work_dir
-        .run_jj(["describe", "-m", "description 4"])
-        .success();
-    work_dir
-        .run_jj(["describe", "-m", "description 5"])
-        .success();
+    let num_ops = 4;
+    for i in 0..num_ops {
+        work_dir
+            .run_jj(["describe", "-m", &format!("description {i}")])
+            .success();
+    }
 
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.complete_fish(["op", "show", ""]).success();
-    let add_workspace_id = output
-        .stdout
-        .raw()
-        .lines()
-        .nth(5)
-        .unwrap()
-        .split('\t')
-        .next()
-        .unwrap();
-    insta::assert_snapshot!(add_workspace_id, @"12f7cbba4278");
+    insta::assert_snapshot!(output.take_stdout_n_lines(num_ops + 2), @"
+    8ed8c16786e6	(2001-02-03 08:05:11) describe commit 3725536d0ae06d69e46911258cee591dbdb66478
+    d6d5339f4dc2	(2001-02-03 08:05:10) describe commit dd7390802e3ca4467ffa43f2e0c0374463d056f3
+    7ed39ec6e74e	(2001-02-03 08:05:09) describe commit 3ae22e7f50a15d393e412cca72d09a61165d0c84
+    12f7cbba4278	(2001-02-03 08:05:08) describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
+    8f47435a3990	(2001-02-03 08:05:07) add workspace 'default'
+    000000000000	(1970-01-01 11:00:00)
+    [EOF]
+    ");
 
     let output = work_dir.complete_fish(["op", "show", "8"]);
     insta::assert_snapshot!(output, @"
@@ -1218,10 +1205,10 @@ fn test_operations() {
     8f47435a3990	(2001-02-03 08:05:07) add workspace 'default'
     [EOF]
     ");
-    // make sure global --at-op flag is respected
-    let output = work_dir.complete_fish(["--at-op", "8ed8c16786e6", "op", "show", "8"]);
+    // make sure global --at-op flag is respected (should not include later
+    // operations)
+    let output = work_dir.complete_fish(["--at-op", "8f47435a3990", "op", "show", "8"]);
     insta::assert_snapshot!(output, @"
-    8ed8c16786e6	(2001-02-03 08:05:11) describe commit 3725536d0ae06d69e46911258cee591dbdb66478
     8f47435a3990	(2001-02-03 08:05:07) add workspace 'default'
     [EOF]
     ");
