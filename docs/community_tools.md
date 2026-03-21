@@ -97,6 +97,13 @@ A fast, keyboard-driven browser UI for Jujutsu.
 
 Find it [here][LightJJ].
 
+## JJ View
+
+JJ View is an open-source Visual Studio Code extension that provides a rich, native graphical interface for Jujutsu. It features a Git-style Source Control (SCM) view for easy change management, an interactive visual commit history graph, and built-in commands for common `jj` operations like squashing, abandoning, and absorbing modifications directly from the editor. It also includes native Gerrit integration for streamlined code review workflows.
+
+Find it [here](jj-view).
+
+
 ## Finding other integrations
 
 You can find other community contributed tools and integrations in our
@@ -115,4 +122,5 @@ You can find other community contributed tools and integrations in our
 [selvejj]: https://selvejj.com
 [visualjj]: https://www.visualjj.com
 [vjj]: https://github.com/noahmayr/vjj
+[jj-view]: https://github.com/brychanrobot/jj-view
 [Wiki]: https://github.com/jj-vcs/jj/wiki
