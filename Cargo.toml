@@ -40,7 +40,7 @@ clap_complete_nushell = "4.6.0"
 # will need regenerating.
 clap-markdown = "=0.1.5"
 clap_mangen = "0.2.25"
-color-eyre = "0.6"
+color-eyre = { version = "0.6", default-features = false, features = ["track-caller"] }
 clru = "0.6.3"
 criterion = "0.8.2"
 ctor = "0.2"
