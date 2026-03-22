@@ -151,7 +151,7 @@ impl<I> fmt::Debug for RevsetImpl<I> {
 }
 
 impl<I: AsCompositeIndex + Clone> Revset for RevsetImpl<I> {
-    fn iter<'a>(&self) -> Box<dyn Iterator<Item = Result<CommitId, RevsetEvaluationError>> + 'a>
+    fn stream<'a>(&self) -> LocalBoxStream<'a, Result<CommitId, RevsetEvaluationError>>
     where
         Self: 'a,
     {
@@ -160,14 +160,7 @@ impl<I: AsCompositeIndex + Clone> Revset for RevsetImpl<I> {
             .inner
             .positions()
             .map(|index, pos| Ok(index.commits().entry_by_pos(pos?).commit_id()));
-        Box::new(iter::from_fn(move || walk.next(index.as_composite())))
-    }
-
-    fn stream<'a>(&self) -> LocalBoxStream<'a, Result<CommitId, RevsetEvaluationError>>
-    where
-        Self: 'a,
-    {
-        futures::stream::iter(self.iter()).boxed_local()
+        futures::stream::iter(iter::from_fn(move || walk.next(index.as_composite()))).boxed_local()
     }
 
     fn commit_change_ids<'a>(
@@ -184,23 +177,14 @@ impl<I: AsCompositeIndex + Clone> Revset for RevsetImpl<I> {
         Box::new(iter::from_fn(move || walk.next(index.as_composite())))
     }
 
-    fn iter_graph<'a>(
-        &self,
-    ) -> Box<dyn Iterator<Item = Result<GraphNode<CommitId>, RevsetEvaluationError>> + 'a>
-    where
-        Self: 'a,
-    {
-        let skip_transitive_edges = true;
-        Box::new(self.iter_graph_impl(skip_transitive_edges))
-    }
-
     fn stream_graph<'a>(
         &self,
     ) -> LocalBoxStream<'a, Result<GraphNode<CommitId>, RevsetEvaluationError>>
     where
         Self: 'a,
     {
-        futures::stream::iter(self.iter_graph()).boxed_local()
+        let skip_transitive_edges = true;
+        futures::stream::iter(self.iter_graph_impl(skip_transitive_edges)).boxed_local()
     }
 
     fn is_empty(&self) -> bool {
