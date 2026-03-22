@@ -53,6 +53,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* `jj git remote add` now reports an error instead of panicking when the
+  remote name is empty or contains whitespace.
+  [#9099](https://github.com/jj-vcs/jj/issues/9099)
+
 * Color-words diffs are now shown as separate before and after lines when color
   output is disabled, making piped or redirected diffs readable.
   [#5894](https://github.com/jj-vcs/jj/issues/5894)
