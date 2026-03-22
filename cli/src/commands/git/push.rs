@@ -858,15 +858,7 @@ fn ensure_new_bookmark_name(repo: &dyn Repo, name: &RefName) -> Result<(), Comma
     Ok(())
 }
 
-/// Creates a bookmark for a single `--named` argument and returns its name
-///
-/// The logic is not identical to that of `jj bookmark create` since we need to
-/// make sure the new bookmark is safe to push.
-fn create_explicitly_named_bookmarks(
-    ui: &Ui,
-    tx: &mut WorkspaceCommandTransaction<'_>,
-    name_revision: &String,
-) -> Result<RefNameBuf, CommandError> {
+fn parse_named_bookmark(name_revision: &str) -> Result<(RefNameBuf, RevisionArg), CommandError> {
     let hint = "For example, `--named myfeature=@` is valid syntax";
     let Some((name_str, revision_str)) = name_revision.split_once('=') else {
         return Err(cli_error(format!(
@@ -888,10 +880,23 @@ fn create_explicitly_named_bookmarks(
         )
         .hinted(hint)
     })?;
+    Ok((name, RevisionArg::from(revision_str.to_owned())))
+}
+
+/// Creates a bookmark for a single `--named` argument and returns its name
+///
+/// The logic is not identical to that of `jj bookmark create` since we need to
+/// make sure the new bookmark is safe to push.
+fn create_explicitly_named_bookmarks(
+    ui: &Ui,
+    tx: &mut WorkspaceCommandTransaction<'_>,
+    name_revision: &str,
+) -> Result<RefNameBuf, CommandError> {
+    let (name, revision_arg) = parse_named_bookmark(name_revision)?;
     ensure_new_bookmark_name(tx.repo(), &name)?;
     let revision = tx
         .base_workspace_helper()
-        .resolve_single_rev(ui, &revision_str.to_string().into())
+        .resolve_single_rev(ui, &revision_arg)
         .block_on()?;
     tx.repo_mut()
         .set_local_bookmark_target(&name, RefTarget::normal(revision.id().clone()));
