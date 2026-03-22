@@ -550,6 +550,157 @@ fn test_describe_multiple_commits() -> TestResult {
 }
 
 #[test]
+fn test_describe_with_draft_template() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Initial setup
+    work_dir.write_file("a.txt", "aaaa\nbbbb\ncccc\n");
+    work_dir.run_jj(["commit", "-m=first"]).success();
+    work_dir.write_file("a.txt", b"aaaa\ncccc\ndddd\n\xff\n");
+    work_dir.run_jj(["describe", "-m=second"]).success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    @  c43cce883e27 second
+    ○  8620a92b036c first
+    ◆  000000000000
+    [EOF]
+    ");
+
+    // Dump the default commit description template
+    std::fs::write(&edit_script, "dump editor0").unwrap();
+    let output = work_dir.run_jj(["describe"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
+    second
+
+    JJ: Change ID: rlvkpnrz
+    JJ: This commit contains the following changes:
+    JJ:     M a.txt
+    JJ:
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+
+    // Builtin template can produce non-utf8 content
+    std::fs::write(&edit_script, "dump editor0").unwrap();
+    let output = work_dir.run_jj([
+        "describe",
+        "--config=templates.draft_commit_description='builtin_draft_commit_description_with_diff'",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
+    second
+
+    JJ: Change ID: rlvkpnrz
+    JJ: This commit contains the following changes:
+    JJ:     M a.txt
+
+    JJ: ignore-rest
+    diff --git a/a.txt b/a.txt
+    index edd13ee535..12e5763da1 100644
+    --- a/a.txt
+    +++ b/a.txt
+    @@ -1,3 +1,4 @@
+     aaaa
+    -bbbb
+     cccc
+    +dddd
+    +�
+
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+
+    // Custom template can produce non-utf8 description and trailers
+    std::fs::write(&edit_script, "dump editor0").unwrap();
+    let output = work_dir.run_jj([
+        "describe",
+        r#"--config=templates.draft_commit_description='diff.git() ++ "\n" ++ indent("Trailer: ", diff.git())'"#,
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Working copy  (@) now at: rlvkpnrz 3e002fe8 diff --git a/a.txt b/a.txt
+    Parent commit (@-)      : qpvuntsm 8620a92b first
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
+    diff --git a/a.txt b/a.txt
+    index edd13ee535..12e5763da1 100644
+    --- a/a.txt
+    +++ b/a.txt
+    @@ -1,3 +1,4 @@
+     aaaa
+    -bbbb
+     cccc
+    +dddd
+    +�
+
+    Trailer: diff --git a/a.txt b/a.txt
+    Trailer: index edd13ee535..12e5763da1 100644
+    Trailer: --- a/a.txt
+    Trailer: +++ b/a.txt
+    Trailer: @@ -1,3 +1,4 @@
+    Trailer:  aaaa
+    Trailer: -bbbb
+    Trailer:  cccc
+    Trailer: +dddd
+    Trailer: +�
+
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+
+    // Newline auto-inserted when template produces content without newline
+    std::fs::write(&edit_script, "dump editor0").unwrap();
+    let output = work_dir.run_jj([
+        "describe",
+        "--config=templates.draft_commit_description='change_id'",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Working copy  (@) now at: rlvkpnrz f14a5632 rlvkpnrzqnoowoytxnquwvuryrwnrmlp
+    Parent commit (@-)      : qpvuntsm 8620a92b first
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
+    rlvkpnrzqnoowoytxnquwvuryrwnrmlp
+
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+
+    // Newline auto-inserted when template produces empty string
+    std::fs::write(&edit_script, "dump editor0").unwrap();
+    let output = work_dir.run_jj([
+        "describe",
+        r#"--config=templates.draft_commit_description='""'"#,
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Working copy  (@) now at: rlvkpnrz a4ccf790 (no description set)
+    Parent commit (@-)      : qpvuntsm 8620a92b first
+    [EOF]
+    ");
+    let editor0 = std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap();
+    insta::assert_snapshot!(format!("-----\n{editor0}-----\n"), @r#"
+    -----
+
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    -----
+    "#);
+}
+
+#[test]
 fn test_multiple_message_args() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
