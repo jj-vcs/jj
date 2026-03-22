@@ -19,9 +19,11 @@ use criterion::BatchSize;
 use criterion::BenchmarkGroup;
 use criterion::BenchmarkId;
 use criterion::measurement::Measurement;
+use futures::StreamExt as _;
 use jj_lib::revset::SymbolResolver;
 use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::revset::UserRevsetExpression;
+use pollster::FutureExt as _;
 
 use super::CriterionArgs;
 use super::new_criterion;
@@ -96,7 +98,7 @@ fn bench_revset<M: Measurement>(
             .resolve_user_expression(repo, &symbol_resolver)
             .unwrap();
         let revset = resolved.evaluate(repo).unwrap();
-        revset.iter().count()
+        revset.stream().count().block_on()
     };
     let before = Instant::now();
     let result = routine(workspace_command, expression.clone());
