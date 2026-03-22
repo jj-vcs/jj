@@ -21,6 +21,7 @@
 
 use std::sync::Arc;
 
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
@@ -158,8 +159,12 @@ fn verify_optimized(
 ) -> Result<(), TestCaseError> {
     let optimized_revset = expression.clone().evaluate(repo).unwrap();
     let unoptimized_revset = expression.clone().evaluate_unoptimized(repo).unwrap();
-    let optimized_ids: Vec<_> = optimized_revset.iter().try_collect().unwrap();
-    let unoptimized_ids: Vec<_> = unoptimized_revset.iter().try_collect().unwrap();
+    let optimized_ids: Vec<_> = optimized_revset.stream().try_collect().block_on().unwrap();
+    let unoptimized_ids: Vec<_> = unoptimized_revset
+        .stream()
+        .try_collect()
+        .block_on()
+        .unwrap();
     prop_assert_eq!(optimized_ids, unoptimized_ids);
     Ok(())
 }
