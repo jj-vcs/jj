@@ -800,3 +800,28 @@ fn test_git_remote_with_global_git_remote_config() {
     	fetch = +refs/heads/*:refs/remotes/origin/*
     "#);
 }
+
+#[test]
+fn test_git_remote_name_validation() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Invalid remote name is rejected (detailed validation tested in jj-lib)
+    let output = work_dir.run_jj([
+        "git",
+        "remote",
+        "add",
+        "my remote",
+        "http://example.com/repo",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Invalid Git remote name: remote names must be valid within refspecs for fetching: "my remote"
+    Caused by:
+    1: remote names must be valid within refspecs for fetching: "my remote"
+    2: Reference name contains invalid byte: " "
+    [EOF]
+    [exit status: 1]
+    "#);
+}

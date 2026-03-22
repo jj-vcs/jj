@@ -6327,3 +6327,79 @@ fn test_set_remote_urls() {
         Some("git@example.com:repo/path3"),
     );
 }
+
+#[test]
+fn test_remote_name_validation() {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+
+    let try_add_remote = |name: &str| {
+        let mut tx = test_repo.repo.start_transaction();
+        git::add_remote(
+            tx.repo_mut(),
+            name.as_ref(),
+            "https://example.com/",
+            None,
+            gix::remote::fetch::Tags::default(),
+            &StringExpression::all(),
+        )
+    };
+
+    // Valid remote name
+    assert!(try_add_remote("origin").is_ok());
+
+    // Empty remote name
+    assert_matches!(
+        try_add_remote(""),
+        Err(git::GitRemoteManagementError::RemoteName(
+            git::GitRemoteNameError::InvalidName(_)
+        ))
+    );
+
+    // Whitespace in remote name
+    assert_matches!(
+        try_add_remote("my remote"),
+        Err(git::GitRemoteManagementError::RemoteName(
+            git::GitRemoteNameError::InvalidName(_)
+        ))
+    );
+
+    // Tab in remote name
+    assert_matches!(
+        try_add_remote("my\tremote"),
+        Err(git::GitRemoteManagementError::RemoteName(
+            git::GitRemoteNameError::InvalidName(_)
+        ))
+    );
+
+    // Newline in remote name
+    assert_matches!(
+        try_add_remote("my\nremote"),
+        Err(git::GitRemoteManagementError::RemoteName(
+            git::GitRemoteNameError::InvalidName(_)
+        ))
+    );
+
+    // Leading whitespace
+    assert_matches!(
+        try_add_remote(" origin"),
+        Err(git::GitRemoteManagementError::RemoteName(
+            git::GitRemoteNameError::InvalidName(_)
+        ))
+    );
+
+    // Slash in remote name (jj-specific restriction)
+    assert_matches!(
+        try_add_remote("foo/bar"),
+        Err(git::GitRemoteManagementError::RemoteName(
+            git::GitRemoteNameError::WithSlash(_)
+        ))
+    );
+
+    // Reserved name for local git repo
+    assert_matches!(
+        try_add_remote("git"),
+        Err(git::GitRemoteManagementError::RemoteName(
+            git::GitRemoteNameError::ReservedForLocalGitRepo
+        ))
+    );
+}

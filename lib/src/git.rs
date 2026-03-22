@@ -148,9 +148,12 @@ pub enum GitRemoteNameError {
     ReservedForLocalGitRepo,
     #[error("Git remotes with slashes are incompatible with jj: {}", .0.as_symbol())]
     WithSlash(RemoteNameBuf),
+    #[error("Invalid Git remote name: {0}")]
+    InvalidName(#[from] gix::remote::name::Error),
 }
 
 fn validate_remote_name(name: &RemoteName) -> Result<(), GitRemoteNameError> {
+    gix::remote::name::validated(name.as_str())?;
     if name == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
         Err(GitRemoteNameError::ReservedForLocalGitRepo)
     } else if name.as_str().contains('/') {
