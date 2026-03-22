@@ -24,6 +24,7 @@ use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
+use futures::future::try_join_all;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
@@ -53,7 +54,6 @@ use jj_lib::rewrite::CommitRewriter;
 use jj_lib::signing::SignBehavior;
 use jj_lib::str_util::StringExpression;
 use jj_lib::view::View;
-use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
@@ -324,14 +324,23 @@ pub async fn cmd_git_push(
         // --change and --named don't move existing bookmarks. If they did, be
         // careful to not select old state by -r/--revisions and bookmark names.
         let change_bookmark_names = create_change_bookmarks(ui, &mut tx, &args.change).await?;
-        let created_bookmark_names: Vec<RefNameBuf> = args
-            .named
-            .iter()
-            .map(|name_revision| create_explicitly_named_bookmarks(ui, &mut tx, name_revision))
-            .try_collect()?;
+        let named_bookmark_commits = try_join_all(args.named.iter().map(|arg| async {
+            let (name, revision_arg) = parse_named_bookmark(arg)?;
+            let commit = tx
+                .base_workspace_helper()
+                .resolve_single_rev(ui, &revision_arg)
+                .await?;
+            Ok::<_, CommandError>((name, commit))
+        }))
+        .await?;
+        for (name, commit) in &named_bookmark_commits {
+            ensure_new_bookmark_name(tx.repo(), name)?;
+            tx.repo_mut()
+                .set_local_bookmark_target(name, RefTarget::normal(commit.id().clone()));
+        }
         let created_bookmarks = change_bookmark_names
             .iter()
-            .chain(created_bookmark_names.iter())
+            .chain(named_bookmark_commits.iter().map(|(name, _)| name))
             .map(|name| {
                 let remote_symbol = name.to_remote_symbol(remote);
                 let targets = LocalAndRemoteRef {
@@ -881,26 +890,6 @@ fn parse_named_bookmark(name_revision: &str) -> Result<(RefNameBuf, RevisionArg)
         .hinted(hint)
     })?;
     Ok((name, RevisionArg::from(revision_str.to_owned())))
-}
-
-/// Creates a bookmark for a single `--named` argument and returns its name
-///
-/// The logic is not identical to that of `jj bookmark create` since we need to
-/// make sure the new bookmark is safe to push.
-fn create_explicitly_named_bookmarks(
-    ui: &Ui,
-    tx: &mut WorkspaceCommandTransaction<'_>,
-    name_revision: &str,
-) -> Result<RefNameBuf, CommandError> {
-    let (name, revision_arg) = parse_named_bookmark(name_revision)?;
-    ensure_new_bookmark_name(tx.repo(), &name)?;
-    let revision = tx
-        .base_workspace_helper()
-        .resolve_single_rev(ui, &revision_arg)
-        .block_on()?;
-    tx.repo_mut()
-        .set_local_bookmark_target(&name, RefTarget::normal(revision.id().clone()));
-    Ok(name)
 }
 
 /// Creates bookmarks based on the change IDs.
