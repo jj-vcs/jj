@@ -15,7 +15,6 @@
 use std::collections::HashSet;
 
 use bstr::ByteVec as _;
-use clap::ArgGroup;
 use clap_complete::ArgValueCompleter;
 use futures::TryStreamExt as _;
 use indexmap::IndexSet;
@@ -42,10 +41,12 @@ use crate::ui::Ui;
 /// The reverse of each of the given revisions is applied sequentially in
 /// reverse topological order at the given location.
 ///
+/// By default the reverted revision is inserted before the working-copy
+/// (--insert-before @).
+///
 /// The description of the new revisions can be customized with the
 /// `templates.revert_description` config variable.
 #[derive(clap::Args, Clone, Debug)]
-#[command(group(ArgGroup::new("location").args(&["onto", "insert_after", "insert_before"]).multiple(true).required(true)))]
 pub(crate) struct RevertArgs {
     /// The revision(s) to apply the reverse of
     #[arg(
@@ -100,6 +101,12 @@ pub(crate) async fn cmd_revert(
     command: &CommandHelper,
     args: &RevertArgs,
 ) -> Result<(), CommandError> {
+    let insert_before =
+        if args.onto.is_none() && args.insert_after.is_none() && args.insert_before.is_none() {
+            Some(vec![RevisionArg::from("@".to_string())])
+        } else {
+            args.insert_before.clone()
+        };
     let mut workspace_command = command.workspace_helper(ui)?;
     let to_revert: Vec<_> = workspace_command
         .parse_union_revsets(ui, &args.revisions)?
@@ -115,7 +122,7 @@ pub(crate) async fn cmd_revert(
         &workspace_command,
         args.onto.as_deref(),
         args.insert_after.as_deref(),
-        args.insert_before.as_deref(),
+        insert_before.as_deref(),
         "reverted commits",
     )
     .await?;
