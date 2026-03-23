@@ -20,11 +20,12 @@ use std::collections::VecDeque;
 use std::collections::hash_map::Entry;
 use std::pin::pin;
 use std::slice;
+use std::task::ready;
 
 use futures::Stream;
 use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::backend::BackendError;
@@ -87,7 +88,7 @@ pub enum WalkPredecessorsError {
 pub fn walk_predecessors<'repo>(
     repo: &'repo ReadonlyRepo,
     start_commits: &[CommitId],
-) -> impl Iterator<Item = Result<CommitEvolutionEntry, WalkPredecessorsError>> + use<'repo> {
+) -> impl Stream<Item = Result<CommitEvolutionEntry, WalkPredecessorsError>> + use<'repo> {
     let op_ancestors = op_walk::walk_ancestors(slice::from_ref(repo.operation())).boxed();
     WalkPredecessors {
         repo,
@@ -108,9 +109,11 @@ impl<I> WalkPredecessors<'_, I>
 where
     I: Stream<Item = OpStoreResult<Operation>> + Unpin,
 {
-    fn try_next(&mut self) -> Result<Option<CommitEvolutionEntry>, WalkPredecessorsError> {
+    async fn try_next_impl(
+        &mut self,
+    ) -> Result<Option<CommitEvolutionEntry>, WalkPredecessorsError> {
         while !self.to_visit.is_empty() && self.queued.is_empty() {
-            let Some(op) = self.op_ancestors.next().block_on().transpose()? else {
+            let Some(op) = self.op_ancestors.try_next().await? else {
                 // Scanned all operations, no fallback needed.
                 self.flush_commits()?;
                 break;
@@ -246,14 +249,18 @@ where
     }
 }
 
-impl<I> Iterator for WalkPredecessors<'_, I>
+impl<I> Stream for WalkPredecessors<'_, I>
 where
     I: Stream<Item = OpStoreResult<Operation>> + Unpin,
 {
     type Item = Result<CommitEvolutionEntry, WalkPredecessorsError>;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        self.try_next().transpose()
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        let result = ready!(std::pin::pin!(self.try_next_impl()).poll(cx));
+        std::task::Poll::Ready(result.transpose())
     }
 }
 

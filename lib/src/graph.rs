@@ -18,6 +18,12 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::hash::Hash;
+use std::pin::Pin;
+use std::task::Poll;
+use std::task::ready;
+
+use futures::Stream;
+use futures::TryStreamExt as _;
 
 /// Node and edges pair of type `N` and `ID` respectively.
 ///
@@ -126,8 +132,8 @@ pub fn reverse_graph<N, ID: Clone + Eq + Hash, E>(
 ///
 /// [Git]: https://github.blog/2022-08-30-gits-database-internals-ii-commit-history-queries/#topological-sorting
 #[derive(Clone, Debug)]
-pub struct TopoGroupedGraphIterator<N, ID, I, F> {
-    input_iter: I,
+pub struct TopoGroupedGraphStream<N, ID, S, F> {
+    input_stream: S,
     as_id: F,
     /// Graph nodes read from the input iterator but not yet emitted.
     nodes: HashMap<ID, TopoGroupedGraphNode<N, ID>>,
@@ -158,17 +164,18 @@ impl<N, ID> Default for TopoGroupedGraphNode<N, ID> {
     }
 }
 
-impl<N, ID, E, I, F> TopoGroupedGraphIterator<N, ID, I, F>
+impl<N, ID, E, S, F> TopoGroupedGraphStream<N, ID, S, F>
 where
-    ID: Clone + Hash + Eq,
-    I: Iterator<Item = Result<GraphNode<N, ID>, E>>,
-    F: Fn(&N) -> &ID,
+    N: Unpin,
+    ID: Clone + Hash + Eq + Unpin,
+    S: Stream<Item = Result<GraphNode<N, ID>, E>> + Unpin,
+    F: Fn(&N) -> &ID + Unpin,
 {
     /// Wraps the given iterator to group topological branches. The input
     /// iterator must be topologically ordered.
-    pub fn new(input_iter: I, as_id: F) -> Self {
+    pub fn new(input_stream: S, as_id: F) -> Self {
         Self {
-            input_iter,
+            input_stream,
             as_id,
             nodes: HashMap::new(),
             emittable_ids: Vec::new(),
@@ -193,15 +200,9 @@ where
         self.new_head_ids.push_back(id);
     }
 
-    fn populate_one(&mut self) -> Result<Option<()>, E> {
-        let item = match self.input_iter.next() {
-            Some(Ok(item)) => item,
-            Some(Err(err)) => {
-                return Err(err);
-            }
-            None => {
-                return Ok(None);
-            }
+    async fn populate_one(&mut self) -> Result<Option<()>, E> {
+        let Some(item) = self.input_stream.try_next().await? else {
+            return Ok(None);
         };
         let (data, edges) = &item;
         let current_id = (self.as_id)(data);
@@ -284,7 +285,7 @@ where
         self.emittable_ids.push(new_head_id);
     }
 
-    fn next_node(&mut self) -> Result<Option<GraphNode<N, ID>>, E> {
+    async fn next_node(&mut self) -> Result<Option<GraphNode<N, ID>>, E> {
         // Based on Kahn's algorithm
         loop {
             if let Some(current_id) = self.emittable_ids.last() {
@@ -301,7 +302,8 @@ where
                 }
                 let Some(item) = current_node.item.take() else {
                     // Not yet populated
-                    self.populate_one()?
+                    self.populate_one()
+                        .await?
                         .expect("parent or prioritized node should exist");
                     continue;
                 };
@@ -325,7 +327,7 @@ where
                 self.flush_new_head();
             } else {
                 // Populate the first or orphan head
-                if self.populate_one()?.is_none() {
+                if self.populate_one().await?.is_none() {
                     return Ok(None);
                 }
             }
@@ -333,22 +335,28 @@ where
     }
 }
 
-impl<N, ID, E, I, F> Iterator for TopoGroupedGraphIterator<N, ID, I, F>
+impl<N, ID, E, S, F> Stream for TopoGroupedGraphStream<N, ID, S, F>
 where
-    ID: Clone + Hash + Eq,
-    I: Iterator<Item = Result<GraphNode<N, ID>, E>>,
-    F: Fn(&N) -> &ID,
+    N: Unpin,
+    ID: Clone + Hash + Eq + Unpin,
+    S: Stream<Item = Result<GraphNode<N, ID>, E>> + Unpin,
+    F: Fn(&N) -> &ID + Unpin,
 {
     type Item = Result<GraphNode<N, ID>, E>;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.next_node() {
-            Ok(Some(node)) => Some(Ok(node)),
+    fn poll_next(
+        self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
+        let this = self.get_mut();
+        let result = ready!(std::pin::pin!(this.next_node()).poll(cx));
+        match result {
+            Ok(Some(node)) => Poll::Ready(Some(Ok(node))),
             Ok(None) => {
-                assert!(self.nodes.is_empty(), "all nodes should have been emitted");
-                None
+                assert!(this.nodes.is_empty(), "all nodes should have been emitted");
+                Poll::Ready(None)
             }
-            Err(err) => Some(Err(err)),
+            Err(err) => Poll::Ready(Some(Err(err))),
         }
     }
 }
@@ -356,8 +364,13 @@ where
 #[cfg(test)]
 mod tests {
     use std::convert::Infallible;
+    use std::fmt::Debug;
 
+    use futures::StreamExt as _;
+    use futures::stream;
+    use futures::stream::Peekable;
     use itertools::Itertools as _;
+    use pollster::FutureExt as _;
     use renderdag::Ancestor;
     use renderdag::GraphRowRenderer;
     use renderdag::Renderer as _;
@@ -436,13 +449,56 @@ mod tests {
         ");
     }
 
-    type TopoGrouped<N, I> = TopoGroupedGraphIterator<N, N, I, fn(&N) -> &N>;
+    struct TestGraphStream<N, S> {
+        inner: TopoGroupedGraphStream<N, N, S, fn(&N) -> &N>,
+    }
 
-    fn topo_grouped<I, E>(graph_iter: I) -> TopoGrouped<char, I::IntoIter>
+    impl<N, E, S> Iterator for TestGraphStream<N, S>
     where
-        I: IntoIterator<Item = Result<GraphNode<char>, E>>,
+        N: Clone + Hash + Eq + Unpin,
+        S: Stream<Item = Result<GraphNode<N, N>, E>> + Unpin,
     {
-        TopoGroupedGraphIterator::new(graph_iter.into_iter(), |c| c)
+        type Item = Result<GraphNode<N, N>, E>;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            self.inner.next_node().block_on().transpose()
+        }
+    }
+
+    impl<N, E, S> TestGraphStream<N, S>
+    where
+        N: Clone + Hash + Eq + Unpin,
+        S: Stream<Item = Result<GraphNode<N, N>, E>> + Unpin,
+    {
+        fn prioritize_branch(&mut self, id: N) {
+            self.inner.prioritize_branch(id);
+        }
+    }
+
+    impl<N, E, S> TestGraphStream<N, Peekable<S>>
+    where
+        N: Clone + Hash + Eq + Unpin,
+        E: Debug,
+        S: Stream<Item = Result<GraphNode<N, N>, E>> + Unpin,
+    {
+        fn peek<'a>(&'a mut self) -> Option<&'a GraphNode<N, N>>
+        where
+            E: 'a,
+        {
+            Pin::new(&mut self.inner.input_stream)
+                .peek()
+                .block_on()
+                .map(|result| result.as_ref().unwrap())
+        }
+    }
+
+    fn topo_grouped<S, E>(stream: S) -> TestGraphStream<char, S>
+    where
+        S: Stream<Item = Result<GraphNode<char>, E>> + Unpin,
+    {
+        TestGraphStream {
+            inner: TopoGroupedGraphStream::new(stream, |c| c),
+        }
     }
 
     #[test]
@@ -464,7 +520,7 @@ mod tests {
 
         A
         ");
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
+        insta::assert_snapshot!(format_graph(topo_grouped(stream::iter(graph.iter().cloned()))), @"
         C  missing(Y)
         │
         ~
@@ -477,11 +533,11 @@ mod tests {
         ");
 
         // All nodes can be lazily emitted.
-        let mut iter = topo_grouped(graph.iter().cloned().peekable());
+        let mut iter = topo_grouped(stream::iter(graph.iter().cloned()).peekable());
         assert_eq!(iter.next().unwrap().unwrap().0, 'C');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'B');
+        assert_eq!(iter.peek().unwrap().0, 'B');
         assert_eq!(iter.next().unwrap().unwrap().0, 'B');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'A');
+        assert_eq!(iter.peek().unwrap().0, 'A');
     }
 
     #[test]
@@ -507,7 +563,7 @@ mod tests {
         ");
         // D-A is found earlier than B-A, but B is emitted first because it belongs to
         // the emitting branch.
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
+        insta::assert_snapshot!(format_graph(topo_grouped(stream::iter(graph.iter().cloned()))), @"
         E  direct(B)
         │
         │ C  direct(B)
@@ -520,13 +576,13 @@ mod tests {
         ");
 
         // E can be lazy, then D and C will be queued.
-        let mut iter = topo_grouped(graph.iter().cloned().peekable());
+        let mut iter = topo_grouped(stream::iter(graph.iter().cloned()).peekable());
         assert_eq!(iter.next().unwrap().unwrap().0, 'E');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'D');
+        assert_eq!(iter.peek().unwrap().0, 'D');
         assert_eq!(iter.next().unwrap().unwrap().0, 'C');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'B');
+        assert_eq!(iter.peek().unwrap().0, 'B');
         assert_eq!(iter.next().unwrap().unwrap().0, 'B');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'A');
+        assert_eq!(iter.peek().unwrap().0, 'A');
     }
 
     #[test]
@@ -553,7 +609,7 @@ mod tests {
         │
         A
         ");
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
+        insta::assert_snapshot!(format_graph(topo_grouped(stream::iter(graph.iter().cloned()))), @"
         F  direct(D)
         │
         D  direct(B)
@@ -568,13 +624,13 @@ mod tests {
         ");
 
         // F can be lazy, then E will be queued, then C.
-        let mut iter = topo_grouped(graph.iter().cloned().peekable());
+        let mut iter = topo_grouped(stream::iter(graph.iter().cloned()).peekable());
         assert_eq!(iter.next().unwrap().unwrap().0, 'F');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'E');
+        assert_eq!(iter.peek().unwrap().0, 'E');
         assert_eq!(iter.next().unwrap().unwrap().0, 'D');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'C');
+        assert_eq!(iter.peek().unwrap().0, 'C');
         assert_eq!(iter.next().unwrap().unwrap().0, 'E');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'B');
+        assert_eq!(iter.peek().unwrap().0, 'B');
     }
 
     #[test]
@@ -610,7 +666,7 @@ mod tests {
         ├─╯
         A
         ");
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
+        insta::assert_snapshot!(format_graph(topo_grouped(stream::iter(graph.iter().cloned()))), @"
         I  direct(E)
         │
         │ F  direct(E)
@@ -631,11 +687,11 @@ mod tests {
         ");
 
         // I can be lazy, then H, G, and F will be queued.
-        let mut iter = topo_grouped(graph.iter().cloned().peekable());
+        let mut iter = topo_grouped(stream::iter(graph.iter().cloned()).peekable());
         assert_eq!(iter.next().unwrap().unwrap().0, 'I');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'H');
+        assert_eq!(iter.peek().unwrap().0, 'H');
         assert_eq!(iter.next().unwrap().unwrap().0, 'F');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'E');
+        assert_eq!(iter.peek().unwrap().0, 'E');
     }
 
     #[test]
@@ -679,7 +735,7 @@ mod tests {
         ├─╯
         A
         ");
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
+        insta::assert_snapshot!(format_graph(topo_grouped(stream::iter(graph.iter().cloned()))), @"
         I  direct(A)
         │
         │ B  direct(A)
@@ -744,7 +800,7 @@ mod tests {
         A
         ");
         // A::F is picked at A, and A will be unblocked. Then, C::D at C, ...
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
+        insta::assert_snapshot!(format_graph(topo_grouped(stream::iter(graph.iter().cloned()))), @"
         G  direct(A)
         │
         │ F  direct(C)
@@ -795,7 +851,7 @@ mod tests {
         A
         ");
         // A::K is picked at A, and A will be unblocked. Then, H::I at H, ...
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
+        insta::assert_snapshot!(format_graph(topo_grouped(stream::iter(graph.iter().cloned()))), @"
         L  direct(A)
         │
         │ K  direct(H)
@@ -857,7 +913,7 @@ mod tests {
         A
         ");
         // A::K is picked at A, and A will be unblocked. Then, E::G at E, ...
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
+        insta::assert_snapshot!(format_graph(topo_grouped(stream::iter(graph.iter().cloned()))), @"
         L  direct(A)
         │
         │ K  direct(E)
@@ -920,7 +976,7 @@ mod tests {
         ");
         // K-E,J is resolved without queuing new heads. Then, G::H, F::I, B::C, and
         // A::D.
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
+        insta::assert_snapshot!(format_graph(topo_grouped(stream::iter(graph.iter().cloned()))), @"
         K    direct(E), direct(J)
         ├─╮
         │ J  direct(G)
@@ -986,7 +1042,7 @@ mod tests {
         ");
         // K-I,J is resolved without queuing new heads. Then, D::F, B::H, C::E, and
         // A::G.
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
+        insta::assert_snapshot!(format_graph(topo_grouped(stream::iter(graph.iter().cloned()))), @"
         K    direct(I), direct(J)
         ├─╮
         │ J  direct(D)
@@ -1039,7 +1095,7 @@ mod tests {
         ├─╯
         A
         ");
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
+        insta::assert_snapshot!(format_graph(topo_grouped(stream::iter(graph.iter().cloned()))), @"
         F  direct(E)
         │
         E    direct(C), direct(D)
@@ -1054,15 +1110,15 @@ mod tests {
         ");
 
         // F, E, and D can be lazy, then C will be queued, then B.
-        let mut iter = topo_grouped(graph.iter().cloned().peekable());
+        let mut iter = topo_grouped(stream::iter(graph.iter().cloned()).peekable());
         assert_eq!(iter.next().unwrap().unwrap().0, 'F');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'E');
+        assert_eq!(iter.peek().unwrap().0, 'E');
         assert_eq!(iter.next().unwrap().unwrap().0, 'E');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'D');
+        assert_eq!(iter.peek().unwrap().0, 'D');
         assert_eq!(iter.next().unwrap().unwrap().0, 'D');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'C');
+        assert_eq!(iter.peek().unwrap().0, 'C');
         assert_eq!(iter.next().unwrap().unwrap().0, 'B');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'A');
+        assert_eq!(iter.peek().unwrap().0, 'A');
     }
 
     #[test]
@@ -1092,7 +1148,7 @@ mod tests {
           │
           A
         ");
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
+        insta::assert_snapshot!(format_graph(topo_grouped(stream::iter(graph.iter().cloned()))), @"
         E  direct(D)
         │
         D    missing(Y), direct(C)
@@ -1111,15 +1167,15 @@ mod tests {
         ");
 
         // All nodes can be lazily emitted.
-        let mut iter = topo_grouped(graph.iter().cloned().peekable());
+        let mut iter = topo_grouped(stream::iter(graph.iter().cloned()).peekable());
         assert_eq!(iter.next().unwrap().unwrap().0, 'E');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'D');
+        assert_eq!(iter.peek().unwrap().0, 'D');
         assert_eq!(iter.next().unwrap().unwrap().0, 'D');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'C');
+        assert_eq!(iter.peek().unwrap().0, 'C');
         assert_eq!(iter.next().unwrap().unwrap().0, 'C');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'B');
+        assert_eq!(iter.peek().unwrap().0, 'B');
         assert_eq!(iter.next().unwrap().unwrap().0, 'B');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'A');
+        assert_eq!(iter.peek().unwrap().0, 'A');
     }
 
     #[test]
@@ -1149,7 +1205,7 @@ mod tests {
         ├───╯
         A
         ");
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
+        insta::assert_snapshot!(format_graph(topo_grouped(stream::iter(graph.iter().cloned()))), @"
         G  direct(E)
         │
         E    direct(B), direct(C)
@@ -1196,7 +1252,7 @@ mod tests {
         ├─╯
         A
         ");
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
+        insta::assert_snapshot!(format_graph(topo_grouped(stream::iter(graph.iter().cloned()))), @"
         H  direct(F)
         │
         F  direct(D)
@@ -1236,7 +1292,7 @@ mod tests {
           A
         ");
         // A is emitted first because it's the second parent.
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
+        insta::assert_snapshot!(format_graph(topo_grouped(stream::iter(graph.iter().cloned()))), @"
         D  direct(C)
         │
         C    direct(B), direct(A)
@@ -1289,7 +1345,7 @@ mod tests {
         A
         ");
         // Second branches are visited first.
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
+        insta::assert_snapshot!(format_graph(topo_grouped(stream::iter(graph.iter().cloned()))), @"
         J    direct(I), direct(G)
         ├─╮
         │ G  direct(D)
@@ -1348,7 +1404,7 @@ mod tests {
         ├─╯
         A
         ");
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
+        insta::assert_snapshot!(format_graph(topo_grouped(stream::iter(graph.iter().cloned()))), @"
         J  direct(F)
         │
         F  direct(C)
@@ -1409,7 +1465,7 @@ mod tests {
         │
         A
         ");
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
+        insta::assert_snapshot!(format_graph(topo_grouped(stream::iter(graph.iter().cloned()))), @"
         J  direct(F)
         │
         F  direct(D)
@@ -1457,7 +1513,7 @@ mod tests {
         │
         A
         ");
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
+        insta::assert_snapshot!(format_graph(topo_grouped(stream::iter(graph.iter().cloned()))), @"
         E  direct(C)
         │
         C  direct(A)
@@ -1507,7 +1563,7 @@ mod tests {
         ");
         // Topological order must be preserved. Depending on the implementation,
         // E might be requested more than once by paths D->E and B->D->E.
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
+        insta::assert_snapshot!(format_graph(topo_grouped(stream::iter(graph.iter().cloned()))), @"
         I    direct(H), direct(G)
         ├─╮
         │ G  direct(B)
@@ -1552,7 +1608,7 @@ mod tests {
         ");
 
         // Emit the branch C first
-        let mut iter = topo_grouped(graph.iter().cloned());
+        let mut iter = topo_grouped(stream::iter(graph.iter().cloned()));
         iter.prioritize_branch('C');
         insta::assert_snapshot!(format_graph(iter), @"
         C  direct(B)
@@ -1567,7 +1623,7 @@ mod tests {
         ");
 
         // Emit the branch D first
-        let mut iter = topo_grouped(graph.iter().cloned());
+        let mut iter = topo_grouped(stream::iter(graph.iter().cloned()));
         iter.prioritize_branch('D');
         insta::assert_snapshot!(format_graph(iter), @"
         D  direct(A)
@@ -1583,7 +1639,7 @@ mod tests {
 
         // Emit the branch C first, then D. E is emitted earlier than D because
         // E belongs to the branch C compared to the branch D.
-        let mut iter = topo_grouped(graph.iter().cloned());
+        let mut iter = topo_grouped(stream::iter(graph.iter().cloned()));
         iter.prioritize_branch('C');
         iter.prioritize_branch('D');
         insta::assert_snapshot!(format_graph(iter), @"
@@ -1599,7 +1655,7 @@ mod tests {
         ");
 
         // Non-head node can be prioritized
-        let mut iter = topo_grouped(graph.iter().cloned());
+        let mut iter = topo_grouped(stream::iter(graph.iter().cloned()));
         iter.prioritize_branch('B');
         insta::assert_snapshot!(format_graph(iter), @"
         E  direct(B)
@@ -1614,7 +1670,7 @@ mod tests {
         ");
 
         // Root node can be prioritized
-        let mut iter = topo_grouped(graph.iter().cloned());
+        let mut iter = topo_grouped(stream::iter(graph.iter().cloned()));
         iter.prioritize_branch('A');
         insta::assert_snapshot!(format_graph(iter), @"
         D  direct(A)
@@ -1665,7 +1721,7 @@ mod tests {
         ");
 
         // Emit B, G, then remainders
-        let mut iter = topo_grouped(graph.iter().cloned());
+        let mut iter = topo_grouped(stream::iter(graph.iter().cloned()));
         iter.prioritize_branch('B');
         iter.prioritize_branch('G');
         insta::assert_snapshot!(format_graph(iter), @"
@@ -1692,7 +1748,7 @@ mod tests {
         // respected because G can be found earlier through C->A->G. At this
         // point, B is not populated yet, so A is blocked only by {G}. This is
         // a limitation of the current node reordering logic.
-        let mut iter = topo_grouped(graph.iter().cloned());
+        let mut iter = topo_grouped(stream::iter(graph.iter().cloned()));
         iter.prioritize_branch('D');
         iter.prioritize_branch('H');
         iter.prioritize_branch('B');
@@ -1762,7 +1818,7 @@ mod tests {
         ");
 
         // Emit the sub graph G first
-        let mut iter = topo_grouped(graph.iter().cloned());
+        let mut iter = topo_grouped(stream::iter(graph.iter().cloned()));
         iter.prioritize_branch('G');
         insta::assert_snapshot!(format_graph(iter), @"
         G  direct(E)
@@ -1789,7 +1845,7 @@ mod tests {
         ");
 
         // Emit sub graphs in reverse order by selecting roots
-        let mut iter = topo_grouped(graph.iter().cloned());
+        let mut iter = topo_grouped(stream::iter(graph.iter().cloned()));
         iter.prioritize_branch('E');
         iter.prioritize_branch('C');
         iter.prioritize_branch('A');
@@ -1833,7 +1889,7 @@ mod tests {
         ├─╯
         A
         ");
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
+        insta::assert_snapshot!(format_graph(topo_grouped(stream::iter(graph.iter().cloned()))), @"
         C    direct(A), direct(B)
         ├─╮
         │ B  direct(A)
@@ -1844,14 +1900,14 @@ mod tests {
         // A is queued once by C-A because B isn't populated at this point. Since
         // B is the second parent, B-A is processed next and A is queued again. So
         // one of them in the queue has to be ignored.
-        let mut iter = topo_grouped(graph.iter().cloned());
+        let mut iter = topo_grouped(stream::iter(graph.iter().cloned()));
         assert_eq!(iter.next().unwrap().unwrap().0, 'C');
-        assert_eq!(iter.emittable_ids, vec!['A', 'B']);
+        assert_eq!(iter.inner.emittable_ids, vec!['A', 'B']);
         assert_eq!(iter.next().unwrap().unwrap().0, 'B');
-        assert_eq!(iter.emittable_ids, vec!['A', 'A']);
+        assert_eq!(iter.inner.emittable_ids, vec!['A', 'A']);
         assert_eq!(iter.next().unwrap().unwrap().0, 'A');
         assert!(iter.next().is_none());
-        assert!(iter.emittable_ids.is_empty());
+        assert!(iter.inner.emittable_ids.is_empty());
     }
 
     #[test]
@@ -1864,17 +1920,17 @@ mod tests {
         │
         A
         ");
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
+        insta::assert_snapshot!(format_graph(topo_grouped(stream::iter(graph.iter().cloned()))), @"
         B  direct(A), direct(A)
         │
         A
         ");
 
-        let mut iter = topo_grouped(graph.iter().cloned());
+        let mut iter = topo_grouped(stream::iter(graph.iter().cloned()));
         assert_eq!(iter.next().unwrap().unwrap().0, 'B');
-        assert_eq!(iter.emittable_ids, vec!['A', 'A']);
+        assert_eq!(iter.inner.emittable_ids, vec!['A', 'A']);
         assert_eq!(iter.next().unwrap().unwrap().0, 'A');
         assert!(iter.next().is_none());
-        assert!(iter.emittable_ids.is_empty());
+        assert!(iter.inner.emittable_ids.is_empty());
     }
 }

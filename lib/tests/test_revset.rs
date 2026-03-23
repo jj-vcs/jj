@@ -19,6 +19,7 @@ use std::sync::Arc;
 
 use assert_matches::assert_matches;
 use chrono::DateTime;
+use futures::StreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
@@ -604,9 +605,10 @@ fn test_resolve_working_copy() {
             .unwrap()
             .evaluate(tx.repo())
             .unwrap()
-            .iter()
+            .stream()
             .map(Result::unwrap)
-            .collect_vec(),
+            .collect::<Vec<_>>()
+            .block_on(),
         vec![]
     );
     drop(symbol_resolver);
@@ -625,9 +627,10 @@ fn test_resolve_working_copy() {
             .unwrap()
             .evaluate(tx.repo())
             .unwrap()
-            .iter()
+            .stream()
             .map(Result::unwrap)
             .collect()
+            .block_on()
     };
 
     // Can resolve "@" shorthand with a default workspace name
@@ -663,9 +666,10 @@ fn test_resolve_working_copies() {
             .unwrap()
             .evaluate(tx.repo())
             .unwrap()
-            .iter()
+            .stream()
             .map(Result::unwrap)
             .collect()
+            .block_on()
     };
 
     // ensure our output has those two commits
@@ -1200,9 +1204,10 @@ fn try_resolve_commit_ids(
     Ok(try_resolve_expression(repo, revset_str)?
         .evaluate(repo)
         .unwrap()
-        .iter()
+        .stream()
         .map(Result::unwrap)
-        .collect())
+        .collect()
+        .block_on())
 }
 
 fn try_evaluate_expression<'index>(
@@ -1248,9 +1253,10 @@ fn resolve_commit_ids_in_workspace(
     expression
         .evaluate(repo)
         .unwrap()
-        .iter()
+        .stream()
         .map(Result::unwrap)
         .collect()
+        .block_on()
 }
 
 #[test]
@@ -4630,7 +4636,7 @@ fn test_evaluate_expression_file(indexed: bool) {
             FilesetExpression::prefix_path(file_path.to_owned()),
         ));
         let revset = expression.evaluate(mut_repo).unwrap();
-        revset.iter().map(Result::unwrap).collect()
+        revset.stream().map(Result::unwrap).collect().block_on()
     };
 
     assert_eq!(resolve(added_clean_clean), vec![commit1.id().clone()]);
@@ -5179,7 +5185,15 @@ fn test_reverse_graph() {
         repo.as_ref(),
         &[&commit_a, &commit_c, &commit_d, &commit_e, &commit_f],
     );
-    let commits = reverse_graph(revset.iter_graph(), |id| id).unwrap();
+    let commits = reverse_graph(
+        revset
+            .stream_graph()
+            .collect::<Vec<_>>()
+            .block_on()
+            .into_iter(),
+        |id| id,
+    )
+    .unwrap();
     assert_eq!(commits.len(), 5);
     assert_eq!(commits[0].0, *commit_a.id());
     assert_eq!(commits[1].0, *commit_c.id());

@@ -3423,11 +3423,6 @@ impl VisibilityResolutionContext<'_> {
 }
 
 pub trait Revset: fmt::Debug {
-    /// Iterate in topological order with children before parents.
-    fn iter<'a>(&self) -> Box<dyn Iterator<Item = Result<CommitId, RevsetEvaluationError>> + 'a>
-    where
-        Self: 'a;
-
     /// Streams in topological order with children before parents.
     // TODO: Relax to BoxStream?
     fn stream<'a>(&self) -> LocalBoxStream<'a, Result<CommitId, RevsetEvaluationError>>
@@ -3438,14 +3433,6 @@ pub trait Revset: fmt::Debug {
     fn commit_change_ids<'a>(
         &self,
     ) -> Box<dyn Iterator<Item = Result<(CommitId, ChangeId), RevsetEvaluationError>> + 'a>
-    where
-        Self: 'a;
-
-    /// Iterates graphs nodes (commit ID and edges) in topological order with
-    /// children before parents.
-    fn iter_graph<'a>(
-        &self,
-    ) -> Box<dyn Iterator<Item = Result<GraphNode<CommitId>, RevsetEvaluationError>> + 'a>
     where
         Self: 'a;
 

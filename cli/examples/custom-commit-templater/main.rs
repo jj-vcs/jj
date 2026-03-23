@@ -14,6 +14,7 @@
 
 use std::sync::Arc;
 
+use futures::TryStreamExt as _;
 use jj_cli::cli_util::CliRunner;
 use jj_cli::commit_templater::CommitTemplateBuildFnTable;
 use jj_cli::commit_templater::CommitTemplateLanguageExtension;
@@ -37,6 +38,7 @@ use jj_lib::revset::RevsetResolutionError;
 use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::revset::UserRevsetExpression;
 use once_cell::sync::OnceCell;
+use pollster::FutureExt as _;
 
 struct HexCounter;
 
@@ -71,9 +73,12 @@ impl MostDigitsInId {
             RevsetExpression::all()
                 .evaluate(repo)
                 .unwrap()
+                .stream()
+                .try_collect::<Vec<_>>()
+                .block_on()
+                .unwrap()
                 .iter()
-                .map(Result::unwrap)
-                .map(|id| num_digits_in_id(&id))
+                .map(num_digits_in_id)
                 .max()
                 .unwrap_or(0)
         })
@@ -98,9 +103,13 @@ impl PartialSymbolResolver for TheDigitestResolver {
         Ok(RevsetExpression::all()
             .evaluate(repo)
             .map_err(|err| RevsetResolutionError::Other(err.into()))?
+            .stream()
+            .try_collect::<Vec<_>>()
+            .block_on()
+            .unwrap()
             .iter()
-            .map(Result::unwrap)
-            .find(|id| num_digits_in_id(id) == self.cache.count(repo)))
+            .find(|id| num_digits_in_id(id) == self.cache.count(repo))
+            .cloned())
     }
 }
 
