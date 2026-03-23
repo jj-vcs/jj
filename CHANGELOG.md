@@ -29,6 +29,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * [Diff colors](docs/config.md#diff-colors-and-styles) can now be configured
   differently for each format.
 
+* `jj prev` and `jj next` have gained a `--keep` flag to keep the current changes
+  while moving to the previous or next revision.
+
 ### Fixed bugs
 
 * `.gitignore` with UTF-8 BOM can now be parsed correctly.
