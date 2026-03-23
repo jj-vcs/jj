@@ -290,6 +290,13 @@ pub struct RemoteView {
     pub tags: BTreeMap<RefNameBuf, RemoteRef>,
 }
 
+impl RemoteView {
+    pub fn all_refs_absent(&self) -> bool {
+        let Self { bookmarks, tags } = self;
+        bookmarks.values().all(|r| r.is_absent()) && tags.values().all(|r| r.is_absent())
+    }
+}
+
 /// Iterates pair of local and remote refs by name.
 pub(crate) fn merge_join_ref_views<'a>(
     local_refs: &'a BTreeMap<RefNameBuf, RefTarget>,

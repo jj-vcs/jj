@@ -1089,13 +1089,47 @@ fn test_import_refs_reimport_with_deleted_abandoned_untracked_remote_ref() -> Te
 #[test]
 fn test_import_refs_reimport_absent_tracked_remote_bookmarks() -> TestResult {
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
-    let repo = &test_repo.repo;
-    let git_repo = get_git_repo(repo);
     let import_options = default_import_options();
     let absent_tracked_ref = RemoteRef {
         target: RefTarget::absent(),
         state: RemoteRefState::Tracked,
     };
+
+    // Register remotes in git config so they are not pruned as stale during
+    // import. Each add_remote must be in a separate transaction with a reload
+    // in between because gix config snapshots are taken at repo-open time; two
+    // add_remote calls in the same transaction would share the same stale
+    // snapshot and the second save would overwrite the first.
+    let mut tx = test_repo.repo.start_transaction();
+    git::add_remote(
+        tx.repo_mut(),
+        "origin".as_ref(),
+        "https://example.com/",
+        None,
+        Default::default(),
+        &StringExpression::all(),
+    )
+    .unwrap();
+    tx.commit("test").block_on().unwrap();
+    let repo = test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+    let mut tx = repo.start_transaction();
+    git::add_remote(
+        tx.repo_mut(),
+        "upstream".as_ref(),
+        "https://upstream.example.com/",
+        None,
+        Default::default(),
+        &StringExpression::all(),
+    )
+    .unwrap();
+    tx.commit("test").block_on().unwrap();
+    // Reload after all git configuration changes.
+    let repo = &test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+    let git_repo = get_git_repo(repo);
 
     // Set up absent tracked refs.
     let mut tx = repo.start_transaction();
@@ -5656,6 +5690,65 @@ fn test_remote_remove_refs() -> TestResult {
         commit_tag_foobar_a,
     );
     Ok(())
+}
+
+/// Tests that `import_refs` prunes remote views for remotes that have been
+/// removed from git config without going through `jj git remote remove` (e.g.
+/// by using `git remote remove` directly).
+#[test]
+fn test_import_refs_prunes_stale_remote_view() {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let import_options = default_import_options();
+
+    // Case 1: empty stale remote view (e.g. remote was added to config, never
+    // fetched, then deleted externally).
+    let mut tx = test_repo.repo.start_transaction();
+    tx.repo_mut().ensure_remote("stale".as_ref());
+    let repo = tx.commit("test").block_on().unwrap();
+
+    assert!(repo.view().get_remote_view("stale".as_ref()).is_some());
+
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &import_options)
+        .block_on()
+        .unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
+
+    assert!(repo.view().get_remote_view("stale".as_ref()).is_none());
+
+    // Case 2: stale remote view with an absent-tracked bookmark (e.g. a remote
+    // that was fetched and tracked but then the remote was deleted externally,
+    // leaving the local bookmark behind).
+    let mut tx = repo.start_transaction();
+    let local_commit = write_random_commit(tx.repo_mut());
+    tx.repo_mut().set_local_bookmark_target(
+        "main".as_ref(),
+        RefTarget::normal(local_commit.id().clone()),
+    );
+    tx.repo_mut().ensure_remote("stale".as_ref());
+    tx.repo_mut().set_remote_bookmark(
+        remote_symbol("main", "stale"),
+        RemoteRef {
+            target: RefTarget::absent(),
+            state: RemoteRefState::Tracked,
+        },
+    );
+    let repo = tx.commit("test").block_on().unwrap();
+
+    assert!(repo.view().get_remote_view("stale".as_ref()).is_some());
+    assert!(repo.view().get_local_bookmark("main".as_ref()).is_present());
+
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &import_options)
+        .block_on()
+        .unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
+
+    assert!(repo.view().get_remote_view("stale".as_ref()).is_none());
+    // Local "main" is preserved; only the stale remote view is removed.
+    assert!(repo.view().get_local_bookmark("main".as_ref()).is_present());
 }
 
 #[test]
