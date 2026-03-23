@@ -274,6 +274,7 @@ diff editing in mind and be a little inaccurate.
     pub async fn snapshot_results(
         self,
         base_ignores: Arc<GitIgnoreFile>,
+        derive_tracked_from_ignores: bool,
     ) -> Result<MergedTree, DiffEditError> {
         if let Some(path) = self.instructions_path_to_cleanup {
             std::fs::remove_file(path).ok();
@@ -289,6 +290,7 @@ diff editing in mind and be a little inaccurate.
                 start_tracking_matcher: &EverythingMatcher,
                 force_tracking_matcher: &NothingMatcher,
                 max_new_file_size: u64::MAX,
+                derive_tracked_from_ignores,
             })
             .await?;
         Ok(output_tree_state.current_tree().clone())

@@ -124,6 +124,9 @@ pub(crate) async fn cmd_diffedit(
         .await?;
 
     let diff_editor = workspace_command.diff_editor(ui, args.tool.as_deref())?;
+    let derive_tracked_from_ignores = workspace_command
+        .settings()
+        .get_bool("snapshot.derive-tracked-from-ignores")?;
     let mut tx = workspace_command.start_transaction();
     let format_instructions = || {
         format!(
@@ -140,7 +143,12 @@ don't make any changes, then the operation will be aborted.",
     let base_tree = merge_commit_trees(tx.repo(), base_commits.as_slice()).await?;
     let tree = target_commit.tree();
     let edited_tree = diff_editor
-        .edit(Diff::new(&base_tree, &tree), &matcher, format_instructions)
+        .edit(
+            Diff::new(&base_tree, &tree),
+            &matcher,
+            format_instructions,
+            derive_tracked_from_ignores,
+        )
         .await?;
     if edited_tree.tree_ids() == target_commit.tree_ids() {
         writeln!(ui.status(), "Nothing changed.")?;

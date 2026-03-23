@@ -286,10 +286,21 @@ pub(crate) async fn cmd_split(
         new_child_ids,
     } = args.resolve(ui, &workspace_command).await?;
     let text_editor = workspace_command.text_editor()?;
+    let derive_tracked_from_ignores = workspace_command
+        .settings()
+        .get_bool("snapshot.derive-tracked-from-ignores")?;
     let mut tx = workspace_command.start_transaction();
 
     // Prompt the user to select the changes they want for the first commit.
-    let target = select_diff(ui, &tx, &target_commit, &matcher, &diff_selector).await?;
+    let target = select_diff(
+        ui,
+        &tx,
+        &target_commit,
+        &matcher,
+        &diff_selector,
+        derive_tracked_from_ignores,
+    )
+    .await?;
 
     // Create the first commit, which includes the changes selected by the user.
     let first_commit = {
@@ -550,6 +561,7 @@ async fn select_diff(
     target_commit: &Commit,
     matcher: &dyn Matcher,
     diff_selector: &DiffSelector,
+    derive_tracked_from_ignores: bool,
 ) -> Result<CommitWithSelection, CommandError> {
     let format_instructions = || {
         format!(
@@ -576,6 +588,7 @@ The changes that are not selected will replace the original commit.
             ),
             matcher,
             format_instructions,
+            derive_tracked_from_ignores,
         )
         .await?;
     let selection = CommitWithSelection {
