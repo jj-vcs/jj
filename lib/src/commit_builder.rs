@@ -16,8 +16,6 @@
 
 use std::sync::Arc;
 
-use pollster::FutureExt as _;
-
 use crate::backend;
 use crate::backend::BackendError;
 use crate::backend::BackendResult;
@@ -224,7 +222,7 @@ impl DetachedCommitBuilder {
 
     /// Only called from [`MutableRepo::rewrite_commit`]. Use that function
     /// instead.
-    pub(crate) fn for_rewrite_from(
+    pub(crate) async fn for_rewrite_from(
         repo: &dyn Repo,
         settings: &UserSettings,
         predecessor: &Commit,
@@ -249,7 +247,7 @@ impl DetachedCommitBuilder {
             && commit.author.email == commit.committer.email
             && predecessor
                 .is_discardable(repo)
-                .block_on()
+                .await
                 .unwrap_or_default()
         {
             commit.author.timestamp = commit.committer.timestamp;

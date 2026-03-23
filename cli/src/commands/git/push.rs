@@ -640,13 +640,14 @@ async fn sign_commits_before_push(
                     if commit_ids.contains(&old_commit_id) {
                         let commit = rewriter
                             .reparent()
+                            .await
                             .set_sign_behavior(sign_behavior)
                             .write()
                             .await?;
                         old_to_new_commits_map.insert(old_commit_id, commit.id().clone());
                     } else {
                         num_rebased_descendants += 1;
-                        let commit = rewriter.reparent().write().await?;
+                        let commit = rewriter.reparent().await.write().await?;
                         old_to_new_commits_map.insert(old_commit_id, commit.id().clone());
                     }
                     Ok(())

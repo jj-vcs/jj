@@ -380,7 +380,7 @@ fn test_rewritten() {
     let mut tx = repo.start_transaction();
     let commit2b = tx
         .repo_mut()
-        .rewrite_commit(&commits[2])
+        .rewrite_commit(&commits[2]).block_on()
         .set_description("2b")
         .write_unwrap();
     commits.push(commit2b);

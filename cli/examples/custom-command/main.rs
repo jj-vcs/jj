@@ -48,6 +48,7 @@ async fn run_custom_command(
             let new_commit = tx
                 .repo_mut()
                 .rewrite_commit(&commit)
+                .await
                 .set_description("Frobnicated!")
                 .write()
                 .await?;

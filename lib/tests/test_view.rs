@@ -562,7 +562,7 @@ fn test_merge_views_divergent() {
     let mut tx1 = repo.start_transaction();
     let commit_a2 = tx1
         .repo_mut()
-        .rewrite_commit(&commit_a)
+        .rewrite_commit(&commit_a).block_on()
         .set_description("A2")
         .write_unwrap();
     tx1.repo_mut().rebase_descendants().block_on().unwrap();
@@ -570,7 +570,7 @@ fn test_merge_views_divergent() {
     let mut tx2 = repo.start_transaction();
     let commit_a3 = tx2
         .repo_mut()
-        .rewrite_commit(&commit_a)
+        .rewrite_commit(&commit_a).block_on()
         .set_description("A3")
         .write_unwrap();
     tx2.repo_mut().rebase_descendants().block_on().unwrap();
@@ -601,7 +601,7 @@ fn test_merge_views_child_on_rewritten(child_first: bool) {
     let mut tx2 = repo.start_transaction();
     let commit_a2 = tx2
         .repo_mut()
-        .rewrite_commit(&commit_a)
+        .rewrite_commit(&commit_a).block_on()
         .set_description("A2")
         .write_unwrap();
     tx2.repo_mut().rebase_descendants().block_on().unwrap();
@@ -646,7 +646,7 @@ fn test_merge_views_child_on_rewritten_divergent(on_rewritten: bool, child_first
     let mut tx2 = repo.start_transaction();
     let commit_a4 = tx2
         .repo_mut()
-        .rewrite_commit(&commit_a2)
+        .rewrite_commit(&commit_a2).block_on()
         .set_description("A4")
         .write_unwrap();
     tx2.repo_mut().rebase_descendants().block_on().unwrap();

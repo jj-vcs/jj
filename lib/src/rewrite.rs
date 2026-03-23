@@ -377,6 +377,7 @@ impl<'repo> CommitRewriter<'repo> {
         let builder = self
             .mut_repo
             .rewrite_commit(&self.old_commit)
+            .await
             .set_parents(self.new_parents)
             .set_tree(new_tree);
         Ok(Some(builder))
@@ -391,9 +392,10 @@ impl<'repo> CommitRewriter<'repo> {
 
     /// Rewrite the old commit onto the new parents without changing its
     /// contents. Returns a `CommitBuilder` for the new commit.
-    pub fn reparent(self) -> CommitBuilder<'repo> {
+    pub async fn reparent(self) -> CommitBuilder<'repo> {
         self.mut_repo
             .rewrite_commit(&self.old_commit)
+            .await
             .set_parents(self.new_parents)
     }
 }
@@ -1166,6 +1168,7 @@ pub async fn duplicate_commits_onto_parents(
             .collect();
         let mut new_commit_builder = mut_repo
             .rewrite_commit(&original_commit)
+            .await
             .clear_rewrite_source()
             .generate_new_change_id()
             .set_parents(new_parent_ids);
@@ -1354,6 +1357,7 @@ pub async fn squash_commits<'repo>(
             ))
             .await?;
             repo.rewrite_commit(&source.commit.commit)
+                .await
                 .set_tree(new_source_tree)
                 .write()
                 .await?;
@@ -1402,6 +1406,7 @@ pub async fn squash_commits<'repo>(
 
     let commit_builder = repo
         .rewrite_commit(&rewritten_destination)
+        .await
         .set_tree(destination_tree)
         .set_predecessors(predecessors);
     Ok(Some(SquashedCommit {

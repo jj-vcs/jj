@@ -85,7 +85,7 @@ fn test_simplify_conflict_after_resolving_parent() {
     let tree_b3 = create_tree(repo, &[(path, "AbC\ndef\nghi\n")]);
     let commit_b3 = tx
         .repo_mut()
-        .rewrite_commit(&commit_b2)
+        .rewrite_commit(&commit_b2).block_on()
         .set_tree(tree_b3)
         .write_unwrap();
     let commit_c3 = rebase_commit(tx.repo_mut(), commit_c2, vec![commit_b3.id().clone()])

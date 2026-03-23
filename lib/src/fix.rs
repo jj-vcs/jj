@@ -315,13 +315,13 @@ pub async fn fix_files(
             if has_changes {
                 summary.num_fixed_commits += 1;
                 let new_tree = tree_builder.write_tree().await?;
-                let builder = rewriter.reparent();
+                let builder = rewriter.reparent().await;
                 let new_commit = builder.set_tree(new_tree).write().await?;
                 summary
                     .rewrites
                     .insert(old_commit_id, new_commit.id().clone());
             } else if rewriter.parents_changed() {
-                let new_commit = rewriter.reparent().write().await?;
+                let new_commit = rewriter.reparent().await.write().await?;
                 summary
                     .rewrites
                     .insert(old_commit_id, new_commit.id().clone());

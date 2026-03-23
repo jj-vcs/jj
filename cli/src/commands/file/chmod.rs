@@ -119,6 +119,7 @@ pub(crate) async fn cmd_file_chmod(
     let new_tree = tree_builder.write_tree().await?;
     tx.repo_mut()
         .rewrite_commit(&commit)
+        .await
         .set_tree(new_tree)
         .write()
         .await?;

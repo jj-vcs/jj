@@ -117,6 +117,7 @@ pub(crate) async fn cmd_resolve(
     let new_commit = tx
         .repo_mut()
         .rewrite_commit(&commit)
+        .await
         .set_tree(new_tree)
         .write()
         .await?;
