@@ -114,6 +114,24 @@ fn test_git_init_internal_preexisting_git_repo() {
 }
 
 #[test]
+fn test_git_init_internal_no_integrate_operation() {
+    let test_env = TestEnvironment::default();
+    let workspace_root = test_env.env_root().join("repo");
+    std::fs::create_dir(&workspace_root).unwrap();
+
+    let output = test_env.run_jj_in(
+        &workspace_root,
+        &["git", "init", "--no-integrate-operation"],
+    );
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: --no-integrate-operation is not respected
+    [EOF]
+    [exit status: 2]
+    ");
+}
+
+#[test]
 fn test_git_init_ignore_working_copy() {
     let test_env = TestEnvironment::default();
     test_env.add_config("git.colocate = true");

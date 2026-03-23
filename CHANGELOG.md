@@ -29,6 +29,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * [Diff colors](docs/config.md#diff-colors-and-styles) can now be configured
   differently for each format.
 
+* A new global flag `--no-integrate-operation` lets you run a command without
+  impacting the repo state or the working copy.
+
 ### Fixed bugs
 
 * `.gitignore` with UTF-8 BOM can now be parsed correctly.
