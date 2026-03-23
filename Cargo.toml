@@ -51,11 +51,12 @@ erased-serde = "0.4.10"
 eyre = "0.6"
 etcetera = "0.11.0"
 futures = "0.3.32"
-gix = { version = "0.80.0", default-features = false, features = [
+gix = { version = "0.81.0", default-features = false, features = [
     "attributes",
     "blob-diff",
     "index",
     "max-performance-safe",
+    "sha1",
     "zlib-rs",
 ] }
 globset = "0.4.18"
@@ -114,8 +115,8 @@ textwrap = "0.16.2"
 thiserror = "2.0.17"
 timeago = { version = "0.6.0", default-features = false }
 tokio = { version = "1.50.0", features = ["io-util"] }
-toml = "1.0.7"
-toml_edit = { version = "0.25.5", features = ["serde"] }
+toml = "1.1.0"
+toml_edit = { version = "0.25.8", features = ["serde"] }
 tracing = "0.1.44"
 tracing-chrome = "0.7.2"
 tracing-subscriber = { version = "0.3.23", default-features = false, features = [
