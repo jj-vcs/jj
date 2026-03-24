@@ -443,9 +443,7 @@ pub async fn cmd_git_push(
         && !commits_to_sign.is_empty()
         && let Some(sign_behavior) = sign_behavior
     {
-        let num_updated_signatures = commits_to_sign.len();
-        let num_rebased_descendants;
-        (num_rebased_descendants, bookmark_updates) = sign_commits_before_push(
+        bookmark_updates = sign_commits_before_push(
             ui,
             &mut tx,
             commits_to_sign,
@@ -453,18 +451,6 @@ pub async fn cmd_git_push(
             bookmark_updates,
         )
         .await?;
-        if let Some(mut formatter) = ui.status_formatter() {
-            writeln!(
-                formatter,
-                "Updated signatures of {num_updated_signatures} commits"
-            )?;
-            if num_rebased_descendants > 0 {
-                writeln!(
-                    formatter,
-                    "Rebased {num_rebased_descendants} descendant commits"
-                )?;
-            }
-        }
     }
 
     if let Some(mut formatter) = ui.status_formatter() {
@@ -605,15 +591,15 @@ async fn validate_commits_ready_to_push(
 
 /// Signs commits before pushing.
 ///
-/// Returns the number of commits with rebased descendants and the updated list
-/// of bookmark names and corresponding [`BookmarkPushUpdate`]s.
+/// Returns the updated list of bookmark names and corresponding
+/// [`BookmarkPushUpdate`]s.
 async fn sign_commits_before_push(
     ui: &Ui,
     tx: &mut WorkspaceCommandTransaction<'_>,
     commits_to_sign: Vec<Commit>,
     sign_behavior: SignBehavior,
     bookmark_updates: Vec<(RefNameBuf, Diff<Option<CommitId>>)>,
-) -> Result<(usize, Vec<(RefNameBuf, Diff<Option<CommitId>>)>), CommandError> {
+) -> Result<Vec<(RefNameBuf, Diff<Option<CommitId>>)>, CommandError> {
     let commit_ids: IndexSet<CommitId> = commits_to_sign.iter().ids().cloned().collect();
     let mut old_to_new_commits_map: HashMap<CommitId, CommitId> = HashMap::new();
     let mut num_rebased_descendants = 0;
@@ -664,7 +650,21 @@ async fn sign_commits_before_push(
         })
         .collect_vec();
 
-    Ok((num_rebased_descendants, bookmark_updates))
+    if let Some(mut formatter) = ui.status_formatter() {
+        let num_updated_signatures = commit_ids.len();
+        writeln!(
+            formatter,
+            "Updated signatures of {num_updated_signatures} commits"
+        )?;
+        if num_rebased_descendants > 0 {
+            writeln!(
+                formatter,
+                "Rebased {num_rebased_descendants} descendant commits"
+            )?;
+        }
+    }
+
+    Ok(bookmark_updates)
 }
 
 fn print_commits_ready_to_push(
