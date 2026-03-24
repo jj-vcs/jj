@@ -2253,9 +2253,20 @@ to the current parents may contain changes from multiple commits.
             if let Some(new_commit) = &maybe_new_wc_commit {
                 self.update_working_copy(ui, maybe_old_wc_commit.as_ref(), new_commit)
                     .await?;
-            } else {
-                // It seems the workspace was deleted, so we shouldn't try to
-                // update it.
+            } else if maybe_old_wc_commit.is_some() {
+                // The workspace existed before but no longer exists after this
+                // operation. This can happen when undoing the operation that
+                // created the workspace (e.g. `jj undo` right after `jj git
+                // init`).
+                writeln!(
+                    ui.warning_default(),
+                    "The working copy for workspace '{}' no longer exists after this operation.",
+                    self.workspace_name().as_symbol()
+                )?;
+                writeln!(
+                    ui.hint_default(),
+                    "Use `jj redo` to restore the previous state."
+                )?;
             }
         }
 
