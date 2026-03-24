@@ -637,9 +637,8 @@ pub fn parse_maybe_bare(
 mod tests {
     use std::path::PathBuf;
 
-    use testutils::TestResult;
-
     use super::*;
+    use crate::tests::TestResult;
 
     fn repo_path_buf(value: impl Into<String>) -> RepoPathBuf {
         RepoPathBuf::from_internal_string(value).unwrap()

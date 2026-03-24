@@ -828,10 +828,10 @@ mod tests {
     use std::collections::HashMap;
 
     use assert_matches::assert_matches;
-    use testutils::TestResult;
 
     use super::*;
     use crate::dsl_util::KeywordArgument;
+    use crate::tests::TestResult;
 
     #[derive(Debug)]
     struct WithRevsetAliasesMap<'i> {

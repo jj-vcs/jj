@@ -361,9 +361,9 @@ mod tests {
     use renderdag::Ancestor;
     use renderdag::GraphRowRenderer;
     use renderdag::Renderer as _;
-    use testutils::TestResult;
 
     use super::*;
+    use crate::tests::TestResult;
 
     fn missing(c: char) -> GraphEdge<char> {
         GraphEdge::missing(c)

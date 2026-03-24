@@ -458,9 +458,9 @@ fn migrate_layer(
 mod tests {
     use assert_matches::assert_matches;
     use indoc::indoc;
-    use testutils::TestResult;
 
     use super::*;
+    use crate::tests::TestResult;
 
     #[test]
     fn test_expand_home() {

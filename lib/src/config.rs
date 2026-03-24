@@ -907,9 +907,9 @@ mod tests {
     use assert_matches::assert_matches;
     use indoc::indoc;
     use pretty_assertions::assert_eq;
-    use testutils::TestResult;
 
     use super::*;
+    use crate::tests::TestResult;
 
     #[test]
     fn test_config_layer_set_value() -> TestResult {

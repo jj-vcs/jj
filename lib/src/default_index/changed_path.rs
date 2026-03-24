@@ -594,9 +594,9 @@ pub(super) async fn collect_changed_paths(
 #[cfg(test)]
 mod tests {
     use test_case::test_case;
-    use testutils::TestResult;
 
     use super::*;
+    use crate::tests::TestResult;
     use crate::tests::new_temp_dir;
 
     fn repo_path(value: &str) -> &RepoPath {

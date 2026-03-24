@@ -577,10 +577,10 @@ fn attach_aliases_err(
 #[cfg(test)]
 mod tests {
     use assert_matches::assert_matches;
-    use testutils::TestResult;
 
     use super::*;
     use crate::dsl_util::KeywordArgument;
+    use crate::tests::TestResult;
 
     #[derive(Debug)]
     struct WithFilesetAliasesMap {

@@ -597,9 +597,9 @@ mod tests {
     use assert_matches::assert_matches;
     use itertools::Itertools as _;
     use maplit::btreemap;
-    use testutils::TestResult;
 
     use super::*;
+    use crate::tests::TestResult;
 
     fn insta_settings() -> insta::Settings {
         let mut settings = insta::Settings::clone_current();

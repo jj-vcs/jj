@@ -1527,7 +1527,6 @@ async fn to_file_content(
 )]
 mod tests {
     use indoc::indoc;
-    use testutils::TestResult;
 
     use super::*;
     use crate::default_index::DefaultMutableIndex;
@@ -1535,6 +1534,7 @@ mod tests {
     use crate::files::FileMergeHunkLevel;
     use crate::merge::SameChange;
     use crate::str_util::StringPattern;
+    use crate::tests::TestResult;
 
     const TEST_FIELD_LENGTHS: FieldLengths = FieldLengths {
         commit_id: 3,

@@ -2534,6 +2534,7 @@ dependencies = [
  "dunce",
  "either",
  "etcetera",
+ "eyre",
  "futures 0.3.32",
  "gix",
  "globset",

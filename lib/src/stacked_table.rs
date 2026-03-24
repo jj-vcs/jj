@@ -628,9 +628,9 @@ impl TableStore {
 #[cfg(test)]
 mod tests {
     use test_case::test_case;
-    use testutils::TestResult;
 
     use super::*;
+    use crate::tests::TestResult;
     use crate::tests::new_temp_dir;
 
     #[test_case(false; "memory")]

@@ -1573,12 +1573,12 @@ mod tests {
     use gix::objs::CommitRef;
     use indoc::indoc;
     use pollster::FutureExt as _;
-    use testutils::TestResult;
 
     use super::*;
     use crate::config::StackedConfig;
     use crate::content_hash::blake2b_hash;
     use crate::hex_util;
+    use crate::tests::TestResult;
     use crate::tests::new_temp_dir;
 
     const GIT_USER: &str = "Someone";

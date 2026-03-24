@@ -79,6 +79,7 @@ winreg = { workspace = true }
 [dev-dependencies]
 assert_matches = { workspace = true }
 criterion = { workspace = true }
+eyre = { workspace = true }
 indoc = { workspace = true }
 insta = { workspace = true }
 num_cpus = { workspace = true }

@@ -57,7 +57,6 @@ mod tests {
     use itertools::Itertools as _;
     use smallvec::smallvec_inline;
     use test_case::test_case;
-    use testutils::TestResult;
 
     use super::changed_path::CompositeChangedPathIndex;
     use super::composite::AsCompositeIndex as _;
@@ -78,6 +77,7 @@ mod tests {
     use crate::object_id::HexPrefix;
     use crate::object_id::PrefixResolution;
     use crate::revset::PARENTS_RANGE_FULL;
+    use crate::tests::TestResult;
     use crate::tests::new_temp_dir;
 
     const TEST_FIELD_LENGTHS: FieldLengths = FieldLengths {

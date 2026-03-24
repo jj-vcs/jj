@@ -487,9 +487,9 @@ mod tests {
     use itertools::Itertools as _;
     use pollster::FutureExt as _;
     use test_case::test_case;
-    use testutils::TestResult;
 
     use super::*;
+    use crate::tests::TestResult;
     use crate::tests::new_temp_dir;
 
     #[test]

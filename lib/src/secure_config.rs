@@ -397,9 +397,9 @@ mod tests {
 
     use rand::SeedableRng as _;
     use tempfile::TempDir;
-    use testutils::TestResult;
 
     use super::*;
+    use crate::tests::TestResult;
 
     struct TestEnv {
         _td: TempDir,

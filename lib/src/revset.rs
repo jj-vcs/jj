@@ -3679,9 +3679,9 @@ mod tests {
     use std::path::PathBuf;
 
     use assert_matches::assert_matches;
-    use testutils::TestResult;
 
     use super::*;
+    use crate::tests::TestResult;
 
     fn parse(revset_str: &str) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
         parse_with_aliases(revset_str, [] as [(&str, &str); 0])

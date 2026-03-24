@@ -942,10 +942,10 @@ mod tests {
     use maplit::btreemap;
     use maplit::hashmap;
     use maplit::hashset;
-    use testutils::TestResult;
 
     use super::*;
     use crate::hex_util;
+    use crate::tests::TestResult;
     use crate::tests::new_temp_dir;
 
     fn create_view() -> View {

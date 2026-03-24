@@ -201,14 +201,13 @@ impl AncestorsBitSet {
 
 #[cfg(test)]
 mod tests {
-    use testutils::TestResult;
-
     use super::super::composite::AsCompositeIndex as _;
     use super::super::mutable::DefaultMutableIndex;
     use super::super::readonly::FieldLengths;
     use super::*;
     use crate::backend::ChangeId;
     use crate::backend::CommitId;
+    use crate::tests::TestResult;
 
     /// Generator of unique 16-byte CommitId excluding root id
     fn commit_id_generator() -> impl FnMut() -> CommitId {

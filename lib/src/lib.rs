@@ -122,6 +122,9 @@ pub mod workspace_store;
 mod tests {
     use tempfile::TempDir;
 
+    // Copied from `testutils::TestResult` to remove dependency cycle.
+    pub type TestResult<T = ()> = eyre::Result<T>;
+
     /// Unlike `testutils::new_temp_dir()`, this function doesn't set up
     /// hermetic Git environment.
     pub fn new_temp_dir() -> TempDir {
