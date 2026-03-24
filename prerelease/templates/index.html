@@ -2890,7 +2890,7 @@ y) * z</code>.</p>
   <code>separator</code> between <strong>non-empty</strong> <code>content</code>s.</li>
 <li><code>surround(prefix: Template, suffix: Template, content: Template) -&gt; Template</code>:
   Surround <strong>non-empty</strong> content with texts such as parentheses.</li>
-<li><code>config(name: StringLiteral) -&gt; Option&lt;ConfigValue&gt;</code>: Look up configuration
+<li><code>config(name: Stringify) -&gt; Option&lt;ConfigValue&gt;</code>: Look up configuration
    value by <code>name</code>.</li>
 <li><code>git_web_url([remote: String]) -&gt; String</code>: Best-effort conversion of a git
   remote URL to an HTTPS web URL. Defaults to the "origin" remote. Returns an
