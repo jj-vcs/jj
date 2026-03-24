@@ -14,7 +14,6 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::fmt;
 use std::io;
 use std::io::Write as _;
 use std::iter;
@@ -213,10 +212,13 @@ pub struct GitPushArgs {
     option: Vec<String>,
 }
 
-fn make_bookmark_term(bookmark_names: &[impl fmt::Display]) -> String {
-    match bookmark_names {
-        [bookmark_name] => format!("bookmark {bookmark_name}"),
-        bookmark_names => format!("bookmarks {}", bookmark_names.iter().join(", ")),
+fn make_bookmark_term(updates: &[(RefNameBuf, Diff<Option<CommitId>>)]) -> String {
+    match updates {
+        [(name, _)] => format!("bookmark {}", name.as_symbol()),
+        _ => format!(
+            "bookmarks {}",
+            updates.iter().map(|(name, _)| name.as_symbol()).join(", ")
+        ),
     }
 }
 
@@ -423,12 +425,7 @@ pub async fn cmd_git_push(
 
         tx_description = format!(
             "{TX_DESC_PUSH}{names} to git remote {remote}",
-            names = make_bookmark_term(
-                &bookmark_updates
-                    .iter()
-                    .map(|(name, _)| name.as_symbol())
-                    .collect_vec()
-            ),
+            names = make_bookmark_term(&bookmark_updates),
             remote = remote.as_symbol()
         );
     }
