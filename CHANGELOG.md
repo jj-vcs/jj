@@ -32,6 +32,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * [Diff colors](docs/config.md#diff-colors-and-styles) can now be configured
   differently for each format.
 
+* `jj fix` now supports line range-limited formatting via the `fix.tools.<name>.line-range-arg`
+  and `run-tool-if-zero-line-ranges` configs. This allows running tools only on modified
+  lines and fine-grained control over when the tool is run. If you have set the `line-range-arg`
+  config, use `--all-lines` to match the previous behavior of formatting the entire file.
+
 ### Fixed bugs
 
 * `.gitignore` with UTF-8 BOM can now be parsed correctly.
