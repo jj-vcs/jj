@@ -3145,6 +3145,9 @@ defined.</p>
 <li><code>.time() -&gt; TimestampRange</code></li>
 <li><code>.user() -&gt; String</code></li>
 <li><code>.snapshot() -&gt; Boolean</code>: True if the operation is a snapshot operation.</li>
+<li><code>.workspace_name() -&gt; String</code>: The name of the workspace the operation was
+  created from. An empty string if the operation wasn't created from a
+  workspace.</li>
 <li><code>.root() -&gt; Boolean</code>: True if the operation is the root operation.</li>
 <li><code>.parents() -&gt; List&lt;Operation&gt;</code></li>
 </ul>
