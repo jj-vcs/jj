@@ -8,9 +8,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-* `WorkspaceRef` templates now provide a `.root()` method to show the absolute
-  path to each workspace root.
-
 ### Release highlights
 
 ### Breaking changes
@@ -25,6 +22,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The `end` parameter in the `String.substr(start, end)` templating method is
   now optional. If not given, `substr()` returns from `start` to the end of the
   string.
+
+* `WorkspaceRef` templates now provide a `.root()` method to show the absolute
+  path to each workspace root.
 
 * The `jj arrange` TUI now includes immediate parents and children. They are not
   selectable and are dimmed by default.
