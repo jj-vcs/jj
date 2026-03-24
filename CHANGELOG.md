@@ -16,6 +16,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj bookmark create` now accepts a `--track` flag that starts tracking the
+  newly created bookmark on all remotes, bypassing `remotes.<remote>.auto-track-bookmarks`
+  settings.
+
 * New `diff_lines_added()` and `diff_lines_removed()` revset functions for
   matching content on only one side of a diff.
 

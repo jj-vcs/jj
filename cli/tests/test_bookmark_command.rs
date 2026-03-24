@@ -3459,6 +3459,97 @@ fn test_bookmark_advance_default() {
     ");
 }
 
+#[test]
+fn test_bookmark_create_track() {
+    let test_env = TestEnvironment::default();
+    let root_dir = test_env.work_dir("");
+    root_dir
+        .run_jj(["git", "init", "--colocate", "origin"])
+        .success();
+
+    root_dir.run_jj(["git", "init", "repo"]).success();
+    let repo_dir = test_env.work_dir("repo");
+    repo_dir
+        .run_jj(["git", "remote", "add", "origin", "../origin/.git"])
+        .success();
+
+    let output = repo_dir.run_jj(["bookmark", "create", "--track", "foo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Target revision is empty.
+    Created 1 bookmarks pointing to rlvkpnrz 7eb1c95e foo* | (empty) (no description set)
+    [EOF]
+    ");
+    let output = repo_dir.run_jj(["bookmark", "list", "--all-remotes", "foo"]);
+    insta::assert_snapshot!(output, @"
+    foo: rlvkpnrz 7eb1c95e (empty) (no description set)
+      @origin (not created yet)
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_bookmark_create_track_no_remotes() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj(["bookmark", "create", "--track", "foo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Target revision is empty.
+    Created 1 bookmarks pointing to qpvuntsm e8849ae1 foo | (empty) (no description set)
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_bookmark_create_track_overrides_autotrack() {
+    let test_env = TestEnvironment::default();
+    let root_dir = test_env.work_dir("");
+    root_dir
+        .run_jj(["git", "init", "--colocate", "origin"])
+        .success();
+
+    test_env.add_config(
+        "
+        [remotes.origin]
+        auto-track-bookmarks = '~*'
+        ",
+    );
+
+    root_dir.run_jj(["git", "init", "repo"]).success();
+    let repo_dir = test_env.work_dir("repo");
+    repo_dir
+        .run_jj(["git", "remote", "add", "origin", "../origin/.git"])
+        .success();
+
+    // Without --track: auto-track-bookmarks='~*' means NOT tracked
+    repo_dir
+        .run_jj(["bookmark", "create", "untracked"])
+        .success();
+    let output = repo_dir.run_jj(["bookmark", "list", "--all-remotes", "untracked"]);
+    insta::assert_snapshot!(output, @"
+    untracked: rlvkpnrz 7eb1c95e (empty) (no description set)
+    [EOF]
+    ");
+
+    // With --track: tracked despite auto-track config
+    let output = repo_dir.run_jj(["bookmark", "create", "--track", "tracked"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Target revision is empty.
+    Created 1 bookmarks pointing to rlvkpnrz 7eb1c95e tracked* untracked | (empty) (no description set)
+    [EOF]
+    ");
+    let output = repo_dir.run_jj(["bookmark", "list", "--all-remotes", "tracked"]);
+    insta::assert_snapshot!(output, @"
+    tracked: rlvkpnrz 7eb1c95e (empty) (no description set)
+      @origin (not created yet)
+    [EOF]
+    ");
+}
+
 #[must_use]
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     let template = r#"bookmarks ++ " " ++ commit_id.short()"#;
