@@ -14,6 +14,7 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::future;
 use std::io;
 use std::io::Write as _;
 use std::iter;
@@ -28,8 +29,6 @@ use futures::future::try_join_all;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
-use jj_lib::commit::Commit;
-use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::git;
 use jj_lib::git::GitPushOptions;
@@ -434,31 +433,11 @@ pub async fn cmd_git_push(
     }
 
     let to_push_expr = ready_to_push_revset_expression(&tx, remote, &bookmark_updates);
-    let sign_behavior = if tx.settings().get_bool("git.sign-on-push")? {
-        Some(SignBehavior::Own)
-    } else {
-        None
-    };
-    let commits_to_sign = validate_commits_ready_to_push(
-        ui,
-        tx.base_workspace_helper(),
-        to_push_expr,
-        args,
-        sign_behavior,
-    )
-    .await?;
-    if !args.dry_run
-        && !commits_to_sign.is_empty()
-        && let Some(sign_behavior) = sign_behavior
-    {
-        bookmark_updates = sign_commits_before_push(
-            ui,
-            &mut tx,
-            commits_to_sign,
-            sign_behavior,
-            bookmark_updates,
-        )
+    validate_commits_ready_to_push(ui, tx.base_workspace_helper(), to_push_expr.clone(), args)
         .await?;
+    if !args.dry_run && tx.settings().get_bool("git.sign-on-push")? {
+        bookmark_updates =
+            sign_commits_before_push(ui, &mut tx, to_push_expr, bookmark_updates).await?;
     }
 
     if let Some(mut formatter) = ui.status_formatter() {
@@ -528,28 +507,18 @@ fn ready_to_push_revset_expression(
 
 /// Validates that the commits that will be pushed are ready (have authorship
 /// information, are not conflicted, etc.).
-///
-/// Returns the list of commits which need to be signed.
 async fn validate_commits_ready_to_push(
     ui: &Ui,
     workspace_helper: &WorkspaceCommandHelper,
     commits_to_push: Arc<UserRevsetExpression>,
     args: &GitPushArgs,
-    sign_behavior: Option<SignBehavior>,
-) -> Result<Vec<Commit>, CommandError> {
+) -> Result<(), CommandError> {
     let settings = workspace_helper.settings();
     let private_revset_str = RevisionArg::from(settings.get_string("git.private-commits")?);
     let is_private = workspace_helper
         .parse_revset(ui, &private_revset_str)?
         .evaluate()?
         .containing_fn();
-    let sign_settings = sign_behavior.map(|sign_behavior| {
-        let mut sign_settings = settings.sign_settings();
-        sign_settings.behavior = sign_behavior;
-        sign_settings
-    });
-
-    let mut commits_to_sign = vec![];
 
     let mut commit_stream = workspace_helper
         .attach_revset_evaluator(commits_to_push)
@@ -591,14 +560,8 @@ async fn validate_commits_ready_to_push(
             }
             return Err(error);
         }
-        if let Some(sign_settings) = &sign_settings
-            && !commit.is_signed()
-            && sign_settings.should_sign(commit.store_commit())
-        {
-            commits_to_sign.push(commit);
-        }
     }
-    Ok(commits_to_sign)
+    Ok(())
 }
 
 /// Signs commits before pushing.
@@ -608,11 +571,26 @@ async fn validate_commits_ready_to_push(
 async fn sign_commits_before_push(
     ui: &Ui,
     tx: &mut WorkspaceCommandTransaction<'_>,
-    commits_to_sign: Vec<Commit>,
-    sign_behavior: SignBehavior,
+    commits_to_push: Arc<UserRevsetExpression>,
     bookmark_updates: Vec<(RefNameBuf, Diff<Option<CommitId>>)>,
 ) -> Result<Vec<(RefNameBuf, Diff<Option<CommitId>>)>, CommandError> {
-    let commit_ids: IndexSet<CommitId> = commits_to_sign.iter().ids().cloned().collect();
+    let mut sign_settings = tx.settings().sign_settings();
+    sign_settings.behavior = SignBehavior::Own;
+    let commit_ids: IndexSet<CommitId> = tx
+        .base_workspace_helper()
+        .attach_revset_evaluator(commits_to_push)
+        .evaluate_to_commits()?
+        // TODO: make filter condition configurable by revset?
+        .try_filter(|commit| {
+            future::ready(!commit.is_signed() && sign_settings.should_sign(commit.store_commit()))
+        })
+        .map_ok(|commit| commit.id().clone())
+        .try_collect()
+        .await?;
+    if commit_ids.is_empty() {
+        return Ok(bookmark_updates);
+    }
+
     let mut old_to_new_commits_map: HashMap<CommitId, CommitId> = HashMap::new();
     let mut num_rebased_descendants = 0;
     {
@@ -632,7 +610,7 @@ async fn sign_commits_before_push(
                     if commit_ids.contains(&old_commit_id) {
                         let commit = rewriter
                             .reparent()
-                            .set_sign_behavior(sign_behavior)
+                            .set_sign_behavior(sign_settings.behavior)
                             .write()
                             .await?;
                         old_to_new_commits_map.insert(old_commit_id, commit.id().clone());
