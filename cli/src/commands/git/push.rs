@@ -398,16 +398,13 @@ pub async fn cmd_git_push(
             && args.change.is_empty()
             && args.revisions.is_empty()
             && args.named.is_empty();
-        let bookmarks_targeted = find_bookmarks_targeted_by_revisions(
-            ui,
-            tx.base_workspace_helper(),
-            remote,
-            &args.revisions,
-            use_default_revset,
-        )
-        .await?;
-        for &(name, targets) in &bookmarks_targeted {
-            if !seen_bookmarks.insert(name) {
+        let target_revisions = if use_default_revset {
+            find_default_target_revisions(ui, tx.base_workspace_helper(), remote).await?
+        } else {
+            find_bookmarked_revisions(ui, tx.base_workspace_helper(), &args.revisions).await?
+        };
+        for (name, targets) in tx.base_repo().view().local_remote_bookmarks(remote) {
+            if !matches_local_target(targets, &target_revisions) || !seen_bookmarks.insert(name) {
                 continue;
             }
             let allow_delete = false;
@@ -979,43 +976,43 @@ fn find_bookmarks_to_push<'a>(
     Ok(matching_bookmarks)
 }
 
-async fn find_bookmarks_targeted_by_revisions<'a>(
+async fn find_default_target_revisions(
     ui: &Ui,
-    workspace_command: &'a WorkspaceCommandHelper,
+    workspace_command: &WorkspaceCommandHelper,
     remote: &RemoteName,
-    revisions: &[RevisionArg],
-    use_default_revset: bool,
-) -> Result<Vec<(&'a RefName, LocalAndRemoteRef<'a>)>, CommandError> {
-    let mut revision_commit_ids = HashSet::new();
-    if use_default_revset {
-        // remote_bookmarks(remote=<remote>)..@
-        let workspace_name = workspace_command.workspace_name();
-        let expression = RevsetExpression::remote_bookmarks(
-            RemoteRefSymbolExpression {
-                name: StringExpression::all(),
-                remote: StringExpression::exact(remote),
-            },
-            None,
-        )
-        .range(&RevsetExpression::working_copy(workspace_name.to_owned()))
-        .intersection(&RevsetExpression::bookmarks(StringExpression::all()));
-        let commit_ids = workspace_command
-            .attach_revset_evaluator(expression)
-            .evaluate_to_commit_ids()?
-            .peekable();
-        let mut commit_ids = std::pin::pin!(commit_ids);
-        if commit_ids.as_mut().peek().await.is_none() {
-            writeln!(
-                ui.warning_default(),
-                "No bookmarks found in the default push revset: \
-                 remote_bookmarks(remote={remote})..@",
-                remote = remote.as_symbol()
-            )?;
-        }
-        while let Some(commit_id) = commit_ids.as_mut().try_next().await? {
-            revision_commit_ids.insert(commit_id);
-        }
+) -> Result<HashSet<CommitId>, CommandError> {
+    // remote_bookmarks(remote=<remote>)..@
+    let workspace_name = workspace_command.workspace_name();
+    let expression = RevsetExpression::remote_bookmarks(
+        RemoteRefSymbolExpression {
+            name: StringExpression::all(),
+            remote: StringExpression::exact(remote),
+        },
+        None,
+    )
+    .range(&RevsetExpression::working_copy(workspace_name.to_owned()))
+    .intersection(&RevsetExpression::bookmarks(StringExpression::all()));
+    let commit_ids = workspace_command
+        .attach_revset_evaluator(expression)
+        .evaluate_to_commit_ids()?
+        .peekable();
+    let mut commit_ids = std::pin::pin!(commit_ids);
+    if commit_ids.as_mut().peek().await.is_none() {
+        writeln!(
+            ui.warning_default(),
+            "No bookmarks found in the default push revset: remote_bookmarks(remote={remote})..@",
+            remote = remote.as_symbol()
+        )?;
     }
+    Ok(commit_ids.try_collect().await?)
+}
+
+async fn find_bookmarked_revisions(
+    ui: &Ui,
+    workspace_command: &WorkspaceCommandHelper,
+    revisions: &[RevisionArg],
+) -> Result<HashSet<CommitId>, CommandError> {
+    let mut revision_commit_ids = HashSet::new();
     for rev_arg in revisions {
         let mut expression = workspace_command.parse_revset(ui, rev_arg)?;
         expression.intersect_with(&RevsetExpression::bookmarks(StringExpression::all()));
@@ -1031,16 +1028,12 @@ async fn find_bookmarks_targeted_by_revisions<'a>(
             revision_commit_ids.insert(commit_id);
         }
     }
-    let bookmarks_targeted = workspace_command
-        .repo()
-        .view()
-        .local_remote_bookmarks(remote)
-        .filter(|(_, targets)| {
-            let mut local_ids = targets.local_target.added_ids();
-            local_ids.any(|id| revision_commit_ids.contains(id))
-        })
-        .collect_vec();
-    Ok(bookmarks_targeted)
+    Ok(revision_commit_ids)
+}
+
+fn matches_local_target(targets: LocalAndRemoteRef<'_>, revisions: &HashSet<CommitId>) -> bool {
+    let mut local_ids = targets.local_target.added_ids();
+    local_ids.any(|id| revisions.contains(id))
 }
 
 pub fn is_push_operation(op: &Operation) -> bool {
