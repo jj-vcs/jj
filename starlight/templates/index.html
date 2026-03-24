@@ -310,7 +310,7 @@ Same as <code dir="auto">content_1 ++ ... ++ content_n</code>.</li>
 <code dir="auto">separator</code> between <strong>non-empty</strong> <code dir="auto">content</code>s.</li>
 <li><code dir="auto">surround(prefix: Template, suffix: Template, content: Template) -> Template</code>:
 Surround <strong>non-empty</strong> content with texts such as parentheses.</li>
-<li><code dir="auto">config(name: StringLiteral) -> ConfigValue</code>: Look up configuration value by <code dir="auto">name</code>.</li>
+<li><code dir="auto">config(name: Stringify) -> ConfigValue</code>: Look up configuration value by <code dir="auto">name</code>.</li>
 <li><code dir="auto">git_web_url([remote: String]) -> String</code>: Best-effort conversion of a git
 remote URL to an HTTPS web URL. Defaults to the “origin” remote. Returns an
 empty string on failure. SSH host alias resolution is currently unsupported.</li>
