@@ -17,6 +17,7 @@ use std::collections::HashSet;
 use std::io;
 use std::io::Write as _;
 use std::iter;
+use std::sync::Arc;
 
 use clap::ArgGroup;
 use clap_complete::ArgValueCandidates;
@@ -49,6 +50,7 @@ use jj_lib::refs::classify_ref_push_action;
 use jj_lib::repo::Repo;
 use jj_lib::revset::RemoteRefSymbolExpression;
 use jj_lib::revset::RevsetExpression;
+use jj_lib::revset::UserRevsetExpression;
 use jj_lib::rewrite::CommitRewriter;
 use jj_lib::signing::SignBehavior;
 use jj_lib::str_util::StringExpression;
@@ -431,14 +433,20 @@ pub async fn cmd_git_push(
         return Ok(());
     }
 
+    let to_push_expr = ready_to_push_revset_expression(&tx, remote, &bookmark_updates);
     let sign_behavior = if tx.settings().get_bool("git.sign-on-push")? {
         Some(SignBehavior::Own)
     } else {
         None
     };
-    let commits_to_sign =
-        validate_commits_ready_to_push(ui, &bookmark_updates, remote, &tx, args, sign_behavior)
-            .await?;
+    let commits_to_sign = validate_commits_ready_to_push(
+        ui,
+        tx.base_workspace_helper(),
+        to_push_expr,
+        args,
+        sign_behavior,
+    )
+    .await?;
     if !args.dry_run
         && !commits_to_sign.is_empty()
         && let Some(sign_behavior) = sign_behavior
@@ -496,21 +504,13 @@ pub async fn cmd_git_push(
     }
 }
 
-/// Validates that the commits that will be pushed are ready (have authorship
-/// information, are not conflicted, etc.).
-///
-/// Returns the list of commits which need to be signed.
-async fn validate_commits_ready_to_push(
-    ui: &Ui,
-    bookmark_updates: &[(RefNameBuf, Diff<Option<CommitId>>)],
+fn ready_to_push_revset_expression(
+    tx: &WorkspaceCommandTransaction,
     remote: &RemoteName,
-    tx: &WorkspaceCommandTransaction<'_>,
-    args: &GitPushArgs,
-    sign_behavior: Option<SignBehavior>,
-) -> Result<Vec<Commit>, CommandError> {
+    bookmark_updates: &[(RefNameBuf, Diff<Option<CommitId>>)],
+) -> Arc<UserRevsetExpression> {
     let workspace_helper = tx.base_workspace_helper();
     let repo = workspace_helper.repo();
-
     let new_heads = bookmark_updates
         .iter()
         .filter_map(|(_, update)| update.after.clone())
@@ -521,10 +521,22 @@ async fn validate_commits_ready_to_push(
         .flat_map(|(_, old_head)| old_head.target.added_ids())
         .cloned()
         .collect_vec();
-    let commits_to_push = RevsetExpression::commits(old_heads)
+    RevsetExpression::commits(old_heads)
         .union(workspace_helper.env().immutable_heads_expression())
-        .range(&RevsetExpression::commits(new_heads));
+        .range(&RevsetExpression::commits(new_heads))
+}
 
+/// Validates that the commits that will be pushed are ready (have authorship
+/// information, are not conflicted, etc.).
+///
+/// Returns the list of commits which need to be signed.
+async fn validate_commits_ready_to_push(
+    ui: &Ui,
+    workspace_helper: &WorkspaceCommandHelper,
+    commits_to_push: Arc<UserRevsetExpression>,
+    args: &GitPushArgs,
+    sign_behavior: Option<SignBehavior>,
+) -> Result<Vec<Commit>, CommandError> {
     let settings = workspace_helper.settings();
     let private_revset_str = RevisionArg::from(settings.get_string("git.private-commits")?);
     let is_private = workspace_helper
