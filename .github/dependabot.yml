@@ -30,6 +30,6 @@ updates:
   commit-message:
     prefix: "npm:"
   groups:
-    github-dependencies:
+    npm-dependencies:
       patterns:
       - "*"
