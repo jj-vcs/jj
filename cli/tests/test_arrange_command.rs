@@ -32,7 +32,39 @@ fn test_arrange_bad_revisions() {
     [EOF]
     ");
 
+    // Multiple ways to specify what to arrange:
+    // Positional arguments
     let output = work_dir.run_jj(["arrange", "a", "c"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Cannot arrange revset with gaps in.
+    Hint: Revision 123b4d91f6e5 would need to be in the set.
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // Option arguments
+    let output = work_dir.run_jj(["arrange", "-r=a", "-r=c"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Cannot arrange revset with gaps in.
+    Hint: Revision 123b4d91f6e5 would need to be in the set.
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // Both
+    let output = work_dir.run_jj(["arrange", "-r=a", "c"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Cannot arrange revset with gaps in.
+    Hint: Revision 123b4d91f6e5 would need to be in the set.
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // Configuration value
+    let output = work_dir.run_jj(["arrange", "--config=revsets.arrange='a|c'"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Cannot arrange revset with gaps in.
