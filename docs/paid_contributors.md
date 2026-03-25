@@ -25,6 +25,7 @@ See [contribution docs](contributing.md#code-reviews) for details on this policy
 * algmyr
 * AM5800
 * aspotashev
+* brychanrobot
 * daehyeok
 * drieber
 * durin42
