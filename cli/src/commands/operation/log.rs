@@ -136,6 +136,7 @@ async fn do_op_log(
         let language = OperationTemplateLanguage::new(
             repo_loader,
             Some(current_op.id()),
+            workspace_env.env_vars(),
             workspace_env.operation_template_extensions(),
         );
         let text = match &args.template {

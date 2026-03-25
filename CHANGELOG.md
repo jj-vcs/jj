@@ -38,6 +38,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The `config()` template function now accepts a `Stringify` expression instead 
   of `LiteralString`. This allows looking up configuration values dynamically.
 
+* Add `env(name)` template function that looks up the value of a given
+  environment variable.
+
 ### Fixed bugs
 
 * `.gitignore` with UTF-8 BOM can now be parsed correctly.
