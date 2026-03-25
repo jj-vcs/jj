@@ -1154,6 +1154,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#default-revisions-for-operation-diffs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Default revisions for operation diffs
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#prioritize-revsets-in-the-log-over" class="md-nav__link">
     <span class="md-ellipsis">
       Prioritize Revsets in the Log over @
@@ -3085,6 +3094,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#default-revisions-for-operation-diffs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Default revisions for operation diffs
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#prioritize-revsets-in-the-log-over" class="md-nav__link">
     <span class="md-ellipsis">
       Prioritize Revsets in the Log over @
@@ -4286,6 +4304,17 @@ you can add this to your config:</p>
 </code></pre></div>
 <p>The default value for <code>revsets.log</code> is
 <code>'present(@) | ancestors(immutable_heads().., 2) | trunk()'</code>.</p>
+<h3 id="default-revisions-for-operation-diffs">Default revisions for operation diffs<a class="headerlink" href="#default-revisions-for-operation-diffs" title="Permanent link">&para;</a></h3>
+<p>You can configure the set of revisions that are considered "interesting" when
+showing the difference between two operations (e.g. in <code>jj op show</code>,
+<code>jj op diff</code>, or <code>jj op log -p</code>). Revisions that are not in this set are
+elided into a summary count.</p>
+<div class="highlight"><pre><span></span><code><span class="k">[revsets]</span>
+<span class="c1"># Only show mutable revisions and the trunk</span>
+<span class="n">op-diff-changes-in</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;mutable() | trunk()&quot;</span>
+</code></pre></div>
+<p>The default value for <code>revsets.op-diff-changes-in</code> is
+<code>'mutable() | immutable_heads()'</code>.</p>
 <h3 id="prioritize-revsets-in-the-log-over">Prioritize Revsets in the Log over @<a class="headerlink" href="#prioritize-revsets-in-the-log-over" title="Permanent link">&para;</a></h3>
 <p>In some situations the default graph can be hard to read, for example when working with big merges.
 To improve this behavior you can configure which revset in the <code>jj log</code> graph is displayed on

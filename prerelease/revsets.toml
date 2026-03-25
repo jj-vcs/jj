@@ -12,6 +12,7 @@ log = "present(@) | ancestors(immutable_heads().., 2) | trunk()"
 # Emit the working-copy branch first, which is usually most interesting.
 # This also helps stabilize output order.
 log-graph-prioritize = "present(@)"
+op-diff-changes-in = "mutable() | immutable_heads()"
 sign = "reachable(@, mutable())"
 bookmark-advance-to = "@"
 bookmark-advance-from = "heads(::to & bookmarks())"

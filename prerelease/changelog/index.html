@@ -6808,6 +6808,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <p>The <code>config()</code> template function now accepts a <code>Stringify</code> expression instead 
   of <code>LiteralString</code>. This allows looking up configuration values dynamically.</p>
 </li>
+<li>
+<p><code>jj op show</code>, <code>jj op diff</code>, <code>jj op log -p</code> now only show "interesting"
+  revisions by default (defined by <code>revsets.op-diff-changes-in</code>). A new flag,
+  <code>--show-changes-in</code>, can be used to override this. <a href="https://github.com/jj-vcs/jj/issues/6083">#6083</a></p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
