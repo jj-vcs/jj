@@ -18,7 +18,6 @@ use std::collections::HashSet;
 use std::pin::pin;
 use std::sync::Arc;
 
-use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use thiserror::Error;
 
@@ -27,6 +26,7 @@ use crate::backend::CommitId;
 use crate::commit::Commit;
 use crate::repo::Repo;
 use crate::revset::ResolvedRevsetExpression;
+use crate::revset::Revset;
 use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExpression;
 use crate::revset::RevsetStreamExt as _;
@@ -200,14 +200,11 @@ impl<'repo> Bisector<'repo> {
             .minus(&skipped_expr)
     }
 
-    /// Returns the number of remaining candidate commits to evaluate.
-    pub async fn remaining_count(&self) -> Result<usize, BisectionError> {
-        Ok(self
-            .candidates()
-            .evaluate(self.repo)?
-            .stream()
-            .count()
-            .await)
+    /// Returns the evaluated revset representing the remaining candidate
+    /// commits. Can be used for getting an estimate of how many commits are
+    /// left to evaluate.
+    pub async fn remaining_revset(&self) -> Result<Box<dyn Revset + 'repo>, BisectionError> {
+        Ok(self.candidates().evaluate(self.repo)?)
     }
 
     /// Find the next commit to evaluate, or determine that there are no more

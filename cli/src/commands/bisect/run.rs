@@ -131,14 +131,22 @@ pub(crate) async fn cmd_bisect_run(
             jj_lib::bisect::NextStep::Evaluate(commit) => {
                 {
                     let mut formatter = ui.stdout_formatter();
+                    let (lower, upper) = bisector.remaining_revset().await?.count_estimate()?;
+                    let lower_steps = ((lower + 1) as f64).log2().ceil() as usize;
+                    if upper == Some(lower) {
+                        writeln!(
+                            formatter,
+                            "Bisecting: {lower} revisions left to test after this (roughly \
+                             {lower_steps} steps)"
+                        )?;
+                    } else {
+                        writeln!(
+                            formatter,
+                            "Bisecting: at least {lower} revisions left to test after this (at \
+                             least roughly {lower_steps} steps)"
+                        )?;
+                    }
                     // TODO: Show a graph of the current range instead?
-                    let remaining = bisector.remaining_count().await?;
-                    let steps = ((remaining + 1) as f64).log2().ceil() as usize;
-                    writeln!(
-                        formatter,
-                        "Bisecting: {remaining} revisions left to test after this (roughly \
-                         {steps} steps)"
-                    )?;
                     let commit_template = workspace_command.commit_summary_template();
                     write!(formatter, "Now evaluating: ")?;
                     commit_template.format(&commit, formatter.as_mut())?;
