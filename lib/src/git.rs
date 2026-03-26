@@ -551,6 +551,8 @@ pub async fn import_refs(
 ///
 /// Only bookmarks and tags whose remote symbol pass the filter will be
 /// considered for addition, update, or deletion.
+///
+/// This includes updating JJ's view of the configured git remotes.
 pub async fn import_some_refs(
     mut_repo: &mut MutableRepo,
     options: &GitImportOptions,
@@ -558,18 +560,44 @@ pub async fn import_some_refs(
 ) -> Result<GitImportStats, GitImportError> {
     let git_repo = get_git_repo(mut_repo.store())?;
 
+    // We do not deal with remotes in import_refs_inner, so that it may be used
+    // for refs only.
+    let configured_remotes: HashSet<RemoteNameBuf> = iter_remote_names(&git_repo).collect();
+
     // Allocate views for new remotes configured externally. There may be
     // remotes with no refs, but the user might still want to "track" absent
     // remote refs.
-    for remote_name in iter_remote_names(&git_repo) {
-        mut_repo.ensure_remote(&remote_name);
+    for remote_name in &configured_remotes {
+        mut_repo.ensure_remote(remote_name);
     }
 
     // Exclude real remote tags, which should never be updated by Git.
     let all_remote_tags = false;
     let refs_to_import =
         diff_refs_to_import(mut_repo.view(), &git_repo, all_remote_tags, git_ref_filter)?;
-    import_refs_inner(mut_repo, refs_to_import, options).await
+    let stats = import_refs_inner(mut_repo, refs_to_import, options).await?;
+
+    // Prune views for remotes that no longer exist in the git config and
+    // have no remaining present refs. This handles the case where a remote was
+    // removed externally.
+    //
+    // We must do this after all refs are pruned, so that we have an
+    // up-to-date view of which remotes are prunable.
+    let pruned_remotes: Vec<RemoteNameBuf> = mut_repo
+        .view()
+        .remote_views()
+        .filter(|(name, view)| {
+            *name != REMOTE_NAME_FOR_LOCAL_GIT_REPO
+                && !configured_remotes.contains(*name)
+                && view.all_refs_absent()
+        })
+        .map(|(name, _)| name.to_owned())
+        .collect();
+    for remote_name in &pruned_remotes {
+        remove_remote_refs(mut_repo, remote_name);
+    }
+
+    Ok(stats)
 }
 
 async fn import_refs_inner(

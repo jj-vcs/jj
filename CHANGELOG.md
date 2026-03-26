@@ -46,6 +46,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `.gitignore` with UTF-8 BOM can now be parsed correctly.
 
+* jj now prunes Git remotes that have been deleted using the Git CLI.
+
 ## [0.39.0] - 2026-03-04
 
 ### Release highlights
