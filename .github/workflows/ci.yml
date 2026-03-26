@@ -80,7 +80,7 @@ jobs:
         toolchain: 1.89
         # comma-separated list of extra targets to install
         targets: ${{ matrix.extra_targets }}
-    - uses: taiki-e/install-action@0d865d5cc6d507df4765f1f866bfae8bab4e2a73
+    - uses: taiki-e/install-action@7627fb428e65e78e2ec9a24ae5c5bd5f8553f182
       with:
         tool: nextest
     - name: Install mold
@@ -136,7 +136,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: cachix/install-nix-action@1ca7d21a94afc7c957383a2d217460d980de4934
+      - uses: cachix/install-nix-action@51f3067b56fe8ae331890c77d4e454f6d60615ff
       - run: nix flake check -L --show-trace
 
   check-protos:
