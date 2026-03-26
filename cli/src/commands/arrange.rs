@@ -293,10 +293,13 @@ impl State {
             || self.commits.get(a_id).unwrap().parents.contains(b_id)
     }
 
-    fn swap_commits(&mut self, a_idx: usize, b_idx: usize) {
-        if a_idx == b_idx {
+    fn swap_commits(&mut self, a_id: &CommitId, b_id: &CommitId) {
+        if a_id == b_id {
             return;
         }
+
+        let a_idx = self.current_order.iter().position(|x| x == a_id).unwrap();
+        let b_idx = self.current_order.iter().position(|x| x == b_id).unwrap();
 
         if self.current_selection == a_idx {
             self.current_selection = b_idx;
@@ -305,10 +308,6 @@ impl State {
         }
 
         self.current_order.swap(a_idx, b_idx);
-        // Backwards because we just swapped them. It doesn't matter which is which
-        // anyway.
-        let a_id = &self.current_order[b_idx];
-        let b_id = &self.current_order[a_idx];
 
         for id in &mut self.head_order {
             if id == a_id {
@@ -362,7 +361,9 @@ impl State {
         if self.current_selection + 1 < self.current_order.len()
             && self.are_graph_neighbors(self.current_selection, self.current_selection + 1)
         {
-            self.swap_commits(self.current_selection, self.current_selection + 1);
+            let current_id = self.current_id().clone();
+            let next_id = self.current_order[self.current_selection + 1].clone();
+            self.swap_commits(&current_id, &next_id);
         }
     }
 
@@ -370,7 +371,9 @@ impl State {
         if self.current_selection > 0
             && self.are_graph_neighbors(self.current_selection, self.current_selection - 1)
         {
-            self.swap_commits(self.current_selection, self.current_selection - 1);
+            let current_id = self.current_id().clone();
+            let prev_id = self.current_order[self.current_selection - 1].clone();
+            self.swap_commits(&current_id, &prev_id);
         }
     }
 }
@@ -806,7 +809,7 @@ mod tests {
         // |           |
         // root        root
         //
-        state.swap_commits(0, 2);
+        state.swap_commits(commit_d.id(), commit_c.id());
         assert_eq!(state.head_order, vec![commit_c.id().clone()]);
         assert_eq!(
             state.current_order,
@@ -846,7 +849,7 @@ mod tests {
         // |           |
         // root        root
         //
-        state.swap_commits(1, 2);
+        state.swap_commits(commit_b.id(), commit_d.id());
         assert_eq!(state.head_order, vec![commit_c.id().clone()]);
         assert_eq!(
             state.current_order,
@@ -886,7 +889,7 @@ mod tests {
         // |           |
         // root        root
         //
-        state.swap_commits(3, 0);
+        state.swap_commits(commit_a.id(), commit_c.id());
         assert_eq!(state.head_order, vec![commit_a.id().clone()]);
         assert_eq!(
             state.current_order,
@@ -916,7 +919,7 @@ mod tests {
         );
 
         // No-op swap
-        state.swap_commits(0, 0);
+        state.swap_commits(commit_a.id(), commit_a.id());
         assert_eq!(state.current_selection, 1);
         assert_eq!(
             state.current_order,
