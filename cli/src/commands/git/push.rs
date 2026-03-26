@@ -29,6 +29,7 @@ use futures::future::try_join_all;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
+use jj_lib::commit::Commit;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::git;
 use jj_lib::git::GitPushOptions;
@@ -483,6 +484,30 @@ pub async fn cmd_git_push(
     }
 }
 
+#[derive(Clone, Debug)]
+struct RejectedCommitReason {
+    commit: Commit,
+    message: String,
+    hint: Option<String>,
+}
+
+impl RejectedCommitReason {
+    fn to_command_error(&self, workspace_helper: &WorkspaceCommandHelper) -> CommandError {
+        let mut error = user_error(format!(
+            "Won't push commit {id} since {message}",
+            id = short_commit_hash(self.commit.id()),
+            message = self.message,
+        ));
+        error.add_formatted_hint_with(|formatter| {
+            write!(formatter, "Rejected commit: ")?;
+            workspace_helper.write_commit_summary(formatter, &self.commit)?;
+            Ok(())
+        });
+        error.extend_hints(self.hint.clone());
+        error
+    }
+}
+
 fn ready_to_push_revset_expression(
     tx: &WorkspaceCommandTransaction,
     remote: &RemoteName,
@@ -543,22 +568,13 @@ async fn validate_commits_ready_to_push(
             reasons.push("it is private");
         }
         if !reasons.is_empty() {
-            let mut error = user_error(format!(
-                "Won't push commit {} since {}",
-                short_commit_hash(commit.id()),
-                reasons.join(" and ")
-            ));
-            error.add_formatted_hint_with(|formatter| {
-                write!(formatter, "Rejected commit: ")?;
-                workspace_helper.write_commit_summary(formatter, &commit)?;
-                Ok(())
-            });
-            if !args.allow_private && is_private {
-                error.add_hint(format!(
-                    "Configured git.private-commits: '{private_revset_str}'",
-                ));
-            }
-            return Err(error);
+            let reason = RejectedCommitReason {
+                commit,
+                message: reasons.join(" and "),
+                hint: (!args.allow_private && is_private)
+                    .then(|| format!("Configured git.private-commits: '{private_revset_str}'")),
+            };
+            return Err(reason.to_command_error(workspace_helper));
         }
     }
     Ok(())
