@@ -504,7 +504,7 @@ struct RejectedCommitReason {
 impl RejectedCommitReason {
     fn to_command_error(&self, workspace_helper: &WorkspaceCommandHelper) -> CommandError {
         let mut error = user_error(format!(
-            "Won't push commit {id} since {message}",
+            "Won't push commit {id} since it {message}",
             id = short_commit_hash(self.commit.id()),
             message = self.message,
         ));
@@ -591,22 +591,22 @@ impl<'repo> CommitsValidator<'repo> {
             let mut reasons = vec![];
             let mut hint = None;
             if commit.description().is_empty() && !self.allow_empty_description {
-                reasons.push("it has no description");
+                reasons.push("has no description");
             }
             if commit.author().name.is_empty()
                 || commit.author().email.is_empty()
                 || commit.committer().name.is_empty()
                 || commit.committer().email.is_empty()
             {
-                reasons.push("it has no author and/or committer set");
+                reasons.push("has no author and/or committer set");
             }
             if commit.has_conflict() {
-                reasons.push("it has conflicts");
+                reasons.push("has conflicts");
             }
             if let Some((revset_str, is_private)) = &self.private_commits
                 && is_private(commit.id())?
             {
-                reasons.push("it is private");
+                reasons.push("is private");
                 hint = Some(format!("Configured git.private-commits: '{revset_str}'"));
             }
             if reasons.is_empty() {

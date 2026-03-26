@@ -1833,7 +1833,7 @@ fn test_git_push_missing_committer() {
     let output = work_dir.run_jj(["git", "push", "--bookmark=missing-email"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Won't push commit 4bd3b55c7759 since it has no description and it has no author and/or committer set
+    Error: Won't push commit 4bd3b55c7759 since it has no description and has no author and/or committer set
     Hint: Rejected commit: kpqxywon 4bd3b55c missing-email* | (empty) (no description set)
     [EOF]
     [exit status: 1]
@@ -2367,7 +2367,7 @@ fn test_git_push_commits_not_ready() {
     let output = work_dir.run_jj(["git", "push", "--config", "git.private-commits=all()"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Won't push commit b63db0e60f60 since it has no author and/or committer set and it is private
+    Error: Won't push commit b63db0e60f60 since it has no author and/or committer set and is private
     Hint: Rejected commit: vruxwmqv b63db0e6 bookmark2* | (empty) commit not suitable
     Hint: Configured git.private-commits: 'all()'
     [EOF]
