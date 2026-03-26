@@ -49,7 +49,11 @@ use jj_lib::refs::RefPushAction;
 use jj_lib::refs::classify_ref_push_action;
 use jj_lib::repo::Repo;
 use jj_lib::revset::RemoteRefSymbolExpression;
+use jj_lib::revset::ResolvedRevsetExpression;
+use jj_lib::revset::RevsetContainingFn;
+use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetExpression;
+use jj_lib::revset::RevsetStreamExt as _;
 use jj_lib::revset::UserRevsetExpression;
 use jj_lib::rewrite::CommitRewriter;
 use jj_lib::signing::SignBehavior;
@@ -433,10 +437,16 @@ pub async fn cmd_git_push(
         return Ok(());
     }
 
-    let to_push_expr = ready_to_push_revset_expression(&tx, remote, &bookmark_updates);
-    validate_commits_ready_to_push(ui, tx.base_workspace_helper(), to_push_expr.clone(), args)
-        .await?;
+    let mut commits_validator =
+        CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args)?;
+    commits_validator
+        .validate_updates(&bookmark_updates)
+        .await?
+        .map_err(|reason| reason.to_command_error(tx.base_workspace_helper()))?;
+    drop(commits_validator);
+
     if !args.dry_run && tx.settings().get_bool("git.sign-on-push")? {
+        let to_push_expr = ready_to_push_revset_expression(&tx, remote, &bookmark_updates);
         bookmark_updates =
             sign_commits_before_push(ui, &mut tx, to_push_expr, bookmark_updates).await?;
     }
@@ -508,6 +518,113 @@ impl RejectedCommitReason {
     }
 }
 
+/// Validates that the commits that will be pushed are ready (have authorship
+/// information, are not conflicted, etc.).
+struct CommitsValidator<'repo> {
+    repo: &'repo dyn Repo,
+    known_heads: Vec<CommitId>,
+    immutable_heads: Arc<ResolvedRevsetExpression>,
+    private_commits: Option<(String, Box<RevsetContainingFn<'repo>>)>,
+    allow_empty_description: bool,
+}
+
+impl<'repo> CommitsValidator<'repo> {
+    fn new(
+        ui: &Ui,
+        workspace_helper: &'repo WorkspaceCommandHelper,
+        remote: &RemoteName,
+        args: &GitPushArgs,
+    ) -> Result<Self, CommandError> {
+        let repo = workspace_helper.repo().as_ref();
+        let known_heads = repo
+            .view()
+            .remote_bookmarks(remote)
+            .flat_map(|(_, old_head)| old_head.target.added_ids())
+            .cloned()
+            .collect();
+        let immutable_heads = workspace_helper
+            .attach_revset_evaluator(workspace_helper.env().immutable_heads_expression().clone())
+            .resolve()?;
+        let private_commits = if !args.allow_private {
+            let settings = workspace_helper.settings();
+            let revset_str = settings.get_string("git.private-commits")?;
+            let is_private = workspace_helper
+                .parse_revset(ui, &RevisionArg::from(revset_str.clone()))?
+                .evaluate()?
+                .containing_fn();
+            Some((revset_str, is_private))
+        } else {
+            None
+        };
+        Ok(Self {
+            repo,
+            known_heads,
+            immutable_heads,
+            private_commits,
+            allow_empty_description: args.allow_empty_description,
+        })
+    }
+
+    async fn validate_updates(
+        &mut self,
+        bookmark_updates: &[(RefNameBuf, Diff<Option<CommitId>>)],
+    ) -> Result<Result<(), RejectedCommitReason>, RevsetEvaluationError> {
+        let new_heads = bookmark_updates
+            .iter()
+            .filter_map(|(_, update)| update.after.clone())
+            .collect_vec();
+        self.validate_commits(&new_heads).await
+    }
+
+    async fn validate_commits(
+        &mut self,
+        new_heads: &[CommitId],
+    ) -> Result<Result<(), RejectedCommitReason>, RevsetEvaluationError> {
+        let new_commits = RevsetExpression::commits(self.known_heads.clone())
+            .union(&self.immutable_heads)
+            .range(&RevsetExpression::commits(new_heads.to_vec()));
+        let mut commit_stream = new_commits
+            .evaluate(self.repo)?
+            .stream()
+            .commits(self.repo.store());
+        while let Some(commit) = commit_stream.try_next().await? {
+            let mut reasons = vec![];
+            let mut hint = None;
+            if commit.description().is_empty() && !self.allow_empty_description {
+                reasons.push("it has no description");
+            }
+            if commit.author().name.is_empty()
+                || commit.author().email.is_empty()
+                || commit.committer().name.is_empty()
+                || commit.committer().email.is_empty()
+            {
+                reasons.push("it has no author and/or committer set");
+            }
+            if commit.has_conflict() {
+                reasons.push("it has conflicts");
+            }
+            if let Some((revset_str, is_private)) = &self.private_commits
+                && is_private(commit.id())?
+            {
+                reasons.push("it is private");
+                hint = Some(format!("Configured git.private-commits: '{revset_str}'"));
+            }
+            if reasons.is_empty() {
+                continue;
+            }
+            return Ok(Err(RejectedCommitReason {
+                commit,
+                message: reasons.join(" and "),
+                hint,
+            }));
+        }
+
+        // No need to validate ancestors again
+        self.known_heads.extend(new_heads.iter().cloned());
+        Ok(Ok(()))
+    }
+}
+
 fn ready_to_push_revset_expression(
     tx: &WorkspaceCommandTransaction,
     remote: &RemoteName,
@@ -528,56 +645,6 @@ fn ready_to_push_revset_expression(
     RevsetExpression::commits(old_heads)
         .union(workspace_helper.env().immutable_heads_expression())
         .range(&RevsetExpression::commits(new_heads))
-}
-
-/// Validates that the commits that will be pushed are ready (have authorship
-/// information, are not conflicted, etc.).
-async fn validate_commits_ready_to_push(
-    ui: &Ui,
-    workspace_helper: &WorkspaceCommandHelper,
-    commits_to_push: Arc<UserRevsetExpression>,
-    args: &GitPushArgs,
-) -> Result<(), CommandError> {
-    let settings = workspace_helper.settings();
-    let private_revset_str = RevisionArg::from(settings.get_string("git.private-commits")?);
-    let is_private = workspace_helper
-        .parse_revset(ui, &private_revset_str)?
-        .evaluate()?
-        .containing_fn();
-
-    let mut commit_stream = workspace_helper
-        .attach_revset_evaluator(commits_to_push)
-        .evaluate_to_commits()?;
-    while let Some(commit) = commit_stream.try_next().await? {
-        let mut reasons = vec![];
-        if commit.description().is_empty() && !args.allow_empty_description {
-            reasons.push("it has no description");
-        }
-        if commit.author().name.is_empty()
-            || commit.author().email.is_empty()
-            || commit.committer().name.is_empty()
-            || commit.committer().email.is_empty()
-        {
-            reasons.push("it has no author and/or committer set");
-        }
-        if commit.has_conflict() {
-            reasons.push("it has conflicts");
-        }
-        let is_private = is_private(commit.id())?;
-        if !args.allow_private && is_private {
-            reasons.push("it is private");
-        }
-        if !reasons.is_empty() {
-            let reason = RejectedCommitReason {
-                commit,
-                message: reasons.join(" and "),
-                hint: (!args.allow_private && is_private)
-                    .then(|| format!("Configured git.private-commits: '{private_revset_str}'")),
-            };
-            return Err(reason.to_command_error(workspace_helper));
-        }
-    }
-    Ok(())
 }
 
 /// Signs commits before pushing.
