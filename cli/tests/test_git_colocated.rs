@@ -1753,6 +1753,119 @@ fn get_bookmark_output(work_dir: &TestWorkDir) -> CommandOutput {
     work_dir.run_jj(["bookmark", "list", "--all-remotes", "--quiet"])
 }
 
+#[test]
+fn test_missing_object_hint_on_diff() -> TestResult {
+    // Simulate a partial clone scenario where blob objects are missing.
+    // jj should provide a helpful hint about partial clones.
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create a commit with a file so a blob object exists in the git store.
+    work_dir.write_file("file.txt", "content\n");
+    work_dir.run_jj(["new", "-m", "first"]).success();
+
+    // Get the blob hash via git so we can delete it.
+    let git_output = std::process::Command::new("git")
+        .current_dir(work_dir.root())
+        .args(["hash-object", "file.txt"])
+        .output()?;
+    let blob_hash = String::from_utf8(git_output.stdout)?.trim().to_string();
+
+    // Delete the blob object from the git object store to simulate a partial
+    // clone with missing blobs.
+    let git_object_path = {
+        let (shard, file_name) = blob_hash.split_at(2);
+        work_dir
+            .root()
+            .join(".git")
+            .join("objects")
+            .join(shard)
+            .join(file_name)
+    };
+    std::fs::remove_file(&git_object_path)?;
+
+    // Running `jj diff` on the parent commit should show the partial clone hint.
+    let output = work_dir.run_jj(["diff", "-r", "@-"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Internal error: Unexpected error from backend
+    Caused by:
+    1: Object d95f3ad14dee633a758d2e331151e950dd13e4ed of type file not found
+    2: An object with id d95f3ad14dee633a758d2e331151e950dd13e4ed could not be found
+    Hint: Is this Git repository a partial clone (cloned with the --filter argument)?
+    jj currently does not support partial clones.
+    To use jj with this repository, try converting to a full clone:
+
+    git config --unset remote.origin.partialclonefilter
+    git fetch --refetch origin
+    [EOF]
+    [exit status: 255]
+    "#);
+    Ok(())
+}
+
+#[test]
+fn test_missing_object_hint_on_checkout() -> TestResult {
+    // Simulate a partial clone scenario where a blob object needed during
+    // checkout is missing.
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create a commit with a file.
+    work_dir.write_file("file.txt", "some content\n");
+
+    // Get the blob hash before moving to a new commit.
+    let git_output = std::process::Command::new("git")
+        .current_dir(work_dir.root())
+        .args(["hash-object", "file.txt"])
+        .output()?;
+    let blob_hash = String::from_utf8(git_output.stdout)?.trim().to_string();
+
+    // Commit the file, then start a new empty commit so the file is not in the
+    // working copy.
+    work_dir.run_jj(["commit", "-m", "add file"]).success();
+    work_dir.remove_file("file.txt");
+
+    // Delete the blob object to simulate a partial clone with missing blobs.
+    let git_object_path = {
+        let (shard, file_name) = blob_hash.split_at(2);
+        work_dir
+            .root()
+            .join(".git")
+            .join("objects")
+            .join(shard)
+            .join(file_name)
+    };
+    std::fs::remove_file(&git_object_path)?;
+
+    // Edit the commit that has the file — jj needs to check out its tree,
+    // which requires reading the now-missing blob.
+    let output = work_dir.run_jj(["edit", "@-"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Internal error: Failed to check out commit cb34f79bcd758c1d50066a75384b3ca20fa6f8de
+    Caused by:
+    1: Internal backend error
+    2: Object 2ef267e25bd6c6a300bb473e604b092b6a48523b of type file not found
+    3: An object with id 2ef267e25bd6c6a300bb473e604b092b6a48523b could not be found
+    Hint: Is this Git repository a partial clone (cloned with the --filter argument)?
+    jj currently does not support partial clones.
+    To use jj with this repository, try converting to a full clone:
+
+    git config --unset remote.origin.partialclonefilter
+    git fetch --refetch origin
+    [EOF]
+    [exit status: 255]
+    "#);
+    Ok(())
+}
+
 #[must_use]
 fn get_colocation_status(work_dir: &TestWorkDir) -> CommandOutput {
     work_dir.run_jj([
