@@ -2,7 +2,7 @@
 bookmark_list = 'format_commit_ref(self, "bookmark") ++ "\n"'
 
 commit_summary = 'format_commit_summary_with_refs(self, format_commit_ref_names(bookmarks))'
-arrange = 'format_commit_summary_with_refs(self, format_commit_ref_names(bookmarks))'
+arrange = 'builtin_log_compact'
 
 file_annotate = '''
 join(" ",

@@ -29,13 +29,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The `jj arrange` TUI now includes immediate parents and children. They are not
   selectable and are dimmed by default.
 
+* `jj arrange` uses the default log template (`builtin_log_compact`) instead of
+   the shorter commit summary style.
+
 * [Diff colors](docs/config.md#diff-colors-and-styles) can now be configured
   differently for each format.
 
 * `jj op log` now includes the name of the workspace the operation was created
   from.
 
-* The `config()` template function now accepts a `Stringify` expression instead 
+* The `config()` template function now accepts a `Stringify` expression instead
   of `LiteralString`. This allows looking up configuration values dynamically.
 
 * `jj op show`, `jj op diff`, `jj op log -p` now only show "interesting"
