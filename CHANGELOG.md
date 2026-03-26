@@ -46,6 +46,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `.gitignore` with UTF-8 BOM can now be parsed correctly.
 
+* `jj gerrit upload` on commits with unrelated Links can be uploaded again.
+  (broke in v0.39.0)
+
 ## [0.39.0] - 2026-03-04
 
 ### Release highlights
