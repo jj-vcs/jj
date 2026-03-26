@@ -1568,6 +1568,27 @@ fn test_squash_description() -> TestResult {
         ])
         .success();
     insta::assert_snapshot!(get_description(&work_dir, "@-"), @"");
+
+    // Invalid trailer content
+    work_dir.run_jj(["op", "restore", &setup_opid3]).success();
+    work_dir.write_file("data.txt", b"\xff\n");
+    insta::assert_snapshot!(get_log_output_with_description(&work_dir), @"
+    @  9eec7f21360c source
+    ○  e650dfcd7312 destination
+    ◆  000000000000
+    [EOF]
+    ");
+    let output = work_dir.run_jj([
+        "squash",
+        "--config",
+        r#"templates.commit_trailers='indent("Content: ", diff.git())'"#,
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Trailers should be valid utf-8
+    [EOF]
+    [exit status: 1]
+    ");
     Ok(())
 }
 

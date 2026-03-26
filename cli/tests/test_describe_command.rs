@@ -1245,6 +1245,21 @@ fn test_add_trailer() {
     Nothing changed.
     [EOF]
     ");
+
+    // Invalid trailer content
+    work_dir.write_file("data.txt", b"\xff\n");
+    let output = work_dir.run_jj([
+        "describe",
+        "-m=content",
+        "--config",
+        r#"templates.commit_trailers='indent("Content: ", diff.git())'"#,
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Trailers should be valid utf-8
+    [EOF]
+    [exit status: 1]
+    ");
 }
 
 #[test]
