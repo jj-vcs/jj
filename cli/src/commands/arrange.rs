@@ -353,6 +353,22 @@ impl State {
         }
         RewritePlan { rewrites }
     }
+
+    fn swap_selection_down(&mut self) {
+        if self.current_selection + 1 < self.current_order.len()
+            && self.are_graph_neighbors(self.current_selection, self.current_selection + 1)
+        {
+            self.swap_commits(self.current_selection, self.current_selection + 1);
+        }
+    }
+
+    fn swap_selection_up(&mut self) {
+        if self.current_selection > 0
+            && self.are_graph_neighbors(self.current_selection, self.current_selection - 1)
+        {
+            self.swap_commits(self.current_selection, self.current_selection - 1);
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -501,18 +517,10 @@ fn handle_key_event(event: KeyEvent, mut state: State) -> State {
             state.commits.get_mut(&id).unwrap().action = UiAction::Keep;
         }
         (KeyCode::Down | KeyCode::Char('J'), KeyModifiers::SHIFT) => {
-            if state.current_selection + 1 < state.current_order.len()
-                && state.are_graph_neighbors(state.current_selection, state.current_selection + 1)
-            {
-                state.swap_commits(state.current_selection, state.current_selection + 1);
-            }
+            state.swap_selection_down();
         }
         (KeyCode::Up | KeyCode::Char('K'), KeyModifiers::SHIFT) => {
-            if state.current_selection > 0
-                && state.are_graph_neighbors(state.current_selection, state.current_selection - 1)
-            {
-                state.swap_commits(state.current_selection, state.current_selection - 1);
-            }
+            state.swap_selection_up();
         }
         _ => {}
     }
