@@ -1643,10 +1643,10 @@ fn test_git_push_conflict() {
     let output = work_dir.run_jj(["git", "push", "--all"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Won't push commit b96eaa9bb3d8 since it has conflicts
-    Hint: Rejected commit: yostqsxw b96eaa9b my-bookmark | (conflict) third
+    Warning: Won't push bookmark my-bookmark: commit b96eaa9bb3d8 has conflicts
+      yostqsxw b96eaa9b my-bookmark | (conflict) third
+    Nothing changed.
     [EOF]
-    [exit status: 1]
     ");
 }
 
@@ -2357,21 +2357,21 @@ fn test_git_push_commits_not_ready() {
     let output = work_dir.run_jj(["git", "push"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Won't push commit b63db0e60f60 since it has no author and/or committer set
-    Hint: Rejected commit: vruxwmqv b63db0e6 bookmark2* | (empty) commit not suitable
+    Warning: Won't push bookmark bookmark2: commit b63db0e60f60 has no author and/or committer set
+      vruxwmqv b63db0e6 bookmark2* | (empty) commit not suitable
+    Nothing changed.
     [EOF]
-    [exit status: 1]
     ");
 
     // rejected for both private content and empty username
     let output = work_dir.run_jj(["git", "push", "--config", "git.private-commits=all()"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Won't push commit b63db0e60f60 since it has no author and/or committer set and is private
-    Hint: Rejected commit: vruxwmqv b63db0e6 bookmark2* | (empty) commit not suitable
+    Warning: Won't push bookmark bookmark2: commit b63db0e60f60 has no author and/or committer set and is private
+      vruxwmqv b63db0e6 bookmark2* | (empty) commit not suitable
     Hint: Configured git.private-commits: 'all()'
+    Nothing changed.
     [EOF]
-    [exit status: 1]
     ");
 
     // still rejected even with --allow-private
@@ -2384,10 +2384,10 @@ fn test_git_push_commits_not_ready() {
     ]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Won't push commit b63db0e60f60 since it has no author and/or committer set
-    Hint: Rejected commit: vruxwmqv b63db0e6 bookmark2* | (empty) commit not suitable
+    Warning: Won't push bookmark bookmark2: commit b63db0e60f60 has no author and/or committer set
+      vruxwmqv b63db0e6 bookmark2* | (empty) commit not suitable
+    Nothing changed.
     [EOF]
-    [exit status: 1]
     ");
 }
 

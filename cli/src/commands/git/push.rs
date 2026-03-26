@@ -266,6 +266,8 @@ pub async fn cmd_git_push(
     let tx_description;
     let mut bookmark_updates = vec![];
     if args.all {
+        let mut commits_validator =
+            CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args)?;
         for (name, targets) in view.local_remote_bookmarks(remote) {
             let allow_new = true; // implied by --all
             match classify_bookmark_update(
@@ -274,7 +276,10 @@ pub async fn cmd_git_push(
                 allow_new,
                 args.deleted,
             ) {
-                Ok(Some(update)) => bookmark_updates.push((name.to_owned(), update)),
+                Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
+                    Ok(()) => bookmark_updates.push((name.to_owned(), update)),
+                    Err(reason) => reason.print_bookmark(ui, tx.base_workspace_helper(), name)?,
+                },
                 Ok(None) => {}
                 Err(reason) => reason.print(ui)?,
             }
@@ -284,6 +289,8 @@ pub async fn cmd_git_push(
             remote = remote.as_symbol()
         );
     } else if args.tracked {
+        let mut commits_validator =
+            CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args)?;
         for (name, targets) in view.local_remote_bookmarks(remote) {
             if !targets.remote_ref.is_tracked() {
                 continue;
@@ -295,7 +302,10 @@ pub async fn cmd_git_push(
                 allow_new,
                 args.deleted,
             ) {
-                Ok(Some(update)) => bookmark_updates.push((name.to_owned(), update)),
+                Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
+                    Ok(()) => bookmark_updates.push((name.to_owned(), update)),
+                    Err(reason) => reason.print_bookmark(ui, tx.base_workspace_helper(), name)?,
+                },
                 Ok(None) => {}
                 Err(reason) => reason.print(ui)?,
             }
@@ -305,6 +315,9 @@ pub async fn cmd_git_push(
             remote = remote.as_symbol()
         );
     } else if args.deleted {
+        // There shouldn't be new heads to push, but we run validation for consistency.
+        let mut commits_validator =
+            CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args)?;
         for (name, targets) in view.local_remote_bookmarks(remote) {
             if targets.local_target.is_present() {
                 continue;
@@ -317,7 +330,10 @@ pub async fn cmd_git_push(
                 allow_new,
                 allow_delete,
             ) {
-                Ok(Some(update)) => bookmark_updates.push((name.to_owned(), update)),
+                Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
+                    Ok(()) => bookmark_updates.push((name.to_owned(), update)),
+                    Err(reason) => reason.print_bookmark(ui, tx.base_workspace_helper(), name)?,
+                },
                 Ok(None) => {}
                 Err(reason) => reason.print(ui)?,
             }
@@ -400,6 +416,14 @@ pub async fn cmd_git_push(
             }
         }
 
+        let mut commits_validator =
+            CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args)?;
+        // Error out if explicitly-specified targets can't be pushed.
+        commits_validator
+            .validate_updates(&bookmark_updates)
+            .await?
+            .map_err(|reason| reason.to_command_error(tx.base_workspace_helper()))?;
+
         let use_default_revset = args.bookmark.is_empty()
             && args.change.is_empty()
             && args.revisions.is_empty()
@@ -420,7 +444,10 @@ pub async fn cmd_git_push(
                 allow_new,
                 allow_delete,
             ) {
-                Ok(Some(update)) => bookmark_updates.push((name.to_owned(), update)),
+                Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
+                    Ok(()) => bookmark_updates.push((name.to_owned(), update)),
+                    Err(reason) => reason.print_bookmark(ui, tx.base_workspace_helper(), name)?,
+                },
                 Ok(None) => {}
                 Err(reason) => reason.print(ui)?,
             }
@@ -436,14 +463,6 @@ pub async fn cmd_git_push(
         writeln!(ui.status(), "Nothing changed.")?;
         return Ok(());
     }
-
-    let mut commits_validator =
-        CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args)?;
-    commits_validator
-        .validate_updates(&bookmark_updates)
-        .await?
-        .map_err(|reason| reason.to_command_error(tx.base_workspace_helper()))?;
-    drop(commits_validator);
 
     if !args.dry_run && tx.settings().get_bool("git.sign-on-push")? {
         let to_push_expr = ready_to_push_revset_expression(&tx, remote, &bookmark_updates);
@@ -502,6 +521,30 @@ struct RejectedCommitReason {
 }
 
 impl RejectedCommitReason {
+    fn print_bookmark(
+        &self,
+        ui: &Ui,
+        workspace_helper: &WorkspaceCommandHelper,
+        name: &RefName,
+    ) -> io::Result<()> {
+        writeln!(
+            ui.warning_default(),
+            "Won't push bookmark {name}: commit {id} {message}",
+            name = name.as_symbol(),
+            id = short_commit_hash(self.commit.id()),
+            message = self.message,
+        )?;
+        if let Some(mut formatter) = ui.status_formatter() {
+            write!(formatter, "  ")?;
+            workspace_helper.write_commit_summary(formatter.as_mut(), &self.commit)?;
+            writeln!(formatter)?;
+        }
+        if let Some(hint) = &self.hint {
+            writeln!(ui.hint_default(), "{hint}")?;
+        }
+        Ok(())
+    }
+
     fn to_command_error(&self, workspace_helper: &WorkspaceCommandHelper) -> CommandError {
         let mut error = user_error(format!(
             "Won't push commit {id} since it {message}",
@@ -563,6 +606,13 @@ impl<'repo> CommitsValidator<'repo> {
             private_commits,
             allow_empty_description: args.allow_empty_description,
         })
+    }
+
+    async fn validate_update(
+        &mut self,
+        update: &Diff<Option<CommitId>>,
+    ) -> Result<Result<(), RejectedCommitReason>, RevsetEvaluationError> {
+        self.validate_commits(update.after.as_slice()).await
     }
 
     async fn validate_updates(
