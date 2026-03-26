@@ -263,6 +263,10 @@ impl State {
         true
     }
 
+    fn current_id(&self) -> &CommitId {
+        &self.current_order[self.current_selection]
+    }
+
     /// Update the current UI commit order after parents have changed.
     fn update_commit_order(&mut self) {
         // Use the original order to get a determinisic order.
@@ -509,11 +513,11 @@ fn handle_key_event(event: KeyEvent, mut state: State) -> State {
             }
         }
         (KeyCode::Char('a'), KeyModifiers::NONE) => {
-            let id = state.current_order[state.current_selection].clone();
+            let id = state.current_id().clone();
             state.commits.get_mut(&id).unwrap().action = UiAction::Abandon;
         }
         (KeyCode::Char('p'), KeyModifiers::NONE) => {
-            let id = state.current_order[state.current_selection].clone();
+            let id = state.current_id().clone();
             state.commits.get_mut(&id).unwrap().action = UiAction::Keep;
         }
         (KeyCode::Down | KeyCode::Char('J'), KeyModifiers::SHIFT) => {
@@ -539,7 +543,7 @@ fn render(
         .with_min_row_height(2)
         .build_box_drawing();
     let mut row_area = main_area;
-    let current_seletion_id = &state.current_order[state.current_selection];
+    let current_seletion_id = state.current_id();
     let commits_to_render = state
         .external_children
         .iter()
