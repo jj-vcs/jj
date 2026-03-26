@@ -32,6 +32,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj arrange` uses the default log template (`builtin_log_compact`) instead of
    the shorter commit summary style.
 
+* In the `jj arrange` TUI, the "swap up/down" actions now move along graph edges
+  even if the commit rows are not adjacent.
+
 * [Diff colors](docs/config.md#diff-colors-and-styles) can now be configured
   differently for each format.
 
