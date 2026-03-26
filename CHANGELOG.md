@@ -35,7 +35,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj op log` now includes the name of the workspace the operation was created
   from.
 
-* The `config()` template function now accepts a `Stringify` expression instead 
+* The `config()` template function now accepts a `Stringify` expression instead
   of `LiteralString`. This allows looking up configuration values dynamically.
 
 * `jj op show`, `jj op diff`, `jj op log -p` now only show "interesting"
@@ -45,6 +45,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed bugs
 
 * `.gitignore` with UTF-8 BOM can now be parsed correctly.
+
+* `jj gerrit upload` on commits with unrelated Links can be uploaded again.
+  (broke in v0.39.0)
 
 ## [0.39.0] - 2026-03-04
 

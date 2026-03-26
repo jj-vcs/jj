@@ -693,7 +693,11 @@ fn test_gerrit_upload_bad_change_ids() {
         ])
         .success();
     local_dir
-        .run_jj(["describe", "-rb3", "-m\n\nLink: malformed\n"])
+        .run_jj([
+            "describe",
+            "-rb3",
+            "-m\n\nLink: ignored\nChange-Id: Id39b308212fe7e0b746d16c13355f3a90712d7f9\n",
+        ])
         .success();
     local_dir
         .run_jj([
@@ -767,10 +771,9 @@ fn test_gerrit_upload_bad_change_ids() {
     ------- stderr -------
     Warning: Invalid Change-Id footer in revision mzvwutvlkqwt
     Warning: Invalid Change-Id footer in revision yqosqzytrlsw
-    Warning: Invalid Link footer in revision yostqsxwqrlt
     Warning: Invalid Link footer in revision kpqxywonksrl
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
-    Pushing kpqxywon 69536ef3 b4
+    Pushing kpqxywon f155d484 b4
     [EOF]
     ");
 }
