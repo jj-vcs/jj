@@ -23,6 +23,7 @@ use std::slice;
 
 use futures::Stream;
 use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
 use thiserror::Error;
@@ -309,8 +310,7 @@ async fn try_collect_predecessors_into(
     ops: impl Stream<Item = OpStoreResult<Operation>>,
 ) -> OpStoreResult<bool> {
     let mut ops = pin!(ops);
-    while let Some(op) = ops.next().await {
-        let op = op?;
+    while let Some(op) = ops.try_next().await? {
         let Some(map) = &op.store_operation().commit_predecessors else {
             return Ok(false);
         };

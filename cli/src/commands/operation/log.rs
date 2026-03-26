@@ -16,12 +16,12 @@ use std::slice;
 
 use clap_complete::ArgValueCandidates;
 use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use futures::stream;
 use futures::stream::BoxStream;
 use itertools::Itertools as _;
 use jj_lib::graph::GraphEdge;
 use jj_lib::graph::reverse_graph;
-use jj_lib::op_store::OpStoreError;
 use jj_lib::op_walk;
 use jj_lib::operation::Operation;
 use jj_lib::repo::RepoLoader;
@@ -218,11 +218,10 @@ async fn do_op_log(
     if !args.no_graph {
         let mut raw_output = formatter.raw()?;
         let mut graph = get_graphlog(graph_style, raw_output.as_mut());
-        let stream = stream.map(|op| -> Result<_, OpStoreError> {
-            let op = op?;
+        let stream = stream.map_ok(|op| {
             let ids = op.parent_ids();
             let edges = ids.iter().cloned().map(GraphEdge::direct).collect();
-            Ok((op, edges))
+            (op, edges)
         });
         let mut stream_nodes: BoxStream<'_, _> = if args.reversed {
             stream::iter(
@@ -259,8 +258,7 @@ async fn do_op_log(
         } else {
             stream.boxed()
         };
-        while let Some(op) = stream.next().await {
-            let op = op?;
+        while let Some(op) = stream.try_next().await? {
             with_content_format.write(formatter, |formatter| template.format(&op, formatter))?;
             if let Some(show) = &maybe_show_op_diff {
                 show(ui, formatter, &op, &with_content_format).await?;

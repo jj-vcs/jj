@@ -17,7 +17,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
 
@@ -154,9 +154,7 @@ impl TreeBuilder {
         }));
 
         let mut base_trees = BTreeMap::new();
-        while let Some(result) = tree_reads.next().await {
-            let (dir, tree) = result?;
-
+        while let Some((dir, tree)) = tree_reads.try_next().await? {
             if let Some(node) = needed_dirs.get(&dir) {
                 for (basename, _child) in node.children() {
                     let basename = basename.to_owned();
