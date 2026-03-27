@@ -168,7 +168,6 @@ fn test_templater_parse_warning() {
     let output = work_dir.run_jj(["log", "-r@", "-T", template]);
     insta::assert_snapshot!(output, @"
     @  false
-    │
     ~
     [EOF]
     ------- stderr -------
@@ -418,8 +417,7 @@ fn test_templater_alias() {
     let output = work_dir.run_jj(["log", "-r@", "-Tdeprecated()"]);
     insta::assert_snapshot!(output, @r#"
     #  false
-    │
-    ~
+    #
     [EOF]
     ------- stderr -------
     Warning: In template expression

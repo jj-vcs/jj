@@ -368,12 +368,13 @@ fn test_log_with_or_without_diff() {
     insta::assert_snapshot!(output, @"
     @  a new commit
     │  diff --git a/file1 b/file1
-    ~  index 257cc5642c..3bd1f0e297 100644
-       --- a/file1
-       +++ b/file1
-       @@ -1,1 +1,2 @@
-        foo
-       +bar
+    │  index 257cc5642c..3bd1f0e297 100644
+    │  --- a/file1
+    │  +++ b/file1
+    │  @@ -1,1 +1,2 @@
+    │   foo
+    │  +bar
+    ~
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "-T", "description", "-r", "@", "--no-graph", "--git"]);
@@ -394,8 +395,9 @@ fn test_log_with_or_without_diff() {
     insta::assert_snapshot!(output, @"
     @  a new commit
     │  Modified regular file file1:
-    ~     1    1: foo
-               2: bar
+    │     1    1: foo
+    │          2: bar
+    ~
     [EOF]
     ");
     let output = work_dir.run_jj([
@@ -652,7 +654,6 @@ fn test_log_prefix_highlight_styled() {
     insta::assert_snapshot!(
         work_dir.run_jj(["log", "-r", "original", "-T", &prefix_format(Some(12))]), @"
     @  Change qpvuntsmwlqt initial 8216f646c36d original
-    │
     ~
     [EOF]
     ");
@@ -672,7 +673,6 @@ fn test_log_prefix_highlight_styled() {
     insta::assert_snapshot!(
         work_dir.run_jj(["log", "-r", "original", "-T", &prefix_format(Some(12))]), @"
     ○  Change qpvuntsmwlqt initial 8216f646c36d original
-    │
     ~
     [EOF]
     ");
@@ -802,7 +802,6 @@ fn test_log_prefix_highlight_counts_hidden_commits() {
     ");
     insta::assert_snapshot!(work_dir.run_jj(["log", "-r", "88", "-T", prefix_format]), @"
     @  Change wq[nwkozpkust] 88[e8407a4f0a]
-    │
     ~
     [EOF]
     ");
@@ -897,6 +896,61 @@ fn test_log_reversed() {
 }
 
 #[test]
+fn test_log_reversed_disconnected_components() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create a linear chain: root <- A <- B <- C
+    // plus a branch off A:  A <- D (working copy)
+    //
+    //   C  D (@)
+    //   |  |
+    //   B  |
+    //   |/
+    //   A
+    //   |
+    //  root
+    work_dir.run_jj(["new", "root()", "-m", "A"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "a", "-r", "@"])
+        .success();
+    work_dir.run_jj(["new", "-m", "B"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "b", "-r", "@"])
+        .success();
+    work_dir.run_jj(["new", "-m", "C"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "c", "-r", "@"])
+        .success();
+    work_dir.run_jj(["new", "a", "-m", "D"]).success();
+
+    // Forward: two disconnected components
+    let output = work_dir.run_jj(["log", "-r", ".. ~ a", "-T", "description"]);
+    insta::assert_snapshot!(output, @r"
+    @  D
+    ~
+
+    ○  C
+    ○  B
+    ~
+    [EOF]
+    ");
+
+    // Reversed: two disconnected components, order flipped
+    let output = work_dir.run_jj(["log", "-r", ".. ~ a", "-T", "description", "--reversed"]);
+    insta::assert_snapshot!(output, @r"
+    ~
+    ○  B
+    ○  C
+
+    ~
+    @  D
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_log_filtered_by_path() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -930,7 +984,6 @@ fn test_log_filtered_by_path() {
     insta::assert_snapshot!(output, @"
     @  second
     ○  first
-    │
     ~
     [EOF]
     ");
@@ -938,7 +991,6 @@ fn test_log_filtered_by_path() {
     let output = work_dir.run_jj(["log", "-T", "description", "file2"]);
     insta::assert_snapshot!(output, @"
     @  second
-    │
     ~
     [EOF]
     ");
@@ -1081,7 +1133,6 @@ fn test_log_limit() {
     let output = work_dir.run_jj(["log", "-T", "description", "--limit=1", "b", "c"]);
     insta::assert_snapshot!(output, @"
     ○  c
-    │
     ~
     [EOF]
     ------- stderr -------
@@ -1102,7 +1153,6 @@ fn test_log_warn_path_might_be_revset() {
     let output = work_dir.run_jj(["log", "file1", "-T", "description"]);
     insta::assert_snapshot!(output, @"
     @
-    │
     ~
     [EOF]
     ");
@@ -1111,7 +1161,6 @@ fn test_log_warn_path_might_be_revset() {
     let output = work_dir.run_jj(["log", ".", "-T", "description"]);
     insta::assert_snapshot!(output, @r#"
     @
-    │
     ~
     [EOF]
     ------- stderr -------
@@ -1178,7 +1227,6 @@ fn test_default_revset() {
     // The default revset is not used if a path is specified
     insta::assert_snapshot!(work_dir.run_jj(["log", "file1", "-T", "description"]), @"
     @  add a file
-    │
     ~
     [EOF]
     ");
@@ -1222,7 +1270,6 @@ fn test_multiple_revsets() {
     insta::assert_snapshot!(
         work_dir.run_jj(["log", "-T", "bookmarks", "-rfoo"]), @"
     ○  foo
-    │
     ~
     [EOF]
     ");
@@ -1231,14 +1278,12 @@ fn test_multiple_revsets() {
     @  baz
     ○  bar
     ○  foo
-    │
     ~
     [EOF]
     ");
     insta::assert_snapshot!(
         work_dir.run_jj(["log", "-T", "bookmarks", "-rfoo", "-rfoo"]), @"
     ○  foo
-    │
     ~
     [EOF]
     ");
@@ -1454,7 +1499,8 @@ fn test_log_word_wrap() {
     insta::assert_snapshot!(render(&["log", "-r@"], 40, true), @"
     @  mzvwutvl test.user@example.com
     │  2001-02-03 08:05:11 bafb1ee5
-    ~  (empty) merge
+    │  (empty) merge
+    ~
     [EOF]
     ");
     insta::assert_snapshot!(render(&["log", "--no-graph", "-r@"], 40, false), @"
@@ -1473,7 +1519,8 @@ fn test_log_word_wrap() {
     insta::assert_snapshot!(render(&["log", "-r@", "--color=always"], 40, true), @"
     [1m[38;5;2m@[0m  [1m[38;5;13mm[38;5;8mzvwutvl[39m [38;5;3mtest.user@example.com[39m[0m
     │  [1m[38;5;14m2001-02-03 08:05:11[39m [38;5;12mb[38;5;8mafb1ee5[39m[0m
-    ~  [1m[38;5;10m(empty)[39m merge[0m
+    │  [1m[38;5;10m(empty)[39m merge[0m
+    [38;5;8m~[39m
     [EOF]
     ");
 
@@ -1505,21 +1552,23 @@ fn test_log_word_wrap() {
     insta::assert_snapshot!(render(&["log", "-r@"], 0, true), @"
     @  mzvwutvl
     │  test.user@example.com
-    ~  2001-02-03
-       08:05:11
-       bafb1ee5
-       (empty)
-       merge
+    │  2001-02-03
+    │  08:05:11
+    │  bafb1ee5
+    │  (empty)
+    │  merge
+    ~
     [EOF]
     ");
     insta::assert_snapshot!(render(&["log", "-r@"], 1, true), @"
     @  mzvwutvl
     │  test.user@example.com
-    ~  2001-02-03
-       08:05:11
-       bafb1ee5
-       (empty)
-       merge
+    │  2001-02-03
+    │  08:05:11
+    │  bafb1ee5
+    │  (empty)
+    │  merge
+    ~
     [EOF]
     ");
 }
@@ -1539,8 +1588,9 @@ fn test_log_word_wrap_with_hyperlinks() {
     insta::assert_snapshot!(output, @r"
     [1m[38;5;2m@[0m  ]8;;http://example.com\long
     │  line to
-    ~  force
-       wrapping]8;;\
+    │  force
+    │  wrapping]8;;\
+    [38;5;8m~[39m
     [EOF]
     ");
 }
@@ -1637,8 +1687,7 @@ fn test_elided() {
     ○ ╷  main bookmark 2
     ├─╯
     ○  initial
-    │
-    ~
+
     [EOF]
     ");
 

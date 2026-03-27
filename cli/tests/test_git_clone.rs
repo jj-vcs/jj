@@ -1032,7 +1032,6 @@ fn test_git_clone_conditional_config() {
     @  new-repo@example.org
     ○  new-repo@example.org
     ◆  someone@example.org message
-    │
     ~
     [EOF]
     ");

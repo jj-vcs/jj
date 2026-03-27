@@ -115,6 +115,7 @@ fn test_evolog_with_or_without_diff() {
     ○  rlvkpnrz/3 test.user@example.com 2001-02-03 08:05:08 b955b72e (hidden)
        (empty) my description
        -- operation c5d06fd4ff51 new empty commit
+
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 c664a51b
     │  (no description set)
     │  -- operation b243f4039fc9 snapshot working copy

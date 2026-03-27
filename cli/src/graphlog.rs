@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::HashSet;
 use std::hash::Hash;
 use std::io;
 use std::io::Write;
@@ -36,20 +37,25 @@ pub trait GraphLog<K: Clone + Eq + Hash> {
     fn width(&self, id: &K, edges: &[GraphEdge<K>]) -> usize;
 }
 
-pub struct SaplingGraphLog<'writer, R> {
+pub struct SaplingGraphLog<'writer, K, R> {
     renderer: R,
     writer: &'writer mut dyn Write,
+    /// IDs we expect to see as future nodes (targets of edges from
+    /// already-emitted nodes). Used for component boundary detection.
+    expected_ids: HashSet<K>,
+    /// Whether we have emitted at least one node.
+    has_emitted: bool,
 }
 
 fn convert_graph_edge_into_ancestor<K: Clone>(e: &GraphEdge<K>) -> Ancestor<K> {
     match e.edge_type {
         GraphEdgeType::Direct => Ancestor::Parent(e.target.clone()),
         GraphEdgeType::Indirect => Ancestor::Ancestor(e.target.clone()),
-        GraphEdgeType::Missing => Ancestor::Anonymous,
+        _ => unreachable!("all edges should be converted to direct with synthetic nodes"),
     }
 }
 
-impl<K, R> GraphLog<K> for SaplingGraphLog<'_, R>
+impl<K, R> GraphLog<K> for SaplingGraphLog<'_, K, R>
 where
     K: Clone + Eq + Hash,
     R: Renderer<K, Output = String>,
@@ -61,6 +67,20 @@ where
         node_symbol: &str,
         text: &str,
     ) -> io::Result<()> {
+        // Detect component boundaries: if all pending edges from previous
+        // nodes have been drained, this node starts a new disconnected
+        // component. Insert a blank line to visually separate them.
+        if self.has_emitted && self.expected_ids.is_empty() {
+            writeln!(self.writer)?;
+        }
+        self.has_emitted = true;
+        self.expected_ids.remove(id);
+
+        // Track edge targets as expected future nodes.
+        for edge in edges {
+            self.expected_ids.insert(edge.target.clone());
+        }
+
         let row = self.renderer.next_row(
             id.clone(),
             edges.iter().map(convert_graph_edge_into_ancestor).collect(),
@@ -78,11 +98,8 @@ where
     }
 }
 
-impl<'writer, R> SaplingGraphLog<'writer, R> {
-    pub fn create<K>(
-        renderer: R,
-        formatter: &'writer mut dyn Write,
-    ) -> Box<dyn GraphLog<K> + 'writer>
+impl<'writer, K, R> SaplingGraphLog<'writer, K, R> {
+    pub fn create(renderer: R, formatter: &'writer mut dyn Write) -> Box<dyn GraphLog<K> + 'writer>
     where
         K: Clone + Eq + Hash + 'writer,
         R: Renderer<K, Output = String> + 'writer,
@@ -90,6 +107,8 @@ impl<'writer, R> SaplingGraphLog<'writer, R> {
         Box::new(SaplingGraphLog {
             renderer,
             writer: formatter,
+            expected_ids: HashSet::new(),
+            has_emitted: false,
         })
     }
 }

@@ -297,9 +297,7 @@ fn test_rewrite_immutable_commands() {
     │  (no description set)
     │ ◆  mzvwutvl test.user@example.com 2001-02-03 08:05:12 main 1ca17106 (conflict)
     ╭─┤  merge
-    │ │
     │ ~
-    │
     ◆  kkmpptxz test.user@example.com 2001-02-03 08:05:10 9d190342
     │  b
     ~
