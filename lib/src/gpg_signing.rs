@@ -18,6 +18,7 @@ use std::ffi::OsString;
 use std::fmt::Debug;
 use std::io;
 use std::io::Write as _;
+use std::process;
 use std::process::Command;
 use std::process::ExitStatus;
 use std::process::Stdio;
@@ -77,6 +78,13 @@ fn parse_gpg_verify_output(
         .ok_or(SignError::InvalidSignatureFormat)
 }
 
+fn make_command_error(output: &process::Output) -> GpgError {
+    GpgError::Command {
+        exit_status: output.status,
+        stderr: String::from_utf8_lossy(&output.stderr).trim_end().into(),
+    }
+}
+
 fn run_sign_command(command: &mut Command, input: &[u8]) -> Result<Vec<u8>, GpgError> {
     tracing::info!(?command, "running GPG signing command");
     let process = command.stderr(Stdio::piped()).spawn()?;
@@ -87,10 +95,7 @@ fn run_sign_command(command: &mut Command, input: &[u8]) -> Result<Vec<u8>, GpgE
         write_result?;
         Ok(output.stdout)
     } else {
-        Err(GpgError::Command {
-            exit_status: output.status,
-            stderr: String::from_utf8_lossy(&output.stderr).trim_end().into(),
-        })
+        Err(make_command_error(&output))
     }
 }
 
