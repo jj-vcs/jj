@@ -109,6 +109,13 @@ fn run_verify_command(command: &mut Command, input: &[u8]) -> Result<Vec<u8>, Gp
     }
 }
 
+fn write_temp_file(prefix: &str, content: &[u8]) -> io::Result<tempfile::TempPath> {
+    let mut file = tempfile::Builder::new().prefix(prefix).tempfile()?;
+    file.write_all(content)?;
+    file.flush()?;
+    Ok(file.into_temp_path())
+}
+
 #[derive(Debug)]
 pub struct GpgBackend {
     program: OsString,
@@ -193,14 +200,7 @@ impl SigningBackend for GpgBackend {
     }
 
     fn verify(&self, data: &[u8], signature: &[u8]) -> Result<Verification, SignError> {
-        let mut signature_file = tempfile::Builder::new()
-            .prefix(".jj-gpg-sig-tmp-")
-            .tempfile()
-            .map_err(GpgError::Io)?;
-        signature_file.write_all(signature).map_err(GpgError::Io)?;
-        signature_file.flush().map_err(GpgError::Io)?;
-
-        let sig_path = signature_file.into_temp_path();
+        let sig_path = write_temp_file(".jj-gpg-sig-tmp-", signature).map_err(GpgError::Io)?;
 
         let output = run_verify_command(
             self.create_command()
@@ -281,14 +281,7 @@ impl SigningBackend for GpgsmBackend {
     }
 
     fn verify(&self, data: &[u8], signature: &[u8]) -> Result<Verification, SignError> {
-        let mut signature_file = tempfile::Builder::new()
-            .prefix(".jj-gpgsm-sig-tmp-")
-            .tempfile()
-            .map_err(GpgError::Io)?;
-        signature_file.write_all(signature).map_err(GpgError::Io)?;
-        signature_file.flush().map_err(GpgError::Io)?;
-
-        let sig_path = signature_file.into_temp_path();
+        let sig_path = write_temp_file(".jj-gpgsm-sig-tmp-", signature).map_err(GpgError::Io)?;
 
         let output = run_verify_command(
             self.create_command()
