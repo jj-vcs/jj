@@ -46,6 +46,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `.gitignore` with UTF-8 BOM can now be parsed correctly.
 
+* Fix incompatibility with gpgsm 2.5.x.
+
 ## [0.39.0] - 2026-03-04
 
 ### Release highlights

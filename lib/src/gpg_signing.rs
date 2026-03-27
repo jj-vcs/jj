@@ -281,14 +281,16 @@ impl SigningBackend for GpgsmBackend {
     }
 
     fn verify(&self, data: &[u8], signature: &[u8]) -> Result<Verification, SignError> {
+        let data_path = write_temp_file(".jj-gpgsm-data-tmp-", data).map_err(GpgError::Io)?;
         let sig_path = write_temp_file(".jj-gpgsm-sig-tmp-", signature).map_err(GpgError::Io)?;
 
+        // gpgsm 2.5.x doesn't parse "-" as stdin
         let output = run_verify_command(
             self.create_command()
                 .args(["--status-fd=1", "--verify"])
                 .arg(&sig_path)
-                .arg("-"),
-            data,
+                .arg(&data_path),
+            b"",
         )?;
 
         parse_gpg_verify_output(&output, self.allow_expired_keys)
