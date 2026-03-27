@@ -209,6 +209,7 @@ impl SigningBackend for GpgBackend {
                 .arg("-"),
             data,
         )?;
+        println!("output: {:?}", String::from_utf8_lossy(&output));
 
         parse_gpg_verify_output(&output, self.allow_expired_keys)
     }
@@ -297,6 +298,7 @@ impl SigningBackend for GpgsmBackend {
                 .arg("-"),
             data,
         )?;
+        println!("output: {:?}", String::from_utf8_lossy(&output));
 
         parse_gpg_verify_output(&output, self.allow_expired_keys)
     }
