@@ -23,11 +23,7 @@ use std::task::ready;
 
 use futures::Stream;
 use futures::StreamExt as _;
-use futures::future::BoxFuture;
-use futures::future::ready;
 use futures::future::try_join_all;
-use futures::stream::Fuse;
-use futures::stream::FuturesOrdered;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use pollster::FutureExt as _;
@@ -366,153 +362,114 @@ impl CopyHistoryTreeDiffEntry {
     }
 }
 
+/// Should keep the memory usage of `copy_history_diff_stream` bounded and allow
+/// some concurrency even if files with changes are rare among all files in the
+/// tree.
+///
+/// Could be adjusted if we find the value too low or that this doesn't bound
+/// memory use enough (seems unlikely to be over a megabyte with a rough
+/// estimate)
+pub const RECOMMENDED_CONCURRENCY_BUFFER_SIZE: usize = 1024;
+
 /// Adapts a `TreeDiffStream` to follow copies / renames.
-pub struct CopyHistoryDiffStream<'a> {
-    inner: Fuse<TreeDiffStream<'a>>,
+///
+/// Generally prefer `MergedTree::diff_stream_with_copy_history()` instead of
+/// calling this directly.
+///
+/// For `concurrency_buffer_size`, it is recommended to either use 1 (to disable
+/// concurrency) or at least [`RECOMMENDED_CONCURRENCY_BUFFER_SIZE`], unless
+/// this takes up too much memory. The number of concurrent calls into the store
+/// will generally be much lower than `concurrency_buffer_size` since entries
+/// that do not require any processing take up space in this queue.
+pub fn copy_history_diff_stream<'a>(
+    inner: TreeDiffStream<'a>,
     before_tree: &'a MergedTree,
     after_tree: &'a MergedTree,
-    pending: FuturesOrdered<BoxFuture<'static, CopyHistoryTreeDiffEntry>>,
+    concurrency_buffer_size: usize,
+) -> impl Stream<Item = CopyHistoryTreeDiffEntry> + 'a {
+    let before_tree = before_tree.clone();
+    let after_tree = after_tree.clone();
+    inner
+        .map(move |entry| resolve_diff_entry_copies(before_tree.clone(), after_tree.clone(), entry))
+        .buffered(concurrency_buffer_size)
+        .flat_map(futures::stream::iter)
 }
 
-impl<'a> CopyHistoryDiffStream<'a> {
-    /// Creates an iterator over the differences between two trees, taking copy
-    /// history into account. Generally prefer
-    /// `MergedTree::diff_stream_with_copy_history()` instead of calling this
-    /// directly.
-    pub fn new(
-        inner: TreeDiffStream<'a>,
-        before_tree: &'a MergedTree,
-        after_tree: &'a MergedTree,
-    ) -> Self {
-        Self {
-            inner: inner.fuse(),
-            before_tree,
-            after_tree,
-            pending: FuturesOrdered::new(),
-        }
-    }
-}
-
-impl Stream for CopyHistoryDiffStream<'_> {
-    type Item = CopyHistoryTreeDiffEntry;
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        loop {
-            // First, check if we have newly-finished futures. If this returns Pending, we
-            // intentionally fall through to poll `self.inner`.
-            if let Poll::Ready(Some(next)) = self.pending.poll_next_unpin(cx) {
-                return Poll::Ready(Some(next));
-            }
-
-            // If we didn't have queued results above, we want to check our wrapped stream
-            // for the next non-copy-matched diff entry.
-            let next_diff_entry = match ready!(self.inner.poll_next_unpin(cx)) {
-                Some(diff_entry) => diff_entry,
-                None if self.pending.is_empty() => return Poll::Ready(None),
-                _ => return Poll::Pending,
-            };
-
-            let Ok(Diff { before, after }) = &next_diff_entry.values else {
-                self.pending
-                    .push_back(Box::pin(ready(CopyHistoryTreeDiffEntry::normal(
-                        next_diff_entry,
-                    ))));
-                continue;
-            };
-
-            // Don't try copy-tracing if we have conflicts on either side.
-            //
-            // TODO: consider accepting conflicts if the copy IDs can be resolved.
-            let Some(before) = before.as_resolved() else {
-                self.pending
-                    .push_back(Box::pin(ready(CopyHistoryTreeDiffEntry::normal(
-                        next_diff_entry,
-                    ))));
-                continue;
-            };
-            let Some(after) = after.as_resolved() else {
-                self.pending
-                    .push_back(Box::pin(ready(CopyHistoryTreeDiffEntry::normal(
-                        next_diff_entry,
-                    ))));
-                continue;
-            };
-
-            match (before, after) {
-                // If we have files with matching copy_ids, no need to do copy-tracing.
-                (
-                    Some(TreeValue::File { copy_id: id1, .. }),
-                    Some(TreeValue::File { copy_id: id2, .. }),
-                ) if id1 == id2 => {
-                    self.pending
-                        .push_back(Box::pin(ready(CopyHistoryTreeDiffEntry::normal(
-                            next_diff_entry,
-                        ))));
-                }
-
-                (other, Some(f @ TreeValue::File { .. })) => {
-                    if let Some(other) = other {
-                        // For files with non-matching copy-ids, or for a non-file that changes to a
-                        // file, mark the first as deleted and do copy-tracing on the second.
-                        //
-                        // NOTE[deletion-diff-entry]: this may emit two diff entries, where the old
-                        // diffstream would contain only one (even with gix's heuristic-based copy
-                        // detection).
-                        //
-                        // This may be desirable in some cases (such as replacing a file X with a
-                        // copy of some other file Y; the deletion entry makes it more clear that
-                        // the original X was replaced by a formerly unrelated file). It is less
-                        // desirable in cases where the new file shares some actual relation to the
-                        // old one.
-                        //
-                        // We plan to improve this in the near future, but for now we'll keep the
-                        // simpler implementation since this behavior is not visible outside of
-                        // tests yet.
-                        self.pending
-                            .push_back(Box::pin(ready(CopyHistoryTreeDiffEntry {
-                                target_path: next_diff_entry.path.clone(),
-                                diffs: Ok(Merge::resolved(CopyHistoryDiffTerm {
-                                    target_value: None,
-                                    sources: vec![(
-                                        CopyHistorySource::Normal,
-                                        Merge::resolved(Some(other.clone())),
-                                    )],
-                                })),
-                            })));
-                    }
-
-                    let future = tree_diff_entry_from_copies(
-                        self.before_tree.clone(),
-                        self.after_tree.clone(),
-                        f.clone(),
-                        next_diff_entry.path.clone(),
-                    );
-                    self.pending.push_back(Box::pin(future));
-                }
-
-                // Anything else (e.g. file => non-file non-tree), issue a simple diff entry.
-                //
-                // NOTE[deletion-diff-entry2]: this is another point where a spurious deletion entry
-                // can be generated; we have a planned fix in the works.
-                _ => self
-                    .pending
-                    .push_back(Box::pin(ready(CopyHistoryTreeDiffEntry::normal(
-                        next_diff_entry,
-                    )))),
-            }
-        }
-    }
-}
-
-async fn tree_diff_entry_from_copies(
+/// Classifies a single `TreeDiffEntry`, performing copy-tracing when needed.
+/// Returns a `Vec` because in some cases (different copy IDs at the same path)
+/// a single TreeDiffEntry decomposes into a deletion + copy-traced creation.
+async fn resolve_diff_entry_copies(
     before_tree: MergedTree,
     after_tree: MergedTree,
-    file: TreeValue,
-    target_path: RepoPathBuf,
-) -> CopyHistoryTreeDiffEntry {
-    CopyHistoryTreeDiffEntry {
-        target_path,
-        diffs: diffs_from_copies(before_tree, after_tree, file).await,
+    diff_entry: TreeDiffEntry,
+) -> Vec<CopyHistoryTreeDiffEntry> {
+    let Ok(ref diff) = diff_entry.values else {
+        return vec![CopyHistoryTreeDiffEntry::normal(diff_entry)];
+    };
+
+    // Don't try copy-tracing if we have conflicts on either side.
+    //
+    // TODO: consider handling conflicts, especially in the simpler case where the
+    // corresponding "copy ID conflict" can be resolved.
+    let (Some(before), Some(after)) = (diff.before.as_resolved(), diff.after.as_resolved()) else {
+        return vec![CopyHistoryTreeDiffEntry::normal(diff_entry)];
+    };
+
+    match (before, after) {
+        // If we have files with matching copy_ids, no need to do copy-tracing.
+        (
+            Some(TreeValue::File { copy_id: id1, .. }),
+            Some(TreeValue::File { copy_id: id2, .. }),
+        ) if id1 == id2 => vec![CopyHistoryTreeDiffEntry::normal(diff_entry)],
+
+        // New file with copy history — needs copy-tracing.
+        (None, Some(f @ TreeValue::File { .. })) => {
+            let f = f.clone();
+            vec![CopyHistoryTreeDiffEntry {
+                target_path: diff_entry.path,
+                diffs: diffs_from_copies(before_tree, after_tree, f).await,
+            }]
+        }
+
+        // For files with non-matching copy-ids, or for a non-file that changes to a
+        // file, mark the first as deleted and do copy-tracing on the second.
+        //
+        // NOTE[deletion-diff-entry]: this may emit two diff entries, where the old
+        // diffstream would contain only one (even with gix's heuristic-based copy
+        // detection).
+        //
+        // This may be desirable in some cases (such as replacing a file X with a
+        // copy of some other file Y; the deletion entry makes it more clear that
+        // the original X was replaced by a formerly unrelated file). It is less
+        // desirable in cases where the new file shares some actual relation to the
+        // old one.
+        //
+        // We plan to improve this in the near future, but for now we'll keep the
+        // simpler implementation since this behavior is not visible outside of
+        // tests yet.
+        (Some(other), Some(f @ TreeValue::File { .. })) => {
+            let other = other.clone();
+            let f = f.clone();
+            vec![
+                CopyHistoryTreeDiffEntry {
+                    target_path: diff_entry.path.clone(),
+                    diffs: Ok(Merge::resolved(CopyHistoryDiffTerm {
+                        target_value: None,
+                        sources: vec![(CopyHistorySource::Normal, Merge::resolved(Some(other)))],
+                    })),
+                },
+                CopyHistoryTreeDiffEntry {
+                    target_path: diff_entry.path,
+                    diffs: diffs_from_copies(before_tree, after_tree, f).await,
+                },
+            ]
+        }
+
+        // Anything else (e.g. file => non-file non-tree), issue a simple diff entry.
+        //
+        // NOTE[deletion-diff-entry2]: this is another point where a spurious deletion entry
+        // can be generated; we have a planned fix in the works.
+        _ => vec![CopyHistoryTreeDiffEntry::normal(diff_entry)],
     }
 }
 

@@ -41,9 +41,9 @@ use crate::backend::TreeValue;
 use crate::conflict_labels::ConflictLabels;
 use crate::copies::CopiesTreeDiffEntry;
 use crate::copies::CopiesTreeDiffStream;
-use crate::copies::CopyHistoryDiffStream;
 use crate::copies::CopyHistoryTreeDiffEntry;
 use crate::copies::CopyRecords;
+use crate::copies::copy_history_diff_stream;
 use crate::matchers::EverythingMatcher;
 use crate::matchers::Matcher;
 use crate::merge::Diff;
@@ -319,13 +319,18 @@ impl MergedTree {
     }
 
     /// Like `diff_stream()` but takes CopyHistory into account.
+    ///
+    /// For `concurrency_buffer_size`, it is recommended to use at least
+    /// [`crate::copies::RECOMMENDED_CONCURRENCY_BUFFER_SIZE`] or 1 if you don't
+    /// want any concurrency.
     pub fn diff_stream_with_copy_history<'a>(
         &'a self,
         other: &'a Self,
         matcher: &'a dyn Matcher,
+        concurrency_buffer_size: usize,
     ) -> BoxStream<'a, CopyHistoryTreeDiffEntry> {
         let stream = self.diff_stream(other, matcher);
-        CopyHistoryDiffStream::new(stream, self, other).boxed()
+        copy_history_diff_stream(stream, self, other, concurrency_buffer_size).boxed()
     }
 
     /// Merges the provided trees into a single `MergedTree`. Any conflicts will
