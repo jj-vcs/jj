@@ -73,7 +73,7 @@ fn test_squash() {
 
     // Can squash a given commit into its parent
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
-    let output = work_dir.run_jj(["squash", "-r", "b"]);
+    let output = work_dir.run_jj(["squash", "-f", "b", "-t", "b-"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits
@@ -198,7 +198,7 @@ fn test_squash_partial() -> TestResult {
     // If we don't make any changes in the diff-editor, the whole change is moved
     // into the parent
     std::fs::write(&edit_script, "dump JJ-INSTRUCTIONS instrs")?;
-    let output = work_dir.run_jj(["squash", "-r", "b", "-i"]);
+    let output = work_dir.run_jj(["squash", "-f", "b", "-t", "b-", "-i"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits
@@ -237,7 +237,7 @@ fn test_squash_partial() -> TestResult {
     // Can squash only some changes in interactive mode
     work_dir.run_jj(["op", "restore", &start_op_id]).success();
     std::fs::write(&edit_script, "reset file1")?;
-    let output = work_dir.run_jj(["squash", "-r", "b", "-i"]);
+    let output = work_dir.run_jj(["squash", "-f", "b", "-t", "b-", "-i"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 2 descendant commits
@@ -277,7 +277,7 @@ fn test_squash_partial() -> TestResult {
     work_dir.run_jj(["op", "restore", &start_op_id]).success();
     // Clear the script so we know it won't be used even without -i
     std::fs::write(&edit_script, "")?;
-    let output = work_dir.run_jj(["squash", "-r", "b", "file2"]);
+    let output = work_dir.run_jj(["squash", "-f", "b", "-t", "b-", "file2"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 2 descendant commits
@@ -315,7 +315,7 @@ fn test_squash_partial() -> TestResult {
 
     // If we specify only a non-existent file, then nothing changes.
     work_dir.run_jj(["op", "restore", &start_op_id]).success();
-    let output = work_dir.run_jj(["squash", "-r", "b", "nonexistent"]);
+    let output = work_dir.run_jj(["squash", "-f", "b", "-t", "b-", "nonexistent"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching entries for paths: nonexistent
@@ -378,7 +378,7 @@ fn test_squash_partial() -> TestResult {
     // Error if no changes selected in interactive mode
     work_dir.run_jj(["op", "restore", &start_op_id]).success();
     std::fs::write(&edit_script, "reset file1\0reset file2")?;
-    let output = work_dir.run_jj(["squash", "-r", "b", "-i"]);
+    let output = work_dir.run_jj(["squash", "-r", "b|b-", "-i"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: No changes selected
@@ -425,7 +425,7 @@ fn test_squash_keep_emptied() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["squash", "-r", "b", "--keep-emptied"]);
+    let output = work_dir.run_jj(["squash", "-f", "b", "-t", "b-", "--keep-emptied"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 2 descendant commits
@@ -1661,66 +1661,6 @@ fn test_squash_option_exclusion() {
     error: the argument '--message <MESSAGE>' cannot be used with '--use-destination-message'
 
     Usage: jj squash --message <MESSAGE> [FILESETS]...
-
-    For more information, try '--help'.
-    [EOF]
-    [exit status: 2]
-    ");
-
-    insta::assert_snapshot!(work_dir.run_jj([
-        "squash",
-        "-r@",
-        "--into=@-"
-    ]), @"
-    ------- stderr -------
-    error: the argument '--revision <REVSET>' cannot be used with '--into <REVSET>'
-
-    Usage: jj squash --revision <REVSET> [FILESETS]...
-
-    For more information, try '--help'.
-    [EOF]
-    [exit status: 2]
-    ");
-
-    insta::assert_snapshot!(work_dir.run_jj([
-        "squash",
-        "-r@",
-        "--onto=@-"
-    ]), @"
-    ------- stderr -------
-    error: the argument '--revision <REVSET>' cannot be used with '--onto <REVSETS>'
-
-    Usage: jj squash --revision <REVSET> [FILESETS]...
-
-    For more information, try '--help'.
-    [EOF]
-    [exit status: 2]
-    ");
-
-    insta::assert_snapshot!(work_dir.run_jj([
-        "squash",
-        "-r@",
-        "--after=@-"
-    ]), @"
-    ------- stderr -------
-    error: the argument '--revision <REVSET>' cannot be used with '--insert-after <REVSETS>'
-
-    Usage: jj squash --revision <REVSET> [FILESETS]...
-
-    For more information, try '--help'.
-    [EOF]
-    [exit status: 2]
-    ");
-
-    insta::assert_snapshot!(work_dir.run_jj([
-        "squash",
-        "-r@",
-        "--before=@-"
-    ]), @"
-    ------- stderr -------
-    error: the argument '--revision <REVSET>' cannot be used with '--insert-before <REVSETS>'
-
-    Usage: jj squash --revision <REVSET> [FILESETS]...
 
     For more information, try '--help'.
     [EOF]
