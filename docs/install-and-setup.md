@@ -185,6 +185,24 @@ via scoop:
 scoop install main/jj
 ```
 
+### FreeBSD
+
+`devel/jujutsu` is [available](https://www.freshports.org/devel/jujutsu) in the ports.
+
+Install pre-built pkg:
+
+```shell
+# To install the latest release via pkg
+pkg install jujutsu
+```
+
+Install from building the port:
+
+```shell
+# To install the latest release via ports
+cd /usr/ports/devel/jujutsu/ && make install clean
+```
+
 ## Runtime Requirements
 
 You will need git 2.41.0 or above. On older systems (e.g. Debian 11, Ubuntu
