@@ -430,6 +430,7 @@ Create a new bookmark
 * `-r`, `--revision <REVSET>` [alias: `to`] — The bookmark's target revision
 
   Default value: `@`
+* `--track` — Track the bookmark on all remotes
 
 
 
