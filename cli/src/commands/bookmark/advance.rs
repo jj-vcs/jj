@@ -20,6 +20,8 @@ use jj_lib::iter_util::fallible_any;
 use jj_lib::iter_util::fallible_find;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::RefTarget;
+use jj_lib::ref_name::RefName;
+use jj_lib::ref_name::RefNameBuf;
 use jj_lib::revset;
 use jj_lib::revset::ExpressionKind;
 use jj_lib::revset::RevsetDiagnostics;
@@ -70,6 +72,12 @@ pub struct BookmarkAdvanceArgs {
     #[arg(long, short, value_name = "REVSET")]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     to: Option<RevisionArg>,
+
+    /// Create the bookmark if it doesn't already exist
+    ///
+    /// Only has an effect when bookmark names are specified explicitly.
+    #[arg(long)]
+    create_new: bool,
 }
 
 pub async fn cmd_bookmark_advance(
@@ -105,6 +113,8 @@ pub async fn cmd_bookmark_advance(
 
     let repo = workspace_command.repo().clone();
 
+    let mut new_bookmark_names: Vec<RefNameBuf> = Vec::new();
+
     let matched_bookmarks = {
         let mut bookmarks: Vec<_> = match &args.names {
             Some(texts) => {
@@ -114,10 +124,23 @@ pub async fn cmd_bookmark_advance(
                     .view()
                     .local_bookmarks_matching(&name_matcher)
                     .collect();
-                warn_unmatched_local_bookmarks(ui, repo.view(), &name_expr)?;
+                if args.create_new {
+                    new_bookmark_names = name_expr
+                        .exact_strings()
+                        .filter(|s| repo.view().get_local_bookmark(RefName::new(s)).is_absent())
+                        .map(|s| RefNameBuf::from(s.to_owned()))
+                        .collect();
+                } else {
+                    warn_unmatched_local_bookmarks(ui, repo.view(), &name_expr)?;
+                }
                 result
             }
             None => {
+                if args.create_new {
+                    return Err(user_error(
+                        "--create-new requires explicit bookmark names to be specified",
+                    ));
+                }
                 // Get the default-from revset config, and provide `to`.
                 let from_revset_str = workspace_command
                     .settings()
@@ -160,7 +183,7 @@ pub async fn cmd_bookmark_advance(
         bookmarks
     };
 
-    if matched_bookmarks.is_empty() {
+    if matched_bookmarks.is_empty() && new_bookmark_names.is_empty() {
         writeln!(ui.status(), "No bookmarks to update.")?;
         return Ok(());
     }
@@ -186,15 +209,24 @@ pub async fn cmd_bookmark_advance(
         tx.repo_mut()
             .set_local_bookmark_target(name, RefTarget::normal(target_commit.id().clone()));
     }
+    for name in &new_bookmark_names {
+        tx.repo_mut()
+            .set_local_bookmark_target(name, RefTarget::normal(target_commit.id().clone()));
+    }
 
     if let Some(mut formatter) = ui.status_formatter() {
-        write!(
-            formatter,
-            "Advanced {} bookmarks to ",
-            matched_bookmarks.len()
-        )?;
-        tx.write_commit_summary(formatter.as_mut(), &target_commit)?;
-        writeln!(formatter)?;
+        let new_count = new_bookmark_names.len();
+        if new_count > 0 {
+            write!(formatter, "Created {new_count} bookmarks pointing to ")?;
+            tx.write_commit_summary(formatter.as_mut(), &target_commit)?;
+            writeln!(formatter)?;
+        }
+        let advanced_count = matched_bookmarks.len();
+        if advanced_count > 0 {
+            write!(formatter, "Advanced {advanced_count} bookmarks to ")?;
+            tx.write_commit_summary(formatter.as_mut(), &target_commit)?;
+            writeln!(formatter)?;
+        }
     }
     if matched_bookmarks.len() > 1 && args.names.is_none() {
         writeln!(
@@ -207,9 +239,10 @@ pub async fn cmd_bookmark_advance(
         ui,
         format!(
             "point bookmark {names} to commit {id}",
-            names = matched_bookmarks
+            names = new_bookmark_names
                 .iter()
-                .map(|(name, _)| name.as_symbol())
+                .map(|name| name.as_symbol())
+                .chain(matched_bookmarks.iter().map(|(name, _)| name.as_symbol()))
                 .join(", "),
             id = target_commit.id().hex()
         ),

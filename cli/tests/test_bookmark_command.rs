@@ -3466,6 +3466,86 @@ fn test_bookmark_advance_default() -> TestResult {
     Ok(())
 }
 
+#[test]
+fn test_bookmark_advance_create_new() -> TestResult {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let get_log = || {
+        let template = r#"
+            separate(" ",
+                change_id.shortest(8),
+                description.first_line(),
+                if(empty, "(empty)"),
+                bookmarks,
+            )
+        "#;
+        work_dir.run_jj(["log", "-T", template])
+    };
+
+    work_dir.run_jj(["describe", "-m", "a"]).success();
+    work_dir.run_jj(["bookmark", "create", "A"]).success();
+    work_dir.run_jj(["new", "-m", "b"]).success();
+
+    let setup_opid = work_dir.current_operation_id();
+
+    // Create a new bookmark with --create-new.
+    let output = work_dir.run_jj(["bookmark", "advance", "--create-new", "new-bookmark"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Created 1 bookmarks pointing to zsuskuln b43fe7c3 new-bookmark | (empty) b
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log(), @r"
+    @  zsuskuln b (empty) new-bookmark
+    ○  qpvuntsm a (empty) A
+    ◆  zzzzzzzz (empty)
+    [EOF]
+    ");
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+
+    // Create a new bookmark and advance an existing one simultaneously.
+    let output = work_dir.run_jj(["bookmark", "advance", "--create-new", "A|new-bookmark"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Created 1 bookmarks pointing to zsuskuln b43fe7c3 A new-bookmark | (empty) b
+    Advanced 1 bookmarks to zsuskuln b43fe7c3 A new-bookmark | (empty) b
+    [EOF]
+    ");
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+
+    // --create-new for a bookmark that already exists just advances it.
+    let output = work_dir.run_jj(["bookmark", "advance", "--create-new", "A"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Advanced 1 bookmarks to zsuskuln b43fe7c3 A | (empty) b
+    [EOF]
+    ");
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+
+    // --create-new without explicit names is an error.
+    let output = work_dir.run_jj(["bookmark", "advance", "--create-new"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: --create-new requires explicit bookmark names to be specified
+    [EOF]
+    [exit status: 1]
+    ");
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+
+    // --create-new with a glob pattern that doesn't match any existing bookmark
+    // does not create a bookmark (only exact names are eligible for creation).
+    let output = work_dir.run_jj(["bookmark", "advance", "--create-new", "glob:new-*"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    No bookmarks to update.
+    [EOF]
+    ");
+
+    Ok(())
+}
+
 #[must_use]
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     let template = r#"bookmarks ++ " " ++ commit_id.short()"#;

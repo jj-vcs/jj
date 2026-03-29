@@ -410,6 +410,9 @@ Example:
 * `-t`, `--to <REVSET>` — Move bookmarks to this revision
 
    Defaults to `revsets.bookmark-advance-to`.
+* `--create-new` — Create the bookmark if it doesn't already exist
+
+   Only has an effect when bookmark names are specified explicitly.
 
 
 
