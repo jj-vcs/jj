@@ -45,6 +45,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   revisions by default (defined by `revsets.op-diff-changes-in`). A new flag,
   `--show-changes-in`, can be used to override this. [#6083](https://github.com/jj-vcs/jj/issues/6083)
 
+* `jj bookmark advance` now includes an `--create-new` flag that will create
+  missing bookmarks.
+
 ### Fixed bugs
 
 * `.gitignore` with UTF-8 BOM can now be parsed correctly.
@@ -622,7 +625,7 @@ Thanks to the people who made this release happen!
   For more details, refer to
   [the docs](docs/config.md#automatic-tracking-of-bookmarks).
 
-* The flag `--allow-new` on `jj git push` is deprecated. In order to push new
+* The flag `--create-new` on `jj git push` is deprecated. In order to push new
   bookmarks, please track them with `jj bookmark track`. Alternatively, consider
   setting up an auto-tracking configuration to avoid the chore of tracking
   bookmarks manually. For example:
@@ -754,7 +757,7 @@ Thanks to the people who made this release happen!
 
 * After creating a local bookmark, it is now possible to use `jj bookmark track`
   to associate the bookmark with a specific remote before pushing it. When
-  pushing a tracked bookmark, it is not necessary to use `--allow-new`.
+  pushing a tracked bookmark, it is not necessary to use `--create-new`.
 
 * The new `jj git colocation enable` and `jj git colocation disable` commands
   allow converting between colocated and non-colocated workspaces.
@@ -791,7 +794,7 @@ Thanks to the people who made this release happen!
   like `--repo` now also support `--workspace`.
 
 * `jj bookmark track` can now associate new local bookmarks with remote.
-  Tracked bookmarks can be pushed without `--allow-new`.
+  Tracked bookmarks can be pushed without `--create-new`.
   [#7072](https://github.com/jj-vcs/jj/issues/7072)
 
 * The new `jj git colocation` command provides sub-commands to show the
@@ -2121,7 +2124,7 @@ Thanks to the people who made this release happen!
   being pushed to a Git remote.
 
 * New `git.push-new-bookmarks` config option to push new bookmarks without
-  `--allow-new`.
+  `--create-new`.
 
 * `jj status` now shows untracked files when they reside directly under a
   tracked directory. There's still an issue that files under untracked
@@ -2370,7 +2373,7 @@ Thanks to the people who made this release happen!
 
 * `jj merge` has been removed. It was deprecated in 0.14.0.
 
-* `jj git push` no longer pushes new bookmarks by default. Use `--allow-new` to
+* `jj git push` no longer pushes new bookmarks by default. Use `--create-new` to
   bypass this restriction.
 
 * Lines prefixed with "JJ:" in commit descriptions and in sparse patterns (from
