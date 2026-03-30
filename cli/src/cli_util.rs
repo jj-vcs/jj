@@ -2684,6 +2684,15 @@ impl WorkspaceCommandTransaction<'_> {
 }
 
 pub fn find_workspace_dir(cwd: &Path) -> &Path {
+    // If the user is inside of a Git repo, there's a fairly good chance
+    // that's the repo they intended to act on.
+    cwd.ancestors()
+        .find(|path| path.join(".jj").is_dir() || path.join(".git").is_dir())
+        .unwrap_or(cwd)
+}
+
+/// Variant of `find_workspace_dir` that only finds JJ repos.
+fn find_workspace_dir_hint(cwd: &Path) -> &Path {
     cwd.ancestors()
         .find(|path| path.join(".jj").is_dir())
         .unwrap_or(cwd)
@@ -2695,16 +2704,26 @@ fn map_workspace_load_error(err: WorkspaceLoadError, user_wc_path: Option<&str>)
             // Prefer user-specified path instead of absolute wc_path if any.
             let short_wc_path = user_wc_path.map_or(wc_path.as_ref(), Path::new);
             let message = format!(r#"There is no jj repo in "{}""#, short_wc_path.display());
+            let mut error = user_error(message);
+
             let git_dir = wc_path.join(".git");
             if git_dir.is_dir() {
-                user_error(message).hinted(
+                error = error.hinted(
                     "It looks like this is a git repo. You can create a jj repo backed by it by \
                      running this:
 jj git init",
-                )
-            } else {
-                user_error(message)
+                );
+
+                let jj_wc_path = find_workspace_dir_hint(&wc_path);
+                if jj_wc_path != wc_path {
+                    error = error.hinted(format!(
+                        r#"Or, you may have intended to run this command inside "{}""#,
+                        jj_wc_path.display()
+                    ));
+                }
             }
+
+            error
         }
         WorkspaceLoadError::RepoDoesNotExist(repo_dir) => user_error(format!(
             "The repository directory at {} is missing. Was it moved?",
