@@ -989,6 +989,20 @@ impl MutableRepo {
             .insert(old_id, Rewrite::Rewritten(new_id));
     }
 
+    /// Returns true if the reverse mapping `new_id → old_id` already exists,
+    /// indicating a swap (A→B, B→A). If found, removes the reverse mapping
+    /// so neither side triggers descendant rebasing.
+    pub fn cancel_swap_rewrite(&mut self, old_id: &CommitId, new_id: &CommitId) -> bool {
+        let is_swap = matches!(
+            self.parent_mapping.get(new_id),
+            Some(Rewrite::Rewritten(target)) if target == old_id
+        );
+        if is_swap {
+            self.parent_mapping.remove(new_id);
+        }
+        is_swap
+    }
+
     /// Record a commit as being rewritten into multiple other commits in this
     /// transaction.
     ///
