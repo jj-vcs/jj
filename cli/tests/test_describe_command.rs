@@ -550,6 +550,157 @@ fn test_describe_multiple_commits() -> TestResult {
 }
 
 #[test]
+fn test_describe_with_draft_template() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Initial setup
+    work_dir.write_file("a.txt", "aaaa\nbbbb\ncccc\n");
+    work_dir.run_jj(["commit", "-m=first"]).success();
+    work_dir.write_file("a.txt", b"aaaa\ncccc\ndddd\n\xff\n");
+    work_dir.run_jj(["describe", "-m=second"]).success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    @  c43cce883e27 second
+    ○  8620a92b036c first
+    ◆  000000000000
+    [EOF]
+    ");
+
+    // Dump the default commit description template
+    std::fs::write(&edit_script, "dump editor0").unwrap();
+    let output = work_dir.run_jj(["describe"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
+    second
+
+    JJ: Change ID: rlvkpnrz
+    JJ: This commit contains the following changes:
+    JJ:     M a.txt
+    JJ:
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+
+    // Builtin template can produce non-utf8 content
+    std::fs::write(&edit_script, "dump editor0").unwrap();
+    let output = work_dir.run_jj([
+        "describe",
+        "--config=templates.draft_commit_description='builtin_draft_commit_description_with_diff'",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
+    second
+
+    JJ: Change ID: rlvkpnrz
+    JJ: This commit contains the following changes:
+    JJ:     M a.txt
+
+    JJ: ignore-rest
+    diff --git a/a.txt b/a.txt
+    index edd13ee535..12e5763da1 100644
+    --- a/a.txt
+    +++ b/a.txt
+    @@ -1,3 +1,4 @@
+     aaaa
+    -bbbb
+     cccc
+    +dddd
+    +�
+
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+
+    // Custom template can produce non-utf8 description and trailers
+    std::fs::write(&edit_script, "dump editor0").unwrap();
+    let output = work_dir.run_jj([
+        "describe",
+        r#"--config=templates.draft_commit_description='diff.git() ++ "\n" ++ indent("Trailer: ", diff.git())'"#,
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Working copy  (@) now at: rlvkpnrz 3e002fe8 diff --git a/a.txt b/a.txt
+    Parent commit (@-)      : qpvuntsm 8620a92b first
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
+    diff --git a/a.txt b/a.txt
+    index edd13ee535..12e5763da1 100644
+    --- a/a.txt
+    +++ b/a.txt
+    @@ -1,3 +1,4 @@
+     aaaa
+    -bbbb
+     cccc
+    +dddd
+    +�
+
+    Trailer: diff --git a/a.txt b/a.txt
+    Trailer: index edd13ee535..12e5763da1 100644
+    Trailer: --- a/a.txt
+    Trailer: +++ b/a.txt
+    Trailer: @@ -1,3 +1,4 @@
+    Trailer:  aaaa
+    Trailer: -bbbb
+    Trailer:  cccc
+    Trailer: +dddd
+    Trailer: +�
+
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+
+    // Newline auto-inserted when template produces content without newline
+    std::fs::write(&edit_script, "dump editor0").unwrap();
+    let output = work_dir.run_jj([
+        "describe",
+        "--config=templates.draft_commit_description='change_id'",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Working copy  (@) now at: rlvkpnrz f14a5632 rlvkpnrzqnoowoytxnquwvuryrwnrmlp
+    Parent commit (@-)      : qpvuntsm 8620a92b first
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
+    rlvkpnrzqnoowoytxnquwvuryrwnrmlp
+
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+
+    // Newline auto-inserted when template produces empty string
+    std::fs::write(&edit_script, "dump editor0").unwrap();
+    let output = work_dir.run_jj([
+        "describe",
+        r#"--config=templates.draft_commit_description='""'"#,
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Working copy  (@) now at: rlvkpnrz a4ccf790 (no description set)
+    Parent commit (@-)      : qpvuntsm 8620a92b first
+    [EOF]
+    ");
+    let editor0 = std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap();
+    insta::assert_snapshot!(format!("-----\n{editor0}-----\n"), @r#"
+    -----
+
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    -----
+    "#);
+}
+
+#[test]
 fn test_multiple_message_args() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -617,6 +768,73 @@ fn test_multiple_message_args() {
     Second Paragraph from CLI
     [EOF]
     ");
+}
+
+#[test]
+fn test_describe_description_file_removed() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Description file misplaced by the user or a faulty editor
+    std::fs::write(edit_script, "delete").unwrap();
+    let output = work_dir.run_jj(["describe"]);
+    insta::with_settings!({
+        filters => [
+            (r"(access|in) .*(editor-)[^.]*(\.jjdescription)\b", "$1 <redacted>$2<redacted>$3"),
+            ("The system cannot find the file specified.", "No such file or directory"),
+        ],
+    }, {
+        insta::assert_snapshot!(output, @"
+        ------- stderr -------
+        Error: Failed to edit description
+        Caused by:
+        1: Cannot access <redacted>editor-<redacted>.jjdescription
+        2: No such file or directory (os error 2)
+        Hint: Edited description is left in <redacted>editor-<redacted>.jjdescription
+        [EOF]
+        [exit status: 1]
+        ");
+    });
+}
+
+#[test]
+fn test_describe_editor_crashes() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    std::fs::write(edit_script, "crash").unwrap();
+    let output = work_dir.run_jj(["describe"]);
+    insta::with_settings!({
+        filters => [
+            (r"\bEditor '[^']*'", "Editor '<redacted>'"),
+            (r"in .*(editor-)[^.]*(\.jjdescription)\b", "in <redacted>$1<redacted>$2"),
+        ],
+    }, {
+        if cfg!(unix) {
+            insta::assert_snapshot!(output, @"
+            ------- stderr -------
+            Error: Failed to edit description
+            Caused by: Editor '<redacted>' exited with signal: 15 (SIGTERM)
+            Hint: Edited description is left in <redacted>editor-<redacted>.jjdescription
+            [EOF]
+            [exit status: 1]
+            ");
+        } else if cfg!(windows) {
+            // abort produces STATUS_STACK_BUFFER_OVERRUN (0xc0000409)
+            insta::assert_snapshot!(output, @r"
+            ------- stderr -------
+            Error: Failed to edit description
+            Caused by: Editor '<redacted>' exited with exit code: 0xc0000409
+            Hint: Edited description is left in <redacted>editor-<redacted>.jjdescription
+            [EOF]
+            [exit status: 1]
+            ");
+        }
+    });
 }
 
 #[test]
@@ -1093,6 +1311,21 @@ fn test_add_trailer() {
     Warning: `jj describe --no-edit` is deprecated; use `jj metaedit` instead
     Nothing changed.
     [EOF]
+    ");
+
+    // Invalid trailer content
+    work_dir.write_file("data.txt", b"\xff\n");
+    let output = work_dir.run_jj([
+        "describe",
+        "-m=content",
+        "--config",
+        r#"templates.commit_trailers='indent("Content: ", diff.git())'"#,
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Trailers should be valid utf-8
+    [EOF]
+    [exit status: 1]
     ");
 }
 

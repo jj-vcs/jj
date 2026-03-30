@@ -1422,13 +1422,46 @@ fn test_squash_description() -> TestResult {
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 
+    // No complaints when commits have identical trailers, order irrelevant
+    work_dir.run_jj(["op", "restore", &setup_opid3]).success();
+    work_dir
+        .run_jj(["describe", "-m", "source\n\nfoo: bar\nbaz: quux"])
+        .success();
+    std::fs::write(&edit_script, "dump editor0").unwrap();
+    work_dir
+        .run_jj([
+            "squash",
+            "--config",
+            r#"templates.commit_trailers='"baz: quux\nfoo: bar"'"#,
+        ])
+        .success();
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
+    JJ: Enter a description for the combined commit.
+    JJ: Description from the destination commit:
+    destination
+
+    JJ: Description from source commit:
+    source
+
+    foo: bar
+    baz: quux
+
+    JJ: Change ID: qpvuntsm
+    JJ: This commit contains the following changes:
+    JJ:     A file1
+    JJ:     A file2
+    JJ:
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+
     // If the destination description is non-empty and the source's description is
     // empty, the resulting description is from the destination, with additional
     // trailers if defined in the commit_trailers template
     work_dir.run_jj(["op", "restore", &setup_opid3]).success();
     work_dir.run_jj(["describe", "-m", ""]).success();
     insta::assert_snapshot!(get_log_output_with_description(&work_dir), @"
-    @  97f34efed913
+    @  452e4831d64b
     ○  e650dfcd7312 destination
     ◆  000000000000
     [EOF]
@@ -1455,8 +1488,8 @@ fn test_squash_description() -> TestResult {
         .run_jj(["describe", "-r", "@-", "-m", ""])
         .success();
     insta::assert_snapshot!(get_log_output_with_description(&work_dir), @"
-    @  40d544a674fa source
-    ○  0cd53b79bf29
+    @  78e7f58582e8 source
+    ○  a01e1865957e
     ◆  000000000000
     [EOF]
     ");
@@ -1480,8 +1513,8 @@ fn test_squash_description() -> TestResult {
         .run_jj(["describe", "-r", "..", "-m", ""])
         .success();
     insta::assert_snapshot!(get_log_output_with_description(&work_dir), @"
-    @  40803d8a1ce7
-    ○  dd5a6e210d71
+    @  8a34624ec18b
+    ○  2560c9e5ef72
     ◆  000000000000
     [EOF]
     ");
@@ -1501,8 +1534,8 @@ fn test_squash_description() -> TestResult {
         .run_jj(["describe", "-r", "@-", "-m", ""])
         .success();
     insta::assert_snapshot!(get_log_output_with_description(&work_dir), @"
-    @  7ce5b3a58427 source
-    ○  b9442a4ce005
+    @  405f52356ed5 source
+    ○  ecf32ca3d742
     ◆  000000000000
     [EOF]
     ");
@@ -1535,6 +1568,27 @@ fn test_squash_description() -> TestResult {
         ])
         .success();
     insta::assert_snapshot!(get_description(&work_dir, "@-"), @"");
+
+    // Invalid trailer content
+    work_dir.run_jj(["op", "restore", &setup_opid3]).success();
+    work_dir.write_file("data.txt", b"\xff\n");
+    insta::assert_snapshot!(get_log_output_with_description(&work_dir), @"
+    @  9eec7f21360c source
+    ○  e650dfcd7312 destination
+    ◆  000000000000
+    [EOF]
+    ");
+    let output = work_dir.run_jj([
+        "squash",
+        "--config",
+        r#"templates.commit_trailers='indent("Content: ", diff.git())'"#,
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Trailers should be valid utf-8
+    [EOF]
+    [exit status: 1]
+    ");
     Ok(())
 }
 

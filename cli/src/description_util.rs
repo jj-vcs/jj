@@ -81,11 +81,6 @@ impl TextEditor {
         Ok(Self { editor, dir: None })
     }
 
-    pub fn with_temp_dir(mut self, dir: impl Into<PathBuf>) -> Self {
-        self.dir = Some(dir.into());
-        self
-    }
-
     /// Opens the given `path` in editor.
     pub fn edit_file(&self, path: impl AsRef<Path>) -> Result<(), TextEditError> {
         let mut cmd = self.editor.to_command();
@@ -318,7 +313,7 @@ pub fn try_combine_messages(sources: &[Commit], destination: &Commit) -> Option<
 
 /// Produces a combined description with "JJ: " comment lines.
 ///
-/// This includes empty descriptins too, so the user doesn't have to wonder why
+/// This includes empty descriptions too, so the user doesn't have to wonder why
 /// they only see 2 descriptions when they combined 3 commits.
 pub async fn combine_messages_for_editing(
     ui: &Ui,
@@ -615,6 +610,45 @@ mod tests {
             result.descriptions,
             hashmap! {
                 1 => "Description 1\n".to_string(),
+            }
+        );
+        assert!(result.missing.is_empty());
+        assert!(result.duplicates.is_empty());
+        assert!(result.unexpected.is_empty());
+    }
+
+    #[test]
+    fn test_parse_bulk_edit_message_with_ignored_content() {
+        let result = parse_bulk_edit_message(
+            indoc! {"
+                JJ: describe 1 -------
+                Description 1
+                JJ: directive ignored
+                JJ: foo bar baz
+                JJ: describe 2
+                Description 2
+
+                JJ: ignore-rest
+                ignored content
+
+                JJ: describe 3 --
+                Description 3
+                JJ: ignore-rest still-ignored
+                additional ignored content
+            "},
+            &indexmap! {
+                "1".to_string() => &1,
+                "2".to_string() => &2,
+                "3".to_string() => &3,
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            result.descriptions,
+            hashmap! {
+                1 => "Description 1\n".to_string(),
+                2 => "Description 2\n".to_string(),
+                3 => "Description 3\n".to_string(),
             }
         );
         assert!(result.missing.is_empty());
