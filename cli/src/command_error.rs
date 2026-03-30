@@ -224,6 +224,35 @@ pub fn internal_error_with_message(
     CommandError::with_message(CommandErrorKind::Internal, message, source)
 }
 
+const PARTIAL_CLONE_HINT: &str = r#"Is this Git repository a partial clone (cloned with the --filter argument)?
+jj currently does not support partial clones.
+To use jj with this repository, try converting to a full clone:
+
+git config --unset remote.origin.partialclonefilter
+git fetch --refetch origin"#;
+
+/// Returns true if the given error's source chain contains a
+/// `BackendError::ObjectNotFound`.
+fn has_object_not_found_error(err: &(dyn error::Error + 'static)) -> bool {
+    let mut source: Option<&(dyn error::Error + 'static)> = Some(err);
+    while let Some(err) = source {
+        if let Some(BackendError::ObjectNotFound { .. }) = err.downcast_ref::<BackendError>() {
+            return true;
+        }
+        source = err.source();
+    }
+    false
+}
+
+/// Adds a partial clone hint to a `CommandError` if the error's source chain
+/// contains a `BackendError::ObjectNotFound`.
+pub fn maybe_add_partial_clone_hint(mut cmd_err: CommandError) -> CommandError {
+    if has_object_not_found_error(&*cmd_err.error) {
+        cmd_err.add_hint(PARTIAL_CLONE_HINT);
+    }
+    cmd_err
+}
+
 fn format_similarity_hint<S: AsRef<str>>(candidates: &[S]) -> Option<String> {
     match candidates {
         [] => None,
@@ -319,6 +348,10 @@ impl From<BackendError> for CommandError {
     fn from(err: BackendError) -> Self {
         match &err {
             BackendError::Unsupported(_) => user_error(err),
+            BackendError::ObjectNotFound { .. } => {
+                internal_error_with_message("Unexpected error from backend", err)
+                    .hinted(PARTIAL_CLONE_HINT)
+            }
             _ => internal_error_with_message("Unexpected error from backend", err),
         }
     }
@@ -544,13 +577,7 @@ mod git {
         fn from(err: GitImportError) -> Self {
             let hint = match &err {
                 GitImportError::MissingHeadTarget { .. }
-                | GitImportError::MissingRefAncestor { .. } => Some(
-                    "\
-Is this Git repository a partial clone (cloned with the --filter argument)?
-jj currently does not support partial clones. To use jj with this repository, try re-cloning with \
-                     the full repository contents."
-                        .to_string(),
-                ),
+                | GitImportError::MissingRefAncestor { .. } => Some(PARTIAL_CLONE_HINT.to_string()),
                 GitImportError::Backend(_) => None,
                 GitImportError::Index(_) => None,
                 GitImportError::Git(_) => None,
