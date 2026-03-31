@@ -540,6 +540,12 @@ async fn diffs_from_copies(
     let copy_id = after_file.copy_id().ok_or(BackendError::Other(
         "Expected TreeValue::File with a CopyId".into(),
     ))?;
+    if copy_id.is_placeholder() {
+        return Ok(Merge::resolved(CopyHistoryDiffTerm {
+            target_value: Some(after_file),
+            sources: vec![],
+        }));
+    }
     let copy_graph: CopyGraph = before_tree
         .store()
         .backend()
