@@ -224,14 +224,22 @@ pub struct GitPushArgs {
     option: Vec<String>,
 }
 
-fn make_bookmark_term(updates: &[(RefNameBuf, Diff<Option<CommitId>>)]) -> String {
-    match updates {
-        [(name, _)] => format!("bookmark {}", name.as_symbol()),
-        _ => format!(
-            "bookmarks {}",
-            updates.iter().map(|(name, _)| name.as_symbol()).join(", ")
-        ),
-    }
+fn make_updates_term(ref_updates: &GitPushRefTargets) -> String {
+    let kind_updates = [
+        ("bookmark", "bookmarks", &ref_updates.bookmarks),
+        ("tag", "tags", &ref_updates.tags),
+    ];
+    kind_updates
+        .into_iter()
+        .filter_map(|(kind, kinds, refs)| match &**refs {
+            [] => None,
+            [(name, _)] => Some(format!("{kind} {}", name.as_symbol())),
+            _ => Some(format!(
+                "{kinds} {}",
+                refs.iter().map(|(name, _)| name.as_symbol()).join(", ")
+            )),
+        })
+        .join(", ")
 }
 
 const DEFAULT_REMOTE: &RemoteName = RemoteName::new("origin");
@@ -270,7 +278,7 @@ pub async fn cmd_git_push(
     let mut tx = workspace_command.start_transaction();
     let view = tx.repo().view();
     let tx_description;
-    let mut bookmark_updates = vec![];
+    let mut ref_updates = GitPushRefTargets::default();
     if args.all {
         let mut commits_validator =
             CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args)?;
@@ -283,7 +291,7 @@ pub async fn cmd_git_push(
                 args.deleted,
             ) {
                 Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
-                    Ok(()) => bookmark_updates.push((name.to_owned(), update)),
+                    Ok(()) => ref_updates.bookmarks.push((name.to_owned(), update)),
                     Err(reason) => reason.print_bookmark(ui, tx.base_workspace_helper(), name)?,
                 },
                 Ok(None) => {}
@@ -309,7 +317,7 @@ pub async fn cmd_git_push(
                 args.deleted,
             ) {
                 Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
-                    Ok(()) => bookmark_updates.push((name.to_owned(), update)),
+                    Ok(()) => ref_updates.bookmarks.push((name.to_owned(), update)),
                     Err(reason) => reason.print_bookmark(ui, tx.base_workspace_helper(), name)?,
                 },
                 Ok(None) => {}
@@ -337,7 +345,7 @@ pub async fn cmd_git_push(
                 allow_delete,
             ) {
                 Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
-                    Ok(()) => bookmark_updates.push((name.to_owned(), update)),
+                    Ok(()) => ref_updates.bookmarks.push((name.to_owned(), update)),
                     Err(reason) => reason.print_bookmark(ui, tx.base_workspace_helper(), name)?,
                 },
                 Ok(None) => {}
@@ -387,7 +395,7 @@ pub async fn cmd_git_push(
             let allow_new = true; // --change implies creation of remote bookmark
             let allow_delete = false; // doesn't matter
             match classify_bookmark_update(remote_symbol, targets, allow_new, allow_delete) {
-                Ok(Some(update)) => bookmark_updates.push((name.to_owned(), update)),
+                Ok(Some(update)) => ref_updates.bookmarks.push((name.to_owned(), update)),
                 Ok(None) => writeln!(
                     ui.status(),
                     "Bookmark {remote_symbol} already matches {name}",
@@ -412,7 +420,7 @@ pub async fn cmd_git_push(
             let allow_new = allow_new || !has_tracked_remote_bookmarks(tx.repo(), name);
             let allow_delete = true; // named explicitly, allow delete without --delete
             match classify_bookmark_update(remote_symbol, targets, allow_new, allow_delete) {
-                Ok(Some(update)) => bookmark_updates.push((name.to_owned(), update)),
+                Ok(Some(update)) => ref_updates.bookmarks.push((name.to_owned(), update)),
                 Ok(None) => writeln!(
                     ui.status(),
                     "Bookmark {remote_symbol} already matches {name}",
@@ -426,7 +434,7 @@ pub async fn cmd_git_push(
             CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args)?;
         // Error out if explicitly-specified targets can't be pushed.
         commits_validator
-            .validate_updates(&bookmark_updates)
+            .validate_updates(&ref_updates)
             .await?
             .map_err(|reason| reason.to_command_error(tx.base_workspace_helper()))?;
 
@@ -451,7 +459,7 @@ pub async fn cmd_git_push(
                 allow_delete,
             ) {
                 Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
-                    Ok(()) => bookmark_updates.push((name.to_owned(), update)),
+                    Ok(()) => ref_updates.bookmarks.push((name.to_owned(), update)),
                     Err(reason) => reason.print_bookmark(ui, tx.base_workspace_helper(), name)?,
                 },
                 Ok(None) => {}
@@ -461,19 +469,18 @@ pub async fn cmd_git_push(
 
         tx_description = format!(
             "{TX_DESC_PUSH}{names} to git remote {remote}",
-            names = make_bookmark_term(&bookmark_updates),
+            names = make_updates_term(&ref_updates),
             remote = remote.as_symbol()
         );
     }
-    if bookmark_updates.is_empty() {
+    if ref_updates.bookmarks.is_empty() && ref_updates.tags.is_empty() {
         writeln!(ui.status(), "Nothing changed.")?;
         return Ok(());
     }
 
     if !args.dry_run && tx.settings().get_bool("git.sign-on-push")? {
-        let to_push_expr = ready_to_push_revset_expression(&tx, remote, &bookmark_updates);
-        bookmark_updates =
-            sign_commits_before_push(ui, &mut tx, to_push_expr, bookmark_updates).await?;
+        let to_push_expr = ready_to_push_revset_expression(&tx, remote, &ref_updates);
+        ref_updates = sign_commits_before_push(ui, &mut tx, to_push_expr, ref_updates).await?;
     }
 
     if let Some(mut formatter) = ui.status_formatter() {
@@ -482,7 +489,7 @@ pub async fn cmd_git_push(
             "Changes to push to {remote}:",
             remote = remote.as_symbol()
         )?;
-        print_commits_ready_to_push(formatter.as_mut(), tx.repo(), &bookmark_updates)?;
+        print_commits_ready_to_push(formatter.as_mut(), tx.repo(), &ref_updates)?;
     }
 
     if args.dry_run {
@@ -490,10 +497,6 @@ pub async fn cmd_git_push(
         return Ok(());
     }
 
-    let targets = GitPushRefTargets {
-        bookmarks: bookmark_updates,
-        tags: vec![], // TODO
-    };
     let git_settings = GitSettings::from_settings(tx.settings())?;
     let options = GitPushOptions {
         extra_args: vec![],
@@ -503,7 +506,7 @@ pub async fn cmd_git_push(
         tx.repo_mut(),
         git_settings.to_subprocess_options(),
         remote,
-        &targets,
+        &ref_updates,
         &mut GitSubprocessUi::new(ui),
         &options,
     )?;
@@ -624,10 +627,9 @@ impl<'repo> CommitsValidator<'repo> {
 
     async fn validate_updates(
         &mut self,
-        bookmark_updates: &[(RefNameBuf, Diff<Option<CommitId>>)],
+        updates: &GitPushRefTargets,
     ) -> Result<Result<(), RejectedCommitReason>, RevsetEvaluationError> {
-        let new_heads = bookmark_updates
-            .iter()
+        let new_heads = itertools::chain(&updates.bookmarks, &updates.tags)
             .filter_map(|(_, update)| update.after.clone())
             .collect_vec();
         self.validate_commits(&new_heads).await
@@ -685,12 +687,11 @@ impl<'repo> CommitsValidator<'repo> {
 fn ready_to_push_revset_expression(
     tx: &WorkspaceCommandTransaction,
     remote: &RemoteName,
-    bookmark_updates: &[(RefNameBuf, Diff<Option<CommitId>>)],
+    ref_updates: &GitPushRefTargets,
 ) -> Arc<UserRevsetExpression> {
     let workspace_helper = tx.base_workspace_helper();
     let repo = workspace_helper.repo();
-    let new_heads = bookmark_updates
-        .iter()
+    let new_heads = itertools::chain(&ref_updates.bookmarks, &ref_updates.tags)
         .filter_map(|(_, update)| update.after.clone())
         .collect_vec();
     let old_heads = repo
@@ -712,8 +713,8 @@ async fn sign_commits_before_push(
     ui: &Ui,
     tx: &mut WorkspaceCommandTransaction<'_>,
     commits_to_push: Arc<UserRevsetExpression>,
-    bookmark_updates: Vec<(RefNameBuf, Diff<Option<CommitId>>)>,
-) -> Result<Vec<(RefNameBuf, Diff<Option<CommitId>>)>, CommandError> {
+    ref_updates: GitPushRefTargets,
+) -> Result<GitPushRefTargets, CommandError> {
     let mut sign_settings = tx.settings().sign_settings();
     sign_settings.behavior = SignBehavior::Own;
     let commit_ids: IndexSet<CommitId> = tx
@@ -728,7 +729,7 @@ async fn sign_commits_before_push(
         .try_collect()
         .await?;
     if commit_ids.is_empty() {
-        return Ok(bookmark_updates);
+        return Ok(ref_updates);
     }
 
     let mut old_to_new_commits_map: HashMap<CommitId, CommitId> = HashMap::new();
@@ -765,20 +766,19 @@ async fn sign_commits_before_push(
             .await?;
     }
 
-    let bookmark_updates = bookmark_updates
-        .into_iter()
-        .map(|(bookmark_name, update)| {
-            (
-                bookmark_name,
-                Diff {
-                    before: update.before,
-                    after: update
-                        .after
-                        .map(|id| old_to_new_commits_map.get(&id).cloned().unwrap_or(id)),
-                },
-            )
-        })
-        .collect_vec();
+    let map_to_new_commits = |updates: Vec<(RefNameBuf, Diff<Option<CommitId>>)>| {
+        updates
+            .into_iter()
+            .map(|(name, Diff { before, after })| {
+                let after = after.map(|id| old_to_new_commits_map.get(&id).cloned().unwrap_or(id));
+                (name, Diff { before, after })
+            })
+            .collect()
+    };
+    let ref_updates = GitPushRefTargets {
+        bookmarks: map_to_new_commits(ref_updates.bookmarks),
+        tags: map_to_new_commits(ref_updates.tags),
+    };
 
     if let Some(mut formatter) = ui.status_formatter() {
         let num_updated_signatures = commit_ids.len();
@@ -794,13 +794,13 @@ async fn sign_commits_before_push(
         }
     }
 
-    Ok(bookmark_updates)
+    Ok(ref_updates)
 }
 
 fn print_commits_ready_to_push(
     formatter: &mut dyn Formatter,
     repo: &dyn Repo,
-    bookmark_updates: &[(RefNameBuf, Diff<Option<CommitId>>)],
+    ref_updates: &GitPushRefTargets,
 ) -> Result<(), CommandError> {
     let to_direction =
         |old_target: &CommitId, new_target: &CommitId| -> IndexResult<BookmarkMoveDirection> {
@@ -846,13 +846,19 @@ fn print_commits_ready_to_push(
     };
 
     // TODO: Add color
-    for (name, update) in bookmark_updates {
-        let desc = describe_update(update)?;
-        writeln!(
-            formatter,
-            "  bookmark: {name} [{desc}]",
-            name = name.as_symbol()
-        )?;
+    let kind_updates = [
+        ("bookmark", &ref_updates.bookmarks),
+        ("tag", &ref_updates.tags),
+    ];
+    for (kind, updates) in kind_updates {
+        for (name, update) in updates {
+            let desc = describe_update(update)?;
+            writeln!(
+                formatter,
+                "  {kind}: {name} [{desc}]",
+                name = name.as_symbol()
+            )?;
+        }
     }
     Ok(())
 }

@@ -3065,7 +3065,7 @@ pub enum GitPushError {
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct GitPushRefTargets {
     /// Bookmark or branch `(name, [expected_target, new_target])`s to push.
     pub bookmarks: Vec<(RefNameBuf, Diff<Option<CommitId>>)>,
