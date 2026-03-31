@@ -1656,7 +1656,7 @@ fn test_op_diff() {
     let output = work_dir.run_jj(["op", "diff"]);
     insta::assert_snapshot!(output, @"
     From operation: 9f574d292524 (2001-02-03 08:05:37) delete bookmark bookmark-2
-      To operation: 1e728cf201c1 (2001-02-03 08:05:39) push all tracked bookmarks to git remote origin
+      To operation: 08c2f567fbdc (2001-02-03 08:05:39) push all tracked bookmarks/tags to git remote origin
 
     Changed remote bookmarks:
     bookmark-1@origin:
@@ -1672,8 +1672,8 @@ fn test_op_diff() {
     work_dir.run_jj(["tag", "set", "tag1"]).success();
     let output = work_dir.run_jj(["op", "diff"]);
     insta::assert_snapshot!(output, @"
-    From operation: 1e728cf201c1 (2001-02-03 08:05:39) push all tracked bookmarks to git remote origin
-      To operation: b6bdf292b8cf (2001-02-03 08:05:41) set tag tag1 to commit 96f3a57c9a4a4ae7bb45d1eafe32fe3b6e33f458
+    From operation: 08c2f567fbdc (2001-02-03 08:05:39) push all tracked bookmarks/tags to git remote origin
+      To operation: f72973c8c68f (2001-02-03 08:05:41) set tag tag1 to commit 96f3a57c9a4a4ae7bb45d1eafe32fe3b6e33f458
 
     Changed commits:
     ○  + wvmqtotl 56e74c8d (empty) (no description set)
@@ -1695,8 +1695,8 @@ fn test_op_diff() {
         .success();
     let output = work_dir.run_jj(["op", "diff"]);
     insta::assert_snapshot!(output, @"
-    From operation: 1e728cf201c1 (2001-02-03 08:05:39) push all tracked bookmarks to git remote origin
-      To operation: b6bdf292b8cf (2001-02-03 08:05:41) set tag tag1 to commit 96f3a57c9a4a4ae7bb45d1eafe32fe3b6e33f458
+    From operation: 08c2f567fbdc (2001-02-03 08:05:39) push all tracked bookmarks/tags to git remote origin
+      To operation: f72973c8c68f (2001-02-03 08:05:41) set tag tag1 to commit 96f3a57c9a4a4ae7bb45d1eafe32fe3b6e33f458
 
     Changed commits:
     ○  + wvmqtotl 56e74c8d (empty) (no description set)
@@ -1716,8 +1716,8 @@ fn test_op_diff() {
     work_dir.run_jj(["tag", "delete", "tag1"]).success();
     let output = work_dir.run_jj(["op", "diff"]);
     insta::assert_snapshot!(output, @"
-    From operation: b6bdf292b8cf (2001-02-03 08:05:41) set tag tag1 to commit 96f3a57c9a4a4ae7bb45d1eafe32fe3b6e33f458
-      To operation: 14b83a7a8d9d (2001-02-03 08:05:45) delete tag tag1
+    From operation: f72973c8c68f (2001-02-03 08:05:41) set tag tag1 to commit 96f3a57c9a4a4ae7bb45d1eafe32fe3b6e33f458
+      To operation: 8c0b09c2b5b9 (2001-02-03 08:05:45) delete tag tag1
 
     Changed local tags:
     tag1:
@@ -2798,8 +2798,8 @@ fn test_op_show() {
     ");
     let output = work_dir.run_jj(["op", "show"]);
     insta::assert_snapshot!(output, @"
-    8b54a2e24a41 test-username@host.example.com default@ 2001-02-03 04:05:33.000 +07:00 - 2001-02-03 04:05:33.000 +07:00
-    push all tracked bookmarks to git remote origin
+    317434b11c9b test-username@host.example.com default@ 2001-02-03 04:05:33.000 +07:00 - 2001-02-03 04:05:33.000 +07:00
+    push all tracked bookmarks/tags to git remote origin
     args: jj git push --tracked --deleted
 
     Changed remote bookmarks:

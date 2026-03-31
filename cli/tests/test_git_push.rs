@@ -722,8 +722,16 @@ fn test_git_push_multiple() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
     test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
+    test_env.add_config("revset-aliases.'immutable_heads()' = 'none()'");
     let origin_dir = test_env.work_dir("origin");
     let work_dir = test_env.work_dir("local");
+    // Add tracked tag
+    origin_dir
+        .run_jj(["tag", "set", "tag1", "-rbookmark1"])
+        .success();
+    origin_dir.run_jj(["git", "export"]).success();
+    work_dir.run_jj(["git", "fetch", "--tag=*"]).success();
+    // Update bookmarks and tags
     work_dir
         .run_jj(["bookmark", "delete", "bookmark1"])
         .success();
@@ -734,6 +742,10 @@ fn test_git_push_multiple() {
         .run_jj(["bookmark", "create", "-r@", "my-bookmark"])
         .success();
     work_dir.run_jj(["describe", "-m", "foo"]).success();
+    work_dir
+        .run_jj(["tag", "set", "--allow-move", "tag1", "-r@"])
+        .success();
+    work_dir.run_jj(["tag", "set", "tag2", "-r@"]).success();
     // Make conflicting changes on bookmark3
     work_dir
         .run_jj(["bookmark", "set", "bookmark3", "-rbookmark2"])
@@ -746,33 +758,50 @@ fn test_git_push_multiple() {
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     bookmark1 (deleted)
       @origin: qpvuntsm 9b2e76de (empty) description 1
-    bookmark2: yqosqzyt 352fa187 (empty) foo
+    bookmark2: yqosqzyt 0cb91ecd (empty) foo
       @origin (ahead by 1 commits, behind by 1 commits): zsuskuln 38a20473 (empty) description 2
-    bookmark3: yqosqzyt 352fa187 (empty) foo
+    bookmark3: yqosqzyt 0cb91ecd (empty) foo
       @origin (not created yet)
-    my-bookmark: yqosqzyt 352fa187 (empty) foo
+    my-bookmark: yqosqzyt 0cb91ecd (empty) foo
       @origin (not created yet)
     [EOF]
     ");
+    insta::assert_snapshot!(get_tag_output(&work_dir), @"
+    tag1: yqosqzyt 0cb91ecd (empty) foo
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm 9b2e76de (empty) description 1
+    tag2: yqosqzyt 0cb91ecd (empty) foo
+    [EOF]
+    ");
+
     // First dry-run
+    // TODO: untracked tags should be included when gets stabilized (#7528)
     let output = work_dir.run_jj(["git", "push", "--all", "--deleted", "--dry-run"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Warning: Refusing to create new remote tag tag2@origin
     Changes to push to origin:
       bookmark: bookmark1 [delete from 9b2e76de3920]
-      bookmark: bookmark2 [move sideways from 38a204733702 to 352fa1879f75]
-      bookmark: bookmark3 [add to 352fa1879f75]
-      bookmark: my-bookmark [add to 352fa1879f75]
+      bookmark: bookmark2 [move sideways from 38a204733702 to 0cb91ecd4965]
+      bookmark: bookmark3 [add to 0cb91ecd4965]
+      bookmark: my-bookmark [add to 0cb91ecd4965]
+      tag: tag1 [move sideways from 9b2e76de3920 to 0cb91ecd4965]
     Dry-run requested, not pushing.
     [EOF]
     ");
-    // Dry run requesting two specific bookmarks
-    let output = work_dir.run_jj(["git", "push", "-b=bookmark1", "-b=my-bookmark", "--dry-run"]);
+    // Dry run requesting two specific bookmarks and one tag
+    let output = work_dir.run_jj([
+        "git",
+        "push",
+        "--bookmark=bookmark1|my-bookmark",
+        "--tag=tag2",
+        "--dry-run",
+    ]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
       bookmark: bookmark1 [delete from 9b2e76de3920]
-      bookmark: my-bookmark [add to 352fa1879f75]
+      bookmark: my-bookmark [add to 0cb91ecd4965]
+      tag: tag2 [add to 0cb91ecd4965]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -790,7 +819,7 @@ fn test_git_push_multiple() {
     ------- stderr -------
     Changes to push to origin:
       bookmark: bookmark1 [delete from 9b2e76de3920]
-      bookmark: my-bookmark [add to 352fa1879f75]
+      bookmark: my-bookmark [add to 0cb91ecd4965]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -800,17 +829,18 @@ fn test_git_push_multiple() {
     ------- stderr -------
     Changes to push to origin:
       bookmark: bookmark1 [delete from 9b2e76de3920]
-      bookmark: bookmark2 [move sideways from 38a204733702 to 352fa1879f75]
-      bookmark: bookmark3 [add to 352fa1879f75]
+      bookmark: bookmark2 [move sideways from 38a204733702 to 0cb91ecd4965]
+      bookmark: bookmark3 [add to 0cb91ecd4965]
     Dry-run requested, not pushing.
     [EOF]
     ");
 
-    // Unmatched bookmark name
-    let output = work_dir.run_jj(["git", "push", "-b=foo"]);
+    // Unmatched bookmark/tag name
+    let output = work_dir.run_jj(["git", "push", "--bookmark=foo", "--tag=bar"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching bookmarks for names: foo
+    Warning: No matching tags for names: bar
     Nothing changed.
     [EOF]
     ");
@@ -828,35 +858,41 @@ fn test_git_push_multiple() {
     ------- stderr -------
     Warning: Refusing to push deleted bookmark bookmark1
     Hint: Push deleted bookmarks with --deleted or forget the bookmark to suppress this warning.
+    Warning: Refusing to create new remote tag tag2@origin
     Changes to push to origin:
-      bookmark: bookmark2 [move sideways from 38a204733702 to 352fa1879f75]
-      bookmark: bookmark3 [add to 352fa1879f75]
-      bookmark: my-bookmark [add to 352fa1879f75]
+      bookmark: bookmark2 [move sideways from 38a204733702 to 0cb91ecd4965]
+      bookmark: bookmark3 [add to 0cb91ecd4965]
+      bookmark: my-bookmark [add to 0cb91ecd4965]
+      tag: tag1 [move sideways from 9b2e76de3920 to 0cb91ecd4965]
     Dry-run requested, not pushing.
     [EOF]
     ");
     let output = work_dir.run_jj(["git", "push", "--all", "--deleted", "--dry-run"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Warning: Refusing to create new remote tag tag2@origin
     Changes to push to origin:
       bookmark: bookmark1 [delete from 9b2e76de3920]
-      bookmark: bookmark2 [move sideways from 38a204733702 to 352fa1879f75]
-      bookmark: bookmark3 [add to 352fa1879f75]
-      bookmark: my-bookmark [add to 352fa1879f75]
+      bookmark: bookmark2 [move sideways from 38a204733702 to 0cb91ecd4965]
+      bookmark: bookmark3 [add to 0cb91ecd4965]
+      bookmark: my-bookmark [add to 0cb91ecd4965]
+      tag: tag1 [move sideways from 9b2e76de3920 to 0cb91ecd4965]
     Dry-run requested, not pushing.
     [EOF]
     ");
 
-    // All pushed bookmarks should be committed to the operation. Therefore, the
-    // subsequent "git import" should be noop.
+    // All pushed bookmarks/tags should be committed to the operation.
+    // Therefore, the subsequent "git import" should be noop.
     let output = work_dir.run_jj(["git", "push", "--all", "--deleted"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Warning: Refusing to create new remote tag tag2@origin
     Changes to push to origin:
       bookmark: bookmark1 [delete from 9b2e76de3920]
-      bookmark: bookmark2 [move sideways from 38a204733702 to 352fa1879f75]
-      bookmark: bookmark3 [add to 352fa1879f75]
-      bookmark: my-bookmark [add to 352fa1879f75]
+      bookmark: bookmark2 [move sideways from 38a204733702 to 0cb91ecd4965]
+      bookmark: bookmark3 [add to 0cb91ecd4965]
+      bookmark: my-bookmark [add to 0cb91ecd4965]
+      tag: tag1 [move sideways from 9b2e76de3920 to 0cb91ecd4965]
     Warning: The following references unexpectedly moved on the remote:
       refs/heads/bookmark3 (reason: stale info)
     Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
@@ -871,17 +907,23 @@ fn test_git_push_multiple() {
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
-    bookmark2: yqosqzyt 352fa187 (empty) foo
-      @origin: yqosqzyt 352fa187 (empty) foo
-    bookmark3: yqosqzyt 352fa187 (empty) foo
+    bookmark2: yqosqzyt 0cb91ecd (empty) foo
+      @origin: yqosqzyt 0cb91ecd (empty) foo
+    bookmark3: yqosqzyt 0cb91ecd (empty) foo
       @origin (not created yet)
-    my-bookmark: yqosqzyt 352fa187 (empty) foo
-      @origin: yqosqzyt 352fa187 (empty) foo
+    my-bookmark: yqosqzyt 0cb91ecd (empty) foo
+      @origin: yqosqzyt 0cb91ecd (empty) foo
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_tag_output(&work_dir), @"
+    tag1: yqosqzyt 0cb91ecd (empty) foo
+      @origin: yqosqzyt 0cb91ecd (empty) foo
+    tag2: yqosqzyt 0cb91ecd (empty) foo
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "-rall()"]);
     insta::assert_snapshot!(output, @"
-    @  yqosqzyt test.user@example.com 2001-02-03 08:05:17 bookmark2 bookmark3* my-bookmark 352fa187
+    @  yqosqzyt test.user@example.com 2001-02-03 08:05:20 bookmark2 bookmark3* my-bookmark tag1 tag2 0cb91ecd
     │  (empty) foo
     │ ○  zsuskuln test.user@example.com 2001-02-03 08:05:10 38a20473
     ├─╯  (empty) description 2
@@ -1496,6 +1538,7 @@ fn test_git_push_revisions() {
 fn test_git_push_mixed() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
+    test_env.add_config("revset-aliases.'immutable_heads()' = 'none()'");
     let work_dir = test_env.work_dir("local");
     work_dir.run_jj(["describe", "-m", "foo"]).success();
     work_dir.write_file("file", "contents");
@@ -1503,6 +1546,7 @@ fn test_git_push_mixed() {
     work_dir
         .run_jj(["bookmark", "create", "-r@", "bookmark-1"])
         .success();
+    work_dir.run_jj(["tag", "set", "-r@", "tag-1"]).success();
     work_dir.write_file("file", "modified");
     work_dir.run_jj(["new", "-m", "baz"]).success();
     work_dir
@@ -1519,6 +1563,7 @@ fn test_git_push_mixed() {
         "push",
         "--change=@--",
         "--bookmark=bookmark-1",
+        "--tag=tag-1",
         "-r=@",
     ]);
     insta::assert_snapshot!(output, @"
@@ -1530,7 +1575,8 @@ fn test_git_push_mixed() {
     Hint: Run `jj bookmark track bookmark-2b --remote=origin` and try again.
     Changes to push to origin:
       bookmark: push-yqosqzytrlsw [add to 0f8164cd580b]
-      bookmark: bookmark-1 [add to e76139e55e1e]
+      bookmark: bookmark-1 [add to bc7f5ebae839]
+      tag: tag-1 [add to 9b467a2a0cdf]
     [EOF]
     ");
 
@@ -1548,14 +1594,87 @@ fn test_git_push_mixed() {
     Bookmark push-yqosqzytrlsw@origin already matches push-yqosqzytrlsw
     Bookmark bookmark-1@origin already matches bookmark-1
     Changes to push to origin:
-      bookmark: bookmark-2a [add to 57d822f901bb]
-      bookmark: bookmark-2b [add to 57d822f901bb]
+      bookmark: bookmark-2a [add to 0e5755c15447]
+      bookmark: bookmark-2b [add to 0e5755c15447]
     [EOF]
     ");
 }
 
 #[test]
-fn test_git_push_allow_new_bookmark_heuristics() {
+fn test_git_push_bookmarks_and_tags_of_same_name() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "origin"])
+        .success();
+    let origin_dir = test_env.work_dir("origin");
+    origin_dir.run_jj(["describe", "-morigin"]).success();
+    origin_dir.run_jj(["new"]).success();
+    origin_dir
+        .run_jj(["bookmark", "set", "-r@-", "foo", "bar"])
+        .success();
+    origin_dir
+        .run_jj(["tag", "set", "-r@-", "foo", "bar"])
+        .success();
+    // TODO: use "clone --tag=*" instead of "fetch --tag=*"
+    test_env
+        .run_jj_in(
+            ".",
+            ["git", "clone", "--fetch-tags=none", "origin", "local"],
+        )
+        .success();
+    let work_dir = test_env.work_dir("local");
+    work_dir.run_jj(["git", "fetch", "--tag=*"]).success();
+    work_dir.run_jj(["bookmark", "track", "*"]).success();
+
+    // Move bookmarks and tags
+    work_dir.run_jj(["new", "foo", "-mlocal"]).success();
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["bookmark", "set", "-r@-", "foo", "bar"])
+        .success();
+    work_dir
+        .run_jj(["tag", "set", "-r@-", "--allow-move", "foo", "bar"])
+        .success();
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
+    bar: yostqsxw 40751f07 (empty) local
+      @origin (behind by 1 commits): qpvuntsm 110db8ed (empty) origin
+    foo: yostqsxw 40751f07 (empty) local
+      @origin (behind by 1 commits): qpvuntsm 110db8ed (empty) origin
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_tag_output(&work_dir), @"
+    bar: yostqsxw 40751f07 (empty) local
+      @origin (behind by 1 commits): qpvuntsm 110db8ed (empty) origin
+    foo: yostqsxw 40751f07 (empty) local
+      @origin (behind by 1 commits): qpvuntsm 110db8ed (empty) origin
+    [EOF]
+    ");
+
+    // Both bookmark and tag of the same name can be selected
+    let output = work_dir.run_jj(["git", "push", "--dry-run", "--bookmark=foo", "--tag=foo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      bookmark: foo [move forward from 110db8edfa5f to 40751f075c75]
+      tag: foo [move forward from 110db8edfa5f to 40751f075c75]
+    Dry-run requested, not pushing.
+    [EOF]
+    ");
+
+    // Bookmark and tag can be selected individually
+    let output = work_dir.run_jj(["git", "push", "--dry-run", "--bookmark=foo", "--tag=bar"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      bookmark: foo [move forward from 110db8edfa5f to 40751f075c75]
+      tag: bar [move forward from 110db8edfa5f to 40751f075c75]
+    Dry-run requested, not pushing.
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_push_allow_new_heuristics() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
@@ -1582,30 +1701,45 @@ fn test_git_push_allow_new_bookmark_heuristics() {
     work_dir
         .run_jj(["bookmark", "create", "untracked"])
         .success();
+    work_dir.run_jj(["tag", "set", "untracked"]).success();
 
     let start_op = work_dir.current_operation_id();
 
-    // Pushing untracked bookmarks with --bookmark automatically trackes it.
-    let output = work_dir.run_jj(["git", "push", "--bookmark", "untracked"]);
+    // Pushing untracked refs with --bookmark/--tag automatically trackes it.
+    let output = work_dir.run_jj(["git", "push", "--bookmark=untracked", "--tag=untracked"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
       bookmark: untracked [add to b9124726209b]
+      tag: untracked [add to b9124726209b]
     [EOF]
     ");
 
     work_dir.run_jj(["op", "restore", &start_op]).success();
     work_dir
-        .run_jj(["git", "push", "--bookmark=untracked", "--remote=upstream"])
+        .run_jj([
+            "git",
+            "push",
+            "--bookmark=untracked",
+            "--tag=untracked",
+            "--remote=upstream",
+        ])
         .success();
 
-    // ...unless the bookmark is already tracked with a different remote, in
+    // ...unless the ref is already tracked with a different remote, in
     // which case the user may have simply forgotten to specify --remote.
-    let output = work_dir.run_jj(["git", "push", "--bookmark", "untracked"]);
+    let output = work_dir.run_jj(["git", "push", "--bookmark=untracked"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Refusing to create new remote bookmark untracked@origin
     Hint: Run `jj bookmark track untracked --remote=origin` and try again.
+    [EOF]
+    [exit status: 1]
+    ");
+    let output = work_dir.run_jj(["git", "push", "--tag=untracked"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Refusing to create new remote tag untracked@origin
     [EOF]
     [exit status: 1]
     ");
@@ -1887,16 +2021,25 @@ fn test_git_push_missing_committer_in_immutable() {
 fn test_git_push_deleted() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
+    let origin_dir = test_env.work_dir("origin");
     let work_dir = test_env.work_dir("local");
+    // Add tracked tag
+    origin_dir
+        .run_jj(["tag", "set", "tag1", "-rbookmark1"])
+        .success();
+    origin_dir.run_jj(["git", "export"]).success();
+    work_dir.run_jj(["git", "fetch", "--tag=*"]).success();
 
     work_dir
         .run_jj(["bookmark", "delete", "bookmark1"])
         .success();
+    work_dir.run_jj(["tag", "delete", "tag1"]).success();
     let output = work_dir.run_jj(["git", "push", "--deleted"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
       bookmark: bookmark1 [delete from 9b2e76de3920]
+      tag: tag1 [delete from 9b2e76de3920]
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "-rall()"]);
@@ -2013,6 +2156,7 @@ fn test_git_push_deleted_untracked() {
 
     // Absent local bookmark shouldn't be considered "deleted" compared to
     // non-tracking remote bookmark.
+    // TODO: include tag if we add "tag untrack" command
     work_dir
         .run_jj(["bookmark", "delete", "bookmark1"])
         .success();
@@ -2130,7 +2274,19 @@ fn test_git_push_deleted_remote_conflict() {
 fn test_git_push_tracked_vs_all() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
+    test_env.add_config("revset-aliases.'immutable_heads()' = 'none()'");
+    let origin_dir = test_env.work_dir("origin");
     let work_dir = test_env.work_dir("local");
+    // Add tracked tag
+    origin_dir
+        .run_jj(["tag", "set", "tag1", "-rbookmark1"])
+        .success();
+    origin_dir
+        .run_jj(["tag", "set", "tag2", "-rbookmark2"])
+        .success();
+    origin_dir.run_jj(["git", "export"]).success();
+    work_dir.run_jj(["git", "fetch", "--tag=*"]).success();
+    // Update bookmarks and tags
     work_dir
         .run_jj(["new", "bookmark1", "-mmoved bookmark1"])
         .success();
@@ -2143,29 +2299,41 @@ fn test_git_push_tracked_vs_all() {
     work_dir
         .run_jj(["bookmark", "delete", "bookmark2"])
         .success();
+    work_dir.run_jj(["tag", "delete", "tag2"]).success();
     work_dir
         .run_jj(["bookmark", "untrack", "bookmark1"])
         .success();
     work_dir
         .run_jj(["bookmark", "create", "-r@", "bookmark3"])
         .success();
+    work_dir.run_jj(["tag", "set", "-r@", "tag3"]).success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
-    bookmark1: vruxwmqv d7607a25 (empty) moved bookmark1
+    bookmark1: kmkuslsw f8cde667 (empty) moved bookmark1
     bookmark1@origin: qpvuntsm 9b2e76de (empty) description 1
     bookmark2 (deleted)
       @origin: zsuskuln 38a20473 (empty) description 2
-    bookmark3: znkkpsqq 0004a65e (empty) moved bookmark2
+    bookmark3: lylxulpl db4b9518 (empty) moved bookmark2
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_tag_output(&work_dir), @"
+    tag1: qpvuntsm 9b2e76de (empty) description 1
+      @origin: qpvuntsm 9b2e76de (empty) description 1
+    tag2 (deleted)
+      @origin: zsuskuln 38a20473 (empty) description 2
+    tag3: lylxulpl db4b9518 (empty) moved bookmark2
     [EOF]
     ");
 
-    // At this point, only bookmark2 is still tracked.
-    // `jj git push --tracked --deleted` would try to push it and no other
-    // bookmarks.
+    // At this point, only bookmark2 and tags are still tracked.
+    // `jj git push --tracked --deleted` would try to push them and no other
+    // bookmarks nor tags.
     let output = work_dir.run_jj(["git", "push", "--tracked", "--dry-run"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Refusing to push deleted bookmark bookmark2
     Hint: Push deleted bookmarks with --deleted or forget the bookmark to suppress this warning.
+    Warning: Refusing to push deleted tag tag2
+    Hint: Push deleted tags with --deleted.
     Nothing changed.
     [EOF]
     ");
@@ -2174,6 +2342,7 @@ fn test_git_push_tracked_vs_all() {
     ------- stderr -------
     Changes to push to origin:
       bookmark: bookmark2 [delete from 38a204733702]
+      tag: tag2 [delete from 38a204733702]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -2183,17 +2352,19 @@ fn test_git_push_tracked_vs_all() {
         .run_jj(["bookmark", "untrack", "bookmark2"])
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
-    bookmark1: vruxwmqv d7607a25 (empty) moved bookmark1
+    bookmark1: kmkuslsw f8cde667 (empty) moved bookmark1
     bookmark1@origin: qpvuntsm 9b2e76de (empty) description 1
     bookmark2@origin: zsuskuln 38a20473 (empty) description 2
-    bookmark3: znkkpsqq 0004a65e (empty) moved bookmark2
+    bookmark3: lylxulpl db4b9518 (empty) moved bookmark2
     [EOF]
     ");
 
-    // Now, no bookmarks are tracked. --tracked does not push anything
+    // Now, no bookmarks are tracked. --tracked would push tags only
     let output = work_dir.run_jj(["git", "push", "--tracked"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Warning: Refusing to push deleted tag tag2
+    Hint: Push deleted tags with --deleted.
     Nothing changed.
     [EOF]
     ");
@@ -2219,8 +2390,11 @@ fn test_git_push_tracked_vs_all() {
     ------- stderr -------
     Warning: Non-tracking remote bookmark bookmark1@origin exists
     Hint: Run `jj bookmark track bookmark1 --remote=origin` to import the remote bookmark.
+    Warning: Refusing to push deleted tag tag2
+    Hint: Push deleted tags with --deleted.
+    Warning: Refusing to create new remote tag tag3@origin
     Changes to push to origin:
-      bookmark: bookmark3 [add to 0004a65e1d28]
+      bookmark: bookmark3 [add to db4b95184aca]
     [EOF]
     ");
 }
@@ -2734,4 +2908,9 @@ fn test_git_push_unmapped_refs() {
 fn get_bookmark_output(work_dir: &TestWorkDir) -> CommandOutput {
     // --quiet to suppress deleted bookmarks hint
     work_dir.run_jj(["bookmark", "list", "--all-remotes", "--quiet"])
+}
+
+#[must_use]
+fn get_tag_output(work_dir: &TestWorkDir) -> CommandOutput {
+    work_dir.run_jj(["tag", "list", "--all-remotes"])
 }

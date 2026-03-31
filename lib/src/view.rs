@@ -492,6 +492,39 @@ impl View {
         )
     }
 
+    /// Iterates over `(name, TrackingRefPair {local_ref, remote_ref})`s for
+    /// every tag with a name that matches the given pattern, and that is
+    /// present locally and/or on the specified remote.
+    ///
+    /// Entries are sorted by `name`.
+    ///
+    /// Note that this does *not* take into account whether the local tag tracks
+    /// the remote tag or not. Missing values are represented as
+    /// RefTarget::absent_ref() or RemoteRef::absent_ref().
+    pub fn local_remote_tags_matching<'a, 'b>(
+        &'a self,
+        tag_matcher: &'b StringMatcher,
+        remote_name: &RemoteName,
+    ) -> impl Iterator<Item = (&'a RefName, LocalAndRemoteRef<'a>)> + use<'a, 'b> {
+        // Change remote_name to StringMatcher if needed, but merge-join adapter won't
+        // be usable.
+        let maybe_remote_view = self.data.remote_views.get(remote_name);
+        refs::iter_named_local_remote_refs(
+            tag_matcher.filter_btree_map_as_deref(&self.data.local_tags),
+            maybe_remote_view
+                .map(|remote_view| tag_matcher.filter_btree_map_as_deref(&remote_view.tags))
+                .into_iter()
+                .flatten(),
+        )
+        .map(|(name, (local_target, remote_ref))| {
+            let targets = LocalAndRemoteRef {
+                local_target,
+                remote_ref,
+            };
+            (name.as_ref(), targets)
+        })
+    }
+
     pub fn get_git_ref(&self, name: &GitRefName) -> &RefTarget {
         self.data.git_refs.get(name).flatten()
     }

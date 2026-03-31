@@ -3235,6 +3235,18 @@ pub fn has_tracked_remote_bookmarks(repo: &dyn Repo, bookmark: &RefName) -> bool
         .any(|(_, remote_ref)| remote_ref.is_tracked())
 }
 
+/// Whether or not the `tag` has any tracked remotes (i.e. is a tracking local
+/// tag.)
+pub fn has_tracked_remote_tags(repo: &dyn Repo, tag: &RefName) -> bool {
+    let remote_matcher = match default_ignored_remote_name(repo.store()) {
+        Some(remote) => StringExpression::exact(remote).negated().to_matcher(),
+        None => StringMatcher::all(),
+    };
+    repo.view()
+        .remote_tags_matching(&StringMatcher::exact(tag), &remote_matcher)
+        .any(|(_, remote_ref)| remote_ref.is_tracked())
+}
+
 pub fn load_fileset_aliases(
     ui: &Ui,
     config: &StackedConfig,
