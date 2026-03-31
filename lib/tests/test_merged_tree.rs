@@ -29,6 +29,7 @@ use jj_lib::copies::CopyHistoryDiffTerm;
 use jj_lib::copies::CopyHistorySource;
 use jj_lib::copies::CopyOperation;
 use jj_lib::copies::CopyRecords;
+use jj_lib::copies::compute_rename_map;
 use jj_lib::files;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::matchers::FilesMatcher;
@@ -3125,4 +3126,122 @@ fn test_copy_diffstream_double_rename() -> TestResult {
         ],
     );
     Ok(())
+}
+
+#[test]
+fn test_edit_plus_rename() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let store = repo.store();
+
+    let foo = repo_path("foo");
+    let bar = repo_path("bar");
+
+    // Define copy history: file1 -> file2 -> file3
+    let histories = write_copy_histories(repo, &[(foo, vec![]), (bar, vec![foo])]);
+
+    let add0 = create_tree_with_copy_history(repo, &histories, &[(foo, "foo plus edits")]);
+    let rem0 = create_tree_with_copy_history(repo, &histories, &[(foo, "foo")]);
+    let add1 = create_tree_with_copy_history(repo, &histories, &[(bar, "foo")]);
+
+    let merge = Merge::from_vec(vec![
+        add0.tree_ids().get_add(0).unwrap().clone(),
+        rem0.tree_ids().get_add(0).unwrap().clone(),
+        add1.tree_ids().get_add(0).unwrap().clone(),
+    ]);
+
+    let trees = MergedTree::new(store.clone(), merge.clone(), ConflictLabels::unlabeled());
+    let rename_map = compute_rename_map(&trees).block_on().unwrap();
+    assert!(rename_map.contains_key(foo));
+    let foo_renames = &rename_map[foo];
+    assert!(foo_renames.is_resolved());
+    assert_eq!(foo_renames.get_add(0).unwrap(), &None);
+    assert!(rename_map.contains_key(bar));
+    let bar_renames = &rename_map[bar];
+    assert_eq!(bar_renames.num_sides(), merge.num_sides());
+    assert_eq!(bar_renames.get_add(0).unwrap(), &Some(foo.to_owned()));
+    assert_eq!(bar_renames.get_remove(0).unwrap(), &Some(foo.to_owned()));
+    assert_eq!(bar_renames.get_add(1).unwrap(), &Some(bar.to_owned()));
+}
+
+#[test]
+fn test_edit_plus_copy() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let store = repo.store();
+
+    let foo = repo_path("foo");
+    let bar = repo_path("bar");
+
+    // Define copy history: file1 -> file2 -> file3
+    let histories = write_copy_histories(repo, &[(foo, vec![]), (bar, vec![foo])]);
+
+    let add0 = create_tree_with_copy_history(repo, &histories, &[(foo, "foo plus edits")]);
+    let rem0 = create_tree_with_copy_history(repo, &histories, &[(foo, "foo")]);
+    let add1 = create_tree_with_copy_history(repo, &histories, &[(foo, "foo"), (bar, "foo")]);
+
+    let merge = Merge::from_vec(vec![
+        add0.tree_ids().get_add(0).unwrap().clone(),
+        rem0.tree_ids().get_add(0).unwrap().clone(),
+        add1.tree_ids().get_add(0).unwrap().clone(),
+    ]);
+
+    let trees = MergedTree::new(store.clone(), merge.clone(), ConflictLabels::unlabeled());
+    let rename_map = compute_rename_map(&trees).block_on().unwrap();
+    assert!(rename_map.contains_key(foo));
+    let foo_renames = &rename_map[foo];
+    assert_eq!(foo_renames.num_sides(), merge.num_sides());
+    assert_eq!(foo_renames.get_add(0).unwrap(), &Some(foo.to_owned()));
+    assert_eq!(foo_renames.get_remove(0).unwrap(), &Some(foo.to_owned()));
+    assert_eq!(foo_renames.get_add(1).unwrap(), &Some(foo.to_owned()));
+    assert!(rename_map.contains_key(bar));
+    let bar_renames = &rename_map[bar];
+    assert_eq!(bar_renames.num_sides(), merge.num_sides());
+    assert_eq!(bar_renames.get_add(0).unwrap(), &Some(foo.to_owned()));
+    assert_eq!(bar_renames.get_remove(0).unwrap(), &Some(foo.to_owned()));
+    assert_eq!(bar_renames.get_add(1).unwrap(), &Some(bar.to_owned()));
+}
+
+#[test]
+fn test_five_way_rename_and_copy_merge() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let store = repo.store();
+
+    let foo = repo_path("foo");
+    let bar = repo_path("bar");
+    let baz = repo_path("baz");
+
+    // Define copy history: file1 -> file2 -> file3
+    let histories =
+        write_copy_histories(repo, &[(foo, vec![]), (bar, vec![foo]), (baz, vec![foo])]);
+
+    let add0 = create_tree_with_copy_history(repo, &histories, &[(foo, "foo plus edits")]);
+    let rem0 = create_tree_with_copy_history(repo, &histories, &[(foo, "foo")]);
+    let add1 = create_tree_with_copy_history(repo, &histories, &[(foo, "foo"), (bar, "foo")]);
+    // rem1 == rem0
+    let add2 = create_tree_with_copy_history(repo, &histories, &[(baz, "foo")]);
+
+    let merge = Merge::from_vec(vec![
+        add0.tree_ids().get_add(0).unwrap().clone(),
+        rem0.tree_ids().get_add(0).unwrap().clone(),
+        add1.tree_ids().get_add(0).unwrap().clone(),
+        rem0.tree_ids().get_add(0).unwrap().clone(),
+        add2.tree_ids().get_add(0).unwrap().clone(),
+    ]);
+
+    let trees = MergedTree::new(store.clone(), merge.clone(), ConflictLabels::unlabeled());
+    let rename_map = compute_rename_map(&trees).block_on().unwrap();
+    assert!(rename_map.contains_key(foo));
+    let foo_renames = &rename_map[foo];
+    assert!(foo_renames.is_resolved());
+    assert_eq!(foo_renames.get_add(0).unwrap(), &None); // TODO: this seems incorrect
+    assert!(rename_map.contains_key(bar));
+    let bar_renames = &rename_map[bar];
+    assert_eq!(bar_renames.num_sides(), merge.num_sides());
+    assert_eq!(bar_renames.get_add(0).unwrap(), &Some(foo.to_owned()));
+    assert_eq!(bar_renames.get_remove(0).unwrap(), &Some(foo.to_owned()));
+    assert_eq!(bar_renames.get_add(1).unwrap(), &Some(bar.to_owned()));
+    assert_eq!(bar_renames.get_remove(1).unwrap(), &Some(foo.to_owned()));
+    assert_eq!(bar_renames.get_add(2).unwrap(), &Some(baz.to_owned()));
 }
