@@ -50,6 +50,7 @@ use crate::merged_tree::TreeDiffEntry;
 use crate::merged_tree::TreeDiffStream;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
+use crate::store::Store;
 
 /// A collection of CopyRecords.
 #[derive(Default, Debug)]
@@ -996,4 +997,86 @@ async fn get_ancestor_paths(
         }
     }
     Ok(ancestor_paths)
+}
+
+/// Merges conflicting `CopyId`s by finding DAG heads and writing a new
+/// `CopyHistory` if there are multiple heads.
+///
+/// If there is a `CopyId` that matches the current `path`, it is preferred.
+///
+/// When merging branches that have copy/rename history, a file might end up
+/// with multiple different `CopyId`s (e.g. because it was copied from different
+/// sources or has divergent history). To represent this merged history in the
+/// snapshot, we merge the `CopyId`s.
+///
+/// If one `CopyId` is a descendant of all others in the copy history DAG, it
+/// already contains the full history, so we can use it.
+/// If there are multiple independent heads in the history, we create a new
+/// `CopyHistory` node that lists all these heads as parents, effectively
+/// merging the history DAG.
+pub async fn merge_copy_ids(
+    store: &Store,
+    path: &RepoPath,
+    copy_id_merge: &Merge<Option<CopyId>>,
+) -> BackendResult<CopyId> {
+    let adds: HashSet<&CopyId> = copy_id_merge.adds().flatten().collect();
+    if adds.is_empty() {
+        return Err(BackendError::Other("Empty copy id merge".into()));
+    }
+    if adds.len() == 1 {
+        return Ok((*adds.iter().next().unwrap()).clone());
+    }
+
+    let mut copy_graph = CopyGraph::new();
+    // NOTE: this loop creates a CopyGraph that does not necessarily follow the rule
+    // that related copies are ordered with children before parents.
+    for id in &adds {
+        copy_graph.extend(
+            store
+                .backend()
+                .get_related_copies(id)
+                .await?
+                .into_iter()
+                .map(|related| (related.id, related.history)),
+        );
+    }
+
+    let matching_paths: Vec<&CopyId> = adds
+        .iter()
+        .filter(|id| {
+            copy_graph
+                .get(**id)
+                .is_some_and(|h| h.current_path.as_ref() == path)
+        })
+        .copied()
+        .collect();
+    if matching_paths.len() == 1 {
+        return Ok(matching_paths[0].clone());
+    }
+
+    let heads = dag_walk::heads(
+        adds.iter().copied(),
+        |id| *id,
+        |id| {
+            copy_graph
+                .get(*id)
+                .map_or(&[] as &[_], |h| &h.parents)
+                .iter()
+        },
+    );
+
+    if heads.len() == 1 {
+        return Ok((*heads.iter().next().unwrap()).clone());
+    }
+
+    let sorted_heads = heads.into_iter().cloned().sorted().collect_vec();
+
+    let new_history = CopyHistory {
+        current_path: path.to_owned(),
+        parents: sorted_heads,
+        salt: vec![],
+    };
+
+    let new_id = store.backend().write_copy(&new_history).await?;
+    Ok(new_id)
 }

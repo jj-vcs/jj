@@ -56,6 +56,7 @@ use testutils::create_single_tree;
 use testutils::create_tree;
 use testutils::create_tree_with_copy_history;
 use testutils::create_tree_with_copy_id;
+use testutils::read_file;
 use testutils::repo_path;
 use testutils::repo_path_buf;
 use testutils::repo_path_component;
@@ -2391,23 +2392,25 @@ fn test_copy_diffstream_dest_conflict() -> TestResult {
     ]))
     .block_on()
     .expect("Expected successful merge");
+    let r1_val = right1.path_value(bar).block_on()?.into_resolved().unwrap();
+    let r2_val = right2.path_value(bar).block_on()?.into_resolved().unwrap();
     let expected = [
-        // bar.txt is conflicted, and does not show copy-history sources despite being renamed from
-        // foo.txt
+        // bar.txt is conflicted, and now DOES show copy-history sources because of copy-aware
+        // merge
         (
             bar.to_owned(),
             Merge::from_removes_adds(
                 [CopyHistoryDiffTerm {
-                    target_value: None,
+                    target_value: foo_val.as_resolved().unwrap().clone(),
                     sources: vec![],
                 }],
                 [
                     CopyHistoryDiffTerm {
-                        target_value: right1.path_value(bar).block_on()?.first().clone(),
+                        target_value: r1_val.clone(),
                         sources: vec![],
                     },
                     CopyHistoryDiffTerm {
-                        target_value: right2.path_value(bar).block_on()?.first().clone(),
+                        target_value: r2_val.clone(),
                         sources: vec![],
                     },
                 ],
@@ -2511,7 +2514,7 @@ fn test_copy_diffstream_source_and_dest_conflicts() -> TestResult {
             bar.to_owned(),
             Merge::from_removes_adds(
                 [CopyHistoryDiffTerm {
-                    target_value: None,
+                    target_value: foo_val.as_resolved().unwrap().clone(),
                     sources: vec![],
                 }],
                 [
@@ -3162,6 +3165,191 @@ fn test_edit_plus_rename() {
     assert_eq!(bar_renames.get_add(0).unwrap(), &Some(foo.to_owned()));
     assert_eq!(bar_renames.get_remove(0).unwrap(), &Some(foo.to_owned()));
     assert_eq!(bar_renames.get_add(1).unwrap(), &Some(bar.to_owned()));
+
+    let merged_ids = jj_lib::tree_merge::merge_trees(store, merge)
+        .block_on()
+        .unwrap();
+    let merged_tree = MergedTree::new(store.clone(), merged_ids, ConflictLabels::unlabeled());
+    assert!(!merged_tree.has_conflict());
+
+    let foo_val = merged_tree.path_value(foo).block_on().unwrap();
+    assert!(foo_val.is_resolved());
+    assert!(foo_val.is_absent());
+
+    let bar_val = merged_tree.path_value(bar).block_on().unwrap();
+    assert!(bar_val.is_resolved());
+    assert!(bar_val.is_present());
+    let TreeValue::File {
+        id,
+        executable: _,
+        copy_id,
+    } = bar_val.into_resolved().unwrap().unwrap()
+    else {
+        panic!("Expected bar_val to be a TreeValue::File");
+    };
+    let bar_history = store.backend().read_copy(&copy_id).block_on().unwrap();
+    assert_eq!(bar_history, histories[bar]);
+    let bar_contents = read_file(store, bar, &id);
+    assert_eq!(bar_contents, "foo plus edits".as_bytes());
+}
+
+#[test]
+fn test_rename_with_hunk_merging() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let store = repo.store();
+
+    let foo = repo_path("foo");
+    let bar = repo_path("bar");
+
+    // Define copy history: file1 -> file2 -> file3
+    let histories = write_copy_histories(repo, &[(foo, vec![]), (bar, vec![foo])]);
+
+    let add0 = create_tree_with_copy_history(repo, &histories, &[(foo, "foo\npost-foo\n")]);
+    let rem0 = create_tree_with_copy_history(repo, &histories, &[(foo, "foo\n")]);
+    let add1 = create_tree_with_copy_history(repo, &histories, &[(bar, "pre-foo\nfoo\n")]);
+
+    let merge = Merge::from_vec(vec![
+        add0.tree_ids().get_add(0).unwrap().clone(),
+        rem0.tree_ids().get_add(0).unwrap().clone(),
+        add1.tree_ids().get_add(0).unwrap().clone(),
+    ]);
+
+    let merged_ids = jj_lib::tree_merge::merge_trees(store, merge)
+        .block_on()
+        .unwrap();
+    let merged_tree = MergedTree::new(
+        store.clone(),
+        merged_ids,
+        jj_lib::conflict_labels::ConflictLabels::unlabeled(),
+    );
+    assert!(!merged_tree.has_conflict());
+
+    let foo_val = merged_tree.path_value(foo).block_on().unwrap();
+    assert!(foo_val.is_resolved());
+    assert!(foo_val.is_absent());
+
+    let bar_val = merged_tree.path_value(bar).block_on().unwrap();
+    assert!(bar_val.is_resolved());
+    assert!(bar_val.is_present());
+    let TreeValue::File {
+        id,
+        executable: _,
+        copy_id,
+    } = bar_val.into_resolved().unwrap().unwrap()
+    else {
+        panic!("Expected bar_val to be a TreeValue::File");
+    };
+    let bar_history = store.backend().read_copy(&copy_id).block_on().unwrap();
+    assert_eq!(bar_history, histories[bar]);
+    let bar_contents = read_file(store, bar, &id);
+    assert_eq!(bar_contents, "pre-foo\nfoo\npost-foo\n".as_bytes());
+}
+
+#[test]
+fn test_edit_plus_rename_across_trees() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let store = repo.store();
+
+    let foo = repo_path("foo");
+    let bar = repo_path("subdir/bar");
+
+    // Define copy history: file1 -> file2 -> file3
+    let histories = write_copy_histories(repo, &[(foo, vec![]), (bar, vec![foo])]);
+
+    let add0 = create_tree_with_copy_history(repo, &histories, &[(foo, "foo plus edits")]);
+    let rem0 = create_tree_with_copy_history(repo, &histories, &[(foo, "foo")]);
+    let add1 = create_tree_with_copy_history(repo, &histories, &[(bar, "foo")]);
+
+    let merge = Merge::from_vec(vec![
+        add0.tree_ids().get_add(0).unwrap().clone(),
+        rem0.tree_ids().get_add(0).unwrap().clone(),
+        add1.tree_ids().get_add(0).unwrap().clone(),
+    ]);
+
+    let merged_ids = jj_lib::tree_merge::merge_trees(store, merge)
+        .block_on()
+        .unwrap();
+    let merged_tree = MergedTree::new(
+        store.clone(),
+        merged_ids,
+        jj_lib::conflict_labels::ConflictLabels::unlabeled(),
+    );
+    assert!(!merged_tree.has_conflict());
+
+    let foo_val = merged_tree.path_value(foo).block_on().unwrap();
+    assert!(foo_val.is_resolved());
+    assert!(foo_val.is_absent());
+
+    let bar_val = merged_tree.path_value(bar).block_on().unwrap();
+    assert!(bar_val.is_resolved());
+    assert!(bar_val.is_present());
+    let TreeValue::File {
+        id,
+        executable: _,
+        copy_id,
+    } = bar_val.into_resolved().unwrap().unwrap()
+    else {
+        panic!("Expected bar_val to be a TreeValue::File");
+    };
+    let bar_history = store.backend().read_copy(&copy_id).block_on().unwrap();
+    assert_eq!(bar_history, histories[bar]);
+    let bar_contents = read_file(store, bar, &id);
+    assert_eq!(bar_contents, "foo plus edits".as_bytes());
+}
+
+#[test]
+fn test_edit_plus_rename_across_unrelated_trees() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let store = repo.store();
+
+    let foo = repo_path("subdir1/foo");
+    let bar = repo_path("subdir2/bar");
+
+    // Define copy history: file1 -> file2 -> file3
+    let histories = write_copy_histories(repo, &[(foo, vec![]), (bar, vec![foo])]);
+
+    let add0 = create_tree_with_copy_history(repo, &histories, &[(foo, "foo plus edits")]);
+    let rem0 = create_tree_with_copy_history(repo, &histories, &[(foo, "foo")]);
+    let add1 = create_tree_with_copy_history(repo, &histories, &[(bar, "foo")]);
+
+    let merge = Merge::from_vec(vec![
+        add0.tree_ids().get_add(0).unwrap().clone(),
+        rem0.tree_ids().get_add(0).unwrap().clone(),
+        add1.tree_ids().get_add(0).unwrap().clone(),
+    ]);
+
+    let merged_ids = jj_lib::tree_merge::merge_trees(store, merge)
+        .block_on()
+        .unwrap();
+    let merged_tree = MergedTree::new(
+        store.clone(),
+        merged_ids,
+        jj_lib::conflict_labels::ConflictLabels::unlabeled(),
+    );
+    assert!(!merged_tree.has_conflict());
+
+    let foo_val = merged_tree.path_value(foo).block_on().unwrap();
+    assert!(foo_val.is_resolved());
+    assert!(foo_val.is_absent());
+
+    let bar_val = merged_tree.path_value(bar).block_on().unwrap();
+    assert!(bar_val.is_resolved());
+    assert!(bar_val.is_present());
+    let TreeValue::File {
+        id,
+        executable: _,
+        copy_id,
+    } = bar_val.into_resolved().unwrap().unwrap()
+    else {
+        panic!("Expected bar_val to be a TreeValue::File");
+    };
+    let bar_history = store.backend().read_copy(&copy_id).block_on().unwrap();
+    assert_eq!(bar_history, histories[bar]);
+    let bar_contents = read_file(store, bar, &id);
+    assert_eq!(bar_contents, "foo plus edits".as_bytes());
 }
 
 #[test]
@@ -3200,6 +3388,48 @@ fn test_edit_plus_copy() {
     assert_eq!(bar_renames.get_add(0).unwrap(), &Some(foo.to_owned()));
     assert_eq!(bar_renames.get_remove(0).unwrap(), &Some(foo.to_owned()));
     assert_eq!(bar_renames.get_add(1).unwrap(), &Some(bar.to_owned()));
+
+    let merged_ids = jj_lib::tree_merge::merge_trees(store, merge)
+        .block_on()
+        .unwrap();
+    let merged_tree = MergedTree::new(
+        store.clone(),
+        merged_ids,
+        jj_lib::conflict_labels::ConflictLabels::unlabeled(),
+    );
+    assert!(!merged_tree.has_conflict());
+
+    let foo_val = merged_tree.path_value(foo).block_on().unwrap();
+    assert!(foo_val.is_resolved());
+    assert!(foo_val.is_present());
+    let TreeValue::File {
+        id,
+        executable: _,
+        copy_id,
+    } = foo_val.into_resolved().unwrap().unwrap()
+    else {
+        panic!("Expected foo_val to be a TreeValue::File");
+    };
+    let foo_history = store.backend().read_copy(&copy_id).block_on().unwrap();
+    assert_eq!(foo_history, histories[foo]);
+    let foo_contents = read_file(store, foo, &id);
+    assert_eq!(foo_contents, "foo plus edits".as_bytes());
+
+    let bar_val = merged_tree.path_value(bar).block_on().unwrap();
+    assert!(bar_val.is_resolved());
+    assert!(bar_val.is_present());
+    let TreeValue::File {
+        id,
+        executable: _,
+        copy_id,
+    } = bar_val.into_resolved().unwrap().unwrap()
+    else {
+        panic!("Expected bar_val to be a TreeValue::File");
+    };
+    let bar_history = store.backend().read_copy(&copy_id).block_on().unwrap();
+    assert_eq!(bar_history, histories[bar]);
+    let bar_contents = read_file(store, bar, &id);
+    assert_eq!(bar_contents, "foo plus edits".as_bytes());
 }
 
 #[test]
@@ -3244,4 +3474,412 @@ fn test_five_way_rename_and_copy_merge() {
     assert_eq!(bar_renames.get_add(1).unwrap(), &Some(bar.to_owned()));
     assert_eq!(bar_renames.get_remove(1).unwrap(), &Some(foo.to_owned()));
     assert_eq!(bar_renames.get_add(2).unwrap(), &Some(baz.to_owned()));
+
+    let merged_ids = jj_lib::tree_merge::merge_trees(store, merge)
+        .block_on()
+        .unwrap();
+    let merged_tree = MergedTree::new(
+        store.clone(),
+        merged_ids,
+        jj_lib::conflict_labels::ConflictLabels::unlabeled(),
+    );
+    assert!(!merged_tree.has_conflict());
+
+    let foo_val = merged_tree.path_value(foo).block_on().unwrap();
+    assert!(foo_val.is_resolved());
+    assert!(foo_val.is_absent());
+
+    let bar_val = merged_tree.path_value(bar).block_on().unwrap();
+    assert!(bar_val.is_resolved());
+    assert!(bar_val.is_present());
+    let TreeValue::File {
+        id,
+        executable: _,
+        copy_id,
+    } = bar_val.into_resolved().unwrap().unwrap()
+    else {
+        panic!("Expected bar_val to be a TreeValue::File");
+    };
+    let bar_history = store.backend().read_copy(&copy_id).block_on().unwrap();
+    assert_eq!(bar_history, histories[bar]);
+    let bar_contents = read_file(store, bar, &id);
+    assert_eq!(bar_contents, "foo plus edits".as_bytes());
+
+    let baz_val = merged_tree.path_value(baz).block_on().unwrap();
+    assert!(baz_val.is_resolved());
+    assert!(baz_val.is_present());
+    let TreeValue::File {
+        id,
+        executable: _,
+        copy_id,
+    } = baz_val.into_resolved().unwrap().unwrap()
+    else {
+        panic!("Expected baz_val to be a TreeValue::File");
+    };
+    let baz_history = store.backend().read_copy(&copy_id).block_on().unwrap();
+    assert_eq!(baz_history, histories[baz]);
+    let baz_contents = read_file(store, baz, &id);
+    assert_eq!(baz_contents, "foo plus edits".as_bytes());
+}
+
+#[test]
+fn test_divergent_renames() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let store = repo.store();
+
+    let foo = repo_path("foo");
+    let bar = repo_path("bar");
+    let baz = repo_path("baz");
+
+    // Define copy history: foo -> bar and foo -> baz
+    let histories =
+        write_copy_histories(repo, &[(foo, vec![]), (bar, vec![foo]), (baz, vec![foo])]);
+
+    let add0 = create_tree_with_copy_history(repo, &histories, &[(bar, "foo")]);
+    let rem0 = create_tree_with_copy_history(repo, &histories, &[(foo, "foo")]);
+    let add1 = create_tree_with_copy_history(repo, &histories, &[(baz, "foo")]);
+
+    let merge = Merge::from_vec(vec![
+        add0.tree_ids().get_add(0).unwrap().clone(),
+        rem0.tree_ids().get_add(0).unwrap().clone(),
+        add1.tree_ids().get_add(0).unwrap().clone(),
+    ]);
+
+    let merged_ids = jj_lib::tree_merge::merge_trees(store, merge)
+        .block_on()
+        .unwrap();
+    let merged_tree = MergedTree::new(
+        store.clone(),
+        merged_ids,
+        jj_lib::conflict_labels::ConflictLabels::unlabeled(),
+    );
+
+    // We expect conflicts because the same file was renamed to two different
+    // places.
+    assert!(merged_tree.has_conflict());
+
+    // foo should be gone
+    let foo_val = merged_tree.path_value(foo).block_on().unwrap();
+    assert!(foo_val.is_resolved());
+    assert!(foo_val.is_absent());
+
+    // bar should have a conflict
+    let bar_val = merged_tree.path_value(bar).block_on().unwrap();
+    assert!(!bar_val.is_resolved());
+
+    // baz should have a conflict
+    let baz_val = merged_tree.path_value(baz).block_on().unwrap();
+    assert!(!baz_val.is_resolved());
+}
+
+#[test]
+fn test_convergent_renames() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let store = repo.store();
+
+    let foo = repo_path("foo");
+    let bar = repo_path("bar");
+    let baz = repo_path("baz");
+
+    // 1. foo history (no parents)
+    let foo_history = CopyHistory {
+        current_path: foo.to_owned(),
+        parents: vec![],
+        salt: vec![],
+    };
+    let foo_copy_id = store.backend().write_copy(&foo_history).block_on().unwrap();
+
+    // 2. bar history (no parents)
+    let bar_history = CopyHistory {
+        current_path: bar.to_owned(),
+        parents: vec![],
+        salt: vec![],
+    };
+    let bar_copy_id = store.backend().write_copy(&bar_history).block_on().unwrap();
+
+    // 3. baz <- foo history (for Side 1)
+    let baz_from_foo_history = CopyHistory {
+        current_path: baz.to_owned(),
+        parents: vec![foo_copy_id.clone()],
+        salt: vec![],
+    };
+    let baz_from_foo_copy_id = store
+        .backend()
+        .write_copy(&baz_from_foo_history)
+        .block_on()
+        .unwrap();
+
+    // 4. baz <- bar history (for Side 2)
+    let baz_from_bar_history = CopyHistory {
+        current_path: baz.to_owned(),
+        parents: vec![bar_copy_id.clone()],
+        salt: vec![],
+    };
+    let baz_from_bar_copy_id = store
+        .backend()
+        .write_copy(&baz_from_bar_history)
+        .block_on()
+        .unwrap();
+
+    // Base Tree (rem0): foo (present, foo_copy_id), bar (present, bar_copy_id)
+    let rem0 = create_tree_with_copy_id(
+        repo,
+        &[(foo, "common", &foo_copy_id), (bar, "common", &bar_copy_id)],
+    );
+
+    // Side 1 Tree (add0): bar (present, bar_copy_id), baz (present,
+    // baz_from_foo_copy_id) foo is absent.
+    let add0 = create_tree_with_copy_id(
+        repo,
+        &[
+            (bar, "common", &bar_copy_id),
+            (baz, "common", &baz_from_foo_copy_id),
+        ],
+    );
+
+    // Side 2 Tree (add1): foo (present, foo_copy_id), baz (present,
+    // baz_from_bar_copy_id) bar is absent.
+    let add1 = create_tree_with_copy_id(
+        repo,
+        &[
+            (foo, "common", &foo_copy_id),
+            (baz, "common", &baz_from_bar_copy_id),
+        ],
+    );
+
+    let merge = Merge::from_vec(vec![
+        add0.tree_ids().get_add(0).unwrap().clone(),
+        rem0.tree_ids().get_add(0).unwrap().clone(),
+        add1.tree_ids().get_add(0).unwrap().clone(),
+    ]);
+
+    let merged_ids = jj_lib::tree_merge::merge_trees(store, merge)
+        .block_on()
+        .unwrap();
+    let merged_tree = MergedTree::new(
+        store.clone(),
+        merged_ids,
+        jj_lib::conflict_labels::ConflictLabels::unlabeled(),
+    );
+
+    // We expect NO conflicts because contents are same and we expect copy history
+    // to merge.
+    assert!(!merged_tree.has_conflict());
+
+    // foo should be gone
+    let foo_val = merged_tree.path_value(foo).block_on().unwrap();
+    assert!(foo_val.is_resolved());
+    assert!(foo_val.is_absent());
+
+    // bar should be gone
+    let bar_val = merged_tree.path_value(bar).block_on().unwrap();
+    assert!(bar_val.is_resolved());
+    assert!(bar_val.is_absent());
+
+    // baz should be present and resolved
+    let baz_val = merged_tree.path_value(baz).block_on().unwrap();
+    assert!(baz_val.is_resolved());
+    assert!(baz_val.is_present());
+
+    let TreeValue::File {
+        id: _,
+        executable: _,
+        copy_id: merged_baz_copy_id,
+    } = baz_val.into_resolved().unwrap().unwrap()
+    else {
+        panic!("Expected baz_val to be a TreeValue::File");
+    };
+
+    // Read the merged copy history of baz
+    let baz_history = store
+        .backend()
+        .read_copy(&merged_baz_copy_id)
+        .block_on()
+        .unwrap();
+
+    // We expect baz's history to have both baz_from_foo and baz_from_bar as
+    // parents.
+    assert_eq!(baz_history.parents.len(), 2);
+    assert!(baz_history.parents.contains(&baz_from_foo_copy_id));
+    assert!(baz_history.parents.contains(&baz_from_bar_copy_id));
+
+    // The current path should still be baz
+    assert_eq!(baz_history.current_path, baz.to_owned());
+}
+
+#[test]
+fn test_independent_copies_get_merged_history() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let store = repo.store();
+
+    let foo = repo_path("foo");
+
+    // foo independent creation #1
+    let foo1_history = CopyHistory {
+        current_path: foo.to_owned(),
+        parents: vec![],
+        salt: vec![1],
+    };
+    let foo1_copy_id = store
+        .backend()
+        .write_copy(&foo1_history)
+        .block_on()
+        .unwrap();
+
+    let foo2_history = CopyHistory {
+        current_path: foo.to_owned(),
+        parents: vec![],
+        salt: vec![2],
+    };
+    let foo2_copy_id = store
+        .backend()
+        .write_copy(&foo2_history)
+        .block_on()
+        .unwrap();
+
+    // Base tree (empty)
+    let rem0 = create_tree_with_copy_id(repo, &[]);
+
+    // Add0: create independent foo1
+    let add0 = create_tree_with_copy_id(repo, &[(foo, "foo", &foo1_copy_id)]);
+
+    // Add1: create independent foo2
+    let add1 = create_tree_with_copy_id(repo, &[(foo, "foo", &foo2_copy_id)]);
+
+    // Even though the histories are independent, since the files have the same path
+    // and the same content, we want to merge their history into a common graph
+    // with both origins.
+    let merge = Merge::from_vec(vec![
+        add0.tree_ids().get_add(0).unwrap().clone(),
+        rem0.tree_ids().get_add(0).unwrap().clone(),
+        add1.tree_ids().get_add(0).unwrap().clone(),
+    ]);
+    let merged_ids = jj_lib::tree_merge::merge_trees(store, merge)
+        .block_on()
+        .unwrap();
+    let merged_tree = MergedTree::new(
+        store.clone(),
+        merged_ids,
+        jj_lib::conflict_labels::ConflictLabels::unlabeled(),
+    );
+
+    // We expect NO conflicts because contents are same and we expect copy history
+    // to merge.
+    assert!(!merged_tree.has_conflict());
+
+    // foo should be present and resolved
+    let foo_val = merged_tree.path_value(foo).block_on().unwrap();
+    assert!(foo_val.is_resolved());
+    assert!(foo_val.is_present());
+
+    let TreeValue::File {
+        id: _,
+        executable: _,
+        copy_id: merged_foo_copy_id,
+    } = foo_val.into_resolved().unwrap().unwrap()
+    else {
+        panic!("Expected foo_val to be a TreeValue::File");
+    };
+
+    let merged_foo_history = store
+        .backend()
+        .read_copy(&merged_foo_copy_id)
+        .block_on()
+        .unwrap();
+
+    // We expect foo's history to have independent foo histories as parents.
+    assert_eq!(merged_foo_history.parents.len(), 2);
+    assert!(merged_foo_history.parents.contains(&foo1_copy_id));
+    assert!(merged_foo_history.parents.contains(&foo2_copy_id));
+}
+
+#[test]
+fn test_divergent_renames_with_unrelated_ancient_ancestor() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let store = repo.store();
+
+    let orig = repo_path("orig");
+    let foo = repo_path("foo");
+    let bar = repo_path("bar");
+    let baz = repo_path("baz");
+
+    // Define copy history: orig -> foo -> bar AND orig -> foo -> baz
+    let histories = write_copy_histories(
+        repo,
+        &[
+            (orig, vec![]),
+            (foo, vec![orig]),
+            (bar, vec![foo]),
+            (baz, vec![foo]),
+        ],
+    );
+
+    // Base tree (rem0): has `foo` (content "foo content"), and NO `orig`.
+    let rem0 = create_tree_with_copy_history(repo, &histories, &[(foo, "foo content")]);
+
+    // Side 1 tree (add0): `foo` renamed to `bar` (content "bar content").
+    let add0 = create_tree_with_copy_history(repo, &histories, &[(bar, "bar content")]);
+
+    // Side 2 tree (add1): `foo` renamed to `baz` (content "baz content"),
+    // AND an UNRELATED file is created at `orig` (content "unrelated orig").
+    let unrelated_orig_history = CopyHistory {
+        current_path: orig.to_owned(),
+        parents: vec![],
+        salt: vec![42],
+    };
+    let add1 = testutils::create_tree_with(repo, |builder| {
+        builder
+            .file(baz, "baz content")
+            .copy_history(&histories[baz]);
+        builder
+            .file(orig, "unrelated orig")
+            .copy_history(&unrelated_orig_history);
+    });
+
+    let merge = Merge::from_vec(vec![
+        add0.tree_ids().get_add(0).unwrap().clone(),
+        rem0.tree_ids().get_add(0).unwrap().clone(),
+        add1.tree_ids().get_add(0).unwrap().clone(),
+    ]);
+
+    let trees = MergedTree::new(store.clone(), merge.clone(), ConflictLabels::unlabeled());
+    let rename_map = compute_rename_map(&trees).block_on().unwrap();
+
+    assert!(rename_map.contains_key(bar));
+    let bar_renames = &rename_map[bar];
+    assert_eq!(bar_renames.num_sides(), merge.num_sides());
+    assert_eq!(bar_renames.get_add(0).unwrap(), &Some(bar.to_owned()));
+    assert_eq!(bar_renames.get_remove(0).unwrap(), &Some(foo.to_owned()));
+    // bar should NOT map to orig on side 1, because orig is an ancient ancestor
+    // that did not exist in the merge base (rem0).
+    assert_eq!(bar_renames.get_add(1).unwrap(), &None);
+
+    let merged_ids = jj_lib::tree_merge::merge_trees(store, merge)
+        .block_on()
+        .unwrap();
+    let merged_tree = MergedTree::new(store.clone(), merged_ids, ConflictLabels::unlabeled());
+
+    let bar_val = merged_tree.path_value(bar).block_on().unwrap();
+    let expected_bar_val = Merge::from_removes_adds(
+        vec![
+            rem0.path_value(foo)
+                .block_on()
+                .unwrap()
+                .into_resolved()
+                .unwrap(),
+        ],
+        vec![
+            add0.path_value(bar)
+                .block_on()
+                .unwrap()
+                .into_resolved()
+                .unwrap(),
+            None,
+        ],
+    );
+    assert_eq!(bar_val, expected_bar_val);
 }
