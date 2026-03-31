@@ -140,7 +140,7 @@ fn test_git_push_default_remote_selection() {
     ------- stderr -------
     Hint: Pushing to the only existing remote: other
     Changes to push to other:
-      Add bookmark bookmark1 to 9b2e76de3920
+      bookmark: bookmark1 [add to 9b2e76de3920]
     [EOF]
     ");
 }
@@ -180,8 +180,8 @@ fn test_git_push_current_bookmark() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Move forward bookmark bookmark2 from 38a204733702 to 88ca14a7d46f
-      Add bookmark my-bookmark to 88ca14a7d46f
+      bookmark: bookmark2 [move forward from 38a204733702 to 88ca14a7d46f]
+      bookmark: my-bookmark [add to 88ca14a7d46f]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -189,8 +189,8 @@ fn test_git_push_current_bookmark() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Move forward bookmark bookmark2 from 38a204733702 to 88ca14a7d46f
-      Add bookmark my-bookmark to 88ca14a7d46f
+      bookmark: bookmark2 [move forward from 38a204733702 to 88ca14a7d46f]
+      bookmark: my-bookmark [add to 88ca14a7d46f]
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
@@ -227,7 +227,7 @@ fn test_git_push_current_bookmark() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Move backward bookmark bookmark2 from 88ca14a7d46f to 38a204733702
+      bookmark: bookmark2 [move backward from 88ca14a7d46f to 38a204733702]
     [EOF]
     ");
 }
@@ -250,7 +250,7 @@ fn test_git_push_parent_bookmark() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Move sideways bookmark bookmark1 from 9b2e76de3920 to 80560a3e08e2
+      bookmark: bookmark1 [move sideways from 9b2e76de3920 to 80560a3e08e2]
     [EOF]
     ");
 }
@@ -318,7 +318,7 @@ fn test_git_push_other_remote_has_bookmark() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Move sideways bookmark bookmark1 from 9b2e76de3920 to a843bfad2abb
+      bookmark: bookmark1 [move sideways from 9b2e76de3920 to a843bfad2abb]
     [EOF]
     ");
     // Since it's already pushed to origin, nothing will happen if push again
@@ -344,7 +344,7 @@ fn test_git_push_other_remote_has_bookmark() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to other:
-      Add bookmark bookmark1 to a843bfad2abb
+      bookmark: bookmark1 [add to a843bfad2abb]
     [EOF]
     ");
 }
@@ -378,7 +378,7 @@ fn test_git_push_forward_unexpectedly_moved() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Move forward bookmark bookmark1 from 9b2e76de3920 to 624f94a35f00
+      bookmark: bookmark1 [move forward from 9b2e76de3920 to 624f94a35f00]
     Warning: The following references unexpectedly moved on the remote:
       refs/heads/bookmark1 (reason: stale info)
     Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
@@ -392,7 +392,7 @@ fn test_git_push_forward_unexpectedly_moved() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Move forward bookmark bookmark1 from 9b2e76de3920 to 624f94a35f00
+      bookmark: bookmark1 [move forward from 9b2e76de3920 to 624f94a35f00]
     [1m[38;5;3mWarning: [39mThe following references unexpectedly moved on the remote:[0m
       [38;5;2mrefs/heads/bookmark1[39m (reason: stale info)
     [1m[38;5;6mHint: [0m[39mTry fetching from the remote, then make the bookmark point to where you want it to be, and push again.[39m
@@ -444,7 +444,7 @@ fn test_git_push_sideways_unexpectedly_moved() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Move sideways bookmark bookmark1 from 9b2e76de3920 to 827b8a385853
+      bookmark: bookmark1 [move sideways from 9b2e76de3920 to 827b8a385853]
     Warning: The following references unexpectedly moved on the remote:
       refs/heads/bookmark1 (reason: stale info)
     Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
@@ -458,7 +458,7 @@ fn test_git_push_sideways_unexpectedly_moved() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Move sideways bookmark bookmark1 from 9b2e76de3920 to 827b8a385853
+      bookmark: bookmark1 [move sideways from 9b2e76de3920 to 827b8a385853]
     [1m[38;5;3mWarning: [39mThe following references unexpectedly moved on the remote:[0m
       [38;5;2mrefs/heads/bookmark1[39m (reason: stale info)
     [1m[38;5;6mHint: [0m[39mTry fetching from the remote, then make the bookmark point to where you want it to be, and push again.[39m
@@ -510,7 +510,7 @@ fn test_git_push_deletion_unexpectedly_moved() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Delete bookmark bookmark1 from 9b2e76de3920
+      bookmark: bookmark1 [delete from 9b2e76de3920]
     Warning: The following references unexpectedly moved on the remote:
       refs/heads/bookmark1 (reason: stale info)
     Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
@@ -559,7 +559,7 @@ fn test_git_push_unexpectedly_deleted() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Move sideways bookmark bookmark1 from 9b2e76de3920 to 09919fb051bf
+      bookmark: bookmark1 [move sideways from 9b2e76de3920 to 09919fb051bf]
     Warning: The following references unexpectedly moved on the remote:
       refs/heads/bookmark1 (reason: stale info)
     Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
@@ -585,7 +585,7 @@ fn test_git_push_unexpectedly_deleted() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Delete bookmark bookmark1 from 9b2e76de3920
+      bookmark: bookmark1 [delete from 9b2e76de3920]
     Warning: The following references unexpectedly moved on the remote:
       refs/heads/bookmark1 (reason: stale info)
     Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
@@ -627,7 +627,7 @@ fn test_git_push_creation_unexpectedly_already_exists() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Add bookmark bookmark1 to a43cb8011c85
+      bookmark: bookmark1 [add to a43cb8011c85]
     Warning: The following references unexpectedly moved on the remote:
       refs/heads/bookmark1 (reason: stale info)
     Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
@@ -664,7 +664,7 @@ fn test_git_push_locally_created_and_rewritten() {
     ------- stderr -------
     Warning: --allow-new is deprecated, track bookmarks manually or configure remotes.<name>.auto-track-bookmarks instead.
     Changes to push to origin:
-      Add bookmark my to e0cba5e497ee
+      bookmark: my [add to e0cba5e497ee]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -680,7 +680,7 @@ fn test_git_push_locally_created_and_rewritten() {
     Example: jj config set --user remotes.origin.auto-track-bookmarks '*'
     For details, see: https://docs.jj-vcs.dev/latest/config/#automatic-tracking-of-bookmarks
     Changes to push to origin:
-      Add bookmark my to e0cba5e497ee
+      bookmark: my [add to e0cba5e497ee]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -692,7 +692,7 @@ fn test_git_push_locally_created_and_rewritten() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Add bookmark my to e0cba5e497ee
+      bookmark: my [add to e0cba5e497ee]
     [EOF]
     ");
 
@@ -712,7 +712,7 @@ fn test_git_push_locally_created_and_rewritten() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Move sideways bookmark my from e0cba5e497ee to 9ebc3217a0b8
+      bookmark: my [move sideways from e0cba5e497ee to 9ebc3217a0b8]
     [EOF]
     ");
 }
@@ -759,10 +759,10 @@ fn test_git_push_multiple() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Delete bookmark bookmark1 from 9b2e76de3920
-      Move sideways bookmark bookmark2 from 38a204733702 to 352fa1879f75
-      Add bookmark bookmark3 to 352fa1879f75
-      Add bookmark my-bookmark to 352fa1879f75
+      bookmark: bookmark1 [delete from 9b2e76de3920]
+      bookmark: bookmark2 [move sideways from 38a204733702 to 352fa1879f75]
+      bookmark: bookmark3 [add to 352fa1879f75]
+      bookmark: my-bookmark [add to 352fa1879f75]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -771,8 +771,8 @@ fn test_git_push_multiple() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Delete bookmark bookmark1 from 9b2e76de3920
-      Add bookmark my-bookmark to 352fa1879f75
+      bookmark: bookmark1 [delete from 9b2e76de3920]
+      bookmark: my-bookmark [add to 352fa1879f75]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -789,8 +789,8 @@ fn test_git_push_multiple() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Delete bookmark bookmark1 from 9b2e76de3920
-      Add bookmark my-bookmark to 352fa1879f75
+      bookmark: bookmark1 [delete from 9b2e76de3920]
+      bookmark: my-bookmark [add to 352fa1879f75]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -799,9 +799,9 @@ fn test_git_push_multiple() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Delete bookmark bookmark1 from 9b2e76de3920
-      Move sideways bookmark bookmark2 from 38a204733702 to 352fa1879f75
-      Add bookmark bookmark3 to 352fa1879f75
+      bookmark: bookmark1 [delete from 9b2e76de3920]
+      bookmark: bookmark2 [move sideways from 38a204733702 to 352fa1879f75]
+      bookmark: bookmark3 [add to 352fa1879f75]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -829,9 +829,9 @@ fn test_git_push_multiple() {
     Warning: Refusing to push deleted bookmark bookmark1
     Hint: Push deleted bookmarks with --deleted or forget the bookmark to suppress this warning.
     Changes to push to origin:
-      Move sideways bookmark bookmark2 from 38a204733702 to 352fa1879f75
-      Add bookmark bookmark3 to 352fa1879f75
-      Add bookmark my-bookmark to 352fa1879f75
+      bookmark: bookmark2 [move sideways from 38a204733702 to 352fa1879f75]
+      bookmark: bookmark3 [add to 352fa1879f75]
+      bookmark: my-bookmark [add to 352fa1879f75]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -839,10 +839,10 @@ fn test_git_push_multiple() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Delete bookmark bookmark1 from 9b2e76de3920
-      Move sideways bookmark bookmark2 from 38a204733702 to 352fa1879f75
-      Add bookmark bookmark3 to 352fa1879f75
-      Add bookmark my-bookmark to 352fa1879f75
+      bookmark: bookmark1 [delete from 9b2e76de3920]
+      bookmark: bookmark2 [move sideways from 38a204733702 to 352fa1879f75]
+      bookmark: bookmark3 [add to 352fa1879f75]
+      bookmark: my-bookmark [add to 352fa1879f75]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -853,10 +853,10 @@ fn test_git_push_multiple() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Delete bookmark bookmark1 from 9b2e76de3920
-      Move sideways bookmark bookmark2 from 38a204733702 to 352fa1879f75
-      Add bookmark bookmark3 to 352fa1879f75
-      Add bookmark my-bookmark to 352fa1879f75
+      bookmark: bookmark1 [delete from 9b2e76de3920]
+      bookmark: bookmark2 [move sideways from 38a204733702 to 352fa1879f75]
+      bookmark: bookmark3 [add to 352fa1879f75]
+      bookmark: my-bookmark [add to 352fa1879f75]
     Warning: The following references unexpectedly moved on the remote:
       refs/heads/bookmark3 (reason: stale info)
     Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
@@ -916,7 +916,7 @@ fn test_git_push_changes() {
     ------- stderr -------
     Creating bookmark push-yostqsxwqrlt for revision yostqsxwqrlt
     Changes to push to origin:
-      Add bookmark push-yostqsxwqrlt to 916414184c47
+      bookmark: push-yostqsxwqrlt [add to 916414184c47]
     [EOF]
     ");
 
@@ -936,8 +936,8 @@ fn test_git_push_changes() {
     ------- stderr -------
     Creating bookmark push-yqosqzytrlsw for revision yqosqzytrlsw
     Changes to push to origin:
-      Move sideways bookmark push-yostqsxwqrlt from 916414184c47 to 107f11285524
-      Add bookmark push-yqosqzytrlsw to 0f8164cd580b
+      bookmark: push-yostqsxwqrlt [move sideways from 916414184c47 to 107f11285524]
+      bookmark: push-yqosqzytrlsw [add to 0f8164cd580b]
     [EOF]
     ");
 
@@ -947,7 +947,7 @@ fn test_git_push_changes() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Move sideways bookmark push-yostqsxwqrlt from 107f11285524 to 7436a8a600a4
+      bookmark: push-yostqsxwqrlt [move sideways from 107f11285524 to 7436a8a600a4]
     [EOF]
     ");
 
@@ -957,7 +957,7 @@ fn test_git_push_changes() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Move sideways bookmark push-yostqsxwqrlt from 7436a8a600a4 to a8b93bdd0f68
+      bookmark: push-yostqsxwqrlt [move sideways from 7436a8a600a4 to a8b93bdd0f68]
     [EOF]
     ");
 
@@ -1011,7 +1011,7 @@ fn test_git_push_changes() {
     ------- stderr -------
     Creating bookmark test-yostqsxwqrlt for revision yostqsxwqrlt
     Changes to push to origin:
-      Add bookmark test-yostqsxwqrlt to 4b18f5ea2994
+      bookmark: test-yostqsxwqrlt [add to 4b18f5ea2994]
     [EOF]
     ");
 
@@ -1077,7 +1077,7 @@ fn test_git_push_changes_with_name() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Add bookmark b1 to 5f4f9a466c96
+      bookmark: b1 [add to 5f4f9a466c96]
     [EOF]
     ");
     // Spaces before the = sign are treated like part of the bookmark name and such
@@ -1171,7 +1171,7 @@ fn test_git_push_changes_with_name() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Add bookmark b2 to 95ba7bdacb38
+      bookmark: b2 [add to 95ba7bdacb38]
     [EOF]
     ");
 }
@@ -1208,7 +1208,7 @@ fn test_git_push_changes_with_name_deleted_tracked() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Add bookmark b1 to 08f401c17d51
+      bookmark: b1 [add to 08f401c17d51]
     [EOF]
     ");
     work_dir.run_jj(["bookmark", "delete", "b1"]).success();
@@ -1261,7 +1261,7 @@ fn test_git_push_changes_with_name_deleted_tracked() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to another_remote:
-      Add bookmark b1 to 08f401c17d51
+      bookmark: b1 [add to 08f401c17d51]
     [EOF]
     ");
     let output = work_dir
@@ -1358,7 +1358,7 @@ fn test_git_push_changes_with_name_untracked_or_forgotten() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Add bookmark b1 to aa9ad64cb4ce
+      bookmark: b1 [add to aa9ad64cb4ce]
     Warning: The following references unexpectedly moved on the remote:
       refs/heads/b1 (reason: stale info)
     Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
@@ -1378,7 +1378,7 @@ fn test_git_push_changes_with_name_untracked_or_forgotten() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Add bookmark b1 to 9a0f76645905
+      bookmark: b1 [add to 9a0f76645905]
     Warning: The following references unexpectedly moved on the remote:
       refs/heads/b1 (reason: stale info)
     Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
@@ -1393,7 +1393,7 @@ fn test_git_push_changes_with_name_untracked_or_forgotten() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Add bookmark b1 to 767b63a598e1
+      bookmark: b1 [add to 767b63a598e1]
     [EOF]
     ");
 }
@@ -1448,7 +1448,7 @@ fn test_git_push_revisions() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Add bookmark bookmark-1 to e76139e55e1e
+      bookmark: bookmark-1 [add to e76139e55e1e]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -1458,7 +1458,7 @@ fn test_git_push_revisions() {
     ------- stderr -------
     Warning: No bookmarks point to the specified revisions: @--
     Changes to push to origin:
-      Add bookmark bookmark-1 to e76139e55e1e
+      bookmark: bookmark-1 [add to e76139e55e1e]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -1467,8 +1467,8 @@ fn test_git_push_revisions() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Add bookmark bookmark-2a to 57d822f901bb
-      Add bookmark bookmark-2b to 57d822f901bb
+      bookmark: bookmark-2a [add to 57d822f901bb]
+      bookmark: bookmark-2b [add to 57d822f901bb]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -1477,7 +1477,7 @@ fn test_git_push_revisions() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Add bookmark bookmark-1 to e76139e55e1e
+      bookmark: bookmark-1 [add to e76139e55e1e]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -1486,7 +1486,7 @@ fn test_git_push_revisions() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Add bookmark bookmark-1 to e76139e55e1e
+      bookmark: bookmark-1 [add to e76139e55e1e]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -1529,8 +1529,8 @@ fn test_git_push_mixed() {
     Warning: Refusing to create new remote bookmark bookmark-2b@origin
     Hint: Run `jj bookmark track bookmark-2b --remote=origin` and try again.
     Changes to push to origin:
-      Add bookmark push-yqosqzytrlsw to 0f8164cd580b
-      Add bookmark bookmark-1 to e76139e55e1e
+      bookmark: push-yqosqzytrlsw [add to 0f8164cd580b]
+      bookmark: bookmark-1 [add to e76139e55e1e]
     [EOF]
     ");
 
@@ -1548,8 +1548,8 @@ fn test_git_push_mixed() {
     Bookmark push-yqosqzytrlsw@origin already matches push-yqosqzytrlsw
     Bookmark bookmark-1@origin already matches bookmark-1
     Changes to push to origin:
-      Add bookmark bookmark-2a to 57d822f901bb
-      Add bookmark bookmark-2b to 57d822f901bb
+      bookmark: bookmark-2a [add to 57d822f901bb]
+      bookmark: bookmark-2b [add to 57d822f901bb]
     [EOF]
     ");
 }
@@ -1590,7 +1590,7 @@ fn test_git_push_allow_new_bookmark_heuristics() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Add bookmark untracked to b9124726209b
+      bookmark: untracked [add to b9124726209b]
     [EOF]
     ");
 
@@ -1709,7 +1709,7 @@ fn test_git_push_no_description_in_immutable() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Add bookmark my-bookmark to 240e2e89abb2
+      bookmark: my-bookmark [add to 240e2e89abb2]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -1784,7 +1784,7 @@ fn test_git_push_missing_author_in_immutable() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Add bookmark my-bookmark to 96080b93b4ce
+      bookmark: my-bookmark [add to 96080b93b4ce]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -1877,7 +1877,7 @@ fn test_git_push_missing_committer_in_immutable() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Add bookmark my-bookmark to e0dff9c29479
+      bookmark: my-bookmark [add to e0dff9c29479]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -1896,7 +1896,7 @@ fn test_git_push_deleted() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Delete bookmark bookmark1 from 9b2e76de3920
+      bookmark: bookmark1 [delete from 9b2e76de3920]
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "-rall()"]);
@@ -1987,7 +1987,7 @@ fn test_git_push_conflicting_bookmarks() -> TestResult {
     Warning: Bookmark bookmark2 is conflicted
     Hint: Run `jj bookmark list` to inspect, and use `jj bookmark set` to fix it up.
     Changes to push to origin:
-      Move forward bookmark bookmark1 from 9b2e76de3920 to 749c2e6d999f
+      bookmark: bookmark1 [move forward from 9b2e76de3920 to 749c2e6d999f]
     [EOF]
     ");
 
@@ -1999,7 +1999,7 @@ fn test_git_push_conflicting_bookmarks() -> TestResult {
     Warning: Bookmark bookmark2 is conflicted
     Hint: Run `jj bookmark list` to inspect, and use `jj bookmark set` to fix it up.
     Changes to push to origin:
-      Move forward bookmark bookmark1 from 749c2e6d999f to 9bb0f427b517
+      bookmark: bookmark1 [move forward from 749c2e6d999f to 9bb0f427b517]
     [EOF]
     ");
     Ok(())
@@ -2173,7 +2173,7 @@ fn test_git_push_tracked_vs_all() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Delete bookmark bookmark2 from 38a204733702
+      bookmark: bookmark2 [delete from 38a204733702]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -2220,7 +2220,7 @@ fn test_git_push_tracked_vs_all() {
     Warning: Non-tracking remote bookmark bookmark1@origin exists
     Hint: Run `jj bookmark track bookmark1 --remote=origin` to import the remote bookmark.
     Changes to push to origin:
-      Add bookmark bookmark3 to 0004a65e1d28
+      bookmark: bookmark3 [add to 0004a65e1d28]
     [EOF]
     ");
 }
@@ -2291,8 +2291,8 @@ fn test_git_push_to_remote_named_git() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to git:
-      Add bookmark bookmark1 to 9b2e76de3920
-      Add bookmark bookmark2 to 38a204733702
+      bookmark: bookmark1 [add to 9b2e76de3920]
+      bookmark: bookmark2 [add to 38a204733702]
     Error: Git remote named 'git' is reserved for local Git repository
     Hint: Run `jj git remote rename` to give a different name.
     [EOF]
@@ -2316,8 +2316,8 @@ fn test_git_push_to_remote_with_slashes() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to slash/origin:
-      Add bookmark bookmark1 to 9b2e76de3920
-      Add bookmark bookmark2 to 38a204733702
+      bookmark: bookmark1 [add to 9b2e76de3920]
+      bookmark: bookmark2 [add to 38a204733702]
     Error: Git remotes with slashes are incompatible with jj: slash/origin
     Hint: Run `jj git remote rename` to give a different name.
     [EOF]
@@ -2342,7 +2342,7 @@ fn test_git_push_commits_not_ready() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Move forward bookmark bookmark2 from 38a204733702 to 9e7e2853b980
+      bookmark: bookmark2 [move forward from 38a204733702 to 9e7e2853b980]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -2447,7 +2447,7 @@ fn test_git_push_sign_on_push() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Move forward bookmark bookmark2 from 38a204733702 to 3779ed7f18df
+      bookmark: bookmark2 [move forward from 38a204733702 to 3779ed7f18df]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -2470,7 +2470,7 @@ fn test_git_push_sign_on_push() {
     Updated signatures of 2 commits
     Rebased 2 descendant commits
     Changes to push to origin:
-      Move forward bookmark bookmark2 from 38a204733702 to d45e2adce0ad
+      bookmark: bookmark2 [move forward from 38a204733702 to d45e2adce0ad]
     Working copy  (@) now at: kmkuslsw 3d5a9465 (empty) commit which should not be signed 2
     Parent commit (@-)      : kpqxywon 48ea83e9 (empty) commit which should not be signed 1
     [EOF]
@@ -2503,7 +2503,7 @@ fn test_git_push_sign_on_push() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Move forward bookmark bookmark2 from d45e2adce0ad to 48ea83e9499c
+      bookmark: bookmark2 [move forward from d45e2adce0ad to 48ea83e9499c]
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "-T", template, "-r", "::"]);
@@ -2557,7 +2557,7 @@ fn test_git_push_sign_on_push() {
     ------- stderr -------
     Updated signatures of 1 commits
     Changes to push to origin:
-      Move sideways bookmark bookmark1 from 9b2e76de3920 to 0617b6813c01
+      bookmark: bookmark1 [move sideways from 9b2e76de3920 to 0617b6813c01]
     Working copy  (@) now at: pzsxstzt 0617b681 bookmark1 | (empty) commit to be signed 3
     Parent commit (@-)      : kmkuslsw 5114df95 (empty) commit which should not be signed 2
     [EOF]
@@ -2636,7 +2636,7 @@ fn test_git_push_rejected_by_remote() -> TestResult {
         insta::assert_snapshot!(output, @"
         ------- stderr -------
         Changes to push to origin:
-          Move forward bookmark bookmark1 from 9b2e76de3920 to 0fc4cf312e83
+          bookmark: bookmark1 [move forward from 9b2e76de3920 to 0fc4cf312e83]
         remote: error: hook declined to update refs/heads/bookmark1
         Warning: The remote rejected the following updates:
           refs/heads/bookmark1 (reason: hook declined)
@@ -2687,7 +2687,7 @@ fn test_git_push_unmapped_refs() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Add bookmark bookmark1 to 5792bfac70a2
+      bookmark: bookmark1 [add to 5792bfac70a2]
     [EOF]
     ");
 
@@ -2708,7 +2708,7 @@ fn test_git_push_unmapped_refs() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Changes to push to origin:
-      Add bookmark bookmark2 to aa5df56a071b
+      bookmark: bookmark2 [add to aa5df56a071b]
     Warning: The following bookmarks couldn't be updated locally:
       bookmark2@origin: Failed to set: The change for reference "refs/remotes/origin/bookmark2" could not be committed: Directory not empty
     Error: Failed to push some bookmarks

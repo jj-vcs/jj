@@ -1649,8 +1649,8 @@ fn test_op_diff() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Move forward bookmark bookmark-1 from 0dee631320b1 to 96f3a57c9a4a
-      Delete bookmark bookmark-2 from e1a239a57eb1
+      bookmark: bookmark-1 [move forward from 0dee631320b1 to 96f3a57c9a4a]
+      bookmark: bookmark-2 [delete from e1a239a57eb1]
     [EOF]
     ");
     let output = work_dir.run_jj(["op", "diff"]);
@@ -2792,8 +2792,8 @@ fn test_op_show() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Move forward bookmark bookmark-1 from 0dee631320b1 to 8f340dd76dc6
-      Delete bookmark bookmark-2 from e1a239a57eb1
+      bookmark: bookmark-1 [move forward from 0dee631320b1 to 8f340dd76dc6]
+      bookmark: bookmark-2 [delete from e1a239a57eb1]
     [EOF]
     ");
     let output = work_dir.run_jj(["op", "show"]);

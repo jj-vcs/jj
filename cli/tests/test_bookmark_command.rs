@@ -671,7 +671,7 @@ fn test_bookmark_rename() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Add bookmark bremote2 to 1e76d54fcfce
+      bookmark: bremote2 [add to 1e76d54fcfce]
     [EOF]
     ");
     work_dir

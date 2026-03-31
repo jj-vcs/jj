@@ -813,52 +813,46 @@ fn print_commits_ready_to_push(
                 Ok(BookmarkMoveDirection::Sideways)
             }
         };
-
-    for (bookmark_name, update) in bookmark_updates {
-        match (&update.before, &update.after) {
+    let describe_update = |update: &Diff<Option<CommitId>>| -> IndexResult<String> {
+        let desc = match (&update.before, &update.after) {
             (Some(old_target), Some(new_target)) => {
-                let bookmark_name = bookmark_name.as_symbol();
                 let old = short_commit_hash(old_target);
                 let new = short_commit_hash(new_target);
-                // TODO(ilyagr): Add color. Once there is color, "Move bookmark ... sideways"
-                // may read more naturally than "Move sideways bookmark ...".
-                // Without color, it's hard to see at a glance if one bookmark
-                // among many was moved sideways (say). TODO: People on Discord
-                // suggest "Move bookmark ... forward by n commits",
-                // possibly "Move bookmark ... sideways (X forward, Y back)".
-                let msg = match to_direction(old_target, new_target)? {
+                // TODO: People on Discord suggest "... forward by n commits",
+                // possibly "... sideways (X forward, Y back)".
+                match to_direction(old_target, new_target)? {
                     BookmarkMoveDirection::Forward => {
-                        format!("Move forward bookmark {bookmark_name} from {old} to {new}")
+                        format!("move forward from {old} to {new}")
                     }
                     BookmarkMoveDirection::Backward => {
-                        format!("Move backward bookmark {bookmark_name} from {old} to {new}")
+                        format!("move backward from {old} to {new}")
                     }
                     BookmarkMoveDirection::Sideways => {
-                        format!("Move sideways bookmark {bookmark_name} from {old} to {new}")
+                        format!("move sideways from {old} to {new}")
                     }
-                };
-                writeln!(formatter, "  {msg}")?;
+                }
             }
             (Some(old_target), None) => {
-                writeln!(
-                    formatter,
-                    "  Delete bookmark {bookmark_name} from {old}",
-                    bookmark_name = bookmark_name.as_symbol(),
-                    old = short_commit_hash(old_target)
-                )?;
+                format!("delete from {old}", old = short_commit_hash(old_target))
             }
             (None, Some(new_target)) => {
-                writeln!(
-                    formatter,
-                    "  Add bookmark {bookmark_name} to {new}",
-                    bookmark_name = bookmark_name.as_symbol(),
-                    new = short_commit_hash(new_target)
-                )?;
+                format!("add to {new}", new = short_commit_hash(new_target))
             }
             (None, None) => {
-                panic!("Not pushing any change to bookmark {bookmark_name:?}");
+                panic!("Not pushing any change");
             }
-        }
+        };
+        Ok(desc)
+    };
+
+    // TODO: Add color
+    for (name, update) in bookmark_updates {
+        let desc = describe_update(update)?;
+        writeln!(
+            formatter,
+            "  bookmark: {name} [{desc}]",
+            name = name.as_symbol()
+        )?;
     }
     Ok(())
 }
