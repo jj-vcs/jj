@@ -283,13 +283,9 @@ pub async fn cmd_git_push(
         let mut commits_validator =
             CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args)?;
         for (name, targets) in view.local_remote_bookmarks(remote) {
+            let remote_symbol = name.to_remote_symbol(remote);
             let allow_new = true; // implied by --all
-            match classify_bookmark_update(
-                name.to_remote_symbol(remote),
-                targets,
-                allow_new,
-                args.deleted,
-            ) {
+            match classify_bookmark_update(remote_symbol, targets, allow_new, args.deleted) {
                 Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
                     Ok(()) => ref_updates.bookmarks.push((name.to_owned(), update)),
                     Err(reason) => reason.print_bookmark(ui, tx.base_workspace_helper(), name)?,
@@ -309,13 +305,9 @@ pub async fn cmd_git_push(
             if !targets.remote_ref.is_tracked() {
                 continue;
             }
+            let remote_symbol = name.to_remote_symbol(remote);
             let allow_new = false; // doesn't matter
-            match classify_bookmark_update(
-                name.to_remote_symbol(remote),
-                targets,
-                allow_new,
-                args.deleted,
-            ) {
+            match classify_bookmark_update(remote_symbol, targets, allow_new, args.deleted) {
                 Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
                     Ok(()) => ref_updates.bookmarks.push((name.to_owned(), update)),
                     Err(reason) => reason.print_bookmark(ui, tx.base_workspace_helper(), name)?,
@@ -336,14 +328,10 @@ pub async fn cmd_git_push(
             if targets.local_target.is_present() {
                 continue;
             }
+            let remote_symbol = name.to_remote_symbol(remote);
             let allow_new = false; // doesn't matter
             let allow_delete = true;
-            match classify_bookmark_update(
-                name.to_remote_symbol(remote),
-                targets,
-                allow_new,
-                allow_delete,
-            ) {
+            match classify_bookmark_update(remote_symbol, targets, allow_new, allow_delete) {
                 Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
                     Ok(()) => ref_updates.bookmarks.push((name.to_owned(), update)),
                     Err(reason) => reason.print_bookmark(ui, tx.base_workspace_helper(), name)?,
@@ -451,13 +439,9 @@ pub async fn cmd_git_push(
             if !matches_local_target(targets, &target_revisions) || !seen_bookmarks.insert(name) {
                 continue;
             }
+            let remote_symbol = name.to_remote_symbol(remote);
             let allow_delete = false;
-            match classify_bookmark_update(
-                name.to_remote_symbol(remote),
-                targets,
-                allow_new,
-                allow_delete,
-            ) {
+            match classify_bookmark_update(remote_symbol, targets, allow_new, allow_delete) {
                 Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
                     Ok(()) => ref_updates.bookmarks.push((name.to_owned(), update)),
                     Err(reason) => reason.print_bookmark(ui, tx.base_workspace_helper(), name)?,
