@@ -31,6 +31,12 @@ dev = [
 
 [tool.uv]
 package = false
+# Pygments 2.20.0 caused https://github.com/jj-vcs/jj/issues/9230
+# For example, the `github` docs ended up having literal "```shell" in them,
+# see the exact breakage in
+# https://github.com/jj-vcs/jj/commit/8a13bde3bb9555ba1d25ace3d3ecff71ef5e0f76#diff-b50ce796f4ee4de132496e90aa1f463d50f2454bbd41796013e52b06ed1da691R1943-R1947
+# TODO: Consider fixing this if our planned transition to starlight docs doesn't work out for some reason.
+constraint-dependencies = ["pygments<2.20"]
 
 [tool.codespell]
 # codespell must be run **from the repo root** for these settings
