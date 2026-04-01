@@ -47,7 +47,7 @@
   Git command: >
     `git status`
   Jujutsu command: >
-    `jj st`
+    `jj status`
   Notes: ''
 
 - Use case: Show diff of the current change
