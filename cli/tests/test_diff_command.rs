@@ -204,6 +204,27 @@ fn test_diff_basic() {
     [EOF]
     ");
 
+    let output = work_dir.run_jj(["diff", "--git", "--config=diff.git.show-path-prefix=false"]);
+    insta::assert_snapshot!(output, @"
+    diff --git file2 file2
+    index 94ebaf9001..1ffc51b472 100644
+    --- file2
+    +++ file2
+    @@ -1,4 +1,3 @@
+     1
+    -2
+    +5
+     3
+    -4
+    diff --git file1 file3
+    rename from file1
+    rename to file3
+    diff --git file2 file4
+    copy from file2
+    copy to file4
+    [EOF]
+    ");
+
     let output = work_dir.run_jj(["diff", "--stat"]);
     insta::assert_snapshot!(output, @"
     file2            | 3 +--

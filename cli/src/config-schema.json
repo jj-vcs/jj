@@ -447,6 +447,11 @@
                             "type": "integer",
                             "description": "Number of lines of context to show",
                             "default": 3
+                        },
+                        "show-path-prefix": {
+                            "type": "boolean",
+                            "description": "Whether to show the 'a/' and 'b/' path prefixes",
+                            "default": true
                         }
                     }
                 }

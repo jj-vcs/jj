@@ -427,9 +427,13 @@ In git diffs you can change the default number of lines of context shown.
 
 * `context`: Number of lines of context to show in the diff. The default is `3`.
 
+* `show-path-prefix`: Whether to show the `a/` and `b/` path prefixes in
+  `diff --git` output. The default is `true`.
+
 ```toml
 [diff.git]
 context = 3
+show-path-prefix = true
 ```
 
 ### Generating diffs by external command

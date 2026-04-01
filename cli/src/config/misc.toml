@@ -15,6 +15,7 @@ context = 3
 
 [diff.git]
 context = 3
+show-path-prefix = true
 
 [experimental-advance-branches]
 enabled-branches = []

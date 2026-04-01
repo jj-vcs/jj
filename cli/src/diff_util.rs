@@ -1626,6 +1626,8 @@ pub async fn show_file_by_file_diff(
 pub struct UnifiedDiffOptions {
     /// Number of context lines to show.
     pub context: usize,
+    /// Whether to show the 'a/' and 'b/' path prefixes.
+    pub show_path_prefix: bool,
     /// How lines are tokenized and compared.
     pub line_diff: LineDiffOptions,
 }
@@ -1634,6 +1636,7 @@ impl UnifiedDiffOptions {
     pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
         Ok(Self {
             context: settings.get("diff.git.context")?,
+            show_path_prefix: settings.get("diff.git.show-path-prefix")?,
             line_diff: LineDiffOptions::default(),
         })
     }
@@ -1722,6 +1725,8 @@ pub async fn show_git_diff(
     while let Some(MaterializedTreeDiffEntry { path, values }) = diff_stream.next().await {
         let left_path = path.source();
         let right_path = path.target();
+        let left_prefix = if options.show_path_prefix { "a/" } else { "" };
+        let right_prefix = if options.show_path_prefix { "b/" } else { "" };
         let left_path_string = left_path.as_internal_file_string();
         let right_path_string = right_path.as_internal_file_string();
         let values = values?;
@@ -1733,7 +1738,7 @@ pub async fn show_git_diff(
             let mut formatter = formatter.labeled("file_header");
             writeln!(
                 formatter,
-                "diff --git a/{left_path_string} b/{right_path_string}"
+                "diff --git {left_prefix}{left_path_string} {right_prefix}{right_path_string}"
             )?;
             let left_hash = &left_part.hash;
             let right_hash = &right_part.hash;
@@ -1775,11 +1780,11 @@ pub async fn show_git_diff(
         }
 
         let left_path = match left_part.mode {
-            Some(_) => format!("a/{left_path_string}"),
+            Some(_) => format!("{left_prefix}{left_path_string}"),
             None => "/dev/null".to_owned(),
         };
         let right_path = match right_part.mode {
-            Some(_) => format!("b/{right_path_string}"),
+            Some(_) => format!("{right_prefix}{right_path_string}"),
             None => "/dev/null".to_owned(),
         };
         if left_part.content.is_binary || right_part.content.is_binary {
