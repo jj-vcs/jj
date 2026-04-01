@@ -3252,6 +3252,12 @@ List tags and their targets
 
 By default, a tracked remote tag will be included only if its target is different from the local tag. An untracked remote tag won't be listed. For a conflicted tag (both local and remote), old target revisions are preceded by a "-" and new target revisions are preceded by a "+".
 
+The `-r` flag combined with revset expressions can be used for filtering. For example:
+
+* `jj tag list -r 'REV::'` shows tags whose targets are descendants of REV (similar to `git tag --contains REV`).
+
+* `jj tag list -r '::REV'` shows tags whose targets are ancestors of REV (similar to `git tag --merged REV`).
+
 **Usage:** `jj tag list [OPTIONS] [NAMES]...`
 
 **Command Alias:** `l`

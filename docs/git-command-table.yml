@@ -400,6 +400,45 @@
     `jj bookmark delete <name>`
   Notes: ''
 
+- Use case: List tags
+  Git command: >
+    `git tag -l`
+  Jujutsu command: >
+    `jj tag list`
+  Notes: ''
+
+- Use case: Create a tag
+  Git command: >
+    `git tag <name> <revision>`
+  Jujutsu command: >
+    `jj tag set <name> -r <revision>`
+  Notes: ''
+
+- Use case: Delete a tag
+  Git command: >
+    `git tag -d <name>`
+  Jujutsu command: >
+    `jj tag delete <name>`
+  Notes: ''
+
+- Use case: List tags that contain a revision (targets are descendants of the revision)
+  Git command: >
+    `git tag --contains <revision>`
+  Jujutsu command: >
+    `jj tag list -r '<revision>::'`
+  Notes: >
+    Uses jj's revset language. The `::` postfix operator selects all
+    descendants of the given revision.
+
+- Use case: List tags merged into a revision (targets are ancestors of the revision)
+  Git command: >
+    `git tag --merged <revision>`
+  Jujutsu command: >
+    `jj tag list -r '::<revision>'`
+  Notes: >
+    Uses jj's revset language. The `::` prefix operator selects all
+    ancestors of the given revision.
+
 - Use case: See log of operations performed on the repo
   Git command: Not supported
   Jujutsu command: >

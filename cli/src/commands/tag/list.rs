@@ -41,6 +41,15 @@ use crate::ui::Ui;
 /// different from the local tag. An untracked remote tag won't be listed. For a
 /// conflicted tag (both local and remote), old target revisions are preceded by
 /// a "-" and new target revisions are preceded by a "+".
+///
+/// The `-r` flag combined with revset expressions can be used for filtering.
+/// For example:
+///
+/// * `jj tag list -r 'REV::'` shows tags whose targets are descendants of REV
+///   (similar to `git tag --contains REV`).
+///
+/// * `jj tag list -r '::REV'` shows tags whose targets are ancestors of REV
+///   (similar to `git tag --merged REV`).
 #[derive(clap::Args, Clone, Debug)]
 pub struct TagListArgs {
     /// Show all tracked and untracked remote tags including the ones whose
