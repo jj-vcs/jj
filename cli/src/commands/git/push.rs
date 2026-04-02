@@ -255,6 +255,12 @@ pub async fn cmd_git_push(
         default_remote = get_default_push_remote(ui, &workspace_command)?;
         &default_remote
     };
+    let remote_settings = workspace_command.settings().remote_settings()?;
+    let allow_empty_description = args.allow_empty_description
+        || remote_settings
+            .get(remote)
+            .and_then(|settings| settings.allow_empty_description)
+            .unwrap_or(false);
 
     let mut tx = workspace_command.start_transaction();
     let view = tx.repo().view();
@@ -433,8 +439,14 @@ pub async fn cmd_git_push(
     }
 
     let to_push_expr = ready_to_push_revset_expression(&tx, remote, &bookmark_updates);
-    validate_commits_ready_to_push(ui, tx.base_workspace_helper(), to_push_expr.clone(), args)
-        .await?;
+    validate_commits_ready_to_push(
+        ui,
+        tx.base_workspace_helper(),
+        to_push_expr.clone(),
+        allow_empty_description,
+        args.allow_private,
+    )
+    .await?;
     if !args.dry_run && tx.settings().get_bool("git.sign-on-push")? {
         bookmark_updates =
             sign_commits_before_push(ui, &mut tx, to_push_expr, bookmark_updates).await?;
@@ -511,7 +523,8 @@ async fn validate_commits_ready_to_push(
     ui: &Ui,
     workspace_helper: &WorkspaceCommandHelper,
     commits_to_push: Arc<UserRevsetExpression>,
-    args: &GitPushArgs,
+    allow_empty_description: bool,
+    allow_private: bool,
 ) -> Result<(), CommandError> {
     let settings = workspace_helper.settings();
     let private_revset_str = RevisionArg::from(settings.get_string("git.private-commits")?);
@@ -525,7 +538,7 @@ async fn validate_commits_ready_to_push(
         .evaluate_to_commits()?;
     while let Some(commit) = commit_stream.try_next().await? {
         let mut reasons = vec![];
-        if commit.description().is_empty() && !args.allow_empty_description {
+        if commit.description().is_empty() && !allow_empty_description {
             reasons.push("it has no description");
         }
         if commit.author().name.is_empty()
@@ -539,7 +552,7 @@ async fn validate_commits_ready_to_push(
             reasons.push("it has conflicts");
         }
         let is_private = is_private(commit.id())?;
-        if !args.allow_private && is_private {
+        if !allow_private && is_private {
             reasons.push("it is private");
         }
         if !reasons.is_empty() {
@@ -553,7 +566,7 @@ async fn validate_commits_ready_to_push(
                 workspace_helper.write_commit_summary(formatter, &commit)?;
                 Ok(())
             });
-            if !args.allow_private && is_private {
+            if !allow_private && is_private {
                 error.add_hint(format!(
                     "Configured git.private-commits: '{private_revset_str}'",
                 ));
