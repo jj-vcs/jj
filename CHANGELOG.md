@@ -16,6 +16,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+## [0.40.0] - 2026-04-01
+
+### Release highlights
+
+None
+
+### Breaking changes
+
+None
+
+### Deprecations
+
+None
+
+### New features
+
 * New `diff_lines_added()` and `diff_lines_removed()` revset functions for
   matching content on only one side of a diff.
 
@@ -53,6 +69,39 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `.gitignore` with UTF-8 BOM can now be parsed correctly.
 
 * Fix incompatibility with gpgsm 2.5.x.
+
+### Contributors
+
+Thanks to the people who made this release happen!
+
+* Aaron Sutton (@aaronjsutton)
+* Adam Sandberg Eriksson (@adamse)
+* Anton Älgmyr (@algmyr)
+* Austin Seipp (@thoughtpolice)
+* Benjamin Tan (@bnjmnt4n)
+* Ben Warren (@warrenbhw)
+* Bryant Chandler (@brychanrobot)
+* David Higgs (@higgsd)
+* Filip Weiss (@fiws)
+* Gabriel Goller (@kaffarell)
+* Gaëtan Lehmann (@glehmann)
+* Ilya Grigoriev (@ilyagr)
+* Jeff Turner (@jefft)
+* Joseph Lou (@josephlou5)
+* Josh Steadmon (@steadmon)
+* KITAGAWA Yasutaka (@kit494way)
+* Liam (@terror)
+* Li-Wen Hsu (@lwhsu)
+* Martin von Zweigbergk (@martinvonz)
+* Philip Metzger (@PhilipMetzger)
+* Poliorcetics (@poliorcetics)
+* Remo Senekowitsch (@senekor)
+* Rob Pilling (@bobrippling)
+* Scott Taylor (@scott2000)
+* Shnatu
+* Stephen Prater (@stephenprater)
+* Yuya Nishihara (@yuja)
+* Zeyi Fan (@fanzeyi)
 
 ## [0.39.0] - 2026-03-04
 
@@ -4914,7 +4963,8 @@ No changes, only trying to get the automated build to work.
 
 Last release before this changelog started.
 
-[unreleased]: https://github.com/jj-vcs/jj/compare/v0.39.0...HEAD
+[unreleased]: https://github.com/jj-vcs/jj/compare/v0.40.0...HEAD
+[0.40.0]: https://github.com/jj-vcs/jj/compare/v0.39.0...v0.40.0
 [0.39.0]: https://github.com/jj-vcs/jj/compare/v0.38.0...v0.39.0
 [0.38.0]: https://github.com/jj-vcs/jj/compare/v0.37.0...v0.38.0
 [0.37.0]: https://github.com/jj-vcs/jj/compare/v0.36.0...v0.37.0
