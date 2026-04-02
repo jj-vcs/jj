@@ -114,8 +114,8 @@ use crate::ui::Ui;
 ///     https://docs.jj-vcs.dev/latest/bookmarks/#conflicts
 
 #[derive(clap::Args, Clone, Debug)]
-#[command(group(ArgGroup::new("specific").args(&["bookmark", "change", "revisions", "named"]).multiple(true)))]
-#[command(group(ArgGroup::new("what").args(&["all", "tracked"]).conflicts_with("specific")))]
+#[command(group(ArgGroup::new("specific").multiple(true)))]
+#[command(group(ArgGroup::new("what").conflicts_with("specific")))]
 pub struct GitPushArgs {
     /// The remote to push to (only named remotes are supported)
     ///
@@ -136,12 +136,12 @@ pub struct GitPushArgs {
     ///
     /// [string pattern syntax]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
-    #[arg(long, short, alias = "branch")]
+    #[arg(long, short, alias = "branch", group = "specific")]
     #[arg(add = ArgValueCandidates::new(complete::local_bookmarks))]
     bookmark: Vec<String>,
 
     /// Push all bookmarks (including new bookmarks)
-    #[arg(long)]
+    #[arg(long, group = "what")]
     all: bool,
 
     /// Push all tracked bookmarks
@@ -151,7 +151,7 @@ pub struct GitPushArgs {
     ///
     /// [relevant remote]:
     ///     https://docs.jj-vcs.dev/latest/bookmarks#remotes-and-tracked-bookmarks
-    #[arg(long)]
+    #[arg(long, group = "what")]
     tracked: bool,
 
     /// Push all deleted bookmarks
@@ -182,7 +182,13 @@ pub struct GitPushArgs {
     allow_private: bool,
 
     /// Push bookmarks pointing to these commits (can be repeated)
-    #[arg(long = "revision", short, value_name = "REVSETS", alias = "revisions")]
+    #[arg(
+        long = "revision",
+        short,
+        group = "specific",
+        value_name = "REVSETS",
+        alias = "revisions"
+    )]
     // While `-r` will often be used with mutable revisions, immutable revisions
     // can be useful as parts of revsets or to push special-purpose branches.
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
@@ -193,7 +199,7 @@ pub struct GitPushArgs {
     /// The created bookmark will be tracked automatically. Use the
     /// `templates.git_push_bookmark` setting to customize the generated
     /// bookmark name. The default is `"push-" ++ change_id.short()`.
-    #[arg(long, short, value_name = "REVSETS")]
+    #[arg(long, short, group = "specific", value_name = "REVSETS")]
     // I'm guessing that `git push -c` is almost exclusively used with recently
     // created mutable revisions, even though it can in theory be used with
     // immutable ones as well. We can change it if the guess turns out to be
@@ -205,7 +211,7 @@ pub struct GitPushArgs {
     /// '--named myfeature=@'
     ///
     /// Automatically tracks the bookmark if it is new.
-    #[arg(long, value_name = "NAME=REVISION")]
+    #[arg(long, group = "specific", value_name = "NAME=REVISION")]
     #[arg(add = ArgValueCompleter::new(complete::branch_name_equals_any_revision))]
     named: Vec<String>,
 
