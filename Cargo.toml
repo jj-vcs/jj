@@ -59,9 +59,9 @@ gix = { version = "0.81.0", default-features = false, features = [
     "sha1",
     "zlib-rs",
 ] }
+gix-ignore = { version = "0.19.1" }
 globset = "0.4.18"
 hashbrown = { version = "0.16.1", default-features = false, features = ["inline-more"] }
-ignore = "0.4.25"
 indexmap = { version = "2.13.1", features = ["serde"] }
 indoc = "2.0.7"
 insta = { version = "1.47.2", features = ["filters"] }

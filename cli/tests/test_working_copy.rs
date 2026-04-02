@@ -282,13 +282,11 @@ fn test_snapshot_invalid_ignore_pattern() {
     // Test invalid UTF-8 in .gitignore
     work_dir.write_file(".gitignore", b"\xff\n");
     insta::assert_snapshot!(work_dir.run_jj(["st"]), @"
-    ------- stderr -------
-    Internal error: Failed to snapshot the working copy
-    Caused by:
-    1: Invalid UTF-8 for ignore pattern in $TEST_ENV/repo/.gitignore on line #1: �
-    2: invalid utf-8 sequence of 1 bytes from index 0
+    Working copy changes:
+    A .gitignore
+    Working copy  (@) : qpvuntsm 15f3d11a (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
-    [exit status: 255]
     ");
 }
 

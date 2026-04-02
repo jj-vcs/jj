@@ -2373,22 +2373,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ignore"
-version = "0.4.25"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3d782a365a015e0f5c04902246139249abf769125006fbe7649e2ee88169b4a"
-dependencies = [
- "crossbeam-deque",
- "globset",
- "log",
- "memchr",
- "regex-automata",
- "same-file",
- "walkdir",
- "winapi-util",
-]
-
-[[package]]
 name = "imara-diff"
 version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2646,9 +2630,9 @@ dependencies = [
  "eyre",
  "futures 0.3.32",
  "gix",
+ "gix-ignore",
  "globset",
  "hashbrown 0.16.1",
- "ignore",
  "indexmap",
  "indoc",
  "insta",
