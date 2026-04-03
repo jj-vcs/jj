@@ -1645,6 +1645,19 @@ git_push_bookmark = '"martinvonz/push-" ++ change_id.short()'
 This template should include expressions like `change_id` to generate unique and
 stable bookmark.
 
+### Allow pushing empty descriptions to a remote
+
+By default, `jj git push` refuses to push commits with empty descriptions. You
+can allow them for a specific remote with:
+
+```toml
+[remotes.origin]
+allow-empty-description = true
+```
+
+This has the same effect as passing `jj git push --allow-empty-description`
+when pushing to that remote.
+
 ### Set of private commits
 
 You can configure the set of private commits by setting `git.private-commits` to

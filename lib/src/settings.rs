@@ -70,6 +70,10 @@ pub struct RemoteSettings {
     /// automatically.
     #[serde(default)]
     pub auto_track_created_bookmarks: Option<String>,
+    /// Whether `jj git push` should allow empty commit descriptions for this
+    /// remote.
+    #[serde(default)]
+    pub allow_empty_description: Option<bool>,
 }
 
 impl RemoteSettings {

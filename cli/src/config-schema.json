@@ -535,6 +535,11 @@
                         "type": "string",
                         "description": "A string pattern describing the locally-created bookmarks which should track this remote automatically. It will be applied to new bookmarks created with `jj bookmark create` or `jj bookmark set`. See https://docs.jj-vcs.dev/latest/config/#automatic-tracking-of-bookmarks",
                         "default": "~*"
+                    },
+                    "allow-empty-description": {
+                        "type": "boolean",
+                        "description": "Whether `jj git push` should allow pushing commits with empty descriptions to this remote",
+                        "default": false
                     }
                 }
             }

@@ -1680,6 +1680,76 @@ fn test_git_push_no_description() {
 }
 
 #[test]
+fn test_git_push_no_description_allowed_by_remote_config() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
+    let work_dir = test_env.work_dir("local");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "my-bookmark"])
+        .success();
+    work_dir.run_jj(["describe", "-m="]).success();
+    let output = work_dir
+        .run_jj([
+            "git",
+            "push",
+            "--bookmark",
+            "my-bookmark",
+            "--config=remotes.origin.allow-empty-description=true",
+        ])
+        .success();
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to origin:
+      Add bookmark my-bookmark to 8d23abddc924
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_push_no_description_remote_config_is_remote_specific() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+    work_dir.run_jj(["describe", "-m="]).success();
+
+    let other_remote_path = test_env
+        .env_root()
+        .join("origin")
+        .join(".jj")
+        .join("repo")
+        .join("store")
+        .join("git");
+    work_dir
+        .run_jj([
+            "git",
+            "remote",
+            "add",
+            "other",
+            other_remote_path.to_str().unwrap(),
+        ])
+        .success();
+
+    let output = work_dir.run_jj([
+        "git",
+        "push",
+        "--change",
+        "@",
+        "--remote",
+        "other",
+        "--config=remotes.origin.allow-empty-description=true",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Creating bookmark push-yqosqzytrlsw for revision yqosqzytrlsw
+    Error: Won't push commit 8d23abddc924 since it has no description
+    Hint: Rejected commit: yqosqzyt 8d23abdd (empty) (no description set)
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
 fn test_git_push_no_description_in_immutable() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);

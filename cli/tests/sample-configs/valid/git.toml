@@ -9,3 +9,6 @@ sign-on-push = true
 subprocess = false
 write-change-id-header = true
 executable-path = "/home/linus/.local/bin/git"
+
+[remotes.origin]
+allow-empty-description = true
