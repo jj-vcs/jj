@@ -16,7 +16,6 @@
 
 use std::any::Any;
 use std::collections::BTreeMap;
-use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::iter;
@@ -399,7 +398,7 @@ impl Operation {
             username: "".to_string(),
             is_snapshot: false,
             workspace_name: None,
-            tags: HashMap::new(),
+            tags: BTreeMap::new(),
         };
         Self {
             view_id: root_view_id,
@@ -426,7 +425,7 @@ pub struct OperationMetadata {
     pub is_snapshot: bool,
     /// The workspace this operation was performed in, if any
     pub workspace_name: Option<WorkspaceNameBuf>,
-    pub tags: HashMap<String, String>,
+    pub tags: BTreeMap<String, String>,
 }
 
 /// Data to be loaded into the root operation/view.

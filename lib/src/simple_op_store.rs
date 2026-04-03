@@ -448,7 +448,11 @@ fn operation_metadata_to_proto(
         username: metadata.username.clone(),
         is_snapshot: metadata.is_snapshot,
         workspace_name: metadata.workspace_name.clone().map(Into::into),
-        tags: metadata.tags.clone(),
+        tags: metadata
+            .tags
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect(),
     }
 }
 
@@ -467,7 +471,7 @@ fn operation_metadata_from_proto(
         username: proto.username,
         is_snapshot: proto.is_snapshot,
         workspace_name,
-        tags: proto.tags,
+        tags: proto.tags.into_iter().collect(),
     }
 }
 
@@ -943,7 +947,6 @@ mod tests {
     use insta::assert_snapshot;
     use itertools::Itertools as _;
     use maplit::btreemap;
-    use maplit::hashmap;
     use maplit::hashset;
 
     use super::*;
@@ -1035,7 +1038,7 @@ mod tests {
                 username: "someone".to_string(),
                 is_snapshot: false,
                 workspace_name: Some(WorkspaceNameBuf::from("test")),
-                tags: hashmap! {
+                tags: btreemap! {
                     "key1".to_string() => "value1".to_string(),
                     "key2".to_string() => "value2".to_string(),
                 },
