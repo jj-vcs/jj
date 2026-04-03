@@ -504,11 +504,11 @@ where
 ///
 /// If the traverse reached to an `Err`, this function terminates and returns
 /// the error.
-pub fn closest_common_node<T, ID, E, II1, II2, NI>(
+pub async fn closest_common_node<T, ID, E, II1, II2, NI>(
     set1: II1,
     set2: II2,
     id_fn: impl Fn(&T) -> ID,
-    mut neighbors_fn: impl FnMut(&T) -> Result<NI, E>,
+    mut neighbors_fn: impl AsyncFnMut(&T) -> Result<NI, E>,
 ) -> Result<Option<T>, E>
 where
     ID: Hash + Eq,
@@ -533,7 +533,7 @@ where
                 return Ok(Some(node));
             }
             if visited1.insert(id) {
-                match neighbors_fn(&node) {
+                match neighbors_fn(&node).await {
                     Ok(neighbors) => {
                         for neighbor in neighbors {
                             new_work1.push(Ok(neighbor));
@@ -553,7 +553,7 @@ where
                 return Ok(Some(node));
             }
             if visited2.insert(id) {
-                match neighbors_fn(&node) {
+                match neighbors_fn(&node).await {
                     Ok(neighbors) => {
                         for neighbor in neighbors {
                             new_work2.push(Ok(neighbor));
@@ -573,6 +573,7 @@ mod tests {
     use assert_matches::assert_matches;
     use maplit::hashmap;
     use maplit::hashset;
+    use pollster::FutureExt as _;
 
     use super::*;
 
@@ -1295,9 +1296,10 @@ mod tests {
             'H' => vec!['A', 'G'],
         };
         let id_fn = |node: &char| *node;
-        let neighbors_fn = |node: &char| Ok::<_, char>(neighbors[node].clone());
+        let neighbors_fn = async |node: &char| Ok::<_, char>(neighbors[node].clone());
 
-        let common = closest_common_node(vec![Ok('E')], vec![Ok('H')], id_fn, neighbors_fn);
+        let common =
+            closest_common_node(vec![Ok('E')], vec![Ok('H')], id_fn, neighbors_fn).block_on();
 
         // TODO: fix the implementation to return B
         assert_eq!(common, Ok(Some('A')));
@@ -1312,13 +1314,13 @@ mod tests {
             'D' => Err('X'),
         };
         let id_fn = |node: &char| *node;
-        let neighbors_fn = |node: &char| neighbors[node].clone();
+        let neighbors_fn = async |node: &char| neighbors[node].clone();
 
-        let result = closest_common_node([Ok('B')], [Ok('C')], id_fn, neighbors_fn);
+        let result = closest_common_node([Ok('B')], [Ok('C')], id_fn, neighbors_fn).block_on();
         assert_eq!(result, Ok(Some('A')));
-        let result = closest_common_node([Ok('C')], [Ok('D')], id_fn, neighbors_fn);
+        let result = closest_common_node([Ok('C')], [Ok('D')], id_fn, neighbors_fn).block_on();
         assert_eq!(result, Err('X'));
-        let result = closest_common_node([Ok('C')], [Err('Z')], id_fn, neighbors_fn);
+        let result = closest_common_node([Ok('C')], [Err('Z')], id_fn, neighbors_fn).block_on();
         assert_eq!(result, Err('Z'));
     }
 

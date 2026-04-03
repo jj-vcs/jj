@@ -22,7 +22,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use pollster::FutureExt as _;
 use thiserror::Error;
 use tracing::instrument;
 
@@ -378,8 +377,9 @@ impl WorkingCopyFreshness {
                 [Ok(wc_operation.clone())],
                 [Ok(repo_operation.clone())],
                 |op: &Operation| op.id().clone(),
-                |op: &Operation| op.parents().block_on(),
-            )?
+                async |op: &Operation| op.parents().await,
+            )
+            .await?
             .expect("unrelated operations");
             if ancestor_op.id() == repo_operation.id() {
                 // The working copy was updated since we loaded the repo. The repo must be

@@ -16,7 +16,6 @@
 
 use std::sync::Arc;
 
-use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::backend::Timestamp;
@@ -100,8 +99,9 @@ impl Transaction {
             self.parent_ops.iter().cloned().map(Ok),
             [Ok(other_op.clone())],
             |op: &Operation| op.id().clone(),
-            |op: &Operation| op.parents().block_on(),
-        )?
+            async |op: &Operation| op.parents().await,
+        )
+        .await?
         .unwrap();
         let repo_loader = self.base_repo().loader();
         let base_repo = repo_loader.load_at(&ancestor_op).await?;
