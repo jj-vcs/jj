@@ -1342,17 +1342,9 @@ mod tests {
             'D' => vec!['B', 'C'],
         };
         let id_fn = |node: &char| *node;
-        let neighbors_fn = |node: &char| neighbors[node].clone();
+        let neighbors_fn = |node: &char| neighbors[node].iter().copied().map(Ok);
         let cycle_fn = |id| id;
 
-        let result = topo_order_reverse_lazy(['D'], id_fn, neighbors_fn, cycle_fn)
-            .nth(1)
-            .unwrap();
-        assert!(result.is_err());
-
-        // Try again with non-panicking cycle handler
-        let neighbors_fn = |node: &char| neighbors[node].iter().copied().map(Ok);
-        let cycle_fn = |node: char| node;
         assert_matches!(
             topo_order_reverse_lazy_ok([Ok('D')], id_fn, neighbors_fn, cycle_fn).nth(1),
             Some(Err('C' | 'B'))
