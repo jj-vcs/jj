@@ -52,6 +52,7 @@ pub mod file_util;
 pub mod files;
 pub mod fileset;
 mod fileset_parser;
+mod filter;
 pub mod fix;
 pub mod fmt_util;
 pub mod fsmonitor;
@@ -61,6 +62,7 @@ pub mod git;
 pub mod git_backend;
 #[cfg(feature = "git")]
 mod git_subprocess;
+pub mod gitattributes;
 pub mod gitignore;
 pub mod gpg_signing;
 pub mod graph;

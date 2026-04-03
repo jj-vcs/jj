@@ -81,7 +81,6 @@ use jj_lib::matchers::NothingMatcher;
 use jj_lib::merge::Diff;
 use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
-use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_heads_store;
 use jj_lib::op_store::OpStoreError;
 use jj_lib::op_store::OperationId;
@@ -132,6 +131,7 @@ use jj_lib::transaction::Transaction;
 use jj_lib::transaction::TransactionCommitError;
 use jj_lib::working_copy;
 use jj_lib::working_copy::CheckoutStats;
+use jj_lib::working_copy::FilterIgnoreReason;
 use jj_lib::working_copy::LockedWorkingCopy;
 use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::SnapshotStats;
@@ -605,6 +605,7 @@ impl CommandHelper {
                 let wc_commit_id = workspace_command.get_wc_commit_id().unwrap();
                 let repo = workspace_command.repo().clone();
                 let stale_wc_commit = repo.store().get_commit_async(wc_commit_id).await?;
+                let path_converter = workspace_command.path_converter();
 
                 let mut workspace_command = self.workspace_helper_no_snapshot(ui)?;
 
@@ -632,6 +633,7 @@ impl CommandHelper {
                             repo.op_id().clone(),
                             &stale_wc_commit,
                             &desired_wc_commit,
+                            path_converter,
                         )
                         .await?;
                         workspace_command.print_updated_working_copy_stats(
@@ -659,9 +661,14 @@ impl CommandHelper {
                 let merged_stats = {
                     let SnapshotStats {
                         mut untracked_paths,
+                        mut unconverted_paths,
                     } = stale_stats;
                     untracked_paths.extend(fresh_stats.untracked_paths);
-                    SnapshotStats { untracked_paths }
+                    unconverted_paths.extend(fresh_stats.unconverted_paths);
+                    SnapshotStats {
+                        untracked_paths,
+                        unconverted_paths,
+                    }
                 };
                 Ok((workspace_command, merged_stats))
             }
@@ -2030,7 +2037,12 @@ to the current parents may contain changes from multiple commits.
                 .locked_wc()
                 .snapshot(&options)
                 .await
-                .map_err(snapshot_command_error)?
+                .map_err(|err| {
+                    snapshot_command_error(CommandError::from_snapshot_error(
+                        err,
+                        self.env.path_converter(),
+                    ))
+                })?
         };
         if new_tree.tree_ids_and_labels() != wc_commit.tree().tree_ids_and_labels() {
             let mut tx = start_repo_transaction(
@@ -2131,6 +2143,7 @@ to the current parents may contain changes from multiple commits.
             &mut self.workspace,
             maybe_old_commit,
             new_commit,
+            self.env.path_converter(),
         )
         .await?;
         self.print_updated_working_copy_stats(ui, maybe_old_commit, new_commit, &stats)
@@ -2157,7 +2170,7 @@ to the current parents may contain changes from multiple commits.
                 writeln!(formatter)?;
             }
         }
-        print_checkout_stats(ui, stats, new_commit)?;
+        print_checkout_stats(ui, stats, new_commit, self.path_converter())?;
         if Some(new_commit) != maybe_old_commit
             && let Some(mut formatter) = ui.status_formatter()
             && new_commit.has_conflict()
@@ -2888,6 +2901,7 @@ async fn update_stale_working_copy(
     op_id: OperationId,
     stale_commit: &Commit,
     new_commit: &Commit,
+    path_converter: &RepoPathUiConverter,
 ) -> Result<CheckoutStats, CommandError> {
     // The same check as start_working_copy_mutation(), but with the stale
     // working-copy commit.
@@ -2900,12 +2914,7 @@ async fn update_stale_working_copy(
         .locked_wc()
         .check_out(new_commit)
         .await
-        .map_err(|err| {
-            internal_error_with_message(
-                format!("Failed to check out commit {}", new_commit.id().hex()),
-                err,
-            )
-        })?;
+        .map_err(|err| CommandError::from_checkout_error(err, new_commit.id(), path_converter))?;
     locked_ws.finish(op_id).await?;
 
     Ok(stats)
@@ -3066,12 +3075,34 @@ pub fn print_untracked_files(
     Ok(())
 }
 
+fn print_unconverted_files(
+    ui: &Ui,
+    unconverted_paths: &BTreeMap<RepoPathBuf, FilterIgnoreReason>,
+    path_converter: &RepoPathUiConverter,
+) -> io::Result<()> {
+    if !unconverted_paths.is_empty() {
+        writeln!(
+            ui.warning_default(),
+            "Failed to use filter to convert some files:"
+        )?;
+        for path in unconverted_paths.keys() {
+            writeln!(
+                ui.warning_default(),
+                " {}",
+                path_converter.format_file_path(path)
+            )?;
+        }
+    }
+    Ok(())
+}
+
 pub fn print_snapshot_stats(
     ui: &Ui,
     stats: &SnapshotStats,
     path_converter: &RepoPathUiConverter,
 ) -> io::Result<()> {
     print_untracked_files(ui, &stats.untracked_paths, path_converter)?;
+    print_unconverted_files(ui, &stats.unconverted_paths, path_converter)?;
 
     let large_files_sizes = stats
         .untracked_paths
@@ -3133,7 +3164,9 @@ pub fn print_checkout_stats(
     ui: &Ui,
     stats: &CheckoutStats,
     new_commit: &Commit,
+    path_converter: &RepoPathUiConverter,
 ) -> Result<(), std::io::Error> {
+    print_unconverted_files(ui, &stats.unconverted_paths, path_converter)?;
     if stats.added_files > 0 || stats.updated_files > 0 || stats.removed_files > 0 {
         writeln!(
             ui.status(),
@@ -3194,6 +3227,7 @@ pub async fn update_working_copy(
     workspace: &mut Workspace,
     old_commit: Option<&Commit>,
     new_commit: &Commit,
+    path_converter: &RepoPathUiConverter,
 ) -> Result<CheckoutStats, CommandError> {
     let old_tree = old_commit.map(|commit| commit.tree());
     // TODO: CheckoutError::ConcurrentCheckout should probably just result in a
@@ -3201,12 +3235,7 @@ pub async fn update_working_copy(
     let stats = workspace
         .check_out(repo.op_id().clone(), old_tree.as_ref(), new_commit)
         .await
-        .map_err(|err| {
-            internal_error_with_message(
-                format!("Failed to check out commit {}", new_commit.id().hex()),
-                err,
-            )
-        })?;
+        .map_err(|err| CommandError::from_checkout_error(err, new_commit.id(), path_converter))?;
     Ok(stats)
 }
 

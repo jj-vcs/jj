@@ -61,7 +61,6 @@ use jj_lib::secret_backend::SecretBackend;
 use jj_lib::tree_builder::TreeBuilder;
 use jj_lib::tree_merge::MergeOptions;
 use jj_lib::working_copy::CheckoutError;
-use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::UntrackedReason;
 use jj_lib::working_copy::WorkingCopy as _;
@@ -417,7 +416,10 @@ fn test_checkout_no_op() -> TestResult {
     // Update to commit2 (same tree as commit1)
     let new_op_id = OperationId::from_bytes(b"whatever");
     let stats = ws.check_out(new_op_id.clone(), None, &commit2).block_on()?;
-    assert_eq!(stats, CheckoutStats::default());
+    assert_eq!(stats.updated_files, 0);
+    assert_eq!(stats.added_files, 0);
+    assert_eq!(stats.removed_files, 0);
+    assert_eq!(stats.skipped_files, 0);
 
     // The tree state is unchanged but the recorded operation id is updated.
     let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
@@ -675,15 +677,10 @@ fn test_conflicting_changes_on_disk() -> TestResult {
     let stats = ws
         .check_out(repo.op_id().clone(), None, &commit)
         .block_on()?;
-    assert_eq!(
-        stats,
-        CheckoutStats {
-            updated_files: 0,
-            added_files: 3,
-            removed_files: 0,
-            skipped_files: 3
-        }
-    );
+    assert_eq!(stats.updated_files, 0);
+    assert_eq!(stats.added_files, 3);
+    assert_eq!(stats.removed_files, 0);
+    assert_eq!(stats.skipped_files, 3);
 
     assert_eq!(
         std::fs::read_to_string(file_file_path.to_fs_path_unchecked(&workspace_root)).ok(),
@@ -899,15 +896,10 @@ fn test_materialize_snapshot_conflicted_files() -> TestResult {
     let stats = ws
         .check_out(repo.op_id().clone(), None, &commit)
         .block_on()?;
-    assert_eq!(
-        stats,
-        CheckoutStats {
-            updated_files: 0,
-            added_files: 2,
-            removed_files: 0,
-            skipped_files: 0
-        }
-    );
+    assert_eq!(stats.updated_files, 0);
+    assert_eq!(stats.added_files, 2);
+    assert_eq!(stats.removed_files, 0);
+    assert_eq!(stats.skipped_files, 0);
 
     // Even though the tree-level conflict is a 3-sided conflict, each file is
     // materialized as a 2-sided conflict.
@@ -1073,13 +1065,10 @@ fn test_materialize_snapshot_unchanged_conflicts() -> TestResult {
         .workspace
         .check_out(repo.op_id().clone(), None, &commit_with_labels)
         .block_on()?;
-    assert_eq!(
-        stats,
-        CheckoutStats {
-            updated_files: 1,
-            ..CheckoutStats::default()
-        }
-    );
+    assert_eq!(stats.updated_files, 1);
+    assert_eq!(stats.added_files, 0);
+    assert_eq!(stats.removed_files, 0);
+    assert_eq!(stats.skipped_files, 0);
     let materialized_content = std::fs::read_to_string(&disk_path)?;
     insta::assert_snapshot!(materialized_content, @r"
     line 1
