@@ -183,7 +183,7 @@ where
         let store = self.repo.store();
         let index = self.repo.index();
         let mut commit_predecessors: HashMap<CommitId, Vec<CommitId>> = HashMap::new();
-        let commits = dag_walk_async::topo_order_reverse_ok(
+        let commits = dag_walk_async::topo_order_reverse(
             self.to_visit.drain(..).map(|id| {
                 store
                     .get_commit(&id)

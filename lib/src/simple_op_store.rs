@@ -306,7 +306,7 @@ impl OpStore for SimpleOpStore {
                 .block_on()
                 .map(|data| (id.clone(), data))
         };
-        let reachable_ops: HashMap<OperationId, Operation> = dag_walk_async::dfs_ok(
+        let reachable_ops: HashMap<OperationId, Operation> = dag_walk_async::dfs(
             head_ids.iter().map(read_op),
             |(id, _)| id.clone(),
             |(_, data)| data.parents.iter().map(read_op).collect_vec(),

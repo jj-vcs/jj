@@ -136,7 +136,7 @@ where
     // Remove ancestors so we don't create merge operation with an operation and its
     // ancestor
     let op_head_ids_before: HashSet<_> = op_heads.iter().map(|op| op.id().clone()).collect();
-    let filtered_op_heads = dag_walk_async::heads_ok(
+    let filtered_op_heads = dag_walk_async::heads(
         op_heads.into_iter().map(Ok),
         |op: &Operation| op.id().clone(),
         |op: &Operation| match op.parents().block_on() {

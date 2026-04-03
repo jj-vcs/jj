@@ -333,7 +333,7 @@ impl DefaultIndexStore {
         } else {
             HashSet::new()
         };
-        let commits = dag_walk_async::topo_order_reverse_ord_ok(
+        let commits = dag_walk_async::topo_order_reverse_ord(
             historical_heads
                 .iter()
                 .filter(|&(commit_id, _)| !parent_index_has_id(commit_id))

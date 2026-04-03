@@ -96,7 +96,7 @@ impl Transaction {
     }
 
     pub async fn merge_operation(&mut self, other_op: Operation) -> Result<(), RepoLoaderError> {
-        let ancestor_op = dag_walk_async::closest_common_node_ok(
+        let ancestor_op = dag_walk_async::closest_common_node(
             self.parent_ops.iter().cloned().map(Ok),
             [Ok(other_op.clone())],
             |op: &Operation| op.id().clone(),

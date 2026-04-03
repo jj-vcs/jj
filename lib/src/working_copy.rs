@@ -374,7 +374,7 @@ impl WorkingCopyFreshness {
                 .load_operation(locked_wc.old_operation_id())
                 .await?;
             let repo_operation = repo.operation();
-            let ancestor_op = dag_walk_async::closest_common_node_ok(
+            let ancestor_op = dag_walk_async::closest_common_node(
                 [Ok(wc_operation.clone())],
                 [Ok(repo_operation.clone())],
                 |op: &Operation| op.id().clone(),

@@ -1297,7 +1297,7 @@ impl MutableRepo {
         // Calculate an order where we rebase parents first, but if the parents were
         // rewritten, make sure we rebase the rewritten parent first.
         let store = self.store();
-        dag_walk_async::topo_order_reverse_ok(
+        dag_walk_async::topo_order_reverse(
             to_visit.into_iter().map(Ok),
             |commit| commit.id().clone(),
             |commit| -> Vec<BackendResult<Commit>> {
@@ -1664,7 +1664,7 @@ impl MutableRepo {
                 }
             }
             _ => {
-                let missing_commits = dag_walk_async::topo_order_reverse_ord_ok(
+                let missing_commits = dag_walk_async::topo_order_reverse_ord(
                     heads
                         .iter()
                         .cloned()
