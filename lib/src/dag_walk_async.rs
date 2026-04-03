@@ -465,10 +465,10 @@ where
 ///
 /// If `start` or `neighbors_fn()` yields an `Err`, this function terminates and
 /// returns the error.
-pub fn heads<T, ID, E, II, NI>(
+pub async fn heads<T, ID, E, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
-    mut neighbors_fn: impl FnMut(&T) -> Result<NI, E>,
+    neighbors_fn: impl AsyncFn(&T) -> Result<NI, E>,
 ) -> Result<HashSet<T>, E>
 where
     T: Hash + Eq + Clone,
@@ -484,10 +484,7 @@ where
     let mut visited: HashSet<ID> = heads.iter().map(&id_fn).collect();
     let mut root_reached = false;
     while frontier.len() > 1 || (!frontier.is_empty() && root_reached) {
-        let neighbors_lists: Vec<_> = frontier
-            .iter()
-            .map(|node| neighbors_fn(node))
-            .try_collect()?;
+        let neighbors_lists = try_join_all(frontier.iter().map(|node| neighbors_fn(node))).await?;
         let mut new_frontier = vec![];
         for neighbors in neighbors_lists {
             let length_before = new_frontier.len();
@@ -1329,13 +1326,13 @@ mod tests {
             'F' => vec!['C', 'e'],
         };
         let id_fn = |node: &char| *node;
-        let neighbors_fn = |node: &char| Ok::<_, char>(neighbors[node].clone());
+        let neighbors_fn = async |node: &char| Ok::<_, char>(neighbors[node].clone());
 
-        let actual = heads(vec!['A', 'C', 'D', 'F'], id_fn, neighbors_fn);
+        let actual = heads(vec!['A', 'C', 'D', 'F'], id_fn, neighbors_fn).block_on();
         assert_eq!(actual, Ok(hashset!['D', 'F']));
 
         // Check with a different order in the start set
-        let actual = heads(vec!['F', 'D', 'C', 'A'], id_fn, neighbors_fn);
+        let actual = heads(vec!['F', 'D', 'C', 'A'], id_fn, neighbors_fn).block_on();
         assert_eq!(actual, Ok(hashset!['D', 'F']));
     }
 
@@ -1347,17 +1344,17 @@ mod tests {
             'C' => Ok(vec!['B']),
         };
         let id_fn = |node: &char| *node;
-        let neighbors_fn = |node: &char| neighbors[node].clone();
+        let neighbors_fn = async |node: &char| neighbors[node].clone();
 
-        let result = heads(['C'], id_fn, neighbors_fn);
+        let result = heads(['C'], id_fn, neighbors_fn).block_on();
         assert_eq!(result, Ok(hashset! {'C'}));
-        let result = heads(['B'], id_fn, neighbors_fn);
+        let result = heads(['B'], id_fn, neighbors_fn).block_on();
         assert_eq!(result, Ok(hashset! {'B'}));
-        let result = heads(['A'], id_fn, neighbors_fn);
+        let result = heads(['A'], id_fn, neighbors_fn).block_on();
         assert_eq!(result, Ok(hashset! {'A'}));
-        let result = heads(['C', 'B'], id_fn, neighbors_fn);
+        let result = heads(['C', 'B'], id_fn, neighbors_fn).block_on();
         assert_eq!(result, Err('X'));
-        let result = heads(['C', 'A'], id_fn, neighbors_fn);
+        let result = heads(['C', 'A'], id_fn, neighbors_fn).block_on();
         assert_eq!(result, Err('X'));
     }
 }
