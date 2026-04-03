@@ -166,6 +166,21 @@ impl Transaction {
         let unpublished = UnpublishedOperation::new(base_repo.loader(), operation, view, index);
         Ok(unpublished)
     }
+
+    /// Writes the `Transaction` to the operation store and publishes it if
+    /// `should_publish` is true.
+    pub async fn maybe_publish(
+        self,
+        description: impl Into<String>,
+        should_publish: bool,
+    ) -> Result<Arc<ReadonlyRepo>, TransactionCommitError> {
+        let unpublished_op = self.write(description).await?;
+        if should_publish {
+            unpublished_op.publish().await
+        } else {
+            Ok(unpublished_op.leave_unpublished())
+        }
+    }
 }
 
 pub fn create_op_metadata(

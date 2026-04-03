@@ -420,12 +420,8 @@ impl CommandHelper {
         tx: Transaction,
         description: impl Into<String>,
     ) -> Result<Arc<ReadonlyRepo>, TransactionCommitError> {
-        let unpublished_op = tx.write(description).await?;
-        if self.should_commit_transaction() {
-            unpublished_op.publish().await
-        } else {
-            Ok(unpublished_op.leave_unpublished())
-        }
+        tx.maybe_publish(description, self.should_commit_transaction())
+            .await
     }
 
     pub fn workspace_loader(&self) -> Result<&dyn WorkspaceLoader, CommandError> {
