@@ -510,15 +510,13 @@ fn run_tui<B: ratatui::backend::Backend>(
 
 fn handle_key_event(event: KeyEvent, mut state: State) -> State {
     match (event.code, event.modifiers) {
-        (KeyCode::Down | KeyCode::Char('j'), KeyModifiers::NONE) => {
-            if state.current_selection + 1 < state.current_order.len() {
-                state.current_selection += 1;
-            }
+        (KeyCode::Down | KeyCode::Char('j'), KeyModifiers::NONE)
+            if state.current_selection + 1 < state.current_order.len() =>
+        {
+            state.current_selection += 1;
         }
-        (KeyCode::Up | KeyCode::Char('k'), KeyModifiers::NONE) => {
-            if state.current_selection > 0 {
-                state.current_selection -= 1;
-            }
+        (KeyCode::Up | KeyCode::Char('k'), KeyModifiers::NONE) if state.current_selection > 0 => {
+            state.current_selection -= 1;
         }
         (KeyCode::Char('a'), KeyModifiers::NONE) => {
             let id = state.current_id().clone();
