@@ -20,7 +20,7 @@ use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::backend::Timestamp;
-use crate::dag_walk;
+use crate::dag_walk_async;
 use crate::index::IndexStoreError;
 use crate::index::ReadonlyIndex;
 use crate::op_heads_store::OpHeadsStore;
@@ -96,7 +96,7 @@ impl Transaction {
     }
 
     pub async fn merge_operation(&mut self, other_op: Operation) -> Result<(), RepoLoaderError> {
-        let ancestor_op = dag_walk::closest_common_node_ok(
+        let ancestor_op = dag_walk_async::closest_common_node_ok(
             self.parent_ops.iter().cloned().map(Ok),
             [Ok(other_op.clone())],
             |op: &Operation| op.id().clone(),

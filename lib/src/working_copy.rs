@@ -28,7 +28,7 @@ use tracing::instrument;
 
 use crate::backend::BackendError;
 use crate::commit::Commit;
-use crate::dag_walk;
+use crate::dag_walk_async;
 use crate::gitignore::GitIgnoreError;
 use crate::gitignore::GitIgnoreFile;
 use crate::matchers::Matcher;
@@ -374,7 +374,7 @@ impl WorkingCopyFreshness {
                 .load_operation(locked_wc.old_operation_id())
                 .await?;
             let repo_operation = repo.operation();
-            let ancestor_op = dag_walk::closest_common_node_ok(
+            let ancestor_op = dag_walk_async::closest_common_node_ok(
                 [Ok(wc_operation.clone())],
                 [Ok(repo_operation.clone())],
                 |op: &Operation| op.id().clone(),

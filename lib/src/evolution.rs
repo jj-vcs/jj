@@ -33,6 +33,7 @@ use crate::backend::BackendResult;
 use crate::backend::CommitId;
 use crate::commit::Commit;
 use crate::dag_walk;
+use crate::dag_walk_async;
 use crate::index::IndexError;
 use crate::op_store::OpStoreError;
 use crate::op_store::OpStoreResult;
@@ -182,7 +183,7 @@ where
         let store = self.repo.store();
         let index = self.repo.index();
         let mut commit_predecessors: HashMap<CommitId, Vec<CommitId>> = HashMap::new();
-        let commits = dag_walk::topo_order_reverse_ok(
+        let commits = dag_walk_async::topo_order_reverse_ok(
             self.to_visit.drain(..).map(|id| {
                 store
                     .get_commit(&id)

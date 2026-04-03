@@ -30,7 +30,7 @@ use itertools::Itertools as _;
 use pollster::FutureExt as _;
 use thiserror::Error;
 
-use crate::dag_walk;
+use crate::dag_walk_async;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
 use crate::op_heads_store;
@@ -274,7 +274,7 @@ pub fn walk_ancestors(
         .collect_vec();
     // Lazily load operations based on timestamp-based heuristic. This works so long
     // as the operation history is mostly linear.
-    stream::iter(dag_walk::topo_order_reverse_lazy_ok(
+    stream::iter(dag_walk_async::topo_order_reverse_lazy_ok(
         head_ops.into_iter().map(Ok),
         |OperationByEndTime(op)| op.id().clone(),
         |OperationByEndTime(op)| match op.parents().block_on() {
@@ -310,7 +310,7 @@ pub fn walk_ancestors_range(
 
     // Lazily load operations based on timestamp-based heuristic. This works so long
     // as the operation history is mostly linear.
-    let trailing_iter = dag_walk::topo_order_reverse_lazy_ok(
+    let trailing_iter = dag_walk_async::topo_order_reverse_lazy_ok(
         start_ops.into_iter().map(Ok),
         |OperationByEndTime(op)| op.id().clone(),
         |OperationByEndTime(op)| match op.parents().block_on() {
@@ -330,7 +330,7 @@ fn collect_ancestors_until_roots(
     start_ops: &mut Vec<OperationByEndTime>,
     mut unwanted_ids: HashSet<OperationId>,
 ) -> Vec<OpStoreResult<Operation>> {
-    let sorted_ops = match dag_walk::topo_order_reverse_chunked(
+    let sorted_ops = match dag_walk_async::topo_order_reverse_chunked(
         start_ops,
         |OperationByEndTime(op)| op.id().clone(),
         |OperationByEndTime(op)| match op.parents().block_on() {

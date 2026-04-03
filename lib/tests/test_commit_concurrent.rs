@@ -16,7 +16,7 @@ use std::cmp::max;
 use std::sync::Arc;
 use std::thread;
 
-use jj_lib::dag_walk;
+use jj_lib::dag_walk_async;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use pollster::FutureExt as _;
@@ -31,7 +31,7 @@ fn count_non_merge_operations(repo: &Arc<ReadonlyRepo>) -> usize {
     let op_id = repo.op_id().clone();
     let mut num_ops = 0;
 
-    for op_id in dag_walk::dfs(
+    for op_id in dag_walk_async::dfs(
         vec![op_id],
         |op_id| op_id.clone(),
         |op_id| op_store.read_operation(op_id).block_on().unwrap().parents,

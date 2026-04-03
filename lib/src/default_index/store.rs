@@ -48,7 +48,7 @@ use crate::backend::BackendError;
 use crate::backend::BackendInitError;
 use crate::backend::CommitId;
 use crate::commit::CommitByCommitterTimestamp;
-use crate::dag_walk;
+use crate::dag_walk_async;
 use crate::file_util;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
@@ -333,7 +333,7 @@ impl DefaultIndexStore {
         } else {
             HashSet::new()
         };
-        let commits = dag_walk::topo_order_reverse_ord_ok(
+        let commits = dag_walk_async::topo_order_reverse_ord_ok(
             historical_heads
                 .iter()
                 .filter(|&(commit_id, _)| !parent_index_has_id(commit_id))

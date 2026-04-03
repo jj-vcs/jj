@@ -25,7 +25,7 @@ use itertools::Itertools as _;
 use pollster::FutureExt as _;
 use thiserror::Error;
 
-use crate::dag_walk;
+use crate::dag_walk_async;
 use crate::op_store::OpStore;
 use crate::op_store::OpStoreError;
 use crate::op_store::OperationId;
@@ -136,7 +136,7 @@ where
     // Remove ancestors so we don't create merge operation with an operation and its
     // ancestor
     let op_head_ids_before: HashSet<_> = op_heads.iter().map(|op| op.id().clone()).collect();
-    let filtered_op_heads = dag_walk::heads_ok(
+    let filtered_op_heads = dag_walk_async::heads_ok(
         op_heads.into_iter().map(Ok),
         |op: &Operation| op.id().clone(),
         |op: &Operation| match op.parents().block_on() {

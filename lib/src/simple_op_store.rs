@@ -39,7 +39,7 @@ use crate::backend::CommitId;
 use crate::backend::MillisSinceEpoch;
 use crate::backend::Timestamp;
 use crate::content_hash::blake2b_hash;
-use crate::dag_walk;
+use crate::dag_walk_async;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::file_util::persist_content_addressed_temp_file;
@@ -306,7 +306,7 @@ impl OpStore for SimpleOpStore {
                 .block_on()
                 .map(|data| (id.clone(), data))
         };
-        let reachable_ops: HashMap<OperationId, Operation> = dag_walk::dfs_ok(
+        let reachable_ops: HashMap<OperationId, Operation> = dag_walk_async::dfs_ok(
             head_ids.iter().map(read_op),
             |(id, _)| id.clone(),
             |(_, data)| data.parents.iter().map(read_op).collect_vec(),
