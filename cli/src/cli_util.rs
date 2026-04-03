@@ -1329,9 +1329,11 @@ impl WorkspaceCommandHelper {
                     .maybe_commit_transaction(tx, "import git head")
                     .await?,
             );
-            locked_ws
-                .finish(self.user_repo.repo.op_id().clone())
-                .await?;
+            if self.env.command.should_commit_transaction() {
+                locked_ws
+                    .finish(self.user_repo.repo.op_id().clone())
+                    .await?;
+            }
             if old_git_head.is_present() {
                 writeln!(
                     ui.status(),
