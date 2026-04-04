@@ -31,7 +31,6 @@ use futures::future::try_join_all;
 use futures::stream;
 use itertools::Itertools as _;
 use once_cell::sync::OnceCell;
-use pollster::FutureExt as _;
 use thiserror::Error;
 use tracing::instrument;
 
@@ -1289,7 +1288,7 @@ impl MutableRepo {
 
     /// Order a set of commits in an order they should be rebased in. The result
     /// is in reverse order so the next value can be removed from the end.
-    fn order_commits_for_rebase(
+    async fn order_commits_for_rebase(
         &self,
         to_visit: Vec<Commit>,
         new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
@@ -1330,7 +1329,7 @@ impl MutableRepo {
             },
             |_| panic!("graph has cycle"),
         )
-        .block_on()
+        .await
     }
 
     /// Rewrite descendants of the given roots.
@@ -1387,7 +1386,9 @@ impl MutableRepo {
         options: &RewriteRefsOptions,
         mut callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()>,
     ) -> BackendResult<()> {
-        let mut to_visit = self.order_commits_for_rebase(commits, new_parents_map)?;
+        let mut to_visit = self
+            .order_commits_for_rebase(commits, new_parents_map)
+            .await?;
         while let Some(old_commit) = to_visit.pop() {
             let parent_ids = new_parents_map
                 .get(old_commit.id())
