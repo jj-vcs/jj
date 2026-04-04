@@ -82,8 +82,8 @@ impl Transaction {
         self.mut_repo.base_repo()
     }
 
-    pub fn set_tag(&mut self, key: String, value: String) {
-        self.op_metadata.tags.insert(key, value);
+    pub fn set_attribute(&mut self, key: String, value: String) {
+        self.op_metadata.attributes.insert(key, value);
     }
 
     pub fn repo(&self) -> &MutableRepo {
@@ -188,7 +188,7 @@ pub fn create_op_metadata(
         username,
         is_snapshot,
         workspace_name: None,
-        tags: Default::default(),
+        attributes: Default::default(),
     }
 }
 

@@ -409,7 +409,7 @@ This type cannot be printed. The following methods are defined.
 * `.current_operation() -> Boolean`
 * `.description() -> String`
 * `.id() -> OperationId`
-* `.tags() -> String`
+* `.attributes() -> String`
 * `.time() -> TimestampRange`
 * `.user() -> String`
 * `.snapshot() -> Boolean`: True if the operation is a snapshot operation.

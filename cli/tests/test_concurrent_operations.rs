@@ -169,7 +169,7 @@ fn test_concurrent_snapshot_wc_reloadable() -> TestResult {
     work_dir.write_file("child1", "");
     work_dir.run_jj(["commit", "-m", "new child1"]).success();
 
-    let template = r#"id.short() ++ "\n" ++ description ++ "\n" ++ tags"#;
+    let template = r#"id.short() ++ "\n" ++ description ++ "\n" ++ attributes"#;
     let output = work_dir.run_jj(["op", "log", "-T", template]);
     insta::assert_snapshot!(output, @"
     @  617b5edc8a98

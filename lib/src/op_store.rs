@@ -398,7 +398,7 @@ impl Operation {
             username: "".to_string(),
             is_snapshot: false,
             workspace_name: None,
-            tags: BTreeMap::new(),
+            attributes: BTreeMap::new(),
         };
         Self {
             view_id: root_view_id,
@@ -425,7 +425,7 @@ pub struct OperationMetadata {
     pub is_snapshot: bool,
     /// The workspace this operation was performed in, if any
     pub workspace_name: Option<WorkspaceNameBuf>,
-    pub tags: BTreeMap<String, String>,
+    pub attributes: BTreeMap<String, String>,
 }
 
 /// Data to be loaded into the root operation/view.

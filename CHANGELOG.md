@@ -18,6 +18,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Deprecations
 
+* In the templating language, the `Operation` type's `.tags()` function has been
+  deprecated in favor of `.attributes()`.
+
 ### New features
 
 * A new global flag `--no-integrate-operation` lets you run a command without

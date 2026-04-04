@@ -188,6 +188,21 @@ fn test_templater_parse_warning() {
       = commit.git_refs() is deprecated; use .remote_bookmarks()/tags() instead
     [EOF]
     ");
+    let output = work_dir.run_jj(["op", "log", "-T", "tags"]);
+    insta::assert_snapshot!(output, @"
+    @
+    ○
+    [EOF]
+    ------- stderr -------
+    Warning: In template expression
+     --> 1:1
+      |
+    1 | tags
+      | ^--^
+      |
+      = operation.tags() is deprecated; use .attributes() instead
+    [EOF]
+    ");
 }
 
 #[test]

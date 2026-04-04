@@ -404,8 +404,8 @@ fn test_op_log_template() -> TestResult {
     ");
 
     insta::assert_snapshot!(render(r#"json(self) ++ "\n""#), @r#"
-    @  {"id":"90267f31f90442f630dd8a2b5feaf8cf753dc64324e3d2d46bfd6d93f279a4d7630c2701a06a60ec04ca5c01a1e3f6758c0ab4f1efe6997ae82789328fb77fc9","parents":["00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"],"time":{"start":"2001-02-03T04:05:07+07:00","end":"2001-02-03T04:05:07+07:00"},"description":"add workspace 'default'","hostname":"host.example.com","username":"test-username","is_snapshot":false,"workspace_name":null,"tags":{}}
-    ○  {"id":"00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","parents":[],"time":{"start":"1970-01-01T00:00:00Z","end":"1970-01-01T00:00:00Z"},"description":"","hostname":"","username":"","is_snapshot":false,"workspace_name":null,"tags":{}}
+    @  {"id":"90267f31f90442f630dd8a2b5feaf8cf753dc64324e3d2d46bfd6d93f279a4d7630c2701a06a60ec04ca5c01a1e3f6758c0ab4f1efe6997ae82789328fb77fc9","parents":["00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"],"time":{"start":"2001-02-03T04:05:07+07:00","end":"2001-02-03T04:05:07+07:00"},"description":"add workspace 'default'","hostname":"host.example.com","username":"test-username","is_snapshot":false,"workspace_name":null,"attributes":{}}
+    ○  {"id":"00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","parents":[],"time":{"start":"1970-01-01T00:00:00Z","end":"1970-01-01T00:00:00Z"},"description":"","hostname":"","username":"","is_snapshot":false,"workspace_name":null,"attributes":{}}
     [EOF]
     "#);
 

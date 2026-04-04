@@ -2804,7 +2804,7 @@ pub fn start_repo_transaction(
     };
     let mut quoted_strings = vec!["jj".to_string()];
     quoted_strings.extend(string_args.iter().skip(1).map(shell_escape));
-    tx.set_tag("args".to_string(), quoted_strings.join(" "));
+    tx.set_attribute("args".to_string(), quoted_strings.join(" "));
     tx
 }
 

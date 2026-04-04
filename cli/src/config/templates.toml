@@ -438,7 +438,7 @@ concat(
     format_time_range(op.time()),
   ), "\n",
   op.description().first_line(), "\n",
-  surround("", "\n", op.tags()),
+  surround("", "\n", op.attributes()),
 )
 '''
 'format_operation_redacted(op)' = '''
@@ -450,7 +450,7 @@ concat(
     format_time_range(op.time()),
   ), "\n",
   op.description().first_line(), "\n",
-  if(op.tags(), "(redacted)\n"),
+  if(op.attributes(), "(redacted)\n"),
 )
 '''
 'format_workspace_redacted(workspace)' = '''
@@ -466,7 +466,7 @@ join(" ", root.id().short(), label("root", "root()")) ++ "\n"
 separate(" ",
   format_short_operation_id(op.id()), op.user(), op.workspace_name(), format_time_range(op.time()),
   op.description().first_line(),
-  op.tags(),
+  op.attributes(),
 ) ++ "\n"
 '''
 'format_snapshot_operation_oneline(op)' = 'format_operation_oneline(op)'

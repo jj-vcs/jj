@@ -448,8 +448,8 @@ fn operation_metadata_to_proto(
         username: metadata.username.clone(),
         is_snapshot: metadata.is_snapshot,
         workspace_name: metadata.workspace_name.clone().map(Into::into),
-        tags: metadata
-            .tags
+        attributes: metadata
+            .attributes
             .iter()
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect(),
@@ -471,7 +471,7 @@ fn operation_metadata_from_proto(
         username: proto.username,
         is_snapshot: proto.is_snapshot,
         workspace_name,
-        tags: proto.tags.into_iter().collect(),
+        attributes: proto.attributes.into_iter().collect(),
     }
 }
 
@@ -1038,7 +1038,7 @@ mod tests {
                 username: "someone".to_string(),
                 is_snapshot: false,
                 workspace_name: Some(WorkspaceNameBuf::from("test")),
-                tags: btreemap! {
+                attributes: btreemap! {
                     "key1".to_string() => "value1".to_string(),
                     "key2".to_string() => "value2".to_string(),
                 },
