@@ -519,27 +519,20 @@ where
     let mut visited1 = HashSet::new();
     let mut visited2 = HashSet::new();
 
-    // TODO: might be better to leave an Err so long as the work contains at
-    // least one Ok node. If a work1 node is included in visited2, it should be
-    // the closest node even if work2 had previously contained an Err.
-    let mut work1: Vec<Result<T, E>> = set1.into_iter().map(Ok).collect();
-    let mut work2: Vec<Result<T, E>> = set2.into_iter().map(Ok).collect();
+    let mut work1: Vec<T> = set1.into_iter().collect();
+    let mut work2: Vec<T> = set2.into_iter().collect();
     while !work1.is_empty() || !work2.is_empty() {
+        let mut error = None;
         let mut new_work1 = vec![];
         for node in work1 {
-            let node = node?;
             let id: ID = id_fn(&node);
             if visited2.contains(&id) {
                 return Ok(Some(node));
             }
             if visited1.insert(id) {
                 match neighbors_fn(&node).await {
-                    Ok(neighbors) => {
-                        for neighbor in neighbors {
-                            new_work1.push(Ok(neighbor));
-                        }
-                    }
-                    Err(err) => new_work1.push(Err(err)),
+                    Ok(neighbors) => new_work1.extend(neighbors),
+                    Err(err) => error = error.or(Some(err)),
                 }
             }
         }
@@ -547,23 +540,22 @@ where
 
         let mut new_work2 = vec![];
         for node in work2 {
-            let node = node?;
             let id: ID = id_fn(&node);
             if visited1.contains(&id) {
                 return Ok(Some(node));
             }
             if visited2.insert(id) {
                 match neighbors_fn(&node).await {
-                    Ok(neighbors) => {
-                        for neighbor in neighbors {
-                            new_work2.push(Ok(neighbor));
-                        }
-                    }
-                    Err(err) => new_work2.push(Err(err)),
+                    Ok(neighbors) => new_work2.extend(neighbors),
+                    Err(err) => error = error.or(Some(err)),
                 }
             }
         }
         work2 = new_work2;
+
+        if let Some(error) = error.take() {
+            return Err(error);
+        }
     }
     Ok(None)
 }
