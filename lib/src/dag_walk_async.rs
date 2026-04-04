@@ -522,39 +522,34 @@ where
     let mut work1: Vec<T> = set1.into_iter().collect();
     let mut work2: Vec<T> = set2.into_iter().collect();
     while !work1.is_empty() || !work2.is_empty() {
-        let mut error = None;
-        let mut new_work1 = vec![];
+        let mut live1 = vec![];
         for node in work1 {
             let id: ID = id_fn(&node);
             if visited2.contains(&id) {
                 return Ok(Some(node));
             }
             if visited1.insert(id) {
-                match neighbors_fn(&node).await {
-                    Ok(neighbors) => new_work1.extend(neighbors),
-                    Err(err) => error = error.or(Some(err)),
-                }
+                live1.push(node);
             }
         }
-        work1 = new_work1;
-
-        let mut new_work2 = vec![];
+        let mut live2 = vec![];
         for node in work2 {
             let id: ID = id_fn(&node);
             if visited1.contains(&id) {
                 return Ok(Some(node));
             }
             if visited2.insert(id) {
-                match neighbors_fn(&node).await {
-                    Ok(neighbors) => new_work2.extend(neighbors),
-                    Err(err) => error = error.or(Some(err)),
-                }
+                live2.push(node);
             }
         }
-        work2 = new_work2;
 
-        if let Some(error) = error.take() {
-            return Err(error);
+        work1 = vec![];
+        for node in live1 {
+            work1.extend(neighbors_fn(&node).await?);
+        }
+        work2 = vec![];
+        for node in live2 {
+            work2.extend(neighbors_fn(&node).await?);
         }
     }
     Ok(None)
