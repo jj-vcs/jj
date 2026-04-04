@@ -137,12 +137,9 @@ where
     // ancestor
     let op_head_ids_before: HashSet<_> = op_heads.iter().map(|op| op.id().clone()).collect();
     let filtered_op_heads = dag_walk_async::heads(
-        op_heads.into_iter().map(Ok),
+        op_heads,
         |op: &Operation| op.id().clone(),
-        |op: &Operation| match op.parents().block_on() {
-            Ok(parents) => parents.into_iter().map(Ok).collect_vec(),
-            Err(err) => vec![Err(err)],
-        },
+        |op: &Operation| op.parents().block_on(),
     )?;
     let op_head_ids_after: HashSet<_> =
         filtered_op_heads.iter().map(|op| op.id().clone()).collect();

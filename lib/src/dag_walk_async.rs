@@ -468,15 +468,15 @@ where
 pub fn heads<T, ID, E, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
-    mut neighbors_fn: impl FnMut(&T) -> NI,
+    mut neighbors_fn: impl FnMut(&T) -> Result<NI, E>,
 ) -> Result<HashSet<T>, E>
 where
     T: Hash + Eq + Clone,
     ID: Hash + Eq,
-    II: IntoIterator<Item = Result<T, E>>,
-    NI: IntoIterator<Item = Result<T, E>>,
+    II: IntoIterator<Item = T>,
+    NI: IntoIterator<Item = T>,
 {
-    let mut heads: HashSet<T> = start.into_iter().try_collect()?;
+    let mut heads: HashSet<T> = start.into_iter().collect();
     // Do a BFS until we have only one item left in the frontier. That frontier must
     // have originated from one of the heads, and since there can't be cycles,
     // it won't be able to eliminate any other heads.
@@ -484,16 +484,17 @@ where
     let mut visited: HashSet<ID> = heads.iter().map(&id_fn).collect();
     let mut root_reached = false;
     while frontier.len() > 1 || (!frontier.is_empty() && root_reached) {
-        frontier = frontier
+        let neighbors_lists: Vec<_> = frontier
             .iter()
-            .flat_map(|node| {
-                let neighbors = neighbors_fn(node).into_iter().collect_vec();
-                if neighbors.is_empty() {
-                    root_reached = true;
-                }
-                neighbors
-            })
+            .map(|node| neighbors_fn(node))
             .try_collect()?;
+        let mut new_frontier = vec![];
+        for neighbors in neighbors_lists {
+            let length_before = new_frontier.len();
+            new_frontier.extend(neighbors);
+            root_reached |= new_frontier.len() == length_before;
+        }
+        frontier = new_frontier;
         for node in &frontier {
             heads.remove(node);
         }
@@ -1328,43 +1329,35 @@ mod tests {
             'F' => vec!['C', 'e'],
         };
         let id_fn = |node: &char| *node;
-        let neighbors_fn = |node: &char| to_ok_iter(neighbors[node].iter().copied());
+        let neighbors_fn = |node: &char| Ok::<_, char>(neighbors[node].clone());
 
-        let actual = heads(
-            vec![Ok('A'), Ok('C'), Ok('D'), Ok('F')],
-            id_fn,
-            neighbors_fn,
-        );
+        let actual = heads(vec!['A', 'C', 'D', 'F'], id_fn, neighbors_fn);
         assert_eq!(actual, Ok(hashset!['D', 'F']));
 
         // Check with a different order in the start set
-        let actual = heads(
-            vec![Ok('F'), Ok('D'), Ok('C'), Ok('A')],
-            id_fn,
-            neighbors_fn,
-        );
+        let actual = heads(vec!['F', 'D', 'C', 'A'], id_fn, neighbors_fn);
         assert_eq!(actual, Ok(hashset!['D', 'F']));
     }
 
     #[test]
     fn test_heads() {
         let neighbors = hashmap! {
-            'A' => vec![],
-            'B' => vec![Ok('A'), Err('X')],
-            'C' => vec![Ok('B')],
+            'A' => Ok(vec![]),
+            'B' => Err('X'),
+            'C' => Ok(vec!['B']),
         };
         let id_fn = |node: &char| *node;
         let neighbors_fn = |node: &char| neighbors[node].clone();
 
-        let result = heads([Ok('C')], id_fn, neighbors_fn);
+        let result = heads(['C'], id_fn, neighbors_fn);
         assert_eq!(result, Ok(hashset! {'C'}));
-        let result = heads([Ok('B')], id_fn, neighbors_fn);
+        let result = heads(['B'], id_fn, neighbors_fn);
         assert_eq!(result, Ok(hashset! {'B'}));
-        let result = heads([Ok('A')], id_fn, neighbors_fn);
+        let result = heads(['A'], id_fn, neighbors_fn);
         assert_eq!(result, Ok(hashset! {'A'}));
-        let result = heads([Ok('C'), Ok('B')], id_fn, neighbors_fn);
+        let result = heads(['C', 'B'], id_fn, neighbors_fn);
         assert_eq!(result, Err('X'));
-        let result = heads([Ok('C'), Ok('A')], id_fn, neighbors_fn);
+        let result = heads(['C', 'A'], id_fn, neighbors_fn);
         assert_eq!(result, Err('X'));
     }
 }
