@@ -21,6 +21,8 @@ use std::hash::Hash;
 use std::iter;
 use std::mem;
 
+use futures::future::try_join;
+use futures::future::try_join_all;
 use itertools::Itertools as _;
 use smallvec::SmallVec;
 use smallvec::smallvec_inline;
@@ -508,7 +510,7 @@ pub async fn closest_common_node<T, ID, E, II1, II2, NI>(
     set1: II1,
     set2: II2,
     id_fn: impl Fn(&T) -> ID,
-    mut neighbors_fn: impl AsyncFnMut(&T) -> Result<NI, E>,
+    neighbors_fn: impl AsyncFn(&T) -> Result<NI, E>,
 ) -> Result<Option<T>, E>
 where
     ID: Hash + Eq,
@@ -543,14 +545,11 @@ where
             }
         }
 
-        work1 = vec![];
-        for node in live1 {
-            work1.extend(neighbors_fn(&node).await?);
-        }
-        work2 = vec![];
-        for node in live2 {
-            work2.extend(neighbors_fn(&node).await?);
-        }
+        let new_work1_fut = try_join_all(live1.iter().map(|node| neighbors_fn(node)));
+        let new_work2_fut = try_join_all(live2.iter().map(|node| neighbors_fn(node)));
+        let (new_work1, new_work2) = try_join(new_work1_fut, new_work2_fut).await?;
+        work1 = new_work1.into_iter().flatten().collect();
+        work2 = new_work2.into_iter().flatten().collect();
     }
     Ok(None)
 }
