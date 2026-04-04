@@ -512,8 +512,8 @@ pub async fn closest_common_node<T, ID, E, II1, II2, NI>(
 ) -> Result<Option<T>, E>
 where
     ID: Hash + Eq,
-    II1: IntoIterator<Item = Result<T, E>>,
-    II2: IntoIterator<Item = Result<T, E>>,
+    II1: IntoIterator<Item = T>,
+    II2: IntoIterator<Item = T>,
     NI: IntoIterator<Item = T>,
 {
     let mut visited1 = HashSet::new();
@@ -522,8 +522,8 @@ where
     // TODO: might be better to leave an Err so long as the work contains at
     // least one Ok node. If a work1 node is included in visited2, it should be
     // the closest node even if work2 had previously contained an Err.
-    let mut work1: Vec<Result<T, E>> = set1.into_iter().collect();
-    let mut work2: Vec<Result<T, E>> = set2.into_iter().collect();
+    let mut work1: Vec<Result<T, E>> = set1.into_iter().map(Ok).collect();
+    let mut work2: Vec<Result<T, E>> = set2.into_iter().map(Ok).collect();
     while !work1.is_empty() || !work2.is_empty() {
         let mut new_work1 = vec![];
         for node in work1 {
@@ -1298,8 +1298,7 @@ mod tests {
         let id_fn = |node: &char| *node;
         let neighbors_fn = async |node: &char| Ok::<_, char>(neighbors[node].clone());
 
-        let common =
-            closest_common_node(vec![Ok('E')], vec![Ok('H')], id_fn, neighbors_fn).block_on();
+        let common = closest_common_node(vec!['E'], vec!['H'], id_fn, neighbors_fn).block_on();
 
         // TODO: fix the implementation to return B
         assert_eq!(common, Ok(Some('A')));
@@ -1316,12 +1315,10 @@ mod tests {
         let id_fn = |node: &char| *node;
         let neighbors_fn = async |node: &char| neighbors[node].clone();
 
-        let result = closest_common_node([Ok('B')], [Ok('C')], id_fn, neighbors_fn).block_on();
+        let result = closest_common_node(['B'], ['C'], id_fn, neighbors_fn).block_on();
         assert_eq!(result, Ok(Some('A')));
-        let result = closest_common_node([Ok('C')], [Ok('D')], id_fn, neighbors_fn).block_on();
+        let result = closest_common_node(['C'], ['D'], id_fn, neighbors_fn).block_on();
         assert_eq!(result, Err('X'));
-        let result = closest_common_node([Ok('C')], [Err('Z')], id_fn, neighbors_fn).block_on();
-        assert_eq!(result, Err('Z'));
     }
 
     #[test]

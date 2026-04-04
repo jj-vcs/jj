@@ -374,8 +374,8 @@ impl WorkingCopyFreshness {
                 .await?;
             let repo_operation = repo.operation();
             let ancestor_op = dag_walk_async::closest_common_node(
-                [Ok(wc_operation.clone())],
-                [Ok(repo_operation.clone())],
+                [wc_operation.clone()],
+                [repo_operation.clone()],
                 |op: &Operation| op.id().clone(),
                 async |op: &Operation| op.parents().await,
             )
