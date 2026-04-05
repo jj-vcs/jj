@@ -1,7 +1,11 @@
 name: Validate pull request
 
 on:
-  pull_request_target:
+  # pull_request_target is needed so the GITHUB_TOKEN has pull-requests: write
+  # permission for PRs from forks. This is safe because the workflow never
+  # checks out or executes any code from the PR; it only reads commit metadata
+  # via the GitHub API and posts reviews.
+  pull_request_target: # zizmor: ignore[dangerous-triggers]
     types: [opened, synchronize, edited]
 
 permissions:
