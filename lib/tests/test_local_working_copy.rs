@@ -1538,6 +1538,49 @@ fn test_gitignores() -> TestResult {
 }
 
 #[test]
+fn test_gitignores_walk() -> TestResult {
+    // Tests that .gitignore files are respected.
+
+    let mut test_workspace = TestWorkspace::init();
+    let workspace_root = test_workspace.workspace.workspace_root().to_owned();
+
+    let gitignore_path = repo_path(".gitignore");
+    let ignored_path = repo_path("ignore_dir/file");
+    let subdir_not_ignored_path = repo_path("subdir/ignore_dir/file");
+
+    let nested_gitignore_path = repo_path("nested/dir/.gitignore");
+    let nested_ignored_path = repo_path("nested/dir/ignored");
+    let also_ignored_path = repo_path("nested/dir/also_ignored");
+    let nested_path = repo_path("nested/dir/ignore_dir");
+
+    testutils::write_working_copy_file(
+        &workspace_root,
+        gitignore_path,
+        "/ignore_dir\n/**/also_ignored",
+    );
+    testutils::write_working_copy_file(&workspace_root, ignored_path, "1");
+    testutils::write_working_copy_file(&workspace_root, subdir_not_ignored_path, "1");
+
+    testutils::write_working_copy_file(&workspace_root, nested_gitignore_path, "/ignored\n");
+    testutils::write_working_copy_file(&workspace_root, nested_ignored_path, "2");
+    testutils::write_working_copy_file(&workspace_root, also_ignored_path, "2");
+    testutils::write_working_copy_file(&workspace_root, nested_path, "2");
+
+    let tree1 = test_workspace.snapshot()?;
+    let files1 = tree1.entries().map(|(name, _value)| name).collect_vec();
+    assert_eq!(
+        files1,
+        to_owned_path_vec(&[
+            gitignore_path,
+            nested_gitignore_path,
+            nested_path,
+            subdir_not_ignored_path,
+        ])
+    );
+    Ok(())
+}
+
+#[test]
 fn test_gitignores_in_ignored_dir() -> TestResult {
     // Tests that .gitignore files in an ignored directory are ignored, i.e. that
     // they cannot override the ignores from the parent
