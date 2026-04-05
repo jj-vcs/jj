@@ -103,7 +103,7 @@ pub(crate) struct DiffArgs {
     #[arg(
         long,
         short = 'T',
-        conflicts_with_all = ["short-format", "long-format", "tool"],
+        conflicts_with_all = ["short-format", "long-format", "tool", "short-stat"],
         help_heading = "Diff Formatting Options",
     )]
     #[arg(add = ArgValueCandidates::new(complete::template_aliases))]

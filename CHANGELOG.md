@@ -20,6 +20,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* Diff commands now support `--short-stat` to display a single summary line
+  showing the number of files changed, insertions, and deletions (similar to
+  `git diff --shortstat`). This flag can be combined with other diff formats
+  like `--stat` or `--git`.
+
 * A new global flag `--no-integrate-operation` lets you run a command without
   impacting the repo state or the working copy.
 
