@@ -21,7 +21,7 @@ runs:
     # See: <https://chadgolden.com/blog/github-actions-hosted-windows-runners-slower-than-expected-ci-and-you>
     - name: 'Set up D: drive'
       shell: pwsh
-      run: |
+      run: | # zizmor: ignore[github-env] all values are hardcoded literals, not attacker-controlled
         # Set up D: drive
 
         # Short file names are disabled by default on the `D:` drive,
