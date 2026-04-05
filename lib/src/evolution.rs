@@ -117,9 +117,11 @@ impl<I> WalkPredecessors<'_, I>
 where
     I: Stream<Item = OpStoreResult<Operation>> + Unpin,
 {
-    async fn try_next(&mut self) -> Result<Option<CommitEvolutionEntry>, WalkPredecessorsError> {
+    async fn try_next_impl(
+        &mut self,
+    ) -> Result<Option<CommitEvolutionEntry>, WalkPredecessorsError> {
         while !self.to_visit.is_empty() && self.queued.is_empty() {
-            let Some(op) = self.op_ancestors.next().await.transpose()? else {
+            let Some(op) = self.op_ancestors.try_next().await? else {
                 // Scanned all operations, no fallback needed.
                 self.flush_commits().await?;
                 break;
@@ -269,7 +271,7 @@ where
     type Item = Result<CommitEvolutionEntry, WalkPredecessorsError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.try_next().block_on().transpose()
+        self.try_next_impl().block_on().transpose()
     }
 }
 
