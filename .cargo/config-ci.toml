@@ -6,6 +6,9 @@ include = [
 debug = "none"
 incremental = false
 
+[target.'cfg(all())']
+rustflags = ["-D", "warnings"]
+
 [target.x86_64-unknown-linux-gnu]
 rustflags = ["-Clink-arg=-fuse-ld=mold"]
 
