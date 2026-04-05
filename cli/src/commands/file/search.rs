@@ -41,10 +41,16 @@ pub(crate) struct FileSearchArgs {
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     revision: RevisionArg,
 
-    /// The glob pattern to search for
+    /// The pattern to search for in a single line
     ///
-    /// The whole line must match the pattern, so you may want to pass something
-    /// like `--pattern '*foo*'`.
+    /// It is a [string pattern syntax] like `kind:pattern`.  The kind
+    /// defaults to regex when omitted.
+    ///
+    /// If it is a glob pattern, the whole line must match the pattern,
+    /// so you may want to pass something like `--pattern 'glob:*foo*'`.
+    ///
+    /// [string pattern syntax]:
+    ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     #[arg(long, short, value_name = "PATTERN")]
     pattern: String,
 
@@ -72,8 +78,12 @@ pub(crate) async fn cmd_file_search(
     let mut formatter = ui.stdout_formatter();
     let store = workspace_command.repo().store().clone();
 
-    // TODO: Support other patterns than glob
-    let pattern = StringPattern::glob(&args.pattern).map_err(|err| cli_error(err.to_string()))?;
+    let pattern = if let Some((kind, pattern)) = args.pattern.split_once(':') {
+        StringPattern::from_str_kind(pattern, kind)
+    } else {
+        StringPattern::from_str_kind(args.pattern.as_str(), "regex")
+    }
+    .map_err(cli_error)?;
     let pattern_matcher = pattern.to_matcher();
     // TODO: Read files concurrently (depending on backend)
     for (path, value) in tree.entries_matching(file_matcher.as_ref()) {

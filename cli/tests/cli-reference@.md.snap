@@ -1215,9 +1215,13 @@ This is an early version of the command. It only supports glob matching for now,
 * `-r`, `--revision <REVSET>` — The revision to search files in
 
   Default value: `@`
-* `-p`, `--pattern <PATTERN>` — The glob pattern to search for
+* `-p`, `--pattern <PATTERN>` — The pattern to search for in a single line
 
-   The whole line must match the pattern, so you may want to pass something like `--pattern '*foo*'`.
+   It is a [string pattern syntax] like `kind:pattern`.  The kind defaults to regex when omitted.
+
+   If it is a glob pattern, the whole line must match the pattern, so you may want to pass something like `--pattern 'glob:*foo*'`.
+
+   [string pattern syntax]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 
 
 

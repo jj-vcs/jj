@@ -12,6 +12,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* The `--pattern` flag for `file search` now defaults to `regex:` instead of `glob:`.
+
 * `jj git push --all`/`--tracked`/`-r REVSETS` no longer fails when revisions to
   push are private or have conflicts. Bookmarks which aren't eligible to push
   will be skipped.
@@ -22,6 +24,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   deprecated in favor of `.attributes()`.
 
 ### New features
+
+* The `--pattern` flag for `file search` now accepts various pattern kinds through
+  `kind:pattern` syntax.
 
 * A new global flag `--no-integrate-operation` lets you run a command without
   impacting the repo state or the working copy.
