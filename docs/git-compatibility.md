@@ -245,5 +245,6 @@ Change IDs are stored in git commit headers as reverse hex encodings. This is
 a non-standard header and is not preserved by all `git` tooling. For example,
 the header is preserved by a `git commit --amend`, but is not preserved through
 a rebase operation. GitHub and other major forges seem to preserve them for the
-most part. This functionality is currently behind a `git.write-change-id-header`
-flag.
+most part. The header is written by default in commits created by `jj` (since
+version `0.30.0`) and this functionality can be turned off using the
+`git.write-change-id-header` setting.
