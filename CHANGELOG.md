@@ -23,6 +23,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * A new global flag `--no-integrate-operation` lets you run a command without
   impacting the repo state or the working copy.
 
+### Fixed bugs
+
+* `jj` now shows an error when inside of a Git repo nested inside of a JJ repo.
+
 ## [0.40.0] - 2026-04-01
 
 ### Release highlights

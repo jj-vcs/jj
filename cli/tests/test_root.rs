@@ -48,3 +48,30 @@ fn test_root_outside_a_repo() {
     [exit status: 1]
     "#);
 }
+
+#[test_case(TestRepoBackend::Simple ; "simple backend")]
+#[test_case(TestRepoBackend::Git ; "git backend")]
+fn test_root_inside_a_nested_repo(backend: TestRepoBackend) -> TestResult {
+    let test_env = TestEnvironment::default();
+    let test_workspace = TestWorkspace::init_with_backend(backend);
+    let root = test_workspace.workspace.workspace_root();
+    let subdir = root.join("subdir");
+    std::fs::create_dir_all(subdir.join(".git"))?;
+
+    let mut insta_settings = insta::Settings::clone_current();
+    insta_settings.add_filter(&regex::escape(&root.to_string_lossy()), "<root>");
+    let _guard = insta_settings.bind_to_scope();
+
+    let output = test_env.run_jj_in(&subdir, ["root"]);
+    insta::assert_snapshot!(output, @r#"
+        ------- stderr -------
+        Error: There is no jj repo in "."
+        Hint: It looks like this is a git repo. You can create a jj repo backed by it by running this:
+        jj git init
+        Hint: Or, you may have intended to run this command inside "<root>"
+        [EOF]
+        [exit status: 1]
+    "#);
+
+    Ok(())
+}
