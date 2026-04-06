@@ -62,13 +62,13 @@ gix = { version = "0.81.0", default-features = false, features = [
 globset = "0.4.18"
 hashbrown = { version = "0.16.1", default-features = false, features = ["inline-more"] }
 ignore = "0.4.25"
-indexmap = { version = "2.13.0", features = ["serde"] }
+indexmap = { version = "2.13.1", features = ["serde"] }
 indoc = "2.0.7"
-insta = { version = "1.47.1", features = ["filters"] }
+insta = { version = "1.47.2", features = ["filters"] }
 interim = { version = "0.2.1", features = ["chrono_0_4"] }
 itertools = "0.14.0"
-jsonschema = { version = "0.45.0", default-features = false }
-libc = { version = "0.2.183" }
+jsonschema = { version = "0.45.1", default-features = false }
+libc = { version = "0.2.184" }
 maplit = "1.0.2"
 nix = "0.31.2"
 num_cpus = "1.17.0"
@@ -114,7 +114,7 @@ test-case = "3.3.1"
 textwrap = "0.16.2"
 thiserror = "2.0.17"
 timeago = { version = "0.6.0", default-features = false }
-tokio = { version = "1.50.0", features = ["io-util"] }
+tokio = { version = "1.51.0", features = ["io-util"] }
 toml = "1.1.0"
 toml_edit = { version = "0.25.8", features = ["serde"] }
 tracing = "0.1.44"
