@@ -28,6 +28,15 @@ alternative to the default `:builtin` diff-editor.
 
 Find it [here][hunk.nvim].
 
+## JayJay
+
+JayJay is a native macOS GUI for Jujutsu built with Rust and SwiftUI. It features
+a DAG graph view, Myers diff with syntax highlighting, side-by-side diffs, conflict
+resolution, bookmark manager, command palette, and AI commit messages. The diff
+engine is available as a standalone Rust crate (`jj-diff`).
+
+Find it [here][jayjay].
+
 ## JJ-FZF
 
 Centered around the `jj log` graph view, jj-fzf provides previews of diffs, the
@@ -118,6 +127,7 @@ You can find other community contributed tools and integrations in our
 [diffedit3]: https://github.com/ilyagr/diffedit3
 [gg]: https://github.com/gulbanana/gg
 [hunk.nvim]: https://github.com/julienvincent/hunk.nvim
+[jayjay]: https://github.com/hewigovens/jayjay
 [jj-fzf]: https://github.com/tim-janik/jj-fzf
 [jj_tui]: https://github.com/faldor20/jj_tui
 [jj-idea]: https://github.com/kkkev/jj-idea
