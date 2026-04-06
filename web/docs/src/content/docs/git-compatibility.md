@@ -253,3 +253,11 @@ a rebase operation. GitHub and other major forges seem to preserve them for the
 most part. The header is written by default in commits created by `jj` (since
 version `0.30.0`) and this functionality can be turned off using the
 `git.write-change-id-header` setting.
+
+Note that `git show` and `git log` do not print this header. To verify presence
+of a `change-id` commit header using `git` itself, use
+[`git-cat-file`](https://git-scm.com/docs/git-cat-file) like this:
+
+```shell
+git cat-file -p <commit ref>
+```
