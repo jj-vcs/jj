@@ -241,9 +241,12 @@ as well as the `.jjconflict-*/` directories, making it look like they
 were added to your working copy. You will probably want to run
 `jj abandon` to get back to the state with the unresolved conflicts.
 
-Change IDs are stored in git commit headers as reverse hex encodings. This is
+When creating or rewriting git commits, change IDs are stored in git commit
+headers as reverse hex encodings. This is
 a non-standard header and is not preserved by all `git` tooling. For example,
 the header is preserved by a `git commit --amend`, but is not preserved through
 a rebase operation. GitHub and other major forges seem to preserve them for the
 most part. This functionality is currently behind a `git.write-change-id-header`
-flag.
+flag. Change IDs of other git commits never touched by `jj` are generated
+deterministically: they match across clones even without any forge or git
+cooperation.
