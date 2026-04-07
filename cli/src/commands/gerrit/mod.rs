@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod comments;
+mod query;
+mod upload;
+
 use std::fmt::Debug;
 
 use clap::Subcommand;
@@ -23,8 +27,10 @@ use crate::ui::Ui;
 
 /// Interact with Gerrit Code Review.
 #[derive(Subcommand, Clone, Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum GerritCommand {
     Upload(gerrit::upload::UploadArgs),
+    Comments(gerrit::comments::CommentsArgs),
 }
 
 pub async fn cmd_gerrit(
@@ -36,7 +42,8 @@ pub async fn cmd_gerrit(
         GerritCommand::Upload(review) => {
             gerrit::upload::cmd_gerrit_upload(ui, command, review).await
         }
+        GerritCommand::Comments(args) => {
+            gerrit::comments::cmd_gerrit_comments(ui, command, args).await
+        }
     }
 }
-
-mod upload;

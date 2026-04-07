@@ -341,6 +341,16 @@ impl GitBackend {
         self.base_repo.to_thread_local()
     }
 
+    /// Path to the `.gitcookies` file from git configuration or home directory.
+    pub fn cookie_file(git_repo_path: &Path) -> Option<PathBuf> {
+        if let Ok(repo) = gix::open(git_repo_path)
+            && let Some(path) = repo.config_snapshot().string("http.cookieFile")
+        {
+            return Some(PathBuf::from(path.to_string()));
+        }
+        etcetera::home_dir().ok().map(|h| h.join(".gitcookies"))
+    }
+
     /// Path to the `.git` directory or the repository itself if it's bare.
     pub fn git_repo_path(&self) -> &Path {
         self.base_repo.path()

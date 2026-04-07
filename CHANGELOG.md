@@ -29,6 +29,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * A new config option `diff.git.show-path-prefix` can be used to suppress the
   `a/` and `b/` path prefixes in the `diff --git` output.
 
+* Added `jj gerrit comments` to query gerrit for the comments on a change.
+
 ## [0.40.0] - 2026-04-01
 
 ### Release highlights

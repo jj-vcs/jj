@@ -15,6 +15,8 @@
 use std::sync::Arc;
 
 use bstr::BStr;
+use gix::remote::Direction;
+use gix::url::Scheme;
 use jj_lib::backend::ChangeId;
 use jj_lib::commit::Commit;
 use jj_lib::git;
@@ -27,6 +29,7 @@ use thiserror::Error;
 use crate::cli_util::short_change_hash;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
+use crate::command_error::user_error_with_message;
 
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum ChangeIdError {
@@ -125,6 +128,43 @@ pub fn get_gerrit_review_url(settings: &UserSettings) -> Result<String, CommandE
         .map_err(|_| {
             user_error("No gerrit.review-url configured, which is required for this command")
         })
+}
+
+pub fn get_gerrit_repo(
+    store: &Arc<Store>,
+    settings: &UserSettings,
+) -> Result<String, CommandError> {
+    let git_repo = git::get_git_repo(store)?;
+    let remote_name = calculate_gerrit_remote(store, settings, None)?;
+    let remote = match git_repo.try_find_remote(remote_name.as_str()) {
+        Some(Ok(remote)) => remote,
+        Some(Err(e)) => {
+            return Err(user_error_with_message(
+                format!("Failed to load configured remote {remote_name}"),
+                e,
+            ));
+        }
+        None => return Err(user_error(format!("No remote named {remote_name} found"))),
+    };
+    let remote_url = remote.url(Direction::Push).ok_or_else(|| {
+        user_error(format!(
+            "The remote {remote_name} is not configured for pushing"
+        ))
+    })?;
+    match remote_url.scheme {
+        Scheme::Http | Scheme::Https => {
+            let path = remote_url.path.to_string();
+            Ok(path
+                .strip_suffix(".git")
+                .unwrap_or(&path)
+                .trim_start_matches('/')
+                .to_string())
+        }
+        _ => Err(user_error(format!(
+            "Unsupported remote for query: {}",
+            remote_url
+        ))),
+    }
 }
 
 // Calculates the gerrit change ID for a given change.
