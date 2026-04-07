@@ -27,6 +27,8 @@ pub mod diff_util;
 pub mod formatter;
 pub mod generic_templater;
 #[cfg(feature = "git")]
+pub mod gerrit_util;
+#[cfg(feature = "git")]
 pub mod git_util;
 pub mod graphlog;
 pub mod merge_tools;
