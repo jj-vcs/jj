@@ -2112,11 +2112,15 @@ fn git_config_branch_section_ids_by_remote(
             {
                 return None;
             }
+            // https://github.com/jj-vcs/jj/issues/6984#issuecomment-3073761797
+            let is_supported_key = |name: &gix::config::parse::section::ValueName| -> bool {
+                name.eq_ignore_ascii_case(b"remote")
+                    || name.eq_ignore_ascii_case(b"merge")
+                    || name.eq_ignore_ascii_case(b"rebase")
+            };
             if remote_values.len() > 1
                 || push_remote_values.len() > 1
-                || section.value_names().any(|name| {
-                    !name.eq_ignore_ascii_case(b"remote") && !name.eq_ignore_ascii_case(b"merge")
-                })
+                || !section.value_names().all(is_supported_key)
             {
                 return Some(Err(GitRemoteManagementError::NonstandardConfiguration(
                     remote_name.to_owned(),
