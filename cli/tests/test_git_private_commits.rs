@@ -127,6 +127,18 @@ fn test_git_private_commits_block_pushing() {
     Nothing changed.
     [EOF]
     ");
+    let output = work_dir.run_jj(["git", "push", "-rall()"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Won't push bookmark main: commit 469f044473ed is private
+      znkkpsqq 469f0444 main* | (empty) private 1
+    Hint: Configured git.private-commits: 'description('private*')'
+    Warning: Won't push tag alpha: commit 69b30fdbc569 is private
+      wqnwkozp 69b30fdb (empty) private 2
+    Hint: Configured git.private-commits: 'description('private*')'
+    Nothing changed.
+    [EOF]
+    ");
     let output = work_dir.run_jj(["git", "push", "--change=@"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------

@@ -218,7 +218,7 @@ fn test_git_push_current_bookmark() {
     let output = work_dir.run_jj(["git", "push"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: No bookmarks found in the default push revset: remote_bookmarks(remote=origin)..@
+    Warning: No bookmarks/tags found in the default push revset: remote_bookmarks(remote=origin)..@
     Nothing changed.
     [EOF]
     ");
@@ -256,6 +256,38 @@ fn test_git_push_parent_bookmark() {
 }
 
 #[test]
+fn test_git_push_tag_in_default_target() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "origin"])
+        .success();
+    let origin_dir = test_env.work_dir("origin");
+    origin_dir.run_jj(["commit", "-morigin"]).success();
+    origin_dir.run_jj(["tag", "set", "-r@-", "tag1"]).success();
+    // TODO: use "clone --tag=*" instead of "fetch --tag=*"
+    test_env
+        .run_jj_in(
+            ".",
+            ["git", "clone", "--fetch-tags=none", "origin", "local"],
+        )
+        .success();
+    let work_dir = test_env.work_dir("local");
+    work_dir.run_jj(["git", "fetch", "--tag=*"]).success();
+
+    work_dir.run_jj(["commit", "-mlocal"]).success();
+    work_dir
+        .run_jj(["tag", "set", "--allow-move", "-r@-", "tag1"])
+        .success();
+    let output = work_dir.run_jj(["git", "push"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      tag: tag1 [move sideways from 110db8edfa5f to 5d09dfa0acd5]
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_git_push_no_matching_bookmark() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
@@ -264,7 +296,7 @@ fn test_git_push_no_matching_bookmark() {
     let output = work_dir.run_jj(["git", "push"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: No bookmarks found in the default push revset: remote_bookmarks(remote=origin)..@
+    Warning: No bookmarks/tags found in the default push revset: remote_bookmarks(remote=origin)..@
     Nothing changed.
     [EOF]
     ");
@@ -279,7 +311,7 @@ fn test_git_push_matching_bookmark_unchanged() {
     let output = work_dir.run_jj(["git", "push"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: No bookmarks found in the default push revset: remote_bookmarks(remote=origin)..@
+    Warning: No bookmarks/tags found in the default push revset: remote_bookmarks(remote=origin)..@
     Nothing changed.
     [EOF]
     ");
@@ -325,7 +357,7 @@ fn test_git_push_other_remote_has_bookmark() {
     let output = work_dir.run_jj(["git", "push"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: No bookmarks found in the default push revset: remote_bookmarks(remote=origin)..@
+    Warning: No bookmarks/tags found in the default push revset: remote_bookmarks(remote=origin)..@
     Nothing changed.
     [EOF]
     ");
@@ -1445,7 +1477,16 @@ fn test_git_push_revisions() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
     test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
+    test_env.add_config("revset-aliases.'immutable_heads()' = 'none()'");
+    let origin_dir = test_env.work_dir("origin");
     let work_dir = test_env.work_dir("local");
+    // Add tracked tags
+    origin_dir
+        .run_jj(["tag", "set", "tag-1", "tag-2", "tag-3", "-rbookmark1"])
+        .success();
+    origin_dir.run_jj(["git", "export"]).success();
+    work_dir.run_jj(["git", "fetch", "--tag=*"]).success();
+    // Update bookmarks and tags
     work_dir.run_jj(["describe", "-m", "foo"]).success();
     work_dir.write_file("file", "contents");
     work_dir.run_jj(["new", "-m", "bar"]).success();
@@ -1461,8 +1502,33 @@ fn test_git_push_revisions() {
         .run_jj(["bookmark", "create", "-r@", "bookmark-2b"])
         .success();
     work_dir.write_file("file", "modified again");
+    work_dir
+        .run_jj(["tag", "set", "--allow-move", "-r@", "tag-2"])
+        .success();
+    work_dir
+        .run_jj(["new", "root()", "--no-edit", "-mnew3"])
+        .success();
+    work_dir
+        .run_jj(["tag", "set", "--allow-move", "-rsubject(new3)", "tag-3"])
+        .success();
+    insta::assert_snapshot!(work_dir.run_jj(["log"]), @"
+    @  lylxulpl test.user@example.com 2001-02-03 08:05:23 bookmark-2a* bookmark-2b* tag-2* 6bc5860f
+    │  baz
+    ○  kmkuslsw test.user@example.com 2001-02-03 08:05:20 bookmark-1* 3c179a96
+    │  bar
+    ○  yqosqzyt test.user@example.com 2001-02-03 08:05:18 33b167f8
+    │  foo
+    │ ○  xznxytkn test.user@example.com 2001-02-03 08:05:24 tag-3* 14504d39
+    ├─╯  (empty) new3
+    │ ○  zsuskuln test.user@example.com 2001-02-03 08:05:10 bookmark2 38a20473
+    ├─╯  (empty) description 2
+    │ ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 bookmark1 tag-1 tag-2@origin tag-3@origin 9b2e76de
+    ├─╯  (empty) description 1
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
 
-    // Bookmark at revision is up to date
+    // Bookmark/tag at revision is up to date
     let output = work_dir.run_jj(["git", "push", "--revisions", "bookmark1"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -1473,15 +1539,15 @@ fn test_git_push_revisions() {
     let output = work_dir.run_jj(["git", "push", "-r=none()"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: No bookmarks point to the specified revisions: none()
+    Warning: No bookmarks/tags point to the specified revisions: none()
     Nothing changed.
     [EOF]
     ");
-    // Push a revision with no bookmarks
+    // Push a revision with no bookmarks/tags
     let output = work_dir.run_jj(["git", "push", "-r=@--"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: No bookmarks point to the specified revisions: @--
+    Warning: No bookmarks/tags point to the specified revisions: @--
     Nothing changed.
     [EOF]
     ");
@@ -1490,7 +1556,16 @@ fn test_git_push_revisions() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      bookmark: bookmark-1 [add to e76139e55e1e]
+      bookmark: bookmark-1 [add to 3c179a96c972]
+    Dry-run requested, not pushing.
+    [EOF]
+    ");
+    // Push a revision with a single tag
+    let output = work_dir.run_jj(["git", "push", "-r=subject(new3)", "--dry-run"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      tag: tag-3 [move sideways from 9b2e76de3920 to 14504d39da71]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -1498,19 +1573,20 @@ fn test_git_push_revisions() {
     let output = work_dir.run_jj(["git", "push", "-r=@--", "-r=@-", "--dry-run"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: No bookmarks point to the specified revisions: @--
+    Warning: No bookmarks/tags point to the specified revisions: @--
     Changes to push to origin:
-      bookmark: bookmark-1 [add to e76139e55e1e]
+      bookmark: bookmark-1 [add to 3c179a96c972]
     Dry-run requested, not pushing.
     [EOF]
     ");
-    // Push a revision with a multiple bookmarks
+    // Push a revision with a multiple bookmarks and tags
     let output = work_dir.run_jj(["git", "push", "-r=@", "--dry-run"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      bookmark: bookmark-2a [add to 57d822f901bb]
-      bookmark: bookmark-2b [add to 57d822f901bb]
+      bookmark: bookmark-2a [add to 6bc5860f95fb]
+      bookmark: bookmark-2b [add to 6bc5860f95fb]
+      tag: tag-2 [move sideways from 9b2e76de3920 to 6bc5860f95fb]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -1519,7 +1595,7 @@ fn test_git_push_revisions() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      bookmark: bookmark-1 [add to e76139e55e1e]
+      bookmark: bookmark-1 [add to 3c179a96c972]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -1528,7 +1604,7 @@ fn test_git_push_revisions() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      bookmark: bookmark-1 [add to e76139e55e1e]
+      bookmark: bookmark-1 [add to 3c179a96c972]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -1656,6 +1732,17 @@ fn test_git_push_bookmarks_and_tags_of_same_name() {
     ------- stderr -------
     Changes to push to origin:
       bookmark: foo [move forward from 110db8edfa5f to 40751f075c75]
+      tag: foo [move forward from 110db8edfa5f to 40751f075c75]
+    Dry-run requested, not pushing.
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["git", "push", "--dry-run", "-r@-"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      bookmark: bar [move forward from 110db8edfa5f to 40751f075c75]
+      bookmark: foo [move forward from 110db8edfa5f to 40751f075c75]
+      tag: bar [move forward from 110db8edfa5f to 40751f075c75]
       tag: foo [move forward from 110db8edfa5f to 40751f075c75]
     Dry-run requested, not pushing.
     [EOF]

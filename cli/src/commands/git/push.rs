@@ -514,7 +514,7 @@ pub async fn cmd_git_push(
         let target_revisions = if use_default_revset {
             find_default_target_revisions(ui, tx.base_workspace_helper(), remote).await?
         } else {
-            find_bookmarked_revisions(ui, tx.base_workspace_helper(), &args.revisions).await?
+            find_target_revisions(ui, tx.base_workspace_helper(), &args.revisions).await?
         };
         for (name, targets) in tx.base_repo().view().local_remote_bookmarks(remote) {
             if !matches_local_target(targets, &target_revisions) || !seen_bookmarks.insert(name) {
@@ -531,7 +531,21 @@ pub async fn cmd_git_push(
                 Err(reason) => reason.print(ui)?,
             }
         }
-        // TODO: include tags within the target revisions
+        for (name, targets) in tx.base_repo().view().local_remote_tags(remote) {
+            if !matches_local_target(targets, &target_revisions) || !seen_tags.insert(name) {
+                continue;
+            }
+            let remote_symbol = name.to_remote_symbol(remote);
+            let allow_delete = false;
+            match classify_tag_update(remote_symbol, targets, allow_new, allow_delete) {
+                Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
+                    Ok(()) => ref_updates.tags.push((name.to_owned(), update)),
+                    Err(reason) => reason.print_tag(ui, tx.base_workspace_helper(), name)?,
+                },
+                Ok(None) => {}
+                Err(reason) => reason.print(ui)?,
+            }
+        }
 
         tx_description = format!(
             "{TX_DESC_PUSH}{names} to git remote {remote}",
@@ -1288,7 +1302,10 @@ async fn find_default_target_revisions(
         None,
     )
     .range(&RevsetExpression::working_copy(workspace_name.to_owned()))
-    .intersection(&RevsetExpression::bookmarks(StringExpression::all()));
+    .intersection(
+        &RevsetExpression::bookmarks(StringExpression::all())
+            .union(&RevsetExpression::tags(StringExpression::all())),
+    );
     let commit_ids = workspace_command
         .attach_revset_evaluator(expression)
         .evaluate_to_commit_ids()?
@@ -1297,14 +1314,15 @@ async fn find_default_target_revisions(
     if commit_ids.as_mut().peek().await.is_none() {
         writeln!(
             ui.warning_default(),
-            "No bookmarks found in the default push revset: remote_bookmarks(remote={remote})..@",
+            "No bookmarks/tags found in the default push revset: \
+             remote_bookmarks(remote={remote})..@",
             remote = remote.as_symbol()
         )?;
     }
     Ok(commit_ids.try_collect().await?)
 }
 
-async fn find_bookmarked_revisions(
+async fn find_target_revisions(
     ui: &Ui,
     workspace_command: &WorkspaceCommandHelper,
     revisions: &[RevisionArg],
@@ -1312,13 +1330,16 @@ async fn find_bookmarked_revisions(
     let mut revision_commit_ids = HashSet::new();
     for rev_arg in revisions {
         let mut expression = workspace_command.parse_revset(ui, rev_arg)?;
-        expression.intersect_with(&RevsetExpression::bookmarks(StringExpression::all()));
+        expression.intersect_with(
+            &RevsetExpression::bookmarks(StringExpression::all())
+                .union(&RevsetExpression::tags(StringExpression::all())),
+        );
         let commit_ids = expression.evaluate_to_commit_ids()?.peekable();
         let mut commit_ids = std::pin::pin!(commit_ids);
         if commit_ids.as_mut().as_mut().peek().await.is_none() {
             writeln!(
                 ui.warning_default(),
-                "No bookmarks point to the specified revisions: {rev_arg}"
+                "No bookmarks/tags point to the specified revisions: {rev_arg}"
             )?;
         }
         while let Some(commit_id) = commit_ids.try_next().await? {
