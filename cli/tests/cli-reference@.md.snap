@@ -53,6 +53,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj fix`↴](#jj-fix)
 * [`jj gerrit`↴](#jj-gerrit)
 * [`jj gerrit upload`↴](#jj-gerrit-upload)
+* [`jj gerrit comments`↴](#jj-gerrit-comments)
 * [`jj git`↴](#jj-git)
 * [`jj git clone`↴](#jj-git-clone)
 * [`jj git colocation`↴](#jj-git-colocation)
@@ -1414,6 +1415,7 @@ Interact with Gerrit Code Review
 ###### **Subcommands:**
 
 * `upload` — Upload changes to Gerrit for code review, or update existing changes
+* `comments` — Show Gerrit comments for a change
 
 
 
@@ -1490,6 +1492,23 @@ Note: this command takes 1-or-more revsets arguments, each of which can resolve 
 * `--trace <TRACE>` — For debugging Gerrit
 
    See https://gerrit-review.googlesource.com/Documentation/user-upload.html#trace
+
+
+
+## `jj gerrit comments`
+
+Show Gerrit comments for a change
+
+**Usage:** `jj gerrit comments [OPTIONS]`
+
+###### **Options:**
+
+* `-r`, `--revision <REVISION>` — The revision to fetch comments for (must evaluate to a single revision)
+
+  Default value: `@`
+* `--resolved` — Include resolved comment threads
+
+  Default value: `false`
 
 
 
