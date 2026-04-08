@@ -72,13 +72,12 @@ impl TempTextEditError {
 #[derive(Clone, Debug)]
 pub struct TextEditor {
     editor: CommandNameAndArgs,
-    dir: Option<PathBuf>,
 }
 
 impl TextEditor {
     pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
         let editor = settings.get("ui.editor")?;
-        Ok(Self { editor, dir: None })
+        Ok(Self { editor })
     }
 
     /// Opens the given `path` in editor.
@@ -118,7 +117,7 @@ impl TextEditor {
     }
 
     fn write_temp_file(&self, content: &[u8], suffix: Option<&str>) -> Result<PathBuf, PathError> {
-        let dir = self.dir.clone().unwrap_or_else(tempfile::env::temp_dir);
+        let dir = tempfile::env::temp_dir();
         let mut file = tempfile::Builder::new()
             .prefix("editor-")
             .suffix(suffix.unwrap_or(""))
