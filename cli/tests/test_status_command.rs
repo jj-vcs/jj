@@ -595,6 +595,57 @@ fn test_status_untracked_files() {
 }
 
 #[test]
+fn test_status_filtered_untracked() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config(r#"snapshot.auto-track = "none()""#);
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file_a", "...");
+    work_dir.write_file("file_b", "...");
+    let dir = work_dir.create_dir("dir");
+    dir.write_file("file_c", "...");
+
+    // Filter to file_a: only file_a shown as untracked
+    let output = work_dir.run_jj(["status", "file_a"]);
+    insta::assert_snapshot!(output, @"
+    Untracked paths:
+    ? file_a
+    Working copy  (@) : qpvuntsm e8849ae1 (empty) (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ------- stderr -------
+    Warning: No matching entries for paths: file_a
+    [EOF]
+    ");
+
+    // Filter to dir: collapsed directory shown
+    let output = work_dir.run_jj(["status", "dir"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    Untracked paths:
+    ? dir/
+    Working copy  (@) : qpvuntsm e8849ae1 (empty) (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ------- stderr -------
+    Warning: No matching entries for paths: dir
+    [EOF]
+    ");
+
+    // Filter to nonexistent: no untracked paths, "no changes" message
+    let output = work_dir.run_jj(["status", "nonexistent"]);
+    insta::assert_snapshot!(output, @"
+    The working copy has no changes.
+    Working copy  (@) : qpvuntsm e8849ae1 (empty) (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ------- stderr -------
+    Warning: No matching entries for paths: nonexistent
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_status_no_working_copy() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

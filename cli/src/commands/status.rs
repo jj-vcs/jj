@@ -87,7 +87,12 @@ pub(crate) async fn cmd_status(
         print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree])?;
 
         let wc_has_changes = tree.tree_ids() != parent_tree.tree_ids();
-        let wc_has_untracked = !snapshot_stats.untracked_paths.is_empty();
+        let filtered_untracked = snapshot_stats
+            .untracked_paths
+            .keys()
+            .filter(|path| matcher.matches(path))
+            .collect_vec();
+        let wc_has_untracked = !filtered_untracked.is_empty();
         if !wc_has_changes && !wc_has_untracked {
             writeln!(formatter, "The working copy has no changes.")?;
         } else {
@@ -116,7 +121,7 @@ pub(crate) async fn cmd_status(
             if wc_has_untracked {
                 writeln!(formatter, "Untracked paths:")?;
                 visit_collapsed_untracked_files(
-                    snapshot_stats.untracked_paths.keys(),
+                    filtered_untracked,
                     tree.clone(),
                     |path, is_dir| {
                         let ui_path = workspace_command.path_converter().format_file_path(path);
