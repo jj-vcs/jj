@@ -75,11 +75,9 @@ pub struct WorkspaceEnvironment {
     revsets_use_glob_by_default: bool,
     /// The `RepoPathUiConverter` which is used to print paths for warnings and
     /// more.
-    // TODO: make private
-    pub path_converter: RepoPathUiConverter,
+    path_converter: RepoPathUiConverter,
     /// The name of the `Workspace` this environment is associated with.
-    // TODO: make private
-    pub workspace_name: WorkspaceNameBuf,
+    workspace_name: WorkspaceNameBuf,
     /// The `immutable_heads()` revset expression read from the `settings` /
     /// `config.toml`.
     immutable_heads_expression: Arc<UserRevsetExpression>,
@@ -87,8 +85,7 @@ pub struct WorkspaceEnvironment {
     /// / `config.toml`.
     short_prefixes_expression: Option<Arc<UserRevsetExpression>>,
     /// The conflict marker style read from the `settings` / `config.toml`.
-    // TODO: make private
-    pub conflict_marker_style: ConflictMarkerStyle,
+    conflict_marker_style: ConflictMarkerStyle,
 }
 
 impl WorkspaceEnvironment {
@@ -131,6 +128,11 @@ impl WorkspaceEnvironment {
     /// Gets a reference to the associated `RepoPathUiConverter`.
     pub fn path_converter(&self) -> &RepoPathUiConverter {
         &self.path_converter
+    }
+
+    /// Gets a mutable reference to the associated `RepoPathUiConverter`.
+    pub fn path_converter_mut(&mut self) -> &mut RepoPathUiConverter {
+        &mut self.path_converter
     }
 
     /// Gets a reference to associated `WorkspaceName`.
@@ -233,6 +235,11 @@ impl WorkspaceEnvironment {
         &self.immutable_heads_expression
     }
 
+    /// Gets a mutable reference to the user-configured conflict marker style
+    /// for materializing conflicts
+    pub fn conflict_marker_style_mut(&mut self) -> &mut ConflictMarkerStyle {
+        &mut self.conflict_marker_style
+    }
     /// Gets the user-configured conflict marker style for materializing
     /// conflicts
     pub fn conflict_marker_style(&self) -> ConflictMarkerStyle {

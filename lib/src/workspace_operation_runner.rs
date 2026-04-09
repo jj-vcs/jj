@@ -23,7 +23,6 @@ use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::backend::BackendError;
@@ -340,7 +339,14 @@ pub struct SnapshotState {
     pub has_jj_conflict_files: bool,
 }
 
-/// TODO: A `WorkspaceOperationRunner is ...?
+/// A [`WorkspaceOperationRunner`]  encapsulates an [`WorkspaceEnvironment`], a
+/// [`ReadonlyRepo`] and a [`Workspace`]. It can be used to create snapshots and
+/// deals with exporting jj-internal state to Git if the functionality is
+/// compiled in. Library users should wrap it for their use-cases, like `jj-cli`
+/// does.
+///
+/// [`ReadonlyRepo`]: crate::repo::ReadonlyRepo
+/// [`WorkspaceEnvironment`]: crate::workspace_util::WorkspaceEnvironment
 pub struct WorkspaceOperationRunner {
     /// The `WorkspaceEnvironment` associated with this runner.
     env: WorkspaceEnvironment,
@@ -969,24 +975,23 @@ impl WorkspaceOperationTransaction {
     }
 
     /// Checks out the given `Commit`.
-    // TODO: should be async
-    pub fn check_out(
+    pub async fn check_out(
         &mut self,
         commit: &Commit,
         name: &WorkspaceName,
     ) -> Result<Commit, CheckOutCommitError> {
         self.id_prefix_context.take(); // invalidate
-        self.tx
-            .repo_mut()
-            .check_out(name.to_owned(), commit)
-            .block_on()
+        self.tx.repo_mut().check_out(name.to_owned(), commit).await
     }
 
     /// Edits the given `Commit`.
-    // TODO: should be async
-    pub fn edit(&mut self, commit: &Commit, name: &WorkspaceName) -> Result<(), EditCommitError> {
+    pub async fn edit(
+        &mut self,
+        commit: &Commit,
+        name: &WorkspaceName,
+    ) -> Result<(), EditCommitError> {
         self.id_prefix_context.take(); // invalidate
-        self.tx.repo_mut().edit(name.to_owned(), commit).block_on()
+        self.tx.repo_mut().edit(name.to_owned(), commit).await
     }
 
     /// Returns the wrapped [`Transaction`] for circumstances where
