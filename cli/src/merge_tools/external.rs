@@ -11,6 +11,7 @@ use bstr::BString;
 use itertools::Itertools as _;
 use jj_lib::backend::CopyId;
 use jj_lib::backend::TreeValue;
+use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::conflicts;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::conflicts::ConflictMaterializeOptions;
@@ -23,8 +24,10 @@ use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree_builder::MergedTreeBuilder;
+use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::store::Store;
+use jj_lib::tree_merge::MergeOptions;
 use thiserror::Error;
 
 use super::ConflictResolveError;
@@ -194,10 +197,75 @@ async fn run_mergetool_external_single_file(
         conflict,
         file,
     } = merge_tool_file;
-    let file_contents = &file.contents;
-    let file_labels = &file.labels;
-    let merge_options = store.merge_options();
 
+    let (conflict_marker_len, exit_status, exit_status_implies_conflict, output_file_contents) =
+        run_mergetool_external_inner(
+            editor,
+            store.merge_options(),
+            default_conflict_marker_style,
+            repo_path,
+            &file.contents,
+            &file.labels,
+        )?;
+
+    let new_file_ids = if editor.merge_tool_edits_conflict_markers || exit_status_implies_conflict {
+        tracing::info!(
+            ?exit_status_implies_conflict,
+            "jj is reparsing output for conflicts, `merge-tool-edits-conflict-markers = {}` in \
+             TOML config;",
+            editor.merge_tool_edits_conflict_markers
+        );
+        conflicts::update_from_content(
+            &file.unsimplified_ids,
+            store,
+            repo_path,
+            output_file_contents.as_slice(),
+            conflict_marker_len,
+        )
+        .await?
+    } else {
+        let new_file_id = store
+            .write_file(repo_path, &mut output_file_contents.as_slice())
+            .await?;
+        Merge::normal(new_file_id)
+    };
+
+    // If the exit status indicated there should be conflict markers but there
+    // weren't any, it's likely that the tool generated invalid conflict markers, so
+    // we need to inform the user. If we didn't treat this as an error, the user
+    // might think the conflict was resolved successfully.
+    if exit_status_implies_conflict && new_file_ids.is_resolved() {
+        return Err(ConflictResolveError::ExternalTool(
+            ExternalToolError::InvalidConflictMarkers { exit_status },
+        ));
+    }
+
+    let new_tree_value = match new_file_ids.into_resolved() {
+        Ok(file_id) => {
+            let executable = file.executable.expect("should have been resolved");
+            Merge::resolved(file_id.map(|id| TreeValue::File {
+                id,
+                executable,
+                copy_id: CopyId::placeholder(),
+            }))
+        }
+        // Update the file ids only, leaving the executable flags unchanged
+        Err(file_ids) => conflict.with_new_file_ids(&file_ids),
+    };
+    tree_builder.set_or_remove(repo_path.to_owned(), new_tree_value);
+    Ok(())
+}
+
+fn run_mergetool_external_inner(
+    editor: &ExternalMergeTool,
+    merge_options: &MergeOptions,
+    default_conflict_marker_style: ConflictMarkerStyle,
+    repo_path: &RepoPathBuf,
+    materialized_conflicted_contents: &Merge<BString>,
+    conflict_labels: &ConflictLabels,
+) -> Result<(usize, ExitStatus, bool, Vec<u8>), ConflictResolveError> {
+    let file_contents = materialized_conflicted_contents;
+    let file_labels = conflict_labels;
     let uses_marker_length = find_all_variables(&editor.merge_args).contains(&"marker_length");
 
     // If the merge tool doesn't get conflict markers pre-populated in the output
@@ -287,53 +355,12 @@ async fn run_mergetool_external_single_file(
     if output_file_contents.is_empty() || output_file_contents == initial_output_content {
         return Err(ConflictResolveError::EmptyOrUnchanged);
     }
-
-    let new_file_ids = if editor.merge_tool_edits_conflict_markers || exit_status_implies_conflict {
-        tracing::info!(
-            ?exit_status_implies_conflict,
-            "jj is reparsing output for conflicts, `merge-tool-edits-conflict-markers = {}` in \
-             TOML config;",
-            editor.merge_tool_edits_conflict_markers
-        );
-        conflicts::update_from_content(
-            &file.unsimplified_ids,
-            store,
-            repo_path,
-            output_file_contents.as_slice(),
-            conflict_marker_len,
-        )
-        .await?
-    } else {
-        let new_file_id = store
-            .write_file(repo_path, &mut output_file_contents.as_slice())
-            .await?;
-        Merge::normal(new_file_id)
-    };
-
-    // If the exit status indicated there should be conflict markers but there
-    // weren't any, it's likely that the tool generated invalid conflict markers, so
-    // we need to inform the user. If we didn't treat this as an error, the user
-    // might think the conflict was resolved successfully.
-    if exit_status_implies_conflict && new_file_ids.is_resolved() {
-        return Err(ConflictResolveError::ExternalTool(
-            ExternalToolError::InvalidConflictMarkers { exit_status },
-        ));
-    }
-
-    let new_tree_value = match new_file_ids.into_resolved() {
-        Ok(file_id) => {
-            let executable = file.executable.expect("should have been resolved");
-            Merge::resolved(file_id.map(|id| TreeValue::File {
-                id,
-                executable,
-                copy_id: CopyId::placeholder(),
-            }))
-        }
-        // Update the file ids only, leaving the executable flags unchanged
-        Err(file_ids) => conflict.with_new_file_ids(&file_ids),
-    };
-    tree_builder.set_or_remove(repo_path.to_owned(), new_tree_value);
-    Ok(())
+    Ok((
+        conflict_marker_len,
+        exit_status,
+        exit_status_implies_conflict,
+        output_file_contents,
+    ))
 }
 
 pub async fn run_mergetool_external(
