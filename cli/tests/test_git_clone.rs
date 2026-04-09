@@ -486,6 +486,75 @@ fn test_git_clone_no_colocate() {
 }
 
 #[test]
+fn test_git_clone_default_bookmarks_and_tags() {
+    let test_env = TestEnvironment::default();
+    let root_dir = test_env.work_dir("");
+
+    let source_repo = git::init(root_dir.root().join("source"));
+    git::add_commit(&source_repo, "refs/tags/tag1", "file", b"", "1a", &[]);
+    git::add_commit(&source_repo, "refs/heads/branch1", "file", b"", "1b", &[]);
+    git::add_commit(&source_repo, "refs/tags/tag2", "file", b"", "1c", &[]);
+    git::add_commit(&source_repo, "refs/heads/branch2", "file", b"", "1d", &[]);
+
+    // Per-remote default config
+    test_env.add_config(indoc! {"
+        [remotes.origin]
+        fetch-bookmarks = 'branch1'
+        fetch-tags = 'tag1'
+        [remotes.rem2]
+        fetch-bookmarks = 'branch2'
+        fetch-tags = 'tag2'
+    "});
+    let output = root_dir.run_jj(["git", "clone", "source", "local1"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/local1"
+    bookmark: branch1@origin [new] untracked
+    tag: tag1@origin [new] 
+    Working copy  (@) now at: sqpuoqvx d3619ee8 (empty) (no description set)
+    Parent commit (@-)      : sotzwqom 0e985955 branch1@origin | 1b
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+    let output = root_dir.run_jj(["git", "clone", "--remote=rem2", "source", "local2"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/local2"
+    bookmark: branch2@rem2 [new] untracked
+    tag: tag2@rem2 [new] 
+    Working copy  (@) now at: uuqppmxq 92acf2c2 (empty) (no description set)
+    Parent commit (@-)      : lqvtntpl 147076c8 branch2@rem2 | 1d
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+
+    // Default patterns shouldn't be copied to Git config. If they were, "jj git
+    // fetch" of the renamed remote would be noop.
+    let local_dir = test_env.work_dir("local2");
+    local_dir
+        .run_jj(["git", "remote", "rename", "rem2", "rem3"])
+        .success();
+    let output = local_dir.run_jj(["git", "fetch"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Hint: Fetching from the only existing remote: rem3
+    bookmark: branch1@rem3 [new] untracked
+    tag: tag2@git [new] 
+    [EOF]
+    ");
+
+    // Default fetch-bookmarks/tags should be disabled by --branch
+    let output = root_dir.run_jj(["git", "clone", "--branch=*", "source", "local3"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/local3"
+    bookmark: branch1@origin [new] untracked
+    bookmark: branch2@origin [new] untracked
+    [EOF]
+    "#);
+}
+
+#[test]
 fn test_git_clone_tags() {
     use gix::remote::fetch::Tags;
 

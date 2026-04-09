@@ -1648,7 +1648,7 @@ Fetch from a Git remote
 
 If no remotes are specified, fetches the remotes specified by the `git.fetch` setting. If that is not configured and there are multiple remotes, the remote named "origin" will be used.
 
-If no branches nor tags are specified, the default fetch refspecs for the selected remotes are read from the Git configuration.
+If no branches nor tags are specified, fetches bookmarks and tags specified by the `remotes.<name>.fetch-bookmarks`/`fetch-tags` settings. If `remotes.<name>.fetch-bookmarks` is not configured, the default fetch refspecs for the selected remotes are read from the Git configuration.
 
 If a working-copy commit gets abandoned, it will be given a new, empty commit. This is true in general; it is not specific to this command.
 

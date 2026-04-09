@@ -1681,6 +1681,24 @@ Note that unlike `git.fetch`, `git.push` can currently only be a single remote.
 This is not a hard limitation, and could be changed in the future if there is
 demand.
 
+### Default bookmarks and tags to fetch
+
+You can configure which bookmarks and tags to fetch by default per remote, using
+the `remotes.<name>.fetch-bookmarks`/`fetch-tags` config. The value is a [string
+pattern](./revsets.md#string-patterns) that matches the names of the bookmarks
+and tags to fetch. If `remotes.<name>.fetch-bookmarks` is not configured, the
+default fetch refspecs for the remotes are read from the Git configuration.
+
+Note that **`remotes.<name>.fetch-tags` is experimental**. Tags matching this
+pattern will be fetched as tracked `<name>@<remote>` tags, and corresponding
+local tags will be created.
+
+```toml
+[remotes.origin]
+fetch-bookmarks = "~gh-pages"
+fetch-tags = "v*"
+```
+
 ### Automatic tracking of bookmarks
 
 You can configure which bookmarks to track automatically per remote, using the

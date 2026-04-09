@@ -48,6 +48,8 @@ use crate::git_util::GitSubprocessUi;
 use crate::git_util::absolute_git_url;
 use crate::git_util::load_git_import_options;
 use crate::git_util::print_git_import_stats;
+use crate::revset_util::parse_remote_fetch_bookmarks;
+use crate::revset_util::parse_remote_fetch_tags;
 use crate::revset_util::parse_union_name_patterns;
 use crate::ui::Ui;
 
@@ -175,17 +177,12 @@ pub async fn cmd_git_clone(
     } else {
         args.colocate
     };
-    let ref_expr = {
-        let bookmark = match &args.branches {
-            Some(texts) => parse_union_name_patterns(ui, texts)?,
-            None => StringExpression::all(),
-        };
-        GitFetchRefExpression {
-            bookmark,
-            // TODO: disable implicit fetching and set this to "all" (#7528)
-            tag: StringExpression::none(),
-        }
+    let is_specific = args.branches.is_some(); // TODO: || args.tags.is_some()
+    let specific_bookmark_expr = match &args.branches {
+        Some(texts) => Some(parse_union_name_patterns(ui, texts)?),
+        None => is_specific.then(StringExpression::none),
     };
+    let specific_tag_expr = is_specific.then(StringExpression::none);
 
     // Canonicalize because fs::remove_dir_all() doesn't seem to like e.g.
     // `/some/path/.`
@@ -195,6 +192,23 @@ pub async fn cmd_git_clone(
     let clone_result: Result<_, CommandError> = async {
         let (workspace_command, config_env) =
             init_workspace(ui, command, &canonical_wc_path, colocate).await?;
+        let remote_settings = workspace_command.settings().remote_settings()?;
+        let bookmark = if let Some(expr) = &specific_bookmark_expr {
+            expr.clone()
+        } else if let Some(expr) = parse_remote_fetch_bookmarks(ui, &remote_settings, remote_name)?
+        {
+            expr
+        } else {
+            StringExpression::all()
+        };
+        let (tag, no_implicit_tags) = if let Some(expr) = specific_tag_expr {
+            (expr, true)
+        } else if let Some(expr) = parse_remote_fetch_tags(ui, &remote_settings, remote_name)? {
+            (expr, true)
+        } else {
+            // TODO: disable implicit fetching and set this to "all" (#7528)
+            (StringExpression::none(), false)
+        };
         let mut workspace_command = configure_remote(
             ui,
             command,
@@ -204,18 +218,21 @@ pub async fn cmd_git_clone(
             // If not explicitly specified on the CLI, configure the remote for only fetching
             // included tags for future fetches.
             args.fetch_tags.unwrap_or(FetchTagsMode::Included),
-            &ref_expr,
+            // Default fetch-bookmarks shouldn't be copied to Git config.
+            &specific_bookmark_expr.unwrap_or_else(StringExpression::all),
         )
         .await?;
+        let ref_expr = GitFetchRefExpression { bookmark, tag };
+        // Disable implicit tag fetching if patterns are explicitly set. None
+        // will be the default when this feature gets stabilized. (#7528)
+        let default_fetch_tags = no_implicit_tags.then_some(FetchTagsMode::None);
         let default_branch = fetch_new_remote(
             ui,
             &mut workspace_command,
             remote_name,
-            // If we add default fetch patterns to jj's config, these patterns
-            // will be loaded here?
             &ref_expr,
             args.depth,
-            args.fetch_tags,
+            args.fetch_tags.or(default_fetch_tags),
         )
         .await?;
         Ok((workspace_command, default_branch, config_env))
@@ -305,7 +322,7 @@ async fn configure_remote(
     remote_name: &RemoteName,
     source: &str,
     fetch_tags: FetchTagsMode,
-    ref_expr: &GitFetchRefExpression,
+    bookmark_expr: &StringExpression,
 ) -> Result<WorkspaceCommandHelper, CommandError> {
     let mut tx = workspace_command.start_transaction();
     git::add_remote(
@@ -314,7 +331,7 @@ async fn configure_remote(
         source,
         None,
         fetch_tags.as_fetch_tags(),
-        &ref_expr.bookmark,
+        bookmark_expr,
     )?;
     tx.finish(ui, format!("add git remote {}", remote_name.as_symbol()))
         .await?;

@@ -42,6 +42,8 @@ use crate::complete;
 use crate::git_util::GitSubprocessUi;
 use crate::git_util::load_git_import_options;
 use crate::git_util::print_git_import_stats;
+use crate::revset_util::parse_remote_fetch_bookmarks;
+use crate::revset_util::parse_remote_fetch_tags;
 use crate::revset_util::parse_union_name_patterns;
 use crate::ui::Ui;
 
@@ -51,8 +53,10 @@ use crate::ui::Ui;
 /// `git.fetch` setting. If that is not configured and there are multiple
 /// remotes, the remote named "origin" will be used.
 ///
-/// If no branches nor tags are specified, the default fetch refspecs for the
-/// selected remotes are read from the Git configuration.
+/// If no branches nor tags are specified, fetches bookmarks and tags specified
+/// by the `remotes.<name>.fetch-bookmarks`/`fetch-tags` settings. If
+/// `remotes.<name>.fetch-bookmarks` is not configured, the default fetch
+/// refspecs for the selected remotes are read from the Git configuration.
 ///
 /// If a working-copy commit gets abandoned, it will be given a new, empty
 /// commit. This is true in general; it is not specific to this command.
@@ -159,6 +163,7 @@ pub async fn cmd_git_fetch(
     }
 
     let mut tx = workspace_command.start_transaction();
+    let remote_settings = tx.settings().remote_settings()?;
 
     let is_specific = args.branches.is_some() || args.tags.is_some();
     let common_bookmark_expr = match &args.branches {
@@ -196,9 +201,10 @@ pub async fn cmd_git_fetch(
     } else {
         let git_repo = get_git_backend(tx.repo_mut().store())?.git_repo();
         for remote in &matching_remotes {
-            // TODO: add native config for default bookmark/tag patterns? (#7819)
             let bookmark = if let Some(expr) = &common_bookmark_expr {
                 expr.clone()
+            } else if let Some(expr) = parse_remote_fetch_bookmarks(ui, &remote_settings, remote)? {
+                expr
             } else {
                 let (ignored, expr) = load_default_fetch_bookmarks(remote, &git_repo)?;
                 warn_ignored_refspecs(ui, remote, ignored)?;
@@ -206,6 +212,8 @@ pub async fn cmd_git_fetch(
             };
             let (tag, no_implicit_tags) = if let Some(expr) = &common_tag_expr {
                 (expr.clone(), true)
+            } else if let Some(expr) = parse_remote_fetch_tags(ui, &remote_settings, remote)? {
+                (expr, true)
             } else {
                 // TODO: disable implicit fetching and set this to "all" (#7528)
                 (StringExpression::none(), false)
@@ -217,7 +225,6 @@ pub async fn cmd_git_fetch(
     }
 
     let git_settings = GitSettings::from_settings(tx.settings())?;
-    let remote_settings = tx.settings().remote_settings()?;
     let import_options = load_git_import_options(ui, &git_settings, &remote_settings)?;
     let mut git_fetch = GitFetch::new(
         tx.repo_mut(),
