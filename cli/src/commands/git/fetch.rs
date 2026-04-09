@@ -189,7 +189,9 @@ pub async fn cmd_git_fetch(
                     .collect(),
             );
             let ref_expr = GitFetchRefExpression { bookmark, tag };
-            expansions.push((remote, expand_fetch_refspecs(remote, ref_expr)?));
+            let expanded = expand_fetch_refspecs(remote, ref_expr)?;
+            let no_implicit_tags = true;
+            expansions.push((remote, expanded, no_implicit_tags));
         }
     } else {
         let git_repo = get_git_backend(tx.repo_mut().store())?.git_repo();
@@ -202,13 +204,15 @@ pub async fn cmd_git_fetch(
                 warn_ignored_refspecs(ui, remote, ignored)?;
                 expr
             };
-            let tag = common_tag_expr
-                .clone()
+            let (tag, no_implicit_tags) = if let Some(expr) = &common_tag_expr {
+                (expr.clone(), true)
+            } else {
                 // TODO: disable implicit fetching and set this to "all" (#7528)
-                .unwrap_or_else(StringExpression::none);
+                (StringExpression::none(), false)
+            };
             let ref_expr = GitFetchRefExpression { bookmark, tag };
             let expanded = expand_fetch_refspecs(remote, ref_expr)?;
-            expansions.push((remote, expanded));
+            expansions.push((remote, expanded, no_implicit_tags));
         }
     }
 
@@ -220,12 +224,12 @@ pub async fn cmd_git_fetch(
         git_settings.to_subprocess_options(),
         &import_options,
     )?;
-    // Disable implicit tag fetching if patterns are explicitly set. NoTags will
-    // be the default when this feature gets stabilized. (#7528)
-    let fetch_tags = (args.tags.is_some() || args.tracked).then_some(FetchTagsOverride::NoTags);
 
-    for (remote, expanded) in expansions {
+    for (remote, expanded, no_implicit_tags) in expansions {
         let mut callback = GitSubprocessUi::new(ui);
+        // Disable implicit tag fetching if patterns are explicitly set. NoTags
+        // will be the default when this feature gets stabilized. (#7528)
+        let fetch_tags = no_implicit_tags.then_some(FetchTagsOverride::NoTags);
         git_fetch.fetch(remote, expanded, &mut callback, None, fetch_tags)?;
     }
 

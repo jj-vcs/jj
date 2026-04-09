@@ -1405,12 +1405,12 @@ fn test_git_fetch_undo() {
     "#);
 
     // Fetch 2 bookmarks and tags
-    let output = target_dir.run_jj(["git", "fetch", "--branch", "b", "--branch", "a1"]);
+    let output = target_dir.run_jj(["git", "fetch", "--branch=b|a1", "--tag=*"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: a1@origin [new] tracked
     bookmark: b@origin  [new] tracked
-    tag: tag1@git [new] 
+    tag: tag1@origin [new] 
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
@@ -1426,7 +1426,7 @@ fn test_git_fetch_undo() {
     let output = target_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Undid operation: 56cfef70961e (2001-02-03 08:05:20) fetch from git remote(s) origin
+    Undid operation: ce2dc93f9af5 (2001-02-03 08:05:20) fetch from git remote(s) origin
     Restored to operation: abd709a7b737 (2001-02-03 08:05:07) add git remote origin
     [EOF]
     ");
@@ -1437,11 +1437,11 @@ fn test_git_fetch_undo() {
     [EOF]
     "#);
     // Now try to fetch just one bookmark and tags
-    let output = target_dir.run_jj(["git", "fetch", "--branch", "b"]);
+    let output = target_dir.run_jj(["git", "fetch", "--branch=b", "--tag=*"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: b@origin [new] tracked
-    tag: tag1@git [new] 
+    tag: tag1@origin [new] 
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
