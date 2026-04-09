@@ -194,6 +194,9 @@ async fn run_mergetool_external_single_file(
         conflict,
         file,
     } = merge_tool_file;
+    let file_contents = &file.contents;
+    let file_labels = &file.labels;
+    let merge_options = store.merge_options();
 
     let uses_marker_length = find_all_variables(&editor.merge_args).contains(&"marker_length");
 
@@ -202,7 +205,7 @@ async fn run_mergetool_external_single_file(
     // MIN_CONFLICT_MARKER_LEN since the merge tool can't know about our rules for
     // conflict marker length.
     let conflict_marker_len = if editor.merge_tool_edits_conflict_markers || uses_marker_length {
-        choose_materialized_conflict_marker_len(&file.contents)
+        choose_materialized_conflict_marker_len(file_contents)
     } else {
         MIN_CONFLICT_MARKER_LEN
     };
@@ -212,17 +215,17 @@ async fn run_mergetool_external_single_file(
                 .conflict_marker_style
                 .unwrap_or(default_conflict_marker_style),
             marker_len: Some(conflict_marker_len),
-            merge: store.merge_options().clone(),
+            merge: merge_options.clone(),
         };
-        materialize_merge_result_to_bytes(&file.contents, &file.labels, &options)
+        materialize_merge_result_to_bytes(file_contents, file_labels, &options)
     } else {
         BString::default()
     };
-    assert_eq!(file.contents.num_sides(), 2);
+    assert_eq!(file_contents.num_sides(), 2);
     let files: HashMap<&str, &[u8]> = maplit::hashmap! {
-        "base" => file.contents.get_remove(0).unwrap().as_slice(),
-        "left" => file.contents.get_add(0).unwrap().as_slice(),
-        "right" => file.contents.get_add(1).unwrap().as_slice(),
+        "base" => file_contents.get_remove(0).unwrap().as_slice(),
+        "left" => file_contents.get_add(0).unwrap().as_slice(),
+        "right" => file_contents.get_add(1).unwrap().as_slice(),
         "output" => initial_output_content.as_slice(),
     };
 
