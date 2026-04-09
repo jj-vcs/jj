@@ -1057,45 +1057,22 @@ pub async fn update_from_content(
     let simplified_file_ids = file_ids.simplify();
 
     let old_contents = extract_as_single_hunk(&simplified_file_ids, store, path).await?;
-    let old_hunks = files::merge_hunks(&old_contents, store.merge_options());
 
-    // Parse conflicts from the new content using the arity of the simplified
-    // conflicts.
-    let new_hunks = parse_conflict(
+    let (contents, unchanged) = update_from_materialized_content(
+        &old_contents,
         content,
-        simplified_file_ids.num_sides(),
         conflict_marker_len,
+        store.merge_options(),
     );
-
-    // Check if the new hunks are unchanged. This makes sure that unchanged file
-    // conflicts aren't updated to partially-resolved contents.
-    let unchanged = match (&old_hunks, &new_hunks) {
-        (MergeResult::Resolved(old), None) => old == content,
-        (MergeResult::Conflict(old), Some(new)) => old == new,
-        (MergeResult::Resolved(_), Some(_)) | (MergeResult::Conflict(_), None) => false,
-    };
     if unchanged {
         return Ok(file_ids.clone());
     }
 
-    let Some(hunks) = new_hunks else {
+    let Some(contents) = contents else {
         // Either there are no markers or they don't have the expected arity
         let file_id = store.write_file(path, &mut &content[..]).await?;
         return Ok(Merge::normal(file_id));
     };
-
-    let mut contents = simplified_file_ids.map(|_| vec![]);
-    for hunk in hunks {
-        if let Some(slice) = hunk.as_resolved() {
-            for content in &mut contents {
-                content.extend_from_slice(slice);
-            }
-        } else {
-            for (content, slice) in zip(&mut contents, hunk) {
-                content.extend(Vec::from(slice));
-            }
-        }
-    }
 
     // Now write the new files contents we found by parsing the file with conflict
     // markers.
@@ -1123,6 +1100,43 @@ pub async fn update_from_content(
         Merge::from_vec(new_file_ids)
     };
     Ok(new_file_ids)
+}
+
+/// Parses conflict markers in `content` and returns the new contents (if any)
+/// and an indicator of whether the content was unchanged.
+pub fn update_from_materialized_content(
+    old_contents: &Merge<BString>,
+    content: &[u8],
+    conflict_marker_len: usize,
+    merge_options: &MergeOptions,
+) -> (Option<Merge<BString>>, bool) {
+    let old_hunks = files::merge_hunks(old_contents, merge_options);
+    let new_hunks = parse_conflict(content, old_contents.num_sides(), conflict_marker_len);
+    let unchanged = match (&old_hunks, &new_hunks) {
+        (MergeResult::Resolved(old), None) => old == content,
+        (MergeResult::Conflict(old), Some(new)) => old == new,
+        (MergeResult::Resolved(_), Some(_)) | (MergeResult::Conflict(_), None) => false,
+    };
+    if unchanged {
+        return (None, true);
+    }
+    let Some(hunks) = new_hunks else {
+        return (None, false);
+    };
+    let mut contents = old_contents.map(|_| vec![]);
+    for hunk in hunks {
+        if let Some(slice) = hunk.as_resolved() {
+            for content in &mut contents {
+                content.extend_from_slice(slice);
+            }
+        } else {
+            for (content, slice) in zip(&mut contents, hunk) {
+                content.extend(Vec::from(slice));
+            }
+        }
+    }
+    let contents: Merge<BString> = contents.into_map(BString::new);
+    (Some(contents), false)
 }
 
 #[cfg(test)]
