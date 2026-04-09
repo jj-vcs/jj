@@ -92,7 +92,7 @@ There are a few way of specifying the target remote for your projects:
 The remote used to push is determined as follows:
 
 - If you have more than one origin, or the origin isn't called gerrit, run
-  `jj config set --repo gerrit.default_remote <gerrit remote name>` to set-up a
+  `jj config set --repo gerrit.default-remote <gerrit remote name>` to set-up a
   default remote.
 - To upload to a specific remote as a one-off thing, use `--remote <remote name>`
 
