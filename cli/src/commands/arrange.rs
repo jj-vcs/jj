@@ -16,6 +16,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::io;
 
+use bstr::ByteSlice as _;
 use crossterm::ExecutableCommand as _;
 use crossterm::event::Event;
 use crossterm::event::KeyCode;
@@ -595,15 +596,6 @@ fn render(
             UiAction::Abandon => "×",
             UiAction::Keep => "○",
         };
-        let graph_lines = row_renderer.next_row(id, edges, glyph.to_string(), "".to_string());
-        let graph_text = Text::from(graph_lines);
-        row_area = row_area
-            .offset(Offset {
-                x: 0,
-                y: graph_text.height() as i32,
-            })
-            .intersection(main_area);
-        frame.render_widget(graph_text, graph_area);
 
         let is_context_node =
             state.external_children.contains(id) || state.external_parents.contains(id);
@@ -629,6 +621,18 @@ fn render(
         drop(formatter);
         let text = ansi_to_tui::IntoText::into_text(&text_lines).unwrap();
         frame.render_widget(text, text_area);
+
+        // Make graph as tall as the text
+        let graph_message = "\n".repeat(text_lines.lines().count());
+        let graph_lines = row_renderer.next_row(id, edges, glyph.to_string(), graph_message);
+        let graph_text = Text::from(graph_lines);
+        row_area = row_area
+            .offset(Offset {
+                x: 0,
+                y: graph_text.height() as i32,
+            })
+            .intersection(main_area);
+        frame.render_widget(graph_text, graph_area);
     }
 }
 
