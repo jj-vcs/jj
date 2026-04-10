@@ -18,6 +18,7 @@ mod external;
 
 use std::sync::Arc;
 
+use bstr::BString;
 use futures::future::try_join_all;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::CopyId;
@@ -25,6 +26,7 @@ use jj_lib::backend::TreeValue;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::config::ConfigNamePathBuf;
+use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::conflicts::MaterializedFileConflictValue;
 use jj_lib::conflicts::try_materialize_file_conflict_value;
@@ -40,6 +42,7 @@ use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::settings::UserSettings;
+use jj_lib::tree_merge::MergeOptions;
 use jj_lib::working_copy::SnapshotError;
 use thiserror::Error;
 
@@ -463,6 +466,37 @@ impl MergeEditor {
                     tree,
                     &merge_tool_files,
                     self.conflict_marker_style,
+                )
+                .await
+            }
+        }
+    }
+
+    /// Starts a merge editor with the given conflicted content.
+    pub async fn merge_conflicted_content(
+        &self,
+        merge_options: &MergeOptions,
+        materialized_conflicted_contents: &Merge<BString>,
+        conflict_labels: &ConflictLabels,
+        default_conflict_marker_style: ConflictMarkerStyle,
+    ) -> Result<Option<Merge<BString>>, ConflictResolveError> {
+        match &self.tool {
+            MergeTool::Builtin => {
+                todo!();
+            }
+            MergeTool::Ours => {
+                todo!();
+            }
+            MergeTool::Theirs => {
+                todo!();
+            }
+            MergeTool::External(editor) => {
+                external::run_mergetool_external_with_materialized_content(
+                    editor,
+                    merge_options,
+                    materialized_conflicted_contents,
+                    conflict_labels,
+                    default_conflict_marker_style,
                 )
                 .await
             }
