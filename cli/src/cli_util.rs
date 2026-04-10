@@ -1013,6 +1013,18 @@ impl WorkspaceCommandEnvironment {
         repo: &dyn Repo,
         to_rewrite_expr: &Arc<ResolvedRevsetExpression>,
     ) -> Result<Option<CommitId>, CommandError> {
+        self.find_immutable_commit_with(repo, to_rewrite_expr, self.immutable_expression())
+            .await
+    }
+
+    /// Returns first immutable commit, evaluating immutability with the given
+    /// expression (overriding the current workspace's parsed one).
+    async fn find_immutable_commit_with(
+        &self,
+        repo: &dyn Repo,
+        to_rewrite_expr: &Arc<ResolvedRevsetExpression>,
+        immutable_expression: Arc<UserRevsetExpression>,
+    ) -> Result<Option<CommitId>, CommandError> {
         let immutable_expression = if self.command.global_args().ignore_immutable {
             UserRevsetExpression::root()
         } else {
