@@ -103,10 +103,15 @@ pub fn snapshot_progress(ui: &Ui) -> Option<impl Fn(&RepoPath) + use<>> {
     let writer = Mutex::new(ProgressWriter::new(ui, "Snapshotting")?);
 
     Some(move |path: &RepoPath| {
-        writer
-            .lock()
-            .unwrap()
-            .display(path.to_fs_path_unchecked(Path::new("")).to_str().unwrap())
-            .ok();
+        // When the lock is held, skip updates to reduce contention.
+        //
+        // Executing the "future work" above may change this locking. Check
+        // performance with output going to a tty so that writes are slower and
+        // any lock contention is more visible.
+        if let Ok(mut progress) = writer.try_lock() {
+            progress
+                .display(path.to_fs_path_unchecked(Path::new("")).to_str().unwrap())
+                .ok();
+        }
     })
 }
