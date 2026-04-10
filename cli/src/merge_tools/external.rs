@@ -203,7 +203,7 @@ async fn run_mergetool_external_single_file(
             editor,
             store.merge_options(),
             default_conflict_marker_style,
-            repo_path,
+            Some(repo_path),
             &file.contents,
             &file.labels,
         )?;
@@ -256,11 +256,60 @@ async fn run_mergetool_external_single_file(
     Ok(())
 }
 
+/// Runs the merge tool on content with materialized conflict markers, and
+/// returns the new merged content.
+pub async fn run_mergetool_external_with_materialized_content(
+    editor: &ExternalMergeTool,
+    merge_options: &MergeOptions,
+    materialized_conflicted_contents: &Merge<BString>,
+    conflict_labels: &ConflictLabels,
+    default_conflict_marker_style: ConflictMarkerStyle,
+) -> Result<Option<Merge<BString>>, ConflictResolveError> {
+    let (conflict_marker_len, exit_status, exit_status_implies_conflict, output_file_contents) =
+        run_mergetool_external_inner(
+            editor,
+            merge_options,
+            default_conflict_marker_style,
+            None, // There is no repo_path to pass around.
+            materialized_conflicted_contents,
+            conflict_labels,
+        )?;
+
+    let new_contents = if editor.merge_tool_edits_conflict_markers || exit_status_implies_conflict {
+        tracing::info!(
+            ?exit_status_implies_conflict,
+            "jj is reparsing output for conflicts, `merge-tool-edits-conflict-markers = {}` in \
+             TOML config;",
+            editor.merge_tool_edits_conflict_markers
+        );
+        let (new_contents, _unchanged) = conflicts::update_from_materialized_content(
+            materialized_conflicted_contents,
+            output_file_contents.as_slice(),
+            conflict_marker_len,
+            merge_options,
+        );
+        new_contents
+    } else {
+        Some(Merge::resolved(BString::new(output_file_contents)))
+    };
+
+    // If the exit status indicated there should be conflict markers but there
+    // weren't any, it's likely that the tool generated invalid conflict markers, so
+    // we need to inform the user. If we didn't treat this as an error, the user
+    // might think the conflict was resolved successfully.
+    if exit_status_implies_conflict && new_contents.as_ref().is_none_or(|c| c.is_resolved()) {
+        return Err(ConflictResolveError::ExternalTool(
+            ExternalToolError::InvalidConflictMarkers { exit_status },
+        ));
+    }
+    Ok(new_contents)
+}
+
 fn run_mergetool_external_inner(
     editor: &ExternalMergeTool,
     merge_options: &MergeOptions,
     default_conflict_marker_style: ConflictMarkerStyle,
-    repo_path: &RepoPathBuf,
+    repo_path: Option<&RepoPathBuf>,
     materialized_conflicted_contents: &Merge<BString>,
     conflict_labels: &ConflictLabels,
 ) -> Result<(usize, ExitStatus, bool, Vec<u8>), ConflictResolveError> {
@@ -298,10 +347,12 @@ fn run_mergetool_external_inner(
     };
 
     let temp_dir = new_utf8_temp_dir("jj-resolve-").map_err(ExternalToolError::SetUpDir)?;
-    let suffix = if let Some(filename) = repo_path.components().next_back() {
+    let suffix = if let Some(real_repo_path) = repo_path
+        && let Some(filename) = real_repo_path.components().next_back()
+    {
         let name = filename
             .to_fs_name()
-            .map_err(|err| err.with_path(repo_path))?;
+            .map_err(|err| err.with_path(real_repo_path))?;
         format!("_{name}")
     } else {
         // This should never actually trigger, but we support it just in case
@@ -326,7 +377,9 @@ fn run_mergetool_external_inner(
         })
         .try_collect()?;
     variables.insert("marker_length", conflict_marker_len.to_string());
-    variables.insert("path", repo_path.as_internal_file_string().to_string());
+    if let Some(real_repo_path) = repo_path {
+        variables.insert("path", real_repo_path.as_internal_file_string().to_string());
+    }
 
     let mut cmd = Command::new(&editor.program);
     cmd.args(interpolate_variables(&editor.merge_args, &variables));
