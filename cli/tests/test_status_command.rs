@@ -694,6 +694,22 @@ fn test_status_filtered_untracked() {
 }
 
 #[test]
+fn test_status_reports_divergence() {
+    // Shows that status can show divergence and solved divergence.
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["new -m=aa"]).success();
+    work_dir.run_jj(["new -m=bb"]).success();
+    // use `jj desc --at-op` to create divergence in "aa"
+    work_dir
+        .run_jj(["jj", "desc -m=aaa", "--at-op=@-"])
+        .success();
+    // The divergence should now be reported in status.
+    insta::assert_snapshot!(work_dir.run_jj(["status"]), @"");
+}
+
+#[test]
 fn test_status_no_working_copy() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
