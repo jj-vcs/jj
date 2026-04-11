@@ -176,6 +176,14 @@ pub(crate) struct SquashArgs {
     /// The source revision will not be abandoned
     #[arg(long, short)]
     keep_emptied: bool,
+
+    /// The revision(s) to preserve the content of (not the diff)
+    #[arg(
+        long,
+        value_name = "REVSETS",
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
+    )]
+    restore_snapshots: Option<Vec<RevisionArg>>,
 }
 
 #[instrument(skip_all)]
@@ -248,7 +256,18 @@ pub(crate) async fn cmd_squash(
         }
     };
 
+    let to_restore = if let Some(restore_snapshots) = args.restore_snapshots.as_deref() {
+        workspace_command
+            .parse_union_revsets(ui, restore_snapshots)?
+            .evaluate_to_commit_ids()?
+            .try_collect()
+            .await?
+    } else {
+        std::collections::HashSet::new()
+    };
+
     let mut tx = workspace_command.start_transaction();
+    let mut num_reparented = 0;
     let mut num_rebased = 0;
     let destination = if let Some(commit) = pre_existing_destination {
         commit
@@ -295,9 +314,14 @@ pub(crate) async fn cmd_squash(
                             .collect(),
                     );
                 }
-                let new_commit = rewriter.rebase().await?.write().await?;
+                let new_commit = if to_restore.contains(&old_commit_id) {
+                    num_reparented += 1;
+                    rewriter.reparent().write().await?
+                } else {
+                    num_rebased += 1;
+                    rewriter.rebase().await?.write().await?
+                };
                 rewritten.insert(old_commit_id, new_commit);
-                num_rebased += 1;
                 Ok(())
             })
             .await?;
@@ -334,6 +358,7 @@ pub(crate) async fn cmd_squash(
         &source_commits,
         &destination,
         args.keep_emptied,
+        &to_restore,
     )
     .await?
     {
@@ -393,12 +418,30 @@ pub(crate) async fn cmd_squash(
             );
         }
         let commit = commit_builder.write(tx.repo_mut()).await?;
-        let num_rebased = tx.repo_mut().rebase_descendants().await?;
+        let mut num_reparented = 0;
+        let mut num_rebased = 0;
+        tx.repo_mut()
+            .rebase_or_reparent_descendants(|commit_id| {
+                if to_restore.contains(commit_id) {
+                    num_reparented += 1;
+                    true
+                } else {
+                    num_rebased += 1;
+                    false
+                }
+            })
+            .await?;
         if let Some(mut formatter) = ui.status_formatter() {
             if insert_destination_commit {
                 write!(formatter, "Created new commit ")?;
                 tx.write_commit_summary(formatter.as_mut(), &commit)?;
                 writeln!(formatter)?;
+            }
+            if num_reparented > 0 {
+                writeln!(
+                    formatter,
+                    "Rebased {num_reparented} descendant commits (while preserving their content)"
+                )?;
             }
             if num_rebased > 0 {
                 writeln!(formatter, "Rebased {num_rebased} descendant commits")?;
@@ -414,6 +457,12 @@ pub(crate) async fn cmd_squash(
                 write!(formatter, "Created new commit ")?;
                 tx.write_commit_summary(formatter.as_mut(), &destination)?;
                 writeln!(formatter)?;
+            }
+            if num_reparented > 0 {
+                writeln!(
+                    formatter,
+                    "Rebased {num_reparented} descendant commits (while preserving their content)"
+                )?;
             }
             if num_rebased > 0 {
                 writeln!(formatter, "Rebased {num_rebased} descendant commits")?;
@@ -436,7 +485,8 @@ pub(crate) async fn cmd_squash(
             }
         }
     }
-    tx.finish(ui, tx_description).await?;
+    tx.finish_with_to_restore(ui, tx_description, &to_restore)
+        .await?;
     Ok(())
 }
 

@@ -1336,6 +1336,7 @@ pub async fn squash_commits<'repo>(
     sources: &[CommitWithSelection],
     destination: &Commit,
     keep_emptied: bool,
+    to_restore: &HashSet<CommitId>,
 ) -> BackendResult<Option<SquashedCommit<'repo>>> {
     struct SourceCommit<'a> {
         commit: &'a CommitWithSelection,
@@ -1403,16 +1404,19 @@ pub async fn squash_commits<'repo>(
         // rewritten sources. Otherwise it will likely already have the content
         // changes we're moving, so applying them will have no effect and the
         // changes will disappear.
-        let options = RebaseOptions::default();
-        repo.rebase_descendants_with_options(&options, |old_commit, rebased_commit| {
-            if old_commit.id() != destination.id() {
-                return;
-            }
-            rewritten_destination = match rebased_commit {
-                RebasedCommit::Rewritten(commit) => commit,
-                RebasedCommit::Abandoned { .. } => panic!("all commits should be kept"),
-            };
-        })
+        repo.rebase_or_reparent_descendants_with_options(
+            &RebaseOptions::default(),
+            |commit_id| to_restore.contains(commit_id),
+            |old_commit, rebased_commit| {
+                if old_commit.id() != destination.id() {
+                    return;
+                }
+                rewritten_destination = match rebased_commit {
+                    RebasedCommit::Rewritten(commit) => commit,
+                    RebasedCommit::Abandoned { .. } => panic!("all commits should be kept"),
+                };
+            },
+        )
         .await?;
     }
     let mut predecessors = vec![destination.id().clone()];
