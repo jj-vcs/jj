@@ -34,7 +34,7 @@ pub enum GitIgnoreError {
 #[derive(Debug)]
 pub struct GitIgnoreFile {
     parent: Option<Arc<Self>>,
-    matcher: gix_ignore::Search,
+    matcher: gix::ignore::Search,
     prefix: String,
 }
 
@@ -42,7 +42,7 @@ impl GitIgnoreFile {
     pub fn empty() -> Arc<Self> {
         Arc::new(Self {
             parent: None,
-            matcher: gix_ignore::Search::default(),
+            matcher: gix::ignore::Search::default(),
             prefix: "".to_string(),
         })
     }
@@ -59,7 +59,7 @@ impl GitIgnoreFile {
     ) -> Result<Arc<Self>, GitIgnoreError> {
         assert!(prefix.is_empty() || prefix.ends_with('/'));
         // Construct the gix search object.
-        let mut matcher = gix_ignore::Search::default();
+        let mut matcher = gix::ignore::Search::default();
         let root = if prefix.is_empty() {
             None
         } else {
@@ -69,7 +69,7 @@ impl GitIgnoreFile {
             input,
             ignore_path,
             root,
-            gix_ignore::search::Ignore {
+            gix::ignore::search::Ignore {
                 support_precious: false,
             },
         );
@@ -131,7 +131,7 @@ impl GitIgnoreFile {
                 let m = file.matcher.pattern_matching_relative_path(
                     relative_path.as_bytes().as_bstr(),
                     Some(is_dir),
-                    gix_ignore::glob::pattern::Case::Sensitive,
+                    gix::ignore::glob::pattern::Case::Sensitive,
                 );
                 if let Some(m) = m {
                     return !m.pattern.is_negative();
