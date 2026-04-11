@@ -103,6 +103,7 @@ use crate::rewrite::RebasedCommit;
 use crate::rewrite::RewriteRefsOptions;
 use crate::rewrite::merge_commit_trees;
 use crate::rewrite::rebase_commit_with_options;
+use crate::rewrite::reparent_commit_with_options;
 use crate::settings::UserSettings;
 use crate::signing::SignInitError;
 use crate::signing::Signer;
@@ -1448,7 +1449,9 @@ impl MutableRepo {
                 if rewriter.parents_changed() {
                     let old_commit = rewriter.old_commit().clone();
                     let rebased_commit = if should_restore(old_commit.id()) {
-                        RebasedCommit::Rewritten(rewriter.reparent().write().await?)
+                        RebasedCommit::Rewritten(
+                            reparent_commit_with_options(rewriter, options).await?,
+                        )
                     } else {
                         rebase_commit_with_options(rewriter, options).await?
                     };

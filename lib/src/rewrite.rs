@@ -432,6 +432,20 @@ pub async fn rebase_commit_with_options(
     }
 }
 
+pub async fn reparent_commit_with_options(
+    mut rewriter: CommitRewriter<'_>,
+    options: &RebaseOptions,
+) -> BackendResult<Commit> {
+    if options.simplify_ancestor_merge {
+        rewriter
+            .simplify_ancestor_merge()
+            // TODO: indexing error shouldn't be a "BackendError"
+            .map_err(|err| BackendError::Other(err.into()))?;
+    }
+
+    rewriter.reparent().write().await
+}
+
 /// Moves changes from `sources` to the `destination` parent, returns new tree.
 // TODO: pass conflict labels as argument to provide more specific information
 pub async fn rebase_to_dest_parent(
@@ -578,8 +592,9 @@ impl ComputedMoveCommits {
         self,
         mut_repo: &mut MutableRepo,
         options: &RebaseOptions,
+        to_restore: &HashSet<CommitId>,
     ) -> BackendResult<MoveCommitsStats> {
-        apply_move_commits(mut_repo, self, options).await
+        apply_move_commits(mut_repo, self, options, to_restore).await
     }
 }
 
@@ -595,10 +610,11 @@ pub async fn move_commits(
     mut_repo: &mut MutableRepo,
     loc: &MoveCommitsLocation,
     options: &RebaseOptions,
+    to_restore: &HashSet<CommitId>,
 ) -> BackendResult<MoveCommitsStats> {
     compute_move_commits(mut_repo, loc)
         .await?
-        .apply(mut_repo, options)
+        .apply(mut_repo, options, to_restore)
         .await
 }
 
@@ -903,6 +919,7 @@ async fn apply_move_commits(
     mut_repo: &mut MutableRepo,
     commits: ComputedMoveCommits,
     options: &RebaseOptions,
+    to_restore: &HashSet<CommitId>,
 ) -> BackendResult<MoveCommitsStats> {
     let mut num_rebased_targets = 0;
     let mut num_rebased_descendants = 0;
@@ -929,15 +946,29 @@ async fn apply_move_commits(
                     rewriter.abandon();
                 } else if rewriter.parents_changed() {
                     let is_target_commit = commits.target_commit_ids.contains(&old_commit_id);
-                    let rebased_commit = rebase_commit_with_options(
-                        rewriter,
-                        if is_target_commit {
-                            options
-                        } else {
-                            rebase_descendant_options
-                        },
-                    )
-                    .await?;
+                    let rebased_commit = if to_restore.contains(&old_commit_id) {
+                        RebasedCommit::Rewritten(
+                            reparent_commit_with_options(
+                                rewriter,
+                                if is_target_commit {
+                                    options
+                                } else {
+                                    rebase_descendant_options
+                                },
+                            )
+                            .await?,
+                        )
+                    } else {
+                        rebase_commit_with_options(
+                            rewriter,
+                            if is_target_commit {
+                                options
+                            } else {
+                                rebase_descendant_options
+                            },
+                        )
+                        .await?
+                    };
                     if let RebasedCommit::Abandoned { .. } = rebased_commit {
                         num_abandoned_empty += 1;
                     } else if is_target_commit {

@@ -467,6 +467,7 @@ async fn move_first_commit(
             },
             simplify_ancestor_merge: false,
         },
+        &Default::default(),
     )
     .await?;
 
