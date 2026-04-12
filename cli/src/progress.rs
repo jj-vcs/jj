@@ -37,24 +37,22 @@ pub struct ProgressWriter<'a> {
     next_display_time: Instant,
 }
 
-// Future work: Make that the progress prints the current element we are
-// currently working on, either:
-// - upon change of the element we are working on and if the next display time
-//   is passed (current behavior)
-// - upon reaching the next display time for an element that would have not been
-//   displayed yet. This
-// would assure two things:
-// - The first message will end-up being displayed if it takes more than the
-//   initial delay to process the associated element. Assuring jj never goes
-//   silent for more than the specified initial delay.
-// - For the other elements, what we print is more factual regarding what we are
-//   doing. Without printing too much.
+// Callers call `display` every time they have new progress, and this will
+// intermittently print the message synchronously, discarding too-frequent
+// updates. There is an initial delay to avoid printing anything on fast
+// commands. For example, `jj status` may be fast or slow depending on
+// repository size, and in slow runs the progress updates help users see that jj
+// is working.
 //
-// Note that the first message printing by itself, would not be suitable for the
-// commit signing progress as, on some configuration the user is prompted to
-// enter its password to unlock the key used to sign, then the message would be
-// conflicting with that message from another process.
-
+// This deliberately doesn't try to be too smart about when to display progress,
+// such as trying to display the latest message. Printing synchronously without
+// any delay to a terminal would be a bottleneck; asynchronous output would both
+// be complex due to threading, and also need to address callers that have their
+// own output (for example, commit signing may subprocess and prompt for
+// passphrases).
+//
+// When something is slow, this means the displayed message may be from prior to
+// a slow step. Progress messages are an approximate indicator.
 impl<'a> ProgressWriter<'a> {
     pub fn new(ui: &Ui, prefix: &'a str) -> Option<Self> {
         let output = ui.progress_output()?;
