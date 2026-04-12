@@ -1594,7 +1594,7 @@ impl FileSnapshotter<'_> {
                 }
             }
 
-            if git_ignore.matches(&path.to_internal_dir_string())
+            if git_ignore.matches_dir(path.as_internal_file_string())
                 && self.force_tracking_matcher.visit(&path).is_nothing()
             {
                 // If the whole directory is ignored by .gitignore, visit only
@@ -1624,7 +1624,7 @@ impl FileSnapshotter<'_> {
                 progress(&path);
             }
             if maybe_current_file_state.is_none()
-                && (git_ignore.matches(path.as_internal_file_string())
+                && (git_ignore.matches_file(path.as_internal_file_string())
                     && !self.force_tracking_matcher.matches(&path))
             {
                 // If it wasn't already tracked and it matches
