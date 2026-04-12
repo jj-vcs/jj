@@ -60,11 +60,10 @@ impl GitIgnoreFile {
         assert!(prefix.is_empty() || prefix.ends_with('/'));
         // Construct the gix search object.
         let mut matcher = gix_ignore::Search::default();
-        let root = if prefix.is_empty() {
-            None
-        } else {
-            Some(Path::new(prefix))
-        };
+        // Since we strip the path prefix manually in matches(), the root path
+        // shouldn't be set. add_patterns_buffer() expects filesystem path pairs
+        // e.g. ignore_path = "/repo/bar/.gitignore" and root = "/repo".
+        let root = None;
         matcher.add_patterns_buffer(
             input,
             ignore_path,
