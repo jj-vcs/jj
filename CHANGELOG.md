@@ -42,7 +42,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj status` filters untracked paths by fileset
   [#9287](https://github.com/jj-vcs/jj/issues/9287)
 
-* Improved performance for snapshot progress, visibly improving `jj status`
+* Improved performance for snapshotting, visibly improving `jj status`
   speed for large repositories.
 
 ## [0.40.0] - 2026-04-01
