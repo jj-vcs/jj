@@ -355,7 +355,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::cell::RefCell;
     use std::convert::Infallible;
+    use std::iter::Peekable;
+    use std::rc::Rc;
 
     use itertools::Itertools as _;
     use renderdag::Ancestor;
@@ -383,6 +386,44 @@ mod tests {
             GraphEdgeType::Missing => format!("missing({c})"),
             GraphEdgeType::Direct => format!("direct({c})"),
             GraphEdgeType::Indirect => format!("indirect({c})"),
+        }
+    }
+
+    /// Wraps the iterator and returns the wrapped iterator and a spy for
+    /// peeking the next item the iterator will return.
+    fn spy_on<I: Iterator>(iter: I) -> (IteratorSpy<I>, SpiedIterator<I>) {
+        let iter = Rc::new(RefCell::new(iter.peekable()));
+        let spy = IteratorSpy { iter: iter.clone() };
+        let iter = SpiedIterator { iter };
+        (spy, iter)
+    }
+
+    struct IteratorSpy<I: Iterator> {
+        iter: Rc<RefCell<Peekable<I>>>,
+    }
+
+    struct SpiedIterator<I: Iterator> {
+        iter: Rc<RefCell<Peekable<I>>>,
+    }
+
+    impl<N, I> IteratorSpy<I>
+    where
+        I: Iterator<Item = N>,
+        N: Clone,
+    {
+        fn peek(&self) -> Option<N> {
+            self.iter.borrow_mut().peek().cloned()
+        }
+    }
+
+    impl<N, I> Iterator for SpiedIterator<I>
+    where
+        I: Iterator<Item = N>,
+    {
+        type Item = N;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            self.iter.borrow_mut().next()
         }
     }
 
@@ -478,11 +519,12 @@ mod tests {
         ");
 
         // All nodes can be lazily emitted.
-        let mut iter = topo_grouped(graph.iter().cloned().peekable());
+        let (spy, iter) = spy_on(graph.iter().cloned());
+        let mut iter = topo_grouped(iter);
         assert_eq!(iter.next().unwrap()?.0, 'C');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'B');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'B');
         assert_eq!(iter.next().unwrap()?.0, 'B');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'A');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'A');
         Ok(())
     }
 
@@ -522,13 +564,14 @@ mod tests {
         ");
 
         // E can be lazy, then D and C will be queued.
-        let mut iter = topo_grouped(graph.iter().cloned().peekable());
+        let (spy, iter) = spy_on(graph.iter().cloned());
+        let mut iter = topo_grouped(iter);
         assert_eq!(iter.next().unwrap()?.0, 'E');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'D');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'D');
         assert_eq!(iter.next().unwrap()?.0, 'C');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'B');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'B');
         assert_eq!(iter.next().unwrap()?.0, 'B');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'A');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'A');
         Ok(())
     }
 
@@ -571,13 +614,14 @@ mod tests {
         ");
 
         // F can be lazy, then E will be queued, then C.
-        let mut iter = topo_grouped(graph.iter().cloned().peekable());
+        let (spy, iter) = spy_on(graph.iter().cloned());
+        let mut iter = topo_grouped(iter);
         assert_eq!(iter.next().unwrap()?.0, 'F');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'E');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'E');
         assert_eq!(iter.next().unwrap()?.0, 'D');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'C');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'C');
         assert_eq!(iter.next().unwrap()?.0, 'E');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'B');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'B');
         Ok(())
     }
 
@@ -635,11 +679,12 @@ mod tests {
         ");
 
         // I can be lazy, then H, G, and F will be queued.
-        let mut iter = topo_grouped(graph.iter().cloned().peekable());
+        let (spy, iter) = spy_on(graph.iter().cloned());
+        let mut iter = topo_grouped(iter);
         assert_eq!(iter.next().unwrap()?.0, 'I');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'H');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'H');
         assert_eq!(iter.next().unwrap()?.0, 'F');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'E');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'E');
         Ok(())
     }
 
@@ -1059,15 +1104,16 @@ mod tests {
         ");
 
         // F, E, and D can be lazy, then C will be queued, then B.
-        let mut iter = topo_grouped(graph.iter().cloned().peekable());
+        let (spy, iter) = spy_on(graph.iter().cloned());
+        let mut iter = topo_grouped(iter);
         assert_eq!(iter.next().unwrap()?.0, 'F');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'E');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'E');
         assert_eq!(iter.next().unwrap()?.0, 'E');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'D');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'D');
         assert_eq!(iter.next().unwrap()?.0, 'D');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'C');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'C');
         assert_eq!(iter.next().unwrap()?.0, 'B');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'A');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'A');
         Ok(())
     }
 
@@ -1117,15 +1163,16 @@ mod tests {
         ");
 
         // All nodes can be lazily emitted.
-        let mut iter = topo_grouped(graph.iter().cloned().peekable());
+        let (spy, iter) = spy_on(graph.iter().cloned());
+        let mut iter = topo_grouped(iter);
         assert_eq!(iter.next().unwrap()?.0, 'E');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'D');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'D');
         assert_eq!(iter.next().unwrap()?.0, 'D');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'C');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'C');
         assert_eq!(iter.next().unwrap()?.0, 'C');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'B');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'B');
         assert_eq!(iter.next().unwrap()?.0, 'B');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'A');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'A');
         Ok(())
     }
 
@@ -1864,12 +1911,9 @@ mod tests {
         // one of them in the queue has to be ignored.
         let mut iter = topo_grouped(graph.iter().cloned());
         assert_eq!(iter.next().unwrap()?.0, 'C');
-        assert_eq!(iter.emittable_ids, vec!['A', 'B']);
         assert_eq!(iter.next().unwrap()?.0, 'B');
-        assert_eq!(iter.emittable_ids, vec!['A', 'A']);
         assert_eq!(iter.next().unwrap()?.0, 'A');
         assert!(iter.next().is_none());
-        assert!(iter.emittable_ids.is_empty());
         Ok(())
     }
 
@@ -1891,10 +1935,8 @@ mod tests {
 
         let mut iter = topo_grouped(graph.iter().cloned());
         assert_eq!(iter.next().unwrap()?.0, 'B');
-        assert_eq!(iter.emittable_ids, vec!['A', 'A']);
         assert_eq!(iter.next().unwrap()?.0, 'A');
         assert!(iter.next().is_none());
-        assert!(iter.emittable_ids.is_empty());
         Ok(())
     }
 }
