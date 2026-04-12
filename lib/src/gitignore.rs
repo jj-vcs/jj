@@ -57,7 +57,7 @@ impl GitIgnoreFile {
         ignore_path: &Path,
         input: &[u8],
     ) -> Result<Arc<Self>, GitIgnoreError> {
-        assert!(prefix.is_empty() || prefix.ends_with('/'));
+        assert!(!prefix.ends_with('/'));
         // Construct the gix search object.
         let mut matcher = gix_ignore::Search::default();
         // Since we strip the path prefix manually in matches(), the root path
@@ -81,7 +81,11 @@ impl GitIgnoreFile {
         Ok(Arc::new(Self {
             parent,
             matcher,
-            prefix: prefix.to_string(),
+            prefix: if prefix.is_empty() {
+                prefix.to_owned()
+            } else {
+                format!("{prefix}/")
+            },
         }))
     }
 
@@ -179,7 +183,7 @@ mod tests {
     #[test]
     fn test_gitignore_empty_file_with_prefix() {
         let file = GitIgnoreFile::empty()
-            .chain("dir/", ignore_path(), b"")
+            .chain("dir", ignore_path(), b"")
             .unwrap();
         assert!(!file.matches_file("dir/foo"));
     }
@@ -199,7 +203,7 @@ mod tests {
     #[test]
     fn test_gitignore_literal_with_prefix() {
         let file = GitIgnoreFile::empty()
-            .chain("dir/", ignore_path(), b"foo\n")
+            .chain("dir", ignore_path(), b"foo\n")
             .unwrap();
         assert!(file.matches_file("dir/foo"));
         assert!(file.matches_file("dir/subdir/foo"));
@@ -208,7 +212,7 @@ mod tests {
     #[test]
     fn test_gitignore_pattern_same_as_prefix() {
         let file = GitIgnoreFile::empty()
-            .chain("dir/", ignore_path(), b"dir\n")
+            .chain("dir", ignore_path(), b"dir\n")
             .unwrap();
         assert!(file.matches_file("dir/dir"));
         // We don't want the "dir" pattern to apply to the parent directory
@@ -227,7 +231,7 @@ mod tests {
     #[test]
     fn test_gitignore_rooted_literal_with_prefix() {
         let file = GitIgnoreFile::empty()
-            .chain("dir/", ignore_path(), b"/foo\n")
+            .chain("dir", ignore_path(), b"/foo\n")
             .unwrap();
         assert!(file.matches_file("dir/foo"));
         assert!(!file.matches_file("dir/subdir/foo"));
@@ -251,9 +255,9 @@ mod tests {
         let file = GitIgnoreFile::empty()
             .chain("", ignore_path(), b"/dummy\n")
             .unwrap()
-            .chain("dir1/", ignore_path(), b"/dummy\n")
+            .chain("dir1", ignore_path(), b"/dummy\n")
             .unwrap()
-            .chain("dir1/dir2/", ignore_path(), b"/dir3\n")
+            .chain("dir1/dir2", ignore_path(), b"/dir3\n")
             .unwrap();
         assert!(!file.matches_file("foo"));
         assert!(!file.matches_dir("dir1"));
@@ -358,7 +362,7 @@ mod tests {
     #[test]
     fn test_gitignore_leading_dir_glob_with_prefix() {
         let file = GitIgnoreFile::empty()
-            .chain("dir1/dir2/", ignore_path(), b"**/foo\n")
+            .chain("dir1/dir2", ignore_path(), b"**/foo\n")
             .unwrap();
         assert!(file.matches_file("dir1/dir2/foo"));
         assert!(!file.matches_file("dir1/dir2/bar"));
@@ -408,7 +412,7 @@ mod tests {
     #[test]
     fn test_gitignore_glob_all_subdir() {
         let file = GitIgnoreFile::empty()
-            .chain("foo/", ignore_path(), b"*\n")
+            .chain("foo", ignore_path(), b"*\n")
             .unwrap();
         assert!(!file.matches_dir(""));
         assert!(!file.matches_file("foo"));
@@ -458,13 +462,13 @@ mod tests {
         assert!(!file1.matches_file("foo/bar"));
         assert!(!file1.matches_file("foo/bar/baz"));
 
-        let file2 = file1.chain("foo/", ignore_path(), b"!/bar").unwrap();
+        let file2 = file1.chain("foo", ignore_path(), b"!/bar").unwrap();
         assert!(file1.matches_dir("foo"));
         assert!(!file2.matches_file("foo/bar"));
         assert!(!file2.matches_file("foo/bar/baz"));
         assert!(!file2.matches_file("foo/baz"));
 
-        let file3 = file2.chain("foo/bar/", ignore_path(), b"/baz").unwrap();
+        let file3 = file2.chain("foo/bar", ignore_path(), b"/baz").unwrap();
         assert!(!file2.matches_dir("foo/bar"));
         assert!(file3.matches_file("foo/bar/baz"));
         assert!(!file3.matches_file("foo/bar/qux"));

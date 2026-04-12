@@ -1523,7 +1523,7 @@ impl FileSnapshotter<'_> {
         } = directory_to_visit;
 
         let git_ignore = git_ignore
-            .chain_with_file(&dir.to_internal_dir_string(), disk_dir.join(".gitignore"))?;
+            .chain_with_file(dir.as_internal_file_string(), disk_dir.join(".gitignore"))?;
         let dir_entries: Vec<_> = disk_dir
             .read_dir()
             .and_then(|entries| entries.try_collect())
