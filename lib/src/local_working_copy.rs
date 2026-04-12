@@ -1522,8 +1522,7 @@ impl FileSnapshotter<'_> {
             file_states,
         } = directory_to_visit;
 
-        let git_ignore = git_ignore
-            .chain_with_file(dir.as_internal_file_string(), disk_dir.join(".gitignore"))?;
+        let git_ignore = git_ignore.chain_with_file(&dir, disk_dir.join(".gitignore"))?;
         let dir_entries: Vec<_> = disk_dir
             .read_dir()
             .and_then(|entries| entries.try_collect())
@@ -1594,7 +1593,7 @@ impl FileSnapshotter<'_> {
                 }
             }
 
-            if git_ignore.matches_dir(path.as_internal_file_string())
+            if git_ignore.matches_dir(&path)
                 && self.force_tracking_matcher.visit(&path).is_nothing()
             {
                 // If the whole directory is ignored by .gitignore, visit only
@@ -1624,8 +1623,7 @@ impl FileSnapshotter<'_> {
                 progress(&path);
             }
             if maybe_current_file_state.is_none()
-                && (git_ignore.matches_file(path.as_internal_file_string())
-                    && !self.force_tracking_matcher.matches(&path))
+                && (git_ignore.matches_file(&path) && !self.force_tracking_matcher.matches(&path))
             {
                 // If it wasn't already tracked and it matches
                 // the ignored paths, then ignore it.

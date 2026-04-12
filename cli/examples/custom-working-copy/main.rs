@@ -31,6 +31,7 @@ use jj_lib::op_store::OperationId;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::ReadonlyRepo;
+use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
@@ -243,7 +244,7 @@ impl LockedWorkingCopy for LockedConflictsWorkingCopy {
     ) -> Result<(MergedTree, SnapshotStats), SnapshotError> {
         let options = SnapshotOptions {
             base_ignores: options.base_ignores.chain(
-                "",
+                RepoPath::root(),
                 Path::new(""),
                 "/.conflicts".as_bytes(),
             )?,

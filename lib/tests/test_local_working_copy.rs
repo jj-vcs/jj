@@ -1788,8 +1788,11 @@ fn test_git_submodule(gitignore_content: &str) -> TestResult {
     let repo = test_workspace.repo.clone();
     let store = repo.store().clone();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
-    let base_ignores =
-        GitIgnoreFile::empty().chain("", Path::new(""), gitignore_content.as_bytes())?;
+    let base_ignores = GitIgnoreFile::empty().chain(
+        RepoPath::root(),
+        Path::new(""),
+        gitignore_content.as_bytes(),
+    )?;
     let snapshot_options = SnapshotOptions {
         base_ignores,
         ..empty_snapshot_options()
