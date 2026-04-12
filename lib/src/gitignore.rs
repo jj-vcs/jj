@@ -380,6 +380,35 @@ mod tests {
     }
 
     #[test]
+    fn test_gitignore_glob_all_root() {
+        let file = GitIgnoreFile::empty()
+            .chain("", ignore_path(), b"*\n")
+            .unwrap();
+        // TODO: Since "*" in sub directory doesn't match "sub/", "*" in the
+        // root directory shouldn't probably match "". This doesn't matter in
+        // practice because the root directory path is never tested.
+        assert!(file.matches(""));
+        assert!(file.matches("foo"));
+        assert!(file.matches("foo/"));
+        assert!(file.matches("foo/bar"));
+        assert!(file.matches("foo/bar/"));
+    }
+
+    #[test]
+    fn test_gitignore_glob_all_subdir() {
+        let file = GitIgnoreFile::empty()
+            .chain("foo/", ignore_path(), b"*\n")
+            .unwrap();
+        assert!(!file.matches(""));
+        assert!(!file.matches("foo"));
+        assert!(!file.matches("foo/"));
+        assert!(file.matches("foo/bar"));
+        assert!(file.matches("foo/bar/"));
+        assert!(!file.matches("bar/baz"));
+        assert!(!file.matches("bar/baz/"));
+    }
+
+    #[test]
     fn test_gitignore_with_utf8_bom() {
         assert!(matches(b"\xef\xbb\xbffoo\n", "foo"));
         assert!(!matches(b"\n\xef\xbb\xbffoo\n", "foo"));
