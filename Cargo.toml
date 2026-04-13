@@ -34,7 +34,7 @@ clap = { version = "4.6.0", features = [
     "wrap_help",
     "string",
 ] }
-clap_complete = { version = "4.6.0", features = ["unstable-dynamic"] }
+clap_complete = { version = "4.6.2", features = ["unstable-dynamic"] }
 clap_complete_nushell = "4.6.0"
 # Update clap-markdown manually since test_generate_md_cli_help snapshot
 # will need regenerating.
@@ -61,14 +61,14 @@ gix = { version = "0.81.0", default-features = false, features = [
 ] }
 gix-ignore = { version = "0.19.1" }
 globset = "0.4.18"
-hashbrown = { version = "0.16.1", default-features = false, features = ["inline-more"] }
-indexmap = { version = "2.13.1", features = ["serde"] }
+hashbrown = { version = "0.17.0", default-features = false, features = ["inline-more"] }
+indexmap = { version = "2.14.0", features = ["serde"] }
 indoc = "2.0.7"
 insta = { version = "1.47.2", features = ["filters"] }
 interim = { version = "0.2.1", features = ["chrono_0_4"] }
 itertools = "0.14.0"
-jsonschema = { version = "0.45.1", default-features = false }
-libc = { version = "0.2.184" }
+jsonschema = { version = "0.46.0", default-features = false }
+libc = { version = "0.2.185" }
 maplit = "1.0.2"
 nix = "0.31.2"
 num_cpus = "1.17.0"
@@ -84,7 +84,7 @@ proptest-state-machine = "0.8.0"
 prost = "0.14.3"
 prost-build = "0.14.3"
 quote = "1.0.45"
-rand = "0.10.0"
+rand = "0.10.1"
 rand_chacha = "0.10.0"
 ratatui = { version = "0.30.0", features = ["crossterm"] }
 rayon = "1.10.0"
@@ -114,7 +114,7 @@ test-case = "3.3.1"
 textwrap = "0.16.2"
 thiserror = "2.0.17"
 timeago = { version = "0.6.0", default-features = false }
-tokio = { version = "1.51.0", features = ["io-util"] }
+tokio = { version = "1.51.1", features = ["io-util"] }
 toml = "1.1.0"
 toml_edit = { version = "0.25.8", features = ["serde"] }
 tracing = "0.1.44"
