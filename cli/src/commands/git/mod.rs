@@ -30,6 +30,7 @@ use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigSource;
 use jj_lib::git;
 use jj_lib::git::UnexpectedGitBackendError;
+use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteNameBuf;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::store::Store;
@@ -125,25 +126,62 @@ fn get_single_remote(store: &Store) -> Result<Option<RemoteNameBuf>, UnexpectedG
     })
 }
 
-/// Sets repository level `trunk()` alias to the specified remote symbol.
-fn write_repository_level_trunk_alias(
+#[derive(Clone, Copy, Debug)]
+struct RepoPresets<'a> {
+    remote: &'a RemoteName,
+    fetch_tags: Option<&'a [String]>,
+    trunk: Option<RemoteRefSymbol<'a>>,
+}
+
+impl RepoPresets<'_> {
+    fn is_default(self) -> bool {
+        let Self {
+            remote: _,
+            fetch_tags,
+            trunk,
+        } = self;
+        fetch_tags.is_none() && trunk.is_none()
+    }
+}
+
+/// Saves trunk and default fetch settings to repo-level config file.
+fn write_repo_presets(
     ui: &Ui,
     config_env: &ConfigEnv,
-    symbol: RemoteRefSymbol<'_>,
+    presets: RepoPresets<'_>,
 ) -> Result<(), CommandError> {
+    if presets.is_default() {
+        return Ok(()); // Don't initialize config directory
+    }
     let Some(config_path) = config_env.repo_config_path(ui)? else {
         // We couldn't find the user's home directory, so we skip this step.
         return Ok(());
     };
     let mut file = ConfigFile::load_or_empty(ConfigSource::Repo, config_path)?;
-    file.set_value(["revset-aliases", "trunk()"], symbol.to_string())
+    if let Some(exprs) = presets.fetch_tags {
+        file.set_value(
+            ["remotes", presets.remote.as_str(), "fetch-tags"],
+            join_string_expressions(exprs),
+        )
         .expect("initial repo config shouldn't have invalid values");
+    }
+    if let Some(symbol) = presets.trunk {
+        file.set_value(["revset-aliases", "trunk()"], symbol.to_string())
+            .expect("initial repo config shouldn't have invalid values");
+        writeln!(
+            ui.status(),
+            "Setting the revset alias `trunk()` to `{symbol}`",
+        )?;
+    }
     file.save()?;
-    writeln!(
-        ui.status(),
-        "Setting the revset alias `trunk()` to `{symbol}`",
-    )?;
     Ok(())
+}
+
+fn join_string_expressions(exprs: &[String]) -> String {
+    match exprs {
+        [] => "~*".to_owned(),  // no matches
+        _ => exprs.join(" | "), // no parentheses since | is the weakest operator
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]

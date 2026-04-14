@@ -34,7 +34,8 @@ use jj_lib::repo::Repo as _;
 use jj_lib::str_util::StringExpression;
 use jj_lib::workspace::Workspace;
 
-use super::write_repository_level_trunk_alias;
+use super::RepoPresets;
+use super::write_repo_presets;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
 use crate::command_error::CommandError;
@@ -282,11 +283,21 @@ pub async fn cmd_git_clone(
 
     let (mut workspace_command, (working_branch, working_is_default), config_env) = clone_result?;
 
+    write_repo_presets(
+        ui,
+        &config_env,
+        RepoPresets {
+            remote: remote_name,
+            fetch_tags: is_specific.then_some(args.tags.as_deref().unwrap_or(&[])),
+            trunk: working_branch
+                .as_deref()
+                .filter(|_| working_is_default)
+                .map(|name| name.to_remote_symbol(remote_name)),
+        },
+    )?;
+
     if let Some(name) = &working_branch {
         let working_symbol = name.to_remote_symbol(remote_name);
-        if working_is_default {
-            write_repository_level_trunk_alias(ui, &config_env, working_symbol)?;
-        }
         let working_branch_remote_ref = workspace_command
             .repo()
             .view()

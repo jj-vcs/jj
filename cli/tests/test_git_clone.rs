@@ -1350,6 +1350,15 @@ fn test_git_clone_branch_or_tag() {
     [EOF]
     "#);
 
+    // fetch-tags should be set to "~*" because we cloned a specific branch
+    // (without fetching any tags)
+    let repo_dir = test_env.work_dir("clone");
+    insta::assert_snapshot!(repo_dir.run_jj(["config", "list", "--repo"]), @r#"
+    remotes.origin.fetch-tags = "~*"
+    revset-aliases."trunk()" = "main@origin"
+    [EOF]
+    "#);
+
     // Clone a branch that doesn't exist
     let output = root_dir.run_jj([
         "git",
@@ -1379,7 +1388,7 @@ fn test_git_clone_branch_or_tag() {
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone_non_default"
     bookmark: feature1@origin [new] tracked
-    Working copy  (@) now at: pmmvwywv d16a31e5 (empty) (no description set)
+    Working copy  (@) now at: rzvqmyuk 5badc4c2 (empty) (no description set)
     Parent commit (@-)      : yxwyzxtq 14835edf feature1 | feature1 message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
@@ -1411,6 +1420,13 @@ fn test_git_clone_branch_or_tag() {
     [EOF]
     "#);
 
+    // fetch-tags should be set to "<name1> | <name2> | ..."
+    let repo_dir = test_env.work_dir("clone_tags");
+    insta::assert_snapshot!(repo_dir.run_jj(["config", "list", "--repo"]), @r#"
+    remotes.origin.fetch-tags = "tag1 | tag2"
+    [EOF]
+    "#);
+
     // Perform a fetch in that same repo
     let output = repo_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @"
@@ -1427,7 +1443,7 @@ fn test_git_clone_branch_or_tag() {
     bookmark: feature1@origin [new] tracked
     bookmark: main@origin     [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
-    Working copy  (@) now at: spxsnpux 1f499908 (empty) (no description set)
+    Working copy  (@) now at: wmwvqwsz 5068d576 (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
@@ -1449,20 +1465,24 @@ fn test_git_clone_branch_or_tag() {
     tag: tag2@origin [new] 
     tag: tag3@origin [new] 
     Setting the revset alias `trunk()` to `main@origin`
-    Working copy  (@) now at: nuwvvtmy 106c048e (empty) (no description set)
+    Working copy  (@) now at: uuzqqzqu c871b515 (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
 
-    // Perform a fetch in that same repo
-    // FIXME: no tags nor bookmarks should be fetched
     let repo_dir = test_env.work_dir("clone_all_but");
+    insta::assert_snapshot!(repo_dir.run_jj(["config", "list", "--repo"]), @r#"
+    remotes.origin.fetch-tags = "~tag1"
+    revset-aliases."trunk()" = "main@origin"
+    [EOF]
+    "#);
+
+    // Perform a fetch in that same repo
     let output = repo_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    tag: tag2@git [new] 
-    tag: tag3@git [new] 
+    Nothing changed.
     [EOF]
     ");
 
@@ -1480,7 +1500,7 @@ fn test_git_clone_branch_or_tag() {
     Fetching into new repo in "$TEST_ENV/clone_each"
     bookmark: feature1@origin [new] tracked
     bookmark: main@origin     [new] tracked
-    Working copy  (@) now at: uuzqqzqu 7d595c1f (empty) (no description set)
+    Working copy  (@) now at: mouksmqu 41e09dcd (empty) (no description set)
     Parent commit (@-)      : yxwyzxtq 14835edf feature1 | feature1 message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]

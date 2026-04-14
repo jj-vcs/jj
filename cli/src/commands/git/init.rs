@@ -29,7 +29,8 @@ use jj_lib::repo::Repo as _;
 use jj_lib::view::View;
 use jj_lib::workspace::Workspace;
 
-use super::write_repository_level_trunk_alias;
+use super::RepoPresets;
+use super::write_repo_presets;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::start_repo_transaction;
 use crate::command_error::CommandError;
@@ -308,7 +309,15 @@ pub fn maybe_set_repository_level_trunk_alias(
             {
                 // TODO: Can we assume the symbolic target points to the same remote?
                 let symbol = symbol.name.to_remote_symbol(remote.as_ref());
-                write_repository_level_trunk_alias(ui, config_env, symbol)?;
+                write_repo_presets(
+                    ui,
+                    config_env,
+                    RepoPresets {
+                        remote: remote.as_ref(),
+                        fetch_tags: None,
+                        trunk: Some(symbol),
+                    },
+                )?;
             }
             return Ok(());
         }
