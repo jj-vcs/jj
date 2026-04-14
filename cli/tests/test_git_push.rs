@@ -264,15 +264,10 @@ fn test_git_push_tag_in_default_target() {
     let origin_dir = test_env.work_dir("origin");
     origin_dir.run_jj(["commit", "-morigin"]).success();
     origin_dir.run_jj(["tag", "set", "-r@-", "tag1"]).success();
-    // TODO: use "clone --tag=*" instead of "fetch --tag=*"
     test_env
-        .run_jj_in(
-            ".",
-            ["git", "clone", "--fetch-tags=none", "origin", "local"],
-        )
+        .run_jj_in(".", ["git", "clone", "--tag=*", "origin", "local"])
         .success();
     let work_dir = test_env.work_dir("local");
-    work_dir.run_jj(["git", "fetch", "--tag=*"]).success();
 
     work_dir.run_jj(["commit", "-mlocal"]).success();
     work_dir
@@ -282,7 +277,7 @@ fn test_git_push_tag_in_default_target() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      tag: tag1 [move sideways from 110db8edfa5f to 5d09dfa0acd5]
+      tag: tag1 [move sideways from 110db8edfa5f to b60842ac7691]
     [EOF]
     ");
 }
@@ -1691,15 +1686,13 @@ fn test_git_push_bookmarks_and_tags_of_same_name() {
     origin_dir
         .run_jj(["tag", "set", "-r@-", "foo", "bar"])
         .success();
-    // TODO: use "clone --tag=*" instead of "fetch --tag=*"
     test_env
         .run_jj_in(
             ".",
-            ["git", "clone", "--fetch-tags=none", "origin", "local"],
+            ["git", "clone", "--branch=*", "--tag=*", "origin", "local"],
         )
         .success();
     let work_dir = test_env.work_dir("local");
-    work_dir.run_jj(["git", "fetch", "--tag=*"]).success();
     work_dir.run_jj(["bookmark", "track", "*"]).success();
 
     // Move bookmarks and tags
@@ -1712,16 +1705,16 @@ fn test_git_push_bookmarks_and_tags_of_same_name() {
         .run_jj(["tag", "set", "-r@-", "--allow-move", "foo", "bar"])
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
-    bar: yostqsxw 40751f07 (empty) local
+    bar: vruxwmqv 5058996c (empty) local
       @origin (behind by 1 commits): qpvuntsm 110db8ed (empty) origin
-    foo: yostqsxw 40751f07 (empty) local
+    foo: vruxwmqv 5058996c (empty) local
       @origin (behind by 1 commits): qpvuntsm 110db8ed (empty) origin
     [EOF]
     ");
     insta::assert_snapshot!(get_tag_output(&work_dir), @"
-    bar: yostqsxw 40751f07 (empty) local
+    bar: vruxwmqv 5058996c (empty) local
       @origin (behind by 1 commits): qpvuntsm 110db8ed (empty) origin
-    foo: yostqsxw 40751f07 (empty) local
+    foo: vruxwmqv 5058996c (empty) local
       @origin (behind by 1 commits): qpvuntsm 110db8ed (empty) origin
     [EOF]
     ");
@@ -1731,8 +1724,8 @@ fn test_git_push_bookmarks_and_tags_of_same_name() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      bookmark: foo [move forward from 110db8edfa5f to 40751f075c75]
-      tag: foo [move forward from 110db8edfa5f to 40751f075c75]
+      bookmark: foo [move forward from 110db8edfa5f to 5058996c52e2]
+      tag: foo [move forward from 110db8edfa5f to 5058996c52e2]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -1740,10 +1733,10 @@ fn test_git_push_bookmarks_and_tags_of_same_name() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      bookmark: bar [move forward from 110db8edfa5f to 40751f075c75]
-      bookmark: foo [move forward from 110db8edfa5f to 40751f075c75]
-      tag: bar [move forward from 110db8edfa5f to 40751f075c75]
-      tag: foo [move forward from 110db8edfa5f to 40751f075c75]
+      bookmark: bar [move forward from 110db8edfa5f to 5058996c52e2]
+      bookmark: foo [move forward from 110db8edfa5f to 5058996c52e2]
+      tag: bar [move forward from 110db8edfa5f to 5058996c52e2]
+      tag: foo [move forward from 110db8edfa5f to 5058996c52e2]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -1753,8 +1746,8 @@ fn test_git_push_bookmarks_and_tags_of_same_name() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      bookmark: foo [move forward from 110db8edfa5f to 40751f075c75]
-      tag: bar [move forward from 110db8edfa5f to 40751f075c75]
+      bookmark: foo [move forward from 110db8edfa5f to 5058996c52e2]
+      tag: bar [move forward from 110db8edfa5f to 5058996c52e2]
     Dry-run requested, not pushing.
     [EOF]
     ");

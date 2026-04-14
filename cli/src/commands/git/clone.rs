@@ -133,7 +133,20 @@ pub struct GitCloneArgs {
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     #[arg(long = "branch", short, alias = "bookmark", value_name = "BRANCH")]
     branches: Option<Vec<String>>,
-    // TODO: add --tag option and save it in jj's repo config? (#7819)
+
+    /// Fetch only some of the tags (can be repeated)
+    ///
+    /// By default, the specified pattern matches tag names with glob syntax,
+    /// but only `*` is expanded. Other wildcard characters such as `?` are
+    /// *not* supported. Patterns can be repeated or combined with [logical
+    /// operators] to specify multiple tags, but only union and negative
+    /// intersection are supported.
+    ///
+    /// [logical operators]:
+    ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
+    #[arg(long = "tag", short, value_name = "TAG")]
+    #[arg(hide = true)] // TODO: unhide when this gets stabilized (#7528)
+    tags: Option<Vec<String>>,
 }
 
 fn clone_destination_for_source(source: &str) -> Option<&str> {
@@ -177,12 +190,15 @@ pub async fn cmd_git_clone(
     } else {
         args.colocate
     };
-    let is_specific = args.branches.is_some(); // TODO: || args.tags.is_some()
+    let is_specific = args.branches.is_some() || args.tags.is_some();
     let specific_bookmark_expr = match &args.branches {
         Some(texts) => Some(parse_union_name_patterns(ui, texts)?),
         None => is_specific.then(StringExpression::none),
     };
-    let specific_tag_expr = is_specific.then(StringExpression::none);
+    let specific_tag_expr = match &args.tags {
+        Some(texts) => Some(parse_union_name_patterns(ui, texts)?),
+        None => is_specific.then(StringExpression::none),
+    };
 
     // Canonicalize because fs::remove_dir_all() doesn't seem to like e.g.
     // `/some/path/.`
