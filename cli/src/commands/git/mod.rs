@@ -129,6 +129,7 @@ fn get_single_remote(store: &Store) -> Result<Option<RemoteNameBuf>, UnexpectedG
 #[derive(Clone, Copy, Debug)]
 struct RepoPresets<'a> {
     remote: &'a RemoteName,
+    fetch_bookmarks: Option<&'a [String]>,
     fetch_tags: Option<&'a [String]>,
     trunk: Option<RemoteRefSymbol<'a>>,
 }
@@ -137,10 +138,11 @@ impl RepoPresets<'_> {
     fn is_default(self) -> bool {
         let Self {
             remote: _,
+            fetch_bookmarks,
             fetch_tags,
             trunk,
         } = self;
-        fetch_tags.is_none() && trunk.is_none()
+        fetch_bookmarks.is_none() && fetch_tags.is_none() && trunk.is_none()
     }
 }
 
@@ -158,6 +160,13 @@ fn write_repo_presets(
         return Ok(());
     };
     let mut file = ConfigFile::load_or_empty(ConfigSource::Repo, config_path)?;
+    if let Some(exprs) = presets.fetch_bookmarks {
+        file.set_value(
+            ["remotes", presets.remote.as_str(), "fetch-bookmarks"],
+            join_string_expressions(exprs),
+        )
+        .expect("initial repo config shouldn't have invalid values");
+    }
     if let Some(exprs) = presets.fetch_tags {
         file.set_value(
             ["remotes", presets.remote.as_str(), "fetch-tags"],

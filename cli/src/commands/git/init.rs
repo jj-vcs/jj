@@ -314,6 +314,7 @@ pub fn maybe_set_repository_level_trunk_alias(
                     config_env,
                     RepoPresets {
                         remote: remote.as_ref(),
+                        fetch_bookmarks: None,
                         fetch_tags: None,
                         trunk: Some(symbol),
                     },

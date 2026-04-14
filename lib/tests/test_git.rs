@@ -84,7 +84,6 @@ use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
 use jj_lib::str_util::StringExpression;
 use jj_lib::str_util::StringMatcher;
-use jj_lib::str_util::StringPattern;
 use jj_lib::workspace::Workspace;
 use maplit::btreemap;
 use maplit::hashset;
@@ -4220,7 +4219,6 @@ fn test_fetch_with_fetch_tags_override() -> TestResult {
         &source_git_repo.path().display().to_string(),
         None,
         gix::remote::fetch::Tags::None,
-        &StringExpression::all(),
     )?;
     let _repo = tx.commit("test").block_on()?;
     // Reload after Git configuration change.
@@ -4250,7 +4248,6 @@ fn test_fetch_with_fetch_tags_override() -> TestResult {
         &source_git_repo.path().display().to_string(),
         None,
         gix::remote::fetch::Tags::All,
-        &StringExpression::all(),
     )?;
     let _repo = tx.commit("test").block_on()?;
     // Reload after Git configuration change.
@@ -4773,16 +4770,17 @@ fn test_push_bookmarks_unmapped_refs() -> TestResult {
     let remote_git_repo = testutils::git::init_bare(test_repo.env.root().join("remote"));
 
     // Add remote with refspecs that map only specific branch
-    let mut tx = test_repo.repo.start_transaction();
-    git::add_remote(
-        tx.repo_mut(),
-        "origin".as_ref(),
-        remote_git_repo.path().to_str().unwrap(),
-        None,
-        gix::remote::fetch::Tags::default(),
-        &StringExpression::exact("dummy"),
-    )?;
-    let repo = tx.commit("set up remote").block_on()?;
+    let repo = &test_repo.repo;
+    let git_repo = get_git_repo(repo);
+    let mut remote = git_repo
+        .remote_at(remote_git_repo.path().to_str().unwrap())?
+        .with_refspecs(
+            ["+refs/heads/dummy:refs/remotes/origin/dummy"],
+            gix::remote::Direction::Fetch,
+        )?;
+    let mut config = git_repo.config_snapshot().clone();
+    remote.save_as_to("origin", &mut config).unwrap();
+    git::save_git_config(&config)?;
     // Reload after Git configuration change.
     let repo = test_repo
         .env
@@ -5990,7 +5988,6 @@ fn test_remote_remove_refs() -> TestResult {
         "https://example.com/",
         None,
         Default::default(),
-        &StringExpression::all(),
     )?;
     let _repo = tx.commit("test").block_on()?;
     // Reload after Git configuration change.
@@ -6048,7 +6045,6 @@ fn test_remote_rename_refs() -> TestResult {
         "https://example.com/",
         None,
         Default::default(),
-        &StringExpression::all(),
     )?;
     let _repo = tx.commit("test").block_on()?;
     // Reload after Git configuration change.
@@ -6151,7 +6147,6 @@ fn test_remote_add_with_tags_specification(fetch_tags: gix::remote::fetch::Tags)
         "https://example.com/",
         None,
         fetch_tags,
-        &StringExpression::all(),
     )?;
     let _repo = tx.commit("test").block_on()?;
 
@@ -6273,67 +6268,6 @@ fn test_push_updates_with_options() -> TestResult {
     Ok(())
 }
 
-#[test]
-fn test_remote_add_with_refspecs() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
-
-    let mut tx = test_repo.repo.start_transaction();
-    let bookmark_expr = StringExpression::union_all(vec![
-        StringExpression::exact("bar"),
-        StringExpression::pattern(StringPattern::glob("foo*")?),
-    ])
-    .intersection(StringExpression::exact("foobar").negated());
-    git::add_remote(
-        tx.repo_mut(),
-        "origin".as_ref(),
-        "https://example.com/",
-        None,
-        gix::remote::fetch::Tags::default(),
-        &bookmark_expr,
-    )?;
-    let repo = tx.commit("test").block_on()?;
-
-    // Reload after Git configuration change.
-    let repo = &test_repo
-        .env
-        .load_repo_at_head(repo.settings(), test_repo.repo_path());
-    let git_repo = get_git_repo(repo);
-    let remote = git_repo.find_remote("origin")?;
-    insta::assert_debug_snapshot!(remote.refspecs(gix::remote::Direction::Fetch), @r#"
-    [
-        RefSpec {
-            mode: Negative,
-            op: Fetch,
-            src: Some(
-                "refs/heads/foobar",
-            ),
-            dst: None,
-        },
-        RefSpec {
-            mode: Force,
-            op: Fetch,
-            src: Some(
-                "refs/heads/bar",
-            ),
-            dst: Some(
-                "refs/remotes/origin/bar",
-            ),
-        },
-        RefSpec {
-            mode: Force,
-            op: Fetch,
-            src: Some(
-                "refs/heads/foo*",
-            ),
-            dst: Some(
-                "refs/remotes/origin/foo*",
-            ),
-        },
-    ]
-    "#);
-    Ok(())
-}
-
 fn auto_track_import_options() -> GitImportOptions {
     let remotes_used_in_tests = ["origin", "upstream"];
     let auto_track_bookmarks = remotes_used_in_tests
@@ -6391,7 +6325,6 @@ fn test_set_remote_urls() -> TestResult {
         "https://example.com/repo/path",
         None,
         gix::remote::fetch::Tags::None,
-        &StringExpression::all(),
     )?;
 
     // test initial state after adding the remote

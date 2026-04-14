@@ -2219,7 +2219,6 @@ pub fn add_remote(
     url: &str,
     push_url: Option<&str>,
     fetch_tags: gix::remote::fetch::Tags,
-    bookmark_expr: &StringExpression,
 ) -> Result<(), GitRemoteManagementError> {
     let git_repo = get_git_repo(mut_repo.store())?;
 
@@ -2231,29 +2230,15 @@ pub fn add_remote(
         ));
     }
 
-    let ref_expr = GitFetchRefExpression {
-        bookmark: bookmark_expr.clone(),
-        // Since tags will be fetched to jj's internal ref namespace, the
-        // refspecs shouldn't be saved in .git/config.
-        tag: StringExpression::none(),
-    };
-    let ExpandedFetchRefSpecs {
-        expr: _,
-        refspecs,
-        negative_refspecs,
-    } = expand_fetch_refspecs(remote_name, ref_expr)?;
-    let fetch_refspecs = itertools::chain(
-        refspecs.iter().map(|spec| spec.to_git_format()),
-        negative_refspecs.iter().map(|spec| spec.to_git_format()),
-    )
-    .map(BString::from);
-
     let mut remote = git_repo
         .remote_at(url)
         .map_err(GitRemoteManagementError::from_git)?
         .with_fetch_tags(fetch_tags)
-        .with_refspecs(fetch_refspecs, gix::remote::Direction::Fetch)
-        .expect("previously-parsed refspecs to be valid");
+        .with_refspecs(
+            [default_fetch_refspec(remote_name).as_bytes()],
+            gix::remote::Direction::Fetch,
+        )
+        .expect("default refspec to be valid");
 
     if let Some(push_url) = push_url {
         remote = remote

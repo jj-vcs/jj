@@ -18,6 +18,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   push are private or have conflicts. Bookmarks which aren't eligible to push
   will be skipped.
 
+* Branch/bookmark patterns passed to `jj git clone` are now saved to jj's repo
+  settings file instead of `.git/config`. Git fetch refspecs are set to the
+  default value.
+
 ### Deprecations
 
 * In the templating language, the `Operation` type's `.tags()` function has been

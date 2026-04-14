@@ -1354,6 +1354,7 @@ fn test_git_clone_branch_or_tag() {
     // (without fetching any tags)
     let repo_dir = test_env.work_dir("clone");
     insta::assert_snapshot!(repo_dir.run_jj(["config", "list", "--repo"]), @r#"
+    remotes.origin.fetch-bookmarks = "main"
     remotes.origin.fetch-tags = "~*"
     revset-aliases."trunk()" = "main@origin"
     [EOF]
@@ -1423,6 +1424,7 @@ fn test_git_clone_branch_or_tag() {
     // fetch-tags should be set to "<name1> | <name2> | ..."
     let repo_dir = test_env.work_dir("clone_tags");
     insta::assert_snapshot!(repo_dir.run_jj(["config", "list", "--repo"]), @r#"
+    remotes.origin.fetch-bookmarks = "~*"
     remotes.origin.fetch-tags = "tag1 | tag2"
     [EOF]
     "#);
@@ -1473,6 +1475,7 @@ fn test_git_clone_branch_or_tag() {
 
     let repo_dir = test_env.work_dir("clone_all_but");
     insta::assert_snapshot!(repo_dir.run_jj(["config", "list", "--repo"]), @r#"
+    remotes.origin.fetch-bookmarks = "~feature1"
     remotes.origin.fetch-tags = "~tag1"
     revset-aliases."trunk()" = "main@origin"
     [EOF]

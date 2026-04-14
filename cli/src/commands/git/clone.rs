@@ -235,8 +235,6 @@ pub async fn cmd_git_clone(
             // If not explicitly specified on the CLI, configure the remote for only fetching
             // included tags for future fetches.
             args.fetch_tags.unwrap_or(FetchTagsMode::Included),
-            // Default fetch-bookmarks shouldn't be copied to Git config.
-            &specific_bookmark_expr.unwrap_or_else(StringExpression::all),
         )
         .await?;
         let ref_expr = GitFetchRefExpression { bookmark, tag };
@@ -288,6 +286,7 @@ pub async fn cmd_git_clone(
         &config_env,
         RepoPresets {
             remote: remote_name,
+            fetch_bookmarks: is_specific.then_some(args.branches.as_deref().unwrap_or(&[])),
             fetch_tags: is_specific.then_some(args.tags.as_deref().unwrap_or(&[])),
             trunk: working_branch
                 .as_deref()
@@ -349,7 +348,6 @@ async fn configure_remote(
     remote_name: &RemoteName,
     source: &str,
     fetch_tags: FetchTagsMode,
-    bookmark_expr: &StringExpression,
 ) -> Result<WorkspaceCommandHelper, CommandError> {
     let mut tx = workspace_command.start_transaction();
     git::add_remote(
@@ -358,7 +356,6 @@ async fn configure_remote(
         source,
         None,
         fetch_tags.as_fetch_tags(),
-        bookmark_expr,
     )?;
     tx.finish(ui, format!("add git remote {}", remote_name.as_symbol()))
         .await?;
