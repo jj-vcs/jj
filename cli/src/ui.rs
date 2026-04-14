@@ -560,15 +560,15 @@ impl Ui {
         old_output.finalize(self);
     }
 
-    pub fn can_prompt() -> bool {
-        io::stderr().is_terminal()
+    pub fn can_prompt(&self) -> bool {
+        matches!(&self.output, UiOutput::Terminal { stderr, .. } if stderr.is_terminal())
             || env::var("JJ_INTERACTIVE")
                 .map(|v| v == "1")
                 .unwrap_or(false)
     }
 
     pub fn prompt(&self, prompt: &str) -> io::Result<String> {
-        if !Self::can_prompt() {
+        if !self.can_prompt() {
             return Err(io::Error::new(
                 io::ErrorKind::Unsupported,
                 "Cannot prompt for input since the output is not connected to a terminal",
@@ -654,7 +654,7 @@ impl Ui {
         // Parse the default to ensure that the text is valid.
         let default = default.map(|text| (parse(text).expect("default should be valid"), text));
 
-        if !Self::can_prompt()
+        if !self.can_prompt()
             && let Some((value, text)) = default
         {
             // Choose the default automatically without waiting.
