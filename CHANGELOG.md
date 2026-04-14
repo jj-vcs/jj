@@ -39,6 +39,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Improving consistency with `git` handling of `.gitignore`, including `/`
   after entries and `\r\r\n` for MacOS files.
 
+* `jj gerrit upload` on commits with unrelated Links can be uploaded again.
+  (broke in v0.39.0)
+
 * `jj status` filters untracked paths by fileset
   [#9287](https://github.com/jj-vcs/jj/issues/9287)
 

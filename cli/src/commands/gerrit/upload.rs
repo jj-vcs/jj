@@ -502,7 +502,10 @@ pub async fn cmd_gerrit_upload(
 
         let change_id_trailers: Vec<&Trailer> = trailers
             .iter()
-            .filter(|trailer| trailer.key == "Change-Id" || trailer.key == "Link")
+            .filter(|trailer| {
+                trailer.key == "Change-Id"
+                    || (trailer.key == "Link" && trailer.value.contains("/id/I"))
+            })
             .collect();
 
         // There shouldn't be multiple change-ID fields. So just error out if
