@@ -45,6 +45,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Improved performance for snapshot progress, visibly improving `jj status`
   speed for large repositories.
 
+* `jj gerrit upload` on commits with unrelated Links can be uploaded again. 
+
 ## [0.40.0] - 2026-04-01
 
 ### Release highlights

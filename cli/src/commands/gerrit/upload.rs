@@ -15,9 +15,7 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::io::Write as _;
-use std::sync::Arc;
 
-use bstr::BStr;
 use futures::TryStreamExt as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
@@ -29,10 +27,6 @@ use jj_lib::merge::Diff;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
-use jj_lib::settings::UserSettings;
-use jj_lib::store::Store;
-use jj_lib::trailer::Trailer;
-use jj_lib::trailer::parse_description_trailers;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
@@ -41,6 +35,11 @@ use crate::command_error::CommandError;
 use crate::command_error::internal_error;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
+use crate::gerrit_util::calculate_gerrit_remote;
+use crate::gerrit_util::calculate_gerrit_remote_branch;
+use crate::gerrit_util::generate_gerrit_description;
+use crate::gerrit_util::gerrit_change_id;
+use crate::gerrit_util::get_gerrit_review_url;
 use crate::git_util::GitSubprocessUi;
 use crate::git_util::print_push_stats;
 use crate::ui::Ui;
@@ -219,76 +218,6 @@ pub enum EmailNotification {
     /// starred the change, and users who have configured a watch on files in
     /// the change.
     All,
-}
-
-fn calculate_push_remote(
-    store: &Arc<Store>,
-    settings: &UserSettings,
-    remote: Option<&str>,
-) -> Result<String, CommandError> {
-    let git_repo = git::get_git_repo(store)?; // will fail if not a git repo
-    let remotes = git_repo.remote_names();
-
-    // If --remote was provided, use that
-    if let Some(remote) = remote {
-        if remotes.contains(BStr::new(&remote)) {
-            return Ok(remote.to_string());
-        }
-        return Err(user_error(format!(
-            "The remote '{remote}' (specified via `--remote`) does not exist",
-        )));
-    }
-
-    // If the Gerrit-specific config was set, use that
-    if let Ok(remote) = settings.get_string("gerrit.default-remote") {
-        if remotes.contains(BStr::new(&remote)) {
-            return Ok(remote);
-        }
-        return Err(user_error(format!(
-            "The remote '{remote}' (configured via `gerrit.default-remote`) does not exist",
-        )));
-    }
-
-    // If a general push remote was configured, use that
-    if let Some(remote) = git_repo.remote_default_name(gix::remote::Direction::Push) {
-        return Ok(remote.to_string());
-    }
-
-    // If there is a Git remote called "gerrit", use that
-    if remotes.iter().any(|r| **r == "gerrit") {
-        return Ok("gerrit".to_owned());
-    }
-
-    // Otherwise error out
-    Err(user_error(
-        "No remote specified, and no 'gerrit' remote was found",
-    ))
-}
-
-/// Determine what Gerrit ref and remote to use. The logic is:
-///
-/// 1. If the user specifies `--remote-branch branch`, use that
-/// 2. If the user has 'gerrit.default-remote-branch' configured, use that
-/// 3. Otherwise, bail out
-fn calculate_push_ref(
-    settings: &UserSettings,
-    remote_branch: Option<String>,
-) -> Result<String, CommandError> {
-    // case 1
-    if let Some(remote_branch) = remote_branch {
-        return Ok(remote_branch);
-    }
-
-    // case 2
-    if let Ok(branch) = settings.get_string("gerrit.default-remote-branch") {
-        return Ok(branch);
-    }
-
-    // case 3
-    Err(user_error(
-        "No target branch specified via --remote-branch, and no 'gerrit.default-remote-branch' \
-         was found",
-    ))
 }
 
 fn push_options(args: &UploadArgs) -> Result<Vec<String>, CommandError> {
@@ -472,8 +401,10 @@ pub async fn cmd_gerrit_upload(
         .map_err(internal_error)?;
 
     let subprocess_options = GitSubprocessOptions::from_settings(command.settings())?;
-    let remote = calculate_push_remote(&store, command.settings(), args.remote.as_deref())?;
-    let remote_branch = calculate_push_ref(command.settings(), args.remote_branch.clone())?;
+    let remote = calculate_gerrit_remote(&store, command.settings(), args.remote.as_deref())?;
+    let remote_branch =
+        calculate_gerrit_remote_branch(command.settings(), args.remote_branch.clone())?;
+    let review_url = get_gerrit_review_url(command.settings());
 
     // Immediately error and reject any commits that shouldn't be uploaded.
     for commit in &to_upload {
@@ -498,91 +429,29 @@ pub async fn cmd_gerrit_upload(
 
     let mut old_to_new: HashMap<CommitId, Commit> = HashMap::new();
     for original_commit in to_upload.into_iter().rev() {
-        let trailers = parse_description_trailers(original_commit.description());
-
-        let change_id_trailers: Vec<&Trailer> = trailers
-            .iter()
-            .filter(|trailer| trailer.key == "Change-Id" || trailer.key == "Link")
-            .collect();
-
-        // There shouldn't be multiple change-ID fields. So just error out if
-        // there is.
-        if change_id_trailers.len() > 1 {
-            return Err(user_error(format!(
-                "Multiple Change-Id footers in revision {}",
-                short_change_hash(original_commit.change_id())
-            )));
-        }
-
-        // The user can choose to explicitly set their own change-ID to
-        // override the default change-ID based on the jj change-ID.
-        let new_description = if let Some(trailer) = change_id_trailers.first() {
-            // Check the change-id format is correct, intentionally leave the
-            // invalid change IDs as-is.
-            if trailer.key == "Change-Id"
-                && (trailer.value.len() != 41 || !trailer.value.starts_with('I'))
-            {
-                writeln!(
-                    ui.warning_default(),
-                    "Invalid Change-Id footer in revision {}",
-                    short_change_hash(original_commit.change_id()),
-                )?;
-            }
-            if trailer.key == "Link"
-                && !matches!(trailer.value.split_once("/id/I"), Some((_url, id)) if id.len() == 40)
-            {
-                writeln!(
-                    ui.warning_default(),
-                    "Invalid Link footer in revision {}",
-                    short_change_hash(original_commit.change_id()),
-                )?;
-            }
-
-            original_commit.description().to_owned()
-        } else {
-            // Gerrit change id is 40 chars, jj change id is 32, so we need padding.
-            // To be consistent with `format_gerrit_change_id_trailer``, we pad with
-            // 6a6a6964 (hex of "jjid").
-            let gerrit_change_id = format!("I{}6a6a6964", original_commit.change_id().hex());
-
-            let change_id_trailer =
-                if let Ok(review_url) = command.settings().get_string("gerrit.review-url") {
-                    format!(
-                        "Link: {}/id/{gerrit_change_id}",
-                        review_url.trim_end_matches('/'),
-                    )
-                } else {
-                    format!("Change-Id: {gerrit_change_id}")
-                };
-
-            format!(
-                "{}{}{}\n",
-                original_commit.description().trim(),
-                if trailers.is_empty() { "\n\n" } else { "\n" },
-                change_id_trailer,
-            )
-        };
-
         let new_parents = original_commit
             .parent_ids()
             .iter()
             .map(|id| old_to_new.get(id).map_or(id, |p| p.id()).clone())
             .collect();
 
-        if new_description == original_commit.description()
-            && new_parents == original_commit.parent_ids()
-        {
-            // map the old commit to itself
-            old_to_new.insert(original_commit.id().clone(), original_commit);
-            continue;
-        }
+        let description = if gerrit_change_id(&original_commit)?.is_some() {
+            if new_parents == original_commit.parent_ids() {
+                // map the old commit to itself
+                old_to_new.insert(original_commit.id().clone(), original_commit);
+                continue;
+            }
+            original_commit.description().to_owned()
+        } else {
+            generate_gerrit_description(review_url.as_deref(), &original_commit)
+        };
 
         // rewrite the set of parents to point to the commits that were
         // previously rewritten in toposort order
         let new_commit = tx
             .repo_mut()
             .rewrite_commit(&original_commit)
-            .set_description(new_description)
+            .set_description(description)
             .set_parents(new_parents)
             // Set the timestamp back to the timestamp of the original commit.
             // Otherwise, `jj gerrit upload @ && jj gerrit upload @` will upload

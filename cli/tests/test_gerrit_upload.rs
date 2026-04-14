@@ -693,7 +693,11 @@ fn test_gerrit_upload_bad_change_ids() {
         ])
         .success();
     local_dir
-        .run_jj(["describe", "-rb3", "-m\n\nLink: malformed\n"])
+        .run_jj([
+            "describe",
+            "-rb3",
+            "-m\n\nLink: ignored\nChange-Id: I0000000000000000000000000000000000000000\n",
+        ])
         .success();
     local_dir
         .run_jj([
@@ -740,39 +744,35 @@ fn test_gerrit_upload_bad_change_ids() {
         .success();
 
     let output = local_dir.run_jj(["gerrit", "upload", "-rc", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Multiple Change-Id footers in revision wqnwkozpkust
+    Error: Multiple Change-Id or Link footers in revision wqnwkozpkust
     [EOF]
     [exit status: 1]
     ");
     let output = local_dir.run_jj(["gerrit", "upload", "-rd", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Multiple Change-Id footers in revision kxryzmorwvtz
+    Error: Multiple Change-Id or Link footers in revision kxryzmorwvtz
     [EOF]
     [exit status: 1]
     ");
     let output = local_dir.run_jj(["gerrit", "upload", "-re", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Multiple Change-Id footers in revision uyznsvlquzzm
+    Error: Multiple Change-Id or Link footers in revision uyznsvlquzzm
     [EOF]
     [exit status: 1]
     ");
 
     // check both badly and slightly malformed Change-Id / Link trailers
     let output = local_dir.run_jj(["gerrit", "upload", "-rb4", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Warning: Invalid Change-Id footer in revision mzvwutvlkqwt
-    Warning: Invalid Change-Id footer in revision yqosqzytrlsw
-    Warning: Invalid Link footer in revision yostqsxwqrlt
-    Warning: Invalid Link footer in revision kpqxywonksrl
-    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
-    Pushing kpqxywon 69536ef3 b4
+    Error: Invalid change ID "malformed" in revision mzvwutvlkqwt
     [EOF]
-    ");
+    [exit status: 1]
+    "#);
 }
 
 #[test]

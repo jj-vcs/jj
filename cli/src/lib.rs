@@ -27,6 +27,8 @@ pub mod diff_util;
 pub mod formatter;
 pub mod generic_templater;
 #[cfg(feature = "git")]
+pub mod gerrit_util;
+#[cfg(feature = "git")]
 pub mod git_util;
 #[cfg(not(feature = "git"))]
 /// A stub module that provides a no-op implementation of some of the functions
