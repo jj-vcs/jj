@@ -69,6 +69,15 @@ impl CommitEvolutionEntry {
         )
         .await
     }
+
+    /// Creates an entry for the root commit.
+    pub fn for_root_commit(store: &Arc<Store>) -> Self {
+        Self {
+            commit: store.root_commit(),
+            operation: None,
+            reachable_predecessors: Some(vec![]),
+        }
+    }
 }
 
 #[expect(missing_docs)]
