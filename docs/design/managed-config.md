@@ -2,7 +2,7 @@
 
 Author: [Matt Stark](mailto:msta@google.com)
 
-Status: Pending implementation
+Status: Implemented
 
 ## Background
 
@@ -61,46 +61,35 @@ problem".
 #### Trust levels
 
 We will add the following fields to metadata:
-```
+```proto
 enum TrustLevel {
     // There's no "optional" in protos. It just returns the zero value.
     UNSET = 0;
     // The user wishes to completely ignore the managed config file.
     IGNORED = 1;
+    // In review mode, the user is prompted to approve or reject changes
+    // to the managed config whenever it changes.
+    REVIEW = 2;
     // In trusted mode, we directly read from the managed config file.
     // This presents a security risk, so the user is expected to only do this
     // for a repo they trust.
-    TRUSTED = 2;
-    // In notify mode, the user is expected to manually replicate any changes
-    // they want from the managed config to the repo config.
-    NOTIFY = 3;
-    // In review mode, the user has to review every config individually.
-    REVIEW = 4;
+    TRUSTED = 3;
 }
 
-message Metadata {
+message ConfigMetadata {
     // previous fields
 
     // The trust level associated with this repo.
     TrustLevel trust_level = 2;
 
-    // When trust_level is review, the following fields are used.
-    set<Hash> approved_configs = 3;
-    set<Hash> rejected_configs = 4;
-    // This is a can of worms and thus out of scope of the MVP.
-    // There's no one correct way to choose the last approved.
-    // Sometimes, the user wants be the last appproved config in the workspace.
-    // At other times, the user wants be the last appproved config in the repo.
-    string last_approved_config = 5;
+    // Contains the most recently approved config.
+    string managed_config = 3;
+
+    // A map from a hex-encoded hash of a config file to true if it is approved,
+    // and false if it is rejected.
+    map<string, bool> reviewed_configs = 4;
 }
 ```
-
-Note that although the `Metadata` struct is stored for both the repo and the
-workspace, this will only be used for the repository, not the workspace.
-
-This is because trust is associated with repositories, not workspaces. If I
-were to add an approved config in one workspace, for example, there is no
-reason I wouldn't trust it in another.
 
 #### User interface
 
@@ -114,7 +103,7 @@ If a repository has a managed config and unset trust, we first use
 
 *   If we are in a TUI, we ask the user what trust level they would like.
 *   If we are not in a TUI, we warn them that we are ignoring the repo config (we
-    return `IGNORE`), and that they can run `jj config managed --ignore/notify/trust` in a terminal to configure this.
+    return `IGNORE`), and that they can run `jj config managed --ignore/review/trust` in a terminal to configure this.
 
 ##### Ignored
 
@@ -249,8 +238,7 @@ added in later.
 
 ##### Manually changing
 
-These options will also be able to be manually set via `jj config managed
---ignore/notify/trust`.
+These options can be manually set via `jj config managed --ignore/review/trust`.
 
 ### Where to read from
 

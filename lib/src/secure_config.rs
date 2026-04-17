@@ -96,7 +96,7 @@ pub struct LoadedSecureConfig {
     pub warnings: Vec<String>,
 }
 
-fn atomic_write(path: &Path, content: &[u8]) -> Result<(), SecureConfigError> {
+fn atomic_write(path: &Path, content: &[u8]) -> Result<(), PathError> {
     let d = path.parent().unwrap();
     let mut temp_file = NamedTempFile::new_in(d).context(d)?;
     temp_file.write_all(content).context(temp_file.path())?;
@@ -176,6 +176,7 @@ impl SecureConfig {
     ) -> Result<(PathBuf, ConfigMetadata), SecureConfigError> {
         let metadata = ConfigMetadata {
             path: path_to_bytes(&self.repo_dir).ok().map(|b| b.to_vec()),
+            ..Default::default()
         };
         let path = self.generate_config(root_config_dir, config_id, None, &metadata)?;
         Ok((path, metadata))
@@ -205,12 +206,26 @@ impl SecureConfig {
             Some(d) if d.is_dir() => d.to_path_buf(),
             _ => {
                 // The old repo does not exist. Assume the user moved it.
+                let warnings = if let Some(d) = got {
+                    // If the user exposes their config ids somehow, an attacker could send you a
+                    // zip file containing a config ID that already exists on the system.
+                    vec![format!(
+                        "Your repo appears to have been moved from {} to {}.\nIf you didn't clone \
+                         this repo yourself, an attacker may be trying to gain access to your \
+                         machine, so we strongly suggest running `jj config managed --ignore && \
+                         jj config edit --repo`.",
+                        d.display(),
+                        self.repo_dir.display(),
+                    )]
+                } else {
+                    vec![]
+                };
                 metadata.path = encoded.map(|b| b.to_vec());
                 update_metadata(&config_dir, &metadata)?;
                 return Ok(LoadedSecureConfig {
                     config_file: Some(config_dir.join(CONFIG_FILE)),
                     metadata,
-                    warnings: vec![],
+                    warnings,
                 });
             }
         };
@@ -236,9 +251,13 @@ impl SecureConfig {
             return Ok(LoadedSecureConfig {
                 config_file: Some(config_path.clone()),
                 metadata,
+                // If the user exposes their config ids somehow, an attacker could send you a zip
+                // file containing a config ID that already exists on the system.
                 warnings: vec![format!(
                     "Your repo appears to have been copied from {} to {}. The corresponding repo \
-                     config file has also been copied.",
+                     config file has also been copied.\nIf you didn't clone this repo yourself, \
+                     an attacker may be trying to gain access to your machine, so we strongly \
+                     suggest running `jj config managed --ignore && jj config edit --repo`.",
                     got.display(),
                     &self.repo_dir.display()
                 )],
@@ -300,6 +319,7 @@ impl SecureConfig {
         };
         let metadata = ConfigMetadata {
             path: path_to_bytes(&self.repo_dir).ok().map(|b| b.to_vec()),
+            ..Default::default()
         };
         let config_file = self.generate_config(
             root_config_dir,
@@ -388,6 +408,18 @@ impl SecureConfig {
             loaded.metadata = metadata;
         }
         Ok(loaded)
+    }
+
+    /// Updates the metadata file for the config.
+    pub fn update_metadata(
+        &self,
+        config_file: &Path,
+        metadata: ConfigMetadata,
+    ) -> Result<(), PathError> {
+        let metadata_file = config_file.parent().unwrap().join(METADATA_FILE);
+        atomic_write(&metadata_file, &metadata.encode_to_vec())?;
+        *self.cache.borrow_mut() = Some((Some(config_file.to_path_buf()), metadata));
+        Ok(())
     }
 }
 
@@ -506,7 +538,8 @@ mod tests {
         let loaded2 = config.load_config(&mut env.rng, &env.config_dir)?;
         assert_eq!(loaded2.config_file.unwrap(), path);
         assert_ne!(loaded.metadata.path, loaded2.metadata.path);
-        assert!(loaded2.warnings.is_empty());
+        // We should get a warning about the repo having been moved.
+        assert!(!loaded2.warnings.is_empty());
         Ok(())
     }
 
