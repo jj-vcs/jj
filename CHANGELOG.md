@@ -34,6 +34,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   lines and fine-grained control over when the tool is run. If you have set the `line-range-arg`
   config, use `--all-lines` to match the previous behavior of formatting the entire file.
 
+* `jj metadit` gained `--preserved-committer` and
+  `--preserve-committer-timestamp` options.
+
 ### Fixed bugs
 
 * Improving consistency with `git` handling of `.gitignore`, including `/`

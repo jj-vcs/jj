@@ -830,6 +830,61 @@ fn test_metaedit_set_same_timestamp_twice() {
     ");
 }
 
+#[test]
+fn test_metaedit_preserve_commmitter() {
+    let mut test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+
+    // Verify that the configured user is used for committer by default
+    insta::assert_snapshot!(test_env.work_dir("repo").run_jj(["show"]), @"
+    Commit ID: e8849ae12c709f2321908879bc724fdb2ab8a781
+    Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    Author   : Test User <test.user@example.com> (2001-02-03 08:05:07)
+    Committer: Test User <test.user@example.com> (2001-02-03 08:05:07)
+
+        (no description set)
+
+    [EOF]
+    ");
+
+    // Make sure the timestamp is not updated with --preserve-committer-timestamp
+    test_env.add_env_var("JJ_USER", "user1");
+    test_env.add_env_var("JJ_EMAIL", "user1@example.com");
+    let work_dir = test_env.work_dir("repo");
+    work_dir
+        .run_jj(["metaedit", "--message=m1", "--preserve-committer-timestamp"])
+        .success();
+    insta::assert_snapshot!(work_dir.run_jj(["show"]), @"
+    Commit ID: 49c961253fd0005b56c27d8412a3d843e2c5760b
+    Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    Author   : Test User <test.user@example.com> (2001-02-03 08:05:07)
+    Committer: user1 <user1@example.com> (2001-02-03 08:05:07)
+
+        m1
+
+    [EOF]
+    ");
+    drop(work_dir);
+
+    // Make sure name and email are not updated with --preserve-committer
+    test_env.add_env_var("JJ_USER", "user2");
+    test_env.add_env_var("JJ_EMAIL", "user2@example.com");
+    let work_dir = test_env.work_dir("repo");
+    work_dir
+        .run_jj(["metaedit", "--message=m2", "--preserve-committer"])
+        .success();
+    insta::assert_snapshot!(work_dir.run_jj(["show"]), @"
+    Commit ID: 4fb16d256d659efa45b0cc37955e4aea52edccfc
+    Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    Author   : Test User <test.user@example.com> (2001-02-03 08:05:07)
+    Committer: user1 <user1@example.com> (2001-02-03 08:05:11)
+
+        m2
+
+    [EOF]
+    ");
+}
+
 #[must_use]
 fn get_log(work_dir: &TestWorkDir) -> CommandOutput {
     work_dir.run_jj([

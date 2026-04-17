@@ -113,6 +113,20 @@ pub(crate) struct MetaeditArgs {
     )]
     author_timestamp: Option<Timestamp>,
 
+    /// Preserve the committer name and email
+    ///
+    /// By default, when any metadata is updated, the committer name, email, and
+    /// timestamp are also updated to the current user and time.
+    #[arg(long, conflicts_with = "force_rewrite")]
+    preserve_committer: bool,
+
+    /// Preserve the committer timestamp
+    ///
+    /// By default, when any metadata is updated, the committer name, email, and
+    /// timestamp are also updated to the current user and time.
+    #[arg(long, conflicts_with = "force_rewrite")]
+    preserve_committer_timestamp: bool,
+
     /// Rewrite the commit, even if no other metadata changed
     ///
     /// This updates the committer timestamp to the current time, as well as the
@@ -210,6 +224,7 @@ pub(crate) async fn cmd_metaedit(
                     || rewriter.parents_changed();
 
                 let old_author = rewriter.old_commit().author().clone();
+                let old_commiter = rewriter.old_commit().committer().clone();
                 let mut commit_builder = rewriter.reparent();
                 let mut new_author = commit_builder.author().clone();
                 if let Some((name, email)) = args.author.clone() {
@@ -237,6 +252,15 @@ pub(crate) async fn cmd_metaedit(
                     commit_builder = commit_builder.set_author(new_author);
                     rewrite = true;
                 }
+                let mut new_committer = commit_builder.committer().clone();
+                if args.preserve_committer {
+                    new_committer.name = old_commiter.name;
+                    new_committer.email = old_commiter.email;
+                }
+                if args.preserve_committer_timestamp {
+                    new_committer.timestamp = old_commiter.timestamp;
+                }
+                commit_builder = commit_builder.set_committer(new_committer);
 
                 if let Some(description) = &new_description
                     && description != commit_builder.description()
