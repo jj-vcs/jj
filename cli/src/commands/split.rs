@@ -173,17 +173,18 @@ pub(crate) struct SplitArgs {
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     insert_before: Option<Vec<RevisionArg>>,
 
-    /// The change description to use (don't open editor)
+    /// The change description to use for the selected changes (don't open
+    /// editor)
     ///
-    /// Sets the description for the first commit (the one containing the
-    /// selected changes). The second commit keeps the original description.
+    /// Sets the description for the revision containing the selected changes.
+    /// The other revision will keep its original description, if any.
     #[arg(long = "message", short, value_name = "MESSAGE")]
     message_paragraphs: Option<Vec<String>>,
 
-    /// Open an editor to edit the change description
+    /// Open an editor to edit the change description(s)
     ///
-    /// Forces an editor to open when using `--message` to allow the
-    /// message to be edited afterwards.
+    /// Forces an editor to open when using `--message` to allow the message to
+    /// be edited afterward.
     #[arg(long)]
     editor: bool,
 
