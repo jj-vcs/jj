@@ -24,7 +24,6 @@ use std::io::Write;
 use std::iter;
 use std::ops::Range;
 use std::rc::Rc;
-use std::str::Utf8Error;
 
 use bstr::BStr;
 use bstr::BString;
@@ -155,13 +154,13 @@ impl RegexCaptures {
         self.capture_ranges.len()
     }
 
-    pub fn get(&self, index: usize) -> Option<Result<String, Utf8Error>> {
-        self.capture_ranges.get(index).map(|range| {
-            str::from_utf8(&self.haystack[range.start..range.end]).map(|s| s.to_owned())
-        })
+    pub fn get(&self, index: usize) -> Option<BString> {
+        self.capture_ranges
+            .get(index)
+            .map(|range| self.haystack[range.start..range.end].into())
     }
 
-    pub fn name(&self, name: &str) -> Option<Result<String, Utf8Error>> {
+    pub fn name(&self, name: &str) -> Option<BString> {
         self.names.get(name).and_then(|&i| self.get(i))
     }
 }
@@ -193,6 +192,12 @@ impl Template for TimestampRange {
         write!(formatter, " - ")?;
         self.end.format(formatter)?;
         Ok(())
+    }
+}
+
+impl Template for Vec<BString> {
+    fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
+        format_joined(formatter, self, " ")
     }
 }
 

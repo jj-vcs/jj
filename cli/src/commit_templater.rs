@@ -2937,7 +2937,6 @@ pub struct AnnotationLine {
 
 fn builtin_annotation_line_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, AnnotationLine>
 {
-    type P<'repo> = CommitTemplatePropertyKind<'repo>;
     let mut map = CommitTemplateBuildMethodFnMap::<AnnotationLine>::new();
     map.insert(
         "commit",
@@ -2952,8 +2951,7 @@ fn builtin_annotation_line_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'r
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|line| line.content);
-            // TODO: Add Bytes or BString template type?
-            Ok(P::wrap_template(out_property.into_template()))
+            Ok(out_property.into_dyn_wrapped())
         },
     );
     map.insert(

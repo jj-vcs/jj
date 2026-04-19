@@ -53,7 +53,7 @@ y) * z`.
      lesser than or equal / lesser than. Operands must be `Integer`s.
 
 7. * `x == y`, `x != y`: Equal / not equal. Operands must be either `Boolean`,
-     `Integer`, or `String`.
+     `ByteString`, `Integer`, or `String`.
 
 8. * `x && y`: Logical and, short-circuiting.
 
@@ -144,7 +144,7 @@ _Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
 The following methods are defined.
 
 * `.commit() -> Commit`: Commit responsible for changing the relevant line.
-* `.content() -> Template`: Line content including newline character.
+* `.content() -> ByteString`: Line content including newline character.
 * `.line_number() -> Integer`: 1-based line number.
 * `.original_line_number() -> Integer`: 1-based line number in the original commit.
 * `.first_line_in_hunk() -> Boolean`: False when the directly preceding line
@@ -170,6 +170,23 @@ The following methods are defined.
 _Conversion: `Boolean`: yes, `Serialize`: yes, `Template`: yes_
 
 No methods are defined. Can be constructed with `false` or `true` literal.
+
+### `ByteString` type
+
+_Conversion: `Boolean`: yes, `Serialize`: yes, `Template`: yes_
+
+A byte string, whose encoding is considered ASCII-compatible (e.g. UTF-8), but
+isn't guaranteed. This can be implicitly converted to `Boolean`. The following
+methods are defined.
+
+* `.len() -> Integer`: Length in bytes.
+* `.trim() -> ByteString`: Remove leading and trailing ASCII whitespace.
+* `.trim_start() -> ByteString`: Remove leading ASCII whitespace.
+* `.trim_end() -> ByteString`: Remove trailing ASCII whitespace.
+* `.first_line() -> ByteString`
+* `.lines() -> List<ByteString>`: Split into lines excluding newline characters.
+* `.upper() -> ByteString`: Map each ASCII character to upper case.
+* `.lower() -> ByteString`: Map each ASCII character to lower case.
 
 ### `ChangeId` type
 
@@ -469,10 +486,10 @@ The following methods are defined.
 
 * `.len() -> Integer`: Number of capture groups, including capture group 0 for
   the full match.
-* `.get(index: Integer) -> String`: Returns the capture group at `index`.
+* `.get(index: Integer) -> ByteString`: Returns the capture group at `index`.
   Capture group 0 is the full match. Errors if the index is out of bounds.
-* `.name(name: Stringify) -> String`: Returns the named capture group `name`.
-  Errors if there is no such named capture group.
+* `.name(name: Stringify) -> ByteString`: Returns the named capture group
+  `name`. Errors if there is no such named capture group.
 
 ### `RepoPath` type
 
@@ -535,8 +552,8 @@ This type cannot be printed. The following methods are defined.
 
 _Conversion: `Boolean`: yes, `Serialize`: yes, `Template`: yes_
 
-A string can be implicitly converted to `Boolean`. The following methods are
-defined.
+A UTF-8-encoded string. This can be implicitly converted to `Boolean`. The
+following methods are defined.
 
 * `.len() -> Integer`: Length in UTF-8 bytes.
 * `.contains(needle: Stringify) -> Boolean`: Whether the string contains the
@@ -588,7 +605,7 @@ defined.
 An expression that can be converted to a `String`.
 
 Any types that can be converted to `Template` can also be `Stringify`. Unlike
-`Template`, color labels are stripped.
+`Template`, color labels are stripped. Invalid UTF-8 sequences are rejected.
 
 ### `StringLiteral` type
 

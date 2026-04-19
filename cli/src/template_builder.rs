@@ -17,6 +17,8 @@ use std::collections::HashMap;
 use std::io;
 use std::iter;
 
+use bstr::BString;
+use bstr::ByteSlice as _;
 use itertools::Itertools as _;
 use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
@@ -166,6 +168,8 @@ pub(crate) use impl_property_wrappers;
 /// Wrapper for the core template property types.
 pub trait CoreTemplatePropertyVar<'a>
 where
+    Self: WrapTemplateProperty<'a, BString>,
+    Self: WrapTemplateProperty<'a, Vec<BString>>,
     Self: WrapTemplateProperty<'a, String>,
     Self: WrapTemplateProperty<'a, Vec<String>>,
     Self: WrapTemplateProperty<'a, bool>,
@@ -205,6 +209,8 @@ where
 }
 
 pub enum CoreTemplatePropertyKind<'a> {
+    ByteString(BoxedTemplateProperty<'a, BString>),
+    ByteStringList(BoxedTemplateProperty<'a, Vec<BString>>),
     String(BoxedTemplateProperty<'a, String>),
     StringList(BoxedTemplateProperty<'a, Vec<String>>),
     Boolean(BoxedTemplateProperty<'a, bool>),
@@ -241,6 +247,8 @@ pub enum CoreTemplatePropertyKind<'a> {
 macro_rules! impl_core_property_wrappers {
     ($($head:tt)+) => {
         $crate::template_builder::impl_property_wrappers!($($head)+ {
+            ByteString(bstr::BString),
+            ByteStringList(Vec<bstr::BString>),
             String(String),
             StringList(Vec<String>),
             Boolean(bool),
@@ -277,6 +285,8 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
 
     fn type_name(&self) -> &'static str {
         match self {
+            Self::ByteString(_) => "ByteString",
+            Self::ByteStringList(_) => "List<ByteString>",
             Self::String(_) => "String",
             Self::StringList(_) => "List<String>",
             Self::Boolean(_) => "Boolean",
@@ -305,6 +315,8 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
 
     fn try_into_boolean(self) -> Result<BoxedTemplateProperty<'a, bool>, Self> {
         match self {
+            Self::ByteString(property) => Ok(property.map(|s| !s.is_empty()).into_dyn()),
+            Self::ByteStringList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
             Self::String(property) => Ok(property.map(|s| !s.is_empty()).into_dyn()),
             Self::StringList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
             Self::Boolean(property) => Ok(property),
@@ -344,6 +356,8 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
 
     fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'a>> {
         match self {
+            Self::ByteString(property) => Some(property.into_serialize()),
+            Self::ByteStringList(property) => Some(property.into_serialize()),
             Self::String(property) => Some(property.into_serialize()),
             Self::StringList(property) => Some(property.into_serialize()),
             Self::Boolean(property) => Some(property.into_serialize()),
@@ -371,6 +385,8 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
 
     fn try_into_template(self) -> Option<Box<dyn Template + 'a>> {
         match self {
+            Self::ByteString(property) => Some(property.into_template()),
+            Self::ByteStringList(property) => Some(property.into_template()),
             Self::String(property) => Some(property.into_template()),
             Self::StringList(property) => Some(property.into_template()),
             Self::Boolean(property) => Some(property.into_template()),
@@ -392,6 +408,15 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
 
     fn try_into_eq(self, other: Self) -> Option<BoxedTemplateProperty<'a, bool>> {
         match (self, other) {
+            (Self::ByteString(lhs), Self::ByteString(rhs)) => {
+                Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
+            }
+            (Self::ByteString(lhs), Self::String(rhs)) => {
+                Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
+            }
+            (Self::String(lhs), Self::ByteString(rhs)) => {
+                Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
+            }
             (Self::String(lhs), Self::String(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
             }
@@ -419,6 +444,8 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::Email(lhs), Self::String(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| l.0 == r).into_dyn())
             }
+            (Self::ByteString(_), _) => None,
+            (Self::ByteStringList(_), _) => None,
             (Self::String(_), _) => None,
             (Self::StringList(_), _) => None,
             (Self::Boolean(_), _) => None,
@@ -452,6 +479,8 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::IntegerOpt(lhs), Self::IntegerOpt(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| l.cmp(&r)).into_dyn())
             }
+            (Self::ByteString(_), _) => None,
+            (Self::ByteStringList(_), _) => None,
             (Self::String(_), _) => None,
             (Self::StringList(_), _) => None,
             (Self::Boolean(_), _) => None,
@@ -517,6 +546,8 @@ pub type BuildAnyMethodFnMap<'a, L, P = <L as TemplateLanguage<'a>>::Property> =
 /// Symbol table of functions and methods available in the core template.
 pub struct CoreTemplateBuildFnTable<'a, L: ?Sized, P = <L as TemplateLanguage<'a>>::Property> {
     pub functions: TemplateBuildFunctionFnMap<'a, L, P>,
+    pub byte_string_methods: TemplateBuildMethodFnMap<'a, L, BString, P>,
+    pub byte_string_list_methods: TemplateBuildMethodFnMap<'a, L, Vec<BString>, P>,
     pub string_methods: TemplateBuildMethodFnMap<'a, L, String, P>,
     pub string_list_methods: TemplateBuildMethodFnMap<'a, L, Vec<String>, P>,
     pub boolean_methods: TemplateBuildMethodFnMap<'a, L, bool, P>,
@@ -545,6 +576,8 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
     pub fn empty() -> Self {
         Self {
             functions: HashMap::new(),
+            byte_string_methods: HashMap::new(),
+            byte_string_list_methods: HashMap::new(),
             string_methods: HashMap::new(),
             string_list_methods: HashMap::new(),
             boolean_methods: HashMap::new(),
@@ -565,6 +598,8 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
     pub fn merge(&mut self, other: Self) {
         let Self {
             functions,
+            byte_string_methods,
+            byte_string_list_methods,
             string_methods,
             string_list_methods,
             boolean_methods,
@@ -582,6 +617,8 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
         } = other;
 
         merge_fn_map(&mut self.functions, functions);
+        merge_fn_map(&mut self.byte_string_methods, byte_string_methods);
+        merge_fn_map(&mut self.byte_string_list_methods, byte_string_list_methods);
         merge_fn_map(&mut self.string_methods, string_methods);
         merge_fn_map(&mut self.string_list_methods, string_list_methods);
         merge_fn_map(&mut self.boolean_methods, boolean_methods);
@@ -607,6 +644,8 @@ where
     pub fn builtin() -> Self {
         Self {
             functions: builtin_functions(),
+            byte_string_methods: builtin_byte_string_methods(),
+            byte_string_list_methods: builtin_formattable_list_methods(),
             string_methods: builtin_string_methods(),
             string_list_methods: builtin_formattable_list_methods(),
             boolean_methods: HashMap::new(),
@@ -649,6 +688,16 @@ where
     ) -> TemplateParseResult<L::Property> {
         let type_name = property.type_name();
         match property {
+            CoreTemplatePropertyKind::ByteString(property) => {
+                let table = &self.byte_string_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(language, diagnostics, build_ctx, property, function)
+            }
+            CoreTemplatePropertyKind::ByteStringList(property) => {
+                let table = &self.byte_string_list_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(language, diagnostics, build_ctx, property, function)
+            }
             CoreTemplatePropertyKind::String(property) => {
                 let table = &self.string_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
@@ -982,6 +1031,79 @@ fn build_binary_operation<'a, L: TemplateLanguage<'a> + ?Sized>(
             Ok(out.into_dyn_wrapped())
         }
     }
+}
+
+fn builtin_byte_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
+-> TemplateBuildMethodFnMap<'a, L, BString> {
+    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // code completion inside macro is quite restricted.
+    let mut map = TemplateBuildMethodFnMap::<L, BString>::new();
+    map.insert(
+        "len",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.and_then(|s| Ok(i64::try_from(s.len())?));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "trim",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|s| BString::from(s.trim_ascii()));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "trim_start",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|s| BString::from(s.trim_ascii_start()));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "trim_end",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|s| BString::from(s.trim_ascii_end()));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "first_line",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property =
+                self_property.map(|s| s.lines().next().map(BString::from).unwrap_or_default());
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "lines",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|s| s.lines().map(BString::from).collect_vec());
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "upper",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|s| BString::from(s.to_ascii_uppercase()));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "lower",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|s| BString::from(s.to_ascii_lowercase()));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map
 }
 
 fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
@@ -1447,7 +1569,7 @@ fn builtin_regex_captures_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
             let [index_node] = function.expect_exact_arguments()?;
             let index = expect_usize_expression(language, diagnostics, build_ctx, index_node)?;
             let out_property = (self_property, index).and_then(|(captures, index)| {
-                captures.get(index).transpose()?.ok_or_else(|| {
+                captures.get(index).ok_or_else(|| {
                     TemplatePropertyError(
                         format!("Could not get capture group with index {index}").into(),
                     )
@@ -1462,7 +1584,7 @@ fn builtin_regex_captures_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
             let [name_node] = function.expect_exact_arguments()?;
             let name = expect_stringify_expression(language, diagnostics, build_ctx, name_node)?;
             let out_property = (self_property, name).and_then(move |(c, name)| {
-                c.name(&name).transpose()?.ok_or_else(|| {
+                c.name(&name).ok_or_else(|| {
                     TemplatePropertyError(
                         format!("Could not get capture group with name {name}").into(),
                     )
@@ -2650,7 +2772,6 @@ fn expect_expression_of_type<'a, L: TemplateLanguage<'a> + ?Sized, T>(
 #[cfg(test)]
 mod tests {
     use assert_matches::assert_matches;
-    use bstr::BString;
     use jj_lib::backend::MillisSinceEpoch;
     use jj_lib::config::StackedConfig;
 
@@ -3113,6 +3234,16 @@ mod tests {
     fn test_boolean_cast() {
         let mut env = TestTemplateEnv::new();
 
+        env.add_keyword("empty_bstr", || literal(BString::from("")));
+        env.add_keyword("nonempty_bstr", || literal(BString::from("a")));
+        insta::assert_snapshot!(env.render_ok("if(empty_bstr, true, false)"), @"false");
+        insta::assert_snapshot!(env.render_ok("if(nonempty_bstr, true, false)"), @"true");
+
+        env.add_keyword("empty_bstr_list", || literal::<Vec<BString>>(vec![]));
+        env.add_keyword("nonempty_bstr_list", || literal(vec![BString::from("")]));
+        insta::assert_snapshot!(env.render_ok("if(empty_bstr_list, true, false)"), @"false");
+        insta::assert_snapshot!(env.render_ok("if(nonempty_bstr_list, true, false)"), @"true");
+
         insta::assert_snapshot!(env.render_ok(r#"if("", true, false)"#), @"false");
         insta::assert_snapshot!(env.render_ok(r#"if("a", true, false)"#), @"true");
 
@@ -3382,6 +3513,8 @@ mod tests {
         env.add_keyword("none_i64", || literal::<Option<i64>>(None));
         env.add_keyword("some_i64_0", || literal(Some(0_i64)));
         env.add_keyword("some_i64_1", || literal(Some(1_i64)));
+        env.add_keyword("bstr1", || literal(BString::from("1")));
+        env.add_keyword("bstr2", || literal(BString::from("2")));
         env.add_keyword("email1", || literal(Email("local-1@domain".to_owned())));
         env.add_keyword("email2", || literal(Email("local-2@domain".to_owned())));
 
@@ -3402,6 +3535,11 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#"none_i64 == 0"#), @"false");
         insta::assert_snapshot!(env.render_ok(r#"some_i64_0 != 0"#), @"false");
         insta::assert_snapshot!(env.render_ok(r#"1 == some_i64_1"#), @"true");
+
+        insta::assert_snapshot!(env.render_ok("bstr1 == bstr1"), @"true");
+        insta::assert_snapshot!(env.render_ok("bstr1 == bstr2"), @"false");
+        insta::assert_snapshot!(env.render_ok("bstr1 == '1'"), @"true");
+        insta::assert_snapshot!(env.render_ok("'2' != bstr2"), @"false");
 
         insta::assert_snapshot!(env.render_ok(r#"'a' == 'a'"#), @"true");
         insta::assert_snapshot!(env.render_ok(r#"'a' == 'b'"#), @"false");
@@ -3736,6 +3874,42 @@ mod tests {
 
         // Combining skip and take
         insta::assert_snapshot!(env.render_ok(r#""a\nb\nc\nd".lines().skip(1).take(2).join("|")"#), @"b|c");
+    }
+
+    #[test]
+    fn test_byte_string_method() {
+        let mut env = TestTemplateEnv::new();
+        env.add_keyword("empty", || literal(BString::from("")));
+        env.add_keyword("foo", || literal(BString::from("foo")));
+        env.add_keyword("foo_ws", || literal(BString::from(" \n \r foo \t \r ")));
+        env.add_keyword("foo_bar_nl", || literal(BString::from("foo\nbar\n")));
+        env.add_keyword("foo_bar_case", || literal(BString::from("foo BAR")));
+        env.add_keyword("odd", || literal(BString::from(b"\x80")));
+        env.add_keyword("odd_ws", || literal(BString::from(b" \x80 ")));
+        env.add_keyword("odd_case", || literal(BString::from(b"A\x80z")));
+
+        insta::assert_snapshot!(env.render_ok("empty.len()"), @"0");
+        insta::assert_snapshot!(env.render_ok("foo.len()"), @"3");
+        insta::assert_snapshot!(env.render_ok("odd.len()"), @"1");
+
+        insta::assert_snapshot!(env.render_ok("'|' ++ foo_ws.trim() ++ '|'"), @"|foo|");
+        insta::assert_snapshot!(env.render_ok("'|' ++ foo_ws.trim_start() ++ '|'"), @"|foo \t \r |");
+        insta::assert_snapshot!(env.render_ok("'|' ++ foo_ws.trim_end() ++ '|'"), @"| \n \r foo|");
+        insta::assert_snapshot!(env.render_ok("json(odd_ws.trim())"), @"[128]");
+        insta::assert_snapshot!(env.render_ok("json(odd_ws.trim_start())"), @"[128,32]");
+        insta::assert_snapshot!(env.render_ok("json(odd_ws.trim_end())"), @"[32,128]");
+
+        insta::assert_snapshot!(env.render_ok("'|' ++ empty.first_line() ++ '|'"), @"||");
+        insta::assert_snapshot!(env.render_ok("'|' ++ foo_bar_nl.first_line() ++ '|'"), @"|foo|");
+        insta::assert_snapshot!(env.render_ok("empty.lines().len()"), @"0");
+        insta::assert_snapshot!(env.render_ok("foo_bar_nl.lines()"), @"foo bar");
+        insta::assert_snapshot!(env.render_ok("json(odd.first_line())"), @"[128]");
+        insta::assert_snapshot!(env.render_ok("json(odd.lines())"), @"[[128]]");
+
+        insta::assert_snapshot!(env.render_ok("foo_bar_case.upper()"), @"FOO BAR");
+        insta::assert_snapshot!(env.render_ok("foo_bar_case.lower()"), @"foo bar");
+        insta::assert_snapshot!(env.render_ok("json(odd_case.upper())"), @"[65,128,90]");
+        insta::assert_snapshot!(env.render_ok("json(odd_case.lower())"), @"[97,128,122]");
     }
 
     #[test]
@@ -4387,10 +4561,10 @@ mod tests {
             env.render_ok(r#"replace("Hi", "Hi world", |c| c.name("no_such_group"))"#),
             @"[38;5;1m<Error: Could not get capture group with name no_such_group>[39m world");
 
-        // Invalid UTF-8 in a capture group throws an error.
+        // Invalid UTF-8 in a capture group isn't an error.
         insta::assert_snapshot!(
-            env.render_ok(r#"replace(regex:'(?-u)^(.{3})(.)$', "🥺", |c| c.get(1))"#),
-            @"[38;5;1m<Error: incomplete utf-8 byte sequence from index 0>[39m");
+            env.render_ok(r#"replace(regex:'(?-u)^(.{3})(.)$', "🥺", |c| json(c.get(1)))"#),
+            @"[240,159,165]");
     }
 
     #[test]
@@ -4690,11 +4864,17 @@ mod tests {
     fn test_stringify_function() {
         let mut env = TestTemplateEnv::new();
         env.add_keyword("none_i64", || literal(None::<i64>));
+        env.add_keyword("ascii_bstr", || literal(BString::from("foo")));
+        env.add_keyword("odd_bstr", || literal(BString::from(b"\x80")));
         env.add_color("error", crossterm::style::Color::DarkRed);
 
         insta::assert_snapshot!(env.render_ok("stringify(false)"), @"false");
         insta::assert_snapshot!(env.render_ok("stringify(42).len()"), @"2");
         insta::assert_snapshot!(env.render_ok("stringify(none_i64)"), @"");
+        insta::assert_snapshot!(env.render_ok("stringify(ascii_bstr)"), @"foo");
+        insta::assert_snapshot!(
+            env.render_ok("stringify(odd_bstr)"),
+            @"[38;5;1m<Error: invalid utf-8 sequence of 1 bytes from index 0>[39m");
         insta::assert_snapshot!(env.render_ok("stringify(label('error', 'text'))"), @"text");
     }
 
@@ -4702,6 +4882,7 @@ mod tests {
     fn test_json_function() {
         let mut env = TestTemplateEnv::new();
         env.add_keyword("none_i64", || literal(None::<i64>));
+        env.add_keyword("ascii_bstr", || literal(BString::from("foo")));
         env.add_keyword("string_list", || {
             literal(vec!["foo".to_owned(), "bar".to_owned()])
         });
@@ -4741,6 +4922,7 @@ mod tests {
             })
         });
 
+        insta::assert_snapshot!(env.render_ok(r#"json(ascii_bstr)"#), @"[102,111,111]");
         insta::assert_snapshot!(env.render_ok(r#"json('"quoted"')"#), @r#""\"quoted\"""#);
         insta::assert_snapshot!(env.render_ok(r#"json(string_list)"#), @r#"["foo","bar"]"#);
         insta::assert_snapshot!(env.render_ok("json(false)"), @"false");
