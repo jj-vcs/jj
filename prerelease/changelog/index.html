@@ -6940,6 +6940,12 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   lines and fine-grained control over when the tool is run. If you have set the <code>line-range-arg</code>
   config, use <code>--all-lines</code> to match the previous behavior of formatting the entire file.</p>
 </li>
+<li>
+<p>A new <code>replace(pattern, content, replacement)</code> template function is added
+  which supports replacement of content in templates, using a lambda to format
+  replacement text. It supports all string patterns, including regexes with
+  capture groups (e.g. <code>replace(regex:'(\w+) (\w+)', "hello world", |c| c.get(1) ++ " " ++ c.get(2))</code>).</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>

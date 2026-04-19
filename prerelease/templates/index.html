@@ -1223,6 +1223,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#regexcaptures-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      RegexCaptures type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#repopath-type" class="md-nav__link">
     <span class="md-ellipsis">
       RepoPath type
@@ -2545,6 +2554,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#regexcaptures-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      RegexCaptures type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#repopath-type" class="md-nav__link">
     <span class="md-ellipsis">
       RepoPath type
@@ -2875,8 +2893,22 @@ y) * z</code>.</p>
   Note: This function is intended for escape sequences and as such, its output
   is expected to be invisible / of no display width. Outputting content with
   nonzero display width may break wrapping, indentation etc.</li>
-<li><code>stringify(content: Stringify) -&gt; String</code>: Format <code>content</code> to string. This
-  effectively removes color labels.</li>
+<li>
+<p><code>replace(pattern: StringPattern, content: Template, replacement: |RegexCaptures| -&gt; Template) -&gt; Template</code>:
+  Replace every match of <code>pattern</code> in <code>content</code> by formatting the <code>replacement</code>
+  lambda for each match.</p>
+<p>This is similar to <a href="#string-type"><code>String.replace()</code></a>, but operates on
+<code>Template</code> content and preserves formatting of the parts of <code>content</code> that are
+not replaced. The replacement itself is newly formatted template content.</p>
+<p>The lambda argument is a <a href="#regexcaptures-type"><code>RegexCaptures</code></a> value for the
+current match. Use <code>.get(index)</code> to access capture groups by index, <code>.name(name)</code>
+to access named capture groups, and <code>.len()</code> to get the number of captures
+including capture group 0 for the full match.</p>
+</li>
+<li>
+<p><code>stringify(content: Stringify) -&gt; String</code>: Format <code>content</code> to string. This
+  effectively removes color labels.</p>
+</li>
 <li><code>json(value: Serialize) -&gt; String</code>: Serialize <code>value</code> in JSON format.</li>
 <li><code>if(condition: Boolean, then: Any, [else: Any]) -&gt; Any</code>:
   Conditionally evaluates to <code>then</code> / <code>else</code> content.</li>
@@ -3169,6 +3201,19 @@ unset value is not an error. Unset value is considered less than any set values.
 <p><a href="#string-type">A <code>String</code> type</a>, but is formatted as revset symbol by quoting
 and escaping if necessary. Unlike strings, this cannot be implicitly converted
 to <code>Boolean</code>.</p>
+<h3 id="regexcaptures-type"><code>RegexCaptures</code> type<a class="headerlink" href="#regexcaptures-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: no, <code>Template</code>: no</em></p>
+<p>This type is passed to the replacement lambda of the global
+<a href="#global-functions"><code>replace()</code></a> function.</p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code>.len() -&gt; Integer</code>: Number of capture groups, including capture group 0 for
+  the full match.</li>
+<li><code>.get(index: Integer) -&gt; String</code>: Returns the capture group at <code>index</code>.
+  Capture group 0 is the full match. Errors if the index is out of bounds.</li>
+<li><code>.name(name: Stringify) -&gt; String</code>: Returns the named capture group <code>name</code>.
+  Errors if there is no such named capture group.</li>
+</ul>
 <h3 id="repopath-type"><code>RepoPath</code> type<a class="headerlink" href="#repopath-type" title="Permanent link">&para;</a></h3>
 <p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
 <p>A slash-separated path relative to the repository root. The following methods
