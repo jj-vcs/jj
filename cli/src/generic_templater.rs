@@ -191,6 +191,13 @@ where
         }
     }
 
+    fn try_into_string(self) -> Result<BoxedTemplateProperty<'a, String>, Self> {
+        match self {
+            Self::Core(property) => property.try_into_string().map_err(Self::Core),
+            Self::Self_(_) => Err(self),
+        }
+    }
+
     fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'a, bool>> {
         match self {
             Self::Core(property) => property.try_into_boolean(),
@@ -208,13 +215,6 @@ where
     fn try_into_timestamp(self) -> Option<BoxedTemplateProperty<'a, jj_lib::backend::Timestamp>> {
         match self {
             Self::Core(property) => property.try_into_timestamp(),
-            Self::Self_(_) => None,
-        }
-    }
-
-    fn try_into_stringify(self) -> Option<BoxedTemplateProperty<'a, String>> {
-        match self {
-            Self::Core(property) => property.try_into_stringify(),
             Self::Self_(_) => None,
         }
     }

@@ -45,7 +45,6 @@ use crate::template_parser::TemplateParseResult;
 use crate::templater::BoxedAnyProperty;
 use crate::templater::BoxedSerializeProperty;
 use crate::templater::BoxedTemplateProperty;
-use crate::templater::PlainTextFormattedProperty;
 use crate::templater::Template;
 use crate::templater::TemplateFormatter;
 use crate::templater::TemplatePropertyExt as _;
@@ -199,6 +198,10 @@ impl<'a> OperationTemplatePropertyKind<'a> {
         }
     }
 
+    pub fn try_into_string(self) -> Result<BoxedTemplateProperty<'a, String>, Self> {
+        Err(self)
+    }
+
     pub fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'a, bool>> {
         match self {
             Self::Operation(_) => None,
@@ -214,11 +217,6 @@ impl<'a> OperationTemplatePropertyKind<'a> {
 
     pub fn try_into_timestamp(self) -> Option<BoxedTemplateProperty<'a, Timestamp>> {
         None
-    }
-
-    pub fn try_into_stringify(self) -> Option<BoxedTemplateProperty<'a, String>> {
-        let template = self.try_into_template()?;
-        Some(PlainTextFormattedProperty::new(template).into_dyn())
     }
 
     pub fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'a>> {
@@ -311,6 +309,13 @@ impl CoreTemplatePropertyVar<'static> for OperationTemplateLanguagePropertyKind 
         }
     }
 
+    fn try_into_string(self) -> Result<BoxedTemplateProperty<'static, String>, Self> {
+        match self {
+            Self::Core(property) => property.try_into_string().map_err(Self::Core),
+            Self::Operation(property) => property.try_into_string().map_err(Self::Operation),
+        }
+    }
+
     fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'static, bool>> {
         match self {
             Self::Core(property) => property.try_into_boolean(),
@@ -331,13 +336,6 @@ impl CoreTemplatePropertyVar<'static> for OperationTemplateLanguagePropertyKind 
         match self {
             Self::Core(property) => property.try_into_timestamp(),
             Self::Operation(property) => property.try_into_timestamp(),
-        }
-    }
-
-    fn try_into_stringify(self) -> Option<BoxedTemplateProperty<'static, String>> {
-        match self {
-            Self::Core(property) => property.try_into_stringify(),
-            Self::Operation(property) => property.try_into_stringify(),
         }
     }
 

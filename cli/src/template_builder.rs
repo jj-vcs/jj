@@ -187,12 +187,13 @@ where
     /// Type name of the property output.
     fn type_name(&self) -> &'static str;
 
+    /// Extracts property of `String` type or newtype.
+    fn try_into_string(self) -> Result<BoxedTemplateProperty<'a, String>, Self>;
+    // TODO: rename try_into_boolean() because it isn't a pure extraction fn?
     fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'a, bool>>;
     fn try_into_integer(self) -> Option<BoxedTemplateProperty<'a, i64>>;
     fn try_into_timestamp(self) -> Option<BoxedTemplateProperty<'a, Timestamp>>;
 
-    /// Transforms into a string property by formatting the value if needed.
-    fn try_into_stringify(self) -> Option<BoxedTemplateProperty<'a, String>>;
     fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'a>>;
     fn try_into_template(self) -> Option<Box<dyn Template + 'a>>;
 
@@ -295,6 +296,13 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
         }
     }
 
+    fn try_into_string(self) -> Result<BoxedTemplateProperty<'a, String>, Self> {
+        match self {
+            Self::String(property) => Ok(property),
+            _ => Err(self),
+        }
+    }
+
     fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'a, bool>> {
         match self {
             Self::String(property) => Some(property.map(|s| !s.is_empty()).into_dyn()),
@@ -331,16 +339,6 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
         match self {
             Self::Timestamp(property) => Some(property),
             _ => None,
-        }
-    }
-
-    fn try_into_stringify(self) -> Option<BoxedTemplateProperty<'a, String>> {
-        match self {
-            Self::String(property) => Some(property),
-            _ => {
-                let template = self.try_into_template()?;
-                Some(PlainTextFormattedProperty::new(template).into_dyn())
-            }
         }
     }
 
@@ -774,8 +772,15 @@ impl<'a, P: CoreTemplatePropertyVar<'a>> Expression<P> {
         self.property.try_into_timestamp()
     }
 
+    /// Transforms into a string property by formatting the value if needed.
     pub fn try_into_stringify(self) -> Option<BoxedTemplateProperty<'a, String>> {
-        self.property.try_into_stringify()
+        match self.property.try_into_string() {
+            Ok(string_property) => Some(string_property),
+            Err(property) => {
+                let template = property.try_into_template()?;
+                Some(PlainTextFormattedProperty::new(template).into_dyn())
+            }
+        }
     }
 
     pub fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'a>> {

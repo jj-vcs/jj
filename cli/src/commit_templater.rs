@@ -121,7 +121,6 @@ use crate::templater::BoxedAnyProperty;
 use crate::templater::BoxedSerializeProperty;
 use crate::templater::BoxedTemplateProperty;
 use crate::templater::Literal;
-use crate::templater::PlainTextFormattedProperty;
 use crate::templater::SizeHint;
 use crate::templater::Template;
 use crate::templater::TemplateFormatter;
@@ -552,6 +551,18 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         }
     }
 
+    fn try_into_string(self) -> Result<BoxedTemplateProperty<'repo, String>, Self> {
+        match self {
+            Self::Core(property) => property.try_into_string().map_err(Self::Core),
+            Self::Operation(property) => property.try_into_string().map_err(Self::Operation),
+            Self::RefSymbol(property) => Ok(property.map(|RefSymbolBuf(s)| s).into_dyn()),
+            Self::RefSymbolOpt(property) => Ok(property
+                .map(|opt| opt.map_or_else(String::new, |RefSymbolBuf(s)| s))
+                .into_dyn()),
+            _ => Err(self),
+        }
+    }
+
     fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'repo, bool>> {
         match self {
             Self::Core(property) => property.try_into_boolean(),
@@ -605,23 +616,6 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::Core(property) => property.try_into_timestamp(),
             Self::Operation(property) => property.try_into_timestamp(),
             _ => None,
-        }
-    }
-
-    fn try_into_stringify(self) -> Option<BoxedTemplateProperty<'repo, String>> {
-        match self {
-            Self::Core(property) => property.try_into_stringify(),
-            Self::Operation(property) => property.try_into_stringify(),
-            Self::RefSymbol(property) => Some(property.map(|RefSymbolBuf(s)| s).into_dyn()),
-            Self::RefSymbolOpt(property) => Some(
-                property
-                    .map(|opt| opt.map_or_else(String::new, |RefSymbolBuf(s)| s))
-                    .into_dyn(),
-            ),
-            _ => {
-                let template = self.try_into_template()?;
-                Some(PlainTextFormattedProperty::new(template).into_dyn())
-            }
         }
     }
 
