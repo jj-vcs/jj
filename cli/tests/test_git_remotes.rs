@@ -152,6 +152,33 @@ fn test_git_remote_add() {
     [EOF]
     [exit status: 1]
     ");
+    let output = work_dir.run_jj(["git", "remote", "add", "", "http://example.com/repo/empty"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Git remote named '""' is incompatible with jj/Git fetch refspecs
+    [EOF]
+    [exit status: 1]
+    "#);
+    let output = work_dir.run_jj([
+        "git",
+        "remote",
+        "add",
+        "this also fails",
+        "http://example.com/repo/space",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Git remote named '"this also fails"' is incompatible with jj/Git fetch refspecs
+    [EOF]
+    [exit status: 1]
+    "#);
+    let output = work_dir.run_jj(["git", "remote", "add", "  ", "http://example.com/repo/ws"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Git remote named '"  "' is incompatible with jj/Git fetch refspecs
+    [EOF]
+    [exit status: 1]
+    "#);
     let output = work_dir.run_jj(["git", "remote", "list"]);
     insta::assert_snapshot!(output, @"
     foo http://example.com/repo/foo
