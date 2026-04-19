@@ -2744,12 +2744,12 @@ achieved with <code dir="auto">jj new</code>.</p>
 <p>Extracts the selected changes into a new commit inserted before the given revision(s). The remaining changes stay in the original commit's location.</p>
 </li>
 <li>
-<p><code dir="auto">-m</code>, <code dir="auto">--message &#x3C;MESSAGE></code> — The change description to use (don't open editor)</p>
-<p>Sets the description for the first commit (the one containing the selected changes). The second commit keeps the original description.</p>
+<p><code dir="auto">-m</code>, <code dir="auto">--message &#x3C;MESSAGE></code> — The change description to use for the selected changes (don't open editor)</p>
+<p>Sets the description for the revision containing the selected changes. The other revision will keep its original description, if any.</p>
 </li>
 <li>
-<p><code dir="auto">--editor</code> — Open an editor to edit the change description</p>
-<p>Forces an editor to open when using <code dir="auto">--message</code> to allow the message to be edited afterwards.</p>
+<p><code dir="auto">--editor</code> — Open an editor to edit the change description(s)</p>
+<p>Forces an editor to open when using <code dir="auto">--message</code> to allow the message to be edited afterward.</p>
 </li>
 <li>
 <p><code dir="auto">-p</code>, <code dir="auto">--parallel</code> — Split the revision into two parallel revisions instead of a parent and child</p>
