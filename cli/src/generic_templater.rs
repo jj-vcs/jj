@@ -199,24 +199,24 @@ where
         }
     }
 
-    fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'a, bool>> {
+    fn try_into_boolean(self) -> Result<BoxedTemplateProperty<'a, bool>, Self> {
         match self {
-            Self::Core(property) => property.try_into_boolean(),
-            Self::Self_(_) => None,
+            Self::Core(property) => property.try_into_boolean().map_err(Self::Core),
+            Self::Self_(_) => Err(self),
         }
     }
 
-    fn try_into_integer(self) -> Option<BoxedTemplateProperty<'a, i64>> {
+    fn try_into_integer(self) -> Result<BoxedTemplateProperty<'a, i64>, Self> {
         match self {
-            Self::Core(property) => property.try_into_integer(),
-            Self::Self_(_) => None,
+            Self::Core(property) => property.try_into_integer().map_err(Self::Core),
+            Self::Self_(_) => Err(self),
         }
     }
 
-    fn try_into_timestamp(self) -> Option<BoxedTemplateProperty<'a, Timestamp>> {
+    fn try_into_timestamp(self) -> Result<BoxedTemplateProperty<'a, Timestamp>, Self> {
         match self {
-            Self::Core(property) => property.try_into_timestamp(),
-            Self::Self_(_) => None,
+            Self::Core(property) => property.try_into_timestamp().map_err(Self::Core),
+            Self::Self_(_) => Err(self),
         }
     }
 

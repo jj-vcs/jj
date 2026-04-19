@@ -190,9 +190,9 @@ where
     /// Extracts property of `String` type or newtype.
     fn try_into_string(self) -> Result<BoxedTemplateProperty<'a, String>, Self>;
     // TODO: rename try_into_boolean() because it isn't a pure extraction fn?
-    fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'a, bool>>;
-    fn try_into_integer(self) -> Option<BoxedTemplateProperty<'a, i64>>;
-    fn try_into_timestamp(self) -> Option<BoxedTemplateProperty<'a, Timestamp>>;
+    fn try_into_boolean(self) -> Result<BoxedTemplateProperty<'a, bool>, Self>;
+    fn try_into_integer(self) -> Result<BoxedTemplateProperty<'a, i64>, Self>;
+    fn try_into_timestamp(self) -> Result<BoxedTemplateProperty<'a, Timestamp>, Self>;
 
     fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'a>>;
     fn try_into_template(self) -> Option<Box<dyn Template + 'a>>;
@@ -303,42 +303,42 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
         }
     }
 
-    fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'a, bool>> {
+    fn try_into_boolean(self) -> Result<BoxedTemplateProperty<'a, bool>, Self> {
         match self {
-            Self::String(property) => Some(property.map(|s| !s.is_empty()).into_dyn()),
-            Self::StringList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
-            Self::Boolean(property) => Some(property),
-            Self::Integer(_) => None,
-            Self::IntegerOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
-            Self::ConfigValue(_) => None,
-            Self::ConfigValueOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
-            Self::Signature(_) => None,
-            Self::Email(property) => Some(property.map(|e| !e.0.is_empty()).into_dyn()),
-            Self::SizeHint(_) => None,
-            Self::RegexCaptures(_) => None,
-            Self::Timestamp(_) => None,
-            Self::TimestampRange(_) => None,
+            Self::String(property) => Ok(property.map(|s| !s.is_empty()).into_dyn()),
+            Self::StringList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::Boolean(property) => Ok(property),
+            Self::Integer(_) => Err(self),
+            Self::IntegerOpt(property) => Ok(property.map(|opt| opt.is_some()).into_dyn()),
+            Self::ConfigValue(_) => Err(self),
+            Self::ConfigValueOpt(property) => Ok(property.map(|opt| opt.is_some()).into_dyn()),
+            Self::Signature(_) => Err(self),
+            Self::Email(property) => Ok(property.map(|e| !e.0.is_empty()).into_dyn()),
+            Self::SizeHint(_) => Err(self),
+            Self::RegexCaptures(_) => Err(self),
+            Self::Timestamp(_) => Err(self),
+            Self::TimestampRange(_) => Err(self),
             // Template and AnyList types could also be evaluated to boolean,
             // but it's less likely to apply label() or .map() and use the
             // result as conditional.
-            Self::Template(_) => None,
-            Self::Any(_) => None,
-            Self::AnyList(_) => None,
+            Self::Template(_) => Err(self),
+            Self::Any(_) => Err(self),
+            Self::AnyList(_) => Err(self),
         }
     }
 
-    fn try_into_integer(self) -> Option<BoxedTemplateProperty<'a, i64>> {
+    fn try_into_integer(self) -> Result<BoxedTemplateProperty<'a, i64>, Self> {
         match self {
-            Self::Integer(property) => Some(property),
-            Self::IntegerOpt(property) => Some(property.try_unwrap("Integer").into_dyn()),
-            _ => None,
+            Self::Integer(property) => Ok(property),
+            Self::IntegerOpt(property) => Ok(property.try_unwrap("Integer").into_dyn()),
+            _ => Err(self),
         }
     }
 
-    fn try_into_timestamp(self) -> Option<BoxedTemplateProperty<'a, Timestamp>> {
+    fn try_into_timestamp(self) -> Result<BoxedTemplateProperty<'a, Timestamp>, Self> {
         match self {
-            Self::Timestamp(property) => Some(property),
-            _ => None,
+            Self::Timestamp(property) => Ok(property),
+            _ => Err(self),
         }
     }
 
@@ -761,15 +761,15 @@ impl<'a, P: CoreTemplatePropertyVar<'a>> Expression<P> {
     }
 
     pub fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'a, bool>> {
-        self.property.try_into_boolean()
+        self.property.try_into_boolean().ok()
     }
 
     pub fn try_into_integer(self) -> Option<BoxedTemplateProperty<'a, i64>> {
-        self.property.try_into_integer()
+        self.property.try_into_integer().ok()
     }
 
     pub fn try_into_timestamp(self) -> Option<BoxedTemplateProperty<'a, Timestamp>> {
-        self.property.try_into_timestamp()
+        self.property.try_into_timestamp().ok()
     }
 
     /// Transforms into a string property by formatting the value if needed.

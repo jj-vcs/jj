@@ -563,59 +563,59 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         }
     }
 
-    fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'repo, bool>> {
+    fn try_into_boolean(self) -> Result<BoxedTemplateProperty<'repo, bool>, Self> {
         match self {
-            Self::Core(property) => property.try_into_boolean(),
-            Self::Operation(property) => property.try_into_boolean(),
-            Self::Commit(_) => None,
-            Self::CommitOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
-            Self::CommitList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
-            Self::CommitEvolutionEntry(_) => None,
-            Self::CommitRef(_) => None,
-            Self::CommitRefOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
-            Self::CommitRefList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
-            Self::WorkspaceRef(_) => None,
-            Self::WorkspaceRefOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
-            Self::WorkspaceRefList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
-            Self::RefSymbol(_) => None,
-            Self::RefSymbolOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
-            Self::RepoPath(_) => None,
-            Self::RepoPathOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
-            Self::ChangeId(_) => None,
-            Self::CommitId(_) => None,
-            Self::ShortestIdPrefix(_) => None,
+            Self::Core(property) => property.try_into_boolean().map_err(Self::Core),
+            Self::Operation(property) => property.try_into_boolean().map_err(Self::Operation),
+            Self::Commit(_) => Err(self),
+            Self::CommitOpt(property) => Ok(property.map(|opt| opt.is_some()).into_dyn()),
+            Self::CommitList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::CommitEvolutionEntry(_) => Err(self),
+            Self::CommitRef(_) => Err(self),
+            Self::CommitRefOpt(property) => Ok(property.map(|opt| opt.is_some()).into_dyn()),
+            Self::CommitRefList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::WorkspaceRef(_) => Err(self),
+            Self::WorkspaceRefOpt(property) => Ok(property.map(|opt| opt.is_some()).into_dyn()),
+            Self::WorkspaceRefList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::RefSymbol(_) => Err(self),
+            Self::RefSymbolOpt(property) => Ok(property.map(|opt| opt.is_some()).into_dyn()),
+            Self::RepoPath(_) => Err(self),
+            Self::RepoPathOpt(property) => Ok(property.map(|opt| opt.is_some()).into_dyn()),
+            Self::ChangeId(_) => Err(self),
+            Self::CommitId(_) => Err(self),
+            Self::ShortestIdPrefix(_) => Err(self),
             // TODO: boolean cast could be implemented, but explicit
             // diff.empty() method might be better.
-            Self::TreeDiff(_) => None,
-            Self::TreeDiffEntry(_) => None,
-            Self::TreeDiffEntryList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
-            Self::TreeEntry(_) => None,
-            Self::TreeEntryList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
-            Self::DiffStats(_) => None,
-            Self::DiffStatEntry(_) => None,
-            Self::DiffStatEntryList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::TreeDiff(_) => Err(self),
+            Self::TreeDiffEntry(_) => Err(self),
+            Self::TreeDiffEntryList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::TreeEntry(_) => Err(self),
+            Self::TreeEntryList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::DiffStats(_) => Err(self),
+            Self::DiffStatEntry(_) => Err(self),
+            Self::DiffStatEntryList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
             Self::CryptographicSignatureOpt(property) => {
-                Some(property.map(|sig| sig.is_some()).into_dyn())
+                Ok(property.map(|sig| sig.is_some()).into_dyn())
             }
-            Self::AnnotationLine(_) => None,
-            Self::Trailer(_) => None,
-            Self::TrailerList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::AnnotationLine(_) => Err(self),
+            Self::Trailer(_) => Err(self),
+            Self::TrailerList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
         }
     }
 
-    fn try_into_integer(self) -> Option<BoxedTemplateProperty<'repo, i64>> {
+    fn try_into_integer(self) -> Result<BoxedTemplateProperty<'repo, i64>, Self> {
         match self {
-            Self::Core(property) => property.try_into_integer(),
-            Self::Operation(property) => property.try_into_integer(),
-            _ => None,
+            Self::Core(property) => property.try_into_integer().map_err(Self::Core),
+            Self::Operation(property) => property.try_into_integer().map_err(Self::Operation),
+            _ => Err(self),
         }
     }
 
-    fn try_into_timestamp(self) -> Option<BoxedTemplateProperty<'repo, Timestamp>> {
+    fn try_into_timestamp(self) -> Result<BoxedTemplateProperty<'repo, Timestamp>, Self> {
         match self {
-            Self::Core(property) => property.try_into_timestamp(),
-            Self::Operation(property) => property.try_into_timestamp(),
-            _ => None,
+            Self::Core(property) => property.try_into_timestamp().map_err(Self::Core),
+            Self::Operation(property) => property.try_into_timestamp().map_err(Self::Operation),
+            _ => Err(self),
         }
     }
 

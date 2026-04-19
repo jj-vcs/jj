@@ -202,21 +202,21 @@ impl<'a> OperationTemplatePropertyKind<'a> {
         Err(self)
     }
 
-    pub fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'a, bool>> {
+    pub fn try_into_boolean(self) -> Result<BoxedTemplateProperty<'a, bool>, Self> {
         match self {
-            Self::Operation(_) => None,
-            Self::OperationOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
-            Self::OperationList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
-            Self::OperationId(_) => None,
+            Self::Operation(_) => Err(self),
+            Self::OperationOpt(property) => Ok(property.map(|opt| opt.is_some()).into_dyn()),
+            Self::OperationList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::OperationId(_) => Err(self),
         }
     }
 
-    pub fn try_into_integer(self) -> Option<BoxedTemplateProperty<'a, i64>> {
-        None
+    pub fn try_into_integer(self) -> Result<BoxedTemplateProperty<'a, i64>, Self> {
+        Err(self)
     }
 
-    pub fn try_into_timestamp(self) -> Option<BoxedTemplateProperty<'a, Timestamp>> {
-        None
+    pub fn try_into_timestamp(self) -> Result<BoxedTemplateProperty<'a, Timestamp>, Self> {
+        Err(self)
     }
 
     pub fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'a>> {
@@ -316,24 +316,24 @@ impl CoreTemplatePropertyVar<'static> for OperationTemplateLanguagePropertyKind 
         }
     }
 
-    fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'static, bool>> {
+    fn try_into_boolean(self) -> Result<BoxedTemplateProperty<'static, bool>, Self> {
         match self {
-            Self::Core(property) => property.try_into_boolean(),
-            Self::Operation(property) => property.try_into_boolean(),
+            Self::Core(property) => property.try_into_boolean().map_err(Self::Core),
+            Self::Operation(property) => property.try_into_boolean().map_err(Self::Operation),
         }
     }
 
-    fn try_into_integer(self) -> Option<BoxedTemplateProperty<'static, i64>> {
+    fn try_into_integer(self) -> Result<BoxedTemplateProperty<'static, i64>, Self> {
         match self {
-            Self::Core(property) => property.try_into_integer(),
-            Self::Operation(property) => property.try_into_integer(),
+            Self::Core(property) => property.try_into_integer().map_err(Self::Core),
+            Self::Operation(property) => property.try_into_integer().map_err(Self::Operation),
         }
     }
 
-    fn try_into_timestamp(self) -> Option<BoxedTemplateProperty<'static, Timestamp>> {
+    fn try_into_timestamp(self) -> Result<BoxedTemplateProperty<'static, Timestamp>, Self> {
         match self {
-            Self::Core(property) => property.try_into_timestamp(),
-            Self::Operation(property) => property.try_into_timestamp(),
+            Self::Core(property) => property.try_into_timestamp().map_err(Self::Core),
+            Self::Operation(property) => property.try_into_timestamp().map_err(Self::Operation),
         }
     }
 
