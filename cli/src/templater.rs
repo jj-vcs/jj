@@ -635,7 +635,7 @@ where
     }
 }
 
-/// Adapter to turn template back to string property.
+/// Adapter to turn template back to byte string property.
 pub struct PlainTextFormattedProperty<T> {
     template: T,
 }
@@ -647,14 +647,14 @@ impl<T> PlainTextFormattedProperty<T> {
 }
 
 impl<T: Template> TemplateProperty for PlainTextFormattedProperty<T> {
-    type Output = String;
+    type Output = BString;
 
     fn extract(&self) -> Result<Self::Output, TemplatePropertyError> {
         let mut output = vec![];
         let mut formatter = PlainTextFormatter::new(&mut output);
         let mut wrapper = TemplateFormatter::new(&mut formatter, propagate_property_error);
         self.template.format(&mut wrapper)?;
-        Ok(String::from_utf8(output).map_err(|err| err.utf8_error())?)
+        Ok(BString::new(output))
     }
 }
 

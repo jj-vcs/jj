@@ -188,6 +188,14 @@ methods are defined.
 * `.upper() -> ByteString`: Map each ASCII character to upper case.
 * `.lower() -> ByteString`: Map each ASCII character to lower case.
 
+### `ByteStringify` type
+
+An expression that can be converted to a `ByteString`.
+
+A `String` can be converted to a `ByteString` losslessly. Any types that can be
+converted to `Template` can also be `ByteStringify`. Unlike `Template`, color
+labels are stripped.
+
 ### `ChangeId` type
 
 _Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_

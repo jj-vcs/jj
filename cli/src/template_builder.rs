@@ -191,6 +191,8 @@ where
     /// Type name of the property output.
     fn type_name(&self) -> &'static str;
 
+    /// Extracts property of `ByteString` type or newtype.
+    fn try_into_byte_string(self) -> Result<BoxedTemplateProperty<'a, BString>, Self>;
     /// Extracts property of `String` type or newtype.
     fn try_into_string(self) -> Result<BoxedTemplateProperty<'a, String>, Self>;
     // TODO: rename try_into_boolean() because it isn't a pure extraction fn?
@@ -303,6 +305,13 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::Template(_) => "Template",
             Self::Any(_) => "Any",
             Self::AnyList(_) => "AnyList",
+        }
+    }
+
+    fn try_into_byte_string(self) -> Result<BoxedTemplateProperty<'a, BString>, Self> {
+        match self {
+            Self::ByteString(property) => Ok(property),
+            _ => Err(self),
         }
     }
 
@@ -821,15 +830,39 @@ impl<'a, P: CoreTemplatePropertyVar<'a>> Expression<P> {
         self.property.try_into_timestamp().ok()
     }
 
+    /// Transforms into a byte string property by formatting the value if
+    /// needed.
+    pub fn try_into_byte_stringify(self) -> Option<BoxedTemplateProperty<'a, BString>> {
+        let property = match self.property.try_into_byte_string() {
+            Ok(bytes_property) => return Some(bytes_property),
+            Err(property) => property,
+        };
+        let property = match property.try_into_string() {
+            Ok(string_property) => return Some(string_property.map(BString::from).into_dyn()),
+            Err(property) => property,
+        };
+        let template = property.try_into_template()?;
+        Some(PlainTextFormattedProperty::new(template).into_dyn())
+    }
+
     /// Transforms into a string property by formatting the value if needed.
     pub fn try_into_stringify(self) -> Option<BoxedTemplateProperty<'a, String>> {
-        match self.property.try_into_string() {
-            Ok(string_property) => Some(string_property),
-            Err(property) => {
-                let template = property.try_into_template()?;
-                Some(PlainTextFormattedProperty::new(template).into_dyn())
-            }
-        }
+        let from_bytes =
+            |s: BString| Ok(String::from_utf8(s.into()).map_err(|err| err.utf8_error())?);
+        let property = match self.property.try_into_string() {
+            Ok(string_property) => return Some(string_property),
+            Err(property) => property,
+        };
+        let property = match property.try_into_byte_string() {
+            Ok(bytes_property) => return Some(bytes_property.and_then(from_bytes).into_dyn()),
+            Err(property) => property,
+        };
+        let template = property.try_into_template()?;
+        Some(
+            PlainTextFormattedProperty::new(template)
+                .and_then(from_bytes)
+                .into_dyn(),
+        )
     }
 
     pub fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'a>> {
@@ -2671,6 +2704,24 @@ pub fn expect_usize_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
     let i64_property = expect_integer_expression(language, diagnostics, build_ctx, node)?;
     let usize_property = i64_property.and_then(|v| Ok(usize::try_from(v)?));
     Ok(usize_property.into_dyn())
+}
+
+pub fn expect_byte_stringify_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
+    language: &L,
+    diagnostics: &mut TemplateDiagnostics,
+    build_ctx: &BuildContext<L::Property>,
+    node: &ExpressionNode,
+) -> TemplateParseResult<BoxedTemplateProperty<'a, BString>> {
+    // Since any formattable type can be converted to a string property, the
+    // expected type is not a ByteString.
+    expect_expression_of_type(
+        language,
+        diagnostics,
+        build_ctx,
+        node,
+        "ByteStringify",
+        |expression| expression.try_into_byte_stringify(),
+    )
 }
 
 pub fn expect_stringify_expression<'a, L: TemplateLanguage<'a> + ?Sized>(

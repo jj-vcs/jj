@@ -15,6 +15,7 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
+use bstr::BString;
 use jj_lib::backend::Timestamp;
 use jj_lib::settings::UserSettings;
 
@@ -189,6 +190,13 @@ where
         match self {
             Self::Core(property) => property.type_name(),
             Self::Self_(_) => "Self",
+        }
+    }
+
+    fn try_into_byte_string(self) -> Result<BoxedTemplateProperty<'a, BString>, Self> {
+        match self {
+            Self::Core(property) => property.try_into_byte_string().map_err(Self::Core),
+            Self::Self_(_) => Err(self),
         }
     }
 

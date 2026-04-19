@@ -19,6 +19,7 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::io;
 
+use bstr::BString;
 use itertools::Itertools as _;
 use jj_lib::backend::Timestamp;
 use jj_lib::extensions_map::ExtensionsMap;
@@ -198,6 +199,10 @@ impl<'a> OperationTemplatePropertyKind<'a> {
         }
     }
 
+    pub fn try_into_byte_string(self) -> Result<BoxedTemplateProperty<'a, BString>, Self> {
+        Err(self)
+    }
+
     pub fn try_into_string(self) -> Result<BoxedTemplateProperty<'a, String>, Self> {
         Err(self)
     }
@@ -306,6 +311,13 @@ impl CoreTemplatePropertyVar<'static> for OperationTemplateLanguagePropertyKind 
         match self {
             Self::Core(property) => property.type_name(),
             Self::Operation(property) => property.type_name(),
+        }
+    }
+
+    fn try_into_byte_string(self) -> Result<BoxedTemplateProperty<'static, BString>, Self> {
+        match self {
+            Self::Core(property) => property.try_into_byte_string().map_err(Self::Core),
+            Self::Operation(property) => property.try_into_byte_string().map_err(Self::Operation),
         }
     }
 

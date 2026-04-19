@@ -551,6 +551,14 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         }
     }
 
+    fn try_into_byte_string(self) -> Result<BoxedTemplateProperty<'repo, BString>, Self> {
+        match self {
+            Self::Core(property) => property.try_into_byte_string().map_err(Self::Core),
+            Self::Operation(property) => property.try_into_byte_string().map_err(Self::Operation),
+            _ => Err(self),
+        }
+    }
+
     fn try_into_string(self) -> Result<BoxedTemplateProperty<'repo, String>, Self> {
         match self {
             Self::Core(property) => property.try_into_string().map_err(Self::Core),
