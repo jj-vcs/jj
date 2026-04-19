@@ -15,6 +15,7 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
+use jj_lib::backend::Timestamp;
 use jj_lib::settings::UserSettings;
 
 use crate::template_builder;
@@ -212,7 +213,7 @@ where
         }
     }
 
-    fn try_into_timestamp(self) -> Option<BoxedTemplateProperty<'a, jj_lib::backend::Timestamp>> {
+    fn try_into_timestamp(self) -> Option<BoxedTemplateProperty<'a, Timestamp>> {
         match self {
             Self::Core(property) => property.try_into_timestamp(),
             Self::Self_(_) => None,

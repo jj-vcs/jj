@@ -330,9 +330,7 @@ impl CoreTemplatePropertyVar<'static> for OperationTemplateLanguagePropertyKind 
         }
     }
 
-    fn try_into_timestamp(
-        self,
-    ) -> Option<BoxedTemplateProperty<'static, jj_lib::backend::Timestamp>> {
+    fn try_into_timestamp(self) -> Option<BoxedTemplateProperty<'static, Timestamp>> {
         match self {
             Self::Core(property) => property.try_into_timestamp(),
             Self::Operation(property) => property.try_into_timestamp(),
