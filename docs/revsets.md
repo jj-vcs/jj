@@ -576,10 +576,28 @@ For example:
 
 ```toml
 [revset-aliases]
-'HEAD' = '@-'
+HEAD = '@-'
 'user()' = 'user("me@example.org")'
 'user(x)' = 'author(x) | committer(x)'
 'grep:x' = 'description(regex:x)'
+```
+
+### Alias descriptions
+
+Alias descriptions can be surfaced in shell completions by defining the alias
+as a table with `.doc` and `.definition` properties. For example:
+
+```toml
+[revset-aliases]
+HEAD = { definition = '@-', doc = 'The parent of the working-copy commit' }
+```
+
+You can also use the dotted key syntax:
+
+```toml
+[revset-aliases]
+HEAD.definition = '@-'
+HEAD.doc = 'The parent of the working-copy commit'
 ```
 
 ### Built-in Aliases

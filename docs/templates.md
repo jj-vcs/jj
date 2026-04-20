@@ -850,12 +850,32 @@ For example:
 
 ```toml
 [template-aliases]
+sh = "commit_id.short()"
 'commit_change_ids' = '''
 concat(
   format_field("Commit ID", commit_id),
   format_field("Change ID", change_id),
 )
 '''
+```
+
+### Alias descriptions
+
+Alias descriptions can be surfaced in shell completions by defining the alias
+as a table with `.doc` and `.definition` properties. For example:
+
+```toml
+[template-aliases]
+sh = { definition = 'commit_id.short()', doc = 'Short commit ID' }
+```
+
+You can also use the dotted key syntax:
+
+```toml
+[template-aliases]
+sh.definition = 'commit_id.short()'
+sh.doc = 'Short commit ID'
+```
 'format_field(key, value)' = 'key ++ ": " ++ value ++ "\n"'
 'json:x' = 'json(x) ++ "\n"'
 ```

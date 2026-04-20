@@ -461,7 +461,25 @@
             "type": "object",
             "description": "Custom symbols/function aliases that can be used in fileset expressions",
             "additionalProperties": {
-                "type": "string"
+                "oneOf": [
+                    {
+                        "type": "string"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "definition": {
+                                "type": "string"
+                            },
+                            "doc": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "definition"
+                        ]
+                    }
+                ]
             }
         },
         "git": {
@@ -719,7 +737,7 @@
         },
         "revset-aliases": {
             "type": "object",
-            "description": "Custom symbols/function aliases that can used in revset expressions",
+            "description": "Custom symbols/function aliases that can be used in revset expressions",
             "properties": {
                 "immutable_heads()": {
                     "type": "string",
@@ -728,24 +746,81 @@
                 }
             },
             "additionalProperties": {
-                "type": "string"
+                "oneOf": [
+                    {
+                        "type": "string"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "definition": {
+                                "type": "string"
+                            },
+                            "doc": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "definition"
+                        ]
+                    }
+                ]
             }
         },
         "template-aliases": {
             "type": "object",
-            "description": "Custom symbols/function aliases that can used in templates",
+            "description": "Custom symbols/function aliases that can be used in templates",
             "additionalProperties": {
-                "type": "string"
+                "oneOf": [
+                    {
+                        "type": "string"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "definition": {
+                                "type": "string"
+                            },
+                            "doc": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "definition"
+                        ]
+                    }
+                ]
             }
         },
         "aliases": {
             "type": "object",
             "description": "Custom subcommand aliases to be supported by the jj command",
             "additionalProperties": {
-                "type": "array",
-                "items": {
-                    "type": "string"
-                }
+                "oneOf": [
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "definition": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            "doc": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "definition"
+                        ]
+                    }
+                ]
             }
         },
         "snapshot": {

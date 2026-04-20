@@ -986,10 +986,22 @@ where
             }
         };
         for (decl, item) in table.iter() {
-            let r = item
-                .as_str()
-                .ok_or_else(|| format!("Expected a string, but is {}", item.type_name()))
-                .and_then(|v| aliases_map.insert(decl, v).map_err(|e| format!("{e}")));
+            let (definition, doc) = if let Some(t) = item.as_table_like() {
+                let definition = t.get("definition").and_then(|i| i.as_str());
+                let doc = t.get("doc").and_then(|i| i.as_str()).map(|s| s.to_owned());
+                (definition, doc)
+            } else {
+                (item.as_str(), None)
+            };
+
+            let r = definition
+                .ok_or_else(|| {
+                    format!(
+                        "Expected a string or a table with a `definition` string key, but is {}",
+                        item.type_name()
+                    )
+                })
+                .and_then(|v| aliases_map.insert(decl, v, doc).map_err(|e| format!("{e}")));
             if let Err(s) = r {
                 writeln!(
                     ui.warning_default(),

@@ -16,6 +16,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* Shell completions now surface descriptions for custom aliases,
+  revset-aliases, template-aliases, and fileset-aliases. Descriptions are
+  extracted from the `.doc` field of the alias definition if it is a table
+  with `.doc` and `.definition` properties.
+
 ### Fixed bugs
 
 * `jj bookmark forget` no longer prints `Forgot N local bookmarks.` when no
