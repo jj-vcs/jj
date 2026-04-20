@@ -180,6 +180,16 @@ isn't guaranteed. This can be implicitly converted to `Boolean`. The following
 methods are defined.
 
 * `.len() -> Integer`: Length in bytes.
+* `.contains(needle: ByteStringify) -> Boolean`: Whether the string contains the
+  provided stringifiable value as a substring.
+* `.starts_with(needle: ByteStringify) -> Boolean`: Whether `needle` is a
+  prefix of the string.
+* `.ends_with(needle: ByteStringify) -> Boolean`: Whether `needle` is a suffix
+  of the string.
+* `.remove_prefix(needle: ByteStringify) -> ByteString`: Remove the passed
+  prefix, if present.
+* `.remove_suffix(needle: ByteStringify) -> ByteString`: Remove the passed
+  suffix, if present.
 * `.trim() -> ByteString`: Remove leading and trailing ASCII whitespace.
 * `.trim_start() -> ByteString`: Remove leading ASCII whitespace.
 * `.trim_end() -> ByteString`: Remove trailing ASCII whitespace.

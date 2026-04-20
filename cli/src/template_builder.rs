@@ -1080,6 +1080,70 @@ fn builtin_byte_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
         },
     );
     map.insert(
+        "contains",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let [needle_node] = function.expect_exact_arguments()?;
+            // TODO: or .try_into_byte_string() to disable implicit type cast?
+            let needle_property =
+                expect_byte_stringify_expression(language, diagnostics, build_ctx, needle_node)?;
+            let out_property = (self_property, needle_property)
+                .map(|(haystack, needle)| haystack.contains_str(&needle));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "starts_with",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let [needle_node] = function.expect_exact_arguments()?;
+            let needle_property =
+                expect_byte_stringify_expression(language, diagnostics, build_ctx, needle_node)?;
+            let out_property = (self_property, needle_property)
+                .map(|(haystack, needle)| haystack.starts_with(&needle));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "ends_with",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let [needle_node] = function.expect_exact_arguments()?;
+            let needle_property =
+                expect_byte_stringify_expression(language, diagnostics, build_ctx, needle_node)?;
+            let out_property = (self_property, needle_property)
+                .map(|(haystack, needle)| haystack.ends_with(&needle));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "remove_prefix",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let [needle_node] = function.expect_exact_arguments()?;
+            let needle_property =
+                expect_byte_stringify_expression(language, diagnostics, build_ctx, needle_node)?;
+            let out_property = (self_property, needle_property).map(|(haystack, needle)| {
+                haystack
+                    .strip_prefix(&**needle)
+                    .map(BString::from)
+                    .unwrap_or(haystack)
+            });
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "remove_suffix",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let [needle_node] = function.expect_exact_arguments()?;
+            let needle_property =
+                expect_byte_stringify_expression(language, diagnostics, build_ctx, needle_node)?;
+            let out_property = (self_property, needle_property).map(|(haystack, needle)| {
+                haystack
+                    .strip_suffix(&**needle)
+                    .map(BString::from)
+                    .unwrap_or(haystack)
+            });
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
         "trim",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
@@ -3932,6 +3996,8 @@ mod tests {
         let mut env = TestTemplateEnv::new();
         env.add_keyword("empty", || literal(BString::from("")));
         env.add_keyword("foo", || literal(BString::from("foo")));
+        env.add_keyword("bar", || literal(BString::from("bar")));
+        env.add_keyword("foobar", || literal(BString::from("foobar")));
         env.add_keyword("foo_ws", || literal(BString::from(" \n \r foo \t \r ")));
         env.add_keyword("foo_bar_nl", || literal(BString::from("foo\nbar\n")));
         env.add_keyword("foo_bar_case", || literal(BString::from("foo BAR")));
@@ -3942,6 +4008,31 @@ mod tests {
         insta::assert_snapshot!(env.render_ok("empty.len()"), @"0");
         insta::assert_snapshot!(env.render_ok("foo.len()"), @"3");
         insta::assert_snapshot!(env.render_ok("odd.len()"), @"1");
+
+        insta::assert_snapshot!(env.render_ok("foobar.contains(foo)"), @"true");
+        insta::assert_snapshot!(env.render_ok("foo.contains(foobar)"), @"false");
+        insta::assert_snapshot!(env.render_ok("foo.contains('foo')"), @"true");
+        insta::assert_snapshot!(env.render_ok("odd_case.contains(odd)"), @"true");
+
+        insta::assert_snapshot!(env.render_ok("foobar.starts_with(foo)"), @"true");
+        insta::assert_snapshot!(env.render_ok("foobar.starts_with(bar)"), @"false");
+        insta::assert_snapshot!(env.render_ok("foobar.starts_with('foo')"), @"true");
+        insta::assert_snapshot!(env.render_ok("foobar.ends_with(foo)"), @"false");
+        insta::assert_snapshot!(env.render_ok("foobar.ends_with(bar)"), @"true");
+        insta::assert_snapshot!(env.render_ok("foobar.ends_with('foo')"), @"false");
+        insta::assert_snapshot!(env.render_ok("odd_case.starts_with('A' ++ odd)"), @"true");
+        insta::assert_snapshot!(env.render_ok("odd_case.ends_with(odd ++ 'z')"), @"true");
+
+        insta::assert_snapshot!(env.render_ok("foobar.remove_prefix(foo)"), @"bar");
+        insta::assert_snapshot!(env.render_ok("foobar.remove_prefix(bar)"), @"foobar");
+        insta::assert_snapshot!(env.render_ok("foobar.remove_prefix('foo')"), @"bar");
+        insta::assert_snapshot!(env.render_ok("foobar.remove_suffix(foo)"), @"foobar");
+        insta::assert_snapshot!(env.render_ok("foobar.remove_suffix(bar)"), @"foo");
+        insta::assert_snapshot!(env.render_ok("foobar.remove_suffix('foo')"), @"foobar");
+        insta::assert_snapshot!(env.render_ok("json(odd_case.remove_prefix('A'))"), @"[128,122]");
+        insta::assert_snapshot!(env.render_ok("json(odd_case.remove_prefix('A' ++ odd))"), @"[122]");
+        insta::assert_snapshot!(env.render_ok("json(odd_case.remove_suffix('z'))"), @"[65,128]");
+        insta::assert_snapshot!(env.render_ok("json(odd_case.remove_suffix(odd ++ 'z'))"), @"[65]");
 
         insta::assert_snapshot!(env.render_ok("'|' ++ foo_ws.trim() ++ '|'"), @"|foo|");
         insta::assert_snapshot!(env.render_ok("'|' ++ foo_ws.trim_start() ++ '|'"), @"|foo \t \r |");
