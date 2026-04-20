@@ -33,6 +33,8 @@ use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
 use jj_lib::trailer::Trailer;
 use jj_lib::trailer::parse_description_trailers;
+use percent_encoding::NON_ALPHANUMERIC;
+use percent_encoding::utf8_percent_encode;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
@@ -123,7 +125,7 @@ pub struct UploadArgs {
     #[arg(long)]
     topic: Option<String>,
 
-    /// Applies a hashtag to the change
+    /// Applies a hashtag to the change (can be repeated)
     ///
     /// See https://gerrit-review.googlesource.com/Documentation/intro-user.html#hashtags.
     /// Hashtags are freeform strings associated with a change, like on social
@@ -133,7 +135,21 @@ pub struct UploadArgs {
     /// used for informational grouping. Changes with the same hashtags are
     /// not necessarily submitted together.
     #[arg(long)]
-    hashtag: Option<String>,
+    hashtag: Vec<String>,
+
+    /// A patch set description for the new patch set
+    #[arg(long, short = 'm')]
+    message: Option<String>,
+
+    /// Push the change as a change edit
+    ///
+    /// To push a change edit the underlying change need to already exist on the
+    /// gerrit server. Change edits don't immediately create a new patchset,
+    /// but need to be published from the web UI first. There can only be
+    /// one edit for each change. Pushing a new change edit will replace the
+    /// previous one.
+    #[arg(long)]
+    edit: bool,
 
     /// Marks the change as WIP (work in progress)
     ///
@@ -177,6 +193,10 @@ pub struct UploadArgs {
     /// When --submit is provided, skip performing validations
     #[arg(long)]
     skip_validation: bool,
+
+    /// Create a new change, even if the change has already been merged
+    #[arg(long)]
+    merged: bool,
 
     /// Do not modify the attention set upon uploading
     #[arg(long)]
@@ -291,6 +311,10 @@ fn calculate_push_ref(
     ))
 }
 
+fn encode_message(message: &str) -> String {
+    utf8_percent_encode(message, NON_ALPHANUMERIC).to_string()
+}
+
 fn push_options(args: &UploadArgs) -> Result<Vec<String>, CommandError> {
     for c in &args.custom {
         if !c.contains(':') {
@@ -335,13 +359,20 @@ fn push_options(args: &UploadArgs) -> Result<Vec<String>, CommandError> {
         }),
         args.topic.clone().map(|arg| ("topic", arg)),
         args.trace.clone().map(|arg| ("trace", arg)),
-        args.hashtag.clone().map(|arg| ("hashtag", arg)),
         args.deadline.clone().map(|arg| ("deadline", arg)),
+        args.message
+            .as_ref()
+            .map(|arg| ("message", encode_message(arg))),
     ]
     .into_iter()
     // TODO: In a future version, we could consider adding a list of supported
     // labels to the config, so we can list it for the user.
     .chain(args.label.iter().map(|arg| Some(("label", arg.clone()))))
+    .chain(
+        args.hashtag
+            .iter()
+            .map(|arg| Some(("hashtag", arg.clone()))),
+    )
     .chain(
         args.custom
             .iter()
@@ -353,6 +384,7 @@ fn push_options(args: &UploadArgs) -> Result<Vec<String>, CommandError> {
     .map(|(k, v)| vec!["-o".to_string(), format!("{k}={v}")])
     .chain(
         [
+            args.edit.then_some("edit"),
             args.wip.then_some("wip"),
             args.ready.then_some("ready"),
             args.private.then_some("private"),
@@ -682,10 +714,12 @@ mod tests {
 
         assert_eq!(
             push_options(&UploadArgs {
+                message: Some("Uploaded with jj!".to_string()),
                 notify: Some(EmailNotification::None),
                 topic: Some("my-topic".to_string()),
                 reviewer: vec!["foo@example.com".to_string()],
                 cc: vec!["bar@example.com".to_string(), "baz@example.com".to_string()],
+                edit: true,
                 wip: true,
                 private: true,
                 publish_comments: true,
@@ -698,11 +732,15 @@ mod tests {
                 "-o",
                 "topic=my-topic",
                 "-o",
+                "message=Uploaded%20with%20jj%21",
+                "-o",
                 "r=foo@example.com",
                 "-o",
                 "cc=bar@example.com",
                 "-o",
                 "cc=baz@example.com",
+                "-o",
+                "edit",
                 "-o",
                 "wip",
                 "-o",
@@ -719,7 +757,7 @@ mod tests {
             push_options(&UploadArgs {
                 notify: Some(EmailNotification::All),
                 trace: Some("my-trace".to_string()),
-                hashtag: Some("my-hashtag".to_string()),
+                hashtag: vec!["my-hashtag".to_string(), "my-second-hashtag".to_string()],
                 deadline: Some("yesterday".to_string()),
                 label: vec!["Auto-Submit".to_string(), "Commit-Queue+2".to_string()],
                 custom: vec!["foo:bar".to_string(), "baz:quux".to_string()],
@@ -738,13 +776,15 @@ mod tests {
                 "-o",
                 "trace=my-trace",
                 "-o",
-                "hashtag=my-hashtag",
-                "-o",
                 "deadline=yesterday",
                 "-o",
                 "label=Auto-Submit",
                 "-o",
                 "label=Commit-Queue+2",
+                "-o",
+                "hashtag=my-hashtag",
+                "-o",
+                "hashtag=my-second-hashtag",
                 "-o",
                 "custom-keyed-value=foo:bar",
                 "-o",

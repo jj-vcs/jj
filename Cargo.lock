@@ -2585,6 +2585,7 @@ dependencies = [
  "maplit",
  "nix 0.31.2",
  "once_cell",
+ "percent-encoding",
  "pest",
  "pest_derive",
  "pollster",

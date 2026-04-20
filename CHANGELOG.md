@@ -46,6 +46,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * New `ByteString` template type for things like file content.
 
+ `jj gerrit upload` now supports the new options `--message` (`-m`), `--edit`
+  and `--merged`. You can now also pass multiple hashtags by repeating the
+  `--hashtag` option.
+
 ### Fixed bugs
 
 * Improving consistency with `git` handling of `.gitignore`, including `/`
