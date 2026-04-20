@@ -199,6 +199,11 @@ methods are defined.
 * `.trim_end() -> ByteString`: Remove trailing ASCII whitespace.
 * `.first_line() -> ByteString`
 * `.lines() -> List<ByteString>`: Split into lines excluding newline characters.
+* `.split(separator: StringPattern, [limit: Integer]) -> List<ByteString>`:
+  Split into substrings by the given `separator` pattern. If `limit` is
+  specified, it determines the maximum number of elements in the result, with
+  the remainder of the string returned as the final element. A `limit` of 0
+  returns an empty list.
 * `.upper() -> ByteString`: Map each ASCII character to upper case.
 * `.lower() -> ByteString`: Map each ASCII character to lower case.
 

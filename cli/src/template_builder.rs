@@ -1195,6 +1195,22 @@ fn builtin_byte_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
         },
     );
     map.insert(
+        "split",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let ([separator_node], [limit_node]) = function.expect_arguments()?;
+            let pattern = template_parser::expect_string_pattern(separator_node)?;
+            if let Some(limit_node) = limit_node {
+                let limit_property =
+                    expect_usize_expression(language, diagnostics, build_ctx, limit_node)?;
+                let out_property = splitn_string_like(self_property, pattern, limit_property);
+                Ok(out_property.into_dyn_wrapped())
+            } else {
+                let out_property = split_string_like(self_property, pattern);
+                Ok(out_property.into_dyn_wrapped())
+            }
+        },
+    );
+    map.insert(
         "upper",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
@@ -1375,30 +1391,13 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
         |language, diagnostics, build_ctx, self_property, function| {
             let ([separator_node], [limit_node]) = function.expect_arguments()?;
             let pattern = template_parser::expect_string_pattern(separator_node)?;
-            let regex = pattern.to_regex();
-
             if let Some(limit_node) = limit_node {
                 let limit_property =
                     expect_usize_expression(language, diagnostics, build_ctx, limit_node)?;
-                let out_property =
-                    (self_property, limit_property).and_then(move |(haystack, limit)| {
-                        let haystack_bytes = haystack.as_bytes();
-                        let parts: Vec<_> = regex
-                            .splitn(haystack_bytes, limit)
-                            .map(|part| str::from_utf8(part).map(|s| s.to_owned()))
-                            .try_collect()?;
-                        Ok(parts)
-                    });
+                let out_property = splitn_string_like(self_property, pattern, limit_property);
                 Ok(out_property.into_dyn_wrapped())
             } else {
-                let out_property = self_property.and_then(move |haystack| {
-                    let haystack_bytes = haystack.as_bytes();
-                    let parts: Vec<_> = regex
-                        .split(haystack_bytes)
-                        .map(|part| str::from_utf8(part).map(|s| s.to_owned()))
-                        .try_collect()?;
-                    Ok(parts)
-                });
+                let out_property = split_string_like(self_property, pattern);
                 Ok(out_property.into_dyn_wrapped())
             }
         },
@@ -1496,6 +1495,29 @@ fn match_string_like<S: StringLike>(
     self_property.and_then(move |haystack| {
         // We don't have optional strings, so "" is the right null value.
         S::from_bytes(regex.find(haystack.as_ref()).map_or(b"", |m| m.as_bytes()))
+    })
+}
+
+fn split_string_like<S: StringLike>(
+    self_property: impl TemplateProperty<Output = S>,
+    pattern: StringPattern,
+) -> impl TemplateProperty<Output = Vec<S>> {
+    let regex = pattern.to_regex();
+    self_property
+        .and_then(move |haystack| regex.split(haystack.as_ref()).map(S::from_bytes).collect())
+}
+
+fn splitn_string_like<S: StringLike>(
+    self_property: impl TemplateProperty<Output = S>,
+    pattern: StringPattern,
+    limit_property: impl TemplateProperty<Output = usize>,
+) -> impl TemplateProperty<Output = Vec<S>> {
+    let regex = pattern.to_regex();
+    (self_property, limit_property).and_then(move |(haystack, limit)| {
+        regex
+            .splitn(haystack.as_ref(), limit)
+            .map(S::from_bytes)
+            .collect()
     })
 }
 
@@ -4078,6 +4100,15 @@ mod tests {
         insta::assert_snapshot!(env.render_ok("foo_bar_nl.lines()"), @"foo bar");
         insta::assert_snapshot!(env.render_ok("json(odd.first_line())"), @"[128]");
         insta::assert_snapshot!(env.render_ok("json(odd.lines())"), @"[[128]]");
+
+        insta::assert_snapshot!(env.render_ok("empty.split(' ').join(',')"), @"");
+        insta::assert_snapshot!(env.render_ok("foo_bar_case.split(' ').join(',')"), @"foo,BAR");
+        insta::assert_snapshot!(env.render_ok("foo_bar_case.split(' ', 0).join(',')"), @"");
+        insta::assert_snapshot!(env.render_ok("foo_bar_case.split(' ', 1).join(',')"), @"foo BAR");
+        insta::assert_snapshot!(env.render_ok("foo_bar_case.split(' ', 2).join(',')"), @"foo,BAR");
+        insta::assert_snapshot!(
+            env.render_ok("json(odd_case.split(regex:'(?-u)[^Az]'))"), @"[[65],[122]]");
+        insta::assert_snapshot!(env.render_ok("json(odd_case.split(regex:'A'))"), @"[[],[128,122]]");
 
         insta::assert_snapshot!(env.render_ok("foo_bar_case.upper()"), @"FOO BAR");
         insta::assert_snapshot!(env.render_ok("foo_bar_case.lower()"), @"foo bar");
