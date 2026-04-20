@@ -29,6 +29,7 @@ use jj_lib::content_hash::blake2b_hash;
 use jj_lib::hex_util;
 use jj_lib::op_store::TimestampRange;
 use jj_lib::settings::UserSettings;
+use jj_lib::str_util::StringPattern;
 use jj_lib::time_util::DatePattern;
 use serde::Deserialize;
 use serde::de::IntoDeserializer as _;
@@ -1092,6 +1093,15 @@ fn builtin_byte_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
         },
     );
     map.insert(
+        "match",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            let [needle_node] = function.expect_exact_arguments()?;
+            let needle = template_parser::expect_string_pattern(needle_node)?;
+            let out_property = match_string_like(self_property, needle);
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
         "starts_with",
         |language, diagnostics, build_ctx, self_property, function| {
             let [needle_node] = function.expect_exact_arguments()?;
@@ -1233,17 +1243,7 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
         |_language, _diagnostics, _build_ctx, self_property, function| {
             let [needle_node] = function.expect_exact_arguments()?;
             let needle = template_parser::expect_string_pattern(needle_node)?;
-            let regex = needle.to_regex();
-
-            let out_property = self_property.and_then(move |haystack| {
-                if let Some(m) = regex.find(haystack.as_bytes()) {
-                    Ok(str::from_utf8(m.as_bytes())?.to_owned())
-                } else {
-                    // We don't have optional strings, so empty string is the
-                    // right null value.
-                    Ok(String::new())
-                }
-            });
+            let out_property = match_string_like(self_property, needle);
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -1470,6 +1470,33 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
         },
     );
     map
+}
+
+trait StringLike: AsRef<[u8]> + Sized {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, TemplatePropertyError>;
+}
+
+impl StringLike for BString {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, TemplatePropertyError> {
+        Ok(bytes.into())
+    }
+}
+
+impl StringLike for String {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, TemplatePropertyError> {
+        Ok(str::from_utf8(bytes)?.to_owned())
+    }
+}
+
+fn match_string_like<S: StringLike>(
+    self_property: impl TemplateProperty<Output = S>,
+    needle: StringPattern,
+) -> impl TemplateProperty<Output = S> {
+    let regex = needle.to_regex();
+    self_property.and_then(move |haystack| {
+        // We don't have optional strings, so "" is the right null value.
+        S::from_bytes(regex.find(haystack.as_ref()).map_or(b"", |m| m.as_bytes()))
+    })
 }
 
 /// Clamps and aligns the given index `i` to char boundary.
@@ -4013,6 +4040,10 @@ mod tests {
         insta::assert_snapshot!(env.render_ok("foo.contains(foobar)"), @"false");
         insta::assert_snapshot!(env.render_ok("foo.contains('foo')"), @"true");
         insta::assert_snapshot!(env.render_ok("odd_case.contains(odd)"), @"true");
+
+        insta::assert_snapshot!(env.render_ok("foobar.match(regex:'[a-f]o+')"), @"foo");
+        insta::assert_snapshot!(env.render_ok("foobar.match(regex:'^$')"), @"");
+        insta::assert_snapshot!(env.render_ok("json(odd.match(regex:'(?-u:.)'))"), @"[128]");
 
         insta::assert_snapshot!(env.render_ok("foobar.starts_with(foo)"), @"true");
         insta::assert_snapshot!(env.render_ok("foobar.starts_with(bar)"), @"false");

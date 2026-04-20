@@ -182,6 +182,10 @@ methods are defined.
 * `.len() -> Integer`: Length in bytes.
 * `.contains(needle: ByteStringify) -> Boolean`: Whether the string contains the
   provided stringifiable value as a substring.
+* `.match(needle: StringPattern) -> ByteString`: Extract the first matching part
+  of the string for the given pattern.
+
+  An empty string is returned if there is no match.
 * `.starts_with(needle: ByteStringify) -> Boolean`: Whether `needle` is a
   prefix of the string.
 * `.ends_with(needle: ByteStringify) -> Boolean`: Whether `needle` is a suffix
