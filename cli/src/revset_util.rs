@@ -194,7 +194,7 @@ pub fn parse_immutable_heads_expression(
     diagnostics: &mut RevsetDiagnostics,
     context: &RevsetParseContext,
 ) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
-    let (_, _, immutable_heads_str) = context
+    let (_, _, immutable_heads_str, _) = context
         .aliases_map
         .get_function(USER_IMMUTABLE_HEADS, 0)
         .unwrap();
@@ -210,7 +210,7 @@ pub(super) fn try_resolve_trunk_alias(
     repo: &dyn Repo,
     context: &RevsetParseContext,
 ) -> Result<Option<Arc<ResolvedRevsetExpression>>, RevsetResolutionError> {
-    let (_, _, revset_str) = context
+    let (_, _, revset_str, _) = context
         .aliases_map
         .get_function("trunk", 0)
         .expect("trunk() should be defined by default");

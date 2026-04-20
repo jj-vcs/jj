@@ -562,14 +562,17 @@ impl<R: RuleType> FunctionCallParser<R> {
     }
 }
 
+/// A function alias containing `(params, definition, description)`.
+type FunctionAlias<V> = (Vec<String>, V, Option<String>);
+
 /// Map of symbol, pattern, and function aliases.
 #[derive(Clone, Debug, Default)]
 pub struct AliasesMap<P, V> {
-    symbol_aliases: HashMap<String, V>,
+    symbol_aliases: HashMap<String, (V, Option<String>)>,
     // name: (param, defn)
-    pattern_aliases: HashMap<String, (String, V)>,
+    pattern_aliases: HashMap<String, (String, V, Option<String>)>,
     // name: [(params, defn)] (sorted by arity)
-    function_aliases: HashMap<String, Vec<(Vec<String>, V)>>,
+    function_aliases: HashMap<String, Vec<FunctionAlias<V>>>,
     // Parser type P helps prevent misuse of AliasesMap of different language.
     parser: P,
 }
@@ -592,22 +595,27 @@ impl<P, V> AliasesMap<P, V> {
     ///
     /// Returns error if `decl` is invalid. The `defn` part isn't checked. A bad
     /// `defn` will be reported when the alias is substituted.
-    pub fn insert(&mut self, decl: impl AsRef<str>, defn: impl Into<V>) -> Result<(), P::Error>
+    pub fn insert(
+        &mut self,
+        decl: impl AsRef<str>,
+        defn: impl Into<V>,
+        doc: Option<String>,
+    ) -> Result<(), P::Error>
     where
         P: AliasDeclarationParser,
     {
         match self.parser.parse_declaration(decl.as_ref())? {
             AliasDeclaration::Symbol(name) => {
-                self.symbol_aliases.insert(name, defn.into());
+                self.symbol_aliases.insert(name, (defn.into(), doc));
             }
             AliasDeclaration::Pattern(name, param) => {
-                self.pattern_aliases.insert(name, (param, defn.into()));
+                self.pattern_aliases.insert(name, (param, defn.into(), doc));
             }
             AliasDeclaration::Function(name, params) => {
                 let overloads = self.function_aliases.entry(name).or_default();
-                match overloads.binary_search_by_key(&params.len(), |(params, _)| params.len()) {
-                    Ok(i) => overloads[i] = (params, defn.into()),
-                    Err(i) => overloads.insert(i, (params, defn.into())),
+                match overloads.binary_search_by_key(&params.len(), |(params, _, _)| params.len()) {
+                    Ok(i) => overloads[i] = (params, defn.into(), doc),
+                    Err(i) => overloads.insert(i, (params, defn.into(), doc)),
                 }
             }
         }
@@ -629,24 +637,36 @@ impl<P, V> AliasesMap<P, V> {
         self.function_aliases.keys().map(|n| n.as_ref())
     }
 
-    /// Looks up symbol alias by name. Returns identifier and definition text.
-    pub fn get_symbol(&self, name: &str) -> Option<(AliasId<'_>, &V)> {
+    /// Looks up symbol alias by name. Returns identifier, definition text, and
+    /// optional description.
+    pub fn get_symbol(&self, name: &str) -> Option<(AliasId<'_>, &V, Option<&str>)> {
         self.symbol_aliases
             .get_key_value(name)
-            .map(|(name, defn)| (AliasId::Symbol(name), defn))
+            .map(|(name, (defn, doc))| (AliasId::Symbol(name), defn, doc.as_deref()))
     }
 
-    /// Looks up pattern alias by name. Returns identifier, parameter name, and
-    /// definition text.
-    pub fn get_pattern(&self, name: &str) -> Option<(AliasId<'_>, &str, &V)> {
+    /// Looks up pattern alias by name. Returns identifier, parameter name,
+    /// definition text, and optional description.
+    pub fn get_pattern(&self, name: &str) -> Option<(AliasId<'_>, &str, &V, Option<&str>)> {
         self.pattern_aliases
             .get_key_value(name)
-            .map(|(name, (param, defn))| (AliasId::Pattern(name, param), param.as_ref(), defn))
+            .map(|(name, (param, defn, doc))| {
+                (
+                    AliasId::Pattern(name, param),
+                    param.as_ref(),
+                    defn,
+                    doc.as_deref(),
+                )
+            })
     }
 
     /// Looks up function alias by name and arity. Returns identifier, list of
-    /// parameter names, and definition text.
-    pub fn get_function(&self, name: &str, arity: usize) -> Option<(AliasId<'_>, &[String], &V)> {
+    /// parameter names, definition text, and optional description.
+    pub fn get_function(
+        &self,
+        name: &str,
+        arity: usize,
+    ) -> Option<(AliasId<'_>, &[String], &V, Option<&str>)> {
         let overloads = self.get_function_overloads(name)?;
         overloads.find_by_arity(arity)
     }
@@ -661,12 +681,12 @@ impl<P, V> AliasesMap<P, V> {
 #[derive(Clone, Debug)]
 struct AliasFunctionOverloads<'a, V> {
     name: &'a String,
-    overloads: &'a Vec<(Vec<String>, V)>,
+    overloads: &'a Vec<(Vec<String>, V, Option<String>)>,
 }
 
 impl<'a, V> AliasFunctionOverloads<'a, V> {
     fn arities(&self) -> impl DoubleEndedIterator<Item = usize> + ExactSizeIterator {
-        self.overloads.iter().map(|(params, _)| params.len())
+        self.overloads.iter().map(|(params, _, _)| params.len())
     }
 
     fn min_arity(&self) -> usize {
@@ -677,16 +697,24 @@ impl<'a, V> AliasFunctionOverloads<'a, V> {
         self.arities().next_back().unwrap()
     }
 
-    fn find_by_arity(&self, arity: usize) -> Option<(AliasId<'a>, &'a [String], &'a V)> {
+    fn find_by_arity(
+        &self,
+        arity: usize,
+    ) -> Option<(AliasId<'a>, &'a [String], &'a V, Option<&'a str>)> {
         let index = self
             .overloads
-            .binary_search_by_key(&arity, |(params, _)| params.len())
+            .binary_search_by_key(&arity, |(params, _, _)| params.len())
             .ok()?;
-        let (params, defn) = &self.overloads[index];
+        let (params, defn, doc) = &self.overloads[index];
         // Exact parameter names aren't needed to identify a function, but they
         // provide a better error indication. (e.g. "foo(x, y)" is easier to
         // follow than "foo/2".)
-        Some((AliasId::Function(self.name, params), params, defn))
+        Some((
+            AliasId::Function(self.name, params),
+            params,
+            defn,
+            doc.as_deref(),
+        ))
     }
 }
 
@@ -840,7 +868,7 @@ where
         if let Some(subst) = self.current_locals().get(name) {
             let id = AliasId::Parameter(name);
             Ok(T::alias_expanded(id, Box::new(subst.clone())))
-        } else if let Some((id, defn)) = self.aliases_map.get_symbol(name) {
+        } else if let Some((id, defn, _doc)) = self.aliases_map.get_symbol(name) {
             let locals = HashMap::new(); // Don't spill out the current scope
             self.expand_defn(id, defn, locals, span)
         } else {
@@ -853,7 +881,7 @@ where
         pattern: Box<PatternNode<'i, T>>,
         span: pest::Span<'i>,
     ) -> Result<T, Self::Error> {
-        if let Some((id, param, defn)) = self.aliases_map.get_pattern(pattern.name) {
+        if let Some((id, param, defn, _doc)) = self.aliases_map.get_pattern(pattern.name) {
             // Resolve argument in the current scope, and pass it in to the
             // alias expansion scope.
             let arg = self.fold_expression(pattern.value)?;
@@ -877,7 +905,7 @@ where
             function
                 .ensure_no_keyword_arguments()
                 .map_err(E::invalid_arguments)?;
-            let Some((id, params, defn)) = overloads.find_by_arity(function.arity()) else {
+            let Some((id, params, defn, _doc)) = overloads.find_by_arity(function.arity()) else {
                 let min = overloads.min_arity();
                 let max = overloads.max_arity();
                 let err = if max - min + 1 == overloads.arities().len() {

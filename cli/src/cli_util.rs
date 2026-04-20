@@ -525,7 +525,7 @@ impl CommandHelper {
                 "Use `jj config edit --repo` to adjust the `trunk()` alias."
             )?;
             env.revset_aliases_map
-                .insert("trunk()", fallback)
+                .insert("trunk()", fallback, None)
                 .expect("valid syntax");
             env.reload_revset_expressions(ui)?;
         }
@@ -3879,7 +3879,12 @@ fn resolve_aliases(
                 )));
             }
             if let Some(&alias_name) = defined_aliases.get(&*alias_name) {
-                let alias_definition: Vec<String> = config.get(["aliases", alias_name])?;
+                let alias_definition: Vec<String> = match config.get(["aliases", alias_name]) {
+                    Ok(definition) => definition,
+                    Err(original_err) => config
+                        .get(["aliases", alias_name, "definition"])
+                        .map_err(|_| original_err)?,
+                };
                 assert!(string_args.ends_with(&alias_args));
                 string_args.truncate(string_args.len() - 1 - alias_args.len());
                 string_args.extend(alias_definition);

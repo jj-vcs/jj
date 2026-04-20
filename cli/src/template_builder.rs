@@ -3078,7 +3078,7 @@ mod tests {
         }
 
         fn add_alias(&mut self, decl: impl AsRef<str>, defn: impl Into<String>) {
-            self.aliases_map.insert(decl, defn).unwrap();
+            self.aliases_map.insert(decl, defn, None).unwrap();
         }
 
         fn add_color(&mut self, label: &str, fg: crossterm::style::Color) {

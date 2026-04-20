@@ -3663,7 +3663,7 @@ mod tests {
     ) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
         let mut aliases_map = RevsetAliasesMap::new();
         for (decl, defn) in aliases {
-            aliases_map.insert(decl, defn)?;
+            aliases_map.insert(decl, defn, None)?;
         }
         let context = RevsetParseContext {
             aliases_map: &aliases_map,
@@ -3695,7 +3695,7 @@ mod tests {
         };
         let mut aliases_map = RevsetAliasesMap::new();
         for (decl, defn) in aliases {
-            aliases_map.insert(decl, defn)?;
+            aliases_map.insert(decl, defn, None)?;
         }
         let context = RevsetParseContext {
             aliases_map: &aliases_map,

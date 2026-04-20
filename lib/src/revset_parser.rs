@@ -860,7 +860,7 @@ mod tests {
     ) -> WithRevsetAliasesMap<'i> {
         let mut aliases_map = RevsetAliasesMap::new();
         for (decl, defn) in aliases {
-            aliases_map.insert(decl, defn).unwrap();
+            aliases_map.insert(decl, defn, None).unwrap();
         }
         WithRevsetAliasesMap {
             aliases_map,
@@ -1435,54 +1435,58 @@ mod tests {
     fn test_parse_revset_alias_symbol_decl() {
         let mut aliases_map = RevsetAliasesMap::new();
         // Working copy or remote symbol cannot be used as an alias name.
-        assert!(aliases_map.insert("@", "none()").is_err());
-        assert!(aliases_map.insert("a@", "none()").is_err());
-        assert!(aliases_map.insert("a@b", "none()").is_err());
+        assert!(aliases_map.insert("@", "none()", None).is_err());
+        assert!(aliases_map.insert("a@", "none()", None).is_err());
+        assert!(aliases_map.insert("a@b", "none()", None).is_err());
         // Non-ASCII character isn't allowed in alias symbol. This rule can be
         // relaxed if needed.
-        assert!(aliases_map.insert("柔術", "none()").is_err());
+        assert!(aliases_map.insert("柔術", "none()", None).is_err());
     }
 
     #[test]
     fn test_parse_revset_alias_pattern_decl() -> TestResult {
         let mut aliases_map = RevsetAliasesMap::new();
-        assert!(aliases_map.insert("foo:", "none()").is_err());
+        assert!(aliases_map.insert("foo:", "none()", None).is_err());
         assert_eq!(aliases_map.pattern_names().count(), 0);
 
-        aliases_map.insert("bar:baz", "'bar pattern'")?;
+        aliases_map.insert("bar:baz", "'bar pattern'", None)?;
         assert_eq!(aliases_map.pattern_names().count(), 1);
-        let (id, param, defn) = aliases_map.get_pattern("bar").unwrap();
+        let (id, param, defn, _doc) = aliases_map.get_pattern("bar").unwrap();
         assert_eq!(id, AliasId::Pattern("bar", "baz"));
         assert_eq!(param, "baz");
         assert_eq!(defn, "'bar pattern'");
 
         // Non-ASCII character isn't allowed. This rule can be relaxed if
         // needed.
-        assert!(aliases_map.insert("柔術:x", "none()").is_err());
-        assert!(aliases_map.insert("x:柔術", "none()").is_err());
+        assert!(aliases_map.insert("柔術:x", "none()", None).is_err());
+        assert!(aliases_map.insert("x:柔術", "none()", None).is_err());
         Ok(())
     }
 
     #[test]
     fn test_parse_revset_alias_func_decl() -> TestResult {
         let mut aliases_map = RevsetAliasesMap::new();
-        assert!(aliases_map.insert("5func()", r#""is function 0""#).is_err());
-        aliases_map.insert("func()", r#""is function 0""#)?;
-        aliases_map.insert("func(a, b)", r#""is function 2""#)?;
-        aliases_map.insert("func(a)", r#""is function a""#)?;
-        aliases_map.insert("func(b)", r#""is function b""#)?;
+        assert!(
+            aliases_map
+                .insert("5func()", r#""is function 0""#, None)
+                .is_err()
+        );
+        aliases_map.insert("func()", r#""is function 0""#, None)?;
+        aliases_map.insert("func(a, b)", r#""is function 2""#, None)?;
+        aliases_map.insert("func(a)", r#""is function a""#, None)?;
+        aliases_map.insert("func(b)", r#""is function b""#, None)?;
 
-        let (id, params, defn) = aliases_map.get_function("func", 0).unwrap();
+        let (id, params, defn, _doc) = aliases_map.get_function("func", 0).unwrap();
         assert_eq!(id, AliasId::Function("func", &[]));
         assert!(params.is_empty());
         assert_eq!(defn, r#""is function 0""#);
 
-        let (id, params, defn) = aliases_map.get_function("func", 1).unwrap();
+        let (id, params, defn, _doc) = aliases_map.get_function("func", 1).unwrap();
         assert_eq!(id, AliasId::Function("func", &["b".to_owned()]));
         assert_eq!(params, ["b"]);
         assert_eq!(defn, r#""is function b""#);
 
-        let (id, params, defn) = aliases_map.get_function("func", 2).unwrap();
+        let (id, params, defn, _doc) = aliases_map.get_function("func", 2).unwrap();
         assert_eq!(
             id,
             AliasId::Function("func", &["a".to_owned(), "b".to_owned()])
@@ -1498,19 +1502,19 @@ mod tests {
     fn test_parse_revset_alias_formal_parameter() {
         let mut aliases_map = RevsetAliasesMap::new();
         // Working copy or remote symbol cannot be used as an parameter name.
-        assert!(aliases_map.insert("f(@)", "none()").is_err());
-        assert!(aliases_map.insert("f(a@)", "none()").is_err());
-        assert!(aliases_map.insert("f(a@b)", "none()").is_err());
+        assert!(aliases_map.insert("f(@)", "none()", None).is_err());
+        assert!(aliases_map.insert("f(a@)", "none()", None).is_err());
+        assert!(aliases_map.insert("f(a@b)", "none()", None).is_err());
         // Trailing comma isn't allowed for empty parameter
-        assert!(aliases_map.insert("f(,)", "none()").is_err());
+        assert!(aliases_map.insert("f(,)", "none()", None).is_err());
         // Trailing comma is allowed for the last parameter
-        assert!(aliases_map.insert("g(a,)", "none()").is_ok());
-        assert!(aliases_map.insert("h(a ,  )", "none()").is_ok());
-        assert!(aliases_map.insert("i(,a)", "none()").is_err());
-        assert!(aliases_map.insert("j(a,,)", "none()").is_err());
-        assert!(aliases_map.insert("k(a  , , )", "none()").is_err());
-        assert!(aliases_map.insert("l(a,b,)", "none()").is_ok());
-        assert!(aliases_map.insert("m(a,,b)", "none()").is_err());
+        assert!(aliases_map.insert("g(a,)", "none()", None).is_ok());
+        assert!(aliases_map.insert("h(a ,  )", "none()", None).is_ok());
+        assert!(aliases_map.insert("i(,a)", "none()", None).is_err());
+        assert!(aliases_map.insert("j(a,,)", "none()", None).is_err());
+        assert!(aliases_map.insert("k(a  , , )", "none()", None).is_err());
+        assert!(aliases_map.insert("l(a,b,)", "none()", None).is_ok());
+        assert!(aliases_map.insert("m(a,,b)", "none()", None).is_err());
     }
 
     #[test]
