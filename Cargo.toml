@@ -18,7 +18,7 @@ keywords = ["VCS", "DVCS", "SCM", "Git", "Mercurial"]
 
 [workspace.dependencies]
 ansi-to-tui = "8.0.1"
-assert_cmd = "2.2.0"
+assert_cmd = "2.2.1"
 assert_matches = "1.5.0"
 async-trait = "0.1.89"
 blake2 = "0.10.6"
@@ -28,7 +28,7 @@ chrono = { version = "0.4.44", default-features = false, features = [
     "clock",
     "serde",
 ] }
-clap = { version = "4.6.0", features = [
+clap = { version = "4.6.1", features = [
     "derive",
     "deprecated",
     "wrap_help",
@@ -67,7 +67,7 @@ indoc = "2.0.7"
 insta = { version = "1.47.2", features = ["filters"] }
 interim = { version = "0.2.1", features = ["chrono_0_4"] }
 itertools = "0.14.0"
-jsonschema = { version = "0.46.0", default-features = false }
+jsonschema = { version = "0.46.2", default-features = false }
 libc = { version = "0.2.185" }
 maplit = "1.0.2"
 nix = "0.31.2"
@@ -87,7 +87,7 @@ quote = "1.0.45"
 rand = "0.10.1"
 rand_chacha = "0.10.0"
 ratatui = { version = "0.30.0", features = ["crossterm"] }
-rayon = "1.10.0"
+rayon = "1.12.0"
 ref-cast = "1.0.25"
 regex = "1.12.3"
 rpassword = "7.4.0"
@@ -114,7 +114,7 @@ test-case = "3.3.1"
 textwrap = "0.16.2"
 thiserror = "2.0.17"
 timeago = { version = "0.6.0", default-features = false }
-tokio = { version = "1.51.1", features = ["io-util"] }
+tokio = { version = "1.52.1", features = ["io-util"] }
 toml = "1.1.0"
 toml_edit = { version = "0.25.8", features = ["serde"] }
 tracing = "0.1.44"
