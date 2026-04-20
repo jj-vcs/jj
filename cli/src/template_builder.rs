@@ -1211,6 +1211,34 @@ fn builtin_byte_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
         },
     );
     map.insert(
+        "replace",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let ([pattern_node, replacement_node], [limit_node]) = function.expect_arguments()?;
+            let pattern = template_parser::expect_string_pattern(pattern_node)?;
+            let replacement_property = expect_byte_stringify_expression(
+                language,
+                diagnostics,
+                build_ctx,
+                replacement_node,
+            )?;
+            if let Some(limit_node) = limit_node {
+                let limit_property =
+                    expect_usize_expression(language, diagnostics, build_ctx, limit_node)?;
+                let out_property = replacen_string_like(
+                    self_property,
+                    pattern,
+                    replacement_property,
+                    limit_property,
+                );
+                Ok(out_property.into_dyn_wrapped())
+            } else {
+                let out_property =
+                    replace_all_string_like(self_property, pattern, replacement_property);
+                Ok(out_property.into_dyn_wrapped())
+            }
+        },
+    );
+    map.insert(
         "upper",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
@@ -1409,37 +1437,19 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
             let pattern = template_parser::expect_string_pattern(pattern_node)?;
             let replacement_property =
                 expect_stringify_expression(language, diagnostics, build_ctx, replacement_node)?;
-
-            let regex = pattern.to_regex();
-
             if let Some(limit_node) = limit_node {
                 let limit_property =
                     expect_usize_expression(language, diagnostics, build_ctx, limit_node)?;
-                let out_property = (self_property, replacement_property, limit_property).and_then(
-                    move |(haystack, replacement, limit)| {
-                        if limit == 0 {
-                            // We need to special-case zero because regex.replacen(_, 0, _) replaces
-                            // all occurrences, and we want zero to mean no occurrences are
-                            // replaced.
-                            Ok(haystack)
-                        } else {
-                            let haystack_bytes = haystack.as_bytes();
-                            let replace_bytes = replacement.as_bytes();
-                            let result = regex.replacen(haystack_bytes, limit, replace_bytes);
-                            Ok(str::from_utf8(&result)?.to_owned())
-                        }
-                    },
+                let out_property = replacen_string_like(
+                    self_property,
+                    pattern,
+                    replacement_property,
+                    limit_property,
                 );
                 Ok(out_property.into_dyn_wrapped())
             } else {
-                let out_property = (self_property, replacement_property).and_then(
-                    move |(haystack, replacement)| {
-                        let haystack_bytes = haystack.as_bytes();
-                        let replace_bytes = replacement.as_bytes();
-                        let result = regex.replace_all(haystack_bytes, replace_bytes);
-                        Ok(str::from_utf8(&result)?.to_owned())
-                    },
-                );
+                let out_property =
+                    replace_all_string_like(self_property, pattern, replacement_property);
                 Ok(out_property.into_dyn_wrapped())
             }
         },
@@ -1519,6 +1529,38 @@ fn splitn_string_like<S: StringLike>(
             .map(S::from_bytes)
             .collect()
     })
+}
+
+fn replace_all_string_like<S: StringLike>(
+    self_property: impl TemplateProperty<Output = S>,
+    pattern: StringPattern,
+    replacement_property: impl TemplateProperty<Output = S>,
+) -> impl TemplateProperty<Output = S> {
+    let regex = pattern.to_regex();
+    (self_property, replacement_property).and_then(move |(haystack, replacement)| {
+        S::from_bytes(&regex.replace_all(haystack.as_ref(), replacement.as_ref()))
+    })
+}
+
+fn replacen_string_like<S: StringLike>(
+    self_property: impl TemplateProperty<Output = S>,
+    pattern: StringPattern,
+    replacement_property: impl TemplateProperty<Output = S>,
+    limit_property: impl TemplateProperty<Output = usize>,
+) -> impl TemplateProperty<Output = S> {
+    let regex = pattern.to_regex();
+    (self_property, replacement_property, limit_property).and_then(
+        move |(haystack, replacement, limit)| {
+            if limit == 0 {
+                // We need to special-case zero because regex.replacen(_, 0, _)
+                // replaces all occurrences, and we want zero to mean no
+                // occurrences are replaced.
+                Ok(haystack)
+            } else {
+                S::from_bytes(&regex.replacen(haystack.as_ref(), limit, replacement.as_ref()))
+            }
+        },
+    )
 }
 
 /// Clamps and aligns the given index `i` to char boundary.
@@ -4109,6 +4151,17 @@ mod tests {
         insta::assert_snapshot!(
             env.render_ok("json(odd_case.split(regex:'(?-u)[^Az]'))"), @"[[65],[122]]");
         insta::assert_snapshot!(env.render_ok("json(odd_case.split(regex:'A'))"), @"[[],[128,122]]");
+
+        insta::assert_snapshot!(env.render_ok("foo.replace('o', '*')"), @"f**");
+        insta::assert_snapshot!(env.render_ok("foo.replace('o', '*', 0)"), @"foo");
+        insta::assert_snapshot!(env.render_ok("foo.replace('o', '*', 1)"), @"f*o");
+        insta::assert_snapshot!(env.render_ok("foo.replace('o', '*', 2)"), @"f**");
+        insta::assert_snapshot!(env.render_ok("bar.replace(regex:'b(a)', '$0$1')"), @"baar");
+        insta::assert_snapshot!(env.render_ok("json(foo.replace('o', odd))"), @"[102,128,128]");
+        insta::assert_snapshot!(
+            env.render_ok("json(odd_case.replace(regex:'(?-u)[^Az]', ' '))"), @"[65,32,122]");
+        insta::assert_snapshot!(
+            env.render_ok("json(odd_case.replace(regex:'A', ' '))"), @"[32,128,122]");
 
         insta::assert_snapshot!(env.render_ok("foo_bar_case.upper()"), @"FOO BAR");
         insta::assert_snapshot!(env.render_ok("foo_bar_case.lower()"), @"foo bar");

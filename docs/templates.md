@@ -204,6 +204,14 @@ methods are defined.
   specified, it determines the maximum number of elements in the result, with
   the remainder of the string returned as the final element. A `limit` of 0
   returns an empty list.
+* `.replace(pattern: StringPattern, replacement: ByteStringify, [limit:
+  Integer]) -> ByteString`: Replace occurrences of the given `pattern` with the
+  `replacement` string.
+
+  By default, all occurrences are replaced. If `limit` is specified, at most
+  that many occurrences are replaced.
+
+  Supports capture groups in patterns using `$0` (entire match), `$1`, `$2` etc.
 * `.upper() -> ByteString`: Map each ASCII character to upper case.
 * `.lower() -> ByteString`: Map each ASCII character to lower case.
 
