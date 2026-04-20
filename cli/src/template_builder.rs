@@ -2650,6 +2650,7 @@ fn expect_expression_of_type<'a, L: TemplateLanguage<'a> + ?Sized, T>(
 #[cfg(test)]
 mod tests {
     use assert_matches::assert_matches;
+    use bstr::BString;
     use jj_lib::backend::MillisSinceEpoch;
     use jj_lib::config::StackedConfig;
 
@@ -2750,19 +2751,19 @@ mod tests {
                 .clone()
         }
 
-        fn render_ok(&self, template: &str) -> String {
+        fn render_ok(&self, template: &str) -> BString {
             let template = self.parse(template).unwrap();
             let mut output = Vec::new();
             let mut formatter =
                 ColorFormatter::new(&mut output, self.color_rules.clone().into(), false);
             template.format(&Context, &mut formatter).unwrap();
             drop(formatter);
-            String::from_utf8(output).unwrap()
+            output.into()
         }
 
-        fn render_plain(&self, template: &str) -> String {
+        fn render_plain(&self, template: &str) -> BString {
             let template = self.parse(template).unwrap();
-            String::from_utf8(template.format_plain_text(&Context)).unwrap()
+            template.format_plain_text(&Context).into()
         }
     }
 

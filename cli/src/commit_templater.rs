@@ -3159,14 +3159,13 @@ mod tests {
             )
         }
 
-        fn render_ok<'a, C>(&'a self, text: &str, context: &C) -> String
+        fn render_ok<'a, C>(&'a self, text: &str, context: &C) -> BString
         where
             C: Clone + 'a,
             CommitTemplatePropertyKind<'a>: WrapTemplateProperty<'a, C>,
         {
             let template = self.parse(text).unwrap();
-            let output = template.format_plain_text(context);
-            String::from_utf8(output).unwrap()
+            template.format_plain_text(context).into()
         }
     }
 
