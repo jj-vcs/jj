@@ -115,6 +115,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj util`↴](#jj-util)
 * [`jj util backend`↴](#jj-util-backend)
 * [`jj util backend name`↴](#jj-util-backend-name)
+* [`jj util complete`↴](#jj-util-complete)
 * [`jj util completion`↴](#jj-util-completion)
 * [`jj util config-schema`↴](#jj-util-config-schema)
 * [`jj util exec`↴](#jj-util-exec)
@@ -3457,6 +3458,7 @@ Infrequently used commands such as for generating shell completions
 ###### **Subcommands:**
 
 * `backend` — Commands relating to the backend used in the current repo
+* `complete` — Compute machine-readable completion candidates
 * `completion` — Print a command-line-completion script
 * `config-schema` — Print the JSON schema for the jj TOML config format
 * `exec` — Execute an external command via jj
@@ -3484,6 +3486,44 @@ Commands relating to the backend used in the current repo
 Print the name of the backend used in the current repo
 
 **Usage:** `jj util backend name`
+
+
+
+## `jj util complete`
+
+Compute machine-readable completion candidates
+
+This command is intended for editors and other tools which need structured
+completion results instead of shell-specific text output.
+
+Provide the full command line after `--`, including the leading binary name
+(usually `jj`). `--index` identifies the argument to complete. To complete
+after whitespace, append an empty string as the final argument and point the
+index at that empty argument.
+
+Example:
+
+```shell
+jj util complete --index 3 -- jj diff --from ""
+```
+
+**Usage:** `jj util complete [OPTIONS] <ARGS>...`
+
+###### **Arguments:**
+
+* `<ARGS>` — Full command line to complete, including the leading `jj` binary name
+
+###### **Options:**
+
+* `--index <INDEX>` — Zero-based index of the argument being completed
+
+   Defaults to the last provided argument.
+* `--format <FORMAT>` — Completion output format
+
+  Default value: `json`
+
+  Possible values: `json`
+
 
 
 
