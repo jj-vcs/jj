@@ -111,6 +111,11 @@ pub struct DiffFormatArgs {
     #[arg(long)]
     pub stat: bool,
 
+    /// Show only a summary line of the number of files, insertions, and
+    /// deletions
+    #[arg(id = "short-stat", long = "short-stat")]
+    pub short_stat: bool,
+
     /// For each path, show only its type before and after
     ///
     /// The diff is shown as two letters. The first letter indicates the type
@@ -163,6 +168,7 @@ pub enum DiffFormat {
     // Non-trivial parameters are boxed in order to keep the variants small
     Summary,
     Stat(Box<DiffStatOptions>),
+    ShortStat(Box<DiffStatOptions>),
     Types,
     NameOnly,
     Git(Box<UnifiedDiffOptions>),
@@ -304,11 +310,17 @@ pub fn diff_formats_for(
     args: &DiffFormatArgs,
 ) -> Result<Vec<DiffFormat>, CommandError> {
     let formats = diff_formats_from_args(settings, args)?;
-    if formats.iter().all(|f| f.is_none()) {
-        Ok(vec![default_diff_format(settings, args)?])
+    let mut result = if formats.iter().all(|f| f.is_none()) && !args.short_stat {
+        vec![default_diff_format(settings, args)?]
     } else {
-        Ok(formats.into_iter().flatten().collect())
+        formats.into_iter().flatten().collect()
+    };
+    if args.short_stat {
+        let mut options = DiffStatOptions::default();
+        options.merge_args(args);
+        result.push(DiffFormat::ShortStat(Box::new(options)));
     }
+    Ok(result)
 }
 
 /// Returns a list of requested diff formats for log-like commands, which may be
@@ -328,7 +340,13 @@ pub fn diff_formats_for_log(
             long_format = Some(default_format);
         }
     }
-    Ok([short_format, long_format].into_iter().flatten().collect())
+    let mut result: Vec<DiffFormat> = [short_format, long_format].into_iter().flatten().collect();
+    if args.short_stat {
+        let mut options = DiffStatOptions::default();
+        options.merge_args(args);
+        result.push(DiffFormat::ShortStat(Box::new(options)));
+    }
+    Ok(result)
 }
 
 fn diff_formats_from_args(
@@ -491,6 +509,15 @@ impl<'a> DiffRenderer<'a> {
                             .await?;
                     show_diff_stats(*formatter.labeled("stat"), &stats, path_converter, width)?;
                 }
+                DiffFormat::ShortStat(options) => {
+                    let tree_diff = diff_stream();
+                    let stats =
+                        DiffStats::calculate(store, tree_diff, options, self.conflict_marker_style)
+                            .await?;
+                    if !stats.entries().is_empty() {
+                        write_diff_stat_summary(*formatter.labeled("stat"), &stats)?;
+                    }
+                }
                 DiffFormat::Types => {
                     let tree_diff = diff_stream();
                     show_types(*formatter.labeled("types"), tree_diff, path_converter).await?;
@@ -582,6 +609,7 @@ impl<'a> DiffRenderer<'a> {
                 // wouldn't be useful.
                 DiffFormat::Summary
                 | DiffFormat::Stat(_)
+                | DiffFormat::ShortStat(_)
                 | DiffFormat::Types
                 | DiffFormat::NameOnly => {}
                 DiffFormat::Git(options) => {
@@ -2161,17 +2189,18 @@ pub fn show_diff_stats(
         }
     }
 
+    write_diff_stat_summary(formatter, stats)
+}
+
+fn write_diff_stat_summary(formatter: &mut dyn Formatter, stats: &DiffStats) -> io::Result<()> {
     let total_added = stats.count_total_added();
     let total_removed = stats.count_total_removed();
     let total_files = stats.entries().len();
     writeln!(
         formatter.labeled("stat-summary"),
-        "{} file{} changed, {} insertion{}(+), {} deletion{}(-)",
-        total_files,
+        "{total_files} file{} changed, {total_added} insertion{}(+), {total_removed} deletion{}(-)",
         if total_files == 1 { "" } else { "s" },
-        total_added,
         if total_added == 1 { "" } else { "s" },
-        total_removed,
         if total_removed == 1 { "" } else { "s" },
     )?;
     Ok(())

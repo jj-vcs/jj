@@ -3934,6 +3934,85 @@ fn test_diff_stat_binary_and_text() {
 }
 
 #[test]
+fn test_diff_short_stat() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("file1", "foo\n");
+
+    // Basic --short-stat
+    let output = work_dir.run_jj(["diff", "--short-stat"]);
+    insta::assert_snapshot!(output, @"
+    1 file changed, 1 insertion(+), 0 deletions(-)
+    [EOF]
+    ");
+
+    // Empty diff produces no output
+    work_dir.run_jj(["new"]).success();
+    let output = work_dir.run_jj(["diff", "--short-stat"]);
+    insta::assert_snapshot!(output, @"");
+
+    // Deletion only (singular)
+    work_dir.write_file("file1", "foo\nbar\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file1", "bar\n");
+    let output = work_dir.run_jj(["diff", "--short-stat"]);
+    insta::assert_snapshot!(output, @"
+    1 file changed, 0 insertions(+), 1 deletion(-)
+    [EOF]
+    ");
+
+    // Multiple files with insertions
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file1", "bar\nbaz\n");
+    work_dir.write_file("file2", "new content\n");
+    let output = work_dir.run_jj(["diff", "--short-stat"]);
+    insta::assert_snapshot!(output, @"
+    2 files changed, 2 insertions(+), 0 deletions(-)
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_diff_short_stat_combined() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("file1", "foo\n");
+
+    // Combined with --stat (both outputs appear independently - same as git!)
+    let output = work_dir.run_jj(["diff", "--stat", "--short-stat"]);
+    insta::assert_snapshot!(output, @"
+    file1 | 1 +
+    1 file changed, 1 insertion(+), 0 deletions(-)
+    1 file changed, 1 insertion(+), 0 deletions(-)
+    [EOF]
+    ");
+
+    // Combined with --summary
+    let output = work_dir.run_jj(["diff", "--summary", "--short-stat"]);
+    insta::assert_snapshot!(output, @"
+    A file1
+    1 file changed, 1 insertion(+), 0 deletions(-)
+    [EOF]
+    ");
+
+    // Combined with --git
+    let output = work_dir.run_jj(["diff", "--git", "--short-stat"]);
+    insta::assert_snapshot!(output, @r"
+    diff --git a/file1 b/file1
+    new file mode 100644
+    index 0000000000..257cc5642c
+    --- /dev/null
+    +++ b/file1
+    @@ -0,0 +1,1 @@
+    +foo
+    1 file changed, 1 insertion(+), 0 deletions(-)
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_diff_revisions() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
