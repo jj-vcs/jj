@@ -197,6 +197,10 @@ methods are defined.
 * `.trim() -> ByteString`: Remove leading and trailing ASCII whitespace.
 * `.trim_start() -> ByteString`: Remove leading ASCII whitespace.
 * `.trim_end() -> ByteString`: Remove trailing ASCII whitespace.
+* `.substr(start: Integer, [end: Integer]) -> ByteString`: Extract substring.
+  Indices are 0-based and `end` is exclusive. Negative values count from the end
+  of the string, with `-1` being the last byte. If `end` is not given, returns
+  from `start` to the end of the string.
 * `.first_line() -> ByteString`
 * `.lines() -> List<ByteString>`: Split into lines excluding newline characters.
 * `.split(separator: StringPattern, [limit: Integer]) -> List<ByteString>`:

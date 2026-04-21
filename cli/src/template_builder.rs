@@ -1178,6 +1178,25 @@ fn builtin_byte_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
         },
     );
     map.insert(
+        "substr",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let ([start_idx_node], [end_idx_node]) = function.expect_arguments()?;
+            let start_idx_property =
+                expect_isize_expression(language, diagnostics, build_ctx, start_idx_node)?;
+            let end_idx_property = end_idx_node
+                .map(|node| expect_isize_expression(language, diagnostics, build_ctx, node))
+                .transpose()?;
+            let out_property = (self_property, start_idx_property, end_idx_property).map(
+                |(s, start_idx, end_idx)| {
+                    let start_idx = clamp_signed_bytes_index(&s, start_idx);
+                    let end_idx = end_idx.map_or(s.len(), |idx| clamp_signed_bytes_index(&s, idx));
+                    BString::from(s.get(start_idx..end_idx).unwrap_or_default())
+                },
+            );
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
         "first_line",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
@@ -1553,18 +1572,26 @@ fn replacen_string_like<S: StringLike>(
     )
 }
 
+/// Clamps the given index. Negative index counts from the end.
+fn clamp_signed_bytes_index(s: &[u8], i: isize) -> usize {
+    let magnitude = i.unsigned_abs();
+    if i < 0 {
+        s.len().saturating_sub(magnitude)
+    } else {
+        magnitude.min(s.len())
+    }
+}
+
 /// Clamps and aligns the given index `i` to char boundary.
 ///
 /// Negative index counts from the end. If the index isn't at a char boundary,
 /// it will be rounded towards 0 (left or right depending on the sign.)
 fn string_index_to_char_boundary(s: &str, i: isize) -> usize {
     // TODO: use floor/ceil_char_boundary() if get stabilized
-    let magnitude = i.unsigned_abs();
+    let p = clamp_signed_bytes_index(s.as_bytes(), i);
     if i < 0 {
-        let p = s.len().saturating_sub(magnitude);
         (p..=s.len()).find(|&p| s.is_char_boundary(p)).unwrap()
     } else {
-        let p = magnitude.min(s.len());
         (0..=p).rev().find(|&p| s.is_char_boundary(p)).unwrap()
     }
 }
@@ -4125,6 +4152,22 @@ mod tests {
         insta::assert_snapshot!(env.render_ok("json(odd_ws.trim())"), @"[128]");
         insta::assert_snapshot!(env.render_ok("json(odd_ws.trim_start())"), @"[128,32]");
         insta::assert_snapshot!(env.render_ok("json(odd_ws.trim_end())"), @"[32,128]");
+
+        insta::assert_snapshot!(env.render_ok("bar.substr(0)"), @"bar");
+        insta::assert_snapshot!(env.render_ok("bar.substr(1)"), @"ar");
+        insta::assert_snapshot!(env.render_ok("bar.substr(2)"), @"r");
+        insta::assert_snapshot!(env.render_ok("bar.substr(3)"), @"");
+        insta::assert_snapshot!(env.render_ok("bar.substr(4)"), @"");
+        insta::assert_snapshot!(env.render_ok("bar.substr(-1)"), @"r");
+        insta::assert_snapshot!(env.render_ok("bar.substr(-2)"), @"ar");
+        insta::assert_snapshot!(env.render_ok("bar.substr(-3)"), @"bar");
+        insta::assert_snapshot!(env.render_ok("bar.substr(-4)"), @"bar");
+        insta::assert_snapshot!(env.render_ok("bar.substr(1, 0)"), @"");
+        insta::assert_snapshot!(env.render_ok("bar.substr(1, 2)"), @"a");
+        insta::assert_snapshot!(env.render_ok("bar.substr(1, -1)"), @"a");
+        insta::assert_snapshot!(env.render_ok("bar.substr(2, -1)"), @"");
+        insta::assert_snapshot!(env.render_ok("bar.substr(4, -4)"), @"");
+        insta::assert_snapshot!(env.render_ok("json(odd_case.substr(1, 2))"), @"[128]");
 
         insta::assert_snapshot!(env.render_ok("'|' ++ empty.first_line() ++ '|'"), @"||");
         insta::assert_snapshot!(env.render_ok("'|' ++ foo_bar_nl.first_line() ++ '|'"), @"|foo|");
