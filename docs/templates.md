@@ -545,21 +545,6 @@ defined.
   the first matching part of the string for the given pattern.
 
   An empty string is returned if there is no match.
-* `.replace(pattern: StringPattern, replacement: Stringify, [limit: Integer]) -> String`:
-  Replace occurrences of the given `pattern` with the `replacement` string.
-
-  By default, all occurrences are replaced. If `limit` is specified, at most
-  that many occurrences are replaced.
-
-  Supports capture groups in patterns using `$0` (entire match), `$1`, `$2` etc.
-* `.first_line() -> String`
-* `.lines() -> List<String>`: Split into lines excluding newline characters.
-* `.split(separator: StringPattern, [limit: Integer]) -> List<String>`: Split into
-  substrings by the given `separator` pattern. If `limit` is specified, it
-  determines the maximum number of elements in the result, with the remainder
-  of the string returned as the final element. A `limit` of 0 returns an empty list.
-* `.upper() -> String`
-* `.lower() -> String`
 * `.starts_with(needle: Stringify) -> Boolean`
 * `.ends_with(needle: Stringify) -> Boolean`
 * `.remove_prefix(needle: Stringify) -> String`: Removes the passed prefix, if
@@ -576,6 +561,23 @@ defined.
   of a UTF-8 codepoint, the codepoint is fully part of the result. If the `end`
   index is in the middle of a UTF-8 codepoint, the codepoint is not part of the
   result. If `end` is not given, returns from `start` to the end of the string.
+* `.first_line() -> String`
+* `.lines() -> List<String>`: Split into lines excluding newline characters.
+* `.split(separator: StringPattern, [limit: Integer]) -> List<String>`: Split
+  into substrings by the given `separator` pattern. If `limit` is specified, it
+  determines the maximum number of elements in the result, with the remainder of
+  the string returned as the final element. A `limit` of 0 returns an empty
+  list.
+* `.replace(pattern: StringPattern, replacement: Stringify, [limit: Integer]) ->
+  String`: Replace occurrences of the given `pattern` with the `replacement`
+  string.
+
+  By default, all occurrences are replaced. If `limit` is specified, at most
+  that many occurrences are replaced.
+
+  Supports capture groups in patterns using `$0` (entire match), `$1`, `$2` etc.
+* `.upper() -> String`
+* `.lower() -> String`
 * `.escape_json() -> String`: Serializes the string in JSON format. This
   function is useful for making machine-readable templates. For example, you
   can use it in a template like `'{ "foo": ' ++ foo.escape_json() ++ ' }'` to

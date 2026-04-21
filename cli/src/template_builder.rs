@@ -1185,30 +1185,6 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
         },
     );
     map.insert(
-        "upper",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
-            function.expect_no_arguments()?;
-            let out_property = self_property.map(|s| s.to_uppercase());
-            Ok(out_property.into_dyn_wrapped())
-        },
-    );
-    map.insert(
-        "lower",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
-            function.expect_no_arguments()?;
-            let out_property = self_property.map(|s| s.to_lowercase());
-            Ok(out_property.into_dyn_wrapped())
-        },
-    );
-    map.insert(
-        "escape_json",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
-            function.expect_no_arguments()?;
-            let out_property = self_property.map(|s| serde_json::to_string(&s).unwrap());
-            Ok(out_property.into_dyn_wrapped())
-        },
-    );
-    map.insert(
         "replace",
         |language, diagnostics, build_ctx, self_property, function| {
             let ([pattern_node, replacement_node], [limit_node]) = function.expect_arguments()?;
@@ -1248,6 +1224,30 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
                 );
                 Ok(out_property.into_dyn_wrapped())
             }
+        },
+    );
+    map.insert(
+        "upper",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|s| s.to_uppercase());
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "lower",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|s| s.to_lowercase());
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "escape_json",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|s| serde_json::to_string(&s).unwrap());
+            Ok(out_property.into_dyn_wrapped())
         },
     );
     map
