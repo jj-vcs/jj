@@ -1370,27 +1370,17 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
     map.insert(
         "substr",
         |language, diagnostics, build_ctx, self_property, function| {
-            let ([start_idx], [end_idx]) = function.expect_arguments()?;
+            let ([start_idx_node], [end_idx_node]) = function.expect_arguments()?;
             let start_idx_property =
-                expect_isize_expression(language, diagnostics, build_ctx, start_idx)?;
-            let end_idx_property = if let Some(end_idx) = end_idx {
-                Some(expect_isize_expression(
-                    language,
-                    diagnostics,
-                    build_ctx,
-                    end_idx,
-                )?)
-            } else {
-                None
-            };
+                expect_isize_expression(language, diagnostics, build_ctx, start_idx_node)?;
+            let end_idx_property = end_idx_node
+                .map(|node| expect_isize_expression(language, diagnostics, build_ctx, node))
+                .transpose()?;
             let out_property = (self_property, start_idx_property, end_idx_property).map(
                 |(s, start_idx, end_idx)| {
                     let start_idx = string_index_to_char_boundary(&s, start_idx);
-                    let end_idx = if let Some(idx) = end_idx {
-                        string_index_to_char_boundary(&s, idx)
-                    } else {
-                        s.len()
-                    };
+                    let end_idx =
+                        end_idx.map_or(s.len(), |idx| string_index_to_char_boundary(&s, idx));
                     s.get(start_idx..end_idx).unwrap_or_default().to_owned()
                 },
             );
