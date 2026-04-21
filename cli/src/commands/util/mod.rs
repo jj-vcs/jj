@@ -13,6 +13,7 @@
 // limitations under the License.
 
 mod backend;
+mod complete;
 mod completion;
 mod config_schema;
 mod exec;
@@ -26,6 +27,8 @@ use tracing::instrument;
 
 use self::backend::UtilBackendCommand;
 use self::backend::cmd_util_backend;
+use self::complete::UtilCompleteArgs;
+use self::complete::cmd_util_complete;
 use self::completion::UtilCompletionArgs;
 use self::completion::cmd_util_completion;
 use self::config_schema::UtilConfigSchemaArgs;
@@ -49,6 +52,7 @@ use crate::ui::Ui;
 pub(crate) enum UtilCommand {
     #[command(subcommand)]
     Backend(UtilBackendCommand),
+    Complete(UtilCompleteArgs),
     Completion(UtilCompletionArgs),
     ConfigSchema(UtilConfigSchemaArgs),
     Exec(UtilExecArgs),
@@ -66,6 +70,7 @@ pub(crate) async fn cmd_util(
 ) -> Result<(), CommandError> {
     match subcommand {
         UtilCommand::Backend(args) => cmd_util_backend(ui, command, args).await,
+        UtilCommand::Complete(args) => cmd_util_complete(ui, command, args).await,
         UtilCommand::Completion(args) => cmd_util_completion(ui, command, args).await,
         UtilCommand::ConfigSchema(args) => cmd_util_config_schema(ui, command, args).await,
         UtilCommand::Exec(args) => cmd_util_exec(ui, command, args).await,

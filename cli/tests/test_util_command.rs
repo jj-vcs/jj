@@ -17,6 +17,7 @@ use std::fs;
 use insta::assert_snapshot;
 use test_case::test_case;
 use testutils::TestRepoBackend;
+use serde_json::Value;
 use testutils::TestResult;
 use testutils::TestWorkspace;
 
@@ -143,6 +144,66 @@ fn test_shell_completions() {
     test("nushell");
     test("power-shell");
     test("zsh");
+}
+
+#[test]
+fn test_machine_completions_json() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir
+        .run_jj(["describe", "-m", "bookmark target"])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "main"])
+        .success();
+    work_dir.run_jj(["tag", "set", "-r@", "v1.0"]).success();
+
+    let output = work_dir
+        .run_jj([
+            "util", "complete", "--index", "3", "--", "jj", "diff", "--from", "",
+        ])
+        .success();
+    assert!(output.stderr.is_empty(), "{output}");
+
+    let json: Value = serde_json::from_str(output.stdout.raw()).unwrap();
+    let items = json.as_array().unwrap();
+    let main = items
+        .iter()
+        .find(|item| item.get("value") == Some(&Value::String("main".to_owned())))
+        .unwrap();
+    assert_eq!(
+        main.get("help"),
+        Some(&Value::String("bookmark target".to_owned()))
+    );
+    assert_eq!(main.get("display_order"), Some(&Value::from(0)));
+    assert_eq!(main.get("hidden"), Some(&Value::Bool(false)));
+}
+
+#[test]
+fn test_machine_completions_expand_aliases_left_of_cursor() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("aliases.d = ['diff']\n");
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "main"])
+        .success();
+
+    let output = work_dir
+        .run_jj([
+            "util", "complete", "--index", "3", "--", "jj", "d", "--from", "",
+        ])
+        .success();
+    let json: Value = serde_json::from_str(output.stdout.raw()).unwrap();
+    let items = json.as_array().unwrap();
+    assert!(
+        items
+            .iter()
+            .any(|item| item.get("value") == Some(&Value::String("main".to_owned())))
+    );
 }
 
 #[test]

@@ -3963,7 +3963,7 @@ fn handle_shell_completion(
 
 /// Removes prefix command names (e.g. "c" for "create") from visible aliases,
 /// and adds them to (hidden) aliases.
-fn hide_short_subcommand_aliases(cmd: &mut Command) {
+pub(crate) fn hide_short_subcommand_aliases(cmd: &mut Command) {
     for cmd in cmd.get_subcommands_mut() {
         hide_short_subcommand_aliases(cmd);
     }
@@ -3993,7 +3993,7 @@ pub fn expand_args(
     resolve_aliases(ui, config, app, string_args)
 }
 
-fn expand_args_for_completion(
+pub(crate) fn expand_args_for_completion(
     ui: &Ui,
     app: &Command,
     args_os: impl IntoIterator<Item = OsString>,
