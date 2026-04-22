@@ -8883,8 +8883,9 @@ Martin von Zweigbergk</p>
 <p>Default value: <code>@</code></p>
 </li>
 <li>
-<p><code>-p</code>, <code>--pattern &lt;PATTERN&gt;</code> — The glob pattern to search for</p>
-<p>The whole line must match the pattern, so you may want to pass something like <code>--pattern '*foo*'</code>.</p>
+<p><code>-p</code>, <code>--pattern &lt;PATTERN&gt;</code> — The pattern to search for in a single line</p>
+<p>It is a <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">string pattern syntax</a> like <code>kind:pattern</code>.  The kind defaults to regex when omitted.</p>
+<p>If it is a glob pattern, the whole line must match the pattern, so you may want to pass something like <code>--pattern 'glob:*foo*'</code>.</p>
 </li>
 </ul>
 <h2 id="jj-file-show"><code>jj file show</code><a class="headerlink" href="#jj-file-show" title="Permanent link">&para;</a></h2>

@@ -6915,9 +6915,14 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h3 id="release-highlights">Release highlights<a class="headerlink" href="#release-highlights" title="Permanent link">&para;</a></h3>
 <h3 id="breaking-changes">Breaking changes<a class="headerlink" href="#breaking-changes" title="Permanent link">&para;</a></h3>
 <ul>
-<li><code>jj git push --all</code>/<code>--tracked</code>/<code>-r REVSETS</code> no longer fails when revisions to
+<li>
+<p>The <code>--pattern</code> flag for <code>file search</code> now defaults to <code>regex:</code> instead of <code>glob:</code>.</p>
+</li>
+<li>
+<p><code>jj git push --all</code>/<code>--tracked</code>/<code>-r REVSETS</code> no longer fails when revisions to
   push are private or have conflicts. Bookmarks which aren't eligible to push
-  will be skipped.</li>
+  will be skipped.</p>
+</li>
 </ul>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <ul>
@@ -6926,6 +6931,10 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 </ul>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
 <ul>
+<li>
+<p>The <code>--pattern</code> flag for <code>file search</code> now accepts various pattern kinds through
+  <code>kind:pattern</code> syntax.</p>
+</li>
 <li>
 <p>A new global flag <code>--no-integrate-operation</code> lets you run a command without
   impacting the repo state or the working copy.</p>
