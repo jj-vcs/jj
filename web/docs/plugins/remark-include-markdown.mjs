@@ -69,6 +69,17 @@ export default function remarkIncludeMarkdown(options = {}) {
         mdastExtensions: [gfmFromMarkdown()],
       });
 
+      if (node.attributes?.rewriteRelativeUrls === 'true') {
+        visit(includedTree, ['link', 'definition', 'image'], (linkNode) => {
+          if (!linkNode.url || typeof linkNode.url !== 'string') return;
+          if (/^(?:https?:|mailto:|#|\/)/.test(linkNode.url)) return;
+          if (linkNode.url.startsWith('docs/')) {
+            const docsPath = linkNode.url.slice('docs/'.length);
+            linkNode.url = docsPath;
+          }
+        });
+      }
+
       // Store for later replacement (can't modify during visit)
       includes.push({ index, parent, nodes: includedTree.children });
     });

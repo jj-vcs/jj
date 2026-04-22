@@ -1,4 +1,6 @@
-# Title
+---
+title: "Title"
+---
 
 > A cool name for your Project
 

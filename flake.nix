@@ -85,7 +85,7 @@
           rustShellToolchain
           llvmPackages.llvm # for e.g. llvm-symbolizer
 
-          # Additional tools recommended by contributing.md
+          # Additional tools recommended by contributing.mdx
           bacon
           cargo-deny
           cargo-insta

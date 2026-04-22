@@ -1,4 +1,6 @@
-# jj converge (aka resolve-divergence) Command Design
+---
+title: "jj converge (aka resolve-divergence) Command Design"
+---
 
 Authors: [David Rieber](mailto:drieber@google.com),
 [Martin von Zweigbergk](mailto:martinvonz@google.com)
