@@ -24,54 +24,15 @@ jobs:
         with:
           # `.github/scripts/docs-build-deploy` will need to `git push` to the docs branch
           persist-credentials: true
-      - run:  "git fetch origin gh-pages --depth=1"
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
-        with:
-          python-version: 3.11
-      - name: Install uv
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
-        with:
-          version: "0.5.1"
-      - name: Install dependencies, compile and deploy docs
-        run: |
-          git config user.name 'jj-docs[bot]'
-          git config user.email 'jj-docs[bot]@users.noreply.github.io'
-          export MKDOCS_SITE_NAME="Jujutsu docs (prerelease)"
-          export MKDOCS_PRIMARY_COLOR="blue grey"
-          .github/scripts/docs-build-deploy prerelease --push
-      - name: "Show `git diff --stat`"
-        run: git diff --stat gh-pages^ gh-pages || echo "(No diffs)"
-
-  starlight-docs-build-deploy:
-    # Deploy Starlight-based docs to /starlight for comparison with MkDocs version
-    needs: prerelease-docs-build-deploy
-    permissions:
-      contents: write
-    if: github.repository_owner == 'jj-vcs' # Stops this job from running on forks
-    runs-on: ubuntu-24.04
-
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-        with:
-          persist-credentials: true
-      - run: "git fetch origin gh-pages --depth=1"
+      - run: git fetch origin gh-pages:gh-pages --depth=1
       - name: Setup Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
         with:
           node-version: '22'
-      - name: Install dependencies
-        working-directory: web/docs
-        run: npm ci
-      - name: Build Starlight docs
-        working-directory: web/docs
-        run: npm run build -- --base /starlight/
-      - name: Deploy to gh-pages/starlight
+      - name: Install dependencies, compile and deploy docs
         run: |
           git config user.name 'jj-docs[bot]'
           git config user.email 'jj-docs[bot]@users.noreply.github.io'
-          git checkout gh-pages
-          rm -rf starlight
-          mv web/docs/dist starlight
-          git add starlight
-          git commit -m "Deploy Starlight docs to /starlight" || echo "No changes to commit"
-          git push origin gh-pages
+          .github/scripts/docs-build-deploy prerelease --push
+      - name: "Show `git diff --stat`"
+        run: git diff --stat gh-pages^ gh-pages || echo "(No diffs)"
