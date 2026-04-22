@@ -1070,6 +1070,24 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#bytestring-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      ByteString type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bytestringify-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      ByteStringify type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#changeid-type" class="md-nav__link">
     <span class="md-ellipsis">
       ChangeId type
@@ -2401,6 +2419,24 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#bytestring-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      ByteString type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bytestringify-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      ByteStringify type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#changeid-type" class="md-nav__link">
     <span class="md-ellipsis">
       ChangeId type
@@ -2834,7 +2870,7 @@ y) * z</code>.</p>
 <li>
 <ul>
 <li><code>x == y</code>, <code>x != y</code>: Equal / not equal. Operands must be either <code>Boolean</code>,
-     <code>Integer</code>, or <code>String</code>.</li>
+     <code>ByteString</code>, <code>Integer</code>, or <code>String</code>.</li>
 </ul>
 </li>
 <li>
@@ -2934,7 +2970,7 @@ including capture group 0 for the full match.</p>
 <p>The following methods are defined.</p>
 <ul>
 <li><code>.commit() -&gt; Commit</code>: Commit responsible for changing the relevant line.</li>
-<li><code>.content() -&gt; Template</code>: Line content including newline character.</li>
+<li><code>.content() -&gt; ByteString</code>: Line content including newline character.</li>
 <li><code>.line_number() -&gt; Integer</code>: 1-based line number.</li>
 <li><code>.original_line_number() -&gt; Integer</code>: 1-based line number in the original commit.</li>
 <li><code>.first_line_in_hunk() -&gt; Boolean</code>: False when the directly preceding line
@@ -2953,6 +2989,36 @@ including capture group 0 for the full match.</p>
 <h3 id="boolean-type"><code>Boolean</code> type<a class="headerlink" href="#boolean-type" title="Permanent link">&para;</a></h3>
 <p><em>Conversion: <code>Boolean</code>: yes, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
 <p>No methods are defined. Can be constructed with <code>false</code> or <code>true</code> literal.</p>
+<h3 id="bytestring-type"><code>ByteString</code> type<a class="headerlink" href="#bytestring-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: yes, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
+<p>A byte string, whose encoding is considered ASCII-compatible (e.g. UTF-8), but
+isn't guaranteed. This can be implicitly converted to <code>Boolean</code>. The following
+methods are defined.</p>
+<ul>
+<li><code>.len() -&gt; Integer</code>: Length in bytes.</li>
+<li><code>.contains(needle: ByteStringify) -&gt; Boolean</code>: Whether the string contains the
+  provided stringifiable value as a substring.</li>
+<li><code>.starts_with(needle: ByteStringify) -&gt; Boolean</code>: Whether <code>needle</code> is a
+  prefix of the string.</li>
+<li><code>.ends_with(needle: ByteStringify) -&gt; Boolean</code>: Whether <code>needle</code> is a suffix
+  of the string.</li>
+<li><code>.remove_prefix(needle: ByteStringify) -&gt; ByteString</code>: Remove the passed
+  prefix, if present.</li>
+<li><code>.remove_suffix(needle: ByteStringify) -&gt; ByteString</code>: Remove the passed
+  suffix, if present.</li>
+<li><code>.trim() -&gt; ByteString</code>: Remove leading and trailing ASCII whitespace.</li>
+<li><code>.trim_start() -&gt; ByteString</code>: Remove leading ASCII whitespace.</li>
+<li><code>.trim_end() -&gt; ByteString</code>: Remove trailing ASCII whitespace.</li>
+<li><code>.first_line() -&gt; ByteString</code></li>
+<li><code>.lines() -&gt; List&lt;ByteString&gt;</code>: Split into lines excluding newline characters.</li>
+<li><code>.upper() -&gt; ByteString</code>: Map each ASCII character to upper case.</li>
+<li><code>.lower() -&gt; ByteString</code>: Map each ASCII character to lower case.</li>
+</ul>
+<h3 id="bytestringify-type"><code>ByteStringify</code> type<a class="headerlink" href="#bytestringify-type" title="Permanent link">&para;</a></h3>
+<p>An expression that can be converted to a <code>ByteString</code>.</p>
+<p>A <code>String</code> can be converted to a <code>ByteString</code> losslessly. Any types that can be
+converted to <code>Template</code> can also be <code>ByteStringify</code>. Unlike <code>Template</code>, color
+labels are stripped.</p>
 <h3 id="changeid-type"><code>ChangeId</code> type<a class="headerlink" href="#changeid-type" title="Permanent link">&para;</a></h3>
 <p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
 <p>The following methods are defined.</p>
@@ -3209,10 +3275,10 @@ to <code>Boolean</code>.</p>
 <ul>
 <li><code>.len() -&gt; Integer</code>: Number of capture groups, including capture group 0 for
   the full match.</li>
-<li><code>.get(index: Integer) -&gt; String</code>: Returns the capture group at <code>index</code>.
+<li><code>.get(index: Integer) -&gt; ByteString</code>: Returns the capture group at <code>index</code>.
   Capture group 0 is the full match. Errors if the index is out of bounds.</li>
-<li><code>.name(name: Stringify) -&gt; String</code>: Returns the named capture group <code>name</code>.
-  Errors if there is no such named capture group.</li>
+<li><code>.name(name: Stringify) -&gt; ByteString</code>: Returns the named capture group
+  <code>name</code>. Errors if there is no such named capture group.</li>
 </ul>
 <h3 id="repopath-type"><code>RepoPath</code> type<a class="headerlink" href="#repopath-type" title="Permanent link">&para;</a></h3>
 <p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
@@ -3263,8 +3329,8 @@ underlying data model is updated, the serialized output may change.</p>
 </ul>
 <h3 id="string-type"><code>String</code> type<a class="headerlink" href="#string-type" title="Permanent link">&para;</a></h3>
 <p><em>Conversion: <code>Boolean</code>: yes, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
-<p>A string can be implicitly converted to <code>Boolean</code>. The following methods are
-defined.</p>
+<p>A UTF-8-encoded string. This can be implicitly converted to <code>Boolean</code>. The
+following methods are defined.</p>
 <ul>
 <li><code>.len() -&gt; Integer</code>: Length in UTF-8 bytes.</li>
 <li><code>.contains(needle: Stringify) -&gt; Boolean</code>: Whether the string contains the
@@ -3275,23 +3341,8 @@ defined.</p>
 <p>An empty string is returned if there is no match.</p>
 </li>
 <li>
-<p><code>.replace(pattern: StringPattern, replacement: Stringify, [limit: Integer]) -&gt; String</code>:
-  Replace occurrences of the given <code>pattern</code> with the <code>replacement</code> string.</p>
-<p>By default, all occurrences are replaced. If <code>limit</code> is specified, at most
-that many occurrences are replaced.</p>
-<p>Supports capture groups in patterns using <code>$0</code> (entire match), <code>$1</code>, <code>$2</code> etc.</p>
+<p><code>.starts_with(needle: Stringify) -&gt; Boolean</code></p>
 </li>
-<li>
-<p><code>.first_line() -&gt; String</code></p>
-</li>
-<li><code>.lines() -&gt; List&lt;String&gt;</code>: Split into lines excluding newline characters.</li>
-<li><code>.split(separator: StringPattern, [limit: Integer]) -&gt; List&lt;String&gt;</code>: Split into
-  substrings by the given <code>separator</code> pattern. If <code>limit</code> is specified, it
-  determines the maximum number of elements in the result, with the remainder
-  of the string returned as the final element. A <code>limit</code> of 0 returns an empty list.</li>
-<li><code>.upper() -&gt; String</code></li>
-<li><code>.lower() -&gt; String</code></li>
-<li><code>.starts_with(needle: Stringify) -&gt; Boolean</code></li>
 <li><code>.ends_with(needle: Stringify) -&gt; Boolean</code></li>
 <li><code>.remove_prefix(needle: Stringify) -&gt; String</code>: Removes the passed prefix, if
   present.</li>
@@ -3307,6 +3358,25 @@ that many occurrences are replaced.</p>
   of a UTF-8 codepoint, the codepoint is fully part of the result. If the <code>end</code>
   index is in the middle of a UTF-8 codepoint, the codepoint is not part of the
   result. If <code>end</code> is not given, returns from <code>start</code> to the end of the string.</li>
+<li><code>.first_line() -&gt; String</code></li>
+<li><code>.lines() -&gt; List&lt;String&gt;</code>: Split into lines excluding newline characters.</li>
+<li><code>.split(separator: StringPattern, [limit: Integer]) -&gt; List&lt;String&gt;</code>: Split
+  into substrings by the given <code>separator</code> pattern. If <code>limit</code> is specified, it
+  determines the maximum number of elements in the result, with the remainder of
+  the string returned as the final element. A <code>limit</code> of 0 returns an empty
+  list.</li>
+<li>
+<p><code>.replace(pattern: StringPattern, replacement: Stringify, [limit: Integer]) -&gt;
+  String</code>: Replace occurrences of the given <code>pattern</code> with the <code>replacement</code>
+  string.</p>
+<p>By default, all occurrences are replaced. If <code>limit</code> is specified, at most
+that many occurrences are replaced.</p>
+<p>Supports capture groups in patterns using <code>$0</code> (entire match), <code>$1</code>, <code>$2</code> etc.</p>
+</li>
+<li>
+<p><code>.upper() -&gt; String</code></p>
+</li>
+<li><code>.lower() -&gt; String</code></li>
 <li><code>.escape_json() -&gt; String</code>: Serializes the string in JSON format. This
   function is useful for making machine-readable templates. For example, you
   can use it in a template like <code>'{ "foo": ' ++ foo.escape_json() ++ ' }'</code> to
@@ -3315,7 +3385,7 @@ that many occurrences are replaced.</p>
 <h3 id="stringify-type"><code>Stringify</code> type<a class="headerlink" href="#stringify-type" title="Permanent link">&para;</a></h3>
 <p>An expression that can be converted to a <code>String</code>.</p>
 <p>Any types that can be converted to <code>Template</code> can also be <code>Stringify</code>. Unlike
-<code>Template</code>, color labels are stripped.</p>
+<code>Template</code>, color labels are stripped. Invalid UTF-8 sequences are rejected.</p>
 <h3 id="stringliteral-type"><code>StringLiteral</code> type<a class="headerlink" href="#stringliteral-type" title="Permanent link">&para;</a></h3>
 <p>A string literal known at parse time. Unlike <code>Stringify</code>, this cannot be a
 dynamic expression - it must be a literal value like <code>"main"</code> or <code>"format"</code>.</p>
