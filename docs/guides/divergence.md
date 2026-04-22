@@ -1,4 +1,6 @@
-# Handling divergent changes
+---
+title: "Handling divergent changes"
+---
 
 ## What are divergent changes?
 
@@ -64,12 +66,14 @@ log, since the change ID is ambiguous by itself.
 There is an experimental `jj converge` command that tries to resolve divergence
 automatically, and prompts the user for input to help the process otherwise.
 
-!!! note
+:::note
 
-    This command uses heuristics to try to find a good solution, but no
-    algorithm will *always* do what the user wants since there is no objective
-    way to define what that is. You can inspect what the command did with `jj op
-    show -p`. You can run `jj undo` if you are not satisfied with the changes.
+This command uses heuristics to try to find a good solution, but no
+algorithm will *always* do what the user wants since there is no objective
+way to define what that is. You can inspect what the command did with `jj op
+show -p`. You can run `jj undo` if you are not satisfied with the changes.
+
+:::
 
 ### Strategy 2: Abandon one of the commits
 

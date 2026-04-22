@@ -1,4 +1,6 @@
-# Jujutsu—a version control system
+---
+title: "Jujutsu—a version control system"
+---
 
 <figure>
 <img title="jj logo" src="images/jj-logo.svg" width="320" height="320">
@@ -24,7 +26,7 @@ You may want to jump to:
 
 - [GitHub repo for `jj`](https://github.com/jj-vcs/jj)
 - Overview of `jj` in the repo's [README](https://github.com/jj-vcs/jj?tab=readme-ov-file#readme)
-- [Installation and setup](install-and-setup.md)
+- [Installation and setup](install-and-setup.mdx)
 - [Tutorial and bird's eye view](tutorial.md)
 - [Working with Gerrit](gerrit.md)
 - [Working with GitHub](github.md)

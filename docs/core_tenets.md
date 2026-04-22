@@ -1,3 +1,7 @@
+---
+title: "core_tenets"
+---
+
 ## Jujutsu's Core Tenets
 
 Jujutsu's core tenets are:

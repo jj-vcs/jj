@@ -1,4 +1,6 @@
-# CLI options for specifying revisions
+---
+title: "CLI options for specifying revisions"
+---
 
 Jujutsu has several CLI options for selecting revisions. They are used
 consistently, but it can be difficult to remember when each one is used.
@@ -72,14 +74,13 @@ Examples:
 
 - `jj squash --from F --into T` moves the file changes from `F` to `T`.
 
-!!! info
+:::note
+Commands that accept `--into` also accept `--to`. You can always use `--to`
+if you're not sure which to use.
 
-    Commands that accept `--into` also accept `--to`. You can always use `--to`
-    if you're not sure which to use.
-
-    They both exist because "into" makes some commands read more clearly in
-    English. For example, `jj squash --from X --into Y`.
-
+They both exist because "into" makes some commands read more clearly in
+English. For example, `jj squash --from X --into Y`.
+:::
 ### Special cases that use `-r`
 
 Some commands manipulate revision contents but allow for `-r`. This means
@@ -92,7 +93,7 @@ Most commands accept revisions as options and paths as positional parameters.
 For example, the command to display the diff of a specific file in a specific
 revision is:
 
-```command
+```console
 $ jj diff -r REV file.txt
 ```
 

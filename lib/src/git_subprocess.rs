@@ -46,7 +46,7 @@ use crate::subprocess_util::suppress_console_window;
 // * 2.40 still receives security patches (latest one was in Jan/2025)
 // * 2.41.0 introduced `git fetch --porcelain`
 // * 2.42.0 introduced `git worktree add --orphan`
-// If bumped, please update ../../docs/install-and-setup.md
+// If bumped, please update ../../docs/install-and-setup.mdx
 const MINIMUM_GIT_VERSION: &str = "2.42.0";
 
 /// Error originating by a Git subprocess

@@ -1,4 +1,6 @@
-# Repo-managed JJ configuration
+---
+title: "Repo-managed JJ configuration"
+---
 
 Author: [Matt Stark](mailto:msta@google.com)
 

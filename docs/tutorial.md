@@ -1,4 +1,6 @@
-# Tutorial
+---
+title: "Tutorial"
+---
 
 > **Hint:** This tutorial covers the basics accurately, but since it was
 > written Jujutsu has gained many new features. For a tutorial covering a wider
@@ -12,7 +14,7 @@ This text assumes that the reader is familiar with Git.
 ## Preparation
 
 If you haven't already, make sure you
-[install and configure Jujutsu](install-and-setup.md).
+[install and configure Jujutsu](install-and-setup.mdx).
 
 ## Cloning a Git repository
 
