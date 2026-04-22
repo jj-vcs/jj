@@ -20,6 +20,10 @@ use std::collections::VecDeque;
 use std::hash::Hash;
 use std::iter;
 
+use futures::Stream;
+use futures::TryStreamExt as _;
+use pollster::FutureExt as _;
+
 /// Node and edges pair of type `N` and `ID` respectively.
 ///
 /// `ID` uniquely identifies a node within the graph. It's usually cheap to
@@ -127,8 +131,8 @@ pub fn reverse_graph<N, ID: Clone + Eq + Hash, E>(
 ///
 /// [Git]: https://github.blog/2022-08-30-gits-database-internals-ii-commit-history-queries/#topological-sorting
 #[derive(Clone, Debug)]
-pub struct TopoGroupedGraph<N, ID, I, F> {
-    input_iter: I,
+pub struct TopoGroupedGraph<N, ID, S, F> {
+    input_stream: S,
     as_id: F,
     /// Graph nodes read from the input iterator but not yet emitted.
     nodes: HashMap<ID, TopoGroupedGraphNode<N, ID>>,
@@ -159,17 +163,17 @@ impl<N, ID> Default for TopoGroupedGraphNode<N, ID> {
     }
 }
 
-impl<N, ID, E, I, F> TopoGroupedGraph<N, ID, I, F>
+impl<N, ID, E, S, F> TopoGroupedGraph<N, ID, S, F>
 where
-    ID: Clone + Hash + Eq,
-    I: Iterator<Item = Result<GraphNode<N, ID>, E>>,
-    F: Fn(&N) -> &ID,
+    ID: Clone + Hash + Eq + Unpin,
+    S: Stream<Item = Result<GraphNode<N, ID>, E>> + Unpin,
+    F: Fn(&N) -> &ID + Unpin,
 {
     /// Wraps the given iterator to group topological branches. The input
     /// iterator must be topologically ordered.
-    pub fn new(input_iter: I, as_id: F) -> Self {
+    pub fn new(input_stream: S, as_id: F) -> Self {
         Self {
-            input_iter,
+            input_stream,
             as_id,
             nodes: HashMap::new(),
             emittable_ids: Vec::new(),
@@ -194,15 +198,9 @@ where
         self.new_head_ids.push_back(id);
     }
 
-    fn populate_one(&mut self) -> Result<Option<()>, E> {
-        let item = match self.input_iter.next() {
-            Some(Ok(item)) => item,
-            Some(Err(err)) => {
-                return Err(err);
-            }
-            None => {
-                return Ok(None);
-            }
+    async fn populate_one(&mut self) -> Result<Option<()>, E> {
+        let Some(item) = self.input_stream.try_next().await? else {
+            return Ok(None);
         };
         let (data, edges) = &item;
         let current_id = (self.as_id)(data);
@@ -285,7 +283,7 @@ where
         self.emittable_ids.push(new_head_id);
     }
 
-    fn next_node(&mut self) -> Result<Option<GraphNode<N, ID>>, E> {
+    async fn next_node(&mut self) -> Result<Option<GraphNode<N, ID>>, E> {
         // Based on Kahn's algorithm
         loop {
             if let Some(current_id) = self.emittable_ids.last() {
@@ -302,7 +300,8 @@ where
                 }
                 let Some(item) = current_node.item.take() else {
                     // Not yet populated
-                    self.populate_one()?
+                    self.populate_one()
+                        .await?
                         .expect("parent or prioritized node should exist");
                     continue;
                 };
@@ -326,17 +325,17 @@ where
                 self.flush_new_head();
             } else {
                 // Populate the first or orphan head
-                if self.populate_one()?.is_none() {
+                if self.populate_one().await?.is_none() {
                     return Ok(None);
                 }
             }
         }
     }
 
-    /// Make an iterator based on the input iterator and the optional
+    /// Make an iterator based on the input stream and the optional
     /// prioritized branches.
     pub fn iter(mut self) -> impl Iterator<Item = Result<GraphNode<N, ID>, E>> {
-        iter::from_fn(move || match self.next_node() {
+        iter::from_fn(move || match self.next_node().block_on() {
             Ok(Some(node)) => Some(Ok(node)),
             Ok(None) => {
                 assert!(self.nodes.is_empty(), "all nodes should have been emitted");
@@ -354,6 +353,7 @@ mod tests {
     use std::iter::Peekable;
     use std::rc::Rc;
 
+    use futures::stream;
     use itertools::Itertools as _;
     use renderdag::Ancestor;
     use renderdag::GraphRowRenderer;
@@ -476,7 +476,7 @@ mod tests {
     where
         I: IntoIterator<Item = Result<GraphNode<char>, E>>,
     {
-        TopoGroupedGraph::new(graph_iter.into_iter(), |c| c).iter()
+        TopoGroupedGraph::new(stream::iter(graph_iter), |c| c).iter()
     }
 
     fn topo_grouped_with_prioritization<I, E>(
@@ -486,7 +486,7 @@ mod tests {
     where
         I: IntoIterator<Item = Result<GraphNode<char>, E>>,
     {
-        let mut topo_order = TopoGroupedGraph::new(graph_iter.into_iter(), |c| c);
+        let mut topo_order = TopoGroupedGraph::new(stream::iter(graph_iter), |c| c);
         for id in prioritized_ids {
             topo_order.prioritize_branch(*id);
         }

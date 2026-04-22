@@ -306,7 +306,7 @@ pub async fn show_op_diff(
         if let Some(graph_style) = graph_style {
             let mut raw_output = formatter.raw()?;
             let mut graph = get_graphlog(graph_style, raw_output.as_mut());
-            let graph_iter = TopoGroupedGraph::new(revset.iter_graph(), |id| id).iter();
+            let graph_iter = TopoGroupedGraph::new(revset.stream_graph(), |id| id).iter();
             for node in graph_iter {
                 let (commit_id, mut edges) = node?;
                 let modified_change = op_commits_diff.changes.get(&commit_id).unwrap();

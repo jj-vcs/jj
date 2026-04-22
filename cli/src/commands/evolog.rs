@@ -17,7 +17,6 @@ use clap_complete::ArgValueCompleter;
 use futures::Stream;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
-use futures::executor::block_on_stream;
 use futures::stream;
 use itertools::Itertools as _;
 use jj_lib::commit::Commit;
@@ -153,7 +152,6 @@ pub(crate) async fn cmd_evolog(
         let mut raw_output = formatter.raw()?;
         let mut graph = get_graphlog(graph_style, raw_output.as_mut());
 
-        let evolution_entries = block_on_stream(evolution_entries);
         let evolution_nodes = evolution_entries.map_ok(|entry| {
             let ids = entry.predecessor_ids();
             let edges = ids.iter().cloned().map(GraphEdge::direct).collect_vec();

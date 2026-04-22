@@ -222,7 +222,7 @@ pub(crate) async fn cmd_log(
             let mut raw_output = formatter.raw()?;
             let mut graph = get_graphlog(graph_style, raw_output.as_mut());
             let iter: Box<dyn Iterator<Item = _>> = {
-                let mut topo_order = TopoGroupedGraph::new(revset.iter_graph(), |id| id);
+                let mut topo_order = TopoGroupedGraph::new(revset.stream_graph(), |id| id);
 
                 let mut prio_stream = prio_revset.evaluate_to_commit_ids()?;
                 while let Some(prio) = prio_stream.try_next().await? {
@@ -244,7 +244,7 @@ pub(crate) async fn cmd_log(
 
                 // The graph is keyed by (CommitId, is_synthetic)
                 let mut graphlog_edges = vec![];
-                // TODO: Should we update revset.iter_graph() to yield a `has_missing` flag
+                // TODO: Should we update revset.stream_graph() to yield a `has_missing` flag
                 // instead of all the missing edges since we don't care about
                 // where they point here anyway?
                 let mut missing_edge_id = None;
