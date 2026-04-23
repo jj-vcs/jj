@@ -271,7 +271,7 @@ impl State {
     /// Update the current UI commit order after parents have changed.
     fn update_commit_order(&mut self) {
         // Use the original order to get a determinisic order.
-        // TODO: Use TopoGroupedGraphIterator so the order better matches `jj log`
+        // TODO: Use TopoGroupedGraph so the order better matches `jj log`
         let commit_ids: Vec<&CommitId> = dag_walk::topo_order_reverse(
             self.head_order.iter(),
             |id| *id,

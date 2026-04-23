@@ -18,6 +18,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::hash::Hash;
+use std::iter;
 
 /// Node and edges pair of type `N` and `ID` respectively.
 ///
@@ -113,7 +114,7 @@ pub fn reverse_graph<N, ID: Clone + Eq + Hash, E>(
     Ok(items)
 }
 
-/// Graph iterator adapter to group topological branches.
+/// Graph iterator adapter builder to group topological branches.
 ///
 /// Basic idea is DFS from the heads. At fork point, the other descendant
 /// branches will be visited. At merge point, the second (or the last) ancestor
@@ -126,7 +127,7 @@ pub fn reverse_graph<N, ID: Clone + Eq + Hash, E>(
 ///
 /// [Git]: https://github.blog/2022-08-30-gits-database-internals-ii-commit-history-queries/#topological-sorting
 #[derive(Clone, Debug)]
-pub struct TopoGroupedGraphIterator<N, ID, I, F> {
+pub struct TopoGroupedGraph<N, ID, I, F> {
     input_iter: I,
     as_id: F,
     /// Graph nodes read from the input iterator but not yet emitted.
@@ -158,7 +159,7 @@ impl<N, ID> Default for TopoGroupedGraphNode<N, ID> {
     }
 }
 
-impl<N, ID, E, I, F> TopoGroupedGraphIterator<N, ID, I, F>
+impl<N, ID, E, I, F> TopoGroupedGraph<N, ID, I, F>
 where
     ID: Clone + Hash + Eq,
     I: Iterator<Item = Result<GraphNode<N, ID>, E>>,
@@ -331,25 +332,18 @@ where
             }
         }
     }
-}
 
-impl<N, ID, E, I, F> Iterator for TopoGroupedGraphIterator<N, ID, I, F>
-where
-    ID: Clone + Hash + Eq,
-    I: Iterator<Item = Result<GraphNode<N, ID>, E>>,
-    F: Fn(&N) -> &ID,
-{
-    type Item = Result<GraphNode<N, ID>, E>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.next_node() {
+    /// Make an iterator based on the input iterator and the optional
+    /// prioritized branches.
+    pub fn iter(mut self) -> impl Iterator<Item = Result<GraphNode<N, ID>, E>> {
+        iter::from_fn(move || match self.next_node() {
             Ok(Some(node)) => Some(Ok(node)),
             Ok(None) => {
                 assert!(self.nodes.is_empty(), "all nodes should have been emitted");
                 None
             }
             Err(err) => Some(Err(err)),
-        }
+        })
     }
 }
 
@@ -482,7 +476,7 @@ mod tests {
     where
         I: IntoIterator<Item = Result<GraphNode<char>, E>>,
     {
-        TopoGroupedGraphIterator::new(graph_iter.into_iter(), |c| c)
+        TopoGroupedGraph::new(graph_iter.into_iter(), |c| c).iter()
     }
 
     fn topo_grouped_with_prioritization<I, E>(
@@ -492,11 +486,11 @@ mod tests {
     where
         I: IntoIterator<Item = Result<GraphNode<char>, E>>,
     {
-        let mut iter = TopoGroupedGraphIterator::new(graph_iter.into_iter(), |c| c);
+        let mut topo_order = TopoGroupedGraph::new(graph_iter.into_iter(), |c| c);
         for id in prioritized_ids {
-            iter.prioritize_branch(*id);
+            topo_order.prioritize_branch(*id);
         }
-        iter
+        topo_order.iter()
     }
 
     #[test]

@@ -24,7 +24,7 @@ use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::evolution::accumulate_predecessors;
-use jj_lib::graph::TopoGroupedGraphIterator;
+use jj_lib::graph::TopoGroupedGraph;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
@@ -306,7 +306,7 @@ pub async fn show_op_diff(
         if let Some(graph_style) = graph_style {
             let mut raw_output = formatter.raw()?;
             let mut graph = get_graphlog(graph_style, raw_output.as_mut());
-            let graph_iter = TopoGroupedGraphIterator::new(revset.iter_graph(), |id| id);
+            let graph_iter = TopoGroupedGraph::new(revset.iter_graph(), |id| id).iter();
             for node in graph_iter {
                 let (commit_id, mut edges) = node?;
                 let modified_change = op_commits_diff.changes.get(&commit_id).unwrap();
