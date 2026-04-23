@@ -2998,8 +2998,15 @@ methods are defined.</p>
 <li><code>.len() -&gt; Integer</code>: Length in bytes.</li>
 <li><code>.contains(needle: ByteStringify) -&gt; Boolean</code>: Whether the string contains the
   provided stringifiable value as a substring.</li>
-<li><code>.starts_with(needle: ByteStringify) -&gt; Boolean</code>: Whether <code>needle</code> is a
-  prefix of the string.</li>
+<li>
+<p><code>.match(needle: StringPattern) -&gt; ByteString</code>: Extract the first matching part
+  of the string for the given pattern.</p>
+<p>An empty string is returned if there is no match.</p>
+</li>
+<li>
+<p><code>.starts_with(needle: ByteStringify) -&gt; Boolean</code>: Whether <code>needle</code> is a
+  prefix of the string.</p>
+</li>
 <li><code>.ends_with(needle: ByteStringify) -&gt; Boolean</code>: Whether <code>needle</code> is a suffix
   of the string.</li>
 <li><code>.remove_prefix(needle: ByteStringify) -&gt; ByteString</code>: Remove the passed
@@ -3009,9 +3016,28 @@ methods are defined.</p>
 <li><code>.trim() -&gt; ByteString</code>: Remove leading and trailing ASCII whitespace.</li>
 <li><code>.trim_start() -&gt; ByteString</code>: Remove leading ASCII whitespace.</li>
 <li><code>.trim_end() -&gt; ByteString</code>: Remove trailing ASCII whitespace.</li>
+<li><code>.substr(start: Integer, [end: Integer]) -&gt; ByteString</code>: Extract substring.
+  Indices are 0-based and <code>end</code> is exclusive. Negative values count from the end
+  of the string, with <code>-1</code> being the last byte. If <code>end</code> is not given, returns
+  from <code>start</code> to the end of the string.</li>
 <li><code>.first_line() -&gt; ByteString</code></li>
 <li><code>.lines() -&gt; List&lt;ByteString&gt;</code>: Split into lines excluding newline characters.</li>
-<li><code>.upper() -&gt; ByteString</code>: Map each ASCII character to upper case.</li>
+<li><code>.split(separator: StringPattern, [limit: Integer]) -&gt; List&lt;ByteString&gt;</code>:
+  Split into substrings by the given <code>separator</code> pattern. If <code>limit</code> is
+  specified, it determines the maximum number of elements in the result, with
+  the remainder of the string returned as the final element. A <code>limit</code> of 0
+  returns an empty list.</li>
+<li>
+<p><code>.replace(pattern: StringPattern, replacement: ByteStringify, [limit:
+  Integer]) -&gt; ByteString</code>: Replace occurrences of the given <code>pattern</code> with the
+  <code>replacement</code> string.</p>
+<p>By default, all occurrences are replaced. If <code>limit</code> is specified, at most
+that many occurrences are replaced.</p>
+<p>Supports capture groups in patterns using <code>$0</code> (entire match), <code>$1</code>, <code>$2</code> etc.</p>
+</li>
+<li>
+<p><code>.upper() -&gt; ByteString</code>: Map each ASCII character to upper case.</p>
+</li>
 <li><code>.lower() -&gt; ByteString</code>: Map each ASCII character to lower case.</li>
 </ul>
 <h3 id="bytestringify-type"><code>ByteStringify</code> type<a class="headerlink" href="#bytestringify-type" title="Permanent link">&para;</a></h3>
