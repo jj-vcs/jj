@@ -124,6 +124,7 @@ use crate::templater::BoxedAnyProperty;
 use crate::templater::BoxedSerializeProperty;
 use crate::templater::BoxedTemplateProperty;
 use crate::templater::Literal;
+use crate::templater::NoTemplateBooleanCast;
 use crate::templater::SizeHint;
 use crate::templater::Template;
 use crate::templater::TemplateFormatter;
@@ -443,6 +444,24 @@ impl OperationTemplateEnvironment for CommitTemplateLanguage<'_> {
         Some(self.repo.base_repo().op_id())
     }
 }
+
+impl NoTemplateBooleanCast for Commit {}
+impl NoTemplateBooleanCast for CommitEvolutionEntry {}
+impl NoTemplateBooleanCast for Rc<CommitRef> {}
+impl NoTemplateBooleanCast for WorkspaceRef {}
+impl NoTemplateBooleanCast for RefSymbolBuf {}
+impl NoTemplateBooleanCast for RepoPathBuf {}
+impl NoTemplateBooleanCast for ChangeId {}
+impl NoTemplateBooleanCast for CommitId {}
+impl NoTemplateBooleanCast for ShortestIdPrefix {}
+impl NoTemplateBooleanCast for TreeDiff {}
+impl NoTemplateBooleanCast for TreeDiffEntry {}
+impl NoTemplateBooleanCast for TreeEntry {}
+impl NoTemplateBooleanCast for DiffStatsFormatted<'_> {}
+impl NoTemplateBooleanCast for DiffStatEntry {}
+impl NoTemplateBooleanCast for CryptographicSignature {}
+impl NoTemplateBooleanCast for AnnotationLine {}
+impl NoTemplateBooleanCast for Trailer {}
 
 pub enum CommitTemplatePropertyKind<'repo> {
     Core(CoreTemplatePropertyKind<'repo>),
