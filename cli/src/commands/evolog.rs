@@ -18,6 +18,7 @@ use futures::Stream;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use futures::stream;
+use futures::stream::LocalBoxStream;
 use itertools::Itertools as _;
 use jj_lib::commit::Commit;
 use jj_lib::evolution::CommitEvolutionEntry;
@@ -168,18 +169,18 @@ pub(crate) async fn cmd_evolog(
         // squashed commits before the squash destination (since the
         // destination's subgraph may contain earlier squashed commits as well.
         let evolution_nodes =
-            TopoGroupedGraph::new(evolution_nodes, |node| node.commit.id()).iter();
+            TopoGroupedGraph::new(evolution_nodes, |node| node.commit.id()).stream();
 
         let evolution_nodes = evolution_nodes.take(args.limit.unwrap_or(usize::MAX));
-        let evolution_nodes: Box<dyn Iterator<Item = _>> = if args.reversed {
-            let nodes = reverse_graph(evolution_nodes, |entry| entry.commit.id())?;
-            Box::new(nodes.into_iter().map(Ok))
+        let mut evolution_nodes: LocalBoxStream<_> = if args.reversed {
+            let nodes: Vec<_> = evolution_nodes.collect().await;
+            let nodes = reverse_graph(nodes.into_iter(), |entry| entry.commit.id())?;
+            stream::iter(nodes.into_iter().map(Ok)).boxed_local()
         } else {
-            Box::new(evolution_nodes)
+            evolution_nodes.boxed_local()
         };
 
-        for node in evolution_nodes {
-            let (entry, edges) = node?;
+        while let Some((entry, edges)) = evolution_nodes.try_next().await? {
             let mut buffer = vec![];
             let within_graph =
                 with_content_format.sub_width(graph.width(entry.commit.id(), &edges));

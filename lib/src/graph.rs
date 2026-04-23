@@ -18,11 +18,10 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::hash::Hash;
-use std::iter;
 
 use futures::Stream;
 use futures::TryStreamExt as _;
-use pollster::FutureExt as _;
+use futures::stream;
 
 /// Node and edges pair of type `N` and `ID` respectively.
 ///
@@ -110,7 +109,7 @@ pub fn reverse_graph<N, ID: Clone + Eq + Hash, E>(
         entries.push(node);
     }
 
-    let mut items = vec![];
+    let mut items: Vec<(N, Vec<GraphEdge<ID>>)> = vec![];
     for node in entries.into_iter().rev() {
         let edges = reverse_edges.remove(as_id(&node)).unwrap_or_default();
         items.push((node, edges));
@@ -332,16 +331,16 @@ where
         }
     }
 
-    /// Make an iterator based on the input stream and the optional
-    /// prioritized branches.
-    pub fn iter(mut self) -> impl Iterator<Item = Result<GraphNode<N, ID>, E>> {
-        iter::from_fn(move || match self.next_node().block_on() {
-            Ok(Some(node)) => Some(Ok(node)),
+    /// Make a stream based on the input stream and the optional prioritized
+    /// branches.
+    pub fn stream(self) -> impl Stream<Item = Result<GraphNode<N, ID>, E>> {
+        stream::unfold(self, async |mut state| match state.next_node().await {
+            Ok(Some(node)) => Some((Ok(node), state)),
             Ok(None) => {
-                assert!(self.nodes.is_empty(), "all nodes should have been emitted");
+                assert!(state.nodes.is_empty(), "all nodes should have been emitted");
                 None
             }
-            Err(err) => Some(Err(err)),
+            Err(err) => Some((Err(err), state)),
         })
     }
 }
@@ -353,7 +352,8 @@ mod tests {
     use std::iter::Peekable;
     use std::rc::Rc;
 
-    use futures::stream;
+    use futures::StreamExt as _;
+    use futures::executor::block_on_stream;
     use itertools::Itertools as _;
     use renderdag::Ancestor;
     use renderdag::GraphRowRenderer;
@@ -472,25 +472,31 @@ mod tests {
         ");
     }
 
-    fn topo_grouped<I, E>(graph_iter: I) -> impl Iterator<Item = Result<GraphNode<char>, E>>
+    fn topo_grouped<'a, I, E: 'a>(
+        graph_iter: I,
+    ) -> impl Iterator<Item = Result<GraphNode<char>, E>> + 'a
     where
-        I: IntoIterator<Item = Result<GraphNode<char>, E>>,
+        I: IntoIterator<Item = Result<GraphNode<char>, E>> + 'a,
     {
-        TopoGroupedGraph::new(stream::iter(graph_iter), |c| c).iter()
+        block_on_stream(
+            TopoGroupedGraph::new(stream::iter(graph_iter), |c| c)
+                .stream()
+                .boxed_local(),
+        )
     }
 
-    fn topo_grouped_with_prioritization<I, E>(
+    fn topo_grouped_with_prioritization<'a, I, E: 'a>(
         graph_iter: I,
-        prioritized_ids: &[char],
-    ) -> impl Iterator<Item = Result<GraphNode<char>, E>>
+        prioritized_ids: &'a [char],
+    ) -> impl Iterator<Item = Result<GraphNode<char>, E>> + 'a
     where
-        I: IntoIterator<Item = Result<GraphNode<char>, E>>,
+        I: IntoIterator<Item = Result<GraphNode<char>, E>> + 'a,
     {
         let mut topo_order = TopoGroupedGraph::new(stream::iter(graph_iter), |c| c);
         for id in prioritized_ids {
             topo_order.prioritize_branch(*id);
         }
-        topo_order.iter()
+        block_on_stream(topo_order.stream().boxed_local())
     }
 
     #[test]

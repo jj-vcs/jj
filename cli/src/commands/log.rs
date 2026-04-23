@@ -221,27 +221,27 @@ pub(crate) async fn cmd_log(
         if !args.no_graph {
             let mut raw_output = formatter.raw()?;
             let mut graph = get_graphlog(graph_style, raw_output.as_mut());
-            let iter: Box<dyn Iterator<Item = _>> = {
+            let mut stream: LocalBoxStream<_> = {
                 let mut topo_order = TopoGroupedGraph::new(revset.stream_graph(), |id| id);
 
                 let mut prio_stream = prio_revset.evaluate_to_commit_ids()?;
                 while let Some(prio) = prio_stream.try_next().await? {
                     topo_order.prioritize_branch(prio);
                 }
-                let forward_iter = topo_order.iter();
+                let forward_stream = topo_order.stream();
 
                 // The input to TopoGroupedGraph shouldn't be truncated because the prioritized
                 // commit must exist in the input set.
-                let forward_iter = forward_iter.take(args.limit.unwrap_or(usize::MAX));
+                let forward_stream = forward_stream.take(args.limit.unwrap_or(usize::MAX));
                 if args.reversed {
-                    Box::new(reverse_graph(forward_iter, |id| id)?.into_iter().map(Ok))
+                    let nodes: Vec<_> = forward_stream.collect().await;
+                    let nodes = reverse_graph(nodes.into_iter(), |id: &CommitId| id)?;
+                    stream::iter(nodes.into_iter().map(Ok)).boxed_local()
                 } else {
-                    Box::new(forward_iter)
+                    forward_stream.boxed_local()
                 }
             };
-            for node in iter {
-                let (commit_id, edges) = node?;
-
+            while let Some((commit_id, edges)) = stream.try_next().await? {
                 // The graph is keyed by (CommitId, is_synthetic)
                 let mut graphlog_edges = vec![];
                 // TODO: Should we update revset.stream_graph() to yield a `has_missing` flag
