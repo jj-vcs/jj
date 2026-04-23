@@ -14,9 +14,11 @@
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use futures::Stream;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use futures::executor::block_on_stream;
+use futures::stream;
 use itertools::Itertools as _;
 use jj_lib::commit::Commit;
 use jj_lib::evolution::CommitEvolutionEntry;
@@ -146,12 +148,12 @@ pub(crate) async fn cmd_evolog(
     let formatter = formatter.as_mut();
 
     let repo = workspace_command.repo();
-    let evolution_entries =
-        block_on_stream(walk_predecessors(repo, &start_commit_ids).boxed_local());
+    let evolution_entries = walk_predecessors(repo, &start_commit_ids).boxed_local();
     if !args.no_graph {
         let mut raw_output = formatter.raw()?;
         let mut graph = get_graphlog(graph_style, raw_output.as_mut());
 
+        let evolution_entries = block_on_stream(evolution_entries);
         let evolution_nodes = evolution_entries.map_ok(|entry| {
             let ids = entry.predecessor_ids();
             let edges = ids.iter().cloned().map(GraphEdge::direct).collect_vec();
@@ -210,15 +212,14 @@ pub(crate) async fn cmd_evolog(
         }
     } else {
         let evolution_entries = evolution_entries.take(args.limit.unwrap_or(usize::MAX));
-        let evolution_entries: Box<dyn Iterator<Item = _>> = if args.reversed {
-            let entries: Vec<_> = evolution_entries.try_collect()?;
-            Box::new(entries.into_iter().rev().map(Ok))
+        let mut evolution_entries: Box<dyn Stream<Item = _> + Unpin> = if args.reversed {
+            let entries: Vec<_> = evolution_entries.try_collect().await?;
+            Box::new(stream::iter(entries.into_iter().rev().map(Ok)))
         } else {
             Box::new(evolution_entries)
         };
 
-        for entry in evolution_entries {
-            let entry = entry?;
+        while let Some(entry) = evolution_entries.try_next().await? {
             with_content_format.write(formatter, |formatter| template.format(&entry, formatter))?;
             if let Some(renderer) = &diff_renderer {
                 let predecessors = entry.predecessors().await?;
