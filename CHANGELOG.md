@@ -33,6 +33,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj workspace list`/`root` no longer omit unreachable paths. All recorded
   paths are now shown, with warnings displayed in `jj workspace root`.
 
+* The `List.get()`, `.first()`, and `.last()` template functions now return
+  `Option<T>` instead of throwing an error on out-of-bounds access.
+
 ### Deprecations
 
 ### New features
