@@ -478,13 +478,25 @@ mod tests {
         ");
     }
 
-    type TopoGrouped<N, I> = TopoGroupedGraphIterator<N, N, I, fn(&N) -> &N>;
-
-    fn topo_grouped<I, E>(graph_iter: I) -> TopoGrouped<char, I::IntoIter>
+    fn topo_grouped<I, E>(graph_iter: I) -> impl Iterator<Item = Result<GraphNode<char>, E>>
     where
         I: IntoIterator<Item = Result<GraphNode<char>, E>>,
     {
         TopoGroupedGraphIterator::new(graph_iter.into_iter(), |c| c)
+    }
+
+    fn topo_grouped_with_prioritization<I, E>(
+        graph_iter: I,
+        prioritized_ids: &[char],
+    ) -> impl Iterator<Item = Result<GraphNode<char>, E>>
+    where
+        I: IntoIterator<Item = Result<GraphNode<char>, E>>,
+    {
+        let mut iter = TopoGroupedGraphIterator::new(graph_iter.into_iter(), |c| c);
+        for id in prioritized_ids {
+            iter.prioritize_branch(*id);
+        }
+        iter
     }
 
     #[test]
@@ -1614,8 +1626,7 @@ mod tests {
         ");
 
         // Emit the branch C first
-        let mut iter = topo_grouped(graph.iter().cloned());
-        iter.prioritize_branch('C');
+        let iter = topo_grouped_with_prioritization(graph.iter().cloned(), &['C']);
         insta::assert_snapshot!(format_graph(iter), @"
         C  direct(B)
         │
@@ -1629,8 +1640,7 @@ mod tests {
         ");
 
         // Emit the branch D first
-        let mut iter = topo_grouped(graph.iter().cloned());
-        iter.prioritize_branch('D');
+        let iter = topo_grouped_with_prioritization(graph.iter().cloned(), &['D']);
         insta::assert_snapshot!(format_graph(iter), @"
         D  direct(A)
         │
@@ -1645,9 +1655,7 @@ mod tests {
 
         // Emit the branch C first, then D. E is emitted earlier than D because
         // E belongs to the branch C compared to the branch D.
-        let mut iter = topo_grouped(graph.iter().cloned());
-        iter.prioritize_branch('C');
-        iter.prioritize_branch('D');
+        let iter = topo_grouped_with_prioritization(graph.iter().cloned(), &['C', 'D']);
         insta::assert_snapshot!(format_graph(iter), @"
         C  direct(B)
         │
@@ -1661,8 +1669,7 @@ mod tests {
         ");
 
         // Non-head node can be prioritized
-        let mut iter = topo_grouped(graph.iter().cloned());
-        iter.prioritize_branch('B');
+        let iter = topo_grouped_with_prioritization(graph.iter().cloned(), &['B']);
         insta::assert_snapshot!(format_graph(iter), @"
         E  direct(B)
         │
@@ -1676,8 +1683,7 @@ mod tests {
         ");
 
         // Root node can be prioritized
-        let mut iter = topo_grouped(graph.iter().cloned());
-        iter.prioritize_branch('A');
+        let iter = topo_grouped_with_prioritization(graph.iter().cloned(), &['A']);
         insta::assert_snapshot!(format_graph(iter), @"
         D  direct(A)
         │
@@ -1728,9 +1734,7 @@ mod tests {
         ");
 
         // Emit B, G, then remainders
-        let mut iter = topo_grouped(graph.iter().cloned());
-        iter.prioritize_branch('B');
-        iter.prioritize_branch('G');
+        let iter = topo_grouped_with_prioritization(graph.iter().cloned(), &['B', 'G']);
         insta::assert_snapshot!(format_graph(iter), @"
         B  direct(A)
         │
@@ -1755,11 +1759,7 @@ mod tests {
         // respected because G can be found earlier through C->A->G. At this
         // point, B is not populated yet, so A is blocked only by {G}. This is
         // a limitation of the current node reordering logic.
-        let mut iter = topo_grouped(graph.iter().cloned());
-        iter.prioritize_branch('D');
-        iter.prioritize_branch('H');
-        iter.prioritize_branch('B');
-        iter.prioritize_branch('G');
+        let iter = topo_grouped_with_prioritization(graph.iter().cloned(), &['D', 'H', 'B', 'G']);
         insta::assert_snapshot!(format_graph(iter), @"
         D  direct(C)
         │
@@ -1826,8 +1826,7 @@ mod tests {
         ");
 
         // Emit the sub graph G first
-        let mut iter = topo_grouped(graph.iter().cloned());
-        iter.prioritize_branch('G');
+        let iter = topo_grouped_with_prioritization(graph.iter().cloned(), &['G']);
         insta::assert_snapshot!(format_graph(iter), @"
         G  direct(E)
         │
@@ -1853,10 +1852,7 @@ mod tests {
         ");
 
         // Emit sub graphs in reverse order by selecting roots
-        let mut iter = topo_grouped(graph.iter().cloned());
-        iter.prioritize_branch('E');
-        iter.prioritize_branch('C');
-        iter.prioritize_branch('A');
+        let iter = topo_grouped_with_prioritization(graph.iter().cloned(), &['E', 'C', 'A']);
         insta::assert_snapshot!(format_graph(iter), @"
         G  direct(E)
         │
