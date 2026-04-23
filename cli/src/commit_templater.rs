@@ -70,6 +70,8 @@ use jj_lib::revset;
 use jj_lib::revset::Revset;
 use jj_lib::revset::RevsetContainingFn;
 use jj_lib::revset::RevsetDiagnostics;
+use jj_lib::revset::RevsetExpression;
+use jj_lib::revset::RevsetFilterPredicate;
 use jj_lib::revset::RevsetParseContext;
 use jj_lib::revset::UserRevsetExpression;
 use jj_lib::rewrite::rebase_to_dest_parent;
@@ -1371,7 +1373,13 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
                 let tree = commit.tree();
                 let entries: Vec<_> = tree
                     .entries_matching(&*matcher)
-                    .map(|(path, value)| value.map(|value| TreeEntry { path, value }))
+                    .map(|(path, value)| {
+                        value.map(|value| TreeEntry {
+                            commit: Some(commit.clone()),
+                            path,
+                            value,
+                        })
+                    })
                     .try_collect()?;
                 Ok(entries)
             });
@@ -1386,7 +1394,13 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
                 let tree = commit.tree();
                 let entries: Vec<_> = tree
                     .conflicts()
-                    .map(|(path, value)| value.map(|value| TreeEntry { path, value }))
+                    .map(|(path, value)| {
+                        value.map(|value| TreeEntry {
+                            commit: Some(commit.clone()),
+                            path,
+                            value,
+                        })
+                    })
                     .try_collect()?;
                 Ok(entries)
             });
@@ -1526,6 +1540,8 @@ fn builtin_commit_evolution_entry_methods<'repo>()
                     rebase_to_dest_parent(repo, &predecessors, &entry.commit).block_on()?;
                 let to_tree = entry.commit.tree();
                 Ok(TreeDiff {
+                    from_commits: Some(predecessors),
+                    to_commit: Some(entry.commit.clone()),
                     from_tree,
                     to_tree,
                     matcher: matcher.clone(),
@@ -2329,6 +2345,8 @@ fn builtin_shortest_id_prefix_methods<'repo>()
 /// Pair of trees to be diffed.
 #[derive(Debug)]
 pub struct TreeDiff {
+    from_commits: Option<Vec<Commit>>,
+    to_commit: Option<Commit>,
     from_tree: MergedTree,
     to_tree: MergedTree,
     matcher: Rc<dyn Matcher>,
@@ -2348,6 +2366,8 @@ impl TreeDiff {
             copy_records.add_records(records);
         }
         Ok(Self {
+            from_commits: Some(commit.parents().await?),
+            to_commit: Some(commit.clone()),
             from_tree: commit.parent_tree(repo).await?,
             to_tree: commit.tree(),
             matcher,
@@ -2361,8 +2381,16 @@ impl TreeDiff {
     }
 
     async fn collect_entries(&self) -> BackendResult<Vec<TreeDiffEntry>> {
+        let from_commits = self.from_commits.clone();
+        let to_commit = self.to_commit.clone();
         self.diff_stream()
-            .map(TreeDiffEntry::from_backend_entry_with_copies)
+            .map(move |entry| {
+                TreeDiffEntry::from_backend_entry_with_copies(
+                    entry,
+                    from_commits.clone(),
+                    to_commit.clone(),
+                )
+            })
             .try_collect()
             .await
     }
@@ -2565,13 +2593,21 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
 /// [`MergedTree`] diff entry.
 #[derive(Clone, Debug)]
 pub struct TreeDiffEntry {
+    pub from_commits: Option<Vec<Commit>>,
+    pub to_commit: Option<Commit>,
     pub path: CopiesTreeDiffEntryPath,
     pub values: Diff<MergedTreeValue>,
 }
 
 impl TreeDiffEntry {
-    pub fn from_backend_entry_with_copies(entry: CopiesTreeDiffEntry) -> BackendResult<Self> {
+    pub fn from_backend_entry_with_copies(
+        entry: CopiesTreeDiffEntry,
+        from_commits: Option<Vec<Commit>>,
+        to_commit: Option<Commit>,
+    ) -> BackendResult<Self> {
         Ok(Self {
+            from_commits,
+            to_commit,
             path: entry.path,
             values: entry.values?,
         })
@@ -2583,6 +2619,10 @@ impl TreeDiffEntry {
 
     fn into_source_entry(self) -> TreeEntry {
         TreeEntry {
+            // TODO: source() is ambiguous for merge diffs.
+            commit: self
+                .from_commits
+                .and_then(|commits| commits.first().cloned()),
             path: self.path.source.map_or(self.path.target, |(path, _)| path),
             value: self.values.before,
         }
@@ -2590,6 +2630,7 @@ impl TreeDiffEntry {
 
     fn into_target_entry(self) -> TreeEntry {
         TreeEntry {
+            commit: self.to_commit,
             path: self.path.target,
             value: self.values.after,
         }
@@ -2661,12 +2702,45 @@ fn builtin_tree_diff_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'r
             Ok(out_property.into_dyn_wrapped())
         },
     );
+    map.insert(
+        "last_modified",
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let repo = language.repo;
+            let out_property = self_property.and_then(move |entry| {
+                let commit = entry.to_commit.as_ref().ok_or_else(|| {
+                    TemplatePropertyError(
+                        "No commit context available for last_modified()"
+                            .to_string()
+                            .into(),
+                    )
+                })?;
+                let path = entry.path.target();
+                let expr = RevsetExpression::commit(commit.id().clone())
+                    .ancestors()
+                    .intersection(&RevsetExpression::filter(RevsetFilterPredicate::File(
+                        FilesetExpression::file_path(path.to_owned()),
+                    )))
+                    .heads();
+                let revset = expr
+                    .evaluate(repo)
+                    .map_err(|err| TemplatePropertyError(err.into_backend_error().into()))?;
+                let mut iter = revset.iter();
+                if let Some(id) = iter.next() {
+                    return Ok(repo.store().get_commit(&id?)?);
+                }
+                Ok(commit.clone())
+            });
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
     map
 }
 
 /// [`MergedTree`] entry.
 #[derive(Clone, Debug)]
 pub struct TreeEntry {
+    pub commit: Option<Commit>,
     pub path: RepoPathBuf,
     pub value: MergedTreeValue,
 }
@@ -2680,6 +2754,39 @@ fn builtin_tree_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|entry| entry.path);
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "last_modified",
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let repo = language.repo;
+            let out_property = self_property.and_then(move |entry| {
+                let commit = entry.commit.ok_or_else(|| {
+                    TemplatePropertyError(
+                        "No commit context available for last_modified()"
+                            .to_string()
+                            .into(),
+                    )
+                })?;
+                let expr = RevsetExpression::commit(commit.id().clone())
+                    .ancestors()
+                    .intersection(&RevsetExpression::filter(RevsetFilterPredicate::File(
+                        FilesetExpression::file_path(entry.path),
+                    )))
+                    .heads();
+                let revset = expr
+                    .evaluate(repo)
+                    .map_err(|err| TemplatePropertyError(err.into_backend_error().into()))?;
+                let mut iter = revset.iter();
+                if let Some(id) = iter.next() {
+                    return Ok(repo.store().get_commit(&id?)?);
+                }
+                // Fallback to the current commit if no ancestor modified it (shouldn't happen
+                // if the file exists)
+                Ok(commit)
+            });
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -3050,7 +3157,6 @@ mod tests {
     use jj_lib::config::ConfigSource;
     use jj_lib::fileset::FilesetAliasesMap;
     use jj_lib::revset::RevsetAliasesMap;
-    use jj_lib::revset::RevsetExpression;
     use jj_lib::revset::RevsetExtensions;
     use jj_lib::revset::RevsetWorkspaceContext;
     use testutils::TestRepoBackend;

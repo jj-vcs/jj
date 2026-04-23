@@ -2232,7 +2232,8 @@ pub async fn show_templated(
     template: &TemplateRenderer<'_, commit_templater::TreeDiffEntry>,
 ) -> Result<(), DiffRenderError> {
     while let Some(entry) = tree_diff.next().await {
-        let entry = commit_templater::TreeDiffEntry::from_backend_entry_with_copies(entry)?;
+        let entry =
+            commit_templater::TreeDiffEntry::from_backend_entry_with_copies(entry, None, None)?;
         template.format(&entry, formatter)?;
     }
     Ok(())

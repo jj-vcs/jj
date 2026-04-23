@@ -46,6 +46,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * New `ByteString` template type for things like file content.
 
+* `TreeEntry` and `TreeDiffEntry` template types now have a `last_modified()`
+  method that returns the most recent ancestor `Commit` that modified the given
+  file path. This enables `jj file list` (and other template contexts that
+  expose file entries) to display per-file last-modified commit information. Example: `jj file list -T 'path ++ " " ++ self.last_modified().description().first_line() ++ "\n"'`
+
 ### Fixed bugs
 
 * Improving consistency with `git` handling of `.gitignore`, including `/`

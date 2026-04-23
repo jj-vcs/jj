@@ -765,6 +765,9 @@ This type cannot be printed. The following methods are defined.
   `"A"` for added, `"D"` for removed, `"C"` for copied, or `"R"` for renamed.
 * `.source() -> TreeEntry`: The source (or left) entry.
 * `.target() -> TreeEntry`: The target (or right) entry.
+* `.last_modified() -> Commit`: The most recent ancestor commit that modified this
+  file path. Walks ancestors of the entry's commit filtered by the file path and
+  returns the head of that set.
 
 ### `TreeEntry` type
 
@@ -779,6 +782,9 @@ This type cannot be printed. The following methods are defined.
 * `.file_type() -> String`: One of `"file"`, `"symlink"`, `"tree"`,
   `"git-submodule"`, or `"conflict"`.
 * `.executable() -> Boolean`: True if the entry is an executable file.
+* `.last_modified() -> Commit`: The most recent ancestor commit that modified this
+  file path. Walks ancestors of the entry's commit filtered by the file path and
+  returns the head of that set.
 
 ### `WorkspaceRef` type
 

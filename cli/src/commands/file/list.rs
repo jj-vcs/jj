@@ -82,6 +82,7 @@ pub(crate) async fn cmd_file_list(
     let mut formatter = ui.stdout_formatter();
     for (path, value) in tree.entries_matching(matcher.as_ref()) {
         let entry = TreeEntry {
+            commit: Some(commit.clone()),
             path,
             value: value?,
         };

@@ -93,3 +93,27 @@ fn test_file_list() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_file_list_last_modified() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "content1");
+    work_dir.run_jj(["commit", "-m", "commit 1"]).success();
+
+    work_dir.write_file("file2", "content2");
+    work_dir.run_jj(["commit", "-m", "commit 2"]).success();
+
+    work_dir.write_file("file1", "content1 modified");
+    work_dir.run_jj(["commit", "-m", "commit 3"]).success();
+
+    let template = r#"path ++ " " ++ self.last_modified().description().first_line() ++ "\n""#;
+    let output = work_dir.run_jj(["file", "list", "-T", template]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    file1 commit 3
+    file2 commit 2
+    [EOF]
+    ");
+}

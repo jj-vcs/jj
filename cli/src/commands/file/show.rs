@@ -110,6 +110,7 @@ pub(crate) async fn cmd_file_show(
         if !value.is_tree() {
             ui.request_pager();
             let entry = TreeEntry {
+                commit: Some(commit.clone()),
                 path: path.to_owned(),
                 value,
             };
@@ -127,7 +128,11 @@ pub(crate) async fn cmd_file_show(
         &tree,
         tree.entries_matching(matcher.as_ref())
             .map(|(path, value)| Ok((path, value?)))
-            .map_ok(|(path, value)| TreeEntry { path, value }),
+            .map_ok(|(path, value)| TreeEntry {
+                commit: Some(commit.clone()),
+                path,
+                value,
+            }),
     )
     .await?;
     print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree])?;
