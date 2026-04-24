@@ -24,6 +24,7 @@ use jj_lib::commit::Commit;
 use jj_lib::git;
 use jj_lib::git::GitPushOptions;
 use jj_lib::git::GitRefUpdate;
+use jj_lib::git::GitSubprocessCallback;
 use jj_lib::git::GitSubprocessOptions;
 use jj_lib::merge::Diff;
 use jj_lib::object_id::ObjectId as _;
@@ -33,6 +34,7 @@ use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
 use jj_lib::trailer::Trailer;
 use jj_lib::trailer::parse_description_trailers;
+use regex::Regex;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
@@ -373,6 +375,70 @@ fn push_options(args: &UploadArgs) -> Result<Vec<String>, CommandError> {
     .collect())
 }
 
+const GERRIT_HOST_REGEX: &str = r"^  (https?://[^ ]*)/c/[^+]+\+/\d+\b";
+
+fn calculate_gerrit_host(lines: &[Vec<u8>]) -> Option<String> {
+    // See https://gerrit-review.googlesource.com/Documentation/intro-gerrit-walkthrough.html#_creating_the_review
+    // It's unclear looking from the docs if the output format is standardized,
+    // so we just take a best-effort approach.
+    // Example output:
+    // remote: Processing changes: new: 1, done
+    // remote:
+    // remote: New Changes:
+    // remote:   http://gerrithost/#/c/RecipeBook/+/702 Change to a proper, yeast based pizza dough.
+    // remote:
+    let gerrit_host = Regex::new(GERRIT_HOST_REGEX).unwrap();
+    lines
+        .iter()
+        .filter_map(|line| std::str::from_utf8(line).ok())
+        .filter_map(|line| gerrit_host.captures(line))
+        .map(|captures| captures[1].to_string())
+        .next()
+}
+
+// TeeCallback acts like the "tee" command in unix.
+// It prints to the UI, but also captures the remote sideband output from git.
+struct TeeCallback<'a> {
+    ui: GitSubprocessUi<'a>,
+    lines: Vec<Vec<u8>>,
+}
+
+impl<'a> TeeCallback<'a> {
+    fn new(ui: &'a Ui) -> Self {
+        Self {
+            ui: GitSubprocessUi::new(ui),
+            lines: vec![],
+        }
+    }
+}
+
+impl GitSubprocessCallback for TeeCallback<'_> {
+    fn needs_progress(&self) -> bool {
+        self.ui.needs_progress()
+    }
+
+    fn progress(&mut self, progress: &git::GitProgress) -> std::io::Result<()> {
+        self.ui.progress(progress)
+    }
+
+    fn local_sideband(
+        &mut self,
+        message: &[u8],
+        term: Option<git::GitSidebandLineTerminator>,
+    ) -> std::io::Result<()> {
+        self.ui.local_sideband(message, term)
+    }
+
+    fn remote_sideband(
+        &mut self,
+        message: &[u8],
+        term: Option<git::GitSidebandLineTerminator>,
+    ) -> std::io::Result<()> {
+        self.lines.push(message.to_vec());
+        self.ui.remote_sideband(message, term)
+    }
+}
+
 pub async fn cmd_gerrit_upload(
     ui: &mut Ui,
     command: &CommandHelper,
@@ -496,6 +562,7 @@ pub async fn cmd_gerrit_upload(
         }
     }
 
+    let mut review_url = command.settings().get_string("gerrit.review-url").ok();
     let mut old_to_new: HashMap<CommitId, Commit> = HashMap::new();
     for original_commit in to_upload.into_iter().rev() {
         let trailers = parse_description_trailers(original_commit.description());
@@ -629,6 +696,8 @@ pub async fn cmd_gerrit_upload(
 
         let new_commit = old_to_new.get(head).unwrap();
 
+        let mut callback = TeeCallback::new(ui);
+
         // how do we get better errors from the remote? 'git push' tells us
         // about rejected refs AND ALSO '(nothing changed)' when there are no
         // changes to push, but we don't get that here.
@@ -645,7 +714,7 @@ pub async fn cmd_gerrit_upload(
                     )),
                 ),
             }],
-            &mut GitSubprocessUi::new(ui),
+            &mut callback,
             &push_options,
         )
         // Despite the fact that a manual git push will error out with 'no new
@@ -665,7 +734,23 @@ pub async fn cmd_gerrit_upload(
         if !push_stats.all_ok() {
             return Err(user_error("Failed to push all changes to gerrit"));
         }
+
+        if review_url.is_none() {
+            // Ensure that on the next iteration of the loop, we don't re-output this.
+            review_url = calculate_gerrit_host(&callback.lines);
+            if let Some(review_url) = review_url.as_deref() {
+                writeln!(
+                    ui.warning_default(),
+                    "Gerrit URL is not set, some features will not work"
+                )?;
+                writeln!(
+                    ui.hint_default(),
+                    "Run `jj config set --repo gerrit.review-url {review_url}",
+                )?;
+            }
+        }
     }
+
     Ok(())
 }
 
@@ -765,6 +850,35 @@ mod tests {
             .into_iter()
             .map(|s| s.to_string())
             .collect::<Vec<_>>(),
+        );
+    }
+
+    #[test]
+    fn gerrit_host_regex_test() {
+        let re = Regex::new(GERRIT_HOST_REGEX).unwrap();
+        let parse = |x| re.captures(x).map(|c| c[1].to_string());
+        assert_eq!(
+            parse(
+                "  http://gerrithost/#/c/RecipeBook/+/702 Change to a proper, yeast based pizza \
+                 dough."
+            ),
+            Some("http://gerrithost/#".to_string())
+        );
+        assert_eq!(
+            parse(
+                "  http://gerrithost/#/RecipeBook/+/702 Change to a proper, yeast based pizza \
+                 dough."
+            ),
+            None
+        );
+        assert_eq!(
+            parse("  http://gerrithost/#/c/+/702 Change to a proper, yeast based pizza dough."),
+            None
+        );
+        // A real-world example.
+        assert_eq!(
+            parse("  https://chromium-review.googlesource.com/c/build/+/123456 hello [NEW]"),
+            Some("https://chromium-review.googlesource.com".to_string())
         );
     }
 }
