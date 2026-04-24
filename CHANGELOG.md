@@ -27,6 +27,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* Command aliases whose names contain spaces (e.g. `aliases."ws rm"`) can now be
+  invoked as space-separated words (`jj ws rm`) like real subcommands, letting
+  you group related aliases under a shared prefix. Each shorter prefix must
+  also be an enabled alias. Alias names containing option-like words are rejected.
+  [#6611](https://github.com/jj-vcs/jj/issues/6611)
+
 * Added the `TreeEntry.normal_value()` template method and the `TreeValue` type
   to access resolved tree values, formatted as their full object IDs, including
   Git submodule commit IDs.

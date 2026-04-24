@@ -1016,6 +1016,47 @@ You can define aliases for commands, including their arguments. For example:
 l = ["log", "-r", "(main..@):: | (main..@)-"]
 ```
 
+### Multi-word alias names
+
+An alias name may contain spaces, letting you group related aliases under a
+shared prefix, like built-in subcommands are grouped (e.g. `jj git push`):
+
+```toml
+[aliases]
+ws = ["workspace"]
+"ws ls" = ["workspace", "list"]
+"ws rm" = ["workspace", "forget"]
+```
+
+```shell
+jj ws ls        # runs `jj workspace list`
+jj ws rm name   # runs `jj workspace forget name`
+```
+
+Each shorter prefix must also be an enabled alias: `jj ws ls` requires `ws`,
+and `jj a b c` requires both `a` and `"a b"`. Empty definitions such as `ws = []`
+also count. This requirement leaves room to expand prefixes first in a future
+version. A whole quoted name (`jj "ws ls"`) does not require shorter aliases.
+
+Among these defined prefixes, the longest match wins, so `l` and `"l all"`
+can resolve to different commands. A longer name can specialize a shared prefix
+without first expanding the shorter alias. Don't start a multi-word alias with a
+built-in command name: `jj log mine` is always parsed as the built-in `log`
+command (with argument `mine`), so `aliases."log mine"` does not change that
+invocation.
+This also applies to command groups: `aliases."git sync"` does not add a
+subcommand to `jj git`. Use a custom prefix instead.
+
+The words in the alias name must be consecutive; put global options before or
+after the full name, as in `jj --quiet ws ls` or `jj ws ls --quiet`. Quoting the
+whole name (`jj "ws ls"`) continues to work. Alias names containing words that
+start with `-`, such as `"ws --quiet"`, are invalid and are ignored with a warning.
+
+Shell completion suggests multi-word alias names as a single quoted or escaped
+word. After the complete alias name, argument completion works for both quoted
+and space-separated invocations. Completing individual words within an alias
+name (for example, completing `ls` after `jj ws `) is not yet supported.
+
 ### Alias descriptions
 
 Alias descriptions can be surfaced in shell completions by defining the alias

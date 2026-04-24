@@ -669,3 +669,253 @@ fn test_alias_falls_back_to_default_command() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_alias_multi_word_name() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    test_env.add_config(
+        r#"[aliases]
+        ws = ["workspace"]
+        "ws ls" = ["workspace", "list"]
+        my = []
+        "my deep" = []
+        "my deep alias" = ["config", "get", "user.name"]
+        # The table form (with a `definition` key) is also accepted.
+        r = ["log"]
+        "r head" = { definition = ["log", "-r", "@", "-T", "commit_id"] }
+        "#,
+    );
+
+    let output = work_dir.run_jj(["ws", "ls"]);
+    insta::assert_snapshot!(output, @"
+    default: . qpvuntsm e8849ae1 (empty) (no description set)
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["ws ls"]);
+    insta::assert_snapshot!(output, @"
+    default: . qpvuntsm e8849ae1 (empty) (no description set)
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["my", "deep", "alias"]);
+    insta::assert_snapshot!(output, @"
+    Test User
+    [EOF]
+    ");
+    // Trailing args after the alias name are forwarded to the definition.
+    let output = work_dir.run_jj(["r", "head", "--no-graph"]);
+    insta::assert_snapshot!(output, @"e8849ae12c709f2321908879bc724fdb2ab8a781[EOF]");
+}
+
+#[test]
+fn test_alias_multi_word_precedence() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // The longest matching alias name wins (`"foo bar"` over `"foo"`).
+    test_env.add_config(
+        r#"[aliases]
+        foo = ["config", "get", "user.name"]
+        "foo bar" = ["config", "get", "user.email"]
+        "#,
+    );
+
+    let output = work_dir.run_jj(["foo"]);
+    insta::assert_snapshot!(output, @"
+    Test User
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["foo", "bar"]);
+    insta::assert_snapshot!(output, @"
+    test.user@example.com
+    [EOF]
+    ");
+    // A non-matching second word falls back to the single-word alias, with the
+    // extra word forwarded as an argument.
+    let output = work_dir.run_jj(["foo", "baz"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unexpected argument 'baz' found
+
+    Usage: jj config get [OPTIONS] <NAME>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+}
+
+#[test]
+fn test_alias_multi_word_option_like_name() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config(
+        r#"[aliases]
+        foo = ["config", "get", "user.name"]
+        "foo --quiet" = ["config", "get", "user.email"]
+        "foo --disabled" = { enabled = false }
+        "#,
+    );
+    let output = test_env.run_jj_in(".", ["foo", "--quiet"]);
+    insta::assert_snapshot!(output, @"
+    Test User
+    [EOF]
+    ------- stderr -------
+    Warning: Failed to load `aliases.foo --quiet`: Alias name contains an option-like word
+    [EOF]
+    ");
+    let output = test_env.run_jj_in(".", ["foo --quiet"]);
+    assert_eq!(output.status.code(), Some(2));
+}
+
+#[test]
+fn test_alias_multi_word_disabled_longer_name() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config(
+        r#"[aliases]
+        name = ["config", "get"]
+        "name user.name" = { definition = ["config", "get", "user.email"], enabled = false }
+        "#,
+    );
+    // A disabled longer name must not shadow the shorter alias.
+    let output = test_env.run_jj_in(".", ["name", "user.name"]);
+    insta::assert_snapshot!(output, @"
+    Test User
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_alias_multi_word_recursive() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    test_env.add_config(
+        r#"[aliases]
+        x = []
+        "x y" = ["x", "y"]
+        "a b" = ["a"]
+        a = ["config", "get", "user.name"]
+        flags = []
+        "flags only" = ["--quiet", "--no-pager"]
+        cycle = []
+        "cycle start" = ["flags", "only", "cycle", "next"]
+        "cycle next" = ["flags", "only", "cycle", "start"]
+        drop = []
+        "drop word" = []
+        outer = ["drop", "word", "outer"]
+        "#,
+    );
+
+    // A multi-word alias that expands to itself must error, not loop forever.
+    let output = work_dir.run_jj(["x", "y"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Recursive alias definition involving `x y`
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // But re-resolving the same alias on a shrinking argument list is fine:
+    // `a b b` -> `a b` -> `a`. `"a b"` is matched twice yet still terminates.
+    let output = work_dir.run_jj(["a", "b", "b"]);
+    insta::assert_snapshot!(output, @"
+    Test User
+    [EOF]
+    ");
+
+    // Separate invocations are not recursive, even when expansion doesn't
+    // shorten the argument list.
+    work_dir
+        .run_jj(["flags", "only", "flags", "only", "version"])
+        .success();
+    let output = work_dir.run_jj(["cycle", "start"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Recursive alias definition involving `cycle start`
+    [EOF]
+    [exit status: 1]
+    ");
+    // Removing a nested alias must preserve the surrounding recursion check.
+    let output = work_dir.run_jj(["outer"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Recursive alias definition involving `outer`
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
+fn test_alias_multi_word_global_args_and_chaining() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    test_env.add_config(
+        r#"[aliases]
+        my = []
+        "my name" = ["config", "get", "user.name"]
+        nested = []
+        "nested name" = ["my", "name"]
+        "#,
+    );
+    let output = work_dir.run_jj(["--quiet", "nested", "name", "--no-pager"]);
+    insta::assert_snapshot!(output, @"
+    Test User
+    [EOF]
+    ");
+    test_env.add_config(r#"ui.default-command = ["my", "name"]"#);
+    let output = work_dir.run_jj([] as [&str; 0]);
+    insta::assert_snapshot!(output, @"
+    Test User
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_alias_multi_word_cannot_override_builtin() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    test_env.add_config(
+        r#"[aliases]
+        "log mine" = ["config", "get", "user.name"]
+        "git sync" = ["config", "get", "user.name"]
+        "workspace list" = ["config", "get", "user.name"]
+        "#,
+    );
+    // Leaf commands keep interpreting following words as arguments.
+    let output = work_dir.run_jj(["log", "mine"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Warning: No matching entries for paths: mine
+    Warning: The argument "mine" is being interpreted as a fileset expression. To specify a revset, pass -r "mine" instead.
+    [EOF]
+    "#);
+    // Built-in containers cannot be extended in this version.
+    let output = work_dir.run_jj(["git", "sync"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unrecognized subcommand 'sync'
+
+    Usage: jj git [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+    let output = work_dir.run_jj(["workspace", "list"]);
+    insta::assert_snapshot!(output, @"
+    default: . qpvuntsm e8849ae1 (empty) (no description set)
+    [EOF]
+    ");
+    // The quoted name remains a separate command for backward compatibility.
+    let output = work_dir.run_jj(["workspace list"]);
+    insta::assert_snapshot!(output, @"
+    Test User
+    [EOF]
+    ");
+}
