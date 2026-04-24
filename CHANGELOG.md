@@ -31,6 +31,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* Command aliases whose names contain spaces (e.g. `aliases."ws rm"`) can now be
+  invoked as space-separated words (`jj ws rm`) like real subcommands, letting
+  you group related aliases under a shared prefix.
+  [#6611](https://github.com/jj-vcs/jj/issues/6611)
+
 * Shell completions now surface descriptions for custom aliases,
   revset-aliases, template-aliases, and fileset-aliases. Descriptions are
   extracted from the `.doc` field of the alias definition if it is a table

@@ -995,6 +995,27 @@ You can define aliases for commands, including their arguments. For example:
 l = ["log", "-r", "(main..@):: | (main..@)-"]
 ```
 
+### Multi-word alias names
+
+An alias name may contain spaces, letting you group related aliases under a
+shared prefix, like built-in subcommands are grouped (e.g. `jj git push`):
+
+```toml
+[aliases]
+"ws ls" = ["workspace", "list"]
+"ws rm" = ["workspace", "forget"]
+```
+
+```shell
+jj ws ls        # runs `jj workspace list`
+jj ws rm name   # runs `jj workspace forget name`
+```
+
+When alias names share a prefix, the longest match wins, so `l` and `"l all"`
+can resolve to different commands. Don't start a multi-word alias with a
+built-in command name: `jj log mine` is always parsed as the built-in `log`
+command (with argument `mine`), so `aliases."log mine"` is never reached.
+
 ### Alias descriptions
 
 Alias descriptions can be surfaced in shell completions by defining the alias
