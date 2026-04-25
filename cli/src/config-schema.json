@@ -740,6 +740,17 @@
                 }
             }
         },
+        "commit": {
+            "type": "object",
+            "description": "Settings for jj commit",
+            "properties": {
+                "allow-empty": {
+                    "type": "boolean",
+                    "description": "Whether jj commit may create commits that match the empty() revset",
+                    "default": true
+                }
+            }
+        },
         "snapshot": {
             "type": "object",
             "description": "Parameters governing automatic capture of files into the working copy commit",

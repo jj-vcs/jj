@@ -222,6 +222,12 @@ new working-copy commit.
         description
     };
     commit_builder.set_description(description);
+    if !tx.settings().get_bool("commit.allow-empty")? && commit_builder.is_empty(tx.repo()).await? {
+        return Err(
+            user_error("Empty commits are disabled by `commit.allow-empty=false`")
+                .hinted("Set `commit.allow-empty=true` to allow this commit."),
+        );
+    }
     let new_commit = commit_builder.write(tx.repo_mut()).await?;
 
     let workspace_names = tx.repo().view().workspaces_for_wc_commit_id(commit.id());

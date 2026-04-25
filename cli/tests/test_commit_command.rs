@@ -160,6 +160,51 @@ fn test_commit_with_empty_description_from_editor() -> TestResult {
 }
 
 #[test]
+fn test_commit_disallow_empty() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("commit.allow-empty = false");
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj(["commit", "-m=empty"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Empty commits are disabled by `commit.allow-empty=false`
+    Hint: Set `commit.allow-empty=true` to allow this commit.
+    [EOF]
+    [exit status: 1]
+    ");
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    @  e8849ae12c70
+    ◆  000000000000
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_commit_disallow_empty_allows_non_empty() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("commit.allow-empty = false");
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+    let output = work_dir.run_jj(["commit", "-m=non-empty"]).success();
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Working copy  (@) now at: rlvkpnrz 476f2e2f (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm f9cdcc16 non-empty
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    @  476f2e2f44ba
+    ○  f9cdcc163cc8 non-empty
+    ◆  000000000000
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_commit_interactive() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();

@@ -559,6 +559,21 @@ edit = true
 You can pass the `--no-edit` flag to `prev` and `next` if you find yourself
 needing the original behavior.
 
+## Commit settings
+
+### Allow empty commits
+
+By default, `jj commit` can create commits with no file modifications. To make
+`jj commit` reject commits that match the `empty()` revset, set:
+
+```toml
+[commit]
+allow-empty = false
+```
+
+This setting only affects `jj commit`. It does not prevent jj from creating
+empty working-copy commits, which are part of the normal working-copy model.
+
 ## List
 
 ### Default Template

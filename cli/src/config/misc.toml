@@ -8,6 +8,9 @@ ci = ["commit"]
 desc = ["describe"]
 st = ["status"]
 
+[commit]
+allow-empty = true
+
 [diff.color-words]
 conflict = "materialize"
 max-inline-alternation = 3

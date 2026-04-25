@@ -34,6 +34,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * A new config option `diff.git.show-path-prefix` can be used to suppress the
   `a/` and `b/` path prefixes in the `diff --git` output.
 
+* A new config option `commit.allow-empty=false` can be used to make `jj commit`
+  reject commits with no file modifications.
+
 * `jj fix` now supports line range-limited formatting via the `fix.tools.<name>.line-range-arg`
   and `run-tool-if-zero-line-ranges` configs. This allows running tools only on modified
   lines and fine-grained control over when the tool is run. If you have set the `line-range-arg`
