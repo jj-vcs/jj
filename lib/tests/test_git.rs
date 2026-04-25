@@ -6250,7 +6250,6 @@ fn test_push_updates_with_options() -> TestResult {
         }],
         &mut callback,
         &GitPushOptions {
-            extra_args: vec![],
             remote_push_options: vec![
                 "merge_request.create".to_owned(),
                 "merge_request.draft".to_owned(),

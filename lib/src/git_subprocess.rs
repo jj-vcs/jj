@@ -292,7 +292,6 @@ impl GitSubprocessContext {
                 .iter()
                 .map(|reference| format!("--force-with-lease={}", reference.to_git_lease())),
         );
-        command.args(&options.extra_args);
         command.args(["--", remote_name.as_str()]);
         // with --force-with-lease we cannot have the forced refspec,
         // as it ignores the lease

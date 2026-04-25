@@ -381,7 +381,7 @@ fn push_options(args: &UploadArgs) -> Result<Vec<String>, CommandError> {
     .chain(args.reviewer.iter().map(|arg| Some(("r", arg.clone()))))
     .chain(args.cc.iter().map(|arg| Some(("cc", arg.clone()))))
     .flatten()
-    .map(|(k, v)| vec!["-o".to_string(), format!("{k}={v}")])
+    .map(|(k, v)| format!("{k}={v}"))
     .chain(
         [
             args.edit.then_some("edit"),
@@ -396,12 +396,9 @@ fn push_options(args: &UploadArgs) -> Result<Vec<String>, CommandError> {
             args.submit.then_some("submit"),
         ]
         .into_iter()
-        .map(|item| match item {
-            Some(k) => vec!["-o".to_string(), k.to_string()],
-            None => vec![],
-        }),
+        .flatten()
+        .map(str::to_string),
     )
-    .flatten()
     .collect())
 }
 
@@ -412,9 +409,7 @@ pub async fn cmd_gerrit_upload(
 ) -> Result<(), CommandError> {
     // Do this first because the validation is cheap.
     let push_options = GitPushOptions {
-        // TODO: migrate push_options() away from extra_args?
-        extra_args: push_options(args)?,
-        remote_push_options: vec![],
+        remote_push_options: push_options(args)?,
     };
 
     let mut workspace_command = command.workspace_helper(ui)?;
@@ -727,25 +722,15 @@ mod tests {
             })
             .unwrap(),
             [
-                "-o",
                 "notify=NONE",
-                "-o",
                 "topic=my-topic",
-                "-o",
                 "message=Uploaded%20with%20jj%21",
-                "-o",
                 "r=foo@example.com",
-                "-o",
                 "cc=bar@example.com",
-                "-o",
                 "cc=baz@example.com",
-                "-o",
                 "edit",
-                "-o",
                 "wip",
-                "-o",
                 "private",
-                "-o",
                 "publish-comments",
             ]
             .into_iter()
@@ -771,35 +756,20 @@ mod tests {
             })
             .unwrap(),
             [
-                "-o",
                 "notify=ALL",
-                "-o",
                 "trace=my-trace",
-                "-o",
                 "deadline=yesterday",
-                "-o",
                 "label=Auto-Submit",
-                "-o",
                 "label=Commit-Queue+2",
-                "-o",
                 "hashtag=my-hashtag",
-                "-o",
                 "hashtag=my-second-hashtag",
-                "-o",
                 "custom-keyed-value=foo:bar",
-                "-o",
                 "custom-keyed-value=baz:quux",
-                "-o",
                 "ready",
-                "-o",
                 "remove-private",
-                "-o",
                 "no-publish-comments",
-                "-o",
                 "skip-validation",
-                "-o",
                 "ignore-attention-set",
-                "-o",
                 "submit",
             ]
             .into_iter()

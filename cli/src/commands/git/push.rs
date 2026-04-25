@@ -579,7 +579,6 @@ pub async fn cmd_git_push(
 
     let git_settings = GitSettings::from_settings(tx.settings())?;
     let options = GitPushOptions {
-        extra_args: vec![],
         remote_push_options: args.option.clone(),
     };
     let push_stats = git::push_refs(

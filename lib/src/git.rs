@@ -3085,8 +3085,6 @@ pub struct GitRefUpdate {
 /// Miscellaneous options for Git push command.
 #[derive(Clone, Debug, Default)]
 pub struct GitPushOptions {
-    /// Extra arguments passed in to `git push` command.
-    pub extra_args: Vec<String>,
     /// `--push-option` arguments.
     pub remote_push_options: Vec<String>,
 }
