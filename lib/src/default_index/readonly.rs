@@ -747,6 +747,10 @@ impl Index for DefaultReadonlyIndex {
         self.0.heads(candidates)
     }
 
+    fn parents(&self, commit_id: &CommitId) -> IndexResult<Vec<CommitId>> {
+        self.0.parents(commit_id)
+    }
+
     fn changed_paths_in_commit(
         &self,
         commit_id: &CommitId,

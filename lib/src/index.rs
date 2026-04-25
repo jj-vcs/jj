@@ -140,6 +140,9 @@ pub trait Index: Send + Sync {
     /// `candidates` list it will appear at most once in the output.
     fn heads(&self, candidates: &mut dyn Iterator<Item = &CommitId>) -> IndexResult<Vec<CommitId>>;
 
+    /// Returns the parents of commit ID `commit_id`
+    fn parents(&self, commit_id: &CommitId) -> IndexResult<Vec<CommitId>>;
+
     /// Returns iterator over paths changed at the specified commit. The paths
     /// are sorted. Returns `None` if the commit wasn't indexed.
     fn changed_paths_in_commit(
