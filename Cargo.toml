@@ -51,7 +51,7 @@ erased-serde = "0.4.10"
 eyre = "0.6"
 etcetera = "0.11.0"
 futures = "0.3.32"
-gix = { version = "0.81.0", default-features = false, features = [
+gix = { version = "0.82.0", default-features = false, features = [
     "attributes",
     "blob-diff",
     "index",
@@ -59,7 +59,7 @@ gix = { version = "0.81.0", default-features = false, features = [
     "sha1",
     "zlib-rs",
 ] }
-gix-ignore = { version = "0.19.1" }
+gix-ignore = { version = "0.20.0" }
 globset = "0.4.18"
 hashbrown = { version = "0.17.0", default-features = false, features = ["inline-more"] }
 indexmap = { version = "2.14.0", features = ["serde"] }
@@ -68,7 +68,7 @@ insta = { version = "1.47.2", features = ["filters"] }
 interim = { version = "0.2.1", features = ["chrono_0_4"] }
 itertools = "0.14.0"
 jsonschema = { version = "0.46.2", default-features = false }
-libc = { version = "0.2.185" }
+libc = { version = "0.2.186" }
 maplit = "1.0.2"
 nix = "0.31.2"
 num_cpus = "1.17.0"

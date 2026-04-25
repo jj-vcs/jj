@@ -272,7 +272,7 @@ fn set_git_repo_bare(path: &std::path::Path, bare: bool) -> Result<(), CommandEr
             .map_err(|err| user_error_with_message("Failed to open Git config file.", err))?;
 
     config_file
-        .set_raw_value(&"core.bare", bare_str)
+        .set_raw_value("core.bare", bare_str)
         .map_err(|err| {
             user_error_with_message(
                 format!("Failed to set core.bare to {bare_str} in Git config."),
