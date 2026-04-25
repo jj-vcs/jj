@@ -685,6 +685,18 @@ impl ResolvedRevsetExpression {
         repo.index().evaluate_revset(&expr, repo.store())
     }
 
+    pub fn evaluate_to_commits(
+        self: Arc<Self>,
+        repo: &dyn Repo,
+    ) -> Result<LocalBoxStream<'_, Result<Commit, RevsetEvaluationError>>, RevsetEvaluationError>
+    {
+        Ok(self
+            .evaluate(repo)?
+            .stream()
+            .commits(repo.store())
+            .boxed_local())
+    }
+
     /// Evaluates this expression without optimizing it.
     ///
     /// Use this function if `self` is already optimized, or to debug
