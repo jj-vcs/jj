@@ -31,6 +31,9 @@ push-new-bookmarks = false
 sign-on-push = false
 track-default-bookmark-on-clone = true
 
+[gerrit]
+upload-exact-refs = false
+
 [ui]
 color = "auto"
 diff-formatter = ":color-words"
