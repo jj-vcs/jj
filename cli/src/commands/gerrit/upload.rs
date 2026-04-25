@@ -378,7 +378,11 @@ fn push_options(args: &UploadArgs) -> Result<Vec<String>, CommandError> {
             .iter()
             .map(|arg| Some(("custom-keyed-value", arg.clone()))),
     )
-    .chain(args.reviewer.iter().map(|arg| Some(("r", arg.clone()))))
+    .chain(
+        args.reviewer
+            .iter()
+            .map(|arg| Some(("reviewer", arg.clone()))),
+    )
     .chain(args.cc.iter().map(|arg| Some(("cc", arg.clone()))))
     .flatten()
     .map(|(k, v)| format!("{k}={v}"))
@@ -725,7 +729,7 @@ mod tests {
                 "notify=NONE",
                 "topic=my-topic",
                 "message=Uploaded%20with%20jj%21",
-                "r=foo@example.com",
+                "reviewer=foo@example.com",
                 "cc=bar@example.com",
                 "cc=baz@example.com",
                 "edit",
