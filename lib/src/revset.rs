@@ -3466,30 +3466,6 @@ pub trait Revset: fmt::Debug {
 /// Function that checks if a commit is contained within the revset.
 pub type RevsetContainingFn<'a> = dyn Fn(&CommitId) -> Result<bool, RevsetEvaluationError> + 'a;
 
-pub trait RevsetIteratorExt {
-    fn commits(
-        self,
-        store: &Arc<Store>,
-    ) -> impl Iterator<Item = Result<Commit, RevsetEvaluationError>> + use<Self>;
-}
-
-impl<I: Iterator<Item = Result<CommitId, RevsetEvaluationError>>> RevsetIteratorExt for I {
-    fn commits(
-        self,
-        store: &Arc<Store>,
-    ) -> impl Iterator<Item = Result<Commit, RevsetEvaluationError>> + use<I> {
-        let store = store.clone();
-        self.map(move |result| {
-            let commit_id = result?;
-            let commit = store
-                .clone()
-                .get_commit(&commit_id)
-                .map_err(RevsetEvaluationError::Backend)?;
-            Ok(commit)
-        })
-    }
-}
-
 pub trait RevsetStreamExt {
     fn commits(
         self,
