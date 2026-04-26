@@ -50,6 +50,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and `--merged`. You can now also pass multiple hashtags by repeating the
   `--hashtag` option.
 
+* `jj gerrit upload` now supports `--no-change-id` to push to Gerrit without
+  adding a `Change-Id` footer. Commits that already have a `Change-Id` or `Link`
+  footer are unaffected.
+
 ### Fixed bugs
 
 * Improving consistency with `git` handling of `.gitignore`, including `/`

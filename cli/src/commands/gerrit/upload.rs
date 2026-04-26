@@ -217,6 +217,17 @@ pub struct UploadArgs {
     /// See https://gerrit-review.googlesource.com/Documentation/user-upload.html#trace
     #[arg(long)]
     trace: Option<String>,
+
+    /// Do not add a `Change-Id` footer to commits that lack one
+    ///
+    /// By default, a `Change-Id` footer is automatically derived from the jj
+    /// change ID and appended to commits that do not already have one. This
+    /// flag disables that behaviour, leaving such commits unchanged. Commits
+    /// that already contain a `Change-Id` or `Link` footer are never modified,
+    /// regardless of this flag.
+    #[arg(long)]
+    no_change_id: bool,
+
     // Note: An option "message" exists on Gerrit hosts. It is currently not
     // implemented because it could be easy to confuse a "-m"/"--message" flag
     // for a patchset with a message for a commit description.
@@ -548,6 +559,8 @@ pub async fn cmd_gerrit_upload(
 
         // The user can choose to explicitly set their own change-ID to
         // override the default change-ID based on the jj change-ID.
+        // When --no-change-id is given and no existing footer is present,
+        // skip adding one and use the original description unchanged.
         let new_description = if let Some(trailer) = change_id_trailers.first() {
             // Check the change-id format is correct, intentionally leave the
             // invalid change IDs as-is.
@@ -570,6 +583,8 @@ pub async fn cmd_gerrit_upload(
                 )?;
             }
 
+            original_commit.description().to_owned()
+        } else if args.no_change_id {
             original_commit.description().to_owned()
         } else {
             // Gerrit change id is 40 chars, jj change id is 32, so we need padding.

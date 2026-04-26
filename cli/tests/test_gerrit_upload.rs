@@ -835,3 +835,65 @@ fn test_gerrit_upload_rejected_by_remote() -> TestResult {
     ");
     Ok(())
 }
+
+#[test]
+fn test_gerrit_upload_no_change_id() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "remote"])
+        .success();
+    let remote_dir = test_env.work_dir("remote");
+    create_commit(&remote_dir, "a", &[]);
+
+    test_env
+        .run_jj_in(".", ["git", "clone", "remote", "local"])
+        .success();
+    let local_dir = test_env.work_dir("local");
+
+    // b has no Change-Id; c has an explicit Change-Id
+    create_commit(&local_dir, "b", &["a@origin"]);
+    create_commit(&local_dir, "c", &["b"]);
+    local_dir
+        .run_jj([
+            "describe",
+            "c",
+            "-m",
+            "c\n\nChange-Id: Id39b308212fe7e0b746d16c13355f3a90712d7f9\n",
+        ])
+        .success();
+
+    // With --no-change-id, b should be pushed without a footer being added,
+    // and c should keep its existing Change-Id unchanged.
+    let output =
+        local_dir.run_jj(["gerrit", "upload", "-r", "c", "--remote-branch=main", "--no-change-id"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
+    Pushing yqosqzyt 8d46d915 c | c
+    [EOF]
+    ");
+
+    let output = remote_dir.run_jj(["util", "exec", "--", "git", "log", "refs/for/main"]);
+    insta::assert_snapshot!(output, @"
+    commit 8d46d915c5de09e193bd2fb3b9e38d64ec8c56c1
+    Author: Test User <test.user@example.com>
+    Date:   Sat Feb 3 04:05:13 2001 +0700
+
+        c
+
+        Change-Id: Id39b308212fe7e0b746d16c13355f3a90712d7f9
+
+    commit 3bcb28c47ce6e2af5e90fadd2d3e0b5e10d13b22
+    Author: Test User <test.user@example.com>
+    Date:   Sat Feb 3 04:05:11 2001 +0700
+
+        b
+
+    commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
+    Author: Test User <test.user@example.com>
+    Date:   Sat Feb 3 04:05:08 2001 +0700
+
+        a
+    [EOF]
+    ");
+}
