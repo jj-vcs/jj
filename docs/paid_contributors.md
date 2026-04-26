@@ -61,4 +61,5 @@ See [contribution docs](contributing.md#code-reviews) for details on this policy
 
 ## IMC Trading
 
+* freundTech
 * HoelzelJon
