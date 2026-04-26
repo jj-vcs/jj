@@ -2555,10 +2555,13 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
         let name_expression =
             expect_stringify_expression(language, diagnostics, build_ctx, name_node)?;
         if let Ok(name) = name_expression.extract() {
-            let config_path: ConfigNamePathBuf = name.parse().map_err(|err| {
-                TemplateParseError::expression("Failed to parse config name", name_node.span)
-                    .with_source(err)
-            })?;
+            let config_path: ConfigNamePathBuf =
+                template_parser::catch_aliases(diagnostics, name_node, |_diagnostics, node| {
+                    name.parse().map_err(|err| {
+                        TemplateParseError::expression("Failed to parse config name", node.span)
+                            .with_source(err)
+                    })
+                })?;
             let value = language
                 .settings()
                 .get_value(config_path)
@@ -5560,11 +5563,18 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#"if(config("non.existent"), "yes", "no")"#), @"no");
 
         // malformed config path
-        insta::assert_snapshot!(env.parse_err("config('user|name')"), @"
+        env.add_alias("bad_config_name", "'user|name'");
+        insta::assert_snapshot!(env.parse_err("config(bad_config_name)"), @"
          --> 1:8
           |
-        1 | config('user|name')
-          |        ^---------^
+        1 | config(bad_config_name)
+          |        ^-------------^
+          |
+          = In alias `bad_config_name`
+         --> 1:1
+          |
+        1 | 'user|name'
+          | ^---------^
           |
           = Failed to parse config name
         TOML parse error at line 1, column 5
