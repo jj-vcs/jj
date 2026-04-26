@@ -64,6 +64,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Pre-existing Git submodule directories are no longer considered conflicts in
   checkouts. [#8065](https://github.com/jj-vcs/jj/issues/8065).
 
+* Stop stacking empty revisions on other workspaces that were already immutable
+  before a transaction (e.g., under `immutable_heads() = working_copies() ~ @`).
+  Workspaces whose working copy is made immutable *by* the transaction (e.g., a
+  tag pointing to it) still get a new commit stacked on top.
+  [#7751](https://github.com/jj-vcs/jj/issues/7751)
+
 ## [0.40.0] - 2026-04-01
 
 ### Release highlights

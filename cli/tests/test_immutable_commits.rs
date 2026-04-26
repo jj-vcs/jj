@@ -230,21 +230,18 @@ fn test_new_wc_commit_when_wc_immutable_multi_workspace_already_immutable() {
     let output = work_dir
         .run_jj(["workspace", "add", "../workspace1"])
         .success();
-    // TODO: The current workspace is immutable from the new workspace's
-    // perspective, but we should not create a new commit for it.
+    // The current workspace is not immutable from its own perspective
+    // (working_copies() ~ @ excludes @), so no warning is shown.
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Created workspace in "../workspace1"
-    Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
     Working copy  (@) now at: pmmvwywv 1cd27236 (empty) (no description set)
     Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
     "#);
     let output = work_dir.run_jj(["log", "-r=::"]);
     insta::assert_snapshot!(output, @r"
-    @  yxszmlut test.user@example.com 2001-02-03 08:05:09 default@ 88a6c421
-    │  (empty) (no description set)
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 167b8dbf
+    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 default@ 167b8dbf
     │  (empty) a
     │ ◆  pmmvwywv test.user@example.com 2001-02-03 08:05:09 workspace1@ 1cd27236
     ├─╯  (empty) (no description set)
@@ -253,14 +250,97 @@ fn test_new_wc_commit_when_wc_immutable_multi_workspace_already_immutable() {
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
-    // TODO: The other workspace was already immutable from the current workspace's
-    // perspective, so we don't create a new commit for it.
+    // The other workspace is already immutable from the current workspace's
+    // perspective, but we only check the current workspace's immutability.
     let output = work_dir.run_jj(["new"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Working copy  (@) now at: mzvwutvl b6d970c6 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 167b8dbf (empty) a
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_new_wc_commit_when_wc_becomes_immutable_via_tag_on_other_workspace() {
+    // When a transaction tags another workspace's working copy, the tagged
+    // commit becomes immutable (tags() is in builtin_immutable_heads()). A new
+    // commit should be stacked on top so the other workspace is still usable.
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["new", "-m=a"]).success();
+    work_dir
+        .run_jj(["workspace", "add", "../workspace1"])
+        .success();
+    let output = work_dir.run_jj(["tag", "set", "tag-r", "-r=workspace1@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: Target revision is empty.
+    Created 1 tags pointing to pmmvwywv 1cd27236 (empty) (no description set)
     Warning: The working-copy commit in workspace 'workspace1' became immutable, so a new commit has been created on top of it.
-    Working copy  (@) now at: mzvwutvl c460fde3 (empty) (no description set)
-    Parent commit (@-)      : yxszmlut 88a6c421 (empty) (no description set)
+    [EOF]
+    ");
+    let workspace1_dir = test_env.work_dir("workspace1");
+    workspace1_dir
+        .run_jj(["workspace", "update-stale"])
+        .success();
+    let output = workspace1_dir.run_jj(["log", "-r=::"]);
+    insta::assert_snapshot!(output, @r"
+    @  zsuskuln test.user@example.com 2001-02-03 08:05:10 workspace1@ a70299e3
+    │  (empty) (no description set)
+    ◆  pmmvwywv test.user@example.com 2001-02-03 08:05:09 tag-r 1cd27236
+    │  (empty) (no description set)
+    │ ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 default@ 167b8dbf
+    ├─╯  (empty) a
+    ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
+    │  (empty) (no description set)
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_new_wc_commit_when_wc_becomes_immutable_via_tag_on_other_workspace_with_wc_exclusion() {
+    // Regression test: with `immutable_heads() = ... | (working_copies() ~ @)`,
+    // the other workspace's wc looks "immutable" from the current workspace's
+    // perspective even before the transaction, because it's in
+    // `working_copies() ~ @`. Immutability should be evaluated from the
+    // target workspace's own perspective, so tagging workspace1's wc still
+    // triggers stacking a new commit on top.
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    test_env.add_config(
+        r#"revset-aliases."immutable_heads()" = "builtin_immutable_heads() | (working_copies() ~ @)""#,
+    );
+    work_dir.run_jj(["new", "-m=a"]).success();
+    work_dir
+        .run_jj(["workspace", "add", "../workspace1"])
+        .success();
+    let output = work_dir.run_jj(["tag", "set", "tag-r", "-r=workspace1@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: Target revision is empty.
+    Created 1 tags pointing to pmmvwywv 1cd27236 (empty) (no description set)
+    Warning: The working-copy commit in workspace 'workspace1' became immutable, so a new commit has been created on top of it.
+    [EOF]
+    ");
+    let workspace1_dir = test_env.work_dir("workspace1");
+    workspace1_dir
+        .run_jj(["workspace", "update-stale"])
+        .success();
+    let output = workspace1_dir.run_jj(["log", "-r=::"]);
+    insta::assert_snapshot!(output, @r"
+    @  zsuskuln test.user@example.com 2001-02-03 08:05:10 workspace1@ a70299e3
+    │  (empty) (no description set)
+    ◆  pmmvwywv test.user@example.com 2001-02-03 08:05:09 tag-r 1cd27236
+    │  (empty) (no description set)
+    │ ◆  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 default@ 167b8dbf
+    ├─╯  (empty) a
+    ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
+    │  (empty) (no description set)
+    ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
 }

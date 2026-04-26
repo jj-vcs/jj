@@ -983,6 +983,49 @@ impl WorkspaceCommandEnvironment {
         Ok(expression)
     }
 
+    /// Immutable-set expression evaluated as if `workspace_name` were the
+    /// current workspace. This matters for configs that reference `@`, e.g.
+    /// `immutable_heads() = builtin_immutable_heads() | (working_copies() ~
+    /// @)`, where the set depends on which workspace's `@` is substituted.
+    fn immutable_expression_for_workspace(
+        &self,
+        workspace_name: &WorkspaceName,
+    ) -> Result<Arc<UserRevsetExpression>, CommandError> {
+        if workspace_name == &*self.workspace_name {
+            return Ok(self.immutable_expression());
+        }
+        let workspace_context = RevsetWorkspaceContext {
+            path_converter: &self.path_converter,
+            workspace_name,
+        };
+        let now = if let Some(timestamp) = self.settings.commit_timestamp() {
+            chrono::Local
+                .timestamp_millis_opt(timestamp.timestamp.0)
+                .unwrap()
+        } else {
+            chrono::Local::now()
+        };
+        let context = RevsetParseContext {
+            aliases_map: &self.revset_aliases_map,
+            local_variables: HashMap::new(),
+            user_email: self.settings.user_email(),
+            date_pattern_context: now.into(),
+            default_ignored_remote: self.default_ignored_remote,
+            fileset_aliases_map: &self.fileset_aliases_map,
+            use_glob_by_default: self.revsets_use_glob_by_default,
+            extensions: self.command.revset_extensions(),
+            workspace: Some(workspace_context),
+        };
+        let mut diagnostics = RevsetDiagnostics::new();
+        let heads = revset_util::parse_immutable_heads_expression(&mut diagnostics, &context)
+            .map_err(|e| {
+                config_error_with_message("Invalid `revset-aliases.immutable_heads()`", e)
+            })?;
+        // Diagnostics were already surfaced when parsing for the current
+        // workspace, so skip re-printing them here.
+        Ok(heads.ancestors())
+    }
+
     fn load_short_prefixes_expression(
         &self,
         ui: &Ui,
@@ -1028,7 +1071,7 @@ impl WorkspaceCommandEnvironment {
         let immutable_expression = if self.command.global_args().ignore_immutable {
             UserRevsetExpression::root()
         } else {
-            self.immutable_expression()
+            immutable_expression
         };
 
         // Not using self.id_prefix_context() because the disambiguation data
@@ -2212,12 +2255,40 @@ to the current parents may contain changes from multiple commits.
             writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
         }
 
-        for (name, wc_commit_id) in &tx.repo().view().wc_commit_ids().clone() {
+        // For each workspace wc, check if previously mutable in tx.base_repo()
+        // and has become immutable in this transaction. If so, push empty
+        // commit on top. For non-current workspaces, evaluate immutability
+        // from that workspace's own perspective so that configs like
+        // `immutable_heads() = builtin_immutable_heads() | (working_copies() ~ @)`
+        // don't treat every other workspace's wc as perpetually immutable.
+        let current_name = self.workspace_name().to_owned();
+        let new_wc_commit_ids = tx.repo().view().wc_commit_ids().clone();
+        for (name, new_wc_commit_id) in &new_wc_commit_ids {
+            let wc_expr = RevsetExpression::commit(new_wc_commit_id.clone());
+            let immutable_expr = self.env.immutable_expression_for_workspace(name)?;
+            if name != &current_name {
+                let was_immutable = matches!(
+                    self.env
+                        .find_immutable_commit_with(
+                            tx.base_repo().as_ref(),
+                            &wc_expr,
+                            immutable_expr.clone(),
+                        )
+                        .await,
+                    Ok(Some(_))
+                );
+                if was_immutable {
+                    continue;
+                }
+            }
             // This can fail if trunk() bookmark gets deleted or conflicted. If
             // the unresolvable trunk() issue gets addressed differently, it
             // should be okay to propagate the error.
-            let wc_expr = RevsetExpression::commit(wc_commit_id.clone());
-            let is_immutable = match self.env.find_immutable_commit(tx.repo(), &wc_expr).await {
+            let is_immutable = match self
+                .env
+                .find_immutable_commit_with(tx.repo(), &wc_expr, immutable_expr)
+                .await
+            {
                 Ok(commit_id) => commit_id.is_some(),
                 Err(CommandError { error, .. }) => {
                     writeln!(
@@ -2230,7 +2301,7 @@ to the current parents may contain changes from multiple commits.
                 }
             };
             if is_immutable {
-                let wc_commit = tx.repo().store().get_commit_async(wc_commit_id).await?;
+                let wc_commit = tx.repo().store().get_commit_async(new_wc_commit_id).await?;
                 tx.repo_mut().check_out(name.clone(), &wc_commit).await?;
                 writeln!(
                     ui.warning_default(),
