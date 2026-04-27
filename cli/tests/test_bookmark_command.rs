@@ -1558,11 +1558,11 @@ fn test_bookmark_forget_deleted_or_nonexistent_bookmark() {
 
     // ============ End of test setup ============
 
-    // We can forget a deleted bookmark
+    // We can forget a deleted bookmark. The local bookmark was already absent,
+    // so only the remote count is reported.
     let output = work_dir.run_jj(["bookmark", "forget", "--include-remotes", "feature1"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Forgot 1 local bookmarks.
     Forgot 1 remote bookmarks.
     [EOF]
     ");
@@ -1574,6 +1574,57 @@ fn test_bookmark_forget_deleted_or_nonexistent_bookmark() {
     ------- stderr -------
     Warning: No matching bookmarks for names: i_do_not_exist
     No bookmarks to forget.
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_bookmark_forget_untracked_remote_only_bookmark() {
+    // Regression test for https://github.com/jj-vcs/jj/issues/9181:
+    // `jj bookmark forget` on a remote-only, untracked bookmark used to print
+    // a contradictory "Forgot 1 local bookmarks." line followed by "Nothing
+    // changed." Now neither line is printed since nothing was forgotten.
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo_path = test_env.env_root().join("git-repo");
+    let git_repo = git::init_bare(git_repo_path);
+    git::add_commit(
+        &git_repo,
+        "refs/heads/feature1",
+        "file",
+        b"content",
+        "message",
+        &[],
+    );
+    work_dir
+        .run_jj(["git", "remote", "add", "origin", "../git-repo"])
+        .success();
+
+    // Fetch without auto-tracking, so feature1@origin is untracked and there
+    // is no local feature1 bookmark.
+    let output = work_dir.run_jj(["git", "fetch", "--remote=origin"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    bookmark: feature1@origin [new] untracked
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    feature1@origin: qomsplrm ebeb70d8 message
+    [EOF]
+    ");
+
+    // Without `--include-remotes`, forgetting an untracked remote-only
+    // bookmark is a no-op. We should not claim any local bookmarks were
+    // forgotten.
+    let output = work_dir.run_jj(["bookmark", "forget", "feature1"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    feature1@origin: qomsplrm ebeb70d8 message
     [EOF]
     ");
 }

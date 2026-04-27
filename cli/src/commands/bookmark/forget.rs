@@ -73,8 +73,12 @@ pub async fn cmd_bookmark_forget(
     }
 
     let mut tx = workspace_command.start_transaction();
+    let mut forgotten_local: usize = 0;
     let mut forgotten_remote: usize = 0;
     for (name, bookmark_target) in &matched_bookmarks {
+        if bookmark_target.local_target.is_present() {
+            forgotten_local += 1;
+        }
         tx.repo_mut()
             .set_local_bookmark_target(name, RefTarget::absent());
         for (remote, _) in &bookmark_target.remote_refs {
@@ -94,11 +98,9 @@ pub async fn cmd_bookmark_forget(
             tx.repo_mut().untrack_remote_bookmark(symbol);
         }
     }
-    writeln!(
-        ui.status(),
-        "Forgot {} local bookmarks.",
-        matched_bookmarks.len()
-    )?;
+    if forgotten_local != 0 {
+        writeln!(ui.status(), "Forgot {forgotten_local} local bookmarks.")?;
+    }
     if forgotten_remote != 0 {
         writeln!(ui.status(), "Forgot {forgotten_remote} remote bookmarks.")?;
     }
