@@ -6958,10 +6958,16 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <li>
 <p>New <code>ByteString</code> template type for things like file content.</p>
 </li>
-</ul>
+<li>
 <p><code>jj gerrit upload</code> now supports the new options <code>--message</code> (<code>-m</code>), <code>--edit</code>
   and <code>--merged</code>. You can now also pass multiple hashtags by repeating the
   <code>--hashtag</code> option.</p>
+</li>
+<li>
+<p>New <code>remotes.&lt;name&gt;.fetch-bookmarks</code>/<code>fetch-tags</code> options to <a href="../config/#default-bookmarks-and-tags-to-fetch">configure
+  default fetch targets.</a></p>
+</li>
+</ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
 <li>

@@ -1622,6 +1622,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#default-bookmarks-and-tags-to-fetch" class="md-nav__link">
+    <span class="md-ellipsis">
+      Default bookmarks and tags to fetch
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#automatic-tracking-of-bookmarks" class="md-nav__link">
     <span class="md-ellipsis">
       Automatic tracking of bookmarks
@@ -3571,6 +3580,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#default-bookmarks-and-tags-to-fetch" class="md-nav__link">
+    <span class="md-ellipsis">
+      Default bookmarks and tags to fetch
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#automatic-tracking-of-bookmarks" class="md-nav__link">
     <span class="md-ellipsis">
       Automatic tracking of bookmarks
@@ -5195,6 +5213,19 @@ push to a different remote:</p>
 <p>Note that unlike <code>git.fetch</code>, <code>git.push</code> can currently only be a single remote.
 This is not a hard limitation, and could be changed in the future if there is
 demand.</p>
+<h3 id="default-bookmarks-and-tags-to-fetch">Default bookmarks and tags to fetch<a class="headerlink" href="#default-bookmarks-and-tags-to-fetch" title="Permanent link">&para;</a></h3>
+<p>You can configure which bookmarks and tags to fetch by default per remote, using
+the <code>remotes.&lt;name&gt;.fetch-bookmarks</code>/<code>fetch-tags</code> config. The value is a <a href="../revsets/#string-patterns">string
+pattern</a> that matches the names of the bookmarks
+and tags to fetch. If <code>remotes.&lt;name&gt;.fetch-bookmarks</code> is not configured, the
+default fetch refspecs for the remotes are read from the Git configuration.</p>
+<p>Note that <strong><code>remotes.&lt;name&gt;.fetch-tags</code> is experimental</strong>. Tags matching this
+pattern will be fetched as tracked <code>&lt;name&gt;@&lt;remote&gt;</code> tags, and corresponding
+local tags will be created.</p>
+<div class="highlight"><pre><span></span><code><span class="k">[remotes.origin]</span>
+<span class="n">fetch-bookmarks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;~gh-pages&quot;</span>
+<span class="n">fetch-tags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;v*&quot;</span>
+</code></pre></div>
 <h3 id="automatic-tracking-of-bookmarks">Automatic tracking of bookmarks<a class="headerlink" href="#automatic-tracking-of-bookmarks" title="Permanent link">&para;</a></h3>
 <p>You can configure which bookmarks to track automatically per remote, using the
 <code>remotes.&lt;name&gt;.auto-track-bookmarks</code> config. The value is a
