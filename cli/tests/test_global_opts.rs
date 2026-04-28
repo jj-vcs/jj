@@ -722,6 +722,37 @@ fn test_color_config() {
 }
 
 #[test]
+fn test_pager_env_config() {
+    let mut test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    test_env.add_config(r#"ui.pager = "user""#);
+    test_env.add_env_var("PAGER", "env-base");
+    test_env.add_env_var("JJ_PAGER", "env-override");
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj(["config", "list", "ui.pager", "--include-overridden"]);
+    insta::assert_snapshot!(output, @r#"
+        # ui.pager = "user"
+        ui.pager = "env-override"
+        [EOF]
+    "#);
+
+    let output = work_dir.run_jj([
+        "config",
+        "list",
+        "ui.pager",
+        "--include-overridden",
+        "--config=ui.pager=\"command-arg\"",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+        # ui.pager = "user"
+        # ui.pager = "env-override"
+        ui.pager = "command-arg"
+        [EOF]
+    "#);
+}
+
+#[test]
 fn test_color_ui_messages() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

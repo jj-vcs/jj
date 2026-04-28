@@ -53,6 +53,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * New `remotes.<name>.fetch-bookmarks`/`fetch-tags` options to [configure
   default fetch targets.](docs/config.md#default-bookmarks-and-tags-to-fetch)
 
+* `JJ_PAGER` can now override the `ui.pager` config, matching `JJ_EDITOR` for
+  callers that need a jj-specific environment override.
+
 ### Fixed bugs
 
 * Improving consistency with `git` handling of `.gitignore`, including `/`

@@ -747,6 +747,9 @@ fn env_overrides_layer() -> ConfigLayer {
     if let Ok(value) = env::var("JJ_EDITOR") {
         layer.set_value("ui.editor", value).unwrap();
     }
+    if let Ok(value) = env::var("JJ_PAGER") {
+        layer.set_value("ui.pager", value).unwrap();
+    }
     layer
 }
 

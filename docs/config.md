@@ -823,6 +823,10 @@ Which pager to use can be customized by setting `ui.pager`. When choosing a
 pager, ensure that it either supports color codes or that you disable color (see
 [Colorizing output](#colorizing-output)).
 
+The `JJ_PAGER` environment variable overrides `ui.pager`, and is useful for
+tool-specific environments that should not affect other programs. The generic
+`PAGER` environment variable is ignored.
+
 Examples:
 
 ```shell
