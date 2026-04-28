@@ -535,11 +535,11 @@ Ancestors of the configured set are also immutable. The root commit is always
 immutable even if the set is empty.
 
 Immutable commits (other than the root commit) can be rewritten using the
-`--ignore-immutable` CLI flag.
+`--allow-immutable` (alias `--ignore-immutable`) CLI flag.
 
 !!! warning
 
-    Using `--ignore-immutable` will allow you to rewrite any commit in the
+    Using `--allow-immutable` will allow you to rewrite any commit in the
     history, and all descendants, without warning. Use this power wisely, and
     remember `jj undo`.
 

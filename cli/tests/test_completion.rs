@@ -229,7 +229,7 @@ fn test_bookmark_names() {
     --repository	Path to repository to operate on
     --ignore-working-copy	Don't snapshot the working copy, and don't update it
     --no-integrate-operation	Run the command as usual but don't integrate any operations
-    --ignore-immutable	Allow rewriting immutable commits
+    --allow-immutable	Allow rewriting immutable commits
     --at-operation	Operation to load the repo at
     --debug	Enable debug logging
     --color	When to colorize output
@@ -721,7 +721,7 @@ fn test_command_completion_short_name() {
     --repository	Path to repository to operate on
     --ignore-working-copy	Don't snapshot the working copy, and don't update it
     --no-integrate-operation	Run the command as usual but don't integrate any operations
-    --ignore-immutable	Allow rewriting immutable commits
+    --allow-immutable	Allow rewriting immutable commits
     --at-operation	Operation to load the repo at
     --debug	Enable debug logging
     --color	When to colorize output

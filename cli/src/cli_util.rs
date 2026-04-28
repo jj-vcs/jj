@@ -1013,7 +1013,7 @@ impl WorkspaceCommandEnvironment {
         repo: &dyn Repo,
         to_rewrite_expr: &Arc<ResolvedRevsetExpression>,
     ) -> Result<Option<CommitId>, CommandError> {
-        let immutable_expression = if self.command.global_args().ignore_immutable {
+        let immutable_expression = if self.command.global_args().allow_immutable {
             UserRevsetExpression::root()
         } else {
             self.immutable_expression()
@@ -3619,8 +3619,10 @@ pub struct GlobalArgs {
     ///
     /// This option only affects the check. It does not affect the
     /// `immutable_heads()` revset or the `immutable` template keyword.
-    #[arg(long, global = true)]
-    pub ignore_immutable: bool,
+    ///
+    /// `--ignore-immutable` is an alias for this option.
+    #[arg(long, visible_alias = "ignore-immutable", global = true)]
+    pub allow_immutable: bool,
 
     /// Operation to load the repo at
     ///
