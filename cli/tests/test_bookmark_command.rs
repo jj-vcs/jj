@@ -1820,13 +1820,13 @@ fn test_bookmark_track_conflict() {
 
     // adjust main and push to origin2, again for origin3
     work_dir
-        .run_jj(["describe", "-m", "b", "-r", "main", "--ignore-immutable"])
+        .run_jj(["describe", "-m", "b", "-r", "main", "--allow-immutable"])
         .success();
     work_dir
         .run_jj(["git", "push", "-N", "-b", "main", "--remote", "origin2"])
         .success();
     work_dir
-        .run_jj(["describe", "-m", "c", "-r", "main", "--ignore-immutable"])
+        .run_jj(["describe", "-m", "c", "-r", "main", "--allow-immutable"])
         .success();
     work_dir
         .run_jj(["git", "push", "-N", "-b", "main", "--remote", "origin3"])

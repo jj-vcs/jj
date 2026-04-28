@@ -97,17 +97,24 @@ fn test_rewrite_immutable_generic() {
     [EOF]
     ");
 
-    // Can use --ignore-immutable to override
+    // Can use --allow-immutable to override
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "main""#);
-    let output = work_dir.run_jj(["--ignore-immutable", "edit", "main"]);
+    let output = work_dir.run_jj(["--allow-immutable", "edit", "main"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: kkmpptxz 9d190342 main | b
     Parent commit (@-)      : qpvuntsm c8c8515a a
     [EOF]
     ");
+    // Can also use the alias --ignore-immutable
+    let output = work_dir.run_jj(["--ignore-immutable", "edit", "main"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Already editing that commit
+    [EOF]
+    ");
     // ... but not the root commit
-    let output = work_dir.run_jj(["--ignore-immutable", "edit", "root()"]);
+    let output = work_dir.run_jj(["--allow-immutable", "edit", "root()"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: The root commit 000000000000 is immutable
@@ -122,7 +129,7 @@ fn test_rewrite_immutable_generic() {
     let output = work_dir.run_jj(["new", "main"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: wqnwkozp 8fc35e6e (empty) (no description set)
+    Working copy  (@) now at: lylxulpl 883af231 (empty) (no description set)
     Parent commit (@-)      : kkmpptxz 9d190342 main | b
     [EOF]
     ");
@@ -680,8 +687,8 @@ fn test_immutable_log() {
     work_dir.run_jj(["new"]).success();
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "@-""#);
     // The immutable commits should be indicated in the graph even with
-    // `--ignore-immutable`
-    let output = work_dir.run_jj(["log", "--ignore-immutable"]);
+    // `--allow-immutable`
+    let output = work_dir.run_jj(["log", "--allow-immutable"]);
     insta::assert_snapshot!(output, @"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 43444d88
     │  (empty) (no description set)
