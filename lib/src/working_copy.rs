@@ -423,6 +423,17 @@ pub enum RecoverWorkspaceError {
     WorkspaceMissingWorkingCopy(WorkspaceNameBuf),
 }
 
+/// The commit message for the recovery commit generated in the update-stale
+/// workflow.
+pub const RECOVERY_COMMIT_DESCRIPTION: &str = "RECOVERY COMMIT FROM `jj workspace update-stale`
+
+This commit contains changes that were written to the working copy by an
+operation that was subsequently lost (or was at least unavailable when you ran
+`jj workspace update-stale`). Because the operation was lost, we don't know
+what the parent commits are supposed to be. That means that the diff compared
+to the current parents may contain changes from multiple commits.
+";
+
 /// Recover this workspace to its last known checkout.
 pub async fn create_and_check_out_recovery_commit(
     locked_wc: &mut dyn LockedWorkingCopy,

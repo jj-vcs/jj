@@ -133,6 +133,7 @@ use jj_lib::transaction::TransactionCommitError;
 use jj_lib::working_copy;
 use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::LockedWorkingCopy;
+use jj_lib::working_copy::RECOVERY_COMMIT_DESCRIPTION;
 use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::SnapshotStats;
 use jj_lib::working_copy::UntrackedReason;
@@ -1454,14 +1455,7 @@ impl WorkspaceCommandHelper {
             locked_ws.locked_wc(),
             &self.user_repo.repo,
             workspace_name,
-            "RECOVERY COMMIT FROM `jj workspace update-stale`
-
-This commit contains changes that were written to the working copy by an
-operation that was subsequently lost (or was at least unavailable when you ran
-`jj workspace update-stale`). Because the operation was lost, we don't know
-what the parent commits are supposed to be. That means that the diff compared
-to the current parents may contain changes from multiple commits.
-",
+            RECOVERY_COMMIT_DESCRIPTION,
         )
         .await?;
 
