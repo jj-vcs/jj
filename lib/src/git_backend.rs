@@ -666,7 +666,7 @@ fn commit_from_git_without_root_parent(
         .iter()
         // gix does not recognize gpgsig-sha256, but prevent future footguns by checking for it too
         .any(|(k, _)| *k == "gpgsig" || *k == "gpgsig-sha256")
-        .then(|| CommitRefIter::signature(&git_object.data))
+        .then(|| CommitRefIter::signature(&git_object.data, gix::hash::Kind::Sha1))
         .transpose()
         .map_err(decode_err)?
         .flatten()
@@ -1879,7 +1879,9 @@ mod tests {
     #[test]
     fn change_id_parsing() {
         let id = |commit_object_bytes: &[u8]| {
-            extract_change_id_from_commit(&CommitRef::from_bytes(commit_object_bytes).unwrap())
+            extract_change_id_from_commit(
+                &CommitRef::from_bytes(commit_object_bytes, gix::hash::Kind::Sha1).unwrap(),
+            )
         };
 
         let commit_with_id = indoc! {b"
