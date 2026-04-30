@@ -25,8 +25,15 @@ Feel free to remove any of the sections below if they don't seem useful. -->
 
 ## Actual Behavior
 
-<!-- Please include `jj log -T builtin_log_redacted` and/or
-`jj op log -T builtin_op_log_redacted` if it seems relevant. -->
+
+## Redacted Log Output
+
+<!-- These commands anonymize personal data so they are safe to share publicly. -->
+
+If relevant, please include the output of:
+
+- `jj log -T builtin_log_redacted`
+- `jj op log -T builtin_op_log_redacted`
 
 ## Specifications
 
