@@ -20,6 +20,7 @@ use std::fs;
 use std::io;
 use std::io::Write as _;
 use std::iter;
+use std::num::NonZeroUsize;
 use std::path::Path;
 use std::path::PathBuf;
 use std::slice;
@@ -6771,6 +6772,71 @@ fn test_push_updates_success() -> TestResult {
 }
 
 #[test]
+fn test_push_updates_batches() -> TestResult {
+    let settings = testutils::user_settings();
+    let temp_dir = testutils::new_temp_dir();
+    let setup = set_up_push_repos(&settings, &temp_dir);
+
+    let log_path = temp_dir.path().join("push-log");
+    let hook_path = setup.source_repo_dir.join("hooks").join("pre-receive");
+    fs::create_dir_all(hook_path.parent().unwrap())?;
+    fs::write(
+        &hook_path,
+        format!(
+            r#"#!/bin/sh
+        while read old new ref;
+        do
+            printf '%s ' "$ref"
+        done >> '{log}'
+        echo >> '{log}'
+        "#,
+            log = log_path.display()
+        ),
+    )?;
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        fs::set_permissions(&hook_path, fs::Permissions::from_mode(0o700))?;
+    }
+
+    let stats = git::push_updates(
+        setup.jj_repo.as_ref(),
+        GitSubprocessOptions::from_settings(&settings)?,
+        "origin".as_ref(),
+        &[
+            GitRefUpdate {
+                qualified_name: "refs/heads/main".into(),
+                targets: Diff::new(&setup.main_commit, &setup.child_of_main_commit)
+                    .map(|commit| Some(git_id(commit))),
+            },
+            GitRefUpdate {
+                qualified_name: "refs/heads/a".into(),
+                targets: Diff::new(None, Some(git_id(&setup.child_of_main_commit))),
+            },
+            GitRefUpdate {
+                qualified_name: "refs/heads/b".into(),
+                targets: Diff::new(None, Some(git_id(&setup.child_of_main_commit))),
+            },
+        ],
+        &mut NullCallback,
+        &GitPushOptions {
+            ref_push_max_batch_size: Some(NonZeroUsize::new(2).unwrap()),
+            ..Default::default()
+        },
+    )?;
+    assert!(stats.all_ok(), "{stats:?}");
+    assert_eq!(stats.pushed.len(), 3);
+
+    let log = fs::read_to_string(&log_path)?;
+    insta::assert_snapshot!(log, @r"
+      refs/heads/main refs/heads/a 
+      refs/heads/b 
+      ");
+    Ok(())
+}
+
+#[test]
 fn test_push_updates_empty() -> TestResult {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
@@ -7559,6 +7625,7 @@ fn test_push_updates_with_options() -> TestResult {
                 "merge_request.create".to_owned(),
                 "merge_request.draft".to_owned(),
             ],
+            ref_push_max_batch_size: None,
         },
     )?;
 
