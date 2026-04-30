@@ -545,6 +545,11 @@
                     "type": "boolean",
                     "description": "Whether to colocate the working copy with the git repository",
                     "default": true
+                },
+                "ref-push-max-batch-size": {
+                    "type": "integer",
+                    "description": "Maximum number of refs in a single push operation (0 means unlimited)",
+                    "default": 0
                 }
             }
         },
