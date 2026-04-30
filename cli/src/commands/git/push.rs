@@ -18,6 +18,7 @@ use std::future;
 use std::io;
 use std::io::Write as _;
 use std::iter;
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 use clap::ArgGroup;
@@ -275,6 +276,8 @@ pub async fn cmd_git_push(
         default_remote = get_default_push_remote(ui, &workspace_command)?;
         &default_remote
     };
+
+    let remote_settings = workspace_command.settings().remote_settings()?;
 
     let mut tx = workspace_command.start_transaction();
     let view = tx.repo().view();
@@ -564,8 +567,14 @@ pub async fn cmd_git_push(
     }
 
     let git_settings = GitSettings::from_settings(tx.settings())?;
+    let ref_push_max_batch_size = remote_settings
+        .get(remote)
+        .and_then(|s| s.ref_push_max_batch_size)
+        .and_then(NonZeroUsize::new);
+
     let options = GitPushOptions {
         remote_push_options: args.option.clone(),
+        ref_push_max_batch_size,
     };
     let push_stats = git::push_refs(
         tx.repo_mut(),

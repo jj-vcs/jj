@@ -7004,6 +7004,7 @@ fn test_push_updates_with_options() -> TestResult {
                 "merge_request.create".to_owned(),
                 "merge_request.draft".to_owned(),
             ],
+            ref_push_max_batch_size: None,
         },
     )?;
 
