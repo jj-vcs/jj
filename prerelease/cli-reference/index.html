@@ -9778,8 +9778,8 @@ B   =&gt;   @
 </ul>
 <h2 id="jj-operation-integrate"><code>jj operation integrate</code><a class="headerlink" href="#jj-operation-integrate" title="Permanent link">&para;</a></h2>
 <p>Make an operation part of the operation log</p>
-<p>Sometimes an operation does not make it into the operation log for some reason. This command can then be used for making that operation part of the operation log.</p>
-<p>Running this command on an operation that is already in the operation log (<code>jj op log</code>) has no effect. Since operations should currently always be integrated into the operation log (until e.g. <a href="https://github.com/jj-vcs/jj/issues/2562">#2562</a> gets implemented), this command should always be a no-op. It would indicate a bug if this command is not a no-op. Only use it if you are told to by an error message.</p>
+<p>By default, operations are automatically integrated into the operation log, but <code>--no-integrate-operation</code> or internal errors may cause that to not happen. This command can then be used for making such operations part of the operation log.</p>
+<p>Running this command on an operation that is already in the operation log (<code>jj op log</code>) has no effect.</p>
 <p><strong>Usage:</strong> <code>jj operation integrate &lt;OPERATION&gt;</code></p>
 <h6 id="arguments_45"><strong>Arguments:</strong><a class="headerlink" href="#arguments_45" title="Permanent link">&para;</a></h6>
 <ul>
