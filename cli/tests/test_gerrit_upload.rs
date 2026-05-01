@@ -150,6 +150,43 @@ fn test_gerrit_upload_default_revision() {
 }
 
 #[test]
+fn test_gerrit_upload_default_revision_already_in_trunk() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "remote"])
+        .success();
+    let remote_dir = test_env.work_dir("remote");
+    create_commit(&remote_dir, "main", &[]);
+
+    test_env
+        .run_jj_in(".", ["git", "clone", "remote", "local"])
+        .success();
+    let local_dir = test_env.work_dir("local");
+    test_env.add_config(r#"gerrit.default-remote="origin""#);
+    test_env.add_config(r#"gerrit.default-remote-branch="main""#);
+    test_env.add_config(r#"revset-aliases."trunk()" = "main@origin""#);
+
+    // Make @ an empty working-copy commit over immutable main@origin.
+    local_dir.run_jj(["new", "main@origin"]).success();
+    local_dir.run_jj(["describe", "-m="]).success();
+
+    let output = local_dir.run_jj(["gerrit", "upload", "--dry-run"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    No revision provided and @ has no description. Defaulting to @-
+    Error: Commit 57df4838fd85 is immutable
+    Hint: Could not modify commit: rlvkpnrz 57df4838 main@origin | main
+    Hint: Immutable commits are used to protect shared history.
+    Hint: For more information, see:
+          - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
+          - `jj help -k config`, \"Set of immutable commits\"
+    Hint: This operation would rewrite 1 immutable commits.
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
 fn test_gerrit_upload_option_failure() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

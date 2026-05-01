@@ -67,6 +67,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Pre-existing Git submodule directories are no longer considered conflicts in
   checkouts. [#8065](https://github.com/jj-vcs/jj/issues/8065).
 
+* Fixed a panic in `jj gerrit upload` when run without `-r` and the
+  inferred revision was immutable. [#9398](https://github.com/jj-vcs/jj/issues/9398)
+
 ## [0.40.0] - 2026-04-01
 
 ### Release highlights

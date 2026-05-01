@@ -430,7 +430,7 @@ pub async fn cmd_gerrit_upload(
             }
             // This distinguishes between the "squash workflow" and "edit workflow".
             Some(commit) => {
-                if commit.description().is_empty() {
+                let revisions = if commit.description().is_empty() {
                     let parents = commit.parent_ids();
                     if parents.len() != 1 {
                         return Err(user_error(
@@ -447,7 +447,14 @@ pub async fn cmd_gerrit_upload(
                 } else {
                     writeln!(ui.status(), "No revision provided. Defaulting to @")?;
                     vec![commit.id().clone()]
-                }
+                };
+
+                let revisions_expr = RevsetExpression::commits(revisions.clone());
+                workspace_command
+                    .check_rewritable_expr(&revisions_expr)
+                    .await?;
+
+                revisions
             }
         }
     } else {
