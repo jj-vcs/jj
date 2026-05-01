@@ -2598,6 +2598,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "jj-core"
+version = "0.43.0"
+
+[[package]]
 name = "jj-lib"
 version = "0.43.0"
 dependencies = [
