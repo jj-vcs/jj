@@ -12,16 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::BTreeMap;
+
 use futures::TryStreamExt as _;
 use itertools::Itertools as _;
+use jj_lib::commit::Commit;
 use jj_lib::copies::CopyRecords;
+use jj_lib::matchers::Matcher;
 use jj_lib::merge::Diff;
 use jj_lib::merged_tree::MergedTree;
-use jj_lib::repo::Repo as _;
+use jj_lib::repo::Repo;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
+use jj_lib::working_copy::SnapshotStats;
+use jj_lib::working_copy::UntrackedReason;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -81,27 +87,26 @@ pub(crate) async fn cmd_status(
     let formatter = formatter.as_mut();
 
     if let Some(wc_commit) = &maybe_wc_commit {
-        let parent_tree = wc_commit.parent_tree(repo.as_ref()).await?;
-        let tree = wc_commit.tree();
+        let status = collect_working_copy_status(repo.as_ref(), wc_commit, snapshot_stats).await?;
+        print_unmatched_explicit_paths(
+            ui,
+            &workspace_command,
+            &fileset_expression,
+            [&status.tree],
+        )?;
 
-        print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree])?;
+        let mut matching_untracked_paths = status.untracked_paths_matching(&matcher).peekable();
 
-        let wc_has_changes = tree.tree_ids() != parent_tree.tree_ids();
-        let filtered_untracked = snapshot_stats
-            .untracked_paths
-            .keys()
-            .filter(|path| matcher.matches(path))
-            .collect_vec();
-        let wc_has_untracked = !filtered_untracked.is_empty();
-        if !wc_has_changes && !wc_has_untracked {
+        if !status.has_any_tracked_changes() && matching_untracked_paths.peek().is_none() {
             writeln!(formatter, "The working copy has no changes.")?;
         } else {
-            if wc_has_changes {
+            if status.has_any_tracked_changes() {
                 writeln!(formatter, "Working copy changes:")?;
                 let mut copy_records = CopyRecords::default();
-                for parent in wc_commit.parent_ids() {
+                for parent in &status.parents {
                     let records =
-                        get_copy_records(repo.store(), parent, wc_commit.id(), &matcher).await?;
+                        get_copy_records(repo.store(), parent.id(), status.commit.id(), &matcher)
+                            .await?;
                     copy_records.add_records(records);
                 }
                 let diff_renderer = workspace_command.diff_renderer(vec![DiffFormat::Summary]);
@@ -110,7 +115,7 @@ pub(crate) async fn cmd_status(
                     .show_diff(
                         ui,
                         formatter,
-                        Diff::new(&parent_tree, &tree),
+                        Diff::new(&status.parent_tree, &status.tree),
                         &matcher,
                         &copy_records,
                         width,
@@ -118,11 +123,11 @@ pub(crate) async fn cmd_status(
                     .await?;
             }
 
-            if wc_has_untracked {
+            if matching_untracked_paths.peek().is_some() {
                 writeln!(formatter, "Untracked paths:")?;
                 visit_collapsed_untracked_files(
-                    filtered_untracked,
-                    tree.clone(),
+                    matching_untracked_paths,
+                    status.tree.clone(),
                     |path, is_dir| {
                         let ui_path = workspace_command.path_converter().format_file_path(path);
                         writeln!(
@@ -143,24 +148,24 @@ pub(crate) async fn cmd_status(
 
         let template = workspace_command.commit_summary_template();
         write!(formatter, "Working copy  (@) : ")?;
-        template.format(wc_commit, formatter)?;
+        template.format(&status.commit, formatter)?;
         writeln!(formatter)?;
-        for parent in wc_commit.parents().await? {
+        for parent in &status.parents {
             //                "Working copy  (@) : "
             write!(formatter, "Parent commit (@-): ")?;
-            template.format(&parent, formatter)?;
+            template.format(parent, formatter)?;
             writeln!(formatter)?;
         }
 
-        if wc_commit.has_conflict() {
-            let conflicts = wc_commit.tree().conflicts_matching(&matcher).collect_vec();
+        if status.commit.has_conflict() {
+            let conflicts = status.tree.conflicts_matching(&matcher).collect_vec();
             writeln!(
                 formatter.labeled("warning").with_heading("Warning: "),
                 "There are unresolved conflicts at these paths:"
             )?;
             print_conflicted_paths(conflicts, formatter, &workspace_command)?;
 
-            let wc_revset = RevsetExpression::commit(wc_commit.id().clone());
+            let wc_revset = RevsetExpression::commit(status.commit.id().clone());
 
             // Ancestors with conflicts, excluding the current working copy commit.
             let ancestors_conflicts: Vec<_> = workspace_command
@@ -179,7 +184,7 @@ pub(crate) async fn cmd_status(
                 .report_repo_conflicts(formatter, repo, ancestors_conflicts)
                 .await?;
         } else {
-            for parent in wc_commit.parents().await? {
+            for parent in &status.parents {
                 if parent.has_conflict() {
                     writeln!(
                         formatter.labeled("hint").with_heading("Hint: "),
@@ -238,6 +243,47 @@ pub(crate) async fn cmd_status(
     }
 
     Ok(())
+}
+
+struct WorkingCopyStatus {
+    commit: Commit,
+    parents: Vec<Commit>,
+    parent_tree: MergedTree,
+    tree: MergedTree,
+    untracked_paths: BTreeMap<RepoPathBuf, UntrackedReason>,
+}
+
+impl WorkingCopyStatus {
+    fn has_any_tracked_changes(&self) -> bool {
+        self.tree.tree_ids() != self.parent_tree.tree_ids()
+    }
+
+    fn untracked_paths_matching(&self, matcher: &dyn Matcher) -> impl Iterator<Item = &RepoPath> {
+        self.untracked_paths
+            .keys()
+            .filter(|path| matcher.matches(path))
+            .map(|path| path.as_ref())
+    }
+}
+
+async fn collect_working_copy_status(
+    repo: &dyn Repo,
+    commit: &Commit,
+    snapshot_stats: SnapshotStats,
+) -> Result<WorkingCopyStatus, CommandError> {
+    let commit = commit.clone();
+    let parents = commit.parents().await?;
+    let parent_tree = commit.parent_tree(repo).await?;
+    let tree = commit.tree();
+    let untracked_paths = snapshot_stats.untracked_paths;
+
+    Ok(WorkingCopyStatus {
+        commit,
+        parents,
+        parent_tree,
+        tree,
+        untracked_paths,
+    })
 }
 
 async fn visit_collapsed_untracked_files(
