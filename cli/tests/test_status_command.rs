@@ -680,10 +680,10 @@ fn test_status_filtered_untracked() {
     [EOF]
     ");
 
-    // Filter to nonexistent: no untracked paths, "no changes" message
+    // Filter to nonexistent: no matching untracked paths, but unrelated
+    // untracked changes still make the working copy dirty.
     let output = work_dir.run_jj(["status", "nonexistent"]);
     insta::assert_snapshot!(output, @"
-    The working copy has no changes.
     Working copy  (@) : qpvuntsm e8849ae1 (empty) (no description set)
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]

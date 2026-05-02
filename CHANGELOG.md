@@ -77,6 +77,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Fixed a panic in `jj gerrit upload` when run without `-r` and the
   inferred revision was immutable. [#9398](https://github.com/jj-vcs/jj/issues/9398)
 
+* `jj status` respects path filters in working copy summaries.
+
 ## [0.40.0] - 2026-04-01
 
 ### Release highlights

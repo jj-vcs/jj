@@ -95,9 +95,7 @@ pub(crate) async fn cmd_status(
             [&status.tree],
         )?;
 
-        let mut matching_untracked_paths = status.untracked_paths_matching(&matcher).peekable();
-
-        if !status.has_any_tracked_changes() && matching_untracked_paths.peek().is_none() {
+        if !status.has_any_tracked_changes() && !status.has_any_untracked_paths() {
             writeln!(formatter, "The working copy has no changes.")?;
         } else {
             if status.has_any_tracked_changes() {
@@ -127,6 +125,7 @@ pub(crate) async fn cmd_status(
                 }
             }
 
+            let mut matching_untracked_paths = status.untracked_paths_matching(&matcher).peekable();
             if matching_untracked_paths.peek().is_some() {
                 writeln!(formatter, "Untracked paths:")?;
                 visit_collapsed_untracked_files(
@@ -260,6 +259,10 @@ struct WorkingCopyStatus {
 impl WorkingCopyStatus {
     fn has_any_tracked_changes(&self) -> bool {
         self.tree.tree_ids() != self.parent_tree.tree_ids()
+    }
+
+    fn has_any_untracked_paths(&self) -> bool {
+        !self.untracked_paths.is_empty()
     }
 
     fn untracked_paths_matching(&self, matcher: &dyn Matcher) -> impl Iterator<Item = &RepoPath> {
