@@ -101,7 +101,6 @@ pub(crate) async fn cmd_status(
             writeln!(formatter, "The working copy has no changes.")?;
         } else {
             if status.has_any_tracked_changes() {
-                writeln!(formatter, "Working copy changes:")?;
                 let mut copy_records = CopyRecords::default();
                 for parent in &status.parents {
                     let records =
@@ -111,16 +110,21 @@ pub(crate) async fn cmd_status(
                 }
                 let diff_renderer = workspace_command.diff_renderer(vec![DiffFormat::Summary]);
                 let width = ui.term_width();
+                let mut diff_output = vec![];
                 diff_renderer
                     .show_diff(
                         ui,
-                        formatter,
+                        ui.new_formatter(&mut diff_output).as_mut(),
                         Diff::new(&status.parent_tree, &status.tree),
                         &matcher,
                         &copy_records,
                         width,
                     )
                     .await?;
+                if !diff_output.is_empty() {
+                    writeln!(formatter, "Working copy changes:")?;
+                    formatter.raw()?.write_all(&diff_output)?;
+                }
             }
 
             if matching_untracked_paths.peek().is_some() {
