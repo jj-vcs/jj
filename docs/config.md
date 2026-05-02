@@ -7,42 +7,45 @@ These are the config settings available to jj/Jujutsu.
 `jj` loads several types of config settings:
 
 - The built-in settings. These cannot be edited. They can be viewed in the
-  `cli/src/config/` directory in `jj`'s source repo.
+  [`cli/src/config/`] directory in `jj`'s source repo.
 
 - The user settings. These can be edited with `jj config edit --user`. User
-settings are located in [the user config files], which can be found with `jj
-config path --user`.
+  settings are located in [the user config files], which can be found with
+  `jj config path --user`.
 
 - The repo settings. These can be edited with `jj config edit --repo`, or found
-  with `jj config path --repo`. For security reasons, they are not located inside
-  the repo.
+  with `jj config path --repo`. For security reasons, they are not located
+  inside the repo.
 
 - The workspace settings. These can be edited with `jj config edit --workspace`,
   or found with `jj config path --workspace`. For security reasons, they are not
   located inside the workspace.
 
-- Settings [specified in the command-line](#specifying-config-on-the-command-line).
+- Settings [specified on the command-line].
 
 These are listed in the order they are loaded; the settings from earlier items
 in the list are overridden by the settings from later items if they disagree.
 Every type of config except for the built-in settings is optional.
 
 You can enable JSON Schema validation in your editor by adding a `#:schema`
-reference at the top of your TOML config files. See [JSON Schema
-Support] for details.
+reference at the top of your TOML config files. See [JSON Schema Support] for
+details.
 
 See the [TOML site] and the [syntax guide] for a detailed description of the
 syntax. We cover some of the basics below.
 
-[the user config files]: #user-config-files
-[TOML site]: https://toml.io/en/
-[syntax guide]: https://toml.io/en/v1.0.0
-[JSON Schema Support]: #json-schema-support
-
 The first thing to remember is that the value of a setting (the part to the
 right of the `=` sign) should be surrounded in quotes if it's a string.
 
+[`cli/src/config/`]: https://github.com/jj-vcs/jj/blob/main/cli/src/config/
+[JSON Schema Support]: #json-schema-support
+[specified on the command-line]: #specifying-config-on-the-command-line
+[syntax guide]: https://toml.io/en/latest
+[the user config files]: #user-config-files
+[TOML site]: https://toml.io/en/
+
 ### Dotted style and headings
+
 In TOML, anything under a heading can be dotted instead. For example,
 `user.name = "YOUR NAME"` is equivalent to:
 
@@ -66,13 +69,58 @@ colors."commit_id prefix".bold = true
 "commit_id prefix" = { bold = true }
 ```
 
-The docs below refer to keys in text using dotted notation, but example
-blocks will use heading notation to be unambiguous. If you are confident with TOML
-then use whichever suits you in your config. If you mix dotted keys and headings,
+The docs below refer to keys in text using dotted notation, but example blocks
+will use heading notation to be unambiguous. If you are confident with TOML then
+use whichever suits you in your config. If you mix dotted keys and headings,
 **you must put the dotted keys before the first heading**.
 
-That's probably enough TOML to keep you out of trouble but the [syntax guide] is
-very short if you ever need to check.
+### Escapes in strings
+
+There are two (or four) types of [strings in TOML]: basic and literal, with
+multi-line versions of each. Basic strings use double quotes (`"`) and support
+escape sequences, such as `"\n"`, `"\""`, `"\\"`, etc. Literal strings use
+single quotes (`'`) and do not support escape sequences. Using 3 double quotes
+or 3 single quotes to wrap a string makes it multi-line, and then you can use an
+unescaped double quote or single quote respectively without ending the string.
+
+A string in your config may be interpreted twice, first by the TOML parser and
+then by a Jujutsu parser. To avoid putting strings in your config that the TOML
+parser processes before it gets to the Jujutsu parser, you may want to use
+literal strings or literal multi-line strings in your `config.toml` files. For
+example:
+
+```toml
+[template-aliases]
+# basic_template = "'hello' ++ \"\n\""
+literal_template = '"hello" ++ "\n"'
+```
+
+`basic_template` is actually equivalent to this string:
+
+```
+'hello' ++ "
+"
+```
+
+because the TOML parser interprets the `\n` character as part of the string.
+This causes the Jujutsu parser to receive a different string than what you
+literally see in the TOML file, which may result in seemingly confusing parse
+error messages (such as referencing a line that you think shouldn't exist).
+
+On the other hand, `literal_template` is equivalent to:
+
+```
+"hello" ++ "\n"
+```
+
+because the TOML parser does not escape anything in the literal string.
+
+The same rules of basic and literal strings apply to custom Jujutsu languages:
+double quotes (`"`) allow escapes whereas single quotes (`'`) do not. So
+`template-aliases.my_template = "'hello\\n'"` would probably not be what you
+want.
+
+[strings in TOML]: https://toml.io/en/latest#string
 
 ## User settings
 
