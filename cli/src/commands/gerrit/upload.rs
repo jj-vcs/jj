@@ -449,11 +449,7 @@ pub async fn cmd_gerrit_upload(
                     vec![commit.id().clone()]
                 };
 
-                let revisions_expr = RevsetExpression::commits(revisions.clone());
-                workspace_command
-                    .check_rewritable_expr(&revisions_expr)
-                    .await?;
-
+                workspace_command.check_rewritable(&revisions).await?;
                 revisions
             }
         }
