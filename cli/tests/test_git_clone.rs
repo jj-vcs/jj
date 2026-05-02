@@ -254,7 +254,6 @@ fn test_git_clone_colocate() -> TestResult {
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/empty"
     Nothing changed.
-    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
 
@@ -278,7 +277,6 @@ fn test_git_clone_colocate() -> TestResult {
     Working copy  (@) now at: uuqppmxq 3711b3b5 (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
-    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     let clone_dir = test_env.work_dir("clone");
@@ -424,7 +422,6 @@ fn test_git_clone_colocate() -> TestResult {
     Working copy  (@) now at: vzqnnsmr fea36bca (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
-    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     Ok(())
@@ -450,7 +447,6 @@ fn test_git_clone_colocate_via_config() {
     Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
-    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     let clone_dir = test_env.work_dir("clone");
@@ -619,7 +615,6 @@ fn test_git_clone_tags() {
     Working copy  (@) now at: sqpuoqvx 88542a00 (empty) (no description set)
     Parent commit (@-)      : lnmyztun e93ca54d main | message
     Added 2 files, modified 0 files, removed 0 files
-    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
 
@@ -632,7 +627,6 @@ fn test_git_clone_tags() {
     Working copy  (@) now at: uuqppmxq 676b2fd8 (empty) (no description set)
     Parent commit (@-)      : lnmyztun e93ca54d main | message
     Added 2 files, modified 0 files, removed 0 files
-    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
 
@@ -646,7 +640,6 @@ fn test_git_clone_tags() {
     Working copy  (@) now at: pmmvwywv cd5996a2 (empty) (no description set)
     Parent commit (@-)      : lnmyztun e93ca54d main | message
     Added 2 files, modified 0 files, removed 0 files
-    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
 
@@ -658,7 +651,6 @@ fn test_git_clone_tags() {
     Working copy  (@) now at: rzvqmyuk 61c45a3c (empty) (no description set)
     Parent commit (@-)      : lnmyztun e93ca54d main | message
     Added 2 files, modified 0 files, removed 0 files
-    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
 

@@ -137,12 +137,6 @@ pub async fn cmd_git_init(
         r#"Initialized repo in "{}""#,
         relative_wc_path.display()
     )?;
-    if colocate {
-        writeln!(
-            ui.hint_default(),
-            r"Running `git clean -xdf` will remove `.jj/`!",
-        )?;
-    }
 
     Ok(())
 }

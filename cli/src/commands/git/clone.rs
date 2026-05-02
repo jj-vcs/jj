@@ -288,13 +288,6 @@ pub async fn cmd_git_clone(
         }
     }
 
-    if colocate {
-        writeln!(
-            ui.hint_default(),
-            r"Running `git clean -xdf` will remove `.jj/`!",
-        )?;
-    }
-
     Ok(())
 }
 
