@@ -108,14 +108,14 @@ pub(crate) async fn cmd_file_annotate(
         .await?;
     let annotation = annotator.to_annotation();
 
-    render_file_annotation(repo.as_ref(), ui, &template, &annotation)?;
+    render_file_annotation(repo.as_ref(), ui, &template, &annotation).await?;
     Ok(())
 }
 
-fn render_file_annotation(
+async fn render_file_annotation(
     repo: &dyn Repo,
     ui: &mut Ui,
-    template_render: &TemplateRenderer<AnnotationLine>,
+    template_render: &TemplateRenderer<'_, AnnotationLine>,
     annotation: &FileAnnotation,
 ) -> Result<(), CommandError> {
     ui.request_pager();
@@ -131,7 +131,10 @@ fn render_file_annotation(
     };
     for (line_number, (line_origin, content)) in annotation.line_origins().enumerate() {
         let line_origin = line_origin.unwrap_or(&default_line_origin);
-        let commit = repo.store().get_commit(&line_origin.commit_id)?;
+        let commit = repo
+            .store()
+            .get_commit_async(&line_origin.commit_id)
+            .await?;
         let first_line_in_hunk = last_id != Some(&line_origin.commit_id);
         let annotation_line = AnnotationLine {
             commit,

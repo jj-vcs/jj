@@ -129,7 +129,11 @@ pub(crate) async fn cmd_commit(
     let commit_id = workspace_command
         .get_wc_commit_id()
         .ok_or_else(|| user_error("This command requires a working copy"))?;
-    let commit = workspace_command.repo().store().get_commit(commit_id)?;
+    let commit = workspace_command
+        .repo()
+        .store()
+        .get_commit_async(commit_id)
+        .await?;
     let matcher = workspace_command
         .parse_file_patterns(ui, &args.paths)?
         .to_matcher();

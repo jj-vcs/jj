@@ -188,7 +188,8 @@ pub async fn cmd_workspace_add(
         {
             tx.repo()
                 .store()
-                .get_commit(old_wc_commit_id)?
+                .get_commit_async(old_wc_commit_id)
+                .await?
                 .parents()
                 .await?
         } else {

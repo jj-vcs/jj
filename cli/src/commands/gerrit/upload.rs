@@ -652,8 +652,10 @@ pub async fn cmd_gerrit_upload(
             // We have to write the old commit here, because until we finish
             // the transaction (which we don't), the new commit is labeled as
             // "hidden".
-            tx.base_workspace_helper()
-                .write_commit_summary(formatter.as_mut(), &store.get_commit(head).unwrap())?;
+            tx.base_workspace_helper().write_commit_summary(
+                formatter.as_mut(),
+                &store.get_commit_async(head).await.unwrap(),
+            )?;
             writeln!(formatter)?;
         }
 

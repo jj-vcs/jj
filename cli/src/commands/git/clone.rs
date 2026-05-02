@@ -277,7 +277,7 @@ pub async fn cmd_git_clone(
             .get_remote_bookmark(working_symbol);
         if let Some(commit_id) = working_branch_remote_ref.target.as_normal().cloned() {
             let mut tx = workspace_command.start_transaction();
-            if let Ok(commit) = tx.repo().store().get_commit(&commit_id) {
+            if let Ok(commit) = tx.repo().store().get_commit_async(&commit_id).await {
                 tx.check_out(&commit)?;
             }
             tx.finish(

@@ -272,7 +272,7 @@ pub(crate) async fn cmd_log(
                 }
                 let mut buffer = vec![];
                 let key = (commit_id, false);
-                let commit = store.get_commit(&key.0)?;
+                let commit = store.get_commit_async(&key.0).await?;
                 let within_graph =
                     with_content_format.sub_width(graph.width(&key, &graphlog_edges));
                 within_graph

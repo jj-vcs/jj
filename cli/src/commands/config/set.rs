@@ -73,9 +73,9 @@ pub async fn cmd_config_set(
     // If the user is trying to change the author config, we should warn them that
     // it won't affect the working copy author
     if args.name == ConfigNamePathBuf::from_iter(vec!["user", "name"]) {
-        check_wc_author(ui, command, &args.value, AuthorChange::Name)?;
+        check_wc_author(ui, command, &args.value, AuthorChange::Name).await?;
     } else if args.name == ConfigNamePathBuf::from_iter(vec!["user", "email"]) {
-        check_wc_author(ui, command, &args.value, AuthorChange::Email)?;
+        check_wc_author(ui, command, &args.value, AuthorChange::Email).await?;
     }
 
     file.set_value(&args.name, &args.value)
@@ -85,15 +85,15 @@ pub async fn cmd_config_set(
 }
 
 /// Returns the commit of the working copy if it exists.
-fn maybe_wc_commit(helper: &WorkspaceCommandHelper) -> Option<Commit> {
+async fn maybe_wc_commit(helper: &WorkspaceCommandHelper) -> Option<Commit> {
     let repo = helper.repo();
     let id = helper.get_wc_commit_id()?;
-    repo.store().get_commit(id).ok()
+    repo.store().get_commit_async(id).await.ok()
 }
 
 /// Check if the working copy author name matches the user's config value
 /// If it doesn't, print a warning message
-fn check_wc_author(
+async fn check_wc_author(
     ui: &mut Ui,
     command: &CommandHelper,
     new_value: &toml_edit::Value,
@@ -103,7 +103,7 @@ fn check_wc_author(
         // config set should work even if cwd isn't a jj repo
         return Ok(());
     };
-    if let Some(wc_commit) = maybe_wc_commit(&helper) {
+    if let Some(wc_commit) = maybe_wc_commit(&helper).await {
         let author = wc_commit.author();
         let orig_value = match author_change {
             AuthorChange::Name => &author.name,
