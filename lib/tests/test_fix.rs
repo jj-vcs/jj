@@ -105,8 +105,7 @@ impl TestFileFixer {
 
         let new_file_id = store
             .write_file(&file_to_fix.repo_path, &mut new_content.as_slice())
-            .block_on()
-            .unwrap();
+            .block_on()?;
         Ok(new_file_id)
     }
 }
@@ -205,14 +204,12 @@ fn test_fix_added_and_modified_files() -> TestResult {
     let expected_tree = create_tree(repo, &[(path1, "Formatted")]);
     let new_commit_a = repo
         .store()
-        .get_commit(summary.rewrites.get(&commit_a).unwrap())
-        .unwrap();
+        .get_commit(summary.rewrites.get(&commit_a).unwrap())?;
     assert_tree_eq!(new_commit_a.tree(), expected_tree);
 
     let new_commit_b = repo
         .store()
-        .get_commit(summary.rewrites.get(&commit_b).unwrap())
-        .unwrap();
+        .get_commit(summary.rewrites.get(&commit_b).unwrap())?;
     assert_tree_eq!(new_commit_b.tree(), expected_tree);
     Ok(())
 }
@@ -289,8 +286,7 @@ fn test_fix_empty_revset() -> TestResult {
         tx.repo_mut(),
         &mut file_fixer,
     )
-    .block_on()
-    .unwrap();
+    .block_on()?;
 
     assert!(summary.rewrites.is_empty());
     Ok(())
@@ -423,8 +419,7 @@ fn test_fix_include_unchanged_files() -> TestResult {
 
     let new_c2 = repo
         .store()
-        .get_commit(summary.rewrites.get(&c2).unwrap())
-        .unwrap();
+        .get_commit(summary.rewrites.get(&c2).unwrap())?;
 
     let expected_tree = create_tree(
         repo,
@@ -686,20 +681,16 @@ fn test_fix_multiple_revisions() -> TestResult {
 
     let new_commit_a = repo
         .store()
-        .get_commit(summary.rewrites.get(&commit_a).unwrap())
-        .unwrap();
+        .get_commit(summary.rewrites.get(&commit_a).unwrap())?;
     let new_commit_b = repo
         .store()
-        .get_commit(summary.rewrites.get(&commit_b).unwrap())
-        .unwrap();
+        .get_commit(summary.rewrites.get(&commit_b).unwrap())?;
     let new_commit_c = repo
         .store()
-        .get_commit(summary.rewrites.get(&commit_c).unwrap())
-        .unwrap();
+        .get_commit(summary.rewrites.get(&commit_c).unwrap())?;
     let new_commit_d = repo
         .store()
-        .get_commit(summary.rewrites.get(&commit_d).unwrap())
-        .unwrap();
+        .get_commit(summary.rewrites.get(&commit_d).unwrap())?;
 
     assert_tree_eq!(new_commit_a.tree(), expected_tree_a);
     assert_tree_eq!(new_commit_b.tree(), expected_tree_b);
@@ -733,13 +724,13 @@ fn test_get_base_commit_map_chain() -> TestResult {
     let tree4 = create_tree(repo, &[(path, "commit 4: content")]);
     let commit_d = create_commit(&mut tx, vec![commit_c.clone()], tree4);
 
-    let commit_b_obj = repo.store().get_commit(&commit_b).unwrap();
-    let commit_c_obj = repo.store().get_commit(&commit_c).unwrap();
-    let commit_d_obj = repo.store().get_commit(&commit_d).unwrap();
+    let commit_b_obj = repo.store().get_commit(&commit_b)?;
+    let commit_c_obj = repo.store().get_commit(&commit_c)?;
+    let commit_d_obj = repo.store().get_commit(&commit_d)?;
 
     // Commits are expected to be sorted in child to parent order.
     let commits: Vec<Commit> = vec![commit_d_obj, commit_c_obj, commit_b_obj];
-    let base_commit_map = get_base_commit_map(&commits).block_on().unwrap();
+    let base_commit_map = get_base_commit_map(&commits).block_on()?;
 
     let parents_set = IndexSet::from([commit_a]);
     let expected_base_commit_map: HashMap<CommitId, IndexSet<CommitId>> = HashMap::from([
@@ -777,11 +768,11 @@ fn test_fix_complex_merge_with_base_map() -> TestResult {
     let tree5 = create_tree(repo, &[(path, "unformatted E")]);
     let commit_e = create_commit(&mut tx, vec![commit_c.clone(), commit_d.clone()], tree5);
 
-    let commit_c_obj = repo.store().get_commit(&commit_c).unwrap();
-    let commit_e_obj = repo.store().get_commit(&commit_e).unwrap();
+    let commit_c_obj = repo.store().get_commit(&commit_c)?;
+    let commit_e_obj = repo.store().get_commit(&commit_e)?;
 
     let commits: Vec<Commit> = vec![commit_e_obj, commit_c_obj];
-    let base_commit_map = get_base_commit_map(&commits).block_on().unwrap();
+    let base_commit_map = get_base_commit_map(&commits).block_on()?;
 
     // Should be {e: {a, b, d}, c: {a, b}}
     let expected_base_commit_map: HashMap<CommitId, IndexSet<CommitId>> = HashMap::from([
@@ -808,8 +799,7 @@ fn test_fix_complex_merge_with_base_map() -> TestResult {
         tx.repo_mut(),
         &mut file_fixer,
     )
-    .block_on()
-    .unwrap();
+    .block_on()?;
 
     // C and E should be fixed.
     assert_eq!(summary.rewrites.len(), 2);
@@ -818,15 +808,13 @@ fn test_fix_complex_merge_with_base_map() -> TestResult {
 
     let new_commit_c = repo
         .store()
-        .get_commit(summary.rewrites.get(&commit_c).unwrap())
-        .unwrap();
+        .get_commit(summary.rewrites.get(&commit_c).unwrap())?;
     let expected_tree_c = create_tree(repo, &[(path, "Formatted C")]);
     assert_tree_eq!(new_commit_c.tree(), expected_tree_c);
 
     let new_commit_e = repo
         .store()
-        .get_commit(summary.rewrites.get(&commit_e).unwrap())
-        .unwrap();
+        .get_commit(summary.rewrites.get(&commit_e).unwrap())?;
     let expected_tree_e = create_tree(repo, &[(path, "Formatted E")]);
     assert_tree_eq!(new_commit_e.tree(), expected_tree_e);
     Ok(())
@@ -856,12 +844,12 @@ fn test_fix_diamond_merge_with_base_map() -> TestResult {
     let tree4 = create_tree(repo, &[(path, "unformatted E")]);
     let commit_e = create_commit(&mut tx, vec![commit_c.clone(), commit_d.clone()], tree4);
 
-    let commit_c_obj = repo.store().get_commit(&commit_c).unwrap();
-    let commit_e_obj = repo.store().get_commit(&commit_e).unwrap();
+    let commit_c_obj = repo.store().get_commit(&commit_c)?;
+    let commit_e_obj = repo.store().get_commit(&commit_e)?;
 
     // We are fixing e and c.
     let commits: Vec<Commit> = vec![commit_e_obj, commit_c_obj];
-    let base_commit_map = get_base_commit_map(&commits).block_on().unwrap();
+    let base_commit_map = get_base_commit_map(&commits).block_on()?;
 
     // Should be {e: {b, d}, c: {b}}
     let expected_base_commit_map: HashMap<CommitId, IndexSet<CommitId>> = HashMap::from([
@@ -885,8 +873,7 @@ fn test_fix_diamond_merge_with_base_map() -> TestResult {
         tx.repo_mut(),
         &mut file_fixer,
     )
-    .block_on()
-    .unwrap();
+    .block_on()?;
 
     // C and E should be fixed.
     assert_eq!(summary.rewrites.len(), 2);
@@ -895,15 +882,13 @@ fn test_fix_diamond_merge_with_base_map() -> TestResult {
 
     let new_commit_c = repo
         .store()
-        .get_commit(summary.rewrites.get(&commit_c).unwrap())
-        .unwrap();
+        .get_commit(summary.rewrites.get(&commit_c).unwrap())?;
     let expected_tree_c = create_tree(repo, &[(path, "Formatted C")]);
     assert_tree_eq!(new_commit_c.tree(), expected_tree_c);
 
     let new_commit_e = repo
         .store()
-        .get_commit(summary.rewrites.get(&commit_e).unwrap())
-        .unwrap();
+        .get_commit(summary.rewrites.get(&commit_e).unwrap())?;
     let expected_tree_e = create_tree(repo, &[(path, "Formatted E")]);
     assert_tree_eq!(new_commit_e.tree(), expected_tree_e);
     Ok(())
@@ -943,8 +928,7 @@ fn test_fix_sequence_formatted_from_base() -> TestResult {
         tx.repo_mut(),
         &mut file_fixer,
     )
-    .block_on()
-    .unwrap();
+    .block_on()?;
 
     assert_eq!(summary.rewrites.len(), 2);
     assert!(summary.rewrites.contains_key(&c2));
@@ -952,15 +936,13 @@ fn test_fix_sequence_formatted_from_base() -> TestResult {
 
     let new_c2 = repo
         .store()
-        .get_commit(summary.rewrites.get(&c2).unwrap())
-        .unwrap();
+        .get_commit(summary.rewrites.get(&c2).unwrap())?;
     let expected_tree_c2 = create_tree(repo, &[(path, "Formatted 1")]);
     assert_tree_eq!(new_c2.tree(), expected_tree_c2);
 
     let new_c3 = repo
         .store()
-        .get_commit(summary.rewrites.get(&c3).unwrap())
-        .unwrap();
+        .get_commit(summary.rewrites.get(&c3).unwrap())?;
     let expected_tree_c3 = create_tree(repo, &[(path, "Formatted 2")]);
     assert_tree_eq!(new_c3.tree(), expected_tree_c3);
     Ok(())
@@ -1006,8 +988,7 @@ fn test_fix_with_forking_commits() -> TestResult {
         tx.repo_mut(),
         &mut file_fixer,
     )
-    .block_on()
-    .unwrap();
+    .block_on()?;
 
     assert_eq!(summary.rewrites.len(), 2);
     assert!(summary.rewrites.contains_key(&c3));
@@ -1015,15 +996,13 @@ fn test_fix_with_forking_commits() -> TestResult {
 
     let new_c3 = repo
         .store()
-        .get_commit(summary.rewrites.get(&c3).unwrap())
-        .unwrap();
+        .get_commit(summary.rewrites.get(&c3).unwrap())?;
     let expected_tree_c3 = create_tree(repo, &[(path, "Formatted 1")]);
     assert_tree_eq!(new_c3.tree(), expected_tree_c3);
 
     let new_c4 = repo
         .store()
-        .get_commit(summary.rewrites.get(&c4).unwrap())
-        .unwrap();
+        .get_commit(summary.rewrites.get(&c4).unwrap())?;
     let expected_tree_c4 = create_tree(repo, &[(path, "Formatted 2")]);
     assert_tree_eq!(new_c4.tree(), expected_tree_c4);
     Ok(())
@@ -1067,16 +1046,14 @@ fn test_fix_with_merging_commits() -> TestResult {
         tx.repo_mut(),
         &mut file_fixer,
     )
-    .block_on()
-    .unwrap();
+    .block_on()?;
 
     assert_eq!(summary.rewrites.len(), 1);
     assert!(summary.rewrites.contains_key(&c4));
 
     let new_c4 = repo
         .store()
-        .get_commit(summary.rewrites.get(&c4).unwrap())
-        .unwrap();
+        .get_commit(summary.rewrites.get(&c4).unwrap())?;
     let expected_tree_c4 = create_tree(repo, &[(path, "Formatted")]);
     assert_tree_eq!(new_c4.tree(), expected_tree_c4);
     Ok(())
@@ -1106,13 +1083,9 @@ fn test_fix_conflicted_base_commit() -> TestResult {
     // c4: Merge(c2, c3). Creates conflict in "foo".
     let c4_tree = merge_commit_trees(
         tx.repo_mut(),
-        &[
-            repo.store().get_commit(&c2).unwrap(),
-            repo.store().get_commit(&c3).unwrap(),
-        ],
+        &[repo.store().get_commit(&c2)?, repo.store().get_commit(&c3)?],
     )
-    .block_on()
-    .unwrap();
+    .block_on()?;
     let c4 = create_commit(&mut tx, vec![c2.clone(), c3.clone()], c4_tree);
 
     // c5: "unformatted"
@@ -1132,16 +1105,14 @@ fn test_fix_conflicted_base_commit() -> TestResult {
         tx.repo_mut(),
         &mut file_fixer,
     )
-    .block_on()
-    .unwrap();
+    .block_on()?;
 
     assert_eq!(summary.rewrites.len(), 1);
     assert!(summary.rewrites.contains_key(&c5));
 
     let new_c5 = repo
         .store()
-        .get_commit(summary.rewrites.get(&c5).unwrap())
-        .unwrap();
+        .get_commit(summary.rewrites.get(&c5).unwrap())?;
     let expected_tree_c5 = create_tree(repo, &[(path, "Formatted")]);
     assert_tree_eq!(new_c5.tree(), expected_tree_c5);
     Ok(())
@@ -1172,12 +1143,11 @@ fn test_fix_conflicted_current_commit() -> TestResult {
     let c2_tree = merge_commit_trees(
         tx.repo_mut(),
         &[
-            repo.store().get_commit(&c2_left).unwrap(),
-            repo.store().get_commit(&c2_right).unwrap(),
+            repo.store().get_commit(&c2_left)?,
+            repo.store().get_commit(&c2_right)?,
         ],
     )
-    .block_on()
-    .unwrap();
+    .block_on()?;
     let c2 = create_commit(&mut tx, vec![c2_left.clone(), c2_right.clone()], c2_tree);
 
     // c3: "unformatted"
@@ -1197,8 +1167,7 @@ fn test_fix_conflicted_current_commit() -> TestResult {
         tx.repo_mut(),
         &mut file_fixer,
     )
-    .block_on()
-    .unwrap();
+    .block_on()?;
 
     // c2 should not be rewritten because it matches the merge of its parents
     assert_eq!(summary.rewrites.len(), 1);
@@ -1206,8 +1175,7 @@ fn test_fix_conflicted_current_commit() -> TestResult {
 
     let new_c3 = repo
         .store()
-        .get_commit(summary.rewrites.get(&c3).unwrap())
-        .unwrap();
+        .get_commit(summary.rewrites.get(&c3).unwrap())?;
     let expected_tree_c3 = create_tree(repo, &[(path, "Formatted")]);
     assert_tree_eq!(new_c3.tree(), expected_tree_c3);
     Ok(())
@@ -1246,16 +1214,14 @@ fn test_fix_reverts_commit_to_empty() -> TestResult {
         tx.repo_mut(),
         &mut file_fixer,
     )
-    .block_on()
-    .unwrap();
+    .block_on()?;
 
     assert_eq!(summary.rewrites.len(), 1);
     assert!(summary.rewrites.contains_key(&c2));
 
     let new_c2 = repo
         .store()
-        .get_commit(summary.rewrites.get(&c2).unwrap())
-        .unwrap();
+        .get_commit(summary.rewrites.get(&c2).unwrap())?;
     assert_tree_eq!(new_c2.tree(), tree1);
     Ok(())
 }
@@ -1290,16 +1256,14 @@ fn test_fix_renamed_file() -> TestResult {
         tx.repo_mut(),
         &mut file_fixer,
     )
-    .block_on()
-    .unwrap();
+    .block_on()?;
 
     assert_eq!(summary.rewrites.len(), 1);
     assert!(summary.rewrites.contains_key(&c2));
 
     let new_c2 = repo
         .store()
-        .get_commit(summary.rewrites.get(&c2).unwrap())
-        .unwrap();
+        .get_commit(summary.rewrites.get(&c2).unwrap())?;
 
     // Since we are not using copy tracking right now, we are doing the diff against
     // an empty tree. Thus, we format the whole file.
@@ -1337,8 +1301,7 @@ fn test_fix_empty_file_not_formatted() -> TestResult {
         tx.repo_mut(),
         &mut file_fixer,
     )
-    .block_on()
-    .unwrap();
+    .block_on()?;
 
     // Empty files are not formatted when include_unchanged_files is false.
     assert!(summary.rewrites.is_empty());
@@ -1385,8 +1348,7 @@ fn test_fix_forking_commits_same_file_id_different_base_content() -> TestResult 
         tx.repo_mut(),
         &mut file_fixer,
     )
-    .block_on()
-    .unwrap();
+    .block_on()?;
 
     assert_eq!(summary.rewrites.len(), 2);
     assert!(summary.rewrites.contains_key(&c1));
@@ -1394,15 +1356,13 @@ fn test_fix_forking_commits_same_file_id_different_base_content() -> TestResult 
 
     let new_c1 = repo
         .store()
-        .get_commit(summary.rewrites.get(&c1).unwrap())
-        .unwrap();
+        .get_commit(summary.rewrites.get(&c1).unwrap())?;
     let expected_tree = create_tree(repo, &[(path, "Formatted A")]);
     assert_tree_eq!(new_c1.tree(), expected_tree);
 
     let new_c2 = repo
         .store()
-        .get_commit(summary.rewrites.get(&c2).unwrap())
-        .unwrap();
+        .get_commit(summary.rewrites.get(&c2).unwrap())?;
 
     let expected_tree = create_tree(repo, &[(path, "Formatted B")]);
     assert_tree_eq!(new_c2.tree(), expected_tree);
