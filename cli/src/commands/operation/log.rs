@@ -249,9 +249,11 @@ async fn do_op_log(
             let (op, edges) = node?;
             let mut buffer = vec![];
             let within_graph = with_content_format.sub_width(graph.width(op.id(), &edges));
-            within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {
-                template.format(&op, formatter)
-            })?;
+            within_graph
+                .write(ui.new_formatter(&mut buffer).as_mut(), async |formatter| {
+                    template.format(&op, formatter)
+                })
+                .await?;
             if let Some(show) = &maybe_show_op_diff {
                 let mut formatter = ui.new_formatter(&mut buffer);
                 show(ui, formatter.as_mut(), &op, &within_graph).await?;
@@ -271,7 +273,9 @@ async fn do_op_log(
             stream.boxed_local()
         };
         while let Some(op) = stream.try_next().await? {
-            with_content_format.write(formatter, |formatter| template.format(&op, formatter))?;
+            with_content_format
+                .write(formatter, async |formatter| template.format(&op, formatter))
+                .await?;
             if let Some(show) = &maybe_show_op_diff {
                 show(ui, formatter, &op, &with_content_format).await?;
             }

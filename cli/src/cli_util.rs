@@ -3306,17 +3306,17 @@ impl LogContentFormat {
     }
 
     /// Writes content which will optionally be wrapped at the current width.
-    pub fn write<E: From<io::Error>>(
+    pub async fn write<E: From<io::Error>>(
         &self,
         formatter: &mut dyn Formatter,
-        content_fn: impl FnOnce(&mut dyn Formatter) -> Result<(), E>,
+        content_fn: impl AsyncFnOnce(&mut dyn Formatter) -> Result<(), E>,
     ) -> Result<(), E> {
         if self.word_wrap {
             let mut recorder = FormatRecorder::new(formatter.maybe_color());
-            content_fn(&mut recorder)?;
+            content_fn(&mut recorder).await?;
             text_util::write_wrapped(formatter, &recorder, self.width)?;
         } else {
-            content_fn(formatter)?;
+            content_fn(formatter).await?;
         }
         Ok(())
     }

@@ -184,9 +184,11 @@ pub(crate) async fn cmd_evolog(
             let mut buffer = vec![];
             let within_graph =
                 with_content_format.sub_width(graph.width(entry.commit.id(), &edges));
-            within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {
-                template.format(&entry, formatter)
-            })?;
+            within_graph
+                .write(ui.new_formatter(&mut buffer).as_mut(), async |formatter| {
+                    template.format(&entry, formatter)
+                })
+                .await?;
             if let Some(renderer) = &diff_renderer {
                 let predecessors = entry.predecessors().await?;
                 let mut formatter = ui.new_formatter(&mut buffer);
@@ -219,7 +221,11 @@ pub(crate) async fn cmd_evolog(
         };
 
         while let Some(entry) = evolution_entries.try_next().await? {
-            with_content_format.write(formatter, |formatter| template.format(&entry, formatter))?;
+            with_content_format
+                .write(formatter, async |formatter| {
+                    template.format(&entry, formatter)
+                })
+                .await?;
             if let Some(renderer) = &diff_renderer {
                 let predecessors = entry.predecessors().await?;
                 let width = ui.term_width();

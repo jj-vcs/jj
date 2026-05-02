@@ -275,9 +275,11 @@ pub(crate) async fn cmd_log(
                 let commit = store.get_commit(&key.0)?;
                 let within_graph =
                     with_content_format.sub_width(graph.width(&key, &graphlog_edges));
-                within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {
-                    template.format(&commit, formatter)
-                })?;
+                within_graph
+                    .write(ui.new_formatter(&mut buffer).as_mut(), async |formatter| {
+                        template.format(&commit, formatter)
+                    })
+                    .await?;
                 if let Some(renderer) = &diff_renderer {
                     let mut formatter = ui.new_formatter(&mut buffer);
                     renderer
@@ -312,9 +314,11 @@ pub(crate) async fn cmd_log(
                     let mut buffer = vec![];
                     let within_graph =
                         with_content_format.sub_width(graph.width(&elided_key, &edges));
-                    within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {
-                        writeln!(formatter.labeled("elided"), "(elided revisions)")
-                    })?;
+                    within_graph
+                        .write(ui.new_formatter(&mut buffer).as_mut(), async |formatter| {
+                            writeln!(formatter.labeled("elided"), "(elided revisions)")
+                        })
+                        .await?;
                     let node_symbol = format_template(ui, &None, &node_template);
                     graph.add_node(
                         &elided_key,
@@ -337,7 +341,10 @@ pub(crate) async fn cmd_log(
             let mut commit_stream = id_stream.commits(store);
             while let Some(commit) = commit_stream.try_next().await? {
                 with_content_format
-                    .write(formatter, |formatter| template.format(&commit, formatter))?;
+                    .write(formatter, async |formatter| {
+                        template.format(&commit, formatter)
+                    })
+                    .await?;
                 if let Some(renderer) = &diff_renderer {
                     let width = ui.term_width();
                     renderer
