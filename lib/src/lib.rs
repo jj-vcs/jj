@@ -55,6 +55,7 @@ pub mod fileset;
 mod fileset_parser;
 pub mod fix;
 pub mod fmt_util;
+pub mod formatter;
 pub mod fsmonitor;
 #[cfg(feature = "git")]
 pub mod git;
@@ -82,12 +83,14 @@ pub mod op_walk;
 pub mod operation;
 #[expect(missing_docs)]
 pub mod protos;
+pub mod readonly_user_repo;
 pub mod ref_name;
 pub mod refs;
 pub mod repo;
 pub mod repo_path;
 pub mod revset;
 mod revset_parser;
+pub mod revset_util;
 pub mod rewrite;
 #[cfg(feature = "testing")]
 pub mod secret_backend;
@@ -114,10 +117,13 @@ pub mod transaction;
 pub mod tree;
 pub mod tree_builder;
 pub mod union_find;
+pub mod user_error;
 pub mod view;
 pub mod working_copy;
 pub mod workspace;
+pub mod workspace_operation_runner;
 pub mod workspace_store;
+pub mod workspace_util;
 
 #[cfg(test)]
 mod tests {

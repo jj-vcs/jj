@@ -15,6 +15,7 @@
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
+use jj_lib::formatter::FormatterExt as _;
 use jj_lib::object_id::ObjectId as _;
 use tracing::instrument;
 
@@ -25,7 +26,6 @@ use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::complete;
-use crate::formatter::FormatterExt as _;
 use crate::ui::Ui;
 
 /// Resolve conflicted files with an external merge tool

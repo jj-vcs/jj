@@ -24,6 +24,7 @@ use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
+use crate::command_error::clap_error;
 use crate::command_error::cli_error;
 use crate::ui::Ui;
 
@@ -72,7 +73,7 @@ pub(crate) async fn cmd_help(
     // the subcommand doesn't exist.
     if let Err(err) = app.try_get_matches_from_mut(args_to_get_command) {
         if err.get(ContextKind::InvalidSubcommand).is_some() {
-            return Err(err.into());
+            return Err(clap_error(err));
         } else {
             // `help log -- -r`, etc. shouldn't generate an argument error.
         }

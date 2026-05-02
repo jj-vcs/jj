@@ -26,6 +26,8 @@ use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigValue;
 use jj_lib::content_hash::blake2b_hash;
+use jj_lib::formatter::FormatRecorder;
+use jj_lib::formatter::Formatter;
 use jj_lib::hex_util;
 use jj_lib::op_store::TimestampRange;
 use jj_lib::settings::UserSettings;
@@ -35,8 +37,6 @@ use serde::Deserialize;
 use serde::de::IntoDeserializer as _;
 
 use crate::config;
-use crate::formatter::FormatRecorder;
-use crate::formatter::Formatter;
 use crate::template_parser;
 use crate::template_parser::BinaryOp;
 use crate::template_parser::ExpressionKind;
@@ -2999,8 +2999,8 @@ mod tests {
     use jj_lib::config::StackedConfig;
 
     use super::*;
-    use crate::formatter;
-    use crate::formatter::ColorFormatter;
+    use crate::color_formatter;
+    use crate::color_formatter::ColorFormatter;
     use crate::generic_templater;
     use crate::generic_templater::GenericTemplateLanguage;
 
@@ -3016,7 +3016,7 @@ mod tests {
     struct TestTemplateEnv {
         language: TestTemplateLanguage,
         aliases_map: TemplateAliasesMap,
-        color_rules: Vec<(Vec<String>, formatter::Style)>,
+        color_rules: Vec<(Vec<String>, color_formatter::Style)>,
     }
 
     impl TestTemplateEnv {
@@ -3062,7 +3062,7 @@ mod tests {
 
         fn add_color(&mut self, label: &str, fg: crossterm::style::Color) {
             let labels = label.split_whitespace().map(|s| s.to_owned()).collect();
-            let style = formatter::Style {
+            let style = color_formatter::Style {
                 fg: Some(fg),
                 ..Default::default()
             };

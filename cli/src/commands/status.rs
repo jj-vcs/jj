@@ -15,6 +15,7 @@
 use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::copies::CopyRecords;
+use jj_lib::formatter::FormatterExt as _;
 use jj_lib::merge::Diff;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::Repo as _;
@@ -31,7 +32,6 @@ use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
 use crate::diff_util::DiffFormat;
 use crate::diff_util::get_copy_records;
-use crate::formatter::FormatterExt as _;
 use crate::ui::Ui;
 
 /// Show high-level repo status [default alias: st]

@@ -1,4 +1,4 @@
-// Copyright 2020-2024 The Jujutsu Authors
+// Copyright 2026 The Jujutsu Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,12 +17,18 @@
 use std::ascii;
 use std::collections::HashMap;
 use std::fmt;
+use std::io;
 use std::slice;
 
 use itertools::Itertools as _;
 use pest::RuleType;
 use pest::iterators::Pair;
 use pest::iterators::Pairs;
+
+use crate::config::ConfigGetError;
+use crate::config::ConfigNamePathBuf;
+use crate::config::StackedConfig;
+use crate::user_error::UserError;
 
 /// Manages diagnostic messages emitted during parsing.
 ///
@@ -897,6 +903,46 @@ where
             Ok(T::function_call(function))
         }
     }
+}
+
+/// Load an aliases map from `config` with the given `table_name` and prints
+/// all warnings to `warn` if an error occurs.
+pub fn load_aliases_map<P>(
+    config: &StackedConfig,
+    table_name: &ConfigNamePathBuf,
+    mut warn: impl FnMut(fmt::Arguments<'_>) -> io::Result<()>,
+) -> Result<AliasesMap<P, String>, UserError>
+where
+    P: AliasDeclarationParser + Default,
+    P::Error: fmt::Display,
+{
+    let mut aliases_map = AliasesMap::new();
+    // Load from all config layers in order. 'f(x)' in default layer should be
+    // overridden by 'f(a)' in user.
+    for layer in config.layers() {
+        let table = match layer.look_up_table(table_name) {
+            Ok(Some(table)) => table,
+            Ok(None) => continue,
+            Err(item) => {
+                return Err(ConfigGetError::Type {
+                    name: table_name.to_string(),
+                    error: format!("Expected a table, but is {}", item.type_name()).into(),
+                    source_path: layer.path.clone(),
+                }
+                .into());
+            }
+        };
+        for (decl, item) in table.iter() {
+            let r = item
+                .as_str()
+                .ok_or_else(|| format!("Expected a string, but is {}", item.type_name()))
+                .and_then(|v| aliases_map.insert(decl, v).map_err(|e| format!("{e}")));
+            if let Err(s) = r {
+                warn(format_args!("Failed to load `{table_name}.{decl}`: {s}"))?;
+            }
+        }
+    }
+    Ok(aliases_map)
 }
 
 /// Expands aliases recursively.

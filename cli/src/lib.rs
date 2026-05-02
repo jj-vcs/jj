@@ -16,6 +16,7 @@
 
 pub mod cleanup_guard;
 pub mod cli_util;
+pub mod color_formatter;
 pub mod command_error;
 pub mod commands;
 pub mod commit_ref_list;
@@ -24,7 +25,6 @@ pub mod complete;
 pub mod config;
 pub mod description_util;
 pub mod diff_util;
-pub mod formatter;
 pub mod generic_templater;
 #[cfg(feature = "git")]
 pub mod git_util;

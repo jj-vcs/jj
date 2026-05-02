@@ -20,6 +20,7 @@ use std::sync::Arc;
 
 use itertools::Itertools as _;
 use jj_lib::file_util;
+use jj_lib::formatter::FormatterExt as _;
 use jj_lib::git;
 use jj_lib::git::GitRefKind;
 use jj_lib::git::GitSettings;
@@ -39,7 +40,6 @@ use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
 use crate::commands::git::maybe_add_gitignore;
 use crate::config::ConfigEnv;
-use crate::formatter::FormatterExt as _;
 use crate::git_util::is_colocated_git_workspace;
 use crate::git_util::load_git_import_options;
 use crate::git_util::print_git_export_stats;

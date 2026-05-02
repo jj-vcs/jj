@@ -34,6 +34,7 @@ use crate::cli_util::find_workspace_dir;
 use crate::cli_util::load_revset_aliases;
 use crate::cli_util::load_template_aliases;
 use crate::command_error::CommandError;
+use crate::command_error::clap_error;
 use crate::command_error::user_error;
 use crate::config::CONFIG_SCHEMA;
 use crate::config::ConfigArgKind;
@@ -1079,7 +1080,7 @@ where
     get_jj_command()
         .and_then(|(jj, settings)| completion_fn(jj, &settings))
         .unwrap_or_else(|e| {
-            eprintln!("{}", e.error);
+            eprintln!("{}", e.0.error);
             Vec::new()
         })
 }
@@ -1133,8 +1134,9 @@ fn get_jj_command() -> Result<(JjBuilder, UserSettings), CommandError> {
         .disable_version_flag(true)
         .disable_help_flag(true)
         .ignore_errors(true)
-        .try_get_matches_from(args)?;
-    let args: GlobalArgs = GlobalArgs::from_arg_matches(&arg_matches)?;
+        .try_get_matches_from(args)
+        .map_err(clap_error)?;
+    let args: GlobalArgs = GlobalArgs::from_arg_matches(&arg_matches).map_err(clap_error)?;
 
     if let Some(repository) = args.repository {
         // Try to update repo-specific config on a best-effort basis.
