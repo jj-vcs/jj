@@ -2593,6 +2593,7 @@ pub struct LocalWorkingCopy {
     tree_state_settings: TreeStateSettings,
 }
 
+#[async_trait(?Send)]
 impl WorkingCopy for LocalWorkingCopy {
     fn name(&self) -> &str {
         Self::name()
@@ -2614,7 +2615,7 @@ impl WorkingCopy for LocalWorkingCopy {
         Ok(self.tree_state()?.sparse_patterns())
     }
 
-    fn start_mutation(&self) -> Result<Box<dyn LockedWorkingCopy>, WorkingCopyStateError> {
+    async fn start_mutation(&self) -> Result<Box<dyn LockedWorkingCopy>, WorkingCopyStateError> {
         let lock_path = self.state_path.join("working_copy.lock");
         let lock = FileLock::lock(lock_path).map_err(|err| WorkingCopyStateError {
             message: "Failed to lock working copy".to_owned(),

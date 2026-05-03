@@ -48,6 +48,7 @@ use crate::store::Store;
 use crate::transaction::TransactionCommitError;
 
 /// The trait all working-copy implementations must implement.
+#[async_trait(?Send)]
 pub trait WorkingCopy: Any + Send {
     /// The name/id of the implementation. Used for choosing the right
     /// implementation when loading a working copy.
@@ -70,7 +71,7 @@ pub trait WorkingCopy: Any + Send {
 
     /// Locks the working copy and returns an instance with methods for updating
     /// the working copy files and state.
-    fn start_mutation(&self) -> Result<Box<dyn LockedWorkingCopy>, WorkingCopyStateError>;
+    async fn start_mutation(&self) -> Result<Box<dyn LockedWorkingCopy>, WorkingCopyStateError>;
 }
 
 impl dyn WorkingCopy {

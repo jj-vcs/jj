@@ -439,10 +439,10 @@ impl Workspace {
         self.working_copy.as_ref()
     }
 
-    pub fn start_working_copy_mutation(
+    pub async fn start_working_copy_mutation(
         &mut self,
     ) -> Result<LockedWorkspace<'_>, WorkingCopyStateError> {
-        let locked_wc = self.working_copy.start_mutation()?;
+        let locked_wc = self.working_copy.start_mutation().await?;
         Ok(LockedWorkspace {
             base: self,
             locked_wc,
@@ -455,7 +455,7 @@ impl Workspace {
         old_tree: Option<&MergedTree>,
         commit: &Commit,
     ) -> Result<CheckoutStats, CheckoutError> {
-        let mut locked_ws = self.start_working_copy_mutation()?;
+        let mut locked_ws = self.start_working_copy_mutation().await?;
         // Check if the current working-copy commit has changed on disk compared to what
         // the caller expected. It's safe to check out another commit
         // regardless, but it's probably not what  the caller wanted, so we let

@@ -737,7 +737,7 @@ fn test_reset() -> TestResult {
     // After we reset to the commit without the file, it should still exist on disk,
     // but it should not be in the tree state, and it should not get added when we
     // commit the working copy (because it's ignored).
-    let mut locked_ws = ws.start_working_copy_mutation()?;
+    let mut locked_ws = ws.start_working_copy_mutation().block_on()?;
     locked_ws
         .locked_wc()
         .reset(&commit_without_file)
@@ -752,7 +752,7 @@ fn test_reset() -> TestResult {
     // Now test the opposite direction: resetting to a commit where the file is
     // tracked. The file should become tracked (even though it's ignored).
     let ws = &mut test_workspace.workspace;
-    let mut locked_ws = ws.start_working_copy_mutation()?;
+    let mut locked_ws = ws.start_working_copy_mutation().block_on()?;
     locked_ws.locked_wc().reset(&commit_with_file).block_on()?;
     locked_ws.finish(op_id.clone()).block_on()?;
     assert!(ignored_path.to_fs_path_unchecked(&workspace_root).is_file());
@@ -793,7 +793,7 @@ fn test_checkout_discard() -> TestResult {
     assert!(wc.file_states()?.contains_path(file1_path));
 
     // Start a checkout
-    let mut locked_ws = ws.start_working_copy_mutation()?;
+    let mut locked_ws = ws.start_working_copy_mutation().block_on()?;
     locked_ws.locked_wc().check_out(&commit2).block_on()?;
     // The change should be reflected in the working copy but not saved
     assert!(!file1_path.to_fs_path_unchecked(&workspace_root).is_file());
@@ -1412,7 +1412,10 @@ fn test_snapshot_racy_timestamps() -> TestResult {
     let mut previous_tree = repo.store().empty_merged_tree();
     for i in 0..100 {
         std::fs::write(&file_path, format!("contents {i}").as_bytes())?;
-        let mut locked_ws = test_workspace.workspace.start_working_copy_mutation()?;
+        let mut locked_ws = test_workspace
+            .workspace
+            .start_working_copy_mutation()
+            .block_on()?;
         let (new_tree, _stats) = locked_ws
             .locked_wc()
             .snapshot(&empty_snapshot_options())
@@ -1445,7 +1448,7 @@ fn test_snapshot_special_file() -> TestResult {
     assert!(!fifo_disk_path.is_file());
 
     // Snapshot the working copy with the socket file
-    let mut locked_ws = ws.start_working_copy_mutation()?;
+    let mut locked_ws = ws.start_working_copy_mutation().block_on()?;
     let (tree, _stats) = locked_ws
         .locked_wc()
         .snapshot(&empty_snapshot_options())
@@ -1614,7 +1617,10 @@ fn test_gitignores_in_ignored_dir() -> TestResult {
         ],
     );
     let commit2 = commit_with_tree(test_workspace.repo.store(), tree2.clone());
-    let mut locked_ws = test_workspace.workspace.start_working_copy_mutation()?;
+    let mut locked_ws = test_workspace
+        .workspace
+        .start_working_copy_mutation()
+        .block_on()?;
     locked_ws.locked_wc().reset(&commit2).block_on()?;
     locked_ws
         .finish(OperationId::from_hex("abc123"))
@@ -2348,7 +2354,7 @@ fn test_check_out_reserved_file_path(file_path_str: &str) -> TestResult {
     assert!(!workspace_root.join("sub").join(".jj").exists());
 
     // Pretend that the checkout somehow succeeded.
-    let mut locked_ws = ws.start_working_copy_mutation()?;
+    let mut locked_ws = ws.start_working_copy_mutation().block_on()?;
     locked_ws.locked_wc().reset(&commit1).block_on()?;
     locked_ws.finish(repo.op_id().clone()).block_on()?;
     if ![".git", ".jj"].contains(&file_path_str) {
@@ -2408,7 +2414,7 @@ fn test_check_out_reserved_file_path_icase_fs(file_path_str: &str) -> TestResult
     assert!(!workspace_root.join("sub").join(".jj").exists());
 
     // Pretend that the checkout somehow succeeded.
-    let mut locked_ws = ws.start_working_copy_mutation()?;
+    let mut locked_ws = ws.start_working_copy_mutation().block_on()?;
     locked_ws.locked_wc().reset(&commit1).block_on()?;
     locked_ws.finish(repo.op_id().clone()).block_on()?;
     std::fs::create_dir_all(disk_path.parent().unwrap())?;
@@ -2474,7 +2480,7 @@ fn test_check_out_reserved_file_path_hfs_plus(file_path_str: &str) -> TestResult
     assert!(!workspace_root.join("sub").join(".jj").exists());
 
     // Pretend that the checkout somehow succeeded.
-    let mut locked_ws = ws.start_working_copy_mutation()?;
+    let mut locked_ws = ws.start_working_copy_mutation().block_on()?;
     locked_ws.locked_wc().reset(&commit1).block_on()?;
     locked_ws.finish(repo.op_id().clone()).block_on()?;
     std::fs::create_dir_all(disk_path.parent().unwrap())?;
@@ -2548,7 +2554,7 @@ fn test_check_out_reserved_file_path_vfat(
     assert!(!workspace_root.join("sub").join(".jj").exists());
 
     // Pretend that the checkout somehow succeeded.
-    let mut locked_ws = ws.start_working_copy_mutation()?;
+    let mut locked_ws = ws.start_working_copy_mutation().block_on()?;
     locked_ws.locked_wc().reset(&commit1).block_on()?;
     locked_ws.finish(repo.op_id().clone()).block_on()?;
     if is_vfat {
@@ -2611,7 +2617,7 @@ fn test_check_out_reserved_file_path_dot_git_symlink(file_path_str: &str) -> Tes
     assert!(!dot_git_path.join("pwned").exists());
 
     // Pretend that the checkout somehow succeeded.
-    let mut locked_ws = ws.start_working_copy_mutation()?;
+    let mut locked_ws = ws.start_working_copy_mutation().block_on()?;
     locked_ws.locked_wc().reset(&commit1).block_on()?;
     locked_ws.finish(repo.op_id().clone()).block_on()?;
     if file_path_str != ".git" {
@@ -3052,7 +3058,10 @@ fn test_snapshot_and_update_valid_symlink(
     let commit = commit_with_tree(test_workspace.repo.store(), tree);
 
     // Checkout the root commit to clear the workspace.
-    let mut locked_ws = test_workspace.workspace.start_working_copy_mutation()?;
+    let mut locked_ws = test_workspace
+        .workspace
+        .start_working_copy_mutation()
+        .block_on()?;
     let root_commit = test_workspace.repo.store().root_commit();
     locked_ws.locked_wc().check_out(&root_commit).block_on()?;
     locked_ws
@@ -3063,7 +3072,10 @@ fn test_snapshot_and_update_valid_symlink(
     assert!(std::fs::read_link(&link_path).is_err());
 
     // Checkout the original commit back.
-    let mut locked_ws = test_workspace.workspace.start_working_copy_mutation()?;
+    let mut locked_ws = test_workspace
+        .workspace
+        .start_working_copy_mutation()
+        .block_on()?;
     locked_ws.locked_wc().check_out(&commit).block_on()?;
     locked_ws
         .finish(test_workspace.repo.op_id().clone())

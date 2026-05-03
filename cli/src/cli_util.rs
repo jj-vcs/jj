@@ -1318,7 +1318,7 @@ impl WorkspaceCommandHelper {
                 .repo_mut()
                 .check_out(workspace_name, &new_git_head_commit)
                 .await?;
-            let mut locked_ws = self.workspace.start_working_copy_mutation()?;
+            let mut locked_ws = self.workspace.start_working_copy_mutation().await?;
             // The working copy was presumably updated by the git command that updated
             // HEAD, so we just need to reset our working copy
             // state to it without updating working copy files.
@@ -1426,7 +1426,7 @@ impl WorkspaceCommandHelper {
             return Err(user_error("Nothing checked out in this workspace"));
         };
 
-        let locked_ws = self.workspace.start_working_copy_mutation()?;
+        let locked_ws = self.workspace.start_working_copy_mutation().await?;
 
         Ok((locked_ws, wc_commit))
     }
@@ -1450,7 +1450,7 @@ impl WorkspaceCommandHelper {
         self.check_working_copy_writable()?;
 
         let workspace_name = self.workspace_name().to_owned();
-        let mut locked_ws = self.workspace.start_working_copy_mutation()?;
+        let mut locked_ws = self.workspace.start_working_copy_mutation().await?;
         let (repo, new_commit) = working_copy::create_and_check_out_recovery_commit(
             locked_ws.locked_wc(),
             &self.user_repo.repo,
@@ -2014,6 +2014,7 @@ to the current parents may contain changes from multiple commits.
         let mut locked_ws = self
             .workspace
             .start_working_copy_mutation()
+            .await
             .map_err(snapshot_command_error)?;
 
         let Some((repo, wc_commit)) =

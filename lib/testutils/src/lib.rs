@@ -368,7 +368,11 @@ impl TestWorkspace {
         &mut self,
         options: &SnapshotOptions,
     ) -> Result<(MergedTree, SnapshotStats), SnapshotError> {
-        let mut locked_ws = self.workspace.start_working_copy_mutation().unwrap();
+        let mut locked_ws = self
+            .workspace
+            .start_working_copy_mutation()
+            .block_on()
+            .unwrap();
         let (tree, stats) = locked_ws.locked_wc().snapshot(options).block_on()?;
         // arbitrary operation id
         locked_ws

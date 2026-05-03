@@ -155,6 +155,7 @@ impl ConflictsWorkingCopy {
     }
 }
 
+#[async_trait(?Send)]
 impl WorkingCopy for ConflictsWorkingCopy {
     fn name(&self) -> &str {
         Self::name()
@@ -176,8 +177,8 @@ impl WorkingCopy for ConflictsWorkingCopy {
         self.inner.sparse_patterns()
     }
 
-    fn start_mutation(&self) -> Result<Box<dyn LockedWorkingCopy>, WorkingCopyStateError> {
-        let inner = self.inner.start_mutation()?;
+    async fn start_mutation(&self) -> Result<Box<dyn LockedWorkingCopy>, WorkingCopyStateError> {
+        let inner = self.inner.start_mutation().await?;
         Ok(Box::new(LockedConflictsWorkingCopy {
             wc_path: self.working_copy_path.clone(),
             inner,
