@@ -922,6 +922,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#escapes-in-strings" class="md-nav__link">
+    <span class="md-ellipsis">
+      Escapes in strings
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2880,6 +2889,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#escapes-in-strings" class="md-nav__link">
+    <span class="md-ellipsis">
+      Escapes in strings
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3894,17 +3912,17 @@
 <ul>
 <li>
 <p>The built-in settings. These cannot be edited. They can be viewed in the
-  <code>cli/src/config/</code> directory in <code>jj</code>'s source repo.</p>
+  [<code>cli/src/config/</code>] directory in <code>jj</code>'s source repo.</p>
 </li>
 <li>
 <p>The user settings. These can be edited with <code>jj config edit --user</code>. User
-settings are located in <a href="#user-config-files">the user config files</a>, which can be found with <code>jj
-config path --user</code>.</p>
+  settings are located in <a href="#user-config-files">the user config files</a>, which can be found with
+  <code>jj config path --user</code>.</p>
 </li>
 <li>
 <p>The repo settings. These can be edited with <code>jj config edit --repo</code>, or found
-  with <code>jj config path --repo</code>. For security reasons, they are not located inside
-  the repo.</p>
+  with <code>jj config path --repo</code>. For security reasons, they are not located
+  inside the repo.</p>
 </li>
 <li>
 <p>The workspace settings. These can be edited with <code>jj config edit --workspace</code>,
@@ -3912,16 +3930,16 @@ config path --user</code>.</p>
   located inside the workspace.</p>
 </li>
 <li>
-<p>Settings <a href="#specifying-config-on-the-command-line">specified in the command-line</a>.</p>
+<p>Settings <a href="#specifying-config-on-the-command-line">specified on the command-line</a>.</p>
 </li>
 </ul>
 <p>These are listed in the order they are loaded; the settings from earlier items
 in the list are overridden by the settings from later items if they disagree.
 Every type of config except for the built-in settings is optional.</p>
 <p>You can enable JSON Schema validation in your editor by adding a <code>#:schema</code>
-reference at the top of your TOML config files. See <a href="#json-schema-support">JSON Schema
-Support</a> for details.</p>
-<p>See the <a href="https://toml.io/en/">TOML site</a> and the <a href="https://toml.io/en/v1.0.0">syntax guide</a> for a detailed description of the
+reference at the top of your TOML config files. See <a href="#json-schema-support">JSON Schema Support</a> for
+details.</p>
+<p>See the <a href="https://toml.io/en/">TOML site</a> and the <a href="https://toml.io/en/latest">syntax guide</a> for a detailed description of the
 syntax. We cover some of the basics below.</p>
 <p>The first thing to remember is that the value of a setting (the part to the
 right of the <code>=</code> sign) should be surrounded in quotes if it's a string.</p>
@@ -3943,12 +3961,42 @@ right of the <code>=</code> sign) should be surrounded in quotes if it's a strin
 <span class="k">[colors]</span>
 <span class="s2">&quot;commit_id prefix&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">bold</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
-<p>The docs below refer to keys in text using dotted notation, but example
-blocks will use heading notation to be unambiguous. If you are confident with TOML
-then use whichever suits you in your config. If you mix dotted keys and headings,
+<p>The docs below refer to keys in text using dotted notation, but example blocks
+will use heading notation to be unambiguous. If you are confident with TOML then
+use whichever suits you in your config. If you mix dotted keys and headings,
 <strong>you must put the dotted keys before the first heading</strong>.</p>
-<p>That's probably enough TOML to keep you out of trouble but the <a href="https://toml.io/en/v1.0.0">syntax guide</a> is
-very short if you ever need to check.</p>
+<h3 id="escapes-in-strings">Escapes in strings<a class="headerlink" href="#escapes-in-strings" title="Permanent link">&para;</a></h3>
+<p>There are two (or four) types of <a href="https://toml.io/en/latest#string">strings in TOML</a>: basic and literal, with
+multi-line versions of each. Basic strings use double quotes (<code>"</code>) and support
+escape sequences, such as <code>"\n"</code>, <code>"\""</code>, <code>"\\"</code>, etc. Literal strings use
+single quotes (<code>'</code>) and do not support escape sequences. Using 3 double quotes
+or 3 single quotes to wrap a string makes it multi-line, and then you can use an
+unescaped double quote or single quote respectively without ending the string.</p>
+<p>A string in your config may be interpreted twice, first by the TOML parser and
+then by a Jujutsu parser. To avoid putting strings in your config that the TOML
+parser processes before it gets to the Jujutsu parser, you may want to use
+literal strings or literal multi-line strings in your <code>config.toml</code> files. For
+example:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[template-aliases]</span>
+<span class="c1"># basic_template = &quot;&#39;hello&#39; ++ \&quot;\n\&quot;&quot;</span>
+<span class="n">literal_template</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&quot;hello&quot; ++ &quot;\n&quot;&#39;</span>
+</code></pre></div>
+<p><code>basic_template</code> is actually equivalent to this string:</p>
+<div class="highlight"><pre><span></span><code>&#39;hello&#39; ++ &quot;
+&quot;
+</code></pre></div>
+<p>because the TOML parser interprets the <code>\n</code> character as part of the string.
+This causes the Jujutsu parser to receive a different string than what you
+literally see in the TOML file, which may result in seemingly confusing parse
+error messages (such as referencing a line that you think shouldn't exist).</p>
+<p>On the other hand, <code>literal_template</code> is equivalent to:</p>
+<div class="highlight"><pre><span></span><code>&quot;hello&quot; ++ &quot;\n&quot;
+</code></pre></div>
+<p>because the TOML parser does not escape anything in the literal string.</p>
+<p>The same rules of basic and literal strings apply to custom Jujutsu languages:
+double quotes (<code>"</code>) allow escapes whereas single quotes (<code>'</code>) do not. So
+<code>template-aliases.my_template = "'hello\\n'"</code> would probably not be what you
+want.</p>
 <h2 id="user-settings">User settings<a class="headerlink" href="#user-settings" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="k">[user]</span>
 <span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;YOUR NAME&quot;</span>
