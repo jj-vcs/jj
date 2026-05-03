@@ -3389,7 +3389,6 @@ impl DiffSelector {
     }
 }
 
-// TODO: Delete in jj 0.43+
 #[derive(Clone, Debug)]
 pub(crate) struct RemoteBookmarkNamePattern {
     pub bookmark: StringPattern,
@@ -3400,24 +3399,16 @@ impl FromStr for RemoteBookmarkNamePattern {
     type Err = String;
 
     fn from_str(src: &str) -> Result<Self, Self::Err> {
-        // The kind prefix applies to both bookmark and remote fragments. It's
-        // weird that unanchored patterns like substring:bookmark@remote is split
-        // into two, but I can't think of a better syntax.
-        // TODO: should we disable substring pattern? what if we added regex?
-        let (maybe_kind, pat) = src
-            .split_once(':')
-            .map_or((None, src), |(kind, pat)| (Some(kind), pat));
-        let to_pattern = |pat: &str| {
-            if let Some(kind) = maybe_kind {
-                StringPattern::from_str_kind(pat, kind).map_err(|err| err.to_string())
-            } else {
-                StringPattern::glob(pat).map_err(|err| err.to_string())
-            }
+        let to_pattern = |pat: &str| StringPattern::glob(pat).map_err(|err| err.to_string());
+        let Some((bookmark, remote)) = src.rsplit_once('@') else {
+            unreachable!("RemoteBookmarkNamePattern should only parse `bookmark@remote` syntax");
         };
-        // TODO: maybe reuse revset parser to handle bookmark/remote name containing @
-        let (bookmark, remote) = pat.rsplit_once('@').ok_or_else(|| {
-            "remote bookmark must be specified in bookmark@remote form".to_owned()
-        })?;
+        if bookmark.contains(':') {
+            return Err(format!(
+                "Pattern syntax is not supported with `bookmark@remote` syntax. Use `{bookmark} \
+                 --remote={remote}` instead."
+            ));
+        }
         Ok(Self {
             bookmark: to_pattern(bookmark)?,
             remote: to_pattern(remote)?,

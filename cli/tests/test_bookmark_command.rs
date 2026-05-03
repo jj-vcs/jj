@@ -1636,7 +1636,6 @@ fn test_bookmark_track_untrack() -> TestResult {
     ]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: <bookmark>@<remote> syntax is deprecated, use `<bookmark> --remote=<remote>` instead.
     Warning: No matching remote bookmarks for names: nonexistent@origin
     Started tracking 2 remote bookmarks.
     [EOF]
@@ -1684,7 +1683,6 @@ fn test_bookmark_track_untrack() -> TestResult {
     let output = work_dir.run_jj(["bookmark", "untrack", "feature1@origin", "feature2@origin"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: <bookmark>@<remote> syntax is deprecated, use `<bookmark> --remote=<remote>` instead.
     Stopped tracking 2 remote bookmarks.
     [EOF]
     ");
@@ -1905,6 +1903,23 @@ fn test_bookmark_track_untrack_patterns() -> TestResult {
     bookmark: feature1@origin [new] untracked
     bookmark: feature2@origin [new] untracked
     [EOF]
+    ");
+
+    // Pattern syntax should be used with --remote instead of `bookmark@remote`
+    // syntax.
+    insta::assert_snapshot!(
+        work_dir.run_jj(["bookmark", "track", "glob:feature*@origin"]), @"
+    ------- stderr -------
+    Error: Pattern syntax is not supported with `bookmark@remote` syntax. Use `glob:feature* --remote=origin` instead.
+    [EOF]
+    [exit status: 2]
+    ");
+    insta::assert_snapshot!(
+        work_dir.run_jj(["bookmark", "untrack", "glob:feature*@origin"]), @"
+    ------- stderr -------
+    Error: Pattern syntax is not supported with `bookmark@remote` syntax. Use `glob:feature* --remote=origin` instead.
+    [EOF]
+    [exit status: 2]
     ");
 
     // Track/untrack new bookmark that doesn't exist at remote

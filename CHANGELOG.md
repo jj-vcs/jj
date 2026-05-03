@@ -70,6 +70,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Fixed a panic in `jj gerrit upload` when run without `-r` and the
   inferred revision was immutable. [#9398](https://github.com/jj-vcs/jj/issues/9398)
 
+* `bookmark@remote` syntax remains supported for literal remote bookmark names,
+  matching how Jujutsu displays them. For string patterns, pass the bookmark and
+  remote patterns separately with `--remote`; for example, use `jj bookmark
+  track 'glob:feature*' --remote=origin` instead of `jj bookmark track
+  'glob:feature*@origin'`.
+
 ## [0.40.0] - 2026-04-01
 
 ### Release highlights

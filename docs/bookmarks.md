@@ -103,6 +103,11 @@ $ # A local bookmark <bookmark name> should have been created or updated while f
 $ jj new <bookmark name> # Do some local testing, etc.
 ```
 
+For exact bookmark and remote names, you can also write `jj bookmark track
+<bookmark name>@<remote name>` as shorthand. Pattern syntax must use the full
+`--remote` form, for example `jj bookmark track 'glob:feature-*'
+--remote=origin`.
+
 ### Untracking a bookmark
 
 To stop following a remote bookmark, you can `jj bookmark untrack` it. After that,
@@ -122,6 +127,11 @@ $ # From this point on, this remote bookmark won't be imported anymore.
 $ # The local bookmark (e.g. stuff) is unaffected. It may or may not still
 $ # be tracking bookmarks on other remotes (e.g. stuff@upstream).
 ```
+
+For exact bookmark and remote names, you can also write `jj bookmark untrack
+<bookmark name>@<remote name>` as shorthand. Pattern syntax must use the full
+`--remote` form, for example `jj bookmark untrack 'glob:feature-*'
+--remote=origin`.
 
 ### Listing tracked bookmarks
 

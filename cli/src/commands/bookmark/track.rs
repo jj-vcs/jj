@@ -78,11 +78,6 @@ pub async fn cmd_bookmark_track(
     let repo = workspace_command.repo().clone();
     let view = repo.view();
     let matched_refs = if args.remotes.is_none() && args.names.iter().all(|s| s.contains('@')) {
-        // TODO: Delete in jj 0.43+
-        writeln!(
-            ui.warning_default(),
-            "<bookmark>@<remote> syntax is deprecated, use `<bookmark> --remote=<remote>` instead."
-        )?;
         let name_patterns: Vec<RemoteBookmarkNamePattern> = args
             .names
             .iter()
