@@ -241,7 +241,7 @@ pub async fn cmd_git_fetch(
     }
 
     let import_stats = git_fetch.import_refs().await?;
-    print_git_import_stats(ui, &tx, &import_stats)?;
+    print_git_import_stats(ui, &tx, &import_stats).await?;
 
     if let Some(bookmark_expr) = &common_bookmark_expr {
         warn_if_branches_not_found(ui, &tx, bookmark_expr, &matching_remotes)?;
