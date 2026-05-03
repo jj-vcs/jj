@@ -20,6 +20,7 @@ use std::sync::Arc;
 use clap_complete::ArgValueCandidates;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
+use futures::future::try_join_all;
 use itertools::Itertools as _;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
@@ -800,10 +801,8 @@ async fn compute_operation_commits_diff(
         }
         let change = ModifiedChange::Existing {
             commit: store.get_commit_async(&commit_id).await?,
-            predecessors: predecessor_ids
-                .iter()
-                .map(|id| store.get_commit(id))
-                .try_collect()?,
+            predecessors: try_join_all(predecessor_ids.iter().map(|id| store.get_commit_async(id)))
+                .await?,
         };
         changes.insert(commit_id, change);
     }

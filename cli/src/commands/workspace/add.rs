@@ -14,6 +14,7 @@
 
 use std::fs;
 
+use futures::future::try_join_all;
 use itertools::Itertools as _;
 use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::file_util;
@@ -197,12 +198,14 @@ pub async fn cmd_workspace_add(
             vec![tx.repo().store().root_commit()]
         }
     } else {
-        old_workspace_command
-            .resolve_some_revsets(ui, &args.revisions)
-            .await?
-            .iter()
-            .map(|id| tx.repo().store().get_commit(id))
-            .try_collect()?
+        try_join_all(
+            old_workspace_command
+                .resolve_some_revsets(ui, &args.revisions)
+                .await?
+                .iter()
+                .map(|id| tx.repo().store().get_commit_async(id)),
+        )
+        .await?
     };
 
     let tree = merge_commit_trees(tx.repo(), &parents).await?;

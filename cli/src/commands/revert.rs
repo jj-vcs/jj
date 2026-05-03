@@ -18,6 +18,7 @@ use bstr::ByteVec as _;
 use clap::ArgGroup;
 use clap_complete::ArgValueCompleter;
 use futures::TryStreamExt as _;
+use futures::future::try_join_all;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
@@ -144,10 +145,12 @@ pub(crate) async fn cmd_revert(
     };
     let mut tx = workspace_command.start_transaction();
     let original_parent_commit_ids: HashSet<_> = new_parent_ids.iter().cloned().collect();
-    let new_parents: Vec<_> = new_parent_ids
-        .iter()
-        .map(|id| tx.repo().store().get_commit(id))
-        .try_collect()?;
+    let new_parents = try_join_all(
+        new_parent_ids
+            .iter()
+            .map(|id| tx.repo().store().get_commit_async(id)),
+    )
+    .await?;
     let mut new_base_tree = merge_commit_trees(tx.repo(), &new_parents).await?;
     let mut parent_ids = new_parent_ids;
     let mut parent_labels = conflict_label_for_commits(&new_parents);

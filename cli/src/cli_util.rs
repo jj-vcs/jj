@@ -48,6 +48,7 @@ use clap::error::ContextValue;
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use futures::TryStreamExt as _;
+use futures::future::try_join_all;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use indoc::indoc;
@@ -3481,7 +3482,7 @@ pub async fn compute_commit_location(
                 (after_commit_ids, before_commit_ids)
             }
             (None, Some(after_commit_ids), None) => {
-                let new_child_ids: Vec<_> = RevsetExpression::commits(after_commit_ids.clone())
+                let new_child_ids = RevsetExpression::commits(after_commit_ids.clone())
                     .children()
                     .evaluate(workspace_command.repo().as_ref())?
                     .stream()
@@ -3491,10 +3492,12 @@ pub async fn compute_commit_location(
                 (after_commit_ids, new_child_ids)
             }
             (None, None, Some(before_commit_ids)) => {
-                let before_commits: Vec<_> = before_commit_ids
-                    .iter()
-                    .map(|id| workspace_command.repo().store().get_commit(id))
-                    .try_collect()?;
+                let before_commits = try_join_all(
+                    before_commit_ids
+                        .iter()
+                        .map(|id| workspace_command.repo().store().get_commit_async(id)),
+                )
+                .await?;
                 // Not using `RevsetExpression::parents` here to persist the order of parents
                 // specified in `before_commits`.
                 let new_parent_ids = before_commits

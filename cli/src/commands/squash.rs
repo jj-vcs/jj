@@ -18,8 +18,8 @@ use std::iter::once;
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use futures::TryStreamExt as _;
+use futures::future::try_join_all;
 use indoc::formatdoc;
-use itertools::Itertools as _;
 use jj_lib::commit::Commit;
 use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::matchers::Matcher;
@@ -263,15 +263,13 @@ pub(crate) async fn cmd_squash(
             "squashed commit",
         )
         .await?;
-        let parent_commits: Vec<_> = parent_ids
-            .iter()
-            .map(|commit_id| {
-                tx.base_workspace_helper()
-                    .repo()
-                    .store()
-                    .get_commit(commit_id)
-            })
-            .try_collect()?;
+        let parent_commits = try_join_all(parent_ids.iter().map(|commit_id| {
+            tx.base_workspace_helper()
+                .repo()
+                .store()
+                .get_commit_async(commit_id)
+        }))
+        .await?;
         let merged_tree = merge_commit_trees(tx.repo(), &parent_commits).await?;
         let commit = tx
             .repo_mut()
