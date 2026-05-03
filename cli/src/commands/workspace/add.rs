@@ -164,7 +164,8 @@ pub async fn cmd_workspace_add(
     };
 
     if let Some(sparse_patterns) = sparsity {
-        let (mut locked_ws, _wc_commit) = new_workspace_command.start_working_copy_mutation()?;
+        let (mut locked_ws, _wc_commit) =
+            new_workspace_command.start_working_copy_mutation().await?;
         locked_ws
             .locked_wc()
             .set_sparse_patterns(sparse_patterns)

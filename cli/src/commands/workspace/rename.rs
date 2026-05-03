@@ -63,7 +63,7 @@ pub async fn cmd_workspace_rename(
     let workspace_store = SimpleWorkspaceStore::load(workspace_command.repo_path())?;
 
     let mut tx = workspace_command.start_transaction().into_inner();
-    let (mut locked_ws, _wc_commit) = workspace_command.start_working_copy_mutation()?;
+    let (mut locked_ws, _wc_commit) = workspace_command.start_working_copy_mutation().await?;
 
     locked_ws.locked_wc().rename_workspace(new_name.to_owned());
 

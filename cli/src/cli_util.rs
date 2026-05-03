@@ -609,8 +609,9 @@ impl CommandHelper {
                 let mut workspace_command = self.workspace_helper_no_snapshot(ui)?;
 
                 let repo = workspace_command.repo().clone();
-                let (mut locked_ws, desired_wc_commit) =
-                    workspace_command.unchecked_start_working_copy_mutation()?;
+                let (mut locked_ws, desired_wc_commit) = workspace_command
+                    .unchecked_start_working_copy_mutation()
+                    .await?;
                 match WorkingCopyFreshness::check_stale(
                     locked_ws.locked_wc(),
                     &desired_wc_commit,
@@ -1415,12 +1416,12 @@ impl WorkspaceCommandHelper {
         &self.env
     }
 
-    pub fn unchecked_start_working_copy_mutation(
+    pub async fn unchecked_start_working_copy_mutation(
         &mut self,
     ) -> Result<(LockedWorkspace<'_>, Commit), CommandError> {
         self.check_working_copy_writable()?;
         let wc_commit = if let Some(wc_commit_id) = self.get_wc_commit_id() {
-            self.repo().store().get_commit(wc_commit_id)?
+            self.repo().store().get_commit_async(wc_commit_id).await?
         } else {
             return Err(user_error("Nothing checked out in this workspace"));
         };
@@ -1430,10 +1431,10 @@ impl WorkspaceCommandHelper {
         Ok((locked_ws, wc_commit))
     }
 
-    pub fn start_working_copy_mutation(
+    pub async fn start_working_copy_mutation(
         &mut self,
     ) -> Result<(LockedWorkspace<'_>, Commit), CommandError> {
-        let (mut locked_ws, wc_commit) = self.unchecked_start_working_copy_mutation()?;
+        let (mut locked_ws, wc_commit) = self.unchecked_start_working_copy_mutation().await?;
         if wc_commit.tree().tree_ids_and_labels()
             != locked_ws.locked_wc().old_tree().tree_ids_and_labels()
         {

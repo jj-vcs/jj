@@ -115,7 +115,7 @@ pub async fn cmd_debug_watchman(
             writeln!(ui.stdout(), "Changed files: {changed_files:?}")?;
         }
         DebugWatchmanCommand::ResetClock => {
-            let (mut locked_ws, _commit) = workspace_command.start_working_copy_mutation()?;
+            let (mut locked_ws, _commit) = workspace_command.start_working_copy_mutation().await?;
             let Some(locked_local_wc): Option<&mut LockedLocalWorkingCopy> =
                 locked_ws.locked_wc().downcast_mut()
             else {
