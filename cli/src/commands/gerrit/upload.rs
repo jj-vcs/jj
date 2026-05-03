@@ -13,6 +13,8 @@
 // limitations under the License.
 
 use std::collections::HashMap;
+use std::collections::HashSet;
+use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::io::Write as _;
 use std::sync::Arc;
@@ -25,9 +27,10 @@ use jj_lib::git;
 use jj_lib::git::GitPushOptions;
 use jj_lib::git::GitRefUpdate;
 use jj_lib::git::GitSubprocessOptions;
+use jj_lib::index::IndexResult;
 use jj_lib::merge::Diff;
 use jj_lib::object_id::ObjectId as _;
-use jj_lib::repo::Repo as _;
+use jj_lib::repo::Repo;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
@@ -406,6 +409,37 @@ fn push_options(args: &UploadArgs) -> Result<Vec<String>, CommandError> {
     .collect())
 }
 
+pub fn find_bases(
+    commit: CommitId,
+    commits_to_upload: &HashSet<CommitId>,
+    repo: &dyn Repo,
+) -> IndexResult<Vec<CommitId>> {
+    let index = repo.index();
+    let root_commit = repo.store().root_commit_id();
+
+    let mut bases = Vec::new();
+    let mut visited = HashSet::new();
+    let mut queue = VecDeque::from([commit]);
+
+    while let Some(current_commit) = queue.pop_front() {
+        let parents = index.parents(&current_commit)?;
+        for parent in parents {
+            if commits_to_upload.contains(&parent) {
+                if !visited.contains(&parent) {
+                    visited.insert(parent.clone());
+                    queue.push_back(parent);
+                }
+            } else {
+                if parent != *root_commit {
+                    bases.push(parent);
+                }
+            }
+        }
+    }
+
+    Ok(bases)
+}
+
 pub async fn cmd_gerrit_upload(
     ui: &mut Ui,
     command: &CommandHelper,
@@ -415,6 +449,11 @@ pub async fn cmd_gerrit_upload(
     let push_options = GitPushOptions {
         remote_push_options: push_options(args)?,
     };
+
+    let upload_exact_refs = command
+        .settings()
+        .get_bool("gerrit.upload-exact-refs")
+        .unwrap_or(false);
 
     let mut workspace_command = command.workspace_helper(ui)?;
 
@@ -471,19 +510,25 @@ pub async fn cmd_gerrit_upload(
         return Ok(());
     }
 
-    // If you have the changes main -> A -> B, and then run `jj gerrit upload -r B`,
-    // then that uploads both A and B. Thus, we need to ensure that A also
-    // has a Change-ID.
-    // We make an assumption here that all immutable commits already have a
-    // Change-ID.
-    let to_upload: Vec<Commit> = workspace_command
-        .attach_revset_evaluator(
+    let to_upload_expr = workspace_command
+        .attach_revset_evaluator(if upload_exact_refs {
+            RevsetExpression::intersection(
+                &RevsetExpression::commits(revisions.clone()),
+                &RevsetExpression::negated(&workspace_command.env().immutable_expression()),
+            )
+        } else {
             workspace_command
                 .env()
                 .immutable_expression()
-                .range(&RevsetExpression::commits(revisions.clone())),
-        )
-        .evaluate_to_commits()?
+                .range(&RevsetExpression::commits(revisions.clone()))
+        })
+        .resolve()?;
+    workspace_command
+        .check_rewritable_expr(&to_upload_expr)
+        .await?;
+
+    let to_upload: Vec<Commit> = to_upload_expr
+        .evaluate_to_commits(workspace_command.repo().as_ref())?
         .try_collect()
         .await?;
 
@@ -531,7 +576,7 @@ pub async fn cmd_gerrit_upload(
     }
 
     let mut old_to_new: HashMap<CommitId, Commit> = HashMap::new();
-    for original_commit in to_upload.into_iter().rev() {
+    for original_commit in to_upload.clone().into_iter().rev() {
         let trailers = parse_description_trailers(original_commit.description());
 
         let change_id_trailers: Vec<&Trailer> = trailers
@@ -629,6 +674,11 @@ pub async fn cmd_gerrit_upload(
         old_to_new.insert(original_commit.id().clone(), new_commit);
     }
 
+    let to_upload_ids: HashSet<CommitId> = old_to_new
+        .values()
+        .map(|commit| commit.id().to_owned())
+        .collect();
+
     let remote_ref = format!("refs/for/{remote_branch}");
     writeln!(
         ui.status(),
@@ -643,6 +693,9 @@ pub async fn cmd_gerrit_upload(
     // push_updates in theory supports multiple GitRefUpdates at once, because
     // we obviously can't push multiple heads to the same ref.
     for head in &old_heads {
+        let new_commit = old_to_new.get(head).unwrap();
+        let head_bases = find_bases(new_commit.id().clone(), &to_upload_ids, tx.repo())?;
+
         if let Some(mut formatter) = ui.status_formatter() {
             if args.dry_run {
                 write!(formatter, "Dry-run: Would push ")?;
@@ -654,6 +707,17 @@ pub async fn cmd_gerrit_upload(
             // "hidden".
             tx.base_workspace_helper()
                 .write_commit_summary(formatter.as_mut(), &store.get_commit(head).unwrap())?;
+            if upload_exact_refs && !head_bases.is_empty() {
+                write!(formatter, " with bases ")?;
+                for (i, base) in head_bases.iter().enumerate() {
+                    if i > 0 {
+                        write!(formatter, ", ")?;
+                    }
+                    let base_commit = store.get_commit_async(base).await?;
+                    tx.base_workspace_helper()
+                        .write_commit_summary(formatter.as_mut(), &base_commit)?;
+                }
+            }
             writeln!(formatter)?;
         }
 
@@ -661,7 +725,14 @@ pub async fn cmd_gerrit_upload(
             continue;
         }
 
-        let new_commit = old_to_new.get(head).unwrap();
+        let mut head_push_options = push_options.clone();
+        if upload_exact_refs {
+            for base in &head_bases {
+                head_push_options
+                    .remote_push_options
+                    .push(format!("base={}", base.hex()));
+            }
+        }
 
         // how do we get better errors from the remote? 'git push' tells us
         // about rejected refs AND ALSO '(nothing changed)' when there are no

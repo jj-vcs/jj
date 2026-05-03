@@ -1292,6 +1292,60 @@ mod tests {
     }
 
     #[test]
+    fn test_parents() -> TestResult {
+        let mut new_change_id = change_id_generator();
+        let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
+        // 5
+        // |\
+        // | \
+        // |\ \
+        // | 4 |
+        // | |\|
+        // 1 2 3
+        // |/ /
+        // | /
+        // |/
+        // 0
+        let id_0 = CommitId::from_hex("000000");
+        let id_1 = CommitId::from_hex("111111");
+        let id_2 = CommitId::from_hex("222222");
+        let id_3 = CommitId::from_hex("333333");
+        let id_4 = CommitId::from_hex("444444");
+        let id_5 = CommitId::from_hex("555555");
+        index.add_commit_data(id_0.clone(), new_change_id(), &[]);
+        index.add_commit_data(id_1.clone(), new_change_id(), &[id_0.clone()]);
+        index.add_commit_data(id_2.clone(), new_change_id(), &[id_0.clone()]);
+        index.add_commit_data(id_3.clone(), new_change_id(), &[id_0.clone()]);
+        index.add_commit_data(id_4.clone(), new_change_id(), &[id_2.clone(), id_3.clone()]);
+        index.add_commit_data(
+            id_5.clone(),
+            new_change_id(),
+            &[id_1.clone(), id_4.clone(), id_3.clone()],
+        );
+
+        // root commit
+        assert_eq!(index.parents(&id_0.clone())?, vec![]);
+
+        // single parent
+        assert_eq!(index.parents(&id_1.clone())?, vec![id_0.clone()]);
+        assert_eq!(index.parents(&id_2.clone())?, vec![id_0.clone()]);
+        assert_eq!(index.parents(&id_3.clone())?, vec![id_0.clone()]);
+
+        // two parents (merge)
+        assert_eq!(
+            index.parents(&id_4.clone())?,
+            vec![id_2.clone(), id_3.clone()]
+        );
+
+        // more parents (multi-merge)
+        assert_eq!(
+            index.parents(&id_5.clone())?,
+            vec![id_1.clone(), id_4.clone(), id_3.clone()]
+        );
+        Ok(())
+    }
+
+    #[test]
     fn test_heads_range_with_filter() -> TestResult {
         let mut new_change_id = change_id_generator();
         let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);

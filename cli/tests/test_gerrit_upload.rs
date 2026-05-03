@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use test_case::test_case;
 use testutils::TestResult;
 
 use crate::common::TestEnvironment;
@@ -88,7 +89,99 @@ fn test_gerrit_upload_dryrun() {
 }
 
 #[test]
-fn test_gerrit_upload_default_revision() {
+fn test_gerrit_upload_explicit_revision() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    test_env.add_config(r#"gerrit.upload-exact-refs=true"#);
+
+    create_commit(&work_dir, "parent1", &[]);
+    create_commit(&work_dir, "parent2", &[]);
+    create_commit(&work_dir, "commit", &["parent1"]);
+    create_commit(&work_dir, "merge-commit", &["parent1", "parent2"]);
+    create_commit(&work_dir, "a", &["parent1"]);
+    create_commit(&work_dir, "b", &["a"]);
+    create_commit(&work_dir, "c", &["b"]);
+
+    let output = work_dir.run_jj(["gerrit", "upload", "-r", "b"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: No remote specified, and no 'gerrit' remote was found
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // With remote specified but.
+    test_env.add_config(r#"gerrit.default-remote="origin""#);
+    let output = work_dir.run_jj(["gerrit", "upload", "-r", "b"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: The remote 'origin' (configured via `gerrit.default-remote`) does not exist
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = work_dir.run_jj(["gerrit", "upload", "-r", "b", "--remote=origin"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: The remote 'origin' (specified via `--remote`) does not exist
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = work_dir.run_jj([
+        "git",
+        "remote",
+        "add",
+        "origin",
+        "http://example.com/repo/foo",
+    ]);
+    insta::assert_snapshot!(output, @"");
+    let output = work_dir.run_jj(["gerrit", "upload", "-r", "b", "--remote=origin"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: No target branch specified via --remote-branch, and no 'gerrit.default-remote-branch' was found
+    [EOF]
+    [exit status: 1]
+    ");
+
+    test_env.add_config(r#"gerrit.default-remote-branch="main""#);
+    let output = work_dir.run_jj(["gerrit", "upload", "-r", "commit", "--dry-run"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
+    Dry-run: Would push royxmykx a9e50b23 commit | commit with bases rlvkpnrz cca5e48f parent1 | parent1
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["gerrit", "upload", "-r", "merge-commit", "--dry-run"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
+    Dry-run: Would push vruxwmqv 072b6a84 merge-commit | merge-commit with bases rlvkpnrz cca5e48f parent1 | parent1, zsuskuln eeea04d7 parent2 | parent2
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["gerrit", "upload", "-r", "b::c", "--dry-run"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
+    Dry-run: Would push lylxulpl 0874f538 c | c with bases znkkpsqq 30c5dc88 a | a
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["gerrit", "upload", "-r", "::c", "--dry-run"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
+    Dry-run: Would push lylxulpl 0874f538 c | c with bases znkkpsqq 30c5dc88 a | a
+    [EOF]
+    ");
+}
+
+#[test_case(false; "default")]
+#[test_case(true; "exact-refs")]
+fn test_gerrit_upload_default_revision(upload_exact_refs: bool) {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -104,12 +197,14 @@ fn test_gerrit_upload_default_revision() {
         .success();
     test_env.add_config(r#"gerrit.default-remote="origin""#);
     test_env.add_config(r#"gerrit.default-remote-branch="main""#);
+    test_env.add_config(format!(r#"gerrit.upload-exact-refs={upload_exact_refs}"#));
 
     work_dir
         .run_jj(["new", "--message", "parent", "root()"])
         .success();
     work_dir.write_file("parent", "parent");
     let output = work_dir.run_jj(["gerrit", "upload", "--dry-run"]);
+    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     No revision provided. Defaulting to @
@@ -117,7 +212,9 @@ fn test_gerrit_upload_default_revision() {
     Dry-run: Would push kkmpptxz a41ea4e9 parent
     [EOF]
     ");
+    }
 
+    insta::allow_duplicates! {
     work_dir.run_jj(["new"]).success();
     let output = work_dir.run_jj(["gerrit", "upload", "--dry-run"]);
     insta::assert_snapshot!(output, @r"
@@ -127,7 +224,9 @@ fn test_gerrit_upload_default_revision() {
     Dry-run: Would push kkmpptxz a41ea4e9 parent
     [EOF]
     ");
+    }
 
+    insta::allow_duplicates! {
     work_dir.run_jj(["new", "@", "@-"]).success();
     let output = work_dir.run_jj(["gerrit", "upload", "--dry-run"]);
     insta::assert_snapshot!(output, @r"
@@ -137,7 +236,9 @@ fn test_gerrit_upload_default_revision() {
     [EOF]
     [exit status: 1]
     ");
+    }
 
+    insta::allow_duplicates! {
     work_dir.run_jj(["workspace", "forget"]).success();
     let output = work_dir.run_jj(["gerrit", "upload", "--dry-run"]);
     insta::assert_snapshot!(output, @"
@@ -147,6 +248,7 @@ fn test_gerrit_upload_default_revision() {
     [EOF]
     [exit status: 1]
     ");
+    }
 }
 
 #[test]

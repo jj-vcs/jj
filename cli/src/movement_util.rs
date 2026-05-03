@@ -18,11 +18,9 @@ use std::sync::Arc;
 use futures::TryStreamExt as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
-use jj_lib::repo::Repo as _;
 use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
-use jj_lib::revset::RevsetStreamExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
@@ -181,9 +179,7 @@ async fn get_target_commit(
     let target_revset = direction.build_target_revset(&wc_revset, &start_revset, args)?;
 
     let targets: Vec<Commit> = target_revset
-        .evaluate(workspace_command.repo().as_ref())?
-        .stream()
-        .commits(workspace_command.repo().store())
+        .evaluate_to_commits(workspace_command.repo().as_ref())?
         .try_collect()
         .await?;
 
@@ -192,9 +188,7 @@ async fn get_target_commit(
         [] => {
             // We found no ancestor/descendant.
             let start_commits: Vec<Commit> = start_revset
-                .evaluate(workspace_command.repo().as_ref())?
-                .stream()
-                .commits(workspace_command.repo().store())
+                .evaluate_to_commits(workspace_command.repo().as_ref())?
                 .try_collect()
                 .await?;
             return Err(direction.target_not_found_error(workspace_command, args, &start_commits));

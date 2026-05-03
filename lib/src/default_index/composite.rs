@@ -512,6 +512,13 @@ impl CompositeCommitIndex {
         }
         Ok(found_heads)
     }
+
+    pub fn parents(&self, commit_id: &CommitId) -> Vec<CommitId> {
+        match self.entry_by_id(commit_id) {
+            Some(entry) => entry.parents().map(|pos| pos.commit_id()).collect(),
+            None => Vec::new(),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -629,6 +636,10 @@ impl Index for CompositeIndex {
         candidate_ids: &mut dyn Iterator<Item = &CommitId>,
     ) -> IndexResult<Vec<CommitId>> {
         Ok(self.commits().heads(candidate_ids))
+    }
+
+    fn parents(&self, commit_id: &CommitId) -> IndexResult<Vec<CommitId>> {
+        Ok(self.commits().parents(commit_id))
     }
 
     fn changed_paths_in_commit(
