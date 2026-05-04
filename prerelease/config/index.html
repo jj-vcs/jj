@@ -4558,6 +4558,9 @@ this by passing output through <code>less -FRX</code> on most platforms (on Wind
 <p>Which pager to use can be customized by setting <code>ui.pager</code>. When choosing a
 pager, ensure that it either supports color codes or that you disable color (see
 <a href="#colorizing-output">Colorizing output</a>).</p>
+<p>The <code>JJ_PAGER</code> environment variable overrides <code>ui.pager</code>, and is useful for
+tool-specific environments that should not affect other programs. The generic
+<code>PAGER</code> environment variable is ignored.</p>
 <p>Examples:</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># Pipe output through `less -FRX` (default on non-Windows platforms)</span>
 $<span class="w"> </span>jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--user<span class="w"> </span>ui.pager<span class="w"> </span><span class="s2">&quot;less -FRX&quot;</span>
