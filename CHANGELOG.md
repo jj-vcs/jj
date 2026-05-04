@@ -41,6 +41,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Added `jj util backend name` command that prints the backend being used in the
   current repo.
 
+* `jj gerrit upload` now supports the `-o` (`--option`) flag, which works like
+  `git push -o` (`--push-option`).
+
 ### Fixed bugs
 
 * `jj bookmark forget` no longer prints `Forgot N local bookmarks.` when no
