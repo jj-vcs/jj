@@ -60,6 +60,7 @@ gix = { version = "0.83.0", default-features = false, features = [
     "zlib-rs",
 ] }
 gix-ignore = { version = "0.21.0" }
+gix-attributes = "0.33.0"
 globset = "0.4.18"
 hashbrown = { version = "0.17.0", default-features = false, features = ["inline-more"] }
 indexmap = { version = "2.14.0", features = ["serde"] }
@@ -115,7 +116,7 @@ test-case = "3.3.1"
 textwrap = "0.16.2"
 thiserror = "2.0.17"
 timeago = { version = "0.6.0", default-features = false }
-tokio = { version = "1.52.1", features = ["io-util"] }
+tokio = { version = "1.52.1", features = ["io-util", "sync"] }
 toml = "1.1.0"
 toml_edit = { version = "0.25.8", features = ["serde"] }
 tracing = "0.1.44"
