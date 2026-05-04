@@ -212,6 +212,10 @@ pub struct UploadArgs {
     #[arg(long)]
     custom: Vec<String>,
 
+    /// Send a `git push -o` option (can be repeated)
+    #[arg(long, short)]
+    option: Vec<String>,
+
     /// For debugging Gerrit
     ///
     /// See https://gerrit-review.googlesource.com/Documentation/user-upload.html#trace
@@ -401,6 +405,7 @@ fn push_options(args: &UploadArgs) -> Result<Vec<String>, CommandError> {
         ]
         .into_iter()
         .flatten()
+        .chain(args.option.iter().map(|s| s.as_str()))
         .map(str::to_string),
     )
     .collect())
@@ -761,6 +766,7 @@ mod tests {
                 skip_validation: true,
                 ignore_attention_set: true,
                 submit: true,
+                option: vec!["hello".to_string(), "world".to_string()],
                 ..Default::default()
             })
             .unwrap(),
@@ -780,6 +786,8 @@ mod tests {
                 "skip-validation",
                 "ignore-attention-set",
                 "submit",
+                "hello",
+                "world",
             ]
             .into_iter()
             .map(|s| s.to_string())
