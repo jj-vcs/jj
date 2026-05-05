@@ -21,7 +21,6 @@ use std::fmt::Error;
 use std::fmt::Formatter;
 use std::fs;
 use std::io;
-use std::io::Cursor;
 use std::path::Path;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -34,7 +33,10 @@ use std::sync::MutexGuard;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
+use futures::AsyncRead;
+use futures::AsyncReadExt as _;
 use futures::StreamExt as _;
+use futures::io::Cursor;
 use futures::stream::BoxStream;
 use gix::bstr::BString;
 use gix::objs::CommitRefIter;
@@ -47,8 +49,6 @@ use pollster::FutureExt as _;
 use prost::Message as _;
 use smallvec::SmallVec;
 use thiserror::Error;
-use tokio::io::AsyncRead;
-use tokio::io::AsyncReadExt as _;
 
 use crate::backend::Backend;
 use crate::backend::BackendError;

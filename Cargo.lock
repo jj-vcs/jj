@@ -2570,7 +2570,6 @@ dependencies = [
  "textwrap",
  "thiserror 2.0.18",
  "timeago",
- "tokio",
  "toml",
  "toml_edit",
  "tracing",

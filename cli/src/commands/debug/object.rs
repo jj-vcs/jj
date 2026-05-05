@@ -16,6 +16,7 @@ use std::fmt::Debug;
 use std::io::Write as _;
 
 use clap::Subcommand;
+use futures::AsyncReadExt as _;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::FileId;
 use jj_lib::backend::SymlinkId;
@@ -26,7 +27,6 @@ use jj_lib::op_store::OperationId;
 use jj_lib::op_store::ViewId;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
-use tokio::io::AsyncReadExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;

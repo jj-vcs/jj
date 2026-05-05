@@ -18,6 +18,7 @@ use std::path::Path;
 use std::process::Stdio;
 
 use clap_complete::ArgValueCompleter;
+use futures::AsyncReadExt as _;
 use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::FileId;
@@ -41,7 +42,6 @@ use jj_lib::revset::RevsetStreamExt as _;
 use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
 use pollster::FutureExt as _;
-use tokio::io::AsyncReadExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;

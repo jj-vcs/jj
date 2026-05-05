@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::io::Cursor;
-
 use bstr::ByteSlice as _;
-use tokio::io::AsyncRead;
-use tokio::io::AsyncReadExt as _;
+use futures::AsyncRead;
+use futures::AsyncReadExt as _;
+use futures::io::Cursor;
 
 use crate::config::ConfigGetError;
 use crate::settings::UserSettings;
@@ -236,12 +235,12 @@ mod tests {
         fn poll_read(
             mut self: Pin<&mut Self>,
             _cx: &mut std::task::Context<'_>,
-            _buf: &mut tokio::io::ReadBuf<'_>,
-        ) -> Poll<std::io::Result<()>> {
+            _buf: &mut [u8],
+        ) -> Poll<std::io::Result<usize>> {
             if let Some(e) = self.0.take() {
                 return Poll::Ready(Err(e));
             }
-            Poll::Ready(Ok(()))
+            Poll::Ready(Ok(0))
         }
     }
 

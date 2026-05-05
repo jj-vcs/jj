@@ -16,7 +16,6 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Error;
 use std::fmt::Formatter;
-use std::io::Cursor;
 use std::path::Path;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -26,7 +25,10 @@ use std::sync::MutexGuard;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
+use futures::AsyncRead;
+use futures::AsyncReadExt as _;
 use futures::StreamExt as _;
+use futures::io::Cursor;
 use futures::stream;
 use futures::stream::BoxStream;
 use jj_lib::backend::Backend;
@@ -51,8 +53,6 @@ use jj_lib::index::Index;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
-use tokio::io::AsyncRead;
-use tokio::io::AsyncReadExt as _;
 use tokio::runtime::Runtime;
 
 const HASH_LENGTH: usize = 10;

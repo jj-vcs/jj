@@ -19,8 +19,8 @@ use std::pin::Pin;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
+use futures::AsyncRead;
 use futures::stream::BoxStream;
-use tokio::io::AsyncRead;
 
 use crate::backend::Backend;
 use crate::backend::BackendError;

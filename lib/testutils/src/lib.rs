@@ -25,6 +25,7 @@ use std::process::Command;
 use std::process::Stdio;
 use std::sync::Arc;
 
+use futures::AsyncReadExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend;
 use jj_lib::backend::Backend;
@@ -75,7 +76,6 @@ use jj_lib::working_copy::SnapshotStats;
 use jj_lib::workspace::Workspace;
 use pollster::FutureExt as _;
 use tempfile::TempDir;
-use tokio::io::AsyncReadExt as _;
 
 use crate::test_backend::TestBackendFactory;
 

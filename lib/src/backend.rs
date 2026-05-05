@@ -23,9 +23,9 @@ use std::time::SystemTime;
 
 use async_trait::async_trait;
 use chrono::TimeZone as _;
+use futures::AsyncRead;
 use futures::stream::BoxStream;
 use thiserror::Error;
-use tokio::io::AsyncRead;
 
 use crate::content_hash::ContentHash;
 use crate::hex_util;

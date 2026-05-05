@@ -21,13 +21,13 @@ use std::iter::zip;
 use std::sync::Arc;
 use std::vec;
 
+use futures::AsyncReadExt as _;
 use futures::FutureExt as _;
 use futures::StreamExt as _;
 use futures::future::BoxFuture;
 use futures::future::try_join_all;
 use futures::stream::FuturesUnordered;
 use itertools::Itertools as _;
-use tokio::io::AsyncReadExt as _;
 
 use crate::backend;
 use crate::backend::BackendError;

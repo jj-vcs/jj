@@ -64,7 +64,7 @@ smallvec = { workspace = true }
 strsim = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, optional = true }
 toml_edit = { workspace = true }
 tracing = { workspace = true }
 watchman_client = { workspace = true, optional = true }
@@ -97,7 +97,7 @@ nix = { workspace = true, features = [ "fs" ] }
 [features]
 default = ["git"]
 git = ["dep:gix"]
-watchman = ["dep:watchman_client"]
+watchman = ["dep:watchman_client", "dep:tokio"]
 testing = ["git"]
 
 [lints]

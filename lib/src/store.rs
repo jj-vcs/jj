@@ -22,9 +22,9 @@ use std::sync::Mutex;
 use std::time::SystemTime;
 
 use clru::CLruCache;
+use futures::AsyncRead;
 use futures::stream::BoxStream;
 use pollster::FutureExt as _;
-use tokio::io::AsyncRead;
 
 use crate::backend;
 use crate::backend::Backend;

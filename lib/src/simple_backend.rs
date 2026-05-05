@@ -17,7 +17,6 @@
 use std::fmt::Debug;
 use std::fs;
 use std::fs::File;
-use std::io::Cursor;
 use std::io::Read as _;
 use std::io::Write as _;
 use std::path::Path;
@@ -28,14 +27,15 @@ use std::time::SystemTime;
 use async_trait::async_trait;
 use blake2::Blake2b512;
 use blake2::Digest as _;
+use futures::AsyncRead;
+use futures::AsyncReadExt as _;
 use futures::StreamExt as _;
+use futures::io::Cursor;
 use futures::stream;
 use futures::stream::BoxStream;
 use pollster::FutureExt as _;
 use prost::Message as _;
 use tempfile::NamedTempFile;
-use tokio::io::AsyncRead;
-use tokio::io::AsyncReadExt as _;
 
 use crate::backend::Backend;
 use crate::backend::BackendError;

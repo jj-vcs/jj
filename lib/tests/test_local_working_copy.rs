@@ -26,6 +26,7 @@ use std::time::SystemTime;
 
 use assert_matches::assert_matches;
 use bstr::BString;
+use futures::AsyncReadExt as _;
 use gix::odb::pack::FindExt as _;
 use indoc::indoc;
 use itertools::Itertools as _;
@@ -83,7 +84,6 @@ use testutils::repo_path;
 use testutils::repo_path_buf;
 use testutils::repo_path_component;
 use testutils::write_random_commit;
-use tokio::io::AsyncReadExt as _;
 
 fn check_icase_fs(dir: &Path) -> bool {
     let test_file = tempfile::Builder::new()
