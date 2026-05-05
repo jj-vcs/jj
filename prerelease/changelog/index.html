@@ -6923,6 +6923,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   push are private or have conflicts. Bookmarks which aren't eligible to push
   will be skipped.</p>
 </li>
+<li>
+<p>Branch/bookmark patterns passed to <code>jj git clone</code> are now saved to jj's repo
+  settings file instead of <code>.git/config</code>. Git fetch refspecs are set to the
+  default value.</p>
+</li>
 </ul>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <ul>
