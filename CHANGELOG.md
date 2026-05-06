@@ -33,6 +33,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   back to prompting the user if the heuristics are inconclusive. It can also run
   in non-interactive mode, which aborts if prompting would be needed.
 
+* `jj squash` now accepts a `--restore-descendants` flag, matching `jj abandon`,
+  `jj diffedit`, and `jj restore`. When used, descendants of the destination
+  commit keep their original content rather than being 3-way merged.
+
 ### Fixed bugs
 
 * `jj arrange` now scrolls the viewport to keep the selected commit visible
