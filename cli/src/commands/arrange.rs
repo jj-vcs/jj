@@ -834,7 +834,7 @@ fn render(
             } else {
                 format!(" ({})", commit_state.bookmarks.join(", "))
             };
-            let content = format!("{} {}{}", hash, desc, bookmarks_str);
+            let content = format!("{hash} {desc}{bookmarks_str}");
             let style = if i == popup.selected_index {
                 Style::default().bg(Color::Blue).fg(Color::White)
             } else {
