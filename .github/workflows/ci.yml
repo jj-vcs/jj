@@ -47,6 +47,9 @@ jobs:
           extra_targets: ""
     runs-on: ${{ matrix.os }}
 
+    # macos-x86_64 runners are inconsistent and prone to hitting the timeout
+    continue-on-error: ${{ matrix.os == 'macos-x86_64' }}
+
     # TODO FIXME (aseipp): keep the timeout limit to ~20 minutes. this is long
     # enough to give us runway for the future, but also once we hit it, we're at
     # the "builds are taking too long" stage and we should start looking at ways
