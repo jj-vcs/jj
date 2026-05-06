@@ -79,6 +79,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj status` respects path filters in working copy summaries.
 
+* `jj git remote rename`/`remove` now updates the `trunk()` alias.
+
 ## [0.40.0] - 2026-04-01
 
 ### Release highlights

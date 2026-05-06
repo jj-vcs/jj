@@ -506,6 +506,170 @@ fn test_git_remote_rename() {
 }
 
 #[test]
+fn test_git_remote_with_preset_config() {
+    let test_env = TestEnvironment::default();
+    // Add user-level config which shouldn't be renamed
+    test_env.add_config(indoc! {r#"
+        remotes.origin.fetch-bookmarks = "user-origin"
+        remotes.foo.fetch-bookmarks = "user-foo"
+        remotes.bar.fetch-tags = "user-bar"
+    "#});
+
+    // Set up default branch at remote
+    let remote_repo = git::init(test_env.env_root().join("remote"));
+    git::add_commit(&remote_repo, "refs/heads/main", "file", b"", "init", &[]);
+    git::set_symbolic_reference(&remote_repo, "HEAD", "refs/heads/main");
+
+    // Clone the repo, add another remote to ensure that only the target remote
+    // settings will be updated
+    test_env
+        .run_jj_in(
+            ".",
+            [
+                "git",
+                "clone",
+                "--branch=main",
+                "--tag=~*",
+                "remote",
+                "local",
+            ],
+        )
+        .success();
+    let local_dir = test_env.work_dir("local");
+    local_dir
+        .run_jj(["git", "remote", "add", "bar", "../remote"])
+        .success();
+    local_dir
+        .run_jj([
+            "config",
+            "set",
+            "--repo",
+            "remotes.bar.fetch-bookmarks",
+            "repo-bar",
+        ])
+        .success();
+
+    let list_remotes_config =
+        || local_dir.run_jj(["config", "list", "--include-overridden", "remotes"]);
+    let list_trunk_config = || local_dir.run_jj(["config", "list", "revset-aliases.'trunk()'"]);
+    insta::assert_snapshot!(list_remotes_config(), @r#"
+    # remotes.origin.fetch-bookmarks = "user-origin"
+    remotes.foo.fetch-bookmarks = "user-foo"
+    remotes.bar.fetch-tags = "user-bar"
+    remotes.origin.fetch-bookmarks = "main"
+    remotes.origin.fetch-tags = "~*"
+    remotes.bar.fetch-bookmarks = "repo-bar"
+    [EOF]
+    "#);
+    insta::assert_snapshot!(list_trunk_config(), @r#"
+    revset-aliases.'trunk()' = "main@origin"
+    [EOF]
+    "#);
+
+    // Preset repo-level config should be updated automatically
+    // TODO: suppress warning about unresolvable immutable_heads()
+    let output = local_dir.run_jj(["git", "remote", "rename", "origin", "foo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Failed to check mutability of the new working-copy revision.
+    Caused by:
+    1: Invalid `revset-aliases.immutable_heads()`
+    2: Revision `main@origin` doesn't exist
+    Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
+    Updating the revset alias `trunk()` to `main@foo`.
+    [EOF]
+    ");
+    insta::assert_snapshot!(list_remotes_config(), @r#"
+    remotes.origin.fetch-bookmarks = "user-origin"
+    # remotes.foo.fetch-bookmarks = "user-foo"
+    remotes.bar.fetch-tags = "user-bar"
+    remotes.foo.fetch-bookmarks = "main"
+    remotes.foo.fetch-tags = "~*"
+    remotes.bar.fetch-bookmarks = "repo-bar"
+    [EOF]
+    "#);
+    insta::assert_snapshot!(list_trunk_config(), @r#"
+    revset-aliases.'trunk()' = "main@foo"
+    [EOF]
+    "#);
+
+    // Preset repo-level config should be removed automatically
+    // TODO: suppress warning about unresolvable immutable_heads()
+    let output = local_dir.run_jj(["git", "remote", "remove", "foo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Failed to check mutability of the new working-copy revision.
+    Caused by:
+    1: Invalid `revset-aliases.immutable_heads()`
+    2: Revision `main@foo` doesn't exist
+    Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
+    Resetting the revset alias `trunk()` to default value.
+    [EOF]
+    ");
+    insta::assert_snapshot!(list_remotes_config(), @r#"
+    remotes.origin.fetch-bookmarks = "user-origin"
+    remotes.foo.fetch-bookmarks = "user-foo"
+    remotes.bar.fetch-tags = "user-bar"
+    remotes.bar.fetch-bookmarks = "repo-bar"
+    [EOF]
+    "#);
+    insta::assert_snapshot!(list_trunk_config(), @"
+    ------- stderr -------
+    Warning: No matching config key for revset-aliases.'trunk()'
+    [EOF]
+    ");
+
+    // Set trunk to non-default value, which shouldn't be updated automatically
+    local_dir
+        .run_jj([
+            "config",
+            "set",
+            "--repo",
+            "revset-aliases.'trunk()'",
+            "main@custom-remote",
+        ])
+        .success();
+    let output = local_dir.run_jj(["git", "remote", "rename", "bar", "foo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Failed to resolve `revset-aliases.trunk()`: Revision `main@custom-remote` doesn't exist
+    The `trunk()` alias is temporarily set to `root()`.
+    Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
+    [EOF]
+    ");
+    insta::assert_snapshot!(list_remotes_config(), @r#"
+    remotes.origin.fetch-bookmarks = "user-origin"
+    # remotes.foo.fetch-bookmarks = "user-foo"
+    remotes.bar.fetch-tags = "user-bar"
+    remotes.foo.fetch-bookmarks = "repo-bar"
+    [EOF]
+    "#);
+    insta::assert_snapshot!(list_trunk_config(), @r#"
+    revset-aliases.'trunk()' = "main@custom-remote"
+    [EOF]
+    "#);
+
+    let output = local_dir.run_jj(["git", "remote", "remove", "foo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Failed to resolve `revset-aliases.trunk()`: Revision `main@custom-remote` doesn't exist
+    The `trunk()` alias is temporarily set to `root()`.
+    Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
+    [EOF]
+    ");
+    insta::assert_snapshot!(list_remotes_config(), @r#"
+    remotes.origin.fetch-bookmarks = "user-origin"
+    remotes.foo.fetch-bookmarks = "user-foo"
+    remotes.bar.fetch-tags = "user-bar"
+    [EOF]
+    "#);
+    insta::assert_snapshot!(list_trunk_config(), @r#"
+    revset-aliases.'trunk()' = "main@custom-remote"
+    [EOF]
+    "#);
+}
+
+#[test]
 fn test_git_remote_named_git() {
     let test_env = TestEnvironment::default();
 

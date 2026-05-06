@@ -16,6 +16,7 @@ use clap_complete::ArgValueCandidates;
 use jj_lib::git;
 use jj_lib::ref_name::RemoteNameBuf;
 
+use super::super::rename_remote_in_repo_config;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::complete;
@@ -49,8 +50,10 @@ pub async fn cmd_git_remote_rename(
                 new = args.new.as_symbol()
             ),
         )
-        .await
+        .await?;
     } else {
-        Ok(()) // Do not print "Nothing changed."
+        // Do not print "Nothing changed."
     }
+    rename_remote_in_repo_config(ui, command.raw_config(), &args.old, &args.new)?;
+    Ok(())
 }

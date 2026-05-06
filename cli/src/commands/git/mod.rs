@@ -27,12 +27,15 @@ use std::io::Write as _;
 use clap::Subcommand;
 use clap::ValueEnum;
 use jj_lib::config::ConfigFile;
+use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
 use jj_lib::git;
 use jj_lib::git::UnexpectedGitBackendError;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteNameBuf;
 use jj_lib::ref_name::RemoteRefSymbol;
+use jj_lib::ref_name::RemoteRefSymbolBuf;
+use jj_lib::revset;
 use jj_lib::store::Store;
 
 use self::clone::GitCloneArgs;
@@ -59,6 +62,8 @@ use crate::cli_util::WorkspaceCommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::user_error_with_message;
 use crate::config::ConfigEnv;
+use crate::config::RawConfig;
+use crate::config::existing_repo_config_file;
 use crate::ui::Ui;
 
 /// Commands for working with Git remotes and the underlying Git repo
@@ -126,6 +131,8 @@ fn get_single_remote(store: &Store) -> Result<Option<RemoteNameBuf>, UnexpectedG
     })
 }
 
+const TRUNK_CONFIG_NAME: [&str; 2] = ["revset-aliases", "trunk()"];
+
 #[derive(Clone, Copy, Debug)]
 struct RepoPresets<'a> {
     remote: &'a RemoteName,
@@ -175,7 +182,7 @@ fn write_repo_presets(
         .expect("initial repo config shouldn't have invalid values");
     }
     if let Some(symbol) = presets.trunk {
-        file.set_value(["revset-aliases", "trunk()"], symbol.to_string())
+        file.set_value(TRUNK_CONFIG_NAME, symbol.to_string())
             .expect("initial repo config shouldn't have invalid values");
         writeln!(
             ui.status(),
@@ -184,6 +191,87 @@ fn write_repo_presets(
     }
     file.save()?;
     Ok(())
+}
+
+/// Renames preset trunk and remote settings in repo-level config file.
+fn rename_remote_in_repo_config(
+    ui: &Ui,
+    config: &RawConfig,
+    old_remote: &RemoteName,
+    new_remote: &RemoteName,
+) -> Result<(), CommandError> {
+    let Some(mut file) = existing_repo_config_file(config) else {
+        return Ok(());
+    };
+
+    // [remotes.<old_remote>] -> [remotes.<new_remote>]
+    if let Some(remotes_item) = file.data_mut().as_table_mut().get_mut("remotes")
+        && let Some(remotes_table) = remotes_item.as_table_like_mut()
+        && let Some(old_item) = remotes_table.remove(old_remote.as_str())
+    {
+        remotes_table.insert(new_remote.as_str(), old_item);
+    }
+
+    // trunk = <name>@<old_remote> -> <name>@<new_remote>
+    if let Some(old_symbol) = get_trunk_symbol(file.layer())
+        && old_symbol.remote == old_remote
+    {
+        let new_symbol = old_symbol.name.to_remote_symbol(new_remote);
+        file.set_value(TRUNK_CONFIG_NAME, new_symbol.to_string())
+            .expect("old value was string");
+        writeln!(
+            ui.status(),
+            "Updating the revset alias `trunk()` to `{new_symbol}`.",
+        )?;
+    }
+
+    file.save()?;
+    Ok(())
+}
+
+/// Removes preset trunk and remote settings from repo-level config file.
+fn remove_remote_from_repo_config(
+    ui: &Ui,
+    config: &RawConfig,
+    old_remote: &RemoteName,
+) -> Result<(), CommandError> {
+    let Some(mut file) = existing_repo_config_file(config) else {
+        return Ok(());
+    };
+
+    // [remotes.<old_remote>]
+    if let Some(remotes_item) = file.data_mut().as_table_mut().get_mut("remotes")
+        && let Some(remotes_table) = remotes_item.as_table_like_mut()
+    {
+        remotes_table.remove(old_remote.as_str());
+    }
+
+    // trunk = <name>@<old_remote>
+    if let Some(old_symbol) = get_trunk_symbol(file.layer())
+        && old_symbol.remote == old_remote
+    {
+        file.delete_value(TRUNK_CONFIG_NAME)
+            .expect("old value was string");
+        writeln!(
+            ui.status(),
+            "Resetting the revset alias `trunk()` to default value.",
+        )?;
+    }
+
+    file.save()?;
+    Ok(())
+}
+
+fn get_trunk_symbol(layer: &ConfigLayer) -> Option<RemoteRefSymbolBuf> {
+    if let Ok(Some(trunk_item)) = layer.look_up_item(TRUNK_CONFIG_NAME)
+        && let Some(trunk_str) = trunk_item.as_str()
+        && let Ok(revset::ExpressionKind::RemoteSymbol(symbol)) =
+            revset::parse_program(trunk_str).map(|node| node.kind)
+    {
+        Some(symbol)
+    } else {
+        None
+    }
 }
 
 fn join_string_expressions(exprs: &[String]) -> String {

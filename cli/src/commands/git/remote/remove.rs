@@ -16,6 +16,7 @@ use clap_complete::ArgValueCandidates;
 use jj_lib::git;
 use jj_lib::ref_name::RemoteNameBuf;
 
+use super::super::remove_remote_from_repo_config;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::complete;
@@ -39,9 +40,10 @@ pub async fn cmd_git_remote_remove(
     git::remove_remote(tx.repo_mut(), &args.remote)?;
     if tx.repo().has_changes() {
         tx.finish(ui, format!("remove git remote {}", args.remote.as_symbol()))
-            .await
+            .await?;
     } else {
         // Do not print "Nothing changed." for the remote named "git".
-        Ok(())
     }
+    remove_remote_from_repo_config(ui, command.raw_config(), &args.remote)?;
+    Ok(())
 }

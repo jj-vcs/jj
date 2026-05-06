@@ -626,6 +626,17 @@ impl ConfigEnv {
     }
 }
 
+/// Similar to [`ConfigEnv::repo_config_files()`], but doesn't attempt to
+/// initialize new config ID and its storage directory.
+pub fn existing_repo_config_file(config: &RawConfig) -> Option<ConfigFile> {
+    // There should be at most one repo-level config file.
+    config
+        .as_ref()
+        .layers_for(ConfigSource::Repo)
+        .iter()
+        .find_map(|layer| ConfigFile::from_layer(layer.clone()).ok())
+}
+
 fn config_files_for(
     config: &RawConfig,
     source: ConfigSource,
