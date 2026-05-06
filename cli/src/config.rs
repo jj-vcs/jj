@@ -276,13 +276,14 @@ fn create_dir_all(path: &Path) -> std::io::Result<()> {
 #[derive(Clone, Default, Debug)]
 struct UnresolvedConfigEnv {
     config_dir: Option<PathBuf>,
+    data_dir: Option<PathBuf>,
     home_dir: Option<PathBuf>,
     jj_config: Option<String>,
 }
 
 impl UnresolvedConfigEnv {
-    fn root_config_dir(&self) -> Option<PathBuf> {
-        self.config_dir.as_deref().map(|c| c.join("jj"))
+    fn root_data_dir(&self) -> Option<PathBuf> {
+        self.data_dir.as_deref().map(|c| c.join("jj"))
     }
 
     fn resolve(self) -> Vec<ConfigPath> {
@@ -334,7 +335,7 @@ impl UnresolvedConfigEnv {
 #[derive(Clone, Debug)]
 pub struct ConfigEnv {
     home_dir: Option<PathBuf>,
-    root_config_dir: Option<PathBuf>,
+    root_data_dir: Option<PathBuf>,
     repo_path: Option<PathBuf>,
     workspace_path: Option<PathBuf>,
     user_config_paths: Vec<ConfigPath>,
@@ -352,6 +353,7 @@ impl ConfigEnv {
         let config_dir = etcetera::choose_base_strategy()
             .ok()
             .map(|s| s.config_dir());
+        let data_dir = etcetera::choose_base_strategy().ok().map(|s| s.data_dir());
 
         // Canonicalize home as we do canonicalize cwd in CliRunner. $HOME might
         // point to symlink.
@@ -361,6 +363,7 @@ impl ConfigEnv {
 
         let env = UnresolvedConfigEnv {
             config_dir,
+            data_dir,
             home_dir: home_dir.clone(),
             jj_config: env::var("JJ_CONFIG").ok(),
         };
@@ -374,7 +377,7 @@ impl ConfigEnv {
             .collect();
         Self {
             home_dir,
-            root_config_dir: env.root_config_dir(),
+            root_data_dir: env.root_data_dir(),
             repo_path: None,
             workspace_path: None,
             user_config_paths: env.resolve(),
@@ -406,13 +409,13 @@ impl ConfigEnv {
         kind: &str,
         force: bool,
     ) -> Result<Option<LoadedSecureConfig>, CommandError> {
-        Ok(match (config, self.root_config_dir.as_ref()) {
-            (Some(config), Some(root_config_dir)) => {
+        Ok(match (config, self.root_data_dir.as_ref()) {
+            (Some(config), Some(root_data_dir)) => {
                 let mut guard = self.rng.lock().unwrap();
                 let loaded_config = if force {
-                    config.load_config(&mut guard, &root_config_dir.join(kind))
+                    config.load_config(&mut guard, &root_data_dir.join(kind))
                 } else {
-                    config.maybe_load_config(&mut guard, &root_config_dir.join(kind))
+                    config.maybe_load_config(&mut guard, &root_data_dir.join(kind))
                 }?;
                 for warning in &loaded_config.warnings {
                     writeln!(ui.warning_default(), "{warning}")?;
@@ -1863,6 +1866,7 @@ mod tests {
         let home_dir = env.home_dir.as_ref().map(|p| root.join(p));
         let env = UnresolvedConfigEnv {
             config_dir: env.config_dir.as_ref().map(|p| root.join(p)),
+            data_dir: env.data_dir.as_ref().map(|p| root.join(p)),
             home_dir: home_dir.clone(),
             jj_config: env.jj_config.as_ref().map(|p| {
                 join_paths(split_paths(p).map(|p| {
@@ -1878,7 +1882,7 @@ mod tests {
         };
         ConfigEnv {
             home_dir,
-            root_config_dir: None,
+            root_data_dir: None,
             repo_path: None,
             workspace_path: None,
             user_config_paths: env.resolve(),

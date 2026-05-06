@@ -181,11 +181,11 @@ fn load_repo_config_path(repo: &Path) -> Result<PathBuf, ConfigLoadError> {
 
 Normally we will simply:
 1. Load the `config-id` file
-2. Check that `$HOME/.config/jj/repos/$CONFIG_ID` exists
-3. Validate that the path in `$HOME/.config/jj/repos/$CONFIG_ID/metadata.binpb`
+2. Check that `$HOME/.local/share/jj/repos/$CONFIG_ID` exists
+3. Validate that the path in `$HOME/.local/share/jj/repos/$CONFIG_ID/metadata.binpb`
    matches the repo's path
 4. Find the corresponding config in
-   `$HOME/.config/jj/repos/$CONFIG_ID/config.toml`
+   `$HOME/.local/share/jj/repos/$CONFIG_ID/config.toml`
 5. Load that config.
 
 However, these steps can fail. The following sections are how we will handle
