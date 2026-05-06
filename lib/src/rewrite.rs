@@ -1314,11 +1314,18 @@ pub struct SquashedCommit<'repo> {
 /// Squash `sources` into `destination` and return a [`SquashedCommit`] for the
 /// resulting commit. Caller is responsible for setting the description and
 /// finishing the commit.
+///
+/// If `restore_descendants` is set, descendants of the destination keep their
+/// original content (they are reparented rather than 3-way merged). Commits on
+/// the path between any source and the destination, and the destination itself,
+/// are still rebased — their trees must be recomputed for the squash to be
+/// correct.
 pub async fn squash_commits<'repo>(
     repo: &'repo mut MutableRepo,
     sources: &[CommitWithSelection],
     destination: &Commit,
     keep_emptied: bool,
+    restore_descendants: bool,
 ) -> BackendResult<Option<SquashedCommit<'repo>>> {
     struct SourceCommit<'a> {
         commit: &'a CommitWithSelection,
@@ -1382,21 +1389,58 @@ pub async fn squash_commits<'repo>(
     // TODO: indexing error shouldn't be a "BackendError"
     .map_err(|err| BackendError::Other(err.into()))?
     {
-        // If we're moving changes to a descendant, first rebase descendants onto the
-        // rewritten sources. Otherwise it will likely already have the content
-        // changes we're moving, so applying them will have no effect and the
-        // changes will disappear.
+        // If we're moving changes to a descendant, first rewrite descendants of
+        // the rewritten sources. Otherwise the destination would already have
+        // the content changes we're moving, so applying them would have no
+        // effect and the changes would disappear.
+        //
+        // Commits on the path from any source to the destination (including the
+        // destination) must be rebased so the destination's tree is correct.
+        // Strict descendants of the destination can be reparented to preserve
+        // their content when `restore_descendants` is set.
         let immutable = RevsetExpression::none();
-        let options = RebaseOptions::default();
-        repo.rebase_descendants_with_options(&immutable, &options, |old_commit, rebased_commit| {
-            if old_commit.id() != destination.id() {
-                return;
-            }
-            rewritten_destination = match rebased_commit {
-                RebasedCommit::Rewritten(commit) => commit,
-                RebasedCommit::Abandoned { .. } => panic!("all commits should be kept"),
-            };
-        })
+        let rebase_options = RebaseOptions::default();
+        let roots = source_commits
+            .iter()
+            .map(|s| s.commit.commit.id().clone())
+            .collect_vec();
+        let dest_id = destination.id().clone();
+        repo.transform_descendants_with_options(
+            roots,
+            &immutable,
+            &HashMap::new(),
+            &rebase_options.rewrite_refs,
+            async |mut rewriter| {
+                if !rewriter.parents_changed() {
+                    return Ok(());
+                }
+                let old_commit_id = rewriter.old_commit().id().clone();
+                let on_path = old_commit_id == dest_id || {
+                    rewriter
+                        .repo_mut()
+                        .index()
+                        .is_ancestor(&old_commit_id, &dest_id)
+                        // TODO: indexing error shouldn't be a "BackendError"
+                        .map_err(|err| BackendError::Other(err.into()))?
+                };
+                if on_path {
+                    let rebased = rebase_commit_with_options(rewriter, &rebase_options).await?;
+                    if old_commit_id == dest_id {
+                        rewritten_destination = match rebased {
+                            RebasedCommit::Rewritten(commit) => commit,
+                            RebasedCommit::Abandoned { .. } => {
+                                unreachable!("destination is on the rebase path, never abandoned")
+                            }
+                        };
+                    }
+                } else if restore_descendants {
+                    rewriter.reparent().write().await?;
+                } else {
+                    rebase_commit_with_options(rewriter, &rebase_options).await?;
+                }
+                Ok(())
+            },
+        )
         .await?;
     }
     let mut predecessors = vec![destination.id().clone()];
