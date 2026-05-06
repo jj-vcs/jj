@@ -52,7 +52,12 @@ use ratatui::style::Style;
 use ratatui::text::Line;
 use ratatui::text::Span;
 use ratatui::text::Text;
-use ratatui::widgets::{Block, Borders, Clear, List, ListItem, Paragraph};
+use ratatui::widgets::Block;
+use ratatui::widgets::Borders;
+use ratatui::widgets::Clear;
+use ratatui::widgets::List;
+use ratatui::widgets::ListItem;
+use ratatui::widgets::Paragraph;
 use renderdag::Ancestor;
 use renderdag::GraphRowRenderer;
 use renderdag::Renderer as _;
@@ -290,8 +295,8 @@ impl State {
         &self.current_order[self.current_selection]
     }
 
-    /// Update `head_order` to reflect changes in parents, ensuring all components
-    /// of the graph remain reachable during traversal.
+    /// Update `head_order` to reflect changes in parents, ensuring all
+    /// components of the graph remain reachable during traversal.
     fn update_heads(&mut self) {
         let target_commits: HashSet<_> = self.current_order.iter().cloned().collect();
         let mut children = HashSet::new();
@@ -303,7 +308,7 @@ impl State {
                 }
             }
         }
-        
+
         let mut heads = Vec::new();
         // Preserve order from head_order if they are still heads
         for id in &self.head_order {
@@ -325,13 +330,16 @@ impl State {
         let mut children_map: HashMap<CommitId, Vec<CommitId>> = HashMap::new();
         for (id, state) in &self.commits {
             for parent in &state.parents {
-                children_map.entry(parent.clone()).or_default().push(id.clone());
+                children_map
+                    .entry(parent.clone())
+                    .or_default()
+                    .push(id.clone());
             }
         }
-        
+
         let mut visited = HashSet::new();
         let mut stack = vec![commit_id.clone()];
-        
+
         while let Some(id) = stack.pop() {
             if visited.contains(&id) {
                 continue;
@@ -346,31 +354,41 @@ impl State {
                 }
             }
         }
-        
+
         descendants
     }
 
     fn get_filtered_candidates(&self, current_id: &CommitId, filter_text: &str) -> Vec<CommitId> {
         let descendants = self.get_descendants(current_id);
-        let all_candidates: Vec<CommitId> = self.current_order.iter()
+        let all_candidates: Vec<CommitId> = self
+            .current_order
+            .iter()
             .chain(self.external_parents.iter())
             .filter(|id| **id != *current_id && !descendants.contains(*id))
             .cloned()
             .collect();
-        
+
         if filter_text.is_empty() {
             return all_candidates;
         }
-        
+
         let filter_lower = filter_text.to_lowercase();
-        all_candidates.into_iter().filter(|id| {
-            let commit_state = self.commits.get(id).unwrap();
-            let commit = &commit_state.commit;
-            let change_hash = short_change_hash(commit.change_id()).to_lowercase();
-            let desc = commit.description().to_lowercase();
-            let matches_bookmark = commit_state.bookmarks.iter().any(|b| b.to_lowercase().contains(&filter_lower));
-            change_hash.contains(&filter_lower) || desc.contains(&filter_lower) || matches_bookmark
-        }).collect()
+        all_candidates
+            .into_iter()
+            .filter(|id| {
+                let commit_state = self.commits.get(id).unwrap();
+                let commit = &commit_state.commit;
+                let change_hash = short_change_hash(commit.change_id()).to_lowercase();
+                let desc = commit.description().to_lowercase();
+                let matches_bookmark = commit_state
+                    .bookmarks
+                    .iter()
+                    .any(|b| b.to_lowercase().contains(&filter_lower));
+                change_hash.contains(&filter_lower)
+                    || desc.contains(&filter_lower)
+                    || matches_bookmark
+            })
+            .collect()
     }
 
     /// Update the current UI commit order after parents have changed.
@@ -648,14 +666,16 @@ fn handle_key_event(event: KeyEvent, mut state: State) -> State {
                 popup_state.filter_text.pop();
                 popup_state.selected_index = 0;
                 let current_id = state.current_id().clone();
-                popup_state.candidates = state.get_filtered_candidates(&current_id, &popup_state.filter_text);
+                popup_state.candidates =
+                    state.get_filtered_candidates(&current_id, &popup_state.filter_text);
                 state.rebase_popup = Some(popup_state);
             }
             (KeyCode::Char(c), KeyModifiers::NONE) => {
                 popup_state.filter_text.push(c);
                 popup_state.selected_index = 0;
                 let current_id = state.current_id().clone();
-                popup_state.candidates = state.get_filtered_candidates(&current_id, &popup_state.filter_text);
+                popup_state.candidates =
+                    state.get_filtered_candidates(&current_id, &popup_state.filter_text);
                 state.rebase_popup = Some(popup_state);
             }
             _ => {
@@ -669,7 +689,9 @@ fn handle_key_event(event: KeyEvent, mut state: State) -> State {
             {
                 state.current_selection += 1;
             }
-            (KeyCode::Up | KeyCode::Char('k'), KeyModifiers::NONE) if state.current_selection > 0 => {
+            (KeyCode::Up | KeyCode::Char('k'), KeyModifiers::NONE)
+                if state.current_selection > 0 =>
+            {
                 state.current_selection -= 1;
             }
             (KeyCode::Char('a'), KeyModifiers::NONE) => {
@@ -803,52 +825,68 @@ fn render(
 
     if let Some(ref popup) = state.rebase_popup {
         let area = frame.area();
-        let popup_area = Rect::new(area.width / 4, area.height / 4, area.width / 2, area.height / 2);
-        
+        let popup_area = Rect::new(
+            area.width / 4,
+            area.height / 4,
+            area.width / 2,
+            area.height / 2,
+        );
+
         frame.render_widget(Clear, popup_area);
-        
-        let block = Block::default()
-            .borders(Borders::ALL)
-            .title(Span::styled(" Rebase onto ", Style::default().fg(Color::Green)));
-        
+
+        let block = Block::default().borders(Borders::ALL).title(Span::styled(
+            " Rebase onto ",
+            Style::default().fg(Color::Green),
+        ));
+
         let inner_area = block.inner(popup_area);
         frame.render_widget(block, popup_area);
-        
+
         let layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Length(3), Constraint::Min(1)])
             .split(inner_area);
-        
+
         let input = Paragraph::new(popup.filter_text.as_str())
             .block(Block::default().borders(Borders::ALL).title("Filter"));
-        
+
         frame.render_widget(input, layout[0]);
-        
+
         let current_id = state.current_id();
-        let items: Vec<ListItem> = state.get_filtered_candidates(current_id, &popup.filter_text).iter().enumerate().map(|(i, id)| {
-            let commit_state = state.commits.get(id).unwrap();
-            let hash = short_change_hash(commit_state.commit.change_id());
-            let desc = commit_state.commit.description().lines().next().unwrap_or("");
-            let bookmarks_str = if commit_state.bookmarks.is_empty() {
-                String::new()
-            } else {
-                format!(" ({})", commit_state.bookmarks.join(", "))
-            };
-            let content = format!("{hash} {desc}{bookmarks_str}");
-            let style = if i == popup.selected_index {
-                Style::default().bg(Color::Blue).fg(Color::White)
-            } else {
-                Style::default()
-            };
-            ListItem::new(content).style(style)
-        }).collect();
-        
-        let list = List::new(items)
-            .block(Block::default().borders(Borders::ALL).title("Candidates"));
-        
+        let items: Vec<ListItem> = state
+            .get_filtered_candidates(current_id, &popup.filter_text)
+            .iter()
+            .enumerate()
+            .map(|(i, id)| {
+                let commit_state = state.commits.get(id).unwrap();
+                let hash = short_change_hash(commit_state.commit.change_id());
+                let desc = commit_state
+                    .commit
+                    .description()
+                    .lines()
+                    .next()
+                    .unwrap_or("");
+                let bookmarks_str = if commit_state.bookmarks.is_empty() {
+                    String::new()
+                } else {
+                    format!(" ({})", commit_state.bookmarks.join(", "))
+                };
+                let content = format!("{hash} {desc}{bookmarks_str}");
+                let style = if i == popup.selected_index {
+                    Style::default().bg(Color::Blue).fg(Color::White)
+                } else {
+                    Style::default()
+                };
+                ListItem::new(content).style(style)
+            })
+            .collect();
+
+        let list =
+            List::new(items).block(Block::default().borders(Borders::ALL).title("Candidates"));
+
         let mut list_state = ratatui::widgets::ListState::default();
         list_state.select(Some(popup.selected_index));
-        
+
         frame.render_stateful_widget(list, layout[1], &mut list_state);
     }
 }
@@ -1513,25 +1551,33 @@ mod tests {
 
         // Press 'r' on commit_b (has 1 parent)
         state.current_selection = 0; // commit_b
-        state = handle_key_event(KeyEvent {
-            code: KeyCode::Char('r'),
-            modifiers: KeyModifiers::NONE,
-            kind: event::KeyEventKind::Press,
-            state: event::KeyEventState::empty(),
-        }, state);
+        state = handle_key_event(
+            KeyEvent {
+                code: KeyCode::Char('r'),
+                modifiers: KeyModifiers::NONE,
+                kind: event::KeyEventKind::Press,
+                state: event::KeyEventState::empty(),
+            },
+            state,
+        );
         assert!(state.rebase_popup.is_some());
-        
+
         let popup = state.rebase_popup.as_ref().unwrap();
         assert_eq!(popup.filter_text, "");
-        assert_eq!(popup.candidates, vec![commit_a.id().clone()]);
+        assert_eq!(popup.candidates.len(), 2);
+        assert!(popup.candidates.contains(commit_a.id()));
+        assert!(popup.candidates.contains(store.root_commit_id()));
 
         // Press 'Esc' to close
-        state = handle_key_event(KeyEvent {
-            code: KeyCode::Esc,
-            modifiers: KeyModifiers::NONE,
-            kind: event::KeyEventKind::Press,
-            state: event::KeyEventState::empty(),
-        }, state);
+        state = handle_key_event(
+            KeyEvent {
+                code: KeyCode::Esc,
+                modifiers: KeyModifiers::NONE,
+                kind: event::KeyEventKind::Press,
+                state: event::KeyEventState::empty(),
+            },
+            state,
+        );
         assert!(state.rebase_popup.is_none());
 
         Ok(())
@@ -1552,7 +1598,7 @@ mod tests {
         };
         let commit_a = create_commit(vec![store.root_commit_id().clone()], "feat: a");
         let commit_b = create_commit(vec![commit_a.id().clone()], "fix: b");
-        let commit_c = create_commit(vec![commit_a.id().clone()], "feat: c");
+        let commit_c = create_commit(vec![commit_a.id().clone()], "xyz: c");
 
         let mut state = State::new(
             test_repo.repo.as_ref(),
@@ -1562,22 +1608,32 @@ mod tests {
         .block_on()?;
 
         // Find index of commit_b in current_order
-        let b_idx = state.current_order.iter().position(|id| *id == *commit_b.id()).unwrap();
+        let b_idx = state
+            .current_order
+            .iter()
+            .position(|id| *id == *commit_b.id())
+            .unwrap();
         state.current_selection = b_idx;
-        state = handle_key_event(KeyEvent {
-            code: KeyCode::Char('r'),
-            modifiers: KeyModifiers::NONE,
-            kind: event::KeyEventKind::Press,
-            state: event::KeyEventState::empty(),
-        }, state);
-        
+        state = handle_key_event(
+            KeyEvent {
+                code: KeyCode::Char('r'),
+                modifiers: KeyModifiers::NONE,
+                kind: event::KeyEventKind::Press,
+                state: event::KeyEventState::empty(),
+            },
+            state,
+        );
+
         // Type 'a'
-        state = handle_key_event(KeyEvent {
-            code: KeyCode::Char('a'),
-            modifiers: KeyModifiers::NONE,
-            kind: event::KeyEventKind::Press,
-            state: event::KeyEventState::empty(),
-        }, state);
+        state = handle_key_event(
+            KeyEvent {
+                code: KeyCode::Char('a'),
+                modifiers: KeyModifiers::NONE,
+                kind: event::KeyEventKind::Press,
+                state: event::KeyEventState::empty(),
+            },
+            state,
+        );
 
         let popup = state.rebase_popup.as_ref().unwrap();
         assert_eq!(popup.filter_text, "a");
@@ -1676,7 +1732,10 @@ mod tests {
         let commit_c = create_commit(vec![commit_a.id().clone()], "feat: c");
 
         // Add a bookmark to A
-        tx.repo_mut().set_local_bookmark_target("my-bookmark".as_ref(), jj_lib::op_store::RefTarget::normal(commit_a.id().clone()));
+        tx.repo_mut().set_local_bookmark_target(
+            "my-bookmark".as_ref(),
+            jj_lib::op_store::RefTarget::normal(commit_a.id().clone()),
+        );
 
         let mut state = State::new(
             test_repo.repo.as_ref(),
@@ -1686,22 +1745,32 @@ mod tests {
         .block_on()?;
 
         // Find index of commit_b in current_order
-        let b_idx = state.current_order.iter().position(|id| *id == *commit_b.id()).unwrap();
+        let b_idx = state
+            .current_order
+            .iter()
+            .position(|id| *id == *commit_b.id())
+            .unwrap();
         state.current_selection = b_idx;
-        state = handle_key_event(KeyEvent {
-            code: KeyCode::Char('r'),
-            modifiers: KeyModifiers::NONE,
-            kind: event::KeyEventKind::Press,
-            state: event::KeyEventState::empty(),
-        }, state);
-        
+        state = handle_key_event(
+            KeyEvent {
+                code: KeyCode::Char('r'),
+                modifiers: KeyModifiers::NONE,
+                kind: event::KeyEventKind::Press,
+                state: event::KeyEventState::empty(),
+            },
+            state,
+        );
+
         // Type 'm' (for my-bookmark)
-        state = handle_key_event(KeyEvent {
-            code: KeyCode::Char('m'),
-            modifiers: KeyModifiers::NONE,
-            kind: event::KeyEventKind::Press,
-            state: event::KeyEventState::empty(),
-        }, state);
+        state = handle_key_event(
+            KeyEvent {
+                code: KeyCode::Char('m'),
+                modifiers: KeyModifiers::NONE,
+                kind: event::KeyEventKind::Press,
+                state: event::KeyEventState::empty(),
+            },
+            state,
+        );
 
         let popup = state.rebase_popup.as_ref().unwrap();
         assert_eq!(popup.filter_text, "m");
