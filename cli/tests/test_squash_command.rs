@@ -498,6 +498,652 @@ fn test_squash_keep_emptied() {
 }
 
 #[test]
+fn test_squash_restore_descendants_into_siblings() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "a"])
+        .success();
+    work_dir.write_file("file", "foo\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "b"])
+        .success();
+    work_dir.write_file("file", "bar\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c"])
+        .success();
+    work_dir.write_file("file", "baz\n");
+    work_dir.run_jj(["new", "a"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "d"])
+        .success();
+    work_dir.write_file("other", "stuff\n");
+
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-p"]), @"
+    @  yqosqzyt test.user@example.com 2001-02-03 08:05:15 d cc693ac7
+    │  (no description set)
+    │  Added regular file other:
+    │          1: stuff
+    │ ○  mzvwutvl test.user@example.com 2001-02-03 08:05:13 c 4a345448
+    │ │  (no description set)
+    │ │  Modified regular file file:
+    │ │     1     : bar
+    │ │          1: baz
+    │ ○  kkmpptxz test.user@example.com 2001-02-03 08:05:11 b 7da98866
+    ├─╯  (no description set)
+    │    Modified regular file file:
+    │       1     : foo
+    │            1: bar
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:09 a 5ab2019f
+    │  (no description set)
+    │  Added regular file file:
+    │          1: foo
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj([
+        "squash",
+        "--from",
+        "b",
+        "--into",
+        "d",
+        "--restore-descendants",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Rebased 1 descendant commits (while preserving their content).
+    Working copy  (@) now at: yqosqzyt 00d05534 d | (no description set)
+    Parent commit (@-)      : qpvuntsm 5ab2019f a b | (no description set)
+    Added 0 files, modified 1 files, removed 0 files
+    New conflicts appeared in 1 commits:
+      mzvwutvl c53c75f0 c | (conflict) (no description set)
+    Hint: To resolve the conflicts, start by creating a commit on top of
+    the conflicted commit:
+      jj new mzvwutvl
+    Then use `jj resolve`, or edit the conflict markers in the file directly.
+    Once the conflicts are resolved, you can inspect the result with `jj diff`.
+    Then run `jj squash` to move the resolution into the conflicted commit.
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-p"]), @r"
+    @  yqosqzyt test.user@example.com 2001-02-03 08:05:16 d 00d05534
+    │  (no description set)
+    │  Modified regular file file:
+    │     1     : foo
+    │          1: bar
+    │  Added regular file other:
+    │          1: stuff
+    │ ×  mzvwutvl test.user@example.com 2001-02-03 08:05:16 c c53c75f0 (conflict)
+    ├─╯  (no description set)
+    │    Created conflict in file:
+    │       1     : foo
+    │            1: <<<<<<< conflict 1 of 1
+    │            2: %%%%%%% diff from: kkmpptxz 7da98866 (parents of rebased revision)
+    │            3: \\\\\\\        to: qpvuntsm 5ab2019f (rebase destination)
+    │            4: -bar
+    │            5: +foo
+    │            6: +++++++ mzvwutvl 4a345448 (rebased revision)
+    │            7: baz
+    │            8: >>>>>>> conflict 1 of 1 ends
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:09 a b 5ab2019f
+    │  (no description set)
+    │  Added regular file file:
+    │          1: foo
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_squash_restore_descendants_into_descendant() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "a"])
+        .success();
+    work_dir.write_file("file2", "extra\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "b"])
+        .success();
+    work_dir.write_file("file", "B\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c"])
+        .success();
+    work_dir.write_file("file", "C\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "d"])
+        .success();
+    work_dir.write_file("file", "D\n");
+    work_dir.run_jj(["new", "a"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "e"])
+        .success();
+    work_dir.write_file("file", "E\n");
+
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-p"]), @"
+    @  yostqsxw test.user@example.com 2001-02-03 08:05:17 e ba2b1ded
+    │  (no description set)
+    │  Added regular file file:
+    │          1: E
+    │ ○  yqosqzyt test.user@example.com 2001-02-03 08:05:15 d 21f21ea1
+    │ │  (no description set)
+    │ │  Modified regular file file:
+    │ │     1     : C
+    │ │          1: D
+    │ ○  mzvwutvl test.user@example.com 2001-02-03 08:05:13 c c30cf113
+    │ │  (no description set)
+    │ │  Modified regular file file:
+    │ │     1     : B
+    │ │          1: C
+    │ ○  kkmpptxz test.user@example.com 2001-02-03 08:05:11 b 55357dd3
+    ├─╯  (no description set)
+    │    Added regular file file:
+    │            1: B
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:09 a 03702910
+    │  (no description set)
+    │  Added regular file file2:
+    │          1: extra
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj([
+        "squash",
+        "--from",
+        "a",
+        "--into",
+        "c",
+        "--restore-descendants",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Rebased 1 descendant commits (while preserving their content).
+    Working copy  (@) now at: yostqsxw c2f3c260 e | (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 a | (empty) (no description set)
+    Added 0 files, modified 0 files, removed 1 files
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-p"]), @"
+    @  yostqsxw test.user@example.com 2001-02-03 08:05:18 e c2f3c260
+    │  (no description set)
+    │  Added regular file file:
+    │          1: E
+    │ ○  yqosqzyt test.user@example.com 2001-02-03 08:05:18 d 3dcddd86
+    │ │  (no description set)
+    │ │  Modified regular file file:
+    │ │     1     : C
+    │ │          1: D
+    │ ○  mzvwutvl test.user@example.com 2001-02-03 08:05:18 c 4dad5015
+    │ │  (no description set)
+    │ │  Modified regular file file:
+    │ │     1     : B
+    │ │          1: C
+    │ │  Added regular file file2:
+    │ │          1: extra
+    │ ○  kkmpptxz test.user@example.com 2001-02-03 08:05:18 b 9dcf425c
+    ├─╯  (no description set)
+    │    Added regular file file:
+    │            1: B
+    ◆  zzzzzzzz root() 00000000 a
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_squash_restore_descendants_into_ancestor() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "a"])
+        .success();
+    work_dir.write_file("file", "A\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "b"])
+        .success();
+    work_dir.write_file("file", "B\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c"])
+        .success();
+    work_dir.write_file("file2", "extra\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "d"])
+        .success();
+    work_dir.write_file("file", "D\n");
+
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-p"]), @"
+    @  yqosqzyt test.user@example.com 2001-02-03 08:05:15 d 43f1d4c5
+    │  (no description set)
+    │  Modified regular file file:
+    │     1     : B
+    │          1: D
+    ○  mzvwutvl test.user@example.com 2001-02-03 08:05:13 c 316511ed
+    │  (no description set)
+    │  Added regular file file2:
+    │          1: extra
+    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:11 b 76a4f6a5
+    │  (no description set)
+    │  Modified regular file file:
+    │     1     : A
+    │          1: B
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:09 a 69899708
+    │  (no description set)
+    │  Added regular file file:
+    │          1: A
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj([
+        "squash",
+        "--from",
+        "c",
+        "--into",
+        "a",
+        "--restore-descendants",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Rebased 2 descendant commits (while preserving their content).
+    Working copy  (@) now at: yqosqzyt 94196734 d | (no description set)
+    Parent commit (@-)      : kkmpptxz 2c47ce29 b c | (no description set)
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-p"]), @"
+    @  yqosqzyt test.user@example.com 2001-02-03 08:05:16 d 94196734
+    │  (no description set)
+    │  Modified regular file file:
+    │     1     : B
+    │          1: D
+    │  Added regular file file2:
+    │          1: extra
+    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:16 b c 2c47ce29
+    │  (no description set)
+    │  Modified regular file file:
+    │     1     : A
+    │          1: B
+    │  Removed regular file file2:
+    │     1     : extra
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:16 a c3f685a1
+    │  (no description set)
+    │  Added regular file file:
+    │          1: A
+    │  Added regular file file2:
+    │          1: extra
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_squash_restore_descendants_keep_emptied() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "a"])
+        .success();
+    work_dir.write_file("file", "a\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "b"])
+        .success();
+    work_dir.write_file("file", "b\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c"])
+        .success();
+    work_dir.write_file("file", "c\n");
+
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-p"]), @"
+    @  mzvwutvl test.user@example.com 2001-02-03 08:05:13 c c6fd7a79
+    │  (no description set)
+    │  Modified regular file file:
+    │     1     : b
+    │          1: c
+    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:11 b fed4d1a2
+    │  (no description set)
+    │  Modified regular file file:
+    │     1     : a
+    │          1: b
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:09 a e88768e6
+    │  (no description set)
+    │  Added regular file file:
+    │          1: a
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj([
+        "squash",
+        "-r",
+        "b",
+        "--keep-emptied",
+        "--restore-descendants",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Rebased 2 descendant commits (while preserving their content).
+    Working copy  (@) now at: mzvwutvl 91d6cb0b c | (no description set)
+    Parent commit (@-)      : kkmpptxz 0a0dd329 b | (no description set)
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-p"]), @"
+    @  mzvwutvl test.user@example.com 2001-02-03 08:05:14 c 91d6cb0b
+    │  (no description set)
+    │  Modified regular file file:
+    │     1     : a
+    │          1: c
+    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:14 b 0a0dd329
+    │  (no description set)
+    │  Modified regular file file:
+    │     1     : b
+    │          1: a
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:14 a 39ffcc09
+    │  (no description set)
+    │  Added regular file file:
+    │          1: b
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_squash_restore_descendants_fanout() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "a"])
+        .success();
+    work_dir.write_file("file", "a\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "b"])
+        .success();
+    work_dir.write_file("file", "b\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c1"])
+        .success();
+    work_dir.write_file("file", "c1\n");
+    work_dir.run_jj(["new", "b"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c2"])
+        .success();
+    work_dir.write_file("file", "c2\n");
+
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-p"]), @"
+    @  yqosqzyt test.user@example.com 2001-02-03 08:05:15 c2 1eb43759
+    │  (no description set)
+    │  Modified regular file file:
+    │     1     : b
+    │          1: c2
+    │ ○  mzvwutvl test.user@example.com 2001-02-03 08:05:13 c1 0dc5077c
+    ├─╯  (no description set)
+    │    Modified regular file file:
+    │       1     : b
+    │            1: c1
+    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:11 b fed4d1a2
+    │  (no description set)
+    │  Modified regular file file:
+    │     1     : a
+    │          1: b
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:09 a e88768e6
+    │  (no description set)
+    │  Added regular file file:
+    │          1: a
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["squash", "-r", "b", "--restore-descendants"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Rebased 2 descendant commits (while preserving their content).
+    Working copy  (@) now at: yqosqzyt 52bf8ab6 c2 | (no description set)
+    Parent commit (@-)      : qpvuntsm 9382e024 a b | (no description set)
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-p"]), @"
+    @  yqosqzyt test.user@example.com 2001-02-03 08:05:16 c2 52bf8ab6
+    │  (no description set)
+    │  Modified regular file file:
+    │     1     : b
+    │          1: c2
+    │ ○  mzvwutvl test.user@example.com 2001-02-03 08:05:16 c1 c632d97b
+    ├─╯  (no description set)
+    │    Modified regular file file:
+    │       1     : b
+    │            1: c1
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:16 a b 9382e024
+    │  (no description set)
+    │  Added regular file file:
+    │          1: b
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_squash_restore_descendants_partial() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "a"])
+        .success();
+    work_dir.write_file("file1", "a\n");
+    work_dir.write_file("file2", "a\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "b"])
+        .success();
+    work_dir.write_file("file1", "b\n");
+    work_dir.write_file("file2", "b\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c"])
+        .success();
+    work_dir.write_file("file1", "c\n");
+    work_dir.write_file("file2", "c\n");
+
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-p"]), @"
+    @  mzvwutvl test.user@example.com 2001-02-03 08:05:13 c 87059ac9
+    │  (no description set)
+    │  Modified regular file file1:
+    │     1     : b
+    │          1: c
+    │  Modified regular file file2:
+    │     1     : b
+    │          1: c
+    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:11 b f2c9709f
+    │  (no description set)
+    │  Modified regular file file1:
+    │     1     : a
+    │          1: b
+    │  Modified regular file file2:
+    │     1     : a
+    │          1: b
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:09 a 64ea60be
+    │  (no description set)
+    │  Added regular file file1:
+    │          1: a
+    │  Added regular file file2:
+    │          1: a
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["squash", "-r", "b", "file1", "--restore-descendants"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Rebased 2 descendant commits (while preserving their content).
+    Working copy  (@) now at: mzvwutvl 5e5d8791 c | (no description set)
+    Parent commit (@-)      : kkmpptxz ecdaed26 b | (no description set)
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-p"]), @"
+    @  mzvwutvl test.user@example.com 2001-02-03 08:05:14 c 5e5d8791
+    │  (no description set)
+    │  Modified regular file file1:
+    │     1     : a
+    │          1: c
+    │  Modified regular file file2:
+    │     1     : b
+    │          1: c
+    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:14 b ecdaed26
+    │  (no description set)
+    │  Modified regular file file1:
+    │     1     : b
+    │          1: a
+    │  Modified regular file file2:
+    │     1     : a
+    │          1: b
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:14 a 0ff0de75
+    │  (no description set)
+    │  Added regular file file1:
+    │          1: b
+    │  Added regular file file2:
+    │          1: a
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_squash_restore_descendants_no_descendants() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file", "a\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file", "b\n");
+
+    let output = work_dir.run_jj(["squash", "--restore-descendants"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Working copy  (@) now at: kkmpptxz 56c5264f (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 668074c7 (no description set)
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_squash_restore_descendants_only_destination_subtree() {
+    // a ─┬─ b (destination) ── d
+    //    └─ c
+    //
+    // `d` descends from the destination, so it keeps its content. `c` doesn't,
+    // so it should be rebased like it would be without `--restore-descendants`,
+    // instead of keeping the content that was moved out of `a`.
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "a"])
+        .success();
+    work_dir.write_file("file1", "a\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "b"])
+        .success();
+    work_dir.write_file("file2", "b\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "d"])
+        .success();
+    work_dir.write_file("file3", "d\n");
+    work_dir.run_jj(["new", "a"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c"])
+        .success();
+    work_dir.write_file("file4", "c\n");
+
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-p"]), @"
+    @  yqosqzyt test.user@example.com 2001-02-03 08:05:15 c c9be50ae
+    │  (no description set)
+    │  Added regular file file4:
+    │          1: c
+    │ ○  mzvwutvl test.user@example.com 2001-02-03 08:05:13 d 41827346
+    │ │  (no description set)
+    │ │  Added regular file file3:
+    │ │          1: d
+    │ ○  kkmpptxz test.user@example.com 2001-02-03 08:05:11 b d848c532
+    ├─╯  (no description set)
+    │    Added regular file file2:
+    │            1: b
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:09 a e6086990
+    │  (no description set)
+    │  Added regular file file1:
+    │          1: a
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj([
+        "squash",
+        "--from",
+        "a",
+        "--into",
+        "b",
+        "--restore-descendants",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Rebased 1 descendant commits (while preserving their content).
+    Working copy  (@) now at: yqosqzyt 7f7cc1a6 c | (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 a | (empty) (no description set)
+    Added 0 files, modified 0 files, removed 1 files
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-p"]), @"
+    @  yqosqzyt test.user@example.com 2001-02-03 08:05:16 c 7f7cc1a6
+    │  (no description set)
+    │  Added regular file file4:
+    │          1: c
+    │ ○  mzvwutvl test.user@example.com 2001-02-03 08:05:16 d ad3f40d8
+    │ │  (no description set)
+    │ │  Added regular file file3:
+    │ │          1: d
+    │ ○  kkmpptxz test.user@example.com 2001-02-03 08:05:16 b c91aa747
+    ├─╯  (no description set)
+    │    Added regular file file1:
+    │            1: a
+    │    Added regular file file2:
+    │            1: b
+    ◆  zzzzzzzz root() 00000000 a
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_squash_from_to() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

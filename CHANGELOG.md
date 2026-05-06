@@ -37,6 +37,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   where you need to pass multiple arguments to the tool, such as separate args
   for the range start and range end.
 
+* `jj squash` now accepts a `--restore-descendants` flag, matching `jj abandon`,
+  `jj diffedit`, and `jj restore`. When used, descendants of the destination
+  commit keep their original content rather than being 3-way merged.
+
 ### Fixed bugs
 
 ## [0.45.1] - 2026-09-03
