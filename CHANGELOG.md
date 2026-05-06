@@ -39,6 +39,10 @@ and this project adheres to
   can't be detected yet, so `git.object-hash` is still used in that case.
   [#3813](https://github.com/jj-vcs/jj/issues/3813)
 
+* `jj squash` now accepts a `--restore-descendants` flag, matching `jj abandon`,
+  `jj diffedit`, and `jj restore`. When used, descendants of the destination
+  commit keep their original content rather than being 3-way merged.
+
 ### Fixed bugs
 
 * In colocated workspaces, `--ignore-working-copy` and `--at-op` now prevent
