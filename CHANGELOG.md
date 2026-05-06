@@ -60,6 +60,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `JJ_PAGER` can now override the `ui.pager` config, matching `JJ_EDITOR` for
   callers that need a jj-specific environment override.
 
+* A new revset function `remote_heads` evaluates to the revisions pointed
+  to by the HEAD refs (default bookmark) of the remotes. Since this ref is
+  stored internally per remote, the revset-alias "trunk" is not written to the
+  repo-config on clone or init anymore. For new repositories, the global trunk
+  alias will now take effect. Its new default is:
+  `remote_heads() | remote_bookmarks(exact:main | exact:master | exact:trunk)`.
+
 ### Fixed bugs
 
 * Improving consistency with `git` handling of `.gitignore`, including `/`

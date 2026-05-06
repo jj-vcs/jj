@@ -328,6 +328,9 @@ revsets (expressions) as arguments.
 * `remote_tags([name_pattern], [[remote=]remote_pattern])`: All remote tags
   targets across all remotes. See `remote_bookmarks()` for arguments.
 
+* `remote_heads([remote_pattern])`: The remote heads (default bookmarks) of all
+  remotes or the ones matching `remote_pattern`.
+
 * `visible_heads()`: All visible heads (same as `heads(all())` if no hidden
   revisions are mentioned).
 
@@ -589,18 +592,17 @@ are defined as aliases in order to allow you to overwrite them as needed.
 See [revsets.toml](https://github.com/jj-vcs/jj/blob/main/cli/src/config/revsets.toml)
 for a comprehensive list.
 
-* `trunk()`: Resolves to the head commit for the default bookmark of the default
-  remote, or the remote named `upstream` or `origin`. This is set at the
-  repository level upon initialization of a Jujutsu repository.
+* `trunk()`: Resolves to `remote_heads() | remote_bookmarks(exact:main | exact:master | exact:trunk)`.
+  In words: The union of head commits for remote bookmarks called "main",
+  "master" or "trunk" and any remote's HEAD ref. The HEAD ref corresponds to the
+  "default branch" setting on GitHub, for example. Note that this is only set
+  when initially cloning a repository. It's not updated when the setting changes
+  on GitHub later.
 
-  If the default bookmark cannot be resolved during initialization, the default
-  global configuration tries the bookmarks `main`, `master`, and `trunk` on the
-  `upstream` and `origin` remotes. If more than one potential trunk commit
-  exists, the newest one is chosen. If none of the bookmarks exist, the revset
-  evaluates to `root()`.
-
-  You can [override](./config.md) this as appropriate. If you do, make sure it
-  always resolves to exactly one commit. For example:
+  QUESTION: Why did it say that trunk must always resolve to one revision?
+  I don't think that's a problem, so I removed the note. The new default trunk
+  may often resolve to more than one revision!
+  You can [override](./config.md) this as appropriate. For example:
 
   ```toml
   [revset-aliases]

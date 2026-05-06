@@ -288,14 +288,10 @@ pub async fn cmd_git_clone(
             remote: remote_name,
             fetch_bookmarks: is_specific.then_some(args.branches.as_deref().unwrap_or(&[])),
             fetch_tags: is_specific.then_some(args.tags.as_deref().unwrap_or(&[])),
-            trunk: working_branch
-                .as_deref()
-                .filter(|_| working_is_default)
-                .map(|name| name.to_remote_symbol(remote_name)),
         },
     )?;
 
-    if let Some(name) = &working_branch {
+    if let Some(name) = working_branch {
         let working_symbol = name.to_remote_symbol(remote_name);
         let working_branch_remote_ref = workspace_command
             .repo()
@@ -306,11 +302,11 @@ pub async fn cmd_git_clone(
             if let Ok(commit) = tx.repo().store().get_commit_async(&commit_id).await {
                 tx.check_out(&commit)?;
             }
-            tx.finish(
-                ui,
-                format!("check out git remote's branch: {}", name.as_symbol()),
-            )
-            .await?;
+            let tx_description = format!("check out git remote's branch: {}", name.as_symbol());
+            if working_is_default {
+                tx.repo_mut().set_remote_head(remote_name, name);
+            }
+            tx.finish(ui, tx_description).await?;
         }
     }
 

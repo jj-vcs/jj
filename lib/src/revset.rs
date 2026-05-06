@@ -161,6 +161,9 @@ pub enum RevsetCommitRef {
     },
     GitRefs,
     GitHead,
+    RemoteHeads {
+        remote: StringExpression,
+    },
 }
 
 /// String expressions to match `name@remote` bookmarks/tags.
@@ -456,6 +459,10 @@ impl<St: ExpressionState<CommitRef = RevsetCommitRef>> RevsetExpression<St> {
             symbol,
             remote_ref_state,
         }))
+    }
+
+    pub fn remote_heads(remote: StringExpression) -> Arc<Self> {
+        Arc::new(Self::CommitRef(RevsetCommitRef::RemoteHeads { remote }))
     }
 
     pub fn git_refs() -> Arc<Self> {
@@ -977,6 +984,17 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
         let symbol = parse_remote_refs_arguments(diagnostics, function, context)?;
         let state = Some(RemoteRefState::New);
         Ok(RevsetExpression::remote_tags(symbol, state))
+    });
+    map.insert("remote_heads", |diagnostics, function, context| {
+        let ([], [remote_opt_arg]) = function.expect_arguments()?;
+        let remote = if let Some(remote_arg) = remote_opt_arg {
+            expect_string_expression(diagnostics, remote_arg, context)?
+        } else if let Some(remote) = context.default_ignored_remote {
+            StringExpression::exact(remote).negated()
+        } else {
+            StringExpression::all()
+        };
+        Ok(RevsetExpression::remote_heads(remote))
     });
     // TODO: Remove in jj 0.43+
     map.insert("git_refs", |diagnostics, function, _context| {
@@ -3039,6 +3057,20 @@ fn resolve_commit_ref(
                     remote_ref_state.is_none_or(|state| remote_ref.state == state)
                 })
                 .flat_map(|(_, remote_ref)| remote_ref.target.added_ids())
+                .cloned()
+                .collect();
+            Ok(commit_ids)
+        }
+        RevsetCommitRef::RemoteHeads { remote } => {
+            let commit_ids = repo
+                .view()
+                .remote_views_matching(&remote.to_matcher())
+                .filter_map(|(_, view)| {
+                    let head = view.head.as_ref()?;
+                    let head_ref = view.bookmarks.get(head)?;
+                    Some(head_ref.target.added_ids())
+                })
+                .flatten()
                 .cloned()
                 .collect();
             Ok(commit_ids)

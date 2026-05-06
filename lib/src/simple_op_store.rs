@@ -765,6 +765,7 @@ fn remote_views_to_proto(
             name: name.into(),
             bookmarks: remote_refs_to_proto(&view.bookmarks),
             tags: remote_refs_to_proto(&view.tags),
+            head: view.head.as_ref().map(String::from),
         })
         .collect()
 }
@@ -779,6 +780,7 @@ fn remote_views_from_proto(
             let view = RemoteView {
                 bookmarks: remote_refs_from_proto(proto.bookmarks)?,
                 tags: remote_refs_from_proto(proto.tags)?,
+                head: proto.head.map(Into::into),
             };
             Ok((name, view))
         })
@@ -996,6 +998,7 @@ mod tests {
                         "v1.0".into() => tracked_remote_ref(&tag_v1_origin_target),
                         "deleted".into() => new_remote_ref(&tag_deleted_origin_target),
                     },
+                    head: None,
                 },
             },
             git_refs: btreemap! {
@@ -1058,7 +1061,7 @@ mod tests {
         // Test exact output so we detect regressions in compatibility
         assert_snapshot!(
             ViewId::new(blake2b_hash(&create_view()).to_vec()).hex(),
-            @"2c0b174d117ca85e7faa96f6d997362403105e8eb31e7f82ac9abd3dc48ae62683e9a76ef5d117ebc8a743d17e1945236df9ccefd7574f7e4b5336a63796b967"
+            @"676ec87b38366533ea693c76df94c8bdd6a1b8bd2cb73cd72861bd7ac95323d0b07038528d8c56effdba8f21b4a5940ce11f8bf54e7dd5c6392f4af7fb41cb6c"
         );
     }
 
@@ -1104,8 +1107,9 @@ mod tests {
         let mut view = create_view();
         assert!(!view.remote_views.is_empty());
         for remote_view in view.remote_views.values_mut() {
-            // remote tags cannot be preserved in "legacy" format
+            // remote tags and head cannot be preserved in "legacy" format
             remote_view.tags.clear();
+            remote_view.head = None;
         }
         let mut proto = view_to_proto(&view);
         proto.remote_views.clear(); // drop "new" format
@@ -1146,6 +1150,7 @@ mod tests {
                     "main".into() => tracked_remote_ref(&main_target),
                 },
                 tags: btreemap! {},
+                head: None,
             },
         };
         let proto = crate::protos::simple_op_store::View {
@@ -1170,6 +1175,7 @@ mod tests {
                         tags: btreemap! {
                             "v1.0".into() => tracked_remote_ref(&v1_target),
                         },
+                        head: None,
                     },
                 }
             );
@@ -1213,12 +1219,14 @@ mod tests {
                     "bookmark1".into() => tracked_remote_ref(&git_bookmark1_target),
                 },
                 tags: btreemap! {},
+                head: None,
             },
             "remote1".into() => RemoteView {
                 bookmarks: btreemap! {
                     "bookmark1".into() => tracked_remote_ref(&remote1_bookmark1_target),
                 },
                 tags: btreemap! {},
+                head: None,
             },
             "remote2".into() => RemoteView {
                 bookmarks: btreemap! {
@@ -1227,6 +1235,7 @@ mod tests {
                     "bookmark4".into() => tracked_remote_ref(&remote2_bookmark4_target),
                 },
                 tags: btreemap! {},
+                head: None,
             },
         };
 

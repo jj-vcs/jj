@@ -33,7 +33,6 @@ use jj_lib::git;
 use jj_lib::git::UnexpectedGitBackendError;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteNameBuf;
-use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::ref_name::RemoteRefSymbolBuf;
 use jj_lib::revset;
 use jj_lib::store::Store;
@@ -138,7 +137,6 @@ struct RepoPresets<'a> {
     remote: &'a RemoteName,
     fetch_bookmarks: Option<&'a [String]>,
     fetch_tags: Option<&'a [String]>,
-    trunk: Option<RemoteRefSymbol<'a>>,
 }
 
 impl RepoPresets<'_> {
@@ -147,9 +145,8 @@ impl RepoPresets<'_> {
             remote: _,
             fetch_bookmarks,
             fetch_tags,
-            trunk,
         } = self;
-        fetch_bookmarks.is_none() && fetch_tags.is_none() && trunk.is_none()
+        fetch_bookmarks.is_none() && fetch_tags.is_none()
     }
 }
 
@@ -180,14 +177,6 @@ fn write_repo_presets(
             join_string_expressions(exprs),
         )
         .expect("initial repo config shouldn't have invalid values");
-    }
-    if let Some(symbol) = presets.trunk {
-        file.set_value(TRUNK_CONFIG_NAME, symbol.to_string())
-            .expect("initial repo config shouldn't have invalid values");
-        writeln!(
-            ui.status(),
-            "Setting the revset alias `trunk()` to `{symbol}`",
-        )?;
     }
     file.save()?;
     Ok(())

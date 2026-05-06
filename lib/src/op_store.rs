@@ -287,6 +287,7 @@ pub struct RemoteView {
     // the bookmark if the bookmark's state on the remote was just not known.
     pub bookmarks: BTreeMap<RefNameBuf, RemoteRef>,
     pub tags: BTreeMap<RefNameBuf, RemoteRef>,
+    pub head: Option<RefNameBuf>,
 }
 
 /// Iterates pair of local and remote refs by name.
@@ -529,18 +530,21 @@ mod tests {
                     "bookmark2".into() => git_bookmark2_remote_ref.clone(),
                 },
                 tags: btreemap! {},
+                head: Some("main".into()),
             },
             "remote1".into() => RemoteView {
                 bookmarks: btreemap! {
                     "bookmark1".into() => remote1_bookmark1_remote_ref.clone(),
                 },
                 tags: btreemap! {},
+                head: Some("main".into()),
             },
             "remote2".into() => RemoteView {
                 bookmarks: btreemap! {
                     "bookmark2".into() => remote2_bookmark2_remote_ref.clone(),
                 },
                 tags: btreemap! {},
+                head: Some("main".into()),
             },
         };
         assert_eq!(
@@ -595,6 +599,7 @@ mod tests {
                     "bookmark1".into() => remote1_bookmark1_remote_ref.clone(),
                 },
                 tags: btreemap! {},
+                head: Some("main".into()),
             },
         };
         assert_eq!(

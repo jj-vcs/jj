@@ -148,6 +148,8 @@ pub struct RemoteView {
     pub bookmarks: ::prost::alloc::vec::Vec<RemoteRef>,
     #[prost(message, repeated, tag = "3")]
     pub tags: ::prost::alloc::vec::Vec<RemoteRef>,
+    #[prost(string, optional, tag = "4")]
+    pub head: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Operation {

@@ -84,6 +84,7 @@ use crate::op_store::RootOperationData;
 use crate::operation::Operation;
 use crate::ref_name::GitRefName;
 use crate::ref_name::RefName;
+use crate::ref_name::RefNameBuf;
 use crate::ref_name::RemoteName;
 use crate::ref_name::RemoteRefSymbol;
 use crate::ref_name::WorkspaceName;
@@ -1838,6 +1839,14 @@ impl MutableRepo {
         let new_ref = merge_remote_refs(index, self_ref, base_ref, other_ref)?;
         view.set_remote_tag(symbol, new_ref);
         Ok(())
+    }
+
+    pub fn remote_has_head(&self, remote: &'_ RemoteName) -> bool {
+        self.view.with_ref(|v| v.get_remote_head(remote).is_some())
+    }
+
+    pub fn set_remote_head(&mut self, remote: &'_ RemoteName, head: RefNameBuf) {
+        self.view_mut().set_remote_head(remote, head);
     }
 
     pub fn get_git_ref(&self, name: &GitRefName) -> RefTarget {
