@@ -19,7 +19,6 @@ use std::sync::Arc;
 use thiserror::Error;
 
 use crate::backend::Timestamp;
-use crate::dag_walk_async;
 use crate::index::IndexStoreError;
 use crate::index::ReadonlyIndex;
 use crate::op_heads_store::OpHeadsStore;
@@ -28,6 +27,7 @@ use crate::op_store;
 use crate::op_store::OpStoreError;
 use crate::op_store::OperationMetadata;
 use crate::op_store::TimestampRange;
+use crate::op_walk;
 use crate::operation::Operation;
 use crate::ref_name::WorkspaceName;
 use crate::repo::MutableRepo;
@@ -95,14 +95,9 @@ impl Transaction {
     }
 
     pub async fn merge_operation(&mut self, other_op: Operation) -> Result<(), RepoLoaderError> {
-        let ancestor_op = dag_walk_async::closest_common_node(
-            self.parent_ops.iter().cloned(),
-            [other_op.clone()],
-            |op: &Operation| op.id().clone(),
-            async |op: &Operation| op.parents().await,
-        )
-        .await?
-        .unwrap();
+        let ancestor_op =
+            op_walk::closest_common_ancestor(self.parent_ops.iter().cloned(), [other_op.clone()])
+                .await?;
         let repo_loader = self.base_repo().loader();
         let base_repo = repo_loader.load_at(&ancestor_op).await?;
         let other_repo = repo_loader.load_at(&other_op).await?;

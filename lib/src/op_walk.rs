@@ -360,6 +360,22 @@ fn collect_ancestors_until_roots(
     items
 }
 
+/// Finds the closest common ancestor of `set1` and `set2`.
+pub async fn closest_common_ancestor(
+    set1: impl IntoIterator<Item = Operation>,
+    set2: impl IntoIterator<Item = Operation>,
+) -> OpStoreResult<Operation> {
+    let ancestor_op = dag_walk_async::closest_common_node(
+        set1,
+        set2,
+        |op: &Operation| op.id().clone(),
+        async |op: &Operation| op.parents().await,
+    )
+    .await?
+    .unwrap();
+    Ok(ancestor_op)
+}
+
 /// Stats about `reparent_range()`.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ReparentStats {
