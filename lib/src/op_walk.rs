@@ -360,20 +360,28 @@ fn collect_ancestors_until_roots(
     items
 }
 
-/// Finds the closest common ancestor of `set1` and `set2`.
+/// Finds the closest common ancestor of `set1` and `set2`. Uses the end
+/// timestamp as a heuristic.
+// TODO: We should probably make this a function on `OpStore` instead of
+// relying on heuristics (even if the implementation of the trait might rely on
+// the same heuristic initially).
 pub async fn closest_common_ancestor(
     set1: impl IntoIterator<Item = Operation>,
     set2: impl IntoIterator<Item = Operation>,
 ) -> OpStoreResult<Operation> {
     let ancestor_op = dag_walk_async::closest_common_node(
-        set1,
-        set2,
-        |op: &Operation| op.id().clone(),
-        async |op: &Operation| op.parents().await,
+        set1.into_iter().map(OperationByEndTime),
+        set2.into_iter().map(OperationByEndTime),
+        |op: &OperationByEndTime| op.0.id().clone(),
+        async |op: &OperationByEndTime| {
+            op.0.parents()
+                .await
+                .map(|parents| parents.into_iter().map(OperationByEndTime))
+        },
     )
     .await?
     .unwrap();
-    Ok(ancestor_op)
+    Ok(ancestor_op.0)
 }
 
 /// Stats about `reparent_range()`.

@@ -81,6 +81,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj git remote rename`/`remove` now updates the `trunk()` alias.
 
+* Commands would sometimes incorrectly diagnose a stale working copy and suggest
+  running `jj op integrate` when it would have no effect. This should now be
+  much less likely to happen in practice.
+  [#9314](https://github.com/jj-vcs/jj/issues/9314)
+
 ## [0.40.0] - 2026-04-01
 
 ### Release highlights

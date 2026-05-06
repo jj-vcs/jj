@@ -22,7 +22,6 @@ use std::iter;
 use std::mem;
 
 use futures::Stream;
-use futures::future::try_join;
 use futures::future::try_join_all;
 use futures::stream;
 use itertools::Itertools as _;
@@ -512,7 +511,9 @@ where
     Ok(heads)
 }
 
-/// Finds the closest common `Ok` neighbor among the `set1` and `set2`.
+/// Finds the closest common `Ok` neighbor among the `set1` and `set2`. Uses
+/// `T`'s `Ord` implementation as a heuristic for determining which neighbor to
+/// visit next. The neighbor that compares greater will be visited first.
 ///
 /// If the traverse reached to an `Err`, this function terminates and returns
 /// the error.
@@ -523,43 +524,43 @@ pub async fn closest_common_node<T, ID, E, II1, II2, NI>(
     neighbors_fn: impl AsyncFn(&T) -> Result<NI, E>,
 ) -> Result<Option<T>, E>
 where
+    T: Ord,
     ID: Hash + Eq,
     II1: IntoIterator<Item = T>,
     II2: IntoIterator<Item = T>,
     NI: IntoIterator<Item = T>,
 {
-    let mut visited1 = HashSet::new();
-    let mut visited2 = HashSet::new();
+    let mut encountered1 = HashSet::new();
+    let mut encountered2 = HashSet::new();
 
-    let mut work1: Vec<T> = set1.into_iter().collect();
-    let mut work2: Vec<T> = set2.into_iter().collect();
-    while !work1.is_empty() || !work2.is_empty() {
-        let mut live1 = vec![];
-        for node in work1 {
-            let id: ID = id_fn(&node);
-            if visited2.contains(&id) {
-                return Ok(Some(node));
-            }
-            if visited1.insert(id) {
-                live1.push(node);
+    // Contains (node, is_set1) items
+    let mut work = BinaryHeap::new();
+
+    for node in set1 {
+        encountered1.insert(id_fn(&node));
+        work.push((node, true));
+    }
+    for node in set2 {
+        encountered2.insert(id_fn(&node));
+        work.push((node, false));
+    }
+
+    while let Some((node, is_set1)) = work.pop() {
+        let (this_encountered, other_encountered) = if is_set1 {
+            (&mut encountered1, &mut encountered2)
+        } else {
+            (&mut encountered2, &mut encountered1)
+        };
+        if other_encountered.contains(&id_fn(&node)) {
+            return Ok(Some(node));
+        }
+        let neighbors = neighbors_fn(&node).await?;
+        for neighbor in neighbors {
+            let neighbor_id = id_fn(&neighbor);
+            if this_encountered.insert(neighbor_id) {
+                work.push((neighbor, is_set1));
             }
         }
-        let mut live2 = vec![];
-        for node in work2 {
-            let id: ID = id_fn(&node);
-            if visited1.contains(&id) {
-                return Ok(Some(node));
-            }
-            if visited2.insert(id) {
-                live2.push(node);
-            }
-        }
-
-        let new_work1_fut = try_join_all(live1.iter().map(|node| neighbors_fn(node)));
-        let new_work2_fut = try_join_all(live2.iter().map(|node| neighbors_fn(node)));
-        let (new_work1, new_work2) = try_join(new_work1_fut, new_work2_fut).await?;
-        work1 = new_work1.into_iter().flatten().collect();
-        work2 = new_work2.into_iter().flatten().collect();
     }
     Ok(None)
 }
@@ -1379,9 +1380,7 @@ mod tests {
         let neighbors_fn = async |node: &char| Ok::<_, char>(neighbors[node].clone());
 
         let common = closest_common_node(vec!['E'], vec!['H'], id_fn, neighbors_fn).block_on();
-
-        // TODO: fix the implementation to return B
-        assert_eq!(common, Ok(Some('A')));
+        assert_eq!(common, Ok(Some('B')));
     }
 
     #[test]
@@ -1412,9 +1411,7 @@ mod tests {
         let neighbors_fn = async |node: &char| Ok::<_, char>(neighbors[node].clone());
 
         let common = closest_common_node(vec!['B'], vec!['F'], id_fn, neighbors_fn).block_on();
-
-        // TODO: fix the implementation to return B
-        assert_eq!(common, Ok(Some('A')));
+        assert_eq!(common, Ok(Some('B')));
     }
 
     #[test]
