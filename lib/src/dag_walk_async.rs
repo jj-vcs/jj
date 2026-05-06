@@ -1385,6 +1385,39 @@ mod tests {
     }
 
     #[test]
+    fn test_closest_common_node_tricky_ancestor() {
+        // Find the clostest common ancestor between B and F. It should be B because
+        // it's even an ancestor of F, but we currently find A because the path to it
+        // from F is shorter (via E).
+        //
+        //  F
+        //  |\
+        //  D |
+        //  | |
+        //  C E
+        //  | |
+        //  B |
+        //  |/
+        //  A
+
+        let neighbors = hashmap! {
+            'A' => vec![],
+            'B' => vec!['A'],
+            'C' => vec!['B'],
+            'D' => vec!['C'],
+            'E' => vec!['A'],
+            'F' => vec!['D', 'E'],
+        };
+        let id_fn = |node: &char| *node;
+        let neighbors_fn = async |node: &char| Ok::<_, char>(neighbors[node].clone());
+
+        let common = closest_common_node(vec!['B'], vec!['F'], id_fn, neighbors_fn).block_on();
+
+        // TODO: fix the implementation to return B
+        assert_eq!(common, Ok(Some('A')));
+    }
+
+    #[test]
     fn test_closest_common_node() {
         let neighbors = hashmap! {
             'A' => Err('Y'),
