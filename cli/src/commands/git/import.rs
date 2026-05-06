@@ -23,6 +23,11 @@ use crate::ui::Ui;
 
 /// Update repo with changes made in the underlying Git repo
 ///
+/// Commits that are no longer reachable from any branch in the Git repo will be
+/// considered abandoned in the Git repo, and will be abandoned in the jj
+/// repo to match the Git repo. Set `git.abandon-unreachable-commits` to `false`
+/// to disable this behavior.
+///
 /// If a working-copy commit gets abandoned, it will be given a new, empty
 /// commit. This is true in general; it is not specific to this command.
 ///

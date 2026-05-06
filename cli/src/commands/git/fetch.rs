@@ -58,6 +58,11 @@ use crate::ui::Ui;
 /// `remotes.<name>.fetch-bookmarks` is not configured, the default fetch
 /// refspecs for the selected remotes are read from the Git configuration.
 ///
+/// Commits that are no longer reachable from any branch on the remote will be
+/// considered abandoned by the remote, and will be abandoned in the local repo
+/// to match the remote. Set `git.abandon-unreachable-commits` to `false` to
+/// disable this behavior.
+///
 /// If a working-copy commit gets abandoned, it will be given a new, empty
 /// commit. This is true in general; it is not specific to this command.
 #[derive(clap::Args, Clone, Debug)]

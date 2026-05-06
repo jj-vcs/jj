@@ -1650,6 +1650,8 @@ If no remotes are specified, fetches the remotes specified by the `git.fetch` se
 
 If no branches nor tags are specified, fetches bookmarks and tags specified by the `remotes.<name>.fetch-bookmarks`/`fetch-tags` settings. If `remotes.<name>.fetch-bookmarks` is not configured, the default fetch refspecs for the selected remotes are read from the Git configuration.
 
+Commits that are no longer reachable from any branch on the remote will be considered abandoned by the remote, and will be abandoned in the local repo to match the remote. Set `git.abandon-unreachable-commits` to `false` to disable this behavior.
+
 If a working-copy commit gets abandoned, it will be given a new, empty commit. This is true in general; it is not specific to this command.
 
 **Usage:** `jj git fetch [OPTIONS]`
@@ -1678,6 +1680,8 @@ If a working-copy commit gets abandoned, it will be given a new, empty commit. T
 ## `jj git import`
 
 Update repo with changes made in the underlying Git repo
+
+Commits that are no longer reachable from any branch in the Git repo will be considered abandoned in the Git repo, and will be abandoned in the jj repo to match the Git repo. Set `git.abandon-unreachable-commits` to `false` to disable this behavior.
 
 If a working-copy commit gets abandoned, it will be given a new, empty commit. This is true in general; it is not specific to this command.
 
