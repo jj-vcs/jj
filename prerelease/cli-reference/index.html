@@ -9232,6 +9232,7 @@ configuration.</p>
 <p>Fetch from a Git remote</p>
 <p>If no remotes are specified, fetches the remotes specified by the <code>git.fetch</code> setting. If that is not configured and there are multiple remotes, the remote named "origin" will be used.</p>
 <p>If no branches nor tags are specified, fetches bookmarks and tags specified by the <code>remotes.&lt;name&gt;.fetch-bookmarks</code>/<code>fetch-tags</code> settings. If <code>remotes.&lt;name&gt;.fetch-bookmarks</code> is not configured, the default fetch refspecs for the selected remotes are read from the Git configuration.</p>
+<p>Commits that are no longer reachable from any branch on the remote will be considered abandoned by the remote, and will be abandoned in the local repo to match the remote. Set <code>git.abandon-unreachable-commits</code> to <code>false</code> to disable this behavior.</p>
 <p>If a working-copy commit gets abandoned, it will be given a new, empty commit. This is true in general; it is not specific to this command.</p>
 <p><strong>Usage:</strong> <code>jj git fetch [OPTIONS]</code></p>
 <h6 id="options_33"><strong>Options:</strong><a class="headerlink" href="#options_33" title="Permanent link">&para;</a></h6>
@@ -9255,6 +9256,7 @@ configuration.</p>
 </ul>
 <h2 id="jj-git-import"><code>jj git import</code><a class="headerlink" href="#jj-git-import" title="Permanent link">&para;</a></h2>
 <p>Update repo with changes made in the underlying Git repo</p>
+<p>Commits that are no longer reachable from any branch in the Git repo will be considered abandoned in the Git repo, and will be abandoned in the jj repo to match the Git repo. Set <code>git.abandon-unreachable-commits</code> to <code>false</code> to disable this behavior.</p>
 <p>If a working-copy commit gets abandoned, it will be given a new, empty commit. This is true in general; it is not specific to this command.</p>
 <p>There is no need to run this command if you're in colocated workspace because the import happens automatically there.</p>
 <p><strong>Usage:</strong> <code>jj git import</code></p>
