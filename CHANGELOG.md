@@ -60,6 +60,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `JJ_PAGER` can now override the `ui.pager` config, matching `JJ_EDITOR` for
   callers that need a jj-specific environment override.
 
+* Templates now support `available_width() -> Option<Integer>`. This will
+  provide the number of columns available for the template, subtracting the
+  width of the graph lines. This is only available in graph logs, i.e. `jj log`
+  and `jj op log`.
+
 ### Fixed bugs
 
 * Improving consistency with `git` handling of `.gitignore`, including `/`

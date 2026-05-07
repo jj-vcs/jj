@@ -87,6 +87,8 @@ The following functions are defined.
   Truncate `content` by removing trailing characters. The `content` shouldn't
   have newline character. If `ellipsis` is provided and `content` was truncated,
   append the `ellipsis` to the result.
+* `available_width() -> Option<Integer>`: The available width for printing,
+  taking into account the graph edges. Only available in `jj log` and `jj op log`.
 * `hash(content: Stringify) -> String`:
   Hash the input and return a hexadecimal string representation of the digest.
 * `label(label: Stringify, content: Template) -> Template`: Apply a custom

@@ -948,15 +948,21 @@ impl<O: Clone> TemplateProperty for PropertyPlaceholder<O> {
 /// Adapter that renders compiled `template` with the `placeholder` value set.
 pub struct TemplateRenderer<'a, C> {
     template: Box<dyn Template + 'a>,
-    placeholder: PropertyPlaceholder<C>,
+    self_placeholder: PropertyPlaceholder<C>,
+    available_width_placeholder: PropertyPlaceholder<Option<i64>>,
     labels: Vec<String>,
 }
 
 impl<'a, C: Clone> TemplateRenderer<'a, C> {
-    pub fn new(template: Box<dyn Template + 'a>, placeholder: PropertyPlaceholder<C>) -> Self {
+    pub fn new(
+        template: Box<dyn Template + 'a>,
+        self_placeholder: PropertyPlaceholder<C>,
+        available_width_placeholder: PropertyPlaceholder<Option<i64>>,
+    ) -> Self {
         Self {
             template,
-            placeholder,
+            self_placeholder,
+            available_width_placeholder,
             labels: Vec::new(),
         }
     }
@@ -974,8 +980,24 @@ impl<'a, C: Clone> TemplateRenderer<'a, C> {
 
     pub fn format(&self, context: &C, formatter: &mut dyn Formatter) -> io::Result<()> {
         let mut wrapper = TemplateFormatter::new(formatter, format_property_error_inline);
-        self.placeholder.with_value(context.clone(), || {
+        self.self_placeholder.with_value(context.clone(), || {
             format_labeled(&mut wrapper, &self.template, &self.labels)
+        })
+    }
+
+    pub fn format_with_available_width(
+        &self,
+        context: &C,
+        available_width: usize,
+        formatter: &mut dyn Formatter,
+    ) -> io::Result<()> {
+        let available_width = available_width.try_into().unwrap_or(i64::MAX);
+        let mut wrapper = TemplateFormatter::new(formatter, format_property_error_inline);
+        self.self_placeholder.with_value(context.clone(), || {
+            self.available_width_placeholder
+                .with_value(Some(available_width), || {
+                    format_labeled(&mut wrapper, &self.template, &self.labels)
+                })
         })
     }
 
