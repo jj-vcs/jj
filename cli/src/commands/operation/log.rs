@@ -251,7 +251,7 @@ async fn do_op_log(
             let within_graph = with_content_format.sub_width(graph.width(op.id(), &edges));
             within_graph
                 .write(ui.new_formatter(&mut buffer).as_mut(), async |formatter| {
-                    template.format(&op, formatter)
+                    template.format_with_available_width(&op, within_graph.width(), formatter)
                 })
                 .await?;
             if let Some(show) = &maybe_show_op_diff {
