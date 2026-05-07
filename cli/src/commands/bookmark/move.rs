@@ -75,7 +75,7 @@ pub async fn cmd_bookmark_move(
     command: &CommandHelper,
     args: &BookmarkMoveArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     let repo = workspace_command.repo().clone();
     let target_commit = workspace_command.resolve_single_rev(ui, &args.to).await?;
     let matched_bookmarks = {

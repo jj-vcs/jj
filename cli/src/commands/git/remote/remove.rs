@@ -35,7 +35,7 @@ pub async fn cmd_git_remote_remove(
     command: &CommandHelper,
     args: &GitRemoteRemoveArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     let mut tx = workspace_command.start_transaction();
     git::remove_remote(tx.repo_mut(), &args.remote)?;
     if tx.repo().has_changes() {

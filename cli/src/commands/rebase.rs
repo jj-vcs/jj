@@ -381,7 +381,7 @@ pub(crate) async fn cmd_rebase(
         },
         simplify_ancestor_merge: args.simplify_parents,
     };
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
 
     let loc = if !args.revisions.is_empty() {
         plan_rebase_revisions(ui, &workspace_command, &args.revisions, &args.destination).await?

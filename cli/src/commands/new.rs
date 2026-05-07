@@ -165,7 +165,7 @@ pub(crate) async fn cmd_new(
     command: &CommandHelper,
     args: &NewArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
 
     let revision_args = match (&args.revisions_pos, &args.revisions_opt) {
         (None, None) => (args.insert_before.is_none() && args.insert_after.is_none())

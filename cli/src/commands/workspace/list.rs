@@ -48,7 +48,7 @@ pub async fn cmd_workspace_list(
     command: &CommandHelper,
     args: &WorkspaceListArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper(ui)?;
+    let workspace_command = command.workspace_helper(ui).await?;
 
     let template: TemplateRenderer<WorkspaceRef> = {
         let language = workspace_command.commit_template_language();

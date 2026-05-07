@@ -49,7 +49,7 @@ pub async fn cmd_undo(
     command: &CommandHelper,
     _: &UndoArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
 
     let mut op_to_undo = workspace_command.repo().operation().clone();
 

@@ -37,7 +37,7 @@ pub async fn cmd_sparse_edit(
     command: &CommandHelper,
     _args: &SparseEditArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     let editor = workspace_command.text_editor()?;
     update_sparse_patterns_with(ui, &mut workspace_command, |_ui, old_patterns| {
         let mut new_patterns = edit_sparse(&editor, old_patterns)?;

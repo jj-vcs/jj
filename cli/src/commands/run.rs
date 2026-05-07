@@ -64,7 +64,7 @@ pub async fn cmd_run(
     command: &CommandHelper,
     args: &RunArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper(ui)?;
+    let workspace_command = command.workspace_helper(ui).await?;
     let _resolved_commits: Vec<_> = workspace_command
         .parse_union_revsets(ui, &args.revisions)?
         .evaluate_to_commits()?

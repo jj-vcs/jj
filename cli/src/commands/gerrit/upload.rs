@@ -416,7 +416,7 @@ pub async fn cmd_gerrit_upload(
         remote_push_options: push_options(args)?,
     };
 
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
 
     let revisions: Vec<_> = if args.revisions.is_empty() {
         match workspace_command

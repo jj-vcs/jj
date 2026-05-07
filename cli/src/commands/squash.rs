@@ -187,7 +187,7 @@ pub(crate) async fn cmd_squash(
     let insert_destination_commit =
         args.onto.is_some() || args.insert_after.is_some() || args.insert_before.is_some();
 
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
 
     let mut sources: Vec<Commit>;
     let pre_existing_destination;

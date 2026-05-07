@@ -130,7 +130,7 @@ pub async fn cmd_tag_list(
     command: &CommandHelper,
     args: &TagListArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper(ui)?;
+    let workspace_command = command.workspace_helper(ui).await?;
     let settings = workspace_command.settings();
     let repo = workspace_command.repo();
     let view = repo.view();

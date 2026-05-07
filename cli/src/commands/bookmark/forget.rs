@@ -63,7 +63,7 @@ pub async fn cmd_bookmark_forget(
     command: &CommandHelper,
     args: &BookmarkForgetArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     let repo = workspace_command.repo().clone();
     let ignored_remote = default_ignored_remote_name(repo.store());
     let matched_bookmarks = find_forgettable_bookmarks(ui, repo.view(), &args.names)?;

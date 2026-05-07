@@ -56,7 +56,7 @@ pub async fn cmd_op_revert(
     command: &CommandHelper,
     args: &OperationRevertArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     let bad_op = workspace_command.resolve_single_op(&args.operation)?;
     let parent_of_bad_op = match bad_op.parents().await?.into_iter().at_most_one() {
         Ok(Some(parent_of_bad_op)) => parent_of_bad_op,

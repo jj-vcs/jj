@@ -99,7 +99,7 @@ async fn check_wc_author(
     new_value: &toml_edit::Value,
     author_change: AuthorChange,
 ) -> io::Result<()> {
-    let Ok(helper) = command.workspace_helper(ui) else {
+    let Ok(helper) = command.workspace_helper(ui).await else {
         // config set should work even if cwd isn't a jj repo
         return Ok(());
     };

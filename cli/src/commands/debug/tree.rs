@@ -50,7 +50,7 @@ pub async fn cmd_debug_tree(
     command: &CommandHelper,
     args: &DebugTreeArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper(ui)?;
+    let workspace_command = command.workspace_helper(ui).await?;
     let matcher = workspace_command
         .parse_file_patterns(ui, &args.paths)?
         .to_matcher();

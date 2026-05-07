@@ -280,7 +280,7 @@ pub async fn cmd_git_push(
              remotes.<name>.auto-track-bookmarks instead."
         )?;
     }
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
 
     let default_remote;
     let remote = if let Some(name) = &args.remote {

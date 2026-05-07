@@ -71,7 +71,7 @@ pub async fn cmd_bookmark_untrack(
     command: &CommandHelper,
     args: &BookmarkUntrackArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     let repo = workspace_command.repo().clone();
     let view = repo.view();
     let ignored_remote = default_ignored_remote_name(repo.store())

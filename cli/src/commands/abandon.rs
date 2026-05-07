@@ -71,7 +71,7 @@ pub(crate) async fn cmd_abandon(
     command: &CommandHelper,
     args: &AbandonArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     let to_abandon = {
         let target_expr = if !args.revisions_pos.is_empty() || !args.revisions_opt.is_empty() {
             workspace_command

@@ -39,7 +39,7 @@ pub async fn cmd_workspace_rename(
         return Err(user_error("New workspace name cannot be empty"));
     }
 
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
 
     let old_name = workspace_command.working_copy().workspace_name().to_owned();
     let new_name = &*args.new_workspace_name;

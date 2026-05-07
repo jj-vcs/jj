@@ -44,7 +44,7 @@ pub async fn cmd_redo(
     command: &CommandHelper,
     _: &RedoArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
 
     let mut op_to_redo = workspace_command.repo().operation().clone();
 

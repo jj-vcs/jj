@@ -146,7 +146,7 @@ pub(crate) async fn cmd_metaedit(
     command: &CommandHelper,
     args: &MetaeditArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
 
     if args.legacy_update_committer_timestamp {
         writeln!(

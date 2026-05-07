@@ -105,7 +105,7 @@ pub(crate) async fn cmd_duplicate(
     command: &CommandHelper,
     args: &DuplicateArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     let to_duplicate: Vec<CommitId> =
         if !args.revisions_pos.is_empty() || !args.revisions_opt.is_empty() {
             workspace_command

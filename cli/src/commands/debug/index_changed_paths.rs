@@ -35,7 +35,7 @@ pub async fn cmd_debug_index_changed_paths(
     command: &CommandHelper,
     args: &DebugIndexChangedPathsArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper(ui)?;
+    let workspace_command = command.workspace_helper(ui).await?;
     let repo = workspace_command.repo();
     let repo_loader = workspace_command.workspace().repo_loader();
     let index_store = repo_loader.index_store();

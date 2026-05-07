@@ -50,7 +50,7 @@ pub(crate) async fn cmd_edit(
     command: &CommandHelper,
     args: &EditArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     let revision_arg = args
         .revision_pos
         .as_ref()

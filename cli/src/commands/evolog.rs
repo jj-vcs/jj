@@ -108,7 +108,7 @@ pub(crate) async fn cmd_evolog(
     command: &CommandHelper,
     args: &EvologArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper(ui)?;
+    let workspace_command = command.workspace_helper(ui).await?;
 
     let start_commit_ids: Vec<_> = workspace_command
         .parse_union_revsets(ui, &args.revisions)?

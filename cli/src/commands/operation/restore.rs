@@ -49,7 +49,7 @@ pub async fn cmd_op_restore(
     command: &CommandHelper,
     args: &OperationRestoreArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     let target_op = workspace_command.resolve_single_op(&args.operation)?;
     let mut tx = workspace_command.start_transaction();
     let new_view = view_with_desired_portions_restored(

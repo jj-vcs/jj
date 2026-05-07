@@ -73,7 +73,7 @@ pub(crate) async fn cmd_parallelize(
     command: &CommandHelper,
     args: &ParallelizeArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     // The target commits are the commits being parallelized. They are ordered
     // here with children before parents.
     let target_commits: Vec<Commit> = workspace_command

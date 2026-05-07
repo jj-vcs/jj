@@ -71,7 +71,7 @@ pub(crate) async fn cmd_file_annotate(
     command: &CommandHelper,
     args: &FileAnnotateArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper(ui)?;
+    let workspace_command = command.workspace_helper(ui).await?;
     let repo = workspace_command.repo();
     let starting_commit = workspace_command
         .resolve_single_rev(ui, args.revision.as_ref().unwrap_or(&RevisionArg::AT))

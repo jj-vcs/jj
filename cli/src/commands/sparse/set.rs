@@ -58,7 +58,7 @@ pub async fn cmd_sparse_set(
     command: &CommandHelper,
     args: &SparseSetArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     update_sparse_patterns_with(ui, &mut workspace_command, |_ui, old_patterns| {
         let mut new_patterns = HashSet::new();
         if !args.clear {

@@ -30,7 +30,7 @@ pub async fn cmd_sparse_reset(
     command: &CommandHelper,
     _args: &SparseResetArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     update_sparse_patterns_with(ui, &mut workspace_command, |_ui, _old_patterns| {
         Ok(vec![RepoPathBuf::root()])
     })

@@ -56,7 +56,7 @@ pub async fn cmd_git_remote_set_url(
     command: &CommandHelper,
     args: &GitRemoteSetUrlArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper(ui)?;
+    let workspace_command = command.workspace_helper(ui).await?;
 
     let process_url = |url: Option<&String>| {
         url.map(|url| absolute_git_url(command.cwd(), url))

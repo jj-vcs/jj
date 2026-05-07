@@ -53,7 +53,7 @@ pub async fn cmd_bench_revset(
     command: &CommandHelper,
     args: &BenchRevsetArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper(ui)?;
+    let workspace_command = command.workspace_helper(ui).await?;
     let revsets = if let Some(file_path) = &args.file {
         std::fs::read_to_string(command.cwd().join(file_path))?
             .lines()
@@ -119,7 +119,8 @@ fn bench_revset<M: Measurement>(
                 // by preceding operation. `repo.reload_at()` isn't enough to clear
                 // store cache.
                 || {
-                    let workspace_command = command.workspace_helper_no_snapshot(ui).unwrap();
+                    let workspace_command =
+                        command.workspace_helper_no_snapshot(ui).block_on().unwrap();
                     workspace_command.repo().readonly_index();
                     workspace_command
                 },

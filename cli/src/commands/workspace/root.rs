@@ -43,7 +43,7 @@ pub async fn cmd_workspace_root(
     args: &WorkspaceRootArgs,
 ) -> Result<(), CommandError> {
     let path = if let Some(ws_name) = &args.name {
-        let workspace_command = command.workspace_helper_no_snapshot(ui)?;
+        let workspace_command = command.workspace_helper_no_snapshot(ui).await?;
         let workspace_store = SimpleWorkspaceStore::load(workspace_command.repo_path())?;
 
         if workspace_command

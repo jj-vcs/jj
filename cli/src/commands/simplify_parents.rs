@@ -42,7 +42,7 @@ pub(crate) async fn cmd_simplify_parents(
     command: &CommandHelper,
     args: &SimplifyParentsArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     let revs = if args.source.is_empty() && args.revisions.is_empty() {
         let revs = workspace_command
             .settings()

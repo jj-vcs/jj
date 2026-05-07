@@ -69,7 +69,7 @@ pub(crate) async fn cmd_status(
     command: &CommandHelper,
     args: &StatusArgs,
 ) -> Result<(), CommandError> {
-    let (workspace_command, snapshot_stats) = command.workspace_helper_with_stats(ui)?;
+    let (workspace_command, snapshot_stats) = command.workspace_helper_with_stats(ui).await?;
     print_snapshot_stats(
         ui,
         &snapshot_stats,

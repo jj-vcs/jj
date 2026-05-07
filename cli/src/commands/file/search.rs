@@ -66,7 +66,7 @@ pub(crate) async fn cmd_file_search(
     command: &CommandHelper,
     args: &FileSearchArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper(ui)?;
+    let workspace_command = command.workspace_helper(ui).await?;
     let commit = workspace_command
         .resolve_single_rev(ui, &args.revision)
         .await?;

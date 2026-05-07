@@ -126,7 +126,7 @@ pub async fn cmd_bookmark_list(
     command: &CommandHelper,
     args: &BookmarkListArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper(ui)?;
+    let workspace_command = command.workspace_helper(ui).await?;
     let repo = workspace_command.repo();
     let view = repo.view();
 

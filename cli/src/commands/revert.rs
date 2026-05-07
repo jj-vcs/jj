@@ -101,7 +101,7 @@ pub(crate) async fn cmd_revert(
     command: &CommandHelper,
     args: &RevertArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     let to_revert: Vec<_> = workspace_command
         .parse_union_revsets(ui, &args.revisions)?
         .evaluate_to_commits()?

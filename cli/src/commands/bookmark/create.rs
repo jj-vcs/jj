@@ -51,7 +51,7 @@ pub async fn cmd_bookmark_create(
     command: &CommandHelper,
     args: &BookmarkCreateArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     let target_commit = workspace_command
         .resolve_single_rev(ui, &args.revision)
         .await?;

@@ -94,7 +94,7 @@ async fn cmd_git_colocation_status(
     command: &CommandHelper,
     _args: &GitColocationStatusArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper(ui)?;
+    let workspace_command = command.workspace_helper(ui).await?;
 
     // Make sure that the workspace supports git colocation commands
     workspace_supports_git_colocation_commands(&workspace_command)?;
@@ -147,7 +147,7 @@ async fn cmd_git_colocation_enable(
     command: &CommandHelper,
     _args: &GitColocationEnableArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper(ui)?;
+    let workspace_command = command.workspace_helper(ui).await?;
 
     // Make sure that the workspace supports git colocation commands
     workspace_supports_git_colocation_commands(&workspace_command)?;
@@ -217,7 +217,7 @@ async fn cmd_git_colocation_disable(
     command: &CommandHelper,
     _args: &GitColocationDisableArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper(ui)?;
+    let workspace_command = command.workspace_helper(ui).await?;
 
     // Make sure that the repository supports git colocation commands
     workspace_supports_git_colocation_commands(&workspace_command)?;

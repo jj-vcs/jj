@@ -48,7 +48,7 @@ pub async fn cmd_unsign(
     command: &CommandHelper,
     args: &UnsignArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
 
     let target_expr = workspace_command
         .parse_union_revsets(ui, &args.revisions)?

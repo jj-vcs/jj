@@ -124,7 +124,7 @@ pub(crate) async fn cmd_commit(
             "`jj commit --author` is deprecated; use `jj metaedit --author` instead"
         )?;
     }
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
 
     let commit_id = workspace_command
         .get_wc_commit_id()

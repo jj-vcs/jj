@@ -455,8 +455,8 @@ impl CommandHelper {
 
     /// Loads workspace and repo, then snapshots the working copy if allowed.
     #[instrument(skip(self, ui))]
-    pub fn workspace_helper(&self, ui: &Ui) -> Result<WorkspaceCommandHelper, CommandError> {
-        let (workspace_command, stats) = self.workspace_helper_with_stats(ui)?;
+    pub async fn workspace_helper(&self, ui: &Ui) -> Result<WorkspaceCommandHelper, CommandError> {
+        let (workspace_command, stats) = self.workspace_helper_with_stats(ui).await?;
         print_snapshot_stats(ui, &stats, workspace_command.env().path_converter())?;
         Ok(workspace_command)
     }
@@ -468,14 +468,13 @@ impl CommandHelper {
     /// call [`print_snapshot_stats`] with the [`SnapshotStats`] returned by
     /// this function to present possible untracked files to the user.
     #[instrument(skip(self, ui))]
-    pub fn workspace_helper_with_stats(
+    pub async fn workspace_helper_with_stats(
         &self,
         ui: &Ui,
     ) -> Result<(WorkspaceCommandHelper, SnapshotStats), CommandError> {
-        let mut workspace_command = self.workspace_helper_no_snapshot(ui)?;
+        let mut workspace_command = self.workspace_helper_no_snapshot(ui).await?;
 
-        let (workspace_command, stats) = match workspace_command.maybe_snapshot_impl(ui).block_on()
-        {
+        let (workspace_command, stats) = match workspace_command.maybe_snapshot_impl(ui).await {
             Ok(stats) => (workspace_command, stats),
             Err(SnapshotWorkingCopyError::Command(err)) => return Err(err),
             Err(SnapshotWorkingCopyError::StaleWorkingCopy(err)) => {
@@ -488,7 +487,7 @@ impl CommandHelper {
                 // auto-update-stale, so let's do that now. We need to do it up here, not at a
                 // lower level (e.g. inside snapshot_working_copy()) to avoid recursive locking
                 // of the working copy.
-                self.recover_stale_working_copy(ui).block_on()?
+                self.recover_stale_working_copy(ui).await?
             }
         };
 
@@ -498,14 +497,14 @@ impl CommandHelper {
     /// Loads workspace and repo, but never snapshots the working copy. Most
     /// commands should use `workspace_helper()` instead.
     #[instrument(skip(self, ui))]
-    pub fn workspace_helper_no_snapshot(
+    pub async fn workspace_helper_no_snapshot(
         &self,
         ui: &Ui,
     ) -> Result<WorkspaceCommandHelper, CommandError> {
         let workspace = self.load_workspace()?;
         let op_head =
             self.resolve_operation(ui, workspace.repo_loader(), workspace.workspace_name())?;
-        let repo = workspace.repo_loader().load_at(&op_head).block_on()?;
+        let repo = workspace.repo_loader().load_at(&op_head).await?;
         let mut env = self.workspace_environment(ui, &workspace)?;
         if let Err(err) =
             revset_util::try_resolve_trunk_alias(repo.as_ref(), &env.revset_parse_context())
@@ -607,7 +606,7 @@ impl CommandHelper {
                 let repo = workspace_command.repo().clone();
                 let stale_wc_commit = repo.store().get_commit_async(wc_commit_id).await?;
 
-                let mut workspace_command = self.workspace_helper_no_snapshot(ui)?;
+                let mut workspace_command = self.workspace_helper_no_snapshot(ui).await?;
 
                 let repo = workspace_command.repo().clone();
                 let (mut locked_ws, desired_wc_commit) = workspace_command
@@ -674,7 +673,7 @@ impl CommandHelper {
                      message from read attempt: {e}"
                 )?;
 
-                let mut workspace_command = self.workspace_helper_no_snapshot(ui)?;
+                let mut workspace_command = self.workspace_helper_no_snapshot(ui).await?;
                 let stats = workspace_command
                     .create_and_check_out_recovery_commit(ui)
                     .await?;

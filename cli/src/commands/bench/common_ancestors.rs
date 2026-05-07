@@ -39,7 +39,7 @@ pub async fn cmd_bench_common_ancestors(
     command: &CommandHelper,
     args: &BenchCommonAncestorsArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper(ui)?;
+    let workspace_command = command.workspace_helper(ui).await?;
     let commit1 = workspace_command
         .resolve_single_rev(ui, &args.revision1)
         .await?;

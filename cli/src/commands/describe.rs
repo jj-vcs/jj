@@ -156,7 +156,7 @@ pub(crate) async fn cmd_describe(
             "`jj describe --author` is deprecated; use `jj metaedit --author` instead"
         )?;
     }
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     let target_expr = if !args.revisions_pos.is_empty() || !args.revisions_opt.is_empty() {
         workspace_command
             .parse_union_revsets(ui, &[&*args.revisions_pos, &*args.revisions_opt].concat())?

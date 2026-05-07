@@ -47,7 +47,7 @@ pub async fn cmd_debug_watchman(
 ) -> Result<(), CommandError> {
     use jj_lib::local_working_copy::LockedLocalWorkingCopy;
 
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     let repo = workspace_command.repo().clone();
     let watchman_config = WatchmanConfig {
         // The value is likely irrelevant here. TODO(ilyagr): confirm

@@ -185,7 +185,7 @@ pub async fn cmd_debug_object(
         }
         DebugObjectArgs::View(args) => {
             let id = if let Some(op_string) = &args.op {
-                let workspace_command = command.workspace_helper_no_snapshot(ui)?;
+                let workspace_command = command.workspace_helper_no_snapshot(ui).await?;
                 let op = workspace_command.resolve_single_op(op_string)?;
                 op.view_id().clone()
             } else {
@@ -207,7 +207,7 @@ async fn get_tree_value(
     rev: &RevisionArg,
     path: &RepoPath,
 ) -> Result<MergedTreeValue, CommandError> {
-    let workspace_command = command.workspace_helper_no_snapshot(ui)?;
+    let workspace_command = command.workspace_helper_no_snapshot(ui).await?;
     let commit = workspace_command.resolve_single_rev(ui, rev).await?;
     let tree_value = commit.tree().path_value(path).await?;
     Ok(tree_value)

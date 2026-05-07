@@ -190,7 +190,7 @@ pub(crate) async fn cmd_fix(
     command: &CommandHelper,
     args: &FixArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     let workspace_root = workspace_command.workspace_root().to_owned();
     let path_converter = workspace_command.path_converter().to_owned();
     let tools_config = get_tools_config(

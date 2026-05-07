@@ -129,7 +129,7 @@ pub async fn cmd_git_fetch(
     command: &CommandHelper,
     args: &GitFetchArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     let remote_expr = if args.all_remotes {
         StringExpression::all()
     } else if let Some(remotes) = &args.remotes {

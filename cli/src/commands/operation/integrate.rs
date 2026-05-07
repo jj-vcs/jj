@@ -40,7 +40,7 @@ pub async fn cmd_op_integrate(
     command: &CommandHelper,
     args: &OperationIntegrateArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper_no_snapshot(ui)?;
+    let workspace_command = command.workspace_helper_no_snapshot(ui).await?;
     let target_op = workspace_command.resolve_single_op(&args.operation)?;
     let repo_loader = workspace_command.repo().loader();
     repo_loader

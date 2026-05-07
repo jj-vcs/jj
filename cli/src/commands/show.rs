@@ -68,7 +68,7 @@ pub(crate) async fn cmd_show(
     command: &CommandHelper,
     args: &ShowArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper(ui)?;
+    let workspace_command = command.workspace_helper(ui).await?;
     let revision_arg = args
         .revision_pos
         .as_ref()

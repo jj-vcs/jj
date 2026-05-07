@@ -90,7 +90,7 @@ pub(crate) async fn cmd_arrange(
     command: &CommandHelper,
     args: &ArrangeArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     let repo = workspace_command.repo().clone();
     let target_expression = if args.revisions_pos.is_empty() && args.revisions_opt.is_empty() {
         let revs = workspace_command.settings().get_string("revsets.arrange")?;

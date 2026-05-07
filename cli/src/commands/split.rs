@@ -276,7 +276,7 @@ pub(crate) async fn cmd_split(
     command: &CommandHelper,
     args: &SplitArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     let ResolvedSplitArgs {
         target_commit,
         matcher,

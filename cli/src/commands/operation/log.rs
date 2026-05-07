@@ -109,7 +109,7 @@ pub async fn cmd_op_log(
     args: &OperationLogArgs,
 ) -> Result<(), CommandError> {
     if command.is_working_copy_writable() {
-        let workspace_command = command.workspace_helper(ui)?;
+        let workspace_command = command.workspace_helper(ui).await?;
         let current_op = workspace_command.repo().operation();
         let repo_loader = workspace_command.workspace().repo_loader();
         do_op_log(ui, workspace_command.env(), repo_loader, current_op, args).await

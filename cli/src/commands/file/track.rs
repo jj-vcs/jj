@@ -57,7 +57,7 @@ pub(crate) async fn cmd_file_track(
     command: &CommandHelper,
     args: &FileTrackArgs,
 ) -> Result<(), CommandError> {
-    let (mut workspace_command, auto_stats) = command.workspace_helper_with_stats(ui)?;
+    let (mut workspace_command, auto_stats) = command.workspace_helper_with_stats(ui).await?;
     let matcher = workspace_command
         .parse_file_patterns(ui, &args.paths)?
         .to_matcher();
