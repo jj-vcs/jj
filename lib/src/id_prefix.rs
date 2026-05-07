@@ -18,8 +18,9 @@ use std::iter;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use itertools::Itertools as _;
+use futures::TryStreamExt as _;
 use once_cell::sync::OnceCell;
+use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::backend::ChangeId;
@@ -71,7 +72,7 @@ impl DisambiguationData {
                 .resolve_user_expression(repo, &symbol_resolver)?
                 .evaluate(repo)?;
 
-            let commit_change_ids: Vec<_> = revset.commit_change_ids().try_collect()?;
+            let commit_change_ids: Vec<_> = revset.commit_change_ids().try_collect().block_on()?;
             let mut commit_index = IdIndex::with_capacity(commit_change_ids.len());
             let mut change_index = IdIndex::with_capacity(commit_change_ids.len());
             for (i, (commit_id, change_id)) in commit_change_ids.iter().enumerate() {

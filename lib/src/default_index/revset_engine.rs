@@ -165,7 +165,7 @@ impl<I: AsCompositeIndex + Clone> Revset for RevsetImpl<I> {
 
     fn commit_change_ids<'a>(
         &self,
-    ) -> Box<dyn Iterator<Item = Result<(CommitId, ChangeId), RevsetEvaluationError>> + 'a>
+    ) -> LocalBoxStream<'a, Result<(CommitId, ChangeId), RevsetEvaluationError>>
     where
         Self: 'a,
     {
@@ -174,7 +174,7 @@ impl<I: AsCompositeIndex + Clone> Revset for RevsetImpl<I> {
             let entry = index.commits().entry_by_pos(pos?);
             Ok((entry.commit_id(), entry.change_id()))
         });
-        Box::new(iter::from_fn(move || walk.next(index.as_composite())))
+        futures::stream::iter(iter::from_fn(move || walk.next(index.as_composite()))).boxed_local()
     }
 
     fn stream_graph<'a>(

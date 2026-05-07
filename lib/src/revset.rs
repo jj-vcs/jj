@@ -3432,7 +3432,7 @@ pub trait Revset: fmt::Debug {
     /// Iterates commit/change id pairs in topological order.
     fn commit_change_ids<'a>(
         &self,
-    ) -> Box<dyn Iterator<Item = Result<(CommitId, ChangeId), RevsetEvaluationError>> + 'a>
+    ) -> LocalBoxStream<'a, Result<(CommitId, ChangeId), RevsetEvaluationError>>
     where
         Self: 'a;
 

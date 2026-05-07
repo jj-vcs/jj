@@ -772,8 +772,8 @@ async fn compute_operation_commits_diff(
     let newly_hidden = newly_hidden_expr
         .intersection(&from_op_diff_changes_expr)
         .evaluate(repo)?;
-    for item in newly_hidden.commit_change_ids() {
-        let (commit_id, change_id) = item?;
+    let mut newly_hidden_stream = newly_hidden.commit_change_ids();
+    while let Some((commit_id, change_id)) = newly_hidden_stream.try_next().await? {
         // Just pick one if diverged. Divergent commits shouldn't be considered
         // "squashed" into the new commit.
         hidden_commits_by_change
@@ -787,8 +787,8 @@ async fn compute_operation_commits_diff(
     let newly_visible = newly_visible_expr
         .intersection(&to_op_diff_changes_expr)
         .evaluate(repo)?;
-    for item in newly_visible.commit_change_ids() {
-        let (commit_id, change_id) = item?;
+    let mut newly_visible_stream = newly_visible.commit_change_ids();
+    while let Some((commit_id, change_id)) = newly_visible_stream.try_next().await? {
         let predecessor_ids = if let Some(ids) = predecessor_commits.get(&commit_id) {
             ids // including visible predecessors
         } else if let Some(id) = hidden_commits_by_change.get(&change_id) {

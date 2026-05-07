@@ -1974,15 +1974,20 @@ impl MutableRepo {
         new_heads: &[CommitId],
     ) -> BackendResult<()> {
         let mut removed_changes: HashMap<ChangeId, Vec<CommitId>> = HashMap::new();
-        for item in revset::walk_revs(self, old_heads, new_heads)
-            .map_err(|err| err.into_backend_error())?
-            .commit_change_ids()
         {
-            let (commit_id, change_id) = item.map_err(|err| err.into_backend_error())?;
-            removed_changes
-                .entry(change_id)
-                .or_default()
-                .push(commit_id);
+            let mut stream = revset::walk_revs(self, old_heads, new_heads)
+                .map_err(|err| err.into_backend_error())?
+                .commit_change_ids();
+            while let Some((commit_id, change_id)) = stream
+                .try_next()
+                .await
+                .map_err(|err| err.into_backend_error())?
+            {
+                removed_changes
+                    .entry(change_id)
+                    .or_default()
+                    .push(commit_id);
+            }
         }
         if removed_changes.is_empty() {
             return Ok(());
@@ -1990,20 +1995,25 @@ impl MutableRepo {
 
         let mut rewritten_changes = HashSet::new();
         let mut rewritten_commits: HashMap<CommitId, Vec<CommitId>> = HashMap::new();
-        for item in revset::walk_revs(self, new_heads, old_heads)
-            .map_err(|err| err.into_backend_error())?
-            .commit_change_ids()
         {
-            let (commit_id, change_id) = item.map_err(|err| err.into_backend_error())?;
-            if let Some(old_commits) = removed_changes.get(&change_id) {
-                for old_commit in old_commits {
-                    rewritten_commits
-                        .entry(old_commit.clone())
-                        .or_default()
-                        .push(commit_id.clone());
+            let mut stream = revset::walk_revs(self, new_heads, old_heads)
+                .map_err(|err| err.into_backend_error())?
+                .commit_change_ids();
+            while let Some((commit_id, change_id)) = stream
+                .try_next()
+                .await
+                .map_err(|err| err.into_backend_error())?
+            {
+                if let Some(old_commits) = removed_changes.get(&change_id) {
+                    for old_commit in old_commits {
+                        rewritten_commits
+                            .entry(old_commit.clone())
+                            .or_default()
+                            .push(commit_id.clone());
+                    }
                 }
+                rewritten_changes.insert(change_id);
             }
-            rewritten_changes.insert(change_id);
         }
         for (old_commit, new_commits) in rewritten_commits {
             if new_commits.len() == 1 {
