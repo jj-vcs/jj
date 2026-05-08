@@ -95,9 +95,11 @@ impl Transaction {
     }
 
     pub async fn merge_operation(&mut self, other_op: Operation) -> Result<(), RepoLoaderError> {
-        let ancestor_op =
-            op_walk::closest_common_ancestor(self.parent_ops.iter().cloned(), [other_op.clone()])
+        let ancestor_ops =
+            op_walk::closest_common_ancestors(self.parent_ops.iter().cloned(), [other_op.clone()])
                 .await?;
+        // TODO: do recursive merge instead of using only a single common operation
+        let ancestor_op = ancestor_ops.into_iter().next().unwrap();
         let repo_loader = self.base_repo().loader();
         let base_repo = repo_loader.load_at(&ancestor_op).await?;
         let other_repo = repo_loader.load_at(&other_op).await?;

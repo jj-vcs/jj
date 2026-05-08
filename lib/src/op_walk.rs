@@ -365,11 +365,11 @@ fn collect_ancestors_until_roots(
 // TODO: We should probably make this a function on `OpStore` instead of
 // relying on heuristics (even if the implementation of the trait might rely on
 // the same heuristic initially).
-pub async fn closest_common_ancestor(
+pub async fn closest_common_ancestors(
     set1: impl IntoIterator<Item = Operation>,
     set2: impl IntoIterator<Item = Operation>,
-) -> OpStoreResult<Operation> {
-    let ancestor_op = dag_walk_async::closest_common_node(
+) -> OpStoreResult<Vec<Operation>> {
+    let ancestor_ops = dag_walk_async::closest_common_nodes(
         set1.into_iter().map(OperationByEndTime),
         set2.into_iter().map(OperationByEndTime),
         |op: &OperationByEndTime| op.0.id().clone(),
@@ -379,9 +379,8 @@ pub async fn closest_common_ancestor(
                 .map(|parents| parents.into_iter().map(OperationByEndTime))
         },
     )
-    .await?
-    .unwrap();
-    Ok(ancestor_op.0)
+    .await?;
+    Ok(ancestor_ops.into_iter().map(|op| op.0).collect())
 }
 
 /// Stats about `reparent_range()`.

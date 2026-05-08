@@ -374,9 +374,11 @@ impl WorkingCopyFreshness {
                 .load_operation(locked_wc.old_operation_id())
                 .await?;
             let repo_operation = repo.operation();
-            let ancestor_op =
-                op_walk::closest_common_ancestor([wc_operation.clone()], [repo_operation.clone()])
+            let ancestor_ops =
+                op_walk::closest_common_ancestors([wc_operation.clone()], [repo_operation.clone()])
                     .await?;
+            // TODO: test all operations instead of using only a single common operation
+            let ancestor_op = ancestor_ops.into_iter().next().unwrap();
             if ancestor_op.id() == repo_operation.id() {
                 // The working copy was updated since we loaded the repo. The repo must be
                 // reloaded at the working copy's operation.
