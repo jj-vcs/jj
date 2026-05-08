@@ -1386,7 +1386,7 @@ mod tests {
     #[test]
     fn test_closest_common_node_tricky_ancestor() {
         // Find the clostest common ancestor between B and F. It should be B because
-        // it's even an ancestor of F, but we currently find A because the path to it
+        // it's even an ancestor of F, but we used to find A because the path to it
         // from F is shorter (via E).
         //
         //  F
@@ -1415,6 +1415,37 @@ mod tests {
     }
 
     #[test]
+    fn test_closest_common_node_tricky_ancestor_with_bad_heuristic() {
+        // Find the clostest common ancestor between D and A. It should be D because
+        // it's even an ancestor of A, but we currently find F when using a bad
+        // heuristic that reaches F sooner.
+        //
+        //  A
+        //  |\
+        //  B |
+        //  | |
+        //  C E
+        //  | |
+        //  D |
+        //  |/
+        //  F
+
+        let neighbors = hashmap! {
+            'F' => vec![],
+            'E' => vec!['F'],
+            'D' => vec!['F'],
+            'C' => vec!['D'],
+            'B' => vec!['C'],
+            'A' => vec!['B', 'E'],
+        };
+        let id_fn = |node: &char| *node;
+        let neighbors_fn = async |node: &char| Ok::<_, char>(neighbors[node].clone());
+
+        let common = closest_common_node(vec!['D'], vec!['A'], id_fn, neighbors_fn).block_on();
+        assert_eq!(common, Ok(Some('F')));
+    }
+
+    #[test]
     fn test_closest_common_node() {
         let neighbors = hashmap! {
             'A' => Err('Y'),
@@ -1429,6 +1460,56 @@ mod tests {
         assert_eq!(result, Ok(Some('A')));
         let result = closest_common_node(['C'], ['D'], id_fn, neighbors_fn).block_on();
         assert_eq!(result, Err('X'));
+    }
+
+    #[test]
+    fn test_closest_common_node_simple_with_bad_heuristic() {
+        // We still find the right common ancestor between C and A when given a bad
+        // heuristic.
+        //
+        //  C A
+        //  |/
+        //  B
+        //  |
+        //  D
+
+        let neighbors = hashmap! {
+            'D' => vec![],
+            'B' => vec!['D'],
+            'C' => vec!['B'],
+            'A' => vec!['B'],
+        };
+        let id_fn = |node: &char| *node;
+        let neighbors_fn = async |node: &char| Ok::<_, char>(neighbors[node].clone());
+
+        let common = closest_common_node(vec!['C'], vec!['A'], id_fn, neighbors_fn).block_on();
+        assert_eq!(common, Ok(Some('B')));
+    }
+
+    #[test]
+    fn test_closest_common_node_ancestor_with_bad_heuristic() {
+        // We still find the right common ancestor between A and B when given a bad
+        // heuristic.
+        //
+        //  A
+        //  |
+        //  C
+        //  |
+        //  B
+        //  |
+        //  D
+
+        let neighbors = hashmap! {
+            'D' => vec![],
+            'B' => vec!['D'],
+            'C' => vec!['B'],
+            'A' => vec!['C'],
+        };
+        let id_fn = |node: &char| *node;
+        let neighbors_fn = async |node: &char| Ok::<_, char>(neighbors[node].clone());
+
+        let common = closest_common_node(vec!['A'], vec!['B'], id_fn, neighbors_fn).block_on();
+        assert_eq!(common, Ok(Some('B')));
     }
 
     #[test]
