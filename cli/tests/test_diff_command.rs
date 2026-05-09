@@ -1633,9 +1633,11 @@ fn test_diff_missing_newline() {
     Modified regular file file1:
        1    1: foo
             2: bar
+    (no terminating newline)
     Modified regular file file2:
        1    1: foo
        2     : bar
+    (no terminating newline)
     [EOF]
     ");
 
@@ -1730,6 +1732,7 @@ fn test_color_words_diff_missing_newline() {
             7: g
             8: h
             9: i
+    (removed terminating newline)
     === Modify first line
     Modified regular file file1:
        1    1: aA
@@ -1737,6 +1740,7 @@ fn test_color_words_diff_missing_newline() {
        3    3: c
        4    4: d
         ...
+    (no terminating newline)
     === Modify middle line
     Modified regular file file1:
        1    1: A
@@ -1748,6 +1752,7 @@ fn test_color_words_diff_missing_newline() {
        7    7: g
        8    8: h
        9    9: i
+    (no terminating newline)
     === Modify last line
     Modified regular file file1:
         ...
@@ -1755,6 +1760,7 @@ fn test_color_words_diff_missing_newline() {
        7    7: g
        8    8: h
        9    9: iI
+    (no terminating newline)
     === Append newline
     Modified regular file file1:
         ...
@@ -1762,6 +1768,7 @@ fn test_color_words_diff_missing_newline() {
        7    7: g
        8    8: h
        9    9: I
+    (added terminating newline)
     === Remove newline
     Modified regular file file1:
         ...
@@ -1769,6 +1776,7 @@ fn test_color_words_diff_missing_newline() {
        7    7: g
        8    8: h
        9    9: I
+    (removed terminating newline)
     === Empty
     Modified regular file file1:
        1     : A
@@ -1780,6 +1788,7 @@ fn test_color_words_diff_missing_newline() {
        7     : g
        8     : h
        9     : I
+    (added terminating newline)
     [EOF]
     ");
 
@@ -1806,6 +1815,7 @@ fn test_color_words_diff_missing_newline() {
             7: g
             8: h
             9: i
+    (removed terminating newline)
     === Modify first line
     Modified regular file file1:
        1     : a
@@ -1814,6 +1824,7 @@ fn test_color_words_diff_missing_newline() {
        3    3: c
        4    4: d
         ...
+    (no terminating newline)
     === Modify middle line
     Modified regular file file1:
        1    1: A
@@ -1826,6 +1837,7 @@ fn test_color_words_diff_missing_newline() {
        7    7: g
        8    8: h
        9    9: i
+    (no terminating newline)
     === Modify last line
     Modified regular file file1:
         ...
@@ -1834,6 +1846,7 @@ fn test_color_words_diff_missing_newline() {
        8    8: h
        9     : i
             9: I
+    (no terminating newline)
     === Append newline
     Modified regular file file1:
         ...
@@ -1842,6 +1855,7 @@ fn test_color_words_diff_missing_newline() {
        8    8: h
        9     : I
             9: I
+    (added terminating newline)
     === Remove newline
     Modified regular file file1:
         ...
@@ -1850,6 +1864,7 @@ fn test_color_words_diff_missing_newline() {
        8    8: h
        9     : I
             9: I
+    (removed terminating newline)
     === Empty
     Modified regular file file1:
        1     : A
@@ -1861,6 +1876,7 @@ fn test_color_words_diff_missing_newline() {
        7     : g
        8     : h
        9     : I
+    (added terminating newline)
     [EOF]
     ");
 }
@@ -2053,6 +2069,7 @@ fn test_diff_skipped_context() {
             8: h
             9: i
            10: j
+    (removed terminating newline)
     === Must skip 2 lines
     Modified regular file file1:
        1    1: aA
@@ -2064,6 +2081,7 @@ fn test_diff_skipped_context() {
        8    8: h
        9    9: i
       10   10: jJ
+    (no terminating newline)
     === Don't skip 1 line
     Modified regular file file1:
        1    1: aA
@@ -2076,6 +2094,7 @@ fn test_diff_skipped_context() {
        8    8: h
        9    9: iI
       10   10: j
+    (no terminating newline)
     === No gap to skip
     Modified regular file file1:
        1    1: a
@@ -2088,6 +2107,7 @@ fn test_diff_skipped_context() {
        8    8: h
        9    9: iI
       10   10: j
+    (no terminating newline)
     === No gap to skip
     Modified regular file file1:
        1    1: a
@@ -2100,6 +2120,7 @@ fn test_diff_skipped_context() {
        8    8: h
        9    9: iI
       10   10: j
+    (no terminating newline)
     === 1 line at start
     Modified regular file file1:
        1    1: a
@@ -2111,6 +2132,7 @@ fn test_diff_skipped_context() {
        7    7: g
        8    8: h
         ...
+    (no terminating newline)
     === 1 line at end
     Modified regular file file1:
         ...
@@ -2122,6 +2144,7 @@ fn test_diff_skipped_context() {
        8    8: h
        9    9: i
       10   10: j
+    (no terminating newline)
     [EOF]
     ");
 }
@@ -2158,11 +2181,13 @@ context = 0
             3: c
             4: d
             5: e
+    (removed terminating newline)
     === Must show 0 context
     Modified regular file file1:
         ...
        3    3: cC
         ...
+    (no terminating newline)
     [EOF]
     ");
 }
@@ -2271,33 +2296,39 @@ fn test_diff_skipped_context_nondefault() {
             2: b
             3: c
             4: d
+    (removed terminating newline)
     === Must skip 2 lines
     Modified regular file file1:
        1    1: aA
         ...
        4    4: dD
+    (no terminating newline)
     === Don't skip 1 line
     Modified regular file file1:
        1    1: aA
        2    2: b
        3    3: cC
        4    4: d
+    (no terminating newline)
     === No gap to skip
     Modified regular file file1:
        1    1: a
        2    2: bB
        3    3: cC
        4    4: d
+    (no terminating newline)
     === 1 line at start
     Modified regular file file1:
        1    1: a
        2    2: bB
         ...
+    (no terminating newline)
     === 1 line at end
     Modified regular file file1:
         ...
        3    3: cC
        4    4: d
+    (no terminating newline)
     [EOF]
     ");
 }

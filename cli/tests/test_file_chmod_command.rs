@@ -173,6 +173,7 @@ fn test_chmod_nonfile() -> TestResult {
 
     Added symlink symlink:
             1: target
+    (removed terminating newline)
     [EOF]
     ");
 
