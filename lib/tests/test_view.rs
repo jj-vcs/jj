@@ -779,27 +779,12 @@ fn test_merge_views_criss_cross(op_b_first: bool) -> TestResult {
 
     let repo = repo_f.reload_at_head().block_on()?;
     let heads = repo.view().heads();
-    if op_b_first {
-        // TODO: Commit M should be the only visible head and the working copy should
-        // point to it.
-        assert_eq!(
-            *heads,
-            hashset![commit_l.id().clone(), commit_m.id().clone()]
-        );
-        assert_eq!(
-            repo.view()
-                .get_wc_commit_id(WorkspaceName::DEFAULT)
-                .unwrap(),
-            commit_l.id(),
-        );
-    } else {
-        assert_eq!(*heads, hashset![commit_m.id().clone()]);
-        assert_eq!(
-            repo.view()
-                .get_wc_commit_id(WorkspaceName::DEFAULT)
-                .unwrap(),
-            commit_m.id(),
-        );
-    }
+    assert_eq!(*heads, hashset![commit_m.id().clone()]);
+    assert_eq!(
+        repo.view()
+            .get_wc_commit_id(WorkspaceName::DEFAULT)
+            .unwrap(),
+        commit_m.id(),
+    );
     Ok(())
 }

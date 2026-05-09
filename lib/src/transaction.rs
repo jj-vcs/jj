@@ -98,9 +98,8 @@ impl Transaction {
         let ancestor_ops =
             op_walk::closest_common_ancestors(self.parent_ops.iter().cloned(), [other_op.clone()])
                 .await?;
-        // TODO: do recursive merge instead of using only a single common operation
-        let ancestor_op = ancestor_ops.into_iter().next().unwrap();
         let repo_loader = self.base_repo().loader();
+        let ancestor_op = Box::pin(repo_loader.merge_operations(ancestor_ops, None)).await?;
         let base_repo = repo_loader.load_at(&ancestor_op).await?;
         let other_repo = repo_loader.load_at(&other_op).await?;
         self.parent_ops.push(other_op);
