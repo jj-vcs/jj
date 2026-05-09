@@ -286,8 +286,10 @@ fn test_util_snapshot() {
     work_dir.write_file("foo", "foo");
 
     let output = work_dir.run_jj(["util", "snapshot"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A foo
     Snapshot complete.
     [EOF]
     ");

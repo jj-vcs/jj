@@ -67,7 +67,8 @@ fn test_track_untrack() {
     ");
     let files_after = work_dir.run_jj(["file", "list"]).success();
     // There should be no changes to the state when there was an error
-    assert_eq!(files_after, files_before);
+    assert_eq!(files_after.stdout, files_before.stdout);
+    insta::assert_snapshot!(files_after.stderr, @"");
 
     // Can untrack a single file
     assert!(files_before.stdout.raw().contains("file1.bak\n"));
@@ -122,9 +123,14 @@ fn test_track_untrack_sparse() {
     // doesn't need to be ignored (because it won't be automatically added
     // back).
     let output = work_dir.run_jj(["file", "list"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     file1
     file2
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A file1
+    A file2
     [EOF]
     ");
     work_dir
@@ -161,8 +167,12 @@ fn test_auto_track() {
 
     // Only configured paths get auto-tracked
     let output = work_dir.run_jj(["file", "list"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     file1.rs
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A file1.rs
     [EOF]
     ");
 
@@ -279,9 +289,14 @@ fn test_track_ignored_with_flag() {
 
     // Test the setup
     let output = work_dir.run_jj(["file", "list"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     .gitignore
     file1.txt
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A .gitignore
+    A file1.txt
     [EOF]
     ");
 
@@ -310,10 +325,12 @@ fn test_track_large_file_with_flag() {
 
     // Test the setup - both large files warned
     let output = work_dir.run_jj(["file", "list"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     small.txt
     [EOF]
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A small.txt
     Warning: Refused to snapshot some files:
       large1.txt: 20.0B (20 bytes); the maximum size allowed is 10.0B (10 bytes)
       large2.txt: 20.0B (20 bytes); the maximum size allowed is 10.0B (10 bytes)
@@ -373,8 +390,12 @@ fn test_track_ignored_directory() {
 
     // Test the setup
     let output = work_dir.run_jj(["file", "list"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     .gitignore
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A .gitignore
     [EOF]
     ");
 

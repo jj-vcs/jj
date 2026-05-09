@@ -43,7 +43,7 @@ fn test_diff_basic() {
     work_dir.write_file("file4", "1\n2\n3\n4\n");
 
     let output = work_dir.run_jj(["diff"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     Modified regular file file2:
        1    1: 1
        2     : 2
@@ -52,6 +52,11 @@ fn test_diff_basic() {
        4     : 4
     Modified regular file file3 (file1 => file3):
     Modified regular file file4 (file2 => file4):
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A file3
+    A file4
     [EOF]
     ");
 
@@ -415,9 +420,13 @@ fn test_diff_empty() {
 
     work_dir.write_file("file1", "");
     let output = work_dir.run_jj(["diff"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     Added regular file file1:
         (empty)
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A file1
     [EOF]
     ");
 
@@ -643,10 +652,23 @@ fn test_diff_types() -> TestResult {
             &format!(r#"--to=subject("{to}")"#),
         ])
     };
-    insta::assert_snapshot!(diff("missing", "file"), @"
+    let output = diff("missing", "file");
+    insta::assert_snapshot!(output.stdout, @r"
     -F foo
     [EOF]
     ");
+    #[cfg(unix)]
+    {
+        insta::assert_snapshot!(output.stderr, @"
+        Auto-tracking 1 new file:
+        A foo
+        [EOF]
+        ");
+    }
+    #[cfg(windows)]
+    {
+        insta::assert_snapshot!(output.stderr, "");
+    }
     insta::assert_snapshot!(diff("file", "conflict"), @"
     FC foo
     [EOF]
@@ -679,9 +701,14 @@ fn test_diff_name_only() {
     work_dir.run_jj(["new"]).success();
     work_dir.write_file("deleted", "d");
     work_dir.write_file("modified", "m");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--name-only"]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--name-only"]), @r"
     deleted
     modified
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A deleted
+    A modified
     [EOF]
     ");
     work_dir.run_jj(["commit", "-mfirst"]).success();
@@ -690,11 +717,20 @@ fn test_diff_name_only() {
     work_dir.write_file("added", "add");
     work_dir.create_dir("sub");
     work_dir.write_file("sub/added", "sub/add");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--name-only"]).normalize_backslash(), @"
+    insta::assert_snapshot!(
+    work_dir
+        .run_jj(["diff", "--name-only"])
+        .normalize_backslash(),
+        @r"
     added
     deleted
     modified
     sub/added
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A added
+    A sub/added
     [EOF]
     ");
 }
@@ -717,9 +753,14 @@ fn test_diff_renamed_file_and_dir() {
 
     // Renamed directory y->x shouldn't be reported
     let output = work_dir.run_jj(["diff", "--summary"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @"
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
     R {y => x}/file
     R {x => y}
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A y
+    A x/file
     [EOF]
     ");
 
@@ -801,23 +842,6 @@ fn test_diff_relative_paths() {
             1: bar1
     [EOF]
     ");
-    #[cfg(windows)]
-    insta::assert_snapshot!(output, @r"
-    Modified regular file file2:
-       1     : foo2
-            1: bar2
-    Modified regular file subdir1\file3:
-       1     : foo3
-            1: bar3
-    Modified regular file ..\dir2\file4:
-       1     : foo4
-            1: bar4
-    Modified regular file ..\file1:
-       1     : foo1
-            1: bar1
-    [EOF]
-    ");
-
     let output = sub_dir1.run_jj(["diff", "-s"]).normalize_backslash();
     insta::assert_snapshot!(output, @"
     M file2
@@ -3139,6 +3163,8 @@ fn test_diff_external_tool() -> TestResult {
     insta_portable_exit_status.bind(|| {
         insta::assert_snapshot!(output, @r"
         ------- stderr -------
+        Auto-tracking 1 new file:
+        A file3
         Warning: Tool exited with <exit status>: 1 (run with --debug to see the exact invocation).
         [EOF]
         ");
@@ -3354,8 +3380,12 @@ fn test_diff_external_available_width() {
     // Directory diff
     let output =
         work_dir.run_jj_with(|cmd| cmd.args(["diff", "--tool=fake-echo"]).env("COLUMNS", "50"));
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     50
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A file2
     [EOF]
     ");
 
@@ -3411,7 +3441,7 @@ fn test_diff_external_file_by_file_tool() -> TestResult {
     ];
 
     // diff without file patterns
-    insta::assert_snapshot!(work_dir.run_jj_with(|cmd| cmd.arg("diff").args(configs)), @"
+    insta::assert_snapshot!(work_dir.run_jj_with(|cmd| cmd.arg("diff").args(configs)), @r"
     ==
     file2
     --
@@ -3424,6 +3454,11 @@ fn test_diff_external_file_by_file_tool() -> TestResult {
     file1
     --
     file4
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A file3
+    A file4
     [EOF]
     ");
 
@@ -3645,9 +3680,13 @@ fn test_diff_stat() {
     work_dir.write_file("file1", "foo\n");
 
     let output = work_dir.run_jj(["diff", "--stat"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     file1 | 1 +
     1 file changed, 1 insertion(+), 0 deletions(-)
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A file1
     [EOF]
     ");
 
@@ -3692,118 +3731,203 @@ fn test_diff_stat_long_name_or_stat() {
         work_dir.run_jj(["diff", "--stat"])
     };
 
-    insta::assert_snapshot!(get_stat(&work_dir, 1, 1), @"
+    insta::assert_snapshot!(get_stat(&work_dir, 1, 1), @r"
     1  | 1 +
     一 | 1 +
     2 files changed, 2 insertions(+), 0 deletions(-)
     [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A 1
+    A 一
+    [EOF]
     ");
-    insta::assert_snapshot!(get_stat(&work_dir, 1, 10), @"
+    insta::assert_snapshot!(get_stat(&work_dir, 1, 10), @r"
     1  | 10 ++++++++++
     一 | 10 ++++++++++
     2 files changed, 20 insertions(+), 0 deletions(-)
     [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A 1
+    A 一
+    [EOF]
     ");
     // 30 column display width means right edge is
     //                ... here ->|
-    insta::assert_snapshot!(get_stat(&work_dir, 1, 100), @"
+    insta::assert_snapshot!(get_stat(&work_dir, 1, 100), @r"
     1  | 100 +++++++++++++++++++++
     一 | 100 +++++++++++++++++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A 1
+    A 一
+    [EOF]
     ");
-    insta::assert_snapshot!(get_stat(&work_dir, 10, 1), @"
+    insta::assert_snapshot!(get_stat(&work_dir, 10, 1), @r"
     1234567890        | 1 +
     ...四五六七八九十 | 1 +
     2 files changed, 2 insertions(+), 0 deletions(-)
     [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A 1234567890
+    A 一二三四五六七八九十
+    [EOF]
     ");
-    insta::assert_snapshot!(get_stat(&work_dir, 10, 10), @"
+    insta::assert_snapshot!(get_stat(&work_dir, 10, 10), @r"
     1234567890       | 10 ++++++++
     ...五六七八九十  | 10 ++++++++
     2 files changed, 20 insertions(+), 0 deletions(-)
     [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A 1234567890
+    A 一二三四五六七八九十
+    [EOF]
     ");
-    insta::assert_snapshot!(get_stat(&work_dir, 10, 100), @"
+    insta::assert_snapshot!(get_stat(&work_dir, 10, 100), @r"
     1234567890       | 100 +++++++
     ...五六七八九十  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A 1234567890
+    A 一二三四五六七八九十
+    [EOF]
     ");
-    insta::assert_snapshot!(get_stat(&work_dir, 50, 1), @"
+    insta::assert_snapshot!(get_stat(&work_dir, 50, 1), @r"
     ...78901234567890 | 1 +
     ...四五六七八九十 | 1 +
     2 files changed, 2 insertions(+), 0 deletions(-)
     [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A 12345678901234567890123456789012345678901234567890
+    A 一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十
+    [EOF]
     ");
-    insta::assert_snapshot!(get_stat(&work_dir, 50, 10), @"
+    insta::assert_snapshot!(get_stat(&work_dir, 50, 10), @r"
     ...8901234567890 | 10 ++++++++
     ...五六七八九十  | 10 ++++++++
     2 files changed, 20 insertions(+), 0 deletions(-)
     [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A 12345678901234567890123456789012345678901234567890
+    A 一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十
+    [EOF]
     ");
-    insta::assert_snapshot!(get_stat(&work_dir, 50, 100), @"
+    insta::assert_snapshot!(get_stat(&work_dir, 50, 100), @r"
     ...8901234567890 | 100 +++++++
     ...五六七八九十  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A 12345678901234567890123456789012345678901234567890
+    A 一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十
     [EOF]
     ");
 
     // Lengths around where we introduce the ellipsis
     // 30 column display width means right edge is
     //                ... here ->|
-    insta::assert_snapshot!(get_stat(&work_dir, 13, 100), @"
+    insta::assert_snapshot!(get_stat(&work_dir, 13, 100), @r"
     1234567890123    | 100 +++++++
     ...八九十一二三  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A 1234567890123
+    A 一二三四五六七八九十一二三
+    [EOF]
     ");
-    insta::assert_snapshot!(get_stat(&work_dir, 14, 100), @"
+    insta::assert_snapshot!(get_stat(&work_dir, 14, 100), @r"
     12345678901234   | 100 +++++++
     ...九十一二三四  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A 12345678901234
+    A 一二三四五六七八九十一二三四
+    [EOF]
     ");
-    insta::assert_snapshot!(get_stat(&work_dir, 15, 100), @"
+    insta::assert_snapshot!(get_stat(&work_dir, 15, 100), @r"
     123456789012345  | 100 +++++++
     ...十一二三四五  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A 123456789012345
+    A 一二三四五六七八九十一二三四五
+    [EOF]
     ");
-    insta::assert_snapshot!(get_stat(&work_dir, 16, 100), @"
+    insta::assert_snapshot!(get_stat(&work_dir, 16, 100), @r"
     1234567890123456 | 100 +++++++
     ...一二三四五六  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A 1234567890123456
+    A 一二三四五六七八九十一二三四五六
     [EOF]
     ");
 
     // Very narrow terminal (doesn't have to fit, just don't crash)
     test_env.add_env_var("COLUMNS", "10");
     let work_dir = test_env.work_dir("repo");
-    insta::assert_snapshot!(get_stat(&work_dir, 10, 10), @"
+    insta::assert_snapshot!(get_stat(&work_dir, 10, 10), @r"
     ... | 10 ++
     ... | 10 ++
     2 files changed, 20 insertions(+), 0 deletions(-)
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A 1234567890
+    A 一二三四五六七八九十
     [EOF]
     ");
     test_env.add_env_var("COLUMNS", "3");
     let work_dir = test_env.work_dir("repo");
-    insta::assert_snapshot!(get_stat(&work_dir, 10, 10), @"
+    insta::assert_snapshot!(get_stat(&work_dir, 10, 10), @r"
     ... | 10 ++
     ... | 10 ++
     2 files changed, 20 insertions(+), 0 deletions(-)
     [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A 1234567890
+    A 一二三四五六七八九十
+    [EOF]
     ");
-    insta::assert_snapshot!(get_stat(&work_dir, 3, 10), @"
+    insta::assert_snapshot!(get_stat(&work_dir, 3, 10), @r"
     123 | 10 ++
     ... | 10 ++
     2 files changed, 20 insertions(+), 0 deletions(-)
     [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A 123
+    A 一二三
+    [EOF]
     ");
-    insta::assert_snapshot!(get_stat(&work_dir, 1, 10), @"
+    insta::assert_snapshot!(get_stat(&work_dir, 1, 10), @r"
     1  | 10 +++
     一 | 10 +++
     2 files changed, 20 insertions(+), 0 deletions(-)
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A 1
+    A 一
     [EOF]
     ");
 }
@@ -3825,11 +3949,15 @@ fn test_diff_stat_rounding() {
     work_dir.write_file("only_adds.txt", b"y\n".repeat(10));
 
     let output = work_dir.run_jj(["diff", "--stat"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     mostly_adds.txt    | 101 ++++-
     mostly_removes.txt | 301 +--------------
     only_adds.txt      |  10 +
     3 files changed, 111 insertions(+), 301 deletions(-)
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A only_adds.txt
     [EOF]
     ");
 
@@ -3866,7 +3994,7 @@ fn test_diff_binary() {
     work_dir.write_file("binary_valid_utf8.png", b"\0\0\0");
 
     let output = work_dir.run_jj(["diff"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     Added regular file binary_added.png:
         (binary)
     Modified regular file binary_modified.png:
@@ -3877,6 +4005,11 @@ fn test_diff_binary() {
         (binary)
     Added regular file binary_valid_utf8.png:
         (binary)
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A binary_added.png
+    A binary_valid_utf8.png
     [EOF]
     ");
 
@@ -3943,10 +4076,14 @@ fn test_diff_stat_binary_and_text() {
     work_dir.write_file("text_with_elided_long_file_name.txt", b"a\n".repeat(100));
     let output = work_dir.run_jj(["diff", "--stat"]);
     // Rightmost display column          ->|
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ...d_long_file_name.png | (binary)
     ...d_long_file_name.txt | 100 ++++++++++
     2 files changed, 100 insertions(+), 0 deletions(-)
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A text_with_elided_long_file_name.txt
     [EOF]
     ");
 

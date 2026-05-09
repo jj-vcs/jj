@@ -247,8 +247,10 @@ fn test_git_push_parent_bookmark() {
         .success();
     work_dir.write_file("file", "file");
     let output = work_dir.run_jj(["git", "push"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A file
     Changes to push to origin:
       bookmark: bookmark1 [move sideways from 9b2e76de3920 to 80560a3e08e2]
     [EOF]

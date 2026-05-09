@@ -56,9 +56,15 @@ fn test_split_by_paths() -> TestResult {
     work_dir.write_file("file2", "foo");
     work_dir.write_file("file3", "foo");
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  qpvuntsmwlqt false
     ◆  zzzzzzzzzzzz true
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 3 new files:
+    A file1
+    A file2
+    A file3
     [EOF]
     ");
     insta::assert_snapshot!(get_recorded_dates(&work_dir, "@"), @"
@@ -290,8 +296,11 @@ fn test_split_with_default_description() -> TestResult {
         ["dump editor1", "next invocation\n", "dump editor2"].join("\0"),
     )?;
     let output = work_dir.run_jj(["split", "file1"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 2 new files:
+    A file1
+    A file2
     Selected changes : qpvuntsm ff633dcc TESTED=TODO
     Remaining changes: rlvkpnrz b1d20b7e (no description set)
     Working copy  (@) now at: rlvkpnrz b1d20b7e (no description set)
@@ -520,9 +529,14 @@ fn test_split_parallel_no_descendants() -> TestResult {
     work_dir.write_file("file1", "foo\n");
     work_dir.write_file("file2", "bar\n");
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  qpvuntsmwlqt false
     ◆  zzzzzzzzzzzz true
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A file1
+    A file2
     [EOF]
     ");
 
@@ -917,8 +931,11 @@ fn test_split_interactive() -> TestResult {
 
     // Split the working commit interactively and select only file1
     let output = work_dir.run_jj(["split"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 2 new files:
+    A file1
+    A file2
     Selected changes : qpvuntsm c664a51b (no description set)
     Remaining changes: rlvkpnrz 7e5d65b1 (no description set)
     Working copy  (@) now at: rlvkpnrz 7e5d65b1 (no description set)
@@ -995,8 +1012,10 @@ fn test_split_interactive_with_paths() -> TestResult {
     // Select file1 and file2 by args, then select file1 interactively via the diff
     // script.
     let output = work_dir.run_jj(["split", "-i", "file1", "file2"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A file1
     Selected changes : rlvkpnrz cdc9960a (no description set)
     Remaining changes: kkmpptxz 7255f070 (no description set)
     Working copy  (@) now at: kkmpptxz 7255f070 (no description set)

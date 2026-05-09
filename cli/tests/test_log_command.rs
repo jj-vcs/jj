@@ -111,7 +111,7 @@ fn test_log_with_diff_stats() {
     "#;
 
     let output = work_dir.run_jj(["log", "-T", template]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     @  M modified file1 file1
     │  M modified file2 file2
     │  M modified file3 file3
@@ -133,6 +133,10 @@ fn test_log_with_diff_stats() {
     │  A added 1 0 file4
     │  A added 2 0 file5
     ◆
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A file6
     [EOF]
     ");
 }
@@ -912,8 +916,10 @@ fn test_log_filtered_by_path() {
 
     // The output filtered to a non-existent file should display a warning.
     let output = work_dir.run_jj(["log", "-r", "@-", "-T", "description", "nonexistent"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A file2
     Warning: No matching entries for paths: nonexistent
     [EOF]
     ");
@@ -1102,10 +1108,14 @@ fn test_log_warn_path_might_be_revset() {
 
     // Don't warn if the file actually exists.
     let output = work_dir.run_jj(["log", "file1", "-T", "description"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     @
     │
     ~
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A file1
     [EOF]
     ");
 
@@ -1560,7 +1570,7 @@ fn test_log_diff_stat_width() {
     work_dir.run_jj(["new", "root()"]).success();
     work_dir.write_file("file2", "foo\n".repeat(100));
 
-    insta::assert_snapshot!(render(&["log", "--stat", "--no-graph"], 30), @"
+    insta::assert_snapshot!(render(&["log", "--stat", "--no-graph"], 30), @r"
     rlvkpnrz test.user@example.com 2001-02-03 08:05:09 9490cfd3
     (no description set)
     file2 | 100 ++++++++++++++++++
@@ -1571,6 +1581,10 @@ fn test_log_diff_stat_width() {
     1 file changed, 100 insertions(+), 0 deletions(-)
     zzzzzzzz root() 00000000
     0 files changed, 0 insertions(+), 0 deletions(-)
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A file2
     [EOF]
     ");
 

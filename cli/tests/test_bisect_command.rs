@@ -465,7 +465,7 @@ fn test_bisect_run_write_file() -> TestResult {
         &bisection_script,
         ["write new-file\nsome contents", "fail"].join("\0"),
     )?;
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @r"
     Bisecting: 4 revisions left to test after this (roughly 3 steps)
     Now evaluating: zsuskuln 123b4d91 b | b
     fake-bisector testing commit 123b4d91f6e5e39bfed39bae3bacf9380dc79078
@@ -484,9 +484,13 @@ fn test_bisect_run_write_file() -> TestResult {
     Working copy  (@) now at: kmkuslsw 17e2a972 (empty) (no description set)
     Parent commit (@-)      : zsuskuln 123b4d91 b | b
     Added 0 files, modified 0 files, removed 3 files
+    Auto-tracking 1 new file:
+    A new-file
     Working copy  (@) now at: msksykpx 2f6e298d (empty) (no description set)
     Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
     Added 0 files, modified 0 files, removed 2 files
+    Auto-tracking 1 new file:
+    A new-file
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
