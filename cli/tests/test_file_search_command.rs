@@ -28,9 +28,13 @@ fn test_file_search() {
 
     // Searches all files in the current revision by default
     let output = work_dir.run_jj(["file", "search", "--pattern=glob:*foo*"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @"
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
     dir/file3
     file1
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A dir/file3
     [EOF]
     ");
 

@@ -187,8 +187,10 @@ fn test_diffedit() -> TestResult {
         "files-before file2\0files-after JJ-INSTRUCTIONS file2\0reset file2",
     )?;
     let output = work_dir.run_jj(["diffedit", "file2"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A file1
     Working copy  (@) now at: tlkvzzqu 06bdff15 (no description set)
     Parent commit (@-)      : kkmpptxz e4245972 (no description set)
     Added 0 files, modified 1 files, removed 0 files
@@ -377,8 +379,10 @@ fn test_diffedit_existing_instructions() -> TestResult {
 
     std::fs::write(&edit_script, "write JJ-INSTRUCTIONS\nmodified\n")?;
     let output = work_dir.run_jj(["diffedit"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A JJ-INSTRUCTIONS
     Working copy  (@) now at: qpvuntsm e914aaad (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files

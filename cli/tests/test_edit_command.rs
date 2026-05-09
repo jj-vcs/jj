@@ -74,13 +74,15 @@ fn test_edit() {
     // Changes in the working copy are amended into the commit
     work_dir.write_file("file2", "0");
     let output = get_log_output(&work_dir);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ○  29c4ac30d18f second
     @  b10da1f49611 first
     ◆  000000000000
     [EOF]
     ------- stderr -------
     Rebased 1 descendant commits onto updated working copy
+    Auto-tracking 1 new file:
+    A file2
     [EOF]
     ");
 

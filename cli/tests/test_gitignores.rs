@@ -58,7 +58,13 @@ fn test_gitignores() -> TestResult {
     work_dir.write_file("file3", "contents");
 
     let output = work_dir.run_jj(["diff", "-s"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
+    A .gitignore
+    A file0
+    A file3
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 3 new files:
     A .gitignore
     A file0
     A file3
@@ -89,7 +95,11 @@ fn test_gitignores_relative_excludes_file_path() -> TestResult {
     // to the cwd.
     let sub_dir = work_dir.create_dir("sub");
     let output = sub_dir.run_jj(["diff", "-s"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @"
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    A ../not-ignored
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
     A ../not-ignored
     [EOF]
     ");

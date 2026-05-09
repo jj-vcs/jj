@@ -224,8 +224,10 @@ fn test_git_colocated_unborn_bookmark() -> TestResult {
     // Stage some change, and check out root. This shouldn't clobber the HEAD.
     add_file_to_index("file0", "");
     let output = work_dir.run_jj(["new", "root()"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A file0
     Working copy  (@) now at: zsuskuln c2934cfb (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 0 files, removed 1 files
@@ -261,8 +263,10 @@ fn test_git_colocated_unborn_bookmark() -> TestResult {
     // bookmark.
     add_file_to_index("file1", "");
     let output = work_dir.run_jj(["new"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A file1
     Working copy  (@) now at: vruxwmqv 2d7a8abb (empty) (no description set)
     Parent commit (@-)      : zsuskuln ff536684 (no description set)
     [EOF]
@@ -303,8 +307,10 @@ fn test_git_colocated_unborn_bookmark() -> TestResult {
     // https://github.com/jj-vcs/jj/issues/1495
     add_file_to_index("file2", "");
     let output = work_dir.run_jj(["new", "root()"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A file2
     Working copy  (@) now at: wqnwkozp 88e8407a (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 0 files, removed 2 files
@@ -338,8 +344,10 @@ fn test_git_colocated_unborn_bookmark() -> TestResult {
     // New snapshot and commit can be created after the HEAD got unset.
     work_dir.write_file("file3", "");
     let output = work_dir.run_jj(["new"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A file3
     Working copy  (@) now at: uyznsvlq 2fb16499 (empty) (no description set)
     Parent commit (@-)      : wqnwkozp bb21bc2d (no description set)
     [EOF]

@@ -206,8 +206,10 @@ fn test_concurrent_snapshot_wc_reloadable() -> TestResult {
     )?;
     work_dir.write_file("child2", "");
     let output = work_dir.run_jj(["describe", "-m", "new child2"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A child2
     Working copy  (@) now at: kkmpptxz 493da83e new child2
     Parent commit (@-)      : rlvkpnrz 15bd889d new child1
     [EOF]
