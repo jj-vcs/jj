@@ -153,7 +153,7 @@ fn test_new_wc_commit_when_wc_immutable() {
     ");
     work_dir.write_file("file", "a");
     let output = work_dir.run_jj(["log", "-r.."]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     @  mzvwutvl test.user@example.com 2001-02-03 08:05:11 49ad4c46
     │  (no description set)
     ◆  kkmpptxz test.user@example.com 2001-02-03 08:05:09 main e1cb4cf3
@@ -164,6 +164,8 @@ fn test_new_wc_commit_when_wc_immutable() {
     [EOF]
     ------- stderr -------
     Warning: The working-copy commit is immutable; a new commit has been created on top of it.
+    Auto-tracking 1 new file:
+    A file
     [EOF]
     ");
 }
@@ -186,7 +188,7 @@ fn test_immutable_heads_set_to_working_copy() {
     ");
     work_dir.write_file("file", "a");
     let output = work_dir.run_jj(["log", "-r.."]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:10 aa4d78a2
     │  (no description set)
     ◆  kkmpptxz test.user@example.com 2001-02-03 08:05:09 e1cb4cf3
@@ -197,6 +199,8 @@ fn test_immutable_heads_set_to_working_copy() {
     [EOF]
     ------- stderr -------
     Warning: The working-copy commit is immutable; a new commit has been created on top of it.
+    Auto-tracking 1 new file:
+    A file
     [EOF]
     ");
 }
@@ -225,7 +229,7 @@ fn test_new_wc_commit_when_wc_immutable_multi_workspace() {
     ");
     work_dir.write_file("file", "a");
     let output = work_dir.run_jj(["log", "-r.."]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     @  yqosqzyt test.user@example.com 2001-02-03 08:05:13 default@ 3386b5c7
     │  (no description set)
     ◆  kkmpptxz test.user@example.com 2001-02-03 08:05:09 main workspace1@ e1cb4cf3
@@ -236,12 +240,14 @@ fn test_new_wc_commit_when_wc_immutable_multi_workspace() {
     [EOF]
     ------- stderr -------
     Warning: The working-copy commit is immutable; a new commit has been created on top of it.
+    Auto-tracking 1 new file:
+    A file
     [EOF]
     ");
 
     workspace1_dir.write_file("file", "a");
     let output = workspace1_dir.run_jj(["log", "-r.."]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     @  vruxwmqv test.user@example.com 2001-02-03 08:05:14 workspace1@ bbc55980
     │  (no description set)
     │ ○  yqosqzyt test.user@example.com 2001-02-03 08:05:13 default@ 3386b5c7
@@ -254,6 +260,8 @@ fn test_new_wc_commit_when_wc_immutable_multi_workspace() {
     [EOF]
     ------- stderr -------
     Warning: The working-copy commit is immutable; a new commit has been created on top of it.
+    Auto-tracking 1 new file:
+    A file
     [EOF]
     ");
 }

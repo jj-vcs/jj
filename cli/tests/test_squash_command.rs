@@ -349,8 +349,10 @@ fn test_squash_partial() -> TestResult {
     work_dir.write_file("file3", "foo\n");
     std::fs::write(&edit_script, "reset file1")?;
     let output = work_dir.run_jj(["squash", "-i", "file1", "file3"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A file3
     Rebased 1 descendant commits
     Working copy  (@) now at: mzvwutvl 3615d80e c | (no description set)
     Parent commit (@-)      : kkmpptxz 037106c4 b | (no description set)
@@ -1187,7 +1189,7 @@ fn test_squash_from_multiple_partial_no_op() {
     work_dir.run_jj(["new", "@-", "-m=d"]).success();
     work_dir.write_file("d", "d\n");
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  fdb92bc249a0 d
     │ ○  0dc8cb72859d c
     ├─╯
@@ -1195,6 +1197,10 @@ fn test_squash_from_multiple_partial_no_op() {
     ├─╯
     ○  93d495c46d89 a
     ◆  000000000000 (empty)
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A d
     [EOF]
     ");
     let setup_opid = work_dir.current_operation_id();
@@ -1572,10 +1578,14 @@ fn test_squash_description() -> TestResult {
     // Invalid trailer content
     work_dir.run_jj(["op", "restore", &setup_opid3]).success();
     work_dir.write_file("data.txt", b"\xff\n");
-    insta::assert_snapshot!(get_log_output_with_description(&work_dir), @"
+    insta::assert_snapshot!(get_log_output_with_description(&work_dir), @r"
     @  9eec7f21360c source
     ○  e650dfcd7312 destination
     ◆  000000000000
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A data.txt
     [EOF]
     ");
     let output = work_dir.run_jj([
