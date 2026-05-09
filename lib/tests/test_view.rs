@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::collections::BTreeMap;
+use std::time::Duration;
 
 use itertools::Itertools as _;
 use jj_lib::op_store::LocalRemoteRefTarget;
@@ -22,6 +23,7 @@ use jj_lib::op_store::RemoteRefState;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteRefSymbol;
+use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
 use maplit::btreemap;
@@ -704,5 +706,100 @@ fn test_merge_views_child_on_abandoned(child_first: bool) -> TestResult {
     let commit_c2 = repo.store().get_commit(id_c2)?;
     assert_eq!(commit_c2.change_id(), commit_c.change_id());
     assert_eq!(commit_c2.parent_ids(), vec![commit_a.id().clone()]);
+    Ok(())
+}
+
+#[test_case(false ; "operation C first")]
+#[test_case(true ; "operation B first")]
+fn test_merge_views_criss_cross(op_b_first: bool) -> TestResult {
+    // Consider the operation log below, where D and E are both merges of B and C.
+    // When merging F and E, if we pick C as common ancestor, we will get divergence
+    // because the working-copy commit was rewritten from K to L in operation E (but
+    // actually in operation B) and it was rewritten from K to M in operation F.
+    //
+    // F wc: M
+    // |
+    // D E wc: L (for both D and E)
+    // |X|
+    // | C wc: K
+    // B | wc: L
+    // |/
+    // A wc: K
+
+    let test_repo = TestRepo::init();
+
+    let mut tx_a = test_repo.repo.start_transaction();
+    let commit_k = write_random_commit(tx_a.repo_mut());
+    tx_a.repo_mut()
+        .set_wc_commit(WorkspaceName::DEFAULT.to_owned(), commit_k.id().clone())?;
+    let repo_a = tx_a.commit("K").block_on()?;
+
+    let mut tx_b = repo_a.start_transaction();
+    let commit_l = tx_b
+        .repo_mut()
+        .rewrite_commit(&commit_k)
+        .set_description("L")
+        .write_unwrap();
+    tx_b.repo_mut().rebase_descendants().block_on()?;
+
+    let tx_c = repo_a.start_transaction();
+
+    let (repo_b, repo_c) = if op_b_first {
+        let repo_b = tx_b.commit("B").block_on()?;
+        std::thread::sleep(Duration::from_millis(1));
+        let repo_c = tx_c.commit("C").block_on()?;
+        (repo_b, repo_c)
+    } else {
+        let repo_c = tx_c.commit("C").block_on()?;
+        std::thread::sleep(Duration::from_millis(1));
+        let repo_b = tx_b.commit("B").block_on()?;
+        (repo_b, repo_c)
+    };
+
+    let mut tx_d = repo_b.start_transaction();
+    tx_d.merge_operation(repo_c.operation().clone())
+        .block_on()?;
+    tx_d.repo_mut().rebase_descendants().block_on()?;
+    let repo_d = tx_d.commit("D").block_on()?;
+
+    let mut tx_e = repo_b.start_transaction();
+    tx_e.merge_operation(repo_c.operation().clone())
+        .block_on()?;
+    tx_e.repo_mut().rebase_descendants().block_on()?;
+    let _repo_e = tx_e.commit("E").block_on()?;
+
+    let mut tx_f = repo_d.start_transaction();
+    let commit_m = tx_f
+        .repo_mut()
+        .rewrite_commit(&commit_l)
+        .set_description("M")
+        .write_unwrap();
+    tx_f.repo_mut().rebase_descendants().block_on()?;
+    let repo_f = tx_f.commit("F").block_on()?;
+
+    let repo = repo_f.reload_at_head().block_on()?;
+    let heads = repo.view().heads();
+    if op_b_first {
+        // TODO: Commit M should be the only visible head and the working copy should
+        // point to it.
+        assert_eq!(
+            *heads,
+            hashset![commit_l.id().clone(), commit_m.id().clone()]
+        );
+        assert_eq!(
+            repo.view()
+                .get_wc_commit_id(WorkspaceName::DEFAULT)
+                .unwrap(),
+            commit_l.id(),
+        );
+    } else {
+        assert_eq!(*heads, hashset![commit_m.id().clone()]);
+        assert_eq!(
+            repo.view()
+                .get_wc_commit_id(WorkspaceName::DEFAULT)
+                .unwrap(),
+            commit_m.id(),
+        );
+    }
     Ok(())
 }
