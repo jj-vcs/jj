@@ -30,6 +30,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj commit`↴](#jj-commit)
 * [`jj config`↴](#jj-config)
 * [`jj config edit`↴](#jj-config-edit)
+* [`jj config gc`↴](#jj-config-gc)
 * [`jj config get`↴](#jj-config-get)
 * [`jj config list`↴](#jj-config-list)
 * [`jj config path`↴](#jj-config-path)
@@ -730,6 +731,7 @@ See [`jj help -k config`] to know more about file locations, supported config op
 ###### **Subcommands:**
 
 * `edit` — Start an editor on a jj config file
+* `gc` — Find and optionally delete repo-level config directories whose repo path no longer exists
 * `get` — Get the value of a given config option.
 * `list` — List variables set in config files, along with their values
 * `path` — Print the paths to the config files
@@ -753,6 +755,14 @@ Creates the file if it doesn't already exist regardless of what the editor does.
 * `--user` — Target the user-level config
 * `--repo` — Target the repo-level config
 * `--workspace` — Target the workspace-level config
+
+
+
+## `jj config gc`
+
+Find and optionally delete repo-level config directories whose repo path no longer exists
+
+**Usage:** `jj config gc`
 
 
 

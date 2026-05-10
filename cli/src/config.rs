@@ -503,6 +503,14 @@ impl ConfigEnv {
             .and_then(|c| c.config_file))
     }
 
+    /// Returns the directory under which all repo-specific config
+    /// subdirectories (one per config ID) are stored.
+    pub fn repo_configs_root_dir(&self) -> Option<PathBuf> {
+        self.root_config_dir
+            .as_ref()
+            .map(|dir| dir.join(REPO_CONFIG_DIR))
+    }
+
     /// Returns repo configuration files for modification. Instantiates one if
     /// `config` has no repo configuration layers.
     ///

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 mod edit;
+mod gc;
 mod get;
 mod list;
 mod path;
@@ -28,6 +29,8 @@ use tracing::instrument;
 
 use self::edit::ConfigEditArgs;
 use self::edit::cmd_config_edit;
+use self::gc::ConfigGcArgs;
+use self::gc::cmd_config_gc;
 use self::get::ConfigGetArgs;
 use self::get::cmd_config_get;
 use self::list::ConfigListArgs;
@@ -155,6 +158,7 @@ impl ConfigLevelArgs {
 pub(crate) enum ConfigCommand {
     #[command(visible_alias("e"))]
     Edit(ConfigEditArgs),
+    Gc(ConfigGcArgs),
     #[command(visible_alias("g"))]
     Get(ConfigGetArgs),
     #[command(visible_alias("l"))]
@@ -175,6 +179,7 @@ pub(crate) async fn cmd_config(
 ) -> Result<(), CommandError> {
     match subcommand {
         ConfigCommand::Edit(args) => cmd_config_edit(ui, command, args).await,
+        ConfigCommand::Gc(args) => cmd_config_gc(ui, command, args).await,
         ConfigCommand::Get(args) => cmd_config_get(ui, command, args).await,
         ConfigCommand::List(args) => cmd_config_list(ui, command, args).await,
         ConfigCommand::Path(args) => cmd_config_path(ui, command, args).await,
