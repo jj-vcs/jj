@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::env::join_paths;
+use std::path::Path;
 use std::path::PathBuf;
 
 use indoc::indoc;
@@ -1865,4 +1866,135 @@ fn test_config_author_change_warning_root_env() {
 fn find_stdout_lines(keyname_pattern: &str, stdout: &str) -> String {
     let key_line_re = Regex::new(&format!(r"(?m)^{keyname_pattern} = .*\n")).unwrap();
     key_line_re.find_iter(stdout).map(|m| m.as_str()).collect()
+}
+
+/// Set up a per-repo config directory by running `config set --repo`. Returns
+/// the path to the per-repo config directory
+/// (e.g. `~/.config/jj/repos/<config_id>/`).
+fn create_repo_with_config(test_env: &mut TestEnvironment, repo_name: &str) -> TestResult<PathBuf> {
+    test_env
+        .run_jj_in(".", ["git", "init", repo_name])
+        .success();
+    let work_dir = test_env.work_dir(repo_name);
+    work_dir
+        .run_jj(["config", "set", "--repo", "user.name", "test"])
+        .success();
+    let output = work_dir.run_jj(["config", "path", "--repo"]).success();
+    let config_file = Path::new(output.stdout.raw().trim_end_matches('\n'));
+    Ok(config_file.parent().unwrap().to_path_buf())
+}
+
+#[test]
+fn test_config_gc_no_repos_dir() {
+    let test_env = TestEnvironment::default();
+    // No repo config dir created at all.
+    let output = test_env.run_jj_in(".", ["config", "gc"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Missing repo configs (repo path no longer exists):
+      (none)
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_config_gc_all_existing() -> TestResult {
+    let mut test_env = TestEnvironment::default();
+    create_repo_with_config(&mut test_env, "repo")?;
+
+    let output = test_env.run_jj_in(".", ["config", "gc"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Missing repo configs (repo path no longer exists):
+      (none)
+    [EOF]
+    ");
+    Ok(())
+}
+
+#[test]
+fn test_config_gc_missing_default_no() -> TestResult {
+    let mut test_env = TestEnvironment::default();
+    let config_dir = create_repo_with_config(&mut test_env, "repo")?;
+    // Remove the repo so its metadata path no longer exists.
+    std::fs::remove_dir_all(test_env.env_root().join("repo"))?;
+
+    // Non-interactive: the prompt auto-answers with the default ("no").
+    let output = test_env.run_jj_in(".", ["config", "gc"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Missing repo configs (repo path no longer exists):
+      $TEST_ENV/home/.config/jj/repos/8e4fac809cbb3b162c95
+        repo path: $TEST_ENV/repo/.jj/repo
+    Delete 1 missing repo config directories? (yN): n
+    Aborted; nothing was deleted.
+    [EOF]
+    ");
+    // The directory should still be there.
+    assert!(config_dir.is_dir());
+    Ok(())
+}
+
+#[test]
+fn test_config_gc_missing_confirmed() -> TestResult {
+    let mut test_env = TestEnvironment::default();
+    let config_dir = create_repo_with_config(&mut test_env, "repo")?;
+    std::fs::remove_dir_all(test_env.env_root().join("repo"))?;
+
+    let output = test_env.work_dir("").run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["config", "gc"])
+            .write_stdin("y\n")
+    });
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Missing repo configs (repo path no longer exists):
+      $TEST_ENV/home/.config/jj/repos/8e4fac809cbb3b162c95
+        repo path: $TEST_ENV/repo/.jj/repo
+    Delete 1 missing repo config directories? (yN): Deleted 1 config directories.
+    [EOF]
+    ");
+    assert!(!config_dir.exists());
+    Ok(())
+}
+
+#[test]
+fn test_config_gc_missing_with_extra_file() -> TestResult {
+    let mut test_env = TestEnvironment::default();
+    let config_dir = create_repo_with_config(&mut test_env, "repo")?;
+    std::fs::remove_dir_all(test_env.env_root().join("repo"))?;
+    // An unrelated file in the per-repo config directory should prevent us
+    // from deleting it: we only remove the known jj-managed files and then
+    // try to rmdir the (hopefully empty) directory.
+    let extra_file = config_dir.join("unexpected.txt");
+    std::fs::write(&extra_file, b"hello")?;
+
+    let output = test_env.work_dir("").run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["config", "gc"])
+            .write_stdin("y\n")
+    });
+    insta::assert_snapshot!(output.normalize_stderr_with(|s| {
+        // The OS-specific "directory not empty" message varies, so strip the
+        // trailing detail after the path for a stable snapshot.
+        regex::Regex::new(r"(?m)(Failed to delete \S+):.*$")
+            .unwrap()
+            .replace_all(&s, "$1: <directory not empty>")
+            .into_owned()
+    }), @r"
+    ------- stderr -------
+    Missing repo configs (repo path no longer exists):
+      $TEST_ENV/home/.config/jj/repos/8e4fac809cbb3b162c95
+        repo path: $TEST_ENV/repo/.jj/repo
+    Delete 1 missing repo config directories? (yN): Warning: Failed to delete $TEST_ENV/home/.config/jj/repos/8e4fac809cbb3b162c95: <directory not empty>
+    Deleted 0 config directories.
+    [EOF]
+    ");
+    // The directory must still be there (with the unrelated file intact).
+    assert!(config_dir.is_dir());
+    assert!(extra_file.is_file());
+    // The known jj-managed files should be gone.
+    assert!(!config_dir.join("config.toml").exists());
+    assert!(!config_dir.join("metadata.binpb").exists());
+    Ok(())
 }

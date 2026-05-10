@@ -270,14 +270,19 @@ unavoidable.
 
 ### Garbage collection
 
-We could, in the future, add a `gc` command to garbage-collect configs to
-deleted repo configs. However, there are some things to consider before doing
-so:
-* Each config would likely be very small, so cleaning it up may have limited
-  benefit.
+There is `jj config gc` command to delete configuration for repos that
+are deleted/moved. The command asks for user approval because of the
+following considerations:
+
 * It is impossible to distinguish "deleted" from "moved".
 * If you have something like a chroot or a dual boot where you share the
   config, you may have references to config IDs with a different path.
+
+For safety, the command only removes the well-known files it manages
+(`config.toml` and `metadata.binpb`) and then removes the per-repo
+directory non-recursively. If a user (or another tool) has placed an
+unrelated file inside the directory, the directory is left in place and
+a warning is printed instead.
 
 ### Attack vectors remaining
 

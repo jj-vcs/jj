@@ -117,6 +117,36 @@ fn update_metadata(config_dir: &Path, metadata: &ConfigMetadata) -> Result<(), S
     Ok(())
 }
 
+/// Reads and decodes the `metadata.binpb` file in the given per-repo config
+/// directory.
+pub fn read_metadata(config_dir: &Path) -> Result<ConfigMetadata, SecureConfigError> {
+    let metadata_path = config_dir.join(METADATA_FILE);
+    let bytes = fs::read(&metadata_path).context(&metadata_path)?;
+    Ok(ConfigMetadata::decode(bytes.as_slice())?)
+}
+
+/// Returns the repo/workspace path stored in the metadata, if present.
+pub fn metadata_path(metadata: &ConfigMetadata) -> Result<Option<&Path>, BadPathEncoding> {
+    metadata.path.as_deref().map(path_from_bytes).transpose()
+}
+
+/// Removes the well-known files inside a per-repo config directory
+/// (`config.toml` and `metadata.binpb`) and then the directory itself.
+///
+/// The directory is removed non-recursively, so this errors out if any other
+/// file or subdirectory is present — better to leave a user-placed file in
+/// place than to silently delete it as part of a recursive `rm`.
+pub fn remove_repo_config_dir(config_dir: &Path) -> std::io::Result<()> {
+    for path in [config_dir.join(CONFIG_FILE), config_dir.join(METADATA_FILE)] {
+        match fs::remove_file(&path) {
+            Ok(()) => {}
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+            Err(err) => return Err(err),
+        }
+    }
+    fs::remove_dir(config_dir)
+}
+
 impl SecureConfig {
     /// Creates a secure config.
     fn new(
@@ -192,7 +222,7 @@ impl SecureConfig {
         mut metadata: ConfigMetadata,
     ) -> Result<LoadedSecureConfig, SecureConfigError> {
         let encoded = path_to_bytes(&self.repo_dir).ok();
-        let got = metadata.path.as_deref().map(path_from_bytes).transpose()?;
+        let got = metadata_path(&metadata)?;
 
         if got == encoded.is_some().then_some(self.repo_dir.as_path()) {
             return Ok(LoadedSecureConfig {
@@ -343,15 +373,11 @@ impl SecureConfig {
                     return Err(SecureConfigError::BadConfigIdError);
                 }
                 let config_dir = root_config_dir.join(&config_id);
-                let metadata_path = config_dir.join(METADATA_FILE);
-                match fs::read(&metadata_path).context(&metadata_path) {
-                    Ok(buf) => self.handle_metadata_path(
-                        rng,
-                        root_config_dir,
-                        config_dir,
-                        ConfigMetadata::decode(buf.as_slice())?,
-                    )?,
-                    Err(e) if e.source.kind() == NotFound => {
+                match read_metadata(&config_dir) {
+                    Ok(metadata) => {
+                        self.handle_metadata_path(rng, root_config_dir, config_dir, metadata)?
+                    }
+                    Err(SecureConfigError::PathError(e)) if e.source.kind() == NotFound => {
                         let (path, metadata) =
                             self.generate_initial_config(root_config_dir, &config_id)?;
                         LoadedSecureConfig {
@@ -360,7 +386,7 @@ impl SecureConfig {
                             warnings: vec![CONFIG_NOT_FOUND.to_string()],
                         }
                     }
-                    Err(e) => return Err(e.into()),
+                    Err(e) => return Err(e),
                 }
             }
             Err(e) if e.source.kind() == NotFound => {
