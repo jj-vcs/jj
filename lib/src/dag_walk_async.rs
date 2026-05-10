@@ -22,8 +22,11 @@ use std::iter;
 use std::mem;
 
 use futures::Stream;
+use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use futures::future::try_join_all;
 use futures::stream;
+use indexmap::IndexSet;
 use itertools::Itertools as _;
 use smallvec::SmallVec;
 use smallvec::smallvec_inline;
@@ -563,6 +566,113 @@ where
         }
     }
     Ok(None)
+}
+
+/// Finds all the closest common ancestors of `heads`. Returns an error if a
+/// cycle is found. The result is sorted in the order they are visited.
+pub async fn find_all_closest_common_ancestors<T, ID, E, II, NI>(
+    heads: II,
+    id_fn: impl Fn(&T) -> ID + Clone,
+    mut neighbors_fn: impl AsyncFnMut(&T) -> NI + Clone,
+) -> Result<Vec<ID>, E>
+where
+    T: Ord,
+    ID: Hash + Eq + Clone,
+    II: IntoIterator<Item = Result<T, E>>,
+    NI: IntoIterator<Item = Result<T, E>>,
+{
+    let heads: Vec<T> = heads.into_iter().try_collect()?;
+    assert!(!heads.is_empty(), "heads should be non-empty");
+    if heads.len() == 1 {
+        return Ok(vec![id_fn(&heads[0])]);
+    }
+    let all_heads: usize = (1 << heads.len()) - 1;
+
+    // Maps from node to a bitset representing which heads are reachable from it.
+    let mut reachable_heads: HashMap<ID, usize> = HashMap::new();
+    // The nodes we need to visit, but we don't yet know if they are a common
+    // ancestor. Initialized with heads.
+    let mut to_visit_1 = HashSet::with_capacity(heads.len());
+    // The nodes we need to visit that we know are a common ancestor of all heads.
+    let mut to_visit_2 = HashSet::new();
+
+    // All common ancestors.
+    let mut common_ancestors = IndexSet::new();
+    // All common ancestors which are descendants of other common ancestors.
+    let mut non_closest_common_ancestors = IndexSet::new();
+
+    // Initialize our data structures.
+    for (i, head) in heads.iter().enumerate() {
+        let head_id = id_fn(head);
+        assert!(to_visit_1.insert(head_id.clone()));
+        reachable_heads.insert(head_id, 1 << i);
+    }
+
+    let mut stream = topo_order_reverse_lazy(
+        heads.into_iter().map(Ok),
+        id_fn.clone(),
+        neighbors_fn.clone(),
+        |_| panic!("graph has cycle"),
+    )
+    .boxed_local();
+
+    while let Some(node) = stream.try_next().await? {
+        let node_id = id_fn(&node);
+        let heads_reachable_from_node = reachable_heads
+            .get(&node_id)
+            .copied()
+            .expect("entry should exist");
+
+        // node is a common ancestor iff all heads are reachable from it.
+        let node_is_common_ancestor = heads_reachable_from_node == all_heads;
+
+        // node must be in exactly one of to_visit_1 or to_visit_2. Remove it from the
+        // set it's in.
+        if node_is_common_ancestor {
+            assert!(to_visit_2.remove(&node_id));
+            if to_visit_1.is_empty() {
+                // All remaining nodes to visit are common ancestors of all heads, so there is
+                // no point in visiting any more nodes.
+                break;
+            }
+        } else {
+            assert!(to_visit_1.remove(&node_id));
+        }
+
+        for parent in neighbors_fn(&node).await {
+            let parent = parent?;
+            let parent_id = id_fn(&parent);
+            let heads_reachable_from_parent = reachable_heads.entry(parent_id.clone()).or_default();
+            if node_is_common_ancestor {
+                // Since node is a common ancestor, parent is also a (non-closest) common
+                // ancestor. We add it to to_visit_2. We also remove it from to_visit_1 (if it's
+                // there).
+                *heads_reachable_from_parent = all_heads;
+                to_visit_2.insert(parent_id.clone());
+                to_visit_1.remove(&parent_id);
+                non_closest_common_ancestors.insert(parent_id);
+            } else {
+                // Take the union of the heads we already knew were reachable from parent and
+                // the heads reachable from node and update the entry in the map.
+                *heads_reachable_from_parent |= heads_reachable_from_node;
+                if *heads_reachable_from_parent == all_heads {
+                    // We know parent is a common ancestor, so we add it to to_visit_2. We also
+                    // remove it from to_visit_1 (if it's there).
+                    common_ancestors.insert(parent_id.clone());
+                    to_visit_2.insert(parent_id.clone());
+                    to_visit_1.remove(&parent_id);
+                } else {
+                    // Add it to to_visit_1 since we don't know if it's a common ancestor yet.
+                    to_visit_1.insert(parent_id.clone());
+                }
+            }
+        }
+    }
+    let closest_common_ancestors = common_ancestors
+        .difference(&non_closest_common_ancestors)
+        .cloned()
+        .collect_vec();
+    Ok(closest_common_ancestors)
 }
 
 #[cfg(test)]

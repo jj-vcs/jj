@@ -289,6 +289,19 @@ pub fn walk_ancestors(
     .map_ok(|OperationByEndTime(op)| op)
 }
 
+/// Finds all the closest common ancestors of `head_ops`.
+pub async fn find_all_closest_common_ancestor_operations(
+    head_ops: &[Operation],
+) -> Result<Vec<OperationId>, OpStoreError> {
+    let heads_iter = head_ops.iter().cloned().map(Ok);
+    let id_fn = |op: &Operation| op.id().clone();
+    let neighbors_fn = async |op: &Operation| match op.parents().await {
+        Ok(parents) => parents.iter().cloned().map(Ok).collect_vec(),
+        Err(err) => vec![Err(err)],
+    };
+    dag_walk_async::find_all_closest_common_ancestors(heads_iter, id_fn, neighbors_fn).await
+}
+
 /// Walks ancestors from `head_ops` in reverse topological order, excluding
 /// ancestors of `root_ops`.
 pub fn walk_ancestors_range(
