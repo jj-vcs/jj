@@ -1,6 +1,6 @@
 # Jujutsu Design Docs
 
-Jujutsu uses Design Docs to drive technical decisions on large projects and it
+Jujutsu uses [Design Docs] to drive technical decisions on large projects and it
 is the place to discuss your proposed design or new component. It is a very
 thorough process, in which the design doc must be approved before PRs for the
 feature will be accepted. It shares some similarities with [Rust RFCs] but
@@ -9,6 +9,8 @@ concerns of all stakeholders.
 
 So if you want to start building a native backend or the server component for
 Jujutsu, you'll need to go through this process.
+
+[Design Docs]: https://blog.ceejbot.com/posts/design-docs/
 
 ## Process
 
