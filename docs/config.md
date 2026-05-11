@@ -706,6 +706,36 @@ your config:
 log = "builtin_log_compact_full_description"
 ```
 
+### Redacting sensitive information
+
+For sharing repository state without exposing sensitive information (such as commit
+descriptions or bookmark names), jj provides redacted templates. These replace
+actual content with placeholders like `(redacted)` or hashed identifiers.
+
+To use a redacted template for `jj op log`:
+
+```sh
+jj op log -T builtin_op_log_redacted
+```
+
+By default, `builtin_op_log_redacted` redacts the operation description but not the
+commit information shown in diffs (with `-d`). To also redact commit descriptions
+and bookmark names in the diff output, configure the `commit_summary` template:
+
+```sh
+jj op log -T builtin_op_log_redacted -d --config 'templates.commit_summary=format_commit_summary_redacted(self)'
+```
+
+Or permanently in your config:
+
+```toml
+[templates]
+commit_summary = 'format_commit_summary_redacted(self)'
+```
+
+The `format_commit_summary_redacted` function replaces commit descriptions
+with `(redacted)` and bookmark names with short hashes like `bookmark-a1b2`.
+
 ### Graph style
 
 ```toml
