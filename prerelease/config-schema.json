@@ -1132,7 +1132,7 @@
         },
         "--when": {
             "type": "object",
-            "description": "Conditions restriction the application of the configuration",
+            "description": "Conditions restricting the application of the configuration",
             "properties": {
                 "repositories": {
                     "type": "array",
