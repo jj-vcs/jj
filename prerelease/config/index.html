@@ -1354,6 +1354,21 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Aliases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#alias-descriptions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Alias descriptions
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3321,6 +3336,21 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Aliases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#alias-descriptions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Alias descriptions
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4672,6 +4702,20 @@ diff as the default with the <code>ui.diff-formatter</code> setting. For example
 <span class="c1"># `jj l` shows commits on the working-copy commit&#39;s (anonymous) bookmark</span>
 <span class="c1"># compared to the `main` bookmark</span>
 <span class="n">l</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;log&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;-r&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;(main..@):: | (main..@)-&quot;</span><span class="p">]</span>
+</code></pre></div>
+<h3 id="alias-descriptions">Alias descriptions<a class="headerlink" href="#alias-descriptions" title="Permanent link">&para;</a></h3>
+<p>Alias descriptions can be surfaced in shell completions by defining the alias
+as a table with <code>.doc</code> and <code>.definition</code> properties. For example:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[aliases]</span>
+<span class="n">l</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">definition</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;log&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;-r&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;(main..@):: | (main..@)-&quot;</span><span class="p">]</span><span class="err">,</span>
+<span class="w">    </span><span class="n">doc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;Log pending changes&quot;</span>
+<span class="err">}</span>
+</code></pre></div>
+<p>You can also use the dotted key syntax:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[aliases]</span>
+<span class="n">l</span><span class="p">.</span><span class="n">definition</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;log&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;-r&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;(main..@):: | (main..@)-&quot;</span><span class="p">]</span>
+<span class="n">l</span><span class="p">.</span><span class="n">doc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;Log pending changes&quot;</span>
 </code></pre></div>
 <p>This alias syntax can only run a single jj command. However, you may want to
 execute multiple jj commands with a single alias, or run arbitrary scripts that

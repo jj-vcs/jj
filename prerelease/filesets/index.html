@@ -969,6 +969,21 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Aliases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#alias-descriptions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Alias descriptions
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1956,6 +1971,21 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Aliases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#alias-descriptions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Alias descriptions
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2089,8 +2119,22 @@ other aliases.</p>
 function will be shadowed by name, and can't co-exist with aliases.</p>
 <p>For example:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[fileset-aliases]</span>
-<span class="s1">&#39;LOCK&#39;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;**/Cargo.lock | **/package-lock.json | **/uv.lock&#39;</span>
+<span class="n">LOCK</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;**/Cargo.lock | **/package-lock.json | **/uv.lock&#39;</span>
 <span class="s1">&#39;not:x&#39;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;~x&#39;</span>
+</code></pre></div>
+<h3 id="alias-descriptions">Alias descriptions<a class="headerlink" href="#alias-descriptions" title="Permanent link">&para;</a></h3>
+<p>Alias descriptions can be surfaced in shell completions by defining the alias
+as a table with <code>.doc</code> and <code>.definition</code> properties. For example:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[fileset-aliases]</span>
+<span class="n">LOCK</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">definition</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;**/Cargo.lock | **/package-lock.json | **/uv.lock&#39;</span><span class="err">,</span>
+<span class="w">    </span><span class="n">doc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;Lockfiles&#39;</span>
+<span class="err">}</span>
+</code></pre></div>
+<p>You can also use the dotted key syntax:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[fileset-aliases]</span>
+<span class="n">LOCK</span><span class="p">.</span><span class="n">definition</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;**/Cargo.lock | **/package-lock.json | **/uv.lock&#39;</span>
+<span class="n">LOCK</span><span class="p">.</span><span class="n">doc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;Lockfiles&#39;</span>
 </code></pre></div>
 <h2 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h2>
 <p>Show diff excluding <code>Cargo.lock</code>.</p>

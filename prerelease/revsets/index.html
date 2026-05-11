@@ -1029,6 +1029,15 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#alias-descriptions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Alias descriptions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#built-in-aliases" class="md-nav__link">
     <span class="md-ellipsis">
       Built-in Aliases
@@ -2041,6 +2050,15 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#alias-descriptions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Alias descriptions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#built-in-aliases" class="md-nav__link">
     <span class="md-ellipsis">
       Built-in Aliases
@@ -2690,10 +2708,21 @@ other aliases.</p>
 function will be shadowed by name, and can't co-exist with aliases.</p>
 <p>For example:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[revset-aliases]</span>
-<span class="s1">&#39;HEAD&#39;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;@-&#39;</span>
+<span class="n">HEAD</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;@-&#39;</span>
 <span class="s1">&#39;user()&#39;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;user(&quot;me@example.org&quot;)&#39;</span>
 <span class="s1">&#39;user(x)&#39;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;author(x) | committer(x)&#39;</span>
 <span class="s1">&#39;grep:x&#39;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;description(regex:x)&#39;</span>
+</code></pre></div>
+<h3 id="alias-descriptions">Alias descriptions<a class="headerlink" href="#alias-descriptions" title="Permanent link">&para;</a></h3>
+<p>Alias descriptions can be surfaced in shell completions by defining the alias
+as a table with <code>.doc</code> and <code>.definition</code> properties. For example:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[revset-aliases]</span>
+<span class="n">HEAD</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">definition</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s1">&#39;@-&#39;</span><span class="p">,</span><span class="w"> </span><span class="n">doc</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s1">&#39;The parent of the working-copy commit&#39;</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<p>You can also use the dotted key syntax:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[revset-aliases]</span>
+<span class="n">HEAD</span><span class="p">.</span><span class="n">definition</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;@-&#39;</span>
+<span class="n">HEAD</span><span class="p">.</span><span class="n">doc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;The parent of the working-copy commit&#39;</span>
 </code></pre></div>
 <h3 id="built-in-aliases">Built-in Aliases<a class="headerlink" href="#built-in-aliases" title="Permanent link">&para;</a></h3>
 <p>The following aliases are built-in and used for certain operations. These functions
