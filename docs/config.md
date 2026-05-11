@@ -1,4 +1,6 @@
-# Configuration
+---
+title: "Configuration"
+---
 
 These are the config settings available to jj/Jujutsu.
 
@@ -585,12 +587,11 @@ immutable even if the set is empty.
 Immutable commits (other than the root commit) can be rewritten using the
 `--ignore-immutable` CLI flag.
 
-!!! warning
-
-    Using `--ignore-immutable` will allow you to rewrite any commit in the
-    history, and all descendants, without warning. Use this power wisely, and
-    remember `jj undo`.
-
+:::caution
+Using `--ignore-immutable` will allow you to rewrite any commit in the
+history, and all descendants, without warning. Use this power wisely, and
+remember `jj undo`.
+:::
 ### Behavior of prev and next commands
 
 If you prefer using an "edit-based" workflow, rather than squashing
@@ -1021,17 +1022,16 @@ execute multiple jj commands with a single alias, or run arbitrary scripts that
 complement your version control workflow. This can be done, but be aware of the
 danger:
 
-!!! warning
+:::caution
+The following technique just provides a convenient syntax for running
+arbitrary code on your system. Using it irresponsibly may cause damage
+ranging from breaking the behavior of `jj undo` to wiping your file system.
+Exercise the same amount of caution while writing these aliases as you would
+when typing commands into the terminal!
 
-    The following technique just provides a convenient syntax for running
-    arbitrary code on your system. Using it irresponsibly may cause damage
-    ranging from breaking the behavior of `jj undo` to wiping your file system.
-    Exercise the same amount of caution while writing these aliases as you would
-    when typing commands into the terminal!
-
-    This feature may be removed or replaced by an embedded scripting language in
-    the future.
-
+This feature may be removed or replaced by an embedded scripting language in
+the future.
+:::
 The command `jj util exec` will simply run any command you pass to it as an
 argument. Additional arguments are passed through. Here are some examples:
 
@@ -1168,7 +1168,7 @@ printed to the terminal) automatically. `diffedit3-ssh` also always uses ports i
 over SSH. Open the fold below for more details of how to set that up.
 
 <details>
-<summary> Tips for using `diffedit3-ssh` over SSH </summary>
+<summary>Tips for using `diffedit3-ssh` over SSH</summary>
 
 To use `diffedit3` over SSH, you need to set up port forwarding. One way to do
 this is to start SSH as follows (copy-paste the relevant lines):
@@ -1653,13 +1653,12 @@ backends.ssh.revocation-list = "/path/to/revocation-list"
 You can use [`jj sign`](./cli-reference.md#jj-sign)/[`jj unsign`](./cli-reference.md#jj-unsign)
 to sign/unsign commits manually.
 
-!!! warning
-
-    `jj sign` always signs commits, even if they are already signed by the
-    user. While this is cumbersome for users signing via hardware devices, we
-    cannot reliably check if a commit is already signed without creating a
-    signature (see [this issue](https://github.com/jj-vcs/jj/issues/5786)).
-
+:::caution
+`jj sign` always signs commits, even if they are already signed by the
+user. While this is cumbersome for users signing via hardware devices, we
+cannot reliably check if a commit is already signed without creating a
+signature (see [this issue](https://github.com/jj-vcs/jj/issues/5786)).
+:::
 ### Automatically signing commits
 
 The `signing.behavior` configuration option has four different options for what

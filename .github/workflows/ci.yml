@@ -221,7 +221,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
         with:
-          # If you bump the version, also update docs/contributing.md
+          # If you bump the version, also update docs/contributing.mdx
           # and all other workflows that install uv
           version: "0.5.1"
       - name: Run Codespell
@@ -249,39 +249,23 @@ jobs:
           RUSTDOCFLAGS: "--deny warnings"
         run: cargo doc --workspace --no-deps
 
-  check-mkdocs:
-    name: check (mkdocs)
+  check-starlight:
+    name: check (starlight docs)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
         with:
-          python-version: 3.11
-      - name: Install uv
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
-        with:
-          # If you bump the version, also update docs/contributing.md
-          # and all other workflows that install uv
-          version: "0.5.1"
-      - name: Check that `mkdocs` can build the docs
-        run: uv run -- mkdocs build --strict
-
-  # An optional job to alert us when uv updates break the build
-  check-mkdocs-latest:
-    name: check (latest mkdocs, optional)
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-        with:
-          persist-credentials: false
-      - name: Install uv
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
-      # 'only-managed' means that uv will always download Python, even
-      # if the runner happens to provide a compatible version
-      - name: Check that `mkdocs` can build the docs
-        run: uv run --python-preference=only-managed -- mkdocs build --strict
+          node-version: '22'
+      - name: Install docs dependencies
+        run: npm ci
+        working-directory: web/docs
+      - name: Check that Starlight can build the docs
+        run: npm run build -- --base /prerelease/
+        working-directory: web/docs
 
   check-zizmor:
     name: check (zizmor)
@@ -348,8 +332,7 @@ jobs:
     - check-cargo-deny
     - check-codespell
     - check-doctests
-    - check-mkdocs
-    # - check-mkdocs-latest
+    - check-starlight
     # - check-zizmor
     - check-cargo-lock-bloat
     runs-on: ubuntu-latest

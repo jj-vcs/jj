@@ -17,14 +17,14 @@ import path from 'node:path';
 
 export default function remarkStripMdExtension() {
   return (tree, file) => {
-    // Get the file's path relative to the content directory
     const filePath = file.history[0];
-    const contentDocsMatch = filePath.match(/src\/content\/docs\/(.+)$/);
-    const relativePath = contentDocsMatch[1];
+    const docsMatch = filePath.match(/(?:^|\/)docs\/(.+)$/);
+    if (!docsMatch) return;
+    const relativePath = docsMatch[1];
     const currentDir = path.dirname(relativePath);
 
     // Check if current file is an index file
-    const isIndex = path.basename(relativePath) === 'index.md';
+    const isIndex = /^index\.mdx?$/.test(path.basename(relativePath));
 
     // Calculate directory depth for absolute link conversion
     const dirParts = currentDir === '.' ? [] : currentDir.split(path.sep);
@@ -48,13 +48,20 @@ export default function remarkStripMdExtension() {
       const linkPath = url.slice(0, pathEnd);
       const suffix = url.slice(pathEnd); // hash or query string
 
-      // Only process links with .md extension in the path (not in hash/query)
-      if (!linkPath.endsWith('.md')) {
+      if (linkPath.endsWith('.toml')) {
+        const resultPath = linkPath.startsWith('/')
+          ? '../'.repeat(isIndex ? depth : depth + 1) + linkPath.slice(1)
+          : isIndex
+            ? linkPath
+            : `../${linkPath}`;
+        node.url = path.posix.normalize(resultPath) + suffix;
         return;
       }
 
-      // Strip .md extension
-      const pathWithoutMd = linkPath.slice(0, -3);
+      if (!/\.mdx?$/.test(linkPath)) return;
+
+      // Strip .md/.mdx extension
+      const pathWithoutMd = linkPath.replace(/\.mdx?$/, '');
 
       let resultPath;
 

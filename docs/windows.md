@@ -1,4 +1,6 @@
-# Working on Windows
+---
+title: "Working on Windows"
+---
 
 Jujutsu works the same on all platforms, but there are some caveats that Windows
 users should be aware of.
@@ -12,13 +14,12 @@ Git's [`core.autocrlf`][git-autocrlf][^1], but does not currently honor
 keep the `working-copy.eol-conversion` setting and the `core.autocrlf` git
 config in sync[^1].
 
-!!! note
-
-    If you created a colocated git workspace, forget to keep these 2 settings in
-    sync, and result in a dirty working copy with only EOL diffs, you can set
-    the `working-copy.eol-conversion` setting correctly and run `jj abandon` to
-    fix it.
-
+:::note
+If you created a colocated git workspace, forget to keep these 2 settings in
+sync, and result in a dirty working copy with only EOL diffs, you can set
+the `working-copy.eol-conversion` setting correctly and run `jj abandon` to
+fix it.
+:::
 The line endings conversion won't be applied to files detected as a binary files
 via a heuristics[^2] regardless of the settings. This behavior is subject to
 change when we support the text git attribute.
@@ -28,12 +29,11 @@ line conversion incorrectly, but currently, Jujutsu doesn't support configuring
 line endings conversion for particular files. If this issue is hit, one should
 not enable the line conversion setting.
 
-!!! note
-
-    If Jujutsu applies line endings conversion on incorrect files, you should
-    not enable the line conversion setting and the git `core.autocrlf` setting.
-    See below.
-
+:::note
+If Jujutsu applies line endings conversion on incorrect files, you should
+not enable the line conversion setting and the git `core.autocrlf` setting.
+See below.
+:::
 To disable line conversion, set the `core.autocrlf` setting to `none` or just
 remove the setting.
 

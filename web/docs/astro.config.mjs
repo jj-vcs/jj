@@ -6,13 +6,25 @@ import remarkGfm from 'remark-gfm';
 import remarkIncludeMarkdown from './plugins/remark-include-markdown.mjs';
 import remarkYamlTable from './plugins/remark-yaml-table.mjs';
 import starlightStripMdExtension from './plugins/starlight-strip-md-extension.mjs';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
-const docsDir = fileURLToPath(new URL('src/content/docs', import.meta.url));
+const require = createRequire(import.meta.url);
+const docsDir = fileURLToPath(new URL('../../docs', import.meta.url));
 
 // https://astro.build/config
 export default defineConfig({
 	site: 'https://docs.jj-vcs.dev',
+	vite: {
+		resolve: {
+			alias: [
+				{
+					find: /^@astrojs\/starlight\/components$/,
+					replacement: require.resolve('@astrojs/starlight/components'),
+				},
+			],
+		},
+	},
 	markdown: {
 		remarkPlugins: [
 			remarkGfm,
@@ -22,9 +34,12 @@ export default defineConfig({
 		],
 	},
 	integrations: [
-		starlight({
-			plugins: [starlightStripMdExtension()],
-			title: 'Jujutsu docs',
+			starlight({
+				plugins: [starlightStripMdExtension()],
+				markdown: {
+					processedDirs: ['../../docs'],
+				},
+				title: 'Jujutsu docs',
 			favicon: "/images/jj-logo.svg",
 			customCss: ['./src/styles/custom.css'],
 			logo: {
@@ -32,9 +47,6 @@ export default defineConfig({
 			},
 			components: {
 				ThemeSelect: './src/components/ThemeVersionSelect.astro',
-			},
-			markdown: {
-				processedDirs: ['../../docs'],
 			},
 			social: [
 				{
@@ -79,6 +91,7 @@ export default defineConfig({
 				{
 					label: 'Guides',
 					items: [
+						{ label: 'CLI options for specifying revisions', slug: 'guides/cli-revision-options' },
 						{ label: 'Divergent changes', slug: 'guides/divergence' },
 						{ label: 'Multiple remotes', slug: 'guides/multiple-remotes' },
 					],
@@ -140,6 +153,8 @@ export default defineConfig({
 						{ label: 'Tracking branches', slug: 'design/tracking-branches' },
 						{ label: 'Copy tracking and tracing', slug: 'design/copy-tracking' },
 						{ label: 'Secure config', slug: 'design/secure-config' },
+						{ label: 'Managed config', slug: 'design/managed-config' },
+						{ label: 'JJ converge (aka resolve-divergence)', slug: 'design/jj-converge-command' },
 					],
 					collapsed: true,
 				},
