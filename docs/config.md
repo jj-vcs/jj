@@ -2300,7 +2300,7 @@ wip = ["log", "-r", "work"]
 
   ```toml
   --when.hostnames = ["work-laptop"]               # matches only "work-laptop"
-  --when.hostnames = ["home-desktop", "laptop"]    # matches "home-desktop" OR "laptop"
+  --when.hostnames = ["home-desktop", "laptop"]    # matches "home-desktop" *OR* "laptop"
   ```
 
 * `--when.commands`: List of subcommands to match.
@@ -2310,7 +2310,7 @@ wip = ["log", "-r", "work"]
   ```toml
   --when.commands = ["file"]        # matches `jj file show`, `jj file list`, etc
   --when.commands = ["file show"]   # matches `jj file show` but *NOT* `jj file list`
-  --when.commands = ["file", "log"] # matches `jj file` *OR* `jj log` (or subcommand of either)
+  --when.commands = ["file", "log"] # matches `jj file` *OR* `jj log` (*OR* subcommand of either)
   ```
 
 * `--when.platforms`: List of platforms to match.
@@ -2322,7 +2322,7 @@ wip = ["log", "-r", "work"]
 
   ```toml
   --when.platforms = ["windows"]            # matches only Windows
-  --when.platforms = ["linux", "freebsd"]   # matches Linux or and FreeBSD, but not macOS
+  --when.platforms = ["linux", "freebsd"]   # matches Linux *OR* FreeBSD, but *NOT* macOS
   --when.platforms = ["unix"]               # matches anything in the Unix family (Linux, FreeBSD, macOS, etc.)
   ```
 
@@ -2333,6 +2333,6 @@ wip = ["log", "-r", "work"]
   ```toml
   --when.environments = ["CI=true"]                     # matches when CI is set to "true"
   --when.environments = ["CI"]                          # matches when CI is set to anything
-  --when.environments = ["CI=true", "CI=1"]             # matches when CI is "true" or "1"
-  --when.environments = ["CI=true", "GITHUB_ACTIONS=1"] # matches when EITHER condition holds
+  --when.environments = ["CI=true", "CI=1"]             # matches when CI is "true" *OR* "1"
+  --when.environments = ["CI=true", "GITHUB_ACTIONS=1"] # matches when *EITHER* condition holds
   ```
