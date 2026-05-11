@@ -1977,46 +1977,38 @@
 <p>Jujutsu works the same on all platforms, but there are some caveats that Windows
 users should be aware of.</p>
 <h2 id="line-endings-conversion">Line endings conversion<a class="headerlink" href="#line-endings-conversion" title="Permanent link">&para;</a></h2>
-<p>Jujutsu currently has a setting,
-<a href="../config/#eol-conversion-settings"><code>working-copy.eol-conversion</code></a>, similar to
+<p>Jujutsu has a setting,
+<a href="../config/#eol-conversion-setting"><code>working-copy.eol-conversion</code></a>, similar to
 Git's <a href="https://git-scm.com/book/en/v2/Customizing-Git-Git-Configuration#_core_autocrlf"><code>core.autocrlf</code></a><sup id="fnref:1"><a class="footnote-ref" href="#fn:1">1</a></sup>, but does not currently honor
-<code>.gitattributes</code> and the <code>core.autocrlf</code> git config, so it is recommended to
-keep the <code>working-copy.eol-conversion</code> setting and the <code>core.autocrlf</code> git
+<code>.gitattributes</code> and the <code>core.autocrlf</code> Git config, so it is recommended to
+keep the <code>working-copy.eol-conversion</code> setting and the <code>core.autocrlf</code> Git
 config in sync<sup id="fnref2:1"><a class="footnote-ref" href="#fn:1">1</a></sup>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>If you created a colocated git workspace, forget to keep these 2 settings in
-sync, and result in a dirty working copy with only EOL diffs, you can set
+<p>If you created a colocated workspace and forgot to keep these two settings
+in sync, resulting in a dirty working copy with only EOL diffs, you can set
 the <code>working-copy.eol-conversion</code> setting correctly and run <code>jj abandon</code> to
 fix it.</p>
 </div>
-<p>The line endings conversion won't be applied to files detected as a binary files
-via a heuristics<sup id="fnref:2"><a class="footnote-ref" href="#fn:2">2</a></sup> regardless of the settings. This behavior is subject to
-change when we support the text git attribute.</p>
-<p>Jujutsu may make incorrect decision on whether a file is a binary file and apply
-line conversion incorrectly, but currently, Jujutsu doesn't support configuring
-line endings conversion for particular files. If this issue is hit, one should
-not enable the line conversion setting.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>If Jujutsu applies line endings conversion on incorrect files, you should
-not enable the line conversion setting and the git <code>core.autocrlf</code> setting.
-See below.</p>
-</div>
-<p>To disable line conversion, set the <code>core.autocrlf</code> setting to <code>none</code> or just
-remove the setting.</p>
+<p>Regardless of this setting, the line endings conversion is skipped on binary
+files based on a <a href="../config/#binary-file-detection">heuristic</a>. This behavior is
+subject to change when we support the <code>text</code> Git attribute.</p>
+<p>Jujutsu may incorrectly determine whether a file is a binary file and apply line
+endings conversion incorrectly, but currently, Jujutsu doesn't support per-file
+configuration of line endings conversion. If this occurs, you can disable line
+endings conversion by setting the <code>working-copy.eol-conversion</code> config to <code>none</code>
+or just removing the config altogether.</p>
 <div class="highlight"><pre><span></span><code><span class="n">PS</span><span class="p">&gt;</span> <span class="n">git</span> <span class="n">config</span> <span class="n">core</span><span class="p">.</span><span class="n">autocrlf</span> <span class="n">input</span>
-<span class="c"># We use none instead of input to avoid applying EOL conversion.</span>
+<span class="c"># Use `none` instead of `input` to avoid applying EOL conversion.</span>
 <span class="n">PS</span><span class="p">&gt;</span> <span class="n">jj</span> <span class="n">config</span> <span class="nb">set </span><span class="p">-</span><span class="n">-repo</span> <span class="n">working-copy</span><span class="p">.</span><span class="n">eol-conversion</span> <span class="n">none</span>
 <span class="c"># Abandoning the working copy will cause Jujutsu to overwrite all files with</span>
-<span class="c"># CRLF line endings with the line endings they are committed with, probably LF</span>
+<span class="c"># CRLF line endings with the line endings they were committed with, probably LF.</span>
 <span class="n">PS</span><span class="p">&gt;</span> <span class="n">jj</span> <span class="n">abandon</span>
 </code></pre></div>
 <p>This means that line endings will be checked out exactly as they are committed
-and committed exactly as authored.</p>
-<p>This setting ensures Git will check out files with LF line endings without
-converting them to CRLF. You'll want to make sure any tooling you use,
-especially IDEs, preserve LF line endings.</p>
+and committed exactly as authored, ensuring Git will check out files with LF
+line endings without converting them to CRLF. You'll want to make sure any
+tooling you use, especially IDEs, preserve LF line endings.</p>
 <h2 id="pagination">Pagination<a class="headerlink" href="#pagination" title="Permanent link">&para;</a></h2>
 <p>On Windows, <code>jj</code> will use its integrated pager called <code>streampager</code> by default,
 unless the config <code>ui.pager</code> is explicitly set. See the <a href="../config/#pager">pager section of the
@@ -2061,15 +2053,9 @@ ordinary files.</p>
 <hr />
 <ol>
 <li id="fn:1">
-<p>This poses the question if we should support reading the <code>core.autocrlf</code>
-  setting in colocated workspaces. See details at the
+<p>This poses the question of whether we should support reading the
+  <code>core.autocrlf</code> setting in colocated workspaces. See details at the
   <a href="https://github.com/jj-vcs/jj/issues/4048">issue</a>.&#160;<a class="footnote-backref" href="#fnref:1" title="Jump back to footnote 1 in the text">&#8617;</a><a class="footnote-backref" href="#fnref2:1" title="Jump back to footnote 1 in the text">&#8617;</a></p>
-</li>
-<li id="fn:2">
-<p>To detect if a file is binary, Jujutsu currently checks if there is 0 byte
-  in the file which is different from the algorithm of
-  <a href="https://github.com/GitoxideLabs/gitoxide/blob/073487b38ed40bcd7eb45dc110ae1ce84f9275a9/gix-filter/src/eol/utils.rs#L98-L100"><code>gitoxide</code></a> or <a href="https://github.com/git/git/blob/f1ca98f609f9a730b9accf24e5558a10a0b41b6c/convert.c#L94-L103"><code>git</code></a>. Jujutsu
-  doesn't plan to align the binary detection logic with git.&#160;<a class="footnote-backref" href="#fnref:2" title="Jump back to footnote 2 in the text">&#8617;</a></p>
 </li>
 </ol>
 </div>

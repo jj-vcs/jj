@@ -1823,11 +1823,26 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#eol-conversion-settings" class="md-nav__link">
+  <a href="#eol-conversion-setting" class="md-nav__link">
     <span class="md-ellipsis">
-      EOL conversion settings
+      EOL conversion setting
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="EOL conversion setting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#binary-file-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      Binary file detection
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -3805,11 +3820,26 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#eol-conversion-settings" class="md-nav__link">
+  <a href="#eol-conversion-setting" class="md-nav__link">
     <span class="md-ellipsis">
-      EOL conversion settings
+      EOL conversion setting
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="EOL conversion setting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#binary-file-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      Binary file detection
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -5523,24 +5553,29 @@ and want to avoid manually updating each one.</p>
 <p>For more information on stale working copies, see the <a href="../working-copy/#stale-working-copy">working copy
 documentation</a>.</p>
 <h2 id="working-copy-settings">Working copy settings<a class="headerlink" href="#working-copy-settings" title="Permanent link">&para;</a></h2>
-<h3 id="eol-conversion-settings">EOL conversion settings<a class="headerlink" href="#eol-conversion-settings" title="Permanent link">&para;</a></h3>
-<p>This settings serves the same purpose as the <a href="https://git-scm.com/book/en/v2/Customizing-Git-Git-Configuration#_core_autocrlf"><code>core.autocrlf</code></a> git
+<h3 id="eol-conversion-setting">EOL conversion setting<a class="headerlink" href="#eol-conversion-setting" title="Permanent link">&para;</a></h3>
+<p>This setting serves the same purpose as the <a href="https://git-scm.com/book/en/v2/Customizing-Git-Git-Configuration#_core_autocrlf"><code>core.autocrlf</code></a> Git
 config.</p>
-<p>The line endings conversion won't be applied to files detected as binary files
-via a heuristics<sup id="fnref:1"><a class="footnote-ref" href="#fn:1">1</a></sup> regardless of the settings. This is similar to git.</p>
+<p>Regardless of this setting, the line endings conversion is skipped on binary
+files based on a <a href="#binary-file-detection">heuristic</a>. This is similar to Git.</p>
 <div class="highlight"><pre><span></span><code><span class="k">[working-copy]</span>
-<span class="c1"># No EOL conversion. Similar to core.autocrlf = false.</span>
+<span class="c1"># No EOL conversion. Similar to `core.autocrlf = false`.</span>
 <span class="n">eol-conversion</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;none&quot;</span>
-<span class="c1"># Apply CRLF to LF EOL conversion when we check files in the backend store from</span>
-<span class="c1"># the local file system but not apply EOL conversion when we check out the code</span>
-<span class="c1"># from the backend store to the local file system. Similar to core.autocrlf =</span>
-<span class="c1"># input.</span>
+<span class="c1"># Apply CRLF-to-LF EOL conversion when we check files in to the backend store</span>
+<span class="c1"># from the local file system, but do not apply LF-to-CRLF EOL conversion when we</span>
+<span class="c1"># check out the code from the backend store to the local file system. Similar to</span>
+<span class="c1"># `core.autocrlf = input`.</span>
 <span class="n">eol-conversion</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;input&quot;</span>
-<span class="c1"># Setting this to &quot;input-output&quot; if you want to have CRLF line endings in your</span>
-<span class="c1"># working directory and the repository has LF line endings. Similar to</span>
-<span class="c1"># core.autocrlf = true.</span>
+<span class="c1"># Apply EOL conversion on both file check-in to and file check-out from the</span>
+<span class="c1"># backend store, so you have CRLF line endings in your working directory while</span>
+<span class="c1"># the repository has LF line endings. Similar to `core.autocrlf = true`.</span>
 <span class="n">eol-conversion</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;input-output&quot;</span>
 </code></pre></div>
+<h4 id="binary-file-detection">Binary file detection<a class="headerlink" href="#binary-file-detection" title="Permanent link">&para;</a></h4>
+<p>To detect if a file is binary, Jujutsu currently checks if there is a NULL byte
+in the file, which is different from the algorithm of
+<a href="https://github.com/GitoxideLabs/gitoxide/blob/073487b38ed40bcd7eb45dc110ae1ce84f9275a9/gix-filter/src/eol/utils.rs#L98-L100"><code>gitoxide</code></a> or <a href="https://github.com/git/git/blob/f1ca98f609f9a730b9accf24e5558a10a0b41b6c/convert.c#L94-L103"><code>Git</code></a>. Jujutsu doesn't plan
+to align the binary detection logic with Git.</p>
 <h3 id="respect-or-ignore-executable-bit-permission-changes">Respect or ignore executable bit permission changes<a class="headerlink" href="#respect-or-ignore-executable-bit-permission-changes" title="Permanent link">&para;</a></h3>
 <p>Whether to respect or ignore changes to the executable bit for files on Unix.
 This option is unused on Windows.</p>
@@ -5799,17 +5834,6 @@ and
 </code></pre></div>
 </li>
 </ul>
-<div class="footnote">
-<hr />
-<ol>
-<li id="fn:1">
-<p>To detect if a file is binary, Jujutsu currently checks if there is NULL
-  byte in the file which is different from the algorithm of
-  <a href="https://github.com/GitoxideLabs/gitoxide/blob/073487b38ed40bcd7eb45dc110ae1ce84f9275a9/gix-filter/src/eol/utils.rs#L98-L100"><code>gitoxide</code></a> or <a href="https://github.com/git/git/blob/f1ca98f609f9a730b9accf24e5558a10a0b41b6c/convert.c#L94-L103"><code>git</code></a>. Jujutsu
-  doesn't plan to align the binary detection logic with git.&#160;<a class="footnote-backref" href="#fnref:1" title="Jump back to footnote 1 in the text">&#8617;</a></p>
-</li>
-</ol>
-</div>
 
 
 
