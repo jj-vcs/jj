@@ -533,7 +533,7 @@ separate(" ",
     )
   )),
   commit.tags().map(|tag| concat("tag-", hash(tag.name()).substr(0, 4))),
-  commit.working_copies(),
+  commit.working_copies().map(|workspace| format_workspace_redacted(workspace)),
   format_short_commit_id(commit.commit_id()),
   format_commit_labels(commit),
   if(config("ui.show-cryptographic-signatures").as_boolean(),

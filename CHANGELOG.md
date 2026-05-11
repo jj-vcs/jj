@@ -27,6 +27,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   local bookmarks were actually forgotten (e.g. when only an untracked remote
   bookmark matched). [#9181](https://github.com/jj-vcs/jj/issues/9181).
 
+* The `builtin_log_redacted` template now also redacts workspace names.
+
 ## [0.41.0] - 2026-05-06
 
 ### Release highlights
