@@ -1,0 +1,588 @@
+# jj-lib-git-import-head  (./lib/src/git.rs:1009)
+// @wrap:jj-lib-git-import-head
+pub async fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportError> {
+    let store = mut_repo.store();
+    let git_backend = get_git_backend(store)?;
+    let git_repo = git_backend.git_repo();
+
+    let old_git_head = mut_repo.view().git_head();
+    let new_git_head_id = if let Ok(oid) = git_repo.head_id() {
+        Some(CommitId::from_bytes(oid.as_bytes()))
+    } else {
+        None
+    };
+    if old_git_head.as_resolved() == Some(&new_git_head_id) {
+        return Ok(());
+    }
+
+    // Import new head
+    if let Some(head_id) = &new_git_head_id {
+        let index = mut_repo.index();
+        if !index.has_id(head_id)? {
+            git_backend.import_head_commits([head_id]).map_err(|err| {
+                GitImportError::MissingHeadTarget {
+                    id: head_id.clone(),
+                    err,
+                }
+            })?;
+        }
+        // It's unlikely the imported commits were missing, but I/O-related
+        // error can still occur.
+        let commit = store
+            .get_commit_async(head_id)
+            .await
+            .map_err(GitImportError::Backend)?;
+        mut_repo
+            .add_head(&commit)
+            .await
+            .map_err(GitImportError::Backend)?;
+    }
+
+    mut_repo.set_git_head_target(RefTarget::resolved(new_git_head_id));
+    Ok(())
+}
+
+# jj-lib-git-import-refs  (./lib/src/git.rs:556)
+// @wrap:jj-lib-git-import-refs
+pub async fn import_refs(
+    mut_repo: &mut MutableRepo,
+    options: &GitImportOptions,
+) -> Result<GitImportStats, GitImportError> {
+    import_some_refs(mut_repo, options, |_, _| true).await
+}
+
+# jj-lib-git-export-refs  (./lib/src/git.rs:1134)
+// @wrap:jj-lib-git-export-refs
+pub fn export_refs(mut_repo: &mut MutableRepo) -> Result<GitExportStats, GitExportError> {
+    export_some_refs(mut_repo, |_, _| true)
+}
+
+# jj-lib-git-backend  (./lib/src/git_backend.rs:169)
+// @wrap:jj-lib-git-backend
+pub struct GitBackend {
+    // While gix::Repository can be created from gix::ThreadSafeRepository, it's
+    // cheaper to cache the thread-local instance behind a mutex than creating
+    // one for each backend method call. Our GitBackend is most likely to be
+    // used in a single-threaded context.
+    base_repo: gix::ThreadSafeRepository,
+    repo: Mutex<gix::Repository>,
+    root_commit_id: CommitId,
+    root_change_id: ChangeId,
+    empty_tree_id: TreeId,
+    shallow_root_ids: OnceLock<Vec<CommitId>>,
+    extra_metadata_store: TableStore,
+    cached_extra_metadata: Mutex<Option<Arc<ReadonlyTable>>>,
+    git_executable: PathBuf,
+    write_change_id_header: bool,
+}
+
+# jj-lib-git-backend-trait-impl  (./lib/src/git_backend.rs:1012)
+// @wrap:jj-lib-git-backend-trait-impl
+impl Backend for GitBackend {
+    fn name(&self) -> &str {
+        Self::name()
+    }
+
+    fn commit_id_length(&self) -> usize {
+        HASH_LENGTH
+    }
+
+    fn change_id_length(&self) -> usize {
+        CHANGE_ID_LENGTH
+    }
+
+    fn root_commit_id(&self) -> &CommitId {
+        &self.root_commit_id
+    }
+
+    fn root_change_id(&self) -> &ChangeId {
+        &self.root_change_id
+    }
+
+    fn empty_tree_id(&self) -> &TreeId {
+        &self.empty_tree_id
+    }
+
+    fn concurrency(&self) -> usize {
+        1
+    }
+
+    async fn read_file(
+        &self,
+        _path: &RepoPath,
+        id: &FileId,
+    ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>> {
+        let data = self.read_file_sync(id)?;
+        Ok(Box::pin(Cursor::new(data)))
+    }
+
+    async fn write_file(
+        &self,
+        _path: &RepoPath,
+        contents: &mut (dyn AsyncRead + Send + Unpin),
+    ) -> BackendResult<FileId> {
+        let mut bytes = Vec::new();
+        contents.read_to_end(&mut bytes).await.unwrap();
+
+        let oid = self.write_blob(&bytes, "file")?;
+        Ok(FileId::new(oid.as_bytes().to_vec()))
+    }
+
+    async fn read_symlink(&self, _path: &RepoPath, id: &SymlinkId) -> BackendResult<String> {
+        let git_blob_id = validate_git_object_id(id)?;
+        let locked_repo = self.lock_git_repo();
+        let mut blob = locked_repo
+            .find_object(git_blob_id)
+            .map_err(|err| map_not_found_err(err, id))?
+            .try_into_blob()
+            .map_err(|err| to_read_object_err(err, id))?;
+        let target = String::from_utf8(blob.take_data())
+            .map_err(|err| to_invalid_utf8_err(err.utf8_error(), id))?;
+        Ok(target)
+    }
+
+    async fn write_symlink(&self, _path: &RepoPath, target: &str) -> BackendResult<SymlinkId> {
+        let oid = self.write_blob(target.as_bytes(), "symlink")?;
+        Ok(SymlinkId::new(oid.as_bytes().to_vec()))
+    }
+
+    async fn read_copy(&self, _id: &CopyId) -> BackendResult<CopyHistory> {
+        Err(BackendError::Unsupported(
+            "The Git backend doesn't support tracked copies yet".to_string(),
+        ))
+    }
+
+    async fn write_copy(&self, _contents: &CopyHistory) -> BackendResult<CopyId> {
+        Err(BackendError::Unsupported(
+            "The Git backend doesn't support tracked copies yet".to_string(),
+        ))
+    }
+
+    async fn get_related_copies(&self, _copy_id: &CopyId) -> BackendResult<Vec<RelatedCopy>> {
+        Err(BackendError::Unsupported(
+            "The Git backend doesn't support tracked copies yet".to_string(),
+        ))
+    }
+
+    async fn read_tree(&self, _path: &RepoPath, id: &TreeId) -> BackendResult<Tree> {
+        if id == &self.empty_tree_id {
+            return Ok(Tree::default());
+        }
+        let git_tree_id = validate_git_object_id(id)?;
+
+        let locked_repo = self.lock_git_repo();
+        let git_tree = locked_repo
+            .find_object(git_tree_id)
+            .map_err(|err| map_not_found_err(err, id))?
+            .try_into_tree()
+            .map_err(|err| to_read_object_err(err, id))?;
+        let mut entries: Vec<_> = git_tree
+            .iter()
+            .map(|entry| -> BackendResult<_> {
+                let entry = entry.map_err(|err| to_read_object_err(err, id))?;
+                let name = RepoPathComponentBuf::new(
+                    str::from_utf8(entry.filename()).map_err(|err| to_invalid_utf8_err(err, id))?,
+                )
+                .unwrap();
+                let value = match entry.mode().kind() {
+                    gix::object::tree::EntryKind::Tree => {
+                        let id = TreeId::from_bytes(entry.oid().as_bytes());
+                        TreeValue::Tree(id)
+                    }
+                    gix::object::tree::EntryKind::Blob => {
+                        let id = FileId::from_bytes(entry.oid().as_bytes());
+                        TreeValue::File {
+                            id,
+                            executable: false,
+                            copy_id: CopyId::placeholder(),
+                        }
+                    }
+                    gix::object::tree::EntryKind::BlobExecutable => {
+                        let id = FileId::from_bytes(entry.oid().as_bytes());
+                        TreeValue::File {
+                            id,
+                            executable: true,
+                            copy_id: CopyId::placeholder(),
+                        }
+                    }
+                    gix::object::tree::EntryKind::Link => {
+                        let id = SymlinkId::from_bytes(entry.oid().as_bytes());
+                        TreeValue::Symlink(id)
+                    }
+                    gix::object::tree::EntryKind::Commit => {
+                        let id = CommitId::from_bytes(entry.oid().as_bytes());
+                        TreeValue::GitSubmodule(id)
+                    }
+                };
+                Ok((name, value))
+            })
+            .try_collect()?;
+        // While Git tree entries are sorted, the rule is slightly different.
+        // Directory names are sorted as if they had trailing "/".
+        if !entries.is_sorted_by_key(|(name, _)| name) {
+            entries.sort_unstable_by(|(a, _), (b, _)| a.cmp(b));
+        }
+        Ok(Tree::from_sorted_entries(entries))
+    }
+
+    async fn write_tree(&self, _path: &RepoPath, contents: &Tree) -> BackendResult<TreeId> {
+        // Tree entries to be written must be sorted by Entry::filename(), which
+        // is slightly different from the order of our backend::Tree.
+        let entries = contents
+            .entries()
+            .map(|entry| {
+                let filename = BString::from(entry.name().as_internal_str());
+                match entry.value() {
+                    TreeValue::File {
+                        id,
+                        executable: false,
+                        copy_id: _, // TODO: Use the value
+                    } => gix::objs::tree::Entry {
+                        mode: gix::object::tree::EntryKind::Blob.into(),
+                        filename,
+                        oid: gix::ObjectId::from_bytes_or_panic(id.as_bytes()),
+                    },
+                    TreeValue::File {
+                        id,
+                        executable: true,
+                        copy_id: _, // TODO: Use the value
+                    } => gix::objs::tree::Entry {
+                        mode: gix::object::tree::EntryKind::BlobExecutable.into(),
+                        filename,
+                        oid: gix::ObjectId::from_bytes_or_panic(id.as_bytes()),
+                    },
+                    TreeValue::Symlink(id) => gix::objs::tree::Entry {
+                        mode: gix::object::tree::EntryKind::Link.into(),
+                        filename,
+                        oid: gix::ObjectId::from_bytes_or_panic(id.as_bytes()),
+                    },
+                    TreeValue::Tree(id) => gix::objs::tree::Entry {
+                        mode: gix::object::tree::EntryKind::Tree.into(),
+                        filename,
+                        oid: gix::ObjectId::from_bytes_or_panic(id.as_bytes()),
+                    },
+                    TreeValue::GitSubmodule(id) => gix::objs::tree::Entry {
+                        mode: gix::object::tree::EntryKind::Commit.into(),
+                        filename,
+                        oid: gix::ObjectId::from_bytes_or_panic(id.as_bytes()),
+                    },
+                }
+            })
+            .sorted_unstable()
+            .collect();
+        let locked_repo = self.lock_git_repo();
+        let oid = locked_repo
+            .write_object(gix::objs::Tree { entries })
+            .map_err(|err| BackendError::WriteObject {
+                object_type: "tree",
+                source: Box::new(err),
+            })?;
+        Ok(TreeId::from_bytes(oid.as_bytes()))
+    }
+
+    #[tracing::instrument(skip(self))]
+    async fn read_commit(&self, id: &CommitId) -> BackendResult<Commit> {
+        if *id == self.root_commit_id {
+            return Ok(make_root_commit(
+                self.root_change_id().clone(),
+                self.empty_tree_id.clone(),
+            ));
+        }
+        let git_commit_id = validate_git_object_id(id)?;
+
+        let mut commit = {
+            let locked_repo = self.lock_git_repo();
+            let git_object = locked_repo
+                .find_object(git_commit_id)
+                .map_err(|err| map_not_found_err(err, id))?;
+            let is_shallow = self.shallow_root_ids(&locked_repo)?.contains(id);
+            commit_from_git_without_root_parent(id, &git_object, is_shallow)?
+        };
+        if commit.parents.is_empty() {
+            commit.parents.push(self.root_commit_id.clone());
+        }
+
+        let table = self.cached_extra_metadata_table()?;
+        if let Some(extras) = table.get_value(id.as_bytes()) {
+            deserialize_extras(&mut commit, extras);
+        } else {
+            // TODO: Remove this hack and map to ObjectNotFound error if we're sure that
+            // there are no reachable ancestor commits without extras metadata. Git commits
+            // imported by jj < 0.8.0 might not have extras (#924).
+            // https://github.com/jj-vcs/jj/issues/2343
+            tracing::info!("unimported Git commit found");
+            self.import_head_commits([id])?;
+            let table = self.cached_extra_metadata_table()?;
+            let extras = table.get_value(id.as_bytes()).unwrap();
+            deserialize_extras(&mut commit, extras);
+        }
+        Ok(commit)
+    }
+
+    async fn write_commit(
+        &self,
+        mut contents: Commit,
+        mut sign_with: Option<&mut SigningFn>,
+    ) -> BackendResult<(CommitId, Commit)> {
+        assert!(contents.secure_sig.is_none(), "commit.secure_sig was set");
+
+        let locked_repo = self.lock_git_repo();
+        let tree_ids = &contents.root_tree;
+        let git_tree_id = match tree_ids.as_resolved() {
+            Some(tree_id) => validate_git_object_id(tree_id)?,
+            None => write_tree_conflict(&locked_repo, tree_ids)?,
+        };
+        let author = signature_to_git(&contents.author);
+        let mut committer = signature_to_git(&contents.committer);
+        let message = &contents.description;
+        if contents.parents.is_empty() {
+            return Err(BackendError::Other(
+                "Cannot write a commit with no parents".into(),
+            ));
+        }
+        let mut parents = SmallVec::new();
+        for parent_id in &contents.parents {
+            if *parent_id == self.root_commit_id {
+                // Git doesn't have a root commit, so if the parent is the root commit, we don't
+                // add it to the list of parents to write in the Git commit. We also check that
+                // there are no other parents since Git cannot represent a merge between a root
+                // commit and another commit.
+                if contents.parents.len() > 1 {
+                    return Err(BackendError::Unsupported(
+                        "The Git backend does not support creating merge commits with the root \
+                         commit as one of the parents."
+                            .to_owned(),
+                    ));
+                }
+            } else {
+                parents.push(validate_git_object_id(parent_id)?);
+            }
+        }
+        let mut extra_headers: Vec<(BString, BString)> = vec![];
+        if !contents.conflict_labels.is_resolved() {
+            // Labels cannot contain '\n' since we use it as a separator in the header.
+            assert!(
+                contents
+                    .conflict_labels
+                    .iter()
+                    .all(|label| !label.contains('\n'))
+            );
+            let mut joined_with_newlines = contents.conflict_labels.iter().join("\n");
+            joined_with_newlines.push('\n');
+            extra_headers.push((
+                JJ_CONFLICT_LABELS_COMMIT_HEADER.into(),
+                joined_with_newlines.into(),
+            ));
+        }
+        if !tree_ids.is_resolved() {
+            let value = tree_ids.iter().map(|id| id.hex()).join(" ");
+            extra_headers.push((JJ_TREES_COMMIT_HEADER.into(), value.into()));
+        }
+        if self.write_change_id_header {
+            extra_headers.push((
+                CHANGE_ID_COMMIT_HEADER.into(),
+                contents.change_id.reverse_hex().into(),
+            ));
+        }
+
+        if tree_ids.iter().any(|id| id == &self.empty_tree_id) {
+            let tree = gix::objs::Tree::empty();
+            let tree_id =
+                locked_repo
+                    .write_object(&tree)
+                    .map_err(|err| BackendError::WriteObject {
+                        object_type: "tree",
+                        source: Box::new(err),
+                    })?;
+            assert!(tree_id.is_empty_tree());
+        }
+
+        let extras = serialize_extras(&contents);
+
+        // If two writers write commits of the same id with different metadata, they
+        // will both succeed and the metadata entries will be "merged" later. Since
+        // metadata entry is keyed by the commit id, one of the entries would be lost.
+        // To prevent such race condition locally, we extend the scope covered by the
+        // table lock. This is still racy if multiple machines are involved and the
+        // repository is rsync-ed.
+        let (table, table_lock) = self.read_extra_metadata_table_locked()?;
+        let id = loop {
+            let mut commit = gix::objs::Commit {
+                message: message.to_owned().into(),
+                tree: git_tree_id,
+                author: author.clone(),
+                committer: committer.clone(),
+                encoding: None,
+                parents: parents.clone(),
+                extra_headers: extra_headers.clone(),
+            };
+
+            if let Some(sign) = &mut sign_with {
+                // we don't use gix pool, but at least use their heuristic
+                let mut data = Vec::with_capacity(512);
+                commit.write_to(&mut data).unwrap();
+
+                let sig = sign(&data).map_err(|err| BackendError::WriteObject {
+                    object_type: "commit",
+                    source: Box::new(err),
+                })?;
+                commit
+                    .extra_headers
+                    .push(("gpgsig".into(), sig.clone().into()));
+                contents.secure_sig = Some(SecureSig { data, sig });
+            }
+
+            let git_id =
+                locked_repo
+                    .write_object(&commit)
+                    .map_err(|err| BackendError::WriteObject {
+                        object_type: "commit",
+                        source: Box::new(err),
+                    })?;
+
+            match table.get_value(git_id.as_bytes()) {
+                Some(existing_extras) if existing_extras != extras => {
+                    // It's possible a commit already exists with the same
+                    // commit id but different change id. Adjust the timestamp
+                    // until this is no longer the case.
+                    //
+                    // For example, this can happen when rebasing duplicate
+                    // commits, https://github.com/jj-vcs/jj/issues/694.
+                    //
+                    // `jj` resets the committer timestamp to the current
+                    // timestamp whenever it rewrites a commit. So, it's
+                    // unlikely for the timestamp to be 0 even if the original
+                    // commit had its timestamp set to 0. Moreover, we test that
+                    // a commit with a negative timestamp can still be written
+                    // and read back by `jj`.
+                    committer.time.seconds -= 1;
+                }
+                _ => break CommitId::from_bytes(git_id.as_bytes()),
+            }
+        };
+
+        // Everything up to this point had no permanent effect on the repo except
+        // GC-able objects
+        locked_repo
+            .edit_reference(to_no_gc_ref_update(&id))
+            .map_err(|err| BackendError::Other(Box::new(err)))?;
+
+        // Update the signature to match the one that was actually written to the object
+        // store
+        contents.committer.timestamp.timestamp = MillisSinceEpoch(committer.time.seconds * 1000);
+        let mut mut_table = table.start_mutation();
+        mut_table.add_entry(id.to_bytes(), extras);
+        self.save_extra_metadata_table(mut_table, &table_lock)?;
+        Ok((id, contents))
+    }
+
+    fn get_copy_records(
+        &self,
+        paths: Option<&[RepoPathBuf]>,
+        root_id: &CommitId,
+        head_id: &CommitId,
+    ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
+        let repo = self.git_repo();
+        let root_tree = self.read_tree_for_commit(&repo, root_id)?;
+        let head_tree = self.read_tree_for_commit(&repo, head_id)?;
+
+        let change_to_copy_record =
+            |change: gix::object::tree::diff::Change| -> BackendResult<Option<CopyRecord>> {
+                let gix::object::tree::diff::Change::Rewrite {
+                    source_location,
+                    source_entry_mode,
+                    source_id,
+                    entry_mode: dest_entry_mode,
+                    location: dest_location,
+                    ..
+                } = change
+                else {
+                    return Ok(None);
+                };
+                // TODO: Renamed symlinks cannot be returned because CopyRecord
+                // expects `source_file: FileId`.
+                if !source_entry_mode.is_blob() || !dest_entry_mode.is_blob() {
+                    return Ok(None);
+                }
+
+                let source = str::from_utf8(source_location)
+                    .map_err(|err| to_invalid_utf8_err(err, root_id))?;
+                let dest = str::from_utf8(dest_location)
+                    .map_err(|err| to_invalid_utf8_err(err, head_id))?;
+
+                let target = RepoPathBuf::from_internal_string(dest).unwrap();
+                if !paths.is_none_or(|paths| paths.contains(&target)) {
+                    return Ok(None);
+                }
+
+                Ok(Some(CopyRecord {
+                    target,
+                    target_commit: head_id.clone(),
+                    source: RepoPathBuf::from_internal_string(source).unwrap(),
+                    source_file: FileId::from_bytes(source_id.as_bytes()),
+                    source_commit: root_id.clone(),
+                }))
+            };
+
+        let mut records: Vec<BackendResult<CopyRecord>> = Vec::new();
+        root_tree
+            .changes()
+            .map_err(|err| BackendError::Other(err.into()))?
+            .options(|opts| {
+                opts.track_path().track_rewrites(Some(gix::diff::Rewrites {
+                    copies: Some(gix::diff::rewrites::Copies {
+                        source: gix::diff::rewrites::CopySource::FromSetOfModifiedFiles,
+                        percentage: Some(0.5),
+                    }),
+                    percentage: Some(0.5),
+                    limit: 1000,
+                    track_empty: false,
+                }));
+            })
+            .for_each_to_obtain_tree_with_cache(
+                &head_tree,
+                &mut self.new_diff_platform()?,
+                |change| -> BackendResult<_> {
+                    match change_to_copy_record(change) {
+                        Ok(None) => {}
+                        Ok(Some(change)) => records.push(Ok(change)),
+                        Err(err) => records.push(Err(err)),
+                    }
+                    Ok(gix::object::tree::diff::Action::Continue(()))
+                },
+            )
+            .map_err(|err| BackendError::Other(err.into()))?;
+        Ok(futures::stream::iter(records).boxed())
+    }
+
+    #[tracing::instrument(skip(self, index))]
+    fn gc(&self, index: &dyn Index, keep_newer: SystemTime) -> BackendResult<()> {
+        let git_repo = self.lock_git_repo();
+        let new_heads = index
+            .all_heads_for_gc()
+            .map_err(|err| BackendError::Other(err.into()))?
+            .filter(|id| *id != self.root_commit_id);
+        recreate_no_gc_refs(&git_repo, new_heads, keep_newer)?;
+
+        // No locking is needed since we aren't going to add new "commits".
+        let table = self.cached_extra_metadata_table()?;
+        // TODO: remove unreachable entries from extras table if segment file
+        // mtime <= keep_newer? (it won't be consistent with no-gc refs
+        // preserved by the keep_newer timestamp though)
+        self.extra_metadata_store
+            .gc(&table, keep_newer)
+            .map_err(|err| BackendError::Other(err.into()))?;
+
+        run_git_gc(
+            self.git_executable.as_ref(),
+            self.git_repo_path(),
+            keep_newer,
+        )
+        .map_err(|err| BackendError::Other(err.into()))?;
+        // Since "git gc" will move loose refs into packed refs, in-memory
+        // packed-refs cache should be invalidated without relying on mtime.
+        git_repo.refs.force_refresh_packed_buffer().ok();
+        Ok(())
+    }
+}
+

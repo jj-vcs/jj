@@ -1,0 +1,200 @@
+# jj-cli-start-transaction  (./cli/src/cli_util.rs:2783)
+// @wrap:jj-cli-start-transaction
+pub fn start_repo_transaction(
+    repo: &Arc<ReadonlyRepo>,
+    workspace_name: &WorkspaceName,
+    string_args: &[String],
+) -> Transaction {
+    let mut tx = repo.start_transaction();
+    tx.set_workspace_name(workspace_name);
+    // TODO: Either do better shell-escaping here or store the values in some list
+    // type (which we currently don't have).
+    let shell_escape = |arg: &String| {
+        if arg.as_bytes().iter().all(|b| {
+            matches!(b,
+                b'A'..=b'Z'
+                | b'a'..=b'z'
+                | b'0'..=b'9'
+                | b','
+                | b'-'
+                | b'.'
+                | b'/'
+                | b':'
+                | b'@'
+                | b'_'
+            )
+        }) {
+            arg.clone()
+        } else {
+            format!("'{}'", arg.replace('\'', "\\'"))
+        }
+    };
+    let mut quoted_strings = vec!["jj".to_string()];
+    quoted_strings.extend(string_args.iter().skip(1).map(shell_escape));
+    tx.set_attribute("args".to_string(), quoted_strings.join(" "));
+    tx
+}
+
+# jj-lib-repo-loader  (./lib/src/repo.rs:672)
+// @wrap:jj-lib-repo-loader
+pub struct RepoLoader {
+    settings: UserSettings,
+    store: Arc<Store>,
+    op_store: Arc<dyn OpStore>,
+    op_heads_store: Arc<dyn OpHeadsStore>,
+    index_store: Arc<dyn IndexStore>,
+    submodule_store: Arc<dyn SubmoduleStore>,
+}
+
+# jj-lib-repo-load-from-fs  (./lib/src/repo.rs:704)
+    // @wrap:jj-lib-repo-load-from-fs
+    pub fn init_from_file_system(
+        settings: &UserSettings,
+        repo_path: &Path,
+        store_factories: &StoreFactories,
+    ) -> Result<Self, StoreLoadError> {
+        let merge_options =
+            MergeOptions::from_settings(settings).map_err(|err| BackendLoadError(err.into()))?;
+        let store = Store::new(
+            store_factories.load_backend(settings, &repo_path.join("store"))?,
+            Signer::from_settings(settings)?,
+            merge_options,
+        );
+        let root_op_data = RootOperationData {
+            root_commit_id: store.root_commit_id().clone(),
+        };
+        let op_store = Arc::from(store_factories.load_op_store(
+            settings,
+            &repo_path.join("op_store"),
+            root_op_data,
+        )?);
+        let op_heads_store =
+            Arc::from(store_factories.load_op_heads_store(settings, &repo_path.join("op_heads"))?);
+        let index_store =
+            Arc::from(store_factories.load_index_store(settings, &repo_path.join("index"))?);
+        let submodule_store = Arc::from(
+            store_factories.load_submodule_store(settings, &repo_path.join("submodule_store"))?,
+        );
+        Ok(Self {
+            settings: settings.clone(),
+            store,
+            op_store,
+            op_heads_store,
+            index_store,
+            submodule_store,
+        })
+    }
+
+# jj-lib-mutable-repo  (./lib/src/repo.rs:899)
+// @wrap:jj-lib-mutable-repo
+pub struct MutableRepo {
+    base_repo: Arc<ReadonlyRepo>,
+    index: Box<dyn MutableIndex>,
+    view: DirtyCell<View>,
+    /// Mapping from new commit to its predecessors.
+    ///
+    /// This is similar to (the reverse of) `parent_mapping`, but
+    /// `commit_predecessors` will never be cleared on `rebase_descendants()`.
+    commit_predecessors: BTreeMap<CommitId, Vec<CommitId>>,
+    // The commit identified by the key has been replaced by all the ones in the value.
+    // * Bookmarks pointing to the old commit should be updated to the new commit, resulting in a
+    //   conflict if there multiple new commits.
+    // * Children of the old commit should be rebased onto the new commits. However, if the type is
+    //   `Divergent`, they should be left in place.
+    // * Working copies pointing to the old commit should be updated to the first of the new
+    //   commits. However, if the type is `Abandoned`, a new working-copy commit should be created
+    //   on top of all of the new commits instead.
+    parent_mapping: HashMap<CommitId, Rewrite>,
+}
+
+# jj-lib-mutable-repo-new  (./lib/src/repo.rs:921)
+    // @wrap:jj-lib-mutable-repo-new
+    pub fn new(base_repo: Arc<ReadonlyRepo>, index: &dyn ReadonlyIndex, view: &View) -> Self {
+        let mut_view = view.clone();
+        let mut_index = index.start_modification();
+        Self {
+            base_repo,
+            index: mut_index,
+            view: DirtyCell::with_clean(mut_view),
+            commit_predecessors: Default::default(),
+            parent_mapping: Default::default(),
+        }
+    }
+
+# jj-lib-new-commit  (./lib/src/repo.rs:969)
+    // @wrap:jj-lib-new-commit
+    pub fn new_commit(&mut self, parents: Vec<CommitId>, tree: MergedTree) -> CommitBuilder<'_> {
+        let settings = self.base_repo.settings();
+        DetachedCommitBuilder::for_new_commit(self, settings, parents, tree).attach(self)
+    }
+
+# jj-lib-rewrite-commit  (./lib/src/repo.rs:976)
+    // @wrap:jj-lib-rewrite-commit
+    pub fn rewrite_commit(&mut self, predecessor: &Commit) -> CommitBuilder<'_> {
+        let settings = self.base_repo.settings();
+        DetachedCommitBuilder::for_rewrite_from(self, settings, predecessor).attach(self)
+        // CommitBuilder::write will record the rewrite in
+        // `self.rewritten_commits`
+    }
+
+# jj-lib-transaction-new  (./lib/src/transaction.rs:69)
+    // @wrap:jj-lib-transaction-new
+    pub fn new(mut_repo: MutableRepo, user_settings: &UserSettings) -> Self {
+        let parent_ops = vec![mut_repo.base_repo().operation().clone()];
+        let op_metadata = create_op_metadata(user_settings, "".to_string(), false);
+        let end_time = user_settings.operation_timestamp();
+        Self {
+            mut_repo,
+            parent_ops,
+            op_metadata,
+            end_time,
+        }
+    }
+
+# jj-lib-transaction-commit  (./lib/src/transaction.rs:121)
+    // @wrap:jj-lib-transaction-commit
+    pub async fn commit(
+        self,
+        description: impl Into<String>,
+    ) -> Result<Arc<ReadonlyRepo>, TransactionCommitError> {
+        self.write(description).await?.publish().await
+    }
+
+# jj-lib-transaction-write-operation  (./lib/src/transaction.rs:132)
+    // @wrap:jj-lib-transaction-write-operation
+    pub async fn write(
+        mut self,
+        description: impl Into<String>,
+    ) -> Result<UnpublishedOperation, TransactionCommitError> {
+        let mut_repo = self.mut_repo;
+        // TODO: Should we instead just do the rebasing here if necessary?
+        assert!(
+            !mut_repo.has_rewrites(),
+            "BUG: Descendants have not been rebased after the last rewrites."
+        );
+        let base_repo = mut_repo.base_repo().clone();
+        let (mut_index, view, predecessors) = mut_repo.consume();
+
+        let operation = {
+            let view_id = base_repo.op_store().write_view(view.store_view()).await?;
+            self.op_metadata.description = description.into();
+            self.op_metadata.time.end = self.end_time.unwrap_or_else(Timestamp::now);
+            let parents = self.parent_ops.iter().map(|op| op.id().clone()).collect();
+            let store_operation = op_store::Operation {
+                view_id,
+                parents,
+                metadata: self.op_metadata,
+                commit_predecessors: Some(predecessors),
+            };
+            let new_op_id = base_repo
+                .op_store()
+                .write_operation(&store_operation)
+                .await?;
+            Operation::new(base_repo.op_store().clone(), new_op_id, store_operation)
+        };
+
+        let index = base_repo.index_store().write_index(mut_index, &operation)?;
+        let unpublished = UnpublishedOperation::new(base_repo.loader(), operation, view, index);
+        Ok(unpublished)
+    }
+

@@ -553,6 +553,7 @@ struct RefsToImport {
 ///
 /// This function detects conflicts (if both Git and JJ modified a bookmark) and
 /// records them in JJ's view.
+// @wrap:jj-lib-git-import-refs
 pub async fn import_refs(
     mut_repo: &mut MutableRepo,
     options: &GitImportOptions,
@@ -1005,6 +1006,7 @@ fn remotely_pinned_commit_ids(view: &View) -> Vec<CommitId> {
 ///
 /// Unlike `reset_head()`, this function doesn't move the working-copy commit to
 /// the child of the new HEAD revision.
+// @wrap:jj-lib-git-import-head
 pub async fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportError> {
     let store = mut_repo.store();
     let git_backend = get_git_backend(store)?;
@@ -1129,6 +1131,7 @@ struct RefsToExport {
 /// marked conflicted by the next `jj git import`.
 ///
 /// New/updated tags are exported as Git lightweight tags.
+// @wrap:jj-lib-git-export-refs
 pub fn export_refs(mut_repo: &mut MutableRepo) -> Result<GitExportStats, GitExportError> {
     export_some_refs(mut_repo, |_, _| true)
 }

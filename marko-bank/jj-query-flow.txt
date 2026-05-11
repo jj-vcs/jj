@@ -1,0 +1,59 @@
+# jj-lib-revset-parse  (./lib/src/revset.rs:1454)
+// @wrap:jj-lib-revset-parse
+pub fn parse(
+    diagnostics: &mut RevsetDiagnostics,
+    revset_str: &str,
+    context: &RevsetParseContext,
+) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
+    let node = parse_program(revset_str)?;
+    let node =
+        dsl_util::expand_aliases_with_locals(node, context.aliases_map, &context.local_variables)?;
+    lower_expression(diagnostics, &node, &context.to_lowering_context())
+        .map_err(|err| err.extend_function_candidates(context.aliases_map.function_names()))
+}
+
+# jj-lib-revset-optimize  (./lib/src/revset.rs:2586)
+// @wrap:jj-lib-revset-optimize
+pub fn optimize<St: ExpressionState>(
+    expression: Arc<RevsetExpression<St>>,
+) -> Arc<RevsetExpression<St>> {
+    // Since fold_redundant_expression() can remove hidden commits that look
+    // redundant, referenced commits should be collected earlier.
+    let expression = resolve_referenced_commits(&expression).unwrap_or(expression);
+    let expression = unfold_difference(&expression).unwrap_or(expression);
+    let expression = fold_redundant_expression(&expression).unwrap_or(expression);
+    let expression = fold_generation(&expression).unwrap_or(expression);
+    let expression = flatten_intersections(&expression).unwrap_or(expression);
+    let expression = sort_negations_and_ancestors(&expression).unwrap_or(expression);
+    let expression = fold_ancestors_union(&expression).unwrap_or(expression);
+    let expression = internalize_filter(&expression).unwrap_or(expression);
+    let expression = fold_heads_range(&expression).unwrap_or(expression);
+    let expression = fold_difference(&expression).unwrap_or(expression);
+    fold_not_in_ancestors(&expression).unwrap_or(expression)
+}
+
+# jj-lib-revset-resolve-symbols  (./lib/src/revset.rs:3137)
+// @wrap:jj-lib-revset-resolve-symbols
+fn resolve_symbols(
+    repo: &dyn Repo,
+    expression: &UserRevsetExpression,
+    symbol_resolver: &SymbolResolver,
+) -> Result<Arc<ResolvedRevsetExpression>, RevsetResolutionError> {
+    let mut resolver = ExpressionSymbolResolver::new(repo, symbol_resolver);
+    resolver.fold_expression(expression)
+}
+
+# jj-lib-revset-resolve-visibility  (./lib/src/revset.rs:3156)
+// @wrap:jj-lib-revset-resolve-visibility
+fn resolve_visibility(
+    repo: &dyn Repo,
+    expression: &ResolvedRevsetExpression,
+) -> ResolvedExpression {
+    let context = VisibilityResolutionContext {
+        referenced_commits: &[],
+        visible_heads: &repo.view().heads().iter().cloned().collect_vec(),
+        root: repo.store().root_commit_id(),
+    };
+    context.resolve(expression)
+}
+

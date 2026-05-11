@@ -1,0 +1,261 @@
+# jj-cli-snapshot-flow  (./cli/src/cli_util.rs:1215)
+    // @wrap:jj-cli-snapshot-flow
+    async fn maybe_snapshot_impl(
+        &mut self,
+        ui: &Ui,
+    ) -> Result<SnapshotStats, SnapshotWorkingCopyError> {
+        if !self.may_snapshot_working_copy {
+            return Ok(SnapshotStats::default());
+        }
+
+        // Acquire git import/export lock once for the entire import/snapshot/export
+        // cycle. This prevents races with other processes during Git HEAD and
+        // refs import/export.
+        #[cfg_attr(not(feature = "git"), allow(unused_variables))]
+        let git_import_export_lock = self
+            .lock_git_import_export()
+            .map_err(snapshot_command_error)?;
+
+        // Reload at current head to avoid creating divergent operations if another
+        // process committed an operation while we were waiting for the lock.
+        if self.working_copy_shared_with_git {
+            let repo = self.repo().clone();
+            let op_heads_store = repo.loader().op_heads_store();
+            let op_heads = op_heads_store
+                .get_op_heads()
+                .await
+                .map_err(snapshot_command_error)?;
+            if std::slice::from_ref(repo.op_id()) != op_heads {
+                let op = self
+                    .env
+                    .command
+                    .resolve_operation(ui, repo.loader(), self.workspace_name())
+                    .map_err(snapshot_command_error)?;
+                let current_repo = repo
+                    .loader()
+                    .load_at(&op)
+                    .await
+                    .map_err(snapshot_command_error)?;
+                self.user_repo = ReadonlyUserRepo::new(current_repo);
+            }
+        }
+
+        #[cfg(feature = "git")]
+        if self.working_copy_shared_with_git {
+            self.import_git_head(ui, &git_import_export_lock)
+                .await
+                .map_err(snapshot_command_error)?;
+        }
+        // Because the Git refs (except HEAD) aren't imported yet, the ref
+        // pointing to the new working-copy commit might not be exported.
+        // In that situation, the ref would be conflicted anyway, so export
+        // failure is okay.
+        let stats = self.snapshot_working_copy(ui).await?;
+
+        // import_git_refs() can rebase the working-copy commit.
+        #[cfg(feature = "git")]
+        if self.working_copy_shared_with_git {
+            self.import_git_refs(ui, &git_import_export_lock)
+                .await
+                .map_err(snapshot_command_error)?;
+        }
+        Ok(stats)
+    }
+
+# jj-cli-stale-working-copy-flow  (./cli/src/cli_util.rs:2824)
+// @wrap:jj-cli-stale-working-copy-flow
+async fn handle_stale_working_copy(
+    locked_wc: &mut dyn LockedWorkingCopy,
+    repo: Arc<ReadonlyRepo>,
+    workspace_name: &WorkspaceName,
+) -> Result<Option<(Arc<ReadonlyRepo>, Commit)>, SnapshotWorkingCopyError> {
+    let get_wc_commit = |repo: &ReadonlyRepo| -> Result<Option<_>, _> {
+        repo.view()
+            .get_wc_commit_id(workspace_name)
+            .map(|id| repo.store().get_commit(id))
+            .transpose()
+            .map_err(snapshot_command_error)
+    };
+    let Some(wc_commit) = get_wc_commit(&repo)? else {
+        return Ok(None);
+    };
+    let old_op_id = locked_wc.old_operation_id().clone();
+    match WorkingCopyFreshness::check_stale(locked_wc, &wc_commit, &repo).await {
+        Ok(WorkingCopyFreshness::Fresh) => Ok(Some((repo, wc_commit))),
+        Ok(WorkingCopyFreshness::Updated(wc_operation)) => {
+            let repo = repo
+                .reload_at(&wc_operation)
+                .await
+                .map_err(snapshot_command_error)?;
+            if let Some(wc_commit) = get_wc_commit(&repo)? {
+                Ok(Some((repo, wc_commit)))
+            } else {
+                Ok(None)
+            }
+        }
+        Ok(WorkingCopyFreshness::WorkingCopyStale) => {
+            Err(SnapshotWorkingCopyError::StaleWorkingCopy(
+                user_error(format!(
+                    "The working copy is stale (not updated since operation {}).",
+                    short_operation_hash(&old_op_id)
+                ))
+                .hinted(
+                    "Run `jj workspace update-stale` to update it.
+See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy \
+                     for more information.",
+                ),
+            ))
+        }
+        Ok(WorkingCopyFreshness::SiblingOperation) => {
+            Err(SnapshotWorkingCopyError::StaleWorkingCopy(
+                internal_error(format!(
+                    "The repo was loaded at operation {}, which seems to be a sibling of the \
+                     working copy's operation {}",
+                    short_operation_hash(repo.op_id()),
+                    short_operation_hash(&old_op_id)
+                ))
+                .hinted(format!(
+                    "Run `jj op integrate {}` to add the working copy's operation to the \
+                     operation log.",
+                    short_operation_hash(&old_op_id)
+                )),
+            ))
+        }
+        Err(OpStoreError::ObjectNotFound { .. }) => {
+            Err(SnapshotWorkingCopyError::StaleWorkingCopy(
+                user_error("Could not read working copy's operation.").hinted(
+                    "Run `jj workspace update-stale` to recover.
+See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy \
+                     for more information.",
+                ),
+            ))
+        }
+        Err(e) => Err(snapshot_command_error(e)),
+    }
+}
+
+# jj-cli-update-working-copy  (./cli/src/cli_util.rs:3201)
+// @wrap:jj-cli-update-working-copy
+pub async fn update_working_copy(
+    repo: &Arc<ReadonlyRepo>,
+    workspace: &mut Workspace,
+    old_commit: Option<&Commit>,
+    new_commit: &Commit,
+) -> Result<CheckoutStats, CommandError> {
+    let old_tree = old_commit.map(|commit| commit.tree());
+    // TODO: CheckoutError::ConcurrentCheckout should probably just result in a
+    // warning for most commands (but be an error for the checkout command)
+    let stats = workspace
+        .check_out(repo.op_id().clone(), old_tree.as_ref(), new_commit)
+        .await
+        .map_err(|err| {
+            internal_error_with_message(
+                format!("Failed to check out commit {}", new_commit.id().hex()),
+                err,
+            )
+        })?;
+    Ok(stats)
+}
+
+# jj-lib-local-working-copy  (./lib/src/local_working_copy.rs:2587)
+// @wrap:jj-lib-local-working-copy
+pub struct LocalWorkingCopy {
+    store: Arc<Store>,
+    working_copy_path: PathBuf,
+    state_path: PathBuf,
+    checkout_state: CheckoutState,
+    tree_state: OnceCell<TreeState>,
+    tree_state_settings: TreeStateSettings,
+}
+
+# jj-lib-working-copy-start-mutation  (./lib/src/local_working_copy.rs:2619)
+    // @wrap:jj-lib-working-copy-start-mutation
+    async fn start_mutation(&self) -> Result<Box<dyn LockedWorkingCopy>, WorkingCopyStateError> {
+        let lock_path = self.state_path.join("working_copy.lock");
+        let lock = FileLock::lock(lock_path).map_err(|err| WorkingCopyStateError {
+            message: "Failed to lock working copy".to_owned(),
+            err: err.into(),
+        })?;
+
+        let wc = Self {
+            store: self.store.clone(),
+            working_copy_path: self.working_copy_path.clone(),
+            state_path: self.state_path.clone(),
+            // Re-read the state after taking the lock
+            checkout_state: CheckoutState::load(&self.state_path)?,
+            // Empty so we re-read the state after taking the lock
+            // TODO: It's expensive to reload the whole tree. We should copy it from `self` if it
+            // hasn't changed.
+            tree_state: OnceCell::new(),
+            tree_state_settings: self.tree_state_settings.clone(),
+        };
+        let old_operation_id = wc.operation_id().clone();
+        let old_tree = wc.tree()?.clone();
+        Ok(Box::new(LockedLocalWorkingCopy {
+            wc,
+            old_operation_id,
+            old_tree,
+            tree_state_dirty: false,
+            new_workspace_name: None,
+            _lock: lock,
+        }))
+    }
+
+# jj-lib-working-copy-snapshot  (./lib/src/local_working_copy.rs:2838)
+    // @wrap:jj-lib-working-copy-snapshot
+    async fn snapshot(
+        &mut self,
+        options: &SnapshotOptions,
+    ) -> Result<(MergedTree, SnapshotStats), SnapshotError> {
+        let tree_state = self.wc.tree_state_mut()?;
+        let (is_dirty, stats) = tree_state.snapshot(options).await?;
+        self.tree_state_dirty |= is_dirty;
+        Ok((tree_state.current_tree().clone(), stats))
+    }
+
+# jj-lib-working-copy-checkout  (./lib/src/local_working_copy.rs:2849)
+    // @wrap:jj-lib-working-copy-checkout
+    async fn check_out(&mut self, commit: &Commit) -> Result<CheckoutStats, CheckoutError> {
+        // TODO: Write a "pending_checkout" file with the new TreeId so we can
+        // continue an interrupted update if we find such a file.
+        let new_tree = commit.tree();
+        let tree_state = self.wc.tree_state_mut()?;
+        if tree_state.tree.tree_ids_and_labels() != new_tree.tree_ids_and_labels() {
+            let stats = tree_state.check_out(&new_tree)?;
+            self.tree_state_dirty = true;
+            Ok(stats)
+        } else {
+            Ok(CheckoutStats::default())
+        }
+    }
+
+# jj-lib-working-copy-finish  (./lib/src/local_working_copy.rs:2901)
+    // @wrap:jj-lib-working-copy-finish
+    async fn finish(
+        mut self: Box<Self>,
+        operation_id: OperationId,
+    ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError> {
+        assert!(
+            self.tree_state_dirty
+                || self.old_tree.tree_ids_and_labels() == self.wc.tree()?.tree_ids_and_labels()
+        );
+        if self.tree_state_dirty {
+            self.wc
+                .tree_state_mut()?
+                .save()
+                .map_err(|err| WorkingCopyStateError {
+                    message: "Failed to write working copy state".to_string(),
+                    err: Box::new(err),
+                })?;
+        }
+        if self.old_operation_id != operation_id || self.new_workspace_name.is_some() {
+            self.wc.checkout_state.operation_id = operation_id;
+            if let Some(workspace_name) = self.new_workspace_name {
+                self.wc.checkout_state.workspace_name = workspace_name;
+            }
+            self.wc.checkout_state.save(&self.wc.state_path)?;
+        }
+        // TODO: Clear the "pending_checkout" file here.
+        Ok(Box::new(self.wc))
+    }
+

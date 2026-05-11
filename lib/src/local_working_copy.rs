@@ -2584,6 +2584,7 @@ impl CheckoutState {
     }
 }
 
+// @wrap:jj-lib-local-working-copy
 pub struct LocalWorkingCopy {
     store: Arc<Store>,
     working_copy_path: PathBuf,
@@ -2615,6 +2616,7 @@ impl WorkingCopy for LocalWorkingCopy {
         Ok(self.tree_state()?.sparse_patterns())
     }
 
+    // @wrap:jj-lib-working-copy-start-mutation
     async fn start_mutation(&self) -> Result<Box<dyn LockedWorkingCopy>, WorkingCopyStateError> {
         let lock_path = self.state_path.join("working_copy.lock");
         let lock = FileLock::lock(lock_path).map_err(|err| WorkingCopyStateError {
@@ -2655,6 +2657,7 @@ impl LocalWorkingCopy {
     /// Initializes a new working copy at `working_copy_path`. The working
     /// copy's state will be stored in the `state_path` directory. The working
     /// copy will have the empty tree checked out.
+    // @wrap:jj-lib-working-copy-init
     pub fn init(
         store: Arc<Store>,
         working_copy_path: PathBuf,
@@ -2832,6 +2835,7 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
         &self.old_tree
     }
 
+    // @wrap:jj-lib-working-copy-snapshot
     async fn snapshot(
         &mut self,
         options: &SnapshotOptions,
@@ -2842,6 +2846,7 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
         Ok((tree_state.current_tree().clone(), stats))
     }
 
+    // @wrap:jj-lib-working-copy-checkout
     async fn check_out(&mut self, commit: &Commit) -> Result<CheckoutStats, CheckoutError> {
         // TODO: Write a "pending_checkout" file with the new TreeId so we can
         // continue an interrupted update if we find such a file.
@@ -2893,6 +2898,7 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
     }
 
     #[instrument(skip_all)]
+    // @wrap:jj-lib-working-copy-finish
     async fn finish(
         mut self: Box<Self>,
         operation_id: OperationId,

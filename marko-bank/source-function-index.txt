@@ -1,0 +1,1077 @@
+cli/src/main.rs:18:fn main() -> std::process::ExitCode {
+lib/src/git_backend.rs:109:pub enum GitBackendInitError {
+lib/src/git_backend.rs:122:impl From<Box<GitBackendInitError>> for BackendInitError {
+lib/src/git_backend.rs:123:    fn from(err: Box<GitBackendInitError>) -> Self {
+lib/src/git_backend.rs:129:pub enum GitBackendLoadError {
+lib/src/git_backend.rs:140:impl From<Box<GitBackendLoadError>> for BackendLoadError {
+lib/src/git_backend.rs:141:    fn from(err: Box<GitBackendLoadError>) -> Self {
+lib/src/git_backend.rs:148:pub enum GitBackendError {
+lib/src/git_backend.rs:155:impl From<GitBackendError> for BackendError {
+lib/src/git_backend.rs:156:    fn from(err: GitBackendError) -> Self {
+lib/src/git_backend.rs:162:pub enum GitGcError {
+lib/src/git_backend.rs:170:pub struct GitBackend {
+lib/src/git_backend.rs:187:impl GitBackend {
+lib/src/git_backend.rs:188:    pub fn name() -> &'static str {
+lib/src/git_backend.rs:192:    fn new(
+lib/src/git_backend.rs:215:    pub fn init_internal(
+lib/src/git_backend.rs:234:    pub fn init_colocated(
+lib/src/git_backend.rs:259:    pub fn init_external(
+lib/src/git_backend.rs:280:    fn init_with_repo(
+lib/src/git_backend.rs:311:    pub fn load(
+lib/src/git_backend.rs:338:    fn lock_git_repo(&self) -> MutexGuard<'_, gix::Repository> {
+lib/src/git_backend.rs:343:    pub fn git_repo(&self) -> gix::Repository {
+lib/src/git_backend.rs:348:    pub fn git_repo_path(&self) -> &Path {
+lib/src/git_backend.rs:353:    pub fn git_workdir(&self) -> Option<&Path> {
+lib/src/git_backend.rs:357:    fn shallow_root_ids(&self, git_repo: &gix::Repository) -> BackendResult<&[CommitId]> {
+lib/src/git_backend.rs:376:    fn cached_extra_metadata_table(&self) -> BackendResult<Arc<ReadonlyTable>> {
+lib/src/git_backend.rs:391:    fn read_extra_metadata_table_locked(&self) -> BackendResult<(Arc<ReadonlyTable>, FileLock)> {
+lib/src/git_backend.rs:399:    fn save_extra_metadata_table(
+lib/src/git_backend.rs:419:    pub fn import_head_commits<'a>(
+lib/src/git_backend.rs:456:    fn read_file_sync(&self, id: &FileId) -> BackendResult<Vec<u8>> {
+lib/src/git_backend.rs:467:    fn new_diff_platform(&self) -> BackendResult<gix::diff::blob::Platform> {
+lib/src/git_backend.rs:494:    fn read_tree_for_commit<'repo>(
+lib/src/git_backend.rs:511:    fn write_blob(
+lib/src/git_backend.rs:548:pub fn canonicalize_git_repo_path(path: &Path) -> io::Result<PathBuf> {
+lib/src/git_backend.rs:557:fn gix_open_opts_from_settings(settings: &UserSettings) -> gix::open::Options {
+lib/src/git_backend.rs:576:fn extract_conflict_labels_from_commit(commit: &gix::objs::CommitRef) -> Merge<String> {
+lib/src/git_backend.rs:594:fn extract_root_tree_from_commit(commit: &gix::objs::CommitRef) -> Result<Merge<TreeId>, ()> {
+lib/src/git_backend.rs:617:fn commit_from_git_without_root_parent(
+lib/src/git_backend.rs:694:pub fn extract_change_id_from_commit(commit: &gix::objs::CommitRef) -> Option<ChangeId> {
+lib/src/git_backend.rs:706:pub fn synthetic_change_id_from_git_commit_id(id: &CommitId) -> ChangeId {
+lib/src/git_backend.rs:723:fn signature_from_git(signature: gix::actor::SignatureRef) -> Signature {
+lib/src/git_backend.rs:749:fn signature_to_git(signature: &Signature) -> gix::actor::Signature {
+lib/src/git_backend.rs:772:fn serialize_extras(commit: &Commit) -> Vec<u8> {
+lib/src/git_backend.rs:784:fn deserialize_extras(commit: &mut Commit, bytes: &[u8]) {
+lib/src/git_backend.rs:807:fn to_no_gc_ref_update(id: &CommitId) -> gix::refs::transaction::RefEdit {
+lib/src/git_backend.rs:825:fn to_ref_deletion(git_ref: gix::refs::Reference) -> gix::refs::transaction::RefEdit {
+lib/src/git_backend.rs:839:fn recreate_no_gc_refs(
+lib/src/git_backend.rs:907:fn run_git_gc(program: &OsStr, git_dir: &Path, keep_newer: SystemTime) -> Result<(), GitGcError> {
+lib/src/git_backend.rs:928:fn validate_git_object_id(id: &impl ObjectId) -> BackendResult<gix::ObjectId> {
+lib/src/git_backend.rs:940:fn map_not_found_err(err: gix::object::find::existing::Error, id: &impl ObjectId) -> BackendError {
+lib/src/git_backend.rs:952:fn to_read_object_err(
+lib/src/git_backend.rs:963:fn to_invalid_utf8_err(source: Utf8Error, id: &impl ObjectId) -> BackendError {
+lib/src/git_backend.rs:971:fn import_extra_metadata_entries_from_heads(
+lib/src/git_backend.rs:1003:impl Debug for GitBackend {
+lib/src/git_backend.rs:1004:    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+lib/src/git_backend.rs:1013:impl Backend for GitBackend {
+lib/src/git_backend.rs:1014:    fn name(&self) -> &str {
+lib/src/git_backend.rs:1018:    fn commit_id_length(&self) -> usize {
+lib/src/git_backend.rs:1022:    fn change_id_length(&self) -> usize {
+lib/src/git_backend.rs:1026:    fn root_commit_id(&self) -> &CommitId {
+lib/src/git_backend.rs:1030:    fn root_change_id(&self) -> &ChangeId {
+lib/src/git_backend.rs:1034:    fn empty_tree_id(&self) -> &TreeId {
+lib/src/git_backend.rs:1038:    fn concurrency(&self) -> usize {
+lib/src/git_backend.rs:1042:    async fn read_file(
+lib/src/git_backend.rs:1051:    async fn write_file(
+lib/src/git_backend.rs:1063:    async fn read_symlink(&self, _path: &RepoPath, id: &SymlinkId) -> BackendResult<String> {
+lib/src/git_backend.rs:1076:    async fn write_symlink(&self, _path: &RepoPath, target: &str) -> BackendResult<SymlinkId> {
+lib/src/git_backend.rs:1081:    async fn read_copy(&self, _id: &CopyId) -> BackendResult<CopyHistory> {
+lib/src/git_backend.rs:1087:    async fn write_copy(&self, _contents: &CopyHistory) -> BackendResult<CopyId> {
+lib/src/git_backend.rs:1093:    async fn get_related_copies(&self, _copy_id: &CopyId) -> BackendResult<Vec<RelatedCopy>> {
+lib/src/git_backend.rs:1099:    async fn read_tree(&self, _path: &RepoPath, id: &TreeId) -> BackendResult<Tree> {
+lib/src/git_backend.rs:1160:    async fn write_tree(&self, _path: &RepoPath, contents: &Tree) -> BackendResult<TreeId> {
+lib/src/git_backend.rs:1216:    async fn read_commit(&self, id: &CommitId) -> BackendResult<Commit> {
+lib/src/git_backend.rs:1254:    async fn write_commit(
+lib/src/git_backend.rs:1411:    fn get_copy_records(
+lib/src/git_backend.rs:1491:    fn gc(&self, index: &dyn Index, keep_newer: SystemTime) -> BackendResult<()> {
+lib/src/git_backend.rs:1526:fn write_tree_conflict(
+lib/src/git_backend.rs:1611:    fn git_config() -> Vec<bstr::BString> {
+lib/src/git_backend.rs:1619:    fn open_options() -> gix::open::Options {
+lib/src/git_backend.rs:1625:    fn git_init(directory: impl AsRef<Path>) -> gix::Repository {
+lib/src/git_backend.rs:1637:    fn read_plain_git_commit() -> TestResult {
+lib/src/git_backend.rs:1787:    fn read_git_commit_without_importing() -> TestResult {
+lib/src/git_backend.rs:1830:    fn read_signed_git_commit() -> TestResult {
+lib/src/git_backend.rs:1882:    fn change_id_parsing() {
+lib/src/git_backend.rs:1954:    fn round_trip_change_id_via_git_header() -> TestResult {
+lib/src/git_backend.rs:2003:    fn read_empty_string_placeholder() {
+lib/src/git_backend.rs:2023:    fn write_empty_string_placeholder() {
+lib/src/git_backend.rs:2050:    fn git_commit_parents() -> TestResult {
+lib/src/git_backend.rs:2121:    fn write_tree_conflicts() -> TestResult {
+lib/src/git_backend.rs:2238:    fn commit_has_ref() -> TestResult {
+lib/src/git_backend.rs:2286:    fn import_head_commits_duplicates() -> TestResult {
+lib/src/git_backend.rs:2322:    fn overlapping_git_commit_id() -> TestResult {
+lib/src/git_backend.rs:2362:    fn write_signed_commit() -> TestResult {
+lib/src/git_backend.rs:2423:    fn git_id(commit_id: &CommitId) -> gix::ObjectId {
+lib/src/git_backend.rs:2427:    fn create_signature() -> Signature {
+lib/src/git_backend.rs:2442:    fn user_settings() -> UserSettings {
+cli/src/commands/mod.rs:95:enum Command {
+cli/src/commands/mod.rs:167:pub fn default_app() -> clap::Command {
+cli/src/commands/mod.rs:173:pub async fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<(), CommandError> {
+cli/src/commands/mod.rs:237:    fn verify_app() {
+lib/src/transaction.rs:44:pub enum TransactionCommitError {
+lib/src/transaction.rs:61:pub struct Transaction {
+lib/src/transaction.rs:68:impl Transaction {
+lib/src/transaction.rs:70:    pub fn new(mut_repo: MutableRepo, user_settings: &UserSettings) -> Self {
+lib/src/transaction.rs:82:    pub fn base_repo(&self) -> &Arc<ReadonlyRepo> {
+lib/src/transaction.rs:86:    pub fn set_attribute(&mut self, key: String, value: String) {
+lib/src/transaction.rs:90:    pub fn repo(&self) -> &MutableRepo {
+lib/src/transaction.rs:94:    pub fn repo_mut(&mut self) -> &mut MutableRepo {
+lib/src/transaction.rs:98:    pub async fn merge_operation(&mut self, other_op: Operation) -> Result<(), RepoLoaderError> {
+lib/src/transaction.rs:112:    pub fn set_is_snapshot(&mut self, is_snapshot: bool) {
+lib/src/transaction.rs:116:    pub fn set_workspace_name(&mut self, workspace_name: &WorkspaceName) {
+lib/src/transaction.rs:122:    pub async fn commit(
+lib/src/transaction.rs:133:    pub async fn write(
+lib/src/transaction.rs:170:pub fn create_op_metadata(
+lib/src/transaction.rs:203:pub struct UnpublishedOperation {
+lib/src/transaction.rs:208:impl UnpublishedOperation {
+lib/src/transaction.rs:209:    fn new(
+lib/src/transaction.rs:221:    pub fn operation(&self) -> &Operation {
+lib/src/transaction.rs:225:    pub async fn publish(self) -> Result<Arc<ReadonlyRepo>, TransactionCommitError> {
+lib/src/transaction.rs:233:    pub fn leave_unpublished(self) -> Arc<ReadonlyRepo> {
+lib/src/local_working_copy.rs:131:fn symlink_target_convert_to_store(path: &Path) -> Option<Cow<'_, str>> {
+lib/src/local_working_copy.rs:145:fn symlink_target_convert_to_disk(path: &str) -> PathBuf {
+lib/src/local_working_copy.rs:164:enum ExecChangePolicy {
+lib/src/local_working_copy.rs:173:pub enum ExecChangeSetting {
+lib/src/local_working_copy.rs:180:impl ExecChangePolicy {
+lib/src/local_working_copy.rs:187:    fn new(exec_change_setting: ExecChangeSetting, state_path: &Path) -> Self {
+lib/src/local_working_copy.rs:216:pub struct ExecBit(bool);
+lib/src/local_working_copy.rs:218:impl ExecBit {
+lib/src/local_working_copy.rs:223:    fn for_tree_value(
+lib/src/local_working_copy.rs:243:    fn new_from_repo(
+lib/src/local_working_copy.rs:257:    fn new_from_disk(metadata: &Metadata) -> Self {
+lib/src/local_working_copy.rs:271:fn set_executable(exec_bit: ExecBit, disk_path: &Path) -> Result<(), io::Error> {
+lib/src/local_working_copy.rs:281:pub enum FileType {
+lib/src/local_working_copy.rs:288:pub struct MaterializedConflictData {
+lib/src/local_working_copy.rs:293:pub struct FileState {
+lib/src/local_working_copy.rs:303:impl FileState {
+lib/src/local_working_copy.rs:306:    pub fn is_clean(&self, old_file_state: &Self) -> bool {
+lib/src/local_working_copy.rs:314:    fn placeholder() -> Self {
+lib/src/local_working_copy.rs:325:    fn for_file(
+lib/src/local_working_copy.rs:338:    fn for_symlink(metadata: &Metadata) -> Result<Self, MtimeOutOfRange> {
+lib/src/local_working_copy.rs:350:    fn for_gitsubmodule() -> Self {
+lib/src/local_working_copy.rs:362:struct FileStatesMap {
+lib/src/local_working_copy.rs:366:impl FileStatesMap {
+lib/src/local_working_copy.rs:367:    fn new() -> Self {
+lib/src/local_working_copy.rs:371:    fn from_proto(
+lib/src/local_working_copy.rs:388:    fn merge_in(
+lib/src/local_working_copy.rs:423:    fn clear(&mut self) {
+lib/src/local_working_copy.rs:428:    fn all(&self) -> FileStates<'_> {
+lib/src/local_working_copy.rs:435:pub struct FileStates<'a> {
+lib/src/local_working_copy.rs:440:    fn from_sorted(data: &'a [crate::protos::local_working_copy::FileStateEntry]) -> Self {
+lib/src/local_working_copy.rs:446:    pub fn prefixed(&self, base: &RepoPath) -> Self {
+lib/src/local_working_copy.rs:453:    fn prefixed_at(&self, dir: &RepoPath, base: &RepoPathComponent) -> Self {
+lib/src/local_working_copy.rs:459:    pub fn is_empty(&self) -> bool {
+lib/src/local_working_copy.rs:464:    pub fn contains_path(&self, path: &RepoPath) -> bool {
+lib/src/local_working_copy.rs:469:    pub fn get(&self, path: &RepoPath) -> Option<FileState> {
+lib/src/local_working_copy.rs:476:    pub fn get_exec_bit(&self, path: &RepoPath) -> Option<ExecBit> {
+lib/src/local_working_copy.rs:485:    fn get_at(&self, dir: &RepoPath, name: &RepoPathComponent) -> Option<FileState> {
+lib/src/local_working_copy.rs:491:    fn exact_position(&self, path: &RepoPath) -> Option<usize> {
+lib/src/local_working_copy.rs:501:    fn exact_position_at(&self, dir: &RepoPath, name: &RepoPathComponent) -> Option<usize> {
+lib/src/local_working_copy.rs:517:    fn prefixed_range(&self, base: &RepoPath) -> Range<usize> {
+lib/src/local_working_copy.rs:529:    fn prefixed_range_at(&self, dir: &RepoPath, base: &RepoPathComponent) -> Range<usize> {
+lib/src/local_working_copy.rs:547:    pub fn iter(&self) -> FileStatesIter<'a> {
+lib/src/local_working_copy.rs:552:    pub fn paths(&self) -> impl ExactSizeIterator<Item = &'a RepoPath> + use<'a> {
+lib/src/local_working_copy.rs:568:    fn into_iter(self) -> Self::IntoIter {
+lib/src/local_working_copy.rs:573:fn file_state_from_proto(proto: &crate::protos::local_working_copy::FileState) -> FileState {
+lib/src/local_working_copy.rs:602:fn file_state_to_proto(file_state: &FileState) -> crate::protos::local_working_copy::FileState {
+lib/src/local_working_copy.rs:626:fn file_state_entry_from_proto(
+lib/src/local_working_copy.rs:633:fn file_state_entry_to_proto(
+lib/src/local_working_copy.rs:643:fn is_file_state_entries_proto_unique_and_sorted(
+lib/src/local_working_copy.rs:651:fn sparse_patterns_from_proto(
+lib/src/local_working_copy.rs:680:fn create_parent_dirs(
+lib/src/local_working_copy.rs:733:fn remove_old_file(disk_path: &Path) -> Result<bool, CheckoutError> {
+lib/src/local_working_copy.rs:753:fn remove_old_submodule_dir(disk_path: &Path) -> Result<bool, CheckoutError> {
+lib/src/local_working_copy.rs:777:fn can_create_new_file(disk_path: &Path) -> Result<bool, CheckoutError> {
+lib/src/local_working_copy.rs:821:fn file_identity_from_symlink_path(disk_path: &Path) -> io::Result<Option<FileIdentity>> {
+lib/src/local_working_copy.rs:834:fn reject_reserved_existing_file(file: File, disk_path: &Path) -> Result<(), CheckoutError> {
+lib/src/local_working_copy.rs:854:fn reject_reserved_existing_path(disk_path: &Path) -> Result<(), CheckoutError> {
+lib/src/local_working_copy.rs:880:fn reject_reserved_existing_file_identity(
+lib/src/local_working_copy.rs:915:struct MtimeOutOfRange;
+lib/src/local_working_copy.rs:917:fn mtime_from_metadata(metadata: &Metadata) -> Result<MillisSinceEpoch, MtimeOutOfRange> {
+lib/src/local_working_copy.rs:924:fn system_time_to_millis(time: SystemTime) -> Option<MillisSinceEpoch> {
+lib/src/local_working_copy.rs:933:fn file_state(metadata: &Metadata) -> Result<Option<FileState>, MtimeOutOfRange> {
+lib/src/local_working_copy.rs:957:struct FsmonitorMatcher {
+lib/src/local_working_copy.rs:964:pub struct TreeStateSettings {
+lib/src/local_working_copy.rs:978:impl TreeStateSettings {
+lib/src/local_working_copy.rs:980:    pub fn try_from_user_settings(user_settings: &UserSettings) -> Result<Self, ConfigGetError> {
+lib/src/local_working_copy.rs:990:pub struct TreeState {
+lib/src/local_working_copy.rs:1013:pub enum TreeStateError {
+lib/src/local_working_copy.rs:1029:impl TreeState {
+lib/src/local_working_copy.rs:1030:    pub fn working_copy_path(&self) -> &Path {
+lib/src/local_working_copy.rs:1034:    pub fn current_tree(&self) -> &MergedTree {
+lib/src/local_working_copy.rs:1038:    pub fn file_states(&self) -> FileStates<'_> {
+lib/src/local_working_copy.rs:1042:    pub fn sparse_patterns(&self) -> &Vec<RepoPathBuf> {
+lib/src/local_working_copy.rs:1046:    fn sparse_matcher(&self) -> Box<dyn Matcher> {
+lib/src/local_working_copy.rs:1050:    pub fn init(
+lib/src/local_working_copy.rs:1061:    fn empty(
+lib/src/local_working_copy.rs:1090:    pub fn load(
+lib/src/local_working_copy.rs:1115:    fn update_own_mtime(&mut self) {
+lib/src/local_working_copy.rs:1125:    fn read(&mut self, tree_state_path: &Path, mut file: File) -> Result<(), TreeStateError> {
+lib/src/local_working_copy.rs:1165:    pub fn save(&mut self) -> Result<(), TreeStateError> {
+lib/src/local_working_copy.rs:1210:    fn reset_watchman(&mut self) {
+lib/src/local_working_copy.rs:1216:    pub async fn query_watchman(
+lib/src/local_working_copy.rs:1246:    pub async fn is_watchman_trigger_registered(
+lib/src/local_working_copy.rs:1274:impl TreeState {
+lib/src/local_working_copy.rs:1278:    pub async fn snapshot(
+lib/src/local_working_copy.rs:1407:    async fn make_fsmonitor_matcher(
+lib/src/local_working_copy.rs:1473:struct DirectoryToVisit<'a> {
+lib/src/local_working_copy.rs:1481:enum PresentDirEntryKind {
+lib/src/local_working_copy.rs:1487:struct PresentDirEntries {
+lib/src/local_working_copy.rs:1493:struct FileSnapshotter<'a> {
+lib/src/local_working_copy.rs:1508:impl FileSnapshotter<'_> {
+lib/src/local_working_copy.rs:1509:    fn spawn_ok<'scope, F>(&'scope self, scope: &rayon::Scope<'scope>, body: F)
+lib/src/local_working_copy.rs:1525:    fn into_result(self) -> Result<(), SnapshotError> {
+lib/src/local_working_copy.rs:1534:    fn visit_directory<'scope>(
+lib/src/local_working_copy.rs:1575:    async fn process_dir_entry<'scope>(
+lib/src/local_working_copy.rs:1698:    async fn visit_tracked_files(&self, file_states: FileStates<'_>) -> Result<(), SnapshotError> {
+lib/src/local_working_copy.rs:1735:    async fn process_present_file(
+lib/src/local_working_copy.rs:1762:    fn emit_deleted_files(
+lib/src/local_working_copy.rs:1794:    async fn get_updated_tree_value(
+lib/src/local_working_copy.rs:1853:    fn store(&self) -> &Store {
+lib/src/local_working_copy.rs:1857:    async fn write_path_to_store(
+lib/src/local_working_copy.rs:1966:    async fn write_file_to_store(
+lib/src/local_working_copy.rs:1987:    async fn write_symlink_to_store(
+lib/src/local_working_copy.rs:2017:fn snapshot_error_for_mtime_out_of_range(err: MtimeOutOfRange, path: &Path) -> SnapshotError {
+lib/src/local_working_copy.rs:2025:impl TreeState {
+lib/src/local_working_copy.rs:2026:    async fn write_file(
+lib/src/local_working_copy.rs:2074:    fn write_symlink(&self, disk_path: &Path, target: String) -> Result<FileState, CheckoutError> {
+lib/src/local_working_copy.rs:2112:    async fn write_conflict(
+lib/src/local_working_copy.rs:2149:    pub fn check_out(&mut self, new_tree: &MergedTree) -> Result<CheckoutStats, CheckoutError> {
+lib/src/local_working_copy.rs:2158:    pub fn set_sparse_patterns(
+lib/src/local_working_copy.rs:2186:    async fn update(
+lib/src/local_working_copy.rs:2459:    pub async fn reset(&mut self, new_tree: &MergedTree) -> Result<(), ResetError> {
+lib/src/local_working_copy.rs:2514:    pub async fn recover(&mut self, new_tree: &MergedTree) -> Result<(), ResetError> {
+lib/src/local_working_copy.rs:2521:fn checkout_error_for_stat_error(err: io::Error, path: &Path) -> CheckoutError {
+lib/src/local_working_copy.rs:2528:fn checkout_error_for_mtime_out_of_range(err: MtimeOutOfRange, path: &Path) -> CheckoutError {
+lib/src/local_working_copy.rs:2537:struct CheckoutState {
+lib/src/local_working_copy.rs:2542:impl CheckoutState {
+lib/src/local_working_copy.rs:2543:    fn load(state_path: &Path) -> Result<Self, WorkingCopyStateError> {
+lib/src/local_working_copy.rs:2564:    fn save(&self, state_path: &Path) -> Result<(), WorkingCopyStateError> {
+lib/src/local_working_copy.rs:2588:pub struct LocalWorkingCopy {
+lib/src/local_working_copy.rs:2598:impl WorkingCopy for LocalWorkingCopy {
+lib/src/local_working_copy.rs:2599:    fn name(&self) -> &str {
+lib/src/local_working_copy.rs:2603:    fn workspace_name(&self) -> &WorkspaceName {
+lib/src/local_working_copy.rs:2607:    fn operation_id(&self) -> &OperationId {
+lib/src/local_working_copy.rs:2611:    fn tree(&self) -> Result<&MergedTree, WorkingCopyStateError> {
+lib/src/local_working_copy.rs:2615:    fn sparse_patterns(&self) -> Result<&[RepoPathBuf], WorkingCopyStateError> {
+lib/src/local_working_copy.rs:2620:    async fn start_mutation(&self) -> Result<Box<dyn LockedWorkingCopy>, WorkingCopyStateError> {
+lib/src/local_working_copy.rs:2652:impl LocalWorkingCopy {
+lib/src/local_working_copy.rs:2653:    pub fn name() -> &'static str {
+lib/src/local_working_copy.rs:2661:    pub fn init(
+lib/src/local_working_copy.rs:2699:    pub fn load(
+lib/src/local_working_copy.rs:2721:    pub fn state_path(&self) -> &Path {
+lib/src/local_working_copy.rs:2726:    fn tree_state(&self) -> Result<&TreeState, WorkingCopyStateError> {
+lib/src/local_working_copy.rs:2741:    fn tree_state_mut(&mut self) -> Result<&mut TreeState, WorkingCopyStateError> {
+lib/src/local_working_copy.rs:2746:    pub fn file_states(&self) -> Result<FileStates<'_>, WorkingCopyStateError> {
+lib/src/local_working_copy.rs:2751:    pub async fn query_watchman(
+lib/src/local_working_copy.rs:2765:    pub async fn is_watchman_trigger_registered(
+lib/src/local_working_copy.rs:2779:pub struct LocalWorkingCopyFactory {}
+lib/src/local_working_copy.rs:2781:impl WorkingCopyFactory for LocalWorkingCopyFactory {
+lib/src/local_working_copy.rs:2782:    fn init_working_copy(
+lib/src/local_working_copy.rs:2801:    fn load_working_copy(
+lib/src/local_working_copy.rs:2819:pub struct LockedLocalWorkingCopy {
+lib/src/local_working_copy.rs:2829:impl LockedWorkingCopy for LockedLocalWorkingCopy {
+lib/src/local_working_copy.rs:2830:    fn old_operation_id(&self) -> &OperationId {
+lib/src/local_working_copy.rs:2834:    fn old_tree(&self) -> &MergedTree {
+lib/src/local_working_copy.rs:2839:    async fn snapshot(
+lib/src/local_working_copy.rs:2850:    async fn check_out(&mut self, commit: &Commit) -> Result<CheckoutStats, CheckoutError> {
+lib/src/local_working_copy.rs:2864:    fn rename_workspace(&mut self, new_name: WorkspaceNameBuf) {
+lib/src/local_working_copy.rs:2868:    async fn reset(&mut self, commit: &Commit) -> Result<(), ResetError> {
+lib/src/local_working_copy.rs:2875:    async fn recover(&mut self, commit: &Commit) -> Result<(), ResetError> {
+lib/src/local_working_copy.rs:2882:    fn sparse_patterns(&self) -> Result<&[RepoPathBuf], WorkingCopyStateError> {
+lib/src/local_working_copy.rs:2886:    async fn set_sparse_patterns(
+lib/src/local_working_copy.rs:2902:    async fn finish(
+lib/src/local_working_copy.rs:2931:impl LockedLocalWorkingCopy {
+lib/src/local_working_copy.rs:2932:    pub fn reset_watchman(&mut self) -> Result<(), SnapshotError> {
+lib/src/local_working_copy.rs:2947:    fn repo_path(value: &str) -> &RepoPath {
+lib/src/local_working_copy.rs:2951:    fn repo_path_component(value: &str) -> &RepoPathComponent {
+lib/src/local_working_copy.rs:2955:    fn new_state(size: u64) -> FileState {
+lib/src/local_working_copy.rs:2967:    fn test_file_states_merge() {
+lib/src/local_working_copy.rs:3008:    fn test_file_states_lookup() {
+lib/src/local_working_copy.rs:3065:    fn test_file_states_lookup_at() {
+lib/src/local_working_copy.rs:3132:    fn test_system_time_to_millis() {
+lib/src/repo.rs:123:    fn base_repo(&self) -> &ReadonlyRepo;
+lib/src/repo.rs:125:    fn store(&self) -> &Arc<Store>;
+lib/src/repo.rs:127:    fn op_store(&self) -> &Arc<dyn OpStore>;
+lib/src/repo.rs:129:    fn index(&self) -> &dyn Index;
+lib/src/repo.rs:131:    fn view(&self) -> &View;
+lib/src/repo.rs:133:    fn submodule_store(&self) -> &Arc<dyn SubmoduleStore>;
+lib/src/repo.rs:135:    fn resolve_change_id(
+lib/src/repo.rs:148:    fn resolve_change_id_prefix(
+lib/src/repo.rs:153:    fn shortest_unique_change_id_prefix_len(
+lib/src/repo.rs:159:pub struct ReadonlyRepo {
+lib/src/repo.rs:168:impl Debug for ReadonlyRepo {
+lib/src/repo.rs:169:    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+lib/src/repo.rs:177:pub enum RepoInitError {
+lib/src/repo.rs:186:impl ReadonlyRepo {
+lib/src/repo.rs:187:    pub fn default_op_store_initializer() -> &'static OpStoreInitializer<'static> {
+lib/src/repo.rs:193:    pub fn default_op_heads_store_initializer() -> &'static OpHeadsStoreInitializer<'static> {
+lib/src/repo.rs:197:    pub fn default_index_store_initializer() -> &'static IndexStoreInitializer<'static> {
+lib/src/repo.rs:201:    pub fn default_submodule_store_initializer() -> &'static SubmoduleStoreInitializer<'static> {
+lib/src/repo.rs:206:    pub async fn init(
+lib/src/repo.rs:293:    pub fn loader(&self) -> &RepoLoader {
+lib/src/repo.rs:297:    pub fn op_id(&self) -> &OperationId {
+lib/src/repo.rs:301:    pub fn operation(&self) -> &Operation {
+lib/src/repo.rs:305:    pub fn view(&self) -> &View {
+lib/src/repo.rs:309:    pub fn readonly_index(&self) -> &dyn ReadonlyIndex {
+lib/src/repo.rs:313:    fn change_id_index(&self) -> &dyn ChangeIdIndex {
+lib/src/repo.rs:322:    pub fn op_heads_store(&self) -> &Arc<dyn OpHeadsStore> {
+lib/src/repo.rs:326:    pub fn index_store(&self) -> &Arc<dyn IndexStore> {
+lib/src/repo.rs:330:    pub fn settings(&self) -> &UserSettings {
+lib/src/repo.rs:334:    pub fn start_transaction(self: &Arc<Self>) -> Transaction {
+lib/src/repo.rs:339:    pub async fn reload_at_head(&self) -> Result<Arc<Self>, RepoLoaderError> {
+lib/src/repo.rs:344:    pub async fn reload_at(&self, operation: &Operation) -> Result<Arc<Self>, RepoLoaderError> {
+lib/src/repo.rs:349:impl Repo for ReadonlyRepo {
+lib/src/repo.rs:350:    fn base_repo(&self) -> &ReadonlyRepo {
+lib/src/repo.rs:354:    fn store(&self) -> &Arc<Store> {
+lib/src/repo.rs:358:    fn op_store(&self) -> &Arc<dyn OpStore> {
+lib/src/repo.rs:362:    fn index(&self) -> &dyn Index {
+lib/src/repo.rs:366:    fn view(&self) -> &View {
+lib/src/repo.rs:370:    fn submodule_store(&self) -> &Arc<dyn SubmoduleStore> {
+lib/src/repo.rs:374:    fn resolve_change_id_prefix(
+lib/src/repo.rs:381:    fn shortest_unique_change_id_prefix_len(&self, target_id: &ChangeId) -> IndexResult<usize> {
+lib/src/repo.rs:411:pub fn merge_factories_map<F>(base: &mut HashMap<String, F>, ext: HashMap<String, F>) {
+lib/src/repo.rs:424:pub struct StoreFactories {
+lib/src/repo.rs:432:impl Default for StoreFactories {
+lib/src/repo.rs:433:    fn default() -> Self {
+lib/src/repo.rs:491:pub enum StoreLoadError {
+lib/src/repo.rs:508:impl StoreFactories {
+lib/src/repo.rs:509:    pub fn empty() -> Self {
+lib/src/repo.rs:519:    pub fn merge(&mut self, ext: Self) {
+lib/src/repo.rs:538:    pub fn add_backend(&mut self, name: &str, factory: BackendFactory) {
+lib/src/repo.rs:542:    pub fn load_backend(
+lib/src/repo.rs:557:    pub fn add_op_store(&mut self, name: &str, factory: OpStoreFactory) {
+lib/src/repo.rs:561:    pub fn load_op_store(
+lib/src/repo.rs:577:    pub fn add_op_heads_store(&mut self, name: &str, factory: OpHeadsStoreFactory) {
+lib/src/repo.rs:582:    pub fn load_op_heads_store(
+lib/src/repo.rs:598:    pub fn add_index_store(&mut self, name: &str, factory: IndexStoreFactory) {
+lib/src/repo.rs:602:    pub fn load_index_store(
+lib/src/repo.rs:618:    pub fn add_submodule_store(&mut self, name: &str, factory: SubmoduleStoreFactory) {
+lib/src/repo.rs:623:    pub fn load_submodule_store(
+lib/src/repo.rs:641:pub fn read_store_type(
+lib/src/repo.rs:652:pub enum RepoLoaderError {
+lib/src/repo.rs:673:pub struct RepoLoader {
+lib/src/repo.rs:682:impl RepoLoader {
+lib/src/repo.rs:683:    pub fn new(
+lib/src/repo.rs:705:    pub fn init_from_file_system(
+lib/src/repo.rs:742:    pub fn settings(&self) -> &UserSettings {
+lib/src/repo.rs:746:    pub fn store(&self) -> &Arc<Store> {
+lib/src/repo.rs:750:    pub fn index_store(&self) -> &Arc<dyn IndexStore> {
+lib/src/repo.rs:754:    pub fn op_store(&self) -> &Arc<dyn OpStore> {
+lib/src/repo.rs:758:    pub fn op_heads_store(&self) -> &Arc<dyn OpHeadsStore> {
+lib/src/repo.rs:762:    pub fn submodule_store(&self) -> &Arc<dyn SubmoduleStore> {
+lib/src/repo.rs:766:    pub async fn load_at_head(&self) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+lib/src/repo.rs:778:    pub async fn load_at(&self, op: &Operation) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+lib/src/repo.rs:783:    pub fn create_from(
+lib/src/repo.rs:803:    pub async fn root_operation(&self) -> Operation {
+lib/src/repo.rs:810:    pub async fn load_operation(&self, id: &OperationId) -> OpStoreResult<Operation> {
+lib/src/repo.rs:817:    pub async fn merge_operations(
+lib/src/repo.rs:847:    async fn resolve_op_heads(
+lib/src/repo.rs:856:    async fn finish_load(
+lib/src/repo.rs:877:enum Rewrite {
+lib/src/repo.rs:889:impl Rewrite {
+lib/src/repo.rs:890:    fn new_parent_ids(&self) -> &[CommitId] {
+lib/src/repo.rs:900:pub struct MutableRepo {
+lib/src/repo.rs:920:impl MutableRepo {
+lib/src/repo.rs:922:    pub fn new(base_repo: Arc<ReadonlyRepo>, index: &dyn ReadonlyIndex, view: &View) -> Self {
+lib/src/repo.rs:934:    pub fn base_repo(&self) -> &Arc<ReadonlyRepo> {
+lib/src/repo.rs:938:    fn view_mut(&mut self) -> &mut View {
+lib/src/repo.rs:942:    pub fn mutable_index(&self) -> &dyn MutableIndex {
+lib/src/repo.rs:950:    pub fn has_changes(&self) -> bool {
+lib/src/repo.rs:970:    pub fn new_commit(&mut self, parents: Vec<CommitId>, tree: MergedTree) -> CommitBuilder<'_> {
+lib/src/repo.rs:977:    pub fn rewrite_commit(&mut self, predecessor: &Commit) -> CommitBuilder<'_> {
+lib/src/repo.rs:994:    pub fn set_rewritten_commit(&mut self, old_id: CommitId, new_id: CommitId) {
+lib/src/repo.rs:1007:    pub fn set_divergent_rewrite(
+lib/src/repo.rs:1028:    pub fn record_abandoned_commit(&mut self, old_commit: &Commit) {
+lib/src/repo.rs:1042:    pub fn record_abandoned_commit_with_parents(
+lib/src/repo.rs:1054:    pub fn has_rewrites(&self) -> bool {
+lib/src/repo.rs:1064:    pub fn new_parents(&self, old_ids: &[CommitId]) -> Vec<CommitId> {
+lib/src/repo.rs:1068:    fn rewritten_ids_with(
+lib/src/repo.rs:1110:    fn resolve_rewrite_mapping_with(
+lib/src/repo.rs:1148:    pub async fn update_rewritten_references(
+lib/src/repo.rs:1159:    async fn update_all_references(&mut self, options: &RewriteRefsOptions) -> BackendResult<()> {
+lib/src/repo.rs:1168:    fn update_local_bookmarks(
+lib/src/repo.rs:1203:    async fn update_wc_commits(
+lib/src/repo.rs:1251:    async fn update_heads(&mut self) -> Result<(), RevsetEvaluationError> {
+lib/src/repo.rs:1275:    pub async fn find_descendants_for_rebase(
+lib/src/repo.rs:1297:    async fn order_commits_for_rebase(
+lib/src/repo.rs:1352:    pub async fn transform_descendants(
+lib/src/repo.rs:1369:    pub async fn transform_descendants_with_options(
+lib/src/repo.rs:1388:    pub async fn transform_commits(
+lib/src/repo.rs:1434:    pub async fn rebase_descendants_with_options(
+lib/src/repo.rs:1467:    pub async fn rebase_descendants(&mut self) -> BackendResult<usize> {
+lib/src/repo.rs:1483:    pub async fn reparent_descendants(&mut self) -> BackendResult<usize> {
+lib/src/repo.rs:1499:    pub fn set_wc_commit(
+lib/src/repo.rs:1511:    pub async fn remove_wc_commit(&mut self, name: &WorkspaceName) -> Result<(), EditCommitError> {
+lib/src/repo.rs:1519:    fn merge_wc_commit(
+lib/src/repo.rs:1547:    pub fn rename_workspace(
+lib/src/repo.rs:1555:    pub async fn check_out(
+lib/src/repo.rs:1568:    pub async fn edit(
+lib/src/repo.rs:1578:    async fn maybe_abandon_wc_commit(
+lib/src/repo.rs:1620:    fn enforce_view_invariants(&self, view: &mut View) {
+lib/src/repo.rs:1644:    pub async fn add_head(&mut self, head: &Commit) -> BackendResult<()> {
+lib/src/repo.rs:1654:    pub async fn add_heads(&mut self, heads: &[Commit]) -> BackendResult<()> {
+lib/src/repo.rs:1720:    pub fn remove_head(&mut self, head: &CommitId) {
+lib/src/repo.rs:1725:    pub fn get_local_bookmark(&self, name: &RefName) -> RefTarget {
+lib/src/repo.rs:1729:    pub fn set_local_bookmark_target(&mut self, name: &RefName, target: RefTarget) {
+lib/src/repo.rs:1738:    pub fn merge_local_bookmark(
+lib/src/repo.rs:1752:    pub fn get_remote_bookmark(&self, symbol: RemoteRefSymbol<'_>) -> RemoteRef {
+lib/src/repo.rs:1757:    pub fn set_remote_bookmark(&mut self, symbol: RemoteRefSymbol<'_>, remote_ref: RemoteRef) {
+lib/src/repo.rs:1761:    fn merge_remote_bookmark(
+lib/src/repo.rs:1777:    pub fn track_remote_bookmark(&mut self, symbol: RemoteRefSymbol<'_>) -> IndexResult<()> {
+lib/src/repo.rs:1787:    pub fn untrack_remote_bookmark(&mut self, symbol: RemoteRefSymbol<'_>) {
+lib/src/repo.rs:1793:    pub fn ensure_remote(&mut self, remote_name: &RemoteName) {
+lib/src/repo.rs:1797:    pub fn remove_remote(&mut self, remote_name: &RemoteName) {
+lib/src/repo.rs:1801:    pub fn rename_remote(&mut self, old: &RemoteName, new: &RemoteName) {
+lib/src/repo.rs:1805:    pub fn get_local_tag(&self, name: &RefName) -> RefTarget {
+lib/src/repo.rs:1809:    pub fn set_local_tag_target(&mut self, name: &RefName, target: RefTarget) {
+lib/src/repo.rs:1813:    pub fn merge_local_tag(
+lib/src/repo.rs:1827:    pub fn get_remote_tag(&self, symbol: RemoteRefSymbol<'_>) -> RemoteRef {
+lib/src/repo.rs:1831:    pub fn set_remote_tag(&mut self, symbol: RemoteRefSymbol<'_>, remote_ref: RemoteRef) {
+lib/src/repo.rs:1835:    fn merge_remote_tag(
+lib/src/repo.rs:1849:    pub fn get_git_ref(&self, name: &GitRefName) -> RefTarget {
+lib/src/repo.rs:1853:    pub fn set_git_ref_target(&mut self, name: &GitRefName, target: RefTarget) {
+lib/src/repo.rs:1857:    fn merge_git_ref(
+lib/src/repo.rs:1871:    pub fn git_head(&self) -> RefTarget {
+lib/src/repo.rs:1875:    pub fn set_git_head_target(&mut self, target: RefTarget) {
+lib/src/repo.rs:1879:    pub fn set_view(&mut self, data: op_store::View) {
+lib/src/repo.rs:1884:    pub async fn merge(
+lib/src/repo.rs:1902:    pub fn merge_index(&mut self, other_repo: &ReadonlyRepo) -> IndexResult<()> {
+lib/src/repo.rs:1906:    async fn merge_view(&mut self, base: &View, other: &View) -> Result<(), RepoLoaderError> {
+lib/src/repo.rs:1977:    async fn record_rewrites(
+lib/src/repo.rs:2048:impl Repo for MutableRepo {
+lib/src/repo.rs:2049:    fn base_repo(&self) -> &ReadonlyRepo {
+lib/src/repo.rs:2053:    fn store(&self) -> &Arc<Store> {
+lib/src/repo.rs:2057:    fn op_store(&self) -> &Arc<dyn OpStore> {
+lib/src/repo.rs:2061:    fn index(&self) -> &dyn Index {
+lib/src/repo.rs:2065:    fn view(&self) -> &View {
+lib/src/repo.rs:2070:    fn submodule_store(&self) -> &Arc<dyn SubmoduleStore> {
+lib/src/repo.rs:2074:    fn resolve_change_id_prefix(
+lib/src/repo.rs:2082:    fn shortest_unique_change_id_prefix_len(&self, target_id: &ChangeId) -> IndexResult<usize> {
+lib/src/repo.rs:2091:pub struct RewriteRootCommit;
+lib/src/repo.rs:2095:pub enum EditCommitError {
+lib/src/repo.rs:2106:pub enum CheckOutCommitError {
+lib/src/repo.rs:2121:    pub struct DirtyCell<T> {
+lib/src/repo.rs:2129:        pub fn with_clean(value: T) -> Self {
+lib/src/repo.rs:2136:        pub fn get_or_ensure_clean(&self, f: impl FnOnce(&mut T)) -> &T {
+lib/src/repo.rs:2145:        pub fn ensure_clean(&self, f: impl FnOnce(&mut T)) {
+lib/src/repo.rs:2149:        pub fn into_inner(self) -> T {
+lib/src/repo.rs:2157:        pub fn with_ref<R>(&self, f: impl FnOnce(&T) -> R) -> R {
+lib/src/repo.rs:2165:        pub fn get_mut(&mut self) -> &mut T {
+lib/src/repo.rs:2172:        pub fn mark_dirty(&mut self) {
+lib/src/git.rs:96:pub struct GitSettings {
+lib/src/git.rs:104:impl GitSettings {
+lib/src/git.rs:105:    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
+lib/src/git.rs:114:    pub fn to_subprocess_options(&self) -> GitSubprocessOptions {
+lib/src/git.rs:124:pub struct GitSubprocessOptions {
+lib/src/git.rs:133:impl GitSubprocessOptions {
+lib/src/git.rs:134:    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
+lib/src/git.rs:143:pub enum GitRemoteNameError {
+lib/src/git.rs:153:fn validate_remote_name(name: &RemoteName) -> Result<(), GitRemoteNameError> {
+lib/src/git.rs:164:fn oid_from_commit_id(id: &CommitId) -> &gix::oid {
+lib/src/git.rs:169:fn owned_oid_from_commit_id(id: &CommitId) -> gix::ObjectId {
+lib/src/git.rs:175:pub enum GitRefKind {
+lib/src/git.rs:182:pub struct GitPushStats {
+lib/src/git.rs:193:impl GitPushStats {
+lib/src/git.rs:194:    pub fn all_ok(&self) -> bool {
+lib/src/git.rs:202:    pub fn some_exported(&self) -> bool {
+lib/src/git.rs:211:struct RemoteRefKey<'a>(RemoteRefSymbol<'a>);
+lib/src/git.rs:214:    fn borrow(&self) -> &RemoteRefSymbol<'b> {
+lib/src/git.rs:233:impl RefSpec {
+lib/src/git.rs:234:    fn forced(source: impl Into<String>, destination: impl Into<String>) -> Self {
+lib/src/git.rs:242:    fn delete(destination: impl Into<String>) -> Self {
+lib/src/git.rs:280:impl NegativeRefSpec {
+lib/src/git.rs:281:    fn new(source: impl Into<String>) -> Self {
+lib/src/git.rs:300:    fn new(
+lib/src/git.rs:331:pub fn parse_git_ref(full_name: &GitRefName) -> Option<(GitRefKind, RemoteRefSymbol<'_>)> {
+lib/src/git.rs:361:fn parse_remote_tag_ref(full_name: &GitRefName) -> Option<(GitRefKind, RemoteRefSymbol<'_>)> {
+lib/src/git.rs:372:fn to_git_ref_name(kind: GitRefKind, symbol: RemoteRefSymbol<'_>) -> Option<GitRefNameBuf> {
+lib/src/git.rs:397:fn to_git_or_remote_tag_ref_name(symbol: RemoteRefSymbol<'_>) -> GitRefNameBuf {
+lib/src/git.rs:410:pub struct UnexpectedGitBackendError;
+lib/src/git.rs:413:pub fn get_git_backend(store: &Store) -> Result<&GitBackend, UnexpectedGitBackendError> {
+lib/src/git.rs:418:pub fn get_git_repo(store: &Store) -> Result<gix::Repository, UnexpectedGitBackendError> {
+lib/src/git.rs:426:fn resolve_git_ref_to_commit_id(
+lib/src/git.rs:479:pub enum GitImportError {
+lib/src/git.rs:502:impl GitImportError {
+lib/src/git.rs:503:    fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
+lib/src/git.rs:510:pub struct GitImportOptions {
+lib/src/git.rs:521:pub struct GitImportStats {
+lib/src/git.rs:538:struct RefsToImport {
+lib/src/git.rs:557:pub async fn import_refs(
+lib/src/git.rs:568:pub async fn import_some_refs(
+lib/src/git.rs:589:async fn import_refs_inner(
+lib/src/git.rs:708:async fn abandon_unreachable_commits(
+lib/src/git.rs:747:fn diff_refs_to_import(
+lib/src/git.rs:856:fn collect_changed_refs_to_import(
+lib/src/git.rs:910:fn collect_changed_remote_tags_to_import(
+lib/src/git.rs:951:fn default_remote_ref_state_for(
+lib/src/git.rs:980:fn pinned_commit_ids(view: &View) -> Vec<CommitId> {
+lib/src/git.rs:993:fn remotely_pinned_commit_ids(view: &View) -> Vec<CommitId> {
+lib/src/git.rs:1010:pub async fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportError> {
+lib/src/git.rs:1053:pub enum GitExportError {
+lib/src/git.rs:1060:impl GitExportError {
+lib/src/git.rs:1061:    fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
+lib/src/git.rs:1068:pub enum FailedRefExportReason {
+lib/src/git.rs:1098:pub struct GitExportStats {
+lib/src/git.rs:1108:struct AllRefsToExport {
+lib/src/git.rs:1114:struct RefsToExport {
+lib/src/git.rs:1135:pub fn export_refs(mut_repo: &mut MutableRepo) -> Result<GitExportStats, GitExportError> {
+lib/src/git.rs:1139:pub fn export_some_refs(
+lib/src/git.rs:1143:    fn get<'a, V>(map: &'a [(RemoteRefSymbolBuf, V)], key: RemoteRefSymbol<'_>) -> Option<&'a V> {
+lib/src/git.rs:1232:fn export_refs_to_git(
+lib/src/git.rs:1289:fn copy_exportable_local_bookmarks_to_remote_view(
+lib/src/git.rs:1316:fn copy_exportable_local_tags_to_remote_view(
+lib/src/git.rs:1343:fn diff_refs_to_export(
+lib/src/git.rs:1402:fn collect_changed_refs_to_export(
+lib/src/git.rs:1454:fn find_git_tag_oid_to_copy(
+lib/src/git.rs:1480:fn delete_git_ref(
+lib/src/git.rs:1504:fn create_git_ref(
+lib/src/git.rs:1534:fn move_git_ref(
+lib/src/git.rs:1575:fn update_git_ref(
+lib/src/git.rs:1590:fn update_git_head(
+lib/src/git.rs:1630:pub enum GitResetHeadError {
+lib/src/git.rs:1641:impl GitResetHeadError {
+lib/src/git.rs:1642:    fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
+lib/src/git.rs:1649:pub async fn reset_head(
+lib/src/git.rs:1697:fn clear_operation_state(git_repo: &gix::Repository) -> Result<(), GitResetHeadError> {
+lib/src/git.rs:1729:async fn reset_index(
+lib/src/git.rs:1783:fn build_index_from_merged_tree(
+lib/src/git.rs:1903:pub async fn update_intent_to_add(
+lib/src/git.rs:1922:async fn update_intent_to_add_impl(
+lib/src/git.rs:1996:pub enum GitRemoteManagementError {
+lib/src/git.rs:2015:impl GitRemoteManagementError {
+lib/src/git.rs:2016:    fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
+lib/src/git.rs:2021:fn default_fetch_refspec(remote: &RemoteName) -> String {
+lib/src/git.rs:2028:fn add_ref(
+lib/src/git.rs:2048:fn remove_ref(reference: gix::Reference) -> gix::refs::transaction::RefEdit {
+lib/src/git.rs:2066:pub fn save_git_config(config: &gix::config::File) -> std::io::Result<()> {
+lib/src/git.rs:2077:fn save_remote(
+lib/src/git.rs:2100:fn git_config_branch_section_ids_by_remote(
+lib/src/git.rs:2137:fn rename_remote_in_git_branch_config_sections(
+lib/src/git.rs:2156:fn remove_remote_git_branch_config_sections(
+lib/src/git.rs:2168:fn remove_remote_git_config_sections(
+lib/src/git.rs:2201:pub fn get_all_remote_names(
+lib/src/git.rs:2208:fn iter_remote_names(git_repo: &gix::Repository) -> impl Iterator<Item = RemoteNameBuf> {
+lib/src/git.rs:2219:pub fn add_remote(
+lib/src/git.rs:2261:pub fn remove_remote(
+lib/src/git.rs:2288:fn remove_remote_git_refs(
+lib/src/git.rs:2315:fn remove_remote_refs(mut_repo: &mut MutableRepo, remote: &RemoteName) {
+lib/src/git.rs:2333:pub fn rename_remote(
+lib/src/git.rs:2392:fn rename_remote_git_refs(
+lib/src/git.rs:2449:pub fn set_remote_urls(
+lib/src/git.rs:2490:fn rename_remote_refs(
+lib/src/git.rs:2524:pub enum GitFetchError {
+lib/src/git.rs:2536:pub enum GitDefaultRefspecError {
+lib/src/git.rs:2543:struct FetchedRefs {
+lib/src/git.rs:2551:pub struct GitFetchRefExpression {
+lib/src/git.rs:2564:pub struct ExpandedFetchRefSpecs {
+lib/src/git.rs:2572:pub enum GitRefExpansionError {
+lib/src/git.rs:2583:pub fn expand_fetch_refspecs(
+lib/src/git.rs:2638:fn pattern_to_refspec_glob(pattern: &StringPattern) -> Result<Cow<'_, str>, GitRefExpansionError> {
+lib/src/git.rs:2648:pub enum GitRefExpressionError {
+lib/src/git.rs:2659:fn split_into_positive_negative_patterns(
+lib/src/git.rs:2677:    fn visit_positive<'a>(
+lib/src/git.rs:2705:    fn visit_negative<'a>(
+lib/src/git.rs:2720:    fn visit_union<'a>(
+lib/src/git.rs:2729:    fn visit_union_sub<'a>(
+lib/src/git.rs:2764:pub struct IgnoredRefspecs(pub Vec<IgnoredRefspec>);
+lib/src/git.rs:2769:pub struct IgnoredRefspec {
+lib/src/git.rs:2777:enum FetchRefSpecKind {
+lib/src/git.rs:2783:pub fn load_default_fetch_bookmarks(
+lib/src/git.rs:2824:fn parse_fetch_refspec(
+lib/src/git.rs:2873:pub struct GitFetch<'a> {
+lib/src/git.rs:2882:    pub fn new(
+lib/src/git.rs:2905:    pub fn fetch(
+lib/src/git.rs:2986:    pub fn get_default_branch(
+lib/src/git.rs:3009:    pub async fn import_refs(&mut self) -> Result<GitImportStats, GitImportError> {
+lib/src/git.rs:3045:pub enum GitPushError {
+lib/src/git.rs:3057:pub struct GitPushRefTargets {
+lib/src/git.rs:3064:pub struct GitRefUpdate {
+lib/src/git.rs:3075:pub struct GitPushOptions {
+lib/src/git.rs:3081:pub fn push_refs(
+lib/src/git.rs:3195:pub fn push_updates(
+lib/src/git.rs:3248:fn build_pushed_bookmarks_to_export<'a>(
+lib/src/git.rs:3278:fn to_remote_tag_ref_update(
+lib/src/git.rs:3311:pub enum FetchTagsOverride {
+lib/src/git.rs:3329:    fn test_split_positive_negative_patterns() {
+lib/src/git.rs:3330:        fn split(text: &str) -> (Vec<StringPattern>, Vec<StringPattern>) {
+lib/src/git.rs:3334:        fn try_split(
+cli/src/cli_util.rs:205:struct ChromeTracingFlushGuard {
+cli/src/cli_util.rs:209:impl Debug for ChromeTracingFlushGuard {
+cli/src/cli_util.rs:210:    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+cli/src/cli_util.rs:219:pub struct TracingSubscription {
+cli/src/cli_util.rs:227:impl TracingSubscription {
+cli/src/cli_util.rs:232:    pub fn init() -> Self {
+cli/src/cli_util.rs:281:    pub fn enable_debug_logging(&self) -> Result<(), CommandError> {
+cli/src/cli_util.rs:302:pub struct CommandHelper {
+cli/src/cli_util.rs:306:struct CommandHelperData {
+cli/src/cli_util.rs:325:impl CommandHelper {
+cli/src/cli_util.rs:326:    pub fn app(&self) -> &Command {
+cli/src/cli_util.rs:334:    pub fn cwd(&self) -> &Path {
+cli/src/cli_util.rs:338:    pub fn string_args(&self) -> &Vec<String> {
+cli/src/cli_util.rs:342:    pub fn matches(&self) -> &ArgMatches {
+cli/src/cli_util.rs:346:    pub fn global_args(&self) -> &GlobalArgs {
+cli/src/cli_util.rs:350:    pub fn config_env(&self) -> &ConfigEnv {
+cli/src/cli_util.rs:358:    pub fn raw_config(&self) -> &RawConfig {
+cli/src/cli_util.rs:367:    pub fn settings(&self) -> &UserSettings {
+cli/src/cli_util.rs:372:    pub fn settings_for_new_workspace(
+cli/src/cli_util.rs:391:    pub fn text_editor(&self) -> Result<TextEditor, ConfigGetError> {
+cli/src/cli_util.rs:395:    pub fn revset_extensions(&self) -> &Arc<RevsetExtensions> {
+cli/src/cli_util.rs:404:    pub fn parse_template<'a, C, L>(
+cli/src/cli_util.rs:423:    pub fn should_commit_transaction(&self) -> bool {
+cli/src/cli_util.rs:427:    async fn maybe_commit_transaction(
+cli/src/cli_util.rs:440:    pub fn workspace_loader(&self) -> Result<&dyn WorkspaceLoader, CommandError> {
+cli/src/cli_util.rs:447:    fn new_workspace_loader_at(
+cli/src/cli_util.rs:459:    pub async fn workspace_helper(&self, ui: &Ui) -> Result<WorkspaceCommandHelper, CommandError> {
+cli/src/cli_util.rs:473:    pub async fn workspace_helper_with_stats(
+cli/src/cli_util.rs:502:    pub async fn workspace_helper_no_snapshot(
+cli/src/cli_util.rs:537:    pub fn get_working_copy_factory(&self) -> Result<&dyn WorkingCopyFactory, CommandError> {
+cli/src/cli_util.rs:552:    pub fn load_workspace(&self) -> Result<Workspace, CommandError> {
+cli/src/cli_util.rs:567:    pub fn load_workspace_at(
+cli/src/cli_util.rs:585:    pub async fn recover_stale_working_copy(
+cli/src/cli_util.rs:689:    pub fn workspace_environment(
+cli/src/cli_util.rs:699:    pub fn is_working_copy_writable(&self) -> bool {
+cli/src/cli_util.rs:704:    pub fn is_at_head_operation(&self) -> bool {
+cli/src/cli_util.rs:718:    pub fn resolve_operation(
+cli/src/cli_util.rs:766:    pub fn for_workable_repo(
+cli/src/cli_util.rs:780:struct ReadonlyUserRepo {
+cli/src/cli_util.rs:785:impl ReadonlyUserRepo {
+cli/src/cli_util.rs:786:    fn new(repo: Arc<ReadonlyRepo>) -> Self {
+cli/src/cli_util.rs:803:pub struct AdvanceableBookmark {
+cli/src/cli_util.rs:818:fn load_advance_bookmarks_matcher(
+cli/src/cli_util.rs:841:pub struct WorkspaceCommandEnvironment {
+cli/src/cli_util.rs:856:impl WorkspaceCommandEnvironment {
+cli/src/cli_util.rs:858:    fn new(ui: &Ui, command: &CommandHelper, workspace: &Workspace) -> Result<Self, CommandError> {
+cli/src/cli_util.rs:890:    pub fn workspace_name(&self) -> &WorkspaceName {
+cli/src/cli_util.rs:943:    pub fn new_id_prefix_context(&self) -> IdPrefixContext {
+cli/src/cli_util.rs:952:    fn reload_revset_expressions(&mut self, ui: &Ui) -> Result<(), CommandError> {
+cli/src/cli_util.rs:959:    pub fn immutable_expression(&self) -> Arc<UserRevsetExpression> {
+cli/src/cli_util.rs:966:    pub fn immutable_heads_expression(&self) -> &Arc<UserRevsetExpression> {
+cli/src/cli_util.rs:971:    pub fn conflict_marker_style(&self) -> ConflictMarkerStyle {
+cli/src/cli_util.rs:975:    fn load_immutable_heads_expression(
+cli/src/cli_util.rs:989:    fn load_short_prefixes_expression(
+cli/src/cli_util.rs:1014:    async fn find_immutable_commit(
+cli/src/cli_util.rs:1045:    pub fn template_aliases_map(&self) -> &TemplateAliasesMap {
+cli/src/cli_util.rs:1050:    pub fn parse_template<'a, C, L>(
+cli/src/cli_util.rs:1074:    pub fn commit_template_language<'a>(
+cli/src/cli_util.rs:1091:    pub fn operation_template_extensions(&self) -> &[Arc<dyn OperationTemplateLanguageExtension>] {
+cli/src/cli_util.rs:1099:pub struct GitImportExportLock {
+cli/src/cli_util.rs:1105:pub struct WorkspaceCommandHelper {
+cli/src/cli_util.rs:1117:enum SnapshotWorkingCopyError {
+cli/src/cli_util.rs:1122:impl SnapshotWorkingCopyError {
+cli/src/cli_util.rs:1123:    fn into_command_error(self) -> CommandError {
+cli/src/cli_util.rs:1131:fn snapshot_command_error<E>(err: E) -> SnapshotWorkingCopyError
+cli/src/cli_util.rs:1138:impl WorkspaceCommandHelper {
+cli/src/cli_util.rs:1140:    fn new(
+cli/src/cli_util.rs:1176:    pub fn settings(&self) -> &UserSettings {
+cli/src/cli_util.rs:1180:    pub fn check_working_copy_writable(&self) -> Result<(), CommandError> {
+cli/src/cli_util.rs:1199:    fn lock_git_import_export(&self) -> Result<GitImportExportLock, CommandError> {
+cli/src/cli_util.rs:1216:    async fn maybe_snapshot_impl(
+cli/src/cli_util.rs:1283:    pub async fn maybe_snapshot(&mut self, ui: &Ui) -> Result<bool, CommandError> {
+cli/src/cli_util.rs:1302:    async fn import_git_head(
+cli/src/cli_util.rs:1367:    async fn import_git_refs(
+cli/src/cli_util.rs:1402:    pub fn repo(&self) -> &Arc<ReadonlyRepo> {
+cli/src/cli_util.rs:1406:    pub fn repo_path(&self) -> &Path {
+cli/src/cli_util.rs:1410:    pub fn workspace(&self) -> &Workspace {
+cli/src/cli_util.rs:1414:    pub fn working_copy(&self) -> &dyn WorkingCopy {
+cli/src/cli_util.rs:1418:    pub fn env(&self) -> &WorkspaceCommandEnvironment {
+cli/src/cli_util.rs:1422:    pub async fn unchecked_start_working_copy_mutation(
+cli/src/cli_util.rs:1437:    pub async fn start_working_copy_mutation(
+cli/src/cli_util.rs:1449:    async fn create_and_check_out_recovery_commit(
+cli/src/cli_util.rs:1485:    pub fn workspace_root(&self) -> &Path {
+cli/src/cli_util.rs:1489:    pub fn workspace_name(&self) -> &WorkspaceName {
+cli/src/cli_util.rs:1493:    pub fn get_wc_commit_id(&self) -> Option<&CommitId> {
+cli/src/cli_util.rs:1497:    pub fn working_copy_shared_with_git(&self) -> bool {
+cli/src/cli_util.rs:1501:    pub fn format_file_path(&self, file: &RepoPath) -> String {
+cli/src/cli_util.rs:1507:    pub fn parse_file_path(&self, input: &str) -> Result<RepoPathBuf, UiPathParseError> {
+cli/src/cli_util.rs:1512:    pub fn parse_file_patterns(
+cli/src/cli_util.rs:1528:    pub fn parse_union_filesets(
+cli/src/cli_util.rs:1543:    pub fn auto_tracking_matcher(&self, ui: &Ui) -> Result<Box<dyn Matcher>, CommandError> {
+cli/src/cli_util.rs:1552:    pub fn snapshot_options_with_start_tracking_matcher<'a>(
+cli/src/cli_util.rs:1577:    pub fn base_ignores(&self) -> Result<Arc<GitIgnoreFile>, GitIgnoreError> {
+cli/src/cli_util.rs:1583:    pub fn base_ignores(&self) -> Result<Arc<GitIgnoreFile>, GitIgnoreError> {
+cli/src/cli_util.rs:1599:        fn xdg_config_home() -> Option<PathBuf> {
+cli/src/cli_util.rs:1627:    pub fn diff_renderer(&self, formats: Vec<DiffFormat>) -> DiffRenderer<'_> {
+cli/src/cli_util.rs:1637:    pub fn diff_renderer_for(
+cli/src/cli_util.rs:1648:    pub fn diff_renderer_for_log(
+cli/src/cli_util.rs:1660:    pub fn diff_editor(
+cli/src/cli_util.rs:1687:    pub fn diff_selector(
+cli/src/cli_util.rs:1703:    pub fn merge_editor(
+cli/src/cli_util.rs:1727:    pub fn text_editor(&self) -> Result<TextEditor, ConfigGetError> {
+cli/src/cli_util.rs:1731:    pub fn resolve_single_op(&self, op_str: &str) -> Result<Operation, OpsetEvaluationError> {
+cli/src/cli_util.rs:1737:    pub async fn resolve_single_rev(
+cli/src/cli_util.rs:1751:    pub async fn resolve_revsets_ordered(
+cli/src/cli_util.rs:1769:    pub async fn resolve_some_revsets(
+cli/src/cli_util.rs:1782:    pub fn parse_revset(
+cli/src/cli_util.rs:1795:    pub fn parse_union_revsets(
+cli/src/cli_util.rs:1811:    pub fn attach_revset_evaluator(
+cli/src/cli_util.rs:1823:    pub fn id_prefix_context(&self) -> &IdPrefixContext {
+cli/src/cli_util.rs:1830:    pub fn parse_template<'a, C, L>(
+cli/src/cli_util.rs:1845:    fn reparse_valid_template<'a, C, L>(
+cli/src/cli_util.rs:1865:    pub fn parse_commit_template(
+cli/src/cli_util.rs:1875:    pub fn parse_operation_template(
+cli/src/cli_util.rs:1885:    pub fn commit_template_language(&self) -> CommitTemplateLanguage<'_> {
+cli/src/cli_util.rs:1891:    pub fn operation_template_language(&self) -> OperationTemplateLanguage {
+cli/src/cli_util.rs:1900:    pub fn commit_summary_template(&self) -> TemplateRenderer<'_, Commit> {
+cli/src/cli_util.rs:1907:    pub fn operation_summary_template(&self) -> TemplateRenderer<'_, Operation> {
+cli/src/cli_util.rs:1913:    pub fn short_change_id_template(&self) -> TemplateRenderer<'_, Commit> {
+cli/src/cli_util.rs:1923:    pub fn format_commit_summary(&self, commit: &Commit) -> String {
+cli/src/cli_util.rs:1932:    pub fn write_commit_summary(
+cli/src/cli_util.rs:1940:    pub async fn check_rewritable<'a>(
+cli/src/cli_util.rs:1949:    pub async fn check_rewritable_expr(
+cli/src/cli_util.rs:2003:    async fn snapshot_working_copy(
+cli/src/cli_util.rs:2129:    async fn update_working_copy(
+cli/src/cli_util.rs:2146:    fn print_updated_working_copy_stats(
+cli/src/cli_util.rs:2182:    pub fn start_transaction(&mut self) -> WorkspaceCommandTransaction<'_> {
+cli/src/cli_util.rs:2196:    async fn finish_transaction(
+cli/src/cli_util.rs:2353:    async fn report_repo_changes(
+cli/src/cli_util.rs:2407:        fn commits_by_change_id(commits: &[Commit]) -> IndexMap<&ChangeId, Vec<&Commit>> {
+cli/src/cli_util.rs:2481:    pub async fn report_repo_conflicts(
+cli/src/cli_util.rs:2555:    pub fn get_advanceable_bookmarks<'a>(
+cli/src/cli_util.rs:2582:pub async fn export_working_copy_changes_to_git(
+cli/src/cli_util.rs:2595:pub async fn export_working_copy_changes_to_git(
+cli/src/cli_util.rs:2612:pub struct WorkspaceCommandTransaction<'a> {
+cli/src/cli_util.rs:2619:impl WorkspaceCommandTransaction<'_> {
+cli/src/cli_util.rs:2621:    pub fn base_workspace_helper(&self) -> &WorkspaceCommandHelper {
+cli/src/cli_util.rs:2626:    pub fn settings(&self) -> &UserSettings {
+cli/src/cli_util.rs:2630:    pub fn base_repo(&self) -> &Arc<ReadonlyRepo> {
+cli/src/cli_util.rs:2634:    pub fn repo(&self) -> &MutableRepo {
+cli/src/cli_util.rs:2638:    pub fn repo_mut(&mut self) -> &mut MutableRepo {
+cli/src/cli_util.rs:2643:    pub fn check_out(&mut self, commit: &Commit) -> Result<Commit, CheckOutCommitError> {
+cli/src/cli_util.rs:2649:    pub fn edit(&mut self, commit: &Commit) -> Result<(), EditCommitError> {
+cli/src/cli_util.rs:2655:    pub fn format_commit_summary(&self, commit: &Commit) -> String {
+cli/src/cli_util.rs:2660:    pub fn write_commit_summary(
+cli/src/cli_util.rs:2669:    pub fn commit_summary_template(&self) -> TemplateRenderer<'_, Commit> {
+cli/src/cli_util.rs:2678:    pub fn commit_template_language(&self) -> CommitTemplateLanguage<'_> {
+cli/src/cli_util.rs:2688:    pub fn parse_commit_template(
+cli/src/cli_util.rs:2697:    pub async fn finish(self, ui: &Ui, description: impl Into<String>) -> Result<(), CommandError> {
+cli/src/cli_util.rs:2714:    pub fn into_inner(self) -> Transaction {
+cli/src/cli_util.rs:2723:    pub fn advance_bookmarks(
+cli/src/cli_util.rs:2741:pub fn find_workspace_dir(cwd: &Path) -> &Path {
+cli/src/cli_util.rs:2747:fn map_workspace_load_error(err: WorkspaceLoadError, user_wc_path: Option<&str>) -> CommandError {
+cli/src/cli_util.rs:2784:pub fn start_repo_transaction(
+cli/src/cli_util.rs:2825:async fn handle_stale_working_copy(
+cli/src/cli_util.rs:2895:async fn update_stale_working_copy(
+cli/src/cli_util.rs:2925:pub fn print_updated_commits<'a>(
+cli/src/cli_util.rs:2943:pub fn print_conflicted_paths(
+cli/src/cli_util.rs:3036:fn build_untracked_reason_message(reason: &UntrackedReason) -> Option<String> {
+cli/src/cli_util.rs:3056:pub fn print_untracked_files(
+cli/src/cli_util.rs:3078:pub fn print_snapshot_stats(
+cli/src/cli_util.rs:3104:pub fn print_large_file_hint(
+cli/src/cli_util.rs:3141:pub fn print_checkout_stats(
+cli/src/cli_util.rs:3175:pub fn print_unmatched_explicit_paths<'a>(
+cli/src/cli_util.rs:3202:pub async fn update_working_copy(
+cli/src/cli_util.rs:3225:pub fn default_ignored_remote_name(store: &Store) -> Option<&'static RemoteName> {
+cli/src/cli_util.rs:3238:pub fn has_tracked_remote_bookmarks(repo: &dyn Repo, bookmark: &RefName) -> bool {
+cli/src/cli_util.rs:3250:pub fn has_tracked_remote_tags(repo: &dyn Repo, tag: &RefName) -> bool {
+cli/src/cli_util.rs:3260:pub fn load_fileset_aliases(
+cli/src/cli_util.rs:3268:pub fn load_revset_aliases(
+cli/src/cli_util.rs:3278:pub fn load_template_aliases(
+cli/src/cli_util.rs:3288:pub struct LogContentFormat {
+cli/src/cli_util.rs:3293:impl LogContentFormat {
+cli/src/cli_util.rs:3295:    pub fn new(ui: &Ui, settings: &UserSettings) -> Result<Self, ConfigGetError> {
+cli/src/cli_util.rs:3304:    pub fn sub_width(&self, width: usize) -> Self {
+cli/src/cli_util.rs:3312:    pub fn width(&self) -> usize {
+cli/src/cli_util.rs:3317:    pub async fn write<E: From<io::Error>>(
+cli/src/cli_util.rs:3333:pub fn short_commit_hash(commit_id: &CommitId) -> String {
+cli/src/cli_util.rs:3337:pub fn short_change_hash(change_id: &ChangeId) -> String {
+cli/src/cli_util.rs:3341:pub fn short_operation_hash(operation_id: &OperationId) -> String {
+cli/src/cli_util.rs:3347:pub enum DiffSelector {
+cli/src/cli_util.rs:3352:impl DiffSelector {
+cli/src/cli_util.rs:3353:    pub fn is_interactive(&self) -> bool {
+cli/src/cli_util.rs:3361:    pub async fn select(
+cli/src/cli_util.rs:3407:impl FromStr for RemoteBookmarkNamePattern {
+cli/src/cli_util.rs:3410:    fn from_str(src: &str) -> Result<Self, Self::Err> {
+cli/src/cli_util.rs:3436:impl RemoteBookmarkNamePattern {
+cli/src/cli_util.rs:3437:    pub fn as_exact(&self) -> Option<RemoteRefSymbol<'_>> {
+cli/src/cli_util.rs:3444:impl fmt::Display for RemoteBookmarkNamePattern {
+cli/src/cli_util.rs:3445:    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+cli/src/cli_util.rs:3457:pub async fn compute_commit_location(
+cli/src/cli_util.rs:3547:async fn ensure_no_commit_loop(
+cli/src/cli_util.rs:3577:pub struct Args {
+cli/src/cli_util.rs:3584:pub struct GlobalArgs {
+cli/src/cli_util.rs:3670:pub struct EarlyArgs {
+cli/src/cli_util.rs:3706:impl EarlyArgs {
+cli/src/cli_util.rs:3719:    fn has_config_args(&self) -> bool {
+cli/src/cli_util.rs:3730:pub struct RevisionArg(Cow<'static, str>);
+cli/src/cli_util.rs:3732:impl RevisionArg {
+cli/src/cli_util.rs:3737:impl From<String> for RevisionArg {
+cli/src/cli_util.rs:3738:    fn from(s: String) -> Self {
+cli/src/cli_util.rs:3743:impl AsRef<str> for RevisionArg {
+cli/src/cli_util.rs:3744:    fn as_ref(&self) -> &str {
+cli/src/cli_util.rs:3749:impl fmt::Display for RevisionArg {
+cli/src/cli_util.rs:3750:    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+cli/src/cli_util.rs:3755:impl ValueParserFactory for RevisionArg {
+cli/src/cli_util.rs:3758:    fn value_parser() -> Self::Parser {
+cli/src/cli_util.rs:3770:pub fn merge_args_with<'k, 'v, T, U>(
+cli/src/cli_util.rs:3786:fn resolve_default_command(
+cli/src/cli_util.rs:3848:fn resolve_aliases(
+cli/src/cli_util.rs:3911:fn parse_early_args(
+cli/src/cli_util.rs:3952:fn handle_shell_completion(
+cli/src/cli_util.rs:4031:fn hide_short_subcommand_aliases(cmd: &mut Command) {
+cli/src/cli_util.rs:4050:pub fn expand_args(
+cli/src/cli_util.rs:4061:fn expand_args_for_completion(
+cli/src/cli_util.rs:4082:fn to_string_args(
+cli/src/cli_util.rs:4095:fn parse_args(app: &Command, string_args: &[String]) -> Result<(ArgMatches, Args), clap::Error> {
+cli/src/cli_util.rs:4105:fn command_name(mut matches: &ArgMatches) -> String {
+cli/src/cli_util.rs:4117:pub fn format_template<C: Clone>(ui: &Ui, arg: &C, template: &TemplateRenderer<C>) -> String {
+cli/src/cli_util.rs:4133:    fn call<'a>(
+cli/src/cli_util.rs:4144:    fn call<'a>(
+cli/src/cli_util.rs:4155:struct AsyncCliDispatchFn<F>(F);
+cli/src/cli_util.rs:4161:    fn call<'a>(
+cli/src/cli_util.rs:4174:struct AsyncCliDispatchHookFn<F>(F);
+cli/src/cli_util.rs:4180:    fn call<'a>(
+cli/src/cli_util.rs:4196:pub struct CliRunner<'a> {
+cli/src/cli_util.rs:4219:    pub fn init() -> Self {
+cli/src/cli_util.rs:4240:    pub fn name(mut self, name: &str) -> Self {
+cli/src/cli_util.rs:4246:    pub fn about(mut self, about: &str) -> Self {
+cli/src/cli_util.rs:4252:    pub fn version(mut self, version: &str) -> Self {
+cli/src/cli_util.rs:4261:    pub fn add_extra_config(mut self, layer: ConfigLayer) -> Self {
+cli/src/cli_util.rs:4268:    pub fn add_extra_config_migration(mut self, rule: ConfigMigrationRule) -> Self {
+cli/src/cli_util.rs:4274:    pub fn add_store_factories(mut self, store_factories: StoreFactories) -> Self {
+cli/src/cli_util.rs:4280:    pub fn add_working_copy_factories(
+cli/src/cli_util.rs:4288:    pub fn set_workspace_loader_factory(
+cli/src/cli_util.rs:4296:    pub fn add_symbol_resolver_extension(
+cli/src/cli_util.rs:4304:    pub fn add_revset_function_extension(
+cli/src/cli_util.rs:4313:    pub fn add_commit_template_extension(
+cli/src/cli_util.rs:4322:    pub fn add_operation_template_extension(
+cli/src/cli_util.rs:4334:    pub fn add_dispatch_hook<F>(mut self, dispatch_hook_fn: F) -> Self
+cli/src/cli_util.rs:4345:    pub fn add_subcommand<C, F>(mut self, custom_dispatch_fn: F) -> Self
+cli/src/cli_util.rs:4364:    pub fn add_global_args<A, F>(mut self, process_before: F) -> Self
+cli/src/cli_util.rs:4381:    async fn run_internal(
+cli/src/cli_util.rs:4532:    pub fn run(mut self) -> u8 {
+cli/src/cli_util.rs:4547:fn map_clap_cli_error(err: clap::Error, ui: &Ui, config: &StackedConfig) -> CommandError {
+cli/src/cli_util.rs:4592:fn format_template_aliases_hint(template_aliases: &TemplateAliasesMap) -> String {
+cli/src/cli_util.rs:4605:fn warn_if_args_mismatch(
+cli/src/cli_util.rs:4629:    pub struct TestArgs {
+cli/src/cli_util.rs:4639:    fn test_merge_args_with() {
+lib/src/revset.rs:86:pub enum RevsetResolutionError {
+lib/src/revset.rs:119:pub enum RevsetEvaluationError {
+lib/src/revset.rs:126:impl RevsetEvaluationError {
+lib/src/revset.rs:129:    pub fn into_backend_error(self) -> BackendError {
+lib/src/revset.rs:145:pub enum RevsetCommitRef {
+lib/src/revset.rs:168:pub struct RemoteRefSymbolExpression {
+lib/src/revset.rs:178:    fn matches_commit(&self, commit: &Commit) -> bool;
+lib/src/revset.rs:181:impl dyn RevsetFilterExtension {
+lib/src/revset.rs:183:    pub fn downcast_ref<T: RevsetFilterExtension>(&self) -> Option<&T> {
+lib/src/revset.rs:189:pub enum DiffMatchSide {
+lib/src/revset.rs:196:pub enum RevsetFilterPredicate {
+lib/src/revset.rs:240:    pub enum UserExpressionState {}
+lib/src/revset.rs:242:    pub enum ResolvedExpressionState {}
+lib/src/revset.rs:249:impl ExpressionState for UserExpressionState {
+lib/src/revset.rs:254:impl ExpressionState for ResolvedExpressionState {
+lib/src/revset.rs:269:pub enum RevsetExpression<St: ExpressionState> {
+lib/src/revset.rs:360:    pub fn none() -> Arc<Self> {
+lib/src/revset.rs:366:    pub fn all() -> Arc<Self> {
+lib/src/revset.rs:370:    pub fn visible_heads() -> Arc<Self> {
+lib/src/revset.rs:374:    fn visible_heads_or_referenced() -> Arc<Self> {
+lib/src/revset.rs:378:    pub fn root() -> Arc<Self> {
+lib/src/revset.rs:382:    pub fn commit(commit_id: CommitId) -> Arc<Self> {
+lib/src/revset.rs:386:    pub fn commits(commit_ids: Vec<CommitId>) -> Arc<Self> {
+lib/src/revset.rs:390:    pub fn filter(predicate: RevsetFilterPredicate) -> Arc<Self> {
+lib/src/revset.rs:394:    pub fn divergent() -> Arc<Self> {
+lib/src/revset.rs:399:    pub fn is_empty() -> Arc<Self> {
+lib/src/revset.rs:406:    pub fn working_copy(name: WorkspaceNameBuf) -> Arc<Self> {
+lib/src/revset.rs:410:    pub fn working_copies() -> Arc<Self> {
+lib/src/revset.rs:414:    pub fn symbol(value: String) -> Arc<Self> {
+lib/src/revset.rs:418:    pub fn remote_symbol(value: RemoteRefSymbolBuf) -> Arc<Self> {
+lib/src/revset.rs:423:    pub fn change_id_prefix(prefix: HexPrefix) -> Arc<Self> {
+lib/src/revset.rs:428:    pub fn commit_id_prefix(prefix: HexPrefix) -> Arc<Self> {
+lib/src/revset.rs:433:    pub fn bookmarks(expression: StringExpression) -> Arc<Self> {
+lib/src/revset.rs:437:    pub fn remote_bookmarks(
+lib/src/revset.rs:447:    pub fn tags(expression: StringExpression) -> Arc<Self> {
+lib/src/revset.rs:451:    pub fn remote_tags(
+lib/src/revset.rs:461:    pub fn git_refs() -> Arc<Self> {
+lib/src/revset.rs:465:    pub fn git_head() -> Arc<Self> {
+lib/src/revset.rs:472:    pub fn latest(self: &Arc<Self>, count: usize) -> Arc<Self> {
+lib/src/revset.rs:480:    pub fn heads(self: &Arc<Self>) -> Arc<Self> {
+lib/src/revset.rs:485:    pub fn roots(self: &Arc<Self>) -> Arc<Self> {
+lib/src/revset.rs:490:    pub fn parents(self: &Arc<Self>) -> Arc<Self> {
+lib/src/revset.rs:495:    pub fn ancestors(self: &Arc<Self>) -> Arc<Self> {
+lib/src/revset.rs:501:    pub fn ancestors_at(self: &Arc<Self>, generation: u64) -> Arc<Self> {
+lib/src/revset.rs:506:    pub fn ancestors_range(self: &Arc<Self>, generation_range: Range<u64>) -> Arc<Self> {
+lib/src/revset.rs:515:    pub fn first_ancestors(self: &Arc<Self>) -> Arc<Self> {
+lib/src/revset.rs:521:    pub fn first_ancestors_at(self: &Arc<Self>, generation: u64) -> Arc<Self> {
+lib/src/revset.rs:526:    pub fn first_ancestors_range(self: &Arc<Self>, generation_range: Range<u64>) -> Arc<Self> {
+lib/src/revset.rs:535:    pub fn children(self: &Arc<Self>) -> Arc<Self> {
+lib/src/revset.rs:540:    pub fn descendants(self: &Arc<Self>) -> Arc<Self> {
+lib/src/revset.rs:546:    pub fn descendants_at(self: &Arc<Self>, generation: u64) -> Arc<Self> {
+lib/src/revset.rs:551:    pub fn descendants_range(self: &Arc<Self>, generation_range: Range<u64>) -> Arc<Self> {
+lib/src/revset.rs:559:    pub fn fork_point(self: &Arc<Self>) -> Arc<Self> {
+lib/src/revset.rs:564:    pub fn bisect(self: &Arc<Self>) -> Arc<Self> {
+lib/src/revset.rs:569:    pub fn has_size(self: &Arc<Self>, count: usize) -> Arc<Self> {
+lib/src/revset.rs:577:    pub fn filtered(self: &Arc<Self>, predicate: RevsetFilterPredicate) -> Arc<Self> {
+lib/src/revset.rs:583:    pub fn dag_range_to(self: &Arc<Self>, heads: &Arc<Self>) -> Arc<Self> {
+lib/src/revset.rs:592:    pub fn connected(self: &Arc<Self>) -> Arc<Self> {
+lib/src/revset.rs:598:    pub fn reachable(self: &Arc<Self>, domain: &Arc<Self>) -> Arc<Self> {
+lib/src/revset.rs:606:    pub fn range(self: &Arc<Self>, heads: &Arc<Self>) -> Arc<Self> {
+lib/src/revset.rs:616:    pub fn present(self: &Arc<Self>) -> Arc<Self> {
+lib/src/revset.rs:621:    pub fn negated(self: &Arc<Self>) -> Arc<Self> {
+lib/src/revset.rs:626:    pub fn union(self: &Arc<Self>, other: &Arc<Self>) -> Arc<Self> {
+lib/src/revset.rs:631:    pub fn union_all(expressions: &[Arc<Self>]) -> Arc<Self> {
+lib/src/revset.rs:636:    pub fn intersection(self: &Arc<Self>, other: &Arc<Self>) -> Arc<Self> {
+lib/src/revset.rs:641:    pub fn minus(self: &Arc<Self>, other: &Arc<Self>) -> Arc<Self> {
+lib/src/revset.rs:647:    pub fn coalesce(expressions: &[Arc<Self>]) -> Arc<Self> {
+lib/src/revset.rs:651:    fn coalesce2(self: &Arc<Self>, other: &Arc<Self>) -> Arc<Self> {
+lib/src/revset.rs:658:    pub fn as_symbol(&self) -> Option<&str> {
+lib/src/revset.rs:666:impl UserRevsetExpression {
+lib/src/revset.rs:669:    pub fn resolve_user_expression(
+lib/src/revset.rs:678:impl ResolvedRevsetExpression {
+lib/src/revset.rs:680:    pub fn evaluate<'index>(
+lib/src/revset.rs:692:    pub fn evaluate_unoptimized<'index>(
+lib/src/revset.rs:707:    pub fn to_backend_expression(&self, repo: &dyn Repo) -> ResolvedExpression {
+lib/src/revset.rs:713:pub enum ResolvedPredicateExpression {
+lib/src/revset.rs:735:pub enum ResolvedExpression {
+lib/src/revset.rs:1204:fn expand_optional_files_arg(
+lib/src/revset.rs:1225:pub fn expect_fileset_expression(
+lib/src/revset.rs:1247:pub fn expect_string_expression(
+lib/src/revset.rs:1260:fn expect_string_expression_inner(
+lib/src/revset.rs:1328:pub fn expect_date_pattern(
+lib/src/revset.rs:1344:fn parse_remote_refs_arguments(
+lib/src/revset.rs:1366:fn lower_function_call(
+lib/src/revset.rs:1387:pub fn lower_expression(
+lib/src/revset.rs:1455:pub fn parse(
+lib/src/revset.rs:1468:pub fn parse_string_expression(
+lib/src/revset.rs:1479:fn to_binary_expression<T: Clone>(
+lib/src/revset.rs:1505:fn transform_expression<St: ExpressionState>(
+lib/src/revset.rs:1516:fn transform_expression_bottom_up<St: ExpressionState>(
+lib/src/revset.rs:1535:fn try_transform_expression<St: ExpressionState, E>(
+lib/src/revset.rs:1540:    fn transform_child_rec<St: ExpressionState, E>(
+lib/src/revset.rs:1698:    fn transform_rec_pair<St: ExpressionState, E>(
+lib/src/revset.rs:1716:    fn transform_rec<St: ExpressionState, E>(
+lib/src/revset.rs:1744:    fn fold_expression(
+lib/src/revset.rs:1752:    fn fold_commit_ref(
+lib/src/revset.rs:1758:    fn fold_at_operation(
+lib/src/revset.rs:1766:fn fold_child_expression_state<InSt, OutSt, F>(
+lib/src/revset.rs:1949:fn resolve_referenced_commits<St: ExpressionState>(
+lib/src/revset.rs:2017:fn flatten_intersections<St: ExpressionState>(
+lib/src/revset.rs:2020:    fn flatten<St: ExpressionState>(
+lib/src/revset.rs:2046:fn sort_intersection_by_key<St: ExpressionState, T: Ord>(
+lib/src/revset.rs:2053:    fn sort_intersection_helper<St: ExpressionState, T: Ord>(
+lib/src/revset.rs:2079:fn sort_negations_and_ancestors<St: ExpressionState>(
+lib/src/revset.rs:2083:    enum AncestorsOrder {
+lib/src/revset.rs:2123:fn internalize_filter<St: ExpressionState>(
+lib/src/revset.rs:2126:    fn get_filter<St: ExpressionState>(
+lib/src/revset.rs:2136:    fn mark_filter<St: ExpressionState>(
+lib/src/revset.rs:2186:fn fold_redundant_expression<St: ExpressionState>(
+lib/src/revset.rs:2222:fn ancestors_to_heads<St: ExpressionState>(
+lib/src/revset.rs:2231:fn ancestors_to_heads_and_parents_range<St: ExpressionState>(
+lib/src/revset.rs:2263:fn fold_ancestors_union<St: ExpressionState>(
+lib/src/revset.rs:2266:    fn union_ancestors<St: ExpressionState>(
+lib/src/revset.rs:2299:fn fold_heads_range<St: ExpressionState>(
+lib/src/revset.rs:2303:    struct FilteredRange<St: ExpressionState> {
+lib/src/revset.rs:2310:        fn new(roots: Arc<RevsetExpression<St>>) -> Self {
+lib/src/revset.rs:2319:        fn add(mut self, expression: &Arc<RevsetExpression<St>>) -> Self {
+lib/src/revset.rs:2332:        fn add_filter(mut self, expression: &Arc<RevsetExpression<St>>) -> Self {
+lib/src/revset.rs:2343:    fn to_filtered_range<St: ExpressionState>(
+lib/src/revset.rs:2381:    fn to_heads_range<St: ExpressionState>(
+lib/src/revset.rs:2419:fn to_difference_range<St: ExpressionState>(
+lib/src/revset.rs:2444:fn fold_difference<St: ExpressionState>(
+lib/src/revset.rs:2447:    fn to_difference<St: ExpressionState>(
+lib/src/revset.rs:2476:fn fold_not_in_ancestors<St: ExpressionState>(
+lib/src/revset.rs:2498:fn unfold_difference<St: ExpressionState>(
+lib/src/revset.rs:2525:fn fold_generation<St: ExpressionState>(
+lib/src/revset.rs:2528:    fn add_generation(generation1: &Range<u64>, generation2: &Range<u64>) -> Range<u64> {
+lib/src/revset.rs:2587:pub fn optimize<St: ExpressionState>(
+lib/src/revset.rs:2608:pub fn walk_revs<'index>(
+lib/src/revset.rs:2618:fn reload_repo_at_operation(
+lib/src/revset.rs:2643:fn resolve_remote_symbol(
+lib/src/revset.rs:2658:fn to_resolved_ref(
+lib/src/revset.rs:2674:fn all_formatted_ref_symbols<'a>(
+lib/src/revset.rs:2696:fn make_no_such_symbol_error(repo: &dyn Repo, name: String) -> RevsetResolutionError {
+lib/src/revset.rs:2709:    fn resolve_symbol(
+lib/src/revset.rs:2716:struct TagResolver;
+lib/src/revset.rs:2718:impl PartialSymbolResolver for TagResolver {
+lib/src/revset.rs:2719:    fn resolve_symbol(
+lib/src/revset.rs:2729:struct BookmarkResolver;
+lib/src/revset.rs:2731:impl PartialSymbolResolver for BookmarkResolver {
+lib/src/revset.rs:2732:    fn resolve_symbol(
+lib/src/revset.rs:2742:struct GitRefResolver;
+lib/src/revset.rs:2744:impl PartialSymbolResolver for GitRefResolver {
+lib/src/revset.rs:2745:    fn resolve_symbol(
+lib/src/revset.rs:2764:struct CommitPrefixResolver<'a> {
+lib/src/revset.rs:2769:impl CommitPrefixResolver<'_> {
+lib/src/revset.rs:2770:    fn try_resolve(
+lib/src/revset.rs:2794:impl PartialSymbolResolver for CommitPrefixResolver<'_> {
+lib/src/revset.rs:2795:    fn resolve_symbol(
+lib/src/revset.rs:2808:struct ChangePrefixResolver<'a> {
+lib/src/revset.rs:2813:impl ChangePrefixResolver<'_> {
+lib/src/revset.rs:2814:    fn try_resolve(
+lib/src/revset.rs:2838:impl PartialSymbolResolver for ChangePrefixResolver<'_> {
+lib/src/revset.rs:2839:    fn resolve_symbol(
+lib/src/revset.rs:2887:    fn new_resolvers<'a>(
+lib/src/revset.rs:2895:pub struct SymbolResolver<'a> {
+lib/src/revset.rs:2904:    pub fn new(
+lib/src/revset.rs:2924:    pub fn with_id_prefix_context(mut self, id_prefix_context: &'a IdPrefixContext) -> Self {
+lib/src/revset.rs:2930:    fn partial_resolvers(&self) -> impl Iterator<Item = &(dyn PartialSymbolResolver + 'a)> {
+lib/src/revset.rs:2941:    pub fn resolve_symbol(
+lib/src/revset.rs:2960:fn resolve_commit_ref(
+lib/src/revset.rs:3060:struct ExpressionSymbolResolver<'a, 'b> {
+lib/src/revset.rs:3067:    fn new(base_repo: &'a dyn Repo, symbol_resolver: &'a SymbolResolver<'b>) -> Self {
+lib/src/revset.rs:3075:    fn repo(&self) -> &dyn Repo {
+lib/src/revset.rs:3082:impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
+lib/src/revset.rs:3087:    fn fold_expression(
+lib/src/revset.rs:3112:    fn fold_commit_ref(
+lib/src/revset.rs:3120:    fn fold_at_operation(
+lib/src/revset.rs:3138:fn resolve_symbols(
+lib/src/revset.rs:3157:fn resolve_visibility(
+lib/src/revset.rs:3170:struct VisibilityResolutionContext<'a> {
+lib/src/revset.rs:3176:impl VisibilityResolutionContext<'_> {
+lib/src/revset.rs:3178:    fn resolve(&self, expression: &ResolvedRevsetExpression) -> ResolvedExpression {
+lib/src/revset.rs:3331:    fn resolve_all(&self) -> ResolvedExpression {
+lib/src/revset.rs:3339:    fn resolve_visible_heads(&self) -> ResolvedExpression {
+lib/src/revset.rs:3343:    fn resolve_visible_heads_or_referenced(&self) -> ResolvedExpression {
+lib/src/revset.rs:3354:    fn resolve_root(&self) -> ResolvedExpression {
+lib/src/revset.rs:3362:    fn resolve_predicate(
+lib/src/revset.rs:3432:    fn stream<'a>(&self) -> LocalBoxStream<'a, Result<CommitId, RevsetEvaluationError>>
+lib/src/revset.rs:3437:    fn commit_change_ids<'a>(
+lib/src/revset.rs:3445:    fn stream_graph<'a>(
+lib/src/revset.rs:3452:    fn is_empty(&self) -> bool;
+lib/src/revset.rs:3458:    fn count_estimate(&self) -> Result<(usize, Option<usize>), RevsetEvaluationError>;
+lib/src/revset.rs:3465:    fn containing_fn<'a>(&self) -> Box<RevsetContainingFn<'a>>
+lib/src/revset.rs:3474:    fn commits(
+lib/src/revset.rs:3481:    fn commits(
+lib/src/revset.rs:3498:pub struct RevsetExtensions {
+lib/src/revset.rs:3503:impl Default for RevsetExtensions {
+lib/src/revset.rs:3504:    fn default() -> Self {
+lib/src/revset.rs:3509:impl RevsetExtensions {
+lib/src/revset.rs:3510:    pub fn new() -> Self {
+lib/src/revset.rs:3517:    pub fn symbol_resolvers(&self) -> &[Box<dyn SymbolResolverExtension>] {
+lib/src/revset.rs:3521:    pub fn add_symbol_resolver(&mut self, symbol_resolver: Box<dyn SymbolResolverExtension>) {
+lib/src/revset.rs:3525:    pub fn add_custom_function(&mut self, name: &'static str, func: RevsetFunction) {
+lib/src/revset.rs:3537:pub struct RevsetParseContext<'a> {
+lib/src/revset.rs:3551:    fn to_lowering_context(&self) -> LoweringContext<'a> {
+lib/src/revset.rs:3577:pub struct LoweringContext<'a> {
+lib/src/revset.rs:3588:    pub fn user_email(&self) -> &'a str {
+lib/src/revset.rs:3592:    pub fn date_pattern_context(&self) -> &DatePatternContext {
+lib/src/revset.rs:3596:    pub fn fileset_parse_context(&self) -> Option<FilesetParseContext<'_>> {
+lib/src/revset.rs:3603:    pub fn symbol_resolvers(&self) -> &'a [impl AsRef<dyn SymbolResolverExtension> + use<>] {
+lib/src/revset.rs:3610:pub struct RevsetWorkspaceContext<'a> {
+lib/src/revset.rs:3620:pub fn format_symbol(literal: &str) -> String {
+lib/src/revset.rs:3629:pub fn format_string(literal: &str) -> String {
+lib/src/revset.rs:3634:pub fn format_remote_symbol(name: &str, remote: &str) -> String {
+lib/src/revset.rs:3653:    fn parse(revset_str: &str) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
+lib/src/revset.rs:3657:    fn parse_with_workspace(
+lib/src/revset.rs:3664:    fn parse_with_aliases(
+lib/src/revset.rs:3686:    fn parse_with_aliases_and_workspace(
+lib/src/revset.rs:3718:    fn insta_settings() -> insta::Settings {
+lib/src/revset.rs:3736:    fn test_revset_expression_building() {
+lib/src/revset.rs:3910:    fn test_parse_revset() -> TestResult {
+lib/src/revset.rs:4114:    fn test_parse_string_pattern() -> TestResult {
+lib/src/revset.rs:4165:    fn test_parse_compound_string_expression() -> TestResult {
+lib/src/revset.rs:4227:    fn test_parse_revset_function() -> TestResult {
+lib/src/revset.rs:4338:    fn test_parse_revset_change_commit_id_functions() -> TestResult {
+lib/src/revset.rs:4365:    fn test_parse_revset_author_committer_functions() -> TestResult {
+lib/src/revset.rs:4404:    fn test_parse_revset_keyword_arguments() -> TestResult {
+lib/src/revset.rs:4492:    fn test_expand_symbol_alias() -> TestResult {
+lib/src/revset.rs:4524:    fn test_expand_function_alias() -> TestResult {
+lib/src/revset.rs:4541:    fn test_transform_expression() {
+lib/src/revset.rs:4585:    fn test_resolve_referenced_commits() {
+lib/src/revset.rs:4816:    fn test_optimize_subtree() -> TestResult {
+lib/src/revset.rs:4980:    fn test_optimize_unchanged_subtree() -> TestResult {
+lib/src/revset.rs:4981:        fn unwrap_union(
+lib/src/revset.rs:5030:    fn test_optimize_basic() -> TestResult {
+lib/src/revset.rs:5055:    fn test_optimize_difference() -> TestResult {
+lib/src/revset.rs:5252:    fn test_optimize_not_in_ancestors() -> TestResult {
+lib/src/revset.rs:5315:    fn test_optimize_filter_difference() -> TestResult {
+lib/src/revset.rs:5367:    fn test_optimize_filter_intersection() -> TestResult {
+lib/src/revset.rs:5606:    fn test_optimize_filter_subtree() -> TestResult {
+lib/src/revset.rs:5760:    fn test_optimize_ancestors() -> TestResult {
+lib/src/revset.rs:5935:    fn test_optimize_descendants() -> TestResult {
+lib/src/revset.rs:5987:    fn test_optimize_flatten_intersection() -> TestResult {
+lib/src/revset.rs:6011:    fn test_optimize_ancestors_union() -> TestResult {
+lib/src/revset.rs:6104:    fn test_optimize_sort_negations_and_ancestors() -> TestResult {
+lib/src/revset.rs:6144:    fn test_optimize_heads_range() -> TestResult {
+lib/src/revset.rs:6373:    fn test_optimize_ancestors_heads_range() -> TestResult {
+lib/src/revset.rs:6474:    fn test_escape_string_literal() {
+lib/src/revset.rs:6501:    fn test_escape_remote_symbol() {

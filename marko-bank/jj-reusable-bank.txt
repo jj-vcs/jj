@@ -1,0 +1,220 @@
+# jj-cli-runner  (./cli/src/cli_util.rs:4195)
+// @wrap:jj-cli-runner
+pub struct CliRunner<'a> {
+    tracing_subscription: TracingSubscription,
+    app: Command,
+    config_layers: Vec<ConfigLayer>,
+    config_migrations: Vec<ConfigMigrationRule>,
+    store_factories: StoreFactories,
+    working_copy_factories: WorkingCopyFactories,
+    workspace_loader_factory: Box<dyn WorkspaceLoaderFactory>,
+    revset_extensions: RevsetExtensions,
+    commit_template_extensions: Vec<Arc<dyn CommitTemplateLanguageExtension>>,
+    operation_template_extensions: Vec<Arc<dyn OperationTemplateLanguageExtension>>,
+    dispatch: BoxedAsyncCliDispatch<'a>,
+    dispatch_hooks: Vec<BoxedAsyncCliDispatchHook<'a>>,
+    process_global_args_fns: Vec<ProcessGlobalArgsFn<'a>>,
+}
+
+# jj-cli-command-helper  (./cli/src/cli_util.rs:301)
+// @wrap:jj-cli-command-helper
+pub struct CommandHelper {
+    data: Rc<CommandHelperData>,
+}
+
+# jj-cli-workspace-helper  (./cli/src/cli_util.rs:472)
+    // @wrap:jj-cli-workspace-helper
+    pub async fn workspace_helper_with_stats(
+        &self,
+        ui: &Ui,
+    ) -> Result<(WorkspaceCommandHelper, SnapshotStats), CommandError> {
+        let mut workspace_command = self.workspace_helper_no_snapshot(ui).await?;
+
+        let (workspace_command, stats) = match workspace_command.maybe_snapshot_impl(ui).await {
+            Ok(stats) => (workspace_command, stats),
+            Err(SnapshotWorkingCopyError::Command(err)) => return Err(err),
+            Err(SnapshotWorkingCopyError::StaleWorkingCopy(err)) => {
+                let auto_update_stale = self.settings().get_bool("snapshot.auto-update-stale")?;
+                if !auto_update_stale {
+                    return Err(err);
+                }
+
+                // We detected the working copy was stale and the client is configured to
+                // auto-update-stale, so let's do that now. We need to do it up here, not at a
+                // lower level (e.g. inside snapshot_working_copy()) to avoid recursive locking
+                // of the working copy.
+                self.recover_stale_working_copy(ui).await?
+            }
+        };
+
+        Ok((workspace_command, stats))
+    }
+
+# jj-cli-start-transaction  (./cli/src/cli_util.rs:2783)
+// @wrap:jj-cli-start-transaction
+pub fn start_repo_transaction(
+    repo: &Arc<ReadonlyRepo>,
+    workspace_name: &WorkspaceName,
+    string_args: &[String],
+) -> Transaction {
+    let mut tx = repo.start_transaction();
+    tx.set_workspace_name(workspace_name);
+    // TODO: Either do better shell-escaping here or store the values in some list
+    // type (which we currently don't have).
+    let shell_escape = |arg: &String| {
+        if arg.as_bytes().iter().all(|b| {
+            matches!(b,
+                b'A'..=b'Z'
+                | b'a'..=b'z'
+                | b'0'..=b'9'
+                | b','
+                | b'-'
+                | b'.'
+                | b'/'
+                | b':'
+                | b'@'
+                | b'_'
+            )
+        }) {
+            arg.clone()
+        } else {
+            format!("'{}'", arg.replace('\'', "\\'"))
+        }
+    };
+    let mut quoted_strings = vec!["jj".to_string()];
+    quoted_strings.extend(string_args.iter().skip(1).map(shell_escape));
+    tx.set_attribute("args".to_string(), quoted_strings.join(" "));
+    tx
+}
+
+# jj-lib-repo-loader  (./lib/src/repo.rs:672)
+// @wrap:jj-lib-repo-loader
+pub struct RepoLoader {
+    settings: UserSettings,
+    store: Arc<Store>,
+    op_store: Arc<dyn OpStore>,
+    op_heads_store: Arc<dyn OpHeadsStore>,
+    index_store: Arc<dyn IndexStore>,
+    submodule_store: Arc<dyn SubmoduleStore>,
+}
+
+# jj-lib-mutable-repo  (./lib/src/repo.rs:899)
+// @wrap:jj-lib-mutable-repo
+pub struct MutableRepo {
+    base_repo: Arc<ReadonlyRepo>,
+    index: Box<dyn MutableIndex>,
+    view: DirtyCell<View>,
+    /// Mapping from new commit to its predecessors.
+    ///
+    /// This is similar to (the reverse of) `parent_mapping`, but
+    /// `commit_predecessors` will never be cleared on `rebase_descendants()`.
+    commit_predecessors: BTreeMap<CommitId, Vec<CommitId>>,
+    // The commit identified by the key has been replaced by all the ones in the value.
+    // * Bookmarks pointing to the old commit should be updated to the new commit, resulting in a
+    //   conflict if there multiple new commits.
+    // * Children of the old commit should be rebased onto the new commits. However, if the type is
+    //   `Divergent`, they should be left in place.
+    // * Working copies pointing to the old commit should be updated to the first of the new
+    //   commits. However, if the type is `Abandoned`, a new working-copy commit should be created
+    //   on top of all of the new commits instead.
+    parent_mapping: HashMap<CommitId, Rewrite>,
+}
+
+# jj-lib-transaction-write-operation  (./lib/src/transaction.rs:132)
+    // @wrap:jj-lib-transaction-write-operation
+    pub async fn write(
+        mut self,
+        description: impl Into<String>,
+    ) -> Result<UnpublishedOperation, TransactionCommitError> {
+        let mut_repo = self.mut_repo;
+        // TODO: Should we instead just do the rebasing here if necessary?
+        assert!(
+            !mut_repo.has_rewrites(),
+            "BUG: Descendants have not been rebased after the last rewrites."
+        );
+        let base_repo = mut_repo.base_repo().clone();
+        let (mut_index, view, predecessors) = mut_repo.consume();
+
+        let operation = {
+            let view_id = base_repo.op_store().write_view(view.store_view()).await?;
+            self.op_metadata.description = description.into();
+            self.op_metadata.time.end = self.end_time.unwrap_or_else(Timestamp::now);
+            let parents = self.parent_ops.iter().map(|op| op.id().clone()).collect();
+            let store_operation = op_store::Operation {
+                view_id,
+                parents,
+                metadata: self.op_metadata,
+                commit_predecessors: Some(predecessors),
+            };
+            let new_op_id = base_repo
+                .op_store()
+                .write_operation(&store_operation)
+                .await?;
+            Operation::new(base_repo.op_store().clone(), new_op_id, store_operation)
+        };
+
+        let index = base_repo.index_store().write_index(mut_index, &operation)?;
+        let unpublished = UnpublishedOperation::new(base_repo.loader(), operation, view, index);
+        Ok(unpublished)
+    }
+
+# jj-lib-revset-parse  (./lib/src/revset.rs:1454)
+// @wrap:jj-lib-revset-parse
+pub fn parse(
+    diagnostics: &mut RevsetDiagnostics,
+    revset_str: &str,
+    context: &RevsetParseContext,
+) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
+    let node = parse_program(revset_str)?;
+    let node =
+        dsl_util::expand_aliases_with_locals(node, context.aliases_map, &context.local_variables)?;
+    lower_expression(diagnostics, &node, &context.to_lowering_context())
+        .map_err(|err| err.extend_function_candidates(context.aliases_map.function_names()))
+}
+
+# jj-lib-revset-optimize  (./lib/src/revset.rs:2586)
+// @wrap:jj-lib-revset-optimize
+pub fn optimize<St: ExpressionState>(
+    expression: Arc<RevsetExpression<St>>,
+) -> Arc<RevsetExpression<St>> {
+    // Since fold_redundant_expression() can remove hidden commits that look
+    // redundant, referenced commits should be collected earlier.
+    let expression = resolve_referenced_commits(&expression).unwrap_or(expression);
+    let expression = unfold_difference(&expression).unwrap_or(expression);
+    let expression = fold_redundant_expression(&expression).unwrap_or(expression);
+    let expression = fold_generation(&expression).unwrap_or(expression);
+    let expression = flatten_intersections(&expression).unwrap_or(expression);
+    let expression = sort_negations_and_ancestors(&expression).unwrap_or(expression);
+    let expression = fold_ancestors_union(&expression).unwrap_or(expression);
+    let expression = internalize_filter(&expression).unwrap_or(expression);
+    let expression = fold_heads_range(&expression).unwrap_or(expression);
+    let expression = fold_difference(&expression).unwrap_or(expression);
+    fold_not_in_ancestors(&expression).unwrap_or(expression)
+}
+
+# jj-lib-local-working-copy  (./lib/src/local_working_copy.rs:2587)
+// @wrap:jj-lib-local-working-copy
+pub struct LocalWorkingCopy {
+    store: Arc<Store>,
+    working_copy_path: PathBuf,
+    state_path: PathBuf,
+    checkout_state: CheckoutState,
+    tree_state: OnceCell<TreeState>,
+    tree_state_settings: TreeStateSettings,
+}
+
+# jj-lib-git-import-refs  (./lib/src/git.rs:556)
+// @wrap:jj-lib-git-import-refs
+pub async fn import_refs(
+    mut_repo: &mut MutableRepo,
+    options: &GitImportOptions,
+) -> Result<GitImportStats, GitImportError> {
+    import_some_refs(mut_repo, options, |_, _| true).await
+}
+
+# jj-lib-git-export-refs  (./lib/src/git.rs:1134)
+// @wrap:jj-lib-git-export-refs
+pub fn export_refs(mut_repo: &mut MutableRepo) -> Result<GitExportStats, GitExportError> {
+    export_some_refs(mut_repo, |_, _| true)
+}
+

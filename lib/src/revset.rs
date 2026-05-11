@@ -1451,6 +1451,7 @@ pub fn lower_expression(
     })
 }
 
+// @wrap:jj-lib-revset-parse
 pub fn parse(
     diagnostics: &mut RevsetDiagnostics,
     revset_str: &str,
@@ -2582,6 +2583,7 @@ fn fold_generation<St: ExpressionState>(
 
 /// Rewrites the given `expression` tree to reduce evaluation cost. Returns new
 /// tree.
+// @wrap:jj-lib-revset-optimize
 pub fn optimize<St: ExpressionState>(
     expression: Arc<RevsetExpression<St>>,
 ) -> Arc<RevsetExpression<St>> {
@@ -3132,6 +3134,7 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
     }
 }
 
+// @wrap:jj-lib-revset-resolve-symbols
 fn resolve_symbols(
     repo: &dyn Repo,
     expression: &UserRevsetExpression,
@@ -3150,6 +3153,7 @@ fn resolve_symbols(
 /// commit ids to make `all()` include hidden-but-specified commits. The
 /// return type `ResolvedExpression` is stricter than `RevsetExpression`,
 /// and isn't designed for such transformation.
+// @wrap:jj-lib-revset-resolve-visibility
 fn resolve_visibility(
     repo: &dyn Repo,
     expression: &ResolvedRevsetExpression,

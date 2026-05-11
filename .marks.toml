@@ -1,0 +1,76 @@
+[groups.jj-entry]
+tags = [
+  "jj-cli-entry-main",
+  "jj-cli-runner",
+  "jj-cli-runner-init",
+  "jj-cli-run",
+  "jj-cli-run-internal",
+]
+
+[groups.jj-command-surface]
+tags = [
+  "jj-cli-command-registry",
+  "jj-cli-default-app",
+  "jj-cli-command-dispatch",
+  "jj-cli-command-helper",
+  "jj-cli-workspace-helper",
+]
+
+[groups.jj-working-copy-flow]
+tags = [
+  "jj-cli-snapshot-flow",
+  "jj-cli-stale-working-copy-flow",
+  "jj-cli-update-working-copy",
+  "jj-lib-local-working-copy",
+  "jj-lib-working-copy-start-mutation",
+  "jj-lib-working-copy-snapshot",
+  "jj-lib-working-copy-checkout",
+  "jj-lib-working-copy-finish",
+]
+
+[groups.jj-repo-transaction-flow]
+tags = [
+  "jj-cli-start-transaction",
+  "jj-lib-repo-loader",
+  "jj-lib-repo-load-from-fs",
+  "jj-lib-mutable-repo",
+  "jj-lib-mutable-repo-new",
+  "jj-lib-new-commit",
+  "jj-lib-rewrite-commit",
+  "jj-lib-transaction-new",
+  "jj-lib-transaction-commit",
+  "jj-lib-transaction-write-operation",
+]
+
+[groups.jj-query-flow]
+tags = [
+  "jj-lib-revset-parse",
+  "jj-lib-revset-optimize",
+  "jj-lib-revset-resolve-symbols",
+  "jj-lib-revset-resolve-visibility",
+]
+
+[groups.jj-git-flow]
+tags = [
+  "jj-lib-git-import-head",
+  "jj-lib-git-import-refs",
+  "jj-lib-git-export-refs",
+  "jj-lib-git-backend",
+  "jj-lib-git-backend-trait-impl",
+]
+
+[groups.jj-reusable-bank]
+tags = [
+  "jj-cli-runner",
+  "jj-cli-command-helper",
+  "jj-cli-workspace-helper",
+  "jj-cli-start-transaction",
+  "jj-lib-repo-loader",
+  "jj-lib-mutable-repo",
+  "jj-lib-transaction-write-operation",
+  "jj-lib-revset-parse",
+  "jj-lib-revset-optimize",
+  "jj-lib-local-working-copy",
+  "jj-lib-git-import-refs",
+  "jj-lib-git-export-refs",
+]

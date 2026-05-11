@@ -298,6 +298,7 @@ impl TracingSubscription {
 }
 
 #[derive(Clone)]
+// @wrap:jj-cli-command-helper
 pub struct CommandHelper {
     data: Rc<CommandHelperData>,
 }
@@ -468,6 +469,7 @@ impl CommandHelper {
     /// call [`print_snapshot_stats`] with the [`SnapshotStats`] returned by
     /// this function to present possible untracked files to the user.
     #[instrument(skip(self, ui))]
+    // @wrap:jj-cli-workspace-helper
     pub async fn workspace_helper_with_stats(
         &self,
         ui: &Ui,
@@ -1210,6 +1212,7 @@ impl WorkspaceCommandHelper {
     /// call [`print_snapshot_stats`] with the [`SnapshotStats`] returned by
     /// this function to present possible untracked files to the user.
     #[instrument(skip_all)]
+    // @wrap:jj-cli-snapshot-flow
     async fn maybe_snapshot_impl(
         &mut self,
         ui: &Ui,
@@ -2777,6 +2780,7 @@ jj git init",
     }
 }
 
+// @wrap:jj-cli-start-transaction
 pub fn start_repo_transaction(
     repo: &Arc<ReadonlyRepo>,
     workspace_name: &WorkspaceName,
@@ -2817,6 +2821,7 @@ pub fn start_repo_transaction(
 ///
 /// Returns Ok(None) if the workspace doesn't exist in the repo (presumably
 /// because it was deleted).
+// @wrap:jj-cli-stale-working-copy-flow
 async fn handle_stale_working_copy(
     locked_wc: &mut dyn LockedWorkingCopy,
     repo: Arc<ReadonlyRepo>,
@@ -3193,6 +3198,7 @@ pub fn print_unmatched_explicit_paths<'a>(
     Ok(())
 }
 
+// @wrap:jj-cli-update-working-copy
 pub async fn update_working_copy(
     repo: &Arc<ReadonlyRepo>,
     workspace: &mut Workspace,
@@ -4186,6 +4192,7 @@ where
 
 /// CLI command builder and runner.
 #[must_use]
+// @wrap:jj-cli-runner
 pub struct CliRunner<'a> {
     tracing_subscription: TracingSubscription,
     app: Command,
@@ -4208,6 +4215,7 @@ type ProcessGlobalArgsFn<'a> =
 impl<'a> CliRunner<'a> {
     /// Initializes CLI environment and returns a builder. This should be called
     /// as early as possible.
+    // @wrap:jj-cli-runner-init
     pub fn init() -> Self {
         let tracing_subscription = TracingSubscription::init();
         crate::cleanup_guard::init();
@@ -4369,6 +4377,7 @@ impl<'a> CliRunner<'a> {
     }
 
     #[instrument(skip_all)]
+    // @wrap:jj-cli-run-internal
     async fn run_internal(
         self,
         ui: &mut Ui,
@@ -4519,6 +4528,7 @@ impl<'a> CliRunner<'a> {
 
     #[must_use]
     #[instrument(skip(self))]
+    // @wrap:jj-cli-run
     pub fn run(mut self) -> u8 {
         // Tell crossterm to ignore NO_COLOR (we check it ourselves)
         crossterm::style::force_color_output(true);

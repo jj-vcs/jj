@@ -14,6 +14,7 @@
 
 use jj_cli::cli_util::CliRunner;
 
+// @wrap:jj-cli-entry-main
 fn main() -> std::process::ExitCode {
     CliRunner::init().version(env!("JJ_VERSION")).run().into()
 }

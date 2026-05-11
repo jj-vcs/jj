@@ -66,6 +66,7 @@ pub struct Transaction {
 }
 
 impl Transaction {
+    // @wrap:jj-lib-transaction-new
     pub fn new(mut_repo: MutableRepo, user_settings: &UserSettings) -> Self {
         let parent_ops = vec![mut_repo.base_repo().operation().clone()];
         let op_metadata = create_op_metadata(user_settings, "".to_string(), false);
@@ -117,6 +118,7 @@ impl Transaction {
     }
 
     /// Writes the transaction to the operation store and publishes it.
+    // @wrap:jj-lib-transaction-commit
     pub async fn commit(
         self,
         description: impl Into<String>,
@@ -127,6 +129,7 @@ impl Transaction {
     /// Writes the transaction to the operation store, but does not publish it.
     /// That means that a repo can be loaded at the operation, but the
     /// operation will not be seen when loading the repo at head.
+    // @wrap:jj-lib-transaction-write-operation
     pub async fn write(
         mut self,
         description: impl Into<String>,

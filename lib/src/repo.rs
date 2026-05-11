@@ -669,6 +669,7 @@ pub enum RepoLoaderError {
 /// Helps create `ReadonlyRepo` instances of a repo at the head operation or at
 /// a given operation.
 #[derive(Clone)]
+// @wrap:jj-lib-repo-loader
 pub struct RepoLoader {
     settings: UserSettings,
     store: Arc<Store>,
@@ -700,6 +701,7 @@ impl RepoLoader {
     /// Creates a `RepoLoader` for the repo at `repo_path` by reading the
     /// various `.jj/repo/<backend>/type` files and loading the right
     /// backends from `store_factories`.
+    // @wrap:jj-lib-repo-load-from-fs
     pub fn init_from_file_system(
         settings: &UserSettings,
         repo_path: &Path,
@@ -894,6 +896,7 @@ impl Rewrite {
     }
 }
 
+// @wrap:jj-lib-mutable-repo
 pub struct MutableRepo {
     base_repo: Arc<ReadonlyRepo>,
     index: Box<dyn MutableIndex>,
@@ -915,6 +918,7 @@ pub struct MutableRepo {
 }
 
 impl MutableRepo {
+    // @wrap:jj-lib-mutable-repo-new
     pub fn new(base_repo: Arc<ReadonlyRepo>, index: &dyn ReadonlyIndex, view: &View) -> Self {
         let mut_view = view.clone();
         let mut_index = index.start_modification();
@@ -962,12 +966,14 @@ impl MutableRepo {
     }
 
     /// Returns a [`CommitBuilder`] to write new commit to the repo.
+    // @wrap:jj-lib-new-commit
     pub fn new_commit(&mut self, parents: Vec<CommitId>, tree: MergedTree) -> CommitBuilder<'_> {
         let settings = self.base_repo.settings();
         DetachedCommitBuilder::for_new_commit(self, settings, parents, tree).attach(self)
     }
 
     /// Returns a [`CommitBuilder`] to rewrite an existing commit in the repo.
+    // @wrap:jj-lib-rewrite-commit
     pub fn rewrite_commit(&mut self, predecessor: &Commit) -> CommitBuilder<'_> {
         let settings = self.base_repo.settings();
         DetachedCommitBuilder::for_rewrite_from(self, settings, predecessor).attach(self)

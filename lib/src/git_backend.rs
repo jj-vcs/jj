@@ -166,6 +166,7 @@ pub enum GitGcError {
     GcCommandErrorStatus(ExitStatus),
 }
 
+// @wrap:jj-lib-git-backend
 pub struct GitBackend {
     // While gix::Repository can be created from gix::ThreadSafeRepository, it's
     // cheaper to cache the thread-local instance behind a mutex than creating
@@ -1008,6 +1009,7 @@ impl Debug for GitBackend {
 }
 
 #[async_trait]
+// @wrap:jj-lib-git-backend-trait-impl
 impl Backend for GitBackend {
     fn name(&self) -> &str {
         Self::name()

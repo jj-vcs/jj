@@ -1,0 +1,212 @@
+# jj-cli-entry-main  (./cli/src/main.rs:17)
+// @wrap:jj-cli-entry-main
+fn main() -> std::process::ExitCode {
+    CliRunner::init().version(env!("JJ_VERSION")).run().into()
+}
+
+# jj-cli-runner  (./cli/src/cli_util.rs:4195)
+// @wrap:jj-cli-runner
+pub struct CliRunner<'a> {
+    tracing_subscription: TracingSubscription,
+    app: Command,
+    config_layers: Vec<ConfigLayer>,
+    config_migrations: Vec<ConfigMigrationRule>,
+    store_factories: StoreFactories,
+    working_copy_factories: WorkingCopyFactories,
+    workspace_loader_factory: Box<dyn WorkspaceLoaderFactory>,
+    revset_extensions: RevsetExtensions,
+    commit_template_extensions: Vec<Arc<dyn CommitTemplateLanguageExtension>>,
+    operation_template_extensions: Vec<Arc<dyn OperationTemplateLanguageExtension>>,
+    dispatch: BoxedAsyncCliDispatch<'a>,
+    dispatch_hooks: Vec<BoxedAsyncCliDispatchHook<'a>>,
+    process_global_args_fns: Vec<ProcessGlobalArgsFn<'a>>,
+}
+
+# jj-cli-runner-init  (./cli/src/cli_util.rs:4218)
+    // @wrap:jj-cli-runner-init
+    pub fn init() -> Self {
+        let tracing_subscription = TracingSubscription::init();
+        crate::cleanup_guard::init();
+        Self {
+            tracing_subscription,
+            app: crate::commands::default_app(),
+            config_layers: crate::config::default_config_layers(),
+            config_migrations: crate::config::default_config_migrations(),
+            store_factories: StoreFactories::default(),
+            working_copy_factories: default_working_copy_factories(),
+            workspace_loader_factory: Box::new(DefaultWorkspaceLoaderFactory),
+            revset_extensions: Default::default(),
+            commit_template_extensions: vec![],
+            operation_template_extensions: vec![],
+            dispatch: Box::new(AsyncCliDispatchFn(crate::commands::run_command)),
+            dispatch_hooks: vec![],
+            process_global_args_fns: vec![],
+        }
+    }
+
+# jj-cli-run  (./cli/src/cli_util.rs:4531)
+    // @wrap:jj-cli-run
+    pub fn run(mut self) -> u8 {
+        // Tell crossterm to ignore NO_COLOR (we check it ourselves)
+        crossterm::style::force_color_output(true);
+        let config = config_from_environment(self.config_layers.drain(..));
+        // Set up ui assuming the default config has no conditional variables.
+        // If it had, the configuration will be fixed by the next ui.reset().
+        let mut ui = Ui::with_config(config.as_ref())
+            .expect("default config should be valid, env vars are stringly typed");
+        let result = self.run_internal(&mut ui, config).block_on();
+        let exit_code = handle_command_result(&mut ui, result);
+        ui.finalize_pager();
+        exit_code
+    }
+
+# jj-cli-run-internal  (./cli/src/cli_util.rs:4380)
+    // @wrap:jj-cli-run-internal
+    async fn run_internal(
+        self,
+        ui: &mut Ui,
+        mut raw_config: RawConfig,
+    ) -> Result<(), CommandError> {
+        // `cwd` is canonicalized for consistency with `Workspace::workspace_root()` and
+        // to easily compute relative paths between them.
+        let cwd = env::current_dir()
+            .and_then(dunce::canonicalize)
+            .map_err(|_| {
+                user_error("Could not determine current directory").hinted(
+                    "Did you update to a commit where the directory doesn't exist or can't be \
+                     accessed?",
+                )
+            })?;
+        let mut config_env = ConfigEnv::from_environment();
+        let mut last_config_migration_descriptions = Vec::new();
+        let mut migrate_config = |config: &mut StackedConfig| -> Result<(), CommandError> {
+            last_config_migration_descriptions =
+                jj_lib::config::migrate(config, &self.config_migrations)?;
+            Ok(())
+        };
+
+        // Initial load: user, repo, and workspace-level configs for
+        // alias/default-command resolution
+        // Use cwd-relative workspace configs to resolve default command and
+        // aliases. WorkspaceLoader::init() won't do any heavy lifting other
+        // than the path resolution.
+        let maybe_cwd_workspace_loader = self
+            .workspace_loader_factory
+            .create(find_workspace_dir(&cwd))
+            .map_err(|err| map_workspace_load_error(err, Some(".")));
+        config_env.reload_user_config(&mut raw_config)?;
+        if let Ok(loader) = &maybe_cwd_workspace_loader {
+            config_env.reset_repo_path(loader.repo_path());
+            config_env.reload_repo_config(ui, &mut raw_config)?;
+            config_env.reset_workspace_path(loader.workspace_root());
+            config_env.reload_workspace_config(ui, &mut raw_config)?;
+        }
+        let mut config = config_env.resolve_config(&raw_config)?;
+        migrate_config(&mut config)?;
+        ui.reset(&config)?;
+
+        if env::var_os("COMPLETE").is_some_and(|v| !v.is_empty() && v != "0") {
+            return handle_shell_completion(&Ui::null(), &self.app, &config, &cwd);
+        }
+
+        let string_args = expand_args(ui, &self.app, env::args_os(), &config)?;
+        let (args, config_layers) = parse_early_args(&self.app, &string_args)?;
+        if !config_layers.is_empty() {
+            raw_config.as_mut().extend_layers(config_layers);
+            config = config_env.resolve_config(&raw_config)?;
+            migrate_config(&mut config)?;
+            ui.reset(&config)?;
+        }
+
+        if args.has_config_args() {
+            warn_if_args_mismatch(ui, &self.app, &config, &string_args)?;
+        }
+
+        let (matches, args) = parse_args(&self.app, &string_args)
+            .map_err(|err| map_clap_cli_error(err, ui, &config))?;
+        if args.global_args.debug {
+            // TODO: set up debug logging as early as possible
+            self.tracing_subscription.enable_debug_logging()?;
+        }
+        for process_global_args_fn in self.process_global_args_fns {
+            process_global_args_fn(ui, &matches)?;
+        }
+        config_env.set_command_name(command_name(&matches));
+
+        let maybe_workspace_loader = if let Some(path) = &args.global_args.repository {
+            // TODO: maybe path should be canonicalized by WorkspaceLoader?
+            let abs_path = cwd.join(path);
+            let abs_path = dunce::canonicalize(&abs_path).unwrap_or(abs_path);
+            // Invalid -R path is an error. No need to proceed.
+            let loader = self
+                .workspace_loader_factory
+                .create(&abs_path)
+                .map_err(|err| map_workspace_load_error(err, Some(path)))?;
+            config_env.reset_repo_path(loader.repo_path());
+            config_env.reload_repo_config(ui, &mut raw_config)?;
+            config_env.reset_workspace_path(loader.workspace_root());
+            config_env.reload_workspace_config(ui, &mut raw_config)?;
+            Ok(loader)
+        } else {
+            maybe_cwd_workspace_loader
+        };
+
+        // Apply workspace configs, --config arguments, and --when.commands.
+        config = config_env.resolve_config(&raw_config)?;
+        migrate_config(&mut config)?;
+        ui.reset(&config)?;
+
+        // Print only the last migration messages to omit duplicates.
+        for (source, desc) in &last_config_migration_descriptions {
+            let source_str = match source {
+                ConfigSource::Default => "default-provided",
+                ConfigSource::EnvBase | ConfigSource::EnvOverrides => "environment-provided",
+                ConfigSource::User => "user-level",
+                ConfigSource::Repo => "repo-level",
+                ConfigSource::Workspace => "workspace-level",
+                ConfigSource::CommandArg => "CLI-provided",
+            };
+            writeln!(
+                ui.warning_default(),
+                "Deprecated {source_str} config: {desc}"
+            )?;
+        }
+
+        if args.global_args.repository.is_some() {
+            warn_if_args_mismatch(ui, &self.app, &config, &string_args)?;
+        }
+
+        let settings = UserSettings::from_config(config)?;
+        let command_helper_data = CommandHelperData {
+            app: self.app,
+            cwd,
+            string_args,
+            matches,
+            global_args: args.global_args,
+            config_env,
+            config_migrations: self.config_migrations,
+            raw_config,
+            settings,
+            revset_extensions: self.revset_extensions.into(),
+            commit_template_extensions: self.commit_template_extensions,
+            operation_template_extensions: self.operation_template_extensions,
+            maybe_workspace_loader,
+            store_factories: self.store_factories,
+            working_copy_factories: self.working_copy_factories,
+            workspace_loader_factory: self.workspace_loader_factory,
+        };
+        let command_helper = CommandHelper {
+            data: Rc::new(command_helper_data),
+        };
+        let dispatch =
+            self.dispatch_hooks
+                .into_iter()
+                .fold(self.dispatch, |old_dispatch, dispatch_hook| {
+                    let f = async move |ui: &mut Ui, command_helper: &CommandHelper| {
+                        dispatch_hook.call(ui, command_helper, old_dispatch).await
+                    };
+                    Box::new(AsyncCliDispatchFn(f))
+                });
+        dispatch.call(ui, &command_helper).await
+    }
+
