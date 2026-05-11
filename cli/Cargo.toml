@@ -112,6 +112,7 @@ tracing-subscriber = { workspace = true }
 unicode-width = { workspace = true }
 whoami = { workspace = true }
 percent-encoding = { workspace = true }
+mimalloc = "0.1.50"
 
 [target.'cfg(unix)'.dependencies]
 libc = { workspace = true }

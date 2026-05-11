@@ -10,6 +10,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Release highlights
 
+* Switch to the Mimalloc allocator for the `jj` cli tool for better multi-threaded performance.
+
 ### Breaking changes
 
 ### Deprecations

@@ -12,6 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// disable for windows on aarch64 due to test failures
+#[cfg(not(all(target_os = "windows", target_arch = "aarch64")))]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 use jj_cli::cli_util::CliRunner;
 
 fn main() -> std::process::ExitCode {
