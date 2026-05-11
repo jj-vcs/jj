@@ -83,7 +83,7 @@ pub struct UploadArgs {
     ///
     /// This should be a branch on the remote. Can be configured with the
     /// `gerrit.default-remote-branch` repository option.
-    #[arg(long = "remote-branch", short = 'b')]
+    #[arg(long, short = 'b')]
     remote_branch: Option<String>,
 
     /// The Gerrit remote to push to
@@ -94,7 +94,7 @@ pub struct UploadArgs {
     remote: Option<String>,
 
     /// Do not actually push the changes to Gerrit
-    #[arg(long = "dry-run", short = 'n')]
+    #[arg(long, short = 'n')]
     dry_run: bool,
 
     // The following flags are options Gerrit supports during upload.
@@ -114,7 +114,7 @@ pub struct UploadArgs {
     /// Defaults to +1 if no value is set.
     /// Eg. --label=Commit-Queue will set the Commit-Queue label to +1.
     /// Eg. --label=Commit-Queue+2 will set it to +2.
-    #[arg(long, short = 'l')]
+    #[arg(long, short)]
     label: Vec<String>,
 
     /// Applies a topic to the change
@@ -138,7 +138,7 @@ pub struct UploadArgs {
     hashtag: Vec<String>,
 
     /// A patch set description for the new patch set
-    #[arg(long, short = 'm')]
+    #[arg(long, short)]
     message: Option<String>,
 
     /// Push the change as a change edit
