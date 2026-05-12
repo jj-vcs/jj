@@ -776,7 +776,7 @@ async fn record_synthetic_predecessors(
     abandoned_commits: &[Commit],
     imported_commits: &[Commit],
 ) -> Result<(), GitImportError> {
-    if new_referenced_heads.is_empty() || abandoned_commits.is_empty() {
+    if new_referenced_heads.is_empty() {
         return Ok(());
     }
 
@@ -813,9 +813,18 @@ async fn record_synthetic_predecessors(
     );
 
     for (change_id, new_commit_ids) in &new_referenced_change_to_commit_ids {
-        let Some(old_commit_ids) = abandoned_change_to_commit_ids.get(change_id) else {
-            continue;
-        };
+        let predecessor_id: Option<CommitId>;
+        let rewrite_source_ids: &[&CommitId];
+        if let Some(old_commit_ids) = abandoned_change_to_commit_ids.get(change_id) {
+            // Pick the latest one if previously diverged. Divergence isn't
+            // usually resolved by "squashing" the commits.
+            predecessor_id = Some(old_commit_ids[0].clone());
+            rewrite_source_ids = old_commit_ids;
+        } else {
+            // Record as newly created commit
+            predecessor_id = None;
+            rewrite_source_ids = &[];
+        }
         // Predecessors are recorded only for newly imported commits to prevent
         // cycles in the evolution graph. While this restriction can be lifted
         // later, note that the existing predecessor chain may be more detailed
@@ -824,16 +833,14 @@ async fn record_synthetic_predecessors(
             .iter()
             .filter(|&id| imported_commit_ids.contains(id))
         {
-            // Pick the latest one if previously diverged. Divergence isn't
-            // usually resolved by "squashing" the commits.
-            mut_repo.set_predecessors(new_commit_id.clone(), vec![old_commit_ids[0].clone()]);
+            mut_repo.set_predecessors(new_commit_id.clone(), predecessor_id.as_slice().to_vec());
         }
         if let [new_commit_id] = &**new_commit_ids {
-            for &old_commit_id in old_commit_ids {
+            for &old_commit_id in rewrite_source_ids {
                 mut_repo.set_rewritten_commit(old_commit_id.clone(), new_commit_id.clone());
             }
         } else {
-            for &old_commit_id in old_commit_ids {
+            for &old_commit_id in rewrite_source_ids {
                 mut_repo
                     .set_divergent_rewrite(old_commit_id.clone(), new_commit_ids.iter().cloned());
             }

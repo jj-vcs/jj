@@ -24,6 +24,7 @@ use jj_lib::git;
 use jj_lib::git::FetchTagsOverride;
 use jj_lib::git::GitFetch;
 use jj_lib::git::GitFetchRefExpression;
+use jj_lib::git::GitImportOptions;
 use jj_lib::git::GitSettings;
 use jj_lib::git::expand_fetch_refspecs;
 use jj_lib::ref_name::RefName;
@@ -383,7 +384,12 @@ async fn fetch_new_remote(
     let git_settings = GitSettings::from_settings(settings)?;
     let remote_settings = settings.remote_settings()?;
     let subprocess_options = git_settings.to_subprocess_options();
-    let import_options = load_git_import_options(ui, &git_settings, &remote_settings)?;
+    let import_options = GitImportOptions {
+        // There may be a large number of new commits. Don't record synthetic
+        // predecessors.
+        record_synthetic_predecessors: false,
+        ..load_git_import_options(ui, &git_settings, &remote_settings)?
+    };
     let should_track_default = settings.get_bool("git.track-default-bookmark-on-clone")?;
     let mut tx = workspace_command.start_transaction();
     let (default_branch, import_stats) = {

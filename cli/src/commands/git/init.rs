@@ -21,6 +21,7 @@ use std::sync::Arc;
 use itertools::Itertools as _;
 use jj_lib::file_util;
 use jj_lib::git;
+use jj_lib::git::GitImportOptions;
 use jj_lib::git::GitRefKind;
 use jj_lib::git::GitSettings;
 use jj_lib::git::parse_git_ref;
@@ -253,10 +254,15 @@ async fn init_git_refs(
 ) -> Result<Arc<ReadonlyRepo>, CommandError> {
     let git_settings = GitSettings::from_settings(repo.settings())?;
     let remote_settings = repo.settings().remote_settings()?;
-    let mut import_options = load_git_import_options(ui, &git_settings, &remote_settings)?;
+    let import_options = GitImportOptions {
+        // There should be no old refs to abandon, but enforce it.
+        abandon_unreachable_commits: false,
+        // There may be a large number of new commits. Don't record synthetic
+        // predecessors.
+        record_synthetic_predecessors: false,
+        ..load_git_import_options(ui, &git_settings, &remote_settings)?
+    };
     let mut tx = start_repo_transaction(&repo, workspace.workspace_name(), string_args);
-    // There should be no old refs to abandon, but enforce it.
-    import_options.abandon_unreachable_commits = false;
     let stats = git::import_refs(tx.repo_mut(), &import_options).await?;
     print_git_import_stats_summary(ui, &stats)?;
     if !tx.repo().has_changes() {

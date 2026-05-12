@@ -259,6 +259,15 @@ fn test_git_init_external_with_colocate_config() {
     [EOF]
     "#);
     }
+
+    // Evolution history should be omitted for the "init" operation
+    let work_dir = test_env.work_dir("repo");
+    let output = work_dir.run_jj(["evolog", "-r..remote_bookmarks(remote=git)"]);
+    insta::assert_snapshot!(output, @"
+    ○  nntyzxmz someone@example.org 1970-01-01 11:00:00 my-bookmark e80a42cc
+       My commit message
+    [EOF]
+    ");
 }
 
 #[test_case(false; "full")]

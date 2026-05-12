@@ -82,6 +82,14 @@ fn test_git_clone() {
     [EOF]
     ");
 
+    // Evolution history should be omitted for the "clone" operation
+    let output = clone_dir.run_jj(["evolog", "-r..remote_bookmarks()"]);
+    insta::assert_snapshot!(output, @"
+    ◆  qomsplrm someone@example.org 1970-01-01 11:00:00 main ebeb70d8
+       message
+    [EOF]
+    ");
+
     // Failed clone should clean up the destination directory
     root_dir.create_dir("bad");
     let output = root_dir.run_jj(["git", "clone", "bad", "failed"]);
@@ -174,7 +182,7 @@ fn test_git_clone() {
     Fetching into new repo in "$TEST_ENV/nested/path/to/repo"
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
-    Working copy  (@) now at: vzqnnsmr fea36bca (empty) (no description set)
+    Working copy  (@) now at: msksykpx 5ed2b734 (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]

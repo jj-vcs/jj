@@ -1550,12 +1550,20 @@ fn test_import_refs_synthetic_predecessors_simple(
             main_repo.operation().predecessors_for_commit(commit1b.id()),
             Some(slice::from_ref(commit1a.id()))
         );
+        assert_eq!(
+            main_repo.operation().predecessors_for_commit(commit3b.id()),
+            Some([].as_slice())
+        );
         // Descendants should be rebased onto 1B
         assert_eq!(commit2c.parent_ids(), slice::from_ref(commit1b.id()));
     } else {
         // Synthetic predecessors shouldn't be recorded
         assert_eq!(
             main_repo.operation().predecessors_for_commit(commit1b.id()),
+            None
+        );
+        assert_eq!(
+            main_repo.operation().predecessors_for_commit(commit3b.id()),
             None
         );
         // Descendants should be rebased onto root
