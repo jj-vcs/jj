@@ -53,6 +53,7 @@ commit description in JJ.
 > set.
 
 ### Upload a single change
+
 ```shell
 # Upload @ if it has a description, otherwise uploads @-
 $ jj gerrit upload
@@ -77,23 +78,23 @@ Use `--dry-run` to see which commits would be modified and pushed, and where,
 without changing anything or contacting the remote.
 
 ```shell
-$ jj gerrit upload -r '@-' --remote-branch main --dry-run
+$ jj gerrit upload -r @- --remote-branch main --dry-run
 ```
 
 ## Target branch and remote selection
 
-There are a few way of specifying the target remote for your projects:
+There are a few ways of specifying the target branch for your projects:
 
-- Please run `jj config set --user gerrit.default-remote-branch <branch name>` to set your
-  default branch across all repos
-- Please run `jj config set --repo gerrit.default-remote-branch <branch name>` to set your
-  default branch for this specific repo.
-- Use `--remote-branch <branch name>` to override this for one specific occasion.
+- Run `jj config set --user gerrit.default-remote-branch <branch name>` to set
+  the default branch across all repos.
+- Run `jj config set --repo gerrit.default-remote-branch <branch name>` to set
+  the default branch for a specific repo.
+- Use `--remote-branch <branch name>` to override this on a specific occasion.
 
 The remote used to push is determined as follows:
 
-- If you have more than one origin, or the origin isn't called gerrit, run
-  `jj config set --repo gerrit.default_remote <gerrit remote name>` to set-up a
+- If you have more than one origin, or the origin isn't called `gerrit`, run
+  `jj config set --repo gerrit.default_remote <gerrit remote name>` to set up a
   default remote.
 - To upload to a specific remote as a one-off thing, use `--remote <remote name>`
 
@@ -108,7 +109,7 @@ Examples:
 ```shell
 # Edit an earlier commit in the stack
 $ jj edit xcv  # position on the stack to edit
- --- Apply needed edits ---
+# Apply needed edits, then upload the updates
 $ jj gerrit upload -r xcv
 ```
 
