@@ -1685,14 +1685,17 @@ impl MutableRepo {
     }
 
     /// Adds the given `heads` and ancestor commits to the index without making
-    /// them visible.
-    pub async fn index_commits(&mut self, heads: &[Commit]) -> BackendResult<()> {
+    /// them visible. Returns newly-indexed commits.
+    pub async fn index_commits(&mut self, heads: &[Commit]) -> BackendResult<Vec<Commit>> {
         let missing_commits = dag_walk_async::topo_order_reverse_ord(
             heads
                 .iter()
-                .cloned()
-                .map(CommitByCommitterTimestamp)
-                .map(Ok),
+                .filter_map(|commit| match self.index().has_id(commit.id()) {
+                    Ok(false) => Some(Ok(CommitByCommitterTimestamp(commit.clone()))),
+                    Ok(true) => None,
+                    // TODO: indexing error shouldn't be a "BackendError"
+                    Err(err) => Some(Err(BackendError::Other(err.into()))),
+                }),
             |CommitByCommitterTimestamp(commit)| commit.id().clone(),
             async |CommitByCommitterTimestamp(commit)| {
                 stream::iter(commit.parent_ids())
@@ -1720,7 +1723,11 @@ impl MutableRepo {
                 // TODO: indexing error shouldn't be a "BackendError"
                 .map_err(|err| BackendError::Other(err.into()))?;
         }
-        Ok(())
+        let indexed_commits = missing_commits
+            .into_iter()
+            .map(|CommitByCommitterTimestamp(commit)| commit)
+            .collect();
+        Ok(indexed_commits)
     }
 
     pub fn get_local_bookmark(&self, name: &RefName) -> RefTarget {
