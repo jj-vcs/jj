@@ -18,9 +18,10 @@ jj diff --from 'heads(tags())' --to main CHANGELOG.md
 ```
 
 Make sure to add a corresponding reference link at the bottom of the
-CHANGELOG for the new version's tag. It should be the github url comparing
+CHANGELOG for the new version's tag. It should be the GitHub URL comparing
 the previous version tag with the new version tag
-(e.g. `https://github.com/jj-vcs/jj/compare/v0.32.0...v0.33.0`).
+(e.g. `https://github.com/jj-vcs/jj/compare/v0.32.0...v0.33.0`). Also update the
+`[unreleased]` link accordingly, comparing the newest version against `HEAD`.
 
 Producing the list of contributors is a bit annoying. The current suggestion is
 to run something like this:
