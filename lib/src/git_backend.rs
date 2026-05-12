@@ -62,6 +62,7 @@ use crate::backend::CopyHistory;
 use crate::backend::CopyId;
 use crate::backend::CopyRecord;
 use crate::backend::FileId;
+use crate::backend::FileMetadata;
 use crate::backend::MillisSinceEpoch;
 use crate::backend::RelatedCopy;
 use crate::backend::SecureSig;
@@ -1035,6 +1036,21 @@ impl Backend for GitBackend {
 
     fn concurrency(&self) -> usize {
         1
+    }
+
+    async fn get_file_metadata(
+        &self,
+        _path: &RepoPath,
+        id: &FileId,
+    ) -> BackendResult<FileMetadata> {
+        let git_blob_id = validate_git_object_id(id)?;
+        let locked_repo = self.lock_git_repo();
+        let header = locked_repo
+            .find_header(git_blob_id)
+            .map_err(|err| map_not_found_err(err, id))?;
+        Ok(FileMetadata {
+            size: header.size(),
+        })
     }
 
     async fn read_file(

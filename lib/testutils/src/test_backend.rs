@@ -41,6 +41,7 @@ use jj_lib::backend::CopyHistory;
 use jj_lib::backend::CopyId;
 use jj_lib::backend::CopyRecord;
 use jj_lib::backend::FileId;
+use jj_lib::backend::FileMetadata;
 use jj_lib::backend::RelatedCopy;
 use jj_lib::backend::SecureSig;
 use jj_lib::backend::SigningFn;
@@ -197,6 +198,24 @@ impl Backend for TestBackend {
     fn concurrency(&self) -> usize {
         // Not optimal, just for testing the async code more
         10
+    }
+
+    async fn get_file_metadata(&self, path: &RepoPath, id: &FileId) -> BackendResult<FileMetadata> {
+        let path = path.to_owned();
+        let id = id.clone();
+        self.run_async(
+            move |data| match data.files.get(&path).and_then(|items| items.get(&id)) {
+                None => Err(BackendError::ObjectNotFound {
+                    object_type: "file".to_string(),
+                    hash: id.hex(),
+                    source: format!("at path {path:?}").into(),
+                }),
+                Some(item) => Ok(FileMetadata {
+                    size: item.len() as u64,
+                }),
+            },
+        )
+        .await
     }
 
     async fn read_file(

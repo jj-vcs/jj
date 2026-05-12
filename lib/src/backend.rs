@@ -533,6 +533,12 @@ pub fn make_root_commit(root_change_id: ChangeId, empty_tree_id: TreeId) -> Comm
     }
 }
 
+/// Metadata describing a file
+pub struct FileMetadata {
+    /// Number of bytes contained in the file
+    pub size: u64,
+}
+
 /// Defines the interface for commit backends.
 #[async_trait]
 pub trait Backend: Any + Send + Sync + Debug {
@@ -568,6 +574,9 @@ pub trait Backend: Any + Send + Sync + Debug {
     /// sent. It is the backend's responsibility to make sure it doesn't put
     /// too much load on its storage, e.g. by queueing requests if necessary.
     fn concurrency(&self) -> usize;
+
+    /// Returns metadata describing a file.
+    async fn get_file_metadata(&self, path: &RepoPath, id: &FileId) -> BackendResult<FileMetadata>;
 
     /// Returns a reader for reading the contents of a file from the backend.
     async fn read_file(
