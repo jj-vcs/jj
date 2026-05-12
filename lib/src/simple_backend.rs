@@ -18,6 +18,8 @@ use std::fmt::Debug;
 use std::fs;
 use std::fs::File;
 use std::io::Read as _;
+use std::io::Seek as _;
+use std::io::SeekFrom;
 use std::io::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
@@ -184,11 +186,13 @@ impl Backend for SimpleBackend {
         &self,
         path: &RepoPath,
         id: &FileId,
+        offset: u64,
     ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>> {
         let disk_path = self.file_path(id);
         let mut file = File::open(disk_path).map_err(|err| map_not_found_err(err, id))?;
         let mut buf = vec![];
-        file.read_to_end(&mut buf)
+        file.seek(SeekFrom::Start(offset))
+            .and_then(|_| file.read_to_end(&mut buf))
             .map_err(|err| BackendError::ReadFile {
                 path: path.to_owned(),
                 id: id.clone(),

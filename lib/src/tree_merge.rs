@@ -477,7 +477,7 @@ async fn try_resolve_file_conflict(
     let contents = file_id_conflict
         .try_map_async(async |file_id| {
             let mut content = vec![];
-            let mut reader = store.read_file(filename, file_id).await?;
+            let mut reader = store.read_file(filename, file_id, 0).await?;
             reader
                 .read_to_end(&mut content)
                 .await
