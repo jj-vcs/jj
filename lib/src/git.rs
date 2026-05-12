@@ -35,6 +35,7 @@ use itertools::Itertools as _;
 use thiserror::Error;
 
 use crate::backend::BackendError;
+use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::backend::TreeValue;
 use crate::commit::Commit;
@@ -515,6 +516,8 @@ pub struct GitImportOptions {
     pub auto_local_bookmark: bool,
     /// Whether to abandon commits that became unreachable in Git.
     pub abandon_unreachable_commits: bool,
+    /// Whether to generate synthetic predecessors for imported commits.
+    pub record_synthetic_predecessors: bool,
     /// Per-remote patterns whether to track bookmarks automatically.
     pub remote_auto_track_bookmarks: HashMap<RemoteNameBuf, StringMatcher>,
 }
@@ -614,6 +617,7 @@ async fn import_refs_inner(
         }
         (old_heads, new_heads)
     };
+    let old_visible_heads = mut_repo.view().heads().iter().cloned().collect_vec();
 
     // Bulk-import all reachable Git commits to the backend to reduce overhead
     // of table merging and ref updates.
@@ -656,6 +660,7 @@ async fn import_refs_inner(
     }
     // It's unlikely the imported commits were missing, but I/O-related error
     // can still occur.
+    let imported_commits = mut_repo.index_commits(&head_commits).await?;
     mut_repo.add_heads(&head_commits).await?;
 
     // Apply the change that happened in git since last time we imported refs.
@@ -704,6 +709,16 @@ async fn import_refs_inner(
     } else {
         vec![]
     };
+    if options.record_synthetic_predecessors {
+        record_synthetic_predecessors(
+            mut_repo,
+            old_visible_heads,
+            new_referenced_heads,
+            &abandoned_commits,
+            &imported_commits,
+        )
+        .await?;
+    }
     let stats = GitImportStats {
         abandoned_commits,
         changed_remote_bookmarks,
@@ -744,6 +759,85 @@ async fn abandon_unreachable_commits(
         mut_repo.record_abandoned_commit(commit);
     }
     Ok(abandoned_commits)
+}
+
+/// Deduces predecessors of `old_visible_heads..new_referenced_heads` based on
+/// change IDs, records synthetic predecessors, and updates parent mappings.
+///
+/// The `imported_commits` should exclude any pre-existing commits, including
+/// those that were previously hidden.
+async fn record_synthetic_predecessors(
+    mut_repo: &mut MutableRepo,
+    old_visible_heads: Vec<CommitId>,
+    new_referenced_heads: Vec<CommitId>,
+    abandoned_commits: &[Commit],
+    imported_commits: &[Commit],
+) -> Result<(), GitImportError> {
+    if new_referenced_heads.is_empty() || abandoned_commits.is_empty() {
+        return Ok(());
+    }
+
+    let new_referenced_change_to_commit_ids = {
+        let mut change_to_commit_ids: HashMap<ChangeId, Vec<CommitId>> = HashMap::new();
+        let mut stream = RevsetExpression::commits(old_visible_heads)
+            .range(&RevsetExpression::commits(new_referenced_heads))
+            .evaluate(mut_repo)?
+            .commit_change_ids();
+        while let Some((commit_id, change_id)) = stream.try_next().await? {
+            let commit_ids = change_to_commit_ids.entry(change_id).or_default();
+            commit_ids.push(commit_id);
+        }
+        change_to_commit_ids
+    };
+    // TODO: Maybe we can use new_referenced_heads..old_referenced_heads as
+    // predecessor candidates. If abandon_unreachable_commits is set, we can
+    // mark them as "rewritten" in addition to the current abandoned commits.
+    let abandoned_change_to_commit_ids = {
+        let mut change_to_commit_ids: HashMap<&ChangeId, Vec<&CommitId>> = HashMap::new();
+        for commit in abandoned_commits {
+            let commit_ids = change_to_commit_ids.entry(commit.change_id()).or_default();
+            commit_ids.push(commit.id());
+        }
+        change_to_commit_ids
+    };
+    let imported_commit_ids: HashSet<_> = imported_commits.iter().map(Commit::id).collect();
+    debug_assert!(
+        new_referenced_change_to_commit_ids
+            .values()
+            .flatten()
+            .all(|new_id| abandoned_commits.iter().all(|old| old.id() != new_id)),
+        "new referenced commits should never be reachable from old refs"
+    );
+
+    for (change_id, new_commit_ids) in &new_referenced_change_to_commit_ids {
+        let Some(old_commit_ids) = abandoned_change_to_commit_ids.get(change_id) else {
+            continue;
+        };
+        // Predecessors are recorded only for newly imported commits to prevent
+        // cycles in the evolution graph. While this restriction can be lifted
+        // later, note that the existing predecessor chain may be more detailed
+        // than "imported from Git" if the original commits were created locally.
+        for new_commit_id in new_commit_ids
+            .iter()
+            .filter(|&id| imported_commit_ids.contains(id))
+        {
+            // Pick the latest one if previously diverged. Divergence isn't
+            // usually resolved by "squashing" the commits.
+            mut_repo.set_predecessors(new_commit_id.clone(), vec![old_commit_ids[0].clone()]);
+        }
+        if let [new_commit_id] = &**new_commit_ids {
+            for &old_commit_id in old_commit_ids {
+                mut_repo.set_rewritten_commit(old_commit_id.clone(), new_commit_id.clone());
+            }
+        } else {
+            for &old_commit_id in old_commit_ids {
+                mut_repo
+                    .set_divergent_rewrite(old_commit_id.clone(), new_commit_ids.iter().cloned());
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// Calculates diff of git refs to be imported.

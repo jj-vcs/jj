@@ -26,6 +26,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj show` now accepts multiple revisions, showing all of them one after the
   other, behaving closer to `git show`.
 
+* `jj git fetch` now generates evolution history based on change IDs. If change
+  IDs are preserved by the remote, local descendant revisions will be rebased
+  onto the rewritten parents.
+
 ### Fixed bugs
 
 * `jj bookmark forget` no longer prints `Forgot N local bookmarks.` when no

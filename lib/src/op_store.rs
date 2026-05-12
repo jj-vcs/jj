@@ -374,8 +374,8 @@ pub struct Operation {
     /// `X` was rewritten as `Y`, then rebased as `Z`, these modifications are
     /// recorded as `{Y: [X], Z: [Y]}`.
     ///
-    /// Existing commits (including commits imported from Git) aren't tracked
-    /// even if they became visible at this operation.
+    /// Existing commits (including some commits imported from Git) aren't
+    /// tracked even if they became visible at this operation.
     // BTreeMap for ease of deterministic serialization. If the deserialization
     // cost matters, maybe this can be changed to sorted Vec.
     #[serde(skip)] // TODO: should be exposed?
