@@ -31,6 +31,9 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub struct BookmarkCreateArgs {
     /// The bookmark's target revision
+    //
+    // The `--to` alias exists for making it easier for the user to switch
+    // between `bookmark create`, `bookmark move`, and `bookmark set`.
     #[arg(
         long,
         short,
