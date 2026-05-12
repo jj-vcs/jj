@@ -84,7 +84,7 @@ $ jj gerrit upload -r '@-' --remote-branch main --dry-run
 
 ## Target branch and remote selection
 
-There are a few way of specifying the target remote for your projects:
+There are a few ways of specifying the target remote for your projects:
 
 - Run `jj config set --user gerrit.default-remote <remote name>` to set your
   default remote across all repos.
@@ -116,7 +116,7 @@ Examples:
 ```shell
 # Edit an earlier commit in the stack
 $ jj edit xyz  # position on the stack to edit
- --- Apply needed edits ---
+# Apply needed edits, then upload the updates
 $ jj gerrit upload -r xyz
 ```
 
