@@ -1669,39 +1669,7 @@ impl MutableRepo {
                 }
             }
             _ => {
-                let missing_commits = dag_walk_async::topo_order_reverse_ord(
-                    heads
-                        .iter()
-                        .cloned()
-                        .map(CommitByCommitterTimestamp)
-                        .map(Ok),
-                    |CommitByCommitterTimestamp(commit)| commit.id().clone(),
-                    async |CommitByCommitterTimestamp(commit)| {
-                        stream::iter(commit.parent_ids())
-                            .filter_map(async |id| match self.index().has_id(id) {
-                                Ok(false) => Some(
-                                    self.store()
-                                        .get_commit_async(id)
-                                        .await
-                                        .map(CommitByCommitterTimestamp),
-                                ),
-                                Ok(true) => None,
-                                // TODO: indexing error shouldn't be a "BackendError"
-                                Err(err) => Some(Err(BackendError::Other(err.into()))),
-                            })
-                            .collect::<Vec<_>>()
-                            .await
-                    },
-                    |_| panic!("graph has cycle"),
-                )
-                .await?;
-                for CommitByCommitterTimestamp(missing_commit) in missing_commits.iter().rev() {
-                    self.index
-                        .add_commit(missing_commit)
-                        .await
-                        // TODO: indexing error shouldn't be a "BackendError"
-                        .map_err(|err| BackendError::Other(err.into()))?;
-                }
+                self.index_commits(heads).await?;
                 for head in heads {
                     self.view.get_mut().add_head(head.id());
                 }
@@ -1714,6 +1682,45 @@ impl MutableRepo {
     pub fn remove_head(&mut self, head: &CommitId) {
         self.view_mut().remove_head(head);
         self.view.mark_dirty();
+    }
+
+    /// Adds the given `heads` and ancestor commits to the index without making
+    /// them visible.
+    pub async fn index_commits(&mut self, heads: &[Commit]) -> BackendResult<()> {
+        let missing_commits = dag_walk_async::topo_order_reverse_ord(
+            heads
+                .iter()
+                .cloned()
+                .map(CommitByCommitterTimestamp)
+                .map(Ok),
+            |CommitByCommitterTimestamp(commit)| commit.id().clone(),
+            async |CommitByCommitterTimestamp(commit)| {
+                stream::iter(commit.parent_ids())
+                    .filter_map(async |id| match self.index().has_id(id) {
+                        Ok(false) => Some(
+                            self.store()
+                                .get_commit_async(id)
+                                .await
+                                .map(CommitByCommitterTimestamp),
+                        ),
+                        Ok(true) => None,
+                        // TODO: indexing error shouldn't be a "BackendError"
+                        Err(err) => Some(Err(BackendError::Other(err.into()))),
+                    })
+                    .collect::<Vec<_>>()
+                    .await
+            },
+            |_| panic!("graph has cycle"),
+        )
+        .await?;
+        for CommitByCommitterTimestamp(missing_commit) in missing_commits.iter().rev() {
+            self.index
+                .add_commit(missing_commit)
+                .await
+                // TODO: indexing error shouldn't be a "BackendError"
+                .map_err(|err| BackendError::Other(err.into()))?;
+        }
+        Ok(())
     }
 
     pub fn get_local_bookmark(&self, name: &RefName) -> RefTarget {
