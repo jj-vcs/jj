@@ -35,7 +35,6 @@ use itertools::Itertools as _;
 use thiserror::Error;
 
 use crate::backend::BackendError;
-use crate::backend::BackendResult;
 use crate::backend::CommitId;
 use crate::backend::TreeValue;
 use crate::commit::Commit;
@@ -70,6 +69,7 @@ use crate::ref_name::RemoteRefSymbolBuf;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::repo_path::RepoPath;
+use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExpression;
 use crate::settings::UserSettings;
 use crate::store::Store;
@@ -494,6 +494,8 @@ pub enum GitImportError {
     #[error(transparent)]
     Index(#[from] IndexError),
     #[error(transparent)]
+    RevsetEvaluation(#[from] RevsetEvaluationError),
+    #[error(transparent)]
     Git(Box<dyn std::error::Error + Send + Sync>),
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
@@ -704,7 +706,7 @@ async fn abandon_unreachable_commits(
     mut_repo: &mut MutableRepo,
     changed_remote_bookmarks: &[(RemoteRefSymbolBuf, (RemoteRef, RefTarget))],
     changed_remote_tags: &[(RemoteRefSymbolBuf, (RemoteRef, RefTarget))],
-) -> BackendResult<Vec<CommitId>> {
+) -> Result<Vec<CommitId>, GitImportError> {
     let hidable_git_heads = itertools::chain(changed_remote_bookmarks, changed_remote_tags)
         .flat_map(|(_, (old_remote_ref, _))| old_remote_ref.target.added_ids())
         .cloned()
@@ -725,12 +727,10 @@ async fn abandon_unreachable_commits(
         // Don't include already-abandoned commits in GitImportStats
         .intersection(&RevsetExpression::visible_heads().ancestors());
     let abandoned_commit_ids: Vec<_> = abandoned_expression
-        .evaluate(mut_repo)
-        .map_err(|err| err.into_backend_error())?
+        .evaluate(mut_repo)?
         .stream()
         .try_collect()
-        .await
-        .map_err(|err| err.into_backend_error())?;
+        .await?;
     for id in &abandoned_commit_ids {
         let commit = mut_repo.store().get_commit_async(id).await?;
         mut_repo.record_abandoned_commit(&commit);

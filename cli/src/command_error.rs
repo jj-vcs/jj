@@ -553,6 +553,7 @@ jj currently does not support partial clones. To use jj with this repository, tr
                 ),
                 GitImportError::Backend(_) => None,
                 GitImportError::Index(_) => None,
+                GitImportError::RevsetEvaluation(_) => None,
                 GitImportError::Git(_) => None,
                 GitImportError::UnexpectedBackend(_) => None,
             };
