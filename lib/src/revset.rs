@@ -1865,11 +1865,8 @@ where
         }
         RevsetExpression::HasSize { candidates, count } => {
             let candidates = folder.fold_expression(candidates)?;
-            RevsetExpression::HasSize {
-                candidates,
-                count: *count,
-            }
-            .into()
+            let count = *count;
+            RevsetExpression::HasSize { candidates, count }.into()
         }
         RevsetExpression::Latest { candidates, count } => {
             let candidates = folder.fold_expression(candidates)?;
