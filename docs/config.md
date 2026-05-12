@@ -1871,6 +1871,17 @@ abandon-unreachable-commits = false
 
 [reachable]: https://git-scm.com/docs/gitglossary/#Documentation/gitglossary.txt-aiddefreachableareachable
 
+### Replicating evolution history for fetched or imported Git commits
+
+By default, when `jj` imports commits from Git, it attempts to reconstruct their
+evolution history using change IDs. If you are importing a large number of
+commits, you can temporarily disable this behavior to improve performance:
+
+```toml
+[git]
+record-synthetic-predecessors = false
+```
+
 ### Generated bookmark names on push
 
 `jj git push --change` generates bookmark names with a prefix of "push-" by

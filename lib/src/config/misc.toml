@@ -13,6 +13,7 @@ register-snapshot-trigger = false
 abandon-unreachable-commits = true
 auto-local-bookmark = false
 executable-path = "git"
+record-synthetic-predecessors = true
 write-change-id-header = true
 
 [merge]

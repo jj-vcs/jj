@@ -5,6 +5,7 @@ abandon-unreachable-commits = false
 push-new-bookmarks = true
 fetch = ["origin", "fork"]
 push = "fork"
+record-synthetic-predecessors = false
 sign-on-push = true
 subprocess = false
 write-change-id-header = true

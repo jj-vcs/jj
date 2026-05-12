@@ -211,7 +211,7 @@ pub fn load_git_import_options(
     Ok(GitImportOptions {
         auto_local_bookmark: git_settings.auto_local_bookmark,
         abandon_unreachable_commits: git_settings.abandon_unreachable_commits,
-        record_synthetic_predecessors: true,
+        record_synthetic_predecessors: git_settings.record_synthetic_predecessors,
         remote_auto_track_bookmarks: parse_remote_auto_track_bookmarks_map(ui, remote_settings)?,
     })
 }

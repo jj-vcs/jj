@@ -516,6 +516,11 @@
                     "description": "The remote to which commits are pushed",
                     "default": "origin"
                 },
+                "record-synthetic-predecessors": {
+                    "type": "boolean",
+                    "description": "Whether to generate synthetic predecessors for fetched/imported commits",
+                    "default": true
+                },
                 "sign-on-push": {
                     "type": "boolean",
                     "description": "Whether jj should sign commits before pushing",

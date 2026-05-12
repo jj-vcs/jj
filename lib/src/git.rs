@@ -100,6 +100,7 @@ pub struct GitSettings {
     pub auto_local_bookmark: bool,
     pub abandon_unreachable_commits: bool,
     pub executable_path: PathBuf,
+    pub record_synthetic_predecessors: bool,
     pub write_change_id_header: bool,
 }
 
@@ -109,6 +110,8 @@ impl GitSettings {
             auto_local_bookmark: settings.get_bool("git.auto-local-bookmark")?,
             abandon_unreachable_commits: settings.get_bool("git.abandon-unreachable-commits")?,
             executable_path: settings.get("git.executable-path")?,
+            record_synthetic_predecessors: settings
+                .get_bool("git.record-synthetic-predecessors")?,
             write_change_id_header: settings.get("git.write-change-id-header")?,
         })
     }
