@@ -35,6 +35,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   IDs are preserved by the remote, local descendant revisions will be rebased
   onto the rewritten parents.
 
+* Added `jj util backend name` command that prints the backend being used in the
+  current repo.
+
 ### Fixed bugs
 
 * `jj bookmark forget` no longer prints `Forgot N local bookmarks.` when no
