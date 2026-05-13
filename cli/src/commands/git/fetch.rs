@@ -126,6 +126,25 @@ pub struct GitFetchArgs {
     /// Fetch from all remotes
     #[arg(long, conflicts_with = "remotes")]
     all_remotes: bool,
+
+    /// Rewrite changes from upstream in place instead of creating divergent
+    /// changes
+    ///
+    /// When upstream rewrites a change (e.g. amends or rebases) and you fetch
+    /// the new revision, the default behavior is to keep your old revision
+    /// alongside the new one as a divergent change. With `--rebase`, the
+    /// incoming revision rewrites your existing revision in place: bookmarks,
+    /// the working copy, and descendants are moved onto the new revision, and
+    /// the old revision is hidden.
+    ///
+    /// If upstream rewrites a stack of changes, rewrite mappings are recorded
+    /// for every change in the stack, not only the head. Aborts if any change
+    /// is already divergent in your repo before the fetch, or if the fetch
+    /// itself introduces multiple new revisions for the same change. All such
+    /// problems are reported in one error so you can resolve them together
+    /// before retrying.
+    #[arg(long)]
+    rebase: bool,
 }
 
 #[tracing::instrument(skip_all)]
@@ -230,7 +249,8 @@ pub async fn cmd_git_fetch(
     }
 
     let git_settings = GitSettings::from_settings(tx.settings())?;
-    let import_options = load_git_import_options(ui, &git_settings, &remote_settings)?;
+    let mut import_options = load_git_import_options(ui, &git_settings, &remote_settings)?;
+    import_options.replace_divergent_changes = args.rebase;
     let mut git_fetch = GitFetch::new(
         tx.repo_mut(),
         git_settings.to_subprocess_options(),
@@ -245,7 +265,16 @@ pub async fn cmd_git_fetch(
         git_fetch.fetch(remote, expanded, &mut callback, None, fetch_tags)?;
     }
 
-    let import_stats = git_fetch.import_refs().await?;
+    let import_stats = match git_fetch.import_refs().await {
+        Ok(stats) => stats,
+        // `--rebase` produces a structured DivergentChanges error; render it
+        // here so the per-problem hints can include commit summaries pretty-
+        // printed via the workspace's commit_summary template.
+        Err(jj_lib::git::GitImportError::DivergentChanges { problems }) => {
+            return Err(crate::git_util::divergent_changes_error(&tx, problems).await?);
+        }
+        Err(err) => return Err(err.into()),
+    };
     print_git_import_stats(ui, &tx, &import_stats).await?;
 
     if let Some(bookmark_expr) = &common_bookmark_expr {

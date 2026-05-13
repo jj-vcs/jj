@@ -30,8 +30,11 @@ use futures::future::try_join_all;
 use indoc::writedoc;
 use itertools::Itertools as _;
 use jj_lib::git;
+use jj_lib::git::DivergentChangeKind;
+use jj_lib::git::DivergentChangeProblem;
 use jj_lib::git::FailedRefExportReason;
 use jj_lib::git::GitExportStats;
+use jj_lib::git::GitImportError;
 use jj_lib::git::GitImportOptions;
 use jj_lib::git::GitImportStats;
 use jj_lib::git::GitProgress;
@@ -55,6 +58,7 @@ use crate::cli_util::print_updated_commits;
 use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::command_error::user_error;
+use crate::command_error::user_error_with_message;
 use crate::formatter::Formatter;
 use crate::formatter::FormatterExt as _;
 use crate::revset_util::parse_remote_auto_track_bookmarks_map;
@@ -213,6 +217,7 @@ pub fn load_git_import_options(
         auto_local_bookmark: git_settings.auto_local_bookmark,
         abandon_unreachable_commits: git_settings.abandon_unreachable_commits,
         remote_auto_track_bookmarks: parse_remote_auto_track_bookmarks_map(ui, remote_settings)?,
+        replace_divergent_changes: false,
     })
 }
 
@@ -296,6 +301,71 @@ fn print_failed_git_import(ui: &Ui, stats: &GitImportStats) -> Result<(), Comman
         )?;
     }
     Ok(())
+}
+
+/// Builds the user-visible error for a `jj git fetch --rebase` that produced
+/// one or more divergent-change problems. Each problem becomes a formatted
+/// hint listing the affected commits via the workspace's `commit_summary`
+/// template, followed by action hints for each kind that appears.
+pub async fn divergent_changes_error(
+    tx: &WorkspaceCommandTransaction<'_>,
+    problems: Vec<DivergentChangeProblem>,
+) -> Result<CommandError, CommandError> {
+    let template = tx.commit_summary_template();
+    let mut cmd_err = user_error_with_message(
+        "Failed to import refs from underlying Git repo",
+        GitImportError::DivergentChanges {
+            problems: problems.clone(),
+        },
+    );
+    let mut has_pre_existing = false;
+    let mut has_newly_introduced = false;
+    for problem in &problems {
+        let (header, commit_ids) = match &problem.kind {
+            DivergentChangeKind::PreExisting { existing_commits } => {
+                has_pre_existing = true;
+                (
+                    format!(
+                        "Already divergent ({} visible local commits):",
+                        existing_commits.len(),
+                    ),
+                    existing_commits.clone(),
+                )
+            }
+            DivergentChangeKind::NewlyIntroduced { new_commits } => {
+                has_newly_introduced = true;
+                (
+                    format!(
+                        "Fetch-introduced divergence ({} incoming commits):",
+                        new_commits.len(),
+                    ),
+                    new_commits.clone(),
+                )
+            }
+        };
+        let commits = try_join_all(
+            commit_ids
+                .iter()
+                .map(|id| tx.repo().store().get_commit_async(id)),
+        )
+        .await?;
+        cmd_err.add_formatted_hint_with(|formatter| {
+            writeln!(formatter, "{header}")?;
+            print_updated_commits(formatter, &template, &commits)
+        });
+    }
+    if has_pre_existing {
+        cmd_err.add_hint(
+            "Resolve already-divergent changes (e.g. with `jj abandon` or `jj duplicate`) and \
+             re-run with `--rebase`.",
+        );
+    }
+    if has_newly_introduced {
+        cmd_err.add_hint(
+            "Re-run without `--rebase` to accept the fetch-introduced divergent change(s).",
+        );
+    }
+    Ok(cmd_err)
 }
 
 /// Prints only the summary of git import stats (abandoned count, failed refs).

@@ -542,6 +542,12 @@ mod git {
 
     impl From<GitImportError> for CommandError {
         fn from(err: GitImportError) -> Self {
+            // `GitImportError::DivergentChanges` only originates from
+            // `jj git fetch --rebase`; that command intercepts the error to
+            // render commit summaries via the workspace's
+            // `commit_summary_template`. The generic conversion here is just a
+            // fallback for any other call site that ever surfaces the error
+            // through `?` — the Display impl still includes a useful summary.
             let hint = match &err {
                 GitImportError::MissingHeadTarget { .. }
                 | GitImportError::MissingRefAncestor { .. } => Some(
@@ -551,6 +557,7 @@ jj currently does not support partial clones. To use jj with this repository, tr
                      the full repository contents."
                         .to_string(),
                 ),
+                GitImportError::DivergentChanges { .. } => None,
                 GitImportError::Backend(_) => None,
                 GitImportError::Index(_) => None,
                 GitImportError::RevsetEvaluation(_) => None,

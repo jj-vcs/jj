@@ -31,10 +31,12 @@ use bstr::BString;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use gix::refspec::Instruction;
+use indexmap::IndexMap;
 use itertools::Itertools as _;
 use thiserror::Error;
 
 use crate::backend::BackendError;
+use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::backend::TreeValue;
 use crate::commit::Commit;
@@ -475,6 +477,44 @@ fn resolve_git_ref_to_commit_id(
     is_commit.then_some(peeled_id.detach())
 }
 
+/// A single change that `--rebase` (i.e. `replace_divergent_changes`) cannot
+/// pair cleanly. Collected across the whole import so the user sees every
+/// problem at once instead of one at a time.
+#[derive(Debug, Clone)]
+pub struct DivergentChangeProblem {
+    pub change_id: ChangeId,
+    pub kind: DivergentChangeKind,
+}
+
+#[derive(Debug, Clone)]
+pub enum DivergentChangeKind {
+    /// Two or more visible local commits already share this change id; the
+    /// import has no unambiguous rewrite target to point at.
+    PreExisting { existing_commits: Vec<CommitId> },
+    /// The fetch itself brought in two or more new commits with this change
+    /// id, so there's no unambiguous rewrite target among the incoming
+    /// revisions.
+    NewlyIntroduced { new_commits: Vec<CommitId> },
+}
+
+impl DivergentChangeProblem {
+    fn summary(problems: &[Self]) -> String {
+        let mut pre = 0;
+        let mut new = 0;
+        for p in problems {
+            match p.kind {
+                DivergentChangeKind::PreExisting { .. } => pre += 1,
+                DivergentChangeKind::NewlyIntroduced { .. } => new += 1,
+            }
+        }
+        match (pre, new) {
+            (n, 0) if n > 0 => format!("{n} already-divergent change(s) in the repo"),
+            (0, n) if n > 0 => format!("{n} change(s) made divergent by this fetch"),
+            (p, n) => format!("{p} already-divergent and {n} fetch-introduced divergent change(s)"),
+        }
+    }
+}
+
 #[derive(Error, Debug)]
 pub enum GitImportError {
     #[error("Failed to read Git HEAD target commit {id}")]
@@ -488,6 +528,13 @@ pub enum GitImportError {
         symbol: RemoteRefSymbolBuf,
         #[source]
         err: BackendError,
+    },
+    #[error(
+        "Cannot rewrite changes in place: {}",
+        DivergentChangeProblem::summary(problems)
+    )]
+    DivergentChanges {
+        problems: Vec<DivergentChangeProblem>,
     },
     #[error(transparent)]
     Backend(#[from] BackendError),
@@ -516,6 +563,11 @@ pub struct GitImportOptions {
     pub abandon_unreachable_commits: bool,
     /// Per-remote patterns whether to track bookmarks automatically.
     pub remote_auto_track_bookmarks: HashMap<RemoteNameBuf, StringMatcher>,
+    /// Whether to treat an incoming commit that belongs to the same change as
+    /// an existing visible revision as a rewrite of that revision, rather than
+    /// producing a divergent change. Aborts if the change is already divergent
+    /// in the repo, since there is no unambiguous rewrite target in that case.
+    pub replace_divergent_changes: bool,
 }
 
 /// Describes changes made by `import_refs()` or `fetch()`.
@@ -620,15 +672,17 @@ async fn import_refs_inner(
     // changed_git_refs aren't respected because changed_remote_bookmarks/tags
     // should include all heads that will become reachable in jj.
     let index = mut_repo.index();
-    let missing_head_ids: Vec<&CommitId> = new_referenced_heads
+    let newly_imported_ids: HashSet<CommitId> = new_referenced_heads
         .iter()
         .filter_map(|id| match index.has_id(id) {
-            Ok(false) => Some(Ok(id)),
+            Ok(false) => Some(Ok(id.clone())),
             Ok(true) => None,
             Err(e) => Some(Err(e)),
         })
         .try_collect()?;
-    let heads_imported = git_backend.import_head_commits(missing_head_ids).is_ok();
+    let heads_imported = git_backend
+        .import_head_commits(newly_imported_ids.iter())
+        .is_ok();
 
     // Import new remote heads
     let mut head_commits = Vec::new();
@@ -698,8 +752,14 @@ async fn import_refs_inner(
         mut_repo.set_remote_tag(symbol, new_remote_ref);
     }
 
+    let replaced_old_ids: HashSet<CommitId> = if options.replace_divergent_changes {
+        replace_divergent_changes(mut_repo, &head_commits)?
+    } else {
+        HashSet::new()
+    };
+
     let abandoned_commits = if options.abandon_unreachable_commits {
-        abandon_unreachable_commits(mut_repo, old_referenced_heads).await?
+        abandon_unreachable_commits(mut_repo, old_referenced_heads, &replaced_old_ids).await?
     } else {
         vec![]
     };
@@ -712,11 +772,147 @@ async fn import_refs_inner(
     Ok(stats)
 }
 
+/// For each new commit (head plus newly-visible ancestors) that belongs to the
+/// same change as an existing visible revision, records the revision as having
+/// been rewritten to the new commit.
+///
+/// Collects every change the import can't pair cleanly — already-divergent
+/// local changes and fetch-introduced divergent changes alike — and returns
+/// them in a single [`GitImportError::DivergentChanges`] error. No rewrite
+/// mapping is recorded if any problem is found, so the failed import is
+/// retryable once the user has resolved the listed conflicts.
+fn replace_divergent_changes(
+    mut_repo: &mut MutableRepo,
+    new_heads: &[Commit],
+) -> Result<HashSet<CommitId>, GitImportError> {
+    // Walk every commit that *just* became visible to jj — head commits plus
+    // any newly-imported ancestors. Resolving change ids one head at a time
+    // (as the previous implementation did) missed two cases the reviewer
+    // flagged: rewrites along an upstream-rebased stack (only the head got
+    // paired) and a single fetch that brings in two new revisions for the
+    // same change (the second observed the first as already-visible).
+    let newly_visible = collect_newly_visible_commits(mut_repo, new_heads)?;
+    let newly_visible_set: HashSet<&CommitId> = newly_visible.iter().map(|c| c.id()).collect();
+
+    // change_id -> commit_ids among `newly_visible`, in iteration order so the
+    // collected problem list is deterministic.
+    let mut new_by_change: IndexMap<ChangeId, Vec<CommitId>> = IndexMap::new();
+    for commit in &newly_visible {
+        new_by_change
+            .entry(commit.change_id().clone())
+            .or_default()
+            .push(commit.id().clone());
+    }
+
+    // We collect all rewrites *and* all problems before mutating the repo so
+    // either every rewrite lands or none do — leaving the failed import
+    // retryable after the user resolves the listed conflicts.
+    let mut rewrites: Vec<(CommitId, CommitId)> = Vec::new();
+    let mut problems: Vec<DivergentChangeProblem> = Vec::new();
+    for (change_id, news) in &new_by_change {
+        let resolved = mut_repo
+            .resolve_change_id(change_id)
+            .map_err(GitImportError::Index)?;
+        let Some(resolved) = resolved else { continue };
+        let Some(visible) = resolved.into_visible() else {
+            continue;
+        };
+        let olds: Vec<CommitId> = visible
+            .into_iter()
+            .filter(|id| !newly_visible_set.contains(id))
+            .collect();
+        match (olds.len(), news.len()) {
+            // No existing commit shares this change; nothing to rewrite.
+            (0, _) => {}
+            // The clean case: a single old commit, a single new commit.
+            (1, 1) => rewrites.push((olds.into_iter().next().unwrap(), news[0].clone())),
+            // Two or more old commits — the local view was already divergent
+            // for this change before the fetch.
+            (n, _) if n >= 2 => problems.push(DivergentChangeProblem {
+                change_id: change_id.clone(),
+                kind: DivergentChangeKind::PreExisting {
+                    existing_commits: olds,
+                },
+            }),
+            // olds.len() == 1, news.len() >= 2: the fetch itself introduces
+            // divergence. There's no unambiguous rewrite target.
+            _ => problems.push(DivergentChangeProblem {
+                change_id: change_id.clone(),
+                kind: DivergentChangeKind::NewlyIntroduced {
+                    new_commits: news.clone(),
+                },
+            }),
+        }
+    }
+    if !problems.is_empty() {
+        return Err(GitImportError::DivergentChanges { problems });
+    }
+    let replaced_old_ids: HashSet<CommitId> = rewrites.iter().map(|(old, _)| old.clone()).collect();
+    for (old_id, new_id) in rewrites {
+        mut_repo.set_rewritten_commit(old_id, new_id);
+    }
+    Ok(replaced_old_ids)
+}
+
+/// Walks the commits that just became reachable in jj's view: the supplied
+/// head commits plus their ancestors, stopping at any commit that was already
+/// reachable from a pre-transaction head. Used by [`replace_divergent_changes`]
+/// to find every commit that needs change-id pairing, not just the heads.
+fn collect_newly_visible_commits(
+    mut_repo: &MutableRepo,
+    new_heads: &[Commit],
+) -> Result<Vec<Commit>, GitImportError> {
+    let base_repo = mut_repo.base_repo();
+    let base_index = base_repo.index();
+    let base_heads: Vec<CommitId> = base_repo.view().heads().iter().cloned().collect();
+    let root_id = mut_repo.store().root_commit_id().clone();
+
+    let was_visible = |id: &CommitId| -> Result<bool, GitImportError> {
+        if id == &root_id {
+            return Ok(true);
+        }
+        if !base_index.has_id(id).map_err(GitImportError::Index)? {
+            return Ok(false);
+        }
+        for head in &base_heads {
+            if base_index
+                .is_ancestor(id, head)
+                .map_err(GitImportError::Index)?
+            {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    };
+
+    let mut newly_visible: Vec<Commit> = Vec::new();
+    let mut visited: HashSet<CommitId> = HashSet::new();
+    let mut worklist: Vec<CommitId> = new_heads.iter().map(|c| c.id().clone()).collect();
+    while let Some(id) = worklist.pop() {
+        if !visited.insert(id.clone()) {
+            continue;
+        }
+        if was_visible(&id)? {
+            continue;
+        }
+        let commit = mut_repo
+            .store()
+            .get_commit(&id)
+            .map_err(GitImportError::Backend)?;
+        for parent in commit.parent_ids() {
+            worklist.push(parent.clone());
+        }
+        newly_visible.push(commit);
+    }
+    Ok(newly_visible)
+}
+
 /// Finds commits that used to be reachable in git that no longer are reachable.
 /// Those commits will be recorded as abandoned in the `MutableRepo`.
 async fn abandon_unreachable_commits(
     mut_repo: &mut MutableRepo,
     hidable_git_heads: Vec<CommitId>,
+    exclude: &HashSet<CommitId>,
 ) -> Result<Vec<CommitId>, GitImportError> {
     if hidable_git_heads.is_empty() {
         return Ok(vec![]);
@@ -738,6 +934,15 @@ async fn abandon_unreachable_commits(
         .stream()
         .try_collect()
         .await?;
+    // Skip commits that have already been recorded as rewritten (e.g. by
+    // `replace_divergent_changes`). Calling `record_abandoned_commit` for them
+    // would overwrite the rewrite mapping in `parent_mapping`, causing
+    // descendants to be reparented onto the old commit's parents instead of
+    // onto the rewrite target.
+    let abandoned_commit_ids = abandoned_commit_ids
+        .into_iter()
+        .filter(|id| !exclude.contains(id))
+        .collect_vec();
     for id in &abandoned_commit_ids {
         let commit = mut_repo.store().get_commit_async(id).await?;
         mut_repo.record_abandoned_commit(&commit);

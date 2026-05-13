@@ -2363,3 +2363,57 @@ fn test_git_fetch_auto_track_bookmarks() {
     [EOF]
     ");
 }
+
+// The --rebase logic is covered at the lib level in
+// lib/tests/test_git.rs (`test_import_refs_rebase_*`). The single CLI test
+// below covers only the user-visible rendering of the divergent-changes error
+// (the `divergent_changes_error` helper in `cli/src/git_util.rs`), which the
+// lib layer can't reach. The lib tests pin the `GitImportError::Display`
+// strings for all three `summary()` branches (pre-only / new-only / mixed);
+// this test pins the formatter structure — hint header, indented commit list
+// rendered through `commit_summary_template`, and the trailing hint — using
+// the pre-existing case as a representative. New tests for --rebase behavior
+// belong in lib/tests/test_git.rs.
+#[test]
+fn test_git_fetch_rebase_divergent_changes_error_rendering() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
+    test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
+
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "source"])
+        .success();
+    let source = test_env.work_dir("source");
+    create_commit(&source, "feat", &[]);
+
+    test_env.run_jj_in(".", ["git", "init", "target"]).success();
+    let target = test_env.work_dir("target");
+    target
+        .run_jj(["git", "remote", "add", "origin", "../source/.git"])
+        .success();
+    target.run_jj(["git", "fetch"]).success();
+
+    // Pin the initial upstream commit with a local bookmark so the next plain
+    // fetch can't hide it via `abandon-unreachable-commits` (which only
+    // considers local bookmarks/tags as pins). Two amend + fetch cycles then
+    // produce pre-existing divergence the third --rebase fetch must reject.
+    target
+        .run_jj(["bookmark", "create", "-r=feat@origin", "keepalive"])
+        .success();
+    source.run_jj(["describe", "feat", "-m=feat v2"]).success();
+    target.run_jj(["git", "fetch"]).success();
+    source.run_jj(["describe", "feat", "-m=feat v3"]).success();
+
+    let output = target.run_jj(["git", "fetch", "--rebase"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Failed to import refs from underlying Git repo
+    Caused by: Cannot rewrite changes in place: 1 already-divergent change(s) in the repo
+    Hint: Already divergent (2 visible local commits):
+      rlvkpnrz/1 abf1fac5 (divergent) feat v2
+      rlvkpnrz/2 00d0d0ee keepalive* | (divergent) feat
+    Hint: Resolve already-divergent changes (e.g. with `jj abandon` or `jj duplicate`) and re-run with `--rebase`.
+    [EOF]
+    [exit status: 1]
+    "#);
+}

@@ -23,6 +23,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   extracted from the `.doc` field of the alias definition if it is a table
   with `.doc` and `.definition` properties.
 
+* `jj git fetch` now supports `--rebase` to treat an upstream rewrite of an
+  existing change as a rewrite of the local revision rather than as a
+  divergent change. Bookmarks, the working copy, and descendants are moved
+  onto the new revision, and the old revision is hidden. Rewrite mappings
+  are recorded for every change in an upstream-rebased stack, not only the
+  head. The import aborts if any change is already divergent before the
+  fetch, or if the fetch itself introduces multiple new revisions for the
+  same change; every such problem is reported in one error so you can
+  resolve them together before retrying.
+
 ### Fixed bugs
 
 * `jj bookmark forget` no longer prints `Forgot N local bookmarks.` when no

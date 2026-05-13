@@ -1674,6 +1674,11 @@ If a working-copy commit gets abandoned, it will be given a new, empty commit. T
 
    [string pattern syntax]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 * `--all-remotes` — Fetch from all remotes
+* `--rebase` — Rewrite changes from upstream in place instead of creating divergent changes
+
+   When upstream rewrites a change (e.g. amends or rebases) and you fetch the new revision, the default behavior is to keep your old revision alongside the new one as a divergent change. With `--rebase`, the incoming revision rewrites your existing revision in place: bookmarks, the working copy, and descendants are moved onto the new revision, and the old revision is hidden.
+
+   If upstream rewrites a stack of changes, rewrite mappings are recorded for every change in the stack, not only the head. Aborts if any change is already divergent in your repo before the fetch, or if the fetch itself introduces multiple new revisions for the same change. All such problems are reported in one error so you can resolve them together before retrying.
 
 
 

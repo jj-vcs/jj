@@ -40,6 +40,7 @@ use jj_lib::commit_builder::CommitBuilder;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
 use jj_lib::git;
+use jj_lib::git::DivergentChangeKind;
 use jj_lib::git::FailedRefExportReason;
 use jj_lib::git::FetchTagsOverride;
 use jj_lib::git::GitFetch;
@@ -143,6 +144,45 @@ fn empty_git_commit(
         &format!("random commit {}", rand::random::<u32>()),
         parents,
     )
+}
+
+/// Writes a Git commit carrying an explicit `change-id` extra header so that
+/// the resulting jj commit shares the given change id. Used to simulate
+/// upstream amending or rebasing a change.
+fn git_commit_with_change_id(
+    git_repo: &gix::Repository,
+    ref_name: &str,
+    parents: &[gix::ObjectId],
+    change_id: &ChangeId,
+    message: &str,
+) -> gix::ObjectId {
+    let empty_tree_id = git_repo.empty_tree().id().detach();
+    let signature = gix::actor::Signature {
+        name: "Some One".into(),
+        email: "some.one@example.com".into(),
+        time: gix::date::Time::new(0, 0),
+    };
+    let commit = gix::objs::Commit {
+        message: message.into(),
+        tree: empty_tree_id,
+        author: signature.clone(),
+        committer: signature,
+        encoding: None,
+        parents: parents.iter().copied().collect(),
+        extra_headers: vec![("change-id".into(), change_id.reverse_hex().into())],
+    };
+    let commit_id = git_repo.write_object(&commit).unwrap().detach();
+    if !ref_name.is_empty() {
+        git_repo
+            .reference(
+                ref_name,
+                commit_id,
+                gix::refs::transaction::PreviousValue::Any,
+                "",
+            )
+            .unwrap();
+    }
+    commit_id
 }
 
 fn jj_id(id: gix::ObjectId) -> CommitId {
@@ -6286,6 +6326,7 @@ fn default_import_options() -> GitImportOptions {
         auto_local_bookmark: false,
         abandon_unreachable_commits: true,
         remote_auto_track_bookmarks: HashMap::new(),
+        replace_divergent_changes: false,
     }
 }
 
@@ -6391,6 +6432,887 @@ fn test_set_remote_urls() -> TestResult {
         remote_name,
         Some("https://example.com/repo/path3"),
         Some("git@example.com:repo/path3"),
+    );
+    Ok(())
+}
+
+fn rebase_import_options() -> GitImportOptions {
+    GitImportOptions {
+        replace_divergent_changes: true,
+        ..auto_track_import_options()
+    }
+}
+
+fn change_id_from_byte(b: u8) -> ChangeId {
+    ChangeId::new(vec![b; 16])
+}
+
+#[test]
+fn test_import_refs_rebase_replaces_commit() -> TestResult {
+    // Happy path: upstream amends a commit (same change id, different commit
+    // id); import_refs with replace_divergent_changes records a rewrite mapping
+    // and the local bookmark moves to the new commit instead of producing a
+    // divergent change.
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = &test_repo.repo;
+    let git_repo = get_git_repo(repo);
+    let change_x = change_id_from_byte(0xaa);
+
+    let a1 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/feat",
+        &[],
+        &change_x,
+        "feat v1",
+    );
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &auto_track_import_options()).block_on()?;
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("initial").block_on()?;
+
+    assert_eq!(
+        repo.view().get_local_bookmark("feat".as_ref()),
+        &RefTarget::normal(jj_id(a1)),
+    );
+
+    let a2 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/feat",
+        &[],
+        &change_x,
+        "feat v2",
+    );
+
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &rebase_import_options()).block_on()?;
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("rebase fetch").block_on()?;
+
+    let view = repo.view();
+    assert_eq!(
+        view.get_local_bookmark("feat".as_ref()),
+        &RefTarget::normal(jj_id(a2)),
+    );
+    assert_eq!(
+        view.get_remote_bookmark(remote_symbol("feat", "origin"))
+            .target,
+        RefTarget::normal(jj_id(a2)),
+        "remote-tracking ref must follow the rewrite",
+    );
+    assert!(view.heads().contains(&jj_id(a2)));
+    assert!(!view.heads().contains(&jj_id(a1)));
+    assert_eq!(
+        repo.resolve_change_id(&change_x)?
+            .and_then(ResolvedChangeTargets::into_visible),
+        Some(vec![jj_id(a2)]),
+    );
+    Ok(())
+}
+
+#[test]
+fn test_import_refs_rebase_no_op_for_new_commits() -> TestResult {
+    // --rebase on a fresh fetch (no overlap with an existing change) behaves
+    // identically to a normal fetch.
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = &test_repo.repo;
+    let git_repo = get_git_repo(repo);
+    let change_x = change_id_from_byte(0xaa);
+
+    let a1 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/feat",
+        &[],
+        &change_x,
+        "feat v1",
+    );
+
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &rebase_import_options()).block_on()?;
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("initial").block_on()?;
+
+    let view = repo.view();
+    assert_eq!(
+        view.get_local_bookmark("feat".as_ref()),
+        &RefTarget::normal(jj_id(a1)),
+    );
+    assert!(view.heads().contains(&jj_id(a1)));
+    Ok(())
+}
+
+#[test]
+fn test_import_refs_rebase_rebases_descendants() -> TestResult {
+    // A local descendant on top of the upstream commit should be reparented
+    // onto the new upstream commit when --rebase replaces it.
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = &test_repo.repo;
+    let git_repo = get_git_repo(repo);
+    let change_x = change_id_from_byte(0xaa);
+
+    let a1 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/feat",
+        &[],
+        &change_x,
+        "feat v1",
+    );
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &auto_track_import_options()).block_on()?;
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("initial").block_on()?;
+
+    // Build a local descendant on top of A1.
+    let mut tx = repo.start_transaction();
+    let local = create_random_commit(tx.repo_mut())
+        .set_parents(vec![jj_id(a1)])
+        .set_description("local work")
+        .write_unwrap();
+    let local_id = local.id().clone();
+    let local_change_id = local.change_id().clone();
+    let repo = tx.commit("local work").block_on()?;
+
+    // Upstream amends to A2.
+    let a2 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/feat",
+        &[],
+        &change_x,
+        "feat v2",
+    );
+
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &rebase_import_options()).block_on()?;
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("rebase fetch").block_on()?;
+
+    // The local commit should now sit on top of A2, preserving its change id.
+    let rebased_local_ids = repo
+        .resolve_change_id(&local_change_id)?
+        .and_then(ResolvedChangeTargets::into_visible)
+        .unwrap_or_default();
+    assert_eq!(rebased_local_ids.len(), 1);
+    let rebased_local_id = &rebased_local_ids[0];
+    assert_ne!(
+        rebased_local_id, &local_id,
+        "descendant should be rewritten"
+    );
+    let rebased_local = repo.store().get_commit(rebased_local_id)?;
+    assert_eq!(rebased_local.parent_ids(), &[jj_id(a2)]);
+    Ok(())
+}
+
+#[test]
+fn test_import_refs_rebase_aborts_on_preexisting_divergence() -> TestResult {
+    // If a change is already divergent locally before the fetch, --rebase must
+    // abort with an error rather than pick an arbitrary rewrite target.
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = &test_repo.repo;
+    let git_repo = get_git_repo(repo);
+    let change_x = change_id_from_byte(0xaa);
+
+    let a1 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/feat",
+        &[],
+        &change_x,
+        "feat v1",
+    );
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &auto_track_import_options()).block_on()?;
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("initial").block_on()?;
+
+    // Pin A1 with a local bookmark so the next fetch can't abandon it.
+    let mut tx = repo.start_transaction();
+    tx.repo_mut()
+        .set_local_bookmark_target("keepalive".as_ref(), RefTarget::normal(jj_id(a1)));
+    let repo = tx.commit("pin a1").block_on()?;
+
+    // Upstream amends. Fetch without --rebase to create local divergence.
+    let a2 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/feat",
+        &[],
+        &change_x,
+        "feat v2",
+    );
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &auto_track_import_options()).block_on()?;
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("plain fetch").block_on()?;
+
+    // Sanity: both A1 and A2 visible (divergent).
+    let visible = repo
+        .resolve_change_id(&change_x)?
+        .and_then(ResolvedChangeTargets::into_visible)
+        .unwrap_or_default();
+    assert_eq!(visible.len(), 2);
+
+    // Upstream amends again; --rebase must abort.
+    let _a3 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/feat",
+        &[],
+        &change_x,
+        "feat v3",
+    );
+    let mut tx = repo.start_transaction();
+    let err = git::import_refs(tx.repo_mut(), &rebase_import_options())
+        .block_on()
+        .expect_err("import_refs should reject pre-existing divergence");
+    assert_eq!(
+        err.to_string(),
+        "Cannot rewrite changes in place: 1 already-divergent change(s) in the repo",
+        "Display rendering is the user-facing error line (CLI relays this)",
+    );
+    let GitImportError::DivergentChanges { problems } = err else {
+        panic!("expected DivergentChanges, got an unexpected variant");
+    };
+    assert_eq!(problems.len(), 1);
+    assert_eq!(problems[0].change_id, change_x);
+    let DivergentChangeKind::PreExisting { existing_commits } = &problems[0].kind else {
+        panic!("expected PreExisting, got: {:?}", problems[0].kind);
+    };
+    // The two visible divergent revisions are A1 (pinned by the local bookmark)
+    // and A2 (imported by the plain fetch). A3 has not been imported yet — the
+    // abort runs before that — so it must not appear here.
+    let mut existing_sorted = existing_commits.clone();
+    existing_sorted.sort();
+    let mut expected_sorted = vec![jj_id(a1), jj_id(a2)];
+    expected_sorted.sort();
+    assert_eq!(existing_sorted, expected_sorted);
+    Ok(())
+}
+
+#[test]
+fn test_import_refs_rebase_works_after_op_rollback() -> TestResult {
+    // CLI-side analog: after `jj git fetch --rebase; jj undo; jj git fetch
+    // --rebase`, the second fetch must still pair A1 -> A2 the same way a
+    // fresh single fetch would. The reviewer flagged the `newly_imported_ids`
+    // filter as suspicious here — at the lib level we confirm that rolling
+    // back the op and re-running import_refs produces the same end state.
+    //
+    // Note: a `reload_at(pre_op)` loads the jj index *as of that op*, so A2 is
+    // not in `index().has_id()` at that point — the import_head_commits path
+    // for A2 still runs. The `newly_imported_ids` filter therefore happens to
+    // be safe today (it gates a git-side import, not the rewrite-mapping
+    // logic, which iterates the unfiltered head_commits). If a future
+    // refactor pushes that filter into the rewrite path, this test catches it.
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = &test_repo.repo;
+    let git_repo = get_git_repo(repo);
+    let change_x = change_id_from_byte(0xaa);
+
+    let a1 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/feat",
+        &[],
+        &change_x,
+        "feat v1",
+    );
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &auto_track_import_options()).block_on()?;
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo_before_fetch = tx.commit("initial").block_on()?;
+
+    // First --rebase fetch.
+    let a2 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/feat",
+        &[],
+        &change_x,
+        "feat v2",
+    );
+    let mut tx = repo_before_fetch.start_transaction();
+    git::import_refs(tx.repo_mut(), &rebase_import_options()).block_on()?;
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let _repo_after_first = tx.commit("first --rebase").block_on()?;
+
+    // Roll back to the pre-fetch view. The git ref is still at A2.
+    let pre_op = repo_before_fetch.operation().clone();
+    let repo = repo_before_fetch.reload_at(&pre_op).block_on()?;
+
+    // Second --rebase fetch: must still pair A1 -> A2.
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &rebase_import_options()).block_on()?;
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("second --rebase").block_on()?;
+
+    let view = repo.view();
+    assert_eq!(
+        view.get_local_bookmark("feat".as_ref()),
+        &RefTarget::normal(jj_id(a2)),
+    );
+    assert!(!view.heads().contains(&jj_id(a1)));
+    assert_eq!(
+        repo.resolve_change_id(&change_x)?
+            .and_then(ResolvedChangeTargets::into_visible),
+        Some(vec![jj_id(a2)]),
+    );
+    Ok(())
+}
+
+#[test]
+fn test_import_refs_rebase_rewrites_ancestors() -> TestResult {
+    // BUG REPRO (reviewer's point about ancestors of bookmarked revisions):
+    // when upstream rebases a *stack* (head + ancestors share change ids with
+    // local commits), only the head currently gets a rewrite mapping. The
+    // ancestor commits are imported as fresh commits; the old ancestors are
+    // hidden via abandon_unreachable_commits. A local commit that descends
+    // from an old ancestor (rather than from the head) is therefore reparented
+    // onto the *root* (since its parent was abandoned, not rewritten) instead
+    // of onto the new ancestor.
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = &test_repo.repo;
+    let git_repo = get_git_repo(repo);
+    let change_a = change_id_from_byte(0xaa);
+    let change_b = change_id_from_byte(0xbb);
+
+    // upstream: feat -> B1 -> A1
+    let a1 = git_commit_with_change_id(&git_repo, "", &[], &change_a, "A v1");
+    let _b1 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/feat",
+        &[a1],
+        &change_b,
+        "B v1",
+    );
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &auto_track_import_options()).block_on()?;
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("initial").block_on()?;
+
+    // Local side branch L sitting on top of the *intermediate* A1, not on B.
+    let mut tx = repo.start_transaction();
+    let local = create_random_commit(tx.repo_mut())
+        .set_parents(vec![jj_id(a1)])
+        .set_description("local side branch")
+        .write_unwrap();
+    let local_change_id = local.change_id().clone();
+    tx.repo_mut()
+        .set_local_bookmark_target("side".as_ref(), RefTarget::normal(local.id().clone()));
+    let repo = tx.commit("add side").block_on()?;
+
+    // Upstream "rebases" the stack: A2 / B2 with the same change ids.
+    let a2 = git_commit_with_change_id(&git_repo, "", &[], &change_a, "A v2");
+    let _b2 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/feat",
+        &[a2],
+        &change_b,
+        "B v2",
+    );
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &rebase_import_options()).block_on()?;
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("rebase fetch").block_on()?;
+
+    // The side commit should be reparented onto A2 (because A1 is conceptually
+    // rewritten to A2 by the upstream rebase).
+    let side_ids = repo
+        .resolve_change_id(&local_change_id)?
+        .and_then(ResolvedChangeTargets::into_visible)
+        .unwrap_or_default();
+    assert_eq!(side_ids.len(), 1);
+    let rebased_side = repo.store().get_commit(&side_ids[0])?;
+    assert_eq!(
+        rebased_side.parent_ids(),
+        &[jj_id(a2)],
+        "side branch must follow A1 -> A2 rewrite (it currently lands on root because only B is \
+         rewritten and A1 is abandoned)",
+    );
+    Ok(())
+}
+
+#[test]
+fn test_import_refs_rebase_handles_reorder() -> TestResult {
+    // Upstream reorders two commits in a stack. The change ids are preserved
+    // but the parent relationship between them is swapped. Both commits
+    // should be paired independently and end up at their new positions.
+    //
+    // A local descendant of the *intermediate* B1 makes the missing rewrite
+    // mapping observable: without the B1 -> B2 mapping, B1 is abandoned by
+    // `abandon_unreachable_commits` and the local descendant gets reparented
+    // onto B1's old parent (A1, which is itself being rewritten away) rather
+    // than onto B2.
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = &test_repo.repo;
+    let git_repo = get_git_repo(repo);
+    let change_a = change_id_from_byte(0xaa);
+    let change_b = change_id_from_byte(0xbb);
+
+    // Pre: feat -> B1 -> A1
+    let a1 = git_commit_with_change_id(&git_repo, "", &[], &change_a, "A v1");
+    let b1 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/feat",
+        &[a1],
+        &change_b,
+        "B v1",
+    );
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &auto_track_import_options()).block_on()?;
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("initial").block_on()?;
+
+    // Local descendant L on top of B1.
+    let mut tx = repo.start_transaction();
+    let local = create_random_commit(tx.repo_mut())
+        .set_parents(vec![jj_id(b1)])
+        .set_description("local work on top of B")
+        .write_unwrap();
+    let local_change_id = local.change_id().clone();
+    let repo = tx.commit("add local").block_on()?;
+
+    // Post: feat -> A2 -> B2 (swapped)
+    let b2 = git_commit_with_change_id(&git_repo, "", &[], &change_b, "B v2");
+    let a2 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/feat",
+        &[b2],
+        &change_a,
+        "A v2",
+    );
+
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &rebase_import_options()).block_on()?;
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("rebase fetch").block_on()?;
+
+    // Each change should resolve to its new commit, and the parent
+    // relationship should reflect the new order.
+    assert_eq!(
+        repo.resolve_change_id(&change_a)?
+            .and_then(ResolvedChangeTargets::into_visible),
+        Some(vec![jj_id(a2)]),
+    );
+    assert_eq!(
+        repo.resolve_change_id(&change_b)?
+            .and_then(ResolvedChangeTargets::into_visible),
+        Some(vec![jj_id(b2)]),
+    );
+    let a2_commit = repo.store().get_commit(&jj_id(a2))?;
+    assert_eq!(a2_commit.parent_ids(), &[jj_id(b2)]);
+
+    // Local descendant of B1 must follow the B1 -> B2 rewrite and end up as
+    // a child of B2 (regardless of A2's new position relative to B2).
+    let local_ids = repo
+        .resolve_change_id(&local_change_id)?
+        .and_then(ResolvedChangeTargets::into_visible)
+        .unwrap_or_default();
+    assert_eq!(local_ids.len(), 1);
+    let rebased_local = repo.store().get_commit(&local_ids[0])?;
+    assert_eq!(
+        rebased_local.parent_ids(),
+        &[jj_id(b2)],
+        "descendant of B1 must follow B1 -> B2 rewrite",
+    );
+    Ok(())
+}
+
+#[test]
+fn test_import_refs_rebase_does_not_resurrect_hidden_commit() -> TestResult {
+    // A previously-hidden commit shares a change id with an incoming new
+    // commit. The hidden commit should stay hidden (no rewrite mapping is
+    // needed — it isn't in the visible set), and the new commit becomes the
+    // sole visible revision of that change.
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = &test_repo.repo;
+    let git_repo = get_git_repo(repo);
+    let change_x = change_id_from_byte(0xaa);
+
+    // Stage A1 on `refs/remotes/origin/feat`, import, then hide A1 by
+    // deleting the ref and re-importing (abandon_unreachable_commits drops
+    // it because nothing pins it).
+    let a1 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/feat",
+        &[],
+        &change_x,
+        "feat v1",
+    );
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &auto_track_import_options()).block_on()?;
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("import").block_on()?;
+    delete_git_ref(&git_repo, "refs/remotes/origin/feat");
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &auto_track_import_options()).block_on()?;
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("hide a1").block_on()?;
+    // Sanity: A1 is hidden, change X has no visible revisions.
+    assert_eq!(
+        repo.resolve_change_id(&change_x)?
+            .and_then(ResolvedChangeTargets::into_visible),
+        None,
+    );
+
+    // Now upstream pushes a new commit A2 with the same change id.
+    let a2 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/feat",
+        &[],
+        &change_x,
+        "feat v2",
+    );
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &rebase_import_options()).block_on()?;
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("rebase fetch").block_on()?;
+
+    // A2 is the only visible revision; A1 stays hidden.
+    assert_eq!(
+        repo.resolve_change_id(&change_x)?
+            .and_then(ResolvedChangeTargets::into_visible),
+        Some(vec![jj_id(a2)]),
+    );
+    assert!(!repo.view().heads().contains(&jj_id(a1)));
+    Ok(())
+}
+
+#[test]
+fn test_import_refs_rebase_unchanged_remote_ref_pinning_old_commit() -> TestResult {
+    // A1 is shared by two tracked remote bookmarks: `feat@origin` (which
+    // upstream amends) and `legacy@origin` (which upstream leaves alone). The
+    // rewrite mapping for change X is still recorded, and rebase_descendants
+    // moves the local `legacy` bookmark along with the rewrite — so the local
+    // view is clean (heads = {A2}, both bookmarks at A2) even though
+    // `legacy@origin` still records A1 upstream.
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = &test_repo.repo;
+    let git_repo = get_git_repo(repo);
+    let change_x = change_id_from_byte(0xaa);
+
+    let a1 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/feat",
+        &[],
+        &change_x,
+        "feat v1",
+    );
+    git_ref(&git_repo, "refs/remotes/origin/legacy", a1);
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &auto_track_import_options()).block_on()?;
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("initial").block_on()?;
+
+    let a2 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/feat",
+        &[],
+        &change_x,
+        "feat v2",
+    );
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &rebase_import_options()).block_on()?;
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("rebase fetch").block_on()?;
+
+    let view = repo.view();
+    assert_eq!(
+        view.get_local_bookmark("feat".as_ref()),
+        &RefTarget::normal(jj_id(a2)),
+    );
+    assert_eq!(
+        view.get_local_bookmark("legacy".as_ref()),
+        &RefTarget::normal(jj_id(a2)),
+        "the local `legacy` bookmark should follow the rewrite of A1",
+    );
+    // The remote-tracking ref for legacy still reflects the upstream state.
+    assert_eq!(
+        view.get_remote_bookmark(remote_symbol("legacy", "origin"))
+            .target,
+        RefTarget::normal(jj_id(a1)),
+    );
+    // No divergence locally.
+    assert_eq!(
+        repo.resolve_change_id(&change_x)?
+            .and_then(ResolvedChangeTargets::into_visible),
+        Some(vec![jj_id(a2)]),
+    );
+    Ok(())
+}
+
+#[test]
+fn test_import_refs_rebase_newly_divergent_from_one_fetch() -> TestResult {
+    // A single fetch brings in two new commits sharing a change id with one
+    // existing local commit. There is no unambiguous rewrite target, so the
+    // import aborts with a `NewlyIntroduced` problem — distinct from
+    // `PreExisting` (which means the local side was already divergent before
+    // the fetch).
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = &test_repo.repo;
+    let git_repo = get_git_repo(repo);
+    let change_x = change_id_from_byte(0xaa);
+
+    let _a1 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/feat",
+        &[],
+        &change_x,
+        "feat v1",
+    );
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &auto_track_import_options()).block_on()?;
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("initial").block_on()?;
+
+    // Replace `feat` upstream with A2, and add a second bookmark `feat-copy`
+    // pointing at a *different* commit A3 that also shares change X.
+    let a2 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/feat",
+        &[],
+        &change_x,
+        "feat v2",
+    );
+    let a3 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/feat-copy",
+        &[],
+        &change_x,
+        "feat alt",
+    );
+
+    let mut tx = repo.start_transaction();
+    let err = git::import_refs(tx.repo_mut(), &rebase_import_options())
+        .block_on()
+        .expect_err("import_refs should reject fetch-introduced divergence");
+    assert_eq!(
+        err.to_string(),
+        "Cannot rewrite changes in place: 1 change(s) made divergent by this fetch",
+    );
+    let GitImportError::DivergentChanges { problems } = err else {
+        panic!("expected DivergentChanges, got an unexpected variant");
+    };
+    assert_eq!(problems.len(), 1);
+    assert_matches!(
+        problems[0].kind,
+        DivergentChangeKind::NewlyIntroduced { .. }
+    );
+    assert_eq!(problems[0].change_id, change_x);
+    let DivergentChangeKind::NewlyIntroduced { new_commits } = &problems[0].kind else {
+        panic!("expected NewlyIntroduced, got: {:?}", problems[0].kind);
+    };
+    let mut new_sorted = new_commits.clone();
+    new_sorted.sort();
+    let mut expected_sorted = vec![jj_id(a2), jj_id(a3)];
+    expected_sorted.sort();
+    assert_eq!(new_sorted, expected_sorted);
+    Ok(())
+}
+
+#[test]
+fn test_import_refs_rebase_collects_multiple_problems_in_one_error() -> TestResult {
+    // A single --rebase fetch surfaces *every* problematic change in one
+    // error, mixing both kinds: one change is already locally divergent
+    // (PreExisting), another is made divergent by this fetch
+    // (NewlyIntroduced).
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = &test_repo.repo;
+    let git_repo = get_git_repo(repo);
+    let change_x = change_id_from_byte(0xaa);
+    let change_y = change_id_from_byte(0xbb);
+
+    let x1 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/feat",
+        &[],
+        &change_x,
+        "X v1",
+    );
+    git_ref(&git_repo, "refs/remotes/origin/keepalive", x1);
+    let _y1 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/other",
+        &[],
+        &change_y,
+        "Y v1",
+    );
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &auto_track_import_options()).block_on()?;
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("initial").block_on()?;
+
+    // Force pre-existing divergence on change_x by fetching a second X
+    // without --rebase, while `keepalive` still pins X1.
+    let _x2 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/feat",
+        &[],
+        &change_x,
+        "X v2",
+    );
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &auto_track_import_options()).block_on()?;
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("plain fetch").block_on()?;
+    assert_eq!(
+        repo.resolve_change_id(&change_x)?
+            .and_then(ResolvedChangeTargets::into_visible)
+            .map(|v| v.len()),
+        Some(2),
+    );
+
+    // Now move `feat` to X3 *and* introduce a second new commit for change_y
+    // on a brand-new bookmark `other-copy`. In a single --rebase fetch we
+    // expect both problems reported.
+    let _x3 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/feat",
+        &[],
+        &change_x,
+        "X v3",
+    );
+    let _y2 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/other",
+        &[],
+        &change_y,
+        "Y v2",
+    );
+    let _y3 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/other-copy",
+        &[],
+        &change_y,
+        "Y alt",
+    );
+
+    let mut tx = repo.start_transaction();
+    let err = git::import_refs(tx.repo_mut(), &rebase_import_options())
+        .block_on()
+        .expect_err("import_refs should reject the divergent fetch");
+    assert_eq!(
+        err.to_string(),
+        "Cannot rewrite changes in place: 1 already-divergent and 1 fetch-introduced divergent \
+         change(s)",
+        "the mixed-kind summary must mention both buckets",
+    );
+
+    let GitImportError::DivergentChanges { problems } = err else {
+        panic!("expected DivergentChanges, got an unexpected variant");
+    };
+    assert_eq!(problems.len(), 2);
+    let mut saw_pre = false;
+    let mut saw_new = false;
+    for p in &problems {
+        match &p.kind {
+            DivergentChangeKind::PreExisting { existing_commits } => {
+                assert_eq!(p.change_id, change_x);
+                assert_eq!(existing_commits.len(), 2);
+                saw_pre = true;
+            }
+            DivergentChangeKind::NewlyIntroduced { new_commits } => {
+                assert_eq!(p.change_id, change_y);
+                assert_eq!(new_commits.len(), 2);
+                saw_new = true;
+            }
+        }
+    }
+    assert!(saw_pre && saw_new, "expected one of each kind");
+    Ok(())
+}
+
+#[test]
+fn test_import_refs_rebase_failed_import_leaves_no_op_to_undo() -> TestResult {
+    // Recovery story: an aborted --rebase fetch must not commit a partial
+    // operation. The repo's latest op should still be the pre-fetch op, so
+    // there is nothing for `jj undo` to roll back and a retry can proceed
+    // without recovery commands.
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = &test_repo.repo;
+    let git_repo = get_git_repo(repo);
+    let change_x = change_id_from_byte(0xaa);
+
+    let _a1 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/feat",
+        &[],
+        &change_x,
+        "feat v1",
+    );
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &auto_track_import_options()).block_on()?;
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("initial").block_on()?;
+    let pre_fetch_op_id = repo.op_id().clone();
+
+    // Newly-introduced divergence → --rebase aborts.
+    let _a2 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/feat",
+        &[],
+        &change_x,
+        "feat v2",
+    );
+    let _a3 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/feat-copy",
+        &[],
+        &change_x,
+        "feat alt",
+    );
+    let mut tx = repo.start_transaction();
+    let result = git::import_refs(tx.repo_mut(), &rebase_import_options()).block_on();
+    assert!(result.is_err());
+    // The production CLI returns before `tx.finish` after this error; mirror
+    // that by dropping the tx without committing.
+    drop(tx);
+
+    let repo = repo.reload_at_head().block_on()?;
+    assert_eq!(
+        repo.op_id(),
+        &pre_fetch_op_id,
+        "failed --rebase import must not commit an operation",
+    );
+    Ok(())
+}
+
+#[test]
+fn test_import_refs_rebase_successful_import_is_undoable() -> TestResult {
+    // Dual of the above: a successful --rebase fetch commits one new op, and
+    // reloading at the pre-fetch op restores the pre-fetch view (the lib-side
+    // analog of `jj undo`).
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = &test_repo.repo;
+    let git_repo = get_git_repo(repo);
+    let change_x = change_id_from_byte(0xaa);
+
+    let a1 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/feat",
+        &[],
+        &change_x,
+        "feat v1",
+    );
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &auto_track_import_options()).block_on()?;
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("initial").block_on()?;
+    let pre_fetch_op = repo.operation().clone();
+
+    let a2 = git_commit_with_change_id(
+        &git_repo,
+        "refs/remotes/origin/feat",
+        &[],
+        &change_x,
+        "feat v2",
+    );
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &rebase_import_options()).block_on()?;
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let post_repo = tx.commit("rebase fetch").block_on()?;
+    assert_ne!(post_repo.op_id(), pre_fetch_op.id());
+    assert_eq!(
+        post_repo.view().get_local_bookmark("feat".as_ref()),
+        &RefTarget::normal(jj_id(a2)),
+    );
+
+    let restored = post_repo.reload_at(&pre_fetch_op).block_on()?;
+    assert_eq!(
+        restored.view().get_local_bookmark("feat".as_ref()),
+        &RefTarget::normal(jj_id(a1)),
     );
     Ok(())
 }
