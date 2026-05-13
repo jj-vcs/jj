@@ -316,6 +316,7 @@ pub enum RevsetExpression<St: ExpressionState> {
     Roots(Arc<Self>),
     ForkPoint(Arc<Self>),
     Bisect(Arc<Self>),
+    SameChange(Arc<Self>),
     HasSize {
         candidates: Arc<Self>,
         count: usize,
@@ -484,6 +485,11 @@ impl<St: ExpressionState> RevsetExpression<St> {
     /// Commits in `self` that don't have ancestors in `self`.
     pub fn roots(self: &Arc<Self>) -> Arc<Self> {
         Arc::new(Self::Roots(self.clone()))
+    }
+
+    /// Commits with the same change ID as the commits in `self`.
+    pub fn same_change(self: &Arc<Self>) -> Arc<Self> {
+        Arc::new(Self::SameChange(self.clone()))
     }
 
     /// Parents of `self`.
@@ -1190,6 +1196,11 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
             candidates,
         }))
     });
+    map.insert("same_change", |diagnostics, function, context| {
+        let [arg] = function.expect_exact_arguments()?;
+        let expression = lower_expression(diagnostics, arg, context)?;
+        Ok(expression.same_change())
+    });
     map.insert("coalesce", |diagnostics, function, context| {
         let ([], args) = function.expect_some_arguments()?;
         let expressions: Vec<_> = args
@@ -1615,6 +1626,9 @@ fn try_transform_expression<St: ExpressionState, E>(
             RevsetExpression::Bisect(expression) => {
                 transform_rec(expression, pre, post)?.map(RevsetExpression::Bisect)
             }
+            RevsetExpression::SameChange(candidates) => {
+                transform_rec(candidates, pre, post)?.map(RevsetExpression::SameChange)
+            }
             RevsetExpression::HasSize { candidates, count } => {
                 transform_rec(candidates, pre, post)?.map(|candidates| RevsetExpression::HasSize {
                     candidates,
@@ -1862,6 +1876,10 @@ where
         RevsetExpression::Bisect(expression) => {
             let expression = folder.fold_expression(expression)?;
             RevsetExpression::Bisect(expression).into()
+        }
+        RevsetExpression::SameChange(candidates) => {
+            let candidates = folder.fold_expression(candidates)?;
+            RevsetExpression::SameChange(candidates).into()
         }
         RevsetExpression::HasSize { candidates, count } => {
             let candidates = folder.fold_expression(candidates)?;
@@ -3084,6 +3102,33 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
         expression: &UserRevsetExpression,
     ) -> Result<Arc<ResolvedRevsetExpression>, Self::Error> {
         match expression {
+            RevsetExpression::SameChange(candidates) => {
+                let resolved_candidates = self.fold_expression(candidates)?;
+                let revset = resolved_candidates
+                    .evaluate(self.repo())
+                    .map_err(|err| RevsetResolutionError::Other(Box::new(err)))?;
+                let stream = revset.commit_change_ids();
+                let pairs: Vec<Result<(CommitId, ChangeId), RevsetEvaluationError>> =
+                    stream.collect().block_on();
+                let mut change_ids = std::collections::HashSet::new();
+                for pair in pairs {
+                    let (_, change_id) =
+                        pair.map_err(|err| RevsetResolutionError::Other(Box::new(err)))?;
+                    change_ids.insert(change_id);
+                }
+                let mut commit_ids = Vec::new();
+                for change_id in change_ids {
+                    if let Some(visible) = self
+                        .repo()
+                        .resolve_change_id(&change_id)
+                        .map_err(|err| RevsetResolutionError::Other(Box::new(err)))?
+                        .and_then(ResolvedChangeTargets::into_visible)
+                    {
+                        commit_ids.extend(visible);
+                    }
+                }
+                Ok(RevsetExpression::commits(commit_ids))
+            }
             // 'present(x)' opens new symbol resolution scope to map error to 'none()'
             RevsetExpression::Present(candidates) => {
                 self.fold_expression(candidates).or_else(|err| match err {
@@ -3181,6 +3226,9 @@ impl VisibilityResolutionContext<'_> {
                 ResolvedExpression::Commits(commit_ids.clone())
             }
             RevsetExpression::CommitRef(commit_ref) => match *commit_ref {},
+            RevsetExpression::SameChange(_) => {
+                unreachable!("SameChange should be resolved during symbol resolution")
+            }
             RevsetExpression::Ancestors {
                 heads,
                 generation,
@@ -3377,6 +3425,9 @@ impl VisibilityResolutionContext<'_> {
             | RevsetExpression::HasSize { .. }
             | RevsetExpression::Latest { .. } => {
                 ResolvedPredicateExpression::Set(self.resolve(expression).into())
+            }
+            RevsetExpression::SameChange(_) => {
+                unreachable!("SameChange should be resolved during symbol resolution")
             }
             RevsetExpression::Filter(predicate) => {
                 ResolvedPredicateExpression::Filter(predicate.clone())

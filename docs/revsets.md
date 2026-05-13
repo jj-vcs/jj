@@ -287,6 +287,8 @@ revsets (expressions) as arguments.
   change is divergent, this resolves to multiple commits. It is an error to use a
   non-unique prefix. Unmatched prefix isn't an error.
 
+* `same_change(x)`: Commits with a change ID that matches any change ID in `x`.
+
 * `commit_id(prefix)`: Commits with the given commit ID prefix. It is an error
   to use a non-unique prefix. Unmatched prefix isn't an error.
 

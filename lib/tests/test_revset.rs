@@ -5251,3 +5251,47 @@ fn test_revset_containing_fn() -> TestResult {
     assert!(revset_has_commit(commit_d.id())?);
     Ok(())
 }
+
+#[test]
+fn test_evaluate_expression_same_change() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = create_random_commit(mut_repo)
+        .set_change_id(commit1.change_id().clone())
+        .write_unwrap();
+    let commit3 = write_random_commit(mut_repo);
+
+    let repo = tx.commit("test").block_on()?;
+
+    // Single commit input
+    assert_eq!(
+        resolve_commit_ids(repo.as_ref(), &format!("same_change({})", commit1.id())),
+        vec![commit2.id().clone(), commit1.id().clone()]
+    );
+
+    // Multiple commit input
+    assert_eq!(
+        resolve_commit_ids(
+            repo.as_ref(),
+            &format!("same_change({} | {})", commit1.id(), commit3.id())
+        ),
+        vec![
+            commit3.id().clone(),
+            commit2.id().clone(),
+            commit1.id().clone()
+        ]
+    );
+
+    // Empty input
+    assert_eq!(
+        resolve_commit_ids(repo.as_ref(), "same_change(none())"),
+        vec![]
+    );
+
+    Ok(())
+}
