@@ -2082,10 +2082,10 @@ time, exactly how Gerrit wants you to work.</p>
 <h2 id="set-up-a-gerrit-remote">Set up a Gerrit remote<a class="headerlink" href="#set-up-a-gerrit-remote" title="Permanent link">&para;</a></h2>
 <p>Jujutsu communicates with Gerrit by pushing commits to a Git remote. If you're
 starting from an existing Git repository with Gerrit remotes already configured,
-you can use <code>jj git init --colocate</code> to start using JJ in that repo. Otherwise,
-set up your Gerrit remote.</p>
+you can use <code>jj git init</code> to start using JJ in that repo. Otherwise, set up your
+Gerrit remote.</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># Option 1: Start JJ in an existing Git repo with Gerrit remotes</span>
-$<span class="w"> </span>jj<span class="w"> </span>git<span class="w"> </span>init<span class="w"> </span>--colocate
+$<span class="w"> </span>jj<span class="w"> </span>git<span class="w"> </span>init
 
 <span class="c1"># Option 2: Add a Gerrit remote to a JJ repo</span>
 $<span class="w"> </span>jj<span class="w"> </span>git<span class="w"> </span>remote<span class="w"> </span>add<span class="w"> </span>gerrit<span class="w"> </span>https://review.gerrithub.io/yourname/yourproject
