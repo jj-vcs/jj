@@ -70,6 +70,7 @@ itertools = "0.14.0"
 jsonschema = { version = "0.46.4", default-features = false }
 libc = { version = "0.2.186" }
 maplit = "1.0.2"
+mimalloc = "0.1.50"
 nix = "0.31.3"
 num_cpus = "1.17.0"
 once_cell = "1.21.4"

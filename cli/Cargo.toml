@@ -84,6 +84,7 @@ indoc = { workspace = true }
 itertools = { workspace = true }
 jj-lib = { workspace = true }
 maplit = { workspace = true }
+mimalloc = { workspace = true }
 once_cell = { workspace = true }
 pest = { workspace = true }
 pest_derive = { workspace = true }
@@ -112,7 +113,6 @@ tracing-subscriber = { workspace = true }
 unicode-width = { workspace = true }
 whoami = { workspace = true }
 percent-encoding = { workspace = true }
-mimalloc = "0.1.50"
 
 [target.'cfg(unix)'.dependencies]
 libc = { workspace = true }
