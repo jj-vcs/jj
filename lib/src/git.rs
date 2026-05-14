@@ -602,15 +602,26 @@ async fn import_refs_inner(
         failed_ref_names,
     } = refs_to_import;
 
+    let iter_changed_refs = || itertools::chain(&changed_remote_bookmarks, &changed_remote_tags);
+    // List of changed old/new ref heads, which may include duplicates.
+    let (old_referenced_heads, new_referenced_heads) = {
+        let mut old_heads = Vec::new();
+        let mut new_heads = Vec::new();
+        for (_, (old_remote_ref, new_target)) in iter_changed_refs() {
+            old_heads.extend(old_remote_ref.target.added_ids().cloned());
+            new_heads.extend(new_target.added_ids().cloned());
+        }
+        (old_heads, new_heads)
+    };
+
     // Bulk-import all reachable Git commits to the backend to reduce overhead
     // of table merging and ref updates.
     //
     // changed_git_refs aren't respected because changed_remote_bookmarks/tags
     // should include all heads that will become reachable in jj.
-    let iter_changed_refs = || itertools::chain(&changed_remote_bookmarks, &changed_remote_tags);
     let index = mut_repo.index();
-    let missing_head_ids: Vec<&CommitId> = iter_changed_refs()
-        .flat_map(|(_, (_, new_target))| new_target.added_ids())
+    let missing_head_ids: Vec<&CommitId> = new_referenced_heads
+        .iter()
         .filter_map(|id| match index.has_id(id) {
             Ok(false) => Some(Ok(id)),
             Ok(true) => None,
@@ -634,6 +645,8 @@ async fn import_refs_inner(
         }
         store.get_commit_async(id).await.map_err(missing_ref_err)
     };
+    // Uses iter_changed_refs() instead of new_referenced_heads to report error
+    // with ref name.
     for (symbol, (_, new_target)) in iter_changed_refs() {
         for id in new_target.added_ids() {
             let commit = get_commit(id, symbol).await?;
@@ -686,8 +699,7 @@ async fn import_refs_inner(
     }
 
     let abandoned_commits = if options.abandon_unreachable_commits {
-        abandon_unreachable_commits(mut_repo, &changed_remote_bookmarks, &changed_remote_tags)
-            .await?
+        abandon_unreachable_commits(mut_repo, old_referenced_heads).await?
     } else {
         vec![]
     };
@@ -704,13 +716,8 @@ async fn import_refs_inner(
 /// Those commits will be recorded as abandoned in the `MutableRepo`.
 async fn abandon_unreachable_commits(
     mut_repo: &mut MutableRepo,
-    changed_remote_bookmarks: &[(RemoteRefSymbolBuf, (RemoteRef, RefTarget))],
-    changed_remote_tags: &[(RemoteRefSymbolBuf, (RemoteRef, RefTarget))],
+    hidable_git_heads: Vec<CommitId>,
 ) -> Result<Vec<CommitId>, GitImportError> {
-    let hidable_git_heads = itertools::chain(changed_remote_bookmarks, changed_remote_tags)
-        .flat_map(|(_, (old_remote_ref, _))| old_remote_ref.target.added_ids())
-        .cloned()
-        .collect_vec();
     if hidable_git_heads.is_empty() {
         return Ok(vec![]);
     }
