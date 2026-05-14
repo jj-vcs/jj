@@ -45,6 +45,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj file`↴](#jj-file)
 * [`jj file annotate`↴](#jj-file-annotate)
 * [`jj file chmod`↴](#jj-file-chmod)
+* [`jj file edit`↴](#jj-file-edit)
 * [`jj file list`↴](#jj-file-list)
 * [`jj file search`↴](#jj-file-search)
 * [`jj file show`↴](#jj-file-show)
@@ -1136,6 +1137,7 @@ File operations
 
 * `annotate` — Show the source change for each line of the target file
 * `chmod` — Sets or removes the executable bit for paths in the repo
+* `edit` — Edit the contents of a file in a revision
 * `list` — List files in a revision
 * `search` — Search for content in files
 * `show` — Print contents of files in a revision
@@ -1194,6 +1196,30 @@ Unlike the POSIX `chmod`, `jj file chmod` also works on Windows, on conflicted f
 ###### **Options:**
 
 * `-r`, `--revision <REVSET>` — The revision to update
+
+  Default value: `@`
+
+
+
+## `jj file edit`
+
+Edit the contents of a file in a revision
+
+The file is opened with the contents from the given revision. After the editor exits, the file is saved back to the revision and descendants are rebased on top of the updated commit.
+
+If the file does not yet exist in the revision, a new file will be created.
+
+If the file is conflicted, the conflict markers are materialized in the editor. Editing the conflict markers can resolve the conflict.
+
+**Usage:** `jj file edit [OPTIONS] <FILE>`
+
+###### **Arguments:**
+
+* `<FILE>` — The file to edit
+
+###### **Options:**
+
+* `-r`, `--revision <REVSET>` — The revision to edit the file in
 
   Default value: `@`
 

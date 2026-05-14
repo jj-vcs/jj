@@ -103,12 +103,33 @@ impl TextEditor {
         content: impl AsRef<[u8]>,
         suffix: Option<&str>,
     ) -> Result<String, TempTextEditError> {
+        self.edit(content, suffix, |p| fs::read_to_string(p))
+    }
+
+    /// Writes the given `content` to temporary file and opens it in editor.
+    pub fn edit_bytes(
+        &self,
+        content: impl AsRef<[u8]>,
+        suffix: Option<&str>,
+    ) -> Result<Vec<u8>, TempTextEditError> {
+        self.edit(content, suffix, |p| fs::read(p))
+    }
+
+    fn edit<R, F>(
+        &self,
+        content: impl AsRef<[u8]>,
+        suffix: Option<&str>,
+        read: F,
+    ) -> Result<R, TempTextEditError>
+    where
+        F: FnOnce(&PathBuf) -> io::Result<R>,
+    {
         let path = self
             .write_temp_file(content.as_ref(), suffix)
             .map_err(|err| TempTextEditError::new(err.into(), None))?;
         self.edit_file(&path)
             .map_err(|err| TempTextEditError::new(err.into(), Some(path.clone())))?;
-        let edited = fs::read_to_string(&path)
+        let edited = read(&path)
             .context(&path)
             .map_err(|err| TempTextEditError::new(err.into(), Some(path.clone())))?;
         // Delete the file only if everything went well.
