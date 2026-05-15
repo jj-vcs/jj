@@ -37,6 +37,7 @@ mod test_file_chmod_command;
 mod test_file_edit_command;
 mod test_file_list_command;
 mod test_file_search_command;
+mod test_file_set_command;
 mod test_file_show_command;
 mod test_file_track_untrack_commands;
 mod test_fileset_output;
