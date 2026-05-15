@@ -34,6 +34,13 @@ impl CleanupGuard {
             slot: guards.insert(Box::new(f)),
         }
     }
+
+    /// Unregister the cleanup without running it
+    pub fn disarm(self) {
+        let mut guards = LIVE_GUARDS.lock().unwrap();
+        drop(guards.remove(self.slot));
+        std::mem::forget(self);
+    }
 }
 
 impl Drop for CleanupGuard {
