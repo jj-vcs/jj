@@ -47,6 +47,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj file edit`↴](#jj-file-edit)
 * [`jj file list`↴](#jj-file-list)
 * [`jj file search`↴](#jj-file-search)
+* [`jj file set`↴](#jj-file-set)
 * [`jj file show`↴](#jj-file-show)
 * [`jj file track`↴](#jj-file-track)
 * [`jj file untrack`↴](#jj-file-untrack)
@@ -1113,6 +1114,7 @@ File operations
 * `edit` — Edit the contents of a file in a revision
 * `list` — List files in a revision
 * `search` — Search for content in files
+* `set` — Update the contents of a file by reading from stdin
 * `show` — Print contents of files in a revision
 * `track` — Start tracking specified paths in the working copy
 * `untrack` — Stop tracking specified paths in the working copy
@@ -1250,6 +1252,30 @@ This is an early version of the command. It only supports glob matching for now,
    If it is a glob pattern, the whole line must match the pattern, so you may want to pass something like `--pattern 'glob:*foo*'`.
 
    [string pattern syntax]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
+
+
+
+## `jj file set`
+
+Update the contents of a file by reading from stdin
+
+Reads the new file contents from stdin and overwrites the specified file in the given revision. Descendants are rebased on top of the rewritten commit.
+
+Example usage:
+
+```shell echo "new file contents" | jj file set -r xyz path/to/file.md ```
+
+**Usage:** `jj file set [OPTIONS] <FILE>`
+
+###### **Arguments:**
+
+* `<FILE>` — The file to set
+
+###### **Options:**
+
+* `-r`, `--revision <REVSET>` — The revision to set the file in
+
+  Default value: `@`
 
 
 
