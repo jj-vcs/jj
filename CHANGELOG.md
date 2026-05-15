@@ -51,8 +51,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   launched once per changed file, making it possible to use per-file tools like
   `vimdiff` for editing.
 
-* Added commands `jj file edit` and `jj file set` for editing files in any
-  revision without needing to change the working copy.
+* Added commands `jj file edit`, `jj file set`, and `jj file delete` for editing
+  files in any revision without needing to change the working copy.
 
 ### Fixed bugs
 

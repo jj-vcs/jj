@@ -44,6 +44,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj file`↴](#jj-file)
 * [`jj file annotate`↴](#jj-file-annotate)
 * [`jj file chmod`↴](#jj-file-chmod)
+* [`jj file delete`↴](#jj-file-delete)
 * [`jj file edit`↴](#jj-file-edit)
 * [`jj file list`↴](#jj-file-list)
 * [`jj file search`↴](#jj-file-search)
@@ -1111,6 +1112,7 @@ File operations
 
 * `annotate` — Show the source change for each line of the target file
 * `chmod` — Sets or removes the executable bit for paths in the repo
+* `delete` — Delete files from the given revision
 * `edit` — Edit the contents of a file in a revision
 * `list` — List files in a revision
 * `search` — Search for content in files
@@ -1171,6 +1173,26 @@ Unlike the POSIX `chmod`, `jj file chmod` also works on Windows, on conflicted f
 ###### **Options:**
 
 * `-r`, `--revision <REVSET>` — The revision to update
+
+  Default value: `@`
+
+
+
+## `jj file delete`
+
+Delete files from the given revision
+
+Removes all files matched by the given filesets from the specified revision. Descendants are rebased on top of the rewritten commit.
+
+**Usage:** `jj file delete [OPTIONS] <FILESETS>...`
+
+###### **Arguments:**
+
+* `<FILESETS>` — Files or directories to delete (filesets are accepted)
+
+###### **Options:**
+
+* `-r`, `--revision <REVSET>` — The revision to delete the files in
 
   Default value: `@`
 
