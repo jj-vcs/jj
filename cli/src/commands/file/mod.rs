@@ -17,6 +17,7 @@ mod chmod;
 mod edit;
 mod list;
 mod search;
+mod set;
 mod show;
 mod track;
 mod untrack;
@@ -33,6 +34,7 @@ pub enum FileCommand {
     Edit(edit::FileEditArgs),
     List(list::FileListArgs),
     Search(search::FileSearchArgs),
+    Set(set::FileSetArgs),
     Show(show::FileShowArgs),
     Track(track::FileTrackArgs),
     Untrack(untrack::FileUntrackArgs),
@@ -49,6 +51,7 @@ pub async fn cmd_file(
         FileCommand::Edit(args) => edit::cmd_file_edit(ui, command, args).await,
         FileCommand::List(args) => list::cmd_file_list(ui, command, args).await,
         FileCommand::Search(args) => search::cmd_file_search(ui, command, args).await,
+        FileCommand::Set(args) => set::cmd_file_set(ui, command, args).await,
         FileCommand::Show(args) => show::cmd_file_show(ui, command, args).await,
         FileCommand::Track(args) => track::cmd_file_track(ui, command, args).await,
         FileCommand::Untrack(args) => untrack::cmd_file_untrack(ui, command, args).await,
