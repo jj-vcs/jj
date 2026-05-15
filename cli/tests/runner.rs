@@ -34,6 +34,7 @@ mod test_edit_command;
 mod test_evolog_command;
 mod test_file_annotate_command;
 mod test_file_chmod_command;
+mod test_file_delete_command;
 mod test_file_edit_command;
 mod test_file_list_command;
 mod test_file_search_command;
