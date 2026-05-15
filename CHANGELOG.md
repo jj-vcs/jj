@@ -78,8 +78,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `revsets.log` now defaults to `builtin_log()`, so custom log revsets can
   reuse the built-in default instead of copying its full expression.
 
-* Added commands `jj file edit` and `jj file set` for editing files in any
-  revision without needing to change the working copy.
+* Added commands `jj file edit`, `jj file set`, and `jj file delete` for editing
+  files in any revision without needing to change the working copy.
 
 ### Fixed bugs
 
