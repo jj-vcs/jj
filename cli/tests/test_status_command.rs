@@ -237,7 +237,7 @@ fn test_status_conflicted_bookmarks() {
     Hint: Use `jj bookmark list` to see details. Use `jj bookmark set <name> -r <rev>` to resolve.
     Warning: These remote bookmarks have conflicts:
       remote_bookmark@origin
-    Hint: Use `jj bookmark list` to see details. Use `jj git fetch` to resolve.
+    Hint: Use `jj bookmark list` to see details. Resolve by fetching an updated bookmark from the remote.
     [EOF]
     ------- stderr -------
     Concurrent modification detected, resolving automatically.

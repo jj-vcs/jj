@@ -241,7 +241,8 @@ pub(crate) async fn cmd_status(
         }
         writeln!(
             formatter.labeled("hint").with_heading("Hint: "),
-            "Use `jj bookmark list` to see details. Use `jj git fetch` to resolve."
+            "Use `jj bookmark list` to see details. Resolve by fetching an updated bookmark from \
+             the remote."
         )?;
     }
 
