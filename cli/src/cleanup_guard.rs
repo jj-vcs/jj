@@ -18,6 +18,17 @@ pub fn init() {
         if let Err(e) = unsafe { platform::init() } {
             eprintln!("couldn't register signal handler: {e}");
         }
+        #[cfg(feature = "git")]
+        {
+            // Initialize the gix-tempfile registry in Mode::None to track lock
+            // files without installing gix's default signal handlers. This is
+            // necessary because gix-tempfile uses signal-hook, which would
+            // compete with or overwrite the custom platform-specific signal handler
+            // jj installs below. Since jj uses cooperative cancellation and stack
+            // unwinding on signal, lock files will be cleaned up naturally via
+            // standard Rust RAII drop handlers when the main thread exits.
+            gix_tempfile::signal::setup(gix_tempfile::signal::handler::Mode::None);
+        }
     });
 }
 
@@ -39,9 +50,11 @@ impl CleanupGuard {
 impl Drop for CleanupGuard {
     #[instrument(skip_all)]
     fn drop(&mut self) {
-        let guards = &mut *LIVE_GUARDS.lock().unwrap();
-        let f = guards.remove(self.slot);
-        f();
+        let mut guards = LIVE_GUARDS.lock().unwrap();
+        if guards.contains(self.slot) {
+            let f = guards.remove(self.slot);
+            f();
+        }
     }
 }
 
@@ -70,12 +83,10 @@ mod platform {
             // into it
             thread::spawn(move || {
                 let mut buf = [0];
-                let signal = match recv.recv(&mut buf) {
+                let _signal = match recv.recv(&mut buf) {
                     Ok(1) => c_int::from(buf[0]),
                     _ => unreachable!(),
                 };
-                // We must hold the lock for the remainder of the process's lifetime to avoid a
-                // race where a guard is created between `on_signal` and `raise`.
                 let guards = &mut *LIVE_GUARDS.lock().unwrap();
                 if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| on_signal(guards))) {
                     match e.downcast::<String>() {
@@ -83,8 +94,6 @@ mod platform {
                         Err(_) => eprintln!("signal handler panicked"),
                     }
                 }
-                libc::signal(signal, libc::SIG_DFL);
-                libc::raise(signal);
             });
 
             SIGNAL_SEND = send.into_raw_fd();
@@ -94,8 +103,12 @@ mod platform {
         }
     }
 
-    // Invoked on a background thread. Process exits after this returns.
+    // Invoked on a background thread.
     fn on_signal(guards: &mut GuardTable) {
+        // 1. Request cancellation.
+        jj_lib::cancellation::request_cancellation();
+
+        // 2. Run jj's own guards.
         for guard in guards.drain() {
             guard();
         }

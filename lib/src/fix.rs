@@ -148,6 +148,9 @@ where
         files_to_fix.into_par_iter().try_for_each_init(
             || updates_tx.clone(),
             |updates_tx, file_to_fix| -> Result<(), FixError> {
+                if crate::cancellation::is_canceled() {
+                    return Err(FixError::Backend(BackendError::Interrupted));
+                }
                 let result = (self.fix_fn)(store, file_to_fix)?;
                 match result {
                     Some(new_file_id) => {
@@ -228,6 +231,9 @@ pub async fn fix_files(
     let mut unique_files_to_fix: HashSet<FileToFix> = HashSet::new();
     let mut commit_paths: HashMap<CommitId, HashSet<RepoPathBuf>> = HashMap::new();
     for commit in commits.iter().rev() {
+        if crate::cancellation::is_canceled() {
+            return Err(FixError::Backend(BackendError::Interrupted));
+        }
         let mut paths: HashSet<RepoPathBuf> = HashSet::new();
 
         // Compute the base tree for the current commit.

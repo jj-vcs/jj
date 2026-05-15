@@ -55,10 +55,12 @@ gix = { version = "0.83.0", default-features = false, features = [
     "attributes",
     "blob-diff",
     "index",
+    "interrupt",
     "max-performance-safe",
     "sha1",
     "zlib-rs",
 ] }
+gix-tempfile = { version = "23.0.0" }
 gix-ignore = { version = "0.21.0" }
 globset = "0.4.18"
 hashbrown = { version = "0.17.1", default-features = false, features = ["inline-more"] }

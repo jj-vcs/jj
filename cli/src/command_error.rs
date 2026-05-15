@@ -92,6 +92,7 @@ pub enum CommandErrorKind {
     Cli,
     BrokenPipe,
     Internal,
+    Canceled,
 }
 
 #[derive(Clone, Debug)]
@@ -222,6 +223,14 @@ pub fn internal_error_with_message(
     source: impl Into<Box<dyn error::Error + Send + Sync>>,
 ) -> CommandError {
     CommandError::with_message(CommandErrorKind::Internal, message, source)
+}
+
+#[derive(Debug, Error)]
+#[error("Interrupted")]
+pub struct CanceledError;
+
+pub fn canceled_error() -> CommandError {
+    CommandError::new(CommandErrorKind::Canceled, CanceledError)
 }
 
 fn format_similarity_hint<S: AsRef<str>>(candidates: &[S]) -> Option<String> {
@@ -621,7 +630,10 @@ jj currently does not support partial clones. To use jj with this repository, tr
 
     impl From<GitResetHeadError> for CommandError {
         fn from(err: GitResetHeadError) -> Self {
-            user_error_with_message("Failed to reset Git HEAD state", err)
+            match err {
+                GitResetHeadError::Canceled => canceled_error(),
+                _ => user_error_with_message("Failed to reset Git HEAD state", err),
+            }
         }
     }
 
@@ -1032,6 +1044,9 @@ fn try_handle_command_result(ui: &mut Ui, result: Result<(), CommandError>) -> i
         CommandErrorKind::Internal => {
             print_error(ui, "Internal error: ", err, hints)?;
             Ok(255)
+        }
+        CommandErrorKind::Canceled => {
+            Ok(130)
         }
     }
 }

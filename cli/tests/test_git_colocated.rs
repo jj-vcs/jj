@@ -1762,3 +1762,136 @@ fn get_colocation_status(work_dir: &TestWorkDir) -> CommandOutput {
         "--quiet", // suppress hint
     ])
 }
+
+#[test]
+fn test_git_lock_cleanup_on_signal() -> TestResult {
+    // This test ensures that Git lock files are cleaned up when jj is interrupted
+    // by a signal (SIGINT). We simulate this by creating a large repository to
+    // slow down Git operations and then sending SIGINT to the jj process.
+    if cfg!(windows) {
+        // Signals are handled differently on Windows, and this test uses SIGINT.
+        return Ok(());
+    }
+
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create a large number of files to make Git index operations slow.
+    for i in 0..5000 {
+        work_dir.write_file(format!("file_{i}"), "contents");
+    }
+
+    // Capture the binary path and environment once
+    let cmd = test_env.new_jj_cmd();
+    let jj_bin = cmd.get_program().to_owned();
+    let base_env: Vec<_> = cmd
+        .get_envs()
+        .filter_map(|(k, v)| v.map(|v| (k.to_owned(), v.to_owned())))
+        .filter(|(k, _)| k != "JJ_TIMESTAMP" && k != "JJ_OP_TIMESTAMP" && k != "JJ_RANDOMNESS_SEED")
+        .collect();
+
+    let num_iterations = 100;
+    for i in 1..=num_iterations {
+        // Modify a file to ensure the index needs updating
+        work_dir.write_file("file_0", format!("contents {i}"));
+
+        let mut child = std::process::Command::new(&jj_bin)
+            .current_dir(work_dir.root())
+            .arg("--no-pager")
+            .arg("log")
+            .envs(base_env.clone())
+            .spawn()
+            .expect("Failed to spawn jj");
+
+        // Wait for the lock file to appear
+        let index_lock = work_dir.root().join(".git/index.lock");
+        let mut found = false;
+        for _ in 0..5000 {
+            if index_lock.exists() {
+                found = true;
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        assert!(found, "Iteration {i}/{num_iterations}: index.lock was never created");
+
+        // Send SIGINT
+        #[cfg(unix)]
+        unsafe {
+            let pid = child.id();
+            libc::kill(pid as libc::pid_t, libc::SIGINT);
+        }
+
+        // Wait for jj to exit
+        child.wait().expect("jj failed to exit");
+
+        // Verify that index.lock was cleaned up
+        assert!(!index_lock.exists(), "Iteration {i}/{num_iterations}: index.lock was not cleaned up");
+    }
+
+    Ok(())
+}
+
+#[test]
+fn test_git_lock_concurrent_cleanup_safety() -> TestResult {
+    // This test ensures that jj DOES NOT clean up an index.lock file if it already
+    // existed before jj started. This is important for concurrency with other
+    // Git processes.
+    if cfg!(windows) {
+        return Ok(());
+    }
+
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Pre-create the lock file. This simulates another process holding the lock.
+    let index_lock_path = work_dir.root().join(".git/index.lock");
+    std::fs::write(&index_lock_path, "external lock").expect("Failed to write lock");
+
+    // Prepare the command to run jj status
+    let cmd = test_env.new_jj_cmd();
+    let jj_bin = cmd.get_program().to_owned();
+    let base_env: Vec<_> = cmd
+        .get_envs()
+        .filter_map(|(k, v)| v.map(|v| (k.to_owned(), v.to_owned())))
+        .filter(|(k, _)| k != "JJ_TIMESTAMP" && k != "JJ_OP_TIMESTAMP" && k != "JJ_RANDOMNESS_SEED")
+        .collect();
+
+    let mut child = std::process::Command::new(&jj_bin)
+        .current_dir(work_dir.root())
+        .arg("status")
+        .envs(base_env)
+        .spawn()
+        .expect("Failed to spawn jj");
+
+    // Give it a moment to reach the cleanup guard check
+    std::thread::sleep(std::time::Duration::from_millis(100));
+
+    // Send SIGINT to the jj process
+    #[cfg(unix)]
+    unsafe {
+        let pid = child.id();
+        libc::kill(pid as libc::pid_t, libc::SIGINT);
+    }
+
+    // Wait for jj to exit
+    child.wait().expect("jj failed to exit");
+
+    // Verify that index.lock STILL exists
+    assert!(
+        index_lock_path.exists(),
+        "index.lock was incorrectly removed by jj even though it existed before jj started"
+    );
+
+    // Now remove it manually and verify jj works again
+    std::fs::remove_file(&index_lock_path).expect("Failed to remove lock");
+    test_env.run_jj_in("repo", ["status"]).success();
+
+    Ok(())
+}

@@ -242,6 +242,9 @@ pub(crate) async fn cmd_log(
                 }
             };
             while let Some((commit_id, edges)) = stream.try_next().await? {
+                if jj_lib::cancellation::is_canceled() {
+                    return Err(CommandError::from(crate::command_error::canceled_error()));
+                }
                 // The graph is keyed by (CommitId, is_synthetic)
                 let mut graphlog_edges = vec![];
                 // TODO: Should we update revset.stream_graph() to yield a `has_missing` flag
@@ -340,6 +343,9 @@ pub(crate) async fn cmd_log(
             };
             let mut commit_stream = id_stream.commits(store);
             while let Some(commit) = commit_stream.try_next().await? {
+                if jj_lib::cancellation::is_canceled() {
+                    return Err(CommandError::from(crate::command_error::canceled_error()));
+                }
                 with_content_format
                     .write(formatter, async |formatter| {
                         template.format(&commit, formatter)

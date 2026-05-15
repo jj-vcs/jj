@@ -78,6 +78,7 @@ erased-serde = { workspace = true }
 etcetera = { workspace = true }
 futures = { workspace = true }
 gix = { workspace = true, optional = true }
+gix-tempfile = { workspace = true, optional = true }
 globset = { workspace = true }
 indexmap = { workspace = true }
 indoc = { workspace = true }
@@ -135,7 +136,7 @@ jj-cli = { path = ".", features = ["test-fakes"], default-features = false }
 [features]
 default = ["watchman", "git"]
 bench = ["dep:criterion"]
-git = ["jj-lib/git", "dep:gix"]
+git = ["jj-lib/git", "dep:gix", "dep:gix-tempfile"]
 test-fakes = ["jj-lib/testing"]
 watchman = ["jj-lib/watchman"]
 

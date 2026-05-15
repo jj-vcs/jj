@@ -238,6 +238,9 @@ pub async fn cmd_git_fetch(
     )?;
 
     for (remote, expanded, no_implicit_tags) in expansions {
+        if jj_lib::cancellation::is_canceled() {
+            return Err(crate::command_error::canceled_error());
+        }
         let mut callback = GitSubprocessUi::new(ui);
         // Disable implicit tag fetching if patterns are explicitly set. NoTags
         // will be the default when this feature gets stabilized. (#7528)

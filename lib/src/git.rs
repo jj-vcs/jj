@@ -633,6 +633,9 @@ async fn import_refs_inner(
         store.get_commit_async(id).await.map_err(missing_ref_err)
     };
     for (symbol, (_, new_target)) in iter_changed_refs() {
+        if crate::cancellation::is_canceled() {
+            return Err(GitImportError::Backend(BackendError::Interrupted));
+        }
         for id in new_target.added_ids() {
             let commit = get_commit(id, symbol).await?;
             head_commits.push(commit);
@@ -647,9 +650,15 @@ async fn import_refs_inner(
 
     // Apply the change that happened in git since last time we imported refs.
     for (full_name, new_target) in changed_git_refs {
+        if crate::cancellation::is_canceled() {
+            return Err(GitImportError::Backend(BackendError::Interrupted));
+        }
         mut_repo.set_git_ref_target(&full_name, new_target);
     }
     for (symbol, (old_remote_ref, new_target)) in &changed_remote_bookmarks {
+        if crate::cancellation::is_canceled() {
+            return Err(GitImportError::Backend(BackendError::Interrupted));
+        }
         let symbol = symbol.as_ref();
         let base_target = old_remote_ref.tracked_target();
         let new_remote_ref = RemoteRef {
@@ -668,6 +677,9 @@ async fn import_refs_inner(
         mut_repo.set_remote_bookmark(symbol, new_remote_ref);
     }
     for (symbol, (old_remote_ref, new_target)) in &changed_remote_tags {
+        if crate::cancellation::is_canceled() {
+            return Err(GitImportError::Backend(BackendError::Interrupted));
+        }
         let symbol = symbol.as_ref();
         let base_target = old_remote_ref.tracked_target();
         let new_remote_ref = RemoteRef {
@@ -736,6 +748,9 @@ async fn abandon_unreachable_commits(
         .await
         .map_err(|err| err.into_backend_error())?;
     for id in &abandoned_commit_ids {
+        if crate::cancellation::is_canceled() {
+            return Err(BackendError::Interrupted);
+        }
         let commit = mut_repo.store().get_commit_async(id).await?;
         mut_repo.record_abandoned_commit(&commit);
     }
@@ -1204,8 +1219,8 @@ pub fn export_some_refs(
         }
     }
 
-    let failed_bookmarks = export_refs_to_git(mut_repo, &git_repo, GitRefKind::Bookmark, bookmarks);
-    let failed_tags = export_refs_to_git(mut_repo, &git_repo, GitRefKind::Tag, tags);
+    let failed_bookmarks = export_refs_to_git(mut_repo, &git_repo, GitRefKind::Bookmark, bookmarks)?;
+    let failed_tags = export_refs_to_git(mut_repo, &git_repo, GitRefKind::Tag, tags)?;
 
     copy_exportable_local_bookmarks_to_remote_view(
         mut_repo,
@@ -1231,9 +1246,15 @@ fn export_refs_to_git(
     git_repo: &gix::Repository,
     kind: GitRefKind,
     refs: RefsToExport,
-) -> Vec<(RemoteRefSymbolBuf, FailedRefExportReason)> {
+) -> Result<Vec<(RemoteRefSymbolBuf, FailedRefExportReason)>, GitExportError> {
+    if crate::cancellation::is_canceled() {
+        return Err(GitExportError::Git("Interrupted".into()));
+    }
     let mut failed = refs.failed;
     for (symbol, old_oid) in refs.to_delete {
+        if crate::cancellation::is_canceled() {
+            return Err(GitExportError::Git("Interrupted".into()));
+        }
         let Some(git_ref_name) = to_git_ref_name(kind, symbol.as_ref()) else {
             failed.push((symbol, FailedRefExportReason::InvalidGitName));
             continue;
@@ -1246,6 +1267,9 @@ fn export_refs_to_git(
         }
     }
     for (symbol, (old_commit_oid, new_commit_oid)) in refs.to_update {
+        if crate::cancellation::is_canceled() {
+            return Err(GitExportError::Git("Interrupted".into()));
+        }
         let Some(git_ref_name) = to_git_ref_name(kind, symbol.as_ref()) else {
             failed.push((symbol, FailedRefExportReason::InvalidGitName));
             continue;
@@ -1280,7 +1304,7 @@ fn export_refs_to_git(
 
     // Stabilize output, allow binary search.
     failed.sort_unstable_by(|(name1, _), (name2, _)| name1.cmp(name2));
-    failed
+    Ok(failed)
 }
 
 fn copy_exportable_local_bookmarks_to_remote_view(
@@ -1633,6 +1657,8 @@ pub enum GitResetHeadError {
     UpdateHeadRef(#[source] Box<gix::reference::edit::Error>),
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
+    #[error("Interrupted")]
+    Canceled,
 }
 
 impl GitResetHeadError {
@@ -1771,6 +1797,10 @@ async fn reset_index(
     }
 
     debug_assert!(index.verify_entries().is_ok());
+
+    if crate::cancellation::is_canceled() {
+        return Err(GitResetHeadError::Canceled);
+    }
 
     index
         .write(gix::index::write::Options::default())
@@ -3141,7 +3171,7 @@ pub fn push_refs(
     // case, this only updates our record about the last exported state.
     let unexported_bookmarks = {
         let refs = build_pushed_bookmarks_to_export(remote, pushed_bookmark_updates());
-        export_refs_to_git(mut_repo, &git_repo, GitRefKind::Bookmark, refs)
+        export_refs_to_git(mut_repo, &git_repo, GitRefKind::Bookmark, refs).unwrap_or_default()
     };
     // Update remote tags so we can look up annotated tag oid without fetching.
     // Since remote tags should never be imported without fetching from the

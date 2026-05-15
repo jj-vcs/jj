@@ -2197,6 +2197,9 @@ to the current parents may contain changes from multiple commits.
         description: impl Into<String>,
         _git_import_export_lock: &GitImportExportLock,
     ) -> Result<(), CommandError> {
+        if jj_lib::cancellation::is_canceled() {
+            return Err(crate::command_error::canceled_error());
+        }
         let num_rebased = tx.repo_mut().rebase_descendants().await?;
         if num_rebased > 0 {
             writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
@@ -4514,7 +4517,11 @@ impl<'a> CliRunner<'a> {
                     };
                     Box::new(AsyncCliDispatchFn(f))
                 });
-        dispatch.call(ui, &command_helper).await
+        let result = dispatch.call(ui, &command_helper).await;
+        if jj_lib::cancellation::is_canceled() {
+            return Err(crate::command_error::canceled_error());
+        }
+        result
     }
 
     #[must_use]

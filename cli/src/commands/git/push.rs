@@ -745,6 +745,12 @@ impl<'repo> CommitsValidator<'repo> {
             .stream()
             .commits(self.repo.store());
         while let Some(commit) = commit_stream.try_next().await? {
+            if jj_lib::cancellation::is_canceled() {
+                return Err(RevsetEvaluationError::Other(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::Interrupted,
+                    "Interrupted",
+                ))));
+            }
             let mut reasons = vec![];
             let mut hint = None;
             if commit.description().is_empty() && !self.allow_empty_description {

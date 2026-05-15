@@ -1514,6 +1514,14 @@ impl FileSnapshotter<'_> {
             if self.error.get().is_some() {
                 return;
             }
+            if crate::cancellation::is_canceled() {
+                let err = SnapshotError::Other {
+                    message: "Interrupted".to_string(),
+                    err: "SIGINT received".into(),
+                };
+                self.error.set(err).unwrap_or(());
+                return;
+            }
             match body(scope) {
                 Ok(()) => {}
                 Err(err) => self.error.set(err).unwrap_or(()),
@@ -1557,6 +1565,9 @@ impl FileSnapshotter<'_> {
             // sequential scan should be fast enough.
             .with_min_len(100)
             .filter_map(|entry| {
+                if crate::cancellation::is_canceled() {
+                    return None;
+                }
                 self.process_dir_entry(&dir, &git_ignore, file_states, &entry, scope)
                     .block_on()
                     .transpose()

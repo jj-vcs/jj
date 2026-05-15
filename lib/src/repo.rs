@@ -1390,6 +1390,9 @@ impl MutableRepo {
             .order_commits_for_rebase(commits, new_parents_map)
             .await?;
         while let Some(old_commit) = to_visit.pop() {
+            if crate::cancellation::is_canceled() {
+                return Err(BackendError::Interrupted);
+            }
             let parent_ids = new_parents_map
                 .get(old_commit.id())
                 .map_or(old_commit.parent_ids(), |parent_ids| parent_ids);
