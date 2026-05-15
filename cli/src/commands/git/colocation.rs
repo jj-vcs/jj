@@ -23,6 +23,7 @@ use jj_lib::op_store::RefTarget;
 use jj_lib::repo::Repo as _;
 
 use crate::cli_util::CommandHelper;
+use crate::cli_util::WorkspaceCommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
@@ -74,7 +75,7 @@ pub async fn cmd_git_colocation(
 /// which means that the repo is backed by git, is not
 /// already colocated, and is a main workspace
 fn workspace_supports_git_colocation_commands(
-    workspace_command: &crate::cli_util::WorkspaceCommandHelper,
+    workspace_command: &WorkspaceCommandHelper,
 ) -> Result<(), CommandError> {
     // Check if backend is Git (will show an error otherwise)
     git::get_git_backend(workspace_command.repo().store())?;
@@ -299,7 +300,7 @@ fn set_git_repo_bare(path: &std::path::Path, bare: bool) -> Result<(), CommandEr
 /// Set the git HEAD to the working copy commit's parent
 async fn set_git_head_to_wc_parent(
     ui: &mut Ui,
-    workspace_command: &mut crate::cli_util::WorkspaceCommandHelper,
+    workspace_command: &mut WorkspaceCommandHelper,
     wc_commit: &Commit,
 ) -> Result<(), CommandError> {
     let mut tx = workspace_command.start_transaction();
@@ -313,7 +314,7 @@ async fn set_git_head_to_wc_parent(
 /// Remove the git HEAD reference
 async fn remove_git_head(
     ui: &mut Ui,
-    workspace_command: &mut crate::cli_util::WorkspaceCommandHelper,
+    workspace_command: &mut WorkspaceCommandHelper,
 ) -> Result<(), CommandError> {
     let mut tx = workspace_command.start_transaction();
     tx.repo_mut().set_git_head_target(RefTarget::absent());
@@ -327,8 +328,8 @@ async fn remove_git_head(
 async fn reload_workspace_helper(
     ui: &mut Ui,
     command: &CommandHelper,
-    workspace_command: crate::cli_util::WorkspaceCommandHelper,
-) -> Result<crate::cli_util::WorkspaceCommandHelper, CommandError> {
+    workspace_command: WorkspaceCommandHelper,
+) -> Result<WorkspaceCommandHelper, CommandError> {
     let workspace = command.load_workspace_at(
         workspace_command.workspace_root(),
         workspace_command.settings(),
