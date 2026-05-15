@@ -48,6 +48,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj file edit`↴](#jj-file-edit)
 * [`jj file list`↴](#jj-file-list)
 * [`jj file search`↴](#jj-file-search)
+* [`jj file set`↴](#jj-file-set)
 * [`jj file show`↴](#jj-file-show)
 * [`jj file track`↴](#jj-file-track)
 * [`jj file untrack`↴](#jj-file-untrack)
@@ -1142,6 +1143,7 @@ File operations
 * `edit` — Edit the contents of a file in a revision
 * `list` — List files in a revision
 * `search` — Search for content in files
+* `set` — Update the contents of a file in the given revision
 * `show` — Print contents of files in a revision
 * `track` — Start tracking specified paths in the working copy
 * `untrack` — Stop tracking specified paths in the working copy
@@ -1283,6 +1285,33 @@ This is an early version of the command. It does not search files concurrently.
    [string pattern syntax]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 * `--name-only` — Print only the paths of files that contain a match, not the matched lines
 * `-n`, `--line-number` — Prefix each matched line with its 1-based line number within the file
+
+
+
+## `jj file set`
+
+Update the contents of a file in the given revision
+
+The new file contents must be provided via `--stdin`. In the future, additional content sources may be supported.
+
+Descendants are rebased on top of the rewritten commit.
+
+Example usage:
+
+```shell echo "new file contents" | jj file set --stdin -r xyz path/to/file.md ```
+
+**Usage:** `jj file set [OPTIONS] <FILE>`
+
+###### **Arguments:**
+
+* `<FILE>` — The file to set
+
+###### **Options:**
+
+* `-r`, `--revision <REVSET>` — The revision to set the file in
+
+  Default value: `@`
+* `--stdin` — Read the new file contents from standard input
 
 
 
