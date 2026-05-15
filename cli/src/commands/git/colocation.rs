@@ -72,8 +72,7 @@ pub async fn cmd_git_colocation(
 }
 
 /// Check that the repository supports colocation commands
-/// which means that the repo is backed by git, is not
-/// already colocated, and is a main workspace
+/// which means that the repo is backed by Git and is a main workspace
 fn workspace_supports_git_colocation_commands(
     workspace_command: &WorkspaceCommandHelper,
 ) -> Result<(), CommandError> {
