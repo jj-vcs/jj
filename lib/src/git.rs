@@ -625,7 +625,7 @@ async fn import_refs_inner(
             err,
         };
         // If bulk-import failed, try again to find bad head or ref.
-        if !heads_imported && !index.has_id(id).map_err(GitImportError::Index)? {
+        if !heads_imported && !index.has_id(id)? {
             git_backend
                 .import_head_commits([id])
                 .map_err(missing_ref_err)?;
@@ -640,10 +640,7 @@ async fn import_refs_inner(
     }
     // It's unlikely the imported commits were missing, but I/O-related error
     // can still occur.
-    mut_repo
-        .add_heads(&head_commits)
-        .await
-        .map_err(GitImportError::Backend)?;
+    mut_repo.add_heads(&head_commits).await?;
 
     // Apply the change that happened in git since last time we imported refs.
     for (full_name, new_target) in changed_git_refs {
@@ -688,8 +685,7 @@ async fn import_refs_inner(
 
     let abandoned_commits = if options.abandon_unreachable_commits {
         abandon_unreachable_commits(mut_repo, &changed_remote_bookmarks, &changed_remote_tags)
-            .await
-            .map_err(GitImportError::Backend)?
+            .await?
     } else {
         vec![]
     };
@@ -1033,14 +1029,8 @@ pub async fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportErro
         }
         // It's unlikely the imported commits were missing, but I/O-related
         // error can still occur.
-        let commit = store
-            .get_commit_async(head_id)
-            .await
-            .map_err(GitImportError::Backend)?;
-        mut_repo
-            .add_head(&commit)
-            .await
-            .map_err(GitImportError::Backend)?;
+        let commit = store.get_commit_async(head_id).await?;
+        mut_repo.add_head(&commit).await?;
     }
 
     mut_repo.set_git_head_target(RefTarget::resolved(new_git_head_id));
