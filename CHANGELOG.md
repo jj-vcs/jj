@@ -96,8 +96,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The hunk headers of `diff.color-words.conflict = "pair"` now include the
   conflict labels of the compared terms.
 
-* Added command `jj file edit` for editing files in any revision without
-  needing to change the working copy.
+* Added commands `jj file edit` and `jj file delete` for editing files in any
+  revision without needing to change the working copy.
 
 ### Fixed bugs
 
