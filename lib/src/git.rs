@@ -70,6 +70,7 @@ use crate::ref_name::RemoteRefSymbolBuf;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::repo_path::RepoPath;
+use crate::revset::ResolvedRevsetExpression;
 use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExpression;
 use crate::revset::RevsetStreamExt as _;
@@ -707,16 +708,21 @@ async fn import_refs_inner(
         mut_repo.set_remote_tag(symbol, new_remote_ref);
     }
 
-    let mut abandoned_commits = if options.abandon_unreachable_commits {
-        abandon_unreachable_commits(mut_repo, old_referenced_heads).await?
+    let any_old_referenced = !old_referenced_heads.is_empty();
+    let any_new_referenced = !new_referenced_heads.is_empty();
+    let old_visible_heads = RevsetExpression::commits(old_visible_heads);
+    let old_referenced_heads = RevsetExpression::commits(old_referenced_heads);
+    let new_referenced_heads = RevsetExpression::commits(new_referenced_heads);
+    let mut abandoned_commits = if options.abandon_unreachable_commits && any_old_referenced {
+        abandon_unreachable_commits(mut_repo, &old_referenced_heads).await?
     } else {
         vec![]
     };
-    let rewritten_commit_ids = if options.record_synthetic_predecessors {
+    let rewritten_commit_ids = if options.record_synthetic_predecessors && any_new_referenced {
         record_synthetic_predecessors(
             mut_repo,
-            old_visible_heads,
-            new_referenced_heads,
+            &old_visible_heads,
+            &new_referenced_heads,
             &abandoned_commits,
             &imported_commits,
         )
@@ -739,11 +745,8 @@ async fn import_refs_inner(
 /// Those commits will be recorded as abandoned in the `MutableRepo`.
 async fn abandon_unreachable_commits(
     mut_repo: &mut MutableRepo,
-    hidable_git_heads: Vec<CommitId>,
+    hidable_git_heads: &Arc<ResolvedRevsetExpression>,
 ) -> Result<Vec<Commit>, GitImportError> {
-    if hidable_git_heads.is_empty() {
-        return Ok(vec![]);
-    }
     let pinned_expression = RevsetExpression::union_all(&[
         // Local refs are usually visible, no need to filter out hidden
         RevsetExpression::commits(pinned_commit_ids(mut_repo.view())),
@@ -753,7 +756,7 @@ async fn abandon_unreachable_commits(
         RevsetExpression::root(),
     ]);
     let abandoned_expression = pinned_expression
-        .range(&RevsetExpression::commits(hidable_git_heads))
+        .range(hidable_git_heads)
         // Don't include already-abandoned commits in GitImportStats
         .intersection(&RevsetExpression::visible_heads().ancestors());
     let abandoned_commits: Vec<_> = abandoned_expression
@@ -777,19 +780,15 @@ async fn abandon_unreachable_commits(
 /// Returns old commit IDs that have been mapped to the new commits.
 async fn record_synthetic_predecessors(
     mut_repo: &mut MutableRepo,
-    old_visible_heads: Vec<CommitId>,
-    new_referenced_heads: Vec<CommitId>,
+    old_visible_heads: &Arc<ResolvedRevsetExpression>,
+    new_referenced_heads: &Arc<ResolvedRevsetExpression>,
     abandoned_commits: &[Commit],
     imported_commits: &[Commit],
 ) -> Result<HashSet<CommitId>, GitImportError> {
-    if new_referenced_heads.is_empty() {
-        return Ok(HashSet::new());
-    }
-
     let new_referenced_change_to_commit_ids = {
         let mut change_to_commit_ids: HashMap<ChangeId, Vec<CommitId>> = HashMap::new();
-        let mut stream = RevsetExpression::commits(old_visible_heads)
-            .range(&RevsetExpression::commits(new_referenced_heads))
+        let mut stream = old_visible_heads
+            .range(new_referenced_heads)
             .evaluate(mut_repo)?
             .commit_change_ids();
         while let Some((commit_id, change_id)) = stream.try_next().await? {
