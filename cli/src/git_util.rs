@@ -26,7 +26,6 @@ use std::time::Instant;
 use bstr::ByteSlice as _;
 use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
-use futures::future::try_join_all;
 use indoc::writedoc;
 use itertools::Itertools as _;
 use jj_lib::git;
@@ -216,19 +215,19 @@ pub fn load_git_import_options(
     })
 }
 
-pub async fn print_git_import_stats(
+pub fn print_git_import_stats(
     ui: &Ui,
     tx: &WorkspaceCommandTransaction<'_>,
     stats: &GitImportStats,
 ) -> Result<(), CommandError> {
     if let Some(mut formatter) = ui.status_formatter() {
-        print_imported_changes(formatter.as_mut(), tx, stats).await?;
+        print_imported_changes(formatter.as_mut(), tx, stats)?;
     }
     print_failed_git_import(ui, stats)?;
     Ok(())
 }
 
-async fn print_imported_changes(
+fn print_imported_changes(
     formatter: &mut dyn Formatter,
     tx: &WorkspaceCommandTransaction<'_>,
     stats: &GitImportStats,
@@ -257,15 +256,8 @@ async fn print_imported_changes(
             "Abandoned {} commits that are no longer reachable:",
             stats.abandoned_commits.len()
         )?;
-        let abandoned_commits = try_join_all(
-            stats
-                .abandoned_commits
-                .iter()
-                .map(|id| tx.repo().store().get_commit_async(id)),
-        )
-        .await?;
         let template = tx.commit_summary_template();
-        print_updated_commits(formatter, &template, &abandoned_commits)?;
+        print_updated_commits(formatter, &template, &stats.abandoned_commits)?;
     }
 
     Ok(())

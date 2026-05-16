@@ -464,7 +464,7 @@ async fn fetch_new_remote(
         let remote_symbol = name.to_remote_symbol(remote_name);
         tx.repo_mut().track_remote_bookmark(remote_symbol)?;
     }
-    print_git_import_stats(ui, &tx, &import_stats).await?;
+    print_git_import_stats(ui, &tx, &import_stats)?;
     if git_settings.auto_local_bookmark && !should_track_default {
         writeln!(
             ui.hint_default(),

@@ -437,11 +437,8 @@ fn test_import_refs_reimport() -> TestResult {
 
     assert_eq!(
         // The order is unstable just because we import heads from Git repo.
-        HashSet::from_iter(stats.abandoned_commits),
-        hashset! {
-            jj_id(commit4),
-            jj_id(commit3),
-        },
+        HashSet::from_iter(stats.abandoned_commits.iter().map(Commit::id)),
+        HashSet::from([&jj_id(commit4), &jj_id(commit3)]),
     );
     let view = repo.view();
     let expected_heads = hashset! {
@@ -3459,7 +3456,10 @@ fn test_fetch_prune_deleted_ref() -> TestResult {
         .delete()?;
     // After re-fetching, the bookmark should be deleted
     let stats = fetch_import_all(tx.repo_mut(), "origin".as_ref());
-    assert_eq!(stats.abandoned_commits, vec![jj_id(commit)]);
+    assert_eq!(
+        stats.abandoned_commits.iter().map(Commit::id).collect_vec(),
+        vec![&jj_id(commit)]
+    );
     assert!(tx.repo().get_local_bookmark("main".as_ref()).is_absent());
     assert_eq!(
         tx.repo_mut()

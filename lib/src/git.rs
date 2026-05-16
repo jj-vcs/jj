@@ -71,6 +71,7 @@ use crate::repo::Repo;
 use crate::repo_path::RepoPath;
 use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExpression;
+use crate::revset::RevsetStreamExt as _;
 use crate::settings::UserSettings;
 use crate::store::Store;
 use crate::str_util::StringExpression;
@@ -522,7 +523,7 @@ pub struct GitImportOptions {
 #[derive(Clone, Debug, Eq, PartialEq, Default)]
 pub struct GitImportStats {
     /// Commits superseded by newly imported commits.
-    pub abandoned_commits: Vec<CommitId>,
+    pub abandoned_commits: Vec<Commit>,
     /// Remote bookmark `(symbol, (old_remote_ref, new_target))`s to be merged
     /// in to the local bookmarks, sorted by `symbol`.
     pub changed_remote_bookmarks: Vec<(RemoteRefSymbolBuf, (RemoteRef, RefTarget))>,
@@ -717,7 +718,7 @@ async fn import_refs_inner(
 async fn abandon_unreachable_commits(
     mut_repo: &mut MutableRepo,
     hidable_git_heads: Vec<CommitId>,
-) -> Result<Vec<CommitId>, GitImportError> {
+) -> Result<Vec<Commit>, GitImportError> {
     if hidable_git_heads.is_empty() {
         return Ok(vec![]);
     }
@@ -733,16 +734,16 @@ async fn abandon_unreachable_commits(
         .range(&RevsetExpression::commits(hidable_git_heads))
         // Don't include already-abandoned commits in GitImportStats
         .intersection(&RevsetExpression::visible_heads().ancestors());
-    let abandoned_commit_ids: Vec<_> = abandoned_expression
+    let abandoned_commits: Vec<_> = abandoned_expression
         .evaluate(mut_repo)?
         .stream()
+        .commits(mut_repo.store())
         .try_collect()
         .await?;
-    for id in &abandoned_commit_ids {
-        let commit = mut_repo.store().get_commit_async(id).await?;
-        mut_repo.record_abandoned_commit(&commit);
+    for commit in &abandoned_commits {
+        mut_repo.record_abandoned_commit(commit);
     }
-    Ok(abandoned_commit_ids)
+    Ok(abandoned_commits)
 }
 
 /// Calculates diff of git refs to be imported.
