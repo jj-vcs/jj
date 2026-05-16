@@ -174,7 +174,7 @@ To get started, see the tutorial [`jj help -k tutorial`].
 * `restore` — Restore paths from another revision
 * `revert` — Apply the reverse of the given revision(s)
 * `root` — Show the current workspace root directory (shortcut for `jj workspace root`)
-* `show` — Show commit description and changes in a revision
+* `show` — Show revision metadata and diff
 * `sign` — Cryptographically sign a revision
 * `simplify-parents` — Simplify parent edges for the specified revision(s)
 * `sparse` — Manage which paths from the working-copy commit are present in the working copy
@@ -2931,17 +2931,17 @@ Show the current workspace root directory (shortcut for `jj workspace root`)
 
 ## `jj show`
 
-Show commit description and changes in a revision
+Show revision metadata and diff
 
-**Usage:** `jj show [OPTIONS] [REVSET]`
+**Usage:** `jj show [OPTIONS] [REVSETS]...`
 
 ###### **Arguments:**
 
-* `<REVSET>` — Show changes in this revision, compared to its parent(s) [default: @] [aliases: -r]
+* `<REVSETS>` — Show changes in these revisions, compared to their parent(s) [default: @] [aliases: -r]
 
 ###### **Options:**
 
-* `-T`, `--template <TEMPLATE>` — Render a revision using the given template
+* `-T`, `--template <TEMPLATE>` — Render each revision using the given template
 
    You can specify arbitrary template expressions using the [built-in keywords]. See [`jj help -k templates`] for more information.
 
