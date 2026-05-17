@@ -2516,6 +2516,7 @@ name = "jj-cli"
 version = "0.41.0"
 dependencies = [
  "ansi-to-tui",
+ "anstream",
  "assert_cmd",
  "assert_matches",
  "async-trait",

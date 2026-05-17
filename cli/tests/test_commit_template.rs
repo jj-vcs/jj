@@ -1239,7 +1239,8 @@ fn test_log_diff_predefined_formats() -> TestResult {
        2    2: b
             3: c
     Modified regular file repo/file2:
-       1    1: ab
+       1     : a
+            1: b
             2: c
     Modified regular file repo/rename-target (repo/rename-source => repo/rename-target):
     === git ===

@@ -435,10 +435,13 @@ diff-formatter = ":git"
 
 #### Color-words diff options
 
-In color-words diffs, changed words are displayed inline by default. Because
-it's difficult to read a diff line with many removed/added words, there's a
-threshold to switch to traditional separate-line format. You can also change
-the default number of lines of context shown.
+In color-words diffs, changed words are displayed inline by default when color
+is enabled. When the formatter cannot emit color, changed words are always shown
+on separate lines because inline changes would not be distinguishable.
+
+Because it's difficult to read a diff line with many removed/added words, there's
+a threshold to switch to traditional separate-line format in colorized output.
+You can also change the default number of lines of context shown.
 
 * `max-inline-alternation`: Maximum number of removed/added word alternation to
   inline. For example, `<added> ... <added>` sequence has 1 alternation, so the

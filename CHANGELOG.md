@@ -32,6 +32,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* Color-words diffs are now shown as separate before and after lines when color
+  output is disabled, making piped or redirected diffs readable.
+  [#5894](https://github.com/jj-vcs/jj/issues/5894)
+
 * `jj bookmark forget` no longer prints `Forgot N local bookmarks.` when no
   local bookmarks were actually forgotten (e.g. when only an untracked remote
   bookmark matched). [#9181](https://github.com/jj-vcs/jj/issues/9181).

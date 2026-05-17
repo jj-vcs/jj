@@ -98,8 +98,9 @@ fn test_show_basic() {
 
     Modified regular file file2:
        1    1: foo
+       2     : baz qux
             2: bar
-       2    3: baz quxquux
+            3: baz quux
     Modified regular file file3 (file1 => file3):
     [EOF]
     ");
@@ -115,8 +116,9 @@ fn test_show_basic() {
 
     Modified regular file file2:
        1    1: foo
+       2     : baz qux
             2: bar
-       2    3: baz quxquux
+            3: baz quux
     Modified regular file file3 (file1 => file3):
     [EOF]
     ");
@@ -440,7 +442,8 @@ fn test_show_multiple_revisions() {
         modify file1
 
     Modified regular file file1:
-       1    1: ac
+       1     : a
+            1: c
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
     Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
 
@@ -473,7 +476,8 @@ fn test_show_multiple_revisions() {
         modify file1
 
     Modified regular file file1:
-       1    1: ac
+       1     : a
+            1: c
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
     Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
 

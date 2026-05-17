@@ -347,7 +347,8 @@ fn test_metaedit() {
         (no description set)
 
     Modified regular file file1:
-       1    1: bc
+       1     : b
+            1: c
     [EOF]
     ");
 

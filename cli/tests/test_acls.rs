@@ -41,13 +41,15 @@ fn test_diff() {
     let output = work_dir.run_jj(["diff", "--color-words"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
     Modified regular file a-first:
-       1    1: foobar
+       1     : foo
+            1: bar
     Access denied to added-secret: No access
     Access denied to deleted-secret: No access
     Access denied to dir/secret: No access
     Access denied to modified-secret: No access
     Modified regular file z-last:
-       1    1: foobar
+       1     : foo
+            1: bar
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "--summary"]);

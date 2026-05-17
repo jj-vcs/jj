@@ -119,6 +119,7 @@ libc = { workspace = true }
 nix = { workspace = true, features = [ "signal" ] }
 
 [dev-dependencies]
+anstream = { workspace = true }
 assert_cmd = { workspace = true }
 assert_matches = { workspace = true }
 async-trait = { workspace = true }
