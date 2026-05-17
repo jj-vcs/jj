@@ -66,14 +66,43 @@ fn test_file_delete() {
     [EOF]
     ");
 
+    // With --restore-descendants, descendants keep their content.
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    let output = work_dir.run_jj(["file", "delete", "-r=base", "--restore-descendants", "file"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Rebased 1 descendant commits (while preserving their content).
+    Working copy  (@) now at: zsuskuln 178385e9 child | child
+    Parent commit (@-)      : rlvkpnrz 53605aea base | base
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["file", "list", "-r=base"]).normalize_backslash(), @r"
+    data.txt
+    dir/a
+    dir/b
+    keep
+    notes.txt
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["file", "list", "-r=child"]).normalize_backslash(), @r"
+    data.txt
+    dir/a
+    dir/b
+    file
+    keep
+    notes.txt
+    other
+    [EOF]
+    ");
+
     // Multiple paths, directories, and filesets can be deleted at once
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["file", "delete", "-r=base", "file", "dir", "glob:*.txt"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits.
-    Working copy  (@) now at: zsuskuln 7daa56e9 child | child
-    Parent commit (@-)      : rlvkpnrz dd2839f2 base | base
+    Working copy  (@) now at: zsuskuln ea53444d child | child
+    Parent commit (@-)      : rlvkpnrz dce80445 base | base
     Added 0 files, modified 0 files, removed 5 files
     [EOF]
     ");
@@ -89,8 +118,8 @@ fn test_file_delete() {
     ------- stderr -------
     Warning: No matching entries for paths: nonexistent
     Rebased 1 descendant commits.
-    Working copy  (@) now at: zsuskuln f855fc93 child | child
-    Parent commit (@-)      : rlvkpnrz 65e85700 base | base
+    Working copy  (@) now at: zsuskuln 1ac20d8f child | child
+    Parent commit (@-)      : rlvkpnrz 5676c4df base | base
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
