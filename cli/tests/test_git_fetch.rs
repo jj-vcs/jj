@@ -1020,9 +1020,7 @@ fn test_git_fetch_all() {
     bookmark: a2@origin     [updated] tracked
     bookmark: b@origin      [updated] tracked
     bookmark: trunk2@origin [new] tracked
-    Abandoned 2 commits that are no longer reachable:
-      yqosqzyt/1 d4d535f1 (divergent) a2
-      mzvwutvl/1 c8303692 (divergent) a1
+    Updated 2 rewritten commits.
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&target_dir), @"
@@ -1210,8 +1208,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
     ------- stderr -------
     bookmark: a1@origin [updated] tracked
     bookmark: b@origin  [updated] tracked
-    Abandoned 1 commits that are no longer reachable:
-      mzvwutvl/1 c8303692 (divergent) a1
+    Updated 1 rewritten commits.
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
@@ -1249,8 +1246,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: a2@origin [updated] tracked
-    Abandoned 1 commits that are no longer reachable:
-      yqosqzyt/1 d4d535f1 (divergent) a2
+    Updated 1 rewritten commits.
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
@@ -2098,9 +2094,7 @@ fn test_git_fetch_remotely_rewritten() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: book@origin [updated] untracked
-    Abandoned 2 commits that are no longer reachable:
-      kkmpptxz/1 eedc2709 (divergent) (empty) bookmarked
-      qpvuntsm/1 97604bbe (divergent) (empty) original
+    Updated 2 rewritten commits.
     Rebased 1 descendant commits
     Working copy  (@) now at: royxmykx 0818b176 (empty) (no description set)
     Parent commit (@-)      : kkmpptxz 3ee37bc8 book@origin | (empty) bookmarked
@@ -2138,9 +2132,7 @@ fn test_git_fetch_remotely_rewritten() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: book@origin [updated] untracked
-    Abandoned 2 commits that are no longer reachable:
-      kkmpptxz/1 eedc2709 (divergent) (empty) bookmarked
-      qpvuntsm/1 97604bbe (divergent) (empty) original
+    Updated 2 rewritten commits.
     Rebased 1 descendant commits
     Working copy  (@) now at: royxmykx 3eb3f040 (empty) (no description set)
     Parent commit (@-)      : kkmpptxz 3ee37bc8 book@origin | (empty) bookmarked

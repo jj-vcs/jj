@@ -313,6 +313,7 @@ fn test_import_refs() -> TestResult {
     let view = repo.view();
 
     assert!(stats.abandoned_commits.is_empty());
+    assert!(stats.rewritten_commit_ids.is_empty());
     let expected_heads = hashset! {
         jj_id(commit3),
         jj_id(commit4),
@@ -453,6 +454,7 @@ fn test_import_refs_reimport() -> TestResult {
     let repo = tx.commit("test").block_on()?;
 
     assert!(stats.abandoned_commits.is_empty());
+    assert!(stats.rewritten_commit_ids.is_empty());
     let expected_heads = hashset! {
             jj_id(commit3),
             jj_id(commit4),
@@ -484,6 +486,7 @@ fn test_import_refs_reimport() -> TestResult {
         HashSet::from_iter(stats.abandoned_commits.iter().map(Commit::id)),
         HashSet::from([&jj_id(commit4), &jj_id(commit3)]),
     );
+    assert!(stats.rewritten_commit_ids.is_empty());
     let view = repo.view();
     let expected_heads = hashset! {
             jj_id(commit5),
@@ -1531,7 +1534,14 @@ fn test_import_refs_synthetic_predecessors_simple(
     // 2C  1B*
     let mut tx = main_repo.start_transaction();
     let stats = git::import_refs(tx.repo_mut(), &import_options).block_on()?;
-    assert_eq!(stats.abandoned_commits.len(), 1);
+    assert_eq!(
+        stats.abandoned_commits.len(),
+        if record_synthetic_predecessors { 0 } else { 1 }
+    );
+    assert_eq!(
+        stats.rewritten_commit_ids.len(),
+        if record_synthetic_predecessors { 1 } else { 0 }
+    );
     assert_eq!(stats.changed_remote_bookmarks.len(), 2);
     let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
     assert_eq!(num_rebased, 1);
@@ -1620,7 +1630,8 @@ fn test_import_refs_synthetic_predecessors_multiple_descendants() -> TestResult 
     // 1B
     let mut tx = main_repo.start_transaction();
     let stats = git::import_refs(tx.repo_mut(), &import_options).block_on()?;
-    assert_eq!(stats.abandoned_commits.len(), 2);
+    assert_eq!(stats.abandoned_commits.len(), 0);
+    assert_eq!(stats.rewritten_commit_ids.len(), 2);
     assert_eq!(stats.changed_remote_bookmarks.len(), 1);
     let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
     assert_eq!(num_rebased, 3);
@@ -1702,7 +1713,8 @@ fn test_import_refs_synthetic_predecessors_old_divergent() -> TestResult {
     // 1A      1C  1E*
     let mut tx = main_repo.start_transaction();
     let stats = git::import_refs(tx.repo_mut(), &import_options).block_on()?;
-    assert_eq!(stats.abandoned_commits.len(), 2);
+    assert_eq!(stats.abandoned_commits.len(), 0);
+    assert_eq!(stats.rewritten_commit_ids.len(), 2);
     assert_eq!(stats.changed_remote_bookmarks.len(), 2);
     let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
     assert_eq!(num_rebased, 2);
@@ -1770,7 +1782,8 @@ fn test_import_refs_synthetic_predecessors_new_divergent() -> TestResult {
     // 1A  3A  3B* 3C*
     let mut tx = main_repo.start_transaction();
     let stats = git::import_refs(tx.repo_mut(), &import_options).block_on()?;
-    assert_eq!(stats.abandoned_commits.len(), 1);
+    assert_eq!(stats.abandoned_commits.len(), 0);
+    assert_eq!(stats.rewritten_commit_ids.len(), 1);
     assert_eq!(stats.changed_remote_bookmarks.len(), 3);
     let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
     assert_eq!(num_rebased, 0);
@@ -1831,7 +1844,8 @@ fn test_import_refs_synthetic_predecessors_reimport_same_commits() -> TestResult
     // 1B*
     let mut tx = main_repo.start_transaction();
     let stats = git::import_refs(tx.repo_mut(), &import_options).block_on()?;
-    assert_eq!(stats.abandoned_commits.len(), 1);
+    assert_eq!(stats.abandoned_commits.len(), 0);
+    assert_eq!(stats.rewritten_commit_ids.len(), 1);
     assert_eq!(stats.changed_remote_bookmarks.len(), 1);
     let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
     assert_eq!(num_rebased, 1);
@@ -1866,7 +1880,8 @@ fn test_import_refs_synthetic_predecessors_reimport_same_commits() -> TestResult
     // hash than 2C. We can't rely on low-resolution committer timestamp here.
     let commit2d = rewrite_commit(tx.repo_mut(), &ext_store.get_commit(commit2a.id())?, "2D");
     let stats = git::import_refs(tx.repo_mut(), &import_options).block_on()?;
-    assert_eq!(stats.abandoned_commits.len(), 1);
+    assert_eq!(stats.abandoned_commits.len(), 0);
+    assert_eq!(stats.rewritten_commit_ids.len(), 1);
     assert_eq!(stats.changed_remote_bookmarks.len(), 1);
     let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
     assert_eq!(num_rebased, 1);
@@ -3736,6 +3751,7 @@ fn test_fetch_empty_repo() -> TestResult {
     // No default bookmark and no refs
     assert_eq!(default_branch, None);
     assert!(stats.abandoned_commits.is_empty());
+    assert!(stats.rewritten_commit_ids.is_empty());
     assert_eq!(*tx.repo().view().git_refs(), btreemap! {});
     assert_eq!(tx.repo().view().bookmarks().count(), 0);
     Ok(())
@@ -3756,6 +3772,7 @@ fn test_fetch_initial_commit_head_is_not_set() -> TestResult {
     // No default bookmark because the origin repo's HEAD wasn't set
     assert_eq!(default_branch, None);
     assert!(stats.abandoned_commits.is_empty());
+    assert!(stats.rewritten_commit_ids.is_empty());
     let repo = tx.commit("test").block_on()?;
     // The initial commit is visible after git_fetch().
     let view = repo.view();
@@ -3812,6 +3829,7 @@ fn test_fetch_initial_commit_head_is_set() -> TestResult {
 
     assert_eq!(default_branch, Some("main".into()));
     assert!(stats.abandoned_commits.is_empty());
+    assert!(stats.rewritten_commit_ids.is_empty());
     Ok(())
 }
 
@@ -3849,6 +3867,7 @@ fn test_fetch_success() -> TestResult {
     // The default bookmark is "main"
     assert_eq!(default_branch, Some("main".into()));
     assert!(stats.abandoned_commits.is_empty());
+    assert!(stats.rewritten_commit_ids.is_empty());
     let repo = tx.commit("test").block_on()?;
     // The new commit is visible after we fetch again
     let view = repo.view();
@@ -3914,6 +3933,7 @@ fn test_fetch_prune_deleted_ref() -> TestResult {
         stats.abandoned_commits.iter().map(Commit::id).collect_vec(),
         vec![&jj_id(commit)]
     );
+    assert!(stats.rewritten_commit_ids.is_empty());
     assert!(tx.repo().get_local_bookmark("main".as_ref()).is_absent());
     assert_eq!(
         tx.repo_mut()
