@@ -259,6 +259,13 @@ fn print_imported_changes(
         let template = tx.commit_summary_template();
         print_updated_commits(formatter, &template, &stats.abandoned_commits)?;
     }
+    if !stats.rewritten_commit_ids.is_empty() {
+        writeln!(
+            formatter,
+            "Updated {} rewritten commits.",
+            stats.rewritten_commit_ids.len()
+        )?;
+    }
 
     Ok(())
 }
@@ -293,14 +300,21 @@ fn print_failed_git_import(ui: &Ui, stats: &GitImportStats) -> Result<(), Comman
 /// Prints only the summary of git import stats (abandoned count, failed refs).
 /// Use this when a WorkspaceCommandTransaction is not available.
 pub fn print_git_import_stats_summary(ui: &Ui, stats: &GitImportStats) -> Result<(), CommandError> {
-    if !stats.abandoned_commits.is_empty()
-        && let Some(mut formatter) = ui.status_formatter()
-    {
-        writeln!(
-            formatter,
-            "Abandoned {} commits that are no longer reachable.",
-            stats.abandoned_commits.len()
-        )?;
+    if let Some(mut formatter) = ui.status_formatter() {
+        if !stats.abandoned_commits.is_empty() {
+            writeln!(
+                formatter,
+                "Abandoned {} commits that are no longer reachable.",
+                stats.abandoned_commits.len()
+            )?;
+        }
+        if !stats.rewritten_commit_ids.is_empty() {
+            writeln!(
+                formatter,
+                "Updated {} rewritten commits.",
+                stats.rewritten_commit_ids.len()
+            )?;
+        }
     }
     print_failed_git_import(ui, stats)?;
     Ok(())
