@@ -526,8 +526,10 @@ pub struct GitImportOptions {
 /// Describes changes made by `import_refs()` or `fetch()`.
 #[derive(Clone, Debug, Eq, PartialEq, Default)]
 pub struct GitImportStats {
-    /// Commits superseded by newly imported commits.
+    /// Commits that are no longer reachable nor rewritten to the new commits.
     pub abandoned_commits: Vec<Commit>,
+    /// Commits that have been rewritten to the new commits.
+    pub rewritten_commit_ids: HashSet<CommitId>,
     /// Remote bookmark `(symbol, (old_remote_ref, new_target))`s to be merged
     /// in to the local bookmarks, sorted by `symbol`.
     pub changed_remote_bookmarks: Vec<(RemoteRefSymbolBuf, (RemoteRef, RefTarget))>,
@@ -705,12 +707,12 @@ async fn import_refs_inner(
         mut_repo.set_remote_tag(symbol, new_remote_ref);
     }
 
-    let abandoned_commits = if options.abandon_unreachable_commits {
+    let mut abandoned_commits = if options.abandon_unreachable_commits {
         abandon_unreachable_commits(mut_repo, old_referenced_heads).await?
     } else {
         vec![]
     };
-    if options.record_synthetic_predecessors {
+    let rewritten_commit_ids = if options.record_synthetic_predecessors {
         record_synthetic_predecessors(
             mut_repo,
             old_visible_heads,
@@ -718,10 +720,14 @@ async fn import_refs_inner(
             &abandoned_commits,
             &imported_commits,
         )
-        .await?;
-    }
+        .await?
+    } else {
+        HashSet::new()
+    };
+    abandoned_commits.retain(|commit| !rewritten_commit_ids.contains(commit.id()));
     let stats = GitImportStats {
         abandoned_commits,
+        rewritten_commit_ids,
         changed_remote_bookmarks,
         changed_remote_tags,
         failed_ref_names,
@@ -767,15 +773,17 @@ async fn abandon_unreachable_commits(
 ///
 /// The `imported_commits` should exclude any pre-existing commits, including
 /// those that were previously hidden.
+///
+/// Returns old commit IDs that have been mapped to the new commits.
 async fn record_synthetic_predecessors(
     mut_repo: &mut MutableRepo,
     old_visible_heads: Vec<CommitId>,
     new_referenced_heads: Vec<CommitId>,
     abandoned_commits: &[Commit],
     imported_commits: &[Commit],
-) -> Result<(), GitImportError> {
+) -> Result<HashSet<CommitId>, GitImportError> {
     if new_referenced_heads.is_empty() {
-        return Ok(());
+        return Ok(HashSet::new());
     }
 
     let new_referenced_change_to_commit_ids = {
@@ -810,6 +818,7 @@ async fn record_synthetic_predecessors(
         "new referenced commits should never be reachable from old refs"
     );
 
+    let mut rewritten_commit_ids = HashSet::new();
     for (change_id, new_commit_ids) in &new_referenced_change_to_commit_ids {
         let predecessor_id: Option<CommitId>;
         let rewrite_source_ids: &[&CommitId];
@@ -843,9 +852,10 @@ async fn record_synthetic_predecessors(
                     .set_divergent_rewrite(old_commit_id.clone(), new_commit_ids.iter().cloned());
             }
         }
+        rewritten_commit_ids.extend(rewrite_source_ids.iter().map(|&id| id.clone()));
     }
 
-    Ok(())
+    Ok(rewritten_commit_ids)
 }
 
 /// Calculates diff of git refs to be imported.
