@@ -20,7 +20,6 @@ use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
-use crate::cli_util::merge_args_with;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::diff_util::DiffFormatArgs;
@@ -28,19 +27,18 @@ use crate::ui::Ui;
 
 /// Show revision metadata and diff
 #[derive(clap::Args, Clone, Debug)]
-#[command(group(clap::ArgGroup::new("revision")))]
 #[command(mut_arg("ignore_all_space", |a| a.short('w')))]
 #[command(mut_arg("ignore_space_change", |a| a.short('b')))]
 pub(crate) struct ShowArgs {
     /// Show changes in these revisions, compared to their parent(s)
     /// [default: @] [aliases: -r]
-    #[arg(group = "revision", value_name = "REVSETS")]
+    #[arg(value_name = "REVSETS")]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
-    revisions_pos: Option<Vec<RevisionArg>>,
+    revisions_pos: Vec<RevisionArg>,
 
-    #[arg(short = 'r', group = "revision", hide = true, value_name = "REVSETS")]
+    #[arg(short = 'r', hide = true, value_name = "REVSETS")]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
-    revisions_opt: Option<Vec<RevisionArg>>,
+    revisions_opt: Vec<RevisionArg>,
 
     /// Render each revision using the given template
     ///
@@ -72,19 +70,13 @@ pub(crate) async fn cmd_show(
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui).await?;
 
-    let revision_args = match (&args.revisions_pos, &args.revisions_opt) {
-        (None, None) => Some(vec![RevisionArg::AT]),
-        (None, Some(args)) | (Some(args), None) => Some(args.clone()),
-        (Some(pos), Some(opt)) => Some(merge_args_with(
-            command.matches().subcommand_matches("new").unwrap(),
-            &[("revisions_pos", pos), ("revisions_opt", opt)],
-            |_id, value| value.clone(),
-        )),
+    let target_expr = if args.revisions_pos.is_empty() && args.revisions_opt.is_empty() {
+        workspace_command.parse_revset(ui, &RevisionArg::AT)?
+    } else {
+        workspace_command
+            .parse_union_revsets(ui, &[&*args.revisions_pos, &*args.revisions_opt].concat())?
     };
-
-    let mut commits = workspace_command
-        .parse_union_revsets(ui, revision_args.as_deref().unwrap_or_default())?
-        .evaluate_to_commits()?;
+    let mut commits = target_expr.evaluate_to_commits()?;
 
     let template_string = match &args.template {
         Some(value) => value.clone(),

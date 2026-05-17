@@ -52,15 +52,26 @@ fn test_show() {
     // Specify both positional and -r args
     let output = work_dir.run_jj(["show", "@", "-r@-"]);
     insta::assert_snapshot!(output, @"
-    ------- stderr -------
-    error: the argument '[REVSETS]...' cannot be used with '-r <REVSETS>'
+    Commit ID: e8849ae12c709f2321908879bc724fdb2ab8a781
+    Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    Author   : Test User <test.user@example.com> (2001-02-03 08:05:07)
+    Committer: Test User <test.user@example.com> (2001-02-03 08:05:07)
 
-    Usage: jj show <REVSETS>...
+        (no description set)
 
-    For more information, try '--help'.
+    Commit ID: 0000000000000000000000000000000000000000
+    Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+    Author   : (no name set) <(no email set)> (1970-01-01 11:00:00)
+    Committer: (no name set) <(no email set)> (1970-01-01 11:00:00)
+
+        (no description set)
+
     [EOF]
-    [exit status: 2]
     ");
+
+    // Specify empty revisions
+    let output = work_dir.run_jj(["show", "none()"]);
+    insta::assert_snapshot!(output, @"");
 }
 
 #[test]
