@@ -36,6 +36,14 @@ commonly used `jj` operations from rebase to undo, and helps with divergent comm
 
 Find it [here][jj-fzf].
 
+## jj-hunk
+
+jj-hunk is a command-line tool for programmatic hunk selection. It can split,
+commit, and squash selected hunks without opening an interactive diff editor,
+which is useful for scripts and AI coding agents.
+
+Find it [here][jj-hunk].
+
 ## JJ TUI
 
 This is TUI for Jujutsu built in Ocaml, it is unopiniated and its creator is
@@ -100,6 +108,7 @@ You can find other community contributed tools and integrations in our
 [gg]: https://github.com/gulbanana/gg
 [hunk.nvim]: https://github.com/julienvincent/hunk.nvim
 [jj-fzf]: https://github.com/tim-janik/jj-fzf
+[jj-hunk]: https://github.com/laulauland/jj-hunk
 [jj_tui]: https://github.com/faldor20/jj_tui
 [jjk]: https://github.com/keanemind/jjk
 [jjui]: https://github.com/idursun/jjui
