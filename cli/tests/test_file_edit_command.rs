@@ -62,13 +62,33 @@ fn test_file_edit() -> TestResult {
     [EOF]
     ");
 
+    // With --restore-descendants, descendants keep their content.
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    std::fs::write(&edit_script, "write\nmodified\n")?;
+    let output = work_dir.run_jj(["file", "edit", "-r=base", "--restore-descendants", "file"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Rebased 1 descendant commits (while preserving their content).
+    Working copy  (@) now at: mzvwutvl 960b31ff child | child
+    Parent commit (@-)      : rlvkpnrz 0f101435 base | base
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r=base", "file"]), @r"
+    modified
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r=child", "file"]), @r"
+    base
+    [EOF]
+    ");
+
     // Edits the working-copy commit by default
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(&edit_script, "write\nedited\n")?;
     let output = work_dir.run_jj(["file", "edit", "other"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: mzvwutvl 20d94770 child | child
+    Working copy  (@) now at: mzvwutvl 5501cad3 child | child
     Parent commit (@-)      : rlvkpnrz 75eae605 base | base
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
@@ -118,8 +138,8 @@ fn test_file_edit() -> TestResult {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits.
-    Working copy  (@) now at: mzvwutvl 8659121e child | child
-    Parent commit (@-)      : rlvkpnrz 7a498800 base | base
+    Working copy  (@) now at: mzvwutvl 4f72c7df child | child
+    Parent commit (@-)      : rlvkpnrz a7cca3e1 base | base
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");

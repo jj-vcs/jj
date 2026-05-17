@@ -58,6 +58,10 @@ pub(crate) struct FileEditArgs {
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     revision: RevisionArg,
 
+    /// Preserve the content (not the diff) when rebasing descendants
+    #[arg(long)]
+    restore_descendants: bool,
+
     /// The file to edit
     #[arg(value_name = "FILE", value_hint = clap::ValueHint::FilePath)]
     #[arg(add = ArgValueCompleter::new(complete::all_revision_files))]
@@ -167,7 +171,7 @@ pub(crate) async fn cmd_file_edit(
         .set_tree(new_tree)
         .write()
         .await?;
-    rebase_or_reparent_descendants(ui, tx.repo_mut(), false).await?;
+    rebase_or_reparent_descendants(ui, tx.repo_mut(), args.restore_descendants).await?;
     tx.finish(
         ui,
         format!(
