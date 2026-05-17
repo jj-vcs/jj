@@ -1195,6 +1195,7 @@ If the file is conflicted, the conflict markers are materialized in the editor. 
 * `-r`, `--revision <REVSET>` — The revision to edit the file in
 
   Default value: `@`
+* `--restore-descendants` — Preserve the content (not the diff) when rebasing descendants
 
 
 

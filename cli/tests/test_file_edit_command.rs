@@ -159,6 +159,46 @@ fn test_file_edit_rebases_descendants() {
 }
 
 #[test]
+fn test_file_edit_restore_descendants() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // The child explicitly modifies `file`, so with --restore-descendants it
+    // should keep "child\n" regardless of what happens in `base`.
+    create_commit_with_files(&work_dir, "base", &[], &[("file", "base\n")]);
+    create_commit_with_files(&work_dir, "child", &["base"], &[("file", "child\n")]);
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    @  child
+    ○  base
+    ◆
+    [EOF]
+    ");
+
+    std::fs::write(&edit_script, "write\nmodified\n").unwrap();
+    let output = work_dir.run_jj(["file", "edit", "-r=base", "--restore-descendants", "file"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Rebased 1 descendant commits (while preserving their content)
+    Working copy  (@) now at: zsuskuln f8c05ab2 child | child
+    Parent commit (@-)      : rlvkpnrz 221f1897 base | base
+    [EOF]
+    ");
+
+    // The parent has the edited content.
+    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r=base", "file"]), @"
+    modified
+    [EOF]
+    ");
+    // The child preserved its own content because of --restore-descendants.
+    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r=child", "file"]), @"
+    child
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_file_edit_no_change() {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
