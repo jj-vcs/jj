@@ -23,6 +23,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   extracted from the `.doc` field of the alias definition if it is a table
   with `.doc` and `.definition` properties.
 
+* The default template used by `jj workspace list` is now exposed as a
+  `builtin_workspace_list` template alias, so it can be wrapped or extended
+  from a custom `templates.workspace_list`.
+  [#9428](https://github.com/jj-vcs/jj/issues/9428)
+
 ### Fixed bugs
 
 * `jj bookmark forget` no longer prints `Forgot N local bookmarks.` when no

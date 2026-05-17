@@ -3631,6 +3631,8 @@ List workspaces
 
    All 0-argument methods of the [`WorkspaceRef` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
 
+   Can be overridden by the `templates.workspace_list` setting. The default is exposed as the `builtin_workspace_list` alias, so user templates can wrap it instead of replacing it.
+
    [`WorkspaceRef` type]: https://docs.jj-vcs.dev/latest/templates/#workspaceref-type
 
    [`jj help -k templates`]: https://docs.jj-vcs.dev/latest/templates/
