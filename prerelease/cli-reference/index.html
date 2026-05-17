@@ -8066,7 +8066,7 @@ does not match the <code>jj help</code> output exactly.</p>
 <li><code>restore</code> — Restore paths from another revision</li>
 <li><code>revert</code> — Apply the reverse of the given revision(s)</li>
 <li><code>root</code> — Show the current workspace root directory (shortcut for <code>jj workspace root</code>)</li>
-<li><code>show</code> — Show commit description and changes in a revision</li>
+<li><code>show</code> — Show revision metadata and diff</li>
 <li><code>sign</code> — Cryptographically sign a revision</li>
 <li><code>simplify-parents</code> — Simplify parent edges for the specified revision(s)</li>
 <li><code>sparse</code> — Manage which paths from the working-copy commit are present in the working copy</li>
@@ -10302,16 +10302,16 @@ J           J
 <p>Show the current workspace root directory (shortcut for <code>jj workspace root</code>)</p>
 <p><strong>Usage:</strong> <code>jj root</code></p>
 <h2 id="jj-show"><code>jj show</code><a class="headerlink" href="#jj-show" title="Permanent link">&para;</a></h2>
-<p>Show commit description and changes in a revision</p>
-<p><strong>Usage:</strong> <code>jj show [OPTIONS] [REVSET]</code></p>
+<p>Show revision metadata and diff</p>
+<p><strong>Usage:</strong> <code>jj show [OPTIONS] [REVSETS]...</code></p>
 <h6 id="arguments_53"><strong>Arguments:</strong><a class="headerlink" href="#arguments_53" title="Permanent link">&para;</a></h6>
 <ul>
-<li><code>&lt;REVSET&gt;</code> — Show changes in this revision, compared to its parent(s) [default: @] [aliases: -r]</li>
+<li><code>&lt;REVSETS&gt;</code> — Show changes in these revisions, compared to their parent(s) [default: @] [aliases: -r]</li>
 </ul>
 <h6 id="options_54"><strong>Options:</strong><a class="headerlink" href="#options_54" title="Permanent link">&para;</a></h6>
 <ul>
 <li>
-<p><code>-T</code>, <code>--template &lt;TEMPLATE&gt;</code> — Render a revision using the given template</p>
+<p><code>-T</code>, <code>--template &lt;TEMPLATE&gt;</code> — Render each revision using the given template</p>
 <p>You can specify arbitrary template expressions using the <a href="https://docs.jj-vcs.dev/latest/templates/#commit-keywords">built-in keywords</a>. See [<code>jj help -k templates</code>] for more information.</p>
 </li>
 <li>
