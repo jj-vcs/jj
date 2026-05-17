@@ -80,6 +80,41 @@ fn test_file_set_rebases_descendants() {
 }
 
 #[test]
+fn test_file_set_restore_descendants() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // The child explicitly modifies `file`, so with --restore-descendants it
+    // should keep "child\n" regardless of what happens in `base`.
+    create_commit_with_files(&work_dir, "base", &[], &[("file", "base\n")]);
+    create_commit_with_files(&work_dir, "child", &["base"], &[("file", "child\n")]);
+
+    let output = work_dir.run_jj_with(|cmd| {
+        cmd.args(["file", "set", "-r=base", "--restore-descendants", "file"])
+            .write_stdin("modified\n")
+    });
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Rebased 1 descendant commits (while preserving their content)
+    Working copy  (@) now at: zsuskuln ce938357 child | child
+    Parent commit (@-)      : rlvkpnrz 7c5ffc58 base | base
+    [EOF]
+    ");
+
+    // The parent has the new content.
+    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r=base", "file"]), @"
+    modified
+    [EOF]
+    ");
+    // The child preserved its own content because of --restore-descendants.
+    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r=child", "file"]), @"
+    child
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_file_set_no_change() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
