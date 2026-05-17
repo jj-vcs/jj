@@ -216,6 +216,40 @@ fn test_file_delete_rebases_descendants() {
 }
 
 #[test]
+fn test_file_delete_restore_descendants() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // The child re-adds `file` with its own content. With --restore-descendants
+    // the child should keep that content even after we delete `file` from base.
+    create_commit_with_files(&work_dir, "base", &[], &[("file", "base\n")]);
+    create_commit_with_files(&work_dir, "child", &["base"], &[("file", "child\n")]);
+
+    let output = work_dir.run_jj(["file", "delete", "-r=base", "--restore-descendants", "file"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Rebased 1 descendant commits (while preserving their content)
+    Working copy  (@) now at: zsuskuln afd5628e child | child
+    Parent commit (@-)      : rlvkpnrz e39fdc42 base | (empty) base
+    [EOF]
+    ");
+
+    // The file is gone from base.
+    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r=base", "file"]), @"
+    ------- stderr -------
+    Error: No such path: file
+    [EOF]
+    [exit status: 1]
+    ");
+    // The child preserved its own content because of --restore-descendants.
+    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r=child", "file"]), @"
+    child
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_file_delete_no_match() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
