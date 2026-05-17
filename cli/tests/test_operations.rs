@@ -210,6 +210,7 @@ fn test_op_log_with_no_template() {
     - builtin_op_log_node_ascii
     - builtin_op_log_oneline
     - builtin_op_log_redacted
+    - builtin_workspace_list
     - commit_summary_separator
     - default_commit_description
     - description_placeholder

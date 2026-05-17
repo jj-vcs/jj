@@ -629,6 +629,18 @@ you can add this to your config:
 config_list = "builtin_config_list_detailed"
 ```
 
+- `templates.workspace_list` for `jj workspace list`. The built-in template is
+  exposed as `builtin_workspace_list`, so you can wrap it to add extra fields
+  like the workspace path:
+
+```toml
+[templates]
+# Append the workspace path after the default summary
+workspace_list = '''
+builtin_workspace_list ++ indent("  ", "path: " ++ root ++ "\n")
+'''
+```
+
 ## Log
 
 ### Default revisions
