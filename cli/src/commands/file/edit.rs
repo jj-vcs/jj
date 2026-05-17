@@ -55,6 +55,10 @@ pub(crate) struct FileEditArgs {
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     revision: RevisionArg,
 
+    /// Preserve the content (not the diff) when rebasing descendants
+    #[arg(long)]
+    restore_descendants: bool,
+
     /// The file to edit
     #[arg(value_name = "FILE", value_hint = clap::ValueHint::FilePath)]
     #[arg(add = ArgValueCompleter::new(complete::all_revision_files))]
@@ -254,11 +258,21 @@ pub(crate) async fn cmd_file_edit(
         .set_tree(new_tree)
         .write()
         .await?;
-    let num_rebased = tx.repo_mut().rebase_descendants().await?;
+    let (num_rebased, extra_msg) = if args.restore_descendants {
+        (
+            tx.repo_mut().reparent_descendants().await?,
+            " (while preserving their content)",
+        )
+    } else {
+        (tx.repo_mut().rebase_descendants().await?, "")
+    };
     if let Some(mut formatter) = ui.status_formatter()
         && num_rebased > 0
     {
-        writeln!(formatter, "Rebased {num_rebased} descendant commits")?;
+        writeln!(
+            formatter,
+            "Rebased {num_rebased} descendant commits{extra_msg}"
+        )?;
     }
     tx.finish(
         ui,
