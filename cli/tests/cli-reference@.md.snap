@@ -1306,6 +1306,7 @@ Example usage:
 
   Default value: `@`
 * `--stdin` — Read the new file contents from standard input
+* `--restore-descendants` — Preserve the content (not the diff) when rebasing descendants
 
 
 
