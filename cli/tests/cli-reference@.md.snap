@@ -1195,6 +1195,7 @@ Removes all files matched by the given filesets from the specified revision. Des
 * `-r`, `--revision <REVSET>` — The revision to delete the files in
 
   Default value: `@`
+* `--restore-descendants` — Preserve the content (not the diff) when rebasing descendants
 
 
 
