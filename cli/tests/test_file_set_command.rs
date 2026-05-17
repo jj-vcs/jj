@@ -68,6 +68,29 @@ fn test_file_set() {
     [EOF]
     ");
 
+    // With --restore-descendants, descendants keep their content.
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    let output = run_file_set(
+        &work_dir,
+        &["-r=base", "--restore-descendants", "file"],
+        "modified\n",
+    );
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Rebased 1 descendant commits (while preserving their content).
+    Working copy  (@) now at: mzvwutvl 960b31ff child | child
+    Parent commit (@-)      : rlvkpnrz 0f101435 base | base
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r=base", "file"]), @r"
+    modified
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r=child", "file"]), @r"
+    base
+    [EOF]
+    ");
+
     // The executable bit is preserved
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     run_file_set(
@@ -87,8 +110,8 @@ fn test_file_set() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits.
-    Working copy  (@) now at: mzvwutvl 3d412601 child | child
-    Parent commit (@-)      : rlvkpnrz 24dfa61a base | base
+    Working copy  (@) now at: mzvwutvl 504ed615 child | child
+    Parent commit (@-)      : rlvkpnrz b6a559fa base | base
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");

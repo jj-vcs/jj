@@ -58,6 +58,10 @@ pub(crate) struct FileSetArgs {
     #[arg(long, required = true)]
     stdin: bool,
 
+    /// Preserve the content (not the diff) when rebasing descendants
+    #[arg(long)]
+    restore_descendants: bool,
+
     /// The file to set
     #[arg(value_name = "FILE", value_hint = clap::ValueHint::FilePath)]
     #[arg(add = ArgValueCompleter::new(complete::all_revision_files))]
@@ -140,7 +144,7 @@ pub(crate) async fn cmd_file_set(
         .set_tree(new_tree)
         .write()
         .await?;
-    rebase_or_reparent_descendants(ui, tx.repo_mut(), false).await?;
+    rebase_or_reparent_descendants(ui, tx.repo_mut(), args.restore_descendants).await?;
     tx.finish(
         ui,
         format!(
