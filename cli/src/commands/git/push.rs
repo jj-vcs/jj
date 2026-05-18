@@ -749,6 +749,11 @@ impl<'repo> CommitsValidator<'repo> {
             let mut hint = None;
             if commit.description().is_empty() && !self.allow_empty_description {
                 reasons.push("has no description");
+                hint = Some(format!(
+                    "Run `jj describe {id}` to add a description, or pass \
+                     --allow-empty-description.",
+                    id = short_commit_hash(commit.id()),
+                ));
             }
             if commit.author().name.is_empty()
                 || commit.author().email.is_empty()
@@ -756,6 +761,11 @@ impl<'repo> CommitsValidator<'repo> {
                 || commit.committer().email.is_empty()
             {
                 reasons.push("has no author and/or committer set");
+                hint = Some(format!(
+                    "Run `jj metaedit --update-author {id}` to re-stamp the \
+                     commit with your current jj user.name and user.email.",
+                    id = short_commit_hash(commit.id()),
+                ));
             }
             if commit.has_conflict() {
                 reasons.push("has conflicts");
