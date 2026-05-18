@@ -7068,6 +7068,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <p><code>jj show</code> now accepts multiple revisions, showing all of them one after the
   other, behaving closer to <code>git show</code>.</p>
 </li>
+<li>
+<p><code>jj git fetch</code> now generates evolution history based on change IDs. If change
+  IDs are preserved by the remote, local descendant revisions will be rebased
+  onto the rewritten parents.</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
