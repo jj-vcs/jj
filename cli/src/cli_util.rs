@@ -154,6 +154,7 @@ use tracing::instrument;
 use tracing_chrome::ChromeLayerBuilder;
 use tracing_subscriber::prelude::*;
 
+use crate::cleanup_guard::CleanupGuard;
 use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::command_error::config_error_with_message;
@@ -1096,6 +1097,15 @@ impl WorkspaceCommandEnvironment {
 /// lock held). The lock is automatically released when this token is dropped.
 pub struct GitImportExportLock {
     _lock: Option<FileLock>,
+    _guard: Option<CleanupGuard>,
+}
+
+impl Drop for GitImportExportLock {
+    fn drop(&mut self) {
+        if let Some(guard) = self._guard.take() {
+            guard.disarm();
+        }
+    }
 }
 
 /// Provides utilities for writing a command that works on a [`Workspace`]
@@ -1195,15 +1205,21 @@ impl WorkspaceCommandHelper {
     /// that need to import from or export to Git. For non-colocated repos,
     /// returns a token with no lock inside.
     fn lock_git_import_export(&self) -> Result<GitImportExportLock, CommandError> {
-        let lock = if self.working_copy_shared_with_git {
+        let mut lock = None;
+        let mut guard = None;
+        if self.working_copy_shared_with_git {
             let lock_path = self.workspace.repo_path().join("git_import_export.lock");
-            Some(FileLock::lock(lock_path.clone()).map_err(|err| {
+            lock = Some(FileLock::lock(lock_path.clone()).map_err(|err| {
                 user_error_with_message("Failed to take lock for Git import/export", err)
-            })?)
-        } else {
-            None
-        };
-        Ok(GitImportExportLock { _lock: lock })
+            })?);
+            guard = Some(CleanupGuard::new(move || {
+                drop(std::fs::remove_file(lock_path));
+            }));
+        }
+        Ok(GitImportExportLock {
+            _lock: lock,
+            _guard: guard,
+        })
     }
 
     /// Note that unless you have a good reason not to do so, you should always
@@ -2283,12 +2299,24 @@ to the current parents may contain changes from multiple commits.
             crate::git_util::print_git_export_stats(ui, &stats)?;
         }
 
+        #[cfg(feature = "git")]
+        let mut _index_lock_guard = if self.working_copy_shared_with_git {
+            git_index_cleanup_guard(tx.repo())
+        } else {
+            None
+        };
+
         self.user_repo = ReadonlyUserRepo::new(
             self.env
                 .command
                 .maybe_commit_transaction(tx, description)
                 .await?,
         );
+
+        #[cfg(feature = "git")]
+        if let Some(guard) = _index_lock_guard.take() {
+            guard.disarm();
+        }
 
         // Update working copy before reporting repo changes, so that
         // potential errors while reporting changes (broken pipe, etc)
@@ -2583,10 +2611,31 @@ pub async fn export_working_copy_changes_to_git(
     new_tree: &MergedTree,
 ) -> Result<(), CommandError> {
     let repo = mut_repo.base_repo().as_ref();
+
+    let mut _index_lock_guard = git_index_cleanup_guard(repo);
+
     jj_lib::git::update_intent_to_add(repo, old_tree, new_tree).await?;
     let stats = jj_lib::git::export_refs(mut_repo)?;
     crate::git_util::print_git_export_stats(ui, &stats)?;
+
+    #[cfg(feature = "git")]
+    if let Some(guard) = _index_lock_guard.take() {
+        guard.disarm();
+    }
+
     Ok(())
+}
+
+#[cfg(feature = "git")]
+fn git_index_cleanup_guard(repo: &dyn Repo) -> Option<CleanupGuard> {
+    if let Ok(git_repo) = jj_lib::git::get_git_repo(repo.store()) {
+        let lock_path = git_repo.index_path().with_extension("lock");
+        Some(CleanupGuard::new(move || {
+            drop(std::fs::remove_file(lock_path));
+        }))
+    } else {
+        None
+    }
 }
 #[cfg(not(feature = "git"))]
 pub async fn export_working_copy_changes_to_git(

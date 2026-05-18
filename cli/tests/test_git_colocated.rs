@@ -1762,3 +1762,67 @@ fn get_colocation_status(work_dir: &TestWorkDir) -> CommandOutput {
         "--quiet", // suppress hint
     ])
 }
+
+#[test]
+fn test_git_lock_cleanup_on_signal() -> TestResult {
+    // This test ensures that Git lock files are cleaned up when jj is interrupted
+    // by a signal (SIGINT). We simulate this by creating a large repository to
+    // slow down Git operations and then sending SIGINT to the jj process.
+    if cfg!(windows) {
+        // Signals are handled differently on Windows, and this test uses SIGINT.
+        return Ok(());
+    }
+
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create a large number of files to make Git index operations slow.
+    // 5000 files should be enough to give us a window for interruption.
+    for i in 0..5000 {
+        work_dir.write_file(format!("file_{i}"), "contents");
+    }
+
+    // Prepare the command to run jj status (which triggers an index update)
+    let cmd = test_env.new_jj_cmd();
+    let jj_bin = cmd.get_program().to_owned();
+    let base_env: Vec<_> = cmd
+        .get_envs()
+        .filter_map(|(k, v)| v.map(|v| (k.to_owned(), v.to_owned())))
+        .filter(|(k, _)| k != "JJ_TIMESTAMP" && k != "JJ_OP_TIMESTAMP" && k != "JJ_RANDOMNESS_SEED")
+        .collect();
+
+    let mut child = std::process::Command::new(&jj_bin)
+        .current_dir(work_dir.root())
+        .arg("status")
+        .envs(base_env)
+        .spawn()
+        .expect("Failed to spawn jj");
+
+    // Give it a short moment to start and acquire the lock
+    std::thread::sleep(std::time::Duration::from_millis(100));
+
+    // Send SIGINT
+    #[cfg(unix)]
+    unsafe {
+        let pid = child.id();
+        libc::kill(pid as libc::pid_t, libc::SIGINT);
+    }
+
+    // Wait for jj to exit
+    child.wait().expect("jj failed to exit");
+
+    // Verify that neither git_import_export.lock nor index.lock exist
+    let git_lock = work_dir.root().join(".jj/repo/git_import_export.lock");
+    let index_lock = work_dir.root().join(".git/index.lock");
+
+    assert!(
+        !git_lock.exists(),
+        "git_import_export.lock was not cleaned up"
+    );
+    assert!(!index_lock.exists(), "index.lock was not cleaned up");
+
+    Ok(())
+}
