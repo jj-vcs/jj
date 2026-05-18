@@ -796,7 +796,7 @@ Two built-in templates are useful for sharing log output in bug reports or
 support requests:
 
 ```sh
-jj log -T builtin_log_redacted -r '::@'
+jj log -T builtin_log_redacted -r ::@
 jj op log -T builtin_op_log_redacted
 ```
 
