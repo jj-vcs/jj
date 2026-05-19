@@ -15,7 +15,6 @@
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use indoc::writedoc;
-use jj_lib::backend::Signature;
 use jj_lib::merge::Diff;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
@@ -29,7 +28,6 @@ use crate::description_util::add_trailers;
 use crate::description_util::description_template;
 use crate::description_util::edit_description;
 use crate::description_util::join_message_paragraphs;
-use crate::text_util::parse_author;
 use crate::ui::Ui;
 
 /// Update the description and create a new change on top [default alias: ci]
@@ -79,31 +77,6 @@ pub(crate) struct CommitArgs {
     #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
     #[arg(add = ArgValueCompleter::new(complete::modified_files))]
     paths: Vec<String>,
-
-    // TODO: Delete in jj 0.40.0+
-    /// Reset the author to the configured user
-    ///
-    /// This resets the author name, email, and timestamp.
-    ///
-    /// You can use it in combination with the JJ_USER and JJ_EMAIL
-    /// environment variables to set a different author:
-    ///
-    /// $ JJ_USER='Foo Bar' JJ_EMAIL=foo@bar.com jj commit --reset-author
-    #[arg(long, hide = true)]
-    reset_author: bool,
-
-    // TODO: Delete in jj 0.40.0+
-    /// Set author to the provided string
-    ///
-    /// This changes author name and email while retaining author
-    /// timestamp for non-discardable commits.
-    #[arg(
-        long,
-        hide = true,
-        conflicts_with = "reset_author",
-        value_parser = parse_author
-    )]
-    author: Option<(String, String)>,
 }
 
 #[instrument(skip_all)]
@@ -112,18 +85,6 @@ pub(crate) async fn cmd_commit(
     command: &CommandHelper,
     args: &CommitArgs,
 ) -> Result<(), CommandError> {
-    if args.reset_author {
-        writeln!(
-            ui.warning_default(),
-            "`jj commit --reset-author` is deprecated; use `jj metaedit --update-author` instead"
-        )?;
-    }
-    if args.author.is_some() {
-        writeln!(
-            ui.warning_default(),
-            "`jj commit --author` is deprecated; use `jj metaedit --author` instead"
-        )?;
-    }
     let mut workspace_command = command.workspace_helper(ui).await?;
 
     let commit_id = workspace_command
@@ -178,17 +139,6 @@ new working-copy commit.
 
     let mut commit_builder = tx.repo_mut().rewrite_commit(&commit).detach();
     commit_builder.set_tree(tree);
-    if args.reset_author {
-        commit_builder.set_author(commit_builder.committer().clone());
-    }
-    if let Some((name, email)) = args.author.clone() {
-        let new_author = Signature {
-            name,
-            email,
-            timestamp: commit_builder.author().timestamp,
-        };
-        commit_builder.set_author(new_author);
-    }
 
     let use_editor = args.message_paragraphs.is_none() || args.editor;
     let description = match &args.message_paragraphs {

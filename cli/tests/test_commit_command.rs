@@ -363,7 +363,6 @@ fn test_commit_with_description_template() -> TestResult {
 
     work_dir.write_file("file1", "foo\n");
     work_dir.write_file("file2", "bar\n");
-    work_dir.write_file("file3", "foobar\n");
 
     // Only file1 should be included in the diff
     work_dir.run_jj(["commit", "file1"]).success();
@@ -379,40 +378,6 @@ fn test_commit_with_description_template() -> TestResult {
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 
-    // Only file2 with modified author should be included in the diff
-    work_dir
-        .run_jj([
-            "commit",
-            "--author",
-            "Another User <another.user@example.com>",
-            "file2",
-        ])
-        .success();
-    insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
-
-    JJ: Author: Another User <another.user@example.com> (2001-02-03 08:05:08)
-    JJ: Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
-
-    JJ: file2 | 1 +
-    JJ: 1 file changed, 1 insertion(+), 0 deletions(-)
-    JJ:
-    JJ: Lines starting with "JJ:" (like this one) will be removed.
-    "#);
-
-    // Timestamp after the reset should be available to the template
-    work_dir.run_jj(["commit", "--reset-author"]).success();
-    insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
-
-    JJ: Author: Test User <test.user@example.com> (2001-02-03 08:05:10)
-    JJ: Committer: Test User <test.user@example.com> (2001-02-03 08:05:10)
-
-    JJ: file3 | 1 +
-    JJ: 1 file changed, 1 insertion(+), 0 deletions(-)
-    JJ:
-    JJ: Lines starting with "JJ:" (like this one) will be removed.
-    "#);
     Ok(())
 }
 
@@ -481,45 +446,6 @@ fn test_commit_paths_warning() {
             1: foo
     Added regular file file2:
             1: bar
-    [EOF]
-    ");
-}
-
-#[test]
-fn test_commit_reset_author() {
-    let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let work_dir = test_env.work_dir("repo");
-
-    test_env.add_config(
-        r#"[template-aliases]
-'format_signature(signature)' = 'signature.name() ++ " " ++ signature.email() ++ " " ++ signature.timestamp()'"#,
-    );
-    let get_signatures = || {
-        let template = r#"format_signature(author) ++ "\n" ++ format_signature(committer)"#;
-        work_dir.run_jj(["log", "-r@", "-T", template])
-    };
-    insta::assert_snapshot!(get_signatures(), @"
-    @  Test User test.user@example.com 2001-02-03 04:05:07.000 +07:00
-    │  Test User test.user@example.com 2001-02-03 04:05:07.000 +07:00
-    ~
-    [EOF]
-    ");
-
-    // Reset the author (the committer is always reset)
-    work_dir
-        .run_jj([
-            "commit",
-            "--config=user.name=Ove Ridder",
-            "--config=user.email=ove.ridder@example.com",
-            "--reset-author",
-            "-m1",
-        ])
-        .success();
-    insta::assert_snapshot!(get_signatures(), @"
-    @  Ove Ridder ove.ridder@example.com 2001-02-03 04:05:09.000 +07:00
-    │  Ove Ridder ove.ridder@example.com 2001-02-03 04:05:09.000 +07:00
-    ~
     [EOF]
     ");
 }

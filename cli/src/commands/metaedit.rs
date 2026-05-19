@@ -129,15 +129,6 @@ pub(crate) struct MetaeditArgs {
     /// $ JJ_USER='Foo Bar' JJ_EMAIL=foo@bar.com jj metaedit --force-rewrite
     #[arg(long)]
     force_rewrite: bool,
-
-    // TODO: remove in jj 0.41.0+
-    /// Deprecated. Use `--force-rewrite` instead.
-    #[arg(
-        long = "update-committer-timestamp",
-        hide = true,
-        conflicts_with = "force_rewrite"
-    )]
-    legacy_update_committer_timestamp: bool,
 }
 
 #[instrument(skip_all)]
@@ -147,13 +138,6 @@ pub(crate) async fn cmd_metaedit(
     args: &MetaeditArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui).await?;
-
-    if args.legacy_update_committer_timestamp {
-        writeln!(
-            ui.warning_default(),
-            "`--update-committer-timestamp` is deprecated; use `--force-rewrite` instead"
-        )?;
-    }
 
     let target_expr = if !args.revisions_pos.is_empty() || !args.revisions_opt.is_empty() {
         workspace_command
@@ -205,9 +189,7 @@ pub(crate) async fn cmd_metaedit(
     tx.repo_mut()
         .transform_descendants(commit_ids, async |rewriter| {
             if commit_ids_set.contains(rewriter.old_commit().id()) {
-                let mut rewrite = args.force_rewrite
-                    || args.legacy_update_committer_timestamp
-                    || rewriter.parents_changed();
+                let mut rewrite = args.force_rewrite || rewriter.parents_changed();
 
                 let old_author = rewriter.old_commit().author().clone();
                 let mut commit_builder = rewriter.reparent();

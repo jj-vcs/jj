@@ -21,7 +21,6 @@ use clap_complete::ArgValueCompleter;
 use futures::TryStreamExt as _;
 use futures::future::try_join_all;
 use itertools::Itertools as _;
-use jj_lib::backend::Signature;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetStreamExt as _;
@@ -40,7 +39,6 @@ use crate::description_util::edit_multiple_descriptions;
 use crate::description_util::join_message_paragraphs;
 use crate::description_util::parse_trailers_template;
 use crate::text_util::complete_newline;
-use crate::text_util::parse_author;
 use crate::ui::Ui;
 
 /// Update the change description or other metadata [default alias: desc]
@@ -77,53 +75,12 @@ pub(crate) struct DescribeArgs {
     #[arg(long)]
     stdin: bool,
 
-    // TODO: Delete in jj 0.40.0+
-    /// Don't open an editor
-    ///
-    /// This is mainly useful in combination with e.g. `--reset-author`.
-    #[arg(long, hide = true, conflicts_with_all = ["edit", "editor"])]
-    no_edit: bool,
-
     /// Open an editor to edit the change description
     ///
     /// Forces an editor to open when using `--stdin` or `--message` to
     /// allow the message to be edited afterwards.
     #[arg(long)]
     editor: bool,
-
-    // TODO: Delete in jj 0.42.0+
-    /// Open an editor to edit the change description
-    ///
-    /// Forces an editor to open when using `--stdin` or `--message` to
-    /// allow the message to be edited afterwards.
-    #[arg(long, hide = true, conflicts_with = "editor")]
-    edit: bool,
-
-    // TODO: Delete in jj 0.40.0+
-    /// Reset the author name, email, and timestamp
-    ///
-    /// This resets the author name and email to the configured user and sets
-    /// the author timestamp to the current time.
-    ///
-    /// You can use it in combination with the JJ_USER and JJ_EMAIL
-    /// environment variables to set a different author:
-    ///
-    /// $ JJ_USER='Foo Bar' JJ_EMAIL=foo@bar.com jj describe --reset-author
-    #[arg(long, hide = true)]
-    reset_author: bool,
-
-    // TODO: Delete in jj 0.40.0+
-    /// Set author to the provided string
-    ///
-    /// This changes author name and email while retaining author
-    /// timestamp for non-discardable commits.
-    #[arg(
-        long,
-        hide = true,
-        conflicts_with = "reset_author",
-        value_parser = parse_author
-    )]
-    author: Option<(String, String)>,
 }
 
 #[instrument(skip_all)]
@@ -132,30 +89,6 @@ pub(crate) async fn cmd_describe(
     command: &CommandHelper,
     args: &DescribeArgs,
 ) -> Result<(), CommandError> {
-    if args.no_edit {
-        writeln!(
-            ui.warning_default(),
-            "`jj describe --no-edit` is deprecated; use `jj metaedit` instead"
-        )?;
-    }
-    if args.edit {
-        writeln!(
-            ui.warning_default(),
-            "`jj describe --edit` is deprecated; use `jj describe --editor` instead"
-        )?;
-    }
-    if args.reset_author {
-        writeln!(
-            ui.warning_default(),
-            "`jj describe --reset-author` is deprecated; use `jj metaedit --update-author` instead"
-        )?;
-    }
-    if args.author.is_some() {
-        writeln!(
-            ui.warning_default(),
-            "`jj describe --author` is deprecated; use `jj metaedit --author` instead"
-        )?;
-    }
     let mut workspace_command = command.workspace_helper(ui).await?;
     let target_expr = if !args.revisions_pos.is_empty() || !args.revisions_opt.is_empty() {
         workspace_command
@@ -209,23 +142,11 @@ pub(crate) async fn cmd_describe(
             if let Some(description) = &shared_description {
                 commit_builder.set_description(description);
             }
-            if args.reset_author {
-                let new_author = commit_builder.committer().clone();
-                commit_builder.set_author(new_author);
-            }
-            if let Some((name, email)) = args.author.clone() {
-                let new_author = Signature {
-                    name,
-                    email,
-                    timestamp: commit_builder.author().timestamp,
-                };
-                commit_builder.set_author(new_author);
-            }
             commit_builder
         })
         .collect_vec();
 
-    let use_editor = args.editor || args.edit || (shared_description.is_none() && !args.no_edit);
+    let use_editor = args.editor || shared_description.is_none();
 
     if let Some(trailer_template) = parse_trailers_template(ui, &tx)? {
         for commit_builder in &mut commit_builders {
@@ -300,11 +221,6 @@ pub(crate) async fn cmd_describe(
     let commit_builders: HashMap<_, _> = iter::zip(&commits, commit_builders)
         .filter(|(old_commit, commit_builder)| {
             old_commit.description() != commit_builder.description()
-                || args.reset_author
-                // Ignore author timestamp which could be updated if the old
-                // commit was discardable.
-                || old_commit.author().name != commit_builder.author().name
-                || old_commit.author().email != commit_builder.author().email
         })
         .map(|(old_commit, commit_builder)| (old_commit.id(), commit_builder))
         .collect();
@@ -326,9 +242,6 @@ pub(crate) async fn cmd_describe(
                 if let Some(temp_builder) = commit_builders.get(&old_commit_id) {
                     commit_builder
                         .set_description(temp_builder.description())
-                        .set_author(temp_builder.author().clone())
-                        // Copy back committer for consistency with author timestamp
-                        .set_committer(temp_builder.committer().clone())
                         .write()
                         .await?;
                     num_described += 1;

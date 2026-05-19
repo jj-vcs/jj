@@ -684,21 +684,6 @@ fn test_metaedit_option_mutual_exclusion() {
     [EOF]
     [exit status: 2]
     ");
-
-    insta::assert_snapshot!(work_dir.run_jj([
-        "metaedit",
-        "--update-committer-timestamp",
-        "--force-rewrite",
-    ]), @"
-    ------- stderr -------
-    error: the argument '--update-committer-timestamp' cannot be used with '--force-rewrite'
-
-    Usage: jj metaedit [OPTIONS] [REVSETS]...
-
-    For more information, try '--help'.
-    [EOF]
-    [exit status: 2]
-    ");
 }
 
 #[test]

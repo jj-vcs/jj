@@ -14,6 +14,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* The following deprecated command options have been removed:
+  - `jj commit --reset-author`/`--author`
+  - `jj describe --no-edit`/`--edit`/`--reset-author`/`--author`
+  - `jj metaedit --update-committer-timestamp`
+
 ### Deprecations
 
 ### New features
