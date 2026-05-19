@@ -386,6 +386,29 @@ Some ready-to-use trailer templates are available for frequently used trailers:
 
 Existing trailers are also accessible via `commit.trailers()`.
 
+### Commit description comment hint
+
+By default, when opening an editor to write a commit description (e.g. with `jj
+describe`), `jj` will append a blank line followed by the following comment
+hint:
+
+```
+JJ: Lines starting with "JJ:" (like this one) will be removed.
+```
+
+This line can be omitted by setting `ui.add-description-comment-hint` to `false`:
+
+```toml
+[ui]
+add-description-comment-hint = false
+```
+
+This is useful when setting `templates.draft_commit_description =
+'builtin_draft_commit_description_with_diff'`, which appends the commit diff at
+the bottom of the description buffer. Removing the final `JJ:` comment can make
+the diff easier to parse (for you, or your editor which may attempt to highlight
+it!).
+
 ### Diff colors and styles
 
 In color-words and git diffs, word-level hunks are rendered with underline. You
