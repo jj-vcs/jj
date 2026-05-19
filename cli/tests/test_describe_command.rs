@@ -1124,8 +1124,9 @@ fn test_describe_deprecated_edit_flag() -> TestResult {
 
 #[test]
 fn test_add_trailer() {
-    let test_env = TestEnvironment::default();
+    let mut test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let _edit_script = test_env.set_up_fake_editor();
     let work_dir = test_env.work_dir("repo");
 
     // Set a description using `-m` flag
@@ -1151,16 +1152,14 @@ fn test_add_trailer() {
     [EOF]
     ");
 
-    // multiple trailers may be used, and work with --no-edit
+    // multiple trailers may be used
     let output = work_dir.run_jj([
         "describe",
-        "--no-edit",
         "--config",
         r#"templates.commit_trailers='"CC: alice@example.com\nChange-Id: I6a6a6964" ++ self.change_id().normal_hex()'"#,
     ]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: `jj describe --no-edit` is deprecated; use `jj metaedit` instead
     Working copy  (@) now at: qpvuntsm 2b2e302d (empty) Message from CLI
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -1179,13 +1178,11 @@ fn test_add_trailer() {
     // it won't create a duplicate entry
     let output = work_dir.run_jj([
         "describe",
-        "--no-edit",
         "--config",
         r#"templates.commit_trailers='"CC: alice@example.com"'"#,
     ]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: `jj describe --no-edit` is deprecated; use `jj metaedit` instead
     Nothing changed.
     [EOF]
     ");
@@ -1203,13 +1200,11 @@ fn test_add_trailer() {
     // invalid generated trailers generate an error
     let output = work_dir.run_jj([
         "describe",
-        "--no-edit",
         "--config",
         r#"templates.commit_trailers='"this is an invalid trailer"'"#,
     ]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: `jj describe --no-edit` is deprecated; use `jj metaedit` instead
     Error: Invalid trailer line: this is an invalid trailer
     [EOF]
     [exit status: 1]
@@ -1225,13 +1220,12 @@ fn test_add_trailer() {
     ");
     let output = work_dir.run_jj([
         "describe",
-        "--no-edit",
+        "--message=",
         "--config",
         r#"templates.commit_trailers='"CC: alice@example.com"'"#,
     ]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: `jj describe --no-edit` is deprecated; use `jj metaedit` instead
     Nothing changed.
     [EOF]
     ");
@@ -1280,15 +1274,9 @@ fn test_add_trailer_committer() -> TestResult {
     ");
 
     // committer is properly set in the trailer
-    let output = work_dir.run_jj([
-        "describe",
-        "--no-edit",
-        "--config",
-        "user.email=foo@bar.org",
-    ]);
+    let output = work_dir.run_jj(["describe", "--config=user.email=foo@bar.org"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: `jj describe --no-edit` is deprecated; use `jj metaedit` instead
     Working copy  (@) now at: qpvuntsm 05ddee5c (empty) Message from CLI
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]

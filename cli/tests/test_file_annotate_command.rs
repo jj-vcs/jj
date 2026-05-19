@@ -37,7 +37,7 @@ fn test_annotate_linear() {
 
     work_dir.write_file("file.txt", "line1\n");
     work_dir
-        .run_jj(["describe", "-m=initial", "--author=Foo <foo@example.org>"])
+        .run_jj(["metaedit", "-m=initial", "--author=Foo <foo@example.org>"])
         .success();
 
     work_dir.run_jj(["new", "-m=next"]).success();
