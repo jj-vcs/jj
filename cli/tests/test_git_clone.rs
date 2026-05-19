@@ -794,38 +794,6 @@ fn test_git_clone_remote_default_bookmark() -> TestResult {
     [EOF]
     ");
 
-    // Show hint if track-default-bookmark-on-clone=false has no effect
-    let output = root_dir.run_jj([
-        "git",
-        "clone",
-        "--config=git.auto-local-bookmark=true",
-        "--config=git.track-default-bookmark-on-clone=false",
-        "source",
-        "clone5",
-    ]);
-    insta::assert_snapshot!(output, @r#"
-    ------- stderr -------
-    Warning: Deprecated CLI-provided config: `git.auto-local-bookmark` is deprecated; use `remotes.<name>.auto-track-bookmarks` instead.
-    Example: jj config set --user remotes.origin.auto-track-bookmarks '*'
-    For details, see: https://docs.jj-vcs.dev/latest/config/#automatic-tracking-of-bookmarks
-    Fetching into new repo in "$TEST_ENV/clone5"
-    bookmark: feature1@origin [new] tracked
-    bookmark: main@origin     [new] tracked
-    Hint: `git.track-default-bookmark-on-clone=false` has no effect if `git.auto-local-bookmark` is enabled.
-    Setting the revset alias `trunk()` to `feature1@origin`
-    Working copy  (@) now at: vzqnnsmr fea36bca (empty) (no description set)
-    Parent commit (@-)      : qomsplrm ebeb70d8 feature1 main | message
-    Added 1 files, modified 0 files, removed 0 files
-    [EOF]
-    "#);
-    let clone_dir5 = test_env.work_dir("clone5");
-    insta::assert_snapshot!(get_bookmark_output(&clone_dir5), @"
-    feature1: qomsplrm ebeb70d8 message
-      @origin: qomsplrm ebeb70d8 message
-    main: qomsplrm ebeb70d8 message
-      @origin: qomsplrm ebeb70d8 message
-    [EOF]
-    ");
     Ok(())
 }
 

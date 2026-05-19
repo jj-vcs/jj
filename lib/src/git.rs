@@ -96,8 +96,6 @@ const INDEX_DUMMY_CONFLICT_FILE: &str = ".jj-do-not-resolve-this-conflict";
 
 #[derive(Clone, Debug)]
 pub struct GitSettings {
-    // TODO: Delete in jj 0.42.0+
-    pub auto_local_bookmark: bool,
     pub abandon_unreachable_commits: bool,
     pub executable_path: PathBuf,
     pub record_synthetic_predecessors: bool,
@@ -107,7 +105,6 @@ pub struct GitSettings {
 impl GitSettings {
     pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
         Ok(Self {
-            auto_local_bookmark: settings.get_bool("git.auto-local-bookmark")?,
             abandon_unreachable_commits: settings.get_bool("git.abandon-unreachable-commits")?,
             executable_path: settings.get("git.executable-path")?,
             record_synthetic_predecessors: settings
@@ -515,8 +512,6 @@ impl GitImportError {
 /// Options for [`import_refs()`].
 #[derive(Debug)]
 pub struct GitImportOptions {
-    // TODO: Delete in jj 0.42.0+
-    pub auto_local_bookmark: bool,
     /// Whether to abandon commits that became unreachable in Git.
     pub abandon_unreachable_commits: bool,
     /// Whether to generate synthetic predecessors for imported commits.
@@ -1063,7 +1058,6 @@ fn default_remote_ref_state_for(
     match kind {
         GitRefKind::Bookmark => {
             if symbol.remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO
-                || options.auto_local_bookmark
                 || options
                     .remote_auto_track_bookmarks
                     .get(symbol.remote)

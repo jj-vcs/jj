@@ -1,6 +1,5 @@
 #:schema ../../../src/config-schema.json
 [git]
-auto-local-bookmark = true
 abandon-unreachable-commits = false
 push-new-bookmarks = true
 fetch = ["origin", "fork"]

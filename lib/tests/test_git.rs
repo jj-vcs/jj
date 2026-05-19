@@ -6737,7 +6737,6 @@ fn auto_track_import_options() -> GitImportOptions {
 
 fn default_import_options() -> GitImportOptions {
     GitImportOptions {
-        auto_local_bookmark: false,
         abandon_unreachable_commits: true,
         record_synthetic_predecessors: true,
         remote_auto_track_bookmarks: HashMap::new(),

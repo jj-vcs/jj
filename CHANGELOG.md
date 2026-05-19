@@ -19,6 +19,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - `jj describe --no-edit`/`--edit`/`--reset-author`/`--author`
   - `jj metaedit --update-committer-timestamp`
 
+* The following deprecated config options have been removed:
+  - `git.auto-local-bookmark`
+
 ### Deprecations
 
 * `jj evolog` no longer supports legacy commit predecessors recorded in `jj` <

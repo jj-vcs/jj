@@ -209,7 +209,6 @@ pub fn load_git_import_options(
     remote_settings: &RemoteSettingsMap,
 ) -> Result<GitImportOptions, CommandError> {
     Ok(GitImportOptions {
-        auto_local_bookmark: git_settings.auto_local_bookmark,
         abandon_unreachable_commits: git_settings.abandon_unreachable_commits,
         record_synthetic_predecessors: git_settings.record_synthetic_predecessors,
         remote_auto_track_bookmarks: parse_remote_auto_track_bookmarks_map(ui, remote_settings)?,

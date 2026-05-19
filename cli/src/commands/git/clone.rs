@@ -471,13 +471,6 @@ async fn fetch_new_remote(
         tx.repo_mut().track_remote_bookmark(remote_symbol)?;
     }
     print_git_import_stats(ui, &tx, &import_stats)?;
-    if git_settings.auto_local_bookmark && !should_track_default {
-        writeln!(
-            ui.hint_default(),
-            "`git.track-default-bookmark-on-clone=false` has no effect if \
-             `git.auto-local-bookmark` is enabled."
-        )?;
-    }
     tx.finish(ui, "fetch from git remote into empty repo")
         .await?;
     Ok((working_branch.map(ToOwned::to_owned), working_is_default))

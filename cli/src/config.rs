@@ -827,22 +827,6 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
         // TODO: Delete in jj 0.42.0+
         ConfigMigrationRule::custom(
             |layer| {
-                let Ok(Some(val)) = layer.look_up_item("git.auto-local-bookmark") else {
-                    return false;
-                };
-                val.as_bool().is_some_and(|b| b)
-            },
-            |_| {
-                Ok("`git.auto-local-bookmark` is deprecated; use \
-                    `remotes.<name>.auto-track-bookmarks` instead.
-Example: jj config set --user remotes.origin.auto-track-bookmarks '*'
-For details, see: https://docs.jj-vcs.dev/latest/config/#automatic-tracking-of-bookmarks"
-                    .into())
-            },
-        ),
-        // TODO: Delete in jj 0.42.0+
-        ConfigMigrationRule::custom(
-            |layer| {
                 let Ok(Some(val)) = layer.look_up_item("git.push-new-bookmarks") else {
                     return false;
                 };
