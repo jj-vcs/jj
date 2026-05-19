@@ -30,6 +30,7 @@ use crate::op_store::RemoteView;
 use crate::ref_name::GitRefName;
 use crate::ref_name::GitRefNameBuf;
 use crate::ref_name::RefName;
+use crate::ref_name::RefNameBuf;
 use crate::ref_name::RemoteName;
 use crate::ref_name::RemoteRefSymbol;
 use crate::ref_name::WorkspaceName;
@@ -525,6 +526,16 @@ impl View {
         })
     }
 
+    pub fn get_remote_head(&self, remote: &RemoteName) -> Option<&RefName> {
+        self.data.remote_views.get(remote)?.head.as_deref()
+    }
+
+    pub fn set_remote_head(&mut self, remote: &RemoteName, head: RefNameBuf) {
+        if let Some(remote_view) = self.data.remote_views.get_mut(remote) {
+            remote_view.head = Some(head);
+        }
+    }
+
     pub fn get_git_ref(&self, name: &GitRefName) -> &RefTarget {
         self.data.git_refs.get(name).flatten()
     }
@@ -576,7 +587,11 @@ impl View {
             local_bookmarks.values().flat_map(ref_target_ids),
             local_tags.values().flat_map(ref_target_ids),
             remote_views.values().flat_map(|remote_view| {
-                let op_store::RemoteView { bookmarks, tags } = remote_view;
+                let op_store::RemoteView {
+                    bookmarks,
+                    tags,
+                    head: _,
+                } = remote_view;
                 itertools::chain(bookmarks.values(), tags.values())
                     .flat_map(|remote_ref| ref_target_ids(&remote_ref.target))
             }),

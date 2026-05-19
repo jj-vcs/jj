@@ -43,7 +43,6 @@
 </tspan><tspan xml:space="preserve" x="10" y="104" class="output">bookmark: <tspan class="fg5">master@origin         </tspan> [new] tracked
 </tspan><tspan xml:space="preserve" x="10" y="122" class="output">bookmark: <tspan class="fg5">octocat-patch-1@origin</tspan> [new] untracked
 </tspan><tspan xml:space="preserve" x="10" y="140" class="output">bookmark: <tspan class="fg5">test@origin           </tspan> [new] untracked
-</tspan><tspan xml:space="preserve" x="10" y="158" class="output">Setting the revset alias `trunk()` to `master@origin`
 </tspan><tspan xml:space="preserve" x="10" y="176" class="output">Working copy  (@) now at: <tspan class="bold fg13">r</tspan><tspan class="bold fg8">yovlopo</tspan><tspan class="bold"> </tspan><tspan class="bold fg12">6</tspan><tspan class="bold fg8">ae4c1dd</tspan><tspan class="bold"> </tspan><tspan class="bold fg10">(empty)</tspan><tspan class="bold"> </tspan><tspan class="bold fg10">(no description set)</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="194" class="output">Parent commit (@-)      : <tspan class="bold fg5">o</tspan><tspan class="fg8">rrkosyo</tspan> <tspan class="bold fg4">7</tspan><tspan class="fg8">fd1a60b</tspan> <tspan class="fg5">master</tspan><tspan class="fg8"> | </tspan><tspan class="fg2">(empty)</tspan> Merge pull request <tspan class="hard-br" rotate="45" dx=".1em" dy="-.2em">↓</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="212" class="output">#6 from Spaceghost/patch-1
@@ -116,7 +115,7 @@
 </tspan><tspan xml:space="preserve" x="10" y="1418" class="output">From <tspan class="fg4">6ae4c1dde51e20fe84a32351314b3a4fafce8983</tspan> Mon Sep 17 00:00:00 2001
 </tspan><tspan xml:space="preserve" x="10" y="1436" class="output">From: <tspan class="fg3">JJ Fan &lt;jjfan@example.com&gt;</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="1454" class="output">Date: <tspan class="fg6">Sat, 20 Dec 2025 10:52:40 -0600</tspan>
-</tspan><tspan xml:space="preserve" x="10" y="1472" class="output">Subject: [PATCH] 
+</tspan><tspan xml:space="preserve" x="10" y="1472" class="output">Subject: [PATCH]
 </tspan><tspan xml:space="preserve" x="10" y="1490" class="output">
 </tspan><tspan xml:space="preserve" x="10" y="1508" class="output">---
 </tspan><tspan xml:space="preserve" x="10" y="1526" class="output"> 0 files changed, 0 insertions(+), 0 deletions(-)
@@ -125,17 +124,17 @@
 </tspan><tspan xml:space="preserve" x="10" y="1580" class="output"><tspan class="fg2"># The repo is backed by the actual Git repo:</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="1598" class="output">
 </tspan><tspan xml:space="preserve" x="10" y="1616" class="output">$ git log --graph --all --decorate --oneline
-</tspan><tspan xml:space="preserve" x="10" y="1634" class="output">* <tspan class="fg3">1328093</tspan> 
-</tspan><tspan xml:space="preserve" x="10" y="1652" class="output">* <tspan class="fg3">6ae4c1d</tspan> 
+</tspan><tspan xml:space="preserve" x="10" y="1634" class="output">* <tspan class="fg3">1328093</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="1652" class="output">* <tspan class="fg3">6ae4c1d</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="1670" class="output"><tspan class="fg1">|</tspan> * <tspan class="fg3">b1b3f97</tspan><tspan class="fg3"> (</tspan><tspan class="bold fg1">origin/octocat-patch-1</tspan><tspan class="fg3">, </tspan><tspan class="bold fg2">octocat-patch-1</tspan><tspan class="fg3">)</tspan> sentence case
-</tspan><tspan xml:space="preserve" x="10" y="1688" class="output"><tspan class="fg1">|</tspan><tspan class="fg1">/</tspan>  
+</tspan><tspan xml:space="preserve" x="10" y="1688" class="output"><tspan class="fg1">|</tspan><tspan class="fg1">/</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="1706" class="output"><tspan class="fg1">|</tspan> * <tspan class="fg3">b3cbd5b</tspan><tspan class="fg3"> (</tspan><tspan class="bold fg1">origin/test</tspan><tspan class="fg3">)</tspan> Create CONTRIBUTING.md
-</tspan><tspan xml:space="preserve" x="10" y="1724" class="output"><tspan class="fg1">|</tspan><tspan class="fg1">/</tspan>  
+</tspan><tspan xml:space="preserve" x="10" y="1724" class="output"><tspan class="fg1">|</tspan><tspan class="fg1">/</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="1742" class="output">*   <tspan class="fg3">7fd1a60</tspan><tspan class="fg3"> (</tspan><tspan class="bold fg6">HEAD</tspan><tspan class="fg3">, </tspan><tspan class="bold fg1">origin/master</tspan><tspan class="fg3">, </tspan><tspan class="bold fg2">master</tspan><tspan class="fg3">)</tspan> Merge pull request #6 from Spaceghost/<tspan class="hard-br" rotate="45" dx=".1em" dy="-.2em">↓</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="1760" class="output">patch-1
-</tspan><tspan xml:space="preserve" x="10" y="1778" class="output"><tspan class="fg4">|</tspan><tspan class="fg5">\</tspan>  
+</tspan><tspan xml:space="preserve" x="10" y="1778" class="output"><tspan class="fg4">|</tspan><tspan class="fg5">\</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="1796" class="output"><tspan class="fg4">|</tspan> * <tspan class="fg3">7629413</tspan> New line at end of file. --Signed off by Spaceghost
-</tspan><tspan xml:space="preserve" x="10" y="1814" class="output"><tspan class="fg4">|</tspan><tspan class="fg4">/</tspan>  
+</tspan><tspan xml:space="preserve" x="10" y="1814" class="output"><tspan class="fg4">|</tspan><tspan class="fg4">/</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="1832" class="output">* <tspan class="fg3">553c207</tspan> first commit
 </tspan></text>
     </svg>

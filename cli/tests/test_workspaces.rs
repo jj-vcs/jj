@@ -1399,7 +1399,7 @@ fn test_colocated_workspace_update_stale() {
     let output = main_dir.run_jj(["st"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: The working copy is stale (not updated since operation 8ab980a3d398).
+    Error: The working copy is stale (not updated since operation f6f6fdb8c979).
     Hint: Run `jj workspace update-stale` to update it.
     See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy for more information.
     [EOF]

@@ -78,8 +78,8 @@ fn test_undo_push_operation() {
     ------- stderr -------
     Warning: Undoing a push operation often leads to conflicted bookmarks.
     Hint: To avoid this, run `jj redo` now.
-    Undid operation: 161aca25fa92 (2001-02-03 08:05:10) push bookmark push-rlvkpnrzqnoo to git remote origin
-    Restored to operation: ac6334185db7 (2001-02-03 08:05:09) commit 3850397cf31988d0657948307ad5bbe873d76a38
+    Undid operation: 0f495e748a6f (2001-02-03 08:05:10) push bookmark push-rlvkpnrzqnoo to git remote origin
+    Restored to operation: 764a0e00cd38 (2001-02-03 08:05:09) commit 3850397cf31988d0657948307ad5bbe873d76a38
     [EOF]
     ");
 }

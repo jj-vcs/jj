@@ -21,25 +21,19 @@ use std::sync::Arc;
 use itertools::Itertools as _;
 use jj_lib::file_util;
 use jj_lib::git;
-use jj_lib::git::GitRefKind;
 use jj_lib::git::GitSettings;
-use jj_lib::git::parse_git_ref;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::view::View;
 use jj_lib::workspace::Workspace;
 
-use super::RepoPresets;
-use super::write_repo_presets;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::start_repo_transaction;
 use crate::command_error::CommandError;
 use crate::command_error::cli_error;
-use crate::command_error::internal_error;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
 use crate::commands::git::maybe_add_gitignore;
-use crate::config::ConfigEnv;
 use crate::formatter::FormatterExt as _;
 use crate::git_util::is_colocated_git_workspace;
 use crate::git_util::load_git_import_options;
@@ -195,7 +189,7 @@ async fn do_init(
         GitInitMode::Internal
     };
 
-    let (settings, config_env) = command.settings_for_new_workspace(ui, workspace_root)?;
+    let (settings, _) = command.settings_for_new_workspace(ui, workspace_root)?;
     match &init_mode {
         GitInitMode::Colocate => {
             let (workspace, repo) =
@@ -214,11 +208,6 @@ async fn do_init(
             let mut workspace_command = command.for_workable_repo(ui, workspace, repo)?;
             maybe_add_gitignore(&workspace_command)?;
             workspace_command.maybe_snapshot(ui).await?;
-            maybe_set_repository_level_trunk_alias(
-                ui,
-                &git::get_git_repo(workspace_command.repo().store())?,
-                &config_env,
-            )?;
             if !workspace_command.working_copy_shared_with_git() {
                 let mut tx = workspace_command.start_transaction();
                 jj_lib::git::import_head(tx.repo_mut()).await?;
@@ -275,50 +264,6 @@ async fn init_git_refs(
         "Done importing changes from the underlying Git repo."
     )?;
     Ok(repo)
-}
-
-// Set repository level `trunk()` alias to the default branch.
-// Checks "upstream" first, then "origin" as fallback.
-pub fn maybe_set_repository_level_trunk_alias(
-    ui: &Ui,
-    git_repo: &gix::Repository,
-    config_env: &ConfigEnv,
-) -> Result<(), CommandError> {
-    // Try "upstream" first, then fall back to "origin"
-    for remote in ["upstream", "origin"] {
-        let ref_name = format!("refs/remotes/{remote}/HEAD");
-        if let Some(reference) = git_repo
-            .try_find_reference(&ref_name)
-            .map_err(internal_error)?
-        {
-            // Found a HEAD reference for this remote. Even if we can't parse it,
-            // we should stop here and not try other remotes because it doesn't
-            // really make sense if "origin" were to be set as the default if we
-            // know "upstream" exists.
-            if let Some(reference_name) = reference.target().try_name()
-                && let Some((GitRefKind::Bookmark, symbol)) =
-                    str::from_utf8(reference_name.as_bstr())
-                        .ok()
-                        .and_then(|name| parse_git_ref(name.as_ref()))
-            {
-                // TODO: Can we assume the symbolic target points to the same remote?
-                let symbol = symbol.name.to_remote_symbol(remote.as_ref());
-                write_repo_presets(
-                    ui,
-                    config_env,
-                    RepoPresets {
-                        remote: remote.as_ref(),
-                        fetch_bookmarks: None,
-                        fetch_tags: None,
-                        trunk: Some(symbol),
-                    },
-                )?;
-            }
-            return Ok(());
-        }
-    }
-
-    Ok(())
 }
 
 fn print_trackable_remote_bookmarks(ui: &Ui, view: &View) -> io::Result<()> {

@@ -37,7 +37,6 @@ To support this scenario, you should:
   fetch from `upstream`.
 - Track `main@origin` so when you `jj git push`, your fork's `main` branch is
   updated.
-- Set `main@upstream` as the `trunk()` revset alias so it is immutable.
 
 ```shell
 # Fetch from both remotes by default
@@ -48,9 +47,6 @@ $ jj config set --repo git.push origin
 
 # Track both remote bookmarks
 $ jj bookmark track main
-
-# The upstream repository defines the trunk
-$ jj config set --repo 'revset-aliases."trunk()"' main@upstream
 ```
 
 ## Maintaining an independent repository that integrates changes from upstream
@@ -75,7 +71,6 @@ To support this scenario, you should:
 - Track only `main@origin` so your local `main` branch is updated whenever you
   fetch from `origin`, and so you can push to it if necessary.
 - _Do not_ track `main@upstream`.
-- Set `main@origin` as the `trunk()` revset alias so it is immutable.
 
 ```shell
 # Fetch from origin or both remotes by default
@@ -88,17 +83,11 @@ $ jj config set --repo git.push origin
 # Track only the origin bookmark
 $ jj bookmark track main --remote=origin
 $ jj bookmark untrack main --remote=upstream
-
-# The origin repository defines the trunk
-$ jj config set --repo 'revset-aliases."trunk()"' main@origin
 ```
 
 ## Other workflows
 
 Other workflows may be supported. Some general guidance for this:
-
-- Set `trunk()` to be the remote bookmark you usually rebase upon. If you always
-  rebase against upstream, set it to `main@upstream`.
 
 - Tracking a remote bookmark `main@origin` means it and `main` represent the
   same branch. When one moves, the other should move with it. If you want them to

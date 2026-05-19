@@ -31,7 +31,6 @@ remote: Total 13 (delta 0), reused 0 (delta 0), pack-reused 13 (from 1)
 bookmark: master@origin          [new] untracked
 bookmark: octocat-patch-1@origin [new] untracked
 bookmark: test@origin            [new] untracked
-Setting the revset alias `trunk()` to `master@origin`
 Working copy  (@) now at: kntqzsqt d7439b06 (empty) (no description set)
 Parent commit (@-)      : orrkosyo 7fd1a60b master | (empty) Merge pull request #6 from Spaceghost/patch-1
 Added 1 files, modified 0 files, removed 0 files

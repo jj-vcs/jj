@@ -551,7 +551,7 @@ fn test_git_remote_with_preset_config() {
 
     let list_remotes_config =
         || local_dir.run_jj(["config", "list", "--include-overridden", "remotes"]);
-    let list_trunk_config = || local_dir.run_jj(["config", "list", "revset-aliases.'trunk()'"]);
+    let get_trunk_config = || local_dir.run_jj(["config", "get", "revset-aliases.'trunk()'"]);
     insta::assert_snapshot!(list_remotes_config(), @r#"
     # remotes.origin.fetch-bookmarks = "user-origin"
     remotes.foo.fetch-bookmarks = "user-foo"
@@ -561,24 +561,15 @@ fn test_git_remote_with_preset_config() {
     remotes.bar.fetch-bookmarks = "repo-bar"
     [EOF]
     "#);
-    insta::assert_snapshot!(list_trunk_config(), @r#"
-    revset-aliases.'trunk()' = "main@origin"
+    insta::assert_snapshot!(get_trunk_config(), @"
+    remote_heads() | remote_bookmarks(exact:main | exact:master | exact:trunk)
     [EOF]
-    "#);
+    ");
 
     // Preset repo-level config should be updated automatically
     // TODO: suppress warning about unresolvable immutable_heads()
     let output = local_dir.run_jj(["git", "remote", "rename", "origin", "foo"]);
-    insta::assert_snapshot!(output, @"
-    ------- stderr -------
-    Warning: Failed to check mutability of the new working-copy revision.
-    Caused by:
-    1: Invalid `revset-aliases.immutable_heads()`
-    2: Revision `main@origin` doesn't exist
-    Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
-    Updating the revset alias `trunk()` to `main@foo`.
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"");
     insta::assert_snapshot!(list_remotes_config(), @r#"
     remotes.origin.fetch-bookmarks = "user-origin"
     # remotes.foo.fetch-bookmarks = "user-foo"
@@ -588,24 +579,15 @@ fn test_git_remote_with_preset_config() {
     remotes.bar.fetch-bookmarks = "repo-bar"
     [EOF]
     "#);
-    insta::assert_snapshot!(list_trunk_config(), @r#"
-    revset-aliases.'trunk()' = "main@foo"
+    insta::assert_snapshot!(get_trunk_config(), @"
+    remote_heads() | remote_bookmarks(exact:main | exact:master | exact:trunk)
     [EOF]
-    "#);
+    ");
 
     // Preset repo-level config should be removed automatically
     // TODO: suppress warning about unresolvable immutable_heads()
     let output = local_dir.run_jj(["git", "remote", "remove", "foo"]);
-    insta::assert_snapshot!(output, @"
-    ------- stderr -------
-    Warning: Failed to check mutability of the new working-copy revision.
-    Caused by:
-    1: Invalid `revset-aliases.immutable_heads()`
-    2: Revision `main@foo` doesn't exist
-    Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
-    Resetting the revset alias `trunk()` to default value.
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"");
     insta::assert_snapshot!(list_remotes_config(), @r#"
     remotes.origin.fetch-bookmarks = "user-origin"
     remotes.foo.fetch-bookmarks = "user-foo"
@@ -613,9 +595,8 @@ fn test_git_remote_with_preset_config() {
     remotes.bar.fetch-bookmarks = "repo-bar"
     [EOF]
     "#);
-    insta::assert_snapshot!(list_trunk_config(), @"
-    ------- stderr -------
-    Warning: No matching config key for revset-aliases.'trunk()'
+    insta::assert_snapshot!(get_trunk_config(), @"
+    remote_heads() | remote_bookmarks(exact:main | exact:master | exact:trunk)
     [EOF]
     ");
 
@@ -644,10 +625,10 @@ fn test_git_remote_with_preset_config() {
     remotes.foo.fetch-bookmarks = "repo-bar"
     [EOF]
     "#);
-    insta::assert_snapshot!(list_trunk_config(), @r#"
-    revset-aliases.'trunk()' = "main@custom-remote"
+    insta::assert_snapshot!(get_trunk_config(), @"
+    main@custom-remote
     [EOF]
-    "#);
+    ");
 
     let output = local_dir.run_jj(["git", "remote", "remove", "foo"]);
     insta::assert_snapshot!(output, @"
@@ -663,10 +644,10 @@ fn test_git_remote_with_preset_config() {
     remotes.bar.fetch-tags = "user-bar"
     [EOF]
     "#);
-    insta::assert_snapshot!(list_trunk_config(), @r#"
-    revset-aliases.'trunk()' = "main@custom-remote"
+    insta::assert_snapshot!(get_trunk_config(), @"
+    main@custom-remote
     [EOF]
-    "#);
+    ");
 }
 
 #[test]

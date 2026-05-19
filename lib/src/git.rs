@@ -582,6 +582,42 @@ pub async fn import_some_refs(
     // remote refs.
     for remote_name in iter_remote_names(&git_repo) {
         mut_repo.ensure_remote(&remote_name);
+
+        if mut_repo.remote_has_head(&remote_name) {
+            // continue;
+            // QUESTION: It is technically possible for the remote HEAD to
+            // change on the git side (`git remote set-head` or delete ref and
+            // fetch new HEAD from remote). It would therefore be more *correct*
+            // to read the HEAD for every remote again on every import. It
+            // there some argument not to do that? Maybe the performance impact?
+            // I'm not aware of a workflow where changing the remote HEAD is
+            // important.
+        }
+        // HEAD of remote is unknown. This is normal after a new remote is
+        // configured locally. After the first fetch from that remote, the HEAD
+        // ref should become available for us to store in the view.
+        let ref_name = format!("refs/remotes/{}/HEAD", remote_name.as_str());
+        let head = git_repo
+            .try_find_reference(&ref_name)
+            .unwrap_or_default()
+            .and_then(|reference| {
+                let target = reference.target();
+                let reference_name = target.try_name()?;
+                let name = str::from_utf8(reference_name.as_bstr()).ok()?;
+                let (kind, symbol) = parse_git_ref(name.as_ref())?;
+                if !matches!(kind, GitRefKind::Bookmark) {
+                    return None;
+                }
+                // TODO: Can we assume the symbolic target points to the same remote?
+                // ^^^^^ I preserved this comment from the code in
+                // commands/git/init.rs, but I think the answer should be "yes".
+                // How would a remote HEAD ref that points to a different remote
+                // make sense?
+                Some(symbol.name.to_owned())
+            });
+        if let Some(head) = head {
+            mut_repo.set_remote_head(&remote_name, head);
+        }
     }
 
     // Exclude real remote tags, which should never be updated by Git.
