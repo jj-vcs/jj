@@ -166,10 +166,17 @@ where
     text_util::complete_newline(description.trim_matches('\n'))
 }
 
-pub fn edit_description(editor: &TextEditor, description: &str) -> Result<String, CommandError> {
+pub fn edit_description(
+    editor: &TextEditor,
+    description: &str,
+    add_placeholder_comment: bool,
+) -> Result<String, CommandError> {
     let mut description = description.to_owned();
-    append_blank_line(&mut description);
-    description.push_str("JJ: Lines starting with \"JJ:\" (like this one) will be removed.\n");
+
+    if add_placeholder_comment {
+        append_blank_line(&mut description);
+        description.push_str("JJ: Lines starting with \"JJ:\" (like this one) will be removed.\n");
+    }
 
     let description = editor
         .edit_str(description, Some(".jjdescription"))
@@ -184,6 +191,7 @@ pub fn edit_multiple_descriptions(
     editor: &TextEditor,
     tx: &WorkspaceCommandTransaction,
     commits: &[(&CommitId, Commit)],
+    add_placeholder_comment: bool,
 ) -> Result<ParsedBulkEditMessage<CommitId>, CommandError> {
     let mut commits_map = IndexMap::new();
     let mut bulk_message = String::new();
@@ -195,7 +203,10 @@ pub fn edit_multiple_descriptions(
         JJ: - The syntax of the separator lines may change in the future.
         JJ:
     "#});
-    for (commit_id, temp_commit) in commits {
+    for (i, (commit_id, temp_commit)) in commits.iter().enumerate() {
+        if i > 0 {
+            append_blank_line(&mut bulk_message);
+        }
         let commit_hash = short_commit_hash(commit_id);
         bulk_message.push_str("JJ: describe ");
         bulk_message.push_str(&commit_hash);
@@ -204,9 +215,12 @@ pub fn edit_multiple_descriptions(
         let intro = "";
         let template = description_template(ui, tx, intro, temp_commit)?;
         bulk_message.push_str(&template);
-        append_blank_line(&mut bulk_message);
     }
-    bulk_message.push_str("JJ: Lines starting with \"JJ:\" (like this one) will be removed.\n");
+
+    if add_placeholder_comment {
+        append_blank_line(&mut bulk_message);
+        bulk_message.push_str("JJ: Lines starting with \"JJ:\" (like this one) will be removed.\n");
+    }
 
     let bulk_message = editor
         .edit_str(bulk_message, Some(".jjdescription"))

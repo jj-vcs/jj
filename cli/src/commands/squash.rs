@@ -315,6 +315,9 @@ pub(crate) async fn cmd_squash(
         tx.base_workspace_helper()
             .diff_selector(ui, args.tool.as_deref(), args.interactive)?;
     let text_editor = tx.base_workspace_helper().text_editor()?;
+    let add_placeholder_comment = tx
+        .base_workspace_helper()
+        .should_add_description_placeholder_comment()?;
     let squashed_description = SquashedDescription::from_args(args);
 
     let source_commits =
@@ -355,7 +358,7 @@ pub(crate) async fn cmd_squash(
                     let temp_commit = commit_builder.write_hidden().await?;
                     let intro = "";
                     let template = description_template(ui, &tx, intro, &temp_commit)?;
-                    edit_description(&text_editor, &template)?
+                    edit_description(&text_editor, &template, add_placeholder_comment)?
                 } else {
                     description_with_trailers
                 }
@@ -376,7 +379,7 @@ pub(crate) async fn cmd_squash(
             let temp_commit = commit_builder.write_hidden().await?;
             let intro = "Enter a description for the combined commit.";
             let template = description_template(ui, &tx, intro, &temp_commit)?;
-            edit_description(&text_editor, &template)?
+            edit_description(&text_editor, &template, add_placeholder_comment)?
         };
         commit_builder.set_description(description);
         if insert_destination_commit {

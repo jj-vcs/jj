@@ -99,6 +99,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `JJ_PAGER` can now override the `ui.pager` config, matching `JJ_EDITOR` for
   callers that need a jj-specific environment override.
 
+* New `ui.add-description-placeholder-comment` configuration option which, when
+  set to `false`, omits the placeholder comment appended to description editor
+  buffers: `JJ: Lines starting with "JJ:" (like this one) will be removed.`.
+
 ### Fixed bugs
 
 * Improving consistency with `git` handling of `.gitignore`, including `/`

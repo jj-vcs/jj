@@ -142,6 +142,7 @@ pub(crate) async fn cmd_commit(
     let diff_selector =
         workspace_command.diff_selector(ui, args.tool.as_deref(), args.interactive)?;
     let text_editor = workspace_command.text_editor()?;
+    let add_placeholder_comment = workspace_command.should_add_description_placeholder_comment()?;
     let mut tx = workspace_command.start_transaction();
     let base_tree = commit.parent_tree(tx.repo()).await?;
     let format_instructions = || {
@@ -210,7 +211,7 @@ new working-copy commit.
         let temp_commit = commit_builder.write_hidden().await?;
         let intro = "";
         let description = description_template(ui, &tx, intro, &temp_commit)?;
-        let description = edit_description(&text_editor, &description)?;
+        let description = edit_description(&text_editor, &description, add_placeholder_comment)?;
         if description.is_empty() {
             writedoc!(
                 ui.hint_default(),
