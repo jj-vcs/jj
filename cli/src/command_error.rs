@@ -421,7 +421,6 @@ impl From<WalkPredecessorsError> for CommandError {
     fn from(err: WalkPredecessorsError) -> Self {
         match err {
             WalkPredecessorsError::Backend(err) => err.into(),
-            WalkPredecessorsError::Index(err) => err.into(),
             WalkPredecessorsError::OpStore(err) => err.into(),
             WalkPredecessorsError::CycleDetected(_) => internal_error(err),
         }

@@ -108,9 +108,7 @@ fn test_walk_predecessors_basic_legacy_op() -> TestResult {
     tx.repo_mut().rebase_descendants().block_on()?;
     let repo2 = tx.commit("test").block_on()?;
 
-    // Save operation without the predecessors as old jj would do. We only need
-    // to rewrite the head operation since walk_predecessors() will fall back to
-    // the legacy code path immediately.
+    // Save operation without the predecessors as old jj would do.
     let repo2 = {
         let mut data = repo2.operation().store_operation().clone();
         data.commit_predecessors = None;
@@ -120,13 +118,10 @@ fn test_walk_predecessors_basic_legacy_op() -> TestResult {
     };
 
     let entries = collect_predecessors(&repo2, commit2.id());
-    assert_eq!(entries.len(), 2);
+    assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].commit, commit2);
     assert_eq!(entries[0].operation.as_ref(), None);
-    assert_eq!(entries[0].predecessor_ids(), [commit1.id().clone()]);
-    assert_eq!(entries[1].commit, commit1);
-    assert_eq!(entries[1].operation.as_ref(), None);
-    assert_eq!(entries[1].predecessor_ids(), []);
+    assert_eq!(entries[0].predecessor_ids(), []);
     Ok(())
 }
 

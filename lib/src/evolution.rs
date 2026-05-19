@@ -15,16 +15,13 @@
 //! Utility for commit evolution history.
 
 use std::collections::BTreeMap;
-use std::collections::HashMap;
 use std::collections::VecDeque;
-use std::collections::hash_map::Entry;
 use std::pin::pin;
 use std::slice;
 
 use futures::Stream;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
-use futures::future::join_all;
 use futures::future::try_join_all;
 use futures::stream;
 use itertools::Itertools as _;
@@ -35,8 +32,6 @@ use crate::backend::BackendResult;
 use crate::backend::CommitId;
 use crate::commit::Commit;
 use crate::dag_walk;
-use crate::dag_walk_async;
-use crate::index::IndexError;
 use crate::op_store::OpStoreError;
 use crate::op_store::OpStoreResult;
 use crate::op_walk;
@@ -51,11 +46,6 @@ pub struct CommitEvolutionEntry {
     pub commit: Commit,
     /// Operation where the commit was created or rewritten.
     pub operation: Option<Operation>,
-    /// Reachable predecessor ids reconstructed from the commit metadata. This
-    /// should be set if the associated `operation` is unknown.
-    // TODO: remove with legacy commit.predecessors support
-    #[serde(skip)]
-    reachable_predecessors: Option<Vec<CommitId>>,
 }
 
 impl CommitEvolutionEntry {
@@ -63,7 +53,7 @@ impl CommitEvolutionEntry {
     pub fn predecessor_ids(&self) -> &[CommitId] {
         match &self.operation {
             Some(op) => op.predecessors_for_commit(self.commit.id()).unwrap(),
-            None => self.reachable_predecessors.as_ref().unwrap(),
+            None => &[],
         }
     }
 
@@ -84,8 +74,6 @@ impl CommitEvolutionEntry {
 pub enum WalkPredecessorsError {
     #[error(transparent)]
     Backend(#[from] BackendError),
-    #[error(transparent)]
-    Index(#[from] IndexError),
     #[error(transparent)]
     OpStore(#[from] OpStoreError),
     #[error("Predecessors cycle detected around commit {0}")]
@@ -126,15 +114,13 @@ where
     ) -> Result<Option<CommitEvolutionEntry>, WalkPredecessorsError> {
         while !self.to_visit.is_empty() && self.queued.is_empty() {
             let Some(op) = self.op_ancestors.try_next().await? else {
-                // Scanned all operations, no fallback needed.
                 self.flush_commits().await?;
                 break;
             };
             if !op.stores_commit_predecessors() {
-                // There may be concurrent ops, but let's simply switch to the
-                // legacy commit traversal. Operation history should be mostly
-                // linear.
-                self.scan_commits().await?;
+                // There may be concurrent ops, but let's ignore the rest.
+                // Operation history should be mostly linear.
+                self.flush_commits().await?;
                 break;
             }
             self.visit_op(&op).await?;
@@ -166,7 +152,6 @@ where
             self.queued.push_back(CommitEvolutionEntry {
                 commit,
                 operation: Some(op.clone()),
-                reachable_predecessors: None,
             });
             Ok(())
         };
@@ -191,66 +176,6 @@ where
         Ok(())
     }
 
-    /// Traverses predecessors from remainder commits.
-    async fn scan_commits(&mut self) -> Result<(), WalkPredecessorsError> {
-        let store = self.repo.store();
-        let index = self.repo.index();
-        let mut commit_predecessors: HashMap<CommitId, Vec<CommitId>> = HashMap::new();
-        let commits = dag_walk_async::topo_order_reverse(
-            join_all(self.to_visit.drain(..).map(async |id| {
-                store
-                    .get_commit_async(&id)
-                    .await
-                    .map_err(WalkPredecessorsError::Backend)
-            }))
-            .await,
-            |commit: &Commit| commit.id().clone(),
-            async |commit: &Commit| {
-                let ids = match commit_predecessors.entry(commit.id().clone()) {
-                    Entry::Occupied(entry) => entry.into_mut(),
-                    Entry::Vacant(entry) => {
-                        let mut filtered = vec![];
-                        for id in &commit.store_commit().predecessors {
-                            match index.has_id(id) {
-                                Ok(true) => {
-                                    filtered.push(id.clone());
-                                }
-                                Ok(false) => {
-                                    // Ignore unreachable predecessors
-                                }
-                                Err(err) => {
-                                    return vec![Err(WalkPredecessorsError::Index(err))];
-                                }
-                            }
-                        }
-                        entry.insert(filtered)
-                    }
-                };
-
-                join_all(ids.iter().map(async |id| {
-                    store
-                        .get_commit_async(id)
-                        .await
-                        .map_err(WalkPredecessorsError::Backend)
-                }))
-                .await
-            },
-            |_| panic!("graph has cycle"),
-        )
-        .await?;
-        self.queued.extend(commits.into_iter().map(|commit| {
-            let predecessors = commit_predecessors
-                .remove(commit.id())
-                .expect("commit must be visited once");
-            CommitEvolutionEntry {
-                commit,
-                operation: None,
-                reachable_predecessors: Some(predecessors),
-            }
-        }));
-        Ok(())
-    }
-
     /// Moves remainder commits to output queue.
     async fn flush_commits(&mut self) -> BackendResult<()> {
         self.queued.reserve(self.to_visit.len());
@@ -259,9 +184,6 @@ where
             self.queued.push_back(CommitEvolutionEntry {
                 commit,
                 operation: None,
-                // There were no legacy operations, so the commit should have no
-                // predecessors.
-                reachable_predecessors: Some(vec![]),
             });
         }
         Ok(())

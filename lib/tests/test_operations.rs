@@ -552,18 +552,20 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) ->
         repo_4.operation().stores_commit_predecessors(),
         op_stores_commit_predecessors
     );
-    assert_eq!(
-        get_predecessors(&repo_4, commit_a1.id()),
-        [commit_a0.id().clone()]
-    );
-    assert_eq!(
-        get_predecessors(&repo_4, commit_a2.id()),
-        [commit_a1.id().clone()]
-    );
-    assert_eq!(
-        get_predecessors(&repo_4, commit_b1.id()),
-        [commit_b0.id().clone()]
-    );
+    if op_stores_commit_predecessors {
+        assert_eq!(
+            get_predecessors(&repo_4, commit_a1.id()),
+            [commit_a0.id().clone()]
+        );
+        assert_eq!(
+            get_predecessors(&repo_4, commit_a2.id()),
+            [commit_a1.id().clone()]
+        );
+        assert_eq!(
+            get_predecessors(&repo_4, commit_b1.id()),
+            [commit_b0.id().clone()]
+        );
+    }
 
     // Abandon op1
     let stats = op_walk::reparent_range(
@@ -580,16 +582,18 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) ->
     // A0 - B0 are still reachable
     assert!(index_has_id(repo.index(), commit_a0.id()));
     assert!(index_has_id(repo.index(), commit_b0.id()));
-    assert_eq!(
-        get_predecessors(&repo, commit_a1.id()),
-        [commit_a0.id().clone()]
-    );
-    assert_eq!(
-        get_predecessors(&repo, commit_b1.id()),
-        [commit_b0.id().clone()]
-    );
-    assert_eq!(get_predecessors(&repo, commit_a0.id()), []);
-    assert_eq!(get_predecessors(&repo, commit_b0.id()), []);
+    if op_stores_commit_predecessors {
+        assert_eq!(
+            get_predecessors(&repo, commit_a1.id()),
+            [commit_a0.id().clone()]
+        );
+        assert_eq!(
+            get_predecessors(&repo, commit_b1.id()),
+            [commit_b0.id().clone()]
+        );
+        assert_eq!(get_predecessors(&repo, commit_a0.id()), []);
+        assert_eq!(get_predecessors(&repo, commit_b0.id()), []);
+    }
 
     // Abandon op1 and op2
     let stats = op_walk::reparent_range(
@@ -615,14 +619,6 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) ->
     } else {
         // B0 is retained because it is immediate predecessor of B1
         assert!(index_has_id(repo.index(), commit_b0.id()));
-        assert_eq!(
-            get_predecessors(&repo, commit_a1.id()),
-            [commit_a0.id().clone()]
-        );
-        assert_eq!(
-            get_predecessors(&repo, commit_b1.id()),
-            [commit_b0.id().clone()]
-        );
     }
 
     // Abandon op1, op2, and op3
@@ -641,10 +637,12 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) ->
     assert!(!index_has_id(repo.index(), commit_a0.id()));
     // A1 is still reachable through A2
     assert!(index_has_id(repo.index(), commit_a1.id()));
-    assert_eq!(
-        get_predecessors(&repo, commit_a2.id()),
-        [commit_a1.id().clone()]
-    );
+    if op_stores_commit_predecessors {
+        assert_eq!(
+            get_predecessors(&repo, commit_a2.id()),
+            [commit_a1.id().clone()]
+        );
+    }
     assert_eq!(get_predecessors(&repo, commit_a1.id()), []);
     Ok(())
 }

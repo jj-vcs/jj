@@ -21,6 +21,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Deprecations
 
+* `jj evolog` no longer supports legacy commit predecessors recorded in `jj` <
+  0.30.
+
 ### New features
 
 * Shell completions now surface descriptions for custom aliases,
