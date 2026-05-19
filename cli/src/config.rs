@@ -823,24 +823,7 @@ fn parse_config_arg_item(item_str: &str) -> Result<(ConfigNamePathBuf, ConfigVal
 
 /// List of rules to migrate deprecated config variables.
 pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
-    vec![
-        // TODO: Delete in jj 0.42.0+
-        ConfigMigrationRule::custom(
-            |layer| {
-                let Ok(Some(val)) = layer.look_up_item("git.push-new-bookmarks") else {
-                    return false;
-                };
-                val.as_bool().is_some_and(|b| b)
-            },
-            |_| {
-                Ok("`git.push-new-bookmarks` is deprecated; use \
-                    `remotes.<name>.auto-track-bookmarks` instead.
-Example: jj config set --user remotes.origin.auto-track-bookmarks '*'
-For details, see: https://docs.jj-vcs.dev/latest/config/#automatic-tracking-of-bookmarks"
-                    .into())
-            },
-        ),
-    ]
+    vec![]
 }
 
 /// Command name and arguments specified by config.

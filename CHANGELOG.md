@@ -17,10 +17,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The following deprecated command options have been removed:
   - `jj commit --reset-author`/`--author`
   - `jj describe --no-edit`/`--edit`/`--reset-author`/`--author`
+  - `jj git push --allow-new`
   - `jj metaedit --update-committer-timestamp`
 
 * The following deprecated config options have been removed:
   - `git.auto-local-bookmark`
+  - `git.push-new-bookmarks`
 
 ### Deprecations
 

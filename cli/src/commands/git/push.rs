@@ -177,13 +177,6 @@ pub struct GitPushArgs {
     #[arg(long, conflicts_with = "specific")]
     deleted: bool,
 
-    // TODO: Delete in jj 0.42.0+
-    /// Allow pushing new bookmarks
-    ///
-    /// Newly-created remote bookmarks will be tracked automatically.
-    #[arg(long, short = 'N', hide = true, conflicts_with = "what")]
-    allow_new: bool,
-
     /// Allow pushing commits with empty descriptions
     #[arg(long)]
     allow_empty_description: bool,
@@ -273,13 +266,6 @@ pub async fn cmd_git_push(
     command: &CommandHelper,
     args: &GitPushArgs,
 ) -> Result<(), CommandError> {
-    if args.allow_new {
-        writeln!(
-            ui.warning_default(),
-            "--allow-new is deprecated, track bookmarks manually or configure \
-             remotes.<name>.auto-track-bookmarks instead."
-        )?;
-    }
     let mut workspace_command = command.workspace_helper(ui).await?;
 
     let default_remote;
@@ -454,8 +440,6 @@ pub async fn cmd_git_push(
         }
 
         let view = tx.repo().view();
-        // TODO: Delete in jj 0.42.0+
-        let allow_new = args.allow_new || tx.settings().get("git.push-new-bookmarks")?;
         let bookmarks_by_name = find_bookmarks_to_push(ui, view, &args.bookmark, remote)?;
         for &(name, targets) in &bookmarks_by_name {
             if !seen_bookmarks.insert(name) {
@@ -465,7 +449,7 @@ pub async fn cmd_git_push(
             // Override allow_new if the bookmark is not tracked with any remote
             // already. The user has specified --bookmark, so their intent which
             // bookmarks to push is clear.
-            let allow_new = allow_new || !has_tracked_remote_bookmarks(tx.repo(), name);
+            let allow_new = !has_tracked_remote_bookmarks(tx.repo(), name);
             let allow_delete = true; // named explicitly, allow delete without --delete
             match classify_bookmark_update(remote_symbol, targets, allow_new, allow_delete) {
                 Ok(Some(update)) => ref_updates.bookmarks.push((name.to_owned(), update)),
@@ -521,6 +505,7 @@ pub async fn cmd_git_push(
                 continue;
             }
             let remote_symbol = name.to_remote_symbol(remote);
+            let allow_new = false;
             let allow_delete = false;
             match classify_bookmark_update(remote_symbol, targets, allow_new, allow_delete) {
                 Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
@@ -536,6 +521,7 @@ pub async fn cmd_git_push(
                 continue;
             }
             let remote_symbol = name.to_remote_symbol(remote);
+            let allow_new = false;
             let allow_delete = false;
             match classify_tag_update(remote_symbol, targets, allow_new, allow_delete) {
                 Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
@@ -1039,8 +1025,6 @@ fn classify_bookmark_update(
                 remote = remote_symbol.remote.as_symbol()
             )),
         }),
-        // TODO: deprecate --allow-new and make classify_bookmark_push_action()
-        // reject untracked remote?
         RefPushAction::Update(_) if !targets.remote_ref.is_tracked() && !allow_new => {
             Err(RejectedRefUpdateReason {
                 message: format!("Refusing to create new remote bookmark {remote_symbol}"),

@@ -66,14 +66,10 @@ fn set_up_remote_at_main(test_env: &TestEnvironment, work_dir: &TestWorkDir, rem
         ])
         .success();
     work_dir
-        .run_jj([
-            "git",
-            "push",
-            "--allow-new",
-            "--remote",
-            remote_name,
-            "-b=main",
-        ])
+        .run_jj(["bookmark", "track", "--remote", remote_name, "main"])
+        .success();
+    work_dir
+        .run_jj(["git", "push", "--remote", remote_name, "-b=main"])
         .success();
 }
 
@@ -382,7 +378,7 @@ fn test_git_private_commits_are_evaluated_separately_for_each_remote() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      bookmark: main [move forward from 95cc152cd086 to 7eb69d0eaf71]
+      bookmark: main [move forward from 95cc152cd086 to efa3666d00e4]
     [EOF]
     ");
 
@@ -393,8 +389,8 @@ fn test_git_private_commits_are_evaluated_separately_for_each_remote() {
     let output = work_dir.run_jj(["git", "push", "--remote=other", "-b=main"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Won't push commit 469f044473ed since it is private
-    Hint: Rejected commit: znkkpsqq 469f0444 (empty) private 1
+    Error: Won't push commit a714fa972186 since it is private
+    Hint: Rejected commit: kpqxywon a714fa97 (empty) private 1
     Hint: Configured git.private-commits: 'description('private*')'
     [EOF]
     [exit status: 1]
