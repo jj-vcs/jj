@@ -1682,6 +1682,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#replicating-evolution-history-for-fetched-or-imported-git-commits" class="md-nav__link">
+    <span class="md-ellipsis">
+      Replicating evolution history for fetched or imported Git commits
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#generated-bookmark-names-on-push" class="md-nav__link">
     <span class="md-ellipsis">
       Generated bookmark names on push
@@ -3679,6 +3688,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#replicating-evolution-history-for-fetched-or-imported-git-commits" class="md-nav__link">
+    <span class="md-ellipsis">
+      Replicating evolution history for fetched or imported Git commits
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#generated-bookmark-names-on-push" class="md-nav__link">
     <span class="md-ellipsis">
       Generated bookmark names on push
@@ -5431,6 +5449,13 @@ usual when commits are abandoned). You can disable this behavior and instead
 leave the Git-unreachable commits in your repo by setting:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[git]</span>
 <span class="n">abandon-unreachable-commits</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span>
+</code></pre></div>
+<h3 id="replicating-evolution-history-for-fetched-or-imported-git-commits">Replicating evolution history for fetched or imported Git commits<a class="headerlink" href="#replicating-evolution-history-for-fetched-or-imported-git-commits" title="Permanent link">&para;</a></h3>
+<p>By default, when <code>jj</code> imports commits from Git, it attempts to reconstruct their
+evolution history using change IDs. If you are importing a large number of
+commits, you can temporarily disable this behavior to improve performance:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[git]</span>
+<span class="n">record-synthetic-predecessors</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span>
 </code></pre></div>
 <h3 id="generated-bookmark-names-on-push">Generated bookmark names on push<a class="headerlink" href="#generated-bookmark-names-on-push" title="Permanent link">&para;</a></h3>
 <p><code>jj git push --change</code> generates bookmark names with a prefix of "push-" by
