@@ -74,22 +74,26 @@ impl SimpleOpHeadsStore {
         Self { dir: op_heads_dir }
     }
 
-    fn add_op_head(&self, id: &OperationId) -> io::Result<()> {
-        std::fs::write(self.dir.join(id.hex()), "")
+    fn add_op_head(&self, id: &OperationId) -> Result<(), PathError> {
+        let path = self.dir.join(id.hex());
+        std::fs::write(&path, "").context(path)
     }
 
-    fn remove_op_head(&self, id: &OperationId) -> io::Result<()> {
-        std::fs::remove_file(self.dir.join(id.hex())).or_else(|err| {
-            if err.kind() == io::ErrorKind::NotFound {
-                // It's fine if the old head was not found. It probably means
-                // that we're on a distributed file system where the locking
-                // doesn't work. We'll probably end up with two current
-                // heads. We'll detect that next time we load the view.
-                Ok(())
-            } else {
-                Err(err)
-            }
-        })
+    fn remove_op_head(&self, id: &OperationId) -> Result<(), PathError> {
+        let path = self.dir.join(id.hex());
+        std::fs::remove_file(&path)
+            .or_else(|err| {
+                if err.kind() == io::ErrorKind::NotFound {
+                    // It's fine if the old head was not found. It probably means
+                    // that we're on a distributed file system where the locking
+                    // doesn't work. We'll probably end up with two current
+                    // heads. We'll detect that next time we load the view.
+                    Ok(())
+                } else {
+                    Err(err)
+                }
+            })
+            .context(path)
     }
 }
 
