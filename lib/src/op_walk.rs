@@ -34,7 +34,6 @@ use crate::dag_walk_async;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
 use crate::op_heads_store;
-use crate::op_heads_store::OpHeadResolutionError;
 use crate::op_heads_store::OpHeadsStore;
 use crate::op_heads_store::OpHeadsStoreError;
 use crate::op_store::OpStore;
@@ -55,9 +54,6 @@ pub enum OpsetEvaluationError {
     /// Failed to read op heads.
     #[error(transparent)]
     OpHeadsStore(#[from] OpHeadsStoreError),
-    /// Failed to resolve the current operation heads.
-    #[error(transparent)]
-    OpHeadResolution(#[from] OpHeadResolutionError),
     /// Failed to access operation object.
     #[error(transparent)]
     OpStore(#[from] OpStoreError),

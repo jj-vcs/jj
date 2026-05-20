@@ -63,10 +63,12 @@ impl SimpleOpHeadsStore {
         "simple_op_heads_store"
     }
 
-    pub fn init(dir: &Path) -> Result<Self, SimpleOpHeadsStoreInitError> {
+    pub fn init(dir: &Path, root_op_id: &OperationId) -> Result<Self, SimpleOpHeadsStoreInitError> {
         let op_heads_dir = dir.join("heads");
         fs::create_dir(&op_heads_dir).context(&op_heads_dir)?;
-        Ok(Self { dir: op_heads_dir })
+        let store = Self { dir: op_heads_dir };
+        store.add_op_head(root_op_id)?;
+        Ok(store)
     }
 
     pub fn load(dir: &Path) -> Self {
@@ -147,7 +149,13 @@ impl OpHeadsStore for SimpleOpHeadsStore {
                 op_heads.push(OperationId::new(op_head));
             }
         }
-        Ok(op_heads)
+        if op_heads.is_empty() {
+            Err(OpHeadsStoreError::Read(
+                "Corrupt repository: no head operation".into(),
+            ))
+        } else {
+            Ok(op_heads)
+        }
     }
 
     async fn lock(&self) -> Result<Box<dyn OpHeadsStoreLock + '_>, OpHeadsStoreError> {

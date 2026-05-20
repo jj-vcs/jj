@@ -43,12 +43,6 @@ pub enum OpHeadsStoreError {
     Lock(#[source] Box<dyn std::error::Error + Send + Sync>),
 }
 
-#[derive(Debug, Error)]
-pub enum OpHeadResolutionError {
-    #[error("Operation log has no heads")]
-    NoHeads,
-}
-
 pub trait OpHeadsStoreLock {}
 
 /// Manages the set of current heads of the operation log.
@@ -65,6 +59,8 @@ pub trait OpHeadsStore: Any + Send + Sync + Debug {
         new_id: &OperationId,
     ) -> Result<(), OpHeadsStoreError>;
 
+    /// Return the current op heads. The returned list must not be empty; it
+    /// must contain the root operation if there are no later op heads.
     async fn get_op_heads(&self) -> Result<Vec<OperationId>, OpHeadsStoreError>;
 
     /// Optionally takes a lock on the op heads store. The purpose of the lock
@@ -91,7 +87,7 @@ pub async fn resolve_op_heads<E>(
     resolver: impl AsyncFnOnce(Vec<Operation>) -> Result<Operation, E>,
 ) -> Result<Operation, E>
 where
-    E: From<OpHeadResolutionError> + From<OpHeadsStoreError> + From<OpStoreError>,
+    E: From<OpHeadsStoreError> + From<OpStoreError>,
 {
     // This can be empty if the OpHeadsStore doesn't support atomic updates.
     // For example, all entries ahead of a readdir() pointer could be deleted by
@@ -114,10 +110,7 @@ where
     // work (and producing another set of divergent heads).
     let _lock = op_heads_store.lock().await?;
     let op_head_ids = op_heads_store.get_op_heads().await?;
-
-    if op_head_ids.is_empty() {
-        return Err(OpHeadResolutionError::NoHeads.into());
-    }
+    assert!(!op_head_ids.is_empty());
 
     if op_head_ids.len() == 1 {
         let op_head_id = op_head_ids[0].clone();

@@ -2628,7 +2628,6 @@ fn reload_repo_at_operation(
             RepoLoaderError::Backend(err) => RevsetResolutionError::Backend(err),
             RepoLoaderError::Index(_)
             | RepoLoaderError::IndexStore(_)
-            | RepoLoaderError::OpHeadResolution(_)
             | RepoLoaderError::OpHeadsStoreError(_)
             | RepoLoaderError::OpStore(_)
             | RepoLoaderError::TransactionCommit(_) => RevsetResolutionError::Other(err.into()),

@@ -69,7 +69,6 @@ use crate::merged_tree::MergedTree;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
 use crate::op_heads_store;
-use crate::op_heads_store::OpHeadResolutionError;
 use crate::op_heads_store::OpHeadsStore;
 use crate::op_heads_store::OpHeadsStoreError;
 use crate::op_store;
@@ -191,7 +190,9 @@ impl ReadonlyRepo {
     }
 
     pub fn default_op_heads_store_initializer() -> &'static OpHeadsStoreInitializer<'static> {
-        &|_settings, store_path| Ok(Box::new(SimpleOpHeadsStore::init(store_path)?))
+        &|_settings, store_path, root_op_id| {
+            Ok(Box::new(SimpleOpHeadsStore::init(store_path, root_op_id)?))
+        }
     }
 
     pub fn default_index_store_initializer() -> &'static IndexStoreInitializer<'static> {
@@ -236,12 +237,10 @@ impl ReadonlyRepo {
 
         let op_heads_path = repo_path.join("op_heads");
         fs::create_dir(&op_heads_path).context(&op_heads_path)?;
-        let op_heads_store = op_heads_store_initializer(settings, &op_heads_path)?;
+        let op_heads_store =
+            op_heads_store_initializer(settings, &op_heads_path, op_store.root_operation_id())?;
         let op_heads_type_path = op_heads_path.join("type");
         fs::write(&op_heads_type_path, op_heads_store.name()).context(&op_heads_type_path)?;
-        op_heads_store
-            .update_op_heads(&[], op_store.root_operation_id())
-            .await?;
         let op_heads_store: Arc<dyn OpHeadsStore> = Arc::from(op_heads_store);
 
         let index_path = repo_path.join("index");
@@ -389,8 +388,11 @@ pub type BackendInitializer<'a> =
 pub type OpStoreInitializer<'a> =
     dyn Fn(&UserSettings, &Path, RootOperationData) -> Result<Box<dyn OpStore>, BackendInitError>
     + 'a;
-pub type OpHeadsStoreInitializer<'a> =
-    dyn Fn(&UserSettings, &Path) -> Result<Box<dyn OpHeadsStore>, BackendInitError> + 'a;
+#[rustfmt::skip] // auto-formatted line would exceed the maximum width
+pub type OpHeadsStoreInitializer<'a> = 
+    dyn Fn(&UserSettings, &Path, &OperationId)
+    -> Result<Box<dyn OpHeadsStore>, BackendInitError>
+    + 'a;
 pub type IndexStoreInitializer<'a> =
     dyn Fn(&UserSettings, &Path) -> Result<Box<dyn IndexStore>, BackendInitError> + 'a;
 pub type SubmoduleStoreInitializer<'a> =
@@ -656,8 +658,6 @@ pub enum RepoLoaderError {
     Index(#[from] IndexError),
     #[error(transparent)]
     IndexStore(#[from] IndexStoreError),
-    #[error(transparent)]
-    OpHeadResolution(#[from] OpHeadResolutionError),
     #[error(transparent)]
     OpHeadsStoreError(#[from] OpHeadsStoreError),
     #[error(transparent)]

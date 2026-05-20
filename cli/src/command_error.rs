@@ -36,7 +36,6 @@ use jj_lib::fileset::FilesetParseErrorKind;
 use jj_lib::fix::FixError;
 use jj_lib::gitignore::GitIgnoreError;
 use jj_lib::index::IndexError;
-use jj_lib::op_heads_store::OpHeadResolutionError;
 use jj_lib::op_heads_store::OpHeadsStoreError;
 use jj_lib::op_store::OpStoreError;
 use jj_lib::op_walk::OpsetEvaluationError;
@@ -373,16 +372,6 @@ impl From<WorkspaceInitError> for CommandError {
     }
 }
 
-impl From<OpHeadResolutionError> for CommandError {
-    fn from(err: OpHeadResolutionError) -> Self {
-        match err {
-            OpHeadResolutionError::NoHeads => {
-                internal_error_with_message("Corrupt repository", err)
-            }
-        }
-    }
-}
-
 impl From<OpsetEvaluationError> for CommandError {
     fn from(err: OpsetEvaluationError) -> Self {
         match err {
@@ -392,7 +381,6 @@ impl From<OpsetEvaluationError> for CommandError {
                 cmd_err.extend_hints(hint);
                 cmd_err
             }
-            OpsetEvaluationError::OpHeadResolution(err) => err.into(),
             OpsetEvaluationError::OpHeadsStore(err) => err.into(),
             OpsetEvaluationError::OpStore(err) => err.into(),
         }
