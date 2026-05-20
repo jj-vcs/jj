@@ -88,7 +88,7 @@ pub async fn cmd_redo(
     // The first interesting operation here is H:
     // - Attempt to redo G.
     // - G is an undo-operation, so attempt to restore its parent F.
-    // - F is a redo-opreation. Restore its original operation D, instead of F.
+    // - F is a redo-operation. Restore its original operation D, instead of F.
     //
     // The operation I is also noteworthy:
     // - Attempt to redo H.

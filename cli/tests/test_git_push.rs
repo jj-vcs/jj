@@ -1785,7 +1785,7 @@ fn test_git_push_allow_new_heuristics() {
 
     let start_op = work_dir.current_operation_id();
 
-    // Pushing untracked refs with --bookmark/--tag automatically trackes it.
+    // Pushing untracked refs with --bookmark/--tag automatically tracks it.
     let output = work_dir.run_jj(["git", "push", "--bookmark=untracked", "--tag=untracked"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------

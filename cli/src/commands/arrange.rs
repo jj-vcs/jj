@@ -550,7 +550,7 @@ fn render(
         .with_min_row_height(2)
         .build_box_drawing();
     let mut row_area = main_area;
-    let current_seletion_id = state.current_id();
+    let current_selection_id = state.current_id();
     let commits_to_render = state
         .external_children
         .iter()
@@ -571,7 +571,7 @@ fn render(
         let action_area = row_layout[2];
         let text_area = row_layout[3];
 
-        if id == current_seletion_id {
+        if id == current_selection_id {
             frame.render_widget(Text::from("▶"), selection_area);
         }
 
