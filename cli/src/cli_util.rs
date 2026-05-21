@@ -1008,12 +1008,12 @@ impl WorkspaceCommandEnvironment {
         }
     }
 
-    /// Returns first immutable commit.
-    async fn find_immutable_commit(
+    /// Resolves the effective `immutable()` expression to test against commits
+    /// during a rewrite, taking the `--ignore-immutable` flag into account.
+    fn resolve_immutable_expression(
         &self,
         repo: &dyn Repo,
-        to_rewrite_expr: &Arc<ResolvedRevsetExpression>,
-    ) -> Result<Option<CommitId>, CommandError> {
+    ) -> Result<Arc<ResolvedRevsetExpression>, CommandError> {
         let immutable_expression = if self.command.global_args().ignore_immutable {
             UserRevsetExpression::root()
         } else {
@@ -1024,20 +1024,14 @@ impl WorkspaceCommandEnvironment {
         // must not be calculated and cached against arbitrary repo. It's also
         // unlikely that the immutable expression contains short hashes.
         let id_prefix_context = IdPrefixContext::new(self.command.revset_extensions().clone());
-        let immutable_expr = RevsetExpressionEvaluator::new(
+        RevsetExpressionEvaluator::new(
             repo,
             self.command.revset_extensions().clone(),
             &id_prefix_context,
             immutable_expression,
         )
         .resolve()
-        .map_err(|e| config_error_with_message("Invalid `revset-aliases.immutable_heads()`", e))?;
-
-        let mut commit_id_iter = immutable_expr
-            .intersection(to_rewrite_expr)
-            .evaluate(repo)?
-            .stream();
-        Ok(commit_id_iter.try_next().await?)
+        .map_err(|e| config_error_with_message("Invalid `revset-aliases.immutable_heads()`", e))
     }
 
     pub fn template_aliases_map(&self) -> &TemplateAliasesMap {
@@ -1948,9 +1942,12 @@ to the current parents may contain changes from multiple commits.
         to_rewrite_expr: &Arc<ResolvedRevsetExpression>,
     ) -> Result<(), CommandError> {
         let repo = self.repo().as_ref();
-        let Some(commit_id) = self
-            .env
-            .find_immutable_commit(repo, to_rewrite_expr)
+        let immutable_expr = self.env.resolve_immutable_expression(repo)?;
+        let Some(commit_id) = immutable_expr
+            .intersection(to_rewrite_expr)
+            .evaluate(repo)?
+            .stream()
+            .try_next()
             .await?
         else {
             return Ok(());
@@ -1971,20 +1968,10 @@ to the current parents may contain changes from multiple commits.
                       - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
                       - `jj help -k config`, \"Set of immutable commits\""});
 
-            // Not using self.id_prefix_context() for consistency with
-            // find_immutable_commit().
-            let id_prefix_context =
-                IdPrefixContext::new(self.env.command.revset_extensions().clone());
-            let (lower_bound, upper_bound) = RevsetExpressionEvaluator::new(
-                repo,
-                self.env.command.revset_extensions().clone(),
-                &id_prefix_context,
-                self.env.immutable_expression(),
-            )
-            .resolve()?
-            .intersection(&to_rewrite_expr.descendants())
-            .evaluate(repo)?
-            .count_estimate()?;
+            let (lower_bound, upper_bound) = immutable_expr
+                .intersection(&to_rewrite_expr.descendants())
+                .evaluate(repo)?
+                .count_estimate()?;
             let exact = upper_bound == Some(lower_bound);
             let or_more = if exact { "" } else { " or more" };
             error.add_hint(format!(
@@ -2202,23 +2189,28 @@ to the current parents may contain changes from multiple commits.
             writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
         }
 
+        // This can fail if trunk() bookmark gets deleted or conflicted. If the
+        // unresolvable trunk() issue gets addressed differently, it should be
+        // okay to propagate the error.
+        let immutable_expr = match self.env.resolve_immutable_expression(tx.repo()) {
+            Ok(expr) => expr,
+            Err(CommandError { error, .. }) => {
+                writeln!(
+                    ui.warning_default(),
+                    "Failed to check mutability of the new working-copy revision."
+                )?;
+                print_error_sources(ui, Some(&error))?;
+                RevsetExpression::root()
+            }
+        };
         for (name, wc_commit_id) in &tx.repo().view().wc_commit_ids().clone() {
-            // This can fail if trunk() bookmark gets deleted or conflicted. If
-            // the unresolvable trunk() issue gets addressed differently, it
-            // should be okay to propagate the error.
-            let wc_expr = RevsetExpression::commit(wc_commit_id.clone());
-            let is_immutable = match self.env.find_immutable_commit(tx.repo(), &wc_expr).await {
-                Ok(commit_id) => commit_id.is_some(),
-                Err(CommandError { error, .. }) => {
-                    writeln!(
-                        ui.warning_default(),
-                        "Failed to check mutability of the new working-copy revision."
-                    )?;
-                    print_error_sources(ui, Some(&error))?;
-                    // Give up because the same error would occur repeatedly.
-                    break;
-                }
-            };
+            let is_immutable = immutable_expr
+                .intersection(&RevsetExpression::commit(wc_commit_id.clone()))
+                .evaluate(tx.repo())?
+                .stream()
+                .try_next()
+                .await?
+                .is_some();
             if is_immutable {
                 let wc_commit = tx.repo().store().get_commit_async(wc_commit_id).await?;
                 tx.repo_mut().check_out(name.clone(), &wc_commit).await?;
