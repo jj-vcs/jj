@@ -117,6 +117,7 @@ pub(crate) async fn cmd_abandon(
     tx.repo_mut()
         .transform_descendants_with_options(
             to_abandon.iter().cloned().collect(),
+            &RevsetExpression::none(),
             &HashMap::new(),
             &options,
             async |rewriter| {

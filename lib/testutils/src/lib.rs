@@ -60,6 +60,7 @@ use jj_lib::repo::StoreFactories;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::repo_path::RepoPathComponent;
+use jj_lib::revset::RevsetExpression;
 use jj_lib::rewrite::RebaseOptions;
 use jj_lib::rewrite::RebasedCommit;
 use jj_lib::secret_backend::SecretBackend;
@@ -778,8 +779,9 @@ pub fn rebase_descendants_with_options_return_map(
     repo: &mut MutableRepo,
     options: &RebaseOptions,
 ) -> HashMap<CommitId, CommitId> {
+    let immutable = RevsetExpression::none();
     let mut rebased: HashMap<CommitId, CommitId> = HashMap::new();
-    repo.rebase_descendants_with_options(options, |old_commit, rebased_commit| {
+    repo.rebase_descendants_with_options(&immutable, options, |old_commit, rebased_commit| {
         let old_commit_id = old_commit.id().clone();
         let new_commit_id = match rebased_commit {
             RebasedCommit::Rewritten(new_commit) => new_commit.id().clone(),

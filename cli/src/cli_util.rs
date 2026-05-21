@@ -120,6 +120,7 @@ use jj_lib::revset::RevsetStreamExt as _;
 use jj_lib::revset::RevsetWorkspaceContext;
 use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::revset::UserRevsetExpression;
+use jj_lib::rewrite::RebaseOptions;
 use jj_lib::rewrite::restore_tree;
 use jj_lib::settings::HumanByteSize;
 use jj_lib::settings::UserSettings;
@@ -1378,7 +1379,7 @@ impl WorkspaceCommandHelper {
         }
 
         let mut tx = tx.into_inner();
-        let num_rebased = tx.repo_mut().rebase_descendants().await?;
+        let num_rebased = rebase_mutable_descendants(&self.env, &mut tx).await?;
         if num_rebased > 0 {
             writeln!(
                 ui.status(),
@@ -2689,7 +2690,7 @@ impl WorkspaceCommandTransaction<'_> {
             writeln!(ui.status(), "Nothing changed.")?;
             return Ok(());
         }
-        let num_rebased = tx.repo_mut().rebase_descendants().await?;
+        let num_rebased = rebase_mutable_descendants(&helper.env, &mut tx).await?;
         if num_rebased > 0 {
             writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
         }
@@ -2807,6 +2808,26 @@ pub fn start_repo_transaction(
     quoted_strings.extend(string_args.iter().skip(1).map(shell_escape));
     tx.set_attribute("args".to_string(), quoted_strings.join(" "));
     tx
+}
+
+async fn rebase_mutable_descendants(
+    env: &WorkspaceCommandEnvironment,
+    tx: &mut Transaction,
+) -> Result<usize, CommandError> {
+    // Commands like "jj git fetch" can update immutable commits to reflect the
+    // remote changes. Their immutable descendants shouldn't be rebased. We use
+    // tx.base_repo() here because we're interested in existing immutable
+    // commits that are still reachable.
+    let mut num_rebased = 0;
+    let immutable = env.resolve_immutable_expression(tx.base_repo().as_ref())?;
+    tx.repo_mut()
+        .rebase_descendants_with_options(
+            &immutable,
+            &RebaseOptions::default(),
+            |_old_commit, _rebased_commit| num_rebased += 1,
+        )
+        .await?;
+    Ok(num_rebased)
 }
 
 /// Check if the working copy is stale and reload the repo if the repo is ahead

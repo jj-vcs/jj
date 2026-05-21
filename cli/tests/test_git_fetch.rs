@@ -2279,17 +2279,41 @@ fn test_git_fetch_remotely_rewritten_descendants() {
     ------- stderr -------
     bookmark: book1@origin [updated] untracked
     Updated 2 rewritten commits.
-    Rebased 2 descendant commits
+    Rebased 1 descendant commits
     Working copy  (@) now at: vruxwmqv a1d01244 (empty) local
-    Parent commit (@-)      : qpvuntsm a843bfad (empty) modified
+    Parent commit (@-)      : qpvuntsm/0 a843bfad (divergent) (empty) modified
     [EOF]
     ");
 
-    // The working copy should be rebased onto the modified revision
-    // FIXME: the other remote branch shouldn't be rebased
+    // The working copy should be rebased onto the modified revision, but the
+    // other remote branch shouldn't
     insta::assert_snapshot!(get_log_output(&local_dir), @r#"
     @  a1d01244a4ec "local"
-    │ ○  8e6c17fa9e2e "bookmarked 2"
+    │ ◆  ad5c5f3c59a7 "bookmarked 1" book1@origin
+    ├─╯
+    ◆  a843bfad2abb "modified"
+    │ ◆  cce448c253e0 "bookmarked 2" book2@origin
+    │ ◆  97604bbedb48 "original"
+    ├─╯
+    ◆  000000000000 ""
+    [EOF]
+    "#);
+
+    // Fetch the other branch
+    let output = local_dir.run_jj(["git", "fetch"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    bookmark: book2@origin [updated] untracked
+    Abandoned 1 commits that are no longer reachable:
+      qpvuntsm/1 97604bbe (divergent) (empty) original
+    Updated 1 rewritten commits.
+    [EOF]
+    ");
+
+    // Divergence should be resolved
+    insta::assert_snapshot!(get_log_output(&local_dir), @r#"
+    @  a1d01244a4ec "local"
+    │ ◆  3faff7724dd4 "bookmarked 2" book2@origin
     ├─╯
     │ ◆  ad5c5f3c59a7 "bookmarked 1" book1@origin
     ├─╯
@@ -2301,19 +2325,20 @@ fn test_git_fetch_remotely_rewritten_descendants() {
     // Evolution history should point to the "git fetch" operation
     let output = local_dir.run_jj(["evolog", "-r..remote_bookmarks()"]);
     insta::assert_snapshot!(output, @"
+    ◆  mzvwutvl test.user@example.com 2001-02-03 08:05:16 book2@origin 3faff772
+    │  (empty) bookmarked 2
+    │  -- operation 8285ffe9ef99 fetch from git remote(s) origin
+    ○  mzvwutvl/1 test.user@example.com 2001-02-03 08:05:11 cce448c2 (hidden)
+       (empty) bookmarked 2
     ◆  kkmpptxz test.user@example.com 2001-02-03 08:05:16 book1@origin ad5c5f3c
     │  (empty) bookmarked 1
-    │  -- operation ac34b601b3a2 fetch from git remote(s) origin
+    │  -- operation eed0c1c063f4 fetch from git remote(s) origin
     ○  kkmpptxz/1 test.user@example.com 2001-02-03 08:05:09 2a6bbeb4 (hidden)
        (empty) bookmarked 1
     ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:16 a843bfad
     │  (empty) modified
-    │  -- operation ac34b601b3a2 fetch from git remote(s) origin
-    ◆  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 97604bbe (hidden)
-       (empty) original
-    ◆  mzvwutvl/1 test.user@example.com 2001-02-03 08:05:11 book2@origin cce448c2 (hidden)
-       (empty) bookmarked 2
-    ◆  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 97604bbe (hidden)
+    │  -- operation eed0c1c063f4 fetch from git remote(s) origin
+    ○  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 97604bbe (hidden)
        (empty) original
     [EOF]
     ");

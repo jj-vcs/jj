@@ -838,7 +838,9 @@ pub async fn compute_move_commits(
     let mut roots = target_roots.iter().cloned().collect_vec();
     roots.extend(new_children.iter().ids().cloned());
 
-    let descendants = repo.find_descendants_for_rebase(roots.clone()).await?;
+    let descendants = repo
+        .find_descendants_for_rebase(roots.clone(), &RevsetExpression::none())
+        .await?;
     let commit_new_parents_map = descendants
         .iter()
         .map(|commit| -> BackendResult<_> {
@@ -1384,8 +1386,9 @@ pub async fn squash_commits<'repo>(
         // rewritten sources. Otherwise it will likely already have the content
         // changes we're moving, so applying them will have no effect and the
         // changes will disappear.
+        let immutable = RevsetExpression::none();
         let options = RebaseOptions::default();
-        repo.rebase_descendants_with_options(&options, |old_commit, rebased_commit| {
+        repo.rebase_descendants_with_options(&immutable, &options, |old_commit, rebased_commit| {
             if old_commit.id() != destination.id() {
                 return;
             }

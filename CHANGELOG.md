@@ -44,6 +44,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj gerrit upload` now supports the `-o` (`--option`) flag, which works like
   `git push -o` (`--push-option`).
 
+* `jj git fetch` now rebases the descendants of revisions that were rewritten
+  based on their change IDs. Previously, when multiple bookmarked revisions
+  existed in a stack, those rewritten revisions and their descendants wouldn't
+  always be rebased. Note that immutable descendants will not be rebased.
+
 ### Fixed bugs
 
 * `jj` now creates a new working-copy revision during snapshotting if the
