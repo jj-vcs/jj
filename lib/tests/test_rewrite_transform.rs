@@ -16,6 +16,7 @@ use std::collections::HashMap;
 
 use jj_lib::commit::Commit;
 use jj_lib::repo::Repo as _;
+use jj_lib::revset::RevsetExpression;
 use jj_lib::rewrite::RewriteRefsOptions;
 use maplit::hashmap;
 use maplit::hashset;
@@ -158,6 +159,7 @@ fn test_transform_descendants_new_parents_map() -> TestResult {
     tx.repo_mut()
         .transform_descendants_with_options(
             vec![commit_b.id().clone()],
+            &RevsetExpression::none(),
             &hashmap! {
                 commit_b.id().clone() => vec![commit_c.id().clone()],
                 commit_c.id().clone() => vec![commit_a.id().clone()],

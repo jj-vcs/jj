@@ -1127,19 +1127,17 @@ fn test_git_clone_invalid_immutable_heads() {
     // Suppress lengthy warnings in commit summary template
     test_env.add_config("revsets.short-prefixes = ''");
 
-    // Even if there were an error about the invalid immutable_heads(), the
-    // error shouldn't be counted as an immutable working-copy commit.
+    // The error about the invalid immutable_heads() shouldn't be counted as an
+    // immutable working-copy commit.
     let output = root_dir.run_jj(["git", "clone", "source", "clone"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Fetching into new repo in "$TEST_ENV/clone"
-    bookmark: main@origin [new] tracked
-    Setting the revset alias `trunk()` to `main@origin`
-    Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
-    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
-    Added 1 files, modified 0 files, removed 0 files
+    Config error: Invalid `revset-aliases.immutable_heads()`
+    Caused by: Revision `unknown` doesn't exist
+    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
     [EOF]
-    "#);
+    [exit status: 1]
+    ");
 }
 
 #[test]

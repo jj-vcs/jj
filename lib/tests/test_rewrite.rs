@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::slice;
+
 use assert_matches::assert_matches;
 use itertools::Itertools as _;
 use jj_lib::backend::ChangeId;
@@ -29,11 +31,13 @@ use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
+use jj_lib::revset::RevsetExpression;
 use jj_lib::rewrite::CommitRewriter;
 use jj_lib::rewrite::CommitWithSelection;
 use jj_lib::rewrite::EmptyBehavior;
 use jj_lib::rewrite::MoveCommitsTarget;
 use jj_lib::rewrite::RebaseOptions;
+use jj_lib::rewrite::RebasedCommit;
 use jj_lib::rewrite::RewriteRefsOptions;
 use jj_lib::rewrite::find_duplicate_divergent_commits;
 use jj_lib::rewrite::find_recursive_merge_commits;
@@ -1208,6 +1212,62 @@ fn test_rebase_descendants_hidden() -> TestResult {
             commit_d.id().clone(),
         }
     );
+    Ok(())
+}
+
+#[test]
+fn test_rebase_descendants_some_excluded() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    // Commits A and B are immutable. A is rewritten explicitly. B shouldn't be
+    // rebased because it's immutable. C isn't rebased because of that. D should
+    // be rebased.
+    //
+    // C
+    // |
+    // B D
+    // |/
+    // A
+    let mut tx = repo.start_transaction();
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let repo = tx.commit("test").block_on()?;
+
+    let mut tx = repo.start_transaction();
+    let commit_a2 = tx
+        .repo_mut()
+        .rewrite_commit(&commit_a)
+        .set_description("a2")
+        .write()
+        .block_on()?;
+    let immutable = RevsetExpression::commit(commit_b.id().clone()).ancestors();
+    let options = RebaseOptions::default();
+    let mut rebased_commits = Vec::new();
+    tx.repo_mut()
+        .rebase_descendants_with_options(
+            &immutable,
+            &options,
+            |old_commit, rebased| match rebased {
+                RebasedCommit::Rewritten(commit) => rebased_commits.push((old_commit, commit)),
+                RebasedCommit::Abandoned { .. } => panic!("no commit should be abandoned"),
+            },
+        )
+        .block_on()?;
+    assert_eq!(rebased_commits.len(), 1);
+    assert_eq!(rebased_commits[0].0, commit_d);
+    let (_, commit_d2) = rebased_commits[0].clone();
+    assert_eq!(commit_d2.parent_ids(), slice::from_ref(commit_a2.id()));
+    assert_eq!(
+        *tx.repo().view().heads(),
+        hashset! {
+            commit_c.id().clone(),
+            commit_d2.id().clone(),
+        }
+    );
+
     Ok(())
 }
 

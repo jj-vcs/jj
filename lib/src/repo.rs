@@ -93,6 +93,7 @@ use crate::refs::diff_named_remote_refs;
 use crate::refs::merge_ref_targets;
 use crate::refs::merge_remote_refs;
 use crate::revset;
+use crate::revset::ResolvedRevsetExpression;
 use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExpression;
 use crate::revset::RevsetStreamExt as _;
@@ -1260,13 +1261,15 @@ impl MutableRepo {
     }
 
     /// Find descendants of `root`, unless they've already been rewritten
-    /// (according to `parent_mapping`).
+    /// (according to `parent_mapping`) or are included in `immutable`.
     pub async fn find_descendants_for_rebase(
         &self,
         roots: Vec<CommitId>,
+        immutable: &Arc<ResolvedRevsetExpression>,
     ) -> BackendResult<Vec<Commit>> {
         let to_visit_revset = RevsetExpression::commits(roots)
             .descendants()
+            .minus(immutable)
             .minus(&RevsetExpression::commits(
                 self.parent_mapping.keys().cloned().collect(),
             ))
@@ -1343,12 +1346,19 @@ impl MutableRepo {
         roots: Vec<CommitId>,
         callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()>,
     ) -> BackendResult<()> {
-        let options = RewriteRefsOptions::default();
-        self.transform_descendants_with_options(roots, &HashMap::new(), &options, callback)
-            .await
+        self.transform_descendants_with_options(
+            roots,
+            &RevsetExpression::none(),
+            &HashMap::new(),
+            &RewriteRefsOptions::default(),
+            callback,
+        )
+        .await
     }
 
     /// Rewrite descendants of the given roots with options.
+    ///
+    /// Commits within the `immutable` set are excluded.
     ///
     /// If a commit is in the `new_parents_map` is provided, it will be rebased
     /// onto the new parents provided in the map instead of its original
@@ -1358,18 +1368,17 @@ impl MutableRepo {
     pub async fn transform_descendants_with_options(
         &mut self,
         roots: Vec<CommitId>,
+        immutable: &Arc<ResolvedRevsetExpression>,
         new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
         options: &RewriteRefsOptions,
         callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()>,
     ) -> BackendResult<()> {
-        let descendants = self.find_descendants_for_rebase(roots).await?;
+        let descendants = self.find_descendants_for_rebase(roots, immutable).await?;
         self.transform_commits(descendants, new_parents_map, options, callback)
             .await
     }
 
     /// Rewrite the given commits in reverse topological order.
-    ///
-    /// `commits` should be a connected range.
     ///
     /// This function is similar to
     /// [`Self::transform_descendants_with_options()`], but only rewrites the
@@ -1408,7 +1417,9 @@ impl MutableRepo {
     /// Rebase descendants of the rewritten commits with options and callback.
     ///
     /// The descendants of the commits registered in `self.parent_mappings` will
-    /// be recursively rebased onto the new version of their parents.
+    /// be recursively rebased onto the new version of their parents. Commits
+    /// within the `immutable` set are left unchanged, which also prevents their
+    /// further descendants from being rebased.
     ///
     /// If `options.empty` is the default (`EmptyBehavior::Keep`), all rebased
     /// descendant commits will be preserved even if they were emptied following
@@ -1422,12 +1433,14 @@ impl MutableRepo {
     /// `(old_commit, rebased_commit)` as arguments.
     pub async fn rebase_descendants_with_options(
         &mut self,
+        immutable: &Arc<ResolvedRevsetExpression>,
         options: &RebaseOptions,
         mut progress: impl FnMut(Commit, RebasedCommit),
     ) -> BackendResult<()> {
         let roots = self.parent_mapping.keys().cloned().collect();
         self.transform_descendants_with_options(
             roots,
+            immutable,
             &HashMap::new(),
             &options.rewrite_refs,
             async |rewriter| {
@@ -1454,11 +1467,14 @@ impl MutableRepo {
     /// emptied following the rebase operation. To customize the rebase
     /// behavior, use [`MutableRepo::rebase_descendants_with_options`].
     pub async fn rebase_descendants(&mut self) -> BackendResult<usize> {
-        let options = RebaseOptions::default();
         let mut num_rebased = 0;
-        self.rebase_descendants_with_options(&options, |_old_commit, _rebased_commit| {
-            num_rebased += 1;
-        })
+        self.rebase_descendants_with_options(
+            &RevsetExpression::none(),
+            &RebaseOptions::default(),
+            |_old_commit, _rebased_commit| {
+                num_rebased += 1;
+            },
+        )
         .await?;
         Ok(num_rebased)
     }
