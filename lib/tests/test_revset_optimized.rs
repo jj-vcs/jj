@@ -64,8 +64,10 @@ fn write_new_commit<'a>(
 }
 
 fn rebase_descendants(repo: &mut MutableRepo) -> Vec<Commit> {
+    let immutable = RevsetExpression::none();
+    let options = RebaseOptions::default();
     let mut commits = Vec::new();
-    repo.rebase_descendants_with_options(&RebaseOptions::default(), |_, rebased| match rebased {
+    repo.rebase_descendants_with_options(&immutable, &options, |_, rebased| match rebased {
         RebasedCommit::Rewritten(commit) => commits.push(commit),
         RebasedCommit::Abandoned { .. } => {}
     })

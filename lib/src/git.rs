@@ -799,9 +799,6 @@ async fn record_synthetic_predecessors(
         }
         Ok::<_, GitImportError>(change_to_commit_ids)
     };
-    // TODO: Commits within new_referenced_heads..old_referenced_heads may have
-    // both mutable and immutable descendants. Rebasing the immutable
-    // descendants onto the new parents would be unexpected.
     let old_referenced_change_to_commit_ids =
         build_change_to_commit_ids_map(new_referenced_heads.range(old_referenced_heads)).await?;
     let new_referenced_change_to_commit_ids =

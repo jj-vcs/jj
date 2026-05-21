@@ -122,6 +122,7 @@ use jj_lib::revset::RevsetStreamExt as _;
 use jj_lib::revset::RevsetWorkspaceContext;
 use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::revset::UserRevsetExpression;
+use jj_lib::rewrite::RebaseOptions;
 use jj_lib::rewrite::restore_tree;
 use jj_lib::settings::HumanByteSize;
 use jj_lib::settings::UserSettings;
@@ -1374,7 +1375,17 @@ impl WorkspaceCommandHelper {
 
         let mut tx = tx.into_inner();
         // Rebase here to show slightly different status message.
-        let num_rebased = tx.repo_mut().rebase_descendants().await?;
+        let base_immutable_expr = self
+            .env
+            .resolve_immutable_expression(tx.base_repo().as_ref())?;
+        let mut num_rebased = 0;
+        tx.repo_mut()
+            .rebase_descendants_with_options(
+                &base_immutable_expr,
+                &RebaseOptions::default(),
+                |_old_commit, _rebased_commit| num_rebased += 1,
+            )
+            .await?;
         if num_rebased > 0 {
             writeln!(
                 ui.status(),
@@ -2212,7 +2223,19 @@ to the current parents may contain changes from multiple commits.
         description: impl Into<String>,
         _git_import_export_lock: &GitImportExportLock,
     ) -> Result<(), CommandError> {
-        let num_rebased = tx.repo_mut().rebase_descendants().await?;
+        // Commands like "jj git fetch" can update immutable commits to reflect
+        // the remote changes. Their immutable descendants shouldn't be rebased.
+        let mut num_rebased = 0;
+        let base_immutable_expr = self
+            .env
+            .resolve_immutable_expression(tx.base_repo().as_ref())?;
+        tx.repo_mut()
+            .rebase_descendants_with_options(
+                &base_immutable_expr,
+                &RebaseOptions::default(),
+                |_old_commit, _rebased_commit| num_rebased += 1,
+            )
+            .await?;
         if num_rebased > 0 {
             writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
         }
