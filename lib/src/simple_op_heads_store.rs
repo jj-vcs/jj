@@ -116,13 +116,15 @@ impl OpHeadsStore for SimpleOpHeadsStore {
         old_ids: &[OperationId],
         new_id: &OperationId,
     ) -> Result<(), OpHeadsStoreError> {
-        assert!(!old_ids.contains(new_id));
         self.add_op_head(new_id)
             .map_err(|err| OpHeadsStoreError::Write {
                 new_op_id: new_id.clone(),
                 source: err.into(),
             })?;
         for old_id in old_ids {
+            if old_id == new_id {
+                continue;
+            }
             self.remove_op_head(old_id)
                 .map_err(|err| OpHeadsStoreError::Write {
                     new_op_id: new_id.clone(),
@@ -217,6 +219,14 @@ mod tests {
         // Can replace multiple heads
         op_heads_store
             .update_op_heads(&[op2.clone(), op3.clone()], &op4)
+            .block_on()?;
+        let op_heads = op_heads_store.get_op_heads().block_on()?;
+        assert_eq!(op_heads, vec![op4.clone()]);
+
+        // Can replace multiple heads by one of the old heads
+        op_heads_store.update_op_heads(&[], &op3).block_on()?;
+        op_heads_store
+            .update_op_heads(&[op3.clone(), op4.clone()], &op4)
             .block_on()?;
         let op_heads = op_heads_store.get_op_heads().block_on()?;
         assert_eq!(op_heads, vec![op4.clone()]);

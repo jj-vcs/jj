@@ -52,7 +52,8 @@ pub trait OpHeadsStore: Any + Send + Sync + Debug {
 
     /// Remove the old op heads and add the new one.
     ///
-    /// The old op heads must not contain the new one.
+    /// If the old op heads contains the new one, then the update effectively
+    /// removes all specified old operations except for the new one.
     async fn update_op_heads(
         &self,
         old_ids: &[OperationId],
