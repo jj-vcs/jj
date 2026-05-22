@@ -14,6 +14,7 @@
 
 //! General-purpose async DAG algorithms.
 
+use std::collections::BTreeSet;
 use std::collections::BinaryHeap;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -538,7 +539,7 @@ where
     const NON_CLOSEST: Reachability = 4;
 
     let mut reachable: HashMap<ID, Reachability> = HashMap::new();
-    let mut work: BinaryHeap<T> = BinaryHeap::new();
+    let mut work: BTreeSet<T> = BTreeSet::new();
 
     let mark_reachable = |reachable: &mut HashMap<ID, Reachability>, id: ID, side: Reachability| {
         reachable
@@ -551,27 +552,21 @@ where
 
     for node in set1 {
         reachable.insert(id_fn(&node), LEFT);
-        work.push(node);
+        work.insert(node);
     }
     for node in set2 {
         mark_reachable(&mut reachable, id_fn(&node), RIGHT);
-        work.push(node);
+        work.insert(node);
     }
 
     // Nodes reachable from both sets, keyed by their ids.
     let mut candidates = IndexMap::new();
     let mut root_reached = false;
-    while let Some(node) = work.pop() {
+    while let Some(node) = work.pop_last() {
         let id = id_fn(&node);
         let side = *reachable.get(&id).unwrap();
         let neighbors = neighbors_fn(&node).await;
         if side & BOTH == BOTH {
-            // Drop duplicate items so `work.is_empty()` below is accurate
-            while let Some(next_id) = work.peek().map(&id_fn)
-                && next_id == id
-            {
-                work.pop();
-            }
             if candidates.insert(id, node).is_some() {
                 continue;
             }
@@ -591,7 +586,7 @@ where
             } else {
                 mark_reachable(&mut reachable, neighbor_id, side);
             }
-            work.push(neighbor);
+            work.insert(neighbor);
         }
         root_reached |= is_root;
     }
@@ -1508,6 +1503,43 @@ mod tests {
         assert_eq!(common, Ok(vec!['C', 'B']));
     }
 
+    #[test]
+    fn test_closest_common_nodes_many_paths() {
+        // One side has very many possible paths due to repeated forking and merging. We
+        // must not walk the exponential number of paths between A and MN when finding
+        // common ancestors between MN and B.
+        //
+        //  MN
+        //  |\
+        // LN RN
+        //  |/
+        // ...
+        //  M1
+        //  |\
+        // L1 R1
+        //  |/
+        //  | B
+        //  |/
+        //  A
+
+        let mut neighbors = hashmap! {
+            "A".to_string() => vec![],
+            "B".to_string() => vec!["A".to_string()],
+        };
+        let mut merge = "A".to_string();
+        for i in 1..50 {
+            neighbors.insert(format!("L{i}"), vec![merge.clone()]);
+            neighbors.insert(format!("R{i}"), vec![merge.clone()]);
+            merge = format!("M{i}");
+            neighbors.insert(merge.clone(), vec![format!("L{i}"), format!("R{i}")]);
+        }
+        let id_fn = |node: &String| node.clone();
+        let neighbors_fn = async |node: &String| Ok::<_, String>(neighbors[node].clone());
+
+        let common = closest_common_nodes(vec![merge], vec!["B".to_string()], id_fn, neighbors_fn)
+            .block_on();
+        assert_eq!(common, Ok(vec!["A".to_string()]));
+    }
     #[test]
     fn test_closest_common_nodes() {
         let neighbors = hashmap! {
