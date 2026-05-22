@@ -2428,6 +2428,43 @@ fn test_rebase_duplicates() {
 }
 
 #[test]
+fn test_duplicate_source_template() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    create_commit(&work_dir, "a", &[]);
+    create_commit(&work_dir, "b", &["a"]);
+    test_env.add_config(
+        r#"templates.duplicate_source = 'change_id.shortest(8) ++ ":" ++ commit_id.shortest(8) ++ ":" ++ description.first_line()'"#,
+    );
+
+    let output = work_dir.run_jj(["duplicate", "a"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Duplicated rlvkpnrz:7d980be7:a as royxmykx 3903a240 a
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_duplicate_source_default_has_no_color_labels() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    create_commit(&work_dir, "a", &[]);
+    create_commit(&work_dir, "b", &["a"]);
+
+    let output = work_dir.run_jj(["duplicate", "a", "--color=debug"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Duplicated 7d980be7a1d4 as [1m[38;5;5m<<commit change_id shortest prefix::ro>>[0m[38;5;8m<<commit change_id shortest rest::yxmykx>>[39m<<commit:: >>[1m[38;5;4m<<commit commit_id shortest prefix::3>>[0m[38;5;8m<<commit commit_id shortest rest::903a240>>[39m<<commit:: >><<commit description first_line::a>>
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_duplicate_description_template() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

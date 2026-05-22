@@ -35,6 +35,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   IDs are preserved by the remote, local descendant revisions will be rebased
   onto the rewritten parents.
 
+* The source commit shown by `jj duplicate` can now be customized with the
+  `templates.duplicate_source` template.
+
 ### Fixed bugs
 
 * `jj bookmark forget` no longer prints `Forgot N local bookmarks.` when no

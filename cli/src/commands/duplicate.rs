@@ -208,8 +208,15 @@ pub(crate) async fn cmd_duplicate(
     };
 
     if let Some(mut formatter) = ui.status_formatter() {
+        let source_template = {
+            let template = tx.settings().get_string("templates.duplicate_source")?;
+            tx.parse_commit_template(ui, &template)?
+        };
         for (old_id, new_commit) in &duplicated_commits {
-            write!(formatter, "Duplicated {} as ", short_commit_hash(old_id))?;
+            let old_commit = tx.repo().store().get_commit(old_id)?;
+            write!(formatter, "Duplicated ")?;
+            source_template.format(&old_commit, formatter.as_mut())?;
+            write!(formatter, " as ")?;
             tx.write_commit_summary(formatter.as_mut(), new_commit)?;
             writeln!(formatter)?;
         }

@@ -281,6 +281,18 @@ concat(
 Note that `description` usually ends with a `\n` if it is not blank. Use
 `.trim_end()` to remove the `\n`.
 
+### Duplicate source format
+
+By default, `jj duplicate` shows the source commit as a plain 12-character
+commit ID in the "Duplicated X as Y" status line. You can customize this with
+the `duplicate_source` template, which receives a
+[`Commit` object](templates.md#commit-type) for the original commit.
+
+```toml
+[templates]
+duplicate_source = 'stringify(commit_id.short(12))'
+```
+
 ### New commit description
 
 When `jj new` creates a commit without an explicit `-m` message, it evaluates
