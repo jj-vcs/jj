@@ -283,14 +283,18 @@ Note that `description` usually ends with a `\n` if it is not blank. Use
 
 ### Duplicate source format
 
-By default, `jj duplicate` shows the source commit as a plain 12-character
-commit ID in the "Duplicated X as Y" status line. You can customize this with
-the `duplicate_source` template, which receives a
+By default, `jj duplicate` shows the source commit as `<change-id> <commit-id>`
+in the "Duplicated X as Y" status line. You can customize this with the
+`duplicate_source` template, which receives a
 [`Commit` object](templates.md#commit-type) for the original commit.
 
 ```toml
 [templates]
-duplicate_source = 'stringify(commit_id.short(12))'
+duplicate_source = '''
+format_short_change_id_with_change_offset(self)
+  ++ " "
+  ++ format_short_commit_id(self.commit_id())
+'''
 ```
 
 ### New commit description
