@@ -3236,6 +3236,39 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#jj-util-backend" class="md-nav__link">
+    <span class="md-ellipsis">
+      jj util backend
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="jj util backend">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#subcommands_13" class="md-nav__link">
+    <span class="md-ellipsis">
+      Subcommands:
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#jj-util-backend-name" class="md-nav__link">
+    <span class="md-ellipsis">
+      jj util backend name
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#jj-util-completion" class="md-nav__link">
     <span class="md-ellipsis">
       jj util completion
@@ -3378,7 +3411,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#subcommands_13" class="md-nav__link">
+  <a href="#subcommands_14" class="md-nav__link">
     <span class="md-ellipsis">
       Subcommands:
     </span>
@@ -7576,6 +7609,39 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#jj-util-backend" class="md-nav__link">
+    <span class="md-ellipsis">
+      jj util backend
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="jj util backend">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#subcommands_13" class="md-nav__link">
+    <span class="md-ellipsis">
+      Subcommands:
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#jj-util-backend-name" class="md-nav__link">
+    <span class="md-ellipsis">
+      jj util backend name
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#jj-util-completion" class="md-nav__link">
     <span class="md-ellipsis">
       jj util completion
@@ -7718,7 +7784,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#subcommands_13" class="md-nav__link">
+  <a href="#subcommands_14" class="md-nav__link">
     <span class="md-ellipsis">
       Subcommands:
     </span>
@@ -8011,6 +8077,8 @@ does not match the <code>jj help</code> output exactly.</p>
 <li><a href="#jj-undo"><code>jj undo</code>↴</a></li>
 <li><a href="#jj-unsign"><code>jj unsign</code>↴</a></li>
 <li><a href="#jj-util"><code>jj util</code>↴</a></li>
+<li><a href="#jj-util-backend"><code>jj util backend</code>↴</a></li>
+<li><a href="#jj-util-backend-name"><code>jj util backend name</code>↴</a></li>
 <li><a href="#jj-util-completion"><code>jj util completion</code>↴</a></li>
 <li><a href="#jj-util-config-schema"><code>jj util config-schema</code>↴</a></li>
 <li><a href="#jj-util-exec"><code>jj util exec</code>↴</a></li>
@@ -10638,6 +10706,7 @@ achieved with <code>jj new</code>.</p>
 <p><strong>Usage:</strong> <code>jj util &lt;COMMAND&gt;</code></p>
 <h6 id="subcommands_12"><strong>Subcommands:</strong><a class="headerlink" href="#subcommands_12" title="Permanent link">&para;</a></h6>
 <ul>
+<li><code>backend</code> — Commands relating to the backend used in the current repo</li>
 <li><code>completion</code> — Print a command-line-completion script</li>
 <li><code>config-schema</code> — Print the JSON schema for the jj TOML config format</li>
 <li><code>exec</code> — Execute an external command via jj</li>
@@ -10646,6 +10715,16 @@ achieved with <code>jj new</code>.</p>
 <li><code>markdown-help</code> — Print the CLI help for all subcommands in Markdown</li>
 <li><code>snapshot</code> — Snapshot the working copy if needed</li>
 </ul>
+<h2 id="jj-util-backend"><code>jj util backend</code><a class="headerlink" href="#jj-util-backend" title="Permanent link">&para;</a></h2>
+<p>Commands relating to the backend used in the current repo</p>
+<p><strong>Usage:</strong> <code>jj util backend &lt;COMMAND&gt;</code></p>
+<h6 id="subcommands_13"><strong>Subcommands:</strong><a class="headerlink" href="#subcommands_13" title="Permanent link">&para;</a></h6>
+<ul>
+<li><code>name</code> — Print the name of the backend used in the current repo</li>
+</ul>
+<h2 id="jj-util-backend-name"><code>jj util backend name</code><a class="headerlink" href="#jj-util-backend-name" title="Permanent link">&para;</a></h2>
+<p>Print the name of the backend used in the current repo</p>
+<p><strong>Usage:</strong> <code>jj util backend name</code></p>
 <h2 id="jj-util-completion"><code>jj util completion</code><a class="headerlink" href="#jj-util-completion" title="Permanent link">&para;</a></h2>
 <p>Print a command-line-completion script</p>
 <p>Apply it by running one of these:</p>
@@ -10752,7 +10831,7 @@ already explicitly passing your script into the right shell.</p>
 <p>Each workspace has its own working-copy commit. When you have more than one workspace attached to a repo, they are indicated by <code>&lt;workspace name&gt;@</code> in <code>jj log</code>.</p>
 <p>Each workspace also has own sparse patterns.</p>
 <p><strong>Usage:</strong> <code>jj workspace &lt;COMMAND&gt;</code></p>
-<h6 id="subcommands_13"><strong>Subcommands:</strong><a class="headerlink" href="#subcommands_13" title="Permanent link">&para;</a></h6>
+<h6 id="subcommands_14"><strong>Subcommands:</strong><a class="headerlink" href="#subcommands_14" title="Permanent link">&para;</a></h6>
 <ul>
 <li><code>add</code> — Add a workspace</li>
 <li><code>forget</code> — Stop tracking a workspace's working-copy commit in the repo</li>
