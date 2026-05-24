@@ -18,6 +18,7 @@ config_list = 'builtin_config_list'
 draft_commit_description = 'builtin_draft_commit_description'
 
 duplicate_description = 'description'
+duplicate_source = 'format_short_change_id_with_change_offset(self) ++ " " ++ format_short_commit_id(self.commit_id())'
 new_description = ''
 
 commit_trailers = ''

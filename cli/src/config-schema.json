@@ -1056,6 +1056,10 @@
                     "type": "string",
                     "description": "The draft commit description opened in an editor"
                 },
+                "duplicate_source": {
+                    "type": "string",
+                    "description": "How the source commit is shown in `jj duplicate`'s status output"
+                },
                 "evolog": {
                     "type": "string",
                     "description": "`jj evolog`'s output"
