@@ -18,6 +18,7 @@ use std::collections::BTreeMap;
 use std::collections::VecDeque;
 use std::pin::pin;
 use std::slice;
+use std::sync::Arc;
 
 use futures::Stream;
 use futures::StreamExt as _;
@@ -38,6 +39,7 @@ use crate::op_walk;
 use crate::operation::Operation;
 use crate::repo::ReadonlyRepo;
 use crate::repo::Repo as _;
+use crate::store::Store;
 
 /// Commit with predecessor information.
 #[derive(Clone, Debug, serde::Serialize)]
@@ -81,13 +83,13 @@ pub enum WalkPredecessorsError {
 }
 
 /// Walks operations to emit commit predecessors in reverse topological order.
-pub fn walk_predecessors<'repo>(
-    repo: &'repo ReadonlyRepo,
+pub fn walk_predecessors(
+    repo: &ReadonlyRepo,
     start_commits: &[CommitId],
-) -> impl Stream<Item = Result<CommitEvolutionEntry, WalkPredecessorsError>> + use<'repo> {
+) -> impl Stream<Item = Result<CommitEvolutionEntry, WalkPredecessorsError>> + use<> {
     let op_ancestors = op_walk::walk_ancestors(slice::from_ref(repo.operation())).boxed_local();
     let state = WalkPredecessors {
-        repo,
+        store: repo.store().clone(),
         op_ancestors,
         to_visit: start_commits.to_vec(),
         queued: VecDeque::new(),
@@ -98,14 +100,14 @@ pub fn walk_predecessors<'repo>(
     })
 }
 
-struct WalkPredecessors<'repo, I> {
-    repo: &'repo ReadonlyRepo,
+struct WalkPredecessors<I> {
+    store: Arc<Store>,
     op_ancestors: I,
     to_visit: Vec<CommitId>,
     queued: VecDeque<CommitEvolutionEntry>,
 }
 
-impl<I> WalkPredecessors<'_, I>
+impl<I> WalkPredecessors<I>
 where
     I: Stream<Item = OpStoreResult<Operation>> + Unpin,
 {
@@ -146,9 +148,10 @@ where
             }
         }
 
-        let store = self.repo.store();
+        // TODO: We no longer need Commit objects. Should we move
+        // get_commit_async(id) to callers?
         let mut emit = async |id: &CommitId| -> BackendResult<()> {
-            let commit = store.get_commit_async(id).await?;
+            let commit = self.store.get_commit_async(id).await?;
             self.queued.push_back(CommitEvolutionEntry {
                 commit,
                 operation: Some(op.clone()),
@@ -180,7 +183,7 @@ where
     async fn flush_commits(&mut self) -> BackendResult<()> {
         self.queued.reserve(self.to_visit.len());
         for id in self.to_visit.drain(..) {
-            let commit = self.repo.store().get_commit_async(&id).await?;
+            let commit = self.store.get_commit_async(&id).await?;
             self.queued.push_back(CommitEvolutionEntry {
                 commit,
                 operation: None,
