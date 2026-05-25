@@ -277,7 +277,11 @@ pub(crate) async fn cmd_log(
                     with_content_format.sub_width(graph.width(&key, &graphlog_edges));
                 within_graph
                     .write(ui.new_formatter(&mut buffer).as_mut(), async |formatter| {
-                        template.format(&commit, formatter)
+                        template.format_with_available_width(
+                            &commit,
+                            within_graph.width(),
+                            formatter,
+                        )
                     })
                     .await?;
                 if let Some(renderer) = &diff_renderer {
