@@ -65,6 +65,7 @@ mod version;
 mod workspace;
 
 use std::fmt::Debug;
+use std::ffi::OsString;
 
 use clap::CommandFactory as _;
 use clap::FromArgMatches as _;
@@ -160,6 +161,8 @@ enum Command {
     Version(version::VersionArgs),
     #[command(subcommand)]
     Workspace(workspace::WorkspaceCommand),
+    #[command(external_subcommand)]
+    External(Vec<OsString>),
 }
 
 pub fn default_app() -> clap::Command {
@@ -223,6 +226,33 @@ pub async fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<
         Command::Util(args) => util::cmd_util(ui, command_helper, args).await,
         Command::Version(args) => version::cmd_version(ui, command_helper, args).await,
         Command::Workspace(args) => workspace::cmd_workspace(ui, command_helper, args).await,
+        Command::External(args) => {
+            if args.is_empty() {
+                return Err(crate::command_error::user_error("No external subcommand provided"));
+            }
+            let sub_name = args[0].to_string_lossy();
+            let exec_name = format!("jj-{}", sub_name);
+            let status = std::process::Command::new(&exec_name)
+                .args(&args[1..])
+                .status()
+                .map_err(|e| {
+                    if e.kind() == std::io::ErrorKind::NotFound {
+                        crate::command_error::user_error(format!(
+                            "No such jj command or external jj-* command found: `{}`",
+                            sub_name
+                        ))
+                    } else {
+                        crate::command_error::user_error(format!(
+                            "Failed to execute external command '{}': {}",
+                            exec_name, e
+                        ))
+                    }
+                })?;
+            if !status.success() {
+                std::process::exit(status.code().unwrap_or(1));
+            }
+            Ok(())
+        }
     }
 }
 
