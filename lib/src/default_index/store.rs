@@ -16,6 +16,7 @@
 
 use std::collections::HashMap;
 use std::fs;
+use std::future;
 use std::io;
 use std::io::Write as _;
 use std::path::Path;
@@ -27,6 +28,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
+use futures::stream;
 use itertools::Itertools as _;
 use prost::Message as _;
 use tempfile::NamedTempFile;
@@ -299,9 +301,9 @@ impl DefaultIndexStore {
                 .as_ref()
                 .is_some_and(|index| index.has_id_impl(id))
         };
-        let get_commit_with_op = |commit_id: &CommitId, op_id: &OperationId| {
+        let get_commit_with_op = async |commit_id: &CommitId, op_id: &OperationId| {
             let op_id = op_id.clone();
-            match store.get_commit(commit_id) {
+            match store.get_commit_async(commit_id).await {
                 // Propagate head's op_id to report possible source of an error.
                 // The op_id doesn't have to be included in the sort key, but
                 // that wouldn't matter since the commit should be unique.
@@ -310,18 +312,20 @@ impl DefaultIndexStore {
             }
         };
         let commits = dag_walk_async::topo_order_reverse_ord(
-            historical_heads
-                .iter()
-                .filter(|&(commit_id, _)| !parent_index_has_id(commit_id))
-                .map(|(commit_id, op_id)| get_commit_with_op(commit_id, op_id)),
+            stream::iter(&historical_heads)
+                .filter(|&(commit_id, _)| future::ready(!parent_index_has_id(commit_id)))
+                .map(|(commit_id, op_id)| get_commit_with_op(commit_id, op_id))
+                .buffered(store.concurrency())
+                .collect::<Vec<_>>()
+                .await,
             |(CommitByCommitterTimestamp(commit), _)| commit.id().clone(),
             async |(CommitByCommitterTimestamp(commit), op_id)| {
-                commit
-                    .parent_ids()
-                    .iter()
-                    .filter(|&id| !parent_index_has_id(id))
+                stream::iter(commit.parent_ids())
+                    .filter(|&id| future::ready(!parent_index_has_id(id)))
                     .map(|commit_id| get_commit_with_op(commit_id, op_id))
-                    .collect_vec()
+                    .buffered(store.concurrency())
+                    .collect::<Vec<_>>()
+                    .await
             },
             |_| panic!("graph has cycle"),
         )
