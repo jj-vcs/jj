@@ -1815,10 +1815,10 @@ fn test_log_anonymize() {
     work_dir.run_jj(["bookmark", "move", "b1", "-t@"]).success();
 
     let output = work_dir.run_jj(["log", "-r::", "-Tbuiltin_log_redacted"]);
-    insta::assert_snapshot!(output, @"
-    @  yqosqzyt user-78cd 2001-02-03 08:05:13 bookmark-dc8b* de3c47af
+    insta::assert_snapshot!(output, @r"
+    @  yqosqzyt author-b3f5 2001-02-03 08:05:13 bookmark-dc8b* de3c47af
     │  (empty) (redacted)
-    ◆  qpvuntsm user-78cd 2001-02-03 08:05:08 bookmark-dc8b@remote-86e9 bookmark-56f1 bookmark-ff9e@remote-86e9 37b69cda
+    ◆  qpvuntsm author-b3f5 2001-02-03 08:05:08 bookmark-dc8b@remote-86e9 bookmark-56f1 bookmark-ff9e@remote-86e9 37b69cda
     │  (empty) (redacted)
     ◆  zzzzzzzz root() 00000000
     [EOF]

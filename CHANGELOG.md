@@ -38,6 +38,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Added `jj util backend name` command that prints the backend being used in the
   current repo.
 
+* Added `ui.redacted` boolean config which will redirect to redacted templates
+  in `templates.*` if set. If you have overridden any of these values yourself
+  (such as `templates.log`), you can add your own
+  `if(config("ui.redacted").as_boolean(), ..., ...)` conditionals.
+
 ### Fixed bugs
 
 * `jj bookmark forget` no longer prints `Forgot N local bookmarks.` when no

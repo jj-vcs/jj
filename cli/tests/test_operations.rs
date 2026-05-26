@@ -3127,11 +3127,11 @@ fn test_op_log_anonymize() {
         .success();
 
     let output = work_dir.run_jj(["op", "log", "-Tbuiltin_op_log_redacted"]);
-    insta::assert_snapshot!(output, @"
-    @  8501e29d2d94 user-5910 workspace-ab88@ 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    insta::assert_snapshot!(output, @r"
+    @  8501e29d2d94 user-1df1 workspace-ab88@ 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
     │  describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
     │  (redacted)
-    ○  90267f31f904 user-5910 workspace-482a@ 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
+    ○  90267f31f904 user-1df1 workspace-482a@ 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
     │  add workspace 'default'
     ○  000000000000 root()
     [EOF]

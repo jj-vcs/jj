@@ -29,10 +29,34 @@ file_show = ''
 
 git_push_bookmark = '"push-" ++ change_id.short()'
 
-log = 'builtin_log_compact'
-show = 'builtin_log_detailed'
-op_log = 'builtin_op_log_compact'
-op_show = 'builtin_op_log_compact'
+log = '''
+if(
+  config("ui.redacted").as_boolean(),
+  builtin_log_redacted(self),
+  builtin_log_compact(self)
+)
+'''
+show = '''
+if(
+  config("ui.redacted").as_boolean(),
+  builtin_log_detailed_redacted(self),
+  builtin_log_detailed(self)
+)
+'''
+op_log = '''
+if(
+  config("ui.redacted").as_boolean(),
+  builtin_op_log_redacted(self),
+  builtin_op_log_compact(self)
+)
+'''
+op_show = '''
+if(
+  config("ui.redacted").as_boolean(),
+  builtin_op_log_redacted(self),
+  builtin_op_log_compact(self)
+)
+'''
 
 revert_description = '''
 concat(
@@ -133,6 +157,14 @@ concat(
     ) ++ "\n",
   ),
 )
+'''
+
+# TODO: Possibly add some kind of repo-unique salt to the hash methods, if it
+# makes users feel more secure (e.g., right now, `main` will always be
+# `bookmark-5abd` for every repo).
+'format_redacted(value)' = 'hash(value).substr(0, 4)'
+'format_redacted(value_label, value)' = '''
+concat(value_label ++ "-" ++ format_redacted(value))
 '''
 
 builtin_log_oneline = 'builtin_log_oneline(self)'
@@ -268,6 +300,35 @@ concat(
   "\n",
 )
 '''
+'builtin_log_detailed_redacted(commit)' = '''
+concat(
+  "Commit ID: " ++ commit.commit_id() ++ "\n",
+  "Change ID: " ++ commit.change_id() ++ "\n",
+  surround("Bookmarks: ", "\n", separate(" ",
+    commit.local_bookmarks().map(|b| format_bookmark_redacted(b)),
+    commit.remote_bookmarks().map(|b| format_bookmark_redacted(b)),
+  )),
+  surround("Tags     : ", "\n", commit.tags().map(|t| format_tag_redacted(t))),
+  concat(
+    "Author   : ",
+    format_detailed_signature_redacted("author", commit.author()),
+  ) ++ "\n",
+  concat(
+    "Committer: ",
+    format_detailed_signature_redacted("committer", commit.committer()),
+  ) ++ "\n",
+  if(config("ui.show-cryptographic-signatures").as_boolean(),
+    concat(
+      "Signature: ",
+      format_detailed_cryptographic_signature(commit.signature()),
+      "\n",
+    )
+  ),
+  "\n",
+  "    " ++ label("description", "(redacted)") ++ "\n",
+  "\n",
+)
+'''
 
 builtin_op_log_compact = 'builtin_op_log_compact(self)'
 'builtin_op_log_compact(op)' = '''
@@ -329,6 +390,12 @@ coalesce(signature.email().local(), email_placeholder)
 join(" ",
   coalesce(signature.name(), name_placeholder),
   "<" ++ coalesce(signature.email(), email_placeholder) ++ ">",
+  "(" ++ format_timestamp(signature.timestamp()) ++ ")",
+)
+'''
+'format_detailed_signature_redacted(signature_type, signature)' = '''
+join(" ",
+  format_user_redacted(signature_type, signature),
   "(" ++ format_timestamp(signature.timestamp()) ++ ")",
 )
 '''
@@ -445,16 +512,16 @@ concat(
 concat(
   separate(" ",
     format_short_operation_id(op.id()),
-    format_user_redacted(op.user()),
+    format_user_redacted("user", op.user()),
     format_workspace_redacted(op.workspace_name()),
     format_time_range(op.time()),
   ), "\n",
   op.description().first_line(), "\n",
-  if(op.attributes(), "(redacted)\n"),
+  if(op.attributes(), label("attributes", "(redacted)\n")),
 )
 '''
 'format_workspace_redacted(workspace)' = '''
-label("workspace", concat("workspace-", hash(workspace).substr(0, 4), "@"))
+label("workspace_name", format_redacted("workspace", workspace) ++ "@")
 '''
 'format_snapshot_operation(op)' = 'format_operation(op)'
 'format_snapshot_operation_redacted(op)' = 'format_operation_redacted(op)'
@@ -517,22 +584,13 @@ separate(" ",
 )
 '''
 
-# TODO: Possibly add some kind of repo-unique salt to the hash methods, if it
-# makes users feel more secure (right now, `main` will always be `branch-c8c7a`
-# for every repo)
 'format_short_commit_header_redacted(commit)' = '''
 separate(" ",
   format_short_change_id_with_change_offset(commit),
-  label("author", format_user_redacted(commit.author())),
+  label("author", format_user_redacted("author", commit.author())),
   format_timestamp(commit_timestamp(commit)),
-  commit.bookmarks().map(|bookmark| concat(
-    "bookmark-", hash(bookmark.name()).substr(0, 4),
-    if(bookmark.remote(),
-      "@remote-" ++ hash(bookmark.remote()).substr(0, 4),
-      if(!bookmark.synced(), "*")
-    )
-  )),
-  commit.tags().map(|tag| concat("tag-", hash(tag.name()).substr(0, 4))),
+  commit.bookmarks().map(|bookmark| format_bookmark_redacted(bookmark)),
+  commit.tags().map(|tag| format_tag_redacted(tag)),
   commit.working_copies().map(|workspace| format_workspace_redacted(workspace)),
   format_short_commit_id(commit.commit_id()),
   format_commit_labels(commit),
@@ -566,8 +624,22 @@ if(signature,
 )
 '''
 
-'format_user_redacted(user)' = '''
-label("user", concat("user-", hash(user).substr(0, 4)))
+'format_user_redacted(user_label, user)' = '''
+label(user_label, format_redacted(user_label, format_redacted(user)))
+'''
+
+'format_bookmark_redacted(bookmark)' = '''
+label("bookmark", concat(
+  format_redacted("bookmark", bookmark.name()),
+  if(bookmark.remote(),
+    "@" ++ format_redacted("remote", bookmark.remote()),
+    if(!bookmark.synced(), "*")
+  ),
+))
+'''
+
+'format_tag_redacted(tag)' = '''
+label("tag", format_redacted("tag", tag.name()))
 '''
 
 builtin_log_node = '''
