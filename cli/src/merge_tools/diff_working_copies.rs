@@ -21,6 +21,8 @@ use jj_lib::matchers::NothingMatcher;
 use jj_lib::merge::Diff;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::TreeDiffEntry;
+use jj_lib::repo_path::RepoPath;
+use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::working_copy::CheckoutError;
 use jj_lib::working_copy::SnapshotOptions;
 use tempfile::TempDir;
@@ -60,32 +62,54 @@ impl DiffWorkingCopies {
         self._temp_dir.path()
     }
 
-    pub fn to_command_variables(&self, relative: bool) -> HashMap<&'static str, String> {
-        let mut left_wc_dir = self.left.working_copy_path();
-        let mut right_wc_dir = self.right.working_copy_path();
-        if relative {
-            left_wc_dir = left_wc_dir
-                .strip_prefix(self.temp_dir())
-                .expect("path should be relative to temp_dir");
-            right_wc_dir = right_wc_dir
-                .strip_prefix(self.temp_dir())
-                .expect("path should be relative to temp_dir");
+    /// The paths of the files that were checked out to disk.
+    pub fn checked_out_files(&self) -> &[RepoPathBuf] {
+        debug_assert_eq!(self.left.sparse_patterns(), self.right.sparse_patterns());
+        if let Some(output) = &self.output {
+            debug_assert_eq!(self.left.sparse_patterns(), output.sparse_patterns());
         }
+        self.left.sparse_patterns()
+    }
+
+    /// Returns command variables (`$left`, `$right`, and optionally `$output`)
+    /// for a single checked-out file at `repo_path`. The paths are absolute
+    /// unless `relative` is set, in which case they're relative to
+    /// [`Self::temp_dir`].
+    pub fn to_command_variables_for_file(
+        &self,
+        repo_path: &RepoPath,
+        relative: bool,
+    ) -> HashMap<&'static str, String> {
+        let fs_path = |base: &Path, relative: bool| {
+            let abs_path = repo_path
+                .to_fs_path(base)
+                .expect("path should have been checked out to disk");
+            let path = if relative {
+                abs_path
+                    .strip_prefix(self.temp_dir())
+                    .expect("path should be relative to temp_dir")
+            } else {
+                abs_path.as_path()
+            };
+            path.to_str()
+                .expect("temp_dir should be valid utf-8")
+                .to_owned()
+        };
         let mut result = maplit::hashmap! {
-            "left" => left_wc_dir.to_str().expect("temp_dir should be valid utf-8").to_owned(),
-            "right" => right_wc_dir.to_str().expect("temp_dir should be valid utf-8").to_owned(),
+            "left" => fs_path(self.left.working_copy_path(), relative),
+            "right" => fs_path(self.right.working_copy_path(), relative),
         };
         if let Some(output_state) = &self.output {
             result.insert(
                 "output",
-                output_state
-                    .working_copy_path()
-                    .to_str()
-                    .expect("temp_dir should be valid utf-8")
-                    .to_owned(),
+                fs_path(output_state.working_copy_path(), relative),
             );
         }
         result
+    }
+
+    pub fn to_command_variables(&self, relative: bool) -> HashMap<&'static str, String> {
+        self.to_command_variables_for_file(RepoPath::root(), relative)
     }
 }
 

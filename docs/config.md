@@ -1134,6 +1134,17 @@ edit-args = ["--newtab", "$left", "$right"]
 
 - If `edit-args = []`, `jj` will refuse to use this tool for diff editing. This is a way to explicitly state that a certain tool (e.g. `mergiraf`) does not work for diff editing.
 
+Like diff viewing, diff editors are invoked with a directory containing the left
+and right sides by default. The `edit-invocation-mode` config controls this
+independently of `diff-invocation-mode`, so you can, for example, keep
+directory-based diff viewing but launch the diff editor once per changed file:
+
+```toml
+[merge-tools.my-tool]
+diff-invocation-mode = "dir"
+edit-invocation-mode = "file-by-file"
+```
+
 Finally, `ui.diff-editor` can be a list that specifies a command and its arguments.
 
 Some examples:

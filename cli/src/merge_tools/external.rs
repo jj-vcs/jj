@@ -55,13 +55,16 @@ pub struct ExternalMergeTool {
     /// Exit codes to be treated as success when generating diffs.
     pub diff_expected_exit_codes: Vec<i32>,
     /// Whether to execute the tool with a pair of directories or individual
-    /// files.
+    /// files when generating diffs.
     pub diff_invocation_mode: DiffToolMode,
     /// Whether to execute the tool in the temporary diff directory
     pub diff_do_chdir: bool,
     /// Arguments to pass to the program when editing diffs.
     /// `$left` and `$right` are replaced with the corresponding directories.
     pub edit_args: Vec<String>,
+    /// Whether to execute the tool with a pair of directories or individual
+    /// files when editing diffs (e.g. `jj diffedit`, `jj split`).
+    pub edit_invocation_mode: DiffToolMode,
     /// Arguments to pass to the program when resolving 3-way conflicts.
     /// `$left`, `$right`, `$base`, and `$output` are replaced with
     /// paths to the corresponding files.
@@ -109,6 +112,7 @@ impl Default for ExternalMergeTool {
             diff_args: ["$left", "$right"].map(ToOwned::to_owned).to_vec(),
             diff_expected_exit_codes: vec![0],
             edit_args: ["$left", "$right"].map(ToOwned::to_owned).to_vec(),
+            edit_invocation_mode: DiffToolMode::Dir,
             merge_args: vec![],
             merge_conflict_exit_codes: vec![],
             merge_tool_edits_conflict_markers: false,
@@ -403,20 +407,36 @@ pub async fn edit_diff_external(
     )
     .await?;
 
-    let patterns = diffedit_wc.working_copies.to_command_variables(false);
-    let mut cmd = Command::new(&editor.program);
-    cmd.args(interpolate_variables(&editor.edit_args, &patterns));
-    tracing::info!(?cmd, "Invoking the external diff editor:");
-    let exit_status = cmd
-        .status()
-        .map_err(|e| ExternalToolError::FailedToExecute {
-            tool_binary: editor.program.clone(),
-            source: e,
-        })?;
-    if !exit_status.success() {
-        return Err(DiffEditError::from(ExternalToolError::ToolAborted {
-            exit_status,
-        }));
+    let invoke = |patterns: &HashMap<&str, String>| -> Result<(), DiffEditError> {
+        let mut cmd = Command::new(&editor.program);
+        cmd.args(interpolate_variables(&editor.edit_args, patterns));
+        tracing::info!(?cmd, "Invoking the external diff editor:");
+        let exit_status = cmd
+            .status()
+            .map_err(|e| ExternalToolError::FailedToExecute {
+                tool_binary: editor.program.clone(),
+                source: e,
+            })?;
+        if !exit_status.success() {
+            return Err(DiffEditError::from(ExternalToolError::ToolAborted {
+                exit_status,
+            }));
+        }
+        Ok(())
+    };
+
+    match editor.edit_invocation_mode {
+        DiffToolMode::Dir => {
+            let patterns = diffedit_wc.working_copies.to_command_variables(false);
+            invoke(&patterns)?;
+        }
+        DiffToolMode::FileByFile => {
+            let working_copies = &diffedit_wc.working_copies;
+            for repo_path in working_copies.checked_out_files() {
+                let patterns = working_copies.to_command_variables_for_file(repo_path, false);
+                invoke(&patterns)?;
+            }
+        }
     }
 
     diffedit_wc.snapshot_results(base_ignores).await

@@ -648,7 +648,7 @@
                         "default": true
                     },
                     "diff-invocation-mode": {
-                        "description": "Invoke the tool with directories or individual files",
+                        "description": "Invoke the tool with directories or individual files when generating diffs.",
                         "enum": [
                             "dir",
                             "file-by-file"
@@ -660,6 +660,14 @@
                         "items": {
                             "type": "string"
                         }
+                    },
+                    "edit-invocation-mode": {
+                        "description": "Invoke the tool with directories or individual files when editing diffs (e.g. jj diffedit, jj split).",
+                        "enum": [
+                            "dir",
+                            "file-by-file"
+                        ],
+                        "default": "dir"
                     },
                     "merge-args": {
                         "type": "array",

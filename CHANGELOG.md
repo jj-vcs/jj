@@ -41,6 +41,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Added `jj util backend name` command that prints the backend being used in the
   current repo.
 
+* Added `edit-invocation-mode` config option for diff editors (e.g.
+  `jj diffedit`, `jj split`). When set to `"file-by-file"`, the editor is
+  launched once per changed file, making it possible to use per-file tools like
+  `vimdiff` for editing.
+
 ### Fixed bugs
 
 * `jj bookmark forget` no longer prints `Forgot N local bookmarks.` when no

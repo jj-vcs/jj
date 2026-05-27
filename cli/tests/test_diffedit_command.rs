@@ -240,6 +240,60 @@ fn test_diffedit() -> TestResult {
 }
 
 #[test]
+fn test_diffedit_file_by_file() -> TestResult {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_diff_editor();
+    test_env.add_config(r#"merge-tools.fake-diff-editor.edit-invocation-mode = "file-by-file""#);
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "a\n");
+    work_dir.write_file("file2", "a\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.remove_file("file1");
+    work_dir.write_file("file2", "b\n");
+    work_dir.write_file("file3", "c\n");
+    work_dir.run_jj(["debug", "snapshot"]).success();
+
+    // The editor should be invoked once per changed file, with file paths
+    // rather than directory paths. The fake editor prints the file basenames
+    // on each invocation, so we expect one stanza per changed file. Note that
+    // JJ-INSTRUCTIONS is *not* expected to appear: file-by-file mode iterates
+    // only the changed files, not the working-copy directory.
+    std::fs::write(
+        &edit_script,
+        [
+            "print ==",
+            "print-files-before",
+            "print --",
+            "print-files-after",
+        ]
+        .join("\0"),
+    )?;
+    let output = work_dir.run_jj(["diffedit"]);
+    insta::assert_snapshot!(output, @r"
+    ==
+    file1
+    --
+    file1
+    ==
+    file2
+    --
+    file2
+    ==
+    file3
+    --
+    file3
+    [EOF]
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
+
+    Ok(())
+}
+
+#[test]
 fn test_diffedit_new_file() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_diff_editor();
