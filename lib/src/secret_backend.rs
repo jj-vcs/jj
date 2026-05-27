@@ -119,6 +119,7 @@ impl Backend for SecretBackend {
         &self,
         path: &RepoPath,
         id: &FileId,
+        offset: u64,
     ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>> {
         if path.as_internal_file_string().contains("secret")
             || SECRET_CONTENTS_HEX.contains(&id.hex().as_ref())
@@ -129,7 +130,7 @@ impl Backend for SecretBackend {
                 source: "No access".into(),
             });
         }
-        self.inner.read_file(path, id).await
+        self.inner.read_file(path, id, offset).await
     }
 
     async fn write_file(

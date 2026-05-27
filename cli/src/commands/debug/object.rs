@@ -135,7 +135,7 @@ pub async fn cmd_debug_object(
                 FileId::try_from_hex(file_id)
                     .ok_or_else(|| user_error(format!(r#"Invalid hex file id: "{file_id}""#)))?
             };
-            let mut contents = repo_loader.store().read_file(&path, &id).await?;
+            let mut contents = repo_loader.store().read_file(&path, &id, 0).await?;
             let mut buf = vec![];
             contents.read_to_end(&mut buf).await?;
             ui.stdout().write_all(&buf)?;

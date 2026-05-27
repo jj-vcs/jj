@@ -302,7 +302,7 @@ async fn fix_one_file(
     // limit for both `old_content` and `base_content`.
     let mut old_content = vec![];
     let mut read = store
-        .read_file(&file_to_fix.repo_path, &file_to_fix.file_id)
+        .read_file(&file_to_fix.repo_path, &file_to_fix.file_id, 0)
         .await?;
     read.read_to_end(&mut old_content).await?;
 
@@ -319,7 +319,7 @@ async fn fix_one_file(
             Some(base_file_id) if matching_tools.clone().any(|t| t.line_range_arg.is_some()) => {
                 let mut content = vec![];
                 let mut read = store
-                    .read_file(&file_to_fix.repo_path, base_file_id)
+                    .read_file(&file_to_fix.repo_path, base_file_id, 0)
                     .await?;
                 read.read_to_end(&mut content).await?;
                 Some(content)
