@@ -41,6 +41,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Added `jj util backend name` command that prints the backend being used in the
   current repo.
 
+* `jj util snapshot` now reports the resulting working-copy state together with
+  the current operation summary.
+
 ### Fixed bugs
 
 * `jj bookmark forget` no longer prints `Forgot N local bookmarks.` when no
