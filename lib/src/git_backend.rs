@@ -94,7 +94,6 @@ use crate::stacked_table::TableSegment as _;
 use crate::stacked_table::TableStore;
 use crate::stacked_table::TableStoreError;
 
-const HASH_LENGTH: usize = 20;
 const CHANGE_ID_LENGTH: usize = 16;
 /// Ref namespace used only for preventing GC.
 const NO_GC_REF_NAMESPACE: &str = "refs/jj/keep/";
@@ -193,13 +192,14 @@ impl GitBackend {
         extra_metadata_store: TableStore,
         git_settings: GitSettings,
     ) -> Self {
-        let repo = Mutex::new(base_repo.to_thread_local());
-        let root_commit_id = CommitId::from_bytes(&[0; HASH_LENGTH]);
+        let repo = base_repo.to_thread_local();
+        let root_commit_id = CommitId::from_bytes(repo.object_hash().null_ref().as_bytes());
         let root_change_id = ChangeId::from_bytes(&[0; CHANGE_ID_LENGTH]);
-        let empty_tree_id = TreeId::from_hex("4b825dc642cb6eb9a060e54bf8d69288fbee4904");
+        let empty_tree_id =
+            TreeId::from_bytes(gix::ObjectId::empty_tree(repo.object_hash()).as_bytes());
         Self {
             base_repo,
-            repo,
+            repo: Mutex::new(repo),
             root_commit_id,
             root_change_id,
             empty_tree_id,
@@ -303,7 +303,10 @@ impl GitBackend {
         fs::write(&target_path, git_repo_path_bytes)
             .context(&target_path)
             .map_err(GitBackendInitError::Path)?;
-        let extra_metadata_store = TableStore::init(extra_path, HASH_LENGTH);
+        let extra_metadata_store = TableStore::init(
+            extra_path,
+            repo.to_thread_local().object_hash().len_in_bytes(),
+        );
         Ok(Self::new(repo, extra_metadata_store, git_settings))
     }
 
@@ -328,7 +331,10 @@ impl GitBackend {
             gix_open_opts_from_settings(settings),
         )
         .map_err(GitBackendLoadError::OpenRepository)?;
-        let extra_metadata_store = TableStore::load(store_path.join("extra"), HASH_LENGTH);
+        let extra_metadata_store = TableStore::load(
+            store_path.join("extra"),
+            repo.to_thread_local().object_hash().len_in_bytes(),
+        );
         let git_settings =
             GitSettings::from_settings(settings).map_err(GitBackendLoadError::Config)?;
         Ok(Self::new(repo, extra_metadata_store, git_settings))
@@ -453,8 +459,8 @@ impl GitBackend {
     }
 
     fn read_file_sync(&self, id: &FileId) -> BackendResult<Vec<u8>> {
-        let git_blob_id = validate_git_object_id(id)?;
         let locked_repo = self.lock_git_repo();
+        let git_blob_id = validate_git_object_id(&locked_repo, id)?;
         let mut blob = locked_repo
             .find_object(git_blob_id)
             .map_err(|err| map_not_found_err(err, id))?
@@ -498,7 +504,7 @@ impl GitBackend {
         let tree = self.read_commit(id).block_on()?.root_tree;
         // TODO(kfm): probably want to do something here if it is a merge
         let tree_id = tree.first().clone();
-        let gix_id = validate_git_object_id(&tree_id)?;
+        let gix_id = validate_git_object_id(repo, &tree_id)?;
         repo.find_object(gix_id)
             .map_err(|err| map_not_found_err(err, &tree_id))?
             .try_into_tree()
@@ -596,10 +602,11 @@ fn extract_root_tree_from_commit(commit: &gix::objs::CommitRef) -> Result<Merge<
         return Ok(Merge::resolved(tree_id));
     };
 
+    let hash_len = commit.tree().kind().len_in_bytes();
     let mut tree_ids = SmallVec::new();
     for hex in value.split(|b| *b == b' ') {
         let tree_id = TreeId::try_from_hex(hex).ok_or(())?;
-        if tree_id.as_bytes().len() != HASH_LENGTH {
+        if tree_id.as_bytes().len() != hash_len {
             return Err(());
         }
         tree_ids.push(tree_id);
@@ -666,7 +673,7 @@ fn commit_from_git_without_root_parent(
         .iter()
         // gix does not recognize gpgsig-sha256, but prevent future footguns by checking for it too
         .any(|(k, _)| *k == "gpgsig" || *k == "gpgsig-sha256")
-        .then(|| CommitRefIter::signature(&git_object.data, gix::hash::Kind::Sha1))
+        .then(|| CommitRefIter::signature(&git_object.data, git_object.id.kind()))
         .transpose()
         .map_err(decode_err)?
         .flatten()
@@ -709,7 +716,7 @@ pub fn synthetic_change_id_from_git_commit_id(id: &CommitId) -> ChangeId {
     // have been enough to pick the last 16 bytes instead of the leading 16
     // bytes to address that. We also reverse the bits to make it less likely
     // that users depend on any relationship between the two ids.
-    let bytes = id.as_bytes()[4..HASH_LENGTH]
+    let bytes = id.as_bytes()[id.as_bytes().len() - CHANGE_ID_LENGTH..]
         .iter()
         .rev()
         .map(|b| b.reverse_bits())
@@ -924,16 +931,20 @@ fn run_git_gc(program: &OsStr, git_dir: &Path, keep_newer: SystemTime) -> Result
     Ok(())
 }
 
-fn validate_git_object_id(id: &impl ObjectId) -> BackendResult<gix::ObjectId> {
-    if id.as_bytes().len() != HASH_LENGTH {
-        return Err(BackendError::InvalidHashLength {
-            expected: HASH_LENGTH,
+fn validate_git_object_id(
+    repo: &gix::Repository,
+    id: &impl ObjectId,
+) -> BackendResult<gix::ObjectId> {
+    let expected_kind = repo.object_hash();
+    match gix::ObjectId::try_from(id.as_bytes()) {
+        Ok(id) if id.kind() == expected_kind => Ok(id),
+        _ => Err(BackendError::InvalidHashLength {
+            expected: expected_kind.len_in_bytes(),
             actual: id.as_bytes().len(),
             object_type: id.object_type(),
             hash: id.hex(),
-        });
+        }),
     }
-    Ok(gix::ObjectId::from_bytes_or_panic(id.as_bytes()))
 }
 
 fn map_not_found_err(err: gix::object::find::existing::Error, id: &impl ObjectId) -> BackendError {
@@ -981,7 +992,7 @@ fn import_extra_metadata_entries_from_heads(
         .collect_vec();
     while let Some(id) = work_ids.pop() {
         let git_object = git_repo
-            .find_object(validate_git_object_id(&id)?)
+            .find_object(validate_git_object_id(git_repo, &id)?)
             .map_err(|err| map_not_found_err(err, &id))?;
         let is_shallow = shallow_roots.contains(&id);
         // TODO(#1624): Should we read the root tree here and check if it has a
@@ -1014,7 +1025,7 @@ impl Backend for GitBackend {
     }
 
     fn commit_id_length(&self) -> usize {
-        HASH_LENGTH
+        self.base_repo.objects.object_hash().len_in_bytes()
     }
 
     fn change_id_length(&self) -> usize {
@@ -1059,8 +1070,8 @@ impl Backend for GitBackend {
     }
 
     async fn read_symlink(&self, _path: &RepoPath, id: &SymlinkId) -> BackendResult<String> {
-        let git_blob_id = validate_git_object_id(id)?;
         let locked_repo = self.lock_git_repo();
+        let git_blob_id = validate_git_object_id(&locked_repo, id)?;
         let mut blob = locked_repo
             .find_object(git_blob_id)
             .map_err(|err| map_not_found_err(err, id))?
@@ -1098,9 +1109,9 @@ impl Backend for GitBackend {
         if id == &self.empty_tree_id {
             return Ok(Tree::default());
         }
-        let git_tree_id = validate_git_object_id(id)?;
 
         let locked_repo = self.lock_git_repo();
+        let git_tree_id = validate_git_object_id(&locked_repo, id)?;
         let git_tree = locked_repo
             .find_object(git_tree_id)
             .map_err(|err| map_not_found_err(err, id))?
@@ -1218,10 +1229,10 @@ impl Backend for GitBackend {
                 self.empty_tree_id.clone(),
             ));
         }
-        let git_commit_id = validate_git_object_id(id)?;
 
         let mut commit = {
             let locked_repo = self.lock_git_repo();
+            let git_commit_id = validate_git_object_id(&locked_repo, id)?;
             let git_object = locked_repo
                 .find_object(git_commit_id)
                 .map_err(|err| map_not_found_err(err, id))?;
@@ -1259,7 +1270,7 @@ impl Backend for GitBackend {
         let locked_repo = self.lock_git_repo();
         let tree_ids = &contents.root_tree;
         let git_tree_id = match tree_ids.as_resolved() {
-            Some(tree_id) => validate_git_object_id(tree_id)?,
+            Some(tree_id) => validate_git_object_id(&locked_repo, tree_id)?,
             None => write_tree_conflict(&locked_repo, tree_ids)?,
         };
         let author = signature_to_git(&contents.author);
@@ -1285,7 +1296,7 @@ impl Backend for GitBackend {
                     ));
                 }
             } else {
-                parents.push(validate_git_object_id(parent_id)?);
+                parents.push(validate_git_object_id(&locked_repo, parent_id)?);
             }
         }
         let mut extra_headers: Vec<(BString, BString)> = vec![];
@@ -1794,7 +1805,7 @@ mod tests {
             email: GIT_EMAIL.into(),
             time: gix::date::Time::now_utc(),
         };
-        let empty_tree_id = gix::ObjectId::from_hex(b"4b825dc642cb6eb9a060e54bf8d69288fbee4904")?;
+        let empty_tree_id = gix::ObjectId::empty_tree(git_repo.object_hash());
         let git_commit_id = git_repo.commit_as(
             signature.to_ref(&mut TimeBuf::default()),
             signature.to_ref(&mut TimeBuf::default()),
@@ -1837,7 +1848,7 @@ mod tests {
             email: GIT_EMAIL.into(),
             time: gix::date::Time::now_utc(),
         };
-        let empty_tree_id = gix::ObjectId::from_hex(b"4b825dc642cb6eb9a060e54bf8d69288fbee4904")?;
+        let empty_tree_id = gix::ObjectId::empty_tree(git_repo.object_hash());
 
         let secure_sig =
             "here are some ASCII bytes to be used as a test signature\n\ndefinitely not PGP\n";
@@ -2292,7 +2303,7 @@ mod tests {
             email: GIT_EMAIL.into(),
             time: gix::date::Time::now_utc(),
         };
-        let empty_tree_id = gix::ObjectId::from_hex(b"4b825dc642cb6eb9a060e54bf8d69288fbee4904")?;
+        let empty_tree_id = gix::ObjectId::empty_tree(git_repo.object_hash());
         let git_commit_id = git_repo
             .commit_as(
                 signature.to_ref(&mut TimeBuf::default()),
