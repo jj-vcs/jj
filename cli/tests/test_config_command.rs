@@ -675,6 +675,11 @@ fn test_config_set_for_user_directory() -> TestResult {
 
     [git]
     colocate = false
+
+    [ui]
+    # Pin to color-words in tests so snapshots are stable regardless of tty.
+    # The default :auto would select :git in non-tty test runners.
+    diff-formatter = ":color-words"
     "#);
 
     // Add one more config file to the directory
@@ -701,6 +706,11 @@ fn test_config_set_for_user_directory() -> TestResult {
 
     [git]
     colocate = false
+
+    [ui]
+    # Pin to color-words in tests so snapshots are stable regardless of tty.
+    # The default :auto would select :git in non-tty test runners.
+    diff-formatter = ":color-words"
     "#);
 
     insta::assert_snapshot!(
