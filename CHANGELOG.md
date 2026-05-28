@@ -51,6 +51,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   launched once per changed file, making it possible to use per-file tools like
   `vimdiff` for editing.
 
+* Added `--allow-conflicts` to `jj git push`, to allow pushing commits
+  containing conflicts.
+
 ### Fixed bugs
 
 * `jj bookmark forget` no longer prints `Forgot N local bookmarks.` when no
