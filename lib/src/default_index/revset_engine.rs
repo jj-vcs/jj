@@ -65,6 +65,7 @@ use crate::object_id::ObjectId as _;
 use crate::object_id::PrefixResolution;
 use crate::repo_path::RepoPath;
 use crate::revset::DiffMatchSide;
+use crate::revset::ExpressionOrFilteredRange;
 use crate::revset::GENERATION_RANGE_FULL;
 use crate::revset::ResolvedExpression;
 use crate::revset::ResolvedPredicateExpression;
@@ -910,25 +911,20 @@ impl EvaluationContext<'_> {
                     .collect_vec();
                 Ok(Box::new(EagerRevset { positions }))
             }
-            ResolvedExpression::Heads(candidates) => {
+            ResolvedExpression::Heads(ExpressionOrFilteredRange::Expression(candidates)) => {
                 let candidate_set = self.evaluate(candidates)?;
                 let positions = index
                     .commits()
                     .heads_pos(candidate_set.positions().attach(index).try_collect()?);
                 Ok(Box::new(EagerRevset { positions }))
             }
-            ResolvedExpression::HeadsRange {
-                roots,
-                heads,
-                parents_range,
-                filter,
-            } => {
-                let root_set = self.evaluate(roots)?;
+            ResolvedExpression::Heads(ExpressionOrFilteredRange::FilteredRange(filtered_range)) => {
+                let root_set = self.evaluate(&filtered_range.roots)?;
                 let root_positions: Vec<_> = root_set.positions().attach(index).try_collect()?;
                 // Pre-filter heads so queries like 'immutable_heads()..' can
                 // terminate early. immutable_heads() usually includes some
                 // visible heads, which can be trivially rejected.
-                let head_set = self.evaluate(heads)?;
+                let head_set = self.evaluate(&filtered_range.heads)?;
                 let head_positions = difference_by(
                     head_set.positions(),
                     EagerRevWalk::new(root_positions.iter().copied().map(Ok)),
@@ -936,19 +932,19 @@ impl EvaluationContext<'_> {
                 )
                 .attach(index)
                 .try_collect()?;
-                let positions = if let Some(filter) = filter {
+                let positions = if let Some(filter) = &filtered_range.filter {
                     let mut filter = self.evaluate_predicate(filter)?.to_predicate_fn();
                     index.commits().heads_from_range_and_filter(
                         root_positions,
                         head_positions,
-                        parents_range,
+                        &filtered_range.parents_range,
                         |pos| filter(index, pos),
                     )?
                 } else {
                     let Ok(positions) = index.commits().heads_from_range_and_filter::<Infallible>(
                         root_positions,
                         head_positions,
-                        parents_range,
+                        &filtered_range.parents_range,
                         |_| Ok(true),
                     );
                     positions
