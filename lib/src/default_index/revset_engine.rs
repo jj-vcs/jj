@@ -1007,20 +1007,20 @@ impl EvaluationContext<'_> {
                     .take(count.saturating_add(1))
                     .try_collect()?;
                 if positions.len() != *count {
-                    // https://github.com/jj-vcs/jj/pull/7252#pullrequestreview-3236259998
-                    // in the default engine we have to evaluate the entire
-                    // revset (which may be very large) to get an exact count;
-                    // we would need to remove .take() above. instead just give
-                    // a vaguely approximate error message
-                    let determiner = if positions.len() > *count {
-                        "more"
+                    let message = if positions.len() > *count {
+                        // https://github.com/jj-vcs/jj/pull/7252#pullrequestreview-3236259998
+                        // In the default engine we have to evaluate the entire
+                        // revset (which may be very large) to get an exact
+                        // count; we would need to remove .take() above. Instead
+                        // just give a vague error message.
+                        format!("The revset has more than the expected {count} revisions")
                     } else {
-                        "fewer"
+                        format!(
+                            "The revset has fewer than the expected {count} revisions (got {})",
+                            positions.len()
+                        )
                     };
-                    return Err(RevsetEvaluationError::Other(
-                        format!("The revset has {determiner} than the expected {count} revisions")
-                            .into(),
-                    ));
+                    return Err(RevsetEvaluationError::Other(message.into()));
                 }
                 Ok(Box::new(EagerRevset { positions }))
             }

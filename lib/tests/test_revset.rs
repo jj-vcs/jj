@@ -3426,7 +3426,14 @@ fn test_evaluate_expression_exactly() {
     let commit2 = write_random_commit_with_parents(mut_repo, &[&commit1]);
 
     assert!(try_evaluate_expression(mut_repo, "exactly(none(), 0)").is_ok());
-    assert!(try_evaluate_expression(mut_repo, "exactly(none(), 1)").is_err());
+    assert_matches!(
+        try_evaluate_expression(mut_repo, "exactly(none(), 1)"),
+        Err(RevsetEvaluationError::Other(msg)) if msg.to_string() == "The revset has fewer than the expected 1 revisions (got 0)"
+    );
+    assert_matches!(
+        try_evaluate_expression(mut_repo, "exactly(all(), 0)"),
+        Err(RevsetEvaluationError::Other(msg)) if msg.to_string() == "The revset has more than the expected 0 revisions"
+    );
     assert!(try_evaluate_expression(mut_repo, &format!("exactly({}, 1)", commit1.id())).is_ok());
     assert!(
         try_evaluate_expression(
