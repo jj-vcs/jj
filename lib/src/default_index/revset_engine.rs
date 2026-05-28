@@ -1001,14 +1001,48 @@ impl EvaluationContext<'_> {
                 }
                 let max_depth = u32::try_from(count - 1).unwrap_or(u32::MAX);
 
-                let candidates: Vec<_> = self
-                    .evaluate(candidates)?
-                    .positions()
-                    .attach(self.index)
-                    .try_collect()?;
+                let (subgraph, heads) = match candidates {
+                    ExpressionOrFilteredRange::Expression(candidates) => {
+                        let candidates: Vec<_> = self
+                            .evaluate(candidates)?
+                            .positions()
+                            .attach(self.index)
+                            .try_collect()?;
 
-                let (subgraph, heads) =
-                    subgraph_and_heads_from_positions(index, &candidates, max_depth);
+                        subgraph_and_heads_from_positions(index, &candidates, max_depth)
+                    }
+                    ExpressionOrFilteredRange::FilteredRange(filtered_range) => {
+                        let root_set = self.evaluate(&filtered_range.roots)?;
+                        let root_positions: Vec<_> =
+                            root_set.positions().attach(index).try_collect()?;
+                        // Pre-filter heads so queries like 'immutable_heads()..' can
+                        // terminate early. immutable_heads() usually includes some
+                        // visible heads, which can be trivially rejected.
+                        let head_set = self.evaluate(&filtered_range.heads)?;
+                        let head_positions: Vec<_> = difference_by(
+                            head_set.positions(),
+                            EagerRevWalk::new(root_positions.iter().copied().map(Ok)),
+                            |pos1, pos2| pos1.cmp(pos2).reverse(),
+                        )
+                        .attach(index)
+                        .try_collect()?;
+
+                        let mut filter: BoxedPredicateFn =
+                            if let Some(filter) = &filtered_range.filter {
+                                self.evaluate_predicate(filter)?.to_predicate_fn()
+                            } else {
+                                Box::new(|_, _| Ok(true))
+                            };
+                        subgraph_and_heads_from_range_and_filter(
+                            index,
+                            root_positions,
+                            head_positions,
+                            &filtered_range.parents_range,
+                            |pos| filter(index, pos),
+                            max_depth,
+                        )?
+                    }
+                };
 
                 Ok(Box::new(self.take_latest_revset(subgraph, &heads, *count)?))
             }
@@ -1638,6 +1672,134 @@ fn subgraph_and_heads_from_positions(
         }
     }
     (Subgraph { commits }, heads)
+}
+
+fn subgraph_and_heads_from_range_and_filter<E>(
+    index: &CompositeIndex,
+    roots: Vec<GlobalCommitPosition>,
+    heads: Vec<GlobalCommitPosition>,
+    parents_range: &Range<u32>,
+    mut filter: impl FnMut(GlobalCommitPosition) -> Result<bool, E>,
+    max_depth: u32,
+) -> Result<(Subgraph, Vec<GlobalCommitPosition>), E> {
+    let commit_index = index.commits();
+
+    #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+    struct WantedItem {
+        // We need to walk backward through all parent edges, but we need to handle `parents_range`
+        // as well. Therefore, we keep track of whether this commit was reachable from the child
+        // using only edges in `parents_range`. Since this field is considered first for ordering,
+        // if there was no path to the current position through edges in `parents_range`, then the
+        // first value in the `RevWalkQueue` max-heap will be `false`, so we can efficiently skip
+        // these commits.
+        is_in_parents_range: bool,
+        // The child which we are currently walking backwards from (if any).
+        child_pos: GlobalCommitPosition,
+        // If true, this is a head, so the child position should be ignored. It might be cleaner to
+        // use `Option<GlobalCommitPosition>` for `child_pos` instead, but that makes the struct
+        // 50% larger due to alignment.
+        is_head: bool,
+    }
+
+    let mut wanted_queue: RevWalkQueue<GlobalCommitPosition, WantedItem> =
+        RevWalkQueue::with_min_pos(GlobalCommitPosition::MIN);
+    let mut unwanted_queue: RevWalkQueue<GlobalCommitPosition, ()> =
+        RevWalkQueue::with_min_pos(GlobalCommitPosition::MIN);
+    unwanted_queue.extend(roots, ());
+
+    for head in heads {
+        wanted_queue.push(
+            head,
+            WantedItem {
+                is_in_parents_range: true,
+                child_pos: GlobalCommitPosition::MIN,
+                is_head: true,
+            },
+        );
+    }
+
+    let mut found_heads = Vec::new();
+    let mut depths: BTreeMap<GlobalCommitPosition, u32> = BTreeMap::new();
+    let mut commits: BTreeMap<GlobalCommitPosition, SubgraphCommitData> = BTreeMap::new();
+
+    while let Some(peeked_item) = wanted_queue.peek() {
+        let pos = peeked_item.pos;
+
+        if flush_queue_until(&mut unwanted_queue, index, pos).is_some() {
+            wanted_queue.skip_while_eq(&pos);
+            continue;
+        }
+
+        // If `is_in_parents_range` is `false` for the first entry with this position,
+        // it will be false for all of the entries with the same position.
+        if !peeked_item.value.is_in_parents_range || !filter(pos)? {
+            let parent_positions = commit_index.entry_by_pos(pos).parent_positions();
+
+            while let Some(item) = wanted_queue.pop_eq(&pos) {
+                for (i, &parent_pos) in (0u32..).zip(&parent_positions) {
+                    let mut value = item.value;
+                    value.is_in_parents_range =
+                        value.is_in_parents_range && parents_range.contains(&i);
+                    wanted_queue.push(parent_pos, value);
+                }
+
+                wanted_queue.skip_while(|x| *x == item);
+            }
+
+            continue;
+        }
+
+        let mut num_children = 0;
+        let mut depth = 0;
+        while let Some(item) = wanted_queue.pop_eq(&pos) {
+            if item.value.is_head {
+                continue;
+            }
+
+            let child_pos = item.value.child_pos;
+            let child_data = commits
+                .get_mut(&child_pos)
+                .expect("child commit should be in subgraph");
+            if child_data.parents.last() == Some(&pos) {
+                continue;
+            }
+
+            child_data.parents.push(pos);
+            num_children += 1;
+            depth = depth.max(depths[&child_pos] + 1);
+        }
+
+        depths.insert(pos, depth);
+        commits.insert(
+            pos,
+            SubgraphCommitData {
+                parents: SmallGlobalCommitPositionsVec::new(),
+                num_children,
+            },
+        );
+
+        if num_children == 0 {
+            found_heads.push(pos);
+        }
+
+        let parent_positions = commit_index.entry_by_pos(pos).parent_positions();
+        if depth >= max_depth {
+            unwanted_queue.extend(parent_positions, ());
+            continue;
+        }
+
+        for (i, parent_pos) in (0u32..).zip(parent_positions) {
+            wanted_queue.push(
+                parent_pos,
+                WantedItem {
+                    is_in_parents_range: parents_range.contains(&i),
+                    child_pos: pos,
+                    is_head: false,
+                },
+            );
+        }
+    }
+    Ok((Subgraph { commits }, found_heads))
 }
 
 #[cfg(test)]
