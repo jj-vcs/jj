@@ -334,7 +334,7 @@ pub enum RevsetExpression<St: ExpressionState> {
         count: usize,
     },
     Latest {
-        candidates: Arc<Self>,
+        candidates: ExpressionOrFilteredRange<Arc<Self>>,
         count: usize,
     },
     Filter(RevsetFilterPredicate),
@@ -482,7 +482,7 @@ impl<St: ExpressionState<CommitRef = RevsetCommitRef>> RevsetExpression<St> {
 impl<St: ExpressionState> RevsetExpression<St> {
     pub fn latest(self: &Arc<Self>, count: usize) -> Arc<Self> {
         Arc::new(Self::Latest {
-            candidates: self.clone(),
+            candidates: self.clone().into(),
             count,
         })
     }
@@ -802,7 +802,7 @@ pub enum ResolvedExpression {
         count: usize,
     },
     Latest {
-        candidates: Box<Self>,
+        candidates: ExpressionOrFilteredRange<Box<Self>, Option<ResolvedPredicateExpression>>,
         count: usize,
     },
     Coalesce(Box<Self>, Box<Self>),
@@ -1602,11 +1602,14 @@ fn try_transform_expression<St: ExpressionState, E>(
                     count: *count,
                 })
             }
-            RevsetExpression::Latest { candidates, count } => transform_rec(candidates, pre, post)?
-                .map(|candidates| RevsetExpression::Latest {
-                    candidates,
-                    count: *count,
-                }),
+            RevsetExpression::Latest { candidates, count } => {
+                transform_rec_filtered_range(candidates, pre, post)?.map(|candidates| {
+                    RevsetExpression::Latest {
+                        candidates,
+                        count: *count,
+                    }
+                })
+            }
             RevsetExpression::Filter(_) => None,
             RevsetExpression::AsFilter(candidates) => {
                 transform_rec(candidates, pre, post)?.map(RevsetExpression::AsFilter)
@@ -1896,7 +1899,7 @@ where
             RevsetExpression::HasSize { candidates, count }.into()
         }
         RevsetExpression::Latest { candidates, count } => {
-            let candidates = folder.fold_expression(candidates)?;
+            let candidates = fold_filtered_range(folder, candidates)?;
             let count = *count;
             RevsetExpression::Latest { candidates, count }.into()
         }
@@ -2453,6 +2456,18 @@ fn fold_filtered_range<St: ExpressionState>(
             to_filtered_range(candidates)
                 .map(|candidates| RevsetExpression::Heads(candidates).into())
         }
+        // latest(x..y & filter, n) -> latest(filtered_range(x, y, filter), n)
+        // latest(filter) -> latest(filtered_range(none(), visible_heads_or_referenced(), filter))
+        RevsetExpression::Latest {
+            candidates: ExpressionOrFilteredRange::Expression(candidates),
+            count,
+        } => to_filtered_range(candidates).map(|candidates| {
+            RevsetExpression::Latest {
+                candidates,
+                count: *count,
+            }
+            .into()
+        }),
         _ => None,
     })
 }
@@ -3251,7 +3266,7 @@ impl VisibilityResolutionContext<'_> {
                 ResolvedExpression::Bisect(self.resolve(expression).into())
             }
             RevsetExpression::Latest { candidates, count } => ResolvedExpression::Latest {
-                candidates: self.resolve(candidates).into(),
+                candidates: self.resolve_filtered_range(candidates),
                 count: *count,
             },
             RevsetExpression::HasSize { candidates, count } => ResolvedExpression::HasSize {
@@ -4928,7 +4943,9 @@ mod tests {
         insta::assert_debug_snapshot!(
             optimize(parse("latest(bookmarks() & all(), 2)")?), @r#"
         Latest {
-            candidates: CommitRef(Bookmarks(Pattern(Substring("")))),
+            candidates: Expression(
+                CommitRef(Bookmarks(Pattern(Substring("")))),
+            ),
             count: 2,
         }
         "#);
