@@ -15,7 +15,8 @@
 use std::borrow::Cow;
 use std::cmp::max;
 use std::future;
-use std::io;
+use std::io::IsTerminal as _;
+use std::io::{self};
 use std::iter;
 use std::ops::Range;
 use std::path::Path;
@@ -178,6 +179,7 @@ enum BuiltinFormatKind {
     NameOnly,
     Git,
     ColorWords,
+    Auto,
 }
 
 impl BuiltinFormatKind {
@@ -191,6 +193,7 @@ impl BuiltinFormatKind {
         Self::NameOnly,
         Self::Git,
         Self::ColorWords,
+        Self::Auto,
     ];
 
     fn from_name(name: &str) -> Result<Self, String> {
@@ -201,6 +204,7 @@ impl BuiltinFormatKind {
             "name-only" => Ok(Self::NameOnly),
             "git" => Ok(Self::Git),
             "color-words" => Ok(Self::ColorWords),
+            "auto" => Ok(Self::Auto),
             _ => Err(format!("Invalid builtin diff format: {name}")),
         }
     }
@@ -232,7 +236,7 @@ impl BuiltinFormatKind {
     fn is_short(self) -> bool {
         match self {
             Self::Summary | Self::Stat | Self::Types | Self::NameOnly => true,
-            Self::Git | Self::ColorWords => false,
+            Self::Git | Self::ColorWords | Self::Auto => false,
         }
     }
 
@@ -244,6 +248,7 @@ impl BuiltinFormatKind {
             Self::NameOnly => "name-only",
             Self::Git => "git",
             Self::ColorWords => "color-words",
+            Self::Auto => "auto",
         }
     }
 
@@ -270,6 +275,14 @@ impl BuiltinFormatKind {
                 let mut options = ColorWordsDiffOptions::from_settings(settings)?;
                 options.merge_args(args);
                 Ok(DiffFormat::ColorWords(Box::new(options)))
+            }
+            Self::Auto => {
+                let kind = if std::io::stdout().is_terminal() {
+                    Self::ColorWords
+                } else {
+                    Self::Git
+                };
+                kind.to_format(settings, args)
             }
         }
     }

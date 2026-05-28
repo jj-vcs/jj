@@ -34,6 +34,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj show` now accepts multiple revisions, showing all of them one after the
   other, behaving closer to `git show`.
 
+* The default `ui.diff-formatter` is now `:auto`, which selects `:color-words`
+  when outputting to a terminal and `:git` otherwise. This makes `jj diff`
+  output parseable by scripts and AI agents without requiring `--git`.
+
 * `jj git fetch` now generates evolution history based on change IDs. If change
   IDs are preserved by the remote, local descendant revisions will be rebased
   onto the rewritten parents.
