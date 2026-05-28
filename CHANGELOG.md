@@ -57,6 +57,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj run` gained a `--ignore-changes` flag to avoid editing any revisions even
   if the command modifies the working copy.
 
+* `jj git push` gained a `--allow-conflicts` flag to allow pushing commits
+  containing conflicts.
+
 ### Fixed bugs
 
 * Recursive alias definitions are detected more precisely. jj can now expand
