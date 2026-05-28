@@ -427,11 +427,15 @@ Colors and styles can be configured differently for each diff format:
 
 ```toml
 [ui]
-# Builtin formats: ":color-words" (default), ":git",
-#                  ":summary", ":stat", ":types", ":name-only"
+# Builtin formats: ":auto" (default, chooses color-words or git based on tty),
+#                  ":color-words", ":git", ":summary", ":stat", ":types", ":name-only"
 # or external command name and arguments (see below)
 diff-formatter = ":git"
 ```
+
+The special value `":auto"` (the default) selects `":color-words"` when the output is
+a terminal (for human readers), and `":git"` otherwise (for scripts and agents, as
+the output is plain-text parsable with `+`/`-` markers).
 
 #### Color-words diff options
 
