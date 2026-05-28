@@ -189,6 +189,10 @@ pub struct GitPushArgs {
     #[arg(long)]
     allow_private: bool,
 
+    /// Allow pushing commits that contain conflicts
+    #[arg(long)]
+    allow_conflicts: bool,
+
     /// Push bookmarks and tags pointing to these commits (can be repeated)
     #[arg(
         long = "revision",
@@ -662,6 +666,7 @@ struct CommitsValidator<'repo> {
     immutable_heads: Arc<ResolvedRevsetExpression>,
     private_commits: Option<(String, Box<RevsetContainingFn<'repo>>)>,
     allow_empty_description: bool,
+    allow_conflicts: bool,
 }
 
 impl<'repo> CommitsValidator<'repo> {
@@ -698,6 +703,7 @@ impl<'repo> CommitsValidator<'repo> {
             immutable_heads,
             private_commits,
             allow_empty_description: args.allow_empty_description,
+            allow_conflicts: args.allow_conflicts,
         })
     }
 
@@ -742,7 +748,7 @@ impl<'repo> CommitsValidator<'repo> {
             {
                 reasons.push("has no author and/or committer set");
             }
-            if commit.has_conflict() {
+            if commit.has_conflict() && !self.allow_conflicts {
                 reasons.push("has conflicts");
             }
             if let Some((revset_str, is_private)) = &self.private_commits
