@@ -3098,12 +3098,19 @@ fn test_evaluate_expression_latest() {
         root_commit_id.clone(),
     ];
 
+    // Using `all()` triggers the filtered range optimization, so we also test using
+    // an explicit union of commit IDs.
+    let explicit_commit_ids = resolve_commit_ids(mut_repo, "all()").into_iter().join("|");
+
     for count in 1..=expected_order.len() {
         let result = resolve_commit_ids(mut_repo, &format!("latest(all(), {count})"));
         assert_eq!(result.len(), count);
         for expected_item in &expected_order[0..count] {
             assert!(result.contains(expected_item));
         }
+        let result_explicit_commit_ids =
+            resolve_commit_ids(mut_repo, &format!("latest({explicit_commit_ids}, {count})"));
+        assert_eq!(result_explicit_commit_ids, result);
     }
 
     // Since only the commit with timestamp 1 is out of order, if we exclude it from
