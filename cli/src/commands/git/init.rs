@@ -91,6 +91,23 @@ pub struct GitInitArgs {
     #[arg(long, conflicts_with = "colocate")]
     no_colocate: bool,
 
+    /// Object hash algorithm for the newly created Git repository.
+    ///
+    /// Corresponds to `git init`'s `--object-format` option. If not given, the
+    /// [git.object-hash config] determines the default value.
+    ///
+    /// Note that the object hash cannot currently be changed for an existing
+    /// repo, and not all code forges support SHA-256 repositories yet. See also
+    /// Git's [hash-function-transition] document for an in-depth explanation of
+    /// the migration towards stronger hash functions.
+    ///
+    /// [git.object-hash config]:
+    ///     https://docs.jj-vcs.dev/latest/config/#default-object-hash-format
+    /// [hash-function-transition]:
+    ///     https://git-scm.com/docs/hash-function-transition
+    #[arg(long, value_enum, conflicts_with = "git_repo")]
+    object_hash: Option<ObjectHash>,
+
     /// Specifies a path to an **existing** git repository to be
     /// used as the backing git repo for the newly created `jj` repo.
     ///
@@ -101,8 +118,30 @@ pub struct GitInitArgs {
     ///
     /// This option is mutually exclusive with `--colocate`, and so if passed,
     /// turns colocation off.
-    #[arg(long, conflicts_with = "colocate", value_hint = clap::ValueHint::DirPath)]
+    #[arg(
+        long,
+        conflicts_with_all = ["colocate", "object_hash"],
+        value_hint = clap::ValueHint::DirPath,
+    )]
     git_repo: Option<String>,
+}
+
+#[derive(Debug, Default, Clone, Copy, serde::Deserialize, clap::ValueEnum)]
+#[serde(rename_all = "lowercase")]
+#[value(rename_all = "lower")]
+enum ObjectHash {
+    #[default]
+    Sha1,
+    Sha256,
+}
+
+impl From<ObjectHash> for gix::hash::Kind {
+    fn from(value: ObjectHash) -> Self {
+        match value {
+            ObjectHash::Sha1 => Self::Sha1,
+            ObjectHash::Sha256 => Self::Sha256,
+        }
+    }
 }
 
 pub async fn cmd_git_init(
@@ -131,7 +170,19 @@ pub async fn cmd_git_init(
         args.colocate
     };
 
-    do_init(ui, command, &wc_path, colocate, args.git_repo.as_deref()).await?;
+    let object_hash = args.object_hash.map_or_else(
+        || command.settings().get::<ObjectHash>("git.object-hash"),
+        Result::Ok,
+    )?;
+    do_init(
+        ui,
+        command,
+        &wc_path,
+        colocate,
+        object_hash.into(),
+        args.git_repo.as_deref(),
+    )
+    .await?;
 
     let relative_wc_path = file_util::relative_path(cwd, &wc_path);
     writeln!(
@@ -148,6 +199,7 @@ async fn do_init(
     command: &CommandHelper,
     workspace_root: &Path,
     colocate: bool,
+    object_hash: gix::hash::Kind,
     git_repo: Option<&str>,
 ) -> Result<(), CommandError> {
     #[derive(Clone, Debug)]
@@ -200,7 +252,7 @@ async fn do_init(
     match &init_mode {
         GitInitMode::Colocate => {
             let (workspace, repo) =
-                Workspace::init_colocated_git(&settings, workspace_root).await?;
+                Workspace::init_colocated_git(&settings, workspace_root, Some(object_hash)).await?;
             let workspace_command = command.for_workable_repo(ui, workspace, repo)?;
             maybe_add_gitignore(&workspace_command)?;
         }
@@ -234,7 +286,7 @@ async fn do_init(
             print_trackable_remote_bookmarks(ui, workspace_command.repo().view())?;
         }
         GitInitMode::Internal => {
-            Workspace::init_internal_git(&settings, workspace_root).await?;
+            Workspace::init_internal_git(&settings, workspace_root, Some(object_hash)).await?;
         }
     }
     Ok(())
