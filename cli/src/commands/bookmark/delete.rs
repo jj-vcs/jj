@@ -13,11 +13,15 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCandidates;
+use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
+use jj_lib::iter_util::fallible_any;
 use jj_lib::op_store::RefTarget;
+use jj_lib::str_util::StringExpression;
 
 use super::warn_unmatched_local_bookmarks;
 use crate::cli_util::CommandHelper;
+use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::revset_util::parse_union_name_patterns;
@@ -34,6 +38,7 @@ use crate::ui::Ui;
 /// If you don't want the deletion of the local bookmark to propagate to any
 /// tracked remote bookmarks, use `jj bookmark forget` instead.
 #[derive(clap::Args, Clone, Debug)]
+#[command(group(clap::ArgGroup::new("source").multiple(true).required(true)))]
 pub struct BookmarkDeleteArgs {
     /// The bookmarks to delete
     ///
@@ -42,9 +47,14 @@ pub struct BookmarkDeleteArgs {
     ///
     /// [string pattern syntax]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
-    #[arg(required = true)]
+    #[arg(group = "source")]
     #[arg(add = ArgValueCandidates::new(complete::local_bookmarks))]
-    names: Vec<String>,
+    names: Option<Vec<String>>,
+    
+    /// Delete bookmarks from the given revisions
+    #[arg(long, short, group = "source", value_name = "REVSETS")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
+    from: Vec<RevisionArg>,
 }
 
 pub async fn cmd_bookmark_delete(
@@ -54,13 +64,33 @@ pub async fn cmd_bookmark_delete(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui).await?;
     let repo = workspace_command.repo().clone();
-    let name_expr = parse_union_name_patterns(ui, &args.names)?;
-    let name_matcher = name_expr.to_matcher();
-    let matched_bookmarks = repo
-        .view()
-        .local_bookmarks_matching(&name_matcher)
-        .collect_vec();
-    warn_unmatched_local_bookmarks(ui, repo.view(), &name_expr)?;
+    let matched_bookmarks = {
+        let is_source_ref: Box<dyn Fn(&RefTarget) -> _> = if !args.from.is_empty() {
+            let is_source_commit = workspace_command
+                .parse_union_revsets(ui, &args.from)?
+                .evaluate()?
+                .containing_fn();
+            Box::new(move |target| fallible_any(target.added_ids(), &is_source_commit))
+        } else {
+            Box::new(|_| Ok(true))
+        };
+        let name_expr = match &args.names {
+            Some(texts) => parse_union_name_patterns(ui, texts)?,
+            None => StringExpression::all(),
+        };
+        let name_matcher = name_expr.to_matcher();
+        let bookmarks: Vec<_> = repo
+            .view()
+            .local_bookmarks_matching(&name_matcher)
+            .filter_map(|(name, target)| {
+                is_source_ref(target)
+                    .map(|matched| matched.then_some((name, target)))
+                    .transpose()
+            })
+            .try_collect()?;
+        warn_unmatched_local_bookmarks(ui, repo.view(), &name_expr)?;
+        bookmarks
+    };
     if matched_bookmarks.is_empty() {
         writeln!(ui.status(), "No bookmarks to delete.")?;
         return Ok(());

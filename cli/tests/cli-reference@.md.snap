@@ -451,7 +451,7 @@ Revisions referred to by the deleted bookmarks are not abandoned. To delete revi
 
 If you don't want the deletion of the local bookmark to propagate to any tracked remote bookmarks, use `jj bookmark forget` instead.
 
-**Usage:** `jj bookmark delete <NAMES>...`
+**Usage:** `jj bookmark delete <NAMES|--from <REVSETS>>`
 
 **Command Alias:** `d`
 
@@ -462,6 +462,10 @@ If you don't want the deletion of the local bookmark to propagate to any tracked
    By default, the specified pattern matches bookmark names with glob syntax. You can also use other [string pattern syntax].
 
    [string pattern syntax]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
+
+###### **Options:**
+
+* `-f`, `--from <REVSETS>` — Delete bookmarks from the given revisions
 
 
 
