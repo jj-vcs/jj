@@ -541,7 +541,7 @@ pub fn operations() -> Vec<CompletionCandidate> {
 
 pub fn workspaces() -> Vec<CompletionCandidate> {
     let template = indoc! {r#"
-        name ++ "\t" ++ if(
+        name.substr(0) ++ "\t" ++ if(
             target.description(),
             target.description().first_line(),
             "(no description set)"
