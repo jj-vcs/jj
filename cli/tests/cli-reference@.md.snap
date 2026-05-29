@@ -1614,6 +1614,16 @@ Create a new repo backed by a clone of a Git repo
    By default, the specified pattern matches tag names with glob syntax, but only `*` is expanded. Other wildcard characters such as `?` are *not* supported. Patterns can be repeated or combined with [logical operators] to specify multiple tags, but only union and negative intersection are supported.
 
    [logical operators]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
+* `--object-hash <OBJECT_HASH>` — Object hash algorithm for the local Git repository.
+
+   *Must* match the remote's hash algorithm, otherwise the operation will fail. Most existing repositories today still use the classic SHA-1 format, which is also the default if not configured otherwise by the [git.object-hash config].
+
+   See also Git's [hash-function-transition] document for an in-depth explanation of the migration towards stronger hash functions.
+
+   [git.object-hash config]: https://docs.jj-vcs.dev/latest/config/#default-object-hash-format [hash-function-transition]: https://git-scm.com/docs/hash-function-transition
+
+  Possible values: `sha1`, `sha256`
+
 
 
 

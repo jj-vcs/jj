@@ -279,3 +279,20 @@ fn join_string_expressions(exprs: &[String]) -> String {
         _ => exprs.join(" | "), // no parentheses since | is the weakest operator
     }
 }
+
+#[derive(Debug, Clone, Copy, serde::Deserialize, clap::ValueEnum)]
+#[serde(rename_all = "lowercase")]
+#[value(rename_all = "lower")]
+enum ObjectHash {
+    Sha1,
+    Sha256,
+}
+
+impl From<ObjectHash> for gix::hash::Kind {
+    fn from(value: ObjectHash) -> Self {
+        match value {
+            ObjectHash::Sha1 => Self::Sha1,
+            ObjectHash::Sha256 => Self::Sha256,
+        }
+    }
+}
