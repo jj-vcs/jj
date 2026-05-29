@@ -57,7 +57,8 @@ fn test_init_internal_git() -> TestResult {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let (canonical, uncanonical) = canonicalize(temp_dir.path());
-    let (workspace, repo) = Workspace::init_internal_git(&settings, &uncanonical).block_on()?;
+    let (workspace, repo) =
+        Workspace::init_internal_git(&settings, &uncanonical, gix::hash::Kind::Sha1).block_on()?;
     let git_backend: &GitBackend = repo.store().backend_impl().unwrap();
     let repo_path = canonical.join(".jj").join("repo");
     assert_eq!(workspace.workspace_root(), &canonical);
@@ -82,7 +83,8 @@ fn test_init_colocated_git() -> TestResult {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let (canonical, uncanonical) = canonicalize(temp_dir.path());
-    let (workspace, repo) = Workspace::init_colocated_git(&settings, &uncanonical).block_on()?;
+    let (workspace, repo) =
+        Workspace::init_colocated_git(&settings, &uncanonical, gix::hash::Kind::Sha1).block_on()?;
     let git_backend: &GitBackend = repo.store().backend_impl().unwrap();
     let repo_path = canonical.join(".jj").join("repo");
     assert_eq!(workspace.workspace_root(), &canonical);
