@@ -52,13 +52,14 @@ fn test_init_local() -> TestResult {
     Ok(())
 }
 
-#[test]
-fn test_init_internal_git() -> TestResult {
+#[test_case(gix::hash::Kind::Sha1 ; "sha1")]
+#[test_case(gix::hash::Kind::Sha256; "sha256")]
+fn test_init_internal_git(object_hash: gix::hash::Kind) -> TestResult {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let (canonical, uncanonical) = canonicalize(temp_dir.path());
     let (workspace, repo) =
-        Workspace::init_internal_git(&settings, &uncanonical, gix::hash::Kind::Sha1).block_on()?;
+        Workspace::init_internal_git(&settings, &uncanonical, object_hash).block_on()?;
     let git_backend: &GitBackend = repo.store().backend_impl().unwrap();
     let repo_path = canonical.join(".jj").join("repo");
     assert_eq!(workspace.workspace_root(), &canonical);
@@ -78,13 +79,14 @@ fn test_init_internal_git() -> TestResult {
     Ok(())
 }
 
-#[test]
-fn test_init_colocated_git() -> TestResult {
+#[test_case(gix::hash::Kind::Sha1 ; "sha1")]
+#[test_case(gix::hash::Kind::Sha256; "sha256")]
+fn test_init_colocated_git(object_hash: gix::hash::Kind) -> TestResult {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let (canonical, uncanonical) = canonicalize(temp_dir.path());
     let (workspace, repo) =
-        Workspace::init_colocated_git(&settings, &uncanonical, gix::hash::Kind::Sha1).block_on()?;
+        Workspace::init_colocated_git(&settings, &uncanonical, object_hash).block_on()?;
     let git_backend: &GitBackend = repo.store().backend_impl().unwrap();
     let repo_path = canonical.join(".jj").join("repo");
     assert_eq!(workspace.workspace_root(), &canonical);

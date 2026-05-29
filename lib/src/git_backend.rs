@@ -1614,6 +1614,7 @@ mod tests {
     use gix::objs::CommitRef;
     use indoc::indoc;
     use pollster::FutureExt as _;
+    use test_case::test_case;
 
     use super::*;
     use crate::config::StackedConfig;
@@ -1639,24 +1640,28 @@ mod tests {
             .strict_config(true)
     }
 
-    fn git_init(directory: impl AsRef<Path>) -> gix::Repository {
+    fn git_init(directory: impl AsRef<Path>, object_hash: gix::hash::Kind) -> gix::Repository {
         gix::ThreadSafeRepository::init_opts(
             directory,
             gix::create::Kind::WithWorktree,
-            gix::create::Options::default(),
+            gix::create::Options {
+                object_hash: Some(object_hash),
+                ..Default::default()
+            },
             open_options(),
         )
         .unwrap()
         .to_thread_local()
     }
 
-    #[test]
-    fn read_plain_git_commit() -> TestResult {
+    #[test_case(gix::hash::Kind::Sha1 ; "sha1")]
+    #[test_case(gix::hash::Kind::Sha256; "sha256")]
+    fn read_plain_git_commit(object_hash: gix::hash::Kind) -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
         let git_repo_path = temp_dir.path().join("git");
-        let git_repo = git_init(git_repo_path);
+        let git_repo = git_init(git_repo_path, object_hash);
 
         // Add a commit with some files in
         let blob1 = git_repo.write_blob(b"content1")?.detach();
@@ -1689,9 +1694,20 @@ mod tests {
             )?
             .detach();
         git_repo.find_reference("refs/heads/dummy")?.delete()?;
-        let commit_id = CommitId::from_hex("efdcea5ca4b3658149f899ca7feee6876d077263");
         // The change id is the leading reverse bits of the commit id
-        let change_id = ChangeId::from_hex("c64ee0b6e16777fe53991f9281a6cd25");
+        let (commit_id, change_id) = match object_hash {
+            gix::hash::Kind::Sha1 => (
+                CommitId::from_hex("efdcea5ca4b3658149f899ca7feee6876d077263"),
+                ChangeId::from_hex("c64ee0b6e16777fe53991f9281a6cd25"),
+            ),
+            gix::hash::Kind::Sha256 => (
+                CommitId::from_hex(
+                    "64366022e4938d697015b775945be93aea6d3fc221feeaf7c516420262e3fa54",
+                ),
+                ChangeId::from_hex("2a5fc746404268a3ef577f8443fcb657"),
+            ),
+            _ => unreachable!(),
+        };
         // Check that the git commit above got the hash we expect
         assert_eq!(
             git_commit_id.as_bytes(),
@@ -1728,7 +1744,10 @@ mod tests {
 
         let commit = backend.read_commit(&commit_id).block_on()?;
         assert_eq!(&commit.change_id, &change_id);
-        assert_eq!(commit.parents, vec![CommitId::from_bytes(&[0; 20])]);
+        assert_eq!(
+            commit.parents,
+            vec![CommitId::from_bytes(object_hash.null_ref().as_bytes())]
+        );
         assert_eq!(commit.predecessors, vec![]);
         assert_eq!(
             commit.root_tree,
@@ -1800,13 +1819,14 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn read_git_commit_without_importing() -> TestResult {
+    #[test_case(gix::hash::Kind::Sha1 ; "sha1")]
+    #[test_case(gix::hash::Kind::Sha256; "sha256")]
+    fn read_git_commit_without_importing(object_hash: gix::hash::Kind) -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
         let git_repo_path = temp_dir.path().join("git");
-        let git_repo = git_init(&git_repo_path);
+        let git_repo = git_init(&git_repo_path, object_hash);
 
         let signature = gix::actor::Signature {
             name: GIT_USER.into(),
@@ -1843,13 +1863,14 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn read_signed_git_commit() -> TestResult {
+    #[test_case(gix::hash::Kind::Sha1 ; "sha1")]
+    #[test_case(gix::hash::Kind::Sha256; "sha256")]
+    fn read_signed_git_commit(object_hash: gix::hash::Kind) -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
         let git_repo_path = temp_dir.path().join("git");
-        let git_repo = git_init(git_repo_path);
+        let git_repo = git_init(git_repo_path, object_hash);
 
         let signature = gix::actor::Signature {
             name: GIT_USER.into(),
@@ -1877,6 +1898,7 @@ mod tests {
 
         commit
             .extra_headers
+            // TODO: should this conditionally become gpgsig-sha256 once gix supports it?
             .push(("gpgsig".into(), secure_sig.into()));
 
         let git_commit_id = git_repo.write_object(&commit)?;
@@ -1967,8 +1989,9 @@ mod tests {
         );
     }
 
-    #[test]
-    fn round_trip_change_id_via_git_header() -> TestResult {
+    #[test_case(gix::hash::Kind::Sha1 ; "sha1")]
+    #[test_case(gix::hash::Kind::Sha256; "sha256")]
+    fn round_trip_change_id_via_git_header(object_hash: gix::hash::Kind) -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
 
@@ -1977,7 +2000,7 @@ mod tests {
         let empty_store_path = temp_dir.path().join("empty_store");
         fs::create_dir(&empty_store_path)?;
         let git_repo_path = temp_dir.path().join("git");
-        let git_repo = git_init(git_repo_path);
+        let git_repo = git_init(git_repo_path, object_hash);
 
         let backend = GitBackend::init_external(&settings, &store_path, git_repo.path())?;
         let original_change_id = ChangeId::from_hex("1111eeee1111eeee1111eeee1111eeee");
@@ -2063,13 +2086,14 @@ mod tests {
     }
 
     /// Test that parents get written correctly
-    #[test]
-    fn git_commit_parents() -> TestResult {
+    #[test_case(gix::hash::Kind::Sha1 ; "sha1")]
+    #[test_case(gix::hash::Kind::Sha256; "sha256")]
+    fn git_commit_parents(object_hash: gix::hash::Kind) -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
         let git_repo_path = temp_dir.path().join("git");
-        let git_repo = git_init(&git_repo_path);
+        let git_repo = git_init(&git_repo_path, object_hash);
 
         let backend = GitBackend::init_external(&settings, store_path, git_repo.path())?;
         let mut commit = Commit {
@@ -2134,13 +2158,14 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn write_tree_conflicts() -> TestResult {
+    #[test_case(gix::hash::Kind::Sha1 ; "sha1")]
+    #[test_case(gix::hash::Kind::Sha256; "sha256")]
+    fn write_tree_conflicts(object_hash: gix::hash::Kind) -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
         let git_repo_path = temp_dir.path().join("git");
-        let git_repo = git_init(&git_repo_path);
+        let git_repo = git_init(&git_repo_path, object_hash);
 
         let backend = GitBackend::init_external(&settings, store_path, git_repo.path())?;
         let create_tree = |i| {
@@ -2251,11 +2276,12 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn commit_has_ref() -> TestResult {
+    #[test_case(gix::hash::Kind::Sha1 ; "sha1")]
+    #[test_case(gix::hash::Kind::Sha256; "sha256")]
+    fn commit_has_ref(object_hash: gix::hash::Kind) -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
-        let backend = GitBackend::init_internal(&settings, temp_dir.path(), gix::hash::Kind::Sha1)?;
+        let backend = GitBackend::init_internal(&settings, temp_dir.path(), object_hash)?;
         let git_repo = backend.git_repo();
         let signature = Signature {
             name: "Someone".to_string(),
@@ -2299,11 +2325,12 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn import_head_commits_duplicates() -> TestResult {
+    #[test_case(gix::hash::Kind::Sha1 ; "sha1")]
+    #[test_case(gix::hash::Kind::Sha256; "sha256")]
+    fn import_head_commits_duplicates(object_hash: gix::hash::Kind) -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
-        let backend = GitBackend::init_internal(&settings, temp_dir.path(), gix::hash::Kind::Sha1)?;
+        let backend = GitBackend::init_internal(&settings, temp_dir.path(), object_hash)?;
         let git_repo = backend.git_repo();
 
         let signature = gix::actor::Signature {
@@ -2335,11 +2362,12 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn overlapping_git_commit_id() -> TestResult {
+    #[test_case(gix::hash::Kind::Sha1 ; "sha1")]
+    #[test_case(gix::hash::Kind::Sha256; "sha256")]
+    fn overlapping_git_commit_id(object_hash: gix::hash::Kind) -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
-        let backend = GitBackend::init_internal(&settings, temp_dir.path(), gix::hash::Kind::Sha1)?;
+        let backend = GitBackend::init_internal(&settings, temp_dir.path(), object_hash)?;
         let commit1 = Commit {
             parents: vec![backend.root_commit_id().clone()],
             predecessors: vec![],
@@ -2376,10 +2404,65 @@ mod tests {
     }
 
     #[test]
-    fn write_signed_commit() -> TestResult {
+    fn write_signed_commit_sha1() -> TestResult {
+        let (obj, sig) = write_signed_commit(gix::hash::Kind::Sha1)?;
+        insta::assert_snapshot!(&obj, @"
+        tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904
+        author Someone <someone@example.com> 0 +0000
+        committer Someone <someone@example.com> 0 +0000
+        change-id xpxpxpxpxpxpxpxpxpxpxpxpxpxpxpxp
+        gpgsig test sig
+         hash=03feb0caccbacce2e7b7bca67f4c82292dd487e669ed8a813120c9f82d3fd0801420a1f5d05e1393abfe4e9fc662399ec4a9a1898c5f1e547e0044a52bd4bd29
+
+        initial
+        ");
+        insta::assert_snapshot!(str::from_utf8(&sig.sig)?, @"
+        test sig
+        hash=03feb0caccbacce2e7b7bca67f4c82292dd487e669ed8a813120c9f82d3fd0801420a1f5d05e1393abfe4e9fc662399ec4a9a1898c5f1e547e0044a52bd4bd29
+        ");
+        insta::assert_snapshot!(str::from_utf8(&sig.data)?, @"
+        tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904
+        author Someone <someone@example.com> 0 +0000
+        committer Someone <someone@example.com> 0 +0000
+        change-id xpxpxpxpxpxpxpxpxpxpxpxpxpxpxpxp
+
+        initial
+        ");
+        Ok(())
+    }
+
+    #[test]
+    fn write_signed_commit_sha256() -> TestResult {
+        let (obj, sig) = write_signed_commit(gix::hash::Kind::Sha256)?;
+        insta::assert_snapshot!(&obj, @"
+        tree 6ef19b41225c5369f1c104d45d8d85efa9b057b53b14b4b9b939dd74decc5321
+        author Someone <someone@example.com> 0 +0000
+        committer Someone <someone@example.com> 0 +0000
+        change-id xpxpxpxpxpxpxpxpxpxpxpxpxpxpxpxp
+        gpgsig test sig
+         hash=d6219e8e5169d409d115848dea4556b3accc76f3cd8dc9b128cc3fe9f71adae275f0e6ce9f98c581a89b960863b61c61b6479cdc20806009d63aecaaa82f4590
+
+        initial
+        ");
+        insta::assert_snapshot!(str::from_utf8(&sig.sig)?, @"
+        test sig
+        hash=d6219e8e5169d409d115848dea4556b3accc76f3cd8dc9b128cc3fe9f71adae275f0e6ce9f98c581a89b960863b61c61b6479cdc20806009d63aecaaa82f4590
+        ");
+        insta::assert_snapshot!(str::from_utf8(&sig.data)?, @"
+        tree 6ef19b41225c5369f1c104d45d8d85efa9b057b53b14b4b9b939dd74decc5321
+        author Someone <someone@example.com> 0 +0000
+        committer Someone <someone@example.com> 0 +0000
+        change-id xpxpxpxpxpxpxpxpxpxpxpxpxpxpxpxp
+
+        initial
+        ");
+        Ok(())
+    }
+
+    fn write_signed_commit(object_hash: gix::hash::Kind) -> TestResult<(String, SecureSig)> {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
-        let backend = GitBackend::init_internal(&settings, temp_dir.path(), gix::hash::Kind::Sha1)?;
+        let backend = GitBackend::init_internal(&settings, temp_dir.path(), object_hash)?;
 
         let commit = Commit {
             parents: vec![backend.root_commit_id().clone()],
@@ -2401,40 +2484,15 @@ mod tests {
         let (id, commit) = backend
             .write_commit(commit, Some(&mut signer as &mut SigningFn))
             .block_on()?;
-
-        let git_repo = backend.git_repo();
-        let obj = git_repo.find_object(gix::ObjectId::from_bytes_or_panic(id.as_bytes()))?;
-        insta::assert_snapshot!(str::from_utf8(&obj.data)?, @"
-        tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904
-        author Someone <someone@example.com> 0 +0000
-        committer Someone <someone@example.com> 0 +0000
-        change-id xpxpxpxpxpxpxpxpxpxpxpxpxpxpxpxp
-        gpgsig test sig
-         hash=03feb0caccbacce2e7b7bca67f4c82292dd487e669ed8a813120c9f82d3fd0801420a1f5d05e1393abfe4e9fc662399ec4a9a1898c5f1e547e0044a52bd4bd29
-
-        initial
-        ");
-
         let returned_sig = commit.secure_sig.expect("failed to return the signature");
 
         let commit = backend.read_commit(&id).block_on()?;
-
         let sig = commit.secure_sig.expect("failed to read the signature");
         assert_eq!(&sig, &returned_sig);
 
-        insta::assert_snapshot!(str::from_utf8(&sig.sig)?, @"
-        test sig
-        hash=03feb0caccbacce2e7b7bca67f4c82292dd487e669ed8a813120c9f82d3fd0801420a1f5d05e1393abfe4e9fc662399ec4a9a1898c5f1e547e0044a52bd4bd29
-        ");
-        insta::assert_snapshot!(str::from_utf8(&sig.data)?, @"
-        tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904
-        author Someone <someone@example.com> 0 +0000
-        committer Someone <someone@example.com> 0 +0000
-        change-id xpxpxpxpxpxpxpxpxpxpxpxpxpxpxpxp
-
-        initial
-        ");
-        Ok(())
+        let git_repo = backend.git_repo();
+        let obj = git_repo.find_object(gix::ObjectId::from_bytes_or_panic(id.as_bytes()))?;
+        Ok((String::from_utf8(obj.data.clone())?, sig))
     }
 
     fn git_id(commit_id: &CommitId) -> gix::ObjectId {
