@@ -34,6 +34,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::str_util::StringExpression;
 use jj_lib::workspace::Workspace;
 
+use super::ObjectHash;
 use super::RepoPresets;
 use super::write_repo_presets;
 use crate::cli_util::CommandHelper;
@@ -139,6 +140,23 @@ pub struct GitCloneArgs {
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     #[arg(long = "tag", short, value_name = "TAG")]
     tags: Option<Vec<String>>,
+
+    /// Object hash algorithm for the local Git repository.
+    ///
+    /// *Must* match the remote's hash algorithm, otherwise the operation will
+    /// fail. Most existing repositories today still use the classic SHA-1
+    /// format, which is also the default if not configured otherwise by the
+    /// [git.object-hash config].
+    ///
+    /// See also Git's [hash-function-transition] document for an in-depth
+    /// explanation of the migration towards stronger hash functions.
+    ///
+    /// [git.object-hash config]:
+    ///     https://docs.jj-vcs.dev/latest/config/#default-object-hash-format
+    /// [hash-function-transition]:
+    ///     https://git-scm.com/docs/hash-function-transition
+    #[arg(long, value_enum)]
+    object_hash: Option<ObjectHash>,
 }
 
 fn clone_destination_for_source(source: &str) -> Option<&str> {
@@ -191,6 +209,10 @@ pub async fn cmd_git_clone(
         Some(texts) => Some(parse_union_name_patterns(ui, texts)?),
         None => is_specific.then(StringExpression::none),
     };
+    let object_hash = args.object_hash.map_or_else(
+        || command.settings().get::<ObjectHash>("git.object-hash"),
+        Result::Ok,
+    )?;
 
     // Canonicalize because fs::remove_dir_all() doesn't seem to like e.g.
     // `/some/path/.`
@@ -198,8 +220,14 @@ pub async fn cmd_git_clone(
         .map_err(|err| user_error_with_message(format!("Failed to create {wc_path_str}"), err))?;
 
     let clone_result: Result<_, CommandError> = async {
-        let (workspace_command, config_env) =
-            init_workspace(ui, command, &canonical_wc_path, colocate).await?;
+        let (workspace_command, config_env) = init_workspace(
+            ui,
+            command,
+            &canonical_wc_path,
+            colocate,
+            object_hash.into(),
+        )
+        .await?;
         let remote_settings = workspace_command.settings().remote_settings()?;
         let bookmark = if let Some(expr) = &specific_bookmark_expr {
             expr.clone()
@@ -299,14 +327,13 @@ async fn init_workspace(
     command: &CommandHelper,
     wc_path: &Path,
     colocate: bool,
+    object_hash: gix::hash::Kind,
 ) -> Result<(WorkspaceCommandHelper, ConfigEnv), CommandError> {
     let (settings, config_env) = command.settings_for_new_workspace(ui, wc_path)?;
-    // TODO: cloning needs to obtain the object hash from remote, figure out a
-    // solution (git does it in a funny way)
     let (workspace, repo) = if colocate {
-        Workspace::init_colocated_git(&settings, wc_path, Default::default()).await?
+        Workspace::init_colocated_git(&settings, wc_path, object_hash).await?
     } else {
-        Workspace::init_internal_git(&settings, wc_path, Default::default()).await?
+        Workspace::init_internal_git(&settings, wc_path, object_hash).await?
     };
     let workspace_command = command.for_workable_repo(ui, workspace, repo)?;
     maybe_add_gitignore(&workspace_command)?;

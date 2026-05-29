@@ -30,6 +30,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::view::View;
 use jj_lib::workspace::Workspace;
 
+use super::ObjectHash;
 use super::RepoPresets;
 use super::write_repo_presets;
 use crate::cli_util::CommandHelper;
@@ -125,24 +126,6 @@ pub struct GitInitArgs {
         value_hint = clap::ValueHint::DirPath,
     )]
     git_repo: Option<String>,
-}
-
-#[derive(Debug, Default, Clone, Copy, serde::Deserialize, clap::ValueEnum)]
-#[serde(rename_all = "lowercase")]
-#[value(rename_all = "lower")]
-enum ObjectHash {
-    #[default]
-    Sha1,
-    Sha256,
-}
-
-impl From<ObjectHash> for gix::hash::Kind {
-    fn from(value: ObjectHash) -> Self {
-        match value {
-            ObjectHash::Sha1 => Self::Sha1,
-            ObjectHash::Sha256 => Self::Sha256,
-        }
-    }
 }
 
 pub async fn cmd_git_init(
