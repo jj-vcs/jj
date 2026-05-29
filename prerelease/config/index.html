@@ -4861,6 +4861,14 @@ the following config keys.</p>
 <p>If <code>edit-args = []</code>, <code>jj</code> will refuse to use this tool for diff editing. This is a way to explicitly state that a certain tool (e.g. <code>mergiraf</code>) does not work for diff editing.</p>
 </li>
 </ul>
+<p>Like diff viewing, diff editors are invoked with a directory containing the left
+and right sides by default. The <code>edit-invocation-mode</code> config controls this
+independently of <code>diff-invocation-mode</code>, so you can, for example, keep
+directory-based diff viewing but launch the diff editor once per changed file:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[merge-tools.my-tool]</span>
+<span class="n">diff-invocation-mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;dir&quot;</span>
+<span class="n">edit-invocation-mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;file-by-file&quot;</span>
+</code></pre></div>
 <p>Finally, <code>ui.diff-editor</code> can be a list that specifies a command and its arguments.</p>
 <p>Some examples:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[ui]</span>

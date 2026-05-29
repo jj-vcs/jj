@@ -7099,6 +7099,12 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <p>Added <code>jj util backend name</code> command that prints the backend being used in the
   current repo.</p>
 </li>
+<li>
+<p>Added <code>edit-invocation-mode</code> config option for diff editors (e.g.
+  <code>jj diffedit</code>, <code>jj split</code>). When set to <code>"file-by-file"</code>, the editor is
+  launched once per changed file, making it possible to use per-file tools like
+  <code>vimdiff</code> for editing.</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
