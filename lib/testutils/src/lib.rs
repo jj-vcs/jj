@@ -247,7 +247,11 @@ impl TestRepoBackend {
         store_path: &Path,
     ) -> Result<Box<dyn Backend>, BackendInitError> {
         match self {
-            Self::Git => Ok(Box::new(GitBackend::init_internal(settings, store_path)?)),
+            Self::Git => Ok(Box::new(GitBackend::init_internal(
+                settings,
+                store_path,
+                gix::hash::Kind::default(),
+            )?)),
             Self::Simple => Ok(Box::new(SimpleBackend::init(store_path))),
             Self::Test => Ok(Box::new(env.test_backend_factory.init(store_path))),
         }

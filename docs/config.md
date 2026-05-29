@@ -1778,6 +1778,23 @@ default. Set `git.colocate` to `false` to disable it.
 See [Colocated Jujutsu/Git workspaces](git-compatibility.md#colocated-jujutsugit-repos)
 for more information.
 
+### Default object hash format
+
+Traditionally, Git used the SHA-1 hash function to compute the identifiers for
+[objects]. Because SHA-1 is not considered cryptographically secure anymore, Git
+is in the [process of transitioning][transition] to a stronger hash function,
+namely SHA-256.
+
+Currently, the object hash function can only be set when initializing a new Git
+repository. The setting `git.object-hash` controls the default choice for that
+purpose. It can take the values `sha1` (default) and `sha256`.
+
+Note that at the moment there is no interopability between the formats, and not
+all code forges support SHA-256 repositories yet.
+
+[objects]: https://git-scm.com/book/en/v2/Git-Internals-Git-Objects
+[transition]: https://git-scm.com/docs/hash-function-transition
+
 ### Default remotes for `jj git fetch` and `jj git push`
 
 By default, if a single remote exists it is used for `jj git fetch` and `jj git

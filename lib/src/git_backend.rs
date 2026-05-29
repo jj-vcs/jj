@@ -214,12 +214,16 @@ impl GitBackend {
     pub fn init_internal(
         settings: &UserSettings,
         store_path: &Path,
+        object_hash: gix::hash::Kind,
     ) -> Result<Self, Box<GitBackendInitError>> {
         let git_repo_path = Path::new("git");
         let git_repo = gix::ThreadSafeRepository::init_opts(
             store_path.join(git_repo_path),
             gix::create::Kind::Bare,
-            gix::create::Options::default(),
+            gix::create::Options {
+                object_hash: Some(object_hash),
+                ..Default::default()
+            },
             gix_open_opts_from_settings(settings),
         )
         .map_err(GitBackendInitError::InitRepository)?;
@@ -234,6 +238,7 @@ impl GitBackend {
         settings: &UserSettings,
         store_path: &Path,
         workspace_root: &Path,
+        object_hash: gix::hash::Kind,
     ) -> Result<Self, Box<GitBackendInitError>> {
         let canonical_workspace_root = {
             let path = store_path.join(workspace_root);
@@ -244,7 +249,10 @@ impl GitBackend {
         let git_repo = gix::ThreadSafeRepository::init_opts(
             canonical_workspace_root,
             gix::create::Kind::WithWorktree,
-            gix::create::Options::default(),
+            gix::create::Options {
+                object_hash: Some(object_hash),
+                ..Default::default()
+            },
             gix_open_opts_from_settings(settings),
         )
         .map_err(GitBackendInitError::InitRepository)?;
@@ -2247,7 +2255,7 @@ mod tests {
     fn commit_has_ref() -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
-        let backend = GitBackend::init_internal(&settings, temp_dir.path())?;
+        let backend = GitBackend::init_internal(&settings, temp_dir.path(), gix::hash::Kind::Sha1)?;
         let git_repo = backend.git_repo();
         let signature = Signature {
             name: "Someone".to_string(),
@@ -2295,7 +2303,7 @@ mod tests {
     fn import_head_commits_duplicates() -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
-        let backend = GitBackend::init_internal(&settings, temp_dir.path())?;
+        let backend = GitBackend::init_internal(&settings, temp_dir.path(), gix::hash::Kind::Sha1)?;
         let git_repo = backend.git_repo();
 
         let signature = gix::actor::Signature {
@@ -2331,7 +2339,7 @@ mod tests {
     fn overlapping_git_commit_id() -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
-        let backend = GitBackend::init_internal(&settings, temp_dir.path())?;
+        let backend = GitBackend::init_internal(&settings, temp_dir.path(), gix::hash::Kind::Sha1)?;
         let commit1 = Commit {
             parents: vec![backend.root_commit_id().clone()],
             predecessors: vec![],
@@ -2371,7 +2379,7 @@ mod tests {
     fn write_signed_commit() -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
-        let backend = GitBackend::init_internal(&settings, temp_dir.path())?;
+        let backend = GitBackend::init_internal(&settings, temp_dir.path(), gix::hash::Kind::Sha1)?;
 
         let commit = Commit {
             parents: vec![backend.root_commit_id().clone()],

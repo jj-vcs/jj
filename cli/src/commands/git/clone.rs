@@ -301,10 +301,12 @@ async fn init_workspace(
     colocate: bool,
 ) -> Result<(WorkspaceCommandHelper, ConfigEnv), CommandError> {
     let (settings, config_env) = command.settings_for_new_workspace(ui, wc_path)?;
+    // TODO: cloning needs to obtain the object hash from remote, figure out a
+    // solution (git does it in a funny way)
     let (workspace, repo) = if colocate {
-        Workspace::init_colocated_git(&settings, wc_path).await?
+        Workspace::init_colocated_git(&settings, wc_path, Default::default()).await?
     } else {
-        Workspace::init_internal_git(&settings, wc_path).await?
+        Workspace::init_internal_git(&settings, wc_path, Default::default()).await?
     };
     let workspace_command = command.for_workable_repo(ui, workspace, repo)?;
     maybe_add_gitignore(&workspace_command)?;
