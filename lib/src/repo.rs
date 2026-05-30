@@ -102,6 +102,7 @@ use crate::rewrite::RebasedCommit;
 use crate::rewrite::RewriteRefsOptions;
 use crate::rewrite::merge_commit_trees;
 use crate::rewrite::rebase_commit_with_options;
+use crate::rewrite::reparent_commit_with_options;
 use crate::settings::UserSettings;
 use crate::signing::SignInitError;
 use crate::signing::Signer;
@@ -1428,17 +1429,32 @@ impl MutableRepo {
     pub async fn rebase_descendants_with_options(
         &mut self,
         options: &RebaseOptions,
+        progress: impl FnMut(Commit, RebasedCommit),
+    ) -> BackendResult<()> {
+        self.rebase_or_reparent_descendants_with_options(options, |_| false, progress)
+            .await
+    }
+
+    pub async fn rebase_or_reparent_descendants_with_options(
+        &mut self,
+        options: &RebaseOptions,
+        mut should_restore: impl FnMut(&CommitId) -> bool,
         mut progress: impl FnMut(Commit, RebasedCommit),
     ) -> BackendResult<()> {
-        let roots = self.parent_mapping.keys().cloned().collect();
         self.transform_descendants_with_options(
-            roots,
+            self.parent_mapping.keys().cloned().collect(),
             &HashMap::new(),
             &options.rewrite_refs,
             async |rewriter| {
                 if rewriter.parents_changed() {
                     let old_commit = rewriter.old_commit().clone();
-                    let rebased_commit = rebase_commit_with_options(rewriter, options).await?;
+                    let rebased_commit = if should_restore(old_commit.id()) {
+                        RebasedCommit::Rewritten(
+                            reparent_commit_with_options(rewriter, options).await?,
+                        )
+                    } else {
+                        rebase_commit_with_options(rewriter, options).await?
+                    };
                     progress(old_commit, rebased_commit);
                 }
                 Ok(())
@@ -1447,6 +1463,18 @@ impl MutableRepo {
         .await?;
         self.parent_mapping.clear();
         Ok(())
+    }
+
+    pub async fn rebase_or_reparent_descendants(
+        &mut self,
+        should_restore: impl FnMut(&CommitId) -> bool,
+    ) -> BackendResult<()> {
+        self.rebase_or_reparent_descendants_with_options(
+            &RebaseOptions::default(),
+            should_restore,
+            |_, _| {},
+        )
+        .await
     }
 
     /// Rebase descendants of the rewritten commits.
@@ -1459,10 +1487,10 @@ impl MutableRepo {
     /// emptied following the rebase operation. To customize the rebase
     /// behavior, use [`MutableRepo::rebase_descendants_with_options`].
     pub async fn rebase_descendants(&mut self) -> BackendResult<usize> {
-        let options = RebaseOptions::default();
         let mut num_rebased = 0;
-        self.rebase_descendants_with_options(&options, |_old_commit, _rebased_commit| {
+        self.rebase_or_reparent_descendants(|_| {
             num_rebased += 1;
+            false
         })
         .await?;
         Ok(num_rebased)
@@ -1475,18 +1503,12 @@ impl MutableRepo {
     /// The content of those descendants will remain untouched.
     /// Returns the number of reparented descendants.
     pub async fn reparent_descendants(&mut self) -> BackendResult<usize> {
-        let roots = self.parent_mapping.keys().cloned().collect_vec();
         let mut num_reparented = 0;
-        self.transform_descendants(roots, async |rewriter| {
-            if rewriter.parents_changed() {
-                let builder = rewriter.reparent();
-                builder.write().await?;
-                num_reparented += 1;
-            }
-            Ok(())
+        self.rebase_or_reparent_descendants(|_| {
+            num_reparented += 1;
+            true
         })
         .await?;
-        self.parent_mapping.clear();
         Ok(num_reparented)
     }
 
