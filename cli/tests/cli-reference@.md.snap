@@ -206,11 +206,13 @@ To get started, see the tutorial [`jj help -k tutorial`].
    The command will print the resulting operation ID. You can pass that to e.g. `jj --at-op` to inspect the resulting repo state, or you can pass it to `jj op restore` to restore the repo to that state. You can also pass the ID to `jj op integrate` to integrate the operation.
 
    Note that this does *not* prevent side effects outside the repo. For example, `jj git push --no-integrate-operation` will still perform the push.
-* `--ignore-immutable` — Allow rewriting immutable commits
+* `--allow-immutable` [alias: `ignore-immutable`] — Allow rewriting immutable commits
 
    By default, Jujutsu prevents rewriting commits in the configured set of immutable commits. This option disables that check and lets you rewrite any commit but the root commit.
 
    This option only affects the check. It does not affect the `immutable_heads()` revset or the `immutable` template keyword.
+
+   `--ignore-immutable` is an alias for this option.
 * `--at-operation <AT_OPERATION>` [alias: `at-op`] — Operation to load the repo at
 
    Operation to load the repo at. By default, Jujutsu loads the repo at the most recent operation, or at the merge of the divergent operations if any.
