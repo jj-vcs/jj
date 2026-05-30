@@ -15,8 +15,9 @@ The words "revisions" and "commits" are used interchangeably in this document.
 ## Hidden revisions
 
 Most revsets search only the [visible commits](glossary.md#visible-commits).
-Other commits are only included if you explicitly mention them (e.g. by commit
-ID, `<name>@<remote>` symbol, or `at_operation()` function).
+The visible commits are those in `visible_heads()` and their ancestors. Other
+commits are only included if you explicitly mention them (e.g. by commit ID,
+`<name>@<remote>` symbol, or `at_operation()` function).
 
 If hidden commits are specified, their ancestors also become available to the
 search space. They are included in `all()`, `x..`, `~x`, etc., but not in
@@ -328,8 +329,10 @@ revsets (expressions) as arguments.
 * `remote_tags([name_pattern], [[remote=]remote_pattern])`: All remote tags
   targets across all remotes. See `remote_bookmarks()` for arguments.
 
-* `visible_heads()`: All visible heads (same as `heads(all())` if no hidden
-  revisions are mentioned).
+* `visible_heads()`: All visible heads. This is the list of anonymous heads
+  stored in the [view](glossary.md#view). `all()` is the same as
+  `::(visible_heads() | [hidden])` where `[hidden]` is any hidden revisions
+  mentioned in the revset.
 
 * `root()`: The virtual commit that is the oldest ancestor of all other commits.
 
