@@ -717,12 +717,13 @@ fn materialize_jj_style_conflict(
         conflict_info,
     )?;
     output.write_all(eol)?;
-    let mut snapshot_written = false;
     // The only conflict marker style which can start with a diff is "diff".
-    if conflict_marker_style != ConflictMarkerStyle::Diff {
+    let mut snapshot_written = if conflict_marker_style != ConflictMarkerStyle::Diff {
         write_side(hunk.first(), output)?;
-        snapshot_written = true;
-    }
+        true
+    } else {
+        false
+    };
     for (base_index, left) in hunk.removes().enumerate() {
         let add_index = if snapshot_written {
             base_index + 1
