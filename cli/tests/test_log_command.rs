@@ -1166,6 +1166,15 @@ fn test_default_revset() {
     work_dir.write_file("file1", "foo\n");
     work_dir.run_jj(["describe", "-m", "add a file"]).success();
 
+    // The built-in default log revset can be composed with other revsets.
+    insta::assert_snapshot!(
+        work_dir.run_jj(["log", "-r", "builtin_log() & @", "-T", "description"]), @"
+    @  add a file
+    │
+    ~
+    [EOF]
+    ");
+
     // Set configuration to only show the root commit.
     test_env.add_config(r#"revsets.log = "root()""#);
 
