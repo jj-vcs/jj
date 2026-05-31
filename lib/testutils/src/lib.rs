@@ -758,6 +758,22 @@ pub fn write_random_commit_with_parents(mut_repo: &mut MutableRepo, parents: &[&
         .write_unwrap()
 }
 
+pub fn write_random_commit_with_parents_and_description(
+    mut_repo: &mut MutableRepo,
+    parents: &[&Commit],
+    description: &str,
+) -> Commit {
+    let parents = if parents.is_empty() {
+        &[&mut_repo.store().root_commit()]
+    } else {
+        parents
+    };
+    create_random_commit(mut_repo)
+        .set_description(description)
+        .set_parents(parents.iter().map(|commit| commit.id().clone()).collect())
+        .write_unwrap()
+}
+
 pub fn write_working_copy_file(workspace_root: &Path, path: &RepoPath, contents: impl AsRef<[u8]>) {
     let path = path.to_fs_path(workspace_root).unwrap();
     if let Some(parent) = path.parent() {
