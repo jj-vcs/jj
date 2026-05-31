@@ -150,6 +150,8 @@ pub enum GitRemoteNameError {
     ReservedForLocalGitRepo,
     #[error("Git remotes with slashes are incompatible with jj: {}", .0.as_symbol())]
     WithSlash(RemoteNameBuf),
+    #[error("Git remote name '{}' is invalid: {reason}", name.as_symbol())]
+    InvalidName { name: RemoteNameBuf, reason: String },
 }
 
 fn validate_remote_name(name: &RemoteName) -> Result<(), GitRemoteNameError> {
@@ -157,6 +159,20 @@ fn validate_remote_name(name: &RemoteName) -> Result<(), GitRemoteNameError> {
         Err(GitRemoteNameError::ReservedForLocalGitRepo)
     } else if name.as_str().contains('/') {
         Err(GitRemoteNameError::WithSlash(name.to_owned()))
+    } else if name.as_str().is_empty() {
+        Err(GitRemoteNameError::InvalidName {
+            name: name.to_owned(),
+            reason: String::from("remote name cannot be empty"),
+        })
+    } else if let Some(invalid) = name
+        .as_str()
+        .chars()
+        .find(|c| c.is_ascii_control() || c.is_whitespace())
+    {
+        Err(GitRemoteNameError::InvalidName {
+            name: name.to_owned(),
+            reason: format!("remote name contains invalid character: {invalid:?}"),
+        })
     } else {
         Ok(())
     }

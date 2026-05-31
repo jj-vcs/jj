@@ -55,6 +55,8 @@ use jj_lib::git::GitPushRefTargets;
 use jj_lib::git::GitPushStats;
 use jj_lib::git::GitRefKind;
 use jj_lib::git::GitRefUpdate;
+use jj_lib::git::GitRemoteManagementError;
+use jj_lib::git::GitRemoteNameError;
 use jj_lib::git::GitResetHeadError;
 use jj_lib::git::GitSettings;
 use jj_lib::git::GitSidebandLineTerminator;
@@ -6845,6 +6847,74 @@ fn test_set_remote_urls() -> TestResult {
         remote_name,
         Some("https://example.com/repo/path3"),
         Some("git@example.com:repo/path3"),
+    );
+    Ok(())
+}
+
+#[test]
+fn test_git_add_remote_invalid_name() -> TestResult {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let mut tx = test_repo.repo.start_transaction();
+    let repo_mut = tx.repo_mut();
+
+    // Empty name
+    let result = git::add_remote(
+        repo_mut,
+        "".as_ref(),
+        "https://example.com/repo.git",
+        None,
+        gix::remote::fetch::Tags::None,
+    );
+    assert_matches!(
+        result,
+        Err(GitRemoteManagementError::RemoteName(
+            GitRemoteNameError::InvalidName { .. }
+        ))
+    );
+
+    // Name with space
+    let result = git::add_remote(
+        repo_mut,
+        "foo bar".as_ref(),
+        "https://example.com/repo.git",
+        None,
+        gix::remote::fetch::Tags::None,
+    );
+    assert_matches!(
+        result,
+        Err(GitRemoteManagementError::RemoteName(
+            GitRemoteNameError::InvalidName { .. }
+        ))
+    );
+
+    // Name with tab
+    let result = git::add_remote(
+        repo_mut,
+        "foo\tbar".as_ref(),
+        "https://example.com/repo.git",
+        None,
+        gix::remote::fetch::Tags::None,
+    );
+    assert_matches!(
+        result,
+        Err(GitRemoteManagementError::RemoteName(
+            GitRemoteNameError::InvalidName { .. }
+        ))
+    );
+
+    // Name with newline
+    let result = git::add_remote(
+        repo_mut,
+        "foo\nbar".as_ref(),
+        "https://example.com/repo.git",
+        None,
+        gix::remote::fetch::Tags::None,
+    );
+    assert_matches!(
+        result,
+        Err(GitRemoteManagementError::RemoteName(
+            GitRemoteNameError::InvalidName { .. }
+        ))
     );
     Ok(())
 }
