@@ -80,6 +80,7 @@ use crate::op_store::RefTarget;
 use crate::op_store::RemoteRef;
 use crate::op_store::RemoteRefState;
 use crate::op_store::RootOperationData;
+use crate::op_walk;
 use crate::operation::Operation;
 use crate::ref_name::GitRefName;
 use crate::ref_name::RefName;
@@ -829,8 +830,19 @@ impl RepoLoader {
         let final_op = if num_operations > 1 {
             let base_repo = self.load_at(&base_op).await?;
             let mut tx = base_repo.start_transaction();
+            let mut parent_ops = vec![base_op.clone()];
             for other_op in operations {
-                tx.merge_operation(other_op).await?;
+                let ancestor_ops = op_walk::closest_common_ancestors(
+                    parent_ops.iter().cloned(),
+                    [other_op.clone()],
+                )
+                .await?;
+                let ancestor_op = Box::pin(self.merge_operations(ancestor_ops, None)).await?;
+                let ancestor_op_repo = self.load_at(&ancestor_op).await?;
+                let other_repo = self.load_at(&other_op).await?;
+                parent_ops.push(other_op.clone());
+                tx.push_parent_op(other_op.clone());
+                tx.repo_mut().merge(&ancestor_op_repo, &other_repo).await?;
                 tx.repo_mut().rebase_descendants().await?;
             }
             let tx_description = tx_description.map_or_else(

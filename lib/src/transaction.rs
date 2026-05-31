@@ -94,6 +94,14 @@ impl Transaction {
         &mut self.mut_repo
     }
 
+    pub fn parent_ops(&self) -> &[Operation] {
+        &self.parent_ops
+    }
+
+    pub fn push_parent_op(&mut self, op: Operation) {
+        self.parent_ops.push(op);
+    }
+
     pub async fn merge_operation(&mut self, other_op: Operation) -> Result<(), RepoLoaderError> {
         let ancestor_ops =
             op_walk::closest_common_ancestors(self.parent_ops.iter().cloned(), [other_op.clone()])
