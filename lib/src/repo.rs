@@ -105,7 +105,6 @@ use crate::rewrite::rebase_commit_with_options;
 use crate::settings::UserSettings;
 use crate::signing::SignInitError;
 use crate::signing::Signer;
-use crate::simple_backend::SimpleBackend;
 use crate::simple_op_heads_store::SimpleOpHeadsStore;
 use crate::simple_op_store::SimpleOpStore;
 use crate::store::Store;
@@ -429,64 +428,6 @@ pub struct StoreFactories {
     op_heads_store_factories: HashMap<String, OpHeadsStoreFactory>,
     index_store_factories: HashMap<String, IndexStoreFactory>,
     submodule_store_factories: HashMap<String, SubmoduleStoreFactory>,
-}
-
-impl Default for StoreFactories {
-    fn default() -> Self {
-        let mut factories = Self::empty();
-
-        // Backends
-        factories.add_backend(
-            SimpleBackend::name(),
-            Box::new(|_settings, store_path| Ok(Box::new(SimpleBackend::load(store_path)))),
-        );
-        #[cfg(feature = "git")]
-        factories.add_backend(
-            crate::git_backend::GitBackend::name(),
-            Box::new(|settings, store_path| {
-                Ok(Box::new(crate::git_backend::GitBackend::load(
-                    settings, store_path,
-                )?))
-            }),
-        );
-        #[cfg(feature = "testing")]
-        factories.add_backend(
-            crate::secret_backend::SecretBackend::name(),
-            Box::new(|settings, store_path| {
-                Ok(Box::new(crate::secret_backend::SecretBackend::load(
-                    settings, store_path,
-                )?))
-            }),
-        );
-
-        // OpStores
-        factories.add_op_store(
-            SimpleOpStore::name(),
-            Box::new(|_settings, store_path, root_data| {
-                Ok(Box::new(SimpleOpStore::load(store_path, root_data)))
-            }),
-        );
-
-        // OpHeadsStores
-        factories.add_op_heads_store(
-            SimpleOpHeadsStore::name(),
-            Box::new(|_settings, store_path| Ok(Box::new(SimpleOpHeadsStore::load(store_path)))),
-        );
-
-        // Index
-        factories.add_index_store(
-            DefaultIndexStore::name(),
-            Box::new(|_settings, store_path| Ok(Box::new(DefaultIndexStore::load(store_path)))),
-        );
-
-        // SubmoduleStores
-        factories.add_submodule_store(
-            DefaultSubmoduleStore::name(),
-            Box::new(|_settings, store_path| Ok(Box::new(DefaultSubmoduleStore::load(store_path)))),
-        );
-
-        factories
-    }
 }
 
 #[derive(Debug, Error)]

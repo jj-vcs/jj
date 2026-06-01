@@ -45,6 +45,7 @@ use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
 use jj_lib::config::StackedConfig;
 use jj_lib::conflict_labels::ConflictLabels;
+use jj_lib::default_backend_factories::default_backend_factories;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::matchers::EverythingMatcher;
@@ -197,8 +198,8 @@ impl TestEnvironment {
         self.temp_dir.path()
     }
 
-    pub fn default_store_factories(&self) -> StoreFactories {
-        let mut factories = StoreFactories::default();
+    pub fn default_backend_factories(&self) -> StoreFactories {
+        let mut factories = default_backend_factories();
         factories.add_backend("test", {
             let factory = self.test_backend_factory.clone();
             Box::new(move |_settings, store_path| Ok(Box::new(factory.load(store_path))))
@@ -217,7 +218,7 @@ impl TestEnvironment {
         settings: &UserSettings,
         repo_path: &Path,
     ) -> Arc<ReadonlyRepo> {
-        RepoLoader::init_from_file_system(settings, repo_path, &self.default_store_factories())
+        RepoLoader::init_from_file_system(settings, repo_path, &self.default_backend_factories())
             .unwrap()
             .load_at_head()
             .block_on()

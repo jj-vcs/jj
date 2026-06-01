@@ -185,7 +185,7 @@ fn test_init_load_non_utf8_path() -> TestResult {
     use std::ffi::OsStr;
     use std::os::unix::ffi::OsStrExt as _;
 
-    use jj_lib::workspace::default_working_copy_factories;
+    use jj_lib::default_backend_factories::default_working_copy_factories;
     use pollster::FutureExt as _;
     use testutils::TestEnvironment;
 
@@ -215,7 +215,7 @@ fn test_init_load_non_utf8_path() -> TestResult {
     let workspace = Workspace::load(
         &settings,
         &workspace_root,
-        &test_env.default_store_factories(),
+        &test_env.default_backend_factories(),
         &default_working_copy_factories(),
     )?;
 

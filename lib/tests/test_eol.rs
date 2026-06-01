@@ -18,12 +18,12 @@ use std::io::Write as _;
 use bstr::ByteSlice as _;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
+use jj_lib::default_backend_factories::default_backend_factories;
+use jj_lib::default_backend_factories::default_working_copy_factories;
 use jj_lib::repo::Repo as _;
-use jj_lib::repo::StoreFactories;
 use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::settings::UserSettings;
 use jj_lib::workspace::Workspace;
-use jj_lib::workspace::default_working_copy_factories;
 use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::CommitBuilderExt as _;
@@ -156,7 +156,7 @@ fn test_eol_conversion_snapshot(
     let mut workspace = Workspace::load(
         &user_settings,
         test_workspace.workspace.workspace_root(),
-        &StoreFactories::default(),
+        &default_backend_factories(),
         &default_working_copy_factories(),
     )
     .expect("Failed to reload the workspace");
@@ -266,7 +266,7 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
     test_workspace.workspace = Workspace::load(
         &user_settings,
         test_workspace.workspace.workspace_root(),
-        &StoreFactories::default(),
+        &default_backend_factories(),
         &default_working_copy_factories(),
     )
     .expect("Failed to reload the workspace");
@@ -281,7 +281,7 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
     test_workspace.workspace = Workspace::load(
         &no_eol_conversion_settings,
         test_workspace.workspace.workspace_root(),
-        &StoreFactories::default(),
+        &default_backend_factories(),
         &default_working_copy_factories(),
     )
     .expect("Failed to reload the workspace");
@@ -561,7 +561,7 @@ fn test_eol_conversion_checkout(
     test_workspace.workspace = Workspace::load(
         &user_settings,
         test_workspace.workspace.workspace_root(),
-        &StoreFactories::default(),
+        &default_backend_factories(),
         &default_working_copy_factories(),
     )
     .expect("Failed to reload the workspace");

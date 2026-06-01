@@ -68,6 +68,8 @@ use jj_lib::config::ConfigSource;
 use jj_lib::config::ConfigValue;
 use jj_lib::config::StackedConfig;
 use jj_lib::conflicts::ConflictMarkerStyle;
+use jj_lib::default_backend_factories::default_backend_factories;
+use jj_lib::default_backend_factories::default_working_copy_factories;
 use jj_lib::fileset;
 use jj_lib::fileset::FilesetAliasesMap;
 use jj_lib::fileset::FilesetDiagnostics;
@@ -147,7 +149,6 @@ use jj_lib::workspace::Workspace;
 use jj_lib::workspace::WorkspaceLoadError;
 use jj_lib::workspace::WorkspaceLoader;
 use jj_lib::workspace::WorkspaceLoaderFactory;
-use jj_lib::workspace::default_working_copy_factories;
 use jj_lib::workspace::get_working_copy_factory;
 use pollster::FutureExt as _;
 use tracing::instrument;
@@ -4216,7 +4217,7 @@ impl<'a> CliRunner<'a> {
             app: crate::commands::default_app(),
             config_layers: crate::config::default_config_layers(),
             config_migrations: crate::config::default_config_migrations(),
-            store_factories: StoreFactories::default(),
+            store_factories: default_backend_factories(),
             working_copy_factories: default_working_copy_factories(),
             workspace_loader_factory: Box::new(DefaultWorkspaceLoaderFactory),
             revset_extensions: Default::default(),

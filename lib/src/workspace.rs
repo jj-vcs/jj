@@ -25,12 +25,11 @@ use thiserror::Error;
 
 use crate::backend::BackendInitError;
 use crate::commit::Commit;
+use crate::default_backend_factories::default_working_copy_factory;
 use crate::file_util;
 use crate::file_util::BadPathEncoding;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
-use crate::local_working_copy::LocalWorkingCopy;
-use crate::local_working_copy::LocalWorkingCopyFactory;
 use crate::merged_tree::MergedTree;
 use crate::op_heads_store::OpHeadsStoreError;
 use crate::op_store::OperationId;
@@ -625,17 +624,4 @@ impl WorkspaceLoader for DefaultWorkspaceLoader {
     fn get_working_copy_type(&self) -> Result<String, StoreLoadError> {
         read_store_type("working copy", self.working_copy_state_path.join("type"))
     }
-}
-
-pub fn default_working_copy_factories() -> WorkingCopyFactories {
-    let mut factories = WorkingCopyFactories::new();
-    factories.insert(
-        LocalWorkingCopy::name().to_owned(),
-        Box::new(LocalWorkingCopyFactory {}),
-    );
-    factories
-}
-
-pub fn default_working_copy_factory() -> Box<dyn WorkingCopyFactory> {
-    Box::new(LocalWorkingCopyFactory {})
 }

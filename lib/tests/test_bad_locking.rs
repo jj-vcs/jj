@@ -15,10 +15,10 @@
 use std::path::Path;
 
 use itertools::Itertools as _;
+use jj_lib::default_backend_factories::default_backend_factories;
+use jj_lib::default_backend_factories::default_working_copy_factories;
 use jj_lib::repo::Repo as _;
-use jj_lib::repo::StoreFactories;
 use jj_lib::workspace::Workspace;
-use jj_lib::workspace::default_working_copy_factories;
 use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::TestRepoBackend;
@@ -122,7 +122,7 @@ fn test_bad_locking_children(backend: TestRepoBackend) -> TestResult {
     let machine1_workspace = Workspace::load(
         &settings,
         &machine1_root,
-        &StoreFactories::default(),
+        &default_backend_factories(),
         &default_working_copy_factories(),
     )?;
     let machine1_repo = machine1_workspace.repo_loader().load_at_head().block_on()?;
@@ -136,7 +136,7 @@ fn test_bad_locking_children(backend: TestRepoBackend) -> TestResult {
     let machine2_workspace = Workspace::load(
         &settings,
         &machine2_root,
-        &StoreFactories::default(),
+        &default_backend_factories(),
         &default_working_copy_factories(),
     )?;
     let machine2_repo = machine2_workspace.repo_loader().load_at_head().block_on()?;
@@ -151,7 +151,7 @@ fn test_bad_locking_children(backend: TestRepoBackend) -> TestResult {
     let merged_workspace = Workspace::load(
         &settings,
         &merged_path,
-        &StoreFactories::default(),
+        &default_backend_factories(),
         &default_working_copy_factories(),
     )?;
     let merged_repo = merged_workspace.repo_loader().load_at_head().block_on()?;
