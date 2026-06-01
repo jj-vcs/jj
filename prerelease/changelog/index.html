@@ -7109,6 +7109,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
+<p>Color-words diffs are now shown as separate before and after lines when color
+  output is disabled, making piped or redirected diffs readable.
+  <a href="https://github.com/jj-vcs/jj/issues/5894">#5894</a></p>
+</li>
+<li>
 <p><code>jj bookmark forget</code> no longer prints <code>Forgot N local bookmarks.</code> when no
   local bookmarks were actually forgotten (e.g. when only an untracked remote
   bookmark matched). <a href="https://github.com/jj-vcs/jj/issues/9181">#9181</a>.</p>
