@@ -1127,6 +1127,7 @@ fn get_jj_command() -> Result<(JjBuilder, UserSettings), CommandError> {
     // No config migration for completion. Simply ignore deprecated variables.
     let mut config_env = ConfigEnv::from_environment();
     let maybe_cwd_workspace_loader = DefaultWorkspaceLoaderFactory.create(find_workspace_dir(&cwd));
+    config_env.reload_system_config(&mut raw_config).ok();
     config_env.reload_user_config(&mut raw_config).ok();
     if let Ok(loader) = &maybe_cwd_workspace_loader {
         config_env.reset_repo_path(loader.repo_path());

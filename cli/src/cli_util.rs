@@ -4342,6 +4342,7 @@ impl<'a> CliRunner<'a> {
             .workspace_loader_factory
             .create(find_workspace_dir(&cwd))
             .map_err(|err| map_workspace_load_error(err, Some(".")));
+        config_env.reload_system_config(&mut raw_config)?;
         config_env.reload_user_config(&mut raw_config)?;
         if let Ok(loader) = &maybe_cwd_workspace_loader {
             config_env.reset_repo_path(loader.repo_path());
@@ -4408,6 +4409,7 @@ impl<'a> CliRunner<'a> {
         for (source, desc) in &last_config_migration_descriptions {
             let source_str = match source {
                 ConfigSource::Default => "default-provided",
+                ConfigSource::System => "system-level",
                 ConfigSource::EnvBase | ConfigSource::EnvOverrides => "environment-provided",
                 ConfigSource::User => "user-level",
                 ConfigSource::Repo => "repo-level",
