@@ -88,6 +88,11 @@ To track a bookmark permanently use `jj bookmark track <bookmark name>
 --remote=<remote name>`. It will now be imported as a local bookmark until you
 untrack it or it is deleted on the remote.
 
+You can also track a bookmark on all remotes at creation time by using `jj
+bookmark create --track <bookmark name>`. This bypasses the
+`remotes.<remote>.auto-track-bookmarks` settings and starts tracking the bookmark
+on every configured remote.
+
 Example:
 
 ```sh
