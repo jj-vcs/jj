@@ -42,6 +42,7 @@ pub mod converge;
 pub mod copies;
 pub mod dag_walk;
 pub mod dag_walk_async;
+pub mod default_backend_factories;
 pub mod default_index;
 pub mod default_submodule_store;
 pub mod diff;

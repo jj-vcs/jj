@@ -35,6 +35,7 @@ use jj_lib::backend::TreeId;
 use jj_lib::backend::TreeValue;
 use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::conflicts::ConflictMaterializeOptions;
+use jj_lib::default_backend_factories::default_working_copy_factories;
 use jj_lib::file_util;
 use jj_lib::file_util::check_symlink_support;
 use jj_lib::file_util::symlink_dir;
@@ -67,7 +68,6 @@ use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::UntrackedReason;
 use jj_lib::working_copy::WorkingCopy as _;
 use jj_lib::workspace::Workspace;
-use jj_lib::workspace::default_working_copy_factories;
 use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::CommitBuilderExt as _;
@@ -492,7 +492,7 @@ fn test_acl() -> TestResult {
     let mut ws = Workspace::load(
         &settings,
         &workspace_root,
-        &test_workspace.env.default_store_factories(),
+        &test_workspace.env.default_backend_factories(),
         &default_working_copy_factories(),
     )?;
     // Reload commits from the store associated with the workspace

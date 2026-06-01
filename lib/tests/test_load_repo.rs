@@ -37,7 +37,7 @@ fn test_load_at_operation() -> TestResult {
     let loader = RepoLoader::init_from_file_system(
         &settings,
         test_repo.repo_path(),
-        &test_repo.env.default_store_factories(),
+        &test_repo.env.default_backend_factories(),
     )?;
     let head_repo = loader.load_at_head().block_on()?;
     assert!(!head_repo.view().heads().contains(commit.id()));
@@ -47,7 +47,7 @@ fn test_load_at_operation() -> TestResult {
     let loader = RepoLoader::init_from_file_system(
         &settings,
         test_repo.repo_path(),
-        &test_repo.env.default_store_factories(),
+        &test_repo.env.default_backend_factories(),
     )?;
     let old_repo = loader.load_at(repo.operation()).block_on()?;
     assert!(old_repo.view().heads().contains(commit.id()));

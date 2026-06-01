@@ -15,12 +15,12 @@
 use std::thread;
 
 use assert_matches::assert_matches;
+use jj_lib::default_backend_factories::default_working_copy_factories;
+use jj_lib::default_backend_factories::default_working_copy_factory;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
 use jj_lib::workspace::Workspace;
 use jj_lib::workspace::WorkspaceLoadError;
-use jj_lib::workspace::default_working_copy_factories;
-use jj_lib::workspace::default_working_copy_factory;
 use pollster::FutureExt as _;
 use testutils::TestEnvironment;
 use testutils::TestResult;
@@ -35,7 +35,7 @@ fn test_load_bad_path() {
     let result = Workspace::load(
         &settings,
         &workspace_root,
-        &test_env.default_store_factories(),
+        &test_env.default_backend_factories(),
         &default_working_copy_factories(),
     );
     assert_matches!(
@@ -84,7 +84,7 @@ fn test_init_additional_workspace() -> TestResult {
     let same_workspace = Workspace::load(
         &settings,
         &ws2_root,
-        &test_workspace.env.default_store_factories(),
+        &test_workspace.env.default_backend_factories(),
         &default_working_copy_factories(),
     );
     assert!(same_workspace.is_ok());
@@ -126,7 +126,7 @@ fn test_init_additional_workspace_absolute_path_compat() -> TestResult {
     let same_workspace = Workspace::load(
         &settings,
         &ws2_root,
-        &test_workspace.env.default_store_factories(),
+        &test_workspace.env.default_backend_factories(),
         &default_working_copy_factories(),
     );
     assert!(same_workspace.is_ok());
@@ -176,7 +176,7 @@ fn test_init_additional_workspace_non_utf8_path() -> TestResult {
     let same_workspace = Workspace::load(
         &settings,
         &ws2_root,
-        &test_env.default_store_factories(),
+        &test_env.default_backend_factories(),
         &default_working_copy_factories(),
     );
     let same_workspace = same_workspace?;
