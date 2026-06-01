@@ -275,17 +275,18 @@ fn create_dir_all(path: &Path) -> std::io::Result<()> {
 // The struct exists so that we can mock certain global values in unit tests.
 #[derive(Clone, Default, Debug)]
 struct UnresolvedConfigEnv {
-    config_dir: Option<PathBuf>,
+    user_config_dir: Option<PathBuf>,
     home_dir: Option<PathBuf>,
     jj_config: Option<String>,
+    system_config_dir: Option<PathBuf>,
 }
 
 impl UnresolvedConfigEnv {
     fn root_config_dir(&self) -> Option<PathBuf> {
-        self.config_dir.as_deref().map(|c| c.join("jj"))
+        self.user_config_dir.as_deref().map(|c| c.join("jj"))
     }
 
-    fn resolve(self) -> Vec<ConfigPath> {
+    fn resolve_user(self) -> Vec<ConfigPath> {
         if let Some(paths) = self.jj_config {
             return split_paths(&paths)
                 .filter(|path| !path.as_os_str().is_empty())
@@ -298,12 +299,12 @@ impl UnresolvedConfigEnv {
             home_dir.push(".jjconfig.toml");
             ConfigPath::new(home_dir)
         });
-        let platform_config_path = self.config_dir.clone().map(|mut config_dir| {
+        let platform_config_path = self.user_config_dir.clone().map(|mut config_dir| {
             config_dir.push("jj");
             config_dir.push("config.toml");
             ConfigPath::new(config_dir)
         });
-        let platform_config_dir = self.config_dir.map(|mut config_dir| {
+        let platform_config_dir = self.user_config_dir.map(|mut config_dir| {
             config_dir.push("jj");
             config_dir.push("conf.d");
             ConfigPath::new(config_dir)
@@ -329,6 +330,19 @@ impl UnresolvedConfigEnv {
 
         paths
     }
+
+    fn resolve_system(&self) -> Vec<ConfigPath> {
+        if let Some(path) = self.system_config_dir.as_ref()
+            && self.jj_config.is_none()
+        {
+            [path.join("jj/config.toml"), path.join("jj/conf.d")]
+                .into_iter()
+                .map(ConfigPath::new)
+                .collect()
+        } else {
+            Vec::new()
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -337,6 +351,7 @@ pub struct ConfigEnv {
     root_config_dir: Option<PathBuf>,
     repo_path: Option<PathBuf>,
     workspace_path: Option<PathBuf>,
+    system_config_paths: Vec<ConfigPath>,
     user_config_paths: Vec<ConfigPath>,
     repo_config: Option<SecureConfig>,
     workspace_config: Option<SecureConfig>,
@@ -349,7 +364,7 @@ pub struct ConfigEnv {
 impl ConfigEnv {
     /// Initializes configuration loader based on environment variables.
     pub fn from_environment() -> Self {
-        let config_dir = etcetera::choose_base_strategy()
+        let user_config_dir = etcetera::choose_base_strategy()
             .ok()
             .map(|s| s.config_dir());
 
@@ -359,10 +374,17 @@ impl ConfigEnv {
             .ok()
             .map(|d| dunce::canonicalize(&d).unwrap_or(d));
 
+        let system_config_dir = if cfg!(unix) {
+            Some("/etc".into())
+        } else {
+            None
+        };
+
         let env = UnresolvedConfigEnv {
-            config_dir,
+            user_config_dir,
             home_dir: home_dir.clone(),
             jj_config: env::var("JJ_CONFIG").ok(),
+            system_config_dir,
         };
         let environment = env::vars_os()
             .filter_map(|(k, v)| {
@@ -377,7 +399,8 @@ impl ConfigEnv {
             root_config_dir: env.root_config_dir(),
             repo_path: None,
             workspace_path: None,
-            user_config_paths: env.resolve(),
+            system_config_paths: env.resolve_system(),
+            user_config_paths: env.resolve_user(),
             repo_config: None,
             workspace_config: None,
             command: None,
@@ -397,6 +420,28 @@ impl ConfigEnv {
 
     pub fn set_command_name(&mut self, command: String) {
         self.command = Some(command);
+    }
+
+    /// Loads system-wide config files into the given `config`. The old
+    /// system-config layers will be replaced if any.
+    #[instrument]
+    pub fn reload_system_config(&self, config: &mut RawConfig) -> Result<(), ConfigLoadError> {
+        config.as_mut().remove_layers(ConfigSource::System);
+        for path in self.existing_system_config_paths() {
+            if path.is_dir() {
+                config.as_mut().load_dir(ConfigSource::System, path)?;
+            } else {
+                config.as_mut().load_file(ConfigSource::System, path)?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn existing_system_config_paths(&self) -> impl Iterator<Item = &Path> {
+        self.system_config_paths
+            .iter()
+            .filter(|p| p.exists())
+            .map(ConfigPath::as_path)
     }
 
     fn load_secure_config(
@@ -667,14 +712,15 @@ fn config_files_for(
 ///
 /// Sources from the lowest precedence:
 /// 1. Default
-/// 2. Base environment variables
-/// 3. [User configs](https://docs.jj-vcs.dev/latest/config/)
-/// 4. Repo config
-/// 5. Workspace config
-/// 6. Override environment variables
-/// 7. Command-line arguments `--config` and `--config-file`
+/// 2. System config
+/// 3. Base environment variables
+/// 4. [User configs](https://docs.jj-vcs.dev/latest/config/)
+/// 5. Repo config
+/// 6. Workspace config
+/// 7. Override environment variables
+/// 8. Command-line arguments `--config` and `--config-file`
 ///
-/// This function sets up 1, 2, and 6.
+/// This function sets up 1, 3, and 7.
 pub fn config_from_environment(default_layers: impl IntoIterator<Item = ConfigLayer>) -> RawConfig {
     let mut config = StackedConfig::with_defaults();
     config.extend_layers(default_layers);
@@ -1578,7 +1624,7 @@ mod tests {
             files: &["home/.jjconfig.toml"],
             env: UnresolvedConfigEnv {
                 home_dir: Some("home".into()),
-                config_dir: Some("config".into()),
+                user_config_dir: Some("config".into()),
                 ..Default::default()
             },
             wants: vec![
@@ -1593,7 +1639,7 @@ mod tests {
             files: &["config/jj/config.toml"],
             env: UnresolvedConfigEnv {
                 home_dir: Some("home".into()),
-                config_dir: Some("config".into()),
+                user_config_dir: Some("config".into()),
                 ..Default::default()
             },
             wants: vec![Want::existing("config/jj/config.toml")],
@@ -1604,7 +1650,7 @@ mod tests {
         TestCase {
             files: &[],
             env: UnresolvedConfigEnv {
-                config_dir: Some("config".into()),
+                user_config_dir: Some("config".into()),
                 ..Default::default()
             },
             wants: vec![Want::new("config/jj/config.toml")],
@@ -1616,7 +1662,7 @@ mod tests {
             files: &[],
             env: UnresolvedConfigEnv {
                 home_dir: Some("home".into()),
-                config_dir: Some("config".into()),
+                user_config_dir: Some("config".into()),
                 ..Default::default()
             },
             wants: vec![Want::new("config/jj/config.toml")],
@@ -1712,7 +1758,7 @@ mod tests {
             files: &["config/jj/config.toml"],
             env: UnresolvedConfigEnv {
                 home_dir: Some("home".into()),
-                config_dir: Some("config".into()),
+                user_config_dir: Some("config".into()),
                 ..Default::default()
             },
             wants: vec![Want::existing("config/jj/config.toml")],
@@ -1724,7 +1770,7 @@ mod tests {
             files: &["home/.jjconfig.toml"],
             env: UnresolvedConfigEnv {
                 home_dir: Some("home".into()),
-                config_dir: Some("config".into()),
+                user_config_dir: Some("config".into()),
                 ..Default::default()
             },
             wants: vec![
@@ -1739,7 +1785,7 @@ mod tests {
             files: &["config/jj/conf.d/_"],
             env: UnresolvedConfigEnv {
                 home_dir: Some("home".into()),
-                config_dir: Some("config".into()),
+                user_config_dir: Some("config".into()),
                 ..Default::default()
             },
             wants: vec![
@@ -1754,7 +1800,7 @@ mod tests {
             files: &["config/jj/config.toml", "config/jj/conf.d/_"],
             env: UnresolvedConfigEnv {
                 home_dir: Some("home".into()),
-                config_dir: Some("config".into()),
+                user_config_dir: Some("config".into()),
                 ..Default::default()
             },
             wants: vec![
@@ -1773,7 +1819,7 @@ mod tests {
             ],
             env: UnresolvedConfigEnv {
                 home_dir: Some("home".into()),
-                config_dir: Some("config".into()),
+                user_config_dir: Some("config".into()),
                 ..Default::default()
             },
             // Precedence order is important
@@ -1834,6 +1880,70 @@ mod tests {
         assert_eq!(exists_paths, exists_expected_paths);
     }
 
+    fn system_config_path_none() -> TestCase {
+        TestCase {
+            files: &["etc/jj/config.toml", "system/jj/conf.d/_"],
+            env: Default::default(),
+            wants: vec![],
+        }
+    }
+
+    fn system_config_path_existing() -> TestCase {
+        TestCase {
+            files: &["system/jj/config.toml", "system/jj/conf.d/_"],
+            env: UnresolvedConfigEnv {
+                system_config_dir: Some("system".into()),
+                ..Default::default()
+            },
+            wants: vec![
+                Want::existing("system/jj/config.toml"),
+                Want::existing("system/jj/conf.d"),
+            ],
+        }
+    }
+
+    fn system_config_path_jj_config() -> TestCase {
+        TestCase {
+            files: &["system/jj/config.toml"],
+            env: UnresolvedConfigEnv {
+                jj_config: Some("custom.toml".into()),
+                system_config_dir: Some("system".into()),
+                ..Default::default()
+            },
+            wants: vec![],
+        }
+    }
+
+    #[test_case(system_config_path_none())]
+    #[test_case(system_config_path_existing())]
+    #[test_case(system_config_path_jj_config())]
+    fn test_system_config_path(case: TestCase) {
+        let tmp = setup_config_fs(case.files);
+        let env = resolve_config_env(&case.env, tmp.path());
+
+        let all_expected_paths = case
+            .wants
+            .iter()
+            .map(|w| w.rooted_path(tmp.path()))
+            .collect_vec();
+        let exists_expected_paths = case
+            .wants
+            .iter()
+            .filter(|w| w.exists())
+            .map(|w| w.rooted_path(tmp.path()))
+            .collect_vec();
+
+        let all_paths = env
+            .system_config_paths
+            .iter()
+            .map(ConfigPath::as_path)
+            .collect_vec();
+        let exists_paths = env.existing_system_config_paths().collect_vec();
+
+        assert_eq!(all_paths, all_expected_paths);
+        assert_eq!(exists_paths, exists_expected_paths);
+    }
+
     fn setup_config_fs(files: &[&str]) -> tempfile::TempDir {
         let tmp = testutils::new_temp_dir();
         for file in files {
@@ -1849,7 +1959,7 @@ mod tests {
     fn resolve_config_env(env: &UnresolvedConfigEnv, root: &Path) -> ConfigEnv {
         let home_dir = env.home_dir.as_ref().map(|p| root.join(p));
         let env = UnresolvedConfigEnv {
-            config_dir: env.config_dir.as_ref().map(|p| root.join(p)),
+            user_config_dir: env.user_config_dir.as_ref().map(|p| root.join(p)),
             home_dir: home_dir.clone(),
             jj_config: env.jj_config.as_ref().map(|p| {
                 join_paths(split_paths(p).map(|p| {
@@ -1862,13 +1972,15 @@ mod tests {
                 .into_string()
                 .unwrap()
             }),
+            system_config_dir: env.system_config_dir.as_ref().map(|p| root.join(p)),
         };
         ConfigEnv {
             home_dir,
             root_config_dir: None,
             repo_path: None,
             workspace_path: None,
-            user_config_paths: env.resolve(),
+            system_config_paths: env.resolve_system(),
+            user_config_paths: env.resolve_user(),
             repo_config: None,
             workspace_config: None,
             command: None,

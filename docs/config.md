@@ -2194,6 +2194,17 @@ JJ_CONFIG= jj log       # Ignores any settings specified in any config files.
 There are also the `--config-file <PATH>` and `--config <NAME=VALUE>`
 [global options](./cli-reference.md#options) which work with any `jj` command.
 
+### System config files
+
+On unix-like platforms, system-wide `jj` configurations are by default loaded in
+the following precedence order (with later configs overriding earlier ones).
+
+- `/etc/jj/config.toml`
+- `/etc/jj/conf.d/*.toml`
+
+These configs can be overridden by [the user config files], and will be disabled
+in favor of the `JJ_CONFIG` environment variable if it is set.
+
 ### JSON Schema Support
 
 Many popular editors support TOML file syntax highlighting and validation. To

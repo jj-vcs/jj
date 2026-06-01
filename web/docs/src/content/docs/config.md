@@ -1911,6 +1911,17 @@ For example, the following could be used to run `jj` without loading any user co
 JJ_CONFIG= jj log       # Ignores any settings specified in the config file.
 ```
 
+### System config files
+
+On unix-like platforms, system-wide `jj` configurations are by default loaded in
+the following precedence order (with later configs overriding earlier ones).
+
+- `/etc/jj/config.toml`
+- `/etc/jj/conf.d/*.toml`
+
+These configs can be overridden by [the user config files], and will be disabled
+in favor of the `JJ_CONFIG` environment variable if it is set.
+
 ### JSON Schema Support
 
 Many popular editors support TOML file syntax highlighting and validation. To

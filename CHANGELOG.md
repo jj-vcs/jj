@@ -32,6 +32,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj show` now supports `--reversed` flag.
 
+* `jj` now looks for config files in `/etc/jj`.
+
 * `jj run` allows you to run a command over a set of changes, each with their
   own private working copy; the commands may update the working copy and
   changes/conflicts are propagated accordingly, e.g., `jj run -- cargo check

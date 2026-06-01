@@ -282,6 +282,8 @@ impl ToConfigNamePath for &[&str] {
 pub enum ConfigSource {
     /// Default values (which has the lowest precedence.)
     Default,
+    /// System configuration files.
+    System,
     /// Base environment variables.
     EnvBase,
     /// User configuration files.
@@ -301,6 +303,7 @@ impl Display for ConfigSource {
         use ConfigSource::*;
         let c = match self {
             Default => "default",
+            System => "system",
             User => "user",
             Repo => "repo",
             Workspace => "workspace",
@@ -1075,11 +1078,13 @@ mod tests {
         let mut config = StackedConfig::empty();
         config.add_layer(ConfigLayer::with_data(ConfigSource::Repo, empty_data()));
         config.add_layer(ConfigLayer::with_data(ConfigSource::User, empty_data()));
+        config.add_layer(ConfigLayer::with_data(ConfigSource::System, empty_data()));
         config.add_layer(ConfigLayer::with_data(ConfigSource::Default, empty_data()));
         assert_eq!(
             layer_sources(&config),
             vec![
                 ConfigSource::Default,
+                ConfigSource::System,
                 ConfigSource::User,
                 ConfigSource::Repo,
             ]
@@ -1096,6 +1101,7 @@ mod tests {
             layer_sources(&config),
             vec![
                 ConfigSource::Default,
+                ConfigSource::System,
                 ConfigSource::EnvBase,
                 ConfigSource::User,
                 ConfigSource::User,
@@ -1110,7 +1116,11 @@ mod tests {
         config.remove_layers(ConfigSource::User);
         assert_eq!(
             layer_sources(&config),
-            vec![ConfigSource::EnvBase, ConfigSource::Repo]
+            vec![
+                ConfigSource::System,
+                ConfigSource::EnvBase,
+                ConfigSource::Repo,
+            ]
         );
 
         // Remove unknown
@@ -1118,7 +1128,11 @@ mod tests {
         config.remove_layers(ConfigSource::EnvOverrides);
         assert_eq!(
             layer_sources(&config),
-            vec![ConfigSource::EnvBase, ConfigSource::Repo]
+            vec![
+                ConfigSource::System,
+                ConfigSource::EnvBase,
+                ConfigSource::Repo,
+            ]
         );
 
         // Insert multiple
@@ -1130,6 +1144,7 @@ mod tests {
         assert_eq!(
             layer_sources(&config),
             vec![
+                ConfigSource::System,
                 ConfigSource::EnvBase,
                 ConfigSource::User,
                 ConfigSource::Repo,
@@ -1140,6 +1155,7 @@ mod tests {
 
         // Remove remainders
         config.remove_layers(ConfigSource::EnvBase);
+        config.remove_layers(ConfigSource::System);
         config.remove_layers(ConfigSource::User);
         config.remove_layers(ConfigSource::Repo);
         assert_eq!(layer_sources(&config), vec![]);
