@@ -71,7 +71,7 @@ jobs:
     timeout-minutes: 25
 
     steps:
-    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+    - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
       with:
         persist-credentials: false
     - name: Set up Windows Builders
@@ -83,7 +83,7 @@ jobs:
         toolchain: 1.89
         # comma-separated list of extra targets to install
         targets: ${{ matrix.extra_targets }}
-    - uses: taiki-e/install-action@d9be7d8cda89035c9c843f78bd44d4f72d8403d4
+    - uses: taiki-e/install-action@6887963ccf37a9ddcd8c5fa4baeb3e1e5fd61fa1
       with:
         tool: nextest
     - name: Install mold
@@ -115,7 +115,7 @@ jobs:
     name: build (no git)
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+    - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
       with:
         persist-credentials: false
     - name: Install Rust
@@ -135,7 +135,7 @@ jobs:
     timeout-minutes: 25
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -146,7 +146,7 @@ jobs:
     name: check (protos)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
@@ -162,7 +162,7 @@ jobs:
     name: check (rustfmt)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
@@ -177,7 +177,7 @@ jobs:
       checks: write
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
@@ -201,10 +201,10 @@ jobs:
 
     name: check (cargo-deny, ${{ matrix.checks }})
     steps:
-    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+    - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
       with:
         persist-credentials: false
-    - uses: EmbarkStudios/cargo-deny-action@a531616d8ce3b9177443e48a1159bc945a099823
+    - uses: EmbarkStudios/cargo-deny-action@bb137d7af7e4fb67e5f82a49c4fce4fad40782fe
       with:
         command: check ${{ matrix.checks }}
 
@@ -212,7 +212,7 @@ jobs:
     name: check (codespell)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           persist-credentials: false
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
@@ -231,7 +231,7 @@ jobs:
     name: check (doctests)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
@@ -253,7 +253,7 @@ jobs:
     name: check (mkdocs)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           persist-credentials: false
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
@@ -273,7 +273,7 @@ jobs:
     name: check (latest mkdocs, optional)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           persist-credentials: false
       - name: Install uv
@@ -290,7 +290,7 @@ jobs:
       security-events: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           persist-credentials: false
 
@@ -303,7 +303,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@7211b7c8077ea37d8641b6271f6a365a22a5fbfa
+        uses: github/codeql-action/upload-sarif@87557b9c84dde89fdd9b10e88954ac2f4248e463
         with:
           sarif_file: results.sarif
           category: zizmor
@@ -313,7 +313,7 @@ jobs:
     name: check (Cargo.lock dependency count)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           persist-credentials: false
       - name: Check total dependency count in Cargo.lock

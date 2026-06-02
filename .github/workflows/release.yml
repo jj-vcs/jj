@@ -40,7 +40,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
     - name: Checkout repository
-      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
       with:
         persist-credentials: false
     - name: Install packages (Ubuntu)
@@ -95,7 +95,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends xz-utils liblz4-tool musl-tools
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           persist-credentials: false
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
@@ -130,7 +130,7 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           # `.github/scripts/docs-build-deploy` will need to `git push` to the docs branch
           persist-credentials: true
