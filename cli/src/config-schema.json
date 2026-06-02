@@ -999,9 +999,12 @@
                                 "description": "Disables this tool if set to false",
                                 "default": true
                             },
-                            "line-range-arg": {
-                                "type": "string",
-                                "description": "Argument template for changed line ranges (e.g. '--lines=$first-$last')"
+                            "line-range-args": {
+                                "description": "Argument templates for changed line ranges (e.g. ['--lines', '$first-$last'])",
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
                             },
                             "run-tool-if-zero-line-ranges": {
                                 "type": "boolean",

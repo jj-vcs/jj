@@ -316,7 +316,11 @@ async fn fix_one_file(
         None
     } else {
         match &file_to_fix.base_file_id {
-            Some(base_file_id) if matching_tools.clone().any(|t| t.line_range_arg.is_some()) => {
+            Some(base_file_id)
+                if matching_tools
+                    .clone()
+                    .any(|t| !t.line_range_args.is_empty()) =>
+            {
                 let mut content = vec![];
                 let mut read = store
                     .read_file(&file_to_fix.repo_path, base_file_id)
@@ -331,7 +335,7 @@ async fn fix_one_file(
     let new_content = matching_tools.fold(old_content.clone(), |prev_content, tool_config| {
         let mut extra_args = Vec::new();
 
-        if let Some(line_range_arg) = &tool_config.line_range_arg {
+        if !tool_config.line_range_args.is_empty() {
             let RegionsToFormat::LineRanges(ranges) =
                 compute_regions_to_format(base_content.as_deref(), &prev_content);
             if ranges.is_empty() && !tool_config.run_tool_if_zero_line_ranges {
@@ -341,11 +345,13 @@ async fn fix_one_file(
             }
 
             for range in ranges {
-                extra_args.push(
-                    line_range_arg
-                        .replace("$first", &range.first.to_string())
-                        .replace("$last", &range.last.to_string()),
-                );
+                for line_range_arg in &tool_config.line_range_args {
+                    extra_args.push(
+                        line_range_arg
+                            .replace("$first", &range.first.to_string())
+                            .replace("$last", &range.last.to_string()),
+                    );
+                }
             }
         }
 
@@ -490,10 +496,11 @@ struct ToolConfig {
     /// Whether the tool is enabled
     enabled: bool,
     /// Arguments to pass changed line ranges to the tool.
-    /// The string is a template where `$first` and `$last` are replaced by the
+    /// Each string is a template where `$first` and `$last` are replaced by the
     /// 1-based first and last inclusive line numbers of the changed range.
-    /// For example, `"--lines=$first-$last"`.
-    line_range_arg: Option<String>,
+    /// For example, `"--lines=$first-$last"`. Each string will be passed as a
+    /// separate argument to the tool.
+    line_range_args: Vec<String>,
     /// Whether to run the tool invocation for this tool on files that had
     /// zero line ranges to format in the revision being fixed.
     ///
@@ -501,7 +508,7 @@ struct ToolConfig {
     /// This default behavior serves two main purposes:
     /// - Avoiding unnecessary executions of tools when no line ranges are
     ///   modified.
-    /// - Preventing tools configured with `line-range-arg` from making overly
+    /// - Preventing tools configured with `line-range-args` from making overly
     ///   broad changes (formatting the whole file) when no line ranges are
     ///   available.
     ///
@@ -528,8 +535,11 @@ struct RawToolConfig {
     patterns: Vec<String>,
     #[serde(default = "default_tool_enabled")]
     enabled: bool,
+    // TODO: Remove in jj 0.48+.
     #[serde(default)]
     line_range_arg: Option<String>,
+    #[serde(default)]
+    line_range_args: Option<Vec<String>>,
     #[serde(default)]
     run_tool_if_zero_line_ranges: bool,
 }
@@ -561,9 +571,29 @@ fn get_tools_config(
                     .map(|arg| fileset::parse(&mut diagnostics, arg, fileset_context))
                     .try_collect()?,
             );
-            if tool.line_range_arg.is_none() && tool.run_tool_if_zero_line_ranges {
+            // Note: Empty strings are not filtered out.
+            // TODO: Remove in jj 0.48+ (only read from `tool.line_range_args`).
+            let line_range_args = match (tool.line_range_arg, tool.line_range_args) {
+                (Some(..), Some(..)) => {
+                    return Err(config_error(
+                        "line-range-arg is deprecated, and cannot be set if line-range-args is \
+                         set.",
+                    ));
+                }
+                (Some(line_range_arg), None) => {
+                    writeln!(
+                        ui.warning_default(),
+                        "fix.tools.{name}.line-range-arg is deprecated. Set line-range-args to an \
+                         array instead."
+                    )?;
+                    vec![line_range_arg]
+                }
+                (None, Some(line_range_args)) => line_range_args,
+                (None, None) => vec![],
+            };
+            if line_range_args.is_empty() && tool.run_tool_if_zero_line_ranges {
                 return Err(config_error(
-                    "run-tool-if-zero-line-ranges can only be set when line-range-arg is set",
+                    "run-tool-if-zero-line-ranges can only be set when line-range-args is set",
                 ));
             }
             print_parse_diagnostics(ui, &format!("In `fix.tools.{name}`"), &diagnostics)?;
@@ -571,7 +601,7 @@ fn get_tools_config(
                 command: tool.command,
                 matcher: expression.to_matcher(),
                 enabled: tool.enabled,
-                line_range_arg: tool.line_range_arg,
+                line_range_args,
                 run_tool_if_zero_line_ranges: tool.run_tool_if_zero_line_ranges,
             })
         })

@@ -1394,44 +1394,44 @@ The file is only rewritten if the subprocess produces a successful exit code.
 
 ### Configuration
 
-Tools are defined in a table where the keys are arbitrary identifiers and
-the values have the following properties:
- - `command`: The arguments used to run the tool. The first argument is the
-   path to an executable file. Arguments can contain these variables that will
-   be replaced:
-   - `$root` will be replaced with the workspace root path (the directory
-     containing the .jj directory).
-   - `$path` will be replaced with the repo-relative path of the file being
-     fixed. It is useful to provide the path to tools that include the path
-     in error messages, or behave differently based on the directory or file
-     name.
- - `patterns`: List of filesets (see: `jj help -k filesets`), determining
-   which files the tool will affect based on their path. If this list is
-   empty, no files will be affected by the tool. If there are multiple
-   patterns, the tool is applied only once to each file in the union of the
-   patterns.
- - `enabled`: Enables or disables the tool. If omitted, the tool is enabled.
-   This is useful for defining disabled tools in user configuration that can
-   be enabled in individual repositories with one config setting.
- - `line-range-arg`: An optional template string specifying how to pass a line
-   range to the tool. It may include the variables `$first` and `$last`, which
-   will be replaced with the 1-based line numbers of, respectively, the first
-   and last lines inside the modified range. A range containing a single line
-   will have equal values for `$first` and `$last`. Empty ranges representing
-   deletions will be skipped because they cannot be represented this way.
-   If the tool does not support formatting specific line ranges, this setting
-   should be omitted, and the tool will always process the entire file.
-   Example: `line-range-arg = "--lines=$first:$last"`.
- - `run-tool-if-zero-line-ranges`: Whether to run the tool invocation for this tool on
-   files that had zero line ranges to format in the revision being fixed.
-   Defaults to `false`, meaning the tool is skipped for these files. This default
-   behavior serves two main purposes:
-   - Avoiding unnecessary executions of tools when no line ranges are modified.
-   - Preventing tools configured with `line-range-arg` from making overly
-     broad changes (formatting the whole file) when no line ranges are available.
+Tools are defined in a table where the keys are arbitrary identifiers and the
+values have the following properties:
 
-   Setting this to `true` is useful if the tool should run regardless of diffs
-   (e.g., to sort imports, or run with `--include-unchanged-files`).
+- `command`: The arguments used to run the tool. The first argument is the path
+  to an executable file. Arguments can contain these variables that will be
+  replaced:
+  - `$root` will be replaced with the workspace root path (the directory
+    containing the .jj directory).
+  - `$path` will be replaced with the repo-relative path of the file being
+    fixed. It is useful to provide the path to tools that include the path in
+    error messages, or behave differently based on the directory or file name.
+- `patterns`: List of filesets (see: `jj help -k filesets`), determining which
+  files the tool will affect based on their path. If this list is empty, no
+  files will be affected by the tool. If there are multiple patterns, the tool
+  is applied only once to each file in the union of the patterns.
+- `enabled`: Enables or disables the tool. If omitted, the tool is enabled. This
+  is useful for defining disabled tools in user configuration that can be
+  enabled in individual repositories with one config setting.
+- `line-range-args`: Optional array of template strings specifying how to pass a
+  line range to the tool. It may include the variables `$first` and `$last`,
+  which will be replaced with the 1-based line numbers of the first and last
+  lines inside the modified range, respectively. A range containing a single
+  line will have equal values for `$first` and `$last`. Empty ranges
+  representing deletions will be skipped because they cannot be represented this
+  way. If the tool does not support formatting specific line ranges, this
+  setting should be omitted, and the tool will always process the entire file.
+  - Example: `line-range-args = ["--lines", "$first:$last"]`
+  - Example: `line-range-args = ["--line-start=$first", "--line-end=$last"]`
+- `run-tool-if-zero-line-ranges`: Whether to run the tool invocation for this
+  tool on files that had zero line ranges to format in the revision being fixed.
+  Defaults to `false`, meaning the tool is skipped for these files. This default
+  behavior serves two main purposes:
+  - Avoiding unnecessary executions of tools when no line ranges are modified.
+  - Preventing tools configured with `line-range-args` from making overly broad
+    changes (formatting the whole file) when no line ranges are available.
+
+  Setting this to `true` is useful if the tool should run regardless of diffs
+  (e.g., to sort imports, or run with `--include-unchanged-files`).
 
 `jj fix` provides the file content anonymously on standard input, but the name
 of the file being formatted may be important for include sorting or other output
@@ -1469,9 +1469,9 @@ You can configure `jj fix` to run a formatter only on the modified lines of a
 file, rather than formatting the entire file. This is particularly useful for
 avoiding unrelated formatting changes in untouched parts of a file.
 
-To enable this, specify the `line-range-arg` configuration to match the line
+To enable this, specify the `line-range-args` configuration to match the line
 range argument format expected by your tool. The formatter will be invoked with
-this argument repeated for each modified line range (e.g. `--lines=10-20
+these arguments repeated for each modified line range (e.g. `--lines=10-20
 --lines=30-40`).
 
 Additionally, you can use `run-tool-if-zero-line-ranges` to control the
@@ -1492,7 +1492,7 @@ command = ["/usr/bin/clang-format", "--assume-filename=$path"]
 patterns = ["glob:'**/*.cc'",
             "glob:'**/*.h'"]
 enabled = true
-line-range-arg = "--lines=$first:$last"
+line-range-args = ["--lines=$first:$last"]
 run-tool-if-zero-line-ranges = false
 ```
 
