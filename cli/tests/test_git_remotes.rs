@@ -567,14 +567,11 @@ fn test_git_remote_with_preset_config() {
     "#);
 
     // Preset repo-level config should be updated automatically
-    // TODO: suppress warning about unresolvable immutable_heads()
+    // TODO: suppress warning about unresolvable trunk()
     let output = local_dir.run_jj(["git", "remote", "rename", "origin", "foo"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: Failed to check mutability of the new working-copy revision.
-    Caused by:
-    1: Invalid `revset-aliases.immutable_heads()`
-    2: Revision `main@origin` doesn't exist
+    Warning: Failed to resolve `revset-aliases.trunk()`: Revision `main@origin` doesn't exist
     Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
     Updating the revset alias `trunk()` to `main@foo`.
     [EOF]
@@ -594,14 +591,11 @@ fn test_git_remote_with_preset_config() {
     "#);
 
     // Preset repo-level config should be removed automatically
-    // TODO: suppress warning about unresolvable immutable_heads()
+    // TODO: suppress warning about unresolvable trunk()
     let output = local_dir.run_jj(["git", "remote", "remove", "foo"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: Failed to check mutability of the new working-copy revision.
-    Caused by:
-    1: Invalid `revset-aliases.immutable_heads()`
-    2: Revision `main@foo` doesn't exist
+    Warning: Failed to resolve `revset-aliases.trunk()`: Revision `main@foo` doesn't exist
     Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
     Resetting the revset alias `trunk()` to default value.
     [EOF]

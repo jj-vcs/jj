@@ -2030,15 +2030,43 @@ to the current parents may contain changes from multiple commits.
                 self.env.command.string_args(),
             );
             tx.set_is_snapshot(true);
-            let mut_repo = tx.repo_mut();
-            let commit = mut_repo
-                .rewrite_commit(&wc_commit)
-                .set_tree(new_tree.clone())
-                .write()
-                .await
+            let immutable_expr = self
+                .env
+                .resolve_immutable_expression(tx.repo())
                 .map_err(snapshot_command_error)?;
+            let wc_immutable = immutable_expr
+                .intersection(&RevsetExpression::commit(wc_commit.id().clone()))
+                .evaluate(tx.repo())
+                .map_err(snapshot_command_error)?
+                .stream()
+                .try_next()
+                .await
+                .map_err(snapshot_command_error)?
+                .is_some();
+            let mut_repo = tx.repo_mut();
+            let new_wc_commit;
+            if wc_immutable {
+                new_wc_commit = mut_repo
+                    .new_commit(vec![wc_commit.id().clone()], new_tree.clone())
+                    .write()
+                    .await
+                    .map_err(snapshot_command_error)?;
+                writeln!(
+                    ui.warning_default(),
+                    "The working-copy commit is immutable; a new commit has been created on top \
+                     of it.",
+                )
+                .map_err(snapshot_command_error)?;
+            } else {
+                new_wc_commit = mut_repo
+                    .rewrite_commit(&wc_commit)
+                    .set_tree(new_tree.clone())
+                    .write()
+                    .await
+                    .map_err(snapshot_command_error)?;
+            }
             mut_repo
-                .set_wc_commit(workspace_name, commit.id().clone())
+                .set_wc_commit(workspace_name, new_wc_commit.id().clone())
                 .map_err(snapshot_command_error)?;
 
             // Rebase descendants
@@ -2057,7 +2085,7 @@ to the current parents may contain changes from multiple commits.
             #[cfg(feature = "git")]
             if self.working_copy_shared_with_git && self.env.command.should_commit_transaction() {
                 let old_tree = wc_commit.tree();
-                let new_tree = commit.tree();
+                let new_tree = new_wc_commit.tree();
                 export_working_copy_changes_to_git(ui, mut_repo, &old_tree, &new_tree)
                     .await
                     .map_err(snapshot_command_error)?;
@@ -2189,49 +2217,13 @@ to the current parents may contain changes from multiple commits.
             writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
         }
 
-        // This can fail if trunk() bookmark gets deleted or conflicted. If the
-        // unresolvable trunk() issue gets addressed differently, it should be
-        // okay to propagate the error.
-        let immutable_expr = match self.env.resolve_immutable_expression(tx.repo()) {
-            Ok(expr) => expr,
-            Err(CommandError { error, .. }) => {
-                writeln!(
-                    ui.warning_default(),
-                    "Failed to check mutability of the new working-copy revision."
-                )?;
-                print_error_sources(ui, Some(&error))?;
-                RevsetExpression::root()
-            }
-        };
-        for (name, wc_commit_id) in &tx.repo().view().wc_commit_ids().clone() {
-            let is_immutable = immutable_expr
-                .intersection(&RevsetExpression::commit(wc_commit_id.clone()))
-                .evaluate(tx.repo())?
-                .stream()
-                .try_next()
-                .await?
-                .is_some();
-            if is_immutable {
-                let wc_commit = tx.repo().store().get_commit_async(wc_commit_id).await?;
-                tx.repo_mut().check_out(name.clone(), &wc_commit).await?;
-                writeln!(
-                    ui.warning_default(),
-                    "The working-copy commit in workspace '{name}' became immutable, so a new \
-                     commit has been created on top of it.",
-                    name = name.as_symbol()
-                )?;
-            }
-        }
         if let Err(err) =
             revset_util::try_resolve_trunk_alias(tx.repo(), &self.env.revset_parse_context())
         {
-            // The warning would be printed above if working copies exist.
-            if tx.repo().view().wc_commit_ids().is_empty() {
-                writeln!(
-                    ui.warning_default(),
-                    "Failed to resolve `revset-aliases.trunk()`: {err}"
-                )?;
-            }
+            writeln!(
+                ui.warning_default(),
+                "Failed to resolve `revset-aliases.trunk()`: {err}"
+            )?;
             writeln!(
                 ui.hint_default(),
                 "Use `jj config edit --repo` to adjust the `trunk()` alias."
