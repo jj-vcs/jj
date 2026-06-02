@@ -1082,9 +1082,6 @@ fn test_bookmark_rename_colocated() {
     ------- stderr -------
     Warning: Tracking of remote bookmark bpushed@origin was dropped.
     Hint: Use `jj bookmark track` to re-track if needed.
-    Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
-    Working copy  (@) now at: znkkpsqq cf8db4ba (empty) (no description set)
-    Parent commit (@-)      : royxmykx b6e46c10 bpushed@origin | (empty) commit-1
     [EOF]
     ");
     let output = work_dir.run_jj(["bookmark", "list", "--all", "bpushed"]);

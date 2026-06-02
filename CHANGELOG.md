@@ -18,6 +18,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* `jj` now creates a new working-copy revision during snapshotting if the
+  working copy was immutable. Previously, the new revision was created
+  immediately after the working copy became immutable.
+  [#7751](https://github.com/jj-vcs/jj/issues/7751)
+  [#9338](https://github.com/jj-vcs/jj/issues/9338)
+
 ## [0.42.0] - 2026-06-04
 
 ### Release highlights

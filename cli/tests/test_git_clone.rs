@@ -976,10 +976,7 @@ fn test_git_clone_trunk_deleted() {
     ------- stderr -------
     Forgot 1 local bookmarks.
     Forgot 1 remote bookmarks.
-    Warning: Failed to check mutability of the new working-copy revision.
-    Caused by:
-    1: Invalid `revset-aliases.immutable_heads()`
-    2: Revision `main@origin` doesn't exist
+    Warning: Failed to resolve `revset-aliases.trunk()`: Revision `main@origin` doesn't exist
     Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
     [EOF]
     ");
@@ -1130,26 +1127,14 @@ fn test_git_clone_invalid_immutable_heads() {
     // Suppress lengthy warnings in commit summary template
     test_env.add_config("revsets.short-prefixes = ''");
 
-    // The error shouldn't be counted as an immutable working-copy commit. It
-    // should be reported.
+    // Even if there were an error about the invalid immutable_heads(), the
+    // error shouldn't be counted as an immutable working-copy commit.
     let output = root_dir.run_jj(["git", "clone", "source", "clone"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Warning: Failed to check mutability of the new working-copy revision.
-    Caused by:
-    1: Invalid `revset-aliases.immutable_heads()`
-    2: Revision `unknown` doesn't exist
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: main@origin [new] tracked
-    Warning: Failed to check mutability of the new working-copy revision.
-    Caused by:
-    1: Invalid `revset-aliases.immutable_heads()`
-    2: Revision `unknown` doesn't exist
     Setting the revset alias `trunk()` to `main@origin`
-    Warning: Failed to check mutability of the new working-copy revision.
-    Caused by:
-    1: Invalid `revset-aliases.immutable_heads()`
-    2: Revision `unknown` doesn't exist
     Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
