@@ -47,6 +47,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   you need to pass multiple arguments to the tool, such as Prettier which
   accepts separate args for the range start and range end.
 
+* Added `fix.tools.<name>.run-tool-per-line-range` to control whether the tool
+  is run one time total with all the modified line ranges as arguments, or one
+  time for each modified line range. The default is `false`, which matches the
+  previous behavior. This is to accommodate tools which do not accept multiple
+  line ranges in a single invocation, such as Prettier.
+
 ### Fixed bugs
 
 * `jj` now creates a new working-copy revision during snapshotting if the

@@ -1422,6 +1422,12 @@ values have the following properties:
   setting should be omitted, and the tool will always process the entire file.
   - Example: `line-range-args = ["--lines", "$first:$last"]`
   - Example: `line-range-args = ["--line-start=$first", "--line-end=$last"]`
+- `run-tool-per-line-range`: Whether to run the tool invocation once for each
+  range of changed lines or one time with all line range arguments. Defaults to
+  `false`, meaning multiple `line-range-args` arguments will be added to the
+  tool argument list, and the tool will only be called once. If `true`, then the
+  tool will be called once for each line range (in reverse order so that the
+  line numbers are stable).
 - `run-tool-if-zero-line-ranges`: Whether to run the tool invocation for this
   tool on files that had zero line ranges to format in the revision being fixed.
   Defaults to `false`, meaning the tool is skipped for these files. This default
@@ -1470,9 +1476,12 @@ file, rather than formatting the entire file. This is particularly useful for
 avoiding unrelated formatting changes in untouched parts of a file.
 
 To enable this, specify the `line-range-args` configuration to match the line
-range argument format expected by your tool. The formatter will be invoked with
-these arguments repeated for each modified line range (e.g. `--lines=10-20
---lines=30-40`).
+range argument format expected by your tool. If `run-tool-per-line-range` is
+`true`, the tool will be invoked once per line range with these arguments (in
+reverse order so line numbers are stable; e.g., once with `--lines=30-40`, then
+once with `--lines=10-20`, etc.). If `run-tool-per-line-range` is `false` (the
+default), the formatter will be invoked once with these arguments repeated for
+each modified line range (e.g., `--lines=10-20 --lines=30-40`).
 
 Additionally, you can use `run-tool-if-zero-line-ranges` to control the
 behavior when a diff results in zero line ranges (which can happen when lines

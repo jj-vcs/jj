@@ -333,43 +333,64 @@ async fn fix_one_file(
     };
 
     let new_content = matching_tools.fold(old_content.clone(), |prev_content, tool_config| {
-        let mut extra_args = Vec::new();
-
-        if !tool_config.line_range_args.is_empty() {
+        let mut invocation_args = Vec::new();
+        if tool_config.line_range_args.is_empty() {
+            // Run once without any line range args.
+            invocation_args.push(Vec::new());
+        } else {
             let RegionsToFormat::LineRanges(ranges) =
                 compute_regions_to_format(base_content.as_deref(), &prev_content);
-            if ranges.is_empty() && !tool_config.run_tool_if_zero_line_ranges {
-                // Don't run the tool if there are no line ranges to format and the tool is
-                // configured to not run in that case.
-                return prev_content;
-            }
-
-            for range in ranges {
-                for line_range_arg in &tool_config.line_range_args {
-                    extra_args.push(
+            let line_range_args_per_range = ranges.iter().map(|range| {
+                tool_config
+                    .line_range_args
+                    .iter()
+                    .map(|line_range_arg| {
                         line_range_arg
                             .replace("$first", &range.first.to_string())
-                            .replace("$last", &range.last.to_string()),
-                    );
+                            .replace("$last", &range.last.to_string())
+                    })
+                    .collect_vec()
+            });
+
+            if tool_config.run_tool_per_line_range {
+                // Iterate in reverse order for stable line numbers.
+                // (Note that no ranges means that the tool won't be run, even
+                // if `run_tool_if_zero_line_ranges` is also true.)
+                for line_range_args in line_range_args_per_range.rev() {
+                    // Run one invocation for each line range.
+                    invocation_args.push(line_range_args);
                 }
+            } else if !ranges.is_empty() || tool_config.run_tool_if_zero_line_ranges {
+                // Combine all args into a single invocation. If there were no
+                // ranges, then no "line range args" will be given to the tool,
+                // but it will still be called.
+                invocation_args.push(line_range_args_per_range.flatten().collect_vec());
+            } else {
+                // There are no ranges and the tool is not configured to run in
+                // this case, so skip it.
+                return prev_content;
             }
         }
 
-        match run_tool(
-            ui,
-            workspace_root,
-            path_converter,
-            &tool_config.command,
-            file_to_fix,
-            &prev_content,
-            &extra_args,
-        ) {
-            Ok(next_content) => next_content,
-            // TODO: Because the stderr is passed through, this isn't always failing
-            // silently, but it should do something better will the exit code, tool
-            // name, etc.
-            Err(()) => prev_content,
-        }
+        invocation_args
+            .iter()
+            .fold(prev_content, |prev_content, args_list| {
+                match run_tool(
+                    ui,
+                    workspace_root,
+                    path_converter,
+                    &tool_config.command,
+                    file_to_fix,
+                    &prev_content,
+                    args_list,
+                ) {
+                    Ok(next_content) => next_content,
+                    // TODO: Because stderr is passed through, this isn't always
+                    // failing silently, but it should do something better with
+                    // the exit code, tool name, etc.
+                    Err(()) => prev_content,
+                }
+            })
     });
 
     if new_content != old_content {
@@ -501,6 +522,14 @@ struct ToolConfig {
     /// For example, `"--lines=$first-$last"`. Each string will be passed as a
     /// separate argument to the tool.
     line_range_args: Vec<String>,
+    /// Whether to run the tool invocation once for each range of changed lines
+    /// or one time with all line range arguments.
+    ///
+    /// Defaults to `false`, meaning multiple `line_range_args` arguments will
+    /// be added to the tool argument list, and the tool will only be called
+    /// once. If `true`, then the tool will be called once for each line range
+    /// (in reverse order so that the line numbers are stable).
+    run_tool_per_line_range: bool,
     /// Whether to run the tool invocation for this tool on files that had
     /// zero line ranges to format in the revision being fixed.
     ///
@@ -538,6 +567,8 @@ struct RawToolConfig {
     #[serde(default)]
     line_range_args: Vec<String>,
     #[serde(default)]
+    run_tool_per_line_range: bool,
+    #[serde(default)]
     run_tool_if_zero_line_ranges: bool,
 }
 
@@ -568,10 +599,17 @@ fn get_tools_config(
                     .map(|arg| fileset::parse(&mut diagnostics, arg, fileset_context))
                     .try_collect()?,
             );
-            if tool.line_range_args.is_empty() && tool.run_tool_if_zero_line_ranges {
-                return Err(config_error(
-                    "run-tool-if-zero-line-ranges can only be set when line-range-args is set",
-                ));
+            if tool.line_range_args.is_empty() {
+                if tool.run_tool_per_line_range {
+                    return Err(config_error(
+                        "run-tool-per-line-range can only be set when line-range-args is set",
+                    ));
+                }
+                if tool.run_tool_if_zero_line_ranges {
+                    return Err(config_error(
+                        "run-tool-if-zero-line-ranges can only be set when line-range-args is set",
+                    ));
+                }
             }
             print_parse_diagnostics(ui, &format!("In `fix.tools.{name}`"), &diagnostics)?;
             Ok(ToolConfig {
@@ -579,6 +617,7 @@ fn get_tools_config(
                 matcher: expression.to_matcher(),
                 enabled: tool.enabled,
                 line_range_args: tool.line_range_args,
+                run_tool_per_line_range: tool.run_tool_per_line_range,
                 run_tool_if_zero_line_ranges: tool.run_tool_if_zero_line_ranges,
             })
         })
