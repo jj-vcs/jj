@@ -41,6 +41,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetStreamExt as _;
 use jj_lib::rewrite::CommitRewriter;
 use ratatui::Terminal;
+use ratatui::buffer::Buffer;
 use ratatui::layout::Constraint;
 use ratatui::layout::Direction;
 use ratatui::layout::Layout;
@@ -52,6 +53,7 @@ use ratatui::style::Style;
 use ratatui::text::Line;
 use ratatui::text::Span;
 use ratatui::text::Text;
+use ratatui::widgets::Widget as _;
 use renderdag::Ancestor;
 use renderdag::GraphRowRenderer;
 use renderdag::Renderer as _;
@@ -477,7 +479,7 @@ fn run_tui<B: ratatui::backend::Backend>(
                     .split(frame.area());
                 let main_area = layout[0];
                 let help_area = layout[1];
-                render(&state, ui, &template, frame, main_area);
+                render(&state, ui, &template, frame.buffer_mut(), main_area);
                 frame.render_widget(&help_line, help_area);
             })
             .map_err(|e| internal_error(format!("Failed to draw TUI: {e}")))?;
@@ -542,7 +544,7 @@ fn render(
     state: &State,
     ui: &mut Ui,
     template: &crate::templater::TemplateRenderer<Commit>,
-    frame: &mut ratatui::Frame,
+    buf: &mut Buffer,
     main_area: Rect,
 ) {
     let mut row_renderer = GraphRowRenderer::new()
@@ -572,7 +574,7 @@ fn render(
         let text_area = row_layout[3];
 
         if id == current_selection_id {
-            frame.render_widget(Text::from("▶"), selection_area);
+            Text::from("▶").render(selection_area, buf);
         }
 
         let commit_state = state.commits.get(id).unwrap();
@@ -604,7 +606,7 @@ fn render(
                 UiAction::Abandon => "abandon",
                 UiAction::Keep => "keep",
             };
-            frame.render_widget(Text::from(action_text), action_area);
+            Text::from(action_text).render(action_area, buf);
         }
 
         let mut text_lines = vec![];
@@ -620,7 +622,7 @@ fn render(
         }
         drop(formatter);
         let text = ansi_to_tui::IntoText::into_text(&text_lines).unwrap();
-        frame.render_widget(text, text_area);
+        text.render(text_area, buf);
 
         // Make graph as tall as the text
         let graph_message = "\n".repeat(text_lines.lines().count());
@@ -632,7 +634,7 @@ fn render(
                 y: graph_text.height() as i32,
             })
             .intersection(main_area);
-        frame.render_widget(graph_text, graph_area);
+        graph_text.render(graph_area, buf);
     }
 }
 
