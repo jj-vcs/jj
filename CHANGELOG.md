@@ -32,6 +32,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   removes it, allowing colocation to be toggled after workspace
   creation.
 
+* `fix.tools.<name>.line-range-args` (replaces `line-range-arg`) is an array of
+  string template args to pass to the fix tool. This is more flexible in cases
+  where you need to pass multiple arguments to the tool, such as separate args
+  for the range start and range end.
+
 ### Fixed bugs
 
 ## [0.45.1] - 2026-09-03
