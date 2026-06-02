@@ -28,6 +28,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Deprecations
 
+* `fix.tools.<name>.line-range-arg` is deprecated in favor of `line-range-args`,
+  which is an array of string template args instead of a single string template.
+
 ### New features
 
 * `jj show` now supports `--reversed` flag.
@@ -38,6 +41,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   own private working copy; the commands may update the working copy and
   changes/conflicts are propagated accordingly, e.g., `jj run -- cargo check
   --all-features` or `jj run -- cargo fix` behaves as one might expect.
+
+* `fix.tools.<name>.line-range-args` (replaces `line-range-arg`) is an array of
+  string template args to pass to the fix tool. This is more flexible in case
+  you need to pass multiple arguments to the tool, such as Prettier which
+  accepts separate args for the range start and range end.
 
 ### Fixed bugs
 
