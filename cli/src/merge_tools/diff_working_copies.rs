@@ -81,19 +81,18 @@ impl DiffWorkingCopies {
         relative: bool,
     ) -> HashMap<&'static str, String> {
         let fs_path = |base: &Path, relative: bool| {
-            let abs_path = repo_path
-                .to_fs_path(base)
-                .expect("path should have been checked out to disk");
-            let path = if relative {
-                abs_path
-                    .strip_prefix(self.temp_dir())
+            let base = if relative {
+                base.strip_prefix(self.temp_dir())
                     .expect("path should be relative to temp_dir")
             } else {
-                abs_path.as_path()
+                base
             };
-            path.to_str()
+            repo_path
+                .to_fs_path(base)
+                .expect("path should have been checked out to disk")
+                .into_os_string()
+                .into_string()
                 .expect("temp_dir should be valid utf-8")
-                .to_owned()
         };
         let mut result = maplit::hashmap! {
             "left" => fs_path(self.left.working_copy_path(), relative),
