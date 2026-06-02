@@ -42,7 +42,7 @@ pub enum DiffCheckoutError {
 }
 
 pub(crate) struct DiffWorkingCopies {
-    _temp_dir: TempDir, // Temp dir will be deleted when this is dropped
+    temp_dir: TempDir, // Temp dir will be deleted when this is dropped
     left: TreeState,
     right: TreeState,
     output: Option<TreeState>,
@@ -59,7 +59,7 @@ impl DiffWorkingCopies {
     }
 
     pub fn temp_dir(&self) -> &Path {
-        self._temp_dir.path()
+        self.temp_dir.path()
     }
 
     /// The paths of the files that were checked out to disk.
@@ -194,7 +194,7 @@ pub(crate) async fn check_out_trees(
         DiffType::ThreeWay => Some(check_out("output", trees.after)?),
     };
     Ok(DiffWorkingCopies {
-        _temp_dir: temp_dir,
+        temp_dir,
         left,
         right,
         output,
