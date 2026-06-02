@@ -52,7 +52,7 @@ erased-serde = "0.4.10"
 etcetera = "0.11.0"
 eyre = "0.6"
 futures = "0.3.32"
-gix = { version = "0.83.0", default-features = false, features = [
+gix = { version = "0.84.0", default-features = false, features = [
     "attributes",
     "blob-diff",
     "index",
@@ -93,7 +93,7 @@ ratatui = { version = "0.30.0", features = ["crossterm"] }
 rayon = "1.12.0"
 ref-cast = "1.0.25"
 regex = "1.12.3"
-rpassword = "7.5.3"
+rpassword = "7.5.4"
 rustix = { version = "1.1.4", features = ["fs"] }
 rustversion = "1.0.22"
 same-file = "1.0.6"
@@ -119,7 +119,7 @@ thiserror = "2.0.17"
 timeago = { version = "0.6.0", default-features = false }
 tokio = { version = "1.52.3", features = ["io-util"] }
 toml = "1.1.0"
-toml_edit = { version = "0.25.8", features = ["serde"] }
+toml_edit = { version = "0.25.12", features = ["serde"] }
 tracing = "0.1.44"
 tracing-chrome = "0.7.2"
 tracing-subscriber = { version = "0.3.23", default-features = false, features = [
