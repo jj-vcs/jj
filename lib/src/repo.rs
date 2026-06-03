@@ -834,9 +834,28 @@ impl RepoLoader {
 
         // Caches the result of merging some operations.
         let mut merged_operations: HashMap<Vec<OperationId>, Operation> = HashMap::new();
+
         // Caches the result of op_walk::closest_common_ancestors invocations. Keyed by
         // the arguments to that method.
         let mut closest_common_ancestors: HashMap<_, Vec<Operation>> = HashMap::new();
+        let mut closest_common_ancestors_fn = async |parent_ops: Vec<Operation>,
+                                                     other_op: Operation|
+               -> OpStoreResult<Vec<Operation>> {
+            let ancestor_ops = match closest_common_ancestors
+                .entry((to_operation_ids(&parent_ops), other_op.id().clone()))
+            {
+                Entry::Occupied(occupied_entry) => occupied_entry.into_mut(),
+                Entry::Vacant(vacant_entry) => {
+                    let ancestor_ops = op_walk::closest_common_ancestors(
+                        parent_ops.iter().cloned(),
+                        [other_op.clone()],
+                    )
+                    .await?;
+                    vacant_entry.insert(ancestor_ops.clone())
+                }
+            };
+            Ok(ancestor_ops.clone())
+        };
 
         let tx = self.load_at(&operations[0]).await?.start_transaction();
         let mut stack = vec![(1, operations, tx)];
@@ -864,19 +883,8 @@ impl RepoLoader {
             // Get the ancestor operations between the operations we have merged so far
             // (represented by `tx.parent_ops()`) and the next operation to merge
             // (`other_op`).
-            let ancestor_ops = match closest_common_ancestors
-                .entry((to_operation_ids(tx.parent_ops()), other_op.id().clone()))
-            {
-                Entry::Occupied(occupied_entry) => occupied_entry.into_mut(),
-                Entry::Vacant(vacant_entry) => {
-                    let ancestor_ops = op_walk::closest_common_ancestors(
-                        tx.parent_ops().iter().cloned(),
-                        [other_op.clone()],
-                    )
-                    .await?;
-                    vacant_entry.insert(ancestor_ops.clone())
-                }
-            };
+            let ancestor_ops =
+                closest_common_ancestors_fn(tx.parent_ops().to_vec(), other_op.clone()).await?;
             assert!(!ancestor_ops.is_empty());
 
             let ancestor_op = if let [ancestor_op] = ancestor_ops.as_slice() {
