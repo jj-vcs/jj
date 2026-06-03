@@ -20,15 +20,19 @@ blake2 = { workspace = true }
 bstr = { workspace = true }
 digest = { workspace = true }
 either = { workspace = true }
+etcetera = { workspace = true }
 futures = { workspace = true }
 globset = { workspace = true }
 hashbrown = { workspace = true }
 indexmap = { workspace = true }
 itertools = { workspace = true }
 jj-core-proc-macros = { workspace = true }
+pollster = { workspace = true }
+ref-cast = { workspace = true }
 regex = { workspace = true }
 serde = { workspace = true }
 smallvec = { workspace = true }
+tempfile = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
@@ -38,6 +42,11 @@ eyre = { workspace = true }
 insta = { workspace = true }
 maplit = { workspace = true }
 pollster = { workspace = true }
+test-case = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+same-file = { workspace = true }
+winreg = { workspace = true }
 
 [lints]
 workspace = true

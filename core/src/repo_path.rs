@@ -458,7 +458,7 @@ impl RepoPath {
     /// # Examples
     ///
     /// ```
-    /// use jj_lib::repo_path::RepoPath;
+    /// use jj_core::repo_path::RepoPath;
     ///
     /// let bing_path = RepoPath::from_internal_string("foo/bar/bing").unwrap();
     ///
