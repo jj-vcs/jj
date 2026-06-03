@@ -140,7 +140,7 @@ fn hash_statements_for_enum_fields<'a>(
     hash_statements.push(quote! {::jj_core::content_hash::ContentHash::hash(&#ix, state);});
     for (ty, b) in &typed_bindings {
         hash_statements.push(quote_spanned! {b.span() =>
-            <#ty as ::jj_lib::content_hash::ContentHash>::hash(#b, state);
+            <#ty as ::jj_core::content_hash::ContentHash>::hash(#b, state);
         });
     }
 

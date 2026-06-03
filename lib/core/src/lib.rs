@@ -18,5 +18,33 @@
 #![warn(missing_docs)]
 #![forbid(unsafe_code)]
 #![deny(unused_must_use)]
+
+// Needed so that proc macros can be used inside jj_lib and by external crates
+// that depend on it.
+// See:
+// - https://github.com/rust-lang/rust/issues/54647#issuecomment-432015102
+// - https://github.com/rust-lang/rust/issues/54363
+extern crate self as jj_core;
+
+#[macro_use]
+pub mod content_hash;
+
+pub mod file_util;
+pub mod repo_path;
+
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use tempfile::TempDir;
+
+    // Copied from `testutils::TestResult` to remove dependency cycle.
+    pub type TestResult<T = ()> = eyre::Result<T>;
+
+    /// Unlike `testutils::new_temp_dir()`, this function doesn't set up
+    /// hermetic Git environment.
+    pub fn new_temp_dir() -> TempDir {
+        tempfile::Builder::new()
+            .prefix("jj-test-")
+            .tempdir()
+            .unwrap()
+    }
+}

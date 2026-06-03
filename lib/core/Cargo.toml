@@ -13,5 +13,31 @@ keywords.workspace = true
 
 [dependencies]
 
+blake2 = { workspace = true }
+chrono = { workspace = true }
+clru = { workspace = true }
+digest = { workspace = true }
+etcetera = { workspace = true }
+futures = { workspace = true }
+itertools = { workspace = true }
+jj-core-proc-macros = { workspace = true }
+pollster = { workspace = true }
+ref-cast = { workspace = true }
+serde = { workspace = true }
+smallvec = { workspace = true }
+tempfile = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+assert_matches = { workspace = true }
+test-case = { workspace = true }
+eyre = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+same-file = { workspace = true }
+winreg = { workspace = true }
+
 [lints]
 workspace = true
