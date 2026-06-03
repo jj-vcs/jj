@@ -470,6 +470,20 @@ fn run_tui<B: ratatui::backend::Backend>(
     }
     let help_line = Line::from(help_spans);
 
+    let render_commit = |commit: &Commit, is_context_node: bool| {
+        let mut text_lines = vec![];
+        let mut formatter = ui.new_formatter(&mut text_lines).into_labeled("arrange");
+        if is_context_node {
+            template
+                .format(commit, formatter.labeled("context").as_mut())
+                .unwrap();
+        } else {
+            template.format(commit, formatter.as_mut()).unwrap();
+        }
+        drop(formatter);
+        text_lines
+    };
+
     loop {
         terminal
             .draw(|frame| {
@@ -479,7 +493,7 @@ fn run_tui<B: ratatui::backend::Backend>(
                     .split(frame.area());
                 let main_area = layout[0];
                 let help_area = layout[1];
-                render(&state, ui, &template, frame.buffer_mut(), main_area);
+                render(&state, render_commit, frame.buffer_mut(), main_area);
                 frame.render_widget(&help_line, help_area);
             })
             .map_err(|e| internal_error(format!("Failed to draw TUI: {e}")))?;
@@ -542,8 +556,7 @@ fn handle_key_event(event: KeyEvent, mut state: State) -> State {
 
 fn render(
     state: &State,
-    ui: &mut Ui,
-    template: &crate::templater::TemplateRenderer<Commit>,
+    render_commit: impl Fn(&Commit, bool) -> Vec<u8>,
     buf: &mut Buffer,
     main_area: Rect,
 ) {
@@ -609,18 +622,7 @@ fn render(
             Text::from(action_text).render(action_area, buf);
         }
 
-        let mut text_lines = vec![];
-        let mut formatter = ui.new_formatter(&mut text_lines).into_labeled("arrange");
-        if is_context_node {
-            template
-                .format(&commit_state.commit, formatter.labeled("context").as_mut())
-                .unwrap();
-        } else {
-            template
-                .format(&commit_state.commit, formatter.as_mut())
-                .unwrap();
-        }
-        drop(formatter);
+        let text_lines = render_commit(&commit_state.commit, is_context_node);
         let text = ansi_to_tui::IntoText::into_text(&text_lines).unwrap();
         text.render(text_area, buf);
 
