@@ -10,7 +10,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Release highlights
 
-* Switch to the Mimalloc allocator for the `jj` cli tool for better multi-threaded performance.
+### Breaking changes
+
+### Deprecations
+
+### New features
+
+### Fixed bugs
+
+## [0.42.0] - 2026-06-04
+
+### Release highlights
+
+* Switched to the mimalloc memory allocator for better multi-threaded
+  performance.
 
 ### Breaking changes
 
@@ -43,8 +56,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   IDs are preserved by the remote, local descendant revisions will be rebased
   onto the rewritten parents.
 
-* Added `jj util backend name` command that prints the backend being used in the
-  current repo.
+* Added `jj util backend name` command that prints the commit backend being used
+  in the current repo.
 
 * Added `edit-invocation-mode` config option for diff editors (e.g.
   `jj diffedit`, `jj split`). When set to `"file-by-file"`, the editor is
@@ -66,6 +79,29 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   bookmark matched). [#9181](https://github.com/jj-vcs/jj/issues/9181).
 
 * The `builtin_log_redacted` template now also redacts workspace names.
+
+### Contributors
+
+Thanks to the people who made this release happen!
+
+* Alex Jaspersen (@ajaspers)
+* Archer (@archer-321)
+* ase (@adamse)
+* Austin Seipp (@thoughtpolice)
+* David Rieber (@drieber)
+* Eyüp Can Akman (@eyupcanakman)
+* Jakub Stasiak (@jstasiak)
+* James Dixon (@lemonase)
+* Joseph Lou (@josephlou5)
+* Laurynas Keturakis (@laulauland)
+* Luna Schwalbe (@lunagl)
+* Martin von Zweigbergk (@martinvonz)
+* Niko Savola (@nikosavola)
+* OlshaMB (@OlshaMB)
+* Sergey Kasmy (@SergeyKasmy)
+* truffle (@truffle-dev)
+* Vincent Ging Ho Yim (@cenviity)
+* Yuya Nishihara (@yuja)
 
 ## [0.41.0] - 2026-05-06
 
@@ -5136,7 +5172,8 @@ No changes, only trying to get the automated build to work.
 
 Last release before this changelog started.
 
-[unreleased]: https://github.com/jj-vcs/jj/compare/v0.41.0...HEAD
+[unreleased]: https://github.com/jj-vcs/jj/compare/v0.42.0...HEAD
+[0.42.0]: https://github.com/jj-vcs/jj/compare/v0.41.0...v0.42.0
 [0.41.0]: https://github.com/jj-vcs/jj/compare/v0.40.0...v0.41.0
 [0.40.0]: https://github.com/jj-vcs/jj/compare/v0.39.0...v0.40.0
 [0.39.0]: https://github.com/jj-vcs/jj/compare/v0.38.0...v0.39.0
