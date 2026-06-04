@@ -7109,6 +7109,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
+<p><code>jj git remote add</code> now reports an error instead of panicking when the
+  remote name is empty or contains whitespace.
+  <a href="https://github.com/jj-vcs/jj/issues/9099">#9099</a></p>
+</li>
+<li>
 <p>Color-words diffs are now shown as separate before and after lines when color
   output is disabled, making piped or redirected diffs readable.
   <a href="https://github.com/jj-vcs/jj/issues/5894">#5894</a></p>
