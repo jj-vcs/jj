@@ -25,6 +25,7 @@ use crate::cli_util::export_working_copy_changes_to_git;
 use crate::cli_util::print_snapshot_stats;
 use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
+use crate::command_error::cli_error;
 use crate::command_error::user_error;
 use crate::complete;
 use crate::ui::Ui;
@@ -53,7 +54,16 @@ pub(crate) async fn cmd_file_untrack(
     let auto_tracking_matcher = workspace_command.auto_tracking_matcher(ui)?;
     let options =
         workspace_command.snapshot_options_with_start_tracking_matcher(&auto_tracking_matcher)?;
-
+    if options.derive_tracked_from_ignores {
+        let mut err =
+            cli_error("Explicit untrack not allowed when `derive-tracked-from-ignores` is true");
+        err.extend_hints(Some(
+            "Edit `.gitignore` to ignore the selected paths and they will be automatically \
+             untracked"
+                .to_string(),
+        ));
+        return Err(err);
+    }
     let working_copy_shared_with_git = workspace_command.working_copy_shared_with_git();
 
     let mut tx = workspace_command.start_transaction().into_inner();

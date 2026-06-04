@@ -1285,6 +1285,7 @@ impl TreeState {
             start_tracking_matcher,
             force_tracking_matcher,
             max_new_file_size,
+            derive_tracked_from_ignores,
         } = options;
 
         let sparse_matcher = self.sparse_matcher();
@@ -1332,6 +1333,7 @@ impl TreeState {
                 error: OnceLock::new(),
                 progress: *progress,
                 max_new_file_size: *max_new_file_size,
+                derive_tracked_from_ignores: *derive_tracked_from_ignores,
             };
             let directory_to_visit = DirectoryToVisit {
                 dir: RepoPathBuf::root(),
@@ -1503,6 +1505,7 @@ struct FileSnapshotter<'a> {
     error: OnceLock<SnapshotError>,
     progress: Option<&'a SnapshotProgress<'a>>,
     max_new_file_size: u64,
+    derive_tracked_from_ignores: bool,
 }
 
 impl FileSnapshotter<'_> {
@@ -1613,10 +1616,13 @@ impl FileSnapshotter<'_> {
                     return Ok(None);
                 }
             }
+            
+            let is_ignored = git_ignore.matches_dir(&path);
+            if is_ignored && self.derive_tracked_from_ignores {
+                return Ok(None);
+            }
 
-            if git_ignore.matches_dir(&path)
-                && self.force_tracking_matcher.visit(&path).is_nothing()
-            {
+            if is_ignored && self.force_tracking_matcher.visit(&path).is_nothing() {
                 // If the whole directory is ignored by .gitignore, visit only
                 // paths we're already tracking. This is because .gitignore in
                 // ignored directory must be ignored. It's also more efficient.
@@ -1643,8 +1649,13 @@ impl FileSnapshotter<'_> {
             if let Some(progress) = self.progress {
                 progress(&path);
             }
+            let is_ignored = git_ignore.matches_file(&path);
+            if is_ignored && self.derive_tracked_from_ignores {
+                return Ok(None);
+            }
+
             if maybe_current_file_state.is_none()
-                && (git_ignore.matches_file(&path) && !self.force_tracking_matcher.matches(&path))
+                && (is_ignored && !self.force_tracking_matcher.matches(&path))
             {
                 // If it wasn't already tracked and it matches
                 // the ignored paths, then ignore it.
