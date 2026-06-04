@@ -1334,6 +1334,13 @@ impl WorkspaceCommandHelper {
             } else {
                 // Don't print verbose message on initial checkout.
             }
+            if !self.env.command.should_commit_transaction() {
+                writeln!(
+                    ui.status(),
+                    "Operation left uncommitted because --no-integrate-operation was requested: {}",
+                    short_operation_hash(self.repo().op_id())
+                )?;
+            }
         } else {
             // Unlikely, but the HEAD ref got deleted by git?
             self.finish_transaction(ui, tx, "import git head", git_import_export_lock)
@@ -2095,6 +2102,15 @@ to the current parents may contain changes from multiple commits.
                 .await
                 .map_err(snapshot_command_error)?;
             self.user_repo = ReadonlyUserRepo::new(repo);
+            if !self.env.command.should_commit_transaction() {
+                writeln!(
+                    ui.status(),
+                    "Snapshot operation left uncommitted because --no-integrate-operation was \
+                     requested: {}",
+                    short_operation_hash(self.user_repo.repo.op_id())
+                )
+                .map_err(snapshot_command_error)?;
+            }
         }
 
         #[cfg(feature = "git")]

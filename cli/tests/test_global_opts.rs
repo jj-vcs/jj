@@ -251,12 +251,13 @@ fn test_no_integrate_operation() {
     let output = test_env.run_jj_in(&repo_path, &["squash", "--no-integrate-operation"]);
     insta::assert_snapshot!(output.stdout, @"");
     insta::assert_snapshot!(output.stderr, @"
+    Snapshot operation left uncommitted because --no-integrate-operation was requested: 13357990b38a
     Operation left uncommitted because --no-integrate-operation was requested: a028de7aa4f4
     [EOF]
     ");
     let stderr = output.stderr.into_raw();
-    let first_line = stderr.split('\n').next().unwrap();
-    let op_id_hex = first_line[first_line.len() - 12..].to_string();
+    let last_line = stderr.lines().last().unwrap();
+    let op_id_hex = last_line[last_line.len() - 12..].to_string();
     let output = test_env.run_jj_in(&repo_path, &["op", "log", "--ignore-working-copy"]);
     assert_eq!(output.stdout, op_log_output.stdout);
     let output = test_env.run_jj_in(&repo_path, &["debug", "working-copy"]);
@@ -319,12 +320,13 @@ fn test_no_integrate_operation_colocated() {
     let output = test_env.run_jj_in(&repo_path, &["squash", "--no-integrate-operation"]);
     insta::assert_snapshot!(output.stdout, @"");
     insta::assert_snapshot!(output.stderr, @"
+    Snapshot operation left uncommitted because --no-integrate-operation was requested: f9d2255ff5a3
     Operation left uncommitted because --no-integrate-operation was requested: 0eccbf94f56f
     [EOF]
     ");
     let stderr = output.stderr.into_raw();
-    let first_line = stderr.split('\n').next().unwrap();
-    let op_id_hex = first_line[first_line.len() - 12..].to_string();
+    let last_line = stderr.lines().last().unwrap();
+    let op_id_hex = last_line[last_line.len() - 12..].to_string();
     let output = test_env.run_jj_in(&repo_path, &["op", "log", "--ignore-working-copy"]);
     assert_eq!(output.stdout, op_log_output.stdout);
     let output = test_env.run_jj_in(&repo_path, &["debug", "working-copy"]);

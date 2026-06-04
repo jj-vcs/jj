@@ -887,6 +887,32 @@ fn test_git_colocated_external_checkout() -> TestResult {
     [EOF]
     ");
 
+    // With --no-integrate-operation, the reset operation shouldn't persist
+    work_dir.run_jj(["new", "subject(C)"]).success();
+    git_check_out_ref("refs/heads/master")?;
+    let output = work_dir.run_jj(["status", "--no-integrate-operation"]);
+    insta::assert_snapshot!(output, @"
+    The working copy has no changes.
+    Working copy  (@) : wqnwkozp 8a57e340 (empty) (no description set)
+    Parent commit (@-): qpvuntsm 8777db25 master | (empty) A
+    [EOF]
+    ------- stderr -------
+    Reset the working copy parent to the new Git HEAD.
+    Operation left uncommitted because --no-integrate-operation was requested: 4dd0ee71039d
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["status", "--no-integrate-operation"]);
+    insta::assert_snapshot!(output, @"
+    The working copy has no changes.
+    Working copy  (@) : lylxulpl 5c2c75fa (empty) (no description set)
+    Parent commit (@-): qpvuntsm 8777db25 master | (empty) A
+    [EOF]
+    ------- stderr -------
+    Reset the working copy parent to the new Git HEAD.
+    Operation left uncommitted because --no-integrate-operation was requested: 1c501b6939b3
+    [EOF]
+    ");
+
     Ok(())
 }
 
