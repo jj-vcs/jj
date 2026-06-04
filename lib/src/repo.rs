@@ -765,7 +765,11 @@ impl RepoLoader {
         let op = op_heads_store::resolve_op_heads(
             self.op_heads_store.as_ref(),
             &self.op_store,
-            async |op_heads| self.resolve_op_heads(op_heads).await,
+            async |op_heads| {
+                assert!(!op_heads.is_empty());
+                self.merge_operations(op_heads, Some("reconcile divergent operations"))
+                    .await
+            },
         )
         .await?;
         let view = op.view().await?;
@@ -840,15 +844,6 @@ impl RepoLoader {
         };
 
         Ok(final_op)
-    }
-
-    async fn resolve_op_heads(
-        &self,
-        op_heads: Vec<Operation>,
-    ) -> Result<Operation, RepoLoaderError> {
-        assert!(!op_heads.is_empty());
-        self.merge_operations(op_heads, Some("reconcile divergent operations"))
-            .await
     }
 
     async fn finish_load(
