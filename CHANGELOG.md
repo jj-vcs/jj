@@ -24,6 +24,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   [#7751](https://github.com/jj-vcs/jj/issues/7751)
   [#9338](https://github.com/jj-vcs/jj/issues/9338)
 
+* `jj git remote add` now warns if the new remote exactly matches an existing
+  remote's fetch URL or effective push URL.
+  [#413](https://github.com/jj-vcs/jj/issues/413)
+
 ## [0.42.0] - 2026-06-04
 
 ### Release highlights

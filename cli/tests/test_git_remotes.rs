@@ -160,13 +160,160 @@ fn test_git_remote_add() {
 }
 
 #[test]
+fn test_git_remote_add_duplicate_url_warning() {
+    let test_env = TestEnvironment::default();
+
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir
+        .run_jj(["git", "remote", "add", "foo", "http://example.com/repo/foo"])
+        .success();
+    let output = work_dir.run_jj(["git", "remote", "add", "bar", "http://example.com/repo/foo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Remote foo already uses the same URL.
+    Hint: If this was a mistake, run `jj git remote remove bar`.
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["git", "remote", "list"]);
+    insta::assert_snapshot!(output, @"
+    bar http://example.com/repo/foo
+    foo http://example.com/repo/foo
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_remote_add_duplicate_url_warning_with_url_rewrite() {
+    let test_env = TestEnvironment::default();
+
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let mut config_file = fs::OpenOptions::new()
+        .append(true)
+        .open(work_dir.root().join(".jj/repo/store/git/config"))
+        .unwrap();
+    // The warning is about exact configured URL strings. Git rewrite rules can
+    // make different strings resolve to the same URL, so they should not affect
+    // whether this warning fires.
+    writeln!(
+        config_file,
+        r#"[url "https://example.com/"]
+	insteadOf = gh:"#
+    )
+    .unwrap();
+    drop(config_file);
+
+    work_dir
+        .run_jj(["git", "remote", "add", "foo", "gh:org/repo"])
+        .success();
+    let output = work_dir.run_jj(["git", "remote", "add", "bar", "gh:org/repo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Remote foo already uses the same URL.
+    Hint: If this was a mistake, run `jj git remote remove bar`.
+    [EOF]
+    ");
+    let output = work_dir.run_jj([
+        "git",
+        "remote",
+        "add",
+        "baz",
+        "https://example.com/org/repo",
+    ]);
+    insta::assert_snapshot!(output, @"");
+}
+
+#[test]
+fn test_git_remote_add_duplicate_url_warning_omits_url() {
+    let test_env = TestEnvironment::default();
+
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    // Remote URLs can contain embedded credentials. The warning should identify
+    // the duplicate remote without echoing secrets into stderr or logs.
+    work_dir
+        .run_jj([
+            "git",
+            "remote",
+            "add",
+            "foo",
+            "https://user:token@example.com/repo",
+        ])
+        .success();
+    let output = work_dir.run_jj([
+        "git",
+        "remote",
+        "add",
+        "bar",
+        "https://user:token@example.com/repo",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Remote foo already uses the same URL.
+    Hint: If this was a mistake, run `jj git remote remove bar`.
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_remote_add_duplicate_url_warning_cross_direction() {
+    let test_env = TestEnvironment::default();
+
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir
+        .run_jj([
+            "git",
+            "remote",
+            "add",
+            "foo",
+            "http://example.com/repo/fetch",
+            "--push-url",
+            "http://example.com/repo/push",
+        ])
+        .success();
+
+    let output = work_dir.run_jj([
+        "git",
+        "remote",
+        "add",
+        "bar",
+        "http://example.com/repo/new-fetch",
+        "--push-url",
+        "http://example.com/repo/fetch",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Remote foo already uses the same URL.
+    Hint: If this was a mistake, run `jj git remote remove bar`.
+    [EOF]
+    ");
+    let output = work_dir.run_jj([
+        "git",
+        "remote",
+        "add",
+        "baz",
+        "http://example.com/repo/push",
+        "--push-url",
+        "http://example.com/repo/new-push",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Remote foo already uses the same URL.
+    Hint: If this was a mistake, run `jj git remote remove baz`.
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_git_remote_with_fetch_tags() {
     let test_env = TestEnvironment::default();
 
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    let output = work_dir.run_jj(["git", "remote", "add", "foo", "http://example.com/repo"]);
+    let output = work_dir.run_jj(["git", "remote", "add", "foo", "http://example.com/foo"]);
     insta::assert_snapshot!(output, @"");
 
     let output = work_dir.run_jj([
@@ -174,7 +321,7 @@ fn test_git_remote_with_fetch_tags() {
         "remote",
         "add",
         "foo-included",
-        "http://example.com/repo",
+        "http://example.com/foo-included",
         "--fetch-tags",
         "included",
     ]);
@@ -185,7 +332,7 @@ fn test_git_remote_with_fetch_tags() {
         "remote",
         "add",
         "foo-all",
-        "http://example.com/repo",
+        "http://example.com/foo-all",
         "--fetch-tags",
         "all",
     ]);
@@ -196,7 +343,7 @@ fn test_git_remote_with_fetch_tags() {
         "remote",
         "add",
         "foo-none",
-        "http://example.com/repo",
+        "http://example.com/foo-none",
         "--fetch-tags",
         "none",
     ]);
@@ -208,17 +355,17 @@ fn test_git_remote_with_fetch_tags() {
     	logallrefupdates = false
     	repositoryformatversion = 0
     [remote "foo"]
-    	url = http://example.com/repo
+    	url = http://example.com/foo
     	fetch = +refs/heads/*:refs/remotes/foo/*
     [remote "foo-included"]
-    	url = http://example.com/repo
+    	url = http://example.com/foo-included
     	fetch = +refs/heads/*:refs/remotes/foo-included/*
     [remote "foo-all"]
-    	url = http://example.com/repo
+    	url = http://example.com/foo-all
     	tagOpt = --tags
     	fetch = +refs/heads/*:refs/remotes/foo-all/*
     [remote "foo-none"]
-    	url = http://example.com/repo
+    	url = http://example.com/foo-none
     	tagOpt = --no-tags
     	fetch = +refs/heads/*:refs/remotes/foo-none/*
     "#);
