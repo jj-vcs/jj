@@ -273,6 +273,9 @@ None
   revisions by default (defined by `revsets.op-diff-changes-in`). A new flag,
   `--show-changes-in`, can be used to override this. [#6083](https://github.com/jj-vcs/jj/issues/6083)
 
+* Add `env(name)` template function that looks up the value of a given
+  environment variable.
+
 ### Fixed bugs
 
 * `.gitignore` with UTF-8 BOM can now be parsed correctly.

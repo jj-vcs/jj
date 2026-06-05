@@ -1078,6 +1078,7 @@ impl WorkspaceCommandEnvironment {
             repo,
             &self.path_converter,
             &self.workspace_name,
+            self.env_vars(),
             self.revset_parse_context(),
             id_prefix_context,
             self.immutable_expression(),
@@ -1088,6 +1089,10 @@ impl WorkspaceCommandEnvironment {
 
     pub fn operation_template_extensions(&self) -> &[Arc<dyn OperationTemplateLanguageExtension>] {
         &self.command.data.operation_template_extensions
+    }
+
+    pub(crate) fn env_vars(&self) -> &HashMap<String, String> {
+        self.command.config_env().env_vars()
     }
 }
 
@@ -1889,6 +1894,7 @@ to the current parents may contain changes from multiple commits.
         OperationTemplateLanguage::new(
             self.workspace.repo_loader(),
             Some(self.repo().op_id()),
+            self.env.env_vars(),
             self.env.operation_template_extensions(),
         )
     }
