@@ -1555,6 +1555,29 @@ Then to use the tool in a specific repository, set the `enabled` config:
 $ jj config set --repo fix.tools.rustfmt.enabled true
 ```
 
+## `run`: Running commands across revisions {: #run }
+
+The `jj run` command executes a command against each revision in a set,
+checking out each one into an isolated working copy, running the command, and
+amending the revision with any resulting changes.
+
+### `run.jobs`: Default parallelism {: #run.jobs }
+
+By default `jj run` processes one revision at a time. You can increase
+parallelism with the `run.jobs` setting:
+
+```toml
+[run]
+jobs = 8
+```
+
+The value must be a positive integer. The `--jobs` / `-j` CLI flag overrides
+this setting for a single invocation:
+
+```shell
+jj run -j 4 -- cargo fmt
+```
+
 ## Commit Signing
 
 `jj` can be configured to sign and verify the commits it creates using either
