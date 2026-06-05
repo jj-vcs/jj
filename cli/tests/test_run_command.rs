@@ -229,6 +229,107 @@ fn test_run_sets_env_vars() {
 }
 
 #[test]
+fn test_run_from_subdir_skips_commits_without_it() {
+    let mut test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    // `fake-formatter --tee ran.txt` is a portable way to create an empty
+    // `ran.txt`, equivalent to `touch ran.txt` but available on all platforms.
+    let fake_formatter = assert_cmd::cargo::cargo_bin("fake-formatter");
+    assert!(fake_formatter.is_file());
+    let fake_formatter_path = fake_formatter.to_string_lossy().into_owned();
+    test_env.add_paths_to_normalize(fake_formatter.clone(), "$FAKE_FORMATTER_PATH");
+    let work_dir = test_env.work_dir("repo");
+
+    // First commit has only root-level files; no `sub/` exists yet.
+    work_dir.write_file("seed.txt", "seed");
+    work_dir.run_jj(&["commit", "-m", "no-sub"]).success();
+    // Second commit adds `sub/file.txt`, so `sub/` exists from here on.
+    work_dir.write_file("sub/file.txt", "x");
+    work_dir.run_jj(&["commit", "-m", "with-sub"]).success();
+
+    // Run from inside sub/ on both ancestors. The command creates `ran.txt`
+    // in cwd, so we can later tell where it ran. The `no-sub` commit has no
+    // `sub/` directory and should be skipped; the `with-sub` commit has
+    // `sub/` and should be rewritten with `sub/ran.txt` added.
+    let sub_dir = work_dir.dir("sub");
+    let output = sub_dir
+        .run_jj(&[
+            "run",
+            "-r",
+            "@-|@--",
+            "--",
+            &fake_formatter_path,
+            "--tee",
+            "ran.txt",
+        ])
+        .success()
+        .normalize_backslash();
+    insta::assert_snapshot!(output.stderr, @r"
+    Skipped commit 3bb1f1ca3c09a8e6be46ef48515803464b16b426: directory does not exist: sub
+    Rewrote 1 commits with $FAKE_FORMATTER_PATH --tee ran.txt
+    Working copy  (@) now at: kkmpptxz 3548431a (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 3aa9a235 with-sub
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    ");
+
+    // The rewritten `with-sub` commit has `sub/ran.txt`, alongside the
+    // pre-existing `sub/file.txt`.
+    insta::assert_snapshot!(
+        work_dir
+            .run_jj(&["file", "list", "-r", "@-"])
+            .normalize_backslash(),
+        @r"
+    seed.txt
+    sub/file.txt
+    sub/ran.txt
+    [EOF]
+    "
+    );
+}
+
+#[test]
+fn test_run_root_flag() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    // `fake-formatter --tee ran.txt` is a portable way to create an empty
+    // `ran.txt`, equivalent to `touch ran.txt` but available on all platforms.
+    let fake_formatter = assert_cmd::cargo::cargo_bin("fake-formatter");
+    assert!(fake_formatter.is_file());
+    let fake_formatter_path = fake_formatter.to_string_lossy().into_owned();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("sub/file.txt", "x");
+    work_dir.run_jj(&["commit", "-m", "with-sub"]).success();
+
+    // Invoke `jj run` from inside sub/, but pass `--root` so the command
+    // executes from the workspace root and `ran.txt` lands at the top level.
+    let sub_dir = work_dir.dir("sub");
+    sub_dir
+        .run_jj(&[
+            "run",
+            "--root",
+            "-r",
+            "@-",
+            "--",
+            &fake_formatter_path,
+            "--tee",
+            "ran.txt",
+        ])
+        .success();
+
+    insta::assert_snapshot!(
+        work_dir
+            .run_jj(&["file", "list", "-r", "@-"])
+            .normalize_backslash(),
+        @r"
+    ran.txt
+    sub/file.txt
+    [EOF]
+    "
+    );
+}
+
+#[test]
 fn test_run_failure_rewrites_nothing() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -377,6 +478,65 @@ fn test_run_shell_command() {
     8d0cb96bac2cfefd56a8691b9301ef44cc94a368
     9453b0f03bbda20fa849b10eb051d1e3eed1ec5d
     ");
+}
+
+#[test]
+fn test_run_sets_workspace_root_env_var() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("seed.txt", "seed");
+    work_dir.run_jj(&["commit", "-m", "seed"]).success();
+
+    // Each subprocess writes $JJ_WORKSPACE_ROOT into a file so we can assert
+    // it equals the actual workspace root (not the per-commit working copy).
+    let jj_args: &[&str] = if cfg!(windows) {
+        &[
+            "run",
+            "-r",
+            "@-",
+            "--",
+            "cmd",
+            "/c",
+            "echo %JJ_WORKSPACE_ROOT%>workspace_root.txt",
+        ]
+    } else {
+        &[
+            "run",
+            "-r",
+            "@-",
+            "--",
+            "sh",
+            "-c",
+            "echo $JJ_WORKSPACE_ROOT > workspace_root.txt",
+        ]
+    };
+    work_dir.run_jj(jj_args).success();
+
+    // Trim trailing whitespace per line and normalize CRLF to LF so the
+    // snapshot is identical on Windows and Unix.
+    let normalize_whitespace = |s: String| {
+        s.replace("\r\n", "\n")
+            .lines()
+            .map(|line| line.trim_end().to_string())
+            .collect::<Vec<_>>()
+            .join("\n")
+            + "\n"
+    };
+    // $TEST_ENV is the normalized placeholder for the test environment's temp
+    // root directory. JJ_WORKSPACE_ROOT should point to the per-commit
+    // isolated working copy under .jj/run/default/<commit-id>/working_copy,
+    // not to the original workspace.
+    insta::assert_snapshot!(
+        work_dir
+            .run_jj(&["file", "show", "-r", "@-", "workspace_root.txt"])
+            .normalize_stdout_with(normalize_whitespace),
+        @r"
+    $TEST_ENV/repo/.jj/run/default/5fbe90560fed1c39d46a46a672ba98abd53bdc6d/working_copy
+    [EOF]
+    "
+    );
 }
 
 fn get_log_output(work_dir: &TestWorkDir) -> String {
