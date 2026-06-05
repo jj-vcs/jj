@@ -1148,6 +1148,14 @@ diff-invocation-mode = "dir"
 edit-invocation-mode = "file-by-file"
 ```
 
+By default, `$left` will be read-only, and you'll edit `$right` until the diff is as desired.
+This can be inverted like so:
+
+```toml
+[merge-tools.my-tool]
+edit-side = "left"
+```
+
 Finally, `ui.diff-editor` can be a list that specifies a command and its arguments.
 
 Some examples:
@@ -1230,7 +1238,8 @@ To configure other diff editors in this way, you can include `$output` together
 with `$left` and `$right` in `merge-tools.TOOL.edit-args`. `jj` will replace
 `$output` with the directory where the diff editor will be expected to put the
 result of the user's edits. Initially, the contents of `$output` will be the
-same as the contents of `$right`.
+same as the contents of `$right`, although this can be changed by setting
+`merge-tools.TOOL.edit-side`.
 
 ### `JJ-INSTRUCTIONS`
 

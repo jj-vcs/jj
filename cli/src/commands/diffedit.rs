@@ -125,14 +125,14 @@ pub(crate) async fn cmd_diffedit(
 
     let diff_editor = workspace_command.diff_editor(ui, args.tool.as_deref())?;
     let mut tx = workspace_command.start_transaction();
-    let format_instructions = || {
+    let format_instructions = |edit_side| {
         format!(
             "\
 You are editing changes in: {}
 
 {diff_description}
 
-Adjust the right side until it shows the contents you want. If you
+Adjust the {edit_side} side until it shows the contents you want. If you
 don't make any changes, then the operation will be aborted.",
             tx.format_commit_summary(&target_commit),
         )

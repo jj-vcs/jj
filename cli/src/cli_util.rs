@@ -181,6 +181,7 @@ use crate::diff_util::DiffRenderer;
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
 use crate::formatter::FormatterExt as _;
+use crate::merge_tools::DiffEditSide;
 use crate::merge_tools::DiffEditor;
 use crate::merge_tools::MergeEditor;
 use crate::merge_tools::MergeToolConfigError;
@@ -3358,7 +3359,7 @@ impl DiffSelector {
         trees: Diff<&MergedTree>,
         tree_labels: Diff<String>,
         matcher: &dyn Matcher,
-        format_instructions: impl FnOnce() -> String,
+        format_instructions: impl FnOnce(DiffEditSide) -> String,
     ) -> Result<MergedTree, CommandError> {
         let selected_tree = restore_tree(
             trees.after,
