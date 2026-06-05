@@ -142,12 +142,12 @@ pub(crate) async fn cmd_restore(
     let diff_selector =
         workspace_command.diff_selector(ui, args.tool.as_deref(), args.interactive)?;
     let to_tree = to_commit.tree();
-    let format_instructions = || {
+    let format_instructions = |edit_side| {
         formatdoc! {"
             You are restoring changes from: {from_commits}
             to commit: {to_commit}
 
-            The diff initially shows all changes restored. Adjust the right side until it
+            The diff initially shows all changes restored. Adjust the {edit_side} side until it
             shows the contents you want for the destination commit.
             ",
             from_commits = from_commits
