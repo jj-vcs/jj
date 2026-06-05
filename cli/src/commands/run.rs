@@ -148,10 +148,14 @@ async fn create_working_copy(
     Ok((working_copy_dir, tree_state))
 }
 
-/// A command and its arguments, as parsed from the command line.
+/// A command, its arguments, and the workspace-relative directory it should
+/// run in.
 struct CommandSpec {
     program: String,
     args: Vec<String>,
+    /// Working directory for the subprocess, relative to the workspace root.
+    /// Empty means run from the workspace root.
+    subdir: Option<PathBuf>,
 }
 
 impl fmt::Display for CommandSpec {
@@ -178,6 +182,10 @@ struct RunJob {
     stdout: Vec<u8>,
     /// Bytes the subprocess wrote to its stderr, captured in full.
     stderr: Vec<u8>,
+    /// True if the command wasn't run because the per-commit working directory
+    /// (the subdirectory `jj run` was invoked from) didn't exist in this
+    /// commit's tree.
+    skipped: bool,
 }
 
 // TODO: make this more revset/commit stream friendly.
@@ -243,6 +251,30 @@ async fn rewrite_commit(
 
     let (working_copy_dir, mut tree_state) = create_working_copy(&base_path, &commit).await?;
 
+    // Resolve where the command should run. If the subdir doesn't exist in this
+    // commit's checked-out tree, skip the commit entirely.
+    let exec_dir = if let Some(subdir) = &spec.subdir {
+        let exec_dir = working_copy_dir.join(subdir);
+        if !exec_dir.is_dir() {
+            tracing::debug!(
+                ?exec_dir,
+                commit = old_id.hex(),
+                "subdirectory does not exist in commit; skipping"
+            );
+            return Ok(RunJob {
+                old_id,
+                new_tree: None,
+                dirty: false,
+                stdout: Vec::new(),
+                stderr: Vec::new(),
+                skipped: true,
+            });
+        }
+        exec_dir
+    } else {
+        working_copy_dir.clone()
+    };
+
     // TODO: Later this should take some trait which allows `run` to integrate with
     // something like Bazels RE protocol.
     // e.g
@@ -257,8 +289,7 @@ async fn rewrite_commit(
     // concurrently from multiple jobs would interleave output.
     let command = tokio::process::Command::new(&spec.program)
         .args(&spec.args)
-        // set cwd to the subdirectory inside the working copy.
-        .current_dir(&working_copy_dir)
+        .current_dir(&exec_dir)
         .env("JJ_WORKSPACE_ROOT", &working_copy_dir)
         .env("JJ_CHANGE_ID", commit.change_id().reverse_hex())
         .env("JJ_COMMIT_ID", commit.id().hex())
@@ -311,6 +342,7 @@ async fn rewrite_commit(
         dirty,
         stdout: output.stdout,
         stderr: output.stderr,
+        skipped: false,
     })
 }
 
@@ -320,8 +352,7 @@ async fn rewrite_commit(
 /// amends the revision with the resulting working copy. Descendants are rebased
 /// on top of the amended revisions.
 ///
-/// The command is executed from the root of the repository with the following
-/// environment variables set:
+/// The command is executed with the following environment variables set:
 ///
 /// - JJ_CHANGE_ID
 /// - JJ_COMMIT_ID
@@ -364,6 +395,11 @@ pub struct RunArgs {
     /// How many processes should run in parallel
     #[arg(long, short, default_value_t = 1)]
     jobs: usize,
+
+    /// Run the command from the working-copy root in each commit instead of
+    /// from the subdirectory `jj run` was invoked from.
+    #[arg(long)]
+    root: bool,
 }
 
 pub async fn cmd_run(
@@ -394,6 +430,21 @@ pub async fn cmd_run(
     let mut done_commits = HashSet::new();
     let (sender_tx, mut receiver) = mpsc::channel(args.jobs);
 
+    // Run each command from the subdirectory the user invoked `jj run` from,
+    // unless `--root` overrides that. The subdir is relative to the workspace
+    // root, which is canonical (per `CommandHelper::cwd` docs).
+    let subdir = if args.root {
+        None
+    } else {
+        Some(
+            command
+                .cwd()
+                .strip_prefix(workspace_command.workspace_root())
+                .map(Path::to_path_buf)
+                .unwrap_or_default(),
+        )
+    };
+
     let store = workspace_command.repo().store().clone();
     let mut tx = workspace_command.start_transaction();
     let repo_path = tx.base_workspace_helper().repo_path();
@@ -421,6 +472,7 @@ pub async fn cmd_run(
     let spec = Arc::new(CommandSpec {
         program: args.command.clone(),
         args: args.args.clone(),
+        subdir,
     });
     let mut rewritten_commits = HashMap::new();
 
@@ -444,23 +496,32 @@ pub async fn cmd_run(
         async {
             let mut visited = 0;
             while let Some(res) = receiver.recv().await {
-                // Emit the subprocess's captured streams. Acquiring
-                // `ui.stdout()` / `ui.stderr()` for the duration of the
-                // write keeps each commit's output from interleaving with
-                // another's.
-                if !res.stdout.is_empty() {
-                    let mut out = ui.stdout();
-                    out.write_all(&res.stdout)?;
-                }
-                if !res.stderr.is_empty() {
-                    let mut err = ui.stderr();
-                    err.write_all(&res.stderr)?;
-                }
-                if res.dirty
-                    && let Some(new_tree) = res.new_tree
-                {
-                    done_commits.insert(res.old_id.clone());
-                    rewritten_commits.insert(res.old_id.clone(), new_tree);
+                if res.skipped {
+                    writeln!(
+                        ui.stderr(),
+                        "Skipped commit {}: directory does not exist: {}",
+                        res.old_id.hex(),
+                        spec.subdir.as_deref().unwrap_or(Path::new("")).display()
+                    )?;
+                } else {
+                    // Emit the subprocess's captured streams. Acquiring
+                    // `ui.stdout()` / `ui.stderr()` for the duration of the
+                    // write keeps each commit's output from interleaving with
+                    // another's.
+                    if !res.stdout.is_empty() {
+                        let mut out = ui.stdout();
+                        out.write_all(&res.stdout)?;
+                    }
+                    if !res.stderr.is_empty() {
+                        let mut err = ui.stderr();
+                        err.write_all(&res.stderr)?;
+                    }
+                    if res.dirty
+                        && let Some(new_tree) = res.new_tree
+                    {
+                        done_commits.insert(res.old_id.clone());
+                        rewritten_commits.insert(res.old_id.clone(), new_tree);
+                    }
                 }
                 visited += 1;
                 if visited == stored_len {
