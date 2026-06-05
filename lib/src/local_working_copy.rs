@@ -1058,6 +1058,19 @@ impl TreeState {
         Ok(wc)
     }
 
+    /// Like `init` but does not persist the initial empty tree state to
+    /// disk. Use when the caller will save state itself only after a
+    /// successful operation (e.g. to use `tree_state` file absence as a
+    /// dirty marker).
+    pub fn init_without_saving(
+        store: Arc<Store>,
+        working_copy_path: PathBuf,
+        state_path: PathBuf,
+        tree_state_settings: &TreeStateSettings,
+    ) -> Self {
+        Self::empty(store, working_copy_path, state_path, tree_state_settings)
+    }
+
     fn empty(
         store: Arc<Store>,
         working_copy_path: PathBuf,

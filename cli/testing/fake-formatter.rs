@@ -70,7 +70,7 @@ struct Args {
 
     /// Duplicate stdout into this file.
     #[arg(long)]
-    tee: Option<PathBuf>,
+    tee: Vec<PathBuf>,
 
     /// Read one byte at a time, and send one byte to the stdout before reading
     /// the next byte.
@@ -229,7 +229,7 @@ fn main() -> ExitCode {
         print!("{stdout}");
         stdout
     };
-    if let Some(path) = args.tee {
+    for path in args.tee {
         let mut file = OpenOptions::new()
             .create(true)
             .append(true)
