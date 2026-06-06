@@ -34,7 +34,6 @@ use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::settings::UserSettings;
-use jj_lib::signing::Signer;
 use jj_lib::signing_factory::signer_from_settings;
 use jj_lib::store::Store;
 use jj_lib::working_copy::CheckoutError;

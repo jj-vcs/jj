@@ -20,7 +20,7 @@
 
 pub mod absorb;
 pub mod annotate;
-pub mod backend;
+pub use jj_core::backend;
 pub mod bisect;
 pub mod commit;
 pub mod commit_builder;
@@ -87,7 +87,7 @@ pub mod rewrite;
 pub mod secret_backend;
 pub mod secure_config;
 pub mod settings;
-pub mod signing;
+pub use jj_core::signing;
 pub mod signing_factory;
 use jj_core::symbol_util;
 pub mod tree_merge;
