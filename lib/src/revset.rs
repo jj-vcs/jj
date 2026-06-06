@@ -61,6 +61,7 @@ use crate::ref_name::WorkspaceNameBuf;
 use crate::repo::ReadonlyRepo;
 use crate::repo::Repo;
 use crate::repo::RepoLoaderError;
+use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathUiConverter;
 use crate::revset_parser;
 pub use crate::revset_parser::BinaryOp;
@@ -3586,9 +3587,11 @@ impl<'a> LoweringContext<'a> {
     }
 
     pub fn fileset_parse_context(&self) -> Option<FilesetParseContext<'_>> {
+        let workspace = self.workspace?;
         Some(FilesetParseContext {
             aliases_map: self.fileset_aliases_map,
-            path_converter: self.workspace?.path_converter,
+            path_converter: workspace.path_converter,
+            sparse_patterns: workspace.sparse_patterns,
         })
     }
 
@@ -3602,6 +3605,11 @@ impl<'a> LoweringContext<'a> {
 pub struct RevsetWorkspaceContext<'a> {
     pub path_converter: &'a RepoPathUiConverter,
     pub workspace_name: &'a WorkspaceName,
+    /// Sparse-checkout patterns of the current working copy.
+    ///
+    /// Set to `None` when no working copy is available; the `sparse()`
+    /// fileset function won't be resolvable in that case.
+    pub sparse_patterns: Option<&'a [RepoPathBuf]>,
 }
 
 /// Formats a string as symbol by quoting and escaping it if necessary.
@@ -3688,6 +3696,7 @@ mod tests {
         let workspace_ctx = RevsetWorkspaceContext {
             path_converter: &path_converter,
             workspace_name,
+            sparse_patterns: None,
         };
         let mut aliases_map = RevsetAliasesMap::new();
         for (decl, defn) in aliases {

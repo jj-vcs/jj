@@ -16,6 +16,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* The fileset DSL has a new `sparse()` function that evaluates to the files
+  within the current working copy's sparse-checkout patterns. For example,
+  `jj log 'sparse()' -p` will show only the revisions that touch files you
+  currently have checked out.
+  [#7816](https://github.com/jj-vcs/jj/issues/7816)
+
 ### Fixed bugs
 
 ## [0.42.0] - 2026-06-04

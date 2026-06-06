@@ -38,7 +38,9 @@ pub async fn cmd_debug_fileset(
     let workspace_command = command.workspace_helper(ui).await?;
 
     let mut diagnostics = FilesetDiagnostics::new();
-    let context = workspace_command.env().fileset_parse_context();
+    let context = workspace_command
+        .env()
+        .fileset_parse_context(workspace_command.working_copy().sparse_patterns().ok());
     let expression = fileset::parse_maybe_bare(&mut diagnostics, &args.path, &context)?;
     print_parse_diagnostics(ui, "In fileset expression", &diagnostics)?;
     writeln!(ui.stdout(), "-- Parsed:")?;
