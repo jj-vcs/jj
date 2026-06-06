@@ -18,6 +18,7 @@ harness = false
 [dependencies]
 blake2 = { workspace = true }
 bstr = { workspace = true }
+clru = { workspace = true }
 digest = { workspace = true }
 either = { workspace = true }
 etcetera = { workspace = true }

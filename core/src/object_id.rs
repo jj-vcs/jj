@@ -256,9 +256,9 @@ impl Debug for HexPrefix {
 /// The result of a prefix search.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PrefixResolution<T> {
-    /// The prefix matched no objects.
+    /// No match was found.
     NoMatch,
-    /// The prefix matched exactly one object.
+    /// A single match was found.
     SingleMatch(T),
     /// The prefix matched more than one object.
     AmbiguousMatch,

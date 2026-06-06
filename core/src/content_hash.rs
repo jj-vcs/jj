@@ -34,16 +34,16 @@ impl ContentHash for () {
 }
 
 macro_rules! tuple_impls {
-    ($( ( $($n:tt $T:ident),+ ) )+) => {
-        $(
-            impl<$($T: ContentHash,)+> ContentHash for ($($T,)+) {
-                fn hash(&self, state: &mut impl DigestUpdate) {
-                    $(self.$n.hash(state);)+
-                }
-            }
-        )+
-    }
-}
+     ($( ( $($n:tt $T:ident),+ ) )+) => {
+         $(
+             impl<$($T: ContentHash,)+> ContentHash for ($($T,)+) {
+                 fn hash(&self, state: &mut impl DigestUpdate) {
+                     $(self.$n.hash(state);)+
+                 }
+             }
+         )+
+     }
+ }
 
 tuple_impls! {
     (0 T0)
