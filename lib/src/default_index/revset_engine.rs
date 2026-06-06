@@ -16,6 +16,7 @@ use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::convert::Infallible;
 use std::fmt;
@@ -47,6 +48,9 @@ use crate::conflict_labels::ConflictLabels;
 use crate::conflicts::MaterializedTreeValue;
 use crate::conflicts::materialize_tree_value;
 use crate::default_index::bit_set::AncestorsBitSet;
+use crate::default_index::composite::CompositeCommitIndex;
+use crate::default_index::entry::SmallGlobalCommitPositionsVec;
+use crate::default_index::rev_walk_queue::RevWalkQueue;
 use crate::diff::ContentDiff;
 use crate::diff::DiffHunkKind;
 use crate::files;
@@ -1150,6 +1154,11 @@ impl EvaluationContext<'_> {
         if count == 0 {
             return Ok(EagerRevset::empty());
         }
+        let max_depth = u32::try_from(count - 1).unwrap_or(u32::MAX);
+
+        let candidates: Vec<_> = candidate_set.positions().attach(self.index).try_collect()?;
+        let (mut subgraph, heads) =
+            subgraph_and_heads_from_positions(self.index.commits(), &candidates, max_depth);
 
         #[derive(Clone, Eq, Ord, PartialEq, PartialOrd)]
         struct Item {
@@ -1157,37 +1166,33 @@ impl EvaluationContext<'_> {
             pos: GlobalCommitPosition, // tie-breaker
         }
 
-        let make_rev_item = |pos| -> Result<_, RevsetEvaluationError> {
-            let entry = self.index.commits().entry_by_pos(pos?);
+        let make_rev_item = |pos: GlobalCommitPosition| -> Result<_, RevsetEvaluationError> {
+            let entry = self.index.commits().entry_by_pos(pos);
             let commit = self.store.get_commit(&entry.commit_id())?;
-            Ok(Reverse(Item {
+            Ok(Item {
                 timestamp: commit.committer().timestamp.timestamp,
                 pos: entry.position(),
-            }))
+            })
         };
 
-        // Maintain min-heap containing the latest (greatest) count items. For small
-        // count and large candidate set, this is probably cheaper than building vec
-        // and applying selection algorithm.
-        let mut candidate_iter = candidate_set
-            .positions()
-            .attach(self.index)
-            .map(make_rev_item)
-            .fuse();
-        let mut latest_items: BinaryHeap<_> = candidate_iter.by_ref().take(count).try_collect()?;
-        for item in candidate_iter {
-            let item = item?;
-            let mut earliest = latest_items.peek_mut().unwrap();
-            if earliest.0 < item.0 {
-                *earliest = item;
+        let mut current_heads = BinaryHeap::new();
+        for head in heads {
+            current_heads.push(make_rev_item(head)?);
+        }
+
+        let mut positions: Vec<GlobalCommitPosition> = Vec::with_capacity(count);
+        while let Some(latest_item) = current_heads.pop() {
+            positions.push(latest_item.pos);
+            if positions.len() == count {
+                break;
+            }
+
+            for new_head in subgraph.remove_head(latest_item.pos) {
+                current_heads.push(make_rev_item(new_head)?);
             }
         }
 
-        assert!(latest_items.len() <= count);
-        let mut positions = latest_items
-            .into_iter()
-            .map(|item| item.0.pos)
-            .collect_vec();
+        debug_assert!(positions.len() <= count);
         positions.sort_unstable_by_key(|&pos| Reverse(pos));
         Ok(EagerRevset { positions })
     }
@@ -1502,6 +1507,92 @@ async fn to_file_content(
             panic!("Unexpected tree with id {id:?} in diff at path {path:?}");
         }
     }
+}
+
+#[derive(Default)]
+struct Subgraph {
+    commits_to_parents: HashMap<GlobalCommitPosition, SmallGlobalCommitPositionsVec>,
+    commits_to_children: HashMap<GlobalCommitPosition, SmallGlobalCommitPositionsVec>,
+}
+
+impl Subgraph {
+    fn remove_head(&mut self, pos: GlobalCommitPosition) -> Vec<GlobalCommitPosition> {
+        debug_assert_eq!(self.commits_to_children.get(&pos).map_or(0, |x| x.len()), 0);
+
+        let mut new_heads = Vec::new();
+        if let Some(parents) = self.commits_to_parents.remove(&pos) {
+            for parent in parents {
+                let children = self
+                    .commits_to_children
+                    .get_mut(&parent)
+                    .expect("should have children");
+                let index = children
+                    .iter()
+                    .position(|&child| child == pos)
+                    .expect("should have head as child");
+                children.remove(index);
+                if children.is_empty() {
+                    new_heads.push(parent);
+                }
+            }
+        }
+        new_heads
+    }
+}
+
+fn subgraph_and_heads_from_positions(
+    index: &CompositeCommitIndex,
+    positions: &[GlobalCommitPosition],
+    max_depth: u32,
+) -> (Subgraph, Vec<GlobalCommitPosition>) {
+    let Some(&min_pos) = positions.last() else {
+        return Default::default();
+    };
+    let mut heads = Vec::new();
+    let mut commits_to_parents: HashMap<GlobalCommitPosition, SmallGlobalCommitPositionsVec> =
+        HashMap::new();
+    let mut commits_to_children = HashMap::new();
+
+    let mut queue: RevWalkQueue<GlobalCommitPosition, (u32, GlobalCommitPosition)> =
+        RevWalkQueue::with_min_pos(min_pos);
+    for &pos in positions {
+        while let Some(item) = queue.pop_if(|x| x.pos > pos) {
+            for parent_pos in index.entry_by_pos(item.pos).parent_positions() {
+                queue.push(parent_pos, item.value);
+            }
+        }
+
+        let mut depth = 0;
+        let mut children = SmallGlobalCommitPositionsVec::new();
+        while let Some(item) = queue.pop_eq(&pos) {
+            let (item_depth, child_pos) = item.value;
+            depth = depth.max(item_depth);
+            children.push(child_pos);
+        }
+
+        if depth <= max_depth {
+            if children.is_empty() {
+                heads.push(pos);
+            } else {
+                children.sort_unstable();
+                children.dedup();
+                for &child in &children {
+                    commits_to_parents.entry(child).or_default().push(pos);
+                }
+                commits_to_children.insert(pos, children);
+            }
+        }
+
+        let parent_depth = depth + 1;
+        for parent_pos in index.entry_by_pos(pos).parent_positions() {
+            queue.push(parent_pos, (parent_depth, pos));
+        }
+    }
+    let subgraph = Subgraph {
+        commits_to_parents,
+        commits_to_children,
+    };
+    (subgraph, heads)
 }
 
 #[cfg(test)]
