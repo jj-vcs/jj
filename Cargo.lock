@@ -2647,6 +2647,7 @@ dependencies = [
  "etcetera",
  "eyre",
  "futures 0.3.33",
+ "insta",
  "itertools 0.15.0",
  "jj-core-proc-macros",
  "pollster",

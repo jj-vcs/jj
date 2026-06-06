@@ -29,9 +29,13 @@ extern crate self as jj_core;
 #[macro_use]
 pub mod content_hash;
 
+pub mod backend;
 pub mod file_util;
+pub mod hex_util;
 pub mod matchers;
+pub mod object_id;
 pub mod repo_path;
+pub mod signing;
 
 #[cfg(test)]
 mod tests {

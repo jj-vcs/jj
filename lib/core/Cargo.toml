@@ -32,8 +32,9 @@ tracing = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-test-case = { workspace = true }
 eyre = { workspace = true }
+insta = { workspace = true }
+test-case = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 same-file = { workspace = true }
