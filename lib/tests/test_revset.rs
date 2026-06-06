@@ -3079,76 +3079,115 @@ fn test_evaluate_expression_latest() {
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
 
-    let mut write_commit_with_committer_timestamp = |sec: i64| {
+    let mut write_commit_with_committer_timestamp = |sec: i64, parents: Vec<CommitId>| {
         let builder = create_random_commit(mut_repo);
         let mut committer = builder.committer().clone();
         committer.timestamp.timestamp = MillisSinceEpoch(sec * 1000);
-        builder.set_committer(committer).write_unwrap()
+        builder
+            .set_parents(parents)
+            .set_committer(committer)
+            .write_unwrap()
     };
-    let commit1_t3 = write_commit_with_committer_timestamp(3);
-    let commit2_t2 = write_commit_with_committer_timestamp(2);
-    let commit3_t2 = write_commit_with_committer_timestamp(2);
-    let commit4_t1 = write_commit_with_committer_timestamp(1);
+    // 6
+    // |\
+    // | 5
+    // | |
+    // | 3
+    // | |
+    // 5 |
+    // | |
+    // 1 |
+    // | |
+    // 4 |
+    // |/
+    // 2
+    let root_commit_id = repo.store().root_commit_id();
+    let commit_t2 = write_commit_with_committer_timestamp(2, vec![root_commit_id.clone()]);
+    let commit_t4 = write_commit_with_committer_timestamp(4, vec![commit_t2.id().clone()]);
+    let commit_t1 = write_commit_with_committer_timestamp(1, vec![commit_t4.id().clone()]);
+    let commit_t5_1 = write_commit_with_committer_timestamp(5, vec![commit_t1.id().clone()]);
+    let commit_t3 = write_commit_with_committer_timestamp(3, vec![commit_t2.id().clone()]);
+    let commit_t5_2 = write_commit_with_committer_timestamp(5, vec![commit_t3.id().clone()]);
+    let commit_t6 = write_commit_with_committer_timestamp(
+        6,
+        vec![commit_t5_1.id().clone(), commit_t5_2.id().clone()],
+    );
 
-    // Pick the latest entry by default (count = 1)
+    // Pick the latest head by default (count = 1)
     assert_eq!(
         resolve_commit_ids(mut_repo, "latest(all())"),
-        vec![commit1_t3.id().clone()],
+        vec![commit_t6.id().clone()],
+    );
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
+            &format!("latest({} | {})", commit_t4.id(), commit_t3.id())
+        ),
+        vec![commit_t4.id().clone()],
     );
 
     // Should not panic with count = 0 or empty set
     assert_eq!(resolve_commit_ids(mut_repo, "latest(all(), 0)"), vec![]);
     assert_eq!(resolve_commit_ids(mut_repo, "latest(none())"), vec![]);
 
-    assert_eq!(
-        resolve_commit_ids(mut_repo, "latest(all(), 1)"),
-        vec![commit1_t3.id().clone()],
-    );
+    // Test that `latest(all(), N)` returns the correct values for all `N`.
+    let expected_order = &[
+        commit_t6.id().clone(),
+        // Tie-breaking: pick the later index position first
+        commit_t5_2.id().clone(),
+        commit_t5_1.id().clone(),
+        // Since the commit with timestamp 1 is out of order, it blocks its ancestors from being
+        // included even though they have later timestamps, so the timestamp 3 must be next.
+        commit_t3.id().clone(),
+        // Now the commit with timestamp 1 can be included since there are no more available
+        // commits with later timestamps.
+        commit_t1.id().clone(),
+        // Since the commit with timestamp 1 is included, now its ancestors can be included.
+        commit_t4.id().clone(),
+        commit_t2.id().clone(),
+        root_commit_id.clone(),
+    ];
 
-    // Tie-breaking: pick the later entry in position
-    assert_eq!(
-        resolve_commit_ids(mut_repo, "latest(all(), 2)"),
-        vec![commit3_t2.id().clone(), commit1_t3.id().clone()],
-    );
+    for count in 1..=expected_order.len() {
+        let result = resolve_commit_ids(mut_repo, &format!("latest(all(), {count})"));
+        assert_eq!(result.len(), count);
+        for expected_item in &expected_order[0..count] {
+            assert!(result.contains(expected_item));
+        }
+    }
 
+    // Since only the commit with timestamp 1 is out of order, if we exclude it from
+    // the input revset, the result will be in the normal timestamp order again.
     assert_eq!(
-        resolve_commit_ids(mut_repo, "latest(all(), 3)"),
+        resolve_commit_ids(mut_repo, &format!("latest(~{}, 4)", commit_t1.id())),
         vec![
-            commit3_t2.id().clone(),
-            commit2_t2.id().clone(),
-            commit1_t3.id().clone(),
+            commit_t6.id().clone(),
+            commit_t5_2.id().clone(),
+            commit_t5_1.id().clone(),
+            commit_t4.id().clone(),
         ],
     );
 
+    // Ancestry still matters for sparse revsets.
     assert_eq!(
-        resolve_commit_ids(mut_repo, "latest(all(), 4)"),
-        vec![
-            commit4_t1.id().clone(),
-            commit3_t2.id().clone(),
-            commit2_t2.id().clone(),
-            commit1_t3.id().clone(),
-        ],
-    );
-
-    assert_eq!(
-        resolve_commit_ids(mut_repo, "latest(all(), 5)"),
-        vec![
-            commit4_t1.id().clone(),
-            commit3_t2.id().clone(),
-            commit2_t2.id().clone(),
-            commit1_t3.id().clone(),
-            mut_repo.store().root_commit_id().clone(),
-        ],
+        resolve_commit_ids(
+            mut_repo,
+            &format!("latest({} | {})", commit_t1.id(), commit_t2.id())
+        ),
+        vec![commit_t1.id().clone()],
     );
 
     // Should not panic if count is larger than the candidates size
     assert_eq!(
-        resolve_commit_ids(mut_repo, "latest(~root(), 5)"),
+        resolve_commit_ids(mut_repo, "latest(~root(), 100)"),
         vec![
-            commit4_t1.id().clone(),
-            commit3_t2.id().clone(),
-            commit2_t2.id().clone(),
-            commit1_t3.id().clone(),
+            commit_t6.id().clone(),
+            commit_t5_2.id().clone(),
+            commit_t3.id().clone(),
+            commit_t5_1.id().clone(),
+            commit_t1.id().clone(),
+            commit_t4.id().clone(),
+            commit_t2.id().clone(),
         ],
     );
 }

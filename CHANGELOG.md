@@ -26,6 +26,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   patterns. However, the `<bookmark>@<remote>` symbol syntax is still supported.
   [#9226](https://github.com/jj-vcs/jj/issues/9226)
 
+* The `latest()` revset function now considers ancestor relationships while
+  finding the latest commits. This change only affects unusual cases where one
+  of the commits in the input revset has a later committer timestamp than one of
+  its children.
+
 ### Deprecations
 
 ### New features
