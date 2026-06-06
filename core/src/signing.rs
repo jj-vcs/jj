@@ -17,13 +17,17 @@
 
 use std::fmt::Debug;
 use std::fmt::Display;
+use std::num::NonZeroUsize;
 use std::sync::Mutex;
 
 use clru::CLruCache;
 use thiserror::Error;
 
 use crate::backend::CommitId;
-use crate::store::COMMIT_CACHE_CAPACITY;
+
+// TODO: This is a duplication of `jj_lib::store::COMMIT_CACHE_CAPACITY`. Use
+// the respective constant when we lower `Store`.
+const COMMIT_CACHE_CAPACITY: NonZeroUsize = NonZeroUsize::new(100).unwrap();
 
 /// A status of the signature, part of the [Verification] type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
