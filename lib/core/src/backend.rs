@@ -1,4 +1,4 @@
-// Copyright 2020-2024 The Jujutsu Authors
+// Copyright 2026 The Jujutsu Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,11 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Contains helpers and macros to make it easier to work with binary Object
-//! types, with a newtype wrapper [`id_type`] and the [`ObjectId`] trait.
+//! Contains a basic shim for some Backend types such as [`ChangeId`] and
+//! [`CommitId`].
+// TODO: move the `Backend` trait into this.
 
-pub use jj_core::object_id::HexPrefix;
-pub use jj_core::object_id::ObjectId;
-pub use jj_core::object_id::PrefixResolution;
-pub use jj_core::object_id::id_type;
-pub use jj_core::object_id::impl_id_type;
+use crate::object_id::ObjectId as _;
+use crate::object_id::id_type;
+
+id_type!(
+    /// Identifier for a [`Commit`] based on its content. When a commit is
+    /// rewritten, its `CommitId` changes.
+    pub CommitId { hex() }
+);

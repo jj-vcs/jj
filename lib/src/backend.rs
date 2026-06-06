@@ -25,6 +25,7 @@ use async_trait::async_trait;
 use chrono::TimeZone as _;
 use futures::AsyncRead;
 use futures::stream::BoxStream;
+pub use jj_core::backend::CommitId;
 use thiserror::Error;
 
 use crate::content_hash::ContentHash;
@@ -39,11 +40,6 @@ use crate::repo_path::RepoPathComponent;
 use crate::repo_path::RepoPathComponentBuf;
 use crate::signing::SignResult;
 
-id_type!(
-    /// Identifier for a [`Commit`] based on its content. When a commit is
-    /// rewritten, its `CommitId` changes.
-    pub CommitId { hex() }
-);
 id_type!(
     /// Stable identifier for a [`Commit`]. Unlike the `CommitId`, the `ChangeId`
     /// follows the commit and is not updated when the commit is rewritten.
