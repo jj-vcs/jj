@@ -20,7 +20,7 @@
 
 pub mod absorb;
 pub mod annotate;
-pub mod backend;
+pub use jj_core::backend;
 pub mod bisect;
 pub mod commit;
 pub mod commit_builder;

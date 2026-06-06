@@ -587,9 +587,8 @@ where
     }
 }
 
-pub(crate) fn borrow_tree_value<T: Borrow<TreeValue> + ?Sized>(
-    term: Option<&T>,
-) -> Option<&TreeValue> {
+/// Borrow the Option's `TreeValue` if it exists.
+pub fn borrow_tree_value<T: Borrow<TreeValue> + ?Sized>(term: Option<&T>) -> Option<&TreeValue> {
     term.map(|value| value.borrow())
 }
 
