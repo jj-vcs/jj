@@ -33,34 +33,38 @@ use crate::complete;
 use crate::config::CommandNameAndArgs;
 use crate::ui::Ui;
 
-/// Run a given command to find the first bad revision.
+/// Run a given command to find the first bad revision
 ///
-/// Uses binary search to find the first bad revision. Revisions are evaluated
-/// by running a given command (see the documentation for `--command` for
+/// Uses binary search to find the first "bad" revision. Revisions are evaluated
+/// by running the given command (see the documentation for `<COMMAND>` for
 /// details).
 ///
-/// It is assumed that if a given revision is bad, then all its descendants
-/// in the input range are also bad.
+/// It is assumed that if a given revision is "bad", then all its descendants
+/// in the input range are also "bad".
 ///
-/// The target of the bisection can be inverted to look for the first good
+/// The target of the bisection can be inverted to look for the first "good"
 /// revision by passing `--find-good`.
 ///
-/// Hint: You can pass your shell as evaluation command. You can then run
-/// manual tests in the shell and make sure to exit the shell with appropriate
-/// error code depending on the outcome (e.g. `exit 0` to mark the revision as
-/// good in Bash or Fish).
+/// Hint: You can pass your shell as the command, then run manual tests in a
+/// script. When you're done, make sure to exit the shell with an appropriate
+/// error code depending on the desired outcome (e.g., `exit 0` to mark the
+/// revision as "good").
 ///
 /// Example: To run `cargo test` with the changes from revision `xyz` applied:
-///
-/// `jj bisect run --range v1.0..main -- bash -c "jj duplicate -r xyz -B @ &&
-/// cargo test"`
+/// ```shell
+/// jj bisect run --range v1.0..main -- bash -c "jj duplicate xyz -B @ &&
+/// cargo test"
+/// ```
 #[derive(clap::Args, Clone, Debug)]
+#[command(verbatim_doc_comment)]
 pub(crate) struct BisectRunArgs {
-    /// Range of revisions to bisect
+    /// Range of revisions to bisect (can be repeated)
     ///
     /// This is typically a range like `v1.0..main`. The heads of the range are
     /// assumed to be bad. Ancestors of the range that are not also in the range
     /// are assumed to be good.
+    ///
+    /// The union of all given ranges are used as the input for the bisection.
     #[arg(long, short, value_name = "REVSETS", required = true)]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     range: Vec<RevisionArg>,
@@ -74,12 +78,14 @@ pub(crate) struct BisectRunArgs {
     )]
     legacy_command: Option<CommandNameAndArgs>,
 
-    /// Command to run to determine whether the bug is present
+    /// Command to run to determine the status of a revision
     ///
-    /// The exit status of the command will be used to mark revisions as good or
-    /// bad: status 0 means good, 125 means to skip the revision, 127 (command
-    /// not found) will abort the bisection, and any other non-zero exit status
-    /// means the revision is bad.
+    /// Each revision being checked will be directly edited (will become the
+    /// current working copy) before running this command. The exit status of
+    /// the command will be used to mark revisions as "good" or "bad": status 0
+    /// means "good", 125 means to skip the revision, 127 (command not found)
+    /// will abort the bisection, and any other non-zero exit status means the
+    /// revision is "bad".
     ///
     /// The target's commit ID is available to the command in the
     /// `$JJ_BISECT_TARGET` environment variable.
@@ -89,14 +95,15 @@ pub(crate) struct BisectRunArgs {
     /// Arguments to pass to the command
     ///
     /// Hint: Use a `--` separator to allow passing arguments starting with `-`.
-    /// For example `jj bisect run --range=... -- test -f some-file`.
+    /// For example: `jj bisect run --range=... -- test -f some-file`.
     #[arg(value_name = "ARGS")]
     args: Vec<String>,
 
-    /// Whether to find the first good revision instead
+    /// Find the first good revision instead
     ///
-    /// Inverts the interpretation of exit statuses (excluding special exit
-    /// statuses).
+    /// The interpretation of exit statuses will be inverted (excluding special
+    /// exit statuses), so status 0 means bad and other non-zero statuses mean
+    /// good.
     #[arg(long, value_name = "TARGET", default_value = "false")]
     find_good: bool,
 }
