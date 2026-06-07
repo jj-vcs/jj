@@ -2735,6 +2735,16 @@ dependencies = [
 [[package]]
 name = "jj-dsl"
 version = "0.46.0"
+dependencies = [
+ "eyre",
+ "insta",
+ "itertools 0.15.0",
+ "jj-core",
+ "pest",
+ "pest_derive",
+ "strsim",
+ "thiserror 2.0.21",
+]
 
 [[package]]
 name = "jj-lib"
@@ -2759,6 +2769,7 @@ dependencies = [
  "interim",
  "itertools 0.15.0",
  "jj-core",
+ "jj-dsl",
  "maplit",
  "memchr",
  "nix 0.31.3",
@@ -2779,7 +2790,6 @@ dependencies = [
  "rustversion",
  "serde",
  "smallvec",
- "strsim",
  "tempfile",
  "test-case",
  "testutils",

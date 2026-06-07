@@ -38,7 +38,7 @@ pub mod default_index;
 pub mod default_submodule_store;
 pub use jj_core::diff;
 pub mod diff_presentation;
-pub mod dsl_util;
+pub use jj_dsl::dsl_util;
 pub(crate) mod eol;
 pub mod evolution;
 pub mod extensions_map;
@@ -81,7 +81,7 @@ pub mod refs;
 pub mod repo;
 pub use jj_core::repo_path;
 pub mod revset;
-mod revset_parser;
+use jj_dsl::revset_parser;
 pub mod rewrite;
 #[cfg(feature = "testing")]
 pub mod secret_backend;
@@ -89,7 +89,6 @@ pub mod secure_config;
 pub mod settings;
 pub use jj_core::signing;
 pub mod signing_factory;
-use jj_core::symbol_util;
 pub mod tree_merge;
 // TODO: This file is mostly used for testing, whenever we no longer require it
 // in the lib it should be moved to the examples (e.g

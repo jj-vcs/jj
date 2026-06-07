@@ -19,6 +19,16 @@ include = [
 ]
 
 [dependencies]
+itertools = { workspace = true }
+jj-core = { workspace = true }
+pest = { workspace = true }
+pest_derive = { workspace = true }
+strsim = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+eyre = { workspace = true }
+insta = { workspace = true }
 
 [lints]
 workspace = true

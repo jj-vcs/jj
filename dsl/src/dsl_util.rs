@@ -19,13 +19,12 @@ use std::fmt;
 use std::slice;
 
 use itertools::Itertools as _;
+pub use jj_core::symbol_util::escape_string;
+pub use jj_core::symbol_util::format_string;
+use jj_core::symbol_util::unescape_char;
 use pest::RuleType;
 use pest::iterators::Pair;
 use pest::iterators::Pairs;
-
-pub use crate::symbol_util::escape_string;
-pub use crate::symbol_util::format_string;
-use crate::symbol_util::unescape_char;
 
 /// Manages diagnostic messages emitted during parsing.
 ///
