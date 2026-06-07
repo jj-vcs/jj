@@ -229,6 +229,7 @@ impl<V: Debug> Debug for RepoPathTree<V> {
 mod tests {
 
     use super::*;
+
     fn repo_path(value: &str) -> &RepoPath {
         RepoPath::from_internal_string(value).unwrap()
     }
