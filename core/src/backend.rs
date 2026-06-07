@@ -43,7 +43,7 @@ use crate::repo_path::RepoPathComponentBuf;
 use crate::signing::SignResult;
 
 id_type!(
-    /// Identifier for a [`Commit`] based on its content. When a commit is
+    /// Identifier for a `Commit` based on its content. When a commit is
     /// rewritten, its `CommitId` changes.
     pub CommitId { hex() }
 );
