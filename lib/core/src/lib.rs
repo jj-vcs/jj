@@ -30,11 +30,15 @@ extern crate self as jj_core;
 pub mod content_hash;
 
 pub mod backend;
+pub mod dsl_util;
 pub mod file_util;
 pub mod hex_util;
 pub mod matchers;
 pub mod object_id;
+pub mod ref_name;
 pub mod repo_path;
+pub mod revset;
+pub mod revset_parser;
 pub mod signing;
 
 #[cfg(test)]
