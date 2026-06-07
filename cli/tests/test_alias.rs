@@ -468,3 +468,104 @@ fn test_aliases_overriding_friendly_errors() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_alias_multi_word_name() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    test_env.add_config(
+        r#"[aliases]
+        "ws ls" = ["workspace", "list"]
+        "my deep alias" = ["config", "get", "user.name"]
+        # The table form (with a `definition` key) is also accepted.
+        "r head" = { definition = ["log", "-r", "@", "-T", "commit_id"] }
+        "#,
+    );
+
+    let output = work_dir.run_jj(["ws", "ls"]);
+    insta::assert_snapshot!(output, @"
+    default: qpvuntsm e8849ae1 (empty) (no description set)
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["my", "deep", "alias"]);
+    insta::assert_snapshot!(output, @"
+    Test User
+    [EOF]
+    ");
+    // Trailing args after the alias name are forwarded to the definition.
+    let output = work_dir.run_jj(["r", "head", "--no-graph"]);
+    insta::assert_snapshot!(output, @"e8849ae12c709f2321908879bc724fdb2ab8a781[EOF]");
+}
+
+#[test]
+fn test_alias_multi_word_precedence() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // The longest matching alias name wins (`"foo bar"` over `"foo"`).
+    test_env.add_config(
+        r#"[aliases]
+        foo = ["config", "get", "user.name"]
+        "foo bar" = ["config", "get", "user.email"]
+        "#,
+    );
+
+    let output = work_dir.run_jj(["foo"]);
+    insta::assert_snapshot!(output, @"
+    Test User
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["foo", "bar"]);
+    insta::assert_snapshot!(output, @"
+    test.user@example.com
+    [EOF]
+    ");
+    // A non-matching second word falls back to the single-word alias, with the
+    // extra word forwarded as an argument.
+    let output = work_dir.run_jj(["foo", "baz"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unexpected argument 'baz' found
+
+    Usage: jj config get [OPTIONS] <NAME>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+}
+
+#[test]
+fn test_alias_multi_word_recursive() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    test_env.add_config(
+        r#"[aliases]
+        "x y" = ["x", "y"]
+        "a b" = ["a"]
+        a = ["config", "get", "user.name"]
+        "#,
+    );
+
+    // A multi-word alias that expands to itself must error, not loop forever.
+    let output = work_dir.run_jj(["x", "y"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Recursive alias definition involving `x y`
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // But re-resolving the same alias on a shrinking argument list is fine:
+    // `a b b` -> `a b` -> `a`. `"a b"` is matched twice yet still terminates.
+    let output = work_dir.run_jj(["a", "b", "b"]);
+    insta::assert_snapshot!(output, @"
+    Test User
+    [EOF]
+    ");
+}
