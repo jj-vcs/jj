@@ -2410,7 +2410,7 @@ impl TreeState {
                 }
                 Err(err) => (path, Err(err)),
             })
-            .buffered(self.store.concurrency().max(1));
+            .buffered(self.store.concurrency());
 
         // If a conflicted file didn't change between the two trees, but the conflict
         // labels did, we still need to re-materialize it in the working copy. We don't
