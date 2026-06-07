@@ -20,3 +20,12 @@
 #![warn(missing_docs)]
 #![forbid(unsafe_code)]
 #![deny(unused_must_use)]
+
+pub mod dsl_util;
+pub mod revset_parser;
+
+#[cfg(test)]
+mod tests {
+    // Copied from `testutils::TestResult` to remove dependency cycle.
+    pub type TestResult<T = ()> = eyre::Result<T>;
+}
