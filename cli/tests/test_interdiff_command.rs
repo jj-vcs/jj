@@ -228,3 +228,157 @@ fn test_interdiff_conflicting() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_interdiff_gap_detection() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create a linear chain A -> B -> C
+    work_dir.write_file("file", "a\n");
+    work_dir.run_jj(["new", "-mcommit-a"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "a"])
+        .success();
+
+    work_dir.write_file("file", "b\n");
+    work_dir.run_jj(["new", "-mcommit-b"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "b"])
+        .success();
+
+    work_dir.write_file("file", "c\n");
+    work_dir.run_jj(["new", "-mcommit-c"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c"])
+        .success();
+
+    // Gap in --from (A|C where B is between them)
+    let output = work_dir.run_jj(["interdiff", "--from", "a|c", "--to", "c"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Cannot diff revsets with gaps in --from.
+    Hint: Revision 7772739fe4c7 would need to be in the set.
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // Gap in --to (A|C where B is between them)
+    let output = work_dir.run_jj(["interdiff", "--from", "c", "--to", "a|c"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Cannot diff revsets with gaps in --to.
+    Hint: Revision 7772739fe4c7 would need to be in the set.
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
+fn test_interdiff_multi_rev() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create two independent siblings from root
+    work_dir.write_file("file1", "base\n");
+    work_dir.write_file("file2", "base\n");
+
+    // left: modifies file1
+    work_dir.run_jj(["new", "-mleft"]).success();
+    work_dir.write_file("file1", "left\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "left"])
+        .success();
+
+    // right: modifies file2 (sibling of left, both children of initial)
+    work_dir.run_jj(["new", "@-", "-mright"]).success();
+    work_dir.write_file("file2", "right\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "right"])
+        .success();
+
+    // Multi-rev --from (left|right) single --to (right): right cancels out,
+    // only left's changes shown
+    let output = work_dir.run_jj(["interdiff", "--from", "left|right", "--to", "right"]);
+    insta::assert_snapshot!(output, @r"
+    Modified commit description:
+       1     : <<<<<<< conflict 1 of 1
+       2     : +++++++ side #1
+       3    1: right
+       4     : %%%%%%% diff from: base
+       5     : \\\\\\\        to: side #2
+       6     : +left
+       7     : >>>>>>> conflict 1 of 1 ends
+    Modified regular file file1:
+       1     : left
+            1: base
+    [EOF]
+    ");
+
+    // Multi-rev --to: single --from (left) vs multi --to (left|right):
+    // left cancels out, only right's changes shown
+    let output = work_dir.run_jj(["interdiff", "--from", "left", "--to", "left|right"]);
+    insta::assert_snapshot!(output, @r"
+    Modified commit description:
+       1     : left
+            1: <<<<<<< conflict 1 of 1
+            2: +++++++ side #1
+            3: right
+            4: %%%%%%% diff from: base
+            5: \\\\\\\        to: side #2
+            6: +left
+            7: >>>>>>> conflict 1 of 1 ends
+    Modified regular file file2:
+       1     : base
+            1: right
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_interdiff_range_duplicate() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Set up: a -> b -> c (chain modifying f1)
+    //         a -> d -> b2 -> c2 (d adds f2, then b2/c2 duplicate b/c on d)
+    // b::c and b2::c2 should have same changes => empty interdiff
+
+    // a: create f1 with "base"
+    work_dir.run_jj(["new", "-ma"]).success();
+    work_dir.write_file("f1", "base\n");
+    work_dir.run_jj(["bookmark", "create", "a"]).success();
+
+    // b: modify f1 to add "b"
+    work_dir.run_jj(["new", "-mb"]).success();
+    work_dir.write_file("f1", "base\nb\n");
+    work_dir.run_jj(["bookmark", "create", "b"]).success();
+
+    // c: modify f1 to add "c"
+    work_dir.run_jj(["new", "-mc"]).success();
+    work_dir.write_file("f1", "base\nb\nc\n");
+    work_dir.run_jj(["bookmark", "create", "c"]).success();
+
+    // d: add f2 from a (create separate branch from a)
+    work_dir.run_jj(["new", "a", "-md"]).success();
+    work_dir.write_file("f2", "d\n");
+    work_dir.run_jj(["bookmark", "create", "d"]).success();
+
+    // Duplicate b::c on top of d, creating b2 and c2
+    work_dir
+        .run_jj(["duplicate", "-r", "b::c", "--onto", "d"])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "create", "b2", "-r", "d+"])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "create", "c2", "-r", "d++"])
+        .success();
+
+    // interdiff between b::c and b2::c2: identical changes => empty
+    let output = work_dir.run_jj(["interdiff", "--from", "b::c", "--to", "b2::c2"]);
+    insta::assert_snapshot!(output, @"");
+}

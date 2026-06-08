@@ -74,6 +74,7 @@ use jj_lib::repo::Repo;
 use jj_lib::repo_path::InvalidRepoPathError;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathUiConverter;
+use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::rewrite::rebase_to_dest_parent;
 use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
@@ -612,15 +613,15 @@ impl<'a> DiffRenderer<'a> {
         Ok(())
     }
 
-    /// Generates diff between `from_commits` and `to_commit` based off their
+    /// Generates diff between `from_commits` and `to_commits` based off their
     /// parents. The `from_commits` will temporarily be rebased onto the
-    /// `to_commit` parents to exclude unrelated changes.
+    /// `to_commits` parents to exclude unrelated changes.
     pub async fn show_inter_diff(
         &self,
         ui: &Ui,
         formatter: &mut dyn Formatter,
         from_commits: &[Commit],
-        to_commit: &Commit,
+        to_commits: &[Commit],
         matcher: &dyn Matcher,
         width: usize,
     ) -> Result<(), DiffRenderError> {
@@ -636,9 +637,58 @@ impl<'a> DiffRenderer<'a> {
             .build()
             .simplify()
         };
-        let to_description = Merge::resolved(to_commit.description());
-        let from_tree = rebase_to_dest_parent(self.repo, from_commits, to_commit).await?;
-        let to_tree = to_commit.tree();
+        let to_description = if let [to_commit] = to_commits {
+            Merge::resolved(to_commit.description())
+        } else {
+            MergeBuilder::from_iter(itertools::intersperse(
+                to_commits.iter().map(|c| c.description()),
+                "",
+            ))
+            .build()
+            .simplify()
+        };
+        let from_tree = if let [to_commit] = to_commits {
+            rebase_to_dest_parent(self.repo, from_commits, to_commit).await?
+        } else {
+            let mut all_parents: Vec<Commit> = Vec::new();
+            let mut seen_ids = std::collections::HashSet::new();
+            for to_commit in to_commits {
+                for parent in to_commit.parents().await? {
+                    if seen_ids.insert(parent.id().clone()) {
+                        all_parents.push(parent);
+                    }
+                }
+            }
+            let merged_parent_tree = merge_commit_trees(self.repo, &all_parents).await?;
+            let diffs: Vec<_> = futures::future::try_join_all(from_commits.iter().map(
+                async |source| -> BackendResult<_> {
+                    Ok(Diff::new(
+                        (
+                            source.parent_tree(self.repo).await?,
+                            format!(
+                                "{} (original parents)",
+                                source.parents_conflict_label().await?
+                            ),
+                        ),
+                        (
+                            source.tree(),
+                            format!("{} (original revision)", source.conflict_label()),
+                        ),
+                    ))
+                },
+            ))
+            .await?;
+            MergedTree::merge(Merge::from_diffs(
+                (merged_parent_tree, " (rebased parents)".to_string()),
+                diffs,
+            ))
+            .await?
+        };
+        let to_tree = if let [to_commit] = to_commits {
+            to_commit.tree()
+        } else {
+            merge_commit_trees(self.repo, to_commits).await?
+        };
         let copy_records = CopyRecords::default(); // TODO
         self.show_diff_commit_descriptions(
             *formatter,
