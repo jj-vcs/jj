@@ -1050,6 +1050,11 @@
                                 "type": "boolean",
                                 "description": "Whether to run the tool if there are zero line ranges to format.",
                                 "default": false
+                            },
+                            "ignore-empty-output": {
+                                "type": "boolean",
+                                "description": "Whether to treat empty output from the tool as a no-op (file unchanged)",
+                                "default": true
                             }
                         }
                     },
