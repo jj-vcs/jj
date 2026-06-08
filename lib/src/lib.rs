@@ -45,7 +45,7 @@ pub mod extensions_map;
 pub use jj_core::file_util;
 pub mod files;
 pub mod fileset;
-mod fileset_parser;
+use jj_dsl::fileset_parser;
 pub mod fix;
 pub mod fmt_util;
 pub mod fsmonitor;

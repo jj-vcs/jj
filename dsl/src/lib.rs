@@ -22,6 +22,7 @@
 #![deny(unused_must_use)]
 
 pub mod dsl_util;
+pub mod fileset_parser;
 pub mod revset_parser;
 
 #[cfg(test)]

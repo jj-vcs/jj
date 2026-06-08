@@ -137,7 +137,7 @@ pub enum FilesetParseErrorKind {
 
 impl FilesetParseError {
     /// Creates a new error with the given `kind` and `span`.
-    pub(super) fn new(kind: FilesetParseErrorKind, span: pest::Span<'_>) -> Self {
+    pub fn new(kind: FilesetParseErrorKind, span: pest::Span<'_>) -> Self {
         let message = kind.to_string();
         let pest_error = Box::new(pest::error::Error::new_from_span(
             pest::error::ErrorVariant::CustomError { message },
@@ -151,16 +151,13 @@ impl FilesetParseError {
     }
 
     /// Attaches the `source` error.
-    pub(super) fn with_source(
-        mut self,
-        source: impl Into<Box<dyn error::Error + Send + Sync>>,
-    ) -> Self {
+    pub fn with_source(mut self, source: impl Into<Box<dyn error::Error + Send + Sync>>) -> Self {
         self.source = Some(source.into());
         self
     }
 
     /// Some other expression error.
-    pub(super) fn expression(message: impl Into<String>, span: pest::Span<'_>) -> Self {
+    pub fn expression(message: impl Into<String>, span: pest::Span<'_>) -> Self {
         Self::new(FilesetParseErrorKind::Expression(message.into()), span)
     }
 
@@ -536,7 +533,7 @@ pub fn expand_aliases<'i>(
 }
 
 /// Unwraps the inner value if the given `node` is an identifier or string.
-pub(super) fn expect_string_literal<'a>(
+pub fn expect_string_literal<'a>(
     type_name: &str,
     node: &'a ExpressionNode<'_>,
 ) -> FilesetParseResult<&'a str> {
@@ -552,7 +549,7 @@ pub(super) fn expect_string_literal<'a>(
 
 /// Applies the given function to the innermost `node` by unwrapping alias
 /// expansion nodes. Appends alias expansion stack to error and diagnostics.
-pub(super) fn catch_aliases<'a, 'i, T>(
+pub fn catch_aliases<'a, 'i, T>(
     diagnostics: &mut FilesetDiagnostics,
     node: &'a ExpressionNode<'i>,
     f: impl FnOnce(&mut FilesetDiagnostics, &'a ExpressionNode<'i>) -> Result<T, FilesetParseError>,
