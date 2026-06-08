@@ -365,7 +365,13 @@ async fn fix_one_file(
             &prev_content,
             &extra_args,
         ) {
-            Ok(next_content) => next_content,
+            Ok(next_content) => {
+                if tool_config.ignore_empty_output && next_content.is_empty() {
+                    prev_content
+                } else {
+                    next_content
+                }
+            }
             // TODO: Because the stderr is passed through, this isn't always failing
             // silently, but it should do something better will the exit code, tool
             // name, etc.
@@ -517,8 +523,13 @@ struct ToolConfig {
     /// diffs (e.g., to sort imports, or run with
     /// `--include-unchanged-files`).
     run_tool_if_zero_line_ranges: bool,
-    // TODO: Store the `name` field here and print it with the command's stderr, to clearly
-    // associate any errors/warnings with the tool and its configuration entry.
+    /// Whether to skip applying the tool if its stdout is completely empty. For
+    /// example, a tool might output nothing if no changes are needed instead of
+    /// passing stdin through.
+    ignore_empty_output: bool,
+    // TODO: Store the `name` field here and print it with the command's stderr,
+    // to clearly associate any errors/warnings with the tool and its
+    // configuration entry.
 }
 
 /// Represents the `fix.tools` config table.
@@ -540,6 +551,8 @@ struct RawToolConfig {
     line_range_args: Vec<String>,
     #[serde(default)]
     run_tool_if_zero_line_ranges: bool,
+    #[serde(default)]
+    ignore_empty_output: bool,
 }
 
 fn default_tool_enabled() -> bool {
@@ -581,6 +594,7 @@ fn get_tools_config(
                 enabled: tool.enabled,
                 line_range_args: tool.line_range_args,
                 run_tool_if_zero_line_ranges: tool.run_tool_if_zero_line_ranges,
+                ignore_empty_output: tool.ignore_empty_output,
             })
         })
         .try_collect()?;
