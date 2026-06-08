@@ -21,7 +21,6 @@ use tracing::instrument;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::print_unmatched_explicit_paths;
-use crate::cli_util::short_commit_hash;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
 use crate::complete;
@@ -93,24 +92,8 @@ pub(crate) async fn cmd_interdiff(
     let from_evaluator = workspace_command
         .parse_union_revsets(ui, &[args.from.clone().unwrap_or(RevisionArg::AT)])?;
     let from_expression = from_evaluator.expression();
-    let mut from_gaps = workspace_command
-        .attach_revset_evaluator(
-            from_expression
-                .roots()
-                .range(&from_expression.heads())
-                .minus(from_expression),
-        )
-        .evaluate_to_commit_ids()?;
-    if let Some(commit_id) = from_gaps.try_next().await? {
-        return Err(
-            user_error("Cannot diff revsets with gaps in --from.").hinted(format!(
-                "Revision {} would need to be in the set.",
-                short_commit_hash(&commit_id)
-            )),
-        );
-    }
     let from_commits: Vec<_> = workspace_command
-        .attach_revset_evaluator(from_expression.heads())
+        .attach_revset_evaluator(from_expression.clone())
         .evaluate_to_commits()?
         .try_collect()
         .await?;
@@ -118,24 +101,8 @@ pub(crate) async fn cmd_interdiff(
     let to_evaluator =
         workspace_command.parse_union_revsets(ui, &[args.to.clone().unwrap_or(RevisionArg::AT)])?;
     let to_expression = to_evaluator.expression();
-    let mut to_gaps = workspace_command
-        .attach_revset_evaluator(
-            to_expression
-                .roots()
-                .range(&to_expression.heads())
-                .minus(to_expression),
-        )
-        .evaluate_to_commit_ids()?;
-    if let Some(commit_id) = to_gaps.try_next().await? {
-        return Err(
-            user_error("Cannot diff revsets with gaps in --to.").hinted(format!(
-                "Revision {} would need to be in the set.",
-                short_commit_hash(&commit_id)
-            )),
-        );
-    }
     let to_commits: Vec<_> = workspace_command
-        .attach_revset_evaluator(to_expression.heads())
+        .attach_revset_evaluator(to_expression.clone())
         .evaluate_to_commits()?
         .try_collect()
         .await?;
