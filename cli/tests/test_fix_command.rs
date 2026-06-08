@@ -2219,6 +2219,52 @@ fn test_fix_with_line_ranges_and_include_unchanged_files_all_lines() {
     insta::assert_snapshot!(output, @"");
 }
 
+#[test]
+fn test_fix_ignore_empty_output() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let formatter_path = assert_cmd::cargo::cargo_bin!("fake-formatter");
+    assert!(formatter_path.is_file());
+    let formatter = to_toml_value(formatter_path.to_str().unwrap());
+    test_env.add_config(format!(
+        r###"
+        [fix.tools.tool-1]
+        command = [{formatter}, "--stdout", ""]
+        patterns = ["*.txt"]
+        ignore-empty-output = true
+
+        [fix.tools.tool-2]
+        command = [{formatter}, "--stdout", ""]
+        patterns = ["*.out"]
+        ignore-empty-output = false
+        "###,
+    ));
+
+    work_dir.write_file("file.txt", "foo\n");
+    work_dir.write_file("file.out", "bar\n");
+
+    let output = work_dir.run_jj(["fix"]).success();
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Fixed 1 commits of 1 checked.
+    Working copy  (@) now at: qpvuntsm ca9880cf (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    ");
+
+    // `file.txt` was not wiped out since `tool-1` ignores empty output.
+    let output = work_dir.run_jj(["file", "show", "file.txt"]);
+    insta::assert_snapshot!(output, @"
+    foo
+    [EOF]
+    ");
+    // `file.out` was wiped out since `tool-2` does not ignore empty output.
+    let output = work_dir.run_jj(["file", "show", "file.out"]);
+    insta::assert_snapshot!(output, @"");
+}
+
 // TODO: Remove in jj 0.51+
 #[test]
 fn test_fix_line_range_args_migration() {

@@ -51,6 +51,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj util diff <path1> <path2>` to compare files on disk.
 
+* Added `fix.tools.<name>.ignore-empty-output` (default `false`) to allow a tool
+  to be ignored if its stdout is completely empty. This is to handle tools which
+  output nothing if no changes are needed instead of passing stdin through.
+
 ### Fixed bugs
 
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,
