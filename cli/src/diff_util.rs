@@ -75,7 +75,6 @@ use jj_lib::repo_path::InvalidRepoPathError;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::rewrite::merge_commit_trees;
-use jj_lib::rewrite::rebase_to_dest_parent;
 use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
 use thiserror::Error;
@@ -613,6 +612,64 @@ impl<'a> DiffRenderer<'a> {
         Ok(())
     }
 
+    /// Compute the merged tree of the parents of the roots of
+    /// `commits`. Roots are commits with no ancestor also in the set,
+    /// so their parents are guaranteed external.
+    async fn roots_parent_base_tree(&self, commits: &[Commit]) -> BackendResult<MergedTree> {
+        let roots: Vec<&Commit> = commits
+            .iter()
+            .filter(|c| {
+                !commits.iter().any(|other| {
+                    other.id() != c.id()
+                        && self
+                            .repo
+                            .index()
+                            .is_ancestor(other.id(), c.id())
+                            .unwrap_or(false)
+                })
+            })
+            .collect();
+        let mut parents: Vec<Commit> = Vec::new();
+        let mut seen = std::collections::HashSet::new();
+        for root in &roots {
+            for parent in root.parents().await? {
+                if seen.insert(parent.id().clone()) {
+                    parents.push(parent);
+                }
+            }
+        }
+        merge_commit_trees(self.repo, &parents).await
+    }
+
+    /// Replay each commit in `commits` onto `base_tree`, labeling conflict
+    /// markers with `side` (e.g. "from" / "to") to distinguish which side
+    /// of the interdiff produced them.
+    async fn replay_changes_onto_base_tree(
+        &self,
+        commits: &[Commit],
+        base_tree: MergedTree,
+        side: &str,
+    ) -> BackendResult<MergedTree> {
+        let mut tree = base_tree;
+        for source in commits.iter().rev() {
+            let old_parents = source.parents().await?;
+            let old_base = merge_commit_trees(self.repo, &old_parents).await?;
+            tree = MergedTree::merge(Merge::from_vec(vec![
+                (tree, format!(" ({side} context)")),
+                (
+                    old_base,
+                    format!("{} ({side} parent)", source.parents_conflict_label().await?),
+                ),
+                (
+                    source.tree(),
+                    format!("{} ({side} revision)", source.conflict_label()),
+                ),
+            ]))
+            .await?;
+        }
+        Ok(tree)
+    }
+
     /// Generates diff between `from_commits` and `to_commits` based off their
     /// parents. The `from_commits` will temporarily be rebased onto the
     /// `to_commits` parents to exclude unrelated changes.
@@ -647,48 +704,16 @@ impl<'a> DiffRenderer<'a> {
             .build()
             .simplify()
         };
-        let from_tree = if let [to_commit] = to_commits {
-            rebase_to_dest_parent(self.repo, from_commits, to_commit).await?
-        } else {
-            let mut all_parents: Vec<Commit> = Vec::new();
-            let mut seen_ids = std::collections::HashSet::new();
-            for to_commit in to_commits {
-                for parent in to_commit.parents().await? {
-                    if seen_ids.insert(parent.id().clone()) {
-                        all_parents.push(parent);
-                    }
-                }
-            }
-            let merged_parent_tree = merge_commit_trees(self.repo, &all_parents).await?;
-            let diffs: Vec<_> = futures::future::try_join_all(from_commits.iter().map(
-                async |source| -> BackendResult<_> {
-                    Ok(Diff::new(
-                        (
-                            source.parent_tree(self.repo).await?,
-                            format!(
-                                "{} (original parents)",
-                                source.parents_conflict_label().await?
-                            ),
-                        ),
-                        (
-                            source.tree(),
-                            format!("{} (original revision)", source.conflict_label()),
-                        ),
-                    ))
-                },
-            ))
+        // Compute base tree from to_commits' roots' external parents.
+        // This is the context onto which from_commits are rebased.
+        let base = self.roots_parent_base_tree(to_commits).await?;
+
+        let from_tree = self
+            .replay_changes_onto_base_tree(from_commits, base.clone(), "from")
             .await?;
-            MergedTree::merge(Merge::from_diffs(
-                (merged_parent_tree, " (rebased parents)".to_string()),
-                diffs,
-            ))
-            .await?
-        };
-        let to_tree = if let [to_commit] = to_commits {
-            to_commit.tree()
-        } else {
-            merge_commit_trees(self.repo, to_commits).await?
-        };
+        let to_tree = self
+            .replay_changes_onto_base_tree(to_commits, base, "to")
+            .await?;
         let copy_records = CopyRecords::default(); // TODO
         self.show_diff_commit_descriptions(
             *formatter,
