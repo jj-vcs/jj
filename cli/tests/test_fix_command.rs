@@ -2299,6 +2299,7 @@ fn test_fix_line_range_args_migration() {
     let output = work_dir.run_jj(["config", "get", "fix.tools.tool-1.line-range-arg"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: Deprecated user-level config: fix.tools.tool-1.line-range-arg is updated to fix.tools.tool-1.line-range-args = [--line-ranges=$first-$last]
     Config error: Value not found for fix.tools.tool-1.line-range-arg
     For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
     [EOF]
@@ -2310,6 +2311,9 @@ fn test_fix_line_range_args_migration() {
         .success();
     insta::assert_snapshot!(output, @r#"
     ["--line-ranges=$first-$last"]
+    [EOF]
+    ------- stderr -------
+    Warning: Deprecated user-level config: fix.tools.tool-1.line-range-arg is updated to fix.tools.tool-1.line-range-args = [--line-ranges=$first-$last]
     [EOF]
     "#);
 }
