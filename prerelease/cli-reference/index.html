@@ -1130,6 +1130,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#jj-config-gc" class="md-nav__link">
+    <span class="md-ellipsis">
+      jj config gc
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#jj-config-get" class="md-nav__link">
     <span class="md-ellipsis">
       jj config get
@@ -5503,6 +5512,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#jj-config-gc" class="md-nav__link">
+    <span class="md-ellipsis">
+      jj config gc
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#jj-config-get" class="md-nav__link">
     <span class="md-ellipsis">
       jj config get
@@ -7997,6 +8015,7 @@ does not match the <code>jj help</code> output exactly.</p>
 <li><a href="#jj-commit"><code>jj commit</code>↴</a></li>
 <li><a href="#jj-config"><code>jj config</code>↴</a></li>
 <li><a href="#jj-config-edit"><code>jj config edit</code>↴</a></li>
+<li><a href="#jj-config-gc"><code>jj config gc</code>↴</a></li>
 <li><a href="#jj-config-get"><code>jj config get</code>↴</a></li>
 <li><a href="#jj-config-list"><code>jj config list</code>↴</a></li>
 <li><a href="#jj-config-path"><code>jj config path</code>↴</a></li>
@@ -8562,6 +8581,7 @@ does not match the <code>jj help</code> output exactly.</p>
 <h6 id="subcommands_3"><strong>Subcommands:</strong><a class="headerlink" href="#subcommands_3" title="Permanent link">&para;</a></h6>
 <ul>
 <li><code>edit</code> — Start an editor on a jj config file</li>
+<li><code>gc</code> — Find and optionally delete repo-level config directories whose repo path no longer exists</li>
 <li><code>get</code> — Get the value of a given config option.</li>
 <li><code>list</code> — List variables set in config files, along with their values</li>
 <li><code>path</code> — Print the paths to the config files</li>
@@ -8579,6 +8599,9 @@ does not match the <code>jj help</code> output exactly.</p>
 <li><code>--repo</code> — Target the repo-level config</li>
 <li><code>--workspace</code> — Target the workspace-level config</li>
 </ul>
+<h2 id="jj-config-gc"><code>jj config gc</code><a class="headerlink" href="#jj-config-gc" title="Permanent link">&para;</a></h2>
+<p>Find and optionally delete repo-level config directories whose repo path no longer exists</p>
+<p><strong>Usage:</strong> <code>jj config gc</code></p>
 <h2 id="jj-config-get"><code>jj config get</code><a class="headerlink" href="#jj-config-get" title="Permanent link">&para;</a></h2>
 <p>Get the value of a given config option.</p>
 <p>Unlike <code>jj config list</code>, the result of <code>jj config get</code> is printed without

@@ -2656,16 +2656,19 @@ happened. To decide precisely what happened:</p>
 <p>However, this is inherent to storing config out of the repo and is thus
 unavoidable.</p>
 <h3 id="garbage-collection">Garbage collection<a class="headerlink" href="#garbage-collection" title="Permanent link">&para;</a></h3>
-<p>We could, in the future, add a <code>gc</code> command to garbage-collect configs to
-deleted repo configs. However, there are some things to consider before doing
-so:</p>
+<p>There is <code>jj config gc</code> command to delete configuration for repos that
+are deleted/moved. The command asks for user approval because of the
+following considerations:</p>
 <ul>
-<li>Each config would likely be very small, so cleaning it up may have limited
-  benefit.</li>
 <li>It is impossible to distinguish "deleted" from "moved".</li>
 <li>If you have something like a chroot or a dual boot where you share the
   config, you may have references to config IDs with a different path.</li>
 </ul>
+<p>For safety, the command only removes the well-known files it manages
+(<code>config.toml</code> and <code>metadata.binpb</code>) and then removes the per-repo
+directory non-recursively. If a user (or another tool) has placed an
+unrelated file inside the directory, the directory is left in place and
+a warning is printed instead.</p>
 <h3 id="attack-vectors-remaining">Attack vectors remaining<a class="headerlink" href="#attack-vectors-remaining" title="Permanent link">&para;</a></h3>
 <p>Unfortunately, there is no way to distinguish copying / moving from a replay
 attack. The attacker, if they know a config ID that exists on your system, can
