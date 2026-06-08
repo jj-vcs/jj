@@ -32,6 +32,7 @@ pub mod content_hash;
 pub mod backend;
 pub mod dsl_util;
 pub mod file_util;
+pub mod fileset_parser;
 pub mod hex_util;
 pub mod matchers;
 pub mod object_id;
