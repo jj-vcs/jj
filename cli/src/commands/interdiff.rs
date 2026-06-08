@@ -12,16 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::slice;
-
 use clap::ArgGroup;
 use clap_complete::ArgValueCompleter;
+use futures::TryStreamExt as _;
+use jj_lib::merged_tree::MergedTree;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::print_unmatched_explicit_paths;
+use crate::cli_util::short_commit_hash;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::complete;
 use crate::diff_util::DiffFormatArgs;
 use crate::ui::Ui;
@@ -86,27 +88,82 @@ pub(crate) async fn cmd_interdiff(
     args: &InterdiffArgs,
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui).await?;
-    let from = workspace_command
-        .resolve_single_rev(ui, args.from.as_ref().unwrap_or(&RevisionArg::AT))
-        .await?;
-    let to = workspace_command
-        .resolve_single_rev(ui, args.to.as_ref().unwrap_or(&RevisionArg::AT))
-        .await?;
     let repo = workspace_command.repo();
+
+    let from_evaluator = workspace_command
+        .parse_union_revsets(ui, &[args.from.clone().unwrap_or(RevisionArg::AT)])?;
+    let from_expression = from_evaluator.expression();
+    let mut from_gaps = workspace_command
+        .attach_revset_evaluator(
+            from_expression
+                .roots()
+                .range(&from_expression.heads())
+                .minus(from_expression),
+        )
+        .evaluate_to_commit_ids()?;
+    if let Some(commit_id) = from_gaps.try_next().await? {
+        return Err(
+            user_error("Cannot diff revsets with gaps in --from.").hinted(format!(
+                "Revision {} would need to be in the set.",
+                short_commit_hash(&commit_id)
+            )),
+        );
+    }
+    let from_commits: Vec<_> = workspace_command
+        .attach_revset_evaluator(from_expression.heads())
+        .evaluate_to_commits()?
+        .try_collect()
+        .await?;
+
+    let to_evaluator =
+        workspace_command.parse_union_revsets(ui, &[args.to.clone().unwrap_or(RevisionArg::AT)])?;
+    let to_expression = to_evaluator.expression();
+    let mut to_gaps = workspace_command
+        .attach_revset_evaluator(
+            to_expression
+                .roots()
+                .range(&to_expression.heads())
+                .minus(to_expression),
+        )
+        .evaluate_to_commit_ids()?;
+    if let Some(commit_id) = to_gaps.try_next().await? {
+        return Err(
+            user_error("Cannot diff revsets with gaps in --to.").hinted(format!(
+                "Revision {} would need to be in the set.",
+                short_commit_hash(&commit_id)
+            )),
+        );
+    }
+    let to_commits: Vec<_> = workspace_command
+        .attach_revset_evaluator(to_expression.heads())
+        .evaluate_to_commits()?
+        .try_collect()
+        .await?;
+
+    if from_commits.is_empty() {
+        return Err(user_error("--from resolved to an empty revision set."));
+    }
+    if to_commits.is_empty() {
+        return Err(user_error("--to resolved to an empty revision set."));
+    }
+
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
     let matcher = fileset_expression.to_matcher();
 
+    let mut all_trees: Vec<MergedTree> = Vec::new();
+    for from_commit in &from_commits {
+        all_trees.push(from_commit.parent_tree(repo.as_ref()).await?);
+        all_trees.push(from_commit.tree());
+    }
+    for to_commit in &to_commits {
+        all_trees.push(to_commit.parent_tree(repo.as_ref()).await?);
+        all_trees.push(to_commit.tree());
+    }
     print_unmatched_explicit_paths(
         ui,
         &workspace_command,
         &fileset_expression,
-        // We check the parent commits to account for deleted files.
-        [
-            &from.parent_tree(repo.as_ref()).await?,
-            &from.tree(),
-            &to.parent_tree(repo.as_ref()).await?,
-            &to.tree(),
-        ],
+        all_trees.iter(),
     )?;
 
     let diff_renderer = workspace_command.diff_renderer_for(&args.format)?;
@@ -115,8 +172,8 @@ pub(crate) async fn cmd_interdiff(
         .show_inter_diff(
             ui,
             ui.stdout_formatter().as_mut(),
-            slice::from_ref(&from),
-            &to,
+            &from_commits,
+            &to_commits,
             matcher.as_ref(),
             ui.term_width(),
         )
