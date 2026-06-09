@@ -70,6 +70,7 @@ use crate::ref_name::RemoteRefSymbolBuf;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::repo_path::RepoPath;
+use crate::revset::ResolvedRevsetExpression;
 use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExpression;
 use crate::revset::RevsetStreamExt as _;
@@ -526,8 +527,10 @@ pub struct GitImportOptions {
 /// Describes changes made by `import_refs()` or `fetch()`.
 #[derive(Clone, Debug, Eq, PartialEq, Default)]
 pub struct GitImportStats {
-    /// Commits superseded by newly imported commits.
+    /// Commits that are no longer reachable nor rewritten to the new commits.
     pub abandoned_commits: Vec<Commit>,
+    /// Commits that have been rewritten to the new commits.
+    pub rewritten_commit_ids: HashSet<CommitId>,
     /// Remote bookmark `(symbol, (old_remote_ref, new_target))`s to be merged
     /// in to the local bookmarks, sorted by `symbol`.
     pub changed_remote_bookmarks: Vec<(RemoteRefSymbolBuf, (RemoteRef, RefTarget))>,
@@ -705,23 +708,34 @@ async fn import_refs_inner(
         mut_repo.set_remote_tag(symbol, new_remote_ref);
     }
 
-    let abandoned_commits = if options.abandon_unreachable_commits {
-        abandon_unreachable_commits(mut_repo, old_referenced_heads).await?
+    let any_old_referenced = !old_referenced_heads.is_empty();
+    let any_new_referenced = !new_referenced_heads.is_empty();
+    let old_visible_heads = RevsetExpression::commits(old_visible_heads);
+    let old_referenced_heads = RevsetExpression::commits(old_referenced_heads);
+    let new_referenced_heads = RevsetExpression::commits(new_referenced_heads);
+    let mut abandoned_commits = if options.abandon_unreachable_commits && any_old_referenced {
+        abandon_unreachable_commits(mut_repo, &old_referenced_heads).await?
     } else {
         vec![]
     };
-    if options.record_synthetic_predecessors {
+    let rewritten_commit_ids = if options.record_synthetic_predecessors && any_new_referenced {
         record_synthetic_predecessors(
             mut_repo,
-            old_visible_heads,
-            new_referenced_heads,
-            &abandoned_commits,
+            &old_visible_heads,
+            Diff::new(&old_referenced_heads, &new_referenced_heads),
             &imported_commits,
+            // TODO: Maybe enable rewriting unconditionally? This should be more
+            // reliable than reachability-based heuristic.
+            options.abandon_unreachable_commits,
         )
-        .await?;
-    }
+        .await?
+    } else {
+        HashSet::new()
+    };
+    abandoned_commits.retain(|commit| !rewritten_commit_ids.contains(commit.id()));
     let stats = GitImportStats {
         abandoned_commits,
+        rewritten_commit_ids,
         changed_remote_bookmarks,
         changed_remote_tags,
         failed_ref_names,
@@ -733,11 +747,8 @@ async fn import_refs_inner(
 /// Those commits will be recorded as abandoned in the `MutableRepo`.
 async fn abandon_unreachable_commits(
     mut_repo: &mut MutableRepo,
-    hidable_git_heads: Vec<CommitId>,
+    hidable_git_heads: &Arc<ResolvedRevsetExpression>,
 ) -> Result<Vec<Commit>, GitImportError> {
-    if hidable_git_heads.is_empty() {
-        return Ok(vec![]);
-    }
     let pinned_expression = RevsetExpression::union_all(&[
         // Local refs are usually visible, no need to filter out hidden
         RevsetExpression::commits(pinned_commit_ids(mut_repo.view())),
@@ -747,7 +758,7 @@ async fn abandon_unreachable_commits(
         RevsetExpression::root(),
     ]);
     let abandoned_expression = pinned_expression
-        .range(&RevsetExpression::commits(hidable_git_heads))
+        .range(hidable_git_heads)
         // Don't include already-abandoned commits in GitImportStats
         .intersection(&RevsetExpression::visible_heads().ancestors());
     let abandoned_commits: Vec<_> = abandoned_expression
@@ -767,53 +778,54 @@ async fn abandon_unreachable_commits(
 ///
 /// The `imported_commits` should exclude any pre-existing commits, including
 /// those that were previously hidden.
+///
+/// Returns old commit IDs that have been mapped to the new commits.
 async fn record_synthetic_predecessors(
     mut_repo: &mut MutableRepo,
-    old_visible_heads: Vec<CommitId>,
-    new_referenced_heads: Vec<CommitId>,
-    abandoned_commits: &[Commit],
+    old_visible_heads: &Arc<ResolvedRevsetExpression>,
+    Diff {
+        before: old_referenced_heads,
+        after: new_referenced_heads,
+    }: Diff<&Arc<ResolvedRevsetExpression>>,
     imported_commits: &[Commit],
-) -> Result<(), GitImportError> {
-    if new_referenced_heads.is_empty() {
-        return Ok(());
-    }
-
-    let new_referenced_change_to_commit_ids = {
+    rewrite_commits: bool,
+) -> Result<HashSet<CommitId>, GitImportError> {
+    let build_change_to_commit_ids_map = async |expr: Arc<ResolvedRevsetExpression>| {
         let mut change_to_commit_ids: HashMap<ChangeId, Vec<CommitId>> = HashMap::new();
-        let mut stream = RevsetExpression::commits(old_visible_heads)
-            .range(&RevsetExpression::commits(new_referenced_heads))
-            .evaluate(mut_repo)?
-            .commit_change_ids();
+        let mut stream = expr.evaluate(mut_repo)?.commit_change_ids();
         while let Some((commit_id, change_id)) = stream.try_next().await? {
             let commit_ids = change_to_commit_ids.entry(change_id).or_default();
             commit_ids.push(commit_id);
         }
-        change_to_commit_ids
+        Ok::<_, GitImportError>(change_to_commit_ids)
     };
-    // TODO: Maybe we can use new_referenced_heads..old_referenced_heads as
-    // predecessor candidates. If abandon_unreachable_commits is set, we can
-    // mark them as "rewritten" in addition to the current abandoned commits.
-    let abandoned_change_to_commit_ids = {
-        let mut change_to_commit_ids: HashMap<&ChangeId, Vec<&CommitId>> = HashMap::new();
-        for commit in abandoned_commits {
-            let commit_ids = change_to_commit_ids.entry(commit.change_id()).or_default();
-            commit_ids.push(commit.id());
-        }
-        change_to_commit_ids
-    };
+    // TODO: Commits within new_referenced_heads..old_referenced_heads may have
+    // both mutable and immutable descendants. Rebasing the immutable
+    // descendants onto the new parents would be unexpected.
+    let old_referenced_change_to_commit_ids =
+        build_change_to_commit_ids_map(new_referenced_heads.range(old_referenced_heads)).await?;
+    let new_referenced_change_to_commit_ids =
+        build_change_to_commit_ids_map(old_visible_heads.range(new_referenced_heads)).await?;
     let imported_commit_ids: HashSet<_> = imported_commits.iter().map(Commit::id).collect();
-    debug_assert!(
-        new_referenced_change_to_commit_ids
-            .values()
-            .flatten()
-            .all(|new_id| abandoned_commits.iter().all(|old| old.id() != new_id)),
-        "new referenced commits should never be reachable from old refs"
-    );
+    let rewritable_commit_ids: HashSet<_> = if rewrite_commits {
+        // Similar to old_referenced_change_to_commit_ids, but doesn't include
+        // previously abandoned commits, which shouldn't be rewritten again.
+        new_referenced_heads
+            .range(old_referenced_heads)
+            .intersection(&old_visible_heads.ancestors())
+            .evaluate(mut_repo)?
+            .stream()
+            .try_collect()
+            .await?
+    } else {
+        HashSet::new()
+    };
 
+    let mut rewritten_commit_ids = HashSet::new();
     for (change_id, new_commit_ids) in &new_referenced_change_to_commit_ids {
         let predecessor_id: Option<CommitId>;
-        let rewrite_source_ids: &[&CommitId];
-        if let Some(old_commit_ids) = abandoned_change_to_commit_ids.get(change_id) {
+        let rewrite_source_ids: &[CommitId];
+        if let Some(old_commit_ids) = old_referenced_change_to_commit_ids.get(change_id) {
             // Pick the latest one if previously diverged. Divergence isn't
             // usually resolved by "squashing" the commits.
             predecessor_id = Some(old_commit_ids[0].clone());
@@ -833,19 +845,24 @@ async fn record_synthetic_predecessors(
         {
             mut_repo.set_predecessors(new_commit_id.clone(), predecessor_id.as_slice().to_vec());
         }
+        let rewrite_source_ids = rewrite_source_ids
+            .iter()
+            .filter(|id| rewritable_commit_ids.contains(id));
         if let [new_commit_id] = &**new_commit_ids {
-            for &old_commit_id in rewrite_source_ids {
+            for old_commit_id in rewrite_source_ids {
                 mut_repo.set_rewritten_commit(old_commit_id.clone(), new_commit_id.clone());
+                rewritten_commit_ids.insert(old_commit_id.clone());
             }
         } else {
-            for &old_commit_id in rewrite_source_ids {
+            for old_commit_id in rewrite_source_ids {
                 mut_repo
                     .set_divergent_rewrite(old_commit_id.clone(), new_commit_ids.iter().cloned());
+                rewritten_commit_ids.insert(old_commit_id.clone());
             }
         }
     }
 
-    Ok(())
+    Ok(rewritten_commit_ids)
 }
 
 /// Calculates diff of git refs to be imported.

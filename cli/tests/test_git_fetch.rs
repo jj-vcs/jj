@@ -1020,9 +1020,7 @@ fn test_git_fetch_all() {
     bookmark: a2@origin     [updated] tracked
     bookmark: b@origin      [updated] tracked
     bookmark: trunk2@origin [new] tracked
-    Abandoned 2 commits that are no longer reachable:
-      yqosqzyt/1 d4d535f1 (divergent) a2
-      mzvwutvl/1 c8303692 (divergent) a1
+    Updated 2 rewritten commits.
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&target_dir), @"
@@ -1210,8 +1208,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
     ------- stderr -------
     bookmark: a1@origin [updated] tracked
     bookmark: b@origin  [updated] tracked
-    Abandoned 1 commits that are no longer reachable:
-      mzvwutvl/1 c8303692 (divergent) a1
+    Updated 1 rewritten commits.
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
@@ -1249,8 +1246,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: a2@origin [updated] tracked
-    Abandoned 1 commits that are no longer reachable:
-      yqosqzyt/1 d4d535f1 (divergent) a2
+    Updated 1 rewritten commits.
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
@@ -2098,9 +2094,7 @@ fn test_git_fetch_remotely_rewritten() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: book@origin [updated] untracked
-    Abandoned 2 commits that are no longer reachable:
-      kkmpptxz/1 eedc2709 (divergent) (empty) bookmarked
-      qpvuntsm/1 97604bbe (divergent) (empty) original
+    Updated 2 rewritten commits.
     Rebased 1 descendant commits
     Working copy  (@) now at: royxmykx 0818b176 (empty) (no description set)
     Parent commit (@-)      : kkmpptxz 3ee37bc8 book@origin | (empty) bookmarked
@@ -2138,9 +2132,7 @@ fn test_git_fetch_remotely_rewritten() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: book@origin [updated] untracked
-    Abandoned 2 commits that are no longer reachable:
-      kkmpptxz/1 eedc2709 (divergent) (empty) bookmarked
-      qpvuntsm/1 97604bbe (divergent) (empty) original
+    Updated 2 rewritten commits.
     Rebased 1 descendant commits
     Working copy  (@) now at: royxmykx 3eb3f040 (empty) (no description set)
     Parent commit (@-)      : kkmpptxz 3ee37bc8 book@origin | (empty) bookmarked
@@ -2238,6 +2230,91 @@ fn test_git_fetch_remotely_rewritten_no_synthetic_predecessors() {
        (empty) bookmarked
     ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:14 f30445f7
        (empty) modified
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_fetch_remotely_rewritten_descendants() {
+    let test_env = TestEnvironment::default();
+
+    // Add bookmarked branches to the remote repo
+    test_env
+        .run_jj_in(".", ["git", "init", "remote", "--colocate"])
+        .success();
+    let remote_dir = test_env.work_dir("remote");
+    remote_dir.run_jj(["describe", "-moriginal"]).success();
+    remote_dir.run_jj(["new", "-mbookmarked 1"]).success();
+    remote_dir.run_jj(["bookmark", "set", "book1"]).success();
+    remote_dir.run_jj(["new", "@-", "-mbookmarked 2"]).success();
+    remote_dir.run_jj(["bookmark", "set", "book2"]).success();
+
+    // Check out the base revision
+    test_env
+        .run_jj_in(".", ["git", "clone", "remote", "local"])
+        .success();
+    let local_dir = test_env.work_dir("local");
+    local_dir
+        .run_jj(["new", "subject(original)", "-mlocal"])
+        .success();
+    insta::assert_snapshot!(get_log_output(&local_dir), @r#"
+    @  b4adc7786cf0 "local"
+    │ ◆  cce448c253e0 "bookmarked 2" book2@origin
+    ├─╯
+    │ ◆  2a6bbeb458de "bookmarked 1" book1@origin
+    ├─╯
+    ◆  97604bbedb48 "original"
+    ◆  000000000000 ""
+    [EOF]
+    "#);
+
+    // Rewrite the base revision and descendants remotely
+    remote_dir
+        .run_jj(["describe", "-r@-", "-mmodified"])
+        .success();
+
+    // Fetch one of the rewritten branches
+    let output = local_dir.run_jj(["git", "fetch", "--branch=book1"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    bookmark: book1@origin [updated] untracked
+    Updated 2 rewritten commits.
+    Rebased 2 descendant commits
+    Working copy  (@) now at: vruxwmqv a1d01244 (empty) local
+    Parent commit (@-)      : qpvuntsm a843bfad (empty) modified
+    [EOF]
+    ");
+
+    // The working copy should be rebased onto the modified revision
+    // FIXME: the other remote branch shouldn't be rebased
+    insta::assert_snapshot!(get_log_output(&local_dir), @r#"
+    @  a1d01244a4ec "local"
+    │ ○  8e6c17fa9e2e "bookmarked 2"
+    ├─╯
+    │ ◆  ad5c5f3c59a7 "bookmarked 1" book1@origin
+    ├─╯
+    ◆  a843bfad2abb "modified"
+    ◆  000000000000 ""
+    [EOF]
+    "#);
+
+    // Evolution history should point to the "git fetch" operation
+    let output = local_dir.run_jj(["evolog", "-r..remote_bookmarks()"]);
+    insta::assert_snapshot!(output, @"
+    ◆  kkmpptxz test.user@example.com 2001-02-03 08:05:16 book1@origin ad5c5f3c
+    │  (empty) bookmarked 1
+    │  -- operation ac34b601b3a2 fetch from git remote(s) origin
+    ○  kkmpptxz/1 test.user@example.com 2001-02-03 08:05:09 2a6bbeb4 (hidden)
+       (empty) bookmarked 1
+    ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:16 a843bfad
+    │  (empty) modified
+    │  -- operation ac34b601b3a2 fetch from git remote(s) origin
+    ◆  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 97604bbe (hidden)
+       (empty) original
+    ◆  mzvwutvl/1 test.user@example.com 2001-02-03 08:05:11 book2@origin cce448c2 (hidden)
+       (empty) bookmarked 2
+    ◆  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 97604bbe (hidden)
+       (empty) original
     [EOF]
     ");
 }

@@ -313,6 +313,7 @@ fn test_import_refs() -> TestResult {
     let view = repo.view();
 
     assert!(stats.abandoned_commits.is_empty());
+    assert!(stats.rewritten_commit_ids.is_empty());
     let expected_heads = hashset! {
         jj_id(commit3),
         jj_id(commit4),
@@ -453,6 +454,7 @@ fn test_import_refs_reimport() -> TestResult {
     let repo = tx.commit("test").block_on()?;
 
     assert!(stats.abandoned_commits.is_empty());
+    assert!(stats.rewritten_commit_ids.is_empty());
     let expected_heads = hashset! {
             jj_id(commit3),
             jj_id(commit4),
@@ -484,6 +486,7 @@ fn test_import_refs_reimport() -> TestResult {
         HashSet::from_iter(stats.abandoned_commits.iter().map(Commit::id)),
         HashSet::from([&jj_id(commit4), &jj_id(commit3)]),
     );
+    assert!(stats.rewritten_commit_ids.is_empty());
     let view = repo.view();
     let expected_heads = hashset! {
             jj_id(commit5),
@@ -1531,7 +1534,14 @@ fn test_import_refs_synthetic_predecessors_simple(
     // 2C  1B*
     let mut tx = main_repo.start_transaction();
     let stats = git::import_refs(tx.repo_mut(), &import_options).block_on()?;
-    assert_eq!(stats.abandoned_commits.len(), 1);
+    assert_eq!(
+        stats.abandoned_commits.len(),
+        if record_synthetic_predecessors { 0 } else { 1 }
+    );
+    assert_eq!(
+        stats.rewritten_commit_ids.len(),
+        if record_synthetic_predecessors { 1 } else { 0 }
+    );
     assert_eq!(stats.changed_remote_bookmarks.len(), 2);
     let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
     assert_eq!(num_rebased, 1);
@@ -1620,7 +1630,8 @@ fn test_import_refs_synthetic_predecessors_multiple_descendants() -> TestResult 
     // 1B
     let mut tx = main_repo.start_transaction();
     let stats = git::import_refs(tx.repo_mut(), &import_options).block_on()?;
-    assert_eq!(stats.abandoned_commits.len(), 2);
+    assert_eq!(stats.abandoned_commits.len(), 0);
+    assert_eq!(stats.rewritten_commit_ids.len(), 2);
     assert_eq!(stats.changed_remote_bookmarks.len(), 1);
     let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
     assert_eq!(num_rebased, 3);
@@ -1649,6 +1660,287 @@ fn test_import_refs_synthetic_predecessors_multiple_descendants() -> TestResult 
     assert_eq!(commit5c.parent_ids(), slice::from_ref(commit4c.id()));
     // Descendants of 2A should be rebased onto 2B
     assert_eq!(commit3c.parent_ids(), slice::from_ref(commit2b.id()));
+
+    Ok(())
+}
+
+#[test_case(true, false; "without synthetic predecessors")]
+#[test_case(false, true; "with synthetic predecessors but no rewriting")]
+#[test_case(true, true; "with synthetic predecessors")]
+fn test_import_refs_synthetic_predecessors_bookmarked_simple(
+    abandon_unreachable_commits: bool,
+    record_synthetic_predecessors: bool,
+) -> TestResult {
+    let synthetic_rewrite_commits = abandon_unreachable_commits && record_synthetic_predecessors;
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let main_repo = &test_repo.repo;
+    let ext_repo = init_external_git_repo(&test_repo, "ext-repo".as_ref())?;
+    let ext_store = ext_repo.store().clone();
+    let import_options = GitImportOptions {
+        abandon_unreachable_commits,
+        record_synthetic_predecessors,
+        ..default_import_options()
+    };
+
+    // Main:
+    // 2A
+    //  |
+    // 1A*
+    let mut tx = main_repo.start_transaction();
+    let commit1a = write_random_commit(tx.repo_mut());
+    let commit2a = write_random_commit_with_parents(tx.repo_mut(), &[&commit1a]);
+    tx.repo_mut()
+        .set_local_bookmark_target("1A".as_ref(), RefTarget::normal(commit1a.id().clone()));
+    git::export_refs(tx.repo_mut())?;
+    let main_repo = tx.commit("test").block_on()?;
+
+    // Ext: Rewrite 1A* -> 1B*
+    let mut tx = ext_repo.start_transaction();
+    let stats = git::import_refs(tx.repo_mut(), &import_options).block_on()?;
+    assert_eq!(stats.changed_remote_bookmarks.len(), 1);
+    let commit1b = rewrite_commit(tx.repo_mut(), &ext_store.get_commit(commit1a.id())?, "1B");
+    let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
+    assert_eq!(num_rebased, 0);
+    git::export_refs(tx.repo_mut())?;
+
+    // Main: Set bookmark 2A* (without importing)
+    let mut tx = main_repo.start_transaction();
+    tx.repo_mut()
+        .set_local_bookmark_target("2A".as_ref(), RefTarget::normal(commit2a.id().clone()));
+    git::export_refs(tx.repo_mut())?;
+
+    // Main: Import changes
+    //
+    // (synthetic_rewrite_commits = true)
+    // 2C*
+    //  |
+    // 1B*
+    //
+    // (synthetic_rewrite_commits = false)
+    // 2A
+    //  |
+    // 1A* 1B*
+    let stats = git::import_refs(tx.repo_mut(), &import_options).block_on()?;
+    assert_eq!(stats.abandoned_commits.len(), 0);
+    assert_eq!(
+        stats.rewritten_commit_ids.len(),
+        if synthetic_rewrite_commits { 1 } else { 0 }
+    );
+    assert_eq!(stats.changed_remote_bookmarks.len(), 1);
+    let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
+    assert_eq!(num_rebased, if synthetic_rewrite_commits { 1 } else { 0 });
+    let main_repo = tx.commit("test").block_on()?;
+
+    if synthetic_rewrite_commits {
+        let commit2c = find_unique_successor(&main_repo, commit2a.id()).unwrap();
+
+        // Sanity check for the new graph
+        assert_eq!(
+            *main_repo.view().heads(),
+            HashSet::from([&commit2c].map(|c| c.id().clone()))
+        );
+
+        // Synthetic predecessors should be recorded
+        assert_eq!(
+            main_repo.operation().predecessors_for_commit(commit1b.id()),
+            Some(slice::from_ref(commit1a.id()))
+        );
+        // Descendants should be rebased onto 1B
+        assert_eq!(commit2c.parent_ids(), slice::from_ref(commit1b.id()));
+    } else if record_synthetic_predecessors {
+        assert!(!abandon_unreachable_commits);
+        // Sanity check for the new graph
+        assert_eq!(
+            *main_repo.view().heads(),
+            HashSet::from([&commit2a, &commit1b].map(|c| c.id().clone()))
+        );
+
+        // Synthetic predecessors should be recorded
+        assert_eq!(
+            main_repo.operation().predecessors_for_commit(commit1b.id()),
+            Some(slice::from_ref(commit1a.id()))
+        );
+    } else {
+        // Sanity check for the new graph
+        assert_eq!(
+            *main_repo.view().heads(),
+            HashSet::from([&commit2a, &commit1b].map(|c| c.id().clone()))
+        );
+
+        // Synthetic predecessors shouldn't be recorded
+        assert_eq!(
+            main_repo.operation().predecessors_for_commit(commit1b.id()),
+            None
+        );
+    }
+
+    Ok(())
+}
+
+#[test]
+fn test_import_refs_synthetic_predecessors_some_bookmarked_descendants() -> TestResult {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let main_repo = &test_repo.repo;
+    let ext_repo = init_external_git_repo(&test_repo, "ext-repo".as_ref())?;
+    let ext_store = ext_repo.store().clone();
+    let import_options = default_import_options();
+
+    // Main:
+    // 3A  5A
+    //  | /
+    // 2A* 4A
+    //  | /
+    // 1A
+    let mut tx = main_repo.start_transaction();
+    let commit1a = write_random_commit(tx.repo_mut());
+    let commit2a = write_random_commit_with_parents(tx.repo_mut(), &[&commit1a]);
+    let commit3a = write_random_commit_with_parents(tx.repo_mut(), &[&commit2a]);
+    let commit4a = write_random_commit_with_parents(tx.repo_mut(), &[&commit1a]);
+    let commit5a = write_random_commit_with_parents(tx.repo_mut(), &[&commit2a]);
+    tx.repo_mut()
+        .set_local_bookmark_target("2A".as_ref(), RefTarget::normal(commit2a.id().clone()));
+    git::export_refs(tx.repo_mut())?;
+    let main_repo = tx.commit("test").block_on()?;
+
+    // Ext: Rewrite 1A -> 1B, 2A* -> 2B*
+    let mut tx = ext_repo.start_transaction();
+    let stats = git::import_refs(tx.repo_mut(), &import_options).block_on()?;
+    assert_eq!(stats.changed_remote_bookmarks.len(), 1);
+    let commit1b = rewrite_commit(tx.repo_mut(), &ext_store.get_commit(commit1a.id())?, "1B");
+    let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
+    assert_eq!(num_rebased, 1);
+    git::export_refs(tx.repo_mut())?;
+    let ext_repo = tx.commit("test").block_on()?;
+    let commit2b = find_unique_successor(&ext_repo, commit2a.id()).unwrap();
+
+    // Main: Set bookmark 3A* (without importing)
+    let mut tx = main_repo.start_transaction();
+    tx.repo_mut()
+        .set_local_bookmark_target("3A".as_ref(), RefTarget::normal(commit3a.id().clone()));
+    git::export_refs(tx.repo_mut())?;
+
+    // Main: Import changes
+    // 3C* 5C
+    //  | /
+    // 2B* 4C
+    //  | /
+    // 1B
+    let stats = git::import_refs(tx.repo_mut(), &import_options).block_on()?;
+    assert_eq!(stats.abandoned_commits.len(), 0);
+    assert_eq!(stats.rewritten_commit_ids.len(), 2);
+    assert_eq!(stats.changed_remote_bookmarks.len(), 1);
+    let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
+    assert_eq!(num_rebased, 3);
+    let main_repo = tx.commit("test").block_on()?;
+    let commit3c = find_unique_successor(&main_repo, commit3a.id()).unwrap();
+    let commit4c = find_unique_successor(&main_repo, commit4a.id()).unwrap();
+    let commit5c = find_unique_successor(&main_repo, commit5a.id()).unwrap();
+
+    // Sanity check for the new graph
+    assert_eq!(
+        *main_repo.view().heads(),
+        HashSet::from([&commit3c, &commit4c, &commit5c].map(|c| c.id().clone()))
+    );
+
+    // Synthetic predecessors should be recorded
+    assert_eq!(
+        main_repo.operation().predecessors_for_commit(commit1b.id()),
+        Some(slice::from_ref(commit1a.id()))
+    );
+    assert_eq!(
+        main_repo.operation().predecessors_for_commit(commit2b.id()),
+        Some(slice::from_ref(commit2a.id()))
+    );
+    // Descendants should be rebased onto 2B
+    assert_eq!(commit3c.parent_ids(), slice::from_ref(commit2b.id()));
+    assert_eq!(commit4c.parent_ids(), slice::from_ref(commit1b.id()));
+    assert_eq!(commit5c.parent_ids(), slice::from_ref(commit2b.id()));
+
+    Ok(())
+}
+
+#[test]
+fn test_import_refs_synthetic_predecessors_rewritten_bookmarked_descendants() -> TestResult {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let main_repo = &test_repo.repo;
+    let ext_repo = init_external_git_repo(&test_repo, "ext-repo".as_ref())?;
+    let ext_store = ext_repo.store().clone();
+    let import_options = default_import_options();
+
+    // Main:
+    // 2A*
+    //  |
+    // 1A*
+    let mut tx = main_repo.start_transaction();
+    let commit1a = write_random_commit(tx.repo_mut());
+    let commit2a = write_random_commit_with_parents(tx.repo_mut(), &[&commit1a]);
+    tx.repo_mut()
+        .set_local_bookmark_target("1A".as_ref(), RefTarget::normal(commit1a.id().clone()));
+    tx.repo_mut()
+        .set_local_bookmark_target("2A".as_ref(), RefTarget::normal(commit2a.id().clone()));
+    git::export_refs(tx.repo_mut())?;
+    let main_repo = tx.commit("test").block_on()?;
+
+    // Ext: Rewrite 1A* -> 1B*, 2A* -> 2B*
+    let mut tx = ext_repo.start_transaction();
+    let stats = git::import_refs(tx.repo_mut(), &import_options).block_on()?;
+    assert_eq!(stats.changed_remote_bookmarks.len(), 2);
+    let commit1b = rewrite_commit(tx.repo_mut(), &ext_store.get_commit(commit1a.id())?, "1B");
+    let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
+    assert_eq!(num_rebased, 1);
+    git::export_refs(tx.repo_mut())?;
+    let ext_repo = tx.commit("test").block_on()?;
+    let commit2b = find_unique_successor(&ext_repo, commit2a.id()).unwrap();
+
+    // Main: Rewrite 2A* -> 2C*, Add 3C* (without importing)
+    // 2C* 3C*
+    //  | /
+    // 1A*
+    let mut tx = main_repo.start_transaction();
+    let commit2c = rewrite_commit(tx.repo_mut(), &commit2a, "2C");
+    let commit3c = write_random_commit_with_parents(tx.repo_mut(), &[&commit1a]);
+    tx.repo_mut()
+        .set_local_bookmark_target("2C".as_ref(), RefTarget::normal(commit2c.id().clone()));
+    tx.repo_mut()
+        .set_local_bookmark_target("3C".as_ref(), RefTarget::normal(commit3c.id().clone()));
+    let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
+    assert_eq!(num_rebased, 0);
+
+    // Main: Import changes
+    // 2D* 3D* 2B*
+    //    \ | /
+    //     1B*
+    let stats = git::import_refs(tx.repo_mut(), &import_options).block_on()?;
+    assert_eq!(stats.abandoned_commits.len(), 0);
+    assert_eq!(
+        stats.rewritten_commit_ids.len(),
+        1 // 2B/2C isn't included because it has already been rewritten locally
+    );
+    assert_eq!(stats.changed_remote_bookmarks.len(), 2);
+    let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
+    assert_eq!(num_rebased, 2);
+    let main_repo = tx.commit("test").block_on()?;
+    let commit2d = find_unique_successor(&main_repo, commit2c.id()).unwrap();
+    let commit3d = find_unique_successor(&main_repo, commit3c.id()).unwrap();
+
+    // Sanity check for the new graph
+    assert_eq!(
+        *main_repo.view().heads(),
+        HashSet::from([&commit2d, &commit3d, &commit2b].map(|c| c.id().clone()))
+    );
+
+    // Synthetic predecessors should be recorded
+    assert_eq!(
+        main_repo.operation().predecessors_for_commit(commit1b.id()),
+        Some(slice::from_ref(commit1a.id()))
+    );
+    assert_eq!(
+        main_repo.operation().predecessors_for_commit(commit2b.id()),
+        Some(slice::from_ref(commit2a.id()))
+    );
+    // Descendants should be rebased onto 1B
+    assert_eq!(commit2d.parent_ids(), slice::from_ref(commit1b.id()));
+    assert_eq!(commit3d.parent_ids(), slice::from_ref(commit1b.id()));
 
     Ok(())
 }
@@ -1702,7 +1994,8 @@ fn test_import_refs_synthetic_predecessors_old_divergent() -> TestResult {
     // 1A      1C  1E*
     let mut tx = main_repo.start_transaction();
     let stats = git::import_refs(tx.repo_mut(), &import_options).block_on()?;
-    assert_eq!(stats.abandoned_commits.len(), 2);
+    assert_eq!(stats.abandoned_commits.len(), 0);
+    assert_eq!(stats.rewritten_commit_ids.len(), 2);
     assert_eq!(stats.changed_remote_bookmarks.len(), 2);
     let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
     assert_eq!(num_rebased, 2);
@@ -1770,7 +2063,8 @@ fn test_import_refs_synthetic_predecessors_new_divergent() -> TestResult {
     // 1A  3A  3B* 3C*
     let mut tx = main_repo.start_transaction();
     let stats = git::import_refs(tx.repo_mut(), &import_options).block_on()?;
-    assert_eq!(stats.abandoned_commits.len(), 1);
+    assert_eq!(stats.abandoned_commits.len(), 0);
+    assert_eq!(stats.rewritten_commit_ids.len(), 1);
     assert_eq!(stats.changed_remote_bookmarks.len(), 3);
     let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
     assert_eq!(num_rebased, 0);
@@ -1831,7 +2125,8 @@ fn test_import_refs_synthetic_predecessors_reimport_same_commits() -> TestResult
     // 1B*
     let mut tx = main_repo.start_transaction();
     let stats = git::import_refs(tx.repo_mut(), &import_options).block_on()?;
-    assert_eq!(stats.abandoned_commits.len(), 1);
+    assert_eq!(stats.abandoned_commits.len(), 0);
+    assert_eq!(stats.rewritten_commit_ids.len(), 1);
     assert_eq!(stats.changed_remote_bookmarks.len(), 1);
     let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
     assert_eq!(num_rebased, 1);
@@ -1866,7 +2161,8 @@ fn test_import_refs_synthetic_predecessors_reimport_same_commits() -> TestResult
     // hash than 2C. We can't rely on low-resolution committer timestamp here.
     let commit2d = rewrite_commit(tx.repo_mut(), &ext_store.get_commit(commit2a.id())?, "2D");
     let stats = git::import_refs(tx.repo_mut(), &import_options).block_on()?;
-    assert_eq!(stats.abandoned_commits.len(), 1);
+    assert_eq!(stats.abandoned_commits.len(), 0);
+    assert_eq!(stats.rewritten_commit_ids.len(), 1);
     assert_eq!(stats.changed_remote_bookmarks.len(), 1);
     let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
     assert_eq!(num_rebased, 1);
@@ -3736,6 +4032,7 @@ fn test_fetch_empty_repo() -> TestResult {
     // No default bookmark and no refs
     assert_eq!(default_branch, None);
     assert!(stats.abandoned_commits.is_empty());
+    assert!(stats.rewritten_commit_ids.is_empty());
     assert_eq!(*tx.repo().view().git_refs(), btreemap! {});
     assert_eq!(tx.repo().view().bookmarks().count(), 0);
     Ok(())
@@ -3756,6 +4053,7 @@ fn test_fetch_initial_commit_head_is_not_set() -> TestResult {
     // No default bookmark because the origin repo's HEAD wasn't set
     assert_eq!(default_branch, None);
     assert!(stats.abandoned_commits.is_empty());
+    assert!(stats.rewritten_commit_ids.is_empty());
     let repo = tx.commit("test").block_on()?;
     // The initial commit is visible after git_fetch().
     let view = repo.view();
@@ -3812,6 +4110,7 @@ fn test_fetch_initial_commit_head_is_set() -> TestResult {
 
     assert_eq!(default_branch, Some("main".into()));
     assert!(stats.abandoned_commits.is_empty());
+    assert!(stats.rewritten_commit_ids.is_empty());
     Ok(())
 }
 
@@ -3849,6 +4148,7 @@ fn test_fetch_success() -> TestResult {
     // The default bookmark is "main"
     assert_eq!(default_branch, Some("main".into()));
     assert!(stats.abandoned_commits.is_empty());
+    assert!(stats.rewritten_commit_ids.is_empty());
     let repo = tx.commit("test").block_on()?;
     // The new commit is visible after we fetch again
     let view = repo.view();
@@ -3914,6 +4214,7 @@ fn test_fetch_prune_deleted_ref() -> TestResult {
         stats.abandoned_commits.iter().map(Commit::id).collect_vec(),
         vec![&jj_id(commit)]
     );
+    assert!(stats.rewritten_commit_ids.is_empty());
     assert!(tx.repo().get_local_bookmark("main".as_ref()).is_absent());
     assert_eq!(
         tx.repo_mut()
