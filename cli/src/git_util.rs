@@ -20,6 +20,7 @@ use std::io::Write as _;
 use std::iter;
 use std::mem;
 use std::path::Path;
+use std::path::PathBuf;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -84,7 +85,8 @@ pub fn absolute_git_url(cwd: &Path, source: &str) -> Result<String, CommandError
     // exits, and fails because '$PWD/https' is unsupported protocol. Since it would
     // be tedious to copy the exact git (or libgit2) behavior, we simply let gix
     // parse the input as URL, rcp-like, or local path.
-    let mut url = gix::url::parse(source.as_ref()).map_err(cli_error)?;
+    let source = expand_current_user_git_path(source).unwrap_or_else(|| source.to_owned());
+    let mut url = gix::url::parse(source.as_bytes().as_bstr()).map_err(cli_error)?;
     url.canonicalize(cwd).map_err(user_error)?;
     // As of gix 0.68.0, the canonicalized path uses platform-native directory
     // separator, which isn't compatible with libgit2 on Windows.
@@ -93,6 +95,17 @@ pub fn absolute_git_url(cwd: &Path, source: &str) -> Result<String, CommandError
     }
     // It's less likely that cwd isn't utf-8, so just fall back to original source.
     Ok(String::from_utf8(url.to_bstring().into()).unwrap_or_else(|_| source.to_owned()))
+}
+
+fn expand_current_user_git_path(source: &str) -> Option<String> {
+    let path = source.strip_prefix("~/")?;
+    let home = std::env::var_os("HOME")?;
+    Some(
+        PathBuf::from(home)
+            .join(path)
+            .to_string_lossy()
+            .into_owned(),
+    )
 }
 
 /// Converts a git remote URL to a normalized HTTPS URL for web browsing.
@@ -603,6 +616,13 @@ mod tests {
             absolute_git_url(&cwd.join("bar"), &format!("{cwd_slash}/foo")).unwrap(),
             format!("{cwd_slash}/foo")
         );
+        if let Some(home) = std::env::var_os("HOME") {
+            let home = PathBuf::from(home).to_string_lossy().replace(MAIN_SEPARATOR, "/");
+            assert_eq!(
+                absolute_git_url(&cwd, "~/foo").unwrap(),
+                format!("{home}/foo")
+            );
+        }
 
         // rcp-like
         assert_eq!(

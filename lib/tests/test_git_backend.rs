@@ -107,13 +107,39 @@ fn list_dir(dir: &Path) -> Vec<String> {
 }
 
 #[test]
-fn test_gc() -> TestResult {
-    // TODO: Better way to disable the test if git command couldn't be executed
+fn test_gc_prunes_unreachable_git_objects() -> TestResult {
     if !is_external_tool_installed("git") {
         eprintln!("Skipping because git command might fail to run");
         return Ok(());
     }
 
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = test_repo.repo;
+    let git_repo_path = get_git_backend(&repo).git_repo_path();
+    let git_repo = gix::open(git_repo_path)?;
+
+    let kept_blob = git_repo.write_blob(b"kept by mtime")?.detach();
+    let pruned_blob = git_repo.write_blob(b"old unreachable")?.detach();
+    assert!(git_repo.try_find_object(kept_blob)?.is_some());
+    assert!(git_repo.try_find_object(pruned_blob)?.is_some());
+
+    repo.store()
+        .gc(repo.readonly_index().as_index(), SystemTime::UNIX_EPOCH)?;
+    let git_repo = gix::open(git_repo_path)?;
+    assert!(git_repo.try_find_object(kept_blob)?.is_some());
+    assert!(git_repo.try_find_object(pruned_blob)?.is_some());
+
+    let keep_newer = SystemTime::now() + Duration::from_secs(1);
+    repo.store()
+        .gc(repo.readonly_index().as_index(), keep_newer)?;
+    let git_repo = gix::open(git_repo_path)?;
+    assert!(git_repo.try_find_object(pruned_blob)?.is_none());
+
+    Ok(())
+}
+
+#[test]
+fn test_gc() -> TestResult {
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = test_repo.repo;
     let git_repo_path = get_git_backend(&repo).git_repo_path();
@@ -168,8 +194,7 @@ fn test_gc() -> TestResult {
         },
     );
 
-    // Empty index, but all kept by file modification time
-    // (Beware that this invokes "git gc" and refs will be packed.)
+    // Empty index, but all kept by file modification time.
     repo.store()
         .gc(base_index.as_index(), SystemTime::UNIX_EPOCH)?;
     assert_eq!(
@@ -254,11 +279,6 @@ fn test_gc() -> TestResult {
 
 #[test]
 fn test_gc_extra_table() -> TestResult {
-    if !is_external_tool_installed("git") {
-        eprintln!("Skipping because git command might fail to run");
-        return Ok(());
-    }
-
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let extra_path = test_repo.repo_path().join("store").join("extra");
     let extra_key_size = test_repo.repo.store().root_commit_id().as_bytes().len();
