@@ -17,6 +17,7 @@ use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::env;
 use std::env::split_paths;
+use std::ffi::OsString;
 use std::fmt;
 use std::path::Path;
 use std::path::PathBuf;
@@ -278,6 +279,7 @@ struct UnresolvedConfigEnv {
     config_dir: Option<PathBuf>,
     home_dir: Option<PathBuf>,
     jj_config: Option<String>,
+    xdg_config_dirs: Option<OsString>,
 }
 
 impl UnresolvedConfigEnv {
@@ -294,6 +296,24 @@ impl UnresolvedConfigEnv {
         }
 
         let mut paths = vec![];
+
+        let xdg_config_dirs = match self.xdg_config_dirs {
+            None => vec!["/etc/xdg".into()],
+            Some(dirs) if dirs.is_empty() => vec!["/etc/xdg".into()],
+            Some(dirs) => split_paths(&dirs)
+                .filter(|path| !path.as_os_str().is_empty())
+                .collect(),
+        };
+        for mut config_dir in xdg_config_dirs.into_iter().rev() {
+            config_dir.push("jj");
+            for config_path in ["config.toml", "conf.d"] {
+                let config_path = ConfigPath::new(config_dir.join(config_path));
+                if config_path.exists() {
+                    paths.push(config_path);
+                }
+            }
+        }
+
         let home_config_path = self.home_dir.map(|mut home_dir| {
             home_dir.push(".jjconfig.toml");
             ConfigPath::new(home_dir)
@@ -363,6 +383,7 @@ impl ConfigEnv {
             config_dir,
             home_dir: home_dir.clone(),
             jj_config: env::var("JJ_CONFIG").ok(),
+            xdg_config_dirs: env::var_os("XDG_CONFIG_DIRS"),
         };
         let environment = env::vars_os()
             .filter_map(|(k, v)| {
@@ -1770,14 +1791,21 @@ mod tests {
                 "config/jj/conf.d/_",
                 "config/jj/config.toml",
                 "home/.jjconfig.toml",
+                "xdg1/jj/conf.d/_",
+                "xdg1/jj/config.toml",
+                "xdg2/jj/config.toml",
             ],
             env: UnresolvedConfigEnv {
                 home_dir: Some("home".into()),
                 config_dir: Some("config".into()),
+                xdg_config_dirs: Some(join_paths(["xdg1", "xdg2"]).unwrap()),
                 ..Default::default()
             },
             // Precedence order is important
             wants: vec![
+                Want::existing("xdg2/jj/config.toml"),
+                Want::existing("xdg1/jj/config.toml"),
+                Want::existing("xdg1/jj/conf.d"),
                 Want::existing("home/.jjconfig.toml"),
                 Want::existing("config/jj/config.toml"),
                 Want::existing("config/jj/conf.d"),
@@ -1860,6 +1888,15 @@ mod tests {
                 }))
                 .unwrap()
                 .into_string()
+                .unwrap()
+            }),
+            xdg_config_dirs: env.xdg_config_dirs.as_ref().map(|p| {
+                join_paths(split_paths(p).map(|p| {
+                    if p.as_os_str().is_empty() {
+                        return p;
+                    }
+                    root.join(p)
+                }))
                 .unwrap()
             }),
         };

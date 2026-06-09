@@ -2158,6 +2158,9 @@ jj config path --user
 On all platforms, the user's global `jj` configurations are by default loaded in
 the following precedence order (with later configs overriding earlier ones):
 
+- for each directory in `$XDG_CONFIG_DIRS` in reverse order:
+  - `<dir>/jj/config.toml`
+  - `<dir>/jj/conf.d/*.toml`
 - `$HOME/.jjconfig.toml`
 - `<PLATFORM_SPECIFIC>/jj/config.toml` (preferred)
 - `<PLATFORM_SPECIFIC>/jj/conf.d/*.toml`

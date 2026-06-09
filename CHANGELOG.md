@@ -24,6 +24,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj` now looks for config files in `$XDG_CONFIG_DIRS`.
+
 ### Fixed bugs
 
 * `jj` now creates a new working-copy revision during snapshotting if the
