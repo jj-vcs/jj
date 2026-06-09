@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use indoc::formatdoc;
 use jj_lib::absorb::AbsorbSource;
@@ -40,7 +41,8 @@ use crate::ui::Ui;
 ///
 /// With the `--interactive` option, only the selected changes will be
 /// considered for absorption. This allows picking specific hunks to absorb
-/// (which may then be distributed across multiple ancestors).
+/// (which may then be distributed across multiple ancestors). The
+/// `--tool` option can be used to select a different diff editor.
 ///
 /// The source revision will be abandoned if all changes are absorbed into the
 /// destination revisions, and if the source revision has no description.
@@ -74,6 +76,11 @@ pub(crate) struct AbsorbArgs {
     /// Interactively choose which parts to absorb
     #[arg(long, short)]
     interactive: bool,
+
+    /// Specify diff editor to be used (implies --interactive)
+    #[arg(long, value_name = "NAME")]
+    #[arg(add = ArgValueCandidates::new(complete::diff_editors))]
+    tool: Option<String>,
 }
 
 #[instrument(skip_all)]
@@ -103,7 +110,7 @@ pub(crate) async fn cmd_absorb(
     )?;
 
     let diff_selector =
-        workspace_command.diff_selector(ui, None, args.interactive)?;
+        workspace_command.diff_selector(ui, args.tool.as_deref(), args.interactive)?;
     let right_tree = if diff_selector.is_interactive() {
         let parent_tree = source.parent_tree().clone();
         let source_tree = source.commit().tree();
