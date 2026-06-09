@@ -35,6 +35,7 @@ pub mod diff;
 pub mod file_util;
 pub mod graph;
 pub mod hex_util;
+pub mod matchers;
 pub mod merge;
 pub mod object_id;
 pub mod repo_path;
