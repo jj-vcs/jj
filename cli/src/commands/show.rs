@@ -14,7 +14,9 @@
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use futures::StreamExt as _;
 use futures::TryStreamExt as _;
+use futures::stream;
 use jj_lib::matchers::EverythingMatcher;
 use tracing::instrument;
 
@@ -39,6 +41,10 @@ pub(crate) struct ShowArgs {
     #[arg(short = 'r', hide = true, value_name = "REVSETS")]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     revisions_opt: Vec<RevisionArg>,
+
+    /// Show revisions in the opposite order (older revisions first)
+    #[arg(long)]
+    reversed: bool,
 
     /// Render each revision using the given template
     ///
@@ -76,8 +82,6 @@ pub(crate) async fn cmd_show(
         workspace_command
             .parse_union_revsets(ui, &[&*args.revisions_pos, &*args.revisions_opt].concat())?
     };
-    let mut commits = target_expr.evaluate_to_commits()?;
-
     let template_string = match &args.template {
         Some(value) => value.clone(),
         None => workspace_command.settings().get_string("templates.show")?,
@@ -86,11 +90,18 @@ pub(crate) async fn cmd_show(
         .parse_commit_template(ui, &template_string)?
         .labeled(["show", "commit"]);
     let diff_renderer = workspace_command.diff_renderer_for(&args.format)?;
+
+    let mut commit_stream = target_expr.evaluate_to_commits()?;
+    if args.reversed {
+        let commits: Vec<_> = commit_stream.try_collect().await?;
+        commit_stream = stream::iter(commits.into_iter().rev().map(Ok)).boxed_local();
+    }
+
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
     let formatter = formatter.as_mut();
 
-    while let Some(commit) = commits.try_next().await? {
+    while let Some(commit) = commit_stream.try_next().await? {
         template.format(&commit, formatter)?;
 
         if !args.no_patch {

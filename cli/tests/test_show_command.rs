@@ -495,6 +495,33 @@ fn test_show_multiple_revisions() {
     [EOF]
     ");
 
+    // Older revisions first
+    let output = work_dir.run_jj(["show", "--reversed", "--no-patch", ".."]);
+    insta::assert_snapshot!(output, @"
+    Commit ID: 456f4073ef89a8fbee17002de8cd8429f35e7dc9
+    Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    Author   : Test User <test.user@example.com> (2001-02-03 08:05:08)
+    Committer: Test User <test.user@example.com> (2001-02-03 08:05:08)
+
+        add file1
+
+    Commit ID: 9155a29f167b8735506b1c10858a4abb9ef80e21
+    Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
+    Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
+    Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
+
+        add file2
+
+    Commit ID: 997b28cbf801ff095e70f203f75731c955688350
+    Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
+    Author   : Test User <test.user@example.com> (2001-02-03 08:05:10)
+    Committer: Test User <test.user@example.com> (2001-02-03 08:05:10)
+
+        modify file1
+
+    [EOF]
+    ");
+
     let output = work_dir.run_jj(["show", "--no-patch", "root()..@"]);
     let output = output.normalize_stdout_with(|s| {
         s.split_inclusive('\n')
