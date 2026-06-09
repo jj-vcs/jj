@@ -17,6 +17,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* The deprecated `git_head()` and `git_refs()` functions have been removed from
+  revsets and templates.
+
 ### Deprecations
 
 ### New features

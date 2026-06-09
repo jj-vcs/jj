@@ -159,8 +159,6 @@ pub enum RevsetCommitRef {
         symbol: RemoteRefSymbolExpression,
         remote_ref_state: Option<RemoteRefState>,
     },
-    GitRefs,
-    GitHead,
 }
 
 /// String expressions to match `name@remote` bookmarks/tags.
@@ -456,14 +454,6 @@ impl<St: ExpressionState<CommitRef = RevsetCommitRef>> RevsetExpression<St> {
             symbol,
             remote_ref_state,
         }))
-    }
-
-    pub fn git_refs() -> Arc<Self> {
-        Arc::new(Self::CommitRef(RevsetCommitRef::GitRefs))
-    }
-
-    pub fn git_head() -> Arc<Self> {
-        Arc::new(Self::CommitRef(RevsetCommitRef::GitHead))
     }
 }
 
@@ -977,24 +967,6 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
         let symbol = parse_remote_refs_arguments(diagnostics, function, context)?;
         let state = Some(RemoteRefState::New);
         Ok(RevsetExpression::remote_tags(symbol, state))
-    });
-    // TODO: Remove in jj 0.43+
-    map.insert("git_refs", |diagnostics, function, _context| {
-        diagnostics.add_warning(RevsetParseError::expression(
-            "git_refs() is deprecated; use remote_bookmarks()/tags() instead",
-            function.name_span,
-        ));
-        function.expect_no_arguments()?;
-        Ok(RevsetExpression::git_refs())
-    });
-    // TODO: Remove in jj 0.43+
-    map.insert("git_head", |diagnostics, function, _context| {
-        diagnostics.add_warning(RevsetParseError::expression(
-            "git_head() is deprecated; use first_parent(@) instead",
-            function.name_span,
-        ));
-        function.expect_no_arguments()?;
-        Ok(RevsetExpression::git_head())
     });
     map.insert("latest", |diagnostics, function, context| {
         let ([candidates_arg], [count_opt_arg]) = function.expect_arguments()?;
@@ -3039,14 +3011,6 @@ fn resolve_commit_ref(
                 .collect();
             Ok(commit_ids)
         }
-        RevsetCommitRef::GitRefs => {
-            let mut commit_ids = vec![];
-            for ref_target in repo.view().git_refs().values() {
-                commit_ids.extend(ref_target.added_ids().cloned());
-            }
-            Ok(commit_ids)
-        }
-        RevsetCommitRef::GitHead => Ok(repo.view().git_head().added_ids().cloned().collect()),
     }
 }
 

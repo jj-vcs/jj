@@ -15,7 +15,6 @@
 use indoc::indoc;
 use regex::Regex;
 use testutils::TestResult;
-use testutils::git;
 
 use crate::common::TestEnvironment;
 
@@ -775,44 +774,6 @@ fn test_log_tags() {
     ◆  L: bar baz foo* R: bar@git
     ◆  L: R: foo@git
     ◆  L: R:
-    [EOF]
-    ");
-}
-
-#[test]
-fn test_log_git_head() {
-    let test_env = TestEnvironment::default();
-    let work_dir = test_env.work_dir("repo");
-    git::init(work_dir.root());
-    work_dir.run_jj(["git", "init", "--git-repo=."]).success();
-
-    work_dir.run_jj(["new", "-m=initial"]).success();
-    work_dir.write_file("file", "foo\n");
-
-    let output = work_dir.run_jj(["log", "-T", "git_head"]);
-    insta::assert_snapshot!(output, @"
-    @  false
-    ○  true
-    ◆  false
-    [EOF]
-    ------- stderr -------
-    Warning: In template expression
-     --> 1:1
-      |
-    1 | git_head
-      | ^------^
-      |
-      = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
-    [EOF]
-    ");
-
-    let output = work_dir.run_jj(["log", "--color=always"]);
-    insta::assert_snapshot!(output, @"
-    [1m[38;5;2m@[0m  [1m[38;5;13mr[38;5;8mlvkpnrz[39m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:09[39m [38;5;12m6[38;5;8m87fadfd[39m[0m
-    │  [1minitial[0m
-    ○  [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:07[39m [1m[38;5;4me[0m[38;5;8m8849ae1[39m
-    │  [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
-    [1m[38;5;14m◆[0m  [1m[38;5;5mz[0m[38;5;8mzzzzzzz[39m [38;5;2mroot()[39m [1m[38;5;4m0[0m[38;5;8m0000000[39m
     [EOF]
     ");
 }
