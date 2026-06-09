@@ -159,6 +159,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   you only want to absorb *part* of a commit without first splitting it. Any
   hunks that are not selected or cannot be absorbed remain in the source commit.
 
+* `jj absorb` now supports the `--tool` option to choose a specific diff editor
+  for use with `--interactive` / `-i` (consistent with `squash --tool`,
+  `split --tool`, etc.).
+
 ### Fixed bugs
 
 * On Windows, querying a path's file identity no longer follows symbolic links,
