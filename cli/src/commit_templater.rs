@@ -196,6 +196,11 @@ impl<'repo> CommitTemplateLanguage<'repo> {
         FilesetParseContext {
             aliases_map: self.revset_parse_context.fileset_aliases_map,
             path_converter: self.path_converter,
+            sparse_patterns: self
+                .revset_parse_context
+                .workspace
+                .as_ref()
+                .and_then(|w| w.sparse_patterns),
         }
     }
 }
@@ -3131,6 +3136,7 @@ mod tests {
                 workspace: Some(RevsetWorkspaceContext {
                     path_converter: &self.path_converter,
                     workspace_name: self.test_workspace.workspace.workspace_name(),
+                    sparse_patterns: None,
                 }),
             };
             let mut language = CommitTemplateLanguage::new(

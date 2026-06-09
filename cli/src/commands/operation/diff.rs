@@ -203,7 +203,7 @@ pub fn parse_op_diff_changes_in(
     let op_diff_changes_expr = revset::parse(
         &mut diagnostics,
         &expression_str,
-        &workspace_env.revset_parse_context(),
+        &workspace_env.revset_parse_context(None),
     )
     .map_err(|err| {
         if is_config {
@@ -233,7 +233,7 @@ fn resolve_op_diff_changes_exprs(
     to_repo: &ReadonlyRepo,
 ) -> Result<(Arc<ResolvedRevsetExpression>, Arc<ResolvedRevsetExpression>), RevsetResolutionError> {
     let extensions = workspace_env
-        .revset_parse_context()
+        .revset_parse_context(None)
         .extensions
         .symbol_resolvers();
     let from_repo_symbol_resolver = SymbolResolver::new(from_repo, extensions);

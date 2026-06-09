@@ -507,7 +507,7 @@ impl CommandHelper {
         let repo = workspace.repo_loader().load_at(&op_head).await?;
         let mut env = self.workspace_environment(ui, &workspace)?;
         if let Err(err) =
-            revset_util::try_resolve_trunk_alias(repo.as_ref(), &env.revset_parse_context())
+            revset_util::try_resolve_trunk_alias(repo.as_ref(), &env.revset_parse_context(None))
         {
             // The fallback can be builtin_trunk() if we're willing to support
             // inferred trunk forever. (#7990)
@@ -890,10 +890,17 @@ impl WorkspaceCommandEnvironment {
     }
 
     /// Parsing context for fileset expressions specified by command arguments.
-    pub(crate) fn fileset_parse_context(&self) -> FilesetParseContext<'_> {
+    ///
+    /// `sparse_patterns` is the sparse-checkout patterns of the current
+    /// working copy, if any, used to resolve the `sparse()` builtin.
+    pub(crate) fn fileset_parse_context<'a>(
+        &'a self,
+        sparse_patterns: Option<&'a [RepoPathBuf]>,
+    ) -> FilesetParseContext<'a> {
         FilesetParseContext {
             aliases_map: &self.fileset_aliases_map,
             path_converter: &self.path_converter,
+            sparse_patterns,
         }
     }
 
@@ -908,13 +915,18 @@ impl WorkspaceCommandEnvironment {
         FilesetParseContext {
             aliases_map: &self.fileset_aliases_map,
             path_converter: &ROOT_PATH_CONVERTER,
+            sparse_patterns: None,
         }
     }
 
-    pub(crate) fn revset_parse_context(&self) -> RevsetParseContext<'_> {
+    pub(crate) fn revset_parse_context<'a>(
+        &'a self,
+        sparse_patterns: Option<&'a [RepoPathBuf]>,
+    ) -> RevsetParseContext<'a> {
         let workspace_context = RevsetWorkspaceContext {
             path_converter: &self.path_converter,
             workspace_name: &self.workspace_name,
+            sparse_patterns,
         };
         let now = if let Some(timestamp) = self.settings.commit_timestamp() {
             chrono::Local
@@ -977,7 +989,7 @@ impl WorkspaceCommandEnvironment {
         let mut diagnostics = RevsetDiagnostics::new();
         let expression = revset_util::parse_immutable_heads_expression(
             &mut diagnostics,
-            &self.revset_parse_context(),
+            &self.revset_parse_context(None),
         )
         .map_err(|e| config_error_with_message("Invalid `revset-aliases.immutable_heads()`", e))?;
         print_parse_diagnostics(ui, "In `revset-aliases.immutable_heads()`", &diagnostics)?;
@@ -1000,7 +1012,7 @@ impl WorkspaceCommandEnvironment {
             let expression = revset::parse(
                 &mut diagnostics,
                 &revset_string,
-                &self.revset_parse_context(),
+                &self.revset_parse_context(None),
             )
             .map_err(|err| config_error_with_message("Invalid `revsets.short-prefixes`", err))?;
             print_parse_diagnostics(ui, "In `revsets.short-prefixes`", &diagnostics)?;
@@ -1068,11 +1080,14 @@ impl WorkspaceCommandEnvironment {
         repo: &'a dyn Repo,
         id_prefix_context: &'a IdPrefixContext,
     ) -> CommitTemplateLanguage<'a> {
+        // No working-copy handle at the env level, so `sparse()` won't
+        // resolve inside templates. Call sites needing it can route
+        // through the helper-level fileset/revset parsers.
         CommitTemplateLanguage::new(
             repo,
             &self.path_converter,
             &self.workspace_name,
-            self.revset_parse_context(),
+            self.revset_parse_context(None),
             id_prefix_context,
             self.immutable_expression(),
             self.conflict_marker_style,
@@ -1515,6 +1530,28 @@ to the current parents may contain changes from multiple commits.
         }
     }
 
+    /// Reads the working copy's sparse patterns for fileset/revset parsing.
+    ///
+    /// Returns `Ok(None)` if the working copy can't be read (corrupt state,
+    /// `--ignore-working-copy` semantics, etc.) so plain expressions without
+    /// `sparse()` still parse. The read error is surfaced as a warning rather
+    /// than silently swallowed: if it were dropped, `sparse()` would fail with
+    /// a misleading "cannot be used in this context" error in a context where
+    /// it should be usable.
+    fn sparse_patterns_for_parsing(&self, ui: &Ui) -> Result<Option<&[RepoPathBuf]>, CommandError> {
+        match self.working_copy().sparse_patterns() {
+            Ok(patterns) => Ok(Some(patterns)),
+            Err(err) => {
+                writeln!(
+                    ui.warning_default(),
+                    "Failed to read the working copy's sparse patterns; `sparse()` will be \
+                     unavailable. Error: {err}"
+                )?;
+                Ok(None)
+            }
+        }
+    }
+
     /// Parses the given fileset expressions and concatenates them all.
     pub fn parse_union_filesets(
         &self,
@@ -1522,7 +1559,8 @@ to the current parents may contain changes from multiple commits.
         file_args: &[String], // TODO: introduce FileArg newtype?
     ) -> Result<FilesetExpression, CommandError> {
         let mut diagnostics = FilesetDiagnostics::new();
-        let context = self.env.fileset_parse_context();
+        let sparse_patterns = self.sparse_patterns_for_parsing(ui)?;
+        let context = self.env.fileset_parse_context(sparse_patterns);
         let expressions: Vec<_> = file_args
             .iter()
             .map(|arg| fileset::parse_maybe_bare(&mut diagnostics, arg, &context))
@@ -1776,7 +1814,8 @@ to the current parents may contain changes from multiple commits.
         revision_arg: &RevisionArg,
     ) -> Result<RevsetExpressionEvaluator<'_>, CommandError> {
         let mut diagnostics = RevsetDiagnostics::new();
-        let context = self.env.revset_parse_context();
+        let sparse_patterns = self.sparse_patterns_for_parsing(ui)?;
+        let context = self.env.revset_parse_context(sparse_patterns);
         let expression = revset::parse(&mut diagnostics, revision_arg.as_ref(), &context)?;
         print_parse_diagnostics(ui, "In revset expression", &diagnostics)?;
         Ok(self.attach_revset_evaluator(expression))
@@ -1789,7 +1828,8 @@ to the current parents may contain changes from multiple commits.
         revision_args: &[RevisionArg],
     ) -> Result<RevsetExpressionEvaluator<'_>, CommandError> {
         let mut diagnostics = RevsetDiagnostics::new();
-        let context = self.env.revset_parse_context();
+        let sparse_patterns = self.sparse_patterns_for_parsing(ui)?;
+        let context = self.env.revset_parse_context(sparse_patterns);
         let expressions: Vec<_> = revision_args
             .iter()
             .map(|arg| revset::parse(&mut diagnostics, arg.as_ref(), &context))
@@ -2218,7 +2258,7 @@ to the current parents may contain changes from multiple commits.
         }
 
         if let Err(err) =
-            revset_util::try_resolve_trunk_alias(tx.repo(), &self.env.revset_parse_context())
+            revset_util::try_resolve_trunk_alias(tx.repo(), &self.env.revset_parse_context(None))
         {
             writeln!(
                 ui.warning_default(),

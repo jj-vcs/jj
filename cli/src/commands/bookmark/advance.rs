@@ -122,7 +122,9 @@ pub async fn cmd_bookmark_advance(
                 let from_revset_str = workspace_command
                     .settings()
                     .get_string("revsets.bookmark-advance-from")?;
-                let mut context = workspace_command.env().revset_parse_context();
+                let mut context = workspace_command
+                    .env()
+                    .revset_parse_context(workspace_command.working_copy().sparse_patterns().ok());
                 let commit_hex = target_commit.id().hex();
                 context.local_variables.insert(
                     "to",

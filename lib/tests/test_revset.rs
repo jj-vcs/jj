@@ -1222,6 +1222,7 @@ fn resolve_commit_ids_in_workspace(
     let workspace_ctx = RevsetWorkspaceContext {
         path_converter: &path_converter,
         workspace_name: workspace.workspace_name(),
+        sparse_patterns: None,
     };
     let context = RevsetParseContext {
         aliases_map: &RevsetAliasesMap::default(),
