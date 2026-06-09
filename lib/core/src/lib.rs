@@ -30,6 +30,7 @@ extern crate self as jj_core;
 pub mod content_hash;
 
 pub mod file_util;
+pub mod matchers;
 pub mod repo_path;
 
 #[cfg(test)]
