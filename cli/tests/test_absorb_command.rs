@@ -951,6 +951,129 @@ fn test_absorb_immutable() {
     ");
 }
 
+#[test]
+fn test_absorb_interactive() -> Result<(), Box<dyn std::error::Error>> {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_diff_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m0"]).success();
+    work_dir.write_file("file1", "");
+
+    work_dir.run_jj(["new", "-m1"]).success();
+    work_dir.write_file("file1", "1a\n1b\n");
+
+    work_dir.run_jj(["new", "-m2"]).success();
+    work_dir.write_file("file1", "1a\n1b\n2a\n2b\n");
+
+    // Working copy with changes to lines from both ancestors.
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file1", "1X\n1b\n2Y\n2b\n");
+    // Snapshot the changes so they are part of the source commit when we capture
+    // the op id (otherwise op restore would land on an empty @).
+    work_dir
+        .run_jj(["log", "-r", "@", "-T", "''", "--no-graph"])
+        .success();
+    let setup_opid = work_dir.current_operation_id();
+
+    // If we don't make any changes in the diff-editor, all selected changes are
+    // considered for absorption (and distributed by the usual annotation logic).
+    std::fs::write(&edit_script, "dump JJ-INSTRUCTIONS instrs")?;
+    let output = work_dir.run_jj(["absorb", "-i"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Absorbed changes into 2 revisions:
+      zsuskuln e1082c87 2
+      kkmpptxz db75688c 1
+    Working copy  (@) now at: yqosqzyt 9959af44 (empty) (no description set)
+    Parent commit (@-)      : zsuskuln e1082c87 2
+    [EOF]
+    ");
+
+    let instrs = std::fs::read_to_string(test_env.env_root().join("instrs"))?;
+    insta::assert_snapshot!(instrs, @"
+    You are selecting changes from: mzvwutvl 97027697 (no description set)
+    to be considered for absorption into ancestors.
+
+    The left side of the diff shows the parent commit. The
+    right side initially shows the contents of the commit you're absorbing
+    from.
+
+    Adjust the right side until the diff shows the changes you want to
+    absorb. Selected hunks will be automatically assigned to the closest
+    ancestor where the corresponding lines were last modified (using
+    annotation). Hunks that cannot be assigned unambiguously will remain
+    in the source commit.
+    ");
+
+    // Can absorb only some changes in interactive mode (pick hunks that target
+    // only the "1" commit).
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    // The right side written here has only the change to the lines from commit 1.
+    std::fs::write(&edit_script, "write file1\n1X\n1b\n2a\n2b\n")?;
+    let output = work_dir.run_jj(["absorb", "-i"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Absorbed changes into 1 revisions:
+      kkmpptxz 1478a2b5 1
+    Rebased 2 descendant commits.
+    Working copy  (@) now at: mzvwutvl 1c71fcb1 (no description set)
+    Parent commit (@-)      : zsuskuln f718fb8c 2
+    Remaining changes:
+    M file1
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @"
+    @  mzvwutvl 1c71fcb1 (no description set)
+    │  diff --git a/file1 b/file1
+    │  index 69f126596d..90ee77ff42 100644
+    │  --- a/file1
+    │  +++ b/file1
+    │  @@ -1,4 +1,4 @@
+    │   1X
+    │   1b
+    │  -2a
+    │  +2Y
+    │   2b
+    ○  zsuskuln f718fb8c 2
+    │  diff --git a/file1 b/file1
+    │  index 63451a887b..69f126596d 100644
+    │  --- a/file1
+    │  +++ b/file1
+    │  @@ -1,2 +1,4 @@
+    │   1X
+    │   1b
+    │  +2a
+    │  +2b
+    ○  kkmpptxz 1478a2b5 1
+    │  diff --git a/file1 b/file1
+    │  index e69de29bb2..63451a887b 100644
+    │  --- a/file1
+    │  +++ b/file1
+    │  @@ -0,0 +1,2 @@
+    │  +1X
+    │  +1b
+    ○  qpvuntsm 6a446874 0
+    │  diff --git a/file1 b/file1
+    ~  new file mode 100644
+       index 0000000000..e69de29bb2
+    [EOF]
+    ");
+
+    // Error if no changes selected in interactive mode
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    std::fs::write(&edit_script, "reset file1")?;
+    let output = work_dir.run_jj(["absorb", "-i"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: No changes selected
+    [EOF]
+    [exit status: 1]
+    ");
+    Ok(())
+}
+
 #[must_use]
 fn get_diffs(work_dir: &TestWorkDir, revision: &str) -> CommandOutput {
     let template = r#"format_commit_summary_with_refs(self, "") ++ "\n""#;
