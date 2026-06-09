@@ -24,6 +24,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj show` now supports `--reversed` flag.
+
 ### Fixed bugs
 
 * `jj` now creates a new working-copy revision during snapshotting if the
