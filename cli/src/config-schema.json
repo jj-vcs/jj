@@ -836,6 +836,27 @@
                 ]
             }
         },
+        "gc": {
+            "type": "object",
+            "description": "Parameters governing automatic garbage collection",
+            "properties": {
+                "frequency-days": {
+                    "type": "integer",
+                    "description": "How often to run automatic garbage collection, in days. Set to 0 to disable automatic garbage collection.",
+                    "default": 0
+                },
+                "operation-min-count": {
+                    "type": "integer",
+                    "description": "Minimum number of operations to keep when garbage collecting.",
+                    "default": 100
+                },
+                "operation-expiry-days": {
+                    "type": "integer",
+                    "description": "Number of days after which operations are considered obsolete and can be garbage collected.",
+                    "default": 365
+                }
+            }
+        },
         "snapshot": {
             "type": "object",
             "description": "Parameters governing automatic capture of files into the working copy commit",

@@ -30,6 +30,7 @@ mod edit;
 mod evolog;
 mod file;
 mod fix;
+mod gc;
 #[cfg(feature = "git")]
 mod gerrit;
 #[cfg(feature = "git")]
@@ -65,6 +66,7 @@ mod version;
 mod workspace;
 
 use std::fmt::Debug;
+use std::io::Write as _;
 
 use clap::CommandFactory as _;
 use clap::FromArgMatches as _;
@@ -72,11 +74,14 @@ use clap::Subcommand as _;
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 use clap_complete::engine::SubcommandCandidates;
+use jj_lib::gc::GcSettings;
+use jj_lib::gc::should_run_auto_gc;
 use tracing::instrument;
 
 use crate::cli_util::Args;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
+use crate::commands::gc::run_gc;
 use crate::complete;
 use crate::ui::Ui;
 
@@ -120,6 +125,7 @@ enum Command {
     #[cfg(feature = "git")]
     #[command(subcommand)]
     Gerrit(gerrit::GerritCommand),
+    Gc(gc::GcArgs),
     #[cfg(feature = "git")]
     #[command(subcommand)]
     Git(git::GitCommand),
@@ -166,6 +172,7 @@ pub fn default_app() -> clap::Command {
 
 #[instrument(skip_all)]
 pub async fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<(), CommandError> {
+    run_auto_gc(ui, command_helper).await?;
     let subcommand = Command::from_arg_matches(command_helper.matches()).unwrap();
     match &subcommand {
         Command::Abandon(args) => abandon::cmd_abandon(ui, command_helper, args).await,
@@ -187,6 +194,7 @@ pub async fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<
         Command::Fix(args) => fix::cmd_fix(ui, command_helper, args).await,
         #[cfg(feature = "git")]
         Command::Gerrit(sub_args) => gerrit::cmd_gerrit(ui, command_helper, sub_args).await,
+        Command::Gc(args) => gc::cmd_gc(ui, command_helper, args).await,
         #[cfg(feature = "git")]
         Command::Git(args) => git::cmd_git(ui, command_helper, args).await,
         Command::Help(args) => help::cmd_help(ui, command_helper, args).await,
@@ -222,6 +230,29 @@ pub async fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<
         Command::Version(args) => version::cmd_version(ui, command_helper, args).await,
         Command::Workspace(args) => workspace::cmd_workspace(ui, command_helper, args).await,
     }
+}
+
+async fn run_auto_gc(ui: &mut Ui, command_helper: &CommandHelper) -> Result<(), CommandError> {
+    let Some(workspace_loader) = command_helper.workspace_loader().ok() else {
+        return Ok(());
+    };
+
+    let repo_path = workspace_loader.repo_path().to_path_buf();
+    let settings = GcSettings::from_user_settings(command_helper.settings())?;
+
+    if !should_run_auto_gc(&repo_path, &settings) {
+        return Ok(());
+    }
+
+    if !command_helper.is_at_head_operation() {
+        return Ok(());
+    }
+
+    let workspace_command = command_helper.workspace_helper(ui).await?;
+
+    writeln!(ui.status(), "Auto-GC: running garbage collection...")?;
+
+    run_gc(ui, workspace_command.repo(), workspace_command.repo_path()).await
 }
 
 #[cfg(test)]
