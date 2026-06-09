@@ -1643,7 +1643,6 @@ fn test_git_colocated_operation_cleanup() -> TestResult {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Initialized repo in "repo"
-    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
 

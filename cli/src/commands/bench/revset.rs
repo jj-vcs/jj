@@ -19,9 +19,11 @@ use criterion::BatchSize;
 use criterion::BenchmarkGroup;
 use criterion::BenchmarkId;
 use criterion::measurement::Measurement;
+use futures::StreamExt as _;
 use jj_lib::revset::SymbolResolver;
 use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::revset::UserRevsetExpression;
+use pollster::FutureExt as _;
 
 use super::CriterionArgs;
 use super::new_criterion;
@@ -51,7 +53,7 @@ pub async fn cmd_bench_revset(
     command: &CommandHelper,
     args: &BenchRevsetArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper(ui)?;
+    let workspace_command = command.workspace_helper(ui).await?;
     let revsets = if let Some(file_path) = &args.file {
         std::fs::read_to_string(command.cwd().join(file_path))?
             .lines()
@@ -96,7 +98,7 @@ fn bench_revset<M: Measurement>(
             .resolve_user_expression(repo, &symbol_resolver)
             .unwrap();
         let revset = resolved.evaluate(repo).unwrap();
-        revset.iter().count()
+        revset.stream().count().block_on()
     };
     let before = Instant::now();
     let result = routine(workspace_command, expression.clone());
@@ -117,7 +119,8 @@ fn bench_revset<M: Measurement>(
                 // by preceding operation. `repo.reload_at()` isn't enough to clear
                 // store cache.
                 || {
-                    let workspace_command = command.workspace_helper_no_snapshot(ui).unwrap();
+                    let workspace_command =
+                        command.workspace_helper_no_snapshot(ui).block_on().unwrap();
                     workspace_command.repo().readonly_index();
                     workspace_command
                 },

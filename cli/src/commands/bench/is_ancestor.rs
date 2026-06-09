@@ -37,7 +37,7 @@ pub async fn cmd_bench_is_ancestor(
     command: &CommandHelper,
     args: &BenchIsAncestorArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper(ui)?;
+    let workspace_command = command.workspace_helper(ui).await?;
     let ancestor_commit = workspace_command
         .resolve_single_rev(ui, &args.ancestor)
         .await?;

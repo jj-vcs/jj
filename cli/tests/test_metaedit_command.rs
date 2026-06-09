@@ -347,7 +347,8 @@ fn test_metaedit() {
         (no description set)
 
     Modified regular file file1:
-       1    1: bc
+       1     : b
+            1: c
     [EOF]
     ");
 
@@ -679,21 +680,6 @@ fn test_metaedit_option_mutual_exclusion() {
     error: the argument '--author <AUTHOR>' cannot be used with '--update-author'
 
     Usage: jj metaedit --author <AUTHOR> [REVSETS]...
-
-    For more information, try '--help'.
-    [EOF]
-    [exit status: 2]
-    ");
-
-    insta::assert_snapshot!(work_dir.run_jj([
-        "metaedit",
-        "--update-committer-timestamp",
-        "--force-rewrite",
-    ]), @"
-    ------- stderr -------
-    error: the argument '--update-committer-timestamp' cannot be used with '--force-rewrite'
-
-    Usage: jj metaedit [OPTIONS] [REVSETS]...
 
     For more information, try '--help'.
     [EOF]

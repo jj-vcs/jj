@@ -48,7 +48,7 @@ pub async fn cmd_workspace_list(
     command: &CommandHelper,
     args: &WorkspaceListArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper(ui)?;
+    let workspace_command = command.workspace_helper(ui).await?;
 
     let template: TemplateRenderer<WorkspaceRef> = {
         let language = workspace_command.commit_template_language();
@@ -69,7 +69,7 @@ pub async fn cmd_workspace_list(
     let mut formatter = ui.stdout_formatter();
 
     for (name, wc_commit_id) in repo.view().wc_commit_ids() {
-        let commit = repo.store().get_commit(wc_commit_id)?;
+        let commit = repo.store().get_commit_async(wc_commit_id).await?;
         let ws_ref = WorkspaceRef::new(name.clone(), commit);
 
         template.format(&ws_ref, formatter.as_mut())?;

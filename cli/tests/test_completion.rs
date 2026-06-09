@@ -713,6 +713,7 @@ fn test_command_completion_short_name() {
     let output = test_env.complete_fish(["config", ""]);
     insta::assert_snapshot!(output, @"
     edit	Start an editor on a jj config file
+    gc	Find and optionally delete repo-level config directories whose repo path no longer exists
     get	Get the value of a given config option.
     list	List variables set in config files, along with their values
     path	Print the paths to the config files
@@ -919,6 +920,88 @@ fn test_aliases_are_completed(shell: Shell) {
         output.status.success() && output.stdout.is_empty(),
         "completion expected to come back empty, but got: {output}"
     );
+}
+
+#[test]
+fn test_alias_descriptions_in_completions() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // alias with a description
+    test_env.add_config(indoc! {r#"
+        [aliases]
+        'compact-log'.doc = 'Show the log in a compact format'
+        'compact-log'.definition = ["log", "--no-graph"]
+    "#});
+
+    // fish displays help text after a tab
+    let output = work_dir.complete_fish(["compact-l"]);
+    insta::assert_snapshot!(output, @"
+    compact-log	Show the log in a compact format
+    [EOF]
+    ");
+
+    // alias with multi-line string description
+    test_env.add_config(indoc! {r#"
+        [aliases]
+        'status-short'.doc = 'Show the status of the working copy in short format'
+        'status-short'.definition = ["status", "--format=summary"]
+    "#});
+
+    let output = work_dir.complete_fish(["status-shor"]);
+    insta::assert_snapshot!(output, @"
+    status-short	Show the status of the working copy in short format
+    [EOF]
+    ");
+
+    // alias without a .doc property should have no description
+    test_env.add_config(indoc! {r#"
+        [aliases]
+        plain-alias = ["status"]
+    "#});
+
+    let output = work_dir.complete_fish(["plain-alia"]);
+    insta::assert_snapshot!(output, @"
+    plain-alias
+    [EOF]
+    ");
+
+    // revset alias with doc
+    test_env.add_config(indoc! {r#"
+        [revset-aliases]
+        'mine'.doc = 'All my work'
+        'mine'.definition = "author(foo)"
+    "#});
+
+    let output = work_dir.complete_fish(["log", "-r", "min"]);
+    insta::assert_snapshot!(output, @"
+    mine	All my work
+    [EOF]
+    ");
+
+    // template alias with doc
+    test_env.add_config(indoc! {r#"
+        [template-aliases]
+        'sh'.doc = 'Short hash'
+        'sh'.definition = "commit_id.short()"
+    "#});
+
+    let output = work_dir.complete_fish(["log", "-T", "s"]);
+    insta::assert_snapshot!(output, @"
+    sh	Short hash
+    [EOF]
+    ");
+
+    // fileset alias with doc
+    test_env.add_config(indoc! {r#"
+        [fileset-aliases]
+        'LOCK'.doc = 'Lockfiles'
+        'LOCK'.definition = '**/Cargo.lock'
+    "#});
+
+    let output = work_dir.complete_fish(["log", "-r", "all()", "L"]);
+    insta::assert_snapshot!(output, @"");
 }
 
 #[test]

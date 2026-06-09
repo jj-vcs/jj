@@ -652,7 +652,7 @@ async fn find_diff_sources_from_copies(
     // return both A and B instead? I don't think there's a way to do that with
     // the current dag_walk functions. Do we care enough to implement something
     // new there that pays more attention to the depth in the DAG? Perhaps
-    // a variant of closest_common_node?
+    // a variant of closest_common_nodes?
     'parents: for parent_copy_id in &history.parents {
         let mut absent_ancestors = vec![];
 

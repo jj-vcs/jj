@@ -16,11 +16,13 @@
 //! manner.
 
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::error;
 use std::fmt;
 use std::io;
 use std::io::Write;
 use std::iter;
+use std::ops::Range;
 use std::rc::Rc;
 
 use bstr::BStr;
@@ -122,6 +124,47 @@ impl Template for Email {
 // bounded to 0.
 pub type SizeHint = (usize, Option<usize>);
 
+/// Captures from a regex match, accessible by index or name.
+#[derive(Clone, Debug)]
+pub struct RegexCaptures {
+    /// String that matches were found in.
+    haystack: Vec<u8>,
+    /// List of byte ranges in `haystack` for capture groups by index (with 0
+    /// being the full match).
+    capture_ranges: Vec<Range<usize>>,
+    /// Mapping from capture group names to their index.
+    names: HashMap<String, usize>,
+}
+
+impl RegexCaptures {
+    pub fn new(
+        haystack: Vec<u8>,
+        capture_ranges: Vec<Range<usize>>,
+        names: HashMap<String, usize>,
+    ) -> Self {
+        Self {
+            haystack,
+            capture_ranges,
+            names,
+        }
+    }
+
+    #[expect(clippy::len_without_is_empty)]
+    pub fn len(&self) -> usize {
+        self.capture_ranges.len()
+    }
+
+    pub fn get(&self, index: usize) -> Option<BString> {
+        self.capture_ranges
+            .get(index)
+            .map(|range| self.haystack[range.start..range.end].into())
+    }
+
+    pub fn name(&self, name: &str) -> Option<BString> {
+        self.names.get(name).and_then(|&i| self.get(i))
+    }
+}
+
 impl Template for String {
     fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
         write!(formatter, "{self}")
@@ -149,6 +192,12 @@ impl Template for TimestampRange {
         write!(formatter, " - ")?;
         self.end.format(formatter)?;
         Ok(())
+    }
+}
+
+impl Template for Vec<BString> {
+    fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
+        format_joined(formatter, self, " ")
     }
 }
 
@@ -586,7 +635,7 @@ where
     }
 }
 
-/// Adapter to turn template back to string property.
+/// Adapter to turn template back to byte string property.
 pub struct PlainTextFormattedProperty<T> {
     template: T,
 }
@@ -598,14 +647,14 @@ impl<T> PlainTextFormattedProperty<T> {
 }
 
 impl<T: Template> TemplateProperty for PlainTextFormattedProperty<T> {
-    type Output = String;
+    type Output = BString;
 
     fn extract(&self) -> Result<Self::Output, TemplatePropertyError> {
         let mut output = vec![];
         let mut formatter = PlainTextFormatter::new(&mut output);
         let mut wrapper = TemplateFormatter::new(&mut formatter, propagate_property_error);
         self.template.format(&mut wrapper)?;
-        Ok(String::from_utf8(output).map_err(|err| err.utf8_error())?)
+        Ok(BString::new(output))
     }
 }
 

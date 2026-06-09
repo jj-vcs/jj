@@ -39,7 +39,7 @@ pub async fn cmd_workspace_rename(
         return Err(user_error("New workspace name cannot be empty"));
     }
 
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
 
     let old_name = workspace_command.working_copy().workspace_name().to_owned();
     let new_name = &*args.new_workspace_name;
@@ -63,7 +63,7 @@ pub async fn cmd_workspace_rename(
     let workspace_store = SimpleWorkspaceStore::load(workspace_command.repo_path())?;
 
     let mut tx = workspace_command.start_transaction().into_inner();
-    let (mut locked_ws, _wc_commit) = workspace_command.start_working_copy_mutation()?;
+    let (mut locked_ws, _wc_commit) = workspace_command.start_working_copy_mutation().await?;
 
     locked_ws.locked_wc().rename_workspace(new_name.to_owned());
 

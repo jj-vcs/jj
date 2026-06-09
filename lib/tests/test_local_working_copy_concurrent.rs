@@ -148,7 +148,7 @@ fn test_checkout_parallel() -> TestResult {
                 // different tree than the one we just checked out, but since
                 // write_tree() should take the same lock as check_out(), write_tree()
                 // should never produce a different tree.
-                let mut locked_ws = workspace.start_working_copy_mutation().unwrap();
+                let mut locked_ws = workspace.start_working_copy_mutation().block_on().unwrap();
                 let (new_tree, _stats) = locked_ws
                     .locked_wc()
                     .snapshot(&empty_snapshot_options())

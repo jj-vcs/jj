@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod backend;
 mod completion;
 mod config_schema;
 mod exec;
@@ -23,6 +24,8 @@ mod snapshot;
 use clap::Subcommand;
 use tracing::instrument;
 
+use self::backend::UtilBackendCommand;
+use self::backend::cmd_util_backend;
 use self::completion::UtilCompletionArgs;
 use self::completion::cmd_util_completion;
 use self::config_schema::UtilConfigSchemaArgs;
@@ -44,6 +47,8 @@ use crate::ui::Ui;
 /// Infrequently used commands such as for generating shell completions
 #[derive(Subcommand, Clone, Debug)]
 pub(crate) enum UtilCommand {
+    #[command(subcommand)]
+    Backend(UtilBackendCommand),
     Completion(UtilCompletionArgs),
     ConfigSchema(UtilConfigSchemaArgs),
     Exec(UtilExecArgs),
@@ -60,6 +65,7 @@ pub(crate) async fn cmd_util(
     subcommand: &UtilCommand,
 ) -> Result<(), CommandError> {
     match subcommand {
+        UtilCommand::Backend(args) => cmd_util_backend(ui, command, args).await,
         UtilCommand::Completion(args) => cmd_util_completion(ui, command, args).await,
         UtilCommand::ConfigSchema(args) => cmd_util_config_schema(ui, command, args).await,
         UtilCommand::Exec(args) => cmd_util_exec(ui, command, args).await,

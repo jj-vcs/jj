@@ -19,6 +19,10 @@ use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::hash::Hash;
 
+use futures::Stream;
+use futures::TryStreamExt as _;
+use futures::stream;
+
 /// Node and edges pair of type `N` and `ID` respectively.
 ///
 /// `ID` uniquely identifies a node within the graph. It's usually cheap to
@@ -105,7 +109,7 @@ pub fn reverse_graph<N, ID: Clone + Eq + Hash, E>(
         entries.push(node);
     }
 
-    let mut items = vec![];
+    let mut items: Vec<(N, Vec<GraphEdge<ID>>)> = vec![];
     for node in entries.into_iter().rev() {
         let edges = reverse_edges.remove(as_id(&node)).unwrap_or_default();
         items.push((node, edges));
@@ -113,7 +117,7 @@ pub fn reverse_graph<N, ID: Clone + Eq + Hash, E>(
     Ok(items)
 }
 
-/// Graph iterator adapter to group topological branches.
+/// Graph iterator adapter builder to group topological branches.
 ///
 /// Basic idea is DFS from the heads. At fork point, the other descendant
 /// branches will be visited. At merge point, the second (or the last) ancestor
@@ -126,8 +130,8 @@ pub fn reverse_graph<N, ID: Clone + Eq + Hash, E>(
 ///
 /// [Git]: https://github.blog/2022-08-30-gits-database-internals-ii-commit-history-queries/#topological-sorting
 #[derive(Clone, Debug)]
-pub struct TopoGroupedGraphIterator<N, ID, I, F> {
-    input_iter: I,
+pub struct TopoGroupedGraph<N, ID, S, F> {
+    input_stream: S,
     as_id: F,
     /// Graph nodes read from the input iterator but not yet emitted.
     nodes: HashMap<ID, TopoGroupedGraphNode<N, ID>>,
@@ -158,17 +162,17 @@ impl<N, ID> Default for TopoGroupedGraphNode<N, ID> {
     }
 }
 
-impl<N, ID, E, I, F> TopoGroupedGraphIterator<N, ID, I, F>
+impl<N, ID, E, S, F> TopoGroupedGraph<N, ID, S, F>
 where
-    ID: Clone + Hash + Eq,
-    I: Iterator<Item = Result<GraphNode<N, ID>, E>>,
-    F: Fn(&N) -> &ID,
+    ID: Clone + Hash + Eq + Unpin,
+    S: Stream<Item = Result<GraphNode<N, ID>, E>> + Unpin,
+    F: Fn(&N) -> &ID + Unpin,
 {
     /// Wraps the given iterator to group topological branches. The input
     /// iterator must be topologically ordered.
-    pub fn new(input_iter: I, as_id: F) -> Self {
+    pub fn new(input_stream: S, as_id: F) -> Self {
         Self {
-            input_iter,
+            input_stream,
             as_id,
             nodes: HashMap::new(),
             emittable_ids: Vec::new(),
@@ -193,15 +197,9 @@ where
         self.new_head_ids.push_back(id);
     }
 
-    fn populate_one(&mut self) -> Result<Option<()>, E> {
-        let item = match self.input_iter.next() {
-            Some(Ok(item)) => item,
-            Some(Err(err)) => {
-                return Err(err);
-            }
-            None => {
-                return Ok(None);
-            }
+    async fn populate_one(&mut self) -> Result<Option<()>, E> {
+        let Some(item) = self.input_stream.try_next().await? else {
+            return Ok(None);
         };
         let (data, edges) = &item;
         let current_id = (self.as_id)(data);
@@ -284,7 +282,7 @@ where
         self.emittable_ids.push(new_head_id);
     }
 
-    fn next_node(&mut self) -> Result<Option<GraphNode<N, ID>>, E> {
+    async fn next_node(&mut self) -> Result<Option<GraphNode<N, ID>>, E> {
         // Based on Kahn's algorithm
         loop {
             if let Some(current_id) = self.emittable_ids.last() {
@@ -301,7 +299,8 @@ where
                 }
                 let Some(item) = current_node.item.take() else {
                     // Not yet populated
-                    self.populate_one()?
+                    self.populate_one()
+                        .await?
                         .expect("parent or prioritized node should exist");
                     continue;
                 };
@@ -325,38 +324,36 @@ where
                 self.flush_new_head();
             } else {
                 // Populate the first or orphan head
-                if self.populate_one()?.is_none() {
+                if self.populate_one().await?.is_none() {
                     return Ok(None);
                 }
             }
         }
     }
-}
 
-impl<N, ID, E, I, F> Iterator for TopoGroupedGraphIterator<N, ID, I, F>
-where
-    ID: Clone + Hash + Eq,
-    I: Iterator<Item = Result<GraphNode<N, ID>, E>>,
-    F: Fn(&N) -> &ID,
-{
-    type Item = Result<GraphNode<N, ID>, E>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.next_node() {
-            Ok(Some(node)) => Some(Ok(node)),
+    /// Make a stream based on the input stream and the optional prioritized
+    /// branches.
+    pub fn stream(self) -> impl Stream<Item = Result<GraphNode<N, ID>, E>> {
+        stream::unfold(self, async |mut state| match state.next_node().await {
+            Ok(Some(node)) => Some((Ok(node), state)),
             Ok(None) => {
-                assert!(self.nodes.is_empty(), "all nodes should have been emitted");
+                assert!(state.nodes.is_empty(), "all nodes should have been emitted");
                 None
             }
-            Err(err) => Some(Err(err)),
-        }
+            Err(err) => Some((Err(err), state)),
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::cell::RefCell;
     use std::convert::Infallible;
+    use std::iter::Peekable;
+    use std::rc::Rc;
 
+    use futures::StreamExt as _;
+    use futures::executor::block_on_stream;
     use itertools::Itertools as _;
     use renderdag::Ancestor;
     use renderdag::GraphRowRenderer;
@@ -383,6 +380,44 @@ mod tests {
             GraphEdgeType::Missing => format!("missing({c})"),
             GraphEdgeType::Direct => format!("direct({c})"),
             GraphEdgeType::Indirect => format!("indirect({c})"),
+        }
+    }
+
+    /// Wraps the iterator and returns the wrapped iterator and a spy for
+    /// peeking the next item the iterator will return.
+    fn spy_on<I: Iterator>(iter: I) -> (IteratorSpy<I>, SpiedIterator<I>) {
+        let iter = Rc::new(RefCell::new(iter.peekable()));
+        let spy = IteratorSpy { iter: iter.clone() };
+        let iter = SpiedIterator { iter };
+        (spy, iter)
+    }
+
+    struct IteratorSpy<I: Iterator> {
+        iter: Rc<RefCell<Peekable<I>>>,
+    }
+
+    struct SpiedIterator<I: Iterator> {
+        iter: Rc<RefCell<Peekable<I>>>,
+    }
+
+    impl<N, I> IteratorSpy<I>
+    where
+        I: Iterator<Item = N>,
+        N: Clone,
+    {
+        fn peek(&self) -> Option<N> {
+            self.iter.borrow_mut().peek().cloned()
+        }
+    }
+
+    impl<N, I> Iterator for SpiedIterator<I>
+    where
+        I: Iterator<Item = N>,
+    {
+        type Item = N;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            self.iter.borrow_mut().next()
         }
     }
 
@@ -437,13 +472,31 @@ mod tests {
         ");
     }
 
-    type TopoGrouped<N, I> = TopoGroupedGraphIterator<N, N, I, fn(&N) -> &N>;
-
-    fn topo_grouped<I, E>(graph_iter: I) -> TopoGrouped<char, I::IntoIter>
+    fn topo_grouped<'a, I, E: 'a>(
+        graph_iter: I,
+    ) -> impl Iterator<Item = Result<GraphNode<char>, E>> + 'a
     where
-        I: IntoIterator<Item = Result<GraphNode<char>, E>>,
+        I: IntoIterator<Item = Result<GraphNode<char>, E>> + 'a,
     {
-        TopoGroupedGraphIterator::new(graph_iter.into_iter(), |c| c)
+        block_on_stream(
+            TopoGroupedGraph::new(stream::iter(graph_iter), |c| c)
+                .stream()
+                .boxed_local(),
+        )
+    }
+
+    fn topo_grouped_with_prioritization<'a, I, E: 'a>(
+        graph_iter: I,
+        prioritized_ids: &'a [char],
+    ) -> impl Iterator<Item = Result<GraphNode<char>, E>> + 'a
+    where
+        I: IntoIterator<Item = Result<GraphNode<char>, E>> + 'a,
+    {
+        let mut topo_order = TopoGroupedGraph::new(stream::iter(graph_iter), |c| c);
+        for id in prioritized_ids {
+            topo_order.prioritize_branch(*id);
+        }
+        block_on_stream(topo_order.stream().boxed_local())
     }
 
     #[test]
@@ -478,11 +531,12 @@ mod tests {
         ");
 
         // All nodes can be lazily emitted.
-        let mut iter = topo_grouped(graph.iter().cloned().peekable());
+        let (spy, iter) = spy_on(graph.iter().cloned());
+        let mut iter = topo_grouped(iter);
         assert_eq!(iter.next().unwrap()?.0, 'C');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'B');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'B');
         assert_eq!(iter.next().unwrap()?.0, 'B');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'A');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'A');
         Ok(())
     }
 
@@ -522,13 +576,14 @@ mod tests {
         ");
 
         // E can be lazy, then D and C will be queued.
-        let mut iter = topo_grouped(graph.iter().cloned().peekable());
+        let (spy, iter) = spy_on(graph.iter().cloned());
+        let mut iter = topo_grouped(iter);
         assert_eq!(iter.next().unwrap()?.0, 'E');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'D');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'D');
         assert_eq!(iter.next().unwrap()?.0, 'C');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'B');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'B');
         assert_eq!(iter.next().unwrap()?.0, 'B');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'A');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'A');
         Ok(())
     }
 
@@ -571,13 +626,14 @@ mod tests {
         ");
 
         // F can be lazy, then E will be queued, then C.
-        let mut iter = topo_grouped(graph.iter().cloned().peekable());
+        let (spy, iter) = spy_on(graph.iter().cloned());
+        let mut iter = topo_grouped(iter);
         assert_eq!(iter.next().unwrap()?.0, 'F');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'E');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'E');
         assert_eq!(iter.next().unwrap()?.0, 'D');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'C');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'C');
         assert_eq!(iter.next().unwrap()?.0, 'E');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'B');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'B');
         Ok(())
     }
 
@@ -635,11 +691,12 @@ mod tests {
         ");
 
         // I can be lazy, then H, G, and F will be queued.
-        let mut iter = topo_grouped(graph.iter().cloned().peekable());
+        let (spy, iter) = spy_on(graph.iter().cloned());
+        let mut iter = topo_grouped(iter);
         assert_eq!(iter.next().unwrap()?.0, 'I');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'H');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'H');
         assert_eq!(iter.next().unwrap()?.0, 'F');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'E');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'E');
         Ok(())
     }
 
@@ -1059,15 +1116,16 @@ mod tests {
         ");
 
         // F, E, and D can be lazy, then C will be queued, then B.
-        let mut iter = topo_grouped(graph.iter().cloned().peekable());
+        let (spy, iter) = spy_on(graph.iter().cloned());
+        let mut iter = topo_grouped(iter);
         assert_eq!(iter.next().unwrap()?.0, 'F');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'E');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'E');
         assert_eq!(iter.next().unwrap()?.0, 'E');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'D');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'D');
         assert_eq!(iter.next().unwrap()?.0, 'D');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'C');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'C');
         assert_eq!(iter.next().unwrap()?.0, 'B');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'A');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'A');
         Ok(())
     }
 
@@ -1117,15 +1175,16 @@ mod tests {
         ");
 
         // All nodes can be lazily emitted.
-        let mut iter = topo_grouped(graph.iter().cloned().peekable());
+        let (spy, iter) = spy_on(graph.iter().cloned());
+        let mut iter = topo_grouped(iter);
         assert_eq!(iter.next().unwrap()?.0, 'E');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'D');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'D');
         assert_eq!(iter.next().unwrap()?.0, 'D');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'C');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'C');
         assert_eq!(iter.next().unwrap()?.0, 'C');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'B');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'B');
         assert_eq!(iter.next().unwrap()?.0, 'B');
-        assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'A');
+        assert_eq!(spy.peek().unwrap().as_ref().unwrap().0, 'A');
         Ok(())
     }
 
@@ -1567,8 +1626,7 @@ mod tests {
         ");
 
         // Emit the branch C first
-        let mut iter = topo_grouped(graph.iter().cloned());
-        iter.prioritize_branch('C');
+        let iter = topo_grouped_with_prioritization(graph.iter().cloned(), &['C']);
         insta::assert_snapshot!(format_graph(iter), @"
         C  direct(B)
         │
@@ -1582,8 +1640,7 @@ mod tests {
         ");
 
         // Emit the branch D first
-        let mut iter = topo_grouped(graph.iter().cloned());
-        iter.prioritize_branch('D');
+        let iter = topo_grouped_with_prioritization(graph.iter().cloned(), &['D']);
         insta::assert_snapshot!(format_graph(iter), @"
         D  direct(A)
         │
@@ -1598,9 +1655,7 @@ mod tests {
 
         // Emit the branch C first, then D. E is emitted earlier than D because
         // E belongs to the branch C compared to the branch D.
-        let mut iter = topo_grouped(graph.iter().cloned());
-        iter.prioritize_branch('C');
-        iter.prioritize_branch('D');
+        let iter = topo_grouped_with_prioritization(graph.iter().cloned(), &['C', 'D']);
         insta::assert_snapshot!(format_graph(iter), @"
         C  direct(B)
         │
@@ -1614,8 +1669,7 @@ mod tests {
         ");
 
         // Non-head node can be prioritized
-        let mut iter = topo_grouped(graph.iter().cloned());
-        iter.prioritize_branch('B');
+        let iter = topo_grouped_with_prioritization(graph.iter().cloned(), &['B']);
         insta::assert_snapshot!(format_graph(iter), @"
         E  direct(B)
         │
@@ -1629,8 +1683,7 @@ mod tests {
         ");
 
         // Root node can be prioritized
-        let mut iter = topo_grouped(graph.iter().cloned());
-        iter.prioritize_branch('A');
+        let iter = topo_grouped_with_prioritization(graph.iter().cloned(), &['A']);
         insta::assert_snapshot!(format_graph(iter), @"
         D  direct(A)
         │
@@ -1681,9 +1734,7 @@ mod tests {
         ");
 
         // Emit B, G, then remainders
-        let mut iter = topo_grouped(graph.iter().cloned());
-        iter.prioritize_branch('B');
-        iter.prioritize_branch('G');
+        let iter = topo_grouped_with_prioritization(graph.iter().cloned(), &['B', 'G']);
         insta::assert_snapshot!(format_graph(iter), @"
         B  direct(A)
         │
@@ -1708,11 +1759,7 @@ mod tests {
         // respected because G can be found earlier through C->A->G. At this
         // point, B is not populated yet, so A is blocked only by {G}. This is
         // a limitation of the current node reordering logic.
-        let mut iter = topo_grouped(graph.iter().cloned());
-        iter.prioritize_branch('D');
-        iter.prioritize_branch('H');
-        iter.prioritize_branch('B');
-        iter.prioritize_branch('G');
+        let iter = topo_grouped_with_prioritization(graph.iter().cloned(), &['D', 'H', 'B', 'G']);
         insta::assert_snapshot!(format_graph(iter), @"
         D  direct(C)
         │
@@ -1779,8 +1826,7 @@ mod tests {
         ");
 
         // Emit the sub graph G first
-        let mut iter = topo_grouped(graph.iter().cloned());
-        iter.prioritize_branch('G');
+        let iter = topo_grouped_with_prioritization(graph.iter().cloned(), &['G']);
         insta::assert_snapshot!(format_graph(iter), @"
         G  direct(E)
         │
@@ -1806,10 +1852,7 @@ mod tests {
         ");
 
         // Emit sub graphs in reverse order by selecting roots
-        let mut iter = topo_grouped(graph.iter().cloned());
-        iter.prioritize_branch('E');
-        iter.prioritize_branch('C');
-        iter.prioritize_branch('A');
+        let iter = topo_grouped_with_prioritization(graph.iter().cloned(), &['E', 'C', 'A']);
         insta::assert_snapshot!(format_graph(iter), @"
         G  direct(E)
         │
@@ -1864,12 +1907,9 @@ mod tests {
         // one of them in the queue has to be ignored.
         let mut iter = topo_grouped(graph.iter().cloned());
         assert_eq!(iter.next().unwrap()?.0, 'C');
-        assert_eq!(iter.emittable_ids, vec!['A', 'B']);
         assert_eq!(iter.next().unwrap()?.0, 'B');
-        assert_eq!(iter.emittable_ids, vec!['A', 'A']);
         assert_eq!(iter.next().unwrap()?.0, 'A');
         assert!(iter.next().is_none());
-        assert!(iter.emittable_ids.is_empty());
         Ok(())
     }
 
@@ -1891,10 +1931,8 @@ mod tests {
 
         let mut iter = topo_grouped(graph.iter().cloned());
         assert_eq!(iter.next().unwrap()?.0, 'B');
-        assert_eq!(iter.emittable_ids, vec!['A', 'A']);
         assert_eq!(iter.next().unwrap()?.0, 'A');
         assert!(iter.next().is_none());
-        assert!(iter.emittable_ids.is_empty());
         Ok(())
     }
 }

@@ -14,6 +14,7 @@
 
 use std::fs;
 
+use futures::future::try_join_all;
 use itertools::Itertools as _;
 use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::file_util;
@@ -91,7 +92,7 @@ pub async fn cmd_workspace_add(
     command: &CommandHelper,
     args: &WorkspaceAddArgs,
 ) -> Result<(), CommandError> {
-    let old_workspace_command = command.workspace_helper(ui)?;
+    let old_workspace_command = command.workspace_helper(ui).await?;
     let destination_path = command.cwd().join(&args.destination);
     let workspace_name = if let Some(name) = &args.name {
         name.to_owned()
@@ -164,7 +165,8 @@ pub async fn cmd_workspace_add(
     };
 
     if let Some(sparse_patterns) = sparsity {
-        let (mut locked_ws, _wc_commit) = new_workspace_command.start_working_copy_mutation()?;
+        let (mut locked_ws, _wc_commit) =
+            new_workspace_command.start_working_copy_mutation().await?;
         locked_ws
             .locked_wc()
             .set_sparse_patterns(sparse_patterns)
@@ -188,19 +190,22 @@ pub async fn cmd_workspace_add(
         {
             tx.repo()
                 .store()
-                .get_commit(old_wc_commit_id)?
+                .get_commit_async(old_wc_commit_id)
+                .await?
                 .parents()
                 .await?
         } else {
             vec![tx.repo().store().root_commit()]
         }
     } else {
-        old_workspace_command
-            .resolve_some_revsets(ui, &args.revisions)
-            .await?
-            .iter()
-            .map(|id| tx.repo().store().get_commit(id))
-            .try_collect()?
+        try_join_all(
+            old_workspace_command
+                .resolve_some_revsets(ui, &args.revisions)
+                .await?
+                .iter()
+                .map(|id| tx.repo().store().get_commit_async(id)),
+        )
+        .await?
     };
 
     let tree = merge_commit_trees(tx.repo(), &parents).await?;

@@ -334,9 +334,7 @@ fn test_bookmark_move() {
 
     // Delete bookmark locally, but is still tracking remote
     work_dir.run_jj(["describe", "@-", "-mcommit"]).success();
-    work_dir
-        .run_jj(["git", "push", "--allow-new", "-r@-"])
-        .success();
+    work_dir.run_jj(["git", "push", "--bookmark=foo"]).success();
     work_dir.run_jj(["bookmark", "delete", "foo"]).success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     foo (deleted)
@@ -646,7 +644,7 @@ fn test_bookmark_rename() {
         .run_jj(["bookmark", "create", "bremote", "buntracked"])
         .success();
     work_dir
-        .run_jj(["git", "push", "--allow-new", "-b=bremote", "-b=buntracked"])
+        .run_jj(["git", "push", "-b=bremote", "-b=buntracked"])
         .success();
 
     let output = work_dir.run_jj(["bookmark", "rename", "bremote", "bremote2"]);
@@ -1070,9 +1068,7 @@ fn test_bookmark_rename_colocated() {
     work_dir.run_jj(["new"]).success();
     work_dir.run_jj(["describe", "-m=commit-1"]).success();
     work_dir.run_jj(["bookmark", "create", "bpushed"]).success();
-    work_dir
-        .run_jj(["git", "push", "--allow-new", "-b=bpushed"])
-        .success();
+    work_dir.run_jj(["git", "push", "-b=bpushed"]).success();
     // blocal1 is local-only (no tracked @origin). Overwriting bpushed should
     // warn about bpushed@origin tracking being dropped, while @git stays quiet.
     let output = work_dir.run_jj([
@@ -1086,9 +1082,6 @@ fn test_bookmark_rename_colocated() {
     ------- stderr -------
     Warning: Tracking of remote bookmark bpushed@origin was dropped.
     Hint: Use `jj bookmark track` to re-track if needed.
-    Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
-    Working copy  (@) now at: znkkpsqq cf8db4ba (empty) (no description set)
-    Parent commit (@-)      : royxmykx b6e46c10 bpushed@origin | (empty) commit-1
     [EOF]
     ");
     let output = work_dir.run_jj(["bookmark", "list", "--all", "bpushed"]);
@@ -1558,11 +1551,11 @@ fn test_bookmark_forget_deleted_or_nonexistent_bookmark() {
 
     // ============ End of test setup ============
 
-    // We can forget a deleted bookmark
+    // We can forget a deleted bookmark. The local bookmark was already absent,
+    // so only the remote count is reported.
     let output = work_dir.run_jj(["bookmark", "forget", "--include-remotes", "feature1"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Forgot 1 local bookmarks.
     Forgot 1 remote bookmarks.
     [EOF]
     ");
@@ -1574,6 +1567,57 @@ fn test_bookmark_forget_deleted_or_nonexistent_bookmark() {
     ------- stderr -------
     Warning: No matching bookmarks for names: i_do_not_exist
     No bookmarks to forget.
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_bookmark_forget_untracked_remote_only_bookmark() {
+    // Regression test for https://github.com/jj-vcs/jj/issues/9181:
+    // `jj bookmark forget` on a remote-only, untracked bookmark used to print
+    // a contradictory "Forgot 1 local bookmarks." line followed by "Nothing
+    // changed." Now neither line is printed since nothing was forgotten.
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo_path = test_env.env_root().join("git-repo");
+    let git_repo = git::init_bare(git_repo_path);
+    git::add_commit(
+        &git_repo,
+        "refs/heads/feature1",
+        "file",
+        b"content",
+        "message",
+        &[],
+    );
+    work_dir
+        .run_jj(["git", "remote", "add", "origin", "../git-repo"])
+        .success();
+
+    // Fetch without auto-tracking, so feature1@origin is untracked and there
+    // is no local feature1 bookmark.
+    let output = work_dir.run_jj(["git", "fetch", "--remote=origin"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    bookmark: feature1@origin [new] untracked
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    feature1@origin: qomsplrm ebeb70d8 message
+    [EOF]
+    ");
+
+    // Without `--include-remotes`, forgetting an untracked remote-only
+    // bookmark is a no-op. We should not claim any local bookmarks were
+    // forgotten.
+    let output = work_dir.run_jj(["bookmark", "forget", "feature1"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    feature1@origin: qomsplrm ebeb70d8 message
     [EOF]
     ");
 }
@@ -1813,23 +1857,22 @@ fn test_bookmark_track_conflict() {
 
     // create bookmark and push to origin
     work_dir.run_jj(["bookmark", "create", "main"]).success();
+    work_dir.run_jj(["bookmark", "track", "main"]).success();
     work_dir.run_jj(["describe", "-m", "a"]).success();
-    work_dir
-        .run_jj(["git", "push", "--allow-new", "-b", "main"])
-        .success();
+    work_dir.run_jj(["git", "push", "-b", "main"]).success();
 
     // adjust main and push to origin2, again for origin3
     work_dir
         .run_jj(["describe", "-m", "b", "-r", "main", "--ignore-immutable"])
         .success();
     work_dir
-        .run_jj(["git", "push", "-N", "-b", "main", "--remote", "origin2"])
+        .run_jj(["git", "push", "-b", "main", "--remote=origin2"])
         .success();
     work_dir
         .run_jj(["describe", "-m", "c", "-r", "main", "--ignore-immutable"])
         .success();
     work_dir
-        .run_jj(["git", "push", "-N", "-b", "main", "--remote", "origin3"])
+        .run_jj(["git", "push", "-b", "main", "--remote=origin3"])
         .success();
 
     // stop and retrack origin; creates conflict
@@ -1842,20 +1885,20 @@ fn test_bookmark_track_conflict() {
     ------- stderr -------
     Started tracking 1 remote bookmarks.
     main (conflicted):
-      + qpvuntsm/0 467e027c (divergent) (empty) c
-      + qpvuntsm/2 48ded843 (divergent) (empty) a
-      @origin (behind by 1 commits): qpvuntsm/2 48ded843 (divergent) (empty) a
+      + qpvuntsm/0 cfb13288 (divergent) (empty) c
+      + qpvuntsm/2 6b9445d7 (divergent) (empty) a
+      @origin (behind by 1 commits): qpvuntsm/2 6b9445d7 (divergent) (empty) a
     [EOF]
     ");
 
     // origin2 differs but is not in conflict
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main (conflicted):
-      + qpvuntsm/0 467e027c (divergent) (empty) c
-      + qpvuntsm/2 48ded843 (divergent) (empty) a
-      @origin (behind by 1 commits): qpvuntsm/2 48ded843 (divergent) (empty) a
-      @origin2 (ahead by 1 commits, behind by 2 commits): qpvuntsm/1 579e0acd (hidden) (empty) b
-      @origin3 (behind by 1 commits): qpvuntsm/0 467e027c (divergent) (empty) c
+      + qpvuntsm/0 cfb13288 (divergent) (empty) c
+      + qpvuntsm/2 6b9445d7 (divergent) (empty) a
+      @origin (behind by 1 commits): qpvuntsm/2 6b9445d7 (divergent) (empty) a
+      @origin2 (ahead by 1 commits, behind by 2 commits): qpvuntsm/1 bdc03fa9 (hidden) (empty) b
+      @origin3 (behind by 1 commits): qpvuntsm/0 cfb13288 (divergent) (empty) c
     [EOF]
     ");
 
@@ -1868,10 +1911,10 @@ fn test_bookmark_track_conflict() {
     ------- stderr -------
     Started tracking 1 remote bookmarks.
     main (conflicted):
-      + qpvuntsm/0 467e027c (divergent) (empty) c
-      + qpvuntsm/2 48ded843 (divergent) (empty) a
-      + qpvuntsm/1 579e0acd (divergent) (empty) b
-      @origin2 (behind by 2 commits): qpvuntsm/1 579e0acd (divergent) (empty) b
+      + qpvuntsm/0 cfb13288 (divergent) (empty) c
+      + qpvuntsm/2 6b9445d7 (divergent) (empty) a
+      + qpvuntsm/1 bdc03fa9 (divergent) (empty) b
+      @origin2 (behind by 2 commits): qpvuntsm/1 bdc03fa9 (divergent) (empty) b
     [EOF]
     ");
 }
@@ -2822,14 +2865,14 @@ fn test_bookmark_list_tracked() -> TestResult {
         .run_jj(["bookmark", "untrack", "remote-untrack", "--remote=origin"])
         .success();
     local_dir
+        .run_jj(["bookmark", "track", "remote-unsync", "--remote=upstream"])
+        .success();
+    local_dir
         .run_jj([
             "git",
             "push",
-            "--allow-new",
-            "--remote",
-            "upstream",
-            "--bookmark",
-            "remote-unsync",
+            "--remote=upstream",
+            "--bookmark=remote-unsync",
         ])
         .success();
     local_dir

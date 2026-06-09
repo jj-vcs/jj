@@ -940,6 +940,106 @@ fn test_workspaces_updated_by_other_automatic() {
     ");
 }
 
+/// Test a dirty working copy that gets rewritten from another workspace
+#[test]
+fn test_workspaces_updated_by_other_with_changes_in_working_copy_automatic() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("snapshot.auto-update-stale = true\n");
+
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+    let secondary_dir = test_env.work_dir("secondary");
+
+    main_dir.write_file("file", "contents\n");
+    main_dir.run_jj(["new"]).success();
+
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+
+    insta::assert_snapshot!(get_log_output(&main_dir), @"
+    @  393250c59e39 default@
+    │ ○  547036666102 secondary@
+    ├─╯
+    ○  9a462e35578a
+    ◆  000000000000
+    [EOF]
+    ");
+
+    // Rewrite all commits from one workspace.
+    main_dir.write_file("file", "changed in main\n");
+    let output = main_dir.run_jj(["squash"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Rebased 1 descendant commits
+    Working copy  (@) now at: mzvwutvl 3a9b690d (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm b853f7c8 (no description set)
+    [EOF]
+    ");
+
+    // The secondary workspace's working-copy commit was updated.
+    insta::assert_snapshot!(get_log_output(&main_dir), @"
+    @  3a9b690d6e67 default@
+    │ ○  90f3d42e0bff secondary@
+    ├─╯
+    ○  b853f7c8b006
+    ◆  000000000000
+    [EOF]
+    ");
+
+    // The first working copy gets automatically updated.
+    secondary_dir.write_file("file", "modified contents\n");
+    let output = secondary_dir.run_jj(["describe", "-m", "modified"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Concurrent modification detected, resolving automatically.
+    Rebased 1 descendant commits onto commits rewritten by other operation
+    Working copy  (@) now at: pmmvwywv/2 90f3d42e (divergent) (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm b853f7c8 (no description set)
+    Added 0 files, modified 1 files, removed 0 files
+    Updated working copy to fresh commit 90f3d42e0bff
+    Working copy  (@) now at: pmmvwywv/0 c38323e3 (divergent) (empty) modified
+    Parent commit (@-)      : qpvuntsm b853f7c8 (no description set)
+    [EOF]
+    ");
+
+    // The snapshotting of the modified contents happens on top of the old
+    // operation. The `describe` operation itself happens on top the reconciled
+    // operation.
+    let output = main_dir.run_jj(["op", "log", "-Tdescription"]);
+    insta::assert_snapshot!(output, @"
+    @  describe commit 90f3d42e0bff073721e2640e32c18fb1c386d7ce
+    ○    reconcile divergent operations
+    ├─╮
+    ○ │  squash commits into 9a462e35578a347e6a3951bf7a58ad7146959a8b
+    ○ │  snapshot working copy
+    │ ○  snapshot working copy
+    ├─╯
+    ○  create initial working-copy commit in workspace secondary
+    ○  add workspace 'secondary'
+    ○  new empty commit
+    ○  snapshot working copy
+    ○  add workspace 'default'
+    ○
+    [EOF]
+    ");
+
+    // We get divergence between the newly described commit and the commit created
+    // by snapshotting (the reconciliation happened to point secondary@ to the child
+    // of the squashed commit rather than the snapshot commit).
+    insta::assert_snapshot!(get_log_output(&secondary_dir),
+    @r#"
+    @  c38323e3e6f3 secondary@ (divergent) "modified"
+    │ ×  48a90f069c8c (divergent)
+    ├─╯
+    │ ○  3a9b690d6e67 default@
+    ├─╯
+    ○  b853f7c8b006
+    ◆  000000000000
+    [EOF]
+    "#);
+}
+
 #[test_case(false; "manual")]
 #[test_case(true; "automatic")]
 fn test_workspaces_current_op_discarded_by_other(automatic: bool) {

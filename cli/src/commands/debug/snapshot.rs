@@ -37,6 +37,6 @@ pub async fn cmd_debug_snapshot(
         "`jj debug snapshot` is deprecated; use `jj util snapshot` instead"
     )?;
     // workspace helper will snapshot as needed
-    command.workspace_helper(ui)?;
+    command.workspace_helper(ui).await?;
     Ok(())
 }

@@ -74,7 +74,7 @@ pub async fn cmd_bookmark_track(
     command: &CommandHelper,
     args: &BookmarkTrackArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     let repo = workspace_command.repo().clone();
     let view = repo.view();
     let matched_refs = if args.remotes.is_none() && args.names.iter().all(|s| s.contains('@')) {

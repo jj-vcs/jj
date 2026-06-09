@@ -14,6 +14,7 @@
 
 //! General-purpose async DAG algorithms.
 
+use std::collections::BTreeSet;
 use std::collections::BinaryHeap;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -22,9 +23,9 @@ use std::iter;
 use std::mem;
 
 use futures::Stream;
-use futures::future::try_join;
 use futures::future::try_join_all;
 use futures::stream;
+use indexmap::IndexMap;
 use itertools::Itertools as _;
 use smallvec::SmallVec;
 use smallvec::smallvec_inline;
@@ -512,56 +513,91 @@ where
     Ok(heads)
 }
 
-/// Finds the closest common `Ok` neighbor among the `set1` and `set2`.
+/// Finds the closest common `Ok` neighbors among the `set1` and `set2`. Uses
+/// `T`'s `Ord` implementation as a heuristic for determining which neighbor to
+/// visit next. The neighbor that compares greater will be visited first.
 ///
 /// If the traverse reached to an `Err`, this function terminates and returns
 /// the error.
-pub async fn closest_common_node<T, ID, E, II1, II2, NI>(
+pub async fn closest_common_nodes<T, ID, E, II1, II2, NI>(
     set1: II1,
     set2: II2,
     id_fn: impl Fn(&T) -> ID,
     neighbors_fn: impl AsyncFn(&T) -> Result<NI, E>,
-) -> Result<Option<T>, E>
+) -> Result<Vec<T>, E>
 where
+    T: Ord,
     ID: Hash + Eq,
     II1: IntoIterator<Item = T>,
     II2: IntoIterator<Item = T>,
     NI: IntoIterator<Item = T>,
 {
-    let mut visited1 = HashSet::new();
-    let mut visited2 = HashSet::new();
+    type Reachability = u8;
+    const LEFT: Reachability = 1;
+    const RIGHT: Reachability = 2;
+    const BOTH: Reachability = LEFT | RIGHT;
+    const NON_CLOSEST: Reachability = 4;
 
-    let mut work1: Vec<T> = set1.into_iter().collect();
-    let mut work2: Vec<T> = set2.into_iter().collect();
-    while !work1.is_empty() || !work2.is_empty() {
-        let mut live1 = vec![];
-        for node in work1 {
-            let id: ID = id_fn(&node);
-            if visited2.contains(&id) {
-                return Ok(Some(node));
-            }
-            if visited1.insert(id) {
-                live1.push(node);
-            }
-        }
-        let mut live2 = vec![];
-        for node in work2 {
-            let id: ID = id_fn(&node);
-            if visited1.contains(&id) {
-                return Ok(Some(node));
-            }
-            if visited2.insert(id) {
-                live2.push(node);
-            }
-        }
+    let mut reachable: HashMap<ID, Reachability> = HashMap::new();
+    let mut work: BTreeSet<T> = BTreeSet::new();
 
-        let new_work1_fut = try_join_all(live1.iter().map(|node| neighbors_fn(node)));
-        let new_work2_fut = try_join_all(live2.iter().map(|node| neighbors_fn(node)));
-        let (new_work1, new_work2) = try_join(new_work1_fut, new_work2_fut).await?;
-        work1 = new_work1.into_iter().flatten().collect();
-        work2 = new_work2.into_iter().flatten().collect();
+    let mark_reachable = |reachable: &mut HashMap<ID, Reachability>, id: ID, side: Reachability| {
+        reachable
+            .entry(id)
+            .and_modify(|existing_side| {
+                *existing_side |= side;
+            })
+            .or_insert(side);
+    };
+
+    for node in set1 {
+        reachable.insert(id_fn(&node), LEFT);
+        work.insert(node);
     }
-    Ok(None)
+    for node in set2 {
+        mark_reachable(&mut reachable, id_fn(&node), RIGHT);
+        work.insert(node);
+    }
+
+    // Nodes reachable from both sets, keyed by their ids.
+    let mut candidates = IndexMap::new();
+    let mut root_reached = false;
+    while let Some(node) = work.pop_last() {
+        let id = id_fn(&node);
+        let side = *reachable.get(&id).unwrap();
+        let neighbors = neighbors_fn(&node).await;
+        if side & BOTH == BOTH {
+            if candidates.insert(id, node).is_some() {
+                continue;
+            }
+            if work.is_empty() && !root_reached {
+                break;
+            }
+            // We continue walking ancestors of this node in order to possibly
+            // terminate the walk from the other set early when we reach one of
+            // these non-closest common ancestors.
+        }
+        let mut is_root = true;
+        for neighbor in neighbors? {
+            is_root = false;
+            let neighbor_id = id_fn(&neighbor);
+            if side & BOTH == BOTH {
+                mark_reachable(&mut reachable, neighbor_id, BOTH | NON_CLOSEST);
+            } else {
+                mark_reachable(&mut reachable, neighbor_id, side);
+            }
+            work.insert(neighbor);
+        }
+        root_reached |= is_root;
+    }
+
+    let closest = candidates
+        .into_iter()
+        .filter_map(|(id, node)| {
+            (*reachable.get(&id).unwrap() & NON_CLOSEST != NON_CLOSEST).then_some(node)
+        })
+        .collect();
+    Ok(closest)
 }
 
 #[cfg(test)]
@@ -1351,7 +1387,7 @@ mod tests {
     }
 
     #[test]
-    fn test_closest_common_node_tricky() {
+    fn test_closest_common_nodes_tricky() {
         // Test this case where A is the shortest distance away, but we still want the
         // result to be B because A is an ancestor of B. In other words, we want
         // to minimize the longest distance.
@@ -1378,14 +1414,134 @@ mod tests {
         let id_fn = |node: &char| *node;
         let neighbors_fn = async |node: &char| Ok::<_, char>(neighbors[node].clone());
 
-        let common = closest_common_node(vec!['E'], vec!['H'], id_fn, neighbors_fn).block_on();
-
-        // TODO: fix the implementation to return B
-        assert_eq!(common, Ok(Some('A')));
+        let common = closest_common_nodes(vec!['E'], vec!['H'], id_fn, neighbors_fn).block_on();
+        assert_eq!(common, Ok(vec!['B']));
     }
 
     #[test]
-    fn test_closest_common_node() {
+    fn test_closest_common_nodes_tricky_ancestor() {
+        // Find the clostest common ancestor between B and F. It should be B because
+        // it's even an ancestor of F, but we used to find A because the path to it
+        // from F is shorter (via E).
+        //
+        //  F
+        //  |\
+        //  D |
+        //  | |
+        //  C E
+        //  | |
+        //  B |
+        //  |/
+        //  A
+
+        let neighbors = hashmap! {
+            'A' => vec![],
+            'B' => vec!['A'],
+            'C' => vec!['B'],
+            'D' => vec!['C'],
+            'E' => vec!['A'],
+            'F' => vec!['D', 'E'],
+        };
+        let id_fn = |node: &char| *node;
+        let neighbors_fn = async |node: &char| Ok::<_, char>(neighbors[node].clone());
+
+        let common = closest_common_nodes(vec!['B'], vec!['F'], id_fn, neighbors_fn).block_on();
+        assert_eq!(common, Ok(vec!['B']));
+    }
+
+    #[test]
+    fn test_closest_common_nodes_tricky_ancestor_with_bad_heuristic() {
+        // Find the clostest common ancestor between D and A. It should be D because
+        // it's even an ancestor of A.
+        //
+        //  A
+        //  |\
+        //  B |
+        //  | |
+        //  C E
+        //  | |
+        //  D |
+        //  |/
+        //  F
+
+        let neighbors = hashmap! {
+            'F' => vec![],
+            'E' => vec!['F'],
+            'D' => vec!['F'],
+            'C' => vec!['D'],
+            'B' => vec!['C'],
+            'A' => vec!['B', 'E'],
+        };
+        let id_fn = |node: &char| *node;
+        let neighbors_fn = async |node: &char| Ok::<_, char>(neighbors[node].clone());
+
+        let common = closest_common_nodes(vec!['D'], vec!['A'], id_fn, neighbors_fn).block_on();
+        assert_eq!(common, Ok(vec!['D']));
+    }
+
+    #[test]
+    fn test_closest_common_nodes_criss_cross() {
+        // The closest common ancestors between D and E should be both B and C.
+        //
+        //  D E
+        //  |X|
+        //  B C
+        //  |/
+        //  A
+
+        let neighbors = hashmap! {
+            'A' => vec![],
+            'B' => vec!['A'],
+            'C' => vec!['A'],
+            'D' => vec!['B', 'C'],
+            'E' => vec!['B', 'C'],
+        };
+        let id_fn = |node: &char| *node;
+        let neighbors_fn = async |node: &char| Ok::<_, char>(neighbors[node].clone());
+
+        let common = closest_common_nodes(vec!['D'], vec!['E'], id_fn, neighbors_fn).block_on();
+        assert_eq!(common, Ok(vec!['C', 'B']));
+    }
+
+    #[test]
+    fn test_closest_common_nodes_many_paths() {
+        // One side has very many possible paths due to repeated forking and merging. We
+        // must not walk the exponential number of paths between A and MN when finding
+        // common ancestors between MN and B.
+        //
+        //  MN
+        //  |\
+        // LN RN
+        //  |/
+        // ...
+        //  M1
+        //  |\
+        // L1 R1
+        //  |/
+        //  | B
+        //  |/
+        //  A
+
+        let mut neighbors = hashmap! {
+            "A".to_string() => vec![],
+            "B".to_string() => vec!["A".to_string()],
+        };
+        let mut merge = "A".to_string();
+        for i in 1..50 {
+            neighbors.insert(format!("L{i}"), vec![merge.clone()]);
+            neighbors.insert(format!("R{i}"), vec![merge.clone()]);
+            merge = format!("M{i}");
+            neighbors.insert(merge.clone(), vec![format!("L{i}"), format!("R{i}")]);
+        }
+        let id_fn = |node: &String| node.clone();
+        let neighbors_fn = async |node: &String| Ok::<_, String>(neighbors[node].clone());
+
+        let common = closest_common_nodes(vec![merge], vec!["B".to_string()], id_fn, neighbors_fn)
+            .block_on();
+        assert_eq!(common, Ok(vec!["A".to_string()]));
+    }
+    #[test]
+    fn test_closest_common_nodes() {
         let neighbors = hashmap! {
             'A' => Err('Y'),
             'B' => Ok(vec!['A']),
@@ -1395,10 +1551,60 @@ mod tests {
         let id_fn = |node: &char| *node;
         let neighbors_fn = async |node: &char| neighbors[node].clone();
 
-        let result = closest_common_node(['B'], ['C'], id_fn, neighbors_fn).block_on();
-        assert_eq!(result, Ok(Some('A')));
-        let result = closest_common_node(['C'], ['D'], id_fn, neighbors_fn).block_on();
+        let result = closest_common_nodes(['B'], ['C'], id_fn, neighbors_fn).block_on();
+        assert_eq!(result, Ok(vec!['A']));
+        let result = closest_common_nodes(['C'], ['D'], id_fn, neighbors_fn).block_on();
         assert_eq!(result, Err('X'));
+    }
+
+    #[test]
+    fn test_closest_common_nodes_simple_with_bad_heuristic() {
+        // We still find the right common ancestor between C and A when given a bad
+        // heuristic.
+        //
+        //  C A
+        //  |/
+        //  B
+        //  |
+        //  D
+
+        let neighbors = hashmap! {
+            'D' => vec![],
+            'B' => vec!['D'],
+            'C' => vec!['B'],
+            'A' => vec!['B'],
+        };
+        let id_fn = |node: &char| *node;
+        let neighbors_fn = async |node: &char| Ok::<_, char>(neighbors[node].clone());
+
+        let common = closest_common_nodes(vec!['C'], vec!['A'], id_fn, neighbors_fn).block_on();
+        assert_eq!(common, Ok(vec!['B']));
+    }
+
+    #[test]
+    fn test_closest_common_nodes_ancestor_with_bad_heuristic() {
+        // We still find the right common ancestor between A and B when given a bad
+        // heuristic.
+        //
+        //  A
+        //  |
+        //  C
+        //  |
+        //  B
+        //  |
+        //  D
+
+        let neighbors = hashmap! {
+            'D' => vec![],
+            'B' => vec!['D'],
+            'C' => vec!['B'],
+            'A' => vec!['C'],
+        };
+        let id_fn = |node: &char| *node;
+        let neighbors_fn = async |node: &char| Ok::<_, char>(neighbors[node].clone());
+
+        let common = closest_common_nodes(vec!['A'], vec!['B'], id_fn, neighbors_fn).block_on();
+        assert_eq!(common, Ok(vec!['B']));
     }
 
     #[test]

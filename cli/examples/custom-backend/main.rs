@@ -17,6 +17,7 @@ use std::pin::Pin;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
+use futures::AsyncRead;
 use futures::stream::BoxStream;
 use jj_cli::cli_util::CliRunner;
 use jj_cli::cli_util::CommandHelper;
@@ -47,7 +48,6 @@ use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
 use jj_lib::workspace::Workspace;
 use jj_lib::workspace::WorkspaceInitError;
-use tokio::io::AsyncRead;
 
 #[derive(clap::Parser, Clone, Debug)]
 enum CustomCommand {

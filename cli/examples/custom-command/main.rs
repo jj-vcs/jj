@@ -40,7 +40,7 @@ async fn run_custom_command(
 ) -> Result<(), CommandError> {
     match command {
         CustomCommand::Frobnicate(args) => {
-            let mut workspace_command = command_helper.workspace_helper(ui)?;
+            let mut workspace_command = command_helper.workspace_helper(ui).await?;
             let commit = workspace_command
                 .resolve_single_rev(ui, &args.revision)
                 .await?;

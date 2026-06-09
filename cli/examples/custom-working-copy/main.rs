@@ -31,6 +31,7 @@ use jj_lib::op_store::OperationId;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::ReadonlyRepo;
+use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
@@ -154,6 +155,7 @@ impl ConflictsWorkingCopy {
     }
 }
 
+#[async_trait(?Send)]
 impl WorkingCopy for ConflictsWorkingCopy {
     fn name(&self) -> &str {
         Self::name()
@@ -175,8 +177,8 @@ impl WorkingCopy for ConflictsWorkingCopy {
         self.inner.sparse_patterns()
     }
 
-    fn start_mutation(&self) -> Result<Box<dyn LockedWorkingCopy>, WorkingCopyStateError> {
-        let inner = self.inner.start_mutation()?;
+    async fn start_mutation(&self) -> Result<Box<dyn LockedWorkingCopy>, WorkingCopyStateError> {
+        let inner = self.inner.start_mutation().await?;
         Ok(Box::new(LockedConflictsWorkingCopy {
             wc_path: self.working_copy_path.clone(),
             inner,
@@ -243,7 +245,7 @@ impl LockedWorkingCopy for LockedConflictsWorkingCopy {
     ) -> Result<(MergedTree, SnapshotStats), SnapshotError> {
         let options = SnapshotOptions {
             base_ignores: options.base_ignores.chain(
-                "",
+                RepoPath::root(),
                 Path::new(""),
                 "/.conflicts".as_bytes(),
             )?,

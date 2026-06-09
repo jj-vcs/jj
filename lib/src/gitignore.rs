@@ -21,8 +21,10 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use bstr::ByteSlice as _;
 use thiserror::Error;
+
+use crate::repo_path::RepoPath;
+use crate::repo_path::RepoPathBuf;
 
 #[derive(Debug, Error)]
 pub enum GitIgnoreError {
@@ -35,7 +37,7 @@ pub enum GitIgnoreError {
 pub struct GitIgnoreFile {
     parent: Option<Arc<Self>>,
     matcher: gix_ignore::Search,
-    prefix: String,
+    prefix: RepoPathBuf,
 }
 
 impl GitIgnoreFile {
@@ -43,28 +45,23 @@ impl GitIgnoreFile {
         Arc::new(Self {
             parent: None,
             matcher: gix_ignore::Search::default(),
-            prefix: "".to_string(),
+            prefix: RepoPathBuf::root(),
         })
     }
 
     /// Concatenates new `.gitignore` content at the `prefix` directory.
-    ///
-    /// The `prefix` should be a slash-separated path relative to the workspace
-    /// root.
     pub fn chain(
         self: &Arc<Self>,
-        prefix: &str,
+        prefix: &RepoPath,
         ignore_path: &Path,
         input: &[u8],
     ) -> Result<Arc<Self>, GitIgnoreError> {
-        assert!(prefix.is_empty() || prefix.ends_with('/'));
         // Construct the gix search object.
         let mut matcher = gix_ignore::Search::default();
-        let root = if prefix.is_empty() {
-            None
-        } else {
-            Some(Path::new(prefix))
-        };
+        // Since we strip the path prefix manually in matches(), the root path
+        // shouldn't be set. add_patterns_buffer() expects filesystem path pairs
+        // e.g. ignore_path = "/repo/bar/.gitignore" and root = "/repo".
+        let root = None;
         matcher.add_patterns_buffer(
             input,
             ignore_path,
@@ -82,17 +79,14 @@ impl GitIgnoreFile {
         Ok(Arc::new(Self {
             parent,
             matcher,
-            prefix: prefix.to_string(),
+            prefix: prefix.to_owned(),
         }))
     }
 
     /// Concatenates new `.gitignore` file at the `prefix` directory.
-    ///
-    /// The `prefix` should be a slash-separated path relative to the workspace
-    /// root.
     pub fn chain_with_file(
         self: &Arc<Self>,
-        prefix: &str,
+        prefix: &RepoPath,
         file: PathBuf,
     ) -> Result<Arc<Self>, GitIgnoreError> {
         if file.is_file() {
@@ -106,8 +100,7 @@ impl GitIgnoreFile {
         }
     }
 
-    /// Returns whether the specified path should be ignored. Directories must
-    /// have a trailing `/`.
+    /// Returns whether the specified file path should be ignored.
     ///
     /// This method does not directly define which files should not be tracked
     /// in the repository. Instead, it performs a simple matching against the
@@ -117,19 +110,24 @@ impl GitIgnoreFile {
     /// directories. Callers shouldn't recursively match inside ignored
     /// directories, because all (untracked) child files should also be ignored;
     /// the exact matching logic won't give correct results in that case.
-    ///
-    /// The path should always be a slash-separated repository path, even on
-    /// Windows. This will never treat backslashes as path separators.
-    pub fn matches(&self, path: &str) -> bool {
-        let is_dir = path.ends_with('/');
-        let clean_path = path.strip_suffix('/').unwrap_or(path);
+    pub fn matches_file(&self, path: &RepoPath) -> bool {
+        self.matches(path, false)
+    }
 
+    /// Returns whether the specified directory path should be ignored.
+    ///
+    /// See [`GitIgnoreFile::matches_file()`] for details.
+    pub fn matches_dir(&self, path: &RepoPath) -> bool {
+        self.matches(path, true)
+    }
+
+    fn matches(&self, path: &RepoPath, is_dir: bool) -> bool {
         for file in iter::successors(Some(self), |file| file.parent.as_deref()) {
-            // This uses string manipulation instead of `Path` to avoid Windows
-            // path separator semantics.
-            if let Some(relative_path) = clean_path.strip_prefix(&file.prefix) {
+            if let Some(relative_path) = path.strip_prefix(&file.prefix)
+                && !relative_path.is_root()
+            {
                 let m = file.matcher.pattern_matching_relative_path(
-                    relative_path.as_bytes().as_bstr(),
+                    relative_path.as_internal_file_string().as_ref(),
                     Some(is_dir),
                     gix_ignore::glob::pattern::Case::Sensitive,
                 );
@@ -153,113 +151,120 @@ mod tests {
         Path::new(".gitignore")
     }
 
+    fn repo_path(value: &str) -> &RepoPath {
+        RepoPath::from_internal_string(value).unwrap()
+    }
+
     fn matches(input: &[u8], path: &str) -> bool {
         let file = GitIgnoreFile::empty()
-            .chain("", ignore_path(), input)
+            .chain(RepoPath::root(), ignore_path(), input)
             .unwrap();
-        file.matches(path)
+        match path.strip_suffix('/') {
+            Some(dir) => file.matches_dir(repo_path(dir)),
+            None => file.matches_file(repo_path(path)),
+        }
     }
 
     #[test]
     fn test_gitignore_empty_file() {
         let file = GitIgnoreFile::empty();
-        assert!(!file.matches("foo"));
+        assert!(!file.matches_file(repo_path("foo")));
     }
 
     #[test]
     fn test_gitignore_empty_file_with_prefix() {
         let file = GitIgnoreFile::empty()
-            .chain("dir/", ignore_path(), b"")
+            .chain(repo_path("dir"), ignore_path(), b"")
             .unwrap();
-        assert!(!file.matches("dir/foo"));
+        assert!(!file.matches_file(repo_path("dir/foo")));
     }
 
     #[test]
     fn test_gitignore_literal() {
         let file = GitIgnoreFile::empty()
-            .chain("", ignore_path(), b"foo\n")
+            .chain(RepoPath::root(), ignore_path(), b"foo\n")
             .unwrap();
-        assert!(file.matches("foo"));
-        assert!(file.matches("dir/foo"));
-        assert!(file.matches("dir/subdir/foo"));
-        assert!(!file.matches("food"));
-        assert!(!file.matches("dir/food"));
+        assert!(file.matches_file(repo_path("foo")));
+        assert!(file.matches_file(repo_path("dir/foo")));
+        assert!(file.matches_file(repo_path("dir/subdir/foo")));
+        assert!(!file.matches_file(repo_path("food")));
+        assert!(!file.matches_file(repo_path("dir/food")));
     }
 
     #[test]
     fn test_gitignore_literal_with_prefix() {
         let file = GitIgnoreFile::empty()
-            .chain("dir/", ignore_path(), b"foo\n")
+            .chain(repo_path("dir"), ignore_path(), b"foo\n")
             .unwrap();
-        assert!(file.matches("dir/foo"));
-        assert!(file.matches("dir/subdir/foo"));
+        assert!(file.matches_file(repo_path("dir/foo")));
+        assert!(file.matches_file(repo_path("dir/subdir/foo")));
     }
 
     #[test]
     fn test_gitignore_pattern_same_as_prefix() {
         let file = GitIgnoreFile::empty()
-            .chain("dir/", ignore_path(), b"dir\n")
+            .chain(repo_path("dir"), ignore_path(), b"dir\n")
             .unwrap();
-        assert!(file.matches("dir/dir"));
+        assert!(file.matches_file(repo_path("dir/dir")));
         // We don't want the "dir" pattern to apply to the parent directory
-        assert!(!file.matches("dir/foo"));
+        assert!(!file.matches_file(repo_path("dir/foo")));
     }
 
     #[test]
     fn test_gitignore_rooted_literal() {
         let file = GitIgnoreFile::empty()
-            .chain("", ignore_path(), b"/foo\n")
+            .chain(RepoPath::root(), ignore_path(), b"/foo\n")
             .unwrap();
-        assert!(file.matches("foo"));
-        assert!(!file.matches("dir/foo"));
+        assert!(file.matches_file(repo_path("foo")));
+        assert!(!file.matches_file(repo_path("dir/foo")));
     }
 
     #[test]
     fn test_gitignore_rooted_literal_with_prefix() {
         let file = GitIgnoreFile::empty()
-            .chain("dir/", ignore_path(), b"/foo\n")
+            .chain(repo_path("dir"), ignore_path(), b"/foo\n")
             .unwrap();
-        assert!(file.matches("dir/foo"));
-        assert!(!file.matches("dir/subdir/foo"));
+        assert!(file.matches_file(repo_path("dir/foo")));
+        assert!(!file.matches_file(repo_path("dir/subdir/foo")));
     }
 
     #[test]
     fn test_gitignore_deep_dir() {
         let file = GitIgnoreFile::empty()
-            .chain("", ignore_path(), b"/dir1/dir2/dir3\n")
+            .chain(RepoPath::root(), ignore_path(), b"/dir1/dir2/dir3\n")
             .unwrap();
-        assert!(!file.matches("foo"));
-        assert!(!file.matches("dir1/"));
-        assert!(!file.matches("dir1/dir2/"));
-        assert!(file.matches("dir1/dir2/dir3/"));
-        assert!(!file.matches("dir1/dir2/dir3/dir4/"));
+        assert!(!file.matches_file(repo_path("foo")));
+        assert!(!file.matches_dir(repo_path("dir1")));
+        assert!(!file.matches_dir(repo_path("dir1/dir2")));
+        assert!(file.matches_dir(repo_path("dir1/dir2/dir3")));
+        assert!(!file.matches_dir(repo_path("dir1/dir2/dir3/dir4")));
     }
 
     #[test]
     fn test_gitignore_deep_dir_chained() {
         // Prefix is relative to root, not to parent file
         let file = GitIgnoreFile::empty()
-            .chain("", ignore_path(), b"/dummy\n")
+            .chain(RepoPath::root(), ignore_path(), b"/dummy\n")
             .unwrap()
-            .chain("dir1/", ignore_path(), b"/dummy\n")
+            .chain(repo_path("dir1"), ignore_path(), b"/dummy\n")
             .unwrap()
-            .chain("dir1/dir2/", ignore_path(), b"/dir3\n")
+            .chain(repo_path("dir1/dir2"), ignore_path(), b"/dir3\n")
             .unwrap();
-        assert!(!file.matches("foo"));
-        assert!(!file.matches("dir1/"));
-        assert!(!file.matches("dir1/dir2/"));
-        assert!(file.matches("dir1/dir2/dir3/"));
-        assert!(!file.matches("dir1/dir2/dir3/dir4/"));
+        assert!(!file.matches_file(repo_path("foo")));
+        assert!(!file.matches_dir(repo_path("dir1")));
+        assert!(!file.matches_dir(repo_path("dir1/dir2")));
+        assert!(file.matches_dir(repo_path("dir1/dir2/dir3")));
+        assert!(!file.matches_dir(repo_path("dir1/dir2/dir3/dir4")));
     }
 
     #[test]
     fn test_gitignore_match_only_dir() {
         let file = GitIgnoreFile::empty()
-            .chain("", ignore_path(), b"/dir/\n")
+            .chain(RepoPath::root(), ignore_path(), b"/dir/\n")
             .unwrap();
-        assert!(!file.matches("dir"));
-        assert!(file.matches("dir/"));
-        assert!(!file.matches("dir/subdir"));
+        assert!(!file.matches_file(repo_path("dir")));
+        assert!(file.matches_dir(repo_path("dir")));
+        assert!(!file.matches_file(repo_path("dir/subdir")));
     }
 
     #[test]
@@ -334,26 +339,28 @@ mod tests {
     #[test]
     fn test_gitignore_leading_dir_glob() {
         let file1 = GitIgnoreFile::empty()
-            .chain("", ignore_path(), b"**/foo\n")
+            .chain(RepoPath::root(), ignore_path(), b"**/foo\n")
             .unwrap();
-        assert!(file1.matches("foo"));
-        assert!(file1.matches("dir1/dir2/foo"));
-        assert!(!file1.matches("foo/file"));
+        assert!(file1.matches_file(repo_path("foo")));
+        assert!(file1.matches_file(repo_path("dir1/dir2/foo")));
+        assert!(!file1.matches_file(repo_path("foo/file")));
 
-        let file2 = file1.chain("", ignore_path(), b"**/foo\n").unwrap();
-        assert!(file2.matches("dir/foo"));
-        assert!(file2.matches("dir1/dir2/dir/foo"));
+        let file2 = file1
+            .chain(RepoPath::root(), ignore_path(), b"**/foo\n")
+            .unwrap();
+        assert!(file2.matches_file(repo_path("dir/foo")));
+        assert!(file2.matches_file(repo_path("dir1/dir2/dir/foo")));
     }
 
     #[test]
     fn test_gitignore_leading_dir_glob_with_prefix() {
         let file = GitIgnoreFile::empty()
-            .chain("dir1/dir2/", ignore_path(), b"**/foo\n")
+            .chain(repo_path("dir1/dir2"), ignore_path(), b"**/foo\n")
             .unwrap();
-        assert!(file.matches("dir1/dir2/foo"));
-        assert!(!file.matches("dir1/dir2/bar"));
-        assert!(file.matches("dir1/dir2/sub1/sub2/foo"));
-        assert!(!file.matches("dir1/dir2/sub1/sub2/bar"));
+        assert!(file.matches_file(repo_path("dir1/dir2/foo")));
+        assert!(!file.matches_file(repo_path("dir1/dir2/bar")));
+        assert!(file.matches_file(repo_path("dir1/dir2/sub1/sub2/foo")));
+        assert!(!file.matches_file(repo_path("dir1/dir2/sub1/sub2/bar")));
     }
 
     #[test]
@@ -381,6 +388,32 @@ mod tests {
     }
 
     #[test]
+    fn test_gitignore_glob_all_root() {
+        let file = GitIgnoreFile::empty()
+            .chain(RepoPath::root(), ignore_path(), b"*\n")
+            .unwrap();
+        assert!(!file.matches_dir(RepoPath::root()));
+        assert!(file.matches_file(repo_path("foo")));
+        assert!(file.matches_dir(repo_path("foo")));
+        assert!(file.matches_file(repo_path("foo/bar")));
+        assert!(file.matches_dir(repo_path("foo/bar")));
+    }
+
+    #[test]
+    fn test_gitignore_glob_all_subdir() {
+        let file = GitIgnoreFile::empty()
+            .chain(repo_path("foo"), ignore_path(), b"*\n")
+            .unwrap();
+        assert!(!file.matches_dir(RepoPath::root()));
+        assert!(!file.matches_file(repo_path("foo")));
+        assert!(!file.matches_dir(repo_path("foo")));
+        assert!(file.matches_file(repo_path("foo/bar")));
+        assert!(file.matches_dir(repo_path("foo/bar")));
+        assert!(!file.matches_file(repo_path("bar/baz")));
+        assert!(!file.matches_dir(repo_path("bar/baz")));
+    }
+
+    #[test]
     fn test_gitignore_with_utf8_bom() {
         assert!(matches(b"\xef\xbb\xbffoo\n", "foo"));
         assert!(!matches(b"\n\xef\xbb\xbffoo\n", "foo"));
@@ -389,57 +422,65 @@ mod tests {
     #[test]
     fn test_gitignore_line_ordering() {
         let file1 = GitIgnoreFile::empty()
-            .chain("", ignore_path(), b"foo*\n!foobar*\n")
+            .chain(RepoPath::root(), ignore_path(), b"foo*\n!foobar*\n")
             .unwrap();
-        assert!(file1.matches("foo"));
-        assert!(!file1.matches("foobar"));
-        assert!(!file1.matches("foobarbaz"));
+        assert!(file1.matches_file(repo_path("foo")));
+        assert!(!file1.matches_file(repo_path("foobar")));
+        assert!(!file1.matches_file(repo_path("foobarbaz")));
 
         let file2 = GitIgnoreFile::empty()
-            .chain("", ignore_path(), b"foo*\n!foobar*\nfoobarbaz")
+            .chain(
+                RepoPath::root(),
+                ignore_path(),
+                b"foo*\n!foobar*\nfoobarbaz",
+            )
             .unwrap();
-        assert!(file2.matches("foo"));
-        assert!(!file2.matches("foobar"));
-        assert!(file2.matches("foobarbaz"));
-        assert!(!file2.matches("foobarquux"));
+        assert!(file2.matches_file(repo_path("foo")));
+        assert!(!file2.matches_file(repo_path("foobar")));
+        assert!(file2.matches_file(repo_path("foobarbaz")));
+        assert!(!file2.matches_file(repo_path("foobarquux")));
 
         let file3 = GitIgnoreFile::empty()
-            .chain("", ignore_path(), b"foo/*\n!foo/bar")
+            .chain(RepoPath::root(), ignore_path(), b"foo/*\n!foo/bar")
             .unwrap();
-        assert!(file3.matches("foo/baz"));
-        assert!(!file3.matches("foo/bar"));
+        assert!(file3.matches_file(repo_path("foo/baz")));
+        assert!(!file3.matches_file(repo_path("foo/bar")));
     }
 
     #[test]
     fn test_gitignore_file_ordering() {
         let file1 = GitIgnoreFile::empty()
-            .chain("", ignore_path(), b"/foo\n")
+            .chain(RepoPath::root(), ignore_path(), b"/foo\n")
             .unwrap();
-        assert!(file1.matches("foo"));
-        assert!(!file1.matches("foo/bar"));
-        assert!(!file1.matches("foo/bar/baz"));
+        assert!(file1.matches_file(repo_path("foo")));
+        assert!(!file1.matches_file(repo_path("foo/bar")));
+        assert!(!file1.matches_file(repo_path("foo/bar/baz")));
 
-        let file2 = file1.chain("foo/", ignore_path(), b"!/bar").unwrap();
-        assert!(file1.matches("foo/"));
-        assert!(!file2.matches("foo/bar"));
-        assert!(!file2.matches("foo/bar/baz"));
-        assert!(!file2.matches("foo/baz"));
+        let file2 = file1
+            .chain(repo_path("foo"), ignore_path(), b"!/bar")
+            .unwrap();
+        assert!(file1.matches_dir(repo_path("foo")));
+        assert!(!file2.matches_file(repo_path("foo/bar")));
+        assert!(!file2.matches_file(repo_path("foo/bar/baz")));
+        assert!(!file2.matches_file(repo_path("foo/baz")));
 
-        let file3 = file2.chain("foo/bar/", ignore_path(), b"/baz").unwrap();
-        assert!(!file2.matches("foo/bar/"));
-        assert!(file3.matches("foo/bar/baz"));
-        assert!(!file3.matches("foo/bar/qux"));
+        let file3 = file2
+            .chain(repo_path("foo/bar"), ignore_path(), b"/baz")
+            .unwrap();
+        assert!(!file2.matches_dir(repo_path("foo/bar")));
+        assert!(file3.matches_file(repo_path("foo/bar/baz")));
+        assert!(!file3.matches_file(repo_path("foo/bar/qux")));
     }
 
     #[test]
     fn test_gitignore_slash_after_glob() {
         let file = GitIgnoreFile::empty()
-            .chain("", ignore_path(), b"/*/\n")
+            .chain(RepoPath::root(), ignore_path(), b"/*/\n")
             .unwrap();
-        assert!(!file.matches("foo"));
-        assert!(file.matches("foo/"));
-        assert!(!file.matches("foo/bar"));
-        assert!(!file.matches("foo/bar/baz"));
+        assert!(!file.matches_file(repo_path("foo")));
+        assert!(file.matches_dir(repo_path("foo")));
+        assert!(!file.matches_file(repo_path("foo/bar")));
+        assert!(!file.matches_file(repo_path("foo/bar/baz")));
     }
 
     #[test]
@@ -457,20 +498,20 @@ mod tests {
         // A/B.ext
         // ```
         let ignore = GitIgnoreFile::empty()
-            .chain("", ignore_path(), b"foo/bar.*\n!/foo/\n")
+            .chain(RepoPath::root(), ignore_path(), b"foo/bar.*\n!/foo/\n")
             .unwrap();
-        assert!(ignore.matches("foo/bar.ext"));
+        assert!(ignore.matches_file(repo_path("foo/bar.ext")));
 
         let ignore = GitIgnoreFile::empty()
-            .chain("", ignore_path(), b"!/foo/\nfoo/bar.*\n")
+            .chain(RepoPath::root(), ignore_path(), b"!/foo/\nfoo/bar.*\n")
             .unwrap();
-        assert!(ignore.matches("foo/bar.ext"));
+        assert!(ignore.matches_file(repo_path("foo/bar.ext")));
     }
 
     #[test]
     fn test_gitignore_invalid_utf8() {
         // Non-UTF-8 paths should be parsed without an error.
-        let ignore = GitIgnoreFile::empty().chain("", ignore_path(), &[224]);
+        let ignore = GitIgnoreFile::empty().chain(RepoPath::root(), ignore_path(), &[224]);
         assert!(ignore.is_ok());
     }
 }

@@ -70,6 +70,12 @@ pub struct RemoteSettings {
     /// automatically.
     #[serde(default)]
     pub auto_track_created_bookmarks: Option<String>,
+    /// Bookmark name expression to fetch by default.
+    #[serde(default)]
+    pub fetch_bookmarks: Option<String>,
+    /// Tag name expression to fetch by default.
+    #[serde(default)]
+    pub fetch_tags: Option<String>,
 }
 
 impl RemoteSettings {

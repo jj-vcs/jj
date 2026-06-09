@@ -56,7 +56,7 @@ pub async fn cmd_util_gc(
         Some("now") => SystemTime::now() - Duration::ZERO,
         _ => return Err(user_error("--expire only accepts 'now'")),
     };
-    let workspace_command = command.workspace_helper(ui)?;
+    let workspace_command = command.workspace_helper(ui).await?;
 
     let repo = workspace_command.repo();
     repo.op_store()

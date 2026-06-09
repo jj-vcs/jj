@@ -68,7 +68,7 @@ fn test_sparse_checkout() -> TestResult {
     let ws = &mut test_workspace.workspace;
 
     // Set sparse patterns to only dir1/
-    let mut locked_ws = ws.start_working_copy_mutation()?;
+    let mut locked_ws = ws.start_working_copy_mutation().block_on()?;
     let sparse_patterns = to_owned_path_vec(&[dir1_path]);
     let stats = locked_ws
         .locked_wc()
@@ -138,7 +138,7 @@ fn test_sparse_checkout() -> TestResult {
     assert_eq!(wc.sparse_patterns()?, sparse_patterns);
 
     // Set sparse patterns to file2, dir1/subdir1/ and dir2/
-    let mut locked_wc = wc.start_mutation()?;
+    let mut locked_wc = wc.start_mutation().block_on()?;
     let sparse_patterns = to_owned_path_vec(&[root_file1_path, dir1_subdir1_path, dir2_path]);
     let stats = locked_wc
         .set_sparse_patterns(sparse_patterns.clone())
@@ -222,7 +222,10 @@ fn test_sparse_commit() -> TestResult {
         .block_on()?;
 
     // Set sparse patterns to only dir1/
-    let mut locked_ws = test_workspace.workspace.start_working_copy_mutation()?;
+    let mut locked_ws = test_workspace
+        .workspace
+        .start_working_copy_mutation()
+        .block_on()?;
     let sparse_patterns = to_owned_path_vec(&[dir1_path]);
     locked_ws
         .locked_wc()
@@ -257,7 +260,10 @@ fn test_sparse_commit() -> TestResult {
     assert_eq!(diff[0].path.as_ref(), dir1_file1_path);
 
     // Set sparse patterns to also include dir2/
-    let mut locked_ws = test_workspace.workspace.start_working_copy_mutation()?;
+    let mut locked_ws = test_workspace
+        .workspace
+        .start_working_copy_mutation()
+        .block_on()?;
     let sparse_patterns = to_owned_path_vec(&[dir1_path, dir2_path]);
     locked_ws
         .locked_wc()
@@ -290,7 +296,10 @@ fn test_sparse_commit_gitignore() -> TestResult {
     let dir1_file2_path = repo_path("dir1/file2");
 
     // Set sparse patterns to only dir1/
-    let mut locked_ws = test_workspace.workspace.start_working_copy_mutation()?;
+    let mut locked_ws = test_workspace
+        .workspace
+        .start_working_copy_mutation()
+        .block_on()?;
     let sparse_patterns = to_owned_path_vec(&[dir1_path]);
     locked_ws
         .locked_wc()

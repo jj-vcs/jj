@@ -21,6 +21,7 @@ use std::sync::Arc;
 use itertools::Itertools as _;
 use jj_lib::file_util;
 use jj_lib::git;
+use jj_lib::git::GitImportOptions;
 use jj_lib::git::GitRefKind;
 use jj_lib::git::GitSettings;
 use jj_lib::git::parse_git_ref;
@@ -29,7 +30,8 @@ use jj_lib::repo::Repo as _;
 use jj_lib::view::View;
 use jj_lib::workspace::Workspace;
 
-use super::write_repository_level_trunk_alias;
+use super::RepoPresets;
+use super::write_repo_presets;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::start_repo_transaction;
 use crate::command_error::CommandError;
@@ -137,12 +139,6 @@ pub async fn cmd_git_init(
         r#"Initialized repo in "{}""#,
         relative_wc_path.display()
     )?;
-    if colocate {
-        writeln!(
-            ui.hint_default(),
-            r"Running `git clean -xdf` will remove `.jj/`!",
-        )?;
-    }
 
     Ok(())
 }
@@ -228,7 +224,7 @@ async fn do_init(
                 let mut tx = workspace_command.start_transaction();
                 jj_lib::git::import_head(tx.repo_mut()).await?;
                 if let Some(git_head_id) = tx.repo().view().git_head().as_normal().cloned() {
-                    let git_head_commit = tx.repo().store().get_commit(&git_head_id)?;
+                    let git_head_commit = tx.repo().store().get_commit_async(&git_head_id).await?;
                     tx.check_out(&git_head_commit)?;
                 }
                 if tx.repo().has_changes() {
@@ -258,19 +254,23 @@ async fn init_git_refs(
 ) -> Result<Arc<ReadonlyRepo>, CommandError> {
     let git_settings = GitSettings::from_settings(repo.settings())?;
     let remote_settings = repo.settings().remote_settings()?;
-    let mut import_options = load_git_import_options(ui, &git_settings, &remote_settings)?;
+    let import_options = GitImportOptions {
+        // There should be no old refs to abandon, but enforce it.
+        abandon_unreachable_commits: false,
+        // There may be a large number of new commits. Don't record synthetic
+        // predecessors.
+        record_synthetic_predecessors: false,
+        ..load_git_import_options(ui, &git_settings, &remote_settings)?
+    };
     let mut tx = start_repo_transaction(&repo, workspace.workspace_name(), string_args);
-    // There should be no old refs to abandon, but enforce it.
-    import_options.abandon_unreachable_commits = false;
     let stats = git::import_refs(tx.repo_mut(), &import_options).await?;
     print_git_import_stats_summary(ui, &stats)?;
     if !tx.repo().has_changes() {
         return Ok(repo);
     }
     if colocated {
-        // If git.auto-local-bookmark = true or
-        // remotes.<name>.auto-track-bookmarks is set, local bookmarks could be
-        // created for the imported remote branches.
+        // If remotes.<name>.auto-track-bookmarks is set, local bookmarks could
+        // be created for the imported remote branches.
         let stats = git::export_refs(tx.repo_mut())?;
         print_git_export_stats(ui, &stats)?;
     }
@@ -308,7 +308,16 @@ pub fn maybe_set_repository_level_trunk_alias(
             {
                 // TODO: Can we assume the symbolic target points to the same remote?
                 let symbol = symbol.name.to_remote_symbol(remote.as_ref());
-                write_repository_level_trunk_alias(ui, config_env, symbol)?;
+                write_repo_presets(
+                    ui,
+                    config_env,
+                    RepoPresets {
+                        remote: remote.as_ref(),
+                        fetch_bookmarks: None,
+                        fetch_tags: None,
+                        trunk: Some(symbol),
+                    },
+                )?;
             }
             return Ok(());
         }

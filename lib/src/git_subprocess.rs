@@ -129,9 +129,12 @@ impl GitSubprocessContext {
             .args(["-c", "submodule.recurse=false"])
             .arg("--git-dir")
             .arg(&self.git_dir)
-            // Disable translation and other locale-dependent behavior so we can
-            // parse the output. LC_ALL precedes LC_* and LANG.
-            .env("LC_ALL", "C")
+            // Disable translation so we can parse the output. We don't set
+            // LC_ALL=C because it would change the encoding. Also note that
+            // "C.UTF-8" locale isn't always available.
+            .env_remove("LC_ALL")
+            .env_remove("LANGUAGE")
+            .env("LC_MESSAGES", "C")
             .stdin(Stdio::null())
             .stderr(Stdio::piped());
 
@@ -289,7 +292,6 @@ impl GitSubprocessContext {
                 .iter()
                 .map(|reference| format!("--force-with-lease={}", reference.to_git_lease())),
         );
-        command.args(&options.extra_args);
         command.args(["--", remote_name.as_str()]);
         // with --force-with-lease we cannot have the forced refspec,
         // as it ignores the lease

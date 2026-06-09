@@ -605,6 +605,13 @@ impl ConfigFile {
         &self.layer
     }
 
+    // No layer_mut() is implemented because it would allow removing layer.path
+
+    /// Mutable reference to the underlying configuration variables.
+    pub fn data_mut(&mut self) -> &mut DocumentMut {
+        &mut Arc::make_mut(&mut self.layer).data
+    }
+
     /// See [`ConfigLayer::set_value()`].
     pub fn set_value(
         &mut self,

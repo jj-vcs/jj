@@ -99,8 +99,29 @@ For example:
 
 ```toml
 [fileset-aliases]
-'LOCK' = '**/Cargo.lock | **/package-lock.json | **/uv.lock'
+LOCK = '**/Cargo.lock | **/package-lock.json | **/uv.lock'
 'not:x' = '~x'
+```
+
+### Alias descriptions
+
+Alias descriptions can be surfaced in shell completions by defining the alias
+as a table with `.doc` and `.definition` properties. For example:
+
+```toml
+[fileset-aliases]
+LOCK = {
+    definition = '**/Cargo.lock | **/package-lock.json | **/uv.lock',
+    doc = 'Lockfiles'
+}
+```
+
+You can also use the dotted key syntax:
+
+```toml
+[fileset-aliases]
+LOCK.definition = '**/Cargo.lock | **/package-lock.json | **/uv.lock'
+LOCK.doc = 'Lockfiles'
 ```
 
 ## Examples

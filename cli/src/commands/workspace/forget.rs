@@ -42,7 +42,7 @@ pub async fn cmd_workspace_forget(
     command: &CommandHelper,
     args: &WorkspaceForgetArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
 
     let wss = if args.workspaces.is_empty() {
         vec![workspace_command.workspace_name().to_owned()]

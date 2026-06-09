@@ -317,7 +317,7 @@ Examples with GitLab push options (see GitLab docs for details):
   ```
 - Create a merge request with metadata on push:
   ```shell
-  jj git push --allow-new \
+  jj git push \
     -o merge_request.create \
     -o merge_request.target=main \
     -o 'merge_request.title=Add feature X' \

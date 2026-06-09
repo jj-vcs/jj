@@ -71,7 +71,7 @@ pub(crate) async fn cmd_absorb(
     command: &CommandHelper,
     args: &AbsorbArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
 
     let source_commit = workspace_command.resolve_single_rev(ui, &args.from).await?;
     let destinations = workspace_command

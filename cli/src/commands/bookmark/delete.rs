@@ -52,7 +52,7 @@ pub async fn cmd_bookmark_delete(
     command: &CommandHelper,
     args: &BookmarkDeleteArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     let repo = workspace_command.repo().clone();
     let name_expr = parse_union_name_patterns(ui, &args.names)?;
     let name_matcher = name_expr.to_matcher();

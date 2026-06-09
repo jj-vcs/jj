@@ -28,7 +28,6 @@ use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
 use indoc::writedoc;
 use itertools::Itertools as _;
-use jj_lib::commit::Commit;
 use jj_lib::git;
 use jj_lib::git::FailedRefExportReason;
 use jj_lib::git::GitExportStats;
@@ -210,8 +209,8 @@ pub fn load_git_import_options(
     remote_settings: &RemoteSettingsMap,
 ) -> Result<GitImportOptions, CommandError> {
     Ok(GitImportOptions {
-        auto_local_bookmark: git_settings.auto_local_bookmark,
         abandon_unreachable_commits: git_settings.abandon_unreachable_commits,
+        record_synthetic_predecessors: git_settings.record_synthetic_predecessors,
         remote_auto_track_bookmarks: parse_remote_auto_track_bookmarks_map(ui, remote_settings)?,
     })
 }
@@ -257,13 +256,8 @@ fn print_imported_changes(
             "Abandoned {} commits that are no longer reachable:",
             stats.abandoned_commits.len()
         )?;
-        let abandoned_commits: Vec<Commit> = stats
-            .abandoned_commits
-            .iter()
-            .map(|id| tx.repo().store().get_commit(id))
-            .try_collect()?;
         let template = tx.commit_summary_template();
-        print_updated_commits(formatter, &template, &abandoned_commits)?;
+        print_updated_commits(formatter, &template, &stats.abandoned_commits)?;
     }
 
     Ok(())

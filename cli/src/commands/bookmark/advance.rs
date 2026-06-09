@@ -77,7 +77,7 @@ pub async fn cmd_bookmark_advance(
     command: &CommandHelper,
     args: &BookmarkAdvanceArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
 
     let to = if let Some(to) = &args.to {
         to.clone()

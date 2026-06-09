@@ -16,19 +16,22 @@ use std::cmp::min;
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use futures::StreamExt as _;
 use futures::TryStreamExt as _;
+use futures::stream;
+use futures::stream::LocalBoxStream;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::graph::GraphEdge;
 use jj_lib::graph::GraphEdgeType;
-use jj_lib::graph::TopoGroupedGraphIterator;
+use jj_lib::graph::TopoGroupedGraph;
 use jj_lib::graph::reverse_graph;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
-use jj_lib::revset::RevsetIteratorExt as _;
+use jj_lib::revset::RevsetStreamExt as _;
 use pollster::FutureExt as _;
 use tracing::instrument;
 
@@ -134,7 +137,7 @@ pub(crate) async fn cmd_log(
     command: &CommandHelper,
     args: &LogArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper(ui)?;
+    let workspace_command = command.workspace_helper(ui).await?;
     let settings = workspace_command.settings();
 
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
@@ -170,9 +173,10 @@ pub(crate) async fn cmd_log(
             min(lower, limit)
         } else {
             revset
-                .iter()
+                .stream()
                 .take(limit)
-                .process_results(|iter| iter.count())?
+                .try_fold(0, |count, _| async move { Ok(count + 1) })
+                .await?
         };
         let mut formatter = ui.stdout_formatter();
         writeln!(formatter, "{count}")?;
@@ -217,29 +221,30 @@ pub(crate) async fn cmd_log(
         if !args.no_graph {
             let mut raw_output = formatter.raw()?;
             let mut graph = get_graphlog(graph_style, raw_output.as_mut());
-            let iter: Box<dyn Iterator<Item = _>> = {
-                let mut forward_iter = TopoGroupedGraphIterator::new(revset.iter_graph(), |id| id);
+            let mut stream: LocalBoxStream<_> = {
+                let mut topo_order = TopoGroupedGraph::new(revset.stream_graph(), |id| id);
 
                 let mut prio_stream = prio_revset.evaluate_to_commit_ids()?;
                 while let Some(prio) = prio_stream.try_next().await? {
-                    forward_iter.prioritize_branch(prio);
+                    topo_order.prioritize_branch(prio);
                 }
+                let forward_stream = topo_order.stream();
 
-                // The input to TopoGroupedGraphIterator shouldn't be truncated
-                // because the prioritized commit must exist in the input set.
-                let forward_iter = forward_iter.take(args.limit.unwrap_or(usize::MAX));
+                // The input to TopoGroupedGraph shouldn't be truncated because the prioritized
+                // commit must exist in the input set.
+                let forward_stream = forward_stream.take(args.limit.unwrap_or(usize::MAX));
                 if args.reversed {
-                    Box::new(reverse_graph(forward_iter, |id| id)?.into_iter().map(Ok))
+                    let nodes: Vec<_> = forward_stream.collect().await;
+                    let nodes = reverse_graph(nodes.into_iter(), |id: &CommitId| id)?;
+                    stream::iter(nodes.into_iter().map(Ok)).boxed_local()
                 } else {
-                    Box::new(forward_iter)
+                    forward_stream.boxed_local()
                 }
             };
-            for node in iter {
-                let (commit_id, edges) = node?;
-
+            while let Some((commit_id, edges)) = stream.try_next().await? {
                 // The graph is keyed by (CommitId, is_synthetic)
                 let mut graphlog_edges = vec![];
-                // TODO: Should we update revset.iter_graph() to yield a `has_missing` flag
+                // TODO: Should we update revset.stream_graph() to yield a `has_missing` flag
                 // instead of all the missing edges since we don't care about
                 // where they point here anyway?
                 let mut missing_edge_id = None;
@@ -267,12 +272,14 @@ pub(crate) async fn cmd_log(
                 }
                 let mut buffer = vec![];
                 let key = (commit_id, false);
-                let commit = store.get_commit(&key.0)?;
+                let commit = store.get_commit_async(&key.0).await?;
                 let within_graph =
                     with_content_format.sub_width(graph.width(&key, &graphlog_edges));
-                within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {
-                    template.format(&commit, formatter)
-                })?;
+                within_graph
+                    .write(ui.new_formatter(&mut buffer).as_mut(), async |formatter| {
+                        template.format(&commit, formatter)
+                    })
+                    .await?;
                 if let Some(renderer) = &diff_renderer {
                     let mut formatter = ui.new_formatter(&mut buffer);
                     renderer
@@ -307,9 +314,11 @@ pub(crate) async fn cmd_log(
                     let mut buffer = vec![];
                     let within_graph =
                         with_content_format.sub_width(graph.width(&elided_key, &edges));
-                    within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {
-                        writeln!(formatter.labeled("elided"), "(elided revisions)")
-                    })?;
+                    within_graph
+                        .write(ui.new_formatter(&mut buffer).as_mut(), async |formatter| {
+                            writeln!(formatter.labeled("elided"), "(elided revisions)")
+                        })
+                        .await?;
                     let node_symbol = format_template(ui, &None, &node_template);
                     graph.add_node(
                         &elided_key,
@@ -320,19 +329,22 @@ pub(crate) async fn cmd_log(
                 }
             }
         } else {
-            let iter: Box<dyn Iterator<Item = Result<CommitId, RevsetEvaluationError>>> = {
-                let forward_iter = revset.iter().take(args.limit.unwrap_or(usize::MAX));
+            let id_stream: LocalBoxStream<Result<CommitId, RevsetEvaluationError>> = {
+                let forward_stream = revset.stream().take(args.limit.unwrap_or(usize::MAX));
                 if args.reversed {
-                    let entries: Vec<_> = forward_iter.try_collect()?;
-                    Box::new(entries.into_iter().rev().map(Ok))
+                    let entries: Vec<_> = forward_stream.try_collect().await?;
+                    stream::iter(entries.into_iter().rev().map(Ok)).boxed_local()
                 } else {
-                    Box::new(forward_iter)
+                    forward_stream.boxed_local()
                 }
             };
-            for commit_or_error in iter.commits(store) {
-                let commit = commit_or_error?;
+            let mut commit_stream = id_stream.commits(store);
+            while let Some(commit) = commit_stream.try_next().await? {
                 with_content_format
-                    .write(formatter, |formatter| template.format(&commit, formatter))?;
+                    .write(formatter, async |formatter| {
+                        template.format(&commit, formatter)
+                    })
+                    .await?;
                 if let Some(renderer) = &diff_renderer {
                     let width = ui.term_width();
                     renderer

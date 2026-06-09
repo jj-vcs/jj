@@ -35,7 +35,7 @@ pub async fn cmd_sparse_list(
     command: &CommandHelper,
     _args: &SparseListArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper(ui)?;
+    let workspace_command = command.workspace_helper(ui).await?;
     for path in workspace_command.working_copy().sparse_patterns()? {
         writeln!(
             ui.stdout(),

@@ -84,6 +84,7 @@ indoc = { workspace = true }
 itertools = { workspace = true }
 jj-lib = { workspace = true }
 maplit = { workspace = true }
+mimalloc = { workspace = true }
 once_cell = { workspace = true }
 pest = { workspace = true }
 pest_derive = { workspace = true }
@@ -104,7 +105,6 @@ tempfile = { workspace = true }
 textwrap = { workspace = true }
 thiserror = { workspace = true }
 timeago = { workspace = true }
-tokio = { workspace = true }
 toml = { workspace = true }
 toml_edit = { workspace = true }
 tracing = { workspace = true }
@@ -112,12 +112,14 @@ tracing-chrome = { workspace = true }
 tracing-subscriber = { workspace = true }
 unicode-width = { workspace = true }
 whoami = { workspace = true }
+percent-encoding = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 libc = { workspace = true }
 nix = { workspace = true, features = [ "signal" ] }
 
 [dev-dependencies]
+anstream = { workspace = true }
 assert_cmd = { workspace = true }
 assert_matches = { workspace = true }
 async-trait = { workspace = true }

@@ -245,7 +245,7 @@ pub(crate) async fn move_to_commit(
     direction: Direction,
     args: &MovementArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
 
     let current_wc_id = workspace_command
         .get_wc_commit_id()

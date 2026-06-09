@@ -15,8 +15,8 @@
 #![expect(missing_docs)]
 
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::fs;
+use std::future;
 use std::io;
 use std::io::Write as _;
 use std::path::Path;
@@ -28,6 +28,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
+use futures::stream;
 use itertools::Itertools as _;
 use prost::Message as _;
 use tempfile::NamedTempFile;
@@ -300,9 +301,9 @@ impl DefaultIndexStore {
                 .as_ref()
                 .is_some_and(|index| index.has_id_impl(id))
         };
-        let get_commit_with_op = |commit_id: &CommitId, op_id: &OperationId| {
+        let get_commit_with_op = async |commit_id: &CommitId, op_id: &OperationId| {
             let op_id = op_id.clone();
-            match store.get_commit(commit_id) {
+            match store.get_commit_async(commit_id).await {
                 // Propagate head's op_id to report possible source of an error.
                 // The op_id doesn't have to be included in the sort key, but
                 // that wouldn't matter since the commit should be unique.
@@ -310,48 +311,21 @@ impl DefaultIndexStore {
                 Err(source) => Err(DefaultIndexStoreError::IndexCommits { op_id, source }),
             }
         };
-        // Retain immediate predecessors if legacy operation exists. Some
-        // commands (e.g. squash into grandparent) may leave transitive
-        // predecessors, which aren't visible to any views.
-        // TODO: delete this workaround with commit.predecessors.
-        let commits_to_keep_immediate_predecessors = if ops_to_visit
-            .iter()
-            .any(|op| !op.stores_commit_predecessors())
-        {
-            let mut ancestors = HashSet::new();
-            let mut work = historical_heads.keys().cloned().collect_vec();
-            while let Some(commit_id) = work.pop() {
-                if ancestors.contains(&commit_id) || parent_index_has_id(&commit_id) {
-                    continue;
-                }
-                if let Ok(commit) = store.get_commit(&commit_id) {
-                    work.extend(commit.parent_ids().iter().cloned());
-                }
-                ancestors.insert(commit_id);
-            }
-            ancestors
-        } else {
-            HashSet::new()
-        };
         let commits = dag_walk_async::topo_order_reverse_ord(
-            historical_heads
-                .iter()
-                .filter(|&(commit_id, _)| !parent_index_has_id(commit_id))
-                .map(|(commit_id, op_id)| get_commit_with_op(commit_id, op_id)),
+            stream::iter(&historical_heads)
+                .filter(|&(commit_id, _)| future::ready(!parent_index_has_id(commit_id)))
+                .map(|(commit_id, op_id)| get_commit_with_op(commit_id, op_id))
+                .buffered(store.concurrency())
+                .collect::<Vec<_>>()
+                .await,
             |(CommitByCommitterTimestamp(commit), _)| commit.id().clone(),
             async |(CommitByCommitterTimestamp(commit), op_id)| {
-                let keep_predecessors =
-                    commits_to_keep_immediate_predecessors.contains(commit.id());
-                itertools::chain(
-                    commit.parent_ids(),
-                    keep_predecessors
-                        .then_some(&commit.store_commit().predecessors)
-                        .into_iter()
-                        .flatten(),
-                )
-                .filter(|&id| !parent_index_has_id(id))
-                .map(|commit_id| get_commit_with_op(commit_id, op_id))
-                .collect_vec()
+                stream::iter(commit.parent_ids())
+                    .filter(|&id| future::ready(!parent_index_has_id(id)))
+                    .map(|commit_id| get_commit_with_op(commit_id, op_id))
+                    .buffered(store.concurrency())
+                    .collect::<Vec<_>>()
+                    .await
             },
             |_| panic!("graph has cycle"),
         )

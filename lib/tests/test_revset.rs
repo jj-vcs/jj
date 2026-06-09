@@ -19,6 +19,7 @@ use std::sync::Arc;
 
 use assert_matches::assert_matches;
 use chrono::DateTime;
+use futures::StreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
@@ -593,9 +594,10 @@ fn test_resolve_working_copy() -> TestResult {
             .present()
             .resolve_user_expression(tx.repo(), &symbol_resolver)?
             .evaluate(tx.repo())?
-            .iter()
+            .stream()
             .map(Result::unwrap)
-            .collect_vec(),
+            .collect::<Vec<_>>()
+            .block_on(),
         vec![]
     );
     drop(symbol_resolver);
@@ -612,9 +614,10 @@ fn test_resolve_working_copy() -> TestResult {
             .unwrap()
             .evaluate(tx.repo())
             .unwrap()
-            .iter()
+            .stream()
             .map(Result::unwrap)
             .collect()
+            .block_on()
     };
 
     // Can resolve "@" shorthand with a default workspace name
@@ -649,9 +652,10 @@ fn test_resolve_working_copies() -> TestResult {
             .unwrap()
             .evaluate(tx.repo())
             .unwrap()
-            .iter()
+            .stream()
             .map(Result::unwrap)
             .collect()
+            .block_on()
     };
 
     // ensure our output has those two commits
@@ -1189,9 +1193,10 @@ fn try_resolve_commit_ids(
     Ok(try_resolve_expression(repo, revset_str)?
         .evaluate(repo)
         .unwrap()
-        .iter()
+        .stream()
         .map(Result::unwrap)
-        .collect())
+        .collect()
+        .block_on())
 }
 
 fn try_evaluate_expression<'index>(
@@ -1237,9 +1242,10 @@ fn resolve_commit_ids_in_workspace(
     expression
         .evaluate(repo)
         .unwrap()
-        .iter()
+        .stream()
         .map(Result::unwrap)
         .collect()
+        .block_on()
 }
 
 #[test]
@@ -2509,89 +2515,6 @@ fn test_evaluate_expression_visible_heads() {
 }
 
 #[test]
-fn test_evaluate_expression_git_refs() {
-    let test_repo = TestRepo::init();
-    let repo = &test_repo.repo;
-
-    let mut tx = repo.start_transaction();
-    let mut_repo = tx.repo_mut();
-
-    let commit1 = write_random_commit(mut_repo);
-    let commit2 = write_random_commit(mut_repo);
-    let commit3 = write_random_commit(mut_repo);
-    let commit4 = write_random_commit(mut_repo);
-
-    // Can get git refs when there are none
-    assert_eq!(resolve_commit_ids(mut_repo, "git_refs()"), vec![]);
-    // Can get a mix of git refs
-    mut_repo.set_git_ref_target(
-        "refs/heads/bookmark1".as_ref(),
-        RefTarget::normal(commit1.id().clone()),
-    );
-    mut_repo.set_git_ref_target(
-        "refs/tags/tag1".as_ref(),
-        RefTarget::normal(commit2.id().clone()),
-    );
-    assert_eq!(
-        resolve_commit_ids(mut_repo, "git_refs()"),
-        vec![commit2.id().clone(), commit1.id().clone()]
-    );
-    // Two refs pointing to the same commit does not result in a duplicate in the
-    // revset
-    mut_repo.set_git_ref_target(
-        "refs/tags/tag2".as_ref(),
-        RefTarget::normal(commit2.id().clone()),
-    );
-    assert_eq!(
-        resolve_commit_ids(mut_repo, "git_refs()"),
-        vec![commit2.id().clone(), commit1.id().clone()]
-    );
-    // Can get git refs when there are conflicted refs
-    mut_repo.set_git_ref_target(
-        "refs/heads/bookmark1".as_ref(),
-        RefTarget::from_legacy_form(
-            [commit1.id().clone()],
-            [commit2.id().clone(), commit3.id().clone()],
-        ),
-    );
-    mut_repo.set_git_ref_target(
-        "refs/tags/tag1".as_ref(),
-        RefTarget::from_legacy_form(
-            [commit2.id().clone()],
-            [commit3.id().clone(), commit4.id().clone()],
-        ),
-    );
-    mut_repo.set_git_ref_target("refs/tags/tag2".as_ref(), RefTarget::absent());
-    assert_eq!(
-        resolve_commit_ids(mut_repo, "git_refs()"),
-        vec![
-            commit4.id().clone(),
-            commit3.id().clone(),
-            commit2.id().clone()
-        ]
-    );
-}
-
-#[test]
-fn test_evaluate_expression_git_head() {
-    let test_repo = TestRepo::init();
-    let repo = &test_repo.repo;
-
-    let mut tx = repo.start_transaction();
-    let mut_repo = tx.repo_mut();
-
-    let commit1 = write_random_commit(mut_repo);
-
-    // Can get git head when it's not set
-    assert_eq!(resolve_commit_ids(mut_repo, "git_head()"), vec![]);
-    mut_repo.set_git_head_target(RefTarget::normal(commit1.id().clone()));
-    assert_eq!(
-        resolve_commit_ids(mut_repo, "git_head()"),
-        vec![commit1.id().clone()]
-    );
-}
-
-#[test]
 fn test_evaluate_expression_bookmarks() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
@@ -3420,7 +3343,14 @@ fn test_evaluate_expression_exactly() {
     let commit2 = write_random_commit_with_parents(mut_repo, &[&commit1]);
 
     assert!(try_evaluate_expression(mut_repo, "exactly(none(), 0)").is_ok());
-    assert!(try_evaluate_expression(mut_repo, "exactly(none(), 1)").is_err());
+    assert_matches!(
+        try_evaluate_expression(mut_repo, "exactly(none(), 1)"),
+        Err(RevsetEvaluationError::Other(msg)) if msg.to_string() == "The revset has fewer than the expected 1 revisions (got 0)"
+    );
+    assert_matches!(
+        try_evaluate_expression(mut_repo, "exactly(all(), 0)"),
+        Err(RevsetEvaluationError::Other(msg)) if msg.to_string() == "The revset has more than the expected 0 revisions"
+    );
     assert!(try_evaluate_expression(mut_repo, &format!("exactly({}, 1)", commit1.id())).is_ok());
     assert!(
         try_evaluate_expression(
@@ -4618,7 +4548,7 @@ fn test_evaluate_expression_file(indexed: bool) {
             FilesetExpression::prefix_path(file_path.to_owned()),
         ));
         let revset = expression.evaluate(mut_repo).unwrap();
-        revset.iter().map(Result::unwrap).collect()
+        revset.stream().map(Result::unwrap).collect().block_on()
     };
 
     assert_eq!(resolve(added_clean_clean), vec![commit1.id().clone()]);
@@ -5168,7 +5098,14 @@ fn test_reverse_graph() -> TestResult {
         repo.as_ref(),
         &[&commit_a, &commit_c, &commit_d, &commit_e, &commit_f],
     );
-    let commits = reverse_graph(revset.iter_graph(), |id| id)?;
+    let commits = reverse_graph(
+        revset
+            .stream_graph()
+            .collect::<Vec<_>>()
+            .block_on()
+            .into_iter(),
+        |id| id,
+    )?;
     assert_eq!(commits.len(), 5);
     assert_eq!(commits[0].0, *commit_a.id());
     assert_eq!(commits[1].0, *commit_c.id());

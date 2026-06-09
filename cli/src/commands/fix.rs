@@ -18,6 +18,7 @@ use std::path::Path;
 use std::process::Stdio;
 
 use clap_complete::ArgValueCompleter;
+use futures::AsyncReadExt as _;
 use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::FileId;
@@ -41,7 +42,6 @@ use jj_lib::revset::RevsetStreamExt as _;
 use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
 use pollster::FutureExt as _;
-use tokio::io::AsyncReadExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -190,7 +190,7 @@ pub(crate) async fn cmd_fix(
     command: &CommandHelper,
     args: &FixArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     let workspace_root = workspace_command.workspace_root().to_owned();
     let path_converter = workspace_command.path_converter().to_owned();
     let tools_config = get_tools_config(

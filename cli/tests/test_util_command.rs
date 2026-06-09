@@ -15,9 +15,24 @@
 use std::fs;
 
 use insta::assert_snapshot;
+use test_case::test_case;
+use testutils::TestRepoBackend;
 use testutils::TestResult;
+use testutils::TestWorkspace;
 
 use crate::common::TestEnvironment;
+
+#[test_case(TestRepoBackend::Simple, "Simple" ; "simple backend")]
+#[test_case(TestRepoBackend::Git, "git" ; "git backend")]
+fn test_util_backend_name(backend: TestRepoBackend, expected_name: &str) {
+    let test_env = TestEnvironment::default();
+    let test_workspace = TestWorkspace::init_with_backend(backend);
+    let root = test_workspace.workspace.workspace_root();
+    let output = test_env
+        .run_jj_in(&root, ["util", "backend", "name"])
+        .success();
+    assert_eq!(output.stdout.raw(), &[expected_name, "\n"].concat());
+}
 
 #[test]
 fn test_util_config_schema() {

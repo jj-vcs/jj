@@ -28,7 +28,7 @@ pub async fn cmd_debug_working_copy(
     command: &CommandHelper,
     _args: &DebugWorkingCopyArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper_no_snapshot(ui)?;
+    let workspace_command = command.workspace_helper_no_snapshot(ui).await?;
     let wc = workspace_command.working_copy();
     writeln!(ui.stdout(), "Type: {:?}", wc.name())?;
     writeln!(ui.stdout(), "Current operation: {:?}", wc.operation_id())?;

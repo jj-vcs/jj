@@ -17,12 +17,12 @@ This guide assumes a basic understanding of Git, Gerrit, and Jujutsu.
 
 Jujutsu communicates with Gerrit by pushing commits to a Git remote. If you're
 starting from an existing Git repository with Gerrit remotes already configured,
-you can use `jj git init --colocate` to start using JJ in that repo. Otherwise,
-set up your Gerrit remote.
+you can use `jj git init` to start using JJ in that repo. Otherwise, set up your
+Gerrit remote.
 
 ```shell
 # Option 1: Start JJ in an existing Git repo with Gerrit remotes
-$ jj git init --colocate
+$ jj git init
 
 # Option 2: Add a Gerrit remote to a JJ repo
 $ jj git remote add gerrit https://review.gerrithub.io/yourname/yourproject

@@ -121,7 +121,6 @@ use crate::templater::BoxedAnyProperty;
 use crate::templater::BoxedSerializeProperty;
 use crate::templater::BoxedTemplateProperty;
 use crate::templater::Literal;
-use crate::templater::PlainTextFormattedProperty;
 use crate::templater::SizeHint;
 use crate::templater::Template;
 use crate::templater::TemplateFormatter;
@@ -552,76 +551,79 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         }
     }
 
-    fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'repo, bool>> {
+    fn try_into_byte_string(self) -> Result<BoxedTemplateProperty<'repo, BString>, Self> {
         match self {
-            Self::Core(property) => property.try_into_boolean(),
-            Self::Operation(property) => property.try_into_boolean(),
-            Self::Commit(_) => None,
-            Self::CommitOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
-            Self::CommitList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
-            Self::CommitEvolutionEntry(_) => None,
-            Self::CommitRef(_) => None,
-            Self::CommitRefOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
-            Self::CommitRefList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
-            Self::WorkspaceRef(_) => None,
-            Self::WorkspaceRefOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
-            Self::WorkspaceRefList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
-            Self::RefSymbol(_) => None,
-            Self::RefSymbolOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
-            Self::RepoPath(_) => None,
-            Self::RepoPathOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
-            Self::ChangeId(_) => None,
-            Self::CommitId(_) => None,
-            Self::ShortestIdPrefix(_) => None,
+            Self::Core(property) => property.try_into_byte_string().map_err(Self::Core),
+            Self::Operation(property) => property.try_into_byte_string().map_err(Self::Operation),
+            _ => Err(self),
+        }
+    }
+
+    fn try_into_string(self) -> Result<BoxedTemplateProperty<'repo, String>, Self> {
+        match self {
+            Self::Core(property) => property.try_into_string().map_err(Self::Core),
+            Self::Operation(property) => property.try_into_string().map_err(Self::Operation),
+            Self::RefSymbol(property) => Ok(property.map(|RefSymbolBuf(s)| s).into_dyn()),
+            Self::RefSymbolOpt(property) => Ok(property
+                .map(|opt| opt.map_or_else(String::new, |RefSymbolBuf(s)| s))
+                .into_dyn()),
+            _ => Err(self),
+        }
+    }
+
+    fn try_into_boolean(self) -> Result<BoxedTemplateProperty<'repo, bool>, Self> {
+        match self {
+            Self::Core(property) => property.try_into_boolean().map_err(Self::Core),
+            Self::Operation(property) => property.try_into_boolean().map_err(Self::Operation),
+            Self::Commit(_) => Err(self),
+            Self::CommitOpt(property) => Ok(property.map(|opt| opt.is_some()).into_dyn()),
+            Self::CommitList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::CommitEvolutionEntry(_) => Err(self),
+            Self::CommitRef(_) => Err(self),
+            Self::CommitRefOpt(property) => Ok(property.map(|opt| opt.is_some()).into_dyn()),
+            Self::CommitRefList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::WorkspaceRef(_) => Err(self),
+            Self::WorkspaceRefOpt(property) => Ok(property.map(|opt| opt.is_some()).into_dyn()),
+            Self::WorkspaceRefList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::RefSymbol(_) => Err(self),
+            Self::RefSymbolOpt(property) => Ok(property.map(|opt| opt.is_some()).into_dyn()),
+            Self::RepoPath(_) => Err(self),
+            Self::RepoPathOpt(property) => Ok(property.map(|opt| opt.is_some()).into_dyn()),
+            Self::ChangeId(_) => Err(self),
+            Self::CommitId(_) => Err(self),
+            Self::ShortestIdPrefix(_) => Err(self),
             // TODO: boolean cast could be implemented, but explicit
             // diff.empty() method might be better.
-            Self::TreeDiff(_) => None,
-            Self::TreeDiffEntry(_) => None,
-            Self::TreeDiffEntryList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
-            Self::TreeEntry(_) => None,
-            Self::TreeEntryList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
-            Self::DiffStats(_) => None,
-            Self::DiffStatEntry(_) => None,
-            Self::DiffStatEntryList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::TreeDiff(_) => Err(self),
+            Self::TreeDiffEntry(_) => Err(self),
+            Self::TreeDiffEntryList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::TreeEntry(_) => Err(self),
+            Self::TreeEntryList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::DiffStats(_) => Err(self),
+            Self::DiffStatEntry(_) => Err(self),
+            Self::DiffStatEntryList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
             Self::CryptographicSignatureOpt(property) => {
-                Some(property.map(|sig| sig.is_some()).into_dyn())
+                Ok(property.map(|sig| sig.is_some()).into_dyn())
             }
-            Self::AnnotationLine(_) => None,
-            Self::Trailer(_) => None,
-            Self::TrailerList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::AnnotationLine(_) => Err(self),
+            Self::Trailer(_) => Err(self),
+            Self::TrailerList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
         }
     }
 
-    fn try_into_integer(self) -> Option<BoxedTemplateProperty<'repo, i64>> {
+    fn try_into_integer(self) -> Result<BoxedTemplateProperty<'repo, i64>, Self> {
         match self {
-            Self::Core(property) => property.try_into_integer(),
-            Self::Operation(property) => property.try_into_integer(),
-            _ => None,
+            Self::Core(property) => property.try_into_integer().map_err(Self::Core),
+            Self::Operation(property) => property.try_into_integer().map_err(Self::Operation),
+            _ => Err(self),
         }
     }
 
-    fn try_into_timestamp(self) -> Option<BoxedTemplateProperty<'repo, Timestamp>> {
+    fn try_into_timestamp(self) -> Result<BoxedTemplateProperty<'repo, Timestamp>, Self> {
         match self {
-            Self::Core(property) => property.try_into_timestamp(),
-            Self::Operation(property) => property.try_into_timestamp(),
-            _ => None,
-        }
-    }
-
-    fn try_into_stringify(self) -> Option<BoxedTemplateProperty<'repo, String>> {
-        match self {
-            Self::Core(property) => property.try_into_stringify(),
-            Self::Operation(property) => property.try_into_stringify(),
-            Self::RefSymbol(property) => Some(property.map(|RefSymbolBuf(s)| s).into_dyn()),
-            Self::RefSymbolOpt(property) => Some(
-                property
-                    .map(|opt| opt.map_or_else(String::new, |RefSymbolBuf(s)| s))
-                    .into_dyn(),
-            ),
-            _ => {
-                let template = self.try_into_template()?;
-                Some(PlainTextFormattedProperty::new(template).into_dyn())
-            }
+            Self::Core(property) => property.try_into_timestamp().map_err(Self::Core),
+            Self::Operation(property) => property.try_into_timestamp().map_err(Self::Operation),
+            _ => Err(self),
         }
     }
 
@@ -1214,37 +1216,6 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             let index = language.keyword_cache.tags_index(language.repo).clone();
             let out_property =
                 self_property.map(move |commit| collect_remote_refs(index.get(commit.id())));
-            Ok(out_property.into_dyn_wrapped())
-        },
-    );
-    // TODO: Remove in jj 0.43+
-    map.insert(
-        "git_refs",
-        |language, diagnostics, _build_ctx, self_property, function| {
-            diagnostics.add_warning(TemplateParseError::expression(
-                "commit.git_refs() is deprecated; use .remote_bookmarks()/tags() instead",
-                function.name_span,
-            ));
-            function.expect_no_arguments()?;
-            let index = language.keyword_cache.git_refs_index(language.repo).clone();
-            let out_property = self_property.map(move |commit| index.get(commit.id()).to_vec());
-            Ok(out_property.into_dyn_wrapped())
-        },
-    );
-    // TODO: Remove in jj 0.43+
-    map.insert(
-        "git_head",
-        |language, diagnostics, _build_ctx, self_property, function| {
-            diagnostics.add_warning(TemplateParseError::expression(
-                "commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead",
-                function.name_span,
-            ));
-            function.expect_no_arguments()?;
-            let repo = language.repo;
-            let out_property = self_property.map(|commit| {
-                let target = repo.view().git_head();
-                target.added_ids().contains(commit.id())
-            });
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -2943,7 +2914,6 @@ pub struct AnnotationLine {
 
 fn builtin_annotation_line_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, AnnotationLine>
 {
-    type P<'repo> = CommitTemplatePropertyKind<'repo>;
     let mut map = CommitTemplateBuildMethodFnMap::<AnnotationLine>::new();
     map.insert(
         "commit",
@@ -2958,8 +2928,7 @@ fn builtin_annotation_line_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'r
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|line| line.content);
-            // TODO: Add Bytes or BString template type?
-            Ok(P::wrap_template(out_property.into_template()))
+            Ok(out_property.into_dyn_wrapped())
         },
     );
     map.insert(
@@ -3165,14 +3134,13 @@ mod tests {
             )
         }
 
-        fn render_ok<'a, C>(&'a self, text: &str, context: &C) -> String
+        fn render_ok<'a, C>(&'a self, text: &str, context: &C) -> BString
         where
             C: Clone + 'a,
             CommitTemplatePropertyKind<'a>: WrapTemplateProperty<'a, C>,
         {
             let template = self.parse(text).unwrap();
-            let output = template.format_plain_text(context);
-            String::from_utf8(output).unwrap()
+            template.format_plain_text(context).into()
         }
     }
 

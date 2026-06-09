@@ -34,7 +34,6 @@ use crate::dag_walk_async;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
 use crate::op_heads_store;
-use crate::op_heads_store::OpHeadResolutionError;
 use crate::op_heads_store::OpHeadsStore;
 use crate::op_heads_store::OpHeadsStoreError;
 use crate::op_store::OpStore;
@@ -55,9 +54,6 @@ pub enum OpsetEvaluationError {
     /// Failed to read op heads.
     #[error(transparent)]
     OpHeadsStore(#[from] OpHeadsStoreError),
-    /// Failed to resolve the current operation heads.
-    #[error(transparent)]
-    OpHeadResolution(#[from] OpHeadResolutionError),
     /// Failed to access operation object.
     #[error(transparent)]
     OpStore(#[from] OpStoreError),
@@ -358,6 +354,29 @@ fn collect_ancestors_until_roots(
     // Don't visit ancestors of unwanted ops further.
     start_ops.retain(|OperationByEndTime(op)| !unwanted_ids.contains(op.id()));
     items
+}
+
+/// Finds the closest common ancestor of `set1` and `set2`. Uses the end
+/// timestamp as a heuristic.
+// TODO: We should probably make this a function on `OpStore` instead of
+// relying on heuristics (even if the implementation of the trait might rely on
+// the same heuristic initially).
+pub async fn closest_common_ancestors(
+    set1: impl IntoIterator<Item = Operation>,
+    set2: impl IntoIterator<Item = Operation>,
+) -> OpStoreResult<Vec<Operation>> {
+    let ancestor_ops = dag_walk_async::closest_common_nodes(
+        set1.into_iter().map(OperationByEndTime),
+        set2.into_iter().map(OperationByEndTime),
+        |op: &OperationByEndTime| op.0.id().clone(),
+        async |op: &OperationByEndTime| {
+            op.0.parents()
+                .await
+                .map(|parents| parents.into_iter().map(OperationByEndTime))
+        },
+    )
+    .await?;
+    Ok(ancestor_ops.into_iter().map(|op| op.0).collect())
 }
 
 /// Stats about `reparent_range()`.

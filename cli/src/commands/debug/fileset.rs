@@ -35,7 +35,7 @@ pub async fn cmd_debug_fileset(
     command: &CommandHelper,
     args: &DebugFilesetArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper(ui)?;
+    let workspace_command = command.workspace_helper(ui).await?;
 
     let mut diagnostics = FilesetDiagnostics::new();
     let context = workspace_command.env().fileset_parse_context();

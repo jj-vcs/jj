@@ -16,6 +16,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::io;
 
+use bstr::ByteSlice as _;
 use crossterm::ExecutableCommand as _;
 use crossterm::event::Event;
 use crossterm::event::KeyCode;
@@ -40,6 +41,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetStreamExt as _;
 use jj_lib::rewrite::CommitRewriter;
 use ratatui::Terminal;
+use ratatui::buffer::Buffer;
 use ratatui::layout::Constraint;
 use ratatui::layout::Direction;
 use ratatui::layout::Layout;
@@ -51,6 +53,7 @@ use ratatui::style::Style;
 use ratatui::text::Line;
 use ratatui::text::Span;
 use ratatui::text::Text;
+use ratatui::widgets::Widget as _;
 use renderdag::Ancestor;
 use renderdag::GraphRowRenderer;
 use renderdag::Renderer as _;
@@ -89,7 +92,7 @@ pub(crate) async fn cmd_arrange(
     command: &CommandHelper,
     args: &ArrangeArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     let repo = workspace_command.repo().clone();
     let target_expression = if args.revisions_pos.is_empty() && args.revisions_opt.is_empty() {
         let revs = workspace_command.settings().get_string("revsets.arrange")?;
@@ -270,7 +273,7 @@ impl State {
     /// Update the current UI commit order after parents have changed.
     fn update_commit_order(&mut self) {
         // Use the original order to get a determinisic order.
-        // TODO: Use TopoGroupedGraphIterator so the order better matches `jj log`
+        // TODO: Use TopoGroupedGraph so the order better matches `jj log`
         let commit_ids: Vec<&CommitId> = dag_walk::topo_order_reverse(
             self.head_order.iter(),
             |id| *id,
@@ -467,6 +470,20 @@ fn run_tui<B: ratatui::backend::Backend>(
     }
     let help_line = Line::from(help_spans);
 
+    let render_commit = |commit: &Commit, is_context_node: bool| {
+        let mut text_lines = vec![];
+        let mut formatter = ui.new_formatter(&mut text_lines).into_labeled("arrange");
+        if is_context_node {
+            template
+                .format(commit, formatter.labeled("context").as_mut())
+                .unwrap();
+        } else {
+            template.format(commit, formatter.as_mut()).unwrap();
+        }
+        drop(formatter);
+        text_lines
+    };
+
     loop {
         terminal
             .draw(|frame| {
@@ -476,7 +493,7 @@ fn run_tui<B: ratatui::backend::Backend>(
                     .split(frame.area());
                 let main_area = layout[0];
                 let help_area = layout[1];
-                render(&state, ui, &template, frame, main_area);
+                render(&state, render_commit, frame.buffer_mut(), main_area);
                 frame.render_widget(&help_line, help_area);
             })
             .map_err(|e| internal_error(format!("Failed to draw TUI: {e}")))?;
@@ -539,9 +556,8 @@ fn handle_key_event(event: KeyEvent, mut state: State) -> State {
 
 fn render(
     state: &State,
-    ui: &mut Ui,
-    template: &crate::templater::TemplateRenderer<Commit>,
-    frame: &mut ratatui::Frame,
+    render_commit: impl Fn(&Commit, bool) -> Vec<u8>,
+    buf: &mut Buffer,
     main_area: Rect,
 ) {
     let mut row_renderer = GraphRowRenderer::new()
@@ -549,7 +565,7 @@ fn render(
         .with_min_row_height(2)
         .build_box_drawing();
     let mut row_area = main_area;
-    let current_seletion_id = state.current_id();
+    let current_selection_id = state.current_id();
     let commits_to_render = state
         .external_children
         .iter()
@@ -570,8 +586,8 @@ fn render(
         let action_area = row_layout[2];
         let text_area = row_layout[3];
 
-        if id == current_seletion_id {
-            frame.render_widget(Text::from("▶"), selection_area);
+        if id == current_selection_id {
+            Text::from("▶").render(selection_area, buf);
         }
 
         let commit_state = state.commits.get(id).unwrap();
@@ -595,15 +611,6 @@ fn render(
             UiAction::Abandon => "×",
             UiAction::Keep => "○",
         };
-        let graph_lines = row_renderer.next_row(id, edges, glyph.to_string(), "".to_string());
-        let graph_text = Text::from(graph_lines);
-        row_area = row_area
-            .offset(Offset {
-                x: 0,
-                y: graph_text.height() as i32,
-            })
-            .intersection(main_area);
-        frame.render_widget(graph_text, graph_area);
 
         let is_context_node =
             state.external_children.contains(id) || state.external_parents.contains(id);
@@ -612,23 +619,24 @@ fn render(
                 UiAction::Abandon => "abandon",
                 UiAction::Keep => "keep",
             };
-            frame.render_widget(Text::from(action_text), action_area);
+            Text::from(action_text).render(action_area, buf);
         }
 
-        let mut text_lines = vec![];
-        let mut formatter = ui.new_formatter(&mut text_lines).into_labeled("arrange");
-        if is_context_node {
-            template
-                .format(&commit_state.commit, formatter.labeled("context").as_mut())
-                .unwrap();
-        } else {
-            template
-                .format(&commit_state.commit, formatter.as_mut())
-                .unwrap();
-        }
-        drop(formatter);
+        let text_lines = render_commit(&commit_state.commit, is_context_node);
         let text = ansi_to_tui::IntoText::into_text(&text_lines).unwrap();
-        frame.render_widget(text, text_area);
+        text.render(text_area, buf);
+
+        // Make graph as tall as the text
+        let graph_message = "\n".repeat(text_lines.lines().count());
+        let graph_lines = row_renderer.next_row(id, edges, glyph.to_string(), graph_message);
+        let graph_text = Text::from(graph_lines);
+        row_area = row_area
+            .offset(Offset {
+                x: 0,
+                y: graph_text.height() as i32,
+            })
+            .intersection(main_area);
+        graph_text.render(graph_area, buf);
     }
 }
 
@@ -1257,6 +1265,296 @@ mod tests {
             *tx.repo_mut().view().heads(),
             hashset![commit_b.id().clone(), new_commit_d.id().clone()]
         );
+        Ok(())
+    }
+
+    fn render_commit(commit: &Commit, is_context_node: bool) -> Vec<u8> {
+        let mut text = commit.description().to_owned();
+        if is_context_node {
+            text = format!("(context) {text}");
+        }
+        text.into_bytes()
+    }
+
+    fn buffer_to_string(buf: &Buffer) -> String {
+        let mut res = String::new();
+        for y in 0..buf.area.height {
+            let mut line = String::new();
+            for x in 0..buf.area.width {
+                let cell = &buf[(x, y)];
+                line.push_str(cell.symbol());
+            }
+            res.push_str(line.trim_end());
+            res.push('\n');
+        }
+        res
+    }
+
+    fn render_to_string(state: &State, width: u16, height: u16) -> String {
+        let mut buf = Buffer::empty(Rect::new(0, 0, width, height));
+        render(
+            state,
+            render_commit,
+            &mut buf,
+            Rect::new(0, 0, width, height),
+        );
+        buffer_to_string(&buf)
+    }
+
+    #[test]
+    fn test_render_single_commit_with_context() -> TestResult {
+        let test_repo = TestRepo::init();
+        let store = test_repo.repo.store();
+        let empty_tree = store.empty_merged_tree();
+
+        let mut tx = test_repo.repo.start_transaction();
+        let mut create_commit = |parents, description: &str| {
+            tx.repo_mut()
+                .new_commit(parents, empty_tree.clone())
+                .set_description(description)
+                .write_unwrap()
+        };
+        let commit_a = create_commit(vec![store.root_commit_id().clone()], "commit A");
+        let commit_b = create_commit(vec![commit_a.id().clone()], "commit B");
+        let commit_c = create_commit(vec![commit_b.id().clone()], "commit C");
+
+        let state = State::new(vec![commit_b.clone()], vec![commit_c.clone()]).block_on()?;
+        insta::assert_snapshot!(render_to_string(&state, 80, 50), @"
+          ○                   (context) commit C
+          │
+        ▶ ○         keep      commit B
+          │
+          ○                   (context) commit A
+          │
+          ~
+        ");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_render_abandon() -> TestResult {
+        let test_repo = TestRepo::init();
+        let store = test_repo.repo.store();
+        let empty_tree = store.empty_merged_tree();
+
+        let mut tx = test_repo.repo.start_transaction();
+        let mut create_commit = |parents, description: &str| {
+            tx.repo_mut()
+                .new_commit(parents, empty_tree.clone())
+                .set_description(description)
+                .write_unwrap()
+        };
+        let commit_a = create_commit(vec![store.root_commit_id().clone()], "commit A");
+
+        let mut state = State::new(vec![commit_a.clone()], vec![]).block_on()?;
+        state.commits.get_mut(commit_a.id()).unwrap().action = UiAction::Abandon;
+        insta::assert_snapshot!(render_to_string(&state, 80, 50), @"
+        ▶ ×         abandon   commit A
+          │
+          ○                   (context)
+        ");
+
+        Ok(())
+    }
+    #[test]
+    fn test_render_long_description() -> TestResult {
+        let test_repo = TestRepo::init();
+        let store = test_repo.repo.store();
+        let empty_tree = store.empty_merged_tree();
+
+        let mut tx = test_repo.repo.start_transaction();
+        let mut create_commit = |parents, description: &str| {
+            tx.repo_mut()
+                .new_commit(parents, empty_tree.clone())
+                .set_description(description)
+                .write_unwrap()
+        };
+        let commit_a = create_commit(
+            vec![store.root_commit_id().clone()],
+            "commit A line 1
+commit A line 2
+commit A line 3
+commit A line 4
+commit A line 5",
+        );
+
+        let state = State::new(vec![commit_a.clone()], vec![]).block_on()?;
+        insta::assert_snapshot!(render_to_string(&state, 80, 50), @"
+        ▶ ○         keep      commit A line 1
+          │                   commit A line 2
+          │                   commit A line 3
+          │                   commit A line 4
+          │                   commit A line 5
+          ○                   (context)
+        ");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_render_multiple_commits_and_selection() -> TestResult {
+        let test_repo = TestRepo::init();
+        let store = test_repo.repo.store();
+        let empty_tree = store.empty_merged_tree();
+
+        let mut tx = test_repo.repo.start_transaction();
+        let mut create_commit = |parents, description: &str| {
+            tx.repo_mut()
+                .new_commit(parents, empty_tree.clone())
+                .set_description(description)
+                .write_unwrap()
+        };
+        let commit_a = create_commit(vec![store.root_commit_id().clone()], "commit A");
+        let commit_b = create_commit(vec![commit_a.id().clone()], "commit B");
+        let commit_c = create_commit(vec![commit_b.id().clone()], "commit C");
+
+        let mut state = State::new(
+            vec![commit_c.clone(), commit_b.clone(), commit_a.clone()],
+            vec![],
+        )
+        .block_on()?;
+
+        state.current_selection = 0;
+        insta::assert_snapshot!(render_to_string(&state, 80, 50), @"
+        ▶ ○         keep      commit C
+          │
+          ○         keep      commit B
+          │
+          ○         keep      commit A
+          │
+          ○                   (context)
+        ");
+
+        state.current_selection = 1;
+        insta::assert_snapshot!(&render_to_string(&state, 80, 50), @"
+          ○         keep      commit C
+          │
+        ▶ ○         keep      commit B
+          │
+          ○         keep      commit A
+          │
+          ○                   (context)
+        ");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_render_more_commits_than_fit() -> TestResult {
+        let test_repo = TestRepo::init();
+        let store = test_repo.repo.store();
+        let empty_tree = store.empty_merged_tree();
+
+        let mut tx = test_repo.repo.start_transaction();
+        let mut create_commit = |parents, description: &str| {
+            tx.repo_mut()
+                .new_commit(parents, empty_tree.clone())
+                .set_description(description)
+                .write_unwrap()
+        };
+        let commit_a = create_commit(vec![store.root_commit_id().clone()], "commit A");
+        let commit_b = create_commit(vec![commit_a.id().clone()], "commit B");
+        let commit_c = create_commit(vec![commit_b.id().clone()], "commit C");
+        let commit_d = create_commit(vec![commit_c.id().clone()], "commit D");
+        let commit_e = create_commit(vec![commit_d.id().clone()], "commit E");
+        let commit_f = create_commit(vec![commit_e.id().clone()], "commit F");
+        let commit_g = create_commit(vec![commit_f.id().clone()], "commit G");
+
+        let mut state = State::new(
+            vec![
+                commit_a.clone(),
+                commit_b.clone(),
+                commit_c.clone(),
+                commit_d.clone(),
+                commit_e.clone(),
+                commit_f.clone(),
+                commit_g.clone(),
+            ],
+            vec![],
+        )
+        .block_on()?;
+        state.current_selection = 5;
+        // TODO: Show at least the part that includes the selection
+        insta::assert_snapshot!(render_to_string(&state, 80, 10), @"
+        ○         keep      commit G
+        │
+        ○         keep      commit F
+        │
+        ○         keep      commit E
+        │
+        ○         keep      commit D
+        │
+        ○         keep      commit C
+        │
+        ");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_render_wide_graph() -> TestResult {
+        let test_repo = TestRepo::init();
+        let store = test_repo.repo.store();
+        let empty_tree = store.empty_merged_tree();
+
+        let mut tx = test_repo.repo.start_transaction();
+        let mut create_commit = |parents, description: &str| {
+            tx.repo_mut()
+                .new_commit(parents, empty_tree.clone())
+                .set_description(description)
+                .write_unwrap()
+        };
+        let commit_a = create_commit(vec![store.root_commit_id().clone()], "commit A");
+        let commit_b = create_commit(vec![store.root_commit_id().clone()], "commit B");
+        let commit_c = create_commit(vec![store.root_commit_id().clone()], "commit C");
+        let commit_d = create_commit(vec![store.root_commit_id().clone()], "commit D");
+        let commit_e = create_commit(vec![store.root_commit_id().clone()], "commit E");
+        let commit_f = create_commit(vec![store.root_commit_id().clone()], "commit F");
+        let commit_g = create_commit(
+            vec![
+                commit_a.id().clone(),
+                commit_b.id().clone(),
+                commit_c.id().clone(),
+                commit_d.id().clone(),
+                commit_e.id().clone(),
+                commit_f.id().clone(),
+            ],
+            "commit G",
+        );
+
+        let state = State::new(
+            vec![
+                commit_a.clone(),
+                commit_b.clone(),
+                commit_c.clone(),
+                commit_d.clone(),
+                commit_e.clone(),
+                commit_f.clone(),
+                commit_g.clone(),
+            ],
+            vec![],
+        )
+        .block_on()?;
+        // TODO: Dynamically adjust the space allocated to the graph so it fits
+        insta::assert_snapshot!(render_to_string(&state, 80, 50), @"
+        ▶ ○         keep      commit G
+          ├─┬─┬─┬─┬─
+          ○ │ │ │ │ keep      commit A
+          │ │ │ │ │
+          │ ○ │ │ │ keep      commit B
+          ├─╯ │ │ │
+          │   ○ │ │ keep      commit C
+          ├───╯ │ │
+          │     ○ │ keep      commit D
+          ├─────╯ │
+          │       ○ keep      commit E
+          ├───────╯
+          │         keep      commit F
+          ├─────────
+          ○                   (context)
+        ");
+
         Ok(())
     }
 }

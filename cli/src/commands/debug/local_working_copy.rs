@@ -33,7 +33,7 @@ pub async fn cmd_debug_local_working_copy(
     command: &CommandHelper,
     _args: &DebugLocalWorkingCopyArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper(ui)?;
+    let workspace_command = command.workspace_helper(ui).await?;
     let wc = check_local_disk_wc(workspace_command.working_copy())?;
     writeln!(ui.stdout(), "Current operation: {:?}", wc.operation_id())?;
     writeln!(ui.stdout(), "Current tree: {:?}", wc.tree()?)?;

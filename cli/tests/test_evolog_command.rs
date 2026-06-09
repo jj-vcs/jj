@@ -80,7 +80,8 @@ fn test_evolog_with_or_without_diff() {
     │     5     : +++++++ rlvkpnrz 51e08f95 "my description" (rebased revision)
     │     6     : foo
     │     7     : bar
-    │     8    1: >>>>>>> conflict 1 of 1 endsresolved
+    │     8     : >>>>>>> conflict 1 of 1 ends
+    │          1: resolved
     ×  rlvkpnrz/1 test.user@example.com 2001-02-03 08:05:09 cdf175ef (hidden) (conflict)
     │  my description
     │  -- operation 449a03ec4824 rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
@@ -422,14 +423,15 @@ fn test_evolog_squash() {
     │ │ │  Modified commit description:
     │ │ │     1     : <<<<<<< conflict 1 of 1
     │ │ │     2     : +++++++ side #1
-    │ │ │     3    1: squashed 2
+    │ │ │     3     : squashed 2
     │ │ │     4     : %%%%%%% diff from: base #1
     │ │ │     5     : \\\\\\\        to: side #2
     │ │ │     6     : +fourth
     │ │ │     7     : %%%%%%% diff from: base #2
-    │ │ │     8    1: \\\\\\\        to: side #3
+    │ │ │     8     : \\\\\\\        to: side #3
     │ │ │     9     : +fifth
     │ │ │    10     : >>>>>>> conflict 1 of 1 ends
+    │ │ │          1: squashed 3
     │ │ ○  vruxwmqv/0 test.user@example.com 2001-02-03 08:05:15 770795d0 (hidden)
     │ │ │  fifth
     │ │ │  -- operation d727647433c1 snapshot working copy
@@ -456,11 +458,12 @@ fn test_evolog_squash() {
     │ │  Modified commit description:
     │ │     1     : <<<<<<< conflict 1 of 1
     │ │     2     : +++++++ side #1
-    │ │     3    1: squashed 1
+    │ │     3     : squashed 1
     │ │     4     : %%%%%%% diff from: base
-    │ │     5    1: \\\\\\\        to: side #2
+    │ │     5     : \\\\\\\        to: side #2
     │ │     6     : +third
     │ │     7     : >>>>>>> conflict 1 of 1 ends
+    │ │          1: squashed 2
     │ │  Removed regular file file2:
     │ │     1     : foo2
     │ │  Removed regular file file3:

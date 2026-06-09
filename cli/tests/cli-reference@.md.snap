@@ -31,6 +31,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj commit`↴](#jj-commit)
 * [`jj config`↴](#jj-config)
 * [`jj config edit`↴](#jj-config-edit)
+* [`jj config gc`↴](#jj-config-gc)
 * [`jj config get`↴](#jj-config-get)
 * [`jj config list`↴](#jj-config-list)
 * [`jj config path`↴](#jj-config-path)
@@ -111,6 +112,8 @@ This document contains the help content for the `jj` command-line program.
 * [`jj undo`↴](#jj-undo)
 * [`jj unsign`↴](#jj-unsign)
 * [`jj util`↴](#jj-util)
+* [`jj util backend`↴](#jj-util-backend)
+* [`jj util backend name`↴](#jj-util-backend-name)
 * [`jj util completion`↴](#jj-util-completion)
 * [`jj util config-schema`↴](#jj-util-config-schema)
 * [`jj util exec`↴](#jj-util-exec)
@@ -174,7 +177,7 @@ To get started, see the tutorial [`jj help -k tutorial`].
 * `restore` — Restore paths from another revision
 * `revert` — Apply the reverse of the given revision(s)
 * `root` — Show the current workspace root directory (shortcut for `jj workspace root`)
-* `show` — Show commit description and changes in a revision
+* `show` — Show revision metadata and diff
 * `sign` — Cryptographically sign a revision
 * `simplify-parents` — Simplify parent edges for the specified revision(s)
 * `sparse` — Manage which paths from the working-copy commit are present in the working copy
@@ -729,6 +732,7 @@ See [`jj help -k config`] to know more about file locations, supported config op
 ###### **Subcommands:**
 
 * `edit` — Start an editor on a jj config file
+* `gc` — Find and optionally delete repo-level config directories whose repo path no longer exists
 * `get` — Get the value of a given config option.
 * `list` — List variables set in config files, along with their values
 * `path` — Print the paths to the config files
@@ -752,6 +756,14 @@ Creates the file if it doesn't already exist regardless of what the editor does.
 * `--user` — Target the user-level config
 * `--repo` — Target the repo-level config
 * `--workspace` — Target the workspace-level config
+
+
+
+## `jj config gc`
+
+Find and optionally delete repo-level config directories whose repo path no longer exists
+
+**Usage:** `jj config gc`
 
 
 
@@ -1215,9 +1227,13 @@ This is an early version of the command. It only supports glob matching for now,
 * `-r`, `--revision <REVSET>` — The revision to search files in
 
   Default value: `@`
-* `-p`, `--pattern <PATTERN>` — The glob pattern to search for
+* `-p`, `--pattern <PATTERN>` — The pattern to search for in a single line
 
-   The whole line must match the pattern, so you may want to pass something like `--pattern '*foo*'`.
+   It is a [string pattern syntax] like `kind:pattern`.  The kind defaults to regex when omitted.
+
+   If it is a glob pattern, the whole line must match the pattern, so you may want to pass something like `--pattern 'glob:*foo*'`.
+
+   [string pattern syntax]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 
 
 
@@ -1456,9 +1472,13 @@ Note: this command takes 1-or-more revsets arguments, each of which can resolve 
 * `--topic <TOPIC>` — Applies a topic to the change
 
    See https://gerrit-review.googlesource.com/Documentation/intro-user.html#topics. Changes can be grouped by topic, and Gerrit can be configured to submit all changes in a topic together in a single click.
-* `--hashtag <HASHTAG>` — Applies a hashtag to the change
+* `--hashtag <HASHTAG>` — Applies a hashtag to the change (can be repeated)
 
    See https://gerrit-review.googlesource.com/Documentation/intro-user.html#hashtags. Hashtags are freeform strings associated with a change, like on social media platforms. Similar to topics, hashtags can be used to group related changes together, and to search using the hashtag: operator. Unlike topics, a change can have multiple hashtags, and they are only used for informational grouping. Changes with the same hashtags are not necessarily submitted together.
+* `-m`, `--message <MESSAGE>` — A patch set description for the new patch set
+* `--edit` — Push the change as a change edit
+
+   To push a change edit the underlying change need to already exist on the gerrit server. Change edits don't immediately create a new patchset, but need to be published from the web UI first. There can only be one edit for each change. Pushing a new change edit will replace the previous one.
 * `--wip` — Marks the change as WIP (work in progress)
 
    See https://gerrit-review.googlesource.com/Documentation/intro-user.html#wip.
@@ -1485,6 +1505,7 @@ Note: this command takes 1-or-more revsets arguments, each of which can resolve 
 
 * `--submit` — Directly submit the changes, bypassing code review
 * `--skip-validation` — When --submit is provided, skip performing validations
+* `--merged` — Create a new change, even if the change has already been merged
 * `--ignore-attention-set` — Do not modify the attention set upon uploading
 * `--deadline <DEADLINE>` — The deadline after which the push should be aborted
 * `--custom <CUSTOM>` — Send the following custom keyed values to Gerrit (can be repeated)
@@ -1639,7 +1660,9 @@ Fetch from a Git remote
 
 If no remotes are specified, fetches the remotes specified by the `git.fetch` setting. If that is not configured and there are multiple remotes, the remote named "origin" will be used.
 
-If no branches nor tags are specified, the default fetch refspecs for the selected remotes are read from the Git configuration.
+If no branches nor tags are specified, fetches bookmarks and tags specified by the `remotes.<name>.fetch-bookmarks`/`fetch-tags` settings. If `remotes.<name>.fetch-bookmarks` is not configured, the default fetch refspecs for the selected remotes are read from the Git configuration.
+
+Commits that are no longer reachable from any branch on the remote will be considered abandoned by the remote, and will be abandoned in the local repo to match the remote. Set `git.abandon-unreachable-commits` to `false` to disable this behavior.
 
 If a working-copy commit gets abandoned, it will be given a new, empty commit. This is true in general; it is not specific to this command.
 
@@ -1669,6 +1692,8 @@ If a working-copy commit gets abandoned, it will be given a new, empty commit. T
 ## `jj git import`
 
 Update repo with changes made in the underlying Git repo
+
+Commits that are no longer reachable from any branch in the Git repo will be considered abandoned in the Git repo, and will be abandoned in the jj repo to match the Git repo. Set `git.abandon-unreachable-commits` to `false` to disable this behavior.
 
 If a working-copy commit gets abandoned, it will be given a new, empty commit. This is true in general; it is not specific to this command.
 
@@ -2309,11 +2334,9 @@ Compare changes to the repository between two operations
 
 Make an operation part of the operation log
 
-Sometimes an operation does not make it into the operation log for some reason. This command can then be used for making that operation part of the operation log.
+By default, operations are automatically integrated into the operation log, but `--no-integrate-operation` or internal errors may cause that to not happen. This command can then be used for making such operations part of the operation log.
 
-Running this command on an operation that is already in the operation log (`jj op log`) has no effect. Since operations should currently always be integrated into the operation log (until e.g. [#2562] gets implemented), this command should always be a no-op. It would indicate a bug if this command is not a no-op. Only use it if you are told to by an error message.
-
-[#2562]: https://github.com/jj-vcs/jj/issues/2562
+Running this command on an operation that is already in the operation log (`jj op log`) has no effect.
 
 **Usage:** `jj operation integrate <OPERATION>`
 
@@ -2920,17 +2943,18 @@ Show the current workspace root directory (shortcut for `jj workspace root`)
 
 ## `jj show`
 
-Show commit description and changes in a revision
+Show revision metadata and diff
 
-**Usage:** `jj show [OPTIONS] [REVSET]`
+**Usage:** `jj show [OPTIONS] [REVSETS]...`
 
 ###### **Arguments:**
 
-* `<REVSET>` — Show changes in this revision, compared to its parent(s) [default: @] [aliases: -r]
+* `<REVSETS>` — Show changes in these revisions, compared to their parent(s) [default: @] [aliases: -r]
 
 ###### **Options:**
 
-* `-T`, `--template <TEMPLATE>` — Render a revision using the given template
+* `--reversed` — Show revisions in the opposite order (older revisions first)
+* `-T`, `--template <TEMPLATE>` — Render each revision using the given template
 
    You can specify arbitrary template expressions using the [built-in keywords]. See [`jj help -k templates`] for more information.
 
@@ -3141,12 +3165,12 @@ achieved with `jj new`.
 * `-B`, `--insert-before <REVSETS>` [alias: `before`] — The revision(s) to insert before (can be repeated to create a merge commit)
 
    Extracts the selected changes into a new commit inserted before the given revision(s). The remaining changes stay in the original commit's location.
-* `-m`, `--message <MESSAGE>` — The change description to use (don't open editor)
+* `-m`, `--message <MESSAGE>` — The change description to use for the selected changes (don't open editor)
 
-   Sets the description for the first commit (the one containing the selected changes). The second commit keeps the original description.
-* `--editor` — Open an editor to edit the change description
+   Sets the description for the revision containing the selected changes. The other revision will keep its original description, if any.
+* `--editor` — Open an editor to edit the change description(s)
 
-   Forces an editor to open when using `--message` to allow the message to be edited afterwards.
+   Forces an editor to open when using `--message` to allow the message to be edited afterward.
 * `-p`, `--parallel` — Split the revision into two parallel revisions instead of a parent and child
 
 
@@ -3364,6 +3388,7 @@ Infrequently used commands such as for generating shell completions
 
 ###### **Subcommands:**
 
+* `backend` — Commands relating to the backend used in the current repo
 * `completion` — Print a command-line-completion script
 * `config-schema` — Print the JSON schema for the jj TOML config format
 * `exec` — Execute an external command via jj
@@ -3371,6 +3396,26 @@ Infrequently used commands such as for generating shell completions
 * `install-man-pages` — Install Jujutsu's manpages to the provided path
 * `markdown-help` — Print the CLI help for all subcommands in Markdown
 * `snapshot` — Snapshot the working copy if needed
+
+
+
+## `jj util backend`
+
+Commands relating to the backend used in the current repo
+
+**Usage:** `jj util backend <COMMAND>`
+
+###### **Subcommands:**
+
+* `name` — Print the name of the backend used in the current repo
+
+
+
+## `jj util backend name`
+
+Print the name of the backend used in the current repo
+
+**Usage:** `jj util backend name`
 
 
 

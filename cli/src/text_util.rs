@@ -15,6 +15,7 @@
 use std::borrow::Cow;
 use std::cmp;
 use std::io;
+use std::ops::Range;
 
 use bstr::ByteSlice as _;
 use unicode_width::UnicodeWidthChar as _;
@@ -539,6 +540,59 @@ pub fn write_wrapped(
         }
         Ok(())
     })
+}
+
+/// Replaces content at the given byte ranges while preserving labels.
+///
+/// `replacement_ranges` must be a sorted sequence of non-overlapping byte
+/// ranges. For each range to be replaced, `write_replacement_content` will be
+/// invoked with a [`Formatter`] the range's index in `replacement_ranges`.
+pub fn write_replaced(
+    formatter: &mut dyn Formatter,
+    recorded_content: &FormatRecorder,
+    replacement_ranges: &[Range<usize>],
+    mut write_replacement_content: impl FnMut(&mut dyn Formatter, usize) -> io::Result<()>,
+) -> io::Result<()> {
+    let data = recorded_content.data();
+
+    debug_assert!(
+        replacement_ranges
+            .iter()
+            .all(|range| range.start <= range.end && range.end <= data.len())
+    );
+    debug_assert!(
+        replacement_ranges
+            .windows(2)
+            .all(|ranges| ranges[0].end <= ranges[1].start)
+    );
+
+    let mut replacement_ranges = replacement_ranges.iter().enumerate().peekable();
+    let mut position = 0;
+
+    recorded_content.replay_with(formatter, |formatter, data_range| {
+        while let Some((index, replacement_range)) = replacement_ranges
+            // Only continue if replacement begins in the boundaries of the current data range.
+            .next_if(|(_, replacement_range)| replacement_range.start < data_range.end)
+        {
+            // Write any data before the replacement, followed by the replacement content.
+            if position < replacement_range.start {
+                formatter.write_all(&data[position..replacement_range.start])?;
+            }
+            write_replacement_content(formatter, index)?;
+            position = replacement_range.end;
+        }
+        if position < data_range.end {
+            formatter.write_all(&data[position..data_range.end])?;
+            position = data_range.end;
+        }
+        Ok(())
+    })?;
+    // Write remaining replacements outside of `data`.
+    for (index, replacement_range) in replacement_ranges {
+        debug_assert_eq!(replacement_range.start, data.len());
+        write_replacement_content(formatter, index)?;
+    }
+    Ok(())
 }
 
 pub fn parse_author(author: &str) -> Result<(String, String), &'static str> {
@@ -1652,6 +1706,134 @@ mod tests {
             "foo\n",
         );
         Ok(())
+    }
+
+    #[expect(clippy::single_range_in_vec_init)]
+    #[test]
+    fn test_write_replaced() {
+        let mut recorder = FormatRecorder::new(false);
+        recorder.push_label("red");
+        write!(recorder, "foo").unwrap();
+        recorder.pop_label();
+        recorder.push_label("cyan");
+        writeln!(recorder).unwrap();
+        recorder.pop_label();
+        recorder.push_label("red");
+        write!(recorder, "bar").unwrap();
+        recorder.pop_label();
+        recorder.push_label("cyan");
+        writeln!(recorder).unwrap();
+        recorder.pop_label();
+        recorder.push_label("red");
+        write!(recorder, "baz").unwrap();
+        recorder.pop_label();
+
+        // No replacements
+        insta::assert_snapshot!(
+            format_colored(|formatter| write_replaced(formatter, &recorder, &[], |_, _| Ok(()))),
+            @"
+        [38;5;1mfoo[38;5;6m[39m
+        [38;5;1mbar[38;5;6m[39m
+        [38;5;1mbaz[39m
+        ",
+        );
+
+        // Replace full string
+        insta::assert_snapshot!(
+            format_colored(|formatter| write_replaced(
+                formatter,
+                &recorder,
+                &[0..11],
+                |formatter, _| write!(formatter, "replaced")
+            )),
+            @"[38;5;1mreplaced[39m",
+        );
+
+        // Replace non-adjacent ranges spanning single label boundary
+        insta::assert_snapshot!(
+            format_colored(|formatter| {
+                write_replaced(
+                    formatter,
+                    &recorder,
+                    &[0..3, 4..7, 8..11],
+                    |formatter, index| write!(formatter, "<{index}>"),
+                )
+            }),
+            @"
+        [38;5;1m<0>[38;5;6m[39m
+        [38;5;1m<1>[38;5;6m[39m
+        [38;5;1m<2>[39m
+        ",
+        );
+
+        // Replace adjacent ranges spanning single label boundary
+        insta::assert_snapshot!(
+            format_colored(|formatter| {
+                write_replaced(
+                    formatter,
+                    &recorder,
+                    &[0..3, 3..4, 4..7],
+                    |formatter, index| write!(formatter, "<{index}>"),
+                )
+            }),
+            @"
+        [38;5;1m<0>[38;5;6m<1>[38;5;1m<2>[38;5;6m[39m
+        [38;5;1mbaz[39m
+        ",
+        );
+
+        // Replace non-adjacent ranges spanning multiple label boundaries
+        insta::assert_snapshot!(
+            format_colored(|formatter| {
+                write_replaced(
+                    formatter,
+                    &recorder,
+                    &[0..4, 7..11],
+                    |formatter, index| write!(formatter, "<{index}>"),
+                )
+            }),
+            @"[38;5;1m<0>bar[38;5;6m<1>[39m",
+        );
+
+        // Replace adjacent ranges spanning multiple label boundaries
+        insta::assert_snapshot!(
+            format_colored(|formatter| {
+                write_replaced(
+                    formatter,
+                    &recorder,
+                    &[0..4, 4..8],
+                    |formatter, index| write!(formatter, "<{index}>"),
+                )
+            }),
+            @"[38;5;1m<0><1>baz[39m",
+        );
+
+        // Replace range split across multiple label boundaries
+        insta::assert_snapshot!(
+            format_colored(|formatter| {
+                write_replaced(formatter, &recorder, &[1..10], |formatter, index| {
+                    write!(formatter, "<{index}>")
+                })
+            }),
+            @"[38;5;1mf<0>z[39m",
+        );
+
+        // Replace zero-length ranges
+        insta::assert_snapshot!(
+            format_colored(|formatter| {
+                write_replaced(
+                    formatter,
+                    &recorder,
+                    &[0..0, 1..1, 3..3, 4..4, 11..11],
+                    |formatter, index| write!(formatter, "<{index}>"),
+                )
+            }),
+            @"
+        [38;5;1m<0>f<1>oo[38;5;6m<2>[39m
+        [38;5;1m<3>bar[38;5;6m[39m
+        [38;5;1mbaz[39m<4>
+        ",
+        );
     }
 
     #[test]

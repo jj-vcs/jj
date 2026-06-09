@@ -83,7 +83,7 @@ pub async fn cmd_op_show(
     command: &CommandHelper,
     args: &OperationShowArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper(ui)?;
+    let workspace_command = command.workspace_helper(ui).await?;
     let workspace_env = workspace_command.env();
     let repo_loader = workspace_command.workspace().repo_loader();
     let settings = workspace_command.settings();

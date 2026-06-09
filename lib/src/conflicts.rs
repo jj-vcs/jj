@@ -23,14 +23,14 @@ use bstr::BStr;
 use bstr::BString;
 use bstr::ByteSlice as _;
 use bstr::ByteVec as _;
+use futures::AsyncRead;
+use futures::AsyncReadExt as _;
 use futures::Stream;
 use futures::StreamExt as _;
 use futures::future::try_join_all;
 use futures::stream::BoxStream;
 use futures::try_join;
 use itertools::Itertools as _;
-use tokio::io::AsyncRead;
-use tokio::io::AsyncReadExt as _;
 
 use crate::backend::BackendError;
 use crate::backend::BackendResult;

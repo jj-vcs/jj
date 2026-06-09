@@ -22,18 +22,13 @@ use crate::ui::Ui;
 
 /// Make an operation part of the operation log
 ///
-/// Sometimes an operation does not make it into the operation log for some
-/// reason. This command can then be used for making that operation part of the
+/// By default, operations are automatically integrated into the operation log,
+/// but `--no-integrate-operation` or internal errors may cause that to not
+/// happen. This command can then be used for making such operations part of the
 /// operation log.
 ///
 /// Running this command on an operation that is already in the operation log
-/// (`jj op log`) has no effect. Since operations should currently always be
-/// integrated into the operation log (until e.g. [#2562] gets implemented),
-/// this command should always be a no-op. It would indicate a bug if this
-/// command is not a no-op. Only use it if you are told to by an error message.
-///
-/// [#2562]:
-///     https://github.com/jj-vcs/jj/issues/2562
+/// (`jj op log`) has no effect.
 #[derive(clap::Args, Clone, Debug)]
 pub struct OperationIntegrateArgs {
     /// The operation to integrate
@@ -45,7 +40,7 @@ pub async fn cmd_op_integrate(
     command: &CommandHelper,
     args: &OperationIntegrateArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper_no_snapshot(ui)?;
+    let workspace_command = command.workspace_helper_no_snapshot(ui).await?;
     let target_op = workspace_command.resolve_single_op(&args.operation)?;
     let repo_loader = workspace_command.repo().loader();
     repo_loader

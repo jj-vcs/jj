@@ -69,7 +69,6 @@ use crate::merged_tree::MergedTree;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
 use crate::op_heads_store;
-use crate::op_heads_store::OpHeadResolutionError;
 use crate::op_heads_store::OpHeadsStore;
 use crate::op_heads_store::OpHeadsStoreError;
 use crate::op_store;
@@ -191,7 +190,9 @@ impl ReadonlyRepo {
     }
 
     pub fn default_op_heads_store_initializer() -> &'static OpHeadsStoreInitializer<'static> {
-        &|_settings, store_path| Ok(Box::new(SimpleOpHeadsStore::init(store_path)?))
+        &|_settings, store_path, root_op_id| {
+            Ok(Box::new(SimpleOpHeadsStore::init(store_path, root_op_id)?))
+        }
     }
 
     pub fn default_index_store_initializer() -> &'static IndexStoreInitializer<'static> {
@@ -236,12 +237,10 @@ impl ReadonlyRepo {
 
         let op_heads_path = repo_path.join("op_heads");
         fs::create_dir(&op_heads_path).context(&op_heads_path)?;
-        let op_heads_store = op_heads_store_initializer(settings, &op_heads_path)?;
+        let op_heads_store =
+            op_heads_store_initializer(settings, &op_heads_path, op_store.root_operation_id())?;
         let op_heads_type_path = op_heads_path.join("type");
         fs::write(&op_heads_type_path, op_heads_store.name()).context(&op_heads_type_path)?;
-        op_heads_store
-            .update_op_heads(&[], op_store.root_operation_id())
-            .await?;
         let op_heads_store: Arc<dyn OpHeadsStore> = Arc::from(op_heads_store);
 
         let index_path = repo_path.join("index");
@@ -389,8 +388,11 @@ pub type BackendInitializer<'a> =
 pub type OpStoreInitializer<'a> =
     dyn Fn(&UserSettings, &Path, RootOperationData) -> Result<Box<dyn OpStore>, BackendInitError>
     + 'a;
-pub type OpHeadsStoreInitializer<'a> =
-    dyn Fn(&UserSettings, &Path) -> Result<Box<dyn OpHeadsStore>, BackendInitError> + 'a;
+#[rustfmt::skip] // auto-formatted line would exceed the maximum width
+pub type OpHeadsStoreInitializer<'a> = 
+    dyn Fn(&UserSettings, &Path, &OperationId)
+    -> Result<Box<dyn OpHeadsStore>, BackendInitError>
+    + 'a;
 pub type IndexStoreInitializer<'a> =
     dyn Fn(&UserSettings, &Path) -> Result<Box<dyn IndexStore>, BackendInitError> + 'a;
 pub type SubmoduleStoreInitializer<'a> =
@@ -656,8 +658,6 @@ pub enum RepoLoaderError {
     Index(#[from] IndexError),
     #[error(transparent)]
     IndexStore(#[from] IndexStoreError),
-    #[error(transparent)]
-    OpHeadResolution(#[from] OpHeadResolutionError),
     #[error(transparent)]
     OpHeadsStoreError(#[from] OpHeadsStoreError),
     #[error(transparent)]
@@ -1669,39 +1669,7 @@ impl MutableRepo {
                 }
             }
             _ => {
-                let missing_commits = dag_walk_async::topo_order_reverse_ord(
-                    heads
-                        .iter()
-                        .cloned()
-                        .map(CommitByCommitterTimestamp)
-                        .map(Ok),
-                    |CommitByCommitterTimestamp(commit)| commit.id().clone(),
-                    async |CommitByCommitterTimestamp(commit)| {
-                        stream::iter(commit.parent_ids())
-                            .filter_map(async |id| match self.index().has_id(id) {
-                                Ok(false) => Some(
-                                    self.store()
-                                        .get_commit_async(id)
-                                        .await
-                                        .map(CommitByCommitterTimestamp),
-                                ),
-                                Ok(true) => None,
-                                // TODO: indexing error shouldn't be a "BackendError"
-                                Err(err) => Some(Err(BackendError::Other(err.into()))),
-                            })
-                            .collect::<Vec<_>>()
-                            .await
-                    },
-                    |_| panic!("graph has cycle"),
-                )
-                .await?;
-                for CommitByCommitterTimestamp(missing_commit) in missing_commits.iter().rev() {
-                    self.index
-                        .add_commit(missing_commit)
-                        .await
-                        // TODO: indexing error shouldn't be a "BackendError"
-                        .map_err(|err| BackendError::Other(err.into()))?;
-                }
+                self.index_commits(heads).await?;
                 for head in heads {
                     self.view.get_mut().add_head(head.id());
                 }
@@ -1714,6 +1682,52 @@ impl MutableRepo {
     pub fn remove_head(&mut self, head: &CommitId) {
         self.view_mut().remove_head(head);
         self.view.mark_dirty();
+    }
+
+    /// Adds the given `heads` and ancestor commits to the index without making
+    /// them visible. Returns newly-indexed commits.
+    pub async fn index_commits(&mut self, heads: &[Commit]) -> BackendResult<Vec<Commit>> {
+        let missing_commits = dag_walk_async::topo_order_reverse_ord(
+            heads
+                .iter()
+                .filter_map(|commit| match self.index().has_id(commit.id()) {
+                    Ok(false) => Some(Ok(CommitByCommitterTimestamp(commit.clone()))),
+                    Ok(true) => None,
+                    // TODO: indexing error shouldn't be a "BackendError"
+                    Err(err) => Some(Err(BackendError::Other(err.into()))),
+                }),
+            |CommitByCommitterTimestamp(commit)| commit.id().clone(),
+            async |CommitByCommitterTimestamp(commit)| {
+                stream::iter(commit.parent_ids())
+                    .filter_map(async |id| match self.index().has_id(id) {
+                        Ok(false) => Some(
+                            self.store()
+                                .get_commit_async(id)
+                                .await
+                                .map(CommitByCommitterTimestamp),
+                        ),
+                        Ok(true) => None,
+                        // TODO: indexing error shouldn't be a "BackendError"
+                        Err(err) => Some(Err(BackendError::Other(err.into()))),
+                    })
+                    .collect::<Vec<_>>()
+                    .await
+            },
+            |_| panic!("graph has cycle"),
+        )
+        .await?;
+        for CommitByCommitterTimestamp(missing_commit) in missing_commits.iter().rev() {
+            self.index
+                .add_commit(missing_commit)
+                .await
+                // TODO: indexing error shouldn't be a "BackendError"
+                .map_err(|err| BackendError::Other(err.into()))?;
+        }
+        let indexed_commits = missing_commits
+            .into_iter()
+            .map(|CommitByCommitterTimestamp(commit)| commit)
+            .collect();
+        Ok(indexed_commits)
     }
 
     pub fn get_local_bookmark(&self, name: &RefName) -> RefTarget {
@@ -1974,15 +1988,20 @@ impl MutableRepo {
         new_heads: &[CommitId],
     ) -> BackendResult<()> {
         let mut removed_changes: HashMap<ChangeId, Vec<CommitId>> = HashMap::new();
-        for item in revset::walk_revs(self, old_heads, new_heads)
-            .map_err(|err| err.into_backend_error())?
-            .commit_change_ids()
         {
-            let (commit_id, change_id) = item.map_err(|err| err.into_backend_error())?;
-            removed_changes
-                .entry(change_id)
-                .or_default()
-                .push(commit_id);
+            let mut stream = revset::walk_revs(self, old_heads, new_heads)
+                .map_err(|err| err.into_backend_error())?
+                .commit_change_ids();
+            while let Some((commit_id, change_id)) = stream
+                .try_next()
+                .await
+                .map_err(|err| err.into_backend_error())?
+            {
+                removed_changes
+                    .entry(change_id)
+                    .or_default()
+                    .push(commit_id);
+            }
         }
         if removed_changes.is_empty() {
             return Ok(());
@@ -1990,20 +2009,25 @@ impl MutableRepo {
 
         let mut rewritten_changes = HashSet::new();
         let mut rewritten_commits: HashMap<CommitId, Vec<CommitId>> = HashMap::new();
-        for item in revset::walk_revs(self, new_heads, old_heads)
-            .map_err(|err| err.into_backend_error())?
-            .commit_change_ids()
         {
-            let (commit_id, change_id) = item.map_err(|err| err.into_backend_error())?;
-            if let Some(old_commits) = removed_changes.get(&change_id) {
-                for old_commit in old_commits {
-                    rewritten_commits
-                        .entry(old_commit.clone())
-                        .or_default()
-                        .push(commit_id.clone());
+            let mut stream = revset::walk_revs(self, new_heads, old_heads)
+                .map_err(|err| err.into_backend_error())?
+                .commit_change_ids();
+            while let Some((commit_id, change_id)) = stream
+                .try_next()
+                .await
+                .map_err(|err| err.into_backend_error())?
+            {
+                if let Some(old_commits) = removed_changes.get(&change_id) {
+                    for old_commit in old_commits {
+                        rewritten_commits
+                            .entry(old_commit.clone())
+                            .or_default()
+                            .push(commit_id.clone());
+                    }
                 }
+                rewritten_changes.insert(change_id);
             }
-            rewritten_changes.insert(change_id);
         }
         for (old_commit, new_commits) in rewritten_commits {
             if new_commits.len() == 1 {

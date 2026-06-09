@@ -136,7 +136,7 @@ pub async fn cmd_op_abandon(
     // Remap the operation id of the current workspace. If there were any
     // divergent operations, user will need to re-abandon their ancestors.
     if !command.global_args().ignore_working_copy {
-        let mut locked_ws = workspace.start_working_copy_mutation()?;
+        let mut locked_ws = workspace.start_working_copy_mutation().await?;
         let old_op_id = locked_ws.locked_wc().old_operation_id();
         if let Some((_, new_id)) = reparented_head_ops().find(|(old, _)| old.id() == old_op_id) {
             locked_ws.finish(new_id.clone()).await?;

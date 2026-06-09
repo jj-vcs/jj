@@ -48,6 +48,7 @@ use clap::error::ContextValue;
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use futures::TryStreamExt as _;
+use futures::future::try_join_all;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use indoc::indoc;
@@ -454,8 +455,8 @@ impl CommandHelper {
 
     /// Loads workspace and repo, then snapshots the working copy if allowed.
     #[instrument(skip(self, ui))]
-    pub fn workspace_helper(&self, ui: &Ui) -> Result<WorkspaceCommandHelper, CommandError> {
-        let (workspace_command, stats) = self.workspace_helper_with_stats(ui)?;
+    pub async fn workspace_helper(&self, ui: &Ui) -> Result<WorkspaceCommandHelper, CommandError> {
+        let (workspace_command, stats) = self.workspace_helper_with_stats(ui).await?;
         print_snapshot_stats(ui, &stats, workspace_command.env().path_converter())?;
         Ok(workspace_command)
     }
@@ -467,14 +468,13 @@ impl CommandHelper {
     /// call [`print_snapshot_stats`] with the [`SnapshotStats`] returned by
     /// this function to present possible untracked files to the user.
     #[instrument(skip(self, ui))]
-    pub fn workspace_helper_with_stats(
+    pub async fn workspace_helper_with_stats(
         &self,
         ui: &Ui,
     ) -> Result<(WorkspaceCommandHelper, SnapshotStats), CommandError> {
-        let mut workspace_command = self.workspace_helper_no_snapshot(ui)?;
+        let mut workspace_command = self.workspace_helper_no_snapshot(ui).await?;
 
-        let (workspace_command, stats) = match workspace_command.maybe_snapshot_impl(ui).block_on()
-        {
+        let (workspace_command, stats) = match workspace_command.maybe_snapshot_impl(ui).await {
             Ok(stats) => (workspace_command, stats),
             Err(SnapshotWorkingCopyError::Command(err)) => return Err(err),
             Err(SnapshotWorkingCopyError::StaleWorkingCopy(err)) => {
@@ -487,7 +487,7 @@ impl CommandHelper {
                 // auto-update-stale, so let's do that now. We need to do it up here, not at a
                 // lower level (e.g. inside snapshot_working_copy()) to avoid recursive locking
                 // of the working copy.
-                self.recover_stale_working_copy(ui).block_on()?
+                self.recover_stale_working_copy(ui).await?
             }
         };
 
@@ -497,14 +497,14 @@ impl CommandHelper {
     /// Loads workspace and repo, but never snapshots the working copy. Most
     /// commands should use `workspace_helper()` instead.
     #[instrument(skip(self, ui))]
-    pub fn workspace_helper_no_snapshot(
+    pub async fn workspace_helper_no_snapshot(
         &self,
         ui: &Ui,
     ) -> Result<WorkspaceCommandHelper, CommandError> {
         let workspace = self.load_workspace()?;
         let op_head =
             self.resolve_operation(ui, workspace.repo_loader(), workspace.workspace_name())?;
-        let repo = workspace.repo_loader().load_at(&op_head).block_on()?;
+        let repo = workspace.repo_loader().load_at(&op_head).await?;
         let mut env = self.workspace_environment(ui, &workspace)?;
         if let Err(err) =
             revset_util::try_resolve_trunk_alias(repo.as_ref(), &env.revset_parse_context())
@@ -525,7 +525,7 @@ impl CommandHelper {
                 "Use `jj config edit --repo` to adjust the `trunk()` alias."
             )?;
             env.revset_aliases_map
-                .insert("trunk()", fallback)
+                .insert("trunk()", fallback, None)
                 .expect("valid syntax");
             env.reload_revset_expressions(ui)?;
         }
@@ -606,11 +606,12 @@ impl CommandHelper {
                 let repo = workspace_command.repo().clone();
                 let stale_wc_commit = repo.store().get_commit_async(wc_commit_id).await?;
 
-                let mut workspace_command = self.workspace_helper_no_snapshot(ui)?;
+                let mut workspace_command = self.workspace_helper_no_snapshot(ui).await?;
 
                 let repo = workspace_command.repo().clone();
-                let (mut locked_ws, desired_wc_commit) =
-                    workspace_command.unchecked_start_working_copy_mutation()?;
+                let (mut locked_ws, desired_wc_commit) = workspace_command
+                    .unchecked_start_working_copy_mutation()
+                    .await?;
                 match WorkingCopyFreshness::check_stale(
                     locked_ws.locked_wc(),
                     &desired_wc_commit,
@@ -672,7 +673,7 @@ impl CommandHelper {
                      message from read attempt: {e}"
                 )?;
 
-                let mut workspace_command = self.workspace_helper_no_snapshot(ui)?;
+                let mut workspace_command = self.workspace_helper_no_snapshot(ui).await?;
                 let stats = workspace_command
                     .create_and_check_out_recovery_commit(ui)
                     .await?;
@@ -1007,12 +1008,12 @@ impl WorkspaceCommandEnvironment {
         }
     }
 
-    /// Returns first immutable commit.
-    async fn find_immutable_commit(
+    /// Resolves the effective `immutable()` expression to test against commits
+    /// during a rewrite, taking the `--ignore-immutable` flag into account.
+    fn resolve_immutable_expression(
         &self,
         repo: &dyn Repo,
-        to_rewrite_expr: &Arc<ResolvedRevsetExpression>,
-    ) -> Result<Option<CommitId>, CommandError> {
+    ) -> Result<Arc<ResolvedRevsetExpression>, CommandError> {
         let immutable_expression = if self.command.global_args().ignore_immutable {
             UserRevsetExpression::root()
         } else {
@@ -1023,20 +1024,14 @@ impl WorkspaceCommandEnvironment {
         // must not be calculated and cached against arbitrary repo. It's also
         // unlikely that the immutable expression contains short hashes.
         let id_prefix_context = IdPrefixContext::new(self.command.revset_extensions().clone());
-        let immutable_expr = RevsetExpressionEvaluator::new(
+        RevsetExpressionEvaluator::new(
             repo,
             self.command.revset_extensions().clone(),
             &id_prefix_context,
             immutable_expression,
         )
         .resolve()
-        .map_err(|e| config_error_with_message("Invalid `revset-aliases.immutable_heads()`", e))?;
-
-        let mut commit_id_iter = immutable_expr
-            .intersection(to_rewrite_expr)
-            .evaluate(repo)?
-            .stream();
-        Ok(commit_id_iter.try_next().await?)
+        .map_err(|e| config_error_with_message("Invalid `revset-aliases.immutable_heads()`", e))
     }
 
     pub fn template_aliases_map(&self) -> &TemplateAliasesMap {
@@ -1312,12 +1307,12 @@ impl WorkspaceCommandHelper {
         let new_git_head = tx.repo().view().git_head().clone();
         if let Some(new_git_head_id) = new_git_head.as_normal() {
             let workspace_name = self.workspace_name().to_owned();
-            let new_git_head_commit = tx.repo().store().get_commit(new_git_head_id)?;
+            let new_git_head_commit = tx.repo().store().get_commit_async(new_git_head_id).await?;
             let wc_commit = tx
                 .repo_mut()
                 .check_out(workspace_name, &new_git_head_commit)
                 .await?;
-            let mut locked_ws = self.workspace.start_working_copy_mutation()?;
+            let mut locked_ws = self.workspace.start_working_copy_mutation().await?;
             // The working copy was presumably updated by the git command that updated
             // HEAD, so we just need to reset our working copy
             // state to it without updating working copy files.
@@ -1415,25 +1410,25 @@ impl WorkspaceCommandHelper {
         &self.env
     }
 
-    pub fn unchecked_start_working_copy_mutation(
+    pub async fn unchecked_start_working_copy_mutation(
         &mut self,
     ) -> Result<(LockedWorkspace<'_>, Commit), CommandError> {
         self.check_working_copy_writable()?;
         let wc_commit = if let Some(wc_commit_id) = self.get_wc_commit_id() {
-            self.repo().store().get_commit(wc_commit_id)?
+            self.repo().store().get_commit_async(wc_commit_id).await?
         } else {
             return Err(user_error("Nothing checked out in this workspace"));
         };
 
-        let locked_ws = self.workspace.start_working_copy_mutation()?;
+        let locked_ws = self.workspace.start_working_copy_mutation().await?;
 
         Ok((locked_ws, wc_commit))
     }
 
-    pub fn start_working_copy_mutation(
+    pub async fn start_working_copy_mutation(
         &mut self,
     ) -> Result<(LockedWorkspace<'_>, Commit), CommandError> {
-        let (mut locked_ws, wc_commit) = self.unchecked_start_working_copy_mutation()?;
+        let (mut locked_ws, wc_commit) = self.unchecked_start_working_copy_mutation().await?;
         if wc_commit.tree().tree_ids_and_labels()
             != locked_ws.locked_wc().old_tree().tree_ids_and_labels()
         {
@@ -1449,7 +1444,7 @@ impl WorkspaceCommandHelper {
         self.check_working_copy_writable()?;
 
         let workspace_name = self.workspace_name().to_owned();
-        let mut locked_ws = self.workspace.start_working_copy_mutation()?;
+        let mut locked_ws = self.workspace.start_working_copy_mutation().await?;
         let (repo, new_commit) = working_copy::create_and_check_out_recovery_commit(
             locked_ws.locked_wc(),
             &self.user_repo.repo,
@@ -1605,14 +1600,16 @@ to the current parents may contain changes from multiple commits.
         if let Ok(git_backend) = jj_lib::git::get_git_backend(self.repo().store()) {
             let git_repo = git_backend.git_repo();
             if let Some(excludes_file_path) = get_excludes_file_path(&git_repo.config_snapshot()) {
-                git_ignores = git_ignores.chain_with_file("", excludes_file_path)?;
+                git_ignores = git_ignores.chain_with_file(RepoPath::root(), excludes_file_path)?;
             }
-            git_ignores = git_ignores
-                .chain_with_file("", git_backend.git_repo_path().join("info").join("exclude"))?;
+            git_ignores = git_ignores.chain_with_file(
+                RepoPath::root(),
+                git_backend.git_repo_path().join("info").join("exclude"),
+            )?;
         } else if let Ok(git_config) = gix::config::File::from_globals()
             && let Some(excludes_file_path) = get_excludes_file_path(&git_config)
         {
-            git_ignores = git_ignores.chain_with_file("", excludes_file_path)?;
+            git_ignores = git_ignores.chain_with_file(RepoPath::root(), excludes_file_path)?;
         }
         Ok(git_ignores)
     }
@@ -1945,9 +1942,12 @@ to the current parents may contain changes from multiple commits.
         to_rewrite_expr: &Arc<ResolvedRevsetExpression>,
     ) -> Result<(), CommandError> {
         let repo = self.repo().as_ref();
-        let Some(commit_id) = self
-            .env
-            .find_immutable_commit(repo, to_rewrite_expr)
+        let immutable_expr = self.env.resolve_immutable_expression(repo)?;
+        let Some(commit_id) = immutable_expr
+            .intersection(to_rewrite_expr)
+            .evaluate(repo)?
+            .stream()
+            .try_next()
             .await?
         else {
             return Ok(());
@@ -1968,20 +1968,10 @@ to the current parents may contain changes from multiple commits.
                       - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
                       - `jj help -k config`, \"Set of immutable commits\""});
 
-            // Not using self.id_prefix_context() for consistency with
-            // find_immutable_commit().
-            let id_prefix_context =
-                IdPrefixContext::new(self.env.command.revset_extensions().clone());
-            let (lower_bound, upper_bound) = RevsetExpressionEvaluator::new(
-                repo,
-                self.env.command.revset_extensions().clone(),
-                &id_prefix_context,
-                self.env.immutable_expression(),
-            )
-            .resolve()?
-            .intersection(&to_rewrite_expr.descendants())
-            .evaluate(repo)?
-            .count_estimate()?;
+            let (lower_bound, upper_bound) = immutable_expr
+                .intersection(&to_rewrite_expr.descendants())
+                .evaluate(repo)?
+                .count_estimate()?;
             let exact = upper_bound == Some(lower_bound);
             let or_more = if exact { "" } else { " or more" };
             error.add_hint(format!(
@@ -2011,6 +2001,7 @@ to the current parents may contain changes from multiple commits.
         let mut locked_ws = self
             .workspace
             .start_working_copy_mutation()
+            .await
             .map_err(snapshot_command_error)?;
 
         let Some((repo, wc_commit)) =
@@ -2039,15 +2030,43 @@ to the current parents may contain changes from multiple commits.
                 self.env.command.string_args(),
             );
             tx.set_is_snapshot(true);
-            let mut_repo = tx.repo_mut();
-            let commit = mut_repo
-                .rewrite_commit(&wc_commit)
-                .set_tree(new_tree.clone())
-                .write()
-                .await
+            let immutable_expr = self
+                .env
+                .resolve_immutable_expression(tx.repo())
                 .map_err(snapshot_command_error)?;
+            let wc_immutable = immutable_expr
+                .intersection(&RevsetExpression::commit(wc_commit.id().clone()))
+                .evaluate(tx.repo())
+                .map_err(snapshot_command_error)?
+                .stream()
+                .try_next()
+                .await
+                .map_err(snapshot_command_error)?
+                .is_some();
+            let mut_repo = tx.repo_mut();
+            let new_wc_commit;
+            if wc_immutable {
+                new_wc_commit = mut_repo
+                    .new_commit(vec![wc_commit.id().clone()], new_tree.clone())
+                    .write()
+                    .await
+                    .map_err(snapshot_command_error)?;
+                writeln!(
+                    ui.warning_default(),
+                    "The working-copy commit is immutable; a new commit has been created on top \
+                     of it.",
+                )
+                .map_err(snapshot_command_error)?;
+            } else {
+                new_wc_commit = mut_repo
+                    .rewrite_commit(&wc_commit)
+                    .set_tree(new_tree.clone())
+                    .write()
+                    .await
+                    .map_err(snapshot_command_error)?;
+            }
             mut_repo
-                .set_wc_commit(workspace_name, commit.id().clone())
+                .set_wc_commit(workspace_name, new_wc_commit.id().clone())
                 .map_err(snapshot_command_error)?;
 
             // Rebase descendants
@@ -2066,7 +2085,7 @@ to the current parents may contain changes from multiple commits.
             #[cfg(feature = "git")]
             if self.working_copy_shared_with_git && self.env.command.should_commit_transaction() {
                 let old_tree = wc_commit.tree();
-                let new_tree = commit.tree();
+                let new_tree = new_wc_commit.tree();
                 export_working_copy_changes_to_git(ui, mut_repo, &old_tree, &new_tree)
                     .await
                     .map_err(snapshot_command_error)?;
@@ -2198,44 +2217,13 @@ to the current parents may contain changes from multiple commits.
             writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
         }
 
-        for (name, wc_commit_id) in &tx.repo().view().wc_commit_ids().clone() {
-            // This can fail if trunk() bookmark gets deleted or conflicted. If
-            // the unresolvable trunk() issue gets addressed differently, it
-            // should be okay to propagate the error.
-            let wc_expr = RevsetExpression::commit(wc_commit_id.clone());
-            let is_immutable = match self.env.find_immutable_commit(tx.repo(), &wc_expr).await {
-                Ok(commit_id) => commit_id.is_some(),
-                Err(CommandError { error, .. }) => {
-                    writeln!(
-                        ui.warning_default(),
-                        "Failed to check mutability of the new working-copy revision."
-                    )?;
-                    print_error_sources(ui, Some(&error))?;
-                    // Give up because the same error would occur repeatedly.
-                    break;
-                }
-            };
-            if is_immutable {
-                let wc_commit = tx.repo().store().get_commit_async(wc_commit_id).await?;
-                tx.repo_mut().check_out(name.clone(), &wc_commit).await?;
-                writeln!(
-                    ui.warning_default(),
-                    "The working-copy commit in workspace '{name}' became immutable, so a new \
-                     commit has been created on top of it.",
-                    name = name.as_symbol()
-                )?;
-            }
-        }
         if let Err(err) =
             revset_util::try_resolve_trunk_alias(tx.repo(), &self.env.revset_parse_context())
         {
-            // The warning would be printed above if working copies exist.
-            if tx.repo().view().wc_commit_ids().is_empty() {
-                writeln!(
-                    ui.warning_default(),
-                    "Failed to resolve `revset-aliases.trunk()`: {err}"
-                )?;
-            }
+            writeln!(
+                ui.warning_default(),
+                "Failed to resolve `revset-aliases.trunk()`: {err}"
+            )?;
             writeln!(
                 ui.hint_default(),
                 "Use `jj config edit --repo` to adjust the `trunk()` alias."
@@ -3304,17 +3292,17 @@ impl LogContentFormat {
     }
 
     /// Writes content which will optionally be wrapped at the current width.
-    pub fn write<E: From<io::Error>>(
+    pub async fn write<E: From<io::Error>>(
         &self,
         formatter: &mut dyn Formatter,
-        content_fn: impl FnOnce(&mut dyn Formatter) -> Result<(), E>,
+        content_fn: impl AsyncFnOnce(&mut dyn Formatter) -> Result<(), E>,
     ) -> Result<(), E> {
         if self.word_wrap {
             let mut recorder = FormatRecorder::new(formatter.maybe_color());
-            content_fn(&mut recorder)?;
+            content_fn(&mut recorder).await?;
             text_util::write_wrapped(formatter, &recorder, self.width)?;
         } else {
-            content_fn(formatter)?;
+            content_fn(formatter).await?;
         }
         Ok(())
     }
@@ -3477,7 +3465,7 @@ pub async fn compute_commit_location(
                 (after_commit_ids, before_commit_ids)
             }
             (None, Some(after_commit_ids), None) => {
-                let new_child_ids: Vec<_> = RevsetExpression::commits(after_commit_ids.clone())
+                let new_child_ids = RevsetExpression::commits(after_commit_ids.clone())
                     .children()
                     .evaluate(workspace_command.repo().as_ref())?
                     .stream()
@@ -3487,10 +3475,12 @@ pub async fn compute_commit_location(
                 (after_commit_ids, new_child_ids)
             }
             (None, None, Some(before_commit_ids)) => {
-                let before_commits: Vec<_> = before_commit_ids
-                    .iter()
-                    .map(|id| workspace_command.repo().store().get_commit(id))
-                    .try_collect()?;
+                let before_commits = try_join_all(
+                    before_commit_ids
+                        .iter()
+                        .map(|id| workspace_command.repo().store().get_commit_async(id)),
+                )
+                .await?;
                 // Not using `RevsetExpression::parents` here to persist the order of parents
                 // specified in `before_commits`.
                 let new_parent_ids = before_commits
@@ -3873,7 +3863,12 @@ fn resolve_aliases(
                 )));
             }
             if let Some(&alias_name) = defined_aliases.get(&*alias_name) {
-                let alias_definition: Vec<String> = config.get(["aliases", alias_name])?;
+                let alias_definition: Vec<String> = match config.get(["aliases", alias_name]) {
+                    Ok(definition) => definition,
+                    Err(original_err) => config
+                        .get(["aliases", alias_name, "definition"])
+                        .map_err(|_| original_err)?,
+                };
                 assert!(string_args.ends_with(&alias_args));
                 string_args.truncate(string_args.len() - 1 - alias_args.len());
                 string_args.extend(alias_definition);

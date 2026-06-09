@@ -27,38 +27,67 @@ fn test_file_search() {
     work_dir.write_file("dir/file3", "-foobar-");
 
     // Searches all files in the current revision by default
-    let output = work_dir.run_jj(["file", "search", "--pattern=*foo*"]);
+    let output = work_dir.run_jj(["file", "search", "--pattern=glob:*foo*"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
     dir/file3
     file1
     [EOF]
     ");
 
-    // Matches only the whole line
-    let output = work_dir.run_jj(["file", "search", "--pattern=foo"]);
+    // Matches only the whole line for glob pattern
+    let output = work_dir.run_jj(["file", "search", "--pattern=glob:foo"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"");
 
     // Can search files in another revision
-    let output = work_dir.run_jj(["file", "search", "--pattern=*foo*", "-r=@-"]);
+    let output = work_dir.run_jj(["file", "search", "--pattern=glob:*foo*", "-r=@-"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
     file1
     [EOF]
     ");
 
     // Can filter by path
-    let output = work_dir.run_jj(["file", "search", "--pattern=*foo*", "dir"]);
+    let output = work_dir.run_jj(["file", "search", "--pattern=glob:*foo*", "dir"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
     dir/file3
     [EOF]
     ");
 
     // Warning if path doesn't exist
-    let output = work_dir.run_jj(["file", "search", "--pattern=*foo*", "file9"]);
+    let output = work_dir.run_jj(["file", "search", "--pattern=glob:*foo*", "file9"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
     ------- stderr -------
     Warning: No matching entries for paths: file9
     [EOF]
     ");
+
+    // The default is regex
+    let output = work_dir.run_jj(["file", "search", "--pattern=f.o"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    dir/file3
+    file1
+    [EOF]
+    ");
+
+    // Can specify the kind
+    let output = work_dir.run_jj(["file", "search", "--pattern=glob-i:*foo*"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    dir/file3
+    file1
+    [EOF]
+    ");
+
+    // The part before the first colon is treated as the kind.
+    let output = work_dir.run_jj(["file", "search", "--pattern=foo:bar"]);
+    insta::assert_snapshot!(output.normalize_stderr_exit_status(), @"
+    ------- stderr -------
+    Error: Invalid string pattern kind `foo:`
+    [EOF]
+    [exit status: 2]
+    ");
+
+    // Colons can be in the pattern part.
+    let output = work_dir.run_jj(["file", "search", "--pattern=regex-i:foo:bar"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"");
 }
 
 #[test]
@@ -87,24 +116,24 @@ fn test_file_search_conflicts() {
     ");
 
     // Matches positive terms
-    let output = work_dir.run_jj(["file", "search", "--pattern=*foo*"]);
+    let output = work_dir.run_jj(["file", "search", "--pattern=glob:*foo*"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
     file1
     [EOF]
     ");
-    let output = work_dir.run_jj(["file", "search", "--pattern=*bar*"]);
+    let output = work_dir.run_jj(["file", "search", "--pattern=glob:*bar*"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"");
-    let output = work_dir.run_jj(["file", "search", "--pattern=*baz*"]);
+    let output = work_dir.run_jj(["file", "search", "--pattern=glob:*baz*"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
     file1
     [EOF]
     ");
 
     // Doesn't match the conflict markers
-    let output = work_dir.run_jj(["file", "search", "--pattern=*%%%*"]);
+    let output = work_dir.run_jj(["file", "search", "--pattern=glob:*%%%*"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"");
 
     // Doesn't list file if the pattern doesn't match
-    let output = work_dir.run_jj(["file", "search", "--pattern=*qux*"]);
+    let output = work_dir.run_jj(["file", "search", "--pattern=glob:*qux*"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"");
 }

@@ -15,6 +15,8 @@
 use std::slice;
 
 use assert_matches::assert_matches;
+use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
@@ -39,6 +41,7 @@ use testutils::write_random_commit;
 fn collect_predecessors(repo: &ReadonlyRepo, start_commit: &CommitId) -> Vec<CommitEvolutionEntry> {
     walk_predecessors(repo, slice::from_ref(start_commit))
         .try_collect()
+        .block_on()
         .unwrap()
 }
 
@@ -105,9 +108,7 @@ fn test_walk_predecessors_basic_legacy_op() -> TestResult {
     tx.repo_mut().rebase_descendants().block_on()?;
     let repo2 = tx.commit("test").block_on()?;
 
-    // Save operation without the predecessors as old jj would do. We only need
-    // to rewrite the head operation since walk_predecessors() will fall back to
-    // the legacy code path immediately.
+    // Save operation without the predecessors as old jj would do.
     let repo2 = {
         let mut data = repo2.operation().store_operation().clone();
         data.commit_predecessors = None;
@@ -117,13 +118,10 @@ fn test_walk_predecessors_basic_legacy_op() -> TestResult {
     };
 
     let entries = collect_predecessors(&repo2, commit2.id());
-    assert_eq!(entries.len(), 2);
+    assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].commit, commit2);
     assert_eq!(entries[0].operation.as_ref(), None);
-    assert_eq!(entries[0].predecessor_ids(), [commit1.id().clone()]);
-    assert_eq!(entries[1].commit, commit1);
-    assert_eq!(entries[1].operation.as_ref(), None);
-    assert_eq!(entries[1].predecessor_ids(), []);
+    assert_eq!(entries[0].predecessor_ids(), []);
     Ok(())
 }
 
@@ -452,7 +450,10 @@ fn test_walk_predecessors_direct_cycle_within_op() -> TestResult {
         loader.load_at(&op).block_on()?
     };
     assert_matches!(
-        walk_predecessors(&repo1, slice::from_ref(commit1.id())).next(),
+        walk_predecessors(&repo1, slice::from_ref(commit1.id()))
+            .boxed_local()
+            .next()
+            .block_on(),
         Some(Err(WalkPredecessorsError::CycleDetected(_)))
     );
     Ok(())
@@ -482,7 +483,10 @@ fn test_walk_predecessors_indirect_cycle_within_op() -> TestResult {
         loader.load_at(&op).block_on()?
     };
     assert_matches!(
-        walk_predecessors(&repo1, slice::from_ref(commit3.id())).next(),
+        walk_predecessors(&repo1, slice::from_ref(commit3.id()))
+            .boxed_local()
+            .next()
+            .block_on(),
         Some(Err(WalkPredecessorsError::CycleDetected(_)))
     );
     Ok(())

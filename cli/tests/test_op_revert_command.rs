@@ -100,7 +100,7 @@ fn test_git_push_revert() {
         .run_jj(["bookmark", "create", "-r@", "main"])
         .success();
     work_dir.run_jj(["describe", "-m", "AA"]).success();
-    work_dir.run_jj(["git", "push", "--allow-new"]).success();
+    work_dir.run_jj(["git", "push", "--all"]).success();
     test_env.advance_test_rng_seed_to_multiple_of(100_000);
     work_dir.run_jj(["describe", "-m", "BB"]).success();
     //   Refs at this point look as follows (-- means no ref)
@@ -182,7 +182,7 @@ fn test_git_push_revert_with_import() {
         .run_jj(["bookmark", "create", "-r@", "main"])
         .success();
     work_dir.run_jj(["describe", "-m", "AA"]).success();
-    work_dir.run_jj(["git", "push", "--allow-new"]).success();
+    work_dir.run_jj(["git", "push", "--all"]).success();
     test_env.advance_test_rng_seed_to_multiple_of(100_000);
     work_dir.run_jj(["describe", "-m", "BB"]).success();
     //   Refs at this point look as follows (-- means no ref)
@@ -270,7 +270,7 @@ fn test_git_push_revert_colocated() {
         .run_jj(["bookmark", "create", "-r@", "main"])
         .success();
     work_dir.run_jj(["describe", "-m", "AA"]).success();
-    work_dir.run_jj(["git", "push", "--allow-new"]).success();
+    work_dir.run_jj(["git", "push", "--all"]).success();
     test_env.advance_test_rng_seed_to_multiple_of(100_000);
     work_dir.run_jj(["describe", "-m", "BB"]).success();
     //   Refs at this point look as follows (-- means no ref)
@@ -358,7 +358,7 @@ fn test_git_push_revert_repo_only() {
         .run_jj(["bookmark", "create", "-r@", "main"])
         .success();
     work_dir.run_jj(["describe", "-m", "AA"]).success();
-    work_dir.run_jj(["git", "push", "--allow-new"]).success();
+    work_dir.run_jj(["git", "push", "--all"]).success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main: qpvuntsm 3a44d6c5 (empty) AA
       @origin: qpvuntsm 3a44d6c5 (empty) AA
@@ -419,7 +419,7 @@ fn test_bookmark_track_untrack_revert() {
     work_dir
         .run_jj(["bookmark", "create", "-r@", "feature1", "feature2"])
         .success();
-    work_dir.run_jj(["git", "push", "--allow-new"]).success();
+    work_dir.run_jj(["git", "push", "--all"]).success();
     work_dir
         .run_jj(["bookmark", "delete", "feature2"])
         .success();

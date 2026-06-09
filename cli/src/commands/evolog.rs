@@ -14,13 +14,17 @@
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use futures::Stream;
+use futures::StreamExt as _;
 use futures::TryStreamExt as _;
+use futures::stream;
+use futures::stream::LocalBoxStream;
 use itertools::Itertools as _;
 use jj_lib::commit::Commit;
 use jj_lib::evolution::CommitEvolutionEntry;
 use jj_lib::evolution::walk_predecessors;
 use jj_lib::graph::GraphEdge;
-use jj_lib::graph::TopoGroupedGraphIterator;
+use jj_lib::graph::TopoGroupedGraph;
 use jj_lib::graph::reverse_graph;
 use jj_lib::matchers::EverythingMatcher;
 use tracing::instrument;
@@ -104,7 +108,7 @@ pub(crate) async fn cmd_evolog(
     command: &CommandHelper,
     args: &EvologArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper(ui)?;
+    let workspace_command = command.workspace_helper(ui).await?;
 
     let start_commit_ids: Vec<_> = workspace_command
         .parse_union_revsets(ui, &args.revisions)?
@@ -144,7 +148,7 @@ pub(crate) async fn cmd_evolog(
     let formatter = formatter.as_mut();
 
     let repo = workspace_command.repo();
-    let evolution_entries = walk_predecessors(repo, &start_commit_ids);
+    let evolution_entries = walk_predecessors(repo, &start_commit_ids).boxed_local();
     if !args.no_graph {
         let mut raw_output = formatter.raw()?;
         let mut graph = get_graphlog(graph_style, raw_output.as_mut());
@@ -154,7 +158,7 @@ pub(crate) async fn cmd_evolog(
             let edges = ids.iter().cloned().map(GraphEdge::direct).collect_vec();
             (entry, edges)
         });
-        // TopoGroupedGraphIterator also helps emit squashed commits in reverse
+        // TopoGroupedGraph also helps emit squashed commits in reverse
         // chronological order. Predecessors don't need to follow any defined
         // order. However in practice, if there are multiple predecessors, then
         // usually the first predecessor is the previous version of the same
@@ -165,24 +169,26 @@ pub(crate) async fn cmd_evolog(
         // squashed commits before the squash destination (since the
         // destination's subgraph may contain earlier squashed commits as well.
         let evolution_nodes =
-            TopoGroupedGraphIterator::new(evolution_nodes, |node| node.commit.id());
+            TopoGroupedGraph::new(evolution_nodes, |node| node.commit.id()).stream();
 
         let evolution_nodes = evolution_nodes.take(args.limit.unwrap_or(usize::MAX));
-        let evolution_nodes: Box<dyn Iterator<Item = _>> = if args.reversed {
-            let nodes = reverse_graph(evolution_nodes, |entry| entry.commit.id())?;
-            Box::new(nodes.into_iter().map(Ok))
+        let mut evolution_nodes: LocalBoxStream<_> = if args.reversed {
+            let nodes: Vec<_> = evolution_nodes.collect().await;
+            let nodes = reverse_graph(nodes.into_iter(), |entry| entry.commit.id())?;
+            stream::iter(nodes.into_iter().map(Ok)).boxed_local()
         } else {
-            Box::new(evolution_nodes)
+            evolution_nodes.boxed_local()
         };
 
-        for node in evolution_nodes {
-            let (entry, edges) = node?;
+        while let Some((entry, edges)) = evolution_nodes.try_next().await? {
             let mut buffer = vec![];
             let within_graph =
                 with_content_format.sub_width(graph.width(entry.commit.id(), &edges));
-            within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {
-                template.format(&entry, formatter)
-            })?;
+            within_graph
+                .write(ui.new_formatter(&mut buffer).as_mut(), async |formatter| {
+                    template.format(&entry, formatter)
+                })
+                .await?;
             if let Some(renderer) = &diff_renderer {
                 let predecessors = entry.predecessors().await?;
                 let mut formatter = ui.new_formatter(&mut buffer);
@@ -207,16 +213,19 @@ pub(crate) async fn cmd_evolog(
         }
     } else {
         let evolution_entries = evolution_entries.take(args.limit.unwrap_or(usize::MAX));
-        let evolution_entries: Box<dyn Iterator<Item = _>> = if args.reversed {
-            let entries: Vec<_> = evolution_entries.try_collect()?;
-            Box::new(entries.into_iter().rev().map(Ok))
+        let mut evolution_entries: Box<dyn Stream<Item = _> + Unpin> = if args.reversed {
+            let entries: Vec<_> = evolution_entries.try_collect().await?;
+            Box::new(stream::iter(entries.into_iter().rev().map(Ok)))
         } else {
             Box::new(evolution_entries)
         };
 
-        for entry in evolution_entries {
-            let entry = entry?;
-            with_content_format.write(formatter, |formatter| template.format(&entry, formatter))?;
+        while let Some(entry) = evolution_entries.try_next().await? {
+            with_content_format
+                .write(formatter, async |formatter| {
+                    template.format(&entry, formatter)
+                })
+                .await?;
             if let Some(renderer) = &diff_renderer {
                 let predecessors = entry.predecessors().await?;
                 let width = ui.term_width();

@@ -75,11 +75,14 @@ commit. You can do that by creating a new commit on top of the initial commit
 `jj git push`
 will automatically force-push the bookmark.
 
+Mark conversation threads as resolved when you have addressed them. If you
+realize that a comment requires non-trivial changes, write a reply instead and
+ask your reviewer to take another look after updating the code.
+
 When your first PR has been approved, we typically invite you to the
 `jj-vcs/contributors` team to give you contributor access,
 so you can address any remaining minor comments and then merge the PR yourself
-when you're ready. If you realize that some comments require non-trivial
-changes, please ask your reviewer to take another look.
+when you're ready.
 
 If your employer pays anyone (not necessarily you) to contribute to Jujutsu,
 please make sure your GitHub username is [recorded](paid_contributors.md).

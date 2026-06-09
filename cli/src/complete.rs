@@ -277,7 +277,10 @@ pub fn template_aliases() -> Vec<CompletionCandidate> {
         };
         Ok(template_aliases
             .symbol_names()
-            .map(CompletionCandidate::new)
+            .map(|name| {
+                let doc = template_aliases.get_symbol(name).unwrap().2;
+                CompletionCandidate::new(name).help(doc.map(|doc| doc.to_owned().into()))
+            })
             .sorted()
             .collect())
     })
@@ -292,7 +295,14 @@ pub fn aliases() -> Vec<CompletionCandidate> {
             // aliases don't need to be completed and they would only clutter
             // the output of `jj <TAB>`.
             .filter(|alias| alias.len() > 2)
-            .map(CompletionCandidate::new)
+            .map(|alias| {
+                CompletionCandidate::new(alias).help(
+                    settings
+                        .get_string(["aliases", alias, "doc"])
+                        .ok()
+                        .map(|doc| doc.into()),
+                )
+            })
             .collect())
     })
 }
@@ -426,9 +436,11 @@ fn revisions(match_prefix: &str, revset_filter: Option<&str>) -> Vec<CompletionC
                 .into_iter()
                 .filter(|symbol| symbol.starts_with(match_prefix))
                 .map(|symbol| {
-                    let (_, defn) = revset_aliases.get_symbol(symbol).unwrap();
+                    let (_, defn, doc) = revset_aliases.get_symbol(symbol).unwrap();
+                    // Prefer TOML `.doc` over definition text
+                    let help: String = doc.map(|s| s.to_owned()).unwrap_or_else(|| defn.clone());
                     CompletionCandidate::new(symbol)
-                        .help(Some(defn.into()))
+                        .help(Some(help.into()))
                         .display_order(Some(REVSET_ALIAS))
                 }),
         );

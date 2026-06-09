@@ -107,7 +107,7 @@ pub(crate) async fn cmd_bisect_run(
     command: &CommandHelper,
     args: &BisectRunArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
 
     if let Some(command) = &args.legacy_command {
         writeln!(
@@ -182,7 +182,7 @@ pub(crate) async fn cmd_bisect_run(
                 }
 
                 // Reload the workspace because the evaluation command may run `jj` commands.
-                workspace_command = command.workspace_helper(ui)?;
+                workspace_command = command.workspace_helper(ui).await?;
             }
             jj_lib::bisect::NextStep::Done(bisection_result) => {
                 break bisection_result;

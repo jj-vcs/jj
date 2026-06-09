@@ -27,7 +27,6 @@ disabled-branches = []
 [git]
 colocate = true
 private-commits = "none()"
-push-new-bookmarks = false
 sign-on-push = false
 track-default-bookmark-on-clone = true
 

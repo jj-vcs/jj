@@ -17,6 +17,8 @@ use std::collections::HashMap;
 use std::io;
 use std::iter;
 
+use bstr::BString;
+use bstr::ByteSlice as _;
 use itertools::Itertools as _;
 use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
@@ -27,6 +29,7 @@ use jj_lib::content_hash::blake2b_hash;
 use jj_lib::hex_util;
 use jj_lib::op_store::TimestampRange;
 use jj_lib::settings::UserSettings;
+use jj_lib::str_util::StringPattern;
 use jj_lib::time_util::DatePattern;
 use serde::Deserialize;
 use serde::de::IntoDeserializer as _;
@@ -64,15 +67,18 @@ use crate::templater::PlainTextFormattedProperty;
 use crate::templater::PropertyPlaceholder;
 use crate::templater::RawEscapeSequenceTemplate;
 use crate::templater::ReformatTemplate;
+use crate::templater::RegexCaptures;
 use crate::templater::SeparateTemplate;
 use crate::templater::SizeHint;
 use crate::templater::Template;
+use crate::templater::TemplateFormatter;
 use crate::templater::TemplateProperty;
 use crate::templater::TemplatePropertyError;
 use crate::templater::TemplatePropertyExt as _;
 use crate::templater::TemplateRenderer;
 use crate::templater::WrapTemplateProperty;
 use crate::text_util;
+use crate::text_util::write_replaced;
 use crate::time_util;
 
 /// Callbacks to build usage-context-specific evaluation objects from AST nodes.
@@ -163,6 +169,8 @@ pub(crate) use impl_property_wrappers;
 /// Wrapper for the core template property types.
 pub trait CoreTemplatePropertyVar<'a>
 where
+    Self: WrapTemplateProperty<'a, BString>,
+    Self: WrapTemplateProperty<'a, Vec<BString>>,
     Self: WrapTemplateProperty<'a, String>,
     Self: WrapTemplateProperty<'a, Vec<String>>,
     Self: WrapTemplateProperty<'a, bool>,
@@ -173,6 +181,7 @@ where
     Self: WrapTemplateProperty<'a, Signature>,
     Self: WrapTemplateProperty<'a, Email>,
     Self: WrapTemplateProperty<'a, SizeHint>,
+    Self: WrapTemplateProperty<'a, RegexCaptures>,
     Self: WrapTemplateProperty<'a, Timestamp>,
     Self: WrapTemplateProperty<'a, TimestampRange>,
 {
@@ -183,12 +192,15 @@ where
     /// Type name of the property output.
     fn type_name(&self) -> &'static str;
 
-    fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'a, bool>>;
-    fn try_into_integer(self) -> Option<BoxedTemplateProperty<'a, i64>>;
-    fn try_into_timestamp(self) -> Option<BoxedTemplateProperty<'a, Timestamp>>;
+    /// Extracts property of `ByteString` type or newtype.
+    fn try_into_byte_string(self) -> Result<BoxedTemplateProperty<'a, BString>, Self>;
+    /// Extracts property of `String` type or newtype.
+    fn try_into_string(self) -> Result<BoxedTemplateProperty<'a, String>, Self>;
+    // TODO: rename try_into_boolean() because it isn't a pure extraction fn?
+    fn try_into_boolean(self) -> Result<BoxedTemplateProperty<'a, bool>, Self>;
+    fn try_into_integer(self) -> Result<BoxedTemplateProperty<'a, i64>, Self>;
+    fn try_into_timestamp(self) -> Result<BoxedTemplateProperty<'a, Timestamp>, Self>;
 
-    /// Transforms into a string property by formatting the value if needed.
-    fn try_into_stringify(self) -> Option<BoxedTemplateProperty<'a, String>>;
     fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'a>>;
     fn try_into_template(self) -> Option<Box<dyn Template + 'a>>;
 
@@ -200,6 +212,8 @@ where
 }
 
 pub enum CoreTemplatePropertyKind<'a> {
+    ByteString(BoxedTemplateProperty<'a, BString>),
+    ByteStringList(BoxedTemplateProperty<'a, Vec<BString>>),
     String(BoxedTemplateProperty<'a, String>),
     StringList(BoxedTemplateProperty<'a, Vec<String>>),
     Boolean(BoxedTemplateProperty<'a, bool>),
@@ -210,6 +224,7 @@ pub enum CoreTemplatePropertyKind<'a> {
     Signature(BoxedTemplateProperty<'a, Signature>),
     Email(BoxedTemplateProperty<'a, Email>),
     SizeHint(BoxedTemplateProperty<'a, SizeHint>),
+    RegexCaptures(BoxedTemplateProperty<'a, RegexCaptures>),
     Timestamp(BoxedTemplateProperty<'a, Timestamp>),
     TimestampRange(BoxedTemplateProperty<'a, TimestampRange>),
 
@@ -235,6 +250,8 @@ pub enum CoreTemplatePropertyKind<'a> {
 macro_rules! impl_core_property_wrappers {
     ($($head:tt)+) => {
         $crate::template_builder::impl_property_wrappers!($($head)+ {
+            ByteString(bstr::BString),
+            ByteStringList(Vec<bstr::BString>),
             String(String),
             StringList(Vec<String>),
             Boolean(bool),
@@ -245,6 +262,7 @@ macro_rules! impl_core_property_wrappers {
             Signature(jj_lib::backend::Signature),
             Email($crate::templater::Email),
             SizeHint($crate::templater::SizeHint),
+            RegexCaptures($crate::templater::RegexCaptures),
             Timestamp(jj_lib::backend::Timestamp),
             TimestampRange(jj_lib::op_store::TimestampRange),
         });
@@ -270,6 +288,8 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
 
     fn type_name(&self) -> &'static str {
         match self {
+            Self::ByteString(_) => "ByteString",
+            Self::ByteStringList(_) => "List<ByteString>",
             Self::String(_) => "String",
             Self::StringList(_) => "List<String>",
             Self::Boolean(_) => "Boolean",
@@ -280,6 +300,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::Signature(_) => "Signature",
             Self::Email(_) => "Email",
             Self::SizeHint(_) => "SizeHint",
+            Self::RegexCaptures(_) => "RegexCaptures",
             Self::Timestamp(_) => "Timestamp",
             Self::TimestampRange(_) => "TimestampRange",
             Self::Template(_) => "Template",
@@ -288,56 +309,65 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
         }
     }
 
-    fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'a, bool>> {
+    fn try_into_byte_string(self) -> Result<BoxedTemplateProperty<'a, BString>, Self> {
         match self {
-            Self::String(property) => Some(property.map(|s| !s.is_empty()).into_dyn()),
-            Self::StringList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
-            Self::Boolean(property) => Some(property),
-            Self::Integer(_) => None,
-            Self::IntegerOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
-            Self::ConfigValue(_) => None,
-            Self::ConfigValueOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
-            Self::Signature(_) => None,
-            Self::Email(property) => Some(property.map(|e| !e.0.is_empty()).into_dyn()),
-            Self::SizeHint(_) => None,
-            Self::Timestamp(_) => None,
-            Self::TimestampRange(_) => None,
+            Self::ByteString(property) => Ok(property),
+            _ => Err(self),
+        }
+    }
+
+    fn try_into_string(self) -> Result<BoxedTemplateProperty<'a, String>, Self> {
+        match self {
+            Self::String(property) => Ok(property),
+            _ => Err(self),
+        }
+    }
+
+    fn try_into_boolean(self) -> Result<BoxedTemplateProperty<'a, bool>, Self> {
+        match self {
+            Self::ByteString(property) => Ok(property.map(|s| !s.is_empty()).into_dyn()),
+            Self::ByteStringList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::String(property) => Ok(property.map(|s| !s.is_empty()).into_dyn()),
+            Self::StringList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::Boolean(property) => Ok(property),
+            Self::Integer(_) => Err(self),
+            Self::IntegerOpt(property) => Ok(property.map(|opt| opt.is_some()).into_dyn()),
+            Self::ConfigValue(_) => Err(self),
+            Self::ConfigValueOpt(property) => Ok(property.map(|opt| opt.is_some()).into_dyn()),
+            Self::Signature(_) => Err(self),
+            Self::Email(property) => Ok(property.map(|e| !e.0.is_empty()).into_dyn()),
+            Self::SizeHint(_) => Err(self),
+            Self::RegexCaptures(_) => Err(self),
+            Self::Timestamp(_) => Err(self),
+            Self::TimestampRange(_) => Err(self),
             // Template and AnyList types could also be evaluated to boolean,
             // but it's less likely to apply label() or .map() and use the
             // result as conditional.
-            Self::Template(_) => None,
-            Self::Any(_) => None,
-            Self::AnyList(_) => None,
+            Self::Template(_) => Err(self),
+            Self::Any(_) => Err(self),
+            Self::AnyList(_) => Err(self),
         }
     }
 
-    fn try_into_integer(self) -> Option<BoxedTemplateProperty<'a, i64>> {
+    fn try_into_integer(self) -> Result<BoxedTemplateProperty<'a, i64>, Self> {
         match self {
-            Self::Integer(property) => Some(property),
-            Self::IntegerOpt(property) => Some(property.try_unwrap("Integer").into_dyn()),
-            _ => None,
+            Self::Integer(property) => Ok(property),
+            Self::IntegerOpt(property) => Ok(property.try_unwrap("Integer").into_dyn()),
+            _ => Err(self),
         }
     }
 
-    fn try_into_timestamp(self) -> Option<BoxedTemplateProperty<'a, Timestamp>> {
+    fn try_into_timestamp(self) -> Result<BoxedTemplateProperty<'a, Timestamp>, Self> {
         match self {
-            Self::Timestamp(property) => Some(property),
-            _ => None,
-        }
-    }
-
-    fn try_into_stringify(self) -> Option<BoxedTemplateProperty<'a, String>> {
-        match self {
-            Self::String(property) => Some(property),
-            _ => {
-                let template = self.try_into_template()?;
-                Some(PlainTextFormattedProperty::new(template).into_dyn())
-            }
+            Self::Timestamp(property) => Ok(property),
+            _ => Err(self),
         }
     }
 
     fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'a>> {
         match self {
+            Self::ByteString(property) => Some(property.into_serialize()),
+            Self::ByteStringList(property) => Some(property.into_serialize()),
             Self::String(property) => Some(property.into_serialize()),
             Self::StringList(property) => Some(property.into_serialize()),
             Self::Boolean(property) => Some(property.into_serialize()),
@@ -354,6 +384,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::Signature(property) => Some(property.into_serialize()),
             Self::Email(property) => Some(property.into_serialize()),
             Self::SizeHint(property) => Some(property.into_serialize()),
+            Self::RegexCaptures(_) => None,
             Self::Timestamp(property) => Some(property.into_serialize()),
             Self::TimestampRange(property) => Some(property.into_serialize()),
             Self::Template(_) => None,
@@ -364,6 +395,8 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
 
     fn try_into_template(self) -> Option<Box<dyn Template + 'a>> {
         match self {
+            Self::ByteString(property) => Some(property.into_template()),
+            Self::ByteStringList(property) => Some(property.into_template()),
             Self::String(property) => Some(property.into_template()),
             Self::StringList(property) => Some(property.into_template()),
             Self::Boolean(property) => Some(property.into_template()),
@@ -374,6 +407,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::Signature(property) => Some(property.into_template()),
             Self::Email(property) => Some(property.into_template()),
             Self::SizeHint(_) => None,
+            Self::RegexCaptures(_) => None,
             Self::Timestamp(property) => Some(property.into_template()),
             Self::TimestampRange(property) => Some(property.into_template()),
             Self::Template(template) => Some(template),
@@ -384,6 +418,15 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
 
     fn try_into_eq(self, other: Self) -> Option<BoxedTemplateProperty<'a, bool>> {
         match (self, other) {
+            (Self::ByteString(lhs), Self::ByteString(rhs)) => {
+                Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
+            }
+            (Self::ByteString(lhs), Self::String(rhs)) => {
+                Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
+            }
+            (Self::String(lhs), Self::ByteString(rhs)) => {
+                Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
+            }
             (Self::String(lhs), Self::String(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
             }
@@ -411,6 +454,8 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::Email(lhs), Self::String(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| l.0 == r).into_dyn())
             }
+            (Self::ByteString(_), _) => None,
+            (Self::ByteStringList(_), _) => None,
             (Self::String(_), _) => None,
             (Self::StringList(_), _) => None,
             (Self::Boolean(_), _) => None,
@@ -421,6 +466,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::Signature(_), _) => None,
             (Self::Email(_), _) => None,
             (Self::SizeHint(_), _) => None,
+            (Self::RegexCaptures(_), _) => None,
             (Self::Timestamp(_), _) => None,
             (Self::TimestampRange(_), _) => None,
             (Self::Template(_), _) => None,
@@ -443,6 +489,8 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::IntegerOpt(lhs), Self::IntegerOpt(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| l.cmp(&r)).into_dyn())
             }
+            (Self::ByteString(_), _) => None,
+            (Self::ByteStringList(_), _) => None,
             (Self::String(_), _) => None,
             (Self::StringList(_), _) => None,
             (Self::Boolean(_), _) => None,
@@ -453,6 +501,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::Signature(_), _) => None,
             (Self::Email(_), _) => None,
             (Self::SizeHint(_), _) => None,
+            (Self::RegexCaptures(_), _) => None,
             (Self::Timestamp(_), _) => None,
             (Self::TimestampRange(_), _) => None,
             (Self::Template(_), _) => None,
@@ -507,6 +556,8 @@ pub type BuildAnyMethodFnMap<'a, L, P = <L as TemplateLanguage<'a>>::Property> =
 /// Symbol table of functions and methods available in the core template.
 pub struct CoreTemplateBuildFnTable<'a, L: ?Sized, P = <L as TemplateLanguage<'a>>::Property> {
     pub functions: TemplateBuildFunctionFnMap<'a, L, P>,
+    pub byte_string_methods: TemplateBuildMethodFnMap<'a, L, BString, P>,
+    pub byte_string_list_methods: TemplateBuildMethodFnMap<'a, L, Vec<BString>, P>,
     pub string_methods: TemplateBuildMethodFnMap<'a, L, String, P>,
     pub string_list_methods: TemplateBuildMethodFnMap<'a, L, Vec<String>, P>,
     pub boolean_methods: TemplateBuildMethodFnMap<'a, L, bool, P>,
@@ -515,6 +566,7 @@ pub struct CoreTemplateBuildFnTable<'a, L: ?Sized, P = <L as TemplateLanguage<'a
     pub email_methods: TemplateBuildMethodFnMap<'a, L, Email, P>,
     pub signature_methods: TemplateBuildMethodFnMap<'a, L, Signature, P>,
     pub size_hint_methods: TemplateBuildMethodFnMap<'a, L, SizeHint, P>,
+    pub regex_captures_methods: TemplateBuildMethodFnMap<'a, L, RegexCaptures, P>,
     pub timestamp_methods: TemplateBuildMethodFnMap<'a, L, Timestamp, P>,
     pub timestamp_range_methods: TemplateBuildMethodFnMap<'a, L, TimestampRange, P>,
     pub template_methods: BuildTemplateMethodFnMap<'a, L, P>,
@@ -534,6 +586,8 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
     pub fn empty() -> Self {
         Self {
             functions: HashMap::new(),
+            byte_string_methods: HashMap::new(),
+            byte_string_list_methods: HashMap::new(),
             string_methods: HashMap::new(),
             string_list_methods: HashMap::new(),
             boolean_methods: HashMap::new(),
@@ -542,6 +596,7 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
             signature_methods: HashMap::new(),
             email_methods: HashMap::new(),
             size_hint_methods: HashMap::new(),
+            regex_captures_methods: HashMap::new(),
             timestamp_methods: HashMap::new(),
             timestamp_range_methods: HashMap::new(),
             template_methods: HashMap::new(),
@@ -553,6 +608,8 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
     pub fn merge(&mut self, other: Self) {
         let Self {
             functions,
+            byte_string_methods,
+            byte_string_list_methods,
             string_methods,
             string_list_methods,
             boolean_methods,
@@ -561,6 +618,7 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
             signature_methods,
             email_methods,
             size_hint_methods,
+            regex_captures_methods,
             timestamp_methods,
             timestamp_range_methods,
             template_methods,
@@ -569,6 +627,8 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
         } = other;
 
         merge_fn_map(&mut self.functions, functions);
+        merge_fn_map(&mut self.byte_string_methods, byte_string_methods);
+        merge_fn_map(&mut self.byte_string_list_methods, byte_string_list_methods);
         merge_fn_map(&mut self.string_methods, string_methods);
         merge_fn_map(&mut self.string_list_methods, string_list_methods);
         merge_fn_map(&mut self.boolean_methods, boolean_methods);
@@ -577,6 +637,7 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
         merge_fn_map(&mut self.signature_methods, signature_methods);
         merge_fn_map(&mut self.email_methods, email_methods);
         merge_fn_map(&mut self.size_hint_methods, size_hint_methods);
+        merge_fn_map(&mut self.regex_captures_methods, regex_captures_methods);
         merge_fn_map(&mut self.timestamp_methods, timestamp_methods);
         merge_fn_map(&mut self.timestamp_range_methods, timestamp_range_methods);
         merge_fn_map(&mut self.template_methods, template_methods);
@@ -593,6 +654,8 @@ where
     pub fn builtin() -> Self {
         Self {
             functions: builtin_functions(),
+            byte_string_methods: builtin_byte_string_methods(),
+            byte_string_list_methods: builtin_formattable_list_methods(),
             string_methods: builtin_string_methods(),
             string_list_methods: builtin_formattable_list_methods(),
             boolean_methods: HashMap::new(),
@@ -601,6 +664,7 @@ where
             signature_methods: builtin_signature_methods(),
             email_methods: builtin_email_methods(),
             size_hint_methods: builtin_size_hint_methods(),
+            regex_captures_methods: builtin_regex_captures_methods(),
             timestamp_methods: builtin_timestamp_methods(),
             timestamp_range_methods: builtin_timestamp_range_methods(),
             template_methods: HashMap::new(),
@@ -634,6 +698,16 @@ where
     ) -> TemplateParseResult<L::Property> {
         let type_name = property.type_name();
         match property {
+            CoreTemplatePropertyKind::ByteString(property) => {
+                let table = &self.byte_string_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(language, diagnostics, build_ctx, property, function)
+            }
+            CoreTemplatePropertyKind::ByteStringList(property) => {
+                let table = &self.byte_string_list_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(language, diagnostics, build_ctx, property, function)
+            }
             CoreTemplatePropertyKind::String(property) => {
                 let table = &self.string_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
@@ -685,6 +759,11 @@ where
             }
             CoreTemplatePropertyKind::SizeHint(property) => {
                 let table = &self.size_hint_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(language, diagnostics, build_ctx, property, function)
+            }
+            CoreTemplatePropertyKind::RegexCaptures(property) => {
+                let table = &self.regex_captures_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(language, diagnostics, build_ctx, property, function)
             }
@@ -741,19 +820,50 @@ impl<'a, P: CoreTemplatePropertyVar<'a>> Expression<P> {
     }
 
     pub fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'a, bool>> {
-        self.property.try_into_boolean()
+        self.property.try_into_boolean().ok()
     }
 
     pub fn try_into_integer(self) -> Option<BoxedTemplateProperty<'a, i64>> {
-        self.property.try_into_integer()
+        self.property.try_into_integer().ok()
     }
 
     pub fn try_into_timestamp(self) -> Option<BoxedTemplateProperty<'a, Timestamp>> {
-        self.property.try_into_timestamp()
+        self.property.try_into_timestamp().ok()
     }
 
+    /// Transforms into a byte string property by formatting the value if
+    /// needed.
+    pub fn try_into_byte_stringify(self) -> Option<BoxedTemplateProperty<'a, BString>> {
+        let property = match self.property.try_into_byte_string() {
+            Ok(bytes_property) => return Some(bytes_property),
+            Err(property) => property,
+        };
+        let property = match property.try_into_string() {
+            Ok(string_property) => return Some(string_property.map(BString::from).into_dyn()),
+            Err(property) => property,
+        };
+        let template = property.try_into_template()?;
+        Some(PlainTextFormattedProperty::new(template).into_dyn())
+    }
+
+    /// Transforms into a string property by formatting the value if needed.
     pub fn try_into_stringify(self) -> Option<BoxedTemplateProperty<'a, String>> {
-        self.property.try_into_stringify()
+        let from_bytes =
+            |s: BString| Ok(String::from_utf8(s.into()).map_err(|err| err.utf8_error())?);
+        let property = match self.property.try_into_string() {
+            Ok(string_property) => return Some(string_property),
+            Err(property) => property,
+        };
+        let property = match property.try_into_byte_string() {
+            Ok(bytes_property) => return Some(bytes_property.and_then(from_bytes).into_dyn()),
+            Err(property) => property,
+        };
+        let template = property.try_into_template()?;
+        Some(
+            PlainTextFormattedProperty::new(template)
+                .and_then(from_bytes)
+                .into_dyn(),
+        )
     }
 
     pub fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'a>> {
@@ -957,6 +1067,215 @@ fn build_binary_operation<'a, L: TemplateLanguage<'a> + ?Sized>(
     }
 }
 
+fn builtin_byte_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
+-> TemplateBuildMethodFnMap<'a, L, BString> {
+    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // code completion inside macro is quite restricted.
+    let mut map = TemplateBuildMethodFnMap::<L, BString>::new();
+    map.insert(
+        "len",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.and_then(|s| Ok(i64::try_from(s.len())?));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "contains",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let [needle_node] = function.expect_exact_arguments()?;
+            // TODO: or .try_into_byte_string() to disable implicit type cast?
+            let needle_property =
+                expect_byte_stringify_expression(language, diagnostics, build_ctx, needle_node)?;
+            let out_property = (self_property, needle_property)
+                .map(|(haystack, needle)| haystack.contains_str(&needle));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "match",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            let [needle_node] = function.expect_exact_arguments()?;
+            let needle = template_parser::expect_string_pattern(needle_node)?;
+            let out_property = match_string_like(self_property, needle);
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "starts_with",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let [needle_node] = function.expect_exact_arguments()?;
+            let needle_property =
+                expect_byte_stringify_expression(language, diagnostics, build_ctx, needle_node)?;
+            let out_property = (self_property, needle_property)
+                .map(|(haystack, needle)| haystack.starts_with(&needle));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "ends_with",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let [needle_node] = function.expect_exact_arguments()?;
+            let needle_property =
+                expect_byte_stringify_expression(language, diagnostics, build_ctx, needle_node)?;
+            let out_property = (self_property, needle_property)
+                .map(|(haystack, needle)| haystack.ends_with(&needle));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "remove_prefix",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let [needle_node] = function.expect_exact_arguments()?;
+            let needle_property =
+                expect_byte_stringify_expression(language, diagnostics, build_ctx, needle_node)?;
+            let out_property = (self_property, needle_property).map(|(haystack, needle)| {
+                haystack
+                    .strip_prefix(&**needle)
+                    .map(BString::from)
+                    .unwrap_or(haystack)
+            });
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "remove_suffix",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let [needle_node] = function.expect_exact_arguments()?;
+            let needle_property =
+                expect_byte_stringify_expression(language, diagnostics, build_ctx, needle_node)?;
+            let out_property = (self_property, needle_property).map(|(haystack, needle)| {
+                haystack
+                    .strip_suffix(&**needle)
+                    .map(BString::from)
+                    .unwrap_or(haystack)
+            });
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "trim",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|s| BString::from(s.trim_ascii()));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "trim_start",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|s| BString::from(s.trim_ascii_start()));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "trim_end",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|s| BString::from(s.trim_ascii_end()));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "substr",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let ([start_idx_node], [end_idx_node]) = function.expect_arguments()?;
+            let start_idx_property =
+                expect_isize_expression(language, diagnostics, build_ctx, start_idx_node)?;
+            let end_idx_property = end_idx_node
+                .map(|node| expect_isize_expression(language, diagnostics, build_ctx, node))
+                .transpose()?;
+            let out_property = (self_property, start_idx_property, end_idx_property).map(
+                |(s, start_idx, end_idx)| {
+                    let start_idx = clamp_signed_bytes_index(&s, start_idx);
+                    let end_idx = end_idx.map_or(s.len(), |idx| clamp_signed_bytes_index(&s, idx));
+                    BString::from(s.get(start_idx..end_idx).unwrap_or_default())
+                },
+            );
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "first_line",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property =
+                self_property.map(|s| s.lines().next().map(BString::from).unwrap_or_default());
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "lines",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|s| s.lines().map(BString::from).collect_vec());
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "split",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let ([separator_node], [limit_node]) = function.expect_arguments()?;
+            let pattern = template_parser::expect_string_pattern(separator_node)?;
+            if let Some(limit_node) = limit_node {
+                let limit_property =
+                    expect_usize_expression(language, diagnostics, build_ctx, limit_node)?;
+                let out_property = splitn_string_like(self_property, pattern, limit_property);
+                Ok(out_property.into_dyn_wrapped())
+            } else {
+                let out_property = split_string_like(self_property, pattern);
+                Ok(out_property.into_dyn_wrapped())
+            }
+        },
+    );
+    map.insert(
+        "replace",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let ([pattern_node, replacement_node], [limit_node]) = function.expect_arguments()?;
+            let pattern = template_parser::expect_string_pattern(pattern_node)?;
+            let replacement_property = expect_byte_stringify_expression(
+                language,
+                diagnostics,
+                build_ctx,
+                replacement_node,
+            )?;
+            if let Some(limit_node) = limit_node {
+                let limit_property =
+                    expect_usize_expression(language, diagnostics, build_ctx, limit_node)?;
+                let out_property = replacen_string_like(
+                    self_property,
+                    pattern,
+                    replacement_property,
+                    limit_property,
+                );
+                Ok(out_property.into_dyn_wrapped())
+            } else {
+                let out_property =
+                    replace_all_string_like(self_property, pattern, replacement_property);
+                Ok(out_property.into_dyn_wrapped())
+            }
+        },
+    );
+    map.insert(
+        "upper",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|s| BString::from(s.to_ascii_uppercase()));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "lower",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|s| BString::from(s.to_ascii_lowercase()));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map
+}
+
 fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
 -> TemplateBuildMethodFnMap<'a, L, String> {
     // Not using maplit::hashmap!{} or custom declarative macro here because
@@ -987,17 +1306,7 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
         |_language, _diagnostics, _build_ctx, self_property, function| {
             let [needle_node] = function.expect_exact_arguments()?;
             let needle = template_parser::expect_string_pattern(needle_node)?;
-            let regex = needle.to_regex();
-
-            let out_property = self_property.and_then(move |haystack| {
-                if let Some(m) = regex.find(haystack.as_bytes()) {
-                    Ok(str::from_utf8(m.as_bytes())?.to_owned())
-                } else {
-                    // We don't have optional strings, so empty string is the
-                    // right null value.
-                    Ok(String::new())
-                }
-            });
+            let out_property = match_string_like(self_property, needle);
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -1080,27 +1389,17 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
     map.insert(
         "substr",
         |language, diagnostics, build_ctx, self_property, function| {
-            let ([start_idx], [end_idx]) = function.expect_arguments()?;
+            let ([start_idx_node], [end_idx_node]) = function.expect_arguments()?;
             let start_idx_property =
-                expect_isize_expression(language, diagnostics, build_ctx, start_idx)?;
-            let end_idx_property = if let Some(end_idx) = end_idx {
-                Some(expect_isize_expression(
-                    language,
-                    diagnostics,
-                    build_ctx,
-                    end_idx,
-                )?)
-            } else {
-                None
-            };
+                expect_isize_expression(language, diagnostics, build_ctx, start_idx_node)?;
+            let end_idx_property = end_idx_node
+                .map(|node| expect_isize_expression(language, diagnostics, build_ctx, node))
+                .transpose()?;
             let out_property = (self_property, start_idx_property, end_idx_property).map(
                 |(s, start_idx, end_idx)| {
                     let start_idx = string_index_to_char_boundary(&s, start_idx);
-                    let end_idx = if let Some(idx) = end_idx {
-                        string_index_to_char_boundary(&s, idx)
-                    } else {
-                        s.len()
-                    };
+                    let end_idx =
+                        end_idx.map_or(s.len(), |idx| string_index_to_char_boundary(&s, idx));
                     s.get(start_idx..end_idx).unwrap_or_default().to_owned()
                 },
             );
@@ -1129,30 +1428,37 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
         |language, diagnostics, build_ctx, self_property, function| {
             let ([separator_node], [limit_node]) = function.expect_arguments()?;
             let pattern = template_parser::expect_string_pattern(separator_node)?;
-            let regex = pattern.to_regex();
-
             if let Some(limit_node) = limit_node {
                 let limit_property =
                     expect_usize_expression(language, diagnostics, build_ctx, limit_node)?;
-                let out_property =
-                    (self_property, limit_property).and_then(move |(haystack, limit)| {
-                        let haystack_bytes = haystack.as_bytes();
-                        let parts: Vec<_> = regex
-                            .splitn(haystack_bytes, limit)
-                            .map(|part| str::from_utf8(part).map(|s| s.to_owned()))
-                            .try_collect()?;
-                        Ok(parts)
-                    });
+                let out_property = splitn_string_like(self_property, pattern, limit_property);
                 Ok(out_property.into_dyn_wrapped())
             } else {
-                let out_property = self_property.and_then(move |haystack| {
-                    let haystack_bytes = haystack.as_bytes();
-                    let parts: Vec<_> = regex
-                        .split(haystack_bytes)
-                        .map(|part| str::from_utf8(part).map(|s| s.to_owned()))
-                        .try_collect()?;
-                    Ok(parts)
-                });
+                let out_property = split_string_like(self_property, pattern);
+                Ok(out_property.into_dyn_wrapped())
+            }
+        },
+    );
+    map.insert(
+        "replace",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let ([pattern_node, replacement_node], [limit_node]) = function.expect_arguments()?;
+            let pattern = template_parser::expect_string_pattern(pattern_node)?;
+            let replacement_property =
+                expect_stringify_expression(language, diagnostics, build_ctx, replacement_node)?;
+            if let Some(limit_node) = limit_node {
+                let limit_property =
+                    expect_usize_expression(language, diagnostics, build_ctx, limit_node)?;
+                let out_property = replacen_string_like(
+                    self_property,
+                    pattern,
+                    replacement_property,
+                    limit_property,
+                );
+                Ok(out_property.into_dyn_wrapped())
+            } else {
+                let out_property =
+                    replace_all_string_like(self_property, pattern, replacement_property);
                 Ok(out_property.into_dyn_wrapped())
             }
         },
@@ -1181,49 +1487,99 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    map.insert(
-        "replace",
-        |language, diagnostics, build_ctx, self_property, function| {
-            let ([pattern_node, replacement_node], [limit_node]) = function.expect_arguments()?;
-            let pattern = template_parser::expect_string_pattern(pattern_node)?;
-            let replacement_property =
-                expect_stringify_expression(language, diagnostics, build_ctx, replacement_node)?;
+    map
+}
 
-            let regex = pattern.to_regex();
+trait StringLike: AsRef<[u8]> + Sized {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, TemplatePropertyError>;
+}
 
-            if let Some(limit_node) = limit_node {
-                let limit_property =
-                    expect_usize_expression(language, diagnostics, build_ctx, limit_node)?;
-                let out_property = (self_property, replacement_property, limit_property).and_then(
-                    move |(haystack, replacement, limit)| {
-                        if limit == 0 {
-                            // We need to special-case zero because regex.replacen(_, 0, _) replaces
-                            // all occurrences, and we want zero to mean no occurrences are
-                            // replaced.
-                            Ok(haystack)
-                        } else {
-                            let haystack_bytes = haystack.as_bytes();
-                            let replace_bytes = replacement.as_bytes();
-                            let result = regex.replacen(haystack_bytes, limit, replace_bytes);
-                            Ok(str::from_utf8(&result)?.to_owned())
-                        }
-                    },
-                );
-                Ok(out_property.into_dyn_wrapped())
+impl StringLike for BString {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, TemplatePropertyError> {
+        Ok(bytes.into())
+    }
+}
+
+impl StringLike for String {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, TemplatePropertyError> {
+        Ok(str::from_utf8(bytes)?.to_owned())
+    }
+}
+
+fn match_string_like<S: StringLike>(
+    self_property: impl TemplateProperty<Output = S>,
+    needle: StringPattern,
+) -> impl TemplateProperty<Output = S> {
+    let regex = needle.to_regex();
+    self_property.and_then(move |haystack| {
+        // We don't have optional strings, so "" is the right null value.
+        S::from_bytes(regex.find(haystack.as_ref()).map_or(b"", |m| m.as_bytes()))
+    })
+}
+
+fn split_string_like<S: StringLike>(
+    self_property: impl TemplateProperty<Output = S>,
+    pattern: StringPattern,
+) -> impl TemplateProperty<Output = Vec<S>> {
+    let regex = pattern.to_regex();
+    self_property
+        .and_then(move |haystack| regex.split(haystack.as_ref()).map(S::from_bytes).collect())
+}
+
+fn splitn_string_like<S: StringLike>(
+    self_property: impl TemplateProperty<Output = S>,
+    pattern: StringPattern,
+    limit_property: impl TemplateProperty<Output = usize>,
+) -> impl TemplateProperty<Output = Vec<S>> {
+    let regex = pattern.to_regex();
+    (self_property, limit_property).and_then(move |(haystack, limit)| {
+        regex
+            .splitn(haystack.as_ref(), limit)
+            .map(S::from_bytes)
+            .collect()
+    })
+}
+
+fn replace_all_string_like<S: StringLike>(
+    self_property: impl TemplateProperty<Output = S>,
+    pattern: StringPattern,
+    replacement_property: impl TemplateProperty<Output = S>,
+) -> impl TemplateProperty<Output = S> {
+    let regex = pattern.to_regex();
+    (self_property, replacement_property).and_then(move |(haystack, replacement)| {
+        S::from_bytes(&regex.replace_all(haystack.as_ref(), replacement.as_ref()))
+    })
+}
+
+fn replacen_string_like<S: StringLike>(
+    self_property: impl TemplateProperty<Output = S>,
+    pattern: StringPattern,
+    replacement_property: impl TemplateProperty<Output = S>,
+    limit_property: impl TemplateProperty<Output = usize>,
+) -> impl TemplateProperty<Output = S> {
+    let regex = pattern.to_regex();
+    (self_property, replacement_property, limit_property).and_then(
+        move |(haystack, replacement, limit)| {
+            if limit == 0 {
+                // We need to special-case zero because regex.replacen(_, 0, _)
+                // replaces all occurrences, and we want zero to mean no
+                // occurrences are replaced.
+                Ok(haystack)
             } else {
-                let out_property = (self_property, replacement_property).and_then(
-                    move |(haystack, replacement)| {
-                        let haystack_bytes = haystack.as_bytes();
-                        let replace_bytes = replacement.as_bytes();
-                        let result = regex.replace_all(haystack_bytes, replace_bytes);
-                        Ok(str::from_utf8(&result)?.to_owned())
-                    },
-                );
-                Ok(out_property.into_dyn_wrapped())
+                S::from_bytes(&regex.replacen(haystack.as_ref(), limit, replacement.as_ref()))
             }
         },
-    );
-    map
+    )
+}
+
+/// Clamps the given index. Negative index counts from the end.
+fn clamp_signed_bytes_index(s: &[u8], i: isize) -> usize {
+    let magnitude = i.unsigned_abs();
+    if i < 0 {
+        s.len().saturating_sub(magnitude)
+    } else {
+        magnitude.min(s.len())
+    }
 }
 
 /// Clamps and aligns the given index `i` to char boundary.
@@ -1232,12 +1588,10 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
 /// it will be rounded towards 0 (left or right depending on the sign.)
 fn string_index_to_char_boundary(s: &str, i: isize) -> usize {
     // TODO: use floor/ceil_char_boundary() if get stabilized
-    let magnitude = i.unsigned_abs();
+    let p = clamp_signed_bytes_index(s.as_bytes(), i);
     if i < 0 {
-        let p = s.len().saturating_sub(magnitude);
         (p..=s.len()).find(|&p| s.is_char_boundary(p)).unwrap()
     } else {
-        let p = magnitude.min(s.len());
         (0..=p).rev().find(|&p| s.is_char_boundary(p)).unwrap()
     }
 }
@@ -1400,6 +1754,53 @@ fn builtin_size_hint_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
     map
 }
 
+fn builtin_regex_captures_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
+-> TemplateBuildMethodFnMap<'a, L, RegexCaptures> {
+    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // code completion inside macro is quite restricted.
+    let mut map = TemplateBuildMethodFnMap::<L, RegexCaptures>::new();
+    map.insert(
+        "len",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property =
+                self_property.and_then(|captures| Ok(i64::try_from(captures.len())?));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "get",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let [index_node] = function.expect_exact_arguments()?;
+            let index = expect_usize_expression(language, diagnostics, build_ctx, index_node)?;
+            let out_property = (self_property, index).and_then(|(captures, index)| {
+                captures.get(index).ok_or_else(|| {
+                    TemplatePropertyError(
+                        format!("Could not get capture group with index {index}").into(),
+                    )
+                })
+            });
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "name",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let [name_node] = function.expect_exact_arguments()?;
+            let name = expect_stringify_expression(language, diagnostics, build_ctx, name_node)?;
+            let out_property = (self_property, name).and_then(move |(c, name)| {
+                c.name(&name).ok_or_else(|| {
+                    TemplatePropertyError(
+                        format!("Could not get capture group with name {name}").into(),
+                    )
+                })
+            });
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map
+}
+
 fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
 -> TemplateBuildMethodFnMap<'a, L, Timestamp> {
     // Not using maplit::hashmap!{} or custom declarative macro here because
@@ -1419,23 +1820,41 @@ fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
     );
     map.insert(
         "format",
-        |_language, diagnostics, _build_ctx, self_property, function| {
-            // No dynamic string is allowed as the templater has no runtime error type.
+        |language, diagnostics, build_ctx, self_property, function| {
             let [format_node] = function.expect_exact_arguments()?;
-            let format =
-                template_parser::catch_aliases(diagnostics, format_node, |_diagnostics, node| {
-                    let format = template_parser::expect_string_literal(node)?;
-                    time_util::FormattingItems::parse(format).ok_or_else(|| {
-                        TemplateParseError::expression("Invalid time format", node.span)
-                    })
-                })?
+            let format_property =
+                expect_stringify_expression(language, diagnostics, build_ctx, format_node)?;
+            if let Ok(format) = format_property.extract() {
+                let format = template_parser::catch_aliases(
+                    diagnostics,
+                    format_node,
+                    |_diagnostics, node| {
+                        time_util::FormattingItems::parse(&format).ok_or_else(|| {
+                            TemplateParseError::expression("Invalid time format", node.span)
+                        })
+                    },
+                )?
                 .into_owned();
-            let out_property = self_property.and_then(move |timestamp| {
-                Ok(time_util::format_absolute_timestamp_with(
-                    &timestamp, &format,
-                )?)
-            });
-            Ok(out_property.into_dyn_wrapped())
+                let out_property = self_property.and_then(move |timestamp| {
+                    Ok(time_util::format_absolute_timestamp_with(
+                        &timestamp, &format,
+                    )?)
+                });
+                Ok(out_property.into_dyn_wrapped())
+            } else {
+                let out_property =
+                    (self_property, format_property).and_then(move |(timestamp, format)| {
+                        let format =
+                            time_util::FormattingItems::parse(&format).ok_or_else(|| {
+                                let message = format!("Invalid time format: {format}");
+                                TemplatePropertyError(message.into())
+                            })?;
+                        Ok(time_util::format_absolute_timestamp_with(
+                            &timestamp, &format,
+                        )?)
+                    });
+                Ok(out_property.into_dyn_wrapped())
+            }
         },
     );
     map.insert(
@@ -2031,6 +2450,39 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
             HyperlinkTemplate::new(url, text, fallback),
         )))
     });
+    map.insert("replace", |language, diagnostics, build_ctx, function| {
+        let ([pattern_node, content_node, replacement_lambda_node], []) =
+            function.expect_arguments()?;
+        let content = expect_template_expression(language, diagnostics, build_ctx, content_node)?;
+        let pattern = template_parser::expect_string_pattern(pattern_node)?;
+
+        let regex = pattern.to_regex();
+
+        let captures_placeholder = PropertyPlaceholder::new();
+        let replacement_template = template_parser::catch_aliases(
+            diagnostics,
+            replacement_lambda_node,
+            |diagnostics, node| {
+                let lambda = template_parser::expect_lambda(node)?;
+                build_lambda_expression(
+                    build_ctx,
+                    lambda,
+                    &[&|| captures_placeholder.clone().into_dyn_wrapped()],
+                    |build_ctx, body| {
+                        expect_template_expression(language, diagnostics, build_ctx, body)
+                    },
+                )
+            },
+        )?;
+
+        let template = new_replace_template(
+            content,
+            regex.clone(),
+            captures_placeholder.clone(),
+            move |formatter| replacement_template.format(formatter),
+        );
+        Ok(L::Property::wrap_template(template))
+    });
     map.insert("stringify", |language, diagnostics, build_ctx, function| {
         let [content_node] = function.expect_exact_arguments()?;
         let content = expect_stringify_expression(language, diagnostics, build_ctx, content_node)?;
@@ -2121,10 +2573,13 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
         let name_expression =
             expect_stringify_expression(language, diagnostics, build_ctx, name_node)?;
         if let Ok(name) = name_expression.extract() {
-            let config_path: ConfigNamePathBuf = name.parse().map_err(|err| {
-                TemplateParseError::expression("Failed to parse config name", name_node.span)
-                    .with_source(err)
-            })?;
+            let config_path: ConfigNamePathBuf =
+                template_parser::catch_aliases(diagnostics, name_node, |_diagnostics, node| {
+                    name.parse().map_err(|err| {
+                        TemplateParseError::expression("Failed to parse config name", node.span)
+                            .with_source(err)
+                    })
+                })?;
             let value = language
                 .settings()
                 .get_value(config_path)
@@ -2204,6 +2659,60 @@ where
         write_truncated(formatter.as_mut(), recorded, recorded_ellipsis, width)?;
         Ok(())
     });
+    Box::new(template)
+}
+
+fn new_replace_template<'a, W>(
+    content: Box<dyn Template + 'a>,
+    regex: regex::bytes::Regex,
+    captures_placeholder: PropertyPlaceholder<RegexCaptures>,
+    write_replacement_content: W,
+) -> Box<dyn Template + 'a>
+where
+    W: Fn(&mut TemplateFormatter) -> io::Result<()> + 'a,
+{
+    // Build named capture group map once from the regex.
+    let names_map: HashMap<String, usize> = regex
+        .capture_names()
+        .enumerate()
+        .filter_map(|(i, name)| name.map(|n| (n.to_string(), i)))
+        .collect();
+
+    let template = ReformatTemplate::new(content, move |formatter, recorded| {
+        let data = recorded.data();
+
+        let mut recorded_replacements = vec![];
+        let mut content_ranges = vec![];
+
+        for captures in regex.captures_iter(data) {
+            let full_match = captures.get(0).expect("capture group 0 is always present");
+            content_ranges.push(full_match.range());
+
+            let capture_ranges = captures
+                .iter()
+                .map(|m| m.map(|m| m.range()).unwrap_or_default())
+                .collect_vec();
+
+            captures_placeholder.with_value(
+                RegexCaptures::new(data.to_vec(), capture_ranges, names_map.clone()),
+                || -> io::Result<()> {
+                    let mut recorder = FormatRecorder::new(formatter.maybe_color());
+                    let rewrap = formatter.rewrap_fn();
+                    write_replacement_content(&mut rewrap(&mut recorder))?;
+                    recorded_replacements.push(recorder);
+                    Ok(())
+                },
+            )?;
+        }
+
+        write_replaced(
+            formatter.as_mut(),
+            recorded,
+            &content_ranges,
+            |formatter, index| recorded_replacements[index].replay(formatter),
+        )
+    });
+
     Box::new(template)
 }
 
@@ -2390,6 +2899,24 @@ pub fn expect_usize_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
     Ok(usize_property.into_dyn())
 }
 
+pub fn expect_byte_stringify_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
+    language: &L,
+    diagnostics: &mut TemplateDiagnostics,
+    build_ctx: &BuildContext<L::Property>,
+    node: &ExpressionNode,
+) -> TemplateParseResult<BoxedTemplateProperty<'a, BString>> {
+    // Since any formattable type can be converted to a string property, the
+    // expected type is not a ByteString.
+    expect_expression_of_type(
+        language,
+        diagnostics,
+        build_ctx,
+        node,
+        "ByteStringify",
+        |expression| expression.try_into_byte_stringify(),
+    )
+}
+
 pub fn expect_stringify_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
     language: &L,
     diagnostics: &mut TemplateDiagnostics,
@@ -2551,7 +3078,7 @@ mod tests {
         }
 
         fn add_alias(&mut self, decl: impl AsRef<str>, defn: impl Into<String>) {
-            self.aliases_map.insert(decl, defn).unwrap();
+            self.aliases_map.insert(decl, defn, None).unwrap();
         }
 
         fn add_color(&mut self, label: &str, fg: crossterm::style::Color) {
@@ -2589,19 +3116,19 @@ mod tests {
                 .clone()
         }
 
-        fn render_ok(&self, template: &str) -> String {
+        fn render_ok(&self, template: &str) -> BString {
             let template = self.parse(template).unwrap();
             let mut output = Vec::new();
             let mut formatter =
                 ColorFormatter::new(&mut output, self.color_rules.clone().into(), false);
             template.format(&Context, &mut formatter).unwrap();
             drop(formatter);
-            String::from_utf8(output).unwrap()
+            output.into()
         }
 
-        fn render_plain(&self, template: &str) -> String {
+        fn render_plain(&self, template: &str) -> BString {
             let template = self.parse(template).unwrap();
-            String::from_utf8(template.format_plain_text(&Context)).unwrap()
+            template.format_plain_text(&Context).into()
         }
     }
 
@@ -2951,6 +3478,16 @@ mod tests {
     fn test_boolean_cast() {
         let mut env = TestTemplateEnv::new();
 
+        env.add_keyword("empty_bstr", || literal(BString::from("")));
+        env.add_keyword("nonempty_bstr", || literal(BString::from("a")));
+        insta::assert_snapshot!(env.render_ok("if(empty_bstr, true, false)"), @"false");
+        insta::assert_snapshot!(env.render_ok("if(nonempty_bstr, true, false)"), @"true");
+
+        env.add_keyword("empty_bstr_list", || literal::<Vec<BString>>(vec![]));
+        env.add_keyword("nonempty_bstr_list", || literal(vec![BString::from("")]));
+        insta::assert_snapshot!(env.render_ok("if(empty_bstr_list, true, false)"), @"false");
+        insta::assert_snapshot!(env.render_ok("if(nonempty_bstr_list, true, false)"), @"true");
+
         insta::assert_snapshot!(env.render_ok(r#"if("", true, false)"#), @"false");
         insta::assert_snapshot!(env.render_ok(r#"if("a", true, false)"#), @"true");
 
@@ -3220,6 +3757,8 @@ mod tests {
         env.add_keyword("none_i64", || literal::<Option<i64>>(None));
         env.add_keyword("some_i64_0", || literal(Some(0_i64)));
         env.add_keyword("some_i64_1", || literal(Some(1_i64)));
+        env.add_keyword("bstr1", || literal(BString::from("1")));
+        env.add_keyword("bstr2", || literal(BString::from("2")));
         env.add_keyword("email1", || literal(Email("local-1@domain".to_owned())));
         env.add_keyword("email2", || literal(Email("local-2@domain".to_owned())));
 
@@ -3240,6 +3779,11 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#"none_i64 == 0"#), @"false");
         insta::assert_snapshot!(env.render_ok(r#"some_i64_0 != 0"#), @"false");
         insta::assert_snapshot!(env.render_ok(r#"1 == some_i64_1"#), @"true");
+
+        insta::assert_snapshot!(env.render_ok("bstr1 == bstr1"), @"true");
+        insta::assert_snapshot!(env.render_ok("bstr1 == bstr2"), @"false");
+        insta::assert_snapshot!(env.render_ok("bstr1 == '1'"), @"true");
+        insta::assert_snapshot!(env.render_ok("'2' != bstr2"), @"false");
 
         insta::assert_snapshot!(env.render_ok(r#"'a' == 'a'"#), @"true");
         insta::assert_snapshot!(env.render_ok(r#"'a' == 'b'"#), @"false");
@@ -3574,6 +4118,109 @@ mod tests {
 
         // Combining skip and take
         insta::assert_snapshot!(env.render_ok(r#""a\nb\nc\nd".lines().skip(1).take(2).join("|")"#), @"b|c");
+    }
+
+    #[test]
+    fn test_byte_string_method() {
+        let mut env = TestTemplateEnv::new();
+        env.add_keyword("empty", || literal(BString::from("")));
+        env.add_keyword("foo", || literal(BString::from("foo")));
+        env.add_keyword("bar", || literal(BString::from("bar")));
+        env.add_keyword("foobar", || literal(BString::from("foobar")));
+        env.add_keyword("foo_ws", || literal(BString::from(" \n \r foo \t \r ")));
+        env.add_keyword("foo_bar_nl", || literal(BString::from("foo\nbar\n")));
+        env.add_keyword("foo_bar_case", || literal(BString::from("foo BAR")));
+        env.add_keyword("odd", || literal(BString::from(b"\x80")));
+        env.add_keyword("odd_ws", || literal(BString::from(b" \x80 ")));
+        env.add_keyword("odd_case", || literal(BString::from(b"A\x80z")));
+
+        insta::assert_snapshot!(env.render_ok("empty.len()"), @"0");
+        insta::assert_snapshot!(env.render_ok("foo.len()"), @"3");
+        insta::assert_snapshot!(env.render_ok("odd.len()"), @"1");
+
+        insta::assert_snapshot!(env.render_ok("foobar.contains(foo)"), @"true");
+        insta::assert_snapshot!(env.render_ok("foo.contains(foobar)"), @"false");
+        insta::assert_snapshot!(env.render_ok("foo.contains('foo')"), @"true");
+        insta::assert_snapshot!(env.render_ok("odd_case.contains(odd)"), @"true");
+
+        insta::assert_snapshot!(env.render_ok("foobar.match(regex:'[a-f]o+')"), @"foo");
+        insta::assert_snapshot!(env.render_ok("foobar.match(regex:'^$')"), @"");
+        insta::assert_snapshot!(env.render_ok("json(odd.match(regex:'(?-u:.)'))"), @"[128]");
+
+        insta::assert_snapshot!(env.render_ok("foobar.starts_with(foo)"), @"true");
+        insta::assert_snapshot!(env.render_ok("foobar.starts_with(bar)"), @"false");
+        insta::assert_snapshot!(env.render_ok("foobar.starts_with('foo')"), @"true");
+        insta::assert_snapshot!(env.render_ok("foobar.ends_with(foo)"), @"false");
+        insta::assert_snapshot!(env.render_ok("foobar.ends_with(bar)"), @"true");
+        insta::assert_snapshot!(env.render_ok("foobar.ends_with('foo')"), @"false");
+        insta::assert_snapshot!(env.render_ok("odd_case.starts_with('A' ++ odd)"), @"true");
+        insta::assert_snapshot!(env.render_ok("odd_case.ends_with(odd ++ 'z')"), @"true");
+
+        insta::assert_snapshot!(env.render_ok("foobar.remove_prefix(foo)"), @"bar");
+        insta::assert_snapshot!(env.render_ok("foobar.remove_prefix(bar)"), @"foobar");
+        insta::assert_snapshot!(env.render_ok("foobar.remove_prefix('foo')"), @"bar");
+        insta::assert_snapshot!(env.render_ok("foobar.remove_suffix(foo)"), @"foobar");
+        insta::assert_snapshot!(env.render_ok("foobar.remove_suffix(bar)"), @"foo");
+        insta::assert_snapshot!(env.render_ok("foobar.remove_suffix('foo')"), @"foobar");
+        insta::assert_snapshot!(env.render_ok("json(odd_case.remove_prefix('A'))"), @"[128,122]");
+        insta::assert_snapshot!(env.render_ok("json(odd_case.remove_prefix('A' ++ odd))"), @"[122]");
+        insta::assert_snapshot!(env.render_ok("json(odd_case.remove_suffix('z'))"), @"[65,128]");
+        insta::assert_snapshot!(env.render_ok("json(odd_case.remove_suffix(odd ++ 'z'))"), @"[65]");
+
+        insta::assert_snapshot!(env.render_ok("'|' ++ foo_ws.trim() ++ '|'"), @"|foo|");
+        insta::assert_snapshot!(env.render_ok("'|' ++ foo_ws.trim_start() ++ '|'"), @"|foo \t \r |");
+        insta::assert_snapshot!(env.render_ok("'|' ++ foo_ws.trim_end() ++ '|'"), @"| \n \r foo|");
+        insta::assert_snapshot!(env.render_ok("json(odd_ws.trim())"), @"[128]");
+        insta::assert_snapshot!(env.render_ok("json(odd_ws.trim_start())"), @"[128,32]");
+        insta::assert_snapshot!(env.render_ok("json(odd_ws.trim_end())"), @"[32,128]");
+
+        insta::assert_snapshot!(env.render_ok("bar.substr(0)"), @"bar");
+        insta::assert_snapshot!(env.render_ok("bar.substr(1)"), @"ar");
+        insta::assert_snapshot!(env.render_ok("bar.substr(2)"), @"r");
+        insta::assert_snapshot!(env.render_ok("bar.substr(3)"), @"");
+        insta::assert_snapshot!(env.render_ok("bar.substr(4)"), @"");
+        insta::assert_snapshot!(env.render_ok("bar.substr(-1)"), @"r");
+        insta::assert_snapshot!(env.render_ok("bar.substr(-2)"), @"ar");
+        insta::assert_snapshot!(env.render_ok("bar.substr(-3)"), @"bar");
+        insta::assert_snapshot!(env.render_ok("bar.substr(-4)"), @"bar");
+        insta::assert_snapshot!(env.render_ok("bar.substr(1, 0)"), @"");
+        insta::assert_snapshot!(env.render_ok("bar.substr(1, 2)"), @"a");
+        insta::assert_snapshot!(env.render_ok("bar.substr(1, -1)"), @"a");
+        insta::assert_snapshot!(env.render_ok("bar.substr(2, -1)"), @"");
+        insta::assert_snapshot!(env.render_ok("bar.substr(4, -4)"), @"");
+        insta::assert_snapshot!(env.render_ok("json(odd_case.substr(1, 2))"), @"[128]");
+
+        insta::assert_snapshot!(env.render_ok("'|' ++ empty.first_line() ++ '|'"), @"||");
+        insta::assert_snapshot!(env.render_ok("'|' ++ foo_bar_nl.first_line() ++ '|'"), @"|foo|");
+        insta::assert_snapshot!(env.render_ok("empty.lines().len()"), @"0");
+        insta::assert_snapshot!(env.render_ok("foo_bar_nl.lines()"), @"foo bar");
+        insta::assert_snapshot!(env.render_ok("json(odd.first_line())"), @"[128]");
+        insta::assert_snapshot!(env.render_ok("json(odd.lines())"), @"[[128]]");
+
+        insta::assert_snapshot!(env.render_ok("empty.split(' ').join(',')"), @"");
+        insta::assert_snapshot!(env.render_ok("foo_bar_case.split(' ').join(',')"), @"foo,BAR");
+        insta::assert_snapshot!(env.render_ok("foo_bar_case.split(' ', 0).join(',')"), @"");
+        insta::assert_snapshot!(env.render_ok("foo_bar_case.split(' ', 1).join(',')"), @"foo BAR");
+        insta::assert_snapshot!(env.render_ok("foo_bar_case.split(' ', 2).join(',')"), @"foo,BAR");
+        insta::assert_snapshot!(
+            env.render_ok("json(odd_case.split(regex:'(?-u)[^Az]'))"), @"[[65],[122]]");
+        insta::assert_snapshot!(env.render_ok("json(odd_case.split(regex:'A'))"), @"[[],[128,122]]");
+
+        insta::assert_snapshot!(env.render_ok("foo.replace('o', '*')"), @"f**");
+        insta::assert_snapshot!(env.render_ok("foo.replace('o', '*', 0)"), @"foo");
+        insta::assert_snapshot!(env.render_ok("foo.replace('o', '*', 1)"), @"f*o");
+        insta::assert_snapshot!(env.render_ok("foo.replace('o', '*', 2)"), @"f**");
+        insta::assert_snapshot!(env.render_ok("bar.replace(regex:'b(a)', '$0$1')"), @"baar");
+        insta::assert_snapshot!(env.render_ok("json(foo.replace('o', odd))"), @"[102,128,128]");
+        insta::assert_snapshot!(
+            env.render_ok("json(odd_case.replace(regex:'(?-u)[^Az]', ' '))"), @"[65,32,122]");
+        insta::assert_snapshot!(
+            env.render_ok("json(odd_case.replace(regex:'A', ' '))"), @"[32,128,122]");
+
+        insta::assert_snapshot!(env.render_ok("foo_bar_case.upper()"), @"FOO BAR");
+        insta::assert_snapshot!(env.render_ok("foo_bar_case.lower()"), @"foo bar");
+        insta::assert_snapshot!(env.render_ok("json(odd_case.upper())"), @"[65,128,90]");
+        insta::assert_snapshot!(env.render_ok("json(odd_case.lower())"), @"[97,128,122]");
     }
 
     #[test]
@@ -3941,25 +4588,13 @@ mod tests {
           = Invalid time format
         "#);
 
-        // Invalid type
-        insta::assert_snapshot!(env.parse_err(r#"t0.format(0)"#), @"
-         --> 1:11
-          |
-        1 | t0.format(0)
-          |           ^
-          |
-          = Expected string literal
-        ");
-
-        // Dynamic string isn't supported yet
-        insta::assert_snapshot!(env.parse_err(r#"t0.format("%Y" ++ "%m")"#), @r#"
-         --> 1:11
-          |
-        1 | t0.format("%Y" ++ "%m")
-          |           ^----------^
-          |
-          = Expected string literal
-        "#);
+        // Dynamic format string
+        env.add_dynamic_keyword("good_dyn_format", || "%Y%m".to_owned());
+        env.add_dynamic_keyword("bad_dyn_format", || "%_".to_owned());
+        insta::assert_snapshot!(env.render_ok("t0.format(good_dyn_format)"), @"197001");
+        insta::assert_snapshot!(
+            env.render_ok("t0.format(bad_dyn_format)"),
+            @"<Error: Invalid time format: %_>");
 
         // Literal alias expansion
         env.add_alias("time_format", r#""%Y-%m-%d""#);
@@ -4156,6 +4791,79 @@ mod tests {
         jumps over the [38;5;1mlazy[39m
         dog
         ");
+    }
+
+    #[test]
+    fn test_replace_function() {
+        let mut env = TestTemplateEnv::new();
+        env.add_color("error", crossterm::style::Color::DarkRed);
+        env.add_color("warning", crossterm::style::Color::DarkYellow);
+
+        // Can replace a single match.
+        insta::assert_snapshot!(
+            env.render_ok(r#"replace("Hi", label("error", "Hi world"), |_| "Hello")"#),
+            @"[38;5;1mHello world[39m");
+
+        // Can replace multiple matches.
+        insta::assert_snapshot!(
+            env.render_ok(r#"replace("Hi", label("error", "Hi Hi world"), |_| "Hello")"#),
+            @"[38;5;1mHello Hello world[39m");
+
+        // Text passed to the replacement function does not have its formatting
+        // preserved.
+        insta::assert_snapshot!(
+            env.render_ok(r#"replace("ello w",
+                                     label("error", "Hello") ++ " " ++ label("warning", "world"),
+                                     |c| c.get(0).upper())"#),
+            @"[38;5;1mHELLO W[38;5;3morld[39m");
+
+        // Access capture groups by index.
+        insta::assert_snapshot!(
+            env.render_ok(r#"replace(regex-i:"(ello) (w)",
+                                     label("error", "HELLO") ++ " " ++ label("warning", "world"),
+                                     |c| c.get(1).lower() ++ " " ++ c.get(2).upper())"#),
+            @"[38;5;1mHello W[38;5;3morld[39m");
+
+        // Access capture groups by name.
+        insta::assert_snapshot!(
+            env.render_ok(r#"replace(regex-i:'(?P<h>ello) (?P<w>w)',
+                                     label("error", "HELLO") ++ " " ++ label("warning", "world"),
+                                     |c| c.name("h").lower() ++ " " ++ c.name("w").upper())"#),
+            @"[38;5;1mHello W[38;5;3morld[39m");
+
+        // Access optional capture groups by index.
+        insta::assert_snapshot!(
+            env.render_ok(r#"replace(regex-i:"(hello) (b)?",
+                                     label("error", "HELLO") ++ " " ++ label("warning", "world"),
+                                     |c| c.get(1).lower() ++ " " ++ c.get(2).upper())"#),
+            @"[38;5;1mhello [38;5;3mworld[39m");
+
+        // Access optional capture groups by name.
+        insta::assert_snapshot!(
+            env.render_ok(r#"replace(regex-i:'(?P<h>ello) (?P<b>b)',
+                                     label("error", "HELLO") ++ " " ++ label("warning", "world"),
+                                     |c| c.name("h").lower() ++ " " ++ c.name("b").upper())"#),
+            @"[38;5;1mHELLO[39m [38;5;3mworld[39m");
+
+        // .len() indicates number of capture groups (including full match).
+        insta::assert_snapshot!(
+            env.render_ok(r#"replace(regex:"(a)(b)", "ab", |c| c.len())"#),
+            @"3");
+
+        // Out-of-bounds index throws an error.
+        insta::assert_snapshot!(
+            env.render_ok(r#"replace("Hi", "Hi world", |c| c.get(99))"#),
+            @"[38;5;1m<Error: Could not get capture group with index 99>[39m world");
+
+        // Unknown named group throws an error.
+        insta::assert_snapshot!(
+            env.render_ok(r#"replace("Hi", "Hi world", |c| c.name("no_such_group"))"#),
+            @"[38;5;1m<Error: Could not get capture group with name no_such_group>[39m world");
+
+        // Invalid UTF-8 in a capture group isn't an error.
+        insta::assert_snapshot!(
+            env.render_ok(r#"replace(regex:'(?-u)^(.{3})(.)$', "🥺", |c| json(c.get(1)))"#),
+            @"[240,159,165]");
     }
 
     #[test]
@@ -4455,11 +5163,17 @@ mod tests {
     fn test_stringify_function() {
         let mut env = TestTemplateEnv::new();
         env.add_keyword("none_i64", || literal(None::<i64>));
+        env.add_keyword("ascii_bstr", || literal(BString::from("foo")));
+        env.add_keyword("odd_bstr", || literal(BString::from(b"\x80")));
         env.add_color("error", crossterm::style::Color::DarkRed);
 
         insta::assert_snapshot!(env.render_ok("stringify(false)"), @"false");
         insta::assert_snapshot!(env.render_ok("stringify(42).len()"), @"2");
         insta::assert_snapshot!(env.render_ok("stringify(none_i64)"), @"");
+        insta::assert_snapshot!(env.render_ok("stringify(ascii_bstr)"), @"foo");
+        insta::assert_snapshot!(
+            env.render_ok("stringify(odd_bstr)"),
+            @"[38;5;1m<Error: invalid utf-8 sequence of 1 bytes from index 0>[39m");
         insta::assert_snapshot!(env.render_ok("stringify(label('error', 'text'))"), @"text");
     }
 
@@ -4467,6 +5181,7 @@ mod tests {
     fn test_json_function() {
         let mut env = TestTemplateEnv::new();
         env.add_keyword("none_i64", || literal(None::<i64>));
+        env.add_keyword("ascii_bstr", || literal(BString::from("foo")));
         env.add_keyword("string_list", || {
             literal(vec!["foo".to_owned(), "bar".to_owned()])
         });
@@ -4506,6 +5221,7 @@ mod tests {
             })
         });
 
+        insta::assert_snapshot!(env.render_ok(r#"json(ascii_bstr)"#), @"[102,111,111]");
         insta::assert_snapshot!(env.render_ok(r#"json('"quoted"')"#), @r#""\"quoted\"""#);
         insta::assert_snapshot!(env.render_ok(r#"json(string_list)"#), @r#"["foo","bar"]"#);
         insta::assert_snapshot!(env.render_ok("json(false)"), @"false");
@@ -4853,11 +5569,18 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#"if(config("non.existent"), "yes", "no")"#), @"no");
 
         // malformed config path
-        insta::assert_snapshot!(env.parse_err("config('user|name')"), @"
+        env.add_alias("bad_config_name", "'user|name'");
+        insta::assert_snapshot!(env.parse_err("config(bad_config_name)"), @"
          --> 1:8
           |
-        1 | config('user|name')
-          |        ^---------^
+        1 | config(bad_config_name)
+          |        ^-------------^
+          |
+          = In alias `bad_config_name`
+         --> 1:1
+          |
+        1 | 'user|name'
+          | ^---------^
           |
           = Failed to parse config name
         TOML parse error at line 1, column 5

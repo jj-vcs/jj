@@ -194,7 +194,7 @@ To convert to a non-colocated workspace:
 jj git colocation disable
 ```
 
-The `jj colocation enable` command automates the following manual process:
+The `jj git colocation enable` command automates the following manual process:
 
 ```bash
 # Ignore the .jj directory in Git

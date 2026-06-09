@@ -63,6 +63,12 @@ description = "Build jj in release mode"
 tools.rust = "{{vars.rust_version}}"
 run = "cargo build --release"
 
+[tasks."build:gen-protos"]
+description = "Generate Protocol Buffers definitions"
+tools.protoc = "latest"
+tools.rust = "{{vars.rust_version}}"
+run = "cargo run --bin gen-protos"
+
 
 [tasks."check:clippy"]
 description = "Lint the code with Clippy"

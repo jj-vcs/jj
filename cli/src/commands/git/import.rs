@@ -23,6 +23,11 @@ use crate::ui::Ui;
 
 /// Update repo with changes made in the underlying Git repo
 ///
+/// Commits that are no longer reachable from any branch in the Git repo will be
+/// considered abandoned in the Git repo, and will be abandoned in the jj
+/// repo to match the Git repo. Set `git.abandon-unreachable-commits` to `false`
+/// to disable this behavior.
+///
 /// If a working-copy commit gets abandoned, it will be given a new, empty
 /// commit. This is true in general; it is not specific to this command.
 ///
@@ -36,7 +41,7 @@ pub async fn cmd_git_import(
     command: &CommandHelper,
     _args: &GitImportArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     let git_settings = GitSettings::from_settings(workspace_command.settings())?;
     let remote_settings = workspace_command.settings().remote_settings()?;
     let import_options = load_git_import_options(ui, &git_settings, &remote_settings)?;

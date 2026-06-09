@@ -503,6 +503,14 @@ impl ConfigEnv {
             .and_then(|c| c.config_file))
     }
 
+    /// Returns the directory under which all repo-specific config
+    /// subdirectories (one per config ID) are stored.
+    pub fn repo_configs_root_dir(&self) -> Option<PathBuf> {
+        self.root_config_dir
+            .as_ref()
+            .map(|dir| dir.join(REPO_CONFIG_DIR))
+    }
+
     /// Returns repo configuration files for modification. Instantiates one if
     /// `config` has no repo configuration layers.
     ///
@@ -626,6 +634,17 @@ impl ConfigEnv {
     }
 }
 
+/// Similar to [`ConfigEnv::repo_config_files()`], but doesn't attempt to
+/// initialize new config ID and its storage directory.
+pub fn existing_repo_config_file(config: &RawConfig) -> Option<ConfigFile> {
+    // There should be at most one repo-level config file.
+    config
+        .as_ref()
+        .layers_for(ConfigSource::Repo)
+        .iter()
+        .find_map(|layer| ConfigFile::from_layer(layer.clone()).ok())
+}
+
 fn config_files_for(
     config: &RawConfig,
     source: ConfigSource,
@@ -747,6 +766,9 @@ fn env_overrides_layer() -> ConfigLayer {
     if let Ok(value) = env::var("JJ_EDITOR") {
         layer.set_value("ui.editor", value).unwrap();
     }
+    if let Ok(value) = env::var("JJ_PAGER") {
+        layer.set_value("ui.pager", value).unwrap();
+    }
     layer
 }
 
@@ -809,40 +831,7 @@ fn parse_config_arg_item(item_str: &str) -> Result<(ConfigNamePathBuf, ConfigVal
 
 /// List of rules to migrate deprecated config variables.
 pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
-    vec![
-        // TODO: Delete in jj 0.42.0+
-        ConfigMigrationRule::custom(
-            |layer| {
-                let Ok(Some(val)) = layer.look_up_item("git.auto-local-bookmark") else {
-                    return false;
-                };
-                val.as_bool().is_some_and(|b| b)
-            },
-            |_| {
-                Ok("`git.auto-local-bookmark` is deprecated; use \
-                    `remotes.<name>.auto-track-bookmarks` instead.
-Example: jj config set --user remotes.origin.auto-track-bookmarks '*'
-For details, see: https://docs.jj-vcs.dev/latest/config/#automatic-tracking-of-bookmarks"
-                    .into())
-            },
-        ),
-        // TODO: Delete in jj 0.42.0+
-        ConfigMigrationRule::custom(
-            |layer| {
-                let Ok(Some(val)) = layer.look_up_item("git.push-new-bookmarks") else {
-                    return false;
-                };
-                val.as_bool().is_some_and(|b| b)
-            },
-            |_| {
-                Ok("`git.push-new-bookmarks` is deprecated; use \
-                    `remotes.<name>.auto-track-bookmarks` instead.
-Example: jj config set --user remotes.origin.auto-track-bookmarks '*'
-For details, see: https://docs.jj-vcs.dev/latest/config/#automatic-tracking-of-bookmarks"
-                    .into())
-            },
-        ),
-    ]
+    vec![]
 }
 
 /// Command name and arguments specified by config.
@@ -972,10 +961,22 @@ where
             }
         };
         for (decl, item) in table.iter() {
-            let r = item
-                .as_str()
-                .ok_or_else(|| format!("Expected a string, but is {}", item.type_name()))
-                .and_then(|v| aliases_map.insert(decl, v).map_err(|e| format!("{e}")));
+            let (definition, doc) = if let Some(t) = item.as_table_like() {
+                let definition = t.get("definition").and_then(|i| i.as_str());
+                let doc = t.get("doc").and_then(|i| i.as_str()).map(|s| s.to_owned());
+                (definition, doc)
+            } else {
+                (item.as_str(), None)
+            };
+
+            let r = definition
+                .ok_or_else(|| {
+                    format!(
+                        "Expected a string or a table with a `definition` string key, but is {}",
+                        item.type_name()
+                    )
+                })
+                .and_then(|v| aliases_map.insert(decl, v, doc).map_err(|e| format!("{e}")));
             if let Err(s) = r {
                 writeln!(
                     ui.warning_default(),

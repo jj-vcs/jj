@@ -33,6 +33,8 @@ use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
 use jj_lib::trailer::Trailer;
 use jj_lib::trailer::parse_description_trailers;
+use percent_encoding::NON_ALPHANUMERIC;
+use percent_encoding::utf8_percent_encode;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
@@ -81,7 +83,7 @@ pub struct UploadArgs {
     ///
     /// This should be a branch on the remote. Can be configured with the
     /// `gerrit.default-remote-branch` repository option.
-    #[arg(long = "remote-branch", short = 'b')]
+    #[arg(long, short = 'b')]
     remote_branch: Option<String>,
 
     /// The Gerrit remote to push to
@@ -92,7 +94,7 @@ pub struct UploadArgs {
     remote: Option<String>,
 
     /// Do not actually push the changes to Gerrit
-    #[arg(long = "dry-run", short = 'n')]
+    #[arg(long, short = 'n')]
     dry_run: bool,
 
     // The following flags are options Gerrit supports during upload.
@@ -112,7 +114,7 @@ pub struct UploadArgs {
     /// Defaults to +1 if no value is set.
     /// Eg. --label=Commit-Queue will set the Commit-Queue label to +1.
     /// Eg. --label=Commit-Queue+2 will set it to +2.
-    #[arg(long, short = 'l')]
+    #[arg(long, short)]
     label: Vec<String>,
 
     /// Applies a topic to the change
@@ -123,7 +125,7 @@ pub struct UploadArgs {
     #[arg(long)]
     topic: Option<String>,
 
-    /// Applies a hashtag to the change
+    /// Applies a hashtag to the change (can be repeated)
     ///
     /// See https://gerrit-review.googlesource.com/Documentation/intro-user.html#hashtags.
     /// Hashtags are freeform strings associated with a change, like on social
@@ -133,7 +135,21 @@ pub struct UploadArgs {
     /// used for informational grouping. Changes with the same hashtags are
     /// not necessarily submitted together.
     #[arg(long)]
-    hashtag: Option<String>,
+    hashtag: Vec<String>,
+
+    /// A patch set description for the new patch set
+    #[arg(long, short)]
+    message: Option<String>,
+
+    /// Push the change as a change edit
+    ///
+    /// To push a change edit the underlying change need to already exist on the
+    /// gerrit server. Change edits don't immediately create a new patchset,
+    /// but need to be published from the web UI first. There can only be
+    /// one edit for each change. Pushing a new change edit will replace the
+    /// previous one.
+    #[arg(long)]
+    edit: bool,
 
     /// Marks the change as WIP (work in progress)
     ///
@@ -177,6 +193,10 @@ pub struct UploadArgs {
     /// When --submit is provided, skip performing validations
     #[arg(long)]
     skip_validation: bool,
+
+    /// Create a new change, even if the change has already been merged
+    #[arg(long)]
+    merged: bool,
 
     /// Do not modify the attention set upon uploading
     #[arg(long)]
@@ -291,6 +311,10 @@ fn calculate_push_ref(
     ))
 }
 
+fn encode_message(message: &str) -> String {
+    utf8_percent_encode(message, NON_ALPHANUMERIC).to_string()
+}
+
 fn push_options(args: &UploadArgs) -> Result<Vec<String>, CommandError> {
     for c in &args.custom {
         if !c.contains(':') {
@@ -335,24 +359,36 @@ fn push_options(args: &UploadArgs) -> Result<Vec<String>, CommandError> {
         }),
         args.topic.clone().map(|arg| ("topic", arg)),
         args.trace.clone().map(|arg| ("trace", arg)),
-        args.hashtag.clone().map(|arg| ("hashtag", arg)),
         args.deadline.clone().map(|arg| ("deadline", arg)),
+        args.message
+            .as_ref()
+            .map(|arg| ("message", encode_message(arg))),
     ]
     .into_iter()
     // TODO: In a future version, we could consider adding a list of supported
     // labels to the config, so we can list it for the user.
     .chain(args.label.iter().map(|arg| Some(("label", arg.clone()))))
     .chain(
+        args.hashtag
+            .iter()
+            .map(|arg| Some(("hashtag", arg.clone()))),
+    )
+    .chain(
         args.custom
             .iter()
             .map(|arg| Some(("custom-keyed-value", arg.clone()))),
     )
-    .chain(args.reviewer.iter().map(|arg| Some(("r", arg.clone()))))
+    .chain(
+        args.reviewer
+            .iter()
+            .map(|arg| Some(("reviewer", arg.clone()))),
+    )
     .chain(args.cc.iter().map(|arg| Some(("cc", arg.clone()))))
     .flatten()
-    .map(|(k, v)| vec!["-o".to_string(), format!("{k}={v}")])
+    .map(|(k, v)| format!("{k}={v}"))
     .chain(
         [
+            args.edit.then_some("edit"),
             args.wip.then_some("wip"),
             args.ready.then_some("ready"),
             args.private.then_some("private"),
@@ -364,12 +400,9 @@ fn push_options(args: &UploadArgs) -> Result<Vec<String>, CommandError> {
             args.submit.then_some("submit"),
         ]
         .into_iter()
-        .map(|item| match item {
-            Some(k) => vec!["-o".to_string(), k.to_string()],
-            None => vec![],
-        }),
+        .flatten()
+        .map(str::to_string),
     )
-    .flatten()
     .collect())
 }
 
@@ -380,12 +413,10 @@ pub async fn cmd_gerrit_upload(
 ) -> Result<(), CommandError> {
     // Do this first because the validation is cheap.
     let push_options = GitPushOptions {
-        // TODO: migrate push_options() away from extra_args?
-        extra_args: push_options(args)?,
-        remote_push_options: vec![],
+        remote_push_options: push_options(args)?,
     };
 
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
 
     let revisions: Vec<_> = if args.revisions.is_empty() {
         match workspace_command
@@ -399,7 +430,7 @@ pub async fn cmd_gerrit_upload(
             }
             // This distinguishes between the "squash workflow" and "edit workflow".
             Some(commit) => {
-                if commit.description().is_empty() {
+                let revisions = if commit.description().is_empty() {
                     let parents = commit.parent_ids();
                     if parents.len() != 1 {
                         return Err(user_error(
@@ -416,7 +447,10 @@ pub async fn cmd_gerrit_upload(
                 } else {
                     writeln!(ui.status(), "No revision provided. Defaulting to @")?;
                     vec![commit.id().clone()]
-                }
+                };
+
+                workspace_command.check_rewritable(&revisions).await?;
+                revisions
             }
         }
     } else {
@@ -618,8 +652,10 @@ pub async fn cmd_gerrit_upload(
             // We have to write the old commit here, because until we finish
             // the transaction (which we don't), the new commit is labeled as
             // "hidden".
-            tx.base_workspace_helper()
-                .write_commit_summary(formatter.as_mut(), &store.get_commit(head).unwrap())?;
+            tx.base_workspace_helper().write_commit_summary(
+                formatter.as_mut(),
+                &store.get_commit_async(head).await.unwrap(),
+            )?;
             writeln!(formatter)?;
         }
 
@@ -682,10 +718,12 @@ mod tests {
 
         assert_eq!(
             push_options(&UploadArgs {
+                message: Some("Uploaded with jj!".to_string()),
                 notify: Some(EmailNotification::None),
                 topic: Some("my-topic".to_string()),
                 reviewer: vec!["foo@example.com".to_string()],
                 cc: vec!["bar@example.com".to_string(), "baz@example.com".to_string()],
+                edit: true,
                 wip: true,
                 private: true,
                 publish_comments: true,
@@ -693,21 +731,15 @@ mod tests {
             })
             .unwrap(),
             [
-                "-o",
                 "notify=NONE",
-                "-o",
                 "topic=my-topic",
-                "-o",
-                "r=foo@example.com",
-                "-o",
+                "message=Uploaded%20with%20jj%21",
+                "reviewer=foo@example.com",
                 "cc=bar@example.com",
-                "-o",
                 "cc=baz@example.com",
-                "-o",
+                "edit",
                 "wip",
-                "-o",
                 "private",
-                "-o",
                 "publish-comments",
             ]
             .into_iter()
@@ -719,7 +751,7 @@ mod tests {
             push_options(&UploadArgs {
                 notify: Some(EmailNotification::All),
                 trace: Some("my-trace".to_string()),
-                hashtag: Some("my-hashtag".to_string()),
+                hashtag: vec!["my-hashtag".to_string(), "my-second-hashtag".to_string()],
                 deadline: Some("yesterday".to_string()),
                 label: vec!["Auto-Submit".to_string(), "Commit-Queue+2".to_string()],
                 custom: vec!["foo:bar".to_string(), "baz:quux".to_string()],
@@ -733,33 +765,20 @@ mod tests {
             })
             .unwrap(),
             [
-                "-o",
                 "notify=ALL",
-                "-o",
                 "trace=my-trace",
-                "-o",
-                "hashtag=my-hashtag",
-                "-o",
                 "deadline=yesterday",
-                "-o",
                 "label=Auto-Submit",
-                "-o",
                 "label=Commit-Queue+2",
-                "-o",
+                "hashtag=my-hashtag",
+                "hashtag=my-second-hashtag",
                 "custom-keyed-value=foo:bar",
-                "-o",
                 "custom-keyed-value=baz:quux",
-                "-o",
                 "ready",
-                "-o",
                 "remove-private",
-                "-o",
                 "no-publish-comments",
-                "-o",
                 "skip-validation",
-                "-o",
                 "ignore-attention-set",
-                "-o",
                 "submit",
             ]
             .into_iter()

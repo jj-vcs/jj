@@ -16,6 +16,7 @@ use std::fs;
 use std::sync::Arc;
 
 use assert_matches::assert_matches;
+use futures::StreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
@@ -289,7 +290,7 @@ fn test_index_commits_criss_cross() -> TestResult {
         let revset = index.evaluate_revset(&expression, repo.store()).unwrap();
         // Don't switch to more efficient .count() implementation. Here we're
         // testing the iterator behavior.
-        revset.iter().count()
+        revset.stream().count().block_on()
     };
 
     // RevWalk deduplicates chains by entry.

@@ -1101,13 +1101,19 @@ fn show_color_words_diff_lines(
     let word_diff_hunks = ContentDiff::by_word(contents.into_array())
         .hunks()
         .collect_vec();
-    let can_inline = match options.max_inline_alternation {
-        None => true,     // unlimited
-        Some(0) => false, // no need to count alternation
-        Some(max_num) => {
-            let groups = split_diff_hunks_by_matching_newline(&word_diff_hunks);
-            groups.map(count_diff_alternation).max().unwrap_or(0) <= max_num
+    let can_inline = if formatter.maybe_color() {
+        match options.max_inline_alternation {
+            None => true,     // unlimited
+            Some(0) => false, // no need to count alternation
+            Some(max_num) => {
+                let groups = split_diff_hunks_by_matching_newline(&word_diff_hunks);
+                groups.map(count_diff_alternation).max().unwrap_or(0) <= max_num
+            }
         }
+    } else {
+        // Inline word hunks rely on color labels to distinguish sides. Without
+        // color support, show separate before/after lines instead.
+        false
     };
     if can_inline {
         let mut diff_line_iter =

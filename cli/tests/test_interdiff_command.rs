@@ -40,7 +40,8 @@ fn test_interdiff_basic() {
     let output = work_dir.run_jj(["interdiff", "--from", "left"]);
     insta::assert_snapshot!(output, @"
     Modified commit description:
-       1    1: add file2 leftright
+       1     : add file2 left
+            1: add file2 right
     Modified regular file file2:
        1    1: foo
             2: bar
@@ -52,7 +53,8 @@ fn test_interdiff_basic() {
     let output = work_dir.run_jj(["interdiff", "--from", "left", "--to", "right"]);
     insta::assert_snapshot!(output, @"
     Modified commit description:
-       1    1: add file2 leftright
+       1     : add file2 left
+            1: add file2 right
     Modified regular file file2:
        1    1: foo
             2: bar
@@ -114,7 +116,8 @@ fn test_interdiff_paths() {
     let output = work_dir.run_jj(["interdiff", "--from", "left", "--to", "right", "file1"]);
     insta::assert_snapshot!(output, @"
     Modified regular file file1:
-       1    1: barbaz
+       1     : bar
+            1: baz
     [EOF]
     ");
 
@@ -130,9 +133,11 @@ fn test_interdiff_paths() {
     ]);
     insta::assert_snapshot!(output, @"
     Modified regular file file1:
-       1    1: barbaz
+       1     : bar
+            1: baz
     Modified regular file file2:
-       1    1: barbaz
+       1     : bar
+            1: baz
     [EOF]
     ------- stderr -------
     Warning: No matching entries for paths: nonexistent
@@ -157,7 +162,8 @@ fn test_interdiff_paths() {
     Removed regular file file1:
        1     : bar
     Modified regular file file2:
-       1    1: barbaz
+       1     : bar
+            1: baz
     [EOF]
     ");
 }

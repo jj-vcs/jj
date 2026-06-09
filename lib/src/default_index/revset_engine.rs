@@ -151,7 +151,7 @@ impl<I> fmt::Debug for RevsetImpl<I> {
 }
 
 impl<I: AsCompositeIndex + Clone> Revset for RevsetImpl<I> {
-    fn iter<'a>(&self) -> Box<dyn Iterator<Item = Result<CommitId, RevsetEvaluationError>> + 'a>
+    fn stream<'a>(&self) -> LocalBoxStream<'a, Result<CommitId, RevsetEvaluationError>>
     where
         Self: 'a,
     {
@@ -160,19 +160,12 @@ impl<I: AsCompositeIndex + Clone> Revset for RevsetImpl<I> {
             .inner
             .positions()
             .map(|index, pos| Ok(index.commits().entry_by_pos(pos?).commit_id()));
-        Box::new(iter::from_fn(move || walk.next(index.as_composite())))
-    }
-
-    fn stream<'a>(&self) -> LocalBoxStream<'a, Result<CommitId, RevsetEvaluationError>>
-    where
-        Self: 'a,
-    {
-        futures::stream::iter(self.iter()).boxed_local()
+        futures::stream::iter(iter::from_fn(move || walk.next(index.as_composite()))).boxed_local()
     }
 
     fn commit_change_ids<'a>(
         &self,
-    ) -> Box<dyn Iterator<Item = Result<(CommitId, ChangeId), RevsetEvaluationError>> + 'a>
+    ) -> LocalBoxStream<'a, Result<(CommitId, ChangeId), RevsetEvaluationError>>
     where
         Self: 'a,
     {
@@ -181,17 +174,7 @@ impl<I: AsCompositeIndex + Clone> Revset for RevsetImpl<I> {
             let entry = index.commits().entry_by_pos(pos?);
             Ok((entry.commit_id(), entry.change_id()))
         });
-        Box::new(iter::from_fn(move || walk.next(index.as_composite())))
-    }
-
-    fn iter_graph<'a>(
-        &self,
-    ) -> Box<dyn Iterator<Item = Result<GraphNode<CommitId>, RevsetEvaluationError>> + 'a>
-    where
-        Self: 'a,
-    {
-        let skip_transitive_edges = true;
-        Box::new(self.iter_graph_impl(skip_transitive_edges))
+        futures::stream::iter(iter::from_fn(move || walk.next(index.as_composite()))).boxed_local()
     }
 
     fn stream_graph<'a>(
@@ -200,7 +183,8 @@ impl<I: AsCompositeIndex + Clone> Revset for RevsetImpl<I> {
     where
         Self: 'a,
     {
-        futures::stream::iter(self.iter_graph()).boxed_local()
+        let skip_transitive_edges = true;
+        futures::stream::iter(self.iter_graph_impl(skip_transitive_edges)).boxed_local()
     }
 
     fn is_empty(&self) -> bool {
@@ -1023,20 +1007,20 @@ impl EvaluationContext<'_> {
                     .take(count.saturating_add(1))
                     .try_collect()?;
                 if positions.len() != *count {
-                    // https://github.com/jj-vcs/jj/pull/7252#pullrequestreview-3236259998
-                    // in the default engine we have to evaluate the entire
-                    // revset (which may be very large) to get an exact count;
-                    // we would need to remove .take() above. instead just give
-                    // a vaguely approximate error message
-                    let determiner = if positions.len() > *count {
-                        "more"
+                    let message = if positions.len() > *count {
+                        // https://github.com/jj-vcs/jj/pull/7252#pullrequestreview-3236259998
+                        // In the default engine we have to evaluate the entire
+                        // revset (which may be very large) to get an exact
+                        // count; we would need to remove .take() above. Instead
+                        // just give a vague error message.
+                        format!("The revset has more than the expected {count} revisions")
                     } else {
-                        "fewer"
+                        format!(
+                            "The revset has fewer than the expected {count} revisions (got {})",
+                            positions.len()
+                        )
                     };
-                    return Err(RevsetEvaluationError::Other(
-                        format!("The revset has {determiner} than the expected {count} revisions")
-                            .into(),
-                    ));
+                    return Err(RevsetEvaluationError::Other(message.into()));
                 }
                 Ok(Box::new(EagerRevset { positions }))
             }

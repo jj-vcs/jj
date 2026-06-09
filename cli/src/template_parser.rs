@@ -853,7 +853,7 @@ mod tests {
     ) -> WithTemplateAliasesMap {
         let mut aliases_map = TemplateAliasesMap::new();
         for (decl, defn) in aliases {
-            aliases_map.insert(decl, defn).unwrap();
+            aliases_map.insert(decl, defn, None).unwrap();
         }
         WithTemplateAliasesMap(aliases_map)
     }
@@ -1357,34 +1357,35 @@ mod tests {
     #[test]
     fn test_parse_alias_decl() -> TestResult {
         let mut aliases_map = TemplateAliasesMap::new();
-        aliases_map.insert("sym", r#""is symbol""#)?;
-        aliases_map.insert("pat:a", r#""is pattern a""#)?;
-        aliases_map.insert("pat:b", r#""is pattern b""#)?;
-        aliases_map.insert("func()", r#""is function 0""#)?;
-        aliases_map.insert("func(a, b)", r#""is function 2""#)?;
-        aliases_map.insert("func(a)", r#""is function a""#)?;
-        aliases_map.insert("func(b)", r#""is function b""#)?;
+        aliases_map.insert("sym", r#""is symbol""#, Some("symbol doc".to_owned()))?;
+        aliases_map.insert("pat:a", r#""is pattern a""#, Some("pattern doc".to_owned()))?;
+        aliases_map.insert("pat:b", r#""is pattern b""#, None)?;
+        aliases_map.insert("func()", r#""is function 0""#, Some("func doc".to_owned()))?;
+        aliases_map.insert("func(a, b)", r#""is function 2""#, None)?;
+        aliases_map.insert("func(a)", r#""is function a""#, None)?;
+        aliases_map.insert("func(b)", r#""is function b""#, None)?;
 
-        let (id, defn) = aliases_map.get_symbol("sym").unwrap();
+        let (id, defn, doc) = aliases_map.get_symbol("sym").unwrap();
         assert_eq!(id, AliasId::Symbol("sym"));
         assert_eq!(defn, r#""is symbol""#);
+        assert_eq!(doc, Some("symbol doc"));
 
-        let (id, param, defn) = aliases_map.get_pattern("pat").unwrap();
+        let (id, param, defn, _doc) = aliases_map.get_pattern("pat").unwrap();
         assert_eq!(id, AliasId::Pattern("pat", "b"));
         assert_eq!(param, "b");
         assert_eq!(defn, r#""is pattern b""#);
 
-        let (id, params, defn) = aliases_map.get_function("func", 0).unwrap();
+        let (id, params, defn, _doc) = aliases_map.get_function("func", 0).unwrap();
         assert_eq!(id, AliasId::Function("func", &[]));
         assert!(params.is_empty());
         assert_eq!(defn, r#""is function 0""#);
 
-        let (id, params, defn) = aliases_map.get_function("func", 1).unwrap();
+        let (id, params, defn, _doc) = aliases_map.get_function("func", 1).unwrap();
         assert_eq!(id, AliasId::Function("func", &["b".to_owned()]));
         assert_eq!(params, ["b"]);
         assert_eq!(defn, r#""is function b""#);
 
-        let (id, params, defn) = aliases_map.get_function("func", 2).unwrap();
+        let (id, params, defn, _doc) = aliases_map.get_function("func", 2).unwrap();
         assert_eq!(
             id,
             AliasId::Function("func", &["a".to_owned(), "b".to_owned()])
@@ -1396,28 +1397,31 @@ mod tests {
 
         // Formal parameter 'a' can't be redefined
         assert_eq!(
-            aliases_map.insert("f(a, a)", r#""""#).unwrap_err().kind,
+            aliases_map
+                .insert("f(a, a)", r#""""#, None)
+                .unwrap_err()
+                .kind,
             TemplateParseErrorKind::RedefinedFunctionParameter
         );
 
         // Boolean literal cannot be used as a symbol, pattern, function, or
         // parameter name
-        assert!(aliases_map.insert("false", r#"""#).is_err());
-        assert!(aliases_map.insert("false:x", r#"""#).is_err());
-        assert!(aliases_map.insert("p:true", r#"""#).is_err());
-        assert!(aliases_map.insert("true()", r#"""#).is_err());
-        assert!(aliases_map.insert("f(false)", r#"""#).is_err());
+        assert!(aliases_map.insert("false", r#"""#, None).is_err());
+        assert!(aliases_map.insert("false:x", r#"""#, None).is_err());
+        assert!(aliases_map.insert("p:true", r#"""#, None).is_err());
+        assert!(aliases_map.insert("true()", r#"""#, None).is_err());
+        assert!(aliases_map.insert("f(false)", r#"""#, None).is_err());
 
         // Trailing comma isn't allowed for empty parameter
-        assert!(aliases_map.insert("f(,)", r#"""#).is_err());
+        assert!(aliases_map.insert("f(,)", r#"""#, None).is_err());
         // Trailing comma is allowed for the last parameter
-        assert!(aliases_map.insert("g(a,)", r#"""#).is_ok());
-        assert!(aliases_map.insert("h(a ,  )", r#"""#).is_ok());
-        assert!(aliases_map.insert("i(,a)", r#"""#).is_err());
-        assert!(aliases_map.insert("j(a,,)", r#"""#).is_err());
-        assert!(aliases_map.insert("k(a  , , )", r#"""#).is_err());
-        assert!(aliases_map.insert("l(a,b,)", r#"""#).is_ok());
-        assert!(aliases_map.insert("m(a,,b)", r#"""#).is_err());
+        assert!(aliases_map.insert("g(a,)", r#"""#, None).is_ok());
+        assert!(aliases_map.insert("h(a ,  )", r#"""#, None).is_ok());
+        assert!(aliases_map.insert("i(,a)", r#"""#, None).is_err());
+        assert!(aliases_map.insert("j(a,,)", r#"""#, None).is_err());
+        assert!(aliases_map.insert("k(a  , , )", r#"""#, None).is_err());
+        assert!(aliases_map.insert("l(a,b,)", r#"""#, None).is_ok());
+        assert!(aliases_map.insert("m(a,,b)", r#"""#, None).is_err());
         Ok(())
     }
 

@@ -51,7 +51,7 @@ pub async fn cmd_bookmark_rename(
     command: &CommandHelper,
     args: &BookmarkRenameArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     let base_repo = workspace_command.repo().clone();
     let base_view = base_repo.view();
     let old_bookmark = &args.old;

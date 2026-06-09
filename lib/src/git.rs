@@ -35,7 +35,7 @@ use itertools::Itertools as _;
 use thiserror::Error;
 
 use crate::backend::BackendError;
-use crate::backend::BackendResult;
+use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::backend::TreeValue;
 use crate::commit::Commit;
@@ -70,7 +70,9 @@ use crate::ref_name::RemoteRefSymbolBuf;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::repo_path::RepoPath;
+use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExpression;
+use crate::revset::RevsetStreamExt as _;
 use crate::settings::UserSettings;
 use crate::store::Store;
 use crate::str_util::StringExpression;
@@ -94,19 +96,19 @@ const INDEX_DUMMY_CONFLICT_FILE: &str = ".jj-do-not-resolve-this-conflict";
 
 #[derive(Clone, Debug)]
 pub struct GitSettings {
-    // TODO: Delete in jj 0.42.0+
-    pub auto_local_bookmark: bool,
     pub abandon_unreachable_commits: bool,
     pub executable_path: PathBuf,
+    pub record_synthetic_predecessors: bool,
     pub write_change_id_header: bool,
 }
 
 impl GitSettings {
     pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
         Ok(Self {
-            auto_local_bookmark: settings.get_bool("git.auto-local-bookmark")?,
             abandon_unreachable_commits: settings.get_bool("git.abandon-unreachable-commits")?,
             executable_path: settings.get("git.executable-path")?,
+            record_synthetic_predecessors: settings
+                .get_bool("git.record-synthetic-predecessors")?,
             write_change_id_header: settings.get("git.write-change-id-header")?,
         })
     }
@@ -148,9 +150,12 @@ pub enum GitRemoteNameError {
     ReservedForLocalGitRepo,
     #[error("Git remotes with slashes are incompatible with jj: {}", .0.as_symbol())]
     WithSlash(RemoteNameBuf),
+    #[error("Invalid Git remote name")]
+    InvalidName(#[from] gix::remote::name::Error),
 }
 
 fn validate_remote_name(name: &RemoteName) -> Result<(), GitRemoteNameError> {
+    gix::remote::name::validated(name.as_str())?;
     if name == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
         Err(GitRemoteNameError::ReservedForLocalGitRepo)
     } else if name.as_str().contains('/') {
@@ -494,6 +499,8 @@ pub enum GitImportError {
     #[error(transparent)]
     Index(#[from] IndexError),
     #[error(transparent)]
+    RevsetEvaluation(#[from] RevsetEvaluationError),
+    #[error(transparent)]
     Git(Box<dyn std::error::Error + Send + Sync>),
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
@@ -508,10 +515,10 @@ impl GitImportError {
 /// Options for [`import_refs()`].
 #[derive(Debug)]
 pub struct GitImportOptions {
-    // TODO: Delete in jj 0.42.0+
-    pub auto_local_bookmark: bool,
     /// Whether to abandon commits that became unreachable in Git.
     pub abandon_unreachable_commits: bool,
+    /// Whether to generate synthetic predecessors for imported commits.
+    pub record_synthetic_predecessors: bool,
     /// Per-remote patterns whether to track bookmarks automatically.
     pub remote_auto_track_bookmarks: HashMap<RemoteNameBuf, StringMatcher>,
 }
@@ -520,7 +527,7 @@ pub struct GitImportOptions {
 #[derive(Clone, Debug, Eq, PartialEq, Default)]
 pub struct GitImportStats {
     /// Commits superseded by newly imported commits.
-    pub abandoned_commits: Vec<CommitId>,
+    pub abandoned_commits: Vec<Commit>,
     /// Remote bookmark `(symbol, (old_remote_ref, new_target))`s to be merged
     /// in to the local bookmarks, sorted by `symbol`.
     pub changed_remote_bookmarks: Vec<(RemoteRefSymbolBuf, (RemoteRef, RefTarget))>,
@@ -600,15 +607,27 @@ async fn import_refs_inner(
         failed_ref_names,
     } = refs_to_import;
 
+    let iter_changed_refs = || itertools::chain(&changed_remote_bookmarks, &changed_remote_tags);
+    // List of changed old/new ref heads, which may include duplicates.
+    let (old_referenced_heads, new_referenced_heads) = {
+        let mut old_heads = Vec::new();
+        let mut new_heads = Vec::new();
+        for (_, (old_remote_ref, new_target)) in iter_changed_refs() {
+            old_heads.extend(old_remote_ref.target.added_ids().cloned());
+            new_heads.extend(new_target.added_ids().cloned());
+        }
+        (old_heads, new_heads)
+    };
+    let old_visible_heads = mut_repo.view().heads().iter().cloned().collect_vec();
+
     // Bulk-import all reachable Git commits to the backend to reduce overhead
     // of table merging and ref updates.
     //
     // changed_git_refs aren't respected because changed_remote_bookmarks/tags
     // should include all heads that will become reachable in jj.
-    let iter_changed_refs = || itertools::chain(&changed_remote_bookmarks, &changed_remote_tags);
     let index = mut_repo.index();
-    let missing_head_ids: Vec<&CommitId> = iter_changed_refs()
-        .flat_map(|(_, (_, new_target))| new_target.added_ids())
+    let missing_head_ids: Vec<&CommitId> = new_referenced_heads
+        .iter()
         .filter_map(|id| match index.has_id(id) {
             Ok(false) => Some(Ok(id)),
             Ok(true) => None,
@@ -625,13 +644,15 @@ async fn import_refs_inner(
             err,
         };
         // If bulk-import failed, try again to find bad head or ref.
-        if !heads_imported && !index.has_id(id).map_err(GitImportError::Index)? {
+        if !heads_imported && !index.has_id(id)? {
             git_backend
                 .import_head_commits([id])
                 .map_err(missing_ref_err)?;
         }
         store.get_commit_async(id).await.map_err(missing_ref_err)
     };
+    // Uses iter_changed_refs() instead of new_referenced_heads to report error
+    // with ref name.
     for (symbol, (_, new_target)) in iter_changed_refs() {
         for id in new_target.added_ids() {
             let commit = get_commit(id, symbol).await?;
@@ -640,10 +661,8 @@ async fn import_refs_inner(
     }
     // It's unlikely the imported commits were missing, but I/O-related error
     // can still occur.
-    mut_repo
-        .add_heads(&head_commits)
-        .await
-        .map_err(GitImportError::Backend)?;
+    let imported_commits = mut_repo.index_commits(&head_commits).await?;
+    mut_repo.add_heads(&head_commits).await?;
 
     // Apply the change that happened in git since last time we imported refs.
     for (full_name, new_target) in changed_git_refs {
@@ -687,12 +706,20 @@ async fn import_refs_inner(
     }
 
     let abandoned_commits = if options.abandon_unreachable_commits {
-        abandon_unreachable_commits(mut_repo, &changed_remote_bookmarks, &changed_remote_tags)
-            .await
-            .map_err(GitImportError::Backend)?
+        abandon_unreachable_commits(mut_repo, old_referenced_heads).await?
     } else {
         vec![]
     };
+    if options.record_synthetic_predecessors {
+        record_synthetic_predecessors(
+            mut_repo,
+            old_visible_heads,
+            new_referenced_heads,
+            &abandoned_commits,
+            &imported_commits,
+        )
+        .await?;
+    }
     let stats = GitImportStats {
         abandoned_commits,
         changed_remote_bookmarks,
@@ -706,13 +733,8 @@ async fn import_refs_inner(
 /// Those commits will be recorded as abandoned in the `MutableRepo`.
 async fn abandon_unreachable_commits(
     mut_repo: &mut MutableRepo,
-    changed_remote_bookmarks: &[(RemoteRefSymbolBuf, (RemoteRef, RefTarget))],
-    changed_remote_tags: &[(RemoteRefSymbolBuf, (RemoteRef, RefTarget))],
-) -> BackendResult<Vec<CommitId>> {
-    let hidable_git_heads = itertools::chain(changed_remote_bookmarks, changed_remote_tags)
-        .flat_map(|(_, (old_remote_ref, _))| old_remote_ref.target.added_ids())
-        .cloned()
-        .collect_vec();
+    hidable_git_heads: Vec<CommitId>,
+) -> Result<Vec<Commit>, GitImportError> {
     if hidable_git_heads.is_empty() {
         return Ok(vec![]);
     }
@@ -728,18 +750,102 @@ async fn abandon_unreachable_commits(
         .range(&RevsetExpression::commits(hidable_git_heads))
         // Don't include already-abandoned commits in GitImportStats
         .intersection(&RevsetExpression::visible_heads().ancestors());
-    let abandoned_commit_ids: Vec<_> = abandoned_expression
-        .evaluate(mut_repo)
-        .map_err(|err| err.into_backend_error())?
+    let abandoned_commits: Vec<_> = abandoned_expression
+        .evaluate(mut_repo)?
         .stream()
+        .commits(mut_repo.store())
         .try_collect()
-        .await
-        .map_err(|err| err.into_backend_error())?;
-    for id in &abandoned_commit_ids {
-        let commit = mut_repo.store().get_commit_async(id).await?;
-        mut_repo.record_abandoned_commit(&commit);
+        .await?;
+    for commit in &abandoned_commits {
+        mut_repo.record_abandoned_commit(commit);
     }
-    Ok(abandoned_commit_ids)
+    Ok(abandoned_commits)
+}
+
+/// Deduces predecessors of `old_visible_heads..new_referenced_heads` based on
+/// change IDs, records synthetic predecessors, and updates parent mappings.
+///
+/// The `imported_commits` should exclude any pre-existing commits, including
+/// those that were previously hidden.
+async fn record_synthetic_predecessors(
+    mut_repo: &mut MutableRepo,
+    old_visible_heads: Vec<CommitId>,
+    new_referenced_heads: Vec<CommitId>,
+    abandoned_commits: &[Commit],
+    imported_commits: &[Commit],
+) -> Result<(), GitImportError> {
+    if new_referenced_heads.is_empty() {
+        return Ok(());
+    }
+
+    let new_referenced_change_to_commit_ids = {
+        let mut change_to_commit_ids: HashMap<ChangeId, Vec<CommitId>> = HashMap::new();
+        let mut stream = RevsetExpression::commits(old_visible_heads)
+            .range(&RevsetExpression::commits(new_referenced_heads))
+            .evaluate(mut_repo)?
+            .commit_change_ids();
+        while let Some((commit_id, change_id)) = stream.try_next().await? {
+            let commit_ids = change_to_commit_ids.entry(change_id).or_default();
+            commit_ids.push(commit_id);
+        }
+        change_to_commit_ids
+    };
+    // TODO: Maybe we can use new_referenced_heads..old_referenced_heads as
+    // predecessor candidates. If abandon_unreachable_commits is set, we can
+    // mark them as "rewritten" in addition to the current abandoned commits.
+    let abandoned_change_to_commit_ids = {
+        let mut change_to_commit_ids: HashMap<&ChangeId, Vec<&CommitId>> = HashMap::new();
+        for commit in abandoned_commits {
+            let commit_ids = change_to_commit_ids.entry(commit.change_id()).or_default();
+            commit_ids.push(commit.id());
+        }
+        change_to_commit_ids
+    };
+    let imported_commit_ids: HashSet<_> = imported_commits.iter().map(Commit::id).collect();
+    debug_assert!(
+        new_referenced_change_to_commit_ids
+            .values()
+            .flatten()
+            .all(|new_id| abandoned_commits.iter().all(|old| old.id() != new_id)),
+        "new referenced commits should never be reachable from old refs"
+    );
+
+    for (change_id, new_commit_ids) in &new_referenced_change_to_commit_ids {
+        let predecessor_id: Option<CommitId>;
+        let rewrite_source_ids: &[&CommitId];
+        if let Some(old_commit_ids) = abandoned_change_to_commit_ids.get(change_id) {
+            // Pick the latest one if previously diverged. Divergence isn't
+            // usually resolved by "squashing" the commits.
+            predecessor_id = Some(old_commit_ids[0].clone());
+            rewrite_source_ids = old_commit_ids;
+        } else {
+            // Record as newly created commit
+            predecessor_id = None;
+            rewrite_source_ids = &[];
+        }
+        // Predecessors are recorded only for newly imported commits to prevent
+        // cycles in the evolution graph. While this restriction can be lifted
+        // later, note that the existing predecessor chain may be more detailed
+        // than "imported from Git" if the original commits were created locally.
+        for new_commit_id in new_commit_ids
+            .iter()
+            .filter(|&id| imported_commit_ids.contains(id))
+        {
+            mut_repo.set_predecessors(new_commit_id.clone(), predecessor_id.as_slice().to_vec());
+        }
+        if let [new_commit_id] = &**new_commit_ids {
+            for &old_commit_id in rewrite_source_ids {
+                mut_repo.set_rewritten_commit(old_commit_id.clone(), new_commit_id.clone());
+            }
+        } else {
+            for &old_commit_id in rewrite_source_ids {
+                mut_repo
+                    .set_divergent_rewrite(old_commit_id.clone(), new_commit_ids.iter().cloned());
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// Calculates diff of git refs to be imported.
@@ -955,7 +1061,6 @@ fn default_remote_ref_state_for(
     match kind {
         GitRefKind::Bookmark => {
             if symbol.remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO
-                || options.auto_local_bookmark
                 || options
                     .remote_auto_track_bookmarks
                     .get(symbol.remote)
@@ -1033,14 +1138,8 @@ pub async fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportErro
         }
         // It's unlikely the imported commits were missing, but I/O-related
         // error can still occur.
-        let commit = store
-            .get_commit_async(head_id)
-            .await
-            .map_err(GitImportError::Backend)?;
-        mut_repo
-            .add_head(&commit)
-            .await
-            .map_err(GitImportError::Backend)?;
+        let commit = store.get_commit_async(head_id).await?;
+        mut_repo.add_head(&commit).await?;
     }
 
     mut_repo.set_git_head_target(RefTarget::resolved(new_git_head_id));
@@ -2219,7 +2318,6 @@ pub fn add_remote(
     url: &str,
     push_url: Option<&str>,
     fetch_tags: gix::remote::fetch::Tags,
-    bookmark_expr: &StringExpression,
 ) -> Result<(), GitRemoteManagementError> {
     let git_repo = get_git_repo(mut_repo.store())?;
 
@@ -2231,29 +2329,15 @@ pub fn add_remote(
         ));
     }
 
-    let ref_expr = GitFetchRefExpression {
-        bookmark: bookmark_expr.clone(),
-        // Since tags will be fetched to jj's internal ref namespace, the
-        // refspecs shouldn't be saved in .git/config.
-        tag: StringExpression::none(),
-    };
-    let ExpandedFetchRefSpecs {
-        expr: _,
-        refspecs,
-        negative_refspecs,
-    } = expand_fetch_refspecs(remote_name, ref_expr)?;
-    let fetch_refspecs = itertools::chain(
-        refspecs.iter().map(|spec| spec.to_git_format()),
-        negative_refspecs.iter().map(|spec| spec.to_git_format()),
-    )
-    .map(BString::from);
-
     let mut remote = git_repo
         .remote_at(url)
         .map_err(GitRemoteManagementError::from_git)?
         .with_fetch_tags(fetch_tags)
-        .with_refspecs(fetch_refspecs, gix::remote::Direction::Fetch)
-        .expect("previously-parsed refspecs to be valid");
+        .with_refspecs(
+            [default_fetch_refspec(remote_name).as_bytes()],
+            gix::remote::Direction::Fetch,
+        )
+        .expect("default refspec to be valid");
 
     if let Some(push_url) = push_url {
         remote = remote
@@ -3085,8 +3169,6 @@ pub struct GitRefUpdate {
 /// Miscellaneous options for Git push command.
 #[derive(Clone, Debug, Default)]
 pub struct GitPushOptions {
-    /// Extra arguments passed in to `git push` command.
-    pub extra_args: Vec<String>,
     /// `--push-option` arguments.
     pub remote_push_options: Vec<String>,
 }

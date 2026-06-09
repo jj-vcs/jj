@@ -21,7 +21,6 @@ use std::fmt::Error;
 use std::fmt::Formatter;
 use std::fs;
 use std::io;
-use std::io::Cursor;
 use std::path::Path;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -34,10 +33,15 @@ use std::sync::MutexGuard;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
+use futures::AsyncRead;
+use futures::AsyncReadExt as _;
 use futures::StreamExt as _;
+use futures::io::Cursor;
 use futures::stream::BoxStream;
 use gix::bstr::BString;
 use gix::objs::CommitRefIter;
+use gix::objs::Exists as _;
+use gix::objs::Write as _;
 use gix::objs::WriteTo as _;
 use itertools::Itertools as _;
 use once_cell::sync::OnceCell as OnceLock;
@@ -45,8 +49,6 @@ use pollster::FutureExt as _;
 use prost::Message as _;
 use smallvec::SmallVec;
 use thiserror::Error;
-use tokio::io::AsyncRead;
-use tokio::io::AsyncReadExt as _;
 
 use crate::backend::Backend;
 use crate::backend::BackendError;
@@ -502,6 +504,38 @@ impl GitBackend {
             .try_into_tree()
             .map_err(|err| to_read_object_err(err, &tree_id))
     }
+
+    // Similar to gix's write_blob, but compute the hash outside our lock to
+    // reduce contention.
+    fn write_blob(
+        &self,
+        bytes: &[u8],
+        object_type: &'static str,
+    ) -> BackendResult<gix::hash::ObjectId> {
+        let oid = gix::objs::compute_hash(
+            self.base_repo.objects.object_hash(),
+            gix::objs::Kind::Blob,
+            bytes,
+        )
+        .map_err(|err| BackendError::WriteObject {
+            object_type,
+            source: Box::new(err),
+        })?;
+
+        let locked_repo = self.lock_git_repo();
+        if !locked_repo.objects.exists(&oid) {
+            // write_buf recomputes the hash; gix does the same in write_blob.
+            let write_oid = locked_repo
+                .objects
+                .write_buf(gix::objs::Kind::Blob, bytes)
+                .map_err(|err| BackendError::WriteObject {
+                    object_type,
+                    source: err,
+                })?;
+            assert!(oid == write_oid);
+        }
+        Ok(oid)
+    }
 }
 
 /// Canonicalizes the given `path` except for the last `".git"` component.
@@ -632,7 +666,7 @@ fn commit_from_git_without_root_parent(
         .iter()
         // gix does not recognize gpgsig-sha256, but prevent future footguns by checking for it too
         .any(|(k, _)| *k == "gpgsig" || *k == "gpgsig-sha256")
-        .then(|| CommitRefIter::signature(&git_object.data))
+        .then(|| CommitRefIter::signature(&git_object.data, gix::hash::Kind::Sha1))
         .transpose()
         .map_err(decode_err)?
         .flatten()
@@ -1019,13 +1053,8 @@ impl Backend for GitBackend {
     ) -> BackendResult<FileId> {
         let mut bytes = Vec::new();
         contents.read_to_end(&mut bytes).await.unwrap();
-        let locked_repo = self.lock_git_repo();
-        let oid = locked_repo
-            .write_blob(bytes)
-            .map_err(|err| BackendError::WriteObject {
-                object_type: "file",
-                source: Box::new(err),
-            })?;
+
+        let oid = self.write_blob(&bytes, "file")?;
         Ok(FileId::new(oid.as_bytes().to_vec()))
     }
 
@@ -1043,14 +1072,7 @@ impl Backend for GitBackend {
     }
 
     async fn write_symlink(&self, _path: &RepoPath, target: &str) -> BackendResult<SymlinkId> {
-        let locked_repo = self.lock_git_repo();
-        let oid =
-            locked_repo
-                .write_blob(target.as_bytes())
-                .map_err(|err| BackendError::WriteObject {
-                    object_type: "symlink",
-                    source: Box::new(err),
-                })?;
+        let oid = self.write_blob(target.as_bytes(), "symlink")?;
         Ok(SymlinkId::new(oid.as_bytes().to_vec()))
     }
 
@@ -1857,7 +1879,9 @@ mod tests {
     #[test]
     fn change_id_parsing() {
         let id = |commit_object_bytes: &[u8]| {
-            extract_change_id_from_commit(&CommitRef::from_bytes(commit_object_bytes).unwrap())
+            extract_change_id_from_commit(
+                &CommitRef::from_bytes(commit_object_bytes, gix::hash::Kind::Sha1).unwrap(),
+            )
         };
 
         let commit_with_id = indoc! {b"

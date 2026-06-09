@@ -17,6 +17,7 @@ use std::io::Write as _;
 
 use clap_complete::ArgValueCompleter;
 use futures::TryStreamExt as _;
+use futures::future::try_join_all;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
 use jj_lib::refs::diff_named_ref_targets;
@@ -70,7 +71,7 @@ pub(crate) async fn cmd_abandon(
     command: &CommandHelper,
     args: &AbandonArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     let to_abandon = {
         let target_expr = if !args.revisions_pos.is_empty() || !args.revisions_opt.is_empty() {
             workspace_command
@@ -143,10 +144,12 @@ pub(crate) async fn cmd_abandon(
 
     if let Some(mut formatter) = ui.status_formatter() {
         writeln!(formatter, "Abandoned {} commits:", to_abandon.len())?;
-        let abandoned_commits: Vec<_> = to_abandon
-            .iter()
-            .map(|id| tx.base_repo().store().get_commit(id))
-            .try_collect()?;
+        let abandoned_commits = try_join_all(
+            to_abandon
+                .iter()
+                .map(|id| tx.base_repo().store().get_commit_async(id)),
+        )
+        .await?;
         print_updated_commits(
             formatter.as_mut(),
             &tx.base_workspace_helper().commit_summary_template(),

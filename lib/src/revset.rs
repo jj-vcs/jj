@@ -159,8 +159,6 @@ pub enum RevsetCommitRef {
         symbol: RemoteRefSymbolExpression,
         remote_ref_state: Option<RemoteRefState>,
     },
-    GitRefs,
-    GitHead,
 }
 
 /// String expressions to match `name@remote` bookmarks/tags.
@@ -456,14 +454,6 @@ impl<St: ExpressionState<CommitRef = RevsetCommitRef>> RevsetExpression<St> {
             symbol,
             remote_ref_state,
         }))
-    }
-
-    pub fn git_refs() -> Arc<Self> {
-        Arc::new(Self::CommitRef(RevsetCommitRef::GitRefs))
-    }
-
-    pub fn git_head() -> Arc<Self> {
-        Arc::new(Self::CommitRef(RevsetCommitRef::GitHead))
     }
 }
 
@@ -977,24 +967,6 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
         let symbol = parse_remote_refs_arguments(diagnostics, function, context)?;
         let state = Some(RemoteRefState::New);
         Ok(RevsetExpression::remote_tags(symbol, state))
-    });
-    // TODO: Remove in jj 0.43+
-    map.insert("git_refs", |diagnostics, function, _context| {
-        diagnostics.add_warning(RevsetParseError::expression(
-            "git_refs() is deprecated; use remote_bookmarks()/tags() instead",
-            function.name_span,
-        ));
-        function.expect_no_arguments()?;
-        Ok(RevsetExpression::git_refs())
-    });
-    // TODO: Remove in jj 0.43+
-    map.insert("git_head", |diagnostics, function, _context| {
-        diagnostics.add_warning(RevsetParseError::expression(
-            "git_head() is deprecated; use first_parent(@) instead",
-            function.name_span,
-        ));
-        function.expect_no_arguments()?;
-        Ok(RevsetExpression::git_head())
     });
     map.insert("latest", |diagnostics, function, context| {
         let ([candidates_arg], [count_opt_arg]) = function.expect_arguments()?;
@@ -1865,11 +1837,8 @@ where
         }
         RevsetExpression::HasSize { candidates, count } => {
             let candidates = folder.fold_expression(candidates)?;
-            RevsetExpression::HasSize {
-                candidates,
-                count: *count,
-            }
-            .into()
+            let count = *count;
+            RevsetExpression::HasSize { candidates, count }.into()
         }
         RevsetExpression::Latest { candidates, count } => {
             let candidates = folder.fold_expression(candidates)?;
@@ -2631,7 +2600,6 @@ fn reload_repo_at_operation(
             RepoLoaderError::Backend(err) => RevsetResolutionError::Backend(err),
             RepoLoaderError::Index(_)
             | RepoLoaderError::IndexStore(_)
-            | RepoLoaderError::OpHeadResolution(_)
             | RepoLoaderError::OpHeadsStoreError(_)
             | RepoLoaderError::OpStore(_)
             | RepoLoaderError::TransactionCommit(_) => RevsetResolutionError::Other(err.into()),
@@ -3043,14 +3011,6 @@ fn resolve_commit_ref(
                 .collect();
             Ok(commit_ids)
         }
-        RevsetCommitRef::GitRefs => {
-            let mut commit_ids = vec![];
-            for ref_target in repo.view().git_refs().values() {
-                commit_ids.extend(ref_target.added_ids().cloned());
-            }
-            Ok(commit_ids)
-        }
-        RevsetCommitRef::GitHead => Ok(repo.view().git_head().added_ids().cloned().collect()),
     }
 }
 
@@ -3423,11 +3383,6 @@ impl VisibilityResolutionContext<'_> {
 }
 
 pub trait Revset: fmt::Debug {
-    /// Iterate in topological order with children before parents.
-    fn iter<'a>(&self) -> Box<dyn Iterator<Item = Result<CommitId, RevsetEvaluationError>> + 'a>
-    where
-        Self: 'a;
-
     /// Streams in topological order with children before parents.
     // TODO: Relax to BoxStream?
     fn stream<'a>(&self) -> LocalBoxStream<'a, Result<CommitId, RevsetEvaluationError>>
@@ -3437,15 +3392,7 @@ pub trait Revset: fmt::Debug {
     /// Iterates commit/change id pairs in topological order.
     fn commit_change_ids<'a>(
         &self,
-    ) -> Box<dyn Iterator<Item = Result<(CommitId, ChangeId), RevsetEvaluationError>> + 'a>
-    where
-        Self: 'a;
-
-    /// Iterates graphs nodes (commit ID and edges) in topological order with
-    /// children before parents.
-    fn iter_graph<'a>(
-        &self,
-    ) -> Box<dyn Iterator<Item = Result<GraphNode<CommitId>, RevsetEvaluationError>> + 'a>
+    ) -> LocalBoxStream<'a, Result<(CommitId, ChangeId), RevsetEvaluationError>>
     where
         Self: 'a;
 
@@ -3478,30 +3425,6 @@ pub trait Revset: fmt::Debug {
 
 /// Function that checks if a commit is contained within the revset.
 pub type RevsetContainingFn<'a> = dyn Fn(&CommitId) -> Result<bool, RevsetEvaluationError> + 'a;
-
-pub trait RevsetIteratorExt {
-    fn commits(
-        self,
-        store: &Arc<Store>,
-    ) -> impl Iterator<Item = Result<Commit, RevsetEvaluationError>> + use<Self>;
-}
-
-impl<I: Iterator<Item = Result<CommitId, RevsetEvaluationError>>> RevsetIteratorExt for I {
-    fn commits(
-        self,
-        store: &Arc<Store>,
-    ) -> impl Iterator<Item = Result<Commit, RevsetEvaluationError>> + use<I> {
-        let store = store.clone();
-        self.map(move |result| {
-            let commit_id = result?;
-            let commit = store
-                .clone()
-                .get_commit(&commit_id)
-                .map_err(RevsetEvaluationError::Backend)?;
-            Ok(commit)
-        })
-    }
-}
 
 pub trait RevsetStreamExt {
     fn commits(
@@ -3700,7 +3623,7 @@ mod tests {
     ) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
         let mut aliases_map = RevsetAliasesMap::new();
         for (decl, defn) in aliases {
-            aliases_map.insert(decl, defn)?;
+            aliases_map.insert(decl, defn, None)?;
         }
         let context = RevsetParseContext {
             aliases_map: &aliases_map,
@@ -3732,7 +3655,7 @@ mod tests {
         };
         let mut aliases_map = RevsetAliasesMap::new();
         for (decl, defn) in aliases {
-            aliases_map.insert(decl, defn)?;
+            aliases_map.insert(decl, defn, None)?;
         }
         let context = RevsetParseContext {
             aliases_map: &aliases_map,

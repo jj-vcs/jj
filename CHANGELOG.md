@@ -8,13 +8,144 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+* `jj config gc` will delete configuration of deleted/moved repos from
+  `~/.config/jj/repos` folder.
+  [#9362](https://github.com/jj-vcs/jj/issues/9362)
+
+
 ### Release highlights
 
 ### Breaking changes
 
+* The deprecated `git_head()` and `git_refs()` functions have been removed from
+  revsets and templates.
+
+### Deprecations
+
+### New features
+
+* `jj show` now supports `--reversed` flag.
+
+### Fixed bugs
+
+* `jj` now creates a new working-copy revision during snapshotting if the
+  working copy was immutable. Previously, the new revision was created
+  immediately after the working copy became immutable.
+  [#7751](https://github.com/jj-vcs/jj/issues/7751)
+  [#9338](https://github.com/jj-vcs/jj/issues/9338)
+
+* `jj git remote add` now warns if the new remote exactly matches an existing
+  remote's fetch URL or effective push URL.
+  [#413](https://github.com/jj-vcs/jj/issues/413)
+
+## [0.42.0] - 2026-06-04
+
+### Release highlights
+
+* Switched to the mimalloc memory allocator for better multi-threaded
+  performance.
+
+### Breaking changes
+
+* The following deprecated command options have been removed:
+  - `jj commit --reset-author`/`--author`
+  - `jj describe --no-edit`/`--edit`/`--reset-author`/`--author`
+  - `jj git push --allow-new`
+  - `jj metaedit --update-committer-timestamp`
+
+* The following deprecated config options have been removed:
+  - `git.auto-local-bookmark`
+  - `git.push-new-bookmarks`
+
+### Deprecations
+
+* `jj evolog` no longer supports legacy commit predecessors recorded in `jj` <
+  0.30.
+
+### New features
+
+
+* Shell completions now surface descriptions for custom aliases,
+  revset-aliases, template-aliases, and fileset-aliases. Descriptions are
+  extracted from the `.doc` field of the alias definition if it is a table
+  with `.doc` and `.definition` properties.
+
+* `jj show` now accepts multiple revisions, showing all of them one after the
+  other, behaving closer to `git show`.
+
+* `jj git fetch` now generates evolution history based on change IDs. If change
+  IDs are preserved by the remote, local descendant revisions will be rebased
+  onto the rewritten parents.
+
+* Added `jj util backend name` command that prints the commit backend being used
+  in the current repo.
+
+* Added `edit-invocation-mode` config option for diff editors (e.g.
+  `jj diffedit`, `jj split`). When set to `"file-by-file"`, the editor is
+  launched once per changed file, making it possible to use per-file tools like
+  `vimdiff` for editing.
+
+### Fixed bugs
+
+* `jj git remote add` now reports an error instead of panicking when the
+  remote name is empty or contains whitespace.
+  [#9099](https://github.com/jj-vcs/jj/issues/9099)
+
+* Color-words diffs are now shown as separate before and after lines when color
+  output is disabled, making piped or redirected diffs readable.
+  [#5894](https://github.com/jj-vcs/jj/issues/5894)
+
+* `jj bookmark forget` no longer prints `Forgot N local bookmarks.` when no
+  local bookmarks were actually forgotten (e.g. when only an untracked remote
+  bookmark matched). [#9181](https://github.com/jj-vcs/jj/issues/9181).
+
+* The `builtin_log_redacted` template now also redacts workspace names.
+
+### Contributors
+
+Thanks to the people who made this release happen!
+
+* Alex Jaspersen (@ajaspers)
+* Archer (@archer-321)
+* ase (@adamse)
+* Austin Seipp (@thoughtpolice)
+* David Rieber (@drieber)
+* Eyüp Can Akman (@eyupcanakman)
+* Jakub Stasiak (@jstasiak)
+* James Dixon (@lemonase)
+* Joseph Lou (@josephlou5)
+* Laurynas Keturakis (@laulauland)
+* Luna Schwalbe (@lunagl)
+* Martin von Zweigbergk (@martinvonz)
+* Niko Savola (@nikosavola)
+* OlshaMB (@OlshaMB)
+* Sergey Kasmy (@SergeyKasmy)
+* truffle (@truffle-dev)
+* Vincent Ging Ho Yim (@cenviity)
+* Yuya Nishihara (@yuja)
+
+## [0.41.0] - 2026-05-06
+
+### Release highlights
+
+* `jj fix` now supports formatting specific line ranges (allowing you to format
+  only modified lines); see the configuration manual and notes below for more.
+
+* The new global flag `--no-integrate-operation` will let you run a command without
+  impacting the repo state or the working copy, which is useful when automated tools
+  may create snapshots in the background.
+
+### Breaking changes
+
+* The `--pattern` flag for `file search` now defaults to `regex:` instead of `glob:`.
+
 * `jj git push --all`/`--tracked`/`-r REVSETS` no longer fails when revisions to
   push are private or have conflicts. Bookmarks which aren't eligible to push
   will be skipped.
+
+* Branch/bookmark patterns passed to `jj git clone` are now saved to jj's repo
+  settings file instead of `.git/config`. Git fetch refspecs are set to the
+  default value.
 
 ### Deprecations
 
@@ -22,6 +153,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   deprecated in favor of `.attributes()`.
 
 ### New features
+
+* The `--pattern` flag for `file search` now accepts various pattern kinds through
+  `kind:pattern` syntax.
 
 * A new global flag `--no-integrate-operation` lets you run a command without
   impacting the repo state or the working copy.
@@ -34,6 +168,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   lines and fine-grained control over when the tool is run. If you have set the `line-range-arg`
   config, use `--all-lines` to match the previous behavior of formatting the entire file.
 
+* A new `replace(pattern, content, replacement)` template function is added
+  which supports replacement of content in templates, using a lambda to format
+  replacement text. It supports all string patterns, including regexes with
+  capture groups (e.g. `replace(regex:'(\w+) (\w+)', "hello world", |c| c.get(1) ++ " " ++ c.get(2))`).
+
+* New `ByteString` template type for things like file content.
+
+* `jj gerrit upload` now supports the new options `--message` (`-m`), `--edit`
+  and `--merged`. You can now also pass multiple hashtags by repeating the
+  `--hashtag` option.
+
+* New `remotes.<name>.fetch-bookmarks`/`fetch-tags` options to [configure
+  default fetch targets.](docs/config.md#default-bookmarks-and-tags-to-fetch)
+
+* `JJ_PAGER` can now override the `ui.pager` config, matching `JJ_EDITOR` for
+  callers that need a jj-specific environment override.
+
 ### Fixed bugs
 
 * Improving consistency with `git` handling of `.gitignore`, including `/`
@@ -41,6 +192,59 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj status` filters untracked paths by fileset
   [#9287](https://github.com/jj-vcs/jj/issues/9287)
+
+* Improved performance for snapshotting, visibly improving `jj status`
+  speed for large repositories.
+
+* Pre-existing Git submodule directories are no longer considered conflicts in
+  checkouts. [#8065](https://github.com/jj-vcs/jj/issues/8065).
+
+* Fixed a panic in `jj gerrit upload` when run without `-r` and the
+  inferred revision was immutable. [#9398](https://github.com/jj-vcs/jj/issues/9398)
+
+* `jj status` respects path filters in working copy summaries.
+
+* `jj git remote rename`/`remove` now updates the `trunk()` alias.
+
+* Commands would sometimes incorrectly diagnose a stale working copy and suggest
+  running `jj op integrate` when it would have no effect. This should now be
+  much less likely to happen in practice.
+  [#9314](https://github.com/jj-vcs/jj/issues/9314)
+
+### Contributors
+
+Thanks to the people who made this release happen!
+
+* Adrian Freund (@freundTech)
+* ase (@adamse)
+* Austin Seipp (@thoughtpolice)
+* Benjamin Tan (@bnjmnt4n)
+* Björn Kautler (@Vampire)
+* David Higgs (@higgsd)
+* David Rieber (@drieber)
+* dzaima (@dzaima)
+* Federico G. Schwindt (@fgsch)
+* Gaëtan Lehmann (@glehmann)
+* hewigovens (@hewigovens)
+* Ilya Grigoriev (@ilyagr)
+* jonmeow (@jonmeow)
+* Joseph Lou (@josephlou5)
+* Josh McKinney (@joshka)
+* Jun Mukai (@jmuk)
+* Lucas Garron (@lgarron)
+* Martin von Zweigbergk (@martinvonz)
+* Matt Stark (@matts1)
+* Maximilian Gaß (@mxey)
+* OlshaMB (@OlshaMB)
+* Philip Metzger (@PhilipMetzger)
+* rayaq
+* Remo Senekowitsch (@senekor)
+* rishiad (@rishiad)
+* Ryan Patterson (@CGamesPlay)
+* Sebastian Barfurth (@sbarfurth)
+* Thomas Axelsson (@thomasa88)
+* xtqqczze (@xtqqczze)
+* Yuya Nishihara (@yuja)
 
 ## [0.40.0] - 2026-04-01
 
@@ -4989,7 +5193,9 @@ No changes, only trying to get the automated build to work.
 
 Last release before this changelog started.
 
-[unreleased]: https://github.com/jj-vcs/jj/compare/v0.40.0...HEAD
+[unreleased]: https://github.com/jj-vcs/jj/compare/v0.42.0...HEAD
+[0.42.0]: https://github.com/jj-vcs/jj/compare/v0.41.0...v0.42.0
+[0.41.0]: https://github.com/jj-vcs/jj/compare/v0.40.0...v0.41.0
 [0.40.0]: https://github.com/jj-vcs/jj/compare/v0.39.0...v0.40.0
 [0.39.0]: https://github.com/jj-vcs/jj/compare/v0.38.0...v0.39.0
 [0.38.0]: https://github.com/jj-vcs/jj/compare/v0.37.0...v0.38.0

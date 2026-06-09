@@ -38,7 +38,7 @@ pub async fn cmd_debug_copy_detection(
     command: &CommandHelper,
     args: &CopyDetectionArgs,
 ) -> Result<(), CommandError> {
-    let ws = command.workspace_helper(ui)?;
+    let ws = command.workspace_helper(ui).await?;
     let store = ws.repo().store();
 
     let commit = ws.resolve_single_rev(ui, &args.revision).await?;

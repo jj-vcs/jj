@@ -68,7 +68,7 @@ pub(crate) async fn cmd_file_chmod(
         ChmodMode::Normal => false,
     };
 
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
     let commit = workspace_command
         .resolve_single_rev(ui, &args.revision)
         .await?;

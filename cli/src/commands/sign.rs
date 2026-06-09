@@ -67,7 +67,7 @@ pub async fn cmd_sign(
     command: &CommandHelper,
     args: &SignArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui).await?;
 
     if !workspace_command.repo().store().signer().can_sign() {
         return Err(user_error(
