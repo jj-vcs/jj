@@ -2704,6 +2704,7 @@ dependencies = [
  "tempfile",
  "test-case",
  "thiserror 2.0.20",
+ "tracing",
  "winreg",
 ]
 
