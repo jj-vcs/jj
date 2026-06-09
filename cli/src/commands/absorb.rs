@@ -13,10 +13,12 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCompleter;
+use indoc::formatdoc;
 use jj_lib::absorb::AbsorbSource;
 use jj_lib::absorb::absorb_hunks;
 use jj_lib::absorb::split_hunks_to_trees;
 use jj_lib::matchers::EverythingMatcher;
+use jj_lib::merge::Diff;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -24,6 +26,7 @@ use crate::cli_util::RevisionArg;
 use crate::cli_util::print_unmatched_explicit_paths;
 use crate::cli_util::print_updated_commits;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::complete;
 use crate::diff_util::DiffFormat;
 use crate::ui::Ui;
@@ -34,6 +37,10 @@ use crate::ui::Ui;
 /// the closest mutable ancestor where the corresponding lines were modified
 /// last. If the destination revision cannot be determined unambiguously, the
 /// change will be left in the source revision.
+///
+/// With the `--interactive` option, only the selected changes will be
+/// considered for absorption. This allows picking specific hunks to absorb
+/// (which may then be distributed across multiple ancestors).
 ///
 /// The source revision will be abandoned if all changes are absorbed into the
 /// destination revisions, and if the source revision has no description.
@@ -63,6 +70,10 @@ pub(crate) struct AbsorbArgs {
     #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
     #[arg(add = ArgValueCompleter::new(complete::modified_from_files))]
     paths: Vec<String>,
+
+    /// Interactively choose which parts to absorb
+    #[arg(long, short)]
+    interactive: bool,
 }
 
 #[instrument(skip_all)]
@@ -81,16 +92,56 @@ pub(crate) async fn cmd_absorb(
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
     let matcher = fileset_expression.to_matcher();
 
-    let repo = workspace_command.repo().as_ref();
-    let source = AbsorbSource::from_commit(repo, source_commit.clone()).await?;
-    let selected_trees = split_hunks_to_trees(repo, &source, &destinations, &matcher).await?;
-
     print_unmatched_explicit_paths(
         ui,
         &workspace_command,
         &fileset_expression,
         [&source_commit.tree()],
     )?;
+
+    let diff_selector = workspace_command.diff_selector(ui, None, args.interactive)?;
+    let repo = workspace_command.repo().as_ref();
+    let source = if diff_selector.is_interactive() {
+        let parent_tree = source_commit.parent_tree(repo).await?;
+        let source_tree = source_commit.tree();
+        let format_instructions = || {
+            formatdoc! {"
+                You are selecting changes from: {source} to be considered for
+                absorption into ancestors.
+
+                The left side of the diff shows the parent commit. The right side
+                initially shows the contents of the commit you're absorbing from.
+
+                Adjust the right side until the diff shows the changes you want to
+                absorb. Selected hunks will be considered for assignment to the
+                closest ancestor where the corresponding lines were last modified
+                (using annotation). Any hunks that cannot be absorbed unambiguously
+                remain in the source commit.
+                ",
+                source = workspace_command.format_commit_summary(&source_commit),
+            }
+        };
+        let selected_tree = diff_selector
+            .select(
+                ui,
+                Diff::new(&parent_tree, &source_tree),
+                Diff::new(
+                    source_commit.parents_conflict_label().await?,
+                    source_commit.conflict_label(),
+                ),
+                &matcher,
+                format_instructions,
+            )
+            .await?;
+        if selected_tree.tree_ids() == parent_tree.tree_ids() {
+            return Err(user_error("No changes selected"));
+        }
+        AbsorbSource::from_tree(source_commit.clone(), selected_tree, parent_tree).await?
+    } else {
+        AbsorbSource::from_commit(repo, source_commit.clone()).await?
+    };
+
+    let selected_trees = split_hunks_to_trees(repo, &source, &destinations, &matcher).await?;
 
     let path_converter = workspace_command.path_converter();
     for (path, reason) in selected_trees.skipped_paths {

@@ -149,6 +149,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj absorb` now supports `--interactive`/`-i` to let you interactively choose
+  which hunks from the source to consider for absorption. This is useful when
+  you only want to absorb *part* of a commit without first splitting it. Any
+  hunks that are not selected or cannot be absorbed remain in the source commit.
+
 * `jj show` now supports `--reversed` flag.
 
 * `jj` now looks for config files in `/etc/jj`.

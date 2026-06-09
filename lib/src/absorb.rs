@@ -55,17 +55,29 @@ pub struct AbsorbSource {
     commit: Commit,
     parents: Vec<Commit>,
     parent_tree: MergedTree,
+    source_tree: MergedTree,
 }
 
 impl AbsorbSource {
     /// Create an absorb source from a single commit.
     pub async fn from_commit(repo: &dyn Repo, commit: Commit) -> BackendResult<Self> {
-        let parents = commit.parents().await?;
         let parent_tree = commit.parent_tree(repo).await?;
+        let source_tree = commit.tree();
+        Self::from_tree(commit, source_tree, parent_tree).await
+    }
+
+    /// Create an absorb source from a commit and a tree derived from it.
+    pub async fn from_tree(
+        commit: Commit,
+        source_tree: MergedTree,
+        parent_tree: MergedTree,
+    ) -> BackendResult<Self> {
+        let parents = commit.parents().await?;
         Ok(Self {
             commit,
             parents,
             parent_tree,
+            source_tree,
         })
     }
 }
@@ -102,10 +114,10 @@ pub async fn split_hunks_to_trees(
     let mut selected_trees = SelectedTrees::default();
 
     let left_tree = &source.parent_tree;
-    let right_tree = source.commit.tree();
+    let right_tree = &source.source_tree;
     // TODO: enable copy tracking if we add support for annotate and merge
     let copy_records = CopyRecords::default();
-    let tree_diff = left_tree.diff_stream_with_copies(&right_tree, matcher, &copy_records);
+    let tree_diff = left_tree.diff_stream_with_copies(right_tree, matcher, &copy_records);
     let mut diff_stream = materialized_diff_stream(
         repo.store(),
         tree_diff,
