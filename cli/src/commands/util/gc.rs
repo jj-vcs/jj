@@ -12,15 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::slice;
 use std::time::Duration;
 use std::time::SystemTime;
-
-use jj_lib::repo::Repo as _;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
+use crate::commands::gc;
 use crate::ui::Ui;
 
 /// Run backend-dependent garbage collection.
@@ -59,9 +57,6 @@ pub async fn cmd_util_gc(
     let workspace_command = command.workspace_helper(ui).await?;
 
     let repo = workspace_command.repo();
-    repo.op_store()
-        .gc(slice::from_ref(repo.op_id()), keep_newer)
-        .await?;
-    repo.store().gc(repo.index(), keep_newer)?;
+    gc::expire_unreachable(repo, keep_newer).await?;
     Ok(())
 }

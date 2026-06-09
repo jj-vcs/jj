@@ -57,6 +57,11 @@ interface = "quit-if-one-page"
 wrapping = "anywhere"
 show-ruler = true
 
+[gc]
+frequency-days = 0
+operation-min-count = 100
+operation-expiry-days = 365
+
 [snapshot]
 max-new-file-size = "1MiB"
 auto-track = "all()"
