@@ -7206,11 +7206,18 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
-<li><code>jj</code> now creates a new working-copy revision during snapshotting if the
+<li>
+<p><code>jj</code> now creates a new working-copy revision during snapshotting if the
   working copy was immutable. Previously, the new revision was created
   immediately after the working copy became immutable.
   <a href="https://github.com/jj-vcs/jj/issues/7751">#7751</a>
-  <a href="https://github.com/jj-vcs/jj/issues/9338">#9338</a></li>
+  <a href="https://github.com/jj-vcs/jj/issues/9338">#9338</a></p>
+</li>
+<li>
+<p><code>jj git remote add</code> now warns if the new remote exactly matches an existing
+  remote's fetch URL or effective push URL.
+  <a href="https://github.com/jj-vcs/jj/issues/413">#413</a></p>
+</li>
 </ul>
 <h2 id="0420-2026-06-04"><a href="https://github.com/jj-vcs/jj/compare/v0.41.0...v0.42.0">0.42.0</a> - 2026-06-04<a class="headerlink" href="#0420-2026-06-04" title="Permanent link">&para;</a></h2>
 <h3 id="release-highlights_1">Release highlights<a class="headerlink" href="#release-highlights_1" title="Permanent link">&para;</a></h3>
