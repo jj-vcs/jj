@@ -475,7 +475,7 @@ async fn select_diff(
     for source in sources {
         let parent_tree = source.parent_tree(tx.repo()).await?;
         let source_tree = source.tree();
-        let format_instructions = || {
+        let format_instructions = |edit_side| {
             formatdoc! {"
                 You are moving changes from: {source}
                 into commit: {destination}
@@ -484,10 +484,14 @@ async fn select_diff(
                 right side initially shows the contents of the commit you're moving
                 changes from.
 
-                Adjust the right side until the diff shows the changes you want to move
-                to the destination. If you don't make any changes, then all the changes
+                Adjust the {edit_side} side until the diff shows the changes you want to move
+                to the destination. If you don't make any changes, then {} of the changes
                 from the source will be moved into the destination.
                 ",
+                match edit_side {
+                    crate::merge_tools::DiffEditSide::Left => "none",
+                    crate::merge_tools::DiffEditSide::Right => "all",
+                },
                 source = tx.format_commit_summary(source),
                 destination = tx.format_commit_summary(destination),
             }

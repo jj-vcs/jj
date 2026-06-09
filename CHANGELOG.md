@@ -24,6 +24,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* Added `edit-side` config option for diff editors (e.g. `jj diffedit`, `jj
+  split`).  The default behaviour is for `$right` to be modifiable, but with
+  this setting you can choose to edit `$left` instead.  This will feel much more
+  familiar to users of fugitive.vim.
+
 ### Fixed bugs
 
 * `jj` now creates a new working-copy revision during snapshotting if the

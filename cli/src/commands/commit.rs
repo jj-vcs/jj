@@ -105,12 +105,12 @@ pub(crate) async fn cmd_commit(
     let text_editor = workspace_command.text_editor()?;
     let mut tx = workspace_command.start_transaction();
     let base_tree = commit.parent_tree(tx.repo()).await?;
-    let format_instructions = || {
+    let format_instructions = |edit_side| {
         format!(
             "\
 You are splitting the working-copy commit: {}
 
-The diff initially shows all changes. Adjust the right side until it shows the
+The diff initially shows all changes. Adjust the {edit_side} side until it shows the
 contents you want for the first commit. The remainder will be included in the
 new working-copy commit.
 ",

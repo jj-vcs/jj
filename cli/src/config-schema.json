@@ -669,6 +669,11 @@
                         ],
                         "default": "dir"
                     },
+                    "edit-side": {
+                        "enum": ["left", "right"],
+                        "description": "Which side of the diff is editable",
+                        "default": "right"
+                    },
                     "merge-args": {
                         "type": "array",
                         "items": {
