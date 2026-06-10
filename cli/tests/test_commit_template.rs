@@ -996,6 +996,181 @@ fn test_log_contained_in() {
     [EOF]
     [exit status: 1]
     "#);
+
+    let template = r#"description.first_line() ++ " " ++ if(self.contained_in("commit_id(" ++ commit_id ++ ")"), "[contained_in]") ++ "\n""#;
+    let output = work_dir.run_jj(["log", "-r::", "-T", template]);
+    insta::assert_snapshot!(output, @"
+    @  D [contained_in]
+    │ ○  C [contained_in]
+    │ ○  B [contained_in]
+    │ ○  A [contained_in]
+    ├─╯
+    ◆   [contained_in]
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_log_revset_function() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["new", "-mA", "root()"]).success();
+    work_dir.run_jj(["new", "-mB"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "main"])
+        .success();
+    work_dir.run_jj(["new", "-mC"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "feature/foo"])
+        .success();
+
+    let output = work_dir.run_jj([
+        "log",
+        "--no-graph",
+        "-r",
+        "@",
+        "-T",
+        r#"revset("ancestors(@, 2)").map(|c| c.description().first_line()).join(", ") ++ "\n""#,
+    ]);
+    insta::assert_snapshot!(output, @r"
+    C, B
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj([
+        "log",
+        "--no-graph",
+        "-r",
+        "@",
+        "-T",
+        r#"revset("feature/foo").map(|c| c.description().first_line()).join(", ") ++ "\n""#,
+    ]);
+    insta::assert_snapshot!(output, @r"
+    C
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj([
+        "log",
+        "--no-graph",
+        "-r",
+        "@",
+        "-T",
+        r#"revset("feature/foo", "extra").map(|c| c.description().first_line()).join(", ") ++ "\n""#,
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Failed to parse template: Function `revset`: Expected 1 arguments
+    Caused by:  --> 1:8
+      |
+    1 | revset("feature/foo", "extra").map(|c| c.description().first_line()).join(", ") ++ "\n"
+      |        ^--------------------^
+      |
+      = Function `revset`: Expected 1 arguments
+    [EOF]
+    [exit status: 1]
+    "#);
+}
+
+#[test]
+fn test_log_revset_visibility_and_sorting() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create a few commits with different timestamps
+    test_env.add_config(r#"ui.timestamp = "2001-02-03T04:05:06+07:00""#);
+    work_dir.run_jj(["new", "-m1", "root()"]).success();
+    test_env.add_config(r#"ui.timestamp = "2001-02-03T04:05:07+07:00""#);
+    work_dir.run_jj(["new", "-m2", "root()"]).success();
+    test_env.add_config(r#"ui.timestamp = "2001-02-03T04:05:08+07:00""#);
+    work_dir.run_jj(["new", "-m3", "root()"]).success();
+
+    // Now we have:
+    // root -> 1 (06)
+    // root -> 2 (07)
+    // root -> 3 (08)
+
+    // Check sorting (should be 3, 2, 1)
+    let template =
+        r#"revset("all() & ~root()").map(|c| c.description().first_line()).join(", ") ++ "\n""#;
+    let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-T", template]);
+    insta::assert_snapshot!(output, @r"
+    3, 2, 1
+    [EOF]
+    ");
+
+    // Test visibility: hide commit 2 (by abandoning it)
+    work_dir.run_jj(["abandon", "description(2)"]).success();
+
+    // Now 2 is hidden. revset("all()") should only show 3, 2, 1 (all is literal)
+    let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-T", template]);
+    insta::assert_snapshot!(output, @r"
+    3, 2, 1
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_log_revset_parse_error() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let template = r#"revset("bad(").map(|c| c.description().first_line()).join(", ") ++ "\n""#;
+    let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-T", template]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Failed to parse template: In revset expression
+    Caused by:
+    1:  --> 1:8
+      |
+    1 | revset("bad(").map(|c| c.description().first_line()).join(", ") ++ "\n"
+      |        ^----^
+      |
+      = In revset expression
+    2:  --> 1:5
+      |
+    1 | bad(
+      |     ^---
+      |
+      = expected <strict_identifier> or <expression>
+    Hint: See https://docs.jj-vcs.dev/latest/revsets/ or use `jj help -k revsets` for revsets syntax and how to quote symbols.
+    [EOF]
+    [exit status: 1]
+    "#);
+}
+
+#[test]
+fn test_log_revset_parse_error_for_static_expression() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let template =
+        r#"revset("ba" ++ "d(").map(|c| c.description().first_line()).join(", ") ++ "\n""#;
+    let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-T", template]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Failed to parse template: In revset expression
+    Caused by:
+    1:  --> 1:8
+      |
+    1 | revset("ba" ++ "d(").map(|c| c.description().first_line()).join(", ") ++ "\n"
+      |        ^----------^
+      |
+      = In revset expression
+    2:  --> 1:5
+      |
+    1 | bad(
+      |     ^---
+      |
+      = expected <strict_identifier> or <expression>
+    Hint: See https://docs.jj-vcs.dev/latest/revsets/ or use `jj help -k revsets` for revsets syntax and how to quote symbols.
+    [EOF]
+    [exit status: 1]
+    "#);
 }
 
 #[test]
