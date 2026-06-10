@@ -361,6 +361,29 @@ label(if(commit.current_working_copy(), "working_copy"),
 )
 '''
 
+'format_commit_summary_redacted(commit)' = '''
+label(if(commit.current_working_copy(), "working_copy"),
+  separate(" ",
+    format_short_change_id_with_change_offset(commit),
+    format_short_commit_id(commit.commit_id()),
+    separate(commit_summary_separator,
+      commit.bookmarks().map(|bookmark| concat(
+        "bookmark-", hash(bookmark.name()).substr(0, 4),
+        if(bookmark.remote(),
+          "@remote-" ++ hash(bookmark.remote()).substr(0, 4),
+          if(!bookmark.synced(), "*")
+        )
+      )),
+      separate(" ",
+        format_commit_labels(commit),
+        if(commit.empty(), empty_commit_marker),
+        label("description", "(redacted)"),
+      ),
+    ),
+  ),
+)
+'''
+
 'format_root_commit(root)' = '''
 label("immutable",
   separate(" ",
