@@ -17,16 +17,16 @@ use itertools::Itertools as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::str_util::StringExpression;
 
-use super::find_trackable_remote_bookmarks;
+use super::resolve_trackable_remote_bookmarks;
 use super::trackable_remote_bookmarks_matching;
 use super::warn_unmatched_local_or_remote_bookmarks;
 use super::warn_unmatched_remotes;
 use crate::cli_util::CommandHelper;
-use crate::cli_util::RemoteBookmarkNamePattern;
 use crate::cli_util::default_ignored_remote_name;
 use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::complete;
+use crate::revset_util::parse_name_patterns_or_remote_symbols;
 use crate::revset_util::parse_union_name_patterns;
 use crate::ui::Ui;
 
@@ -39,14 +39,16 @@ use crate::ui::Ui;
 /// corresponding remote bookmarks, use `jj bookmark forget` instead.
 #[derive(clap::Args, Clone, Debug)]
 pub struct BookmarkUntrackArgs {
-    /// Bookmark names to untrack
+    /// Bookmark name patterns or remote bookmark symbols to untrack
     ///
-    /// By default, the specified pattern matches bookmark names with glob
-    /// syntax. You can also use other [string pattern syntax].
+    /// `BOOKMARK` matches bookmark names using glob syntax by default. You can
+    /// also use other [string pattern syntax].
+    ///
+    /// `BOOKMARK@REMOTE` resolves to a remote bookmark exactly.
     ///
     /// [string pattern syntax]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
-    #[arg(required = true, value_name = "BOOKMARK")]
+    #[arg(required = true, value_name = "BOOKMARK[@REMOTE]")]
     #[arg(add = ArgValueCandidates::new(complete::tracked_bookmarks))]
     names: Vec<String>,
 
@@ -77,21 +79,23 @@ pub async fn cmd_bookmark_untrack(
     let ignored_remote = default_ignored_remote_name(repo.store())
         // suppress unmatched remotes warning for default-ignored remote
         .filter(|name| view.get_remote_view(name).is_some());
-    let matched_refs = if args.remotes.is_none() && args.names.iter().all(|s| s.contains('@')) {
-        // TODO: Delete in jj 0.43+
-        writeln!(
-            ui.warning_default(),
-            "<bookmark>@<remote> syntax is deprecated, use `<bookmark> --remote=<remote>` instead."
-        )?;
-        let name_patterns: Vec<RemoteBookmarkNamePattern> = args
-            .names
-            .iter()
-            .map(|s| s.parse())
-            .try_collect()
-            .map_err(cli_error)?;
-        find_trackable_remote_bookmarks(ui, view, &name_patterns)?
+
+    let (bookmark_exprs, remote_symbols) = parse_name_patterns_or_remote_symbols(ui, &args.names)?;
+    // Reject mixed syntax. It is confusing if the default @<remote> or
+    // user-specified --remote flag applies only to <bookmark> patterns.
+    if !bookmark_exprs.is_empty() && !remote_symbols.is_empty() {
+        return Err(cli_error(
+            "Cannot specify both <bookmark> patterns and <bookmark>@<remote> symbols",
+        ));
+    } else if args.remotes.is_some() && !remote_symbols.is_empty() {
+        return Err(cli_error(
+            "--remote cannot be used with <bookmark>@<remote> symbols",
+        ));
+    }
+    let matched_refs = if !remote_symbols.is_empty() {
+        resolve_trackable_remote_bookmarks(ui, view, &remote_symbols)?
     } else {
-        let bookmark_expr = parse_union_name_patterns(ui, &args.names)?;
+        let bookmark_expr = StringExpression::union_all(bookmark_exprs);
         let remote_expr = match (&args.remotes, ignored_remote) {
             (Some(text), _) => parse_union_name_patterns(ui, text)?,
             (None, Some(ignored)) => StringExpression::exact(ignored).negated(),
@@ -105,6 +109,7 @@ pub async fn cmd_bookmark_untrack(
         warn_unmatched_remotes(ui, view, &remote_expr)?;
         matched_refs
     };
+
     let mut symbols = Vec::new();
     for (symbol, remote_ref) in matched_refs {
         if ignored_remote.is_some_and(|ignored| symbol.remote == ignored) {

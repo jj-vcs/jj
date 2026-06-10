@@ -22,6 +22,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * The deprecated `ui.revsets-use-glob-by-default` option has been removed.
 
+* `jj bookmark track`/`untrack` no longer supports `<kind>:<bookmark>@<remote>`
+  patterns. However, the `<bookmark>@<remote>` symbol syntax is still supported.
+  [#9226](https://github.com/jj-vcs/jj/issues/9226)
+
 ### Deprecations
 
 ### New features

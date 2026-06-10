@@ -728,7 +728,7 @@ fn test_bookmark_rename_overwrite() {
         ])
         .success();
     work_dir
-        .run_jj(["bookmark", "track", "*-tracked@origin"])
+        .run_jj(["bookmark", "track", "*-tracked", "--remote=origin"])
         .success();
     work_dir
         .run_jj(["bookmark", "untrack", "*-untracked"])
@@ -757,7 +757,7 @@ fn test_bookmark_rename_overwrite() {
         ])
         .success();
     work_dir
-        .run_jj(["bookmark", "track", "*-tracked@origin"])
+        .run_jj(["bookmark", "track", "*-tracked", "--remote=origin"])
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     DST: qpvuntsm b3bfa1df (empty) DST
@@ -1680,7 +1680,6 @@ fn test_bookmark_track_untrack() -> TestResult {
     ]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: <bookmark>@<remote> syntax is deprecated, use `<bookmark> --remote=<remote>` instead.
     Warning: No matching remote bookmarks for names: nonexistent@origin
     Started tracking 2 remote bookmarks.
     [EOF]
@@ -1728,7 +1727,6 @@ fn test_bookmark_track_untrack() -> TestResult {
     let output = work_dir.run_jj(["bookmark", "untrack", "feature1@origin", "feature2@origin"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: <bookmark>@<remote> syntax is deprecated, use `<bookmark> --remote=<remote>` instead.
     Stopped tracking 2 remote bookmarks.
     [EOF]
     ");
@@ -2081,6 +2079,59 @@ fn test_bookmark_track_untrack_patterns() -> TestResult {
 }
 
 #[test]
+fn test_bookmark_track_untrack_bad_args() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj(["bookmark", "track", "--remote=foo", "bar@baz"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: --remote cannot be used with <bookmark>@<remote> symbols
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["bookmark", "track", "foo", "bar@baz"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Cannot specify both <bookmark> patterns and <bookmark>@<remote> symbols
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["bookmark", "track", "~foo@bar"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Failed to parse name pattern or remote symbol: Invalid string expression
+    Caused by:  --> 1:2
+      |
+    1 | ~foo@bar
+      |  ^-----^
+      |
+      = Invalid string expression
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = work_dir.run_jj(["bookmark", "untrack", "--remote=foo", "bar@baz"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: --remote cannot be used with <bookmark>@<remote> symbols
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["bookmark", "untrack", "foo", "bar@baz"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Cannot specify both <bookmark> patterns and <bookmark>@<remote> symbols
+    [EOF]
+    [exit status: 2]
+    ");
+}
+
+#[test]
 fn test_bookmark_track_absent() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -2161,6 +2212,39 @@ fn test_bookmark_track_absent() -> TestResult {
       @remote2 (not created yet)
     [EOF]
     ");
+
+    // Track newly-created bookmarks by <name>@<remote> syntax
+    work_dir
+        .run_jj(["bookmark", "create", "new2", "'new 3'"])
+        .success();
+    let output = work_dir.run_jj([
+        "bookmark",
+        "track",
+        "new2@remote1",
+        "'new 3'@remote2",
+        "unknown@remote1",
+        "'new 3'@unknown",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Warning: No matching remote bookmarks for names: unknown@remote1, "new 3"@unknown
+    Started tracking 2 remote bookmarks.
+    [EOF]
+    "#);
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r#"
+    feature1: quutswnw 3fb14832 commit
+      @remote1: quutswnw 3fb14832 commit
+      @remote2 (not created yet)
+    "new 3": qpvuntsm e8849ae1 (empty) (no description set)
+      @remote2 (not created yet)
+    new-feature: qpvuntsm e8849ae1 (empty) (no description set)
+      @remote1 (not created yet)
+      @remote2 (not created yet)
+    new2: qpvuntsm e8849ae1 (empty) (no description set)
+      @remote1 (not created yet)
+    [EOF]
+    "#);
+
     Ok(())
 }
 

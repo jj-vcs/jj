@@ -630,15 +630,17 @@ Start tracking given remote bookmarks
 
 A tracked remote bookmark will be imported as a local bookmark of the same name. Changes to it will propagate to the existing local bookmark on future pulls.
 
-**Usage:** `jj bookmark track [OPTIONS] <BOOKMARK>...`
+**Usage:** `jj bookmark track [OPTIONS] <BOOKMARK[@REMOTE]>...`
 
 **Command Alias:** `t`
 
 ###### **Arguments:**
 
-* `<BOOKMARK>` — Bookmark names to track
+* `<BOOKMARK[@REMOTE]>` — Bookmark name patterns or remote bookmark symbols to track
 
-   By default, the specified pattern matches bookmark names with glob syntax. You can also use other [string pattern syntax].
+   `BOOKMARK` matches bookmark names using glob syntax by default. You can also use other [string pattern syntax].
+
+   `BOOKMARK@REMOTE` resolves to a remote bookmark exactly.
 
    [string pattern syntax]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 
@@ -662,13 +664,15 @@ An untracked remote bookmark is just a pointer to the last-fetched remote bookma
 
 If you want to forget a local bookmark while also untracking the corresponding remote bookmarks, use `jj bookmark forget` instead.
 
-**Usage:** `jj bookmark untrack [OPTIONS] <BOOKMARK>...`
+**Usage:** `jj bookmark untrack [OPTIONS] <BOOKMARK[@REMOTE]>...`
 
 ###### **Arguments:**
 
-* `<BOOKMARK>` — Bookmark names to untrack
+* `<BOOKMARK[@REMOTE]>` — Bookmark name patterns or remote bookmark symbols to untrack
 
-   By default, the specified pattern matches bookmark names with glob syntax. You can also use other [string pattern syntax].
+   `BOOKMARK` matches bookmark names using glob syntax by default. You can also use other [string pattern syntax].
+
+   `BOOKMARK@REMOTE` resolves to a remote bookmark exactly.
 
    [string pattern syntax]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 

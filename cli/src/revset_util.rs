@@ -31,6 +31,7 @@ use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::ref_name::RefNameBuf;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteNameBuf;
+use jj_lib::ref_name::RemoteRefSymbolBuf;
 use jj_lib::repo::Repo;
 use jj_lib::revset;
 use jj_lib::revset::ResolvedRevsetExpression;
@@ -333,6 +334,43 @@ where
         })?;
     print_parse_diagnostics(ui, "In name pattern", &diagnostics)?;
     Ok(StringExpression::union_all(expressions))
+}
+
+/// Parses bookmark/tag name patterns or remote symbols.
+pub fn parse_name_patterns_or_remote_symbols<I>(
+    ui: &Ui,
+    texts: I,
+) -> Result<(Vec<StringExpression>, Vec<RemoteRefSymbolBuf>), CommandError>
+where
+    I: IntoIterator,
+    I::Item: AsRef<str>,
+{
+    let wrap_err = |err| {
+        // From<RevsetParseError>, but with different message
+        let hint = revset_parse_error_hint(&err);
+        let message = format!(
+            "Failed to parse name pattern or remote symbol: {}",
+            err.kind()
+        );
+        let mut cmd_err = user_error_with_message(message, err);
+        cmd_err.extend_hints(hint);
+        cmd_err
+    };
+    let mut diagnostics = RevsetDiagnostics::new();
+    let mut name_expressions = Vec::new();
+    let mut remote_symbols = Vec::new();
+    for text in texts {
+        let node = revset::parse_program(text.as_ref()).map_err(wrap_err)?;
+        if let revset::ExpressionKind::RemoteSymbol(symbol) = node.kind {
+            remote_symbols.push(symbol);
+        } else {
+            let expr =
+                revset::expect_string_expression(&mut diagnostics, &node).map_err(wrap_err)?;
+            name_expressions.push(expr);
+        }
+    }
+    print_parse_diagnostics(ui, "In name pattern", &diagnostics)?;
+    Ok((name_expressions, remote_symbols))
 }
 
 /// Parses the given `remotes.<name>.auto-track-bookmarks` settings into a map
