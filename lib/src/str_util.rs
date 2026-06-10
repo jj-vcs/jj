@@ -339,13 +339,6 @@ impl StringPattern {
     }
 }
 
-impl fmt::Display for StringPattern {
-    /// Shows the original string of this pattern.
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.as_str())
-    }
-}
-
 /// AST-level representation of the string matcher expression.
 #[derive(Clone, Debug)]
 pub enum StringExpression {

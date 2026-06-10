@@ -28,7 +28,6 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::rc::Rc;
-use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::LazyLock;
 use std::time::SystemTime;
@@ -93,7 +92,6 @@ use jj_lib::operation::Operation;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RefNameBuf;
 use jj_lib::ref_name::RemoteName;
-use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::CheckOutCommitError;
@@ -128,7 +126,6 @@ use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
 use jj_lib::str_util::StringExpression;
 use jj_lib::str_util::StringMatcher;
-use jj_lib::str_util::StringPattern;
 use jj_lib::transaction::Transaction;
 use jj_lib::transaction::TransactionCommitError;
 use jj_lib::working_copy;
@@ -3385,59 +3382,6 @@ impl DiffSelector {
                 }
             }
         }
-    }
-}
-
-// TODO: Delete in jj 0.43+
-#[derive(Clone, Debug)]
-pub(crate) struct RemoteBookmarkNamePattern {
-    pub bookmark: StringPattern,
-    pub remote: StringPattern,
-}
-
-impl FromStr for RemoteBookmarkNamePattern {
-    type Err = String;
-
-    fn from_str(src: &str) -> Result<Self, Self::Err> {
-        // The kind prefix applies to both bookmark and remote fragments. It's
-        // weird that unanchored patterns like substring:bookmark@remote is split
-        // into two, but I can't think of a better syntax.
-        // TODO: should we disable substring pattern? what if we added regex?
-        let (maybe_kind, pat) = src
-            .split_once(':')
-            .map_or((None, src), |(kind, pat)| (Some(kind), pat));
-        let to_pattern = |pat: &str| {
-            if let Some(kind) = maybe_kind {
-                StringPattern::from_str_kind(pat, kind).map_err(|err| err.to_string())
-            } else {
-                StringPattern::glob(pat).map_err(|err| err.to_string())
-            }
-        };
-        // TODO: maybe reuse revset parser to handle bookmark/remote name containing @
-        let (bookmark, remote) = pat.rsplit_once('@').ok_or_else(|| {
-            "remote bookmark must be specified in bookmark@remote form".to_owned()
-        })?;
-        Ok(Self {
-            bookmark: to_pattern(bookmark)?,
-            remote: to_pattern(remote)?,
-        })
-    }
-}
-
-impl RemoteBookmarkNamePattern {
-    pub fn as_exact(&self) -> Option<RemoteRefSymbol<'_>> {
-        let bookmark = RefName::new(self.bookmark.as_exact()?);
-        let remote = RemoteName::new(self.remote.as_exact()?);
-        Some(bookmark.to_remote_symbol(remote))
-    }
-}
-
-impl fmt::Display for RemoteBookmarkNamePattern {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // TODO: use revset::format_remote_symbol() if FromStr is migrated to
-        // the revset parser.
-        let Self { bookmark, remote } = self;
-        write!(f, "{bookmark}@{remote}")
     }
 }
 

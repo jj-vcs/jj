@@ -33,6 +33,7 @@ use jj_lib::op_store::RemoteRef;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteRefSymbol;
+use jj_lib::ref_name::RemoteRefSymbolBuf;
 use jj_lib::repo::Repo;
 use jj_lib::str_util::StringExpression;
 use jj_lib::str_util::StringMatcher;
@@ -59,7 +60,6 @@ use self::track::cmd_bookmark_track;
 use self::untrack::BookmarkUntrackArgs;
 use self::untrack::cmd_bookmark_untrack;
 use crate::cli_util::CommandHelper;
-use crate::cli_util::RemoteBookmarkNamePattern;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
 
@@ -114,26 +114,27 @@ pub async fn cmd_bookmark(
     }
 }
 
-fn find_trackable_remote_bookmarks<'a>(
+fn resolve_trackable_remote_bookmarks<'a>(
     ui: &Ui,
     view: &'a View,
-    name_patterns: &[RemoteBookmarkNamePattern],
+    symbols: &'a [RemoteRefSymbolBuf],
 ) -> Result<Vec<(RemoteRefSymbol<'a>, &'a RemoteRef)>, CommandError> {
-    let mut matching_bookmarks = vec![];
+    let mut trackable_refs = vec![];
     let mut unmatched_symbols = vec![];
-    for pattern in name_patterns {
-        let bookmark_matcher = pattern.bookmark.to_matcher();
-        let remote_matcher = pattern.remote.to_matcher();
-        let mut matches =
-            trackable_remote_bookmarks_matching(view, &bookmark_matcher, &remote_matcher)
-                .peekable();
-        if matches.peek().is_none() {
-            unmatched_symbols.extend(pattern.as_exact());
+    for symbol in symbols {
+        let symbol = symbol.as_ref();
+        let remote_ref = view.get_remote_bookmark(symbol);
+        if remote_ref.is_present()
+            || view.get_local_bookmark(symbol.name).is_present()
+                && view.get_remote_view(symbol.remote).is_some()
+        {
+            trackable_refs.push((symbol, remote_ref));
+        } else {
+            unmatched_symbols.push(symbol);
         }
-        matching_bookmarks.extend(matches);
     }
-    matching_bookmarks.sort_unstable_by_key(|(sym, _)| *sym);
-    matching_bookmarks.dedup_by(|(sym1, _), (sym2, _)| sym1 == sym2);
+    trackable_refs.sort_unstable_by_key(|(sym, _)| *sym);
+    trackable_refs.dedup_by(|(sym1, _), (sym2, _)| sym1 == sym2);
     if !unmatched_symbols.is_empty() {
         writeln!(
             ui.warning_default(),
@@ -141,7 +142,7 @@ fn find_trackable_remote_bookmarks<'a>(
             unmatched_symbols.iter().join(", ")
         )?;
     }
-    Ok(matching_bookmarks)
+    Ok(trackable_refs)
 }
 
 fn trackable_remote_bookmarks_matching<'a>(
