@@ -31,6 +31,7 @@ use futures::StreamExt as _;
 use futures::io::Cursor;
 use futures::stream;
 use futures::stream::BoxStream;
+use itertools::Itertools as _;
 use jj_lib::backend::Backend;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::BackendResult;
@@ -323,7 +324,7 @@ impl Backend for TestBackend {
             // that are not relevant to the trees they're working with.
             let mut histories = vec![];
             for id in topo_order_reverse(
-                copies.keys(),
+                copies.keys().sorted(),
                 |id| *id,
                 |id| copies.get(*id).unwrap().parents.iter(),
                 |_| panic!("graph has cycle"),
