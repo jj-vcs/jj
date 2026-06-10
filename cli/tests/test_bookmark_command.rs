@@ -1881,9 +1881,10 @@ fn test_bookmark_track_conflict() {
         .run_jj(["bookmark", "untrack", "main", "--remote=origin"])
         .success();
     let output = work_dir.run_jj(["bookmark", "track", "main", "--remote=origin"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Started tracking 1 remote bookmarks.
+    New divergence appeared in 0 commits:
     main (conflicted):
       + qpvuntsm/0 cfb13288 (divergent) (empty) c
       + qpvuntsm/2 6b9445d7 (divergent) (empty) a
@@ -1907,9 +1908,10 @@ fn test_bookmark_track_conflict() {
         .run_jj(["bookmark", "untrack", "main", "--remote=origin2"])
         .success();
     let output = work_dir.run_jj(["bookmark", "track", "main", "--remote=origin2"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Started tracking 1 remote bookmarks.
+    New divergence appeared in 0 commits:
     main (conflicted):
       + qpvuntsm/0 cfb13288 (divergent) (empty) c
       + qpvuntsm/2 6b9445d7 (divergent) (empty) a

@@ -2369,9 +2369,12 @@ to the current parents may contain changes from multiple commits.
         // `jj new <conflicted commit>` doesn't result in a message about new conflicts.
         let conflicts = RevsetExpression::filter(RevsetFilterPredicate::HasConflict)
             .filtered(RevsetFilterPredicate::File(FilesetExpression::all()));
+        let divergents = RevsetExpression::divergent();
         let removed_conflicts_expr = new_heads.range(&old_heads).intersection(&conflicts);
         let added_conflicts_expr = old_heads.range(&new_heads).intersection(&conflicts);
 
+        let removed_divergents_expr = new_heads.range(&old_heads).intersection(&divergents);
+        let added_divergents_expr = old_heads.range(&new_heads).intersection(&divergents);
         let get_commits =
             async |expr: Arc<ResolvedRevsetExpression>| -> Result<Vec<Commit>, CommandError> {
                 let commits = expr
@@ -2384,6 +2387,8 @@ to the current parents may contain changes from multiple commits.
             };
         let removed_conflict_commits = get_commits(removed_conflicts_expr).await?;
         let added_conflict_commits = get_commits(added_conflicts_expr).await?;
+        let removed_divergent_commits = get_commits(removed_divergents_expr).await?;
+        let added_divergent_commits = get_commits(added_divergents_expr).await?;
 
         fn commits_by_change_id(commits: &[Commit]) -> IndexMap<&ChangeId, Vec<&Commit>> {
             let mut result: IndexMap<&ChangeId, Vec<&Commit>> = IndexMap::new();
@@ -2400,8 +2405,23 @@ to the current parents may contain changes from multiple commits.
         let mut new_conflicts_by_change_id = added_conflicts_by_change_id.clone();
         new_conflicts_by_change_id
             .retain(|change_id, _commits| !removed_conflicts_by_change_id.contains_key(change_id));
+        let solved_divergence_by_change_id = commits_by_change_id(&removed_divergent_commits);
+        let unresolved_divergence_by_change_id = commits_by_change_id(&added_divergent_commits);
+        let mut new_divergents_by_change_id = solved_divergence_by_change_id.clone();
 
-        // TODO: Also report new divergence and maybe resolved divergence
+        new_divergents_by_change_id
+            .retain(|change_id, _commits| !solved_divergence_by_change_id.contains_key(change_id));
+
+        if !solved_divergence_by_change_id.is_empty() {
+            let num_resolved: usize = solved_divergence_by_change_id
+                .values()
+                .map(|commits| commits.len())
+                .sum();
+            writeln!(
+                fmt,
+                "Divergence were solved or abandoned from {num_resolved} commits."
+            )?;
+        }
         if !resolved_conflicts_by_change_id.is_empty() {
             // TODO: Report resolved and abandoned numbers separately. However,
             // that involves resolving the change_id among the visible commits in the new
@@ -2427,7 +2447,20 @@ to the current parents may contain changes from multiple commits.
                 new_conflicts_by_change_id.values().flatten().copied(),
             )?;
         }
+        if !unresolved_divergence_by_change_id.is_empty() {
+            let num_divergent: usize = new_divergents_by_change_id
+                .values()
+                .map(|commits| commits.len())
+                .sum();
+            writeln!(fmt, "New divergence appeared in {num_divergent} commits:")?;
+            print_updated_commits(
+                fmt.as_mut(),
+                &self.commit_summary_template(),
+                new_divergents_by_change_id.values().flatten().copied(),
+            )?;
+        }
 
+        // TODO: Also have a similar hint for divergence when jj converge lands.
         // Hint that the user might want to `jj new` to the first conflict commit to
         // resolve conflicts. Only show the hints if there were any new or resolved
         // conflicts, and only if there are still some conflicts.

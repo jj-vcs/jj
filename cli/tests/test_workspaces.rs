@@ -990,7 +990,7 @@ fn test_workspaces_updated_by_other_with_changes_in_working_copy_automatic() {
     // The first working copy gets automatically updated.
     secondary_dir.write_file("file", "modified contents\n");
     let output = secondary_dir.run_jj(["describe", "-m", "modified"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
     Rebased 1 descendant commits onto commits rewritten by other operation
@@ -1000,6 +1000,8 @@ fn test_workspaces_updated_by_other_with_changes_in_working_copy_automatic() {
     Updated working copy to fresh commit 90f3d42e0bff
     Working copy  (@) now at: pmmvwywv/0 c38323e3 (divergent) (empty) modified
     Parent commit (@-)      : qpvuntsm b853f7c8 (no description set)
+    Divergence were solved or abandoned from 1 commits.
+    New divergence appeared in 0 commits:
     [EOF]
     ");
 
