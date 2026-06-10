@@ -352,6 +352,9 @@ revsets (expressions) as arguments.
   the revset `heads(::x_1 & ::x_2 & ... & ::x_N)`, where `x_{1..N}` are commits
   in `x`. If `x` resolves to a single commit, `fork_point(x)` resolves to `x`.
 
+  `fork_point(x | y)` is what `git merge-base x y` calculates (but it's *not*
+  what `git merge-base --fork-point` calculates).
+
 * `bisect(x)`: Finds commits in the input set for which about half of the input
   set are descendants. The current implementation deals somewhat poorly with
   non-linear history.
