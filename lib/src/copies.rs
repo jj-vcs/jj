@@ -30,6 +30,7 @@ use futures::stream::Fuse;
 use futures::stream::FuturesOrdered;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
+use itertools::Itertools as _;
 use pollster::FutureExt as _;
 
 use crate::backend::BackendError;
@@ -255,7 +256,10 @@ fn collect_descendants(copy_graph: &CopyGraph) -> IndexMap<CopyId, IndexSet<Copy
         copy_graph.keys(),
         |id| *id,
         |id| copy_graph[*id].parents.iter(),
-    );
+    )
+    .into_iter()
+    .sorted()
+    .collect_vec();
     for id in dag_walk::topo_order_forward(
         heads,
         |id| *id,

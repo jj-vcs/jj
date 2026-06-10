@@ -2877,13 +2877,14 @@ fn test_copy_diffstream_merge_twoway() -> TestResult {
         ],
     );
 
-    // TODO: this is non-deterministic, because the ancestor selection can match
-    // against either foo or bar in each case.
+    // NOTE: the copy-detection in this test case is somewhat arbitrary.
     //
-    // The non-determinism is due to the fact that
     // `Backend::get_related_copies()` does not fully specify an ordering
     // for the list of related CopyHistories. If files X and Y are both copies
-    // of A, then [X, Y, A] and [Y, X, A] are both valid orderings.
+    // of A, then [X, Y, A] and [Y, X, A] are both valid orderings. We specify that
+    // the backend should always return the same ordering, so the result is
+    // deterministic, but the specific ordering chosen depends on the ordering of
+    // the `CopyId`s involved.
     //
     // The current related-copy-matching in `CopyHistoryDiffStream` is dependent
     // on the ordering produced by the backend. So, for the case below, we
@@ -2893,15 +2894,19 @@ fn test_copy_diffstream_merge_twoway() -> TestResult {
     //   new bar -> foo
     //   new bar -> bar
     //
-    //assert_eq!(
-    //    collect_diffs(&right, &left),
-    //    [
-    //        expected_deletion(bar, &new_bar_val),
-    //        expected_copy(foo, &new_foo_val, bar, &old_bar_val),
-    //        expected_deletion(foo, &new_foo_val),
-    //        expected_copy(bar, &new_bar_val, foo, &old_foo_val),
-    //    ],
-    //);
+    // For this particular test case and the related-copies ordering provided by
+    // the test backend, we end up with a copy from foo to bar, and a "normal" diff
+    // for foo.
+
+    assert_eq!(
+        collect_diffs(&right, &left),
+        [
+            expected_deletion(bar, &new_bar_val),
+            expected_copy(foo, &new_foo_val, bar, &old_bar_val),
+            expected_deletion(foo, &new_foo_val),
+            expected_normal(foo, &new_foo_val, &old_foo_val),
+        ],
+    );
     Ok(())
 }
 
