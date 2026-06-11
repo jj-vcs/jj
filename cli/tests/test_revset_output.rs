@@ -525,28 +525,6 @@ fn test_default_string_pattern() {
     ~
     [EOF]
     ");
-
-    // with default flipped
-    let output = work_dir.run_jj([
-        "log",
-        "-rauthor('test.user')",
-        "--config=ui.revsets-use-glob-by-default=false",
-    ]);
-    insta::assert_snapshot!(output.normalize_backslash(), @"
-    @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
-    │  (empty) (no description set)
-    ~
-    [EOF]
-    ------- stderr -------
-    Warning: In revset expression
-     --> 1:8
-      |
-    1 | author('test.user')
-      |        ^---------^
-      |
-      = ui.revsets-use-glob-by-default=false will be removed in a future release
-    [EOF]
-    ");
 }
 
 // TODO: Remove in jj 0.44+

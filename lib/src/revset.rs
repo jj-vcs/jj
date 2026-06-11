@@ -1219,13 +1219,9 @@ pub fn expect_fileset_expression(
 pub fn expect_string_expression(
     diagnostics: &mut RevsetDiagnostics,
     node: &ExpressionNode,
-    context: &LoweringContext,
+    _context: &LoweringContext,
 ) -> Result<StringExpression, RevsetParseError> {
-    let default_kind = if context.use_glob_by_default {
-        "glob"
-    } else {
-        "substring"
-    };
+    let default_kind = "glob";
     expect_string_expression_inner(diagnostics, node, default_kind)
 }
 
@@ -1239,12 +1235,6 @@ fn expect_string_expression_inner(
         let expr_error = || RevsetParseError::expression("Invalid string expression", node.span);
         let pattern_error = || RevsetParseError::expression("Invalid string pattern", node.span);
         let default_pattern = |diagnostics: &mut RevsetDiagnostics, value: &str| {
-            if default_kind == "substring" {
-                diagnostics.add_warning(RevsetParseError::expression(
-                    "ui.revsets-use-glob-by-default=false will be removed in a future release",
-                    node.span,
-                ));
-            }
             let pattern = StringPattern::from_str_kind(value, default_kind)
                 .map_err(|err| pattern_error().with_source(err))?;
             Ok(StringExpression::pattern(pattern))
@@ -3498,7 +3488,6 @@ pub struct RevsetParseContext<'a> {
     /// Special remote that should be ignored by default. (e.g. "git")
     pub default_ignored_remote: Option<&'a RemoteName>,
     pub fileset_aliases_map: &'a FilesetAliasesMap,
-    pub use_glob_by_default: bool,
     pub extensions: &'a RevsetExtensions,
     pub workspace: Option<RevsetWorkspaceContext<'a>>,
 }
@@ -3512,7 +3501,6 @@ impl<'a> RevsetParseContext<'a> {
             date_pattern_context,
             default_ignored_remote,
             fileset_aliases_map,
-            use_glob_by_default,
             extensions,
             workspace,
         } = *self;
@@ -3521,7 +3509,6 @@ impl<'a> RevsetParseContext<'a> {
             date_pattern_context,
             default_ignored_remote,
             fileset_aliases_map,
-            use_glob_by_default,
             extensions,
             workspace,
         }
@@ -3535,7 +3522,6 @@ pub struct LoweringContext<'a> {
     date_pattern_context: DatePatternContext,
     default_ignored_remote: Option<&'a RemoteName>,
     fileset_aliases_map: &'a FilesetAliasesMap,
-    use_glob_by_default: bool,
     extensions: &'a RevsetExtensions,
     workspace: Option<RevsetWorkspaceContext<'a>>,
 }
@@ -3632,7 +3618,6 @@ mod tests {
             date_pattern_context: chrono::Utc::now().fixed_offset().into(),
             default_ignored_remote: Some("ignored".as_ref()),
             fileset_aliases_map: &FilesetAliasesMap::new(),
-            use_glob_by_default: true,
             extensions: &RevsetExtensions::default(),
             workspace: None,
         };
@@ -3664,7 +3649,6 @@ mod tests {
             date_pattern_context: chrono::Utc::now().fixed_offset().into(),
             default_ignored_remote: Some("ignored".as_ref()),
             fileset_aliases_map: &FilesetAliasesMap::new(),
-            use_glob_by_default: true,
             extensions: &RevsetExtensions::default(),
             workspace: Some(workspace_ctx),
         };

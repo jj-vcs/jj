@@ -20,6 +20,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The deprecated `git_head()` and `git_refs()` functions have been removed from
   revsets and templates.
 
+* The deprecated `ui.revsets-use-glob-by-default` option has been removed.
+
 ### Deprecations
 
 ### New features
