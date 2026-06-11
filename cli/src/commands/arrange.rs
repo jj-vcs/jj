@@ -198,6 +198,10 @@ struct State {
     current_selection: usize,
     external_children: IndexSet<CommitId>,
     external_parents: IndexSet<CommitId>,
+    /// The number of rows to skip from the top of the commit list so the
+    /// selected commit stays visible when the stack is taller than the
+    /// terminal.
+    scroll_top: usize,
 }
 
 impl State {
@@ -257,6 +261,7 @@ impl State {
             current_selection: 0,
             external_children: external_children_ids,
             external_parents,
+            scroll_top: 0,
         };
         state.update_commit_order();
         Ok(state)
@@ -366,6 +371,23 @@ impl State {
         self.swap_commits(&current_id, &parent);
     }
 
+    /// Adjust scroll position so the current selection remains visible.
+    fn clamp_scroll(&mut self, viewport_rows: u16) {
+        let max_visible = (viewport_rows / 2).max(1) as usize;
+        let total_commits =
+            self.external_children.len() + self.current_order.len() + self.external_parents.len();
+        let selection_pos = self.external_children.len() + self.current_selection;
+
+        if selection_pos < self.scroll_top {
+            self.scroll_top = selection_pos;
+        } else if selection_pos >= self.scroll_top.saturating_add(max_visible) {
+            self.scroll_top = selection_pos.saturating_sub(max_visible - 1);
+        }
+
+        let max_scroll = total_commits.saturating_sub(max_visible);
+        self.scroll_top = self.scroll_top.min(max_scroll);
+    }
+
     /// Swap the selected commit with one of its children. Does nothing if there
     /// is not exactly one child or if the child is an external child.
     fn swap_selection_up(&mut self) {
@@ -470,6 +492,13 @@ fn run_tui<B: ratatui::backend::Backend>(
     }
     let help_line = Line::from(help_spans);
 
+    let mut viewport_rows = terminal
+        .size()
+        .map_err(|e| internal_error(format!("Failed to get terminal size: {e}")))?
+        .height
+        .saturating_sub(1);
+    state.clamp_scroll(viewport_rows);
+
     let render_commit = |commit: &Commit, is_context_node: bool| {
         let mut text_lines = vec![];
         let mut formatter = ui.new_formatter(&mut text_lines).into_labeled("arrange");
@@ -493,6 +522,7 @@ fn run_tui<B: ratatui::backend::Backend>(
                     .split(frame.area());
                 let main_area = layout[0];
                 let help_area = layout[1];
+                viewport_rows = main_area.height;
                 render(&state, render_commit, frame.buffer_mut(), main_area);
                 frame.render_widget(&help_line, help_area);
             })
@@ -520,6 +550,7 @@ fn run_tui<B: ratatui::backend::Backend>(
             if new_state != state && new_state.is_valid() {
                 state = new_state;
                 state.update_commit_order();
+                state.clamp_scroll(viewport_rows);
             }
         }
     }
@@ -570,7 +601,8 @@ fn render(
         .external_children
         .iter()
         .chain(state.current_order.iter())
-        .chain(state.external_parents.iter());
+        .chain(state.external_parents.iter())
+        .skip(state.scroll_top);
     for id in commits_to_render {
         // TODO: Make the graph column width depend on what's needed to render the
         // graph.
@@ -1475,18 +1507,88 @@ commit A line 5",
         )
         .block_on()?;
         state.current_selection = 5;
-        // TODO: Show at least the part that includes the selection
+        state.clamp_scroll(10);
         insta::assert_snapshot!(render_to_string(&state, 80, 10), @"
-        ○         keep      commit G
-        │
-        ○         keep      commit F
-        │
-        ○         keep      commit E
-        │
-        ○         keep      commit D
-        │
-        ○         keep      commit C
-        │
+  ○         keep      commit F
+  │
+  ○         keep      commit E
+  │
+  ○         keep      commit D
+  │
+  ○         keep      commit C
+  │
+▶ ○         keep      commit B
+  │
+        ");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_render_scrolls_viewport_to_keep_selection_visible() -> TestResult {
+        let test_repo = TestRepo::init();
+        let store = test_repo.repo.store();
+        let empty_tree = store.empty_merged_tree();
+
+        let mut tx = test_repo.repo.start_transaction();
+        let mut create_commit = |parents, description: &str| {
+            tx.repo_mut()
+                .new_commit(parents, empty_tree.clone())
+                .set_description(description)
+                .write_unwrap()
+        };
+        let commit_a = create_commit(vec![store.root_commit_id().clone()], "commit A");
+        let commit_b = create_commit(vec![commit_a.id().clone()], "commit B");
+        let commit_c = create_commit(vec![commit_b.id().clone()], "commit C");
+        let commit_d = create_commit(vec![commit_c.id().clone()], "commit D");
+        let commit_e = create_commit(vec![commit_d.id().clone()], "commit E");
+        let commit_f = create_commit(vec![commit_e.id().clone()], "commit F");
+        let commit_g = create_commit(vec![commit_f.id().clone()], "commit G");
+
+        let mut state = State::new(
+            vec![
+                commit_a.clone(),
+                commit_b.clone(),
+                commit_c.clone(),
+                commit_d.clone(),
+                commit_e.clone(),
+                commit_f.clone(),
+                commit_g.clone(),
+            ],
+            vec![],
+        )
+        .block_on()?;
+
+        // Viewport can only show 5 commits; selection starts at top.
+        state.current_selection = 0;
+        state.clamp_scroll(10);
+        insta::assert_snapshot!(render_to_string(&state, 80, 10), @"
+▶ ○         keep      commit G
+  │
+  ○         keep      commit F
+  │
+  ○         keep      commit E
+  │
+  ○         keep      commit D
+  │
+  ○         keep      commit C
+  │
+        ");
+
+        // Move selection to a commit that would fall below the viewport.
+        state.current_selection = 6;
+        state.clamp_scroll(10);
+        insta::assert_snapshot!(render_to_string(&state, 80, 10), @"
+  ○         keep      commit E
+  │
+  ○         keep      commit D
+  │
+  ○         keep      commit C
+  │
+  ○         keep      commit B
+  │
+▶ ○         keep      commit A
+  │
         ");
 
         Ok(())
