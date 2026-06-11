@@ -36,6 +36,7 @@ pub mod diff;
 pub mod file_util;
 pub mod graph;
 pub mod hex_util;
+pub mod ignore;
 pub mod matchers;
 pub mod merge;
 pub mod object_id;
@@ -44,6 +45,7 @@ pub mod repo_path;
 pub mod signing;
 pub mod str_util;
 pub mod symbol_util;
+pub mod working_copy;
 pub mod workspace_store;
 
 #[cfg(test)]
