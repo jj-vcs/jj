@@ -106,6 +106,92 @@ fn list_dir(dir: &Path) -> Vec<String> {
         .collect()
 }
 
+/// Collect the hex object ids of every loose object physically present under
+/// `<git_dir>/objects`. Packed objects (`objects/pack/`) and the `info/`
+/// directory are skipped, so this reflects exactly what an in-process loose
+/// prune can remove.
+fn collect_loose_object_ids(git_repo_path: &Path) -> HashSet<String> {
+    let objects_dir = git_repo_path.join("objects");
+    let mut ids = HashSet::new();
+    for shard in std::fs::read_dir(&objects_dir).unwrap() {
+        let shard = shard.unwrap();
+        let shard_name = shard.file_name().to_str().unwrap().to_owned();
+        // Loose object shards are two-hex-char directories; skip "pack", "info".
+        if shard_name.len() != 2 || !shard.file_type().unwrap().is_dir() {
+            continue;
+        }
+        for object in std::fs::read_dir(shard.path()).unwrap() {
+            let object = object.unwrap();
+            let rest = object.file_name().to_str().unwrap().to_owned();
+            ids.insert(format!("{shard_name}{rest}"));
+        }
+    }
+    ids
+}
+
+/// Proves jj's `gc` prunes unreachable LOOSE git objects entirely in process via
+/// `grit-lib` (`prune_loose_unreachable`), with NO `git` subprocess and NO
+/// external git transport. Unlike `test_gc`, this test is NOT gated on a system
+/// `git` being installed: the loose-object prune is the grit-lib local path.
+#[test]
+fn test_gc_prunes_loose_objects_without_git() -> TestResult {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = test_repo.repo.clone();
+    let git_repo_path = get_git_backend(&repo).git_repo_path();
+    let base_index = repo.readonly_index();
+
+    // A <- B <- C, all written as loose objects by the git backend.
+    let mut tx = repo.start_transaction();
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let repo = tx.commit("test").block_on()?;
+
+    // The commit objects must be present as loose objects before gc.
+    let git_id = |commit: &Commit| commit.id().hex();
+    let loose_before = collect_loose_object_ids(git_repo_path);
+    assert!(loose_before.contains(&git_id(&commit_a)));
+    assert!(loose_before.contains(&git_id(&commit_b)));
+    assert!(loose_before.contains(&git_id(&commit_c)));
+
+    // Far-future cutoff so modification time never keeps an unreachable object.
+    let now = || SystemTime::now() + Duration::from_secs(1);
+
+    // With everything reachable, gc keeps every commit's loose object even with
+    // an aggressive prune window (they are still pointed at by no-gc refs).
+    repo.store().gc(repo.index(), now())?;
+    let loose_all_reachable = collect_loose_object_ids(git_repo_path);
+    assert!(loose_all_reachable.contains(&git_id(&commit_a)));
+    assert!(loose_all_reachable.contains(&git_id(&commit_b)));
+    assert!(loose_all_reachable.contains(&git_id(&commit_c)));
+
+    // Now make only A reachable. B and C become unreachable; their loose objects
+    // must be pruned in process, while A's must survive.
+    let mut mut_index = base_index.start_modification();
+    mut_index.add_commit(&commit_a).block_on()?;
+    repo.store().gc(mut_index.as_index(), now())?;
+
+    let loose_after = collect_loose_object_ids(git_repo_path);
+    assert!(
+        loose_after.contains(&git_id(&commit_a)),
+        "reachable commit A's loose object must be kept"
+    );
+    assert!(
+        !loose_after.contains(&git_id(&commit_b)),
+        "unreachable commit B's loose object must be pruned"
+    );
+    assert!(
+        !loose_after.contains(&git_id(&commit_c)),
+        "unreachable commit C's loose object must be pruned"
+    );
+
+    // The repo is still loadable after the in-process prune.
+    test_repo
+        .env
+        .load_repo_at_head(repo.settings(), test_repo.repo_path());
+    Ok(())
+}
+
 #[test]
 fn test_gc() -> TestResult {
     // TODO: Better way to disable the test if git command couldn't be executed

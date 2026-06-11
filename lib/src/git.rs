@@ -253,6 +253,21 @@ impl RefSpec {
         }
     }
 
+    /// The source side of the refspec, or `None` for a deletion.
+    pub(crate) fn source(&self) -> Option<&str> {
+        self.source.as_deref()
+    }
+
+    /// The destination ref on the remote.
+    pub(crate) fn destination(&self) -> &str {
+        &self.destination
+    }
+
+    /// Whether this refspec requests a forced (non-fast-forward) update.
+    pub(crate) fn is_forced(&self) -> bool {
+        self.forced
+    }
+
     pub(crate) fn to_git_format(&self) -> String {
         format!(
             "{}{}",
@@ -3026,6 +3041,17 @@ impl<'a> GitFetch<'a> {
             return Ok(());
         }
 
+        // NOTE: LOCAL (file://) fetches could be routed in-process through
+        // `crate::git_local::fetch_local` here (see `get_default_branch` below,
+        // which already does so for the remote default branch). It is left on the
+        // subprocess path for now because grit-lib's `fetch_local` does not yet
+        // (a) consult the remote's configured tag policy when jj passes no
+        // explicit `fetch_tags` override (so a remote configured with
+        // `tags = All` is not honored), or (b) classify a conflicting tag update
+        // as a clean rejection (it currently errors when the local tag points at
+        // an object the remote lacks). Branch fetching works; once the tag gaps
+        // land in grit-lib the translation helper is ready to adopt.
+
         let mut branches_to_prune = Vec::new();
         // git unfortunately errors out if one of the many refspecs is not found
         //
@@ -3089,6 +3115,23 @@ impl<'a> GitFetch<'a> {
             .is_none()
         {
             return Err(GitFetchError::NoSuchRemote(remote_name.to_owned()));
+        }
+        // For LOCAL (file://) remotes, read the default branch in-process via
+        // grit-lib instead of spawning `git remote show`.
+        if let Some(remote_git_dir) = self
+            .git_repo
+            .try_find_remote(remote_name.as_str())
+            .and_then(|r| r.ok())
+            .and_then(|remote| {
+                crate::git_local::local_remote_git_dir(&remote, gix::remote::Direction::Fetch)
+            })
+        {
+            let default_branch = crate::git_local::remote_default_branch_local(&remote_git_dir)
+                .map_err(|err| {
+                    GitFetchError::Subprocess(GitSubprocessError::External(err.to_string()))
+                })?;
+            tracing::debug!(?default_branch);
+            return Ok(default_branch);
         }
         let default_branch = self.git_ctx.spawn_remote_show(remote_name)?;
         tracing::debug!(?default_branch);
@@ -3333,6 +3376,15 @@ pub fn push_updates(
         .map(|full_refspec| RefToPush::new(full_refspec, &qualified_remote_refs_expected_locations))
         .collect();
 
+    // NOTE: the LOCAL (file://) push path could be routed in-process through
+    // `crate::git_local::push_local` here, mirroring the local fetch path. It is
+    // intentionally left on the subprocess path for now: grit-lib's
+    // `push_local` does not yet (a) update the local clone's remote-tracking
+    // refs as a side effect of a successful push, (b) honor the
+    // compare-and-swap "up to date is OK even if the lease expectation differs"
+    // ordering that `git push --force-with-lease` uses, or (c) carry
+    // `--push-option` values. Until those land in grit-lib, push stays on the
+    // subprocess path. The translation helper is ready to adopt when they do.
     let mut push_stats = git_ctx.spawn_push(remote_name, &refs_to_push, callback, options)?;
     push_stats.pushed.sort();
     push_stats.rejected.sort();
