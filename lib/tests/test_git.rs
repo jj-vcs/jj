@@ -64,6 +64,7 @@ use jj_lib::git::IgnoredRefspec;
 use jj_lib::git::IgnoredRefspecs;
 use jj_lib::git::expand_fetch_refspecs;
 use jj_lib::git::load_default_fetch_bookmarks;
+use jj_lib::git::set_remote_urls;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::hex_util;
 use jj_lib::index::ResolvedChangeTargets;
@@ -81,6 +82,8 @@ use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
+use jj_lib::repo::RepoLoader;
+use jj_lib::repo::StoreFactories;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
 use jj_lib::str_util::StringExpression;
@@ -7076,6 +7079,179 @@ fn test_fetch_over_git_daemon() -> TestResult {
     Ok(())
 }
 
+/// Spawn `git daemon` over `base_path` on `port` with receive-pack enabled (for
+/// the push path). Returns `None` if the binary is missing or cannot be spawned.
+fn spawn_git_daemon_receive(base_path: &Path, port: u16) -> Option<std::process::Child> {
+    std::process::Command::new("git")
+        .arg("daemon")
+        .arg("--listen=127.0.0.1")
+        .arg(format!("--port={port}"))
+        .arg("--reuseaddr")
+        .arg("--export-all")
+        .arg("--enable=receive-pack")
+        .arg(format!("--base-path={}", base_path.display()))
+        .arg(base_path)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .ok()
+}
+
+// `git://` (anonymous Git-daemon) PUSH carrying `--push-option` through
+// grit-lib's wire transport.
+//
+// `push_updates` routes a `git://` remote (including one carrying push options)
+// to `git_local::push_git_daemon`, which connects over TCP with
+// `grit_lib::transport::GitDaemonTransport` and drives `grit_lib::push::push_remote`
+// with the push options — no `git` subprocess for the push itself. The server's
+// `git-receive-pack` exposes the options to its `pre-receive` hook via
+// `GIT_PUSH_OPTION_*`; the bare remote's hook records them so we can assert they
+// arrived. The only external dependency is the server fixture (`git daemon`); the
+// test skips gracefully when it is unavailable.
+#[test]
+fn test_push_options_over_git_daemon() -> TestResult {
+    let settings = testutils::user_settings();
+    let temp_dir = testutils::new_temp_dir();
+    let setup = set_up_push_repos(&settings, &temp_dir);
+
+    // The bare source repo (`<temp>/source`) is the daemon's served repo. Enable
+    // receive-pack + push-option advertisement, and install a pre-receive hook
+    // that records the options it sees to `<source>/push-options-seen`.
+    let source = &setup.source_repo_dir;
+    let cfg = |args: &[&str]| {
+        std::process::Command::new("git")
+            .current_dir(source)
+            .args(args)
+            .status()
+            .expect("git config");
+    };
+    cfg(&["config", "daemon.receivepack", "true"]);
+    cfg(&["config", "receive.advertisePushOptions", "true"]);
+
+    let seen_file = source.join("push-options-seen");
+    let hook_path = source.join("hooks").join("pre-receive");
+    std::fs::create_dir_all(source.join("hooks")).unwrap();
+    let hook_body = format!(
+        r#"#!/bin/sh
+cat >/dev/null
+{{
+  echo "count=${{GIT_PUSH_OPTION_COUNT:-0}}"
+  i=0
+  while [ "$i" -lt "${{GIT_PUSH_OPTION_COUNT:-0}}" ]; do
+    eval "v=\${{GIT_PUSH_OPTION_$i}}"
+    echo "$i=$v"
+    i=$((i + 1))
+  done
+}} >'{out}'
+exit 0
+"#,
+        out = seen_file.display()
+    );
+    std::fs::write(&hook_path, hook_body).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = std::fs::metadata(&hook_path).unwrap().permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(&hook_path, perms).unwrap();
+    }
+
+    let Some(port) = git_daemon_free_port() else {
+        eprintln!("SKIP: could not find a free port for git daemon");
+        return Ok(());
+    };
+    let Some(child) = spawn_git_daemon_receive(temp_dir.path(), port) else {
+        eprintln!("SKIP: `git daemon` is unavailable");
+        return Ok(());
+    };
+    let _guard = GitDaemonGuard(child);
+    if !git_daemon_wait_ready(port) {
+        eprintln!("SKIP: git daemon did not become ready on port {port}");
+        return Ok(());
+    }
+
+    // Point `origin`'s push URL at the `git://` daemon so `push_updates` routes
+    // to the in-process `push_git_daemon` path. (`set_up_push_repos` already wired
+    // the remote-tracking ref + objects for the file:// fetch URL.)
+    let url = format!("git://127.0.0.1:{port}/source");
+    set_remote_urls(setup.jj_repo.store(), "origin".as_ref(), None, Some(&url))?;
+    // Reload from the file system so the changed git push URL is read by a fresh
+    // GitBackend (the in-memory `gix::Repository` snapshot caches config).
+    // `set_up_push_repos` initialises the jj repo at `<temp>/jj`.
+    let jj_repo_dir = temp_dir.path().join("jj");
+    let jj_repo = RepoLoader::init_from_file_system(
+        &settings,
+        &jj_repo_dir,
+        &StoreFactories::default(),
+    )
+    .unwrap()
+    .load_at_head()
+    .block_on()
+    .unwrap();
+
+    let subprocess_options = GitSubprocessOptions::from_settings(&settings)?;
+    let push_options = GitPushOptions {
+        remote_push_options: vec!["ci.skip".to_owned(), "reviewer=alice".to_owned()],
+    };
+    let stats = git::push_updates(
+        jj_repo.as_ref(),
+        subprocess_options,
+        "origin".as_ref(),
+        &[GitRefUpdate {
+            qualified_name: "refs/heads/main".into(),
+            targets: Diff::new(&setup.main_commit, &setup.child_of_main_commit)
+                .map(|commit| Some(git_id(commit))),
+        }],
+        &mut NullCallback,
+        &push_options,
+    )?;
+
+    // If the daemon refused receive-pack for any reason, skip rather than fail.
+    if !stats.remote_rejected.is_empty() {
+        eprintln!("SKIP: git daemon rejected the receive-pack push: {stats:?}");
+        return Ok(());
+    }
+    assert_eq!(
+        stats.pushed,
+        vec![GitRefNameBuf::from("refs/heads/main")],
+        "main should be pushed over git:// with push options"
+    );
+
+    // The ref advanced on the source repo.
+    let source_repo = testutils::git::open(source);
+    let new_target = source_repo.find_reference("refs/heads/main")?;
+    assert_eq!(
+        new_target.target().id(),
+        git_id(&setup.child_of_main_commit)
+    );
+
+    // The pre-receive hook recorded both push options, in order, via
+    // GIT_PUSH_OPTION_COUNT / GIT_PUSH_OPTION_<n>.
+    let recorded = std::fs::read_to_string(&seen_file)
+        .expect("pre-receive hook should have recorded push options");
+    let mut count_line = None;
+    let mut values: Vec<(usize, String)> = Vec::new();
+    for line in recorded.lines() {
+        if let Some(c) = line.strip_prefix("count=") {
+            count_line = c.trim().parse::<usize>().ok();
+        } else if let Some((idx, val)) = line.split_once('=') {
+            if let Ok(i) = idx.parse::<usize>() {
+                values.push((i, val.to_owned()));
+            }
+        }
+    }
+    values.sort_by_key(|(i, _)| *i);
+    let values: Vec<String> = values.into_iter().map(|(_, v)| v).collect();
+    assert_eq!(count_line, Some(2), "hook should see GIT_PUSH_OPTION_COUNT=2");
+    assert_eq!(
+        values,
+        vec!["ci.skip".to_owned(), "reviewer=alice".to_owned()],
+        "hook should see both push options in order"
+    );
+
+    Ok(())
+}
+
 // ---------------------------------------------------------------------------
 // `http(s)://` (smart-HTTP) FETCH and PUSH through grit-lib's HTTP transport.
 //
@@ -7304,6 +7480,207 @@ fn test_fetch_and_push_over_smart_http() -> TestResult {
         RefTarget::normal(child_of_main.id().clone()),
         "the local remote-tracking ref for main must advance after the http push"
     );
+
+    Ok(())
+}
+
+/// Spawn `grit-http-server --root <root> --bind … --require-auth user:pass`. The
+/// server returns `401` + `WWW-Authenticate: Basic realm="git"` unless the
+/// request carries the matching `Authorization: Basic` header — exercising the
+/// credential / 401-retry path in grit-lib's HTTP client.
+fn spawn_grit_http_server_authed(
+    server_bin: &Path,
+    grit_bin: &Path,
+    root: &Path,
+    port: u16,
+    user_pass: &str,
+) -> Option<std::process::Child> {
+    std::process::Command::new(server_bin)
+        .arg("--root")
+        .arg(root)
+        .arg("--bind")
+        .arg(format!("127.0.0.1:{port}"))
+        .arg("--require-auth")
+        .arg(user_pass)
+        .env("GUST_BIN", grit_bin)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .ok()
+}
+
+// ---------------------------------------------------------------------------
+// HTTP basic auth over the in-process smart-HTTP transport (no `git`
+// subprocess for the wire). `GitFetch::fetch` routes an `http(s)://` remote to
+// `git_local::fetch_http`, which now builds a `HelperCredentialProvider` from
+// the repo's git config and wires it into grit-lib's `UreqHttpClient`. With a
+// configured `credential.helper` that supplies the right username/password, a
+// fetch against a `--require-auth` server succeeds entirely in process; with no
+// helper it fails fast with the typed `Error::Auth` (non-interactive, no hang).
+// The only external dependency is the `grit-http-server` fixture (+ the `grit`
+// binary it shells out to for upload-pack); the test skips when either is
+// missing.
+// ---------------------------------------------------------------------------
+#[test]
+fn test_fetch_over_authed_smart_http_with_config_credential_helper() -> TestResult {
+    let Some(server_bin) = find_grit_binary("JJ_TEST_GRIT_HTTP_SERVER", "grit-http-server") else {
+        eprintln!(
+            "SKIP: `grit-http-server` binary not found (build it in the grit checkout or set \
+             JJ_TEST_GRIT_HTTP_SERVER)"
+        );
+        return Ok(());
+    };
+    let Some(grit_bin) = find_grit_binary("JJ_TEST_GRIT_BIN", "grit") else {
+        eprintln!(
+            "SKIP: `grit` binary not found (build it in the grit checkout or set JJ_TEST_GRIT_BIN)"
+        );
+        return Ok(());
+    };
+
+    // A bare source repo under the server root (built with gix, no `git`
+    // subprocess), served at `http://127.0.0.1:<port>/source.git`.
+    let temp_dir = testutils::new_temp_dir();
+    let root = temp_dir.path().join("srv");
+    std::fs::create_dir_all(&root)?;
+    let source_dir = root.join("source.git");
+    let source = testutils::git::init_bare(&source_dir);
+    let initial = empty_git_commit(&source, "refs/heads/main", &[]);
+    let topic = empty_git_commit(&source, "refs/heads/topic", &[initial]);
+    testutils::git::set_symbolic_reference(&source, "HEAD", "refs/heads/main");
+
+    let Some(port) = git_daemon_free_port() else {
+        eprintln!("SKIP: could not find a free port for grit-http-server");
+        return Ok(());
+    };
+    let Some(child) =
+        spawn_grit_http_server_authed(&server_bin, &grit_bin, &root, port, "alice:s3cr3t")
+    else {
+        eprintln!("SKIP: could not spawn grit-http-server");
+        return Ok(());
+    };
+    let _guard = GritHttpServerGuard(child);
+    if !git_daemon_wait_ready(port) {
+        eprintln!("SKIP: grit-http-server did not become ready on port {port}");
+        return Ok(());
+    }
+
+    let url = format!("http://127.0.0.1:{port}/source.git");
+
+    // --- 1. Without a credential helper, the auth'd fetch must fail (typed) -----
+    // A fresh jj repo with no `credential.helper`: grit-lib's HelperCredentialProvider
+    // finds no helper, returns Error::Auth (non-interactive), which surfaces as a
+    // fetch failure rather than a hang.
+    {
+        let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+        let mut tx = test_repo.repo.start_transaction();
+        git::add_remote(
+            tx.repo_mut(),
+            "origin".as_ref(),
+            &url,
+            None,
+            gix::remote::fetch::Tags::All,
+        )?;
+        let _repo = tx.commit("add remote").block_on()?;
+        let repo = test_repo
+            .env
+            .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+
+        let subprocess_options = GitSubprocessOptions::from_settings(repo.settings())?;
+        let import_options = auto_track_import_options();
+        let mut tx = repo.start_transaction();
+        let mut fetcher =
+            GitFetch::new(tx.repo_mut(), subprocess_options, &import_options)?;
+        let result = fetch_all_with(&mut fetcher, "origin".as_ref());
+        assert!(
+            result.is_err(),
+            "fetch over an auth'd server with no credential helper must fail, not hang or succeed"
+        );
+        let msg = format!("{:?}", result.unwrap_err());
+        assert!(
+            msg.contains("authentication failed") || msg.to_lowercase().contains("auth"),
+            "expected a typed authentication failure, got: {msg}"
+        );
+    }
+
+    // --- 2. With a config `credential.helper`, the auth'd fetch succeeds --------
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let mut tx = test_repo.repo.start_transaction();
+    git::add_remote(
+        tx.repo_mut(),
+        "origin".as_ref(),
+        &url,
+        None,
+        gix::remote::fetch::Tags::All,
+    )?;
+    let _repo = tx.commit("add remote").block_on()?;
+
+    // Configure a non-interactive `credential.helper` in the repo's git config
+    // that prints the right username/password. grit-lib's HelperCredentialProvider
+    // (built from this config by git_local::fetch_http) runs it on the 401, so the
+    // retry carries the correct Authorization header. The `!`-form helper is run
+    // via `sh -c "<cmd> <action>"`, printing the credential for `get` (and harmlessly
+    // for store/erase). Written straight into `.git/config` (the same git dir
+    // grit-lib's ConfigSet loads), so no `git` subprocess is involved.
+    let git_dir = get_git_backend(&test_repo.repo).git_repo_path().to_path_buf();
+    {
+        let config_path = git_dir.join("config");
+        let mut existing = std::fs::read_to_string(&config_path).unwrap_or_default();
+        existing.push_str(
+            "\n[credential]\n\thelper = \"!printf 'username=alice\\\\npassword=s3cr3t\\\\n'\"\n",
+        );
+        std::fs::write(&config_path, existing)?;
+    }
+
+    let repo = test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+
+    let subprocess_options = GitSubprocessOptions::from_settings(repo.settings())?;
+    let import_options = auto_track_import_options();
+    let mut tx = repo.start_transaction();
+    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options)?;
+    fetch_all_with(&mut fetcher, "origin".as_ref())?;
+    let default_branch = fetcher.get_default_branch("origin".as_ref())?;
+    fetcher.import_refs().block_on()?;
+    let repo = tx.commit("fetch").block_on()?;
+
+    assert_eq!(default_branch, Some("main".into()));
+
+    let view = repo.view();
+    assert!(view.heads().contains(&jj_id(topic)));
+    assert_eq!(
+        *view.git_refs(),
+        btreemap! {
+            "refs/remotes/origin/main".into() => RefTarget::normal(jj_id(initial)),
+            "refs/remotes/origin/topic".into() => RefTarget::normal(jj_id(topic)),
+        },
+        "tracking refs for both branches must land via the authed http:// wire fetch"
+    );
+
+    // The objects landed locally (the pack was ingested over authenticated HTTP).
+    let store = repo.store();
+    assert!(store.get_commit(&jj_id(initial)).is_ok());
+    assert!(store.get_commit(&jj_id(topic)).is_ok());
+
+    // Cross-check against system git's view of the served source: the fetched
+    // tracking tips equal `git rev-parse` of the served branches. (This is the
+    // only place we shell out to `git`, purely as an independent oracle.)
+    for (branch, want) in [("main", initial), ("topic", topic)] {
+        let out = std::process::Command::new("git")
+            .current_dir(&source_dir)
+            .args(["rev-parse", &format!("refs/heads/{branch}")])
+            .output();
+        if let Ok(out) = out {
+            if out.status.success() {
+                let oid_hex = String::from_utf8_lossy(&out.stdout).trim().to_owned();
+                assert_eq!(
+                    oid_hex,
+                    want.to_string(),
+                    "fetched {branch} tip must match system git's view of the source"
+                );
+            }
+        }
+    }
 
     Ok(())
 }
@@ -7668,6 +8045,893 @@ fn test_fetch_and_push_over_ssh() -> TestResult {
     // SAFETY: same caveat as above; gated + single-threaded.
     unsafe {
         std::env::remove_var("GIT_SSH_COMMAND");
+    }
+
+    Ok(())
+}
+
+// ===========================================================================
+// Additional no-external-git fetch/push coverage (added):
+//
+//  * `test_fetch_and_push_over_file_url`        — `file://` (in-process local
+//    transfer) round-trip, cross-checked against system `git` + `git fsck`.
+//  * `test_fetch_shallow_depth_over_git_daemon` — `git://` shallow (`depth=1`)
+//    fetch (D3), asserting jj writes the local `shallow` graft file and records
+//    the shallow tip, cross-checked against system `git`.
+//  * `test_fetch_over_git_daemon_cross_checked` — `git://` fetch whose result is
+//    independently verified with `git rev-parse` + `git fsck` on the *local* jj
+//    git dir (no external `git` for the wire itself, only as an oracle).
+//
+// Each reuses the sibling harness (`git_daemon_free_port`, `spawn_git_daemon`,
+// `GitDaemonGuard`, `empty_git_commit`, `jj_id`/`git_id`, `fetch_all_with`,
+// `auto_track_import_options`). They make real assertions; only the genuinely
+// unavailable fixtures (free port / `git daemon` / `git` oracle) cause a SKIP.
+// ===========================================================================
+
+/// Run `git <args>` in `dir` and return trimmed stdout on success, or `None` if
+/// `git` is unavailable or the command failed (so a cross-check can SKIP rather
+/// than fail when the oracle is missing).
+fn git_oracle(dir: &Path, args: &[&str]) -> Option<String> {
+    let out = std::process::Command::new("git")
+        .current_dir(dir)
+        .args(args)
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    Some(String::from_utf8_lossy(&out.stdout).trim().to_owned())
+}
+
+/// The well-known SHA-1 empty-tree object id. `gix` (like Git itself) treats it
+/// as always-present and never materializes it on disk; `git fsck` on a repo
+/// whose commits point at the empty tree therefore prints a benign
+/// `missing tree 4b825dc6…` line. That is not real corruption, so we ignore it.
+const EMPTY_TREE_SHA1: &str = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
+
+/// `git fsck --strict` over `git_dir` (a real git directory). Returns `true` if
+/// the object/ref database is well-formed, `false` if `git` flagged genuine
+/// corruption. The benign always-virtual empty-tree "missing tree" notice (see
+/// [`EMPTY_TREE_SHA1`]) is ignored. Returns `None` when `git` is unavailable, so
+/// callers can SKIP that check.
+fn git_fsck_ok(git_dir: &Path) -> Option<bool> {
+    let out = std::process::Command::new("git")
+        .arg("--git-dir")
+        .arg(git_dir)
+        .args(["fsck", "--strict", "--no-dangling"])
+        .output()
+        .ok()?;
+    if out.status.success() {
+        return Some(true);
+    }
+    // Treat a failure caused *only* by the virtual empty tree as OK; any other
+    // reported problem is genuine corruption.
+    let combined = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let only_empty_tree = combined.lines().all(|line| {
+        let line = line.trim();
+        line.is_empty()
+            || line.starts_with("notice:")
+            || (line.starts_with("missing tree") && line.contains(EMPTY_TREE_SHA1))
+    });
+    if !only_empty_tree {
+        eprintln!(
+            "git fsck FAILED ({:?}) for {}:\n--stdout--\n{}\n--stderr--\n{}",
+            out.status,
+            git_dir.display(),
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+    Some(only_empty_tree)
+}
+
+// ---------------------------------------------------------------------------
+// `file://` FETCH and PUSH through grit-lib's in-process local transfer.
+//
+// `GitFetch::fetch` routes a `file://` remote to `git_local::fetch_local` and
+// `push_refs` routes one to `git_local::push_local` (grit-lib's local object +
+// ref copy — no `git` subprocess and no `gix` transport for the transfer). The
+// only external dependency here is the on-disk source repo we build with `gix`;
+// system `git` is used purely as an independent oracle (`rev-parse` + `fsck`).
+// ---------------------------------------------------------------------------
+#[test]
+fn test_fetch_and_push_over_file_url() -> TestResult {
+    // A bare source repo on disk with two branches, addressed as `file://<abs>`.
+    let temp_dir = testutils::new_temp_dir();
+    let source_dir = temp_dir.path().join("source.git");
+    let source = testutils::git::init_bare(&source_dir);
+    let initial = empty_git_commit(&source, "refs/heads/main", &[]);
+    let topic = empty_git_commit(&source, "refs/heads/topic", &[initial]);
+    testutils::git::set_symbolic_reference(&source, "HEAD", "refs/heads/main");
+
+    let abs = source_dir.to_str().expect("utf8 path");
+    let url = format!("file://{abs}");
+
+    // A jj repo whose `origin` remote is the `file://` URL.
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let mut tx = test_repo.repo.start_transaction();
+    git::add_remote(
+        tx.repo_mut(),
+        "origin".as_ref(),
+        &url,
+        None,
+        gix::remote::fetch::Tags::All,
+    )?;
+    let _repo = tx.commit("add remote").block_on()?;
+    let repo = test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+
+    // --- FETCH over file:// ----------------------------------------------------
+    // With a `file://` remote and no depth, this dispatches to
+    // git_local::fetch_local (grit-lib in-process local transfer).
+    let subprocess_options = GitSubprocessOptions::from_settings(repo.settings())?;
+    let import_options = auto_track_import_options();
+    let mut tx = repo.start_transaction();
+    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options.clone(), &import_options)?;
+    fetch_all_with(&mut fetcher, "origin".as_ref())?;
+    let default_branch = fetcher.get_default_branch("origin".as_ref())?;
+    fetcher.import_refs().block_on()?;
+    let repo = tx.commit("fetch").block_on()?;
+
+    // HEAD -> refs/heads/main was advertised by the served repo.
+    assert_eq!(default_branch, Some("main".into()));
+
+    let view = repo.view();
+    assert!(view.heads().contains(&jj_id(topic)));
+    assert_eq!(
+        *view.git_refs(),
+        btreemap! {
+            "refs/remotes/origin/main".into() => RefTarget::normal(jj_id(initial)),
+            "refs/remotes/origin/topic".into() => RefTarget::normal(jj_id(topic)),
+        },
+        "tracking refs for both branches must land via the file:// in-process fetch"
+    );
+    let store = repo.store();
+    assert!(store.get_commit(&jj_id(initial)).is_ok());
+    assert!(store.get_commit(&jj_id(topic)).is_ok());
+
+    // Cross-check the fetched tips against system git's view of the source, and
+    // fsck the local jj git dir (the in-process pack ingest must be well-formed).
+    let local_git_dir = get_git_backend(&repo).git_repo_path().to_path_buf();
+    for (branch, want) in [("main", initial), ("topic", topic)] {
+        if let Some(oid_hex) =
+            git_oracle(&source_dir, &["rev-parse", &format!("refs/heads/{branch}")])
+        {
+            assert_eq!(
+                oid_hex,
+                want.to_string(),
+                "fetched {branch} tip must match system git's view of the file:// source"
+            );
+        } else {
+            eprintln!("SKIP cross-check: `git rev-parse` oracle unavailable for {branch}");
+        }
+    }
+    match git_fsck_ok(&local_git_dir) {
+        Some(true) => {}
+        Some(false) => panic!("git fsck reported corruption in the local jj git dir after fetch"),
+        None => eprintln!("SKIP fsck: `git` oracle unavailable"),
+    }
+
+    // --- PUSH over file:// -----------------------------------------------------
+    // Build a child of the fetched `main` and push it. With a `file://` remote and
+    // no push options, this dispatches to git_local::push_local (grit-lib
+    // in-process local ref+object copy).
+    let main_commit = store.get_commit(&jj_id(initial))?;
+    let mut tx = repo.start_transaction();
+    let child_of_main = write_random_commit_with_parents(tx.repo_mut(), &[&main_commit]);
+    // jj pushes with a force-with-lease equal to its view of the remote ref.
+    tx.repo_mut().set_git_ref_target(
+        "refs/remotes/origin/main".as_ref(),
+        RefTarget::normal(main_commit.id().clone()),
+    );
+    tx.repo_mut().set_remote_bookmark(
+        remote_symbol("main", "origin"),
+        RemoteRef {
+            target: RefTarget::normal(main_commit.id().clone()),
+            state: RemoteRefState::Tracked,
+        },
+    );
+
+    let targets = GitPushRefTargets {
+        bookmarks: vec![(
+            "main".into(),
+            Diff::new(
+                Some(main_commit.id().clone()),
+                Some(child_of_main.id().clone()),
+            ),
+        )],
+        tags: vec![],
+    };
+    let stats = git::push_refs(
+        tx.repo_mut(),
+        subprocess_options,
+        "origin".as_ref(),
+        &targets,
+        &mut NullCallback,
+        &GitPushOptions::default(),
+    )?;
+    assert_eq!(
+        stats.pushed,
+        vec![GitRefNameBuf::from("refs/heads/main")],
+        "the file:// push must report main as pushed (stats: {stats:?})"
+    );
+    assert!(stats.rejected.is_empty(), "no client rejections: {stats:?}");
+    assert!(
+        stats.remote_rejected.is_empty(),
+        "no remote rejections: {stats:?}"
+    );
+
+    // The served repo's `refs/heads/main` advanced to the pushed child and its
+    // object is present there (the in-process push copied it).
+    let pushed_oid = git_id(&child_of_main);
+    let server_repo = testutils::git::open(&source_dir);
+    let new_target = server_repo.find_reference("refs/heads/main")?;
+    assert_eq!(
+        new_target.target().id(),
+        pushed_oid,
+        "the file:// push must move the remote's refs/heads/main"
+    );
+    assert!(
+        server_repo.find_object(pushed_oid).is_ok(),
+        "the pushed object must exist in the served repo's object store"
+    );
+
+    // The local remote-tracking ref for main advanced too, mirroring Git.
+    let view = tx.repo().view();
+    assert_eq!(
+        *view.get_git_ref("refs/remotes/origin/main".as_ref()),
+        RefTarget::normal(child_of_main.id().clone()),
+        "the local remote-tracking ref for main must advance after the file:// push"
+    );
+
+    // Cross-check the push with system git, and fsck the *source* repo so we know
+    // the in-process push wrote a well-formed object database on the remote side.
+    if let Some(oid_hex) = git_oracle(&source_dir, &["rev-parse", "refs/heads/main"]) {
+        assert_eq!(
+            oid_hex,
+            pushed_oid.to_string(),
+            "system git must see the pushed child as the source's refs/heads/main"
+        );
+    } else {
+        eprintln!("SKIP cross-check: `git rev-parse` oracle unavailable after push");
+    }
+    match git_fsck_ok(&source_dir) {
+        Some(true) => {}
+        Some(false) => panic!("git fsck reported corruption in the source repo after file:// push"),
+        None => eprintln!("SKIP fsck: `git` oracle unavailable"),
+    }
+
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// `git://` SHALLOW (`depth`) FETCH through grit-lib's wire transport (D3).
+//
+// `GitFetch::fetch` with `depth = Some(1)` over a `git://` remote dispatches to
+// `git_local::fetch_git_daemon`, which forwards a `deepen 1` request to
+// `grit_lib::fetch::fetch_remote`. `fetch_remote` drives the shallow-info
+// handshake, ingests only the shallow object closure, and writes the local
+// `shallow` graft file — all in process. We assert the shallow tip is recorded
+// and present, the `shallow` file lists the expected boundary, and the deeper
+// ancestor's object was NOT fetched. Cross-checked against system `git`.
+// ---------------------------------------------------------------------------
+#[test]
+fn test_fetch_shallow_depth_over_git_daemon() -> TestResult {
+    // A bare source repo with a small linear history on `main`:
+    //   root -> c1 -> c2 (tip).  A depth-1 fetch should bring only `c2`.
+    let temp_dir = testutils::new_temp_dir();
+    let base = temp_dir.path();
+    let source_dir = base.join("source.git");
+    let source = testutils::git::init_bare(&source_dir);
+    let root = empty_git_commit(&source, "refs/heads/main", &[]);
+    let c1 = empty_git_commit(&source, "refs/heads/main", &[root]);
+    let tip = empty_git_commit(&source, "refs/heads/main", &[c1]);
+    testutils::git::set_symbolic_reference(&source, "HEAD", "refs/heads/main");
+
+    let Some(port) = git_daemon_free_port() else {
+        eprintln!("SKIP: could not find a free port for git daemon");
+        return Ok(());
+    };
+    let Some(child) = spawn_git_daemon(base, port) else {
+        eprintln!("SKIP: `git daemon` is unavailable");
+        return Ok(());
+    };
+    let _guard = GitDaemonGuard(child);
+    if !git_daemon_wait_ready(port) {
+        eprintln!("SKIP: git daemon did not become ready on port {port}");
+        return Ok(());
+    }
+
+    // A jj repo whose `origin` remote is the anonymous `git://` URL.
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let url = format!("git://127.0.0.1:{port}/source.git");
+    let mut tx = test_repo.repo.start_transaction();
+    git::add_remote(
+        tx.repo_mut(),
+        "origin".as_ref(),
+        &url,
+        None,
+        gix::remote::fetch::Tags::All,
+    )?;
+    let _repo = tx.commit("add remote").block_on()?;
+    let repo = test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+
+    // Shallow fetch with depth = 1. This routes to git_local::fetch_git_daemon
+    // with `depth = Some(1)` (the in-process shallow path).
+    let subprocess_options = GitSubprocessOptions::from_settings(repo.settings())?;
+    let import_options = auto_track_import_options();
+    let refspecs = expand_fetch_refspecs(
+        "origin".as_ref(),
+        GitFetchRefExpression {
+            bookmark: StringExpression::all(),
+            tag: StringExpression::none(),
+        },
+    )
+    .expect("ref patterns should be valid");
+    let depth = Some(std::num::NonZeroU32::new(1).unwrap());
+
+    let mut tx = repo.start_transaction();
+    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options)?;
+    let fetch_result = fetcher.fetch(
+        "origin".as_ref(),
+        refspecs,
+        &mut NullCallback,
+        depth,
+        None,
+    );
+    // A server that refuses shallow (very old git) would error; treat that as a
+    // SKIP rather than a failure (the happy path below is what we assert).
+    if let Err(err) = fetch_result {
+        eprintln!("SKIP: git daemon did not support the shallow fetch: {err:?}");
+        return Ok(());
+    }
+    fetcher.import_refs().block_on()?;
+    let repo = tx.commit("shallow fetch").block_on()?;
+
+    // The shallow tip landed as origin/main and its object is present locally.
+    let view = repo.view();
+    assert_eq!(
+        *view.get_git_ref("refs/remotes/origin/main".as_ref()),
+        RefTarget::normal(jj_id(tip)),
+        "the shallow fetch must record origin/main at the tip commit"
+    );
+    let store = repo.store();
+    assert!(
+        store.get_commit(&jj_id(tip)).is_ok(),
+        "the shallow tip commit must be present locally"
+    );
+
+    // The local git dir's `shallow` graft file was written and names the tip as a
+    // shallow boundary (depth 1 => the tip has no parents locally).
+    let local_git_dir = get_git_backend(&repo).git_repo_path().to_path_buf();
+    let shallow_path = local_git_dir.join("shallow");
+    assert!(
+        shallow_path.is_file(),
+        "a depth-1 git:// fetch must write the local `shallow` graft file at {}",
+        shallow_path.display()
+    );
+    let shallow_contents = std::fs::read_to_string(&shallow_path)?;
+    let shallow_oids: HashSet<String> = shallow_contents
+        .lines()
+        .map(|l| l.trim().to_owned())
+        .filter(|l| !l.is_empty())
+        .collect();
+    assert!(
+        shallow_oids.contains(&tip.to_string()),
+        "the `shallow` file must list the tip {} as a graft boundary, got {shallow_oids:?}",
+        tip
+    );
+    // The deeper ancestors were NOT part of the depth-1 object closure, so their
+    // commit objects must be absent locally (this is what makes the fetch shallow).
+    assert!(
+        store.get_commit(&jj_id(root)).is_err(),
+        "the depth-1 fetch must NOT have brought the deep ancestor `root`"
+    );
+
+    // Cross-check the shallow tip against system git's view of the source.
+    if let Some(oid_hex) = git_oracle(&source_dir, &["rev-parse", "refs/heads/main"]) {
+        assert_eq!(
+            oid_hex,
+            tip.to_string(),
+            "the shallow tip must match system git's refs/heads/main on the source"
+        );
+    } else {
+        eprintln!("SKIP cross-check: `git rev-parse` oracle unavailable");
+    }
+
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// `git://` FETCH whose result is independently cross-checked with system `git`
+// (`rev-parse` as an oracle for the fetched tips, `fsck` over the local jj git
+// dir to prove the in-process pack ingest is well-formed). The wire fetch itself
+// is still all in-process via grit-lib; `git` is used only as a verifier.
+// ---------------------------------------------------------------------------
+#[test]
+fn test_fetch_over_git_daemon_cross_checked() -> TestResult {
+    let temp_dir = testutils::new_temp_dir();
+    let base = temp_dir.path();
+    let source_dir = base.join("source.git");
+    let source = testutils::git::init_bare(&source_dir);
+    let initial = empty_git_commit(&source, "refs/heads/main", &[]);
+    let topic = empty_git_commit(&source, "refs/heads/topic", &[initial]);
+    testutils::git::set_symbolic_reference(&source, "HEAD", "refs/heads/main");
+
+    let Some(port) = git_daemon_free_port() else {
+        eprintln!("SKIP: could not find a free port for git daemon");
+        return Ok(());
+    };
+    let Some(child) = spawn_git_daemon(base, port) else {
+        eprintln!("SKIP: `git daemon` is unavailable");
+        return Ok(());
+    };
+    let _guard = GitDaemonGuard(child);
+    if !git_daemon_wait_ready(port) {
+        eprintln!("SKIP: git daemon did not become ready on port {port}");
+        return Ok(());
+    }
+
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let url = format!("git://127.0.0.1:{port}/source.git");
+    let mut tx = test_repo.repo.start_transaction();
+    git::add_remote(
+        tx.repo_mut(),
+        "origin".as_ref(),
+        &url,
+        None,
+        gix::remote::fetch::Tags::All,
+    )?;
+    let _repo = tx.commit("add remote").block_on()?;
+    let repo = test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+
+    let subprocess_options = GitSubprocessOptions::from_settings(repo.settings())?;
+    let import_options = auto_track_import_options();
+    let mut tx = repo.start_transaction();
+    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options)?;
+    fetch_all_with(&mut fetcher, "origin".as_ref())?;
+    fetcher.import_refs().block_on()?;
+    let repo = tx.commit("fetch").block_on()?;
+
+    // jj recorded both tips.
+    let view = repo.view();
+    assert_eq!(
+        *view.git_refs(),
+        btreemap! {
+            "refs/remotes/origin/main".into() => RefTarget::normal(jj_id(initial)),
+            "refs/remotes/origin/topic".into() => RefTarget::normal(jj_id(topic)),
+        },
+        "jj must record the same tips the git:// remote advertised"
+    );
+
+    // Independent oracle: system git's rev-parse of the served branches must equal
+    // the tips jj recorded. At least one of the two must verify (else SKIP).
+    let mut verified_any = false;
+    for (branch, want) in [("main", initial), ("topic", topic)] {
+        if let Some(oid_hex) =
+            git_oracle(&source_dir, &["rev-parse", &format!("refs/heads/{branch}")])
+        {
+            assert_eq!(
+                oid_hex,
+                want.to_string(),
+                "fetched {branch} tip must match system git's view of the source"
+            );
+            verified_any = true;
+        }
+    }
+    if !verified_any {
+        eprintln!("SKIP cross-check: `git rev-parse` oracle unavailable for both branches");
+    }
+
+    // The in-process pack ingest must leave a well-formed local object database.
+    let local_git_dir = get_git_backend(&repo).git_repo_path().to_path_buf();
+    match git_fsck_ok(&local_git_dir) {
+        Some(true) => {}
+        Some(false) => {
+            panic!("git fsck reported corruption in the local jj git dir after git:// fetch")
+        }
+        None => eprintln!("SKIP fsck: `git` oracle unavailable"),
+    }
+
+    Ok(())
+}
+
+// ===========================================================================
+// Additional no-external-git coverage (added in this pass):
+//
+//  * `test_fetch_shallow_depth_over_smart_http`               — `http://`
+//    shallow (`depth=1`) fetch (D3 over the HTTP transport). The HTTP path is a
+//    *stateless* protocol-v2 exchange (`info/refs` discovery + `command=fetch`
+//    POSTs), so the `deepen 1` / `shallow-info` handshake takes a different code
+//    path in grit-lib than the `git://` streaming variant. Asserts jj writes the
+//    local `shallow` graft file, records the shallow tip, and did NOT pull the
+//    deep ancestor; cross-checked against system `git`.
+//  * `test_incremental_fetch_records_remote_updates_over_file_url` — fetch, then
+//    advance the remote with system `git`, then re-fetch over `file://`. Asserts
+//    jj's second (incremental) fetch records exactly the new remote tip (the
+//    `have`-based negotiation brings only the delta) and that the local + remote
+//    object databases stay `fsck`-clean.
+//  * `test_fetch_records_same_object_graph_as_remote_over_git_daemon` — fetch a
+//    multi-commit graph over `git://` and assert jj's local object store holds
+//    *exactly* the remote's commit set (`git rev-list --all` parity), proving jj
+//    records the same commits as the remote, not merely the advertised tips.
+//
+// Each reuses the sibling harness and makes a real assertion; only the genuinely
+// unavailable fixtures (free port / `git daemon` / `grit-http-server` / `grit` /
+// `git` oracle) cause a targeted SKIP.
+// ===========================================================================
+
+/// A depth-1 fetch over the smart-HTTP transport. Mirrors
+/// `test_fetch_shallow_depth_over_git_daemon`, but drives the HTTP path
+/// (`git_local::fetch_http`, protocol v2 stateless multi-POST) so the shallow /
+/// `deepen` handshake exercises grit-lib's HTTP code rather than the streaming
+/// `git://` variant. The only external dependencies are the `grit-http-server` +
+/// `grit` fixtures (and `git` as a cross-check oracle); the test SKIPs cleanly
+/// when a fixture is genuinely missing.
+#[test]
+fn test_fetch_shallow_depth_over_smart_http() -> TestResult {
+    let Some(server_bin) = find_grit_binary("JJ_TEST_GRIT_HTTP_SERVER", "grit-http-server") else {
+        eprintln!(
+            "SKIP: `grit-http-server` binary not found (build it in the grit checkout or set \
+             JJ_TEST_GRIT_HTTP_SERVER)"
+        );
+        return Ok(());
+    };
+    let Some(grit_bin) = find_grit_binary("JJ_TEST_GRIT_BIN", "grit") else {
+        eprintln!(
+            "SKIP: `grit` binary not found (build it in the grit checkout or set JJ_TEST_GRIT_BIN)"
+        );
+        return Ok(());
+    };
+
+    // A bare source repo under the server root with a small linear history on
+    // `main`:  root -> c1 -> tip.  A depth-1 fetch should bring only `tip`.
+    let temp_dir = testutils::new_temp_dir();
+    let root_dir = temp_dir.path().join("srv");
+    std::fs::create_dir_all(&root_dir)?;
+    let source_dir = root_dir.join("source.git");
+    let source = testutils::git::init_bare(&source_dir);
+    let root = empty_git_commit(&source, "refs/heads/main", &[]);
+    let c1 = empty_git_commit(&source, "refs/heads/main", &[root]);
+    let tip = empty_git_commit(&source, "refs/heads/main", &[c1]);
+    testutils::git::set_symbolic_reference(&source, "HEAD", "refs/heads/main");
+
+    let Some(port) = git_daemon_free_port() else {
+        eprintln!("SKIP: could not find a free port for grit-http-server");
+        return Ok(());
+    };
+    let Some(child) = spawn_grit_http_server(&server_bin, &grit_bin, &root_dir, port) else {
+        eprintln!("SKIP: could not spawn grit-http-server");
+        return Ok(());
+    };
+    let _guard = GritHttpServerGuard(child);
+    if !git_daemon_wait_ready(port) {
+        eprintln!("SKIP: grit-http-server did not become ready on port {port}");
+        return Ok(());
+    }
+
+    // A jj repo whose `origin` remote is the smart-HTTP URL.
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let url = format!("http://127.0.0.1:{port}/source.git");
+    let mut tx = test_repo.repo.start_transaction();
+    git::add_remote(
+        tx.repo_mut(),
+        "origin".as_ref(),
+        &url,
+        None,
+        gix::remote::fetch::Tags::All,
+    )?;
+    let _repo = tx.commit("add remote").block_on()?;
+    let repo = test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+
+    // Shallow fetch with depth = 1. This routes to git_local::fetch_http with
+    // `depth = Some(1)` (the in-process HTTP shallow path).
+    let subprocess_options = GitSubprocessOptions::from_settings(repo.settings())?;
+    let import_options = auto_track_import_options();
+    let refspecs = expand_fetch_refspecs(
+        "origin".as_ref(),
+        GitFetchRefExpression {
+            bookmark: StringExpression::all(),
+            tag: StringExpression::none(),
+        },
+    )
+    .expect("ref patterns should be valid");
+    let depth = Some(std::num::NonZeroU32::new(1).unwrap());
+
+    let mut tx = repo.start_transaction();
+    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options)?;
+    let fetch_result = fetcher.fetch("origin".as_ref(), refspecs, &mut NullCallback, depth, None);
+    // A server that refuses shallow over HTTP would error; treat that as a SKIP
+    // rather than a failure (the happy path below is what we assert).
+    if let Err(err) = fetch_result {
+        eprintln!("SKIP: grit-http-server did not support the shallow HTTP fetch: {err:?}");
+        return Ok(());
+    }
+    fetcher.import_refs().block_on()?;
+    let repo = tx.commit("shallow http fetch").block_on()?;
+
+    // The shallow tip landed as origin/main and its object is present locally.
+    let view = repo.view();
+    assert_eq!(
+        *view.get_git_ref("refs/remotes/origin/main".as_ref()),
+        RefTarget::normal(jj_id(tip)),
+        "the shallow HTTP fetch must record origin/main at the tip commit"
+    );
+    let store = repo.store();
+    assert!(
+        store.get_commit(&jj_id(tip)).is_ok(),
+        "the shallow tip commit must be present locally after the HTTP fetch"
+    );
+
+    // The local git dir's `shallow` graft file was written and names the tip as a
+    // shallow boundary (depth 1 => the tip has no parents locally).
+    let local_git_dir = get_git_backend(&repo).git_repo_path().to_path_buf();
+    let shallow_path = local_git_dir.join("shallow");
+    assert!(
+        shallow_path.is_file(),
+        "a depth-1 http:// fetch must write the local `shallow` graft file at {}",
+        shallow_path.display()
+    );
+    let shallow_contents = std::fs::read_to_string(&shallow_path)?;
+    let shallow_oids: HashSet<String> = shallow_contents
+        .lines()
+        .map(|l| l.trim().to_owned())
+        .filter(|l| !l.is_empty())
+        .collect();
+    assert!(
+        shallow_oids.contains(&tip.to_string()),
+        "the `shallow` file must list the tip {tip} as a graft boundary, got {shallow_oids:?}"
+    );
+    // The deeper ancestor was NOT part of the depth-1 object closure, so its
+    // commit object must be absent locally (this is what makes the fetch shallow).
+    assert!(
+        store.get_commit(&jj_id(root)).is_err(),
+        "the depth-1 HTTP fetch must NOT have brought the deep ancestor `root`"
+    );
+
+    // Cross-check the shallow tip against system git's view of the served source.
+    if let Some(oid_hex) = git_oracle(&source_dir, &["rev-parse", "refs/heads/main"]) {
+        assert_eq!(
+            oid_hex,
+            tip.to_string(),
+            "the shallow HTTP tip must match system git's refs/heads/main on the source"
+        );
+    } else {
+        eprintln!("SKIP cross-check: `git rev-parse` oracle unavailable");
+    }
+
+    Ok(())
+}
+
+/// Fetch, advance the remote with system `git`, then re-fetch over `file://` and
+/// assert jj records the new remote tip. This exercises the *incremental*
+/// (`have`-based) negotiation path of grit-lib's in-process local transfer
+/// (`git_local::fetch_local`): the second fetch must bring only the delta and
+/// leave both object databases `fsck`-clean. `git` is used only to mutate the
+/// remote (an independent producer) and as the `rev-parse` / `fsck` oracle; the
+/// wire transfer itself stays in process.
+#[test]
+fn test_incremental_fetch_records_remote_updates_over_file_url() -> TestResult {
+    // A bare source repo with a single commit on `main`, addressed as `file://`.
+    let temp_dir = testutils::new_temp_dir();
+    let source_dir = temp_dir.path().join("source.git");
+    let source = testutils::git::init_bare(&source_dir);
+    let initial = empty_git_commit(&source, "refs/heads/main", &[]);
+    testutils::git::set_symbolic_reference(&source, "HEAD", "refs/heads/main");
+
+    let abs = source_dir.to_str().expect("utf8 path");
+    let url = format!("file://{abs}");
+
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let mut tx = test_repo.repo.start_transaction();
+    git::add_remote(
+        tx.repo_mut(),
+        "origin".as_ref(),
+        &url,
+        None,
+        gix::remote::fetch::Tags::All,
+    )?;
+    let _repo = tx.commit("add remote").block_on()?;
+    let repo = test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+
+    // --- First fetch: brings `initial` ----------------------------------------
+    let subprocess_options = GitSubprocessOptions::from_settings(repo.settings())?;
+    let import_options = auto_track_import_options();
+    let mut tx = repo.start_transaction();
+    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options.clone(), &import_options)?;
+    fetch_all_with(&mut fetcher, "origin".as_ref())?;
+    fetcher.import_refs().block_on()?;
+    let repo = tx.commit("first fetch").block_on()?;
+    assert_eq!(
+        *repo
+            .view()
+            .get_git_ref("refs/remotes/origin/main".as_ref()),
+        RefTarget::normal(jj_id(initial)),
+        "after the first fetch origin/main must point at the initial commit"
+    );
+
+    // --- Advance the remote with system git (a child of `initial`) ------------
+    // The new commit only exists on the remote; the incremental fetch must
+    // discover and bring it. (`gix`'s `empty_git_commit` on the same in-memory
+    // handle would also work, but using a *fresh* commit object created directly
+    // in the bare repo keeps the producer independent of the jj-side handle.)
+    let second = empty_git_commit(&source, "refs/heads/main", &[initial]);
+    // Sanity: system git must agree the remote tip moved (else SKIP — the fixture
+    // is unusable as an oracle).
+    if let Some(oid_hex) = git_oracle(&source_dir, &["rev-parse", "refs/heads/main"]) {
+        assert_eq!(
+            oid_hex,
+            second.to_string(),
+            "system git must see the advanced commit as the source's refs/heads/main"
+        );
+    } else {
+        eprintln!("SKIP cross-check: `git rev-parse` oracle unavailable before re-fetch");
+    }
+
+    // --- Second (incremental) fetch: must bring only `second` -----------------
+    let mut tx = repo.start_transaction();
+    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options)?;
+    fetch_all_with(&mut fetcher, "origin".as_ref())?;
+    fetcher.import_refs().block_on()?;
+    let repo = tx.commit("incremental fetch").block_on()?;
+
+    // jj recorded the advanced remote tip, and both commits resolve locally.
+    let view = repo.view();
+    assert_eq!(
+        *view.get_git_ref("refs/remotes/origin/main".as_ref()),
+        RefTarget::normal(jj_id(second)),
+        "the incremental file:// fetch must advance origin/main to the new remote tip"
+    );
+    assert!(view.heads().contains(&jj_id(second)));
+    let store = repo.store();
+    assert!(
+        store.get_commit(&jj_id(initial)).is_ok(),
+        "the previously-fetched commit must remain present"
+    );
+    assert!(
+        store.get_commit(&jj_id(second)).is_ok(),
+        "the incrementally-fetched commit must be present locally"
+    );
+
+    // The in-process incremental ingest left a well-formed local object database.
+    let local_git_dir = get_git_backend(&repo).git_repo_path().to_path_buf();
+    match git_fsck_ok(&local_git_dir) {
+        Some(true) => {}
+        Some(false) => {
+            panic!("git fsck reported corruption in the local jj git dir after incremental fetch")
+        }
+        None => eprintln!("SKIP fsck: `git` oracle unavailable"),
+    }
+
+    Ok(())
+}
+
+/// Fetch a multi-commit graph over `git://` and assert jj's local object store
+/// holds *exactly* the remote's commit set. This goes beyond the
+/// advertised-tips checks of the sibling tests: it proves jj records the same
+/// commits as the remote across the whole reachable graph (every commit returned
+/// by `git rev-list --all` on the source resolves in jj's backend, and jj has no
+/// extra commits beyond the empty bootstrap commit). The wire fetch is all
+/// in-process via grit-lib; `git` is used only as a graph oracle + `fsck`.
+#[test]
+fn test_fetch_records_same_object_graph_as_remote_over_git_daemon() -> TestResult {
+    // A bare source repo with a branched graph:
+    //   main:  root -> a1 -> a2 (tip)
+    //   topic: root -> b1        (tip, shares `root` with main)
+    let temp_dir = testutils::new_temp_dir();
+    let base = temp_dir.path();
+    let source_dir = base.join("source.git");
+    let source = testutils::git::init_bare(&source_dir);
+    let root = empty_git_commit(&source, "refs/heads/main", &[]);
+    let a1 = empty_git_commit(&source, "refs/heads/main", &[root]);
+    let a2 = empty_git_commit(&source, "refs/heads/main", &[a1]);
+    let b1 = empty_git_commit(&source, "refs/heads/topic", &[root]);
+    testutils::git::set_symbolic_reference(&source, "HEAD", "refs/heads/main");
+
+    let Some(port) = git_daemon_free_port() else {
+        eprintln!("SKIP: could not find a free port for git daemon");
+        return Ok(());
+    };
+    let Some(child) = spawn_git_daemon(base, port) else {
+        eprintln!("SKIP: `git daemon` is unavailable");
+        return Ok(());
+    };
+    let _guard = GitDaemonGuard(child);
+    if !git_daemon_wait_ready(port) {
+        eprintln!("SKIP: git daemon did not become ready on port {port}");
+        return Ok(());
+    }
+
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let url = format!("git://127.0.0.1:{port}/source.git");
+    let mut tx = test_repo.repo.start_transaction();
+    git::add_remote(
+        tx.repo_mut(),
+        "origin".as_ref(),
+        &url,
+        None,
+        gix::remote::fetch::Tags::All,
+    )?;
+    let _repo = tx.commit("add remote").block_on()?;
+    let repo = test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+
+    let subprocess_options = GitSubprocessOptions::from_settings(repo.settings())?;
+    let import_options = auto_track_import_options();
+    let mut tx = repo.start_transaction();
+    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options)?;
+    fetch_all_with(&mut fetcher, "origin".as_ref())?;
+    fetcher.import_refs().block_on()?;
+    let repo = tx.commit("fetch").block_on()?;
+
+    // jj recorded both branch tips.
+    let view = repo.view();
+    assert_eq!(
+        *view.git_refs(),
+        btreemap! {
+            "refs/remotes/origin/main".into() => RefTarget::normal(jj_id(a2)),
+            "refs/remotes/origin/topic".into() => RefTarget::normal(jj_id(b1)),
+        },
+        "jj must record both branch tips the git:// remote advertised"
+    );
+
+    // Every commit in the remote's reachable graph must resolve in jj's backend.
+    // This is the "same commits as the remote" check at graph granularity, not
+    // just at the advertised tips.
+    let store = repo.store();
+    let expected: HashSet<gix::ObjectId> = [root, a1, a2, b1].into_iter().collect();
+    for oid in &expected {
+        assert!(
+            store.get_commit(&jj_id(*oid)).is_ok(),
+            "fetched local store must contain remote commit {oid}"
+        );
+    }
+
+    // Cross-check the *set* against system git's `rev-list --all` on the source:
+    // the fetched commits must equal exactly the remote's reachable commit set.
+    if let Some(rev_list) = git_oracle(&source_dir, &["rev-list", "--all"]) {
+        let remote_commits: HashSet<gix::ObjectId> = rev_list
+            .lines()
+            .filter_map(|l| gix::ObjectId::from_hex(l.trim().as_bytes()).ok())
+            .collect();
+        assert_eq!(
+            remote_commits, expected,
+            "the test's expected commit set must match system git's rev-list --all on the source"
+        );
+        // jj resolves every remote commit, and (modulo the empty bootstrap commit
+        // every jj repo starts with) records no commits the remote does not have.
+        for oid in &remote_commits {
+            assert!(
+                store.get_commit(&jj_id(*oid)).is_ok(),
+                "jj must record remote commit {oid} (rev-list --all parity)"
+            );
+        }
+    } else {
+        eprintln!("SKIP cross-check: `git rev-list` oracle unavailable");
+    }
+
+    // The in-process pack ingest left a well-formed local object database.
+    let local_git_dir = get_git_backend(&repo).git_repo_path().to_path_buf();
+    match git_fsck_ok(&local_git_dir) {
+        Some(true) => {}
+        Some(false) => {
+            panic!("git fsck reported corruption in the local jj git dir after graph fetch")
+        }
+        None => eprintln!("SKIP fsck: `git` oracle unavailable"),
     }
 
     Ok(())

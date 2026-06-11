@@ -20,14 +20,17 @@
 //! paths), plus in-process wire FETCH and PUSH for `git://` (anonymous
 //! Git-daemon), `ssh://` (scp-style included), and `http(s)://` (smart-HTTP)
 //! remotes, all backed by `grit-lib` rather than a `git` subprocess or `gix`
-//! transport. Remotes carrying `--push-option`, shallow/`depth` fetches, and
-//! (for the local path) remotes with receive hooks stay on jj's existing
-//! subprocess path (see [`crate::git_subprocess`]). The functions here
+//! transport. Shallow/`depth` fetches over the wire paths (`git://`, `ssh://`,
+//! `http(s)://`) are also handled in-process; only `file://` shallow fetches and
+//! remotes carrying `--push-option` (and, for the local path, remotes with
+//! receive hooks) stay on jj's existing subprocess path (see
+//! [`crate::git_subprocess`]). The functions here
 //! translate between jj's production types ([`RefSpec`], [`GitFetchStatus`] /
 //! [`GitRefUpdates`], [`GitPushStats`], [`RefToPush`], `RemoteName`) and the
 //! `grit-lib` `transfer` / `fetch` / `gc` APIs, so the orchestration in
 //! [`crate::git`] can adopt them without otherwise changing shape.
 
+use std::num::NonZeroU32;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -48,6 +51,8 @@ use grit_lib::transport::SshTransport;
 use grit_lib::transport::Transport as _;
 use grit_lib::transport::http::ureq_client::UreqHttpClient;
 use grit_lib::transport::http::http_fetch;
+use grit_lib::config::ConfigSet;
+use grit_lib::credentials::HelperCredentialProvider;
 use grit_lib::fetch::NoProgress;
 use thiserror::Error;
 
@@ -276,6 +281,10 @@ pub(crate) fn fetch_local(
         tags: tag_mode(fetch_tags, configured_tags),
         prune,
         dry_run: false,
+        // The local / file:// path copies the exact object closure and does not
+        // graft, so `depth` (shallow) fetches stay on the subprocess path; the
+        // dispatch in `crate::git` only routes file:// here when `depth.is_none()`.
+        ..Default::default()
     };
 
     let outcome = grit_lib::transfer::fetch_local(local_git_dir, remote_git_dir, &opts)?;
@@ -295,13 +304,16 @@ pub(crate) fn fetch_local(
 ///
 /// Protocol v2 is requested explicitly (git's default for `git://`); the server
 /// silently downgrades to v0/v1 if it lacks v2, and grit-lib handles either.
-/// Shallow/`depth` fetches stay on the subprocess path.
+/// A `depth` (shallow) fetch is forwarded to grit-lib as a `deepen N` request;
+/// `fetch_remote` reads the shallow-info section and updates the local `shallow`
+/// file (both v0/v1 and v2).
 pub(crate) fn fetch_git_daemon(
     local_git_dir: &Path,
     remote_url: &str,
     refspecs: &[RefSpec],
     negative_refspecs: &[NegativeRefSpec],
     prune: bool,
+    depth: Option<NonZeroU32>,
     fetch_tags: Option<FetchTagsOverride>,
     configured_tags: gix::remote::fetch::Tags,
 ) -> Result<GitFetchStatus, GitLocalError> {
@@ -315,6 +327,11 @@ pub(crate) fn fetch_git_daemon(
         tags: tag_mode(fetch_tags, configured_tags),
         prune,
         dry_run: false,
+        // `depth` maps to grit-lib's shallow fetch (`deepen N` over the wire);
+        // `fetch_remote` drives the v2 shallow-info handshake and writes the
+        // local `shallow` file.
+        depth: depth.map(NonZeroU32::get),
+        ..Default::default()
     };
 
     // Connect to the daemon. Request protocol v2 explicitly (git's own default
@@ -351,7 +368,8 @@ pub(crate) fn fetch_git_daemon(
 /// `GIT_PROTOCOL=version=2` into the ssh environment, which OpenSSH forwards
 /// (`SendEnv GIT_PROTOCOL`). A server that lacks v2 ignores it and returns the
 /// classic v0/v1 advertisement, which `fetch_remote` also handles, so no explicit
-/// fallback is needed here. Shallow/`depth` fetches stay on the subprocess path.
+/// fallback is needed here. A `depth` (shallow) fetch is forwarded as a
+/// `deepen N` request and handled in-process by `fetch_remote`.
 ///
 /// Authentication is whatever the user's ssh configuration provides (keys,
 /// agent, `known_hosts`); there is no separate credential handling.
@@ -361,6 +379,7 @@ pub(crate) fn fetch_ssh(
     refspecs: &[RefSpec],
     negative_refspecs: &[NegativeRefSpec],
     prune: bool,
+    depth: Option<NonZeroU32>,
     fetch_tags: Option<FetchTagsOverride>,
     configured_tags: gix::remote::fetch::Tags,
 ) -> Result<GitFetchStatus, GitLocalError> {
@@ -374,6 +393,8 @@ pub(crate) fn fetch_ssh(
         tags: tag_mode(fetch_tags, configured_tags),
         prune,
         dry_run: false,
+        depth: depth.map(NonZeroU32::get),
+        ..Default::default()
     };
 
     // Connect over ssh, requesting protocol v2 (git's default for ssh). The
@@ -407,17 +428,69 @@ pub(crate) fn fetch_ssh(
 /// advertisement and `http_fetch` runs the v2 `ls-refs` + `command=fetch`
 /// negotiation. A server that lacks v2 ignores the header and returns the classic
 /// v0/v1 advertisement, which `http_fetch` also handles, so no explicit fallback
-/// is needed here. Shallow/`depth` fetches stay on the subprocess path.
+/// is needed here. A `depth` (shallow) fetch is forwarded as a `deepen N` request
+/// and handled in-process by `http_fetch` (both the v0/v1 stateless RPC and the
+/// v2 multi-POST flow read the shallow-info section and update `shallow`).
 ///
-/// Credentials: this uses an unauthenticated [`UreqHttpClient`]; on a `401` the
-/// client has no provider and the fetch fails. Remotes requiring auth are left on
-/// the subprocess path by the dispatch in [`crate::git`].
+/// Build a [`UreqHttpClient`] wired with a config-driven credential provider, so
+/// HTTP basic auth on a `401` runs the repo's configured `credential.helper`
+/// programs (e.g. `osxkeychain`) exactly as Git would.
+///
+/// The provider is grit-lib's [`HelperCredentialProvider`], built from the git
+/// config cascade rooted at `local_git_dir` (system + global + repo-local, the
+/// same layers Git reads). It is **non-interactive**: when no configured helper
+/// can supply a usable username/password it surfaces a typed
+/// [`grit_lib::error::Error::Auth`] rather than prompting on a TTY, so an
+/// in-process fetch/push over an auth'd remote fails fast (the caller may then
+/// fall back to the subprocess path) instead of hanging.
+///
+/// If the config cascade cannot be loaded (which should not happen for a valid
+/// repo), the client is built without a provider — unauthenticated requests still
+/// work, and an auth'd remote returns the same typed `Error::Auth`.
+fn http_client_with_credentials(
+    local_git_dir: &Path,
+    git_protocol: Option<&str>,
+) -> UreqHttpClient {
+    // Build the client honoring the repo's HTTP request-shaping config
+    // (`http.proxy`, `http.cookieFile` + `http.saveCookies`, `http.extraHeader`)
+    // via `UreqHttpClient::from_config`, then wire the same config's
+    // `credential.helper` programs for `401` basic auth. Both reuse one loaded
+    // `ConfigSet` (system + global + repo-local, the layers Git reads).
+    //
+    // If the config cannot be loaded — or `from_config` rejects a setting we
+    // cannot honor in-process (e.g. a SOCKS `http.proxy`) — fall back to a plain
+    // client so unauthenticated remotes still work; an auth'd remote then returns
+    // the same typed `Error::Auth`.
+    let client = match ConfigSet::load(Some(local_git_dir), true) {
+        Ok(config) => {
+            let provider = HelperCredentialProvider::new(config.clone());
+            match UreqHttpClient::from_config(&config) {
+                Ok(c) => c.with_credential_provider(Box::new(provider)),
+                Err(_) => UreqHttpClient::with_credentials(Box::new(provider)),
+            }
+        }
+        Err(_) => UreqHttpClient::new(),
+    };
+    match git_protocol {
+        Some(v) => client.with_git_protocol(v.to_owned()),
+        None => client,
+    }
+}
+
+/// Credentials: this builds a [`HelperCredentialProvider`] from the repo's git
+/// config (so `credential.helper` programs such as `osxkeychain` are used) and
+/// wires it into the [`UreqHttpClient`]. On a `401` the client fills/retries; if
+/// no helper can supply credentials it fails with the typed
+/// [`grit_lib::error::Error::Auth`] (non-interactive, never a hang), which the
+/// dispatch in [`crate::git`] may treat as a signal to fall back to the
+/// subprocess path. Unauthenticated remotes are unaffected.
 pub(crate) fn fetch_http(
     local_git_dir: &Path,
     remote_url: &str,
     refspecs: &[RefSpec],
     negative_refspecs: &[NegativeRefSpec],
     prune: bool,
+    depth: Option<NonZeroU32>,
     fetch_tags: Option<FetchTagsOverride>,
     configured_tags: gix::remote::fetch::Tags,
 ) -> Result<GitFetchStatus, GitLocalError> {
@@ -431,12 +504,15 @@ pub(crate) fn fetch_http(
         tags: tag_mode(fetch_tags, configured_tags),
         prune,
         dry_run: false,
+        depth: depth.map(NonZeroU32::get),
+        ..Default::default()
     };
 
     // Request protocol v2 via the `Git-Protocol: version=2` header; `http_fetch`
     // dispatches on the version reported by the `info/refs` advertisement, so a
-    // v0/v1-only server transparently downgrades.
-    let client = UreqHttpClient::new().with_git_protocol("version=2");
+    // v0/v1-only server transparently downgrades. The client carries a
+    // config-driven credential provider so auth'd remotes work in-process.
+    let client = http_client_with_credentials(local_git_dir, Some("version=2"));
     let mut progress = NoProgress;
     let outcome = http_fetch(&client, local_git_dir, remote_url, &opts, &mut progress)?;
     fetch_outcome_to_status(outcome)
@@ -543,13 +619,20 @@ pub(crate) fn push_local(
 /// rejects a v2 connection); connect with [`ConnectOptions::default`]
 /// (`protocol_version = 0`). Unlike the local path there are no hooks to detect
 /// locally: any `pre-receive` / `update` hooks run on the *server*, which can
-/// reject the push (surfaced as a remote rejection); `--push-option` forwarding
-/// still falls back to the subprocess path (see the dispatch in [`crate::git`]).
+/// reject the push (surfaced as a remote rejection).
+///
+/// `push_options` carries `--push-option` values: when non-empty, grit-lib
+/// negotiates the receive-pack `push-options` capability and sends one
+/// `push-option <value>` pkt-line per entry (the server exposes them to its hooks
+/// via `GIT_PUSH_OPTION_*`). If the server does not advertise the capability the
+/// push fails with the typed [`grit_lib::error::Error::PushOptionsUnsupported`]
+/// (surfaced here as [`GitLocalError::Grit`]).
 pub(crate) fn push_git_daemon(
     local_git_dir: &Path,
     remote_url: &str,
     references: &[RefToPush],
     fetch_refspecs: &[String],
+    push_options: &[String],
 ) -> Result<GitPushStats, GitLocalError> {
     let mut specs: Vec<PushRefSpec> = Vec::with_capacity(references.len());
     for r in references {
@@ -566,7 +649,7 @@ pub(crate) fn push_git_daemon(
         local_git_dir,
         conn.as_mut(),
         &specs,
-        &PushOptions::default(),
+        &push_options_with(push_options),
         &mut progress,
     )?;
 
@@ -586,14 +669,15 @@ pub(crate) fn push_git_daemon(
 ///
 /// Protocol v0/v1 only (as for [`push_git_daemon`]); connect with the default
 /// (`protocol_version = 0`) so the transport does not set `GIT_PROTOCOL`. Server
-/// receive hooks run on the remote and may reject the push; `--push-option`
-/// forwarding falls back to the subprocess path. Authentication is whatever the
-/// user's ssh configuration provides.
+/// receive hooks run on the remote and may reject the push. Authentication is
+/// whatever the user's ssh configuration provides. `push_options` is forwarded
+/// over the wire exactly as in [`push_git_daemon`].
 pub(crate) fn push_ssh(
     local_git_dir: &Path,
     remote_url: &str,
     references: &[RefToPush],
     fetch_refspecs: &[String],
+    push_options: &[String],
 ) -> Result<GitPushStats, GitLocalError> {
     let mut specs: Vec<PushRefSpec> = Vec::with_capacity(references.len());
     for r in references {
@@ -608,7 +692,7 @@ pub(crate) fn push_ssh(
         local_git_dir,
         conn.as_mut(),
         &specs,
-        &PushOptions::default(),
+        &push_options_with(push_options),
         &mut progress,
     )?;
 
@@ -628,33 +712,50 @@ pub(crate) fn push_ssh(
 /// local path, including the post-push remote-tracking-ref update.
 ///
 /// Protocol v0/v1 only (grit-lib does not yet implement a v2 `command=push`); a
-/// v2 receive-pack advertisement is rejected by grit-lib. `--push-option`
-/// forwarding and remotes needing auth/receive-hooks stay on the subprocess path
-/// (see the dispatch in [`crate::git`]); this uses an unauthenticated
-/// [`UreqHttpClient`].
+/// v2 receive-pack advertisement is rejected by grit-lib. Remotes with
+/// receive-hooks stay on the subprocess path (see the dispatch in [`crate::git`]).
+/// HTTP basic auth is handled in-process: the client carries a config-driven
+/// [`HelperCredentialProvider`], so a `401` triggers the configured
+/// `credential.helper` programs; a remote whose credentials cannot be supplied
+/// non-interactively fails with the typed [`grit_lib::error::Error::Auth`].
+/// `push_options` is forwarded over the wire exactly as in [`push_git_daemon`].
 pub(crate) fn push_http(
     local_git_dir: &Path,
     remote_url: &str,
     references: &[RefToPush],
     fetch_refspecs: &[String],
+    push_options: &[String],
 ) -> Result<GitPushStats, GitLocalError> {
     let mut specs: Vec<PushRefSpec> = Vec::with_capacity(references.len());
     for r in references {
         specs.push(ref_to_push_spec(r)?);
     }
 
-    let client = UreqHttpClient::new();
+    // Receive-pack is protocol v0/v1, so no default `Git-Protocol` header. The
+    // client carries a config-driven credential provider so auth'd remotes work
+    // in-process.
+    let client = http_client_with_credentials(local_git_dir, None);
     let transport = grit_lib::transport::http::SmartHttpTransport::new(client);
     let mut progress = NoProgress;
     let outcome = transport.push(
         local_git_dir,
         remote_url,
         &specs,
-        &PushOptions::default(),
+        &push_options_with(push_options),
         &mut progress,
     )?;
 
     push_outcome_to_stats(local_git_dir, &outcome, fetch_refspecs)
+}
+
+/// Build a [`PushOptions`] carrying the given server-side `--push-option` values.
+/// Shared by the wire push paths (`git://`, `ssh`, `http`) so the options are
+/// forwarded identically; an empty slice yields the default (no options).
+fn push_options_with(push_options: &[String]) -> PushOptions {
+    PushOptions {
+        push_options: push_options.to_vec(),
+        ..PushOptions::default()
+    }
 }
 
 /// Translate a grit-lib [`grit_lib::transfer::PushOutcome`] into jj's

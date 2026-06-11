@@ -3057,9 +3057,11 @@ impl<'a> GitFetch<'a> {
         };
 
         // Anonymous `git://` (Git-daemon) fetches also run in-process through
-        // grit-lib's wire transport (TCP pkt-line, no subprocess). Same depth
-        // restriction as the local path (v0/v1, whole-history only).
-        let git_daemon_remote = if depth.is_none() && local_remote.is_none() {
+        // grit-lib's wire transport (TCP pkt-line, no subprocess). Shallow
+        // (`depth`) fetches are now supported in-process: `fetch_remote` drives
+        // the `deepen N` shallow-info handshake and writes the local `shallow`
+        // file, so depth is threaded through rather than forcing the subprocess.
+        let git_daemon_remote = if local_remote.is_none() {
             self.git_repo
                 .try_find_remote(remote_name.as_str())
                 .and_then(|r| r.ok())
@@ -3073,12 +3075,10 @@ impl<'a> GitFetch<'a> {
 
         // `ssh://` (and scp-style) fetches also run in-process through grit-lib's
         // ssh transport (an ssh subprocess speaking the Git wire protocol, no
-        // `git` subprocess). Same depth restriction as the other in-process paths.
-        // Authentication is whatever the user's ssh configuration provides.
-        let ssh_remote = if depth.is_none()
-            && local_remote.is_none()
-            && git_daemon_remote.is_none()
-        {
+        // `git` subprocess). Shallow (`depth`) fetches are supported in-process
+        // (threaded into `fetch_remote`). Authentication is whatever the user's
+        // ssh configuration provides.
+        let ssh_remote = if local_remote.is_none() && git_daemon_remote.is_none() {
             self.git_repo
                 .try_find_remote(remote_name.as_str())
                 .and_then(|r| r.ok())
@@ -3091,12 +3091,11 @@ impl<'a> GitFetch<'a> {
         };
 
         // `http(s)://` (smart-HTTP) fetches also run in-process through grit-lib's
-        // smart-HTTP transport (protocol v2, no subprocess). Same depth restriction
-        // as the other in-process paths; the HTTP client is unauthenticated, so a
-        // remote that returns `401` falls through grit-lib's error to the caller —
-        // remotes needing auth should be left on the subprocess path by callers.
-        let http_remote = if depth.is_none()
-            && local_remote.is_none()
+        // smart-HTTP transport (protocol v2, no subprocess). Shallow (`depth`)
+        // fetches are supported in-process (threaded into `http_fetch`). The HTTP
+        // client carries config-driven credentials; a remote that returns `401`
+        // with no usable helper surfaces a typed error to the caller.
+        let http_remote = if local_remote.is_none()
             && git_daemon_remote.is_none()
             && ssh_remote.is_none()
         {
@@ -3141,6 +3140,7 @@ impl<'a> GitFetch<'a> {
                 &negative_refspecs,
                 // The subprocess path always fetches with `--prune`; mirror that.
                 true,
+                depth,
                 fetch_tags_override,
                 configured_tags,
             )
@@ -3159,6 +3159,7 @@ impl<'a> GitFetch<'a> {
                 &negative_refspecs,
                 // The subprocess path always fetches with `--prune`; mirror that.
                 true,
+                depth,
                 fetch_tags_override,
                 configured_tags,
             )
@@ -3177,6 +3178,7 @@ impl<'a> GitFetch<'a> {
                 &negative_refspecs,
                 // The subprocess path always fetches with `--prune`; mirror that.
                 true,
+                depth,
                 fetch_tags_override,
                 configured_tags,
             )
@@ -3512,9 +3514,11 @@ pub fn push_updates(
         .collect();
 
     // LOCAL (file://) pushes run in-process through grit-lib. Pushes carrying
-    // `--push-option` values stay on the subprocess path: those must be forwarded
-    // to the remote's receive hooks (via `GIT_PUSH_OPTION_*`), which the
-    // in-process path does not run.
+    // `--push-option` values stay on the subprocess path: the local in-process
+    // path writes the remote's refs/objects directly and never runs the remote's
+    // `git-receive-pack` (so its receive hooks, which consume `GIT_PUSH_OPTION_*`,
+    // do not run). The wire paths below (`git://`/`ssh`/`http`) instead drive a
+    // real remote `git-receive-pack`, so they forward the options over the wire.
     let local_push = if options.remote_push_options.is_empty() {
         git_repo
             .try_find_remote(remote_name.as_str())
@@ -3543,13 +3547,13 @@ pub fn push_updates(
     .filter(|(remote_git_dir, _)| !crate::git_local::remote_has_receive_hooks(remote_git_dir));
 
     // Anonymous `git://` (Git-daemon) pushes also run in-process through grit-lib
-    // (protocol v0/v1 receive-pack over TCP). As with the local path, pushes
-    // carrying `--push-option` stay on the subprocess path (those must be
-    // forwarded to the remote's receive hooks). Unlike the local path there are
-    // no hooks to detect locally — any receive hooks run on the *server*, which
-    // can reject the push (surfaced as a remote rejection), so there is nothing to
-    // filter here.
-    let git_daemon_push = if options.remote_push_options.is_empty() && local_push.is_none() {
+    // (protocol v0/v1 receive-pack over TCP). Pushes carrying `--push-option` are
+    // forwarded over the wire (grit-lib negotiates the `push-options` capability
+    // and sends the option lines); the server exposes them to its receive hooks.
+    // Unlike the local path there are no hooks to detect locally — any receive
+    // hooks run on the *server*, which can reject the push (surfaced as a remote
+    // rejection), so there is nothing to filter here.
+    let git_daemon_push = if local_push.is_none() {
         git_repo
             .try_find_remote(remote_name.as_str())
             .and_then(|r| r.ok())
@@ -3570,14 +3574,11 @@ pub fn push_updates(
     };
 
     // `ssh://` (and scp-style) pushes also run in-process through grit-lib
-    // (protocol v0/v1 receive-pack over an ssh subprocess). Same caveats as the
-    // `git://` push path: `--push-option` falls back to the subprocess path, and
-    // server receive hooks run remotely. Authentication is whatever the user's ssh
+    // (protocol v0/v1 receive-pack over an ssh subprocess). Same as the `git://`
+    // push path: `--push-option` values are forwarded over the wire, and server
+    // receive hooks run remotely. Authentication is whatever the user's ssh
     // configuration provides.
-    let ssh_push = if options.remote_push_options.is_empty()
-        && local_push.is_none()
-        && git_daemon_push.is_none()
-    {
+    let ssh_push = if local_push.is_none() && git_daemon_push.is_none() {
         git_repo
             .try_find_remote(remote_name.as_str())
             .and_then(|r| r.ok())
@@ -3596,16 +3597,11 @@ pub fn push_updates(
     };
 
     // `http(s)://` (smart-HTTP) pushes also run in-process through grit-lib
-    // (protocol v0/v1 receive-pack). As with the local path, pushes carrying
-    // `--push-option` stay on the subprocess path (those must be forwarded to the
-    // remote's receive hooks). The HTTP client is unauthenticated, so a remote
-    // requiring auth returns `401` and grit-lib surfaces the error; callers should
-    // leave auth'd remotes on the subprocess path.
-    let http_push = if options.remote_push_options.is_empty()
-        && local_push.is_none()
-        && git_daemon_push.is_none()
-        && ssh_push.is_none()
-    {
+    // (protocol v0/v1 receive-pack). Pushes carrying `--push-option` are forwarded
+    // over the wire (the server exposes them to its receive hooks). HTTP basic auth
+    // is handled in-process via the config-driven credential provider; a remote
+    // whose credentials cannot be supplied non-interactively surfaces the error.
+    let http_push = if local_push.is_none() && git_daemon_push.is_none() && ssh_push.is_none() {
         git_repo
             .try_find_remote(remote_name.as_str())
             .and_then(|r| r.ok())
@@ -3638,20 +3634,29 @@ pub fn push_updates(
             &remote_url,
             &refs_to_push,
             &fetch_refspecs,
+            &options.remote_push_options,
         )
         .map_err(|err| GitPushError::Subprocess(GitSubprocessError::External(err.to_string())))?
     } else if let Some((remote_url, fetch_refspecs)) = ssh_push {
         let local_git_dir = git_repo.git_dir().to_path_buf();
-        crate::git_local::push_ssh(&local_git_dir, &remote_url, &refs_to_push, &fetch_refspecs)
-            .map_err(|err| {
-                GitPushError::Subprocess(GitSubprocessError::External(err.to_string()))
-            })?
+        crate::git_local::push_ssh(
+            &local_git_dir,
+            &remote_url,
+            &refs_to_push,
+            &fetch_refspecs,
+            &options.remote_push_options,
+        )
+        .map_err(|err| GitPushError::Subprocess(GitSubprocessError::External(err.to_string())))?
     } else if let Some((remote_url, fetch_refspecs)) = http_push {
         let local_git_dir = git_repo.git_dir().to_path_buf();
-        crate::git_local::push_http(&local_git_dir, &remote_url, &refs_to_push, &fetch_refspecs)
-            .map_err(|err| {
-                GitPushError::Subprocess(GitSubprocessError::External(err.to_string()))
-            })?
+        crate::git_local::push_http(
+            &local_git_dir,
+            &remote_url,
+            &refs_to_push,
+            &fetch_refspecs,
+            &options.remote_push_options,
+        )
+        .map_err(|err| GitPushError::Subprocess(GitSubprocessError::External(err.to_string())))?
     } else {
         git_ctx.spawn_push(remote_name, &refs_to_push, callback, options)?
     };
