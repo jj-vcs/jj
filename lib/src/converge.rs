@@ -1,0 +1,842 @@
+// Copyright 2026 The Jujutsu Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! Utility for solving divergence. See
+//! <https://github.com/jj-vcs/jj/blob/main/docs/design/jj-converge-command.md>
+//! for more details.
+
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::collections::hash_map::Entry::Occupied;
+use std::collections::hash_map::Entry::Vacant;
+use std::hash::Hash;
+use std::ops::Deref as _;
+use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::Mutex;
+
+use futures::StreamExt as _;
+use futures::TryStreamExt as _;
+use futures::executor::block_on_stream;
+use futures::future::try_join_all;
+use itertools::Itertools as _;
+use jj_lib::backend::BackendError;
+use jj_lib::backend::BackendResult;
+use jj_lib::backend::ChangeId;
+use jj_lib::backend::CommitId;
+use jj_lib::backend::Signature;
+use jj_lib::backend::TreeId;
+use jj_lib::commit::Commit;
+use jj_lib::conflict_labels::ConflictLabels;
+use jj_lib::evolution::CommitEvolutionEntry;
+use jj_lib::evolution::WalkPredecessorsError;
+use jj_lib::evolution::walk_predecessors;
+use jj_lib::graph_dominators::FlowGraph;
+use jj_lib::graph_dominators::SimpleDirectedGraph;
+use jj_lib::graph_dominators::ValueCache;
+use jj_lib::index::IndexError;
+use jj_lib::merge::Merge;
+use jj_lib::merge::MergeBuilder;
+use jj_lib::merge::SameChange;
+use jj_lib::merged_tree::MergedTree;
+use jj_lib::repo::MutableRepo;
+use jj_lib::repo::ReadonlyRepo;
+use jj_lib::repo::Repo as _;
+use jj_lib::revset::ResolvedRevsetExpression;
+use jj_lib::revset::RevsetEvaluationError;
+use jj_lib::revset::RevsetExpression;
+use jj_lib::rewrite::merge_commit_trees_no_resolve;
+use jj_lib::store::Store;
+use thiserror::Error;
+
+/// Maps change-ids to commits with that change-id.
+pub type CommitsByChangeId = HashMap<ChangeId, HashMap<CommitId, Commit>>;
+
+/// Encapsulates the solution to a problem, where the problem may be divergence
+/// as a whole, or determining a specific aspect of the solution such
+/// as the author, description, parents or tree of the converge commit.
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum ConvergeResult<T> {
+    /// The proposed solution.
+    Solution(T),
+    /// Need user input to find a solution, but there is no ConvergeUI available
+    /// to provide that input.
+    NeedUserInput(String),
+    /// The user aborted the operation.
+    Aborted,
+}
+
+/// The proposed solution for converging a change.
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct ConvergeCommit {
+    /// The change-id of the change being converged.
+    pub change_id: ChangeId,
+    /// The divergent commits that are being converged.
+    pub divergent_commit_ids: Vec<CommitId>,
+    /// The proposed author.
+    pub author: Signature,
+    /// The proposed description.
+    pub description: String,
+    /// The proposed parents.
+    pub parents: Vec<CommitId>,
+    /// The proposed tree IDs.
+    pub tree_ids: Merge<TreeId>,
+    /// Conflict labels.
+    pub conflict_labels: ConflictLabels,
+}
+
+/// Errors that can occur during converge.
+#[derive(Debug, Error)]
+pub enum ConvergeError {
+    /// A backend error occurred.
+    #[error(transparent)]
+    Backend(#[from] BackendError),
+    /// An index error occurred.
+    #[error(transparent)]
+    Index(#[from] IndexError),
+    /// An error occurred while evaluating the revset expression for finding
+    /// divergent commits.
+    #[error(transparent)]
+    RevsetEvaluation(#[from] RevsetEvaluationError),
+    /// An error occurred while traversing the evolution graph of the divergent
+    /// commits.
+    #[error(transparent)]
+    WalkPredecessors(#[from] WalkPredecessorsError),
+    /// An IO error occurred.
+    #[error(transparent)]
+    IO(#[from] std::io::Error),
+    /// An unexpected error occurred.
+    #[error(transparent)]
+    Other(Box<dyn std::error::Error + Send + Sync>),
+}
+
+/// Interface for user interactions during converge. This is only available
+/// during interactive converge, to communicate with the user whenever input is
+/// required.
+pub trait ConvergeUI {
+    /// Prompts the user to choose a change-id to converge.
+    ///
+    /// Converge returns immediately if this method returns None. This method is
+    /// only invoked if there are multiple divergent change-ids.
+    fn choose_change<'a>(
+        &self,
+        divergent_changes: &'a CommitsByChangeId,
+    ) -> Result<Option<&'a ChangeId>, ConvergeError>;
+
+    /// Prompts the user to choose the author for the solution commit.
+    fn choose_author(
+        &self,
+        divergent_commits: &[Commit],
+    ) -> Result<Option<Signature>, ConvergeError>;
+
+    /// Prompts the user to choose the parents for the solution commit.
+    fn choose_parents(
+        &self,
+        divergent_commits: &[Commit],
+    ) -> Result<Option<Vec<CommitId>>, ConvergeError>;
+
+    /// Prompts the user to merge the description.
+    fn merge_description(
+        &self,
+        divergent_commits: &[Commit],
+        base_commit: &Commit,
+    ) -> Result<Option<String>, ConvergeError>;
+}
+
+/// Evaluates the revset expression and returns those commits that are
+/// divergent, in the sense that the expression matches two or more commits in
+/// the result with the same change-id.
+///
+/// The commits are keyed by their change-id.
+pub async fn find_divergent_changes(
+    repo: &Arc<ReadonlyRepo>,
+    revset_expression: Arc<ResolvedRevsetExpression>,
+) -> Result<CommitsByChangeId, RevsetEvaluationError> {
+    let mut result = CommitsByChangeId::new();
+    let mut stream = revset_expression.evaluate(repo.as_ref())?.stream();
+    while let Some(commit_id) = stream.try_next().await? {
+        let commit = repo.store().get_commit_async(&commit_id).await?;
+        result
+            .entry(commit.change_id().clone())
+            .or_default()
+            .insert(commit.id().clone(), commit);
+    }
+    // Remove entries that have only a single commit — we only care about
+    // changes with multiple divergent commits.
+    result.retain(|_, commits| commits.len() > 1);
+    Ok(result)
+}
+
+/// Prompts the user to choose a change-id to converge, if there are multiple
+/// divergent change-ids.
+pub fn choose_change<'a>(
+    converge_ui: Option<&dyn ConvergeUI>,
+    divergent_changes: &'a CommitsByChangeId,
+) -> Result<Option<&'a ChangeId>, ConvergeError> {
+    match divergent_changes.len() {
+        0 => return Ok(None),
+        1 => return Ok(Some(divergent_changes.keys().next().unwrap())),
+        _ => (),
+    }
+    // TODO: consider using heuristics to automatically choose a "good" change-id to
+    // converge, falling back to prompting the user only if the heuristics are
+    // inconclusive. This is specially important in non-interactive mode.
+    match converge_ui {
+        Some(converge_ui) => converge_ui.choose_change(divergent_changes),
+        None => Ok(None),
+    }
+}
+
+/// Attempts to solve divergence in the given divergent commits.
+///
+/// divergent_commits is expected to have two or more commits, all with the same
+/// change-id, otherwise an error is returned.
+// TODO: consider also reporting some summary information about what's done.
+// TODO: consider keeping track of stats and reporting those somehow.
+// TODO: consider adding some logging???
+pub async fn converge_change(
+    repo: &Arc<ReadonlyRepo>,
+    converge_ui: Option<&dyn ConvergeUI>,
+    divergent_commits: &[Commit],
+) -> Result<ConvergeResult<Box<ConvergeCommit>>, ConvergeError> {
+    if divergent_commits.len() <= 1 {
+        return Err(ConvergeError::Other(
+            format!(
+                "Expected multiple divergent commits, got {}",
+                divergent_commits.len()
+            )
+            .into(),
+        ));
+    }
+
+    let truncated_evolution_graph = TruncatedEvolutionGraph::new(repo, divergent_commits).await?;
+
+    let author = match converge_author(
+        repo,
+        converge_ui,
+        divergent_commits,
+        &truncated_evolution_graph,
+    )
+    .await?
+    {
+        ConvergeResult::Solution(author) => author,
+        ConvergeResult::NeedUserInput(msg) => return Ok(ConvergeResult::NeedUserInput(msg)),
+        ConvergeResult::Aborted => return Ok(ConvergeResult::Aborted),
+    };
+
+    let description = match converge_description(
+        repo,
+        converge_ui,
+        divergent_commits,
+        &truncated_evolution_graph,
+    )
+    .await?
+    {
+        ConvergeResult::Solution(description) => description,
+        ConvergeResult::NeedUserInput(msg) => return Ok(ConvergeResult::NeedUserInput(msg)),
+        ConvergeResult::Aborted => return Ok(ConvergeResult::Aborted),
+    };
+
+    let parents = match converge_parents(repo, converge_ui, &truncated_evolution_graph).await? {
+        ConvergeResult::Solution(parents) => parents,
+        ConvergeResult::NeedUserInput(msg) => return Ok(ConvergeResult::NeedUserInput(msg)),
+        ConvergeResult::Aborted => return Ok(ConvergeResult::Aborted),
+    };
+
+    let tree = converge_trees(
+        repo,
+        divergent_commits,
+        &truncated_evolution_graph,
+        &parents,
+    )
+    .await?;
+
+    Ok(ConvergeResult::Solution(Box::new(ConvergeCommit {
+        change_id: truncated_evolution_graph.change_id().clone(),
+        divergent_commit_ids: truncated_evolution_graph.divergent_commit_ids.clone(),
+        author,
+        description,
+        parents,
+        tree_ids: tree.tree_ids().clone(),
+        conflict_labels: tree.labels().clone(),
+    })))
+}
+
+/// Adds a new commit for the proposed solution, as a successor of the divergent
+/// commits.
+///
+/// If rewrite_divergent_commits is true, the divergent commits are rewritten
+/// and their descendants are rebased on top of it. Otherwise the new
+/// commit gets a new change-id, and the divergent commits are left unchanged.
+pub async fn apply_solution(
+    solution: Box<ConvergeCommit>,
+    rewrite_divergent_commits: bool,
+    repo_mut: &mut MutableRepo,
+) -> Result<(Commit, usize), ConvergeError> {
+    let merged_tree = MergedTree::new(
+        repo_mut.store().clone(),
+        solution.tree_ids.clone(),
+        solution.conflict_labels.clone(),
+    );
+    let commit_builder = repo_mut
+        .new_commit(solution.parents, merged_tree)
+        .set_description(solution.description)
+        .set_author(solution.author)
+        .set_predecessors(solution.divergent_commit_ids.clone());
+    let new_commit = if rewrite_divergent_commits {
+        let commit = commit_builder
+            .set_change_id(solution.change_id.clone())
+            .write()
+            .await?;
+        for divergent_commit_id in solution.divergent_commit_ids {
+            repo_mut.set_rewritten_commit(divergent_commit_id, commit.id().clone());
+        }
+        commit
+    } else {
+        commit_builder.write().await?
+    };
+    let num_rebased = repo_mut.rebase_descendants().await?;
+    Ok((new_commit, num_rebased))
+}
+
+/// The truncated evolution graph for a divergent change.
+///
+/// This is similar to the evolog graph, but truncated in the sense that it only
+/// contains commits that are for the given change-id, and only goes as far as
+/// the closest common dominator of the divergent commits.
+pub struct TruncatedEvolutionGraph {
+    /// The commits in the change that are being converged (typically the
+    /// visible & mutable commits for the given change-id).
+    pub divergent_commit_ids: Vec<CommitId>,
+    /// The evolution graph of the divergent commits, with edges X->Y if commit
+    /// X is a predecessor of commit Y and both X and Y have the same
+    /// divergent change-id. The graph is not necessarily a tree (commits
+    /// may have multiple predecessors). The start node is the evolution
+    /// fork point.
+    pub flow_graph: FlowGraph<CommitId>,
+    /// The evolution entries for the commits in the graph.
+    pub commits: HashMap<CommitId, CommitEvolutionEntry>,
+}
+
+impl TruncatedEvolutionGraph {
+    /// Builds a truncated evolution graph for the given divergent commits,
+    /// which are expected to all have the same change-id.
+    pub async fn new(
+        repo: &ReadonlyRepo,
+        divergent_commits: &[Commit],
+    ) -> Result<Self, ConvergeError> {
+        validate(
+            !divergent_commits.is_empty(),
+            "divergent_commits must not be empty",
+        )?;
+
+        let divergent_commit_ids = divergent_commits
+            .iter()
+            .map(|c| c.id().clone())
+            .collect_vec();
+
+        // Ensure all provided divergent commits belong to the same change-id.
+        // Note: divergent_commits is not empty, so it is ok to unwrap.
+        let divergent_change_id = if divergent_commits.iter().map(|c| c.change_id()).all_equal() {
+            divergent_commits.iter().next().unwrap().change_id().clone()
+        } else {
+            return Err(ConvergeError::Other(
+                "all divergent commits must have the same change-id".into(),
+            ));
+        };
+
+        // The list of edges, with commits pointing to their successors.
+        let mut edges = vec![];
+        let mut commits = HashMap::new();
+        let mut to_visit = HashSet::with_capacity(divergent_commit_ids.len());
+        to_visit.extend(divergent_commit_ids.iter().cloned());
+
+        let evolution_nodes =
+            block_on_stream(walk_predecessors(repo, divergent_commit_ids.as_slice()).boxed_local());
+
+        // These are the commits in the graph that have no predecessors. Typically
+        // there is exactly one entry in initial_nodes (the first commit for the
+        // change-id).
+        let mut initial_nodes = vec![];
+
+        for node in evolution_nodes {
+            let entry = node?;
+            let commit_id = entry.commit.id();
+            if *entry.commit.change_id() != divergent_change_id {
+                // Skip commits with unrelated change ids.
+                continue;
+            }
+            to_visit.remove(commit_id);
+            match commits.entry(commit_id.clone()) {
+                Occupied(_) => {
+                    // TODO: think about this some more. Can 2 different operations result in the
+                    // same commit? Maybe the key should be (commit-id, operation-id).
+
+                    // Note: currently walk_predecessors returns an error if the graph is cyclic, so
+                    // we shouldn't encounter the same commit twice. But in the future we could
+                    // allow cyclic evolution, and if we do there is no reason to disallow it here.
+                    // By continuing we future proof this.
+                    continue;
+                }
+                Vacant(e) => e.insert(entry.clone()),
+            };
+            let predecessor_commits = entry.predecessors().await?;
+            let predecessors = predecessor_commits
+                .iter()
+                .filter_map(|commit| {
+                    if *commit.change_id() == divergent_change_id {
+                        Some(commit.id().clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect_vec();
+            for predecessor in &predecessors {
+                edges.push((predecessor.clone(), commit_id.clone()));
+            }
+            if predecessors.is_empty() {
+                initial_nodes.push(commit_id.clone());
+                if to_visit.is_empty() {
+                    break;
+                }
+            } else {
+                to_visit.extend(predecessors);
+            }
+        }
+
+        validate(
+            !initial_nodes.is_empty(),
+            "Unexpected error: initial_nodes should not be empty",
+        )?;
+
+        // To compute the evolution fork point (see below) there must be a single
+        // "initial node". In graphs with multiple "real" initial nodes we introduce a
+        // virtual initial node (the root commit) and pretend the two or more "real"
+        // initial nodes are successors of the root commit.
+        let initial_node = if initial_nodes.len() == 1 {
+            initial_nodes[0].clone()
+        } else {
+            let root_commit_id = repo.store().root_commit_id().clone();
+            commits.insert(
+                root_commit_id.clone(),
+                CommitEvolutionEntry::for_root_commit(repo.store()),
+            );
+            for initial_node in initial_nodes {
+                edges.push((root_commit_id.clone(), initial_node));
+            }
+            root_commit_id
+        };
+
+        let flow_graph = FlowGraph::new(SimpleDirectedGraph::new(edges), initial_node);
+        Ok(Self {
+            divergent_commit_ids,
+            flow_graph,
+            commits,
+        })
+    }
+
+    /// Returns the change-id of the commits in the graph.
+    pub fn change_id(&self) -> &ChangeId {
+        self.commits.values().next().unwrap().commit.change_id()
+    }
+
+    /// Returns the commit for the given commit id.
+    pub fn get_commit(&self, commit_id: &CommitId) -> Result<&Commit, ConvergeError> {
+        let node = self.commits.get(commit_id).ok_or(ConvergeError::Other(
+            format!("Unexpected commit id: {commit_id}").into(),
+        ))?;
+        Ok(&node.commit)
+    }
+}
+
+async fn converge_author(
+    repo: &Arc<ReadonlyRepo>,
+    converge_ui: Option<&dyn ConvergeUI>,
+    divergent_commits: &[Commit],
+    graph: &TruncatedEvolutionGraph,
+) -> Result<ConvergeResult<Signature>, ConvergeError> {
+    let value_fn = async |c: &Commit| Ok(c.author().clone());
+    let (value_merge, _base_commit) =
+        create_value_merge(repo, divergent_commits, graph, value_fn).await?;
+    if let Some(value) = value_merge.resolve_trivial(SameChange::Accept) {
+        return Ok(ConvergeResult::Solution(value.clone()));
+    }
+    let ui_chooser = |converge_ui: &dyn ConvergeUI| converge_ui.choose_author(divergent_commits);
+    converge_interactively(converge_ui, ui_chooser, "author")
+}
+
+async fn converge_description(
+    repo: &Arc<ReadonlyRepo>,
+    converge_ui: Option<&dyn ConvergeUI>,
+    divergent_commits: &[Commit],
+    graph: &TruncatedEvolutionGraph,
+) -> Result<ConvergeResult<String>, ConvergeError> {
+    let value_fn = async |c: &Commit| Ok(c.description().to_string());
+    let (value_merge, base_commit) =
+        create_value_merge(repo, divergent_commits, graph, value_fn).await?;
+    if let Some(value) = value_merge.resolve_trivial(SameChange::Accept) {
+        return Ok(ConvergeResult::Solution(value.clone()));
+    }
+    let ui_chooser = |converge_ui: &dyn ConvergeUI| {
+        let base_commit = graph.get_commit(&base_commit)?;
+        converge_ui.merge_description(divergent_commits, base_commit)
+    };
+    converge_interactively(converge_ui, ui_chooser, "description")
+}
+
+async fn converge_parents(
+    repo: &Arc<ReadonlyRepo>,
+    converge_ui: Option<&dyn ConvergeUI>,
+    graph: &TruncatedEvolutionGraph,
+) -> Result<ConvergeResult<Vec<CommitId>>, ConvergeError> {
+    // Filter out divergent commits that are descendants of other divergent commits
+    // (we cannot use the parents of those commits because that would introduce
+    // cycles when we rebase everything on top of the parents).
+    let viable_commits = remove_descendants(repo, &graph.divergent_commit_ids).await?;
+    let get_parents_fn = async |c: &Commit| Ok(c.parent_ids().to_vec());
+    let (value_merge, _base_commit) =
+        create_value_merge(repo, &viable_commits, graph, get_parents_fn).await?;
+    if let Some(value) = value_merge.resolve_trivial(SameChange::Accept) {
+        return Ok(ConvergeResult::Solution(value.clone()));
+    }
+    let ui_chooser = |converge_ui: &dyn ConvergeUI| converge_ui.choose_parents(&viable_commits);
+    converge_interactively(converge_ui, ui_chooser, "parents")
+}
+
+/// A MergedTree, without the Arc<Store>. That allows us to derive Eq and Hash
+/// for it, which we need in some algorithms.
+#[derive(Eq, Hash, PartialEq, Clone)]
+struct TreeIdsAndLabels {
+    tree_ids: Merge<TreeId>,
+    labels: ConflictLabels,
+}
+
+impl TreeIdsAndLabels {
+    fn new(merged_tree: MergedTree) -> Self {
+        let (tree_ids, labels) = merged_tree.into_tree_ids_and_labels();
+        Self { tree_ids, labels }
+    }
+
+    fn to_merged_tree(&self, store: &Arc<Store>) -> MergedTree {
+        MergedTree::new(store.clone(), self.tree_ids.clone(), self.labels.clone())
+    }
+}
+
+// Assume A, B, C are the divergent commits, P is the solution parents (i.e. the
+// parents chosen by converge_parents), and F is a commit chosen as a "good base
+// for converging trees" as explained below.
+//
+// Notation:
+// * MCTNR: merge_commit_trees_no_resolve
+// * F^: MCTNR(F.parents()), i.e. the unresolved MergedTree of the parents of F.
+// * F': the resolved MergedTree of F rebased on top of the tree of P
+// * A': the resolved MergedTree of A rebased on top of the tree of P
+// * B': the resolved MergedTree of B rebased on top of the tree of P
+// * C': the resolved MergedTree of C rebased on top of the tree of P
+//
+// Let X be an arbitrary commit. X' is given by:
+// X' = MergedTree::merge{ MCTNR(P) + (X.tree - X^) } =
+//    = MergedTree::merge{ MCTNR(P) + (X.tree - MCTNR(X.parents())) }
+//
+// converge_trees returns:
+// Solution = MergedTree::merge{ F' + (A' - F') + (B' - F') + (C' - F') }
+//
+// What is F? What is a "good base for converging trees"? F is calculated as
+// follows:
+// 1. For each commit X in the truncated evolution graph, we calculate
+//    X'.tree_ids()
+// 2. We build the "Value Transition Graph" of the values from step 1, with
+//    edges between values corresponding to edges in the truncated evolution
+//    graph: if commit X is a predecessor of commit Y, then the value transition
+//    graph has an edge from X'.tree_ids() to Y'.tree_ids()
+// 3. We find the dominator value of this Value Transition Graph
+// 4. The dominator value is "produced" from one or more commits in the
+//    truncated evolution graph
+// 5. F is any of those producer commits (we pick the first one)
+async fn converge_trees(
+    repo: &Arc<ReadonlyRepo>,
+    divergent_commits: &[Commit],
+    truncated_evolution_graph: &TruncatedEvolutionGraph,
+    parents: &[CommitId],
+) -> Result<MergedTree, ConvergeError> {
+    let parent_commits: Vec<Commit> =
+        try_join_all(parents.iter().map(|id| repo.store().get_commit_async(id))).await?;
+    let parents_merged_tree = merge_commit_trees_no_resolve(repo.as_ref(), &parent_commits).await?;
+    let rebased_resolved_trees = Arc::new(Mutex::new(HashMap::<CommitId, TreeIdsAndLabels>::new()));
+
+    // We first compute the dominator value of the trees (in the value history graph
+    // of the trees), together with the commit(s) that produce that tree. Any
+    // such commit is a good candidate to be used as the base of the merge.
+
+    let value_fn = async |commit: &Commit| -> Result<Merge<TreeId>, ConvergeError> {
+        let tree_ids_and_labels = TreeIdsAndLabels::new(
+            rebase_tree_onto_solution_parents(commit, parents, &parents_merged_tree, repo).await?,
+        );
+        rebased_resolved_trees
+            .lock()
+            .unwrap()
+            .insert(commit.id().clone(), tree_ids_and_labels.clone());
+        // Note we only return the tree ids here, not the labels. We do that to increase
+        // the chances of finding a common dominator value that is closer to the
+        // divergent commits, ideally one that result in a simple merge of the trees
+        // later on.
+        Ok(tree_ids_and_labels.tree_ids.clone())
+    };
+
+    let mut value_cache = ValueCache::new(async |commit_id: &CommitId| {
+        value_fn(truncated_evolution_graph.get_commit(commit_id)?).await
+    });
+    let dominator_value = find_dominator_value(
+        truncated_evolution_graph,
+        divergent_commits,
+        &mut value_cache,
+    )
+    .await?;
+    let dominator_producer = get_value_producer(
+        repo,
+        truncated_evolution_graph,
+        &dominator_value,
+        &value_cache,
+    )?;
+
+    let base_commit = truncated_evolution_graph.get_commit(&dominator_producer)?;
+    let rebased_resolved_trees = Arc::try_unwrap(rebased_resolved_trees)
+        .map_err(|_| ConvergeError::Other("Failed to unwrap rebased_resolved_trees Arc".into()))?
+        .into_inner()
+        .unwrap();
+
+    let mut terms: Vec<(MergedTree, String)> = Vec::new();
+    let base_term = get_term_for_tree_merge(
+        base_commit,
+        parents,
+        &rebased_resolved_trees,
+        "converge base",
+    );
+
+    // Add
+    terms.push(base_term.clone());
+    for divergent_commit in divergent_commits {
+        // Remove
+        terms.push(base_term.clone());
+        // Add
+        terms.push(get_term_for_tree_merge(
+            divergent_commit,
+            parents,
+            &rebased_resolved_trees,
+            "divergent commit",
+        ));
+    }
+    Ok(MergedTree::merge(MergeBuilder::from_iter(terms).build()).await?)
+}
+
+fn get_term_for_tree_merge(
+    commit: &Commit,
+    parents: &[CommitId],
+    rebased_resolved_trees: &HashMap<CommitId, TreeIdsAndLabels>,
+    prefix: &str,
+) -> (MergedTree, String) {
+    let rebased_and_resolved_tree = rebased_resolved_trees
+        .get(commit.id())
+        .unwrap()
+        .to_merged_tree(commit.store());
+    let conflict_label = if commit.parent_ids() == parents {
+        format!("{prefix}: {}", commit.conflict_label())
+    } else {
+        format!(
+            "{prefix}: tree of {} rebased onto parents",
+            commit.conflict_label()
+        )
+    };
+    (rebased_and_resolved_tree, conflict_label)
+}
+
+// Creates a merge of values, using as terms the values of the divergent
+// commits, and as base the value the dominator value. Returns the merge
+// together with the commit id of one of the commits that produces the dominator
+// value.
+async fn create_value_merge<T, VF>(
+    repo: &Arc<ReadonlyRepo>,
+    divergent_commits: &[Commit],
+    graph: &TruncatedEvolutionGraph,
+    value_fn: VF,
+) -> Result<(Merge<T>, CommitId), ConvergeError>
+where
+    T: Eq + Hash + Clone,
+    VF: AsyncFn(&Commit) -> Result<T, ConvergeError>,
+{
+    let mut value_cache =
+        ValueCache::new(async |commit_id: &CommitId| value_fn(graph.get_commit(commit_id)?).await);
+    let dominator_value = find_dominator_value(graph, divergent_commits, &mut value_cache).await?;
+    let dominator_producer = get_value_producer(repo, graph, &dominator_value, &value_cache)?;
+
+    let mut merge_builder = MergeBuilder::default();
+    // ADD
+    merge_builder.extend([(*dominator_value).clone()]);
+    for divergent_commit in divergent_commits {
+        let commit_value = value_cache.get_value(divergent_commit.id()).unwrap();
+        // REMOVE, ADD
+        merge_builder.extend([(*dominator_value).clone(), (**commit_value).clone()]);
+    }
+    Ok((merge_builder.build(), dominator_producer))
+}
+
+async fn find_dominator_value<T, VF>(
+    graph: &TruncatedEvolutionGraph,
+    divergent_commits: &[Commit],
+    value_cache: &mut ValueCache<CommitId, T, VF>,
+) -> Result<Rc<T>, ConvergeError>
+where
+    T: Eq + Hash,
+    VF: AsyncFn(&CommitId) -> Result<T, ConvergeError>,
+{
+    let divergent_commit_ids = divergent_commits
+        .iter()
+        .map(|c| c.id().clone())
+        .collect_vec();
+
+    // Calculate the dominator value on the value flow graph, and record which
+    // commits produce which values.
+    let dominator_value = graph
+        .flow_graph
+        .find_dominator_value_with_value_cache(divergent_commit_ids.as_slice(), value_cache)
+        .await
+        .map_err(|e| ConvergeError::Other(e.into()))?;
+
+    Ok(dominator_value)
+}
+
+/// Returns a commit that produces a given value (e.g. finds a commit that
+/// produces a given description). The value must be present in value_cache.
+fn get_value_producer<T, VF>(
+    repo: &Arc<ReadonlyRepo>,
+    truncated_evolution_graph: &TruncatedEvolutionGraph,
+    value: &Rc<T>,
+    value_cache: &ValueCache<CommitId, T, VF>,
+) -> Result<CommitId, IndexError>
+where
+    T: Eq + Hash,
+    VF: AsyncFn(&CommitId) -> Result<T, ConvergeError>,
+{
+    let producers = value_cache.get_nodes_for_value(value).unwrap();
+    match producers.len() {
+        0 => unreachable!(), // If it is present in ValueCache, it comes from some commit.
+        1 => return Ok(producers[0].clone()),
+        _ => {}
+    }
+
+    // If there is more than one producer we choose the one of minimum rank, where
+    // rank is defined as lowest change-offset. Because some backends may not
+    // provide change-offsets for hidden commits, we consider those as having
+    // maximum change-offset and use input-order as the secondary sorting criterion.
+    // By input-order we refer to the order of commits passed to converge_change.
+    // But some commits are not given as input, so we use CommitId as tertiary
+    // sorting criterion.
+
+    let resolved_change_targets = repo.resolve_change_id(truncated_evolution_graph.change_id())?;
+    let input_position: HashMap<&CommitId, usize> = truncated_evolution_graph
+        .divergent_commit_ids
+        .iter()
+        .enumerate()
+        .map(|(position, commit_id)| (commit_id, position))
+        .collect();
+    let producer = producers
+        .iter()
+        .min_by_key(|commit_id: &&CommitId| {
+            let change_offset = match &resolved_change_targets {
+                Some(change_targets) => change_targets.find_offset(commit_id).unwrap_or(usize::MAX),
+                None => usize::MAX,
+            };
+            let input_position = *input_position.get(commit_id).unwrap_or(&usize::MAX);
+            (change_offset, input_position, *commit_id)
+        })
+        .unwrap()
+        .clone();
+    Ok(producer)
+}
+
+async fn rebase_tree_onto_solution_parents(
+    c: &Commit,
+    parents: &[CommitId],
+    parents_merged_tree: &MergedTree,
+    repo: &Arc<ReadonlyRepo>,
+) -> BackendResult<MergedTree> {
+    if c.parent_ids() == parents {
+        return Ok(c.tree());
+    }
+    let mut terms: Vec<(MergedTree, String)> = Vec::new();
+    // Add
+    terms.push((
+        parents_merged_tree.clone(),
+        "converge solution parent(s)".to_string(),
+    ));
+    // Remove
+    terms.push((
+        c.parent_tree_no_resolve(repo.as_ref()).await?,
+        c.parents_conflict_label().await?,
+    ));
+    // Add
+    terms.push((c.tree(), c.conflict_label()));
+    MergedTree::merge(MergeBuilder::from_iter(terms).build()).await
+}
+
+/// Returns those commits in commit_ids that are not descendants of any other
+/// commit in commit_ids.
+pub async fn remove_descendants(
+    repo: &Arc<ReadonlyRepo>,
+    commit_ids: &[CommitId],
+) -> Result<Vec<Commit>, ConvergeError> {
+    if commit_ids.is_empty() {
+        return Ok(vec![]);
+    }
+    let revset_expression = Arc::new(RevsetExpression::Commits(commit_ids.to_vec())).roots();
+    let mut result = vec![];
+    let mut stream = revset_expression.evaluate(repo.deref())?.stream();
+    while let Some(commit_id) = stream.try_next().await? {
+        let commit = repo.store().get_commit_async(&commit_id).await?;
+        result.push(commit);
+    }
+
+    validate(
+        !result.is_empty(),
+        &format!("the result of remove_descendants should never be empty; commits: {commit_ids:?}"),
+    )?;
+    Ok(result)
+}
+
+fn converge_interactively<T, F>(
+    converge_ui: Option<&dyn ConvergeUI>,
+    ui_chooser: F,
+    attribute: &str,
+) -> Result<ConvergeResult<T>, ConvergeError>
+where
+    F: FnOnce(&dyn ConvergeUI) -> Result<Option<T>, ConvergeError>,
+{
+    let Some(converge_ui) = converge_ui else {
+        return Ok(ConvergeResult::NeedUserInput(format!(
+            "cannot converge {attribute} automatically"
+        )));
+    };
+    match ui_chooser(converge_ui)? {
+        Some(value) => Ok(ConvergeResult::Solution(value)),
+        None => Ok(ConvergeResult::Aborted),
+    }
+}
+
+fn validate(predicate: bool, msg: &str) -> Result<(), ConvergeError> {
+    if !predicate {
+        Err(ConvergeError::Other(msg.into()))
+    } else {
+        Ok(())
+    }
+}
