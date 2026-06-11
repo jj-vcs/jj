@@ -22,6 +22,7 @@ use std::fmt;
 use std::fmt::Display;
 use std::io;
 use std::rc::Rc;
+use std::slice;
 use std::sync::Arc;
 
 use bstr::BString;
@@ -1492,7 +1493,8 @@ fn builtin_commit_evolution_entry_methods<'repo>()
             let out_property = self_property.and_then(move |entry| {
                 let predecessors = entry.predecessors().block_on()?;
                 let from_tree =
-                    rebase_to_dest_parent(repo, &predecessors, &entry.commit).block_on()?;
+                    rebase_to_dest_parent(repo, &predecessors, slice::from_ref(&entry.commit))
+                        .block_on()?;
                 let to_tree = entry.commit.tree();
                 Ok(TreeDiff {
                     from_tree,

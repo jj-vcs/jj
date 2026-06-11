@@ -444,14 +444,20 @@ pub async fn rebase_commit_with_options(
     }
 }
 
-/// Moves changes from `sources` to the `destination` parent, returns new tree.
+/// Moves changes from `sources` to the `destinations` parents, returns new
+/// tree.
+///
+/// The `destinations` are typically a single commit, but can be multiple
+/// commits (e.g. the roots of a revset), in which case the changes are moved
+/// onto the merged parent tree of all of them. `destinations` must not be
+/// empty.
 // TODO: pass conflict labels as argument to provide more specific information
 pub async fn rebase_to_dest_parent(
     repo: &dyn Repo,
     sources: &[Commit],
-    destination: &Commit,
+    destinations: &[Commit],
 ) -> BackendResult<MergedTree> {
-    if let [source] = sources
+    if let ([source], [destination]) = (sources, destinations)
         && source.parent_ids() == destination.parent_ids()
     {
         return Ok(source.tree());
@@ -473,12 +479,20 @@ pub async fn rebase_to_dest_parent(
         ))
     }))
     .await?;
+    // Deduplicate parents shared between destinations, preserving order.
+    let dest_parents: Vec<Commit> = try_join_all(destinations.iter().map(|c| c.parents()))
+        .await?
+        .into_iter()
+        .flatten()
+        .collect::<IndexSet<_>>()
+        .into_iter()
+        .collect();
     MergedTree::merge(Merge::from_diffs(
         (
-            destination.parent_tree(repo).await?,
+            merge_commit_trees(repo, &dest_parents).await?,
             format!(
                 "{} (new parents)",
-                destination.parents_conflict_label().await?
+                conflict_label_for_commits(&dest_parents)
             ),
         ),
         diffs,
@@ -1499,9 +1513,12 @@ pub async fn find_duplicate_divergent_commits(
                 .store()
                 .get_commit_async(&ancestor_candidate_id)
                 .await?;
-            let new_tree =
-                rebase_to_dest_parent(repo, slice::from_ref(target_commit), &ancestor_candidate)
-                    .await?;
+            let new_tree = rebase_to_dest_parent(
+                repo,
+                slice::from_ref(target_commit),
+                slice::from_ref(&ancestor_candidate),
+            )
+            .await?;
             // Check whether the rebased commit would have the same tree as the existing
             // commit if they had the same parents. If so, we can skip this rebased commit.
             if new_tree.tree_ids() == ancestor_candidate.tree_ids() {
