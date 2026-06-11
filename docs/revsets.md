@@ -383,8 +383,8 @@ revsets (expressions) as arguments.
 * `author_email(pattern)`: Commits with the author's email matching the given
   [string pattern](#string-patterns).
 
-* `author_date(pattern)`: Commits with author dates matching the specified [date
-  pattern](#date-patterns).
+* `author_date(pattern)`: Commits with [author dates](glossary.md#author-date)
+  matching the specified [date pattern](#date-patterns).
 
 * `mine()`: Commits where the author's email matches the email of the current
   user. Equivalent to `author_email(exact-i:<user-email>)`
@@ -399,8 +399,9 @@ revsets (expressions) as arguments.
 * `committer_email(pattern)`: Commits with the committer's email matching the
   given [string pattern](#string-patterns).
 
-* `committer_date(pattern)`: Commits with committer dates matching the specified
-  [date pattern](#date-patterns).
+* `committer_date(pattern)`: Commits with
+  [committer dates](glossary.md#committer-date) matching the specified [date
+  pattern](#date-patterns).
 
 * `signed()`: Commits that are cryptographically signed.
 
