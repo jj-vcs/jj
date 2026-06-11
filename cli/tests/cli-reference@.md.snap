@@ -1985,6 +1985,8 @@ This command is different from `jj diff --from A --to B`, which compares file co
 
 Technically, this works by rebasing `--from` onto `--to`'s parents and comparing the result to `--to`.
 
+`--from` and `--to` may also resolve to multiple revisions; each side is then treated as if its revisions were squashed into a single revision first. For example, if revisions A..B were rebased and modified to C..D, then `jj interdiff --from A..B --to C..D` shows how the changes evolved. Multiple heads and/or roots are supported, but gaps in the revsets are not supported (e.g. `--from 'A|C'` in a linear chain A..C).
+
 To see the changes throughout the whole evolution of a change instead of between just two revisions, use `jj evolog -p` instead.
 
 **Usage:** `jj interdiff [OPTIONS] <--from <REVSET>|--to <REVSET>> [FILESETS]...`
@@ -1995,8 +1997,8 @@ To see the changes throughout the whole evolution of a change instead of between
 
 ###### **Options:**
 
-* `-f`, `--from <REVSET>` — The first revision to compare (default: @)
-* `-t`, `--to <REVSET>` — The second revision to compare (default: @)
+* `-f`, `--from <REVSET>` — The first revision(s) to compare (default: @)
+* `-t`, `--to <REVSET>` — The second revision(s) to compare (default: @)
 * `-s`, `--summary` — For each path, show only whether it was modified, added, or deleted
 * `--stat` — Show a histogram of the changes
 * `--types` — For each path, show only its type before and after
