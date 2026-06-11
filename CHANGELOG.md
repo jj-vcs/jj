@@ -126,6 +126,10 @@ Thanks to the people who made this release happen!
 * Vincent Ging Ho Yim (@cenviity)
 * Yuya Nishihara (@yuja)
 
+* `jj arrange` now scrolls the viewport to keep the selected commit visible
+  when the commit stack is taller than the terminal.
+  [#9033](https://github.com/jj-vcs/jj/issues/9033).
+
 ## [0.41.0] - 2026-05-06
 
 ### Release highlights
