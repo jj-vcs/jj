@@ -24,6 +24,7 @@ use std::ops::Range;
 use std::path;
 use std::path::Path;
 use std::path::PathBuf;
+use std::slice;
 use std::sync::Arc;
 
 use bstr::BStr;
@@ -628,7 +629,8 @@ impl<'a> DiffRenderer<'a> {
             .simplify()
         };
         let to_description = Merge::resolved(to_commit.description());
-        let from_tree = rebase_to_dest_parent(self.repo, from_commits, to_commit).await?;
+        let from_tree =
+            rebase_to_dest_parent(self.repo, from_commits, slice::from_ref(to_commit)).await?;
         let to_tree = to_commit.tree();
         let copy_records = CopyRecords::default(); // TODO
         show_diff_bytes(
