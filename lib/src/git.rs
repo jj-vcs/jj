@@ -3427,7 +3427,11 @@ pub fn push_updates(
             })
     } else {
         None
-    };
+    }
+    // The in-process path does not run the remote's receive hooks; route pushes
+    // to a remote that has any to the subprocess path so the hooks run (and can
+    // reject the push).
+    .filter(|(remote_git_dir, _)| !crate::git_local::remote_has_receive_hooks(remote_git_dir));
 
     let mut push_stats = if let Some((remote_git_dir, fetch_refspecs)) = local_push {
         let local_git_dir = git_repo.git_dir().to_path_buf();

@@ -90,6 +90,32 @@ pub(crate) fn local_remote_git_dir(
     Some(resolve_git_dir(&path))
 }
 
+/// Whether the remote at `remote_git_dir` has any receive hook installed
+/// (`pre-receive`, `update`, `post-receive`). The in-process push path does not
+/// run hooks, so callers route pushes to such remotes through the subprocess
+/// path, which does (and can also reject the push or forward push options).
+pub(crate) fn remote_has_receive_hooks(remote_git_dir: &Path) -> bool {
+    let hooks = remote_git_dir.join("hooks");
+    ["pre-receive", "update", "post-receive"]
+        .iter()
+        .any(|name| {
+            let p = hooks.join(name);
+            // A hook is active when the file exists and is executable (Git's
+            // `find_hook`). On non-unix, existence is sufficient.
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt as _;
+                std::fs::metadata(&p)
+                    .map(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
+                    .unwrap_or(false)
+            }
+            #[cfg(not(unix))]
+            {
+                p.is_file()
+            }
+        })
+}
+
 /// Resolve a filesystem repo path to its git directory: `<path>/.git` when that
 /// exists (non-bare working copy), otherwise the path itself (bare repo).
 fn resolve_git_dir(path: &Path) -> PathBuf {
