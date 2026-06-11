@@ -550,6 +550,146 @@ fn test_describe_multiple_commits() -> TestResult {
 }
 
 #[test]
+fn test_describe_without_placeholder_comment() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Initial setup
+    work_dir.write_file("a.txt", "aaaa\nbbbb\ncccc\n");
+    work_dir.run_jj(["commit", "-m=first"]).success();
+    work_dir.write_file("a.txt", b"aaaa\ncccc\ndddd\n\xff\n");
+    work_dir.run_jj(["describe", "-m=second"]).success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    @  c43cce883e27 second
+    ○  8620a92b036c first
+    ◆  000000000000
+    [EOF]
+    ");
+
+    // Dump the default commit description template
+    std::fs::write(&edit_script, "dump editor0").unwrap();
+    let output = work_dir.run_jj([
+        "describe",
+        "--config=ui.add-description-placeholder-comment=false",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
+    second
+
+    JJ: Change ID: rlvkpnrz
+    JJ: This commit contains the following changes:
+    JJ:     M a.txt
+    "#);
+
+    // Builtin template with diff content
+    std::fs::write(&edit_script, "dump editor0").unwrap();
+    let output = work_dir.run_jj([
+        "describe",
+        "--config=ui.add-description-placeholder-comment=false",
+        "--config=templates.draft_commit_description='builtin_draft_commit_description_with_diff'",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
+    second
+
+    JJ: Change ID: rlvkpnrz
+    JJ: This commit contains the following changes:
+    JJ:     M a.txt
+
+    JJ: ignore-rest
+    diff --git a/a.txt b/a.txt
+    index edd13ee535..12e5763da1 100644
+    --- a/a.txt
+    +++ b/a.txt
+    @@ -1,3 +1,4 @@
+     aaaa
+    -bbbb
+     cccc
+    +dddd
+    +�
+    "#);
+
+    // Fails with invalid value
+    std::fs::write(&edit_script, "dump editor0").unwrap();
+    let output = work_dir.run_jj([
+        "describe",
+        "--config=ui.add-description-placeholder-comment='abcd'",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Config error: Invalid type or value for ui.add-description-placeholder-comment
+    Caused by: invalid type: string \"abcd\", expected a boolean
+
+    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
+fn test_describe_multiple_commits_without_placeholder_comment() -> TestResult {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Initial setup
+    work_dir.run_jj(["new"]).success();
+    work_dir.run_jj(["new"]).success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    @  3cd3b246e098
+    ○  43444d88b009
+    ○  e8849ae12c70
+    ◆  000000000000
+    [EOF]
+    ");
+
+    // No placeholder comment after multiple commits
+    std::fs::write(&edit_script, "dump editor0")?;
+    let output = work_dir.run_jj([
+        "describe",
+        "--config=ui.add-description-placeholder-comment=false",
+        "-r@",
+        "@-",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor0"))?, @r#"
+    JJ: Enter or edit commit descriptions after the `JJ: describe` lines.
+    JJ: Warning:
+    JJ: - The text you enter will be lost on a syntax error.
+    JJ: - The syntax of the separator lines may change in the future.
+    JJ:
+    JJ: describe 43444d88b009 -------
+
+
+    JJ: Change ID: rlvkpnrz
+    JJ:
+    JJ: describe 3cd3b246e098 -------
+
+
+    JJ: Change ID: kkmpptxz
+    "#);
+    Ok(())
+}
+
+#[test]
 fn test_describe_with_draft_template() {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();

@@ -287,6 +287,7 @@ pub(crate) async fn cmd_split(
         new_child_ids,
     } = args.resolve(ui, &workspace_command).await?;
     let text_editor = workspace_command.text_editor()?;
+    let add_placeholder_comment = workspace_command.should_add_description_placeholder_comment()?;
     let mut tx = workspace_command.start_transaction();
 
     // Prompt the user to select the changes they want for the first commit.
@@ -323,7 +324,7 @@ pub(crate) async fn cmd_split(
             let temp_commit = commit_builder.write_hidden().await?;
             let intro = "Enter a description for the selected changes.";
             let template = description_template(ui, &tx, intro, &temp_commit)?;
-            edit_description(&text_editor, &template)?
+            edit_description(&text_editor, &template, add_placeholder_comment)?
         } else {
             description
         };
@@ -386,7 +387,7 @@ pub(crate) async fn cmd_split(
             let temp_commit = commit_builder.write_hidden().await?;
             let intro = "Enter a description for the remaining changes.";
             let template = description_template(ui, &tx, intro, &temp_commit)?;
-            edit_description(&text_editor, &template)?
+            edit_description(&text_editor, &template, add_placeholder_comment)?
         } else {
             description
         };

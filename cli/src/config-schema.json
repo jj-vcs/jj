@@ -300,6 +300,11 @@
                             "committer-date-"
                         ]
                     }
+                },
+                "add-description-placeholder-comment": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Whether to add the placeholder comment to description editor buffers: `JJ: Lines starting with \"JJ:\" (like this one) will be removed.`"
                 }
             }
         },

@@ -111,6 +111,7 @@ pub(crate) async fn cmd_describe(
         return Ok(());
     }
     let text_editor = workspace_command.text_editor()?;
+    let add_placeholder_comment = workspace_command.should_add_description_placeholder_comment()?;
 
     let mut tx = workspace_command.start_transaction();
     let tx_description = match commits.as_slice() {
@@ -179,7 +180,7 @@ pub(crate) async fn cmd_describe(
         if let [(_, temp_commit)] = &*temp_commits {
             let intro = "";
             let template = description_template(ui, &tx, intro, temp_commit)?;
-            let description = edit_description(&text_editor, &template)?;
+            let description = edit_description(&text_editor, &template, add_placeholder_comment)?;
             commit_builders[0].set_description(description);
         } else {
             let ParsedBulkEditMessage {
@@ -187,7 +188,13 @@ pub(crate) async fn cmd_describe(
                 missing,
                 duplicates,
                 unexpected,
-            } = edit_multiple_descriptions(ui, &text_editor, &tx, &temp_commits)?;
+            } = edit_multiple_descriptions(
+                ui,
+                &text_editor,
+                &tx,
+                &temp_commits,
+                add_placeholder_comment,
+            )?;
             if !missing.is_empty() {
                 return Err(user_error(format!(
                     "The description for the following commits were not found in the edited \
