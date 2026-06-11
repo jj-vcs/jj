@@ -15,12 +15,14 @@
 use std::borrow::Cow;
 use std::cmp::max;
 use std::cmp::min;
+use std::collections::HashSet;
 use std::future;
 use std::io;
 use std::iter;
 use std::ops::Range;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use bstr::BStr;
 use bstr::BString;
@@ -76,6 +78,8 @@ use jj_lib::repo::Repo;
 use jj_lib::repo_path::InvalidRepoPathError;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathUiConverter;
+use jj_lib::revset::UserRevsetExpression;
+use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::rewrite::rebase_to_dest_parent;
 use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
@@ -83,8 +87,11 @@ use thiserror::Error;
 use tracing::instrument;
 use unicode_width::UnicodeWidthStr as _;
 
+use crate::cli_util::WorkspaceCommandHelper;
+use crate::cli_util::short_commit_hash;
 use crate::command_error::CommandError;
 use crate::command_error::cli_error;
+use crate::command_error::user_error;
 use crate::commit_templater;
 use crate::config::CommandNameAndArgs;
 use crate::formatter::Formatter;
@@ -573,7 +580,7 @@ impl<'a> DiffRenderer<'a> {
     fn show_diff_commit_descriptions(
         &self,
         formatter: &mut dyn Formatter,
-        descriptions: Diff<&Merge<&str>>,
+        descriptions: Diff<&Merge<String>>,
     ) -> Result<(), DiffRenderError> {
         if !descriptions.is_changed() {
             return Ok(());
@@ -620,33 +627,79 @@ impl<'a> DiffRenderer<'a> {
         Ok(())
     }
 
-    /// Generates diff between `from_commits` and `to_commit` based off their
-    /// parents. The `from_commits` will temporarily be rebased onto the
-    /// `to_commit` parents to exclude unrelated changes.
+    /// Formats the diff between `from_commits` and `to_commits` based off their
+    /// parents.
+    ///
+    /// The `from_commits` will be temporarily rebased onto the parents of the
+    /// roots of `to_commits` in order to exclude unrelated changes.
+    ///
+    /// Multiple commits on either side are treated as if they were squashed
+    /// into a single commit.
+    ///
+    /// `to_commits` must not be empty.
     pub async fn show_inter_diff(
         &self,
         ui: &Ui,
         formatter: &mut dyn Formatter,
         from_commits: &[Commit],
-        to_commit: &Commit,
+        to_commits: &[Commit],
+        matcher: &dyn Matcher,
+        width: usize,
+    ) -> Result<(), DiffRenderError> {
+        let (to_roots, to_heads) = roots_and_heads(to_commits);
+        self.show_inter_diff_with_to_roots_and_heads(
+            ui,
+            formatter,
+            from_commits,
+            to_commits,
+            (&to_roots, &to_heads),
+            matcher,
+            width,
+        )
+        .await
+    }
+
+    /// Like [`DiffRenderer::show_inter_diff`], but [`roots_and_heads`] has
+    /// already been called on `to_commits`.
+    ///
+    /// This is more efficient (it avoids recalculating
+    /// `roots_and_heads(to_commits)`) at the cost of having a pretty ugly
+    /// interface.
+    ///
+    /// This is (at the time of writing) only used by the `jj interdiff`
+    /// command.
+    ///
+    /// Alternatives to this function seem worse:
+    ///
+    /// - Duplicating this function body offers the opportunity for the two
+    ///   implementations to drift, and requires making
+    ///   `concatenated_commit_descriptions`, `show_diff_trees`, and
+    ///   `show_diff_commit_descriptions` public.
+    ///
+    /// - Offering a `show_inter_diff_with_fileset` function (which calls
+    ///   `print_unmatched_explicit_paths`) would also require taking a
+    ///   `&WorkspaceCommandHelper` parameter as well, which seems
+    ///   heavier-weight than it's worth, and we would need an internal
+    ///   `show_inter_diff_inner` helper anyways.
+    ///
+    /// - Changing the `show_inter_diff` signature is hard because the other
+    ///   users (`jj evolog` and `jj op log`) don't need `roots_and_heads`.
+    #[expect(clippy::too_many_arguments)] // I know I know!!
+    pub async fn show_inter_diff_with_to_roots_and_heads(
+        &self,
+        ui: &Ui,
+        formatter: &mut dyn Formatter,
+        from_commits: &[Commit],
+        to_commits: &[Commit],
+        (to_roots, to_heads): (&[Commit], &[Commit]),
         matcher: &dyn Matcher,
         width: usize,
     ) -> Result<(), DiffRenderError> {
         let mut formatter = formatter.labeled("diff");
-        let from_description = if from_commits.is_empty() {
-            Merge::resolved("")
-        } else {
-            // TODO: use common predecessor as the base description?
-            MergeBuilder::from_iter(itertools::intersperse(
-                from_commits.iter().map(|c| c.description()),
-                "",
-            ))
-            .build()
-            .simplify()
-        };
-        let to_description = Merge::resolved(to_commit.description());
-        let from_tree = rebase_to_dest_parent(self.repo, from_commits, to_commit).await?;
-        let to_tree = to_commit.tree();
+        let from_description = concatenated_commit_descriptions(from_commits);
+        let to_description = concatenated_commit_descriptions(to_commits);
+        let from_tree = rebase_to_dest_parent(self.repo, from_commits, to_roots).await?;
+        let to_tree = merge_commit_trees(self.repo, to_heads).await?;
         let copy_records = CopyRecords::default(); // TODO
         self.show_diff_commit_descriptions(
             *formatter,
@@ -690,6 +743,70 @@ impl<'a> DiffRenderer<'a> {
         )
         .await
     }
+}
+
+/// Checks that the revset has no gaps, i.e. that there are no commits in
+/// between the roots and heads of the set that are not in the set themselves.
+/// The total diff of a revset with gaps in is not well defined.
+pub async fn check_diff_revset_has_no_gaps(
+    workspace_command: &WorkspaceCommandHelper,
+    expression: &Arc<UserRevsetExpression>,
+) -> Result<(), CommandError> {
+    let mut gaps_revset = workspace_command
+        .attach_revset_evaluator(
+            expression
+                .roots()
+                .range(&expression.heads())
+                .minus(expression),
+        )
+        .evaluate_to_commit_ids()?;
+    if let Some(commit_id) = gaps_revset.try_next().await? {
+        return Err(
+            user_error("Cannot diff revsets with gaps in.").hinted(format!(
+                "Revision {} would need to be in the set.",
+                short_commit_hash(&commit_id)
+            )),
+        );
+    }
+    Ok(())
+}
+
+/// Concatenates the descriptions of `commits` for rendering a description diff.
+fn concatenated_commit_descriptions(commits: &[Commit]) -> Merge<String> {
+    if commits.is_empty() {
+        Merge::resolved(String::new())
+    } else {
+        // TODO: Concatenated descriptions are not necessarily ideal here; they won't
+        // show reordered commits nicely. However, once we implement color-moved
+        // (#76), that should get us most of the value.
+        //
+        // See: https://github.com/jj-vcs/jj/issues/76
+        MergeBuilder::from_iter(std::iter::once(itertools::join(
+            commits.iter().map(|c| c.description()),
+            "",
+        )))
+        .build()
+        .simplify()
+    }
+}
+
+/// Partitions `commits` into the roots and heads of the set: the roots are
+/// the commits which have no parents in the set, and the heads are the
+/// commits which are not a parent of any commit in the set.
+pub fn roots_and_heads(commits: &[Commit]) -> (Vec<Commit>, Vec<Commit>) {
+    let ids: HashSet<&CommitId> = commits.iter().map(|c| c.id()).collect();
+    let parent_ids: HashSet<&CommitId> = commits.iter().flat_map(|c| c.parent_ids()).collect();
+    let roots = commits
+        .iter()
+        .filter(|c| !c.parent_ids().iter().any(|id| ids.contains(id)))
+        .cloned()
+        .collect_vec();
+    let heads = commits
+        .iter()
+        .filter(|c| !parent_ids.contains(c.id()))
+        .cloned()
+        .collect_vec();
+    (roots, heads)
 }
 
 pub async fn get_copy_records(

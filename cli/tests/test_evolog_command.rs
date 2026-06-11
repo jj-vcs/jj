@@ -421,16 +421,9 @@ fn test_evolog_squash() {
     ├─┬─╮  squashed 3
     │ │ │  -- operation 834dc47a2691 squash commits into 5ec0619af5cb4f7707a556a71a6f96af0bc294d2
     │ │ │  Modified commit description:
-    │ │ │     1     : <<<<<<< conflict 1 of 1
-    │ │ │     2     : +++++++ side #1
-    │ │ │     3     : squashed 2
-    │ │ │     4     : %%%%%%% diff from: base #1
-    │ │ │     5     : \\\\\\\        to: side #2
-    │ │ │     6     : +fourth
-    │ │ │     7     : %%%%%%% diff from: base #2
-    │ │ │     8     : \\\\\\\        to: side #3
-    │ │ │     9     : +fifth
-    │ │ │    10     : >>>>>>> conflict 1 of 1 ends
+    │ │ │     1     : squashed 2
+    │ │ │     2     : fourth
+    │ │ │     3     : fifth
     │ │ │          1: squashed 3
     │ │ ○  vruxwmqv/0 test.user@example.com 2001-02-03 08:05:15 770795d0 (hidden)
     │ │ │  fifth
@@ -456,13 +449,8 @@ fn test_evolog_squash() {
     ├─╮  squashed 2
     │ │  -- operation 47521583d5c7 squash commits into 690858846504af0e42fde980fdacf9851559ebb8
     │ │  Modified commit description:
-    │ │     1     : <<<<<<< conflict 1 of 1
-    │ │     2     : +++++++ side #1
-    │ │     3     : squashed 1
-    │ │     4     : %%%%%%% diff from: base
-    │ │     5     : \\\\\\\        to: side #2
-    │ │     6     : +third
-    │ │     7     : >>>>>>> conflict 1 of 1 ends
+    │ │     1     : squashed 1
+    │ │     2     : third
     │ │          1: squashed 2
     │ │  Removed regular file file2:
     │ │     1     : foo2
@@ -491,13 +479,8 @@ fn test_evolog_squash() {
     ├─╮  squashed 1
     │ │  -- operation c6c228cfffd1 squash commits into 5878cbe03cdf599c9353e5a1a52a01f4c5e0e0fa
     │ │  Modified commit description:
-    │ │     1     : <<<<<<< conflict 1 of 1
-    │ │     2     : %%%%%%% diff from: base
-    │ │     3     : \\\\\\\        to: side #1
-    │ │     4     : +first
-    │ │     5     : +++++++ side #2
-    │ │     6     : second
-    │ │     7     : >>>>>>> conflict 1 of 1 ends
+    │ │     1     : first
+    │ │     2     : second
     │ │          1: squashed 1
     │ ○  kkmpptxz/0 test.user@example.com 2001-02-03 08:05:10 a3759c9d (hidden)
     │ │  second
