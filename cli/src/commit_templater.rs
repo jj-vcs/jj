@@ -3095,7 +3095,6 @@ mod tests {
                 date_pattern_context: chrono::DateTime::UNIX_EPOCH.fixed_offset().into(),
                 default_ignored_remote: None,
                 fileset_aliases_map: &self.fileset_aliases_map,
-                use_glob_by_default: true,
                 extensions: &self.revset_extensions,
                 workspace: Some(RevsetWorkspaceContext {
                     path_converter: &self.path_converter,
