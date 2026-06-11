@@ -23,6 +23,7 @@ use std::iter;
 use std::ops::Range;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use bstr::BStr;
 use bstr::BString;
@@ -78,6 +79,7 @@ use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::Repo;
 use jj_lib::repo_path::InvalidRepoPathError;
 use jj_lib::repo_path::RepoPath;
+use jj_lib::revset::UserRevsetExpression;
 use jj_lib::rewrite::rebase_to_dest_parent;
 use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
@@ -86,8 +88,11 @@ use thiserror::Error;
 use tracing::instrument;
 use unicode_width::UnicodeWidthStr as _;
 
+use crate::cli_util::WorkspaceCommandHelper;
+use crate::cli_util::short_commit_hash;
 use crate::command_error::CommandError;
 use crate::command_error::cli_error;
+use crate::command_error::user_error;
 use crate::commit_templater;
 use crate::config::CommandNameAndArgs;
 use crate::formatter::Formatter;
@@ -669,6 +674,32 @@ impl<'a> DiffRenderer<'a> {
         )
         .await
     }
+}
+
+/// Checks that the revset has no gaps, i.e. that there are no commits in
+/// between the roots and heads of the set that are not in the set themselves.
+/// The total diff of a revset with gaps in is not well defined.
+pub async fn check_diff_revset_has_no_gaps(
+    workspace_command: &WorkspaceCommandHelper,
+    expression: &Arc<UserRevsetExpression>,
+) -> Result<(), CommandError> {
+    let mut gaps_revset = workspace_command
+        .attach_revset_evaluator(
+            expression
+                .roots()
+                .range(&expression.heads())
+                .minus(expression),
+        )
+        .evaluate_to_commit_ids()?;
+    if let Some(commit_id) = gaps_revset.try_next().await? {
+        return Err(
+            user_error("Cannot diff revsets with gaps in.").hinted(format!(
+                "Revision {} would need to be in the set.",
+                short_commit_hash(&commit_id)
+            )),
+        );
+    }
+    Ok(())
 }
 
 pub async fn get_copy_records(
