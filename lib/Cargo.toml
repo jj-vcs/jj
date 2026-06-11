@@ -97,7 +97,7 @@ nix = { workspace = true, features = [ "fs" ] }
 
 [features]
 default = ["git"]
-git = ["dep:gix", "dep:grit-lib"]
+git = ["dep:gix", "dep:grit-lib", "grit-lib/http-ureq"]
 watchman = ["dep:watchman_client", "dep:tokio"]
 testing = ["git"]
 

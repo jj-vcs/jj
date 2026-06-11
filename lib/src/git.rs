@@ -3071,6 +3071,46 @@ impl<'a> GitFetch<'a> {
             None
         };
 
+        // `ssh://` (and scp-style) fetches also run in-process through grit-lib's
+        // ssh transport (an ssh subprocess speaking the Git wire protocol, no
+        // `git` subprocess). Same depth restriction as the other in-process paths.
+        // Authentication is whatever the user's ssh configuration provides.
+        let ssh_remote = if depth.is_none()
+            && local_remote.is_none()
+            && git_daemon_remote.is_none()
+        {
+            self.git_repo
+                .try_find_remote(remote_name.as_str())
+                .and_then(|r| r.ok())
+                .and_then(|remote| {
+                    crate::git_local::ssh_remote_url(&remote, gix::remote::Direction::Fetch)
+                        .map(|url| (url, remote.fetch_tags()))
+                })
+        } else {
+            None
+        };
+
+        // `http(s)://` (smart-HTTP) fetches also run in-process through grit-lib's
+        // smart-HTTP transport (protocol v2, no subprocess). Same depth restriction
+        // as the other in-process paths; the HTTP client is unauthenticated, so a
+        // remote that returns `401` falls through grit-lib's error to the caller —
+        // remotes needing auth should be left on the subprocess path by callers.
+        let http_remote = if depth.is_none()
+            && local_remote.is_none()
+            && git_daemon_remote.is_none()
+            && ssh_remote.is_none()
+        {
+            self.git_repo
+                .try_find_remote(remote_name.as_str())
+                .and_then(|r| r.ok())
+                .and_then(|remote| {
+                    crate::git_local::http_remote_url(&remote, gix::remote::Direction::Fetch)
+                        .map(|url| (url, remote.fetch_tags()))
+                })
+        } else {
+            None
+        };
+
         let mut branches_to_prune = Vec::new();
         let updates = if let Some((remote_git_dir, configured_tags)) = local_remote {
             let local_git_dir = self.git_repo.git_dir().to_path_buf();
@@ -3095,6 +3135,42 @@ impl<'a> GitFetch<'a> {
         } else if let Some((remote_url, configured_tags)) = git_daemon_remote {
             let local_git_dir = self.git_repo.git_dir().to_path_buf();
             match crate::git_local::fetch_git_daemon(
+                &local_git_dir,
+                &remote_url,
+                &remaining_refspecs,
+                &negative_refspecs,
+                // The subprocess path always fetches with `--prune`; mirror that.
+                true,
+                fetch_tags_override,
+                configured_tags,
+            )
+            .map_err(|err| {
+                GitFetchError::Subprocess(GitSubprocessError::External(err.to_string()))
+            })? {
+                GitFetchStatus::Updates(updates) => updates,
+                GitFetchStatus::NoRemoteRef(_) => crate::git_subprocess::GitRefUpdates::default(),
+            }
+        } else if let Some((remote_url, configured_tags)) = ssh_remote {
+            let local_git_dir = self.git_repo.git_dir().to_path_buf();
+            match crate::git_local::fetch_ssh(
+                &local_git_dir,
+                &remote_url,
+                &remaining_refspecs,
+                &negative_refspecs,
+                // The subprocess path always fetches with `--prune`; mirror that.
+                true,
+                fetch_tags_override,
+                configured_tags,
+            )
+            .map_err(|err| {
+                GitFetchError::Subprocess(GitSubprocessError::External(err.to_string()))
+            })? {
+                GitFetchStatus::Updates(updates) => updates,
+                GitFetchStatus::NoRemoteRef(_) => crate::git_subprocess::GitRefUpdates::default(),
+            }
+        } else if let Some((remote_url, configured_tags)) = http_remote {
+            let local_git_dir = self.git_repo.git_dir().to_path_buf();
+            match crate::git_local::fetch_http(
                 &local_git_dir,
                 &remote_url,
                 &remaining_refspecs,
@@ -3466,9 +3542,113 @@ pub fn push_updates(
     // reject the push).
     .filter(|(remote_git_dir, _)| !crate::git_local::remote_has_receive_hooks(remote_git_dir));
 
+    // Anonymous `git://` (Git-daemon) pushes also run in-process through grit-lib
+    // (protocol v0/v1 receive-pack over TCP). As with the local path, pushes
+    // carrying `--push-option` stay on the subprocess path (those must be
+    // forwarded to the remote's receive hooks). Unlike the local path there are
+    // no hooks to detect locally — any receive hooks run on the *server*, which
+    // can reject the push (surfaced as a remote rejection), so there is nothing to
+    // filter here.
+    let git_daemon_push = if options.remote_push_options.is_empty() && local_push.is_none() {
+        git_repo
+            .try_find_remote(remote_name.as_str())
+            .and_then(|r| r.ok())
+            .and_then(|remote| {
+                crate::git_local::git_daemon_remote_url(&remote, gix::remote::Direction::Push).map(
+                    |url| {
+                        let fetch_refspecs: Vec<String> = remote
+                            .refspecs(gix::remote::Direction::Fetch)
+                            .iter()
+                            .map(|spec| spec.to_ref().to_bstring().to_string())
+                            .collect();
+                        (url, fetch_refspecs)
+                    },
+                )
+            })
+    } else {
+        None
+    };
+
+    // `ssh://` (and scp-style) pushes also run in-process through grit-lib
+    // (protocol v0/v1 receive-pack over an ssh subprocess). Same caveats as the
+    // `git://` push path: `--push-option` falls back to the subprocess path, and
+    // server receive hooks run remotely. Authentication is whatever the user's ssh
+    // configuration provides.
+    let ssh_push = if options.remote_push_options.is_empty()
+        && local_push.is_none()
+        && git_daemon_push.is_none()
+    {
+        git_repo
+            .try_find_remote(remote_name.as_str())
+            .and_then(|r| r.ok())
+            .and_then(|remote| {
+                crate::git_local::ssh_remote_url(&remote, gix::remote::Direction::Push).map(|url| {
+                    let fetch_refspecs: Vec<String> = remote
+                        .refspecs(gix::remote::Direction::Fetch)
+                        .iter()
+                        .map(|spec| spec.to_ref().to_bstring().to_string())
+                        .collect();
+                    (url, fetch_refspecs)
+                })
+            })
+    } else {
+        None
+    };
+
+    // `http(s)://` (smart-HTTP) pushes also run in-process through grit-lib
+    // (protocol v0/v1 receive-pack). As with the local path, pushes carrying
+    // `--push-option` stay on the subprocess path (those must be forwarded to the
+    // remote's receive hooks). The HTTP client is unauthenticated, so a remote
+    // requiring auth returns `401` and grit-lib surfaces the error; callers should
+    // leave auth'd remotes on the subprocess path.
+    let http_push = if options.remote_push_options.is_empty()
+        && local_push.is_none()
+        && git_daemon_push.is_none()
+        && ssh_push.is_none()
+    {
+        git_repo
+            .try_find_remote(remote_name.as_str())
+            .and_then(|r| r.ok())
+            .and_then(|remote| {
+                crate::git_local::http_remote_url(&remote, gix::remote::Direction::Push).map(
+                    |url| {
+                        let fetch_refspecs: Vec<String> = remote
+                            .refspecs(gix::remote::Direction::Fetch)
+                            .iter()
+                            .map(|spec| spec.to_ref().to_bstring().to_string())
+                            .collect();
+                        (url, fetch_refspecs)
+                    },
+                )
+            })
+    } else {
+        None
+    };
+
     let mut push_stats = if let Some((remote_git_dir, fetch_refspecs)) = local_push {
         let local_git_dir = git_repo.git_dir().to_path_buf();
         crate::git_local::push_local(&local_git_dir, &remote_git_dir, &refs_to_push, &fetch_refspecs)
+            .map_err(|err| {
+                GitPushError::Subprocess(GitSubprocessError::External(err.to_string()))
+            })?
+    } else if let Some((remote_url, fetch_refspecs)) = git_daemon_push {
+        let local_git_dir = git_repo.git_dir().to_path_buf();
+        crate::git_local::push_git_daemon(
+            &local_git_dir,
+            &remote_url,
+            &refs_to_push,
+            &fetch_refspecs,
+        )
+        .map_err(|err| GitPushError::Subprocess(GitSubprocessError::External(err.to_string())))?
+    } else if let Some((remote_url, fetch_refspecs)) = ssh_push {
+        let local_git_dir = git_repo.git_dir().to_path_buf();
+        crate::git_local::push_ssh(&local_git_dir, &remote_url, &refs_to_push, &fetch_refspecs)
+            .map_err(|err| {
+                GitPushError::Subprocess(GitSubprocessError::External(err.to_string()))
+            })?
+    } else if let Some((remote_url, fetch_refspecs)) = http_push {
+        let local_git_dir = git_repo.git_dir().to_path_buf();
+        crate::git_local::push_http(&local_git_dir, &remote_url, &refs_to_push, &fetch_refspecs)
             .map_err(|err| {
                 GitPushError::Subprocess(GitSubprocessError::External(err.to_string()))
             })?

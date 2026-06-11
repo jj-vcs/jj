@@ -7075,3 +7075,600 @@ fn test_fetch_over_git_daemon() -> TestResult {
 
     Ok(())
 }
+
+// ---------------------------------------------------------------------------
+// `http(s)://` (smart-HTTP) FETCH and PUSH through grit-lib's HTTP transport.
+//
+// `GitFetch::fetch` routes an `http(s)://` remote to `git_local::fetch_http`
+// (grit-lib's `http_fetch`, protocol v2: `info/refs` discovery + `command=fetch`
+// POSTs); `push_updates`/`push_refs` routes one to `git_local::push_http`
+// (grit-lib's `push_http`, protocol v0/v1 receive-pack: `info/refs` discovery +
+// a single `git-receive-pack` POST). Neither spawns `git` nor uses a `gix`
+// transport for the wire itself. The only external dependency is the HTTP server
+// fixture (`grit-http-server`); the test skips gracefully when it is missing.
+// ---------------------------------------------------------------------------
+
+/// Locate a grit test-fixture binary (`grit-http-server` or `grit`) in the grit
+/// checkout's `target/{debug,release}`. The override env var (e.g.
+/// `JJ_TEST_GRIT_HTTP_SERVER`, `JJ_TEST_GRIT_BIN`) takes precedence; otherwise
+/// probe the known checkout root used by the workspace `[patch]` in `Cargo.toml`
+/// (`env!("CARGO_MANIFEST_DIR")` here is jj's `lib`, which does not know the grit
+/// path). Returns `None` when no built binary is found, so the test can skip.
+fn find_grit_binary(env_var: &str, name: &str) -> Option<PathBuf> {
+    if let Some(p) = std::env::var_os(env_var) {
+        let p = PathBuf::from(p);
+        if p.is_file() {
+            return Some(p);
+        }
+    }
+    let candidates = [
+        PathBuf::from(format!(
+            "/Users/schacon/projects/grit-claude/target/debug/{name}"
+        )),
+        PathBuf::from(format!(
+            "/Users/schacon/projects/grit-claude/target/release/{name}"
+        )),
+    ];
+    candidates.into_iter().find(|p| p.is_file())
+}
+
+/// Spawn `grit-http-server --root <root> --bind 127.0.0.1:<port>`. The server
+/// shells out to the `grit` binary for upload-pack/receive-pack, located via the
+/// `GUST_BIN` env var (`grit_protocol::grit_executable`).
+fn spawn_grit_http_server(
+    server_bin: &Path,
+    grit_bin: &Path,
+    root: &Path,
+    port: u16,
+) -> Option<std::process::Child> {
+    std::process::Command::new(server_bin)
+        .arg("--root")
+        .arg(root)
+        .arg("--bind")
+        .arg(format!("127.0.0.1:{port}"))
+        .env("GUST_BIN", grit_bin)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .ok()
+}
+
+struct GritHttpServerGuard(std::process::Child);
+impl Drop for GritHttpServerGuard {
+    fn drop(&mut self) {
+        let _unused_kill = self.0.kill();
+        let _unused = self.0.wait();
+    }
+}
+
+#[test]
+fn test_fetch_and_push_over_smart_http() -> TestResult {
+    let Some(server_bin) = find_grit_binary("JJ_TEST_GRIT_HTTP_SERVER", "grit-http-server") else {
+        eprintln!(
+            "SKIP: `grit-http-server` binary not found (build it in the grit checkout or set \
+             JJ_TEST_GRIT_HTTP_SERVER)"
+        );
+        return Ok(());
+    };
+    let Some(grit_bin) = find_grit_binary("JJ_TEST_GRIT_BIN", "grit") else {
+        eprintln!(
+            "SKIP: `grit` binary not found (build it in the grit checkout or set JJ_TEST_GRIT_BIN)"
+        );
+        return Ok(());
+    };
+
+    // A bare source repo under the server root, served at
+    // `http://127.0.0.1:<port>/source.git`.
+    let temp_dir = testutils::new_temp_dir();
+    let root = temp_dir.path().join("srv");
+    std::fs::create_dir_all(&root)?;
+    let source_dir = root.join("source.git");
+    let source = testutils::git::init_bare(&source_dir);
+    let initial = empty_git_commit(&source, "refs/heads/main", &[]);
+    let topic = empty_git_commit(&source, "refs/heads/topic", &[initial]);
+    testutils::git::set_symbolic_reference(&source, "HEAD", "refs/heads/main");
+
+    let Some(port) = git_daemon_free_port() else {
+        eprintln!("SKIP: could not find a free port for grit-http-server");
+        return Ok(());
+    };
+    let Some(child) = spawn_grit_http_server(&server_bin, &grit_bin, &root, port) else {
+        eprintln!("SKIP: could not spawn grit-http-server");
+        return Ok(());
+    };
+    let _guard = GritHttpServerGuard(child);
+    if !git_daemon_wait_ready(port) {
+        eprintln!("SKIP: grit-http-server did not become ready on port {port}");
+        return Ok(());
+    }
+
+    // A jj repo whose `origin` remote is the smart-HTTP URL.
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let url = format!("http://127.0.0.1:{port}/source.git");
+
+    let mut tx = test_repo.repo.start_transaction();
+    git::add_remote(
+        tx.repo_mut(),
+        "origin".as_ref(),
+        &url,
+        None,
+        gix::remote::fetch::Tags::All,
+    )?;
+    let _repo = tx.commit("add remote").block_on()?;
+    // Reload after the Git config change so the remote is visible.
+    let repo = test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+
+    // --- FETCH over smart HTTP -------------------------------------------------
+    // With an `http://` remote and no depth, this dispatches to
+    // git_local::fetch_http (grit-lib smart-HTTP transport, protocol v2).
+    let subprocess_options = GitSubprocessOptions::from_settings(repo.settings())?;
+    let import_options = auto_track_import_options();
+    let mut tx = repo.start_transaction();
+    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options.clone(), &import_options)?;
+    fetch_all_with(&mut fetcher, "origin".as_ref())?;
+    let default_branch = fetcher.get_default_branch("origin".as_ref())?;
+    fetcher.import_refs().block_on()?;
+    let repo = tx.commit("fetch").block_on()?;
+
+    // The server advertised HEAD -> refs/heads/main.
+    assert_eq!(default_branch, Some("main".into()));
+
+    let view = repo.view();
+    // Both branches' tips landed via the HTTP wire fetch.
+    assert!(view.heads().contains(&jj_id(topic)));
+    assert_eq!(
+        *view.git_refs(),
+        btreemap! {
+            "refs/remotes/origin/main".into() => RefTarget::normal(jj_id(initial)),
+            "refs/remotes/origin/topic".into() => RefTarget::normal(jj_id(topic)),
+        },
+        "tracking refs for both branches must land via the http:// wire fetch"
+    );
+    // The objects are present locally (the pack was ingested over HTTP).
+    let store = repo.store();
+    assert!(store.get_commit(&jj_id(initial)).is_ok());
+    assert!(store.get_commit(&jj_id(topic)).is_ok());
+
+    // --- PUSH over smart HTTP --------------------------------------------------
+    // Create a child of the fetched `main` and push it. With an `http://` remote
+    // and no push options, this dispatches to git_local::push_http (grit-lib
+    // smart-HTTP receive-pack, protocol v0/v1).
+    let main_commit = store.get_commit(&jj_id(initial))?;
+    let mut tx = repo.start_transaction();
+    let child_of_main = write_random_commit_with_parents(tx.repo_mut(), &[&main_commit]);
+    // jj pushes with a force-with-lease equal to its view of the remote ref;
+    // record that view so the push negotiation's expected-old matches.
+    tx.repo_mut().set_git_ref_target(
+        "refs/remotes/origin/main".as_ref(),
+        RefTarget::normal(main_commit.id().clone()),
+    );
+    tx.repo_mut().set_remote_bookmark(
+        remote_symbol("main", "origin"),
+        RemoteRef {
+            target: RefTarget::normal(main_commit.id().clone()),
+            state: RemoteRefState::Tracked,
+        },
+    );
+
+    let targets = GitPushRefTargets {
+        bookmarks: vec![(
+            "main".into(),
+            Diff::new(
+                Some(main_commit.id().clone()),
+                Some(child_of_main.id().clone()),
+            ),
+        )],
+        tags: vec![],
+    };
+    let stats = git::push_refs(
+        tx.repo_mut(),
+        subprocess_options,
+        "origin".as_ref(),
+        &targets,
+        &mut NullCallback,
+        &GitPushOptions::default(),
+    )?;
+    assert_eq!(
+        stats.pushed,
+        vec![GitRefNameBuf::from("refs/heads/main")],
+        "the HTTP push must report main as pushed (stats: {stats:?})"
+    );
+    assert!(stats.rejected.is_empty(), "no client rejections: {stats:?}");
+    assert!(
+        stats.remote_rejected.is_empty(),
+        "no remote rejections: {stats:?}"
+    );
+
+    // The served bare repo's `refs/heads/main` now points at the pushed child,
+    // and its object is present there (the pack was sent over HTTP).
+    let pushed_oid = git_id(&child_of_main);
+    let server_repo = testutils::git::open(&source_dir);
+    let new_target = server_repo.find_reference("refs/heads/main")?;
+    assert_eq!(
+        new_target.target().id(),
+        pushed_oid,
+        "the http:// push must move the remote's refs/heads/main"
+    );
+    assert!(
+        server_repo.find_object(pushed_oid).is_ok(),
+        "the pushed object must exist in the served repo's object store"
+    );
+
+    // The local clone's remote-tracking ref for main advanced too, exactly as Git
+    // updates it after a push.
+    let view = tx.repo().view();
+    assert_eq!(
+        *view.get_git_ref("refs/remotes/origin/main".as_ref()),
+        RefTarget::normal(child_of_main.id().clone()),
+        "the local remote-tracking ref for main must advance after the http push"
+    );
+
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// `git://` (anonymous Git-daemon) PUSH through grit-lib's wire transport.
+//
+// `push_refs` now routes a `git://` remote to `git_local::push_git_daemon`,
+// which connects over TCP with `grit_lib::transport::GitDaemonTransport` and
+// drives the `git-receive-pack` exchange with `grit_lib::push::push_remote` —
+// no `git` subprocess and no `gix` transport for the push itself. The only
+// external dependency is the server fixture (`git daemon` with
+// `--enable=receive-pack`); the test skips gracefully when it is unavailable.
+// ---------------------------------------------------------------------------
+
+/// Spawn `git daemon` over `base_path` on `port` with `receive-pack` enabled, so
+/// the daemon accepts anonymous pushes (the default daemon refuses them). Returns
+/// `None` if the binary is missing or cannot be spawned.
+fn spawn_git_daemon_writable(base_path: &Path, port: u16) -> Option<std::process::Child> {
+    std::process::Command::new("git")
+        .arg("daemon")
+        .arg("--listen=127.0.0.1")
+        .arg(format!("--port={port}"))
+        .arg("--reuseaddr")
+        .arg("--export-all")
+        .arg("--enable=receive-pack")
+        .arg(format!("--base-path={}", base_path.display()))
+        .arg(base_path)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .ok()
+}
+
+#[test]
+fn test_push_over_git_daemon() -> TestResult {
+    // A bare source repo with an initial commit on `main`, served at
+    // `git://127.0.0.1:<port>/source.git`. The push advances `main` to a child.
+    let temp_dir = testutils::new_temp_dir();
+    let base = temp_dir.path();
+    let source_dir = base.join("source.git");
+    let source = testutils::git::init_bare(&source_dir);
+    let initial = empty_git_commit(&source, "refs/heads/main", &[]);
+    testutils::git::set_symbolic_reference(&source, "HEAD", "refs/heads/main");
+
+    let Some(port) = git_daemon_free_port() else {
+        eprintln!("SKIP: could not find a free port for git daemon");
+        return Ok(());
+    };
+    let Some(child) = spawn_git_daemon_writable(base, port) else {
+        eprintln!("SKIP: `git daemon` is unavailable");
+        return Ok(());
+    };
+    let _guard = GitDaemonGuard(child);
+    if !git_daemon_wait_ready(port) {
+        eprintln!("SKIP: git daemon did not become ready on port {port}");
+        return Ok(());
+    }
+
+    // A jj repo whose `origin` remote is the anonymous `git://` URL.
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let url = format!("git://127.0.0.1:{port}/source.git");
+
+    let mut tx = test_repo.repo.start_transaction();
+    git::add_remote(
+        tx.repo_mut(),
+        "origin".as_ref(),
+        &url,
+        None,
+        gix::remote::fetch::Tags::All,
+    )?;
+    let _repo = tx.commit("add remote").block_on()?;
+    let repo = test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+
+    // Make the just-created `initial` commit available locally so jj can build a
+    // child of it and push both. (We mirror the source repo's object into the
+    // local store via a fetch over the same wire transport, then push a child.)
+    let subprocess_options = GitSubprocessOptions::from_settings(repo.settings())?;
+    let import_options = auto_track_import_options();
+    let mut tx = repo.start_transaction();
+    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options.clone(), &import_options)?;
+    fetch_all_with(&mut fetcher, "origin".as_ref())?;
+    fetcher.import_refs().block_on()?;
+    let repo = tx.commit("fetch").block_on()?;
+
+    let store = repo.store();
+    let main_commit = store.get_commit(&jj_id(initial))?;
+
+    // Create a child of the fetched `main` and push it. With a `git://` remote and
+    // no push options, this dispatches to git_local::push_git_daemon (grit-lib
+    // wire receive-pack, protocol v0/v1).
+    let mut tx = repo.start_transaction();
+    let child_of_main = write_random_commit_with_parents(tx.repo_mut(), &[&main_commit]);
+    // jj pushes with a force-with-lease equal to its view of the remote ref.
+    tx.repo_mut().set_git_ref_target(
+        "refs/remotes/origin/main".as_ref(),
+        RefTarget::normal(main_commit.id().clone()),
+    );
+    tx.repo_mut().set_remote_bookmark(
+        remote_symbol("main", "origin"),
+        RemoteRef {
+            target: RefTarget::normal(main_commit.id().clone()),
+            state: RemoteRefState::Tracked,
+        },
+    );
+
+    let targets = GitPushRefTargets {
+        bookmarks: vec![(
+            "main".into(),
+            Diff::new(
+                Some(main_commit.id().clone()),
+                Some(child_of_main.id().clone()),
+            ),
+        )],
+        tags: vec![],
+    };
+    let stats = git::push_refs(
+        tx.repo_mut(),
+        subprocess_options,
+        "origin".as_ref(),
+        &targets,
+        &mut NullCallback,
+        &GitPushOptions::default(),
+    )?;
+    assert_eq!(
+        stats.pushed,
+        vec![GitRefNameBuf::from("refs/heads/main")],
+        "the git:// push must report main as pushed (stats: {stats:?})"
+    );
+    assert!(stats.rejected.is_empty(), "no client rejections: {stats:?}");
+    assert!(
+        stats.remote_rejected.is_empty(),
+        "no remote rejections: {stats:?}"
+    );
+
+    // The served bare repo's `refs/heads/main` now points at the pushed child, and
+    // its object is present there (the pack was sent over the git:// wire).
+    let pushed_oid = git_id(&child_of_main);
+    let server_repo = testutils::git::open(&source_dir);
+    let new_target = server_repo.find_reference("refs/heads/main")?;
+    assert_eq!(
+        new_target.target().id(),
+        pushed_oid,
+        "the git:// push must move the remote's refs/heads/main"
+    );
+    assert!(
+        server_repo.find_object(pushed_oid).is_ok(),
+        "the pushed object must exist in the served repo's object store"
+    );
+
+    // The local clone's remote-tracking ref for main advanced too.
+    let view = tx.repo().view();
+    assert_eq!(
+        *view.get_git_ref("refs/remotes/origin/main".as_ref()),
+        RefTarget::normal(child_of_main.id().clone()),
+        "the local remote-tracking ref for main must advance after the git:// push"
+    );
+
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// `ssh://` FETCH and PUSH through grit-lib's ssh transport.
+//
+// `GitFetch::fetch` routes an `ssh://` remote to `git_local::fetch_ssh` (grit-lib
+// `SshTransport` + `fetch_remote`, protocol v2); `push_refs` routes one to
+// `git_local::push_ssh` (`SshTransport` + `push_remote`, protocol v0/v1). Neither
+// spawns `git` for the wire logic nor uses a `gix` transport.
+//
+// There is no real ssh server: as in grit-lib's own `transport_ssh*` tests, we
+// point ssh at a tiny "fake ssh" shell script that ignores the host and execs the
+// remote command (`git-{upload,receive}-pack '<path>'`, rewritten to the `git
+// <service>` subcommand form) *locally*. jj's production path uses
+// `SshTransport::new()`, which resolves ssh from `GIT_SSH_COMMAND`; that env var
+// is a *process global*, so setting it would race the rest of the parallel test
+// suite (and `std::env::set_var` is `unsafe` in edition 2024). This test is
+// therefore GATED behind `JJ_TEST_SSH=1` and must be run in isolation
+// (single-threaded), e.g.
+//   JJ_TEST_SSH=1 cargo test -p jj-lib --features git --test test_git \
+//       test_fetch_and_push_over_ssh -- --test-threads=1
+// It skips (returns early) when the gate is unset or `sh` is unavailable. The
+// `ssh_remote_url` / `fetch_ssh` / `push_ssh` wiring is exercised unconditionally
+// by `cargo check`; this opt-in test proves the wire round-trip end to end.
+// ---------------------------------------------------------------------------
+
+/// Write an executable fake-ssh script (mirrors grit-lib's `transport_ssh*`
+/// fixtures) and return its path, or `None` if it cannot be made executable.
+#[cfg(unix)]
+fn write_fake_ssh_script(dir: &Path) -> Option<PathBuf> {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    let script = dir.join("fake-ssh.sh");
+    let body = r#"#!/bin/sh
+# Fake ssh: ignore host/options, run the remote command locally.
+# The remote command is always the last argument.
+cmd=
+for cmd in "$@"; do :; done
+case "$cmd" in
+  "git-upload-pack "*) cmd="git upload-pack ${cmd#git-upload-pack }" ;;
+  "git-receive-pack "*) cmd="git receive-pack ${cmd#git-receive-pack }" ;;
+esac
+eval "exec $cmd" 2>/dev/null
+"#;
+    std::fs::write(&script, body).ok()?;
+    let mut perms = std::fs::metadata(&script).ok()?.permissions();
+    perms.set_mode(0o755);
+    std::fs::set_permissions(&script, perms).ok()?;
+    Some(script)
+}
+
+#[cfg(unix)]
+#[test]
+fn test_fetch_and_push_over_ssh() -> TestResult {
+    if std::env::var_os("JJ_TEST_SSH").is_none() {
+        eprintln!(
+            "SKIP: ssh fetch/push test is gated behind JJ_TEST_SSH=1 (sets the process-global \
+             GIT_SSH_COMMAND; run in isolation with --test-threads=1)"
+        );
+        return Ok(());
+    }
+    if std::process::Command::new("sh")
+        .arg("-c")
+        .arg("exit 0")
+        .status()
+        .is_err()
+    {
+        eprintln!("SKIP: no POSIX sh available");
+        return Ok(());
+    }
+
+    // A bare source repo with two branches, pushed-to and fetched-from over the
+    // fake ssh. The path is embedded in the `ssh://git@fakehost<abs-path>` URL;
+    // the fake ssh ignores the host and execs `git {upload,receive}-pack <path>`.
+    let temp_dir = testutils::new_temp_dir();
+    let source_dir = temp_dir.path().join("source.git");
+    let source = testutils::git::init_bare(&source_dir);
+    let initial = empty_git_commit(&source, "refs/heads/main", &[]);
+    let topic = empty_git_commit(&source, "refs/heads/topic", &[initial]);
+    testutils::git::set_symbolic_reference(&source, "HEAD", "refs/heads/main");
+
+    let Some(fake_ssh) = write_fake_ssh_script(temp_dir.path()) else {
+        eprintln!("SKIP: could not create executable fake-ssh script");
+        return Ok(());
+    };
+
+    // Point jj's `SshTransport::new()` (which reads GIT_SSH_COMMAND) at the fake
+    // ssh. SAFETY: not actually safe — `setenv` is not thread-safe; this test is
+    // gated behind JJ_TEST_SSH and must run single-threaded (see the module note).
+    unsafe {
+        std::env::set_var("GIT_SSH_COMMAND", fake_ssh.as_os_str());
+    }
+
+    let abs_path = source_dir.to_str().expect("utf8 path");
+    let url = format!("ssh://git@fakehost{abs_path}");
+
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let mut tx = test_repo.repo.start_transaction();
+    git::add_remote(
+        tx.repo_mut(),
+        "origin".as_ref(),
+        &url,
+        None,
+        gix::remote::fetch::Tags::All,
+    )?;
+    let _repo = tx.commit("add remote").block_on()?;
+    let repo = test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+
+    // --- FETCH over ssh --------------------------------------------------------
+    let subprocess_options = GitSubprocessOptions::from_settings(repo.settings())?;
+    let import_options = auto_track_import_options();
+    let mut tx = repo.start_transaction();
+    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options.clone(), &import_options)?;
+    fetch_all_with(&mut fetcher, "origin".as_ref())?;
+    let default_branch = fetcher.get_default_branch("origin".as_ref())?;
+    fetcher.import_refs().block_on()?;
+    let repo = tx.commit("fetch").block_on()?;
+
+    assert_eq!(default_branch, Some("main".into()));
+    let view = repo.view();
+    assert!(view.heads().contains(&jj_id(topic)));
+    assert_eq!(
+        *view.git_refs(),
+        btreemap! {
+            "refs/remotes/origin/main".into() => RefTarget::normal(jj_id(initial)),
+            "refs/remotes/origin/topic".into() => RefTarget::normal(jj_id(topic)),
+        },
+        "tracking refs for both branches must land via the ssh:// wire fetch"
+    );
+    let store = repo.store();
+    assert!(store.get_commit(&jj_id(initial)).is_ok());
+    assert!(store.get_commit(&jj_id(topic)).is_ok());
+
+    // --- PUSH over ssh ---------------------------------------------------------
+    let main_commit = store.get_commit(&jj_id(initial))?;
+    let mut tx = repo.start_transaction();
+    let child_of_main = write_random_commit_with_parents(tx.repo_mut(), &[&main_commit]);
+    tx.repo_mut().set_git_ref_target(
+        "refs/remotes/origin/main".as_ref(),
+        RefTarget::normal(main_commit.id().clone()),
+    );
+    tx.repo_mut().set_remote_bookmark(
+        remote_symbol("main", "origin"),
+        RemoteRef {
+            target: RefTarget::normal(main_commit.id().clone()),
+            state: RemoteRefState::Tracked,
+        },
+    );
+
+    let targets = GitPushRefTargets {
+        bookmarks: vec![(
+            "main".into(),
+            Diff::new(
+                Some(main_commit.id().clone()),
+                Some(child_of_main.id().clone()),
+            ),
+        )],
+        tags: vec![],
+    };
+    let stats = git::push_refs(
+        tx.repo_mut(),
+        subprocess_options,
+        "origin".as_ref(),
+        &targets,
+        &mut NullCallback,
+        &GitPushOptions::default(),
+    )?;
+    assert_eq!(
+        stats.pushed,
+        vec![GitRefNameBuf::from("refs/heads/main")],
+        "the ssh push must report main as pushed (stats: {stats:?})"
+    );
+    assert!(stats.rejected.is_empty(), "no client rejections: {stats:?}");
+    assert!(
+        stats.remote_rejected.is_empty(),
+        "no remote rejections: {stats:?}"
+    );
+
+    let pushed_oid = git_id(&child_of_main);
+    let server_repo = testutils::git::open(&source_dir);
+    let new_target = server_repo.find_reference("refs/heads/main")?;
+    assert_eq!(
+        new_target.target().id(),
+        pushed_oid,
+        "the ssh push must move the remote's refs/heads/main"
+    );
+    assert!(
+        server_repo.find_object(pushed_oid).is_ok(),
+        "the pushed object must exist in the served repo's object store"
+    );
+    let view = tx.repo().view();
+    assert_eq!(
+        *view.get_git_ref("refs/remotes/origin/main".as_ref()),
+        RefTarget::normal(child_of_main.id().clone()),
+        "the local remote-tracking ref for main must advance after the ssh push"
+    );
+
+    // Restore the environment for any subsequent tests in this process.
+    // SAFETY: same caveat as above; gated + single-threaded.
+    unsafe {
+        std::env::remove_var("GIT_SSH_COMMAND");
+    }
+
+    Ok(())
+}
