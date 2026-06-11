@@ -112,6 +112,9 @@ use crate::templater::TemplateRenderer;
 use crate::text_util;
 use crate::ui::Ui;
 
+/// Dummy filename for commit _descriptions_ in diffs.
+pub const DUMMY_DESCRIPTION_PATH: &str = "JJ-COMMIT-DESCRIPTION";
+
 #[derive(clap::Args, Clone, Debug)]
 #[command(next_help_heading = "Diff Formatting Options")]
 #[command(group(clap::ArgGroup::new("short-format").args(&["summary", "stat", "types", "name_only"])))]
@@ -478,7 +481,7 @@ impl<'a> DiffRenderer<'a> {
             .await
     }
 
-    async fn show_diff_trees(
+    pub async fn show_diff_trees(
         &self,
         ui: &Ui,
         formatter: &mut dyn Formatter,
@@ -615,7 +618,6 @@ impl<'a> DiffRenderer<'a> {
         matcher: &dyn Matcher,
         width: usize,
     ) -> Result<(), DiffRenderError> {
-        const DUMMY_DESCRIPTION_PATH: &str = "JJ-COMMIT-DESCRIPTION";
         let mut formatter = formatter.labeled("diff");
         let from_description = if from_commits.is_empty() {
             Merge::resolved("")
