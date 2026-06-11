@@ -912,10 +912,10 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
         })?;
         Ok(RevsetExpression::commit_id_prefix(prefix))
     });
-    map.insert("bookmarks", |diagnostics, function, context| {
+    map.insert("bookmarks", |diagnostics, function, _context| {
         let ([], [opt_arg]) = function.expect_arguments()?;
         let expr = if let Some(arg) = opt_arg {
-            expect_string_expression(diagnostics, arg, context)?
+            expect_string_expression(diagnostics, arg)?
         } else {
             StringExpression::all()
         };
@@ -942,10 +942,10 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
             Ok(RevsetExpression::remote_bookmarks(symbol, state))
         },
     );
-    map.insert("tags", |diagnostics, function, context| {
+    map.insert("tags", |diagnostics, function, _context| {
         let ([], [opt_arg]) = function.expect_arguments()?;
         let expr = if let Some(arg) = opt_arg {
-            expect_string_expression(diagnostics, arg, context)?
+            expect_string_expression(diagnostics, arg)?
         } else {
             StringExpression::all()
         };
@@ -1000,35 +1000,35 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
             RevsetFilterPredicate::ParentCount(2..u32::MAX),
         ))
     });
-    map.insert("description", |diagnostics, function, context| {
+    map.insert("description", |diagnostics, function, _context| {
         let [arg] = function.expect_exact_arguments()?;
-        let expr = expect_string_expression(diagnostics, arg, context)?;
+        let expr = expect_string_expression(diagnostics, arg)?;
         let predicate = RevsetFilterPredicate::Description(expr);
         Ok(RevsetExpression::filter(predicate))
     });
-    map.insert("subject", |diagnostics, function, context| {
+    map.insert("subject", |diagnostics, function, _context| {
         let [arg] = function.expect_exact_arguments()?;
-        let expr = expect_string_expression(diagnostics, arg, context)?;
+        let expr = expect_string_expression(diagnostics, arg)?;
         let predicate = RevsetFilterPredicate::Subject(expr);
         Ok(RevsetExpression::filter(predicate))
     });
-    map.insert("author", |diagnostics, function, context| {
+    map.insert("author", |diagnostics, function, _context| {
         let [arg] = function.expect_exact_arguments()?;
-        let expr = expect_string_expression(diagnostics, arg, context)?;
+        let expr = expect_string_expression(diagnostics, arg)?;
         let name_predicate = RevsetFilterPredicate::AuthorName(expr.clone());
         let email_predicate = RevsetFilterPredicate::AuthorEmail(expr);
         Ok(RevsetExpression::filter(name_predicate)
             .union(&RevsetExpression::filter(email_predicate)))
     });
-    map.insert("author_name", |diagnostics, function, context| {
+    map.insert("author_name", |diagnostics, function, _context| {
         let [arg] = function.expect_exact_arguments()?;
-        let expr = expect_string_expression(diagnostics, arg, context)?;
+        let expr = expect_string_expression(diagnostics, arg)?;
         let predicate = RevsetFilterPredicate::AuthorName(expr);
         Ok(RevsetExpression::filter(predicate))
     });
-    map.insert("author_email", |diagnostics, function, context| {
+    map.insert("author_email", |diagnostics, function, _context| {
         let [arg] = function.expect_exact_arguments()?;
-        let expr = expect_string_expression(diagnostics, arg, context)?;
+        let expr = expect_string_expression(diagnostics, arg)?;
         let predicate = RevsetFilterPredicate::AuthorEmail(expr);
         Ok(RevsetExpression::filter(predicate))
     });
@@ -1053,23 +1053,23 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
         let predicate = RevsetFilterPredicate::AuthorEmail(StringExpression::pattern(pattern));
         Ok(RevsetExpression::filter(predicate))
     });
-    map.insert("committer", |diagnostics, function, context| {
+    map.insert("committer", |diagnostics, function, _context| {
         let [arg] = function.expect_exact_arguments()?;
-        let expr = expect_string_expression(diagnostics, arg, context)?;
+        let expr = expect_string_expression(diagnostics, arg)?;
         let name_predicate = RevsetFilterPredicate::CommitterName(expr.clone());
         let email_predicate = RevsetFilterPredicate::CommitterEmail(expr);
         Ok(RevsetExpression::filter(name_predicate)
             .union(&RevsetExpression::filter(email_predicate)))
     });
-    map.insert("committer_name", |diagnostics, function, context| {
+    map.insert("committer_name", |diagnostics, function, _context| {
         let [arg] = function.expect_exact_arguments()?;
-        let expr = expect_string_expression(diagnostics, arg, context)?;
+        let expr = expect_string_expression(diagnostics, arg)?;
         let predicate = RevsetFilterPredicate::CommitterName(expr);
         Ok(RevsetExpression::filter(predicate))
     });
-    map.insert("committer_email", |diagnostics, function, context| {
+    map.insert("committer_email", |diagnostics, function, _context| {
         let [arg] = function.expect_exact_arguments()?;
-        let expr = expect_string_expression(diagnostics, arg, context)?;
+        let expr = expect_string_expression(diagnostics, arg)?;
         let predicate = RevsetFilterPredicate::CommitterEmail(expr);
         Ok(RevsetExpression::filter(predicate))
     });
@@ -1104,7 +1104,7 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
             ));
         }
         let ([text_arg], [files_opt_arg]) = function.expect_arguments()?;
-        let text = expect_string_expression(diagnostics, text_arg, context)?;
+        let text = expect_string_expression(diagnostics, text_arg)?;
         let files = expand_optional_files_arg(files_opt_arg, diagnostics, context)?;
         let predicate = RevsetFilterPredicate::DiffLines {
             text,
@@ -1115,7 +1115,7 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
     });
     map.insert("diff_lines_added", |diagnostics, function, context| {
         let ([text_arg], [files_opt_arg]) = function.expect_arguments()?;
-        let text = expect_string_expression(diagnostics, text_arg, context)?;
+        let text = expect_string_expression(diagnostics, text_arg)?;
         let files = expand_optional_files_arg(files_opt_arg, diagnostics, context)?;
         let predicate = RevsetFilterPredicate::DiffLines {
             text,
@@ -1126,7 +1126,7 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
     });
     map.insert("diff_lines_removed", |diagnostics, function, context| {
         let ([text_arg], [files_opt_arg]) = function.expect_arguments()?;
-        let text = expect_string_expression(diagnostics, text_arg, context)?;
+        let text = expect_string_expression(diagnostics, text_arg)?;
         let files = expand_optional_files_arg(files_opt_arg, diagnostics, context)?;
         let predicate = RevsetFilterPredicate::DiffLines {
             text,
@@ -1219,29 +1219,18 @@ pub fn expect_fileset_expression(
 pub fn expect_string_expression(
     diagnostics: &mut RevsetDiagnostics,
     node: &ExpressionNode,
-    _context: &LoweringContext,
-) -> Result<StringExpression, RevsetParseError> {
-    let default_kind = "glob";
-    expect_string_expression_inner(diagnostics, node, default_kind)
-}
-
-fn expect_string_expression_inner(
-    diagnostics: &mut RevsetDiagnostics,
-    node: &ExpressionNode,
-    // TODO: remove this parameter with ui.revsets-use-glob-by-default
-    default_kind: &str,
 ) -> Result<StringExpression, RevsetParseError> {
     revset_parser::catch_aliases(diagnostics, node, |diagnostics, node| {
         let expr_error = || RevsetParseError::expression("Invalid string expression", node.span);
         let pattern_error = || RevsetParseError::expression("Invalid string pattern", node.span);
-        let default_pattern = |diagnostics: &mut RevsetDiagnostics, value: &str| {
-            let pattern = StringPattern::from_str_kind(value, default_kind)
-                .map_err(|err| pattern_error().with_source(err))?;
+        let default_pattern = |value: &str| {
+            let pattern =
+                StringPattern::glob(value).map_err(|err| pattern_error().with_source(err))?;
             Ok(StringExpression::pattern(pattern))
         };
         match &node.kind {
-            ExpressionKind::Identifier(value) => default_pattern(diagnostics, value),
-            ExpressionKind::String(value) => default_pattern(diagnostics, value),
+            ExpressionKind::Identifier(value) => default_pattern(value),
+            ExpressionKind::String(value) => default_pattern(value),
             ExpressionKind::Pattern(pattern) => {
                 let value = revset_parser::expect_string_literal("string", &pattern.value)?;
                 let pattern = StringPattern::from_str_kind(value, pattern.name)
@@ -1254,7 +1243,7 @@ fn expect_string_expression_inner(
             | ExpressionKind::DagRangeAll
             | ExpressionKind::RangeAll => Err(expr_error()),
             ExpressionKind::Unary(op, arg_node) => {
-                let arg = expect_string_expression_inner(diagnostics, arg_node, default_kind)?;
+                let arg = expect_string_expression(diagnostics, arg_node)?;
                 match op {
                     UnaryOp::Negate => Ok(arg.negated()),
                     UnaryOp::DagRangePre
@@ -1266,8 +1255,8 @@ fn expect_string_expression_inner(
                 }
             }
             ExpressionKind::Binary(op, lhs_node, rhs_node) => {
-                let lhs = expect_string_expression_inner(diagnostics, lhs_node, default_kind)?;
-                let rhs = expect_string_expression_inner(diagnostics, rhs_node, default_kind)?;
+                let lhs = expect_string_expression(diagnostics, lhs_node)?;
+                let rhs = expect_string_expression(diagnostics, rhs_node)?;
                 match op {
                     BinaryOp::Intersection => Ok(lhs.intersection(rhs)),
                     BinaryOp::Difference => Ok(lhs.intersection(rhs.negated())),
@@ -1277,7 +1266,7 @@ fn expect_string_expression_inner(
             ExpressionKind::UnionAll(nodes) => {
                 let expressions = nodes
                     .iter()
-                    .map(|node| expect_string_expression_inner(diagnostics, node, default_kind))
+                    .map(|node| expect_string_expression(diagnostics, node))
                     .try_collect()?;
                 Ok(StringExpression::union_all(expressions))
             }
@@ -1310,12 +1299,12 @@ fn parse_remote_refs_arguments(
 ) -> Result<RemoteRefSymbolExpression, RevsetParseError> {
     let ([], [name_opt_arg, remote_opt_arg]) = function.expect_named_arguments(&["", "remote"])?;
     let name = if let Some(name_arg) = name_opt_arg {
-        expect_string_expression(diagnostics, name_arg, context)?
+        expect_string_expression(diagnostics, name_arg)?
     } else {
         StringExpression::all()
     };
     let remote = if let Some(remote_arg) = remote_opt_arg {
-        expect_string_expression(diagnostics, remote_arg, context)?
+        expect_string_expression(diagnostics, remote_arg)?
     } else if let Some(remote) = context.default_ignored_remote {
         StringExpression::exact(remote).negated()
     } else {
@@ -1431,8 +1420,7 @@ pub fn parse_string_expression(
     text: &str,
 ) -> Result<StringExpression, RevsetParseError> {
     let node = parse_program(text)?;
-    let default_kind = "glob";
-    expect_string_expression_inner(diagnostics, &node, default_kind)
+    expect_string_expression(diagnostics, &node)
 }
 
 /// Constructs binary tree from `expressions` list, `unit` node, and associative
