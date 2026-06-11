@@ -3041,46 +3041,72 @@ impl<'a> GitFetch<'a> {
             return Ok(());
         }
 
-        // NOTE: LOCAL (file://) fetches could be routed in-process through
-        // `crate::git_local::fetch_local` here (see `get_default_branch` below,
-        // which already does so for the remote default branch). It is left on the
-        // subprocess path for now because grit-lib's `fetch_local` does not yet
-        // (a) consult the remote's configured tag policy when jj passes no
-        // explicit `fetch_tags` override (so a remote configured with
-        // `tags = All` is not honored), or (b) classify a conflicting tag update
-        // as a clean rejection (it currently errors when the local tag points at
-        // an object the remote lacks). Branch fetching works; once the tag gaps
-        // land in grit-lib the translation helper is ready to adopt.
+        // LOCAL (file://) fetches run in-process through grit-lib instead of a
+        // `git` subprocess. Shallow (depth) fetches stay on the subprocess path,
+        // which grit-lib's `fetch_local` does not yet implement.
+        let local_remote = if depth.is_none() {
+            self.git_repo
+                .try_find_remote(remote_name.as_str())
+                .and_then(|r| r.ok())
+                .and_then(|remote| {
+                    crate::git_local::local_remote_git_dir(&remote, gix::remote::Direction::Fetch)
+                        .map(|dir| (dir, remote.fetch_tags()))
+                })
+        } else {
+            None
+        };
 
         let mut branches_to_prune = Vec::new();
-        // git unfortunately errors out if one of the many refspecs is not found
-        //
-        // our approach is to filter out failures and retry,
-        // until either all have failed or an attempt has succeeded
-        //
-        // even more unfortunately, git errors out one refspec at a time,
-        // meaning that the below cycle runs in O(#failed refspecs)
-        let updates = loop {
-            let status = self.git_ctx.spawn_fetch(
-                remote_name,
+        let updates = if let Some((remote_git_dir, configured_tags)) = local_remote {
+            let local_git_dir = self.git_repo.git_dir().to_path_buf();
+            match crate::git_local::fetch_local(
+                &local_git_dir,
+                &remote_git_dir,
                 &remaining_refspecs,
                 &negative_refspecs,
-                callback,
-                depth,
+                // The subprocess path always fetches with `--prune`; mirror that.
+                true,
                 fetch_tags_override,
-            )?;
-            let failing_refspec = match status {
-                GitFetchStatus::Updates(updates) => break updates,
-                GitFetchStatus::NoRemoteRef(failing_refspec) => failing_refspec,
-            };
-            tracing::debug!(failing_refspec, "failed to fetch ref");
-            remaining_refspecs.retain(|r| r.source.as_ref() != Some(&failing_refspec));
+                configured_tags,
+            )
+            .map_err(|err| {
+                GitFetchError::Subprocess(GitSubprocessError::External(err.to_string()))
+            })? {
+                GitFetchStatus::Updates(updates) => updates,
+                // A refspec that matches no remote ref simply yields no update
+                // for the local path (no subprocess error to recover from).
+                GitFetchStatus::NoRemoteRef(_) => crate::git_subprocess::GitRefUpdates::default(),
+            }
+        } else {
+            // git unfortunately errors out if one of the many refspecs is not found
+            //
+            // our approach is to filter out failures and retry,
+            // until either all have failed or an attempt has succeeded
+            //
+            // even more unfortunately, git errors out one refspec at a time,
+            // meaning that the below cycle runs in O(#failed refspecs)
+            loop {
+                let status = self.git_ctx.spawn_fetch(
+                    remote_name,
+                    &remaining_refspecs,
+                    &negative_refspecs,
+                    callback,
+                    depth,
+                    fetch_tags_override,
+                )?;
+                let failing_refspec = match status {
+                    GitFetchStatus::Updates(updates) => break updates,
+                    GitFetchStatus::NoRemoteRef(failing_refspec) => failing_refspec,
+                };
+                tracing::debug!(failing_refspec, "failed to fetch ref");
+                remaining_refspecs.retain(|r| r.source.as_ref() != Some(&failing_refspec));
 
-            if let Some(branch_name) = failing_refspec.strip_prefix("refs/heads/") {
-                branches_to_prune.push(format!(
-                    "{remote_name}/{branch_name}",
-                    remote_name = remote_name.as_str()
-                ));
+                if let Some(branch_name) = failing_refspec.strip_prefix("refs/heads/") {
+                    branches_to_prune.push(format!(
+                        "{remote_name}/{branch_name}",
+                        remote_name = remote_name.as_str()
+                    ));
+                }
             }
         };
 
@@ -3376,16 +3402,42 @@ pub fn push_updates(
         .map(|full_refspec| RefToPush::new(full_refspec, &qualified_remote_refs_expected_locations))
         .collect();
 
-    // NOTE: the LOCAL (file://) push path could be routed in-process through
-    // `crate::git_local::push_local` here, mirroring the local fetch path. It is
-    // intentionally left on the subprocess path for now: grit-lib's
-    // `push_local` does not yet (a) update the local clone's remote-tracking
-    // refs as a side effect of a successful push, (b) honor the
-    // compare-and-swap "up to date is OK even if the lease expectation differs"
-    // ordering that `git push --force-with-lease` uses, or (c) carry
-    // `--push-option` values. Until those land in grit-lib, push stays on the
-    // subprocess path. The translation helper is ready to adopt when they do.
-    let mut push_stats = git_ctx.spawn_push(remote_name, &refs_to_push, callback, options)?;
+    // LOCAL (file://) pushes run in-process through grit-lib. Pushes carrying
+    // `--push-option` values stay on the subprocess path: those must be forwarded
+    // to the remote's receive hooks (via `GIT_PUSH_OPTION_*`), which the
+    // in-process path does not run.
+    let local_push = if options.remote_push_options.is_empty() {
+        git_repo
+            .try_find_remote(remote_name.as_str())
+            .and_then(|r| r.ok())
+            .and_then(|remote| {
+                crate::git_local::local_remote_git_dir(&remote, gix::remote::Direction::Push).map(
+                    |dir| {
+                        // Git updates a remote-tracking ref after a push only when
+                        // a fetch refspec maps the pushed branch; capture them so
+                        // the in-process path mirrors that.
+                        let fetch_refspecs: Vec<String> = remote
+                            .refspecs(gix::remote::Direction::Fetch)
+                            .iter()
+                            .map(|spec| spec.to_ref().to_bstring().to_string())
+                            .collect();
+                        (dir, fetch_refspecs)
+                    },
+                )
+            })
+    } else {
+        None
+    };
+
+    let mut push_stats = if let Some((remote_git_dir, fetch_refspecs)) = local_push {
+        let local_git_dir = git_repo.git_dir().to_path_buf();
+        crate::git_local::push_local(&local_git_dir, &remote_git_dir, &refs_to_push, &fetch_refspecs)
+            .map_err(|err| {
+                GitPushError::Subprocess(GitSubprocessError::External(err.to_string()))
+            })?
+    } else {
+        git_ctx.spawn_push(remote_name, &refs_to_push, callback, options)?
+    };
     push_stats.pushed.sort();
     push_stats.rejected.sort();
     push_stats.remote_rejected.sort();

@@ -20,7 +20,7 @@
 //! `http(s)`, and `ssh` remotes stay on jj's existing subprocess / `gix` path
 //! (see [`crate::git_subprocess`]). The functions here translate between jj's
 //! production types ([`RefSpec`], [`GitFetchStatus`] / [`GitRefUpdates`],
-//! [`GitPushStats`], [`RefToPush`], [`RemoteName`]) and the `grit-lib`
+//! [`GitPushStats`], [`RefToPush`], `RemoteName`) and the `grit-lib`
 //! `transfer` / `gc` APIs, so the orchestration in [`crate::git`] can adopt them
 //! for local remotes without otherwise changing shape.
 
@@ -119,15 +119,20 @@ fn null_gix_oid_like(sample: &gix::oid) -> gix::ObjectId {
     gix::ObjectId::null(sample.kind())
 }
 
-/// Translate jj's [`FetchTagsOverride`] plus the default behaviour into a
-/// grit-lib [`TagMode`].
-fn tag_mode(fetch_tags: Option<FetchTagsOverride>) -> TagMode {
+/// Translate jj's [`FetchTagsOverride`] into a grit-lib [`TagMode`]. With no
+/// explicit override, fall back to the remote's configured tag policy
+/// (`remote.<name>.tagOpt`), exactly as the subprocess path lets `git fetch`
+/// consult it.
+fn tag_mode(fetch_tags: Option<FetchTagsOverride>, configured: gix::remote::fetch::Tags) -> TagMode {
     match fetch_tags {
         Some(FetchTagsOverride::AllTags) => TagMode::All,
         Some(FetchTagsOverride::NoTags) => TagMode::None,
-        // jj's default fetch follows tags pointing at fetched objects, matching
-        // Git's `--tags`-less default.
-        None => TagMode::Following,
+        None => match configured {
+            gix::remote::fetch::Tags::All => TagMode::All,
+            gix::remote::fetch::Tags::None => TagMode::None,
+            // Git's default: follow tags pointing at fetched objects.
+            gix::remote::fetch::Tags::Included => TagMode::Following,
+        },
     }
 }
 
@@ -140,12 +145,9 @@ fn tag_mode(fetch_tags: Option<FetchTagsOverride>) -> TagMode {
 /// [`GitRefUpdates`], the same result type the subprocess path produces, so
 /// callers in [`crate::git`] do not branch on the transport.
 ///
-/// Adopt-ready but not yet wired into [`crate::git::GitFetch::fetch`]: see the
-/// note there. grit-lib's `fetch_local` does not yet honor a remote's configured
-/// tag policy for the default (no-override) case, nor classify conflicting tag
-/// updates as clean rejections, so local fetch stays on the subprocess path
-/// until those land. Branch fetching through this helper is correct.
-#[expect(dead_code)]
+/// Wired into [`crate::git::GitFetch::fetch`] for local remotes (shallow/`depth`
+/// fetches still use the subprocess path). `configured_tags` is the remote's
+/// `tagOpt` policy, consulted when no explicit `fetch_tags` override is given.
 pub(crate) fn fetch_local(
     local_git_dir: &Path,
     remote_git_dir: &Path,
@@ -153,6 +155,7 @@ pub(crate) fn fetch_local(
     negative_refspecs: &[NegativeRefSpec],
     prune: bool,
     fetch_tags: Option<FetchTagsOverride>,
+    configured_tags: gix::remote::fetch::Tags,
 ) -> Result<GitFetchStatus, GitLocalError> {
     if refspecs.is_empty() {
         return Ok(GitFetchStatus::Updates(GitRefUpdates::default()));
@@ -161,7 +164,7 @@ pub(crate) fn fetch_local(
     let opts = FetchOptions {
         refspecs: refspecs.iter().map(|r| r.to_git_format()).collect(),
         negative_refspecs: negative_refspecs.iter().map(|r| r.to_git_format()).collect(),
-        tags: tag_mode(fetch_tags),
+        tags: tag_mode(fetch_tags, configured_tags),
         prune,
         dry_run: false,
     };
@@ -230,16 +233,16 @@ fn fetch_outcome_to_status(outcome: FetchOutcome) -> Result<GitFetchStatus, GitL
 /// [`grit_lib::transfer::PushOutcome`] is translated back into jj's
 /// [`GitPushStats`].
 ///
-/// Adopt-ready but not yet wired into [`crate::git::push_updates`]: see the note
-/// there. grit-lib's `push_local` does not yet update the local clone's
-/// remote-tracking refs, honor the force-with-lease "up-to-date is OK" ordering,
-/// or carry `--push-option` values, so local push stays on the subprocess path
-/// until those land.
-#[expect(dead_code)]
+/// On a successful push, Git updates the local clone's remote-tracking ref for
+/// the pushed branch (`refs/heads/<b>` → `refs/remotes/<remote>/<b>`); this
+/// helper mirrors that so jj's import sees the same state as a subprocess push.
+/// `--push-option` forwarding to remote hooks is not handled here: callers route
+/// pushes that carry push options to the subprocess path.
 pub(crate) fn push_local(
     local_git_dir: &Path,
     remote_git_dir: &Path,
     references: &[RefToPush],
+    fetch_refspecs: &[String],
 ) -> Result<GitPushStats, GitLocalError> {
     let mut specs: Vec<PushRefSpec> = Vec::with_capacity(references.len());
     for r in references {
@@ -254,10 +257,26 @@ pub(crate) fn push_local(
     )?;
 
     let mut stats = GitPushStats::default();
+    let mut tracking_updates: Vec<grit_lib::gc::RefTransactionItem> = Vec::new();
     for result in &outcome.results {
         let name: GitRefNameBuf = result.remote_ref.as_str().into();
         match result.status {
-            PushRefStatus::Ok | PushRefStatus::UpToDate => stats.pushed.push(name),
+            PushRefStatus::Ok | PushRefStatus::UpToDate => {
+                // Update the local clone's remote-tracking ref for a pushed
+                // branch, but only when a fetch refspec maps it — exactly as Git
+                // does after a push (a remote with a narrow fetch refspec leaves
+                // unmapped tracking refs untouched).
+                if let Some(tracking) = mapped_tracking_ref(&result.remote_ref, fetch_refspecs) {
+                    tracking_updates.push(grit_lib::gc::RefTransactionItem {
+                        name: tracking,
+                        // Deletion clears the tracking ref; otherwise point it at
+                        // the just-pushed object.
+                        new_oid: if result.deletion { None } else { result.new_oid },
+                        expected_old: None,
+                    });
+                }
+                stats.pushed.push(name);
+            }
             // Client-side rejections (lease / non-fast-forward / needs-force).
             PushRefStatus::RejectStale
             | PushRefStatus::RejectNonFastForward
@@ -273,7 +292,44 @@ pub(crate) fn push_local(
             }
         }
     }
+
+    if !tracking_updates.is_empty() {
+        grit_lib::gc::update_refs(local_git_dir, &tracking_updates)?;
+    }
     Ok(stats)
+}
+
+/// Map a just-pushed ref (e.g. `refs/heads/main`) to the local remote-tracking
+/// ref a fetch refspec would place it under (e.g. `refs/remotes/origin/main`),
+/// or `None` when no fetch refspec maps it. This mirrors Git updating only the
+/// tracking refs covered by the remote's fetch refspecs after a push.
+fn mapped_tracking_ref(pushed_ref: &str, fetch_refspecs: &[String]) -> Option<String> {
+    for spec in fetch_refspecs {
+        let body = spec.strip_prefix('+').unwrap_or(spec);
+        let Some((src, dst)) = body.split_once(':') else {
+            continue;
+        };
+        if dst.is_empty() {
+            continue;
+        }
+        if let Some(star) = src.find('*') {
+            // Wildcard refspec: match the fixed prefix/suffix and substitute the
+            // captured segment into the destination's `*`.
+            let (prefix, suffix) = (&src[..star], &src[star + 1..]);
+            if pushed_ref.len() >= prefix.len() + suffix.len()
+                && pushed_ref.starts_with(prefix)
+                && pushed_ref.ends_with(suffix)
+            {
+                let middle = &pushed_ref[prefix.len()..pushed_ref.len() - suffix.len()];
+                if let Some(dstar) = dst.find('*') {
+                    return Some(format!("{}{}{}", &dst[..dstar], middle, &dst[dstar + 1..]));
+                }
+            }
+        } else if src == pushed_ref {
+            return Some(dst.to_owned());
+        }
+    }
+    None
 }
 
 /// Build a grit-lib [`PushRefSpec`] from a jj [`RefToPush`].
@@ -285,9 +341,11 @@ fn ref_to_push_spec(r: &RefToPush) -> Result<PushRefSpec, GitLocalError> {
         Some(s) => Some(resolve_source_oid(s)?),
         None => None,
     };
-    // force-with-lease: the expected current value of the remote ref. `None`
-    // (absent expected location) disables the CAS check, as in the subprocess
-    // `--force-with-lease=<ref>:` form.
+    // force-with-lease: jj always pushes with a lease equal to its view of the
+    // remote ref. `Some(oid)` expects that value; `None` expects the ref to be
+    // *absent* (jj has no remote-tracking entry for it). The subprocess path
+    // expresses these as `--force-with-lease=<ref>:<oid>` and `=<ref>:` (empty,
+    // i.e. must not exist) respectively.
     let expected_old = match r.expected_location {
         Some(oid) => Some(to_grit_oid(oid)?),
         None => None,
@@ -298,6 +356,7 @@ fn ref_to_push_spec(r: &RefToPush) -> Result<PushRefSpec, GitLocalError> {
         force: spec.is_forced(),
         delete,
         expected_old,
+        expect_absent: r.expected_location.is_none(),
     })
 }
 

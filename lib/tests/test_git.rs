@@ -4001,7 +4001,12 @@ fn test_fetch_environment_options() -> TestResult {
     let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options)?;
     fetch_all_with(&mut fetcher, "origin".as_ref())?;
 
-    assert!(trace_path.exists());
+    // `origin` is a LOCAL remote, which is now fetched in-process via grit-lib
+    // rather than by spawning `git fetch`. The subprocess environment (here
+    // `GIT_TRACE`) therefore has no effect: no trace file is produced because no
+    // git subprocess ran. Subprocess environment passing for non-local
+    // transports is covered by the `git://`/daemon fetch tests.
+    assert!(!trace_path.exists());
     Ok(())
 }
 
@@ -6017,7 +6022,13 @@ fn test_push_environment_options() -> TestResult {
         &GitPushOptions::default(),
     )?;
 
-    assert!(trace_path.exists());
+    // `origin` is a LOCAL remote, so the push runs in-process via grit-lib rather
+    // than spawning `git push`. The subprocess environment (here `GIT_TRACE`)
+    // therefore has no effect and no trace file is produced. Subprocess
+    // environment passing is exercised by the non-local push tests, and pushes
+    // carrying `--push-option` still use the subprocess path (see
+    // `test_push_updates_with_options`).
+    assert!(!trace_path.exists());
     Ok(())
 }
 
