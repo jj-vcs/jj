@@ -3056,6 +3056,21 @@ impl<'a> GitFetch<'a> {
             None
         };
 
+        // Anonymous `git://` (Git-daemon) fetches also run in-process through
+        // grit-lib's wire transport (TCP pkt-line, no subprocess). Same depth
+        // restriction as the local path (v0/v1, whole-history only).
+        let git_daemon_remote = if depth.is_none() && local_remote.is_none() {
+            self.git_repo
+                .try_find_remote(remote_name.as_str())
+                .and_then(|r| r.ok())
+                .and_then(|remote| {
+                    crate::git_local::git_daemon_remote_url(&remote, gix::remote::Direction::Fetch)
+                        .map(|url| (url, remote.fetch_tags()))
+                })
+        } else {
+            None
+        };
+
         let mut branches_to_prune = Vec::new();
         let updates = if let Some((remote_git_dir, configured_tags)) = local_remote {
             let local_git_dir = self.git_repo.git_dir().to_path_buf();
@@ -3075,6 +3090,24 @@ impl<'a> GitFetch<'a> {
                 GitFetchStatus::Updates(updates) => updates,
                 // A refspec that matches no remote ref simply yields no update
                 // for the local path (no subprocess error to recover from).
+                GitFetchStatus::NoRemoteRef(_) => crate::git_subprocess::GitRefUpdates::default(),
+            }
+        } else if let Some((remote_url, configured_tags)) = git_daemon_remote {
+            let local_git_dir = self.git_repo.git_dir().to_path_buf();
+            match crate::git_local::fetch_git_daemon(
+                &local_git_dir,
+                &remote_url,
+                &remaining_refspecs,
+                &negative_refspecs,
+                // The subprocess path always fetches with `--prune`; mirror that.
+                true,
+                fetch_tags_override,
+                configured_tags,
+            )
+            .map_err(|err| {
+                GitFetchError::Subprocess(GitSubprocessError::External(err.to_string()))
+            })? {
+                GitFetchStatus::Updates(updates) => updates,
                 GitFetchStatus::NoRemoteRef(_) => crate::git_subprocess::GitRefUpdates::default(),
             }
         } else {

@@ -2100,6 +2100,7 @@ dependencies = [
  "regex",
  "sha1",
  "sha2",
+ "shell-words",
  "similar",
  "tempfile",
  "thiserror 2.0.18",

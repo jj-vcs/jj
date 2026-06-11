@@ -16,13 +16,14 @@
 //! remotes, backed by `grit-lib` instead of a `git` subprocess or `gix`
 //! transport.
 //!
-//! Scope: this module covers ONLY the local object+ref copy path. `git://`,
-//! `http(s)`, and `ssh` remotes stay on jj's existing subprocess / `gix` path
-//! (see [`crate::git_subprocess`]). The functions here translate between jj's
-//! production types ([`RefSpec`], [`GitFetchStatus`] / [`GitRefUpdates`],
-//! [`GitPushStats`], [`RefToPush`], `RemoteName`) and the `grit-lib`
-//! `transfer` / `gc` APIs, so the orchestration in [`crate::git`] can adopt them
-//! for local remotes without otherwise changing shape.
+//! Scope: this module covers the local object+ref copy path (`file://` and plain
+//! paths) plus an in-process `git://` (anonymous Git-daemon) FETCH path, both
+//! backed by `grit-lib`. `http(s)` and `ssh` remotes stay on jj's existing
+//! subprocess / `gix` path (see [`crate::git_subprocess`]). The functions here
+//! translate between jj's production types ([`RefSpec`], [`GitFetchStatus`] /
+//! [`GitRefUpdates`], [`GitPushStats`], [`RefToPush`], `RemoteName`) and the
+//! `grit-lib` `transfer` / `fetch` / `gc` APIs, so the orchestration in
+//! [`crate::git`] can adopt them without otherwise changing shape.
 
 use std::path::Path;
 use std::path::PathBuf;
@@ -37,6 +38,11 @@ use grit_lib::transfer::PushRefSpec;
 use grit_lib::transfer::TagMode;
 use grit_lib::transfer::UpdateMode;
 use grit_lib::push_report::PushRefStatus;
+use grit_lib::transport::ConnectOptions;
+use grit_lib::transport::GitDaemonTransport;
+use grit_lib::transport::Service;
+use grit_lib::transport::Transport as _;
+use grit_lib::fetch::NoProgress;
 use thiserror::Error;
 
 use crate::git::FetchTagsOverride;
@@ -88,6 +94,28 @@ pub(crate) fn local_remote_git_dir(
     let raw = url.path.to_str().ok()?;
     let path = PathBuf::from(raw);
     Some(resolve_git_dir(&path))
+}
+
+/// If `remote` is an anonymous `git://` (Git-daemon) remote, return its URL
+/// string in the form `grit_lib::transport::parse_git_url` accepts
+/// (`git://host[:port]/path`). Returns `None` for every other scheme, which stay
+/// on jj's subprocess / `gix` transport path.
+///
+/// This is the `git://` analogue of [`local_remote_git_dir`]; only the FETCH
+/// direction is wired in-process (push over `git://` stays on the subprocess
+/// path).
+pub(crate) fn git_daemon_remote_url(
+    remote: &gix::Remote,
+    direction: gix::remote::Direction,
+) -> Option<String> {
+    let url = remote.url(direction)?;
+    if url.scheme != gix::url::Scheme::Git {
+        return None;
+    }
+    // `to_bstring` reproduces the canonical `git://host[:port]/path` form, which
+    // `parse_git_url` parses; require valid UTF-8 (Git daemon URLs always are).
+    let s = url.to_bstring();
+    s.to_str().ok().map(|s| s.to_owned())
 }
 
 /// Whether the remote at `remote_git_dir` has any receive hook installed
@@ -196,6 +224,51 @@ pub(crate) fn fetch_local(
     };
 
     let outcome = grit_lib::transfer::fetch_local(local_git_dir, remote_git_dir, &opts)?;
+    fetch_outcome_to_status(outcome)
+}
+
+/// Fetch from an anonymous `git://` (Git-daemon) remote entirely in process,
+/// over a TCP pkt-line connection, with no `git` subprocess and no `gix`
+/// transport.
+///
+/// This mirrors [`fetch_local`] but drives the wire protocol:
+/// [`grit_lib::transport::GitDaemonTransport`] connects and reads the
+/// advertisement, then [`grit_lib::fetch::fetch_remote`] runs the want/have
+/// negotiation, ingests the pack, and writes the tracking refs. The returned
+/// [`FetchOutcome`] has the same shape as the local path, so
+/// [`fetch_outcome_to_status`] converts it identically.
+///
+/// Only protocol v0/v1 is supported (matching the grit-lib phase-1 wire fetch);
+/// shallow/`depth` fetches stay on the subprocess path.
+pub(crate) fn fetch_git_daemon(
+    local_git_dir: &Path,
+    remote_url: &str,
+    refspecs: &[RefSpec],
+    negative_refspecs: &[NegativeRefSpec],
+    prune: bool,
+    fetch_tags: Option<FetchTagsOverride>,
+    configured_tags: gix::remote::fetch::Tags,
+) -> Result<GitFetchStatus, GitLocalError> {
+    if refspecs.is_empty() {
+        return Ok(GitFetchStatus::Updates(GitRefUpdates::default()));
+    }
+
+    let opts = FetchOptions {
+        refspecs: refspecs.iter().map(|r| r.to_git_format()).collect(),
+        negative_refspecs: negative_refspecs.iter().map(|r| r.to_git_format()).collect(),
+        tags: tag_mode(fetch_tags, configured_tags),
+        prune,
+        dry_run: false,
+    };
+
+    // Connect to the daemon and read the v0/v1 advertisement. Request protocol
+    // v0 (the classic advertisement); fetch_remote rejects v2.
+    let transport = GitDaemonTransport::new();
+    let mut conn = transport.connect(remote_url, Service::UploadPack, &ConnectOptions::default())?;
+
+    let mut progress = NoProgress;
+    let outcome =
+        grit_lib::fetch::fetch_remote(local_git_dir, conn.as_mut(), &opts, &mut progress)?;
     fetch_outcome_to_status(outcome)
 }
 

@@ -6936,3 +6936,142 @@ fn test_remote_name_validation() -> TestResult {
 
     Ok(())
 }
+
+// ---------------------------------------------------------------------------
+// `git://` (anonymous Git-daemon) FETCH through grit-lib's wire transport.
+//
+// `GitFetch::fetch` now routes a `git://` remote to
+// `git_local::fetch_git_daemon`, which connects over TCP with
+// `grit_lib::transport::GitDaemonTransport` and runs the want/have negotiation
+// with `grit_lib::fetch::fetch_remote` — no `git` subprocess and no `gix`
+// transport for the fetch itself. The only external dependency is the server
+// fixture (`git daemon`), exactly like grit-lib's own transport tests; the test
+// skips gracefully when it is unavailable.
+// ---------------------------------------------------------------------------
+
+/// Pick a currently-free localhost port by binding then dropping a listener.
+fn git_daemon_free_port() -> Option<u16> {
+    let l = std::net::TcpListener::bind(("127.0.0.1", 0)).ok()?;
+    let p = l.local_addr().ok()?.port();
+    drop(l);
+    Some(p)
+}
+
+/// Spawn `git daemon` over `base_path` on `port`. Returns `None` if the binary
+/// is missing or cannot be spawned.
+fn spawn_git_daemon(base_path: &Path, port: u16) -> Option<std::process::Child> {
+    std::process::Command::new("git")
+        .arg("daemon")
+        .arg("--listen=127.0.0.1")
+        .arg(format!("--port={port}"))
+        .arg("--reuseaddr")
+        .arg("--export-all")
+        .arg(format!("--base-path={}", base_path.display()))
+        .arg(base_path)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .ok()
+}
+
+/// Wait until the daemon answers a TCP connect on `port`, or time out.
+fn git_daemon_wait_ready(port: u16) -> bool {
+    let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while std::time::Instant::now() < deadline {
+        if std::net::TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(200)).is_ok()
+        {
+            return true;
+        }
+        thread::sleep(std::time::Duration::from_millis(50));
+    }
+    false
+}
+
+struct GitDaemonGuard(std::process::Child);
+impl Drop for GitDaemonGuard {
+    fn drop(&mut self) {
+        let _unused_kill = self.0.kill();
+        let _unused = self.0.wait();
+    }
+}
+
+#[test]
+fn test_fetch_over_git_daemon() -> TestResult {
+    // A bare source repo, served directly at `git://127.0.0.1:<port>/source.git`.
+    let temp_dir = testutils::new_temp_dir();
+    let base = temp_dir.path();
+    let source_dir = base.join("source.git");
+    let source = testutils::git::init_bare(&source_dir);
+    let initial = empty_git_commit(&source, "refs/heads/main", &[]);
+    let topic = empty_git_commit(&source, "refs/heads/topic", &[initial]);
+    testutils::git::set_symbolic_reference(&source, "HEAD", "refs/heads/main");
+
+    let Some(port) = git_daemon_free_port() else {
+        eprintln!("SKIP: could not find a free port for git daemon");
+        return Ok(());
+    };
+    let Some(child) = spawn_git_daemon(base, port) else {
+        eprintln!("SKIP: `git daemon` is unavailable");
+        return Ok(());
+    };
+    let _guard = GitDaemonGuard(child);
+    if !git_daemon_wait_ready(port) {
+        eprintln!("SKIP: git daemon did not become ready on port {port}");
+        return Ok(());
+    }
+
+    // A jj repo whose `origin` remote is the anonymous `git://` URL.
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let url = format!("git://127.0.0.1:{port}/source.git");
+
+    let mut tx = test_repo.repo.start_transaction();
+    git::add_remote(
+        tx.repo_mut(),
+        "origin".as_ref(),
+        &url,
+        None,
+        gix::remote::fetch::Tags::All,
+    )?;
+    let _repo = tx.commit("add remote").block_on()?;
+    // Reload after the Git config change so the remote is visible.
+    let repo = test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+
+    // Fetch through the public GitFetch API. With a `git://` remote and no depth,
+    // this dispatches to git_local::fetch_git_daemon (grit-lib wire transport).
+    let subprocess_options = GitSubprocessOptions::from_settings(repo.settings())?;
+    let import_options = auto_track_import_options();
+    let mut tx = repo.start_transaction();
+    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options)?;
+    fetch_all_with(&mut fetcher, "origin".as_ref())?;
+    let default_branch = fetcher.get_default_branch("origin".as_ref())?;
+    fetcher.import_refs().block_on()?;
+    let repo = tx.commit("fetch").block_on()?;
+
+    // The daemon advertised HEAD -> refs/heads/main.
+    assert_eq!(default_branch, Some("main".into()));
+
+    let view = repo.view();
+    // Both branches' tips are now visible in the jj repo.
+    assert!(view.heads().contains(&jj_id(topic)));
+    let main_target = RefTarget::normal(jj_id(initial));
+    let topic_target = RefTarget::normal(jj_id(topic));
+    assert_eq!(
+        *view.git_refs(),
+        btreemap! {
+            "refs/remotes/origin/main".into() => main_target.clone(),
+            "refs/remotes/origin/topic".into() => topic_target.clone(),
+        },
+        "tracking refs for both branches must land via the git:// wire fetch"
+    );
+
+    // The objects are present in the local object store (the pack was ingested),
+    // so the commits resolve through the backend.
+    let store = repo.store();
+    assert!(store.get_commit(&jj_id(initial)).is_ok());
+    assert!(store.get_commit(&jj_id(topic)).is_ok());
+
+    Ok(())
+}
