@@ -238,8 +238,9 @@ pub(crate) fn fetch_local(
 /// [`FetchOutcome`] has the same shape as the local path, so
 /// [`fetch_outcome_to_status`] converts it identically.
 ///
-/// Only protocol v0/v1 is supported (matching the grit-lib phase-1 wire fetch);
-/// shallow/`depth` fetches stay on the subprocess path.
+/// Protocol v2 is requested explicitly (git's default for `git://`); the server
+/// silently downgrades to v0/v1 if it lacks v2, and grit-lib handles either.
+/// Shallow/`depth` fetches stay on the subprocess path.
 pub(crate) fn fetch_git_daemon(
     local_git_dir: &Path,
     remote_url: &str,
@@ -261,10 +262,17 @@ pub(crate) fn fetch_git_daemon(
         dry_run: false,
     };
 
-    // Connect to the daemon and read the v0/v1 advertisement. Request protocol
-    // v0 (the classic advertisement); fetch_remote rejects v2.
+    // Connect to the daemon. Request protocol v2 explicitly (git's own default
+    // for `git://` is v2-capable); grit-lib's daemon transport performs the v2
+    // handshake and `fetch_remote` runs the v2 `ls-refs` + `command=fetch`
+    // negotiation. A server that lacks v2 silently downgrades to v0/v1, which
+    // `fetch_remote` also handles, so no explicit fallback is needed here.
     let transport = GitDaemonTransport::new();
-    let mut conn = transport.connect(remote_url, Service::UploadPack, &ConnectOptions::default())?;
+    let connect_opts = ConnectOptions {
+        protocol_version: 2,
+        ..Default::default()
+    };
+    let mut conn = transport.connect(remote_url, Service::UploadPack, &connect_opts)?;
 
     let mut progress = NoProgress;
     let outcome =
