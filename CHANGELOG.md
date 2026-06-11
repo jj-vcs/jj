@@ -29,6 +29,11 @@ and this project adheres to
   for each use, so this is effectively the same as defining temporary template
   aliases for each expression (currently no performance benefit).
 
+* `jj interdiff`'s `--from` and `--to` options now accept revsets that resolve
+  to multiple revisions; each side is treated as if its revisions were
+  squashed into a single revision first.
+  [#8281](https://github.com/jj-vcs/jj/issues/8281)
+
 ### Fixed bugs
 
 * In colocated workspaces, `--ignore-working-copy` and `--at-op` now prevent
