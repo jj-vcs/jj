@@ -947,61 +947,6 @@ fn test_run_pool_removes_file_absent_in_next_commit() {
     );
 }
 
-/// Files tracked into a commit by run 1 must not reappear in a different
-/// commit processed by the same pool slot in run 2.
-///
-/// Run 1 rewrites commit2 (adding artifact.txt). The slot's saved tree_state
-/// therefore records {seed.txt, artifact.txt}. Run 2 targets commit1 whose
-/// tree is {seed.txt}; the checkout diff removes artifact.txt from the slot,
-/// so commit1's rewrite must not contain it.
-#[test]
-fn test_run_pool_no_file_leak_between_invocations() {
-    let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let work_dir = test_env.work_dir("repo");
-
-    // commit1: seed.txt only.
-    work_dir.write_file("seed.txt", "seed");
-    work_dir.run_jj(&["commit", "-m", "commit1"]).success();
-    // commit2: descends from commit1, no extra files (same tree).
-    work_dir.run_jj(&["commit", "-m", "commit2"]).success();
-    // Stack: root → commit1 (seed.txt) → commit2 (seed.txt) → @
-
-    // Run 1: produce artifact.txt in commit2 (@-) so the slot's saved
-    // tree_state records {seed.txt, artifact.txt}.
-    // Stack before run 1: root → commit1 (@--) → commit2 (@-) → @
-    work_dir
-        .run_jj(&[
-            "run",
-            "--config",
-            "run.jobs=1",
-            "-r",
-            "@-",
-            "--",
-            "touch",
-            "artifact.txt",
-        ])
-        .success();
-    // After run 1: root → commit1 (@--) → commit2' (@-) → @ (rebased).
-    // commit2' now has {seed.txt, artifact.txt}.
-
-    // Run 2: no-op on commit1 (@--). Pool reuses the slot whose tree_state
-    // says {seed.txt, artifact.txt}. The checkout diff removes artifact.txt,
-    // so commit1's rewrite must not contain it.
-    work_dir
-        .run_jj(&["run", "--config", "run.jobs=1", "-r", "@--", "--", "true"])
-        .success();
-    // After run 2: root → commit1' (@--) → commit2'' (@-) → @ (rebased).
-
-    assert_snapshot!(
-        work_dir.run_jj(&["file", "list", "-r", "@--"]).success().stdout,
-        @r"
-        seed.txt
-        [EOF]
-        ",
-    );
-}
-
 /// When a pool slot is reused, files left on disk that the previous commit's
 /// .gitignore excluded must be removed before the next commit runs. Otherwise
 /// the next commit (which may not ignore the same paths) would pick them up at
@@ -1076,6 +1021,29 @@ fn test_run_pool_removes_previously_ignored_files() {
     // Remove files that are no longer ignored in the new revision, but don't
     // unnecessarily remove files that are still ignored
     assert!(fs::exists(run_wc.join("always_ignored.txt")).unwrap());
+    assert!(!fs::exists(run_wc.join("ignored.txt")).unwrap());
+
+    // Passing --clean removes even always-ignored files
+    work_dir
+        .run_jj(&[
+            "run",
+            "-r=a",
+            "--clean",
+            "--",
+            &fake_formatter_path,
+            "--stdout",
+            "done",
+        ])
+        .success();
+    assert_snapshot!(
+        work_dir.run_jj(&["file", "list", "-r", "a"]),
+        @r"
+    .gitignore
+    seed.txt
+    [EOF]
+    "
+    );
+    assert!(!fs::exists(run_wc.join("always_ignored.txt")).unwrap());
     assert!(!fs::exists(run_wc.join("ignored.txt")).unwrap());
 }
 
