@@ -897,6 +897,95 @@ fn test_git_ref_forget_missing_and_selective_removal() {
 }
 
 #[test]
+fn test_git_ref_fetch_bookmark_collisions() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = add_git_remote(&test_env, &work_dir, "origin");
+    add_commit_to_ref(&git_repo, "refs/pull/123/head", "pr123", "pull request 123");
+
+    let output = work_dir.run_jj([
+        "git",
+        "ref",
+        "fetch",
+        "--remote",
+        "origin",
+        "--bookmark",
+        "foo@bar",
+        "refs/pull/123/head",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    error: invalid value 'foo@bar' for '--bookmark <NAME>': Failed to parse bookmark name: Syntax error
+
+    For more information, try '--help'.
+    Caused by:  --> 1:4
+      |
+    1 | foo@bar
+      |    ^---
+      |
+      = expected <EOI>
+    Hint: Looks like remote bookmark. Run `jj bookmark track foo --remote=bar` to track it.
+    [EOF]
+    [exit status: 2]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["git", "ref", "list"]), @r"
+    ------- stderr -------
+    No fetched Git refs.
+    [EOF]
+    ");
+
+    work_dir
+        .run_jj(["bookmark", "create", "existing", "-r", "root()"])
+        .success();
+    let output = work_dir.run_jj([
+        "git",
+        "ref",
+        "fetch",
+        "--remote",
+        "origin",
+        "--bookmark",
+        "existing",
+        "refs/pull/123/head",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Fetched refs/pull/123/head as spovxuoz 84c6f409 pull request 123
+    Error: Bookmark already exists: existing
+    Hint: Use --replace to move it to the fetched ref.
+    [EOF]
+    [exit status: 1]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["git", "ref", "list"]), @r"
+    ------- stderr -------
+    No fetched Git refs.
+    [EOF]
+    ");
+
+    work_dir
+        .run_jj([
+            "git",
+            "ref",
+            "fetch",
+            "--remote",
+            "origin",
+            "--bookmark",
+            "existing",
+            "--replace",
+            "refs/pull/123/head",
+        ])
+        .success();
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    existing: spovxuoz 84c6f409 pull request 123
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["git", "ref", "list"]), @r"
+    origin refs/pull/123/head 84c6f409c8199d0f3fd9b29fb5119c090da42d5e
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_git_fetch_default_remote() {
     let test_env = TestEnvironment::default();
     test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
