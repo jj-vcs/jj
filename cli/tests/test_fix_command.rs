@@ -1647,12 +1647,12 @@ fn test_fix_with_line_ranges() {
         [fix.tools.tool-1]
         command = [{formatter}, "--uppercase"]
         patterns = ["foo", "baz", "qux"]
-        line-range-arg = "--line-ranges=$first-$last"
+        line-range-args = ["--line-ranges=$first-$last"]
 
         [fix.tools.tool-2]
         command = [{formatter}, "--lowercase"]
         patterns = ["bar", "baz"]
-        line-range-arg = "--line-ranges=$first-$last"
+        line-range-args = ["--line-ranges", "$first-$last"]
         "###,
     ));
 
@@ -1755,6 +1755,96 @@ fn test_fix_with_line_ranges() {
 }
 
 #[test]
+fn test_fix_with_run_tool_per_line_range() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let formatter_path = assert_cmd::cargo::cargo_bin!("fake-formatter");
+    assert!(formatter_path.is_file());
+    let formatter = to_toml_value(formatter_path.to_str().unwrap());
+    test_env.add_config(format!(
+        r###"
+        [fix.tools.tool-1]
+        command = [{formatter}, "--uppercase", "--stderr=tool-1-invoked"]
+        patterns = ["all()"]
+        line-range-args = ["--line-ranges=$first-$last"]
+        run-tool-per-line-range = true
+        
+        [fix.tools.tool-2]
+        command = [{formatter}, "--lowercase", "--stderr=tool-2-invoked"]
+        patterns = ["all()"]
+        line-range-args = ["--line-ranges=$first-$last"]
+        run-tool-per-line-range = false
+        "###,
+    ));
+
+    // Initial commit.
+    work_dir.write_file("foo", "Foo1\nFoo2\nFoo3\n");
+    work_dir.write_file("bar", "unmodified\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c1"])
+        .success();
+
+    // Create a new commit with multiple modifications in `foo`, resulting in
+    // distinct line ranges.
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("foo", "Foo1-modified\nFoo2\nFoo4-added\n");
+    work_dir.write_file("bar", "unmodified\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c2"])
+        .success();
+
+    // Run `jj fix` on the second commit.
+    let output = work_dir.run_jj(["fix", "-s", "c2"]).success();
+    // Tool 1 was invoked twice (once for each line range), but tool 2 was only
+    // invoked once. To ensure deterministic output order, the formatters must
+    // apply to the same file.
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    foo:
+    tool-1-invoked
+    foo:
+    tool-1-invoked
+    foo:
+    tool-2-invoked
+    Fixed 1 commits of 1 checked.
+    Working copy  (@) now at: kkmpptxz 3bebd5d7 c2 | (no description set)
+    Parent commit (@-)      : qpvuntsm 78607d1a c1 | (no description set)
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    ");
+
+    // Check that the formatters were not applied to the first commit.
+    let output = work_dir.run_jj(["file", "show", "foo", "-r", "c1"]);
+    insta::assert_snapshot!(output, @r"
+    Foo1
+    Foo2
+    Foo3
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "show", "bar", "-r", "c1"]);
+    insta::assert_snapshot!(output, @r"
+    unmodified
+    [EOF]
+    ");
+
+    // Check that the formatters were applied to the second commit. Since tool 2
+    // ran last, the modified lines should be lowercase.
+    let output = work_dir.run_jj(["file", "show", "foo", "-r", "c2"]);
+    insta::assert_snapshot!(output, @r"
+    foo1-modified
+    Foo2
+    foo4-added
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "show", "bar", "-r", "c2"]);
+    insta::assert_snapshot!(output, @r"
+    unmodified
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_fix_with_run_tool_if_zero_line_ranges() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -1767,19 +1857,19 @@ fn test_fix_with_run_tool_if_zero_line_ranges() {
         [fix.tools.tool-1]
         command = [{formatter}, "--uppercase"]
         patterns = ["foo", "baz"]
-        line-range-arg = "--line-ranges=$first-$last"
+        line-range-args = ["--line-ranges=$first-$last"]
         run-tool-if-zero-line-ranges = true
 
         [fix.tools.tool-2]
         command = [{formatter}, "--lowercase"]
         patterns = ["bar"]
-        line-range-arg = "--line-ranges=$first-$last"
+        line-range-args = ["--line-ranges=$first-$last"]
         run-tool-if-zero-line-ranges = false
 
         [fix.tools.tool-3]
         command = [{formatter}, "--uppercase", "--split-even-length-lines"]
         patterns = ["qux"]
-        line-range-arg = "--line-ranges=$first-$last"
+        line-range-args = ["--line-ranges", "$first-$last"]
         run-tool-if-zero-line-ranges = true
         "###,
     ));
@@ -1911,7 +2001,7 @@ fn test_fix_with_all_lines_arg() {
         [fix.tools.tool-1]
         command = [{formatter}, "--uppercase"]
         patterns = ["foo", "baz", "qux"]
-        line-range-arg = "--line-ranges=$first-$last"
+        line-range-args = ["--line-ranges=$first-$last"]
 
         [fix.tools.tool-2]
         command = [{formatter}, "--lowercase"]
@@ -2013,12 +2103,12 @@ fn test_fix_with_line_ranges_multiple_formatters() {
         [fix.tools.tool-1]
         command = [{formatter}, "--split-even-length-lines"]
         patterns = ["foo", "boo"]
-        line-range-arg = "--line-ranges=$first-$last"
+        line-range-args = ["--line-ranges=$first-$last"]
 
         [fix.tools.tool-2]
         command = [{formatter}, "--uppercase"]
         patterns = ["foo", "boo"]
-        line-range-arg = "--line-ranges=$first-$last"
+        line-range-args = ["--line-ranges=$first-$last"]
         "###,
     ));
 
@@ -2089,7 +2179,7 @@ fn test_fix_with_line_ranges_and_include_unchanged_files_all_lines() {
         [fix.tools.tool-1]
         command = [{formatter}, "--uppercase"]
         patterns = ["all()"]
-        line-range-arg = "--line-ranges=$first-$last"
+        line-range-args = ["--line-ranges=$first-$last"]
         "###,
     ));
 
@@ -2174,4 +2264,56 @@ fn test_fix_with_line_ranges_and_include_unchanged_files_all_lines() {
     ");
     let output = work_dir.run_jj(["file", "show", "empty.txt", "-r", "c2"]);
     insta::assert_snapshot!(output, @r"");
+}
+
+#[test]
+fn test_fix_line_range_args_migration() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let formatter_path = assert_cmd::cargo::cargo_bin!("fake-formatter");
+    assert!(formatter_path.is_file());
+    let formatter = to_toml_value(formatter_path.to_str().unwrap());
+    test_env.add_config(format!(
+        r###"
+        [fix.tools.tool-1]
+        command = [{formatter}, "--uppercase"]
+        patterns = ["all()"]
+        line-range-arg = "--line-ranges=$first-$last"
+        "###,
+    ));
+
+    work_dir.write_file("file.txt", "foo\n");
+
+    let output = work_dir.run_jj(["fix"]).success();
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: Deprecated user-level config: fix.tools.tool-1.line-range-arg is updated to fix.tools.tool-1.line-range-args = [--line-ranges=$first-$last]
+    Fixed 1 commits of 1 checked.
+    Working copy  (@) now at: qpvuntsm bce2043c (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["config", "get", "fix.tools.tool-1.line-range-arg"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: Deprecated user-level config: fix.tools.tool-1.line-range-arg is updated to fix.tools.tool-1.line-range-args = [--line-ranges=$first-$last]
+    Config error: Value not found for fix.tools.tool-1.line-range-arg
+    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = work_dir
+        .run_jj(["config", "get", "fix.tools.tool-1.line-range-args"])
+        .success();
+    insta::assert_snapshot!(output, @r#"
+    ["--line-ranges=$first-$last"]
+    [EOF]
+    ------- stderr -------
+    Warning: Deprecated user-level config: fix.tools.tool-1.line-range-arg is updated to fix.tools.tool-1.line-range-args = [--line-ranges=$first-$last]
+    [EOF]
+    "#);
 }

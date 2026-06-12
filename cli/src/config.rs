@@ -831,7 +831,84 @@ fn parse_config_arg_item(item_str: &str) -> Result<(ConfigNamePathBuf, ConfigVal
 
 /// List of rules to migrate deprecated config variables.
 pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
-    vec![]
+    vec![
+        // TODO: Remove in jj 0.48+
+        ConfigMigrationRule::custom(
+            |layer| {
+                let Ok(Some(tools_table)) = layer.look_up_table("fix.tools") else {
+                    return false;
+                };
+                tools_table.iter().any(|(_, item)| {
+                    item.as_table_like()
+                        .is_some_and(|tool_config| tool_config.contains_key("line-range-arg"))
+                })
+            },
+            |layer| {
+                let bad_tool_names = if let Ok(Some(tools_table)) = layer.look_up_table("fix.tools")
+                {
+                    tools_table
+                        .iter()
+                        .filter_map(|(tool_name, item)| {
+                            if item.as_table_like()?.contains_key("line-range-arg") {
+                                Some(tool_name.to_string())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect_vec()
+                } else {
+                    vec![]
+                };
+                if bad_tool_names.is_empty() {
+                    // Somehow no tools config needed to be migrated. Should
+                    // have been caught by `matches()`, but just return a
+                    // generic message.
+                    return Ok("`fix.tools.<name>.line-range-arg` is deprecated; use \
+                               `line-range-args` instead."
+                        .into());
+                }
+                let mut messages = vec![];
+                for tool_name in bad_tool_names {
+                    let old_name = &ConfigNamePathBuf::from_iter([
+                        "fix",
+                        "tools",
+                        &tool_name,
+                        "line-range-arg",
+                    ]);
+                    let new_name = &ConfigNamePathBuf::from_iter([
+                        "fix",
+                        "tools",
+                        &tool_name,
+                        "line-range-args",
+                    ]);
+
+                    let Ok(Some(old_value)) = layer.delete_value(old_name) else {
+                        // Failed to delete the value. Ignore it; it'll be tried
+                        // again later.
+                        continue;
+                    };
+                    if matches!(layer.look_up_item(new_name), Ok(Some(_))) {
+                        messages.push(format!("{old_name} is deleted (superseded by {new_name})"));
+                        continue;
+                    }
+                    let Some(old_value_str) = old_value.as_str() else {
+                        return Err(jj_lib::config::ConfigMigrateLayerError::Type {
+                            name: old_name.to_string(),
+                            error: format!(
+                                "Failed to migrate {old_name}, which was expected to be a string"
+                            )
+                            .into(),
+                        });
+                    };
+                    layer.set_value(new_name, toml_edit::Array::from_iter([old_value_str]))?;
+                    messages.push(format!(
+                        "{old_name} is updated to {new_name} = [{old_value_str}]"
+                    ));
+                }
+                Ok(messages.join(", "))
+            },
+        ),
+    ]
 }
 
 /// Command name and arguments specified by config.
