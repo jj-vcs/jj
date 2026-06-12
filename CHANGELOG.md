@@ -87,6 +87,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   launched once per changed file, making it possible to use per-file tools like
   `vimdiff` for editing.
 
+* `jj gerrit upload` now supports the `-o` (`--option`) flag, which works like
+  `git push -o` (`--push-option`).
+
 ### Fixed bugs
 
 * `jj git remote add` now reports an error instead of panicking when the
