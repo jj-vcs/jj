@@ -1097,16 +1097,26 @@ fn default_remote_ref_state_for(
     }
 }
 
-/// Commits referenced by local branches or tags.
+/// Commits referenced by local branches, tags, or fetched Git refs.
 ///
 /// On `import_refs()`, this is similar to collecting commits referenced by
 /// `view.git_refs()`. Main difference is that local branches can be moved by
 /// tracking remotes, and such mutation isn't applied to `view.git_refs()` yet.
+///
+/// Fetched Git refs are also local pins. They can intentionally preserve a
+/// review commit after a normal remote bookmark stops reaching it, so
+/// Git-import abandonment must not treat their targets as unreachable.
 fn pinned_commit_ids(view: &View) -> Vec<CommitId> {
-    itertools::chain(view.local_bookmarks(), view.local_tags())
-        .flat_map(|(_, target)| target.added_ids())
-        .cloned()
-        .collect()
+    itertools::chain!(
+        view.local_bookmarks().map(|(_, target)| target),
+        view.local_tags().map(|(_, target)| target),
+        view.fetched_git_refs()
+            .values()
+            .flat_map(|refs| refs.values())
+    )
+    .flat_map(|target| target.added_ids())
+    .cloned()
+    .collect()
 }
 
 /// Commits referenced by untracked remote bookmarks/tags including hidden ones.
