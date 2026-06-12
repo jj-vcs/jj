@@ -511,6 +511,71 @@ fn test_merge_views_git_refs() -> TestResult {
 }
 
 #[test]
+fn test_merge_views_fetched_git_refs() -> TestResult {
+    // Tests merging of fetched Git refs by performing divergent operations. See
+    // test_refs.rs for tests of merging of individual ref targets.
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let origin_pr_tx0 = write_random_commit(mut_repo);
+    mut_repo.set_fetched_git_ref_target(
+        "origin".as_ref(),
+        "refs/pull/123/head".as_ref(),
+        RefTarget::normal(origin_pr_tx0.id().clone()),
+    );
+    let upstream_pr_tx0 = write_random_commit(mut_repo);
+    mut_repo.set_fetched_git_ref_target(
+        "upstream".as_ref(),
+        "refs/pull/123/head".as_ref(),
+        RefTarget::normal(upstream_pr_tx0.id().clone()),
+    );
+    let repo = tx.commit("test").block_on()?;
+
+    let mut tx1 = repo.start_transaction();
+    let origin_pr_tx1 = write_random_commit(tx1.repo_mut());
+    tx1.repo_mut().set_fetched_git_ref_target(
+        "origin".as_ref(),
+        "refs/pull/123/head".as_ref(),
+        RefTarget::normal(origin_pr_tx1.id().clone()),
+    );
+    let upstream_pr_tx1 = write_random_commit(tx1.repo_mut());
+    tx1.repo_mut().set_fetched_git_ref_target(
+        "upstream".as_ref(),
+        "refs/pull/123/head".as_ref(),
+        RefTarget::normal(upstream_pr_tx1.id().clone()),
+    );
+
+    let mut tx2 = repo.start_transaction();
+    let origin_pr_tx2 = write_random_commit(tx2.repo_mut());
+    tx2.repo_mut().set_fetched_git_ref_target(
+        "origin".as_ref(),
+        "refs/pull/123/head".as_ref(),
+        RefTarget::normal(origin_pr_tx2.id().clone()),
+    );
+
+    let repo = commit_transactions(vec![tx1, tx2]);
+    let expected_origin_pr = RefTarget::from_legacy_form(
+        [origin_pr_tx0.id().clone()],
+        [origin_pr_tx1.id().clone(), origin_pr_tx2.id().clone()],
+    );
+    let expected_upstream_pr = RefTarget::normal(upstream_pr_tx1.id().clone());
+    assert_eq!(
+        repo.view().fetched_git_refs(),
+        &btreemap! {
+            "origin".into() => btreemap! {
+                "refs/pull/123/head".into() => expected_origin_pr,
+            },
+            "upstream".into() => btreemap! {
+                "refs/pull/123/head".into() => expected_upstream_pr,
+            },
+        }
+    );
+    Ok(())
+}
+
+#[test]
 fn test_merge_views_git_heads() -> TestResult {
     // Tests merging of git heads (by performing divergent operations). See
     // test_refs.rs for tests of merging of individual ref targets.
