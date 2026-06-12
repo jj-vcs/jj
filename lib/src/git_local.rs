@@ -178,6 +178,16 @@ pub(crate) fn http_remote_url(
     s.to_str().ok().map(|s| s.to_owned())
 }
 
+/// Emit a jj-side `[grit-net]` routing marker (gated by the same `GRIT_NET_DEBUG`
+/// env var as grit-lib's own networking traces, so they interleave). Shows which
+/// remote jj decided to route through grit-lib's in-process transports — the
+/// "before" bookend around grit-lib's own connect/negotiate/done lines.
+fn net_route(msg: impl FnOnce() -> String) {
+    if grit_lib::net_trace::enabled() {
+        grit_lib::net_trace::line(&format!("jj: {}", msg()));
+    }
+}
+
 /// Whether the remote at `remote_git_dir` has any receive hook installed
 /// (`pre-receive`, `update`, `post-receive`). The in-process push path does not
 /// run hooks, so callers route pushes to such remotes through the subprocess
@@ -287,6 +297,7 @@ pub(crate) fn fetch_local(
         ..Default::default()
     };
 
+    net_route(|| format!("fetch (file) {} via grit-lib", remote_git_dir.display()));
     let outcome = grit_lib::transfer::fetch_local(local_git_dir, remote_git_dir, &opts)?;
     fetch_outcome_to_status(outcome)
 }
@@ -339,6 +350,7 @@ pub(crate) fn fetch_git_daemon(
     // handshake and `fetch_remote` runs the v2 `ls-refs` + `command=fetch`
     // negotiation. A server that lacks v2 silently downgrades to v0/v1, which
     // `fetch_remote` also handles, so no explicit fallback is needed here.
+    net_route(|| format!("fetch (git://) {remote_url} via grit-lib"));
     let transport = GitDaemonTransport::new();
     let connect_opts = ConnectOptions {
         protocol_version: 2,
@@ -400,6 +412,7 @@ pub(crate) fn fetch_ssh(
     // Connect over ssh, requesting protocol v2 (git's default for ssh). The
     // transport handles spawning `ssh` per the user's environment; a server that
     // lacks v2 silently downgrades to v0/v1, which `fetch_remote` also handles.
+    net_route(|| format!("fetch (ssh) {remote_url} via grit-lib"));
     let transport = SshTransport::new();
     let connect_opts = ConnectOptions {
         protocol_version: 2,
@@ -512,6 +525,7 @@ pub(crate) fn fetch_http(
     // dispatches on the version reported by the `info/refs` advertisement, so a
     // v0/v1-only server transparently downgrades. The client carries a
     // config-driven credential provider so auth'd remotes work in-process.
+    net_route(|| format!("fetch (http) {remote_url} via grit-lib"));
     let client = http_client_with_credentials(local_git_dir, Some("version=2"));
     let mut progress = NoProgress;
     let outcome = http_fetch(&client, local_git_dir, remote_url, &opts, &mut progress)?;
@@ -594,6 +608,7 @@ pub(crate) fn push_local(
         specs.push(ref_to_push_spec(r)?);
     }
 
+    net_route(|| format!("push (file) {} via grit-lib", remote_git_dir.display()));
     let outcome = grit_lib::transfer::push_local(
         local_git_dir,
         remote_git_dir,
@@ -641,6 +656,7 @@ pub(crate) fn push_git_daemon(
 
     // receive-pack is v0/v1 only; `push_remote` rejects a v2 connection, so
     // connect with the default (protocol_version = 0).
+    net_route(|| format!("push (git://) {remote_url} via grit-lib"));
     let transport = GitDaemonTransport::new();
     let mut conn = transport.connect(remote_url, Service::ReceivePack, &ConnectOptions::default())?;
 
@@ -684,6 +700,7 @@ pub(crate) fn push_ssh(
         specs.push(ref_to_push_spec(r)?);
     }
 
+    net_route(|| format!("push (ssh) {remote_url} via grit-lib"));
     let transport = SshTransport::new();
     let mut conn = transport.connect(remote_url, Service::ReceivePack, &ConnectOptions::default())?;
 
@@ -734,6 +751,7 @@ pub(crate) fn push_http(
     // Receive-pack is protocol v0/v1, so no default `Git-Protocol` header. The
     // client carries a config-driven credential provider so auth'd remotes work
     // in-process.
+    net_route(|| format!("push (http) {remote_url} via grit-lib"));
     let client = http_client_with_credentials(local_git_dir, None);
     let transport = grit_lib::transport::http::SmartHttpTransport::new(client);
     let mut progress = NoProgress;

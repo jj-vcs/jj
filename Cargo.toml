@@ -62,7 +62,7 @@ gix = { version = "0.84.0", default-features = false, features = [
 ] }
 gix-ignore = { version = "0.21.0" }
 globset = "0.4.18"
-grit-lib = "0.3.99"
+grit-lib = "0.4.0"
 hashbrown ={ version = "0.17.1", default-features = false, features = ["inline-more"] }
 indexmap = { version = "2.14.0", features = ["serde"] }
 indoc = "2.0.7"
@@ -184,7 +184,8 @@ opt-level = 3
 strip = "debuginfo"
 codegen-units = 1
 
-# The grit-lib networking APIs (transfer::fetch_local/push_local, gc helpers) used
-# by the LOCAL / file:// integration are unpublished; point at the local checkout.
+# grit-lib 0.4.0 (with the transport stack) is published on crates.io, so this
+# patch is optional. It points jj at the local checkout for iteration; remove
+# this block to build against the published crate instead.
 [patch.crates-io]
 grit-lib = { path = "/Users/schacon/projects/grit-claude/grit-lib" }
