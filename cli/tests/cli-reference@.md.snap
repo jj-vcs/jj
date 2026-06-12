@@ -2968,8 +2968,9 @@ Show the current workspace root directory (shortcut for `jj workspace root`)
 Run a command across a set of revisions.
 
 Checks out each revision in an isolated working copy, runs the command, then
-amends the revision with the resulting working copy. Descendants are rebased
-on top of the amended revisions.
+amends the revision with the resulting working copy. By default, descendants
+are rebased on top of the amended revisions, propagating the diff. Use
+`--restore-descendants` to keep descendants' content unchanged instead.
 
 The command is executed with the following environment variables set:
 
@@ -3003,6 +3004,7 @@ $ jj run -j 4 -- pre-commit run .github/pre-commit.yaml
 * `--clean` — Delete each working copy before running the command
 
    By default `jj run` reuses working copies between invocations so build artifacts are preserved. With `--clean`, every commit starts from a freshly checked-out tree.
+* `--restore-descendants` — Preserve the content (not the diff) when rebasing descendants
 
 
 
