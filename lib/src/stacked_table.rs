@@ -554,15 +554,26 @@ impl TableStore {
             return Ok((tables.pop().unwrap(), lock));
         }
 
+        let merged_table = self.resolve_multiple_heads(tables)?;
+        Ok((merged_table, lock))
+    }
+
+    fn resolve_multiple_heads(
+        &self,
+        tables: Vec<Arc<ReadonlyTable>>,
+    ) -> TableStoreResult<Arc<ReadonlyTable>> {
+        assert!(tables.len() >= 2);
         let mut merged_table = MutableTable::incremental(tables[0].clone());
         for other in &tables[1..] {
             merged_table.merge_in(other);
         }
         let merged_table = self.save_table(merged_table)?;
-        for table in &tables[1..] {
-            self.remove_head(table);
+        for table in &tables {
+            if table.name() != merged_table.name() {
+                self.remove_head(table);
+            }
         }
-        Ok((merged_table, lock))
+        Ok(merged_table)
     }
 
     /// Prunes unreachable table segments.
@@ -804,6 +815,100 @@ mod tests {
         assert_eq!(merged_table.get_value(b"yyy"), Some(b"val5".as_slice()));
         assert_eq!(merged_table.get_value(b"zzz"), Some(b"val3".as_slice()));
         assert_eq!(merged_table.get_value(b"\xff\xff\xff"), None);
+        Ok(())
+    }
+
+    #[test]
+    fn stacked_table_multi_head_squashed_preserves_head_marker() -> TestResult {
+        // When the newer segment is small enough to squash into a full table, the
+        // two head markers are not physically parent/child linked. Merging them
+        // still yields a table whose name matches one of the inputs.
+        let temp_dir = new_temp_dir();
+        let store = TableStore::init(temp_dir.path().to_path_buf(), 3);
+
+        let mut mut_base = store.get_head()?.start_mutation();
+        mut_base.add_entry(b"abc".to_vec(), b"value1".to_vec());
+        let base_table = store.save_table(mut_base)?;
+
+        let mut mut_newer = MutableTable::incremental(base_table.clone());
+        mut_newer.add_entry(b"abd".to_vec(), b"value2".to_vec());
+        let newer_table = store.save_table(mut_newer)?;
+        assert!(newer_table.parent_file.is_none());
+
+        // Simulate stale base marker still present alongside the newer marker.
+        store.add_head(&base_table)?;
+        assert_eq!(store.get_head_tables()?.len(), 2);
+
+        // read_dir order is filesystem-dependent; force the base-first path.
+        let tables = vec![base_table.clone(), newer_table.clone()];
+        let merged_table = store.resolve_multiple_heads(tables)?;
+
+        assert_eq!(merged_table.get_value(b"abc"), Some(b"value1".as_slice()));
+        assert_eq!(merged_table.get_value(b"abd"), Some(b"value2".as_slice()));
+        assert_eq!(merged_table.name(), newer_table.name());
+
+        let head_files: Vec<_> = std::fs::read_dir(temp_dir.path().join("heads"))?
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        assert!(
+            !head_files.is_empty(),
+            "base-first merge cleared all head markers: {head_files:?}"
+        );
+        assert!(
+            head_files.iter().any(|n| n == newer_table.name()),
+            "expected newer head marker {:?}, found {head_files:?}",
+            newer_table.name()
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn stacked_table_multi_head_parent_child_preserves_head_marker() -> TestResult {
+        // Keep the base large enough that saving the child does not squash, so
+        // the two head markers form a real parent-child segment chain.
+        let temp_dir = new_temp_dir();
+        let store = TableStore::init(temp_dir.path().to_path_buf(), 3);
+
+        let mut mut_base = store.get_head()?.start_mutation();
+        mut_base.add_entry(b"abc".to_vec(), b"value1".to_vec());
+        mut_base.add_entry(b"abd".to_vec(), b"value2".to_vec());
+        mut_base.add_entry(b"abe".to_vec(), b"value3".to_vec());
+        let base_table = store.save_table(mut_base)?;
+
+        let mut mut_child = MutableTable::incremental(base_table.clone());
+        mut_child.add_entry(b"abf".to_vec(), b"value4".to_vec());
+        let child_table = store.save_table(mut_child)?;
+        assert_eq!(
+            child_table.parent_file.as_ref().unwrap().name(),
+            base_table.name()
+        );
+
+        // Simulate stale parent marker still present alongside the child marker.
+        store.add_head(&base_table)?;
+        assert_eq!(store.get_head_tables()?.len(), 2);
+
+        // read_dir order is filesystem-dependent; force the parent-first path.
+        let tables = vec![base_table.clone(), child_table.clone()];
+        let merged_table = store.resolve_multiple_heads(tables)?;
+
+        assert_eq!(merged_table.get_value(b"abc"), Some(b"value1".as_slice()));
+        assert_eq!(merged_table.get_value(b"abd"), Some(b"value2".as_slice()));
+        assert_eq!(merged_table.get_value(b"abe"), Some(b"value3".as_slice()));
+        assert_eq!(merged_table.get_value(b"abf"), Some(b"value4".as_slice()));
+        assert_eq!(merged_table.name(), child_table.name());
+
+        let head_files: Vec<_> = std::fs::read_dir(temp_dir.path().join("heads"))?
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        assert!(
+            !head_files.is_empty(),
+            "parent-first merge cleared all head markers: {head_files:?}"
+        );
+        assert!(
+            head_files.iter().any(|n| n == child_table.name()),
+            "expected child head marker {:?}, found {head_files:?}",
+            child_table.name()
+        );
         Ok(())
     }
 
