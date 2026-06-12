@@ -15,8 +15,33 @@
 use indoc::indoc;
 use regex::Regex;
 use testutils::TestResult;
+use testutils::git;
 
 use crate::common::TestEnvironment;
+
+fn add_commit_to_ref(
+    git_repo: &gix::Repository,
+    ref_name: &str,
+    file_name: &str,
+    message: &str,
+) -> gix::ObjectId {
+    let parents = git_repo
+        .find_reference(ref_name)
+        .ok()
+        .and_then(|mut r| r.peel_to_commit().ok())
+        .map(|c| vec![c.id().detach()])
+        .unwrap_or_default();
+
+    git::add_commit(
+        git_repo,
+        ref_name,
+        file_name,
+        file_name.as_bytes(),
+        message,
+        &parents,
+    )
+    .commit_id
+}
 
 #[test]
 fn test_log_parents() {
@@ -738,6 +763,77 @@ fn test_log_bookmarks() {
     │ ○  bookmark1@origin(+1/-1)
     ├─╯
     ◆
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_log_fetched_git_refs() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let remote_path = test_env.env_root().join("origin");
+    let git_repo = git::init(&remote_path);
+    add_commit_to_ref(&git_repo, "refs/pull/123/head", "pr123", "pull request 123");
+    add_commit_to_ref(&git_repo, "refs/pull/456/head", "pr456", "pull request 456");
+    work_dir
+        .run_jj([
+            "git",
+            "remote",
+            "add",
+            "origin",
+            remote_path.to_str().unwrap(),
+        ])
+        .success();
+    work_dir
+        .run_jj([
+            "git",
+            "ref",
+            "fetch",
+            "--remote",
+            "origin",
+            "refs/pull/123/head",
+        ])
+        .success();
+    work_dir
+        .run_jj([
+            "git",
+            "ref",
+            "fetch",
+            "--remote",
+            "origin",
+            "refs/pull/456/head",
+        ])
+        .success();
+
+    let template = r#"commit_id.short() ++ " " ++ if(fetched_git_refs, fetched_git_refs, "(no fetched refs)") ++ "\n""#;
+    let output = work_dir.run_jj(["log", "-r", "all()", "-T", template]);
+    insta::assert_snapshot!(output, @r"
+    @  e8849ae12c70 (no fetched refs)
+    │ ○  88d135c9833e refs/pull/456/head@origin
+    ├─╯
+    │ ○  84c6f409c819 refs/pull/123/head@origin
+    ├─╯
+    ◆  000000000000 (no fetched refs)
+    [EOF]
+    ");
+
+    let template = r#"fetched_git_refs.map(|ref| ref.name() ++ "@" ++ ref.remote()).join(", ")"#;
+    let output = work_dir.run_jj([
+        "log",
+        "-r",
+        "fetched_git_refs('refs/pull/*/head')",
+        "-T",
+        template,
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ○  refs/pull/456/head@origin
+    │
+    ~
+
+    ○  refs/pull/123/head@origin
+    │
+    ~
     [EOF]
     ");
 }
