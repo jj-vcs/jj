@@ -837,6 +837,66 @@ fn test_git_ref_fetch_same_ref_from_multiple_remotes() {
 }
 
 #[test]
+fn test_git_ref_forget_missing_and_selective_removal() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = add_git_remote(&test_env, &work_dir, "origin");
+    add_commit_to_ref(&git_repo, "refs/pull/123/head", "pr123", "pull request 123");
+    add_commit_to_ref(&git_repo, "refs/pull/456/head", "pr456", "pull request 456");
+
+    let output = work_dir.run_jj([
+        "git",
+        "ref",
+        "forget",
+        "--remote",
+        "origin",
+        "refs/pull/123/head",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: No fetched Git ref refs/pull/123/head@origin
+    [EOF]
+    [exit status: 1]
+    ");
+
+    for ref_name in ["refs/pull/123/head", "refs/pull/456/head"] {
+        work_dir
+            .run_jj(["git", "ref", "fetch", "--remote", "origin", ref_name])
+            .success();
+    }
+    let output = work_dir.run_jj([
+        "git",
+        "ref",
+        "forget",
+        "--remote",
+        "upstream",
+        "refs/pull/123/head",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: No fetched Git ref refs/pull/123/head@upstream
+    [EOF]
+    [exit status: 1]
+    ");
+
+    work_dir
+        .run_jj([
+            "git",
+            "ref",
+            "forget",
+            "--remote",
+            "origin",
+            "refs/pull/123/head",
+        ])
+        .success();
+    insta::assert_snapshot!(work_dir.run_jj(["git", "ref", "list"]), @r"
+    origin refs/pull/456/head 88d135c9833e0e0020cfdb45a24604824c1c916b
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_git_fetch_default_remote() {
     let test_env = TestEnvironment::default();
     test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
