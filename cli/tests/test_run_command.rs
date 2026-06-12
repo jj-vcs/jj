@@ -19,6 +19,7 @@ use insta::assert_snapshot;
 
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
+use crate::common::create_commit_with_files;
 
 #[test]
 fn test_run_simple() {
@@ -1136,6 +1137,127 @@ fn test_run_pool_failed_command_does_not_poison_slot() {
         seed.txt
         [EOF]
         ",
+    );
+}
+
+#[test]
+fn test_run_restore_descendants_preserves_content() {
+    let mut test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let fake_formatter = assert_cmd::cargo::cargo_bin("fake-formatter");
+    assert!(fake_formatter.is_file());
+    let fake_formatter_path = fake_formatter.to_string_lossy().into_owned();
+    test_env.add_paths_to_normalize(fake_formatter.clone(), "$FAKE_FORMATTER_PATH");
+    let work_dir = test_env.work_dir("repo");
+
+    create_commit_with_files(&work_dir, "a", &[], &[("file", "a\n")]);
+    create_commit_with_files(&work_dir, "b", &["a"], &[("file", "b\n")]);
+    create_commit_with_files(&work_dir, "c", &["b"], &[("file", "c\n")]);
+
+    let command = if cfg!(windows) {
+        format!("{fake_formatter_path} --tee ran-%JJ_CHANGE_ID%.txt")
+    } else {
+        format!("{fake_formatter_path} --tee ran-$JJ_CHANGE_ID.txt")
+    };
+    let args: &[&str] = if cfg!(windows) {
+        &[
+            "run",
+            "-r",
+            "a::b",
+            "--restore-descendants",
+            "--",
+            "cmd",
+            "/c",
+            command.as_str(),
+        ]
+    } else {
+        &[
+            "run",
+            "-r",
+            "a::b",
+            "--restore-descendants",
+            "--",
+            "sh",
+            "-c",
+            command.as_str(),
+        ]
+    };
+    let output = work_dir.run_jj(args).success();
+    assert_snapshot!(output.stderr, @r"
+    Rewrote 2 commits
+    Rebased 1 descendant commits (while preserving their content)
+    Working copy  (@) now at: royxmykx a741a7d3 c | c
+    Parent commit (@-)      : zsuskuln 43c5a714 b | b
+    [EOF]
+    ");
+
+    assert_snapshot!(
+        work_dir
+        .run_jj(&["file", "list", "-r", "a"])
+        .success()
+        .stdout,
+        @r"
+    file
+    ran-rlvkpnrzqnoowoytxnquwvuryrwnrmlp.txt
+    [EOF]
+    "
+    );
+    assert_snapshot!(
+        work_dir
+        .run_jj(&["file", "list", "-r", "b"])
+        .success()
+        .stdout,
+        @r"
+    file
+    ran-zsuskulnrvyrovkzqrwmxqlsskqntxvp.txt
+    [EOF]
+    "
+    );
+    assert_snapshot!(
+        work_dir
+        .run_jj(&["file", "list", "-r", "c"])
+        .success()
+        .stdout,
+        @r"
+    file
+    [EOF]
+    "
+    );
+
+    assert_snapshot!(
+        work_dir.run_jj(&["diff", "--from=a", "--to=b", "--git"]).success().stdout,
+        @r"
+    diff --git a/file b/file
+    index 7898192261..6178079822 100644
+    --- a/file
+    +++ b/file
+    @@ -1,1 +1,1 @@
+    -a
+    +b
+    diff --git a/ran-rlvkpnrzqnoowoytxnquwvuryrwnrmlp.txt b/ran-rlvkpnrzqnoowoytxnquwvuryrwnrmlp.txt
+    deleted file mode 100644
+    index e69de29bb2..0000000000
+    diff --git a/ran-zsuskulnrvyrovkzqrwmxqlsskqntxvp.txt b/ran-zsuskulnrvyrovkzqrwmxqlsskqntxvp.txt
+    new file mode 100644
+    index 0000000000..e69de29bb2
+    [EOF]
+    "
+    );
+    assert_snapshot!(
+        work_dir.run_jj(&["diff", "--from=b", "--to=c", "--git"]).success().stdout,
+        @r"
+    diff --git a/file b/file
+    index 6178079822..f2ad6c76f0 100644
+    --- a/file
+    +++ b/file
+    @@ -1,1 +1,1 @@
+    -b
+    +c
+    diff --git a/ran-zsuskulnrvyrovkzqrwmxqlsskqntxvp.txt b/ran-zsuskulnrvyrovkzqrwmxqlsskqntxvp.txt
+    deleted file mode 100644
+    index e69de29bb2..0000000000
+    [EOF]
+    "
     );
 }
 

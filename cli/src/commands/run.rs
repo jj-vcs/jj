@@ -548,8 +548,9 @@ async fn rewrite_commit(
 /// Run a command across a set of revisions.
 ///
 /// Checks out each revision in an isolated working copy, runs the command, then
-/// amends the revision with the resulting working copy. Descendants are rebased
-/// on top of the amended revisions.
+/// amends the revision with the resulting working copy. By default, descendants
+/// are rebased on top of the amended revisions, propagating the diff. Use
+/// `--restore-descendants` to keep descendants' content unchanged instead.
 ///
 /// The command is executed with the following environment variables set:
 ///
@@ -604,6 +605,10 @@ pub struct RunArgs {
     /// freshly checked-out tree.
     #[arg(long)]
     clean: bool,
+
+    /// Preserve the content (not the diff) when rebasing descendants
+    #[arg(long)]
+    restore_descendants: bool,
 }
 
 /// Precedence: `--jobs`, `run.jobs` config, 1.
@@ -780,42 +785,64 @@ pub async fn cmd_run(
     }
 
     // The command did something, so rewrite the commits.
+    let restore_descendants = args.restore_descendants;
     let mut count: u32 = 0;
-    // TODO: handle the `--reparent` case here.
+    let mut num_reparented: u32 = 0;
     tx.repo_mut()
         .transform_descendants(
             resolved_commits.iter().ids().cloned().collect_vec(),
             async |rewriter| {
                 let old_id = rewriter.old_commit().id().clone();
-                let builder = rewriter.rebase().await?;
-                // Only rewrite the tree if the command changed it. Descendants
-                // that weren't part of the input set still need to be rebased
-                // but keep their original tree.
-                if let Some((old_tree, new_tree)) = rewritten_commits.get(&old_id) {
-                    // Apply only the diff the command introduced (new_tree -
-                    // old_tree) on top of the rebased tree. This propagates
-                    // changes into descendants via the normal rebase merge
-                    // rather than being replaced.
-                    let rebased_tree = builder.tree();
-                    let merged = MergedTree::merge(Merge::from_vec(vec![
-                        (
-                            MergedTree::resolved(store.clone(), new_tree.id().clone()),
-                            "command result".to_owned(),
-                        ),
-                        (old_tree.clone(), "original commit".to_owned()),
-                        (rebased_tree, "rebased".to_owned()),
-                    ]))
-                    .await?;
-                    count += 1;
-                    builder.set_tree(merged).write().await?;
-                } else {
-                    builder.write().await?;
+                match (rewritten_commits.get(&old_id), restore_descendants) {
+                    (Some((_, new_tree)), true) => {
+                        let builder = rewriter.rebase().await?;
+                        count += 1;
+                        // Use the command result on top of the commit's
+                        // original tree, ignoring rewrites of its ancestors.
+                        builder
+                            .set_tree(MergedTree::resolved(store.clone(), new_tree.id().clone()))
+                            .write()
+                            .await?;
+                    }
+                    (Some((old_tree, new_tree)), false) => {
+                        let builder = rewriter.rebase().await?;
+                        count += 1;
+                        // Apply the diff the command introduced (new_tree -
+                        // old_tree) on top of the rebased tree, propagating
+                        // ancestor rewrites via the normal rebase merge.
+                        let rebased_tree = builder.tree();
+                        let merged = MergedTree::merge(Merge::from_vec(vec![
+                            (
+                                MergedTree::resolved(store.clone(), new_tree.id().clone()),
+                                "command result".to_owned(),
+                            ),
+                            (old_tree.clone(), "original commit".to_owned()),
+                            (rebased_tree, "rebased".to_owned()),
+                        ]))
+                        .await?;
+                        builder.set_tree(merged).write().await?;
+                    }
+                    (None, true) => {
+                        // Descendant outside the run set — keep its content.
+                        rewriter.reparent().write().await?;
+                        num_reparented += 1;
+                    }
+                    (None, false) => {
+                        // Default: propagate the diff into descendants.
+                        rewriter.rebase().await?.write().await?;
+                    }
                 }
                 Ok(())
             },
         )
         .await?;
     writeln!(ui.stderr(), "Rewrote {count} commits")?;
+    if restore_descendants && num_reparented > 0 {
+        writeln!(
+            ui.stderr(),
+            "Rebased {num_reparented} descendant commits (while preserving their content)"
+        )?;
+    }
     tx.finish(ui, format!("run: rewrite {count} commits"))
         .await?;
 
