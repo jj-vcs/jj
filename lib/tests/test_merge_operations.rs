@@ -39,25 +39,24 @@ fn test_merge_operations_deep_criss_cross() -> TestResult {
         return run_merge_operations_deep_criss_cross(num_levels);
     }
 
-    let _num_levels = std::env::var(LEVELS_ENV)
+    let num_levels = std::env::var(LEVELS_ENV)
         .ok()
         .and_then(|value| value.parse().ok())
         .unwrap_or(DEFAULT_NUM_LEVELS);
-    let _output = Command::new(std::env::current_exe()?)
+    let output = Command::new(std::env::current_exe()?)
         .arg("--exact")
         .arg("test_merge_operations::test_merge_operations_deep_criss_cross")
         .arg("--nocapture")
         .env(CHILD_ENV, "1")
         .env("RUST_MIN_STACK", CHILD_STACK_SIZE.to_string())
         .output()?;
-    // TODO: This test should pass!!! Fix the stack overflow and uncomment the next
-    // assert. assert!(
-    //     output.status.success(),
-    //     "deep criss-cross merge failed with {num_levels} levels and
-    // {CHILD_STACK_SIZE} byte child \      stack\nstdout:\n{}\nstderr:\n{}",
-    //     String::from_utf8_lossy(&output.stdout),
-    //     String::from_utf8_lossy(&output.stderr),
-    // );
+    assert!(
+        output.status.success(),
+        "deep criss-cross merge failed with {num_levels} levels and {CHILD_STACK_SIZE} byte child \
+         stack\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
     Ok(())
 }
 
