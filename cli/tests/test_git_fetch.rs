@@ -612,6 +612,95 @@ fn test_git_ref_fetch_bookmark_new_edit_and_forget() {
 }
 
 #[test]
+fn test_git_ref_fetch_operation_diff() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = add_git_remote(&test_env, &work_dir, "origin");
+    add_commit_to_ref(
+        &git_repo,
+        "refs/pull/123/head",
+        "pr123",
+        "pull request 123 v1",
+    );
+
+    work_dir
+        .run_jj([
+            "git",
+            "ref",
+            "fetch",
+            "--remote",
+            "origin",
+            "refs/pull/123/head",
+        ])
+        .success();
+    insta::assert_snapshot!(work_dir.run_jj(["op", "diff", "--from", "@-", "--to", "@"]), @r"
+    From operation: 14e9a7ba5044 (2001-02-03 08:05:08) add git remote origin
+      To operation: 252aad02ee20 (2001-02-03 08:05:09) fetch ref refs/pull/123/head from git remote origin
+
+    Changed commits:
+    ○  + vrvtsttm b182bf31 pull request 123 v1
+
+    Changed fetched Git refs:
+    refs/pull/123/head@origin:
+    + vrvtsttm b182bf31 pull request 123 v1
+    - (absent)
+    [EOF]
+    ");
+
+    add_commit_to_ref(
+        &git_repo,
+        "refs/pull/123/head",
+        "pr123-v2",
+        "pull request 123 v2",
+    );
+    work_dir
+        .run_jj([
+            "git",
+            "ref",
+            "fetch",
+            "--remote",
+            "origin",
+            "refs/pull/123/head",
+        ])
+        .success();
+    insta::assert_snapshot!(work_dir.run_jj(["op", "diff", "--from", "@-", "--to", "@"]), @r"
+    From operation: 252aad02ee20 (2001-02-03 08:05:09) fetch ref refs/pull/123/head from git remote origin
+      To operation: 126fe8d19df5 (2001-02-03 08:05:11) fetch ref refs/pull/123/head from git remote origin
+
+    Changed commits:
+    ○  + zttwxqyv 0b54cc6a pull request 123 v2
+
+    Changed fetched Git refs:
+    refs/pull/123/head@origin:
+    + zttwxqyv 0b54cc6a pull request 123 v2
+    - vrvtsttm b182bf31 pull request 123 v1
+    [EOF]
+    ");
+
+    work_dir
+        .run_jj([
+            "git",
+            "ref",
+            "forget",
+            "--remote",
+            "origin",
+            "refs/pull/123/head",
+        ])
+        .success();
+    insta::assert_snapshot!(work_dir.run_jj(["op", "diff", "--from", "@-", "--to", "@"]), @r"
+    From operation: 126fe8d19df5 (2001-02-03 08:05:11) fetch ref refs/pull/123/head from git remote origin
+      To operation: 5437b9bba2ad (2001-02-03 08:05:13) forget fetched git ref refs/pull/123/head@origin
+
+    Changed fetched Git refs:
+    refs/pull/123/head@origin:
+    + (absent)
+    - zttwxqyv 0b54cc6a pull request 123 v2
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_git_fetch_default_remote() {
     let test_env = TestEnvironment::default();
     test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
