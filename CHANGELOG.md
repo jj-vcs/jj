@@ -32,6 +32,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj show` now supports `--reversed` flag.
 
+* `jj absorb` now supports `--interactive`/`-i` to let you interactively choose
+  which hunks from the source to consider for absorption. This is useful when
+  you only want to absorb *part* of a commit without first splitting it.
+
+* `jj absorb` now supports the `--tool` option to choose a specific diff editor
+  for use with `--interactive` / `-i` (consistent with `squash --tool`,
+  `split --tool`, etc.).
+
 ### Fixed bugs
 
 * `jj` now creates a new working-copy revision during snapshotting if the
