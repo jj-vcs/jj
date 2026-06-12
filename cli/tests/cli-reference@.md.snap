@@ -46,8 +46,11 @@ This document contains the help content for the `jj` command-line program.
 * [`jj file`↴](#jj-file)
 * [`jj file annotate`↴](#jj-file-annotate)
 * [`jj file chmod`↴](#jj-file-chmod)
+* [`jj file delete`↴](#jj-file-delete)
+* [`jj file edit`↴](#jj-file-edit)
 * [`jj file list`↴](#jj-file-list)
 * [`jj file search`↴](#jj-file-search)
+* [`jj file set`↴](#jj-file-set)
 * [`jj file show`↴](#jj-file-show)
 * [`jj file track`↴](#jj-file-track)
 * [`jj file untrack`↴](#jj-file-untrack)
@@ -1120,8 +1123,11 @@ File operations
 
 * `annotate` — Show the source change for each line of the target file
 * `chmod` — Sets or removes the executable bit for paths in the repo
+* `delete` — Delete files from the given revision
+* `edit` — Edit the contents of a file in a revision
 * `list` — List files in a revision
 * `search` — Search for content in files
+* `set` — Update the contents of a file by reading from stdin
 * `show` — Print contents of files in a revision
 * `track` — Start tracking specified paths in the working copy
 * `untrack` — Stop tracking specified paths in the working copy
@@ -1183,6 +1189,52 @@ Unlike the POSIX `chmod`, `jj file chmod` also works on Windows, on conflicted f
 
 
 
+## `jj file delete`
+
+Delete files from the given revision
+
+Removes all files matched by the given filesets from the specified revision. Descendants are rebased on top of the rewritten commit.
+
+**Usage:** `jj file delete [OPTIONS] <FILESETS>...`
+
+###### **Arguments:**
+
+* `<FILESETS>` — Files or directories to delete (filesets are accepted)
+
+###### **Options:**
+
+* `-r`, `--revision <REVSET>` — The revision to delete the files in
+
+  Default value: `@`
+* `--restore-descendants` — Preserve the content (not the diff) when rebasing descendants
+
+
+
+## `jj file edit`
+
+Edit the contents of a file in a revision
+
+The file is opened with the contents from the given revision. After the editor exits, the file is saved back to the revision and descendants are rebased on top of the updated commit.
+
+If the file does not yet exist in the revision, a new file will be created.
+
+If the file is conflicted, the conflict markers are materialized in the editor. Editing the conflict markers can resolve the conflict.
+
+**Usage:** `jj file edit [OPTIONS] <FILE>`
+
+###### **Arguments:**
+
+* `<FILE>` — The file to edit
+
+###### **Options:**
+
+* `-r`, `--revision <REVSET>` — The revision to edit the file in
+
+  Default value: `@`
+* `--restore-descendants` — Preserve the content (not the diff) when rebasing descendants
+
+
+
 ## `jj file list`
 
 List files in a revision
@@ -1234,6 +1286,31 @@ This is an early version of the command. It only supports glob matching for now,
    If it is a glob pattern, the whole line must match the pattern, so you may want to pass something like `--pattern 'glob:*foo*'`.
 
    [string pattern syntax]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
+
+
+
+## `jj file set`
+
+Update the contents of a file by reading from stdin
+
+Reads the new file contents from stdin and overwrites the specified file in the given revision. Descendants are rebased on top of the rewritten commit.
+
+Example usage:
+
+```shell echo "new file contents" | jj file set -r xyz path/to/file.md ```
+
+**Usage:** `jj file set [OPTIONS] <FILE>`
+
+###### **Arguments:**
+
+* `<FILE>` — The file to set
+
+###### **Options:**
+
+* `-r`, `--revision <REVSET>` — The revision to set the file in
+
+  Default value: `@`
+* `--restore-descendants` — Preserve the content (not the diff) when rebasing descendants
 
 
 
