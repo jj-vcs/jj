@@ -3000,6 +3000,9 @@ $ jj run -j 4 -- pre-commit run .github/pre-commit.yaml
 
    Overrides the `run.jobs` config setting. Defaults to 1 if neither is set.
 * `--root` — Run the command from the working-copy root in each commit instead of from the subdirectory `jj run` was invoked from
+* `--clean` — Delete each working copy before running the command
+
+   By default `jj run` reuses working copies between invocations so build artifacts are preserved. With `--clean`, every commit starts from a freshly checked-out tree.
 
 
 

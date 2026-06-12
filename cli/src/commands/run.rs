@@ -167,6 +167,9 @@ struct WorkspacePool {
     /// rewritten commit. Loaded once from `snapshot.auto-track`; essentially
     /// the user's `.gitignore` story for what counts as a build artifact.
     auto_tracking_matcher: Box<dyn Matcher>,
+    /// When true, wipe each slot's working copy on acquisition so every commit
+    /// starts from a freshly checked-out tree (no artifact reuse).
+    clean: bool,
 }
 
 impl WorkspacePool {
@@ -174,6 +177,7 @@ impl WorkspacePool {
         repo_path: &Path,
         size: NonZeroUsize,
         auto_tracking_matcher: Box<dyn Matcher>,
+        clean: bool,
     ) -> Result<Self, RunError> {
         // The parent() call is needed to not write under `.jj/repo/`.
         let base_path = repo_path.parent().unwrap().join("run").join("default");
@@ -182,6 +186,7 @@ impl WorkspacePool {
             base_path,
             size,
             auto_tracking_matcher,
+            clean,
         })
     }
 
@@ -209,7 +214,7 @@ impl WorkspacePool {
 
         let is_reused_workspace = tree_state_path.exists();
         let settings = default_tree_state_settings();
-        let mut tree_state = if is_reused_workspace {
+        let mut tree_state = if !self.clean && is_reused_workspace {
             // Load the persisted tree state so `check_out` below can diff
             // against it, only touching files that changed and removing files
             // no longer present in the new tree.
@@ -227,10 +232,15 @@ impl WorkspacePool {
             fs::remove_file(&tree_state_path)?;
             ts
         } else {
-            // First use, or the previous job crashed before saving. Wipe any
-            // leftover working copy so we start from a clean slate, then use
-            // an in-memory empty tree state. `tree_state` stays absent on disk
-            // until a job writes it via `persist()`.
+            // This is the first use of the workspace, the previous job crashed,
+            // or --clean was passed. Wipe any leftover working copy so we start
+            // from a clean slate, then use an in-memory empty tree state.
+            // `tree_state` stays absent on disk until a successful job writes
+            // it via `persist()`.
+            fs::remove_file(&tree_state_path).or_else(|e| match e {
+                e if e.kind() == io::ErrorKind::NotFound => Ok(()),
+                e => Err(RunError::PathDeletionFailure(tree_state_path.clone(), e)),
+            })?;
             fs::remove_dir_all(&working_copy_dir).or_else(|e| match e {
                 e if e.kind() == io::ErrorKind::NotFound => Ok(()),
                 e => Err(RunError::PathDeletionFailure(working_copy_dir.clone(), e)),
@@ -586,6 +596,14 @@ pub struct RunArgs {
     /// from the subdirectory `jj run` was invoked from.
     #[arg(long)]
     root: bool,
+
+    /// Delete each working copy before running the command
+    ///
+    /// By default `jj run` reuses working copies between invocations so build
+    /// artifacts are preserved. With `--clean`, every commit starts from a
+    /// freshly checked-out tree.
+    #[arg(long)]
+    clean: bool,
 }
 
 /// Precedence: `--jobs`, `run.jobs` config, 1.
@@ -680,7 +698,12 @@ pub async fn cmd_run(
     let mut done_commits = HashSet::new();
     let (sender_tx, mut receiver) = mpsc::channel(jobs.get());
 
-    let pool = Arc::new(WorkspacePool::new(&repo_path, jobs, auto_tracking_matcher)?);
+    let pool = Arc::new(WorkspacePool::new(
+        &repo_path,
+        jobs,
+        auto_tracking_matcher,
+        args.clean,
+    )?);
     let stored_len = resolved_commits.len();
 
     let spec = Arc::new(CommandSpec {
