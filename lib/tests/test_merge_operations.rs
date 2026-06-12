@@ -17,7 +17,6 @@ use std::process::Command;
 use jj_lib::op_store;
 use jj_lib::operation::Operation;
 use jj_lib::ref_name::WorkspaceName;
-use jj_lib::transaction::Transaction;
 use pollster::FutureExt as _;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
@@ -52,17 +51,13 @@ fn test_merge_operations_deep_criss_cross() -> TestResult {
         .env(CHILD_ENV, "1")
         .env("RUST_MIN_STACK", CHILD_STACK_SIZE.to_string())
         .output()?;
-    // TODO: This test should pass!!! Fix the stack overflow and remove the if false
-    // guard.
-    if false {
-        assert!(
-            output.status.success(),
-            "deep criss-cross merge failed with {num_levels} levels and {CHILD_STACK_SIZE} byte \
-             child stack\nstdout:\n{}\nstderr:\n{}",
-            String::from_utf8_lossy(&output.stdout),
-            String::from_utf8_lossy(&output.stderr),
-        );
-    }
+    assert!(
+        output.status.success(),
+        "deep criss-cross merge failed with {num_levels} levels and {CHILD_STACK_SIZE} byte child \
+         stack\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
     Ok(())
 }
 
@@ -121,14 +116,14 @@ fn run_merge_operations_deep_criss_cross(num_levels: usize) -> TestResult {
 
     let workspace_name = None;
     let transaction_attributes = [];
-    let (merged_repo, _num_rebased) = Transaction::merge_operations(
-        repo_loader,
-        vec![left_op.clone(), right_op.clone()],
-        workspace_name,
-        Some("merge deep criss-cross"),
-        transaction_attributes,
-    )
-    .block_on()?;
+    let (merged_repo, _num_rebased) = repo_loader
+        .merge_operations(
+            vec![left_op.clone(), right_op.clone()],
+            workspace_name,
+            Some("merge deep criss-cross"),
+            transaction_attributes,
+        )
+        .block_on()?;
     assert!(!merged_repo.view().heads().is_empty());
     Ok(())
 }
