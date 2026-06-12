@@ -8279,35 +8279,45 @@ does not match the <code>jj help</code> output exactly.</p>
 <li><code>run</code> — Run a given command to find the first bad revision</li>
 </ul>
 <h2 id="jj-bisect-run"><code>jj bisect run</code><a class="headerlink" href="#jj-bisect-run" title="Permanent link">&para;</a></h2>
-<p>Run a given command to find the first bad revision.</p>
-<p>Uses binary search to find the first bad revision. Revisions are evaluated by running a given command (see the documentation for <code>--command</code> for details).</p>
-<p>It is assumed that if a given revision is bad, then all its descendants in the input range are also bad.</p>
-<p>The target of the bisection can be inverted to look for the first good revision by passing <code>--find-good</code>.</p>
-<p>Hint: You can pass your shell as evaluation command. You can then run manual tests in the shell and make sure to exit the shell with appropriate error code depending on the outcome (e.g. <code>exit 0</code> to mark the revision as good in Bash or Fish).</p>
-<p>Example: To run <code>cargo test</code> with the changes from revision <code>xyz</code> applied:</p>
-<p><code>jj bisect run --range v1.0..main -- bash -c "jj duplicate -r xyz -B @ &amp;&amp; cargo test"</code></p>
+<p>Run a given command to find the first bad revision</p>
+<p>Uses binary search to find the first "bad" revision. Revisions are evaluated
+by running the given command (see the documentation for <code>&lt;COMMAND&gt;</code> for
+details).</p>
+<p>It is assumed that if a given revision is "bad", then all its descendants
+in the input range are also "bad".</p>
+<p>The target of the bisection can be inverted to look for the first "good"
+revision by passing <code>--find-good</code>.</p>
+<p>Hint: You can pass your shell as the command, then run manual tests in a
+script. When you're done, make sure to exit the shell with an appropriate
+error code depending on the desired outcome (e.g., <code>exit 0</code> to mark the
+revision as "good").</p>
+<p>Example: To run <code>cargo test</code> with the changes from revision <code>xyz</code> applied:
+<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>bisect<span class="w"> </span>run<span class="w"> </span>--range<span class="w"> </span>v1.0..main<span class="w"> </span>--<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;jj duplicate xyz -B @ &amp;&amp;</span>
+<span class="s2">cargo test&quot;</span>
+</code></pre></div></p>
 <p><strong>Usage:</strong> <code>jj bisect run [OPTIONS] --range &lt;REVSETS&gt; [COMMAND] [ARGS]...</code></p>
 <h6 id="arguments_3"><strong>Arguments:</strong><a class="headerlink" href="#arguments_3" title="Permanent link">&para;</a></h6>
 <ul>
 <li>
-<p><code>&lt;COMMAND&gt;</code> — Command to run to determine whether the bug is present</p>
-<p>The exit status of the command will be used to mark revisions as good or bad: status 0 means good, 125 means to skip the revision, 127 (command not found) will abort the bisection, and any other non-zero exit status means the revision is bad.</p>
+<p><code>&lt;COMMAND&gt;</code> — Command to run to determine the status of a revision</p>
+<p>Each revision being checked will be directly edited (will become the current working copy) before running this command. The exit status of the command will be used to mark revisions as "good" or "bad": status 0 means "good", 125 means to skip the revision, 127 (command not found) will abort the bisection, and any other non-zero exit status means the revision is "bad".</p>
 <p>The target's commit ID is available to the command in the <code>$JJ_BISECT_TARGET</code> environment variable.</p>
 </li>
 <li>
 <p><code>&lt;ARGS&gt;</code> — Arguments to pass to the command</p>
-<p>Hint: Use a <code>--</code> separator to allow passing arguments starting with <code>-</code>. For example <code>jj bisect run --range=... -- test -f some-file</code>.</p>
+<p>Hint: Use a <code>--</code> separator to allow passing arguments starting with <code>-</code>. For example: <code>jj bisect run --range=... -- test -f some-file</code>.</p>
 </li>
 </ul>
 <h6 id="options_3"><strong>Options:</strong><a class="headerlink" href="#options_3" title="Permanent link">&para;</a></h6>
 <ul>
 <li>
-<p><code>-r</code>, <code>--range &lt;REVSETS&gt;</code> — Range of revisions to bisect</p>
+<p><code>-r</code>, <code>--range &lt;REVSETS&gt;</code> — Range of revisions to bisect (can be repeated)</p>
 <p>This is typically a range like <code>v1.0..main</code>. The heads of the range are assumed to be bad. Ancestors of the range that are not also in the range are assumed to be good.</p>
+<p>The union of all given ranges are used as the input for the bisection.</p>
 </li>
 <li>
-<p><code>--find-good</code> — Whether to find the first good revision instead</p>
-<p>Inverts the interpretation of exit statuses (excluding special exit statuses).</p>
+<p><code>--find-good</code> — Find the first good revision instead</p>
+<p>The interpretation of exit statuses will be inverted (excluding special exit statuses), so status 0 means bad and other non-zero statuses mean good.</p>
 <p>Default value: <code>false</code></p>
 </li>
 </ul>
