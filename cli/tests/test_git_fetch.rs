@@ -770,6 +770,73 @@ fn test_git_ref_fetch_undo_and_op_restore() {
 }
 
 #[test]
+fn test_git_ref_fetch_same_ref_from_multiple_remotes() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let origin_repo = add_git_remote(&test_env, &work_dir, "origin");
+    let upstream_repo = add_git_remote(&test_env, &work_dir, "upstream");
+    add_commit_to_ref(
+        &origin_repo,
+        "refs/pull/123/head",
+        "origin-pr123",
+        "origin pull request 123",
+    );
+    add_commit_to_ref(
+        &upstream_repo,
+        "refs/pull/123/head",
+        "upstream-pr123",
+        "upstream pull request 123",
+    );
+
+    work_dir
+        .run_jj([
+            "git",
+            "ref",
+            "fetch",
+            "--remote",
+            "origin",
+            "refs/pull/123/head",
+        ])
+        .success();
+    work_dir
+        .run_jj([
+            "git",
+            "ref",
+            "fetch",
+            "--remote",
+            "upstream",
+            "refs/pull/123/head",
+        ])
+        .success();
+
+    insta::assert_snapshot!(work_dir.run_jj(["git", "ref", "list"]), @r"
+    origin refs/pull/123/head d2350be10dcd703513bc4f6b2e10ac16c970ec31
+    upstream refs/pull/123/head 01ff80b6d49347f7f8fd9ded6fd394c21ea6dc9d
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        work_dir.run_jj(["log", "--no-graph", "-r", "refs/pull/123/head@origin", "-T", "description.first_line() ++ '\n'"]),
+        @r"
+    origin pull request 123
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        work_dir.run_jj(["log", "--no-graph", "-r", "refs/pull/123/head@upstream", "-T", "description.first_line() ++ '\n'"]),
+        @r"
+    upstream pull request 123
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        work_dir.run_jj(["log", "--no-graph", "-r", "fetched_git_refs('refs/pull/123/head')", "-T", "description.first_line() ++ '\n'"]),
+        @r"
+    upstream pull request 123
+    origin pull request 123
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_git_fetch_default_remote() {
     let test_env = TestEnvironment::default();
     test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
