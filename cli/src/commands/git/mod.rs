@@ -38,8 +38,8 @@ use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::ref_name::RemoteRefSymbolBuf;
 use jj_lib::revset;
 use jj_lib::store::Store;
-use r#ref::cmd_git_ref;
 use r#ref::GitRefCommand;
+use r#ref::cmd_git_ref;
 
 use self::clone::GitCloneArgs;
 use self::clone::cmd_git_clone;

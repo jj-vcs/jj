@@ -43,6 +43,30 @@ fn add_commit_to_branch(git_repo: &gix::Repository, branch: &str, message: &str)
     .commit_id
 }
 
+fn add_commit_to_ref(
+    git_repo: &gix::Repository,
+    ref_name: &str,
+    file_name: &str,
+    message: &str,
+) -> gix::ObjectId {
+    let parents = git_repo
+        .find_reference(ref_name)
+        .ok()
+        .and_then(|mut r| r.peel_to_commit().ok())
+        .map(|c| vec![c.id().detach()])
+        .unwrap_or_default();
+
+    git::add_commit(
+        git_repo,
+        ref_name,
+        file_name,
+        file_name.as_bytes(),
+        message,
+        &parents,
+    )
+    .commit_id
+}
+
 /// Creates a remote Git repo containing a bookmark with the same name
 fn init_git_remote(test_env: &TestEnvironment, remote: &str) -> gix::Repository {
     let git_repo_path = test_env.env_root().join(remote);
@@ -129,6 +153,460 @@ fn test_git_fetch_with_default_config() {
     work_dir.run_jj(["git", "fetch"]).success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     origin@origin: qmyrypzk ab8b299e message
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_ref_fetch_pull_request_ref() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = add_git_remote(&test_env, &work_dir, "origin");
+    add_commit_to_ref(&git_repo, "refs/pull/123/head", "pr123", "pull request 123");
+
+    let output = work_dir.run_jj([
+        "git",
+        "ref",
+        "fetch",
+        "--remote",
+        "origin",
+        "refs/pull/123/head",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Fetched refs/pull/123/head as spovxuoz 84c6f409 pull request 123
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["git", "ref", "list"]), @r"
+    origin refs/pull/123/head 84c6f409c8199d0f3fd9b29fb5119c090da42d5e
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        work_dir.run_jj(["log", "--no-graph", "-r", "refs/pull/123/head@origin", "-T", "description.first_line() ++ '\n'"]),
+        @r"
+    pull request 123
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        work_dir.run_jj(["log", "--no-graph", "-r", "fetched_git_refs('refs/pull/*/head', remote='origin')", "-T", "description.first_line() ++ '\n'"]),
+        @r"
+    pull request 123
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_ref_fetch_default_remote_from_config_glob() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config(r#"git.fetch = "rem*""#);
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = add_git_remote(&test_env, &work_dir, "rem1");
+    add_git_remote(&test_env, &work_dir, "upstream");
+    add_commit_to_ref(&git_repo, "refs/pull/123/head", "pr123", "pull request 123");
+
+    let output = work_dir.run_jj(["git", "ref", "fetch", "refs/pull/123/head"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Fetched refs/pull/123/head as spovxuoz 84c6f409 pull request 123
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["git", "ref", "list"]), @r"
+    rem1 refs/pull/123/head 84c6f409c8199d0f3fd9b29fb5119c090da42d5e
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_ref_fetch_default_remote_from_config_list() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config(r#"git.fetch = ["upstream", "origin"]"#);
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    add_git_remote(&test_env, &work_dir, "origin");
+    let git_repo = add_git_remote(&test_env, &work_dir, "upstream");
+    add_commit_to_ref(&git_repo, "refs/pull/123/head", "pr123", "pull request 123");
+
+    // A list-valued git.fetch is still ordered configuration for this command:
+    // only the first entry supplies the default remote.
+    let output = work_dir.run_jj(["git", "ref", "fetch", "refs/pull/123/head"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Fetched refs/pull/123/head as spovxuoz 84c6f409 pull request 123
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["git", "ref", "list"]), @r"
+    upstream refs/pull/123/head 84c6f409c8199d0f3fd9b29fb5119c090da42d5e
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_ref_fetch_non_commit_ref_deletes_temporary_ref() -> TestResult {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = add_git_remote(&test_env, &work_dir, "origin");
+    let blob_id = git_repo.write_blob(b"not a commit")?.detach();
+    git_repo.reference(
+        "refs/pull/123/head",
+        blob_id,
+        gix::refs::transaction::PreviousValue::Any,
+        "create blob ref",
+    )?;
+
+    let output = work_dir.run_jj([
+        "git",
+        "ref",
+        "fetch",
+        "--remote",
+        "origin",
+        "refs/pull/123/head",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Git ref 'refs/pull/123/head' on remote 'origin' does not point to a commit
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // The backing Git ref is an implementation detail of the one-off fetch, not
+    // state that should survive a failed import.
+    let git_root_output = work_dir.run_jj(["git", "root"]).success();
+    let git_root = git_root_output.stdout.raw().trim();
+    let backing_git_repo = gix::open(git_root)?;
+    assert!(
+        backing_git_repo
+            .try_find_reference("refs/jj/fetch/origin/refs/pull/123/head")?
+            .is_none()
+    );
+    Ok(())
+}
+
+#[test]
+fn test_git_ref_fetch_wildcard_ref_rejected_before_fetch() -> TestResult {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = add_git_remote(&test_env, &work_dir, "origin");
+    add_commit_to_ref(&git_repo, "refs/pull/123/head", "pr123", "pull request 123");
+    add_commit_to_ref(&git_repo, "refs/pull/456/head", "pr456", "pull request 456");
+
+    // A wildcard source would make Git create multiple refs/jj/fetch/... refs,
+    // while jj git ref fetch has only one fetched-ref label to record.
+    let output = work_dir.run_jj([
+        "git",
+        "ref",
+        "fetch",
+        "--remote",
+        "origin",
+        "refs/pull/*/head",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Git ref patterns are not supported by this command: refs/pull/*/head
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let git_root_output = work_dir.run_jj(["git", "root"]).success();
+    let git_root = git_root_output.stdout.raw().trim();
+    let backing_git_repo = gix::open(git_root)?;
+    for ref_name in [
+        "refs/jj/fetch/origin/refs/pull/123/head",
+        "refs/jj/fetch/origin/refs/pull/456/head",
+    ] {
+        assert!(backing_git_repo.try_find_reference(ref_name)?.is_none());
+    }
+    Ok(())
+}
+
+#[test]
+fn test_git_ref_fetch_rejects_incompatible_remote_name_before_fetch() -> TestResult {
+    let test_env = TestEnvironment::default();
+    let remote_repo = init_git_remote(&test_env, "git");
+    add_commit_to_ref(
+        &remote_repo,
+        "refs/pull/123/head",
+        "pr123",
+        "pull request 123",
+    );
+    let work_dir = test_env.work_dir("repo");
+
+    git::init(work_dir.root());
+    git::add_remote(work_dir.root(), "git", "../git");
+    work_dir.run_jj(["git", "init", "--git-repo=."]).success();
+
+    // The backing Git repo may already contain remotes that jj cannot model.
+    // Validate before fetching so such names cannot be persisted as fetched refs
+    // or temporary refs under refs/jj/fetch/.
+    let output = work_dir.run_jj([
+        "git",
+        "ref",
+        "fetch",
+        "--remote",
+        "git",
+        "refs/pull/123/head",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Git remote named 'git' is reserved for local Git repository
+    Hint: Run `jj git remote rename` to give a different name.
+    [EOF]
+    [exit status: 1]
+    ");
+
+    insta::assert_snapshot!(work_dir.run_jj(["git", "ref", "list"]), @r"
+    ------- stderr -------
+    No fetched Git refs.
+    [EOF]
+    ");
+    let git_root_output = work_dir.run_jj(["git", "root"]).success();
+    let git_root = git_root_output.stdout.raw().trim();
+    let backing_git_repo = gix::open(git_root)?;
+    assert!(
+        backing_git_repo
+            .try_find_reference("refs/jj/fetch/git/refs/pull/123/head")?
+            .is_none()
+    );
+    Ok(())
+}
+
+#[test]
+fn test_git_ref_fetch_default_remote_from_config_glob_multiple_matches() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config(r#"git.fetch = "rem*""#);
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    add_git_remote(&test_env, &work_dir, "rem1");
+    add_git_remote(&test_env, &work_dir, "rem2");
+
+    // Scalar git.fetch may be a pattern, but this command needs one remote.
+    let output = work_dir.run_jj(["git", "ref", "fetch", "refs/pull/123/head"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: `git.fetch` matches multiple remotes: rem1, rem2
+    Hint: Use `--remote` to select one remote for `jj git ref fetch`.
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
+fn test_git_ref_fetch_rename_and_remove_remote() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = add_git_remote(&test_env, &work_dir, "origin");
+    add_commit_to_ref(&git_repo, "refs/pull/123/head", "pr123", "pull request 123");
+
+    work_dir
+        .run_jj([
+            "git",
+            "ref",
+            "fetch",
+            "--remote",
+            "origin",
+            "refs/pull/123/head",
+        ])
+        .success();
+    work_dir
+        .run_jj(["git", "remote", "rename", "origin", "upstream"])
+        .success();
+    // Fetched refs are keyed by remote name and should follow remote renames.
+    insta::assert_snapshot!(work_dir.run_jj(["git", "ref", "list"]), @r"
+    upstream refs/pull/123/head 84c6f409c8199d0f3fd9b29fb5119c090da42d5e
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        work_dir.run_jj(["log", "--no-graph", "-r", "refs/pull/123/head@upstream", "-T", "description.first_line() ++ '\n'"]),
+        @r"
+    pull request 123
+    [EOF]
+    ");
+
+    work_dir
+        .run_jj(["git", "remote", "remove", "upstream"])
+        .success();
+    // Removing the remote should also remove refs/...@remote labels.
+    insta::assert_snapshot!(work_dir.run_jj(["git", "ref", "list"]), @r"
+    ------- stderr -------
+    No fetched Git refs.
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_ref_fetch_refetch_updates_label_keeps_old_head() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = add_git_remote(&test_env, &work_dir, "origin");
+    add_commit_to_ref(
+        &git_repo,
+        "refs/pull/123/head",
+        "pr123",
+        "pull request 123 v1",
+    );
+    work_dir
+        .run_jj([
+            "git",
+            "ref",
+            "fetch",
+            "--remote",
+            "origin",
+            "refs/pull/123/head",
+        ])
+        .success();
+    add_commit_to_ref(
+        &git_repo,
+        "refs/pull/123/head",
+        "pr123",
+        "pull request 123 v2",
+    );
+    work_dir
+        .run_jj([
+            "git",
+            "ref",
+            "fetch",
+            "--remote",
+            "origin",
+            "refs/pull/123/head",
+        ])
+        .success();
+
+    // Refetching moves the fetched-ref label to the new remote target, but the
+    // previous review commit remains visible as an ordinary jj head.
+    insta::assert_snapshot!(
+        work_dir.run_jj(["log", "--no-graph", "-r", "fetched_git_refs('refs/pull/123/head', remote='origin')", "-T", "description.first_line() ++ '\n'"]),
+        @r"
+    pull request 123 v2
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        work_dir.run_jj(["log", "--no-graph", "-r", "description(glob:'pull request 123 v*')", "-T", "description.first_line() ++ '\n'"]),
+        @r"
+    pull request 123 v2
+    pull request 123 v1
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_ref_fetch_pins_commits_during_normal_fetch() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("git.abandon-unreachable-commits = true");
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = add_git_remote(&test_env, &work_dir, "origin");
+    let old_commit_id =
+        add_commit_to_ref(&git_repo, "refs/heads/feature", "feature", "feature old");
+    git_repo
+        .reference(
+            "refs/pull/123/head",
+            old_commit_id,
+            gix::refs::transaction::PreviousValue::Any,
+            "create pull request ref",
+        )
+        .unwrap();
+
+    work_dir
+        .run_jj(["git", "fetch", "--remote", "origin", "--branch", "feature"])
+        .success();
+    work_dir
+        .run_jj([
+            "git",
+            "ref",
+            "fetch",
+            "--remote",
+            "origin",
+            "refs/pull/123/head",
+        ])
+        .success();
+
+    // The normal remote bookmark is rewritten away from the review commit, but
+    // the fetched Git ref should pin the old commit and prevent import
+    // abandonment from hiding it.
+    let new_commit_result = git::add_commit(
+        &git_repo,
+        "refs/heads/feature-new",
+        "feature",
+        b"feature",
+        "feature new",
+        &[],
+    );
+    git_repo
+        .reference(
+            "refs/heads/feature",
+            new_commit_result.commit_id,
+            gix::refs::transaction::PreviousValue::Any,
+            "force rewrite feature",
+        )
+        .unwrap();
+    git_repo
+        .find_reference("refs/heads/feature-new")
+        .unwrap()
+        .delete()
+        .unwrap();
+    let output = work_dir.run_jj(["git", "fetch", "--remote", "origin", "--branch", "feature"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    bookmark: feature@origin [updated] untracked
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        work_dir.run_jj(["log", "--no-graph", "-r", "refs/pull/123/head@origin", "-T", "description.first_line() ++ '\n'"]),
+        @r"
+    feature old
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_ref_fetch_bookmark_new_edit_and_forget() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = add_git_remote(&test_env, &work_dir, "origin");
+    add_commit_to_ref(&git_repo, "refs/pull/123/head", "pr123", "pull request 123");
+
+    work_dir
+        .run_jj([
+            "git",
+            "ref",
+            "fetch",
+            "--remote",
+            "origin",
+            "--bookmark",
+            "pr123",
+            "--new",
+            "refs/pull/123/head",
+        ])
+        .success();
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    pr123: spovxuoz 84c6f409 pull request 123
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        work_dir.run_jj(["log", "--no-graph", "-r", "@-", "-T", "description.first_line() ++ '\n'"]),
+        @r"
+    pull request 123
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj([
+        "git",
+        "ref",
+        "forget",
+        "--remote",
+        "origin",
+        "refs/pull/123/head",
+    ]);
+    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(work_dir.run_jj(["git", "ref", "list"]), @r"
+    ------- stderr -------
+    No fetched Git refs.
     [EOF]
     ");
 }

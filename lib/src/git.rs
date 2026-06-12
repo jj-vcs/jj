@@ -2651,6 +2651,8 @@ const INVALID_REFSPEC_CHARS: [char; 5] = [':', '^', '?', '[', ']'];
 pub enum GitFetchError {
     #[error("No git remote named '{}'", .0.as_symbol())]
     NoSuchRemote(RemoteNameBuf),
+    #[error("Git ref patterns are not supported by this command: {ref_name}")]
+    RefPattern { ref_name: String },
     #[error("No ref named '{ref_name}' on git remote '{}'", remote.as_symbol())]
     NoSuchRef {
         remote: RemoteNameBuf,
@@ -3127,6 +3129,16 @@ impl<'a> GitFetch<'a> {
         callback: &mut dyn GitSubprocessCallback,
         depth: Option<NonZeroU32>,
     ) -> Result<CommitId, GitFetchError> {
+        validate_remote_name(remote_name)?;
+
+        // This command records exactly one fetched ref in the view. Letting Git
+        // expand a wildcard refspec would create multiple temporary refs under
+        // refs/jj/fetch/ without a clear single target to import or remember.
+        if ref_name.contains('*') {
+            return Err(GitFetchError::RefPattern {
+                ref_name: ref_name.to_owned(),
+            });
+        }
         if self
             .git_repo
             .try_find_remote(remote_name.as_str())
@@ -3173,17 +3185,20 @@ impl<'a> GitFetch<'a> {
             })?;
         let commit_id = reference
             .peel_to_commit()
+            .map(|commit| commit.id().detach())
             .map_err(|_| GitFetchError::RefNotCommit {
                 remote: remote_name.to_owned(),
                 ref_name: ref_name.to_owned(),
-            })?
-            .id()
-            .detach();
+            });
+        // The temporary Git ref exists only so Git can fetch an arbitrary refspec
+        // into the backing store. Delete it even if the target is not a commit;
+        // the durable user-visible reference is the fetched_git_refs view entry.
         reference.delete().map_err(|err| {
             GitSubprocessError::External(format!(
                 "failed to delete temporary fetch ref {destination_ref_name}: {err}"
             ))
         })?;
+        let commit_id = commit_id?;
         Ok(CommitId::from_bytes(commit_id.as_bytes()))
     }
 
@@ -3246,7 +3261,6 @@ impl<'a> GitFetch<'a> {
         Ok(import_stats)
     }
 }
-
 #[derive(Error, Debug)]
 pub enum GitPushError {
     #[error("No git remote named '{}'", .0.as_symbol())]

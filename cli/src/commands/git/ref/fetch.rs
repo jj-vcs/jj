@@ -13,21 +13,31 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCandidates;
+use itertools::Itertools as _;
+use jj_lib::commit::Commit;
 use jj_lib::config::ConfigGetResultExt as _;
+use jj_lib::git;
 use jj_lib::git::GitFetch;
 use jj_lib::git::GitSettings;
 use jj_lib::git::import_commit;
+use jj_lib::op_store::RefTarget;
+use jj_lib::ref_name::GitRefNameBuf;
+use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteNameBuf;
-use jj_lib::repo::Repo;
+use jj_lib::repo::Repo as _;
+use jj_lib::rewrite::merge_commit_trees;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
 use crate::cli_util::WorkspaceCommandTransaction;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::commands::git::get_single_remote;
 use crate::complete;
 use crate::git_util::GitSubprocessUi;
 use crate::git_util::load_git_import_options;
+use crate::revset_util::parse_bookmark_name;
+use crate::revset_util::parse_union_name_patterns;
 use crate::ui::Ui;
 
 /// Fetch a ref from a Git remote
@@ -35,6 +45,7 @@ use crate::ui::Ui;
 /// If a working-copy commit gets abandoned, it will be given a new, empty
 /// commit. This is true in general; it is not specific to this command.
 #[derive(clap::Args, Clone, Debug)]
+#[command(group(clap::ArgGroup::new("working_copy").multiple(false)))]
 pub struct GitRefFetchArgs {
     /// The remote to fetch from (only named remotes are supported)
     ///
@@ -50,6 +61,22 @@ pub struct GitRefFetchArgs {
     /// The ref to fetch
     #[arg(value_name = "REF")]
     ref_name: String,
+
+    /// Create and edit a new empty commit on the fetched ref
+    #[arg(long, group = "working_copy")]
+    new: bool,
+
+    /// Edit the fetched commit directly
+    #[arg(long, group = "working_copy")]
+    edit: bool,
+
+    /// Set a local bookmark to the fetched commit
+    #[arg(long, value_name = "NAME", value_parser = parse_bookmark_name)]
+    bookmark: Option<jj_lib::ref_name::RefNameBuf>,
+
+    /// Allow --bookmark to move an existing local bookmark
+    #[arg(long)]
+    replace: bool,
 }
 
 #[tracing::instrument(skip(ui, command))]
@@ -65,7 +92,51 @@ pub async fn cmd_git_ref_fetch(
         get_default_fetch_remote(ui, &workspace_command)?
     };
     let mut tx = workspace_command.start_transaction();
-    do_git_fetch(ui, &mut tx, &remote_name, &args.ref_name).await?;
+    let fetched_ref_name: GitRefNameBuf = args.ref_name.as_str().into();
+    let commit = do_git_fetch(ui, &mut tx, remote_name.as_ref(), &fetched_ref_name).await?;
+
+    tx.repo_mut().set_fetched_git_ref_target(
+        remote_name.as_ref(),
+        fetched_ref_name.as_ref(),
+        RefTarget::normal(commit.id().clone()),
+    );
+
+    if let Some(bookmark_name) = &args.bookmark {
+        let existing_target = tx.repo().view().get_local_bookmark(bookmark_name);
+        if existing_target.is_present()
+            && existing_target.as_normal() != Some(commit.id())
+            && !args.replace
+        {
+            return Err(crate::command_error::user_error(format!(
+                "Bookmark already exists: {name}",
+                name = bookmark_name.as_symbol()
+            ))
+            .hinted("Use --replace to move it to the fetched ref."));
+        }
+        tx.repo_mut()
+            .set_local_bookmark_target(bookmark_name, RefTarget::normal(commit.id().clone()));
+    }
+
+    if args.edit {
+        tx.base_workspace_helper()
+            .check_rewritable([commit.id()])
+            .await?;
+        tx.edit(&commit)?;
+    } else if args.new {
+        let merged_tree = merge_commit_trees(tx.repo(), std::slice::from_ref(&commit)).await?;
+        let new_commit = tx
+            .repo_mut()
+            .new_commit(vec![commit.id().clone()], merged_tree)
+            .write()
+            .await?;
+        tx.edit(&new_commit)?;
+        if let Some(mut formatter) = ui.status_formatter() {
+            write!(formatter, "Created new commit ")?;
+            tx.write_commit_summary(formatter.as_mut(), &new_commit)?;
+            writeln!(formatter)?;
+        }
+    }
+
     tx.finish(
         ui,
         format!(
@@ -78,7 +149,7 @@ pub async fn cmd_git_ref_fetch(
     Ok(())
 }
 
-const DEFAULT_REMOTE: &str = "origin";
+const DEFAULT_REMOTE: &RemoteName = RemoteName::new("origin");
 
 fn get_default_fetch_remote(
     ui: &Ui,
@@ -87,12 +158,15 @@ fn get_default_fetch_remote(
     const KEY: &str = "git.fetch";
     let settings = workspace_command.settings();
     if let Ok(remotes) = settings.get::<Vec<String>>(KEY) {
+        // jj git fetch can use every configured remote. This command fetches a
+        // single ref from one remote, so a list-valued git.fetch uses the same
+        // documented "first remote" default as the command help describes.
         if let Some(remote) = remotes.first() {
-            return Ok(RemoteNameBuf::from(remote));
+            return resolve_configured_default_remote(ui, workspace_command, [remote]);
         }
     }
     if let Some(remote) = settings.get_string(KEY).optional()? {
-        Ok(RemoteNameBuf::from(remote))
+        resolve_configured_default_remote(ui, workspace_command, [remote])
     } else if let Some(remote) = get_single_remote(workspace_command.repo().store())? {
         // if nothing was explicitly configured, try to guess
         if remote != DEFAULT_REMOTE {
@@ -108,12 +182,41 @@ fn get_default_fetch_remote(
     }
 }
 
+fn resolve_configured_default_remote<I>(
+    ui: &Ui,
+    workspace_command: &WorkspaceCommandHelper,
+    remote_patterns: I,
+) -> Result<RemoteNameBuf, CommandError>
+where
+    I: IntoIterator,
+    I::Item: AsRef<str>,
+{
+    let remote_expr = parse_union_name_patterns(ui, remote_patterns)?;
+    let remote_matcher = remote_expr.to_matcher();
+    let matching_remotes: Vec<RemoteNameBuf> =
+        git::get_all_remote_names(workspace_command.repo().store())?
+            .into_iter()
+            .filter(|remote| remote_matcher.is_match(remote.as_str()))
+            .collect();
+    match matching_remotes.as_slice() {
+        [] => Err(user_error("No git remotes to fetch from")),
+        [remote] => Ok(remote.clone()),
+        // A scalar git.fetch can be a pattern. Unlike normal git fetch, there is
+        // no useful multi-remote interpretation for one raw ref target.
+        remotes => Err(user_error(format!(
+            "`git.fetch` matches multiple remotes: {remotes}",
+            remotes = remotes.iter().map(|remote| remote.as_symbol()).join(", ")
+        ))
+        .hinted("Use `--remote` to select one remote for `jj git ref fetch`.")),
+    }
+}
+
 async fn do_git_fetch(
     ui: &mut Ui,
     tx: &mut WorkspaceCommandTransaction<'_>,
-    remote_name: &RemoteNameBuf,
-    ref_name: &str,
-) -> Result<(), CommandError> {
+    remote_name: &RemoteName,
+    ref_name: &GitRefNameBuf,
+) -> Result<Commit, CommandError> {
     let remote_settings = tx.settings().remote_settings()?;
     let git_settings = GitSettings::from_settings(tx.settings())?;
     let import_options = load_git_import_options(ui, &git_settings, &remote_settings)?;
@@ -124,13 +227,18 @@ async fn do_git_fetch(
     )?;
 
     let mut callback = GitSubprocessUi::new(ui);
-    let commit_id = git_fetch.fetch_and_resolve_ref(remote_name, ref_name, &mut callback, None)?;
+    let commit_id =
+        git_fetch.fetch_and_resolve_ref(remote_name, ref_name.as_str(), &mut callback, None)?;
     let (_already_imported, commit) = import_commit(tx.repo_mut(), commit_id).await?;
     if let Some(mut formatter) = ui.status_formatter() {
-        write!(formatter, "Fetched {ref_name} as ")?;
+        write!(
+            formatter,
+            "Fetched {ref_name} as ",
+            ref_name = ref_name.as_symbol()
+        )?;
         tx.write_commit_summary(formatter.as_mut(), &commit)?;
         writeln!(formatter)?;
     }
 
-    Ok(())
+    Ok(commit)
 }

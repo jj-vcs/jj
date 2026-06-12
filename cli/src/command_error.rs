@@ -561,6 +561,7 @@ jj currently does not support partial clones. To use jj with this repository, tr
         fn from(err: GitFetchError) -> Self {
             match err {
                 GitFetchError::NoSuchRemote(_)
+                | GitFetchError::RefPattern { .. }
                 | GitFetchError::NoSuchRef { .. }
                 | GitFetchError::RefNotCommit { .. } => user_error(err),
                 GitFetchError::RemoteName(_) => {
