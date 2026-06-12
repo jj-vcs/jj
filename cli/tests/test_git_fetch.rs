@@ -701,6 +701,75 @@ fn test_git_ref_fetch_operation_diff() {
 }
 
 #[test]
+fn test_git_ref_fetch_undo_and_op_restore() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = add_git_remote(&test_env, &work_dir, "origin");
+    add_commit_to_ref(&git_repo, "refs/pull/123/head", "pr123", "pull request 123");
+
+    work_dir
+        .run_jj([
+            "git",
+            "ref",
+            "fetch",
+            "--remote",
+            "origin",
+            "refs/pull/123/head",
+        ])
+        .success();
+    insta::assert_snapshot!(work_dir.run_jj(["git", "ref", "list"]), @r"
+    origin refs/pull/123/head 84c6f409c8199d0f3fd9b29fb5119c090da42d5e
+    [EOF]
+    ");
+
+    // Fetched refs live in the operation view, so restoring to the operation
+    // before the fetch should remove the label just like other view state.
+    work_dir
+        .run_jj(["op", "restore", "--quiet", "@-"])
+        .success();
+    insta::assert_snapshot!(work_dir.run_jj(["git", "ref", "list"]), @r"
+    ------- stderr -------
+    No fetched Git refs.
+    [EOF]
+    ");
+
+    work_dir
+        .run_jj([
+            "git",
+            "ref",
+            "fetch",
+            "--remote",
+            "origin",
+            "refs/pull/123/head",
+        ])
+        .success();
+    work_dir
+        .run_jj([
+            "git",
+            "ref",
+            "forget",
+            "--remote",
+            "origin",
+            "refs/pull/123/head",
+        ])
+        .success();
+    insta::assert_snapshot!(work_dir.run_jj(["git", "ref", "list"]), @r"
+    ------- stderr -------
+    No fetched Git refs.
+    [EOF]
+    ");
+
+    // Undoing a forget operation restores the fetched-ref label from the
+    // previous operation.
+    work_dir.run_jj(["undo", "--quiet"]).success();
+    insta::assert_snapshot!(work_dir.run_jj(["git", "ref", "list"]), @r"
+    origin refs/pull/123/head 84c6f409c8199d0f3fd9b29fb5119c090da42d5e
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_git_fetch_default_remote() {
     let test_env = TestEnvironment::default();
     test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
