@@ -14,12 +14,12 @@ These are the config settings available to jj/Jujutsu.
   `jj config path --user`.
 
 - The repo settings. These can be edited with `jj config edit --repo`, or found
-  with `jj config path --repo`. For security reasons, they are not located
-  inside the repo.
+  with `jj config path --repo`. For security reasons, they are stored in
+  [per-repo config files] outside the repo.
 
 - The workspace settings. These can be edited with `jj config edit --workspace`,
-  or found with `jj config path --workspace`. For security reasons, they are not
-  located inside the workspace.
+  or found with `jj config path --workspace`. For security reasons, they are
+  stored in [per-workspace config files] outside the workspace.
 
 - Settings [specified on the command-line].
 
@@ -39,6 +39,8 @@ right of the `=` sign) should be surrounded in quotes if it's a string.
 
 [`cli/src/config/`]: https://github.com/jj-vcs/jj/blob/main/cli/src/config/
 [JSON Schema Support]: #json-schema-support
+[per-repo config files]: #per-repo-and-per-workspace-config-files
+[per-workspace config files]: #per-repo-and-per-workspace-config-files
 [specified on the command-line]: #specifying-config-on-the-command-line
 [syntax guide]: https://toml.io/en/latest
 [the user config files]: #user-config-files
@@ -2193,6 +2195,36 @@ JJ_CONFIG= jj log       # Ignores any settings specified in any config files.
 
 There are also the `--config-file <PATH>` and `--config <NAME=VALUE>`
 [global options](./cli-reference.md#options) which work with any `jj` command.
+
+### Per-repo and per-workspace config files
+
+Per-repo and per-workspace config files are stored outside the repo or
+workspace. This prevents a repo copy, archive, or checkout from silently
+bringing along a config file that could change `jj`'s behavior, run commands on
+the user's machine, or exfiltrate data.
+
+To find the per-repo config file for the current repo, run:
+
+```bash
+jj config path --repo
+```
+
+To find the per-workspace config file for the current workspace, run:
+
+```bash
+jj config path --workspace
+```
+
+The exact paths are platform-specific. They are under the platform config
+directory used by `jj` (`$XDG_CONFIG_HOME` or `$HOME/.config` on Linux and
+macOS, `{FOLDERID_RoamingAppData}` on Windows), in generated
+`jj/repos/<ID>/config.toml` and `jj/workspaces/<ID>/config.toml` subdirectories.
+Unlike user config files, these paths are not affected by the `JJ_CONFIG`
+environment variable. The file is created when the corresponding config is first
+edited, such as with `jj config edit --repo` or `jj config edit --workspace`.
+
+Note: The current location for per-repo and per-workspace config files is being
+discussed in [#8841](https://github.com/jj-vcs/jj/issues/8841).
 
 ### JSON Schema Support
 
