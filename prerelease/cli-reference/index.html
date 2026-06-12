@@ -8503,13 +8503,14 @@ does not match the <code>jj help</code> output exactly.</p>
 <h2 id="jj-bookmark-track"><code>jj bookmark track</code><a class="headerlink" href="#jj-bookmark-track" title="Permanent link">&para;</a></h2>
 <p>Start tracking given remote bookmarks</p>
 <p>A tracked remote bookmark will be imported as a local bookmark of the same name. Changes to it will propagate to the existing local bookmark on future pulls.</p>
-<p><strong>Usage:</strong> <code>jj bookmark track [OPTIONS] &lt;BOOKMARK&gt;...</code></p>
+<p><strong>Usage:</strong> <code>jj bookmark track [OPTIONS] &lt;BOOKMARK[@REMOTE]&gt;...</code></p>
 <p><strong>Command Alias:</strong> <code>t</code></p>
 <h6 id="arguments_12"><strong>Arguments:</strong><a class="headerlink" href="#arguments_12" title="Permanent link">&para;</a></h6>
 <ul>
 <li>
-<p><code>&lt;BOOKMARK&gt;</code> — Bookmark names to track</p>
-<p>By default, the specified pattern matches bookmark names with glob syntax. You can also use other <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">string pattern syntax</a>.</p>
+<p><code>&lt;BOOKMARK[@REMOTE]&gt;</code> — Bookmark name patterns or remote bookmark symbols to track</p>
+<p><code>BOOKMARK</code> matches bookmark names using glob syntax by default. You can also use other <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">string pattern syntax</a>.</p>
+<p><code>BOOKMARK@REMOTE</code> resolves to a remote bookmark exactly.</p>
 </li>
 </ul>
 <h6 id="options_11"><strong>Options:</strong><a class="headerlink" href="#options_11" title="Permanent link">&para;</a></h6>
@@ -8524,12 +8525,13 @@ does not match the <code>jj help</code> output exactly.</p>
 <p>Stop tracking given remote bookmarks</p>
 <p>An untracked remote bookmark is just a pointer to the last-fetched remote bookmark. It won't be imported as a local bookmark on future pulls.</p>
 <p>If you want to forget a local bookmark while also untracking the corresponding remote bookmarks, use <code>jj bookmark forget</code> instead.</p>
-<p><strong>Usage:</strong> <code>jj bookmark untrack [OPTIONS] &lt;BOOKMARK&gt;...</code></p>
+<p><strong>Usage:</strong> <code>jj bookmark untrack [OPTIONS] &lt;BOOKMARK[@REMOTE]&gt;...</code></p>
 <h6 id="arguments_13"><strong>Arguments:</strong><a class="headerlink" href="#arguments_13" title="Permanent link">&para;</a></h6>
 <ul>
 <li>
-<p><code>&lt;BOOKMARK&gt;</code> — Bookmark names to untrack</p>
-<p>By default, the specified pattern matches bookmark names with glob syntax. You can also use other <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">string pattern syntax</a>.</p>
+<p><code>&lt;BOOKMARK[@REMOTE]&gt;</code> — Bookmark name patterns or remote bookmark symbols to untrack</p>
+<p><code>BOOKMARK</code> matches bookmark names using glob syntax by default. You can also use other <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">string pattern syntax</a>.</p>
+<p><code>BOOKMARK@REMOTE</code> resolves to a remote bookmark exactly.</p>
 </li>
 </ul>
 <h6 id="options_12"><strong>Options:</strong><a class="headerlink" href="#options_12" title="Permanent link">&para;</a></h6>
