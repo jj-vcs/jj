@@ -748,13 +748,14 @@ does not match the <code dir="auto">jj help</code> output exactly.</p><p>Run <co
 <div class="sl-heading-wrapper level-h2"><h2 id="jj-bookmark-track"><code dir="auto">jj bookmark track</code></h2><a class="sl-anchor-link" href="#jj-bookmark-track"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “jj bookmark track”</span></a></div>
 <p>Start tracking given remote bookmarks</p>
 <p>A tracked remote bookmark will be imported as a local bookmark of the same name. Changes to it will propagate to the existing local bookmark on future pulls.</p>
-<p><strong>Usage:</strong> <code dir="auto">jj bookmark track [OPTIONS] &#x3C;BOOKMARK>...</code></p>
+<p><strong>Usage:</strong> <code dir="auto">jj bookmark track [OPTIONS] &#x3C;BOOKMARK[@REMOTE]>...</code></p>
 <p><strong>Command Alias:</strong> <code dir="auto">t</code></p>
 <div class="sl-heading-wrapper level-h6"><h6 id="arguments-12"><strong>Arguments:</strong></h6><a class="sl-anchor-link" href="#arguments-12"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Arguments:”</span></a></div>
 <ul>
 <li>
-<p><code dir="auto">&#x3C;BOOKMARK></code> — Bookmark names to track</p>
-<p>By default, the specified pattern matches bookmark names with glob syntax. You can also use other <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">string pattern syntax</a>.</p>
+<p><code dir="auto">&#x3C;BOOKMARK[@REMOTE]></code> — Bookmark name patterns or remote bookmark symbols to track</p>
+<p><code dir="auto">BOOKMARK</code> matches bookmark names using glob syntax by default. You can also use other <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">string pattern syntax</a>.</p>
+<p><code dir="auto">BOOKMARK@REMOTE</code> resolves to a remote bookmark exactly.</p>
 </li>
 </ul>
 <div class="sl-heading-wrapper level-h6"><h6 id="options-11"><strong>Options:</strong></h6><a class="sl-anchor-link" href="#options-11"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Options:”</span></a></div>
@@ -769,12 +770,13 @@ does not match the <code dir="auto">jj help</code> output exactly.</p><p>Run <co
 <p>Stop tracking given remote bookmarks</p>
 <p>An untracked remote bookmark is just a pointer to the last-fetched remote bookmark. It won't be imported as a local bookmark on future pulls.</p>
 <p>If you want to forget a local bookmark while also untracking the corresponding remote bookmarks, use <code dir="auto">jj bookmark forget</code> instead.</p>
-<p><strong>Usage:</strong> <code dir="auto">jj bookmark untrack [OPTIONS] &#x3C;BOOKMARK>...</code></p>
+<p><strong>Usage:</strong> <code dir="auto">jj bookmark untrack [OPTIONS] &#x3C;BOOKMARK[@REMOTE]>...</code></p>
 <div class="sl-heading-wrapper level-h6"><h6 id="arguments-13"><strong>Arguments:</strong></h6><a class="sl-anchor-link" href="#arguments-13"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Arguments:”</span></a></div>
 <ul>
 <li>
-<p><code dir="auto">&#x3C;BOOKMARK></code> — Bookmark names to untrack</p>
-<p>By default, the specified pattern matches bookmark names with glob syntax. You can also use other <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">string pattern syntax</a>.</p>
+<p><code dir="auto">&#x3C;BOOKMARK[@REMOTE]></code> — Bookmark name patterns or remote bookmark symbols to untrack</p>
+<p><code dir="auto">BOOKMARK</code> matches bookmark names using glob syntax by default. You can also use other <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">string pattern syntax</a>.</p>
+<p><code dir="auto">BOOKMARK@REMOTE</code> resolves to a remote bookmark exactly.</p>
 </li>
 </ul>
 <div class="sl-heading-wrapper level-h6"><h6 id="options-12"><strong>Options:</strong></h6><a class="sl-anchor-link" href="#options-12"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Options:”</span></a></div>
