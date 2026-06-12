@@ -770,6 +770,65 @@ fn test_git_ref_fetch_undo_and_op_restore() {
 }
 
 #[test]
+fn test_git_ref_fetch_keeps_rewritten_target_visible_after_undo() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = add_git_remote(&test_env, &work_dir, "origin");
+    add_commit_to_ref(&git_repo, "refs/pull/123/head", "pr123", "pull request 123");
+
+    work_dir
+        .run_jj([
+            "git",
+            "ref",
+            "fetch",
+            "--remote",
+            "origin",
+            "refs/pull/123/head",
+        ])
+        .success();
+    work_dir
+        .run_jj(["edit", "refs/pull/123/head@origin"])
+        .success();
+    work_dir.write_file("local-change", "local rewrite\n");
+    let fetched_ref_template = "commit_id.short() ++ ' ' ++ if(hidden, '(hidden) ') ++ \
+                                fetched_git_refs ++ ' ' ++ description.first_line() ++ '\n'";
+
+    // Snapshotting the edited working copy rewrites the fetched commit. The
+    // fetched ref should keep naming the original remote-imported commit, and
+    // that original commit must remain visible even though it is no longer the
+    // working-copy commit.
+    insta::assert_snapshot!(
+        work_dir.run_jj(["log", "--no-graph", "-r", "refs/pull/123/head@origin", "-T", fetched_ref_template]),
+        @r"
+    84c6f409c819 refs/pull/123/head@origin pull request 123
+    [EOF]
+    ");
+
+    work_dir
+        .run_jj([
+            "git",
+            "ref",
+            "fetch",
+            "--remote",
+            "origin",
+            "refs/pull/123/head",
+        ])
+        .success();
+    work_dir.run_jj(["undo", "--quiet"]).success();
+    insta::assert_snapshot!(work_dir.run_jj(["git", "ref", "list"]), @r"
+    origin refs/pull/123/head 84c6f409c8199d0f3fd9b29fb5119c090da42d5e
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        work_dir.run_jj(["log", "--no-graph", "-r", "refs/pull/123/head@origin", "-T", fetched_ref_template]),
+        @r"
+    84c6f409c819 refs/pull/123/head@origin pull request 123
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_git_ref_fetch_same_ref_from_multiple_remotes() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

@@ -1255,6 +1255,17 @@ impl MutableRepo {
             view.head_ids.remove(commit_id);
         }
         view.head_ids.extend(heads_to_add);
+        // Fetched Git refs intentionally name the remote-imported commit, not
+        // the user's later local rewrite of that change. If that commit is
+        // rewritten locally, removing the old head would otherwise leave refs
+        // like refs/pull/123/head@origin pointing at a hidden commit.
+        let fetched_ref_heads = view
+            .fetched_git_refs
+            .values()
+            .flat_map(|refs| refs.values())
+            .flat_map(|target| target.added_ids().cloned())
+            .collect_vec();
+        view.head_ids.extend(fetched_ref_heads);
         self.set_view(view);
         Ok(())
     }
@@ -1577,6 +1588,14 @@ impl MutableRepo {
                 view.local_bookmarks()
                     .flat_map(|(_, target)| target.added_ids()),
                 view.local_tags().flat_map(|(_, target)| target.added_ids()),
+                // A fetched Git ref names the remote-imported commit, not the
+                // user's later local rewrite of that change. Keep that original
+                // commit visible so refs like refs/pull/123/head@origin don't
+                // end up pointing at a hidden commit after `jj edit`.
+                view.fetched_git_refs()
+                    .values()
+                    .flat_map(|refs| refs.values())
+                    .flat_map(|target| target.added_ids()),
             )
             .any(|id| id == commit_id)
         };
