@@ -3005,6 +3005,9 @@ $ jj run -j 4 -- pre-commit run .github/pre-commit.yaml
 
    By default `jj run` reuses working copies between invocations so build artifacts are preserved. With `--clean`, every commit starts from a freshly checked-out tree.
 * `--restore-descendants` — Preserve the content (not the diff) when rebasing descendants
+* `--ignore-errors` — Continue running on remaining revisions when a command exits nonzero
+
+   The commit whose command failed is left unchanged. Already-running jobs on other commits are not aborted. Successful rewrites are applied atomically at the end.
 
 
 

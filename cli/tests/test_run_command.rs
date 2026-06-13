@@ -451,6 +451,101 @@ fn test_run_failure_rewrites_nothing() {
 }
 
 #[test]
+fn test_run_ignore_errors_rewrites_successes() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    create_commit_with_files(&work_dir, "a", &[], &[("a.txt", "a")]);
+    create_commit_with_files(&work_dir, "b", &["a"], &[("b.txt", "b")]);
+
+    // Fail on A; succeed on B. A should be untouched, B should be rewritten.
+    let jj_args: &[&str] = if cfg!(windows) {
+        &[
+            "run",
+            "--ignore-errors",
+            "-r",
+            "..b",
+            "--",
+            "cmd",
+            "/c",
+            "(if exist a.txt if not exist b.txt exit 1) & type nul >ran.txt",
+        ]
+    } else {
+        &[
+            "run",
+            "--ignore-errors",
+            "-r",
+            "..b",
+            "--",
+            "sh",
+            "-c",
+            "if [ -f a.txt -a ! -f b.txt ]; then exit 1; fi; touch ran.txt",
+        ]
+    };
+    let output = work_dir.run_jj(jj_args);
+    assert_snapshot!(
+        output.success(), @r"
+    ------- stderr -------
+    Rewrote 1 commits
+    Working copy  (@) now at: zsuskuln f3c3b6ac b | b
+    Parent commit (@-)      : rlvkpnrz 2385de9f a | a
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "
+    );
+    insta::assert_snapshot!(
+        work_dir.run_jj(&["file", "list", "-r=a"]),
+        @r"
+    a.txt
+    [EOF]
+    "
+    );
+    insta::assert_snapshot!(
+        work_dir.run_jj(&["file", "list", "-r=b"]),
+        @r"
+    a.txt
+    b.txt
+    ran.txt
+    [EOF]
+    "
+    );
+}
+
+#[test]
+fn test_run_ignore_errors_all_fail() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let fake_formatter = assert_cmd::cargo::cargo_bin("fake-formatter");
+    assert!(fake_formatter.is_file());
+    let fake_formatter_path = fake_formatter.to_string_lossy().into_owned();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("A.txt", "A");
+    work_dir.run_jj(&["commit", "-m", "A"]).success();
+
+    let log_before = get_log_output(&work_dir);
+
+    let output = work_dir.run_jj(&[
+        "run",
+        "--ignore-errors",
+        "-r",
+        "@-",
+        "--",
+        &fake_formatter_path,
+        "--fail",
+    ]);
+    assert_snapshot!(
+        output.success(), @r"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    "
+    );
+
+    // Log is unchanged: no commits were rewritten.
+    assert_eq!(get_log_output(&work_dir), log_before);
+}
+
+#[test]
 fn test_run_recovers_after_failure() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

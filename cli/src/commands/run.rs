@@ -609,6 +609,14 @@ pub struct RunArgs {
     /// Preserve the content (not the diff) when rebasing descendants
     #[arg(long)]
     restore_descendants: bool,
+
+    /// Continue running on remaining revisions when a command exits nonzero
+    ///
+    /// The commit whose command failed is left unchanged. Already-running jobs
+    /// on other commits are not aborted. Successful rewrites are applied
+    /// atomically at the end.
+    #[arg(long)]
+    ignore_errors: bool,
 }
 
 /// Precedence: `--jobs`, `run.jobs` config, 1.
@@ -757,7 +765,7 @@ pub async fn cmd_run(
                             let mut err = ui.stderr();
                             err.write_all(&res.stderr)?;
                         }
-                        if !status.success() {
+                        if !status.success() && !args.ignore_errors {
                             return Err(RunError::CommandFailure(
                                 spec.to_string(),
                                 status,

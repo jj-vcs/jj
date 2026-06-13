@@ -16,6 +16,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj run` added the option `--ignore-errors` to continue running against the
+  specified revisions even if the command exits nonzero.
+
 ### Fixed bugs
 
 ## [0.43.0] - 2026-07-01
