@@ -122,8 +122,9 @@ fn test_absorb_simple() {
     │  +1b
     ○  qpvuntsm 6a446874 0
     │  diff --git a/file1 b/file1
-    ~  new file mode 100644
-       index 0000000000..e69de29bb2
+    │  new file mode 100644
+    │  index 0000000000..e69de29bb2
+    ~
     [EOF]
     ");
     insta::assert_snapshot!(get_evolog(&work_dir, "subject(1)"), @"
@@ -212,22 +213,23 @@ fn test_absorb_replace_single_line_hunk() {
     │  ->>>>>>> conflict 1 of 1 ends
     ×  qpvuntsm 125fba68 (conflict) 1
     │  diff --git a/file1 b/file1
-    ~  new file mode 100644
-       index 0000000000..0000000000
-       --- /dev/null
-       +++ b/file1
-       @@ -0,0 +1,11 @@
-       +<<<<<<< conflict 1 of 1
-       +%%%%%%% diff from: kkmpptxz 9d700628 "2" (parents of absorbed revision)
-       +\\\\\\\        to: qpvuntsm aa6cb9bc "1" (absorb destination)
-       +-2a
-       + 1a
-       +-2b
-       ++++++++ absorbed changes (from zsuskuln 5d926f12)
-       +2a
-       +1A
-       +2b
-       +>>>>>>> conflict 1 of 1 ends
+    │  new file mode 100644
+    │  index 0000000000..0000000000
+    │  --- /dev/null
+    │  +++ b/file1
+    │  @@ -0,0 +1,11 @@
+    │  +<<<<<<< conflict 1 of 1
+    │  +%%%%%%% diff from: kkmpptxz 9d700628 "2" (parents of absorbed revision)
+    │  +\\\\\\\        to: qpvuntsm aa6cb9bc "1" (absorb destination)
+    │  +-2a
+    │  + 1a
+    │  +-2b
+    │  ++++++++ absorbed changes (from zsuskuln 5d926f12)
+    │  +2a
+    │  +1A
+    │  +2b
+    │  +>>>>>>> conflict 1 of 1 ends
+    ~
     [EOF]
     "#);
 }
@@ -318,12 +320,13 @@ fn test_absorb_merge() {
     │     0a
     ○  qpvuntsm d4f07be5 0
     │  diff --git a/file1 b/file1
-    ~  new file mode 100644
-       index 0000000000..eb6e8821f1
-       --- /dev/null
-       +++ b/file1
-       @@ -0,0 +1,1 @@
-       +0a
+    │  new file mode 100644
+    │  index 0000000000..eb6e8821f1
+    │  --- /dev/null
+    │  +++ b/file1
+    │  @@ -0,0 +1,1 @@
+    │  +0a
+    ~
     [EOF]
     ");
 }
@@ -401,12 +404,13 @@ fn test_absorb_discardable_merge_with_descendant() {
     │     0a
     ○  qpvuntsm d4f07be5 0
     │  diff --git a/file1 b/file1
-    ~  new file mode 100644
-       index 0000000000..eb6e8821f1
-       --- /dev/null
-       +++ b/file1
-       @@ -0,0 +1,1 @@
-       +0a
+    │  new file mode 100644
+    │  index 0000000000..eb6e8821f1
+    │  --- /dev/null
+    │  +++ b/file1
+    │  @@ -0,0 +1,1 @@
+    │  +0a
+    ~
     [EOF]
     ");
 }
@@ -514,11 +518,12 @@ fn test_absorb_deleted_file() {
     │  index e69de29bb2..0000000000
     ○  qpvuntsm 38af7fd3 1
     │  diff --git a/file2 b/file2
-    ~  new file mode 100644
-       index 0000000000..e69de29bb2
-       diff --git a/file3 b/file3
-       new file mode 100644
-       index 0000000000..e69de29bb2
+    │  new file mode 100644
+    │  index 0000000000..e69de29bb2
+    │  diff --git a/file3 b/file3
+    │  new file mode 100644
+    │  index 0000000000..e69de29bb2
+    ~
     [EOF]
     ");
 }
@@ -620,32 +625,33 @@ fn test_absorb_deleted_file_with_multiple_hunks() {
     │   >>>>>>> conflict 1 of 1 ends
     ×  qpvuntsm c49bcdd3 (conflict) 1
     │  diff --git a/file1 b/file1
-    ~  new file mode 100644
-       index 0000000000..0000000000
-       --- /dev/null
-       +++ b/file1
-       @@ -0,0 +1,7 @@
-       +<<<<<<< conflict 1 of 1
-       +%%%%%%% diff from: kkmpptxz 33662096 "2" (parents of absorbed revision)
-       +\\\\\\\        to: qpvuntsm 66b2ce5b "1" (absorb destination)
-       + 1a
-       ++1b
-       ++++++++ absorbed changes (from zsuskuln d6492c8f)
-       +>>>>>>> conflict 1 of 1 ends
-       diff --git a/file2 b/file2
-       new file mode 100644
-       index 0000000000..0000000000
-       --- /dev/null
-       +++ b/file2
-       @@ -0,0 +1,8 @@
-       +<<<<<<< conflict 1 of 1
-       +%%%%%%% diff from: kkmpptxz 33662096 "2" (parents of absorbed revision)
-       +\\\\\\\        to: qpvuntsm 66b2ce5b "1" (absorb destination)
-       + 1a
-       +-1b
-       ++++++++ absorbed changes (from zsuskuln d6492c8f)
-       +1b
-       +>>>>>>> conflict 1 of 1 ends
+    │  new file mode 100644
+    │  index 0000000000..0000000000
+    │  --- /dev/null
+    │  +++ b/file1
+    │  @@ -0,0 +1,7 @@
+    │  +<<<<<<< conflict 1 of 1
+    │  +%%%%%%% diff from: kkmpptxz 33662096 "2" (parents of absorbed revision)
+    │  +\\\\\\\        to: qpvuntsm 66b2ce5b "1" (absorb destination)
+    │  + 1a
+    │  ++1b
+    │  ++++++++ absorbed changes (from zsuskuln d6492c8f)
+    │  +>>>>>>> conflict 1 of 1 ends
+    │  diff --git a/file2 b/file2
+    │  new file mode 100644
+    │  index 0000000000..0000000000
+    │  --- /dev/null
+    │  +++ b/file2
+    │  @@ -0,0 +1,8 @@
+    │  +<<<<<<< conflict 1 of 1
+    │  +%%%%%%% diff from: kkmpptxz 33662096 "2" (parents of absorbed revision)
+    │  +\\\\\\\        to: qpvuntsm 66b2ce5b "1" (absorb destination)
+    │  + 1a
+    │  +-1b
+    │  ++++++++ absorbed changes (from zsuskuln d6492c8f)
+    │  +1b
+    │  +>>>>>>> conflict 1 of 1 ends
+    ~
     [EOF]
     "#);
 }
@@ -686,12 +692,13 @@ fn test_absorb_file_mode() {
     │  new mode 100644
     ○  qpvuntsm 2a0c7f1d 1
     │  diff --git a/file1 b/file1
-    ~  new file mode 100755
-       index 0000000000..268de3f3ec
-       --- /dev/null
-       +++ b/file1
-       @@ -0,0 +1,1 @@
-       +1A
+    │  new file mode 100755
+    │  index 0000000000..268de3f3ec
+    │  --- /dev/null
+    │  +++ b/file1
+    │  @@ -0,0 +1,1 @@
+    │  +1A
+    ~
     [EOF]
     ");
 }
@@ -741,17 +748,18 @@ fn test_absorb_from_into() {
     │   Z
     ○  kkmpptxz cae507ef 2
     │  diff --git a/file1 b/file1
-    ~  index 352e9b3794..faf62af049 100644
-       --- a/file1
-       +++ b/file1
-       @@ -1,3 +1,7 @@
-        1a
-       +X
-       +2a
-        1b
-        1c
-       +2b
-       +Z
+    │  index 352e9b3794..faf62af049 100644
+    │  --- a/file1
+    │  +++ b/file1
+    │  @@ -1,3 +1,7 @@
+    │   1a
+    │  +X
+    │  +2a
+    │   1b
+    │   1c
+    │  +2b
+    │  +Z
+    ~
     [EOF]
     ");
 
@@ -798,7 +806,6 @@ fn test_absorb_from_into() {
     │  +2b
     │  +Z
     ○  qpvuntsm e8849ae1 (empty) (no description set)
-    │
     ~
     [EOF]
     ");
@@ -851,19 +858,20 @@ fn test_absorb_paths() {
     │  +1A
     ○  qpvuntsm ca07fabe 1
     │  diff --git a/file1 b/file1
-    ~  new file mode 100644
-       index 0000000000..268de3f3ec
-       --- /dev/null
-       +++ b/file1
-       @@ -0,0 +1,1 @@
-       +1A
-       diff --git a/file2 b/file2
-       new file mode 100644
-       index 0000000000..a8994dc188
-       --- /dev/null
-       +++ b/file2
-       @@ -0,0 +1,1 @@
-       +1a
+    │  new file mode 100644
+    │  index 0000000000..268de3f3ec
+    │  --- /dev/null
+    │  +++ b/file1
+    │  @@ -0,0 +1,1 @@
+    │  +1A
+    │  diff --git a/file2 b/file2
+    │  new file mode 100644
+    │  index 0000000000..a8994dc188
+    │  --- /dev/null
+    │  +++ b/file2
+    │  @@ -0,0 +1,1 @@
+    │  +1a
+    ~
     [EOF]
     ");
 }
@@ -940,13 +948,14 @@ fn test_absorb_immutable() {
     │  +2B
     ◆  qpvuntsm e35bcaff 1
     │  diff --git a/file1 b/file1
-    ~  new file mode 100644
-       index 0000000000..8c5268f893
-       --- /dev/null
-       +++ b/file1
-       @@ -0,0 +1,2 @@
-       +1a
-       +1b
+    │  new file mode 100644
+    │  index 0000000000..8c5268f893
+    │  --- /dev/null
+    │  +++ b/file1
+    │  @@ -0,0 +1,2 @@
+    │  +1a
+    │  +1b
+    ~
     [EOF]
     ");
 }
