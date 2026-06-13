@@ -343,8 +343,8 @@ revsets (expressions) as arguments.
   [Mercurial's](https://repo.mercurial-scm.org/hg/help/revsets) `roots(x)`
   function, which is equivalent to `x ~ x+`.
 
-* `latest(x, [count])`: Latest `count` commits in `x`, based on committer
-  timestamp. The default `count` is 1.
+* `latest(x, [count])`: Latest `count` commits in `x` based on ancestry
+  and committer timestamp. The default `count` is 1.
 
 * `fork_point(x)`: The fork point of all commits in `x`. The fork point is the
   common ancestor(s) of all commits in `x` which do not have any descendants
