@@ -1355,6 +1355,180 @@ fn test_run_parallel_changes_propagate_to_descendants() {
     ");
 }
 
+#[test]
+fn test_run_ignore_changes_does_not_rewrite() {
+    let mut test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let fake_formatter = assert_cmd::cargo::cargo_bin("fake-formatter");
+    assert!(fake_formatter.is_file());
+    let fake_formatter_path = fake_formatter.to_string_lossy().into_owned();
+    test_env.add_paths_to_normalize(fake_formatter.clone(), "$FAKE_FORMATTER_PATH");
+    let work_dir = test_env.work_dir("repo");
+
+    crate::common::create_commit_with_files(&work_dir, "a", &[], &[("file.txt", "a\n")]);
+    crate::common::create_commit_with_files(&work_dir, "b", &["a"], &[("file.txt", "b\n")]);
+
+    let log_before = get_log_output(&work_dir);
+
+    // --tee touched.txt writes a new file in each working copy. Without
+    // --ignore-changes this would amend the commits; with it nothing is rewritten.
+    let output = work_dir
+        .run_jj(&[
+            "run",
+            "--ignore-changes",
+            "--config",
+            "run.jobs=1",
+            "-r",
+            "a",
+            "--",
+            &fake_formatter_path,
+            "--tee",
+            "touched.txt",
+        ])
+        .success();
+    insta::assert_snapshot!(output.stderr, @r"
+    Nothing changed.
+    [EOF]
+    ");
+
+    // Log must be identical to before.
+    assert_eq!(get_log_output(&work_dir), log_before);
+
+    // touched.txt must not appear in commit a's tree.
+    assert_snapshot!(
+        work_dir
+        .run_jj(&["file", "list", "-r", "a"])
+        .success(),
+        @r"
+    file.txt
+    [EOF]
+    "
+    );
+}
+
+#[test]
+fn test_run_ignore_changes_does_not_leak_between_invocations() {
+    // Mirrors test_run_pool_no_file_leak_between_invocations but run 1 uses
+    // --ignore-changes. The pool slot's tree_state is still updated by the snapshot
+    // during run 1, so run 2 correctly removes artifact.txt from the slot
+    // before checking out commit1.
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("seed.txt", "seed");
+    work_dir.run_jj(&["commit", "-m", "commit1"]).success();
+    work_dir.run_jj(&["commit", "-m", "commit2"]).success();
+
+    // Run 1 (--ignore-changes): writes artifact.txt in the pool slot for commit2
+    // but does not amend any commit. The slot's tree_state must record
+    // artifact.txt so run 2 can remove it when checking out a different tree.
+    let touch_cmd: &[&str] = if cfg!(windows) {
+        &[
+            "run",
+            "--ignore-changes",
+            "--config",
+            "run.jobs=1",
+            "-r",
+            "@-",
+            "--",
+            "cmd",
+            "/c",
+            "echo. > artifact.txt",
+        ]
+    } else {
+        &[
+            "run",
+            "--ignore-changes",
+            "--config",
+            "run.jobs=1",
+            "-r",
+            "@-",
+            "--",
+            "touch",
+            "artifact.txt",
+        ]
+    };
+    work_dir.run_jj(touch_cmd).success();
+
+    // Run 2: no-op on commit1 (@--) using the same pool slot that held
+    // artifact.txt. The checkout diff should remove artifact.txt from the slot.
+    work_dir
+        .run_jj(&["run", "--config", "run.jobs=1", "-r", "@--", "--", "true"])
+        .success();
+
+    let files = work_dir
+        .run_jj(&["file", "list", "-r", "@--"])
+        .success()
+        .stdout
+        .to_string();
+    assert!(
+        !files.contains("artifact.txt"),
+        "artifact.txt must not leak into commit1 from --ignore-changes slot state; got:\n{files}",
+    );
+    assert!(
+        files.contains("seed.txt"),
+        "expected seed.txt in commit1; got:\n{files}",
+    );
+}
+
+#[test]
+fn test_run_ignore_changes_works_on_immutable() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Set up commits and bookmark BEFORE configuring immutable_heads, so
+    // setup commands don't trip over the missing revset.
+    work_dir.write_file("file.txt", "content");
+    work_dir.run_jj(&["commit", "-m", "the commit"]).success();
+    work_dir
+        .run_jj(&["bookmark", "create", "-r", "@-", "main"])
+        .success();
+    test_env.add_config(r#"revset-aliases."immutable_heads()" = "main""#);
+
+    // Without --ignore-changes, running on an immutable commit must fail.
+    let err_output = work_dir.run_jj(&["run", "-r", "main", "--", "true"]);
+    assert!(
+        !err_output.status.success(),
+        "expected failure on immutable commit"
+    );
+    let stderr = err_output.stderr.to_string();
+    assert!(
+        stderr.contains("immutable"),
+        "expected 'immutable' in error; got:\n{stderr}",
+    );
+
+    // With --ignore-changes the same commit is allowed.
+    work_dir
+        .run_jj(&["run", "--ignore-changes", "-r", "main", "--", "true"])
+        .success();
+}
+
+#[test]
+fn test_run_ignore_changes_conflicts_with_restore_descendants() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj(&[
+        "run",
+        "--ignore-changes",
+        "--restore-descendants",
+        "--",
+        "true",
+    ]);
+    assert!(!output.status.success());
+    insta::assert_snapshot!(output.stderr, @r"
+    error: the argument '--ignore-changes' cannot be used with '--restore-descendants'
+
+    Usage: jj run --ignore-changes <COMMAND> [ARGS]...
+
+    For more information, try '--help'.
+    [EOF]
+    ");
+}
+
 fn get_log_output(work_dir: &TestWorkDir) -> String {
     work_dir
         .run_jj(&["log", "-T", r#"change_id ++ description ++ "\n""#])
