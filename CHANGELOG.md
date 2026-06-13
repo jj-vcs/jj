@@ -98,6 +98,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   launched once per changed file, making it possible to use per-file tools like
   `vimdiff` for editing.
 
+* `jj split` now consistently assigns the source revision's change ID to the
+  revision containing the non-selected changes—and ensures any associated
+  bookmark references that same change ID—regardless of the options used.
+  You can opt out of this change by setting `split.legacy-bookmark-behavior = true`,
+  but this will likely be removed in a future release.
+
 ### Fixed bugs
 
 * `jj git remote add` now reports an error instead of panicking when the
@@ -364,8 +370,8 @@ Thanks to the people who made this release happen!
   will be created as needed.
 
 * The following deprecated config options have been removed:
-  - `core.fsmonitor`
-  - `core.watchman.register-snapshot-trigger`
+  * `core.fsmonitor`
+  * `core.watchman.register-snapshot-trigger`
 
 * The deprecated command `jj op undo` has been removed. Use `jj op revert` or
   `jj undo`/`redo` instead.
@@ -705,10 +711,10 @@ Thanks to the people who made this release happen!
   has been replaced by `format_short_change_id_with_change_offset(commit)`.
 
 * The following deprecated config options have been removed:
-  - `git.push-bookmark-prefix`
-  - `ui.default-description`
-  - `ui.diff.format`
-  - `ui.diff.tool`
+  * `git.push-bookmark-prefix`
+  * `ui.default-description`
+  * `ui.diff.format`
+  * `ui.diff.tool`
 
 * The deprecated `commit_id.normal_hex()` template method has been removed.
 
@@ -774,7 +780,7 @@ Thanks to the people who made this release happen!
 * `CommitEvolutionEntry` type now has a `predecessors()` method which
   returns the predecessor commits (previous versions) of the entry's commit.
 
-* `CommitEvolutionEntry` type now has a  `inter_diff()` method  which
+* `CommitEvolutionEntry` type now has a `inter_diff()` method which
   returns a `TreeDiff` between the entry's commit and its predecessor version.
   Optionally accepts a fileset literal to limit the diff.
 
@@ -782,6 +788,8 @@ Thanks to the people who made this release happen!
   and displaying no content.
 
 * `jj workspace forget` now warns about unknown workspaces instead of failing.
+
+>>>>>>> Side #2 (Conflict 1 of 1 ends)
 
 ### Fixed bugs
 
@@ -797,7 +805,7 @@ Thanks to the people who made this release happen!
   [#6787](https://github.com/jj-vcs/jj/issues/6787)
 
 * Fixed problem of loading large Git packfiles.
-  https://github.com/GitoxideLabs/gitoxide/issues/2265
+  <https://github.com/GitoxideLabs/gitoxide/issues/2265>
 
 * The builtin pager won't get stuck when stdin is redirected.
 
@@ -808,7 +816,7 @@ Thanks to the people who made this release happen!
   [#8348](https://github.com/jj-vcs/jj/issues/8348)
 
 * Fixed a bug where jj would fail to read git delta objects from pack files.
-  https://github.com/GitoxideLabs/gitoxide/issues/2344
+  <https://github.com/GitoxideLabs/gitoxide/issues/2344>
 
 ### Contributors
 
@@ -1065,18 +1073,18 @@ Thanks to the people who made this release happen!
 * The deprecated command `jj backout` has been removed, use `jj revert` instead.
 
 * The following deprecated config options have been removed:
-  - `signing.sign-all`
-  - `core.watchman.register_snapshot_trigger`
-  - `diff.format`
+  * `signing.sign-all`
+  * `core.watchman.register_snapshot_trigger`
+  * `diff.format`
 
 ### Deprecations
 
- * `jj bisect run --command <cmd>` is deprecated in favor of
+* `jj bisect run --command <cmd>` is deprecated in favor of
    `jj bisect run -- <cmd>`.
 
- * `jj metaedit --update-committer-timestamp` was renamed to
+* `jj metaedit --update-committer-timestamp` was renamed to
    `jj metaedit --force-rewrite` since the old name (and help text)
-   incorrectly suggested that the committer name and email would _not_
+   incorrectly suggested that the committer name and email would *not*
    be updated.
 
 ### New features
@@ -1130,7 +1138,7 @@ Thanks to the people who made this release happen!
   tags. These keywords may be useful in non-colocated Git repositories where
   local and exported `@git` tags can point to different revisions.
 
-*  `jj git clone` now supports the `--branch` option to specify the branch(es)
+* `jj git clone` now supports the `--branch` option to specify the branch(es)
   to fetch during clone. If present, the first matching branch is used as the
   working-copy parent.
 
@@ -1224,7 +1232,7 @@ Thanks to the people who made this release happen!
 * Various flags on `jj describe` and `jj commit` have been deprecated in favor
   of `jj metaedit`. They are:
   * `describe`: `--author`, `--reset-author`, `--no-edit`
-  * `commit`:   `--author`, `--reset-author`
+  * `commit`: `--author`, `--reset-author`
 
 * The storage format of remote bookmarks and tags has changed. Remote bookmarks
   will be written in both old and new formats to retain forward compatibility.
@@ -1787,7 +1795,7 @@ Thanks to the people who made this release happen!
   `core.fsmonitor` gitconfig is set in the global or system gitconfigs.
   [#6440](https://github.com/jj-vcs/jj/issues/6440)
 
-* `jj parallelize` can now parallelize groups of changes that _start_ with an
+* `jj parallelize` can now parallelize groups of changes that *start* with an
   immutable change, but do not contain any other immutable changes.
 
 * `jj` will no longer warn about deprecated paths on macOS if the configured
@@ -1963,7 +1971,7 @@ Thanks to the people who made this release happen!
 ### Fixed bugs
 
 * Fixed problem that old commits could be re-imported from Git.
-  https://github.com/GitoxideLabs/gitoxide/issues/1928
+  <https://github.com/GitoxideLabs/gitoxide/issues/1928>
 
 ## [0.28.1] - 2025-04-04
 
@@ -2019,13 +2027,13 @@ Thanks to the people who made this release happen!
 * The `jj untrack` subcommand has been removed in favor of `jj file untrack`.
 
 * The following deprecated revset functions have been removed:
-  - `branches()`, `remote_branches()`, `tracked_remote_branches()`, and
+  * `branches()`, `remote_branches()`, `tracked_remote_branches()`, and
     `untracked_remote_branches()`, which were renamed to "bookmarks".
-  - `file()` and `conflict()`, which were renamed to plural forms.
-  - `files(x, y, ..)` with multiple patterns. Use `files(x|y|..)` instead.
+  * `file()` and `conflict()`, which were renamed to plural forms.
+  * `files(x, y, ..)` with multiple patterns. Use `files(x|y|..)` instead.
 
 * The following deprecated template functions have been removed:
-  - `branches()`, `local_branches()`, and `remote_branches()`, which were
+  * `branches()`, `local_branches()`, and `remote_branches()`, which were
     renamed to "bookmarks".
 
 * The flags `--all` and `--tracked` on `jj git push` by themself do not cause
@@ -2046,9 +2054,9 @@ Thanks to the people who made this release happen!
   in the absence of a `signing.key` configuration.
 
 * Multiple user configs are now supported and are loaded in the following precedence order:
-  - `$HOME/.jjconfig.toml`
-  - `$XDG_CONFIG_HOME/jj/config.toml`
-  - `$XDG_CONFIG_HOME/jj/conf.d/*.toml`
+  * `$HOME/.jjconfig.toml`
+  * `$XDG_CONFIG_HOME/jj/config.toml`
+  * `$XDG_CONFIG_HOME/jj/conf.d/*.toml`
 
 * The `JJ_CONFIG` environment variable can now contain multiple paths separated
   by a colon (or semicolon on Windows).
@@ -2191,7 +2199,7 @@ Thanks to the people who made this release happen!
 
 * This release takes the first steps to make target revision required in
   `bookmark create`, `bookmark move` and `bookmark set`. Those commands will display
-  a warning if the user does not specify target revision  explicitly. In the near
+  a warning if the user does not specify target revision explicitly. In the near
   future those commands will fail if target revision is not specified.
 
 * The `signing.sign-all` config option has been deprecated in favor of
@@ -2320,9 +2328,9 @@ Thanks to the people who made this release happen!
   deprecated in early 2024. Use `jj git init` instead.
 
 * The following deprecated commands have been removed:
-  - `jj cat` is replaced by `jj file show`.
-  - `jj chmod` is replaced by `jj file chmod`.
-  - `jj files` is replaced by `jj file list`.
+  * `jj cat` is replaced by `jj file show`.
+  * `jj chmod` is replaced by `jj file chmod`.
+  * `jj files` is replaced by `jj file list`.
 
 * The deprecated `-l` short alias for `--limit` in `jj log`, `jj op log`
   and `jj obslog` has been removed. The `-n` short alias can be used instead.
@@ -2338,7 +2346,7 @@ Thanks to the people who made this release happen!
   as well.
 
 * The following change introduced in 0.25.0 is reverted:
-  - `jj config list` now prints inline tables `{ key = value, .. }` literally.
+  * `jj config list` now prints inline tables `{ key = value, .. }` literally.
     Inner items of inline tables are no longer merged across configuration
     files.
 
@@ -2707,11 +2715,11 @@ Thanks to the people who made this release happen!
   mirroring that of `bookmarks()`.
 
 * Several commands now support `-f/-t` shorthands for `--from/--to`:
-  - `diff`
-  - `diffedit`
-  - `interdiff`
-  - `op diff`
-  - `restore`
+  * `diff`
+  * `diffedit`
+  * `interdiff`
+  * `op diff`
+  * `restore`
 
 * New `ui.conflict-marker-style` config option to change how conflicts are
   materialized in the working copy. The default option ("diff") renders
@@ -3259,9 +3267,9 @@ Thanks to the people who made this release happen!
 
 * A new `jj file` subcommand now replaces several existing uncategorized
   commands, which are deprecated.
-  - `jj file show` replaces `jj cat`.
-  - `jj file chmod` replaces `jj chmod`.
-  - `jj file list` replaces `jj files`.
+  * `jj file show` replaces `jj cat`.
+  * `jj file chmod` replaces `jj chmod`.
+  * `jj file list` replaces `jj files`.
 
 ### New features
 
@@ -3282,9 +3290,9 @@ Thanks to the people who made this release happen!
 * Conflicted files are individually simplified before being materialized.
 
 * The `jj file` subcommand now contains several existing file utilities.
-  - `jj file show`, replacing `jj cat`.
-  - `jj file chmod` replacing `jj chmod`.
-  - `jj file list` replacing `jj files`.
+  * `jj file show`, replacing `jj cat`.
+  * `jj file chmod` replacing `jj chmod`.
+  * `jj file list` replacing `jj files`.
 
 * New command `jj branch move` let you update branches by name pattern or source
   revision.
@@ -3995,7 +4003,7 @@ Thanks to the people who made this release happen!
 
 ### New features
 
-* `jj workspace add` can now take _multiple_ `--revision` arguments, which will
+* `jj workspace add` can now take *multiple* `--revision` arguments, which will
   create a new workspace with its working-copy commit on top of all the parents,
   as if you had run `jj new r1 r2 r3 ...`.
 
@@ -4068,6 +4076,7 @@ Thanks to the people who made this release happen!
   * Otherwise, the remote branches are non-tracking branches.
 
   If the deduced tracking flags are wrong, use `jj branch track`/`untrack`
+
   commands to fix them up.
 
 * Non-tracking remote branches aren't listed by default. Use `jj branch list
@@ -4770,7 +4779,7 @@ Thanks to the people who made this release happen!
 * `jj duplicate` followed by `jj rebase` of a tree containing both the original
   and duplicate commit no longer crashes. The fix should also resolve any
   remaining
-  instances of https://github.com/jj-vcs/jj/issues/27.
+  instances of <https://github.com/jj-vcs/jj/issues/27>.
 
 * Fix the output of `jj debug completion --help` by reversing fish and zsh text.
 
@@ -5198,7 +5207,7 @@ No changes, only trying to get the automated build to work.
 
 ### Fixed bugs
 
-- Fixed crash when `core.excludesFile` pointed to nonexistent file, and made
+* Fixed crash when `core.excludesFile` pointed to nonexistent file, and made
   leading `~/` in that config expand to `$HOME/`
   [#131](https://github.com/jj-vcs/jj/issues/131)
 
