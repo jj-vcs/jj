@@ -650,6 +650,17 @@ pub struct RunArgs {
     /// `--ignore-immutable`.
     #[arg(long, conflicts_with = "restore_descendants")]
     ignore_changes: bool,
+
+    /// Continue with remaining revisions when a command's exit code indicates
+    /// failure
+    ///
+    /// Any changes made by a failed command will not be saved, but changes from
+    /// successful commands are still applied atomically at the end.
+    ///
+    /// The exit code from any failed command will not impact the exit code of
+    /// `jj run` itself.
+    #[arg(long)]
+    ignore_errors: bool,
 }
 
 /// Precedence: `--jobs`, `run.jobs` config, 1.
@@ -809,7 +820,7 @@ pub async fn cmd_run(
                             let mut err = ui.stderr();
                             err.write_all(&res.stderr)?;
                         }
-                        if !status.success() {
+                        if !status.success() && !args.ignore_errors {
                             let commit = store.get_commit_async(&res.old_id).await?;
                             let mut error: CommandError =
                                 RunError::CommandFailure(spec.to_string(), status).into();
