@@ -3028,6 +3028,11 @@ $ jj run -j 4 -- pre-commit run .github/pre-commit.yaml
    Each revision is checked out and the command is executed, but changes made to the working copy are discarded. Useful for read-only checks (tests, linters).
 
    This option permits running on immutable commits without passing `--ignore-immutable`.
+* `--ignore-errors` — Continue with remaining revisions when a command's exit code indicates failure
+
+   Any changes made by a failed command will not be saved, but changes from successful commands are still applied atomically at the end.
+
+   The exit code from any failed command will not impact the exit code of `jj run` itself.
 
 
 
