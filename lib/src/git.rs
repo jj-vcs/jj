@@ -729,6 +729,27 @@ async fn import_refs_inner(
     Ok(stats)
 }
 
+/// Import a single commit in the underlying Git repo into the Jujutsu repo.
+pub async fn import_commit(
+    mut_repo: &mut MutableRepo,
+    commit_id: CommitId,
+) -> Result<(bool, Commit), GitImportError> {
+    let store = mut_repo.store();
+    let git_backend = get_git_backend(store)?;
+    let index = mut_repo.index();
+    let already_imported = index.has_id(&commit_id)?;
+    if !already_imported {
+        git_backend
+            .import_head_commits([&commit_id])
+            .map_err(GitImportError::from_git)?;
+    }
+    let commit = store
+        .get_commit(&commit_id)
+        .map_err(GitImportError::Backend)?;
+    mut_repo.add_heads(&[commit.clone()]).await?;
+    Ok((already_imported, commit))
+}
+
 /// Finds commits that used to be reachable in git that no longer are reachable.
 /// Those commits will be recorded as abandoned in the `MutableRepo`.
 async fn abandon_unreachable_commits(
@@ -1076,16 +1097,26 @@ fn default_remote_ref_state_for(
     }
 }
 
-/// Commits referenced by local branches or tags.
+/// Commits referenced by local branches, tags, or fetched Git refs.
 ///
 /// On `import_refs()`, this is similar to collecting commits referenced by
 /// `view.git_refs()`. Main difference is that local branches can be moved by
 /// tracking remotes, and such mutation isn't applied to `view.git_refs()` yet.
+///
+/// Fetched Git refs are also local pins. They can intentionally preserve a
+/// review commit after a normal remote bookmark stops reaching it, so
+/// Git-import abandonment must not treat their targets as unreachable.
 fn pinned_commit_ids(view: &View) -> Vec<CommitId> {
-    itertools::chain(view.local_bookmarks(), view.local_tags())
-        .flat_map(|(_, target)| target.added_ids())
-        .cloned()
-        .collect()
+    itertools::chain!(
+        view.local_bookmarks().map(|(_, target)| target),
+        view.local_tags().map(|(_, target)| target),
+        view.fetched_git_refs()
+            .values()
+            .flat_map(|refs| refs.values())
+    )
+    .flat_map(|target| target.added_ids())
+    .cloned()
+    .collect()
 }
 
 /// Commits referenced by untracked remote bookmarks/tags including hidden ones.
@@ -2620,6 +2651,18 @@ const INVALID_REFSPEC_CHARS: [char; 5] = [':', '^', '?', '[', ']'];
 pub enum GitFetchError {
     #[error("No git remote named '{}'", .0.as_symbol())]
     NoSuchRemote(RemoteNameBuf),
+    #[error("Git ref patterns are not supported by this command: {ref_name}")]
+    RefPattern { ref_name: String },
+    #[error("No ref named '{ref_name}' on git remote '{}'", remote.as_symbol())]
+    NoSuchRef {
+        remote: RemoteNameBuf,
+        ref_name: String,
+    },
+    #[error("Git ref '{ref_name}' on remote '{}' does not point to a commit", remote.as_symbol())]
+    RefNotCommit {
+        remote: RemoteNameBuf,
+        ref_name: String,
+    },
     #[error(transparent)]
     RemoteName(#[from] GitRemoteNameError),
     #[error("Failed to update refs: {}", .0.iter().map(|n| n.as_symbol()).join(", "))]
@@ -3077,6 +3120,88 @@ impl<'a> GitFetch<'a> {
         Ok(())
     }
 
+    /// Fetches a single ref and imports its commit.
+    #[tracing::instrument(skip(self, callback))]
+    pub fn fetch_and_resolve_ref(
+        &mut self,
+        remote_name: &RemoteName,
+        ref_name: &str,
+        callback: &mut dyn GitSubprocessCallback,
+        depth: Option<NonZeroU32>,
+    ) -> Result<CommitId, GitFetchError> {
+        validate_remote_name(remote_name)?;
+
+        // This command records exactly one fetched ref in the view. Letting Git
+        // expand a wildcard refspec would create multiple temporary refs under
+        // refs/jj/fetch/ without a clear single target to import or remember.
+        if ref_name.contains('*') {
+            return Err(GitFetchError::RefPattern {
+                ref_name: ref_name.to_owned(),
+            });
+        }
+        if self
+            .git_repo
+            .try_find_remote(remote_name.as_str())
+            .is_none()
+        {
+            return Err(GitFetchError::NoSuchRemote(remote_name.to_owned()));
+        }
+
+        let destination_ref_name = format!(
+            "refs/jj/fetch/{remote_name}/{ref_name}",
+            remote_name = remote_name.as_str()
+        );
+        let refspec = RefSpec::forced(ref_name, destination_ref_name.clone());
+        let no_negative_refspecs = [];
+        let fetch_tags = Some(FetchTagsOverride::NoTags);
+        match self.git_ctx.spawn_fetch(
+            remote_name,
+            &[refspec],
+            &no_negative_refspecs,
+            callback,
+            depth,
+            fetch_tags,
+        )? {
+            GitFetchStatus::Updates(updates) => {
+                if !updates.rejected.is_empty() {
+                    let names = updates.rejected.into_iter().map(|(name, _)| name).collect();
+                    return Err(GitFetchError::RejectedUpdates(names));
+                }
+            }
+            GitFetchStatus::NoRemoteRef(_) => {
+                return Err(GitFetchError::NoSuchRef {
+                    remote: remote_name.to_owned(),
+                    ref_name: ref_name.to_owned(),
+                });
+            }
+        }
+
+        let mut reference = self
+            .git_repo
+            .find_reference(&destination_ref_name)
+            .map_err(|_| GitFetchError::NoSuchRef {
+                remote: remote_name.to_owned(),
+                ref_name: ref_name.to_owned(),
+            })?;
+        let commit_id = reference
+            .peel_to_commit()
+            .map(|commit| commit.id().detach())
+            .map_err(|_| GitFetchError::RefNotCommit {
+                remote: remote_name.to_owned(),
+                ref_name: ref_name.to_owned(),
+            });
+        // The temporary Git ref exists only so Git can fetch an arbitrary refspec
+        // into the backing store. Delete it even if the target is not a commit;
+        // the durable user-visible reference is the fetched_git_refs view entry.
+        reference.delete().map_err(|err| {
+            GitSubprocessError::External(format!(
+                "failed to delete temporary fetch ref {destination_ref_name}: {err}"
+            ))
+        })?;
+        let commit_id = commit_id?;
+        Ok(CommitId::from_bytes(commit_id.as_bytes()))
+    }
+
     /// Queries remote for the default branch name.
     #[tracing::instrument(skip(self))]
     pub fn get_default_branch(
@@ -3136,7 +3261,6 @@ impl<'a> GitFetch<'a> {
         Ok(import_stats)
     }
 }
-
 #[derive(Error, Debug)]
 pub enum GitPushError {
     #[error("No git remote named '{}'", .0.as_symbol())]

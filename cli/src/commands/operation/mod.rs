@@ -111,6 +111,7 @@ pub(crate) fn view_with_desired_portions_restored(
         local_tags: repo_source.local_tags.clone(),
         remote_views: remote_source.remote_views.clone(),
         git_refs: current_view.git_refs.clone(),
+        fetched_git_refs: remote_source.fetched_git_refs.clone(),
         git_head: current_view.git_head.clone(),
         wc_commit_ids: repo_source.wc_commit_ids.clone(),
     }
