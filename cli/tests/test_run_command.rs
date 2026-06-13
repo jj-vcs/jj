@@ -1449,6 +1449,285 @@ fn test_run_parallel_changes_propagate_to_descendants() {
     ");
 }
 
+/// `--clean` wipes each slot before running the command so untracked artifacts
+/// left by a previous run do not survive into the next run's working copy.
+#[test]
+fn test_run_clean_wipes_slot() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let fake_formatter = assert_cmd::cargo::cargo_bin("fake-formatter");
+    let fake_formatter_path = fake_formatter.to_string_lossy();
+
+    work_dir.write_file("seed.txt", "seed");
+    work_dir.write_file(".gitignore", "ignored.txt");
+    work_dir.run_jj(&["commit", "-m", "seed"]).success();
+
+    // Prime slot 1 with a leftover untracked file to simulate a build artifact.
+    work_dir
+        .run_jj(&[
+            "run",
+            "--config",
+            "run.jobs=1",
+            "-r",
+            "@-",
+            "--",
+            &fake_formatter_path,
+            "--tee",
+            "ignored.txt",
+        ])
+        .success();
+
+    // Without --clean, the leftover file is in the working copy
+    let jj_args_no_clean: &[&str] = if cfg!(windows) {
+        &[
+            "run",
+            "--config",
+            "run.jobs=1",
+            "-r",
+            "@-",
+            "--",
+            "cmd",
+            "/c",
+            "if exist ignored.txt (echo PRESENT > saw_it.txt)",
+        ]
+    } else {
+        &[
+            "run",
+            "--config",
+            "run.jobs=1",
+            "-r",
+            "@-",
+            "--",
+            "sh",
+            "-c",
+            "[ -e ignored.txt ] && echo PRESENT > saw_it.txt || true",
+        ]
+    };
+    work_dir.run_jj(jj_args_no_clean).success();
+    let files_no_clean = work_dir.run_jj(&["file", "list", "-r", "@-"]);
+    // The run command saw it, and the leftover file is added
+    assert_snapshot!(
+        files_no_clean,
+        @r"
+    .gitignore
+    saw_it.txt
+    seed.txt
+    [EOF]
+    ",
+    );
+
+    // With --clean, the ignored file is gone
+    work_dir.run_jj(&["undo"]).success();
+
+    let jj_args_clean: &[&str] = if cfg!(windows) {
+        &[
+            "run",
+            "--clean",
+            "--config",
+            "run.jobs=1",
+            "-r",
+            "@-",
+            "--",
+            "cmd",
+            "/c",
+            "if exist ignored.txt (echo PRESENT > saw_it.txt)",
+        ]
+    } else {
+        &[
+            "run",
+            "--clean",
+            "--config",
+            "run.jobs=1",
+            "-r",
+            "@-",
+            "--",
+            "sh",
+            "-c",
+            "[ -e ignored.txt ] && echo PRESENT > saw_it.txt || true",
+        ]
+    };
+    work_dir.run_jj(jj_args_clean).success();
+
+    let files_clean = work_dir.run_jj(&["file", "list", "-r", "@-"]);
+    assert_snapshot!(
+        files_clean,
+        @r"
+    .gitignore
+    seed.txt
+    [EOF]
+    ",
+    );
+}
+
+#[test]
+fn test_run_no_edit_does_not_rewrite() {
+    let mut test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let fake_formatter = assert_cmd::cargo::cargo_bin("fake-formatter");
+    assert!(fake_formatter.is_file());
+    let fake_formatter_path = fake_formatter.to_string_lossy().into_owned();
+    test_env.add_paths_to_normalize(fake_formatter.clone(), "$FAKE_FORMATTER_PATH");
+    let work_dir = test_env.work_dir("repo");
+
+    crate::common::create_commit_with_files(&work_dir, "a", &[], &[("file.txt", "a\n")]);
+    crate::common::create_commit_with_files(&work_dir, "b", &["a"], &[("file.txt", "b\n")]);
+
+    let log_before = get_log_output(&work_dir);
+
+    // --tee touched.txt writes a new file in each working copy. Without
+    // --no-edit this would amend the commits; with it nothing is rewritten.
+    let output = work_dir
+        .run_jj(&[
+            "run",
+            "--no-edit",
+            "--config",
+            "run.jobs=1",
+            "-r",
+            "a",
+            "--",
+            &fake_formatter_path,
+            "--tee",
+            "touched.txt",
+        ])
+        .success();
+    insta::assert_snapshot!(output.stderr, @r"
+    Nothing changed.
+    [EOF]
+    ");
+
+    // Log must be identical to before.
+    assert_eq!(get_log_output(&work_dir), log_before);
+
+    // touched.txt must not appear in commit a's tree.
+    assert_snapshot!(
+        work_dir
+        .run_jj(&["file", "list", "-r", "a"])
+        .success(),
+        @r"
+    file.txt
+    [EOF]
+    "
+    );
+}
+
+#[test]
+fn test_run_no_edit_does_not_leak_between_invocations() {
+    // Mirrors test_run_pool_no_file_leak_between_invocations but run 1 uses
+    // --no-edit. The pool slot's tree_state is still updated by the snapshot
+    // during run 1, so run 2 correctly removes artifact.txt from the slot
+    // before checking out commit1.
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("seed.txt", "seed");
+    work_dir.run_jj(&["commit", "-m", "commit1"]).success();
+    work_dir.run_jj(&["commit", "-m", "commit2"]).success();
+
+    // Run 1 (--no-edit): writes artifact.txt in the pool slot for commit2 but
+    // does not amend any commit. The slot's tree_state must record artifact.txt
+    // so run 2 can remove it when checking out a different tree.
+    let touch_cmd: &[&str] = if cfg!(windows) {
+        &[
+            "run",
+            "--no-edit",
+            "--config",
+            "run.jobs=1",
+            "-r",
+            "@-",
+            "--",
+            "cmd",
+            "/c",
+            "echo. > artifact.txt",
+        ]
+    } else {
+        &[
+            "run",
+            "--no-edit",
+            "--config",
+            "run.jobs=1",
+            "-r",
+            "@-",
+            "--",
+            "touch",
+            "artifact.txt",
+        ]
+    };
+    work_dir.run_jj(touch_cmd).success();
+
+    // Run 2: no-op on commit1 (@--) using the same pool slot that held
+    // artifact.txt. The checkout diff should remove artifact.txt from the slot.
+    work_dir
+        .run_jj(&["run", "--config", "run.jobs=1", "-r", "@--", "--", "true"])
+        .success();
+
+    let files = work_dir
+        .run_jj(&["file", "list", "-r", "@--"])
+        .success()
+        .stdout
+        .to_string();
+    assert!(
+        !files.contains("artifact.txt"),
+        "artifact.txt must not leak into commit1 from --no-edit slot state; got:\n{files}",
+    );
+    assert!(
+        files.contains("seed.txt"),
+        "expected seed.txt in commit1; got:\n{files}",
+    );
+}
+
+#[test]
+fn test_run_no_edit_works_on_immutable() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Set up commits and bookmark BEFORE configuring immutable_heads, so
+    // setup commands don't trip over the missing revset.
+    work_dir.write_file("file.txt", "content");
+    work_dir.run_jj(&["commit", "-m", "the commit"]).success();
+    work_dir
+        .run_jj(&["bookmark", "create", "-r", "@-", "main"])
+        .success();
+    test_env.add_config(r#"revset-aliases."immutable_heads()" = "main""#);
+
+    // Without --no-edit, running on an immutable commit must fail.
+    let err_output = work_dir.run_jj(&["run", "-r", "main", "--", "true"]);
+    assert!(
+        !err_output.status.success(),
+        "expected failure on immutable commit"
+    );
+    let stderr = err_output.stderr.to_string();
+    assert!(
+        stderr.contains("immutable"),
+        "expected 'immutable' in error; got:\n{stderr}",
+    );
+
+    // With --no-edit the same commit is allowed.
+    work_dir
+        .run_jj(&["run", "--no-edit", "-r", "main", "--", "true"])
+        .success();
+}
+
+#[test]
+fn test_run_no_edit_conflicts_with_restore_descendants() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj(&["run", "--no-edit", "--restore-descendants", "--", "true"]);
+    assert!(!output.status.success());
+    insta::assert_snapshot!(output.stderr, @r"
+    error: the argument '--no-edit' cannot be used with '--restore-descendants'
+
+    Usage: jj run --no-edit <COMMAND> [ARGS]...
+
+    For more information, try '--help'.
+    [EOF]
+    ");
+}
+
 fn get_log_output(work_dir: &TestWorkDir) -> String {
     work_dir
         .run_jj(&["log", "-T", r#"change_id ++ description ++ "\n""#])
