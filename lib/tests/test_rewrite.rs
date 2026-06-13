@@ -39,6 +39,7 @@ use jj_lib::rewrite::find_duplicate_divergent_commits;
 use jj_lib::rewrite::find_recursive_merge_commits;
 use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::rewrite::merge_commit_trees_no_resolve;
+use jj_lib::rewrite::rebase_commit;
 use jj_lib::rewrite::rebase_commit_with_options;
 use jj_lib::rewrite::restore_tree;
 use maplit::hashmap;
@@ -47,6 +48,7 @@ use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
+use testutils::TestRepoBackend;
 use testutils::TestResult;
 use testutils::assert_abandoned_with_parent;
 use testutils::assert_rebased_onto;
@@ -2379,5 +2381,162 @@ fn test_find_duplicate_divergent_commits() -> TestResult {
     .block_on()?;
     // Commit c2 is a duplicate
     assert_eq!(duplicate_commits, std::slice::from_ref(&commit_c2));
+    Ok(())
+}
+
+// The body needs enough lines so that adding one more keeps similarity above
+// gix's 50% rename-detection threshold.
+const RENAME_TEST_BODY: &str =
+    "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\n";
+
+#[test]
+fn test_rebase_follows_file_rename() -> TestResult {
+    // BASE has foo.txt. A modifies foo.txt. B renames foo.txt → bar.txt
+    // (pure rename, same content). Rebasing A onto B should produce a commit
+    // where bar.txt carries A's modification and foo.txt is absent.
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = &test_repo.repo;
+
+    let foo = repo_path("foo.txt");
+    let bar = repo_path("bar.txt");
+    let modified = format!("MODIFIED\n{RENAME_TEST_BODY}");
+
+    let tree_base = create_tree(repo, &[(foo, RENAME_TEST_BODY)]);
+    let tree_a = create_tree(repo, &[(foo, &modified)]);
+    let tree_b = create_tree(repo, &[(bar, RENAME_TEST_BODY)]); // same content → rename
+
+    let mut tx = repo.start_transaction();
+    let commit_base = tx
+        .repo_mut()
+        .new_commit(vec![repo.store().root_commit_id().clone()], tree_base)
+        .write_unwrap();
+    let commit_a = tx
+        .repo_mut()
+        .new_commit(vec![commit_base.id().clone()], tree_a)
+        .write_unwrap();
+    let commit_b = tx
+        .repo_mut()
+        .new_commit(vec![commit_base.id().clone()], tree_b)
+        .write_unwrap();
+
+    let rebased =
+        rebase_commit(tx.repo_mut(), commit_a.clone(), vec![commit_b.id().clone()]).block_on()?;
+
+    let rebased_tree = rebased.tree();
+    assert_eq!(
+        rebased_tree.path_value(foo).block_on()?,
+        Merge::absent(),
+        "foo.txt should be absent after rename-following rebase"
+    );
+    assert_eq!(
+        rebased_tree.path_value(bar).block_on()?,
+        commit_a.tree().path_value(foo).block_on()?,
+        "bar.txt should carry A's modification"
+    );
+    Ok(())
+}
+
+#[test]
+fn test_rebase_follows_renamed_and_edited_file() -> TestResult {
+    // Like test_rebase_follows_file_rename, but B also edits the file while
+    // renaming it (content-changed rename). The rebase should produce a
+    // 3-way merge of A's change and B's change at bar.txt with no conflict.
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = &test_repo.repo;
+
+    let foo = repo_path("foo.txt");
+    let bar = repo_path("bar.txt");
+
+    let a_body = format!("MODIFIED_BY_A\n{RENAME_TEST_BODY}");
+    let b_body = format!("{RENAME_TEST_BODY}line11\n"); // extra line kept within similarity
+
+    let tree_base = create_tree(repo, &[(foo, RENAME_TEST_BODY)]);
+    let tree_a = create_tree(repo, &[(foo, &a_body)]);
+    let tree_b = create_tree(repo, &[(bar, &b_body)]); // renamed + edited
+
+    let mut tx = repo.start_transaction();
+    let commit_base = tx
+        .repo_mut()
+        .new_commit(vec![repo.store().root_commit_id().clone()], tree_base)
+        .write_unwrap();
+    let commit_a = tx
+        .repo_mut()
+        .new_commit(vec![commit_base.id().clone()], tree_a)
+        .write_unwrap();
+    let commit_b = tx
+        .repo_mut()
+        .new_commit(vec![commit_base.id().clone()], tree_b)
+        .write_unwrap();
+
+    let rebased =
+        rebase_commit(tx.repo_mut(), commit_a.clone(), vec![commit_b.id().clone()]).block_on()?;
+
+    let rebased_tree = rebased.tree();
+    assert_eq!(
+        rebased_tree.path_value(foo).block_on()?,
+        Merge::absent(),
+        "foo.txt should be absent"
+    );
+    // The result should be a conflict-free 3-way merge: both A and B made
+    // edits to non-overlapping regions.
+    assert!(
+        !rebased.has_conflict(),
+        "rename-following rebase should produce no conflict"
+    );
+    // bar.txt must be present in the result.
+    assert!(
+        !rebased_tree.path_value(bar).block_on()?.is_absent(),
+        "bar.txt must exist in rebased commit"
+    );
+    Ok(())
+}
+
+#[test]
+fn test_rebase_does_not_follow_file_copy() -> TestResult {
+    // B copies foo.txt → bar.txt but keeps foo.txt (a copy, not a rename).
+    // A modifies foo.txt. Rebasing A onto B should apply A's change at
+    // foo.txt — not at bar.txt — because it is a copy, not a rename.
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = &test_repo.repo;
+
+    let foo = repo_path("foo.txt");
+    let bar = repo_path("bar.txt");
+    let modified = format!("MODIFIED\n{RENAME_TEST_BODY}");
+
+    let tree_base = create_tree(repo, &[(foo, RENAME_TEST_BODY)]);
+    let tree_a = create_tree(repo, &[(foo, &modified)]);
+    // B keeps both foo and bar (copy, not rename)
+    let tree_b = create_tree(repo, &[(foo, RENAME_TEST_BODY), (bar, RENAME_TEST_BODY)]);
+
+    let mut tx = repo.start_transaction();
+    let commit_base = tx
+        .repo_mut()
+        .new_commit(vec![repo.store().root_commit_id().clone()], tree_base)
+        .write_unwrap();
+    let commit_a = tx
+        .repo_mut()
+        .new_commit(vec![commit_base.id().clone()], tree_a)
+        .write_unwrap();
+    let commit_b = tx
+        .repo_mut()
+        .new_commit(vec![commit_base.id().clone()], tree_b)
+        .write_unwrap();
+
+    let rebased =
+        rebase_commit(tx.repo_mut(), commit_a.clone(), vec![commit_b.id().clone()]).block_on()?;
+
+    let rebased_tree = rebased.tree();
+    // foo.txt should have A's modification (the copy source is still present).
+    assert_eq!(
+        rebased_tree.path_value(foo).block_on()?,
+        commit_a.tree().path_value(foo).block_on()?,
+        "A's modification should be at foo.txt (the original path)"
+    );
+    // bar.txt should have B's content unchanged (A didn't touch bar.txt).
+    assert_eq!(
+        rebased_tree.path_value(bar).block_on()?,
+        commit_b.tree().path_value(bar).block_on()?,
+        "bar.txt should remain as B left it (the copy target)"
+    );
     Ok(())
 }

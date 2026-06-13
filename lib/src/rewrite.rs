@@ -31,6 +31,7 @@ use tracing::instrument;
 use crate::backend::BackendError;
 use crate::backend::BackendResult;
 use crate::backend::CommitId;
+use crate::backend::CopyRecord;
 use crate::commit::Commit;
 use crate::commit::CommitIteratorExt as _;
 use crate::commit::conflict_label_for_commits;
@@ -50,9 +51,59 @@ use crate::merged_tree_builder::MergedTreeBuilder;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::repo_path::RepoPath;
+use crate::repo_path::RepoPathBuf;
 use crate::revset::RevsetExpression;
 use crate::revset::RevsetStreamExt as _;
 use crate::store::Store;
+
+/// Given a set of `CopyRecord`s and the target tree, returns the subset that
+/// are renames (source path absent in target) as a map from old to new path.
+///
+/// Uses the same source-absence rule as
+/// `CopiesTreeDiffStream::resolve_copy_source`.
+async fn renames_from_records(
+    target_tree: &MergedTree,
+    records: impl IntoIterator<Item = CopyRecord>,
+) -> BackendResult<HashMap<RepoPathBuf, RepoPathBuf>> {
+    let mut renames = HashMap::new();
+    for record in records {
+        let at_source = target_tree.path_value(&record.source).await?;
+        if at_source.is_absent() {
+            renames.insert(record.source, record.target);
+        }
+    }
+    Ok(renames)
+}
+
+/// Fetches copy records between `old_base_commit` and `new_base_commit` from
+/// the backend and returns those that are renames (source deleted in
+/// `new_base_tree`). Returns an empty map for backends without copy support.
+async fn detect_renames(
+    store: &Arc<Store>,
+    old_base_commit: &CommitId,
+    new_base_commit: &CommitId,
+    new_base_tree: &MergedTree,
+) -> BackendResult<HashMap<RepoPathBuf, RepoPathBuf>> {
+    let records: Vec<CopyRecord> = store
+        .get_copy_records(None, old_base_commit, new_base_commit)?
+        .try_collect()
+        .await?;
+    renames_from_records(new_base_tree, records).await
+}
+
+/// Returns a copy of `tree` with file values moved from old paths to new paths.
+async fn remap_tree_paths(
+    tree: &MergedTree,
+    renames: &HashMap<RepoPathBuf, RepoPathBuf>,
+) -> BackendResult<MergedTree> {
+    let mut builder = MergedTreeBuilder::new(tree.clone());
+    for (old_path, new_path) in renames {
+        let value = tree.path_value(old_path).await?;
+        builder.set_or_remove(old_path.clone(), Merge::absent());
+        builder.set_or_remove(new_path.clone(), value);
+    }
+    builder.write_tree().await
+}
 
 /// Merges `commits` and tries to resolve any conflicts recursively.
 #[instrument(skip(repo))]
@@ -345,8 +396,48 @@ impl<'repo> CommitRewriter<'repo> {
             let new_base_tree_fut = merge_commit_trees(self.mut_repo, &new_parents);
             let old_tree = self.old_commit.tree();
             let (old_base_tree, new_base_tree) = try_join!(old_base_tree_fut, new_base_tree_fut)?;
+            let was_empty = old_base_tree.tree_ids() == self.old_commit.tree_ids();
+
+            // For single-parent → single-parent rebases, detect renames introduced
+            // by the destination and pre-shift both old_base_tree and old_tree so
+            // the per-path 3-way merge sees the content at the correct new path.
+            let (old_base_tree, old_tree) = if let ([old_parent], [new_parent]) =
+                (old_parents.as_slice(), new_parents.as_slice())
+            {
+                let renames = detect_renames(
+                    self.mut_repo.store(),
+                    old_parent.id(),
+                    new_parent.id(),
+                    &new_base_tree,
+                )
+                .await?;
+                if renames.is_empty() {
+                    (old_base_tree, old_tree)
+                } else {
+                    let mut relevant = HashMap::new();
+                    for (old_path, new_path) in &renames {
+                        let at_old = old_tree.path_value(old_path).await?;
+                        let at_new = old_tree.path_value(new_path).await?;
+                        // Skip if the rebased commit already occupies the new path —
+                        // let the regular 3-way merge produce its conflict.
+                        if !at_old.is_absent() && at_new.is_absent() {
+                            relevant.insert(old_path.clone(), new_path.clone());
+                        }
+                    }
+                    if relevant.is_empty() {
+                        (old_base_tree, old_tree)
+                    } else {
+                        let adj_base = remap_tree_paths(&old_base_tree, &relevant).await?;
+                        let adj_tree = remap_tree_paths(&old_tree, &relevant).await?;
+                        (adj_base, adj_tree)
+                    }
+                }
+            } else {
+                (old_base_tree, old_tree)
+            };
+
             (
-                old_base_tree.tree_ids() == self.old_commit.tree_ids(),
+                was_empty,
                 MergedTree::merge(Merge::from_vec(vec![
                     (
                         new_base_tree,

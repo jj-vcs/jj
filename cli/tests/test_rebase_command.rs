@@ -3088,3 +3088,63 @@ fn get_long_log_output(work_dir: &TestWorkDir) -> CommandOutput {
                     ++ surround(':  ', '', parents.map(|c| c.bookmarks()))";
     work_dir.run_jj(["log", "-T", template])
 }
+
+#[test]
+fn test_rebase_follows_file_rename() {
+    // BASE has foo.txt. A modifies foo.txt. B renames foo.txt → bar.txt (the
+    // git backend detects this as a rename via similarity). Rebasing A onto B
+    // should produce a commit where bar.txt carries A's modification and
+    // foo.txt is absent with no conflicts.
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // BASE: write a long body so gix similarity detection treats the
+    // foo→bar change as a rename (well above 50% similarity threshold).
+    let body = "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\n";
+    create_commit_with_files(&work_dir, "base", &[], &[("foo.txt", body)]);
+
+    // A: modify the first line of foo.txt (small diff, high similarity kept)
+    let a_body = format!("MODIFIED\n{body}");
+    create_commit_with_files(&work_dir, "a", &["base"], &[("foo.txt", &a_body)]);
+
+    // B: rename foo.txt → bar.txt (delete foo, write bar with same content)
+    work_dir
+        .run_jj_with(|cmd| cmd.args(["new", "-m", "b", "base"]))
+        .success();
+    work_dir.remove_file("foo.txt");
+    work_dir.write_file("bar.txt", body);
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "b"])
+        .success();
+
+    // Rebase a onto b
+    let output = work_dir.run_jj(["rebase", "-r", "a", "-d", "b"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Rebased 1 commits to destination
+    [EOF]
+    ");
+
+    // After the rebase, "a" should have bar.txt carrying A's modification
+    // and foo.txt should be absent (no conflict).
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "-r", "a", "--summary"]), @"
+    M bar.txt
+    [EOF]
+    ");
+    // The content at bar.txt should be A's version (MODIFIED prepended).
+    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r", "a", "bar.txt"]), @"
+    MODIFIED
+    line1
+    line2
+    line3
+    line4
+    line5
+    line6
+    line7
+    line8
+    line9
+    line10
+    [EOF]
+    ");
+}
