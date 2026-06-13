@@ -622,6 +622,49 @@ fn test_run_sets_workspace_root_env_var() {
     );
 }
 
+#[test]
+fn test_run_failure_shows_output() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let fake_formatter = assert_cmd::cargo::cargo_bin("fake-formatter");
+    assert!(fake_formatter.is_file());
+    let fake_formatter_path = fake_formatter.to_string_lossy().into_owned();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("A.txt", "A");
+    work_dir.run_jj(&["commit", "-m", "A"]).success();
+
+    let output = work_dir.run_jj(&[
+        "run",
+        "-r",
+        "@-",
+        "--",
+        &fake_formatter_path,
+        "--stdout",
+        "hello stdout\n",
+        "--stderr",
+        "hello stderr\n",
+        "--fail",
+    ]);
+    assert!(!output.status.success());
+    insta::with_settings!({
+        filters => [
+            ("exit code", "exit status"), // Windows
+        ],
+    }, {
+        insta::assert_snapshot!(&output.normalize_stderr_with(|stderr| stderr.replace(&fake_formatter_path.clone(), "fake-formatter")), @r"
+        hello stdout
+        [EOF]
+        ------- stderr -------
+        hello stderr
+        Error: the command 'fake-formatter --stdout hello stdout
+         --stderr hello stderr
+         --fail' failed with exit status: 1 for commit 26d8ff9bba4faa4da6735ced959c57280e49afa7
+        [EOF]
+        [exit status: 1]
+        ");
+    });
+}
+
 fn get_log_output(work_dir: &TestWorkDir) -> String {
     work_dir
         .run_jj(&["log", "-T", r#"change_id ++ description ++ "\n""#])
