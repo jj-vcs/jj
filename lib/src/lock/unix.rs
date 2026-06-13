@@ -28,8 +28,25 @@ pub struct FileLock {
 }
 
 impl FileLock {
+    /// Acquire an exclusive lock on `path`, blocking until it's available.
     pub fn lock(path: PathBuf) -> Result<Self, FileLockError> {
+        // In blocking mode, `lock_inner` never returns `Ok(None)`.
+        Ok(Self::lock_inner(path, true)?.expect("blocking lock should return a lock"))
+    }
+
+    /// Try to acquire an exclusive lock on `path` without blocking. Returns
+    /// `Ok(None)` if the lock is currently held by another process.
+    pub fn try_lock(path: PathBuf) -> Result<Option<Self>, FileLockError> {
+        Self::lock_inner(path, false)
+    }
+
+    fn lock_inner(path: PathBuf, blocking: bool) -> Result<Option<Self>, FileLockError> {
         tracing::info!("Attempting to lock {path:?}");
+        let operation = if blocking {
+            FlockOperation::LockExclusive
+        } else {
+            FlockOperation::NonBlockingLockExclusive
+        };
         loop {
             // Create lockfile, or open pre-existing one
             let file = File::create(&path).map_err(|err| FileLockError {
@@ -37,14 +54,19 @@ impl FileLock {
                 path: path.clone(),
                 err,
             })?;
-            // If the lock was already held, wait for it to be released
-            rustix::fs::flock(&file, FlockOperation::LockExclusive).map_err(|errno| {
-                FileLockError {
-                    message: "Failed to lock lock file",
-                    path: path.clone(),
-                    err: errno.into(),
+            // If the lock was already held, block until it's released, or (in
+            // non-blocking mode) report that it's currently unavailable.
+            match rustix::fs::flock(&file, operation) {
+                Ok(()) => {}
+                Err(rustix::io::Errno::WOULDBLOCK) if !blocking => return Ok(None),
+                Err(errno) => {
+                    return Err(FileLockError {
+                        message: "Failed to lock lock file",
+                        path: path.clone(),
+                        err: errno.into(),
+                    });
                 }
-            })?;
+            }
 
             match rustix::fs::fstat(&file) {
                 Ok(stat) => {
@@ -74,7 +96,7 @@ impl FileLock {
             }
 
             tracing::info!("Locked {path:?}");
-            return Ok(Self { path, file });
+            return Ok(Some(Self { path, file }));
         }
     }
 }
