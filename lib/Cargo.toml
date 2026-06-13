@@ -43,6 +43,7 @@ futures = { workspace = true }
 gix = { workspace = true, optional = true }
 gix-ignore = { workspace = true }
 globset = { workspace = true }
+grit-lib = { workspace = true, optional = true }
 hashbrown = { workspace = true }
 indexmap = { workspace = true }
 interim = { workspace = true }
@@ -96,7 +97,7 @@ nix = { workspace = true, features = [ "fs" ] }
 
 [features]
 default = ["git"]
-git = ["dep:gix"]
+git = ["dep:gix", "dep:grit-lib", "grit-lib/http-ureq"]
 watchman = ["dep:watchman_client", "dep:tokio"]
 testing = ["git"]
 
