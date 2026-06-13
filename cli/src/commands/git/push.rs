@@ -18,6 +18,7 @@ use std::future;
 use std::io;
 use std::io::Write as _;
 use std::iter;
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 use clap::ArgGroup;
@@ -30,6 +31,7 @@ use indexmap::IndexSet;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
+use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::git;
 use jj_lib::git::GitPushOptions;
@@ -564,8 +566,21 @@ pub async fn cmd_git_push(
     }
 
     let git_settings = GitSettings::from_settings(tx.settings())?;
+    let ref_push_max_batch_size = match tx.settings().get_int("git.ref-push-max-batch-size") {
+        Ok(n) => match n.try_into().map(NonZeroUsize::new) {
+            Ok(n) => Ok(n),
+            Err(_) => Err(ConfigGetError::Type {
+                name: "git.ref_push_max_batch_size".to_string(),
+                error: "must not use negative value for git.ref_push_max_batch_size".into(),
+                source_path: None,
+            }),
+        },
+        Err(ConfigGetError::NotFound { .. }) => Ok(None),
+        Err(err) => Err(err),
+    }?;
     let options = GitPushOptions {
         remote_push_options: args.option.clone(),
+        ref_push_max_batch_size,
     };
     let push_stats = git::push_refs(
         tx.repo_mut(),
