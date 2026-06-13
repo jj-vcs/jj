@@ -54,6 +54,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj file search` now supports `-n`/`--line-number` to prefix each match with
   its 1-based line number within the file.
 
+* `jj run` gained a `--ignore-changes` flag to avoid editing any revisions even
+  if the command modifies the working copy.
+
 ### Fixed bugs
 
 * Recursive alias definitions are detected more precisely. jj can now expand

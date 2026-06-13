@@ -569,7 +569,8 @@ async fn rewrite_commit(
 /// Checks out each revision in an isolated working copy, runs the command, then
 /// amends the revision with the resulting working copy. By default, descendants
 /// are rebased on top of the amended revisions, propagating the diff. Use
-/// `--restore-descendants` to keep descendants' content unchanged instead.
+/// `--restore-descendants` to keep descendants' content unchanged instead, or
+/// `--ignore-changes` to run the command without rewriting any commits.
 ///
 /// The command is executed with the following environment variables set:
 ///
@@ -638,6 +639,17 @@ pub struct RunArgs {
     /// since parallel jobs would interleave their output.
     #[arg(long)]
     passthrough: bool,
+
+    /// Run the command without rewriting any commits.
+    ///
+    /// Each revision is checked out and the command is executed, but changes
+    /// made to the working copy are discarded. Useful for read-only checks
+    /// (tests, linters).
+    ///
+    /// This option permits running on immutable commits without passing
+    /// `--ignore-immutable`.
+    #[arg(long, conflicts_with = "restore_descendants")]
+    ignore_changes: bool,
 }
 
 /// Precedence: `--jobs`, `run.jobs` config, 1.
@@ -696,9 +708,11 @@ pub async fn cmd_run(
     };
     resolved_commits.reverse();
 
-    workspace_command
-        .check_rewritable(resolved_commits.iter().ids())
-        .await?;
+    if !args.ignore_changes {
+        workspace_command
+            .check_rewritable(resolved_commits.iter().ids())
+            .await?;
+    }
 
     let jobs = resolve_jobs(&workspace_command, args.jobs)?;
 
@@ -819,7 +833,7 @@ pub async fn cmd_run(
     )?;
 
     // The operation was a no-op, bail.
-    if rewritten_commits.is_empty() {
+    if args.ignore_changes || rewritten_commits.is_empty() {
         tx.finish(ui, "run: nothing changed").await?;
         return Ok(());
     }
