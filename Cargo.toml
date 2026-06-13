@@ -58,6 +58,7 @@ gix = { version = "0.84.0", default-features = false, features = [
     "index",
     "max-performance-safe",
     "sha1",
+    "sha256",
     "zlib-rs",
 ] }
 gix-ignore = { version = "0.21.0" }

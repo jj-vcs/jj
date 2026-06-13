@@ -207,10 +207,13 @@ impl Workspace {
     pub async fn init_internal_git(
         user_settings: &UserSettings,
         workspace_root: &Path,
+        object_hash: Option<gix::hash::Kind>,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let backend_initializer: &BackendInitializer = &|settings, store_path| {
             Ok(Box::new(crate::git_backend::GitBackend::init_internal(
-                settings, store_path,
+                settings,
+                store_path,
+                object_hash,
             )?))
         };
         let signer = Signer::from_settings(user_settings)?;
@@ -223,6 +226,7 @@ impl Workspace {
     pub async fn init_colocated_git(
         user_settings: &UserSettings,
         workspace_root: &Path,
+        object_hash: Option<gix::hash::Kind>,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let backend_initializer = |settings: &UserSettings,
                                    store_path: &Path|
@@ -240,6 +244,7 @@ impl Workspace {
                 settings,
                 store_path,
                 &store_relative_workspace_root,
+                object_hash,
             )?;
             Ok(Box::new(backend))
         };
