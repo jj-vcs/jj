@@ -1889,6 +1889,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#system-config-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      System config files
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#json-schema-support" class="md-nav__link">
     <span class="md-ellipsis">
       JSON Schema Support
@@ -3895,6 +3904,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#system-config-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      System config files
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#json-schema-support" class="md-nav__link">
     <span class="md-ellipsis">
       JSON Schema Support
@@ -5695,6 +5713,15 @@ configs:</p>
 </code></pre></div>
 <p>There are also the <code>--config-file &lt;PATH&gt;</code> and <code>--config &lt;NAME=VALUE&gt;</code>
 <a href="../cli-reference/#options">global options</a> which work with any <code>jj</code> command.</p>
+<h3 id="system-config-files">System config files<a class="headerlink" href="#system-config-files" title="Permanent link">&para;</a></h3>
+<p>On unix-like platforms, system-wide <code>jj</code> configurations are by default loaded in
+the following precedence order (with later configs overriding earlier ones).</p>
+<ul>
+<li><code>/etc/jj/config.toml</code></li>
+<li><code>/etc/jj/conf.d/*.toml</code></li>
+</ul>
+<p>These configs can be overridden by <a href="#user-config-files">the user config files</a>, and will be disabled
+in favor of the <code>JJ_CONFIG</code> environment variable if it is set.</p>
 <h3 id="json-schema-support">JSON Schema Support<a class="headerlink" href="#json-schema-support" title="Permanent link">&para;</a></h3>
 <p>Many popular editors support TOML file syntax highlighting and validation. To
 enable schema validation in your editor, add this line at the top of your TOML
