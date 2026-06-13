@@ -39,6 +39,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   changes/conflicts are propagated accordingly, e.g., `jj run -- cargo check
   --all-features` or `jj run -- cargo fix` behaves as one might expect.
 
+* New option `--ignored` for `jj status` to have the list of ignored path
+  currently in the working copy printed.
+
+* Print a message to indicate to the user when files starts to be tracked by
+  the auto-tracking system.
+
 ### Fixed bugs
 
 * `jj` now creates a new working-copy revision during snapshotting if the

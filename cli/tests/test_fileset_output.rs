@@ -36,9 +36,14 @@ fn test_alias() {
     "});
     let query = |arg: &str| work_dir.run_jj(["file", "list", arg]);
 
-    insta::assert_snapshot!(query("star"), @"
+    insta::assert_snapshot!(query("star"), @r"
     file1
     file2
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A file1
+    A file2
     [EOF]
     ");
 
@@ -145,10 +150,14 @@ fn test_alias_in_revset_or_template() {
     "});
 
     let output = work_dir.run_jj(["log", "-rfiles(star)", "--summary"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:08 093c3c96
     │  (no description set)
     ~  A file1
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A file1
     [EOF]
     ");
 
@@ -219,6 +228,8 @@ fn test_bad_alias_decl() {
       |       ^--^
       |
       = Redefinition of function parameter
+    Auto-tracking 1 new file:
+    A file1
     [EOF]
     "#);
 }

@@ -22,7 +22,7 @@ use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::export_working_copy_changes_to_git;
-use crate::cli_util::print_snapshot_stats;
+use crate::cli_util::print_snapshot_result;
 use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
@@ -75,9 +75,12 @@ pub(crate) async fn cmd_file_untrack(
     locked_ws.locked_wc().reset(&new_commit).await?;
     // Commit the working copy again so we can inform the user if paths couldn't be
     // untracked because they're not ignored.
-    let (new_wc_tree, stats) = locked_ws.locked_wc().snapshot(&options).await?;
-    if new_wc_tree.tree_ids() != new_commit.tree_ids() {
-        let added_back = new_wc_tree.entries_matching(matcher.as_ref()).collect_vec();
+    let snapshot_result = locked_ws.locked_wc().snapshot(&options).await?;
+    if snapshot_result.new_tree.tree_ids() != new_commit.tree_ids() {
+        let added_back = snapshot_result
+            .new_tree
+            .entries_matching(matcher.as_ref())
+            .collect_vec();
         if !added_back.is_empty() {
             drop(locked_ws);
             let path = &added_back[0].0;
@@ -111,6 +114,12 @@ Make sure they're ignored, then try again.",
     let repo = tx.commit("untrack paths").await?;
     locked_ws.finish(repo.op_id().clone()).await?;
     print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&wc_tree])?;
-    print_snapshot_stats(ui, &stats, workspace_command.env().path_converter())?;
+    print_snapshot_result(
+        ui,
+        command.settings().config(),
+        &snapshot_result,
+        workspace_command.env().path_converter(),
+    )
+    .await?;
     Ok(())
 }
