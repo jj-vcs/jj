@@ -15,7 +15,6 @@
 #![expect(missing_docs)]
 
 use std::collections::HashSet;
-use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::fmt::Error;
 use std::fmt::Formatter;
@@ -24,8 +23,6 @@ use std::io;
 use std::path::Path;
 use std::path::PathBuf;
 use std::pin::Pin;
-use std::process::Command;
-use std::process::ExitStatus;
 use std::str::Utf8Error;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -160,10 +157,8 @@ impl From<GitBackendError> for BackendError {
 
 #[derive(Debug, Error)]
 pub enum GitGcError {
-    #[error("Failed to run git gc command")]
-    GcCommand(#[source] std::io::Error),
-    #[error("git gc command exited with an error: {0}")]
-    GcCommandErrorStatus(ExitStatus),
+    #[error("Failed to garbage collect Git objects: {0}")]
+    Gc(String),
 }
 
 pub struct GitBackend {
@@ -179,7 +174,6 @@ pub struct GitBackend {
     shallow_root_ids: OnceLock<Vec<CommitId>>,
     extra_metadata_store: TableStore,
     cached_extra_metadata: Mutex<Option<Arc<ReadonlyTable>>>,
-    git_executable: PathBuf,
     write_change_id_header: bool,
 }
 
@@ -206,7 +200,6 @@ impl GitBackend {
             shallow_root_ids: OnceLock::new(),
             extra_metadata_store,
             cached_extra_metadata: Mutex::new(None),
-            git_executable: git_settings.executable_path,
             write_change_id_header: git_settings.write_change_id_header,
         }
     }
@@ -903,23 +896,132 @@ fn recreate_no_gc_refs(
     Ok(())
 }
 
-fn run_git_gc(program: &OsStr, git_dir: &Path, keep_newer: SystemTime) -> Result<(), GitGcError> {
-    let keep_newer = keep_newer
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or_default(); // underflow
-    let mut git = Command::new(program);
-    git.arg("--git-dir=.") // turn off discovery
-        .arg("gc")
-        .arg(format!("--prune=@{} +0000", keep_newer.as_secs()));
-    // Don't specify it by GIT_DIR/--git-dir. On Windows, the path could be
-    // canonicalized as UNC path, which wouldn't be supported by git.
-    git.current_dir(git_dir);
-    // TODO: pass output to UI layer instead of printing directly here
-    tracing::info!(?git, "running git gc");
-    let status = git.status().map_err(GitGcError::GcCommand)?;
-    tracing::info!(?status, "git gc exited");
-    if !status.success() {
-        return Err(GitGcError::GcCommandErrorStatus(status));
+fn run_git_gc(git_dir: &Path, keep_newer: SystemTime) -> Result<(), GitGcError> {
+    tracing::info!(?git_dir, "running in-process git gc");
+    let git_repo = gix::open(git_dir).map_err(|err| GitGcError::Gc(err.to_string()))?;
+    let reachable_objects = collect_reachable_git_objects(&git_repo)?;
+    prune_unreachable_loose_objects(git_dir, &reachable_objects, keep_newer)?;
+    tracing::info!("in-process git gc completed");
+    Ok(())
+}
+
+fn collect_reachable_git_objects(
+    git_repo: &gix::Repository,
+) -> Result<HashSet<gix::ObjectId>, GitGcError> {
+    let mut stack = Vec::new();
+    let refs = git_repo
+        .references()
+        .map_err(|err| GitGcError::Gc(err.to_string()))?;
+    let refs = refs.all().map_err(|err| GitGcError::Gc(err.to_string()))?;
+    for reference in refs {
+        let reference = reference.map_err(|err| GitGcError::Gc(err.to_string()))?;
+        stack.push(reference.id().detach());
+    }
+
+    let mut reachable = HashSet::new();
+    while let Some(id) = stack.pop() {
+        if !reachable.insert(id) {
+            continue;
+        }
+        let Some(object) = git_repo
+            .try_find_object(id)
+            .map_err(|err| GitGcError::Gc(err.to_string()))?
+        else {
+            continue;
+        };
+        stack.extend(git_object_child_ids(&object)?);
+    }
+    Ok(reachable)
+}
+
+fn git_object_child_ids(object: &gix::Object<'_>) -> Result<Vec<gix::ObjectId>, GitGcError> {
+    match object.kind {
+        gix::objs::Kind::Commit => {
+            let mut children = Vec::new();
+            let mut commit = object.to_commit_ref_iter();
+            children.push(
+                commit
+                    .tree_id()
+                    .map_err(|err| GitGcError::Gc(err.to_string()))?,
+            );
+            children.extend(object.to_commit_ref_iter().parent_ids());
+            Ok(children)
+        }
+        gix::objs::Kind::Tree => gix::objs::TreeRefIter::from_bytes(&object.data, object.id.kind())
+            .map(|entry| {
+                entry
+                    .map(|entry| entry.oid.to_owned())
+                    .map_err(|err| GitGcError::Gc(err.to_string()))
+            })
+            .collect(),
+        gix::objs::Kind::Tag => Ok(vec![
+            object
+                .to_tag_ref_iter()
+                .target_id()
+                .map_err(|err| GitGcError::Gc(err.to_string()))?,
+        ]),
+        gix::objs::Kind::Blob => Ok(Vec::new()),
+    }
+}
+
+fn prune_unreachable_loose_objects(
+    git_dir: &Path,
+    reachable_objects: &HashSet<gix::ObjectId>,
+    keep_newer: SystemTime,
+) -> Result<(), GitGcError> {
+    let objects_dir = git_dir.join("objects");
+    for prefix_entry in fs::read_dir(&objects_dir).map_err(|err| GitGcError::Gc(err.to_string()))? {
+        let prefix_entry = prefix_entry.map_err(|err| GitGcError::Gc(err.to_string()))?;
+        if !prefix_entry
+            .file_type()
+            .map_err(|err| GitGcError::Gc(err.to_string()))?
+            .is_dir()
+        {
+            continue;
+        }
+        let prefix = prefix_entry.file_name();
+        let Some(prefix) = prefix.to_str() else {
+            continue;
+        };
+        if prefix.len() != 2 || !prefix.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            continue;
+        }
+        for object_entry in
+            fs::read_dir(prefix_entry.path()).map_err(|err| GitGcError::Gc(err.to_string()))?
+        {
+            let object_entry = object_entry.map_err(|err| GitGcError::Gc(err.to_string()))?;
+            if !object_entry
+                .file_type()
+                .map_err(|err| GitGcError::Gc(err.to_string()))?
+                .is_file()
+            {
+                continue;
+            }
+            let suffix = object_entry.file_name();
+            let Some(suffix) = suffix.to_str() else {
+                continue;
+            };
+            if suffix.len() != 38 || !suffix.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+                continue;
+            }
+            let metadata = object_entry
+                .metadata()
+                .map_err(|err| GitGcError::Gc(err.to_string()))?;
+            if metadata
+                .modified()
+                .is_ok_and(|modified| modified > keep_newer)
+            {
+                continue;
+            }
+            let hex = format!("{prefix}{suffix}");
+            let Ok(id) = gix::ObjectId::from_hex(hex.as_bytes()) else {
+                continue;
+            };
+            if !reachable_objects.contains(&id) {
+                fs::remove_file(object_entry.path())
+                    .map_err(|err| GitGcError::Gc(err.to_string()))?;
+            }
+        }
     }
     Ok(())
 }
@@ -1503,12 +1605,8 @@ impl Backend for GitBackend {
             .gc(&table, keep_newer)
             .map_err(|err| BackendError::Other(err.into()))?;
 
-        run_git_gc(
-            self.git_executable.as_ref(),
-            self.git_repo_path(),
-            keep_newer,
-        )
-        .map_err(|err| BackendError::Other(err.into()))?;
+        run_git_gc(self.git_repo_path(), keep_newer)
+            .map_err(|err| BackendError::Other(err.into()))?;
         // Since "git gc" will move loose refs into packed refs, in-memory
         // packed-refs cache should be invalidated without relying on mtime.
         git_repo.refs.force_refresh_packed_buffer().ok();

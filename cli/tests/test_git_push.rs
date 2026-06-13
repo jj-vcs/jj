@@ -98,6 +98,461 @@ fn test_git_push_nothing() {
 }
 
 #[test]
+fn test_git_push_local_remote_ignores_external_git_path() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+
+    work_dir.run_jj(["new", "bookmark1"]).success();
+    work_dir.write_file("file", "file");
+    work_dir.run_jj(["describe", "-m=update"]).success();
+    work_dir.run_jj(["bookmark", "move", "bookmark1"]).success();
+
+    let output = work_dir.run_jj([
+        "git",
+        "push",
+        "--config=git.executable-path='jj-test-missing-program'",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      bookmark: bookmark1 [move forward from 9b2e76de3920 to c7b53e21d8c2]
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_push_relative_local_remote_ignores_external_git_path() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+
+    work_dir
+        .run_jj([
+            "git",
+            "remote",
+            "set-url",
+            "origin",
+            "../origin/.jj/repo/store/git",
+        ])
+        .success();
+    work_dir.run_jj(["new", "bookmark1"]).success();
+    work_dir.write_file("file", "file");
+    work_dir.run_jj(["describe", "-m=update"]).success();
+    work_dir.run_jj(["bookmark", "move", "bookmark1"]).success();
+
+    let output = work_dir.run_jj([
+        "git",
+        "push",
+        "--config=git.executable-path='jj-test-missing-program'",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      bookmark: bookmark1 [move forward from 9b2e76de3920 to 0fc4cf312e83]
+    [EOF]
+    ");
+}
+
+#[cfg(unix)]
+#[test]
+fn test_git_push_file_url_localhost_ignores_external_git_path() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+    let origin_git_repo_path = git_repo_dir_for_jj_repo(&test_env.work_dir("origin"));
+
+    work_dir
+        .run_jj([
+            "git",
+            "remote",
+            "set-url",
+            "origin",
+            &format!("file://localhost{}", origin_git_repo_path.display()),
+        ])
+        .success();
+    work_dir.run_jj(["new", "bookmark1"]).success();
+    work_dir.write_file("file", "file");
+    work_dir.run_jj(["describe", "-m=update"]).success();
+    work_dir.run_jj(["bookmark", "move", "bookmark1"]).success();
+
+    let output = work_dir.run_jj([
+        "git",
+        "push",
+        "--config=git.executable-path='jj-test-missing-program'",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      bookmark: bookmark1 [move forward from 9b2e76de3920 to 0fc4cf312e83]
+    [EOF]
+    ");
+}
+
+#[cfg(unix)]
+#[test]
+fn test_git_push_file_url_percent_decoded_path_ignores_external_git_path() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+    let origin_git_repo_path = git_repo_dir_for_jj_repo(&test_env.work_dir("origin"));
+    let origin_link_path = test_env.env_root().join("origin link.git");
+    std::os::unix::fs::symlink(origin_git_repo_path, &origin_link_path).unwrap();
+    let encoded_origin_url = format!(
+        "file://{}",
+        origin_link_path.to_str().unwrap().replace(' ', "%20")
+    );
+
+    work_dir
+        .run_jj(["git", "remote", "set-url", "origin", &encoded_origin_url])
+        .success();
+    work_dir.run_jj(["new", "bookmark1"]).success();
+    work_dir.write_file("file", "file");
+    work_dir.run_jj(["describe", "-m=update"]).success();
+    work_dir.run_jj(["bookmark", "move", "bookmark1"]).success();
+
+    let output = work_dir.run_jj([
+        "git",
+        "push",
+        "--config=git.executable-path='jj-test-missing-program'",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      bookmark: bookmark1 [move forward from 9b2e76de3920 to 0fc4cf312e83]
+    [EOF]
+    ");
+}
+
+#[cfg(unix)]
+#[test]
+fn test_git_push_git_daemon_ignores_external_git_path() {
+    struct GitDaemon(std::process::Child);
+
+    impl Drop for GitDaemon {
+        fn drop(&mut self) {
+            self.0.kill().ok();
+            self.0.wait().ok();
+        }
+    }
+
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+    let origin_git_repo_path = git_repo_dir_for_jj_repo(&test_env.work_dir("origin"));
+    let daemon_root = origin_git_repo_path.parent().unwrap();
+    let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
+    let port = listener.local_addr().unwrap().port();
+    drop(listener);
+    let _daemon = GitDaemon(
+        std::process::Command::new("git")
+            .args([
+                "daemon",
+                "--reuseaddr",
+                "--export-all",
+                "--enable=receive-pack",
+                "--listen=127.0.0.1",
+                &format!("--port={port}"),
+                &format!("--base-path={}", daemon_root.display()),
+            ])
+            .arg(daemon_root)
+            .spawn()
+            .unwrap(),
+    );
+
+    work_dir
+        .run_jj([
+            "git",
+            "remote",
+            "set-url",
+            "origin",
+            &format!("git://127.0.0.1:{port}/git"),
+        ])
+        .success();
+    work_dir.run_jj(["new", "bookmark1"]).success();
+    work_dir.write_file("file", "file");
+    work_dir.run_jj(["describe", "-m=update"]).success();
+    work_dir.run_jj(["bookmark", "move", "bookmark1"]).success();
+
+    let output = work_dir.run_jj([
+        "git",
+        "push",
+        "--config=git.executable-path='jj-test-missing-program'",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      bookmark: bookmark1 [move forward from 9b2e76de3920 to 0fc4cf312e83]
+    [EOF]
+    ");
+}
+
+#[cfg(unix)]
+#[test]
+fn test_git_push_tilde_local_path_ignores_external_git_path() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+    let origin_git_repo_path = git_repo_dir_for_jj_repo(&test_env.work_dir("origin"));
+    std::os::unix::fs::symlink(origin_git_repo_path, test_env.home_dir().join("origin.git"))
+        .unwrap();
+
+    work_dir
+        .run_jj(["git", "remote", "set-url", "origin", "~/origin.git"])
+        .success();
+    work_dir.run_jj(["new", "bookmark1"]).success();
+    work_dir.write_file("file", "file");
+    work_dir.run_jj(["describe", "-m=update"]).success();
+    work_dir.run_jj(["bookmark", "move", "bookmark1"]).success();
+
+    let output = work_dir.run_jj([
+        "git",
+        "push",
+        "--config=git.executable-path='jj-test-missing-program'",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      bookmark: bookmark1 [move forward from 9b2e76de3920 to 0fc4cf312e83]
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_push_local_pushurl_ignores_external_git_path() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+
+    work_dir
+        .run_jj([
+            "git",
+            "remote",
+            "set-url",
+            "origin",
+            "--push",
+            "../origin/.jj/repo/store/git",
+        ])
+        .success();
+    work_dir.run_jj(["new", "bookmark1"]).success();
+    work_dir.write_file("file", "file");
+    work_dir.run_jj(["describe", "-m=update"]).success();
+    work_dir.run_jj(["bookmark", "move", "bookmark1"]).success();
+
+    let output = work_dir.run_jj([
+        "git",
+        "push",
+        "--config=git.executable-path='jj-test-missing-program'",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      bookmark: bookmark1 [move forward from 9b2e76de3920 to 0fc4cf312e83]
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_push_non_local_pushurl_does_not_use_local_fetch_url() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+
+    work_dir
+        .run_jj([
+            "git",
+            "remote",
+            "set-url",
+            "origin",
+            "--push",
+            "https://example.invalid/origin.git",
+        ])
+        .success();
+    work_dir.run_jj(["new", "bookmark1"]).success();
+    work_dir.write_file("file", "file");
+    work_dir.run_jj(["describe", "-m=update"]).success();
+    work_dir.run_jj(["bookmark", "move", "bookmark1"]).success();
+
+    let output = work_dir.run_jj([
+        "git",
+        "push",
+        "--config=git.executable-path='jj-test-missing-program'",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      bookmark: bookmark1 [move forward from 9b2e76de3920 to 0fc4cf312e83]
+    Error: Git process failed: An IO error occurred when talking to the server: [6] Couldn't resolve host name (Could not resolve host: example.invalid)
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
+fn test_git_push_multiple_pushurls_does_not_use_local_pushurl_only() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+
+    work_dir
+        .run_jj([
+            "git",
+            "remote",
+            "set-url",
+            "origin",
+            "--push",
+            "../origin/.jj/repo/store/git",
+        ])
+        .success();
+    let git_config_path = git_repo_dir_for_jj_repo(&work_dir).join("config");
+    let mut git_config = std::fs::read_to_string(&git_config_path).unwrap();
+    git_config.push_str(indoc! {r#"
+        [remote "origin"]
+        	pushurl = https://example.invalid/origin.git
+    "#});
+    std::fs::write(git_config_path, git_config).unwrap();
+    work_dir.run_jj(["new", "bookmark1"]).success();
+    work_dir.write_file("file", "file");
+    work_dir.run_jj(["describe", "-m=update"]).success();
+    work_dir.run_jj(["bookmark", "move", "bookmark1"]).success();
+
+    let output = work_dir.run_jj([
+        "git",
+        "push",
+        "--config=git.executable-path='jj-test-missing-program'",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      bookmark: bookmark1 [move forward from 9b2e76de3920 to 0fc4cf312e83]
+    Error: Git process failed: An IO error occurred when talking to the server: [6] Couldn't resolve host name (Could not resolve host: example.invalid)
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[cfg(unix)]
+#[test]
+fn test_git_push_multiple_pushurls_ignores_external_git_path() -> TestResult {
+    struct GitDaemon(std::process::Child);
+
+    impl Drop for GitDaemon {
+        fn drop(&mut self) {
+            self.0.kill().ok();
+            self.0.wait().ok();
+        }
+    }
+
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    test_env
+        .run_jj_in(".", ["git", "init", "daemon-origin"])
+        .success();
+    let work_dir = test_env.work_dir("local");
+    let daemon_git_repo_path = git_repo_dir_for_jj_repo(&test_env.work_dir("daemon-origin"));
+    let daemon_root = daemon_git_repo_path.parent().unwrap();
+    let listener = std::net::TcpListener::bind(("127.0.0.1", 0))?;
+    let port = listener.local_addr()?.port();
+    drop(listener);
+    let _daemon = GitDaemon(
+        std::process::Command::new("git")
+            .args([
+                "daemon",
+                "--reuseaddr",
+                "--export-all",
+                "--enable=receive-pack",
+                "--listen=127.0.0.1",
+                &format!("--port={port}"),
+                &format!("--base-path={}", daemon_root.display()),
+            ])
+            .arg(daemon_root)
+            .spawn()?,
+    );
+
+    work_dir
+        .run_jj([
+            "git",
+            "remote",
+            "set-url",
+            "origin",
+            "--push",
+            "../origin/.jj/repo/store/git",
+        ])
+        .success();
+    let git_config_path = git_repo_dir_for_jj_repo(&work_dir).join("config");
+    let mut git_config = std::fs::read_to_string(&git_config_path)?;
+    git_config.push_str(&format!(
+        "\n[remote \"origin\"]\n\tpushurl = git://127.0.0.1:{port}/git\n"
+    ));
+    std::fs::write(git_config_path, git_config)?;
+    work_dir.run_jj(["new", "root()", "-m=new bookmark"]).success();
+    work_dir.write_file("file", "file");
+    work_dir.run_jj(["describe", "-m=update"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "bookmark3"])
+        .success();
+
+    let output = work_dir.run_jj([
+        "git",
+        "push",
+        "--bookmark",
+        "bookmark3",
+        "--config=git.executable-path='jj-test-missing-program'",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      bookmark: bookmark3 [add to 0283623e336f]
+    [EOF]
+    ");
+    let local_ref = git::open(git_repo_dir_for_jj_repo(&test_env.work_dir("origin")))
+        .find_reference("refs/heads/bookmark3")?
+        .id()
+        .to_string();
+    let daemon_ref = git::open(daemon_git_repo_path)
+        .find_reference("refs/heads/bookmark3")?
+        .id()
+        .to_string();
+    assert_eq!(local_ref, daemon_ref);
+    Ok(())
+}
+
+#[test]
+fn test_git_push_with_receive_hook_ignores_external_git_path() -> TestResult {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+    let hook_path = git_repo_dir_for_jj_repo(&test_env.work_dir("origin"))
+        .join("hooks")
+        .join("update");
+    std::fs::write(&hook_path, "#!/bin/sh\nexit 0")?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        std::fs::set_permissions(&hook_path, std::fs::Permissions::from_mode(0o700))?;
+    }
+
+    work_dir.run_jj(["new", "bookmark1"]).success();
+    work_dir.write_file("file", "file");
+    work_dir.run_jj(["describe", "-m=update"]).success();
+    work_dir.run_jj(["bookmark", "move", "bookmark1"]).success();
+
+    let output = work_dir.run_jj([
+        "git",
+        "push",
+        "--config=git.executable-path='jj-test-missing-program'",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      bookmark: bookmark1 [move forward from 9b2e76de3920 to c7b53e21d8c2]
+    [EOF]
+    ");
+    Ok(())
+}
+
+#[test]
 fn test_git_push_default_remote_selection() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
@@ -2531,6 +2986,32 @@ fn test_git_push_to_remote_with_slashes() {
     Hint: Run `jj git remote rename` to give a different name.
     [EOF]
     [exit status: 1]
+    ");
+}
+
+#[test]
+fn test_git_push_dry_run_ignores_external_git_path() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+
+    work_dir.run_jj(["new", "bookmark1"]).success();
+    work_dir.write_file("file", "file");
+    work_dir.run_jj(["describe", "-m=update"]).success();
+    work_dir.run_jj(["bookmark", "move", "bookmark1"]).success();
+
+    let output = work_dir.run_jj([
+        "git",
+        "push",
+        "--dry-run",
+        "--config=git.executable-path='jj-test-missing-program'",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      bookmark: bookmark1 [move forward from 9b2e76de3920 to c7b53e21d8c2]
+    Dry-run requested, not pushing.
+    [EOF]
     ");
 }
 

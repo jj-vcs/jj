@@ -12,19 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::HashSet;
+use std::error::Error as StdError;
 use std::io;
+#[cfg(test)]
 use std::io::BufReader;
-use std::io::Read;
+use std::io::Write as _;
 use std::num::NonZeroU32;
+use std::path::Path;
 use std::path::PathBuf;
-use std::process::Child;
 use std::process::Command;
-use std::process::Output;
 use std::process::Stdio;
-use std::thread;
 
-use bstr::BStr;
 use bstr::ByteSlice as _;
+use gix::protocol::transport::client::TransportWithoutIO as _;
 use itertools::Itertools as _;
 use thiserror::Error;
 
@@ -41,52 +42,36 @@ use crate::ref_name::GitRefNameBuf;
 use crate::ref_name::RefNameBuf;
 use crate::ref_name::RemoteName;
 
-// * 2.29.0 introduced `git fetch --no-write-fetch-head`
-// * 2.40 still receives security patches (latest one was in Jan/2025)
-// * 2.41.0 introduced `git fetch --porcelain`
-// If bumped, please update ../../docs/install-and-setup.md
-const MINIMUM_GIT_VERSION: &str = "2.41.0";
-
 /// Error originating by a Git subprocess
 #[derive(Error, Debug)]
 pub enum GitSubprocessError {
-    #[error("Could not find repository at '{0}'")]
-    NoSuchRepository(String),
-    #[error("Could not execute the git process, found in the OS path '{path}'")]
-    SpawnInPath {
-        path: PathBuf,
-        #[source]
-        error: std::io::Error,
-    },
-    #[error("Could not execute git process at specified path '{path}'")]
-    Spawn {
-        path: PathBuf,
-        #[source]
-        error: std::io::Error,
-    },
-    #[error("Failed to wait for the git process")]
-    Wait(std::io::Error),
-    #[error(
-        "Git does not recognize required option: {0} (note: Jujutsu requires git >= \
-         {MINIMUM_GIT_VERSION})"
-    )]
-    UnsupportedGitOption(String),
     #[error("Git process failed: {0}")]
     External(String),
+}
+
+fn external_error(err: impl StdError) -> GitSubprocessError {
+    external_error_ref(&err)
+}
+
+fn external_error_ref(err: &(impl StdError + ?Sized)) -> GitSubprocessError {
+    let mut message = err.to_string();
+    let mut source = err.source();
+    while let Some(err) = source {
+        message.push_str(": ");
+        message.push_str(&err.to_string());
+        source = err.source();
+    }
+    GitSubprocessError::External(message)
 }
 
 /// Context for creating Git subprocesses
 pub(crate) struct GitSubprocessContext {
     git_dir: PathBuf,
-    options: GitSubprocessOptions,
 }
 
 impl GitSubprocessContext {
-    pub(crate) fn new(git_dir: impl Into<PathBuf>, options: GitSubprocessOptions) -> Self {
-        Self {
-            git_dir: git_dir.into(),
-            options,
-        }
+    pub(crate) fn new(git_dir: impl Into<PathBuf>, _options: GitSubprocessOptions) -> Self {
+        Self { git_dir: git_dir.into() }
     }
 
     pub(crate) fn from_git_backend(
@@ -94,72 +79,6 @@ impl GitSubprocessContext {
         options: GitSubprocessOptions,
     ) -> Self {
         Self::new(git_backend.git_repo_path(), options)
-    }
-
-    /// Create the Git command
-    fn create_command(&self) -> Command {
-        let mut git_cmd = Command::new(&self.options.executable_path);
-        // Hide console window on Windows (https://stackoverflow.com/a/60958956)
-        #[cfg(windows)]
-        {
-            use std::os::windows::process::CommandExt as _;
-            const CREATE_NO_WINDOW: u32 = 0x08000000;
-            git_cmd.creation_flags(CREATE_NO_WINDOW);
-        }
-
-        // TODO: here we are passing the full path to the git_dir, which can lead to UNC
-        // bugs in Windows. The ideal way to do this is to pass the workspace
-        // root to Command::current_dir and then pass a relative path to the git
-        // dir
-        git_cmd
-            // The gitconfig-controlled automated spawning of the macOS `fsmonitor--daemon`
-            // can cause strange behavior with certain subprocess operations.
-            // For example: https://github.com/jj-vcs/jj/issues/6440.
-            //
-            // Nothing we're doing in `jj` interacts with this daemon, so we force the
-            // config to be false for subprocess operations in order to avoid these
-            // interactions.
-            //
-            // In a colocated workspace, the daemon will still get started the first
-            // time a `git` command is run manually if the gitconfigs are set up that way.
-            .args(["-c", "core.fsmonitor=false"])
-            // Avoids an error message when fetching repos with submodules if
-            // user has `submodule.recurse` configured to true in their Git
-            // config (#7565).
-            .args(["-c", "submodule.recurse=false"])
-            .arg("--git-dir")
-            .arg(&self.git_dir)
-            // Disable translation so we can parse the output. We don't set
-            // LC_ALL=C because it would change the encoding. Also note that
-            // "C.UTF-8" locale isn't always available.
-            .env_remove("LC_ALL")
-            .env_remove("LANGUAGE")
-            .env("LC_MESSAGES", "C")
-            .stdin(Stdio::null())
-            .stderr(Stdio::piped());
-
-        git_cmd.envs(&self.options.environment);
-
-        git_cmd
-    }
-
-    /// Spawn the git command
-    fn spawn_cmd(&self, mut git_cmd: Command) -> Result<Child, GitSubprocessError> {
-        tracing::debug!(cmd = ?git_cmd, "spawning a git subprocess");
-
-        git_cmd.spawn().map_err(|error| {
-            if self.options.executable_path.is_absolute() {
-                GitSubprocessError::Spawn {
-                    path: self.options.executable_path.clone(),
-                    error,
-                }
-            } else {
-                GitSubprocessError::SpawnInPath {
-                    path: self.options.executable_path.clone(),
-                    error,
-                }
-            }
-        })
     }
 
     /// Perform a git fetch
@@ -171,44 +90,45 @@ impl GitSubprocessContext {
         remote_name: &RemoteName,
         refspecs: &[RefSpec],
         negative_refspecs: &[NegativeRefSpec],
-        callback: &mut dyn GitSubprocessCallback,
+        _callback: &mut dyn GitSubprocessCallback,
         depth: Option<NonZeroU32>,
         fetch_tags_override: Option<FetchTagsOverride>,
     ) -> Result<GitFetchStatus, GitSubprocessError> {
         if refspecs.is_empty() {
             return Ok(GitFetchStatus::Updates(GitRefUpdates::default()));
         }
-        let mut command = self.create_command();
-        command.stdout(Stdio::piped());
-        // attempt to prune stale refs with --prune
-        // --no-write-fetch-head ensures our request is invisible to other parties
-        command.args(["fetch", "--porcelain", "--prune", "--no-write-fetch-head"]);
-        if callback.needs_progress() {
-            command.arg("--progress");
+        if !can_fetch_with_gix(refspecs) {
+            return Err(GitSubprocessError::External(
+                "unsupported fetch refspec shape".to_owned(),
+            ));
         }
-        if let Some(d) = depth {
-            command.arg(format!("--depth={d}"));
+        if negative_refspecs
+            .iter()
+            .any(|refspec| refspec.to_git_format().contains('*'))
+        {
+            let expanded_refspecs = expand_negative_glob_fetch_refspecs(
+                &self.git_dir,
+                remote_name,
+                refspecs,
+                negative_refspecs,
+            )?;
+            return fetch_with_gix(
+                &self.git_dir,
+                remote_name,
+                &expanded_refspecs,
+                &[],
+                depth,
+                fetch_tags_override,
+            );
         }
-        match fetch_tags_override {
-            Some(FetchTagsOverride::AllTags) => {
-                command.arg("--tags");
-            }
-            Some(FetchTagsOverride::NoTags) => {
-                command.arg("--no-tags");
-            }
-            None => {}
-        }
-        command.arg("--").arg(remote_name.as_str());
-        command.args(
-            refspecs
-                .iter()
-                .map(|x| x.to_git_format())
-                .chain(negative_refspecs.iter().map(|x| x.to_git_format())),
-        );
-
-        let output = wait_with_progress(self.spawn_cmd(command)?, callback)?;
-
-        parse_git_fetch_output(&output)
+        fetch_with_gix(
+            &self.git_dir,
+            remote_name,
+            refspecs,
+            negative_refspecs,
+            depth,
+            fetch_tags_override,
+        )
     }
 
     /// Prune particular branches
@@ -220,39 +140,20 @@ impl GitSubprocessContext {
             return Ok(());
         }
         tracing::debug!(?branches_to_prune, "pruning branches");
-        let mut command = self.create_command();
-        command.stdout(Stdio::null());
-        command.args(["branch", "--remotes", "--delete", "--"]);
-        command.args(branches_to_prune);
-
-        let output = wait_with_output(self.spawn_cmd(command)?)?;
-
-        // we name the type to make sure that it is not meant to be used
-        let () = parse_git_branch_prune_output(output)?;
-
+        for branch in branches_to_prune {
+            let refname = format!("refs/remotes/{branch}");
+            grit_lib::refs::delete_ref(&self.git_dir, &refname)
+                .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+        }
         Ok(())
     }
 
-    /// How we retrieve the remote's default branch:
-    ///
-    /// `git remote show <remote_name>`
-    ///
-    /// dumps a lot of information about the remote, with a line such as:
-    /// `  HEAD branch: <default_branch>`
+    /// Queries local remote for the default branch name.
     pub(crate) fn spawn_remote_show(
         &self,
         remote_name: &RemoteName,
     ) -> Result<Option<RefNameBuf>, GitSubprocessError> {
-        let mut command = self.create_command();
-        command.stdout(Stdio::piped());
-        command.args(["remote", "show", "--", remote_name.as_str()]);
-        let output = wait_with_output(self.spawn_cmd(command)?)?;
-
-        let output = parse_git_remote_show_output(output)?;
-
-        // find the HEAD branch line in the output
-        let maybe_branch = parse_git_remote_show_default_branch(&output.stdout)?;
-        Ok(maybe_branch.map(Into::into))
+        remote_default_branch(&self.git_dir, remote_name).map(|branch| branch.map(Into::into))
     }
 
     /// Push references to git
@@ -270,139 +171,1165 @@ impl GitSubprocessContext {
         callback: &mut dyn GitSubprocessCallback,
         options: &GitPushOptions,
     ) -> Result<GitPushStats, GitSubprocessError> {
-        let mut command = self.create_command();
-        command.stdout(Stdio::piped());
-        // Currently jj does not support commit hooks, so we prevent git from running
-        // them
-        //
-        // https://github.com/jj-vcs/jj/issues/3577 and https://github.com/jj-vcs/jj/issues/405
-        // offer more context
-        command.args(["push", "--porcelain", "--no-verify"]);
-        if callback.needs_progress() {
-            command.arg("--progress");
+        if let Some(stats) =
+            try_push_local(&self.git_dir, remote_name, references, callback, options)?
+        {
+            return Ok(stats);
         }
-        command.args(
-            options
-                .remote_push_options
-                .iter()
-                .map(|option| format!("--push-option={option}")),
-        );
-        command.args(
-            references
-                .iter()
-                .map(|reference| format!("--force-with-lease={}", reference.to_git_lease())),
-        );
-        command.args(["--", remote_name.as_str()]);
-        // with --force-with-lease we cannot have the forced refspec,
-        // as it ignores the lease
-        command.args(
-            references
-                .iter()
-                .map(|r| r.refspec.to_git_format_not_forced()),
-        );
 
-        let output = wait_with_progress(self.spawn_cmd(command)?, callback)?;
+        let mut local_repo =
+            gix::open(&self.git_dir).map_err(|err| GitSubprocessError::External(err.to_string()))?;
+        local_repo
+            .committer_or_set_generic_fallback()
+            .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+        let push_urls = receive_pack_urls(&self.git_dir, remote_name)?;
+        if push_urls.is_empty() {
+            return Err(GitSubprocessError::External(format!(
+                "No URL configured for git remote '{}'",
+                remote_name.as_str()
+            )));
+        }
 
-        parse_git_push_output(output)
+        let mut stats = GitPushStats::default();
+        for push_url in push_urls {
+            let url_stats = if let Some(remote_git_dir) =
+                local_remote_git_dir_from_path(local_remote_path_from_url(&self.git_dir, &push_url))
+            {
+                push_local_to_git_dir(
+                    &local_repo,
+                    remote_name,
+                    references,
+                    callback,
+                    options,
+                    &remote_git_dir,
+                )?
+            } else {
+                send_receive_pack_commands(&local_repo, &push_url, references, callback, options)?
+            };
+            merge_push_stats(&mut stats, url_stats);
+        }
+        Ok(stats)
     }
 }
 
-/// Generate a GitSubprocessError::ExternalGitError if the stderr output was not
-/// recognizable
-fn external_git_error(stderr: &[u8]) -> GitSubprocessError {
-    GitSubprocessError::External(format!(
-        "External git program failed:\n{}",
-        stderr.to_str_lossy()
+struct RawGitObject<'a> {
+    kind: gix::objs::Kind,
+    data: &'a [u8],
+}
+
+impl gix::objs::WriteTo for RawGitObject<'_> {
+    fn write_to(&self, out: &mut dyn io::Write) -> io::Result<()> {
+        out.write_all(self.data)
+    }
+
+    fn kind(&self) -> gix::objs::Kind {
+        self.kind
+    }
+
+    fn size(&self) -> u64 {
+        self.data.len() as u64
+    }
+}
+
+fn try_push_local(
+    git_dir: &Path,
+    remote_name: &RemoteName,
+    references: &[RefToPush],
+    callback: &mut dyn GitSubprocessCallback,
+    options: &GitPushOptions,
+) -> Result<Option<GitPushStats>, GitSubprocessError> {
+    let Some(remote_git_dir) = local_remote_git_dir(git_dir, remote_name)? else {
+        return Ok(None);
+    };
+
+    let mut local_repo =
+        gix::open(git_dir).map_err(|err| GitSubprocessError::External(err.to_string()))?;
+    local_repo
+        .committer_or_set_generic_fallback()
+        .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+    push_local_to_git_dir(
+        &local_repo,
+        remote_name,
+        references,
+        callback,
+        options,
+        &remote_git_dir,
+    )
+    .map(Some)
+}
+
+fn push_local_to_git_dir(
+    local_repo: &gix::Repository,
+    remote_name: &RemoteName,
+    references: &[RefToPush],
+    callback: &mut dyn GitSubprocessCallback,
+    options: &GitPushOptions,
+    remote_git_dir: &Path,
+) -> Result<GitPushStats, GitSubprocessError> {
+    let mut remote_repo =
+        gix::open(remote_git_dir).map_err(|err| GitSubprocessError::External(err.to_string()))?;
+    remote_repo
+        .committer_or_set_generic_fallback()
+        .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+
+    let mut stats = GitPushStats::default();
+    let mut pushes = Vec::new();
+    for reference in references {
+        let destination = reference.refspec.destination();
+        let source_id = reference
+            .refspec
+            .source()
+            .map(|source| {
+                gix::ObjectId::from_hex(source.as_bytes())
+                    .map_err(|err| GitSubprocessError::External(err.to_string()))
+            })
+            .transpose()?;
+        let current_target = remote_repo
+            .try_find_reference(destination)
+            .map_err(|err| GitSubprocessError::External(err.to_string()))?
+            .and_then(|reference| target_object_id(&reference.inner.target));
+        let current_matches_expected =
+            current_target.as_ref().map(|id| id.as_ref()) == reference.expected_location;
+        let current_matches_source = source_id.is_some_and(|id| current_target == Some(id));
+        if !current_matches_expected && !current_matches_source {
+            stats
+                .rejected
+                .push((destination.into(), Some("stale info".to_owned())));
+            continue;
+        }
+
+        if let Some(id) = source_id {
+            copy_reachable_objects(&local_repo, &remote_repo, id)?;
+        }
+        let expected = match current_target {
+            Some(id) => gix::refs::transaction::PreviousValue::MustExistAndMatch(id.into()),
+            None => gix::refs::transaction::PreviousValue::MustNotExist,
+        };
+        let name = destination
+            .try_into()
+            .map_err(|err| GitSubprocessError::External(format!("invalid ref name: {err}")))?;
+        let change = if let Some(id) = source_id {
+            gix::refs::transaction::Change::Update {
+                log: gix::refs::transaction::LogChange {
+                    message: "push from jj".into(),
+                    ..Default::default()
+                },
+                expected,
+                new: id.into(),
+            }
+        } else {
+            gix::refs::transaction::Change::Delete {
+                expected,
+                log: gix::refs::transaction::RefLog::AndReference,
+            }
+        };
+        let edit = gix::refs::transaction::RefEdit {
+            change,
+            name,
+            deref: false,
+        };
+        let mut local_tracking_edit = None;
+        if let Some(branch_name) = destination.strip_prefix("refs/heads/") {
+            let tracking_name = format!(
+                "refs/remotes/{remote}/{branch_name}",
+                remote = remote_name.as_str()
+            );
+            if local_repo
+                .try_find_reference(&tracking_name)
+                .map_err(|err| GitSubprocessError::External(err.to_string()))?
+                .is_some()
+                && remote_fetch_maps_branch(&local_repo, remote_name, branch_name, &tracking_name)?
+            {
+                let tracking_change = match source_id {
+                    Some(id) => gix::refs::transaction::Change::Update {
+                        log: gix::refs::transaction::LogChange {
+                            message: "push from jj".into(),
+                            ..Default::default()
+                        },
+                        expected: gix::refs::transaction::PreviousValue::Any,
+                        new: id.into(),
+                    },
+                    None => gix::refs::transaction::Change::Delete {
+                        expected: gix::refs::transaction::PreviousValue::Any,
+                        log: gix::refs::transaction::RefLog::AndReference,
+                    },
+                };
+                local_tracking_edit = Some(gix::refs::transaction::RefEdit {
+                    change: tracking_change,
+                    name: tracking_name.try_into().map_err(|err| {
+                        GitSubprocessError::External(format!("invalid tracking ref name: {err}"))
+                    })?,
+                    deref: false,
+                });
+            }
+        }
+        pushes.push(PendingLocalPush {
+            destination: destination.into(),
+            old: current_target,
+            new: source_id,
+            edit,
+            local_tracking_edit,
+            remote_rejected: false,
+        });
+    }
+
+    run_receive_pre_update_hooks(
+        &remote_git_dir,
+        &mut pushes,
+        &options.remote_push_options,
+        callback,
+    )?;
+
+    let mut edits = Vec::new();
+    let mut local_tracking_edits = Vec::new();
+    let mut accepted_updates = Vec::new();
+    for push in pushes {
+        if push.remote_rejected {
+            stats
+                .remote_rejected
+                .push((push.destination, Some("hook declined".to_owned())));
+            continue;
+        }
+        accepted_updates.push(AcceptedReceiveUpdate {
+            destination: push.destination.clone(),
+            old: push.old,
+            new: push.new,
+        });
+        edits.push(push.edit);
+        if let Some(edit) = push.local_tracking_edit {
+            local_tracking_edits.push(edit);
+        }
+        stats.pushed.push(push.destination);
+    }
+
+    remote_repo
+        .edit_references(edits)
+        .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+    run_post_receive_hook(
+        &remote_git_dir,
+        &accepted_updates,
+        &options.remote_push_options,
+        callback,
+    )?;
+    local_repo
+        .edit_references(local_tracking_edits)
+        .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+    Ok(stats)
+}
+
+fn merge_push_stats(stats: &mut GitPushStats, new_stats: GitPushStats) {
+    stats.pushed.extend(new_stats.pushed);
+    stats.rejected.extend(new_stats.rejected);
+    stats.remote_rejected.extend(new_stats.remote_rejected);
+    stats
+        .unexported_bookmarks
+        .extend(new_stats.unexported_bookmarks);
+    stats.pushed.sort();
+    stats.pushed.dedup();
+    stats.rejected.sort();
+    stats.rejected.dedup();
+    stats.remote_rejected.sort();
+    stats.remote_rejected.dedup();
+}
+
+struct PendingLocalPush {
+    destination: GitRefNameBuf,
+    old: Option<gix::ObjectId>,
+    new: Option<gix::ObjectId>,
+    edit: gix::refs::transaction::RefEdit,
+    local_tracking_edit: Option<gix::refs::transaction::RefEdit>,
+    remote_rejected: bool,
+}
+
+struct AcceptedReceiveUpdate {
+    destination: GitRefNameBuf,
+    old: Option<gix::ObjectId>,
+    new: Option<gix::ObjectId>,
+}
+
+fn run_receive_pre_update_hooks(
+    remote_git_dir: &Path,
+    pushes: &mut [PendingLocalPush],
+    push_options: &[String],
+    callback: &mut dyn GitSubprocessCallback,
+) -> Result<(), GitSubprocessError> {
+    let receive_input = receive_hook_input(pushes.iter().map(|push| {
+        (
+            push.destination.as_str(),
+            push.old.as_ref(),
+            push.new.as_ref(),
+        )
+    }));
+    if !run_receive_hook(
+        remote_git_dir,
+        "pre-receive",
+        &[],
+        &receive_input,
+        push_options,
+        callback,
+    )? {
+        for push in pushes {
+            push.remote_rejected = true;
+        }
+        return Ok(());
+    }
+
+    for push in pushes {
+        let args = vec![
+            push.destination.as_str().to_owned(),
+            hook_object_id(push.old.as_ref()),
+            hook_object_id(push.new.as_ref()),
+        ];
+        if !run_receive_hook(remote_git_dir, "update", &args, &[], push_options, callback)? {
+            push.remote_rejected = true;
+            let message = format!(
+                "error: hook declined to update {}\n",
+                push.destination.as_str()
+            );
+            callback
+                .remote_sideband(message.as_bytes(), None)
+                .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+        }
+    }
+    Ok(())
+}
+
+fn run_post_receive_hook(
+    remote_git_dir: &Path,
+    accepted_updates: &[AcceptedReceiveUpdate],
+    push_options: &[String],
+    callback: &mut dyn GitSubprocessCallback,
+) -> Result<(), GitSubprocessError> {
+    let receive_input = receive_hook_input(accepted_updates.iter().map(|update| {
+        (
+            update.destination.as_str(),
+            update.old.as_ref(),
+            update.new.as_ref(),
+        )
+    }));
+    run_receive_hook(
+        remote_git_dir,
+        "post-receive",
+        &[],
+        &receive_input,
+        push_options,
+        callback,
+    )?;
+    Ok(())
+}
+
+fn receive_hook_input<'a>(
+    updates: impl IntoIterator<
+        Item = (
+            &'a str,
+            Option<&'a gix::ObjectId>,
+            Option<&'a gix::ObjectId>,
+        ),
+    >,
+) -> Vec<u8> {
+    let mut input = Vec::new();
+    for (name, old, new) in updates {
+        input.extend_from_slice(
+            format!("{} {} {name}\n", hook_object_id(old), hook_object_id(new)).as_bytes(),
+        );
+    }
+    input
+}
+
+fn hook_object_id(id: Option<&gix::ObjectId>) -> String {
+    id.map(ToString::to_string)
+        .unwrap_or_else(|| null_sha1().to_string())
+}
+
+fn run_receive_hook(
+    remote_git_dir: &Path,
+    name: &str,
+    args: &[String],
+    stdin: &[u8],
+    push_options: &[String],
+    callback: &mut dyn GitSubprocessCallback,
+) -> Result<bool, GitSubprocessError> {
+    let hook_path = remote_git_dir.join("hooks").join(name);
+    if !hook_path.is_file() {
+        return Ok(true);
+    }
+
+    let mut command = Command::new(&hook_path);
+    command
+        .current_dir(remote_git_dir)
+        .env("GIT_DIR", remote_git_dir)
+        .env("GIT_PUSH_OPTION_COUNT", push_options.len().to_string())
+        .args(args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    for (i, option) in push_options.iter().enumerate() {
+        command.env(format!("GIT_PUSH_OPTION_{i}"), option);
+    }
+    let mut child = command
+        .spawn()
+        .map_err(|err| GitSubprocessError::External(format!("failed to run {name} hook: {err}")))?;
+    if let Some(mut child_stdin) = child.stdin.take() {
+        child_stdin
+            .write_all(stdin)
+            .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+    }
+    let output = child
+        .wait_with_output()
+        .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+    emit_hook_output(callback, &output.stdout)?;
+    emit_hook_output(callback, &output.stderr)?;
+    Ok(output.status.success())
+}
+
+fn emit_hook_output(
+    callback: &mut dyn GitSubprocessCallback,
+    output: &[u8],
+) -> Result<(), GitSubprocessError> {
+    if !output.is_empty() {
+        callback
+            .remote_sideband(output, None)
+            .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+    }
+    Ok(())
+}
+
+fn remote_fetch_maps_branch(
+    repo: &gix::Repository,
+    remote_name: &RemoteName,
+    branch_name: &str,
+    tracking_name: &str,
+) -> Result<bool, GitSubprocessError> {
+    let remote = repo
+        .find_remote(remote_name.as_str())
+        .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+    Ok(remote
+        .refspecs(gix::remote::Direction::Fetch)
+        .iter()
+        .any(|refspec| {
+            fetch_refspec_maps_branch(&refspec.to_ref().to_bstring(), branch_name, tracking_name)
+        }))
+}
+
+fn fetch_refspec_maps_branch(refspec: &[u8], branch_name: &str, tracking_name: &str) -> bool {
+    let Ok(refspec) = str::from_utf8(refspec) else {
+        return false;
+    };
+    let refspec = refspec.strip_prefix('+').unwrap_or(refspec);
+    let Some((source, destination)) = refspec.split_once(':') else {
+        return false;
+    };
+    let source_ref = format!("refs/heads/{branch_name}");
+    if !matches_refspec_pattern(source, &source_ref) {
+        return false;
+    }
+    let Some(captured) = capture_refspec_wildcard(source, &source_ref) else {
+        return destination == tracking_name;
+    };
+    let mapped = destination.replacen('*', captured, 1);
+    mapped == tracking_name
+}
+
+fn matches_refspec_pattern(pattern: &str, value: &str) -> bool {
+    if let Some(captured) = capture_refspec_wildcard(pattern, value) {
+        !captured.is_empty() || pattern.contains('*')
+    } else {
+        pattern == value
+    }
+}
+
+fn capture_refspec_wildcard<'a>(pattern: &str, value: &'a str) -> Option<&'a str> {
+    let (prefix, suffix) = pattern.split_once('*')?;
+    value
+        .strip_prefix(prefix)
+        .and_then(|rest| rest.strip_suffix(suffix))
+}
+
+fn local_remote_git_dir(
+    git_dir: &Path,
+    remote_name: &RemoteName,
+) -> Result<Option<PathBuf>, GitSubprocessError> {
+    let config = grit_lib::config::ConfigSet::load(Some(git_dir), true)
+        .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+    let remote_path = if push_urls_exist(&config, remote_name) {
+        local_push_url(git_dir, &config, remote_name)
+    } else {
+        local_fetch_url(git_dir, &config, remote_name)
+    };
+    let Some(remote_path) = remote_path else {
+        return Ok(None);
+    };
+    Ok(local_remote_git_dir_from_path(Some(remote_path)))
+}
+
+fn local_remote_git_dir_from_path(remote_path: Option<PathBuf>) -> Option<PathBuf> {
+    let remote_path = remote_path?;
+    Some(if remote_path.join(".git").is_dir() {
+        remote_path.join(".git")
+    } else {
+        remote_path
+    })
+}
+
+fn receive_pack_urls(
+    git_dir: &Path,
+    remote_name: &RemoteName,
+) -> Result<Vec<String>, GitSubprocessError> {
+    let config = grit_lib::config::ConfigSet::load(Some(git_dir), true)
+        .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+    if push_urls_exist(&config, remote_name) {
+        return Ok(config
+            .get_all(&format!("remote.{}.pushurl", remote_name.as_str()))
+            .into_iter()
+            .collect());
+    }
+    Ok(config
+        .get(&format!("remote.{}.url", remote_name.as_str()))
+        .into_iter()
+        .collect())
+}
+
+fn push_urls_exist(config: &grit_lib::config::ConfigSet, remote_name: &RemoteName) -> bool {
+    !config
+        .get_all(&format!("remote.{}.pushurl", remote_name.as_str()))
+        .is_empty()
+}
+
+fn local_push_url(
+    git_dir: &Path,
+    config: &grit_lib::config::ConfigSet,
+    remote_name: &RemoteName,
+) -> Option<PathBuf> {
+    let push_urls = config.get_all(&format!("remote.{}.pushurl", remote_name.as_str()));
+    if push_urls.len() != 1 {
+        return None;
+    }
+    push_urls
+        .iter()
+        .filter_map(|url| local_remote_path_from_url(git_dir, url))
+        .exactly_one()
+        .ok()
+}
+
+fn local_fetch_url(
+    git_dir: &Path,
+    config: &grit_lib::config::ConfigSet,
+    remote_name: &RemoteName,
+) -> Option<PathBuf> {
+    let url = config.get(&format!("remote.{}.url", remote_name.as_str()))?;
+    local_remote_path_from_url(git_dir, &url)
+}
+
+fn local_remote_path_from_url(git_dir: &Path, url: &str) -> Option<PathBuf> {
+    if let Some(path) = local_path_from_file_url(url) {
+        return Some(path);
+    }
+    if url.contains("://") || is_ssh_transport_url(url) {
+        return None;
+    }
+    if let Some(path) = local_path_from_tilde_url(url) {
+        return Some(path);
+    }
+    let path = PathBuf::from(url);
+    if path.is_absolute() {
+        return Some(path);
+    }
+    let mut candidates = Vec::new();
+    if let Ok(current_dir) = std::env::current_dir() {
+        candidates.push(current_dir.join(&path));
+    }
+    candidates.push(git_dir.join(&path));
+    candidates.extend(
+        git_dir
+            .ancestors()
+            .take(6)
+            .map(|ancestor| ancestor.join(&path)),
+    );
+    candidates
+        .into_iter()
+        .filter(|candidate| candidate.exists())
+        .unique()
+        .exactly_one()
+        .ok()
+}
+
+fn local_path_from_file_url(url: &str) -> Option<PathBuf> {
+    let path = url.strip_prefix("file://")?;
+    let path = path
+        .strip_prefix("localhost/")
+        .map(|path| format!("/{path}"))
+        .unwrap_or_else(|| path.to_owned());
+    let path = percent_decode_url_path(&path)?;
+    let path = PathBuf::from(path);
+    path.is_absolute().then_some(path)
+}
+
+fn percent_decode_url_path(path: &str) -> Option<String> {
+    let mut decoded = Vec::with_capacity(path.len());
+    let mut bytes = path.as_bytes().iter().copied();
+    while let Some(byte) = bytes.next() {
+        if byte == b'%' {
+            let high = bytes.next()?;
+            let low = bytes.next()?;
+            decoded.push(hex_digit(high)? << 4 | hex_digit(low)?);
+        } else {
+            decoded.push(byte);
+        }
+    }
+    String::from_utf8(decoded).ok()
+}
+
+fn local_path_from_tilde_url(url: &str) -> Option<PathBuf> {
+    let rest = url.strip_prefix("~/")?;
+    let home = std::env::var_os("HOME").map(PathBuf::from)?;
+    Some(home.join(rest))
+}
+
+fn hex_digit(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
+}
+
+fn is_ssh_transport_url(url: &str) -> bool {
+    if url.starts_with("ssh://") || url.starts_with("git+ssh://") {
+        return true;
+    }
+    if url.contains("://") {
+        return false;
+    }
+    let colon = url.find(':');
+    let slash = url.find('/');
+    colon.is_some_and(|colon| slash.is_none_or(|slash| colon < slash))
+}
+
+fn copy_reachable_objects(
+    local_repo: &gix::Repository,
+    remote_repo: &gix::Repository,
+    id: gix::ObjectId,
+) -> Result<(), GitSubprocessError> {
+    let mut stack = vec![id];
+    let mut seen = HashSet::new();
+    while let Some(id) = stack.pop() {
+        if !seen.insert(id) {
+            continue;
+        }
+        if remote_repo
+            .try_find_object(id)
+            .map_err(|err| GitSubprocessError::External(err.to_string()))?
+            .is_some()
+        {
+            continue;
+        }
+
+        let object = local_repo
+            .find_object(id)
+            .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+        stack.extend(object_child_ids(&object)?);
+        let written_id = remote_repo
+            .write_object(RawGitObject {
+                kind: object.kind,
+                data: &object.data,
+            })
+            .map_err(|err| GitSubprocessError::External(err.to_string()))?
+            .detach();
+        if written_id != id {
+            return Err(GitSubprocessError::External(format!(
+                "copied object {id} but wrote {written_id}"
+            )));
+        }
+    }
+    Ok(())
+}
+
+#[allow(dead_code)]
+fn pack_reachable_objects(
+    local_repo: &gix::Repository,
+    tips: impl IntoIterator<Item = gix::ObjectId>,
+) -> Result<Vec<u8>, GitSubprocessError> {
+    tracing::debug!("collecting reachable objects for receive-pack");
+    let mut ids = collect_reachable_object_ids(local_repo, tips)?;
+    tracing::debug!(object_count = ids.len(), "collected reachable objects for receive-pack");
+    ids.sort_unstable();
+    let mut entries = Vec::with_capacity(ids.len());
+    for id in ids {
+        let object = local_repo
+            .find_object(id)
+            .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+        let count = gix_pack::data::output::Count::from_data(id, None);
+        entries.push(
+            gix_pack::data::output::Entry::from_data(
+                &count,
+                &gix::objs::Data {
+                    kind: object.kind,
+                    data: &object.data,
+                    object_hash: object.id.kind(),
+                },
+            )
+            .map_err(|err| GitSubprocessError::External(err.to_string()))?,
+        );
+    }
+
+    let num_entries = entries.len();
+    let mut pack = Vec::new();
+    let mut writer = gix_pack::data::output::bytes::FromEntriesIter::new(
+        [Ok::<_, gix_pack::data::output::entry::Error>(entries)].into_iter(),
+        &mut pack,
+        u32::try_from(num_entries).map_err(|err| {
+            GitSubprocessError::External(format!("too many objects to pack: {err}"))
+        })?,
+        gix_pack::data::Version::V2,
+        gix::hash::Kind::Sha1,
+    );
+    while let Some(result) = writer.next() {
+        result.map_err(|err| GitSubprocessError::External(err.to_string()))?;
+    }
+    tracing::debug!(bytes = pack.len(), "built receive-pack packfile");
+    Ok(pack)
+}
+
+#[allow(dead_code)]
+fn collect_reachable_object_ids(
+    local_repo: &gix::Repository,
+    tips: impl IntoIterator<Item = gix::ObjectId>,
+) -> Result<Vec<gix::ObjectId>, GitSubprocessError> {
+    let mut stack = tips.into_iter().collect_vec();
+    let mut seen = HashSet::new();
+    while let Some(id) = stack.pop() {
+        if !seen.insert(id) {
+            continue;
+        }
+        let object = local_repo
+            .find_object(id)
+            .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+        stack.extend(object_child_ids(&object)?);
+    }
+    Ok(seen.into_iter().collect())
+}
+
+fn object_child_ids(object: &gix::Object<'_>) -> Result<Vec<gix::ObjectId>, GitSubprocessError> {
+    match object.kind {
+        gix::objs::Kind::Commit => {
+            let mut children = Vec::new();
+            let mut commit = object.to_commit_ref_iter();
+            children.push(
+                commit
+                    .tree_id()
+                    .map_err(|err| GitSubprocessError::External(err.to_string()))?,
+            );
+            children.extend(object.to_commit_ref_iter().parent_ids());
+            Ok(children)
+        }
+        gix::objs::Kind::Tree => gix::objs::TreeRefIter::from_bytes(&object.data, object.id.kind())
+            .map(|entry| {
+                entry
+                    .map(|entry| entry.oid.to_owned())
+                    .map_err(|err| GitSubprocessError::External(err.to_string()))
+            })
+            .collect(),
+        gix::objs::Kind::Tag => {
+            Ok(vec![object.to_tag_ref_iter().target_id().map_err(
+                |err| GitSubprocessError::External(err.to_string()),
+            )?])
+        }
+        gix::objs::Kind::Blob => Ok(Vec::new()),
+    }
+}
+
+fn can_fetch_with_gix(refspecs: &[RefSpec]) -> bool {
+    refspecs.iter().all(|refspec| {
+        let git_refspec = refspec.to_git_format_not_forced();
+        let Some((source, destination)) = git_refspec.split_once(':') else {
+            return false;
+        };
+        let is_bookmark_refspec =
+            source.starts_with("refs/heads/") && destination.starts_with("refs/remotes/");
+        let is_tag_refspec =
+            source.starts_with("refs/tags/") && destination.starts_with("refs/jj/remote-tags/");
+        let source_wildcards = source.matches('*').count();
+        let destination_wildcards = destination.matches('*').count();
+        (is_bookmark_refspec || is_tag_refspec)
+            && (source_wildcards == 0 && destination_wildcards == 0
+                || source_wildcards == 1 && destination_wildcards == 1)
+    })
+}
+
+fn expand_negative_glob_fetch_refspecs(
+    git_dir: &Path,
+    remote_name: &RemoteName,
+    refspecs: &[RefSpec],
+    negative_refspecs: &[NegativeRefSpec],
+) -> Result<Vec<RefSpec>, GitSubprocessError> {
+    let mut repo =
+        gix::open(git_dir).map_err(|err| GitSubprocessError::External(err.to_string()))?;
+    repo.committer_or_set_generic_fallback()
+        .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+    let mut remote = repo
+        .find_remote(remote_name.as_str())
+        .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+    let gix_refspecs = refspecs
+        .iter()
+        .map(|refspec| gix::bstr::BString::from(refspec.to_git_format()))
+        .collect_vec();
+    remote
+        .replace_refspecs(gix_refspecs.iter(), gix::remote::Direction::Fetch)
+        .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+    let mut progress = gix::progress::Discard;
+    let ref_map = remote
+        .connect(gix::remote::Direction::Fetch)
+        .map_err(|err| GitSubprocessError::External(err.to_string()))?
+        .ref_map(&mut progress, Default::default())
+        .map_err(|err| GitSubprocessError::External(err.to_string()))?
+        .0;
+    ref_map
+        .mappings
+        .into_iter()
+        .filter_map(|mapping| {
+            let source = mapping.remote.as_name()?.to_str().ok()?;
+            if negative_refspecs
+                .iter()
+                .any(|refspec| refspec_matches(refspec.source(), source))
+            {
+                return None;
+            }
+            let destination = mapping.local?.to_str().ok()?.to_owned();
+            Some(Ok(RefSpec::forced_fetch(source.to_owned(), destination)))
+        })
+        .try_collect()
+}
+
+fn refspec_matches(pattern: &str, refname: &str) -> bool {
+    grit_lib::wildmatch::wildmatch(pattern.as_bytes(), refname.as_bytes(), 0)
+}
+
+fn fetch_with_gix(
+    git_dir: &Path,
+    remote_name: &RemoteName,
+    refspecs: &[RefSpec],
+    negative_refspecs: &[NegativeRefSpec],
+    depth: Option<NonZeroU32>,
+    fetch_tags_override: Option<FetchTagsOverride>,
+) -> Result<GitFetchStatus, GitSubprocessError> {
+    let mut repo =
+        gix::open(git_dir).map_err(|err| GitSubprocessError::External(err.to_string()))?;
+    repo.committer_or_set_generic_fallback()
+        .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+    let mut remote = repo
+        .find_remote(remote_name.as_str())
+        .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+    let gix_refspecs = refspecs
+        .iter()
+        .map(|refspec| gix::bstr::BString::from(refspec.to_git_format()))
+        .collect_vec();
+    remote
+        .replace_refspecs(gix_refspecs.iter(), gix::remote::Direction::Fetch)
+        .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+    if let Some(fetch_tags_override) = fetch_tags_override {
+        remote = remote.with_fetch_tags(match fetch_tags_override {
+            FetchTagsOverride::AllTags => gix::remote::fetch::Tags::All,
+            FetchTagsOverride::NoTags => gix::remote::fetch::Tags::None,
+        });
+    }
+
+    let mut progress = gix::progress::Discard;
+    let extra_refspecs = negative_refspecs
+        .iter()
+        .map(|refspec| {
+            gix::refspec::parse(
+                refspec.to_git_format().as_str().into(),
+                gix::refspec::parse::Operation::Fetch,
+            )
+            .map(|refspec| refspec.to_owned())
+            .map_err(|err| GitSubprocessError::External(err.to_string()))
+        })
+        .try_collect()?;
+    let prepare = remote
+        .connect(gix::remote::Direction::Fetch)
+        .map_err(|err| GitSubprocessError::External(err.to_string()))?
+        .prepare_fetch(
+            &mut progress,
+            gix::remote::ref_map::Options {
+                extra_refspecs,
+                ..Default::default()
+            },
+        )
+        .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+    prune_wildcard_fetch_refs(git_dir, refspecs, prepare.ref_map())?;
+    let mut receive = prepare.with_reflog_message(gix::remote::fetch::RefLogMessage::Prefixed {
+        action: "fetch".to_owned(),
+    });
+    if let Some(depth) = depth {
+        receive = receive.with_shallow(gix::remote::fetch::Shallow::DepthAtRemote(depth));
+    }
+    let outcome = match receive.receive(&mut progress, &gix::interrupt::IS_INTERRUPTED) {
+        Ok(outcome) => outcome,
+        Err(gix::remote::fetch::Error::NoMapping { refspecs, .. }) => {
+            let source = refspecs
+                .into_iter()
+                .find_map(|refspec| {
+                    refspec
+                        .to_ref()
+                        .source()
+                        .and_then(|source| source.to_str().ok())
+                        .map(str::to_owned)
+                })
+                .unwrap_or_default();
+            return Ok(GitFetchStatus::NoRemoteRef(source));
+        }
+        Err(err) => return Err(GitSubprocessError::External(err.to_string())),
+    };
+
+    Ok(GitFetchStatus::Updates(gix_fetch_updates(&outcome)))
+}
+
+fn prune_wildcard_fetch_refs(
+    git_dir: &Path,
+    refspecs: &[RefSpec],
+    ref_map: &gix::remote::fetch::RefMap,
+) -> Result<(), GitSubprocessError> {
+    for refspec in refspecs {
+        let git_refspec = refspec.to_git_format_not_forced();
+        let Some((source, destination)) = git_refspec.split_once(':') else {
+            continue;
+        };
+        if !source.ends_with("/*") || !destination.ends_with("/*") {
+            continue;
+        }
+        let destination_prefix = destination.trim_end_matches('*').trim_end_matches('/');
+        let remote_refs = ref_map
+            .mappings
+            .iter()
+            .filter_map(|mapping| mapping.local.as_ref())
+            .filter_map(|local| local.to_str().ok())
+            .filter(|local| local.starts_with(destination_prefix))
+            .collect::<std::collections::HashSet<_>>();
+        let local_refs = grit_lib::refs::list_refs(git_dir, destination_prefix)
+            .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+        for (local_ref, _) in local_refs {
+            if !remote_refs.contains(local_ref.as_str()) {
+                grit_lib::refs::delete_ref(git_dir, &local_ref)
+                    .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn gix_fetch_updates(outcome: &gix::remote::fetch::Outcome) -> GitRefUpdates {
+    let update_refs = match &outcome.status {
+        gix::remote::fetch::Status::NoPackReceived { update_refs, .. }
+        | gix::remote::fetch::Status::Change { update_refs, .. } => update_refs,
+    };
+    let mut updates = GitRefUpdates::default();
+    for (update, mapping, _spec, edit) in update_refs.iter_mapping_updates(
+        &outcome.ref_map.mappings,
+        &outcome.ref_map.refspecs,
+        &outcome.ref_map.extra_refspecs,
+    ) {
+        match update.mode {
+            gix::remote::fetch::refs::update::Mode::NoChangeNeeded
+            | gix::remote::fetch::refs::update::Mode::ImplicitTagNotSentByRemote => {}
+            gix::remote::fetch::refs::update::Mode::FastForward
+            | gix::remote::fetch::refs::update::Mode::Forced
+            | gix::remote::fetch::refs::update::Mode::New => {
+                if let Some((name, oid_diff)) = edit.and_then(fetch_ref_edit_diff) {
+                    updates.updated.push((name, oid_diff));
+                }
+            }
+            gix::remote::fetch::refs::update::Mode::RejectedSourceObjectNotFound { .. }
+            | gix::remote::fetch::refs::update::Mode::RejectedTagUpdate
+            | gix::remote::fetch::refs::update::Mode::RejectedNonFastForward
+            | gix::remote::fetch::refs::update::Mode::RejectedToReplaceWithUnborn
+            | gix::remote::fetch::refs::update::Mode::RejectedCurrentlyCheckedOut { .. } => {
+                if let Some((name, oid_diff)) = edit
+                    .and_then(fetch_ref_edit_diff)
+                    .or_else(|| fetch_mapping_ref_diff(mapping))
+                {
+                    updates.rejected.push((name, oid_diff));
+                }
+            }
+        }
+    }
+    updates
+}
+
+fn fetch_mapping_ref_diff(
+    mapping: &gix::remote::fetch::refmap::Mapping,
+) -> Option<(GitRefNameBuf, Diff<gix::ObjectId>)> {
+    let name = mapping.local.as_ref()?.to_str().ok()?.to_owned().into();
+    let after = mapping
+        .remote
+        .as_id()
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(null_sha1);
+    Some((name, Diff::new(null_sha1(), after)))
+}
+
+fn fetch_ref_edit_diff(
+    edit: &gix::refs::transaction::RefEdit,
+) -> Option<(GitRefNameBuf, Diff<gix::ObjectId>)> {
+    let gix::refs::transaction::Change::Update { expected, new, .. } = &edit.change else {
+        return None;
+    };
+    let before = previous_value_object_id(expected)?;
+    let after = target_object_id(new)?;
+    Some((
+        edit.name.as_bstr().to_string().into(),
+        Diff::new(before, after),
     ))
 }
 
-const ERROR_PREFIXES: &[&[u8]] = &[
-    // error_builtin() in usage.c
-    b"error: ",
-    // die_message_builtin() in usage.c
-    b"fatal: ",
-    // usage_builtin() in usage.c
-    b"usage: ",
-    // handle_option() in git.c
-    b"unknown option: ",
-];
-
-/// Parse no such remote errors output from git
-///
-/// Returns the remote that wasn't found
-///
-/// To say this, git prints out a lot of things, but the first line is of the
-/// form:
-/// `fatal: '<remote>' does not appear to be a git repository`
-/// or
-/// `fatal: '<remote>': Could not resolve host: invalid-remote`
-fn parse_no_such_remote(stderr: &[u8]) -> Option<String> {
-    let first_line = stderr.lines().next()?;
-    let suffix = first_line
-        .strip_prefix(b"fatal: '")
-        .or_else(|| first_line.strip_prefix(b"fatal: unable to access '"))?;
-
-    suffix
-        .strip_suffix(b"' does not appear to be a git repository")
-        .or_else(|| suffix.strip_suffix(b"': Could not resolve host: invalid-remote"))
-        .map(|remote| remote.to_str_lossy().into_owned())
+fn previous_value_object_id(
+    value: &gix::refs::transaction::PreviousValue,
+) -> Option<gix::ObjectId> {
+    match value {
+        gix::refs::transaction::PreviousValue::MustExistAndMatch(target)
+        | gix::refs::transaction::PreviousValue::ExistingMustMatch(target) => {
+            Some(target_object_id(target).unwrap_or_else(null_sha1))
+        }
+        gix::refs::transaction::PreviousValue::MustExist => None,
+        gix::refs::transaction::PreviousValue::MustNotExist
+        | gix::refs::transaction::PreviousValue::Any => Some(null_sha1()),
+    }
 }
 
-/// Parse error from refspec not present on the remote
-///
-/// This returns
-///     Some(local_ref) that wasn't found by the remote
-///     None if this wasn't the error
-///
-/// On git fetch even though --prune is specified, if a particular
-/// refspec is asked for but not present in the remote, git will error out.
-///
-/// Git only reports one of these errors at a time, so we only look at the first
-/// line
-///
-/// The first line is of the form:
-/// `fatal: couldn't find remote ref refs/heads/<ref>`
-fn parse_no_remote_ref(stderr: &[u8]) -> Option<String> {
-    let first_line = stderr.lines().next()?;
-    first_line
-        .strip_prefix(b"fatal: couldn't find remote ref ")
-        .map(|refname| refname.to_str_lossy().into_owned())
+fn target_object_id(target: &gix::refs::Target) -> Option<gix::ObjectId> {
+    match target {
+        gix::refs::Target::Object(id) => Some((*id).into()),
+        gix::refs::Target::Symbolic(_) => None,
+    }
 }
 
-/// Parse remote tracking branch not found
-///
-/// This returns true if the error was detected
-///
-/// if a branch is asked for but is not present, jj will detect it post-hoc
-/// so, we want to ignore these particular errors with git
-///
-/// The first line is of the form:
-/// `error: remote-tracking branch '<branch>' not found`
-fn parse_no_remote_tracking_branch(stderr: &[u8]) -> Option<String> {
-    let first_line = stderr.lines().next()?;
-
-    let suffix = first_line.strip_prefix(b"error: remote-tracking branch '")?;
-
-    suffix
-        .strip_suffix(b"' not found.")
-        .or_else(|| suffix.strip_suffix(b"' not found"))
-        .map(|branch| branch.to_str_lossy().into_owned())
+fn null_sha1() -> gix::ObjectId {
+    gix::ObjectId::null(gix::hash::Kind::Sha1)
 }
 
-/// Parse unknown options
-///
-/// Return the unknown option
-///
-/// If a user is running a very old git version, our commands may fail
-/// We want to give a good error in this case
-fn parse_unknown_option(stderr: &[u8]) -> Option<String> {
-    let first_line = stderr.lines().next()?;
-    first_line
-        .strip_prefix(b"unknown option: --")
-        .or(first_line
-            .strip_prefix(b"error: unknown option `")
-            .and_then(|s| s.strip_suffix(b"'")))
-        .map(|s| s.to_str_lossy().into())
+fn remote_default_branch(
+    git_dir: &Path,
+    remote_name: &RemoteName,
+) -> Result<Option<String>, GitSubprocessError> {
+    let config = grit_lib::config::ConfigSet::load(Some(git_dir), true)
+        .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+    if let Some(url) = config.get(&format!("remote.{}.url", remote_name.as_str())) {
+        let remote_path = PathBuf::from(&url);
+        if remote_path.is_absolute() {
+            return local_remote_default_branch(&remote_path);
+        }
+    }
+    remote_default_branch_with_gix(git_dir, remote_name)
+}
+
+fn local_remote_default_branch(remote_path: &Path) -> Result<Option<String>, GitSubprocessError> {
+    let (remote_git_dir, remote_work_tree) = if remote_path.join(".git").is_dir() {
+        (remote_path.join(".git"), Some(remote_path))
+    } else {
+        (remote_path.to_owned(), None)
+    };
+    let remote_repo = grit_lib::repo::Repository::open(&remote_git_dir, remote_work_tree)
+        .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+    let refs = grit_lib::ls_remote::ls_remote(
+        &remote_repo.git_dir,
+        &remote_repo.odb,
+        &grit_lib::ls_remote::Options {
+            symref: true,
+            ..Default::default()
+        },
+    )
+    .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+    let Some(head) = refs.iter().find(|entry| entry.name == "HEAD") else {
+        return Ok(None);
+    };
+    if let Some(symref_target) = &head.symref_target {
+        return Ok(symref_target.strip_prefix("refs/heads/").map(str::to_owned));
+    }
+    let head_oid = head.oid;
+    Ok(refs.into_iter().find_map(|entry| {
+        (entry.oid == head_oid)
+            .then(|| entry.name.strip_prefix("refs/heads/").map(str::to_owned))
+            .flatten()
+    }))
+}
+
+fn remote_default_branch_with_gix(
+    git_dir: &Path,
+    remote_name: &RemoteName,
+) -> Result<Option<String>, GitSubprocessError> {
+    let repo = gix::open(git_dir).map_err(|err| GitSubprocessError::External(err.to_string()))?;
+    let remote = repo
+        .find_remote(remote_name.as_str())
+        .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+    let head_refspec = gix::refspec::parse("HEAD".into(), gix::refspec::parse::Operation::Fetch)
+        .map(|refspec| refspec.to_owned())
+        .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+    let mut progress = gix::progress::Discard;
+    let ref_map = remote
+        .connect(gix::remote::Direction::Fetch)
+        .map_err(|err| GitSubprocessError::External(err.to_string()))?
+        .ref_map(
+            &mut progress,
+            gix::remote::ref_map::Options {
+                extra_refspecs: vec![head_refspec],
+                ..Default::default()
+            },
+        )
+        .map_err(|err| GitSubprocessError::External(err.to_string()))?
+        .0;
+    let mut head_object = None;
+    for remote_ref in &ref_map.remote_refs {
+        let target = match remote_ref {
+            gix::protocol::handshake::Ref::Symbolic {
+                full_ref_name,
+                target,
+                ..
+            } if full_ref_name.as_slice() == b"HEAD" => target.as_bstr(),
+            gix::protocol::handshake::Ref::Direct {
+                full_ref_name,
+                object,
+            } if full_ref_name.as_slice() == b"HEAD" => {
+                head_object = Some(*object);
+                continue;
+            }
+            gix::protocol::handshake::Ref::Unborn { full_ref_name, .. }
+                if full_ref_name.as_slice() == b"HEAD" =>
+            {
+                return Ok(None);
+            }
+            _ => continue,
+        };
+        return Ok(target
+            .to_str()
+            .ok()
+            .and_then(|target| target.strip_prefix("refs/heads/").map(str::to_owned)));
+    }
+    if let Some(head_object) = head_object {
+        return Ok(ref_map.remote_refs.into_iter().find_map(|remote_ref| {
+            let (full_ref_name, object) = match remote_ref {
+                gix::protocol::handshake::Ref::Direct {
+                    full_ref_name,
+                    object,
+                }
+                | gix::protocol::handshake::Ref::Symbolic {
+                    full_ref_name,
+                    object,
+                    ..
+                } => (full_ref_name, object),
+                gix::protocol::handshake::Ref::Peeled { .. }
+                | gix::protocol::handshake::Ref::Unborn { .. } => return None,
+            };
+            (object == head_object)
+                .then(|| {
+                    full_ref_name
+                        .to_str()
+                        .ok()
+                        .and_then(|name| name.strip_prefix("refs/heads/").map(str::to_owned))
+                })
+                .flatten()
+        }));
+    }
+    Ok(None)
 }
 
 /// Status of underlying `git fetch` operation.
@@ -416,33 +1343,6 @@ pub enum GitFetchStatus {
     NoRemoteRef(String),
 }
 
-fn parse_git_fetch_output(output: &Output) -> Result<GitFetchStatus, GitSubprocessError> {
-    if output.status.success() {
-        let updates = parse_ref_updates(&output.stdout)?;
-        return Ok(GitFetchStatus::Updates(updates));
-    }
-
-    // There are some git errors we want to parse out
-    if let Some(option) = parse_unknown_option(&output.stderr) {
-        return Err(GitSubprocessError::UnsupportedGitOption(option));
-    }
-
-    if let Some(remote) = parse_no_such_remote(&output.stderr) {
-        return Err(GitSubprocessError::NoSuchRepository(remote));
-    }
-
-    if let Some(refspec) = parse_no_remote_ref(&output.stderr) {
-        return Ok(GitFetchStatus::NoRemoteRef(refspec));
-    }
-
-    let updates = parse_ref_updates(&output.stdout)?;
-    if !updates.rejected.is_empty() || parse_no_remote_tracking_branch(&output.stderr).is_some() {
-        Ok(GitFetchStatus::Updates(updates))
-    } else {
-        Err(external_git_error(&output.stderr))
-    }
-}
-
 /// Local changes made by `git fetch`.
 #[derive(Clone, Debug, Default)]
 pub struct GitRefUpdates {
@@ -450,236 +1350,359 @@ pub struct GitRefUpdates {
     ///
     /// `old_oid`/`new_oid` may be null or point to non-commit objects such as
     /// tags.
-    #[cfg_attr(not(test), expect(dead_code))] // unused as of now
     pub updated: Vec<(GitRefNameBuf, Diff<gix::ObjectId>)>,
     /// Git ref `(name, (old_oid, new_oid)`s that are rejected or failed to
     /// update.
     pub rejected: Vec<(GitRefNameBuf, Diff<gix::ObjectId>)>,
 }
 
-/// Parses porcelain output of `git fetch`.
-fn parse_ref_updates(stdout: &[u8]) -> Result<GitRefUpdates, GitSubprocessError> {
-    let mut updated = vec![];
-    let mut rejected = vec![];
-    for (i, line) in stdout.lines().enumerate() {
-        let parse_err = |message: &str| {
-            GitSubprocessError::External(format!(
-                "Line {line_no}: {message}: {line}",
-                line_no = i + 1,
-                line = BStr::new(line)
-            ))
-        };
-        // <flag> <old-object-id> <new-object-id> <local-reference>
-        // (<flag> may be space)
-        let mut line_bytes = line.iter();
-        let flag = *line_bytes.next().ok_or_else(|| parse_err("empty line"))?;
-        if line_bytes.next() != Some(&b' ') {
-            return Err(parse_err("no flag separator found"));
-        }
-        let [old_oid, new_oid, name] = line_bytes
-            .as_slice()
-            .splitn(3, |&b| b == b' ')
-            .collect_array()
-            .ok_or_else(|| parse_err("unexpected number of columns"))?;
-        let name: GitRefNameBuf = str::from_utf8(name)
-            .map_err(|_| parse_err("non-UTF-8 ref name"))?
-            .into();
-        let old_oid = gix::ObjectId::from_hex(old_oid).map_err(|_| parse_err("invalid old oid"))?;
-        let new_oid = gix::ObjectId::from_hex(new_oid).map_err(|_| parse_err("invalid new oid"))?;
-        let oid_diff = Diff::new(old_oid, new_oid);
-        match flag {
-            // ' ' for a successfully fetched fast-forward
-            // '+' for a successful forced update
-            // '-' for a successfully pruned ref
-            // 't' for a successful tag update
-            // '*' for a successfully fetched new ref
-            b' ' | b'+' | b'-' | b't' | b'*' => updated.push((name, oid_diff)),
-            // '!' for a ref that was rejected or failed to update
-            b'!' => rejected.push((name, oid_diff)),
-            // '=' for a ref that was up to date and did not need fetching
-            // (included when --verbose)
-            b'=' => {}
-            _ => return Err(parse_err("unknown flag")),
-        }
-    }
-    Ok(GitRefUpdates { updated, rejected })
-}
-
-fn parse_git_branch_prune_output(output: Output) -> Result<(), GitSubprocessError> {
-    if output.status.success() {
-        return Ok(());
-    }
-
-    // There are some git errors we want to parse out
-    if let Some(option) = parse_unknown_option(&output.stderr) {
-        return Err(GitSubprocessError::UnsupportedGitOption(option));
-    }
-
-    if parse_no_remote_tracking_branch(&output.stderr).is_some() {
-        return Ok(());
-    }
-
-    Err(external_git_error(&output.stderr))
-}
-
-fn parse_git_remote_show_output(output: Output) -> Result<Output, GitSubprocessError> {
-    if output.status.success() {
-        return Ok(output);
-    }
-
-    // There are some git errors we want to parse out
-    if let Some(option) = parse_unknown_option(&output.stderr) {
-        return Err(GitSubprocessError::UnsupportedGitOption(option));
-    }
-
-    if let Some(remote) = parse_no_such_remote(&output.stderr) {
-        return Err(GitSubprocessError::NoSuchRepository(remote));
-    }
-
-    Err(external_git_error(&output.stderr))
-}
-
-fn parse_git_remote_show_default_branch(
-    stdout: &[u8],
-) -> Result<Option<String>, GitSubprocessError> {
-    stdout
-        .lines()
-        .map(|x| x.trim())
-        .find(|x| x.starts_with_str("HEAD branch:"))
-        .inspect(|x| tracing::debug!(line = ?x.to_str_lossy(), "default branch"))
-        .and_then(|x| x.split_str(" ").last().map(|y| y.trim()))
-        .filter(|branch_name| branch_name != b"(unknown)")
-        .map(|branch_name| branch_name.to_str())
-        .transpose()
-        .map_err(|e| GitSubprocessError::External(format!("git remote output is not utf-8: {e:?}")))
-        .map(|b| b.map(|x| x.to_string()))
-}
-
-// git-push porcelain has the following format (per line)
-// `<flag>\t<from>:<to>\t<summary> (<reason>)`
-//
-// <flag> is one of:
-//     ' ' for a successfully pushed fast-forward;
-//      + for a successful forced update
-//      - for a successfully deleted ref
-//      * for a successfully pushed new ref
-//      !  for a ref that was rejected or failed to push; and
-//      =  for a ref that was up to date and did not need pushing.
-//
-// <from>:<to> is the refspec
-//
-// <summary> is extra info (commit ranges or reason for rejected)
-//
-// <reason> is a human-readable explanation
-fn parse_ref_pushes(stdout: &[u8]) -> Result<GitPushStats, GitSubprocessError> {
-    if !stdout.starts_with(b"To ") {
+#[allow(dead_code)]
+fn parse_receive_pack_status(status: &[u8]) -> Result<GitPushStats, GitSubprocessError> {
+    let mut lines = status.lines();
+    let unpack_status = lines
+        .next()
+        .ok_or_else(|| GitSubprocessError::External("empty receive-pack status".to_owned()))?;
+    let unpack_status = strip_pkt_line_prefix_bytes(unpack_status)
+        .ok_or_else(|| GitSubprocessError::External("empty receive-pack status".to_owned()))?;
+    let Some(unpack_result) = unpack_status.strip_prefix(b"unpack ") else {
         return Err(GitSubprocessError::External(format!(
-            "Git push output unfamiliar:\n{}",
-            stdout.to_str_lossy()
+            "receive-pack status missing unpack result: {}",
+            unpack_status.to_str_lossy()
+        )));
+    };
+    if unpack_result != b"ok" {
+        return Err(GitSubprocessError::External(format!(
+            "remote failed to unpack pushed objects: {}",
+            unpack_result.to_str_lossy()
         )));
     }
 
-    let mut push_stats = GitPushStats::default();
-    for (idx, line) in stdout
-        .lines()
-        .skip(1)
-        .take_while(|line| line != b"Done")
-        .enumerate()
-    {
-        tracing::debug!("response #{idx}: {}", line.to_str_lossy());
-        let [flag, reference, summary] = line.split_str("\t").collect_array().ok_or_else(|| {
-            GitSubprocessError::External(format!(
-                "Line #{idx} of git-push has unknown format: {}",
-                line.to_str_lossy()
-            ))
-        })?;
-        let full_refspec = reference
-            .to_str()
-            .map_err(|e| {
-                format!(
-                    "Line #{} of git-push has non-utf8 refspec {}: {}",
-                    idx,
-                    reference.to_str_lossy(),
-                    e
-                )
-            })
-            .map_err(GitSubprocessError::External)?;
-
-        let reference: GitRefNameBuf = full_refspec
-            .split_once(':')
-            .map(|(_refname, reference)| reference.into())
-            .ok_or_else(|| {
+    let mut stats = GitPushStats::default();
+    for (idx, line) in lines.enumerate() {
+        let Some(line) = strip_pkt_line_prefix_bytes(line) else {
+            continue;
+        };
+        if line.is_empty() {
+            continue;
+        }
+        if let Some(refname) = line.strip_prefix(b"ok ") {
+            stats.pushed.push(parse_receive_pack_ref(idx, refname)?);
+        } else if let Some(rest) = line.strip_prefix(b"ng ") {
+            let (refname, reason) = rest.split_once_str(" ").ok_or_else(|| {
                 GitSubprocessError::External(format!(
-                    "Line #{idx} of git-push has full refspec without named ref: {full_refspec}"
+                    "receive-pack status line #{idx} rejected a ref without reason: {}",
+                    line.to_str_lossy()
                 ))
             })?;
+            stats.remote_rejected.push((
+                parse_receive_pack_ref(idx, refname)?,
+                Some(reason.to_str_lossy().into_owned()),
+            ));
+        } else {
+            return Err(GitSubprocessError::External(format!(
+                "receive-pack status line #{idx} has unknown format: {}",
+                line.to_str_lossy()
+            )));
+        }
+    }
+    Ok(stats)
+}
 
-        match flag {
-            // ' ' for a successfully pushed fast-forward;
-            //  + for a successful forced update
-            //  - for a successfully deleted ref
-            //  * for a successfully pushed new ref
-            //  =  for a ref that was up to date and did not need pushing.
-            b"+" | b"-" | b"*" | b"=" | b" " => {
-                push_stats.pushed.push(reference);
-            }
-            // ! for a ref that was rejected or failed to push; and
-            b"!" => {
-                if let Some(reason) = summary.strip_prefix(b"[remote rejected]") {
-                    let reason = reason
-                        .strip_prefix(b" (")
-                        .and_then(|r| r.strip_suffix(b")"))
-                        .map(|x| x.to_str_lossy().into_owned());
-                    push_stats.remote_rejected.push((reference, reason));
-                } else {
-                    let reason = summary
-                        .split_once_str("]")
-                        .and_then(|(_, reason)| reason.strip_prefix(b" ("))
-                        .and_then(|r| r.strip_suffix(b")"))
-                        .map(|x| x.to_str_lossy().into_owned());
-                    push_stats.rejected.push((reference, reason));
-                }
-            }
-            unknown => {
+#[allow(dead_code)]
+fn parse_receive_pack_ref(idx: usize, refname: &[u8]) -> Result<GitRefNameBuf, GitSubprocessError> {
+    let refname = refname.to_str().map_err(|err| {
+        GitSubprocessError::External(format!(
+            "receive-pack status line #{idx} has non-utf8 ref name {}: {err}",
+            refname.to_str_lossy()
+        ))
+    })?;
+    Ok(refname.into())
+}
+
+#[allow(dead_code)]
+fn select_receive_pack_capabilities<'a>(
+    advertised: &'a [&str],
+    push_options: &[String],
+) -> Result<Vec<&'a str>, GitSubprocessError> {
+    let has = |capability: &str| advertised.contains(&capability);
+    if !has("report-status") {
+        return Err(GitSubprocessError::External(
+            "remote did not advertise required receive-pack capability report-status".to_owned(),
+        ));
+    }
+
+    let mut selected = vec!["report-status"];
+    if has("side-band-64k") {
+        selected.push("side-band-64k");
+    }
+    if !push_options.is_empty() {
+        if !has("push-options") {
+            return Err(GitSubprocessError::External(
+                "remote does not support push options".to_owned(),
+            ));
+        }
+        selected.push("push-options");
+    }
+    Ok(selected)
+}
+
+#[allow(dead_code)]
+fn format_receive_pack_commands<'a>(
+    updates: impl IntoIterator<Item = (Option<&'a gix::ObjectId>, Option<&'a gix::ObjectId>, &'a str)>,
+    capabilities: &[&str],
+) -> Vec<Vec<u8>> {
+    let mut commands = Vec::new();
+    for (index, (old, new, refname)) in updates.into_iter().enumerate() {
+        let capabilities = (index == 0 && !capabilities.is_empty())
+            .then(|| capabilities.join(" "));
+        commands.push(format_receive_pack_command(old, new, refname, capabilities.as_deref()));
+    }
+    commands
+}
+
+#[allow(dead_code)]
+fn format_receive_pack_commands_from_refs(
+    references: &[RefToPush<'_>],
+    capabilities: &[&str],
+) -> Result<Vec<Vec<u8>>, GitSubprocessError> {
+    let updates = references
+        .iter()
+        .map(|reference| {
+            let new = reference
+                .refspec
+                .source()
+                .map(|source| {
+                    gix::ObjectId::from_hex(source.as_bytes())
+                        .map_err(|err| GitSubprocessError::External(err.to_string()))
+                })
+                .transpose()?;
+            Ok((
+                reference.expected_location.map(Into::into),
+                new,
+                reference.refspec.destination(),
+            ))
+        })
+        .collect::<Result<Vec<_>, GitSubprocessError>>()?;
+    Ok(format_receive_pack_commands(
+        updates
+            .iter()
+            .map(|(old, new, destination)| (old.as_ref(), new.as_ref(), *destination)),
+        capabilities,
+    ))
+}
+
+#[allow(dead_code)]
+fn format_receive_pack_command(
+    old: Option<&gix::ObjectId>,
+    new: Option<&gix::ObjectId>,
+    refname: &str,
+    capabilities: Option<&str>,
+) -> Vec<u8> {
+    let mut command = format!(
+        "{} {} {refname}",
+        hook_object_id(old),
+        hook_object_id(new)
+    )
+    .into_bytes();
+    if let Some(capabilities) = capabilities {
+        command.push(0);
+        command.extend_from_slice(capabilities.as_bytes());
+    }
+    command
+}
+
+#[allow(dead_code)]
+fn format_receive_pack_push_options(push_options: &[String]) -> Result<Vec<&[u8]>, GitSubprocessError> {
+    push_options
+        .iter()
+        .map(|option| {
+            if option.as_bytes().iter().any(|byte| matches!(byte, b'\0' | b'\n')) {
                 return Err(GitSubprocessError::External(format!(
-                    "Line #{} of git-push starts with an unknown flag '{}': '{}'",
-                    idx,
-                    unknown.to_str_lossy(),
-                    line.to_str_lossy()
+                    "push option contains unsupported NUL or LF byte: {option:?}"
                 )));
             }
+            Ok(option.as_bytes())
+        })
+        .collect()
+}
+
+fn send_receive_pack_commands(
+    local_repo: &gix::Repository,
+    remote_url: &str,
+    references: &[RefToPush<'_>],
+    callback: &mut dyn GitSubprocessCallback,
+    options: &GitPushOptions,
+) -> Result<GitPushStats, GitSubprocessError> {
+    let parsed_url = gix::Url::try_from(remote_url)
+        .map_err(external_error)?;
+    let mut transport = gix::protocol::transport::client::blocking_io::connect::connect(
+        parsed_url.clone(),
+        gix::protocol::transport::client::blocking_io::connect::Options {
+            version: gix::protocol::transport::Protocol::V1,
+            ..Default::default()
+        },
+    )
+    .map_err(external_error)?;
+    if let Some(config) = local_repo
+        .transport_options(remote_url.as_bytes().as_bstr(), None)
+        .map_err(external_error)?
+    {
+        transport
+            .configure(&*config)
+            .map_err(|err| external_error_ref(&*err))?;
+    }
+    let (mut credential_helpers, _action_with_url, prompt_options) = local_repo
+        .config_snapshot()
+        .credential_helpers(parsed_url)
+        .map_err(external_error)?;
+    if credential_helpers.programs.is_empty() {
+        credential_helpers
+            .programs
+            .extend(gix::credentials::helper::Cascade::platform_builtin());
+    }
+    let mut authenticate =
+        move |action| credential_helpers.invoke(action, prompt_options.clone());
+    let advertised_capabilities = {
+        let mut progress = gix::progress::Discard;
+        tracing::debug!(remote_url, "starting receive-pack handshake");
+        let handshake = gix::protocol::handshake(
+            &mut transport,
+            gix::protocol::transport::Service::ReceivePack,
+            &mut authenticate,
+            Vec::new(),
+            &mut progress,
+        )
+            .map_err(external_error)?;
+        tracing::debug!("finished receive-pack handshake");
+        handshake
+            .capabilities
+            .iter()
+            .filter_map(|capability| capability.name().to_str().ok())
+            .map(str::to_owned)
+            .collect_vec()
+    };
+    let advertised_capabilities = advertised_capabilities
+        .iter()
+        .map(String::as_str)
+        .collect_vec();
+    let selected_capabilities =
+        select_receive_pack_capabilities(&advertised_capabilities, &options.remote_push_options)?;
+    let commands = format_receive_pack_commands_from_refs(references, &selected_capabilities)?;
+    let push_options = format_receive_pack_push_options(&options.remote_push_options)?;
+    let pack_tip_ids = receive_pack_tip_ids(references)?;
+    let pack = (!pack_tip_ids.is_empty())
+        .then(|| pack_reachable_objects(local_repo, pack_tip_ids))
+        .transpose()?;
+    tracing::debug!(
+        pack_bytes = pack.as_ref().map_or(0, Vec::len),
+        "prepared receive-pack request"
+    );
+
+    let mut writer = transport
+        .request(
+            gix::protocol::transport::client::WriteMode::OneLfTerminatedLinePerWriteCall,
+            gix::protocol::transport::client::MessageKind::Flush,
+            false,
+        )
+        .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+    for command in commands {
+        writer
+            .write_all(&command)
+            .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+    }
+    if !push_options.is_empty() {
+        writer
+            .write_message(gix::protocol::transport::client::MessageKind::Flush)
+            .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+        for option in push_options {
+            writer
+                .write_all(option)
+                .map_err(|err| GitSubprocessError::External(err.to_string()))?;
         }
     }
 
-    Ok(push_stats)
+    let mut reader = if let Some(pack) = pack {
+        writer
+            .write_message(gix::protocol::transport::client::MessageKind::Flush)
+            .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+        let (mut raw_writer, reader) = writer.into_parts();
+        raw_writer
+            .write_all(&pack)
+            .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+        raw_writer
+            .flush()
+            .map_err(|err| GitSubprocessError::External(err.to_string()))?;
+        drop(raw_writer);
+        reader
+    } else {
+        writer
+            .into_read()
+            .map_err(|err| GitSubprocessError::External(err.to_string()))?
+    };
+    let mut status = String::new();
+    let mut line = String::new();
+    tracing::debug!("reading receive-pack status");
+    while reader
+        .readline_str(&mut line)
+        .map_err(|err| GitSubprocessError::External(err.to_string()))?
+        != 0
+    {
+        if let Some(line) = receive_pack_status_line(&line, callback) {
+            status.push_str(line);
+        }
+        line.clear();
+    }
+    tracing::debug!(bytes = status.len(), "read receive-pack status");
+    parse_receive_pack_status(status.as_bytes())
 }
 
-// on Ok, return a tuple with
-//  1. list of failed references from test and set
-//  2. list of successful references pushed
-fn parse_git_push_output(output: Output) -> Result<GitPushStats, GitSubprocessError> {
-    if output.status.success() {
-        let ref_pushes = parse_ref_pushes(&output.stdout)?;
-        return Ok(ref_pushes);
+fn receive_pack_status_line<'a>(
+    line: &'a str,
+    callback: &mut dyn GitSubprocessCallback,
+) -> Option<&'a str> {
+    let line = strip_pkt_line_prefix(line)?;
+    match line.as_bytes() {
+        [1, rest @ ..] => str::from_utf8(rest).ok().and_then(strip_pkt_line_prefix),
+        [2 | 3, rest @ ..] => {
+            let rest = str::from_utf8(rest)
+                .ok()
+                .and_then(strip_pkt_line_prefix)
+                .map(str::as_bytes)
+                .unwrap_or(rest);
+            let (body, term) = trim_sideband_line(rest);
+            callback.remote_sideband(body, term).ok();
+            None
+        }
+        _ => Some(line),
     }
+}
 
-    if let Some(option) = parse_unknown_option(&output.stderr) {
-        return Err(GitSubprocessError::UnsupportedGitOption(option));
-    }
+fn strip_pkt_line_prefix(line: &str) -> Option<&str> {
+    strip_pkt_line_prefix_bytes(line.as_bytes()).and_then(|line| str::from_utf8(line).ok())
+}
 
-    if let Some(remote) = parse_no_such_remote(&output.stderr) {
-        return Err(GitSubprocessError::NoSuchRepository(remote));
+fn strip_pkt_line_prefix_bytes(line: &[u8]) -> Option<&[u8]> {
+    let Some(prefix) = line.get(..4) else {
+        return Some(line);
+    };
+    if !prefix.iter().all(u8::is_ascii_hexdigit) {
+        return Some(line);
     }
+    (prefix != b"0000").then(|| &line[4..])
+}
 
-    if output
-        .stderr
-        .lines()
-        .any(|line| line.starts_with(b"error: failed to push some refs to "))
-    {
-        parse_ref_pushes(&output.stdout)
-    } else {
-        Err(external_git_error(&output.stderr))
-    }
+#[allow(dead_code)]
+fn receive_pack_tip_ids(
+    references: &[RefToPush<'_>],
+) -> Result<Vec<gix::ObjectId>, GitSubprocessError> {
+    references
+        .iter()
+        .filter_map(|reference| reference.refspec.source())
+        .map(|source| {
+            gix::ObjectId::from_hex(source.as_bytes())
+                .map_err(|err| GitSubprocessError::External(err.to_string()))
+        })
+        .collect()
 }
 
 /// Handles Git command outputs.
@@ -724,53 +1747,12 @@ impl GitSidebandLineTerminator {
     }
 }
 
-fn wait_with_output(child: Child) -> Result<Output, GitSubprocessError> {
-    child.wait_with_output().map_err(GitSubprocessError::Wait)
-}
-
 /// Like `wait_with_output()`, but also emits sideband data through callback.
 ///
 /// Git remotes can send custom messages on fetch and push, which the `git`
 /// command prepends with `remote: `.
 ///
 /// For instance, these messages can provide URLs to create Pull Requests
-/// e.g.:
-/// ```ignore
-/// $ jj git push -c @
-/// [...]
-/// remote:
-/// remote: Create a pull request for 'branch' on GitHub by visiting:
-/// remote:      https://github.com/user/repo/pull/new/branch
-/// remote:
-/// ```
-///
-/// The returned `stderr` content does not include sideband messages.
-fn wait_with_progress(
-    mut child: Child,
-    callback: &mut dyn GitSubprocessCallback,
-) -> Result<Output, GitSubprocessError> {
-    let (stdout, stderr) = thread::scope(|s| -> io::Result<_> {
-        drop(child.stdin.take());
-        let mut child_stdout = child.stdout.take().expect("stdout should be piped");
-        let mut child_stderr = child.stderr.take().expect("stderr should be piped");
-        let thread = s.spawn(move || -> io::Result<_> {
-            let mut buf = Vec::new();
-            child_stdout.read_to_end(&mut buf)?;
-            Ok(buf)
-        });
-        let stderr = read_to_end_with_progress(&mut child_stderr, callback)?;
-        let stdout = thread.join().expect("reader thread wouldn't panic")?;
-        Ok((stdout, stderr))
-    })
-    .map_err(GitSubprocessError::Wait)?;
-    let status = child.wait().map_err(GitSubprocessError::Wait)?;
-    Ok(Output {
-        status,
-        stdout,
-        stderr,
-    })
-}
-
 /// Progress of underlying `git` command operation.
 #[derive(Clone, Debug, Default)]
 pub struct GitProgress {
@@ -804,112 +1786,6 @@ impl GitProgress {
     }
 }
 
-fn read_to_end_with_progress<R: Read>(
-    src: R,
-    callback: &mut dyn GitSubprocessCallback,
-) -> io::Result<Vec<u8>> {
-    let mut reader = BufReader::new(src);
-    let mut data = Vec::new();
-    let mut progress = GitProgress::default();
-
-    loop {
-        // progress sent through sideband channel may be terminated by \r
-        let start = data.len();
-        read_until_cr_or_lf(&mut reader, &mut data)?;
-        let line = &data[start..];
-        if line.is_empty() {
-            break;
-        }
-
-        // capture error messages which will be interpreted by caller
-        if ERROR_PREFIXES.iter().any(|prefix| line.starts_with(prefix)) {
-            reader.read_to_end(&mut data)?;
-            break;
-        }
-
-        // io::Error coming from callback shouldn't be propagated as an error of
-        // "read" operation. The error is suppressed for now.
-        // TODO: maybe intercept "push" progress? (see builtin/pack-objects.c)
-        if update_progress(line, &mut progress.objects, b"Receiving objects:")
-            || update_progress(line, &mut progress.deltas, b"Resolving deltas:")
-            || update_progress(
-                line,
-                &mut progress.counted_objects,
-                b"remote: Counting objects:",
-            )
-            || update_progress(
-                line,
-                &mut progress.compressed_objects,
-                b"remote: Compressing objects:",
-            )
-        {
-            callback.progress(&progress).ok();
-            data.truncate(start);
-        } else if let Some(message) = line.strip_prefix(b"remote: ") {
-            let (body, term) = trim_sideband_line(message);
-            callback.remote_sideband(body, term).ok();
-            data.truncate(start);
-        } else {
-            let (body, term) = trim_sideband_line(line);
-            callback.local_sideband(body, term).ok();
-            data.truncate(start);
-        }
-    }
-    Ok(data)
-}
-
-fn update_progress(line: &[u8], progress: &mut (u64, u64), prefix: &[u8]) -> bool {
-    if let Some(line) = line.strip_prefix(prefix) {
-        if let Some((frac, total)) = read_progress_line(line) {
-            *progress = (frac, total);
-        }
-
-        true
-    } else {
-        false
-    }
-}
-
-fn read_until_cr_or_lf<R: io::BufRead + ?Sized>(
-    reader: &mut R,
-    dest_buf: &mut Vec<u8>,
-) -> io::Result<()> {
-    loop {
-        let data = match reader.fill_buf() {
-            Ok(data) => data,
-            Err(err) if err.kind() == io::ErrorKind::Interrupted => continue,
-            Err(err) => return Err(err),
-        };
-        let (n, found) = match data.iter().position(|&b| matches!(b, b'\r' | b'\n')) {
-            Some(i) => (i + 1, true),
-            None => (data.len(), false),
-        };
-
-        dest_buf.extend_from_slice(&data[..n]);
-        reader.consume(n);
-
-        if found || n == 0 {
-            return Ok(());
-        }
-    }
-}
-
-/// Read progress lines of the form: `<text> (<frac>/<total>)`
-/// Ensures that frac < total
-fn read_progress_line(line: &[u8]) -> Option<(u64, u64)> {
-    // isolate the part between parenthesis
-    let (_prefix, suffix) = line.split_once_str("(")?;
-    let (fraction, _suffix) = suffix.split_once_str(")")?;
-
-    // split over the '/'
-    let (frac_str, total_str) = fraction.split_once_str("/")?;
-
-    // parse to integers
-    let frac = frac_str.to_str().ok()?.parse().ok()?;
-    let total = total_str.to_str().ok()?.parse().ok()?;
-    (frac <= total).then_some((frac, total))
-}
-
 /// Removes trailing spaces from sideband line, which may be padded by the `git`
 /// CLI in order to clear the previous progress line.
 fn trim_sideband_line(line: &[u8]) -> (&[u8], Option<GitSidebandLineTerminator>) {
@@ -924,42 +1800,9 @@ fn trim_sideband_line(line: &[u8]) -> (&[u8], Option<GitSidebandLineTerminator>)
 
 #[cfg(test)]
 mod test {
-    use std::process::ExitStatus;
-
-    use assert_matches::assert_matches;
     use bstr::BString;
-    use indoc::formatdoc;
-    use indoc::indoc;
 
     use super::*;
-
-    const SAMPLE_NO_SUCH_REPOSITORY_ERROR: &[u8] =
-        br###"fatal: unable to access 'origin': Could not resolve host: invalid-remote
-fatal: Could not read from remote repository.
-
-Please make sure you have the correct access rights
-and the repository exists. "###;
-    const SAMPLE_NO_SUCH_REMOTE_ERROR: &[u8] =
-        br###"fatal: 'origin' does not appear to be a git repository
-fatal: Could not read from remote repository.
-
-Please make sure you have the correct access rights
-and the repository exists. "###;
-    const SAMPLE_NO_REMOTE_REF_ERROR: &[u8] = b"fatal: couldn't find remote ref refs/heads/noexist";
-    const SAMPLE_NO_REMOTE_TRACKING_BRANCH_ERROR: &[u8] =
-        b"error: remote-tracking branch 'bookmark' not found";
-    const SAMPLE_PUSH_REFS_PORCELAIN_OUTPUT: &[u8] = b"To origin
-*\tdeadbeef:refs/heads/bookmark1\t[new branch]
-+\tdeadbeef:refs/heads/bookmark2\tabcd..dead
--\tdeadbeef:refs/heads/bookmark3\t[deleted branch]
- \tdeadbeef:refs/heads/bookmark4\tabcd..dead
-=\tdeadbeef:refs/heads/bookmark5\tabcd..abcd
-!\tdeadbeef:refs/heads/bookmark6\t[rejected] (failure lease)
-!\tdeadbeef:refs/heads/bookmark7\t[rejected]
-!\tdeadbeef:refs/heads/bookmark8\t[remote rejected] (hook failure)
-!\tdeadbeef:refs/heads/bookmark9\t[remote rejected]
-Done";
-    const SAMPLE_OK_STDERR: &[u8] = b"";
 
     #[derive(Debug, Default)]
     struct GitSubprocessCapture {
@@ -1003,322 +1846,371 @@ Done";
         }
     }
 
-    fn exit_status_from_code(code: u8) -> ExitStatus {
-        #[cfg(unix)]
-        use std::os::unix::process::ExitStatusExt as _; // i32
-        #[cfg(windows)]
-        use std::os::windows::process::ExitStatusExt as _; // u32
-        ExitStatus::from_raw(code.into())
-    }
-
     #[test]
-    fn test_parse_no_such_remote() {
-        assert_eq!(
-            parse_no_such_remote(SAMPLE_NO_SUCH_REPOSITORY_ERROR),
-            Some("origin".to_string())
+    fn test_remote_default_branch() {
+        let temp_dir = testutils::new_temp_dir();
+        let local_repo = testutils::git::init_bare(temp_dir.path().join("local"));
+        let remote_repo = testutils::git::init_bare(temp_dir.path().join("remote"));
+        testutils::git::add_commit(
+            &remote_repo,
+            "refs/heads/main",
+            "file",
+            b"content",
+            "initial",
+            &[],
         );
-        assert_eq!(
-            parse_no_such_remote(SAMPLE_NO_SUCH_REMOTE_ERROR),
-            Some("origin".to_string())
-        );
-        assert_eq!(parse_no_such_remote(SAMPLE_NO_REMOTE_REF_ERROR), None);
-        assert_eq!(
-            parse_no_such_remote(SAMPLE_NO_REMOTE_TRACKING_BRANCH_ERROR),
-            None
-        );
-        assert_eq!(
-            parse_no_such_remote(SAMPLE_PUSH_REFS_PORCELAIN_OUTPUT),
-            None
-        );
-        assert_eq!(parse_no_such_remote(SAMPLE_OK_STDERR), None);
-    }
+        testutils::git::set_symbolic_reference(&remote_repo, "HEAD", "refs/heads/main");
+        std::fs::write(
+            local_repo.path().join("config"),
+            format!(
+                "[remote \"origin\"]\n\turl = {}\n",
+                remote_repo.path().display()
+            ),
+        )
+        .unwrap();
 
-    #[test]
-    fn test_parse_no_remote_ref() {
-        assert_eq!(parse_no_remote_ref(SAMPLE_NO_SUCH_REPOSITORY_ERROR), None);
-        assert_eq!(parse_no_remote_ref(SAMPLE_NO_SUCH_REMOTE_ERROR), None);
         assert_eq!(
-            parse_no_remote_ref(SAMPLE_NO_REMOTE_REF_ERROR),
-            Some("refs/heads/noexist".to_string())
-        );
-        assert_eq!(
-            parse_no_remote_ref(SAMPLE_NO_REMOTE_TRACKING_BRANCH_ERROR),
-            None
-        );
-        assert_eq!(parse_no_remote_ref(SAMPLE_PUSH_REFS_PORCELAIN_OUTPUT), None);
-        assert_eq!(parse_no_remote_ref(SAMPLE_OK_STDERR), None);
-    }
-
-    #[test]
-    fn test_parse_no_remote_tracking_branch() {
-        assert_eq!(
-            parse_no_remote_tracking_branch(SAMPLE_NO_SUCH_REPOSITORY_ERROR),
-            None
-        );
-        assert_eq!(
-            parse_no_remote_tracking_branch(SAMPLE_NO_SUCH_REMOTE_ERROR),
-            None
-        );
-        assert_eq!(
-            parse_no_remote_tracking_branch(SAMPLE_NO_REMOTE_REF_ERROR),
-            None
-        );
-        assert_eq!(
-            parse_no_remote_tracking_branch(SAMPLE_NO_REMOTE_TRACKING_BRANCH_ERROR),
-            Some("bookmark".to_string())
-        );
-        assert_eq!(
-            parse_no_remote_tracking_branch(SAMPLE_PUSH_REFS_PORCELAIN_OUTPUT),
-            None
-        );
-        assert_eq!(parse_no_remote_tracking_branch(SAMPLE_OK_STDERR), None);
-    }
-
-    #[test]
-    fn test_parse_git_fetch_output_rejected() {
-        // `git fetch` exists with 1 if there are rejected updates.
-        let output = Output {
-            status: exit_status_from_code(1),
-            stdout: b"! d4d535f1d5795c6027f2872b24b7268ece294209 baad96fead6cdc20d47c55a4069c82952f9ac62c refs/remotes/origin/b\n".to_vec(),
-            stderr: b"".to_vec(),
-        };
-        assert_matches!(
-            parse_git_fetch_output(&output),
-            Ok(GitFetchStatus::Updates(updates))
-                if updates.updated.is_empty() && updates.rejected.len() == 1
+            remote_default_branch(local_repo.path(), "origin".as_ref()).unwrap(),
+            Some("main".to_string())
         );
     }
 
     #[test]
-    fn test_parse_ref_updates_sample() {
-        let sample = indoc! {b"
-            * 0000000000000000000000000000000000000000 e80d998ab04be7caeac3a732d74b1708aa3d8b26 refs/remotes/origin/a1
-              ebeb70d8c5f972275f0a22f7af6bc9ddb175ebd9 9175cb3250fd266fe46dcc13664b255a19234286 refs/remotes/origin/a2
-            + c8303692b8e2f0326cd33873a157b4fa69d54774 798c5e2435e1442946db90a50d47ab90f40c60b7 refs/remotes/origin/a3
-            - b2ea51c027e11c0f2871cce2a52e648e194df771 0000000000000000000000000000000000000000 refs/remotes/origin/a4
-            ! d4d535f1d5795c6027f2872b24b7268ece294209 baad96fead6cdc20d47c55a4069c82952f9ac62c refs/remotes/origin/b
-            = f8e7139764d76132234c13210b6f0abe6b1d9bf6 f8e7139764d76132234c13210b6f0abe6b1d9bf6 refs/remotes/upstream/c
-            * 0000000000000000000000000000000000000000 fd5b6a095a77575c94fad4164ab580331316c374 refs/tags/v1.0
-            t 0000000000000000000000000000000000000000 3262fedde0224462bb6ac3015dabc427a4f98316 refs/tags/v2.0
-        "};
-        insta::assert_debug_snapshot!(parse_ref_updates(sample).unwrap(), @r#"
-        GitRefUpdates {
-            updated: [
-                (
-                    GitRefNameBuf(
-                        "refs/remotes/origin/a1",
-                    ),
-                    Diff {
-                        before: Sha1(0000000000000000000000000000000000000000),
-                        after: Sha1(e80d998ab04be7caeac3a732d74b1708aa3d8b26),
-                    },
-                ),
-                (
-                    GitRefNameBuf(
-                        "refs/remotes/origin/a2",
-                    ),
-                    Diff {
-                        before: Sha1(ebeb70d8c5f972275f0a22f7af6bc9ddb175ebd9),
-                        after: Sha1(9175cb3250fd266fe46dcc13664b255a19234286),
-                    },
-                ),
-                (
-                    GitRefNameBuf(
-                        "refs/remotes/origin/a3",
-                    ),
-                    Diff {
-                        before: Sha1(c8303692b8e2f0326cd33873a157b4fa69d54774),
-                        after: Sha1(798c5e2435e1442946db90a50d47ab90f40c60b7),
-                    },
-                ),
-                (
-                    GitRefNameBuf(
-                        "refs/remotes/origin/a4",
-                    ),
-                    Diff {
-                        before: Sha1(b2ea51c027e11c0f2871cce2a52e648e194df771),
-                        after: Sha1(0000000000000000000000000000000000000000),
-                    },
-                ),
-                (
-                    GitRefNameBuf(
-                        "refs/tags/v1.0",
-                    ),
-                    Diff {
-                        before: Sha1(0000000000000000000000000000000000000000),
-                        after: Sha1(fd5b6a095a77575c94fad4164ab580331316c374),
-                    },
-                ),
-                (
-                    GitRefNameBuf(
-                        "refs/tags/v2.0",
-                    ),
-                    Diff {
-                        before: Sha1(0000000000000000000000000000000000000000),
-                        after: Sha1(3262fedde0224462bb6ac3015dabc427a4f98316),
-                    },
-                ),
-            ],
-            rejected: [
-                (
-                    GitRefNameBuf(
-                        "refs/remotes/origin/b",
-                    ),
-                    Diff {
-                        before: Sha1(d4d535f1d5795c6027f2872b24b7268ece294209),
-                        after: Sha1(baad96fead6cdc20d47c55a4069c82952f9ac62c),
-                    },
-                ),
-            ],
-        }
-        "#);
+    fn test_remote_default_branch_unborn() {
+        let temp_dir = testutils::new_temp_dir();
+        let local_repo = testutils::git::init_bare(temp_dir.path().join("local"));
+        let remote_repo = testutils::git::init_bare(temp_dir.path().join("remote"));
+        std::fs::write(
+            local_repo.path().join("config"),
+            format!(
+                "[remote \"origin\"]\n\turl = {}\n",
+                remote_repo.path().display()
+            ),
+        )
+        .unwrap();
+
+        assert_eq!(
+            remote_default_branch(local_repo.path(), "origin".as_ref()).unwrap(),
+            None
+        );
     }
 
     #[test]
-    fn test_parse_ref_updates_malformed() {
-        assert!(parse_ref_updates(b"").is_ok());
-        assert!(parse_ref_updates(b"\n").is_err());
-        assert!(parse_ref_updates(b"*\n").is_err());
-        let oid = "0000000000000000000000000000000000000000";
-        assert!(parse_ref_updates(format!("**{oid} {oid} name\n").as_bytes()).is_err());
+    fn test_remote_default_branch_detached() {
+        let temp_dir = testutils::new_temp_dir();
+        let local_repo = testutils::git::init_bare(temp_dir.path().join("local"));
+        let remote_repo = testutils::git::init_bare(temp_dir.path().join("remote"));
+        let commit_id = testutils::git::add_commit(
+            &remote_repo,
+            "refs/heads/main",
+            "file",
+            b"content",
+            "initial",
+            &[],
+        )
+        .commit_id;
+        testutils::git::set_head_to_id(&remote_repo, commit_id);
+        std::fs::write(
+            local_repo.path().join("config"),
+            format!(
+                "[remote \"origin\"]\n\turl = {}\n",
+                remote_repo.path().display()
+            ),
+        )
+        .unwrap();
+
+        assert_eq!(
+            remote_default_branch(local_repo.path(), "origin".as_ref()).unwrap(),
+            Some("main".to_string())
+        );
     }
 
     #[test]
-    fn test_parse_ref_pushes() {
-        assert!(parse_ref_pushes(SAMPLE_NO_SUCH_REPOSITORY_ERROR).is_err());
-        assert!(parse_ref_pushes(SAMPLE_NO_SUCH_REMOTE_ERROR).is_err());
-        assert!(parse_ref_pushes(SAMPLE_NO_REMOTE_REF_ERROR).is_err());
-        assert!(parse_ref_pushes(SAMPLE_NO_REMOTE_TRACKING_BRANCH_ERROR).is_err());
+    fn test_remote_default_branch_file_url() {
+        let temp_dir = testutils::new_temp_dir();
+        let local_repo = testutils::git::init_bare(temp_dir.path().join("local"));
+        let remote_repo = testutils::git::init_bare(temp_dir.path().join("remote"));
+        testutils::git::add_commit(
+            &remote_repo,
+            "refs/heads/main",
+            "file",
+            b"content",
+            "initial",
+            &[],
+        );
+        testutils::git::set_symbolic_reference(&remote_repo, "HEAD", "refs/heads/main");
+        std::fs::write(
+            local_repo.path().join("config"),
+            format!(
+                "[remote \"origin\"]\n\turl = file://{}\n",
+                remote_repo.path().display()
+            ),
+        )
+        .unwrap();
+
+        assert_eq!(
+            remote_default_branch(local_repo.path(), "origin".as_ref()).unwrap(),
+            Some("main".to_string())
+        );
+    }
+
+    #[test]
+    fn test_parse_receive_pack_status() {
         let GitPushStats {
             pushed,
             rejected,
             remote_rejected,
-            unexported_bookmarks: _,
-        } = parse_ref_pushes(SAMPLE_PUSH_REFS_PORCELAIN_OUTPUT).unwrap();
-        assert_eq!(
-            pushed,
-            [
-                "refs/heads/bookmark1",
-                "refs/heads/bookmark2",
-                "refs/heads/bookmark3",
-                "refs/heads/bookmark4",
-                "refs/heads/bookmark5",
-            ]
-            .map(GitRefNameBuf::from)
-        );
-        assert_eq!(
-            rejected,
-            vec![
-                (
-                    "refs/heads/bookmark6".into(),
-                    Some("failure lease".to_string())
-                ),
-                ("refs/heads/bookmark7".into(), None),
-            ]
-        );
+            unexported_bookmarks,
+        } = parse_receive_pack_status(
+            b"unpack ok\nok refs/heads/main\nng refs/heads/rejected hook declined\n",
+        )
+        .unwrap();
+        assert_eq!(pushed, ["refs/heads/main"].map(GitRefNameBuf::from));
+        assert_eq!(rejected, []);
         assert_eq!(
             remote_rejected,
-            vec![
-                (
-                    "refs/heads/bookmark8".into(),
-                    Some("hook failure".to_string())
-                ),
-                ("refs/heads/bookmark9".into(), None)
-            ]
+            [(
+                GitRefNameBuf::from("refs/heads/rejected"),
+                Some("hook declined".to_owned())
+            )]
         );
-        assert!(parse_ref_pushes(SAMPLE_OK_STDERR).is_err());
+        assert!(unexported_bookmarks.is_empty());
+
+        let GitPushStats {
+            pushed,
+            rejected: _,
+            remote_rejected: _,
+            unexported_bookmarks: _,
+        } = parse_receive_pack_status(b"000eunpack ok\n001cok refs/heads/main\n0000\n").unwrap();
+        assert_eq!(pushed, ["refs/heads/main"].map(GitRefNameBuf::from));
     }
 
     #[test]
-    fn test_read_to_end_with_progress() {
-        let read = |sample: &[u8]| {
-            let mut callback = GitSubprocessCapture::default();
-            let output = read_to_end_with_progress(&mut &sample[..], &mut callback).unwrap();
-            (output, callback)
-        };
-        const DUMB_SUFFIX: &str = "        ";
-        let sample = formatdoc! {"
-            remote: line1{DUMB_SUFFIX}
-            blah blah
-            remote: line2.0{DUMB_SUFFIX}\rremote: line2.1{DUMB_SUFFIX}
-            remote: line3{DUMB_SUFFIX}
-            Resolving deltas: (12/24)
-            fatal: some error message
-            continues
-        "};
-
-        let (output, callback) = read(sample.as_bytes());
-        assert_eq!(callback.local_sideband, ["blah blah", "\n"]);
+    fn test_receive_pack_status_line_strips_sideband() {
+        let mut callback = GitSubprocessCapture::default();
         assert_eq!(
-            callback.remote_sideband,
-            [
-                "line1", "\n", "line2.0", "\r", "line2.1", "\n", "line3", "\n"
-            ]
-        );
-        assert_eq!(output, b"fatal: some error message\ncontinues\n");
-        insta::assert_debug_snapshot!(callback.progress, @"
-        [
-            GitProgress {
-                deltas: (
-                    12,
-                    24,
-                ),
-                objects: (
-                    0,
-                    0,
-                ),
-                counted_objects: (
-                    0,
-                    0,
-                ),
-                compressed_objects: (
-                    0,
-                    0,
-                ),
-            },
-        ]
-        ");
-
-        // without last newline
-        let (output, callback) = read(sample.as_bytes().trim_end());
-        assert_eq!(
-            callback.remote_sideband,
-            [
-                "line1", "\n", "line2.0", "\r", "line2.1", "\n", "line3", "\n"
-            ]
-        );
-        assert_eq!(output, b"fatal: some error message\ncontinues");
-    }
-
-    #[test]
-    fn test_read_progress_line() {
-        assert_eq!(
-            read_progress_line(b"Receiving objects: (42/100)\r"),
-            Some((42, 100))
+            receive_pack_status_line("\u{1}unpack ok\n", &mut callback),
+            Some("unpack ok\n")
         );
         assert_eq!(
-            read_progress_line(b"Resolving deltas: (0/1000)\r"),
-            Some((0, 1000))
+            receive_pack_status_line("000f\u{1}unpack ok\n", &mut callback),
+            Some("unpack ok\n")
         );
-        assert_eq!(read_progress_line(b"Receiving objects: (420/100)\r"), None);
         assert_eq!(
-            read_progress_line(b"remote: this is something else\n"),
+            receive_pack_status_line("\u{1}000eunpack ok\n", &mut callback),
+            Some("unpack ok\n")
+        );
+        assert_eq!(receive_pack_status_line("0000", &mut callback), None);
+        assert_eq!(
+            receive_pack_status_line("\u{2}counting objects\n", &mut callback),
             None
         );
-        assert_eq!(read_progress_line(b"fatal: this is a git error\n"), None);
+        assert_eq!(
+            receive_pack_status_line("0015\u{2}writing objects\n", &mut callback),
+            None
+        );
+        assert_eq!(
+            receive_pack_status_line("\u{2}0015writing objects\n", &mut callback),
+            None
+        );
+        assert_eq!(
+            receive_pack_status_line("\u{3}fatal message\r", &mut callback),
+            None
+        );
+        assert_eq!(
+            receive_pack_status_line("ok refs/heads/main\n", &mut callback),
+            Some("ok refs/heads/main\n")
+        );
+        assert_eq!(
+            callback.remote_sideband,
+            [
+                "counting objects",
+                "\n",
+                "writing objects",
+                "\n",
+                "writing objects",
+                "\n",
+                "fatal message",
+                "\r"
+            ]
+        );
     }
 
     #[test]
-    fn test_parse_unknown_option() {
+    fn test_parse_receive_pack_status_malformed() {
+        assert!(parse_receive_pack_status(b"").is_err());
+        assert!(parse_receive_pack_status(b"not-unpack ok\n").is_err());
+        assert!(parse_receive_pack_status(b"unpack index-pack failed\n").is_err());
+        assert!(parse_receive_pack_status(b"unpack ok\nng refs/heads/main\n").is_err());
+        assert!(parse_receive_pack_status(b"unpack ok\nwat refs/heads/main\n").is_err());
+    }
+
+    #[test]
+    fn test_select_receive_pack_capabilities() {
         assert_eq!(
-            parse_unknown_option(b"unknown option: --abc").unwrap(),
-            "abc".to_string()
+            select_receive_pack_capabilities(&["report-status", "side-band-64k"], &[]).unwrap(),
+            vec!["report-status", "side-band-64k"]
         );
         assert_eq!(
-            parse_unknown_option(b"error: unknown option `abc'").unwrap(),
-            "abc".to_string()
+            select_receive_pack_capabilities(
+                &["report-status", "side-band-64k", "push-options"],
+                &["ci.skip".to_owned()],
+            )
+            .unwrap(),
+            vec!["report-status", "side-band-64k", "push-options"]
         );
-        assert!(parse_unknown_option(b"error: unknown option: 'abc'").is_none());
+        assert!(select_receive_pack_capabilities(&["side-band-64k"], &[]).is_err());
+        assert!(
+            select_receive_pack_capabilities(&["report-status"], &["ci.skip".to_owned()])
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn test_format_receive_pack_commands() {
+        let old = gix::ObjectId::from_hex(b"1111111111111111111111111111111111111111").unwrap();
+        let new = gix::ObjectId::from_hex(b"2222222222222222222222222222222222222222").unwrap();
+        let delete = gix::ObjectId::from_hex(b"3333333333333333333333333333333333333333").unwrap();
+        let commands = format_receive_pack_commands(
+            [
+                (Some(&old), Some(&new), "refs/heads/main"),
+                (None, Some(&new), "refs/heads/new"),
+                (Some(&delete), None, "refs/heads/delete"),
+            ],
+            &["report-status", "side-band-64k", "push-options"],
+        );
+
+        assert_eq!(
+            commands,
+            vec![
+                b"1111111111111111111111111111111111111111 2222222222222222222222222222222222222222 refs/heads/main\0report-status side-band-64k push-options".to_vec(),
+                b"0000000000000000000000000000000000000000 2222222222222222222222222222222222222222 refs/heads/new".to_vec(),
+                b"3333333333333333333333333333333333333333 0000000000000000000000000000000000000000 refs/heads/delete".to_vec(),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_format_receive_pack_commands_from_refs() {
+        let old = gix::ObjectId::from_hex(b"1111111111111111111111111111111111111111").unwrap();
+        let new = gix::ObjectId::from_hex(b"2222222222222222222222222222222222222222").unwrap();
+        let delete = gix::ObjectId::from_hex(b"3333333333333333333333333333333333333333").unwrap();
+        let update_refspec = RefSpec::forced_push(new.to_string(), "refs/heads/main");
+        let create_refspec = RefSpec::forced_push(new.to_string(), "refs/heads/new");
+        let delete_refspec = RefSpec::delete_push("refs/heads/delete");
+        let refs = [
+            RefToPush {
+                refspec: &update_refspec,
+                expected_location: Some(old.as_ref()),
+            },
+            RefToPush {
+                refspec: &create_refspec,
+                expected_location: None,
+            },
+            RefToPush {
+                refspec: &delete_refspec,
+                expected_location: Some(delete.as_ref()),
+            },
+        ];
+
+        let commands =
+            format_receive_pack_commands_from_refs(&refs, &["report-status", "side-band-64k"])
+                .unwrap();
+        assert_eq!(
+            commands,
+            vec![
+                b"1111111111111111111111111111111111111111 2222222222222222222222222222222222222222 refs/heads/main\0report-status side-band-64k".to_vec(),
+                b"0000000000000000000000000000000000000000 2222222222222222222222222222222222222222 refs/heads/new".to_vec(),
+                b"3333333333333333333333333333333333333333 0000000000000000000000000000000000000000 refs/heads/delete".to_vec(),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_format_receive_pack_push_options() {
+        let options = ["merge_request.create".to_owned(), "ci.skip".to_owned()];
+        let formatted = format_receive_pack_push_options(&options).unwrap();
+        assert_eq!(formatted, vec![b"merge_request.create".as_slice(), b"ci.skip"]);
+
+        assert!(format_receive_pack_push_options(&["bad\noption".to_owned()]).is_err());
+        assert!(format_receive_pack_push_options(&["bad\0option".to_owned()]).is_err());
+    }
+
+    #[test]
+    fn test_receive_pack_tip_ids_ignores_deletes() {
+        let id = gix::ObjectId::from_hex(b"2222222222222222222222222222222222222222").unwrap();
+        let push_refspec = RefSpec::forced_push(id.to_string(), "refs/heads/main");
+        let delete_refspec = RefSpec::delete_push("refs/heads/delete");
+        let refs = [
+            RefToPush {
+                refspec: &push_refspec,
+                expected_location: None,
+            },
+            RefToPush {
+                refspec: &delete_refspec,
+                expected_location: None,
+            },
+        ];
+
+        assert_eq!(receive_pack_tip_ids(&refs).unwrap(), vec![id]);
+    }
+
+    #[test]
+    fn test_receive_pack_urls_prefers_pushurls() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let git_dir = temp_dir.path().join(".git");
+        std::fs::create_dir(&git_dir).unwrap();
+        std::fs::write(
+            git_dir.join("config"),
+            "\
+[remote \"origin\"]
+    url = https://example.com/fetch.git
+    pushurl = ssh://example.com/first.git
+    pushurl = ssh://example.com/second.git
+",
+        )
+        .unwrap();
+
+        assert_eq!(
+            receive_pack_urls(&git_dir, &RemoteName::new("origin")).unwrap(),
+            vec![
+                "ssh://example.com/first.git".to_owned(),
+                "ssh://example.com/second.git".to_owned()
+            ]
+        );
+    }
+
+    #[test]
+    fn test_pack_reachable_objects_writes_valid_pack() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let repo = gix::init(temp_dir.path()).unwrap();
+        let blob_id = repo
+            .write_object(RawGitObject {
+                kind: gix::objs::Kind::Blob,
+                data: b"hello",
+            })
+            .unwrap()
+            .detach();
+
+        let pack = pack_reachable_objects(&repo, [blob_id]).unwrap();
+        assert!(pack.starts_with(b"PACK"));
+
+        let entries = gix_pack::data::input::BytesToEntriesIter::new_from_header(
+            BufReader::new(pack.as_slice()),
+            gix_pack::data::input::Mode::Verify,
+            gix_pack::data::input::EntryDataMode::Keep,
+            gix::hash::Kind::Sha1,
+        )
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].header, gix_pack::data::entry::Header::Blob);
+        assert_eq!(entries[0].decompressed_size, 5);
+        assert_eq!(
+            entries[0].trailer.as_ref().map(|id| id.as_slice()),
+            Some(&pack[pack.len() - 20..])
+        );
     }
 
     #[test]
