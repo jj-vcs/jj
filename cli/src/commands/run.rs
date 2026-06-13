@@ -87,7 +87,7 @@ enum RunError {
 
 impl From<RunError> for CommandError {
     fn from(value: RunError) -> Self {
-        Self::new(CommandErrorKind::Cli, Box::new(value))
+        Self::new(CommandErrorKind::User, Box::new(value))
     }
 }
 
@@ -186,6 +186,8 @@ struct RunJob {
     /// (the subdirectory `jj run` was invoked from) didn't exist in this
     /// commit's tree.
     skipped: bool,
+    /// Exit status of the command, if it ran.
+    status: Option<ExitStatus>,
 }
 
 // TODO: make this more revset/commit stream friendly.
@@ -268,6 +270,7 @@ async fn rewrite_commit(
                 stdout: Vec::new(),
                 stderr: Vec::new(),
                 skipped: true,
+                status: None,
             });
         }
         exec_dir
@@ -301,13 +304,16 @@ async fn rewrite_commit(
 
     let output = command.wait_with_output().await?;
 
-    // TODO: Handle error here
     if !output.status.success() {
-        return Err(RunError::CommandFailure(
-            spec.to_string(),
-            output.status,
-            old_id.clone(),
-        ));
+        return Ok(RunJob {
+            old_id,
+            new_tree: None,
+            dirty: false,
+            stdout: output.stdout,
+            stderr: output.stderr,
+            skipped: false,
+            status: Some(output.status),
+        });
     }
 
     let options = SnapshotOptions {
@@ -343,6 +349,7 @@ async fn rewrite_commit(
         stdout: output.stdout,
         stderr: output.stderr,
         skipped: false,
+        status: Some(output.status),
     })
 }
 
@@ -507,17 +514,27 @@ pub async fn cmd_run(
                         spec.subdir.as_deref().unwrap_or(Path::new("")).display()
                     )?;
                 } else {
-                    // Emit the subprocess's captured streams. Acquiring
-                    // `ui.stdout()` / `ui.stderr()` for the duration of the
-                    // write keeps each commit's output from interleaving with
-                    // another's.
-                    if !res.stdout.is_empty() {
-                        let mut out = ui.stdout();
-                        out.write_all(&res.stdout)?;
-                    }
-                    if !res.stderr.is_empty() {
-                        let mut err = ui.stderr();
-                        err.write_all(&res.stderr)?;
+                    if let Some(status) = res.status {
+                        // Emit the subprocess's captured streams. Acquiring
+                        // `ui.stdout()` / `ui.stderr()` for the duration of the
+                        // write keeps each commit's output from interleaving with
+                        // another's.
+                        if !res.stdout.is_empty() {
+                            let mut out = ui.stdout();
+                            out.write_all(&res.stdout)?;
+                        }
+                        if !res.stderr.is_empty() {
+                            let mut err = ui.stderr();
+                            err.write_all(&res.stderr)?;
+                        }
+                        if !status.success() {
+                            return Err(RunError::CommandFailure(
+                                spec.to_string(),
+                                status,
+                                res.old_id,
+                            )
+                            .into());
+                        }
                     }
                     if res.dirty
                         && let Some(new_tree) = res.new_tree
