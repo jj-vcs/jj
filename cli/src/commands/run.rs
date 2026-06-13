@@ -475,7 +475,14 @@ pub async fn cmd_run(
     // still held, and on Windows a directory can't be removed while it contains
     // an open file handle. A sibling lock file avoids that and lets us hold the
     // lock across the deletion, so no other process can race in between.
-    let lock = FileLock::lock(base_path.with_extension("lock")).map_err(RunError::from)?;
+    let lock_path = base_path.with_extension("lock");
+    let lock = match FileLock::try_lock(lock_path.clone()).map_err(RunError::from)? {
+        Some(lock) => lock,
+        None => {
+            writeln!(ui.status(), "Waiting for another `jj run` to finish...")?;
+            FileLock::lock(lock_path).map_err(RunError::from)?
+        }
+    };
     let base_path = Arc::new(base_path);
     let stored_len = resolved_commits.len();
 
