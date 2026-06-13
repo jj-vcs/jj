@@ -17,6 +17,7 @@
 
 use std::fs::File;
 use std::fs::OpenOptions;
+use std::fs::TryLockError;
 use std::io;
 use std::os::windows::fs::OpenOptionsExt as _;
 use std::path::Path;
@@ -39,7 +40,19 @@ pub struct FileLock {
 }
 
 impl FileLock {
+    /// Acquire an exclusive lock on `path`, blocking until it's available.
     pub fn lock(path: PathBuf) -> Result<Self, FileLockError> {
+        // In blocking mode, `lock_inner` never returns `Ok(None)`.
+        Ok(Self::lock_inner(path, true)?.expect("blocking lock should return a lock"))
+    }
+
+    /// Try to acquire an exclusive lock on `path` without blocking. Returns
+    /// `Ok(None)` if the lock is currently held by another process.
+    pub fn try_lock(path: PathBuf) -> Result<Option<Self>, FileLockError> {
+        Self::lock_inner(path, false)
+    }
+
+    fn lock_inner(path: PathBuf, blocking: bool) -> Result<Option<Self>, FileLockError> {
         tracing::info!("Attempting to lock {path:?}");
 
         let file = try_create_file(&path).map_err(|err| FileLockError {
@@ -48,18 +61,33 @@ impl FileLock {
             err,
         })?;
 
-        // Acquire exclusive lock (blocks until available)
-        file.lock().map_err(|err| FileLockError {
-            message: "Failed to lock lock file",
-            path: path.clone(),
-            err,
-        })?;
+        if blocking {
+            // Acquire exclusive lock (blocks until available)
+            file.lock().map_err(|err| FileLockError {
+                message: "Failed to lock lock file",
+                path: path.clone(),
+                err,
+            })?;
+        } else {
+            // Acquire the lock, or report that another process holds it.
+            match file.try_lock() {
+                Ok(()) => {}
+                Err(TryLockError::WouldBlock) => return Ok(None),
+                Err(TryLockError::Error(err)) => {
+                    return Err(FileLockError {
+                        message: "Failed to lock lock file",
+                        path,
+                        err,
+                    });
+                }
+            }
+        }
 
         tracing::info!("Locked {path:?}");
-        Ok(Self {
+        Ok(Some(Self {
             path,
             file: Some(file),
-        })
+        }))
     }
 }
 

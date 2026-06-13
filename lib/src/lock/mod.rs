@@ -83,4 +83,28 @@ mod tests {
         let value = u32::from_le_bytes(data.try_into().unwrap());
         assert_eq!(value, num_threads as u32);
     }
+
+    #[test]
+    fn try_lock_succeeds_when_unlocked() {
+        let temp_dir = new_temp_dir();
+        let lock_path = temp_dir.path().join("test.lock");
+        assert!(!lock_path.exists());
+        {
+            let lock = FileLock::try_lock(lock_path.clone()).unwrap();
+            assert!(lock.is_some());
+            assert!(lock_path.exists());
+        }
+        assert!(!lock_path.exists());
+    }
+
+    #[test]
+    fn try_lock_gives_up_when_locked() {
+        let temp_dir = new_temp_dir();
+        let lock_path = temp_dir.path().join("test.lock");
+        let _held = FileLock::lock(lock_path.clone()).unwrap();
+        // The lock is already held, so a non-blocking attempt returns `None`
+        // instead of blocking. The two lock handles are independent even within
+        // a single process, so the second attempt is denied.
+        assert!(FileLock::try_lock(lock_path).unwrap().is_none());
+    }
 }
