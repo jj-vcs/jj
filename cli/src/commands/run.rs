@@ -408,8 +408,27 @@ pub async fn cmd_run(
     command: &CommandHelper,
     args: &RunArgs,
 ) -> Result<(), CommandError> {
+    let repo_path = command.workspace_loader()?.repo_path().to_path_buf();
+    // TODO: should be stored in a backend and not hardcoded.
+    let base_path = repo_path.parent().unwrap().join("run").join("default");
+
+    // NOTE: we have to take the lock as early as possible before resolving
+    // revsets, so that if we block on an existing process to finish, we
+    // properly resolve the given set of commits if they were rewritten
+    let lock_dir = base_path
+        .parent()
+        .expect("run directory should have a parent");
+    fs::create_dir_all(lock_dir)?;
+    let lock_path = base_path.with_extension("lock");
+    let lock = match FileLock::try_lock(lock_path.clone()).map_err(RunError::from)? {
+        Some(lock) => lock,
+        None => {
+            writeln!(ui.status(), "Waiting for another `jj run` to finish...")?;
+            FileLock::lock(lock_path).map_err(RunError::from)?
+        }
+    };
+
     let mut workspace_command = command.workspace_helper(ui).await?;
-    // The commits are already returned in reverse topological order.
     let resolved_commits: Vec<_> = if args.revisions.is_empty() {
         let revs = workspace_command.settings().get_string("revsets.run")?;
         workspace_command
@@ -457,32 +476,11 @@ pub async fn cmd_run(
 
     let store = workspace_command.repo().store().clone();
     let mut tx = workspace_command.start_transaction();
-    let repo_path = tx.base_workspace_helper().repo_path();
 
-    // Per-commit working copies are now created on demand inside
-    // `rewrite_commit`; we just need the parent directory to exist.
-    // The lock is held for the duration of the run, including the cleanup that
-    // removes the run directory, and released on drop.
-    // TODO: should be stored in a backend and not hardcoded.
-    // The parent() call is needed to not write under `.jj/repo/`.
-    let base_path = repo_path.parent().unwrap().join("run").join("default");
-    if !base_path.exists() {
-        tracing::debug!(?base_path, "does not exist, so creating it");
-        fs::create_dir_all(&base_path)?;
-    }
-    // Keep the lock file *beside* `base_path` (e.g. `run/default.lock`) rather
-    // than inside it. The directory is removed during cleanup while the lock is
-    // still held, and on Windows a directory can't be removed while it contains
-    // an open file handle. A sibling lock file avoids that and lets us hold the
-    // lock across the deletion, so no other process can race in between.
-    let lock_path = base_path.with_extension("lock");
-    let lock = match FileLock::try_lock(lock_path.clone()).map_err(RunError::from)? {
-        Some(lock) => lock,
-        None => {
-            writeln!(ui.status(), "Waiting for another `jj run` to finish...")?;
-            FileLock::lock(lock_path).map_err(RunError::from)?
-        }
-    };
+    // A previous run's cleanup (that may have finished while we waited for the
+    // lock) may have removed the base path directory, it, so (re)create it now
+    // that we hold the lock.
+    fs::create_dir_all(&base_path)?;
     let base_path = Arc::new(base_path);
     let stored_len = resolved_commits.len();
 
