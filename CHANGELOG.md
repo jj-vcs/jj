@@ -54,6 +54,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   remote's fetch URL or effective push URL.
   [#413](https://github.com/jj-vcs/jj/issues/413)
 
+* Fixed corrupt loose Git objects written through zlib-rs. Previously, jj could
+  report a successful commit even though `git fsck` later failed with
+  `incorrect data check`, `corrupt loose object`, or `missing blob`, and later
+  jj operations could fail with `corrupt deflate stream`.
+
 ## [0.42.0] - 2026-06-04
 
 ### Release highlights
