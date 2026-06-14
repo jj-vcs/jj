@@ -3618,9 +3618,64 @@ Print the CLI help for all subcommands in Markdown
 
 Snapshot the working copy if needed
 
-Snapshots the working copy and updates the working-copy commit if the working copy has changed since the last snapshot. Since almost every command snapshots the working copy, there is very little reason to run this command as a human; it is mostly meant for scripts.
+Snapshots the working copy and updates the working-copy commit if the
+working copy has changed since the last snapshot. Since almost every command
+snapshots the working copy, there is very little reason to run this command
+as a human; it is mostly meant for scripts.
 
-If you want to see the ID of the current operation after this command, run `jj operation log --limit 1`. However, since that command also snapshots the working copy, there would be no need to run `jj util snapshot` first.
+If you want to see the ID of the current operation after this command, run
+`jj operation log --limit 1`. However, since that command also snapshots the
+working copy, there would be no need to run `jj util snapshot` first.
+
+### Example of programmatic snapshotting
+
+Consider the following:
+
+```bash
+$ echo content > new-file.txt
+# At this point, `jj` does not know about `new-file.txt`.
+$ ./my-script-that-runs-jj-commands
+# Since the script ran `jj` commands, the changes to `new-file.txt` have
+# been snapshotted in an operation, which you can see with:
+$ jj operation log --patch
+```
+
+If `my-script-that-runs-jj-commands` has a "sandwich" of `jj util snapshot`
+at the beginning and end of the script, then the operation that captures
+`new-file.txt` will be distinct from the operations created by the `jj`
+commands in that script. In addition, the `jj operation log --patch` that
+you ran on the command-line after the script would also have its own
+operation if needed. However, without `jj util snapshot`, these operations
+will be mixed together in the operation log. If this is important to you,
+then `jj util snapshot` is useful here to explicitly trigger a snapshot.
+
+### Checking if the operation ID changed
+
+If you want to compare "before and after" operation IDs, it may be better to
+use `jj operation log --no-graph --limit 1 -T id` to query for operation
+information, which you can store in a variable in a script. You can then
+compare these values as needed to figure out if anything changed during a
+`jj` command, such as:
+
+```bash
+start_op_id="$(jj op log -G -n 1 -T id)"
+jj git fetch || exit
+fetch_op_id="$(jj op log -G -n 1 -T id)"
+if [[ "${start_op_id}" == "${fetch_op_id}" ]]; then
+  # Nothing was fetched.
+  exit 0
+fi
+jj rebase -r 'mutable()' -o 'trunk()'
+rebase_op_id="$(jj op log -G -n 1 -T id)"
+if [[ "${fetch_op_id}" == "${rebase_op_id}" ]]; then
+  # Nothing was rebased.
+  exit 0
+fi
+echo "Fetched and rebased!"
+```
+
+Note that `jj util snapshot` does not output an operation ID, so it is not
+suitable for checks such as these.
 
 **Usage:** `jj util snapshot`
 
