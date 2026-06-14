@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::fmt::Debug;
 use std::io::Write as _;
 
 use jj_lib::default_index::DefaultIndexStore;
+use jj_lib::default_index::DefaultReadonlyIndex;
+use jj_lib::operation::Operation;
+use jj_lib::repo::RepoLoader;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
@@ -37,23 +39,31 @@ pub async fn cmd_debug_reindex(
     let workspace = command.load_workspace()?;
     let repo_loader = workspace.repo_loader();
     let op = command.resolve_operation(ui, repo_loader, workspace.workspace_name())?;
+    let default_index = reindex_at_operation(repo_loader, &op).await?;
+    writeln!(
+        ui.status(),
+        "Finished indexing {} commits.",
+        default_index.num_commits()
+    )?;
+    Ok(())
+}
+
+pub(crate) async fn reindex_at_operation(
+    repo_loader: &RepoLoader,
+    op: &Operation,
+) -> Result<DefaultReadonlyIndex, CommandError> {
     let index_store = repo_loader.index_store();
     if let Some(default_index_store) = index_store.downcast_ref::<DefaultIndexStore>() {
         default_index_store.reinit().map_err(internal_error)?;
         let default_index = default_index_store
-            .build_index_at_operation(&op, repo_loader.store())
+            .build_index_at_operation(op, repo_loader.store())
             .await
             .map_err(internal_error)?;
-        writeln!(
-            ui.status(),
-            "Finished indexing {} commits.",
-            default_index.num_commits()
-        )?;
+        Ok(default_index)
     } else {
-        return Err(user_error(format!(
+        Err(user_error(format!(
             "Cannot reindex indexes of type '{}'",
             index_store.name()
-        )));
+        )))
     }
-    Ok(())
 }

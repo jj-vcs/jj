@@ -19,7 +19,7 @@ mod index_changed_paths;
 mod init_simple;
 mod local_working_copy;
 mod object;
-mod reindex;
+pub(crate) mod reindex;
 mod revset;
 mod snapshot;
 mod stacked_table;
