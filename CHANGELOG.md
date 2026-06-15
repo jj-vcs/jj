@@ -41,6 +41,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* `jj debug watchman status` now hints at the likely fix when Watchman fails on
+  macOS because `~/Library/LaunchAgents` is owned by root.
+  [#4064](https://github.com/jj-vcs/jj/issues/4064)
+
 * `jj` now creates a new working-copy revision during snapshotting if the
   working copy was immutable. Previously, the new revision was created
   immediately after the working copy became immutable.
