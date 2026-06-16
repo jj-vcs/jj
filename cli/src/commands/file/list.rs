@@ -39,6 +39,9 @@ pub(crate) struct FileListArgs {
     /// keywords in the template expression. See [`jj help -k templates`] for
     /// more information.
     ///
+    /// The default template can be set by the `templates.file_list`
+    /// setting.
+    ///
     /// [`TreeEntry` type]:
     ///     https://docs.jj-vcs.dev/latest/templates/#treeentry-type
     ///
