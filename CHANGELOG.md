@@ -12,6 +12,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `~/.config/jj/repos` folder.
   [#9362](https://github.com/jj-vcs/jj/issues/9362)
 
+* Documented the `list` templates.
 
 ### Release highlights
 

@@ -616,6 +616,8 @@ needing the original behavior.
 
 You can configure the template used when no `-T` is specified.
 
+ - `templates.bookmark_list` for `jj bookmark list`
+
 - `templates.config_list` for `jj config list`
 
 ```toml
@@ -631,6 +633,18 @@ you can add this to your config:
 [templates]
 config_list = "builtin_config_list_detailed"
 ```
+
+ - `templates.file_list` for `jj file list`
+ - `templates.tag_list` for `jj tag list`
+ - `templates.workspace_list` for `jj workspace list`
+
+If you want to see where the workspaces are stored on disk instead of their current revision:
+```toml
+[templates]
+workspace_list = 'name ++ " " ++ root ++ "\n"'
+```
+
+Remember that `jj config get <config name>` will show the current value.
 
 ## Log
 
