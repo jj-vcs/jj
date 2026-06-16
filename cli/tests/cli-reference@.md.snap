@@ -546,6 +546,8 @@ See [`jj help -k bookmarks`] for more information.
 
    All 0-argument methods of the [`CommitRef` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
 
+   The default template can be set by the `templates.bookmark_list` setting.
+
    [`CommitRef` type]: https://docs.jj-vcs.dev/latest/templates/#commitref-type
 
    [`jj help -k templates`]: https://docs.jj-vcs.dev/latest/templates/
@@ -1217,6 +1219,8 @@ List files in a revision
 * `-T`, `--template <TEMPLATE>` — Render each file entry using the given template
 
    All 0-argument methods of the [`TreeEntry` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
+
+   The default template can be set by the `templates.file_list` setting.
 
    [`TreeEntry` type]: https://docs.jj-vcs.dev/latest/templates/#treeentry-type
 
@@ -3372,6 +3376,8 @@ The `-r` flag combined with revset expressions can be used for filtering. For ex
 
    All 0-argument methods of the [`CommitRef` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
 
+   The default template can be set by the `templates.tag_list` setting.
+
    [`CommitRef` type]: https://docs.jj-vcs.dev/latest/templates/#commitref-type
 
    [`jj help -k templates`]: https://docs.jj-vcs.dev/latest/templates/
@@ -3721,6 +3727,8 @@ List workspaces
 * `-T`, `--template <TEMPLATE>` — Render each workspace using the given template
 
    All 0-argument methods of the [`WorkspaceRef` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
+
+   The default template can be set by the `templates.workspace_list` setting.
 
    [`WorkspaceRef` type]: https://docs.jj-vcs.dev/latest/templates/#workspaceref-type
 

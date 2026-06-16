@@ -101,6 +101,9 @@ pub struct BookmarkListArgs {
     /// keywords in the template expression. See [`jj help -k templates`]
     /// for more information.
     ///
+    /// The default template can be set by the `templates.bookmark_list`
+    /// setting.
+    ///
     /// [`CommitRef` type]:
     ///     https://docs.jj-vcs.dev/latest/templates/#commitref-type
     ///

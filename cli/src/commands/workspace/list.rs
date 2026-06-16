@@ -32,6 +32,9 @@ pub struct WorkspaceListArgs {
     /// keywords in the template expression. See [`jj help -k templates`] for
     /// more information.
     ///
+    /// The default template can be set by the `templates.workspace_list`
+    /// setting.
+    ///
     /// [`WorkspaceRef` type]:
     ///     https://docs.jj-vcs.dev/latest/templates/#workspaceref-type
     ///

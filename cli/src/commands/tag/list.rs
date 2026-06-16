@@ -105,6 +105,9 @@ pub struct TagListArgs {
     /// keywords in the template expression. See [`jj help -k templates`]
     /// for more information.
     ///
+    /// The default template can be set by the `templates.tag_list`
+    /// setting.
+    ///
     /// [`CommitRef` type]:
     ///     https://docs.jj-vcs.dev/latest/templates/#commitref-type
     ///
