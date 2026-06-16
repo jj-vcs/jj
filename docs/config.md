@@ -647,6 +647,13 @@ log = "main@origin.."
 The default value for `revsets.log` is
 `'present(@) | ancestors(immutable_heads().., 2) | trunk()'`.
 
+!!! warning
+
+    When `revsets.short-prefixes` is not specified, it defaults to the value of `revsets.log`. This
+    affects how change and commit id references are resolved when multiple commits share a common
+    prefix. Changing `revsets.log` without also setting `revsets.short-prefixes` might increase the
+    length of prefixes needed on the command-line, especially in large repositories.
+
 ### Default revisions for operation diffs
 
 You can configure the set of revisions that are considered "interesting" when
