@@ -44,6 +44,7 @@ use jj_lib::lock::FileLock;
 use jj_lib::lock::FileLockError;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::matchers::NothingMatcher;
+use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
@@ -173,6 +174,8 @@ impl fmt::Display for CommandSpec {
 struct RunJob {
     /// The old `CommitId` of the commit.
     old_id: CommitId,
+    /// The original tree of the commit before the command ran.
+    old_tree: MergedTree,
     /// The new tree generated from the commit. `None` when the command wasn't
     /// run (i.e. the commit was skipped).
     new_tree: Option<Tree>,
@@ -250,6 +253,7 @@ async fn rewrite_commit(
     spec: Arc<CommandSpec>,
 ) -> Result<RunJob, RunError> {
     let old_id = commit.id().clone();
+    let old_tree = commit.tree();
 
     let (working_copy_dir, mut tree_state) = create_working_copy(&base_path, &commit).await?;
 
@@ -265,6 +269,7 @@ async fn rewrite_commit(
             );
             return Ok(RunJob {
                 old_id,
+                old_tree,
                 new_tree: None,
                 dirty: false,
                 stdout: Vec::new(),
@@ -307,6 +312,7 @@ async fn rewrite_commit(
     if !output.status.success() {
         return Ok(RunJob {
             old_id,
+            old_tree,
             new_tree: None,
             dirty: false,
             stdout: output.stdout,
@@ -344,6 +350,7 @@ async fn rewrite_commit(
 
     Ok(RunJob {
         old_id,
+        old_tree,
         new_tree: Some(new_tree),
         dirty,
         stdout: output.stdout,
@@ -540,7 +547,7 @@ pub async fn cmd_run(
                         && let Some(new_tree) = res.new_tree
                     {
                         done_commits.insert(res.old_id.clone());
-                        rewritten_commits.insert(res.old_id.clone(), new_tree);
+                        rewritten_commits.insert(res.old_id.clone(), (res.old_tree, new_tree));
                     }
                 }
                 visited += 1;
@@ -579,13 +586,23 @@ pub async fn cmd_run(
                 // Only rewrite the tree if the command changed it. Descendants
                 // that weren't part of the input set still need to be rebased
                 // but keep their original tree.
-                if let Some(new_tree) = rewritten_commits.get(&old_id) {
-                    let new_tree_id = new_tree.id().clone();
+                if let Some((old_tree, new_tree)) = rewritten_commits.get(&old_id) {
+                    // Apply only the diff the command introduced (new_tree -
+                    // old_tree) on top of the rebased tree. This propagates
+                    // changes into descendants via the normal rebase merge
+                    // rather than being replaced.
+                    let rebased_tree = builder.tree();
+                    let merged = MergedTree::merge(Merge::from_vec(vec![
+                        (
+                            MergedTree::resolved(store.clone(), new_tree.id().clone()),
+                            "command result".to_owned(),
+                        ),
+                        (old_tree.clone(), "original commit".to_owned()),
+                        (rebased_tree, "rebased".to_owned()),
+                    ]))
+                    .await?;
                     count += 1;
-                    builder
-                        .set_tree(MergedTree::resolved(store.clone(), new_tree_id))
-                        .write()
-                        .await?;
+                    builder.set_tree(merged).write().await?;
                 } else {
                     builder.write().await?;
                 }

@@ -13,6 +13,8 @@
 // limitations under the License.
 //
 
+use insta::assert_snapshot;
+
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
 
@@ -663,6 +665,56 @@ fn test_run_failure_shows_output() {
         [exit status: 1]
         ");
     });
+}
+
+/// Changes made to an ancestor commit must still propagate into descendant
+/// commits after rebasing.
+#[test]
+fn test_run_parallel_changes_propagate_to_descendants() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("a.txt", "a");
+    work_dir.run_jj(&["commit", "-m", "A"]).success();
+    work_dir.write_file("b.txt", "b");
+    work_dir.run_jj(&["commit", "-m", "B"]).success();
+    work_dir.write_file("c.txt", "c");
+    work_dir.run_jj(&["commit", "-m", "C"]).success();
+
+    // Add a unique file to each change
+    work_dir
+        .run_jj(&[
+            "run",
+            "--jobs=3",
+            "-r=..@",
+            "--",
+            "sh",
+            "-c",
+            "touch newfile-$JJ_CHANGE_ID.txt",
+        ])
+        .success();
+
+    assert_snapshot!(work_dir.run_jj(&["file", "list", "-r=@---"]).success().stdout,@r"
+    a.txt
+    newfile-qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu.txt
+    [EOF]
+    ");
+    assert_snapshot!(work_dir.run_jj(&["file", "list", "-r=@--"]).success().stdout,@r"
+    a.txt
+    b.txt
+    newfile-qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu.txt
+    newfile-rlvkpnrzqnoowoytxnquwvuryrwnrmlp.txt
+    [EOF]
+    ");
+    assert_snapshot!(work_dir.run_jj(&["file", "list", "-r=@-"]).success().stdout,@r"
+    a.txt
+    b.txt
+    c.txt
+    newfile-kkmpptxzrspxrzommnulwmwkkqwworpl.txt
+    newfile-qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu.txt
+    newfile-rlvkpnrzqnoowoytxnquwvuryrwnrmlp.txt
+    [EOF]
+    ");
 }
 
 fn get_log_output(work_dir: &TestWorkDir) -> String {
