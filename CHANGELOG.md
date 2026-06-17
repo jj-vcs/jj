@@ -11,6 +11,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj config gc` will delete configuration of deleted/moved repos from
   `~/.config/jj/repos` folder.
   [#9362](https://github.com/jj-vcs/jj/issues/9362)
+* Merge `-r` and `-f` for `jj squash`, with access to `from` revset when
+  specifying the destination.
 
 
 ### Release highlights

@@ -622,7 +622,7 @@ fn test_rewrite_immutable_commands() {
     [exit status: 1]
     "#);
     // squash --from
-    let output = work_dir.run_jj(["squash", "--from=main"]);
+    let output = work_dir.run_jj(["squash", "--from=main", "--into=@"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: Commit 1ca17106e94f is immutable
