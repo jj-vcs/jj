@@ -26,6 +26,7 @@ use jj_lib::matchers::Matcher;
 use jj_lib::merge::Diff;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
+use jj_lib::revset::RevsetExpression;
 use jj_lib::rewrite;
 use jj_lib::rewrite::CommitWithSelection;
 use jj_lib::rewrite::merge_commit_trees;
@@ -54,8 +55,8 @@ use crate::ui::Ui;
 /// parent revision.
 ///
 /// With the `-r` option, moves the changes from the specified revision to the
-/// parent revision. Fails if there are several parent revisions (i.e., the
-/// given revision is a merge).
+/// parent revision, or more specifically, `-r REVSET` squashes into
+/// `roots(REVSET)-`. Fails if there are more than one parent revisions.
 ///
 /// With the `--from` and/or `--into` options, moves changes from/to the given
 /// revisions. If either is left out, it defaults to the working-copy commit.
@@ -84,11 +85,11 @@ use crate::ui::Ui;
 /// `--from @` is assumed).
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct SquashArgs {
-    /// Revision to squash into its parent (default: @). Incompatible with the
-    /// experimental `-o`/`-A`/`-B` options.
-    #[arg(long, short, value_name = "REVSET")]
+    /// Revision(s) to squash into their parent (default: @). Incompatible with
+    /// the experimental `-o`/`-A`/`-B` options.
+    #[arg(long, short, value_name = "REVSETS")]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
-    revision: Option<RevisionArg>,
+    revision: Vec<RevisionArg>,
 
     /// Revision(s) to squash from (default: @)
     #[arg(long, short, conflicts_with = "revision", value_name = "REVSETS")]
@@ -216,17 +217,28 @@ pub(crate) async fn cmd_squash(
         // a little faster.
         sources.reverse();
     } else {
-        let source = workspace_command
-            .resolve_single_rev(ui, args.revision.as_ref().unwrap_or(&RevisionArg::AT))
+        let sources_evaluator = if args.revision.is_empty() {
+            workspace_command.parse_revset(ui, &RevisionArg::AT)?
+        } else {
+            workspace_command.parse_union_revsets(ui, &args.revision)?
+        };
+        let parents_expr =
+            RevsetExpression::parents(&RevsetExpression::roots(sources_evaluator.expression()));
+        let mut parents: Vec<Commit> = workspace_command
+            .attach_revset_evaluator(parents_expr)
+            .evaluate_to_commits()?
+            .try_collect()
             .await?;
-        let mut parents = source.parents().await?;
         if parents.len() != 1 {
             return Err(
                 user_error("Cannot squash merge commits without a specified destination")
-                    .hinted("Use `--into` to specify which parent to squash into"),
+                    .hinted("Use `--from` with `--into` to specify which parent to squash into"),
             );
         }
-        sources = vec![source];
+        sources = sources_evaluator
+            .evaluate_to_commits()?
+            .try_collect()
+            .await?;
         pre_existing_destination = Some(parents.pop().unwrap());
     }
 
@@ -419,7 +431,8 @@ pub(crate) async fn cmd_squash(
         }
 
         if let [only_path] = &*args.paths {
-            let no_rev_arg = args.revision.is_none() && args.from.is_empty() && args.into.is_none();
+            let no_rev_arg =
+                args.revision.is_empty() && args.from.is_empty() && args.into.is_none();
             if no_rev_arg
                 && tx
                     .base_workspace_helper()

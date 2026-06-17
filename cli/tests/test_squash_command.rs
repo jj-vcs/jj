@@ -126,7 +126,7 @@ fn test_squash() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Cannot squash merge commits without a specified destination
-    Hint: Use `--into` to specify which parent to squash into
+    Hint: Use `--from` with `--into` to specify which parent to squash into
     [EOF]
     [exit status: 1]
     ");
@@ -982,6 +982,76 @@ fn test_squash_from_multiple() {
     Nothing changed.
     [EOF]
     ");
+
+    // Squash a connected set of commits using -r
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    let output = work_dir.run_jj(["squash", "-r=b", "-r=c|d|e"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Rebased 1 descendant commits.
+    Working copy  (@) now at: kpqxywon b49d0b6c f | (no description set)
+    Parent commit (@-)      : qpvuntsm b4722061 a b c d e | (no description set)
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    @  b49d0b6cebc8 f
+    ○  b4722061a2f9 a b c d e
+    ◆  000000000000 (empty)
+    [EOF]
+    ");
+    // The changes from the sources have been applied
+    let output = work_dir.run_jj(["file", "show", "-r=d", "file"]);
+    insta::assert_snapshot!(output, @"
+    e
+    [EOF]
+    ");
+
+    // Squash a couple of parallel commits using -r
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    let output = work_dir.run_jj(["squash", "-r=b", "-r=c"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Rebased 3 descendant commits.
+    Working copy  (@) now at: kpqxywon e08f4cb9 f | (no description set)
+    Parent commit (@-)      : yostqsxw 7556e483 e | (no description set)
+    New conflicts appeared in 2 commits:
+      yqosqzyt 604ed2f5 d | (conflict) (no description set)
+      qpvuntsm 8dc2972c a b c | (conflict) (no description set)
+    Hint: To resolve the conflicts, start by creating a commit on top of
+    the first conflicted commit:
+      jj new qpvuntsm
+    Then use `jj resolve`, or edit the conflict markers in the file directly.
+    Once the conflicts are resolved, you can inspect the result with `jj diff`.
+    Then run `jj squash` to move the resolution into the conflicted commit.
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    @  e08f4cb913ba f
+    ○    7556e483294f e
+    ├─╮
+    × │  604ed2f54760 d
+    ├─╯
+    ×  8dc2972c843b a b c
+    ◆  000000000000 (empty)
+    [EOF]
+    ");
+    // The changes from the sources have been applied
+    let output = work_dir.run_jj(["file", "show", "-r=d", "file"]);
+    insta::assert_snapshot!(output, @r"
+    <<<<<<< conflict 1 of 1
+    %%%%%%% diff from: qpvuntsm e88768e6 (parents of squashed revision)
+    \\\\\\\        to: mzvwutvl d7e94ec7 (squashed revision)
+    -a
+    +c
+    %%%%%%% diff from: qpvuntsm e88768e6 (parents of rebased revision)
+    \\\\\\\        to: kkmpptxz fed4d1a2 (squashed revision)
+    -a
+    +b
+    +++++++ yqosqzyt 8acbb715 (rebased revision)
+    d
+    >>>>>>> conflict 1 of 1 ends
+    [EOF]
+    ");
 }
 
 #[test]
@@ -1727,9 +1797,9 @@ fn test_squash_option_exclusion() {
         "--into=@-"
     ]), @"
     ------- stderr -------
-    error: the argument '--revision <REVSET>' cannot be used with '--into <REVSET>'
+    error: the argument '--revision <REVSETS>' cannot be used with '--into <REVSET>'
 
-    Usage: jj squash --revision <REVSET> [FILESETS]...
+    Usage: jj squash --revision <REVSETS> [FILESETS]...
 
     For more information, try '--help'.
     [EOF]
@@ -1742,9 +1812,9 @@ fn test_squash_option_exclusion() {
         "--onto=@-"
     ]), @"
     ------- stderr -------
-    error: the argument '--revision <REVSET>' cannot be used with '--onto <REVSETS>'
+    error: the argument '--revision <REVSETS>' cannot be used with '--onto <REVSETS>'
 
-    Usage: jj squash --revision <REVSET> [FILESETS]...
+    Usage: jj squash --revision <REVSETS> [FILESETS]...
 
     For more information, try '--help'.
     [EOF]
@@ -1757,9 +1827,9 @@ fn test_squash_option_exclusion() {
         "--after=@-"
     ]), @"
     ------- stderr -------
-    error: the argument '--revision <REVSET>' cannot be used with '--insert-after <REVSETS>'
+    error: the argument '--revision <REVSETS>' cannot be used with '--insert-after <REVSETS>'
 
-    Usage: jj squash --revision <REVSET> [FILESETS]...
+    Usage: jj squash --revision <REVSETS> [FILESETS]...
 
     For more information, try '--help'.
     [EOF]
@@ -1772,9 +1842,9 @@ fn test_squash_option_exclusion() {
         "--before=@-"
     ]), @"
     ------- stderr -------
-    error: the argument '--revision <REVSET>' cannot be used with '--insert-before <REVSETS>'
+    error: the argument '--revision <REVSETS>' cannot be used with '--insert-before <REVSETS>'
 
-    Usage: jj squash --revision <REVSET> [FILESETS]...
+    Usage: jj squash --revision <REVSETS> [FILESETS]...
 
     For more information, try '--help'.
     [EOF]

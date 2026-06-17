@@ -3247,7 +3247,7 @@ Move changes from a revision into another revision
 
 Without any options, moves the changes from the working-copy revision to the parent revision.
 
-With the `-r` option, moves the changes from the specified revision to the parent revision. Fails if there are several parent revisions (i.e., the given revision is a merge).
+With the `-r` option, moves the changes from the specified revision to the parent revision, or more specifically, `-r REVSET` squashes into `roots(REVSET)-`. Fails if there are more than one parent revisions.
 
 With the `--from` and/or `--into` options, moves changes from/to the given revisions. If either is left out, it defaults to the working-copy commit. For example, `jj squash --into @--` moves changes from the working-copy commit to the grandparent.
 
@@ -3271,7 +3271,7 @@ An alternative squashing UI is available via the `-o`, `-A`, and `-B` options. U
 
 ###### **Options:**
 
-* `-r`, `--revision <REVSET>` — Revision to squash into its parent (default: @). Incompatible with the experimental `-o`/`-A`/`-B` options
+* `-r`, `--revision <REVSETS>` — Revision(s) to squash into their parent (default: @). Incompatible with the experimental `-o`/`-A`/`-B` options
 * `-f`, `--from <REVSETS>` — Revision(s) to squash from (default: @)
 * `-t`, `--into <REVSET>` [alias: `to`] — Revision to squash into (default: @)
 * `-o`, `--onto <REVSETS>` [alias: `destination`] — (Experimental) The revision(s) to use as parent for the new commit (can be repeated to create a merge commit)
