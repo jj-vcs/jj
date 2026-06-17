@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@astrojs/starlight": "^0.40.0",
-    "js-yaml": "^4.1.0",
+    "js-yaml": "^4.2.0",
     "astro": "^6.4.8",
     "astro-starlight-remark-asides": "^0.0.7",
     "marked": "^17.0.1",
