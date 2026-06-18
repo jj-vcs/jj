@@ -226,6 +226,26 @@ pub enum RevsetFilterPredicate {
     Extension(Arc<dyn RevsetFilterExtension>),
 }
 
+#[derive(Clone, Debug)]
+pub struct FilteredRange<E, Filter = E> {
+    pub roots: E,
+    pub heads: E,
+    pub parents_range: Range<u32>,
+    pub filter: Filter,
+}
+
+#[derive(Clone, Debug)]
+pub enum ExpressionOrFilteredRange<E, Filter = E> {
+    Expression(E),
+    FilteredRange(FilteredRange<E, Filter>),
+}
+
+impl<E, F> From<E> for ExpressionOrFilteredRange<E, F> {
+    fn from(value: E) -> Self {
+        Self::Expression(value)
+    }
+}
+
 mod private {
     /// Defines [`RevsetExpression`] variants depending on resolution state.
     pub trait ExpressionState {
@@ -302,15 +322,7 @@ pub enum RevsetExpression<St: ExpressionState> {
         sources: Arc<Self>,
         domain: Arc<Self>,
     },
-    Heads(Arc<Self>),
-    /// Heads of the set of commits which are ancestors of `heads` but are not
-    /// ancestors of `roots`, and which also are contained in `filter`.
-    HeadsRange {
-        roots: Arc<Self>,
-        heads: Arc<Self>,
-        parents_range: Range<u32>,
-        filter: Arc<Self>,
-    },
+    Heads(ExpressionOrFilteredRange<Arc<Self>>),
     Roots(Arc<Self>),
     ForkPoint(Arc<Self>),
     Bisect(Arc<Self>),
@@ -319,7 +331,7 @@ pub enum RevsetExpression<St: ExpressionState> {
         count: usize,
     },
     Latest {
-        candidates: Arc<Self>,
+        candidates: ExpressionOrFilteredRange<Arc<Self>>,
         count: usize,
     },
     Filter(RevsetFilterPredicate),
@@ -461,14 +473,14 @@ impl<St: ExpressionState<CommitRef = RevsetCommitRef>> RevsetExpression<St> {
 impl<St: ExpressionState> RevsetExpression<St> {
     pub fn latest(self: &Arc<Self>, count: usize) -> Arc<Self> {
         Arc::new(Self::Latest {
-            candidates: self.clone(),
+            candidates: self.clone().into(),
             count,
         })
     }
 
     /// Commits in `self` that don't have descendants in `self`.
     pub fn heads(self: &Arc<Self>) -> Arc<Self> {
-        Arc::new(Self::Heads(self.clone()))
+        Arc::new(Self::Heads(self.clone().into()))
     }
 
     /// Commits in `self` that don't have ancestors in `self`.
@@ -748,15 +760,7 @@ pub enum ResolvedExpression {
         sources: Box<Self>,
         domain: Box<Self>,
     },
-    Heads(Box<Self>),
-    /// Heads of the set of commits which are ancestors of `heads` but are not
-    /// ancestors of `roots`, and which also are contained in `filter`.
-    HeadsRange {
-        roots: Box<Self>,
-        heads: Box<Self>,
-        parents_range: Range<u32>,
-        filter: Option<ResolvedPredicateExpression>,
-    },
+    Heads(ExpressionOrFilteredRange<Box<Self>, Option<ResolvedPredicateExpression>>),
     Roots(Box<Self>),
     ForkPoint(Box<Self>),
     Bisect(Box<Self>),
@@ -765,7 +769,7 @@ pub enum ResolvedExpression {
         count: usize,
     },
     Latest {
-        candidates: Box<Self>,
+        candidates: ExpressionOrFilteredRange<Box<Self>, Option<ResolvedPredicateExpression>>,
         count: usize,
     },
     Coalesce(Box<Self>, Box<Self>),
@@ -1535,26 +1539,7 @@ fn try_transform_expression<St: ExpressionState, E>(
                     .map(|(sources, domain)| RevsetExpression::Reachable { sources, domain })
             }
             RevsetExpression::Heads(candidates) => {
-                transform_rec(candidates, pre, post)?.map(RevsetExpression::Heads)
-            }
-            RevsetExpression::HeadsRange {
-                roots,
-                heads,
-                parents_range,
-                filter,
-            } => {
-                let transformed_roots = transform_rec(roots, pre, post)?;
-                let transformed_heads = transform_rec(heads, pre, post)?;
-                let transformed_filter = transform_rec(filter, pre, post)?;
-                (transformed_roots.is_some()
-                    || transformed_heads.is_some()
-                    || transformed_filter.is_some())
-                .then(|| RevsetExpression::HeadsRange {
-                    roots: transformed_roots.unwrap_or_else(|| roots.clone()),
-                    heads: transformed_heads.unwrap_or_else(|| heads.clone()),
-                    parents_range: parents_range.clone(),
-                    filter: transformed_filter.unwrap_or_else(|| filter.clone()),
-                })
+                transform_rec_filtered_range(candidates, pre, post)?.map(RevsetExpression::Heads)
             }
             RevsetExpression::Roots(candidates) => {
                 transform_rec(candidates, pre, post)?.map(RevsetExpression::Roots)
@@ -1571,11 +1556,14 @@ fn try_transform_expression<St: ExpressionState, E>(
                     count: *count,
                 })
             }
-            RevsetExpression::Latest { candidates, count } => transform_rec(candidates, pre, post)?
-                .map(|candidates| RevsetExpression::Latest {
-                    candidates,
-                    count: *count,
-                }),
+            RevsetExpression::Latest { candidates, count } => {
+                transform_rec_filtered_range(candidates, pre, post)?.map(|candidates| {
+                    RevsetExpression::Latest {
+                        candidates,
+                        count: *count,
+                    }
+                })
+            }
             RevsetExpression::Filter(_) => None,
             RevsetExpression::AsFilter(candidates) => {
                 transform_rec(candidates, pre, post)?.map(RevsetExpression::AsFilter)
@@ -1662,6 +1650,39 @@ fn try_transform_expression<St: ExpressionState, E>(
         }
     }
 
+    fn transform_rec_filtered_range<St: ExpressionState, E>(
+        expression_or_filtered_range: &ExpressionOrFilteredRange<Arc<RevsetExpression<St>>>,
+        pre: &mut impl FnMut(&Arc<RevsetExpression<St>>) -> Result<PreTransformedExpression<St>, E>,
+        post: &mut impl FnMut(&Arc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
+    ) -> Result<Option<ExpressionOrFilteredRange<Arc<RevsetExpression<St>>>>, E> {
+        Ok(match expression_or_filtered_range {
+            ExpressionOrFilteredRange::Expression(expression) => {
+                transform_rec(expression, pre, post)?.map(ExpressionOrFilteredRange::Expression)
+            }
+            ExpressionOrFilteredRange::FilteredRange(FilteredRange {
+                roots,
+                heads,
+                parents_range,
+                filter,
+            }) => {
+                let transformed_roots = transform_rec(roots, pre, post)?;
+                let transformed_heads = transform_rec(heads, pre, post)?;
+                let transformed_filter = transform_rec(filter, pre, post)?;
+                (transformed_roots.is_some()
+                    || transformed_heads.is_some()
+                    || transformed_filter.is_some())
+                .then(|| {
+                    ExpressionOrFilteredRange::FilteredRange(FilteredRange {
+                        roots: transformed_roots.unwrap_or_else(|| roots.clone()),
+                        heads: transformed_heads.unwrap_or_else(|| heads.clone()),
+                        parents_range: parents_range.clone(),
+                        filter: transformed_filter.unwrap_or_else(|| filter.clone()),
+                    })
+                })
+            }
+        })
+    }
+
     fn transform_rec<St: ExpressionState, E>(
         expression: &Arc<RevsetExpression<St>>,
         pre: &mut impl FnMut(&Arc<RevsetExpression<St>>) -> Result<PreTransformedExpression<St>, E>,
@@ -1721,6 +1742,32 @@ where
     OutSt: ExpressionState,
     F: ExpressionStateFolder<InSt, OutSt> + ?Sized,
 {
+    let fold_filtered_range = |folder: &mut F,
+                               expression_or_filtered_range: &ExpressionOrFilteredRange<
+        Arc<RevsetExpression<InSt>>,
+    >| {
+        match expression_or_filtered_range {
+            ExpressionOrFilteredRange::Expression(expression) => folder
+                .fold_expression(expression)
+                .map(ExpressionOrFilteredRange::Expression),
+            ExpressionOrFilteredRange::FilteredRange(FilteredRange {
+                roots,
+                heads,
+                parents_range,
+                filter,
+            }) => {
+                let roots = folder.fold_expression(roots)?;
+                let heads = folder.fold_expression(heads)?;
+                let filter = folder.fold_expression(filter)?;
+                Ok(ExpressionOrFilteredRange::FilteredRange(FilteredRange {
+                    roots,
+                    heads,
+                    parents_range: parents_range.clone(),
+                    filter,
+                }))
+            }
+        }
+    };
     let expression: Arc<_> = match expression {
         RevsetExpression::None => RevsetExpression::None.into(),
         RevsetExpression::All => RevsetExpression::All.into(),
@@ -1780,26 +1827,8 @@ where
             RevsetExpression::Reachable { sources, domain }.into()
         }
         RevsetExpression::Heads(heads) => {
-            let heads = folder.fold_expression(heads)?;
+            let heads = fold_filtered_range(folder, heads)?;
             RevsetExpression::Heads(heads).into()
-        }
-        RevsetExpression::HeadsRange {
-            roots,
-            heads,
-            parents_range,
-            filter,
-        } => {
-            let roots = folder.fold_expression(roots)?;
-            let heads = folder.fold_expression(heads)?;
-            let parents_range = parents_range.clone();
-            let filter = folder.fold_expression(filter)?;
-            RevsetExpression::HeadsRange {
-                roots,
-                heads,
-                parents_range,
-                filter,
-            }
-            .into()
         }
         RevsetExpression::Roots(roots) => {
             let roots = folder.fold_expression(roots)?;
@@ -1819,7 +1848,7 @@ where
             RevsetExpression::HasSize { candidates, count }.into()
         }
         RevsetExpression::Latest { candidates, count } => {
-            let candidates = folder.fold_expression(candidates)?;
+            let candidates = fold_filtered_range(folder, candidates)?;
             let count = *count;
             RevsetExpression::Latest { candidates, count }.into()
         }
@@ -2242,17 +2271,17 @@ fn fold_ancestors_union<St: ExpressionState>(
 ///
 /// Ancestors and negated ancestors should have already been moved to the left
 /// in intersections, and negated ancestors should have been combined already.
-fn fold_heads_range<St: ExpressionState>(
+fn fold_filtered_range<St: ExpressionState>(
     expression: &Arc<RevsetExpression<St>>,
 ) -> TransformedExpression<St> {
     // Represents `roots..heads & filter`
-    struct FilteredRange<St: ExpressionState> {
+    struct FilteredRangeBuilder<St: ExpressionState> {
         roots: Arc<RevsetExpression<St>>,
         heads_and_parents_range: Option<(Arc<RevsetExpression<St>>, Range<u32>)>,
         filter: Arc<RevsetExpression<St>>,
     }
 
-    impl<St: ExpressionState> FilteredRange<St> {
+    impl<St: ExpressionState> FilteredRangeBuilder<St> {
         fn new(roots: Arc<RevsetExpression<St>>) -> Self {
             // roots.. & all()
             Self {
@@ -2284,16 +2313,31 @@ fn fold_heads_range<St: ExpressionState>(
             };
             self
         }
+
+        fn build(self) -> FilteredRange<Arc<RevsetExpression<St>>> {
+            let (heads, parents_range) = self.heads_and_parents_range.unwrap_or_else(|| {
+                (
+                    RevsetExpression::visible_heads_or_referenced(),
+                    PARENTS_RANGE_FULL,
+                )
+            });
+            FilteredRange {
+                roots: self.roots,
+                heads,
+                parents_range,
+                filter: self.filter,
+            }
+        }
     }
 
-    fn to_filtered_range<St: ExpressionState>(
+    fn build_filtered_range<St: ExpressionState>(
         expression: &Arc<RevsetExpression<St>>,
-    ) -> Option<FilteredRange<St>> {
+    ) -> Option<FilteredRangeBuilder<St>> {
         // If the first expression is `ancestors(x)`, then we already know the range
         // must be `none()..x`, since any roots would've been moved to the left by an
         // earlier pass.
         if let Ok(heads_and_parents_range) = ancestors_to_heads_and_parents_range(expression) {
-            return Some(FilteredRange {
+            return Some(FilteredRangeBuilder {
                 roots: RevsetExpression::none(),
                 heads_and_parents_range: Some(heads_and_parents_range),
                 filter: RevsetExpression::all(),
@@ -2304,60 +2348,64 @@ fn fold_heads_range<St: ExpressionState>(
             // so we can set the roots based on the first expression in the intersection.
             RevsetExpression::NotIn(complement) => {
                 if let Ok(roots) = ancestors_to_heads(complement) {
-                    Some(FilteredRange::new(roots))
+                    Some(FilteredRangeBuilder::new(roots))
                 } else {
                     // If the first expression is a non-ancestors negation, we still want to use
-                    // `HeadsRange` since `~x` is equivalent to `::visible_heads() ~ x`.
-                    Some(FilteredRange::new(RevsetExpression::none()).add_filter(expression))
+                    // `FilteredRange` since `~x` is equivalent to `::visible_heads() ~ x`.
+                    Some(FilteredRangeBuilder::new(RevsetExpression::none()).add_filter(expression))
                 }
             }
             // We also want to optimize `heads()` if the first expression is `all()` or a filter.
             RevsetExpression::All | RevsetExpression::Filter(_) | RevsetExpression::AsFilter(_) => {
-                Some(FilteredRange::new(RevsetExpression::none()).add_filter(expression))
+                Some(FilteredRangeBuilder::new(RevsetExpression::none()).add_filter(expression))
             }
             // We only need to handle intersections recursively. Differences will have been
             // unfolded already.
             RevsetExpression::Intersection(expression1, expression2) => {
-                to_filtered_range(expression1).map(|filtered_range| filtered_range.add(expression2))
+                build_filtered_range(expression1)
+                    .map(|filtered_range| filtered_range.add(expression2))
             }
             _ => None,
         }
     }
 
-    fn to_heads_range<St: ExpressionState>(
+    fn to_filtered_range<St: ExpressionState>(
         candidates: &Arc<RevsetExpression<St>>,
-    ) -> Option<Arc<RevsetExpression<St>>> {
-        to_filtered_range(candidates).map(|filtered_range| {
-            let (heads, parents_range) =
-                filtered_range.heads_and_parents_range.unwrap_or_else(|| {
-                    (
-                        RevsetExpression::visible_heads_or_referenced(),
-                        PARENTS_RANGE_FULL,
-                    )
-                });
-            RevsetExpression::HeadsRange {
-                roots: filtered_range.roots,
-                heads,
-                parents_range,
-                filter: filtered_range.filter,
-            }
-            .into()
-        })
+    ) -> Option<ExpressionOrFilteredRange<Arc<RevsetExpression<St>>>> {
+        build_filtered_range(candidates)
+            .map(FilteredRangeBuilder::build)
+            .map(ExpressionOrFilteredRange::FilteredRange)
     }
 
     transform_expression_bottom_up(expression, |expression| match expression.as_ref() {
-        // ::(x..y & filter) -> ::heads_range(x, y, filter)
-        // ::filter -> ::heads_range(none(), visible_heads_or_referenced(), filter)
+        // ::(x..y & filter) -> ::heads(filtered_range(x, y, filter))
+        // ::filter -> ::heads(filtered_range(none(), visible_heads_or_referenced(), filter))
         RevsetExpression::Ancestors {
             heads,
             // This optimization is only valid for full generation and parents ranges, since
             // otherwise adding `heads()` would change the result.
             generation: GENERATION_RANGE_FULL,
             parents_range: PARENTS_RANGE_FULL,
-        } => to_heads_range(heads).map(|heads| heads.ancestors()),
-        // heads(x..y & filter) -> heads_range(x, y, filter)
-        // heads(filter) -> heads_range(none(), visible_heads_or_referenced(), filter)
-        RevsetExpression::Heads(candidates) => to_heads_range(candidates),
+        } => to_filtered_range(heads)
+            .map(|heads| RevsetExpression::ancestors(&RevsetExpression::Heads(heads).into())),
+        // heads(x..y & filter) -> heads(filtered_range(x, y, filter))
+        // heads(filter) -> heads(filtered_range(none(), visible_heads_or_referenced(), filter))
+        RevsetExpression::Heads(ExpressionOrFilteredRange::Expression(candidates)) => {
+            to_filtered_range(candidates)
+                .map(|candidates| RevsetExpression::Heads(candidates).into())
+        }
+        // latest(x..y & filter, n) -> latest(filtered_range(x, y, filter), n)
+        // latest(filter) -> latest(filtered_range(none(), visible_heads_or_referenced(), filter))
+        RevsetExpression::Latest {
+            candidates: ExpressionOrFilteredRange::Expression(candidates),
+            count,
+        } => to_filtered_range(candidates).map(|candidates| {
+            RevsetExpression::Latest {
+                candidates,
+                count: *count,
+            }
+            .into()
+        }),
         _ => None,
     })
 }
@@ -2542,7 +2590,7 @@ pub fn optimize<St: ExpressionState>(
     let expression = sort_negations_and_ancestors(&expression).unwrap_or(expression);
     let expression = fold_ancestors_union(&expression).unwrap_or(expression);
     let expression = internalize_filter(&expression).unwrap_or(expression);
-    let expression = fold_heads_range(&expression).unwrap_or(expression);
+    let expression = fold_filtered_range(&expression).unwrap_or(expression);
     let expression = fold_difference(&expression).unwrap_or(expression);
     fold_not_in_ancestors(&expression).unwrap_or(expression)
 }
@@ -3157,20 +3205,8 @@ impl VisibilityResolutionContext<'_> {
                 domain: self.resolve(domain).into(),
             },
             RevsetExpression::Heads(candidates) => {
-                ResolvedExpression::Heads(self.resolve(candidates).into())
+                ResolvedExpression::Heads(self.resolve_filtered_range(candidates))
             }
-            RevsetExpression::HeadsRange {
-                roots,
-                heads,
-                parents_range,
-                filter,
-            } => ResolvedExpression::HeadsRange {
-                roots: self.resolve(roots).into(),
-                heads: self.resolve(heads).into(),
-                parents_range: parents_range.clone(),
-                filter: (!matches!(filter.as_ref(), RevsetExpression::All))
-                    .then(|| self.resolve_predicate(filter)),
-            },
             RevsetExpression::Roots(candidates) => {
                 ResolvedExpression::Roots(self.resolve(candidates).into())
             }
@@ -3181,7 +3217,7 @@ impl VisibilityResolutionContext<'_> {
                 ResolvedExpression::Bisect(self.resolve(expression).into())
             }
             RevsetExpression::Latest { candidates, count } => ResolvedExpression::Latest {
-                candidates: self.resolve(candidates).into(),
+                candidates: self.resolve_filtered_range(candidates),
                 count: *count,
             },
             RevsetExpression::HasSize { candidates, count } => ResolvedExpression::HasSize {
@@ -3289,6 +3325,27 @@ impl VisibilityResolutionContext<'_> {
         ResolvedExpression::Commits(vec![self.root.to_owned()])
     }
 
+    fn resolve_filtered_range(
+        &self,
+        expression_or_filtered_range: &ExpressionOrFilteredRange<Arc<ResolvedRevsetExpression>>,
+    ) -> ExpressionOrFilteredRange<Box<ResolvedExpression>, Option<ResolvedPredicateExpression>>
+    {
+        match expression_or_filtered_range {
+            ExpressionOrFilteredRange::Expression(expression) => {
+                ExpressionOrFilteredRange::Expression(self.resolve(expression.as_ref()).into())
+            }
+            ExpressionOrFilteredRange::FilteredRange(filtered_range) => {
+                ExpressionOrFilteredRange::FilteredRange(FilteredRange {
+                    roots: self.resolve(&filtered_range.roots).into(),
+                    heads: self.resolve(&filtered_range.heads).into(),
+                    parents_range: filtered_range.parents_range.clone(),
+                    filter: (!matches!(&filtered_range.filter.as_ref(), RevsetExpression::All))
+                        .then(|| self.resolve_predicate(&filtered_range.filter)),
+                })
+            }
+        }
+    }
+
     /// Resolves expression tree as filter predicate.
     ///
     /// For filter expression, this never inserts a hidden `all()` since a
@@ -3311,7 +3368,6 @@ impl VisibilityResolutionContext<'_> {
             | RevsetExpression::DagRange { .. }
             | RevsetExpression::Reachable { .. }
             | RevsetExpression::Heads(_)
-            | RevsetExpression::HeadsRange { .. }
             | RevsetExpression::Roots(_)
             | RevsetExpression::ForkPoint(_)
             | RevsetExpression::Bisect(_)
@@ -3674,7 +3730,11 @@ mod tests {
             @r#"CommitRef(WorkingCopy(WorkspaceNameBuf("default")))"#);
         insta::assert_debug_snapshot!(
             current_wc.heads(),
-            @r#"Heads(CommitRef(WorkingCopy(WorkspaceNameBuf("default"))))"#);
+            @r#"
+        Heads(
+            Expression(CommitRef(WorkingCopy(WorkspaceNameBuf("default")))),
+        )
+        "#);
         insta::assert_debug_snapshot!(
             current_wc.roots(),
             @r#"Roots(CommitRef(WorkingCopy(WorkspaceNameBuf("default"))))"#);
@@ -4489,21 +4549,21 @@ mod tests {
         // Continue without pre transformation, do transform child
         insta::assert_debug_snapshot!(
             transform_expression(
-                &ResolvedRevsetExpression::root().heads(),
+                &ResolvedRevsetExpression::root().negated(),
                 |_| ControlFlow::Continue(()),
                 |x| match x.as_ref() {
                     RevsetExpression::Root => Some(RevsetExpression::none()),
                     _ => None,
                 },
-            ), @"Some(Heads(None))");
+            ), @"Some(NotIn(None))");
 
         // Continue without pre transformation, do transform self
         insta::assert_debug_snapshot!(
             transform_expression(
-                &ResolvedRevsetExpression::root().heads(),
+                &ResolvedRevsetExpression::root().negated(),
                 |_| ControlFlow::Continue(()),
                 |x| match x.as_ref() {
-                    RevsetExpression::Heads(y) => Some(y.clone()),
+                    RevsetExpression::NotIn(y) => Some(y.clone()),
                     _ => None,
                 },
             ), @"Some(Root)");
@@ -4800,7 +4860,9 @@ mod tests {
             optimize(parse("heads(bookmarks() & all())")?),
             @r#"
         Heads(
-            CommitRef(Bookmarks(Pattern(Substring("")))),
+            Expression(
+                CommitRef(Bookmarks(Pattern(Substring("")))),
+            ),
         )
         "#);
         insta::assert_debug_snapshot!(
@@ -4814,7 +4876,9 @@ mod tests {
         insta::assert_debug_snapshot!(
             optimize(parse("latest(bookmarks() & all(), 2)")?), @r#"
         Latest {
-            candidates: CommitRef(Bookmarks(Pattern(Substring("")))),
+            candidates: Expression(
+                CommitRef(Bookmarks(Pattern(Substring("")))),
+            ),
             count: 2,
         }
         "#);
@@ -5666,17 +5730,21 @@ mod tests {
         // Filters can be merged after ancestor unions are folded.
         insta::assert_debug_snapshot!(optimize(parse("::foo | ::author_name(bar)")?), @r#"
         Ancestors {
-            heads: HeadsRange {
-                roots: None,
-                heads: VisibleHeadsOrReferenced,
-                parents_range: 0..4294967295,
-                filter: AsFilter(
-                    Union(
-                        CommitRef(Symbol("foo")),
-                        Filter(AuthorName(Pattern(Exact("bar")))),
-                    ),
+            heads: Heads(
+                FilteredRange(
+                    FilteredRange {
+                        roots: None,
+                        heads: VisibleHeadsOrReferenced,
+                        parents_range: 0..4294967295,
+                        filter: AsFilter(
+                            Union(
+                                CommitRef(Symbol("foo")),
+                                Filter(AuthorName(Pattern(Exact("bar")))),
+                            ),
+                        ),
+                    },
                 ),
-            },
+            ),
             generation: 0..18446744073709551615,
             parents_range: 0..4294967295,
         }
@@ -5780,12 +5848,16 @@ mod tests {
         insta::assert_debug_snapshot!(optimize(parse("foo..(bar..baz)")?), @r#"
         Range {
             roots: CommitRef(Symbol("foo")),
-            heads: HeadsRange {
-                roots: CommitRef(Symbol("bar")),
-                heads: CommitRef(Symbol("baz")),
-                parents_range: 0..4294967295,
-                filter: All,
-            },
+            heads: Heads(
+                FilteredRange(
+                    FilteredRange {
+                        roots: CommitRef(Symbol("bar")),
+                        heads: CommitRef(Symbol("baz")),
+                        parents_range: 0..4294967295,
+                        filter: All,
+                    },
+                ),
+            ),
             generation: 0..18446744073709551615,
             parents_range: 0..4294967295,
         }
@@ -6075,224 +6147,304 @@ mod tests {
 
         // Heads of basic range operators can be folded.
         insta::assert_debug_snapshot!(optimize(parse("heads(::)")?), @"
-        HeadsRange {
-            roots: None,
-            heads: VisibleHeadsOrReferenced,
-            parents_range: 0..4294967295,
-            filter: All,
-        }
+        Heads(
+            FilteredRange(
+                FilteredRange {
+                    roots: None,
+                    heads: VisibleHeadsOrReferenced,
+                    parents_range: 0..4294967295,
+                    filter: All,
+                },
+            ),
+        )
         ");
         insta::assert_debug_snapshot!(optimize(parse("heads(::foo)")?), @r#"
-        HeadsRange {
-            roots: None,
-            heads: CommitRef(Symbol("foo")),
-            parents_range: 0..4294967295,
-            filter: All,
-        }
+        Heads(
+            FilteredRange(
+                FilteredRange {
+                    roots: None,
+                    heads: CommitRef(Symbol("foo")),
+                    parents_range: 0..4294967295,
+                    filter: All,
+                },
+            ),
+        )
         "#);
         // It might be better to use `roots: Root`, but it would require adding a
         // special case for `~root()`, and this should be similar in performance.
         insta::assert_debug_snapshot!(optimize(parse("heads(..)")?), @"
-        HeadsRange {
-            roots: None,
-            heads: VisibleHeadsOrReferenced,
-            parents_range: 0..4294967295,
-            filter: NotIn(Root),
-        }
+        Heads(
+            FilteredRange(
+                FilteredRange {
+                    roots: None,
+                    heads: VisibleHeadsOrReferenced,
+                    parents_range: 0..4294967295,
+                    filter: NotIn(Root),
+                },
+            ),
+        )
         ");
         insta::assert_debug_snapshot!(optimize(parse("heads(foo..)")?), @r#"
-        HeadsRange {
-            roots: CommitRef(Symbol("foo")),
-            heads: VisibleHeadsOrReferenced,
-            parents_range: 0..4294967295,
-            filter: All,
-        }
+        Heads(
+            FilteredRange(
+                FilteredRange {
+                    roots: CommitRef(Symbol("foo")),
+                    heads: VisibleHeadsOrReferenced,
+                    parents_range: 0..4294967295,
+                    filter: All,
+                },
+            ),
+        )
         "#);
         insta::assert_debug_snapshot!(optimize(parse("heads(..bar)")?), @r#"
-        HeadsRange {
-            roots: Root,
-            heads: CommitRef(Symbol("bar")),
-            parents_range: 0..4294967295,
-            filter: All,
-        }
+        Heads(
+            FilteredRange(
+                FilteredRange {
+                    roots: Root,
+                    heads: CommitRef(Symbol("bar")),
+                    parents_range: 0..4294967295,
+                    filter: All,
+                },
+            ),
+        )
         "#);
         insta::assert_debug_snapshot!(optimize(parse("heads(foo..bar)")?), @r#"
-        HeadsRange {
-            roots: CommitRef(Symbol("foo")),
-            heads: CommitRef(Symbol("bar")),
-            parents_range: 0..4294967295,
-            filter: All,
-        }
+        Heads(
+            FilteredRange(
+                FilteredRange {
+                    roots: CommitRef(Symbol("foo")),
+                    heads: CommitRef(Symbol("bar")),
+                    parents_range: 0..4294967295,
+                    filter: All,
+                },
+            ),
+        )
         "#);
         insta::assert_debug_snapshot!(optimize(parse("heads(~::foo & ::bar)")?), @r#"
-        HeadsRange {
-            roots: CommitRef(Symbol("foo")),
-            heads: CommitRef(Symbol("bar")),
-            parents_range: 0..4294967295,
-            filter: All,
-        }
+        Heads(
+            FilteredRange(
+                FilteredRange {
+                    roots: CommitRef(Symbol("foo")),
+                    heads: CommitRef(Symbol("bar")),
+                    parents_range: 0..4294967295,
+                    filter: All,
+                },
+            ),
+        )
         "#);
         insta::assert_debug_snapshot!(optimize(parse("heads(~::foo)")?), @r#"
-        HeadsRange {
-            roots: CommitRef(Symbol("foo")),
-            heads: VisibleHeadsOrReferenced,
-            parents_range: 0..4294967295,
-            filter: All,
-        }
+        Heads(
+            FilteredRange(
+                FilteredRange {
+                    roots: CommitRef(Symbol("foo")),
+                    heads: VisibleHeadsOrReferenced,
+                    parents_range: 0..4294967295,
+                    filter: All,
+                },
+            ),
+        )
         "#);
         insta::assert_debug_snapshot!(optimize(parse("heads(a..b & c..d)")?), @r#"
-        HeadsRange {
-            roots: Union(
-                CommitRef(Symbol("a")),
-                CommitRef(Symbol("c")),
+        Heads(
+            FilteredRange(
+                FilteredRange {
+                    roots: Union(
+                        CommitRef(Symbol("a")),
+                        CommitRef(Symbol("c")),
+                    ),
+                    heads: CommitRef(Symbol("b")),
+                    parents_range: 0..4294967295,
+                    filter: Ancestors {
+                        heads: CommitRef(Symbol("d")),
+                        generation: 0..18446744073709551615,
+                        parents_range: 0..4294967295,
+                    },
+                },
             ),
-            heads: CommitRef(Symbol("b")),
-            parents_range: 0..4294967295,
-            filter: Ancestors {
-                heads: CommitRef(Symbol("d")),
-                generation: 0..18446744073709551615,
-                parents_range: 0..4294967295,
-            },
-        }
+        )
         "#);
 
         // Heads of first-parent ancestors can also be folded.
         insta::assert_debug_snapshot!(optimize(parse("heads(first_ancestors(foo))")?), @r#"
-        HeadsRange {
-            roots: None,
-            heads: CommitRef(Symbol("foo")),
-            parents_range: 0..1,
-            filter: All,
-        }
+        Heads(
+            FilteredRange(
+                FilteredRange {
+                    roots: None,
+                    heads: CommitRef(Symbol("foo")),
+                    parents_range: 0..1,
+                    filter: All,
+                },
+            ),
+        )
         "#);
         insta::assert_debug_snapshot!(optimize(parse("heads(first_ancestors(foo) & bar..)")?), @r#"
-        HeadsRange {
-            roots: CommitRef(Symbol("bar")),
-            heads: CommitRef(Symbol("foo")),
-            parents_range: 0..1,
-            filter: All,
-        }
+        Heads(
+            FilteredRange(
+                FilteredRange {
+                    roots: CommitRef(Symbol("bar")),
+                    heads: CommitRef(Symbol("foo")),
+                    parents_range: 0..1,
+                    filter: All,
+                },
+            ),
+        )
         "#);
         insta::assert_debug_snapshot!(optimize(parse("heads(foo.. & first_ancestors(bar) & ::baz)")?), @r#"
-        HeadsRange {
-            roots: CommitRef(Symbol("foo")),
-            heads: CommitRef(Symbol("bar")),
-            parents_range: 0..1,
-            filter: Ancestors {
-                heads: CommitRef(Symbol("baz")),
-                generation: 0..18446744073709551615,
-                parents_range: 0..4294967295,
-            },
-        }
+        Heads(
+            FilteredRange(
+                FilteredRange {
+                    roots: CommitRef(Symbol("foo")),
+                    heads: CommitRef(Symbol("bar")),
+                    parents_range: 0..1,
+                    filter: Ancestors {
+                        heads: CommitRef(Symbol("baz")),
+                        generation: 0..18446744073709551615,
+                        parents_range: 0..4294967295,
+                    },
+                },
+            ),
+        )
         "#);
 
         // Ancestors with a limited depth should not be optimized.
         insta::assert_debug_snapshot!(optimize(parse("heads(ancestors(foo, 2))")?), @r#"
         Heads(
-            Ancestors {
-                heads: CommitRef(Symbol("foo")),
-                generation: 0..2,
-                parents_range: 0..4294967295,
-            },
+            Expression(
+                Ancestors {
+                    heads: CommitRef(Symbol("foo")),
+                    generation: 0..2,
+                    parents_range: 0..4294967295,
+                },
+            ),
         )
         "#);
         insta::assert_debug_snapshot!(optimize(parse("heads(first_ancestors(foo, 2))")?), @r#"
         Heads(
-            Ancestors {
-                heads: CommitRef(Symbol("foo")),
-                generation: 0..2,
-                parents_range: 0..1,
-            },
+            Expression(
+                Ancestors {
+                    heads: CommitRef(Symbol("foo")),
+                    generation: 0..2,
+                    parents_range: 0..1,
+                },
+            ),
         )
         "#);
 
         // Generation folding should not prevent optimizing heads.
         insta::assert_debug_snapshot!(optimize(parse("heads(ancestors(foo--))")?), @r#"
-        HeadsRange {
-            roots: None,
-            heads: Ancestors {
-                heads: CommitRef(Symbol("foo")),
-                generation: 2..3,
-                parents_range: 0..4294967295,
-            },
-            parents_range: 0..4294967295,
-            filter: All,
-        }
+        Heads(
+            FilteredRange(
+                FilteredRange {
+                    roots: None,
+                    heads: Ancestors {
+                        heads: CommitRef(Symbol("foo")),
+                        generation: 2..3,
+                        parents_range: 0..4294967295,
+                    },
+                    parents_range: 0..4294967295,
+                    filter: All,
+                },
+            ),
+        )
         "#);
         insta::assert_debug_snapshot!(optimize(parse("heads(first_ancestors(first_parent(foo, 2)))")?), @r#"
-        HeadsRange {
-            roots: None,
-            heads: Ancestors {
-                heads: CommitRef(Symbol("foo")),
-                generation: 2..3,
-                parents_range: 0..1,
-            },
-            parents_range: 0..1,
-            filter: All,
-        }
+        Heads(
+            FilteredRange(
+                FilteredRange {
+                    roots: None,
+                    heads: Ancestors {
+                        heads: CommitRef(Symbol("foo")),
+                        generation: 2..3,
+                        parents_range: 0..1,
+                    },
+                    parents_range: 0..1,
+                    filter: All,
+                },
+            ),
+        )
         "#);
 
         // Heads of filters and negations can be folded.
         insta::assert_debug_snapshot!(optimize(parse("heads(author_name(A) | author_name(B))")?), @r#"
-        HeadsRange {
-            roots: None,
-            heads: VisibleHeadsOrReferenced,
-            parents_range: 0..4294967295,
-            filter: AsFilter(
-                Union(
-                    Filter(AuthorName(Pattern(Exact("A")))),
-                    Filter(AuthorName(Pattern(Exact("B")))),
-                ),
+        Heads(
+            FilteredRange(
+                FilteredRange {
+                    roots: None,
+                    heads: VisibleHeadsOrReferenced,
+                    parents_range: 0..4294967295,
+                    filter: AsFilter(
+                        Union(
+                            Filter(AuthorName(Pattern(Exact("A")))),
+                            Filter(AuthorName(Pattern(Exact("B")))),
+                        ),
+                    ),
+                },
             ),
-        }
+        )
         "#);
         insta::assert_debug_snapshot!(optimize(parse("heads(~author_name(A))")?), @r#"
-        HeadsRange {
-            roots: None,
-            heads: VisibleHeadsOrReferenced,
-            parents_range: 0..4294967295,
-            filter: AsFilter(
-                NotIn(
-                    Filter(AuthorName(Pattern(Exact("A")))),
-                ),
+        Heads(
+            FilteredRange(
+                FilteredRange {
+                    roots: None,
+                    heads: VisibleHeadsOrReferenced,
+                    parents_range: 0..4294967295,
+                    filter: AsFilter(
+                        NotIn(
+                            Filter(AuthorName(Pattern(Exact("A")))),
+                        ),
+                    ),
+                },
             ),
-        }
+        )
         "#);
         insta::assert_debug_snapshot!(optimize(parse("heads(~foo)")?), @r#"
-        HeadsRange {
-            roots: None,
-            heads: VisibleHeadsOrReferenced,
-            parents_range: 0..4294967295,
-            filter: NotIn(CommitRef(Symbol("foo"))),
-        }
+        Heads(
+            FilteredRange(
+                FilteredRange {
+                    roots: None,
+                    heads: VisibleHeadsOrReferenced,
+                    parents_range: 0..4294967295,
+                    filter: NotIn(CommitRef(Symbol("foo"))),
+                },
+            ),
+        )
         "#);
 
         // Heads of intersections with filters can be folded.
         insta::assert_debug_snapshot!(optimize(parse("heads(author_name(A) & ::foo ~ author_name(B))")?), @r#"
-        HeadsRange {
-            roots: None,
-            heads: CommitRef(Symbol("foo")),
-            parents_range: 0..4294967295,
-            filter: AsFilter(
-                Difference(
-                    Filter(AuthorName(Pattern(Exact("A")))),
-                    Filter(AuthorName(Pattern(Exact("B")))),
-                ),
+        Heads(
+            FilteredRange(
+                FilteredRange {
+                    roots: None,
+                    heads: CommitRef(Symbol("foo")),
+                    parents_range: 0..4294967295,
+                    filter: AsFilter(
+                        Difference(
+                            Filter(AuthorName(Pattern(Exact("A")))),
+                            Filter(AuthorName(Pattern(Exact("B")))),
+                        ),
+                    ),
+                },
             ),
-        }
+        )
         "#);
 
         // Heads of intersections with negations can be folded.
         insta::assert_debug_snapshot!(optimize(parse("heads(~foo & ~roots(bar) & ::baz)")?), @r#"
-        HeadsRange {
-            roots: None,
-            heads: CommitRef(Symbol("baz")),
-            parents_range: 0..4294967295,
-            filter: Difference(
-                NotIn(CommitRef(Symbol("foo"))),
-                Roots(CommitRef(Symbol("bar"))),
+        Heads(
+            FilteredRange(
+                FilteredRange {
+                    roots: None,
+                    heads: CommitRef(Symbol("baz")),
+                    parents_range: 0..4294967295,
+                    filter: Difference(
+                        NotIn(CommitRef(Symbol("foo"))),
+                        Roots(CommitRef(Symbol("bar"))),
+                    ),
+                },
             ),
-        }
+        )
         "#);
         Ok(())
     }
@@ -6302,40 +6454,48 @@ mod tests {
         // Can use heads range to optimize ancestors of filter.
         insta::assert_debug_snapshot!(optimize(parse("::description(bar)")?), @r#"
         Ancestors {
-            heads: HeadsRange {
-                roots: None,
-                heads: VisibleHeadsOrReferenced,
-                parents_range: 0..4294967295,
-                filter: Filter(
-                    Description(
-                        Pattern(
-                            Exact(
-                                "bar",
+            heads: Heads(
+                FilteredRange(
+                    FilteredRange {
+                        roots: None,
+                        heads: VisibleHeadsOrReferenced,
+                        parents_range: 0..4294967295,
+                        filter: Filter(
+                            Description(
+                                Pattern(
+                                    Exact(
+                                        "bar",
+                                    ),
+                                ),
                             ),
                         ),
-                    ),
+                    },
                 ),
-            },
+            ),
             generation: 0..18446744073709551615,
             parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(optimize(parse("author_name(foo)..")?), @r#"
         Range {
-            roots: HeadsRange {
-                roots: None,
-                heads: VisibleHeadsOrReferenced,
-                parents_range: 0..4294967295,
-                filter: Filter(
-                    AuthorName(
-                        Pattern(
-                            Exact(
-                                "foo",
+            roots: Heads(
+                FilteredRange(
+                    FilteredRange {
+                        roots: None,
+                        heads: VisibleHeadsOrReferenced,
+                        parents_range: 0..4294967295,
+                        filter: Filter(
+                            AuthorName(
+                                Pattern(
+                                    Exact(
+                                        "foo",
+                                    ),
+                                ),
                             ),
                         ),
-                    ),
+                    },
                 ),
-            },
+            ),
             heads: VisibleHeadsOrReferenced,
             generation: 0..18446744073709551615,
             parents_range: 0..4294967295,
@@ -6345,20 +6505,24 @@ mod tests {
         // Can use heads range to optimize ancestors of range.
         insta::assert_debug_snapshot!(optimize(parse("::(foo..bar)")?), @r#"
         Ancestors {
-            heads: HeadsRange {
-                roots: CommitRef(
-                    Symbol(
-                        "foo",
-                    ),
+            heads: Heads(
+                FilteredRange(
+                    FilteredRange {
+                        roots: CommitRef(
+                            Symbol(
+                                "foo",
+                            ),
+                        ),
+                        heads: CommitRef(
+                            Symbol(
+                                "bar",
+                            ),
+                        ),
+                        parents_range: 0..4294967295,
+                        filter: All,
+                    },
                 ),
-                heads: CommitRef(
-                    Symbol(
-                        "bar",
-                    ),
-                ),
-                parents_range: 0..4294967295,
-                filter: All,
-            },
+            ),
             generation: 0..18446744073709551615,
             parents_range: 0..4294967295,
         }
