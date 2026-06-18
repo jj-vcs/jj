@@ -39,6 +39,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   changes/conflicts are propagated accordingly, e.g., `jj run -- cargo check
   --all-features` or `jj run -- cargo fix` behaves as one might expect.
 
+* Rebasing across file renames now moves changes to the new name.
+
 ### Fixed bugs
 
 * `jj` now creates a new working-copy revision during snapshotting if the
