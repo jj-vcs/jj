@@ -7224,6 +7224,10 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   changes/conflicts are propagated accordingly, e.g., <code>jj run -- cargo check
   --all-features</code> or <code>jj run -- cargo fix</code> behaves as one might expect.</p>
 </li>
+<li>
+<p><code>jj gerrit upload</code> now supports the <code>-o</code> (<code>--option</code>) flag, which works like
+  <code>git push -o</code> (<code>--push-option</code>).</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
