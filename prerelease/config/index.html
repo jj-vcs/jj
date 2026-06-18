@@ -4493,6 +4493,13 @@ you can add this to your config:</p>
 </code></pre></div>
 <p>The default value for <code>revsets.log</code> is
 <code>'present(@) | ancestors(immutable_heads().., 2) | trunk()'</code>.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>When <code>revsets.short-prefixes</code> is not specified, it defaults to the value of <code>revsets.log</code>. This
+affects how change and commit id references are resolved when multiple commits share a common
+prefix. Changing <code>revsets.log</code> without also setting <code>revsets.short-prefixes</code> might increase the
+length of prefixes needed on the command-line, especially in large repositories.</p>
+</div>
 <h3 id="default-revisions-for-operation-diffs">Default revisions for operation diffs<a class="headerlink" href="#default-revisions-for-operation-diffs" title="Permanent link">&para;</a></h3>
 <p>You can configure the set of revisions that are considered "interesting" when
 showing the difference between two operations (e.g. in <code>jj op show</code>,
