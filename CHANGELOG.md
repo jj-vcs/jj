@@ -39,6 +39,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   changes/conflicts are propagated accordingly, e.g., `jj run -- cargo check
   --all-features` or `jj run -- cargo fix` behaves as one might expect.
 
+* Templates now support `available_width() -> Option<Integer>`. This will
+  provide the number of columns available for the template, subtracting the
+  width of the graph lines. This is only available in graph logs, i.e. `jj log`
+  and `jj op log`.
+
 ### Fixed bugs
 
 * `jj` now creates a new working-copy revision during snapshotting if the
