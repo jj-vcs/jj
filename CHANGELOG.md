@@ -39,6 +39,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   changes/conflicts are propagated accordingly, e.g., `jj run -- cargo check
   --all-features` or `jj run -- cargo fix` behaves as one might expect.
 
+* Added commands `jj file edit`, `jj file set`, and `jj file delete` for editing
+  files in any revision without needing to change the working copy.
+
 ### Fixed bugs
 
 * `jj` now creates a new working-copy revision during snapshotting if the
