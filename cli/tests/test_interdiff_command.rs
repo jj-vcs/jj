@@ -169,6 +169,236 @@ fn test_interdiff_paths() {
 }
 
 #[test]
+fn test_interdiff_revset_ranges() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // An original range of two commits on top of "base".
+    work_dir.run_jj(["describe", "-mbase"]).success();
+    work_dir.write_file("context", "old\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "base"])
+        .success();
+    work_dir.run_jj(["new", "-madd foo"]).success();
+    work_dir.write_file("foo", "1\n2\n");
+    work_dir.run_jj(["new", "-madd bar"]).success();
+    work_dir.write_file("bar", "x\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "old"])
+        .success();
+
+    // The same changes, rebased onto "base2" and modified.
+    work_dir.run_jj(["new", "root()", "-mbase2"]).success();
+    work_dir.write_file("context", "new\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "base2"])
+        .success();
+    work_dir.run_jj(["new", "-madd foo"]).success();
+    work_dir.write_file("foo", "1\n2\n3\n");
+    work_dir.run_jj(["new", "-madd bar"]).success();
+    work_dir.write_file("bar", "x\ny\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "new"])
+        .success();
+
+    // Both ranges are treated as if they were squashed into a single
+    // revision. The differing "context" file is not part of either range, so
+    // it shouldn't show up in the diff.
+    let output = work_dir.run_jj(["interdiff", "--from", "base..old", "--to", "base2..new"]);
+    insta::assert_snapshot!(output, @r"
+    Modified regular file bar:
+       1    1: x
+            2: y
+    Modified regular file foo:
+       1    1: 1
+       2    2: 2
+            3: 3
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj([
+        "interdiff",
+        "--from",
+        "base..old",
+        "--to",
+        "base2..new",
+        "--git",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    diff --git a/bar b/bar
+    index 587be6b4c3..b77b4eb1d9 100644
+    --- a/bar
+    +++ b/bar
+    @@ -1,1 +1,2 @@
+     x
+    +y
+    diff --git a/foo b/foo
+    index 1191247b6d..01e79c32a8 100644
+    --- a/foo
+    +++ b/foo
+    @@ -1,2 +1,3 @@
+     1
+     2
+    +3
+    [EOF]
+    ");
+
+    // A single revision can be compared to a range.
+    let output = work_dir.run_jj(["interdiff", "--from", "old", "--to", "base2..new", "bar"]);
+    insta::assert_snapshot!(output, @r"
+    Modified commit description:
+       1     : add bar
+            1: <<<<<<< conflict 1 of 1
+            2: %%%%%%% diff from: base
+            3: \\\\\\\        to: side #1
+            4: +add bar
+            5: +++++++ side #2
+            6: add foo
+            7: >>>>>>> conflict 1 of 1 ends
+    Modified regular file bar:
+       1    1: x
+            2: y
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_interdiff_revset_range_with_merge() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // A range containing a merge commit: base -> (side a, side b) -> merge.
+    work_dir.run_jj(["describe", "-mbase"]).success();
+    work_dir.write_file("context", "old\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "base"])
+        .success();
+    work_dir.run_jj(["new", "-mside a"]).success();
+    work_dir.write_file("a", "a\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "side-a"])
+        .success();
+    work_dir.run_jj(["new", "base", "-mside b"]).success();
+    work_dir.write_file("b", "b\n");
+    work_dir.run_jj(["new", "side-a", "@", "-mmerge"]).success();
+    work_dir.write_file("m", "m\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "old"])
+        .success();
+
+    // The same changes squashed into a single commit on top of "base2", with
+    // file "b" modified.
+    work_dir.run_jj(["new", "root()", "-mbase2"]).success();
+    work_dir.write_file("context", "new\n");
+    work_dir.run_jj(["new", "-meverything"]).success();
+    work_dir.write_file("a", "a\n");
+    work_dir.write_file("b", "B\n");
+    work_dir.write_file("m", "m\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "new"])
+        .success();
+
+    // The merge commit in the range shouldn't cause spurious diffs or
+    // conflicts; only the modification to "b" is shown.
+    let output = work_dir.run_jj(["interdiff", "--from", "base..old", "--to", "new", "-s"]);
+    insta::assert_snapshot!(output, @r"
+    M b
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj([
+        "interdiff",
+        "--from",
+        "base..old",
+        "--to",
+        "new",
+        "--git",
+        "b",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    diff --git a/JJ-COMMIT-DESCRIPTION b/JJ-COMMIT-DESCRIPTION
+    --- JJ-COMMIT-DESCRIPTION
+    +++ JJ-COMMIT-DESCRIPTION
+    @@ -1,10 +1,1 @@
+    -<<<<<<< conflict 1 of 1
+    -%%%%%%% diff from: base #1
+    -\\\\\\\        to: side #1
+    -+merge
+    -%%%%%%% diff from: base #2
+    -\\\\\\\        to: side #2
+    -+side b
+    -+++++++ side #3
+    -side a
+    ->>>>>>> conflict 1 of 1 ends
+    +everything
+    diff --git a/b b/b
+    index 6178079822..223b7836fb 100644
+    --- a/b
+    +++ b/b
+    @@ -1,1 +1,1 @@
+    -b
+    +B
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_interdiff_revset_with_gap() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-mfirst"]).success();
+    work_dir.write_file("file", "1\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "first"])
+        .success();
+    work_dir.run_jj(["new", "-msecond"]).success();
+    work_dir.write_file("file", "1\n2\n");
+    work_dir.run_jj(["new", "-mthird"]).success();
+    work_dir.write_file("file", "1\n2\n3\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "third"])
+        .success();
+
+    let output = work_dir.run_jj(["interdiff", "--from", "first | third", "--to", "third"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Cannot diff revsets with gaps in.
+    Hint: Revision de8260255ca6 would need to be in the set.
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
+fn test_interdiff_empty_revset() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file", "1\n");
+
+    let output = work_dir.run_jj(["interdiff", "--from", "none()", "--to", "@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Revset `none()` didn't resolve to any revisions
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = work_dir.run_jj(["interdiff", "--from", "@", "--to", "none()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Revset `none()` didn't resolve to any revisions
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
 fn test_interdiff_conflicting() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

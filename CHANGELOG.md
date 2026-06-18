@@ -39,6 +39,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   changes/conflicts are propagated accordingly, e.g., `jj run -- cargo check
   --all-features` or `jj run -- cargo fix` behaves as one might expect.
 
+* `jj interdiff`'s `--from` and `--to` options now accept revsets that resolve
+  to multiple revisions; each side is treated as if its revisions were
+  squashed into a single revision first.
+  [#8281](https://github.com/jj-vcs/jj/issues/8281)
+
 ### Fixed bugs
 
 * `jj` now creates a new working-copy revision during snapshotting if the
