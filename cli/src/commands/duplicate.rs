@@ -64,6 +64,9 @@ pub(crate) struct DuplicateArgs {
 
     /// The revision(s) to duplicate onto (can be repeated to create a merge
     /// commit)
+    ///
+    /// Creates a new copy parented by the given revision. Existing children
+    /// of the destination remain where they are, resulting in a fork.
     #[arg(
         long,
         visible_alias = "destination",
@@ -76,6 +79,9 @@ pub(crate) struct DuplicateArgs {
 
     /// The revision(s) to insert after (can be repeated to create a merge
     /// commit)
+    ///
+    /// Creates a new copy parented by the given revision. Existing children
+    /// of the destination will be rebased onto the new copy.
     #[arg(
         long,
         short = 'A',
@@ -88,6 +94,9 @@ pub(crate) struct DuplicateArgs {
 
     /// The revision(s) to insert before (can be repeated to create a merge
     /// commit)
+    ///
+    /// Creates a new copy parented by the destination's parent. The destination
+    /// revision is rebased onto the new copy.
     #[arg(
         long,
         short = 'B',
