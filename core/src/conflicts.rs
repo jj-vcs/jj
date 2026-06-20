@@ -54,6 +54,7 @@ use crate::files::MergeResult;
 use crate::merge::Diff;
 use crate::merge::Merge;
 use crate::merge::SameChange;
+use crate::merge::SimplifiedMapping;
 use crate::repo_path::RepoPath;
 use crate::store::Store;
 
@@ -1061,7 +1062,8 @@ pub async fn update_from_content(
     content: &[u8],
     conflict_marker_len: usize,
 ) -> BackendResult<Merge<Option<FileId>>> {
-    let simplified_file_ids = file_ids.simplify();
+    let simplified_mapping = SimplifiedMapping::simplifying(file_ids);
+    let simplified_file_ids = file_ids.apply_simplified_mapping(&simplified_mapping);
 
     let old_contents = extract_as_single_hunk(&simplified_file_ids, store, path).await?;
     let old_hunks = files::merge_hunks(&old_contents, store.merge_options());
@@ -1125,7 +1127,7 @@ pub async fn update_from_content(
     let new_file_ids = if new_file_ids.len() != file_ids.iter().len() {
         file_ids
             .clone()
-            .update_from_simplified(Merge::from_vec(new_file_ids))
+            .update_from_simplified(Merge::from_vec(new_file_ids), &simplified_mapping)
     } else {
         Merge::from_vec(new_file_ids)
     };
