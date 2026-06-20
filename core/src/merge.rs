@@ -577,6 +577,60 @@ impl SimplifiedMapping {
         self.new_to_old_indices[new_remove_index * 2 + 1] / 2
     }
 
+    /// Returns a `SimplifiedMapping` that would sort the terms of the merge.
+    ///
+    /// Sorting a merge's terms is useful because it provides a canonical form
+    /// for the merge which is independent of term ordering. Added terms and
+    /// removed terms are sorted separately, ensuring the sorted merge is
+    /// semantically equivalent to the original merge.
+    pub fn sorted_order<T>(merge: &Merge<T>) -> Self
+    where
+        T: Ord,
+    {
+        let mut adds = (0..merge.num_sides()).collect_vec();
+        let mut removes = (0..merge.num_sides() - 1).collect_vec();
+        adds.sort_by_key(|&index| merge.get_add(index));
+        removes.sort_by_key(|&index| merge.get_remove(index));
+
+        let mut sorted_to_original_indices = Vec::with_capacity(adds.len() + removes.len());
+        for i in 0..removes.len() {
+            sorted_to_original_indices.push(2 * adds[i]);
+            sorted_to_original_indices.push(2 * removes[i] + 1);
+        }
+        sorted_to_original_indices.push(2 * adds.last().copied().expect("merge always has an add"));
+
+        let old_len = sorted_to_original_indices.len();
+        Self {
+            new_to_old_indices: sorted_to_original_indices,
+            old_len,
+        }
+    }
+
+    /// Inverts a `SimplifiedMapping`.
+    ///
+    /// Panics if `self` is not a permutation.
+    pub fn invert(&self) -> Self {
+        assert_eq!(
+            self.new_num_sides(),
+            self.old_num_sides(),
+            "must be a permutation"
+        );
+        // Use `usize::MAX` as a placeholder for an unset index.
+        let mut old_to_new_indices = vec![usize::MAX; self.old_len];
+        for (index, &old_index) in self.new_to_old_indices.iter().enumerate() {
+            let new_index = &mut old_to_new_indices[old_index];
+            assert!(
+                *new_index == usize::MAX,
+                "old index should only map to one new index"
+            );
+            *new_index = index;
+        }
+        Self {
+            new_to_old_indices: old_to_new_indices,
+            old_len: self.new_to_old_indices.len(),
+        }
+    }
+
     /// Returns a mapping which is equivalent to applying `self`, then applying `other`.
     pub fn then(&self, other: &Self) -> Self {
         assert_eq!(self.new_to_old_indices.len(), other.old_len);
