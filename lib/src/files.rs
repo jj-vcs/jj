@@ -29,6 +29,7 @@ use crate::diff::DiffHunk;
 use crate::diff::DiffHunkKind;
 use crate::merge::Merge;
 use crate::merge::SameChange;
+use crate::merge::SimplifiedMapping;
 use crate::tree_merge::MergeOptions;
 
 /// A diff line which may contain small hunks originating from both sides.
@@ -280,6 +281,19 @@ pub enum MergeResult {
     Resolved(BString),
     /// List of partially-resolved hunks if some of them cannot be merged.
     Conflict(Vec<Merge<BString>>),
+}
+
+impl MergeResult {
+    pub fn apply_simplified_mapping(mut self, mapping: &SimplifiedMapping) -> Self {
+        if let Self::Conflict(conflict) = &mut self
+            && !mapping.is_no_op()
+        {
+            for hunk in conflict {
+                *hunk = hunk.apply_simplified_mapping(&mapping);
+            }
+        }
+        self
+    }
 }
 
 /// Splits `inputs` into hunks, resolves trivial merge conflicts for each.

@@ -833,19 +833,12 @@ fn test_materialize_conflict_two_forward_diffs() {
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff),
         @r"
     <<<<<<< conflict 1 of 1
-    +++++++ side #1
-    A
-    %%%%%%% diff from: base #1
-    \\\\\\\        to: side #2
-     B
-    %%%%%%% diff from: base #2
-    \\\\\\\        to: side #3
-    -C
-    +D
-    %%%%%%% diff from: base #3
-    \\\\\\\        to: side #4
+    %%%%%%% diff from: base
+    \\\\\\\        to: side #1
     -E
-    +C
+    +A
+    +++++++ side #2
+    D
     >>>>>>> conflict 1 of 1 ends
     "
     );

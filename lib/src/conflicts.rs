@@ -448,6 +448,28 @@ fn detect_eol(single_hunk: &Merge<impl AsRef<[u8]>>) -> &'static BStr {
     }
 }
 
+fn get_merged_mapping(merge_result: &MergeResult, num_sides: usize) -> SimplifiedMapping {
+    if num_sides <= 2 {
+        return SimplifiedMapping::no_op(num_sides);
+    }
+
+    let MergeResult::Conflict(conflict) = merge_result else {
+        return SimplifiedMapping::no_op(num_sides);
+    };
+
+    let mut combined: Merge<Vec<&BStr>> = Merge::repeated(Vec::new(), num_sides);
+    for hunk in conflict {
+        if hunk.is_resolved() {
+            continue;
+        }
+
+        for (vec, term) in combined.iter_mut().zip(hunk) {
+            vec.push(term.as_bstr());
+        }
+    }
+    SimplifiedMapping::new(&combined)
+}
+
 pub fn materialize_merge_result<T: AsRef<[u8]>>(
     single_hunk: &Merge<T>,
     labels: &ConflictLabels,
@@ -455,9 +477,13 @@ pub fn materialize_merge_result<T: AsRef<[u8]>>(
     options: &ConflictMaterializeOptions,
 ) -> io::Result<()> {
     let merge_result = files::merge_hunks(single_hunk, &options.merge);
+    let merged_mapping = get_merged_mapping(&merge_result, single_hunk.num_sides());
+    let merge_result = merge_result.apply_simplified_mapping(&merged_mapping);
+
     match merge_result {
         MergeResult::Resolved(content) => output.write_all(&content),
         MergeResult::Conflict(hunks) => {
+            let labels = labels.apply_simplified_mapping(&merged_mapping);
             let marker_len = options
                 .marker_len
                 .unwrap_or_else(|| choose_materialized_conflict_marker_len(single_hunk));
@@ -465,7 +491,7 @@ pub fn materialize_merge_result<T: AsRef<[u8]>>(
                 hunks,
                 options.marker_style,
                 marker_len,
-                labels,
+                &labels,
                 output,
                 detect_eol(single_hunk),
             )
@@ -479,9 +505,13 @@ pub fn materialize_merge_result_to_bytes<T: AsRef<[u8]>>(
     options: &ConflictMaterializeOptions,
 ) -> BString {
     let merge_result = files::merge_hunks(single_hunk, &options.merge);
+    let merged_mapping = get_merged_mapping(&merge_result, single_hunk.num_sides());
+    let merge_result = merge_result.apply_simplified_mapping(&merged_mapping);
+
     match merge_result {
         MergeResult::Resolved(content) => content,
         MergeResult::Conflict(hunks) => {
+            let labels = labels.apply_simplified_mapping(&merged_mapping);
             let marker_len = options
                 .marker_len
                 .unwrap_or_else(|| choose_materialized_conflict_marker_len(single_hunk));
@@ -490,7 +520,7 @@ pub fn materialize_merge_result_to_bytes<T: AsRef<[u8]>>(
                 hunks,
                 options.marker_style,
                 marker_len,
-                labels,
+                &labels,
                 &mut output,
                 detect_eol(single_hunk),
             )
@@ -1061,13 +1091,26 @@ pub async fn update_from_content(
     let old_contents = extract_as_single_hunk(&simplified_file_ids, store, path).await?;
     let old_hunks = files::merge_hunks(&old_contents, store.merge_options());
 
-    // Parse conflicts from the new content using the arity of the simplified
+    // Try to parse conflicts from the new content using the arity of the simplified
     // conflicts.
-    let new_hunks = parse_conflict(
+    let (new_hunks, merged_mapping) = if let Some(new_hunks) = parse_conflict(
         content,
         simplified_file_ids.num_sides(),
         conflict_marker_len,
-    );
+    ) {
+        let no_op_mapping = SimplifiedMapping::no_op(simplified_file_ids.num_sides());
+        (Some(new_hunks), no_op_mapping)
+    } else {
+        let merged_mapping = get_merged_mapping(&old_hunks, simplified_file_ids.num_sides());
+        let new_hunks = parse_conflict(
+            content,
+            merged_mapping.simplified_num_sides(),
+            conflict_marker_len,
+        );
+        (new_hunks, merged_mapping)
+    };
+
+    let old_hunks = old_hunks.apply_simplified_mapping(&merged_mapping);
 
     // Check if the new hunks are unchanged. This makes sure that unchanged file
     // conflicts aren't updated to partially-resolved contents.
@@ -1086,7 +1129,7 @@ pub async fn update_from_content(
         return Ok(Merge::normal(file_id));
     };
 
-    let mut contents = simplified_file_ids.map(|_| vec![]);
+    let mut contents = Merge::repeated(Vec::new(), merged_mapping.simplified_num_sides());
     for hunk in hunks {
         if let Some(slice) = hunk.as_resolved() {
             for content in &mut contents {
@@ -1101,28 +1144,37 @@ pub async fn update_from_content(
 
     // Now write the new files contents we found by parsing the file with conflict
     // markers.
-    let new_file_ids: Vec<Option<FileId>> = try_join_all(zip(&contents, &simplified_file_ids).map(
-        async |(content, file_id)| -> BackendResult<Option<FileId>> {
-            if file_id.is_some() || !content.is_empty() {
-                let file_id = store.write_file(path, &mut content.as_slice()).await?;
-                Ok(Some(file_id))
-            } else {
-                // The missing side of a conflict is still represented by
-                // the empty string we materialized it as
-                Ok(None)
-            }
-        },
-    ))
-    .await?;
+    let merged_mapping_file_ids = simplified_file_ids.apply_simplified_mapping(&merged_mapping);
+    let new_file_ids: Vec<Option<FileId>> =
+        try_join_all(zip(&contents, &merged_mapping_file_ids).map(
+            async |(content, file_id)| -> BackendResult<Option<FileId>> {
+                if file_id.is_some() || !content.is_empty() {
+                    let file_id = store.write_file(path, &mut content.as_slice()).await?;
+                    Ok(Some(file_id))
+                } else {
+                    // The missing side of a conflict is still represented by
+                    // the empty string we materialized it as
+                    Ok(None)
+                }
+            },
+        ))
+        .await?;
+
+    let new_file_ids = if merged_mapping.is_no_op() {
+        Merge::from_vec(new_file_ids)
+    } else {
+        Merge::repeated(None, merged_mapping.original_num_sides())
+            .update_from_simplified(Merge::from_vec(new_file_ids), &merged_mapping)
+    };
 
     // If the conflict was simplified, expand the conflict to the original
     // number of sides.
-    let new_file_ids = if new_file_ids.len() != file_ids.iter().len() {
+    let new_file_ids = if simplified_mapping.is_no_op() {
+        new_file_ids
+    } else {
         file_ids
             .clone()
-            .update_from_simplified(Merge::from_vec(new_file_ids), &simplified_mapping)
-    } else {
-        Merge::from_vec(new_file_ids)
+            .update_from_simplified(new_file_ids, &simplified_mapping)
     };
     Ok(new_file_ids)
 }

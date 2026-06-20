@@ -552,6 +552,23 @@ impl SimplifiedMapping {
         }
     }
 
+    pub fn no_op(num_sides: usize) -> Self {
+        let original_len = num_sides * 2 - 1;
+        Self {
+            simplified_to_original_indices: (0..original_len).collect_vec(),
+            original_len,
+        }
+    }
+
+    pub fn is_no_op(&self) -> bool {
+        self.simplified_to_original_indices.len() == self.original_len
+            && self
+                .simplified_to_original_indices
+                .iter()
+                .enumerate()
+                .all(|(index, &original_index)| index == original_index)
+    }
+
     pub fn original_num_sides(&self) -> usize {
         self.original_len / 2 + 1
     }
