@@ -454,12 +454,44 @@ fn detect_eol(single_hunk: &Merge<impl AsRef<[u8]>>) -> &'static BStr {
     }
 }
 
+// Build a mapping that would simplify the conflict after merging and
+// resolving trivial hunks. This usually is a no-op, but for conflicts with
+// many sides, it can cause some terms with empty diffs to be omitted, making
+// the conflict easier to resolve.
+fn get_simplified_to_merged_mapping(
+    merge_result: &MergeResult,
+    num_sides: usize,
+) -> SimplifiedMapping {
+    if num_sides <= 2 {
+        return SimplifiedMapping::no_op(num_sides);
+    }
+
+    let MergeResult::Conflict(conflict) = merge_result else {
+        return SimplifiedMapping::no_op(num_sides);
+    };
+
+    let mut combined: Merge<Vec<&BStr>> = Merge::repeated(Vec::new(), num_sides);
+    for hunk in conflict {
+        // Since we only care about conflict hunks, we can skip resolved hunks.
+        if hunk.is_resolved() {
+            continue;
+        }
+
+        for (vec, term) in combined.iter_mut().zip(hunk) {
+            vec.push(term.as_bstr());
+        }
+    }
+    SimplifiedMapping::simplifying(&combined)
+}
+
 /// Represents a conflict which is ready to be written to a file.
 pub struct MaterializedMergeResult {
-    /// The merge result after simplifying.
+    /// The merge result after simplifying and applying `simplified_to_merged_mapping`.
     pub merge_result: MergeResult,
-    /// The conflict labels after simplifying.
+    /// The conflict labels after simplifying and applying `simplified_to_merged_mapping`.
     pub labels: ConflictLabels,
+    /// A `SimplifiedMapping` that specifies how the conflict should be materialized.
+    pub simplified_to_merged_mapping: SimplifiedMapping,
     /// The length of the conflict markers to be materialized.
     ///
     /// To select a different conflict marker length, override this field before materializing.
@@ -475,11 +507,18 @@ impl MaterializedMergeResult {
         merge_options: &MergeOptions,
     ) -> Self {
         let merge_result = files::merge_hunks(contents, merge_options);
+
+        let simplified_to_merged_mapping =
+            get_simplified_to_merged_mapping(&merge_result, contents.num_sides());
+        let merge_result = merge_result.apply_simplified_mapping(&simplified_to_merged_mapping);
+        let labels = labels.apply_simplified_mapping(&simplified_to_merged_mapping);
+
         let marker_len = choose_materialized_conflict_marker_len(contents);
         let eol = detect_eol(contents);
         Self {
             merge_result,
             labels,
+            simplified_to_merged_mapping,
             marker_len,
             eol,
         }
@@ -1087,16 +1126,38 @@ pub async fn update_from_content(
     let simplified_mapping = SimplifiedMapping::simplifying(file_ids);
     let simplified_file_ids = file_ids.apply_simplified_mapping(&simplified_mapping);
 
-    let old_contents = extract_as_single_hunk(&simplified_file_ids, store, path).await?;
-    let old_hunks = files::merge_hunks(&old_contents, store.merge_options());
+    let old_unmerged_contents = extract_as_single_hunk(&simplified_file_ids, store, path).await?;
+    let old_unmerged_hunks = files::merge_hunks(&old_unmerged_contents, store.merge_options());
 
-    // Parse conflicts from the new content using the arity of the simplified
-    // conflicts.
-    let new_hunks = parse_conflict(
+    // Use the same `simplified_to_merged_mapping` that we use when
+    // materializing the conflict.
+    let mut simplified_to_merged_mapping =
+        get_simplified_to_merged_mapping(&old_unmerged_hunks, simplified_file_ids.num_sides());
+
+    let mut new_hunks = parse_conflict(
         content,
-        simplified_file_ids.num_sides(),
+        simplified_to_merged_mapping.new_num_sides(),
         conflict_marker_len,
     );
+
+    // If the conflict failed to parse, fall back to using the arity of the
+    // simplified file IDs for backwards compatibility with previous versions.
+    // TODO: remove this fallback after `jj v0.54.0`
+    if new_hunks.is_none() {
+        simplified_to_merged_mapping = SimplifiedMapping::no_op(simplified_file_ids.num_sides());
+        new_hunks = parse_conflict(
+            content,
+            simplified_file_ids.num_sides(),
+            conflict_marker_len,
+        );
+    }
+
+    // If the conflict was simplified after merging, we'll need this to restore
+    // the file content for unmaterialized terms.
+    let expanded_old_contents: Option<Merge<BString>> =
+        (!simplified_to_merged_mapping.is_no_op()).then(|| old_unmerged_hunks.to_merge());
+
+    let old_hunks = old_unmerged_hunks.apply_simplified_mapping(&simplified_to_merged_mapping);
 
     // Check if the new hunks are unchanged. This makes sure that unchanged file
     // conflicts aren't updated to partially-resolved contents.
@@ -1115,7 +1176,10 @@ pub async fn update_from_content(
         return Ok(Merge::normal(file_id));
     };
 
-    let mut contents = simplified_file_ids.map(|_| vec![]);
+    let mut contents = Merge::repeated(
+        BString::default(),
+        simplified_to_merged_mapping.new_num_sides(),
+    );
     for hunk in hunks {
         if let Some(slice) = hunk.as_resolved() {
             for content in &mut contents {
@@ -1127,6 +1191,14 @@ pub async fn update_from_content(
             }
         }
     }
+
+    // If the conflict was simplified after merging, expand the conflict to the
+    // original number of sides.
+    let contents = if let Some(expanded_old_contents) = expanded_old_contents {
+        expanded_old_contents.update_from_simplified(contents, &simplified_to_merged_mapping)
+    } else {
+        contents
+    };
 
     // Now write the new files contents we found by parsing the file with conflict
     // markers.

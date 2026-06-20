@@ -21,6 +21,7 @@ use std::mem;
 
 use bstr::BStr;
 use bstr::BString;
+use bstr::ByteSlice as _;
 use either::Either;
 use itertools::Itertools as _;
 
@@ -29,6 +30,7 @@ use crate::diff::DiffHunk;
 use crate::diff::DiffHunkKind;
 use crate::merge::Merge;
 use crate::merge::SameChange;
+use crate::merge::SimplifiedMapping;
 
 /// A diff line which may contain small hunks originating from both sides.
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -303,6 +305,38 @@ pub enum MergeResult {
     Resolved(BString),
     /// List of partially-resolved hunks if some of them cannot be merged.
     Conflict(Vec<Merge<BString>>),
+}
+
+impl MergeResult {
+    /// Apply a `SimplifiedMapping` to each conflicted hunk in the `MergeResult`.
+    pub fn apply_simplified_mapping(mut self, mapping: &SimplifiedMapping) -> Self {
+        let Self::Conflict(conflict) = &mut self else {
+            return self;
+        };
+
+        if mapping.is_no_op() {
+            return self;
+        }
+
+        for hunk in conflict {
+            if !hunk.is_resolved() {
+                *hunk = hunk.apply_simplified_mapping(mapping);
+            }
+        }
+        self
+    }
+
+    /// Convert this `MergeResult` into a `Merge<BString>`.
+    pub fn to_merge(&self) -> Merge<BString> {
+        match self {
+            Self::Resolved(content) => Merge::resolved(content.clone()),
+            Self::Conflict(conflict) => collect_merged(
+                conflict
+                    .iter()
+                    .map(|hunk| MergeHunk::Borrowed(hunk.map(|term| term.as_bstr()))),
+            ),
+        }
+    }
 }
 
 /// Splits `inputs` into hunks, resolves trivial merge conflicts for each.
