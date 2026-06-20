@@ -364,49 +364,15 @@ impl<T> Merge<T> {
         }
     }
 
-    /// Returns a vector mapping of a value's index in the simplified merge to
-    /// its original index in the unsimplified merge.
-    ///
-    /// The merge is simplified by removing identical values in add and remove
-    /// values.
-    fn get_simplified_mapping(&self) -> Vec<usize>
-    where
-        T: PartialEq,
-    {
-        let unsimplified_len = self.values.len();
-        let mut simplified_to_original_indices = (0..unsimplified_len).collect_vec();
-
-        let mut add_index = 0;
-        while add_index < simplified_to_original_indices.len() {
-            let add = &self.values[simplified_to_original_indices[add_index]];
-            let mut remove_indices = simplified_to_original_indices
-                .iter()
-                .enumerate()
-                .skip(1)
-                .step_by(2);
-            if let Some((remove_index, _)) = remove_indices
-                .find(|&(_, original_remove_index)| &self.values[*original_remove_index] == add)
-            {
-                // Align the current "add" value to the `remove_index/2`-th diff, then
-                // delete the diff pair.
-                simplified_to_original_indices.swap(remove_index + 1, add_index);
-                simplified_to_original_indices.drain(remove_index..remove_index + 2);
-            } else {
-                add_index += 2;
-            }
-        }
-
-        simplified_to_original_indices
-    }
-
-    /// Apply the mapping returned by [`Self::get_simplified_mapping`].
+    /// Apply a `SimplifiedMapping` to the merge.
     #[must_use]
-    fn apply_simplified_mapping(&self, mapping: &[usize]) -> Self
+    pub fn apply_simplified_mapping(&self, mapping: &SimplifiedMapping) -> Self
     where
         T: Clone,
     {
         // Reorder values based on their new indices in the simplified merge.
         let values = mapping
+            .simplified_to_original_indices
             .iter()
             .map(|index| self.values[*index].clone())
             .collect();
@@ -420,7 +386,7 @@ impl<T> Merge<T> {
     where
         T: PartialEq + Clone,
     {
-        let mapping = self.get_simplified_mapping();
+        let mapping = SimplifiedMapping::new(self);
         self.apply_simplified_mapping(&mapping)
     }
 
@@ -431,7 +397,7 @@ impl<T> Merge<T> {
         T: Clone,
         U: PartialEq,
     {
-        let mapping = self.map(f).get_simplified_mapping();
+        let mapping = SimplifiedMapping::new(&self.map(f));
         self.apply_simplified_mapping(&mapping)
     }
 
@@ -440,9 +406,16 @@ impl<T> Merge<T> {
     where
         T: PartialEq,
     {
-        let mapping = self.get_simplified_mapping();
-        assert_eq!(mapping.len(), simplified.values.len());
-        for (index, value) in mapping.into_iter().zip(simplified.values) {
+        let mapping = SimplifiedMapping::new(&self);
+        assert_eq!(
+            mapping.simplified_to_original_indices.len(),
+            simplified.values.len()
+        );
+        for (index, value) in mapping
+            .simplified_to_original_indices
+            .into_iter()
+            .zip(simplified.values)
+        {
             self.values[index] = value;
         }
         self
@@ -557,6 +530,72 @@ impl<T> Merge<&'_ T> {
         T: Clone,
     {
         self.map(|&term| term.clone())
+    }
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub struct SimplifiedMapping {
+    simplified_to_original_indices: Vec<usize>,
+    original_len: usize,
+}
+
+impl SimplifiedMapping {
+    pub fn new<T>(merge: &Merge<T>) -> Self
+    where
+        T: PartialEq,
+    {
+        let unsimplified_len = merge.values.len();
+        let mut simplified_to_original_indices = (0..unsimplified_len).collect_vec();
+
+        let mut add_index = 0;
+        while add_index < simplified_to_original_indices.len() {
+            let add = &merge.values[simplified_to_original_indices[add_index]];
+            let mut remove_indices = simplified_to_original_indices
+                .iter()
+                .enumerate()
+                .skip(1)
+                .step_by(2);
+            if let Some((remove_index, _)) = remove_indices
+                .find(|&(_, original_remove_index)| &merge.values[*original_remove_index] == add)
+            {
+                // Align the current "add" value to the `remove_index/2`-th diff, then
+                // delete the diff pair.
+                simplified_to_original_indices.swap(remove_index + 1, add_index);
+                simplified_to_original_indices.drain(remove_index..remove_index + 2);
+            } else {
+                add_index += 2;
+            }
+        }
+
+        Self {
+            simplified_to_original_indices,
+            original_len: unsimplified_len,
+        }
+    }
+
+    pub fn original_num_sides(&self) -> usize {
+        self.original_len / 2 + 1
+    }
+
+    pub fn simplified_num_sides(&self) -> usize {
+        self.simplified_to_original_indices.len() / 2 + 1
+    }
+
+    pub fn then(&self, other: &Self) -> Self {
+        assert_eq!(
+            self.simplified_to_original_indices.len(),
+            other.original_len
+        );
+        let simplified_to_original_indices = other
+            .simplified_to_original_indices
+            .iter()
+            .copied()
+            .map(|index| self.simplified_to_original_indices[index])
+            .collect_vec();
+        Self {
+            simplified_to_original_indices,
+            original_len: self.original_len,
+        }
     }
 }
 
