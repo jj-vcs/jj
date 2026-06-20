@@ -342,49 +342,15 @@ impl<T> Merge<T> {
         }
     }
 
-    /// Returns a vector mapping of a value's index in the simplified merge to
-    /// its original index in the unsimplified merge.
-    ///
-    /// The merge is simplified by removing identical values in add and remove
-    /// values.
-    fn get_simplified_mapping(&self) -> Vec<usize>
-    where
-        T: PartialEq,
-    {
-        let unsimplified_len = self.values.len();
-        let mut simplified_to_original_indices = (0..unsimplified_len).collect_vec();
-
-        let mut add_index = 0;
-        while add_index < simplified_to_original_indices.len() {
-            let add = &self.values[simplified_to_original_indices[add_index]];
-            let mut remove_indices = simplified_to_original_indices
-                .iter()
-                .enumerate()
-                .skip(1)
-                .step_by(2);
-            if let Some((remove_index, _)) = remove_indices
-                .find(|&(_, original_remove_index)| &self.values[*original_remove_index] == add)
-            {
-                // Align the current "add" value to the `remove_index/2`-th diff, then
-                // delete the diff pair.
-                simplified_to_original_indices.swap(remove_index + 1, add_index);
-                simplified_to_original_indices.drain(remove_index..remove_index + 2);
-            } else {
-                add_index += 2;
-            }
-        }
-
-        simplified_to_original_indices
-    }
-
-    /// Apply the mapping returned by [`Self::get_simplified_mapping`].
+    /// Apply a `SimplifiedMapping` to the merge.
     #[must_use]
-    fn apply_simplified_mapping(&self, mapping: &[usize]) -> Self
+    pub fn apply_simplified_mapping(&self, mapping: &SimplifiedMapping) -> Self
     where
         T: Clone,
     {
         // Reorder values based on their new indices in the simplified merge.
         let values = mapping
+            .new_to_old_indices
             .iter()
             .map(|index| self.values[*index].clone())
             .collect();
@@ -404,7 +370,8 @@ impl<T> Merge<T> {
         if self.is_resolved() {
             return self;
         }
-        let mut kept_indices = self.get_simplified_mapping();
+        let mapping = SimplifiedMapping::simplifying(&self);
+        let mut kept_indices = mapping.new_to_old_indices;
         kept_indices.sort_unstable();
         let mut kept_indices = kept_indices.into_iter().peekable();
         for (index, value) in self.values.iter_mut().enumerate() {
@@ -422,7 +389,7 @@ impl<T> Merge<T> {
     where
         T: PartialEq + Clone,
     {
-        let mapping = self.get_simplified_mapping();
+        let mapping = SimplifiedMapping::simplifying(self);
         self.apply_simplified_mapping(&mapping)
     }
 
@@ -433,7 +400,7 @@ impl<T> Merge<T> {
         T: Clone,
         U: PartialEq,
     {
-        let mapping = self.map(f).get_simplified_mapping();
+        let mapping = SimplifiedMapping::simplifying(&self.map(f));
         self.apply_simplified_mapping(&mapping)
     }
 
@@ -442,9 +409,13 @@ impl<T> Merge<T> {
     where
         T: PartialEq,
     {
-        let mapping = self.get_simplified_mapping();
-        assert_eq!(mapping.len(), simplified.values.len());
-        for (index, value) in mapping.into_iter().zip(simplified.values) {
+        let mapping = SimplifiedMapping::simplifying(&self);
+        assert_eq!(mapping.new_to_old_indices.len(), simplified.values.len());
+        for (index, value) in mapping
+            .new_to_old_indices
+            .into_iter()
+            .zip(simplified.values)
+        {
             self.values[index] = value;
         }
         self
@@ -547,6 +518,93 @@ impl<T> Merge<&'_ T> {
         T: Clone,
     {
         self.map(|&term| term.clone())
+    }
+}
+
+/// A mapping that can be used to simplify or permute a `Merge<T>`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SimplifiedMapping {
+    new_to_old_indices: Vec<usize>,
+    old_len: usize,
+}
+
+impl SimplifiedMapping {
+    /// Returns a `SimplifiedMapping` that would simplify the given merge.
+    pub fn simplifying<T>(merge: &Merge<T>) -> Self
+    where
+        T: PartialEq,
+    {
+        let unsimplified_len = merge.values.len();
+        let mut simplified_to_original_indices = (0..unsimplified_len).collect_vec();
+
+        let mut add_index = 0;
+        while add_index < simplified_to_original_indices.len() {
+            let add = &merge.values[simplified_to_original_indices[add_index]];
+            let mut remove_indices = simplified_to_original_indices
+                .iter()
+                .enumerate()
+                .skip(1)
+                .step_by(2);
+            if let Some((remove_index, _)) = remove_indices
+                .find(|&(_, original_remove_index)| &merge.values[*original_remove_index] == add)
+            {
+                // Align the current "add" value to the `remove_index/2`-th diff, then
+                // delete the diff pair.
+                simplified_to_original_indices.swap(remove_index + 1, add_index);
+                simplified_to_original_indices.drain(remove_index..remove_index + 2);
+            } else {
+                add_index += 2;
+            }
+        }
+
+        Self {
+            new_to_old_indices: simplified_to_original_indices,
+            old_len: unsimplified_len,
+        }
+    }
+
+    /// Returns a `SimplifiedMapping` that does nothing.
+    pub fn no_op(num_sides: usize) -> Self {
+        let old_len = num_sides * 2 - 1;
+        Self {
+            new_to_old_indices: (0..old_len).collect_vec(),
+            old_len,
+        }
+    }
+
+    /// Returns true if this mapping does nothing.
+    pub fn is_no_op(&self) -> bool {
+        self.new_to_old_indices.len() == self.old_len
+            && self
+                .new_to_old_indices
+                .iter()
+                .enumerate()
+                .all(|(index, &old_index)| index == old_index)
+    }
+
+    /// Returns the expected number of sides of the old merge.
+    pub fn old_num_sides(&self) -> usize {
+        self.old_len / 2 + 1
+    }
+
+    /// Returns the number of sides that this mapping will produce for the new merge.
+    pub fn new_num_sides(&self) -> usize {
+        self.new_to_old_indices.len() / 2 + 1
+    }
+
+    /// Returns a mapping which is equivalent to applying `self`, then applying `other`.
+    pub fn then(&self, other: &Self) -> Self {
+        assert_eq!(self.new_to_old_indices.len(), other.old_len);
+        let new_to_old_indices = other
+            .new_to_old_indices
+            .iter()
+            .copied()
+            .map(|index| self.new_to_old_indices[index])
+            .collect_vec();
+        Self {
+            new_to_old_indices,
+            old_len: self.old_len,
+        }
     }
 }
 
@@ -907,101 +965,105 @@ mod tests {
 
     #[test]
     fn test_get_simplified_mapping() {
+        fn get_simplified_mapping(merge: Merge<u32>) -> Vec<usize> {
+            SimplifiedMapping::simplifying(&merge).new_to_old_indices
+        }
+
         // 1-way merge
-        assert_eq!(c(&[0]).get_simplified_mapping(), vec![0]);
+        assert_eq!(get_simplified_mapping(c(&[0])), vec![0]);
         // 3-way merge
-        assert_eq!(c(&[0, 0, 0]).get_simplified_mapping(), vec![2]);
-        assert_eq!(c(&[0, 0, 1]).get_simplified_mapping(), vec![2]);
-        assert_eq!(c(&[0, 1, 0]).get_simplified_mapping(), vec![0, 1, 2]);
-        assert_eq!(c(&[0, 1, 1]).get_simplified_mapping(), vec![0]);
-        assert_eq!(c(&[0, 1, 2]).get_simplified_mapping(), vec![0, 1, 2]);
+        assert_eq!(get_simplified_mapping(c(&[0, 0, 0])), vec![2]);
+        assert_eq!(get_simplified_mapping(c(&[0, 0, 1])), vec![2]);
+        assert_eq!(get_simplified_mapping(c(&[0, 1, 0])), vec![0, 1, 2]);
+        assert_eq!(get_simplified_mapping(c(&[0, 1, 1])), vec![0]);
+        assert_eq!(get_simplified_mapping(c(&[0, 1, 2])), vec![0, 1, 2]);
         // 5-way merge
-        assert_eq!(c(&[0, 0, 0, 0, 0]).get_simplified_mapping(), vec![4]);
-        assert_eq!(c(&[0, 0, 0, 0, 1]).get_simplified_mapping(), vec![4]);
-        assert_eq!(c(&[0, 0, 0, 1, 0]).get_simplified_mapping(), vec![2, 3, 4]);
-        assert_eq!(c(&[0, 0, 0, 1, 1]).get_simplified_mapping(), vec![2]);
-        assert_eq!(c(&[0, 0, 0, 1, 2]).get_simplified_mapping(), vec![2, 3, 4]);
-        assert_eq!(c(&[0, 0, 1, 0, 0]).get_simplified_mapping(), vec![2]);
-        assert_eq!(c(&[0, 0, 1, 0, 1]).get_simplified_mapping(), vec![2, 3, 4]);
-        assert_eq!(c(&[0, 0, 1, 0, 2]).get_simplified_mapping(), vec![2, 3, 4]);
-        assert_eq!(c(&[0, 0, 1, 1, 0]).get_simplified_mapping(), vec![4]);
-        assert_eq!(c(&[0, 0, 1, 1, 1]).get_simplified_mapping(), vec![4]);
-        assert_eq!(c(&[0, 0, 1, 1, 2]).get_simplified_mapping(), vec![4]);
-        assert_eq!(c(&[0, 0, 2, 1, 0]).get_simplified_mapping(), vec![2, 3, 4]);
-        assert_eq!(c(&[0, 0, 2, 1, 1]).get_simplified_mapping(), vec![2]);
-        assert_eq!(c(&[0, 0, 2, 1, 2]).get_simplified_mapping(), vec![2, 3, 4]);
-        assert_eq!(c(&[0, 0, 2, 1, 3]).get_simplified_mapping(), vec![2, 3, 4]);
-        assert_eq!(c(&[0, 1, 0, 0, 0]).get_simplified_mapping(), vec![4, 1, 2]);
-        assert_eq!(c(&[0, 1, 0, 0, 1]).get_simplified_mapping(), vec![2]);
-        assert_eq!(c(&[0, 1, 0, 0, 2]).get_simplified_mapping(), vec![4, 1, 2]);
+        assert_eq!(get_simplified_mapping(c(&[0, 0, 0, 0, 0])), vec![4]);
+        assert_eq!(get_simplified_mapping(c(&[0, 0, 0, 0, 1])), vec![4]);
+        assert_eq!(get_simplified_mapping(c(&[0, 0, 0, 1, 0])), vec![2, 3, 4]);
+        assert_eq!(get_simplified_mapping(c(&[0, 0, 0, 1, 1])), vec![2]);
+        assert_eq!(get_simplified_mapping(c(&[0, 0, 0, 1, 2])), vec![2, 3, 4]);
+        assert_eq!(get_simplified_mapping(c(&[0, 0, 1, 0, 0])), vec![2]);
+        assert_eq!(get_simplified_mapping(c(&[0, 0, 1, 0, 1])), vec![2, 3, 4]);
+        assert_eq!(get_simplified_mapping(c(&[0, 0, 1, 0, 2])), vec![2, 3, 4]);
+        assert_eq!(get_simplified_mapping(c(&[0, 0, 1, 1, 0])), vec![4]);
+        assert_eq!(get_simplified_mapping(c(&[0, 0, 1, 1, 1])), vec![4]);
+        assert_eq!(get_simplified_mapping(c(&[0, 0, 1, 1, 2])), vec![4]);
+        assert_eq!(get_simplified_mapping(c(&[0, 0, 2, 1, 0])), vec![2, 3, 4]);
+        assert_eq!(get_simplified_mapping(c(&[0, 0, 2, 1, 1])), vec![2]);
+        assert_eq!(get_simplified_mapping(c(&[0, 0, 2, 1, 2])), vec![2, 3, 4]);
+        assert_eq!(get_simplified_mapping(c(&[0, 0, 2, 1, 3])), vec![2, 3, 4]);
+        assert_eq!(get_simplified_mapping(c(&[0, 1, 0, 0, 0])), vec![4, 1, 2]);
+        assert_eq!(get_simplified_mapping(c(&[0, 1, 0, 0, 1])), vec![2]);
+        assert_eq!(get_simplified_mapping(c(&[0, 1, 0, 0, 2])), vec![4, 1, 2]);
         assert_eq!(
-            c(&[0, 1, 0, 1, 0]).get_simplified_mapping(),
+            get_simplified_mapping(c(&[0, 1, 0, 1, 0])),
             vec![0, 1, 2, 3, 4]
         );
-        assert_eq!(c(&[0, 1, 0, 1, 1]).get_simplified_mapping(), vec![0, 3, 2]);
+        assert_eq!(get_simplified_mapping(c(&[0, 1, 0, 1, 1])), vec![0, 3, 2]);
         assert_eq!(
-            c(&[0, 1, 0, 1, 2]).get_simplified_mapping(),
-            vec![0, 1, 2, 3, 4]
-        );
-        assert_eq!(
-            c(&[0, 1, 0, 2, 0]).get_simplified_mapping(),
-            vec![0, 1, 2, 3, 4]
-        );
-        assert_eq!(c(&[0, 1, 0, 2, 1]).get_simplified_mapping(), vec![0, 3, 2]);
-        assert_eq!(c(&[0, 1, 0, 2, 2]).get_simplified_mapping(), vec![0, 1, 2]);
-        assert_eq!(
-            c(&[0, 1, 0, 2, 3]).get_simplified_mapping(),
-            vec![0, 1, 2, 3, 4]
-        );
-        assert_eq!(c(&[0, 1, 1, 0, 0]).get_simplified_mapping(), vec![4]);
-        assert_eq!(c(&[0, 1, 1, 0, 1]).get_simplified_mapping(), vec![2]);
-        assert_eq!(c(&[0, 1, 1, 0, 2]).get_simplified_mapping(), vec![4]);
-        assert_eq!(c(&[0, 1, 1, 1, 0]).get_simplified_mapping(), vec![0, 3, 4]);
-        assert_eq!(c(&[0, 1, 1, 1, 1]).get_simplified_mapping(), vec![0]);
-        assert_eq!(c(&[0, 1, 1, 1, 2]).get_simplified_mapping(), vec![0, 3, 4]);
-        assert_eq!(c(&[0, 1, 1, 2, 0]).get_simplified_mapping(), vec![0, 3, 4]);
-        assert_eq!(c(&[0, 1, 1, 2, 1]).get_simplified_mapping(), vec![0, 3, 4]);
-        assert_eq!(c(&[0, 1, 1, 2, 2]).get_simplified_mapping(), vec![0]);
-        assert_eq!(c(&[0, 1, 1, 2, 3]).get_simplified_mapping(), vec![0, 3, 4]);
-        assert_eq!(c(&[0, 1, 2, 0, 0]).get_simplified_mapping(), vec![4, 1, 2]);
-        assert_eq!(c(&[0, 1, 2, 0, 1]).get_simplified_mapping(), vec![2]);
-        assert_eq!(c(&[0, 1, 2, 0, 2]).get_simplified_mapping(), vec![4, 1, 2]);
-        assert_eq!(c(&[0, 1, 2, 0, 3]).get_simplified_mapping(), vec![4, 1, 2]);
-        assert_eq!(
-            c(&[0, 1, 2, 1, 0]).get_simplified_mapping(),
-            vec![0, 1, 2, 3, 4]
-        );
-        assert_eq!(c(&[0, 1, 2, 1, 1]).get_simplified_mapping(), vec![0, 3, 2]);
-        assert_eq!(
-            c(&[0, 1, 2, 1, 2]).get_simplified_mapping(),
+            get_simplified_mapping(c(&[0, 1, 0, 1, 2])),
             vec![0, 1, 2, 3, 4]
         );
         assert_eq!(
-            c(&[0, 1, 2, 1, 3]).get_simplified_mapping(),
+            get_simplified_mapping(c(&[0, 1, 0, 2, 0])),
             vec![0, 1, 2, 3, 4]
         );
-        assert_eq!(c(&[0, 1, 2, 2, 0]).get_simplified_mapping(), vec![0, 1, 4]);
-        assert_eq!(c(&[0, 1, 2, 2, 1]).get_simplified_mapping(), vec![0]);
-        assert_eq!(c(&[0, 1, 2, 2, 2]).get_simplified_mapping(), vec![0, 1, 4]);
-        assert_eq!(c(&[0, 1, 2, 2, 3]).get_simplified_mapping(), vec![0, 1, 4]);
+        assert_eq!(get_simplified_mapping(c(&[0, 1, 0, 2, 1])), vec![0, 3, 2]);
+        assert_eq!(get_simplified_mapping(c(&[0, 1, 0, 2, 2])), vec![0, 1, 2]);
         assert_eq!(
-            c(&[0, 1, 2, 3, 0]).get_simplified_mapping(),
+            get_simplified_mapping(c(&[0, 1, 0, 2, 3])),
             vec![0, 1, 2, 3, 4]
         );
-        assert_eq!(c(&[0, 1, 2, 3, 1]).get_simplified_mapping(), vec![0, 3, 2]);
+        assert_eq!(get_simplified_mapping(c(&[0, 1, 1, 0, 0])), vec![4]);
+        assert_eq!(get_simplified_mapping(c(&[0, 1, 1, 0, 1])), vec![2]);
+        assert_eq!(get_simplified_mapping(c(&[0, 1, 1, 0, 2])), vec![4]);
+        assert_eq!(get_simplified_mapping(c(&[0, 1, 1, 1, 0])), vec![0, 3, 4]);
+        assert_eq!(get_simplified_mapping(c(&[0, 1, 1, 1, 1])), vec![0]);
+        assert_eq!(get_simplified_mapping(c(&[0, 1, 1, 1, 2])), vec![0, 3, 4]);
+        assert_eq!(get_simplified_mapping(c(&[0, 1, 1, 2, 0])), vec![0, 3, 4]);
+        assert_eq!(get_simplified_mapping(c(&[0, 1, 1, 2, 1])), vec![0, 3, 4]);
+        assert_eq!(get_simplified_mapping(c(&[0, 1, 1, 2, 2])), vec![0]);
+        assert_eq!(get_simplified_mapping(c(&[0, 1, 1, 2, 3])), vec![0, 3, 4]);
+        assert_eq!(get_simplified_mapping(c(&[0, 1, 2, 0, 0])), vec![4, 1, 2]);
+        assert_eq!(get_simplified_mapping(c(&[0, 1, 2, 0, 1])), vec![2]);
+        assert_eq!(get_simplified_mapping(c(&[0, 1, 2, 0, 2])), vec![4, 1, 2]);
+        assert_eq!(get_simplified_mapping(c(&[0, 1, 2, 0, 3])), vec![4, 1, 2]);
         assert_eq!(
-            c(&[0, 1, 2, 3, 2]).get_simplified_mapping(),
+            get_simplified_mapping(c(&[0, 1, 2, 1, 0])),
+            vec![0, 1, 2, 3, 4]
+        );
+        assert_eq!(get_simplified_mapping(c(&[0, 1, 2, 1, 1])), vec![0, 3, 2]);
+        assert_eq!(
+            get_simplified_mapping(c(&[0, 1, 2, 1, 2])),
             vec![0, 1, 2, 3, 4]
         );
         assert_eq!(
-            c(&[0, 1, 2, 3, 4, 5, 1]).get_simplified_mapping(),
+            get_simplified_mapping(c(&[0, 1, 2, 1, 3])),
+            vec![0, 1, 2, 3, 4]
+        );
+        assert_eq!(get_simplified_mapping(c(&[0, 1, 2, 2, 0])), vec![0, 1, 4]);
+        assert_eq!(get_simplified_mapping(c(&[0, 1, 2, 2, 1])), vec![0]);
+        assert_eq!(get_simplified_mapping(c(&[0, 1, 2, 2, 2])), vec![0, 1, 4]);
+        assert_eq!(get_simplified_mapping(c(&[0, 1, 2, 2, 3])), vec![0, 1, 4]);
+        assert_eq!(
+            get_simplified_mapping(c(&[0, 1, 2, 3, 0])),
+            vec![0, 1, 2, 3, 4]
+        );
+        assert_eq!(get_simplified_mapping(c(&[0, 1, 2, 3, 1])), vec![0, 3, 2]);
+        assert_eq!(
+            get_simplified_mapping(c(&[0, 1, 2, 3, 2])),
+            vec![0, 1, 2, 3, 4]
+        );
+        assert_eq!(
+            get_simplified_mapping(c(&[0, 1, 2, 3, 4, 5, 1])),
             vec![0, 3, 4, 5, 2]
         );
         assert_eq!(
-            c(&[0, 1, 2, 3, 4]).get_simplified_mapping(),
+            get_simplified_mapping(c(&[0, 1, 2, 3, 4])),
             vec![0, 1, 2, 3, 4]
         );
-        assert_eq!(c(&[2, 0, 3, 1, 1]).get_simplified_mapping(), vec![0, 1, 2]);
+        assert_eq!(get_simplified_mapping(c(&[2, 0, 3, 1, 1])), vec![0, 1, 2]);
     }
 
     #[test]
