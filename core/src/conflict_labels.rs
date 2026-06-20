@@ -17,6 +17,7 @@
 use std::fmt;
 
 use crate::merge::Merge;
+use crate::merge::SimplifiedMapping;
 
 /// Optionally contains a set of labels for the terms of a conflict. Resolved
 /// merges cannot be labeled.
@@ -102,21 +103,22 @@ impl ConflictLabels {
             .map(String::as_str)
     }
 
+    /// Apply a `SimplifiedMapping` to the labels, if any.
+    pub fn apply_simplified_mapping(&self, mapping: &SimplifiedMapping) -> Self {
+        if self.has_labels() {
+            Self::from_merge(self.labels.apply_simplified_mapping(mapping))
+        } else {
+            Self::unlabeled()
+        }
+    }
+
     /// Simplify a merge with the same number of sides while preserving the
     /// conflict labels corresponding to each side of the merge.
     pub fn simplify_with<T: PartialEq + Clone>(&self, merge: &Merge<T>) -> (Self, Merge<T>) {
-        if self.has_labels() {
-            let (labels, simplified) = self
-                .labels
-                .as_ref()
-                .zip(merge.as_ref())
-                .simplify_by(|&(_label, item)| item)
-                .unzip();
-            (Self::from_merge(labels.cloned()), simplified.cloned())
-        } else {
-            let simplified = merge.simplify();
-            (Self::unlabeled(), simplified)
-        }
+        let mapping = SimplifiedMapping::new(merge);
+        let labels = self.apply_simplified_mapping(&mapping);
+        let simplified = merge.apply_simplified_mapping(&mapping);
+        (labels, simplified)
     }
 }
 
