@@ -157,7 +157,6 @@ use crate::command_error::config_error_with_message;
 use crate::command_error::handle_command_result;
 use crate::command_error::internal_error;
 use crate::command_error::internal_error_with_message;
-use crate::command_error::print_error_sources;
 use crate::command_error::print_parse_diagnostics;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
@@ -2257,6 +2256,8 @@ to the current parents may contain changes from multiple commits.
         #[cfg(feature = "git")]
         if self.working_copy_shared_with_git && self.env.command.should_commit_transaction() {
             use std::error::Error as _;
+
+            use crate::command_error::print_error_sources;
             if let Some(wc_commit) = &maybe_new_wc_commit {
                 // Export Git HEAD while holding the git-head lock to prevent races:
                 // - Between two finish_transaction calls updating HEAD
