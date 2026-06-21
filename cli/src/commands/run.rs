@@ -195,27 +195,31 @@ struct RunJob {
     status: Option<ExitStatus>,
 }
 
-// TODO: make this more revset/commit stream friendly.
-async fn run_inner(
-    tx: &WorkspaceCommandTransaction<'_>,
-    sender: Sender<RunJob>,
-    handle: &tokio::runtime::Handle,
+struct RunContext {
     spec: Arc<CommandSpec>,
     base_path: Arc<PathBuf>,
     commits: Arc<Vec<Commit>>,
     ignore_filters: HashSet<String>,
     jobs: usize,
+}
+
+// TODO: make this more revset/commit stream friendly.
+async fn run_inner(
+    tx: &WorkspaceCommandTransaction<'_>,
+    sender: Sender<RunJob>,
+    handle: &tokio::runtime::Handle,
+    context: RunContext,
 ) -> Result<(), RunError> {
     let base_ignores = tx.base_workspace_helper().base_ignores().unwrap().clone();
-    let semaphore = Arc::new(Semaphore::new(jobs));
+    let semaphore = Arc::new(Semaphore::new(context.jobs));
     let mut command_futures: JoinSet<Result<RunJob, RunError>> = JoinSet::new();
-    for commit in commits.iter() {
+    for commit in context.commits.iter() {
         let permit_future = semaphore.clone().acquire_owned();
         let base_ignores = base_ignores.clone();
-        let base_path = base_path.clone();
+        let base_path = context.base_path.clone();
         let commit = commit.clone();
-        let ignore_filters = ignore_filters.clone();
-        let spec = spec.clone();
+        let ignore_filters = context.ignore_filters.clone();
+        let spec = context.spec.clone();
         command_futures.spawn_on(
             async move {
                 let _permit: OwnedSemaphorePermit =
@@ -516,6 +520,13 @@ pub async fn cmd_run(
         args: args.args.clone(),
         subdir,
     });
+    let run_context = RunContext {
+        spec: spec.clone(),
+        base_path,
+        commits: Arc::new(resolved_commits.clone()),
+        ignore_filters,
+        jobs: args.jobs,
+    };
     let mut rewritten_commits = HashMap::new();
 
     // Drive the producer (run_inner) and consumer (receive loop) concurrently
@@ -523,18 +534,9 @@ pub async fn cmd_run(
     // than after all subprocesses complete.
     let ((), visited) = futures::try_join!(
         async {
-            run_inner(
-                &tx,
-                sender_tx,
-                rt.handle(),
-                spec.clone(),
-                base_path,
-                Arc::new(resolved_commits.clone()),
-                ignore_filters,
-                args.jobs,
-            )
-            .await
-            .map_err(CommandError::from)
+            run_inner(&tx, sender_tx, rt.handle(), run_context)
+                .await
+                .map_err(CommandError::from)
         },
         async {
             let mut visited = 0;
