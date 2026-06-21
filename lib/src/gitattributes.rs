@@ -764,13 +764,38 @@ mod tests {
         )]);
         let attributes = GitAttributes::new(HashMap::new(), data);
 
-        attributes
-            .filter_matches(
-                repo_path(path),
-                &HashSet::from(["lfs".to_string()]),
-                SearchPriority::Disk,
-            )
-            .block_on()
+            attributes
+                .filter_matches(
+                    repo_path(path),
+                    &HashSet::from(["lfs".to_string()]),
+                    SearchPriority::Disk,
+                )
+                .block_on()
+    }
+
+    // Regression test for a bug found during development.
+    //
+    // `filter_matches()` is used by snapshot to decide whether a matching file
+    // should be omitted. This characterizes the pre-fix behavior: if loading
+    // .gitattributes fails, the error is treated as a non-match. That can make
+    // snapshot continue with a file that may be intentionally excluded.
+    #[test]
+    fn test_filter_matches_swallows_error() {
+        let store: TestStore = TestStore::from([(
+            repo_path(".gitattributes").to_owned(),
+            Err("There was an IO error".to_string()),
+        )]);
+        let attributes = GitAttributes::new(store, HashMap::new());
+
+        assert!(
+            !attributes
+                .filter_matches(
+                    repo_path("file.bin"),
+                    &HashSet::from(["lfs".to_string()]),
+                    SearchPriority::Disk,
+                )
+                .block_on()
+        );
     }
 
     #[test]
