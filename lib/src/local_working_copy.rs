@@ -1612,7 +1612,7 @@ impl FileSnapshotter<'_> {
             })
             .collect::<Result<_, _>>()?;
         let present_entries = PresentDirEntries { dirs, files };
-        self.emit_deleted_files(&dir, file_states, &present_entries);
+        self.emit_deleted_files(&dir, file_states, &present_entries)?;
         Ok(())
     }
 
@@ -1690,7 +1690,7 @@ impl FileSnapshotter<'_> {
             if self
                 .git_attributes
                 .filter_matches(&path, &self.ignore_filters, SearchPriority::Disk)
-                .block_on()
+                .block_on()?
             {
                 // Skip gitattributes files that we want to ignore - this
                 // would result in them showing up as deleted, but we also
@@ -1760,7 +1760,7 @@ impl FileSnapshotter<'_> {
             if self
                 .git_attributes
                 .filter_matches(tracked_path, &self.ignore_filters, SearchPriority::Disk)
-                .await
+                .await?
             {
                 continue;
             }
@@ -1825,7 +1825,7 @@ impl FileSnapshotter<'_> {
         dir: &RepoPath,
         file_states: FileStates<'_>,
         present_entries: &PresentDirEntries,
-    ) {
+    ) -> Result<(), SnapshotError> {
         let file_state_chunks = file_states.iter().chunk_by(|(path, _state)| {
             // Extract <name> from <dir>, <dir>/<name>, or <dir>/<name>/**.
             // (file_states may contain <dir> file on file->dir transition.)
@@ -1838,25 +1838,33 @@ impl FileSnapshotter<'_> {
                 None => (PresentDirEntryKind::File, tail),
             }
         });
-        file_state_chunks
+        for (_, chunk) in file_state_chunks
             .into_iter()
             .filter(|&((kind, name), _)| match kind {
                 PresentDirEntryKind::Dir => !present_entries.dirs.contains(name),
                 PresentDirEntryKind::File => !present_entries.files.contains(name),
             })
-            .flat_map(|(_, chunk)| chunk)
-            // Whether or not the entry exists, submodule should be ignored
-            .filter(|(_, state)| state.file_type != FileType::GitSubmodule)
-            // Whether or not the entry exists, ignored gitattributes files should be omitted
-            .filter(|(path, _)| {
-                !self
+        {
+            for (path, state) in chunk {
+                // Whether or not the entry exists, submodule should be ignored.
+                if state.file_type == FileType::GitSubmodule {
+                    continue;
+                }
+                if self
                     .git_attributes
                     .filter_matches(path, &self.ignore_filters, SearchPriority::Disk)
-                    .block_on()
-            })
-            .filter(|(path, _)| self.matcher.matches(path))
-            .try_for_each(|(path, _)| self.deleted_files_tx.send(path.to_owned()))
-            .ok();
+                    .block_on()?
+                {
+                    // Whether or not the entry exists, ignored gitattributes
+                    // files should be omitted.
+                    continue;
+                }
+                if self.matcher.matches(path) {
+                    self.deleted_files_tx.send(path.to_owned()).ok();
+                }
+            }
+        }
+        Ok(())
     }
 
     async fn get_updated_tree_value(

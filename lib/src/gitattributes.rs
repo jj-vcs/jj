@@ -172,7 +172,9 @@ impl FileLoader for DiskFileLoader {
         // we use symlink_metadata to not follow symlinks to follow Git's behavior.
         let metadata = match path.symlink_metadata() {
             Ok(metadata) => metadata,
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(err) if matches!(err.kind(), ErrorKind::NotFound | ErrorKind::NotADirectory) => {
+                return Ok(None);
+            }
             Err(err) => {
                 return Err(GitAttributesError {
                     message: format!("Failed to obtain the file metadata of {}", path.display()),
@@ -186,7 +188,14 @@ impl FileLoader for DiskFileLoader {
 
         let file = match File::open(&path) {
             Ok(file) => file,
-            Err(error) if error.kind() == ErrorKind::NotFound => return Ok(None),
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    ErrorKind::NotFound | ErrorKind::NotADirectory
+                ) =>
+            {
+                return Ok(None);
+            }
             Err(err) => {
                 return Err(GitAttributesError {
                     message: format!("Failed to open the file at {}", path.display()),
@@ -431,19 +440,17 @@ impl GitAttributes {
         path: &RepoPath,
         ignore_filters: &HashSet<String>,
         priority: SearchPriority,
-    ) -> bool {
+    ) -> Result<bool, GitAttributesError> {
         if ignore_filters.is_empty() {
-            return false;
+            return Ok(false);
         }
-        let Ok(result) = self.search(path, ["filter"], priority).await else {
-            return false;
-        };
+        let result = self.search(path, ["filter"], priority).await?;
 
         let Some(State::Value(value)) = result.get("filter") else {
-            return false;
+            return Ok(false);
         };
         let value = value.as_ref().as_bstr();
-        ignore_filters.iter().any(|state| value == state.as_str())
+        Ok(ignore_filters.iter().any(|state| value == state.as_str()))
     }
 }
 
@@ -465,6 +472,7 @@ mod tests {
     use pollster::FutureExt as _;
 
     use super::*;
+    use crate::tests::new_temp_dir;
 
     type TestStore = HashMap<RepoPathBuf, Result<String, String>>;
 
@@ -770,32 +778,56 @@ mod tests {
                     &HashSet::from(["lfs".to_string()]),
                     SearchPriority::Disk,
                 )
-                .block_on()
+            .block_on()
+            .unwrap()
     }
 
     // Regression test for a bug found during development.
     //
     // `filter_matches()` is used by snapshot to decide whether a matching file
-    // should be omitted. This characterizes the pre-fix behavior: if loading
-    // .gitattributes fails, the error is treated as a non-match. That can make
-    // snapshot continue with a file that may be intentionally excluded.
+    // should be omitted. If loading .gitattributes fails, returning false would
+    // silently snapshot a file that may be intentionally excluded. Preserve the
+    // error so snapshot fails visibly instead.
     #[test]
-    fn test_filter_matches_swallows_error() {
+    fn test_filter_matches_propagates_error() {
         let store: TestStore = TestStore::from([(
             repo_path(".gitattributes").to_owned(),
             Err("There was an IO error".to_string()),
         )]);
         let attributes = GitAttributes::new(store, HashMap::new());
 
-        assert!(
-            !attributes
-                .filter_matches(
-                    repo_path("file.bin"),
-                    &HashSet::from(["lfs".to_string()]),
-                    SearchPriority::Disk,
-                )
-                .block_on()
-        );
+        let error = attributes
+            .filter_matches(
+                repo_path("file.bin"),
+                &HashSet::from(["lfs".to_string()]),
+                SearchPriority::Disk,
+            )
+            .block_on()
+            .unwrap_err();
+
+        assert_eq!(error.message, "There was an IO error");
+    }
+
+    // Regression test for a bug found during development.
+    //
+    // This is distinct from `test_filter_matches_propagates_error()`: probing
+    // for optional `.gitattributes` files below a path component that is
+    // actually a file means no attributes file exists at that path. Treating
+    // `NotADirectory` as fatal caused unrelated snapshot operations, such as
+    // rename detection, to fail when they evaluated attributes for paths like
+    // `file/.gitattributes`.
+    #[test]
+    fn test_disk_file_loader_ignores_file_in_attributes_path() {
+        let temp_dir = new_temp_dir();
+        std::fs::write(temp_dir.path().join("file"), "contents").unwrap();
+        let loader = DiskFileLoader::new(temp_dir.path().to_owned());
+
+        let loaded = loader
+            .load(repo_path("file/.gitattributes"))
+            .block_on()
+            .unwrap();
+
+        assert!(loaded.is_none());
     }
 
     #[test]
@@ -861,16 +893,19 @@ mod tests {
             attributes
                 .filter_matches(repo_path("file.bin"), filters, SearchPriority::Disk)
                 .block_on()
+                .unwrap()
         );
         assert!(
             attributes
                 .filter_matches(repo_path("subdir/file.txt"), filters, SearchPriority::Disk)
                 .block_on()
+                .unwrap()
         );
         assert!(
             !attributes
                 .filter_matches(repo_path("file.txt"), filters, SearchPriority::Disk)
                 .block_on()
+                .unwrap()
         ); // Not in subdir
     }
 
@@ -911,6 +946,7 @@ mod tests {
             attributes
                 .filter_matches(repo_path("file.bin"), filters, SearchPriority::Disk)
                 .block_on()
+                .unwrap()
         );
         // Test with git-crypt filter
         assert!(
@@ -921,18 +957,21 @@ mod tests {
                     SearchPriority::Disk
                 )
                 .block_on()
+                .unwrap()
         );
         // Not In the filter
         assert!(
             !attributes
                 .filter_matches(repo_path("file.bin2"), filters, SearchPriority::Disk)
                 .block_on()
+                .unwrap()
         );
         // Test that other filters don't match
         assert!(
             !attributes
                 .filter_matches(repo_path("file.txt"), filters, SearchPriority::Disk)
                 .block_on()
+                .unwrap()
         );
     }
 }
