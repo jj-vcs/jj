@@ -189,10 +189,7 @@ impl FileLoader for DiskFileLoader {
         let file = match File::open(&path) {
             Ok(file) => file,
             Err(error)
-                if matches!(
-                    error.kind(),
-                    ErrorKind::NotFound | ErrorKind::NotADirectory
-                ) =>
+                if matches!(error.kind(), ErrorKind::NotFound | ErrorKind::NotADirectory) =>
             {
                 return Ok(None);
             }
