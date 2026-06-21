@@ -60,7 +60,7 @@ gix = { version = "0.84.0", default-features = false, features = [
     "sha1",
     "zlib-rs",
 ] }
-gix-attributes = "0.31.0"
+gix-attributes = "0.33.1"
 gix-ignore = { version = "0.21.0" }
 globset = "0.4.18"
 hashbrown = { version = "0.17.1", default-features = false, features = ["inline-more"] }

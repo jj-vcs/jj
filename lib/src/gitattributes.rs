@@ -348,8 +348,7 @@ pub(crate) enum SearchPriority {
 }
 
 impl GitAttributes {
-    /// Creates a new instance by receiving a Store File Loader, a Disk File
-    /// Loader and a list of filters to be ignored.
+    /// Creates a new instance with store and disk file loaders.
     pub fn new(
         store_file_loader: impl FileLoader + 'static,
         disk_file_loader: impl FileLoader + 'static,
@@ -675,7 +674,7 @@ mod tests {
                     [attr]override_macro c
                     # this macro definition shouldn't take effect.
                     [attr]new_macro e
-                    bar base_macro override_macro new_macro 
+                    bar base_macro override_macro new_macro
                 "},
             ),
             (
@@ -772,12 +771,12 @@ mod tests {
         )]);
         let attributes = GitAttributes::new(HashMap::new(), data);
 
-            attributes
-                .filter_matches(
-                    repo_path(path),
-                    &HashSet::from(["lfs".to_string()]),
-                    SearchPriority::Disk,
-                )
+        attributes
+            .filter_matches(
+                repo_path(path),
+                &HashSet::from(["lfs".to_string()]),
+                SearchPriority::Disk,
+            )
             .block_on()
             .unwrap()
     }
