@@ -546,7 +546,7 @@
                     "items": {
                         "type": "string"
                     },
-                    "description": "Names of `.gitattributes` filter attributes whose matching files should be excluded from snapshots",
+                    "description": "Names of `.gitattributes` filter attributes whose matching files should be excluded from snapshots in Git-backed repositories",
                     "default": ["lfs"]
                 }
             }
