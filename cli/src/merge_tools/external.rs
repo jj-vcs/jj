@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::io;
 use std::io::Write;
 use std::path::Path;
@@ -387,6 +388,7 @@ pub async fn edit_diff_external(
     instructions: Option<&str>,
     base_ignores: Arc<GitIgnoreFile>,
     default_conflict_marker_style: ConflictMarkerStyle,
+    ignore_filters: HashSet<String>,
 ) -> Result<MergedTree, DiffEditError> {
     let conflict_marker_style = editor
         .conflict_marker_style
@@ -404,6 +406,7 @@ pub async fn edit_diff_external(
         diff_type,
         instructions,
         conflict_marker_style,
+        ignore_filters,
     )
     .await?;
 
@@ -455,7 +458,14 @@ pub async fn generate_diff(
     let conflict_marker_style = tool
         .conflict_marker_style
         .unwrap_or(default_conflict_marker_style);
-    let diff_wc = check_out_trees(trees, matcher, DiffType::TwoWay, conflict_marker_style).await?;
+    let diff_wc = check_out_trees(
+        trees,
+        matcher,
+        DiffType::TwoWay,
+        conflict_marker_style,
+        HashSet::new(),
+    )
+    .await?;
     diff_wc.set_left_readonly()?;
     diff_wc.set_right_readonly()?;
     let mut patterns = diff_wc.to_command_variables(true);

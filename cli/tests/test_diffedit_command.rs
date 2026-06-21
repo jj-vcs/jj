@@ -45,13 +45,14 @@ fn test_diffedit_gitattributes_filter_in_temp_snapshot() -> TestResult {
     //
     // This creates a tracked LFS-filtered modification by disabling filter
     // ignores only for setup. `diffedit` then operates with normal settings.
-    // This characterizes the pre-fix behavior: the external editor writes into
-    // a temporary output working copy whose snapshot ignores configured
-    // .gitattributes filters and rewrites the tracked LFS-filtered file.
+    // Its external editor writes into a temporary output working copy, and
+    // snapshotting that output must use the configured .gitattributes filters.
+    // Otherwise the editor can rewrite a tracked LFS-filtered file even though
+    // normal snapshots would ignore it.
     insta::assert_snapshot!(
         work_dir.run_jj(["file", "show", "file.bin"]).success().stdout,
         @r"
-    edited
+    after
     [EOF]
     "
     );
