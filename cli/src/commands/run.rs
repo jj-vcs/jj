@@ -99,6 +99,7 @@ impl From<RunError> for CommandError {
 async fn create_working_copy(
     base_path: &Path,
     commit: &Commit,
+    ignore_filters: HashSet<String>,
 ) -> Result<(PathBuf, TreeState), RunError> {
     // Per-commit working-copy directory, keyed by commit id so concurrent jobs
     // don't collide and so the working copy is reproducible across runs.
@@ -135,7 +136,7 @@ async fn create_working_copy(
         eol_conversion_mode: EolConversionMode::None,
         exec_change_setting: ExecChangeSetting::Auto,
         fsmonitor_settings: FsmonitorSettings::None,
-        ignore_filters: std::collections::HashSet::new(),
+        ignore_filters,
     };
     let mut tree_state = TreeState::init(
         commit.store().clone(),
@@ -202,6 +203,7 @@ async fn run_inner(
     spec: Arc<CommandSpec>,
     base_path: Arc<PathBuf>,
     commits: Arc<Vec<Commit>>,
+    ignore_filters: HashSet<String>,
     jobs: usize,
 ) -> Result<(), RunError> {
     let base_ignores = tx.base_workspace_helper().base_ignores().unwrap().clone();
@@ -212,13 +214,14 @@ async fn run_inner(
         let base_ignores = base_ignores.clone();
         let base_path = base_path.clone();
         let commit = commit.clone();
+        let ignore_filters = ignore_filters.clone();
         let spec = spec.clone();
         command_futures.spawn_on(
             async move {
                 let _permit: OwnedSemaphorePermit =
                     permit_future.await.expect("semaphore not closed");
                 // TODO: handle/propagate error here
-                rewrite_commit(base_ignores, base_path, commit, spec).await
+                rewrite_commit(base_ignores, base_path, commit, ignore_filters, spec).await
             },
             handle,
         );
@@ -251,12 +254,14 @@ async fn rewrite_commit(
     base_ignores: Arc<GitIgnoreFile>,
     base_path: Arc<PathBuf>,
     commit: Commit,
+    ignore_filters: HashSet<String>,
     spec: Arc<CommandSpec>,
 ) -> Result<RunJob, RunError> {
     let old_id = commit.id().clone();
     let old_tree = commit.tree();
 
-    let (working_copy_dir, mut tree_state) = create_working_copy(&base_path, &commit).await?;
+    let (working_copy_dir, mut tree_state) =
+        create_working_copy(&base_path, &commit, ignore_filters).await?;
 
     // Resolve where the command should run. If the subdir doesn't exist in this
     // commit's checked-out tree, skip the commit entirely.
@@ -483,6 +488,20 @@ pub async fn cmd_run(
     };
 
     let store = workspace_command.repo().store().clone();
+    let ignore_filters = {
+        #[cfg(feature = "git")]
+        {
+            use jj_lib::git::GitSettings;
+            GitSettings::from_settings(workspace_command.settings())?
+                .ignore_filters
+                .into_iter()
+                .collect()
+        }
+        #[cfg(not(feature = "git"))]
+        {
+            HashSet::new()
+        }
+    };
     let mut tx = workspace_command.start_transaction();
 
     // A previous run's cleanup (that may have finished while we waited for the
@@ -511,6 +530,7 @@ pub async fn cmd_run(
                 spec.clone(),
                 base_path,
                 Arc::new(resolved_commits.clone()),
+                ignore_filters,
                 args.jobs,
             )
             .await
