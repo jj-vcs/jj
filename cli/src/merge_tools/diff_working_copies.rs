@@ -157,6 +157,7 @@ pub(crate) async fn check_out_trees(
     matcher: &dyn Matcher,
     diff_type: DiffType,
     conflict_marker_style: ConflictMarkerStyle,
+    ignore_filters: HashSet<String>,
 ) -> Result<DiffWorkingCopies, DiffCheckoutError> {
     let store = trees.before.store();
     let changed_files: Vec<_> = trees
@@ -180,7 +181,7 @@ pub(crate) async fn check_out_trees(
             eol_conversion_mode: EolConversionMode::None,
             exec_change_setting: ExecChangeSetting::Auto,
             fsmonitor_settings: FsmonitorSettings::None,
-            ignore_filters: HashSet::new(),
+            ignore_filters: ignore_filters.clone(),
         };
         let mut state = TreeState::init(store.clone(), wc_path, state_dir, &tree_state_settings)?;
         state.set_sparse_patterns(changed_files.clone())?;
@@ -216,9 +217,16 @@ impl DiffEditWorkingCopies {
         diff_type: DiffType,
         instructions: Option<&str>,
         conflict_marker_style: ConflictMarkerStyle,
+        ignore_filters: HashSet<String>,
     ) -> Result<Self, DiffEditError> {
-        let working_copies =
-            check_out_trees(trees, matcher, diff_type, conflict_marker_style).await?;
+        let working_copies = check_out_trees(
+            trees,
+            matcher,
+            diff_type,
+            conflict_marker_style,
+            ignore_filters,
+        )
+        .await?;
         working_copies.set_left_readonly()?;
         if diff_type == DiffType::ThreeWay {
             working_copies.set_right_readonly()?;

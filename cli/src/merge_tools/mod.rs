@@ -16,6 +16,7 @@ mod builtin;
 mod diff_working_copies;
 mod external;
 
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use futures::future::try_join_all;
@@ -234,6 +235,7 @@ pub fn get_external_tool_config(
 pub struct DiffEditor {
     tool: DiffEditTool,
     base_ignores: Arc<GitIgnoreFile>,
+    ignore_filters: HashSet<String>,
     use_instructions: bool,
     conflict_marker_style: ConflictMarkerStyle,
 }
@@ -283,9 +285,24 @@ impl DiffEditor {
                 tool_name: name.to_string(),
             });
         }
+        let ignore_filters = {
+            #[cfg(feature = "git")]
+            {
+                use jj_lib::git::GitSettings;
+                GitSettings::from_settings(settings)?
+                    .ignore_filters
+                    .into_iter()
+                    .collect()
+            }
+            #[cfg(not(feature = "git"))]
+            {
+                HashSet::new()
+            }
+        };
         Ok(Self {
             tool,
             base_ignores,
+            ignore_filters,
             use_instructions: settings.get_bool("ui.diff-instructions")?,
             conflict_marker_style,
         })
@@ -315,6 +332,7 @@ impl DiffEditor {
                     instructions.as_deref(),
                     self.base_ignores.clone(),
                     self.conflict_marker_style,
+                    self.ignore_filters.clone(),
                 )
                 .await
             }
