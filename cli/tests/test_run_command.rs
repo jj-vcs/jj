@@ -64,6 +64,48 @@ fn test_run_simple() {
 }
 
 #[test]
+fn test_run_gitattributes_filter_in_temp_snapshot() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let fake_formatter = assert_cmd::cargo::cargo_bin("fake-formatter");
+    assert!(fake_formatter.is_file());
+    let fake_formatter_path = fake_formatter.to_string_lossy().into_owned();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file(".gitattributes", "*.bin filter=lfs\n");
+    work_dir.write_file("file.bin", "original");
+    work_dir
+        .run_jj(["--config=git.ignore-filters=[]", "commit", "-m", "base"])
+        .success();
+
+    work_dir
+        .run_jj([
+            "run",
+            "-r",
+            "@-",
+            "--",
+            &fake_formatter_path,
+            "--stdout",
+            "modified",
+            "--tee",
+            "file.bin",
+        ])
+        .success();
+
+    // Regression test for a bug found during development.
+    //
+    // This creates a legitimately tracked file by disabling filter ignores only
+    // for setup. `jj run` then operates with normal settings. This
+    // characterizes the pre-fix behavior: the temporary working copy ignores
+    // configured .gitattributes filters and rewrites the tracked LFS-filtered
+    // file even though normal snapshots would ignore it.
+    insta::assert_snapshot!(
+        work_dir.run_jj(["file", "show", "-r", "@-", "file.bin"]).success().stdout,
+        @"originalmodified[EOF]"
+    );
+}
+
+#[test]
 fn test_run_on_immutable() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
