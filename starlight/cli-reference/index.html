@@ -681,6 +681,7 @@ revision as "good").</p>
 <li>
 <p><code dir="auto">-T</code>, <code dir="auto">--template &#x3C;TEMPLATE></code> — Render each bookmark using the given template</p>
 <p>All 0-argument methods of the <a href="https://docs.jj-vcs.dev/latest/templates/#commitref-type"><code dir="auto">CommitRef</code> type</a> are available as keywords in the template expression. See <a href="https://docs.jj-vcs.dev/latest/templates/"><code dir="auto">jj help -k templates</code></a> for more information.</p>
+<p>The default template can be set by the <code dir="auto">templates.bookmark_list</code> setting.</p>
 </li>
 <li>
 <p><code dir="auto">--sort &#x3C;SORT_KEY></code> — Sort bookmarks based on the given key (or multiple keys)</p>
@@ -1245,6 +1246,7 @@ Make a path executable (alias: executable)</li>
 <li>
 <p><code dir="auto">-T</code>, <code dir="auto">--template &#x3C;TEMPLATE></code> — Render each file entry using the given template</p>
 <p>All 0-argument methods of the <a href="https://docs.jj-vcs.dev/latest/templates/#treeentry-type"><code dir="auto">TreeEntry</code> type</a> are available as keywords in the template expression. See <a href="https://docs.jj-vcs.dev/latest/templates/"><code dir="auto">jj help -k templates</code></a> for more information.</p>
+<p>The default template can be set by the <code dir="auto">templates.file_list</code> setting.</p>
 </li>
 </ul>
 <div class="sl-heading-wrapper level-h2"><h2 id="jj-file-search"><code dir="auto">jj file search</code></h2><a class="sl-anchor-link" href="#jj-file-search"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “jj file search”</span></a></div>
@@ -2957,6 +2959,7 @@ achieved with <code dir="auto">jj new</code>.</p>
 <li>
 <p><code dir="auto">-T</code>, <code dir="auto">--template &#x3C;TEMPLATE></code> — Render each tag using the given template</p>
 <p>All 0-argument methods of the <a href="https://docs.jj-vcs.dev/latest/templates/#commitref-type"><code dir="auto">CommitRef</code> type</a> are available as keywords in the template expression. See <a href="https://docs.jj-vcs.dev/latest/templates/"><code dir="auto">jj help -k templates</code></a> for more information.</p>
+<p>The default template can be set by the <code dir="auto">templates.tag_list</code> setting.</p>
 </li>
 <li>
 <p><code dir="auto">--sort &#x3C;SORT_KEY></code> — Sort tags based on the given key (or multiple keys)</p>
@@ -3172,6 +3175,7 @@ Clear all files from the workspace (it will be empty)</li>
 <li>
 <p><code dir="auto">-T</code>, <code dir="auto">--template &#x3C;TEMPLATE></code> — Render each workspace using the given template</p>
 <p>All 0-argument methods of the <a href="https://docs.jj-vcs.dev/latest/templates/#workspaceref-type"><code dir="auto">WorkspaceRef</code> type</a> are available as keywords in the template expression. See <a href="https://docs.jj-vcs.dev/latest/templates/"><code dir="auto">jj help -k templates</code></a> for more information.</p>
+<p>The default template can be set by the <code dir="auto">templates.workspace_list</code> setting.</p>
 </li>
 </ul>
 <div class="sl-heading-wrapper level-h2"><h2 id="jj-workspace-rename"><code dir="auto">jj workspace rename</code></h2><a class="sl-anchor-link" href="#jj-workspace-rename"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “jj workspace rename”</span></a></div>
