@@ -19,6 +19,47 @@ use testutils::TestResult;
 use crate::common::TestEnvironment;
 
 #[test]
+fn test_diffedit_gitattributes_filter_in_temp_snapshot() -> TestResult {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_diff_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file(".gitattributes", "*.bin filter=lfs\n");
+    work_dir.write_file("file.bin", "original\n");
+    work_dir
+        .run_jj(["--config=git.ignore-filters=[]", "commit", "-m", "base"])
+        .success();
+    work_dir.write_file("file.bin", "after\n");
+    work_dir
+        .run_jj(["--config=git.ignore-filters=[]", "debug", "snapshot"])
+        .success();
+
+    std::fs::write(
+        &edit_script,
+        "files-before file.bin\0files-after JJ-INSTRUCTIONS file.bin\0write file.bin\nedited\n",
+    )?;
+    work_dir.run_jj(["diffedit"]).success();
+
+    // Regression test for a bug found during development.
+    //
+    // This creates a tracked LFS-filtered modification by disabling filter
+    // ignores only for setup. `diffedit` then operates with normal settings.
+    // This characterizes the pre-fix behavior: the external editor writes into
+    // a temporary output working copy whose snapshot ignores configured
+    // .gitattributes filters and rewrites the tracked LFS-filtered file.
+    insta::assert_snapshot!(
+        work_dir.run_jj(["file", "show", "file.bin"]).success().stdout,
+        @r"
+    edited
+    [EOF]
+    "
+    );
+
+    Ok(())
+}
+
+#[test]
 fn test_diffedit() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_diff_editor();
