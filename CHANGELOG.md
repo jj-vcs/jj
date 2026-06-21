@@ -41,6 +41,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* `jj git clone` now errors instead of silently creating an empty repository
+  when the destination directory inferred from a local source path would be
+  the source itself (e.g. `jj git clone abracadabra` when there is no such
+  directory).
+  [#6918](https://github.com/jj-vcs/jj/issues/6918)
+
 * `jj` now creates a new working-copy revision during snapshotting if the
   working copy was immutable. Previously, the new revision was created
   immediately after the working copy became immutable.
