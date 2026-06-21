@@ -95,13 +95,13 @@ fn test_run_gitattributes_filter_in_temp_snapshot() {
     // Regression test for a bug found during development.
     //
     // This creates a legitimately tracked file by disabling filter ignores only
-    // for setup. `jj run` then operates with normal settings. This
-    // characterizes the pre-fix behavior: the temporary working copy ignores
-    // configured .gitattributes filters and rewrites the tracked LFS-filtered
-    // file even though normal snapshots would ignore it.
+    // for setup. `jj run` then operates with normal settings. Its temporary
+    // working copy is snapshotted after the command runs, and that snapshot must
+    // use the configured .gitattributes filters. Otherwise a command can rewrite
+    // a tracked LFS-filtered file even though normal snapshots would ignore it.
     insta::assert_snapshot!(
         work_dir.run_jj(["file", "show", "-r", "@-", "file.bin"]).success().stdout,
-        @"originalmodified[EOF]"
+        @"original[EOF]"
     );
 }
 
