@@ -3180,11 +3180,11 @@ fn test_gitattributes_ignore_only_on_git_backend(backend: TestRepoBackend) -> Te
 // checkout, so caching GitAttributes there can leave the fallback pointed at
 // the empty tree even after checkout updates TreeState::tree.
 //
-// This characterizes the pre-fix behavior: removing the disk .gitattributes
-// file makes snapshot miss the tracked filter rule and incorrectly snapshot the
-// modified disk contents.
+// Removing the disk .gitattributes file exercises the fallback; the tracked LFS
+// file must keep the tree contents instead of snapshotting the modified disk
+// contents.
 #[test]
-fn test_gitattributes_store_fallback_after_checkout_is_stale() -> TestResult {
+fn test_gitattributes_use_store_fallback_after_checkout() -> TestResult {
     let mut test_workspace = TestWorkspace::init_with_backend(TestRepoBackend::Git);
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
@@ -3206,7 +3206,7 @@ fn test_gitattributes_store_fallback_after_checkout_is_stale() -> TestResult {
     std::fs::write(workspace_root.join("file.txt"), "modified\n")?;
 
     let new_tree = test_workspace.snapshot()?;
-    assert_ne!(
+    assert_eq!(
         new_tree.path_value(repo_path("file.txt")).block_on()?,
         tree.path_value(repo_path("file.txt")).block_on()?,
     );
@@ -3217,11 +3217,12 @@ fn test_gitattributes_store_fallback_after_checkout_is_stale() -> TestResult {
 // Regression test for a bug found during development.
 //
 // When .gitignore ignores an entire directory, snapshot uses a shortcut that
-// scans only already-tracked files in that directory. This characterizes the
-// pre-fix behavior: that shortcut misses the .gitattributes filter check and
-// incorrectly snapshots a modified tracked LFS-filtered file.
+// scans only already-tracked files in that directory. This test puts a tracked
+// file under that shortcut and marks it with filter=lfs. Modifying the disk
+// file must not update the tree: the .gitattributes filter should still apply
+// even though traversal used the ignored-directory path.
 #[test]
-fn test_gitattributes_tracked_file_in_gitignored_dir_is_updated() -> TestResult {
+fn test_gitattributes_ignore_tracked_file_in_gitignored_dir() -> TestResult {
     let mut test_workspace = TestWorkspace::init_with_backend(TestRepoBackend::Git);
     let repo = test_workspace.repo.clone();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
@@ -3247,7 +3248,7 @@ fn test_gitattributes_tracked_file_in_gitignored_dir_is_updated() -> TestResult 
     )?;
 
     let new_tree = test_workspace.snapshot()?;
-    assert_ne!(
+    assert_eq!(
         new_tree.path_value(tracked_path).block_on()?,
         tree.path_value(tracked_path).block_on()?,
     );

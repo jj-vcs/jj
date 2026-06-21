@@ -1031,8 +1031,6 @@ pub struct TreeState {
     fsmonitor_settings: FsmonitorSettings,
     target_eol_strategy: TargetEolStrategy,
 
-    // attributes
-    git_attributes: Arc<GitAttributes>,
     ignore_filters: HashSet<String>,
 }
 
@@ -1098,12 +1096,6 @@ impl TreeState {
         }: &TreeStateSettings,
     ) -> Self {
         let exec_policy = ExecChangePolicy::new(*exec_change_setting, &state_path);
-        let tree = store.empty_merged_tree();
-
-        let store_file_loader = TreeFileLoader::new(tree.clone());
-        let disk_file_loader = DiskFileLoader::new(working_copy_path.clone());
-
-        let git_attributes = Arc::new(GitAttributes::new(store_file_loader, disk_file_loader));
 
         // Only enable ignore filters when using Git.
         let ignore_filters = if store.backend().name() == "git" {
@@ -1116,7 +1108,7 @@ impl TreeState {
             store: store.clone(),
             working_copy_path,
             state_path,
-            tree,
+            tree: store.empty_merged_tree(),
             file_states: FileStatesMap::new(),
             sparse_patterns: vec![RepoPathBuf::root()],
             own_mtime: MillisSinceEpoch(0),
@@ -1126,8 +1118,6 @@ impl TreeState {
             exec_policy,
             fsmonitor_settings: fsmonitor_settings.clone(),
             target_eol_strategy: TargetEolStrategy::new(*eol_conversion_mode),
-            // TODO We should update git_attributes every time TreeState::tree_id is updated
-            git_attributes,
             ignore_filters,
         }
     }
@@ -1361,6 +1351,10 @@ impl TreeState {
         let (file_states_tx, file_states_rx) = channel();
         let (untracked_paths_tx, untracked_paths_rx) = channel();
         let (deleted_files_tx, deleted_files_rx) = channel();
+        let git_attributes = Arc::new(GitAttributes::new(
+            TreeFileLoader::new(self.tree.clone()),
+            DiskFileLoader::new(self.working_copy_path.clone()),
+        ));
 
         trace_span!("traverse filesystem").in_scope(|| -> Result<(), SnapshotError> {
             let snapshotter = FileSnapshotter {
@@ -1377,7 +1371,7 @@ impl TreeState {
                 error: OnceLock::new(),
                 progress: *progress,
                 max_new_file_size: *max_new_file_size,
-                git_attributes: self.git_attributes.clone(),
+                git_attributes,
                 ignore_filters: self.ignore_filters.clone(),
             };
             let directory_to_visit = DirectoryToVisit {
@@ -1761,6 +1755,13 @@ impl FileSnapshotter<'_> {
                 continue;
             }
             if !self.matcher.matches(tracked_path) {
+                continue;
+            }
+            if self
+                .git_attributes
+                .filter_matches(tracked_path, &self.ignore_filters, SearchPriority::Disk)
+                .await
+            {
                 continue;
             }
             let disk_path = tracked_path.to_fs_path(&self.tree_state.working_copy_path)?;
