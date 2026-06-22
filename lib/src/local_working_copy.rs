@@ -2085,8 +2085,7 @@ impl TreeState {
             debug_assert_ne!(
                 target.as_os_str().to_str().map(|path| path.contains('/')),
                 Some(true),
-                "Expect the symlink target doesn't contain \"/\", but got invalid symlink target: \
-                 {}.",
+                r#"Expect the symlink target doesn't contain "/", but got invalid symlink target: {}."#,
                 target.display()
             );
         }
