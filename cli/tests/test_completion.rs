@@ -1103,11 +1103,11 @@ fn test_revisions() {
     deleted_bookmark	(deleted bookmark)
     immutable_bookmark	immutable
     mutable_bookmark	mutable 1
-    wv	working_copy
-    x	conflicted
-    u	mutable 3
-    wq/0	mutable 2
-    wq/1	mutable 1
+    s	working_copy
+    o	conflicted
+    v	mutable 3
+    w/0	mutable 2
+    w/1	mutable 1
     q	immutable
     m	deleted_remote_commit
     r	remote_commit
@@ -1126,11 +1126,11 @@ fn test_revisions() {
     ..deleted_bookmark	(deleted bookmark)
     ..immutable_bookmark	immutable
     ..mutable_bookmark	mutable 1
-    ..wv	working_copy
-    ..x	conflicted
-    ..u	mutable 3
-    ..wq/0	mutable 2
-    ..wq/1	mutable 1
+    ..s	working_copy
+    ..o	conflicted
+    ..v	mutable 3
+    ..w/0	mutable 2
+    ..w/1	mutable 1
     ..q	immutable
     ..m	deleted_remote_commit
     ..r	remote_commit
@@ -1147,11 +1147,11 @@ fn test_revisions() {
     insta::assert_snapshot!(output, @"
     conflicted_bookmark	conflicted
     mutable_bookmark	mutable 1
-    wv	working_copy
-    x	conflicted
-    u	mutable 3
-    wq/0	mutable 2
-    wq/1	mutable 1
+    s	working_copy
+    o	conflicted
+    v	mutable 3
+    w/0	mutable 2
+    w/1	mutable 1
     m	deleted_remote_commit
     r	remote_commit
     alias_with_newline	    roots(
@@ -1164,11 +1164,11 @@ fn test_revisions() {
     insta::assert_snapshot!(output, @"
     y::conflicted_bookmark	conflicted
     y::mutable_bookmark	mutable 1
-    y::wv	working_copy
-    y::x	conflicted
-    y::u	mutable 3
-    y::wq/0	mutable 2
-    y::wq/1	mutable 1
+    y::s	working_copy
+    y::o	conflicted
+    y::v	mutable 3
+    y::w/0	mutable 2
+    y::w/1	mutable 1
     y::m	deleted_remote_commit
     y::r	remote_commit
     y::alias_with_newline	    roots(
@@ -1187,7 +1187,7 @@ fn test_revisions() {
     let output = work_dir.complete_fish(["resolve", "-r", ""]);
     insta::assert_snapshot!(output, @"
     conflicted_bookmark	conflicted
-    x	conflicted
+    o	conflicted
     alias_with_newline	    roots(
     siblings	@-+ ~@
     [EOF]
@@ -1201,11 +1201,11 @@ fn test_revisions() {
     deleted_bookmark	(deleted bookmark)
     immutable_bookmark	immutable
     mutable_bookmark	mutable 1
-    wv	working_copy
-    x	conflicted
-    u	mutable 3
-    wq/0	mutable 2
-    wq/1	mutable 1
+    s	working_copy
+    o	conflicted
+    v	mutable 3
+    w/0	mutable 2
+    w/1	mutable 1
     q	immutable
     m	deleted_remote_commit
     r	remote_commit
@@ -1232,11 +1232,11 @@ fn test_revisions() {
     a=deleted_bookmark	(deleted bookmark)
     a=immutable_bookmark	immutable
     a=mutable_bookmark	mutable 1
-    a=wv	working_copy
-    a=x	conflicted
-    a=u	mutable 3
-    a=wq/0	mutable 2
-    a=wq/1	mutable 1
+    a=s	working_copy
+    a=o	conflicted
+    a=v	mutable 3
+    a=w/0	mutable 2
+    a=w/1	mutable 1
     a=q	immutable
     a=m	deleted_remote_commit
     a=r	remote_commit
@@ -1772,11 +1772,11 @@ fn test_files() {
 
     let output = work_dir.run_jj(["log", "-r", "all()", "--summary"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
-    @  wqnwkozp test.user@example.com 2001-02-03 08:05:20 working_copy 5e0882cf
+    @  vqnwkozp test.user@example.com 2001-02-03 08:05:20 working_copy 62eb5eb5
     │  working_copy
     │  A f_added_2
     │  M f_modified
-    ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 second 5d65dc93
+    ○  psuskuln test.user@example.com 2001-02-03 08:05:11 second bdac7f81
     │  second
     │  A f_added
     │  R {f_not_yet_renamed_2 => f_another_renamed_2}
@@ -1789,14 +1789,14 @@ fn test_files() {
     │  M f_modified
     │  M f_not_yet_copied
     │  R {f_not_yet_renamed => f_renamed}
-    │ ×  royxmykx test.user@example.com 2001-02-03 08:05:14 conflicted 26ca82ca (conflict)
+    │ ×  ooyxmykx test.user@example.com 2001-02-03 08:05:14 conflicted 731855c0 (conflict)
     ├─╯  conflicted
     │    A f_added_2
     │    A f_dir/dir_file_1
     │    A f_dir/dir_file_2
     │    A f_dir/dir_file_3
     │    M f_modified
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 first 221854a7
+    ○  ylvkpnrz test.user@example.com 2001-02-03 08:05:09 first af0eb988
     │  first
     │  A f_deleted
     │  A f_modified
@@ -1809,7 +1809,7 @@ fn test_files() {
     ├─╯  interdiff_to
     │    A f_interdiff_only_to
     │    A f_interdiff_same
-    │ ○  yostqsxw test.user@example.com 2001-02-03 08:05:16 interdiff_from 039b07b8
+    │ ○  rostqsxw test.user@example.com 2001-02-03 08:05:16 interdiff_from 58997fb4
     ├─╯  interdiff_from
     │    A f_interdiff_only_from
     │    A f_interdiff_same

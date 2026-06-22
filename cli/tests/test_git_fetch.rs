@@ -725,7 +725,7 @@ fn test_git_fetch_conflicting_bookmarks() {
         .run_jj(["bookmark", "create", "-r@", "rem1"])
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
-    rem1: kkmpptxz 2b17ac71 (empty) (no description set)
+    rem1: nkmpptxz ae68e36f (empty) (no description set)
       @rem1 (not created yet)
     [EOF]
     ");
@@ -736,7 +736,7 @@ fn test_git_fetch_conflicting_bookmarks() {
     // This should result in a CONFLICTED bookmark
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     rem1 (conflicted):
-      + kkmpptxz 2b17ac71 (empty) (no description set)
+      + nkmpptxz ae68e36f (empty) (no description set)
       + ppspxspk 4acd0343 message
       @rem1 (behind by 1 commits): ppspxspk 4acd0343 message
     [EOF]
@@ -762,8 +762,8 @@ fn test_git_fetch_conflicting_bookmarks_colocated() {
         .run_jj(["bookmark", "create", "-r@", "rem1"])
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
-    rem1: zsuskuln c2934cfb (empty) (no description set)
-      @git: zsuskuln c2934cfb (empty) (no description set)
+    rem1: psuskuln 78fad9fc (empty) (no description set)
+      @git: psuskuln 78fad9fc (empty) (no description set)
       @rem1 (not created yet)
     [EOF]
     ");
@@ -775,9 +775,9 @@ fn test_git_fetch_conflicting_bookmarks_colocated() {
     // See https://github.com/jj-vcs/jj/pull/1146#discussion_r1112372340 for the bug this tests for.
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     rem1 (conflicted):
-      + zsuskuln c2934cfb (empty) (no description set)
+      + psuskuln 78fad9fc (empty) (no description set)
       + ppspxspk 4acd0343 message
-      @git (behind by 1 commits): zsuskuln c2934cfb (empty) (no description set)
+      @git (behind by 1 commits): psuskuln 78fad9fc (empty) (no description set)
       @rem1 (behind by 1 commits): ppspxspk 4acd0343 message
     [EOF]
     ");
@@ -919,12 +919,12 @@ fn test_git_fetch_all() {
     let source_log = create_colocated_repo_and_bookmarks_from_trunk1(&source_dir);
     insta::assert_snapshot!(source_log, @r#"
        ===== Source git repo contents =====
-    @  bc83465a3090 "b" b
-    │ ○  d4d535f1d579 "a2" a2
+    @  4ed9450fe936 "b" b
+    │ ○  0c30cbbbd5c0 "a2" a2
     ├─╯
-    │ ○  c8303692b8e2 "a1" a1
+    │ ○  72ab9ad275fb "a1" a1
     ├─╯
-    ○  382881770501 "trunk1" trunk1
+    ○  7fe1c25a9714 "trunk1" trunk1
     ◆  000000000000 ""
     [EOF]
     "#);
@@ -946,24 +946,24 @@ fn test_git_fetch_all() {
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&target_dir), @"
-    a1: mzvwutvl c8303692 a1
-      @origin: mzvwutvl c8303692 a1
-    a2: yqosqzyt d4d535f1 a2
-      @origin: yqosqzyt d4d535f1 a2
-    b: yostqsxw bc83465a b
-      @origin: yostqsxw bc83465a b
-    trunk1: kkmpptxz 38288177 trunk1
-      @origin: kkmpptxz 38288177 trunk1
+    a1: qzvwutvl 72ab9ad2 a1
+      @origin: qzvwutvl 72ab9ad2 a1
+    a2: oqosqzyt 0c30cbbb a2
+      @origin: oqosqzyt 0c30cbbb a2
+    b: sostqsxw 4ed9450f b
+      @origin: sostqsxw 4ed9450f b
+    trunk1: nkmpptxz 7fe1c25a trunk1
+      @origin: nkmpptxz 7fe1c25a trunk1
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
     @  e8849ae12c70 ""
-    │ ○  bc83465a3090 "b" b
-    │ │ ○  d4d535f1d579 "a2" a2
+    │ ○  4ed9450fe936 "b" b
+    │ │ ○  0c30cbbbd5c0 "a2" a2
     │ ├─╯
-    │ │ ○  c8303692b8e2 "a1" a1
+    │ │ ○  72ab9ad275fb "a1" a1
     │ ├─╯
-    │ ○  382881770501 "trunk1" trunk1
+    │ ○  7fe1c25a9714 "trunk1" trunk1
     ├─╯
     ◆  000000000000 ""
     [EOF]
@@ -974,13 +974,13 @@ fn test_git_fetch_all() {
     let source_log = create_trunk2_and_rebase_bookmarks(&source_dir);
     insta::assert_snapshot!(source_log, @r#"
        ===== Source git repo contents =====
-    ○  6fc6fe17dbee "b" b
-    │ ○  baad96fead6c "a2" a2
+    ○  ee10b1522303 "b" b
+    │ ○  1d78aa48e073 "a2" a2
     ├─╯
-    │ ○  798c5e2435e1 "a1" a1
+    │ ○  26d7f7cef75a "a1" a1
     ├─╯
-    @  e80d998ab04b "trunk2" trunk2
-    ○  382881770501 "trunk1" trunk1
+    @  7405313c740d "trunk2" trunk2
+    ○  7fe1c25a9714 "trunk1" trunk1
     ◆  000000000000 ""
     [EOF]
     "#);
@@ -992,25 +992,25 @@ fn test_git_fetch_all() {
     // Our repo before and after fetch
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
     @  e8849ae12c70 ""
-    │ ○  0fbbc495357c "new_descr_for_b_to_create_conflict" b*
-    │ │ ○  d4d535f1d579 "a2" a2
+    │ ○  5387be87c57f "new_descr_for_b_to_create_conflict" b*
+    │ │ ○  0c30cbbbd5c0 "a2" a2
     │ ├─╯
-    │ │ ○  c8303692b8e2 "a1" a1
+    │ │ ○  72ab9ad275fb "a1" a1
     │ ├─╯
-    │ ○  382881770501 "trunk1" trunk1
+    │ ○  7fe1c25a9714 "trunk1" trunk1
     ├─╯
     ◆  000000000000 ""
     [EOF]
     "#);
     insta::assert_snapshot!(get_bookmark_output(&target_dir), @"
-    a1: mzvwutvl c8303692 a1
-      @origin: mzvwutvl c8303692 a1
-    a2: yqosqzyt d4d535f1 a2
-      @origin: yqosqzyt d4d535f1 a2
-    b: yostqsxw 0fbbc495 new_descr_for_b_to_create_conflict
-      @origin (ahead by 1 commits, behind by 1 commits): yostqsxw/1 bc83465a (hidden) b
-    trunk1: kkmpptxz 38288177 trunk1
-      @origin: kkmpptxz 38288177 trunk1
+    a1: qzvwutvl 72ab9ad2 a1
+      @origin: qzvwutvl 72ab9ad2 a1
+    a2: oqosqzyt 0c30cbbb a2
+      @origin: oqosqzyt 0c30cbbb a2
+    b: sostqsxw 5387be87 new_descr_for_b_to_create_conflict
+      @origin (ahead by 1 commits, behind by 1 commits): sostqsxw/1 4ed9450f (hidden) b
+    trunk1: nkmpptxz 7fe1c25a trunk1
+      @origin: nkmpptxz 7fe1c25a trunk1
     [EOF]
     ");
     let output = target_dir.run_jj(["git", "fetch"]);
@@ -1024,32 +1024,32 @@ fn test_git_fetch_all() {
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&target_dir), @"
-    a1: mzvwutvl 798c5e24 a1
-      @origin: mzvwutvl 798c5e24 a1
-    a2: yqosqzyt baad96fe a2
-      @origin: yqosqzyt baad96fe a2
+    a1: qzvwutvl 26d7f7ce a1
+      @origin: qzvwutvl 26d7f7ce a1
+    a2: oqosqzyt 1d78aa48 a2
+      @origin: oqosqzyt 1d78aa48 a2
     b (conflicted):
-      - yostqsxw/2 bc83465a (hidden) b
-      + yostqsxw/1 0fbbc495 (divergent) new_descr_for_b_to_create_conflict
-      + yostqsxw/0 6fc6fe17 (divergent) b
-      @origin (behind by 1 commits): yostqsxw/0 6fc6fe17 (divergent) b
-    trunk1: kkmpptxz 38288177 trunk1
-      @origin: kkmpptxz 38288177 trunk1
-    trunk2: uyznsvlq e80d998a trunk2
-      @origin: uyznsvlq e80d998a trunk2
+      - sostqsxw/2 4ed9450f (hidden) b
+      + sostqsxw/1 5387be87 (divergent) new_descr_for_b_to_create_conflict
+      + sostqsxw/0 ee10b152 (divergent) b
+      @origin (behind by 1 commits): sostqsxw/0 ee10b152 (divergent) b
+    trunk1: nkmpptxz 7fe1c25a trunk1
+      @origin: nkmpptxz 7fe1c25a trunk1
+    trunk2: wyznsvlq 7405313c trunk2
+      @origin: wyznsvlq 7405313c trunk2
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
     @  e8849ae12c70 ""
-    │ ○  6fc6fe17dbee "b" b?? b@origin
-    │ │ ○  baad96fead6c "a2" a2
+    │ ○  ee10b1522303 "b" b?? b@origin
+    │ │ ○  1d78aa48e073 "a2" a2
     │ ├─╯
-    │ │ ○  798c5e2435e1 "a1" a1
+    │ │ ○  26d7f7cef75a "a1" a1
     │ ├─╯
-    │ ○  e80d998ab04b "trunk2" trunk2
-    │ │ ○  0fbbc495357c "new_descr_for_b_to_create_conflict" b??
+    │ ○  7405313c740d "trunk2" trunk2
+    │ │ ○  5387be87c57f "new_descr_for_b_to_create_conflict" b??
     │ ├─╯
-    │ ○  382881770501 "trunk1" trunk1
+    │ ○  7fe1c25a9714 "trunk1" trunk1
     ├─╯
     ◆  000000000000 ""
     [EOF]
@@ -1077,12 +1077,12 @@ fn test_git_fetch_some_of_many_bookmarks() {
     let source_log = create_colocated_repo_and_bookmarks_from_trunk1(&source_dir);
     insta::assert_snapshot!(source_log, @r#"
        ===== Source git repo contents =====
-    @  bc83465a3090 "b" b
-    │ ○  d4d535f1d579 "a2" a2
+    @  4ed9450fe936 "b" b
+    │ ○  0c30cbbbd5c0 "a2" a2
     ├─╯
-    │ ○  c8303692b8e2 "a1" a1
+    │ ○  72ab9ad275fb "a1" a1
     ├─╯
-    ○  382881770501 "trunk1" trunk1
+    ○  7fe1c25a9714 "trunk1" trunk1
     ◆  000000000000 ""
     [EOF]
     "#);
@@ -1118,16 +1118,16 @@ fn test_git_fetch_some_of_many_bookmarks() {
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
     @  e8849ae12c70 ""
-    │ ○  bc83465a3090 "b" b
-    │ ○  382881770501 "trunk1"
+    │ ○  4ed9450fe936 "b" b
+    │ ○  7fe1c25a9714 "trunk1"
     ├─╯
     ◆  000000000000 ""
     [EOF]
     "#);
     // ...check what the intermediate state looks like...
     insta::assert_snapshot!(get_bookmark_output(&target_dir), @"
-    b: yostqsxw bc83465a b
-      @origin: yostqsxw bc83465a b
+    b: sostqsxw 4ed9450f b
+      @origin: sostqsxw 4ed9450f b
     [EOF]
     ");
     // ...then fetch two others with a glob.
@@ -1140,12 +1140,12 @@ fn test_git_fetch_some_of_many_bookmarks() {
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
     @  e8849ae12c70 ""
-    │ ○  d4d535f1d579 "a2" a2
-    │ │ ○  c8303692b8e2 "a1" a1
+    │ ○  0c30cbbbd5c0 "a2" a2
+    │ │ ○  72ab9ad275fb "a1" a1
     │ ├─╯
-    │ │ ○  bc83465a3090 "b" b
+    │ │ ○  4ed9450fe936 "b" b
     │ ├─╯
-    │ ○  382881770501 "trunk1"
+    │ ○  7fe1c25a9714 "trunk1"
     ├─╯
     ◆  000000000000 ""
     [EOF]
@@ -1159,12 +1159,12 @@ fn test_git_fetch_some_of_many_bookmarks() {
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
     @  e8849ae12c70 ""
-    │ ○  d4d535f1d579 "a2" a2
-    │ │ ○  c8303692b8e2 "a1" a1
+    │ ○  0c30cbbbd5c0 "a2" a2
+    │ │ ○  72ab9ad275fb "a1" a1
     │ ├─╯
-    │ │ ○  bc83465a3090 "b" b
+    │ │ ○  4ed9450fe936 "b" b
     │ ├─╯
-    │ ○  382881770501 "trunk1"
+    │ ○  7fe1c25a9714 "trunk1"
     ├─╯
     ◆  000000000000 ""
     [EOF]
@@ -1175,13 +1175,13 @@ fn test_git_fetch_some_of_many_bookmarks() {
     let source_log = create_trunk2_and_rebase_bookmarks(&source_dir);
     insta::assert_snapshot!(source_log, @r#"
        ===== Source git repo contents =====
-    ○  2b30dbc93959 "b" b
-    │ ○  841140b152fc "a2" a2
+    ○  ca0f169df838 "b" b
+    │ ○  c09fd70f366c "a2" a2
     ├─╯
-    │ ○  bc7e74c21d43 "a1" a1
+    │ ○  f651f6d40b51 "a1" a1
     ├─╯
-    @  756be1d31c41 "trunk2" trunk2
-    ○  382881770501 "trunk1" trunk1
+    @  bedc6362fa60 "trunk2" trunk2
+    ○  7fe1c25a9714 "trunk1" trunk1
     ◆  000000000000 ""
     [EOF]
     "#);
@@ -1193,12 +1193,12 @@ fn test_git_fetch_some_of_many_bookmarks() {
     // Our repo before and after fetch of two bookmarks
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
     @  e8849ae12c70 ""
-    │ ○  c62db3119722 "new_descr_for_b_to_create_conflict" b*
-    │ │ ○  d4d535f1d579 "a2" a2
+    │ ○  dfb5c595294f "new_descr_for_b_to_create_conflict" b*
+    │ │ ○  0c30cbbbd5c0 "a2" a2
     │ ├─╯
-    │ │ ○  c8303692b8e2 "a1" a1
+    │ │ ○  72ab9ad275fb "a1" a1
     │ ├─╯
-    │ ○  382881770501 "trunk1"
+    │ ○  7fe1c25a9714 "trunk1"
     ├─╯
     ◆  000000000000 ""
     [EOF]
@@ -1213,15 +1213,15 @@ fn test_git_fetch_some_of_many_bookmarks() {
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
     @  e8849ae12c70 ""
-    │ ○  2b30dbc93959 "b" b?? b@origin
-    │ │ ○  bc7e74c21d43 "a1" a1
+    │ ○  ca0f169df838 "b" b?? b@origin
+    │ │ ○  f651f6d40b51 "a1" a1
     │ ├─╯
-    │ ○  756be1d31c41 "trunk2"
-    │ │ ○  c62db3119722 "new_descr_for_b_to_create_conflict" b??
+    │ ○  bedc6362fa60 "trunk2"
+    │ │ ○  dfb5c595294f "new_descr_for_b_to_create_conflict" b??
     │ ├─╯
-    │ │ ○  d4d535f1d579 "a2" a2
+    │ │ ○  0c30cbbbd5c0 "a2" a2
     │ ├─╯
-    │ ○  382881770501 "trunk1"
+    │ ○  7fe1c25a9714 "trunk1"
     ├─╯
     ◆  000000000000 ""
     [EOF]
@@ -1229,15 +1229,15 @@ fn test_git_fetch_some_of_many_bookmarks() {
 
     // We left a2 where it was before, let's see how `jj bookmark list` sees this.
     insta::assert_snapshot!(get_bookmark_output(&target_dir), @"
-    a1: mzvwutvl bc7e74c2 a1
-      @origin: mzvwutvl bc7e74c2 a1
-    a2: yqosqzyt d4d535f1 a2
-      @origin: yqosqzyt d4d535f1 a2
+    a1: qzvwutvl f651f6d4 a1
+      @origin: qzvwutvl f651f6d4 a1
+    a2: oqosqzyt 0c30cbbb a2
+      @origin: oqosqzyt 0c30cbbb a2
     b (conflicted):
-      - yostqsxw/2 bc83465a (hidden) b
-      + yostqsxw/1 c62db311 (divergent) new_descr_for_b_to_create_conflict
-      + yostqsxw/0 2b30dbc9 (divergent) b
-      @origin (behind by 1 commits): yostqsxw/0 2b30dbc9 (divergent) b
+      - sostqsxw/2 4ed9450f (hidden) b
+      + sostqsxw/1 dfb5c595 (divergent) new_descr_for_b_to_create_conflict
+      + sostqsxw/0 ca0f169d (divergent) b
+      @origin (behind by 1 commits): sostqsxw/0 ca0f169d (divergent) b
     [EOF]
     ");
     // Now, let's fetch a2 and double-check that fetching a1 and b again doesn't do
@@ -1251,29 +1251,29 @@ fn test_git_fetch_some_of_many_bookmarks() {
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
     @  e8849ae12c70 ""
-    │ ○  841140b152fc "a2" a2
-    │ │ ○  2b30dbc93959 "b" b?? b@origin
+    │ ○  c09fd70f366c "a2" a2
+    │ │ ○  ca0f169df838 "b" b?? b@origin
     │ ├─╯
-    │ │ ○  bc7e74c21d43 "a1" a1
+    │ │ ○  f651f6d40b51 "a1" a1
     │ ├─╯
-    │ ○  756be1d31c41 "trunk2"
-    │ │ ○  c62db3119722 "new_descr_for_b_to_create_conflict" b??
+    │ ○  bedc6362fa60 "trunk2"
+    │ │ ○  dfb5c595294f "new_descr_for_b_to_create_conflict" b??
     │ ├─╯
-    │ ○  382881770501 "trunk1"
+    │ ○  7fe1c25a9714 "trunk1"
     ├─╯
     ◆  000000000000 ""
     [EOF]
     "#);
     insta::assert_snapshot!(get_bookmark_output(&target_dir), @"
-    a1: mzvwutvl bc7e74c2 a1
-      @origin: mzvwutvl bc7e74c2 a1
-    a2: yqosqzyt 841140b1 a2
-      @origin: yqosqzyt 841140b1 a2
+    a1: qzvwutvl f651f6d4 a1
+      @origin: qzvwutvl f651f6d4 a1
+    a2: oqosqzyt c09fd70f a2
+      @origin: oqosqzyt c09fd70f a2
     b (conflicted):
-      - yostqsxw/2 bc83465a (hidden) b
-      + yostqsxw/1 c62db311 (divergent) new_descr_for_b_to_create_conflict
-      + yostqsxw/0 2b30dbc9 (divergent) b
-      @origin (behind by 1 commits): yostqsxw/0 2b30dbc9 (divergent) b
+      - sostqsxw/2 4ed9450f (hidden) b
+      + sostqsxw/1 dfb5c595 (divergent) new_descr_for_b_to_create_conflict
+      + sostqsxw/0 ca0f169d (divergent) b
+      @origin (behind by 1 commits): sostqsxw/0 ca0f169d (divergent) b
     [EOF]
     ");
 }
@@ -1452,12 +1452,12 @@ fn test_git_fetch_undo() {
         .run_jj(["tag", "set", "-rtrunk1", "tag1"])
         .success();
     insta::assert_snapshot!(get_log_output(&source_dir), @r#"
-    @  bc83465a3090 "b" b
-    │ ○  d4d535f1d579 "a2" a2
+    @  4ed9450fe936 "b" b
+    │ ○  0c30cbbbd5c0 "a2" a2
     ├─╯
-    │ ○  c8303692b8e2 "a1" a1
+    │ ○  72ab9ad275fb "a1" a1
     ├─╯
-    ◆  382881770501 "trunk1" trunk1 tag1
+    ◆  7fe1c25a9714 "trunk1" trunk1 tag1
     ◆  000000000000 ""
     [EOF]
     "#);
@@ -1473,10 +1473,10 @@ fn test_git_fetch_undo() {
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
     @  e8849ae12c70 ""
-    │ ○  bc83465a3090 "b" b
-    │ │ ○  c8303692b8e2 "a1" a1
+    │ ○  4ed9450fe936 "b" b
+    │ │ ○  72ab9ad275fb "a1" a1
     │ ├─╯
-    │ ◆  382881770501 "trunk1" tag1
+    │ ◆  7fe1c25a9714 "trunk1" tag1
     ├─╯
     ◆  000000000000 ""
     [EOF]
@@ -1484,7 +1484,7 @@ fn test_git_fetch_undo() {
     let output = target_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Undid operation: 353367639195 (2001-02-03 08:05:20) fetch from git remote(s) origin
+    Undid operation: 5439e275337f (2001-02-03 08:05:20) fetch from git remote(s) origin
     Restored to operation: abd709a7b737 (2001-02-03 08:05:07) add git remote origin
     [EOF]
     ");
@@ -1504,8 +1504,8 @@ fn test_git_fetch_undo() {
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
     @  e8849ae12c70 ""
-    │ ○  bc83465a3090 "b" b
-    │ ◆  382881770501 "trunk1" tag1
+    │ ○  4ed9450fe936 "b" b
+    │ ◆  7fe1c25a9714 "trunk1" tag1
     ├─╯
     ◆  000000000000 ""
     [EOF]
@@ -1534,12 +1534,12 @@ fn test_fetch_undo_what() {
     let source_log = create_colocated_repo_and_bookmarks_from_trunk1(&source_dir);
     insta::assert_snapshot!(source_log, @r#"
        ===== Source git repo contents =====
-    @  bc83465a3090 "b" b
-    │ ○  d4d535f1d579 "a2" a2
+    @  4ed9450fe936 "b" b
+    │ ○  0c30cbbbd5c0 "a2" a2
     ├─╯
-    │ ○  c8303692b8e2 "a1" a1
+    │ ○  72ab9ad275fb "a1" a1
     ├─╯
-    ○  382881770501 "trunk1" trunk1
+    ○  7fe1c25a9714 "trunk1" trunk1
     ◆  000000000000 ""
     [EOF]
     "#);
@@ -1558,15 +1558,15 @@ fn test_fetch_undo_what() {
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
     @  e8849ae12c70 ""
-    │ ○  bc83465a3090 "b" b
-    │ ○  382881770501 "trunk1"
+    │ ○  4ed9450fe936 "b" b
+    │ ○  7fe1c25a9714 "trunk1"
     ├─╯
     ◆  000000000000 ""
     [EOF]
     "#);
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
-    b: yostqsxw bc83465a b
-      @origin: yostqsxw bc83465a b
+    b: sostqsxw 4ed9450f b
+      @origin: sostqsxw 4ed9450f b
     [EOF]
     ");
 
@@ -1580,7 +1580,7 @@ fn test_fetch_undo_what() {
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     b (deleted)
-      @origin: yostqsxw/0 bc83465a (hidden) b
+      @origin: sostqsxw/0 4ed9450f (hidden) b
     [EOF]
     ");
 
@@ -1591,7 +1591,7 @@ fn test_fetch_undo_what() {
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     b (deleted)
-      @origin: yostqsxw/0 bc83465a (hidden) b
+      @origin: sostqsxw/0 4ed9450f (hidden) b
     newbookmark: qpvuntsm e8849ae1 (empty) (no description set)
       @origin (not created yet)
     [EOF]
@@ -1738,12 +1738,12 @@ fn test_git_fetch_removed_bookmark() {
     let source_log = create_colocated_repo_and_bookmarks_from_trunk1(&source_dir);
     insta::assert_snapshot!(source_log, @r#"
        ===== Source git repo contents =====
-    @  bc83465a3090 "b" b
-    │ ○  d4d535f1d579 "a2" a2
+    @  4ed9450fe936 "b" b
+    │ ○  0c30cbbbd5c0 "a2" a2
     ├─╯
-    │ ○  c8303692b8e2 "a1" a1
+    │ ○  72ab9ad275fb "a1" a1
     ├─╯
-    ○  382881770501 "trunk1" trunk1
+    ○  7fe1c25a9714 "trunk1" trunk1
     ◆  000000000000 ""
     [EOF]
     "#);
@@ -1760,12 +1760,12 @@ fn test_git_fetch_removed_bookmark() {
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
     @  e8849ae12c70 ""
-    │ ○  bc83465a3090 "b" b
-    │ │ ○  d4d535f1d579 "a2" a2
+    │ ○  4ed9450fe936 "b" b
+    │ │ ○  0c30cbbbd5c0 "a2" a2
     │ ├─╯
-    │ │ ○  c8303692b8e2 "a1" a1
+    │ │ ○  72ab9ad275fb "a1" a1
     │ ├─╯
-    │ ○  382881770501 "trunk1" trunk1
+    │ ○  7fe1c25a9714 "trunk1" trunk1
     ├─╯
     ◆  000000000000 ""
     [EOF]
@@ -1785,12 +1785,12 @@ fn test_git_fetch_removed_bookmark() {
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
     @  e8849ae12c70 ""
-    │ ○  bc83465a3090 "b" b
-    │ │ ○  d4d535f1d579 "a2" a2
+    │ ○  4ed9450fe936 "b" b
+    │ │ ○  0c30cbbbd5c0 "a2" a2
     │ ├─╯
-    │ │ ○  c8303692b8e2 "a1" a1
+    │ │ ○  72ab9ad275fb "a1" a1
     │ ├─╯
-    │ ○  382881770501 "trunk1" trunk1
+    │ ○  7fe1c25a9714 "trunk1" trunk1
     ├─╯
     ◆  000000000000 ""
     [EOF]
@@ -1802,15 +1802,15 @@ fn test_git_fetch_removed_bookmark() {
     ------- stderr -------
     bookmark: a2@origin [deleted] untracked
     Abandoned 1 commits that are no longer reachable:
-      yqosqzyt d4d535f1 a2
+      oqosqzyt 0c30cbbb a2
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
     @  e8849ae12c70 ""
-    │ ○  bc83465a3090 "b" b
-    │ │ ○  c8303692b8e2 "a1" a1
+    │ ○  4ed9450fe936 "b" b
+    │ │ ○  72ab9ad275fb "a1" a1
     │ ├─╯
-    │ ○  382881770501 "trunk1" trunk1
+    │ ○  7fe1c25a9714 "trunk1" trunk1
     ├─╯
     ◆  000000000000 ""
     [EOF]
@@ -1837,12 +1837,12 @@ fn test_git_fetch_removed_parent_bookmark() {
     let source_log = create_colocated_repo_and_bookmarks_from_trunk1(&source_dir);
     insta::assert_snapshot!(source_log, @r#"
        ===== Source git repo contents =====
-    @  bc83465a3090 "b" b
-    │ ○  d4d535f1d579 "a2" a2
+    @  4ed9450fe936 "b" b
+    │ ○  0c30cbbbd5c0 "a2" a2
     ├─╯
-    │ ○  c8303692b8e2 "a1" a1
+    │ ○  72ab9ad275fb "a1" a1
     ├─╯
-    ○  382881770501 "trunk1" trunk1
+    ○  7fe1c25a9714 "trunk1" trunk1
     ◆  000000000000 ""
     [EOF]
     "#);
@@ -1859,12 +1859,12 @@ fn test_git_fetch_removed_parent_bookmark() {
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
     @  e8849ae12c70 ""
-    │ ○  bc83465a3090 "b" b
-    │ │ ○  d4d535f1d579 "a2" a2
+    │ ○  4ed9450fe936 "b" b
+    │ │ ○  0c30cbbbd5c0 "a2" a2
     │ ├─╯
-    │ │ ○  c8303692b8e2 "a1" a1
+    │ │ ○  72ab9ad275fb "a1" a1
     │ ├─╯
-    │ ○  382881770501 "trunk1" trunk1
+    │ ○  7fe1c25a9714 "trunk1" trunk1
     ├─╯
     ◆  000000000000 ""
     [EOF]
@@ -1886,16 +1886,16 @@ fn test_git_fetch_removed_parent_bookmark() {
     bookmark: a1@origin     [deleted] untracked
     bookmark: trunk1@origin [deleted] untracked
     Abandoned 1 commits that are no longer reachable:
-      mzvwutvl c8303692 a1
+      qzvwutvl 72ab9ad2 a1
     Warning: No matching branches found on any specified/configured remote: master
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
     @  e8849ae12c70 ""
-    │ ○  bc83465a3090 "b" b
-    │ │ ○  d4d535f1d579 "a2" a2
+    │ ○  4ed9450fe936 "b" b
+    │ │ ○  0c30cbbbd5c0 "a2" a2
     │ ├─╯
-    │ ○  382881770501 "trunk1"
+    │ ○  7fe1c25a9714 "trunk1"
     ├─╯
     ◆  000000000000 ""
     [EOF]
@@ -2076,8 +2076,8 @@ fn test_git_fetch_remotely_rewritten() {
     let local_dir = test_env.work_dir("local");
     local_dir.run_jj(["new", "book@origin"]).success();
     insta::assert_snapshot!(get_log_output(&local_dir), @r#"
-    @  257ea01fb9d0 ""
-    ◆  eedc27091311 "bookmarked" book@origin
+    @  51ec5c776adb ""
+    ◆  b82d3d8ad87d "bookmarked" book@origin
     ◆  97604bbedb48 "original"
     ◆  000000000000 ""
     [EOF]
@@ -2096,15 +2096,15 @@ fn test_git_fetch_remotely_rewritten() {
     bookmark: book@origin [updated] untracked
     Updated 2 rewritten commits.
     Rebased 1 descendant commits
-    Working copy  (@) now at: royxmykx 0818b176 (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz 3ee37bc8 book@origin | (empty) bookmarked
+    Working copy  (@) now at: qoyxmykx c305b4ee (empty) (no description set)
+    Parent commit (@-)      : nkmpptxz 3250f5bf book@origin | (empty) bookmarked
     [EOF]
     ");
 
     // The working copy should be rebased onto the modified revision
     insta::assert_snapshot!(get_log_output(&local_dir), @r#"
-    @  0818b17602ee ""
-    ◆  3ee37bc82bb0 "bookmarked" book@origin
+    @  c305b4ee5cb3 ""
+    ◆  3250f5bfbf4c "bookmarked" book@origin
     ◆  f30445f7806d "modified"
     ◆  000000000000 ""
     [EOF]
@@ -2113,14 +2113,14 @@ fn test_git_fetch_remotely_rewritten() {
     // Evolution history should point to the "git fetch" operation
     let output = local_dir.run_jj(["evolog", "-r..book@origin"]);
     insta::assert_snapshot!(output, @"
-    ◆  kkmpptxz test.user@example.com 2001-02-03 08:05:14 book@origin 3ee37bc8
+    ◆  nkmpptxz test.user@example.com 2001-02-03 08:05:14 book@origin 3250f5bf
     │  (empty) bookmarked
-    │  -- operation 747e22d526e2 fetch from git remote(s) origin
-    ○  kkmpptxz/1 test.user@example.com 2001-02-03 08:05:09 eedc2709 (hidden)
+    │  -- operation 93e7cbcdf8eb fetch from git remote(s) origin
+    ○  nkmpptxz/1 test.user@example.com 2001-02-03 08:05:09 b82d3d8a (hidden)
        (empty) bookmarked
     ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:14 f30445f7
     │  (empty) modified
-    │  -- operation 747e22d526e2 fetch from git remote(s) origin
+    │  -- operation 93e7cbcdf8eb fetch from git remote(s) origin
     ○  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 97604bbe (hidden)
        (empty) original
     [EOF]
@@ -2134,15 +2134,15 @@ fn test_git_fetch_remotely_rewritten() {
     bookmark: book@origin [updated] untracked
     Updated 2 rewritten commits.
     Rebased 1 descendant commits
-    Working copy  (@) now at: royxmykx 3eb3f040 (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz 3ee37bc8 book@origin | (empty) bookmarked
+    Working copy  (@) now at: qoyxmykx 727a0bb1 (empty) (no description set)
+    Parent commit (@-)      : nkmpptxz 3250f5bf book@origin | (empty) bookmarked
     [EOF]
     ");
 
     // The working copy should be rebased again onto the modified revision
     insta::assert_snapshot!(get_log_output(&local_dir), @r#"
-    @  3eb3f0409f47 ""
-    ◆  3ee37bc82bb0 "bookmarked" book@origin
+    @  727a0bb10154 ""
+    ◆  3250f5bfbf4c "bookmarked" book@origin
     ◆  f30445f7806d "modified"
     ◆  000000000000 ""
     [EOF]
@@ -2152,14 +2152,14 @@ fn test_git_fetch_remotely_rewritten() {
     // evolution history points to the first operation
     let output = local_dir.run_jj(["evolog", "-r..book@origin"]);
     insta::assert_snapshot!(output, @"
-    ◆  kkmpptxz test.user@example.com 2001-02-03 08:05:14 book@origin 3ee37bc8
+    ◆  nkmpptxz test.user@example.com 2001-02-03 08:05:14 book@origin 3250f5bf
     │  (empty) bookmarked
-    │  -- operation 747e22d526e2 fetch from git remote(s) origin
-    ○  kkmpptxz/1 test.user@example.com 2001-02-03 08:05:09 eedc2709 (hidden)
+    │  -- operation 93e7cbcdf8eb fetch from git remote(s) origin
+    ○  nkmpptxz/1 test.user@example.com 2001-02-03 08:05:09 b82d3d8a (hidden)
        (empty) bookmarked
     ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:14 f30445f7
     │  (empty) modified
-    │  -- operation 747e22d526e2 fetch from git remote(s) origin
+    │  -- operation 93e7cbcdf8eb fetch from git remote(s) origin
     ○  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 97604bbe (hidden)
        (empty) original
     [EOF]
@@ -2187,8 +2187,8 @@ fn test_git_fetch_remotely_rewritten_no_synthetic_predecessors() {
     let local_dir = test_env.work_dir("local");
     local_dir.run_jj(["new", "book@origin"]).success();
     insta::assert_snapshot!(get_log_output(&local_dir), @r#"
-    @  257ea01fb9d0 ""
-    ◆  eedc27091311 "bookmarked" book@origin
+    @  51ec5c776adb ""
+    ◆  b82d3d8ad87d "bookmarked" book@origin
     ◆  97604bbedb48 "original"
     ◆  000000000000 ""
     [EOF]
@@ -2205,18 +2205,18 @@ fn test_git_fetch_remotely_rewritten_no_synthetic_predecessors() {
     ------- stderr -------
     bookmark: book@origin [updated] untracked
     Abandoned 2 commits that are no longer reachable:
-      kkmpptxz/1 eedc2709 (divergent) (empty) bookmarked
+      nkmpptxz/1 b82d3d8a (divergent) (empty) bookmarked
       qpvuntsm/1 97604bbe (divergent) (empty) original
     Rebased 1 descendant commits
-    Working copy  (@) now at: royxmykx caf224f7 (empty) (no description set)
+    Working copy  (@) now at: qoyxmykx 5e157b82 (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 
     // The working copy should be rebased onto the root
     insta::assert_snapshot!(get_log_output(&local_dir), @r#"
-    @  caf224f7e640 ""
-    │ ◆  3ee37bc82bb0 "bookmarked" book@origin
+    @  5e157b826e45 ""
+    │ ◆  3250f5bfbf4c "bookmarked" book@origin
     │ ◆  f30445f7806d "modified"
     ├─╯
     ◆  000000000000 ""
@@ -2226,7 +2226,7 @@ fn test_git_fetch_remotely_rewritten_no_synthetic_predecessors() {
     // Evolution history should not point to the "git fetch" operation
     let output = local_dir.run_jj(["evolog", "-r..book@origin"]);
     insta::assert_snapshot!(output, @"
-    ◆  kkmpptxz test.user@example.com 2001-02-03 08:05:14 book@origin 3ee37bc8
+    ◆  nkmpptxz test.user@example.com 2001-02-03 08:05:14 book@origin 3250f5bf
        (empty) bookmarked
     ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:14 f30445f7
        (empty) modified
@@ -2258,10 +2258,10 @@ fn test_git_fetch_remotely_rewritten_descendants() {
         .run_jj(["new", "subject(original)", "-mlocal"])
         .success();
     insta::assert_snapshot!(get_log_output(&local_dir), @r#"
-    @  b4adc7786cf0 "local"
-    │ ◆  cce448c253e0 "bookmarked 2" book2@origin
+    @  7c99a6ba737a "local"
+    │ ◆  b88abf3cde94 "bookmarked 2" book2@origin
     ├─╯
-    │ ◆  2a6bbeb458de "bookmarked 1" book1@origin
+    │ ◆  d1ffc35bede3 "bookmarked 1" book1@origin
     ├─╯
     ◆  97604bbedb48 "original"
     ◆  000000000000 ""
@@ -2280,7 +2280,7 @@ fn test_git_fetch_remotely_rewritten_descendants() {
     bookmark: book1@origin [updated] untracked
     Updated 2 rewritten commits.
     Rebased 2 descendant commits
-    Working copy  (@) now at: vruxwmqv a1d01244 (empty) local
+    Working copy  (@) now at: sruxwmqv b0f05409 (empty) local
     Parent commit (@-)      : qpvuntsm a843bfad (empty) modified
     [EOF]
     ");
@@ -2288,10 +2288,10 @@ fn test_git_fetch_remotely_rewritten_descendants() {
     // The working copy should be rebased onto the modified revision
     // FIXME: the other remote branch shouldn't be rebased
     insta::assert_snapshot!(get_log_output(&local_dir), @r#"
-    @  a1d01244a4ec "local"
-    │ ○  8e6c17fa9e2e "bookmarked 2"
+    @  b0f05409b4ba "local"
+    │ ○  fd397000bdd3 "bookmarked 2"
     ├─╯
-    │ ◆  ad5c5f3c59a7 "bookmarked 1" book1@origin
+    │ ◆  ac47030a7a6f "bookmarked 1" book1@origin
     ├─╯
     ◆  a843bfad2abb "modified"
     ◆  000000000000 ""
@@ -2301,17 +2301,17 @@ fn test_git_fetch_remotely_rewritten_descendants() {
     // Evolution history should point to the "git fetch" operation
     let output = local_dir.run_jj(["evolog", "-r..remote_bookmarks()"]);
     insta::assert_snapshot!(output, @"
-    ◆  kkmpptxz test.user@example.com 2001-02-03 08:05:16 book1@origin ad5c5f3c
+    ◆  nkmpptxz test.user@example.com 2001-02-03 08:05:16 book1@origin ac47030a
     │  (empty) bookmarked 1
-    │  -- operation ac34b601b3a2 fetch from git remote(s) origin
-    ○  kkmpptxz/1 test.user@example.com 2001-02-03 08:05:09 2a6bbeb4 (hidden)
+    │  -- operation ddb9381d4e22 fetch from git remote(s) origin
+    ○  nkmpptxz/1 test.user@example.com 2001-02-03 08:05:09 d1ffc35b (hidden)
        (empty) bookmarked 1
     ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:16 a843bfad
     │  (empty) modified
-    │  -- operation ac34b601b3a2 fetch from git remote(s) origin
+    │  -- operation ddb9381d4e22 fetch from git remote(s) origin
     ◆  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 97604bbe (hidden)
        (empty) original
-    ◆  mzvwutvl/1 test.user@example.com 2001-02-03 08:05:11 book2@origin cce448c2 (hidden)
+    ◆  pzvwutvl/1 test.user@example.com 2001-02-03 08:05:11 book2@origin b88abf3c (hidden)
        (empty) bookmarked 2
     ◆  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 97604bbe (hidden)
        (empty) original

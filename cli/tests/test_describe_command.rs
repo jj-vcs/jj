@@ -290,8 +290,8 @@ fn test_describe_multiple_commits() -> TestResult {
     work_dir.run_jj(["new"]).success();
     work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  3cd3b246e098
-    ○  43444d88b009
+    @  a07d0f877d2a
+    ○  e521ae80c3d7
     ○  e8849ae12c70
     ◆  000000000000
     [EOF]
@@ -303,13 +303,13 @@ fn test_describe_multiple_commits() -> TestResult {
     ------- stderr -------
     Updated 2 commits
     Rebased 1 descendant commits
-    Working copy  (@) now at: kkmpptxz 4c3ccb9d (empty) description from CLI
-    Parent commit (@-)      : rlvkpnrz 650ac8f2 (empty) (no description set)
+    Working copy  (@) now at: nkmpptxz ab62d288 (empty) description from CLI
+    Parent commit (@-)      : ylvkpnrz 31e70c16 (empty) (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  4c3ccb9d4fb2 description from CLI
-    ○  650ac8f249be
+    @  ab62d288fd83 description from CLI
+    ○  31e70c16c565
     ○  0ff65c91377a description from CLI
     ◆  000000000000
     [EOF]
@@ -332,15 +332,15 @@ fn test_describe_multiple_commits() -> TestResult {
     JJ: - The text you enter will be lost on a syntax error.
     JJ: - The syntax of the separator lines may change in the future.
     JJ:
-    JJ: describe 650ac8f249be -------
+    JJ: describe 31e70c16c565 -------
 
 
-    JJ: Change ID: rlvkpnrz
+    JJ: Change ID: ylvkpnrz
     JJ:
-    JJ: describe 4c3ccb9d4fb2 -------
+    JJ: describe ab62d288fd83 -------
     description from CLI
 
-    JJ: Change ID: kkmpptxz
+    JJ: Change ID: nkmpptxz
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
@@ -354,12 +354,12 @@ fn test_describe_multiple_commits() -> TestResult {
 
             JJ: More header tests. Library tests verify parsing in other situations.
 
-            JJ: describe 650ac8f249be -------
+            JJ: describe 31e70c16c565 -------
             description from editor of @-
 
             further commit message of @-
 
-            JJ: describe 4c3ccb9d4fb2 -------
+            JJ: describe ab62d288fd83 -------
             description from editor of @
 
             further commit message of @
@@ -371,15 +371,15 @@ fn test_describe_multiple_commits() -> TestResult {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Updated 2 commits
-    Working copy  (@) now at: kkmpptxz 87c0f3c7 (empty) description from editor of @
-    Parent commit (@-)      : rlvkpnrz 9b9041eb (empty) description from editor of @-
+    Working copy  (@) now at: nkmpptxz e815e741 (empty) description from editor of @
+    Parent commit (@-)      : ylvkpnrz 65673735 (empty) description from editor of @-
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  87c0f3c75a22 description from editor of @
+    @  e815e7414ec1 description from editor of @
     │
     │  further commit message of @
-    ○  9b9041eb2f04 description from editor of @-
+    ○  656737351c23 description from editor of @-
     │
     │  further commit message of @-
     ○  0ff65c91377a description from CLI
@@ -392,17 +392,17 @@ fn test_describe_multiple_commits() -> TestResult {
         &edit_script,
         indoc! {"
             write
-            JJ: describe 9b9041eb2f04 -------
+            JJ: describe 656737351c23 -------
             first description from editor of @-
 
             further commit message of @-
 
-            JJ: describe 9b9041eb2f04 -------
+            JJ: describe 656737351c23 -------
             second description from editor of @-
 
             further commit message of @-
 
-            JJ: describe 87c0f3c75a22 -------
+            JJ: describe e815e7414ec1 -------
             updated description from editor of @
 
             further commit message of @
@@ -413,7 +413,7 @@ fn test_describe_multiple_commits() -> TestResult {
     let output = work_dir.run_jj(["describe", "@", "@-"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: The following commits were found in the edited message multiple times: 9b9041eb2f04
+    Error: The following commits were found in the edited message multiple times: 656737351c23
     [EOF]
     [exit status: 1]
     ");
@@ -426,12 +426,12 @@ fn test_describe_multiple_commits() -> TestResult {
             JJ: describe 000000000000 -------
             unexpected commit ID
 
-            JJ: describe 9b9041eb2f04 -------
+            JJ: describe 656737351c23 -------
             description from editor of @-
 
             further commit message of @-
 
-            JJ: describe 87c0f3c75a22 -------
+            JJ: describe e815e7414ec1 -------
             description from editor of @
 
             further commit message of @
@@ -452,7 +452,7 @@ fn test_describe_multiple_commits() -> TestResult {
         &edit_script,
         indoc! {"
             write
-            JJ: describe 87c0f3c75a22 -------
+            JJ: describe e815e7414ec1 -------
             description from editor of @
 
             further commit message of @
@@ -463,7 +463,7 @@ fn test_describe_multiple_commits() -> TestResult {
     let output = work_dir.run_jj(["describe", "@", "@-"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: The description for the following commits were not found in the edited message: 9b9041eb2f04
+    Error: The description for the following commits were not found in the edited message: 656737351c23
     [EOF]
     [exit status: 1]
     ");
@@ -476,7 +476,7 @@ fn test_describe_multiple_commits() -> TestResult {
             write
             description from editor of @-
 
-            JJ: describe 9b9041eb2f04 -------
+            JJ: describe 656737351c23 -------
             description from editor of @
 
             JJ: Lines starting with \"JJ: \" (like this one) will be removed.
@@ -515,7 +515,7 @@ fn test_describe_multiple_commits() -> TestResult {
         &edit_script,
         indoc! {"
             write
-            JJ: describe 9b9041eb2f04 -------
+            JJ: describe 656737351c23 -------
             description from editor for @-
 
             JJ: ignore-rest
@@ -533,15 +533,15 @@ fn test_describe_multiple_commits() -> TestResult {
     ------- stderr -------
     Updated 2 commits
     Rebased 1 descendant commits
-    Working copy  (@) now at: kkmpptxz 5a6249e9 (empty) description from editor of @
-    Parent commit (@-)      : rlvkpnrz d1c1edbd (empty) description from editor for @-
+    Working copy  (@) now at: nkmpptxz 82913d75 (empty) description from editor of @
+    Parent commit (@-)      : ylvkpnrz 5d2b587a (empty) description from editor for @-
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  5a6249e9e71a description from editor of @
+    @  82913d75dc59 description from editor of @
     │
     │  further commit message of @
-    ○  d1c1edbd5595 description from editor for @-
+    ○  5d2b587a2a01 description from editor for @-
     ○  a8bf976d72fb description from editor for @--
     ◆  000000000000
     [EOF]
@@ -986,7 +986,7 @@ fn test_add_trailer() {
     let output = work_dir.run_jj(["new"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: yostqsxw dbea21e1 (empty) (no description set)
+    Working copy  (@) now at: rostqsxw 7a4d1c7e (empty) (no description set)
     Parent commit (@-)      : qpvuntsm 2b2e302d (empty) Message from CLI
     [EOF]
     ");
@@ -1102,7 +1102,7 @@ fn test_add_trailer_committer() -> TestResult {
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: vruxwmqv b6148729 (empty) Signed-off-by: test.user@example.com
+    Working copy  (@) now at: truxwmqv ad199853 (empty) Signed-off-by: test.user@example.com
     Parent commit (@-)      : qpvuntsm b7dafa2c (empty) Message from CLI
     [EOF]
     ");
@@ -1115,7 +1115,7 @@ fn test_add_trailer_committer() -> TestResult {
 
     Signed-off-by: test.user@example.com
 
-    JJ: Change ID: vruxwmqv
+    JJ: Change ID: truxwmqv
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     -----

@@ -198,10 +198,10 @@ fn test_interdiff_conflicting() {
     @@ -1,8 +1,1 @@
     -<<<<<<< conflict 1 of 1
     -%%%%%%% diff from: qpvuntsm d0c049cd (original parents)
-    -\\\\\\\        to: zsuskuln 0b2c304e (new parents)
+    -\\\\\\\        to: osuskuln 978660a0 (new parents)
     --foo
     -+abc
-    -+++++++ rlvkpnrz b23f92c3 (original revision)
+    -+++++++ ylvkpnrz ab2bba2b (original revision)
     -bar
     ->>>>>>> conflict 1 of 1 ends
     +def

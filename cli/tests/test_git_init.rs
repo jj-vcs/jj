@@ -486,7 +486,7 @@ fn test_git_init_colocated_via_git_repo_path() {
     // Check that the Git repo's HEAD moves
     work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  bacc067e7740
+    @  960b062f8bb7
     ○  f3fe58bc88cc
     ○  e80a42cccd06 my-bookmark My commit message
     ◆  000000000000
@@ -535,7 +535,7 @@ fn test_git_init_colocated_via_git_repo_path_gitlink() {
     // Check that the Git repo's HEAD moves
     jj_work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&jj_work_dir), @"
-    @  bacc067e7740
+    @  960b062f8bb7
     ○  f3fe58bc88cc
     ○  e80a42cccd06 my-bookmark My commit message
     ◆  000000000000
@@ -583,7 +583,7 @@ fn test_git_init_colocated_via_git_repo_path_symlink_directory() -> TestResult {
     // Check that the Git repo's HEAD moves
     jj_work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&jj_work_dir), @"
-    @  bacc067e7740
+    @  960b062f8bb7
     ○  f3fe58bc88cc
     ○  e80a42cccd06 my-bookmark My commit message
     ◆  000000000000
@@ -637,7 +637,7 @@ fn test_git_init_colocated_via_git_repo_path_symlink_directory_without_bare_conf
     // Check that the Git repo's HEAD moves
     jj_work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&jj_work_dir), @"
-    @  bacc067e7740
+    @  960b062f8bb7
     ○  f3fe58bc88cc
     ○  e80a42cccd06 my-bookmark My commit message
     ◆  000000000000
@@ -693,7 +693,7 @@ fn test_git_init_colocated_via_git_repo_path_symlink_gitlink() -> TestResult {
     // Check that the Git repo's HEAD moves
     jj_work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&jj_work_dir), @"
-    @  bacc067e7740
+    @  960b062f8bb7
     ○  f3fe58bc88cc
     ○  e80a42cccd06 my-bookmark My commit message
     ◆  000000000000
@@ -921,7 +921,7 @@ fn test_git_init_external_but_git_dir_exists() {
     // Check that Git HEAD is not set because this isn't a colocated workspace
     work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  1c1c95df80e5
+    @  3babb3519b29
     ○  e8849ae12c70
     ◆  000000000000
     [EOF]
@@ -964,7 +964,7 @@ fn test_git_init_colocated_via_flag_git_dir_exists() {
     // Check that the Git repo's HEAD moves
     work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  bacc067e7740
+    @  960b062f8bb7
     ○  f3fe58bc88cc
     ○  e80a42cccd06 my-bookmark My commit message
     ◆  000000000000
@@ -1009,7 +1009,7 @@ fn test_git_init_colocated_via_config_git_dir_exists() {
     // Check that the Git repo's HEAD moves
     work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  bacc067e7740
+    @  960b062f8bb7
     ○  f3fe58bc88cc
     ○  e80a42cccd06 my-bookmark My commit message
     ◆  000000000000

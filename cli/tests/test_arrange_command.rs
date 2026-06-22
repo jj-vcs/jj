@@ -38,7 +38,7 @@ fn test_arrange_bad_revisions() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Cannot arrange revset with gaps in.
-    Hint: Revision 123b4d91f6e5 would need to be in the set.
+    Hint: Revision dd148a1be8f0 would need to be in the set.
     [EOF]
     [exit status: 1]
     ");
@@ -48,7 +48,7 @@ fn test_arrange_bad_revisions() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Cannot arrange revset with gaps in.
-    Hint: Revision 123b4d91f6e5 would need to be in the set.
+    Hint: Revision dd148a1be8f0 would need to be in the set.
     [EOF]
     [exit status: 1]
     ");
@@ -58,7 +58,7 @@ fn test_arrange_bad_revisions() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Cannot arrange revset with gaps in.
-    Hint: Revision 123b4d91f6e5 would need to be in the set.
+    Hint: Revision dd148a1be8f0 would need to be in the set.
     [EOF]
     [exit status: 1]
     ");
@@ -68,7 +68,7 @@ fn test_arrange_bad_revisions() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Cannot arrange revset with gaps in.
-    Hint: Revision 123b4d91f6e5 would need to be in the set.
+    Hint: Revision dd148a1be8f0 would need to be in the set.
     [EOF]
     [exit status: 1]
     ");

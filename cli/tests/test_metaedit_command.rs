@@ -38,16 +38,16 @@ fn test_metaedit() {
     work_dir.write_file("file1", "c\n");
     // Test the setup
     insta::assert_snapshot!(get_log(&work_dir), @"
-    @  Commit ID: 22be6c4e01da7039a1a8c3adb91b8841252bb354
-    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    @  Commit ID: 1cc10709fbc078f11bacb8640a3dc11a41ec8221
+    │  Change ID: pzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
     │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
     │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
     │
     │      (no description set)
     │
-    ○  Commit ID: 75591b1896b4990e7695701fd7cdbb32dba3ff50
-    │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
+    ○  Commit ID: 099a44efcab4d977ed5b622bf030b3de2b59fcef
+    │  Change ID: nkmpptxzrspxrzommnulwmwkkqwworpl
     │  Bookmarks: b
     │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
     │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
@@ -75,7 +75,7 @@ fn test_metaedit() {
 
     // Without arguments, the commits are not rewritten.
     // TODO: Require an argument?
-    let output = work_dir.run_jj(["metaedit", "kkmpptxzrspx"]);
+    let output = work_dir.run_jj(["metaedit", "nkmpptxzrspx"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
@@ -87,7 +87,7 @@ fn test_metaedit() {
         "metaedit",
         "--config=user.name=Test User",
         "--update-author",
-        "kkmpptxzrspx",
+        "nkmpptxzrspx",
     ]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -104,20 +104,20 @@ fn test_metaedit() {
             "--config=user.email=ove.ridder@example.com",
             "--update-author",
             "-r",
-            "kkmpptxzrspx",
+            "nkmpptxzrspx",
         ])
         .success();
     insta::assert_snapshot!(get_log(&work_dir), @"
-    @  Commit ID: 6f31b2555777ac2261dd17008b6fdc42619ebe1f
-    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    @  Commit ID: ae4f674f90aa5e6cb5e35dbba89f07fbadda7212
+    │  Change ID: pzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
     │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
     │  Committer: Ove Ridder <ove.ridder@example.com> (2001-02-03 04:05:17.000 +07:00)
     │
     │      (no description set)
     │
-    ○  Commit ID: 590c8b6945666401d01269190c1b82cd3311a0cd
-    │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
+    ○  Commit ID: 4030125719ab8eab6bf3512f2e94ef1086f6f719
+    │  Change ID: nkmpptxzrspxrzommnulwmwkkqwworpl
     │  Bookmarks: b
     │  Author   : Ove Ridder <ove.ridder@example.com> (2001-02-03 04:05:11.000 +07:00)
     │  Committer: Ove Ridder <ove.ridder@example.com> (2001-02-03 04:05:17.000 +07:00)
@@ -145,19 +145,19 @@ fn test_metaedit() {
     // Update author timestamp
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     work_dir
-        .run_jj(["metaedit", "--update-author-timestamp", "kkmpptxzrspx"])
+        .run_jj(["metaedit", "--update-author-timestamp", "nkmpptxzrspx"])
         .success();
     insta::assert_snapshot!(get_log(&work_dir), @"
-    @  Commit ID: b23f6a3f160d122f8d8dacd8d2acff2d29d5ba84
-    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    @  Commit ID: 2ffc2fd0145bb13872d5824292192464269a7c74
+    │  Change ID: pzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
     │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
     │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:20.000 +07:00)
     │
     │      (no description set)
     │
-    ○  Commit ID: f121a0fb72e1790e4116b2e3b6989c795ac7f74b
-    │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
+    ○  Commit ID: 636156987ae8c5e2659afeee34f167448d2cf80c
+    │  Change ID: nkmpptxzrspxrzommnulwmwkkqwworpl
     │  Bookmarks: b
     │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:20.000 +07:00)
     │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:20.000 +07:00)
@@ -189,20 +189,20 @@ fn test_metaedit() {
             "metaedit",
             "--author",
             "Alice <alice@example.com>",
-            "kkmpptxzrspx",
+            "nkmpptxzrspx",
         ])
         .success();
     insta::assert_snapshot!(get_log(&work_dir), @"
-    @  Commit ID: 74007c679b9e4f13d1e3d553ef8397586b033421
-    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    @  Commit ID: 36bf20bf6335c7cd930d34609a71ebd221d0b9ab
+    │  Change ID: pzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
     │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
     │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:23.000 +07:00)
     │
     │      (no description set)
     │
-    ○  Commit ID: d070c8adbc590813c81e296591d6b2cac8f3bb41
-    │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
+    ○  Commit ID: 0e1a59998553e269e4fc5a72e500abc4d65cbc99
+    │  Change ID: nkmpptxzrspxrzommnulwmwkkqwworpl
     │  Bookmarks: b
     │  Author   : Alice <alice@example.com> (2001-02-03 04:05:11.000 +07:00)
     │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:23.000 +07:00)
@@ -237,16 +237,16 @@ fn test_metaedit() {
         ])
         .success();
     insta::assert_snapshot!(get_log(&work_dir), @"
-    @  Commit ID: a527219f85839d58ddb6115fbc4f0f8bc6649266
-    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    @  Commit ID: 50da9de3c56ed519d452f6070e9b6f4b45cc83c5
+    │  Change ID: pzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
     │  Author   : Test User <test.user@example.com> (1995-12-19 16:39:57.000 -08:00)
     │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:26.000 +07:00)
     │
     │      (no description set)
     │
-    ○  Commit ID: 75591b1896b4990e7695701fd7cdbb32dba3ff50
-    │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
+    ○  Commit ID: 099a44efcab4d977ed5b622bf030b3de2b59fcef
+    │  Change ID: nkmpptxzrspxrzommnulwmwkkqwworpl
     │  Bookmarks: b
     │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
     │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
@@ -286,19 +286,19 @@ fn test_metaedit() {
     // Update committer timestamp
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     work_dir
-        .run_jj(["metaedit", "--force-rewrite", "kkmpptxzrspx"])
+        .run_jj(["metaedit", "--force-rewrite", "nkmpptxzrspx"])
         .success();
     insta::assert_snapshot!(get_log(&work_dir), @"
-    @  Commit ID: 6c0aa6574ef6450eaf7eae1391cc6c769c53a50c
-    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    @  Commit ID: ebc5d975db02477c3203e21ef442454dd31682f5
+    │  Change ID: pzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
     │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
     │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:31.000 +07:00)
     │
     │      (no description set)
     │
-    ○  Commit ID: 0a570dfbbaf794cd15bbdbf28f94785405ef5b3b
-    │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
+    ○  Commit ID: 6df7d0b4a9a9ce270e201fb2d906ef75bb2c1c62
+    │  Change ID: nkmpptxzrspxrzommnulwmwkkqwworpl
     │  Bookmarks: b
     │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
     │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:31.000 +07:00)
@@ -332,14 +332,14 @@ fn test_metaedit() {
     insta::assert_snapshot!(work_dir.run_jj(["metaedit", "--force-rewrite"]), @"
     ------- stderr -------
     Modified 1 commits:
-      mzvwutvl 75259df4 c | (no description set)
-    Working copy  (@) now at: mzvwutvl 75259df4 c | (no description set)
-    Parent commit (@-)      : kkmpptxz 0a570dfb b | (no description set)
+      pzvwutvl 82611617 c | (no description set)
+    Working copy  (@) now at: pzvwutvl 82611617 c | (no description set)
+    Parent commit (@-)      : nkmpptxz 6df7d0b4 b | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["show"]), @"
-    Commit ID: 75259df433eebc10b3ad78a9814d6647b764ce28
-    Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    Commit ID: 82611617f1bc287e1ee773eb65f11c946a77fc75
+    Change ID: pzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     Bookmarks: c
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:13)
     Committer: Test Committer <test.committer@example.com> (2001-02-03 08:05:33)
@@ -354,7 +354,7 @@ fn test_metaedit() {
 
     // When resetting the description has no effect, the commits are not rewritten.
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
-    let output = work_dir.run_jj(["metaedit", "--message", "", "kkmpptxzrspx"]);
+    let output = work_dir.run_jj(["metaedit", "--message", "", "nkmpptxzrspx"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
@@ -366,8 +366,8 @@ fn test_metaedit() {
         .run_jj(["metaedit", "--message", "d\ne\nf"])
         .success();
     insta::assert_snapshot!(get_log(&work_dir), @"
-    @  Commit ID: 502004368461738c866bc690ce08f7c219a4de10
-    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    @  Commit ID: b1d3b74bbc7edf70c6bcd708b125ba02bf39ea73
+    │  Change ID: pzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
     │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
     │  Committer: Test Committer <test.committer@example.com> (2001-02-03 04:05:37.000 +07:00)
@@ -376,8 +376,8 @@ fn test_metaedit() {
     │      e
     │      f
     │
-    ○  Commit ID: 75591b1896b4990e7695701fd7cdbb32dba3ff50
-    │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
+    ○  Commit ID: 099a44efcab4d977ed5b622bf030b3de2b59fcef
+    │  Change ID: nkmpptxzrspxrzommnulwmwkkqwworpl
     │  Bookmarks: b
     │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
     │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
@@ -405,16 +405,16 @@ fn test_metaedit() {
     // Set empty description
     work_dir.run_jj(["metaedit", "--message", ""]).success();
     insta::assert_snapshot!(get_log(&work_dir), @"
-    @  Commit ID: a44f230f9af7eed606af7713774feba5e39f36f7
-    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    @  Commit ID: a2e143c4646126b61caa10c275e886a5c92f1113
+    │  Change ID: pzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
     │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
     │  Committer: Test Committer <test.committer@example.com> (2001-02-03 04:05:39.000 +07:00)
     │
     │      (no description set)
     │
-    ○  Commit ID: 75591b1896b4990e7695701fd7cdbb32dba3ff50
-    │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
+    ○  Commit ID: 099a44efcab4d977ed5b622bf030b3de2b59fcef
+    │  Change ID: nkmpptxzrspxrzommnulwmwkkqwworpl
     │  Bookmarks: b
     │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
     │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
@@ -475,16 +475,16 @@ fn test_metaedit_multiple_revisions() {
     work_dir.write_file("file1", "c\n");
     // Test the setup
     insta::assert_snapshot!(get_log(&work_dir), @"
-    @  Commit ID: 22be6c4e01da7039a1a8c3adb91b8841252bb354
-    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    @  Commit ID: 1cc10709fbc078f11bacb8640a3dc11a41ec8221
+    │  Change ID: pzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
     │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
     │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
     │
     │      (no description set)
     │
-    ○  Commit ID: 75591b1896b4990e7695701fd7cdbb32dba3ff50
-    │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
+    ○  Commit ID: 099a44efcab4d977ed5b622bf030b3de2b59fcef
+    │  Change ID: nkmpptxzrspxrzommnulwmwkkqwworpl
     │  Bookmarks: b
     │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
     │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
@@ -518,36 +518,36 @@ fn test_metaedit_multiple_revisions() {
         "--config=user.name=Ove Ridder",
         "--config=user.email=ove.ridder@example.com",
         "--update-author",
-        "kkmpptxz::mzvwutvl",
+        "nkmpptxz::pzvwutvl",
     ]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Modified 2 commits:
-      kkmpptxz d84add51 b | (no description set)
-      mzvwutvl 447d6d8a c | (no description set)
+      nkmpptxz c2cf6241 b | (no description set)
+      pzvwutvl 819e7624 c | (no description set)
     Rebased 1 descendant commits
-    Working copy  (@) now at: yostqsxw ebd66676 (empty) (no description set)
-    Parent commit (@-)      : mzvwutvl 447d6d8a c | (no description set)
+    Working copy  (@) now at: sostqsxw d2aae73d (empty) (no description set)
+    Parent commit (@-)      : pzvwutvl 819e7624 c | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log(&work_dir), @"
-    @  Commit ID: ebd66676fa9e0cd2c9f560bc0dc343b8809e4dfe
-    │  Change ID: yostqsxwqrltovqlrlzszywzslusmuup
+    @  Commit ID: d2aae73d443bec2e01e223987d27c002e854f622
+    │  Change ID: sostqsxwqrltovqlrlzszywzslusmuup
     │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:15.000 +07:00)
     │  Committer: Ove Ridder <ove.ridder@example.com> (2001-02-03 04:05:16.000 +07:00)
     │
     │      (no description set)
     │
-    ○  Commit ID: 447d6d8a12d90ff0f10bbefc552f9272694389d6
-    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    ○  Commit ID: 819e762406dd4f214ea8ac63b7aff1e2ae1465fc
+    │  Change ID: pzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
     │  Author   : Ove Ridder <ove.ridder@example.com> (2001-02-03 04:05:13.000 +07:00)
     │  Committer: Ove Ridder <ove.ridder@example.com> (2001-02-03 04:05:16.000 +07:00)
     │
     │      (no description set)
     │
-    ○  Commit ID: d84add5150537e89db428790c0f9413320127f00
-    │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
+    ○  Commit ID: c2cf62419f1c0bd5022bd4c33fa6d055d5c75384
+    │  Change ID: nkmpptxzrspxrzommnulwmwkkqwworpl
     │  Bookmarks: b
     │  Author   : Ove Ridder <ove.ridder@example.com> (2001-02-03 04:05:11.000 +07:00)
     │  Committer: Ove Ridder <ove.ridder@example.com> (2001-02-03 04:05:16.000 +07:00)
@@ -594,19 +594,19 @@ fn test_new_change_id() {
         .success();
     work_dir.write_file("file1", "c\n");
 
-    let output = work_dir.run_jj(["metaedit", "--update-change-id", "kkmpptxzrspx"]);
+    let output = work_dir.run_jj(["metaedit", "--update-change-id", "nkmpptxzrspx"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Modified 1 commits:
       yqosqzyt 01d6741e b | (no description set)
     Rebased 1 descendant commits
-    Working copy  (@) now at: mzvwutvl 0c3fe2d8 c | (no description set)
+    Working copy  (@) now at: pzvwutvl 97c0b8a6 c | (no description set)
     Parent commit (@-)      : yqosqzyt 01d6741e b | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log(&work_dir), @"
-    @  Commit ID: 0c3fe2d854b2b492a053156a505d6c40fe783138
-    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    @  Commit ID: 97c0b8a6c66784b8ee76df8f7636f34336b5ef1a
+    │  Change ID: pzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
     │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
     │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
@@ -641,25 +641,25 @@ fn test_new_change_id() {
     insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r", "yqosqzytrlswkspswpqrmlplxylrzsnz"]), @"
     ○  yqosqzyt test.user@example.com 2001-02-03 08:05:13 b 01d6741e
     │  (no description set)
-    │  -- operation 35c9be8faa47 edit commit metadata for commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
-    ○  kkmpptxz/0 test.user@example.com 2001-02-03 08:05:11 75591b18 (hidden)
+    │  -- operation 5b02e577448e edit commit metadata for commit 099a44efcab4d977ed5b622bf030b3de2b59fcef
+    ○  nkmpptxz/0 test.user@example.com 2001-02-03 08:05:11 099a44ef (hidden)
     │  (no description set)
-    │  -- operation 96903839b342 snapshot working copy
-    ○  kkmpptxz/1 test.user@example.com 2001-02-03 08:05:09 acebf2bd (hidden)
+    │  -- operation 7b1b5edae383 snapshot working copy
+    ○  nkmpptxz/1 test.user@example.com 2001-02-03 08:05:09 11ba6b0f (hidden)
        (empty) (no description set)
-       -- operation 35de69400054 new empty commit
+       -- operation 130349b44890 new empty commit
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r", "mzvwut"]), @"
-    @  mzvwutvl test.user@example.com 2001-02-03 08:05:13 c 0c3fe2d8
+    insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r", "pzvwut"]), @"
+    @  pzvwutvl test.user@example.com 2001-02-03 08:05:13 c 97c0b8a6
     │  (no description set)
-    │  -- operation 35c9be8faa47 edit commit metadata for commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
-    ○  mzvwutvl/1 test.user@example.com 2001-02-03 08:05:13 22be6c4e (hidden)
+    │  -- operation 5b02e577448e edit commit metadata for commit 099a44efcab4d977ed5b622bf030b3de2b59fcef
+    ○  pzvwutvl/1 test.user@example.com 2001-02-03 08:05:13 1cc10709 (hidden)
     │  (no description set)
-    │  -- operation 7d623f9b6867 snapshot working copy
-    ○  mzvwutvl/2 test.user@example.com 2001-02-03 08:05:11 b9f5490a (hidden)
+    │  -- operation 543f77a89e53 snapshot working copy
+    ○  pzvwutvl/2 test.user@example.com 2001-02-03 08:05:11 e0a459cb (hidden)
        (empty) (no description set)
-       -- operation 80928a366fe1 new empty commit
+       -- operation 2a59b6403d9d new empty commit
     [EOF]
     ");
 }

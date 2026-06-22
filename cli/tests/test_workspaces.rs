@@ -262,7 +262,7 @@ fn test_workspaces_add_second_workspace_on_merge() {
 
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output, @"
-    default: zsuskuln 46ed31b6 (empty) merge
+    default: psuskuln 7f8df8b7 (empty) merge
     [EOF]
     ");
 
@@ -272,12 +272,12 @@ fn test_workspaces_add_second_workspace_on_merge() {
 
     // The new workspace's working-copy commit shares all parents with the old one.
     insta::assert_snapshot!(get_log_output(&main_dir), @r#"
-    @    46ed31b61ce9 default@ "merge"
+    @    7f8df8b70507 default@ "merge"
     ├─╮
-    │ │ ○  d23b2d4ff55c second@
+    │ │ ○  d716b707076e second@
     ╭─┬─╯
     │ ○  3c52528f5893 "left"
-    ○ │  a3155ab1bf5a "right"
+    ○ │  32de3a4c36e0 "right"
     ├─╯
     ◆  000000000000
     [EOF]
@@ -479,10 +479,10 @@ fn test_workspaces_add_workspace_multiple_revisions() {
     main_dir.run_jj(["new", "-r", "root()"]).success();
 
     insta::assert_snapshot!(get_log_output(&main_dir), @r#"
-    @  8d23abddc924
-    │ ○  eba7f49e2358 "third"
+    @  0edd0f26ec40
+    │ ○  3ce578a9f428 "third"
     ├─╯
-    │ ○  62444a45efcf "second"
+    │ ○  ff789b07c69b "second"
     ├─╯
     │ ○  27473635a942 "first"
     ├─╯
@@ -502,23 +502,23 @@ fn test_workspaces_add_workspace_multiple_revisions() {
     insta::assert_snapshot!(output.normalize_backslash(), @r#"
     ------- stderr -------
     Created workspace in "../merged"
-    Working copy  (@) now at: wmwvqwsz 2d7c9a2d (empty) (no description set)
-    Parent commit (@-)      : mzvwutvl eba7f49e third
-    Parent commit (@-)      : kkmpptxz 62444a45 second
+    Working copy  (@) now at: wmwvqwsz 91b19974 (empty) (no description set)
+    Parent commit (@-)      : pzvwutvl 3ce578a9 third
+    Parent commit (@-)      : nkmpptxz ff789b07 second
     Parent commit (@-)      : qpvuntsm 27473635 first
     Added 3 files, modified 0 files, removed 0 files
     [EOF]
     "#);
 
     insta::assert_snapshot!(get_log_output(&main_dir), @r#"
-    @  8d23abddc924 default@
-    │ ○      2d7c9a2d41dc merge@
+    @  0edd0f26ec40 default@
+    │ ○      91b199744f5e merge@
     │ ├─┬─╮
     │ │ │ ○  27473635a942 "first"
     ├─────╯
-    │ │ ○  62444a45efcf "second"
+    │ │ ○  ff789b07c69b "second"
     ├───╯
-    │ ○  eba7f49e2358 "third"
+    │ ○  3ce578a9f428 "third"
     ├─╯
     ◆  000000000000
     [EOF]
@@ -704,7 +704,7 @@ fn test_workspaces_conflicting_edits() {
         .success();
 
     insta::assert_snapshot!(get_log_output(&main_dir), @"
-    @  393250c59e39 default@
+    @  9a01e1a6ef1c default@
     │ ○  547036666102 secondary@
     ├─╯
     ○  9a462e35578a
@@ -738,7 +738,7 @@ fn test_workspaces_conflicting_edits() {
     let output = secondary_dir.run_jj(["st"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: The working copy is stale (not updated since operation 58f8ef773e05).
+    Error: The working copy is stale (not updated since operation 76089b82c0b6).
     Hint: Run `jj workspace update-stale` to update it.
     See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy for more information.
     [EOF]
@@ -748,7 +748,7 @@ fn test_workspaces_conflicting_edits() {
     let output = secondary_dir.run_jj(["log"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: The working copy is stale (not updated since operation 58f8ef773e05).
+    Error: The working copy is stale (not updated since operation 76089b82c0b6).
     Hint: Run `jj workspace update-stale` to update it.
     See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy for more information.
     [EOF]
@@ -808,7 +808,7 @@ fn test_workspaces_updated_by_other() {
         .success();
 
     insta::assert_snapshot!(get_log_output(&main_dir), @"
-    @  393250c59e39 default@
+    @  9a01e1a6ef1c default@
     │ ○  547036666102 secondary@
     ├─╯
     ○  9a462e35578a
@@ -839,7 +839,7 @@ fn test_workspaces_updated_by_other() {
     let output = secondary_dir.run_jj(["st"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: The working copy is stale (not updated since operation 58f8ef773e05).
+    Error: The working copy is stale (not updated since operation 76089b82c0b6).
     Hint: Run `jj workspace update-stale` to update it.
     See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy for more information.
     [EOF]
@@ -885,7 +885,7 @@ fn test_workspaces_updated_by_other_automatic() {
         .success();
 
     insta::assert_snapshot!(get_log_output(&main_dir), @"
-    @  393250c59e39 default@
+    @  9a01e1a6ef1c default@
     │ ○  547036666102 secondary@
     ├─╯
     ○  9a462e35578a
@@ -958,7 +958,7 @@ fn test_workspaces_updated_by_other_with_changes_in_working_copy_automatic() {
         .success();
 
     insta::assert_snapshot!(get_log_output(&main_dir), @"
-    @  393250c59e39 default@
+    @  9a01e1a6ef1c default@
     │ ○  547036666102 secondary@
     ├─╯
     ○  9a462e35578a
@@ -1089,12 +1089,12 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
     ]);
     insta::allow_duplicates! {
         insta::assert_snapshot!(output, @"
-        @  2dea766382 abandon commit de90575a14d8b9198dc0930f9de4a69f846ded36
-        ○  0d3faebd8c create initial working-copy commit in workspace secondary
-        ○  200ba564cb add workspace 'secondary'
-        ○  b34eafb924 new empty commit
-        ○  c883929a6b snapshot working copy
-        ○  bd7b1cfa98 new empty commit
+        @  f7ce0dfe58 abandon commit 8d8895c422852fa27d9c1a494755c8d337f3ed73
+        ○  1056601e2d create initial working-copy commit in workspace secondary
+        ○  168783d791 add workspace 'secondary'
+        ○  146ce9d37c new empty commit
+        ○  e43629982e snapshot working copy
+        ○  413041eaab new empty commit
         ○  4509e20d8c snapshot working copy
         ○  90267f31f9 add workspace 'default'
         ○  0000000000
@@ -1108,7 +1108,7 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
 
     insta::allow_duplicates! {
         insta::assert_snapshot!(get_log_output(&main_dir), @"
-        @  320bc89effc9 default@
+        @  0b76f1a00317 default@
         │ ○  891f00062e10 secondary@
         ├─╯
         ○  367415be5b44
@@ -1131,7 +1131,7 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         Parent commit (@-): rzvqmyuk 891f0006 (empty) (no description set)
         [EOF]
         ------- stderr -------
-        Failed to read working copy's current operation; attempting recovery. Error message from read attempt: Object 0d3faebd8cf4f0e39ea3eab47f22c9cdbcdaa54d95e79a86a0dab4ebe3b0377f69e1d64fa4661913c8c6af01dc0ebb5ad7c8b2bfa3d229827b2ba756d729e0bf of type operation not found
+        Failed to read working copy's current operation; attempting recovery. Error message from read attempt: Object 1056601e2db2748b73572fb837f7ba209a0858e9e93de48a50397ec5c210433b4cfbcc1522b0ad269dab2b55f874cab7471a37d1937985fbee8f75d03d677d3e of type operation not found
         Created and checked out recovery commit 866928d1e0fd
         [EOF]
         ");
@@ -1149,7 +1149,7 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         let output = secondary_dir.run_jj(["workspace", "update-stale"]);
         insta::assert_snapshot!(output, @"
         ------- stderr -------
-        Failed to read working copy's current operation; attempting recovery. Error message from read attempt: Object 0d3faebd8cf4f0e39ea3eab47f22c9cdbcdaa54d95e79a86a0dab4ebe3b0377f69e1d64fa4661913c8c6af01dc0ebb5ad7c8b2bfa3d229827b2ba756d729e0bf of type operation not found
+        Failed to read working copy's current operation; attempting recovery. Error message from read attempt: Object 1056601e2db2748b73572fb837f7ba209a0858e9e93de48a50397ec5c210433b4cfbcc1522b0ad269dab2b55f874cab7471a37d1937985fbee8f75d03d677d3e of type operation not found
         Created and checked out recovery commit 866928d1e0fd
         [EOF]
         ");
@@ -1157,7 +1157,7 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
 
     insta::allow_duplicates! {
         insta::assert_snapshot!(get_log_output(&main_dir), @r#"
-        @  320bc89effc9 default@
+        @  0b76f1a00317 default@
         │ ○  18851b397d09 secondary@ "RECOVERY COMMIT FROM `jj workspace update-stale`"
         │ ○  891f00062e10
         ├─╯
@@ -1200,20 +1200,20 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         insta::assert_snapshot!(output, @"
         @  kmkuslsw test.user@example.com 2001-02-03 08:05:18 secondary@ 18851b39
         │  RECOVERY COMMIT FROM `jj workspace update-stale`
-        │  -- operation a35d39d101f4 snapshot working copy
+        │  -- operation 47e1cdfb593a snapshot working copy
         ○  kmkuslsw/1 test.user@example.com 2001-02-03 08:05:18 866928d1 (hidden)
            (empty) RECOVERY COMMIT FROM `jj workspace update-stale`
-           -- operation 754c2986ff83 recovery commit
+           -- operation e86acc212d1e recovery commit
         [EOF]
         ");
     } else {
         insta::assert_snapshot!(output, @"
         @  kmkuslsw test.user@example.com 2001-02-03 08:05:18 secondary@ 18851b39
         │  RECOVERY COMMIT FROM `jj workspace update-stale`
-        │  -- operation 3ae899f26750 snapshot working copy
+        │  -- operation f4255ccf9eaf snapshot working copy
         ○  kmkuslsw/1 test.user@example.com 2001-02-03 08:05:18 866928d1 (hidden)
            (empty) RECOVERY COMMIT FROM `jj workspace update-stale`
-           -- operation 754c2986ff83 recovery commit
+           -- operation e86acc212d1e recovery commit
         [EOF]
         ");
     }
@@ -1271,8 +1271,8 @@ fn test_workspaces_unpublished_operation_same_tree() {
     let output = main_dir.run_jj(["status"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Internal error: The repo was loaded at operation 8627c7508be4, which seems to be a sibling of the working copy's operation eceacbdafd84
-    Hint: Run `jj op integrate eceacbdafd84` to add the working copy's operation to the operation log.
+    Internal error: The repo was loaded at operation 292f86d8ca22, which seems to be a sibling of the working copy's operation db8fce250af3
+    Hint: Run `jj op integrate db8fce250af3` to add the working copy's operation to the operation log.
     [EOF]
     [exit status: 255]
     ");
@@ -1281,9 +1281,9 @@ fn test_workspaces_unpublished_operation_same_tree() {
     let output = main_dir.run_jj(["workspace", "update-stale"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: zsuskuln 36a15ac4 (empty) C
+    Working copy  (@) now at: psuskuln 62a409aa (empty) C
     Parent commit (@-)      : qpvuntsm 8777db25 (empty) A
-    Updated working copy to fresh commit 36a15ac414e8
+    Updated working copy to fresh commit 62a409aa7bb8
     [EOF]
     ");
 }
@@ -1318,8 +1318,8 @@ fn test_workspaces_update_stale_snapshot() {
 
     insta::assert_snapshot!(get_log_output(&secondary_dir), @"
     @  35d779b3baea secondary@
-    │ ○  c9516583d53b default@
-    │ ○  f6ae7810ef56
+    │ ○  16253ab6fb36 default@
+    │ ○  2e73f76d9bad
     ├─╯
     ○  7d5738ba9943
     ◆  000000000000
@@ -1384,12 +1384,12 @@ fn test_colocated_workspace_update_stale() {
 
     insta::assert_snapshot!(get_log_output(&secondary_dir), @r#"
     @  9cb8253861b5 secondary@
-    │ ○  f562bf82f2da default@
+    │ ○  b44563d40a92 default@
     ├─╯
     ○  30ed2f28b710
-    │ ○  e97ad7861f78 book1 "new book1"
+    │ ○  d1c9e38182d5 book1 "new book1"
     ├─╯
-    │ ○  f656b467890b "old book1"
+    │ ○  cc9cc8eae747 "old book1"
     ├─╯
     ◆  000000000000
     [EOF]
@@ -1399,7 +1399,7 @@ fn test_colocated_workspace_update_stale() {
     let output = main_dir.run_jj(["st"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: The working copy is stale (not updated since operation 8ab980a3d398).
+    Error: The working copy is stale (not updated since operation f01296619359).
     Hint: Run `jj workspace update-stale` to update it.
     See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy for more information.
     [EOF]
@@ -1412,10 +1412,10 @@ fn test_colocated_workspace_update_stale() {
     let output = main_dir.run_jj(["workspace", "update-stale"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: rlvkpnrz f562bf82 (empty) (no description set)
+    Working copy  (@) now at: ylvkpnrz b44563d4 (empty) (no description set)
     Parent commit (@-)      : qpvuntsm 30ed2f28 (no description set)
     Added 0 files, modified 1 files, removed 0 files
-    Updated working copy to fresh commit f562bf82f2da
+    Updated working copy to fresh commit b44563d40a92
     Done importing changes from the underlying Git repo.
     [EOF]
     ");
@@ -1425,7 +1425,7 @@ fn test_colocated_workspace_update_stale() {
     let output = main_dir.run_jj(["st"]);
     insta::assert_snapshot!(output, @"
     The working copy has no changes.
-    Working copy  (@) : rlvkpnrz f562bf82 (empty) (no description set)
+    Working copy  (@) : ylvkpnrz b44563d4 (empty) (no description set)
     Parent commit (@-): qpvuntsm 30ed2f28 (no description set)
     [EOF]
     ");
@@ -1433,15 +1433,15 @@ fn test_colocated_workspace_update_stale() {
     // The updated bookmark "book1" shouldn't be re-imported as an external
     // change. If it were, the "old book1" revision would be abandoned.
     insta::assert_snapshot!(get_log_output(&main_dir), @r#"
-    @  f562bf82f2da default@
+    @  b44563d40a92 default@
     │ ○  9cb8253861b5 secondary@
     ├─╯
     ○  30ed2f28b710
     │ ○  7fe3ff3b9a60 book2 "book2"
     ├─╯
-    │ ○  e97ad7861f78 book1 "new book1"
+    │ ○  d1c9e38182d5 book1 "new book1"
     ├─╯
-    │ ○  f656b467890b "old book1"
+    │ ○  cc9cc8eae747 "old book1"
     ├─╯
     ◆  000000000000
     [EOF]
@@ -1587,7 +1587,7 @@ fn test_workspaces_forget_multi_transaction() {
     // there should be three workspaces
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output, @"
-    default: rlvkpnrz f6bf8819 (empty) (no description set)
+    default: ylvkpnrz 1705bc9a (empty) (no description set)
     second: pmmvwywv 31da1455 (empty) (no description set)
     third: rzvqmyuk bf5b5b4d (empty) (no description set)
     [EOF]
@@ -1599,14 +1599,14 @@ fn test_workspaces_forget_multi_transaction() {
         .success();
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output, @"
-    default: rlvkpnrz f6bf8819 (empty) (no description set)
+    default: ylvkpnrz 1705bc9a (empty) (no description set)
     [EOF]
     ");
 
     // the op log should have the multiple valid workspaces forgotten in a single tx
     let output = main_dir.run_jj(["op", "log", "--limit", "1"]);
     insta::assert_snapshot!(output, @"
-    @  90493ae75198 test-username@host.example.com default@ 2001-02-03 04:05:12.000 +07:00 - 2001-02-03 04:05:12.000 +07:00
+    @  4c3998fced17 test-username@host.example.com default@ 2001-02-03 04:05:12.000 +07:00 - 2001-02-03 04:05:12.000 +07:00
     │  forget workspaces second, third
     │  args: jj workspace forget second third fourth
     [EOF]
@@ -1618,7 +1618,7 @@ fn test_workspaces_forget_multi_transaction() {
     // finally, there should be three workspaces at the end
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output, @"
-    default: rlvkpnrz f6bf8819 (empty) (no description set)
+    default: ylvkpnrz 1705bc9a (empty) (no description set)
     second: pmmvwywv 31da1455 (empty) (no description set)
     third: rzvqmyuk bf5b5b4d (empty) (no description set)
     [EOF]

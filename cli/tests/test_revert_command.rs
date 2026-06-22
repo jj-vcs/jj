@@ -29,10 +29,10 @@ fn test_revert() {
     create_commit_with_files(&work_dir, "d", &["c"], &[]);
     // Test the setup
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  98fb6151f954 d
-    ○  96ff42270bbc c
-    ○  58aaf278bf58 b
-    ○  7d980be7a1d4 a
+    @  fa26c55c301b d
+    ○  3ba70189111d c
+    ○  b2f482be4c08 b
+    ○  a1afb5834d8e a
     ◆  000000000000
     [EOF]
     ");
@@ -62,17 +62,17 @@ fn test_revert() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Reverted 1 commits as follows:
-      wqnwkozp 64910788 Revert "a"
+      wqnwkozp b0012bfd Revert "a"
     [EOF]
     "#);
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
-    ○  64910788f8a5 Revert "a"
+    ○  b0012bfd21de Revert "a"
     │
-    │  This reverts commit 7d980be7a1d499e4d316ab4c01242885032f7eaf.
-    @  98fb6151f954 d
-    ○  96ff42270bbc c
-    ○  58aaf278bf58 b
-    ○  7d980be7a1d4 a
+    │  This reverts commit a1afb5834d8ee4dcb61b59db0f682c7a53f96f53.
+    @  fa26c55c301b d
+    ○  3ba70189111d c
+    ○  b2f482be4c08 b
+    ○  a1afb5834d8e a
     ◆  000000000000
     [EOF]
     "#);
@@ -87,20 +87,20 @@ fn test_revert() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Reverted 1 commits as follows:
-      nkmrtpmo 90d12316 Revert "Revert "a""
+      nkmrtpmo 4deb57e3 Revert "Revert "a""
     [EOF]
     "#);
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
-    ○  90d123162199 Revert "Revert "a""
+    ○  4deb57e3940a Revert "Revert "a""
     │
-    │  This reverts commit 64910788f8a5d322739e1e38ef35f7d06ea4b38d.
-    ○  64910788f8a5 Revert "a"
+    │  This reverts commit b0012bfd21de6b73af1ca81b9e1a3dc6b605ab37.
+    ○  b0012bfd21de Revert "a"
     │
-    │  This reverts commit 7d980be7a1d499e4d316ab4c01242885032f7eaf.
-    @  98fb6151f954 d
-    ○  96ff42270bbc c
-    ○  58aaf278bf58 b
-    ○  7d980be7a1d4 a
+    │  This reverts commit a1afb5834d8ee4dcb61b59db0f682c7a53f96f53.
+    @  fa26c55c301b d
+    ○  3ba70189111d c
+    ○  b2f482be4c08 b
+    ○  a1afb5834d8e a
     ◆  000000000000
     [EOF]
     "#);
@@ -116,21 +116,21 @@ fn test_revert() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Reverted 1 commits as follows:
-      nmzmmopx 9e7b8585 Revert "a"
+      nmzmmopx fc5e66c4 Revert "a"
     Rebased 2 descendant commits
-    Working copy  (@) now at: vruxwmqv b1885396 d | (empty) d
-    Parent commit (@-)      : royxmykx efc4bd83 c | (empty) c
+    Working copy  (@) now at: truxwmqv bb9e400f d | (empty) d
+    Parent commit (@-)      : ooyxmykx 5b8a9403 c | (empty) c
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     "#);
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
-    @  b18853966f79 d
-    ○  efc4bd83159f c
-    ○  9e7b85853718 Revert "a"
+    @  bb9e400fb73e d
+    ○  5b8a9403cdc5 c
+    ○  fc5e66c47827 Revert "a"
     │
-    │  This reverts commit 7d980be7a1d499e4d316ab4c01242885032f7eaf.
-    ○  58aaf278bf58 b
-    ○  7d980be7a1d4 a
+    │  This reverts commit a1afb5834d8ee4dcb61b59db0f682c7a53f96f53.
+    ○  b2f482be4c08 b
+    ○  a1afb5834d8e a
     ◆  000000000000
     [EOF]
     "#);
@@ -146,21 +146,21 @@ fn test_revert() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Reverted 1 commits as follows:
-      pzsxstzt d51ea564 Revert "a"
+      pzsxstzt 8c22ca4f Revert "a"
     Rebased 1 descendant commits
-    Working copy  (@) now at: vruxwmqv 5c5d60a6 d | (empty) d
-    Parent commit (@-)      : pzsxstzt d51ea564 Revert "a"
+    Working copy  (@) now at: truxwmqv 309be317 d | (empty) d
+    Parent commit (@-)      : pzsxstzt 8c22ca4f Revert "a"
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     "#);
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
-    @  5c5d60a69afd d
-    ○  d51ea56444ce Revert "a"
+    @  309be317775a d
+    ○  8c22ca4f224e Revert "a"
     │
-    │  This reverts commit 7d980be7a1d499e4d316ab4c01242885032f7eaf.
-    ○  96ff42270bbc c
-    ○  58aaf278bf58 b
-    ○  7d980be7a1d4 a
+    │  This reverts commit a1afb5834d8ee4dcb61b59db0f682c7a53f96f53.
+    ○  3ba70189111d c
+    ○  b2f482be4c08 b
+    ○  a1afb5834d8e a
     ◆  000000000000
     [EOF]
     "#);
@@ -176,24 +176,24 @@ fn test_revert() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Reverted 1 commits as follows:
-      oupztwtk d311a8f0 Revert "a"
+      oupztwtk d3f03fa4 Revert "a"
     Rebased 1 descendant commits
-    Working copy  (@) now at: vruxwmqv 5b97d572 d | (empty) d
-    Parent commit (@-)      : royxmykx 96ff4227 c | (empty) c
-    Parent commit (@-)      : oupztwtk d311a8f0 Revert "a"
+    Working copy  (@) now at: truxwmqv 9347ae05 d | (empty) d
+    Parent commit (@-)      : ooyxmykx 3ba70189 c | (empty) c
+    Parent commit (@-)      : oupztwtk d3f03fa4 Revert "a"
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     "#);
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
-    @    5b97d572e457 d
+    @    9347ae05d47e d
     ├─╮
-    │ ○  d311a8f0c13f Revert "a"
+    │ ○  d3f03fa45cfa Revert "a"
     │ │
-    │ │  This reverts commit 7d980be7a1d499e4d316ab4c01242885032f7eaf.
-    ○ │  96ff42270bbc c
-    ○ │  58aaf278bf58 b
+    │ │  This reverts commit a1afb5834d8ee4dcb61b59db0f682c7a53f96f53.
+    ○ │  3ba70189111d c
+    ○ │  b2f482be4c08 b
     ├─╯
-    ○  7d980be7a1d4 a
+    ○  a1afb5834d8e a
     ◆  000000000000
     [EOF]
     "#);
@@ -227,11 +227,11 @@ fn test_revert_multiple() {
 
     // Test the setup
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  51a01d6d8cc4 e
-    ○  4b9d123d3b33 d
-    ○  05e1f540476f c
-    ○  f93a910dbdf0 b
-    ○  7d980be7a1d4 a
+    @  cf24eb81f036 e
+    ○  73a51527a9fe d
+    ○  38264d21e3d7 c
+    ○  0b942411d277 b
+    ○  a1afb5834d8e a
     ◆  000000000000
     [EOF]
     ");
@@ -241,40 +241,40 @@ fn test_revert_multiple() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Reverted 3 commits as follows:
-      wqnwkozp 4329cf72 Revert "e"
-      mouksmqu 092f722e Revert "c"
-      tqvpomtp c90eef02 Revert "b"
+      wqnwkozp a6081eb6 Revert "e"
+      mouksmqu 51cda3bf Revert "c"
+      tqvpomtp a468f0ad Revert "b"
     [EOF]
     "#);
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
-    ○  c90eef022369 Revert "b"
+    ○  a468f0ad978e Revert "b"
     │
-    │  This reverts commit f93a910dbdf0f841e6cf2bc0ab0ba4c336d6f436.
-    ○  092f722e521f Revert "c"
+    │  This reverts commit 0b942411d277054caabbaf1e9dc62f368d73bb66.
+    ○  51cda3bfcc54 Revert "c"
     │
-    │  This reverts commit 05e1f540476f8c4207ff44febbe2ce6e6696dc4b.
-    ○  4329cf7230d7 Revert "e"
+    │  This reverts commit 38264d21e3d79a70e31740bd1cd21201c4d6281f.
+    ○  a6081eb6a3ab Revert "e"
     │
-    │  This reverts commit 51a01d6d8cc48a296cb87f8383b34ade3c050363.
-    @  51a01d6d8cc4 e
-    ○  4b9d123d3b33 d
-    ○  05e1f540476f c
-    ○  f93a910dbdf0 b
-    ○  7d980be7a1d4 a
+    │  This reverts commit cf24eb81f036ebed82802cd38b4ad9189208fa6a.
+    @  cf24eb81f036 e
+    ○  73a51527a9fe d
+    ○  38264d21e3d7 c
+    ○  0b942411d277 b
+    ○  a1afb5834d8e a
     ◆  000000000000
     [EOF]
     "#);
     // View the output of each reverted commit
     let output = work_dir.run_jj(["show", "@+"]);
     insta::assert_snapshot!(output, @r#"
-    Commit ID: 4329cf7230d7b8229e9c88087cfa2f8aa13a1317
+    Commit ID: a6081eb6a3abffb261f2f8eb6a700e34068a0ed8
     Change ID: wqnwkozpkustnxypnnntnykwrqrkrpvv
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:19)
     Committer: Test User <test.user@example.com> (2001-02-03 08:05:19)
 
         Revert "e"
 
-        This reverts commit 51a01d6d8cc48a296cb87f8383b34ade3c050363.
+        This reverts commit cf24eb81f036ebed82802cd38b4ad9189208fa6a.
 
     Modified regular file a:
        1    1: a
@@ -284,14 +284,14 @@ fn test_revert_multiple() {
     "#);
     let output = work_dir.run_jj(["show", "@++"]);
     insta::assert_snapshot!(output, @r#"
-    Commit ID: 092f722e521fe49fde5a3830568fe1c51b8f2f5f
+    Commit ID: 51cda3bfcc541a752f9001aac1ef15d33dc95f8d
     Change ID: mouksmquosnpvwqrpsvvxtxpywpnxlss
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:19)
     Committer: Test User <test.user@example.com> (2001-02-03 08:05:19)
 
         Revert "c"
 
-        This reverts commit 05e1f540476f8c4207ff44febbe2ce6e6696dc4b.
+        This reverts commit 38264d21e3d79a70e31740bd1cd21201c4d6281f.
 
     Removed regular file b:
        1     : b
@@ -299,14 +299,14 @@ fn test_revert_multiple() {
     "#);
     let output = work_dir.run_jj(["show", "@+++"]);
     insta::assert_snapshot!(output, @r#"
-    Commit ID: c90eef022369d43d5eae8303101b5889b4b73963
+    Commit ID: a468f0ad978eee5b2ae0c73f23c82c9480c0bce7
     Change ID: tqvpomtpwrqsylrpsxknultrymmqxmxv
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:19)
     Committer: Test User <test.user@example.com> (2001-02-03 08:05:19)
 
         Revert "b"
 
-        This reverts commit f93a910dbdf0f841e6cf2bc0ab0ba4c336d6f436.
+        This reverts commit 0b942411d277054caabbaf1e9dc62f368d73bb66.
 
     Modified regular file a:
        1    1: a
@@ -336,7 +336,7 @@ fn test_revert_description_template() {
 
     // Test the setup
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  7d980be7a1d4 a
+    @  a1afb5834d8e a
     ◆  000000000000
     [EOF]
     ");
@@ -351,12 +351,12 @@ fn test_revert_description_template() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Reverted 1 commits as follows:
-      royxmykx 6bfb98a3 Revert commit 7d980be7a1d4 "a"
+      royxmykx 2fbadb7a Revert commit a1afb5834d8e "a"
     [EOF]
     "#);
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
-    ○  6bfb98a33f58 Revert commit 7d980be7a1d4 "a"
-    @  7d980be7a1d4 a
+    ○  2fbadb7a5a37 Revert commit a1afb5834d8e "a"
+    @  a1afb5834d8e a
     ◆  000000000000
     [EOF]
     "#);
@@ -374,9 +374,9 @@ fn test_revert_with_conflict() {
 
     // Test the setup
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  48b910edc43e c
-    ○  f93a910dbdf0 b
-    ○  7d980be7a1d4 a
+    @  3def7730ce49 c
+    ○  0b942411d277 b
+    ○  a1afb5834d8e a
     ◆  000000000000
     [EOF]
     ");
@@ -386,9 +386,9 @@ fn test_revert_with_conflict() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Reverted 1 commits as follows:
-      yostqsxw eadfde9a (conflict) Revert "b"
+      yostqsxw db4fbaf3 (conflict) Revert "b"
     New conflicts appeared in 1 commits:
-      yostqsxw eadfde9a (conflict) Revert "b"
+      yostqsxw db4fbaf3 (conflict) Revert "b"
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new yostqsxw
@@ -398,12 +398,12 @@ fn test_revert_with_conflict() {
     [EOF]
     "#);
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
-    ×  eadfde9a48f3 Revert "b"
+    ×  db4fbaf3663c Revert "b"
     │
-    │  This reverts commit f93a910dbdf0f841e6cf2bc0ab0ba4c336d6f436.
-    @  48b910edc43e c
-    ○  f93a910dbdf0 b
-    ○  7d980be7a1d4 a
+    │  This reverts commit 0b942411d277054caabbaf1e9dc62f368d73bb66.
+    @  3def7730ce49 c
+    ○  0b942411d277 b
+    ○  a1afb5834d8e a
     ◆  000000000000
     [EOF]
     "#);
@@ -412,11 +412,11 @@ fn test_revert_with_conflict() {
     insta::assert_snapshot!(output, @r#"
     a
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from: zsuskuln f93a910d "b" (reverted revision)
-    \\\\\\\        to: royxmykx 48b910ed "c" (revert destination)
+    %%%%%%% diff from: psuskuln 0b942411 "b" (reverted revision)
+    \\\\\\\        to: ooyxmykx 3def7730 "c" (revert destination)
      b
     +c
-    +++++++ rlvkpnrz 7d980be7 "a" (parents of reverted revision)
+    +++++++ ylvkpnrz a1afb583 "a" (parents of reverted revision)
     >>>>>>> conflict 1 of 1 ends
     [EOF]
     "#);

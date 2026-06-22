@@ -74,7 +74,7 @@ fn test_gerrit_upload_dryrun() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
-    Dry-run: Would push zsuskuln 123b4d91 b | b
+    Dry-run: Would push psuskuln dd148a1b b | b
     [EOF]
     ");
 
@@ -82,7 +82,7 @@ fn test_gerrit_upload_dryrun() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'other'
-    Dry-run: Would push zsuskuln 123b4d91 b | b
+    Dry-run: Would push psuskuln dd148a1b b | b
     [EOF]
     ");
 }
@@ -114,7 +114,7 @@ fn test_gerrit_upload_default_revision() {
     ------- stderr -------
     No revision provided. Defaulting to @
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
-    Dry-run: Would push kkmpptxz a41ea4e9 parent
+    Dry-run: Would push nkmpptxz f7f633c0 parent
     [EOF]
     ");
 
@@ -124,7 +124,7 @@ fn test_gerrit_upload_default_revision() {
     ------- stderr -------
     No revision provided and @ has no description. Defaulting to @-
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
-    Dry-run: Would push kkmpptxz a41ea4e9 parent
+    Dry-run: Would push nkmpptxz f7f633c0 parent
     [EOF]
     ");
 
@@ -171,19 +171,19 @@ fn test_gerrit_upload_default_revision_already_in_trunk() {
     local_dir.run_jj(["describe", "-m="]).success();
 
     let output = local_dir.run_jj(["gerrit", "upload", "--dry-run"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     No revision provided and @ has no description. Defaulting to @-
-    Error: Commit 57df4838fd85 is immutable
-    Hint: Could not modify commit: rlvkpnrz 57df4838 main@origin | main
+    Error: Commit 86be1db760f2 is immutable
+    Hint: Could not modify commit: ylvkpnrz 86be1db7 main@origin | main
     Hint: Immutable commits are used to protect shared history.
     Hint: For more information, see:
           - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
-          - `jj help -k config`, \"Set of immutable commits\"
+          - `jj help -k config`, "Set of immutable commits"
     Hint: This operation would rewrite 1 immutable commits.
     [EOF]
     [exit status: 1]
-    ");
+    "#);
 }
 
 #[test]
@@ -271,7 +271,7 @@ fn test_gerrit_upload_failure() {
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "b", "--remote-branch=main"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Refusing to upload revision mzvwutvlkqwt because it is empty
+    Error: Refusing to upload revision pzvwutvlkqwt because it is empty
     Hint: Perhaps you squashed then ran upload? Maybe you meant to upload the parent commit instead (eg. @-)
     [EOF]
     [exit status: 1]
@@ -281,7 +281,7 @@ fn test_gerrit_upload_failure() {
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "c", "--remote-branch=main"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Refusing to upload revision yqosqzytrlsw because it is has no description
+    Error: Refusing to upload revision nqosqzytrlsw because it is has no description
     Hint: Maybe you meant to upload the parent commit instead (eg. @-)
     [EOF]
     [exit status: 1]
@@ -295,7 +295,7 @@ fn test_gerrit_upload_failure() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
-    Pushing znkkpsqq 47f1f88c d | d
+    Pushing qnkkpsqq 50f9c1c1 d | d
     Error: Internal git error while pushing to gerrit
     Caused by: Could not find repository at '$TEST_ENV/local/nonexistent'
     [EOF]
@@ -333,11 +333,11 @@ fn test_gerrit_upload_local_implicit_change_ids() {
     // temporary commits)
     let output = local_dir.run_jj(["log", "-r", "all()"]);
     insta::assert_snapshot!(output, @"
-    @  yqosqzyt test.user@example.com 2001-02-03 08:05:15 c f6e97ced
+    @  nqosqzyt test.user@example.com 2001-02-03 08:05:15 c 06dc682a
     │  c
-    ○  mzvwutvl test.user@example.com 2001-02-03 08:05:12 b 3bcb28c4
+    ○  pzvwutvl test.user@example.com 2001-02-03 08:05:12 b bd2773ca
     │  b
-    ◆  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a@origin 7d980be7
+    ◆  ylvkpnrz test.user@example.com 2001-02-03 08:05:09 a@origin a1afb583
     │  a
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -347,7 +347,7 @@ fn test_gerrit_upload_local_implicit_change_ids() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
-    Pushing yqosqzyt f6e97ced c | c
+    Pushing nqosqzyt 06dc682a c | c
     [EOF]
     ");
 
@@ -355,11 +355,11 @@ fn test_gerrit_upload_local_implicit_change_ids() {
     // transiently
     let output = local_dir.run_jj(["log", "-r", "all()"]);
     insta::assert_snapshot!(output, @"
-    @  yqosqzyt test.user@example.com 2001-02-03 08:05:15 c f6e97ced
+    @  nqosqzyt test.user@example.com 2001-02-03 08:05:15 c 06dc682a
     │  c
-    ○  mzvwutvl test.user@example.com 2001-02-03 08:05:12 b 3bcb28c4
+    ○  pzvwutvl test.user@example.com 2001-02-03 08:05:12 b bd2773ca
     │  b
-    ◆  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a@origin 7d980be7
+    ◆  ylvkpnrz test.user@example.com 2001-02-03 08:05:09 a@origin a1afb583
     │  a
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -368,25 +368,25 @@ fn test_gerrit_upload_local_implicit_change_ids() {
     // There's no particular reason to run this with jj util exec, it's just that
     // the infra makes it easier to run this way.
     let output = remote_dir.run_jj(["util", "exec", "--", "git", "log", "refs/for/main"]);
-    insta::assert_snapshot!(output, @"
-    commit 68b986d2eb820643b767ae219fb48128dcc2fc03
+    insta::assert_snapshot!(output, @r"
+    commit d8b9cbe0b3ee36981d2d55050589d2d07fb05045
     Author: Test User <test.user@example.com>
     Date:   Sat Feb 3 04:05:13 2001 +0700
 
         c
         
         Signed-off-by: Lucky K Maintainer <lucky@maintainer.example.org>
-        Change-Id: I19b790168e73f7a73a98deae21e807c06a6a6964
+        Change-Id: Ic9b790168e73f7a73a98deae21e807c06a6a6964
 
-    commit 81b723522d1c1a583a045eab5bfb323e45e6198d
+    commit 166a6cec7b25f3206d67e661b5b354b60ae29998
     Author: Test User <test.user@example.com>
     Date:   Sat Feb 3 04:05:11 2001 +0700
 
         b
         
-        Change-Id: Id043564ef93650b06a70f92f9d91912b6a6a6964
+        Change-Id: Ia043564ef93650b06a70f92f9d91912b6a6a6964
 
-    commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
+    commit a1afb5834d8ee4dcb61b59db0f682c7a53f96f53
     Author: Test User <test.user@example.com>
     Date:   Sat Feb 3 04:05:08 2001 +0700
 
@@ -431,11 +431,11 @@ review-url = "https://gerrit.example.com/"
     // temporary commits)
     let output = local_dir.run_jj(["log", "-r", "all()"]);
     insta::assert_snapshot!(output, @"
-    @  yqosqzyt test.user@example.com 2001-02-03 08:05:15 c f6e97ced
+    @  nqosqzyt test.user@example.com 2001-02-03 08:05:15 c 06dc682a
     │  c
-    ○  mzvwutvl test.user@example.com 2001-02-03 08:05:12 b 3bcb28c4
+    ○  pzvwutvl test.user@example.com 2001-02-03 08:05:12 b bd2773ca
     │  b
-    ◆  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a@origin 7d980be7
+    ◆  ylvkpnrz test.user@example.com 2001-02-03 08:05:09 a@origin a1afb583
     │  a
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -445,7 +445,7 @@ review-url = "https://gerrit.example.com/"
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
-    Pushing yqosqzyt f6e97ced c | c
+    Pushing nqosqzyt 06dc682a c | c
     [EOF]
     ");
 
@@ -453,11 +453,11 @@ review-url = "https://gerrit.example.com/"
     // transiently
     let output = local_dir.run_jj(["log", "-r", "all()"]);
     insta::assert_snapshot!(output, @"
-    @  yqosqzyt test.user@example.com 2001-02-03 08:05:15 c f6e97ced
+    @  nqosqzyt test.user@example.com 2001-02-03 08:05:15 c 06dc682a
     │  c
-    ○  mzvwutvl test.user@example.com 2001-02-03 08:05:12 b 3bcb28c4
+    ○  pzvwutvl test.user@example.com 2001-02-03 08:05:12 b bd2773ca
     │  b
-    ◆  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a@origin 7d980be7
+    ◆  ylvkpnrz test.user@example.com 2001-02-03 08:05:09 a@origin a1afb583
     │  a
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -467,24 +467,24 @@ review-url = "https://gerrit.example.com/"
     // the infra makes it easier to run this way.
     let output = remote_dir.run_jj(["util", "exec", "--", "git", "log", "refs/for/main"]);
     insta::assert_snapshot!(output, @r"
-    commit b2731737e530be944c12679a86dacca2a3d3c6ad
+    commit f4f2cd7de12a02296bbe8b2aeadf0abda9fc5e58
     Author: Test User <test.user@example.com>
     Date:   Sat Feb 3 04:05:13 2001 +0700
 
         c
         
         Signed-off-by: Lucky K Maintainer <lucky@maintainer.example.org>
-        Link: https://gerrit.example.com/id/I19b790168e73f7a73a98deae21e807c06a6a6964
+        Link: https://gerrit.example.com/id/Ic9b790168e73f7a73a98deae21e807c06a6a6964
 
-    commit 9bc0339b54de4f3bcf241f8d68daf75bd6501cff
+    commit 0137efaa46414aac8f664eb33f5a7739b3372bda
     Author: Test User <test.user@example.com>
     Date:   Sat Feb 3 04:05:11 2001 +0700
 
         b
         
-        Link: https://gerrit.example.com/id/Id043564ef93650b06a70f92f9d91912b6a6a6964
+        Link: https://gerrit.example.com/id/Ia043564ef93650b06a70f92f9d91912b6a6a6964
 
-    commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
+    commit a1afb5834d8ee4dcb61b59db0f682c7a53f96f53
     Author: Test User <test.user@example.com>
     Date:   Sat Feb 3 04:05:08 2001 +0700
 
@@ -517,8 +517,8 @@ fn test_gerrit_upload_local_explicit_change_ids() {
     ]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: mzvwutvl 887a7016 b | b
-    Parent commit (@-)      : rlvkpnrz 7d980be7 a@origin | a
+    Working copy  (@) now at: pzvwutvl a92f28f1 b | b
+    Parent commit (@-)      : ylvkpnrz a1afb583 a@origin | a
     [EOF]
     ");
 
@@ -533,8 +533,8 @@ fn test_gerrit_upload_local_explicit_change_ids() {
     ]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: vruxwmqv b4124fc9 c | c
-    Parent commit (@-)      : mzvwutvl 887a7016 b | b
+    Working copy  (@) now at: truxwmqv e5c39e2f c | c
+    Parent commit (@-)      : pzvwutvl a92f28f1 b | b
     [EOF]
     ");
 
@@ -542,11 +542,11 @@ fn test_gerrit_upload_local_explicit_change_ids() {
     // temporary commits)
     let output = local_dir.run_jj(["log", "-r", "all()"]);
     insta::assert_snapshot!(output, @"
-    @  vruxwmqv test.user@example.com 2001-02-03 08:05:16 c b4124fc9
+    @  truxwmqv test.user@example.com 2001-02-03 08:05:16 c e5c39e2f
     │  c
-    ○  mzvwutvl test.user@example.com 2001-02-03 08:05:13 b 887a7016
+    ○  pzvwutvl test.user@example.com 2001-02-03 08:05:13 b a92f28f1
     │  b
-    ◆  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a@origin 7d980be7
+    ◆  ylvkpnrz test.user@example.com 2001-02-03 08:05:09 a@origin a1afb583
     │  a
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -556,7 +556,7 @@ fn test_gerrit_upload_local_explicit_change_ids() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
-    Pushing vruxwmqv b4124fc9 c | c
+    Pushing truxwmqv e5c39e2f c | c
     [EOF]
     ");
 
@@ -564,11 +564,11 @@ fn test_gerrit_upload_local_explicit_change_ids() {
     // been created
     let output = local_dir.run_jj(["log", "-r", "all()"]);
     insta::assert_snapshot!(output, @"
-    @  vruxwmqv test.user@example.com 2001-02-03 08:05:16 c b4124fc9
+    @  truxwmqv test.user@example.com 2001-02-03 08:05:16 c e5c39e2f
     │  c
-    ○  mzvwutvl test.user@example.com 2001-02-03 08:05:13 b 887a7016
+    ○  pzvwutvl test.user@example.com 2001-02-03 08:05:13 b a92f28f1
     │  b
-    ◆  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a@origin 7d980be7
+    ◆  ylvkpnrz test.user@example.com 2001-02-03 08:05:09 a@origin a1afb583
     │  a
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -578,7 +578,7 @@ fn test_gerrit_upload_local_explicit_change_ids() {
     // the infra makes it easier to run this way.
     let output = remote_dir.run_jj(["util", "exec", "--", "git", "log", "refs/for/main"]);
     insta::assert_snapshot!(output, @"
-    commit b4124fc9d4694eecb4d9938cf4874cd13f1252b6
+    commit e5c39e2fe97d0c6db908e0bfe8487814cc04fa3d
     Author: Test User <test.user@example.com>
     Date:   Sat Feb 3 04:05:14 2001 +0700
 
@@ -586,7 +586,7 @@ fn test_gerrit_upload_local_explicit_change_ids() {
         
         Link: https://gerrit.example.com/id/Idfac1e8c149efddf5c7a286f787b43886a6a6964
 
-    commit 887a7016ec03a904835da1059543d8cc34b6ba76
+    commit a92f28f1118f62b6b8c85eb7252e5a3c63720005
     Author: Test User <test.user@example.com>
     Date:   Sat Feb 3 04:05:11 2001 +0700
 
@@ -594,7 +594,7 @@ fn test_gerrit_upload_local_explicit_change_ids() {
         
         Change-Id: Id39b308212fe7e0b746d16c13355f3a90712d7f9
 
-    commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
+    commit a1afb5834d8ee4dcb61b59db0f682c7a53f96f53
     Author: Test User <test.user@example.com>
     Date:   Sat Feb 3 04:05:08 2001 +0700
 
@@ -628,8 +628,8 @@ fn test_gerrit_upload_local_mixed_change_ids() {
     ]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: yqosqzyt 8d46d915 c | c
-    Parent commit (@-)      : mzvwutvl 3bcb28c4 b | b
+    Working copy  (@) now at: nqosqzyt a030199b c | c
+    Parent commit (@-)      : pzvwutvl bd2773ca b | b
     [EOF]
     ");
 
@@ -637,11 +637,11 @@ fn test_gerrit_upload_local_mixed_change_ids() {
     // temporary commits)
     let output = local_dir.run_jj(["log", "-r", "all()"]);
     insta::assert_snapshot!(output, @"
-    @  yqosqzyt test.user@example.com 2001-02-03 08:05:15 c 8d46d915
+    @  nqosqzyt test.user@example.com 2001-02-03 08:05:15 c a030199b
     │  c
-    ○  mzvwutvl test.user@example.com 2001-02-03 08:05:12 b 3bcb28c4
+    ○  pzvwutvl test.user@example.com 2001-02-03 08:05:12 b bd2773ca
     │  b
-    ◆  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a@origin 7d980be7
+    ◆  ylvkpnrz test.user@example.com 2001-02-03 08:05:09 a@origin a1afb583
     │  a
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -651,7 +651,7 @@ fn test_gerrit_upload_local_mixed_change_ids() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
-    Pushing yqosqzyt 8d46d915 c | c
+    Pushing nqosqzyt a030199b c | c
     [EOF]
     ");
 
@@ -659,11 +659,11 @@ fn test_gerrit_upload_local_mixed_change_ids() {
     // should all be temporary
     let output = local_dir.run_jj(["log", "-r", "all()"]);
     insta::assert_snapshot!(output, @"
-    @  yqosqzyt test.user@example.com 2001-02-03 08:05:15 c 8d46d915
+    @  nqosqzyt test.user@example.com 2001-02-03 08:05:15 c a030199b
     │  c
-    ○  mzvwutvl test.user@example.com 2001-02-03 08:05:12 b 3bcb28c4
+    ○  pzvwutvl test.user@example.com 2001-02-03 08:05:12 b bd2773ca
     │  b
-    ◆  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a@origin 7d980be7
+    ◆  ylvkpnrz test.user@example.com 2001-02-03 08:05:09 a@origin a1afb583
     │  a
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -673,7 +673,7 @@ fn test_gerrit_upload_local_mixed_change_ids() {
     // the infra makes it easier to run this way.
     let output = remote_dir.run_jj(["util", "exec", "--", "git", "log", "refs/for/main"]);
     insta::assert_snapshot!(output, @"
-    commit 015df2b1d38bdc71ae7ef24c2889100e39d34ef8
+    commit 1fad1dc37e6e6c0b2afc98f5103a7f912537110c
     Author: Test User <test.user@example.com>
     Date:   Sat Feb 3 04:05:13 2001 +0700
 
@@ -681,15 +681,15 @@ fn test_gerrit_upload_local_mixed_change_ids() {
         
         Change-Id: Id39b308212fe7e0b746d16c13355f3a90712d7f9
 
-    commit 81b723522d1c1a583a045eab5bfb323e45e6198d
+    commit 166a6cec7b25f3206d67e661b5b354b60ae29998
     Author: Test User <test.user@example.com>
     Date:   Sat Feb 3 04:05:11 2001 +0700
 
         b
         
-        Change-Id: Id043564ef93650b06a70f92f9d91912b6a6a6964
+        Change-Id: Ia043564ef93650b06a70f92f9d91912b6a6a6964
 
-    commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
+    commit a1afb5834d8ee4dcb61b59db0f682c7a53f96f53
     Author: Test User <test.user@example.com>
     Date:   Sat Feb 3 04:05:08 2001 +0700
 
@@ -779,21 +779,21 @@ fn test_gerrit_upload_bad_change_ids() {
     let output = local_dir.run_jj(["gerrit", "upload", "-rc", "--remote-branch=main"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Multiple Change-Id footers in revision wqnwkozpkust
+    Error: Multiple Change-Id footers in revision vqnwkozpkust
     [EOF]
     [exit status: 1]
     ");
     let output = local_dir.run_jj(["gerrit", "upload", "-rd", "--remote-branch=main"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Multiple Change-Id footers in revision kxryzmorwvtz
+    Error: Multiple Change-Id footers in revision uxryzmorwvtz
     [EOF]
     [exit status: 1]
     ");
     let output = local_dir.run_jj(["gerrit", "upload", "-re", "--remote-branch=main"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Multiple Change-Id footers in revision uyznsvlquzzm
+    Error: Multiple Change-Id footers in revision wyznsvlquzzm
     [EOF]
     [exit status: 1]
     ");
@@ -802,12 +802,12 @@ fn test_gerrit_upload_bad_change_ids() {
     let output = local_dir.run_jj(["gerrit", "upload", "-rb4", "--remote-branch=main"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: Invalid Change-Id footer in revision mzvwutvlkqwt
-    Warning: Invalid Change-Id footer in revision yqosqzytrlsw
-    Warning: Invalid Link footer in revision yostqsxwqrlt
+    Warning: Invalid Change-Id footer in revision pzvwutvlkqwt
+    Warning: Invalid Change-Id footer in revision nqosqzytrlsw
+    Warning: Invalid Link footer in revision rostqsxwqrlt
     Warning: Invalid Link footer in revision kpqxywonksrl
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
-    Pushing kpqxywon 69536ef3 b4
+    Pushing kpqxywon 45cdd32b b4
     [EOF]
     ");
 }
@@ -852,8 +852,8 @@ fn test_gerrit_upload_rejected_by_remote() -> TestResult {
     ]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: mzvwutvl 887a7016 b | b
-    Parent commit (@-)      : rlvkpnrz 7d980be7 a@origin | a
+    Working copy  (@) now at: pzvwutvl a92f28f1 b | b
+    Parent commit (@-)      : ylvkpnrz a1afb583 a@origin | a
     [EOF]
     ");
 
@@ -861,7 +861,7 @@ fn test_gerrit_upload_rejected_by_remote() -> TestResult {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
-    Pushing mzvwutvl 887a7016 b | b
+    Pushing pzvwutvl a92f28f1 b | b
     remote: error: hook declined to update refs/for/main        
     Warning: The remote rejected the following updates:
       refs/for/main (reason: hook declined)

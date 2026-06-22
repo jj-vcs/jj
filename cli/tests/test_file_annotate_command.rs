@@ -49,7 +49,7 @@ fn test_annotate_linear() {
     let output = work_dir.run_jj(["file", "annotate", "file.txt"]);
     insta::assert_snapshot!(output, @"
     qpvuntsm foo      2001-02-03 08:05:08    1: line1
-    kkmpptxz test.use 2001-02-03 08:05:10    2: new text from new commit
+    nkmpptxz test.use 2001-02-03 08:05:10    2: new text from new commit
     [EOF]
     ");
 }
@@ -133,8 +133,8 @@ fn test_annotate_merge() {
     let output = work_dir.run_jj(["file", "annotate", "file.txt"]);
     insta::assert_snapshot!(output, @"
     qpvuntsm test.use 2001-02-03 08:05:08    1: line1
-    zsuskuln test.use 2001-02-03 08:05:11    2: new text from new commit 1
-    royxmykx test.use 2001-02-03 08:05:13    3: new text from new commit 2
+    psuskuln test.use 2001-02-03 08:05:11    2: new text from new commit 1
+    ooyxmykx test.use 2001-02-03 08:05:13    3: new text from new commit 2
     [EOF]
     ");
 }
@@ -178,13 +178,13 @@ fn test_annotate_conflicted() {
     let output = work_dir.run_jj(["file", "annotate", "file.txt"]);
     insta::assert_snapshot!(output, @r#"
     qpvuntsm test.use 2001-02-03 08:05:08    1: line1
-    yostqsxw test.use 2001-02-03 08:05:15    2: <<<<<<< conflict 1 of 1
-    yostqsxw test.use 2001-02-03 08:05:15    3: %%%%%%% diff from: qpvuntsm a5daff01 "initial"
-    yostqsxw test.use 2001-02-03 08:05:15    4: \\\\\\\        to: zsuskuln 30cd4478 "commit1"
-    yostqsxw test.use 2001-02-03 08:05:15    5: +new text from new commit 1
-    yostqsxw test.use 2001-02-03 08:05:15    6: +++++++ royxmykx ad312256 "commit2"
-    royxmykx test.use 2001-02-03 08:05:13    7: new text from new commit 2
-    yostqsxw test.use 2001-02-03 08:05:15    8: >>>>>>> conflict 1 of 1 ends
+    sostqsxw test.use 2001-02-03 08:05:15    2: <<<<<<< conflict 1 of 1
+    sostqsxw test.use 2001-02-03 08:05:15    3: %%%%%%% diff from: qpvuntsm a5daff01 "initial"
+    sostqsxw test.use 2001-02-03 08:05:15    4: \\\\\\\        to: psuskuln 8a01997e "commit1"
+    sostqsxw test.use 2001-02-03 08:05:15    5: +new text from new commit 1
+    sostqsxw test.use 2001-02-03 08:05:15    6: +++++++ ooyxmykx e0d3719d "commit2"
+    ooyxmykx test.use 2001-02-03 08:05:13    7: new text from new commit 2
+    sostqsxw test.use 2001-02-03 08:05:15    8: >>>>>>> conflict 1 of 1 ends
     [EOF]
     "#);
 }
@@ -229,7 +229,7 @@ fn test_annotate_merge_one_sided_conflict_resolution() {
     let output = work_dir.run_jj(["file", "annotate", "file.txt"]);
     insta::assert_snapshot!(output, @"
     qpvuntsm test.use 2001-02-03 08:05:08    1: line1
-    zsuskuln test.use 2001-02-03 08:05:11    2: new text from new commit 1
+    psuskuln test.use 2001-02-03 08:05:11    2: new text from new commit 1
     [EOF]
     ");
 }
@@ -248,7 +248,7 @@ fn test_annotate_abandoned() {
     let output = work_dir.run_jj(["file", "annotate", "-rat_operation(@-, @)", "file.txt"]);
     insta::assert_snapshot!(output, @"
     qpvuntsm test.use 2001-02-03 08:05:08    1: line1
-    rlvkpnrz test.use 2001-02-03 08:05:09    2: line2
+    ylvkpnrz test.use 2001-02-03 08:05:09    2: line2
     [EOF]
     ");
 }

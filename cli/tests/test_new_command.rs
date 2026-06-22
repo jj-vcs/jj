@@ -28,7 +28,7 @@ fn test_new() {
     work_dir.run_jj(["new", "-m", "a new commit"]).success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  22aec45f30a36a2d244c70e131e369d79e400962 a new commit
+    @  c7be36d5c1768e7731056dcce3c3ff2503b63b5a a new commit
     ○  55eabcc47301440da7a71d5610d3db021d1925ca add a file
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -39,8 +39,8 @@ fn test_new() {
         .run_jj(["new", "-m", "off of root", "root()"])
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  8818c9ee28d00667cb3072a2114a67619ded7ceb off of root
-    │ ○  22aec45f30a36a2d244c70e131e369d79e400962 a new commit
+    @  ade1c2296c9b3294b783f2ffc6208808a621c321 off of root
+    │ ○  c7be36d5c1768e7731056dcce3c3ff2503b63b5a a new commit
     │ ○  55eabcc47301440da7a71d5610d3db021d1925ca add a file
     ├─╯
     ◆  0000000000000000000000000000000000000000
@@ -52,9 +52,9 @@ fn test_new() {
         .run_jj(["new", "--edit", "-m", "yet another commit"])
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  9629f035563a7d9fa86becc783ae71557bd25269 yet another commit
-    ○  8818c9ee28d00667cb3072a2114a67619ded7ceb off of root
-    │ ○  22aec45f30a36a2d244c70e131e369d79e400962 a new commit
+    @  aec5b3a25e62407c315b8b7a2bf676c3fe31ba4d yet another commit
+    ○  ade1c2296c9b3294b783f2ffc6208808a621c321 off of root
+    │ ○  c7be36d5c1768e7731056dcce3c3ff2503b63b5a a new commit
     │ ○  55eabcc47301440da7a71d5610d3db021d1925ca add a file
     ├─╯
     ◆  0000000000000000000000000000000000000000
@@ -63,7 +63,7 @@ fn test_new() {
 
     // --edit cannot be used with --no-edit
     let output = work_dir.run_jj(["new", "--edit", "B", "--no-edit", "D"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: the argument '--edit' cannot be used with '--no-edit'
 
@@ -96,9 +96,9 @@ fn test_new_merge() {
     // Create a merge commit
     work_dir.run_jj(["new", "main", "@"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @    94ce38ef81dc7912c1574cc5aa2f434b9057d58a
+    @    d4b1aaaf202e623d8fc50704d8d9593169344d21
     ├─╮
-    │ ○  5bf404a038660799fae348cc31b9891349c128c1 add file2
+    │ ○  d0687397deaf2dae0df4ac9acc14a7e33308fa3c add file2
     ○ │  96ab002e5b86c39a661adc0524df211a3dac3f1b add file1
     ├─╯
     ◆  0000000000000000000000000000000000000000
@@ -114,13 +114,13 @@ fn test_new_merge() {
     let output = work_dir.run_jj(["new", "main", "@", "--no-edit"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Created new commit kpqxywon 061f4210 (empty) (no description set)
+    Created new commit lpqxywon 8dd19532 (empty) (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    ○    061f42107e030034242b424264f22985429552c1
+    ○    8dd195327ba0c74f720c5a854cad4e6b7cb6e9ec
     ├─╮
-    │ @  5bf404a038660799fae348cc31b9891349c128c1 add file2
+    │ @  d0687397deaf2dae0df4ac9acc14a7e33308fa3c add file2
     ○ │  96ab002e5b86c39a661adc0524df211a3dac3f1b add file1
     ├─╯
     ◆  0000000000000000000000000000000000000000
@@ -131,9 +131,9 @@ fn test_new_merge() {
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     work_dir.run_jj(["new", "main", "@"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @    cee60a55c085ff349af7fa1e7d6b7d4b7bdd4c3a
+    @    1a2683ac02c9ed76b159cbc335ba8908c639fc86
     ├─╮
-    │ ○  5bf404a038660799fae348cc31b9891349c128c1 add file2
+    │ ○  d0687397deaf2dae0df4ac9acc14a7e33308fa3c add file2
     ○ │  96ab002e5b86c39a661adc0524df211a3dac3f1b add file1
     ├─╯
     ◆  0000000000000000000000000000000000000000
@@ -152,8 +152,8 @@ fn test_new_merge() {
     let output = work_dir.run_jj(["new", "@", "visible_heads()"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: uyznsvlq 68a7f50c (empty) (no description set)
-    Parent commit (@-)      : lylxulpl cee60a55 (empty) (no description set)
+    Working copy  (@) now at: wyznsvlq a8125eab (empty) (no description set)
+    Parent commit (@-)      : mylxulpl 1a2683ac (empty) (no description set)
     [EOF]
     ");
 
@@ -191,16 +191,16 @@ fn test_new_merge_parents_order() {
         ])
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @          2034dc93c6ddad404d1aa677ab99b0621d8e109d
+    @          cce3ff23115e7f554a9c77389b48c49b4f7962fb
     ├─┬─┬─┬─╮
-    │ │ │ │ ○  de5bab19f679c52a021c343b8942ca875ec6aae7 4
-    │ │ │ ○ │  de3c6b2c8e065351203063817ef0794df1adb2f9 5
+    │ │ │ │ ○  a9a58f3dbfe40e8ea0901e381324498b68046bf2 4
+    │ │ │ ○ │  abe836bad23ae391a542ee1c0eacaa392aec0249 5
     │ │ │ ├─╯
-    │ │ ○ │  1783ad0eb5c21d958b2e1bf8caab9b019f3d16e9 1
+    │ │ ○ │  9a6abef0dba86ff0abb65f9899584be39a11114b 1
     │ │ ├─╯
-    │ ○ │  fb047eea4c2bec04e2fd3cd21eca0193d5720341 3
+    │ ○ │  f7edbc03066334b554f52800af76dd0aefab4b5c 3
     │ ├─╯
-    ○ │  36b1b4840ac943a08e7f953df4eadc53e825f2a6 2
+    ○ │  60bb72a1e8b37d6dbb279b0d088030c6f9fb9266 2
     ├─╯
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -221,9 +221,9 @@ fn test_new_merge_conflicts() {
     let output = work_dir.run_jj(["new", "2|3"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: vruxwmqv 4665f78e (conflict) (empty) (no description set)
-    Parent commit (@-)      : royxmykx 1b282e07 3 | 3
-    Parent commit (@-)      : zsuskuln 7ac709e5 2 | 2
+    Working copy  (@) now at: truxwmqv 2d1dc9f3 (conflict) (empty) (no description set)
+    Parent commit (@-)      : ooyxmykx 262ef62a 3 | 3
+    Parent commit (@-)      : psuskuln 0f19fe92 2 | 2
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
@@ -231,11 +231,11 @@ fn test_new_merge_conflicts() {
     ");
     insta::assert_snapshot!(work_dir.read_file("file"), @r#"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from: rlvkpnrz a93ed0a5 "1"
-    \\\\\\\        to: royxmykx 1b282e07 "3"
+    %%%%%%% diff from: ylvkpnrz b4ea5b9e "1"
+    \\\\\\\        to: ooyxmykx 262ef62a "3"
     -1a
     +3a 1a
-    +++++++ zsuskuln 7ac709e5 "2"
+    +++++++ psuskuln 0f19fe92 "2"
     1a 2a
     >>>>>>> conflict 1 of 1 ends
     1b
@@ -249,9 +249,9 @@ fn test_new_merge_conflicts() {
     let output = work_dir.run_jj(["new", "2|3", "--config=merge.hunk-level=word"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: znkkpsqq 892ac90f (empty) (no description set)
-    Parent commit (@-)      : royxmykx 1b282e07 3 | 3
-    Parent commit (@-)      : zsuskuln 7ac709e5 2 | 2
+    Working copy  (@) now at: nnkkpsqq 26047b15 (empty) (no description set)
+    Parent commit (@-)      : ooyxmykx 262ef62a 3 | 3
+    Parent commit (@-)      : psuskuln 0f19fe92 2 | 2
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -276,9 +276,9 @@ fn test_new_merge_same_change() {
     let output = work_dir.run_jj(["new", "2|3"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: vruxwmqv 7bebf0fe (empty) (no description set)
-    Parent commit (@-)      : royxmykx 1b9fe696 3 | 3
-    Parent commit (@-)      : zsuskuln 829e1e90 2 | 2
+    Working copy  (@) now at: truxwmqv 751bd5bc (empty) (no description set)
+    Parent commit (@-)      : ooyxmykx b7c11bbc 3 | 3
+    Parent commit (@-)      : psuskuln d6387571 2 | 2
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.read_file("file"), @"
@@ -293,9 +293,9 @@ fn test_new_merge_same_change() {
     let output = work_dir.run_jj(["new", "2|3", "--config=merge.same-change=keep"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: znkkpsqq 7be86433 (conflict) (empty) (no description set)
-    Parent commit (@-)      : royxmykx 1b9fe696 3 | 3
-    Parent commit (@-)      : zsuskuln 829e1e90 2 | 2
+    Working copy  (@) now at: nnkkpsqq 74eddf2f (conflict) (empty) (no description set)
+    Parent commit (@-)      : ooyxmykx b7c11bbc 3 | 3
+    Parent commit (@-)      : psuskuln d6387571 2 | 2
     Added 1 files, modified 0 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
@@ -304,10 +304,10 @@ fn test_new_merge_same_change() {
     insta::assert_snapshot!(work_dir.read_file("file"), @r#"
     a
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from: rlvkpnrz 2adf972b "1"
-    \\\\\\\        to: royxmykx 1b9fe696 "3"
+    %%%%%%% diff from: ylvkpnrz 2883207c "1"
+    \\\\\\\        to: ooyxmykx b7c11bbc "3"
     +b
-    +++++++ zsuskuln 829e1e90 "2"
+    +++++++ psuskuln d6387571 "2"
     b
     >>>>>>> conflict 1 of 1 ends
     "#);
@@ -324,7 +324,7 @@ fn test_new_description_template() {
     let output = work_dir.run_jj(["new"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: rlvkpnrz 0cdaf03d (empty) custom default
+    Working copy  (@) now at: ylvkpnrz a5fa58b3 (empty) custom default
     Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
     ");
@@ -332,8 +332,8 @@ fn test_new_description_template() {
     let output = work_dir.run_jj(["new", "-m", "explicit message"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: kkmpptxz ccc7aea5 (empty) explicit message
-    Parent commit (@-)      : rlvkpnrz 0cdaf03d (empty) custom default
+    Working copy  (@) now at: nkmpptxz 9889dd1a (empty) explicit message
+    Parent commit (@-)      : ylvkpnrz a5fa58b3 (empty) custom default
     [EOF]
     ");
 
@@ -341,8 +341,8 @@ fn test_new_description_template() {
     let output = work_dir.run_jj(["new"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: zsuskuln 49261437 (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz ccc7aea5 (empty) explicit message
+    Working copy  (@) now at: psuskuln 810ff317 (empty) (no description set)
+    Parent commit (@-)      : nkmpptxz 9889dd1a (empty) explicit message
     [EOF]
     ");
 
@@ -351,8 +351,8 @@ fn test_new_description_template() {
     let output = work_dir.run_jj(["new"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: mzvwutvl 10155342 (empty) parents: 1
-    Parent commit (@-)      : zsuskuln 49261437 (empty) (no description set)
+    Working copy  (@) now at: rzvwutvl 6c4cf5e6 (empty) parents: 1
+    Parent commit (@-)      : psuskuln 810ff317 (empty) (no description set)
     [EOF]
     ");
 }
@@ -382,9 +382,9 @@ fn test_new_insert_after() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 2 descendant commits
-    Working copy  (@) now at: kxryzmor 57acfedf (empty) G
+    Working copy  (@) now at: vxryzmor 3da64d04 (empty) G
     Parent commit (@-)      : kkmpptxz bb98b010 B | (empty) B
-    Parent commit (@-)      : vruxwmqv 521674f5 D | (empty) D
+    Parent commit (@-)      : uruxwmqv 1c0d5121 D | (empty) D
     [EOF]
     ");
     insta::assert_snapshot!(get_short_log_output(&work_dir), @"
@@ -409,7 +409,7 @@ fn test_new_insert_after() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 3 descendant commits
-    Working copy  (@) now at: uyznsvlq ec395e2e (empty) H
+    Working copy  (@) now at: wyznsvlq 4a5952c4 (empty) H
     Parent commit (@-)      : kkmpptxz bb98b010 B | (empty) B
     [EOF]
     ");
@@ -517,10 +517,10 @@ fn test_new_insert_before() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 2 descendant commits
-    Working copy  (@) now at: kxryzmor 2f16c40d (empty) G
+    Working copy  (@) now at: vxryzmor 73470f9b (empty) G
     Parent commit (@-)      : kkmpptxz bb98b010 B | (empty) B
-    Parent commit (@-)      : vruxwmqv 521674f5 D | (empty) D
-    Parent commit (@-)      : znkkpsqq 56a33cd0 E | (empty) E
+    Parent commit (@-)      : uruxwmqv 1c0d5121 D | (empty) D
+    Parent commit (@-)      : pnkkpsqq 3ec50fe1 E | (empty) E
     [EOF]
     ");
     insta::assert_snapshot!(get_short_log_output(&work_dir), @"
@@ -587,7 +587,7 @@ fn test_new_insert_before_root_successors() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 5 descendant commits
-    Working copy  (@) now at: kxryzmor 8c026b06 (empty) G
+    Working copy  (@) now at: vxryzmor 22be0be4 (empty) G
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -616,10 +616,10 @@ fn test_new_insert_before_no_loop() {
     let template = r#"commit_id.short() ++ " " ++ if(description, description, "root")"#;
     let output = work_dir.run_jj(["log", "-T", template]);
     insta::assert_snapshot!(output, @"
-    @    a8176a8a5348 F
+    @    6b02b566593b F
     ├─╮
-    │ ○  56a33cd09d90 E
-    ○ │  521674f591a6 D
+    │ ○  3ec50fe121ee E
+    ○ │  1c0d5121740c D
     ├─╯
     │ ○  d32ebe56a293 C
     │ ○  bb98b0102ef5 B
@@ -736,7 +736,7 @@ fn test_new_insert_after_before() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits
-    Working copy  (@) now at: kxryzmor 55a63f47 (empty) G
+    Working copy  (@) now at: vxryzmor e98f75cd (empty) G
     Parent commit (@-)      : mzvwutvl d32ebe56 C | (empty) C
     [EOF]
     ");
@@ -759,8 +759,8 @@ fn test_new_insert_after_before() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 4 descendant commits
-    Working copy  (@) now at: uyznsvlq fd3f1413 (empty) H
-    Parent commit (@-)      : vruxwmqv 521674f5 D | (empty) D
+    Working copy  (@) now at: wyznsvlq 4b778f26 (empty) H
+    Parent commit (@-)      : uruxwmqv 1c0d5121 D | (empty) D
     [EOF]
     ");
     insta::assert_snapshot!(get_short_log_output(&work_dir), @"
@@ -791,10 +791,10 @@ fn test_new_insert_after_before_no_loop() {
     let template = r#"commit_id.short() ++ " " ++ if(description, description, "root")"#;
     let output = work_dir.run_jj(["log", "-T", template]);
     insta::assert_snapshot!(output, @"
-    @    a8176a8a5348 F
+    @    6b02b566593b F
     ├─╮
-    │ ○  56a33cd09d90 E
-    ○ │  521674f591a6 D
+    │ ○  3ec50fe121ee E
+    ○ │  1c0d5121740c D
     ├─╯
     │ ○  d32ebe56a293 C
     │ ○  bb98b0102ef5 B
@@ -830,10 +830,10 @@ fn test_new_insert_after_empty_before() {
     let template = r#"commit_id.short() ++ " " ++ if(description, description, "root")"#;
     let output = work_dir.run_jj(["log", "-T", template]);
     insta::assert_snapshot!(output, @"
-    @    a8176a8a5348 F
+    @    6b02b566593b F
     ├─╮
-    │ ○  56a33cd09d90 E
-    ○ │  521674f591a6 D
+    │ ○  3ec50fe121ee E
+    ○ │  1c0d5121740c D
     ├─╯
     │ ○  d32ebe56a293 C
     │ ○  bb98b0102ef5 B
@@ -854,7 +854,7 @@ fn test_new_insert_after_empty_before() {
     let output = work_dir.run_jj(["new", "-mG", "--insert-before=none()", "--insert-after=B"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: nkmrtpmo d7088f92 (empty) G
+    Working copy  (@) now at: tkmrtpmo 7e66ad61 (empty) G
     Parent commit (@-)      : kkmpptxz bb98b010 B | (empty) B
     [EOF]
     ");
@@ -897,7 +897,7 @@ fn test_new_conflicting_bookmarks() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Name `foo` is conflicted
-    Hint: Use commit ID to select single revision from: 96948328bc42, 401ea16fc3fe
+    Hint: Use commit ID to select single revision from: 6dec1091a14e, 401ea16fc3fe
     Hint: Use `bookmarks(foo)` to select all revisions
     Hint: To set which revision the bookmark points to, run `jj bookmark set foo -r <REVISION>`
     [EOF]

@@ -36,7 +36,7 @@ fn test_non_utf8_arg() {
         OsString::from_wide(&[0x0066, 0x006f, 0xD800, 0x006f])
     };
     let output = test_env.run_jj_in(".", [&invalid_utf]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Non-UTF-8 argument
     [EOF]
@@ -135,8 +135,8 @@ fn test_no_subcommand() {
     let output = work_dir.run_jj([""; 0]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: kxryzmor 8db1ba9a (empty) (no description set)
-    Parent commit (@-)      : lylxulpl 19f3adb2 foo
+    Working copy  (@) now at: kxryzmor 71882475 (empty) (no description set)
+    Parent commit (@-)      : mylxulpl 884f83df foo
     [EOF]
     ");
 
@@ -192,8 +192,8 @@ fn test_no_subcommand() {
     let output = work_dir.run_jj(["status"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
-    Working copy  (@) : kxryzmor 8db1ba9a (empty) (no description set)
-    Parent commit (@-): lylxulpl 19f3adb2 foo
+    Working copy  (@) : kxryzmor 71882475 (empty) (no description set)
+    Parent commit (@-): mylxulpl 884f83df foo
     [EOF]
     ");
 }
@@ -808,7 +808,7 @@ fn test_color_ui_messages() {
         "-Tdescription",
     ]);
     insta::assert_snapshot!(output, @"
-    [38;5;4m8afc18ff677d32e40043e1bc8c1683c2f9c2e916[39m
+    [38;5;4me6d583051789456eab14846c97cc5a7763cb9c64[39m
     [1m[39m<[38;5;1mError: [39mNo Commit available>[0m  [38;5;8m(elided revisions)[39m
     [38;5;4m0000000000000000000000000000000000000000[39m
     [EOF]
@@ -820,8 +820,8 @@ fn test_color_ui_messages() {
     ------- stderr -------
     [1m[38;5;1mError: [39mRevset `..` resolved to more than one revision[0m
     [1m[38;5;6mHint: [0m[39mThe revset `..` resolved to these revisions:[39m
-    [39m  [1m[38;5;13mm[38;5;8mzvwutvl[39m [38;5;12m8[38;5;8mafc18ff[39m [38;5;10m(empty)[39m [38;5;10m(no description set)[0m[39m[39m
-    [39m  [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [1m[38;5;4me[0m[38;5;8m8849ae1[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m[39m
+    [39m  [1m[38;5;13mp[38;5;8mzvwutvl[39m [38;5;12me6[38;5;8md58305[39m [38;5;10m(empty)[39m [38;5;10m(no description set)[0m[39m[39m
+    [39m  [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [1m[38;5;4me8[0m[38;5;8m849ae1[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m[39m
     [EOF]
     [exit status: 1]
     ");
@@ -830,8 +830,8 @@ fn test_color_ui_messages() {
     let output = work_dir.run_jj(["st", "--color", "debug"]);
     insta::assert_snapshot!(output, @"
     The working copy has no changes.
-    Working copy  (@) : [1m[38;5;13m<<commit working_copy change_id shortest prefix::m>>[38;5;8m<<commit working_copy change_id shortest rest::zvwutvl>>[39m<<commit working_copy:: >>[38;5;12m<<commit working_copy commit_id shortest prefix::8>>[38;5;8m<<commit working_copy commit_id shortest rest::afc18ff>>[39m<<commit working_copy:: >>[38;5;10m<<commit working_copy empty::(empty)>>[39m<<commit working_copy:: >>[38;5;10m<<commit working_copy empty description placeholder::(no description set)>>[0m
-    Parent commit (@-): [1m[38;5;5m<<commit change_id shortest prefix::q>>[0m[38;5;8m<<commit change_id shortest rest::pvuntsm>>[39m<<commit:: >>[1m[38;5;4m<<commit commit_id shortest prefix::e>>[0m[38;5;8m<<commit commit_id shortest rest::8849ae1>>[39m<<commit:: >>[38;5;2m<<commit empty::(empty)>>[39m<<commit:: >>[38;5;2m<<commit empty description placeholder::(no description set)>>[39m
+    Working copy  (@) : [1m[38;5;13m<<commit working_copy change_id shortest prefix::p>>[38;5;8m<<commit working_copy change_id shortest rest::zvwutvl>>[39m<<commit working_copy:: >>[38;5;12m<<commit working_copy commit_id shortest prefix::e6>>[38;5;8m<<commit working_copy commit_id shortest rest::d58305>>[39m<<commit working_copy:: >>[38;5;10m<<commit working_copy empty::(empty)>>[39m<<commit working_copy:: >>[38;5;10m<<commit working_copy empty description placeholder::(no description set)>>[0m
+    Parent commit (@-): [1m[38;5;5m<<commit change_id shortest prefix::q>>[0m[38;5;8m<<commit change_id shortest rest::pvuntsm>>[39m<<commit:: >>[1m[38;5;4m<<commit commit_id shortest prefix::e8>>[0m[38;5;8m<<commit commit_id shortest rest::849ae1>>[39m<<commit:: >>[38;5;2m<<commit empty::(empty)>>[39m<<commit:: >>[38;5;2m<<commit empty description placeholder::(no description set)>>[39m
     [EOF]
     ");
 
@@ -840,7 +840,7 @@ fn test_color_ui_messages() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Reverted 1 commits as follows:
-      [1m[38;5;5m<<commit change_id shortest prefix::y>>[0m[38;5;8m<<commit change_id shortest rest::ostqsxw>>[39m<<commit:: >>[1m[38;5;4m<<commit commit_id shortest prefix::8b>>[0m[38;5;8m<<commit commit_id shortest rest::f82eec>>[39m<<commit:: >>[38;5;2m<<commit empty::(empty)>>[39m<<commit:: >><<commit description first_line::Revert "">>
+      [1m[38;5;5m<<commit change_id shortest prefix::y>>[0m[38;5;8m<<commit change_id shortest rest::ostqsxw>>[39m<<commit:: >>[1m[38;5;4m<<commit commit_id shortest prefix::3>>[0m[38;5;8m<<commit commit_id shortest rest::38a1abf>>[39m<<commit:: >>[38;5;2m<<commit empty::(empty)>>[39m<<commit:: >><<commit description first_line::Revert "">>
     [EOF]
     "#);
 }
@@ -1088,14 +1088,14 @@ fn test_conditional_config() {
     let output = test_env.run_jj_in(&test_env.home_dir().join("repo1"), ["foo"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: royxmykx 7c486962 (empty) repo1
+    Working copy  (@) now at: poyxmykx e9100761 (empty) repo1
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
     let output = test_env.run_jj_in(&test_env.home_dir().join("repo2"), ["foo"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: yqosqzyt 072741b8 (empty) home
+    Working copy  (@) now at: oqosqzyt aebc7697 (empty) home
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");

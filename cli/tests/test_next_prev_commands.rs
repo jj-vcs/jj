@@ -47,7 +47,7 @@ fn test_next_simple() {
     work_dir.run_jj(["new", "@--"]).success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  royxmykxtrkr
+    @  poyxmykxtrkr
     │ ○  kkmpptxzrspx third
     ├─╯
     ○  rlvkpnrzqnoo second
@@ -87,7 +87,7 @@ fn test_next_multiple() {
     work_dir.run_jj(["new", "@---"]).success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  royxmykxtrkr
+    @  soyxmykxtrkr
     │ ○  zsuskulnrvyr fourth
     │ ○  kkmpptxzrspx third
     ├─╯
@@ -206,7 +206,7 @@ fn test_next_exceeding_history() {
     work_dir.run_jj(["new", "-r", "@--"]).success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  mzvwutvlkqwt
+    @  pzvwutvlkqwt
     │ ○  kkmpptxzrspx third
     ├─╯
     ○  rlvkpnrzqnoo second
@@ -240,9 +240,9 @@ fn test_next_parent_has_multiple_descendants() {
     work_dir.run_jj(["new", "-m", "4"]).success();
     work_dir.run_jj(["edit", "subject(3)"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    ○  mzvwutvlkqwt 4
-    @  zsuskulnrvyr 3
-    │ ○  kkmpptxzrspx 2
+    ○  rzvwutvlkqwt 4
+    @  psuskulnrvyr 3
+    │ ○  nkmpptxzrspx 2
     │ ○  qpvuntsmwlqt 1
     ├─╯
     ◆  zzzzzzzzzzzz
@@ -252,14 +252,14 @@ fn test_next_parent_has_multiple_descendants() {
     let output = work_dir.run_jj(["next", "--edit"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: mzvwutvl e5543950 (empty) 4
-    Parent commit (@-)      : zsuskuln 83df6e43 (empty) 3
+    Working copy  (@) now at: rzvwutvl 328e08e0 (empty) 4
+    Parent commit (@-)      : psuskuln 88bb7ab8 (empty) 3
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  mzvwutvlkqwt 4
-    ○  zsuskulnrvyr 3
-    │ ○  kkmpptxzrspx 2
+    @  rzvwutvlkqwt 4
+    ○  psuskulnrvyr 3
+    │ ○  nkmpptxzrspx 2
     │ ○  qpvuntsmwlqt 1
     ├─╯
     ◆  zzzzzzzzzzzz
@@ -282,11 +282,11 @@ fn test_next_with_merge_commit_parent() {
     work_dir.run_jj(["prev", "0"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  royxmykxtrkr
-    │ ○  mzvwutvlkqwt 4
+    │ ○  rzvwutvlkqwt 4
     ├─╯
-    ○    zsuskulnrvyr 3
+    ○    psuskulnrvyr 3
     ├─╮
-    │ ○  kkmpptxzrspx 2
+    │ ○  nkmpptxzrspx 2
     ○ │  qpvuntsmwlqt 1
     ├─╯
     ◆  zzzzzzzzzzzz
@@ -296,16 +296,16 @@ fn test_next_with_merge_commit_parent() {
     let output = work_dir.run_jj(["next"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: vruxwmqv 7a09c355 (empty) (no description set)
-    Parent commit (@-)      : mzvwutvl f02c921e (empty) 4
+    Working copy  (@) now at: vruxwmqv 7de8ff38 (empty) (no description set)
+    Parent commit (@-)      : rzvwutvl 966ab362 (empty) 4
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  vruxwmqvtpmx
-    ○  mzvwutvlkqwt 4
-    ○    zsuskulnrvyr 3
+    ○  rzvwutvlkqwt 4
+    ○    psuskulnrvyr 3
     ├─╮
-    │ ○  kkmpptxzrspx 2
+    │ ○  nkmpptxzrspx 2
     ○ │  qpvuntsmwlqt 1
     ├─╯
     ◆  zzzzzzzzzzzz
@@ -327,10 +327,10 @@ fn test_next_on_merge_commit() {
     work_dir.run_jj(["new", "-m", "4"]).success();
     work_dir.run_jj(["edit", "subject(3)"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    ○  mzvwutvlkqwt 4
-    @    zsuskulnrvyr 3
+    ○  rzvwutvlkqwt 4
+    @    psuskulnrvyr 3
     ├─╮
-    │ ○  kkmpptxzrspx 2
+    │ ○  nkmpptxzrspx 2
     ○ │  qpvuntsmwlqt 1
     ├─╯
     ◆  zzzzzzzzzzzz
@@ -340,15 +340,15 @@ fn test_next_on_merge_commit() {
     let output = work_dir.run_jj(["next", "--edit"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: mzvwutvl f02c921e (empty) 4
-    Parent commit (@-)      : zsuskuln d2500577 (empty) 3
+    Working copy  (@) now at: rzvwutvl 966ab362 (empty) 4
+    Parent commit (@-)      : psuskuln b9ab0058 (empty) 3
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  mzvwutvlkqwt 4
-    ○    zsuskulnrvyr 3
+    @  rzvwutvlkqwt 4
+    ○    psuskulnrvyr 3
     ├─╮
-    │ ○  kkmpptxzrspx 2
+    │ ○  nkmpptxzrspx 2
     ○ │  qpvuntsmwlqt 1
     ├─╯
     ◆  zzzzzzzzzzzz
@@ -368,8 +368,8 @@ fn test_next_fails_on_bookmarking_children_no_stdin() {
     work_dir.run_jj(["new", "@--"]).success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  royxmykxtrkr
-    │ ○  zsuskulnrvyr third
+    @  soyxmykxtrkr
+    │ ○  psuskulnrvyr third
     ├─╯
     │ ○  rlvkpnrzqnoo second
     ├─╯
@@ -383,7 +383,7 @@ fn test_next_fails_on_bookmarking_children_no_stdin() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     ambiguous next commit, choose one to target:
-    1: zsuskuln 6fc6af46 (empty) third
+    1: psuskuln ba314099 (empty) third
     2: rlvkpnrz 9439bf06 (empty) second
     q: quit the prompt
     Error: Cannot prompt for input since the output is not connected to a terminal
@@ -404,8 +404,8 @@ fn test_next_fails_on_bookmarking_children_quit_prompt() {
     work_dir.run_jj(["new", "@--"]).success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  royxmykxtrkr
-    │ ○  zsuskulnrvyr third
+    @  soyxmykxtrkr
+    │ ○  psuskulnrvyr third
     ├─╯
     │ ○  rlvkpnrzqnoo second
     ├─╯
@@ -419,7 +419,7 @@ fn test_next_fails_on_bookmarking_children_quit_prompt() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     ambiguous next commit, choose one to target:
-    1: zsuskuln 6fc6af46 (empty) third
+    1: psuskuln ba314099 (empty) third
     2: rlvkpnrz 9439bf06 (empty) second
     q: quit the prompt
     enter the index of the commit you want to target: Error: ambiguous target commit
@@ -445,12 +445,12 @@ fn test_next_choose_bookmarking_child() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     ambiguous next commit, choose one to target:
-    1: royxmykx 3522c887 (empty) fourth
-    2: zsuskuln 6fc6af46 (empty) third
+    1: soyxmykx 83d7ed98 (empty) fourth
+    2: psuskuln ba314099 (empty) third
     3: rlvkpnrz 9439bf06 (empty) second
     q: quit the prompt
-    enter the index of the commit you want to target: Working copy  (@) now at: yostqsxw 683938a4 (empty) (no description set)
-    Parent commit (@-)      : zsuskuln 6fc6af46 (empty) third
+    enter the index of the commit you want to target: Working copy  (@) now at: yostqsxw 338a11be (empty) (no description set)
+    Parent commit (@-)      : psuskuln ba314099 (empty) third
     [EOF]
     ");
 }
@@ -468,9 +468,9 @@ fn test_prev_on_merge_commit() {
 
     // Check that the graph looks the way we expect.
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @    royxmykxtrkr
+    @    ooyxmykxtrkr
     ├─╮
-    │ ○  zsuskulnrvyr right second
+    │ ○  psuskulnrvyr right second
     ○ │  qpvuntsmwlqt left first
     ├─╯
     ◆  zzzzzzzzzzzz
@@ -495,7 +495,7 @@ fn test_prev_on_merge_commit() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     ambiguous prev commit, choose one to target:
-    1: zsuskuln 22a08bc0 right | (empty) second
+    1: psuskuln a3d0b67c right | (empty) second
     2: qpvuntsm 68a50538 left | (empty) first
     q: quit the prompt
     enter the index of the commit you want to target: Working copy  (@) now at: qpvuntsm 68a50538 left | (empty) first
@@ -521,12 +521,12 @@ fn test_prev_on_merge_commit_with_parent_merge() {
 
     // Check that the graph looks the way we expect.
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @    royxmykxtrkr M
+    @    soyxmykxtrkr M
     ├─╮
-    │ ○  mzvwutvlkqwt 1
-    ○ │    zsuskulnrvyr z
+    │ ○  rzvwutvlkqwt 1
+    ○ │    psuskulnrvyr z
     ├───╮
-    │ │ ○  kkmpptxzrspx y
+    │ │ ○  nkmpptxzrspx y
     │ ├─╯
     ○ │  qpvuntsmwlqt x
     ├─╯
@@ -539,7 +539,7 @@ fn test_prev_on_merge_commit_with_parent_merge() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     ambiguous prev commit, choose one to target:
-    1: kkmpptxz ab947132 (empty) y
+    1: nkmpptxz 320eef91 (empty) y
     2: qpvuntsm 007e88d2 (empty) x
     3: zzzzzzzz 00000000 (empty) (no description set)
     q: quit the prompt
@@ -557,12 +557,12 @@ fn test_prev_on_merge_commit_with_parent_merge() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     ambiguous prev commit, choose one to target:
-    1: mzvwutvl 0e8fc48c (empty) 1
-    2: zsuskuln e7382ca4 (empty) z
+    1: rzvwutvl 63f4e8e7 (empty) 1
+    2: psuskuln 542c33fa (empty) z
     q: quit the prompt
-    enter the index of the commit you want to target: Working copy  (@) now at: zsuskuln e7382ca4 (empty) z
+    enter the index of the commit you want to target: Working copy  (@) now at: psuskuln 542c33fa (empty) z
     Parent commit (@-)      : qpvuntsm 007e88d2 (empty) x
-    Parent commit (@-)      : kkmpptxz ab947132 (empty) y
+    Parent commit (@-)      : nkmpptxz 320eef91 (empty) y
     [EOF]
     ");
 }
@@ -586,12 +586,12 @@ fn test_prev_prompts_on_multiple_parents() {
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  yostqsxwqrlt
     ○  vruxwmqvtpmx merge+1
-    ○      yqosqzytrlsw merge
+    ○      oqosqzytrlsw merge
     ├─┬─╮
     │ │ ○  qpvuntsmwlqt first
-    │ ○ │  kkmpptxzrspx second
+    │ ○ │  nkmpptxzrspx second
     │ ├─╯
-    ○ │  mzvwutvlkqwt third
+    ○ │  pzvwutvlkqwt third
     ├─╯
     ◆  zzzzzzzzzzzz
     [EOF]
@@ -606,8 +606,8 @@ fn test_prev_prompts_on_multiple_parents() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     ambiguous prev commit, choose one to target:
-    1: mzvwutvl 5ec63817 (empty) third
-    2: kkmpptxz e8959fbd (empty) second
+    1: pzvwutvl 748bcabd (empty) third
+    2: nkmpptxz 932a5f25 (empty) second
     3: qpvuntsm 68a50538 (empty) first
     q: quit the prompt
     enter the index of the commit you want to target: Working copy  (@) now at: kpqxywon 5448803a (empty) (no description set)
@@ -618,12 +618,12 @@ fn test_prev_prompts_on_multiple_parents() {
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  kpqxywonksrl
     │ ○  vruxwmqvtpmx merge+1
-    │ ○    yqosqzytrlsw merge
+    │ ○    oqosqzytrlsw merge
     ╭─┼─╮
     ○ │ │  qpvuntsmwlqt first
-    │ │ ○  kkmpptxzrspx second
+    │ │ ○  nkmpptxzrspx second
     ├───╯
-    │ ○  mzvwutvlkqwt third
+    │ ○  pzvwutvlkqwt third
     ├─╯
     ◆  zzzzzzzzzzzz
     [EOF]
@@ -634,12 +634,12 @@ fn test_prev_prompts_on_multiple_parents() {
     @  wqnwkozpkust
     │ ○  vruxwmqvtpmx merge+1
     ├─╯
-    ○      yqosqzytrlsw merge
+    ○      oqosqzytrlsw merge
     ├─┬─╮
     │ │ ○  qpvuntsmwlqt first
-    │ ○ │  kkmpptxzrspx second
+    │ ○ │  nkmpptxzrspx second
     │ ├─╯
-    ○ │  mzvwutvlkqwt third
+    ○ │  pzvwutvlkqwt third
     ├─╯
     ◆  zzzzzzzzzzzz
     [EOF]
@@ -773,7 +773,7 @@ fn test_prev_conflict() {
     // Test the setup
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  yqosqzytrlsw conflict
-    ×  royxmykxtrkr conflict fourth
+    ×  poyxmykxtrkr conflict fourth
     ×  kkmpptxzrspx conflict third
     ×  rlvkpnrzqnoo conflict second
     ○  qpvuntsmwlqt first
@@ -783,7 +783,7 @@ fn test_prev_conflict() {
     work_dir.run_jj(["prev", "--conflict"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  yostqsxwqrlt conflict
-    │ ×  royxmykxtrkr conflict fourth
+    │ ×  poyxmykxtrkr conflict fourth
     ├─╯
     ×  kkmpptxzrspx conflict third
     ×  rlvkpnrzqnoo conflict second
@@ -809,7 +809,7 @@ fn test_prev_conflict_editing() {
     work_dir.run_jj(["new", "subject(third)"]).success();
     // Test the setup
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  royxmykxtrkr conflict
+    @  poyxmykxtrkr conflict
     ×  kkmpptxzrspx conflict third
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
@@ -911,7 +911,7 @@ fn test_next_conflict_head() {
     work_dir.run_jj(["abandon", "@-"]).success();
     // Test the setup
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  rlvkpnrzqnoo conflict
+    @  ylvkpnrzqnoo conflict
     ◆  zzzzzzzzzzzz
     [EOF]
     ");
@@ -929,7 +929,7 @@ fn test_next_conflict_head() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: The working copy has no descendants with conflicts
-    Hint: Working copy: rlvkpnrz 27780096 (conflict) (no description set)
+    Hint: Working copy: ylvkpnrz c3317f99 (conflict) (no description set)
     [EOF]
     [exit status: 1]
     ");

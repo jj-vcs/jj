@@ -202,10 +202,10 @@ fn test_split_by_paths() -> TestResult {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: All changes have been selected, so the original revision will become empty
-    Selected changes : uyznsvlq 971ccc0b (no description set)
-    Remaining changes: xznxytkn a267cd96 (empty) (no description set)
-    Working copy  (@) now at: smwtzssm 6715dc2c (empty) (no description set)
-    Parent commit (@-)      : uyznsvlq 971ccc0b (no description set)
+    Selected changes : wyznsvlq 00edb089 (no description set)
+    Remaining changes: xznxytkn 1586a25c (empty) (no description set)
+    Working copy  (@) now at: smwtzssm 6a201512 (empty) (no description set)
+    Parent commit (@-)      : wyznsvlq 00edb089 (no description set)
     [EOF]
     ");
     Ok(())
@@ -469,9 +469,9 @@ fn test_split_with_merge_child() -> TestResult {
         .run_jj(["new", "subject(1)", "subject(a)", "-m=2"])
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @    zsuskulnrvyr true 2
+    @    psuskulnrvyr true 2
     ├─╮
-    │ ○  kkmpptxzrspx false a
+    │ ○  nkmpptxzrspx false a
     ○ │  qpvuntsmwlqt true 1
     ├─╯
     ◆  zzzzzzzzzzzz true
@@ -487,18 +487,18 @@ fn test_split_with_merge_child() -> TestResult {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits
-    Selected changes : kkmpptxz cc199567 Add file1
-    Remaining changes: royxmykx e488409f Add file2
-    Working copy  (@) now at: zsuskuln ace61421 (empty) 2
+    Selected changes : nkmpptxz 7220d39e Add file1
+    Remaining changes: royxmykx b340d326 Add file2
+    Working copy  (@) now at: psuskuln 71f32120 (empty) 2
     Parent commit (@-)      : qpvuntsm 884fe9b9 (empty) 1
-    Parent commit (@-)      : royxmykx e488409f Add file2
+    Parent commit (@-)      : royxmykx b340d326 Add file2
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @    zsuskulnrvyr true 2
+    @    psuskulnrvyr true 2
     ├─╮
     │ ○  royxmykxtrkr false Add file2
-    │ ○  kkmpptxzrspx false Add file1
+    │ ○  nkmpptxzrspx false Add file1
     ○ │  qpvuntsmwlqt true 1
     ├─╯
     ◆  zzzzzzzzzzzz true
@@ -712,9 +712,9 @@ fn test_split_parallel_with_merge_child() -> TestResult {
         .run_jj(["new", "subject(1)", "subject(a)", "-m=2"])
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @    zsuskulnrvyr true 2
+    @    psuskulnrvyr true 2
     ├─╮
-    │ ○  kkmpptxzrspx false a
+    │ ○  nkmpptxzrspx false a
     ○ │  qpvuntsmwlqt true 1
     ├─╯
     ◆  zzzzzzzzzzzz true
@@ -730,19 +730,19 @@ fn test_split_parallel_with_merge_child() -> TestResult {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits
-    Selected changes : kkmpptxz cc199567 Add file1
+    Selected changes : nkmpptxz 7220d39e Add file1
     Remaining changes: royxmykx 82a5c527 Add file2
-    Working copy  (@) now at: zsuskuln b7cdcdec (empty) 2
+    Working copy  (@) now at: psuskuln 8466ccec (empty) 2
     Parent commit (@-)      : qpvuntsm 884fe9b9 (empty) 1
-    Parent commit (@-)      : kkmpptxz cc199567 Add file1
+    Parent commit (@-)      : nkmpptxz 7220d39e Add file1
     Parent commit (@-)      : royxmykx 82a5c527 Add file2
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @      zsuskulnrvyr true 2
+    @      psuskulnrvyr true 2
     ├─┬─╮
     │ │ ○  royxmykxtrkr false Add file2
-    │ ○ │  kkmpptxzrspx false Add file1
+    │ ○ │  nkmpptxzrspx false Add file1
     │ ├─╯
     ○ │  qpvuntsmwlqt true 1
     ├─╯
@@ -766,8 +766,8 @@ fn test_split_parallel_with_conflict() -> TestResult {
     work_dir.write_file("file", "line 1\nline 3\n");
     work_dir.run_jj(["prev", "--edit"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    ○  kkmpptxzrspx false
-    @  rlvkpnrzqnoo false
+    ○  nkmpptxzrspx false
+    @  ylvkpnrzqnoo false
     ○  qpvuntsmwlqt false
     ◆  zzzzzzzzzzzz true
     [EOF]
@@ -782,15 +782,15 @@ fn test_split_parallel_with_conflict() -> TestResult {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits
-    Selected changes : rlvkpnrz abe15fea (no description set)
-    Remaining changes: royxmykx 4bbc5826 (conflict) (no description set)
-    Working copy  (@) now at: royxmykx 4bbc5826 (conflict) (no description set)
+    Selected changes : ylvkpnrz 6e8f31ba (no description set)
+    Remaining changes: royxmykx ebc03619 (conflict) (no description set)
+    Working copy  (@) now at: royxmykx ebc03619 (conflict) (no description set)
     Parent commit (@-)      : qpvuntsm ee8e9376 (no description set)
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
     New conflicts appeared in 1 commits:
-      royxmykx 4bbc5826 (conflict) (no description set)
+      royxmykx ebc03619 (conflict) (no description set)
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new royxmykx
@@ -800,10 +800,10 @@ fn test_split_parallel_with_conflict() -> TestResult {
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    ○    kkmpptxzrspx false
+    ○    nkmpptxzrspx false
     ├─╮
     │ @  royxmykxtrkr false
-    ○ │  rlvkpnrzqnoo false
+    ○ │  ylvkpnrzqnoo false
     ├─╯
     ○  qpvuntsmwlqt false
     ◆  zzzzzzzzzzzz true
@@ -814,8 +814,8 @@ fn test_split_parallel_with_conflict() -> TestResult {
     insta::assert_snapshot!(work_dir.read_file("file"), @r"
     line 1
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from: selected changes for split (from rlvkpnrz 35382813)
-    \\\\\\\        to: split revision (rlvkpnrz 35382813)
+    %%%%%%% diff from: selected changes for split (from ylvkpnrz 81ae5d1f)
+    \\\\\\\        to: split revision (ylvkpnrz 81ae5d1f)
      line 2.1
     +line 2.2
     +++++++ qpvuntsm ee8e9376 (parents of split revision)
@@ -997,10 +997,10 @@ fn test_split_interactive_with_paths() -> TestResult {
     let output = work_dir.run_jj(["split", "-i", "file1", "file2"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Selected changes : rlvkpnrz cdc9960a (no description set)
-    Remaining changes: kkmpptxz 7255f070 (no description set)
-    Working copy  (@) now at: kkmpptxz 7255f070 (no description set)
-    Parent commit (@-)      : rlvkpnrz cdc9960a (no description set)
+    Selected changes : ylvkpnrz d4e0b1c4 (no description set)
+    Remaining changes: kkmpptxz 2294686f (no description set)
+    Working copy  (@) now at: kkmpptxz 2294686f (no description set)
+    Parent commit (@-)      : ylvkpnrz d4e0b1c4 (no description set)
     [EOF]
     ");
 
@@ -1009,7 +1009,7 @@ fn test_split_interactive_with_paths() -> TestResult {
     JJ: Enter a description for the selected changes.
 
 
-    JJ: Change ID: rlvkpnrz
+    JJ: Change ID: ylvkpnrz
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
@@ -1018,11 +1018,11 @@ fn test_split_interactive_with_paths() -> TestResult {
 
     let output = work_dir.run_jj(["log", "--summary"]);
     insta::assert_snapshot!(output, @"
-    @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 7255f070
+    @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 2294686f
     │  (no description set)
     │  M file2
     │  M file3
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 cdc9960a
+    ○  ylvkpnrz test.user@example.com 2001-02-03 08:05:09 d4e0b1c4
     │  (no description set)
     │  A file1
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 ff687a2f
@@ -1312,7 +1312,7 @@ fn test_split_move_first_commit() -> TestResult {
 
     insta::assert_snapshot!(get_log_with_summary(&work_dir), @"
     @  royxmykxtrkr
-    ○  mzvwutvlkqwt file5
+    ○  pzvwutvlkqwt file5
     │  A file5
     │ ○  kkmpptxzrspx file4
     │ │  A file4
@@ -1347,7 +1347,7 @@ fn test_split_move_first_commit() -> TestResult {
 
     insta::assert_snapshot!(get_log_with_summary(&work_dir), @"
     @  royxmykxtrkr
-    ○  mzvwutvlkqwt file5
+    ○  pzvwutvlkqwt file5
     │  A file5
     │ ○  kkmpptxzrspx file4
     │ │  A file4
@@ -1383,7 +1383,7 @@ fn test_split_move_first_commit() -> TestResult {
 
     insta::assert_snapshot!(get_log_with_summary(&work_dir), @"
     @  royxmykxtrkr
-    ○  mzvwutvlkqwt file5
+    ○  pzvwutvlkqwt file5
     │  A file5
     │ ○  kkmpptxzrspx file4
     │ │  A file4
@@ -1419,7 +1419,7 @@ fn test_split_move_first_commit() -> TestResult {
 
     insta::assert_snapshot!(get_log_with_summary(&work_dir), @"
     @  royxmykxtrkr
-    ○  mzvwutvlkqwt file5
+    ○  pzvwutvlkqwt file5
     │  A file5
     │ ○  kkmpptxzrspx file4
     │ │  A file4
@@ -1457,7 +1457,7 @@ fn test_split_move_first_commit() -> TestResult {
 
     insta::assert_snapshot!(get_log_with_summary(&work_dir), @"
     @  royxmykxtrkr
-    ○  mzvwutvlkqwt file5
+    ○  pzvwutvlkqwt file5
     │  A file5
     │ ○    kkmpptxzrspx file4
     │ ├─╮  A file4
@@ -1486,10 +1486,10 @@ fn test_split_move_first_commit() -> TestResult {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 3 descendant commits
-    Selected changes : nmzmmopx 72225233 file1
+    Selected changes : nmzmmopx 051042c8 file1
     Remaining changes: qpvuntsm 98b70782 file2
-    Working copy  (@) now at: royxmykx c3dd10b0 (empty) (no description set)
-    Parent commit (@-)      : nmzmmopx 72225233 file1
+    Working copy  (@) now at: royxmykx 0dc866c6 (empty) (no description set)
+    Parent commit (@-)      : nmzmmopx 051042c8 file1
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -1498,7 +1498,7 @@ fn test_split_move_first_commit() -> TestResult {
     @  royxmykxtrkr
     ○  nmzmmopxokps file1
     │  A file1
-    ○  mzvwutvlkqwt file5
+    ○  pzvwutvlkqwt file5
     │  A file5
     │ ○  kkmpptxzrspx file4
     │ │  A file4
@@ -1519,7 +1519,7 @@ fn test_split_move_first_commit() -> TestResult {
         "-r",
         "qpvuntsmwlqt",
         "--after",
-        "mzvwutvlkqwt",
+        "pzvwutvlkqwt",
         "--after",
         "kkmpptxzrspx",
         "file1",
@@ -1527,10 +1527,10 @@ fn test_split_move_first_commit() -> TestResult {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 3 descendant commits
-    Selected changes : nlrtlrxv 1b6975b0 file1
+    Selected changes : nlrtlrxv bf4bce56 file1
     Remaining changes: qpvuntsm 905586dd file2
-    Working copy  (@) now at: royxmykx 85be9860 (empty) (no description set)
-    Parent commit (@-)      : nlrtlrxv 1b6975b0 file1
+    Working copy  (@) now at: royxmykx b7151d84 (empty) (no description set)
+    Parent commit (@-)      : nlrtlrxv bf4bce56 file1
     Added 4 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -1545,7 +1545,7 @@ fn test_split_move_first_commit() -> TestResult {
     │ │  A file3
     │ ○  qpvuntsmwlqt file2
     │ │  A file2
-    ○ │  mzvwutvlkqwt file5
+    ○ │  pzvwutvlkqwt file5
     ├─╯  A file5
     ◆  zzzzzzzzzzzz
     [EOF]

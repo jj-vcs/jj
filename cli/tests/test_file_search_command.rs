@@ -106,11 +106,11 @@ fn test_file_search_conflicts() {
     // Test the setup
     insta::assert_snapshot!(work_dir.read_file("file1"), @r"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from: rlvkpnrz 60901f47 (parents of rebased revision)
+    %%%%%%% diff from: ylvkpnrz ea1d17fc (parents of rebased revision)
     \\\\\\\        to: qpvuntsm fae24a95 (rebase destination)
     --bar-
     +-foo-
-    +++++++ kkmpptxz 51957a05 (rebased revision)
+    +++++++ nkmpptxz c589d6cf (rebased revision)
     -baz-
     >>>>>>> conflict 1 of 1 ends
     ");
