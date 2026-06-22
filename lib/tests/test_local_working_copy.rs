@@ -2967,8 +2967,7 @@ fn test_snapshot_symlink_use_forward_slash() -> TestResult {
 
     assert!(
         !actual_link_contents.contains('\\'),
-        "Expect the symlink in the Store to use \"/\" as the separator, but got \
-         {actual_link_contents}."
+        r#"Expect the symlink in the Store to use "/" as the separator, but got {actual_link_contents}."#
     );
     Ok(())
 }
