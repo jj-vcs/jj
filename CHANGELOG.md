@@ -54,6 +54,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   remote's fetch URL or effective push URL.
   [#413](https://github.com/jj-vcs/jj/issues/413)
 
+* `jj git remote remove` no longer fails on remotes whose config section
+  contains keys `jj` itself writes (`pushurl`, `tagOpt`). The set of keys
+  preserved has been narrowed to exactly `{url, pushurl, fetch, tagOpt}`,
+  matching the keys `jj git remote add`/`set-url` produce; any other
+  key (e.g. a user-set `proxy`) still triggers a "nonstandard
+  configuration" error and leaves the user's config intact.
+  [#9646](https://github.com/jj-vcs/jj/issues/9646)
+  [#9679](https://github.com/jj-vcs/jj/pull/9679)
+
 ## [0.42.0] - 2026-06-04
 
 ### Release highlights

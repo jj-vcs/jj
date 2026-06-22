@@ -2273,26 +2273,23 @@ fn remove_remote_git_config_sections(
             section.header().subsection_name() == Some(BStr::new(remote_name.as_str()))
         })
         .map(|section| {
-            // Accept every key documented under `remote.<name>.*` in
-            // `git-config(1)`, not just `url` / `fetch` / `tagOpt`.
-            // Restricting the whitelist to those three means any remote
-            // that was added with `--push-url`, an `http.proxy`, or any
-            // other standard key ends up refusing `jj git remote remove`
-            // even though `git remote add` accepted it. That asymmetry
-            // is what https://github.com/jj-vcs/jj/issues/9646 reports.
+            // Restrict the whitelist to exactly the keys `jj git remote add`
+            // may write (`url`, `pushurl`, `fetch`, `tagOpt`). Any other key
+            // (e.g. a user-set `remotes.<name>.proxy`) is treated as
+            // nonstandard: rejecting the remove preserves the user's
+            // configuration rather than silently dropping it on the floor.
+            //
+            // The previous whitelist also accepted `proxy`, `proxyAuthMethod`,
+            // `receivepack`, `uploadpack`, `vcs`, `mirror`, `skipDefaultUpdate`,
+            // and `skipFetchAll`. Those are valid `git-config(1)` keys for
+            // `remote.<name>.*` but are never written by `jj git remote add`,
+            // so accepting them would cause `jj git remote remove` to delete
+            // user-set configuration that the user did not ask to remove.
             if section.value_names().any(|name| {
                 !name.eq_ignore_ascii_case(b"url")
                     && !name.eq_ignore_ascii_case(b"pushurl")
                     && !name.eq_ignore_ascii_case(b"fetch")
                     && !name.eq_ignore_ascii_case(b"tagOpt")
-                    && !name.eq_ignore_ascii_case(b"proxy")
-                    && !name.eq_ignore_ascii_case(b"proxyAuthMethod")
-                    && !name.eq_ignore_ascii_case(b"receivepack")
-                    && !name.eq_ignore_ascii_case(b"uploadpack")
-                    && !name.eq_ignore_ascii_case(b"vcs")
-                    && !name.eq_ignore_ascii_case(b"mirror")
-                    && !name.eq_ignore_ascii_case(b"skipDefaultUpdate")
-                    && !name.eq_ignore_ascii_case(b"skipFetchAll")
             }) {
                 return Err(GitRemoteManagementError::NonstandardConfiguration(
                     remote_name.to_owned(),
