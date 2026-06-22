@@ -566,7 +566,6 @@ fn test_git_remote_set_url() {
     "#);
 }
 
-
 #[test]
 fn test_git_remote_remove_after_push_url_configured() {
     // Regression test for https://github.com/jj-vcs/jj/issues/9646
@@ -581,7 +580,10 @@ fn test_git_remote_remove_after_push_url_configured() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj([
-        "git", "remote", "add", "foo",
+        "git",
+        "remote",
+        "add",
+        "foo",
         "https://example.com/repo/foo",
         "--push-url",
         "git@example.com:repo/foo",
