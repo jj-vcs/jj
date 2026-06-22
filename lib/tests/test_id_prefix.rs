@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::sync::Arc;
+
 use itertools::Itertools as _;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
@@ -32,6 +34,7 @@ use jj_lib::op_store::RefTarget;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
+use jj_lib::revset::RevsetExtensions;
 use jj_lib::settings::UserSettings;
 use pollster::FutureExt as _;
 use testutils::CommitBuilderExt as _;
@@ -622,4 +625,75 @@ fn test_id_prefix_shadowed_by_ref() {
         shortest_change_prefix_len(tx.repo(), commit.change_id()),
         change_id_sym.len()
     );
+}
+
+fn prefix_key(bytes: &[u8], len: usize) -> usize {
+    let mut val = 0usize;
+    for i in 0..len {
+        let byte_idx = i / 2;
+        let digit = if i % 2 == 0 {
+            bytes[byte_idx] >> 4
+        } else {
+            bytes[byte_idx] & 0x0f
+        };
+        val = (val << 4) | (digit as usize);
+    }
+    val
+}
+
+#[test]
+fn test_generate_new_change_id() -> TestResult {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = &test_repo.repo;
+    let settings = stable_settings();
+    let rng = settings.get_rng();
+    let root_commit_id = repo.store().root_commit_id();
+
+    // Create commits so the disambiguation set has entries
+    let mut tx = repo.start_transaction();
+    let signature = Signature {
+        name: "Some One".to_string(),
+        email: "some.one@example.com".to_string(),
+        timestamp: Timestamp {
+            timestamp: MillisSinceEpoch(0),
+            tz_offset: 0,
+        },
+    };
+    let mut existing = vec![repo.store().root_change_id().clone()];
+    for _ in 0..10 {
+        let commit = tx
+            .repo_mut()
+            .new_commit(
+                vec![root_commit_id.clone()],
+                repo.store().empty_merged_tree(),
+            )
+            .set_author(signature.clone())
+            .set_committer(signature.clone())
+            .write_unwrap();
+        existing.push(commit.change_id().clone());
+    }
+    let repo = tx.commit("test").block_on()?;
+
+    // Build an IdPrefixContext with a disambiguation revset that covers
+    // all existing commits.
+    let id_prefix_context = IdPrefixContext::new(Arc::new(RevsetExtensions::default()))
+        .disambiguate_within(RevsetExpression::all());
+    let index = id_prefix_context.populate(repo.as_ref())?;
+    let length = repo.store().change_id_length();
+
+    // Generate a change-ID and verify it doesn't collide with any existing
+    // ID at prefix lengths 1 through 4.
+    let change_id = index.generate_new_change_id(&rng, length);
+    assert_eq!(change_id.as_bytes().len(), length);
+    for (j, other) in existing.iter().enumerate() {
+        for len in 1..=4 {
+            assert_ne!(
+                prefix_key(change_id.as_bytes(), len),
+                prefix_key(other.as_bytes(), len),
+                "len={len} prefix collision with existing entry {j}",
+            );
+        }
+    }
+
+    Ok(())
 }

@@ -33,9 +33,13 @@ pub async fn cmd_bench_generate_change_id(
     args: &BenchGenerateChangeIdArgs,
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui).await?;
+    let id_prefix_context = workspace_command.id_prefix_context();
+    let id_prefix_index = id_prefix_context
+        .populate(workspace_command.repo().as_ref())
+        .unwrap();
     let rng = workspace_command.settings().get_rng();
     let length = workspace_command.repo().store().change_id_length();
-    let routine = || rng.new_change_id(length);
+    let routine = || id_prefix_index.generate_new_change_id(&rng, length);
     run_bench(ui, "generate-change-id", &args.criterion, routine)?;
     Ok(())
 }

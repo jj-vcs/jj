@@ -389,7 +389,7 @@ pub type OpStoreInitializer<'a> =
     dyn Fn(&UserSettings, &Path, RootOperationData) -> Result<Box<dyn OpStore>, BackendInitError>
     + 'a;
 #[rustfmt::skip] // auto-formatted line would exceed the maximum width
-pub type OpHeadsStoreInitializer<'a> = 
+pub type OpHeadsStoreInitializer<'a> =
     dyn Fn(&UserSettings, &Path, &OperationId)
     -> Result<Box<dyn OpHeadsStore>, BackendInitError>
     + 'a;

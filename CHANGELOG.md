@@ -45,6 +45,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj gerrit upload` now supports the `-o` (`--option`) flag, which works like
   `git push -o` (`--push-option`).
 
+* Newly created changes now avoid reusing change-ID short prefixes that
+  are already taken by existing changes. This highly reduces the chance
+  that a short prefix (e.g. 1-2 characters) becomes ambiguous after
+  creating a new revision.
+
 ### Fixed bugs
 
 * `jj` now creates a new working-copy revision during snapshotting if the
