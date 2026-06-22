@@ -13,6 +13,7 @@
 // limitations under the License.
 
 mod common_ancestors;
+mod generate_change_id;
 mod is_ancestor;
 mod resolve_prefix;
 mod revset;
@@ -26,6 +27,8 @@ use criterion::Criterion;
 
 use self::common_ancestors::BenchCommonAncestorsArgs;
 use self::common_ancestors::cmd_bench_common_ancestors;
+use self::generate_change_id::BenchGenerateChangeIdArgs;
+use self::generate_change_id::cmd_bench_generate_change_id;
 use self::is_ancestor::BenchIsAncestorArgs;
 use self::is_ancestor::cmd_bench_is_ancestor;
 use self::resolve_prefix::BenchResolvePrefixArgs;
@@ -41,6 +44,7 @@ use crate::ui::Ui;
 #[command(hide = true)]
 pub enum BenchCommand {
     CommonAncestors(BenchCommonAncestorsArgs),
+    GenerateChangeId(BenchGenerateChangeIdArgs),
     IsAncestor(BenchIsAncestorArgs),
     ResolvePrefix(BenchResolvePrefixArgs),
     Revset(BenchRevsetArgs),
@@ -53,6 +57,9 @@ pub(crate) async fn cmd_bench(
 ) -> Result<(), CommandError> {
     match subcommand {
         BenchCommand::CommonAncestors(args) => cmd_bench_common_ancestors(ui, command, args).await,
+        BenchCommand::GenerateChangeId(args) => {
+            cmd_bench_generate_change_id(ui, command, args).await
+        }
         BenchCommand::IsAncestor(args) => cmd_bench_is_ancestor(ui, command, args).await,
         BenchCommand::ResolvePrefix(args) => cmd_bench_resolve_prefix(ui, command, args).await,
         BenchCommand::Revset(args) => cmd_bench_revset(ui, command, args).await,
