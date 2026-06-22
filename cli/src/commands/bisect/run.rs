@@ -104,7 +104,7 @@ pub(crate) struct BisectRunArgs {
     /// The interpretation of exit statuses will be inverted (excluding special
     /// exit statuses), so status 0 means bad and other non-zero statuses mean
     /// good.
-    #[arg(long, value_name = "TARGET", default_value = "false")]
+    #[arg(long, value_name = "TARGET", default_value_t = false)]
     find_good: bool,
 }
 
