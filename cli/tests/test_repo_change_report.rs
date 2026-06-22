@@ -123,7 +123,7 @@ fn test_report_conflicts_with_divergent_commits() {
         .success();
 
     let output = work_dir.run_jj(["rebase", "-s=subject(B)", "-d=root()"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
     Rebased 3 commits to destination
@@ -132,10 +132,12 @@ fn test_report_conflicts_with_divergent_commits() {
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion
+    Divergence were solved or abandoned from 2 commits.
     New conflicts appeared in 3 commits:
       zsuskuln/0 9432879f (divergent) (conflict) C3
       zsuskuln/1 f3e2e0a2 (divergent) (conflict) C2
       kkmpptxz c6237d2f (conflict) B
+    New divergence appeared in 0 commits:
     Hint: To resolve the conflicts, start by creating a commit on top of
     the first conflicted commit:
       jj new kkmpptxz
@@ -146,19 +148,21 @@ fn test_report_conflicts_with_divergent_commits() {
     ");
 
     let output = work_dir.run_jj(["rebase", "-d=subject(A)"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 commits to destination
     Working copy  (@) now at: zsuskuln/1 27ef05d9 (divergent) C2
     Parent commit (@-)      : kkmpptxz 9039ed49 B
     Added 0 files, modified 1 files, removed 0 files
+    Divergence were solved or abandoned from 2 commits.
     Existing conflicts were resolved or abandoned from 3 commits.
+    New divergence appeared in 0 commits:
     [EOF]
     ");
 
     // Same thing when rebasing the divergent commits one at a time
     let output = work_dir.run_jj(["rebase", "-s=subject(C2)", "-d=root()"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
     Working copy  (@) now at: zsuskuln/0 aa95f2b1 (divergent) (conflict) C2
@@ -166,8 +170,10 @@ fn test_report_conflicts_with_divergent_commits() {
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion
+    Divergence were solved or abandoned from 1 commits.
     New conflicts appeared in 1 commits:
       zsuskuln/0 aa95f2b1 (divergent) (conflict) C2
+    New divergence appeared in 0 commits:
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new zsuskuln/0
@@ -178,11 +184,13 @@ fn test_report_conflicts_with_divergent_commits() {
     ");
 
     let output = work_dir.run_jj(["rebase", "-s=subject(C3)", "-d=root()"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
+    Divergence were solved or abandoned from 1 commits.
     New conflicts appeared in 1 commits:
       zsuskuln/0 733a79ca (divergent) (conflict) C3
+    New divergence appeared in 0 commits:
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new zsuskuln/0
@@ -193,21 +201,25 @@ fn test_report_conflicts_with_divergent_commits() {
     ");
 
     let output = work_dir.run_jj(["rebase", "-s=subject(C2)", "-d=subject(B)"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
     Working copy  (@) now at: zsuskuln/0 3fcf2fd2 (divergent) C2
     Parent commit (@-)      : kkmpptxz 9039ed49 B
     Added 0 files, modified 1 files, removed 0 files
+    Divergence were solved or abandoned from 1 commits.
     Existing conflicts were resolved or abandoned from 1 commits.
+    New divergence appeared in 0 commits:
     [EOF]
     ");
 
     let output = work_dir.run_jj(["rebase", "-s=subject(C3)", "-d=subject(B)"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
+    Divergence were solved or abandoned from 1 commits.
     Existing conflicts were resolved or abandoned from 1 commits.
+    New divergence appeared in 0 commits:
     [EOF]
     ");
 }

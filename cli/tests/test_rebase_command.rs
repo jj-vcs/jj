@@ -2987,9 +2987,11 @@ fn test_rebase_skip_duplicate_divergent() {
 
     // Rebase with "--keep-divergent" shouldn't skip any duplicates
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
-    insta::assert_snapshot!(work_dir.run_jj(["rebase", "-s", "c", "-o", "d", "--keep-divergent"]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["rebase", "-s", "c", "-o", "d", "--keep-divergent"]), @r"
     ------- stderr -------
     Rebased 2 commits to destination
+    Divergence were solved or abandoned from 1 commits.
+    New divergence appeared in 0 commits:
     [EOF]
     ");
     insta::assert_snapshot!(get_long_log_output(&work_dir), @"

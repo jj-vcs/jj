@@ -1014,7 +1014,7 @@ fn test_git_fetch_all() {
     [EOF]
     ");
     let output = target_dir.run_jj(["git", "fetch"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     bookmark: a1@origin     [updated] tracked
     bookmark: a2@origin     [updated] tracked
@@ -1023,6 +1023,7 @@ fn test_git_fetch_all() {
     Abandoned 2 commits that are no longer reachable:
       yqosqzyt/1 d4d535f1 (divergent) a2
       mzvwutvl/1 c8303692 (divergent) a1
+    New divergence appeared in 0 commits:
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&target_dir), @"
@@ -1206,12 +1207,13 @@ fn test_git_fetch_some_of_many_bookmarks() {
     [EOF]
     "#);
     let output = target_dir.run_jj(["git", "fetch", "--branch=~(a2 | trunk*)"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     bookmark: a1@origin [updated] tracked
     bookmark: b@origin  [updated] tracked
     Abandoned 1 commits that are no longer reachable:
       mzvwutvl/1 c8303692 (divergent) a1
+    New divergence appeared in 0 commits:
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"

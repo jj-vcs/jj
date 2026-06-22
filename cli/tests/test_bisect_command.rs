@@ -531,7 +531,7 @@ fn test_bisect_run_jj_command() -> TestResult {
     create_commit(&work_dir, "e", &["d"]);
 
     std::fs::write(&bisection_script, ["jj new -mtesting", "fail"].join("\0"))?;
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @r"
     Bisecting: 4 revisions left to test after this (roughly 3 steps)
     Now evaluating: zsuskuln 123b4d91 b | b
     fake-bisector testing commit 123b4d91f6e5e39bfed39bae3bacf9380dc79078
@@ -552,11 +552,13 @@ fn test_bisect_run_jj_command() -> TestResult {
     Added 0 files, modified 0 files, removed 3 files
     Working copy  (@) now at: kmkuslsw/0 55b3b4a8 (divergent) (empty) testing
     Parent commit (@-)      : kmkuslsw/1 17e2a972 (divergent) (empty) (no description set)
+    New divergence appeared in 0 commits:
     Working copy  (@) now at: msksykpx 2f6e298d (empty) (no description set)
     Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
     Added 0 files, modified 0 files, removed 1 files
     Working copy  (@) now at: kmkuslsw/0 2f80658c (divergent) (empty) testing
     Parent commit (@-)      : msksykpx 2f6e298d (empty) (no description set)
+    New divergence appeared in 0 commits:
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
