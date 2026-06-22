@@ -332,7 +332,7 @@ pub struct RebaseDestinationArgs {
     /// commit)
     #[arg(
         long,
-        alias = "destination",
+        visible_alias = "destination",
         short,
         visible_short_alias = 'd',
         value_name = "REVSETS"
