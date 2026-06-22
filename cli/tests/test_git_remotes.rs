@@ -566,6 +566,52 @@ fn test_git_remote_set_url() {
     "#);
 }
 
+
+#[test]
+fn test_git_remote_remove_after_push_url_configured() {
+    // Regression test for https://github.com/jj-vcs/jj/issues/9646
+    //
+    // `jj git remote add --push-url ...` writes a `pushurl` entry to the
+    // remote config. Before this fix, `remove_remote_git_config_sections`
+    // rejected any remote section whose keys were not strictly
+    // `url` / `fetch` / `tagOpt`, so the remote that add accepted could
+    // not be removed.
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj([
+        "git", "remote", "add", "foo",
+        "https://example.com/repo/foo",
+        "--push-url",
+        "git@example.com:repo/foo",
+    ]);
+    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(read_git_config(work_dir.root()), @r#"
+    [core]
+    	bare = true
+    	logallrefupdates = false
+    	repositoryformatversion = 0
+    [remote "foo"]
+    	url = https://example.com/repo/foo
+    	pushurl = git@example.com:repo/foo
+    	fetch = +refs/heads/*:refs/remotes/foo/*
+    "#);
+
+    // The remove that previously failed with
+    // "Git remote named 'foo' has nonstandard configuration".
+    let output = work_dir.run_jj(["git", "remote", "remove", "foo"]);
+    insta::assert_snapshot!(output, @"");
+    let output = work_dir.run_jj(["git", "remote", "list"]);
+    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(read_git_config(work_dir.root()), @r#"
+    [core]
+    	bare = true
+    	logallrefupdates = false
+    	repositoryformatversion = 0
+    "#);
+}
+
 #[test]
 fn test_git_remote_relative_path() {
     let test_env = TestEnvironment::default();
