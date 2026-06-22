@@ -52,7 +52,7 @@ use crate::ui::Ui;
 pub(crate) struct NextArgs {
     /// How many revisions to move forward. Advances to the next child by
     /// default
-    #[arg(default_value = "1")]
+    #[arg(default_value_t = 1)]
     offset: u64,
 
     /// Instead of creating a new working-copy commit on top of the target

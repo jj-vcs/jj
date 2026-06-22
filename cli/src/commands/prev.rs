@@ -50,7 +50,7 @@ use crate::ui::Ui;
 #[command(verbatim_doc_comment)]
 pub(crate) struct PrevArgs {
     /// How many revisions to move backward. Moves to the parent by default
-    #[arg(default_value = "1")]
+    #[arg(default_value_t = 1)]
     offset: u64,
 
     /// Edit the parent directly, instead of moving the working-copy commit
