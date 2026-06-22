@@ -2998,9 +2998,10 @@ fn absolute_path_to_verbatim_path(input: &Path) -> PathBuf {
         // C: -> \\?\Global\C:
         // \\?\C: -> \\?\Global\C:
         //
-        // Prefix the path with Global, so that when we read back the symlink, it's still a verbatim
-        // path. The symlink to a \\?\C: prefixed path(e.g., \\?\C:\file.txt) will be converted to a
-        // not verbatim path(e.g., C:\file.txt) when calling read_link.
+        // Prefix the path with `Global`, so that when we read back the symlink, it's still a
+        // verbatim path. The symlink to a `\\?\C:` prefixed path (e.g. `\\?\C:\file.txt`)
+        // will be converted to a non-verbatim path (e.g. `C:\file.txt`) when calling
+        // `read_link()`.
         Prefix::Disk(disk) | Prefix::VerbatimDisk(disk) => {
             let mut verbatim_prefix = OsString::from(r"\\?\Global\");
             verbatim_prefix.push([disk].to_os_str().unwrap());
