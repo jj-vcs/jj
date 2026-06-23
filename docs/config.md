@@ -1734,6 +1734,23 @@ default. Set `git.colocate` to `false` to disable it.
 See [Colocated Jujutsu/Git workspaces](git-compatibility.md#colocated-jujutsugit-repos)
 for more information.
 
+### Ignoring files by `.gitattributes` filter
+
+In Git-backed repositories, `jj` can skip files during snapshot based on the
+`filter` attribute in `.gitattributes`. The `git.ignore-filters` setting lists
+the filter values to skip, and defaults to `["lfs"]`.
+
+```toml
+[git]
+ignore-filters = ["lfs", "git-crypt"]
+```
+
+This only affects snapshotting from disk to the store. Checkout still writes
+the files from the tree, so external tools such as `git lfs pull` or
+`git lfs checkout` can hydrate them afterward. Files already tracked by `jj` may
+need to be removed with `jj file untrack <path>` before this setting affects
+future snapshots.
+
 ### Default remotes for `jj git fetch` and `jj git push`
 
 By default, if a single remote exists it is used for `jj git fetch` and `jj git

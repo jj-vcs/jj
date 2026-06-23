@@ -37,8 +37,13 @@ a comparison with Git, including how workflows are different, see the
   working-copy commit. It's recommended to set up the ignore patterns earlier.
   The `.gitignore` support uses a native implementation, so please report a bug
   if you notice any difference compared to `git`.
-* **.gitattributes: No.** There's [#53](https://github.com/jj-vcs/jj/issues/53)
-  about adding support for at least the `eol` attribute.
+* **.gitattributes: Partial.** In Git-backed repositories, `jj` reads
+  `.gitattributes` `filter` attributes during snapshot and skips files whose
+  filter is listed in `git.ignore-filters`, which defaults to `["lfs"]`. This
+  is snapshot-only; checkout still writes files from the tree. Other attributes
+  such as `eol`, `text`, `diff`, and `merge` are not otherwise supported.
+  There's [#53](https://github.com/jj-vcs/jj/issues/53) about adding support for
+  at least the `eol` attribute.
 * **Hooks: No.** There's [#405](https://github.com/jj-vcs/jj/issues/405)
   specifically for providing the checks from <https://pre-commit.com>.
 * **Merge commits: Yes.** Octopus merges (i.e. with more than 2 parents) are
@@ -71,7 +76,12 @@ a comparison with Git, including how workflows are different, see the
 * **Signed commits: Yes.**
   You can sign commits automatically [by configuration](config.md#commit-signing),
   or use the `jj sign` command.
-* **Git LFS: No.** ([#80](https://github.com/jj-vcs/jj/issues/80))
+* **Git LFS: Partial.** In Git-backed repositories, files with `filter=lfs` are
+  ignored during snapshot by default. `jj` does not fetch, clean, smudge, or
+  hydrate LFS contents; use Git LFS commands such as `git lfs pull` or
+  `git lfs checkout` for those steps. Existing tracked files may need
+  `jj file untrack <path>` before the snapshot ignore takes effect.
+  ([#80](https://github.com/jj-vcs/jj/issues/80))
 
 ## Creating an empty repo
 

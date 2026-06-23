@@ -2525,6 +2525,7 @@ dependencies = [
  "eyre",
  "futures 0.3.32",
  "gix",
+ "gix-attributes",
  "gix-ignore",
  "globset",
  "hashbrown 0.17.1",
