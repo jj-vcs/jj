@@ -12,15 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::slice;
 use std::time::Duration;
 use std::time::SystemTime;
-
-use jj_lib::repo::Repo as _;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
+use crate::gc_util::expire_unreachable;
 use crate::ui::Ui;
 
 /// Run backend-dependent garbage collection.
@@ -51,17 +49,16 @@ pub async fn cmd_util_gc(
             "Cannot garbage collect from a non-head operation",
         ));
     }
+
     let keep_newer = match args.expire.as_deref() {
         None => SystemTime::now() - Duration::from_secs(14 * 86400),
         Some("now") => SystemTime::now() - Duration::ZERO,
         _ => return Err(user_error("--expire only accepts 'now'")),
     };
+
     let workspace_command = command.workspace_helper(ui).await?;
 
-    let repo = workspace_command.repo();
-    repo.op_store()
-        .gc(slice::from_ref(repo.op_id()), keep_newer)
-        .await?;
-    repo.store().gc(repo.index(), keep_newer)?;
+    expire_unreachable(workspace_command.repo(), keep_newer).await?;
+
     Ok(())
 }
