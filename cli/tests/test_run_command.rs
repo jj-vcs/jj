@@ -150,7 +150,6 @@ fn test_run_noop() {
         .success();
     insta::assert_snapshot!(output.stdout, @"foofoofoofoo[EOF]");
     insta::assert_snapshot!(output.stderr, @r"
-    No commits were rewritten as the command did not modify any tracked files
     Nothing changed.
     [EOF]
     ");
@@ -270,7 +269,7 @@ fn test_run_from_subdir_skips_commits_without_it() {
         .normalize_backslash();
     insta::assert_snapshot!(output.stderr, @r"
     Skipped commit 3bb1f1ca3c09a8e6be46ef48515803464b16b426: directory does not exist: sub
-    Rewrote 1 commits with $FAKE_FORMATTER_PATH --tee ran.txt
+    Rewrote 1 commits
     Working copy  (@) now at: kkmpptxz 3548431a (empty) (no description set)
     Parent commit (@-)      : rlvkpnrz 3aa9a235 with-sub
     Added 1 files, modified 0 files, removed 0 files
