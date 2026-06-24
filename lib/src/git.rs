@@ -2273,8 +2273,21 @@ fn remove_remote_git_config_sections(
             section.header().subsection_name() == Some(BStr::new(remote_name.as_str()))
         })
         .map(|section| {
+            // Restrict the whitelist to exactly the keys `jj git remote add`
+            // may write (`url`, `pushurl`, `fetch`, `tagOpt`). Any other key
+            // (e.g. a user-set `remotes.<name>.proxy`) is treated as
+            // nonstandard: rejecting the remove preserves the user's
+            // configuration rather than silently dropping it on the floor.
+            //
+            // The previous whitelist also accepted `proxy`, `proxyAuthMethod`,
+            // `receivepack`, `uploadpack`, `vcs`, `mirror`, `skipDefaultUpdate`,
+            // and `skipFetchAll`. Those are valid `git-config(1)` keys for
+            // `remote.<name>.*` but are never written by `jj git remote add`,
+            // so accepting them would cause `jj git remote remove` to delete
+            // user-set configuration that the user did not ask to remove.
             if section.value_names().any(|name| {
                 !name.eq_ignore_ascii_case(b"url")
+                    && !name.eq_ignore_ascii_case(b"pushurl")
                     && !name.eq_ignore_ascii_case(b"fetch")
                     && !name.eq_ignore_ascii_case(b"tagOpt")
             }) {
