@@ -8970,10 +8970,14 @@ $<span class="w"> </span>jj<span class="w"> </span>run<span class="w"> </span>-j
 <li><code>-r</code>, <code>--revision &lt;REVSETS&gt;</code> — The revisions to change</li>
 <li>
 <p><code>-j</code>, <code>--jobs &lt;JOBS&gt;</code> — How many processes should run in parallel</p>
-<p>Default value: <code>1</code></p>
+<p>Overrides the <code>run.jobs</code> config setting. Defaults to 1 if neither is set.</p>
 </li>
 <li>
 <p><code>--root</code> — Run the command from the working-copy root in each commit instead of from the subdirectory <code>jj run</code> was invoked from</p>
+</li>
+<li>
+<p><code>--clean</code> — Delete each working copy before running the command</p>
+<p>By default <code>jj run</code> reuses working copies between invocations so build artifacts are preserved. With <code>--clean</code>, every commit starts from a freshly checked-out tree.</p>
 </li>
 </ul>
 <h2 id="jj-show"><code>jj show</code><a class="headerlink" href="#jj-show" title="Permanent link">&para;</a></h2>

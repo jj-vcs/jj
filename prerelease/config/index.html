@@ -1543,6 +1543,30 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#run" class="md-nav__link">
+    <span class="md-ellipsis">
+      run: Running commands across revisions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="run: Running commands across revisions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#run.jobs" class="md-nav__link">
+    <span class="md-ellipsis">
+      run.jobs: Default parallelism
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#commit-signing" class="md-nav__link">
     <span class="md-ellipsis">
       Commit Signing
@@ -3558,6 +3582,30 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#run" class="md-nav__link">
+    <span class="md-ellipsis">
+      run: Running commands across revisions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="run: Running commands across revisions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#run.jobs" class="md-nav__link">
+    <span class="md-ellipsis">
+      run.jobs: Default parallelism
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#commit-signing" class="md-nav__link">
     <span class="md-ellipsis">
       Commit Signing
@@ -5234,6 +5282,20 @@ repositories.</p>
 </code></pre></div>
 <p>Then to use the tool in a specific repository, set the <code>enabled</code> config:</p>
 <div class="highlight"><pre><span></span><code>$<span class="w"> </span>jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--repo<span class="w"> </span>fix.tools.rustfmt.enabled<span class="w"> </span><span class="nb">true</span>
+</code></pre></div>
+<h2 id="run"><code>run</code>: Running commands across revisions<a class="headerlink" href="#run" title="Permanent link">&para;</a></h2>
+<p>The <code>jj run</code> command executes a command against each revision in a set,
+checking out each one into an isolated working copy, running the command, and
+amending the revision with any resulting changes.</p>
+<h3 id="run.jobs"><code>run.jobs</code>: Default parallelism<a class="headerlink" href="#run.jobs" title="Permanent link">&para;</a></h3>
+<p>By default <code>jj run</code> processes one revision at a time. You can increase
+parallelism with the <code>run.jobs</code> setting:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[run]</span>
+<span class="n">jobs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">8</span>
+</code></pre></div>
+<p>The value must be a positive integer. The <code>--jobs</code> / <code>-j</code> CLI flag overrides
+this setting for a single invocation:</p>
+<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>run<span class="w"> </span>-j<span class="w"> </span><span class="m">4</span><span class="w"> </span>--<span class="w"> </span>cargo<span class="w"> </span>fmt
 </code></pre></div>
 <h2 id="commit-signing">Commit Signing<a class="headerlink" href="#commit-signing" title="Permanent link">&para;</a></h2>
 <p><code>jj</code> can be configured to sign and verify the commits it creates using either

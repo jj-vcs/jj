@@ -836,6 +836,17 @@
                 ]
             }
         },
+        "run": {
+            "type": "object",
+            "description": "Settings for the `jj run` command, which runs a shell command across a set of revisions.",
+            "properties": {
+                "jobs": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Maximum number of working copies (and parallel jobs) `jj run` uses. Defaults to 1. Overridden by `--jobs`."
+                }
+            }
+        },
         "snapshot": {
             "type": "object",
             "description": "Parameters governing automatic capture of files into the working copy commit",
