@@ -704,7 +704,6 @@ pub async fn cmd_run(
         auto_tracking_matcher,
         args.clean,
     )?);
-    let stored_len = resolved_commits.len();
 
     let spec = Arc::new(CommandSpec {
         program: args.command.clone(),
@@ -716,7 +715,7 @@ pub async fn cmd_run(
     // Drive the producer (run_inner) and consumer (receive loop) concurrently
     // so that each subprocess's output is emitted as soon as it finishes rather
     // than after all subprocesses complete.
-    let ((), visited) = futures::try_join!(
+    futures::try_join!(
         async {
             run_inner(
                 &tx,
@@ -731,7 +730,6 @@ pub async fn cmd_run(
             .map_err(CommandError::from)
         },
         async {
-            let mut visited = 0;
             while let Some(res) = receiver.recv().await {
                 if res.skipped {
                     writeln!(
@@ -770,23 +768,14 @@ pub async fn cmd_run(
                         rewritten_commits.insert(res.old_id.clone(), (res.old_tree, new_tree));
                     }
                 }
-                visited += 1;
-                if visited == stored_len {
-                    break;
-                }
             }
-            Ok::<_, CommandError>(visited)
+            Ok::<_, CommandError>(())
         },
     )?;
 
     // The operation was a no-op, bail.
     if rewritten_commits.is_empty() {
-        writeln!(
-            ui.stderr(),
-            "No commits were rewritten as the command did not modify any tracked files"
-        )?;
-        tx.finish(ui, format!("run: No-op on {visited} commits with {spec}"))
-            .await?;
+        tx.finish(ui, "run: nothing changed").await?;
         return Ok(());
     }
 
@@ -826,8 +815,8 @@ pub async fn cmd_run(
             },
         )
         .await?;
-    writeln!(ui.stderr(), "Rewrote {count} commits with {spec}")?;
-    tx.finish(ui, format!("run: rewrite {count} commits with {spec}"))
+    writeln!(ui.stderr(), "Rewrote {count} commits")?;
+    tx.finish(ui, format!("run: rewrite {count} commits"))
         .await?;
 
     Ok(())
