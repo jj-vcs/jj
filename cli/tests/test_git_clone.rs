@@ -1227,6 +1227,43 @@ fn test_git_clone_with_global_git_remote_config() {
     "#);
 }
 
+/// Regression test for #7820. A global `[remote "origin"]` section that is
+/// complete enough for Git to consider `origin` to exist (here, one with a
+/// `pushurl`) used to make `jj git clone` fail with
+/// `Git remote named 'origin' already exists`, because the existence check
+/// consulted the merged (global + local) configuration. The check now only
+/// looks at the local `.git/config`, so the clone creates its own `origin`
+/// and succeeds.
+#[test]
+fn test_git_clone_with_global_origin_url() {
+    let mut test_env = TestEnvironment::default();
+    test_env.work_dir("").write_file(
+        "git-config",
+        indoc! {r#"
+            [remote "origin"]
+                pushurl = https://example.com/x
+        "#},
+    );
+    test_env.add_env_var("GIT_CONFIG_GLOBAL", test_env.env_root().join("git-config"));
+
+    let root_dir = test_env.work_dir("");
+    let git_repo_path = root_dir.root().join("source");
+    let git_repo = git::init(git_repo_path);
+    set_up_non_empty_git_repo(&git_repo);
+
+    let output = root_dir.run_jj(["git", "clone", "source", "clone"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/clone"
+    bookmark: main@origin [new] tracked
+    Setting the revset alias `trunk()` to `main@origin`
+    Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+}
+
 #[test]
 fn test_git_clone_no_git_executable() {
     let test_env = TestEnvironment::default();

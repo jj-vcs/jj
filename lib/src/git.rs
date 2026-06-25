@@ -2329,6 +2329,19 @@ fn iter_remote_names(git_repo: &gix::Repository) -> impl Iterator<Item = RemoteN
         .map(RemoteNameBuf::from)
 }
 
+/// Checks if non-empty configuration for a remote exists in the local
+/// `.git/config` file (ignoring global/system configuration).
+fn remote_exists_in_local_config(git_repo: &gix::Repository, remote_name: &RemoteName) -> bool {
+    let config = git_repo.config_snapshot();
+    let subsection_name = Some(BStr::new(remote_name.as_str()));
+    match config.section("remote", subsection_name) {
+        Ok(section) => {
+            section.num_values() > 0 && section.meta().source == gix::config::Source::Local
+        }
+        Err(_) => false,
+    }
+}
+
 pub fn add_remote(
     mut_repo: &mut MutableRepo,
     remote_name: &RemoteName,
@@ -2340,7 +2353,7 @@ pub fn add_remote(
 
     validate_remote_name(remote_name)?;
 
-    if git_repo.try_find_remote(remote_name.as_str()).is_some() {
+    if remote_exists_in_local_config(&git_repo, remote_name) {
         return Err(GitRemoteManagementError::RemoteAlreadyExists(
             remote_name.to_owned(),
         ));
@@ -2452,6 +2465,12 @@ pub fn rename_remote(
 
     validate_remote_name(new_remote_name)?;
 
+    if !remote_exists_in_local_config(&git_repo, old_remote_name) {
+        return Err(GitRemoteManagementError::NoSuchRemote(
+            old_remote_name.to_owned(),
+        ));
+    }
+
     let Some(result) = git_repo.try_find_remote(old_remote_name.as_str()) else {
         return Err(GitRemoteManagementError::NoSuchRemote(
             old_remote_name.to_owned(),
@@ -2459,7 +2478,7 @@ pub fn rename_remote(
     };
     let mut remote = result.map_err(GitRemoteManagementError::from_git)?;
 
-    if git_repo.try_find_remote(new_remote_name.as_str()).is_some() {
+    if remote_exists_in_local_config(&git_repo, new_remote_name) {
         return Err(GitRemoteManagementError::RemoteAlreadyExists(
             new_remote_name.to_owned(),
         ));
