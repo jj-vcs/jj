@@ -199,6 +199,476 @@ fn test_no_subcommand() {
 }
 
 #[test]
+fn test_deprecated_removed_command_hints() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let cases: &[&[&str]] = &[
+        &["amend"],
+        &["clone"],
+        &["init"],
+        &["op", "undo"],
+        &["op", "redo"],
+        &["backout"],
+        &["branch", "list"],
+        &["cat", "file"],
+        &["chmod", "x", "file"],
+        &["checkout"],
+        &["co"],
+        &["files"],
+        &["merge"],
+        &["move"],
+        &["debug", "snapshot"],
+        &["util", "mangen"],
+        &["untrack", "file"],
+        &["unsquash"],
+        &["log", "-l", "5"],
+        &["evolog", "-l", "5"],
+        &["--config-toml", "ui.color='never'", "version"],
+        &["util", "completion", "--bash"],
+        &["git", "clone", "--fetch-tags=all", "source", "dest"],
+        &["op", "log", "-l", "5"],
+        &["git", "push", "--allow-new"],
+        &["commit", "--reset-author"],
+        &["commit", "--author", "A. U. Thor <author@example.com>"],
+        &["describe", "--edit"],
+        &["describe", "--no-edit"],
+        &["rebase", "--skip-empty"],
+        &["split", "--siblings"],
+        &["abandon", "--summary"],
+        &["metaedit", "--update-committer-timestamp"],
+        &["describe", "--reset-author"],
+        &["describe", "--author", "A. U. Thor <author@example.com>"],
+    ];
+    let output = cases
+        .iter()
+        .map(|args| format!("$ jj {}\n{}", args.join(" "), work_dir.run_jj(*args)))
+        .join("\n");
+    insta::assert_snapshot!(output, @r#"
+    $ jj amend
+    ------- stderr -------
+    error: unrecognized subcommand 'amend'
+
+    For more information, try '--help'.
+    Hint: You probably want `jj squash`. You can configure `aliases.amend = ["squash"]` if you want `jj amend` to work.
+    [EOF]
+    [exit status: 2]
+
+    $ jj clone
+    ------- stderr -------
+    error: unrecognized subcommand 'clone'
+
+    For more information, try '--help'.
+    Hint: You probably want `jj git clone`. See also `jj help git`.
+    Hint: You can configure `aliases.clone = ["git", "clone"]` if you want `jj clone` to work and always use the Git backend.
+    [EOF]
+    [exit status: 2]
+
+    $ jj init
+    ------- stderr -------
+    error: unrecognized subcommand 'init'
+
+    For more information, try '--help'.
+    Hint: You probably want `jj git init`. See also `jj help git`.
+    Hint: You can configure `aliases.init = ["git", "init"]` if you want `jj init` to work and always use the Git backend.
+    [EOF]
+    [exit status: 2]
+
+    $ jj op undo
+    ------- stderr -------
+    error: unrecognized subcommand 'undo'
+
+      tip: a similar subcommand exists: 'abandon'
+
+    Usage: jj operation [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj op redo
+    ------- stderr -------
+    error: unrecognized subcommand 'redo'
+
+      tip: a similar subcommand exists: 'restore'
+
+    Usage: jj operation [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj backout
+    ------- stderr -------
+    error: unrecognized subcommand 'backout'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj branch list
+    ------- stderr -------
+    error: unrecognized subcommand 'branch'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj cat file
+    ------- stderr -------
+    error: unrecognized subcommand 'cat'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj chmod x file
+    ------- stderr -------
+    error: unrecognized subcommand 'chmod'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj checkout
+    ------- stderr -------
+    error: unrecognized subcommand 'checkout'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj co
+    ------- stderr -------
+    error: unrecognized subcommand 'co'
+
+      tip: some similar subcommands exist: 'converge', 'commit', 'config'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj files
+    ------- stderr -------
+    error: unrecognized subcommand 'files'
+
+      tip: a similar subcommand exists: 'file'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj merge
+    ------- stderr -------
+    error: unrecognized subcommand 'merge'
+
+      tip: a similar subcommand exists: 'converge'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj move
+    ------- stderr -------
+    error: unrecognized subcommand 'move'
+
+      tip: a similar subcommand exists: 'converge'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj debug snapshot
+    ------- stderr -------
+    error: unrecognized subcommand 'snapshot'
+
+    Usage: jj debug [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj util mangen
+    ------- stderr -------
+    error: unrecognized subcommand 'mangen'
+
+    Usage: jj util [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj untrack file
+    ------- stderr -------
+    error: unrecognized subcommand 'untrack'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj unsquash
+    ------- stderr -------
+    error: unrecognized subcommand 'unsquash'
+
+      tip: a similar subcommand exists: 'squash'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj log -l 5
+    ------- stderr -------
+    error: unexpected argument '-l' found
+
+      tip: to pass '-l' as a value, use '-- -l'
+
+    Usage: jj log [OPTIONS] [FILESETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj evolog -l 5
+    ------- stderr -------
+    error: unexpected argument '-l' found
+
+    Usage: jj evolog [OPTIONS]
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj --config-toml ui.color='never' version
+    ------- stderr -------
+    Hint: Use `jj -h` for a list of available commands.
+    Run `jj config set --user ui.default-command log` to disable this message.
+    error: unexpected argument '--config-toml' found
+
+      tip: a similar argument exists: '--config'
+
+    Usage: jj log --config <NAME=VALUE> [FILESETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj util completion --bash
+    ------- stderr -------
+    error: unexpected argument '--bash' found
+
+      tip: to pass '--bash' as a value, use '-- --bash'
+
+    Usage: jj util completion [OPTIONS] <SHELL>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj git clone --fetch-tags=all source dest
+    ------- stderr -------
+    error: unexpected argument '--fetch-tags' found
+
+      tip: to pass '--fetch-tags' as a value, use '-- --fetch-tags'
+
+    Usage: jj git clone [OPTIONS] <SOURCE> [DESTINATION]
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj op log -l 5
+    ------- stderr -------
+    error: unexpected argument '-l' found
+
+    Usage: jj operation log [OPTIONS]
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj git push --allow-new
+    ------- stderr -------
+    error: unexpected argument '--allow-new' found
+
+      tip: a similar argument exists: '--all'
+
+    Usage: jj git push --all
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj commit --reset-author
+    ------- stderr -------
+    error: unexpected argument '--reset-author' found
+
+      tip: a similar argument exists: '--repository'
+
+    Usage: jj commit --repository <REPOSITORY> [FILESETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj commit --author A. U. Thor <author@example.com>
+    ------- stderr -------
+    error: unexpected argument '--author' found
+
+      tip: a similar argument exists: '--at-op'
+
+    Usage: jj commit --at-operation <AT_OPERATION> [FILESETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj describe --edit
+    ------- stderr -------
+    error: unexpected argument '--edit' found
+
+      tip: a similar argument exists: '--editor'
+
+    Usage: jj describe --editor [REVSETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj describe --no-edit
+    ------- stderr -------
+    error: unexpected argument '--no-edit' found
+
+      tip: to pass '--no-edit' as a value, use '-- --no-edit'
+
+    Usage: jj describe [OPTIONS] [REVSETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj rebase --skip-empty
+    ------- stderr -------
+    error: unexpected argument '--skip-empty' found
+
+      tip: a similar argument exists: '--skip-emptied'
+
+    Usage: jj rebase --skip-emptied <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj split --siblings
+    ------- stderr -------
+    error: unexpected argument '--siblings' found
+
+      tip: to pass '--siblings' as a value, use '-- --siblings'
+
+    Usage: jj split [OPTIONS] [FILESETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj abandon --summary
+    ------- stderr -------
+    error: unexpected argument '--summary' found
+
+      tip: to pass '--summary' as a value, use '-- --summary'
+
+    Usage: jj abandon [OPTIONS] [REVSETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj metaedit --update-committer-timestamp
+    ------- stderr -------
+    error: unexpected argument '--update-committer-timestamp' found
+
+      tip: a similar argument exists: '--update-author-timestamp'
+
+    Usage: jj metaedit --update-author-timestamp [REVSETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj describe --reset-author
+    ------- stderr -------
+    error: unexpected argument '--reset-author' found
+
+      tip: a similar argument exists: '--repository'
+
+    Usage: jj describe --repository <REPOSITORY> [REVSETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+
+    $ jj describe --author A. U. Thor <author@example.com>
+    ------- stderr -------
+    error: unexpected argument '--author' found
+
+      tip: a similar argument exists: '--at-op'
+
+    Usage: jj describe --at-operation <AT_OPERATION> [REVSETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    "#);
+}
+
+#[test]
+fn test_soft_deprecated_command_still_runs() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj([
+        "bisect",
+        "run",
+        "--range=@",
+        "--trust-endpoints",
+        "--command",
+        "true",
+    ]);
+    insta::assert_snapshot!(output, @"
+    Search complete. To discard any revisions created during search, run:
+      jj op restore f63ee16f9553
+    The first bad revision is: qpvuntsm e8849ae1 (empty) (no description set)
+    [EOF]
+    ------- stderr -------
+    Warning: `--command` is deprecated; use positional arguments instead: `jj bisect run --range=... -- true`
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_ignore_working_copy() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
