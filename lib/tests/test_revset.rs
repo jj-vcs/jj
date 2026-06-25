@@ -3279,6 +3279,201 @@ fn test_evaluate_expression_fork_point_merge_with_ancestor() {
 }
 
 #[test]
+fn test_evaluate_expression_merge_point() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    // 7
+    // |\
+    // | |\
+    // 5 6 |
+    // | | |
+    // 4 | |
+    // |\| |
+    // 1 2 3
+    // | |/
+    // |/
+    // 0
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let root_commit = repo.store().root_commit();
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit(mut_repo);
+    let commit3 = write_random_commit(mut_repo);
+    let commit4 = write_random_commit_with_parents(mut_repo, &[&commit1, &commit2]);
+    let commit5 = write_random_commit_with_parents(mut_repo, &[&commit4]);
+    let commit6 = write_random_commit_with_parents(mut_repo, &[&commit2]);
+    let commit7 = write_random_commit_with_parents(mut_repo, &[&commit5, &commit6, &commit3]);
+
+    assert_eq!(resolve_commit_ids(mut_repo, "merge_point(none())"), vec![]);
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "merge_point(all())"),
+        vec![commit7.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "merge_point(root())"),
+        vec![root_commit.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("merge_point({})", commit1.id())),
+        vec![commit1.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("merge_point({})", commit2.id())),
+        vec![commit2.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("merge_point({})", commit3.id())),
+        vec![commit3.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("merge_point({})", commit4.id())),
+        vec![commit4.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("merge_point({})", commit5.id())),
+        vec![commit5.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("merge_point({})", commit6.id())),
+        vec![commit6.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
+            &format!("merge_point({} | {})", commit5.id(), commit6.id())
+        ),
+        vec![commit7.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
+            &format!("merge_point({} | {})", commit6.id(), commit3.id())
+        ),
+        vec![commit7.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
+            &format!(
+                "merge_point({} | {} | {})",
+                commit5.id(),
+                commit6.id(),
+                commit3.id()
+            )
+        ),
+        vec![commit7.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
+            &format!("merge_point({} | {})", commit5.id(), commit4.id())
+        ),
+        vec![commit5.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
+            &format!("merge_point({} | {})", commit6.id(), commit1.id())
+        ),
+        vec![commit7.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
+            &format!("merge_point({} | {})", commit3.id(), commit2.id())
+        ),
+        vec![commit7.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
+            &format!("merge_point({} | {})", commit5.id(), commit1.id())
+        ),
+        vec![commit5.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
+            &format!("merge_point({} | {})", commit4.id(), commit1.id())
+        ),
+        vec![commit4.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
+            &format!("merge_point({} | {})", commit1.id(), commit2.id())
+        ),
+        vec![commit4.id().clone()]
+    );
+}
+
+#[test]
+fn test_evaluate_expression_merge_point_criss_cross() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    // 3 4
+    // |X|
+    // 1 2
+    // |/
+    // 0
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit(mut_repo);
+    let commit3 = write_random_commit_with_parents(mut_repo, &[&commit1, &commit2]);
+    let commit4 = write_random_commit_with_parents(mut_repo, &[&commit1, &commit2]);
+
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
+            &format!("merge_point({} | {})", commit1.id(), commit2.id())
+        ),
+        vec![commit4.id().clone(), commit3.id().clone()]
+    );
+
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
+            &format!("merge_point({} | {})", commit3.id(), commit4.id())
+        ),
+        vec![]
+    );
+}
+
+#[test]
+fn test_evaluate_expression_merge_point_with_descendants() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    //   6   7
+    //    \ /
+    // 3   4   5
+    //  \ / \ /
+    //   1   2
+    //    \ /
+    //     0
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit(mut_repo);
+    let commit4 = write_random_commit_with_parents(mut_repo, &[&commit1, &commit2]);
+    let _commit3 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let _commit5 = write_random_commit_with_parents(mut_repo, &[&commit2]);
+    let _commit6 = write_random_commit_with_parents(mut_repo, &[&commit4]);
+    let _commit7 = write_random_commit_with_parents(mut_repo, &[&commit4]);
+
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
+            &format!("merge_point({} | {})", commit1.id(), commit2.id())
+        ),
+        vec![commit4.id().clone()]
+    );
+}
+
+#[test]
 fn test_evaluate_expression_exactly() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
