@@ -279,11 +279,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unrecognized subcommand 'undo'
 
-      tip: a similar subcommand exists: 'abandon'
-
-    Usage: jj operation [OPTIONS] <COMMAND>
-
     For more information, try '--help'.
+    Hint: `jj operation undo` was removed in jj 0.39.0. Use `jj undo` to undo the latest operation. Use `jj op revert` to revert a specific operation.
     [EOF]
     [exit status: 2]
 
@@ -291,11 +288,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unrecognized subcommand 'redo'
 
-      tip: a similar subcommand exists: 'restore'
-
-    Usage: jj operation [OPTIONS] <COMMAND>
-
     For more information, try '--help'.
+    Hint: You probably want `jj redo`.
     [EOF]
     [exit status: 2]
 
@@ -303,9 +297,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unrecognized subcommand 'backout'
 
-    Usage: jj [OPTIONS] <COMMAND>
-
     For more information, try '--help'.
+    Hint: `jj backout` was removed in jj 0.35.0. Use `jj revert` instead.
     [EOF]
     [exit status: 2]
 
@@ -313,9 +306,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unrecognized subcommand 'branch'
 
-    Usage: jj [OPTIONS] <COMMAND>
-
     For more information, try '--help'.
+    Hint: `jj branch` was removed in jj 0.30.0. Use `jj bookmark` and its subcommands instead.
     [EOF]
     [exit status: 2]
 
@@ -323,9 +315,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unrecognized subcommand 'cat'
 
-    Usage: jj [OPTIONS] <COMMAND>
-
     For more information, try '--help'.
+    Hint: `jj cat` was removed in jj 0.26.0. Use `jj file show` instead.
     [EOF]
     [exit status: 2]
 
@@ -333,9 +324,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unrecognized subcommand 'chmod'
 
-    Usage: jj [OPTIONS] <COMMAND>
-
     For more information, try '--help'.
+    Hint: `jj chmod` was removed in jj 0.26.0. Use `jj file chmod` instead.
     [EOF]
     [exit status: 2]
 
@@ -343,9 +333,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unrecognized subcommand 'checkout'
 
-    Usage: jj [OPTIONS] <COMMAND>
-
     For more information, try '--help'.
+    Hint: `jj checkout` was removed in jj 0.24.0. Use `jj new` instead.
     [EOF]
     [exit status: 2]
 
@@ -353,11 +342,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unrecognized subcommand 'co'
 
-      tip: some similar subcommands exist: 'converge', 'commit', 'config'
-
-    Usage: jj [OPTIONS] <COMMAND>
-
     For more information, try '--help'.
+    Hint: `jj co` was removed in jj 0.24.0. Use `jj new` instead.
     [EOF]
     [exit status: 2]
 
@@ -365,11 +351,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unrecognized subcommand 'files'
 
-      tip: a similar subcommand exists: 'file'
-
-    Usage: jj [OPTIONS] <COMMAND>
-
     For more information, try '--help'.
+    Hint: `jj files` was removed in jj 0.26.0. Use `jj file list` instead.
     [EOF]
     [exit status: 2]
 
@@ -377,11 +360,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unrecognized subcommand 'merge'
 
-      tip: a similar subcommand exists: 'converge'
-
-    Usage: jj [OPTIONS] <COMMAND>
-
     For more information, try '--help'.
+    Hint: `jj merge` was removed in jj 0.24.0. Use `jj new` instead.
     [EOF]
     [exit status: 2]
 
@@ -389,11 +369,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unrecognized subcommand 'move'
 
-      tip: a similar subcommand exists: 'converge'
-
-    Usage: jj [OPTIONS] <COMMAND>
-
     For more information, try '--help'.
+    Hint: `jj move` was removed in jj 0.24.0. Use `jj squash` instead.
     [EOF]
     [exit status: 2]
 
@@ -401,9 +378,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unrecognized subcommand 'snapshot'
 
-    Usage: jj debug [OPTIONS] <COMMAND>
-
     For more information, try '--help'.
+    Hint: `jj debug snapshot` was removed in jj 0.48.0. Use `jj util snapshot` instead.
     [EOF]
     [exit status: 2]
 
@@ -411,9 +387,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unrecognized subcommand 'mangen'
 
-    Usage: jj util [OPTIONS] <COMMAND>
-
     For more information, try '--help'.
+    Hint: `jj util mangen` was removed in jj 0.26.0. Use `jj util install-man-pages` instead.
     [EOF]
     [exit status: 2]
 
@@ -421,9 +396,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unrecognized subcommand 'untrack'
 
-    Usage: jj [OPTIONS] <COMMAND>
-
     For more information, try '--help'.
+    Hint: `jj untrack` was removed in jj 0.28.0. Use `jj file untrack` instead.
     [EOF]
     [exit status: 2]
 
@@ -431,11 +405,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unrecognized subcommand 'unsquash'
 
-      tip: a similar subcommand exists: 'squash'
-
-    Usage: jj [OPTIONS] <COMMAND>
-
     For more information, try '--help'.
+    Hint: `jj unsquash` was removed in jj 0.28.0. Use `jj squash` or `jj diffedit --restore-descendants` instead.
     [EOF]
     [exit status: 2]
 
@@ -443,11 +414,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unexpected argument '-l' found
 
-      tip: to pass '-l' as a value, use '-- -l'
-
-    Usage: jj log [OPTIONS] [FILESETS]...
-
     For more information, try '--help'.
+    Hint: `jj log -l` was removed in jj 0.26.0. Use `-n` instead.
     [EOF]
     [exit status: 2]
 
@@ -455,9 +423,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unexpected argument '-l' found
 
-    Usage: jj evolog [OPTIONS]
-
     For more information, try '--help'.
+    Hint: `jj evolog -l` was removed in jj 0.26.0. Use `-n` instead.
     [EOF]
     [exit status: 2]
 
@@ -467,11 +434,8 @@ fn test_deprecated_removed_command_hints() {
     Run `jj config set --user ui.default-command log` to disable this message.
     error: unexpected argument '--config-toml' found
 
-      tip: a similar argument exists: '--config'
-
-    Usage: jj log --config <NAME=VALUE> [FILESETS]...
-
     For more information, try '--help'.
+    Hint: `jj --config-toml` was removed in jj 0.33.0. Use `--config=NAME=VALUE` or `--config-file=PATH` instead.
     [EOF]
     [exit status: 2]
 
@@ -479,11 +443,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unexpected argument '--bash' found
 
-      tip: to pass '--bash' as a value, use '-- --bash'
-
-    Usage: jj util completion [OPTIONS] <SHELL>
-
     For more information, try '--help'.
+    Hint: `jj util completion --bash` was removed in jj 0.30.0. Pass the shell as an argument: `jj util completion bash`.
     [EOF]
     [exit status: 2]
 
@@ -491,11 +452,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unexpected argument '--fetch-tags' found
 
-      tip: to pass '--fetch-tags' as a value, use '-- --fetch-tags'
-
-    Usage: jj git clone [OPTIONS] <SOURCE> [DESTINATION]
-
     For more information, try '--help'.
+    Hint: `jj git clone --fetch-tags` was removed in jj 0.44.0. Use `--tag=PATTERN` instead.
     [EOF]
     [exit status: 2]
 
@@ -503,9 +461,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unexpected argument '-l' found
 
-    Usage: jj operation log [OPTIONS]
-
     For more information, try '--help'.
+    Hint: `jj operation log -l` was removed in jj 0.26.0. Use `-n` instead.
     [EOF]
     [exit status: 2]
 
@@ -513,11 +470,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unexpected argument '--allow-new' found
 
-      tip: a similar argument exists: '--all'
-
-    Usage: jj git push --all
-
     For more information, try '--help'.
+    Hint: `jj git push --allow-new` was removed in jj 0.42.0. Push a specific bookmark with `jj git push --bookmark <name>` instead.
     [EOF]
     [exit status: 2]
 
@@ -525,11 +479,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unexpected argument '--reset-author' found
 
-      tip: a similar argument exists: '--repository'
-
-    Usage: jj commit --repository <REPOSITORY> [FILESETS]...
-
     For more information, try '--help'.
+    Hint: `jj commit --reset-author` was removed in jj 0.42.0. Use `jj metaedit --update-author` instead.
     [EOF]
     [exit status: 2]
 
@@ -537,11 +488,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unexpected argument '--author' found
 
-      tip: a similar argument exists: '--at-op'
-
-    Usage: jj commit --at-operation <AT_OPERATION> [FILESETS]...
-
     For more information, try '--help'.
+    Hint: `jj commit --author` was removed in jj 0.42.0. Use `jj metaedit --author <author>` instead.
     [EOF]
     [exit status: 2]
 
@@ -549,11 +497,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unexpected argument '--edit' found
 
-      tip: a similar argument exists: '--editor'
-
-    Usage: jj describe --editor [REVSETS]...
-
     For more information, try '--help'.
+    Hint: `jj describe --edit` was removed in jj 0.42.0. Use `jj describe --editor` instead.
     [EOF]
     [exit status: 2]
 
@@ -561,11 +506,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unexpected argument '--no-edit' found
 
-      tip: to pass '--no-edit' as a value, use '-- --no-edit'
-
-    Usage: jj describe [OPTIONS] [REVSETS]...
-
     For more information, try '--help'.
+    Hint: `jj describe --no-edit` was removed in jj 0.42.0. `jj describe --message <message>` already avoids opening an editor.
     [EOF]
     [exit status: 2]
 
@@ -573,11 +515,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unexpected argument '--skip-empty' found
 
-      tip: a similar argument exists: '--skip-emptied'
-
-    Usage: jj rebase --skip-emptied <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
-
     For more information, try '--help'.
+    Hint: `jj rebase --skip-empty` was removed in jj 0.30.0. Use `jj rebase --skip-emptied` instead.
     [EOF]
     [exit status: 2]
 
@@ -585,11 +524,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unexpected argument '--siblings' found
 
-      tip: to pass '--siblings' as a value, use '-- --siblings'
-
-    Usage: jj split [OPTIONS] [FILESETS]...
-
     For more information, try '--help'.
+    Hint: `jj split --siblings` was removed in jj 0.26.0. Use `jj split --parallel` instead.
     [EOF]
     [exit status: 2]
 
@@ -597,11 +533,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unexpected argument '--summary' found
 
-      tip: to pass '--summary' as a value, use '-- --summary'
-
-    Usage: jj abandon [OPTIONS] [REVSETS]...
-
     For more information, try '--help'.
+    Hint: `jj abandon --summary` was removed in jj 0.35.0. `jj abandon` now limits the abandoned commit list automatically.
     [EOF]
     [exit status: 2]
 
@@ -609,11 +542,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unexpected argument '--update-committer-timestamp' found
 
-      tip: a similar argument exists: '--update-author-timestamp'
-
-    Usage: jj metaedit --update-author-timestamp [REVSETS]...
-
     For more information, try '--help'.
+    Hint: `jj metaedit --update-committer-timestamp` was removed in jj 0.42.0. Use `jj metaedit --force-rewrite` instead.
     [EOF]
     [exit status: 2]
 
@@ -621,11 +551,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unexpected argument '--reset-author' found
 
-      tip: a similar argument exists: '--repository'
-
-    Usage: jj describe --repository <REPOSITORY> [REVSETS]...
-
     For more information, try '--help'.
+    Hint: `jj describe --reset-author` was removed in jj 0.42.0. Use `jj metaedit --update-author` instead.
     [EOF]
     [exit status: 2]
 
@@ -633,11 +560,8 @@ fn test_deprecated_removed_command_hints() {
     ------- stderr -------
     error: unexpected argument '--author' found
 
-      tip: a similar argument exists: '--at-op'
-
-    Usage: jj describe --at-operation <AT_OPERATION> [REVSETS]...
-
     For more information, try '--help'.
+    Hint: `jj describe --author` was removed in jj 0.42.0. Use `jj metaedit --author <author>` instead.
     [EOF]
     [exit status: 2]
     "#);

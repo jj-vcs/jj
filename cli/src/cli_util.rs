@@ -39,6 +39,7 @@ use clap::builder::TypedValueParser as _;
 use clap::builder::ValueParserFactory;
 use clap::error::ContextKind;
 use clap::error::ContextValue;
+use clap::error::ErrorKind;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use futures::future::try_join_all;
@@ -4606,7 +4607,7 @@ impl<'a> CliRunner<'a> {
         }
 
         let (matches, args) = parse_args(&self.app, &string_args)
-            .map_err(|err| map_clap_cli_error(err, ui, &config))?;
+            .map_err(|err| map_clap_cli_error(err, ui, &config, &self.app, &string_args))?;
         if args.global_args.debug {
             // TODO: set up debug logging as early as possible
             self.tracing_subscription.enable_debug_logging()?;
@@ -4714,36 +4715,25 @@ impl<'a> CliRunner<'a> {
     }
 }
 
-fn map_clap_cli_error(err: clap::Error, ui: &Ui, config: &StackedConfig) -> CommandError {
-    if let Some(ContextValue::String(cmd)) = err.get(ContextKind::InvalidSubcommand) {
-        let remove_useless_error_context = |mut err: clap::Error| {
-            // Clap suggests unhelpful subcommands, e.g. `config` for `clone`.
-            // We don't want suggestions when we know this isn't a misspelling.
-            err.remove(ContextKind::SuggestedSubcommand);
-            err.remove(ContextKind::Suggested); // Remove an empty line
-            err.remove(ContextKind::Usage); // Also unhelpful for these errors.
-            err
-        };
-        match cmd.as_str() {
-            // git commands that a brand-new user might type during their first
-            // experiments with `jj`
-            "clone" | "init" => {
-                let cmd = cmd.clone();
-                return CommandError::from(remove_useless_error_context(err))
-                    .hinted(format!(
-                        "You probably want `jj git {cmd}`. See also `jj help git`."
-                    ))
-                    .hinted(format!(
-                        r#"You can configure `aliases.{cmd} = ["git", "{cmd}"]` if you want `jj {cmd}` to work and always use the Git backend."#
-                    ));
-            }
-            "amend" => {
-                return CommandError::from(remove_useless_error_context(err))
-                    .hinted(
-                        r#"You probably want `jj squash`. You can configure `aliases.amend = ["squash"]` if you want `jj amend` to work."#);
-            }
-            _ => {}
+fn map_clap_cli_error(
+    mut err: clap::Error,
+    ui: &Ui,
+    config: &StackedConfig,
+    app: &Command,
+    string_args: &[String],
+) -> CommandError {
+    if let Some(hints) = known_mistake_hints(app, string_args, &err) {
+        // Clap's suggestions and usage describe a live command rather than
+        // the one the user meant.
+        err.remove(ContextKind::SuggestedArg);
+        err.remove(ContextKind::SuggestedSubcommand);
+        err.remove(ContextKind::Suggested);
+        err.remove(ContextKind::Usage);
+        let mut cmd_err = CommandError::from(err);
+        for hint in hints {
+            cmd_err = cmd_err.hinted(hint);
         }
+        return cmd_err;
     }
     if let (Some(ContextValue::String(arg)), Some(ContextValue::String(value))) = (
         err.get(ContextKind::InvalidArg),
@@ -4757,6 +4747,95 @@ fn map_clap_cli_error(err: clap::Error, ui: &Ui, config: &StackedConfig) -> Comm
         }
     }
     CommandError::from(err)
+}
+
+/// Subcommands and flags that jj used to accept, as `(spelling, removed in,
+/// hint)`. Spellings use canonical command names (`jj operation`, not `jj op`).
+///
+/// Add an entry whenever a deprecated subcommand or flag is finally removed.
+/// Soft deprecations still dispatch normally and don't belong here.
+#[rustfmt::skip]
+const REMOVED: &[(&str, &str, &str)] = &[
+    ("jj backout", "0.35.0", "Use `jj revert` instead."),
+    ("jj branch", "0.30.0", "Use `jj bookmark` and its subcommands instead."),
+    ("jj cat", "0.26.0", "Use `jj file show` instead."),
+    ("jj checkout", "0.24.0", "Use `jj new` instead."),
+    ("jj chmod", "0.26.0", "Use `jj file chmod` instead."),
+    ("jj co", "0.24.0", "Use `jj new` instead."),
+    ("jj files", "0.26.0", "Use `jj file list` instead."),
+    ("jj merge", "0.24.0", "Use `jj new` instead."),
+    ("jj move", "0.24.0", "Use `jj squash` instead."),
+    ("jj unsquash", "0.28.0", "Use `jj squash` or `jj diffedit --restore-descendants` instead."),
+    ("jj untrack", "0.28.0", "Use `jj file untrack` instead."),
+    ("jj operation undo", "0.39.0", "Use `jj undo` to undo the latest operation. Use `jj op revert` to revert a specific operation."),
+    ("jj debug snapshot", "0.48.0", "Use `jj util snapshot` instead."),
+    ("jj util completion --bash", "0.30.0", "Pass the shell as an argument: `jj util completion bash`."),
+    ("jj util completion --fish", "0.30.0", "Pass the shell as an argument: `jj util completion fish`."),
+    ("jj util completion --zsh", "0.30.0", "Pass the shell as an argument: `jj util completion zsh`."),
+    ("jj util mangen", "0.26.0", "Use `jj util install-man-pages` instead."),
+    ("jj abandon --summary", "0.35.0", "`jj abandon` now limits the abandoned commit list automatically."),
+    ("jj commit --author", "0.42.0", "Use `jj metaedit --author <author>` instead."),
+    ("jj commit --reset-author", "0.42.0", "Use `jj metaedit --update-author` instead."),
+    ("jj describe --author", "0.42.0", "Use `jj metaedit --author <author>` instead."),
+    ("jj describe --edit", "0.42.0", "Use `jj describe --editor` instead."),
+    ("jj describe --no-edit", "0.42.0", "`jj describe --message <message>` already avoids opening an editor."),
+    ("jj describe --reset-author", "0.42.0", "Use `jj metaedit --update-author` instead."),
+    ("jj --config-toml", "0.33.0", "Use `--config=NAME=VALUE` or `--config-file=PATH` instead."),
+    ("jj evolog -l", "0.26.0", "Use `-n` instead."),
+    ("jj git clone --fetch-tags", "0.44.0", "Use `--tag=PATTERN` instead."),
+    ("jj git push --allow-new", "0.42.0", "Push a specific bookmark with `jj git push --bookmark <name>` instead."),
+    ("jj log -l", "0.26.0", "Use `-n` instead."),
+    ("jj metaedit --update-committer-timestamp", "0.42.0", "Use `jj metaedit --force-rewrite` instead."),
+    ("jj operation log -l", "0.26.0", "Use `-n` instead."),
+    ("jj rebase --skip-empty", "0.30.0", "Use `jj rebase --skip-emptied` instead."),
+    ("jj split --siblings", "0.26.0", "Use `jj split --parallel` instead."),
+];
+
+/// Commands that never existed in jj but that users commonly try, as
+/// `(spelling, hints)`.
+#[rustfmt::skip]
+const NEVER_EXISTED: &[(&str, &[&str])] = &[
+    ("jj amend", &[r#"You probably want `jj squash`. You can configure `aliases.amend = ["squash"]` if you want `jj amend` to work."#]),
+    ("jj clone", &["You probably want `jj git clone`. See also `jj help git`.", r#"You can configure `aliases.clone = ["git", "clone"]` if you want `jj clone` to work and always use the Git backend."#]),
+    ("jj init", &["You probably want `jj git init`. See also `jj help git`.", r#"You can configure `aliases.init = ["git", "init"]` if you want `jj init` to work and always use the Git backend."#]),
+    ("jj operation redo", &["You probably want `jj redo`."]),
+];
+
+/// Returns recovery advice if clap rejected a spelling listed in [`REMOVED`]
+/// or [`NEVER_EXISTED`]. Callers should drop clap's fuzzy suggestions, which
+/// often point at a live but unrelated command (`jj op undo` suggests
+/// `abandon`).
+fn known_mistake_hints(
+    app: &Command,
+    string_args: &[String],
+    err: &clap::Error,
+) -> Option<Vec<String>> {
+    let kind = match err.kind() {
+        ErrorKind::InvalidSubcommand => ContextKind::InvalidSubcommand,
+        ErrorKind::UnknownArgument => ContextKind::InvalidArg,
+        _ => return None,
+    };
+    let Some(ContextValue::String(name)) = err.get(kind) else {
+        return None;
+    };
+    // Re-parse leniently to find which command rejected the spelling.
+    let matches = app
+        .clone()
+        .ignore_errors(true)
+        .try_get_matches_from(string_args)
+        .ok()?;
+    let spelling = format!("jj {} {name}", command_name(&matches)).replace("  ", " ");
+    if let Some((_, hints)) = NEVER_EXISTED.iter().find(|(s, _)| *s == spelling) {
+        return Some(hints.iter().map(|&h| h.to_owned()).collect());
+    }
+    // A removed global flag is rejected by whichever command it precedes.
+    let global = (kind == ContextKind::InvalidArg).then(|| format!("jj {name}"));
+    let &(spelling, version, hint) = REMOVED
+        .iter()
+        .find(|(s, _, _)| *s == spelling || Some(*s) == global.as_deref())?;
+    Some(vec![format!(
+        "`{spelling}` was removed in jj {version}. {hint}"
+    )])
 }
 
 fn format_template_aliases_hint(template_aliases: &TemplateAliasesMap) -> String {
@@ -4890,5 +4969,24 @@ mod tests {
         );
         assert_eq!(parse("1", &candidates), Ok(0));
         assert_eq!(parse("2", &candidates), Ok(1));
+    }
+
+    #[test]
+    fn test_removed_hints_are_reachable() {
+        // Guards against clap changes (or a reused name) silently disabling an
+        // entry: each one must still be rejected and mapped to its hint.
+        let app = crate::commands::default_app();
+        for (spelling, _, expected) in REMOVED {
+            let string_args = spelling.split(' ').map(str::to_owned).collect_vec();
+            let err = parse_args(&app, &string_args).unwrap_err();
+            let hints = known_mistake_hints(&app, &string_args, &err).unwrap();
+            assert!(hints[0].ends_with(expected), "{spelling}");
+        }
+        for (spelling, expected) in NEVER_EXISTED {
+            let string_args = spelling.split(' ').map(str::to_owned).collect_vec();
+            let err = parse_args(&app, &string_args).unwrap_err();
+            let hints = known_mistake_hints(&app, &string_args, &err).unwrap();
+            assert_eq!(hints, *expected, "{spelling}");
+        }
     }
 }
