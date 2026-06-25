@@ -25,6 +25,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   aliases that are simply repeated. For example, with the alias `jj = []`, the
   command `jj jj jj log` will resolve to `jj log` as expected.
 
+* Fixed Unix file locking on Docker for Mac VirtioFS bind mounts. Previously,
+  colocated Git repositories could allow concurrent Git import/export work,
+  which could leave jj commands failing with `Failed to reset Git HEAD state`
+  and `Shared index checksum mismatch`.
+
 ## [0.43.0] - 2026-07-01
 
 ### Release highlights
