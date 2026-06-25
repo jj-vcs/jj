@@ -44,6 +44,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* On Windows, querying a path's file identity no longer follows symbolic links,
+  matching the behavior on Unix. Previously a symlink shared the identity of its
+  target, so two symlinks pointing at the same target were treated as the same
+  file. This identity check is used when writing the working copy to detect
+  aliases of the reserved `.git` and `.jj` directories.
+  [#8924](https://github.com/jj-vcs/jj/issues/8924)
+
 * `jj` now creates a new working-copy revision during snapshotting if the
   working copy was immutable. Previously, the new revision was created
   immediately after the working copy became immutable.

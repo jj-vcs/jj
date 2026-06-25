@@ -264,8 +264,6 @@ pub struct FileIdentity(platform::FileIdentity);
 
 impl FileIdentity {
     /// Queries file identity without following symlinks.
-    ///
-    /// BUG: On Windows, symbolic links would be followed.
     pub fn from_symlink_path(path: impl AsRef<Path>) -> io::Result<Self> {
         platform::file_identity_from_symlink_path(path.as_ref()).map(Self)
     }
@@ -387,7 +385,9 @@ mod platform {
 #[cfg(windows)]
 mod platform {
     use std::fs::File;
+    use std::fs::OpenOptions;
     use std::io;
+    use std::os::windows::fs::OpenOptionsExt as _;
     pub use std::os::windows::fs::symlink_dir;
     pub use std::os::windows::fs::symlink_file;
     use std::path::Path;
@@ -414,14 +414,22 @@ mod platform {
 
     pub type FileIdentity = same_file::Handle;
 
-    // FIXME: This shouldn't follow symlinks when querying file identity.
-    // Perhaps, we need to open file with FILE_FLAG_BACKUP_SEMANTICS and
-    // FILE_FLAG_OPEN_REPARSE_POINT, then pass it to from_file(). Alternatively,
-    // maybe we can use symlink_metadata(), volume_serial_number(), and
-    // file_index() when they get stabilized. See the same-file crate and std
-    // lstat() implementation. https://github.com/rust-lang/rust/issues/63010
     pub fn file_identity_from_symlink_path(path: &Path) -> io::Result<FileIdentity> {
-        same_file::Handle::from_path(path)
+        // `same_file::Handle::from_path()` follows symlinks, because it opens
+        // the path without `FILE_FLAG_OPEN_REPARSE_POINT`. Open the file the
+        // same way it does (read access, plus `FILE_FLAG_BACKUP_SEMANTICS` so a
+        // directory can be opened too), but add `FILE_FLAG_OPEN_REPARSE_POINT`
+        // so the handle refers to the symlink itself instead of its target.
+        // This matches the Unix implementation, which uses `symlink_metadata()`.
+        // The reparse-point flag is ignored for paths that aren't reparse
+        // points, so regular files and hard links are unaffected.
+        const FILE_FLAG_BACKUP_SEMANTICS: u32 = 0x0200_0000;
+        const FILE_FLAG_OPEN_REPARSE_POINT: u32 = 0x0020_0000;
+        let file = OpenOptions::new()
+            .read(true)
+            .custom_flags(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT)
+            .open(path)?;
+        same_file::Handle::from_file(file)
     }
 
     pub fn file_identity_from_file(file: File) -> io::Result<FileIdentity> {
@@ -610,6 +618,85 @@ mod tests {
         assert_ne!(
             FileIdentity::from_symlink_path(&symlink_path)?,
             FileIdentity::from_file(File::open(&symlink_path)?)?
+        );
+        Ok(())
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_file_identity_windows_symlink_file() -> TestResult {
+        if !check_symlink_support()? {
+            return Ok(());
+        }
+        let temp_dir = new_temp_dir();
+        let file_path = temp_dir.path().join("file");
+        let symlink_path = temp_dir.path().join("symlink");
+        fs::write(&file_path, "")?;
+        symlink_file("file", &symlink_path)?;
+        // symlink should be identical to itself
+        assert_eq!(
+            FileIdentity::from_symlink_path(&symlink_path)?,
+            FileIdentity::from_symlink_path(&symlink_path)?
+        );
+        // symlink should be different from the target file
+        assert_ne!(
+            FileIdentity::from_symlink_path(&file_path)?,
+            FileIdentity::from_symlink_path(&symlink_path)?
+        );
+        // File::open() follows symlinks
+        assert_eq!(
+            FileIdentity::from_symlink_path(&file_path)?,
+            FileIdentity::from_file(File::open(&symlink_path)?)?
+        );
+        assert_ne!(
+            FileIdentity::from_symlink_path(&symlink_path)?,
+            FileIdentity::from_file(File::open(&symlink_path)?)?
+        );
+        Ok(())
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_file_identity_windows_symlink_dir() -> TestResult {
+        if !check_symlink_support()? {
+            return Ok(());
+        }
+        let temp_dir = new_temp_dir();
+        let dir_path = temp_dir.path().join("dir");
+        let symlink_path = temp_dir.path().join("symlink");
+        fs::create_dir(&dir_path)?;
+        symlink_dir("dir", &symlink_path)?;
+        // symlink should be identical to itself
+        assert_eq!(
+            FileIdentity::from_symlink_path(&symlink_path)?,
+            FileIdentity::from_symlink_path(&symlink_path)?
+        );
+        // symlink should be different from the target directory. The
+        // `File::open()` follow-through is not checked here because File::open()
+        // can't open a directory on Windows.
+        assert_ne!(
+            FileIdentity::from_symlink_path(&dir_path)?,
+            FileIdentity::from_symlink_path(&symlink_path)?
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_file_identity_directory() -> TestResult {
+        let temp_dir = new_temp_dir();
+        let dir_path = temp_dir.path().join("dir");
+        let other_dir_path = temp_dir.path().join("other_dir");
+        fs::create_dir(&dir_path)?;
+        fs::create_dir(&other_dir_path)?;
+        // a directory should be identical to itself
+        assert_eq!(
+            FileIdentity::from_symlink_path(&dir_path)?,
+            FileIdentity::from_symlink_path(&dir_path)?
+        );
+        // distinct directories should differ
+        assert_ne!(
+            FileIdentity::from_symlink_path(&dir_path)?,
+            FileIdentity::from_symlink_path(&other_dir_path)?
         );
         Ok(())
     }
