@@ -97,8 +97,7 @@ pub async fn git_diff_part(
             };
         }
         MaterializedTreeValue::GitSubmodule(id) => {
-            // TODO: What should we actually do here?
-            mode = "040000";
+            mode = "160000";
             hash = id.hex();
             content = FileContent {
                 is_binary: false,

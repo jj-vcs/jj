@@ -542,6 +542,36 @@ impl CommandHelper {
         Ok(factory)
     }
 
+    /// Loads helper for the workspace rooted at the given path at its head
+    /// operation, but never snapshots its working copy.
+    #[instrument(skip(self, ui))]
+    pub async fn workspace_helper_at_head_no_snapshot(
+        &self,
+        ui: &Ui,
+        workspace_root: &Path,
+    ) -> Result<WorkspaceCommandHelper, CommandError> {
+        let loader = self.new_workspace_loader_at(workspace_root)?;
+        let mut config_env = self.data.config_env.clone();
+        let mut raw_config = self.data.raw_config.clone();
+        config_env.reset_repo_path(loader.repo_path());
+        config_env.reload_repo_config(ui, &mut raw_config)?;
+        config_env.reset_workspace_path(loader.workspace_root());
+        config_env.reload_workspace_config(ui, &mut raw_config)?;
+        let mut config = config_env.resolve_config(&raw_config)?;
+        jj_lib::config::migrate(&mut config, &self.data.config_migrations)?;
+        let settings = self.data.settings.with_new_config(config)?;
+        let workspace = loader
+            .load(
+                &settings,
+                &self.data.store_factories,
+                &self.data.working_copy_factories,
+            )
+            .map_err(|err| map_workspace_load_error(err, None))?;
+        let repo = workspace.repo_loader().load_at_head().await?;
+        let env = self.workspace_environment(ui, &workspace)?;
+        WorkspaceCommandHelper::new(ui, workspace, repo, env, true)
+    }
+
     /// Loads workspace for the current command.
     #[instrument(skip_all)]
     pub fn load_workspace(&self) -> Result<Workspace, CommandError> {

@@ -106,6 +106,8 @@ This document contains the help content for the `jj` command-line program.
 * [`jj split`↴](#jj-split)
 * [`jj squash`↴](#jj-squash)
 * [`jj status`↴](#jj-status)
+* [`jj submodule`↴](#jj-submodule)
+* [`jj submodule bind`↴](#jj-submodule-bind)
 * [`jj tag`↴](#jj-tag)
 * [`jj tag delete`↴](#jj-tag-delete)
 * [`jj tag list`↴](#jj-tag-list)
@@ -187,6 +189,7 @@ To get started, see the tutorial [`jj help -k tutorial`].
 * `split` — Split a revision in two
 * `squash` — Move changes from a revision into another revision
 * `status` — Show high-level repo status [default alias: st]
+* `submodule` — Manage Git submodules
 * `tag` — Manage tags
 * `undo` — Undo the last operation
 * `unsign` — Drop a cryptographic signature
@@ -3309,6 +3312,37 @@ Note: You can use `jj diff --summary -r <rev>` to see the changed files for a sp
 ###### **Arguments:**
 
 * `<FILESETS>` — Restrict the status display to these paths
+
+
+
+## `jj submodule`
+
+Manage Git submodules
+
+**Usage:** `jj submodule <COMMAND>`
+
+###### **Subcommands:**
+
+* `bind` — Explicitly update a submodule gitlink
+
+
+
+## `jj submodule bind`
+
+Explicitly update a submodule gitlink.
+
+The submodule revision is resolved in the submodule repository at PATH. The selected superproject revision is then rewritten so PATH stores that commit as a `160000` Git submodule tree entry. The superproject working-copy snapshot does not update submodule gitlinks automatically.
+
+**Usage:** `jj submodule bind [OPTIONS] --revision <SUBMODULE_REV> <PATH>`
+
+###### **Arguments:**
+
+* `<PATH>` — Submodule path to update
+
+###### **Options:**
+
+* `-r`, `--revision <SUBMODULE_REV>` — Revision to resolve in the submodule repository
+* `--change <REVSET>` — Superproject revision to rewrite
 
 
 
