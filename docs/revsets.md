@@ -351,6 +351,13 @@ revsets (expressions) as arguments.
   the revset `heads(::x_1 & ::x_2 & ... & ::x_N)`, where `x_{1..N}` are commits
   in `x`. If `x` resolves to a single commit, `fork_point(x)` resolves to `x`.
 
+* `merge_point(x)`: The merge point of all commits in `x`. Similar to the fork
+  point, the merge point is the common descendant(s) of all commits in `x` which
+  do not have any ancestors that are also common descendants of all commits in
+  `x`. It is equivalent to the revset `roots(x_1:: & x_2:: & ... & x_N::)`,
+  where `x_{1..N}` are commits in `x`. If `x` resolves to a single commit,
+  `merge_point(x)` resolves to `x`.
+
 * `bisect(x)`: Finds commits in the input set for which about half of the input
   set are descendants. The current implementation deals somewhat poorly with
   non-linear history.
