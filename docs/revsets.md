@@ -361,6 +361,8 @@ revsets (expressions) as arguments.
 
 * `merges()`: Merge commits.
 
+* `forks()`: Fork commits, i.e. those with more than 1 child.
+
 * `description(pattern)`: Commits that have a description matching the given
   [string pattern](#string-patterns).
 

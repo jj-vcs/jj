@@ -17,6 +17,7 @@ use std::cmp::Ordering;
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 use std::collections::HashSet;
+use std::collections::hash_map::HashMap;
 use std::convert::Infallible;
 use std::fmt;
 use std::iter;
@@ -969,6 +970,26 @@ impl EvaluationContext<'_> {
                         .any(|parent| filled.contains(parent))
                 });
                 Ok(Box::new(EagerRevset { positions }))
+            }
+            ResolvedExpression::Forks { heads } => {
+                let head_positions = self
+                    .evaluate(heads)?
+                    .positions()
+                    .attach(index)
+                    .try_collect()?;
+                let mut child_counts: HashMap<GlobalCommitPosition, u32> = HashMap::new();
+                let walk = RevWalkBuilder::new(index)
+                    .wanted_heads(head_positions)
+                    .ancestors()
+                    .detach()
+                    .filter_map(move |index: &CompositeIndex, pos| {
+                        let is_fork = child_counts.remove(&pos).unwrap_or(0) >= 2;
+                        for parent in index.commits().entry_by_pos(pos).parent_positions() {
+                            *child_counts.entry(parent).or_insert(0) += 1;
+                        }
+                        is_fork.then_some(pos)
+                    });
+                Ok(Box::new(RevWalkRevset { walk }))
             }
             ResolvedExpression::ForkPoint(expression) => {
                 let expression_set = self.evaluate(expression)?;
