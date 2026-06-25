@@ -88,6 +88,7 @@ fn arb_expression(
         Just(RevsetExpression::all()),
         Just(RevsetExpression::visible_heads()),
         Just(RevsetExpression::root()),
+        Just(RevsetExpression::forks()),
         proptest::sample::subsequence(known_commits, 1..=5.min(max_commits))
             .prop_map(RevsetExpression::commits),
         // Use merges() as a filter that isn't constant. Since we don't have an

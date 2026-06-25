@@ -49,6 +49,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   existed in a stack, those rewritten revisions and their descendants wouldn't
   always be rebased. Note that immutable descendants will not be rebased.
 
+* Add a `forks()` revset function that yields all commits with more than 1 child.
+
 ### Fixed bugs
 
 * `jj` now creates a new working-copy revision during snapshotting if the

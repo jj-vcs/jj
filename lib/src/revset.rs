@@ -313,6 +313,7 @@ pub enum RevsetExpression<St: ExpressionState> {
     },
     Roots(Arc<Self>),
     ForkPoint(Arc<Self>),
+    Forks,
     Bisect(Arc<Self>),
     HasSize {
         candidates: Arc<Self>,
@@ -375,6 +376,10 @@ impl<St: ExpressionState> RevsetExpression<St> {
 
     pub fn root() -> Arc<Self> {
         Arc::new(Self::Root)
+    }
+
+    pub fn forks() -> Arc<Self> {
+        Arc::new(Self::Forks)
     }
 
     pub fn commit(commit_id: CommitId) -> Arc<Self> {
@@ -758,6 +763,9 @@ pub enum ResolvedExpression {
         filter: Option<ResolvedPredicateExpression>,
     },
     Roots(Box<Self>),
+    Forks {
+        heads: Box<Self>,
+    },
     ForkPoint(Box<Self>),
     Bisect(Box<Self>),
     HasSize {
@@ -999,6 +1007,10 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
         Ok(RevsetExpression::filter(
             RevsetFilterPredicate::ParentCount(2..u32::MAX),
         ))
+    });
+    map.insert("forks", |_diagnostics, function, _context| {
+        function.expect_no_arguments()?;
+        Ok(RevsetExpression::forks())
     });
     map.insert("description", |diagnostics, function, _context| {
         let [arg] = function.expect_exact_arguments()?;
@@ -1559,6 +1571,7 @@ fn try_transform_expression<St: ExpressionState, E>(
             RevsetExpression::Roots(candidates) => {
                 transform_rec(candidates, pre, post)?.map(RevsetExpression::Roots)
             }
+            RevsetExpression::Forks => None,
             RevsetExpression::ForkPoint(expression) => {
                 transform_rec(expression, pre, post)?.map(RevsetExpression::ForkPoint)
             }
@@ -1805,6 +1818,7 @@ where
             let roots = folder.fold_expression(roots)?;
             RevsetExpression::Roots(roots).into()
         }
+        RevsetExpression::Forks => RevsetExpression::Forks.into(),
         RevsetExpression::ForkPoint(expression) => {
             let expression = folder.fold_expression(expression)?;
             RevsetExpression::ForkPoint(expression).into()
@@ -3154,6 +3168,9 @@ impl VisibilityResolutionContext<'_> {
             RevsetExpression::Roots(candidates) => {
                 ResolvedExpression::Roots(self.resolve(candidates).into())
             }
+            RevsetExpression::Forks => ResolvedExpression::Forks {
+                heads: self.resolve_visible_heads_or_referenced().into(),
+            },
             RevsetExpression::ForkPoint(expression) => {
                 ResolvedExpression::ForkPoint(self.resolve(expression).into())
             }
@@ -3293,6 +3310,7 @@ impl VisibilityResolutionContext<'_> {
             | RevsetExpression::Heads(_)
             | RevsetExpression::HeadsRange { .. }
             | RevsetExpression::Roots(_)
+            | RevsetExpression::Forks
             | RevsetExpression::ForkPoint(_)
             | RevsetExpression::Bisect(_)
             | RevsetExpression::HasSize { .. }
