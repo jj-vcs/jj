@@ -15,6 +15,8 @@
 use std::collections::HashSet;
 use std::io::BufRead as _;
 use std::path::Path;
+#[cfg(feature = "git")]
+use std::process::Command;
 
 use clap::FromArgMatches as _;
 use clap::builder::StyledStr;
@@ -1010,6 +1012,163 @@ pub fn all_revision_files(current: &std::ffi::OsStr) -> Vec<CompletionCandidate>
     all_files_from_rev(parse::revision_or_wc(), current)
 }
 
+pub fn submodule_paths(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+    let Some(current) = current.to_str() else {
+        return Vec::new();
+    };
+
+    let normalized_prefix = normalize_path(Path::new(current));
+    let normalized_prefix = slash_path(&normalized_prefix);
+
+    with_jj(|jj, _| {
+        let output = jj
+            .build()
+            .arg("file")
+            .arg("list")
+            .arg("--revision")
+            .arg("@")
+            .arg("--template")
+            .arg(r#"if(file_type == "git-submodule", path.display() ++ "\n")"#)
+            .arg(current_prefix_to_fileset(current))
+            .output()
+            .map_err(user_error)?;
+        let stdout = String::from_utf8_lossy(&output.stdout);
+
+        Ok(stdout
+            .lines()
+            .filter_map(|path| {
+                path_completion_candidate_from(
+                    current,
+                    &normalized_prefix,
+                    Path::new(path),
+                    Some("Git submodule".into()),
+                )
+            })
+            .dedup()
+            .collect())
+    })
+}
+
+#[cfg(feature = "git")]
+pub fn submodule_revision(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+    let Some(submodule_path) = parse::submodule_bind_path().and_then(|path| {
+        let path = Path::new(&path);
+        if path.is_absolute() {
+            Some(path.to_owned())
+        } else {
+            std::env::current_dir().ok().map(|cwd| cwd.join(path))
+        }
+    }) else {
+        return Vec::new();
+    };
+    if !submodule_path.is_dir() {
+        return Vec::new();
+    }
+
+    let result = if submodule_path.join(".jj").exists() {
+        submodule_jj_revisions(&submodule_path, current)
+    } else {
+        submodule_git_refs(&submodule_path, current)
+    };
+    result.unwrap_or_else(|err| {
+        eprintln!("{}", err.error);
+        Vec::new()
+    })
+}
+
+#[cfg(feature = "git")]
+fn submodule_jj_revisions(
+    submodule_path: &Path,
+    current: &std::ffi::OsStr,
+) -> Result<Vec<CompletionCandidate>, CommandError> {
+    #[derive(serde::Deserialize)]
+    struct MachineCompletionCandidate {
+        value: String,
+        help: Option<String>,
+        id: Option<String>,
+        tag: Option<String>,
+        display_order: Option<usize>,
+        hidden: bool,
+    }
+
+    let current_exe = std::env::current_exe().map_err(user_error)?;
+    let output = Command::new(current_exe)
+        .current_dir(submodule_path)
+        .env_remove("COMPLETE")
+        .env_remove("_CLAP_COMPLETE_INDEX")
+        .args(["--ignore-working-copy", "--color=never", "--no-pager"])
+        .args(["util", "complete", "--index", "3", "--"])
+        .args(["jj", "log", "-r"])
+        .arg(current)
+        .output()
+        .map_err(user_error)?;
+    if !output.status.success() {
+        return Ok(Vec::new());
+    }
+
+    let candidates: Vec<MachineCompletionCandidate> =
+        serde_json::from_slice(&output.stdout).map_err(user_error)?;
+    Ok(candidates
+        .into_iter()
+        .map(|candidate| {
+            CompletionCandidate::new(candidate.value)
+                .help(candidate.help.map(Into::into))
+                .id(candidate.id)
+                .tag(candidate.tag.map(Into::into))
+                .display_order(candidate.display_order)
+                .hide(candidate.hidden)
+        })
+        .collect())
+}
+
+#[cfg(feature = "git")]
+fn submodule_git_refs(
+    submodule_path: &Path,
+    current: &std::ffi::OsStr,
+) -> Result<Vec<CompletionCandidate>, CommandError> {
+    let Some(current) = current.to_str() else {
+        return Ok(Vec::new());
+    };
+    let git_repo = gix::open(submodule_path).map_err(user_error)?;
+    let refs = git_repo.references().map_err(user_error)?;
+
+    let mut seen = HashSet::new();
+    let mut candidates = Vec::new();
+    if "HEAD".starts_with(current) {
+        seen.insert(std::ffi::OsString::from("HEAD"));
+        candidates.push(
+            CompletionCandidate::new("HEAD")
+                .help(git_repo.head_id().ok().map(|id| id.to_string().into()))
+                .tag(Some("Git ref".into())),
+        );
+    }
+
+    for (prefix, iter) in [
+        ("refs/heads/", refs.local_branches().map_err(user_error)?),
+        ("refs/tags/", refs.tags().map_err(user_error)?),
+        ("refs/remotes/", refs.remote_branches().map_err(user_error)?),
+    ] {
+        for reference in iter.filter_map(Result::ok) {
+            let full_name = reference.name().as_bstr().to_string();
+            let Some(name) = full_name.strip_prefix(prefix) else {
+                continue;
+            };
+            if !name.starts_with(current) {
+                continue;
+            }
+            let value = std::ffi::OsString::from(name);
+            if seen.insert(value.clone()) {
+                candidates.push(
+                    CompletionCandidate::new(value)
+                        .help(reference.try_id().map(|id| id.to_string().into()))
+                        .tag(Some("Git ref".into())),
+                );
+            }
+        }
+    }
+    Ok(candidates)
+}
+
 pub fn modified_revision_files(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
     modified_files_from_rev((parse::revision_or_wc(), None), current)
 }
@@ -1326,6 +1485,35 @@ mod parse {
     pub fn log_revisions() -> Vec<String> {
         let candidates = &["-r", "--revisions"];
         parse_flag(candidates, std::env::args()).collect()
+    }
+
+    #[cfg(feature = "git")]
+    pub fn submodule_bind_path() -> Option<String> {
+        let args = std::env::args().collect::<Vec<_>>();
+        let bind_index = args
+            .windows(2)
+            .rposition(|window| window == ["submodule", "bind"])?;
+        let mut args = args.into_iter().skip(bind_index + 2).peekable();
+        while let Some(arg) = args.next() {
+            if arg == "--" {
+                return args.next().map(|arg| strip_shell_quotes(&arg).to_owned());
+            }
+            if matches!(arg.as_str(), "-r" | "--revision" | "--change") {
+                args.next();
+                continue;
+            }
+            if arg.starts_with("--revision=") || arg.starts_with("--change=") {
+                continue;
+            }
+            if arg.starts_with("-r") && arg.len() > 2 {
+                continue;
+            }
+            if arg.starts_with('-') || arg.is_empty() {
+                continue;
+            }
+            return Some(strip_shell_quotes(&arg).to_owned());
+        }
+        None
     }
 
     fn strip_shell_quotes(s: &str) -> &str {

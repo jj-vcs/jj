@@ -82,6 +82,7 @@ mod test_sparse_command;
 mod test_split_command;
 mod test_squash_command;
 mod test_status_command;
+mod test_submodule_command;
 mod test_tag_command;
 mod test_templater;
 mod test_undo_redo_commands;

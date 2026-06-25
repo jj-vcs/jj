@@ -57,6 +57,7 @@ gix = { version = "0.85.0", default-features = false, features = [
     "blob-diff",
     "index",
     "max-performance-safe",
+    "revision",
     "sha1",
     "zlib-rs",
 ] }
