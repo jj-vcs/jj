@@ -1340,6 +1340,10 @@ impl WorkspaceCommandHelper {
             }
         } else {
             // Unlikely, but the HEAD ref got deleted by git?
+            let num_rebased = tx.repo_mut().rebase_descendants().await?;
+            if num_rebased > 0 {
+                writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
+            }
             self.finish_transaction(ui, tx, "import git head", git_import_export_lock)
                 .await?;
         }
@@ -1374,7 +1378,6 @@ impl WorkspaceCommandHelper {
         }
 
         let mut tx = tx.into_inner();
-        // Rebase here to show slightly different status message.
         let num_rebased = tx.repo_mut().rebase_descendants().await?;
         if num_rebased > 0 {
             writeln!(
@@ -2222,11 +2225,6 @@ to the current parents may contain changes from multiple commits.
         description: impl Into<String>,
         _git_import_export_lock: &GitImportExportLock,
     ) -> Result<(), CommandError> {
-        let num_rebased = tx.repo_mut().rebase_descendants().await?;
-        if num_rebased > 0 {
-            writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
-        }
-
         if let Err(err) =
             revset_util::try_resolve_trunk_alias(tx.repo(), &self.env.revset_parse_context())
         {
@@ -2686,15 +2684,20 @@ impl WorkspaceCommandTransaction<'_> {
     }
 
     pub async fn finish(self, ui: &Ui, description: impl Into<String>) -> Result<(), CommandError> {
-        if !self.tx.repo().has_changes() {
+        let Self { helper, mut tx, .. } = self;
+        if !tx.repo().has_changes() {
             writeln!(ui.status(), "Nothing changed.")?;
             return Ok(());
         }
+        let num_rebased = tx.repo_mut().rebase_descendants().await?;
+        if num_rebased > 0 {
+            writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
+        }
         // Acquire git import/export lock before finishing the transaction to ensure
         // Git HEAD export happens atomically with the transaction commit.
-        let git_import_export_lock = self.helper.lock_git_import_export()?;
-        self.helper
-            .finish_transaction(ui, self.tx, description, &git_import_export_lock)
+        let git_import_export_lock = helper.lock_git_import_export()?;
+        helper
+            .finish_transaction(ui, tx, description, &git_import_export_lock)
             .await
     }
 
