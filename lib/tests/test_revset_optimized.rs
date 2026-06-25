@@ -132,6 +132,8 @@ fn arb_expression(
                 expr.clone().prop_map(|x| x.roots()),
                 // ForkPoint
                 expr.clone().prop_map(|x| x.fork_point()),
+                // MergePoint
+                expr.clone().prop_map(|x| x.merge_point()),
                 // Latest
                 (expr.clone(), 0..5_usize).prop_map(|(x, n)| x.latest(n)),
                 // AtOperation (or WithinVisibility)

@@ -312,8 +312,9 @@ pub enum RevsetExpression<St: ExpressionState> {
         filter: Arc<Self>,
     },
     Roots(Arc<Self>),
-    ForkPoint(Arc<Self>),
     Forks,
+    ForkPoint(Arc<Self>),
+    MergePoint(Arc<Self>),
     Bisect(Arc<Self>),
     HasSize {
         candidates: Arc<Self>,
@@ -555,6 +556,11 @@ impl<St: ExpressionState> RevsetExpression<St> {
         Arc::new(Self::ForkPoint(self.clone()))
     }
 
+    /// Merge point (best common descendants) of `self`.
+    pub fn merge_point(self: &Arc<Self>) -> Arc<Self> {
+        Arc::new(Self::MergePoint(self.clone()))
+    }
+
     /// Commits with ~half of the descendants in `self`.
     pub fn bisect(self: &Arc<Self>) -> Arc<Self> {
         Arc::new(Self::Bisect(self.clone()))
@@ -767,6 +773,10 @@ pub enum ResolvedExpression {
         heads: Box<Self>,
     },
     ForkPoint(Box<Self>),
+    MergePoint {
+        roots: Box<Self>,
+        visible_heads: Box<Self>,
+    },
     Bisect(Box<Self>),
     HasSize {
         candidates: Box<Self>,
@@ -990,6 +1000,11 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
         let [expression_arg] = function.expect_exact_arguments()?;
         let expression = lower_expression(diagnostics, expression_arg, context)?;
         Ok(RevsetExpression::fork_point(&expression))
+    });
+    map.insert("merge_point", |diagnostics, function, context| {
+        let [expression_arg] = function.expect_exact_arguments()?;
+        let expression = lower_expression(diagnostics, expression_arg, context)?;
+        Ok(RevsetExpression::merge_point(&expression))
     });
     map.insert("bisect", |diagnostics, function, context| {
         let [expression_arg] = function.expect_exact_arguments()?;
@@ -1575,6 +1590,9 @@ fn try_transform_expression<St: ExpressionState, E>(
             RevsetExpression::ForkPoint(expression) => {
                 transform_rec(expression, pre, post)?.map(RevsetExpression::ForkPoint)
             }
+            RevsetExpression::MergePoint(expression) => {
+                transform_rec(expression, pre, post)?.map(RevsetExpression::MergePoint)
+            }
             RevsetExpression::Bisect(expression) => {
                 transform_rec(expression, pre, post)?.map(RevsetExpression::Bisect)
             }
@@ -1822,6 +1840,10 @@ where
         RevsetExpression::ForkPoint(expression) => {
             let expression = folder.fold_expression(expression)?;
             RevsetExpression::ForkPoint(expression).into()
+        }
+        RevsetExpression::MergePoint(expression) => {
+            let expression = folder.fold_expression(expression)?;
+            RevsetExpression::MergePoint(expression).into()
         }
         RevsetExpression::Bisect(expression) => {
             let expression = folder.fold_expression(expression)?;
@@ -3174,6 +3196,10 @@ impl VisibilityResolutionContext<'_> {
             RevsetExpression::ForkPoint(expression) => {
                 ResolvedExpression::ForkPoint(self.resolve(expression).into())
             }
+            RevsetExpression::MergePoint(expression) => ResolvedExpression::MergePoint {
+                roots: self.resolve(expression).into(),
+                visible_heads: self.resolve_visible_heads_or_referenced().into(),
+            },
             RevsetExpression::Bisect(expression) => {
                 ResolvedExpression::Bisect(self.resolve(expression).into())
             }
@@ -3312,6 +3338,7 @@ impl VisibilityResolutionContext<'_> {
             | RevsetExpression::Roots(_)
             | RevsetExpression::Forks
             | RevsetExpression::ForkPoint(_)
+            | RevsetExpression::MergePoint(_)
             | RevsetExpression::Bisect(_)
             | RevsetExpression::HasSize { .. }
             | RevsetExpression::Latest { .. } => {

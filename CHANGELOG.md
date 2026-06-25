@@ -16,6 +16,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* New `merge_point()` revset function which (similar to `fork_point`) finds the
+  point where multiple branches merge.
+
 ### Fixed bugs
 
 ## [0.43.0] - 2026-07-01
