@@ -531,6 +531,237 @@ fn test_deprecated_removed_command_hints() {
 }
 
 #[test]
+fn test_additional_rejected_command_hints() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj(["add", "file"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unrecognized subcommand 'add'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["annotate", "file"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unrecognized subcommand 'annotate'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["blame", "file"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unrecognized subcommand 'blame'
+
+      tip: a similar subcommand exists: 'rebase'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["branches"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unrecognized subcommand 'branches'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["clean"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unrecognized subcommand 'clean'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["fetch"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unrecognized subcommand 'fetch'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["goto"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unrecognized subcommand 'goto'
+
+      tip: some similar subcommands exist: 'git', 'root'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["pull"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unrecognized subcommand 'pull'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["push"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unrecognized subcommand 'push'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["remote", "add", "origin", "example"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unrecognized subcommand 'remote'
+
+      tip: some similar subcommands exist: 'resolve', 'redo', 'root', 'restore'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["reset"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unrecognized subcommand 'reset'
+
+      tip: some similar subcommands exist: 'restore', 'rebase', 'revert'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["stash"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unrecognized subcommand 'stash'
+
+      tip: some similar subcommands exist: 'sparse', 'squash', 'status'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["switch"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unrecognized subcommand 'switch'
+
+      tip: a similar subcommand exists: 'split'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["update"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unrecognized subcommand 'update'
+
+      tip: a similar subcommand exists: 'duplicate'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["log", "--all"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unexpected argument '--all' found
+
+      tip: a similar argument exists: '--ignore-all-space'
+
+    Usage: jj log --ignore-all-space [FILESETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["log", "--oneline"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unexpected argument '--oneline' found
+
+      tip: to pass '--oneline' as a value, use '-- --oneline'
+
+    Usage: jj log [OPTIONS] [FILESETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["git", "push", "--allow-deletes"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unexpected argument '--allow-deletes' found
+
+      tip: a similar argument exists: '--all'
+
+    Usage: jj git push --all
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+}
+
+#[test]
 fn test_soft_deprecated_command_still_runs() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
