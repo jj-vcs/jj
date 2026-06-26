@@ -614,6 +614,7 @@ needing the original behavior.
 You can configure the template used when no `-T` is specified.
 
 - `templates.config_list` for `jj config list`
+- `templates.workspace_list` for `jj workspace list`
 
 ```toml
 [templates]
@@ -627,6 +628,13 @@ you can add this to your config:
 ```toml
 [templates]
 config_list = "builtin_config_list_detailed"
+```
+
+You can include the workspace root path when you do `jj workspace list`:
+
+```toml
+[templates]
+workspace_list = "name ++ \": \" ++ root ++ \"\\n\""
 ```
 
 ## Log
