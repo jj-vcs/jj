@@ -544,6 +544,7 @@ fn test_additional_rejected_command_hints() {
     Usage: jj [OPTIONS] <COMMAND>
 
     For more information, try '--help'.
+    Hint: No `jj add` is needed; new files are tracked automatically.
     [EOF]
     [exit status: 2]
     ");
@@ -556,6 +557,7 @@ fn test_additional_rejected_command_hints() {
     Usage: jj [OPTIONS] <COMMAND>
 
     For more information, try '--help'.
+    Hint: Use `jj file annotate` instead.
     [EOF]
     [exit status: 2]
     ");
@@ -565,11 +567,10 @@ fn test_additional_rejected_command_hints() {
     ------- stderr -------
     error: unrecognized subcommand 'blame'
 
-      tip: a similar subcommand exists: 'rebase'
-
     Usage: jj [OPTIONS] <COMMAND>
 
     For more information, try '--help'.
+    Hint: Use `jj file annotate` instead.
     [EOF]
     [exit status: 2]
     ");
@@ -582,6 +583,7 @@ fn test_additional_rejected_command_hints() {
     Usage: jj [OPTIONS] <COMMAND>
 
     For more information, try '--help'.
+    Hint: Use `jj bookmark list` instead.
     [EOF]
     [exit status: 2]
     ");
@@ -594,6 +596,7 @@ fn test_additional_rejected_command_hints() {
     Usage: jj [OPTIONS] <COMMAND>
 
     For more information, try '--help'.
+    Hint: Use `jj restore` to discard file changes or `jj abandon` to abandon a change.
     [EOF]
     [exit status: 2]
     ");
@@ -606,6 +609,7 @@ fn test_additional_rejected_command_hints() {
     Usage: jj [OPTIONS] <COMMAND>
 
     For more information, try '--help'.
+    Hint: Use `jj git fetch` instead.
     [EOF]
     [exit status: 2]
     ");
@@ -615,11 +619,10 @@ fn test_additional_rejected_command_hints() {
     ------- stderr -------
     error: unrecognized subcommand 'goto'
 
-      tip: some similar subcommands exist: 'git', 'root'
-
     Usage: jj [OPTIONS] <COMMAND>
 
     For more information, try '--help'.
+    Hint: Use `jj new` instead.
     [EOF]
     [exit status: 2]
     ");
@@ -632,6 +635,7 @@ fn test_additional_rejected_command_hints() {
     Usage: jj [OPTIONS] <COMMAND>
 
     For more information, try '--help'.
+    Hint: Use `jj git fetch`, then `jj rebase` if needed.
     [EOF]
     [exit status: 2]
     ");
@@ -644,6 +648,7 @@ fn test_additional_rejected_command_hints() {
     Usage: jj [OPTIONS] <COMMAND>
 
     For more information, try '--help'.
+    Hint: Use `jj git push` instead.
     [EOF]
     [exit status: 2]
     ");
@@ -653,11 +658,10 @@ fn test_additional_rejected_command_hints() {
     ------- stderr -------
     error: unrecognized subcommand 'remote'
 
-      tip: some similar subcommands exist: 'resolve', 'redo', 'root', 'restore'
-
     Usage: jj [OPTIONS] <COMMAND>
 
     For more information, try '--help'.
+    Hint: Use `jj git remote` instead.
     [EOF]
     [exit status: 2]
     ");
@@ -667,11 +671,10 @@ fn test_additional_rejected_command_hints() {
     ------- stderr -------
     error: unrecognized subcommand 'reset'
 
-      tip: some similar subcommands exist: 'restore', 'rebase', 'revert'
-
     Usage: jj [OPTIONS] <COMMAND>
 
     For more information, try '--help'.
+    Hint: Use `jj abandon` to abandon a change or `jj restore` to empty it.
     [EOF]
     [exit status: 2]
     ");
@@ -681,11 +684,10 @@ fn test_additional_rejected_command_hints() {
     ------- stderr -------
     error: unrecognized subcommand 'stash'
 
-      tip: some similar subcommands exist: 'sparse', 'squash', 'status'
-
     Usage: jj [OPTIONS] <COMMAND>
 
     For more information, try '--help'.
+    Hint: Use `jj new @-` instead.
     [EOF]
     [exit status: 2]
     ");
@@ -695,11 +697,10 @@ fn test_additional_rejected_command_hints() {
     ------- stderr -------
     error: unrecognized subcommand 'switch'
 
-      tip: a similar subcommand exists: 'split'
-
     Usage: jj [OPTIONS] <COMMAND>
 
     For more information, try '--help'.
+    Hint: Use `jj new` instead.
     [EOF]
     [exit status: 2]
     ");
@@ -709,11 +710,10 @@ fn test_additional_rejected_command_hints() {
     ------- stderr -------
     error: unrecognized subcommand 'update'
 
-      tip: a similar subcommand exists: 'duplicate'
-
     Usage: jj [OPTIONS] <COMMAND>
 
     For more information, try '--help'.
+    Hint: Use `jj new` instead.
     [EOF]
     [exit status: 2]
     ");
@@ -723,11 +723,8 @@ fn test_additional_rejected_command_hints() {
     ------- stderr -------
     error: unexpected argument '--all' found
 
-      tip: a similar argument exists: '--ignore-all-space'
-
-    Usage: jj log --ignore-all-space [FILESETS]...
-
     For more information, try '--help'.
+    Hint: Use `jj log -r 'all()'` instead.
     [EOF]
     [exit status: 2]
     ");
@@ -737,11 +734,8 @@ fn test_additional_rejected_command_hints() {
     ------- stderr -------
     error: unexpected argument '--oneline' found
 
-      tip: to pass '--oneline' as a value, use '-- --oneline'
-
-    Usage: jj log [OPTIONS] [FILESETS]...
-
     For more information, try '--help'.
+    Hint: Use `jj log -T builtin_log_oneline` instead.
     [EOF]
     [exit status: 2]
     ");
@@ -751,11 +745,8 @@ fn test_additional_rejected_command_hints() {
     ------- stderr -------
     error: unexpected argument '--allow-deletes' found
 
-      tip: a similar argument exists: '--all'
-
-    Usage: jj git push --all
-
     For more information, try '--help'.
+    Hint: Use `jj git push --deleted` instead.
     [EOF]
     [exit status: 2]
     ");

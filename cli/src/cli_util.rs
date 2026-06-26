@@ -4509,12 +4509,12 @@ fn map_clap_cli_error(err: clap::Error, ui: &Ui, config: &StackedConfig) -> Comm
         }
         // Only rewrite messages for commands clap has already rejected. Soft
         // deprecations still dispatch normally and print their command warning.
-        if let Some(hint) = removed_subcommand_hint(&err, cmd) {
+        if let Some(hint) = curated_subcommand_hint(&err, cmd) {
             return CommandError::from(remove_misleading_suggestion(err)).hinted(hint);
         }
     }
     if let Some(ContextValue::String(arg)) = err.get(ContextKind::InvalidArg)
-        && let Some(hint) = removed_arg_hint(&err, arg)
+        && let Some(hint) = curated_arg_hint(&err, arg)
     {
         return CommandError::from(remove_misleading_arg_suggestion(err)).hinted(hint);
     }
@@ -4532,12 +4532,12 @@ fn map_clap_cli_error(err: clap::Error, ui: &Ui, config: &StackedConfig) -> Comm
     CommandError::from(err)
 }
 
-/// Removes clap's fuzzy suggestions when a removed subcommand has a more
+/// Removes clap's fuzzy suggestions when a rejected subcommand has a more
 /// accurate recovery hint.
 ///
-/// A removed jj command can be close to a live but semantically unrelated
+/// A rejected jj command can be close to a live but semantically unrelated
 /// command. Keep the original clap error and usage text, but replace fuzzy
-/// suggestions with the recovery path from jj's removal history.
+/// suggestions with a known recovery path.
 fn remove_misleading_suggestion(mut err: clap::Error) -> clap::Error {
     err.remove(ContextKind::SuggestedArg);
     err.remove(ContextKind::SuggestedSubcommand);
@@ -4545,10 +4545,10 @@ fn remove_misleading_suggestion(mut err: clap::Error) -> clap::Error {
     err
 }
 
-/// Removes clap's fuzzy suggestions and usage text for removed flags.
+/// Removes clap's fuzzy suggestions and usage text for curated argument hints.
 ///
-/// For removed flags, clap's suggested usage is often the usage of the
-/// similar-looking live flag rather than the command the user ran.
+/// For removed or git-shaped flags, clap's suggested usage is often the usage
+/// of the similar-looking live flag rather than the command the user ran.
 fn remove_misleading_arg_suggestion(mut err: clap::Error) -> clap::Error {
     err.remove(ContextKind::SuggestedArg);
     err.remove(ContextKind::Suggested);
@@ -4556,20 +4556,43 @@ fn remove_misleading_arg_suggestion(mut err: clap::Error) -> clap::Error {
     err
 }
 
-/// Returns recovery advice for removed subcommands after clap has rejected the
+/// Returns recovery advice for selected subcommands after clap has rejected the
 /// command line.
 ///
 /// These are not deprecation warnings. The command has already failed clap
 /// parsing as an invalid subcommand, and this table only replaces the recovery
-/// advice. The usage check scopes ambiguous names to the command family where
-/// the removed spelling used to exist.
+/// advice. The usage check scopes ambiguous names to the command family where a
+/// replacement is known.
 ///
 /// Keep these breadcrumbs aligned with the corresponding removal entries in
 /// CHANGELOG.md so the recovery advice stays tied to the historical change.
-fn removed_subcommand_hint(err: &clap::Error, command_name: &str) -> Option<&'static str> {
+fn curated_subcommand_hint(err: &clap::Error, command_name: &str) -> Option<&'static str> {
     let usage = error_usage(err)?;
     let usage = usage.as_str();
     match command_name {
+        // Common Git-shaped commands with documented jj equivalents. These are
+        // rejected commands, not aliases.
+        "add" if usage_is_top_level(usage) => {
+            Some("No `jj add` is needed; new files are tracked automatically.")
+        }
+        "annotate" | "blame" if usage_is_top_level(usage) => {
+            Some("Use `jj file annotate` instead.")
+        }
+        "branches" if usage_is_top_level(usage) => Some("Use `jj bookmark list` instead."),
+        "clean" if usage_is_top_level(usage) => {
+            Some("Use `jj restore` to discard file changes or `jj abandon` to abandon a change.")
+        }
+        "fetch" if usage_is_top_level(usage) => Some("Use `jj git fetch` instead."),
+        "pull" if usage_is_top_level(usage) => {
+            Some("Use `jj git fetch`, then `jj rebase` if needed.")
+        }
+        "push" if usage_is_top_level(usage) => Some("Use `jj git push` instead."),
+        "remote" if usage_is_top_level(usage) => Some("Use `jj git remote` instead."),
+        "reset" if usage_is_top_level(usage) => {
+            Some("Use `jj abandon` to abandon a change or `jj restore` to empty it.")
+        }
+        "stash" if usage_is_top_level(usage) => Some("Use `jj new @-` instead."),
+        "switch" | "goto" | "update" if usage_is_top_level(usage) => Some("Use `jj new` instead."),
         // Removed in 0.33.0 after being deprecated in 0.28.0.
         "backout" if usage_is_top_level(usage) => Some("Use `jj revert` instead."),
         // Removed in 0.30.0 after the 0.22.0 branch/bookmark rename.
@@ -4609,7 +4632,7 @@ fn removed_subcommand_hint(err: &clap::Error, command_name: &str) -> Option<&'st
     }
 }
 
-/// Returns recovery advice for removed flags after clap has rejected the
+/// Returns recovery advice for selected flags after clap has rejected the
 /// command line.
 ///
 /// These are not deprecation warnings. The flag has already failed clap parsing
@@ -4617,9 +4640,9 @@ fn removed_subcommand_hint(err: &clap::Error, command_name: &str) -> Option<&'st
 /// The usage check avoids changing unrelated commands that happen to reject the
 /// same flag spelling.
 ///
-/// Keep these breadcrumbs aligned with the corresponding removal entries in
-/// CHANGELOG.md so the recovery advice stays tied to the historical change.
-fn removed_arg_hint(err: &clap::Error, arg: &str) -> Option<&'static str> {
+/// Keep removed-flag breadcrumbs aligned with the corresponding removal entries
+/// in CHANGELOG.md so the recovery advice stays tied to the historical change.
+fn curated_arg_hint(err: &clap::Error, arg: &str) -> Option<&'static str> {
     let usage = error_usage(err)?;
     let usage = usage.as_str();
     match arg {
@@ -4628,6 +4651,14 @@ fn removed_arg_hint(err: &clap::Error, arg: &str) -> Option<&'static str> {
             || usage_starts_with_any(usage, &["jj operation log", "jj op log"]) =>
         {
             Some("Use `-n` instead.")
+        }
+        // Git-shaped log flags that currently get misleading fuzzy suggestions.
+        "--all" if usage_starts_with(usage, "jj log") => Some("Use `jj log -r 'all()'` instead."),
+        "--oneline" if usage_starts_with(usage, "jj log") => {
+            Some("Use `jj log -T builtin_log_oneline` instead.")
+        }
+        "--allow-deletes" if usage_starts_with(usage, "jj git push") => {
+            Some("Use `jj git push --deleted` instead.")
         }
         // Removed in 0.42.0.
         "--allow-new" if usage_starts_with(usage, "jj git push") => {
