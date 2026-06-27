@@ -809,7 +809,12 @@ The following methods are defined.
 
 * `.name() -> RefSymbol`: Returns the workspace name as a symbol.
 * `.target() -> Commit`: Returns the working-copy commit of this workspace.
-* `.root() -> Template`: Returns the absolute path to the workspace root.
+* `.root() -> Option<FsPath>`: Returns the workspace root path, if the root path
+  is recorded and can be resolved.
+
+  This is optional because workspaces created before jj 0.38.0 did not record
+  workspace root paths, and a recorded path can also become stale if the
+  workspace directory is moved or deleted.
 
 ## Color labels
 

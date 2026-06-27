@@ -44,14 +44,7 @@ concat(
 
 tag_list = 'format_commit_ref(self, "tag") ++ "\n"'
 
-workspace_list = '''
-concat(
-  name,
-  ": ",
-  format_commit_summary_with_refs(target, format_commit_ref_names(target.bookmarks())),
-  "\n",
-)
-'''
+workspace_list = 'builtin_workspace_list'
 
 op_summary = '''
 separate(" ",
@@ -97,6 +90,28 @@ label(if(overridden, "overridden"),
 builtin_config_list_detailed = '''
 label(if(overridden, "overridden"),
   format_config_item(self) ++ " # " ++ separate(" ", source, path) ++ "\n"
+)
+'''
+
+builtin_workspace_list = '''
+concat(
+  name,
+  ": ",
+  format_commit_summary_with_refs(target, format_commit_ref_names(target.bookmarks())),
+  "\n",
+)
+'''
+
+builtin_workspace_list_with_root = '''
+concat(
+  name,
+  ": ",
+  separate(
+    " ",
+    if(root, root.display()),
+    format_commit_summary_with_refs(target, format_commit_ref_names(target.bookmarks())),
+  ),
+  "\n",
 )
 '''
 
