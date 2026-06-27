@@ -2102,6 +2102,15 @@ async fn update_intent_to_add_impl(
 
     index.sort_entries();
 
+    // The entry mutations above (`dangerously_push_entry`, `remove_entries`,
+    // `sort_entries`) do not invalidate the cache-tree (TREE) extension loaded
+    // from disk (gitoxide#2421), so writing the index back would re-emit a
+    // now-stale, under-counted cache-tree. An external `git add` that later
+    // rebuilds the cache-tree trusts those stale child counts and emits a
+    // doubled subtree entry -> `git fsck` duplicateEntries. Drop the stale
+    // cache-tree so git regenerates it.
+    index.remove_tree();
+
     Ok(())
 }
 
