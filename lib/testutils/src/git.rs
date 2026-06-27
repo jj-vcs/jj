@@ -344,6 +344,10 @@ impl<'a> IndexManager<'a> {
     pub fn sync_index(&mut self) {
         self.index.sort_entries();
         self.index.verify_entries().unwrap();
+        // Same contract as `update_intent_to_add_impl` in lib/src/git.rs: the
+        // entry mutations above leave any loaded cache-tree stale, and
+        // `write()` would re-emit it as-is.
+        self.index.remove_tree();
         self.index
             .write(gix::index::write::Options::default())
             .unwrap();

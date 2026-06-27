@@ -2190,6 +2190,17 @@ async fn update_intent_to_add_impl(
 
     index.sort_entries();
 
+    // The entry mutations above (`dangerously_push_entry`, `remove_entries`,
+    // `sort_entries`) do not invalidate the cache-tree (TREE) extension loaded
+    // from disk, and `gix::index::File::write()` re-emits it as-is. Its own
+    // docs prescribe this discard: "Until the tree-cache is updated on write
+    // (see gitoxide#2421), remove it with `State::remove_tree()` before writing
+    // whenever entries were changed." Otherwise the written index carries a
+    // stale, under-counted cache-tree; an external `git add` that later
+    // rebuilds it trusts those child counts and emits a doubled subtree entry,
+    // which `git fsck` reports as duplicateEntries.
+    index.remove_tree();
+
     Ok(())
 }
 

@@ -101,6 +101,7 @@ use testutils::TestWorkspace;
 use testutils::base_user_config;
 use testutils::commit_transactions;
 use testutils::create_random_commit;
+use testutils::create_tree;
 use testutils::repo_path;
 use testutils::write_random_commit;
 use testutils::write_random_commit_with_parents;
@@ -4024,6 +4025,124 @@ fn test_reset_head_with_index_file_directory_conflict() -> TestResult {
 
     // Only the file should be added to the index (the tree should be skipped).
     insta::assert_snapshot!(get_index_state(workspace_root), @"Theirs test Mode(FILE)");
+    Ok(())
+}
+
+/// Run `git <args>` in `dir`, asserting success and returning combined
+/// stdout+stderr.
+fn run_git(dir: &Path, args: &[&str]) -> String {
+    let (output, success) = run_git_allow_failure(dir, args);
+    assert!(success, "git {args:?} failed:\n{output}");
+    output
+}
+
+/// Like `run_git`, but reports the exit status instead of asserting it, for
+/// `git fsck`, which exits non-zero when it finds the corruption under test.
+fn run_git_allow_failure(dir: &Path, args: &[&str]) -> (String, bool) {
+    let output = std::process::Command::new("git")
+        .current_dir(dir)
+        .args(args)
+        .output()
+        .unwrap_or_else(|e| panic!("failed to spawn git {args:?}: {e}"));
+    let mut combined = String::from_utf8_lossy(&output.stdout).into_owned();
+    combined.push_str(&String::from_utf8_lossy(&output.stderr));
+    (combined, output.status.success())
+}
+
+/// Whether `.git/index` currently carries a cache-tree (TREE) extension.
+fn index_has_cache_tree(workspace_root: &Path) -> bool {
+    testutils::git::open(workspace_root)
+        .index()
+        .unwrap()
+        .tree()
+        .is_some()
+}
+
+/// Regression test for colocated cache-tree corruption (#9711, one cause of
+/// #8884): `update_intent_to_add` mutates entries in an index that git wrote,
+/// whose cache-tree (TREE) extension stays loaded and valid-looking, so writing
+/// it back leaves stale subtree counts that a later external `git add` turns
+/// into a doubled subtree entry (`git fsck: duplicateEntries`).
+#[test]
+fn test_update_intent_to_add_drops_stale_cache_tree() -> TestResult {
+    let settings = testutils::user_settings();
+    let temp_dir = testutils::new_temp_dir();
+    let workspace_root = temp_dir.path().join("repo");
+    testutils::git::init(&workspace_root);
+    let (_workspace, repo) =
+        Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
+            .block_on()?;
+
+    // A nested subtree d/e/f/ plus an unrelated sibling tree sib/.
+    let old_files = [
+        ("d/e/f/w0.txt", "0\n"),
+        ("d/e/y.txt", "y\n"),
+        ("sib/seed.txt", "s\n"),
+    ];
+    let old_tree = create_tree(
+        &repo,
+        &old_files.map(|(path, content)| (repo_path(path), content)),
+    );
+    // new_tree adds a new file inside the existing nested subtree d/e/f/.
+    let new_tree = create_tree(
+        &repo,
+        &[
+            (repo_path("d/e/f/w0.txt"), "0\n"),
+            (repo_path("d/e/f/w1.txt"), "1\n"),
+            (repo_path("d/e/y.txt"), "y\n"),
+            (repo_path("sib/seed.txt"), "s\n"),
+        ],
+    );
+
+    // Materialize old_tree in the workdir and bake a valid, fully-populated
+    // cache-tree into .git/index using the real git binary. jj's own index
+    // writes use tree:None and would not produce one.
+    for (path, content) in old_files {
+        let p = workspace_root.join(path);
+        fs::create_dir_all(p.parent().unwrap())?;
+        fs::write(p, content)?;
+    }
+    run_git(
+        &workspace_root,
+        &["add", "d/e/f/w0.txt", "d/e/y.txt", "sib/seed.txt"],
+    );
+    run_git(&workspace_root, &["write-tree"]);
+    assert!(
+        index_has_cache_tree(&workspace_root),
+        "setup did not bake a cache-tree into .git/index, so the corruption this test checks for \
+         could never be produced",
+    );
+
+    // The jj snapshot path under test: add the new file into d/e/f as
+    // intent-to-add.
+    fs::write(workspace_root.join("d/e/f/w1.txt"), "1\n")?;
+    git::update_intent_to_add(repo.as_ref(), &workspace_root, &old_tree, &new_tree).block_on()?;
+    assert!(
+        !index_has_cache_tree(&workspace_root),
+        "update_intent_to_add wrote back a cache-tree that its own entry mutations had already \
+         invalidated",
+    );
+
+    // An external git op touching an unrelated sibling invalidates only the
+    // root, leaving any stale d/ subtree node in place. (A `git add` of a file
+    // under d/, or `git add -A`, would invalidate d/ too and force a correct
+    // recompute, so it has to be a sibling.)
+    fs::write(workspace_root.join("sib/g1.txt"), "g\n")?;
+    run_git(&workspace_root, &["add", "sib/g1.txt"]);
+
+    // Force the cache-tree rebuild and materialize the tree objects in the ODB.
+    let root_tree = run_git(&workspace_root, &["write-tree"]);
+
+    // End-to-end backstop: the resulting tree must be fsck-clean.
+    let (fsck, _) =
+        run_git_allow_failure(&workspace_root, &["fsck", "--no-dangling", "--no-reflogs"]);
+    assert!(
+        !fsck.contains("duplicateEntries"),
+        "colocated snapshot left a stale cache-tree that git turned into a corrupt \
+         (doubled-subtree) root tree {root}:\n{fsck}",
+        root = root_tree.trim(),
+    );
+
     Ok(())
 }
 
