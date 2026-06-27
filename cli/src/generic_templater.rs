@@ -14,6 +14,8 @@
 
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::path::Path;
+use std::path::PathBuf;
 
 use bstr::BString;
 use jj_lib::backend::Timestamp;
@@ -43,6 +45,7 @@ use crate::templater::TemplatePropertyExt as _;
 /// registered to extract properties from the self object.
 pub struct GenericTemplateLanguage<'a, C> {
     settings: UserSettings,
+    current_dir: PathBuf,
     build_fn_table: GenericTemplateBuildFnTable<'a, C>,
 }
 
@@ -53,18 +56,20 @@ where
     /// Sets up environment with no keywords.
     ///
     /// New keyword functions can be registered by `add_keyword()`.
-    pub fn new(settings: &UserSettings) -> Self {
-        Self::with_keywords(HashMap::new(), settings)
+    pub fn new(settings: &UserSettings, current_dir: &Path) -> Self {
+        Self::with_keywords(HashMap::new(), settings, current_dir)
     }
 
     /// Sets up environment with the given `keywords` table.
     pub fn with_keywords(
         keywords: GenericTemplateBuildKeywordFnMap<'a, C>,
         settings: &UserSettings,
+        current_dir: &Path,
     ) -> Self {
         Self {
             // Clone settings to keep lifetime simple. It's cheap.
             settings: settings.clone(),
+            current_dir: current_dir.to_owned(),
             build_fn_table: GenericTemplateBuildFnTable {
                 core: CoreTemplateBuildFnTable::builtin(),
                 keywords,
@@ -103,6 +108,10 @@ where
 
     fn settings(&self) -> &UserSettings {
         &self.settings
+    }
+
+    fn current_dir(&self) -> &Path {
+        &self.current_dir
     }
 
     fn build_function(

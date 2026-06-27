@@ -23,6 +23,7 @@ use std::io;
 use std::io::Write;
 use std::iter;
 use std::ops::Range;
+use std::path::PathBuf;
 use std::rc::Rc;
 
 use bstr::BStr;
@@ -30,6 +31,7 @@ use bstr::BString;
 use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
 use jj_lib::config::ConfigValue;
+use jj_lib::file_util;
 use jj_lib::op_store::TimestampRange;
 
 use crate::formatter::FormatRecorder;
@@ -78,6 +80,15 @@ impl Template for BString {
 impl Template for &BStr {
     fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
         formatter.as_mut().write_all(self)
+    }
+}
+
+impl Template for PathBuf {
+    fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
+        // Render native path bytes directly. Serialization still follows
+        // PathBuf's serde behavior, which can reject non-UTF-8 paths.
+        let bytes = file_util::path_to_bytes(self).map_err(io::Error::other)?;
+        formatter.as_mut().write_all(bytes)
     }
 }
 

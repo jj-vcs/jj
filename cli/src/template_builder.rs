@@ -16,6 +16,8 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::io;
 use std::iter;
+use std::path::Path;
+use std::path::PathBuf;
 
 use bstr::BString;
 use bstr::ByteSlice as _;
@@ -26,6 +28,7 @@ use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigValue;
 use jj_lib::content_hash::blake2b_hash;
+use jj_lib::file_util;
 use jj_lib::hex_util;
 use jj_lib::op_store::TimestampRange;
 use jj_lib::settings::UserSettings;
@@ -90,6 +93,9 @@ pub trait TemplateLanguage<'a> {
     type Property: CoreTemplatePropertyVar<'a> + 'a;
 
     fn settings(&self) -> &UserSettings;
+
+    /// Returns the working directory for filesystem path template methods.
+    fn current_dir(&self) -> &Path;
 
     /// Translates the given global `function` call to a property.
     ///
@@ -178,6 +184,8 @@ where
     Self: WrapTemplateProperty<'a, Option<i64>>,
     Self: WrapTemplateProperty<'a, ConfigValue>,
     Self: WrapTemplateProperty<'a, Option<ConfigValue>>,
+    Self: WrapTemplateProperty<'a, PathBuf>,
+    Self: WrapTemplateProperty<'a, Option<PathBuf>>,
     Self: WrapTemplateProperty<'a, Signature>,
     Self: WrapTemplateProperty<'a, Email>,
     Self: WrapTemplateProperty<'a, SizeHint>,
@@ -221,6 +229,8 @@ pub enum CoreTemplatePropertyKind<'a> {
     IntegerOpt(BoxedTemplateProperty<'a, Option<i64>>),
     ConfigValue(BoxedTemplateProperty<'a, ConfigValue>),
     ConfigValueOpt(BoxedTemplateProperty<'a, Option<ConfigValue>>),
+    FsPath(BoxedTemplateProperty<'a, PathBuf>),
+    FsPathOpt(BoxedTemplateProperty<'a, Option<PathBuf>>),
     Signature(BoxedTemplateProperty<'a, Signature>),
     Email(BoxedTemplateProperty<'a, Email>),
     SizeHint(BoxedTemplateProperty<'a, SizeHint>),
@@ -259,6 +269,8 @@ macro_rules! impl_core_property_wrappers {
             IntegerOpt(Option<i64>),
             ConfigValue(jj_lib::config::ConfigValue),
             ConfigValueOpt(Option<jj_lib::config::ConfigValue>),
+            FsPath(std::path::PathBuf),
+            FsPathOpt(Option<std::path::PathBuf>),
             Signature(jj_lib::backend::Signature),
             Email($crate::templater::Email),
             SizeHint($crate::templater::SizeHint),
@@ -297,6 +309,8 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::IntegerOpt(_) => "Option<Integer>",
             Self::ConfigValue(_) => "ConfigValue",
             Self::ConfigValueOpt(_) => "Option<ConfigValue>",
+            Self::FsPath(_) => "FsPath",
+            Self::FsPathOpt(_) => "Option<FsPath>",
             Self::Signature(_) => "Signature",
             Self::Email(_) => "Email",
             Self::SizeHint(_) => "SizeHint",
@@ -334,6 +348,8 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::IntegerOpt(property) => Ok(property.map(|opt| opt.is_some()).into_dyn()),
             Self::ConfigValue(_) => Err(self),
             Self::ConfigValueOpt(property) => Ok(property.map(|opt| opt.is_some()).into_dyn()),
+            Self::FsPath(_) => Err(self),
+            Self::FsPathOpt(property) => Ok(property.map(|opt| opt.is_some()).into_dyn()),
             Self::Signature(_) => Err(self),
             Self::Email(property) => Ok(property.map(|e| !e.0.is_empty()).into_dyn()),
             Self::SizeHint(_) => Err(self),
@@ -381,6 +397,8 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                     .map(|opt| opt.map(config::to_serializable_value))
                     .into_serialize(),
             ),
+            Self::FsPath(property) => Some(property.into_serialize()),
+            Self::FsPathOpt(property) => Some(property.into_serialize()),
             Self::Signature(property) => Some(property.into_serialize()),
             Self::Email(property) => Some(property.into_serialize()),
             Self::SizeHint(property) => Some(property.into_serialize()),
@@ -404,6 +422,8 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::IntegerOpt(property) => Some(property.into_template()),
             Self::ConfigValue(property) => Some(property.into_template()),
             Self::ConfigValueOpt(property) => Some(property.into_template()),
+            Self::FsPath(property) => Some(property.into_template()),
+            Self::FsPathOpt(property) => Some(property.into_template()),
             Self::Signature(property) => Some(property.into_template()),
             Self::Email(property) => Some(property.into_template()),
             Self::SizeHint(_) => None,
@@ -463,6 +483,8 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::IntegerOpt(_), _) => None,
             (Self::ConfigValue(_), _) => None,
             (Self::ConfigValueOpt(_), _) => None,
+            (Self::FsPath(_), _) => None,
+            (Self::FsPathOpt(_), _) => None,
             (Self::Signature(_), _) => None,
             (Self::Email(_), _) => None,
             (Self::SizeHint(_), _) => None,
@@ -498,6 +520,8 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::IntegerOpt(_), _) => None,
             (Self::ConfigValue(_), _) => None,
             (Self::ConfigValueOpt(_), _) => None,
+            (Self::FsPath(_), _) => None,
+            (Self::FsPathOpt(_), _) => None,
             (Self::Signature(_), _) => None,
             (Self::Email(_), _) => None,
             (Self::SizeHint(_), _) => None,
@@ -563,6 +587,7 @@ pub struct CoreTemplateBuildFnTable<'a, L: ?Sized, P = <L as TemplateLanguage<'a
     pub boolean_methods: TemplateBuildMethodFnMap<'a, L, bool, P>,
     pub integer_methods: TemplateBuildMethodFnMap<'a, L, i64, P>,
     pub config_value_methods: TemplateBuildMethodFnMap<'a, L, ConfigValue, P>,
+    pub fs_path_methods: TemplateBuildMethodFnMap<'a, L, PathBuf, P>,
     pub email_methods: TemplateBuildMethodFnMap<'a, L, Email, P>,
     pub signature_methods: TemplateBuildMethodFnMap<'a, L, Signature, P>,
     pub size_hint_methods: TemplateBuildMethodFnMap<'a, L, SizeHint, P>,
@@ -593,6 +618,7 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
             boolean_methods: HashMap::new(),
             integer_methods: HashMap::new(),
             config_value_methods: HashMap::new(),
+            fs_path_methods: HashMap::new(),
             signature_methods: HashMap::new(),
             email_methods: HashMap::new(),
             size_hint_methods: HashMap::new(),
@@ -615,6 +641,7 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
             boolean_methods,
             integer_methods,
             config_value_methods,
+            fs_path_methods,
             signature_methods,
             email_methods,
             size_hint_methods,
@@ -634,6 +661,7 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
         merge_fn_map(&mut self.boolean_methods, boolean_methods);
         merge_fn_map(&mut self.integer_methods, integer_methods);
         merge_fn_map(&mut self.config_value_methods, config_value_methods);
+        merge_fn_map(&mut self.fs_path_methods, fs_path_methods);
         merge_fn_map(&mut self.signature_methods, signature_methods);
         merge_fn_map(&mut self.email_methods, email_methods);
         merge_fn_map(&mut self.size_hint_methods, size_hint_methods);
@@ -661,6 +689,7 @@ where
             boolean_methods: HashMap::new(),
             integer_methods: HashMap::new(),
             config_value_methods: builtin_config_value_methods(),
+            fs_path_methods: builtin_fs_path_methods(),
             signature_methods: builtin_signature_methods(),
             email_methods: builtin_email_methods(),
             size_hint_methods: builtin_size_hint_methods(),
@@ -743,6 +772,18 @@ where
             CoreTemplatePropertyKind::ConfigValueOpt(property) => {
                 let type_name = "ConfigValue";
                 let table = &self.config_value_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                let inner_property = property.try_unwrap(type_name).into_dyn();
+                build(language, diagnostics, build_ctx, inner_property, function)
+            }
+            CoreTemplatePropertyKind::FsPath(property) => {
+                let table = &self.fs_path_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(language, diagnostics, build_ctx, property, function)
+            }
+            CoreTemplatePropertyKind::FsPathOpt(property) => {
+                let type_name = "FsPath";
+                let table = &self.fs_path_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 let inner_property = property.try_unwrap(type_name).into_dyn();
                 build(language, diagnostics, build_ctx, inner_property, function)
@@ -1645,6 +1686,32 @@ fn builtin_config_value_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
     );
     // TODO: add is_<type>() -> Boolean?
     // TODO: add .get(key) -> ConfigValue or Option<ConfigValue>?
+    map
+}
+
+fn builtin_fs_path_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
+-> TemplateBuildMethodFnMap<'a, L, PathBuf> {
+    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // code completion inside macro is quite restricted.
+    let mut map = TemplateBuildMethodFnMap::<L, PathBuf>::new();
+    map.insert(
+        "absolute",
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let cwd = language.current_dir().to_owned();
+            let out_property = self_property.map(move |path| cwd.join(path));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "relative",
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let cwd = language.current_dir().to_owned();
+            let out_property = self_property.map(move |path| file_util::relative_path(&cwd, &path));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
     map
 }
 
@@ -3015,6 +3082,8 @@ fn expect_expression_of_type<'a, L: TemplateLanguage<'a> + ?Sized, T>(
 
 #[cfg(test)]
 mod tests {
+    use std::path::Component;
+
     use assert_matches::assert_matches;
     use jj_lib::backend::MillisSinceEpoch;
     use jj_lib::config::StackedConfig;
@@ -3046,13 +3115,21 @@ mod tests {
         }
 
         fn with_config(config: StackedConfig) -> Self {
+            Self::with_config_and_current_dir(config, default_current_dir())
+        }
+
+        fn with_config_and_current_dir(config: StackedConfig, current_dir: PathBuf) -> Self {
             let settings = UserSettings::from_config(config).unwrap();
             Self {
-                language: TestTemplateLanguage::new(&settings),
+                language: TestTemplateLanguage::new(&settings, &current_dir),
                 aliases_map: TemplateAliasesMap::new(),
                 color_rules: Vec::new(),
             }
         }
+    }
+
+    fn default_current_dir() -> PathBuf {
+        PathBuf::from(Component::RootDir.as_os_str()).join("cwd")
     }
 
     impl TestTemplateEnv {
@@ -3496,6 +3573,23 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#"if(sl0, true, false)"#), @"false");
         insta::assert_snapshot!(env.render_ok(r#"if(sl1, true, false)"#), @"true");
 
+        env.add_keyword("fs_path", || literal(PathBuf::from("/repo/workspace")));
+        insta::assert_snapshot!(env.parse_err(r#"if(fs_path, true, false)"#), @"
+         --> 1:4
+          |
+        1 | if(fs_path, true, false)
+          |    ^-----^
+          |
+          = Expected expression of type `Boolean`, but actual type is `FsPath`
+        ");
+
+        env.add_keyword("none_fs_path", || literal(None::<PathBuf>));
+        env.add_keyword("some_fs_path", || {
+            literal(Some(PathBuf::from("/repo/workspace")))
+        });
+        insta::assert_snapshot!(env.render_ok(r#"if(none_fs_path, true, false)"#), @"false");
+        insta::assert_snapshot!(env.render_ok(r#"if(some_fs_path, true, false)"#), @"true");
+
         // No implicit cast of integer
         insta::assert_snapshot!(env.parse_err(r#"if(0, true, false)"#), @"
          --> 1:4
@@ -3643,6 +3737,99 @@ mod tests {
         insta::assert_snapshot!(
             env.render_ok(r#"1 % 0"#),
             @"<Error: Attempt to divide by zero>");
+    }
+
+    #[test]
+    fn test_fs_path_methods() {
+        let cwd = default_current_dir();
+        let mut env = TestTemplateEnv::with_config_and_current_dir(
+            StackedConfig::with_defaults(),
+            cwd.clone(),
+        );
+        let path = cwd.join("workspace");
+        env.add_keyword("fs_path", {
+            let path = path.clone();
+            move || literal(path.clone())
+        });
+        env.add_keyword("none_fs_path", || literal(None::<PathBuf>));
+
+        assert_eq!(
+            env.render_ok("fs_path"),
+            BString::from(path.to_str().unwrap())
+        );
+        assert_eq!(
+            env.render_ok("fs_path.absolute()"),
+            BString::from(path.to_str().unwrap())
+        );
+        assert_eq!(
+            env.render_ok("fs_path.relative()"),
+            BString::from("workspace")
+        );
+        assert_eq!(
+            env.render_ok("fs_path.relative().absolute()"),
+            BString::from(path.to_str().unwrap())
+        );
+        insta::assert_snapshot!(env.render_ok("json(fs_path.relative())"), @r#""workspace""#);
+        insta::assert_snapshot!(
+            env.render_ok("none_fs_path.relative()"),
+            @"<Error: No FsPath available>"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_fs_path_methods_non_utf8() {
+        use std::ffi::OsString;
+        use std::os::unix::ffi::OsStrExt as _;
+        use std::os::unix::ffi::OsStringExt as _;
+
+        let cwd = default_current_dir();
+        let mut env = TestTemplateEnv::with_config_and_current_dir(
+            StackedConfig::with_defaults(),
+            cwd.clone(),
+        );
+        let mut path_bytes = cwd.as_os_str().as_bytes().to_vec();
+        if !path_bytes.ends_with(b"/") {
+            path_bytes.push(b'/');
+        }
+        path_bytes.extend(b"\x80workspace");
+        let path = PathBuf::from(OsString::from_vec(path_bytes.clone()));
+        env.add_keyword("fs_path", {
+            let path = path.clone();
+            move || literal(path.clone())
+        });
+        env.add_keyword("some_fs_path", {
+            let path = path.clone();
+            move || literal(Some(path.clone()))
+        });
+
+        // Direct rendering should preserve non-UTF-8 path bytes. This is the
+        // path used by templates like `workspace_list`'s `root`.
+        assert_eq!(
+            env.render_ok("fs_path"),
+            BString::from(path_bytes.as_slice()),
+            "direct FsPath rendering should not require UTF-8"
+        );
+        assert_eq!(
+            env.render_ok("some_fs_path"),
+            BString::from(path_bytes.as_slice()),
+            "direct Option<FsPath> rendering should not require UTF-8"
+        );
+        assert_eq!(
+            env.render_ok("fs_path.absolute()"),
+            BString::from(path_bytes.as_slice())
+        );
+        assert_eq!(
+            env.render_ok("fs_path.relative()"),
+            BString::from(b"\x80workspace".as_slice())
+        );
+        assert_eq!(
+            env.render_ok("fs_path.relative().absolute()"),
+            BString::from(path_bytes.as_slice())
+        );
+        insta::assert_snapshot!(
+            env.render_ok("json(fs_path)"),
+            @r#"<Error: path contains invalid UTF-8 characters>"#);
     }
 
     #[test]
@@ -5182,6 +5369,8 @@ mod tests {
         let mut env = TestTemplateEnv::new();
         env.add_keyword("none_i64", || literal(None::<i64>));
         env.add_keyword("ascii_bstr", || literal(BString::from("foo")));
+        env.add_keyword("fs_path", || literal(PathBuf::from("file")));
+        env.add_keyword("none_fs_path", || literal(None::<PathBuf>));
         env.add_keyword("string_list", || {
             literal(vec!["foo".to_owned(), "bar".to_owned()])
         });
@@ -5227,6 +5416,8 @@ mod tests {
         insta::assert_snapshot!(env.render_ok("json(false)"), @"false");
         insta::assert_snapshot!(env.render_ok("json(42)"), @"42");
         insta::assert_snapshot!(env.render_ok("json(none_i64)"), @"null");
+        insta::assert_snapshot!(env.render_ok("json(fs_path)"), @r#""file""#);
+        insta::assert_snapshot!(env.render_ok("json(none_fs_path)"), @"null");
         insta::assert_snapshot!(env.render_ok(r#"json(config_value_table)"#), @r#"{"foo":"bar"}"#);
         insta::assert_snapshot!(env.render_ok(r"json(some_cfgval)"), @"1");
         insta::assert_snapshot!(env.render_ok(r"json(none_cfgval)"), @"null");
