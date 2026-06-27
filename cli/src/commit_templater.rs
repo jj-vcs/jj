@@ -21,6 +21,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
 use std::io;
+use std::path::Path;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -205,6 +206,11 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
 
     fn settings(&self) -> &UserSettings {
         self.repo.base_repo().settings()
+    }
+
+    fn current_dir(&self) -> &Path {
+        let RepoPathUiConverter::Fs { cwd, base: _ } = self.path_converter;
+        cwd
     }
 
     fn build_function(
@@ -3012,7 +3018,6 @@ fn builtin_trailer_list_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo
 #[cfg(test)]
 mod tests {
     use std::path::Component;
-    use std::path::Path;
     use std::path::PathBuf;
 
     use jj_lib::config::ConfigLayer;

@@ -18,6 +18,8 @@ use std::any::Any;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::io;
+use std::path::Path;
+use std::path::PathBuf;
 
 use bstr::BString;
 use itertools::Itertools as _;
@@ -67,6 +69,7 @@ pub trait OperationTemplateEnvironment {
 pub struct OperationTemplateLanguage {
     repo_loader: RepoLoader,
     current_op_id: Option<OperationId>,
+    current_dir: PathBuf,
     build_fn_table: OperationTemplateLanguageBuildFnTable,
     cache_extensions: ExtensionsMap,
 }
@@ -77,6 +80,7 @@ impl OperationTemplateLanguage {
     pub fn new(
         repo_loader: &RepoLoader,
         current_op_id: Option<&OperationId>,
+        current_dir: &Path,
         extensions: &[impl AsRef<dyn OperationTemplateLanguageExtension>],
     ) -> Self {
         let mut build_fn_table = OperationTemplateLanguageBuildFnTable::builtin();
@@ -93,6 +97,7 @@ impl OperationTemplateLanguage {
             // Clone these to keep lifetime simple
             repo_loader: repo_loader.clone(),
             current_op_id: current_op_id.cloned(),
+            current_dir: current_dir.to_owned(),
             build_fn_table,
             cache_extensions,
         }
@@ -104,6 +109,10 @@ impl TemplateLanguage<'static> for OperationTemplateLanguage {
 
     fn settings(&self) -> &UserSettings {
         self.repo_loader.settings()
+    }
+
+    fn current_dir(&self) -> &Path {
+        &self.current_dir
     }
 
     fn build_function(

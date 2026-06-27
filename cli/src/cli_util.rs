@@ -882,6 +882,11 @@ impl WorkspaceCommandEnvironment {
         &self.path_converter
     }
 
+    pub(crate) fn cwd(&self) -> &Path {
+        let RepoPathUiConverter::Fs { cwd, base: _ } = &self.path_converter;
+        cwd
+    }
+
     pub fn workspace_name(&self) -> &WorkspaceName {
         &self.workspace_name
     }
@@ -1889,6 +1894,7 @@ to the current parents may contain changes from multiple commits.
         OperationTemplateLanguage::new(
             self.workspace.repo_loader(),
             Some(self.repo().op_id()),
+            self.env.cwd(),
             self.env.operation_template_extensions(),
         )
     }

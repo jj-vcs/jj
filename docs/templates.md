@@ -428,6 +428,20 @@ The following methods are defined.
 * `.domain() -> String`: the part of the email after the first `@` or the empty
   string.
 
+### `FsPath` type
+
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+
+A filesystem path. Paths can contain bytes that are not valid UTF-8. Rendering
+and path formatting methods preserve those bytes. Serialization with `json()`
+follows Rust's `Path` serialization, which can reject non-UTF-8 paths.
+
+The following methods are defined.
+
+* `.absolute() -> FsPath`: Return an absolute filesystem path.
+* `.relative() -> FsPath`: Return the path relative to the current working
+  directory.
+
 ### `Integer` type
 
 _Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
