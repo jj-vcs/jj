@@ -79,7 +79,14 @@ pub fn is_colocated_git_workspace(workspace: &Workspace, repo: &ReadonlyRepo) ->
 }
 
 /// Parses user-specified remote URL or path to absolute form.
-pub fn absolute_git_url(cwd: &Path, source: &str) -> Result<String, CommandError> {
+///
+/// Returns both the serialized string (for passing to libgit2/the remote
+/// config) and the parsed [`gix::Url`]. The string preserves the original
+/// source as a utf-8 fallback when the canonicalized URL isn't valid utf-8,
+/// while the parsed [`gix::Url`] exposes the scheme and canonicalized path,
+/// which callers need to reason about local-path semantics (e.g. detecting a
+/// source/destination collision in `git clone`).
+pub fn absolute_git_url(cwd: &Path, source: &str) -> Result<(String, gix::Url), CommandError> {
     // Git appears to turn URL-like source to absolute path if local git directory
     // exits, and fails because '$PWD/https' is unsupported protocol. Since it would
     // be tedious to copy the exact git (or libgit2) behavior, we simply let gix
@@ -92,7 +99,9 @@ pub fn absolute_git_url(cwd: &Path, source: &str) -> Result<String, CommandError
         url.path = gix::path::to_unix_separators_on_windows(mem::take(&mut url.path)).into_owned();
     }
     // It's less likely that cwd isn't utf-8, so just fall back to original source.
-    Ok(String::from_utf8(url.to_bstring().into()).unwrap_or_else(|_| source.to_owned()))
+    let url_string =
+        String::from_utf8(url.to_bstring().into()).unwrap_or_else(|_| source.to_owned());
+    Ok((url_string, url))
 }
 
 /// Converts a git remote URL to a normalized HTTPS URL for web browsing.
@@ -602,11 +611,11 @@ mod tests {
 
         // Local path
         assert_eq!(
-            absolute_git_url(&cwd, "foo").unwrap(),
+            absolute_git_url(&cwd, "foo").unwrap().0,
             format!("{cwd_slash}/foo")
         );
         assert_eq!(
-            absolute_git_url(&cwd, r"foo\bar").unwrap(),
+            absolute_git_url(&cwd, r"foo\bar").unwrap().0,
             if cfg!(windows) {
                 format!("{cwd_slash}/foo/bar")
             } else {
@@ -614,40 +623,53 @@ mod tests {
             }
         );
         assert_eq!(
-            absolute_git_url(&cwd.join("bar"), &format!("{cwd_slash}/foo")).unwrap(),
+            absolute_git_url(&cwd.join("bar"), &format!("{cwd_slash}/foo"))
+                .unwrap()
+                .0,
             format!("{cwd_slash}/foo")
         );
 
         // rcp-like
         assert_eq!(
-            absolute_git_url(&cwd, "git@example.org:foo/bar.git").unwrap(),
+            absolute_git_url(&cwd, "git@example.org:foo/bar.git")
+                .unwrap()
+                .0,
             "git@example.org:foo/bar.git"
         );
         // URL
         assert_eq!(
-            absolute_git_url(&cwd, "https://example.org/foo.git").unwrap(),
+            absolute_git_url(&cwd, "https://example.org/foo.git")
+                .unwrap()
+                .0,
             "https://example.org/foo.git"
         );
         // Custom scheme isn't an error
         assert_eq!(
-            absolute_git_url(&cwd, "custom://example.org/foo.git").unwrap(),
+            absolute_git_url(&cwd, "custom://example.org/foo.git")
+                .unwrap()
+                .0,
             "custom://example.org/foo.git"
         );
         // Password shouldn't be redacted (gix::Url::to_string() would do)
         assert_eq!(
-            absolute_git_url(&cwd, "https://user:pass@example.org/").unwrap(),
+            absolute_git_url(&cwd, "https://user:pass@example.org/")
+                .unwrap()
+                .0,
             "https://user:pass@example.org/"
         );
 
         // %-encoded paths: %20 ' ', %25 '%'
         assert_eq!(
-            absolute_git_url(&cwd, "https://example.org/%20%25").unwrap(),
+            absolute_git_url(&cwd, "https://example.org/%20%25")
+                .unwrap()
+                .0,
             "https://example.org/%20%25"
         );
         // No exact match because "/" isn't an absolute path on Windows
         assert!(
             absolute_git_url(&cwd, "file:///%20%25")
                 .unwrap()
+                .0
                 .ends_with("/%20%25")
         );
     }

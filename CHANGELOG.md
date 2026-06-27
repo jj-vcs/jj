@@ -57,6 +57,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   remote's fetch URL or effective push URL.
   [#413](https://github.com/jj-vcs/jj/issues/413)
 
+* `jj git clone` now errors instead of silently creating an empty repository
+  when the destination resolves to the same local path as the source.
+  [#6918](https://github.com/jj-vcs/jj/issues/6918)
+
 * Fixed corrupt loose Git objects written through zlib-rs. Previously, jj could
   report a successful commit even though `git fsck` later failed with
   `incorrect data check`, `corrupt loose object`, or `missing blob`, and later

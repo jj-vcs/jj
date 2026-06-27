@@ -54,11 +54,11 @@ pub async fn cmd_git_remote_add(
     args: &GitRemoteAddArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui).await?;
-    let url = absolute_git_url(command.cwd(), &args.url)?;
+    let (url, _) = absolute_git_url(command.cwd(), &args.url)?;
     let push_url = args
         .push_url
         .as_deref()
-        .map(|url| absolute_git_url(command.cwd(), url))
+        .map(|url| absolute_git_url(command.cwd(), url).map(|(url, _)| url))
         .transpose()?;
 
     let mut tx = workspace_command.start_transaction();

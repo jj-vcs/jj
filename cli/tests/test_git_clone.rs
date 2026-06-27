@@ -435,6 +435,103 @@ fn test_git_clone_colocate() -> TestResult {
     Ok(())
 }
 
+// Regression test for https://github.com/jj-vcs/jj/issues/6918
+//
+// `jj git clone --colocate <nonexistent>` with no explicit destination infers a
+// destination equal to the (relative) source. With colocation a valid empty
+// top-level `.git` is created at that path *before* the fetch runs, so the
+// subsequent fetch reads from the empty repo jj just created and silently
+// produces an empty clone instead of erroring. jj should detect the
+// source==destination collision and error out.
+#[test]
+fn test_git_clone_colocate_self_collision() {
+    let test_env = TestEnvironment::default();
+    let root_dir = test_env.work_dir("");
+
+    // No such source repo exists, and no destination is given, so the
+    // destination is inferred to be `nonexistent`, i.e. the same path as the
+    // source. jj should refuse rather than clone an empty repo from the .git it
+    // just created at that path.
+    let output = root_dir.run_jj(["git", "clone", "--colocate", "nonexistent"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Destination directory was inferred from the source and is the same path: "nonexistent"; specify a destination explicitly
+    [EOF]
+    [exit status: 1]
+    "#);
+
+    // No empty repo should have been left behind.
+    assert!(!test_env.env_root().join("nonexistent").exists());
+}
+
+// An explicit destination that reaches the source through a symlink must not
+// defeat the self-collision guard. Here the source and destination are passed
+// as byte-identical absolute paths that include a symlink component (`link` ->
+// `real`), so the physical path differs from the logical one. The guard now
+// normalizes both sides through `absolute_git_url` (which symlink-resolves via
+// gix), so the collision is still detected. The earlier asymmetric comparison
+// (source symlink-resolved, destination only logically normalized) would have
+// let this slip through and silently produced an empty clone.
+#[cfg(unix)]
+#[test]
+fn test_git_clone_colocate_explicit_self_collision_through_symlink() {
+    let test_env = TestEnvironment::default();
+    let root_dir = test_env.work_dir("");
+    root_dir.create_dir("real");
+    std::os::unix::fs::symlink(
+        test_env.env_root().join("real"),
+        test_env.env_root().join("link"),
+    )
+    .unwrap();
+    // Absolute path reaching `real/foo` via the `link` symlink. Passed as BOTH
+    // the source and the (explicit) destination.
+    let via_link = test_env.env_root().join("link").join("foo");
+    let via_link = via_link.to_str().unwrap();
+    let output = root_dir.run_jj(["git", "clone", "--colocate", via_link, via_link]);
+    assert!(
+        output.stderr.raw().contains("is the same as the source"),
+        "explicit symlinked self-collision should be rejected: {}",
+        output.stderr.raw()
+    );
+    assert!(!output.status.success());
+    // No empty repo should have been left behind through the symlink.
+    assert!(!test_env.env_root().join("real").join("foo").exists());
+}
+
+// An explicit destination equal to the source (same path given twice) must be
+// rejected with the explicit-variant message.
+#[test]
+fn test_git_clone_colocate_explicit_self_collision() {
+    let test_env = TestEnvironment::default();
+    let root_dir = test_env.work_dir("");
+
+    let output = root_dir.run_jj(["git", "clone", "--colocate", "nonexistent", "nonexistent"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Destination directory is the same as the source: "nonexistent"
+    [EOF]
+    [exit status: 1]
+    "#);
+
+    // No empty repo should have been left behind.
+    assert!(!test_env.env_root().join("nonexistent").exists());
+}
+
+// The guard must stay silent when the inferred destination differs from the
+// source. `.` clones from the current directory but infers destination `.`
+// which resolves to a different name, so no false collision should fire.
+#[test]
+fn test_git_clone_colocate_no_false_collision() {
+    let test_env = TestEnvironment::default();
+    let root_dir = test_env.work_dir("");
+    let output = root_dir.run_jj(["git", "clone", "--colocate", "."]);
+    assert!(
+        !output.stderr.raw().contains("inferred from the source"),
+        "collision guard should not fire for `.`: {}",
+        output.stderr.raw()
+    );
+}
+
 #[test]
 fn test_git_clone_colocate_via_config() {
     let test_env = TestEnvironment::default();

@@ -168,13 +168,44 @@ pub async fn cmd_git_clone(
     if command.global_args().at_operation.is_some() {
         return Err(cli_error("--at-op is not respected"));
     }
-    let source = absolute_git_url(command.cwd(), &args.source)?;
+    let (source, source_url) = absolute_git_url(command.cwd(), &args.source)?;
     let wc_path_str = args
         .destination
         .as_deref()
         .or_else(|| clone_destination_for_source(&source))
         .ok_or_else(|| user_error("No destination specified and wasn't able to guess it"))?;
     let wc_path = command.cwd().join(wc_path_str);
+
+    // When no destination is given, it's inferred from the source. For a local
+    // source this can resolve to the same path as the source itself (#6918).
+    // With `--colocate` a valid empty `.git` is initialized at the destination
+    // *before* the fetch runs, so the fetch then reads from the empty repo we
+    // just created and silently produces an empty clone. Reject a local
+    // self-clone up front.
+    //
+    // Normalize *both* sides through `absolute_git_url` so the comparison uses
+    // identical canonicalization (gix resolves symlinks and applies unix
+    // separators on Windows). Comparing the parsed `gix::Url` paths avoids the
+    // earlier bug where the source was symlink-resolved but the destination was
+    // only logically normalized, letting an explicit destination that reaches
+    // the source through a symlink slip past the guard. Only `file:` paths can
+    // collide with a local destination. PUNTED: case-insensitive filesystem
+    // aliasing and ssh/remote self-clones are not detected here.
+    let (_, dest_url) = absolute_git_url(command.cwd(), wc_path_str)?;
+    if source_url.scheme == gix::url::Scheme::File
+        && dest_url.scheme == gix::url::Scheme::File
+        && source_url.path == dest_url.path
+    {
+        let message = if args.destination.is_some() {
+            format!("Destination directory is the same as the source: {wc_path_str:?}")
+        } else {
+            format!(
+                "Destination directory was inferred from the source and is the same path: \
+                 {wc_path_str:?}; specify a destination explicitly"
+            )
+        };
+        return Err(user_error(message));
+    }
 
     let wc_path_existed = wc_path.exists();
     if wc_path_existed && !file_util::is_empty_dir(&wc_path)? {
