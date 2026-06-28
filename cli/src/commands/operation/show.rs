@@ -14,12 +14,12 @@
 
 use clap_complete::ArgValueCandidates;
 use jj_lib::operation::Operation;
-use jj_lib::transaction::Transaction;
 
 use super::diff::parse_op_diff_changes_in;
 use super::diff::show_op_diff;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
+use crate::cli_util::merge_operations;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::diff_util::DiffFormatArgs;
@@ -90,8 +90,18 @@ pub async fn cmd_op_show(
     let settings = workspace_command.settings();
     let op = workspace_command.resolve_single_op(&args.operation)?;
     let parent_ops = op.parents().await?;
-    let merged_parent_op =
-        Transaction::merge_operations(repo_loader, parent_ops.clone(), None).await?;
+    let workspace_name = None;
+    let transaction_description = None;
+    let transaction_attributes = [];
+    let merged_parent_op = merge_operations(
+        None,
+        repo_loader,
+        parent_ops.clone(),
+        workspace_name,
+        transaction_description,
+        transaction_attributes,
+    )
+    .await?;
     let parent_repo = repo_loader.load_at(&merged_parent_op).await?;
     let repo = repo_loader.load_at(&op).await?;
 

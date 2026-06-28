@@ -766,14 +766,20 @@ impl RepoLoader {
         let op = op_heads_store::resolve_op_heads(
             self.op_heads_store.as_ref(),
             &self.op_store,
-            async |op_heads| {
-                assert!(!op_heads.is_empty());
-                Transaction::merge_operations(
+            async |op_heads| -> Result<Operation, RepoLoaderError> {
+                assert!(op_heads.len() > 1);
+                let workspace_name = None;
+                let transaction_description = Some("reconcile divergent operations");
+                let transaction_attributes = [];
+                let (merged_repo, _num_rebased) = Transaction::merge_operations(
                     self,
                     op_heads,
-                    Some("reconcile divergent operations"),
+                    workspace_name,
+                    transaction_description,
+                    transaction_attributes,
                 )
-                .await
+                .await?;
+                Ok(merged_repo.operation().clone())
             },
         )
         .await?;

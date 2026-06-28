@@ -26,6 +26,7 @@ use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
+use jj_lib::transaction::Transaction;
 use maplit::btreemap;
 use maplit::hashset;
 use pollster::FutureExt as _;
@@ -756,17 +757,23 @@ fn test_merge_views_criss_cross(op_b_first: bool) -> TestResult {
         (repo_b, repo_c)
     };
 
-    let mut tx_d = repo_b.start_transaction();
-    tx_d.merge_operation(repo_c.operation().clone())
-        .block_on()?;
-    tx_d.repo_mut().rebase_descendants().block_on()?;
-    let repo_d = tx_d.commit("D").block_on()?;
+    let (repo_d, _num_rebased) = Transaction::merge_operations(
+        repo_b.loader(),
+        vec![repo_b.operation().clone(), repo_c.operation().clone()],
+        None,
+        Some("D"),
+        [],
+    )
+    .block_on()?;
 
-    let mut tx_e = repo_b.start_transaction();
-    tx_e.merge_operation(repo_c.operation().clone())
-        .block_on()?;
-    tx_e.repo_mut().rebase_descendants().block_on()?;
-    let _repo_e = tx_e.commit("E").block_on()?;
+    let (_repo_e, _num_rebased) = Transaction::merge_operations(
+        repo_b.loader(),
+        vec![repo_b.operation().clone(), repo_c.operation().clone()],
+        None,
+        Some("E"),
+        [],
+    )
+    .block_on()?;
 
     let mut tx_f = repo_d.start_transaction();
     let commit_m = tx_f
