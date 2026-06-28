@@ -397,6 +397,9 @@
                             "underline": {
                                 "type": "boolean"
                             },
+                            "crossed-out": {
+                                "type": "boolean"
+                            },
                             "reverse": {
                                 "type": "boolean"
                             }

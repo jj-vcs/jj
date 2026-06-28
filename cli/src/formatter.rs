@@ -300,6 +300,7 @@ pub struct Style {
     pub dim: Option<bool>,
     pub italic: Option<bool>,
     pub underline: Option<bool>,
+    pub crossed_out: Option<bool>,
     pub reverse: Option<bool>,
 }
 
@@ -311,6 +312,7 @@ impl Style {
         self.dim = other.dim.or(self.dim);
         self.italic = other.italic.or(self.italic);
         self.underline = other.underline.or(self.underline);
+        self.crossed_out = other.crossed_out.or(self.crossed_out);
         self.reverse = other.reverse.or(self.reverse);
     }
 }
@@ -443,6 +445,13 @@ impl<W: Write> ColorFormatter<W> {
                     queue!(self.output, SetAttribute(Attribute::NoUnderline))?;
                 }
             }
+            if new_style.crossed_out != self.current_style.crossed_out {
+                if new_style.crossed_out.unwrap_or_default() {
+                    queue!(self.output, SetAttribute(Attribute::CrossedOut))?;
+                } else {
+                    queue!(self.output, SetAttribute(Attribute::NotCrossedOut))?;
+                }
+            }
             if new_style.reverse != self.current_style.reverse {
                 if new_style.reverse.unwrap_or_default() {
                     queue!(self.output, SetAttribute(Attribute::Reverse))?;
@@ -491,6 +500,7 @@ fn rules_from_config(config: &StackedConfig) -> Result<Rules, ConfigGetError> {
                         dim: None,
                         italic: None,
                         underline: None,
+                        crossed_out: None,
                         reverse: None,
                     })
                 } else if value.is_inline_table() {
@@ -1050,8 +1060,9 @@ mod tests {
         colors.dim_font = { dim = true }
         colors.italic_text = { italic = true }
         colors.underlined_text = { underline = true }
+        colors.crossed_out_text = { crossed-out = true }
         colors.reversed_colors = { reverse = true }
-        colors.multiple = { fg = "green", bg = "yellow", bold = true, italic = true, underline = true, reverse = true }
+        colors.multiple = { fg = "green", bg = "yellow", bold = true, italic = true, underline = true, crossed-out = true, reverse = true }
         "#,
         );
         let mut output: Vec<u8> = vec![];
@@ -1080,6 +1091,10 @@ mod tests {
         write!(formatter, " underlined only ")?;
         formatter.pop_label();
         writeln!(formatter)?;
+        formatter.push_label("crossed_out_text");
+        write!(formatter, " crossed-out only ")?;
+        formatter.pop_label();
+        writeln!(formatter)?;
         formatter.push_label("reversed_colors");
         write!(formatter, " reverse only ")?;
         formatter.pop_label();
@@ -1102,8 +1117,9 @@ mod tests {
         [2m dim only [0m
         [3m italic only [23m
         [4m underlined only [24m
+        [9m crossed-out only [29m
         [7m reverse only [27m
-        [1m[3m[4m[7m[38;5;2m[48;5;3m single rule [0m
+        [1m[3m[4m[9m[7m[38;5;2m[48;5;3m single rule [0m
         [38;5;1m[48;5;4m two rules [39m[49m
         [EOF]
         ");

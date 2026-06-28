@@ -51,6 +51,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Add a `forks()` revset function that yields all commits with more than 1 child.
 
+* `colors` config now supports crossed-out text styling with 
+  `{ crossed-out = true }`.
+
 ### Fixed bugs
 
 * On Windows, querying a path's file identity no longer follows symbolic links,
