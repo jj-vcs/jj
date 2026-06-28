@@ -1817,6 +1817,18 @@ fn test_git_push_conflict() {
     Nothing changed.
     [EOF]
     ");
+    work_dir
+        .run_jj(["git", "push", "--all", "--allow-conflicts"])
+        .success();
+    let origin_dir = test_env.work_dir("origin");
+    origin_dir.run_jj(["git", "import"]).success();
+    let output = origin_dir.run_jj(["log", "-r=my-bookmark"]);
+    insta::assert_snapshot!(output, @"
+    ×  yostqsxw test.user@example.com 2001-02-03 08:05:18 my-bookmark b96eaa9b (conflict)
+    │  third
+    ~
+    [EOF]
+    ");
 }
 
 #[test]
