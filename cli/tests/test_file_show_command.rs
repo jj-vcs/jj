@@ -122,11 +122,11 @@ fn test_show() {
     let output = work_dir.run_jj(["file", "show", "file1"]);
     insta::assert_snapshot!(output, @r"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from: rlvkpnrz fc7b369e (parents of rebased revision)
+    %%%%%%% diff from: ylvkpnrz cd1eb6f7 (parents of rebased revision)
     \\\\\\\        to: qpvuntsm eb7b8a1f (rebase destination)
     -b
     +a
-    +++++++ kmkuslsw f74f80c5 (rebased revision)
+    +++++++ wmkuslsw 51bb08e1 (rebased revision)
     c
     >>>>>>> conflict 1 of 1 ends
     [EOF]

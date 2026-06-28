@@ -87,7 +87,7 @@ fn test_report_conflicts() {
     let output = work_dir.run_jj(["new", "rlvkpnrzqnoo"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: vruxwmqv 94208127 (conflict) (empty) (no description set)
+    Working copy  (@) now at: uruxwmqv 7ca1fc76 (conflict) (empty) (no description set)
     Parent commit (@-)      : rlvkpnrz 894d709e (conflict) B
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
@@ -127,18 +127,18 @@ fn test_report_conflicts_with_divergent_commits() {
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
     Rebased 3 commits to destination
-    Working copy  (@) now at: zsuskuln/1 f3e2e0a2 (divergent) (conflict) C2
-    Parent commit (@-)      : kkmpptxz c6237d2f (conflict) B
+    Working copy  (@) now at: psuskuln/1 3b041d51 (divergent) (conflict) C2
+    Parent commit (@-)      : nkmpptxz f6781998 (conflict) B
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion
     New conflicts appeared in 3 commits:
-      zsuskuln/0 9432879f (divergent) (conflict) C3
-      zsuskuln/1 f3e2e0a2 (divergent) (conflict) C2
-      kkmpptxz c6237d2f (conflict) B
+      psuskuln/0 a0ddb9f2 (divergent) (conflict) C3
+      psuskuln/1 3b041d51 (divergent) (conflict) C2
+      nkmpptxz f6781998 (conflict) B
     Hint: To resolve the conflicts, start by creating a commit on top of
     the first conflicted commit:
-      jj new kkmpptxz
+      jj new nkmpptxz
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
@@ -149,8 +149,8 @@ fn test_report_conflicts_with_divergent_commits() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 3 commits to destination
-    Working copy  (@) now at: zsuskuln/1 27ef05d9 (divergent) C2
-    Parent commit (@-)      : kkmpptxz 9039ed49 B
+    Working copy  (@) now at: psuskuln/1 2eda3066 (divergent) C2
+    Parent commit (@-)      : nkmpptxz d275d6d3 B
     Added 0 files, modified 1 files, removed 0 files
     Existing conflicts were resolved or abandoned from 3 commits.
     [EOF]
@@ -161,16 +161,16 @@ fn test_report_conflicts_with_divergent_commits() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 commits to destination
-    Working copy  (@) now at: zsuskuln/0 aa95f2b1 (divergent) (conflict) C2
+    Working copy  (@) now at: psuskuln/0 3b964481 (divergent) (conflict) C2
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion
     New conflicts appeared in 1 commits:
-      zsuskuln/0 aa95f2b1 (divergent) (conflict) C2
+      psuskuln/0 3b964481 (divergent) (conflict) C2
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
-      jj new zsuskuln/0
+      jj new psuskuln/0
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
@@ -182,10 +182,10 @@ fn test_report_conflicts_with_divergent_commits() {
     ------- stderr -------
     Rebased 1 commits to destination
     New conflicts appeared in 1 commits:
-      zsuskuln/0 733a79ca (divergent) (conflict) C3
+      psuskuln/0 e54aa196 (divergent) (conflict) C3
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
-      jj new zsuskuln/0
+      jj new psuskuln/0
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
@@ -196,8 +196,8 @@ fn test_report_conflicts_with_divergent_commits() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 commits to destination
-    Working copy  (@) now at: zsuskuln/0 3fcf2fd2 (divergent) C2
-    Parent commit (@-)      : kkmpptxz 9039ed49 B
+    Working copy  (@) now at: psuskuln/0 2dc2bdd2 (divergent) C2
+    Parent commit (@-)      : nkmpptxz d275d6d3 B
     Added 0 files, modified 1 files, removed 0 files
     Existing conflicts were resolved or abandoned from 1 commits.
     [EOF]

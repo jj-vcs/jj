@@ -102,8 +102,8 @@ fn test_git_private_commits_block_pushing() {
     let output = work_dir.run_jj(["git", "push", "--all"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: Won't push bookmark main: commit 469f044473ed is private
-      znkkpsqq 469f0444 main* | (empty) private 1
+    Warning: Won't push bookmark main: commit f4a25aaf3e1f is private
+      pnkkpsqq f4a25aaf main* | (empty) private 1
     Hint: Configured git.private-commits: 'description('private*')'
     Warning: Won't push tag alpha: commit 69b30fdbc569 is private
       wqnwkozp 69b30fdb (empty) private 2
@@ -114,8 +114,8 @@ fn test_git_private_commits_block_pushing() {
     let output = work_dir.run_jj(["git", "push", "--tracked"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: Won't push bookmark main: commit 469f044473ed is private
-      znkkpsqq 469f0444 main* | (empty) private 1
+    Warning: Won't push bookmark main: commit f4a25aaf3e1f is private
+      pnkkpsqq f4a25aaf main* | (empty) private 1
     Hint: Configured git.private-commits: 'description('private*')'
     Warning: Won't push tag alpha: commit 69b30fdbc569 is private
       wqnwkozp 69b30fdb (empty) private 2
@@ -126,8 +126,8 @@ fn test_git_private_commits_block_pushing() {
     let output = work_dir.run_jj(["git", "push", "-rall()"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: Won't push bookmark main: commit 469f044473ed is private
-      znkkpsqq 469f0444 main* | (empty) private 1
+    Warning: Won't push bookmark main: commit f4a25aaf3e1f is private
+      pnkkpsqq f4a25aaf main* | (empty) private 1
     Hint: Configured git.private-commits: 'description('private*')'
     Warning: Won't push tag alpha: commit 69b30fdbc569 is private
       wqnwkozp 69b30fdb (empty) private 2
@@ -148,8 +148,8 @@ fn test_git_private_commits_block_pushing() {
     let output = work_dir.run_jj(["git", "push", "--bookmark=*"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Won't push commit 469f044473ed since it is private
-    Hint: Rejected commit: znkkpsqq 469f0444 main* | (empty) private 1
+    Error: Won't push commit f4a25aaf3e1f since it is private
+    Hint: Rejected commit: pnkkpsqq f4a25aaf main* | (empty) private 1
     Hint: Configured git.private-commits: 'description('private*')'
     [EOF]
     [exit status: 1]
@@ -170,8 +170,8 @@ fn test_git_private_commits_block_pushing() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      bookmark: main [move forward from 95cc152cd086 to 469f044473ed]
-      tag: alpha [move sideways from 95cc152cd086 to 69b30fdbc569]
+      bookmark: main [move forward from f9aeb61c0c99 to f4a25aaf3e1f]
+      tag: alpha [move sideways from f9aeb61c0c99 to 69b30fdbc569]
     [EOF]
     ");
 }
@@ -192,8 +192,8 @@ fn test_git_private_commits_can_be_overridden() {
     let output = work_dir.run_jj(["git", "push", "--all"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: Won't push bookmark main: commit 7f665ca27d4e is private
-      yqosqzyt 7f665ca2 main* | (empty) private 1
+    Warning: Won't push bookmark main: commit 89761bbdecdd is private
+      oqosqzyt 89761bbd main* | (empty) private 1
     Hint: Configured git.private-commits: 'description('private*')'
     Nothing changed.
     [EOF]
@@ -204,7 +204,7 @@ fn test_git_private_commits_can_be_overridden() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      bookmark: main [move forward from 95cc152cd086 to 7f665ca27d4e]
+      bookmark: main [move forward from f9aeb61c0c99 to 89761bbdecdd]
     [EOF]
     ");
 }
@@ -226,7 +226,7 @@ fn test_git_private_commits_are_not_checked_if_immutable() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      bookmark: main [move forward from 95cc152cd086 to 7f665ca27d4e]
+      bookmark: main [move forward from f9aeb61c0c99 to 89761bbdecdd]
     [EOF]
     ");
 }
@@ -252,8 +252,8 @@ fn test_git_private_commits_not_directly_in_line_block_pushing() {
     let output = work_dir.run_jj(["git", "push", "-b=bookmark1"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Won't push commit 613114f44bdd since it is private
-    Hint: Rejected commit: yqosqzyt 613114f4 (empty) private 1
+    Error: Won't push commit 9aa1d878c426 since it is private
+    Hint: Rejected commit: oqosqzyt 9aa1d878 (empty) private 1
     Hint: Configured git.private-commits: 'description('private*')'
     [EOF]
     [exit status: 1]
@@ -279,14 +279,14 @@ fn test_git_private_commits_descending_from_commits_pushed_do_not_block_pushing(
     let output = work_dir.run_jj(["git", "push", "--all"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: Won't push bookmark wip1: commit c3ad06b3e0ea is private
-      yostqsxw c3ad06b3 wip1 wip2 | (empty) private 1
+    Warning: Won't push bookmark wip1: commit 4416d66d320c is private
+      sostqsxw 4416d66d wip1 wip2 | (empty) private 1
     Hint: Configured git.private-commits: 'description('private*')'
-    Warning: Won't push bookmark wip2: commit c3ad06b3e0ea is private
-      yostqsxw c3ad06b3 wip1 wip2 | (empty) private 1
+    Warning: Won't push bookmark wip2: commit 4416d66d320c is private
+      sostqsxw 4416d66d wip1 wip2 | (empty) private 1
     Hint: Configured git.private-commits: 'description('private*')'
     Changes to push to origin:
-      bookmark: main [move forward from 95cc152cd086 to f0291dea729d]
+      bookmark: main [move forward from f9aeb61c0c99 to a774e9588ffe]
     [EOF]
     ");
 }
@@ -314,8 +314,8 @@ fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      bookmark: bookmark1 [add to 95cc152cd086]
-      bookmark: main [move forward from 95cc152cd086 to 03bc2bf271e0]
+      bookmark: bookmark1 [add to f9aeb61c0c99]
+      bookmark: main [move forward from f9aeb61c0c99 to 557549a012fb]
     [EOF]
     ");
 
@@ -329,7 +329,7 @@ fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      bookmark: bookmark1 [move forward from 95cc152cd086 to 03bc2bf271e0]
+      bookmark: bookmark1 [move forward from f9aeb61c0c99 to 557549a012fb]
     [EOF]
     ");
 
@@ -345,7 +345,7 @@ fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      bookmark: bookmark2 [add to 987ee765174d]
+      bookmark: bookmark2 [add to 5c477def4472]
     [EOF]
     ");
 }
@@ -369,7 +369,7 @@ fn test_git_private_commits_are_evaluated_separately_for_each_remote() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      bookmark: main [move forward from 95cc152cd086 to efa3666d00e4]
+      bookmark: main [move forward from f9aeb61c0c99 to 7b767b50ea89]
     [EOF]
     ");
 
@@ -380,8 +380,8 @@ fn test_git_private_commits_are_evaluated_separately_for_each_remote() {
     let output = work_dir.run_jj(["git", "push", "--remote=other", "-b=main"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Won't push commit a714fa972186 since it is private
-    Hint: Rejected commit: kpqxywon a714fa97 (empty) private 1
+    Error: Won't push commit cfdafd8c8d16 since it is private
+    Hint: Rejected commit: kpqxywon cfdafd8c (empty) private 1
     Hint: Configured git.private-commits: 'description('private*')'
     [EOF]
     [exit status: 1]

@@ -34,14 +34,15 @@ fn test_identical_commits() {
     // TODO: Should not fail
     insta::assert_snapshot!(work_dir.run_jj(["new", "root()", "-m=test"]), @"
     ------- stderr -------
-    Internal error: Unexpected error from backend
-    Caused by: Newly-created commit e94ed463cbb0776612e308eba2ecaae74a7f8a73 already exists
+    Working copy  (@) now at: xxmtprsl dfb66bee (empty) test
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
-    [exit status: 255]
     ");
     // There should be a single "test" commit
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  e94ed463cbb0 test
+    @  dfb66bee7ef3 test
+    │ ○  271040159836 test
+    ├─╯
     ◆  000000000000
     [EOF]
     ");
@@ -62,7 +63,7 @@ fn test_identical_commits_concurrently() {
         .success();
     // There should be a single "test2" commit
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  c5abd2256ac0 test2
+    @  36c77e6a69f6 test2
     ◆  000000000000
     [EOF]
     ------- stderr -------
@@ -85,17 +86,17 @@ fn test_identical_commits_by_cycling_rewrite() {
     insta::assert_snapshot!(work_dir.run_jj(["describe", "-m=test1"]), @"
     ------- stderr -------
     Internal error: Unexpected error from backend
-    Caused by: Newly-created commit 053222c21fa06b9492e22346f8f70e732231ad4f already exists
+    Caused by: Newly-created commit da532833b539c03f7bc6043cdbbe7e74e17f4031 already exists
     [EOF]
     [exit status: 255]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["evolog"]), @"
-    @  oxmtprsl test.user@example.com 2001-01-01 11:00:00 c5abd225
+    @  yxmtprsl test.user@example.com 2001-01-01 11:00:00 36c77e6a
     │  (empty) test2
-    │  -- operation f0e7f7b1629b describe commit 053222c21fa06b9492e22346f8f70e732231ad4f
-    ○  oxmtprsl/1 test.user@example.com 2001-01-01 11:00:00 053222c2 (hidden)
+    │  -- operation 4b462ee5d71e describe commit da532833b539c03f7bc6043cdbbe7e74e17f4031
+    ○  yxmtprsl/1 test.user@example.com 2001-01-01 11:00:00 da532833 (hidden)
        (empty) test1
-       -- operation 72d9ec4ca389 new empty commit
+       -- operation 161e6444330b new empty commit
     [EOF]
     ");
     // TODO: Test `jj op diff --from @--`
@@ -117,17 +118,19 @@ fn test_identical_commits_by_convergent_rewrite() {
     // TODO: Should not fail
     insta::assert_snapshot!(work_dir.run_jj(["describe", "-m=test3", "subject(test2)"]), @"
     ------- stderr -------
-    Internal error: Unexpected error from backend
-    Caused by: Newly-created commit 460733f1f6f9283d5a810b231dd3f846fd3a6f04 already exists
+    Working copy  (@) now at: xxmtprsl 50c2fa20 (empty) test3
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
-    [exit status: 255]
     ");
     // TODO: The "test3" commit should have either "test1" or "test2" as predecessor
     // (or both?)
     insta::assert_snapshot!(work_dir.run_jj(["evolog"]), @"
-    @  oxmtprsl/1 test.user@example.com 2001-01-01 11:00:00 c5abd225 (divergent)
+    @  xxmtprsl test.user@example.com 2001-01-01 11:00:00 50c2fa20
+    │  (empty) test3
+    │  -- operation d9f8db473dd0 describe commit 51ca84bd62397818d82ae3c9906094e5800c78bd
+    ○  xxmtprsl/1 test.user@example.com 2001-01-01 11:00:00 51ca84bd (hidden)
        (empty) test2
-       -- operation 2c0ac8f6dfb7 new empty commit
+       -- operation 1937456f2199 new empty commit
     [EOF]
     ");
 }
@@ -145,15 +148,15 @@ fn test_identical_commits_by_convergent_rewrite_one_operation() {
     // TODO: Should not fail
     insta::assert_snapshot!(work_dir.run_jj(["describe", "-m=test3", "root()+"]), @"
     ------- stderr -------
-    Internal error: Unexpected error from backend
-    Caused by: Newly-created commit 460733f1f6f9283d5a810b231dd3f846fd3a6f04 already exists
+    Updated 2 commits
+    Working copy  (@) now at: xxmtprsl 50c2fa20 (empty) test3
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
-    [exit status: 255]
     ");
     // TODO: There should be a single "test3" commit
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  c5abd2256ac0 test2
-    │ ○  053222c21fa0 test1
+    @  50c2fa209245 test3
+    │ ○  68dcc29a6927 test3
     ├─╯
     ◆  000000000000
     [EOF]
@@ -161,9 +164,12 @@ fn test_identical_commits_by_convergent_rewrite_one_operation() {
     // TODO: The "test3" commit should have either "test1" or "test2" as predecessor
     // (or both?)
     insta::assert_snapshot!(work_dir.run_jj(["evolog"]), @"
-    @  oxmtprsl/0 test.user@example.com 2001-01-01 11:00:00 c5abd225 (divergent)
+    @  xxmtprsl test.user@example.com 2001-01-01 11:00:00 50c2fa20
+    │  (empty) test3
+    │  -- operation be5088ecda76 describe commit 51ca84bd62397818d82ae3c9906094e5800c78bd and 1 more
+    ○  xxmtprsl/1 test.user@example.com 2001-01-01 11:00:00 51ca84bd (hidden)
        (empty) test2
-       -- operation 2c0ac8f6dfb7 new empty commit
+       -- operation 1937456f2199 new empty commit
     [EOF]
     ");
 }
@@ -180,37 +186,39 @@ fn test_identical_commits_swap_by_reordering() {
     work_dir.run_jj(["new", "-m=test"]).success();
     // Test the setup
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  5bae90c9b34d test
-    ○  e94ed463cbb0 test
+    @  10877c9de412 test
+    ○  271040159836 test
     ◆  000000000000
     [EOF]
     ");
     // TODO: Should not fail
     insta::assert_snapshot!(work_dir.run_jj(["rebase", "-r=@", "-B=@-"]), @"
     ------- stderr -------
-    Internal error: Unexpected error from backend
-    Caused by: Newly-created commit e94ed463cbb0776612e308eba2ecaae74a7f8a73 already exists
+    Rebased 1 commits to destination
+    Rebased 1 descendant commits
+    Working copy  (@) now at: xxmtprsl dfb66bee (empty) test
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
-    [exit status: 255]
     ");
     // There same two commits should still be visible
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  5bae90c9b34d test
-    ○  e94ed463cbb0 test
+    ○  852ad760b5c4 test
+    @  dfb66bee7ef3 test
     ◆  000000000000
     [EOF]
     ");
     // TODO: Each commit should be a predecessor of the other
     insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r=@"]), @"
-    @  oxmtprsl/0 test.user@example.com 2001-01-01 11:00:00 5bae90c9 (divergent)
+    @  xxmtprsl test.user@example.com 2001-01-01 11:00:00 dfb66bee
+    │  (empty) test
+    │  -- operation aa3cbe1cfd92 rebase commit 10877c9de412e62ba46641a702034170210162a0
+    ○  xxmtprsl/1 test.user@example.com 2001-01-01 11:00:00 10877c9d (hidden)
        (empty) test
-       -- operation 51fb079a7e7c new empty commit
+       -- operation 5b46434cebfd new empty commit
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r=@-"]), @"
-    ○  oxmtprsl/1 test.user@example.com 2001-01-01 11:00:00 e94ed463 (divergent)
-       (empty) test
-       -- operation 03fecb732164 new empty commit
+    ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
     // TODO: Test that `jj op show` displays something reasonable

@@ -304,6 +304,11 @@ impl JJRng {
         ChangeId::new(random_bytes)
     }
 
+    /// Returns a random index in `[0, len)`. Panics if `len == 0`.
+    pub fn random_index(&self, len: usize) -> usize {
+        self.0.lock().unwrap().random_range(0..len)
+    }
+
     /// Creates a new RNGs. Could be made public, but we'd like to encourage all
     /// RNGs references to point to the same RNG.
     fn new(seed: Option<u64>) -> Self {

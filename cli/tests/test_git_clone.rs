@@ -1191,7 +1191,7 @@ fn test_git_clone_malformed() {
     let output = clone_dir.run_jj(["status"]);
     insta::assert_snapshot!(output, @"
     The working copy has no changes.
-    Working copy  (@) : zsuskuln c2934cfb (empty) (no description set)
+    Working copy  (@) : psuskuln 78fad9fc (empty) (no description set)
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");

@@ -73,37 +73,37 @@ fn test_bisect_run() -> TestResult {
     std::fs::write(&bisection_script, ["fail"].join("\0"))?;
     insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @"
     Bisecting: 5 revisions left to test after this (roughly 3 steps)
-    Now evaluating: royxmykx dffaa0d4 c | c
-    fake-bisector testing commit dffaa0d4daccf6cee70bac3498fae3b3fd5d6b5b
+    Now evaluating: ooyxmykx 26c624f4 c | c
+    fake-bisector testing commit 26c624f4f2a7c2f9bc22924698172f94245aaa35
     The revision is bad.
 
     Bisecting: 2 revisions left to test after this (roughly 2 steps)
-    Now evaluating: rlvkpnrz 7d980be7 a | a
-    fake-bisector testing commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
+    Now evaluating: ylvkpnrz a1afb583 a | a
+    fake-bisector testing commit a1afb5834d8ee4dcb61b59db0f682c7a53f96f53
     The revision is bad.
 
     Search complete. To discard any revisions created during search, run:
-      jj op restore 6f4b9c7057b1
-    The first bad revision is: rlvkpnrz 7d980be7 a | a
+      jj op restore b4e8abf5e7b2
+    The first bad revision is: ylvkpnrz a1afb583 a | a
     [EOF]
     ------- stderr -------
-    Working copy  (@) now at: lylxulpl 68b3a16f (empty) (no description set)
-    Parent commit (@-)      : royxmykx dffaa0d4 c | c
+    Working copy  (@) now at: lylxulpl 0120f5b7 (empty) (no description set)
+    Parent commit (@-)      : ooyxmykx 26c624f4 c | c
     Added 0 files, modified 0 files, removed 3 files
-    Working copy  (@) now at: rsllmpnm 5f328bc5 (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Working copy  (@) now at: rsllmpnm 750510fa (empty) (no description set)
+    Parent commit (@-)      : ylvkpnrz a1afb583 a | a
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  rsllmpnmslon 5f328bc5fde0 '' files:
-    │ ○  kmkuslswpqwq 8b67af288466 'f' files: f
-    │ ○  znkkpsqqskkl 62d30ded0e8f 'e' files: e
-    │ ○  vruxwmqvtpmx 86be7a223919 'd' files: d
-    │ ○  royxmykxtrkr dffaa0d4dacc 'c' files: c
-    │ ○  zsuskulnrvyr 123b4d91f6e5 'b' files: b
+    @  rsllmpnmslon 750510fa4b31 '' files:
+    │ ○  wmkuslswpqwq dd4393d7d8e1 'f' files: f
+    │ ○  nnkkpsqqskkl 0cd0d3a4354b 'e' files: e
+    │ ○  truxwmqvtpmx e87eb7e7ce86 'd' files: d
+    │ ○  ooyxmykxtrkr 26c624f4f2a7 'c' files: c
+    │ ○  psuskulnrvyr dd148a1be8f0 'b' files: b
     ├─╯
-    ○  rlvkpnrzqnoo 7d980be7a1d4 'a' files: a
+    ○  ylvkpnrzqnoo a1afb5834d8e 'a' files: a
     ◆  zzzzzzzzzzzz 000000000000 '' files:
     [EOF]
     ");
@@ -113,23 +113,23 @@ fn test_bisect_run() -> TestResult {
     // Testing only stderr to avoid a variable op id in the stdout.
     insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", "--command", &bisector_path]).success().stderr, @"
     Warning: `--command` is deprecated; use positional arguments instead: `jj bisect run --range=... -- $FAKE_BISECTOR_PATH`
-    Working copy  (@) now at: nkmrtpmo 1601f7b4 (empty) (no description set)
-    Parent commit (@-)      : royxmykx dffaa0d4 c | c
+    Working copy  (@) now at: nkmrtpmo 959aed7c (empty) (no description set)
+    Parent commit (@-)      : ooyxmykx 26c624f4 c | c
     Added 2 files, modified 0 files, removed 0 files
-    Working copy  (@) now at: ruktrxxu fb9e625c (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Working copy  (@) now at: ruktrxxu fbf4b3a0 (empty) (no description set)
+    Parent commit (@-)      : ylvkpnrz a1afb583 a | a
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  ruktrxxusqqp fb9e625c1023 '' files:
-    │ ○  kmkuslswpqwq 8b67af288466 'f' files: f
-    │ ○  znkkpsqqskkl 62d30ded0e8f 'e' files: e
-    │ ○  vruxwmqvtpmx 86be7a223919 'd' files: d
-    │ ○  royxmykxtrkr dffaa0d4dacc 'c' files: c
-    │ ○  zsuskulnrvyr 123b4d91f6e5 'b' files: b
+    @  ruktrxxusqqp fbf4b3a025e8 '' files:
+    │ ○  wmkuslswpqwq dd4393d7d8e1 'f' files: f
+    │ ○  nnkkpsqqskkl 0cd0d3a4354b 'e' files: e
+    │ ○  truxwmqvtpmx e87eb7e7ce86 'd' files: d
+    │ ○  ooyxmykxtrkr 26c624f4f2a7 'c' files: c
+    │ ○  psuskulnrvyr dd148a1be8f0 'b' files: b
     ├─╯
-    ○  rlvkpnrzqnoo 7d980be7a1d4 'a' files: a
+    ○  ylvkpnrzqnoo a1afb5834d8e 'a' files: a
     ◆  zzzzzzzzzzzz 000000000000 '' files:
     [EOF]
     ");
@@ -153,37 +153,37 @@ fn test_bisect_run_find_first_good() {
 
     insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", "--find-good", &bisector_path]), @"
     Bisecting: 5 revisions left to test after this (roughly 3 steps)
-    Now evaluating: royxmykx dffaa0d4 c | c
-    fake-bisector testing commit dffaa0d4daccf6cee70bac3498fae3b3fd5d6b5b
+    Now evaluating: ooyxmykx 26c624f4 c | c
+    fake-bisector testing commit 26c624f4f2a7c2f9bc22924698172f94245aaa35
     The revision is good.
 
     Bisecting: 2 revisions left to test after this (roughly 2 steps)
-    Now evaluating: rlvkpnrz 7d980be7 a | a
-    fake-bisector testing commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
+    Now evaluating: ylvkpnrz a1afb583 a | a
+    fake-bisector testing commit a1afb5834d8ee4dcb61b59db0f682c7a53f96f53
     The revision is good.
 
     Search complete. To discard any revisions created during search, run:
-      jj op restore 6f4b9c7057b1
-    The first good revision is: rlvkpnrz 7d980be7 a | a
+      jj op restore b4e8abf5e7b2
+    The first good revision is: ylvkpnrz a1afb583 a | a
     [EOF]
     ------- stderr -------
-    Working copy  (@) now at: lylxulpl 68b3a16f (empty) (no description set)
-    Parent commit (@-)      : royxmykx dffaa0d4 c | c
+    Working copy  (@) now at: lylxulpl 0120f5b7 (empty) (no description set)
+    Parent commit (@-)      : ooyxmykx 26c624f4 c | c
     Added 0 files, modified 0 files, removed 3 files
-    Working copy  (@) now at: rsllmpnm 5f328bc5 (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Working copy  (@) now at: rsllmpnm 750510fa (empty) (no description set)
+    Parent commit (@-)      : ylvkpnrz a1afb583 a | a
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  rsllmpnmslon 5f328bc5fde0 '' files:
-    │ ○  kmkuslswpqwq 8b67af288466 'f' files: f
-    │ ○  znkkpsqqskkl 62d30ded0e8f 'e' files: e
-    │ ○  vruxwmqvtpmx 86be7a223919 'd' files: d
-    │ ○  royxmykxtrkr dffaa0d4dacc 'c' files: c
-    │ ○  zsuskulnrvyr 123b4d91f6e5 'b' files: b
+    @  rsllmpnmslon 750510fa4b31 '' files:
+    │ ○  wmkuslswpqwq dd4393d7d8e1 'f' files: f
+    │ ○  nnkkpsqqskkl 0cd0d3a4354b 'e' files: e
+    │ ○  truxwmqvtpmx e87eb7e7ce86 'd' files: d
+    │ ○  ooyxmykxtrkr 26c624f4f2a7 'c' files: c
+    │ ○  psuskulnrvyr dd148a1be8f0 'b' files: b
     ├─╯
-    ○  rlvkpnrzqnoo 7d980be7a1d4 'a' files: a
+    ○  ylvkpnrzqnoo a1afb5834d8e 'a' files: a
     ◆  zzzzzzzzzzzz 000000000000 '' files:
     [EOF]
     ");
@@ -206,11 +206,11 @@ fn test_bisect_run_missing_bisector() {
     if cfg!(unix) {
         insta::assert_snapshot!(output, @r"
         Bisecting: 5 revisions left to test after this (roughly 3 steps)
-        Now evaluating: royxmykx dffaa0d4 c | c
+        Now evaluating: ooyxmykx 26c624f4 c | c
         [EOF]
         ------- stderr -------
-        Working copy  (@) now at: lylxulpl 68b3a16f (empty) (no description set)
-        Parent commit (@-)      : royxmykx dffaa0d4 c | c
+        Working copy  (@) now at: lylxulpl 0120f5b7 (empty) (no description set)
+        Parent commit (@-)      : ooyxmykx 26c624f4 c | c
         Added 0 files, modified 0 files, removed 3 files
         Error: Failed to run evaluation command
         Caused by: No such file or directory (os error 2)
@@ -220,11 +220,11 @@ fn test_bisect_run_missing_bisector() {
     } else if cfg!(windows) {
         insta::assert_snapshot!(output, @"
         Bisecting: 5 revisions left to test after this (roughly 3 steps)
-        Now evaluating: royxmykx dffaa0d4 c | c
+        Now evaluating: ooyxmykx 26c624f4 c | c
         [EOF]
         ------- stderr -------
-        Working copy  (@) now at: lylxulpl 68b3a16f (empty) (no description set)
-        Parent commit (@-)      : royxmykx dffaa0d4 c | c
+        Working copy  (@) now at: lylxulpl 0120f5b7 (empty) (no description set)
+        Parent commit (@-)      : ooyxmykx 26c624f4 c | c
         Added 0 files, modified 0 files, removed 3 files
         Error: Failed to run evaluation command
         Caused by: program not found
@@ -251,45 +251,45 @@ fn test_bisect_run_with_args() {
 
     insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", "--find-good", "--", &bisector_path, "--require-file=c"]), @"
     Bisecting: 5 revisions left to test after this (roughly 3 steps)
-    Now evaluating: royxmykx dffaa0d4 c | c
-    fake-bisector testing commit dffaa0d4daccf6cee70bac3498fae3b3fd5d6b5b
+    Now evaluating: ooyxmykx 26c624f4 c | c
+    fake-bisector testing commit 26c624f4f2a7c2f9bc22924698172f94245aaa35
     The revision is good.
 
     Bisecting: 2 revisions left to test after this (roughly 2 steps)
-    Now evaluating: rlvkpnrz 7d980be7 a | a
-    fake-bisector testing commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
+    Now evaluating: ylvkpnrz a1afb583 a | a
+    fake-bisector testing commit a1afb5834d8ee4dcb61b59db0f682c7a53f96f53
     The revision is bad.
 
     Bisecting: 1 revisions left to test after this (roughly 1 steps)
-    Now evaluating: zsuskuln 123b4d91 b | b
-    fake-bisector testing commit 123b4d91f6e5e39bfed39bae3bacf9380dc79078
+    Now evaluating: psuskuln dd148a1b b | b
+    fake-bisector testing commit dd148a1be8f066ab36432210eec075e69aefef49
     The revision is bad.
 
     Search complete. To discard any revisions created during search, run:
-      jj op restore 6f4b9c7057b1
-    The first good revision is: royxmykx dffaa0d4 c | c
+      jj op restore b4e8abf5e7b2
+    The first good revision is: ooyxmykx 26c624f4 c | c
     [EOF]
     ------- stderr -------
-    Working copy  (@) now at: lylxulpl 68b3a16f (empty) (no description set)
-    Parent commit (@-)      : royxmykx dffaa0d4 c | c
+    Working copy  (@) now at: lylxulpl 0120f5b7 (empty) (no description set)
+    Parent commit (@-)      : ooyxmykx 26c624f4 c | c
     Added 0 files, modified 0 files, removed 3 files
-    Working copy  (@) now at: rsllmpnm 5f328bc5 (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Working copy  (@) now at: rsllmpnm 750510fa (empty) (no description set)
+    Parent commit (@-)      : ylvkpnrz a1afb583 a | a
     Added 0 files, modified 0 files, removed 2 files
-    Working copy  (@) now at: zqsquwqt 042badd2 (empty) (no description set)
-    Parent commit (@-)      : zsuskuln 123b4d91 b | b
+    Working copy  (@) now at: zqsquwqt d89179d3 (empty) (no description set)
+    Parent commit (@-)      : psuskuln dd148a1b b | b
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  zqsquwqtrvts 042badd28c1d '' files:
-    │ ○  kmkuslswpqwq 8b67af288466 'f' files: f
-    │ ○  znkkpsqqskkl 62d30ded0e8f 'e' files: e
-    │ ○  vruxwmqvtpmx 86be7a223919 'd' files: d
-    │ ○  royxmykxtrkr dffaa0d4dacc 'c' files: c
+    @  zqsquwqtrvts d89179d31512 '' files:
+    │ ○  wmkuslswpqwq dd4393d7d8e1 'f' files: f
+    │ ○  nnkkpsqqskkl 0cd0d3a4354b 'e' files: e
+    │ ○  truxwmqvtpmx e87eb7e7ce86 'd' files: d
+    │ ○  ooyxmykxtrkr 26c624f4f2a7 'c' files: c
     ├─╯
-    ○  zsuskulnrvyr 123b4d91f6e5 'b' files: b
-    ○  rlvkpnrzqnoo 7d980be7a1d4 'a' files: a
+    ○  psuskulnrvyr dd148a1be8f0 'b' files: b
+    ○  ylvkpnrzqnoo a1afb5834d8e 'a' files: a
     ◆  zzzzzzzzzzzz 000000000000 '' files:
     [EOF]
     ");
@@ -314,25 +314,25 @@ fn test_bisect_run_crash() -> TestResult {
     std::fs::write(&bisection_script, ["crash"].join("\0"))?;
     insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @"
     Bisecting: 5 revisions left to test after this (roughly 3 steps)
-    Now evaluating: royxmykx dffaa0d4 c | c
-    fake-bisector testing commit dffaa0d4daccf6cee70bac3498fae3b3fd5d6b5b
+    Now evaluating: ooyxmykx 26c624f4 c | c
+    fake-bisector testing commit 26c624f4f2a7c2f9bc22924698172f94245aaa35
     The revision is bad.
 
     Bisecting: 2 revisions left to test after this (roughly 2 steps)
-    Now evaluating: rlvkpnrz 7d980be7 a | a
-    fake-bisector testing commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
+    Now evaluating: ylvkpnrz a1afb583 a | a
+    fake-bisector testing commit a1afb5834d8ee4dcb61b59db0f682c7a53f96f53
     The revision is bad.
 
     Search complete. To discard any revisions created during search, run:
-      jj op restore 6f4b9c7057b1
-    The first bad revision is: rlvkpnrz 7d980be7 a | a
+      jj op restore b4e8abf5e7b2
+    The first bad revision is: ylvkpnrz a1afb583 a | a
     [EOF]
     ------- stderr -------
-    Working copy  (@) now at: lylxulpl 68b3a16f (empty) (no description set)
-    Parent commit (@-)      : royxmykx dffaa0d4 c | c
+    Working copy  (@) now at: lylxulpl 0120f5b7 (empty) (no description set)
+    Parent commit (@-)      : ooyxmykx 26c624f4 c | c
     Added 0 files, modified 0 files, removed 3 files
-    Working copy  (@) now at: rsllmpnm 5f328bc5 (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Working copy  (@) now at: rsllmpnm 750510fa (empty) (no description set)
+    Parent commit (@-)      : ylvkpnrz a1afb583 a | a
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -355,16 +355,16 @@ fn test_bisect_run_abort() -> TestResult {
     std::fs::write(&bisection_script, ["abort"].join("\0"))?;
     insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @"
     Bisecting: 2 revisions left to test after this (roughly 2 steps)
-    Now evaluating: rlvkpnrz 7d980be7 a | a
-    fake-bisector testing commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
+    Now evaluating: ylvkpnrz a1afb583 a | a
+    fake-bisector testing commit a1afb5834d8ee4dcb61b59db0f682c7a53f96f53
     Evaluation command returned 127 (command not found) - aborting bisection.
 
     Search complete. To discard any revisions created during search, run:
-      jj op restore e229f77ca8de
+      jj op restore ab395827f1de
     [EOF]
     ------- stderr -------
-    Working copy  (@) now at: vruxwmqv 538d9e7f (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Working copy  (@) now at: vruxwmqv 680590b7 (empty) (no description set)
+    Parent commit (@-)      : ylvkpnrz a1afb583 a | a
     Added 0 files, modified 0 files, removed 2 files
     Error: Bisection aborted
     [EOF]
@@ -388,17 +388,17 @@ fn test_bisect_run_skip() -> TestResult {
     std::fs::write(&bisection_script, ["skip"].join("\0"))?;
     insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @"
     Bisecting: 1 revisions left to test after this (roughly 1 steps)
-    Now evaluating: rlvkpnrz 7d980be7 a | a
-    fake-bisector testing commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
+    Now evaluating: ylvkpnrz a1afb583 a | a
+    fake-bisector testing commit a1afb5834d8ee4dcb61b59db0f682c7a53f96f53
     It could not be determined if the revision is good or bad.
 
     Search complete. To discard any revisions created during search, run:
-      jj op restore 07d6c9360663
-    The first bad revision is: zsuskuln 123b4d91 b | b
+      jj op restore ba9728ecc7c5
+    The first bad revision is: psuskuln dd148a1b b | b
     [EOF]
     ------- stderr -------
-    Working copy  (@) now at: royxmykx 2144134b (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Working copy  (@) now at: royxmykx ad414a38 (empty) (no description set)
+    Parent commit (@-)      : ylvkpnrz a1afb583 a | a
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -421,27 +421,27 @@ fn test_bisect_run_multiple_results() {
 
     insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=a|b|c|d", &bisector_path]), @"
     Bisecting: 2 revisions left to test after this (roughly 2 steps)
-    Now evaluating: rlvkpnrz 7d980be7 a | a
-    fake-bisector testing commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
+    Now evaluating: ylvkpnrz a1afb583 a | a
+    fake-bisector testing commit a1afb5834d8ee4dcb61b59db0f682c7a53f96f53
     The revision is good.
 
     Bisecting: 1 revisions left to test after this (roughly 1 steps)
-    Now evaluating: royxmykx 991a7501 c | c
-    fake-bisector testing commit 991a7501d660abb6a80e8b00f77c651d76d845d7
+    Now evaluating: ooyxmykx 45ee1acd c | c
+    fake-bisector testing commit 45ee1acd6076b9fb29763ef077fd51adfb3eee6c
     The revision is good.
 
     Search complete. To discard any revisions created during search, run:
-      jj op restore 854a7d496ee7
+      jj op restore 1967458ead7b
     The first bad revisions are:
-    vruxwmqv a2dbb1aa d | d
-    zsuskuln 123b4d91 b | b
+    truxwmqv 278414ea d | d
+    psuskuln dd148a1b b | b
     [EOF]
     ------- stderr -------
-    Working copy  (@) now at: znkkpsqq 1b117fe7 (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Working copy  (@) now at: znkkpsqq 88ec4f47 (empty) (no description set)
+    Parent commit (@-)      : ylvkpnrz a1afb583 a | a
     Added 0 files, modified 0 files, removed 2 files
-    Working copy  (@) now at: uuzqqzqu 6bf5f5e7 (empty) (no description set)
-    Parent commit (@-)      : royxmykx 991a7501 c | c
+    Working copy  (@) now at: uuzqqzqu d3f77fc4 (empty) (no description set)
+    Parent commit (@-)      : ooyxmykx 45ee1acd c | c
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -467,38 +467,38 @@ fn test_bisect_run_write_file() -> TestResult {
     )?;
     insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @"
     Bisecting: 4 revisions left to test after this (roughly 3 steps)
-    Now evaluating: zsuskuln 123b4d91 b | b
-    fake-bisector testing commit 123b4d91f6e5e39bfed39bae3bacf9380dc79078
+    Now evaluating: psuskuln dd148a1b b | b
+    fake-bisector testing commit dd148a1be8f066ab36432210eec075e69aefef49
     The revision is bad.
 
     Bisecting: 1 revisions left to test after this (roughly 1 steps)
-    Now evaluating: rlvkpnrz 7d980be7 a | a
-    fake-bisector testing commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
+    Now evaluating: ylvkpnrz a1afb583 a | a
+    fake-bisector testing commit a1afb5834d8ee4dcb61b59db0f682c7a53f96f53
     The revision is bad.
 
     Search complete. To discard any revisions created during search, run:
-      jj op restore 621116e08872
-    The first bad revision is: rlvkpnrz 7d980be7 a | a
+      jj op restore f4784f88004a
+    The first bad revision is: ylvkpnrz a1afb583 a | a
     [EOF]
     ------- stderr -------
-    Working copy  (@) now at: kmkuslsw 17e2a972 (empty) (no description set)
-    Parent commit (@-)      : zsuskuln 123b4d91 b | b
+    Working copy  (@) now at: kmkuslsw 1b61b030 (empty) (no description set)
+    Parent commit (@-)      : psuskuln dd148a1b b | b
     Added 0 files, modified 0 files, removed 3 files
-    Working copy  (@) now at: msksykpx 2f6e298d (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Working copy  (@) now at: msksykpx 27fab395 (empty) (no description set)
+    Parent commit (@-)      : ylvkpnrz a1afb583 a | a
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  msksykpxotkr 891aeb03b623 '' files: new-file
-    │ ○  kmkuslswpqwq 2bae881dc1bc '' files: new-file
-    │ │ ○  znkkpsqqskkl 62d30ded0e8f 'e' files: e
-    │ │ ○  vruxwmqvtpmx 86be7a223919 'd' files: d
-    │ │ ○  royxmykxtrkr dffaa0d4dacc 'c' files: c
+    @  msksykpxotkr b96eaf357888 '' files: new-file
+    │ ○  kmkuslswpqwq 8c70693e7499 '' files: new-file
+    │ │ ○  nnkkpsqqskkl 0cd0d3a4354b 'e' files: e
+    │ │ ○  truxwmqvtpmx e87eb7e7ce86 'd' files: d
+    │ │ ○  ooyxmykxtrkr 26c624f4f2a7 'c' files: c
     │ ├─╯
-    │ ○  zsuskulnrvyr 123b4d91f6e5 'b' files: b
+    │ ○  psuskulnrvyr dd148a1be8f0 'b' files: b
     ├─╯
-    ○  rlvkpnrzqnoo 7d980be7a1d4 'a' files: a
+    ○  ylvkpnrzqnoo a1afb5834d8e 'a' files: a
     ◆  zzzzzzzzzzzz 000000000000 '' files:
     [EOF]
     ");
@@ -507,10 +507,10 @@ fn test_bisect_run_write_file() -> TestResult {
     let output = work_dir.run_jj(["op", "log", "-n=5", "-T=description"]);
     insta::assert_snapshot!(output, @"
     @  snapshot working copy
-    ○  Updated to revision 7d980be7a1d499e4d316ab4c01242885032f7eaf for bisection
+    ○  Updated to revision a1afb5834d8ee4dcb61b59db0f682c7a53f96f53 for bisection
     ○  snapshot working copy
-    ○  Updated to revision 123b4d91f6e5e39bfed39bae3bacf9380dc79078 for bisection
-    ○  create bookmark e pointing to commit 62d30ded0e8fdf8cf87012e6223898b97977fc8e
+    ○  Updated to revision dd148a1be8f066ab36432210eec075e69aefef49 for bisection
+    ○  create bookmark e pointing to commit 0cd0d3a4354bd9ae486b7bf7bca0c04de119ba94
     [EOF]
     ");
     Ok(())
@@ -533,44 +533,44 @@ fn test_bisect_run_jj_command() -> TestResult {
     std::fs::write(&bisection_script, ["jj new -mtesting", "fail"].join("\0"))?;
     insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @"
     Bisecting: 4 revisions left to test after this (roughly 3 steps)
-    Now evaluating: zsuskuln 123b4d91 b | b
-    fake-bisector testing commit 123b4d91f6e5e39bfed39bae3bacf9380dc79078
+    Now evaluating: psuskuln dd148a1b b | b
+    fake-bisector testing commit dd148a1be8f066ab36432210eec075e69aefef49
     The revision is bad.
 
     Bisecting: 1 revisions left to test after this (roughly 1 steps)
-    Now evaluating: rlvkpnrz 7d980be7 a | a
-    fake-bisector testing commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
+    Now evaluating: ylvkpnrz a1afb583 a | a
+    fake-bisector testing commit a1afb5834d8ee4dcb61b59db0f682c7a53f96f53
     The revision is bad.
 
     Search complete. To discard any revisions created during search, run:
-      jj op restore 621116e08872
-    The first bad revision is: rlvkpnrz 7d980be7 a | a
+      jj op restore f4784f88004a
+    The first bad revision is: ylvkpnrz a1afb583 a | a
     [EOF]
     ------- stderr -------
-    Working copy  (@) now at: kmkuslsw 17e2a972 (empty) (no description set)
-    Parent commit (@-)      : zsuskuln 123b4d91 b | b
+    Working copy  (@) now at: kmkuslsw 1b61b030 (empty) (no description set)
+    Parent commit (@-)      : psuskuln dd148a1b b | b
     Added 0 files, modified 0 files, removed 3 files
-    Working copy  (@) now at: kmkuslsw/0 55b3b4a8 (divergent) (empty) testing
-    Parent commit (@-)      : kmkuslsw/1 17e2a972 (divergent) (empty) (no description set)
-    Working copy  (@) now at: msksykpx 2f6e298d (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Working copy  (@) now at: wmkuslsw 9f916afb (empty) testing
+    Parent commit (@-)      : kmkuslsw 1b61b030 (empty) (no description set)
+    Working copy  (@) now at: msksykpx 27fab395 (empty) (no description set)
+    Parent commit (@-)      : ylvkpnrz a1afb583 a | a
     Added 0 files, modified 0 files, removed 1 files
-    Working copy  (@) now at: kmkuslsw/0 2f80658c (divergent) (empty) testing
-    Parent commit (@-)      : msksykpx 2f6e298d (empty) (no description set)
+    Working copy  (@) now at: xmkuslsw 5acfc6c3 (empty) testing
+    Parent commit (@-)      : msksykpx 27fab395 (empty) (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  kmkuslswpqwq 2f80658c4d26 'testing' files:
-    ○  msksykpxotkr 2f6e298d59bd '' files:
-    │ ○  kmkuslswpqwq 55b3b4a8b253 'testing' files:
-    │ ○  kmkuslswpqwq 17e2a9721f61 '' files:
-    │ │ ○  znkkpsqqskkl 62d30ded0e8f 'e' files: e
-    │ │ ○  vruxwmqvtpmx 86be7a223919 'd' files: d
-    │ │ ○  royxmykxtrkr dffaa0d4dacc 'c' files: c
+    @  xmkuslswpqwq 5acfc6c308c2 'testing' files:
+    ○  msksykpxotkr 27fab395ffae '' files:
+    │ ○  wmkuslswpqwq 9f916afb1c77 'testing' files:
+    │ ○  kmkuslswpqwq 1b61b030fef0 '' files:
+    │ │ ○  nnkkpsqqskkl 0cd0d3a4354b 'e' files: e
+    │ │ ○  truxwmqvtpmx e87eb7e7ce86 'd' files: d
+    │ │ ○  ooyxmykxtrkr 26c624f4f2a7 'c' files: c
     │ ├─╯
-    │ ○  zsuskulnrvyr 123b4d91f6e5 'b' files: b
+    │ ○  psuskulnrvyr dd148a1be8f0 'b' files: b
     ├─╯
-    ○  rlvkpnrzqnoo 7d980be7a1d4 'a' files: a
+    ○  ylvkpnrzqnoo a1afb5834d8e 'a' files: a
     ◆  zzzzzzzzzzzz 000000000000 '' files:
     [EOF]
     ");
@@ -579,10 +579,10 @@ fn test_bisect_run_jj_command() -> TestResult {
     let output = work_dir.run_jj(["op", "log", "-n=5", "-T=description"]);
     insta::assert_snapshot!(output, @"
     @  new empty commit
-    ○  Updated to revision 7d980be7a1d499e4d316ab4c01242885032f7eaf for bisection
+    ○  Updated to revision a1afb5834d8ee4dcb61b59db0f682c7a53f96f53 for bisection
     ○  new empty commit
-    ○  Updated to revision 123b4d91f6e5e39bfed39bae3bacf9380dc79078 for bisection
-    ○  create bookmark e pointing to commit 62d30ded0e8fdf8cf87012e6223898b97977fc8e
+    ○  Updated to revision dd148a1be8f066ab36432210eec075e69aefef49 for bisection
+    ○  create bookmark e pointing to commit 0cd0d3a4354bd9ae486b7bf7bca0c04de119ba94
     [EOF]
     ");
     Ok(())

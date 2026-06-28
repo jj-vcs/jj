@@ -259,15 +259,15 @@ fn test_git_import_move_export_with_default_undo() -> TestResult {
         .run_jj(["bookmark", "set", "a", "--to=@"])
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
-    a: royxmykx e7d0d5fd (empty) (no description set)
+    a: poyxmykx 201a61cf (empty) (no description set)
       @git (behind by 1 commits): qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["git", "export"]);
     insta::assert_snapshot!(output, @"");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
-    a: royxmykx e7d0d5fd (empty) (no description set)
-      @git: royxmykx e7d0d5fd (empty) (no description set)
+    a: poyxmykx 201a61cf (empty) (no description set)
+      @git: poyxmykx 201a61cf (empty) (no description set)
     [EOF]
     ");
 
@@ -288,7 +288,7 @@ fn test_git_import_move_export_with_default_undo() -> TestResult {
         (
             "refs/heads/a",
             CommitId(
-                "e7d0d5fdaf96051d0dacec1e74d9413d64a15822",
+                "201a61cfa7b2f86564cfa517af7ef85ffae07b76",
             ),
         ),
     ]
@@ -303,8 +303,8 @@ fn test_git_import_move_export_with_default_undo() -> TestResult {
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
-    a: royxmykx e7d0d5fd (empty) (no description set)
-      @git: royxmykx e7d0d5fd (empty) (no description set)
+    a: poyxmykx 201a61cf (empty) (no description set)
+      @git: poyxmykx 201a61cf (empty) (no description set)
     [EOF]
     ");
     Ok(())

@@ -38,6 +38,7 @@ use crate::revset::RevsetResolutionError;
 use crate::revset::SymbolResolver;
 use crate::revset::SymbolResolverExtension;
 use crate::revset::UserRevsetExpression;
+use crate::settings::JJRng;
 use crate::view::View;
 
 #[derive(Debug, Error)]
@@ -277,6 +278,25 @@ impl IdPrefixIndex<'_> {
         }
         repo.shortest_unique_change_id_prefix_len(change_id)
     }
+
+    /// Generates a change-ID whose prefix doesn't collide with any
+    /// existing change-ID in the disambiguation set. Uses a multi-level
+    /// bitset to find a free prefix at the shortest possible length.
+    pub fn generate_new_change_id(&self, rng: &JJRng, length: usize) -> ChangeId {
+        let prefixes: Vec<[u8; 2]> = self
+            .indexes
+            .iter()
+            .flat_map(|indexes| {
+                indexes.commit_change_ids.iter().map(|(_, change_id)| {
+                    let bytes = change_id.as_bytes();
+                    [bytes[0], bytes[1]]
+                })
+            })
+            .collect();
+        let mut bytes = rng.new_change_id(length).to_bytes();
+        find_free_prefix(&mut bytes, &prefixes, rng);
+        ChangeId::new(bytes)
+    }
 }
 
 fn disambiguate_prefix_with_refs(view: &View, id_sym: &str, min_len: usize) -> usize {
@@ -292,6 +312,52 @@ fn disambiguate_prefix_with_refs(view: &View, id_sym: &str, min_len: usize) -> u
         // No need to test conflicts with the full ID. We have to return some
         // valid length anyway.
         .unwrap_or(id_sym.len())
+}
+
+pub(crate) fn prefix_key(bytes: &[u8], len: usize) -> usize {
+    let mut val = 0usize;
+    for i in 0..len {
+        let byte_idx = i / 2;
+        let digit = if i % 2 == 0 {
+            bytes[byte_idx] >> 4
+        } else {
+            bytes[byte_idx] & 0x0f
+        };
+        val = (val << 4) | (digit as usize);
+    }
+    val
+}
+
+/// Modifies the leading hex digits of `bytes` to avoid collision with any
+/// prefix in `prefixes`. Picks uniformly at random among free slots at
+/// the shortest available prefix length (1-4). If all slots are exhausted
+/// at every length, leaves `bytes` unchanged.
+pub(crate) fn find_free_prefix(bytes: &mut [u8], prefixes: &[[u8; 2]], rng: &JJRng) {
+    for len in 1..=4 {
+        let slots: usize = 1usize << (4 * len);
+        let mut taken = vec![false; slots];
+        for p in prefixes {
+            taken[prefix_key(p, len)] = true;
+        }
+        let free: Vec<usize> = (0..slots).filter(|&i| !taken[i]).collect();
+        if !free.is_empty() {
+            let val = free[rng.random_index(free.len())];
+            encode_prefix(bytes, len, val);
+            return;
+        }
+    }
+}
+
+pub(crate) fn encode_prefix(bytes: &mut [u8], len: usize, val: usize) {
+    for i in 0..len {
+        let digit = (val >> (4 * (len - 1 - i))) & 0xf;
+        let byte_idx = i / 2;
+        if i % 2 == 0 {
+            bytes[byte_idx] = (bytes[byte_idx] & 0x0f) | ((digit as u8) << 4);
+        } else {
+            bytes[byte_idx] = (bytes[byte_idx] & 0xf0) | (digit as u8);
+        }
+    }
 }
 
 /// In-memory immutable index to do prefix lookup of key `K` through `P`.

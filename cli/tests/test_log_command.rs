@@ -177,7 +177,7 @@ fn test_log_with_or_without_diff() {
     // `-G` is the short name of --no-graph
     let output = work_dir.run_jj(["log", "-T", r#"commit_id.short() ++ "\n""#, "-G"]);
     insta::assert_snapshot!(output, @"
-    58c940c45833
+    432d7823bbf4
     007859d3ad71
     000000000000
     [EOF]
@@ -488,15 +488,15 @@ fn test_log_shortest_accessors() {
 
     insta::assert_snapshot!(
         render("::@", r#"change_id.shortest() ++ " " ++ commit_id.shortest() ++ "\n""#), @"
-    wq c2
-    km 74
-    kp 97
-    zn 78
-    yo 40
-    vr bc9
-    yq 28
-    ro af
-    mz 04
+    wq 12
+    ym 21
+    kp 02
+    rn b4
+    so ab2
+    ur 57
+    nq 46
+    oo d9
+    pz 427
     qpv 82
     zzz 00
     [EOF]
@@ -504,15 +504,15 @@ fn test_log_shortest_accessors() {
 
     insta::assert_snapshot!(
         render("::@", r#"format_id(change_id) ++ " " ++ format_id(commit_id) ++ "\n""#), @"
-    wq[nwkozpkust] c2[b4c0bb3362]
-    km[kuslswpqwq] 74[fcd50c0643]
-    kp[qxywonksrl] 97[dcaada9b8d]
-    zn[kkpsqqskkl] 78[c03ab2235b]
-    yo[stqsxwqrlt] 40[1119280761]
-    vr[uxwmqvtpmx] bc9[e8942b459]
-    yq[osqzytrlsw] 28[edbc9658ef]
-    ro[yxmykxtrkr] af[3e6a27a1d0]
-    mz[vwutvlkqwt] 04[6c6a1df762]
+    wq[nwkozpkust] 12[e1f454fa3b]
+    ym[kuslswpqwq] 21[c77e28c563]
+    kp[qxywonksrl] 02[750769a49e]
+    rn[kkpsqqskkl] b4[276b7bb100]
+    so[stqsxwqrlt] ab2[72148812b]
+    ur[uxwmqvtpmx] 57[d01027f6f5]
+    nq[osqzytrlsw] 46[f55119533b]
+    oo[yxmykxtrkr] d9[ff104305ca]
+    pz[vwutvlkqwt] 427[cc156acbe]
     qpv[untsmwlqt] 82[16f646c36d]
     zzz[zzzzzzzzz] 00[0000000000]
     [EOF]
@@ -522,15 +522,15 @@ fn test_log_shortest_accessors() {
     test_env.add_config(r#"revsets.short-prefixes = "(@----)::""#);
     insta::assert_snapshot!(
         render("::@", r#"format_id(change_id) ++ " " ++ format_id(commit_id) ++ "\n""#), @"
-    w[qnwkozpkust] c[2b4c0bb3362]
-    km[kuslswpqwq] 74[fcd50c0643]
-    kp[qxywonksrl] 9[7dcaada9b8d]
-    z[nkkpsqqskkl] 78[c03ab2235b]
-    y[ostqsxwqrlt] 4[01119280761]
-    vr[uxwmqvtpmx] bc9[e8942b459]
-    yq[osqzytrlsw] 28[edbc9658ef]
-    ro[yxmykxtrkr] af[3e6a27a1d0]
-    mz[vwutvlkqwt] 04[6c6a1df762]
+    w[qnwkozpkust] 1[2e1f454fa3b]
+    y[mkuslswpqwq] 2[1c77e28c563]
+    k[pqxywonksrl] 0[2750769a49e]
+    r[nkkpsqqskkl] b[4276b7bb100]
+    s[ostqsxwqrlt] a[b272148812b]
+    ur[uxwmqvtpmx] 57[d01027f6f5]
+    nq[osqzytrlsw] 46[f55119533b]
+    oo[yxmykxtrkr] d9[ff104305ca]
+    pz[vwutvlkqwt] 427[cc156acbe]
     qpv[untsmwlqt] 82[16f646c36d]
     zzz[zzzzzzzzz] 00[0000000000]
     [EOF]
@@ -540,15 +540,15 @@ fn test_log_shortest_accessors() {
     test_env.add_config(r#"revsets.short-prefixes = """#);
     insta::assert_snapshot!(
         render("::@", r#"format_id(change_id) ++ " " ++ format_id(commit_id) ++ "\n""#), @"
-    wq[nwkozpkust] c2[b4c0bb3362]
-    km[kuslswpqwq] 74[fcd50c0643]
-    kp[qxywonksrl] 97[dcaada9b8d]
-    zn[kkpsqqskkl] 78[c03ab2235b]
-    yo[stqsxwqrlt] 401[119280761]
-    vr[uxwmqvtpmx] bc9[e8942b459]
-    yq[osqzytrlsw] 28[edbc9658ef]
-    ro[yxmykxtrkr] af[3e6a27a1d0]
-    mz[vwutvlkqwt] 04[6c6a1df762]
+    wq[nwkozpkust] 12[e1f454fa3b]
+    ym[kuslswpqwq] 21[c77e28c563]
+    kp[qxywonksrl] 02[750769a49e]
+    rn[kkpsqqskkl] b42[76b7bb100]
+    so[stqsxwqrlt] ab2[72148812b]
+    ur[uxwmqvtpmx] 57[d01027f6f5]
+    nq[osqzytrlsw] 46[f55119533b]
+    oo[yxmykxtrkr] d9[ff104305ca]
+    pz[vwutvlkqwt] 427[cc156acbe]
     qpv[untsmwlqt] 82[16f646c36d]
     zzz[zzzzzzzzz] 00[0000000000]
     [EOF]
@@ -685,15 +685,15 @@ fn test_log_prefix_highlight_styled() {
         &prefix_format(Some(12)),
     ]);
     insta::assert_snapshot!(output, @"
-    [1m[38;5;2m@[0m  Change [1m[38;5;5mwq[0m[38;5;8mnwkozpkust[39m commit9 [1m[38;5;4mc2[0m[38;5;8mb4c0bb3362[39m
-    ○  Change [1m[38;5;5mkm[0m[38;5;8mkuslswpqwq[39m commit8 [1m[38;5;4m74[0m[38;5;8mfcd50c0643[39m
-    ○  Change [1m[38;5;5mkp[0m[38;5;8mqxywonksrl[39m commit7 [1m[38;5;4m97[0m[38;5;8mdcaada9b8d[39m
-    ○  Change [1m[38;5;5mzn[0m[38;5;8mkkpsqqskkl[39m commit6 [1m[38;5;4m78[0m[38;5;8mc03ab2235b[39m
-    ○  Change [1m[38;5;5myo[0m[38;5;8mstqsxwqrlt[39m commit5 [1m[38;5;4m40[0m[38;5;8m1119280761[39m
-    ○  Change [1m[38;5;5mvr[0m[38;5;8muxwmqvtpmx[39m commit4 [1m[38;5;4mbc9[0m[38;5;8me8942b459[39m
-    ○  Change [1m[38;5;5myq[0m[38;5;8mosqzytrlsw[39m commit3 [1m[38;5;4m28[0m[38;5;8medbc9658ef[39m
-    ○  Change [1m[38;5;5mro[0m[38;5;8myxmykxtrkr[39m commit2 [1m[38;5;4maf[0m[38;5;8m3e6a27a1d0[39m
-    ○  Change [1m[38;5;5mmz[0m[38;5;8mvwutvlkqwt[39m commit1 [1m[38;5;4m04[0m[38;5;8m6c6a1df762[39m
+    [1m[38;5;2m@[0m  Change [1m[38;5;5mwq[0m[38;5;8mnwkozpkust[39m commit9 [1m[38;5;4m12[0m[38;5;8me1f454fa3b[39m
+    ○  Change [1m[38;5;5mym[0m[38;5;8mkuslswpqwq[39m commit8 [1m[38;5;4m21[0m[38;5;8mc77e28c563[39m
+    ○  Change [1m[38;5;5mkp[0m[38;5;8mqxywonksrl[39m commit7 [1m[38;5;4m02[0m[38;5;8m750769a49e[39m
+    ○  Change [1m[38;5;5mrn[0m[38;5;8mkkpsqqskkl[39m commit6 [1m[38;5;4mb4[0m[38;5;8m276b7bb100[39m
+    ○  Change [1m[38;5;5mso[0m[38;5;8mstqsxwqrlt[39m commit5 [1m[38;5;4mab2[0m[38;5;8m72148812b[39m
+    ○  Change [1m[38;5;5mur[0m[38;5;8muxwmqvtpmx[39m commit4 [1m[38;5;4m57[0m[38;5;8md01027f6f5[39m
+    ○  Change [1m[38;5;5mnq[0m[38;5;8mosqzytrlsw[39m commit3 [1m[38;5;4m46[0m[38;5;8mf55119533b[39m
+    ○  Change [1m[38;5;5moo[0m[38;5;8myxmykxtrkr[39m commit2 [1m[38;5;4md9[0m[38;5;8mff104305ca[39m
+    ○  Change [1m[38;5;5mpz[0m[38;5;8mvwutvlkqwt[39m commit1 [1m[38;5;4m427[0m[38;5;8mcc156acbe[39m
     ○  Change [1m[38;5;5mqpv[0m[38;5;8muntsmwlqt[39m initial [1m[38;5;4m82[0m[38;5;8m16f646c36d[39m [38;5;5moriginal[39m
     [1m[38;5;14m◆[0m  Change [1m[38;5;5mzzz[0m[38;5;8mzzzzzzzzz[39m [1m[38;5;4m00[0m[38;5;8m0000000000[39m
     [EOF]
@@ -707,15 +707,15 @@ fn test_log_prefix_highlight_styled() {
         &prefix_format(Some(3)),
     ]);
     insta::assert_snapshot!(output, @"
-    [1m[38;5;2m@[0m  Change [1m[38;5;5mwq[0m[38;5;8mn[39m commit9 [1m[38;5;4mc2[0m[38;5;8mb[39m
-    ○  Change [1m[38;5;5mkm[0m[38;5;8mk[39m commit8 [1m[38;5;4m74[0m[38;5;8mf[39m
-    ○  Change [1m[38;5;5mkp[0m[38;5;8mq[39m commit7 [1m[38;5;4m97[0m[38;5;8md[39m
-    ○  Change [1m[38;5;5mzn[0m[38;5;8mk[39m commit6 [1m[38;5;4m78[0m[38;5;8mc[39m
-    ○  Change [1m[38;5;5myo[0m[38;5;8ms[39m commit5 [1m[38;5;4m40[0m[38;5;8m1[39m
-    ○  Change [1m[38;5;5mvr[0m[38;5;8mu[39m commit4 [1m[38;5;4mbc9[0m
-    ○  Change [1m[38;5;5myq[0m[38;5;8mo[39m commit3 [1m[38;5;4m28[0m[38;5;8me[39m
-    ○  Change [1m[38;5;5mro[0m[38;5;8my[39m commit2 [1m[38;5;4maf[0m[38;5;8m3[39m
-    ○  Change [1m[38;5;5mmz[0m[38;5;8mv[39m commit1 [1m[38;5;4m04[0m[38;5;8m6[39m
+    [1m[38;5;2m@[0m  Change [1m[38;5;5mwq[0m[38;5;8mn[39m commit9 [1m[38;5;4m12[0m[38;5;8me[39m
+    ○  Change [1m[38;5;5mym[0m[38;5;8mk[39m commit8 [1m[38;5;4m21[0m[38;5;8mc[39m
+    ○  Change [1m[38;5;5mkp[0m[38;5;8mq[39m commit7 [1m[38;5;4m02[0m[38;5;8m7[39m
+    ○  Change [1m[38;5;5mrn[0m[38;5;8mk[39m commit6 [1m[38;5;4mb4[0m[38;5;8m2[39m
+    ○  Change [1m[38;5;5mso[0m[38;5;8ms[39m commit5 [1m[38;5;4mab2[0m
+    ○  Change [1m[38;5;5mur[0m[38;5;8mu[39m commit4 [1m[38;5;4m57[0m[38;5;8md[39m
+    ○  Change [1m[38;5;5mnq[0m[38;5;8mo[39m commit3 [1m[38;5;4m46[0m[38;5;8mf[39m
+    ○  Change [1m[38;5;5moo[0m[38;5;8my[39m commit2 [1m[38;5;4md9[0m[38;5;8mf[39m
+    ○  Change [1m[38;5;5mpz[0m[38;5;8mv[39m commit1 [1m[38;5;4m427[0m
     ○  Change [1m[38;5;5mqpv[0m initial [1m[38;5;4m82[0m[38;5;8m1[39m [38;5;5moriginal[39m
     [1m[38;5;14m◆[0m  Change [1m[38;5;5mzzz[0m [1m[38;5;4m00[0m[38;5;8m0[39m
     [EOF]
@@ -729,15 +729,15 @@ fn test_log_prefix_highlight_styled() {
         &prefix_format(None),
     ]);
     insta::assert_snapshot!(output, @"
-    [1m[38;5;2m@[0m  Change [1m[38;5;5mwq[0m commit9 [1m[38;5;4mc2[0m
-    ○  Change [1m[38;5;5mkm[0m commit8 [1m[38;5;4m74[0m
-    ○  Change [1m[38;5;5mkp[0m commit7 [1m[38;5;4m97[0m
-    ○  Change [1m[38;5;5mzn[0m commit6 [1m[38;5;4m78[0m
-    ○  Change [1m[38;5;5myo[0m commit5 [1m[38;5;4m40[0m
-    ○  Change [1m[38;5;5mvr[0m commit4 [1m[38;5;4mbc9[0m
-    ○  Change [1m[38;5;5myq[0m commit3 [1m[38;5;4m28[0m
-    ○  Change [1m[38;5;5mro[0m commit2 [1m[38;5;4maf[0m
-    ○  Change [1m[38;5;5mmz[0m commit1 [1m[38;5;4m04[0m
+    [1m[38;5;2m@[0m  Change [1m[38;5;5mwq[0m commit9 [1m[38;5;4m12[0m
+    ○  Change [1m[38;5;5mym[0m commit8 [1m[38;5;4m21[0m
+    ○  Change [1m[38;5;5mkp[0m commit7 [1m[38;5;4m02[0m
+    ○  Change [1m[38;5;5mrn[0m commit6 [1m[38;5;4mb4[0m
+    ○  Change [1m[38;5;5mso[0m commit5 [1m[38;5;4mab2[0m
+    ○  Change [1m[38;5;5mur[0m commit4 [1m[38;5;4m57[0m
+    ○  Change [1m[38;5;5mnq[0m commit3 [1m[38;5;4m46[0m
+    ○  Change [1m[38;5;5moo[0m commit2 [1m[38;5;4md9[0m
+    ○  Change [1m[38;5;5mpz[0m commit1 [1m[38;5;4m427[0m
     ○  Change [1m[38;5;5mqpv[0m initial [1m[38;5;4m82[0m [38;5;5moriginal[39m
     [1m[38;5;14m◆[0m  Change [1m[38;5;5mzzz[0m [1m[38;5;4m00[0m
     [EOF]
@@ -1446,33 +1446,33 @@ fn test_log_word_wrap() {
 
     // ui.log-word-wrap option applies to both graph/no-graph outputs
     insta::assert_snapshot!(render(&["log", "-r@"], 40, false), @"
-    @  mzvwutvl test.user@example.com 2001-02-03 08:05:11 bafb1ee5
+    @  pzvwutvl test.user@example.com 2001-02-03 08:05:11 f79d2360
     │  (empty) merge
     ~
     [EOF]
     ");
     insta::assert_snapshot!(render(&["log", "-r@"], 40, true), @"
-    @  mzvwutvl test.user@example.com
-    │  2001-02-03 08:05:11 bafb1ee5
+    @  pzvwutvl test.user@example.com
+    │  2001-02-03 08:05:11 f79d2360
     ~  (empty) merge
     [EOF]
     ");
     insta::assert_snapshot!(render(&["log", "--no-graph", "-r@"], 40, false), @"
-    mzvwutvl test.user@example.com 2001-02-03 08:05:11 bafb1ee5
+    pzvwutvl test.user@example.com 2001-02-03 08:05:11 f79d2360
     (empty) merge
     [EOF]
     ");
     insta::assert_snapshot!(render(&["log", "--no-graph", "-r@"], 40, true), @"
-    mzvwutvl test.user@example.com
-    2001-02-03 08:05:11 bafb1ee5
+    pzvwutvl test.user@example.com
+    2001-02-03 08:05:11 f79d2360
     (empty) merge
     [EOF]
     ");
 
     // Color labels should be preserved
     insta::assert_snapshot!(render(&["log", "-r@", "--color=always"], 40, true), @"
-    [1m[38;5;2m@[0m  [1m[38;5;13mm[38;5;8mzvwutvl[39m [38;5;3mtest.user@example.com[39m[0m
-    │  [1m[38;5;14m2001-02-03 08:05:11[39m [38;5;12mb[38;5;8mafb1ee5[39m[0m
+    [1m[38;5;2m@[0m  [1m[38;5;13mp[38;5;8mzvwutvl[39m [38;5;3mtest.user@example.com[39m[0m
+    │  [1m[38;5;14m2001-02-03 08:05:11[39m [38;5;12mf[38;5;8m79d2360[39m[0m
     ~  [1m[38;5;10m(empty)[39m merge[0m
     [EOF]
     ");
@@ -1503,21 +1503,21 @@ fn test_log_word_wrap() {
 
     // Shouldn't panic with $COLUMNS < graph_width
     insta::assert_snapshot!(render(&["log", "-r@"], 0, true), @"
-    @  mzvwutvl
+    @  pzvwutvl
     │  test.user@example.com
     ~  2001-02-03
        08:05:11
-       bafb1ee5
+       f79d2360
        (empty)
        merge
     [EOF]
     ");
     insta::assert_snapshot!(render(&["log", "-r@"], 1, true), @"
-    @  mzvwutvl
+    @  pzvwutvl
     │  test.user@example.com
     ~  2001-02-03
        08:05:11
-       bafb1ee5
+       f79d2360
        (empty)
        merge
     [EOF]
@@ -1559,7 +1559,7 @@ fn test_log_diff_stat_width() {
     work_dir.write_file("file2", "foo\n".repeat(100));
 
     insta::assert_snapshot!(render(&["log", "--stat", "--no-graph"], 30), @"
-    rlvkpnrz test.user@example.com 2001-02-03 08:05:09 9490cfd3
+    ylvkpnrz test.user@example.com 2001-02-03 08:05:09 3717a8ae
     (no description set)
     file2 | 100 ++++++++++++++++++
     1 file changed, 100 insertions(+), 0 deletions(-)
@@ -1574,7 +1574,7 @@ fn test_log_diff_stat_width() {
 
     // Graph width should be subtracted
     insta::assert_snapshot!(render(&["log", "--stat"], 30), @"
-    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 9490cfd3
+    @  ylvkpnrz test.user@example.com 2001-02-03 08:05:09 3717a8ae
     │  (no description set)
     │  file2 | 100 +++++++++++++++
     │  1 file changed, 100 insertions(+), 0 deletions(-)
@@ -1816,7 +1816,7 @@ fn test_log_anonymize() {
 
     let output = work_dir.run_jj(["log", "-r::", "-Tbuiltin_log_redacted"]);
     insta::assert_snapshot!(output, @"
-    @  yqosqzyt user-78cd 2001-02-03 08:05:13 bookmark-dc8b* de3c47af
+    @  pqosqzyt user-78cd 2001-02-03 08:05:13 bookmark-dc8b* 9b95dae1
     │  (empty) (redacted)
     ◆  qpvuntsm user-78cd 2001-02-03 08:05:08 bookmark-dc8b@remote-86e9 bookmark-56f1 bookmark-ff9e@remote-86e9 37b69cda
     │  (empty) (redacted)

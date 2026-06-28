@@ -2643,6 +2643,17 @@ impl WorkspaceCommandTransaction<'_> {
         self.tx.repo_mut().edit(name, commit).block_on()
     }
 
+    pub fn generate_new_change_id(&self) -> ChangeId {
+        let id_prefix_context = self
+            .id_prefix_context
+            .get_or_init(|| self.helper.env.new_id_prefix_context());
+        let id_prefix_index = id_prefix_context.populate(self.repo()).unwrap();
+        id_prefix_index.generate_new_change_id(
+            self.settings().get_rng().as_ref(),
+            self.repo().store().change_id_length(),
+        )
+    }
+
     pub fn format_commit_summary(&self, commit: &Commit) -> String {
         let output = self.commit_summary_template().format_plain_text(commit);
         output.into_string_lossy()

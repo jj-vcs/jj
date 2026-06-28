@@ -258,11 +258,11 @@ fn test_tag_list() {
 
     insta::assert_snapshot!(work_dir.run_jj(["tag", "list"]), @"
     conflicted_tag (conflicted):
-      - rlvkpnrz 893e67dc (empty) commit1
-      + zsuskuln 76abdd20 (empty) commit2
-      + royxmykx 13c4e819 (empty) commit3
-    test_tag: rlvkpnrz 893e67dc (empty) commit1
-    test_tag2: zsuskuln 76abdd20 (empty) commit2
+      - ylvkpnrz 107f7311 (empty) commit1
+      + psuskuln 0f8c3cd6 (empty) commit2
+      + qoyxmykx 448fec82 (empty) commit3
+    test_tag: ylvkpnrz 107f7311 (empty) commit1
+    test_tag2: psuskuln 0f8c3cd6 (empty) commit2
     [EOF]
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
@@ -271,42 +271,42 @@ fn test_tag_list() {
 
     insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "--color=always"]), @"
     [38;5;5mconflicted_tag[39m [38;5;1m(conflicted)[39m:
-      - [1m[38;5;5mrl[0m[38;5;8mvkpnrz[39m [1m[38;5;4m8[0m[38;5;8m93e67dc[39m [38;5;2m(empty)[39m commit1
-      + [1m[38;5;5mzs[0m[38;5;8muskuln[39m [1m[38;5;4m7[0m[38;5;8m6abdd20[39m [38;5;2m(empty)[39m commit2
-      + [1m[38;5;13mr[38;5;8moyxmykx[39m [38;5;12m1[38;5;8m3c4e819[39m [38;5;10m(empty)[39m commit3[0m
-    [38;5;5mtest_tag[39m: [1m[38;5;5mrl[0m[38;5;8mvkpnrz[39m [1m[38;5;4m8[0m[38;5;8m93e67dc[39m [38;5;2m(empty)[39m commit1
-    [38;5;5mtest_tag2[39m: [1m[38;5;5mzs[0m[38;5;8muskuln[39m [1m[38;5;4m7[0m[38;5;8m6abdd20[39m [38;5;2m(empty)[39m commit2
+      - [1m[38;5;5my[0m[38;5;8mlvkpnrz[39m [1m[38;5;4m1[0m[38;5;8m07f7311[39m [38;5;2m(empty)[39m commit1
+      + [1m[38;5;5mp[0m[38;5;8msuskuln[39m [1m[38;5;4m0f[0m[38;5;8m8c3cd6[39m [38;5;2m(empty)[39m commit2
+      + [1m[38;5;13mq[38;5;8moyxmykx[39m [38;5;12m4[38;5;8m48fec82[39m [38;5;10m(empty)[39m commit3[0m
+    [38;5;5mtest_tag[39m: [1m[38;5;5my[0m[38;5;8mlvkpnrz[39m [1m[38;5;4m1[0m[38;5;8m07f7311[39m [38;5;2m(empty)[39m commit1
+    [38;5;5mtest_tag2[39m: [1m[38;5;5mp[0m[38;5;8msuskuln[39m [1m[38;5;4m0f[0m[38;5;8m8c3cd6[39m [38;5;2m(empty)[39m commit2
     [EOF]
     ");
 
     // Test pattern matching.
     insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "test_tag2"]), @"
-    test_tag2: zsuskuln 76abdd20 (empty) commit2
+    test_tag2: psuskuln 0f8c3cd6 (empty) commit2
     [EOF]
     ");
 
     insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "'test_tag?'"]), @"
-    test_tag2: zsuskuln 76abdd20 (empty) commit2
+    test_tag2: psuskuln 0f8c3cd6 (empty) commit2
     [EOF]
     ");
 
     // Filter by revset
     insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "-rsubject(commit1)"]), @"
-    test_tag: rlvkpnrz 893e67dc (empty) commit1
+    test_tag: ylvkpnrz 107f7311 (empty) commit1
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "-rsubject(commit2)"]), @"
     conflicted_tag (conflicted):
-      - rlvkpnrz 893e67dc (empty) commit1
-      + zsuskuln 76abdd20 (empty) commit2
-      + royxmykx 13c4e819 (empty) commit3
-    test_tag2: zsuskuln 76abdd20 (empty) commit2
+      - ylvkpnrz 107f7311 (empty) commit1
+      + psuskuln 0f8c3cd6 (empty) commit2
+      + qoyxmykx 448fec82 (empty) commit3
+    test_tag2: psuskuln 0f8c3cd6 (empty) commit2
     [EOF]
     ");
     // Filter by revset and name, which aren't intersected
     insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "-rsubject(commit1)", "test_tag2"]), @"
-    test_tag: rlvkpnrz 893e67dc (empty) commit1
-    test_tag2: zsuskuln 76abdd20 (empty) commit2
+    test_tag: ylvkpnrz 107f7311 (empty) commit1
+    test_tag2: psuskuln 0f8c3cd6 (empty) commit2
     [EOF]
     ");
 
@@ -314,7 +314,7 @@ fn test_tag_list() {
     // isn't included in the match.
     insta::assert_snapshot!(
         work_dir.run_jj(["tag", "list", "test* & ~*2", "unknown ~ test_tag2"]), @"
-    test_tag: rlvkpnrz 893e67dc (empty) commit1
+    test_tag: ylvkpnrz 107f7311 (empty) commit1
     [EOF]
     ------- stderr -------
     Warning: No matching tags for names: unknown
@@ -323,9 +323,9 @@ fn test_tag_list() {
 
     insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "--conflicted"]), @"
     conflicted_tag (conflicted):
-      - rlvkpnrz 893e67dc (empty) commit1
-      + zsuskuln 76abdd20 (empty) commit2
-      + royxmykx 13c4e819 (empty) commit3
+      - ylvkpnrz 107f7311 (empty) commit1
+      + psuskuln 0f8c3cd6 (empty) commit2
+      + qoyxmykx 448fec82 (empty) commit3
     [EOF]
     ");
 
@@ -364,23 +364,23 @@ fn test_tag_list() {
     // Sort by command argument
     insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "--sort=committer-date-,name"]), @"
     conflicted_tag (conflicted):
-      - rlvkpnrz 893e67dc (empty) commit1
-      + zsuskuln 76abdd20 (empty) commit2
-      + royxmykx 13c4e819 (empty) commit3
-    test_tag2: zsuskuln 76abdd20 (empty) commit2
-    test_tag: rlvkpnrz 893e67dc (empty) commit1
+      - ylvkpnrz 107f7311 (empty) commit1
+      + psuskuln 0f8c3cd6 (empty) commit2
+      + qoyxmykx 448fec82 (empty) commit3
+    test_tag2: psuskuln 0f8c3cd6 (empty) commit2
+    test_tag: ylvkpnrz 107f7311 (empty) commit1
     [EOF]
     ");
 
     // Default sort keys in config
     let config = "--config=ui.tag-list-sort-keys=['committer-date', 'name-']";
     insta::assert_snapshot!(work_dir.run_jj(["tag", "list", config]), @"
-    test_tag: rlvkpnrz 893e67dc (empty) commit1
-    test_tag2: zsuskuln 76abdd20 (empty) commit2
+    test_tag: ylvkpnrz 107f7311 (empty) commit1
+    test_tag2: psuskuln 0f8c3cd6 (empty) commit2
     conflicted_tag (conflicted):
-      - rlvkpnrz 893e67dc (empty) commit1
-      + zsuskuln 76abdd20 (empty) commit2
-      + royxmykx 13c4e819 (empty) commit3
+      - ylvkpnrz 107f7311 (empty) commit1
+      + psuskuln 0f8c3cd6 (empty) commit2
+      + qoyxmykx 448fec82 (empty) commit3
     [EOF]
     ");
 }
@@ -403,8 +403,8 @@ fn test_tag_list_remotes() {
 
     let output = local_dir.run_jj(["tag", "list", "--all-remotes"]);
     insta::assert_snapshot!(output, @"
-    local-only: rlvkpnrz d3e8d245 (empty) local-only
-      @git: rlvkpnrz d3e8d245 (empty) local-only
+    local-only: ylvkpnrz 7652aed1 (empty) local-only
+      @git: ylvkpnrz 7652aed1 (empty) local-only
     [EOF]
     ");
 
@@ -415,8 +415,8 @@ fn test_tag_list_remotes() {
 
     let output = local_dir.run_jj(["tag", "list", "--tracked", "--remote=git"]);
     insta::assert_snapshot!(output, @"
-    local-only: rlvkpnrz d3e8d245 (empty) local-only
-      @git: rlvkpnrz d3e8d245 (empty) local-only
+    local-only: ylvkpnrz 7652aed1 (empty) local-only
+      @git: ylvkpnrz 7652aed1 (empty) local-only
     [EOF]
     ");
 
@@ -425,8 +425,8 @@ fn test_tag_list_remotes() {
 
     let output = local_dir.run_jj(["tag", "list", "--remote=git"]);
     insta::assert_snapshot!(output, @"
-    local-only: rlvkpnrz d3e8d245 (empty) local-only
-      @git: rlvkpnrz d3e8d245 (empty) local-only
+    local-only: ylvkpnrz 7652aed1 (empty) local-only
+      @git: ylvkpnrz 7652aed1 (empty) local-only
     [EOF]
     ");
 }

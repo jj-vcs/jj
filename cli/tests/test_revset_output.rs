@@ -965,7 +965,7 @@ fn test_user_trunk_absent_or_conflicted() {
     Warning: Failed to resolve `revset-aliases.trunk()`: Revision `main` doesn't exist
     The `trunk()` alias is temporarily set to `root()`.
     Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
-    Created 1 bookmarks pointing to rlvkpnrz 095dbd02 main | (empty) A
+    Created 1 bookmarks pointing to ylvkpnrz fca1427e main | (empty) A
     [EOF]
     ");
 
@@ -974,9 +974,9 @@ fn test_user_trunk_absent_or_conflicted() {
     insta::assert_snapshot!(output, @"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
     │  (empty) (no description set)
-    │ ○  kkmpptxz test.user@example.com 2001-02-03 08:05:09 e3ebbfd5
+    │ ○  nkmpptxz test.user@example.com 2001-02-03 08:05:09 5405bc83
     ├─╯  (empty) B
-    │ ◆  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 main 095dbd02
+    │ ◆  ylvkpnrz test.user@example.com 2001-02-03 08:05:08 main fca1427e
     ├─╯  (empty) A
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -989,7 +989,7 @@ fn test_user_trunk_absent_or_conflicted() {
     Warning: Failed to resolve `revset-aliases.trunk()`: Revision `main` doesn't exist
     The `trunk()` alias is temporarily set to `root()`.
     Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
-    Created 1 bookmarks pointing to kkmpptxz e3ebbfd5 main | (empty) B
+    Created 1 bookmarks pointing to nkmpptxz 5405bc83 main | (empty) B
     [EOF]
     ");
 
@@ -998,9 +998,9 @@ fn test_user_trunk_absent_or_conflicted() {
     insta::assert_snapshot!(output, @"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
     │  (empty) (no description set)
-    │ ○  kkmpptxz test.user@example.com 2001-02-03 08:05:09 main?? e3ebbfd5
+    │ ○  nkmpptxz test.user@example.com 2001-02-03 08:05:09 main?? 5405bc83
     ├─╯  (empty) B
-    │ ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 main?? 095dbd02
+    │ ○  ylvkpnrz test.user@example.com 2001-02-03 08:05:08 main?? fca1427e
     ├─╯  (empty) A
     ◆  zzzzzzzz root() 00000000
     [EOF]

@@ -262,8 +262,8 @@ fn test_commit_interactive_with_paths() -> TestResult {
     let output = work_dir.run_jj(["commit", "-i", "file1", "file2"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: kkmpptxz 50f426df (no description set)
-    Parent commit (@-)      : rlvkpnrz eb640375 edit
+    Working copy  (@) now at: kkmpptxz 64246285 (no description set)
+    Parent commit (@-)      : ylvkpnrz 83e7c3ae edit
     [EOF]
     ");
 
@@ -271,7 +271,7 @@ fn test_commit_interactive_with_paths() -> TestResult {
         std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
     edit
 
-    JJ: Change ID: rlvkpnrz
+    JJ: Change ID: ylvkpnrz
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
@@ -280,11 +280,11 @@ fn test_commit_interactive_with_paths() -> TestResult {
 
     let output = work_dir.run_jj(["log", "--summary"]);
     insta::assert_snapshot!(output, @"
-    @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 50f426df
+    @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 64246285
     │  (no description set)
     │  M file2
     │  M file3
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 eb640375
+    ○  ylvkpnrz test.user@example.com 2001-02-03 08:05:09 83e7c3ae
     │  edit
     │  A file1
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 ff687a2f

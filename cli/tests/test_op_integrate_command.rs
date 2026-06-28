@@ -64,8 +64,8 @@ fn test_integrate_sibling_operation() -> TestResult {
     let output = work_dir.run_jj(["op", "log"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Internal error: The repo was loaded at operation f0f64355037e, which seems to be a sibling of the working copy's operation 4f1ea5911f2f
-    Hint: Run `jj op integrate 4f1ea5911f2f` to add the working copy's operation to the operation log.
+    Internal error: The repo was loaded at operation f18ccd3bfa74, which seems to be a sibling of the working copy's operation 7a2b59297e0e
+    Hint: Run `jj op integrate 7a2b59297e0e` to add the working copy's operation to the operation log.
     [EOF]
     [exit status: 255]
     ");
@@ -79,13 +79,13 @@ fn test_integrate_sibling_operation() -> TestResult {
     ");
     let output = work_dir.run_jj(["op", "log"]);
     insta::assert_snapshot!(output, @"
-    @    c07a58eed726 test-username@host.example.com default@ 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    @    8e55362edb3b test-username@host.example.com default@ 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
     ├─╮  reconcile divergent operations
-    │ │  args: jj op integrate 4f1ea5911f2f5d4e94a1620c9f762f33ab985d1635eb345027ed85c54bce3c085d0e0fa14c104743e26df5e565b47b2ca8c90dd7b548dbefed192b775ee2e3bc
-    ○ │  4f1ea5911f2f test-username@host.example.com default@ 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    │ │  args: jj op integrate 7a2b59297e0e60fd21595c2f349842a15d04f9ba0a432c982a562a1473fa9fd4f69a04a6907493e62b45bc2a7d8a412d8502b4e0e9ed1a13646cfc6bd5437b86
+    ○ │  7a2b59297e0e test-username@host.example.com default@ 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
     │ │  new empty commit
     │ │  args: jj new '-m=first'
-    │ ○  f0f64355037e test-username@host.example.com default@ 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    │ ○  f18ccd3bfa74 test-username@host.example.com default@ 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
     ├─╯  new empty commit
     │    args: jj new '-m=second' --ignore-working-copy
     ○  90267f31f904 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
@@ -132,8 +132,8 @@ fn test_integrate_rebase_descendants() -> TestResult {
     let output = work_dir.run_jj(["op", "log"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Internal error: The repo was loaded at operation dfab2903608d, which seems to be a sibling of the working copy's operation 17c93f71a912
-    Hint: Run `jj op integrate 17c93f71a912` to add the working copy's operation to the operation log.
+    Internal error: The repo was loaded at operation de930e1713ca, which seems to be a sibling of the working copy's operation 1d87b9209f7f
+    Hint: Run `jj op integrate 1d87b9209f7f` to add the working copy's operation to the operation log.
     [EOF]
     [exit status: 255]
     ");
@@ -148,16 +148,16 @@ fn test_integrate_rebase_descendants() -> TestResult {
     ");
     let output = work_dir.run_jj(["op", "log"]);
     insta::assert_snapshot!(output, @"
-    @    e9ad6c38ebf5 test-username@host.example.com default@ 2001-02-03 04:05:12.000 +07:00 - 2001-02-03 04:05:12.000 +07:00
+    @    c589859f0d79 test-username@host.example.com default@ 2001-02-03 04:05:12.000 +07:00 - 2001-02-03 04:05:12.000 +07:00
     ├─╮  reconcile divergent operations
-    │ │  args: jj op integrate 17c93f71a9128fbc6c2a7ea7a310efc2f6e476638b58caed13735a7b2e20a6c6dae9dcc84795dd7cca1eecf38ae2812e0216f46430250b1ce3aef4330522012c
-    ○ │  17c93f71a912 test-username@host.example.com default@ 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    │ │  args: jj op integrate 1d87b9209f7f9cf04ffaaa849deac095ac2d942b97471fb1968c668b9120ce5a805fddb3d3834fe19c9afa1e11e780b887968885de9979642b2e64a5cd7dd6b4
+    ○ │  1d87b9209f7f test-username@host.example.com default@ 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
     │ │  new empty commit
     │ │  args: jj new '-m=child 2'
-    │ ○  dfab2903608d test-username@host.example.com default@ 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    │ ○  de930e1713ca test-username@host.example.com default@ 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
     ├─╯  describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
     │    args: jj describe '-m=parent' --ignore-working-copy
-    ○  78dcb3cf0b64 test-username@host.example.com default@ 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    ○  5d5fd3f3a2fe test-username@host.example.com default@ 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
     │  new empty commit
     │  args: jj new --no-edit '-m=child 1'
     ○  90267f31f904 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
@@ -169,9 +169,9 @@ fn test_integrate_rebase_descendants() -> TestResult {
     // Child 2 was successfully rebased
     let output = work_dir.run_jj(["log"]);
     insta::assert_snapshot!(output, @"
-    @  kkmpptxz test.user@example.com 2001-02-03 08:05:12 9780be6d
+    @  nkmpptxz test.user@example.com 2001-02-03 08:05:12 4a1fe649
     │  (empty) child 2
-    │ ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:10 ce1fb6c9
+    │ ○  ylvkpnrz test.user@example.com 2001-02-03 08:05:10 afe37616
     ├─╯  (empty) child 1
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:10 5f8729eb
     │  (empty) parent

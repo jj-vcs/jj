@@ -87,11 +87,11 @@ fn test_chmod_regular_conflict() {
     let output = work_dir.run_jj(["file", "show", "file"]);
     insta::assert_snapshot!(output, @r#"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from: rlvkpnrz 1792382a "base"
-    \\\\\\\        to: royxmykx 02247291 "x"
+    %%%%%%% diff from: ylvkpnrz b3d9a894 "base"
+    \\\\\\\        to: ooyxmykx 81bb4f98 "x"
     -base
     +x
-    +++++++ zsuskuln eb0ba805 "n"
+    +++++++ psuskuln 8ba0373a "n"
     n
     >>>>>>> conflict 1 of 1 ends
     [EOF]
@@ -107,11 +107,11 @@ fn test_chmod_regular_conflict() {
     let output = work_dir.run_jj(["file", "show", "file"]);
     insta::assert_snapshot!(output, @r#"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from: rlvkpnrz 1792382a "base"
-    \\\\\\\        to: royxmykx 02247291 "x"
+    %%%%%%% diff from: ylvkpnrz b3d9a894 "base"
+    \\\\\\\        to: ooyxmykx 81bb4f98 "x"
     -base
     +x
-    +++++++ zsuskuln eb0ba805 "n"
+    +++++++ psuskuln 8ba0373a "n"
     n
     >>>>>>> conflict 1 of 1 ends
     [EOF]
@@ -125,11 +125,11 @@ fn test_chmod_regular_conflict() {
     let output = work_dir.run_jj(["file", "show", "file"]);
     insta::assert_snapshot!(output, @r#"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from: rlvkpnrz 1792382a "base"
-    \\\\\\\        to: royxmykx 02247291 "x"
+    %%%%%%% diff from: ylvkpnrz b3d9a894 "base"
+    \\\\\\\        to: ooyxmykx 81bb4f98 "x"
     -base
     +x
-    +++++++ zsuskuln eb0ba805 "n"
+    +++++++ psuskuln 8ba0373a "n"
     n
     >>>>>>> conflict 1 of 1 ends
     [EOF]
@@ -140,9 +140,9 @@ fn test_chmod_regular_conflict() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching entries for paths: nonexistent
-    Working copy  (@) now at: yostqsxw a1b4dce4 conflict | (conflict) conflict
-    Parent commit (@-)      : royxmykx 02247291 x | x
-    Parent commit (@-)      : zsuskuln eb0ba805 n | n
+    Working copy  (@) now at: rostqsxw 8ef83c2e conflict | (conflict) conflict
+    Parent commit (@-)      : ooyxmykx 81bb4f98 x | x
+    Parent commit (@-)      : psuskuln 8ba0373a n | n
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including an executable
@@ -234,9 +234,9 @@ fn test_chmod_file_dir_deletion_conflicts() {
     let output = work_dir.run_jj(["file", "show", "-r=file_dir", "file"]);
     insta::assert_snapshot!(output, @r#"
     Conflict:
-      Removing file with id df967b96a579e45a18b8251732d16804b2e56a55 (rlvkpnrz 1792382a "base")
-      Adding file with id 78981922613b2afb6025042ff6bd878ac1994e85 (zsuskuln bc9cdea1 "file")
-      Adding tree with id 133bb38fc4e4bf6b551f1f04db7e48f04cac2877 (vruxwmqv 223cb383 "dir")
+      Removing file with id df967b96a579e45a18b8251732d16804b2e56a55 (ylvkpnrz b3d9a894 "base")
+      Adding file with id 78981922613b2afb6025042ff6bd878ac1994e85 (psuskuln fab75a90 "file")
+      Adding tree with id 133bb38fc4e4bf6b551f1f04db7e48f04cac2877 (truxwmqv c553e0f1 "dir")
     [EOF]
     "#);
     let output = work_dir.run_jj(["file", "chmod", "x", "file", "-r=file_dir"]);
@@ -256,10 +256,10 @@ fn test_chmod_file_dir_deletion_conflicts() {
     let output = work_dir.run_jj(["file", "show", "-r=file_deletion", "file"]);
     insta::assert_snapshot!(output, @r#"
     <<<<<<< conflict 1 of 1
-    +++++++ zsuskuln bc9cdea1 "file"
+    +++++++ psuskuln fab75a90 "file"
     a
-    %%%%%%% diff from: rlvkpnrz 1792382a "base"
-    \\\\\\\        to: royxmykx d7d39332 "deletion"
+    %%%%%%% diff from: ylvkpnrz b3d9a894 "base"
+    \\\\\\\        to: ooyxmykx 01e5f18a "deletion"
     -base
     >>>>>>> conflict 1 of 1 ends
     [EOF]
@@ -267,17 +267,17 @@ fn test_chmod_file_dir_deletion_conflicts() {
     let output = work_dir.run_jj(["file", "chmod", "x", "file", "-r=file_deletion"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: kmkuslsw b468931e file_deletion | (conflict) file_deletion
-    Parent commit (@-)      : zsuskuln bc9cdea1 file | file
-    Parent commit (@-)      : royxmykx d7d39332 deletion | deletion
+    Working copy  (@) now at: wmkuslsw 6be4fbe3 file_deletion | (conflict) file_deletion
+    Parent commit (@-)      : psuskuln fab75a90 file | file
+    Parent commit (@-)      : ooyxmykx 01e5f18a deletion | deletion
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion and an executable
     New conflicts appeared in 1 commits:
-      kmkuslsw b468931e file_deletion | (conflict) file_deletion
+      wmkuslsw 6be4fbe3 file_deletion | (conflict) file_deletion
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
-      jj new kmkuslsw
+      jj new wmkuslsw
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
@@ -291,10 +291,10 @@ fn test_chmod_file_dir_deletion_conflicts() {
     let output = work_dir.run_jj(["file", "show", "-r=file_deletion", "file"]);
     insta::assert_snapshot!(output, @r#"
     <<<<<<< conflict 1 of 1
-    +++++++ zsuskuln bc9cdea1 "file"
+    +++++++ psuskuln fab75a90 "file"
     a
-    %%%%%%% diff from: rlvkpnrz 1792382a "base"
-    \\\\\\\        to: royxmykx d7d39332 "deletion"
+    %%%%%%% diff from: ylvkpnrz b3d9a894 "base"
+    \\\\\\\        to: ooyxmykx 01e5f18a "deletion"
     -base
     >>>>>>> conflict 1 of 1 ends
     [EOF]
@@ -323,7 +323,7 @@ fn test_chmod_exec_bit_settings() -> TestResult {
 
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_timestamp), @r#"
-    Current operation: OperationId("c213f276df4f2ac12ede4d6e1b7f386311c02049195b5db39a476b1785fe052e21b816b82ad41a2833296c04e27eab5a981f1744fa511581e32d405e0f8370b2")
+    Current operation: OperationId("51633f27a15684d79b6d45aa51f6a4849e9c932eab2ca15b735fc85aa5210b9e0399ffb7e745143c503efdfff6d72f4aedc666024bcd9cabb721367bc7a618b5")
     Current tree: MergedTree { tree_ids: Resolved(TreeId("6d5f482d15035cdd7733b1b551d1fead28d22592")), labels: Unlabeled, .. }
     Normal { exec_bit: ExecBit(false) }             5 <timestamp> None "file"
     [EOF]
@@ -336,7 +336,7 @@ fn test_chmod_exec_bit_settings() -> TestResult {
     set_file_executable(path, true);
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_timestamp), @r#"
-    Current operation: OperationId("60ebc37d4d08925da7d4d50b21ebd4395dfd71180cd3694cc288bce2145e8d601ca38ecdf2ce1abbba7368d678f154688b0f0c855e874757bfb8ec2d54c46c18")
+    Current operation: OperationId("77756b2b5471c2fb6e41dc7eb54dd6196725e6dc726b4599bf323f763b9601b280680c8e86dbf1b31b27e92cad2d9d4317a2bce75b6d703312b394cc1fef2ca6")
     Current tree: MergedTree { tree_ids: Resolved(TreeId("5201dbafb66dc1b28b029a262e1b206f6f93df1e")), labels: Unlabeled, .. }
     Normal { exec_bit: ExecBit(true) }             5 <timestamp> None "file"
     [EOF]
@@ -358,7 +358,7 @@ fn test_chmod_exec_bit_settings() -> TestResult {
     assert_file_executable(path, true);
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_timestamp), @r#"
-    Current operation: OperationId("2b128dc13ea9967d7a233535a8ea1f70b2f9a5e713d17097507fe9f0d986c9852377aa578fdd49959bcd60692ebd4cfd6c6f02d8e86a67ce631bf39ecf48cc2c")
+    Current operation: OperationId("78fa37e0db1c07c94894718c159d01fb2d71a43e3ae3913247b55a8cbd7fed8383bb655e1799150e827ca2d738b9a9704f64ae4c426bee34d2a11a529fddbe6c")
     Current tree: MergedTree { tree_ids: Resolved(TreeId("6d5f482d15035cdd7733b1b551d1fead28d22592")), labels: Unlabeled, .. }
     Normal { exec_bit: ExecBit(true) }             5 <timestamp> None "file"
     [EOF]
@@ -369,7 +369,7 @@ fn test_chmod_exec_bit_settings() -> TestResult {
     assert_file_executable(path, false);
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_timestamp), @r#"
-    Current operation: OperationId("73ee76ab06de88c3a43feefd313883127562f28cacd52e41408b6a1769294731d7a7fd90313e6324db6e501ea6602c5c83cd647a4d750728889688b5dc7178a2")
+    Current operation: OperationId("9272ffeee7f3eadad2ccf55414904119b6f8767ac7c3b431edfe5f8d4d2bb858c91ba02f72eea1e34122b750610a64cb01981d7ac04c0417b9c1cba2fa7e482b")
     Current tree: MergedTree { tree_ids: Resolved(TreeId("5201dbafb66dc1b28b029a262e1b206f6f93df1e")), labels: Unlabeled, .. }
     Normal { exec_bit: ExecBit(false) }             5 <timestamp> None "file"
     [EOF]
@@ -384,15 +384,15 @@ fn test_chmod_exec_bit_settings() -> TestResult {
     insta::assert_snapshot!(output, @"
     Working copy changes:
     M file
-    Working copy  (@) : znkkpsqq 71681768 ignore | ignore
-    Parent commit (@-): rlvkpnrz 1792382a base | base
+    Working copy  (@) : onkkpsqq 3e5d6ee6 ignore | ignore
+    Parent commit (@-): ylvkpnrz b3d9a894 base | base
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "chmod", "x", "file"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: znkkpsqq ef0a25b6 ignore | ignore
-    Parent commit (@-)      : rlvkpnrz 1792382a base | base
+    Working copy  (@) now at: onkkpsqq 0eed64c8 ignore | ignore
+    Parent commit (@-)      : ylvkpnrz b3d9a894 base | base
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -402,7 +402,7 @@ fn test_chmod_exec_bit_settings() -> TestResult {
     set_file_executable(path, true);
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_timestamp), @r#"
-    Current operation: OperationId("8ab66b017c52976aaa389ea0a5f4f6fd6a0267525b44303a8882d6ed2d5ac507fd661fcde9f466efa51f09d82c826bbff2af236b68502cbb991877e609d4858b")
+    Current operation: OperationId("40c84a2f7af0f995a03d3308a3493bdff4587e02018e4355e94219f891988d8a816fb235fb7608f80c2339543de161da99cd6b5e6ea7951fc7c19eeb0568ca04")
     Current tree: MergedTree { tree_ids: Resolved(TreeId("5201dbafb66dc1b28b029a262e1b206f6f93df1e")), labels: Unlabeled, .. }
     Normal { exec_bit: ExecBit(true) }             5 <timestamp> None "file"
     [EOF]
@@ -465,7 +465,7 @@ fn test_chmod_exec_bit_ignore_then_respect() {
     let output = work_dir.run_jj(["file", "chmod", "x", "file"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: rlvkpnrz cb3f99cb base | base
+    Working copy  (@) now at: ylvkpnrz eb47640c base | base
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
@@ -479,7 +479,7 @@ fn test_chmod_exec_bit_ignore_then_respect() {
     let output = work_dir.run_jj(["file", "chmod", "x", "file"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: rlvkpnrz 96872a96 base | base
+    Working copy  (@) now at: ylvkpnrz 3ea377d2 base | base
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
