@@ -19,6 +19,8 @@
 //! Like commit metadata and more.
 
 use std::collections::HashMap;
+use std::collections::HashSet;
+use std::collections::VecDeque;
 use std::collections::hash_map;
 use std::iter;
 use std::ops::Range;
@@ -26,7 +28,11 @@ use std::sync::Arc;
 
 use bstr::BStr;
 use bstr::BString;
+use futures::FutureExt as _;
+use futures::StreamExt as _;
 use futures::TryStreamExt as _;
+use futures::future::BoxFuture;
+use futures::stream::FuturesUnordered;
 use itertools::Itertools as _;
 
 use crate::backend::BackendError;
@@ -43,6 +49,7 @@ use crate::diff::DiffHunkKind;
 use crate::files::FileMergeHunkLevel;
 use crate::fileset::FilesetExpression;
 use crate::graph::GraphEdge;
+use crate::graph::GraphNode;
 use crate::merge::SameChange;
 use crate::merged_tree::MergedTree;
 use crate::repo::Repo;
@@ -270,8 +277,7 @@ impl Source {
     }
 
     async fn load(commit: &Commit, file_path: &RepoPath) -> Result<Self, BackendError> {
-        let tree = commit.tree();
-        let text = get_file_contents(commit.store(), file_path, &tree).await?;
+        let text = file_text_at_commit(commit, file_path).await?;
         Ok(Self::new(text))
     }
 
@@ -294,6 +300,147 @@ pub struct LineOrigin {
     pub line_number: usize,
 }
 
+/// Concurrently fetches file content at a set of commits, deduplicating
+/// concurrent requests for the same commit.
+///
+/// A commit that's a parent of several branches would otherwise be fetched
+/// once per branch; `requested` collapses those into one fetch (see
+/// `test_content_prefetcher_dedups_requests`), while up to
+/// [`Store::concurrency()`] fetches run in parallel. The dedup lasts only
+/// while a request is outstanding -- see the `commit_source_map.remove()`
+/// comment in `process_commit()`.
+struct ContentPrefetcher {
+    store: Arc<Store>,
+    file_name: RepoPathBuf,
+    /// In-flight fetches. Each reads the file fully into a `BString` so the
+    /// slow path (incl. `read_all()`) runs concurrently, not later in
+    /// `process_commit()`.
+    pending: FuturesUnordered<BoxFuture<'static, (CommitId, BackendResult<BString>)>>,
+    /// Commit ids in `pending` or `completed`, to avoid fetching one twice.
+    /// Removed on `take()`, so a later request re-fetches.
+    requested: HashSet<CommitId>,
+    /// Finished fetches not yet consumed by `take()`, keyed by commit id.
+    completed: HashMap<CommitId, BString>,
+}
+
+impl ContentPrefetcher {
+    fn new(store: &Arc<Store>, file_name: &RepoPath) -> Self {
+        Self {
+            store: store.clone(),
+            file_name: file_name.to_owned(),
+            pending: FuturesUnordered::new(),
+            requested: HashSet::new(),
+            completed: HashMap::new(),
+        }
+    }
+
+    /// Starts fetching `commit_id`'s content, unless already requested.
+    ///
+    /// Not capped here: the caller's look-ahead bounds how many run at once,
+    /// and `store.concurrency()` is only a soft hint, so a few extra is fine.
+    fn prefetch(&mut self, commit_id: &CommitId) {
+        if !self.requested.insert(commit_id.clone()) {
+            return;
+        }
+        let store = self.store.clone();
+        let file_name = self.file_name.clone();
+        let commit_id = commit_id.clone();
+        self.pending.push(
+            async move {
+                let result = async {
+                    let commit = store.get_commit_async(&commit_id).await?;
+                    file_text_at_commit(&commit, &file_name).await
+                }
+                .await;
+                (commit_id, result)
+            }
+            .boxed(),
+        );
+    }
+
+    /// Returns the content at `commit_id`, prefetching it first if needed.
+    ///
+    /// Other fetches may finish while waiting; their results are stashed in
+    /// `completed` for later `take()` calls.
+    async fn take(&mut self, commit_id: &CommitId) -> BackendResult<BString> {
+        self.prefetch(commit_id);
+        if let Some(text) = self.completed.remove(commit_id) {
+            self.requested.remove(commit_id);
+            return Ok(text);
+        }
+        loop {
+            let (id, result) = self
+                .pending
+                .next()
+                .await
+                .expect("commit_id is pending since it was just prefetched");
+            if id == *commit_id {
+                let text = result?;
+                self.requested.remove(commit_id);
+                return Ok(text);
+            }
+            // A different prefetched commit finished first. Stash it for a
+            // later `take()` -- but only if it's still wanted. `retain()` may
+            // have dropped it from `requested` after this fetch was already in
+            // flight (its future can't be pulled out of `pending`), in which
+            // case we discard the result here, including any error: failing the
+            // whole annotation for a commit on a dead branch we'll never visit
+            // would be wrong.
+            if self.requested.contains(&id) {
+                self.completed.insert(id, result?);
+            }
+        }
+    }
+
+    /// Stops tracking any requested commit that no longer satisfies `keep`,
+    /// dropping its stashed content and freeing its `requested` slot.
+    ///
+    /// A fetch already in flight isn't aborted (it can't be removed from
+    /// `pending`); its result is discarded by `take()` once it lands, since the
+    /// commit is no longer in `requested`. So this reclaims the concurrency
+    /// slot and memory, not the in-flight backend request itself.
+    fn retain(&mut self, mut keep: impl FnMut(&CommitId) -> bool) {
+        self.requested.retain(|id| {
+            if keep(id) {
+                true
+            } else {
+                self.completed.remove(id);
+                false
+            }
+        });
+    }
+}
+
+/// Loads the content of `file_path` in `commit`'s tree.
+async fn file_text_at_commit(
+    commit: &Commit,
+    file_path: &RepoPath,
+) -> Result<BString, BackendError> {
+    let tree = commit.tree();
+    get_file_contents(commit.store(), file_path, &tree).await
+}
+
+/// The commits still worth fetching: the live frontier (`commit_source_map`)
+/// plus the ancestors reachable from it through the buffered `lookahead`.
+///
+/// Ancestors of a dead branch (one whose lines dropped to 0, so it's no longer
+/// in `commit_source_map`) are excluded, so the caller can stop prefetching
+/// them and cancel any fetch already issued.
+fn reachable_commits(
+    commit_source_map: &HashMap<CommitId, Source>,
+    lookahead: &VecDeque<GraphNode<CommitId>>,
+) -> HashSet<CommitId> {
+    let mut reachable: HashSet<CommitId> = commit_source_map.keys().cloned().collect();
+    // `lookahead` is in topological order (children before parents), so a single
+    // pass propagates reachability down to every buffered ancestor.
+    for (commit_id, edges) in lookahead {
+        if reachable.contains(commit_id) {
+            reachable.extend(edges.iter().map(|edge| edge.target.clone()));
+        }
+    }
+    reachable
+}
+
 /// Starting from the source commits, compute changes at that commit relative to
 /// its direct parents, updating the mappings as we go.
 async fn process_commits(
@@ -314,13 +461,80 @@ async fn process_commits(
         .evaluate(repo)?;
 
     state.num_unresolved_roots = 0;
-    let mut nodes = revset.stream_graph();
-    while let Some((commit_id, edge_list)) = nodes.try_next().await? {
-        process_commit(repo, file_name, state, &commit_id, &edge_list).await?;
+    let concurrency = repo.store().concurrency();
+    let mut prefetcher = ContentPrefetcher::new(repo.store(), file_name);
+    let mut nodes = revset.stream_graph().fuse();
+    // Fill the lookahead while fewer than `concurrency` fetches are
+    // outstanding, so roughly that many stay in flight. `lookahead.len()`
+    // caps buffering when no parents need prefetching (all already in
+    // `commit_source_map`), and `lookahead.is_empty()` ensures we always
+    // pull at least one node so the outer loop can make progress.
+    let mut lookahead: VecDeque<GraphNode<CommitId>> = VecDeque::new();
+    // `reachable` is the set of commits still worth fetching: the live branches
+    // (`commit_source_map`) plus the ancestors reachable from them through the
+    // buffered lookahead. Once a branch goes dead (its lines drop to 0), its
+    // ancestors fall out of `reachable`, and we stop pulling them down.
+    //
+    // What this saves: we never *issue* fetches for the ancestors of a dead
+    // branch beyond the current lookahead window (the gate below skips them),
+    // and `retain()` frees the `requested` slots a dead branch was holding so
+    // the lookahead can refill with live work and its stashed `completed` texts
+    // are dropped. On a long superseded merge side this is the difference
+    // between fetching the whole branch and fetching ~one window of it.
+    //
+    // What this does *not* save: a fetch already in flight when its branch dies
+    // still runs to completion -- its future can't be pulled out of
+    // `FuturesUnordered`, so we only drop the result when it lands, not the
+    // backend request. So we always pay for up to one lookahead window of
+    // speculation past each branch's death; we just don't pay for the rest.
+    let mut reachable = reachable_commits(&state.commit_source_map, &lookahead);
+    loop {
+        while (prefetcher.requested.len() < concurrency && lookahead.len() < concurrency)
+            || lookahead.is_empty()
+        {
+            let Some(node) = nodes.try_next().await? else {
+                break;
+            };
+            let (commit_id, edges) = &node;
+            // Don't prefetch the parents of a node whose branch is already dead
+            // -- they're unreachable. (The node itself is still popped below;
+            // `process_commit` early-returns for it.)
+            if reachable.contains(commit_id) {
+                for edge in edges {
+                    reachable.insert(edge.target.clone());
+                    // Parents already in `commit_source_map` are read from there,
+                    // so prefetching them would be wasted.
+                    if !state.commit_source_map.contains_key(&edge.target) {
+                        prefetcher.prefetch(&edge.target);
+                    }
+                }
+            }
+            lookahead.push_back(node);
+        }
+        let Some((commit_id, edge_list)) = lookahead.pop_front() else {
+            break;
+        };
+        process_commit(&mut prefetcher, state, &commit_id, &edge_list).await?;
         if state.commit_source_map.len() == state.num_unresolved_roots {
             // No more lines to propagate to ancestors.
             break;
         }
+
+        // Recompute the reachable set to drop dead branches.
+        //
+        // TODO: This rebuilds `reachable` from scratch every iteration, which
+        // is O(commit_source_map) and wasteful when the frontier is wide (bushy
+        // history with many concurrent file-touching branches). The set only
+        // ever shrinks when a branch dies, so we could recompute (and retain())
+        // only after `process_commit()` actually drops a parent, or maintain
+        // `reachable` incrementally with per-commit referrer counts for O(V+E)
+        // total.
+        reachable = reachable_commits(&state.commit_source_map, &lookahead);
+        // Drop any prefetch whose branch just died. This frees `requested`
+        // slots so the gate above lets live work back in; the orphaned futures
+        // stay in `pending` until they resolve and `take()` discards them, so
+        // the gate can briefly undercount the fetches truly in flight.
+        prefetcher.retain(|id| reachable.contains(id));
     }
     Ok(())
 }
@@ -329,8 +543,7 @@ async fn process_commits(
 /// tree with the current version, updating the mappings for any lines in
 /// common. If the parent doesn't have the file, we skip it.
 async fn process_commit(
-    repo: &dyn Repo,
-    file_name: &RepoPath,
+    prefetcher: &mut ContentPrefetcher,
     state: &mut AnnotationState,
     current_commit_id: &CommitId,
     edges: &[GraphEdge<CommitId>],
@@ -342,10 +555,14 @@ async fn process_commit(
     for parent_edge in edges {
         let parent_commit_id = &parent_edge.target;
         let parent_source = match state.commit_source_map.entry(parent_commit_id.clone()) {
+            // Content was already loaded by a different branch that visited
+            // this parent earlier. The look-ahead in `process_commits()` skips
+            // prefetching parents already in `commit_source_map`, so the
+            // prefetcher holds nothing for this commit to release here.
             hash_map::Entry::Occupied(entry) => entry.into_mut(),
             hash_map::Entry::Vacant(entry) => {
-                let commit = repo.store().get_commit_async(entry.key()).await?;
-                entry.insert(Source::load(&commit, file_name).await?)
+                let text = prefetcher.take(entry.key()).await?;
+                entry.insert(Source::new(text))
             }
         };
 
@@ -382,6 +599,10 @@ async fn process_commit(
             itertools::merge(parent_source.line_map.iter().copied(), new_parent_line_map).collect()
         };
         if parent_source.line_map.is_empty() {
+            // This parent has no lines left to propagate, so drop it. A later
+            // commit sharing this parent will re-fetch its content (the entry
+            // looks `Vacant` again) -- the prefetcher dedups only concurrent
+            // requests, not this sequential re-fetch.
             state.commit_source_map.remove(parent_commit_id);
         } else if parent_edge.is_missing() {
             // If an omitted parent had the file, leave these lines unresolved.
@@ -470,13 +691,56 @@ async fn get_file_contents(
 
 #[cfg(test)]
 mod tests {
+    use futures::FutureExt as _;
+    use pollster::FutureExt as _;
+    use tempfile::TempDir;
+
     use super::*;
+    use crate::config::StackedConfig;
+    use crate::settings::UserSettings;
+    use crate::signing::Signer;
+    use crate::simple_backend::SimpleBackend;
 
     fn make_line_origin(commit_id: &CommitId, line_number: usize) -> LineOrigin {
         LineOrigin {
             commit_id: commit_id.clone(),
             line_number,
         }
+    }
+
+    /// An empty `SimpleBackend`-backed `Store` for exercising
+    /// `ContentPrefetcher` and `process_commit()` directly. Owns the
+    /// backing `TempDir`, so it stays alive exactly as long as the `Store`
+    /// (cf. `testutils::TestRepo`).
+    ///
+    /// Avoids `testutils` (which depends on `jj-lib`) to dodge a dependency
+    /// cycle that would link two incompatible `jj-lib` instances; see
+    /// `git_backend.rs`'s `user_settings()`. The tests never poll a real fetch
+    /// future, so an empty store suffices.
+    struct TestStore {
+        _temp_dir: TempDir,
+        store: Arc<Store>,
+    }
+
+    impl TestStore {
+        fn init() -> Self {
+            let temp_dir = crate::tests::new_temp_dir();
+            let backend = SimpleBackend::init(temp_dir.path());
+            let settings = UserSettings::from_config(StackedConfig::with_defaults()).unwrap();
+            let signer = Signer::from_settings(&settings).unwrap();
+            let merge_options = MergeOptions::from_settings(&settings).unwrap();
+            let store = Store::new(Box::new(backend), signer, merge_options);
+            Self {
+                _temp_dir: temp_dir,
+                store,
+            }
+        }
+    }
+
+    fn make_source(text: &str) -> Source {
+        let mut source = Source::new(text.into());
+        source.fill_line_map();
+        source
     }
 
     #[test]
@@ -564,5 +828,159 @@ mod tests {
                 (Ok(&commit_id3), 4..7),
             ]
         );
+    }
+
+    /// A commit that's an edge target of two graph nodes (e.g. a parent of two
+    /// merged branches) must be `prefetch()`-ed only once, so concurrent
+    /// duplicate fetches don't waste backend I/O on merge-heavy repos.
+    ///
+    /// This tests `ContentPrefetcher`'s bookkeeping directly rather than going
+    /// through `FileAnnotator`: the line-mapping algorithm re-visits a shared
+    /// ancestor once per branch regardless, so the dedup is only observable on
+    /// the prefetcher's internal state.
+    #[test]
+    fn test_content_prefetcher_dedups_requests() {
+        let test_store = TestStore::init();
+        let file_path = RepoPath::from_internal_string("file").unwrap();
+        let commit_id = CommitId::from_hex("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+
+        let mut prefetcher = ContentPrefetcher::new(&test_store.store, file_path);
+
+        // Simulate two graph edges that both point at `commit_id` (as would
+        // happen if it were a parent of two different branches), discovered
+        // during the same look-ahead pass, before either is consumed by
+        // `take()`.
+        prefetcher.prefetch(&commit_id);
+        prefetcher.prefetch(&commit_id);
+
+        // The second `prefetch()` must not register a second fetch task.
+        assert_eq!(prefetcher.requested.len(), 1);
+        assert_eq!(prefetcher.pending.len(), 1);
+    }
+
+    /// After `process_commit()` runs, the prefetcher holds nothing for the
+    /// parents it visited:
+    ///
+    /// - a parent fetched via the `Vacant` branch is consumed by `take()`,
+    ///   which removes it from `requested` and `completed`;
+    /// - a parent already in `commit_source_map` (the `Occupied` branch) was
+    ///   never prefetched, since the look-ahead in `process_commits()` skips
+    ///   parents already tracked there.
+    ///
+    /// This is the invariant that lets the `Occupied` branch omit any explicit
+    /// prefetcher cleanup -- there is simply nothing to release. It also
+    /// exercises the `!commit_source_map.contains_key()` look-ahead guard's
+    /// intent: an already-tracked parent stays out of the prefetcher.
+    #[test]
+    fn test_process_commit_drains_visited_parents() {
+        let test_store = TestStore::init();
+        let file_path = RepoPath::from_internal_string("file").unwrap();
+
+        let child = CommitId::from_hex("cccccccccccccccccccccccccccccccccccccccc");
+        let visited_parent = CommitId::from_hex("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        let new_parent = CommitId::from_hex("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+
+        let mut prefetcher = ContentPrefetcher::new(&test_store.store, file_path);
+        // Stand in for a look-ahead fetch of `new_parent` that already
+        // finished, so `take()` returns from `completed` without touching the
+        // backend. `visited_parent` is deliberately absent: the look-ahead
+        // never prefetches a parent that's already in `commit_source_map`.
+        prefetcher.requested.insert(new_parent.clone());
+        prefetcher
+            .completed
+            .insert(new_parent.clone(), "a\n".into());
+
+        let mut state = AnnotationState {
+            original_line_map: vec![
+                Err(make_line_origin(&child, 0)),
+                Err(make_line_origin(&child, 1)),
+            ],
+            commit_source_map: HashMap::from([
+                (child.clone(), make_source("a\nb\n")),
+                (visited_parent.clone(), make_source("a\n")),
+            ]),
+            num_unresolved_roots: 0,
+        };
+
+        let edges = [
+            GraphEdge::direct(visited_parent.clone()),
+            GraphEdge::direct(new_parent.clone()),
+        ];
+        process_commit(&mut prefetcher, &mut state, &child, &edges)
+            .block_on()
+            .unwrap();
+
+        // `new_parent` was consumed by `take()`; `visited_parent` was read from
+        // `commit_source_map` and never entered the prefetcher. Nothing is left
+        // holding file content.
+        assert!(prefetcher.requested.is_empty());
+        assert!(prefetcher.completed.is_empty());
+        assert_eq!(prefetcher.pending.len(), 0);
+    }
+
+    /// `ContentPrefetcher::retain` correctly cleans up both pending requests
+    /// and completed fetches for commits that are no longer reachable.
+    #[test]
+    fn test_content_prefetcher_retains_reachable_commits() {
+        let test_store = TestStore::init();
+        let file_path = RepoPath::from_internal_string("file").unwrap();
+        let mut prefetcher = ContentPrefetcher::new(&test_store.store, file_path);
+
+        let reachable = CommitId::from_hex("1111111111111111111111111111111111111111");
+        let unreachable1 = CommitId::from_hex("2222222222222222222222222222222222222222");
+        let unreachable2 = CommitId::from_hex("3333333333333333333333333333333333333333");
+
+        prefetcher.prefetch(&reachable);
+        prefetcher.prefetch(&unreachable1);
+        prefetcher.prefetch(&unreachable2);
+
+        // Simulate one unreachable fetch finishing before cleanup
+        prefetcher
+            .completed
+            .insert(unreachable1.clone(), "foo\n".into());
+
+        assert_eq!(prefetcher.requested.len(), 3);
+        assert_eq!(prefetcher.completed.len(), 1);
+
+        prefetcher.retain(|id| id == &reachable);
+
+        // Both unreachables (one pending, one completed) are removed.
+        assert_eq!(prefetcher.requested.len(), 1);
+        assert!(prefetcher.requested.contains(&reachable));
+        assert_eq!(prefetcher.completed.len(), 0);
+    }
+
+    /// A fetch that `retain()` dropped while it was still in flight must not
+    /// fail the annotation when it later resolves to an error: `take()` only
+    /// propagates results for commits still in `requested`. Without that guard,
+    /// an I/O error on a commit we abandoned (a dead branch) would abort the
+    /// whole annotation.
+    #[test]
+    fn test_take_ignores_error_from_dropped_fetch() {
+        let test_store = TestStore::init();
+        let file_path = RepoPath::from_internal_string("file").unwrap();
+        let mut prefetcher = ContentPrefetcher::new(&test_store.store, file_path);
+
+        let wanted = CommitId::from_hex("1111111111111111111111111111111111111111");
+        let dropped = CommitId::from_hex("2222222222222222222222222222222222222222");
+
+        // `dropped` was prefetched, then dropped by `retain()` (removed from
+        // `requested`) while its fetch is still pending. The fetch errors,
+        // since the commit doesn't exist in the backend.
+        prefetcher.prefetch(&dropped);
+        prefetcher.requested.remove(&dropped);
+
+        // `wanted` is requested but not yet stashed, so `take()` has to drain
+        // `pending` -- hitting the erroring `dropped` fetch -- to reach it.
+        let expected: BString = "wanted\n".into();
+        prefetcher.requested.insert(wanted.clone());
+        let wanted_for_future = wanted.clone();
+        let expected_for_future = expected.clone();
+        prefetcher
+            .pending
+            .push(async move { (wanted_for_future, Ok(expected_for_future)) }.boxed());
+
+        let text = prefetcher.take(&wanted).block_on().unwrap();
+        assert_eq!(text, expected);
     }
 }
