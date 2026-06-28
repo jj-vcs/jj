@@ -27,14 +27,15 @@ use jj_lib::git::GitSettings;
 use jj_lib::git::parse_git_ref;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
+use jj_lib::transaction::start_repo_transaction;
 use jj_lib::view::View;
 use jj_lib::workspace::Workspace;
 
 use super::RepoPresets;
 use super::write_repo_presets;
 use crate::cli_util::CommandHelper;
+use crate::cli_util::command_args_to_transaction_attribute;
 use crate::cli_util::shell_quote;
-use crate::cli_util::start_repo_transaction;
 use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::command_error::internal_error;
@@ -263,7 +264,15 @@ async fn init_git_refs(
         record_synthetic_predecessors: false,
         ..load_git_import_options(ui, &git_settings, &remote_settings)?
     };
-    let mut tx = start_repo_transaction(&repo, workspace.workspace_name(), string_args);
+    let transaction_attributes = [(
+        "args".to_string(),
+        command_args_to_transaction_attribute(string_args),
+    )];
+    let mut tx = start_repo_transaction(
+        &repo,
+        Some(workspace.workspace_name()),
+        transaction_attributes,
+    );
     let stats = git::import_refs(tx.repo_mut(), &import_options).await?;
     print_git_import_stats_summary(ui, &stats)?;
     if !tx.repo().has_changes() {
