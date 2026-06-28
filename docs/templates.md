@@ -499,9 +499,13 @@ The following methods are defined.
 
 _Conversion: `Boolean`: yes, `Serialize`: maybe, `Template`: maybe_
 
-An option can be implicitly converted to `Boolean` denoting whether the
-contained value is set. If set, all methods of the contained value can be
-invoked. If not set, an error will be reported inline on method call.
+`Option` values can be implicitly converted to `Boolean`. For `Option` types whose
+contained value has no implicit `Boolean` conversion, this tests whether the
+value is set. Otherwise, the conversion uses the contained value when set and is
+false when unset. This applies to `Option<String>`; see the
+[`String`](#string-type) type for how strings convert to `Boolean`. If set, all
+methods of the contained value can be invoked. If not set, an error will be
+reported inline on method call.
 
 On comparison between two optional values or optional and non-optional values,
 unset value is not an error. Unset value is considered less than any set values.
@@ -592,7 +596,9 @@ This type cannot be printed. The following methods are defined.
 _Conversion: `Boolean`: yes, `Serialize`: yes, `Template`: yes_
 
 A UTF-8-encoded string. This can be implicitly converted to `Boolean`. The
-following methods are defined.
+empty string is false, and non-empty strings are true. `Option<String>` values
+inherit this conversion when set, and are false when unset. The following
+methods are defined.
 
 * `.len() -> Integer`: Length in UTF-8 bytes.
 * `.contains(needle: Stringify) -> Boolean`: Whether the string contains the

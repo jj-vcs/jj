@@ -172,6 +172,7 @@ where
     Self: WrapTemplateProperty<'a, BString>,
     Self: WrapTemplateProperty<'a, Vec<BString>>,
     Self: WrapTemplateProperty<'a, String>,
+    Self: WrapTemplateProperty<'a, Option<String>>,
     Self: WrapTemplateProperty<'a, Vec<String>>,
     Self: WrapTemplateProperty<'a, bool>,
     Self: WrapTemplateProperty<'a, i64>,
@@ -215,6 +216,7 @@ pub enum CoreTemplatePropertyKind<'a> {
     ByteString(BoxedTemplateProperty<'a, BString>),
     ByteStringList(BoxedTemplateProperty<'a, Vec<BString>>),
     String(BoxedTemplateProperty<'a, String>),
+    StringOpt(BoxedTemplateProperty<'a, Option<String>>),
     StringList(BoxedTemplateProperty<'a, Vec<String>>),
     Boolean(BoxedTemplateProperty<'a, bool>),
     Integer(BoxedTemplateProperty<'a, i64>),
@@ -253,6 +255,7 @@ macro_rules! impl_core_property_wrappers {
             ByteString(bstr::BString),
             ByteStringList(Vec<bstr::BString>),
             String(String),
+            StringOpt(Option<String>),
             StringList(Vec<String>),
             Boolean(bool),
             Integer(i64),
@@ -291,6 +294,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::ByteString(_) => "ByteString",
             Self::ByteStringList(_) => "List<ByteString>",
             Self::String(_) => "String",
+            Self::StringOpt(_) => "Option<String>",
             Self::StringList(_) => "List<String>",
             Self::Boolean(_) => "Boolean",
             Self::Integer(_) => "Integer",
@@ -312,6 +316,9 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
     fn try_into_byte_string(self) -> Result<BoxedTemplateProperty<'a, BString>, Self> {
         match self {
             Self::ByteString(property) => Ok(property),
+            Self::StringOpt(property) => Ok(property
+                .map(|opt| opt.map_or_else(BString::default, BString::from))
+                .into_dyn()),
             _ => Err(self),
         }
     }
@@ -319,6 +326,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
     fn try_into_string(self) -> Result<BoxedTemplateProperty<'a, String>, Self> {
         match self {
             Self::String(property) => Ok(property),
+            Self::StringOpt(property) => Ok(property.map(|opt| opt.unwrap_or_default()).into_dyn()),
             _ => Err(self),
         }
     }
@@ -328,6 +336,9 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::ByteString(property) => Ok(property.map(|s| !s.is_empty()).into_dyn()),
             Self::ByteStringList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
             Self::String(property) => Ok(property.map(|s| !s.is_empty()).into_dyn()),
+            Self::StringOpt(property) => Ok(property
+                .map(|opt| opt.is_some_and(|s| !s.is_empty()))
+                .into_dyn()),
             Self::StringList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
             Self::Boolean(property) => Ok(property),
             Self::Integer(_) => Err(self),
@@ -369,6 +380,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::ByteString(property) => Some(property.into_serialize()),
             Self::ByteStringList(property) => Some(property.into_serialize()),
             Self::String(property) => Some(property.into_serialize()),
+            Self::StringOpt(property) => Some(property.into_serialize()),
             Self::StringList(property) => Some(property.into_serialize()),
             Self::Boolean(property) => Some(property.into_serialize()),
             Self::Integer(property) => Some(property.into_serialize()),
@@ -398,6 +410,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::ByteString(property) => Some(property.into_template()),
             Self::ByteStringList(property) => Some(property.into_template()),
             Self::String(property) => Some(property.into_template()),
+            Self::StringOpt(property) => Some(property.into_template()),
             Self::StringList(property) => Some(property.into_template()),
             Self::Boolean(property) => Some(property.into_template()),
             Self::Integer(property) => Some(property.into_template()),
@@ -430,6 +443,15 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::String(lhs), Self::String(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
             }
+            (Self::String(lhs), Self::StringOpt(rhs)) => {
+                Some((lhs, rhs).map(|(l, r)| Some(l) == r).into_dyn())
+            }
+            (Self::StringOpt(lhs), Self::String(rhs)) => {
+                Some((lhs, rhs).map(|(l, r)| l == Some(r)).into_dyn())
+            }
+            (Self::StringOpt(lhs), Self::StringOpt(rhs)) => {
+                Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
+            }
             (Self::String(lhs), Self::Email(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| l == r.0).into_dyn())
             }
@@ -457,6 +479,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::ByteString(_), _) => None,
             (Self::ByteStringList(_), _) => None,
             (Self::String(_), _) => None,
+            (Self::StringOpt(_), _) => None,
             (Self::StringList(_), _) => None,
             (Self::Boolean(_), _) => None,
             (Self::Integer(_), _) => None,
@@ -492,6 +515,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::ByteString(_), _) => None,
             (Self::ByteStringList(_), _) => None,
             (Self::String(_), _) => None,
+            (Self::StringOpt(_), _) => None,
             (Self::StringList(_), _) => None,
             (Self::Boolean(_), _) => None,
             (Self::Integer(_), _) => None,
@@ -712,6 +736,13 @@ where
                 let table = &self.string_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(language, diagnostics, build_ctx, property, function)
+            }
+            CoreTemplatePropertyKind::StringOpt(property) => {
+                let type_name = "String";
+                let table = &self.string_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                let inner_property = property.try_unwrap(type_name).into_dyn();
+                build(language, diagnostics, build_ctx, inner_property, function)
             }
             CoreTemplatePropertyKind::StringList(property) => {
                 let table = &self.string_list_methods;
@@ -3874,6 +3905,40 @@ mod tests {
         assert_matches!(
             env.parse_err_kind("str_list.map(|s| s) == str_list.map(|s| s)"),
             TemplateParseErrorKind::Expression(_)
+        );
+    }
+
+    #[test]
+    fn test_string_option() {
+        let mut env = TestTemplateEnv::new();
+        env.add_keyword("none_string", || literal::<Option<String>>(None));
+        env.add_keyword("some_empty_string", || literal(Some(String::new())));
+        env.add_keyword("some_string", || literal(Some("foo".to_owned())));
+
+        insta::assert_snapshot!(env.render_ok(r#"concat("x", none_string, "y")"#), @"xy");
+        insta::assert_snapshot!(env.render_ok(r#"concat("x", some_empty_string, "y")"#), @"xy");
+        insta::assert_snapshot!(env.render_ok(r#"concat("x", some_string, "y")"#), @"xfooy");
+
+        insta::assert_snapshot!(env.render_ok(r#"json(none_string)"#), @"null");
+        insta::assert_snapshot!(env.render_ok(r#"json(some_empty_string)"#), @r#""""#);
+        insta::assert_snapshot!(env.render_ok(r#"json(some_string)"#), @r#""foo""#);
+
+        insta::assert_snapshot!(env.render_ok(r#"none_string == """#), @"false");
+        insta::assert_snapshot!(env.render_ok(r#"some_empty_string == """#), @"true");
+        insta::assert_snapshot!(env.render_ok(r#"some_string == "foo""#), @"true");
+        insta::assert_snapshot!(env.render_ok(r#"none_string != """#), @"true");
+
+        // Option<String> follows String truthiness when set, preserving if("") ==
+        // false.
+        insta::assert_snapshot!(env.render_ok(r#"if("", "t", "f")"#), @"f");
+        insta::assert_snapshot!(env.render_ok(r#"if(none_string, "t", "f")"#), @"f");
+        insta::assert_snapshot!(env.render_ok(r#"if(some_empty_string, "t", "f")"#), @"f");
+        insta::assert_snapshot!(env.render_ok(r#"if(some_string, "t", "f")"#), @"t");
+
+        insta::assert_snapshot!(env.render_ok(r#"some_string.upper()"#), @"FOO");
+        insta::assert_snapshot!(
+            env.render_ok(r#"none_string.upper()"#),
+            @"<Error: No String available>"
         );
     }
 
