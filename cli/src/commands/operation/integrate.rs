@@ -14,9 +14,10 @@
 
 use jj_lib::op_heads_store;
 use jj_lib::operation::Operation;
+use jj_lib::transaction::start_repo_transaction;
 
 use crate::cli_util::CommandHelper;
-use crate::cli_util::start_repo_transaction;
+use crate::cli_util::command_args_to_transaction_attribute;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
 
@@ -53,12 +54,16 @@ pub async fn cmd_op_integrate(
         repo_loader.op_store(),
         async |op_heads| -> Result<Operation, CommandError> {
             let base_repo = repo_loader.load_at(&op_heads[0]).await?;
-            // TODO: It may be helpful to print each operation we're merging here
+            let transaction_attributes = [(
+                "args".to_string(),
+                command_args_to_transaction_attribute(command.string_args()),
+            )];
             let mut tx = start_repo_transaction(
                 &base_repo,
-                workspace_command.workspace_name(),
-                command.string_args(),
+                Some(workspace_command.workspace_name()),
+                transaction_attributes,
             );
+            // TODO: It may be helpful to print each operation we're merging here
             for other_op_head in op_heads.into_iter().skip(1) {
                 tx.merge_operation(other_op_head).await?;
                 let num_rebased = tx.repo_mut().rebase_descendants().await?;
