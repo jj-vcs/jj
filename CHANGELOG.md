@@ -44,6 +44,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj gerrit upload` now supports the `-o` (`--option`) flag, which works like
   `git push -o` (`--push-option`).
 
+* `jj revert` now inserts the reverted revision before the working copy (@) by
+  default.
+
 ### Fixed bugs
 
 * `jj` now creates a new working-copy revision during snapshotting if the
