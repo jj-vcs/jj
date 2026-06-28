@@ -7188,11 +7188,6 @@
 and this project adheres
 to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h2 id="unreleased"><a href="https://github.com/jj-vcs/jj/compare/v0.42.0...HEAD">Unreleased</a><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>jj config gc</code> will delete configuration of deleted/moved repos from
-  <code>~/.config/jj/repos</code> folder.
-  <a href="https://github.com/jj-vcs/jj/issues/9362">#9362</a></li>
-</ul>
 <h3 id="release-highlights">Release highlights<a class="headerlink" href="#release-highlights" title="Permanent link">&para;</a></h3>
 <h3 id="breaking-changes">Breaking changes<a class="headerlink" href="#breaking-changes" title="Permanent link">&para;</a></h3>
 <ul>
@@ -7221,6 +7216,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 </li>
 <li>
 <p><code>jj</code> now looks for config files in <code>/etc/jj</code>.</p>
+</li>
+<li>
+<p><code>jj config gc</code> will delete configuration of deleted/moved repos from
+  <code>~/.config/jj/repos</code> folder.
+  <a href="https://github.com/jj-vcs/jj/issues/9362">#9362</a></p>
 </li>
 <li>
 <p><code>jj run</code> allows you to run a command over a set of changes, each with their
