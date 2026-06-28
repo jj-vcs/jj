@@ -90,6 +90,15 @@ pub struct GitRef {
     pub target: ::core::option::Option<RefTarget>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct FetchedGitRef {
+    #[prost(string, tag = "1")]
+    pub remote_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub ref_name: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "3")]
+    pub target: ::core::option::Option<RefTarget>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RemoteRef {
     #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,
@@ -139,6 +148,8 @@ pub struct View {
     /// Whether "@git" tags have been migrated to remote_views.
     #[prost(bool, tag = "12")]
     pub has_git_refs_migrated_to_remote_tags: bool,
+    #[prost(message, repeated, tag = "13")]
+    pub fetched_git_refs: ::prost::alloc::vec::Vec<FetchedGitRef>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RemoteView {
