@@ -1340,8 +1340,14 @@ impl WorkspaceCommandHelper {
             }
         } else {
             // Unlikely, but the HEAD ref got deleted by git?
-            self.finish_transaction(ui, tx, "import git head", git_import_export_lock)
-                .await?;
+            self.finish_transaction(
+                ui,
+                tx,
+                "import git head",
+                git_import_export_lock,
+                &HashSet::new(),
+            )
+            .await?;
         }
         Ok(())
     }
@@ -1382,8 +1388,14 @@ impl WorkspaceCommandHelper {
                 "Rebased {num_rebased} descendant commits off of commits rewritten from git"
             )?;
         }
-        self.finish_transaction(ui, tx, "import git refs", git_import_export_lock)
-            .await?;
+        self.finish_transaction(
+            ui,
+            tx,
+            "import git refs",
+            git_import_export_lock,
+            &HashSet::new(),
+        )
+        .await?;
         writeln!(
             ui.status(),
             "Done importing changes from the underlying Git repo."
@@ -2221,8 +2233,15 @@ to the current parents may contain changes from multiple commits.
         mut tx: Transaction,
         description: impl Into<String>,
         _git_import_export_lock: &GitImportExportLock,
+        to_restore: &HashSet<CommitId>,
     ) -> Result<(), CommandError> {
-        let num_rebased = tx.repo_mut().rebase_descendants().await?;
+        let mut num_rebased = 0;
+        tx.repo_mut()
+            .rebase_or_reparent_descendants(|commit_id| {
+                num_rebased += 1;
+                to_restore.contains(commit_id)
+            })
+            .await?;
         if num_rebased > 0 {
             writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
         }
@@ -2685,7 +2704,12 @@ impl WorkspaceCommandTransaction<'_> {
         self.helper.env.parse_template(ui, &language, template_text)
     }
 
-    pub async fn finish(self, ui: &Ui, description: impl Into<String>) -> Result<(), CommandError> {
+    pub async fn finish_with_to_restore(
+        self,
+        ui: &Ui,
+        description: impl Into<String>,
+        to_restore: &HashSet<CommitId>,
+    ) -> Result<(), CommandError> {
         if !self.tx.repo().has_changes() {
             writeln!(ui.status(), "Nothing changed.")?;
             return Ok(());
@@ -2694,7 +2718,18 @@ impl WorkspaceCommandTransaction<'_> {
         // Git HEAD export happens atomically with the transaction commit.
         let git_import_export_lock = self.helper.lock_git_import_export()?;
         self.helper
-            .finish_transaction(ui, self.tx, description, &git_import_export_lock)
+            .finish_transaction(
+                ui,
+                self.tx,
+                description,
+                &git_import_export_lock,
+                to_restore,
+            )
+            .await
+    }
+
+    pub async fn finish(self, ui: &Ui, description: impl Into<String>) -> Result<(), CommandError> {
+        self.finish_with_to_restore(ui, description, &HashSet::new())
             .await
     }
 

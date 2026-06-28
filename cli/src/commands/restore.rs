@@ -16,6 +16,7 @@ use std::io::Write as _;
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use futures::TryStreamExt as _;
 use indoc::formatdoc;
 use itertools::Itertools as _;
 use jj_lib::commit::conflict_label_for_commits;
@@ -98,6 +99,15 @@ pub(crate) struct RestoreArgs {
     /// Preserve the content (not the diff) when rebasing descendants
     #[arg(long)]
     restore_descendants: bool,
+
+    /// The revision(s) to preserve the content of (not the diff)
+    #[arg(
+        long,
+        value_name = "REVSETS",
+        conflicts_with = "restore_descendants",
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
+    )]
+    restore_snapshots: Option<Vec<RevisionArg>>,
 }
 
 #[instrument(skip_all)]
@@ -136,6 +146,16 @@ pub(crate) async fn cmd_restore(
         from_commits = to_commit.parents().await?;
     }
     workspace_command.check_rewritable([to_commit.id()]).await?;
+
+    let to_restore = if let Some(restore_snapshots) = args.restore_snapshots.as_deref() {
+        workspace_command
+            .parse_union_revsets(ui, restore_snapshots)?
+            .evaluate_to_commit_ids()?
+            .try_collect()
+            .await?
+    } else {
+        std::collections::HashSet::new()
+    };
 
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
     let matcher = fileset_expression.to_matcher();
@@ -189,24 +209,36 @@ pub(crate) async fn cmd_restore(
             .await?;
         // rebase_descendants early; otherwise the new commit would always have
         // a conflicted change id at this point.
-        let (num_rebased, extra_msg) = if args.restore_descendants {
-            (
-                tx.repo_mut().reparent_descendants().await?,
-                " (while preserving their content)",
-            )
-        } else {
-            (tx.repo_mut().rebase_descendants().await?, "")
-        };
-        if let Some(mut formatter) = ui.status_formatter()
-            && num_rebased > 0
-        {
-            writeln!(
-                formatter,
-                "Rebased {num_rebased} descendant commits{extra_msg}"
-            )?;
-        }
-        tx.finish(ui, format!("restore into commit {}", to_commit.id().hex()))
+        let mut num_reparented = 0;
+        let mut num_rebased = 0;
+        tx.repo_mut()
+            .rebase_or_reparent_descendants(|commit_id| {
+                if args.restore_descendants || to_restore.contains(commit_id) {
+                    num_reparented += 1;
+                    true
+                } else {
+                    num_rebased += 1;
+                    false
+                }
+            })
             .await?;
+        if let Some(mut formatter) = ui.status_formatter() {
+            if num_reparented > 0 {
+                writeln!(
+                    formatter,
+                    "Rebased {num_reparented} descendant commits (while preserving their content)"
+                )?;
+            }
+            if num_rebased > 0 {
+                writeln!(formatter, "Rebased {num_rebased} descendant commits")?;
+            }
+        }
+        tx.finish_with_to_restore(
+            ui,
+            format!("restore into commit {}", to_commit.id().hex()),
+            &to_restore,
+        )
+        .await?;
     }
     Ok(())
 }
