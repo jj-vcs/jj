@@ -292,11 +292,14 @@ pub(crate) async fn cmd_split(
     // Prompt the user to select the changes they want for the first commit.
     let target = select_diff(ui, &tx, &target_commit, &matcher, &diff_selector).await?;
 
+    let source_id_to_first_commit =
+        !use_move_flags && tx.settings().get_bool("split.legacy-bookmark-behavior")?;
+
     // Create the first commit, which includes the changes selected by the user.
     let first_commit = {
         let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
         commit_builder.set_tree(target.selected_tree.clone());
-        if use_move_flags {
+        if !source_id_to_first_commit {
             commit_builder.clear_rewrite_source();
             // Generate a new change id so that the commit being split doesn't
             // become divergent.
@@ -365,7 +368,7 @@ pub(crate) async fn cmd_split(
         let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
         commit_builder.set_parents(parents).set_tree(new_tree);
         let mut show_editor = args.editor;
-        if !use_move_flags {
+        if source_id_to_first_commit {
             commit_builder.clear_rewrite_source();
             // Generate a new change id so that the commit being split doesn't
             // become divergent.
