@@ -39,6 +39,7 @@ use percent_encoding::utf8_percent_encode;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::short_change_hash;
+use crate::cli_util::short_commit_hash;
 use crate::command_error::CommandError;
 use crate::command_error::internal_error;
 use crate::command_error::user_error;
@@ -96,6 +97,11 @@ pub struct UploadArgs {
     /// Do not actually push the changes to Gerrit
     #[arg(long, short = 'n')]
     dry_run: bool,
+
+    /// Allow uploading commits that are configured as private in
+    /// `git.private-commits`
+    #[arg(long)]
+    allow_private: bool,
 
     // The following flags are options Gerrit supports during upload.
     // They are documented at
@@ -491,6 +497,34 @@ pub async fn cmd_gerrit_upload(
         .evaluate_to_commits()?
         .try_collect()
         .await?;
+
+    // Check for private commits
+    if !args.allow_private {
+        let settings = workspace_command.settings();
+        let private_revset_str = RevisionArg::from(settings.get_string("git.private-commits")?);
+        let is_private = workspace_command
+            .parse_revset(ui, &private_revset_str)?
+            .evaluate()?
+            .containing_fn();
+
+        for commit in &to_upload {
+            if is_private(commit.id())? {
+                let mut error = user_error(format!(
+                    "Won't upload commit {} since it is private",
+                    short_commit_hash(commit.id())
+                ));
+                error.add_formatted_hint_with(|formatter| {
+                    write!(formatter, "Rejected commit: ")?;
+                    workspace_command.write_commit_summary(formatter, commit)?;
+                    Ok(())
+                });
+                error.add_hint(format!(
+                    "Configured git.private-commits: '{private_revset_str}'",
+                ));
+                return Err(error);
+            }
+        }
+    }
 
     // Note: This transaction is intentionally never finished. This way, the
     // Change-Id is never part of the commit description in jj.
