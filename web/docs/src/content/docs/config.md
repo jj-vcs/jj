@@ -143,8 +143,8 @@ commit_id = "ansi-color-81"
 
 If you use a string value for a color, as in the examples above, it will be used
 for the foreground color. You can also set the background color, reverse colors
-(swap foreground and background), or make the text bold, dim, italic, or
-underlined. For that, you need to use a table:
+(swap foreground and background), or make the text bold, dim, italic,
+underlined, or crossed-out. For that, you need to use a table:
 
 ```toml
 [colors]
