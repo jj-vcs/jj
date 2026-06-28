@@ -1437,9 +1437,10 @@ fn test_config_unset() {
     // Only config options set in TestEnvironment are suggested initially + other
     // viable flags
     let output = test_env.complete_fish(["config", "unset", ""]);
-    insta::assert_snapshot!(output.take_stdout_n_lines(5), @r#"
+    insta::assert_snapshot!(output.take_stdout_n_lines(6), @r#"
     template-aliases."format_time_range(time_range)"	user: 'time_range.start() ++ " - " ++ time_range.end()'
     git.colocate	user: false
+    ui.diff-formatter	user: ":color-words"
     --user	Target the user-level config
     --repo	Target the repo-level config
     --workspace	Target the workspace-level config
@@ -1513,6 +1514,7 @@ fn test_config_unset() {
     // If a config source has already been specified, only its options as completed
     let output = repo_dir.complete_fish(["config", "unset", "--user", "ui"]);
     insta::assert_snapshot!(output, @r#"
+    ui.diff-formatter	user: ":color-words"
     ui.editor	user: "nvim"
     ui.default-command	user: ["log", "--stat"]
     [EOF]
@@ -1610,6 +1612,7 @@ fn test_merge_tools() {
     :name-only
     :git
     :color-words
+    :auto
     diffedit3
     diffedit3-ssh
     difft

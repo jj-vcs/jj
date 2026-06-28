@@ -32,7 +32,7 @@ track-default-bookmark-on-clone = true
 
 [ui]
 color = "auto"
-diff-formatter = ":color-words"
+diff-formatter = ":auto"
 diff-instructions = true
 graph.style = "curved"
 pager = { command = ["less", "-FRX"], env = { LESSCHARSET = "utf-8" } }
