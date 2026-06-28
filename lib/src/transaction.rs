@@ -164,6 +164,21 @@ impl Transaction {
     }
 }
 
+pub fn start_repo_transaction(
+    repo: &Arc<ReadonlyRepo>,
+    workspace_name: Option<&WorkspaceName>,
+    transaction_attributes: impl IntoIterator<Item = (String, String)>,
+) -> Transaction {
+    let mut tx = repo.start_transaction();
+    if let Some(workspace_name) = workspace_name {
+        tx.set_workspace_name(workspace_name);
+    }
+    for (key, value) in transaction_attributes {
+        tx.set_attribute(key, value);
+    }
+    tx
+}
+
 pub fn create_op_metadata(
     user_settings: &UserSettings,
     description: String,
