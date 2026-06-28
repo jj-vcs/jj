@@ -613,8 +613,8 @@ likely most useful for scripting rather than for running on the command line by
 a human.
 
 If you want to see the ID of the current operation after this command, it would
-be simpler to run `jj operation log --limit 1` directly, since that command also
-takes a snapshot if needed.
+be simpler to run `jj operation log --limit 1` directly, since that command
+already takes a snapshot if needed.
 
 ### I want to write a tool which integrates with Jujutsu. Should I use the library or parse the CLI?
 
