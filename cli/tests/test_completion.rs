@@ -1606,6 +1606,7 @@ fn test_merge_tools() {
     insta::assert_snapshot!(output, @"
     :summary
     :stat
+    :stat-summary
     :types
     :name-only
     :git
