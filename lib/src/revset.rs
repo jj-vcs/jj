@@ -1232,8 +1232,8 @@ pub fn expect_string_expression(
             ExpressionKind::Identifier(value) => default_pattern(value),
             ExpressionKind::String(value) => default_pattern(value),
             ExpressionKind::Pattern(pattern) => {
-                let value = revset_parser::expect_string_literal("string", &pattern.value)?;
-                let pattern = StringPattern::from_str_kind(value, pattern.name)
+                let value = expect_pattern_value_string(diagnostics, &pattern.value)?;
+                let pattern = StringPattern::from_str_kind(&value, pattern.name)
                     .map_err(|err| pattern_error().with_source(err))?;
                 Ok(StringExpression::pattern(pattern))
             }
@@ -1270,9 +1270,44 @@ pub fn expect_string_expression(
                     .try_collect()?;
                 Ok(StringExpression::union_all(expressions))
             }
+            // PoC note: a real implementation should probably report unknown string functions like
+            //          `cocnat` and suggest `concat` perhaps via a string-function map even though
+            //          there is only one function today.
+            ExpressionKind::FunctionCall(function) if function.name == "concat" => {
+                let value = expect_static_string(diagnostics, node)?;
+                default_pattern(diagnostics, &value)
+            }
             ExpressionKind::FunctionCall(_) => Err(expr_error()),
             ExpressionKind::AliasExpanded(..) => unreachable!(),
         }
+    })
+}
+
+fn expect_pattern_value_string(
+    diagnostics: &mut RevsetDiagnostics,
+    node: &ExpressionNode,
+) -> Result<String, RevsetParseError> {
+    revset_parser::catch_aliases(diagnostics, node, |diagnostics, node| match &node.kind {
+        ExpressionKind::Identifier(value) => Ok((*value).to_owned()),
+        _ => expect_static_string(diagnostics, node),
+    })
+}
+
+fn expect_static_string(
+    diagnostics: &mut RevsetDiagnostics,
+    node: &ExpressionNode,
+) -> Result<String, RevsetParseError> {
+    revset_parser::catch_aliases(diagnostics, node, |diagnostics, node| match &node.kind {
+        ExpressionKind::String(value) => Ok(value.clone()),
+        ExpressionKind::FunctionCall(function) if function.name == "concat" => {
+            let ([], args) = function.expect_some_arguments()?;
+            let parts: Vec<_> = args
+                .iter()
+                .map(|arg| expect_static_string(diagnostics, arg))
+                .try_collect()?;
+            Ok(parts.concat())
+        }
+        _ => Err(RevsetParseError::expression("Expected string", node.span)),
     })
 }
 
@@ -4033,6 +4068,20 @@ mod tests {
             parse(r#"bookmarks(substring:"foo")"#)?,
             @r#"CommitRef(Bookmarks(Pattern(Substring("foo"))))"#);
         insta::assert_debug_snapshot!(
+            parse(r#"bookmarks(glob:concat("foo", "-", "bar*"))"#)?,
+            @r#"
+        CommitRef(
+            Bookmarks(Pattern(Glob(GlobPattern("foo-bar*")))),
+        )
+        "#);
+        insta::assert_debug_snapshot!(
+            parse(r#"bookmarks(concat("foo", concat("-", "bar*")))"#)?,
+            @r#"
+        CommitRef(
+            Bookmarks(Pattern(Glob(GlobPattern("foo-bar*")))),
+        )
+        "#);
+        insta::assert_debug_snapshot!(
             parse(r#"bookmarks(bad:"foo")"#).unwrap_err().kind(),
             @r#"Expression("Invalid string pattern")"#);
         insta::assert_debug_snapshot!(
@@ -4040,6 +4089,16 @@ mod tests {
             @r#"Expression("Invalid string expression")"#);
         insta::assert_debug_snapshot!(
             parse(r#"bookmarks(exact:"foo"+)"#).unwrap_err().kind(),
+            @r#"Expression("Expected string")"#);
+        insta::assert_debug_snapshot!(
+            parse(r#"bookmarks(glob:concat("foo", visible_heads()))"#)
+                .unwrap_err()
+                .kind(),
+            @r#"Expression("Expected string")"#);
+        insta::assert_debug_snapshot!(
+            parse(r#"bookmarks(glob:concat(foo, "bar"))"#)
+                .unwrap_err()
+                .kind(),
             @r#"Expression("Expected string")"#);
 
         insta::assert_debug_snapshot!(
@@ -4066,6 +4125,17 @@ mod tests {
             parse(r#"(exact:"foo")"#).unwrap_err().kind(),
             RevsetParseErrorKind::NotInfixOperator { .. }
         );
+        insta::assert_debug_snapshot!(
+            parse(r#"concat("foo", "bar")"#).unwrap_err().kind(),
+            @r#"
+        NoSuchFunction {
+            name: "concat",
+            candidates: [
+                "conflicts",
+                "connected",
+            ],
+        }
+        "#);
         Ok(())
     }
 
@@ -4189,6 +4259,9 @@ mod tests {
         insta::assert_debug_snapshot!(
             parse("description(foo)")?,
             @r#"Filter(Description(Pattern(Exact("foo"))))"#);
+        insta::assert_debug_snapshot!(
+            parse(r#"description(substring:concat("[", "topic", "]"))"#)?,
+            @r#"Filter(Description(Pattern(Substring("[topic]"))))"#);
         insta::assert_debug_snapshot!(
             parse("description(visible_heads())").unwrap_err().kind(),
             @r#"Expression("Invalid string expression")"#);
@@ -4441,6 +4514,43 @@ mod tests {
             Filter(AuthorName(Pattern(Exact("a")))),
             Filter(CommitterName(Pattern(Exact("a")))),
         )
+        "#);
+        insta::assert_debug_snapshot!(
+            parse_with_aliases(
+                r#"has_label("blue")"#,
+                [("has_label(s)", r#"description(substring:concat("[", s, "]"))"#)],
+            )?,
+            @r#"
+        Filter(Description(Pattern(Substring("[blue]"))))
+        "#);
+        let err = parse_with_aliases(
+            r#"has_label(blue)"#,
+            [(
+                "has_label(s)",
+                r#"description(substring:concat("[", s, "]"))"#,
+            )],
+        )
+        .unwrap_err();
+        insta::assert_debug_snapshot!(
+            err.kind(),
+            @r#"InAliasExpansion("has_label(s)")"#);
+        let err = err.origin().unwrap();
+        insta::assert_debug_snapshot!(
+            err.kind(),
+            @r#"InParameterExpansion("s")"#);
+        insta::assert_debug_snapshot!(
+            err.origin().unwrap().kind(),
+            @r#"Expression("Expected string")"#);
+        insta::assert_debug_snapshot!(
+            parse_with_aliases(
+                r#"has_label(blue)"#,
+                [
+                    ("blue", r#""blue""#),
+                    ("has_label(s)", r#"description(substring:concat("[", s, "]"))"#),
+                ],
+            )?,
+            @r#"
+        Filter(Description(Pattern(Substring("[blue]"))))
         "#);
         Ok(())
     }
