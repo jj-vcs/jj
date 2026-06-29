@@ -52,7 +52,7 @@ erased-serde = "0.4.10"
 etcetera = "0.11.0"
 eyre = "0.6"
 futures = "0.3.32"
-gix = { version = "0.84.0", default-features = false, features = [
+gix = { version = "0.85.0", default-features = false, features = [
     "attributes",
     "blob-diff",
     "index",
@@ -67,7 +67,7 @@ indexmap = { version = "2.14.0", features = ["serde"] }
 indoc = "2.0.7"
 insta = { version = "1.47.2", features = ["filters"] }
 interim = { version = "0.2.1", features = ["chrono_0_4"] }
-itertools = "0.14.0"
+itertools = "0.15.0"
 jsonschema = { version = "0.46.5", default-features = false }
 libc = { version = "0.2.186" }
 maplit = "1.0.2"
