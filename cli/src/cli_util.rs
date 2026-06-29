@@ -130,6 +130,7 @@ use jj_lib::str_util::StringMatcher;
 use jj_lib::transaction::Transaction;
 use jj_lib::transaction::TransactionCommitError;
 use jj_lib::working_copy;
+use jj_lib::working_copy::CheckoutError;
 use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::LockedWorkingCopy;
 use jj_lib::working_copy::SnapshotOptions;
@@ -3218,16 +3219,24 @@ pub async fn update_working_copy(
     new_commit: &Commit,
 ) -> Result<CheckoutStats, CommandError> {
     let old_tree = old_commit.map(|commit| commit.tree());
-    // TODO: CheckoutError::ConcurrentCheckout should probably just result in a
-    // warning for most commands (but be an error for the checkout command)
     let stats = workspace
         .check_out(repo.op_id().clone(), old_tree.as_ref(), new_commit)
         .await
-        .map_err(|err| {
-            internal_error_with_message(
+        .map_err(|err| match err {
+            // TODO: This should probably just result in a warning for most
+            // commands (but be an error for the checkout command).
+            CheckoutError::ConcurrentCheckout => user_error(
+                "The working copy was concurrently modified while this command was running.",
+            )
+            .hinted(
+                "The operation's result was recorded, but the working copy was not updated. \
+                 Re-run the command if needed, or run `jj status` to update the working copy on \
+                 the next snapshot.",
+            ),
+            err => internal_error_with_message(
                 format!("Failed to check out commit {}", new_commit.id().hex()),
                 err,
-            )
+            ),
         })?;
     Ok(stats)
 }

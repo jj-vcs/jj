@@ -151,6 +151,37 @@ fn test_concurrent_operations_wc_modified() {
 }
 
 #[test]
+#[cfg_attr(windows, ignore = "uses POSIX sh")]
+fn test_concurrent_checkout_after_operation_recorded() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file", "contents\n");
+    work_dir
+        .run_jj(["describe", "-m", "old description"])
+        .success();
+
+    let jj_bin = assert_cmd::cargo::cargo_bin!("jj");
+    let output = work_dir.run_jj_with(|cmd| {
+        cmd.env("JJ_BIN", jj_bin).args([
+            "describe",
+            "-m",
+            "new description",
+            "--editor",
+            r#"--config=ui.editor=['sh', '-c', '"$JJ_BIN" new "root()" >/dev/null 2>&1 && printf "%s\n" "new description" > "$1"', 'editor']"#,
+        ])
+    });
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: The working copy was concurrently modified while this command was running.
+    Hint: The operation's result was recorded, but the working copy was not updated. Re-run the command if needed, or run `jj status` to update the working copy on the next snapshot.
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
 fn test_concurrent_snapshot_wc_reloadable() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
