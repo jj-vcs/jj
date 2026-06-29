@@ -98,6 +98,7 @@ use testutils::TestResult;
 use testutils::base_user_config;
 use testutils::commit_transactions;
 use testutils::create_random_commit;
+use testutils::create_tree;
 use testutils::repo_path;
 use testutils::write_random_commit;
 use testutils::write_random_commit_with_parents;
@@ -7222,6 +7223,116 @@ fn test_remote_name_validation() -> TestResult {
         Err(git::GitRemoteManagementError::RemoteName(
             git::GitRemoteNameError::ReservedForLocalGitRepo
         ))
+    );
+
+    Ok(())
+}
+
+// Regression test for the colocated cache-tree corruption
+// (jj-vcs/jj#8884 family / GitoxideLabs/gitoxide#2421).
+//
+// Mechanism: in a colocated repo, `jj_lib::git::update_intent_to_add` loads the
+// on-disk `.git/index` via gix `index_or_empty()` -- which deserializes git's
+// previously-written cache-tree (TREE) extension into `State.tree` -- then
+// pushes a new intent-to-add entry into an EXISTING subtree via gix's
+// "dangerous" mutators, which DO NOT invalidate `State.tree`, and writes the
+// index back with `Extensions::All`. The written index now carries a stale,
+// under-counted cache-tree node. An external `git add` of an UNRELATED
+// sibling path invalidates only the root, leaving the stale subtree node in
+// place; the next `git write-tree` rebuilds the root while trusting the stale
+// child count and emits the same subtree directory entry TWICE -> `git fsck`
+// duplicateEntries.
+//
+// Fix: `mut_index.remove_tree()` before the index write in
+// `update_intent_to_add` (lib/src/git.rs). This test FAILS on stock main and
+// PASSES with the fix.
+
+/// Run `git <args>` in `dir`, returning combined stdout+stderr. Does NOT assert
+/// success: `git fsck` intentionally returns non-zero when it finds the
+/// corruption under test.
+fn run_git(dir: &Path, args: &[&str]) -> String {
+    let out = std::process::Command::new("git")
+        .current_dir(dir)
+        .args(args)
+        .output()
+        .unwrap_or_else(|e| panic!("failed to spawn git {args:?}: {e}"));
+    let mut s = String::from_utf8_lossy(&out.stdout).into_owned();
+    s.push_str(&String::from_utf8_lossy(&out.stderr));
+    s
+}
+
+#[test]
+fn test_update_intent_to_add_drops_stale_cache_tree() -> TestResult {
+    let settings = testutils::user_settings();
+    let temp_dir = testutils::new_temp_dir();
+    let workspace_root = temp_dir.path().join("repo");
+    testutils::git::init(&workspace_root);
+    let (_workspace, repo) =
+        Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
+            .block_on()?;
+
+    // old_tree: a nested subtree d/e/f/ plus an UNRELATED sibling tree sib/.
+    let old_tree = create_tree(
+        &repo,
+        &[
+            (repo_path("d/e/f/w0.txt"), "0\n"),
+            (repo_path("d/e/y.txt"), "y\n"),
+            (repo_path("sib/seed.txt"), "s\n"),
+        ],
+    );
+    // new_tree: add a NEW file into the EXISTING nested subtree d/e/f/.
+    let new_tree = create_tree(
+        &repo,
+        &[
+            (repo_path("d/e/f/w0.txt"), "0\n"),
+            (repo_path("d/e/f/w1.txt"), "1\n"),
+            (repo_path("d/e/y.txt"), "y\n"),
+            (repo_path("sib/seed.txt"), "s\n"),
+        ],
+    );
+
+    // Materialize old_tree in the workdir and bake a VALID, fully-populated git
+    // cache-tree into .git/index using the real git binary -- this is the
+    // "git's earlier cache-tree" the bug depends on (jj's own index writes use
+    // tree:None and would not trigger it).
+    for (path, content) in [
+        ("d/e/f/w0.txt", "0\n"),
+        ("d/e/y.txt", "y\n"),
+        ("sib/seed.txt", "s\n"),
+    ] {
+        let p = workspace_root.join(path);
+        fs::create_dir_all(p.parent().unwrap())?;
+        fs::write(p, content)?;
+    }
+    run_git(
+        &workspace_root,
+        &["add", "d/e/f/w0.txt", "d/e/y.txt", "sib/seed.txt"],
+    );
+    run_git(&workspace_root, &["write-tree"]); // bakes a valid cache-tree onto disk
+
+    // The jj snapshot path under test: add the new file into d/e/f as
+    // intent-to-add.
+    fs::write(workspace_root.join("d/e/f/w1.txt"), "1\n")?;
+    git::update_intent_to_add(repo.as_ref(), &old_tree, &new_tree).block_on()?;
+
+    // External git op touching an UNRELATED sibling -> invalidates only the root,
+    // leaving the stale d/ subtree cache-tree node in place. (A `git add` of a
+    // file *under* d/, or `git add -A`, would invalidate d/ too and force a
+    // correct recompute -- it must be a sibling.)
+    fs::write(workspace_root.join("sib/g1.txt"), "g\n")?;
+    run_git(&workspace_root, &["add", "sib/g1.txt"]);
+
+    // Force the cache-tree rebuild + materialize the resulting tree objects in the
+    // ODB.
+    let root_tree = run_git(&workspace_root, &["write-tree"]);
+
+    // End-to-end assertion: the resulting tree must be fsck-clean.
+    let fsck = run_git(&workspace_root, &["fsck", "--no-dangling", "--no-reflogs"]);
+    assert!(
+        !fsck.contains("duplicateEntries"),
+        "colocated snapshot left a stale cache-tree that git turned into a corrupt \
+         (doubled-subtree) root tree {root}:\n{fsck}",
+        root = root_tree.trim(),
     );
 
     Ok(())

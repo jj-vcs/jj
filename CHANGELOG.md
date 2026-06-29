@@ -51,6 +51,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* In colocated repos, `jj` no longer leaves a stale cache-tree in `.git/index`, which could
+  make a later external `git add` produce a tree with duplicate entries
+  (`git fsck: duplicateEntries`).
+  [#9711](https://github.com/jj-vcs/jj/issues/9711)
+
+
 * `jj` now creates a new working-copy revision during snapshotting if the
   working copy was immutable. Previously, the new revision was created
   immediately after the working copy became immutable.

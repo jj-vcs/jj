@@ -2022,6 +2022,16 @@ pub async fn update_intent_to_add(
     let mut_index = Arc::make_mut(&mut index);
     update_intent_to_add_impl(&git_repo, mut_index, old_tree, new_tree).await?;
     debug_assert!(mut_index.verify_entries().is_ok());
+    // The on-disk index loaded above (via `index_or_empty`) carries git's
+    // previously-written cache-tree (TREE) extension. gix's entry mutators in
+    // `update_intent_to_add_impl` (`dangerously_push_entry`, `remove_entries`,
+    // `sort_entries`) DO NOT invalidate `State.tree` (gitoxide#2421), so
+    // writing back with `Extensions::All` would re-emit a now-stale,
+    // under-counted cache-tree. An external `git add` that later rebuilds the
+    // cache-tree trusts those stale child counts and emits a doubled subtree entry
+    // -> `git fsck` duplicateEntries. Drop the stale cache-tree so git
+    // regenerates it.
+    mut_index.remove_tree();
     mut_index
         .write(gix::index::write::Options::default())
         .map_err(GitResetHeadError::from_git)?;
