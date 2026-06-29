@@ -55,6 +55,7 @@ use jj_lib::git::GitPushRefTargets;
 use jj_lib::git::GitPushStats;
 use jj_lib::git::GitRefKind;
 use jj_lib::git::GitRefUpdate;
+use jj_lib::git::GitRemoteManagementError;
 use jj_lib::git::GitResetHeadError;
 use jj_lib::git::GitSettings;
 use jj_lib::git::GitSidebandLineTerminator;
@@ -7225,4 +7226,81 @@ fn test_remote_name_validation() -> TestResult {
     );
 
     Ok(())
+}
+
+#[test]
+fn test_add_remote_rejects_duplicate_in_local_config() {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+
+    let mut tx = test_repo.repo.start_transaction();
+    git::add_remote(
+        tx.repo_mut(),
+        "foo".as_ref(),
+        "https://example.com/",
+        None,
+        gix::remote::fetch::Tags::None,
+    )
+    .unwrap();
+    let _repo = tx.commit("test").block_on().unwrap();
+    // Reload after Git configuration change.
+    let repo = &test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+
+    let mut tx = repo.start_transaction();
+    let result = git::add_remote(
+        tx.repo_mut(),
+        "foo".as_ref(),
+        "https://example.com/other",
+        None,
+        gix::remote::fetch::Tags::None,
+    );
+
+    assert_matches!(
+        result,
+        Err(GitRemoteManagementError::RemoteAlreadyExists(name)) if name.as_str() == "foo"
+    );
+}
+
+#[test]
+fn test_rename_remote_rejects_when_new_exists_in_local_config() {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+
+    let mut tx = test_repo.repo.start_transaction();
+    git::add_remote(
+        tx.repo_mut(),
+        "foo".as_ref(),
+        "https://example.com/foo",
+        None,
+        gix::remote::fetch::Tags::None,
+    )
+    .unwrap();
+    let _repo = tx.commit("test").block_on().unwrap();
+    // Reload after Git configuration change.
+    let repo = &test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+
+    let mut tx = repo.start_transaction();
+    git::add_remote(
+        tx.repo_mut(),
+        "bar".as_ref(),
+        "https://example.com/bar",
+        None,
+        gix::remote::fetch::Tags::None,
+    )
+    .unwrap();
+    let _repo = tx.commit("test").block_on().unwrap();
+    // Reload after Git configuration change.
+    let repo = &test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+
+    let mut tx = repo.start_transaction();
+    let result = git::rename_remote(tx.repo_mut(), "foo".as_ref(), "bar".as_ref());
+
+    assert_matches!(
+        result,
+        Err(GitRemoteManagementError::RemoteAlreadyExists(name)) if name.as_str() == "bar"
+    );
 }

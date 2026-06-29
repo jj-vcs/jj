@@ -51,6 +51,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* `jj git clone` now succeeds if configuration for the current remote exists
+  in a global config file.
+  [#7820](https://github.com/jj-vcs/jj/issues/7820)
+
 * `jj` now creates a new working-copy revision during snapshotting if the
   working copy was immutable. Previously, the new revision was created
   immediately after the working copy became immutable.

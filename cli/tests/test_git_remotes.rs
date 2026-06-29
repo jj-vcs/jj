@@ -1031,41 +1031,26 @@ fn test_git_remote_with_global_git_remote_config() {
     // Complete remotes from the global configuration are listed.
     //
     // `git remote -v` lists all remotes from the global configuration,
-    // even incomplete ones like `origin`. This is inconsistent with
-    // the other `git remote` commands, which ignore the global
-    // configuration (even `git remote get-url`).
+    // even incomplete ones like `origin`. Confusingly, these remotes
+    // are ignored by other `git remote` commands (even `git remote get-url`).
+    //
+    // This behavior is replicated by `jj git remote`. `jj git remote list`
+    // will list remotes from both global and local configuration, but other
+    // commands like `rename` will ignore the global configuration.
     insta::assert_snapshot!(output, @"
     foo htps://example.com/repo/foo
     [EOF]
     ");
 
     let output = work_dir.run_jj(["git", "remote", "rename", "foo", "bar"]);
-    // Divergence from Git: we read the remote from the global
-    // configuration and write it back out. Git will use the global
-    // configuration for commands like `git remote -v`, `git fetch`,
-    // and `git push`, but `git remote rename`, `git remote remove`,
-    // `git remote set-url`, etc., will ignore it.
-    //
-    // This behavior applies to `jj git remote remove` and
-    // `jj git remote set-url` as well. It would be hard to change due
-    // to gitoxide’s model, but hopefully it’s relatively harmless.
-    insta::assert_snapshot!(output, @"");
-    insta::assert_snapshot!(read_git_config(work_dir.root()), @r#"
-    [core]
-    	bare = true
-    	logallrefupdates = false
-    	repositoryformatversion = 0
-    [remote "bar"]
-    	url = htps://example.com/repo/foo
-    	fetch = +refs/heads/*:refs/remotes/bar/*
-    "#);
-    // This has the unfortunate consequence that the original remote
-    // still exists after renaming.
-    let output = work_dir.run_jj(["git", "remote", "list"]);
-    insta::assert_snapshot!(output, @"
-    bar htps://example.com/repo/foo
-    foo htps://example.com/repo/foo
+    // The remote `foo` only exists in the global configuration, so it
+    // cannot be renamed. Unlike `jj git remote list`, `rename` (and
+    // `remove`, `set-url`) ignore the global configuration entirely.
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: No git remote named 'foo'
     [EOF]
+    [exit status: 1]
     ");
 
     let output = work_dir.run_jj([
@@ -1088,7 +1073,6 @@ fn test_git_remote_with_global_git_remote_config() {
 
     let output = work_dir.run_jj(["git", "remote", "list"]);
     insta::assert_snapshot!(output, @"
-    bar htps://example.com/repo/foo
     foo htps://example.com/repo/foo
     origin https://example.com/repo/origin/2
     [EOF]
@@ -1098,9 +1082,6 @@ fn test_git_remote_with_global_git_remote_config() {
     	bare = true
     	logallrefupdates = false
     	repositoryformatversion = 0
-    [remote "bar"]
-    	url = htps://example.com/repo/foo
-    	fetch = +refs/heads/*:refs/remotes/bar/*
     [remote "origin"]
     	url = https://example.com/repo/origin/2
     	fetch = +refs/heads/*:refs/remotes/origin/*
