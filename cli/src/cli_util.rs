@@ -730,34 +730,21 @@ impl CommandHelper {
                         ui.status(),
                         "Concurrent modification detected, resolving automatically.",
                     )?;
-                    let base_repo = repo_loader.load_at(&op_heads[0]).block_on()?;
+                    // TODO: It may be helpful to print each operation we're merging here
+                    let transaction_description = "reconcile divergent operations";
                     let transaction_attributes = [(
                         "args".to_string(),
                         command_args_to_transaction_attribute(&self.data.string_args),
                     )];
-                    let mut tx = start_repo_transaction(
-                        &base_repo,
+                    merge_operations(
+                        Some(ui),
+                        repo_loader,
+                        op_heads,
                         Some(workspace_name),
+                        Some(transaction_description),
                         transaction_attributes,
-                    );
-                    // TODO: It may be helpful to print each operation we're merging here
-                    for other_op_head in op_heads.into_iter().skip(1) {
-                        tx.merge_operation(other_op_head).await?;
-                        let num_rebased = tx.repo_mut().rebase_descendants().await?;
-                        if num_rebased > 0 {
-                            writeln!(
-                                ui.status(),
-                                "Rebased {num_rebased} descendant commits onto commits rewritten \
-                                 by other operation."
-                            )?;
-                        }
-                    }
-                    Ok(tx
-                        .write("reconcile divergent operations")
-                        .await?
-                        .leave_unpublished()
-                        .operation()
-                        .clone())
+                    )
+                    .await
                 },
             )
             .block_on()
@@ -778,6 +765,36 @@ impl CommandHelper {
         let loaded_at_head = true;
         WorkspaceCommandHelper::new(ui, workspace, repo, env, loaded_at_head)
     }
+}
+
+/// If `operations` is empty returns the root operation, if it contains a single
+/// entry returns that entry, otherwise merges the operations into a single
+/// operation. If `ui` is set, reports the number of rebased descendants.
+pub async fn merge_operations(
+    ui: Option<&Ui>,
+    repo_loader: &RepoLoader,
+    operations: Vec<Operation>,
+    workspace_name: Option<&WorkspaceName>,
+    transaction_description: Option<&str>,
+    transaction_attributes: impl IntoIterator<Item = (String, String)>,
+) -> Result<Operation, CommandError> {
+    let (merged_repo, num_rebased) = repo_loader
+        .merge_operations(
+            operations,
+            workspace_name,
+            transaction_description,
+            transaction_attributes,
+        )
+        .await?;
+    if let Some(ui) = ui
+        && num_rebased > 0
+    {
+        writeln!(
+            ui.status(),
+            "Rebased {num_rebased} descendant commits onto commits rewritten by other operation.",
+        )?;
+    }
+    Ok(merged_repo.operation().clone())
 }
 
 /// A ReadonlyRepo along with user-config-dependent derived data. The derived

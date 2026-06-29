@@ -80,6 +80,7 @@ use crate::op_store::RefTarget;
 use crate::op_store::RemoteRef;
 use crate::op_store::RemoteRefState;
 use crate::op_store::RootOperationData;
+use crate::op_walk;
 use crate::operation::Operation;
 use crate::ref_name::GitRefName;
 use crate::ref_name::RefName;
@@ -113,6 +114,7 @@ use crate::store::Store;
 use crate::submodule_store::SubmoduleStore;
 use crate::transaction::Transaction;
 use crate::transaction::TransactionCommitError;
+use crate::transaction::start_repo_transaction;
 use crate::tree_merge::MergeOptions;
 use crate::view::RenameWorkspaceError;
 use crate::view::View;
@@ -766,10 +768,20 @@ impl RepoLoader {
         let op = op_heads_store::resolve_op_heads(
             self.op_heads_store.as_ref(),
             &self.op_store,
-            async |op_heads| {
-                assert!(!op_heads.is_empty());
-                self.merge_operations(op_heads, Some("reconcile divergent operations"))
-                    .await
+            async |op_heads| -> Result<Operation, RepoLoaderError> {
+                assert!(op_heads.len() > 1);
+                let workspace_name = None;
+                let transaction_description = Some("reconcile divergent operations");
+                let transaction_attributes = [];
+                let (merged_repo, _num_rebased) = self
+                    .merge_operations(
+                        op_heads,
+                        workspace_name,
+                        transaction_description,
+                        transaction_attributes,
+                    )
+                    .await?;
+                Ok(merged_repo.operation().clone())
             },
         )
         .await?;
@@ -815,36 +827,66 @@ impl RepoLoader {
         Ok(Operation::new(self.op_store.clone(), id.clone(), data))
     }
 
-    /// Merges the given `operations` into a single operation. Returns the root
-    /// operation if the `operations` is empty.
+    /// Merges the given `operations`. Returns the merged repo and the number of
+    /// rebased commits. If `operations` is empty returns the root repo. If
+    /// `operations` has a single entry, returns that entry's repo. Otherwise
+    /// an actual merge happens. The new operation is not published.
     pub async fn merge_operations(
         &self,
         operations: Vec<Operation>,
-        tx_description: Option<&str>,
-    ) -> Result<Operation, RepoLoaderError> {
-        let num_operations = operations.len();
-        let mut operations = operations.into_iter();
-        let Some(base_op) = operations.next() else {
-            return Ok(self.root_operation().await);
-        };
-        let final_op = if num_operations > 1 {
-            let base_repo = self.load_at(&base_op).await?;
-            let mut tx = base_repo.start_transaction();
-            for other_op in operations {
-                tx.merge_operation(other_op).await?;
-                tx.repo_mut().rebase_descendants().await?;
+        workspace_name: Option<&WorkspaceName>,
+        transaction_description: Option<&str>,
+        transaction_attributes: impl IntoIterator<Item = (String, String)>,
+    ) -> Result<(Arc<ReadonlyRepo>, usize), RepoLoaderError> {
+        match &operations[..] {
+            [] => {
+                let root_operation = self.root_operation().await;
+                let root_repo = self.load_at(&root_operation).await?;
+                return Ok((root_repo, 0));
             }
-            let tx_description = tx_description.map_or_else(
-                || format!("merge {num_operations} operations"),
-                |tx_description| tx_description.to_string(),
-            );
-            let merged_repo = tx.write(tx_description).await?.leave_unpublished();
-            merged_repo.operation().clone()
-        } else {
-            base_op
-        };
+            [op] => {
+                let repo = self.load_at(op).await?;
+                return Ok((repo, 0));
+            }
+            _ => {}
+        }
 
-        Ok(final_op)
+        let mut num_rebased = 0;
+        let num_operations = operations.len();
+        let transaction_attributes = transaction_attributes.into_iter().collect_vec();
+        let mut tx = start_repo_transaction(
+            &self.load_at(&operations[0]).await?,
+            workspace_name,
+            transaction_attributes.clone(),
+        );
+        for other_op in operations.iter().skip(1) {
+            let ancestor_ops = op_walk::closest_common_ancestors(
+                tx.parent_ops().iter().cloned(),
+                [other_op.clone()],
+            )
+            .await?;
+            let base_op = match &ancestor_ops[..] {
+                [op] => op.clone(),
+                _ => {
+                    let (base_repo, num_rebased_inner) = Box::pin(self.merge_operations(
+                        ancestor_ops,
+                        workspace_name,
+                        transaction_description,
+                        transaction_attributes.clone(),
+                    ))
+                    .await?;
+                    num_rebased += num_rebased_inner;
+                    base_repo.operation().clone()
+                }
+            };
+            num_rebased += tx.merge_operation(&base_op, other_op).await?;
+        }
+        let tx_description = transaction_description.map_or_else(
+            || format!("merge {num_operations} operations"),
+            |tx_description| tx_description.to_string(),
+        );
+        let merged_repo = tx.write(tx_description).await?.leave_unpublished();
+        Ok((self.load_at(merged_repo.operation()).await?, num_rebased))
     }
 
     async fn finish_load(
