@@ -8944,8 +8944,9 @@ J           J
 <h2 id="jj-run"><code>jj run</code><a class="headerlink" href="#jj-run" title="Permanent link">&para;</a></h2>
 <p>Run a command across a set of revisions.</p>
 <p>Checks out each revision in an isolated working copy, runs the command, then
-amends the revision with the resulting working copy. Descendants are rebased
-on top of the amended revisions.</p>
+amends the revision with the resulting working copy. By default, descendants
+are rebased on top of the amended revisions, propagating the diff. Use
+<code>--restore-descendants</code> to keep descendants' content unchanged instead.</p>
 <p>The command is executed with the following environment variables set:</p>
 <ul>
 <li>JJ_CHANGE_ID</li>
@@ -8978,6 +8979,9 @@ $<span class="w"> </span>jj<span class="w"> </span>run<span class="w"> </span>-j
 <li>
 <p><code>--clean</code> — Delete each working copy before running the command</p>
 <p>By default <code>jj run</code> reuses working copies between invocations so build artifacts are preserved. With <code>--clean</code>, every commit starts from a freshly checked-out tree.</p>
+</li>
+<li>
+<p><code>--restore-descendants</code> — Preserve the content (not the diff) when rebasing descendants</p>
 </li>
 </ul>
 <h2 id="jj-show"><code>jj show</code><a class="headerlink" href="#jj-show" title="Permanent link">&para;</a></h2>
