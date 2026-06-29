@@ -179,6 +179,10 @@ pub struct GitBackend {
     shallow_root_ids: OnceLock<Vec<CommitId>>,
     extra_metadata_store: TableStore,
     cached_extra_metadata: Mutex<Option<Arc<ReadonlyTable>>>,
+    // Only consumed by the now-unused subprocess `git gc` path (`run_git_gc`);
+    // the LOCAL gc prunes loose objects in-process via grit-lib. Kept so the
+    // remote-transport path can readopt the subprocess gc.
+    #[expect(dead_code)]
     git_executable: PathBuf,
     write_change_id_header: bool,
 }
@@ -903,6 +907,37 @@ fn recreate_no_gc_refs(
     Ok(())
 }
 
+/// Open a grit-lib [`grit_lib::odb::Odb`] for the given git directory, wiring up
+/// the git dir so the hash algorithm (and any multi-pack-index config) resolves.
+fn grit_local_odb(git_dir: &Path) -> grit_lib::odb::Odb {
+    grit_lib::odb::Odb::new(&git_dir.join("objects")).with_config_git_dir(git_dir.to_path_buf())
+}
+
+/// Collect every ref tip in the git repo as grit-lib object ids, to serve as the
+/// reachable roots for an in-process loose-object prune.
+fn collect_ref_tips(
+    git_repo: &gix::Repository,
+) -> BackendResult<Vec<grit_lib::objects::ObjectId>> {
+    let mut roots = Vec::new();
+    let references = git_repo
+        .references()
+        .map_err(|err| BackendError::Other(err.into()))?;
+    let all = references
+        .all()
+        .map_err(|err| BackendError::Other(err.into()))?;
+    for git_ref in all {
+        let git_ref = git_ref.map_err(BackendError::Other)?;
+        if let Some(id) = git_ref.try_id()
+            && let Ok(oid) = grit_lib::objects::ObjectId::from_bytes(id.as_bytes())
+        {
+            roots.push(oid);
+        }
+    }
+    Ok(roots)
+}
+
+#[expect(dead_code)] // retained for the remote-transport path; the LOCAL gc now
+// prunes loose objects in-process via grit-lib.
 fn run_git_gc(program: &OsStr, git_dir: &Path, keep_newer: SystemTime) -> Result<(), GitGcError> {
     let keep_newer = keep_newer
         .duration_since(SystemTime::UNIX_EPOCH)
@@ -1503,15 +1538,18 @@ impl Backend for GitBackend {
             .gc(&table, keep_newer)
             .map_err(|err| BackendError::Other(err.into()))?;
 
-        run_git_gc(
-            self.git_executable.as_ref(),
-            self.git_repo_path(),
-            keep_newer,
+        // Prune loose unreachable objects in-process via grit-lib instead of
+        // spawning `git gc`. Reachable roots are every ref tip in the git repo,
+        // which includes the no-gc refs just recreated above (so nothing jj
+        // wants to keep is dropped). Packed objects are never touched, and
+        // objects newer than `keep_newer` are kept (the gc.pruneExpire window).
+        let reachable_roots = collect_ref_tips(&git_repo)?;
+        grit_lib::gc::prune_loose_unreachable(
+            &grit_local_odb(self.git_repo_path()),
+            &reachable_roots,
+            Some(keep_newer),
         )
-        .map_err(|err| BackendError::Other(err.into()))?;
-        // Since "git gc" will move loose refs into packed refs, in-memory
-        // packed-refs cache should be invalidated without relying on mtime.
-        git_repo.refs.force_refresh_packed_buffer().ok();
+        .map_err(|err| BackendError::Other(format!("loose prune failed: {err}").into()))?;
         Ok(())
     }
 }
