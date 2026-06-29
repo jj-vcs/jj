@@ -7232,6 +7232,12 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <p><code>jj gerrit upload</code> now supports the <code>-o</code> (<code>--option</code>) flag, which works like
   <code>git push -o</code> (<code>--push-option</code>).</p>
 </li>
+<li>
+<p><code>jj git fetch</code> now rebases the descendants of revisions that were rewritten
+  based on their change IDs. Previously, when multiple bookmarked revisions
+  existed in a stack, those rewritten revisions and their descendants wouldn't
+  always be rebased. Note that immutable descendants will not be rebased.</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
