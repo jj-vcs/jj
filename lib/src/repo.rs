@@ -768,8 +768,12 @@ impl RepoLoader {
             &self.op_store,
             async |op_heads| {
                 assert!(!op_heads.is_empty());
-                self.merge_operations(op_heads, Some("reconcile divergent operations"))
-                    .await
+                Transaction::merge_operations(
+                    self,
+                    op_heads,
+                    Some("reconcile divergent operations"),
+                )
+                .await
             },
         )
         .await?;
@@ -813,38 +817,6 @@ impl RepoLoader {
     pub async fn load_operation(&self, id: &OperationId) -> OpStoreResult<Operation> {
         let data = self.op_store.read_operation(id).await?;
         Ok(Operation::new(self.op_store.clone(), id.clone(), data))
-    }
-
-    /// Merges the given `operations` into a single operation. Returns the root
-    /// operation if the `operations` is empty.
-    pub async fn merge_operations(
-        &self,
-        operations: Vec<Operation>,
-        tx_description: Option<&str>,
-    ) -> Result<Operation, RepoLoaderError> {
-        let num_operations = operations.len();
-        let mut operations = operations.into_iter();
-        let Some(base_op) = operations.next() else {
-            return Ok(self.root_operation().await);
-        };
-        let final_op = if num_operations > 1 {
-            let base_repo = self.load_at(&base_op).await?;
-            let mut tx = base_repo.start_transaction();
-            for other_op in operations {
-                tx.merge_operation(other_op).await?;
-                tx.repo_mut().rebase_descendants().await?;
-            }
-            let tx_description = tx_description.map_or_else(
-                || format!("merge {num_operations} operations"),
-                |tx_description| tx_description.to_string(),
-            );
-            let merged_repo = tx.write(tx_description).await?.leave_unpublished();
-            merged_repo.operation().clone()
-        } else {
-            base_op
-        };
-
-        Ok(final_op)
     }
 
     async fn finish_load(

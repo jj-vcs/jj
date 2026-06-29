@@ -94,12 +94,44 @@ impl Transaction {
         &mut self.mut_repo
     }
 
+    /// Merges the given `operations` into a single operation. Returns the root
+    /// operation if the `operations` is empty.
+    pub async fn merge_operations(
+        repo_loader: &RepoLoader,
+        operations: Vec<Operation>,
+        tx_description: Option<&str>,
+    ) -> Result<Operation, RepoLoaderError> {
+        let num_operations = operations.len();
+        let mut operations = operations.into_iter();
+        let Some(base_op) = operations.next() else {
+            return Ok(repo_loader.root_operation().await);
+        };
+        let final_op = if num_operations > 1 {
+            let base_repo = repo_loader.load_at(&base_op).await?;
+            let mut tx = base_repo.start_transaction();
+            for other_op in operations {
+                tx.merge_operation(other_op).await?;
+                tx.repo_mut().rebase_descendants().await?;
+            }
+            let tx_description = tx_description.map_or_else(
+                || format!("merge {num_operations} operations"),
+                |tx_description| tx_description.to_string(),
+            );
+            let merged_repo = tx.write(tx_description).await?.leave_unpublished();
+            merged_repo.operation().clone()
+        } else {
+            base_op
+        };
+
+        Ok(final_op)
+    }
+
     pub async fn merge_operation(&mut self, other_op: Operation) -> Result<(), RepoLoaderError> {
         let ancestor_ops =
             op_walk::closest_common_ancestors(self.parent_ops.iter().cloned(), [other_op.clone()])
                 .await?;
         let repo_loader = self.base_repo().loader();
-        let ancestor_op = Box::pin(repo_loader.merge_operations(ancestor_ops, None)).await?;
+        let ancestor_op = Box::pin(Self::merge_operations(repo_loader, ancestor_ops, None)).await?;
         let base_repo = repo_loader.load_at(&ancestor_op).await?;
         let other_repo = repo_loader.load_at(&other_op).await?;
         self.parent_ops.push(other_op);

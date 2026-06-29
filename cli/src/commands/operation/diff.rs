@@ -44,6 +44,7 @@ use jj_lib::revset::RevsetResolutionError;
 use jj_lib::revset::SymbolResolver;
 use jj_lib::revset::UserRevsetExpression;
 use jj_lib::settings::UserSettings;
+use jj_lib::transaction::Transaction;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
@@ -126,7 +127,7 @@ pub async fn cmd_op_diff(
     let graph_style = GraphStyle::from_settings(settings)?;
     let with_content_format = LogContentFormat::new(ui, settings)?;
 
-    let merged_from_op = repo_loader.merge_operations(from_ops.clone(), None).await?;
+    let merged_from_op = Transaction::merge_operations(repo_loader, from_ops.clone(), None).await?;
     let from_repo = repo_loader.load_at(&merged_from_op).await?;
     let to_repo = repo_loader.load_at(&to_op).await?;
 
