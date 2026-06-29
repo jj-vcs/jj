@@ -1724,6 +1724,12 @@ to the current parents may contain changes from multiple commits.
         TextEditor::from_settings(self.settings())
     }
 
+    /// Whether to add a comment hint to `jjdescription` buffers describing how
+    /// lines beginning with "JJ:" will be removed. Defaults to `true`.
+    pub fn should_add_description_comment_hint(&self) -> Result<bool, ConfigGetError> {
+        self.settings().get_bool("ui.add-description-comment-hint")
+    }
+
     pub fn resolve_single_op(&self, op_str: &str) -> Result<Operation, OpsetEvaluationError> {
         op_walk::resolve_op_with_repo(self.repo(), op_str).block_on()
     }

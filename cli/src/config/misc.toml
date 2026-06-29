@@ -46,6 +46,7 @@ conflict-marker-style = "diff"
 show-cryptographic-signatures = false
 bookmark-list-sort-keys = ["name"]
 tag-list-sort-keys = ["name"]
+add-description-comment-hint = true
 
 [ui.movement]
 edit = false
