@@ -27,7 +27,6 @@ use crate::op_store;
 use crate::op_store::OpStoreError;
 use crate::op_store::OperationMetadata;
 use crate::op_store::TimestampRange;
-use crate::op_walk;
 use crate::operation::Operation;
 use crate::ref_name::WorkspaceName;
 use crate::repo::MutableRepo;
@@ -82,6 +81,10 @@ impl Transaction {
         self.mut_repo.base_repo()
     }
 
+    pub fn parent_ops(&self) -> &[Operation] {
+        &self.parent_ops
+    }
+
     pub fn set_attribute(&mut self, key: String, value: String) {
         self.op_metadata.attributes.insert(key, value);
     }
@@ -94,18 +97,20 @@ impl Transaction {
         &mut self.mut_repo
     }
 
-    pub async fn merge_operation(&mut self, other_op: Operation) -> Result<(), RepoLoaderError> {
-        let ancestor_ops =
-            op_walk::closest_common_ancestors(self.parent_ops.iter().cloned(), [other_op.clone()])
-                .await?;
+    /// Merges other_op into this transaction, using base_op as the merge base.
+    /// Returns the number of rebased descendants.
+    pub async fn merge_operation(
+        &mut self,
+        base_op: &Operation,
+        other_op: &Operation,
+    ) -> Result<usize, RepoLoaderError> {
         let repo_loader = self.base_repo().loader();
-        let ancestor_op = Box::pin(repo_loader.merge_operations(ancestor_ops, None)).await?;
-        let base_repo = repo_loader.load_at(&ancestor_op).await?;
-        let other_repo = repo_loader.load_at(&other_op).await?;
-        self.parent_ops.push(other_op);
-        let merged_repo = self.repo_mut();
-        merged_repo.merge(&base_repo, &other_repo).await?;
-        Ok(())
+        let base_op_repo = repo_loader.load_at(base_op).await?;
+        let other_repo = repo_loader.load_at(other_op).await?;
+        self.parent_ops.push(other_op.clone());
+        self.repo_mut().merge(&base_op_repo, &other_repo).await?;
+        let num_rebased = self.repo_mut().rebase_descendants().await?;
+        Ok(num_rebased)
     }
 
     pub fn set_is_snapshot(&mut self, is_snapshot: bool) {
