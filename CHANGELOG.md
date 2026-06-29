@@ -208,6 +208,10 @@ Thanks to the people who made this release happen!
 * `JJ_PAGER` can now override the `ui.pager` config, matching `JJ_EDITOR` for
   callers that need a jj-specific environment override.
 
+* `jj squash` now accepts a `--restore-descendants` flag, matching `jj abandon`,
+  `jj diffedit`, and `jj restore`. When used, descendants of the squashed
+  commits keep their original content rather than being 3-way merged.
+
 ### Fixed bugs
 
 * Improving consistency with `git` handling of `.gitignore`, including `/`
