@@ -214,18 +214,19 @@ fn test_git_clone_bad_source() {
 }
 
 #[test]
-fn test_git_clone_source_equals_destination() {
+fn test_git_clone_nonexistent_local_source() {
     let test_env = TestEnvironment::default();
     let root_dir = test_env.work_dir("");
 
-    // `jj git clone <name>` for a local `<name>` that doesn't exist infers the
-    // destination from the source's last path component, which resolves to the
-    // same path. It must error instead of silently creating an empty repo.
+    // `jj git clone <name>` for a local `<name>` that doesn't exist would infer
+    // the destination from the source's last path component, colliding with the
+    // source itself; more fundamentally, the local source path doesn't exist.
+    // Either way it must error instead of silently creating an empty repo.
     // https://github.com/jj-vcs/jj/issues/6918
     let output = root_dir.run_jj(["git", "clone", "abracadabra"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Cannot clone: source and destination are the same path: $TEST_ENV/abracadabra
+    Error: Cannot clone: $TEST_ENV/abracadabra does not exist
     [EOF]
     [exit status: 1]
     "#);

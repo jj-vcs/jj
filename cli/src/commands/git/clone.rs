@@ -176,15 +176,15 @@ pub async fn cmd_git_clone(
         .ok_or_else(|| user_error("No destination specified and wasn't able to guess it"))?;
     let wc_path = command.cwd().join(wc_path_str);
 
-    // A local `source` that resolves to the destination we're about to create
-    // would make us "clone" from the freshly-initialized empty repo, silently
-    // leaving an empty repo behind instead of reporting an error. Reject it.
-    // See https://github.com/jj-vcs/jj/issues/6918.
-    if Path::new(&source) == wc_path.as_path() {
-        return Err(user_error(format!(
-            "Cannot clone: source and destination are the same path: {}",
-            wc_path.display()
-        )));
+    // If the source is a local path, make sure it exists before we create the
+    // destination. Otherwise the destination we're about to create (named after
+    // the source's last component) could be used as the source, silently
+    // leaving an empty repo behind. See https://github.com/jj-vcs/jj/issues/6918.
+    let source_url = gix::url::parse(source.as_str().as_ref()).map_err(cli_error)?;
+    if source_url.scheme == gix::url::Scheme::File
+        && !gix::path::from_bstr(&source_url.path).exists()
+    {
+        return Err(user_error(format!("Cannot clone: {source} does not exist")));
     }
 
     let wc_path_existed = wc_path.exists();
