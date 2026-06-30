@@ -790,6 +790,26 @@ The following methods are defined.
 * `.target() -> Commit`: Returns the working-copy commit of this workspace.
 * `.root() -> Template`: Returns the absolute path to the workspace root.
 
+## Redacted log output for bug reports
+
+Two built-in templates are useful for sharing log output in bug reports or
+support requests:
+
+```sh
+jj log -T builtin_log_redacted -r ::@
+jj op log -T builtin_op_log_redacted
+```
+
+`builtin_log_redacted` keeps the commit graph, change IDs, commit IDs,
+timestamps, and structural labels such as empty, immutable, or conflicted, but
+replaces commit descriptions with `(redacted)`. User, bookmark, tag, and
+workspace names are replaced with stable hashed labels such as `user-0a1b` or
+`workspace-0a1b@`.
+
+`builtin_op_log_redacted` keeps the operation graph, operation IDs, operation
+descriptions, and timestamps. User and workspace names are replaced with stable
+hashed labels, and operation attributes are replaced with `(redacted)`.
+
 ## Color labels
 
 You can [customize the output colors][config-colors] by using color labels. `jj`
