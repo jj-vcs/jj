@@ -1759,6 +1759,16 @@ Create a new Git backed repo
    See [colocation docs] for some minor advantages of non-colocated workspaces.
 
    [colocation docs]: https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-repos
+* `--object-hash <OBJECT_HASH>` — Object hash algorithm for the newly created Git repository.
+
+   Corresponds to `git init`'s `--object-format` option. If not given, the [git.object-hash config] determines the default value.
+
+   Note that the object hash cannot currently be changed for an existing repo, and not all code forges support SHA-256 repositories yet. See also Git's [hash-function-transition] document for an in-depth explanation of the migration towards stronger hash functions.
+
+   [git.object-hash config]: https://docs.jj-vcs.dev/latest/config/#default-object-hash-format [hash-function-transition]: https://git-scm.com/docs/hash-function-transition
+
+  Possible values: `sha1`, `sha256`
+
 * `--git-repo <GIT_REPO>` — Specifies a path to an **existing** git repository to be used as the backing git repo for the newly created `jj` repo.
 
    If the specified `--git-repo` path happens to be the same as the `jj` repo path (both .jj and .git directories are in the same working directory), then both `jj` and `git` commands will work on the same repo. This is called a colocated workspace.

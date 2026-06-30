@@ -67,7 +67,7 @@ async fn run_custom_command(
             let settings = command_helper.settings_for_new_workspace(ui, wc_path)?.0;
             let backend_initializer = |settings: &UserSettings, store_path: &Path| {
                 let backend: Box<dyn Backend> =
-                    Box::new(GitBackend::init_internal(settings, store_path)?);
+                    Box::new(GitBackend::init_internal(settings, store_path, None)?);
                 Ok(backend)
             };
             Workspace::init_with_factories(

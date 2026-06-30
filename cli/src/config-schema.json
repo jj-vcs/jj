@@ -540,6 +540,11 @@
                     "type": "boolean",
                     "description": "Whether to colocate the working copy with the git repository",
                     "default": true
+                },
+                "object-hash": {
+                    "enum": ["sha1", "sha256"],
+                    "description": "Object hash algorithm used when initializing a new Git repository",
+                    "default": "sha1"
                 }
             }
         },
