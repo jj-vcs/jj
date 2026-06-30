@@ -176,6 +176,17 @@ pub async fn cmd_git_clone(
         .ok_or_else(|| user_error("No destination specified and wasn't able to guess it"))?;
     let wc_path = command.cwd().join(wc_path_str);
 
+    // If the source is a local path, make sure it exists before we create the
+    // destination. Otherwise the destination we're about to create (named after
+    // the source's last component) could be used as the source, silently
+    // leaving an empty repo behind. See https://github.com/jj-vcs/jj/issues/6918.
+    let source_url = gix::url::parse(source.as_str().as_ref()).map_err(cli_error)?;
+    if source_url.scheme == gix::url::Scheme::File
+        && !gix::path::from_bstr(&source_url.path).exists()
+    {
+        return Err(user_error(format!("Cannot clone: {source} does not exist")));
+    }
+
     let wc_path_existed = wc_path.exists();
     if wc_path_existed && !file_util::is_empty_dir(&wc_path)? {
         return Err(user_error(
