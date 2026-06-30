@@ -8,6 +8,16 @@ Jujutsu keeps commits on anonymous branches around until they are explicitly
 abandoned. Visible anonymous branches are tracked by the [view](#view), which
 stores a list of [heads](#head) of such branches.
 
+## Author date
+
+The author date of a [commit](#commit) records when the commit's changes were
+originally authored. It is set when the commit is first authored and usually
+stays the same when the commit is [rewritten](#rewrite). For a newly-created
+commit, the author date and [committer date](#committer-date) are usually the
+same, but they can differ after history-editing commands such as `jj rebase`,
+`jj describe`, or `jj squash`. When using the Git [backend](#backend), this is
+stored as Git's native author date field.
+
 ## Backend
 
 A backend is an implementation of the storage layer. There is currently only one
@@ -67,8 +77,9 @@ instance, the most recent commit with change ID `xyz` could be referred to as
 
 A snapshot of the files in the repository at a given point in time (technically
 a [tree object](#tree)), together with some metadata. The metadata includes the
-author, the date, and pointers to the commit's parents. Through the pointers to
-the parents, the commits form a
+author, the [author date](#author-date), the
+[committer date](#committer-date), and pointers to the commit's parents. Through
+the pointers to the parents, the commits form a
 [Directed Acyclic Graph (DAG)](https://en.wikipedia.org/wiki/Directed_acyclic_graph)
 .
 
@@ -87,6 +98,16 @@ A commit ID is a unique identifier for a [commit](#commit). They are 20 bytes
 long when using the Git backend. They are presented in regular hexadecimal
 format at the end of the line in `jj log`, using 12 hexadecimal digits by
 default. When using the Git backend, the commit ID is the Git commit ID.
+
+## Committer date
+
+The committer date of a [commit](#commit) records when that particular commit
+object was created. It is set for a new commit and updated whenever `jj` rewrites
+the commit, such as when rebasing, describing, or squashing it. For a
+newly-created commit, the committer date and [author date](#author-date) are
+usually the same, but they can differ after the commit has been rewritten. When
+using the Git [backend](#backend), this is stored as Git's native committer date
+field.
 
 ## <a name="colocated-repos"></a>Colocated workspaces
 
