@@ -22,6 +22,8 @@ use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering as AtomicOrdering;
 use std::time::Duration;
 use std::time::SystemTime;
 
@@ -46,10 +48,12 @@ use jj_lib::fsmonitor::FatalFsmonitorError;
 use jj_lib::fsmonitor::Fsmonitor;
 use jj_lib::fsmonitor::FsmonitorClock;
 use jj_lib::fsmonitor::FsmonitorError;
+use jj_lib::fsmonitor::FsmonitorFactory;
 use jj_lib::fsmonitor::FsmonitorQueryResult;
 use jj_lib::git::get_git_backend;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::local_working_copy::LocalWorkingCopy;
+use jj_lib::local_working_copy::LocalWorkingCopyFactory;
 use jj_lib::local_working_copy::TreeState;
 use jj_lib::local_working_copy::TreeStateSettings;
 use jj_lib::matchers::FilesMatcher;
@@ -60,6 +64,7 @@ use jj_lib::merged_tree_builder::MergedTreeBuilder;
 use jj_lib::op_store::OperationId;
 use jj_lib::protos::local_working_copy as working_copy_proto;
 use jj_lib::ref_name::WorkspaceName;
+use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
@@ -73,6 +78,7 @@ use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::UntrackedReason;
 use jj_lib::working_copy::WorkingCopy as _;
+use jj_lib::working_copy::WorkingCopyFactory as _;
 use jj_lib::workspace::Workspace;
 use pollster::FutureExt as _;
 use prost::Message as _;
@@ -2882,6 +2888,57 @@ fn fatal_fsmonitor_error_is_not_silently_ignored() -> TestResult {
         .block_on()
         .unwrap_err();
     assert_eq!(error.to_string(), "Failed to query the filesystem monitor");
+    Ok(())
+}
+
+#[derive(Debug)]
+struct TestFsmonitorFactory {
+    create_count: Arc<AtomicUsize>,
+}
+
+impl FsmonitorFactory for TestFsmonitorFactory {
+    fn create(
+        &self,
+        _settings: &jj_lib::settings::UserSettings,
+    ) -> Result<Arc<dyn Fsmonitor>, jj_lib::config::ConfigGetError> {
+        self.create_count.fetch_add(1, AtomicOrdering::Relaxed);
+        Ok(Arc::new(TestFsmonitor::new(vec![PathBuf::from("foo")])))
+    }
+}
+
+#[test]
+fn local_working_copy_factory_uses_custom_fsmonitor_factory() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let workspace_root = test_repo.env.root().join("workspace");
+    let state_path = test_repo.env.root().join("state");
+    std::fs::create_dir(&workspace_root)?;
+    std::fs::create_dir(&state_path)?;
+    testutils::write_working_copy_file(&workspace_root, repo_path("foo"), "foo\n");
+    let create_count = Arc::new(AtomicUsize::new(0));
+    let factory = LocalWorkingCopyFactory::new(Box::new(TestFsmonitorFactory {
+        create_count: create_count.clone(),
+    }));
+    let working_copy = factory.init_working_copy(
+        repo.store().clone(),
+        workspace_root,
+        state_path,
+        repo.op_id().clone(),
+        WorkspaceNameBuf::from("default"),
+        repo.settings(),
+    )?;
+
+    let mut locked_working_copy = working_copy.start_mutation().block_on()?;
+    let (tree, _) = locked_working_copy
+        .snapshot(&empty_snapshot_options())
+        .block_on()?;
+
+    assert_eq!(create_count.load(AtomicOrdering::Relaxed), 1);
+    insta::assert_snapshot!(testutils::dump_tree(&tree), @r#"
+    merged tree (sides: 1)
+      tree 2a5341b103917cfdb48a
+        file "foo" (e99c2057c15160add351): "foo\n"
+    "#);
     Ok(())
 }
 

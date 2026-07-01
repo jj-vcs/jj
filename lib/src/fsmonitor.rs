@@ -143,6 +143,22 @@ pub trait Fsmonitor: std::fmt::Debug + Send + Sync {
     ) -> Result<FsmonitorQueryResult, FsmonitorError>;
 }
 
+/// Creates the filesystem monitor used by a working copy.
+pub trait FsmonitorFactory {
+    /// Creates a filesystem monitor using the working copy's user settings.
+    fn create(&self, settings: &UserSettings) -> Result<Arc<dyn Fsmonitor>, ConfigGetError>;
+}
+
+/// Creates the filesystem monitor selected by the user's settings.
+#[derive(Debug, Default)]
+pub struct SettingsFsmonitorFactory;
+
+impl FsmonitorFactory for SettingsFsmonitorFactory {
+    fn create(&self, settings: &UserSettings) -> Result<Arc<dyn Fsmonitor>, ConfigGetError> {
+        Ok(FsmonitorSettings::from_settings(settings)?.to_fsmonitor())
+    }
+}
+
 /// Filesystem monitor which always requests a full working-copy scan.
 #[derive(Debug, Default)]
 pub struct NoFsmonitor;

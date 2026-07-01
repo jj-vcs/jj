@@ -89,8 +89,9 @@ use crate::file_util::persist_temp_file;
 use crate::file_util::symlink_file;
 use crate::fsmonitor::FatalFsmonitorError;
 use crate::fsmonitor::Fsmonitor;
+use crate::fsmonitor::FsmonitorFactory;
 use crate::fsmonitor::FsmonitorQueryResult;
-use crate::fsmonitor::FsmonitorSettings;
+use crate::fsmonitor::SettingsFsmonitorFactory;
 use crate::gitignore::GitIgnoreFile;
 use crate::lock::FileLock;
 use crate::matchers::DifferenceMatcher;
@@ -980,11 +981,21 @@ pub struct TreeStateSettings {
 impl TreeStateSettings {
     /// Create [`TreeStateSettings`] from [`UserSettings`].
     pub fn try_from_user_settings(user_settings: &UserSettings) -> Result<Self, ConfigGetError> {
+        Self::try_from_user_settings_with_fsmonitor_factory(
+            user_settings,
+            &SettingsFsmonitorFactory,
+        )
+    }
+
+    fn try_from_user_settings_with_fsmonitor_factory(
+        user_settings: &UserSettings,
+        fsmonitor_factory: &dyn FsmonitorFactory,
+    ) -> Result<Self, ConfigGetError> {
         Ok(Self {
             conflict_marker_style: user_settings.get("ui.conflict-marker-style")?,
             eol_conversion_mode: EolConversionMode::try_from_settings(user_settings)?,
             exec_change_setting: user_settings.get("working-copy.exec-bit-change")?,
-            fsmonitor: FsmonitorSettings::from_settings(user_settings)?.to_fsmonitor(),
+            fsmonitor: fsmonitor_factory.create(user_settings)?,
         })
     }
 }
@@ -2756,16 +2767,31 @@ impl LocalWorkingCopy {
         workspace_name: WorkspaceNameBuf,
         user_settings: &UserSettings,
     ) -> Result<Self, WorkingCopyStateError> {
+        let tree_state_settings =
+            read_tree_state_settings(user_settings, &SettingsFsmonitorFactory)?;
+        Self::init_with_tree_state_settings(
+            store,
+            working_copy_path,
+            state_path,
+            operation_id,
+            workspace_name,
+            tree_state_settings,
+        )
+    }
+
+    fn init_with_tree_state_settings(
+        store: Arc<Store>,
+        working_copy_path: PathBuf,
+        state_path: PathBuf,
+        operation_id: OperationId,
+        workspace_name: WorkspaceNameBuf,
+        tree_state_settings: TreeStateSettings,
+    ) -> Result<Self, WorkingCopyStateError> {
         let checkout_state = CheckoutState {
             operation_id,
             workspace_name,
         };
         checkout_state.save(&state_path)?;
-        let tree_state_settings = TreeStateSettings::try_from_user_settings(user_settings)
-            .map_err(|err| WorkingCopyStateError {
-                message: "Failed to read the tree state settings".to_string(),
-                err: err.into(),
-            })?;
         let tree_state = TreeState::init(
             store.clone(),
             working_copy_path.clone(),
@@ -2792,12 +2818,23 @@ impl LocalWorkingCopy {
         state_path: PathBuf,
         user_settings: &UserSettings,
     ) -> Result<Self, WorkingCopyStateError> {
+        let tree_state_settings =
+            read_tree_state_settings(user_settings, &SettingsFsmonitorFactory)?;
+        Self::load_with_tree_state_settings(
+            store,
+            working_copy_path,
+            state_path,
+            tree_state_settings,
+        )
+    }
+
+    fn load_with_tree_state_settings(
+        store: Arc<Store>,
+        working_copy_path: PathBuf,
+        state_path: PathBuf,
+        tree_state_settings: TreeStateSettings,
+    ) -> Result<Self, WorkingCopyStateError> {
         let checkout_state = CheckoutState::load(&state_path)?;
-        let tree_state_settings = TreeStateSettings::try_from_user_settings(user_settings)
-            .map_err(|err| WorkingCopyStateError {
-                message: "Failed to read the tree state settings".to_string(),
-                err: err.into(),
-            })?;
         Ok(Self {
             store,
             working_copy_path,
@@ -2851,7 +2888,38 @@ impl LocalWorkingCopy {
     }
 }
 
-pub struct LocalWorkingCopyFactory {}
+fn read_tree_state_settings(
+    user_settings: &UserSettings,
+    fsmonitor_factory: &dyn FsmonitorFactory,
+) -> Result<TreeStateSettings, WorkingCopyStateError> {
+    TreeStateSettings::try_from_user_settings_with_fsmonitor_factory(
+        user_settings,
+        fsmonitor_factory,
+    )
+    .map_err(|err| WorkingCopyStateError {
+        message: "Failed to read the tree state settings".to_string(),
+        err: err.into(),
+    })
+}
+
+/// Creates local working copies with monitors supplied by an
+/// [`FsmonitorFactory`].
+pub struct LocalWorkingCopyFactory {
+    fsmonitor_factory: Box<dyn FsmonitorFactory>,
+}
+
+impl LocalWorkingCopyFactory {
+    /// Creates a local working-copy factory using `fsmonitor_factory`.
+    pub fn new(fsmonitor_factory: Box<dyn FsmonitorFactory>) -> Self {
+        Self { fsmonitor_factory }
+    }
+}
+
+impl Default for LocalWorkingCopyFactory {
+    fn default() -> Self {
+        Self::new(Box::new(SettingsFsmonitorFactory))
+    }
+}
 
 impl WorkingCopyFactory for LocalWorkingCopyFactory {
     fn init_working_copy(
@@ -2863,13 +2931,15 @@ impl WorkingCopyFactory for LocalWorkingCopyFactory {
         workspace_name: WorkspaceNameBuf,
         settings: &UserSettings,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError> {
-        Ok(Box::new(LocalWorkingCopy::init(
+        let tree_state_settings =
+            read_tree_state_settings(settings, self.fsmonitor_factory.as_ref())?;
+        Ok(Box::new(LocalWorkingCopy::init_with_tree_state_settings(
             store,
             working_copy_path,
             state_path,
             operation_id,
             workspace_name,
-            settings,
+            tree_state_settings,
         )?))
     }
 
@@ -2880,11 +2950,13 @@ impl WorkingCopyFactory for LocalWorkingCopyFactory {
         state_path: PathBuf,
         settings: &UserSettings,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError> {
-        Ok(Box::new(LocalWorkingCopy::load(
+        let tree_state_settings =
+            read_tree_state_settings(settings, self.fsmonitor_factory.as_ref())?;
+        Ok(Box::new(LocalWorkingCopy::load_with_tree_state_settings(
             store,
             working_copy_path,
             state_path,
-            settings,
+            tree_state_settings,
         )?))
     }
 }
