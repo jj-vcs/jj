@@ -86,11 +86,6 @@ pub async fn cmd_debug_watchman(
                     )?;
                     watchman_config
                 }
-                other_fsmonitor => {
-                    return Err(user_error(format!(
-                        r"This command does not support the currently enabled filesystem monitor: {other_fsmonitor:?}."
-                    )));
-                }
             };
             let wc = check_local_disk_wc(workspace_command.working_copy())?;
             let fsmonitor = WatchmanFsmonitor::new(config);
