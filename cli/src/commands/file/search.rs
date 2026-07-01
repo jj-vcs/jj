@@ -12,10 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::io;
+use std::io::Write as _;
+
 use clap_complete::ArgValueCompleter;
 use jj_lib::conflicts::MaterializedTreeValue;
 use jj_lib::conflicts::materialize_tree_value;
 use jj_lib::repo::Repo as _;
+use jj_lib::str_util::StringMatcher;
 use jj_lib::str_util::StringPattern;
 use tracing::instrument;
 
@@ -25,15 +29,16 @@ use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::complete;
+use crate::formatter::Formatter;
 use crate::ui::Ui;
 
 /// Search for content in files
 ///
-/// Lists files containing the specified pattern.
+/// Prints each line that matches the specified pattern, prefixed by the file
+/// path. Use `-l`/`--files-with-matches` to print only the file paths instead.
 ///
-/// This is an early version of the command. It only supports glob matching for
-/// now, it doesn't search files concurrently, and it doesn't indicate where in
-/// the file the match was found.
+/// This is an early version of the command. It does not search files
+/// concurrently.
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct FileSearchArgs {
     /// The revision to search files in
@@ -53,6 +58,11 @@ pub(crate) struct FileSearchArgs {
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     #[arg(long, short, value_name = "PATTERN")]
     pattern: String,
+
+    /// Print only the paths of files that contain a match, not the matched
+    /// lines themselves
+    #[arg(long, short = 'l')]
+    files_with_matches: bool,
 
     /// Only search files matching these prefixes (instead of all files)
     #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
@@ -103,19 +113,34 @@ pub(crate) async fn cmd_file_search(
                 let content = materialized_file_value.read_all(&path).await?;
                 // TODO: Make output templated
                 let ui_path = workspace_command.format_file_path(&path);
-                if let Some(_line) = pattern_matcher.match_lines(&content).next() {
-                    // TODO: Optionally also print the line and line number
-                    writeln!(formatter, "{ui_path}")?;
-                }
+                write_matches(
+                    formatter.as_mut(),
+                    &ui_path,
+                    &content,
+                    &pattern_matcher,
+                    args.files_with_matches,
+                )?;
             }
             MaterializedTreeValue::Symlink { .. } => {}
             MaterializedTreeValue::FileConflict(materialized_file_value) => {
                 let ui_path = workspace_command.format_file_path(&path);
-                for content in materialized_file_value.contents.adds() {
-                    if let Some(_line) = pattern_matcher.match_lines(content).next() {
-                        // TODO: Optionally also print the conflict side, line and line number
+                // TODO: Optionally also print the conflict side
+                let mut adds = materialized_file_value.contents.adds();
+                // Multiple blobs per file; print the path if any blob matches.
+                // No point calling write_matches.
+                if args.files_with_matches {
+                    if adds.any(|c| pattern_matcher.match_lines(c).next().is_some()) {
                         writeln!(formatter, "{ui_path}")?;
-                        break;
+                    }
+                } else {
+                    for content in adds {
+                        write_matches(
+                            formatter.as_mut(),
+                            &ui_path,
+                            content,
+                            &pattern_matcher,
+                            false,
+                        )?;
                     }
                 }
             }
@@ -125,5 +150,28 @@ pub(crate) async fn cmd_file_search(
         }
     }
     print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree])?;
+    Ok(())
+}
+
+fn write_matches(
+    formatter: &mut dyn Formatter,
+    ui_path: &str,
+    content: &[u8],
+    matcher: &StringMatcher,
+    files_with_matches: bool,
+) -> io::Result<()> {
+    let mut matches = matcher.match_lines(content);
+    if files_with_matches {
+        if matches.next().is_some() {
+            writeln!(formatter, "{ui_path}")?;
+        }
+    } else {
+        for line in matches {
+            let line = line.strip_suffix(b"\n").unwrap_or(line);
+            write!(formatter, "{ui_path}:")?;
+            formatter.write_all(line)?;
+            writeln!(formatter)?;
+        }
+    }
     Ok(())
 }

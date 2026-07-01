@@ -1233,9 +1233,9 @@ List files in a revision
 
 Search for content in files
 
-Lists files containing the specified pattern.
+Prints each line that matches the specified pattern, prefixed by the file path. Use `-l`/`--files-with-matches` to print only the file paths instead.
 
-This is an early version of the command. It only supports glob matching for now, it doesn't search files concurrently, and it doesn't indicate where in the file the match was found.
+This is an early version of the command. It does not search files concurrently.
 
 **Usage:** `jj file search [OPTIONS] --pattern <PATTERN> [FILESETS]...`
 
@@ -1255,6 +1255,7 @@ This is an early version of the command. It only supports glob matching for now,
    If it is a glob pattern, the whole line must match the pattern, so you may want to pass something like `--pattern 'glob:*foo*'`.
 
    [string pattern syntax]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
+* `-l`, `--files-with-matches` — Print only the paths of files that contain a match, not the matched lines themselves
 
 
 

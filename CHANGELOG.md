@@ -24,6 +24,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   patterns. However, the `<bookmark>@<remote>` symbol syntax is still supported.
   [#9226](https://github.com/jj-vcs/jj/issues/9226)
 
+* `jj file search` now prints every matched line prefixed by the file path,
+  instead of only the file paths of files containing a match. Use `-l` /
+  `--files-with-matches` for the previous path-only behavior.
+  [#9399](https://github.com/jj-vcs/jj/issues/9399)
+
 ### Deprecations
 
 ### New features

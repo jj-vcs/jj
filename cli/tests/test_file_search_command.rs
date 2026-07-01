@@ -26,8 +26,27 @@ fn test_file_search() {
     work_dir.create_dir("dir");
     work_dir.write_file("dir/file3", "-foobar-");
 
-    // Searches all files in the current revision by default
+    // Prints each matched line prefixed by the file path
     let output = work_dir.run_jj(["file", "search", "--pattern=glob:*foo*"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    dir/file3:-foobar-
+    file1:-foo-
+    [EOF]
+    ");
+
+    // -l / --files-with-matches restores path-only output
+    let output = work_dir.run_jj(["file", "search", "-l", "--pattern=glob:*foo*"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    dir/file3
+    file1
+    [EOF]
+    ");
+    let output = work_dir.run_jj([
+        "file",
+        "search",
+        "--files-with-matches",
+        "--pattern=glob:*foo*",
+    ]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
     dir/file3
     file1
@@ -41,14 +60,14 @@ fn test_file_search() {
     // Can search files in another revision
     let output = work_dir.run_jj(["file", "search", "--pattern=glob:*foo*", "-r=@-"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
-    file1
+    file1:-foo-
     [EOF]
     ");
 
     // Can filter by path
     let output = work_dir.run_jj(["file", "search", "--pattern=glob:*foo*", "dir"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
-    dir/file3
+    dir/file3:-foobar-
     [EOF]
     ");
 
@@ -63,16 +82,16 @@ fn test_file_search() {
     // The default is regex
     let output = work_dir.run_jj(["file", "search", "--pattern=f.o"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
-    dir/file3
-    file1
+    dir/file3:-foobar-
+    file1:-foo-
     [EOF]
     ");
 
     // Can specify the kind
     let output = work_dir.run_jj(["file", "search", "--pattern=glob-i:*foo*"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
-    dir/file3
-    file1
+    dir/file3:-foobar-
+    file1:-foo-
     [EOF]
     ");
 
@@ -88,6 +107,22 @@ fn test_file_search() {
     // Colons can be in the pattern part.
     let output = work_dir.run_jj(["file", "search", "--pattern=regex-i:foo:bar"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"");
+
+    // Prints every matched line, not just the first
+    work_dir.write_file("multi", "hit-one\nmiss\nhit-two\nhit-three\n");
+    let output = work_dir.run_jj(["file", "search", "--pattern=hit", "multi"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    multi:hit-one
+    multi:hit-two
+    multi:hit-three
+    [EOF]
+    ");
+    // -l collapses the same file to a single line
+    let output = work_dir.run_jj(["file", "search", "-l", "--pattern=hit", "multi"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    multi
+    [EOF]
+    ");
 }
 
 #[test]
@@ -115,8 +150,14 @@ fn test_file_search_conflicts() {
     >>>>>>> conflict 1 of 1 ends
     ");
 
-    // Matches positive terms
+    // Matches positive terms (one match per matching add side)
     let output = work_dir.run_jj(["file", "search", "--pattern=glob:*foo*"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    file1:-foo-
+    [EOF]
+    ");
+    // -l collapses per-file even with a conflict
+    let output = work_dir.run_jj(["file", "search", "-l", "--pattern=glob:*foo*"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
     file1
     [EOF]
@@ -124,6 +165,20 @@ fn test_file_search_conflicts() {
     let output = work_dir.run_jj(["file", "search", "--pattern=glob:*bar*"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"");
     let output = work_dir.run_jj(["file", "search", "--pattern=glob:*baz*"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    file1:-baz-
+    [EOF]
+    ");
+
+    // A pattern that matches on multiple add sides: without -l each matching
+    // side emits one line; with -l the path is deduped to a single output.
+    let output = work_dir.run_jj(["file", "search", "--pattern=regex:-(foo|baz)-"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    file1:-foo-
+    file1:-baz-
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "search", "-l", "--pattern=regex:-(foo|baz)-"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
     file1
     [EOF]
