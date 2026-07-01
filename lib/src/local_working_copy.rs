@@ -1443,25 +1443,36 @@ impl TreeState {
         let matcher: Option<Box<dyn Matcher>> = match changed_files {
             None => None,
             Some(changed_files) => {
-                let (repo_paths, gitignore_prefixes) = trace_span!("processing fsmonitor paths")
-                    .in_scope(|| {
-                        let repo_paths = changed_files
-                            .iter()
-                            .filter_map(|path| RepoPathBuf::from_relative_path(path).ok())
-                            .collect_vec();
-                        // .gitignore changes require rescanning parent directories to pick up newly
-                        // unignored files.
-                        let gitignore_prefixes = repo_paths
-                            .iter()
-                            .filter_map(|repo_path| {
-                                let (parent, basename) = repo_path.split()?;
-                                (basename.as_internal_str() == ".gitignore")
-                                    .then(|| parent.to_owned())
-                            })
-                            .collect_vec();
-                        (repo_paths, gitignore_prefixes)
+                let processed_paths = trace_span!("processing fsmonitor paths").in_scope(|| {
+                    changed_files
+                        .iter()
+                        .map(RepoPathBuf::from_relative_path)
+                        .try_collect()
+                        .map(|repo_paths: Vec<_>| {
+                            // .gitignore changes require rescanning parent directories to pick up newly
+                            // unignored files.
+                            let gitignore_prefixes = repo_paths
+                                .iter()
+                                .filter_map(|repo_path| {
+                                    let (parent, basename) = repo_path.split()?;
+                                    (basename.as_internal_str() == ".gitignore")
+                                        .then(|| parent.to_owned())
+                                })
+                                .collect_vec();
+                            (repo_paths, gitignore_prefixes)
+                        })
+                });
+                let Ok((repo_paths, gitignore_prefixes)) = processed_paths else {
+                    tracing::warn!(
+                        ?changed_files,
+                        "Filesystem monitor returned an invalid path; falling back to a full scan"
+                    );
+                    return Ok(FsmonitorMatcher {
+                        matcher: None,
+                        fsmonitor_clock,
+                        should_update_fsmonitor_clock: true,
                     });
-
+                };
                 let matcher: Box<dyn Matcher> = if gitignore_prefixes.is_empty() {
                     Box::new(FilesMatcher::new(repo_paths))
                 } else {
