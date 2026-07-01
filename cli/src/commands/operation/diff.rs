@@ -49,6 +49,7 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
 use crate::cli_util::WorkspaceCommandEnvironment;
 use crate::cli_util::default_ignored_remote_name;
+use crate::cli_util::merge_operations;
 use crate::command_error::CommandError;
 use crate::command_error::config_error_with_message;
 use crate::command_error::print_parse_diagnostics;
@@ -126,7 +127,18 @@ pub async fn cmd_op_diff(
     let graph_style = GraphStyle::from_settings(settings)?;
     let with_content_format = LogContentFormat::new(ui, settings)?;
 
-    let merged_from_op = repo_loader.merge_operations(from_ops.clone(), None).await?;
+    let workspace_name = None;
+    let transaction_description = None;
+    let transaction_attributes = [];
+    let merged_from_op = merge_operations(
+        None,
+        repo_loader,
+        from_ops.clone(),
+        workspace_name,
+        transaction_description,
+        transaction_attributes,
+    )
+    .await?;
     let from_repo = repo_loader.load_at(&merged_from_op).await?;
     let to_repo = repo_loader.load_at(&to_op).await?;
 

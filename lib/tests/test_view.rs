@@ -26,6 +26,7 @@ use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
+use jj_lib::transaction::Transaction;
 use maplit::btreemap;
 use maplit::hashset;
 use pollster::FutureExt as _;
@@ -37,6 +38,7 @@ use testutils::commit_transactions;
 use testutils::create_random_commit;
 use testutils::write_random_commit;
 use testutils::write_random_commit_with_parents;
+use testutils::write_random_commit_with_parents_and_description;
 
 fn remote_symbol<'a, N, M>(name: &'a N, remote: &'a M) -> RemoteRefSymbol<'a>
 where
@@ -709,6 +711,77 @@ fn test_merge_views_child_on_abandoned(child_first: bool) -> TestResult {
     Ok(())
 }
 
+#[test]
+fn test_merge_three_operations() -> TestResult {
+    // Operation graph:
+    // * Operation B rewrites commit K to K2
+    // * Operation C adds commit L as a child of K
+    // * Operation D adds commit M as a child of K
+    // * Operation E is the merge of B, C, and D (reconciliation)
+    //
+    // E
+    // |\
+    // |\ \
+    // | | D  wc: M->K
+    // | C |  wc: L->K
+    // B |/   wc: K2
+    // |/
+    // A      wc: K
+
+    let test_repo = TestRepo::init();
+
+    let mut tx_a = test_repo.repo.start_transaction();
+    let commit_k = write_random_commit(tx_a.repo_mut());
+    tx_a.repo_mut()
+        .set_wc_commit(WorkspaceName::DEFAULT.to_owned(), commit_k.id().clone())?;
+    let repo_a = tx_a.commit("K").block_on()?;
+
+    let mut tx_b = repo_a.start_transaction();
+    let commit_k2 = tx_b
+        .repo_mut()
+        .rewrite_commit(&commit_k)
+        .set_description("K2")
+        .write_unwrap();
+    tx_b.repo_mut().rebase_descendants().block_on()?;
+
+    let mut tx_c = repo_a.start_transaction();
+    let commit_l = write_random_commit_with_parents(tx_c.repo_mut(), &[&commit_k]);
+    tx_c.repo_mut()
+        .set_wc_commit(WorkspaceName::DEFAULT.to_owned(), commit_l.id().clone())?;
+
+    let mut tx_d = repo_a.start_transaction();
+    let commit_m = write_random_commit_with_parents(tx_d.repo_mut(), &[&commit_k]);
+    tx_d.repo_mut()
+        .set_wc_commit(WorkspaceName::DEFAULT.to_owned(), commit_m.id().clone())?;
+
+    let repo_b = tx_b.commit("B").block_on()?;
+    std::thread::sleep(Duration::from_millis(1));
+    let repo_c = tx_c.commit("C").block_on()?;
+    std::thread::sleep(Duration::from_millis(1));
+    let repo_d = tx_d.commit("D").block_on()?;
+
+    let (repo_e, _num_rebased) = Transaction::merge_operations(
+        repo_b.loader(),
+        vec![
+            repo_b.operation().clone(),
+            repo_c.operation().clone(),
+            repo_d.operation().clone(),
+        ],
+        None,
+        Some("merge B, C, D"),
+        [],
+    )
+    .block_on()?;
+    let operation_e = repo_e.operation().clone();
+    let view_e = operation_e.view().block_on()?;
+    assert_eq!(
+        view_e.get_wc_commit_id(WorkspaceName::DEFAULT).unwrap(),
+        commit_k2.id(),
+    );
+
+    Ok(())
+}
+
 #[test_case(false ; "operation C first")]
 #[test_case(true ; "operation B first")]
 fn test_merge_views_criss_cross(op_b_first: bool) -> TestResult {
@@ -756,17 +829,23 @@ fn test_merge_views_criss_cross(op_b_first: bool) -> TestResult {
         (repo_b, repo_c)
     };
 
-    let mut tx_d = repo_b.start_transaction();
-    tx_d.merge_operation(repo_c.operation().clone())
-        .block_on()?;
-    tx_d.repo_mut().rebase_descendants().block_on()?;
-    let repo_d = tx_d.commit("D").block_on()?;
+    let (repo_d, _num_rebased) = Transaction::merge_operations(
+        repo_b.loader(),
+        vec![repo_b.operation().clone(), repo_c.operation().clone()],
+        None,
+        Some("D"),
+        [],
+    )
+    .block_on()?;
 
-    let mut tx_e = repo_b.start_transaction();
-    tx_e.merge_operation(repo_c.operation().clone())
-        .block_on()?;
-    tx_e.repo_mut().rebase_descendants().block_on()?;
-    let _repo_e = tx_e.commit("E").block_on()?;
+    let (_repo_e, _num_rebased) = Transaction::merge_operations(
+        repo_b.loader(),
+        vec![repo_b.operation().clone(), repo_c.operation().clone()],
+        None,
+        Some("E"),
+        [],
+    )
+    .block_on()?;
 
     let mut tx_f = repo_d.start_transaction();
     let commit_m = tx_f
@@ -786,5 +865,144 @@ fn test_merge_views_criss_cross(op_b_first: bool) -> TestResult {
             .unwrap(),
         commit_m.id(),
     );
+    Ok(())
+}
+
+#[test]
+fn test_merge_operations_back_to_back_criss_cross() -> TestResult {
+    // H
+    // |\
+    // F G
+    // |X|
+    // D E L2->K2(@)
+    // |X|
+    // | C L(@)->K
+    // B | K2(@)
+    // |/
+    // A   K(@)
+
+    let test_repo = TestRepo::init();
+
+    let mut tx_a = test_repo.repo.start_transaction();
+    let commit_k = write_random_commit(tx_a.repo_mut());
+    tx_a.repo_mut()
+        .set_wc_commit(WorkspaceName::DEFAULT.to_owned(), commit_k.id().clone())?;
+    let repo_a = tx_a.commit("TXA").block_on()?;
+
+    let mut tx_b = repo_a.start_transaction();
+    let _commit_k2 = tx_b
+        .repo_mut()
+        .rewrite_commit(&commit_k)
+        .set_description("K2")
+        .write_unwrap();
+    tx_b.repo_mut().rebase_descendants().block_on()?;
+
+    let mut tx_c = repo_a.start_transaction();
+    let commit_l =
+        write_random_commit_with_parents_and_description(tx_c.repo_mut(), &[&commit_k], "L");
+    tx_c.repo_mut().rebase_descendants().block_on()?;
+    tx_c.repo_mut()
+        .set_wc_commit(WorkspaceName::DEFAULT.to_owned(), commit_l.id().clone())?;
+
+    let repo_b = tx_b.commit("TXB").block_on()?;
+    std::thread::sleep(Duration::from_millis(1));
+    let repo_c = tx_c.commit("TXC").block_on()?;
+    std::thread::sleep(Duration::from_millis(1));
+
+    let (repo_d, _num_rebased) = Transaction::merge_operations(
+        repo_b.loader(),
+        vec![repo_b.operation().clone(), repo_c.operation().clone()],
+        None,
+        Some("merge B, C"),
+        [],
+    )
+    .block_on()?;
+    std::thread::sleep(Duration::from_millis(1));
+
+    let (repo_e, _num_rebased) = Transaction::merge_operations(
+        repo_b.loader(),
+        vec![repo_b.operation().clone(), repo_c.operation().clone()],
+        None,
+        Some("merge B, C again, concurrently"),
+        [],
+    )
+    .block_on()?;
+    std::thread::sleep(Duration::from_millis(1));
+
+    let view_d = repo_d.operation().view().block_on()?;
+    let view_e = repo_e.operation().view().block_on()?;
+    assert_eq!(view_d.heads().len(), 1);
+    assert_eq!(view_e.heads().len(), 1);
+
+    let commit_l2 = repo_d
+        .store()
+        .get_commit(view_d.heads().iter().next().unwrap())?;
+    let commit_l2_prime = repo_e
+        .store()
+        .get_commit(view_e.heads().iter().next().unwrap())?;
+    assert_eq!(commit_l2.description(), "L");
+    assert_eq!(commit_l2_prime.description(), "L");
+    assert!(commit_l2.id() != commit_l.id());
+    assert!(commit_l2.id() != commit_l2_prime.id());
+    assert_eq!(
+        repo_d
+            .store()
+            .get_commit(&commit_l2.parent_ids()[0])
+            .unwrap()
+            .description(),
+        "K2"
+    );
+    assert_eq!(
+        repo_e
+            .store()
+            .get_commit(&commit_l2_prime.parent_ids()[0])
+            .unwrap()
+            .description(),
+        "K2"
+    );
+    assert_eq!(
+        *view_d.get_wc_commit_id(WorkspaceName::DEFAULT).unwrap(),
+        commit_l2.parent_ids()[0],
+    );
+    assert_eq!(
+        *view_e.get_wc_commit_id(WorkspaceName::DEFAULT).unwrap(),
+        commit_l2_prime.parent_ids()[0],
+    );
+
+    let (repo_f, _num_rebased) = Transaction::merge_operations(
+        repo_d.loader(),
+        vec![repo_d.operation().clone(), repo_e.operation().clone()],
+        None,
+        Some("merge D, E"),
+        [],
+    )
+    .block_on()?;
+    std::thread::sleep(Duration::from_millis(1));
+
+    let (repo_g, _num_rebased) = Transaction::merge_operations(
+        repo_d.loader(),
+        vec![repo_d.operation().clone(), repo_e.operation().clone()],
+        None,
+        Some("merge D, E again, concurrently"),
+        [],
+    )
+    .block_on()?;
+    std::thread::sleep(Duration::from_millis(1));
+
+    let view_f = repo_f.operation().view().block_on()?;
+    let view_g = repo_g.operation().view().block_on()?;
+    assert_eq!(view_f.heads().len(), 2);
+    assert_eq!(view_g.heads().len(), 2);
+
+    let (repo_h, _num_rebased) = Transaction::merge_operations(
+        repo_f.loader(),
+        vec![repo_f.operation().clone(), repo_g.operation().clone()],
+        None,
+        Some("merge F, G"),
+        [],
+    )
+    .block_on()?;
+    assert_eq!(repo_h.view().heads().len(), 2);
+
     Ok(())
 }
