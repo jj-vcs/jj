@@ -1239,6 +1239,7 @@ impl TreeState {
                 source,
             }
         })?;
+        self.acknowledge_fsmonitor_clock();
         Ok(())
     }
 
@@ -1250,6 +1251,14 @@ impl TreeState {
         let changed = self.fsmonitor_clock != clock;
         self.fsmonitor_clock = clock;
         changed
+    }
+
+    fn acknowledge_fsmonitor_clock(&self) {
+        if let Some(clock) = &self.fsmonitor_clock
+            && let Err(err) = self.fsmonitor.acknowledge_clock(clock)
+        {
+            tracing::warn!(?err, "Failed to acknowledge filesystem monitor clock");
+        }
     }
 }
 
@@ -1425,13 +1434,12 @@ impl TreeState {
                 changed_files,
             } => (Some(clock), Some(changed_files)),
         };
-        // Do not advance the clock when the monitor reports no changed paths.
-        // This avoids rewriting the tree state just to save the new clock.
-        // Reusing the older clock may make a later query do more work, but it
-        // cannot omit changes.
-        let should_update_fsmonitor_clock = changed_files
-            .as_ref()
-            .is_none_or(|changed_files| !changed_files.is_empty());
+        // By default, do not advance the clock when the monitor reports no
+        // changed paths. Journal-backed monitors can opt in so the new clock is
+        // persisted and old journal entries can be acknowledged.
+        let should_update_fsmonitor_clock = changed_files.as_ref().is_none_or(|changed_files| {
+            !changed_files.is_empty() || fsmonitor.persist_clock_upon_empty_result()
+        });
         let matcher: Option<Box<dyn Matcher>> = match changed_files {
             None => None,
             Some(changed_files) => {
@@ -3059,6 +3067,9 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
                     message: "Failed to write working copy state".to_string(),
                     err: Box::new(err),
                 })?;
+        } else {
+            // The current clock was already persisted by an earlier mutation.
+            self.wc.tree_state()?.acknowledge_fsmonitor_clock();
         }
         if self.old_operation_id != operation_id || self.new_workspace_name.is_some() {
             self.wc.checkout_state.operation_id = operation_id;
