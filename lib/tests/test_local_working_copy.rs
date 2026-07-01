@@ -46,6 +46,7 @@ use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::git::get_git_backend;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::local_working_copy::LocalWorkingCopy;
+use jj_lib::local_working_copy::LockedLocalWorkingCopy;
 use jj_lib::local_working_copy::TreeState;
 use jj_lib::local_working_copy::TreeStateSettings;
 use jj_lib::matchers::FilesMatcher;
@@ -2711,6 +2712,82 @@ fn test_check_out_reserved_file_path_dot_git_symlink(file_path_str: &str) -> Tes
 
     // The existing file shouldn't be removed.
     assert!(disk_path.exists());
+    Ok(())
+}
+
+#[test]
+fn test_replace_fsmonitor_settings() -> TestResult {
+    let mut test_workspace = TestWorkspace::init();
+    let repo = test_workspace.repo.clone();
+    let workspace_root = test_workspace.workspace.workspace_root().to_owned();
+    let modified_path = repo_path("modified");
+    let deleted_path = repo_path("deleted");
+    let unreported_path = repo_path("unreported");
+    let added_path = repo_path("nested/added");
+    for path in [modified_path, deleted_path, unreported_path] {
+        testutils::write_working_copy_file(&workspace_root, path, "old\n");
+    }
+    test_workspace.snapshot()?;
+    testutils::write_working_copy_file(&workspace_root, modified_path, "modified\n");
+    std::fs::remove_file(deleted_path.to_fs_path(&workspace_root)?)?;
+    testutils::write_working_copy_file(&workspace_root, unreported_path, "unreported change\n");
+    testutils::write_working_copy_file(&workspace_root, added_path, "added\n");
+
+    let injected_settings = FsmonitorSettings::Test {
+        changed_files: [modified_path, deleted_path, added_path]
+            .map(|path| path.to_fs_path_unchecked(Path::new("")))
+            .to_vec(),
+    };
+    let mut locked_wc = test_workspace
+        .workspace
+        .working_copy()
+        .start_mutation()
+        .block_on()?;
+    let old_settings = locked_wc
+        .downcast_mut::<LockedLocalWorkingCopy>()
+        .unwrap()
+        .replace_fsmonitor_settings(injected_settings.clone());
+    assert_eq!(old_settings, FsmonitorSettings::None);
+
+    // The already-loaded tree state must use the injected list for additions,
+    // modifications, and deletions, leaving unreported changes untouched.
+    let expected_tree = create_tree(
+        &repo,
+        &[
+            (modified_path, "modified\n"),
+            (unreported_path, "old\n"),
+            (added_path, "added\n"),
+        ],
+    );
+    let (tree, _) = locked_wc.snapshot(&empty_snapshot_options()).block_on()?;
+    assert_tree_eq!(tree, expected_tree);
+
+    // Starting another mutation reloads the tree state from the working copy's
+    // settings, which must also retain the injected monitor.
+    let wc = locked_wc.finish(repo.op_id().clone()).block_on()?;
+    let mut locked_wc = wc.start_mutation().block_on()?;
+    let (tree, _) = locked_wc.snapshot(&empty_snapshot_options()).block_on()?;
+    assert_tree_eq!(tree, expected_tree);
+
+    let replaced_settings = locked_wc
+        .downcast_mut::<LockedLocalWorkingCopy>()
+        .unwrap()
+        .replace_fsmonitor_settings(old_settings);
+    assert_eq!(replaced_settings, injected_settings);
+
+    // Restoring the previous monitor resumes full scanning and picks up the
+    // change omitted from the injected list.
+    let expected_tree = create_tree(
+        &repo,
+        &[
+            (modified_path, "modified\n"),
+            (unreported_path, "unreported change\n"),
+            (added_path, "added\n"),
+        ],
+    );
+    let (tree, _) = locked_wc.snapshot(&empty_snapshot_options()).block_on()?;
+    assert_tree_eq!(tree, expected_tree);
+    locked_wc.finish(repo.op_id().clone()).block_on()?;
     Ok(())
 }
 

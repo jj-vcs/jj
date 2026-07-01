@@ -2963,6 +2963,24 @@ pub struct LockedLocalWorkingCopy {
     _lock: FileLock,
 }
 
+impl LockedLocalWorkingCopy {
+    /// Replaces the filesystem monitor setting used by snapshots and returns
+    /// the previous setting.
+    pub fn replace_fsmonitor_settings(
+        &mut self,
+        fsmonitor_settings: FsmonitorSettings,
+    ) -> FsmonitorSettings {
+        let old_settings = std::mem::replace(
+            &mut self.wc.tree_state_settings.fsmonitor_settings,
+            fsmonitor_settings.clone(),
+        );
+        if let Some(tree_state) = self.wc.tree_state.get_mut() {
+            tree_state.fsmonitor_settings = fsmonitor_settings;
+        }
+        old_settings
+    }
+}
+
 #[async_trait]
 impl LockedWorkingCopy for LockedLocalWorkingCopy {
     fn old_operation_id(&self) -> &OperationId {
