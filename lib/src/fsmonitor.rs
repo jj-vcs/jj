@@ -22,6 +22,7 @@
 
 #![warn(missing_docs)]
 
+use std::path::Path;
 use std::path::PathBuf;
 
 use prost::Message as _;
@@ -123,6 +124,65 @@ impl FsmonitorSettings {
     }
 }
 
+/// Filesystem monitor backed by Watchman.
+#[derive(Clone, Debug)]
+pub struct WatchmanFsmonitor {
+    #[cfg_attr(not(feature = "watchman"), allow(dead_code))]
+    config: WatchmanConfig,
+}
+
+impl WatchmanFsmonitor {
+    /// Creates a Watchman filesystem monitor.
+    pub fn new(config: WatchmanConfig) -> Self {
+        Self { config }
+    }
+
+    /// Queries Watchman using the generic persisted filesystem-monitor clock.
+    #[cfg(feature = "watchman")]
+    pub async fn query(
+        &self,
+        working_copy_path: &Path,
+        previous_clock: Option<&FsmonitorClock>,
+    ) -> Result<(watchman::Clock, Option<Vec<PathBuf>>), watchman::Error> {
+        let previous_clock = previous_clock
+            .and_then(|clock| clock.value_for("watchman"))
+            .and_then(|value| crate::protos::local_working_copy::WatchmanClock::decode(value).ok())
+            .and_then(|clock| watchman::Clock::try_from(clock).ok());
+        let query = async || {
+            let monitor = watchman::Fsmonitor::init(working_copy_path, &self.config).await?;
+            monitor.query_changed_files(previous_clock).await
+        };
+        match tokio::runtime::Handle::try_current() {
+            Ok(_) => Ok(query().await?),
+            Err(_) => Ok(tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .map_err(watchman::Error::RuntimeCreationError)?
+                .block_on(query())?),
+        }
+    }
+
+    /// Returns whether the Watchman snapshot trigger is registered.
+    #[cfg(feature = "watchman")]
+    pub async fn is_trigger_registered(
+        &self,
+        working_copy_path: &Path,
+    ) -> Result<bool, watchman::Error> {
+        let query = async || {
+            let monitor = watchman::Fsmonitor::init(working_copy_path, &self.config).await?;
+            monitor.is_trigger_registered().await
+        };
+        match tokio::runtime::Handle::try_current() {
+            Ok(_) => Ok(query().await?),
+            Err(_) => Ok(tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .map_err(watchman::Error::RuntimeCreationError)?
+                .block_on(query())?),
+        }
+    }
+}
+
 /// Filesystem monitor integration using Watchman
 /// (<https://facebook.github.io/watchman/>). Requires `watchman` to already be
 /// installed on the system.
@@ -217,6 +277,9 @@ pub mod watchman {
 
         #[error("Failed to register Watchman trigger")]
         WatchmanTriggerError(#[source] watchman_client::Error),
+
+        #[error("Failed to create a runtime for Watchman")]
+        RuntimeCreationError(#[source] std::io::Error),
     }
 
     /// Handle to the underlying Watchman instance.
