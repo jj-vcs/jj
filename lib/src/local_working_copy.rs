@@ -959,8 +959,8 @@ fn file_state(metadata: &Metadata) -> Result<Option<FileState>, MtimeOutOfRange>
 
 struct FsmonitorMatcher {
     matcher: Option<Box<dyn Matcher>>,
-    watchman_clock: Option<crate::protos::local_working_copy::WatchmanClock>,
-    should_update_watchman_clock: bool,
+    fsmonitor_clock: Option<crate::fsmonitor::FsmonitorClock>,
+    should_update_fsmonitor_clock: bool,
 }
 
 /// Settings specific to the tree state of the [`LocalWorkingCopy`] backend.
@@ -1005,7 +1005,7 @@ pub struct TreeState {
     /// The most recent clock value returned by Watchman. Will only be set if
     /// the repo is configured to use the Watchman filesystem monitor and
     /// Watchman has been queried at least once.
-    watchman_clock: Option<crate::protos::local_working_copy::WatchmanClock>,
+    fsmonitor_clock: Option<crate::fsmonitor::FsmonitorClock>,
 
     conflict_marker_style: ConflictMarkerStyle,
     exec_policy: ExecChangePolicy,
@@ -1096,7 +1096,7 @@ impl TreeState {
             sparse_patterns: vec![RepoPathBuf::root()],
             own_mtime: MillisSinceEpoch(0),
             symlink_support: check_symlink_support().unwrap_or(false),
-            watchman_clock: None,
+            fsmonitor_clock: None,
             conflict_marker_style: *conflict_marker_style,
             exec_policy,
             fsmonitor_settings: fsmonitor_settings.clone(),
@@ -1174,7 +1174,15 @@ impl TreeState {
         self.file_states =
             FileStatesMap::from_proto(proto.file_states, proto.is_file_states_sorted);
         self.sparse_patterns = sparse_patterns_from_proto(proto.sparse_patterns.as_ref());
-        self.watchman_clock = proto.watchman_clock;
+        self.fsmonitor_clock = proto
+            .fsmonitor_clock
+            .map(crate::fsmonitor::FsmonitorClock::from)
+            .or_else(|| {
+                proto
+                    .watchman_clock
+                    .map(crate::fsmonitor::FsmonitorClock::from)
+            });
+
         Ok(())
     }
 
@@ -1198,7 +1206,10 @@ impl TreeState {
                 .push(path.as_internal_file_string().to_owned());
         }
         proto.sparse_patterns = Some(sparse_patterns);
-        proto.watchman_clock = self.watchman_clock.clone();
+        proto.fsmonitor_clock = self
+            .fsmonitor_clock
+            .clone()
+            .map(crate::protos::local_working_copy::FsmonitorClock::from);
 
         let wrap_write_err = |source| TreeStateError::WriteTreeState {
             path: self.state_path.clone(),
@@ -1224,8 +1235,8 @@ impl TreeState {
         Ok(())
     }
 
-    fn reset_watchman(&mut self) {
-        self.watchman_clock.take();
+    fn reset_fsmonitor_clock(&mut self) {
+        self.fsmonitor_clock.take();
     }
 
     #[cfg(feature = "watchman")]
@@ -1234,7 +1245,12 @@ impl TreeState {
         &self,
         config: &WatchmanConfig,
     ) -> Result<(watchman::Clock, Option<Vec<PathBuf>>), TreeStateError> {
-        let previous_clock = self.watchman_clock.clone().map(watchman::Clock::from);
+        let previous_clock = self
+            .fsmonitor_clock
+            .as_ref()
+            .and_then(|clock| clock.value_for("watchman"))
+            .and_then(|value| crate::protos::local_working_copy::WatchmanClock::decode(value).ok())
+            .and_then(|clock| watchman::Clock::try_from(clock).ok());
 
         let tokio_fn = async || {
             let fsmonitor = watchman::Fsmonitor::init(&self.working_copy_path, config)
@@ -1309,8 +1325,8 @@ impl TreeState {
         let mut is_dirty = false;
         let FsmonitorMatcher {
             matcher: fsmonitor_matcher,
-            watchman_clock,
-            should_update_watchman_clock,
+            fsmonitor_clock,
+            should_update_fsmonitor_clock,
         } = self
             .make_fsmonitor_matcher(&self.fsmonitor_settings)
             .await?;
@@ -1325,9 +1341,9 @@ impl TreeState {
         );
         if matcher.visit(RepoPath::root()).is_nothing() {
             // No need to load the current tree, set up channels, etc.
-            if should_update_watchman_clock {
-                is_dirty |= self.watchman_clock != watchman_clock;
-                self.watchman_clock = watchman_clock;
+            if should_update_fsmonitor_clock {
+                is_dirty |= self.fsmonitor_clock != fsmonitor_clock;
+                self.fsmonitor_clock = fsmonitor_clock;
             }
             return Ok((is_dirty, SnapshotStats::default()));
         }
@@ -1418,15 +1434,15 @@ impl TreeState {
         }
         // Since untracked paths aren't cached in the tree state, we'll need to
         // rescan the working directory changes to report or track them later.
-        // TODO: store untracked paths and update watchman_clock?
+        // TODO: store untracked paths and update fsmonitor_clock?
         // A failed monitor query has no clock and causes a full scan. Clear the
         // old clock after that scan even if it found untracked paths.
-        if should_update_watchman_clock {
+        if should_update_fsmonitor_clock {
             if (stats.untracked_paths.is_empty() && stats.invalid_utf8_paths.is_empty())
-                || watchman_clock.is_none()
+                || fsmonitor_clock.is_none()
             {
-                is_dirty |= self.watchman_clock != watchman_clock;
-                self.watchman_clock = watchman_clock;
+                is_dirty |= self.fsmonitor_clock != fsmonitor_clock;
+                self.fsmonitor_clock = fsmonitor_clock;
             } else {
                 tracing::info!("not updating watchman clock because there are untracked files");
             }
@@ -1439,12 +1455,16 @@ impl TreeState {
         &self,
         fsmonitor_settings: &FsmonitorSettings,
     ) -> Result<FsmonitorMatcher, SnapshotError> {
-        let (watchman_clock, changed_files) = match fsmonitor_settings {
+        let (fsmonitor_clock, changed_files) = match fsmonitor_settings {
             FsmonitorSettings::None => (None, None),
             FsmonitorSettings::Test { changed_files } => (None, Some(changed_files.clone())),
             #[cfg(feature = "watchman")]
             FsmonitorSettings::Watchman(config) => match self.query_watchman(config).await {
-                Ok((watchman_clock, changed_files)) => (Some(watchman_clock.into()), changed_files),
+                Ok((fsmonitor_clock, changed_files)) => {
+                    let clock: crate::protos::local_working_copy::WatchmanClock =
+                        fsmonitor_clock.into();
+                    (Some(clock.into()), changed_files)
+                }
                 Err(err) => {
                     tracing::warn!(?err, "Failed to query filesystem monitor");
                     (None, None)
@@ -1464,7 +1484,7 @@ impl TreeState {
         // This avoids rewriting the tree state just to save the new clock.
         // Reusing the older clock may make a later query do more work, but it
         // cannot omit changes.
-        let should_update_watchman_clock = changed_files
+        let should_update_fsmonitor_clock = changed_files
             .as_ref()
             .is_none_or(|changed_files| !changed_files.is_empty());
         let matcher: Option<Box<dyn Matcher>> = match changed_files {
@@ -1503,8 +1523,8 @@ impl TreeState {
         };
         Ok(FsmonitorMatcher {
             matcher,
-            watchman_clock,
-            should_update_watchman_clock,
+            fsmonitor_clock,
+            should_update_fsmonitor_clock,
         })
     }
 }
@@ -3062,8 +3082,8 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
 }
 
 impl LockedLocalWorkingCopy {
-    pub fn reset_watchman(&mut self) -> Result<(), SnapshotError> {
-        self.wc.tree_state_mut()?.reset_watchman();
+    pub fn reset_fsmonitor_clock(&mut self) -> Result<(), SnapshotError> {
+        self.wc.tree_state_mut()?.reset_fsmonitor_clock();
         self.tree_state_dirty = true;
         Ok(())
     }
