@@ -83,6 +83,20 @@ fn test_gc_args() {
 }
 
 #[test]
+fn test_gc_ignores_external_git_path() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj([
+        "util",
+        "gc",
+        "--config=git.executable-path='jj-test-missing-program'",
+    ]);
+    insta::assert_snapshot!(output, @"");
+}
+
+#[test]
 fn test_gc_operation_log() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

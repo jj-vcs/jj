@@ -134,6 +134,76 @@ fn test_git_fetch_with_default_config() {
 }
 
 #[test]
+fn test_git_fetch_ignores_external_git_path() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("git.executable-path = 'jj-test-missing-program'");
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    add_git_remote(&test_env, &work_dir, "origin");
+
+    let output = work_dir.run_jj(["git", "fetch"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    bookmark: origin@origin [new] untracked
+    [EOF]
+    ");
+}
+
+#[cfg(unix)]
+#[test]
+fn test_git_fetch_git_daemon_ignores_external_git_path() -> TestResult {
+    struct GitDaemon(std::process::Child);
+
+    impl Drop for GitDaemon {
+        fn drop(&mut self) {
+            self.0.kill().ok();
+            self.0.wait().ok();
+        }
+    }
+
+    let test_env = TestEnvironment::default();
+    test_env.add_config("git.executable-path = 'jj-test-missing-program'");
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    init_git_remote(&test_env, "origin");
+
+    let listener = std::net::TcpListener::bind(("127.0.0.1", 0))?;
+    let port = listener.local_addr()?.port();
+    drop(listener);
+    let _daemon = GitDaemon(
+        std::process::Command::new("git")
+            .args([
+                "daemon",
+                "--reuseaddr",
+                "--export-all",
+                "--listen=127.0.0.1",
+                &format!("--port={port}"),
+                &format!("--base-path={}", test_env.env_root().display()),
+            ])
+            .arg(test_env.env_root())
+            .spawn()?,
+    );
+
+    work_dir
+        .run_jj([
+            "git",
+            "remote",
+            "add",
+            "origin",
+            &format!("git://127.0.0.1:{port}/origin/.git"),
+        ])
+        .success();
+
+    let output = work_dir.run_jj(["git", "fetch"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    bookmark: origin@origin [new] untracked
+    [EOF]
+    ");
+    Ok(())
+}
+
+#[test]
 fn test_git_fetch_default_remote() {
     let test_env = TestEnvironment::default();
     test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
@@ -769,7 +839,15 @@ fn test_git_fetch_conflicting_bookmarks_colocated() {
     ");
 
     work_dir
-        .run_jj(["git", "fetch", "--remote", "rem1", "--branch", "rem1"])
+        .run_jj([
+            "git",
+            "fetch",
+            "--remote",
+            "rem1",
+            "--branch",
+            "rem1",
+            "--config=git.executable-path='jj-test-missing-program'",
+        ])
         .success();
     // This should result in a CONFLICTED bookmark
     // See https://github.com/jj-vcs/jj/pull/1146#discussion_r1112372340 for the bug this tests for.

@@ -237,21 +237,41 @@ pub(crate) struct RefSpec {
 }
 
 impl RefSpec {
-    fn forced(source: impl Into<String>, destination: impl Into<String>) -> Self {
-        Self {
+    pub(crate) fn forced_fetch(source: impl Into<String>, destination: impl Into<String>) -> Self {
+        let refspec = Self {
             forced: true,
             source: Some(source.into()),
             destination: destination.into(),
-        }
+        };
+        debug_assert!(grit_lib::refspec::valid_fetch_refspec(
+            &refspec.to_git_format()
+        ));
+        refspec
     }
 
-    fn delete(destination: impl Into<String>) -> Self {
+    pub(crate) fn forced_push(source: impl Into<String>, destination: impl Into<String>) -> Self {
+        let refspec = Self {
+            forced: true,
+            source: Some(source.into()),
+            destination: destination.into(),
+        };
+        debug_assert!(grit_lib::refspec::valid_push_refspec(
+            &refspec.to_git_format()
+        ));
+        refspec
+    }
+
+    pub(crate) fn delete_push(destination: impl Into<String>) -> Self {
         // We don't force push on branch deletion
-        Self {
+        let refspec = Self {
             forced: false,
             source: None,
             destination: destination.into(),
-        }
+        };
+        debug_assert!(grit_lib::refspec::valid_push_refspec(
+            &refspec.to_git_format()
+        ));
+        refspec
     }
 
     pub(crate) fn to_git_format(&self) -> String {
@@ -274,6 +294,14 @@ impl RefSpec {
             format!(":{}", self.destination)
         }
     }
+
+    pub(crate) fn source(&self) -> Option<&str> {
+        self.source.as_deref()
+    }
+
+    pub(crate) fn destination(&self) -> &str {
+        &self.destination
+    }
 }
 
 /// Representation of a negative Git refspec
@@ -285,13 +313,21 @@ pub(crate) struct NegativeRefSpec {
 
 impl NegativeRefSpec {
     fn new(source: impl Into<String>) -> Self {
-        Self {
+        let refspec = Self {
             source: source.into(),
-        }
+        };
+        debug_assert!(grit_lib::refspec::valid_fetch_refspec(
+            &refspec.to_git_format()
+        ));
+        refspec
     }
 
     pub(crate) fn to_git_format(&self) -> String {
         format!("^{}", self.source)
+    }
+
+    pub(crate) fn source(&self) -> &str {
+        &self.source
     }
 }
 
@@ -320,16 +356,6 @@ impl<'a> RefToPush<'a> {
         }
     }
 
-    pub(crate) fn to_git_lease(&self) -> String {
-        format!(
-            "{}:{}",
-            self.refspec.destination,
-            self.expected_location
-                .map(|x| x.to_string())
-                .as_deref()
-                .unwrap_or("")
-        )
-    }
 }
 
 /// Translates Git ref name to jj's `name@remote` symbol. Returns `None` if the
@@ -2703,7 +2729,7 @@ pub fn expand_fetch_refspecs(
             .iter()
             .map(|&pattern| pattern_to_refspec_glob(pattern))
             .map_ok(|glob| {
-                RefSpec::forced(
+                RefSpec::forced_fetch(
                     format!("refs/heads/{glob}"),
                     format!(
                         "{REMOTE_BOOKMARK_REF_NAMESPACE}{remote}/{glob}",
@@ -2715,7 +2741,7 @@ pub fn expand_fetch_refspecs(
             .iter()
             .map(|&pattern| pattern_to_refspec_glob(pattern))
             .map_ok(|glob| {
-                RefSpec::forced(
+                RefSpec::forced_fetch(
                     format!("refs/tags/{glob}"),
                     format!(
                         "{REMOTE_TAG_REF_NAMESPACE}{remote}/{glob}",
@@ -3321,7 +3347,7 @@ pub fn push_updates(
             // We always force-push. We use the push_negotiation callback in
             // `push_refs` to check that the refs did not unexpectedly move on
             // the remote.
-            refspecs.push(RefSpec::forced(
+            refspecs.push(RefSpec::forced_push(
                 new_target.to_string(),
                 &update.qualified_name,
             ));
@@ -3329,7 +3355,7 @@ pub fn push_updates(
             // Prefixing this with `+` to force-push or not should make no
             // difference. The push negotiation happens regardless, and wouldn't
             // allow creating a branch if it's not a fast-forward.
-            refspecs.push(RefSpec::delete(&update.qualified_name));
+            refspecs.push(RefSpec::delete_push(&update.qualified_name));
         }
     }
 
@@ -3340,6 +3366,9 @@ pub fn push_updates(
     // check the remote exists
     if git_repo.try_find_remote(remote_name.as_str()).is_none() {
         return Err(GitPushError::NoSuchRemote(remote_name.to_owned()));
+    }
+    if refspecs.is_empty() {
+        return Ok(GitPushStats::default());
     }
 
     let refs_to_push: Vec<RefToPush> = refspecs

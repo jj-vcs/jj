@@ -4287,7 +4287,7 @@ fn test_fetch_empty_refspecs() -> TestResult {
 }
 
 #[test]
-fn test_fetch_environment_options() -> TestResult {
+fn test_fetch_ignores_subprocess_environment_options() -> TestResult {
     let temp_dir = testutils::new_temp_dir();
     let test_data = GitRepoData::create();
 
@@ -4302,7 +4302,7 @@ fn test_fetch_environment_options() -> TestResult {
     let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options)?;
     fetch_all_with(&mut fetcher, "origin".as_ref())?;
 
-    assert!(trace_path.exists());
+    assert!(!trace_path.exists());
     Ok(())
 }
 
@@ -6242,6 +6242,39 @@ fn test_push_updates_success() -> TestResult {
 }
 
 #[test]
+fn test_push_updates_empty_ignores_git_executable() -> TestResult {
+    let settings = testutils::user_settings();
+    let temp_dir = testutils::new_temp_dir();
+    let setup = set_up_push_repos(&settings, &temp_dir);
+    let mut subprocess_options = GitSubprocessOptions::from_settings(&settings)?;
+    subprocess_options.executable_path = "jj-test-missing-program".into();
+    git::set_remote_urls(
+        setup.jj_repo.store(),
+        "origin".as_ref(),
+        Some("https://example.invalid/repo.git"),
+        None,
+    )?;
+
+    let stats = git::push_updates(
+        setup.jj_repo.as_ref(),
+        subprocess_options,
+        "origin".as_ref(),
+        &[],
+        &mut NullCallback,
+        &GitPushOptions::default(),
+    )?;
+    insta::assert_debug_snapshot!(stats, @r#"
+    GitPushStats {
+        pushed: [],
+        rejected: [],
+        remote_rejected: [],
+        unexported_bookmarks: [],
+    }
+    "#);
+    Ok(())
+}
+
+#[test]
 fn test_push_updates_no_such_remote() -> TestResult {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
@@ -6286,12 +6319,20 @@ fn test_push_updates_invalid_remote() -> TestResult {
 }
 
 #[test]
-fn test_push_environment_options() -> TestResult {
+fn test_push_ignores_subprocess_environment_options() -> TestResult {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
     let mut tx = setup.jj_repo.start_transaction();
     let mut subprocess_options = GitSubprocessOptions::from_settings(&settings)?;
+    let hook_path = setup.source_repo_dir.join("hooks").join("update");
+    std::fs::write(&hook_path, "#!/bin/sh\nexit 0")?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        std::fs::set_permissions(&hook_path, std::fs::Permissions::from_mode(0o700))?;
+    }
 
     let trace_path = temp_dir.path().join("git-trace.log");
     subprocess_options
@@ -6318,7 +6359,7 @@ fn test_push_environment_options() -> TestResult {
         &GitPushOptions::default(),
     )?;
 
-    assert!(trace_path.exists());
+    assert!(!trace_path.exists());
     Ok(())
 }
 
@@ -6927,12 +6968,6 @@ fn test_push_updates_with_options() -> TestResult {
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
     let git_settings = GitSettings::from_settings(&settings)?;
-
-    std::process::Command::new("git")
-        .arg("--git-dir")
-        .arg(&setup.source_repo_dir)
-        .args(["config", "receive.advertisePushOptions", "true"])
-        .output()?;
 
     // Set up pre-receive hook to echo back received options
     let hooks_dir = setup.source_repo_dir.join("hooks");

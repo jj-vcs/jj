@@ -96,7 +96,7 @@ fn test_git_clone() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/failed"
-    Error: Could not find repository at '$TEST_ENV/bad'
+    Error: Git process failed: Could not verify that "$TEST_ENV/bad" url is a valid git directory before attempting to use it
     [EOF]
     [exit status: 1]
     "#);
@@ -129,7 +129,7 @@ fn test_git_clone() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/failed"
-    Error: Could not find repository at '$TEST_ENV/bad'
+    Error: Git process failed: Could not verify that "$TEST_ENV/bad" url is a valid git directory before attempting to use it
     [EOF]
     [exit status: 1]
     "#);
@@ -354,7 +354,7 @@ fn test_git_clone_colocate() -> TestResult {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/failed"
-    Error: Could not find repository at '$TEST_ENV/bad'
+    Error: Git process failed: Could not verify that "$TEST_ENV/bad" url is a valid git directory before attempting to use it
     [EOF]
     [exit status: 1]
     "#);
@@ -366,7 +366,7 @@ fn test_git_clone_colocate() -> TestResult {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/failed"
-    Error: Could not find repository at '$TEST_ENV/bad'
+    Error: Git process failed: Could not verify that "$TEST_ENV/bad" url is a valid git directory before attempting to use it
     [EOF]
     [exit status: 1]
     "#);
@@ -1238,10 +1238,67 @@ fn test_git_clone_no_git_executable() {
     insta::assert_snapshot!(output.strip_stderr_last_line(), @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
-    Error: Could not execute the git process, found in the OS path 'jj-test-missing-program'
+    bookmark: main@origin [new] tracked
+    Setting the revset alias `trunk()` to `main@origin`
+    Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     [EOF]
-    [exit status: 1]
     "#);
+}
+
+#[cfg(unix)]
+#[test]
+fn test_git_clone_git_daemon_no_git_executable() -> TestResult {
+    struct GitDaemon(std::process::Child);
+
+    impl Drop for GitDaemon {
+        fn drop(&mut self) {
+            self.0.kill().ok();
+            self.0.wait().ok();
+        }
+    }
+
+    let test_env = TestEnvironment::default();
+    let root_dir = test_env.work_dir("");
+    test_env.add_config("git.executable-path = 'jj-test-missing-program'");
+    let git_repo_path = test_env.env_root().join("source");
+    let git_repo = git::init(&git_repo_path);
+    set_up_non_empty_git_repo(&git_repo);
+
+    let listener = std::net::TcpListener::bind(("127.0.0.1", 0))?;
+    let port = listener.local_addr()?.port();
+    drop(listener);
+    let _daemon = GitDaemon(
+        std::process::Command::new("git")
+            .args([
+                "daemon",
+                "--reuseaddr",
+                "--export-all",
+                "--listen=127.0.0.1",
+                &format!("--port={port}"),
+                &format!("--base-path={}", test_env.env_root().display()),
+            ])
+            .arg(test_env.env_root())
+            .spawn()?,
+    );
+
+    let output = root_dir.run_jj([
+        "git",
+        "clone",
+        &format!("git://127.0.0.1:{port}/source/.git"),
+        "clone",
+    ]);
+    insta::assert_snapshot!(output.strip_stderr_last_line(), @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/clone"
+    bookmark: main@origin [new] tracked
+    Setting the revset alias `trunk()` to `main@origin`
+    Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
+    [EOF]
+    "#);
+    assert!(test_env.work_dir("clone").root().join("file").exists());
+    Ok(())
 }
 
 #[test]
@@ -1261,9 +1318,11 @@ fn test_git_clone_no_git_executable_with_path() {
     insta::assert_snapshot!(output.strip_stderr_last_line(), @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
-    Error: Could not execute git process at specified path '$TEST_ENV/invalid/path'
+    bookmark: main@origin [new] tracked
+    Setting the revset alias `trunk()` to `main@origin`
+    Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     [EOF]
-    [exit status: 1]
     "#);
 }
 
