@@ -49,6 +49,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj gerrit upload` now supports the `-o` (`--option`) flag, which works like
   `git push -o` (`--push-option`).
 
+* `jj file search` now supports `-n`/`--line-number` to prefix each match with
+  its 1-based line number within the file.
+
 ### Fixed bugs
 
 * `jj` now creates a new working-copy revision during snapshotting if the

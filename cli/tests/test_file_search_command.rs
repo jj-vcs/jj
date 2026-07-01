@@ -123,6 +123,36 @@ fn test_file_search() {
     multi
     [EOF]
     ");
+
+    // -n prefixes each match with its 1-based line number
+    let output = work_dir.run_jj(["file", "search", "-n", "--pattern=hit", "multi"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    multi:1:hit-one
+    multi:3:hit-two
+    multi:4:hit-three
+    [EOF]
+    ");
+    // --line-number long form works too
+    let output = work_dir.run_jj(["file", "search", "--line-number", "--pattern=hit", "multi"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    multi:1:hit-one
+    multi:3:hit-two
+    multi:4:hit-three
+    [EOF]
+    ");
+
+    // -l and -n conflict (clap enforces this)
+    let output = work_dir.run_jj(["file", "search", "-l", "-n", "--pattern=hit", "multi"]);
+    insta::assert_snapshot!(output.normalize_stderr_exit_status(), @r"
+    ------- stderr -------
+    error: the argument '--files-with-matches' cannot be used with '--line-number'
+
+    Usage: jj file search --pattern <PATTERN> --files-with-matches <FILESETS>...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
 }
 
 #[test]
@@ -181,6 +211,15 @@ fn test_file_search_conflicts() {
     let output = work_dir.run_jj(["file", "search", "-l", "--pattern=regex:-(foo|baz)-"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
     file1
+    [EOF]
+    ");
+
+    // -n numbers lines within each conflict side independently, so matches on
+    // different sides can share a line number.
+    let output = work_dir.run_jj(["file", "search", "-n", "--pattern=regex:-(foo|baz)-"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    file1:1:-foo-
+    file1:1:-baz-
     [EOF]
     ");
 

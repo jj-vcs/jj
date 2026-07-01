@@ -61,8 +61,12 @@ pub(crate) struct FileSearchArgs {
 
     /// Print only the paths of files that contain a match, not the matched
     /// lines themselves
-    #[arg(long, short = 'l')]
+    #[arg(long, short = 'l', conflicts_with = "line_number")]
     files_with_matches: bool,
+
+    /// Prefix each matched line with its 1-based line number within the file
+    #[arg(long, short = 'n')]
+    line_number: bool,
 
     /// Only search files matching these prefixes (instead of all files)
     #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
@@ -119,6 +123,7 @@ pub(crate) async fn cmd_file_search(
                     &content,
                     &pattern_matcher,
                     args.files_with_matches,
+                    args.line_number,
                 )?;
             }
             MaterializedTreeValue::Symlink { .. } => {}
@@ -133,6 +138,8 @@ pub(crate) async fn cmd_file_search(
                         writeln!(formatter, "{ui_path}")?;
                     }
                 } else {
+                    // -n numbers lines within each side independently; there
+                    // is no meaningful unified line numbering across sides.
                     for content in adds {
                         write_matches(
                             formatter.as_mut(),
@@ -140,6 +147,7 @@ pub(crate) async fn cmd_file_search(
                             content,
                             &pattern_matcher,
                             false,
+                            args.line_number,
                         )?;
                     }
                 }
@@ -159,19 +167,29 @@ fn write_matches(
     content: &[u8],
     matcher: &StringMatcher,
     files_with_matches: bool,
+    line_number: bool,
 ) -> io::Result<()> {
-    let mut matches = matcher.match_lines(content);
+    let mut matches = content
+        .split_inclusive(|b| *b == b'\n')
+        .enumerate()
+        .filter_map(|(i, line)| {
+            let stripped = line.strip_suffix(b"\n").unwrap_or(line);
+            matcher.is_match_bytes(stripped).then_some((i + 1, stripped))
+        });
     if files_with_matches {
         if matches.next().is_some() {
             writeln!(formatter, "{ui_path}")?;
         }
-    } else {
-        for line in matches {
-            let line = line.strip_suffix(b"\n").unwrap_or(line);
+        return Ok(());
+    }
+    for (line_no, stripped) in matches {
+        if line_number {
+            write!(formatter, "{ui_path}:{line_no}:")?;
+        } else {
             write!(formatter, "{ui_path}:")?;
-            formatter.write_all(line)?;
-            writeln!(formatter)?;
         }
+        formatter.write_all(stripped)?;
+        writeln!(formatter)?;
     }
     Ok(())
 }
