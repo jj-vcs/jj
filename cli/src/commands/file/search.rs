@@ -61,8 +61,12 @@ pub(crate) struct FileSearchArgs {
 
     /// Print only the paths of files that contain a match, not the matched
     /// lines
-    #[arg(long)]
+    #[arg(long, conflicts_with = "line_number")]
     name_only: bool,
+
+    /// Prefix each matched line with its 1-based line number within the file
+    #[arg(long, short = 'n')]
+    line_number: bool,
 
     /// Only search files matching these prefixes (instead of all files)
     #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
@@ -118,7 +122,13 @@ pub(crate) async fn cmd_file_search(
                         writeln!(formatter, "{ui_path}")?;
                     }
                 } else {
-                    write_matches(formatter.as_mut(), &ui_path, &content, &pattern_matcher)?;
+                    write_matches(
+                        formatter.as_mut(),
+                        &ui_path,
+                        &content,
+                        &pattern_matcher,
+                        args.line_number,
+                    )?;
                 }
             }
             MaterializedTreeValue::Symlink { .. } => {}
@@ -133,8 +143,16 @@ pub(crate) async fn cmd_file_search(
                         writeln!(formatter, "{ui_path}")?;
                     }
                 } else {
+                    // -n numbers lines within each side independently; there
+                    // is no meaningful unified line numbering across sides.
                     for content in adds {
-                        write_matches(formatter.as_mut(), &ui_path, content, &pattern_matcher)?;
+                        write_matches(
+                            formatter.as_mut(),
+                            &ui_path,
+                            content,
+                            &pattern_matcher,
+                            args.line_number,
+                        )?;
                     }
                 }
             }
@@ -152,9 +170,21 @@ fn write_matches(
     ui_path: &str,
     content: &[u8],
     matcher: &StringMatcher,
+    line_number: bool,
 ) -> io::Result<()> {
-    for line in matcher.match_lines(content) {
-        write!(formatter, "{ui_path}:")?;
+    let matches = content
+        .split_inclusive(|b| *b == b'\n')
+        .enumerate()
+        .filter_map(|(i, line)| {
+            let stripped = line.strip_suffix(b"\n").unwrap_or(line);
+            matcher.is_match_bytes(stripped).then_some((i + 1, line))
+        });
+    for (line_no, line) in matches {
+        if line_number {
+            write!(formatter, "{ui_path}:{line_no}:")?;
+        } else {
+            write!(formatter, "{ui_path}:")?;
+        }
         formatter.write_all(line)?;
         if !line.ends_with(b"\n") {
             writeln!(formatter)?;
