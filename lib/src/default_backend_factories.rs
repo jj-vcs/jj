@@ -97,14 +97,14 @@ pub fn default_working_copy_factories() -> WorkingCopyFactories {
     let mut factories = WorkingCopyFactories::new();
     factories.insert(
         LocalWorkingCopy::NAME.to_owned(),
-        Box::new(LocalWorkingCopyFactory {}),
+        Box::new(LocalWorkingCopyFactory::default()),
     );
     factories
 }
 
 /// Returns the default (local-disk) working copy factory.
 pub fn default_working_copy_factory() -> Box<dyn WorkingCopyFactory> {
-    Box::new(LocalWorkingCopyFactory {})
+    Box::new(LocalWorkingCopyFactory::default())
 }
 
 /// Returns the default workspace loader factory.
