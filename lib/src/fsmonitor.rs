@@ -22,9 +22,12 @@
 
 #![warn(missing_docs)]
 
+use std::error::Error;
+use std::fmt;
 use std::path::Path;
 use std::path::PathBuf;
 
+use async_trait::async_trait;
 use prost::Message as _;
 
 use crate::config::ConfigGetError;
@@ -70,6 +73,87 @@ impl From<FsmonitorClock> for crate::protos::local_working_copy::FsmonitorClock 
 impl From<crate::protos::local_working_copy::WatchmanClock> for FsmonitorClock {
     fn from(clock: crate::protos::local_working_copy::WatchmanClock) -> Self {
         Self::new("watchman", clock.encode_to_vec())
+    }
+}
+
+/// The result of querying a [`Fsmonitor`].
+#[derive(Debug)]
+pub enum FsmonitorQueryResult {
+    /// No monitor state is available, so jj must scan the full working copy.
+    Unmonitored,
+    /// The monitor requires a full scan and supplies the clock it represents.
+    FullScan {
+        /// Clock to persist after the full scan succeeds.
+        clock: FsmonitorClock,
+    },
+    /// The monitor supplies a complete incremental set of changed paths.
+    Incremental {
+        /// Clock to persist after the incremental scan succeeds.
+        clock: FsmonitorClock,
+        /// Paths which may have changed since the previous clock.
+        changed_files: Vec<PathBuf>,
+    },
+}
+
+/// Error returned by a filesystem monitor.
+pub type FsmonitorError = Box<dyn Error + Send + Sync>;
+
+/// Marks a filesystem-monitor error which cannot safely be handled by falling
+/// back to a full working-copy scan.
+#[derive(Debug)]
+pub struct FatalFsmonitorError {
+    source: FsmonitorError,
+}
+
+impl FatalFsmonitorError {
+    /// Wraps an unrecoverable filesystem-monitor error.
+    pub fn new(source: impl Error + Send + Sync + 'static) -> Self {
+        Self {
+            source: Box::new(source),
+        }
+    }
+}
+
+impl fmt::Display for FatalFsmonitorError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.source.fmt(formatter)
+    }
+}
+
+impl Error for FatalFsmonitorError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        Some(self.source.as_ref())
+    }
+}
+
+/// Supplies paths that may have changed since the previous working-copy scan.
+#[async_trait]
+pub trait Fsmonitor: std::fmt::Debug + Send + Sync {
+    /// Queries paths changed since `previous_clock`.
+    ///
+    /// Paths in an incremental result are relative to `working_copy_path`.
+    /// Ordinary errors cause a safe full-scan fallback. Return a
+    /// [`FatalFsmonitorError`] for configuration and other unrecoverable errors
+    /// which should be reported to the caller.
+    async fn query_changed_files(
+        &self,
+        working_copy_path: &Path,
+        previous_clock: Option<&FsmonitorClock>,
+    ) -> Result<FsmonitorQueryResult, FsmonitorError>;
+}
+
+/// Filesystem monitor which always requests a full working-copy scan.
+#[derive(Debug, Default)]
+pub struct NoFsmonitor;
+
+#[async_trait]
+impl Fsmonitor for NoFsmonitor {
+    async fn query_changed_files(
+        &self,
+        _working_copy_path: &Path,
+        _previous_clock: Option<&FsmonitorClock>,
+    ) -> Result<FsmonitorQueryResult, FsmonitorError> {
+        Ok(FsmonitorQueryResult::Unmonitored)
     }
 }
 
@@ -179,6 +263,38 @@ impl WatchmanFsmonitor {
                 .build()
                 .map_err(watchman::Error::RuntimeCreationError)?
                 .block_on(query())?),
+        }
+    }
+}
+
+#[async_trait]
+impl Fsmonitor for WatchmanFsmonitor {
+    async fn query_changed_files(
+        &self,
+        working_copy_path: &Path,
+        previous_clock: Option<&FsmonitorClock>,
+    ) -> Result<FsmonitorQueryResult, FsmonitorError> {
+        #[cfg(feature = "watchman")]
+        {
+            let (clock, changed_files) = self.query(working_copy_path, previous_clock).await?;
+            let clock: crate::protos::local_working_copy::WatchmanClock = clock.into();
+            let clock = FsmonitorClock::new("watchman", clock.encode_to_vec());
+            Ok(match changed_files {
+                Some(changed_files) => FsmonitorQueryResult::Incremental {
+                    clock,
+                    changed_files,
+                },
+                None => FsmonitorQueryResult::FullScan { clock },
+            })
+        }
+        #[cfg(not(feature = "watchman"))]
+        {
+            let _ = (working_copy_path, previous_clock);
+            let error = std::io::Error::other(
+                "Cannot query Watchman because jj was compiled without the watchman feature \
+                 (consider disabling `fsmonitor.backend`)",
+            );
+            Err(Box::new(FatalFsmonitorError::new(error)))
         }
     }
 }
