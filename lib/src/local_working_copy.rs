@@ -18,7 +18,6 @@ use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::error::Error;
 use std::ffi::OsString;
 use std::fs;
 use std::fs::DirEntry;
@@ -89,10 +88,6 @@ use crate::file_util::copy_async_to_sync;
 use crate::file_util::persist_temp_file;
 use crate::file_util::symlink_file;
 use crate::fsmonitor::FsmonitorSettings;
-#[cfg(feature = "watchman")]
-use crate::fsmonitor::WatchmanConfig;
-#[cfg(feature = "watchman")]
-use crate::fsmonitor::watchman;
 use crate::gitignore::GitIgnoreFile;
 use crate::lock::FileLock;
 use crate::matchers::DifferenceMatcher;
@@ -1026,8 +1021,6 @@ pub enum TreeStateError {
     WriteTreeState { path: PathBuf, source: io::Error },
     #[error("Persisting tree state to file {path}")]
     PersistTreeState { path: PathBuf, source: io::Error },
-    #[error("Filesystem monitor error")]
-    Fsmonitor(#[source] Box<dyn Error + Send + Sync>),
 }
 
 impl TreeState {
@@ -1238,69 +1231,6 @@ impl TreeState {
     fn reset_fsmonitor_clock(&mut self) {
         self.fsmonitor_clock.take();
     }
-
-    #[cfg(feature = "watchman")]
-    #[instrument(skip(self))]
-    pub async fn query_watchman(
-        &self,
-        config: &WatchmanConfig,
-    ) -> Result<(watchman::Clock, Option<Vec<PathBuf>>), TreeStateError> {
-        let previous_clock = self
-            .fsmonitor_clock
-            .as_ref()
-            .and_then(|clock| clock.value_for("watchman"))
-            .and_then(|value| crate::protos::local_working_copy::WatchmanClock::decode(value).ok())
-            .and_then(|clock| watchman::Clock::try_from(clock).ok());
-
-        let tokio_fn = async || {
-            let fsmonitor = watchman::Fsmonitor::init(&self.working_copy_path, config)
-                .await
-                .map_err(|err| TreeStateError::Fsmonitor(Box::new(err)))?;
-            fsmonitor
-                .query_changed_files(previous_clock)
-                .await
-                .map_err(|err| TreeStateError::Fsmonitor(Box::new(err)))
-        };
-
-        match tokio::runtime::Handle::try_current() {
-            Ok(_handle) => tokio_fn().await,
-            Err(_) => {
-                let runtime = tokio::runtime::Builder::new_current_thread()
-                    .enable_all()
-                    .build()
-                    .map_err(|err| TreeStateError::Fsmonitor(Box::new(err)))?;
-                runtime.block_on(tokio_fn())
-            }
-        }
-    }
-
-    #[cfg(feature = "watchman")]
-    #[instrument(skip(self))]
-    pub async fn is_watchman_trigger_registered(
-        &self,
-        config: &WatchmanConfig,
-    ) -> Result<bool, TreeStateError> {
-        let tokio_fn = async || {
-            let fsmonitor = watchman::Fsmonitor::init(&self.working_copy_path, config)
-                .await
-                .map_err(|err| TreeStateError::Fsmonitor(Box::new(err)))?;
-            fsmonitor
-                .is_trigger_registered()
-                .await
-                .map_err(|err| TreeStateError::Fsmonitor(Box::new(err)))
-        };
-
-        match tokio::runtime::Handle::try_current() {
-            Ok(_handle) => tokio_fn().await,
-            Err(_) => {
-                let runtime = tokio::runtime::Builder::new_current_thread()
-                    .enable_all()
-                    .build()
-                    .map_err(|err| TreeStateError::Fsmonitor(Box::new(err)))?;
-                runtime.block_on(tokio_fn())
-            }
-        }
-    }
 }
 
 /// Functions to snapshot local-disk files to the store.
@@ -1459,17 +1389,22 @@ impl TreeState {
             FsmonitorSettings::None => (None, None),
             FsmonitorSettings::Test { changed_files } => (None, Some(changed_files.clone())),
             #[cfg(feature = "watchman")]
-            FsmonitorSettings::Watchman(config) => match self.query_watchman(config).await {
-                Ok((fsmonitor_clock, changed_files)) => {
-                    let clock: crate::protos::local_working_copy::WatchmanClock =
-                        fsmonitor_clock.into();
-                    (Some(clock.into()), changed_files)
+            FsmonitorSettings::Watchman(config) => {
+                match crate::fsmonitor::WatchmanFsmonitor::new(config.clone())
+                    .query(&self.working_copy_path, self.fsmonitor_clock.as_ref())
+                    .await
+                {
+                    Ok((fsmonitor_clock, changed_files)) => {
+                        let clock: crate::protos::local_working_copy::WatchmanClock =
+                            fsmonitor_clock.into();
+                        (Some(clock.into()), changed_files)
+                    }
+                    Err(err) => {
+                        tracing::warn!(?err, "Failed to query filesystem monitor");
+                        (None, None)
+                    }
                 }
-                Err(err) => {
-                    tracing::warn!(?err, "Failed to query filesystem monitor");
-                    (None, None)
-                }
-            },
+            }
             #[cfg(not(feature = "watchman"))]
             FsmonitorSettings::Watchman(_) => {
                 return Err(SnapshotError::Other {
@@ -2878,6 +2813,11 @@ impl LocalWorkingCopy {
         &self.state_path
     }
 
+    /// Returns the root path of the working copy.
+    pub fn working_copy_path(&self) -> &Path {
+        &self.working_copy_path
+    }
+
     #[instrument(skip_all)]
     fn tree_state(&self) -> Result<&TreeState, WorkingCopyStateError> {
         self.tree_state.get_or_try_init(|| {
@@ -2903,32 +2843,12 @@ impl LocalWorkingCopy {
         Ok(self.tree_state()?.file_states())
     }
 
-    #[cfg(feature = "watchman")]
-    pub async fn query_watchman(
+    /// Returns the clock saved after the last successful filesystem-monitor
+    /// snapshot.
+    pub fn fsmonitor_clock(
         &self,
-        config: &WatchmanConfig,
-    ) -> Result<(watchman::Clock, Option<Vec<PathBuf>>), WorkingCopyStateError> {
-        self.tree_state()?
-            .query_watchman(config)
-            .await
-            .map_err(|err| WorkingCopyStateError {
-                message: "Failed to query watchman".to_string(),
-                err: err.into(),
-            })
-    }
-
-    #[cfg(feature = "watchman")]
-    pub async fn is_watchman_trigger_registered(
-        &self,
-        config: &WatchmanConfig,
-    ) -> Result<bool, WorkingCopyStateError> {
-        self.tree_state()?
-            .is_watchman_trigger_registered(config)
-            .await
-            .map_err(|err| WorkingCopyStateError {
-                message: "Failed to query watchman".to_string(),
-                err: err.into(),
-            })
+    ) -> Result<Option<&crate::fsmonitor::FsmonitorClock>, WorkingCopyStateError> {
+        Ok(self.tree_state()?.fsmonitor_clock.as_ref())
     }
 }
 
