@@ -26,6 +26,7 @@ use std::error::Error;
 use std::fmt;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use prost::Message as _;
@@ -170,13 +171,6 @@ pub enum FsmonitorSettings {
     /// The Watchman filesystem monitor (<https://facebook.github.io/watchman/>).
     Watchman(WatchmanConfig),
 
-    /// Only used in tests.
-    Test {
-        /// The set of changed files to pretend that the filesystem monitor is
-        /// reporting.
-        changed_files: Vec<PathBuf>,
-    },
-
     /// No filesystem monitor. This is the default if nothing is configured, but
     /// also makes it possible to turn off the monitor on a case-by-case basis
     /// when the user gives an option like `--config=fsmonitor.backend=none`;
@@ -204,6 +198,14 @@ impl FsmonitorSettings {
                 error: format!("Unknown fsmonitor kind: {other}").into(),
                 source_path: None,
             }),
+        }
+    }
+
+    /// Creates the filesystem-monitor implementation selected by these settings.
+    pub fn to_fsmonitor(&self) -> Arc<dyn Fsmonitor> {
+        match self {
+            Self::None => Arc::new(NoFsmonitor),
+            Self::Watchman(config) => Arc::new(WatchmanFsmonitor::new(config.clone())),
         }
     }
 }
