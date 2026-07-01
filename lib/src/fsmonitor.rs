@@ -141,6 +141,21 @@ pub trait Fsmonitor: std::fmt::Debug + Send + Sync {
         working_copy_path: &Path,
         previous_clock: Option<&FsmonitorClock>,
     ) -> Result<FsmonitorQueryResult, FsmonitorError>;
+
+    /// Acknowledges that `clock` has been persisted by the working copy.
+    fn acknowledge_clock(&self, _clock: &FsmonitorClock) -> Result<(), FsmonitorError> {
+        Ok(())
+    }
+
+    /// Whether a clock returned with an empty incremental path set should be
+    /// persisted so that it can be acknowledged.
+    ///
+    /// Implementations backed by a journal should return true to allow old
+    /// journal entries to be collected. The default avoids working-copy state
+    /// writes for monitors, such as Watchman, which do not need acknowledgment.
+    fn persist_clock_upon_empty_result(&self) -> bool {
+        false
+    }
 }
 
 /// Creates the filesystem monitor used by a working copy.

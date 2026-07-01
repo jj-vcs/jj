@@ -22,6 +22,7 @@ use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering as AtomicOrdering;
 use std::time::Duration;
@@ -2850,6 +2851,63 @@ fn test_fsmonitor() -> TestResult {
         file "path/to/nested" (6209060941cd770c8d46): "nested\n"
     "#);
     tree_state.save()?;
+    Ok(())
+}
+
+#[derive(Debug)]
+struct JournalFsmonitor {
+    acknowledgments: Arc<Mutex<Vec<Vec<u8>>>>,
+}
+
+#[async_trait::async_trait]
+impl Fsmonitor for JournalFsmonitor {
+    async fn query_changed_files(
+        &self,
+        _working_copy_path: &Path,
+        _previous_clock: Option<&FsmonitorClock>,
+    ) -> Result<FsmonitorQueryResult, FsmonitorError> {
+        Ok(FsmonitorQueryResult::Incremental {
+            clock: FsmonitorClock::new("journal-test", b"clock-2".to_vec()),
+            changed_files: vec![],
+        })
+    }
+
+    fn acknowledge_clock(&self, clock: &FsmonitorClock) -> Result<(), FsmonitorError> {
+        self.acknowledgments
+            .lock()
+            .unwrap()
+            .push(clock.value_for("journal-test").unwrap().to_vec());
+        Err(io::Error::other("journal cleanup failed").into())
+    }
+
+    fn persist_clock_upon_empty_result(&self) -> bool {
+        true
+    }
+}
+
+#[test]
+fn fsmonitor_persists_empty_query_clock_if_acknowledgment_fails() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let workspace_root = test_repo.env.root().join("workspace");
+    let state_path = test_repo.env.root().join("state");
+    std::fs::create_dir(&workspace_root)?;
+    std::fs::create_dir(&state_path)?;
+    let acknowledgments = Arc::new(Mutex::new(vec![]));
+    let settings = TreeStateSettings {
+        fsmonitor: Arc::new(JournalFsmonitor {
+            acknowledgments: acknowledgments.clone(),
+        }),
+        ..TreeStateSettings::try_from_user_settings(repo.settings())?
+    };
+    let mut tree_state =
+        TreeState::init(repo.store().clone(), workspace_root, state_path, &settings)?;
+
+    let (is_dirty, _) = tree_state.snapshot(&empty_snapshot_options()).block_on()?;
+    assert!(is_dirty);
+    tree_state.save()?;
+
+    assert_eq!(*acknowledgments.lock().unwrap(), [b"clock-2".to_vec()]);
     Ok(())
 }
 
