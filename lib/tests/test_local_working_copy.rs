@@ -2855,6 +2855,49 @@ fn test_fsmonitor() -> TestResult {
 }
 
 #[derive(Debug)]
+struct InvalidPathFsmonitor;
+
+#[async_trait::async_trait]
+impl Fsmonitor for InvalidPathFsmonitor {
+    async fn query_changed_files(
+        &self,
+        _working_copy_path: &Path,
+        _previous_clock: Option<&FsmonitorClock>,
+    ) -> Result<FsmonitorQueryResult, FsmonitorError> {
+        Ok(FsmonitorQueryResult::Incremental {
+            clock: FsmonitorClock::new("invalid-path-test", b"clock".to_vec()),
+            changed_files: vec![PathBuf::from("../foo")],
+        })
+    }
+}
+
+#[test]
+fn fsmonitor_invalid_path_falls_back_to_full_scan() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let workspace_root = test_repo.env.root().join("workspace");
+    let state_path = test_repo.env.root().join("state");
+    std::fs::create_dir(&workspace_root)?;
+    std::fs::create_dir(&state_path)?;
+    testutils::write_working_copy_file(&workspace_root, repo_path("foo"), "foo\n");
+    let settings = TreeStateSettings {
+        fsmonitor: Arc::new(InvalidPathFsmonitor),
+        ..TreeStateSettings::try_from_user_settings(repo.settings())?
+    };
+    let mut tree_state =
+        TreeState::init(repo.store().clone(), workspace_root, state_path, &settings)?;
+
+    tree_state.snapshot(&empty_snapshot_options()).block_on()?;
+
+    insta::assert_snapshot!(testutils::dump_tree(tree_state.current_tree()), @r#"
+    merged tree (sides: 1)
+      tree 2a5341b103917cfdb48a
+        file "foo" (e99c2057c15160add351): "foo\n"
+    "#);
+    Ok(())
+}
+
+#[derive(Debug)]
 struct JournalFsmonitor {
     acknowledgments: Arc<Mutex<Vec<Vec<u8>>>>,
 }
