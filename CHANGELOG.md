@@ -29,6 +29,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   return `Option<FsPath>` and `FsPath` respectively, instead of `String`. The
   `path` keyword in `jj config list` templates now returns `Option<FsPath>`.
 
+* `jj file search` now prints every matched line prefixed by the file path,
+  instead of only the file paths of files containing a match. Use
+  `--name-only` for the previous behavior.
+  [#9399](https://github.com/jj-vcs/jj/issues/9399)
+
 ### Deprecations
 
 ### New features
