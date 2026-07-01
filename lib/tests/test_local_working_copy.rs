@@ -2762,7 +2762,12 @@ fn test_fsmonitor() -> TestResult {
     // Saving explicitly verifies that the in-memory clock was retained.
     tree_state.save()?;
     let proto = working_copy_proto::TreeState::decode(std::fs::read(&tree_state_path)?.as_slice())?;
-    assert_eq!(proto.watchman_clock, Some(old_watchman_clock));
+    let migrated_clock = proto.fsmonitor_clock.expect("clock should be migrated");
+    assert_eq!(migrated_clock.monitor_name, "watchman");
+    assert_eq!(
+        working_copy_proto::WatchmanClock::decode(migrated_clock.value.as_slice())?,
+        old_watchman_clock
+    );
 
     let (_, tree_state) = snapshot(&[foo_path]);
     insta::assert_snapshot!(testutils::dump_tree(tree_state.current_tree()), @r#"

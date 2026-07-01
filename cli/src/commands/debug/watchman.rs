@@ -123,7 +123,7 @@ pub async fn cmd_debug_watchman(
                     "This command requires a standard local-disk working copy",
                 ));
             };
-            locked_local_wc.reset_watchman()?;
+            locked_local_wc.reset_fsmonitor_clock()?;
             locked_ws.finish(repo.op_id().clone()).await?;
             writeln!(ui.status(), "Reset Watchman clock.")?;
         }

@@ -24,8 +24,53 @@
 
 use std::path::PathBuf;
 
+use prost::Message as _;
+
 use crate::config::ConfigGetError;
 use crate::settings::UserSettings;
+
+/// An opaque clock identifying the state observed by a filesystem monitor.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FsmonitorClock {
+    monitor_name: String,
+    value: Vec<u8>,
+}
+
+impl FsmonitorClock {
+    /// Creates a clock value owned by the named monitor implementation.
+    pub fn new(monitor_name: impl Into<String>, value: Vec<u8>) -> Self {
+        Self {
+            monitor_name: monitor_name.into(),
+            value,
+        }
+    }
+
+    /// Returns the clock payload if it belongs to `monitor_name`.
+    pub fn value_for(&self, monitor_name: &str) -> Option<&[u8]> {
+        (self.monitor_name == monitor_name).then_some(&self.value)
+    }
+}
+
+impl From<crate::protos::local_working_copy::FsmonitorClock> for FsmonitorClock {
+    fn from(clock: crate::protos::local_working_copy::FsmonitorClock) -> Self {
+        Self::new(clock.monitor_name, clock.value)
+    }
+}
+
+impl From<FsmonitorClock> for crate::protos::local_working_copy::FsmonitorClock {
+    fn from(clock: FsmonitorClock) -> Self {
+        Self {
+            monitor_name: clock.monitor_name,
+            value: clock.value,
+        }
+    }
+}
+
+impl From<crate::protos::local_working_copy::WatchmanClock> for FsmonitorClock {
+    fn from(clock: crate::protos::local_working_copy::WatchmanClock) -> Self {
+        Self::new("watchman", clock.encode_to_vec())
+    }
+}
 
 /// Config for Watchman filesystem monitor (<https://facebook.github.io/watchman/>).
 #[derive(Eq, PartialEq, Clone, Debug)]
@@ -109,10 +154,19 @@ pub mod watchman {
     #[derive(Clone, Debug)]
     pub struct Clock(InnerClock);
 
-    impl From<crate::protos::local_working_copy::WatchmanClock> for Clock {
-        fn from(clock: crate::protos::local_working_copy::WatchmanClock) -> Self {
+    /// Error returned when a Watchman clock protobuf has no clock value.
+    #[derive(Debug, Error)]
+    #[error("Watchman clock protobuf has no clock value")]
+    pub struct MissingWatchmanClockValue;
+
+    impl TryFrom<crate::protos::local_working_copy::WatchmanClock> for Clock {
+        type Error = MissingWatchmanClockValue;
+
+        fn try_from(
+            clock: crate::protos::local_working_copy::WatchmanClock,
+        ) -> Result<Self, Self::Error> {
             use crate::protos::local_working_copy::watchman_clock::WatchmanClock;
-            let watchman_clock = clock.watchman_clock.unwrap();
+            let watchman_clock = clock.watchman_clock.ok_or(MissingWatchmanClockValue)?;
             let clock = match watchman_clock {
                 WatchmanClock::StringClock(string_clock) => {
                     InnerClock::Spec(ClockSpec::StringClock(string_clock))
@@ -121,7 +175,7 @@ pub mod watchman {
                     InnerClock::Spec(ClockSpec::UnixTimestamp(unix_timestamp))
                 }
             };
-            Self(clock)
+            Ok(Self(clock))
         }
     }
 
