@@ -78,6 +78,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `incorrect data check`, `corrupt loose object`, or `missing blob`, and later
   jj operations could fail with `corrupt deflate stream`.
 
+* Fixed Unix file locking on Docker for Mac VirtioFS bind mounts. Previously,
+  colocated Git repositories could allow concurrent Git import/export work,
+  which could leave jj commands failing with `Failed to reset Git HEAD state`
+  and `Shared index checksum mismatch`.
+
 ## [0.42.0] - 2026-06-04
 
 ### Release highlights
