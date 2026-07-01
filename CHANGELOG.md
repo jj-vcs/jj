@@ -12,6 +12,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+### Deprecations
+
+### New features
+
+### Fixed bugs
+
+## [0.43.0] - 2026-07-01
+
+### Release highlights
+
+* `jj run` allows you to run a command over a set of changes, each with their
+  own private working copy; the commands may update the working copy and
+  changes/conflicts are propagated accordingly, e.g., `jj run -- cargo check
+  --all-features` or `jj run -- cargo fix` behaves as one might expect.
+
+### Breaking changes
+
 * The deprecated `git_head()` and `git_refs()` functions have been removed from
   revsets and templates.
 
@@ -51,7 +68,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Add a `forks()` revset function that yields all commits with more than 1 child.
 
-* `colors` config now supports crossed-out text styling with 
+* `colors` config now supports crossed-out text styling with
   `{ crossed-out = true }`.
 
 ### Fixed bugs
@@ -73,10 +90,37 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   remote's fetch URL or effective push URL.
   [#413](https://github.com/jj-vcs/jj/issues/413)
 
-* Fixed corrupt loose Git objects written through zlib-rs. Previously, jj could
-  report a successful commit even though `git fsck` later failed with
-  `incorrect data check`, `corrupt loose object`, or `missing blob`, and later
-  jj operations could fail with `corrupt deflate stream`.
+* Fixed corrupt loose Git objects on Intel Raptor Lake CPU and aarch64.
+  Previously, jj could report a successful commit even though `git fsck` would
+  later fail with `incorrect data check`, `corrupt loose object`, or `missing
+  blob`, and later jj operations could fail with `corrupt deflate stream`.
+
+### Contributors
+
+Thanks to the people who made this release happen!
+
+* adlerd (@adlerd)
+* ase (@adamse)
+* Atakan Yenel (@atakanyenel)
+* Austin Seipp (@thoughtpolice)
+* Benjamin Tan (@bnjmnt4n)
+* David Rieber (@drieber)
+* figsoda (@figsoda)
+* Gaëtan Lehmann (@glehmann)
+* hexbinoct (@hexbinoct)
+* Jakub Stasiak (@jstasiak)
+* Jonas Carpay (@jonascarpay)
+* Joseph Lou (@josephlou5)
+* Josh McKinney (@joshka)
+* Josh Steadmon (@steadmon)
+* Martin von Zweigbergk (@martinvonz)
+* Matt Stark (@matts1)
+* Philip Metzger (@PhilipMetzger)
+* shoce (@shoce)
+* Stephen Jennings (@jennings)
+* Thomas Axelsson (@thomas-2nd)
+* Vincent Ging Ho Yim (@cenviity)
+* Yuya Nishihara (@yuja)
 
 ## [0.42.0] - 2026-06-04
 
@@ -5233,7 +5277,8 @@ No changes, only trying to get the automated build to work.
 
 Last release before this changelog started.
 
-[unreleased]: https://github.com/jj-vcs/jj/compare/v0.42.0...HEAD
+[unreleased]: https://github.com/jj-vcs/jj/compare/v0.43.0...HEAD
+[0.43.0]: https://github.com/jj-vcs/jj/compare/v0.42.0...v0.43.0
 [0.42.0]: https://github.com/jj-vcs/jj/compare/v0.41.0...v0.42.0
 [0.41.0]: https://github.com/jj-vcs/jj/compare/v0.40.0...v0.41.0
 [0.40.0]: https://github.com/jj-vcs/jj/compare/v0.39.0...v0.40.0
