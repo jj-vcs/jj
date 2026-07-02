@@ -122,6 +122,46 @@ fn test_file_search() {
     multi:4:hit-three
     [EOF]
     ");
+    // Files that look binary (null byte in the first 8KB) emit
+    // `Binary file <path> matches` instead of raw bytes, mirroring
+    // `git grep`'s default.
+    work_dir.write_file("binfile", b"hit\0hit\n");
+    let output = work_dir.run_jj(["file", "search", "--pattern=hit", "binfile"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    Binary file binfile matches
+    [EOF]
+    ");
+    // --name-only on a binary match prints just the path.
+    let output = work_dir.run_jj(["file", "search", "--name-only", "--pattern=hit", "binfile"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    binfile
+    [EOF]
+    ");
+    // No output when the pattern doesn't match, even on a binary file.
+    let output = work_dir.run_jj(["file", "search", "--pattern=nope", "binfile"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"");
+    // -a/--text forces text treatment; matches emit raw bytes as if the
+    // file were regular text.
+    let output = work_dir.run_jj(["file", "search", "-a", "--pattern=hit", "binfile"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    binfile:hit\0hit
+    [EOF]
+    ");
+    // -I/--no-binary skips the file entirely.
+    let output = work_dir.run_jj(["file", "search", "-I", "--pattern=hit", "binfile"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"");
+    // -a and -I are mutually exclusive.
+    let output = work_dir.run_jj(["file", "search", "-a", "-I", "--pattern=hit", "binfile"]);
+    insta::assert_snapshot!(output.normalize_stderr_exit_status(), @r"
+    ------- stderr -------
+    error: the argument '--text' cannot be used with '--no-binary'
+
+    Usage: jj file search --pattern <PATTERN> --text <FILESETS>...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
 }
 
 #[test]
@@ -203,5 +243,41 @@ fn test_file_search_conflicts() {
 
     // Doesn't list file if the pattern doesn't match
     let output = work_dir.run_jj(["file", "search", "--pattern=glob:*qux*"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"");
+}
+
+#[test]
+fn test_file_search_conflicts_binary() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Set up a conflict on a binary file: each parent has a different binary
+    // content, both matching `hit`.
+    work_dir.write_file("binfile", b"base\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("binfile", b"hit-A\0\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("binfile", b"hit-B\0\n");
+    work_dir.run_jj(["rebase", "-r=@", "-B=@-"]).success();
+
+    // Default: any binary add-side is treated as binary; a match collapses to
+    // `Binary file <path> matches`.
+    let output = work_dir.run_jj(["file", "search", "--pattern=hit"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    Binary file binfile matches
+    [EOF]
+    ");
+    // --name-only on binary conflict prints just the path.
+    let output = work_dir.run_jj(["file", "search", "--name-only", "--pattern=hit"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    binfile
+    [EOF]
+    ");
+    // -I skips binary conflicts entirely.
+    let output = work_dir.run_jj(["file", "search", "-I", "--pattern=hit"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"");
+    // No output when no side matches.
+    let output = work_dir.run_jj(["file", "search", "--pattern=nope"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"");
 }
