@@ -35,6 +35,8 @@ pub async fn cmd_git_remote_list(
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui).await?;
     let git_repo = git::get_git_repo(workspace_command.repo().store())?;
+    let config_snapshot = git_repo.config_snapshot();
+    let config_plumbing = config_snapshot.plumbing();
     for remote_name in git_repo.remote_names() {
         let remote = match git_repo.try_find_remote(&*remote_name) {
             Some(Ok(remote)) => remote,
@@ -47,12 +49,31 @@ pub async fn cmd_git_remote_list(
             None => continue, // ignore empty [remote "<name>"] section
         };
         let fetch_url = get_url(&remote, gix::remote::Direction::Fetch);
-        let push_url = get_url(&remote, gix::remote::Direction::Push);
-        if fetch_url == push_url {
-            writeln!(ui.stdout(), "{remote_name} {fetch_url}")?;
-        } else {
-            writeln!(ui.stdout(), "{remote_name} {fetch_url} (push: {push_url})")?;
+
+        // gix::Remote::url(Direction::Push) returns one push url, but git
+        // remotes can have multiple pushurl values.
+        let push_urls = config_plumbing
+            .strings_filter_by(
+                "remote",
+                Some(&remote_name),
+                "pushurl",
+                gix::config::section::is_trusted,
+            )
+            .unwrap_or_default();
+
+        write!(ui.stdout(), "{remote_name} {fetch_url}")?;
+
+        match push_urls.as_slice() {
+            [] => {}
+            [push_url] if push_url.as_ref() == fetch_url => {}
+            push_urls => {
+                for push_url in push_urls {
+                    write!(ui.stdout(), " (push: {push_url})")?;
+                }
+            }
         }
+
+        writeln!(ui.stdout())?;
     }
     Ok(())
 }
