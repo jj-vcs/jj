@@ -796,8 +796,11 @@ fn test_describe_default_description() -> TestResult {
     work_dir.write_file("file2", "bar\n");
     std::fs::write(edit_script, ["dump editor"].join("\0"))?;
     let output = work_dir.run_jj(["describe"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 2 new files:
+    A file1
+    A file2
     Working copy  (@) now at: qpvuntsm 7276dfff TESTED=TODO
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -1010,8 +1013,10 @@ fn test_add_trailer() {
         "--config",
         r#"templates.commit_trailers='indent("Content: ", diff.git())'"#,
     ]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A data.txt
     Error: Trailers should be valid utf-8
     [EOF]
     [exit status: 1]

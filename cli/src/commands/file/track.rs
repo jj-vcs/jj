@@ -23,6 +23,7 @@ use tracing::instrument;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::print_large_file_hint;
 use crate::cli_util::print_untracked_files;
+use crate::cli_util::snapshot_stats_from_maybe_result;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
 
@@ -57,7 +58,8 @@ pub(crate) async fn cmd_file_track(
     command: &CommandHelper,
     args: &FileTrackArgs,
 ) -> Result<(), CommandError> {
-    let (mut workspace_command, auto_stats) = command.workspace_helper_with_stats(ui).await?;
+    let (mut workspace_command, auto_maybe_snapshot_result) =
+        command.workspace_helper_with_result(ui).await?;
     let matcher = workspace_command
         .parse_file_patterns(ui, &args.paths)?
         .to_matcher();
@@ -69,7 +71,7 @@ pub(crate) async fn cmd_file_track(
 
     let mut tx = workspace_command.start_transaction().into_inner();
     let (mut locked_ws, _wc_commit) = workspace_command.start_working_copy_mutation().await?;
-    let (_tree, track_stats) = locked_ws.locked_wc().snapshot(&options).await?;
+    let track_snapshot_result = locked_ws.locked_wc().snapshot(&options).await?;
     let num_rebased = tx.repo_mut().rebase_descendants().await?;
     if num_rebased > 0 {
         writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
@@ -78,8 +80,8 @@ pub(crate) async fn cmd_file_track(
     locked_ws.finish(repo.op_id().clone()).await?;
     print_track_snapshot_stats(
         ui,
-        auto_stats,
-        track_stats,
+        snapshot_stats_from_maybe_result(auto_maybe_snapshot_result),
+        track_snapshot_result.stats,
         workspace_command.env().path_converter(),
     )?;
     Ok(())
@@ -87,16 +89,16 @@ pub(crate) async fn cmd_file_track(
 
 pub fn print_track_snapshot_stats(
     ui: &Ui,
-    mut auto_stats: SnapshotStats,
-    track_stats: SnapshotStats,
+    mut auto_snapshot_stats: SnapshotStats,
+    track_snapshot_stats: SnapshotStats,
     path_converter: &RepoPathUiConverter,
 ) -> io::Result<()> {
-    let mut untracked_paths = track_stats.untracked_paths;
+    let mut untracked_paths = track_snapshot_stats.untracked_paths;
     for (path, reason) in &mut untracked_paths {
         if !matches!(reason, UntrackedReason::FileNotAutoTracked) {
             continue;
         }
-        if let Some(old_reason) = auto_stats.untracked_paths.remove(path) {
+        if let Some(old_reason) = auto_snapshot_stats.untracked_paths.remove(path) {
             *reason = old_reason;
         }
     }

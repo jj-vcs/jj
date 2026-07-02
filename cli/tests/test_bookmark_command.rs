@@ -3367,8 +3367,10 @@ fn test_bad_auto_track_bookmarks() {
         "a",
         "--config=remotes.origin.auto-track-bookmarks=''",
     ]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A file
     Config error: Invalid `remotes.origin.auto-track-bookmarks`: Syntax error
     Caused by:  --> 1:1
       |

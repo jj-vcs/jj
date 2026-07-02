@@ -30,10 +30,12 @@ fn test_snapshot_large_file() {
     work_dir.write_file("empty", "");
     work_dir.write_file("large", "a lot of text");
     let output = work_dir.run_jj(["file", "list"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     empty
     [EOF]
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A empty
     Warning: Refused to snapshot some files:
       large: 13.0B (13 bytes); the maximum size allowed is 10.0B (10 bytes)
     Hint: This is to prevent large files from being added by accident. To fix this:
@@ -110,10 +112,15 @@ fn test_snapshot_large_file() {
 
     // max-new-file-size=0 means no limit
     let output = work_dir.run_jj(["file", "list", "--config=snapshot.max-new-file-size=0"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     empty
     large
     large 2
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A large
+    A large 2
     [EOF]
     ");
 }
@@ -271,7 +278,7 @@ fn test_snapshot_invalid_ignore_pattern() {
 
     // Test invalid pattern in .gitignore
     work_dir.write_file(".gitignore", " []\n");
-    insta::assert_snapshot!(work_dir.run_jj(["st"]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["st"]), @r"
     Working copy changes:
     A .gitignore
     Working copy  (@) : qpvuntsm c9cf4826 (no description set)
@@ -591,7 +598,7 @@ fn test_snapshot_jjconflict_trees() -> TestResult {
 
     // We should see a warning regarding '.jjconflict' trees being checked out.
     let output = work_dir.run_jj(["st"]);
-    insta::assert_snapshot!(output.to_string().replace('\\', "/"), @"
+    insta::assert_snapshot!(output.to_string().replace('\\', "/"), @r"
     Working copy changes:
     A .jjconflict-base-0/file
     A .jjconflict-side-0/file

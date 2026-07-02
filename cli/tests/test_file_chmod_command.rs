@@ -163,7 +163,7 @@ fn test_chmod_nonfile() -> TestResult {
 
     symlink_file("target", work_dir.root().join("symlink"))?;
     let output = work_dir.run_jj(["show"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     Commit ID: 82976318a088d30054540d1a11ffb4c79fb5d47e
     Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:08)
@@ -173,6 +173,10 @@ fn test_chmod_nonfile() -> TestResult {
 
     Added symlink symlink:
             1: target
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A symlink
     [EOF]
     ");
 
