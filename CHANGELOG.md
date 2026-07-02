@@ -54,6 +54,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj file search` now supports `-n`/`--line-number` to prefix each match with
   its 1-based line number within the file.
 
+* `jj file search` now detects binary files (any null byte in the first
+  8KB) and emits `Binary file <path> matches` instead of dumping raw
+  bytes to stdout. Mirrors `git grep`'s default. Use `-a`/`--text` to
+  force text treatment, or `-I`/`--no-binary` to skip binary files
+  entirely.
+
 ### Fixed bugs
 
 * Recursive alias definitions are detected more precisely. jj can now expand
