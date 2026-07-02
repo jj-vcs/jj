@@ -196,6 +196,150 @@ fn test_sparse_manage_patterns() {
 }
 
 #[test]
+fn test_sparse_fileset_function() {
+    // Covers the `sparse()` fileset builtin in `jj file list`:
+    //   - default (full) sparse pattern matches everything,
+    //   - after `jj sparse set --clear --add file1` it narrows to file1,
+    //   - it composes with other fileset operators (`|`, `~`),
+    //   - empty patterns match nothing without erroring.
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "contents");
+    work_dir.write_file("file2", "contents");
+    work_dir.write_file("file3", "contents");
+
+    // Default sparse pattern is `.`, so `sparse()` matches every tracked path.
+    let output = work_dir.run_jj(["file", "list", "sparse()"]);
+    insta::assert_snapshot!(output, @"
+    file1
+    file2
+    file3
+    [EOF]
+    ");
+
+    // Narrow the working copy to just file1.
+    let output = work_dir.run_jj(["sparse", "set", "--clear", "--add", "file1"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Added 0 files, modified 0 files, removed 2 files
+    [EOF]
+    ");
+
+    // `sparse()` now resolves to just file1.
+    let output = work_dir.run_jj(["file", "list", "sparse()"]);
+    insta::assert_snapshot!(output, @"
+    file1
+    [EOF]
+    ");
+
+    // Composes with `|`: union of sparse() and an explicit path.
+    let output = work_dir.run_jj(["file", "list", "sparse() | file2"]);
+    insta::assert_snapshot!(output, @"
+    file1
+    file2
+    [EOF]
+    ");
+
+    // Composes with `~`: complement of sparse().
+    let output = work_dir.run_jj(["file", "list", "~sparse()"]);
+    insta::assert_snapshot!(output, @"
+    file2
+    file3
+    [EOF]
+    ");
+
+    // After `--clear` with no `--add`, the working copy has zero patterns.
+    // `sparse()` is then a union of zero prefix-paths => matches nothing,
+    // and prints empty stdout/stderr (no error).
+    let output = work_dir.run_jj(["sparse", "set", "--clear"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Added 0 files, modified 0 files, removed 1 files
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "list", "sparse()"]);
+    insta::assert_snapshot!(output, @"");
+}
+
+#[test]
+fn test_sparse_fileset_function_in_revset() {
+    // Covers the `files(sparse())` revset plumbing: after narrowing the
+    // working copy to file1, `jj log -r 'files(sparse())'` should only
+    // include the commit that touched file1.
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Build a small history: each commit touches a different file.
+    work_dir.write_file("file1", "first\n");
+    work_dir.run_jj(["describe", "-m", "first"]).success();
+    work_dir.run_jj(["new", "-m", "second"]).success();
+    work_dir.write_file("file2", "second\n");
+    work_dir.run_jj(["new", "-m", "third"]).success();
+    work_dir.write_file("file3", "third\n");
+    // Park the working copy on a separate empty commit so the snapshot
+    // for @ doesn't add a fourth file to any of the historical commits.
+    work_dir.run_jj(["new", "-m", "wc"]).success();
+
+    // Narrow the working copy to file1, then `files(sparse())` should
+    // resolve to the single ancestor commit that introduced file1.
+    work_dir
+        .run_jj(["sparse", "set", "--clear", "--add", "file1"])
+        .success();
+    let output = work_dir.run_jj([
+        "log",
+        "-r",
+        "files(sparse())",
+        "--no-graph",
+        "-T",
+        r#"description ++ "\n""#,
+    ]);
+    insta::assert_snapshot!(output, @"
+    first
+
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_sparse_fileset_function_no_working_copy() {
+    // `sparse()` requires a working copy to be in scope. When it's used in
+    // a context where the parser is fed `sparse_patterns: None` (e.g. a
+    // `revset-aliases.\"immutable_heads()\"` definition, which is parsed at
+    // config-load time before any working-copy handle exists), parsing
+    // must surface the dedicated error message.
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    test_env.add_config(r#"revset-aliases."immutable_heads()" = "files(sparse())""#);
+
+    let output = work_dir.run_jj(["log", "-r", "@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Config error: Invalid `revset-aliases.immutable_heads()`
+    Caused by:
+    1:  --> 1:7
+      |
+    1 | files(sparse())
+      |       ^------^
+      |
+      = In fileset expression
+    2:  --> 1:1
+      |
+    1 | sparse()
+      | ^----^
+      |
+      = `sparse()` cannot be used in this context
+    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
 fn test_sparse_editor_avoids_unc() -> TestResult {
     use std::path::PathBuf;
 

@@ -506,7 +506,7 @@ fn union_all_matchers(matchers: &mut [Option<Box<dyn Matcher>>]) -> Box<dyn Matc
 
 type FilesetFunction = fn(
     &mut FilesetDiagnostics,
-    &RepoPathUiConverter,
+    &FilesetParseContext,
     &FunctionCallNode,
 ) -> FilesetParseResult<FilesetExpression>;
 
@@ -514,24 +514,38 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, FilesetFunction>> = LazyLock
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map: HashMap<&str, FilesetFunction> = HashMap::new();
-    map.insert("none", |_diagnostics, _path_converter, function| {
+    map.insert("none", |_diagnostics, _context, function| {
         function.expect_no_arguments()?;
         Ok(FilesetExpression::none())
     });
-    map.insert("all", |_diagnostics, _path_converter, function| {
+    map.insert("all", |_diagnostics, _context, function| {
         function.expect_no_arguments()?;
         Ok(FilesetExpression::all())
+    });
+    map.insert("sparse", |_diagnostics, context, function| {
+        function.expect_no_arguments()?;
+        let patterns = context.sparse_patterns.ok_or_else(|| {
+            FilesetParseError::expression(
+                "`sparse()` cannot be used in this context",
+                function.name_span,
+            )
+        })?;
+        let expressions = patterns
+            .iter()
+            .map(|path| FilesetExpression::prefix_path(path.to_owned()))
+            .collect();
+        Ok(FilesetExpression::union_all(expressions))
     });
     map
 });
 
 fn resolve_function(
     diagnostics: &mut FilesetDiagnostics,
-    path_converter: &RepoPathUiConverter,
+    context: &FilesetParseContext,
     function: &FunctionCallNode,
 ) -> FilesetParseResult<FilesetExpression> {
     if let Some(func) = BUILTIN_FUNCTION_MAP.get(function.name) {
-        func(diagnostics, path_converter, function)
+        func(diagnostics, context, function)
     } else {
         Err(FilesetParseError::new(
             FilesetParseErrorKind::NoSuchFunction {
@@ -545,7 +559,7 @@ fn resolve_function(
 
 fn resolve_expression(
     diagnostics: &mut FilesetDiagnostics,
-    path_converter: &RepoPathUiConverter,
+    context: &FilesetParseContext,
     node: &ExpressionNode,
 ) -> FilesetParseResult<FilesetExpression> {
     fileset_parser::catch_aliases(diagnostics, node, |diagnostics, node| {
@@ -553,30 +567,31 @@ fn resolve_expression(
             |err| FilesetParseError::expression("Invalid file pattern", node.span).with_source(err);
         match &node.kind {
             ExpressionKind::Identifier(name) => {
-                let pattern = FilePattern::cwd_prefix_glob(path_converter, name)
+                let pattern = FilePattern::cwd_prefix_glob(context.path_converter, name)
                     .map_err(wrap_pattern_error)?;
                 Ok(FilesetExpression::pattern(pattern))
             }
             ExpressionKind::String(name) => {
-                let pattern = FilePattern::cwd_prefix_glob(path_converter, name)
+                let pattern = FilePattern::cwd_prefix_glob(context.path_converter, name)
                     .map_err(wrap_pattern_error)?;
                 Ok(FilesetExpression::pattern(pattern))
             }
             ExpressionKind::Pattern(pattern) => {
                 let value = fileset_parser::expect_string_literal("string", &pattern.value)?;
-                let pattern = FilePattern::from_str_kind(path_converter, value, pattern.name)
-                    .map_err(wrap_pattern_error)?;
+                let pattern =
+                    FilePattern::from_str_kind(context.path_converter, value, pattern.name)
+                        .map_err(wrap_pattern_error)?;
                 Ok(FilesetExpression::pattern(pattern))
             }
             ExpressionKind::Unary(op, arg_node) => {
-                let arg = resolve_expression(diagnostics, path_converter, arg_node)?;
+                let arg = resolve_expression(diagnostics, context, arg_node)?;
                 match op {
                     UnaryOp::Negate => Ok(FilesetExpression::all().difference(arg)),
                 }
             }
             ExpressionKind::Binary(op, lhs_node, rhs_node) => {
-                let lhs = resolve_expression(diagnostics, path_converter, lhs_node)?;
-                let rhs = resolve_expression(diagnostics, path_converter, rhs_node)?;
+                let lhs = resolve_expression(diagnostics, context, lhs_node)?;
+                let rhs = resolve_expression(diagnostics, context, rhs_node)?;
                 match op {
                     BinaryOp::Intersection => Ok(lhs.intersection(rhs)),
                     BinaryOp::Difference => Ok(lhs.difference(rhs)),
@@ -585,12 +600,12 @@ fn resolve_expression(
             ExpressionKind::UnionAll(nodes) => {
                 let expressions = nodes
                     .iter()
-                    .map(|node| resolve_expression(diagnostics, path_converter, node))
+                    .map(|node| resolve_expression(diagnostics, context, node))
                     .try_collect()?;
                 Ok(FilesetExpression::union_all(expressions))
             }
             ExpressionKind::FunctionCall(function) => {
-                resolve_function(diagnostics, path_converter, function)
+                resolve_function(diagnostics, context, function)
             }
             ExpressionKind::AliasExpanded(..) => unreachable!(),
         }
@@ -604,6 +619,12 @@ pub struct FilesetParseContext<'a> {
     pub aliases_map: &'a FilesetAliasesMap,
     /// Context to resolve cwd-relative paths.
     pub path_converter: &'a RepoPathUiConverter,
+    /// Sparse-checkout patterns of the current working copy, if any.
+    ///
+    /// Set to `None` when no working copy is available (e.g. when parsing
+    /// fileset expressions from config files). Functions that require a
+    /// working copy (such as `sparse()`) will fail to resolve in that case.
+    pub sparse_patterns: Option<&'a [RepoPathBuf]>,
 }
 
 /// Parses text into `FilesetExpression` without bare string fallback.
@@ -615,7 +636,7 @@ pub fn parse(
     let node = fileset_parser::parse_program(text)?;
     let node = fileset_parser::expand_aliases(node, context.aliases_map)?;
     // TODO: add basic tree substitution pass to eliminate redundant expressions
-    resolve_expression(diagnostics, context.path_converter, &node)
+    resolve_expression(diagnostics, context, &node)
 }
 
 /// Parses text into `FilesetExpression` with bare string fallback.
@@ -630,7 +651,7 @@ pub fn parse_maybe_bare(
     let node = fileset_parser::parse_program_or_bare_string(text)?;
     let node = fileset_parser::expand_aliases(node, context.aliases_map)?;
     // TODO: add basic tree substitution pass to eliminate redundant expressions
-    resolve_expression(diagnostics, context.path_converter, &node)
+    resolve_expression(diagnostics, context, &node)
 }
 
 #[cfg(test)]
@@ -679,6 +700,7 @@ mod tests {
                 cwd: PathBuf::from("/ws/cur"),
                 base: PathBuf::from("/ws"),
             },
+            sparse_patterns: None,
         };
         let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &context);
 
@@ -747,6 +769,7 @@ mod tests {
                 cwd: PathBuf::from("/ws/cur*"),
                 base: PathBuf::from("/ws"),
             },
+            sparse_patterns: None,
         };
         let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &context);
 
@@ -969,6 +992,7 @@ mod tests {
                 cwd: PathBuf::from("/ws/cur"),
                 base: PathBuf::from("/ws"),
             },
+            sparse_patterns: None,
         };
         let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &context);
 
@@ -1097,6 +1121,7 @@ mod tests {
                 cwd: PathBuf::from("/ws/cur*"),
                 base: PathBuf::from("/ws"),
             },
+            sparse_patterns: None,
         };
         let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &context);
 
@@ -1198,6 +1223,7 @@ mod tests {
                 cwd: PathBuf::from("/ws/cur"),
                 base: PathBuf::from("/ws"),
             },
+            sparse_patterns: None,
         };
         let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &context);
 
@@ -1217,6 +1243,69 @@ mod tests {
             ],
         }
         "#);
+
+        // `sparse()` errors when no working copy is bound to the parse
+        // context (e.g. config-time parsing).
+        insta::assert_debug_snapshot!(
+            parse("sparse()").unwrap_err().kind(),
+            @r#"Expression("`sparse()` cannot be used in this context")"#);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_sparse_function() -> TestResult {
+        let settings = insta_settings();
+        let _guard = settings.bind_to_scope();
+        let parse_with = |patterns: &[RepoPathBuf]| {
+            let context = FilesetParseContext {
+                aliases_map: &FilesetAliasesMap::new(),
+                path_converter: &RepoPathUiConverter::Fs {
+                    cwd: PathBuf::from("/ws/cur"),
+                    base: PathBuf::from("/ws"),
+                },
+                sparse_patterns: Some(patterns),
+            };
+            parse_maybe_bare(&mut FilesetDiagnostics::new(), "sparse()", &context)
+        };
+
+        // Empty sparse patterns -> matches nothing (union of zero
+        // expressions).
+        insta::assert_debug_snapshot!(parse_with(&[])?, @"None");
+
+        // Root path (the default sparse pattern jj uses for new repos)
+        // expands to a single prefix on the workspace root, which the
+        // matcher treats as "everything".
+        insta::assert_debug_snapshot!(parse_with(&[repo_path_buf("")])?, @r#"Pattern(PrefixPath(""))"#);
+
+        // Multiple specific paths -> union of prefix patterns.
+        insta::assert_debug_snapshot!(
+            parse_with(&[repo_path_buf("foo.txt"), repo_path_buf("dir/sub")])?,
+            @r#"
+        UnionAll(
+            [
+                Pattern(PrefixPath("foo.txt")),
+                Pattern(PrefixPath("dir/sub")),
+            ],
+        )
+        "#);
+
+        // Argument list must be empty.
+        let context = FilesetParseContext {
+            aliases_map: &FilesetAliasesMap::new(),
+            path_converter: &RepoPathUiConverter::Fs {
+                cwd: PathBuf::from("/ws/cur"),
+                base: PathBuf::from("/ws"),
+            },
+            sparse_patterns: Some(&[]),
+        };
+        insta::assert_debug_snapshot!(
+            parse_maybe_bare(&mut FilesetDiagnostics::new(), "sparse(x)", &context).unwrap_err().kind(),
+            @r#"
+        InvalidArguments {
+            name: "sparse",
+            message: "Expected 0 arguments",
+        }
+        "#);
         Ok(())
     }
 
@@ -1230,6 +1319,7 @@ mod tests {
                 cwd: PathBuf::from("/ws/cur"),
                 base: PathBuf::from("/ws"),
             },
+            sparse_patterns: None,
         };
         let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &context);
 

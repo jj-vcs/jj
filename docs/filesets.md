@@ -85,6 +85,11 @@ You can also specify patterns by using functions.
 
 * `all()`: Matches everything.
 * `none()`: Matches nothing.
+* `sparse()`: Matches files within the working copy's sparse-checkout
+  patterns. Errors when there's no working copy in scope (e.g. inside config
+  files). Pair with `jj log` to filter history by what's checked out:
+  `jj log 'sparse()' -p` shows only revisions touching files in the current
+  sparse view; `files(sparse())` lifts the same set into a revset.
 
 ## Aliases
 
