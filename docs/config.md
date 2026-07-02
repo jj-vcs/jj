@@ -1800,6 +1800,10 @@ pattern](./revsets.md#string-patterns) that matches the names of the bookmarks
 and tags to fetch. If `remotes.<name>.fetch-bookmarks` is not configured, the
 default fetch refspecs for the remotes are read from the Git configuration.
 
+The glob pattern supports only `*` (other wildcard characters like `?` are *not*
+supported). You can combine patterns with logical operators to specify multiple
+bookmarks and tags, but only union and negative intersection are supported.
+
 Note that **`remotes.<name>.fetch-tags` is experimental**. Tags matching this
 pattern will be fetched as tracked `<name>@<remote>` tags, and corresponding
 local tags will be created.
