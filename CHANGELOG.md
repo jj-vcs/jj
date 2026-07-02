@@ -536,6 +536,11 @@ None
   splitting it. Any hunks that are not selected or cannot be absorbed remain in
   the source commit.
 
+* `jj file search` now detects binary files (any null byte in the first 8000
+  bytes) and emits `Binary file <path> matches` instead of dumping raw bytes to
+  stdout. Use `--binary-as-text` to force text treatment, or `--skip-binary` to
+  skip binary files entirely.
+
 ### Fixed bugs
 
 * Recursive alias definitions are detected more precisely. jj can now expand

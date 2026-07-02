@@ -21,6 +21,7 @@ use futures::TryStreamExt as _;
 use jj_lib::backend::BackendResult;
 use jj_lib::conflicts::MaterializedTreeValue;
 use jj_lib::conflicts::materialize_tree_value;
+use jj_lib::file_util;
 use jj_lib::repo::Repo as _;
 use jj_lib::str_util::StringMatcher;
 use jj_lib::str_util::StringPattern;
@@ -67,6 +68,15 @@ pub(crate) struct FileSearchArgs {
     /// Prefix each matched line with its 1-based line number within the file
     #[arg(long, short = 'n')]
     line_number: bool,
+
+    /// Treat binary files as text, matching and printing raw bytes even if
+    /// they contain null bytes
+    #[arg(long, conflicts_with = "skip_binary")]
+    binary_as_text: bool,
+
+    /// Skip binary files entirely, even if they contain matches
+    #[arg(long)]
+    skip_binary: bool,
 
     /// Only search files matching these prefixes (instead of all files)
     #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
@@ -123,9 +133,17 @@ pub(crate) async fn cmd_file_search(
             }
             MaterializedTreeValue::File(_) => {
                 let content = content.expect("file content should have been read");
-                // TODO: Make output templated
                 let ui_path = workspace_command.format_file_path(&path);
-                if args.name_only {
+                // TODO: Make output templated
+                if !args.binary_as_text && file_util::is_binary(&content) {
+                    if !args.skip_binary && pattern_matcher.match_lines(&content).next().is_some() {
+                        if args.name_only {
+                            writeln!(formatter, "{ui_path}")?;
+                        } else {
+                            writeln!(formatter, "Binary file {ui_path} matches")?;
+                        }
+                    }
+                } else if args.name_only {
                     if pattern_matcher.match_lines(&content).next().is_some() {
                         writeln!(formatter, "{ui_path}")?;
                     }
@@ -144,7 +162,24 @@ pub(crate) async fn cmd_file_search(
                 let ui_path = workspace_command.format_file_path(&path);
                 // TODO: Optionally also print the conflict side
                 let mut adds = materialized_file_value.contents.adds();
-                if args.name_only {
+                if !args.binary_as_text
+                    && materialized_file_value
+                        .contents
+                        .adds()
+                        .any(|c| file_util::is_binary(c))
+                {
+                    // At least one side looks binary; treat the whole file as
+                    // binary rather than emitting bytes from the text side(s).
+                    if !args.skip_binary
+                        && adds.any(|c| pattern_matcher.match_lines(c).next().is_some())
+                    {
+                        if args.name_only {
+                            writeln!(formatter, "{ui_path}")?;
+                        } else {
+                            writeln!(formatter, "Binary file {ui_path} matches")?;
+                        }
+                    }
+                } else if args.name_only {
                     // Multiple blobs per file; print the path if any blob
                     // matches.
                     if adds.any(|c| pattern_matcher.match_lines(c).next().is_some()) {
