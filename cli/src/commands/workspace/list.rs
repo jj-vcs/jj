@@ -35,6 +35,9 @@ pub struct WorkspaceListArgs {
     /// The default template can be set by the `templates.workspace_list`
     /// setting.
     ///
+    /// Use `-T builtin_workspace_list_with_root` to include workspace root
+    /// paths.
+    ///
     /// [`WorkspaceRef` type]:
     ///     https://docs.jj-vcs.dev/latest/templates/#workspaceref-type
     ///

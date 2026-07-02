@@ -428,6 +428,24 @@ The following methods are defined.
 * `.domain() -> String`: the part of the email after the first `@` or the empty
   string.
 
+### `FsPath` type
+
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+
+A filesystem path. Paths can contain bytes that are not valid UTF-8. Direct
+rendering and path formatting methods preserve those bytes. When serialized
+with `json()`, a UTF-8 path is represented as a string, and a non-UTF-8 path is
+represented as a byte array so bytes are not replaced.
+
+The following methods are defined.
+
+* `.absolute() -> ByteString`: Format as an absolute path using platform-native
+  separator.
+* `.display() -> ByteString`: Format for display relative to the current working
+  directory using platform-native separator.
+* `.relative() -> ByteString`: Format relative to the current working directory
+  using platform-native separator.
+
 ### `Integer` type
 
 _Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
@@ -499,9 +517,12 @@ The following methods are defined.
 
 _Conversion: `Boolean`: yes, `Serialize`: maybe, `Template`: maybe_
 
-An option can be implicitly converted to `Boolean` denoting whether the
+An `Option` can be implicitly converted to `Boolean` denoting whether the
 contained value is set. If set, all methods of the contained value can be
 invoked. If not set, an error will be reported inline on method call.
+
+If the contained value can be rendered as a template, a set `Option` renders as
+the contained value and an unset `Option` renders as empty output.
 
 On comparison between two optional values or optional and non-optional values,
 unset value is not an error. Unset value is considered less than any set values.
@@ -788,7 +809,12 @@ The following methods are defined.
 
 * `.name() -> RefSymbol`: Returns the workspace name as a symbol.
 * `.target() -> Commit`: Returns the working-copy commit of this workspace.
-* `.root() -> Template`: Returns the absolute path to the workspace root.
+* `.root() -> Option<FsPath>`: Returns the workspace root path, if the root path
+  is recorded and can be resolved.
+
+  This is optional because workspaces created before jj 0.38.0 did not record
+  workspace root paths, and a recorded path can also become stale if the
+  workspace directory is moved or deleted.
 
 ## Color labels
 

@@ -20,6 +20,18 @@ use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
 
+fn normalize_json_path_output(test_env: &TestEnvironment, output: CommandOutput) -> CommandOutput {
+    let escaped_env_root = test_env
+        .env_root()
+        .display()
+        .to_string()
+        .replace('\\', r"\\");
+    output.normalize_stdout_with(|s| {
+        s.replace(&escaped_env_root, "$TEST_ENV")
+            .replace(r"\\", "/")
+    })
+}
+
 #[test]
 fn test_workspaces_invalid_name() {
     let test_env = TestEnvironment::default();
@@ -1756,6 +1768,42 @@ fn test_list_workspaces_template_root() {
     second: $TEST_ENV/secondary
     [EOF]
     ");
+
+    let template = r#"name ++ ": " ++ json(root) ++ "\n""#;
+    let output = main_dir.run_jj(["workspace", "list", "-T", template]);
+    insta::assert_snapshot!(normalize_json_path_output(&test_env, output), @r#"
+    default: "$TEST_ENV/main"
+    second: "$TEST_ENV/secondary"
+    [EOF]
+    "#);
+
+    let template = r#"name ++ ": " ++ if(root, root.absolute() ++ " " ++ root.relative()) ++ "\n""#;
+    let output = main_dir.run_jj(["workspace", "list", "-T", template]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    default: $TEST_ENV/main .
+    second: $TEST_ENV/secondary ../secondary
+    [EOF]
+    ");
+
+    let template = r#"name ++ ": " ++ if(root, root.display()) ++ "\n""#;
+    let output = main_dir.run_jj(["workspace", "list", "-T", template]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    default: .
+    second: ../secondary
+    [EOF]
+    ");
+
+    let output = main_dir.run_jj([
+        "workspace",
+        "list",
+        "-T",
+        "builtin_workspace_list_with_root",
+    ]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    default: . qpvuntsm e8849ae1 (empty) (no description set)
+    second: ../secondary uuqppmxq 94f41578 (empty) (no description set)
+    [EOF]
+    ");
 }
 
 #[test]
@@ -1770,18 +1818,38 @@ fn test_list_workspaces_template_root_unavailable() {
     std::fs::remove_dir_all(test_env.env_root().join("secondary")).unwrap();
 
     let template = r#"name ++ ": " ++ root ++ "\n""#;
-    let output = main_dir
-        .run_jj(["workspace", "list", "-T", template])
-        .normalize_backslash()
-        .normalize_stdout_with(|s| {
-            s.replace(
-                "The system cannot find the file specified.",
-                "No such file or directory",
-            )
-        });
-    insta::assert_snapshot!(output, @"
+    let output = main_dir.run_jj(["workspace", "list", "-T", template]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     default: $TEST_ENV/main
-    second: <Error: Failed to resolve workspace root: second: $TEST_ENV/main/.jj/repo/../../../secondary: No such file or directory (os error 2)>
+    second: 
+    [EOF]
+    ");
+
+    let template = r#"name ++ ": " ++ json(root) ++ "\n""#;
+    let output = main_dir.run_jj(["workspace", "list", "-T", template]);
+    insta::assert_snapshot!(normalize_json_path_output(&test_env, output), @r#"
+    default: "$TEST_ENV/main"
+    second: null
+    [EOF]
+    "#);
+
+    let template = r#"name ++ ": " ++ if(root, root.display()) ++ "\n""#;
+    let output = main_dir.run_jj(["workspace", "list", "-T", template]);
+    insta::assert_snapshot!(output, @"
+    default: .
+    second: 
+    [EOF]
+    ");
+
+    let output = main_dir.run_jj([
+        "workspace",
+        "list",
+        "-T",
+        "builtin_workspace_list_with_root",
+    ]);
+    insta::assert_snapshot!(output, @"
+    default: . qpvuntsm e8849ae1 (empty) (no description set)
+    second: uuqppmxq 94f41578 (empty) (no description set)
     [EOF]
     ");
 }
@@ -2069,6 +2137,12 @@ fn test_workspaces_rename_workspace_from_before_workspace_store() {
     Error: Workspace has no recorded path: third
     [EOF]
     [exit status: 1]
+    ");
+
+    let output = main_dir.run_jj(["workspace", "list", "-T", r#"name ++ ": " ++ root ++ "\n""#]);
+    insta::assert_snapshot!(output, @"
+    third: 
+    [EOF]
     ");
 }
 

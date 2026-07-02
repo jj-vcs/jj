@@ -40,6 +40,9 @@ use crate::formatter::PlainTextFormatter;
 use crate::text_util;
 use crate::time_util;
 
+mod fs_path;
+pub use fs_path::FsPath;
+
 /// Represents a printable type or a compiled template containing a placeholder
 /// value.
 ///

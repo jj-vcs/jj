@@ -16,6 +16,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* New `builtin_workspace_list` and `builtin_workspace_list_with_root` template
+  aliases are available for `jj workspace list`, and `WorkspaceRef.root()` now
+  returns an optional `FsPath` value.
+
 ### Fixed bugs
 
 ## [0.43.0] - 2026-07-01

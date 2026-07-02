@@ -120,6 +120,7 @@ use crate::templater;
 use crate::templater::BoxedAnyProperty;
 use crate::templater::BoxedSerializeProperty;
 use crate::templater::BoxedTemplateProperty;
+use crate::templater::FsPath;
 use crate::templater::Literal;
 use crate::templater::SizeHint;
 use crate::templater::Template;
@@ -1748,40 +1749,29 @@ impl WorkspaceRef {
         &self.target
     }
 
-    /// Returns the root path of the workspace.
-    fn root(&self, path_converter: &RepoPathUiConverter) -> Result<String, TemplatePropertyError> {
-        let RepoPathUiConverter::Fs { cwd: _, base } = path_converter;
+    /// Returns the root path of the workspace if it is recorded and can be
+    /// resolved.
+    fn root(
+        &self,
+        path_converter: &RepoPathUiConverter,
+    ) -> Result<Option<FsPath>, TemplatePropertyError> {
+        let RepoPathUiConverter::Fs { cwd, base } = path_converter;
         // TODO: Stop reconstructing the workspace loader here once we've
         // decided which object should own the workspace store.
         let workspace_loader = DefaultWorkspaceLoaderFactory.create(base)?;
         let repo_path = workspace_loader.repo_path().to_owned();
         let workspace_store = SimpleWorkspaceStore::load(&repo_path)?;
-        let workspace_path = workspace_store
-            .get_workspace_path(self.name())?
-            .ok_or_else(|| {
-                TemplatePropertyError(
-                    format!(
-                        "Workspace has no recorded path: {}",
-                        self.name().as_symbol()
-                    )
-                    .into(),
-                )
-            })?;
+        // Workspaces created before jj 0.38.0 may not have a recorded path. List
+        // templates should also keep rendering if a recorded path is stale or
+        // unavailable. Use `jj workspace root --name` for strict path diagnostics.
+        let Some(workspace_path) = workspace_store.get_workspace_path(self.name())? else {
+            return Ok(None);
+        };
         let full_path = repo_path.join(workspace_path);
-        let path = dunce::canonicalize(&full_path).map_err(|err| {
-            TemplatePropertyError(
-                format!(
-                    "Failed to resolve workspace root: {}: {}: {err}",
-                    self.name().as_symbol(),
-                    full_path.display()
-                )
-                .into(),
-            )
-        })?;
-        // TODO: Return PathBuf once the templater has a filesystem path type.
-        path.into_os_string()
-            .into_string()
-            .map_err(|_| TemplatePropertyError("Invalid UTF-8 sequence in path".into()))
+        let Ok(path) = dunce::canonicalize(&full_path) else {
+            return Ok(None);
+        };
+        Ok(Some(FsPath::from_absolute_path(path, cwd.to_owned())))
     }
 }
 
