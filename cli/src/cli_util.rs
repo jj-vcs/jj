@@ -3850,11 +3850,17 @@ fn resolve_aliases(
                         .get(["aliases", alias_name, "definition"])
                         .map_err(|_| original_err)?,
                 };
+                let alias_definition_is_empty = alias_definition.is_empty();
                 assert!(string_args.ends_with(&alias_args));
                 string_args.truncate(string_args.len() - 1 - alias_args.len());
                 string_args.extend(alias_definition);
                 string_args.extend_from_slice(&alias_args);
-                resolved_aliases.insert(alias_name);
+                if !alias_definition_is_empty {
+                    // Track non-empty resolved aliases to detect recursive
+                    // definitions. Empty aliases are not tracked, which enables
+                    // `aliases.jj = []` to resolve accidental `jj jj jj ...`.
+                    resolved_aliases.insert(alias_name);
+                }
                 continue;
             } else {
                 // Not a real command and not an alias, so return what we've resolved so far
@@ -4013,8 +4019,9 @@ pub fn expand_args(
     config: &StackedConfig,
 ) -> Result<Vec<String>, CommandError> {
     let string_args = to_string_args(args_os)?;
+    let string_args = resolve_aliases(ui, config, app, string_args)?;
     let string_args = resolve_default_command(ui, config, app, string_args)?;
-    resolve_aliases(ui, config, app, string_args)
+    Ok(string_args)
 }
 
 fn expand_args_for_completion(

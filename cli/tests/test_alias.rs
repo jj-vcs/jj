@@ -67,29 +67,53 @@ fn test_alias_calls_empty_command() {
 
     let output = work_dir.run_jj(["empty"]);
     insta::assert_snapshot!(
-        output.normalize_stderr_with(|s| s.split_inclusive('\n').take(3).collect()), @"
-    ------- stderr -------
-    Jujutsu (An experimental VCS)
-
-    Usage: jj [OPTIONS] <COMMAND>
+        output, @"
+    @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
+    │  (empty) (no description set)
+    ◆  zzzzzzzz root() 00000000
     [EOF]
-    [exit status: 2]
+    ------- stderr -------
+    Hint: Use `jj -h` for a list of available commands.
+    Run `jj config set --user ui.default-command log` to disable this message.
+    [EOF]
     ");
     let output = work_dir.run_jj(["empty", "--no-pager"]);
     insta::assert_snapshot!(
-        output.normalize_stderr_with(|s| s.split_inclusive('\n').take(1).collect()), @"
-    ------- stderr -------
-    error: 'jj' requires a subcommand but one was not provided
+        output, @r"
+    @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
+    │  (empty) (no description set)
+    ◆  zzzzzzzz root() 00000000
     [EOF]
-    [exit status: 2]
+    ------- stderr -------
+    Hint: Use `jj -h` for a list of available commands.
+    Run `jj config set --user ui.default-command log` to disable this message.
+    [EOF]
     ");
     let output = work_dir.run_jj(["empty_command_with_opts"]);
     insta::assert_snapshot!(
-        output.normalize_stderr_with(|s| s.split_inclusive('\n').take(1).collect()), @"
-    ------- stderr -------
-    error: 'jj' requires a subcommand but one was not provided
+        output, @r"
+    @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
+    │  (empty) (no description set)
+    ◆  zzzzzzzz root() 00000000
     [EOF]
-    [exit status: 2]
+    ------- stderr -------
+    Hint: Use `jj -h` for a list of available commands.
+    Run `jj config set --user ui.default-command log` to disable this message.
+    [EOF]
+    ");
+
+    // `aliases.jj = []` can resolve accidental `jj jj jj ...`
+    let output = work_dir.run_jj(["empty", "empty", "empty", "empty"]);
+    insta::assert_snapshot!(
+        output, @r"
+    @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
+    │  (empty) (no description set)
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ------- stderr -------
+    Hint: Use `jj -h` for a list of available commands.
+    Run `jj config set --user ui.default-command log` to disable this message.
+    [EOF]
     ");
 }
 

@@ -16,6 +16,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* Empty aliases are now resolved to the default command. Users who sometimes
+  accidentally type "jj" multiple times can make it "just work" with:
+
+  ```toml
+  aliases.jj = []
+  ```
+
 ### Fixed bugs
 
 ## [0.43.0] - 2026-07-01
