@@ -29,6 +29,7 @@ use tempfile::TempDir;
 use thiserror::Error;
 
 use super::DiffEditError;
+use super::external::DiffEditSide;
 use super::external::ExternalToolError;
 
 #[derive(Debug, Error)]
@@ -155,6 +156,7 @@ pub(crate) async fn check_out_trees(
     trees: Diff<&MergedTree>,
     matcher: &dyn Matcher,
     diff_type: DiffType,
+    edit_side: DiffEditSide,
     conflict_marker_style: ConflictMarkerStyle,
 ) -> Result<DiffWorkingCopies, DiffCheckoutError> {
     let store = trees.before.store();
@@ -190,7 +192,10 @@ pub(crate) async fn check_out_trees(
     let right = check_out("right", trees.after)?;
     let output = match diff_type {
         DiffType::TwoWay => None,
-        DiffType::ThreeWay => Some(check_out("output", trees.after)?),
+        DiffType::ThreeWay => match edit_side {
+            DiffEditSide::Left => Some(check_out("output", trees.before)?),
+            DiffEditSide::Right => Some(check_out("output", trees.after)?),
+        },
     };
     Ok(DiffWorkingCopies {
         temp_dir,
@@ -212,14 +217,21 @@ impl DiffEditWorkingCopies {
         trees: Diff<&MergedTree>,
         matcher: &dyn Matcher,
         diff_type: DiffType,
+        edit_side: DiffEditSide,
         instructions: Option<&str>,
         conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<Self, DiffEditError> {
         let working_copies =
-            check_out_trees(trees, matcher, diff_type, conflict_marker_style).await?;
-        working_copies.set_left_readonly()?;
-        if diff_type == DiffType::ThreeWay {
-            working_copies.set_right_readonly()?;
+            check_out_trees(trees, matcher, diff_type, edit_side, conflict_marker_style).await?;
+        match diff_type {
+            DiffType::ThreeWay => {
+                working_copies.set_left_readonly()?;
+                working_copies.set_right_readonly()?;
+            }
+            DiffType::TwoWay => match edit_side {
+                DiffEditSide::Left => working_copies.set_right_readonly()?,
+                DiffEditSide::Right => working_copies.set_left_readonly()?,
+            },
         }
         let instructions_path_to_cleanup =
             Self::write_edit_instructions(&working_copies, instructions)?;
@@ -297,6 +309,7 @@ diff editing in mind and be a little inaccurate.
     pub async fn snapshot_results(
         self,
         base_ignores: Arc<GitIgnoreFile>,
+        side_to_snapshot: DiffEditSide,
     ) -> Result<MergedTree, DiffEditError> {
         if let Some(path) = self.instructions_path_to_cleanup {
             std::fs::remove_file(path).ok();
@@ -304,7 +317,10 @@ diff editing in mind and be a little inaccurate.
 
         let diff_wc = self.working_copies;
         // Snapshot changes in the temporary output directory.
-        let mut output_tree_state = diff_wc.output.unwrap_or(diff_wc.right);
+        let mut output_tree_state = diff_wc.output.unwrap_or(match side_to_snapshot {
+            DiffEditSide::Left => diff_wc.left,
+            DiffEditSide::Right => diff_wc.right,
+        });
         output_tree_state
             .snapshot(&SnapshotOptions {
                 base_ignores,
