@@ -28,6 +28,7 @@ use jj_lib::config::ConfigFileSaveError;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigLoadError;
 use jj_lib::config::ConfigMigrateError;
+use jj_lib::converge::ConvergeError;
 use jj_lib::dsl_util::Diagnostics;
 use jj_lib::evolution::WalkPredecessorsError;
 use jj_lib::fileset::FilePatternParseError;
@@ -427,6 +428,19 @@ impl From<WalkPredecessorsError> for CommandError {
     }
 }
 
+impl From<ConvergeError> for CommandError {
+    fn from(err: ConvergeError) -> Self {
+        match err {
+            ConvergeError::Backend(err) => err.into(),
+            ConvergeError::Index(err) => err.into(),
+            ConvergeError::RevsetEvaluation(err) => err.into(),
+            ConvergeError::WalkPredecessors(err) => err.into(),
+            ConvergeError::IO(err) => err.into(),
+            ConvergeError::Other(err) => internal_error(err),
+        }
+    }
+}
+
 impl From<DiffEditError> for CommandError {
     fn from(err: DiffEditError) -> Self {
         user_error_with_message("Failed to edit diff", err)
@@ -504,6 +518,12 @@ impl From<TempTextEditError> for CommandError {
         let mut cmd_err = user_error(err);
         cmd_err.extend_hints(hint);
         cmd_err
+    }
+}
+
+impl From<TempTextEditError> for ConvergeError {
+    fn from(err: TempTextEditError) -> Self {
+        Self::Other(Box::new(err))
     }
 }
 
@@ -939,7 +959,9 @@ fn revset_resolution_error_hints(err: &RevsetResolutionError) -> Vec<String> {
             kind: _,
             symbol: _,
             targets,
-        } => vec![multiple_targets_hint(targets)],
+        } => {
+            vec![multiple_targets_hint(targets)]
+        }
         RevsetResolutionError::EmptyString
         | RevsetResolutionError::WorkspaceMissingWorkingCopy { .. }
         | RevsetResolutionError::AmbiguousCommitIdPrefix(_)
