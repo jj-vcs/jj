@@ -4013,8 +4013,9 @@ pub fn expand_args(
     config: &StackedConfig,
 ) -> Result<Vec<String>, CommandError> {
     let string_args = to_string_args(args_os)?;
+    let string_args = resolve_aliases(ui, config, app, string_args)?;
     let string_args = resolve_default_command(ui, config, app, string_args)?;
-    resolve_aliases(ui, config, app, string_args)
+    Ok(string_args)
 }
 
 fn expand_args_for_completion(
