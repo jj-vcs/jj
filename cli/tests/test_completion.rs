@@ -1647,6 +1647,7 @@ fn test_merge_tools() {
     vimdiff
     vscode
     vscodium
+    weave
     [EOF]
     ");
 }
