@@ -25,8 +25,7 @@
 // - https://github.com/rust-lang/rust/issues/54363
 extern crate self as jj_lib;
 
-#[macro_use]
-pub mod content_hash;
+pub use jj_revset_parser::content_hash;
 
 pub mod absorb;
 pub mod annotate;
@@ -45,7 +44,7 @@ pub mod default_index;
 pub mod default_submodule_store;
 pub mod diff;
 pub mod diff_presentation;
-pub mod dsl_util;
+pub use jj_revset_parser::dsl_util;
 pub(crate) mod eol;
 pub mod evolution;
 pub mod extensions_map;
@@ -66,7 +65,7 @@ pub mod gitignore;
 pub mod gpg_signing;
 pub mod graph;
 pub mod graph_dominators;
-pub mod hex_util;
+pub use jj_revset_parser::hex_util;
 pub mod id_prefix;
 pub mod index;
 pub mod iter_util;
@@ -83,12 +82,12 @@ pub mod op_walk;
 pub mod operation;
 #[expect(missing_docs)]
 pub mod protos;
-pub mod ref_name;
+pub use jj_revset_parser::ref_name;
 pub mod refs;
 pub mod repo;
 pub mod repo_path;
 pub mod revset;
-mod revset_parser;
+use jj_revset_parser::parser as revset_parser;
 pub mod rewrite;
 #[cfg(feature = "testing")]
 pub mod secret_backend;

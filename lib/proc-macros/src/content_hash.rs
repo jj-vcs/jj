@@ -18,7 +18,7 @@ pub fn add_trait_bounds(mut generics: Generics) -> Generics {
         if let GenericParam::Type(type_param) = param {
             type_param
                 .bounds
-                .push(parse_quote!(::jj_lib::content_hash::ContentHash));
+                .push(parse_quote!(::jj_revset_parser::content_hash::ContentHash));
         }
     }
     generics
@@ -32,7 +32,7 @@ pub fn generate_hash_impl(data: &Data) -> TokenStream {
                     let field_name = &f.ident;
                     let ty = &f.ty;
                     quote_spanned! {ty.span()=>
-                        <#ty as ::jj_lib::content_hash::ContentHash>::hash(
+                        <#ty as ::jj_revset_parser::content_hash::ContentHash>::hash(
                             &self.#field_name, state);
                     }
                 });
@@ -45,7 +45,8 @@ pub fn generate_hash_impl(data: &Data) -> TokenStream {
                     let index = Index::from(i);
                     let ty = &f.ty;
                     quote_spanned! {ty.span() =>
-                        <#ty as ::jj_lib::content_hash::ContentHash>::hash(&self.#index, state);
+                        <#ty as ::jj_revset_parser::content_hash::ContentHash>::hash(
+                            &self.#index, state);
                     }
                 });
                 quote! {
@@ -86,7 +87,7 @@ pub fn generate_hash_impl(data: &Data) -> TokenStream {
                         let ix = index_to_ordinal(i);
                         quote_spanned! {v.span() =>
                             Self::#variant_id => {
-                                ::jj_lib::content_hash::ContentHash::hash(&#ix, state);
+                                ::jj_revset_parser::content_hash::ContentHash::hash(&#ix, state);
                             }
                         }
                     }
@@ -137,10 +138,11 @@ fn hash_statements_for_enum_fields<'a>(
     let ix = index_to_ordinal(index);
     let typed_bindings = enum_bindings_with_type(fields);
     let mut hash_statements = Vec::with_capacity(typed_bindings.len() + 1);
-    hash_statements.push(quote! {::jj_lib::content_hash::ContentHash::hash(&#ix, state);});
+    hash_statements
+        .push(quote! {::jj_revset_parser::content_hash::ContentHash::hash(&#ix, state);});
     for (ty, b) in &typed_bindings {
         hash_statements.push(quote_spanned! {b.span() =>
-            <#ty as ::jj_lib::content_hash::ContentHash>::hash(#b, state);
+            <#ty as ::jj_revset_parser::content_hash::ContentHash>::hash(#b, state);
         });
     }
 

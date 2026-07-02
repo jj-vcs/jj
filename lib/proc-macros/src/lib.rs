@@ -27,9 +27,9 @@ pub fn derive_content_hash(input: proc_macro::TokenStream) -> proc_macro::TokenS
 
     let expanded = quote! {
         #[automatically_derived]
-        impl #impl_generics ::jj_lib::content_hash::ContentHash for #name #ty_generics
+        impl #impl_generics ::jj_revset_parser::content_hash::ContentHash for #name #ty_generics
         #where_clause {
-            fn hash(&self, state: &mut impl ::jj_lib::content_hash::DigestUpdate) {
+            fn hash(&self, state: &mut impl ::jj_revset_parser::content_hash::DigestUpdate) {
                 #hash_impl
             }
         }

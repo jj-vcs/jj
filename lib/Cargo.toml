@@ -48,6 +48,7 @@ indexmap = { workspace = true }
 interim = { workspace = true }
 itertools = { workspace = true }
 jj-lib-proc-macros = { workspace = true }
+jj-revset-parser = { workspace = true }
 maplit = { workspace = true }
 once_cell = { workspace = true }
 pest = { workspace = true }
@@ -61,7 +62,6 @@ ref-cast = { workspace = true }
 regex = { workspace = true }
 serde = { workspace = true }
 smallvec = { workspace = true }
-strsim = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, optional = true }
