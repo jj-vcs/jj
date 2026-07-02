@@ -229,6 +229,10 @@ pub struct SnapshotOptions<'a> {
     /// (depending on implementation)
     /// return `SnapshotError::NewFileTooLarge`.
     pub max_new_file_size: u64,
+    /// Track a file if and only if it is not ignored.
+    /// If a file was previously tracked and then it gets ignored,
+    /// this will cause the snapshot to see it as a delete.
+    pub derive_tracked_from_ignores: bool,
 }
 
 /// A callback for getting progress updates.
