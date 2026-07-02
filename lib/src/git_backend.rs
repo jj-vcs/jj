@@ -1041,8 +1041,11 @@ impl Backend for GitBackend {
         &self,
         _path: &RepoPath,
         id: &FileId,
+        offset: u64,
     ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>> {
-        let data = self.read_file_sync(id)?;
+        let mut data = self.read_file_sync(id)?;
+        // gix doesn't presently support random access to blobs
+        data.drain(..offset as usize);
         Ok(Box::pin(Cursor::new(data)))
     }
 

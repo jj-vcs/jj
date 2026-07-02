@@ -1385,7 +1385,7 @@ fn test_snapshot_modified_materialized_conflict(
             test_workspace
                 .repo
                 .store()
-                .read_file(file_repo_path, id)
+                .read_file(file_repo_path, id, 0)
                 .await
                 .unwrap()
                 .read_to_end(&mut contents)
