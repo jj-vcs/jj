@@ -1257,6 +1257,8 @@ This is an early version of the command. It does not search files concurrently.
    [string pattern syntax]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 * `-l`, `--files-with-matches` — Print only the paths of files that contain a match, not the matched lines themselves
 * `-n`, `--line-number` — Prefix each matched line with its 1-based line number within the file
+* `-a`, `--text` — Treat binary files as text, matching and printing raw bytes even if they contain null bytes (mirrors `git grep -a`)
+* `-I`, `--no-binary` — Skip binary files entirely, even if they contain matches (mirrors `git grep -I`)
 
 
 
