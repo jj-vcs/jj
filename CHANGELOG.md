@@ -82,6 +82,11 @@ and this project adheres to
   to converge. The special `q` abort choice was removed; canceling with EOF now
   exits with an error (previously `q` aborted successfully).
 
+* `jj file search` now detects binary files (any null byte in the first 8000
+  bytes) and emits `Binary file matches: <path>` instead of dumping raw bytes to
+  stdout. Use `--binary-as-text` to force text treatment, or `--skip-binary` to
+  skip binary files entirely.
+
 ### Fixed bugs
 
 * `jj git push` no longer validates (e.g. for empty descriptions) commits that
