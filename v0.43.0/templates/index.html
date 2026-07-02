@@ -1,0 +1,3668 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://docs.jj-vcs.dev/latest/templates/">
+      
+      
+        <link rel="prev" href="../revsets/">
+      
+      
+        <link rel="next" href="../git-comparison/">
+      
+      
+      <link rel="icon" href="../images/favicon-96x96.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.23">
+    
+    
+      
+        <title>Templating language - Jujutsu docs</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.84d31ad4.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CGoogle+Sans+Code:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Google Sans Code"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#templates" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Jujutsu docs" class="md-header__button md-logo" aria-label="Jujutsu docs" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Jujutsu docs
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Templating language
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.3 16-.7-2h-3.2l-.7 2H7.8L11 7h2l3.2 9zM20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12zm-9.15 3.96h2.3L12 9z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/jj-vcs/jj" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    jj-vcs/jj
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Jujutsu docs" class="md-nav__button md-logo" aria-label="Jujutsu docs" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Jujutsu docs
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/jj-vcs/jj" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    jj-vcs/jj
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Getting started
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Getting started
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../install-and-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Installation and setup
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Tutorial and bird's eye view
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gerrit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Working with Gerrit
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../github/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Working with GitHub
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../windows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Working on Windows
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../FAQ/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    FAQ
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    CLI reference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testimonials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Testimonials
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../community_tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Community-built tools
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Concepts
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Concepts
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../working-copy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Working copy
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../bookmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Bookmarks
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../conflicts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Conflicts
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../operation-log/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Operation log
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Glossary
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Guides
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/cli-revision-options/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    CLI options for specifying revisions
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/divergence/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Divergent changes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/multiple-remotes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Multiple remotes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Configuration
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../filesets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Fileset language
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../revsets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Revset language
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Templating language
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Templating language
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#keywords" class="md-nav__link">
+    <span class="md-ellipsis">
+      Keywords
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Keywords">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#commit-keywords" class="md-nav__link">
+    <span class="md-ellipsis">
+      Commit keywords
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#operation-keywords" class="md-nav__link">
+    <span class="md-ellipsis">
+      Operation keywords
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operators" class="md-nav__link">
+    <span class="md-ellipsis">
+      Operators
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#global-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Global functions
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#types" class="md-nav__link">
+    <span class="md-ellipsis">
+      Types
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#annotationline-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      AnnotationLine type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#any-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Any type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#anylist-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      AnyList type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#boolean-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Boolean type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bytestring-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      ByteString type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bytestringify-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      ByteStringify type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changeid-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      ChangeId type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#commit-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Commit type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#commitevolutionentry-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      CommitEvolutionEntry type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#commitid-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      CommitId type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#commitref-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      CommitRef type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configvalue-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      ConfigValue type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cryptographicsignature-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      CryptographicSignature type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#diffstatentry-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      DiffStatEntry type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#diffstats-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      DiffStats type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#email-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Email type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#integer-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Integer type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#list-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      List type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#listtrailer-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      List&lt;Trailer&gt; type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#operation-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Operation type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#operationid-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      OperationId type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Option type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#refsymbol-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      RefSymbol type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#regexcaptures-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      RegexCaptures type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#repopath-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      RepoPath type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#serialize-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Serialize type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shortestidprefix-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      ShortestIdPrefix type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#signature-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Signature type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sizehint-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      SizeHint type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#string-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      String type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stringify-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Stringify type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stringliteral-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      StringLiteral type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stringpattern-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      StringPattern type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#template-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Template type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#timestamp-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Timestamp type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#timestamprange-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      TimestampRange type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trailer-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Trailer type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#treediff-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      TreeDiff type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#treediffentry-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      TreeDiffEntry type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#treeentry-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      TreeEntry type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#workspaceref-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      WorkspaceRef type
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#color-labels" class="md-nav__link">
+    <span class="md-ellipsis">
+      Color labels
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Configuration
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#alias-descriptions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Alias descriptions
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Comparisons
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            Comparisons
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../git-comparison/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Git comparison
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../git-command-table/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Git command table
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../git-compatibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Git compatibility
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../git-experts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Jujutsu for Git experts
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sapling-comparison/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Sapling comparison
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../related-work/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Other related work
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Technical details
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            Technical details
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../core_tenets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Core tenets
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../technical/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Architecture
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../technical/concurrency/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Concurrency
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../technical/conflicts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Conflicts
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Contributing
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            Contributing
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Guidelines and "How to...?"
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../code-of-conduct/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Code of conduct
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../style_guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Style guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design_docs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Design docs
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design_doc_blueprint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Design doc blueprint
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../releasing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Releasing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../governance/temporary-voting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Temporary voting for governance
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../governance/GOVERNANCE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Governance
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" >
+        
+          
+          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Design docs
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            Design docs
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/git-submodules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    git-submodules
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/git-submodule-storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    git-submodule-storage
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    JJ run
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/sparse-v2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Sparse patterns v2
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/tracking-branches/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Tracking branches
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/copy-tracking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Copy tracking and tracing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/secure-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Secure config
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/managed-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Managed config
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/jj-converge-command/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    JJ converge (aka resolve-divergence)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Development roadmap
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Changelog
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#keywords" class="md-nav__link">
+    <span class="md-ellipsis">
+      Keywords
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Keywords">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#commit-keywords" class="md-nav__link">
+    <span class="md-ellipsis">
+      Commit keywords
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#operation-keywords" class="md-nav__link">
+    <span class="md-ellipsis">
+      Operation keywords
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operators" class="md-nav__link">
+    <span class="md-ellipsis">
+      Operators
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#global-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Global functions
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#types" class="md-nav__link">
+    <span class="md-ellipsis">
+      Types
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#annotationline-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      AnnotationLine type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#any-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Any type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#anylist-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      AnyList type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#boolean-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Boolean type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bytestring-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      ByteString type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bytestringify-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      ByteStringify type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changeid-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      ChangeId type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#commit-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Commit type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#commitevolutionentry-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      CommitEvolutionEntry type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#commitid-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      CommitId type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#commitref-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      CommitRef type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configvalue-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      ConfigValue type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cryptographicsignature-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      CryptographicSignature type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#diffstatentry-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      DiffStatEntry type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#diffstats-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      DiffStats type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#email-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Email type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#integer-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Integer type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#list-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      List type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#listtrailer-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      List&lt;Trailer&gt; type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#operation-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Operation type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#operationid-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      OperationId type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Option type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#refsymbol-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      RefSymbol type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#regexcaptures-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      RegexCaptures type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#repopath-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      RepoPath type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#serialize-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Serialize type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shortestidprefix-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      ShortestIdPrefix type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#signature-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Signature type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sizehint-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      SizeHint type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#string-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      String type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stringify-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Stringify type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stringliteral-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      StringLiteral type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stringpattern-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      StringPattern type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#template-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Template type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#timestamp-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Timestamp type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#timestamprange-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      TimestampRange type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trailer-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Trailer type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#treediff-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      TreeDiff type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#treediffentry-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      TreeDiffEntry type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#treeentry-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      TreeEntry type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#workspaceref-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      WorkspaceRef type
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#color-labels" class="md-nav__link">
+    <span class="md-ellipsis">
+      Color labels
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Configuration
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#alias-descriptions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Alias descriptions
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/jj-vcs/jj/edit/main/docs/templates.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="templates">Templates<a class="headerlink" href="#templates" title="Permanent link">&para;</a></h1>
+<p>Jujutsu supports a functional language to customize output of commands.
+The language consists of literals, keywords, operators, functions, and
+methods.</p>
+<p>A couple of <code>jj</code> commands accept a template via <code>-T</code>/<code>--template</code> option.</p>
+<h2 id="keywords">Keywords<a class="headerlink" href="#keywords" title="Permanent link">&para;</a></h2>
+<p>Keywords represent objects of different types; the types are described in
+a follow-up section. In addition to context-specific keywords, the top-level
+object can be referenced as <code>self</code>.</p>
+<h3 id="commit-keywords">Commit keywords<a class="headerlink" href="#commit-keywords" title="Permanent link">&para;</a></h3>
+<p>In <code>jj log</code> templates, all 0-argument methods of <a href="#commit-type">the <code>Commit</code>
+type</a> are available as keywords. For example, <code>commit_id</code> is
+equivalent to <code>self.commit_id()</code>.</p>
+<h3 id="operation-keywords">Operation keywords<a class="headerlink" href="#operation-keywords" title="Permanent link">&para;</a></h3>
+<p>In <code>jj op log</code> templates, all 0-argument methods of <a href="#operation-type">the <code>Operation</code>
+type</a> are available as keywords. For example,
+<code>current_operation</code> is equivalent to <code>self.current_operation()</code>.</p>
+<h2 id="operators">Operators<a class="headerlink" href="#operators" title="Permanent link">&para;</a></h2>
+<p>The following operators are supported. <code>x</code> and <code>y</code> below can be any expression.</p>
+<p>Operators are listed in order of binding power from strongest to weakest, e.g.
+<code>x ++ y * z</code> is interpreted as <code>x ++ (y * z)</code> since <code>*</code> has stronger binding
+power than <code>++</code>. Infix operators of the same binding power are parsed from left
+to right, e.g. <code>x * y / z</code> is interpreted as <code>(x * y) / z</code>.</p>
+<p>As seen above, parentheses can be used to control evaluation order, e.g. <code>(x +
+y) * z</code>.</p>
+<ol>
+<li>
+<ul>
+<li><code>x.f()</code>: Method call.</li>
+<li><code>f(x)</code>: Function call.</li>
+</ul>
+</li>
+<li>
+<ul>
+<li><code>-x</code>: Negate integer value.</li>
+<li><code>!x</code>: Logical not.</li>
+</ul>
+</li>
+<li>
+<ul>
+<li><code>p:x</code>: String pattern or pattern alias named <code>p</code>.</li>
+</ul>
+</li>
+<li>
+<ul>
+<li><code>x * y</code>, <code>x / y</code>, <code>x % y</code>: Multiplication / division / remainder. Operands must
+     be <code>Integer</code>s.</li>
+</ul>
+</li>
+<li>
+<ul>
+<li><code>x + y</code>, <code>x - y</code>: Addition / subtraction. Operands must be <code>Integer</code>s.</li>
+</ul>
+</li>
+<li>
+<ul>
+<li><code>x &gt;= y</code>, <code>x &gt; y</code>, <code>x &lt;= y</code>, <code>x &lt; y</code>: Greater than or equal / greater than /
+     lesser than or equal / lesser than. Operands must be <code>Integer</code>s.</li>
+</ul>
+</li>
+<li>
+<ul>
+<li><code>x == y</code>, <code>x != y</code>: Equal / not equal. Operands must be either <code>Boolean</code>,
+     <code>ByteString</code>, <code>Integer</code>, or <code>String</code>.</li>
+</ul>
+</li>
+<li>
+<ul>
+<li><code>x &amp;&amp; y</code>: Logical and, short-circuiting.</li>
+</ul>
+</li>
+<li>
+<ul>
+<li><code>x || y</code>: Logical or, short-circuiting.</li>
+</ul>
+</li>
+<li>
+<ul>
+<li><code>x ++ y</code>: Concatenate <code>x</code> and <code>y</code> templates.</li>
+</ul>
+</li>
+</ol>
+<h2 id="global-functions">Global functions<a class="headerlink" href="#global-functions" title="Permanent link">&para;</a></h2>
+<p>The following functions are defined.</p>
+<ul>
+<li><code>fill(width: Integer, content: Template) -&gt; Template</code>: Fill lines at
+  the given <code>width</code>.</li>
+<li><code>indent(prefix: Template, content: Template) -&gt; Template</code>: Indent
+  non-empty lines by the given <code>prefix</code>.</li>
+<li><code>pad_start(width: Integer, content: Template, [fill_char: Template])</code>: Pad (or
+  right-justify) content by adding leading fill characters. The <code>content</code>
+  shouldn't have newline character.</li>
+<li><code>pad_end(width: Integer, content: Template, [fill_char: Template])</code>: Pad (or
+  left-justify) content by adding trailing fill characters. The <code>content</code>
+  shouldn't have newline character.</li>
+<li><code>pad_centered(width: Integer, content: Template, [fill_char: Template])</code>: Pad
+  content by adding both leading and trailing fill characters. If an odd number
+  of fill characters are needed, the trailing fill will be one longer than the
+  leading fill. The <code>content</code> shouldn't have newline characters.</li>
+<li><code>truncate_start(width: Integer, content: Template, [ellipsis: Template])</code>:
+  Truncate <code>content</code> by removing leading characters. The <code>content</code> shouldn't
+  have newline character. If <code>ellipsis</code> is provided and <code>content</code> was truncated,
+  prepend the <code>ellipsis</code> to the result.</li>
+<li><code>truncate_end(width: Integer, content: Template, [ellipsis: Template])</code>:
+  Truncate <code>content</code> by removing trailing characters. The <code>content</code> shouldn't
+  have newline character. If <code>ellipsis</code> is provided and <code>content</code> was truncated,
+  append the <code>ellipsis</code> to the result.</li>
+<li><code>hash(content: Stringify) -&gt; String</code>:
+  Hash the input and return a hexadecimal string representation of the digest.</li>
+<li><code>label(label: Stringify, content: Template) -&gt; Template</code>: Apply a custom
+  <a href="#color-labels">color label</a> to the content. The <code>label</code> is evaluated as a
+  space-separated string.</li>
+<li><code>hyperlink(url: Stringify, text: Template, [fallback: Template]) -&gt; Template</code>:
+  Render <code>text</code> as a hyperlink to <code>url</code> using <a href="https://github.com/Alhadis/OSC8-Adoption">OSC 8 escape sequences</a>
+  when outputting with color enabled. Otherwise, renders <code>fallback</code> instead,
+  which defaults to <code>text</code>. Use <code>--color=always</code> to force hyperlinks when piping
+  output to a terminal emulator that supports OSC 8.</li>
+<li><code>raw_escape_sequence(content: Template) -&gt; Template</code>: Preserves any escape
+  sequences in <code>content</code> (i.e., bypasses sanitization) and strips labels.
+  Note: This function is intended for escape sequences and as such, its output
+  is expected to be invisible / of no display width. Outputting content with
+  nonzero display width may break wrapping, indentation etc.</li>
+<li>
+<p><code>replace(pattern: StringPattern, content: Template, replacement: |RegexCaptures| -&gt; Template) -&gt; Template</code>:
+  Replace every match of <code>pattern</code> in <code>content</code> by formatting the <code>replacement</code>
+  lambda for each match.</p>
+<p>This is similar to <a href="#string-type"><code>String.replace()</code></a>, but operates on
+<code>Template</code> content and preserves formatting of the parts of <code>content</code> that are
+not replaced. The replacement itself is newly formatted template content.</p>
+<p>The lambda argument is a <a href="#regexcaptures-type"><code>RegexCaptures</code></a> value for the
+current match. Use <code>.get(index)</code> to access capture groups by index, <code>.name(name)</code>
+to access named capture groups, and <code>.len()</code> to get the number of captures
+including capture group 0 for the full match.</p>
+</li>
+<li>
+<p><code>stringify(content: Stringify) -&gt; String</code>: Format <code>content</code> to string. This
+  effectively removes color labels.</p>
+</li>
+<li><code>json(value: Serialize) -&gt; String</code>: Serialize <code>value</code> in JSON format.</li>
+<li><code>if(condition: Boolean, then: Any, [else: Any]) -&gt; Any</code>:
+  Conditionally evaluates to <code>then</code> / <code>else</code> content.</li>
+<li><code>coalesce(content: Template...) -&gt; Template</code>: Returns the first <strong>non-empty</strong>
+  content.</li>
+<li><code>concat(content: Template...) -&gt; Template</code>:
+  Same as <code>content_1 ++ ... ++ content_n</code>.</li>
+<li><code>join(separator: Template, content: Template...) -&gt; Template</code>: Insert
+  <code>separator</code> between <code>content</code>s.</li>
+<li><code>separate(separator: Template, content: Template...) -&gt; Template</code>: Insert
+  <code>separator</code> between <strong>non-empty</strong> <code>content</code>s.</li>
+<li><code>surround(prefix: Template, suffix: Template, content: Template) -&gt; Template</code>:
+  Surround <strong>non-empty</strong> content with texts such as parentheses.</li>
+<li><code>config(name: Stringify) -&gt; Option&lt;ConfigValue&gt;</code>: Look up configuration
+   value by <code>name</code>.</li>
+<li><code>git_web_url([remote: String]) -&gt; String</code>: Best-effort conversion of a git
+  remote URL to an HTTPS web URL. Defaults to the "origin" remote. Returns an
+  empty string on failure. SSH host alias resolution is currently unsupported.</li>
+</ul>
+<h2 id="types">Types<a class="headerlink" href="#types" title="Permanent link">&para;</a></h2>
+<h3 id="annotationline-type"><code>AnnotationLine</code> type<a class="headerlink" href="#annotationline-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: no, <code>Template</code>: no</em></p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code>.commit() -&gt; Commit</code>: Commit responsible for changing the relevant line.</li>
+<li><code>.content() -&gt; ByteString</code>: Line content including newline character.</li>
+<li><code>.line_number() -&gt; Integer</code>: 1-based line number.</li>
+<li><code>.original_line_number() -&gt; Integer</code>: 1-based line number in the original commit.</li>
+<li><code>.first_line_in_hunk() -&gt; Boolean</code>: False when the directly preceding line
+  references the same commit.</li>
+</ul>
+<h3 id="any-type"><code>Any</code> type<a class="headerlink" href="#any-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: maybe, <code>Template</code>: maybe</em></p>
+<p>All types can be implicitly converted to <code>Any</code>. No methods are defined.</p>
+<h3 id="anylist-type"><code>AnyList</code> type<a class="headerlink" href="#anylist-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: maybe, <code>Template</code>: maybe</em></p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code>.join(separator: Template) -&gt; Template</code>: Concatenate elements with
+  the given <code>separator</code>.</li>
+</ul>
+<h3 id="boolean-type"><code>Boolean</code> type<a class="headerlink" href="#boolean-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: yes, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
+<p>No methods are defined. Can be constructed with <code>false</code> or <code>true</code> literal.</p>
+<h3 id="bytestring-type"><code>ByteString</code> type<a class="headerlink" href="#bytestring-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: yes, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
+<p>A byte string, whose encoding is considered ASCII-compatible (e.g. UTF-8), but
+isn't guaranteed. This can be implicitly converted to <code>Boolean</code>. The following
+methods are defined.</p>
+<ul>
+<li><code>.len() -&gt; Integer</code>: Length in bytes.</li>
+<li><code>.contains(needle: ByteStringify) -&gt; Boolean</code>: Whether the string contains the
+  provided stringifiable value as a substring.</li>
+<li>
+<p><code>.match(needle: StringPattern) -&gt; ByteString</code>: Extract the first matching part
+  of the string for the given pattern.</p>
+<p>An empty string is returned if there is no match.</p>
+</li>
+<li>
+<p><code>.starts_with(needle: ByteStringify) -&gt; Boolean</code>: Whether <code>needle</code> is a
+  prefix of the string.</p>
+</li>
+<li><code>.ends_with(needle: ByteStringify) -&gt; Boolean</code>: Whether <code>needle</code> is a suffix
+  of the string.</li>
+<li><code>.remove_prefix(needle: ByteStringify) -&gt; ByteString</code>: Remove the passed
+  prefix, if present.</li>
+<li><code>.remove_suffix(needle: ByteStringify) -&gt; ByteString</code>: Remove the passed
+  suffix, if present.</li>
+<li><code>.trim() -&gt; ByteString</code>: Remove leading and trailing ASCII whitespace.</li>
+<li><code>.trim_start() -&gt; ByteString</code>: Remove leading ASCII whitespace.</li>
+<li><code>.trim_end() -&gt; ByteString</code>: Remove trailing ASCII whitespace.</li>
+<li><code>.substr(start: Integer, [end: Integer]) -&gt; ByteString</code>: Extract substring.
+  Indices are 0-based and <code>end</code> is exclusive. Negative values count from the end
+  of the string, with <code>-1</code> being the last byte. If <code>end</code> is not given, returns
+  from <code>start</code> to the end of the string.</li>
+<li><code>.first_line() -&gt; ByteString</code></li>
+<li><code>.lines() -&gt; List&lt;ByteString&gt;</code>: Split into lines excluding newline characters.</li>
+<li><code>.split(separator: StringPattern, [limit: Integer]) -&gt; List&lt;ByteString&gt;</code>:
+  Split into substrings by the given <code>separator</code> pattern. If <code>limit</code> is
+  specified, it determines the maximum number of elements in the result, with
+  the remainder of the string returned as the final element. A <code>limit</code> of 0
+  returns an empty list.</li>
+<li>
+<p><code>.replace(pattern: StringPattern, replacement: ByteStringify, [limit:
+  Integer]) -&gt; ByteString</code>: Replace occurrences of the given <code>pattern</code> with the
+  <code>replacement</code> string.</p>
+<p>By default, all occurrences are replaced. If <code>limit</code> is specified, at most
+that many occurrences are replaced.</p>
+<p>Supports capture groups in patterns using <code>$0</code> (entire match), <code>$1</code>, <code>$2</code> etc.</p>
+</li>
+<li>
+<p><code>.upper() -&gt; ByteString</code>: Map each ASCII character to upper case.</p>
+</li>
+<li><code>.lower() -&gt; ByteString</code>: Map each ASCII character to lower case.</li>
+</ul>
+<h3 id="bytestringify-type"><code>ByteStringify</code> type<a class="headerlink" href="#bytestringify-type" title="Permanent link">&para;</a></h3>
+<p>An expression that can be converted to a <code>ByteString</code>.</p>
+<p>A <code>String</code> can be converted to a <code>ByteString</code> losslessly. Any types that can be
+converted to <code>Template</code> can also be <code>ByteStringify</code>. Unlike <code>Template</code>, color
+labels are stripped.</p>
+<h3 id="changeid-type"><code>ChangeId</code> type<a class="headerlink" href="#changeid-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code>.normal_hex() -&gt; String</code>: Normal hex representation (0-9a-f) instead of the
+  canonical "reversed" (z-k) representation.</li>
+<li><code>.short([len: Integer]) -&gt; String</code></li>
+<li><code>.shortest([min_len: Integer]) -&gt; ShortestIdPrefix</code>: Shortest unique prefix.</li>
+</ul>
+<h3 id="commit-type"><code>Commit</code> type<a class="headerlink" href="#commit-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: no</em></p>
+<p>This type cannot be printed. The following methods are defined.</p>
+<ul>
+<li><code>.description() -&gt; String</code>: Usually ends with a trailing <code>\n</code>, if non-blank.</li>
+<li><code>.trailers() -&gt; List&lt;Trailer&gt;</code>: The trailers at the end of the commit
+  description that are formatted as <code>&lt;key&gt;: &lt;value&gt;</code>. These are returned in the
+  same order as they appear in the description, and there may be multiple
+  <code>Trailer</code>s with the same key.</li>
+<li><code>.change_id() -&gt; ChangeId</code></li>
+<li><code>.commit_id() -&gt; CommitId</code></li>
+<li><code>.parents() -&gt; List&lt;Commit&gt;</code></li>
+<li><code>.author() -&gt; Signature</code></li>
+<li><code>.committer() -&gt; Signature</code></li>
+<li><code>.signature() -&gt; Option&lt;CryptographicSignature&gt;</code>: Cryptographic signature if
+  the commit was signed.</li>
+<li><code>.mine() -&gt; Boolean</code>: Commits where the author's email matches the email of
+  the current user.</li>
+<li><code>.working_copies() -&gt; List&lt;WorkspaceRef&gt;</code>: For multi-workspace repositories,
+  returns a list of workspace references for each workspace whose working-copy
+  commit matches the current commit.</li>
+<li><code>.current_working_copy() -&gt; Boolean</code>: True for the working-copy commit of the
+  current workspace.</li>
+<li><code>.bookmarks() -&gt; List&lt;CommitRef&gt;</code>: Local and remote bookmarks pointing to the
+  commit. A tracked remote bookmark will be included only if its target is
+  different from the local one.</li>
+<li><code>.local_bookmarks() -&gt; List&lt;CommitRef&gt;</code>: All local bookmarks pointing to the
+  commit.</li>
+<li><code>.remote_bookmarks() -&gt; List&lt;CommitRef&gt;</code>: All remote bookmarks pointing to the
+  commit.</li>
+<li><code>.tags() -&gt; List&lt;CommitRef&gt;</code>: Local and remote tags pointing to the commit. A
+  tracked remote tag will be included only if its target is different from the
+  local one.</li>
+<li><code>.local_tags() -&gt; List&lt;CommitRef&gt;</code>: All local tags pointing to the commit.</li>
+<li><code>.remote_tags() -&gt; List&lt;CommitRef&gt;</code>: All remote tags pointing to the commit.</li>
+<li><code>.divergent() -&gt; Boolean</code>: True if the commit's change ID corresponds to multiple
+  visible commits.</li>
+<li><code>.hidden() -&gt; Boolean</code>: True if the commit is not visible (a.k.a. abandoned).</li>
+<li><code>.change_offset() -&gt; Option&lt;Integer&gt;</code>: The <a href="../glossary/#change-offset">change offset</a>
+  of this commit. May not be available for some commits.</li>
+<li><code>.immutable() -&gt; Boolean</code>: True if the commit is included in <a href="../config/#set-of-immutable-commits">the set of
+  immutable commits</a>.</li>
+<li><code>.contained_in(revset: StringLiteral) -&gt; Boolean</code>: True if the commit is included in
+  <a href="../revsets/">the provided revset</a>.</li>
+<li><code>.conflict() -&gt; Boolean</code>: True if the commit contains merge conflicts.</li>
+<li><code>.empty() -&gt; Boolean</code>: True if the commit modifies no files.</li>
+<li><code>.diff([files: StringLiteral]) -&gt; TreeDiff</code>: Changes from the parents within <a href="../filesets/">the
+  <code>files</code> expression</a>. All files are compared by default, but it is
+  likely to change in future version to respect the command line path arguments.</li>
+<li><code>.files([files: StringLiteral]) -&gt; List&lt;TreeEntry&gt;</code>: Files that exist in this commit,
+  matching <a href="../filesets/">the <code>files</code> expression</a>. Use <code>.diff().files()</code> to list
+  changed files.</li>
+<li><code>.conflicted_files() -&gt; List&lt;TreeEntry&gt;</code>: Conflicted files in this commit.</li>
+<li><code>.root() -&gt; Boolean</code>: True if the commit is the root commit.</li>
+</ul>
+<h3 id="commitevolutionentry-type"><code>CommitEvolutionEntry</code> type<a class="headerlink" href="#commitevolutionentry-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: no</em></p>
+<p>This type cannot be printed. The following methods are defined.</p>
+<ul>
+<li><code>.commit() -&gt; Commit</code>: New commit.</li>
+<li><code>.operation() -&gt; Operation</code>: Operation where the commit was created or
+  rewritten.</li>
+<li><code>.predecessors() -&gt; List&lt;Commit&gt;</code>: Predecessor commits of this entry.</li>
+<li><code>.inter_diff([files: StringLiteral]) -&gt; TreeDiff</code>: Changes between this commit and its
+  predecessor version(s), rebased onto the parents of this commit to avoid unrelated
+  changes (similar to <code>jj evolog -p</code>).</li>
+</ul>
+<h3 id="commitid-type"><code>CommitId</code> type<a class="headerlink" href="#commitid-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code>.short([len: Integer]) -&gt; String</code></li>
+<li><code>.shortest([min_len: Integer]) -&gt; ShortestIdPrefix</code>: Shortest unique prefix.</li>
+</ul>
+<h3 id="commitref-type"><code>CommitRef</code> type<a class="headerlink" href="#commitref-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code>.name() -&gt; RefSymbol</code>: Local bookmark or tag name.</li>
+<li><code>.remote() -&gt; Option&lt;RefSymbol&gt;</code>: Remote name if this is a remote ref.</li>
+<li><code>.present() -&gt; Boolean</code>: True if the ref points to any commit.</li>
+<li><code>.conflict() -&gt; Boolean</code>: True if <a href="../bookmarks/#conflicts">the bookmark or tag is
+  conflicted</a>.</li>
+<li><code>.normal_target() -&gt; Option&lt;Commit&gt;</code>: Target commit if the ref is not
+  conflicted and points to a commit.</li>
+<li><code>.removed_targets() -&gt; List&lt;Commit&gt;</code>: Old target commits if conflicted.</li>
+<li><code>.added_targets() -&gt; List&lt;Commit&gt;</code>: New target commits. The list usually
+  contains one "normal" target.</li>
+<li><code>.tracked() -&gt; Boolean</code>: True if the ref is tracked by a local ref. The local
+  ref might have been deleted (but not pushed yet.)</li>
+<li><code>.tracking_present() -&gt; Boolean</code>: True if the ref is tracked by a local ref,
+    and if the local ref points to any commit.</li>
+<li><code>.tracking_ahead_count() -&gt; SizeHint</code>: Number of commits ahead of the tracking
+  local ref.</li>
+<li><code>.tracking_behind_count() -&gt; SizeHint</code>: Number of commits behind of the
+  tracking local ref.</li>
+<li><code>.synced() -&gt; Boolean</code>: For a local bookmark, true if synced with all tracked
+  remotes. For a remote bookmark, true if synced with the tracking local
+  bookmark.</li>
+</ul>
+<h3 id="configvalue-type"><code>ConfigValue</code> type<a class="headerlink" href="#configvalue-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
+<p>This type can be printed in TOML syntax. The following methods are defined.</p>
+<ul>
+<li><code>.as_boolean() -&gt; Boolean</code>: Extract boolean.</li>
+<li><code>.as_integer() -&gt; Integer</code>: Extract integer.</li>
+<li><code>.as_string() -&gt; String</code>: Extract string. This does not convert non-string
+  value (e.g. integer) to string.</li>
+<li><code>.as_string_list() -&gt; List&lt;String&gt;</code>: Extract list of strings.</li>
+</ul>
+<h3 id="cryptographicsignature-type"><code>CryptographicSignature</code> type<a class="headerlink" href="#cryptographicsignature-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: no, <code>Template</code>: no</em></p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code>.status() -&gt; String</code>: The signature's status (<code>"good"</code>, <code>"bad"</code>, <code>"unknown"</code>,
+  <code>"invalid"</code>).</li>
+<li><code>.key() -&gt; String</code>: The signature's key id representation (for GPG and SSH,
+  this is the public key fingerprint).</li>
+<li><code>.display() -&gt; String</code>: The signature's display string (for GPG, this is the
+  formatted primary user ID; for SSH, this is the principal).</li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Calling any of <code>.status()</code>, <code>.key()</code>, or <code>.display()</code> is slow, as it incurs
+the performance cost of verifying the signature (for example shelling out
+to <code>gpg</code> or <code>ssh-keygen</code>). Though consecutive calls will be faster, because
+the backend caches the verification result.</p>
+</div>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>As opposed to calling any of <code>.status()</code>, <code>.key()</code>, or <code>.display()</code>,
+checking for signature presence through boolean coercion is fast:
+<div class="highlight"><pre><span></span><code>if(commit.signature(), &quot;commit has a signature&quot;, &quot;commit is unsigned&quot;)
+</code></pre></div></p>
+</div>
+<h3 id="diffstatentry-type"><code>DiffStatEntry</code> type<a class="headerlink" href="#diffstatentry-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: no, <code>Template</code>: no</em></p>
+<p>This type holds the diff stats per file. The following methods are defined.</p>
+<ul>
+<li><code>.bytes_delta() -&gt; Integer</code>: The difference in size of the file, in bytes.</li>
+<li><code>.lines_added() -&gt; Integer</code>: Number of lines added.</li>
+<li><code>.lines_removed() -&gt; Integer</code>: Number of lines deleted.</li>
+<li><code>.path() -&gt; RepoPath</code>: Path to the entry. If the entry is a copy / rename, this
+  points to the target (or right) entry.</li>
+<li><code>.display_diff_path() -&gt; String</code>: Format path for display, taking into account copy / rename information.</li>
+<li><code>.status() -&gt; String</code>: One of <code>"modified"</code>, <code>"added"</code>, <code>"removed"</code>, <code>"copied"</code>, or <code>"renamed"</code>.</li>
+<li><code>.status_char() -&gt; String</code>: One of <code>"M"</code> (modified), <code>"A"</code> (added), <code>"D"</code> (removed),
+  <code>"C"</code> (copied), or <code>"R"</code> (renamed).</li>
+</ul>
+<h3 id="diffstats-type"><code>DiffStats</code> type<a class="headerlink" href="#diffstats-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: no, <code>Template</code>: yes</em></p>
+<p>This type can be printed as a histogram of the changes. The following methods
+are defined.</p>
+<ul>
+<li><code>.files() -&gt; List&lt;DiffStatEntry&gt;</code>: Per-file stats for changed files.</li>
+<li><code>.total_added() -&gt; Integer</code>: Total number of insertions.</li>
+<li><code>.total_removed() -&gt; Integer</code>: Total number of deletions.</li>
+</ul>
+<h3 id="email-type"><code>Email</code> type<a class="headerlink" href="#email-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: yes, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
+<p>The email field of a signature may or may not look like an email address. It may
+be empty, may not contain the symbol <code>@</code>, and could in principle contain
+multiple <code>@</code>s.</p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code>.local() -&gt; String</code>: the part of the email before the first <code>@</code>, usually the
+  username.</li>
+<li><code>.domain() -&gt; String</code>: the part of the email after the first <code>@</code> or the empty
+  string.</li>
+</ul>
+<h3 id="integer-type"><code>Integer</code> type<a class="headerlink" href="#integer-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
+<p>No methods are defined.</p>
+<h3 id="list-type"><code>List</code> type<a class="headerlink" href="#list-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: yes, <code>Serialize</code>: maybe, <code>Template</code>: maybe</em></p>
+<p>A list can be implicitly converted to <code>Boolean</code>. The following methods are
+defined.</p>
+<ul>
+<li><code>.len() -&gt; Integer</code>: Number of elements in the list.</li>
+<li><code>.join(separator: Template) -&gt; Template</code>: Concatenate elements with
+  the given <code>separator</code>.</li>
+<li><code>.filter(|item| expression) -&gt; List</code>: Filter list elements by predicate
+  <code>expression</code>. Example: <code>description.lines().filter(|s| s.contains("#"))</code></li>
+<li><code>.map(|item| expression) -&gt; AnyList</code>: Apply template <code>expression</code>
+  to each element. Example: <code>parents.map(|c| c.commit_id().short())</code></li>
+<li><code>.any(|item| expression) -&gt; Boolean</code>: Returns true if any element satisfies
+  the predicate <code>expression</code>. Example: <code>parents.any(|c| c.description().contains("fix"))</code></li>
+<li><code>.all(|item| expression) -&gt; Boolean</code>: Returns true if all elements satisfy
+  the predicate <code>expression</code>. Example: <code>parents.all(|c| c.mine())</code></li>
+<li><code>.first() -&gt; T</code>: Returns the first element. Errors if the list is empty.</li>
+<li><code>.last() -&gt; T</code>: Returns the last element. Errors if the list is empty.</li>
+<li><code>.get(index: Integer) -&gt; T</code>: Returns the element at <code>index</code> (0-based). Errors
+  if the index is out of bounds.</li>
+<li><code>.reverse() -&gt; List</code>: Returns the list in reverse order.</li>
+<li><code>.skip(count: Integer) -&gt; List</code>: Skips the first <code>count</code> elements and
+  returns the rest.</li>
+<li><code>.take(count: Integer) -&gt; List</code>: Returns only the first <code>count</code> elements.</li>
+</ul>
+<h3 id="listtrailer-type"><code>List&lt;Trailer&gt;</code> type<a class="headerlink" href="#listtrailer-type" title="Permanent link">&para;</a></h3>
+<p>The following methods are defined. See also the <code>List</code> type.</p>
+<ul>
+<li><code>.contains_key(key: Stringify) -&gt; Boolean</code>: True if the commit description
+  contains at least one trailer with the key <code>key</code>.</li>
+</ul>
+<h3 id="operation-type"><code>Operation</code> type<a class="headerlink" href="#operation-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: no</em></p>
+<p>This type cannot be printed. The following methods are defined.</p>
+<ul>
+<li><code>.current_operation() -&gt; Boolean</code></li>
+<li><code>.description() -&gt; String</code></li>
+<li><code>.id() -&gt; OperationId</code></li>
+<li><code>.attributes() -&gt; String</code></li>
+<li><code>.time() -&gt; TimestampRange</code></li>
+<li><code>.user() -&gt; String</code></li>
+<li><code>.snapshot() -&gt; Boolean</code>: True if the operation is a snapshot operation.</li>
+<li><code>.workspace_name() -&gt; String</code>: The name of the workspace the operation was
+  created from. An empty string if the operation wasn't created from a
+  workspace.</li>
+<li><code>.root() -&gt; Boolean</code>: True if the operation is the root operation.</li>
+<li><code>.parents() -&gt; List&lt;Operation&gt;</code></li>
+</ul>
+<h3 id="operationid-type"><code>OperationId</code> type<a class="headerlink" href="#operationid-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code>.short([len: Integer]) -&gt; String</code></li>
+</ul>
+<h3 id="option-type"><code>Option</code> type<a class="headerlink" href="#option-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: yes, <code>Serialize</code>: maybe, <code>Template</code>: maybe</em></p>
+<p>An option can be implicitly converted to <code>Boolean</code> denoting whether the
+contained value is set. If set, all methods of the contained value can be
+invoked. If not set, an error will be reported inline on method call.</p>
+<p>On comparison between two optional values or optional and non-optional values,
+unset value is not an error. Unset value is considered less than any set values.</p>
+<h3 id="refsymbol-type"><code>RefSymbol</code> type<a class="headerlink" href="#refsymbol-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
+<p><a href="#string-type">A <code>String</code> type</a>, but is formatted as revset symbol by quoting
+and escaping if necessary. Unlike strings, this cannot be implicitly converted
+to <code>Boolean</code>.</p>
+<h3 id="regexcaptures-type"><code>RegexCaptures</code> type<a class="headerlink" href="#regexcaptures-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: no, <code>Template</code>: no</em></p>
+<p>This type is passed to the replacement lambda of the global
+<a href="#global-functions"><code>replace()</code></a> function.</p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code>.len() -&gt; Integer</code>: Number of capture groups, including capture group 0 for
+  the full match.</li>
+<li><code>.get(index: Integer) -&gt; ByteString</code>: Returns the capture group at <code>index</code>.
+  Capture group 0 is the full match. Errors if the index is out of bounds.</li>
+<li><code>.name(name: Stringify) -&gt; ByteString</code>: Returns the named capture group
+  <code>name</code>. Errors if there is no such named capture group.</li>
+</ul>
+<h3 id="repopath-type"><code>RepoPath</code> type<a class="headerlink" href="#repopath-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
+<p>A slash-separated path relative to the repository root. The following methods
+are defined.</p>
+<ul>
+<li><code>.absolute() -&gt; String</code>: Format as absolute path using platform-native
+  separator.</li>
+<li><code>.display() -&gt; String</code>: Format path for display. The formatted path uses
+  platform-native separator, and is relative to the current working directory.</li>
+<li><code>.parent() -&gt; Option&lt;RepoPath&gt;</code>: Parent directory path.</li>
+</ul>
+<h3 id="serialize-type"><code>Serialize</code> type<a class="headerlink" href="#serialize-type" title="Permanent link">&para;</a></h3>
+<p>An expression that can be serialized in machine-readable format such as JSON.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Field names and value types in the serialized output are usually stable
+across jj versions, but the backward compatibility isn't guaranteed. If the
+underlying data model is updated, the serialized output may change.</p>
+</div>
+<h3 id="shortestidprefix-type"><code>ShortestIdPrefix</code> type<a class="headerlink" href="#shortestidprefix-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code>.prefix() -&gt; String</code></li>
+<li><code>.rest() -&gt; String</code></li>
+<li><code>.upper() -&gt; ShortestIdPrefix</code></li>
+<li><code>.lower() -&gt; ShortestIdPrefix</code></li>
+</ul>
+<h3 id="signature-type"><code>Signature</code> type<a class="headerlink" href="#signature-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code>.name() -&gt; String</code></li>
+<li><code>.email() -&gt; Email</code></li>
+<li><code>.timestamp() -&gt; Timestamp</code></li>
+</ul>
+<h3 id="sizehint-type"><code>SizeHint</code> type<a class="headerlink" href="#sizehint-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: no</em></p>
+<p>This type cannot be printed. The following methods are defined.</p>
+<ul>
+<li><code>.lower() -&gt; Integer</code>: Lower bound.</li>
+<li><code>.upper() -&gt; Option&lt;Integer&gt;</code>: Upper bound if known.</li>
+<li><code>.exact() -&gt; Option&lt;Integer&gt;</code>: Exact value if upper bound is known and it
+  equals to the lower bound.</li>
+<li><code>.zero() -&gt; Boolean</code>: True if upper bound is known and is <code>0</code>. Equivalent to
+  <code>.upper() == 0</code>.</li>
+</ul>
+<h3 id="string-type"><code>String</code> type<a class="headerlink" href="#string-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: yes, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
+<p>A UTF-8-encoded string. This can be implicitly converted to <code>Boolean</code>. The
+following methods are defined.</p>
+<ul>
+<li><code>.len() -&gt; Integer</code>: Length in UTF-8 bytes.</li>
+<li><code>.contains(needle: Stringify) -&gt; Boolean</code>: Whether the string contains the
+  provided stringifiable value as a substring.</li>
+<li>
+<p><code>.match(needle: StringPattern) -&gt; String</code>: Extracts
+  the first matching part of the string for the given pattern.</p>
+<p>An empty string is returned if there is no match.</p>
+</li>
+<li>
+<p><code>.starts_with(needle: Stringify) -&gt; Boolean</code></p>
+</li>
+<li><code>.ends_with(needle: Stringify) -&gt; Boolean</code></li>
+<li><code>.remove_prefix(needle: Stringify) -&gt; String</code>: Removes the passed prefix, if
+  present.</li>
+<li><code>.remove_suffix(needle: Stringify) -&gt; String</code>: Removes the passed suffix, if
+  present.</li>
+<li><code>.trim() -&gt; String</code>: Removes leading and trailing whitespace</li>
+<li><code>.trim_start() -&gt; String</code>: Removes leading whitespace</li>
+<li><code>.trim_end() -&gt; String</code>: Removes trailing whitespace</li>
+<li><code>.substr(start: Integer, [end: Integer]) -&gt; String</code>: Extract substring. The
+  <code>start</code> / <code>end</code> indices should be specified in units of UTF-8 bytes. Indices are
+  0-based and <code>end</code> is exclusive. Negative values count from the end of the
+  string, with <code>-1</code> being the last byte. If the <code>start</code> index is in the middle
+  of a UTF-8 codepoint, the codepoint is fully part of the result. If the <code>end</code>
+  index is in the middle of a UTF-8 codepoint, the codepoint is not part of the
+  result. If <code>end</code> is not given, returns from <code>start</code> to the end of the string.</li>
+<li><code>.first_line() -&gt; String</code></li>
+<li><code>.lines() -&gt; List&lt;String&gt;</code>: Split into lines excluding newline characters.</li>
+<li><code>.split(separator: StringPattern, [limit: Integer]) -&gt; List&lt;String&gt;</code>: Split
+  into substrings by the given <code>separator</code> pattern. If <code>limit</code> is specified, it
+  determines the maximum number of elements in the result, with the remainder of
+  the string returned as the final element. A <code>limit</code> of 0 returns an empty
+  list.</li>
+<li>
+<p><code>.replace(pattern: StringPattern, replacement: Stringify, [limit: Integer]) -&gt;
+  String</code>: Replace occurrences of the given <code>pattern</code> with the <code>replacement</code>
+  string.</p>
+<p>By default, all occurrences are replaced. If <code>limit</code> is specified, at most
+that many occurrences are replaced.</p>
+<p>Supports capture groups in patterns using <code>$0</code> (entire match), <code>$1</code>, <code>$2</code> etc.</p>
+</li>
+<li>
+<p><code>.upper() -&gt; String</code></p>
+</li>
+<li><code>.lower() -&gt; String</code></li>
+<li><code>.escape_json() -&gt; String</code>: Serializes the string in JSON format. This
+  function is useful for making machine-readable templates. For example, you
+  can use it in a template like <code>'{ "foo": ' ++ foo.escape_json() ++ ' }'</code> to
+  return a JSON/JSONL.</li>
+</ul>
+<h3 id="stringify-type"><code>Stringify</code> type<a class="headerlink" href="#stringify-type" title="Permanent link">&para;</a></h3>
+<p>An expression that can be converted to a <code>String</code>.</p>
+<p>Any types that can be converted to <code>Template</code> can also be <code>Stringify</code>. Unlike
+<code>Template</code>, color labels are stripped. Invalid UTF-8 sequences are rejected.</p>
+<h3 id="stringliteral-type"><code>StringLiteral</code> type<a class="headerlink" href="#stringliteral-type" title="Permanent link">&para;</a></h3>
+<p>A string literal known at parse time. Unlike <code>Stringify</code>, this cannot be a
+dynamic expression - it must be a literal value like <code>"main"</code> or <code>"format"</code>.</p>
+<p>String literals must be surrounded by single or double quotes (<code>'</code> or <code>"</code>).
+A double-quoted string literal supports the following escape sequences:</p>
+<ul>
+<li><code>\"</code>: double quote</li>
+<li><code>\\</code>: backslash</li>
+<li><code>\t</code>: horizontal tab</li>
+<li><code>\r</code>: carriage return</li>
+<li><code>\n</code>: new line</li>
+<li><code>\0</code>: null</li>
+<li><code>\e</code>: escape (i.e., <code>\x1b</code>)</li>
+<li><code>\xHH</code>: byte with hex value <code>HH</code></li>
+</ul>
+<p>Other escape sequences are not supported. Any UTF-8 characters are allowed
+inside a string literal, with two exceptions: unescaped <code>"</code>-s and uses of <code>\</code>
+that don't form a valid escape sequence.</p>
+<p>A single-quoted string literal has no escape syntax. <code>'</code> can't be expressed
+inside a single-quoted string literal.</p>
+<p>String literals have their own type so that the value can be validated at parse
+time. For example, <code>contained_in(revset)</code> requires a literal so the revset can
+be parsed and checked before the template is evaluated.</p>
+<h3 id="stringpattern-type"><code>StringPattern</code> type<a class="headerlink" href="#stringpattern-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: no, <code>Template</code>: no</em></p>
+<p>These are the exact same as the <a href="../revsets/#string-patterns">String pattern type</a> in revsets, except that
+quotes are mandatory.</p>
+<p>Literal strings may be used, which are interpreted as case-sensitive substring
+matching.</p>
+<p>Currently <code>StringPattern</code> values cannot be passed around as values and may
+only occur directly in the call site they are used in.</p>
+<h3 id="template-type"><code>Template</code> type<a class="headerlink" href="#template-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: no, <code>Template</code>: yes</em></p>
+<p>Most types can be implicitly converted to <code>Template</code>. No methods are defined.</p>
+<h3 id="timestamp-type"><code>Timestamp</code> type<a class="headerlink" href="#timestamp-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code>.ago() -&gt; String</code>: Format as relative timestamp.</li>
+<li><code>.format(format: Stringify) -&gt; String</code>: Format with <a href="https://docs.rs/chrono/latest/chrono/format/strftime/">the specified strftime-like
+  format string</a>.</li>
+<li><code>.utc() -&gt; Timestamp</code>: Convert timestamp into UTC timezone.</li>
+<li><code>.local() -&gt; Timestamp</code>: Convert timestamp into local timezone.</li>
+<li><code>.after(date: StringLiteral) -&gt; Boolean</code>: True if the timestamp is exactly at or
+  after the given date. Supported date formats are the same as the revset
+  <a href="../revsets/#date-patterns">Date pattern type</a>.</li>
+<li><code>.before(date: StringLiteral) -&gt; Boolean</code>: True if the timestamp is before, but
+  not including, the given date. Supported date formats are the same as the
+  revset <a href="../revsets/#date-patterns">Date pattern type</a>.</li>
+<li><code>.since(start: Timestamp) -&gt; TimestampRange</code>: The TimestampRange between <code>start</code> and
+  <code>self</code>. It may be used in conjunction with <code>TimestampRange::duration</code> to obtain
+  a human-friendly duration between two <code>Timestamp</code>s.</li>
+</ul>
+<h3 id="timestamprange-type"><code>TimestampRange</code> type<a class="headerlink" href="#timestamprange-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code>.start() -&gt; Timestamp</code></li>
+<li><code>.end() -&gt; Timestamp</code></li>
+<li><code>.duration() -&gt; String</code></li>
+</ul>
+<h3 id="trailer-type"><code>Trailer</code> type<a class="headerlink" href="#trailer-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: no, <code>Template</code>: yes</em></p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code>.key() -&gt; String</code></li>
+<li><code>.value() -&gt; String</code></li>
+</ul>
+<h3 id="treediff-type"><code>TreeDiff</code> type<a class="headerlink" href="#treediff-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: no, <code>Template</code>: no</em></p>
+<p>This type cannot be printed. The following methods are defined.</p>
+<ul>
+<li><code>.files() -&gt; List&lt;TreeDiffEntry&gt;</code>: Changed files.</li>
+<li><code>.color_words([context: Integer]) -&gt; Template</code>: Format as a word-level diff
+  with changes indicated only by color.</li>
+<li><code>.git([context: Integer]) -&gt; Template</code>: Format as a Git diff.</li>
+<li><code>.stat([width: Integer]) -&gt; DiffStats</code>: Calculate stats of changed lines.</li>
+<li><code>.summary() -&gt; Template</code>: Format as a list of status code and path pairs.</li>
+</ul>
+<h3 id="treediffentry-type"><code>TreeDiffEntry</code> type<a class="headerlink" href="#treediffentry-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: no, <code>Template</code>: no</em></p>
+<p>This type cannot be printed. The following methods are defined.</p>
+<ul>
+<li><code>.path() -&gt; RepoPath</code>: Path to the entry. If the entry is a copy / rename, this
+  points to the target (or right) entry.</li>
+<li><code>.display_diff_path() -&gt; String</code>: Format path for display, taking into account copy / rename information.</li>
+<li><code>.status() -&gt; String</code>: One of <code>"modified"</code>, <code>"added"</code>, <code>"removed"</code>,
+  <code>"copied"</code>, or <code>"renamed"</code>.</li>
+<li><code>.status_char() -&gt; String</code>: Single-character status indicator: <code>"M"</code> for modified,
+  <code>"A"</code> for added, <code>"D"</code> for removed, <code>"C"</code> for copied, or <code>"R"</code> for renamed.</li>
+<li><code>.source() -&gt; TreeEntry</code>: The source (or left) entry.</li>
+<li><code>.target() -&gt; TreeEntry</code>: The target (or right) entry.</li>
+</ul>
+<h3 id="treeentry-type"><code>TreeEntry</code> type<a class="headerlink" href="#treeentry-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: no, <code>Template</code>: no</em></p>
+<p>This type cannot be printed. The following methods are defined.</p>
+<ul>
+<li><code>.path() -&gt; RepoPath</code>: Path to the entry.</li>
+<li><code>.conflict() -&gt; Boolean</code>: True if the entry is a merge conflict.</li>
+<li><code>.conflict_side_count() -&gt; Integer</code>: Number of sides in the merge conflict (1 if not
+  conflicted, 2 or more for multi-way merges).</li>
+<li><code>.file_type() -&gt; String</code>: One of <code>"file"</code>, <code>"symlink"</code>, <code>"tree"</code>,
+  <code>"git-submodule"</code>, or <code>"conflict"</code>.</li>
+<li><code>.executable() -&gt; Boolean</code>: True if the entry is an executable file.</li>
+</ul>
+<h3 id="workspaceref-type"><code>WorkspaceRef</code> type<a class="headerlink" href="#workspaceref-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code>.name() -&gt; RefSymbol</code>: Returns the workspace name as a symbol.</li>
+<li><code>.target() -&gt; Commit</code>: Returns the working-copy commit of this workspace.</li>
+<li><code>.root() -&gt; Template</code>: Returns the absolute path to the workspace root.</li>
+</ul>
+<h2 id="color-labels">Color labels<a class="headerlink" href="#color-labels" title="Permanent link">&para;</a></h2>
+<p>You can <a href="../config/#custom-colors-and-styles">customize the output colors</a> by using color labels. <code>jj</code>
+adds some labels automatically; they can also be added manually.</p>
+<p>Template fragments are usually <strong>automatically</strong> labeled with the command name,
+the context (or the top-level object), and the method names. For example, the
+following template is labeled as <code>op_log operation id short</code> automatically:</p>
+<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>op<span class="w"> </span>log<span class="w"> </span>-T<span class="w"> </span><span class="s1">&#39;self.id().short()&#39;</span>
+</code></pre></div>
+<p>The exact names of such labels are often straightforward, but are not currently
+documented. You can discover the actual label names used with the
+<code>--color=debug</code> option, e.g.</p>
+<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>op<span class="w"> </span>log<span class="w"> </span>-T<span class="w"> </span><span class="s1">&#39;self.id().short()&#39;</span><span class="w"> </span>--color<span class="o">=</span>debug
+</code></pre></div>
+<p>Additionally, you can <strong>manually</strong> insert arbitrary labels using the
+<code>label(label, content)</code> function. For example,</p>
+<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>op<span class="w"> </span>log<span class="w"> </span>-T<span class="w"> </span><span class="s1">&#39;&quot;ID: &quot; ++ self.id().short().substr(0, 1) ++ label(&quot;id short&quot;, &quot;&lt;redacted&gt;&quot;)&#39;</span>
+</code></pre></div>
+<p>will print "ID:" in the default style, and the string <code>&lt;redacted&gt;</code> in the same
+style as the first character of the id. It would also be fine to use an
+arbitrary template instead of the string <code>"&lt;redacted&gt;"</code>, possibly including
+nested invocations of <code>label()</code>.</p>
+<p>You are free to use custom label names as well. This will only have a visible
+effect if you also <a href="../config/#custom-colors-and-styles">customize their colors</a> explicitly.</p>
+<h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
+<p>The default templates and aliases() are defined in the <code>[templates]</code> and
+<code>[template-aliases]</code> sections of the config respectively. The exact definitions
+can be seen in the <a href="https://github.com/jj-vcs/jj/blob/main/cli/src/config/templates.toml"><code>cli/src/config/templates.toml</code></a> file in jj's source
+tree.</p>
+<!--- TODO: Find a way to embed the default config files in the docs -->
+
+<p>New keywords, functions, and <code>&lt;name&gt;:&lt;value&gt;</code> patterns can be defined as
+aliases, by using any combination of the predefined keywords/functions and other
+aliases.</p>
+<p>Alias functions can be overloaded by the number of parameters. However, builtin
+functions will be shadowed by name, and can't co-exist with aliases.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[template-aliases]</span>
+<span class="n">sh</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;commit_id.short()&quot;</span>
+<span class="s1">&#39;commit_change_ids&#39;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;&#39;</span>
+<span class="s1">concat(</span>
+<span class="s1">  format_field(&quot;Commit ID&quot;, commit_id),</span>
+<span class="s1">  format_field(&quot;Change ID&quot;, change_id),</span>
+<span class="s1">)</span>
+<span class="s1">&#39;&#39;&#39;</span>
+</code></pre></div>
+<h3 id="alias-descriptions">Alias descriptions<a class="headerlink" href="#alias-descriptions" title="Permanent link">&para;</a></h3>
+<p>Alias descriptions can be surfaced in shell completions by defining the alias
+as a table with <code>.doc</code> and <code>.definition</code> properties. For example:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[template-aliases]</span>
+<span class="n">sh</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">definition</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s1">&#39;commit_id.short()&#39;</span><span class="p">,</span><span class="w"> </span><span class="n">doc</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s1">&#39;Short commit ID&#39;</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<p>You can also use the dotted key syntax:</p>
+<p><div class="highlight"><pre><span></span><code><span class="k">[template-aliases]</span>
+<span class="n">sh</span><span class="p">.</span><span class="n">definition</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;commit_id.short()&#39;</span>
+<span class="n">sh</span><span class="p">.</span><span class="n">doc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;Short commit ID&#39;</span>
+</code></pre></div>
+'format_field(key, value)' = 'key ++ ": " ++ value ++ "\n"'
+'json:x' = 'json(x) ++ "\n"'
+<div class="highlight"><pre><span></span><code>## Examples
+
+Get short commit IDs of the working-copy parents:
+
+```sh
+jj log -G -r @ -T &#39;parents.map(|c| c.commit_id().short()).join(&quot;,&quot;)&#39;
+</code></pre></div></p>
+<p>Show machine-readable list of full commit and change IDs:</p>
+<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>log<span class="w"> </span>-G<span class="w"> </span>-T<span class="w"> </span><span class="s1">&#39;commit_id ++ &quot; &quot; ++ change_id ++ &quot;\n&quot;&#39;</span>
+</code></pre></div>
+<p>Print the description of the current commit, defaulting to <code>(no description set)</code>:</p>
+<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>log<span class="w"> </span>-G<span class="w"> </span>-r<span class="w"> </span>@<span class="w"> </span>-T<span class="w"> </span><span class="s1">&#39;coalesce(description, &quot;(no description set)\n&quot;)&#39;</span>
+</code></pre></div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "..", "features": ["content.action.edit", "content.code.copy", "content.tabs.link", "navigation.instant"], "search": "../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.f55a23d4.min.js"></script>
+      
+    
+  </body>
+</html>
