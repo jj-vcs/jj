@@ -20,7 +20,9 @@
   }:
     {
       overlays.default = final: prev: {
-        jujutsu = self.packages.${final.stdenv.hostPlatform.system}.jujutsu;
+        jujutsu = final.callPackage ./default.nix {
+          gitRev = self.rev or self.dirtyRev or null;
+        };
       };
     }
     // (flake-utils.lib.eachSystem nixpkgs.lib.systems.flakeExposed (system: let
