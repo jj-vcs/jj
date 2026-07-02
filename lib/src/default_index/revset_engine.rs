@@ -1005,6 +1005,55 @@ impl EvaluationContext<'_> {
                 }
                 Ok(Box::new(EagerRevset { positions }))
             }
+            ResolvedExpression::MergePoint {
+                expression,
+                visible_heads,
+            } => {
+                let mut root_position_iter = self.evaluate(expression)?.positions().attach(index);
+                let Some(position) = root_position_iter.next() else {
+                    return Ok(Box::new(EagerRevset::empty()));
+                };
+                let visible_head_positions = self
+                    .revset_for_commit_ids(visible_heads)?
+                    .positions()
+                    .attach(index)
+                    .try_collect()?;
+                let mut candidates = RevWalkBuilder::new(index)
+                    .wanted_heads(visible_head_positions)
+                    .descendants(maplit::hashset![position?])
+                    .collect_vec();
+                candidates.reverse();
+                for position in root_position_iter {
+                    let descendants = RevWalkBuilder::new(index)
+                        .wanted_heads(candidates.clone())
+                        .descendants(maplit::hashset![position?])
+                        .collect_vec();
+                    let intersection = intersection_by::<_, _, std::convert::Infallible, _, _, _>(
+                        EagerRevWalk::new(candidates.into_iter().map(Ok)),
+                        EagerRevWalk::new(descendants.into_iter().rev().map(Ok)),
+                        |a, b| a.cmp(b).reverse(),
+                    );
+                    candidates = intersection
+                        .attach(index)
+                        .try_collect()
+                        .unwrap_or_else(|e| match e {});
+                    if candidates.is_empty() {
+                        return Ok(Box::new(EagerRevset::empty()));
+                    }
+                }
+                let candidate_set: HashSet<_> = candidates.iter().copied().collect();
+                candidates.retain(|&pos| {
+                    !index
+                        .commits()
+                        .entry_by_pos(pos)
+                        .parent_positions()
+                        .iter()
+                        .any(|parent| candidate_set.contains(parent))
+                });
+                Ok(Box::new(EagerRevset {
+                    positions: candidates,
+                }))
+            }
             ResolvedExpression::Bisect(candidates) => {
                 let set = self.evaluate(candidates)?;
                 // TODO: Make this more correct in non-linear history
