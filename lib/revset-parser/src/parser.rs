@@ -44,6 +44,7 @@ use crate::dsl_util::FunctionCallParser;
 use crate::dsl_util::InvalidArguments;
 use crate::dsl_util::StringLiteralParser;
 use crate::dsl_util::collect_similar;
+pub use crate::fmt;
 use crate::ref_name::RefNameBuf;
 use crate::ref_name::RemoteNameBuf;
 use crate::ref_name::RemoteRefSymbolBuf;
@@ -198,7 +199,7 @@ pub enum RevsetParseErrorKind {
 }
 
 impl RevsetParseError {
-    pub(super) fn with_span(kind: RevsetParseErrorKind, span: pest::Span<'_>) -> Self {
+    pub fn with_span(kind: RevsetParseErrorKind, span: pest::Span<'_>) -> Self {
         let message = kind.to_string();
         let pest_error = Box::new(pest::error::Error::new_from_span(
             pest::error::ErrorVariant::CustomError { message },
@@ -211,10 +212,7 @@ impl RevsetParseError {
         }
     }
 
-    pub(super) fn with_source(
-        mut self,
-        source: impl Into<Box<dyn error::Error + Send + Sync>>,
-    ) -> Self {
+    pub fn with_source(mut self, source: impl Into<Box<dyn error::Error + Send + Sync>>) -> Self {
         self.source = Some(source.into());
         self
     }
@@ -226,7 +224,7 @@ impl RevsetParseError {
 
     /// If this is a `NoSuchFunction` error, expands the candidates list with
     /// the given `other_functions`.
-    pub(super) fn extend_function_candidates<I>(mut self, other_functions: I) -> Self
+    pub fn extend_function_candidates<I>(mut self, other_functions: I) -> Self
     where
         I: IntoIterator,
         I::Item: AsRef<str>,
@@ -733,7 +731,7 @@ impl AliasDefinitionParser for RevsetAliasParser {
     }
 }
 
-pub(super) fn expect_string_pattern<'a>(
+pub fn expect_string_pattern<'a>(
     type_name: &str,
     node: &'a ExpressionNode<'_>,
 ) -> Result<(&'a str, Option<&'a str>), RevsetParseError> {
@@ -763,7 +761,7 @@ pub fn expect_literal<T: FromStr>(
     })
 }
 
-pub(super) fn expect_string_literal<'a>(
+pub fn expect_string_literal<'a>(
     type_name: &str,
     node: &'a ExpressionNode<'_>,
 ) -> Result<&'a str, RevsetParseError> {
@@ -779,7 +777,7 @@ pub(super) fn expect_string_literal<'a>(
 
 /// Applies the given function to the innermost `node` by unwrapping alias
 /// expansion nodes. Appends alias expansion stack to error and diagnostics.
-pub(super) fn catch_aliases<'a, 'i, T>(
+pub fn catch_aliases<'a, 'i, T>(
     diagnostics: &mut RevsetDiagnostics,
     node: &'a ExpressionNode<'i>,
     f: impl FnOnce(&mut RevsetDiagnostics, &'a ExpressionNode<'i>) -> Result<T, RevsetParseError>,
@@ -831,7 +829,8 @@ mod tests {
 
     use super::*;
     use crate::dsl_util::KeywordArgument;
-    use crate::tests::TestResult;
+
+    type TestResult<T = ()> = eyre::Result<T>;
 
     #[derive(Debug)]
     struct WithRevsetAliasesMap<'i> {

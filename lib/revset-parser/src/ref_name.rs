@@ -16,18 +16,18 @@
 //!
 //! Name types can be constructed from a string:
 //! ```
-//! # use jj_lib::ref_name::*;
+//! # use jj_revset_parser::ref_name::*;
 //! let _: RefNameBuf = "main".into();
 //! let _: &RemoteName = "origin".as_ref();
 //! ```
 //!
 //! However, they cannot be converted to other name types:
 //! ```compile_fail
-//! # use jj_lib::ref_name::*;
+//! # use jj_revset_parser::ref_name::*;
 //! let _: RefNameBuf = RemoteName::new("origin").into();
 //! ```
 //! ```compile_fail
-//! # use jj_lib::ref_name::*;
+//! # use jj_revset_parser::ref_name::*;
 //! let _: &RemoteName = RefName::new("main").as_ref();
 //! ```
 
@@ -40,7 +40,8 @@ use ref_cast::RefCastCustom;
 use ref_cast::ref_cast_custom;
 
 use crate::content_hash::ContentHash;
-use crate::revset;
+use crate::fmt::format_remote_symbol;
+use crate::fmt::format_symbol;
 
 /// Owned Git ref name in fully-qualified form (e.g. `refs/heads/main`.)
 ///
@@ -333,7 +334,7 @@ impl RefSymbol {
 
 impl Display for RefSymbol {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.pad(&revset::format_symbol(&self.0))
+        f.pad(&format_symbol(&self.0))
     }
 }
 
@@ -420,6 +421,6 @@ impl Display for RemoteRefSymbolBuf {
 impl Display for RemoteRefSymbol<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let RemoteRefSymbol { name, remote } = self;
-        f.pad(&revset::format_remote_symbol(&name.0, &remote.0))
+        f.pad(&format_remote_symbol(&name.0, &remote.0))
     }
 }

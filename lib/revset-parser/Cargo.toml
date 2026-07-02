@@ -1,0 +1,35 @@
+[package]
+name = "jj-revset-parser"
+description = "Revset language parser for the jj-lib crate"
+autotests = false
+
+version = { workspace = true }
+edition = { workspace = true }
+rust-version = { workspace = true }
+license = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+documentation = { workspace = true }
+readme = { workspace = true }
+
+include = ["/LICENSE", "/src/"]
+
+[dependencies]
+blake2 = { workspace = true }
+digest = { workspace = true }
+itertools = { workspace = true }
+jj-lib-proc-macros = { workspace = true }
+pest = { workspace = true }
+pest_derive = { workspace = true }
+ref-cast = { workspace = true }
+serde = { workspace = true }
+strsim = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+assert_matches = { workspace = true }
+eyre = { workspace = true }
+insta = { workspace = true }
+
+[lints]
+workspace = true

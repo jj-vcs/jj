@@ -2592,6 +2592,7 @@ dependencies = [
  "interim",
  "itertools 0.15.0",
  "jj-lib-proc-macros",
+ "jj-revset-parser",
  "maplit",
  "nix 0.31.3",
  "num_cpus",
@@ -2613,7 +2614,6 @@ dependencies = [
  "sapling-renderdag",
  "serde",
  "smallvec",
- "strsim",
  "tempfile",
  "test-case",
  "testutils",
@@ -2632,6 +2632,25 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.118",
+]
+
+[[package]]
+name = "jj-revset-parser"
+version = "0.43.0"
+dependencies = [
+ "assert_matches",
+ "blake2",
+ "digest",
+ "eyre",
+ "insta",
+ "itertools 0.15.0",
+ "jj-lib-proc-macros",
+ "pest",
+ "pest_derive",
+ "ref-cast",
+ "serde",
+ "strsim",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

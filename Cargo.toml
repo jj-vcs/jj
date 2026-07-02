@@ -2,7 +2,7 @@ cargo-features = []
 
 [workspace]
 resolver = "3"
-members = ["cli", "lib", "lib/gen-protos", "lib/proc-macros", "lib/testutils"]
+members = ["cli", "lib", "lib/gen-protos", "lib/proc-macros", "lib/revset-parser", "lib/testutils"]
 
 [workspace.package]
 version = "0.43.0"
@@ -138,6 +138,7 @@ winreg = "0.56"
 # their own (alphabetically sorted) block
 jj-lib = { path = "lib", version = "0.43.0", default-features = false }
 jj-lib-proc-macros = { path = "lib/proc-macros", version = "0.43.0" }
+jj-revset-parser = { path = "lib/revset-parser", version = "0.43.0" }
 testutils = { path = "lib/testutils" }
 
 [workspace.lints.clippy]
