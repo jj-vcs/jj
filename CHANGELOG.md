@@ -23,7 +23,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Recursive alias definitions are detected more precisely. jj can now expand
   aliases that are simply repeated. For example, with the alias `jj = []`, the
-  command `jj jj jj log` will resolve to `jj log` as expected.
+  command `jj jj jj` will resolve to `jj`. Aliases can also fall back to the
+  default command. For example, with the alias `i = ["--ignore-working-copy"]`,
+  `jj i` will resolve to `jj --ignore-working-copy`.
 
 ## [0.43.0] - 2026-07-01
 

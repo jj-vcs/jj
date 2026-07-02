@@ -3792,14 +3792,12 @@ fn resolve_default_command(
     Ok(string_args)
 }
 
-fn resolve_aliases(
+fn load_aliases<'config>(
     ui: &Ui,
-    config: &StackedConfig,
+    config: &'config StackedConfig,
     app: &Command,
-    mut string_args: Vec<String>,
-) -> Result<Vec<String>, CommandError> {
-    let defined_aliases: HashSet<_> = config.table_keys("aliases").collect();
-    let mut recursion_check_stack: Vec<(&str, Range<usize>)> = Vec::new();
+) -> Result<HashSet<&'config str>, CommandError> {
+    let mut defined_aliases: HashSet<_> = config.table_keys("aliases").collect();
     let mut real_commands = HashSet::new();
     for command in app.get_subcommands() {
         real_commands.insert(command.get_name());
@@ -3807,12 +3805,25 @@ fn resolve_aliases(
             real_commands.insert(alias);
         }
     }
-    for alias in defined_aliases.intersection(&real_commands).sorted() {
+    for alias in defined_aliases
+        .extract_if(|a| real_commands.contains(a))
+        .sorted()
+    {
         writeln!(
             ui.warning_default(),
             "Cannot define an alias that overrides the built-in command '{alias}'"
         )?;
     }
+    Ok(defined_aliases)
+}
+
+fn resolve_aliases(
+    config: &StackedConfig,
+    app: &Command,
+    defined_aliases: &HashSet<&str>,
+    mut string_args: Vec<String>,
+) -> Result<Vec<String>, CommandError> {
+    let mut recursion_check_stack: Vec<(&str, Range<usize>)> = Vec::new();
 
     loop {
         let app_clone = app.clone().allow_external_subcommands(true);
@@ -3821,10 +3832,6 @@ fn resolve_aliases(
             // No more alias commands, or hit unknown option
             return Ok(string_args);
         };
-        if real_commands.contains(command_name) {
-            // cannot alias real commands
-            return Ok(string_args);
-        }
         let alias_name = command_name.to_string();
         let alias_args = submatches
             .get_many::<OsString>("")
@@ -4023,9 +4030,12 @@ pub fn expand_args(
     args_os: impl IntoIterator<Item = OsString>,
     config: &StackedConfig,
 ) -> Result<Vec<String>, CommandError> {
-    let string_args = to_string_args(args_os)?;
-    let string_args = resolve_default_command(ui, config, app, string_args)?;
-    resolve_aliases(ui, config, app, string_args)
+    let mut string_args = to_string_args(args_os)?;
+    let aliases = load_aliases(ui, config, app)?;
+    string_args = resolve_aliases(config, app, &aliases, string_args)?;
+    string_args = resolve_default_command(ui, config, app, string_args)?;
+    string_args = resolve_aliases(config, app, &aliases, string_args)?;
+    Ok(string_args)
 }
 
 fn expand_args_for_completion(
@@ -4034,19 +4044,25 @@ fn expand_args_for_completion(
     args_os: impl IntoIterator<Item = OsString>,
     config: &StackedConfig,
 ) -> Result<Vec<String>, CommandError> {
-    let string_args = to_string_args(args_os)?;
-
-    // If a subcommand has been given, including the potentially incomplete argument
-    // that is being completed, the default command is not resolved and the
-    // completion candidates for the subcommand are prioritized.
-    let mut string_args = resolve_default_command(ui, config, app, string_args)?;
+    let mut string_args = to_string_args(args_os)?;
+    let aliases = load_aliases(ui, config, app)?;
 
     // Resolution of subcommand aliases must not consider the argument that is being
     // completed.
     let cursor_arg = string_args.pop();
-    let mut resolved_args = resolve_aliases(ui, config, app, string_args)?;
-    resolved_args.extend(cursor_arg);
-    Ok(resolved_args)
+    string_args = resolve_aliases(config, app, &aliases, string_args)?;
+    string_args.extend(cursor_arg);
+
+    // If a subcommand has been given, including the potentially incomplete argument
+    // that is being completed, the default command is not resolved and the
+    // completion candidates for the subcommand are prioritized.
+    string_args = resolve_default_command(ui, config, app, string_args)?;
+
+    let cursor_arg = string_args.pop();
+    string_args = resolve_aliases(config, app, &aliases, string_args)?;
+    string_args.extend(cursor_arg);
+
+    Ok(string_args)
 }
 
 fn to_string_args(
