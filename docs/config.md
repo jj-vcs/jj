@@ -638,8 +638,9 @@ You can configure the revisions `jj log` would show when neither `-r` nor any pa
 log = "main@origin.."
 ```
 
-The default value for `revsets.log` is
-`'present(@) | ancestors(immutable_heads().., 2) | trunk()'`.
+The default value for `revsets.log` is `builtin_log()`, which is defined as
+`'present(@) | ancestors(immutable_heads().., 2) | trunk()'`. You can use
+`builtin_log()` as a starting point for your own custom log revset.
 
 !!! warning
 

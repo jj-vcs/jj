@@ -169,6 +169,10 @@ Thanks to the people who made this release happen!
   launched once per changed file, making it possible to use per-file tools like
   `vimdiff` for editing.
 
+* Added `builtin_log()` revset alias for the built-in default `jj log` revset.
+  `revsets.log` now defaults to `builtin_log()`, so custom log revsets can
+  reuse the built-in default instead of copying its full expression.
+
 ### Fixed bugs
 
 * `jj git remote add` now reports an error instead of panicking when the

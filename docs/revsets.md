@@ -626,6 +626,11 @@ for a comprehensive list.
   'trunk()' = 'your-bookmark@your-remote'
   ```
 
+* `builtin_log()`: Resolves to `present(@) |
+  ancestors(immutable_heads().., 2) | trunk()`. It is used as the default value
+  for `revsets.log`, which is the set of revisions shown by `jj log` if no
+  revisions or paths are specified.
+
 * `builtin_immutable_heads()`: Resolves to `trunk() | tags() |
   untracked_remote_bookmarks()`. It is used as the default definition for
   `immutable_heads()` below. It is not recommended to redefine this
