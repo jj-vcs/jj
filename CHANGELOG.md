@@ -12,6 +12,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* CLI argument parsing ignores all consecutive repetitions of the executable
+  name passed as arguments. For example, `jj jj jj` would previously pass
+  `jj jj` as first two arguments, now they are ignored. This breaks all
+  command aliases matching the name of the executable (aliases are simply
+  ignored/removed from the argument list).
+
 ### Deprecations
 
 ### New features

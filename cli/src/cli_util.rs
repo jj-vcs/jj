@@ -4406,7 +4406,25 @@ impl<'a> CliRunner<'a> {
             return handle_shell_completion(&Ui::null(), &self.app, &config, &cwd);
         }
 
-        let string_args = expand_args(ui, &self.app, env::args_os(), &config)?;
+        // Ignore consecutive repetition of the first argument (executable name).
+        // If executable name is repeated n-times consecutively, skip n-1 args.
+        let os_args = {
+            let argc = env::args_os().count();
+            let first = env::args_os().nth(0).unwrap();
+            let skip = env::args_os().position(|arg| arg != first).unwrap_or(argc) - 1;
+
+            if skip > 0 {
+                writeln!(
+                    ui.warning_default(),
+                    "Ignoring repeated consecutive '{}' passed as arguments.",
+                    first.to_str().unwrap_or("<executable name>")
+                )?;
+            }
+
+            env::args_os().skip(skip)
+        };
+
+        let string_args = expand_args(ui, &self.app, os_args, &config)?;
         let (args, config_layers) = parse_early_args(&self.app, &string_args)?;
         if !config_layers.is_empty() {
             raw_config.as_mut().extend_layers(config_layers);
