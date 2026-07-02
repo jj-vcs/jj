@@ -60,6 +60,7 @@ fn test_alias_calls_empty_command() {
 
     test_env.add_config(
         r#"
+    ui.default-command = []
     aliases.empty = []
     aliases.empty_command_with_opts = ["--no-pager"]
     "#,
@@ -505,5 +506,30 @@ fn test_alias_recursion_check() {
     Error: Recursive alias definition involving `c`
     [EOF]
     [exit status: 1]
+    ");
+}
+
+#[test]
+fn test_alias_falls_back_to_default_command() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    test_env.add_config(
+        r#"
+        ui.default-command = ["log", "-Tbuiltin_log_oneline"]
+        aliases.jj = []
+        aliases.log-root = ["-r=root()"]
+        "#,
+    );
+    let output = work_dir.run_jj(["jj"]);
+    insta::assert_snapshot!(output, @"
+    @  qpvuntsm test.user 2001-02-03 08:05:07 e8849ae1 (empty) (no description set)
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["log-root"]);
+    insta::assert_snapshot!(output, @"
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
     ");
 }
