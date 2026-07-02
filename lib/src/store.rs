@@ -33,6 +33,7 @@ use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::backend::CopyRecord;
 use crate::backend::FileId;
+use crate::backend::FileMetadata;
 use crate::backend::SigningFn;
 use crate::backend::SymlinkId;
 use crate::backend::TreeId;
@@ -225,6 +226,14 @@ impl Store {
         }
 
         Ok(Tree::new(self.clone(), path.to_owned(), tree_id, data))
+    }
+
+    pub async fn get_file_metadata(
+        &self,
+        path: &RepoPath,
+        id: &FileId,
+    ) -> BackendResult<FileMetadata> {
+        self.backend.get_file_metadata(path, id).await
     }
 
     pub async fn read_file(
