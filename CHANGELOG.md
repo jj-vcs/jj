@@ -45,6 +45,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* New `JJ_NO_DEFAULT_COLORS` environment variable disables setting built-in default colors.
+
 * `jj show` now supports `--reversed` flag.
 
 * `jj` now looks for config files in `/etc/jj`.
