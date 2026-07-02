@@ -4531,6 +4531,16 @@ fn map_clap_cli_error(err: clap::Error, ui: &Ui, config: &StackedConfig) -> Comm
             }
             _ => {}
         }
+        // Only rewrite messages for commands clap has already rejected. Soft
+        // deprecations still dispatch normally and print their command warning.
+        if let Some(hint) = curated_subcommand_hint(&err, cmd) {
+            return CommandError::from(remove_misleading_suggestion(err)).hinted(hint);
+        }
+    }
+    if let Some(ContextValue::String(arg)) = err.get(ContextKind::InvalidArg)
+        && let Some(hint) = curated_arg_hint(&err, arg)
+    {
+        return CommandError::from(remove_misleading_arg_suggestion(err)).hinted(hint);
     }
     if let (Some(ContextValue::String(arg)), Some(ContextValue::String(value))) = (
         err.get(ContextKind::InvalidArg),
@@ -4544,6 +4554,219 @@ fn map_clap_cli_error(err: clap::Error, ui: &Ui, config: &StackedConfig) -> Comm
         }
     }
     CommandError::from(err)
+}
+
+/// Removes clap's fuzzy suggestions when a rejected subcommand has a more
+/// accurate recovery hint.
+///
+/// A rejected jj command can be close to a live but semantically unrelated
+/// command. Keep the original clap error and usage text, but replace fuzzy
+/// suggestions with a known recovery path.
+fn remove_misleading_suggestion(mut err: clap::Error) -> clap::Error {
+    err.remove(ContextKind::SuggestedArg);
+    err.remove(ContextKind::SuggestedSubcommand);
+    err.remove(ContextKind::Suggested);
+    err
+}
+
+/// Removes clap's fuzzy suggestions and usage text for curated argument hints.
+///
+/// For removed or git-shaped flags, clap's suggested usage is often the usage
+/// of the similar-looking live flag rather than the command the user ran.
+fn remove_misleading_arg_suggestion(mut err: clap::Error) -> clap::Error {
+    err.remove(ContextKind::SuggestedArg);
+    err.remove(ContextKind::Suggested);
+    err.remove(ContextKind::Usage);
+    err
+}
+
+/// Returns recovery advice for selected subcommands after clap has rejected the
+/// command line.
+///
+/// These are not deprecation warnings. The command has already failed clap
+/// parsing as an invalid subcommand, and this table only replaces the recovery
+/// advice. The usage check scopes ambiguous names to the command family where a
+/// replacement is known.
+///
+/// Keep these breadcrumbs aligned with the corresponding removal entries in
+/// CHANGELOG.md so the recovery advice stays tied to the historical change.
+fn curated_subcommand_hint(err: &clap::Error, command_name: &str) -> Option<&'static str> {
+    let usage = error_usage(err)?;
+    let usage = usage.as_str();
+    match command_name {
+        // Common Git-shaped commands with documented jj equivalents. These are
+        // rejected commands, not aliases.
+        "add" if usage_is_top_level(usage) => {
+            Some("No `jj add` is needed; new files are tracked automatically.")
+        }
+        "annotate" | "blame" if usage_is_top_level(usage) => {
+            Some("Use `jj file annotate` instead.")
+        }
+        "branches" if usage_is_top_level(usage) => Some("Use `jj bookmark list` instead."),
+        "clean" if usage_is_top_level(usage) => {
+            Some("Use `jj restore` to discard file changes or `jj abandon` to abandon a change.")
+        }
+        "fetch" if usage_is_top_level(usage) => Some("Use `jj git fetch` instead."),
+        "pull" if usage_is_top_level(usage) => {
+            Some("Use `jj git fetch`, then `jj rebase` if needed.")
+        }
+        "push" if usage_is_top_level(usage) => Some("Use `jj git push` instead."),
+        "remote" if usage_is_top_level(usage) => Some("Use `jj git remote` instead."),
+        "reset" if usage_is_top_level(usage) => {
+            Some("Use `jj abandon` to abandon a change or `jj restore` to empty it.")
+        }
+        "stash" if usage_is_top_level(usage) => Some("Use `jj new @-` instead."),
+        "switch" | "goto" | "update" if usage_is_top_level(usage) => Some("Use `jj new` instead."),
+        // Removed in 0.33.0 after being deprecated in 0.28.0.
+        "backout" if usage_is_top_level(usage) => Some("Use `jj revert` instead."),
+        // Removed in 0.30.0 after the 0.22.0 branch/bookmark rename.
+        "branch" if usage_is_top_level(usage) => {
+            Some("Use `jj bookmark` and its subcommands instead.")
+        }
+        // Removed in 0.26.0 after the file-command migration.
+        "cat" if usage_is_top_level(usage) => Some("Use `jj file show` instead."),
+        "chmod" if usage_is_top_level(usage) => Some("Use `jj file chmod` instead."),
+        "files" if usage_is_top_level(usage) => Some("Use `jj file list` instead."),
+        // Removed in 0.22.0 after being deprecated in 0.14.0.
+        "checkout" | "co" if usage_is_top_level(usage) => Some("Use `jj new` instead."),
+        "merge" if usage_is_top_level(usage) => Some("Use `jj new` instead."),
+        // Removed in 0.22.0 after being deprecated in 0.16.0.
+        "move" if usage_is_top_level(usage) => Some("Use `jj squash` instead."),
+        // Removed in 0.26.0.
+        "mangen" if usage_starts_with(usage, "jj util") => {
+            Some("Use `jj util install-man-pages` instead.")
+        }
+        // Removed in 0.28.0 after being renamed in 0.20.0.
+        "untrack" if usage_is_top_level(usage) => Some("Use `jj file untrack` instead."),
+        // Removed in 0.28.0 after being deprecated in 0.22.0.
+        "unsquash" if usage_is_top_level(usage) => {
+            Some("Use `jj squash` or `jj diffedit --restore-descendants` instead.")
+        }
+        // Removed in 0.40.0 after being deprecated in 0.33.0.
+        "undo" if usage_starts_with_any(usage, &["jj operation", "jj op"]) => Some(
+            "Use `jj undo` to undo the latest operation. Use `jj op revert` to revert a specific \
+             operation.",
+        ),
+        // `jj op redo` never existed; keep the recovery next to the removed
+        // `jj op undo` mapping because users commonly try them together.
+        "redo" if usage_starts_with_any(usage, &["jj operation", "jj op"]) => {
+            Some("Use `jj redo` instead.")
+        }
+        _ => None,
+    }
+}
+
+/// Returns recovery advice for selected flags after clap has rejected the
+/// command line.
+///
+/// These are not deprecation warnings. The flag has already failed clap parsing
+/// as an invalid argument, and this table only replaces the recovery advice.
+/// The usage check avoids changing unrelated commands that happen to reject the
+/// same flag spelling.
+///
+/// Keep removed-flag breadcrumbs aligned with the corresponding removal entries
+/// in CHANGELOG.md so the recovery advice stays tied to the historical change.
+fn curated_arg_hint(err: &clap::Error, arg: &str) -> Option<&'static str> {
+    let usage = error_usage(err)?;
+    let usage = usage.as_str();
+    match arg {
+        // Removed in 0.26.0.
+        "-l" if usage_starts_with(usage, "jj log")
+            || usage_starts_with_any(usage, &["jj operation log", "jj op log"]) =>
+        {
+            Some("Use `-n` instead.")
+        }
+        // Git-shaped log flags that currently get misleading fuzzy suggestions.
+        "--all" if usage_starts_with(usage, "jj log") => Some("Use `jj log -r 'all()'` instead."),
+        "--oneline" if usage_starts_with(usage, "jj log") => {
+            Some("Use `jj log -T builtin_log_oneline` instead.")
+        }
+        "--allow-deletes" if usage_starts_with(usage, "jj git push") => {
+            Some("Use `jj git push --deleted` instead.")
+        }
+        // Removed in 0.42.0.
+        "--allow-new" if usage_starts_with(usage, "jj git push") => {
+            Some("Push a specific bookmark with `jj git push --bookmark <name>` instead.")
+        }
+        // Removed in 0.42.0 after being deprecated in 0.34.0.
+        "--author"
+            if usage_starts_with(usage, "jj commit") || usage_starts_with(usage, "jj describe") =>
+        {
+            Some("Use `jj metaedit --author <author>` instead.")
+        }
+        // Removed in 0.42.0 after being deprecated in 0.36.0.
+        "--edit" if usage_starts_with(usage, "jj describe") => {
+            Some("Use `jj describe --editor` instead.")
+        }
+        // Removed in 0.42.0 after being deprecated in 0.34.0.
+        "--no-edit" if usage_starts_with(usage, "jj describe") => Some(
+            "Omit `--no-edit`; `jj describe --message <message>` already avoids opening an editor.",
+        ),
+        // Removed in 0.42.0 after being deprecated in 0.34.0.
+        "--reset-author"
+            if usage_starts_with(usage, "jj commit") || usage_starts_with(usage, "jj describe") =>
+        {
+            Some("Use `jj metaedit --update-author` instead.")
+        }
+        // Removed in 0.30.0 after being renamed in 0.20.0.
+        "--skip-empty" if usage_starts_with(usage, "jj rebase") => {
+            Some("Use `jj rebase --skip-emptied` instead.")
+        }
+        // Removed in 0.26.0 after being deprecated in 0.23.0.
+        "--siblings" if usage_starts_with(usage, "jj split") => {
+            Some("Use `jj split --parallel` instead.")
+        }
+        // Removed in 0.33.0.
+        "--summary" if usage_starts_with(usage, "jj abandon") => Some(
+            "Omit `--summary`; `jj abandon` now limits the abandoned commit list automatically.",
+        ),
+        // Removed in 0.42.0 after being renamed in 0.33.0.
+        "--update-committer-timestamp" if usage_starts_with(usage, "jj metaedit") => {
+            Some("Use `jj metaedit --force-rewrite` instead.")
+        }
+        _ => None,
+    }
+}
+
+/// Returns clap's rendered usage text from the structured error context.
+///
+/// The removed-command hint tables use this to identify which command family
+/// rejected the spelling.
+fn error_usage(err: &clap::Error) -> Option<String> {
+    err.get(ContextKind::Usage).map(ToString::to_string)
+}
+
+/// Checks whether clap's rendered usage starts with the given command prefix.
+///
+/// Matching the rendered command prefix is enough to scope removed spellings
+/// without threading command metadata through this error-mapping layer. clap
+/// renders the Windows binary name as `jj.exe`, so accept both binary spellings
+/// here while keeping the hint tables in normal `jj ...` form.
+fn usage_starts_with(usage: &str, command: &str) -> bool {
+    let Some(command_suffix) = command.strip_prefix("jj") else {
+        return usage.starts_with(&format!("Usage: {command} "));
+    };
+    usage.starts_with(&format!("Usage: jj{command_suffix} "))
+        || usage.starts_with(&format!("Usage: jj.exe{command_suffix} "))
+}
+
+/// Checks whether clap's rendered usage starts with any of the given command
+/// prefixes.
+///
+/// This keeps canonical command names and visible aliases together when both
+/// can appear in the usage text.
+fn usage_starts_with_any(usage: &str, commands: &[&str]) -> bool {
+    commands
+        .iter()
+        .any(|command| usage_starts_with(usage, command))
+}
+
+/// Checks whether clap's rendered usage is for the top-level jj command.
+///
+/// This scopes removed top-level command spellings without matching nested
+/// subcommands that happen to share the same name.
+fn usage_is_top_level(usage: &str) -> bool {
+    usage_starts_with(usage, "jj [OPTIONS]")
 }
 
 fn format_template_aliases_hint(template_aliases: &TemplateAliasesMap) -> String {
