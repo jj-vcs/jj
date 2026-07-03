@@ -480,3 +480,30 @@ fn test_default_command_is_alias() {
     );
     test_env.run_jj_in(".", [""; 0]).success();
 }
+
+#[test]
+fn test_alias_recursion_check() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config(
+        r#"
+        [aliases]
+        a = ["--config=user.name=x"]
+        b = ["a", "a"]
+        c = ["a", "d"]
+        d = ["a", "c"]
+        "#,
+    );
+    let work_dir = test_env.work_dir(".");
+
+    work_dir
+        .run_jj(["a", "b", "a", "b", "a", "version"])
+        .success();
+
+    let output = work_dir.run_jj(["c"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Recursive alias definition involving `c`
+    [EOF]
+    [exit status: 1]
+    ");
+}
