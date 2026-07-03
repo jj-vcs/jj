@@ -468,3 +468,15 @@ fn test_aliases_overriding_friendly_errors() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_default_command_is_alias() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config(
+        r#"
+        ui.default-command = ["my-version"]
+        aliases.my-version = ["version"]
+        "#,
+    );
+    test_env.run_jj_in(".", [""; 0]).success();
+}
