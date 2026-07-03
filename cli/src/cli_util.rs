@@ -3829,40 +3829,40 @@ fn resolve_aliases(
     loop {
         let app_clone = app.clone().allow_external_subcommands(true);
         let matches = app_clone.try_get_matches_from(&string_args).ok();
-        if let Some((command_name, submatches)) = matches.as_ref().and_then(|m| m.subcommand())
-            && !real_commands.contains(command_name)
-        {
-            let alias_name = command_name.to_string();
-            let alias_args = submatches
-                .get_many::<OsString>("")
-                .unwrap_or_default()
-                .map(|arg| arg.to_str().unwrap().to_string())
-                .collect_vec();
-            if resolved_aliases.contains(&*alias_name) {
-                return Err(user_error(format!(
-                    "Recursive alias definition involving `{alias_name}`"
-                )));
-            }
-            if let Some(&alias_name) = defined_aliases.get(&*alias_name) {
-                let alias_definition: Vec<String> = match config.get(["aliases", alias_name]) {
-                    Ok(definition) => definition,
-                    Err(original_err) => config
-                        .get(["aliases", alias_name, "definition"])
-                        .map_err(|_| original_err)?,
-                };
-                assert!(string_args.ends_with(&alias_args));
-                string_args.truncate(string_args.len() - 1 - alias_args.len());
-                string_args.extend(alias_definition);
-                string_args.extend_from_slice(&alias_args);
-                resolved_aliases.insert(alias_name);
-                continue;
-            } else {
-                // Not a real command and not an alias, so return what we've resolved so far
-                return Ok(string_args);
-            }
+        let Some((command_name, submatches)) = matches.as_ref().and_then(|m| m.subcommand()) else {
+            // No more alias commands, or hit unknown option
+            return Ok(string_args);
+        };
+        if real_commands.contains(command_name) {
+            // cannot alias real commands
+            return Ok(string_args);
         }
-        // No more alias commands, or hit unknown option
-        return Ok(string_args);
+        let alias_name = command_name.to_string();
+        let alias_args = submatches
+            .get_many::<OsString>("")
+            .unwrap_or_default()
+            .map(|arg| arg.to_str().unwrap().to_string())
+            .collect_vec();
+        if resolved_aliases.contains(&*alias_name) {
+            return Err(user_error(format!(
+                "Recursive alias definition involving `{alias_name}`"
+            )));
+        }
+        let Some(&alias_name) = defined_aliases.get(&*alias_name) else {
+            // Not a real command and not an alias, so return what we've resolved so far
+            return Ok(string_args);
+        };
+        let alias_definition: Vec<String> = match config.get(["aliases", alias_name]) {
+            Ok(definition) => definition,
+            Err(original_err) => config
+                .get(["aliases", alias_name, "definition"])
+                .map_err(|_| original_err)?,
+        };
+        assert!(string_args.ends_with(&alias_args));
+        string_args.truncate(string_args.len() - 1 - alias_args.len());
+        string_args.extend(alias_definition);
+        string_args.extend_from_slice(&alias_args);
+        resolved_aliases.insert(alias_name);
     }
 }
 
