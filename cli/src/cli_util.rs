@@ -24,6 +24,7 @@ use std::fmt::Debug;
 use std::io;
 use std::io::Write as _;
 use std::mem;
+use std::ops::Range;
 use std::path::Path;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -3811,7 +3812,7 @@ fn resolve_aliases(
     mut string_args: Vec<String>,
 ) -> Result<Vec<String>, CommandError> {
     let defined_aliases: HashSet<_> = config.table_keys("aliases").collect();
-    let mut resolved_aliases = HashSet::new();
+    let mut recursion_check_stack: Vec<(&str, Range<usize>)> = Vec::new();
     let mut real_commands = HashSet::new();
     for command in app.get_subcommands() {
         real_commands.insert(command.get_name());
@@ -3843,11 +3844,6 @@ fn resolve_aliases(
             .unwrap_or_default()
             .map(|arg| arg.to_str().unwrap().to_string())
             .collect_vec();
-        if resolved_aliases.contains(&*alias_name) {
-            return Err(user_error(format!(
-                "Recursive alias definition involving `{alias_name}`"
-            )));
-        }
         let Some(&alias_name) = defined_aliases.get(&*alias_name) else {
             // Not a real command and not an alias, so return what we've resolved so far
             return Ok(string_args);
@@ -3858,11 +3854,39 @@ fn resolve_aliases(
                 .get(["aliases", alias_name, "definition"])
                 .map_err(|_| original_err)?,
         };
+        let alias_position = string_args.len() - 1 - alias_args.len();
+
+        // recursion check
+        while let Some((_, check_range)) = recursion_check_stack.last() {
+            if check_range.contains(&alias_position) {
+                // The tracked chain of alias expansions produced the current
+                // alias. Check for recursion.
+                if recursion_check_stack.iter().any(|&(a, _)| a == alias_name) {
+                    return Err(user_error(format!(
+                        "Recursive alias definition involving `{alias_name}`"
+                    )));
+                }
+                break;
+            }
+            // Last tracked alias did not produce the currently expanding alias.
+            // Remove it from stack and fixup the range of the next one.
+            let check_range = check_range.clone();
+            recursion_check_stack.pop();
+            if let Some((_, next_range)) = recursion_check_stack.last_mut() {
+                // Increase next range by the length of the current one, minus
+                // one to account for the removed alias name.
+                next_range.end += check_range.end - check_range.start - 1;
+            }
+        }
+        recursion_check_stack.push((
+            alias_name,
+            alias_position..(alias_position + alias_definition.len()),
+        ));
+
         assert!(string_args.ends_with(&alias_args));
-        string_args.truncate(string_args.len() - 1 - alias_args.len());
+        string_args.truncate(alias_position);
         string_args.extend(alias_definition);
         string_args.extend_from_slice(&alias_args);
-        resolved_aliases.insert(alias_name);
     }
 }
 
