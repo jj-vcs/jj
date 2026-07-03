@@ -547,7 +547,7 @@ fn test_run_shell_command() {
             "-r",
             "..@",
             "--",
-            "bash",
+            "sh",
             "-c",
             r#"echo "$JJ_COMMIT_ID""#,
         ]
