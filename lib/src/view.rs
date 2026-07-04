@@ -115,9 +115,7 @@ impl View {
         new_name: WorkspaceNameBuf,
     ) -> Result<(), RenameWorkspaceError> {
         if self.data.wc_commit_ids.contains_key(&new_name) {
-            return Err(RenameWorkspaceError::WorkspaceAlreadyExists {
-                name: new_name.clone(),
-            });
+            return Err(RenameWorkspaceError::WorkspaceAlreadyExists { name: new_name });
         }
         let wc_commit_id = self.data.wc_commit_ids.remove(old_name).ok_or_else(|| {
             RenameWorkspaceError::WorkspaceDoesNotExist {

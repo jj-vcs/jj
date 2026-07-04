@@ -62,7 +62,7 @@ impl FileLock {
                 Err(errno) => {
                     return Err(FileLockError {
                         message: "Failed to lock lock file",
-                        path: path.clone(),
+                        path,
                         err: errno.into(),
                     });
                 }
@@ -89,7 +89,7 @@ impl FileLock {
                 Err(errno) => {
                     return Err(FileLockError {
                         message: "failed to stat lock file",
-                        path: path.clone(),
+                        path,
                         err: errno.into(),
                     });
                 }

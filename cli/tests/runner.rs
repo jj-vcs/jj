@@ -1,3 +1,5 @@
+#![cfg_attr(test, allow(clippy::redundant_clone, reason = "ok for tests"))]
+
 use std::path::PathBuf;
 
 mod common;

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #![deny(unused_must_use)]
+#![cfg_attr(test, allow(clippy::redundant_clone, reason = "ok for tests"))]
 
 pub mod cleanup_guard;
 pub mod cli_util;

@@ -512,7 +512,7 @@ pub fn get_working_copy_factory<'a>(
     } else {
         Err(StoreLoadError::UnsupportedType {
             store: "working copy",
-            store_type: working_copy_type.clone(),
+            store_type: working_copy_type,
         })
     }
 }
