@@ -7335,6 +7335,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   point where multiple branches merge.</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Recursive alias definitions are detected more precisely. jj can now expand
+  aliases that are simply repeated. For example, with the alias <code>jj = []</code>, the
+  command <code>jj jj jj log</code> will resolve to <code>jj log</code> as expected.</li>
+</ul>
 <h2 id="0430-2026-07-01"><a href="https://github.com/jj-vcs/jj/compare/v0.42.0...v0.43.0">0.43.0</a> - 2026-07-01<a class="headerlink" href="#0430-2026-07-01" title="Permanent link">&para;</a></h2>
 <h3 id="release-highlights_1">Release highlights<a class="headerlink" href="#release-highlights_1" title="Permanent link">&para;</a></h3>
 <ul>
