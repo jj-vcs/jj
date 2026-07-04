@@ -65,6 +65,18 @@ impl CopyRecords {
     /// conflicts is discarded and treated as not having an origin.
     pub fn add_records(&mut self, copy_records: impl IntoIterator<Item = CopyRecord>) {
         for r in copy_records {
+            // The same copy or rename is reported once per parent when diffing a
+            // merge commit. Identical (source, target) pairs describe the same
+            // operation, so skip the duplicate instead of marking both maps as
+            // conflicting, which would otherwise drop the copy/rename entirely.
+            let is_duplicate = self
+                .targets
+                .get(&r.target)
+                .and_then(|&i| self.records.get(i))
+                .is_some_and(|existing| existing.source == r.source);
+            if is_duplicate {
+                continue;
+            }
             self.sources
                 .entry(r.source.clone())
                 // TODO: handle conflicts instead of ignoring both sides.

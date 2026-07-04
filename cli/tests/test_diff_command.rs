@@ -4089,3 +4089,32 @@ fn test_diff_revisions() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_diff_rename_in_merge_commit() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // A rename in a merge commit is detected once per parent. When the renamed
+    // source is present in more than one parent, the same copy record is reported
+    // for each, and those duplicates must not cancel each other out and drop the
+    // rename. https://github.com/jj-vcs/jj/issues/9752
+    work_dir.write_file("a.txt", "aaa\n");
+    work_dir.run_jj(["describe", "-m", "base"]).success();
+    work_dir.run_jj(["new", "-m", "first branch"]).success();
+    work_dir
+        .run_jj(["new", "@-", "-m", "second branch"])
+        .success();
+    // Merge both children of "base" (@-+); each holds a.txt, so the rename is
+    // detected against both parents.
+    work_dir.run_jj(["new", "@-+", "-m", "merge"]).success();
+    work_dir.remove_file("a.txt");
+    work_dir.write_file("b.txt", "aaa\n");
+
+    let output = work_dir.run_jj(["diff", "-s"]);
+    insta::assert_snapshot!(output, @"
+    R {a.txt => b.txt}
+    [EOF]
+    ");
+}
