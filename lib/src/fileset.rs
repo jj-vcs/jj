@@ -15,6 +15,7 @@
 //! Functional language for selecting a set of paths.
 
 use std::collections::HashMap;
+use std::fmt;
 use std::iter;
 use std::path;
 use std::slice;
@@ -26,6 +27,7 @@ use itertools::Itertools as _;
 use thiserror::Error;
 
 use crate::dsl_util::collect_similar;
+use crate::dsl_util::escape_string;
 use crate::fileset_parser;
 use crate::fileset_parser::BinaryOp;
 use crate::fileset_parser::ExpressionKind;
@@ -280,6 +282,46 @@ impl FilePattern {
     }
 }
 
+/// Formats the file pattern into canonical root-relative DSL syntax.
+impl fmt::Display for FilePattern {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::FilePath(path) => {
+                write!(
+                    f,
+                    "root-file:\"{}\"",
+                    escape_string(path.as_internal_file_string())
+                )
+            }
+            Self::PrefixPath(path) => {
+                write!(
+                    f,
+                    "root:\"{}\"",
+                    escape_string(path.as_internal_file_string())
+                )
+            }
+            Self::FileGlob { dir, pattern } => {
+                let dir_str = dir.as_internal_file_string();
+                let full_str = if dir_str.is_empty() {
+                    pattern.glob().to_owned()
+                } else {
+                    format!("{}/{}", dir_str, pattern.glob())
+                };
+                write!(f, "root-glob:\"{}\"", escape_string(&full_str))
+            }
+            Self::PrefixGlob { dir, pattern } => {
+                let dir_str = dir.as_internal_file_string();
+                let full_str = if dir_str.is_empty() {
+                    pattern.glob().to_owned()
+                } else {
+                    format!("{}/{}", dir_str, pattern.glob())
+                };
+                write!(f, "root-prefix-glob:\"{}\"", escape_string(&full_str))
+            }
+        }
+    }
+}
+
 pub(super) fn parse_file_glob(input: &str, icase: bool) -> Result<Glob, globset::Error> {
     GlobBuilder::new(input)
         .literal_separator(true)
@@ -428,6 +470,65 @@ impl FilesetExpression {
     /// Transforms the expression tree to `Matcher` object.
     pub fn to_matcher(&self) -> Box<dyn Matcher> {
         build_union_matcher(self.as_union_all())
+    }
+}
+
+fn expression_precedence(expr: &FilesetExpression) -> u32 {
+    match expr {
+        FilesetExpression::UnionAll(_) => 1,
+        FilesetExpression::Intersection(_, _) | FilesetExpression::Difference(_, _) => 2,
+        FilesetExpression::None | FilesetExpression::All | FilesetExpression::Pattern(_) => 3,
+    }
+}
+
+fn format_child(
+    f: &mut fmt::Formatter<'_>,
+    parent_precedence: u32,
+    child: &FilesetExpression,
+    is_right: bool,
+) -> fmt::Result {
+    let child_prec = expression_precedence(child);
+    let need_parens = if child_prec < parent_precedence {
+        true
+    } else if child_prec == parent_precedence {
+        is_right
+    } else {
+        false
+    };
+
+    if need_parens {
+        write!(f, "({child})")
+    } else {
+        write!(f, "{child}")
+    }
+}
+
+/// Formats the fileset expression into canonical root-relative DSL syntax.
+impl fmt::Display for FilesetExpression {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let prec = expression_precedence(self);
+        match self {
+            Self::None => f.write_str("none()"),
+            Self::All => f.write_str("all()"),
+            Self::Pattern(pattern) => write!(f, "{pattern}"),
+            Self::UnionAll(expressions) => {
+                if expressions.is_empty() {
+                    f.write_str("none()")
+                } else {
+                    write!(f, "{}", expressions.iter().format(" | "))
+                }
+            }
+            Self::Intersection(a, b) => {
+                format_child(f, prec, a, false)?;
+                f.write_str(" & ")?;
+                format_child(f, prec, b, true)
+            }
+            Self::Difference(a, b) => {
+                format_child(f, prec, a, false)?;
+                f.write_str(" ~ ")?;
+                format_child(f, prec, b, true)
+            }
+        }
     }
 }
 
@@ -1487,5 +1588,63 @@ mod tests {
             },
         }
         "#);
+    }
+
+    #[test]
+    fn test_fileset_serialization() -> TestResult {
+        let context = FilesetParseContext {
+            aliases_map: &FilesetAliasesMap::new(),
+            path_converter: &RepoPathUiConverter::Fs {
+                cwd: PathBuf::from("/ws/cur"),
+                base: PathBuf::from("/ws"),
+            },
+        };
+        fn parse(
+            context: &FilesetParseContext,
+            text: &str,
+        ) -> FilesetParseResult<FilesetExpression> {
+            parse_maybe_bare(&mut FilesetDiagnostics::new(), text, context)
+        }
+
+        let test_cases = vec![
+            "all()",
+            "none()",
+            "root:\"foo/bar\"",
+            "root-file:\"foo/bar\"",
+            "root-glob:\"*.rs\"",
+            "root-prefix-glob:\"tests/**\"",
+            "root:\"foo\" | root:\"bar\"",
+            "root:\"foo\" & root-file:\"bar\"",
+            "root:\"foo\" ~ root:\"bar\"",
+            "(root:\"foo\" | root:\"bar\") & root:\"baz\"",
+            "root:\"foo\" | root:\"bar\" & root:\"baz\"",
+            "(root:\"foo\" | root:\"bar\") ~ root:\"baz\"",
+            "root:\"foo\" ~ (root:\"bar\" ~ root:\"baz\")",
+            // Escaping test
+            "root:\"foo\\\"bar\"",
+        ];
+
+        for case in test_cases {
+            let expr = parse(&context, case)?;
+            let serialized = expr.to_string();
+            // Verify that it parses back to the same expression structure
+            let parsed_back = parse(&context, &serialized)?;
+            assert_eq!(
+                format!("{expr:?}"),
+                format!("{parsed_back:?}"),
+                "Failed for case: {case}\nSerialized to: {serialized}\nParsed back to: \
+                 {parsed_back:?}"
+            );
+        }
+
+        // Test that CWD-relative patterns are normalized to root-relative on
+        // serialization
+        let cwd_expr = parse(&context, "foo/bar")?; // Parsed as cwd-relative (cur/foo/bar)
+        let serialized = cwd_expr.to_string();
+        assert_eq!(serialized, "root:\"cur/foo/bar\"");
+        let parsed_back = parse(&context, &serialized)?;
+        assert_eq!(format!("{cwd_expr:?}"), format!("{parsed_back:?}"));
+
+        Ok(())
     }
 }
