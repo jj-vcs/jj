@@ -25,6 +25,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   aliases that are simply repeated. For example, with the alias `jj = []`, the
   command `jj jj jj log` will resolve to `jj log` as expected.
 
+* `jj diff` and `jj status` no longer omit a rename or copy in a merge commit
+  when the renamed source is present in more than one parent. The identical copy
+  record reported for each parent was mistaken for a conflict and discarded.
+  [#9752](https://github.com/jj-vcs/jj/issues/9752)
+
 ## [0.43.0] - 2026-07-01
 
 ### Release highlights

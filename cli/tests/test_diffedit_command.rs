@@ -710,7 +710,7 @@ fn test_diffedit_merge() -> TestResult {
     let output = work_dir.run_jj(["diff", "-r", "@-", "-s"]);
     insta::assert_snapshot!(output, @"
     M file1
-    A file3
+    C {file1 => file3}
     [EOF]
     ");
 
