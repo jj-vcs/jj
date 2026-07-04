@@ -2477,6 +2477,14 @@ its possible targets are included.</p>
   in <code>x</code>. If <code>x</code> resolves to a single commit, <code>fork_point(x)</code> resolves to <code>x</code>.</p>
 </li>
 <li>
+<p><code>merge_point(x)</code>: The merge point of all commits in <code>x</code>. Similar to the fork
+  point, the merge point is the common descendant(s) of all commits in <code>x</code> which
+  do not have any ancestors that are also common descendants of all commits in
+  <code>x</code>. It is equivalent to the revset <code>roots(x_1:: &amp; x_2:: &amp; ... &amp; x_N::)</code>,
+  where <code>x_{1..N}</code> are commits in <code>x</code>. If <code>x</code> resolves to a single commit,
+  <code>merge_point(x)</code> resolves to <code>x</code>.</p>
+</li>
+<li>
 <p><code>bisect(x)</code>: Finds commits in the input set for which about half of the input
   set are descendants. The current implementation deals somewhat poorly with
   non-linear history.</p>
