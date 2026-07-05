@@ -1600,18 +1600,6 @@ Create a new repo backed by a clone of a Git repo
 
    [colocation docs]: https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-repos
 * `--depth <DEPTH>` — Create a shallow clone of the given depth
-* `--fetch-tags <FETCH_TAGS>` — Configure when to fetch tags
-
-   Unless otherwise specified, the initial clone will fetch all tags, while all subsequent fetches will only fetch included tags.
-
-  Possible values:
-  - `all`:
-    Always fetch all tags
-  - `included`:
-    Only fetch tags that point to objects that are already being transmitted
-  - `none`:
-    Do not fetch any tags
-
 * `-b`, `--branch <BRANCH>` — Name of the branch to fetch and use as the parent of the working-copy change (can be repeated)
 
    If not present, all branches are fetched and the repository's default branch is used as parent of the working-copy change.
@@ -1873,18 +1861,6 @@ Add a Git remote
    Local path will be resolved to absolute form.
 
 ###### **Options:**
-
-* `--fetch-tags <FETCH_TAGS>` — Configure when to fetch tags
-
-  Default value: `included`
-
-  Possible values:
-  - `all`:
-    Always fetch all tags
-  - `included`:
-    Only fetch tags that point to objects that are already being transmitted
-  - `none`:
-    Do not fetch any tags
 
 * `--push-url <PUSH_URL>` — The URL used for push
 

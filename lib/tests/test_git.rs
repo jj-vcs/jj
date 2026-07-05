@@ -42,7 +42,6 @@ use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
 use jj_lib::git;
 use jj_lib::git::FailedRefExportReason;
-use jj_lib::git::FetchTagsOverride;
 use jj_lib::git::GitFetch;
 use jj_lib::git::GitFetchError;
 use jj_lib::git::GitFetchRefExpression;
@@ -247,8 +246,7 @@ fn fetch_with(
 ) -> Result<(), GitFetchError> {
     let refspecs = expand_fetch_refspecs(remote, ref_expr).expect("ref patterns should be valid");
     let depth = None;
-    let fetch_tags = Some(FetchTagsOverride::NoTags);
-    fetcher.fetch(remote, refspecs, &mut NullCallback, depth, fetch_tags)
+    fetcher.fetch(remote, refspecs, &mut NullCallback, depth)
 }
 
 fn push_status_rejected_references(push_stats: GitPushStats) -> Vec<GitRefNameBuf> {
@@ -4867,162 +4865,6 @@ fn test_fetch_export_annotated_tags() -> TestResult {
     Ok(())
 }
 
-#[test]
-fn test_fetch_with_fetch_tags_override() -> TestResult {
-    let source_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
-    let source_repo = &source_repo.repo;
-    let source_git_repo = get_git_repo(source_repo);
-    let git_settings = GitSettings::from_settings(source_repo.settings())?;
-    let import_options = default_import_options();
-
-    let commit1 = empty_git_commit(&source_git_repo, "refs/heads/main", &[]);
-    git_ref(&source_git_repo, "refs/remotes/origin/main", commit1);
-    let commit2 = empty_git_commit(&source_git_repo, "refs/heads/disjoint", &[]);
-    git_ref(&source_git_repo, "refs/remotes/origin/disjoint", commit2);
-    let commit3 = empty_git_commit(&source_git_repo, "refs/tags/v1.0", &[commit1]);
-    let commit4 = empty_git_commit(&source_git_repo, "refs/tags/v2.0", &[commit2]);
-
-    testutils::git::set_symbolic_reference(&source_git_repo, "HEAD", "refs/heads/main");
-
-    let fetch_import =
-        |mut_repo: &mut MutableRepo, remote: &RemoteName, fetch_tags: Option<FetchTagsOverride>| {
-            let mut fetcher = GitFetch::new(
-                mut_repo,
-                git_settings.to_subprocess_options(),
-                &import_options,
-            )
-            .unwrap();
-            let ref_expr = GitFetchRefExpression {
-                bookmark: StringExpression::all(),
-                // Disable explicit tag fetching to test FetchTagsOverride
-                tag: StringExpression::none(),
-            };
-            let refspecs = expand_fetch_refspecs(remote, ref_expr).unwrap();
-            let depth = None;
-            fetcher
-                .fetch(remote, refspecs, &mut NullCallback, depth, fetch_tags)
-                .unwrap();
-            fetcher.import_refs().block_on().unwrap()
-        };
-    let changed_tags = |stats: &GitImportStats| {
-        stats
-            .changed_remote_tags
-            .iter()
-            .filter_map(|(remote_symbol, (_, target))| {
-                target
-                    .as_resolved()?
-                    .as_ref()
-                    .map(|resolved| (remote_symbol.name.as_str().to_owned(), resolved.hex()))
-            })
-            .collect::<BTreeMap<_, _>>()
-    };
-
-    let expected_changed_tags = BTreeMap::from([
-        ("v1.0".to_owned(), commit3.to_hex().to_string()),
-        ("v2.0".to_owned(), commit4.to_hex().to_string()),
-    ]);
-
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
-
-    let mut tx = test_repo.repo.start_transaction();
-    git::add_remote(
-        tx.repo_mut(),
-        "origin".as_ref(),
-        &source_git_repo.path().display().to_string(),
-        None,
-        gix::remote::fetch::Tags::None,
-    )?;
-    let _repo = tx.commit("test").block_on()?;
-    // Reload after Git configuration change.
-    let repo = &test_repo
-        .env
-        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
-
-    let mut tx = repo.start_transaction();
-    let stats = fetch_import(tx.repo_mut(), "origin".as_ref(), None);
-
-    assert_eq!(stats.changed_remote_tags, vec![]);
-
-    let mut tx = repo.start_transaction();
-    let stats = fetch_import(
-        tx.repo_mut(),
-        "origin".as_ref(),
-        Some(FetchTagsOverride::AllTags),
-    );
-
-    assert_eq!(changed_tags(&stats), expected_changed_tags);
-
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
-    let mut tx = test_repo.repo.start_transaction();
-    git::add_remote(
-        tx.repo_mut(),
-        "originAllTags".as_ref(),
-        &source_git_repo.path().display().to_string(),
-        None,
-        gix::remote::fetch::Tags::All,
-    )?;
-    let _repo = tx.commit("test").block_on()?;
-    // Reload after Git configuration change.
-    let repo = &test_repo
-        .env
-        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
-
-    let mut tx = repo.start_transaction();
-    let stats = fetch_import(
-        tx.repo_mut(),
-        "originAllTags".as_ref(),
-        Some(FetchTagsOverride::NoTags),
-    );
-
-    assert_eq!(stats.changed_remote_tags, vec![]);
-
-    let mut tx = repo.start_transaction();
-    let stats = fetch_import(tx.repo_mut(), "originAllTags".as_ref(), None);
-
-    assert_eq!(changed_tags(&stats), expected_changed_tags);
-    Ok(())
-}
-
-#[test]
-fn test_fetch_rejected_tag_updates() -> TestResult {
-    let test_data = GitRepoData::create();
-    let subprocess_options = GitSubprocessOptions::from_settings(test_data.repo.settings())?;
-    let import_options = default_import_options();
-
-    // Create tagged commit at remote.
-    let commit1 = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
-    git_ref(&test_data.origin_repo, "refs/tags/tag", commit1);
-
-    // Create conflicting tag locally.
-    let mut tx = test_data.repo.start_transaction();
-    let commit2 = write_random_commit(tx.repo_mut());
-    let target2 = RefTarget::normal(commit2.id().clone());
-    tx.repo_mut()
-        .set_local_tag_target("tag".as_ref(), target2.clone());
-    git::export_refs(tx.repo_mut())?;
-    let repo = tx.commit("test").block_on()?;
-
-    // Tags shouldn't be "force" updated. (#7528)
-    let mut tx = repo.start_transaction();
-    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options)?;
-    let ref_expr = GitFetchRefExpression {
-        bookmark: StringExpression::all(),
-        // Disable explicit tag fetching to test FetchTagsOverride::AllTags
-        tag: StringExpression::none(),
-    };
-    assert_matches!(
-        fetcher.fetch(
-            "origin".as_ref(),
-            expand_fetch_refspecs("origin".as_ref(), ref_expr)?,
-            &mut NullCallback,
-            None,
-            Some(FetchTagsOverride::AllTags),
-        ),
-        Err(GitFetchError::RejectedUpdates(refs)) if refs == ["refs/tags/tag"]
-    );
-    Ok(())
-}
-
 struct PushTestSetup {
     source_repo_dir: PathBuf,
     jj_repo: Arc<ReadonlyRepo>,
@@ -6694,13 +6536,7 @@ fn test_remote_remove_refs() -> TestResult {
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
 
     let mut tx = test_repo.repo.start_transaction();
-    git::add_remote(
-        tx.repo_mut(),
-        "foo".as_ref(),
-        "https://example.com/",
-        None,
-        Default::default(),
-    )?;
+    git::add_remote(tx.repo_mut(), "foo".as_ref(), "https://example.com/", None)?;
     let _repo = tx.commit("test").block_on()?;
     // Reload after Git configuration change.
     let repo = &test_repo
@@ -6751,13 +6587,7 @@ fn test_remote_rename_refs() -> TestResult {
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
 
     let mut tx = test_repo.repo.start_transaction();
-    git::add_remote(
-        tx.repo_mut(),
-        "foo".as_ref(),
-        "https://example.com/",
-        None,
-        Default::default(),
-    )?;
+    git::add_remote(tx.repo_mut(), "foo".as_ref(), "https://example.com/", None)?;
     let _repo = tx.commit("test").block_on()?;
     // Reload after Git configuration change.
     let repo = &test_repo
@@ -6843,39 +6673,6 @@ fn user_settings_without_change_id() -> UserSettings {
         .unwrap();
     config.add_layer(layer);
     UserSettings::from_config(config).unwrap()
-}
-
-#[test_case(gix::remote::fetch::Tags::All; "all")]
-#[test_case(gix::remote::fetch::Tags::Included; "included")]
-#[test_case(gix::remote::fetch::Tags::None; "none")]
-fn test_remote_add_with_tags_specification(fetch_tags: gix::remote::fetch::Tags) -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
-
-    let mut tx = test_repo.repo.start_transaction();
-    let remote_name = "foo";
-    git::add_remote(
-        tx.repo_mut(),
-        remote_name.as_ref(),
-        "https://example.com/",
-        None,
-        fetch_tags,
-    )?;
-    let _repo = tx.commit("test").block_on()?;
-
-    // Reload after Git configuration change.
-    let repo = &test_repo
-        .env
-        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
-
-    let git_repo = get_git_repo(repo);
-    assert_eq!(
-        fetch_tags,
-        git_repo
-            .find_remote(remote_name)
-            .expect("unable to find remote")
-            .fetch_tags()
-    );
-    Ok(())
 }
 
 #[test]
@@ -7036,7 +6833,6 @@ fn test_set_remote_urls() -> TestResult {
         remote_name.as_ref(),
         "https://example.com/repo/path",
         None,
-        gix::remote::fetch::Tags::None,
     )?;
 
     // test initial state after adding the remote
@@ -7113,13 +6909,7 @@ fn test_remote_name_validation() -> TestResult {
 
     let try_add_remote = |name: &str| {
         let mut tx = test_repo.repo.start_transaction();
-        git::add_remote(
-            tx.repo_mut(),
-            name.as_ref(),
-            "https://example.com/",
-            None,
-            gix::remote::fetch::Tags::None,
-        )
+        git::add_remote(tx.repo_mut(), name.as_ref(), "https://example.com/", None)
     };
 
     // Valid remote name
