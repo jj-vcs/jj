@@ -3125,17 +3125,11 @@ impl<'a> GitFetch<'a> {
                     .iter()
                     .filter(|fetched| fetched.remote == symbol.remote)
                     .any(|fetched| fetched.bookmark_matcher.is_match(symbol.name.as_str())),
-                GitRefKind::Tag => {
-                    // We also import local tags since remote tags should have
-                    // been merged by Git. TODO: Stabilize remote tags support
-                    // and remove this workaround.
-                    symbol.remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO
-                        || self
-                            .fetched
-                            .iter()
-                            .filter(|fetched| fetched.remote == symbol.remote)
-                            .any(|fetched| fetched.tag_matcher.is_match(symbol.name.as_str()))
-                }
+                GitRefKind::Tag => self
+                    .fetched
+                    .iter()
+                    .filter(|fetched| fetched.remote == symbol.remote)
+                    .any(|fetched| fetched.tag_matcher.is_match(symbol.name.as_str())),
             },
         )?;
         let import_stats =

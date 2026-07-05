@@ -4647,15 +4647,13 @@ fn test_fetch_with_tag_changes() -> TestResult {
     let stats = fetch_import_all(tx.repo_mut(), "origin".as_ref());
     tx.repo_mut().rebase_descendants().block_on()?;
     let repo = tx.commit("test").block_on()?;
-    assert_eq!(stats.changed_remote_tags.len(), 3);
+    assert_eq!(stats.changed_remote_tags.len(), 2);
     assert_eq!(
         stats.changed_remote_tags[0].0,
         remote_symbol("tag1", "origin")
     );
-    // TODO: don't import local tags from Git
-    assert_eq!(stats.changed_remote_tags[1].0, remote_symbol("tag2", "git"));
     assert_eq!(
-        stats.changed_remote_tags[2].0,
+        stats.changed_remote_tags[1].0,
         remote_symbol("tag2", "origin")
     );
 
@@ -4666,10 +4664,6 @@ fn test_fetch_with_tag_changes() -> TestResult {
         &remote_ref1
     );
     assert!(repo.view().get_local_tag("tag2".as_ref()).is_absent());
-    assert_eq!(
-        repo.view().get_remote_tag(remote_symbol("tag2", "git")),
-        RemoteRef::absent_ref()
-    );
     assert_eq!(
         repo.view().get_remote_tag(remote_symbol("tag2", "origin")),
         RemoteRef::absent_ref()
