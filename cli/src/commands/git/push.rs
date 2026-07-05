@@ -87,7 +87,7 @@ use crate::ui::Ui;
 ///
 /// By default, pushes tracking bookmarks and tags pointing to
 /// `remote_bookmarks(remote=<remote>)..@`. Use `--bookmark`/`--tag` to push
-/// specific bookmarks or tags. Use `--all` to push all bookmarks. Use
+/// specific bookmarks or tags. Use `--all` to push all bookmarks and tags. Use
 /// `--change` to generate bookmark names based on the change IDs of specific
 /// commits.
 ///
@@ -155,7 +155,7 @@ pub struct GitPushArgs {
     #[arg(long, short, group = "specific")]
     tag: Vec<String>,
 
-    /// Push all bookmarks (including new bookmarks)
+    /// Push all bookmarks and tags (including new ones)
     #[arg(long, group = "what")]
     all: bool,
 
@@ -297,8 +297,7 @@ pub async fn cmd_git_push(
         }
         for (name, targets) in view.local_remote_tags(remote) {
             let remote_symbol = name.to_remote_symbol(remote);
-            // TODO: push untracked tags when remote tags get stabilized (#7528)
-            let allow_new = false;
+            let allow_new = true; // implied by --all
             match classify_tag_update(remote_symbol, targets, allow_new, args.deleted) {
                 Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
                     Ok(()) => ref_updates.tags.push((name.to_owned(), update)),

@@ -20,6 +20,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Git's `tagOpt` is no longer respected. To disable tag fetching, set
   `remotes.<name>.fetch-tags = '~*'` in the jj configuration.
 
+* `jj git push --all` now pushes all tags in addition to bookmarks.
+
 ### Deprecations
 
 ### New features

@@ -775,17 +775,16 @@ fn test_git_push_multiple() {
     ");
 
     // First dry-run
-    // TODO: untracked tags should be included when gets stabilized (#7528)
     let output = work_dir.run_jj(["git", "push", "--all", "--deleted", "--dry-run"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: Refusing to create new remote tag tag2@origin
     Changes to push to origin:
       bookmark: bookmark1 [delete from 9b2e76de3920]
       bookmark: bookmark2 [move sideways from 38a204733702 to 0cb91ecd4965]
       bookmark: bookmark3 [add to 0cb91ecd4965]
       bookmark: my-bookmark [add to 0cb91ecd4965]
       tag: tag1 [move sideways from 9b2e76de3920 to 0cb91ecd4965]
+      tag: tag2 [add to 0cb91ecd4965]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -859,25 +858,25 @@ fn test_git_push_multiple() {
     ------- stderr -------
     Warning: Refusing to push deleted bookmark bookmark1
     Hint: Push deleted bookmarks with --deleted or forget the bookmark to suppress this warning.
-    Warning: Refusing to create new remote tag tag2@origin
     Changes to push to origin:
       bookmark: bookmark2 [move sideways from 38a204733702 to 0cb91ecd4965]
       bookmark: bookmark3 [add to 0cb91ecd4965]
       bookmark: my-bookmark [add to 0cb91ecd4965]
       tag: tag1 [move sideways from 9b2e76de3920 to 0cb91ecd4965]
+      tag: tag2 [add to 0cb91ecd4965]
     Dry-run requested, not pushing.
     [EOF]
     ");
     let output = work_dir.run_jj(["git", "push", "--all", "--deleted", "--dry-run"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: Refusing to create new remote tag tag2@origin
     Changes to push to origin:
       bookmark: bookmark1 [delete from 9b2e76de3920]
       bookmark: bookmark2 [move sideways from 38a204733702 to 0cb91ecd4965]
       bookmark: bookmark3 [add to 0cb91ecd4965]
       bookmark: my-bookmark [add to 0cb91ecd4965]
       tag: tag1 [move sideways from 9b2e76de3920 to 0cb91ecd4965]
+      tag: tag2 [add to 0cb91ecd4965]
     Dry-run requested, not pushing.
     [EOF]
     ");
@@ -887,13 +886,13 @@ fn test_git_push_multiple() {
     let output = work_dir.run_jj(["git", "push", "--all", "--deleted"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: Refusing to create new remote tag tag2@origin
     Changes to push to origin:
       bookmark: bookmark1 [delete from 9b2e76de3920]
       bookmark: bookmark2 [move sideways from 38a204733702 to 0cb91ecd4965]
       bookmark: bookmark3 [add to 0cb91ecd4965]
       bookmark: my-bookmark [add to 0cb91ecd4965]
       tag: tag1 [move sideways from 9b2e76de3920 to 0cb91ecd4965]
+      tag: tag2 [add to 0cb91ecd4965]
     Warning: The following references unexpectedly moved on the remote:
       refs/heads/bookmark3 (reason: stale info)
     Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
@@ -920,6 +919,7 @@ fn test_git_push_multiple() {
     tag1: yqosqzyt 0cb91ecd (empty) foo
       @origin: yqosqzyt 0cb91ecd (empty) foo
     tag2: yqosqzyt 0cb91ecd (empty) foo
+      @origin: yqosqzyt 0cb91ecd (empty) foo
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "-rall()"]);
@@ -2424,9 +2424,9 @@ fn test_git_push_tracked_vs_all() {
     Hint: Run `jj bookmark track bookmark1 --remote=origin` to import the remote bookmark.
     Warning: Refusing to push deleted tag tag2
     Hint: Push deleted tags with --deleted.
-    Warning: Refusing to create new remote tag tag3@origin
     Changes to push to origin:
       bookmark: bookmark3 [add to db4b95184aca]
+      tag: tag3 [add to db4b95184aca]
     [EOF]
     ");
 }

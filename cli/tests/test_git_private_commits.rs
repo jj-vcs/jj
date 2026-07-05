@@ -166,7 +166,7 @@ fn test_git_private_commits_block_pushing() {
 
     // May push when the commit is removed from git.private-commits
     test_env.add_config(r#"git.private-commits = "none()""#);
-    let output = work_dir.run_jj(["git", "push", "--bookmark=*", "--tag=*"]);
+    let output = work_dir.run_jj(["git", "push", "--all"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
