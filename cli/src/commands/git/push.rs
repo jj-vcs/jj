@@ -85,17 +85,18 @@ use crate::ui::Ui;
 
 /// Push to a Git remote
 ///
-/// By default, pushes tracking bookmarks pointing to
-/// `remote_bookmarks(remote=<remote>)..@`. Use `--bookmark` to push specific
-/// bookmarks. Use `--all` to push all bookmarks. Use `--change` to generate
-/// bookmark names based on the change IDs of specific commits.
+/// By default, pushes tracking bookmarks and tags pointing to
+/// `remote_bookmarks(remote=<remote>)..@`. Use `--bookmark`/`--tag` to push
+/// specific bookmarks or tags. Use `--all` to push all bookmarks. Use
+/// `--change` to generate bookmark names based on the change IDs of specific
+/// commits.
 ///
-/// When pushing a bookmark, the command pushes all commits in the range from
-/// the remote's current position up to and including the bookmark's target
-/// commit. Any descendant commits beyond the bookmark are not pushed.
+/// When pushing a bookmark or tag, the command pushes all commits in the range
+/// from the remote's current position up to and including its target
+/// commit. Any descendant commits beyond the reference are not pushed.
 ///
-/// If the local bookmark has changed from the last fetch, push will update the
-/// remote bookmark to the new position after passing safety checks. This is
+/// If the local reference has changed from the last fetch, push will update the
+/// remote reference to the new position after passing safety checks. This is
 /// similar to `git push --force-with-lease` - the remote is updated only if its
 /// current state matches what Jujutsu last fetched.
 ///
@@ -152,28 +153,27 @@ pub struct GitPushArgs {
     /// [string pattern syntax]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     #[arg(long, short, group = "specific")]
-    #[arg(hide = true)] // TODO: unhide when this gets stabilized (#7528)
     tag: Vec<String>,
 
     /// Push all bookmarks (including new bookmarks)
     #[arg(long, group = "what")]
     all: bool,
 
-    /// Push all tracked bookmarks
+    /// Push all tracked bookmarks and tags
     ///
-    /// This usually means that the bookmark was already pushed to or fetched
-    /// from the [relevant remote].
+    /// This usually means that the bookmark or tag was already pushed to or
+    /// fetched from the [relevant remote].
     ///
     /// [relevant remote]:
     ///     https://docs.jj-vcs.dev/latest/bookmarks#remotes-and-tracked-bookmarks
     #[arg(long, group = "what")]
     tracked: bool,
 
-    /// Push all deleted bookmarks
+    /// Push all deleted bookmarks and tags
     ///
-    /// Only tracked bookmarks can be successfully deleted on the remote. A
-    /// warning will be printed if any untracked bookmarks on the remote
-    /// correspond to missing local bookmarks.
+    /// Only tracked bookmarks and tags can be successfully deleted on the
+    /// remote. A warning will be printed if any untracked bookmarks or tags on
+    /// the remote correspond to missing local bookmarks or tags.
     #[arg(long, conflicts_with = "specific")]
     deleted: bool,
 
@@ -189,7 +189,7 @@ pub struct GitPushArgs {
     #[arg(long)]
     allow_private: bool,
 
-    /// Push bookmarks pointing to these commits (can be repeated)
+    /// Push bookmarks and tags pointing to these commits (can be repeated)
     #[arg(
         long = "revision",
         short,

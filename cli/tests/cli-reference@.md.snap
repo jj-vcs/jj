@@ -1621,6 +1621,11 @@ Create a new repo backed by a clone of a Git repo
    Examples: `push-*`, `(push-* | foo/*) ~ foo/unwanted`
 
    [logical operators]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
+* `-t`, `--tag <TAG>` — Fetch only some of the tags (can be repeated)
+
+   By default, the specified pattern matches tag names with glob syntax, but only `*` is expanded. Other wildcard characters such as `?` are *not* supported. Patterns can be repeated or combined with [logical operators] to specify multiple tags, but only union and negative intersection are supported.
+
+   [logical operators]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 
 
 
@@ -1699,9 +1704,14 @@ If a working-copy commit gets abandoned, it will be given a new, empty commit. T
    Examples: `push-*`, `(push-* | foo/*) ~ foo/unwanted`
 
    [logical operators]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
-* `--tracked` — Fetch only tracked bookmarks
+* `-t`, `--tag <TAG>` — Fetch only some of the tags (can be repeated)
 
-   This fetches only bookmarks that are already tracked from the specified remote(s).
+   By default, the specified pattern matches tag names with glob syntax, but only `*` is expanded. Other wildcard characters such as `?` are *not* supported. Patterns can be repeated or combined with [logical operators] to specify multiple tags, but only union and negative intersection are supported.
+
+   [logical operators]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
+* `--tracked` — Fetch only tracked bookmarks and tags
+
+   This fetches only bookmarks and tags that are already tracked from the specified remote(s).
 * `--remote <REMOTE>` — The remote to fetch from (only named remotes are supported, can be repeated)
 
    By default, the specified pattern matches remote names with glob syntax, e.g. `--remote '*'`. You can also use other [string pattern syntax].
@@ -1771,11 +1781,11 @@ Create a new Git backed repo
 
 Push to a Git remote
 
-By default, pushes tracking bookmarks pointing to `remote_bookmarks(remote=<remote>)..@`. Use `--bookmark` to push specific bookmarks. Use `--all` to push all bookmarks. Use `--change` to generate bookmark names based on the change IDs of specific commits.
+By default, pushes tracking bookmarks and tags pointing to `remote_bookmarks(remote=<remote>)..@`. Use `--bookmark`/`--tag` to push specific bookmarks or tags. Use `--all` to push all bookmarks. Use `--change` to generate bookmark names based on the change IDs of specific commits.
 
-When pushing a bookmark, the command pushes all commits in the range from the remote's current position up to and including the bookmark's target commit. Any descendant commits beyond the bookmark are not pushed.
+When pushing a bookmark or tag, the command pushes all commits in the range from the remote's current position up to and including its target commit. Any descendant commits beyond the reference are not pushed.
 
-If the local bookmark has changed from the last fetch, push will update the remote bookmark to the new position after passing safety checks. This is similar to `git push --force-with-lease` - the remote is updated only if its current state matches what Jujutsu last fetched.
+If the local reference has changed from the last fetch, push will update the remote reference to the new position after passing safety checks. This is similar to `git push --force-with-lease` - the remote is updated only if its current state matches what Jujutsu last fetched.
 
 Unlike in Git, the remote to push to is not derived from the tracked remote bookmarks. Use `--remote` to select the remote Git repository by name. There is no option to push to multiple remotes.
 
@@ -1799,20 +1809,27 @@ Before the command actually moves, creates, or deletes a remote bookmark, it mak
    By default, the specified pattern matches bookmark names with glob syntax. You can also use other [string pattern syntax].
 
    [string pattern syntax]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
-* `--all` — Push all bookmarks (including new bookmarks)
-* `--tracked` — Push all tracked bookmarks
+* `-t`, `--tag <TAG>` — Push only this tag, or tags matching a pattern (can be repeated)
 
-   This usually means that the bookmark was already pushed to or fetched from the [relevant remote].
+   If a tag isn't tracking anything yet, the remote tag will be tracked automatically.
+
+   By default, the specified pattern matches tag names with glob syntax. You can also use other [string pattern syntax].
+
+   [string pattern syntax]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
+* `--all` — Push all bookmarks (including new bookmarks)
+* `--tracked` — Push all tracked bookmarks and tags
+
+   This usually means that the bookmark or tag was already pushed to or fetched from the [relevant remote].
 
    [relevant remote]: https://docs.jj-vcs.dev/latest/bookmarks#remotes-and-tracked-bookmarks
-* `--deleted` — Push all deleted bookmarks
+* `--deleted` — Push all deleted bookmarks and tags
 
-   Only tracked bookmarks can be successfully deleted on the remote. A warning will be printed if any untracked bookmarks on the remote correspond to missing local bookmarks.
+   Only tracked bookmarks and tags can be successfully deleted on the remote. A warning will be printed if any untracked bookmarks or tags on the remote correspond to missing local bookmarks or tags.
 * `--allow-empty-description` — Allow pushing commits with empty descriptions
 * `--allow-private` — Allow pushing commits that are private
 
    The set of private commits can be configured by the `git.private-commits` setting. The default is `none()`, meaning all commits are eligible to be pushed.
-* `-r`, `--revision <REVSETS>` — Push bookmarks pointing to these commits (can be repeated)
+* `-r`, `--revision <REVSETS>` — Push bookmarks and tags pointing to these commits (can be repeated)
 * `-c`, `--change <REVSETS>` — Push this commit by creating a bookmark (can be repeated)
 
    The created bookmark will be tracked automatically. Use the `templates.git_push_bookmark` setting to customize the generated bookmark name. The default is `"push-" ++ change_id.short()`.
@@ -3373,6 +3390,16 @@ The `-r` flag combined with revset expressions can be used for filtering. For ex
 ###### **Options:**
 
 * `-a`, `--all-remotes` — Show all tracked and untracked remote tags including the ones whose targets are synchronized with the local tags
+* `--remote <REMOTE>` — Show all tracked and untracked remote tags belonging to this remote
+
+   Can be combined with `--tracked` or `--conflicted` to filter the tags shown (can be repeated.)
+
+   By default, the specified pattern matches remote names with glob syntax. You can also use other [string pattern syntax].
+
+   [string pattern syntax]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
+* `-t`, `--tracked` — Show tracked remote tags only
+
+   This omits local Git-tracking tags by default.
 * `-c`, `--conflicted` — Show conflicted tags only
 * `-r`, `--revision <REVSETS>` — Show tags whose local targets are in the given revisions
 

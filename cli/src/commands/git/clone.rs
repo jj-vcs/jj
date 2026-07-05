@@ -147,7 +147,6 @@ pub struct GitCloneArgs {
     /// [logical operators]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     #[arg(long = "tag", short, value_name = "TAG")]
-    #[arg(hide = true)] // TODO: unhide when this gets stabilized (#7528)
     tags: Option<Vec<String>>,
 }
 
