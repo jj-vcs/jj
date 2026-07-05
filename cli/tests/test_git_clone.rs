@@ -543,7 +543,7 @@ fn test_git_clone_default_bookmarks_and_tags() {
     ------- stderr -------
     Hint: Fetching from the only existing remote: rem3
     bookmark: branch1@rem3 [new] untracked
-    tag: tag2@git [new] 
+    tag: tag1@rem3 [new] 
     [EOF]
     ");
 
@@ -600,9 +600,17 @@ fn test_git_clone_tags() {
     let run_test = |name, args: &[_]| {
         // Clone an empty repo
         root_dir.run_jj(
-            ["git", "clone", "source", name, "--colocate"]
-                .iter()
-                .chain(args),
+            // --branch=main to fetch only implicit tags
+            [
+                "git",
+                "clone",
+                "source",
+                name,
+                "--colocate",
+                "--branch=main",
+            ]
+            .iter()
+            .chain(args),
         )
     };
 
@@ -613,12 +621,13 @@ fn test_git_clone_tags() {
             .fetch_tags()
     };
 
-    insta::assert_snapshot!(run_test("default", &[]), @r#"
+    let output = root_dir.run_jj(["git", "clone", "source", "default", "--colocate"]);
+    insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/default"
     bookmark: main@origin [new] tracked
-    tag: v1.0@git [new] 
-    tag: v2.0@git [new] 
+    tag: v1.0@origin [new] 
+    tag: v2.0@origin [new] 
     Setting the revset alias `trunk()` to `main@origin`.
     Working copy  (@) now at: sqpuoqvx 88542a00 (empty) (no description set)
     Parent commit (@-)      : lnmyztun e93ca54d main | message

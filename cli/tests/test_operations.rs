@@ -1213,9 +1213,7 @@ fn test_op_diff() {
     work_dir
         .run_jj(["git", "remote", "add", "origin", "../git-repo"])
         .success();
-    work_dir
-        .run_jj(["git", "fetch", "--branch=*", "--tag=*"])
-        .success();
+    work_dir.run_jj(["git", "fetch"]).success();
     work_dir
         .run_jj(["bookmark", "track", "bookmark-1"])
         .success();
@@ -1223,12 +1221,12 @@ fn test_op_diff() {
     // Overview of op log.
     let output = work_dir.run_jj(["op", "log"]);
     insta::assert_snapshot!(output, @"
-    @  482b01adb134 test-username@host.example.com default@ 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    @  81bc294627f7 test-username@host.example.com default@ 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
     │  track remote bookmark bookmark-1@origin
     │  args: jj bookmark track bookmark-1
-    ○  e97716d3355a test-username@host.example.com default@ 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    ○  80e831767589 test-username@host.example.com default@ 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
     │  fetch from git remote(s) origin
-    │  args: jj git fetch '--branch=*' '--tag=*'
+    │  args: jj git fetch
     ○  ccace750b730 test-username@host.example.com default@ 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
     │  add git remote origin
     │  args: jj git remote add origin ../git-repo
@@ -1247,8 +1245,8 @@ fn test_op_diff() {
     ");
     let output = work_dir.run_jj(["op", "diff", "--from", "@", "--to", "@"]);
     insta::assert_snapshot!(output, @"
-    From operation: 482b01adb134 (2001-02-03 08:05:10) track remote bookmark bookmark-1@origin
-      To operation: 482b01adb134 (2001-02-03 08:05:10) track remote bookmark bookmark-1@origin
+    From operation: 81bc294627f7 (2001-02-03 08:05:10) track remote bookmark bookmark-1@origin
+      To operation: 81bc294627f7 (2001-02-03 08:05:10) track remote bookmark bookmark-1@origin
     [EOF]
     ");
 
@@ -1257,8 +1255,8 @@ fn test_op_diff() {
     // @- --to @` (if `@` is not a merge commit).
     let output = work_dir.run_jj(["op", "diff", "--from", "@-", "--to", "@"]);
     insta::assert_snapshot!(output, @"
-    From operation: e97716d3355a (2001-02-03 08:05:09) fetch from git remote(s) origin
-      To operation: 482b01adb134 (2001-02-03 08:05:10) track remote bookmark bookmark-1@origin
+    From operation: 80e831767589 (2001-02-03 08:05:09) fetch from git remote(s) origin
+      To operation: 81bc294627f7 (2001-02-03 08:05:10) track remote bookmark bookmark-1@origin
 
     Changed local bookmarks:
     bookmark-1:
@@ -1278,7 +1276,7 @@ fn test_op_diff() {
     let output = work_dir.run_jj(["op", "diff", "--from", "0000000"]);
     insta::assert_snapshot!(output, @"
     From operation: 000000000000 root()
-      To operation: 482b01adb134 (2001-02-03 08:05:10) track remote bookmark bookmark-1@origin
+      To operation: 81bc294627f7 (2001-02-03 08:05:10) track remote bookmark bookmark-1@origin
 
     Changed commits:
     ○  + skovwzlu 854c38b8 Commit 4
@@ -1322,7 +1320,7 @@ fn test_op_diff() {
     // Diff from latest operation to root operation
     let output = work_dir.run_jj(["op", "diff", "--to", "0000000"]);
     insta::assert_snapshot!(output, @"
-    From operation: 482b01adb134 (2001-02-03 08:05:10) track remote bookmark bookmark-1@origin
+    From operation: 81bc294627f7 (2001-02-03 08:05:10) track remote bookmark bookmark-1@origin
       To operation: 000000000000 root()
 
     Changed commits:
@@ -1411,21 +1409,21 @@ fn test_op_diff() {
     ");
     let output = work_dir.run_jj(["op", "log"]);
     insta::assert_snapshot!(output, @"
-    @    780c168651d6 test-username@host.example.com default@ 2001-02-03 04:05:21.000 +07:00 - 2001-02-03 04:05:21.000 +07:00
+    @    57bcd79175d6 test-username@host.example.com default@ 2001-02-03 04:05:21.000 +07:00 - 2001-02-03 04:05:21.000 +07:00
     ├─╮  reconcile divergent operations
     │ │  args: jj log
-    ○ │  59ad8bf11f1e test-username@host.example.com default@ 2001-02-03 04:05:19.000 +07:00 - 2001-02-03 04:05:19.000 +07:00
+    ○ │  98d597e0b9b6 test-username@host.example.com default@ 2001-02-03 04:05:19.000 +07:00 - 2001-02-03 04:05:19.000 +07:00
     │ │  point bookmark bookmark-1 to commit e8849ae12c709f2321908879bc724fdb2ab8a781
     │ │  args: jj bookmark move bookmark-1 --to @ --allow-backwards
-    │ ○  8dbae60838ae test-username@host.example.com default@ 2001-02-03 04:05:20.000 +07:00 - 2001-02-03 04:05:20.000 +07:00
+    │ ○  4f85f452f6d6 test-username@host.example.com default@ 2001-02-03 04:05:20.000 +07:00 - 2001-02-03 04:05:20.000 +07:00
     ├─╯  point bookmark bookmark-1 to commit 4ff6253913375c6ebdddd8423c11df3b3f17e331
     │    args: jj bookmark set bookmark-1 -r bookmark-2@origin --allow-backwards --at-op @-
-    ○  482b01adb134 test-username@host.example.com default@ 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    ○  81bc294627f7 test-username@host.example.com default@ 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
     │  track remote bookmark bookmark-1@origin
     │  args: jj bookmark track bookmark-1
-    ○  e97716d3355a test-username@host.example.com default@ 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    ○  80e831767589 test-username@host.example.com default@ 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
     │  fetch from git remote(s) origin
-    │  args: jj git fetch '--branch=*' '--tag=*'
+    │  args: jj git fetch
     ○  ccace750b730 test-username@host.example.com default@ 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
     │  add git remote origin
     │  args: jj git remote add origin ../git-repo
@@ -1442,8 +1440,8 @@ fn test_op_diff() {
     // Diff between the first parent of the merge operation and the merge operation.
     let output = work_dir.run_jj(["op", "diff", "--from", first_parent_id, "--to", op_id]);
     insta::assert_snapshot!(output, @"
-    From operation: 59ad8bf11f1e (2001-02-03 08:05:19) point bookmark bookmark-1 to commit e8849ae12c709f2321908879bc724fdb2ab8a781
-      To operation: 780c168651d6 (2001-02-03 08:05:21) reconcile divergent operations
+    From operation: 98d597e0b9b6 (2001-02-03 08:05:19) point bookmark bookmark-1 to commit e8849ae12c709f2321908879bc724fdb2ab8a781
+      To operation: 57bcd79175d6 (2001-02-03 08:05:21) reconcile divergent operations
 
     Changed local bookmarks:
     bookmark-1:
@@ -1458,8 +1456,8 @@ fn test_op_diff() {
     // operation.
     let output = work_dir.run_jj(["op", "diff", "--from", second_parent_id, "--to", op_id]);
     insta::assert_snapshot!(output, @"
-    From operation: 8dbae60838ae (2001-02-03 08:05:20) point bookmark bookmark-1 to commit 4ff6253913375c6ebdddd8423c11df3b3f17e331
-      To operation: 780c168651d6 (2001-02-03 08:05:21) reconcile divergent operations
+    From operation: 4f85f452f6d6 (2001-02-03 08:05:20) point bookmark bookmark-1 to commit 4ff6253913375c6ebdddd8423c11df3b3f17e331
+      To operation: 57bcd79175d6 (2001-02-03 08:05:21) reconcile divergent operations
 
     Changed local bookmarks:
     bookmark-1:
@@ -1478,15 +1476,14 @@ fn test_op_diff() {
     bookmark: bookmark-1@origin [updated] tracked
     bookmark: bookmark-2@origin [updated] untracked
     bookmark: bookmark-3@origin [deleted] untracked
-    tag: tag-1@git [new] 
     Abandoned 1 commits that are no longer reachable:
       rnnkyono 11671e4c Commit 3
     [EOF]
     ");
     let output = work_dir.run_jj(["op", "diff"]);
     insta::assert_snapshot!(output, @"
-    From operation: 780c168651d6 (2001-02-03 08:05:21) reconcile divergent operations
-      To operation: 9716e8565dea (2001-02-03 08:05:25) fetch from git remote(s) origin
+    From operation: 57bcd79175d6 (2001-02-03 08:05:21) reconcile divergent operations
+      To operation: 33bda1401457 (2001-02-03 08:05:25) fetch from git remote(s) origin
 
     Changed commits:
     ○  + kulxwnxm e1a239a5 bookmark-2@origin | Commit 5
@@ -1532,8 +1529,8 @@ fn test_op_diff() {
     ");
     let output = work_dir.run_jj(["op", "diff"]);
     insta::assert_snapshot!(output, @"
-    From operation: 9716e8565dea (2001-02-03 08:05:25) fetch from git remote(s) origin
-      To operation: 72ae42c7bd0c (2001-02-03 08:05:27) create bookmark bookmark-2 pointing to commit e1a239a57eb15cefc5910198befbbbe2b43c47af
+    From operation: 33bda1401457 (2001-02-03 08:05:25) fetch from git remote(s) origin
+      To operation: 48e847a6dabd (2001-02-03 08:05:27) create bookmark bookmark-2 pointing to commit e1a239a57eb15cefc5910198befbbbe2b43c47af
 
     Changed local bookmarks:
     bookmark-2:
@@ -1551,8 +1548,8 @@ fn test_op_diff() {
     ");
     let output = work_dir.run_jj(["op", "diff"]);
     insta::assert_snapshot!(output, @"
-    From operation: 72ae42c7bd0c (2001-02-03 08:05:27) create bookmark bookmark-2 pointing to commit e1a239a57eb15cefc5910198befbbbe2b43c47af
-      To operation: 01bb085b8fc7 (2001-02-03 08:05:29) track remote bookmark bookmark-2@origin
+    From operation: 48e847a6dabd (2001-02-03 08:05:27) create bookmark bookmark-2 pointing to commit e1a239a57eb15cefc5910198befbbbe2b43c47af
+      To operation: 73b940afa9e1 (2001-02-03 08:05:29) track remote bookmark bookmark-2@origin
 
     Changed remote bookmarks:
     bookmark-2@origin:
@@ -1571,8 +1568,8 @@ fn test_op_diff() {
     ");
     let output = work_dir.run_jj(["op", "diff"]);
     insta::assert_snapshot!(output, @"
-    From operation: 72ae42c7bd0c (2001-02-03 08:05:27) create bookmark bookmark-2 pointing to commit e1a239a57eb15cefc5910198befbbbe2b43c47af
-      To operation: 01bb085b8fc7 (2001-02-03 08:05:29) track remote bookmark bookmark-2@origin
+    From operation: 48e847a6dabd (2001-02-03 08:05:27) create bookmark bookmark-2 pointing to commit e1a239a57eb15cefc5910198befbbbe2b43c47af
+      To operation: 73b940afa9e1 (2001-02-03 08:05:29) track remote bookmark bookmark-2@origin
 
     Changed remote bookmarks:
     bookmark-2@origin:
@@ -1592,8 +1589,8 @@ fn test_op_diff() {
     ");
     let output = work_dir.run_jj(["op", "diff"]);
     insta::assert_snapshot!(output, @"
-    From operation: 01bb085b8fc7 (2001-02-03 08:05:29) track remote bookmark bookmark-2@origin
-      To operation: d35a1766fd20 (2001-02-03 08:05:33) new empty commit
+    From operation: 73b940afa9e1 (2001-02-03 08:05:29) track remote bookmark bookmark-2@origin
+      To operation: b28065dd5e64 (2001-02-03 08:05:33) new empty commit
 
     Changed commits:
     ○  + qmkrwlvp 96f3a57c (empty) new commit
@@ -1613,8 +1610,8 @@ fn test_op_diff() {
     ");
     let output = work_dir.run_jj(["op", "diff"]);
     insta::assert_snapshot!(output, @"
-    From operation: d35a1766fd20 (2001-02-03 08:05:33) new empty commit
-      To operation: 8980611368bb (2001-02-03 08:05:35) point bookmark bookmark-1 to commit 96f3a57c9a4a4ae7bb45d1eafe32fe3b6e33f458
+    From operation: b28065dd5e64 (2001-02-03 08:05:33) new empty commit
+      To operation: 6c82ddcd60a1 (2001-02-03 08:05:35) point bookmark bookmark-1 to commit 96f3a57c9a4a4ae7bb45d1eafe32fe3b6e33f458
 
     Changed local bookmarks:
     bookmark-1:
@@ -1636,8 +1633,8 @@ fn test_op_diff() {
     ");
     let output = work_dir.run_jj(["op", "diff"]);
     insta::assert_snapshot!(output, @"
-    From operation: 8980611368bb (2001-02-03 08:05:35) point bookmark bookmark-1 to commit 96f3a57c9a4a4ae7bb45d1eafe32fe3b6e33f458
-      To operation: 4eb5978447d4 (2001-02-03 08:05:37) delete bookmark bookmark-2
+    From operation: 6c82ddcd60a1 (2001-02-03 08:05:35) point bookmark bookmark-1 to commit 96f3a57c9a4a4ae7bb45d1eafe32fe3b6e33f458
+      To operation: e6c85abc389d (2001-02-03 08:05:37) delete bookmark bookmark-2
 
     Changed local bookmarks:
     bookmark-2:
@@ -1657,8 +1654,8 @@ fn test_op_diff() {
     ");
     let output = work_dir.run_jj(["op", "diff"]);
     insta::assert_snapshot!(output, @"
-    From operation: 4eb5978447d4 (2001-02-03 08:05:37) delete bookmark bookmark-2
-      To operation: 925fba501129 (2001-02-03 08:05:39) push all tracked bookmarks/tags to git remote origin
+    From operation: e6c85abc389d (2001-02-03 08:05:37) delete bookmark bookmark-2
+      To operation: 0e622d1164cc (2001-02-03 08:05:39) push all tracked bookmarks/tags to git remote origin
 
     Changed remote bookmarks:
     bookmark-1@origin:
@@ -1675,8 +1672,8 @@ fn test_op_diff() {
     work_dir.run_jj(["tag", "set", "-r@-", "tag1"]).success();
     let output = work_dir.run_jj(["op", "diff"]);
     insta::assert_snapshot!(output, @"
-    From operation: 63850be91e93 (2001-02-03 08:05:41) new empty commit
-      To operation: 2cb390841ae9 (2001-02-03 08:05:42) set tag tag1 to commit 96f3a57c9a4a4ae7bb45d1eafe32fe3b6e33f458
+    From operation: 291f7a97d014 (2001-02-03 08:05:41) new empty commit
+      To operation: ab4465d67d63 (2001-02-03 08:05:42) set tag tag1 to commit 96f3a57c9a4a4ae7bb45d1eafe32fe3b6e33f458
 
     Changed local tags:
     tag1:
@@ -1691,8 +1688,8 @@ fn test_op_diff() {
         .success();
     let output = work_dir.run_jj(["op", "diff"]);
     insta::assert_snapshot!(output, @"
-    From operation: 2cb390841ae9 (2001-02-03 08:05:42) set tag tag1 to commit 96f3a57c9a4a4ae7bb45d1eafe32fe3b6e33f458
-      To operation: dda59985de35 (2001-02-03 08:05:44) set tag tag1 to commit 0dee631320b13c6a6542c80bced33b9dd29f6bf0
+    From operation: ab4465d67d63 (2001-02-03 08:05:42) set tag tag1 to commit 96f3a57c9a4a4ae7bb45d1eafe32fe3b6e33f458
+      To operation: 1b3f34f50d5c (2001-02-03 08:05:44) set tag tag1 to commit 0dee631320b13c6a6542c80bced33b9dd29f6bf0
 
     Changed local tags:
     tag1:
@@ -1705,8 +1702,8 @@ fn test_op_diff() {
     work_dir.run_jj(["tag", "delete", "tag1"]).success();
     let output = work_dir.run_jj(["op", "diff"]);
     insta::assert_snapshot!(output, @"
-    From operation: dda59985de35 (2001-02-03 08:05:44) set tag tag1 to commit 0dee631320b13c6a6542c80bced33b9dd29f6bf0
-      To operation: 3d6fb6fecc79 (2001-02-03 08:05:46) delete tag tag1
+    From operation: 1b3f34f50d5c (2001-02-03 08:05:44) set tag tag1 to commit 0dee631320b13c6a6542c80bced33b9dd29f6bf0
+      To operation: ffa88ff02dca (2001-02-03 08:05:46) delete tag tag1
 
     Changed local tags:
     tag1:
@@ -2321,7 +2318,7 @@ fn test_op_diff_word_wrap() {
     // ui.log-word-wrap option works, and diff stat respects content width
     insta::assert_snapshot!(render(&["op", "diff", "--from=@---", "--stat"], 40, true), @"
     From operation: f6dad0859f53 (2001-02-03 08:05:07) add git remote origin
-      To operation: c34a6dc87939 (2001-02-03 08:05:08) snapshot working copy
+      To operation: 5991a13625d6 (2001-02-03 08:05:08) snapshot working copy
 
     Changed commits:
     ○  + sqpuoqvx f6f32c19 (no description
@@ -2376,6 +2373,11 @@ fn test_op_diff_word_wrap() {
     + untracked rnnkyono 11671e4c
     bookmark-3@origin | Commit 3
     - untracked (absent)
+
+    Changed remote tags:
+    tag-1@origin:
+    + tracked skovwzlu 854c38b8 Commit 4
+    - untracked (absent)
     [EOF]
     ");
 
@@ -2384,7 +2386,7 @@ fn test_op_diff_word_wrap() {
     insta::assert_snapshot!(
         render(&["op", "diff", "--from=@---", "--config", config], 10, true), @"
     From operation: f6dad0859f53 (2001-02-03 08:05:07) add git remote origin
-      To operation: c34a6dc87939 (2001-02-03 08:05:08) snapshot working copy
+      To operation: 5991a13625d6 (2001-02-03 08:05:08) snapshot working copy
 
     Changed
     commits:
@@ -2462,6 +2464,17 @@ fn test_op_diff_word_wrap() {
     -
     untracked
     (absent)
+
+    Changed
+    remote
+    tags:
+    tag-1@origin:
+    + tracked
+    0 1 2 3 4
+    5 6 7 8 9
+    -
+    untracked
+    (absent)
     [EOF]
     ");
 }
@@ -2476,9 +2489,7 @@ fn test_op_show() {
     work_dir
         .run_jj(["git", "remote", "add", "origin", "../git-repo"])
         .success();
-    work_dir
-        .run_jj(["git", "fetch", "--branch=*", "--tag=*"])
-        .success();
+    work_dir.run_jj(["git", "fetch"]).success();
     work_dir
         .run_jj(["bookmark", "track", "bookmark-1"])
         .success();
@@ -2486,12 +2497,12 @@ fn test_op_show() {
     // Overview of op log.
     let output = work_dir.run_jj(["op", "log"]);
     insta::assert_snapshot!(output, @"
-    @  482b01adb134 test-username@host.example.com default@ 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    @  81bc294627f7 test-username@host.example.com default@ 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
     │  track remote bookmark bookmark-1@origin
     │  args: jj bookmark track bookmark-1
-    ○  e97716d3355a test-username@host.example.com default@ 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    ○  80e831767589 test-username@host.example.com default@ 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
     │  fetch from git remote(s) origin
-    │  args: jj git fetch '--branch=*' '--tag=*'
+    │  args: jj git fetch
     ○  ccace750b730 test-username@host.example.com default@ 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
     │  add git remote origin
     │  args: jj git remote add origin ../git-repo
@@ -2511,7 +2522,7 @@ fn test_op_show() {
     // Showing the latest operation.
     let output = work_dir.run_jj(["op", "show", "@"]);
     insta::assert_snapshot!(output, @"
-    482b01adb134 test-username@host.example.com default@ 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    81bc294627f7 test-username@host.example.com default@ 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
     track remote bookmark bookmark-1@origin
     args: jj bookmark track bookmark-1
 
@@ -2533,9 +2544,9 @@ fn test_op_show() {
     // Showing a given operation.
     let output = work_dir.run_jj(["op", "show", "@-"]);
     insta::assert_snapshot!(output, @"
-    e97716d3355a test-username@host.example.com default@ 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    80e831767589 test-username@host.example.com default@ 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
     fetch from git remote(s) origin
-    args: jj git fetch '--branch=*' '--tag=*'
+    args: jj git fetch
 
     Changed commits:
     ○  + skovwzlu 854c38b8 Commit 4
@@ -2593,7 +2604,7 @@ fn test_op_show() {
     // Showing a merge operation is empty.
     let output = work_dir.run_jj(["op", "show"]);
     insta::assert_snapshot!(output, @"
-    b4852fc1b040 test-username@host.example.com default@ 2001-02-03 04:05:17.000 +07:00 - 2001-02-03 04:05:17.000 +07:00
+    05f1e72786bd test-username@host.example.com default@ 2001-02-03 04:05:17.000 +07:00 - 2001-02-03 04:05:17.000 +07:00
     reconcile divergent operations
     args: jj log
     [EOF]
@@ -2607,14 +2618,13 @@ fn test_op_show() {
     bookmark: bookmark-1@origin [updated] tracked
     bookmark: bookmark-2@origin [updated] untracked
     bookmark: bookmark-3@origin [deleted] untracked
-    tag: tag-1@git [new] 
     Abandoned 1 commits that are no longer reachable:
       rnnkyono 11671e4c Commit 3
     [EOF]
     ");
     let output = work_dir.run_jj(["op", "show"]);
     insta::assert_snapshot!(output, @"
-    126394abfcd6 test-username@host.example.com default@ 2001-02-03 04:05:19.000 +07:00 - 2001-02-03 04:05:19.000 +07:00
+    4d57f8c435c5 test-username@host.example.com default@ 2001-02-03 04:05:19.000 +07:00 - 2001-02-03 04:05:19.000 +07:00
     fetch from git remote(s) origin
     args: jj git fetch
 
@@ -2658,7 +2668,7 @@ fn test_op_show() {
     ");
     let output = work_dir.run_jj(["op", "show"]);
     insta::assert_snapshot!(output, @"
-    2b9940371aad test-username@host.example.com default@ 2001-02-03 04:05:21.000 +07:00 - 2001-02-03 04:05:21.000 +07:00
+    9919170b2011 test-username@host.example.com default@ 2001-02-03 04:05:21.000 +07:00 - 2001-02-03 04:05:21.000 +07:00
     create bookmark bookmark-2 pointing to commit e1a239a57eb15cefc5910198befbbbe2b43c47af
     args: jj bookmark create bookmark-2 -r bookmark-2@origin
 
@@ -2678,7 +2688,7 @@ fn test_op_show() {
     ");
     let output = work_dir.run_jj(["op", "show"]);
     insta::assert_snapshot!(output, @"
-    6dca23bc3b0a test-username@host.example.com default@ 2001-02-03 04:05:23.000 +07:00 - 2001-02-03 04:05:23.000 +07:00
+    fb6f3682d196 test-username@host.example.com default@ 2001-02-03 04:05:23.000 +07:00 - 2001-02-03 04:05:23.000 +07:00
     track remote bookmark bookmark-2@origin
     args: jj bookmark track bookmark-2
 
@@ -2699,7 +2709,7 @@ fn test_op_show() {
     ");
     let output = work_dir.run_jj(["op", "show"]);
     insta::assert_snapshot!(output, @"
-    6dca23bc3b0a test-username@host.example.com default@ 2001-02-03 04:05:23.000 +07:00 - 2001-02-03 04:05:23.000 +07:00
+    fb6f3682d196 test-username@host.example.com default@ 2001-02-03 04:05:23.000 +07:00 - 2001-02-03 04:05:23.000 +07:00
     track remote bookmark bookmark-2@origin
     args: jj bookmark track bookmark-2
 
@@ -2721,7 +2731,7 @@ fn test_op_show() {
     ");
     let output = work_dir.run_jj(["op", "show"]);
     insta::assert_snapshot!(output, @"
-    6a8c47fa9bd0 test-username@host.example.com default@ 2001-02-03 04:05:27.000 +07:00 - 2001-02-03 04:05:27.000 +07:00
+    0a422359fac3 test-username@host.example.com default@ 2001-02-03 04:05:27.000 +07:00 - 2001-02-03 04:05:27.000 +07:00
     new empty commit
     args: jj new bookmark-1@origin -m 'new commit'
 
@@ -2744,7 +2754,7 @@ fn test_op_show() {
     ");
     let output = work_dir.run_jj(["op", "show"]);
     insta::assert_snapshot!(output, @"
-    6dcf762ef8fa test-username@host.example.com default@ 2001-02-03 04:05:29.000 +07:00 - 2001-02-03 04:05:29.000 +07:00
+    d240a4e0bf5c test-username@host.example.com default@ 2001-02-03 04:05:29.000 +07:00 - 2001-02-03 04:05:29.000 +07:00
     point bookmark bookmark-1 to commit 8f340dd76dc637e4deac17f30056eef7d8eaf682
     args: jj bookmark set bookmark-1 -r @
 
@@ -2765,7 +2775,7 @@ fn test_op_show() {
     ");
     let output = work_dir.run_jj(["op", "show"]);
     insta::assert_snapshot!(output, @"
-    7b58e5b895cb test-username@host.example.com default@ 2001-02-03 04:05:31.000 +07:00 - 2001-02-03 04:05:31.000 +07:00
+    57051f5b9177 test-username@host.example.com default@ 2001-02-03 04:05:31.000 +07:00 - 2001-02-03 04:05:31.000 +07:00
     delete bookmark bookmark-2
     args: jj bookmark delete bookmark-2
 
@@ -2787,7 +2797,7 @@ fn test_op_show() {
     ");
     let output = work_dir.run_jj(["op", "show"]);
     insta::assert_snapshot!(output, @"
-    baf30d0ec0af test-username@host.example.com default@ 2001-02-03 04:05:33.000 +07:00 - 2001-02-03 04:05:33.000 +07:00
+    4c467aa621a6 test-username@host.example.com default@ 2001-02-03 04:05:33.000 +07:00 - 2001-02-03 04:05:33.000 +07:00
     push all tracked bookmarks/tags to git remote origin
     args: jj git push --tracked --deleted
 
@@ -2802,9 +2812,9 @@ fn test_op_show() {
     ");
 
     // Showing a given operation, without graph
-    let output = work_dir.run_jj(["op", "show", "--no-graph", "6a8c47fa9bd0"]);
+    let output = work_dir.run_jj(["op", "show", "--no-graph", "0a422359fac3"]);
     insta::assert_snapshot!(output, @"
-    6a8c47fa9bd0 test-username@host.example.com default@ 2001-02-03 04:05:27.000 +07:00 - 2001-02-03 04:05:27.000 +07:00
+    0a422359fac3 test-username@host.example.com default@ 2001-02-03 04:05:27.000 +07:00 - 2001-02-03 04:05:27.000 +07:00
     new empty commit
     args: jj new bookmark-1@origin -m 'new commit'
 

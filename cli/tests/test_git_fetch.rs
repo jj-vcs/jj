@@ -2441,9 +2441,7 @@ fn test_git_fetch_tracked() {
     ");
 
     // Now fetch all branches and tags
-    work_dir
-        .run_jj(["git", "fetch", "--branch=*", "--tag=*"])
-        .success();
+    work_dir.run_jj(["git", "fetch"]).success();
 
     // Now feature1@origin gets updated but feature1 stays at old commit
     // (untracked), feature2 appears for the first time, and main stays at its

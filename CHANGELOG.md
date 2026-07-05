@@ -12,6 +12,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* `jj git fetch` now fetches tags the same way it fetches bookmarks. Tags are
+  fetched as `<name>@<remote>`, and these remote tags are automatically tracked
+  by local tags of the same name. Running `jj git fetch` in an existing
+  repository will re-fetch all tags to initialize the tracking state.
+
+  Git's `tagOpt` is no longer respected. To disable tag fetching, set
+  `remotes.<name>.fetch-tags = '~*'` in the jj configuration.
+
 ### Deprecations
 
 ### New features
