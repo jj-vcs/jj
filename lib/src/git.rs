@@ -2331,7 +2331,6 @@ pub fn add_remote(
     remote_name: &RemoteName,
     url: &str,
     push_url: Option<&str>,
-    fetch_tags: gix::remote::fetch::Tags,
 ) -> Result<(), GitRemoteManagementError> {
     let git_repo = get_git_repo(mut_repo.store())?;
 
@@ -2346,7 +2345,6 @@ pub fn add_remote(
     let mut remote = git_repo
         .remote_at(url)
         .map_err(GitRemoteManagementError::from_git)?
-        .with_fetch_tags(fetch_tags)
         .with_refspecs(
             [default_fetch_refspec(remote_name).as_bytes()],
             gix::remote::Direction::Fetch,
@@ -3022,7 +3020,6 @@ impl<'a> GitFetch<'a> {
         }: ExpandedFetchRefSpecs,
         callback: &mut dyn GitSubprocessCallback,
         depth: Option<NonZeroU32>,
-        fetch_tags_override: Option<FetchTagsOverride>,
     ) -> Result<(), GitFetchError> {
         validate_remote_name(remote_name)?;
 
@@ -3055,7 +3052,6 @@ impl<'a> GitFetch<'a> {
                 &negative_refspecs,
                 callback,
                 depth,
-                fetch_tags_override,
             )?;
             let failing_refspec = match status {
                 GitFetchStatus::Updates(updates) => break updates,
@@ -3413,18 +3409,6 @@ fn to_remote_tag_ref_update(
         name: name.try_into().expect("pushed ref name should be valid"),
         deref: false,
     }
-}
-
-/// Allows temporarily overriding the behavior of a single `git fetch`
-/// operation as to whether tags are fetched
-#[derive(Copy, Clone, Debug)]
-pub enum FetchTagsOverride {
-    /// For this one fetch attempt, fetch all tags regardless of what the
-    /// remote's `tagOpt` is configured to
-    AllTags,
-    /// For this one fetch attempt, fetch no tags regardless of what the
-    /// remote's `tagOpt` is configured to
-    NoTags,
 }
 
 #[cfg(test)]

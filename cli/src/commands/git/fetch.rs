@@ -18,7 +18,6 @@ use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::git;
-use jj_lib::git::FetchTagsOverride;
 use jj_lib::git::GitFetch;
 use jj_lib::git::GitFetchRefExpression;
 use jj_lib::git::GitSettings;
@@ -236,8 +235,7 @@ pub async fn cmd_git_fetch(
 
     for (remote, expanded) in expansions {
         let mut callback = GitSubprocessUi::new(ui);
-        let fetch_tags = Some(FetchTagsOverride::NoTags);
-        git_fetch.fetch(remote, expanded, &mut callback, None, fetch_tags)?;
+        git_fetch.fetch(remote, expanded, &mut callback, None)?;
     }
 
     let import_stats = git_fetch.import_refs().await?;

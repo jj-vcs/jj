@@ -28,7 +28,6 @@ use bstr::ByteSlice as _;
 use itertools::Itertools as _;
 use thiserror::Error;
 
-use crate::git::FetchTagsOverride;
 use crate::git::GitPushOptions;
 use crate::git::GitPushStats;
 use crate::git::GitSubprocessOptions;
@@ -173,7 +172,6 @@ impl GitSubprocessContext {
         negative_refspecs: &[NegativeRefSpec],
         callback: &mut dyn GitSubprocessCallback,
         depth: Option<NonZeroU32>,
-        fetch_tags_override: Option<FetchTagsOverride>,
     ) -> Result<GitFetchStatus, GitSubprocessError> {
         if refspecs.is_empty() {
             return Ok(GitFetchStatus::Updates(GitRefUpdates::default()));
@@ -189,15 +187,8 @@ impl GitSubprocessContext {
         if let Some(d) = depth {
             command.arg(format!("--depth={d}"));
         }
-        match fetch_tags_override {
-            Some(FetchTagsOverride::AllTags) => {
-                command.arg("--tags");
-            }
-            Some(FetchTagsOverride::NoTags) => {
-                command.arg("--no-tags");
-            }
-            None => {}
-        }
+        // Tags should be fetched explicitly by the refspecs
+        command.arg("--no-tags");
         command.arg("--").arg(remote_name.as_str());
         command.args(
             refspecs

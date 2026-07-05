@@ -25,7 +25,6 @@ mod root;
 use std::io::Write as _;
 
 use clap::Subcommand;
-use clap::ValueEnum;
 use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
@@ -278,28 +277,5 @@ fn join_string_expressions(exprs: &[String]) -> String {
     match exprs {
         [] => "~*".to_owned(),  // no matches
         _ => exprs.join(" | "), // no parentheses since | is the weakest operator
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
-enum FetchTagsMode {
-    /// Always fetch all tags
-    All,
-
-    /// Only fetch tags that point to objects that are already being
-    /// transmitted.
-    Included,
-
-    /// Do not fetch any tags
-    None,
-}
-
-impl FetchTagsMode {
-    fn as_fetch_tags(&self) -> gix::remote::fetch::Tags {
-        match self {
-            Self::All => gix::remote::fetch::Tags::All,
-            Self::Included => gix::remote::fetch::Tags::Included,
-            Self::None => gix::remote::fetch::Tags::None,
-        }
     }
 }

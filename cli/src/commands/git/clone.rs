@@ -21,7 +21,6 @@ use std::path::Path;
 use itertools::Itertools as _;
 use jj_lib::file_util;
 use jj_lib::git;
-use jj_lib::git::FetchTagsOverride;
 use jj_lib::git::GitFetch;
 use jj_lib::git::GitFetchRefExpression;
 use jj_lib::git::GitImportOptions;
@@ -43,7 +42,6 @@ use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
-use crate::commands::git::FetchTagsMode;
 use crate::commands::git::maybe_add_gitignore;
 use crate::config::ConfigEnv;
 use crate::git_util::GitSubprocessUi;
@@ -108,13 +106,6 @@ pub struct GitCloneArgs {
     /// Create a shallow clone of the given depth
     #[arg(long)]
     depth: Option<NonZeroU32>,
-
-    /// Configure when to fetch tags
-    ///
-    /// Unless otherwise specified, the initial clone will fetch all tags,
-    /// while all subsequent fetches will only fetch included tags.
-    #[arg(long, value_enum)]
-    fetch_tags: Option<FetchTagsMode>,
 
     /// Name of the branch to fetch and use as the parent of the working-copy
     /// change (can be repeated)
@@ -225,26 +216,15 @@ pub async fn cmd_git_clone(
         } else {
             StringExpression::all()
         };
-        let mut workspace_command = configure_remote(
-            ui,
-            command,
-            workspace_command,
-            remote_name,
-            &source,
-            // If not explicitly specified on the CLI, configure the remote for only fetching
-            // included tags for future fetches.
-            args.fetch_tags.unwrap_or(FetchTagsMode::Included),
-        )
-        .await?;
+        let mut workspace_command =
+            configure_remote(ui, command, workspace_command, remote_name, &source).await?;
         let ref_expr = GitFetchRefExpression { bookmark, tag };
-        let default_fetch_tags = Some(FetchTagsMode::None);
         let default_branch = fetch_new_remote(
             ui,
             &mut workspace_command,
             remote_name,
             &ref_expr,
             args.depth,
-            args.fetch_tags.or(default_fetch_tags),
         )
         .await?;
         Ok((workspace_command, default_branch, config_env))
@@ -337,16 +317,9 @@ async fn configure_remote(
     mut workspace_command: WorkspaceCommandHelper,
     remote_name: &RemoteName,
     source: &str,
-    fetch_tags: FetchTagsMode,
 ) -> Result<WorkspaceCommandHelper, CommandError> {
     let mut tx = workspace_command.start_transaction();
-    git::add_remote(
-        tx.repo_mut(),
-        remote_name,
-        source,
-        None,
-        fetch_tags.as_fetch_tags(),
-    )?;
+    git::add_remote(tx.repo_mut(), remote_name, source, None)?;
     tx.finish(ui, format!("add git remote {}", remote_name.as_symbol()))
         .await?;
     // Reload workspace to apply new remote configuration to
@@ -369,7 +342,6 @@ async fn fetch_new_remote(
     remote_name: &RemoteName,
     ref_expr: &GitFetchRefExpression,
     depth: Option<NonZeroU32>,
-    fetch_tags: Option<FetchTagsMode>,
 ) -> Result<(Option<RefNameBuf>, bool), CommandError> {
     writeln!(
         ui.status(),
@@ -398,20 +370,6 @@ async fn fetch_new_remote(
             fetch_refspecs,
             &mut GitSubprocessUi::new(ui),
             depth,
-            match fetch_tags {
-                // If not explicitly specified on the CLI, override the remote
-                // configuration and fetch all tags by default since this is
-                // the Git default behavior.
-                None => Some(FetchTagsOverride::AllTags),
-
-                // Technically by this point the remote should already be
-                // configured based on the CLI parameters so we shouldn't *need*
-                // to apply an override here but all the cases are expanded here
-                // for clarity.
-                Some(FetchTagsMode::All) => Some(FetchTagsOverride::AllTags),
-                Some(FetchTagsMode::None) => Some(FetchTagsOverride::NoTags),
-                Some(FetchTagsMode::Included) => None,
-            },
         )?;
 
         let import_stats = git_fetch.import_refs().await?;
