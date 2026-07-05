@@ -234,8 +234,7 @@ fn fetch_import_all(mut_repo: &mut MutableRepo, remote: &RemoteName) -> GitImpor
 fn fetch_all_with(fetcher: &mut GitFetch, remote: &RemoteName) -> Result<(), GitFetchError> {
     let ref_expr = GitFetchRefExpression {
         bookmark: StringExpression::all(),
-        // TODO: disable implicit fetching and set this to "all" (#7528)
-        tag: StringExpression::none(),
+        tag: StringExpression::all(),
     };
     fetch_with(fetcher, remote, ref_expr)
 }
@@ -248,31 +247,8 @@ fn fetch_with(
 ) -> Result<(), GitFetchError> {
     let refspecs = expand_fetch_refspecs(remote, ref_expr).expect("ref patterns should be valid");
     let depth = None;
-    let fetch_tags = None;
-    fetcher.fetch(remote, refspecs, &mut NullCallback, depth, fetch_tags)
-}
-
-// TODO: Make this behavior default and replace with fetch_import_all() (#7528)
-fn fetch_import_all_remote_tags(mut_repo: &mut MutableRepo, remote: &RemoteName) -> GitImportStats {
-    let git_settings = GitSettings::from_settings(mut_repo.base_repo().settings()).unwrap();
-    let import_options = default_import_options();
-    let mut fetcher = GitFetch::new(
-        mut_repo,
-        git_settings.to_subprocess_options(),
-        &import_options,
-    )
-    .unwrap();
-    let ref_expr = GitFetchRefExpression {
-        bookmark: StringExpression::all(),
-        tag: StringExpression::all(),
-    };
-    let refspecs = expand_fetch_refspecs(remote, ref_expr).unwrap();
-    let depth = None;
     let fetch_tags = Some(FetchTagsOverride::NoTags);
-    fetcher
-        .fetch(remote, refspecs, &mut NullCallback, depth, fetch_tags)
-        .unwrap();
-    fetcher.import_refs().block_on().unwrap()
+    fetcher.fetch(remote, refspecs, &mut NullCallback, depth, fetch_tags)
 }
 
 fn push_status_rejected_references(push_stats: GitPushStats) -> Vec<GitRefNameBuf> {
@@ -4162,7 +4138,7 @@ fn test_fetch_success() -> TestResult {
         *view.git_refs(),
         btreemap! {
             "refs/remotes/origin/main".into() => new_commit_target.clone(),
-            "refs/tags/v1.0".into() => new_commit_target.clone(),
+            // "refs/tags/v1.0" isn't exported yet
         }
     );
     assert_eq!(
@@ -4182,7 +4158,7 @@ fn test_fetch_success() -> TestResult {
     );
     assert_eq!(
         view.all_remote_tags().collect_vec(),
-        vec![(remote_symbol("v1.0", "git"), &new_commit_remote_ref)]
+        vec![(remote_symbol("v1.0", "origin"), &new_commit_remote_ref)]
     );
     Ok(())
 }
@@ -4593,19 +4569,7 @@ fn test_fetch_local_remote_conflicts() -> TestResult {
     let fetch_import = |mut_repo: &mut MutableRepo| {
         let mut fetcher =
             GitFetch::new(mut_repo, subprocess_options.clone(), &import_options).unwrap();
-        let remote = RemoteName::new("origin");
-        // Fetch all bookmarks and tags explicitly. We can use fetch_all_with()
-        // helper if this becomes the default. (#7528)
-        let ref_expr = GitFetchRefExpression {
-            bookmark: StringExpression::all(),
-            tag: StringExpression::all(),
-        };
-        let refspecs = expand_fetch_refspecs(remote, ref_expr).unwrap();
-        let depth = None;
-        let fetch_tags = Some(FetchTagsOverride::NoTags);
-        fetcher
-            .fetch(remote, refspecs, &mut NullCallback, depth, fetch_tags)
-            .unwrap();
+        fetch_all_with(&mut fetcher, "origin".as_ref()).unwrap();
         fetcher.import_refs().block_on().unwrap()
     };
 
@@ -4685,27 +4649,32 @@ fn test_fetch_with_tag_changes() -> TestResult {
     let stats = fetch_import_all(tx.repo_mut(), "origin".as_ref());
     tx.repo_mut().rebase_descendants().block_on()?;
     let repo = tx.commit("test").block_on()?;
-    assert_eq!(stats.changed_remote_tags.len(), 2);
-    assert_eq!(stats.changed_remote_tags[0].0, remote_symbol("tag1", "git"));
+    assert_eq!(stats.changed_remote_tags.len(), 3);
+    assert_eq!(
+        stats.changed_remote_tags[0].0,
+        remote_symbol("tag1", "origin")
+    );
+    // TODO: don't import local tags from Git
     assert_eq!(stats.changed_remote_tags[1].0, remote_symbol("tag2", "git"));
+    assert_eq!(
+        stats.changed_remote_tags[2].0,
+        remote_symbol("tag2", "origin")
+    );
 
-    // Git directly maps fetched tags to local namespace.
+    // Fetched tags should be mapped to remote tags, then merged to local tags.
     assert_eq!(repo.view().get_local_tag("tag1".as_ref()), &target1);
     assert_eq!(
-        repo.view().get_remote_tag(remote_symbol("tag1", "git")),
+        repo.view().get_remote_tag(remote_symbol("tag1", "origin")),
         &remote_ref1
     );
-    // Therefore, deleted local tags have to be imported as well.
     assert!(repo.view().get_local_tag("tag2".as_ref()).is_absent());
     assert_eq!(
         repo.view().get_remote_tag(remote_symbol("tag2", "git")),
         RemoteRef::absent_ref()
     );
-    // Since Git doesn't have real remote tags, other remote tags shouldn't be
-    // updated.
     assert_eq!(
         repo.view().get_remote_tag(remote_symbol("tag2", "origin")),
-        &remote_ref2
+        RemoteRef::absent_ref()
     );
     Ok(())
 }
@@ -4719,19 +4688,13 @@ fn test_fetch_with_explicit_tag_patterns() -> TestResult {
     let fetch_import = |mut_repo: &mut MutableRepo, tag: StringExpression| {
         let mut fetcher =
             GitFetch::new(mut_repo, subprocess_options.clone(), &import_options).unwrap();
-        let remote = RemoteName::new("origin");
         let ref_expr = GitFetchRefExpression {
             // Include all bookmarks to ensure that tags should never be fetched
             // implicitly.
             bookmark: StringExpression::all(),
             tag,
         };
-        let refspecs = expand_fetch_refspecs(remote, ref_expr).unwrap();
-        let depth = None;
-        let fetch_tags = Some(FetchTagsOverride::NoTags);
-        fetcher
-            .fetch(remote, refspecs, &mut NullCallback, depth, fetch_tags)
-            .unwrap();
+        fetch_with(&mut fetcher, "origin".as_ref(), ref_expr).unwrap();
         fetcher.import_refs().block_on().unwrap()
     };
 
@@ -4809,17 +4772,11 @@ fn test_fetch_export_annotated_tags() -> TestResult {
     let fetch_import = |mut_repo: &mut MutableRepo| {
         let mut fetcher =
             GitFetch::new(mut_repo, subprocess_options.clone(), &import_options).unwrap();
-        let remote = RemoteName::new("origin");
         let ref_expr = GitFetchRefExpression {
             bookmark: StringExpression::none(),
             tag: StringExpression::all(),
         };
-        let refspecs = expand_fetch_refspecs(remote, ref_expr).unwrap();
-        let depth = None;
-        let fetch_tags = Some(FetchTagsOverride::NoTags);
-        fetcher
-            .fetch(remote, refspecs, &mut NullCallback, depth, fetch_tags)
-            .unwrap();
+        fetch_with(&mut fetcher, "origin".as_ref(), ref_expr).unwrap();
         fetcher.import_refs().block_on().unwrap()
     };
 
@@ -5722,7 +5679,7 @@ fn test_push_deleted_tags() -> TestResult {
 
     // Fetch and delete local tags.
     let mut tx = test_data.repo.start_transaction();
-    fetch_import_all_remote_tags(tx.repo_mut(), "origin".as_ref());
+    fetch_import_all(tx.repo_mut(), "origin".as_ref());
     tx.repo_mut()
         .set_local_tag_target("lightweight".as_ref(), RefTarget::absent());
     tx.repo_mut()

@@ -1642,10 +1642,7 @@ fn test_git_push_bookmarks_and_tags_of_same_name() {
         .run_jj(["tag", "set", "-r@-", "foo", "bar"])
         .success();
     test_env
-        .run_jj_in(
-            ".",
-            ["git", "clone", "--branch=*", "--tag=*", "origin", "local"],
-        )
+        .run_jj_in(".", ["git", "clone", "origin", "local"])
         .success();
     let work_dir = test_env.work_dir("local");
     work_dir.run_jj(["bookmark", "track", "*"]).success();

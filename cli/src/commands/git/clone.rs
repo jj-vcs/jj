@@ -218,13 +218,12 @@ pub async fn cmd_git_clone(
         } else {
             StringExpression::all()
         };
-        let (tag, no_implicit_tags) = if let Some(expr) = specific_tag_expr {
-            (expr, true)
+        let tag = if let Some(expr) = specific_tag_expr {
+            expr
         } else if let Some(expr) = parse_remote_fetch_tags(ui, &remote_settings, remote_name)? {
-            (expr, true)
+            expr
         } else {
-            // TODO: disable implicit fetching and set this to "all" (#7528)
-            (StringExpression::none(), false)
+            StringExpression::all()
         };
         let mut workspace_command = configure_remote(
             ui,
@@ -238,9 +237,7 @@ pub async fn cmd_git_clone(
         )
         .await?;
         let ref_expr = GitFetchRefExpression { bookmark, tag };
-        // Disable implicit tag fetching if patterns are explicitly set. None
-        // will be the default when this feature gets stabilized. (#7528)
-        let default_fetch_tags = no_implicit_tags.then_some(FetchTagsMode::None);
+        let default_fetch_tags = Some(FetchTagsMode::None);
         let default_branch = fetch_new_remote(
             ui,
             &mut workspace_command,
