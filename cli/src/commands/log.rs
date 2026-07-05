@@ -103,6 +103,8 @@ pub(crate) struct LogArgs {
     ///
     /// Run `jj log -T` to list the built-in templates.
     ///
+    /// For shareable bug reports, use `jj log -T builtin_log_redacted`.
+    ///
     /// All 0-argument methods of the [`Commit` type][Commit] are available as
     /// keywords in the template expression. See
     /// [`jj help -k templates`][templates] for more information.
