@@ -1804,10 +1804,6 @@ The glob pattern supports only `*` (other wildcard characters like `?` are *not*
 supported). You can combine patterns with logical operators to specify multiple
 bookmarks and tags, but only union and negative intersection are supported.
 
-Note that **`remotes.<name>.fetch-tags` is experimental**. Tags matching this
-pattern will be fetched as tracked `<name>@<remote>` tags, and corresponding
-local tags will be created.
-
 ```toml
 [remotes.origin]
 fetch-bookmarks = "~gh-pages"
