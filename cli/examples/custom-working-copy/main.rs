@@ -24,6 +24,7 @@ use jj_cli::command_error::CommandError;
 use jj_cli::ui::Ui;
 use jj_lib::backend::Backend;
 use jj_lib::commit::Commit;
+use jj_lib::fileset::FilesetExpression;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::local_working_copy::LocalWorkingCopy;
 use jj_lib::merged_tree::MergedTree;
@@ -32,7 +33,6 @@ use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo_path::RepoPath;
-use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
 use jj_lib::store::Store;
@@ -173,7 +173,7 @@ impl WorkingCopy for ConflictsWorkingCopy {
         self.inner.tree()
     }
 
-    fn sparse_patterns(&self) -> Result<&[RepoPathBuf], WorkingCopyStateError> {
+    fn sparse_patterns(&self) -> Result<&FilesetExpression, WorkingCopyStateError> {
         self.inner.sparse_patterns()
     }
 
@@ -276,13 +276,13 @@ impl LockedWorkingCopy for LockedConflictsWorkingCopy {
         self.inner.recover(commit).await
     }
 
-    fn sparse_patterns(&self) -> Result<&[RepoPathBuf], WorkingCopyStateError> {
+    fn sparse_patterns(&self) -> Result<&FilesetExpression, WorkingCopyStateError> {
         self.inner.sparse_patterns()
     }
 
     async fn set_sparse_patterns(
         &mut self,
-        new_sparse_patterns: Vec<RepoPathBuf>,
+        new_sparse_patterns: FilesetExpression,
     ) -> Result<CheckoutStats, CheckoutError> {
         self.inner.set_sparse_patterns(new_sparse_patterns).await
     }

@@ -27,6 +27,7 @@ use tracing::instrument;
 
 use crate::backend::BackendError;
 use crate::commit::Commit;
+use crate::fileset::FilesetExpression;
 use crate::gitignore::GitIgnoreError;
 use crate::gitignore::GitIgnoreFile;
 use crate::matchers::Matcher;
@@ -64,10 +65,8 @@ pub trait WorkingCopy: Any + Send {
     fn tree(&self) -> Result<&MergedTree, WorkingCopyStateError>;
 
     /// Patterns that decide which paths from the current tree should be checked
-    /// out in the working copy. An empty list means that no paths should be
-    /// checked out in the working copy. A single `RepoPath::root()` entry means
-    /// that all files should be checked out.
-    fn sparse_patterns(&self) -> Result<&[RepoPathBuf], WorkingCopyStateError>;
+    /// out in the working copy.
+    fn sparse_patterns(&self) -> Result<&FilesetExpression, WorkingCopyStateError>;
 
     /// Locks the working copy and returns an instance with methods for updating
     /// the working copy files and state.
@@ -133,7 +132,7 @@ pub trait LockedWorkingCopy: Any + Send {
     async fn recover(&mut self, commit: &Commit) -> Result<(), ResetError>;
 
     /// See `WorkingCopy::sparse_patterns()`
-    fn sparse_patterns(&self) -> Result<&[RepoPathBuf], WorkingCopyStateError>;
+    fn sparse_patterns(&self) -> Result<&FilesetExpression, WorkingCopyStateError>;
 
     /// Updates the patterns that decide which paths from the current tree
     /// should be checked out in the working copy.
@@ -143,7 +142,7 @@ pub trait LockedWorkingCopy: Any + Send {
     // to use sparse).
     async fn set_sparse_patterns(
         &mut self,
-        new_sparse_patterns: Vec<RepoPathBuf>,
+        new_sparse_patterns: FilesetExpression,
     ) -> Result<CheckoutStats, CheckoutError>;
 
     /// Finish the modifications to the working copy by writing the updated
