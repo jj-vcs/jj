@@ -18,7 +18,7 @@ mod reset;
 mod set;
 
 use clap::Subcommand;
-use jj_lib::repo_path::RepoPathBuf;
+use jj_lib::fileset::FilesetExpression;
 use tracing::instrument;
 
 use self::edit::SparseEditArgs;
@@ -63,7 +63,7 @@ pub(crate) async fn cmd_sparse(
 async fn update_sparse_patterns_with(
     ui: &mut Ui,
     workspace_command: &mut WorkspaceCommandHelper,
-    f: impl FnOnce(&mut Ui, &[RepoPathBuf]) -> Result<Vec<RepoPathBuf>, CommandError>,
+    f: impl FnOnce(&mut Ui, &FilesetExpression) -> Result<FilesetExpression, CommandError>,
 ) -> Result<(), CommandError> {
     let (mut locked_ws, wc_commit) = workspace_command.start_working_copy_mutation().await?;
     let new_patterns = f(ui, locked_ws.locked_wc().sparse_patterns()?)?;
