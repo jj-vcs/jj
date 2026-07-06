@@ -66,9 +66,11 @@ The current list of Maintainers:
 
 - Austin Seipp (@thoughtpolice)
 - Benjamin Tan (@bnjmnt4n)
+- Emily Shaffer (@nasamuffin)
 - Ilya Grigoriev (@ilyagr)
 - Martin von Zweigbergk (@martinvonz)
 - Scott Taylor (@scott2000)
+- Stephen Jennings (@jennings)
 - Waleed Khan (@arxanas)
 - Yuya Nishihara (@yuja)
 
