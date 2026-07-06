@@ -49,6 +49,11 @@ it's obvious. If the PR closes an open issue or feature request for the
 project, include the `Closes #<issue-number>` or `Fixes #<issue-number>` in
 the commit description.
 
+If you have been invited to the `jj-vcs/` organization feel free to create
+branches directly in the repo, ideally prefixed by your name or username. This
+allows other people to directly check out your work and possibly integrate them
+in their custom builds of jj.
+
 [Conventional Commits]: https://www.conventionalcommits.org/en/v1.0.0/
 [How to Write a Git Commit Message]: https://cbea.ms/git-commit/
 
