@@ -94,6 +94,8 @@ use crate::merge_tools::ExternalMergeTool;
 use crate::merge_tools::generate_diff;
 use crate::merge_tools::invoke_external_diff;
 use crate::merge_tools::new_utf8_temp_dir;
+use crate::source_symbol::SourceLanguage;
+use crate::source_symbol::find_source_symbols;
 use crate::templater::TemplateRenderer;
 use crate::text_util;
 use crate::ui::Ui;
@@ -1657,6 +1659,7 @@ impl UnifiedDiffOptions {
 
 fn show_unified_diff_hunks(
     formatter: &mut dyn Formatter,
+    language: Option<SourceLanguage>,
     contents: Diff<&BStr>,
     options: &UnifiedDiffOptions,
 ) -> io::Result<()> {
@@ -1675,8 +1678,23 @@ fn show_unified_diff_hunks(
         }
     }
 
-    for hunk in unified_diff_hunks(contents, options.context, options.line_diff.compare_mode) {
-        writeln!(
+    let hunks = unified_diff_hunks(contents, options.context, options.line_diff.compare_mode);
+    let before_symbols = language.map(|language| {
+        find_source_symbols(
+            language,
+            contents.before,
+            hunks.iter().map(|hunk| &hunk.left_line_range),
+        )
+    });
+    let after_symbols = language.map(|language| {
+        find_source_symbols(
+            language,
+            contents.after,
+            hunks.iter().map(|hunk| &hunk.right_line_range),
+        )
+    });
+    for (hunk_index, hunk) in hunks.into_iter().enumerate() {
+        write!(
             formatter.labeled("hunk_header"),
             "@@ -{},{} +{},{} @@",
             to_line_number(hunk.left_line_range.clone()),
@@ -1684,6 +1702,41 @@ fn show_unified_diff_hunks(
             to_line_number(hunk.right_line_range.clone()),
             hunk.right_line_range.len()
         )?;
+        // Prefer the new side, except for deletion-only hunks. Detect those
+        // from line types because context lines make the new-side range nonempty.
+        let has_added_lines = hunk
+            .lines
+            .iter()
+            .any(|(line_type, _)| *line_type == DiffLineType::Added);
+        let before_symbol = before_symbols
+            .as_ref()
+            .and_then(|symbols| symbols[hunk_index]);
+        let after_symbol = after_symbols
+            .as_ref()
+            .and_then(|symbols| symbols[hunk_index]);
+        let source_symbol = if !has_added_lines {
+            before_symbol.or(after_symbol)
+        } else {
+            after_symbol.or(before_symbol)
+        };
+        if let Some(source_symbol) = source_symbol {
+            // Match Git's byte limit for the source context appended to hunk
+            // headers.
+            const MAX_SOURCE_SYMBOL_LEN: usize = 80;
+            let mut end = source_symbol.len().min(MAX_SOURCE_SYMBOL_LEN);
+            // Don't split valid UTF-8 while enforcing the byte limit. Invalid
+            // source bytes are preserved, just like bytes in the diff body.
+            if let Ok(source_symbol) = str::from_utf8(source_symbol) {
+                while !source_symbol.is_char_boundary(end) {
+                    end -= 1;
+                }
+            }
+            write!(formatter.labeled("hunk_header"), " ")?;
+            formatter
+                .labeled("hunk_header")
+                .write_all(&source_symbol[..end])?;
+        }
+        writeln!(formatter.labeled("hunk_header"))?;
         for (line_type, tokens) in &hunk.lines {
             let (label, sigil) = match line_type {
                 DiffLineType::Context => ("context", " "),
@@ -1735,6 +1788,10 @@ pub async fn show_git_diff(
         let right_prefix = if options.show_path_prefix { "b/" } else { "" };
         let left_path_string = left_path.as_internal_file_string();
         let right_path_string = right_path.as_internal_file_string();
+        let language = right_path
+            .components()
+            .next_back()
+            .and_then(|name| SourceLanguage::from_file_name(name.as_internal_str()));
         let values = values?;
 
         let left_part = git_diff_part(left_path, values.before, &materialize_options).await?;
@@ -1804,6 +1861,7 @@ pub async fn show_git_diff(
             writeln!(formatter.labeled("file_header"), "+++ {right_path}")?;
             show_unified_diff_hunks(
                 formatter,
+                language,
                 Diff::new(&left_part.content.contents, &right_part.content.contents).map(BStr::new),
                 options,
             )?;
@@ -1838,7 +1896,7 @@ fn show_git_diff_texts<T: AsRef<[u8]>>(
             materialize_options,
         )),
     });
-    show_unified_diff_hunks(formatter, contents.as_ref().map(Cow::as_ref), options)
+    show_unified_diff_hunks(formatter, None, contents.as_ref().map(Cow::as_ref), options)
 }
 
 #[instrument(skip_all)]
