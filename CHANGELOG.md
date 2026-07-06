@@ -16,6 +16,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* Git-format diff hunk headers now include nearby source symbols for many common
+  programming and markup languages.
+
 ### Fixed bugs
 
 ## [0.45.0] - 2026-09-02
