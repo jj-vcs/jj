@@ -135,6 +135,7 @@ use jj_lib::transaction::Transaction;
 use jj_lib::ui_path::RepoPathUiConverter;
 use jj_lib::ui_path::UiPathParseError;
 use jj_lib::working_copy;
+use jj_lib::working_copy::CheckoutError;
 use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::LockedWorkingCopy;
 use jj_lib::working_copy::SnapshotOptions;
@@ -2449,20 +2450,23 @@ to the current parents may contain changes from multiple commits.
         if self.may_update_working_copy {
             if let Some(new_commit) = &maybe_new_wc_commit {
                 let stats = update_working_copy(
+                    ui,
                     &self.user_repo.repo,
                     &mut self.workspace,
                     maybe_old_wc_commit.as_ref(),
                     new_commit,
                 )
                 .await?;
-                self.print_updated_working_copy_stats(
-                    ui,
-                    maybe_old_wc_commit.as_ref(),
-                    new_commit,
-                    &stats,
-                )
-                .await
-                .map_err(CliEventSinkError)?;
+                if let Some(stats) = stats {
+                    self.print_updated_working_copy_stats(
+                        ui,
+                        maybe_old_wc_commit.as_ref(),
+                        new_commit,
+                        &stats,
+                    )
+                    .await
+                    .map_err(CliEventSinkError)?;
+                }
             } else {
                 // It seems the workspace was deleted, so we shouldn't try to
                 // update it.
@@ -3536,22 +3540,40 @@ pub async fn rebase_or_reparent_descendants(
 }
 
 pub async fn update_working_copy(
+    ui: &Ui,
     repo: &Arc<ReadonlyRepo>,
     workspace: &mut Workspace,
     old_commit: Option<&Commit>,
     new_commit: &Commit,
-) -> Result<CheckoutStats, RunnerError> {
+) -> Result<Option<CheckoutStats>, RunnerError> {
     let old_tree = old_commit.map(|commit| commit.tree());
-    // TODO: CheckoutError::ConcurrentCheckout should probably just result in a
-    // warning for most commands (but be an error for the checkout command)
-    let stats = workspace
+    match workspace
         .check_out(repo.op_id().clone(), old_tree.as_ref(), new_commit)
         .await
-        .map_err(|source| RunnerError::CheckOut {
+    {
+        Ok(stats) => Ok(Some(stats)),
+        // TODO: This should probably be an error for the checkout command.
+        Err(CheckoutError::ConcurrentCheckout) => {
+            write_concurrent_checkout_warning(ui).map_err(|err| CliEventSinkError(err.into()))?;
+            Ok(None)
+        }
+        Err(source) => Err(RunnerError::CheckOut {
             commit_id: new_commit.id().clone(),
             source,
-        })?;
-    Ok(stats)
+        }),
+    }
+}
+
+fn write_concurrent_checkout_warning(ui: &Ui) -> io::Result<()> {
+    writeln!(
+        ui.warning_default(),
+        "The working copy was concurrently modified while this command was running."
+    )?;
+    writeln!(
+        ui.hint_default(),
+        "The operation's result was recorded, but the working copy stayed on the commit left by \
+         the other process. Run `jj log` to see both; they may be divergent."
+    )
 }
 
 /// Whether or not the `bookmark` has any tracked remotes (i.e. is a tracking
