@@ -46,7 +46,7 @@ fn test_debug_fileset() {
       |
       = Invalid file pattern
     2: Path ".." is not in the repo "."
-    3: Invalid component ".." in repo-relative path "../"
+    3: Invalid component ".." in repo-relative path ".."
     [EOF]
     [exit status: 1]
     "#);
