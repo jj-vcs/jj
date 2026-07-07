@@ -503,6 +503,83 @@ mod tests {
     }
 
     #[test]
+    fn test_relative_path() {
+        // Compare as strings, not as (normalized) paths
+        let p = |slash_path: &str| {
+            let mut native_path = slash_path.replace('/', std::path::MAIN_SEPARATOR_STR);
+            if cfg!(windows) && slash_path.starts_with('/') {
+                native_path.insert_str(0, "c:"); // make the path truly absolute
+            }
+            native_path
+        };
+        let relative = |from: &str, to: &str| {
+            relative_path(p(from).as_ref(), p(to).as_ref())
+                .into_os_string()
+                .into_string()
+                .unwrap()
+        };
+
+        assert_eq!(relative("/foo/bar", "/foo/bar"), p("."));
+        assert_eq!(relative("/foo", "/foo/bar"), p("bar"));
+        assert_eq!(relative("/", "/foo/bar"), p("foo/bar"));
+
+        // TODO: remove redundant trailing slash
+        assert_eq!(relative("/foo/bar/baz", "/foo/bar"), p("../"));
+        assert_eq!(relative("/foo/baz", "/foo/bar"), p("../bar"));
+        assert_eq!(relative("/baz", "/foo/bar"), p("../foo/bar"));
+
+        // TODO: remove redundant trailing slash
+        assert_eq!(relative("/foo/bar/baz/qux", "/foo/bar"), p("../../"));
+        assert_eq!(relative("/foo/baz/qux", "/foo/bar"), p("../../bar"));
+        assert_eq!(relative("/baz/qux", "/foo/bar"), p("../../foo/bar"));
+
+        // No common prefix components
+        assert_eq!(relative("foo/bar", "/foo/bar"), p("/foo/bar"));
+        assert_eq!(relative("/foo/bar", "foo/bar"), p("foo/bar"));
+        assert_eq!(relative("./foo/bar", "/./foo/bar"), p("/./foo/bar"));
+        assert_eq!(relative("/./foo/bar", "./foo/bar"), p("./foo/bar"));
+        assert_eq!(relative("/foo", ""), p("")); // or "."
+        assert_eq!(relative("", "/foo"), p("/foo"));
+        assert_eq!(relative("", ""), p(".")); // or ""
+
+        // Redundant components are skipped by Path::ancestors()
+        assert_eq!(relative("/./foo/./bar", "/foo/bar"), p("."));
+        assert_eq!(relative("/foo/bar", "/./foo/./bar"), p("."));
+        // TODO: remove redundant trailing slash
+        assert_eq!(relative("/./foo/./bar", "/foo"), p("../"));
+        assert_eq!(relative("/foo", "/./foo/./bar"), p("bar"));
+    }
+
+    #[test]
+    fn test_relative_path_windows() {
+        // Compare as strings, not as (normalized) paths
+        let relative = |from: &str, to: &str| {
+            relative_path(from.as_ref(), to.as_ref())
+                .into_os_string()
+                .into_string()
+                .unwrap()
+        };
+
+        if cfg!(windows) {
+            assert_eq!(relative(r"c:\foo\bar", r"c:\foo\bar"), ".");
+            assert_eq!(relative(r"c:\foo", r"c:\foo\bar"), "bar");
+            assert_eq!(relative(r"c:\", r"c:\foo\bar"), r"foo\bar");
+
+            assert_eq!(relative(r"d:\foo", r"c:\foo\bar"), r"c:\foo\bar");
+            assert_eq!(relative(r"d:\", r"c:\foo\bar"), r"c:\foo\bar");
+
+            assert_eq!(relative(r"\\foo\bar", r"\foo\bar"), r"\foo\bar");
+            assert_eq!(relative(r"\\foo\bar", r"\\foo\bar"), ".");
+            assert_eq!(relative(r"\\foo\bar\baz", r"\\foo\bar\baz"), ".");
+            assert_eq!(relative(r"\\foo\bar\baz", r"\\foo\bar\qux"), r"..\qux");
+            assert_eq!(
+                relative(r"\\foo\bar\baz", r"\\qux\bar\baz"),
+                r"\\qux\bar\baz"
+            );
+        }
+    }
+
+    #[test]
     fn normalize_too_many_dot_dot() {
         assert_eq!(normalize_path(Path::new("foo/..")), Path::new("."));
         assert_eq!(normalize_path(Path::new("foo/../..")), Path::new(".."));
