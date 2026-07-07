@@ -1974,8 +1974,10 @@ fn test_git_submodule(gitignore_content: &str) -> TestResult {
 
     // Check out a commit which tries to place a file at the same path
     let ws = &mut test_workspace.workspace;
-    ws.check_out(repo.op_id().clone(), None, &commit3_file_clash)
+    let stats = ws
+        .check_out(repo.op_id().clone(), None, &commit3_file_clash)
         .block_on()?;
+    assert_eq!(stats.skipped_files, 1);
 
     // Check that the submodule is not replaced by the file, preserving the
     // user's existing submodule files
@@ -1984,6 +1986,11 @@ fn test_git_submodule(gitignore_content: &str) -> TestResult {
         file_in_submodule_path.metadata().is_ok(),
         "{file_in_submodule_path:?} should exist"
     );
+
+    // The skipped submodule directory should remain ignored by snapshotting,
+    // rather than being recorded as a deletion of the intended tree entry.
+    let (new_tree, _stats) = test_workspace.snapshot_with_options(&snapshot_options)?;
+    assert_tree_eq!(new_tree, tree_id3);
     Ok(())
 }
 

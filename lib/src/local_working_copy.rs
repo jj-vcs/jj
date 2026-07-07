@@ -2314,6 +2314,18 @@ impl TreeState {
                     // otherwise be lost.
                     // Falling through to the "after" state code in case there
                     // are parents to be deleted.
+                } else if matches!(before.as_normal(), Some(TreeValue::GitSubmodule(_)))
+                    && disk_path.is_dir()
+                {
+                    // Failing to materialize a non-submodule entry over a
+                    // non-empty submodule directory is not an error, as the,
+                    // possibly untracked, contents would otherwise be lost.
+                    // Keep the file state as GitSubmodule so the next snapshot
+                    // keeps ignoring the nested repository instead of recording
+                    // the intended tree entry as deleted.
+                    changed_file_states.push((path, FileState::for_gitsubmodule()));
+                    stats.skipped_files += 1;
+                    return Ok(());
                 } else {
                     changed_file_states.push((path, FileState::placeholder()));
                     stats.skipped_files += 1;
