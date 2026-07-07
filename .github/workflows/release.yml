@@ -105,6 +105,7 @@ jobs:
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
         with:
           version: "0.5.1"
+          enable-cache: false
       - name: Compile docs and zip them up
         run: |
           uv run mkdocs build
@@ -142,6 +143,7 @@ jobs:
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
         with:
           version: "0.5.1"
+          enable-cache: false
       - name: Install dependencies, compile and deploy docs to the "latest release" section of the website
         run: |
           git config user.name 'jj-docs[bot]'
