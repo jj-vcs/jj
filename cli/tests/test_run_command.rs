@@ -1761,3 +1761,75 @@ fn test_run_passthrough_rejects_multi_job() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_run_on_conflicted_commit() {
+    // Regression test for https://github.com/jj-vcs/jj/issues/9747: `jj run`
+    // panicked when its revset contained a conflicted commit. The post-command
+    // snapshot of such a commit is a conflicted (unresolved) tree, and the code
+    // assumed the result always resolved to a single tree.
+    let mut test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let fake_formatter = assert_cmd::cargo::cargo_bin("fake-formatter");
+    assert!(fake_formatter.is_file());
+    let fake_formatter_path = fake_formatter.to_string_lossy().into_owned();
+    test_env.add_paths_to_normalize(fake_formatter.clone(), "$FAKE_FORMATTER_PATH");
+    let work_dir = test_env.work_dir("repo");
+
+    // Build a merge whose two sides change `file` differently, so the merge
+    // commit `conflict` (and the working copy on it) conflicts in `file`.
+    create_commit_with_files(&work_dir, "base", &[], &[("file", "base\n")]);
+    create_commit_with_files(&work_dir, "a", &["base"], &[("file", "a\n")]);
+    create_commit_with_files(&work_dir, "b", &["base"], &[("file", "b\n")]);
+    create_commit_with_files(&work_dir, "conflict", &["a", "b"], &[]);
+    insta::assert_snapshot!(work_dir.run_jj(&["resolve", "--list"]).success().stdout, @r"
+    file    2-sided conflict
+    [EOF]
+    ");
+
+    // `jj run` over the conflicted commit used to panic. `--tee` writes a file in
+    // its working copy so the commit is actually rewritten, proving the conflict
+    // survives the rewrite instead of crashing.
+    let output = work_dir.run_jj(&[
+        "run",
+        "-r",
+        "conflict",
+        "--",
+        &fake_formatter_path,
+        "--stdout",
+        "x",
+        "--tee",
+        "touched.txt",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    x[EOF]
+    ------- stderr -------
+    Rewrote 1 commits.
+    Working copy  (@) now at: vruxwmqv 74643194 conflict | (conflict) conflict
+    Parent commit (@-)      : zsuskuln 45537d53 a | a
+    Parent commit (@-)      : royxmykx 89d1b299 b | b
+    Added 1 files, modified 0 files, removed 0 files
+    Warning: There are unresolved conflicts at these paths:
+    file    2-sided conflict
+    New conflicts appeared in 1 commits:
+      vruxwmqv 74643194 conflict | (conflict) conflict
+    Hint: To resolve the conflicts, start by creating a commit on top of
+    the conflicted commit:
+      jj new vruxwmqv
+    Then use `jj resolve`, or edit the conflict markers in the file directly.
+    Once the conflicts are resolved, you can inspect the result with `jj diff`.
+    Then run `jj squash` to move the resolution into the conflicted commit.
+    [EOF]
+    ");
+
+    // The rewritten commit still conflicts in `file` and gained touched.txt.
+    insta::assert_snapshot!(work_dir.run_jj(&["resolve", "--list", "-r", "conflict"]).success().stdout, @r"
+    file    2-sided conflict
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(&["file", "list", "-r", "conflict"]).success().stdout, @r"
+    file
+    touched.txt
+    [EOF]
+    ");
+}

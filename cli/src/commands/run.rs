@@ -54,8 +54,6 @@ use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
-use jj_lib::repo_path::RepoPathBuf;
-use jj_lib::tree::Tree;
 use jj_lib::working_copy::SnapshotOptions;
 use tokio::runtime::Builder;
 use tokio::sync::Semaphore;
@@ -360,8 +358,9 @@ struct RunJob {
     /// The original tree of the commit before the command ran.
     old_tree: MergedTree,
     /// The new tree generated from the commit. `None` when the command wasn't
-    /// run (i.e. the commit was skipped).
-    new_tree: Option<Tree>,
+    /// run (i.e. the commit was skipped). May be a conflicted tree when the
+    /// command left conflicts in the working copy.
+    new_tree: Option<MergedTree>,
     /// Was the tree even modified.
     dirty: bool,
     /// Bytes the subprocess wrote to its stdout, captured in full.
@@ -541,10 +540,10 @@ async fn rewrite_commit(
     workspace.persist()?;
 
     let new_tree = if output.status.success() {
-        let rewritten_id = workspace.tree_state.current_tree().tree_ids();
-        let new_id = rewritten_id.as_resolved().unwrap();
-
-        Some(commit.store().get_tree(RepoPathBuf::root(), new_id).await?)
+        // Keep the snapshot as-is. The command may have left (or introduced) a
+        // conflict, and jj stores conflicts in the tree, so preserve the whole
+        // `MergedTree` rather than assuming it resolved to a single tree.
+        Some(workspace.tree_state.current_tree().clone())
 
         // TODO: Serialize the new tree into /output/{id-tree} for a cache
         // lookup TODO: supersede with a custom workspace implementation
@@ -864,10 +863,7 @@ pub async fn cmd_run(
                         count += 1;
                         // Use the command result on top of the commit's
                         // original tree, ignoring rewrites of its ancestors.
-                        builder
-                            .set_tree(MergedTree::resolved(store.clone(), new_tree.id().clone()))
-                            .write()
-                            .await?;
+                        builder.set_tree(new_tree.clone()).write().await?;
                     }
                     (Some((old_tree, new_tree)), false) => {
                         let builder = rewriter.rebase().await?;
@@ -877,10 +873,7 @@ pub async fn cmd_run(
                         // ancestor rewrites via the normal rebase merge.
                         let rebased_tree = builder.tree();
                         let merged = MergedTree::merge(Merge::from_vec(vec![
-                            (
-                                MergedTree::resolved(store.clone(), new_tree.id().clone()),
-                                "command result".to_owned(),
-                            ),
+                            (new_tree.clone(), "command result".to_owned()),
                             (old_tree.clone(), "original commit".to_owned()),
                             (rebased_tree, "rebased".to_owned()),
                         ]))
