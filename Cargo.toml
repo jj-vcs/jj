@@ -44,6 +44,7 @@ clap_mangen = "0.3.0"
 clru = "0.6.3"
 criterion = "0.8.2"
 crossterm = { version = "0.29", default-features = false, features = ["windows"] }
+ctrlc = { version = "3.5.2", features = ["termination"] }
 datatest-stable = "0.3.3"
 digest = "0.10.7"
 dunce = "1.0.5"

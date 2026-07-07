@@ -73,6 +73,7 @@ clap_complete_nushell = { workspace = true }
 clap_mangen = { workspace = true }
 criterion = { workspace = true, optional = true }
 crossterm = { workspace = true }
+ctrlc = { workspace = true }
 dunce = { workspace = true }
 erased-serde = { workspace = true }
 etcetera = { workspace = true }

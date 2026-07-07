@@ -25,6 +25,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   aliases that are simply repeated. For example, with the alias `jj = []`, the
   command `jj jj jj log` will resolve to `jj log` as expected.
 
+* Git temporary files are now cleaned up more reliably in the presence of
+  signals (e.g. `Ctrl-C`). This should reduce the rate of "Could not acquire
+  lock for index file" errors. (#7530)
+
 ## [0.43.0] - 2026-07-01
 
 ### Release highlights
