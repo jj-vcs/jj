@@ -131,23 +131,40 @@ pub fn expand_home_path(path_str: &str) -> PathBuf {
 /// Turns the given `to` path into relative path starting from the `from` path.
 ///
 /// Both `from` and `to` paths are supposed to be absolute and normalized in the
-/// same manner.
+/// same manner. If `from` and `to` share no common prefix, the returned path is
+/// unchanged. This also means `relative_path(abs, rel)` will return `rel`.
 pub fn relative_path(from: &Path, to: &Path) -> PathBuf {
-    // Find common prefix.
-    for (i, base) in from.ancestors().enumerate() {
-        if let Ok(suffix) = to.strip_prefix(base) {
-            if i == 0 && suffix.as_os_str().is_empty() {
-                return ".".into();
-            } else {
-                return std::iter::repeat_n(Path::new(".."), i)
-                    .chain(std::iter::once(suffix))
-                    .collect();
-            }
-        }
+    let Some((from_suffix, to_suffix)) = strip_common_path_prefix(from, to) else {
+        // No common prefix found. Return the original path.
+        return to.to_owned();
+    };
+    let depth = from_suffix.components().count();
+    let mut relative = PathBuf::with_capacity(2 * depth + 1 + to_suffix.as_os_str().len());
+    for _ in 0..depth {
+        relative.push(Component::ParentDir);
     }
+    if !to_suffix.as_os_str().is_empty() {
+        relative.push(to_suffix);
+    } else if depth == 0 {
+        relative.push(Component::CurDir);
+    }
+    relative
+}
 
-    // No common prefix found. Return the original (absolute) path.
-    to.to_owned()
+fn strip_common_path_prefix<'a, 'b>(
+    path1: &'a Path,
+    path2: &'b Path,
+) -> Option<(&'a Path, &'b Path)> {
+    let mut components1 = path1.components();
+    let mut components2 = path2.components();
+    let mut suffix_paths = None;
+    while let (Some(c1), Some(c2)) = (components1.next(), components2.next()) {
+        if c1 != c2 {
+            break;
+        }
+        suffix_paths = Some((components1.as_path(), components2.as_path()));
+    }
+    suffix_paths
 }
 
 /// Consumes as much `..` and `.` as possible without considering symlinks.
@@ -523,13 +540,11 @@ mod tests {
         assert_eq!(relative("/foo", "/foo/bar"), p("bar"));
         assert_eq!(relative("/", "/foo/bar"), p("foo/bar"));
 
-        // TODO: remove redundant trailing slash
-        assert_eq!(relative("/foo/bar/baz", "/foo/bar"), p("../"));
+        assert_eq!(relative("/foo/bar/baz", "/foo/bar"), p(".."));
         assert_eq!(relative("/foo/baz", "/foo/bar"), p("../bar"));
         assert_eq!(relative("/baz", "/foo/bar"), p("../foo/bar"));
 
-        // TODO: remove redundant trailing slash
-        assert_eq!(relative("/foo/bar/baz/qux", "/foo/bar"), p("../../"));
+        assert_eq!(relative("/foo/bar/baz/qux", "/foo/bar"), p("../.."));
         assert_eq!(relative("/foo/baz/qux", "/foo/bar"), p("../../bar"));
         assert_eq!(relative("/baz/qux", "/foo/bar"), p("../../foo/bar"));
 
@@ -540,13 +555,12 @@ mod tests {
         assert_eq!(relative("/./foo/bar", "./foo/bar"), p("./foo/bar"));
         assert_eq!(relative("/foo", ""), p("")); // or "."
         assert_eq!(relative("", "/foo"), p("/foo"));
-        assert_eq!(relative("", ""), p(".")); // or ""
+        assert_eq!(relative("", ""), p("")); // or "."
 
-        // Redundant components are skipped by Path::ancestors()
+        // Redundant components are skipped by Path::components()
         assert_eq!(relative("/./foo/./bar", "/foo/bar"), p("."));
         assert_eq!(relative("/foo/bar", "/./foo/./bar"), p("."));
-        // TODO: remove redundant trailing slash
-        assert_eq!(relative("/./foo/./bar", "/foo"), p("../"));
+        assert_eq!(relative("/./foo/./bar", "/foo"), p(".."));
         assert_eq!(relative("/foo", "/./foo/./bar"), p("bar"));
     }
 

@@ -504,8 +504,8 @@ fn test_bad_path() {
       | ^---^
       |
       = Invalid file pattern
-    2: Path "../.." is not in the repo "../"
-    3: Invalid component ".." in repo-relative path "../"
+    2: Path "../.." is not in the repo ".."
+    3: Invalid component ".." in repo-relative path ".."
     [EOF]
     [exit status: 1]
     "#);
@@ -785,7 +785,7 @@ fn test_color_ui_messages() {
     [39m  |[39m
     [39m  = Invalid file pattern[39m
     [1m[39m2: [0m[39mPath ".." is not in the repo "."[39m
-    [1m[39m3: [0m[39mInvalid component ".." in repo-relative path "../"[39m
+    [1m[39m3: [0m[39mInvalid component ".." in repo-relative path ".."[39m
     [EOF]
     [exit status: 1]
     "#);

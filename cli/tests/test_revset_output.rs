@@ -505,7 +505,7 @@ fn test_bad_symbol_or_argument_should_not_be_optimized_out() {
       |
       = Invalid file pattern
     3: Path ".." is not in the repo "."
-    4: Invalid component ".." in repo-relative path "../"
+    4: Invalid component ".." in repo-relative path ".."
     [EOF]
     [exit status: 1]
     "#);
