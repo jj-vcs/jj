@@ -54,6 +54,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   default command. For example, with the alias `i = ["--ignore-working-copy"]`,
   `jj i` will resolve to `jj --ignore-working-copy`.
 
+* Git temporary files are now cleaned up more reliably in the presence of
+  signals (e.g. `Ctrl-C`). This should reduce the rate of "Could not acquire
+  lock for index file" errors. (#7530)
+
 ## [0.43.0] - 2026-07-01
 
 ### Release highlights
