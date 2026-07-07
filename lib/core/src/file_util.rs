@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![expect(missing_docs)]
+//! Contains file utilities which work in a cross-platform way.
 
 use std::borrow::Cow;
 use std::ffi::OsString;
@@ -37,14 +37,19 @@ pub use self::platform::check_symlink_support;
 pub use self::platform::symlink_dir;
 pub use self::platform::symlink_file;
 
+/// An error which can occur when accessing paths.
 #[derive(Debug, Error)]
 #[error("Cannot access {path}")]
 pub struct PathError {
+    /// The path which is inaccessible.
     pub path: PathBuf,
+    /// The underlying error source.
     pub source: io::Error,
 }
 
+/// An extension trait to `io::Result` to allow adding a path as context.
 pub trait IoResultExt<T> {
+    /// Provide more context to the `io::Result`.
     fn context(self, path: impl AsRef<Path>) -> Result<T, PathError>;
 }
 
@@ -94,6 +99,7 @@ pub fn is_empty_dir(path: &Path) -> Result<bool, PathError> {
     }
 }
 
+/// An error which occurs when we encounter a path which isn't UTF-8 encoded.
 #[derive(Debug, Error)]
 #[error(transparent)]
 pub struct BadPathEncoding(platform::BadOsStrEncoding);

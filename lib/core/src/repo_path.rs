@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+//! A [`RepoPath`] is a path relative to the repo root. It uses forward slashes
+//! as directory separators regardless of platform. It is always valid UTF-8.
 
 use std::borrow::Borrow;
 use std::cmp::Ordering;
@@ -388,6 +389,7 @@ impl RepoPath {
         result
     }
 
+    /// Returns true if this is a root path.
     pub fn is_root(&self) -> bool {
         self.value.is_empty()
     }
@@ -424,14 +426,23 @@ impl RepoPath {
         Some((components.as_path(), basename))
     }
 
+    /// Iterator over the path's components, with parents before children.
+    ///
+    /// For example, `RepoPath::from_internal_string("a/b/c")?.components()`
+    /// yields "a", "b", "c".
     pub fn components(&self) -> RepoPathComponentsIter<'_> {
         RepoPathComponentsIter { value: &self.value }
     }
 
+    /// Iterator over the path's ancestors, with children before parents.
+    ///
+    /// For example, `RepoPath::from_internal_string("a/b/c")?.ancestors()`
+    /// yiels "a/b/c", "a/b", "a", "".
     pub fn ancestors(&self) -> impl Iterator<Item = &Self> {
         std::iter::successors(Some(self), |path| path.parent())
     }
 
+    /// Join the given `entry` on the Path returning a new `RepoPathBuf`.
     pub fn join(&self, entry: &RepoPathComponent) -> RepoPathBuf {
         let value = if self.value.is_empty() {
             entry.as_internal_str().to_owned()
@@ -601,6 +612,7 @@ pub struct InvalidRepoPathError {
 #[derive(Clone, Debug, Eq, Error, PartialEq)]
 #[error(r#"Invalid path component "{component}""#)]
 pub struct InvalidRepoPathComponentError {
+    /// The invalid component.
     pub component: Box<str>,
 }
 
@@ -614,17 +626,26 @@ impl InvalidRepoPathComponentError {
     }
 }
 
+/// An error which occurs during relative path parsing.
 #[derive(Clone, Debug, Eq, Error, PartialEq)]
 pub enum RelativePathParseError {
+    /// An invalid component was seen.
     #[error(r#"Invalid component "{component}" in repo-relative path "{path}""#)]
     InvalidComponent {
+        /// The invalid component.
         component: Box<str>,
+        /// The path it was a component of.
         path: Box<Path>,
     },
+    /// The path was not UTF-8.
     #[error(r#"Not valid UTF-8 path "{path}""#)]
-    InvalidUtf8 { path: Box<Path> },
+    InvalidUtf8 {
+        /// The path which did not contain UTF-8 characters.
+        path: Box<Path>,
+    },
 }
 
+/// An error which occurs when we're parsing paths.
 #[derive(Clone, Debug, Eq, Error, PartialEq)]
 #[error(r#"Path "{input}" is not in the repo "{base}""#)]
 pub struct FsPathParseError {
