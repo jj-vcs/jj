@@ -22,6 +22,7 @@ use std::fmt;
 use std::fmt::Display;
 use std::io;
 use std::path::Path;
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -1754,40 +1755,26 @@ impl WorkspaceRef {
         &self.target
     }
 
-    /// Returns the root path of the workspace.
-    fn root(&self, path_converter: &RepoPathUiConverter) -> Result<String, TemplatePropertyError> {
+    /// Returns the root path of the workspace if it is recorded and can be
+    /// resolved.
+    fn root(
+        &self,
+        path_converter: &RepoPathUiConverter,
+    ) -> Result<Option<PathBuf>, TemplatePropertyError> {
         let RepoPathUiConverter::Fs { cwd: _, base } = path_converter;
         // TODO: Stop reconstructing the workspace loader here once we've
         // decided which object should own the workspace store.
         let workspace_loader = DefaultWorkspaceLoaderFactory.create(base)?;
         let repo_path = workspace_loader.repo_path().to_owned();
         let workspace_store = SimpleWorkspaceStore::load(&repo_path)?;
-        let workspace_path = workspace_store
+        // Workspaces created before jj 0.38.0 may not have a recorded path. List
+        // templates should also keep rendering if a recorded path is stale or
+        // unavailable. Use `jj workspace root --name` for strict path diagnostics.
+        let path = workspace_store
             .get_workspace_path(self.name())?
-            .ok_or_else(|| {
-                TemplatePropertyError(
-                    format!(
-                        "Workspace has no recorded path: {}",
-                        self.name().as_symbol()
-                    )
-                    .into(),
-                )
-            })?;
-        let full_path = repo_path.join(workspace_path);
-        let path = dunce::canonicalize(&full_path).map_err(|err| {
-            TemplatePropertyError(
-                format!(
-                    "Failed to resolve workspace root: {}: {}: {err}",
-                    self.name().as_symbol(),
-                    full_path.display()
-                )
-                .into(),
-            )
-        })?;
-        // TODO: Return PathBuf once the templater has a filesystem path type.
-        path.into_os_string()
-            .into_string()
-            .map_err(|_| TemplatePropertyError("Invalid UTF-8 sequence in path".into()))
+            .map(|workspace_path| repo_path.join(workspace_path))
+            .and_then(|path| dunce::canonicalize(path).ok());
+        Ok(path)
     }
 }
 
@@ -3018,7 +3005,6 @@ fn builtin_trailer_list_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo
 #[cfg(test)]
 mod tests {
     use std::path::Component;
-    use std::path::PathBuf;
 
     use jj_lib::config::ConfigLayer;
     use jj_lib::config::ConfigSource;
