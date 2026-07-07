@@ -183,7 +183,7 @@ for an overview, especially if you are familiar with C++.
 
 ## Style guide
 
-See [here](style_guide.md).
+See [here](/docs/style_guide.md).
 
 ## Setting up a development environment
 
