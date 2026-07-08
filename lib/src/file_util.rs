@@ -454,6 +454,75 @@ mod platform {
     }
 }
 
+#[cfg(target_os = "wasi")]
+mod platform {
+    use std::fs;
+    use std::fs::File;
+    use std::io;
+    use std::path::Path;
+    use std::time::UNIX_EPOCH;
+
+    pub use super::fallback::BadOsStrEncoding;
+    pub use super::fallback::os_str_from_bytes;
+    pub use super::fallback::os_str_to_bytes;
+
+    /// Whether symlinks are supported. WASI preview 2 can expose symlinks, but
+    /// creating them requires the unstable `wasi_ext` std feature, so we report
+    /// them as unsupported on stable Rust.
+    pub fn check_symlink_support() -> io::Result<bool> {
+        Ok(false)
+    }
+
+    /// Creates a new symlink `link` pointing to the `original` path.
+    pub fn symlink_dir<P: AsRef<Path>, Q: AsRef<Path>>(_original: P, _link: Q) -> io::Result<()> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "symlinks are not supported on WASI",
+        ))
+    }
+
+    /// Creates a new symlink `link` pointing to the `original` path.
+    pub fn symlink_file<P: AsRef<Path>, Q: AsRef<Path>>(_original: P, _link: Q) -> io::Result<()> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "symlinks are not supported on WASI",
+        ))
+    }
+
+    /// A best-effort file identity for WASI, derived from stable metadata
+    /// fields. WASI's `MetadataExt` (which exposes device and inode numbers)
+    /// requires the unstable `wasi_ext` feature, so we fall back to size and
+    /// modification time.
+    #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+    pub struct FileIdentity {
+        size: u64,
+        mtime_nanos: u128,
+    }
+
+    impl FileIdentity {
+        fn from_metadata(metadata: fs::Metadata) -> Self {
+            let mtime_nanos = metadata
+                .modified()
+                .ok()
+                .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+                .map(|duration| duration.as_nanos())
+                .unwrap_or(0);
+            Self {
+                size: metadata.len(),
+                mtime_nanos,
+            }
+        }
+    }
+
+    pub fn file_identity_from_symlink_path(path: &Path) -> io::Result<FileIdentity> {
+        path.symlink_metadata().map(FileIdentity::from_metadata)
+    }
+
+    pub fn file_identity_from_file(file: File) -> io::Result<FileIdentity> {
+        file.metadata().map(FileIdentity::from_metadata)
+    }
+}
+
 #[cfg_attr(unix, expect(dead_code))]
 mod fallback {
     use std::ffi::OsStr;

@@ -216,7 +216,11 @@ impl ReadonlyRepo {
         index_store_initializer: &IndexStoreInitializer<'_>,
         submodule_store_initializer: &SubmoduleStoreInitializer<'_>,
     ) -> Result<Arc<Self>, RepoInitError> {
+        // WASI doesn't support path canonicalization.
+        #[cfg(not(target_os = "wasi"))]
         let repo_path = dunce::canonicalize(repo_path).context(repo_path)?;
+        #[cfg(target_os = "wasi")]
+        let repo_path = repo_path.to_path_buf();
 
         let store_path = repo_path.join("store");
         fs::create_dir(&store_path).context(&store_path)?;
