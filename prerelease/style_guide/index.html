@@ -2152,6 +2152,28 @@ correctly (we have tests in <code>jj-lib</code> for that), but they should check
   complete sentences. But use your own judgment too; for example a sentence that
   says "Returns blah blah." would be fine.</p>
 </li>
+<li>
+<p>Prefer Itertools <code>collect_vec()</code> and <code>try_collect()</code> over annotated
+  <code>.collect::&lt;Vec&lt;...&gt;&gt;()</code> calls.</p>
+<div class="highlight"><pre><span></span><code><span class="c1">// CORRECT:</span>
+
+<span class="kd">let</span><span class="w"> </span><span class="n">commits</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">workspace_helper</span><span class="p">.</span><span class="n">parse_union_revsets</span><span class="p">(</span><span class="o">&amp;</span><span class="n">revs</span><span class="p">)</span>
+<span class="w">  </span><span class="p">.</span><span class="n">ids</span><span class="p">()</span>
+<span class="w">  </span><span class="p">.</span><span class="n">collect_vec</span><span class="p">();</span>
+
+<span class="kd">let</span><span class="w"> </span><span class="n">fallible_commits</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">commits</span><span class="p">.</span><span class="n">iter</span><span class="p">().</span><span class="n">map</span><span class="p">(</span><span class="o">|</span><span class="n">c</span><span class="o">|</span><span class="w"> </span><span class="n">store</span><span class="p">.</span><span class="n">get</span><span class="p">(</span><span class="n">c</span><span class="p">))</span>
+<span class="w">  </span><span class="p">.</span><span class="n">try_collect</span><span class="p">()</span><span class="o">?</span><span class="p">;</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="c1">// INCORRECT: The annotation is used</span>
+
+<span class="kd">let</span><span class="w"> </span><span class="n">commits</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">_</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">workspace_helper</span><span class="p">.</span><span class="n">parse_union_revsets</span><span class="p">(</span><span class="o">&amp;</span><span class="n">revs</span><span class="p">)</span>
+<span class="w">  </span><span class="p">.</span><span class="n">ids</span><span class="p">()</span>
+<span class="w">  </span><span class="p">.</span><span class="n">collect</span><span class="p">();</span>
+
+<span class="kd">let</span><span class="w"> </span><span class="n">fallible_commits</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">commits</span><span class="p">.</span><span class="n">iter</span><span class="p">().</span><span class="n">map</span><span class="p">(</span><span class="o">|</span><span class="n">c</span><span class="o">|</span><span class="w"> </span><span class="n">store</span><span class="p">.</span><span class="n">get</span><span class="p">(</span><span class="n">c</span><span class="p">))</span>
+<span class="w">  </span><span class="p">.</span><span class="n">collect</span><span class="p">::</span><span class="o">&lt;</span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">_</span><span class="p">,</span><span class="w"> </span><span class="n">CommandError</span><span class="o">&gt;&gt;</span><span class="p">()</span><span class="o">?</span><span class="p">;</span>
+</code></pre></div>
+</li>
 </ul>
 <h3 id="subcommand-comments">Subcommand comments<a class="headerlink" href="#subcommand-comments" title="Permanent link">&para;</a></h3>
 <p>Specifically for <code>jj</code> subcommands:</p>
