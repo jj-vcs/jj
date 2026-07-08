@@ -114,6 +114,7 @@ use crate::fsmonitor::WatchmanConfig;
 #[cfg(feature = "watchman")]
 use crate::fsmonitor::watchman;
 use crate::gitignore::GitIgnoreFile;
+use crate::merge::SimplifiedMapping;
 use crate::settings::UserSettings;
 use crate::working_copy::CheckoutError;
 use crate::working_copy::CheckoutStats;
@@ -296,10 +297,14 @@ pub enum FileType {
 }
 
 /// Information about a conflict that was materialized in a file on disk.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct MaterializedConflictData {
     /// Length of the conflict markers written to the file.
     pub conflict_marker_len: u32,
+    /// Represents a permutation from sorted order to whatever order was
+    /// materialized in the working copy. This is used to prevent conflict
+    /// terms from being reordered on simplification.
+    pub sorted_to_simplified_mapping: Option<SimplifiedMapping>,
 }
 
 /// Recorded state of a file in the working copy, used for detecting changes.
@@ -612,6 +617,18 @@ fn file_state_from_proto(proto: &crate::protos::local_working_copy::FileState) -
         materialized_conflict_data: proto.materialized_conflict_data.as_ref().map(|data| {
             MaterializedConflictData {
                 conflict_marker_len: data.conflict_marker_len,
+                sorted_to_simplified_mapping: (!data.sorted_to_materialized_mapping.is_empty())
+                    .then(|| {
+                        let num_sides = data.sorted_to_materialized_mapping.len() / 2 + 1;
+                        SimplifiedMapping::from_vec(
+                            data.sorted_to_materialized_mapping
+                                .iter()
+                                .copied()
+                                .map(|i| i.try_into().expect("fewer than usize::MAX terms"))
+                                .collect_vec(),
+                            num_sides,
+                        )
+                    }),
             }
         }),
     }
@@ -633,9 +650,26 @@ fn file_state_to_proto(file_state: &FileState) -> crate::protos::local_working_c
     proto.file_type = file_type as i32;
     proto.mtime_millis_since_epoch = file_state.mtime.0;
     proto.size = file_state.size;
-    proto.materialized_conflict_data = file_state.materialized_conflict_data.map(|data| {
+    proto.materialized_conflict_data = file_state.materialized_conflict_data.as_ref().map(|data| {
         crate::protos::local_working_copy::MaterializedConflictData {
             conflict_marker_len: data.conflict_marker_len,
+            sorted_to_materialized_mapping: data
+                .sorted_to_simplified_mapping
+                .as_ref()
+                .map(|mapping| {
+                    debug_assert_eq!(
+                        mapping.new_num_sides(),
+                        mapping.old_num_sides(),
+                        "should be a permutation"
+                    );
+                    mapping
+                        .as_slice()
+                        .iter()
+                        .copied()
+                        .map(|i| i.try_into().expect("fewer than u32::MAX terms"))
+                        .collect_vec()
+                })
+                .unwrap_or_default(),
         }
     });
     proto
@@ -2008,7 +2042,7 @@ impl FileSnapshotter<'_> {
         if clean {
             // Preserve materialized conflict data for unchanged files.
             new_file_state.materialized_conflict_data =
-                maybe_current_file_state.and_then(|state| state.materialized_conflict_data);
+                maybe_current_file_state.and_then(|state| state.materialized_conflict_data.clone());
 
             Ok(None)
         } else {
@@ -2031,7 +2065,8 @@ impl FileSnapshotter<'_> {
                         disk_path,
                         &current_tree_values,
                         exec_bit,
-                        maybe_current_file_state.and_then(|state| state.materialized_conflict_data),
+                        maybe_current_file_state
+                            .and_then(|state| state.materialized_conflict_data.clone()),
                         new_file_state,
                     )
                     .await?
@@ -2123,9 +2158,10 @@ impl FileSnapshotter<'_> {
                     message: "Failed to read the EOL converted contents".to_string(),
                     err: err.into(),
                 })?;
-            let materialized_conflict_data =
+            let mut materialized_conflict_data =
                 materialized_conflict_data.unwrap_or(MaterializedConflictData {
                     conflict_marker_len: MIN_CONFLICT_MARKER_LEN as u32,
+                    sorted_to_simplified_mapping: None,
                 });
             // If the file contained a conflict before and is a normal file on
             // disk, we try to parse any conflict markers in the file into a
@@ -2133,13 +2169,19 @@ impl FileSnapshotter<'_> {
             let updated_content = conflicts::update_from_content(
                 &old_file_ids,
                 self.current_tree.labels(),
-                None,
+                materialized_conflict_data
+                    .sorted_to_simplified_mapping
+                    .as_ref(),
                 self.store(),
                 repo_path,
                 &contents,
                 materialized_conflict_data.conflict_marker_len as usize,
             )
             .await?;
+            // Store the new mapping to ensure conflict term order is preserved.
+            materialized_conflict_data.sorted_to_simplified_mapping =
+                updated_content.new_sorted_to_simplified_mapping;
+
             match updated_content.new_file_ids.into_resolved() {
                 Ok(file_id) => {
                     // On Windows, we preserve the executable bit from the merged trees.
@@ -2587,6 +2629,7 @@ impl TreeState {
                         self.write_conflict(&disk_path, &contents, exec_bit).await?;
                     file_state.materialized_conflict_data = Some(MaterializedConflictData {
                         conflict_marker_len: conflict_marker_len.try_into().unwrap_or(u32::MAX),
+                        sorted_to_simplified_mapping: Some(file.sorted_to_simplified_mapping()),
                     });
                     file_state
                 }

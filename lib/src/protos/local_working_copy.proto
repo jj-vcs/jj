@@ -25,8 +25,12 @@ enum FileType {
 }
 
 message MaterializedConflictData {
-  // TODO: maybe we should store num_sides here as well
   uint32 conflict_marker_len = 1;
+  // Represents a `SimplifiedMapping` permutation from sorted order to whatever
+  // order was materialized in the working copy. This is used to prevent
+  // conflict terms from being reordered on simplification.
+  // If present, this should have the same number of terms as the conflict.
+  repeated uint32 sorted_to_materialized_mapping = 2;
 }
 
 message FileState {

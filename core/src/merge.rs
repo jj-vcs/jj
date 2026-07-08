@@ -557,6 +557,23 @@ impl SimplifiedMapping {
                 .all(|(index, &old_index)| index == old_index)
     }
 
+    /// Build a `SimplifiedMapping` from a `Vec<usize>`. Inverse of [`Self::as_slice`].
+    pub fn from_vec(new_to_old_indices: Vec<usize>, old_num_sides: usize) -> Self {
+        assert!(
+            !new_to_old_indices.len().is_multiple_of(2),
+            "should have an odd number of terms"
+        );
+        Self {
+            new_to_old_indices,
+            old_len: old_num_sides * 2 - 1,
+        }
+    }
+
+    /// Convert a `SimplifiedMapping` to a `&[usize]`. Inverse of [`Self::from_vec`].
+    pub fn as_slice(&self) -> &[usize] {
+        &self.new_to_old_indices
+    }
+
     /// Returns the expected number of sides of the old merge.
     pub fn old_num_sides(&self) -> usize {
         self.old_len / 2 + 1
