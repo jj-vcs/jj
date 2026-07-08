@@ -533,10 +533,15 @@ mod platform {
 
 #[cfg(target_os = "wasi")]
 mod platform {
+    use std::fs::File;
     use std::io;
     use std::path::Component;
     use std::path::Path;
     use std::path::PathBuf;
+
+    pub use super::fallback::BadOsStrEncoding;
+    pub use super::fallback::os_str_from_bytes;
+    pub use super::fallback::os_str_to_bytes;
 
     pub fn canonicalize(path: &Path) -> io::Result<PathBuf> {
         if !path.is_absolute()
@@ -552,6 +557,48 @@ mod platform {
         }
 
         Ok(path.to_path_buf())
+    }
+
+    /// Whether symlinks are supported. WASI preview 2 can expose symlinks, but
+    /// creating them requires the unstable `wasi_ext` std feature, so we report
+    /// them as unsupported on stable Rust.
+    pub fn check_symlink_support() -> io::Result<bool> {
+        Ok(false)
+    }
+
+    /// Creates a new symlink `link` pointing to the `original` path.
+    pub fn symlink_dir<P: AsRef<Path>, Q: AsRef<Path>>(_original: P, _link: Q) -> io::Result<()> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "symlinks are not supported on WASI",
+        ))
+    }
+
+    /// Creates a new symlink `link` pointing to the `original` path.
+    pub fn symlink_file<P: AsRef<Path>, Q: AsRef<Path>>(_original: P, _link: Q) -> io::Result<()> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "symlinks are not supported on WASI",
+        ))
+    }
+
+    /// File identity is unavailable on WASI with stable Rust, because its
+    /// `MetadataExt` requires the unstable `wasi_ext` feature.
+    #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+    pub enum FileIdentity {}
+
+    pub fn file_identity_from_symlink_path(_path: &Path) -> io::Result<FileIdentity> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "file identity is not supported on WASI",
+        ))
+    }
+
+    pub fn file_identity_from_file(_file: File) -> io::Result<FileIdentity> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "file identity is not supported on WASI",
+        ))
     }
 }
 
@@ -871,6 +918,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(not(target_os = "wasi"))]
     #[test]
     fn test_file_identity_hard_link() -> TestResult {
         let temp_dir = new_temp_dir();
@@ -984,6 +1032,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(not(target_os = "wasi"))]
     #[test]
     fn test_file_identity_directory() -> TestResult {
         let temp_dir = new_temp_dir();
@@ -1075,5 +1124,24 @@ mod tests {
         assert!(!is_binary(&contents));
         contents[7999] = b'\0';
         assert!(is_binary(&contents));
+    }
+
+    #[cfg(target_os = "wasi")]
+    #[test]
+    fn test_file_identity_unsupported() -> TestResult {
+        let temp_dir = new_temp_dir();
+        let file_path = temp_dir.path().join("file");
+        let file = File::create(&file_path)?;
+        assert_eq!(
+            FileIdentity::from_symlink_path(&file_path)
+                .unwrap_err()
+                .kind(),
+            io::ErrorKind::Unsupported
+        );
+        assert_eq!(
+            FileIdentity::from_file(file).unwrap_err().kind(),
+            io::ErrorKind::Unsupported
+        );
+        Ok(())
     }
 }

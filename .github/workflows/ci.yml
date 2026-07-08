@@ -112,6 +112,22 @@ jobs:
         RUST_BACKTRACE: 1
         CARGO_TERM_COLOR: always
 
+  check-wasi:
+    name: check (wasm32-wasip2)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+      with:
+        toolchain: 1.97.1
+        targets: wasm32-wasip2
+    - name: Check
+      run: cargo check -p jj-lib --no-default-features --target wasm32-wasip2 --verbose
+
   no-git:
     name: build (no git)
     runs-on: ubuntu-24.04
@@ -331,6 +347,7 @@ jobs:
     if: ${{ always() && github.event_name == 'merge_group' }}
     needs:
     - test
+    - check-wasi
     - no-git
     - build-nix
     - check-protos
