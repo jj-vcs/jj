@@ -19,6 +19,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * New `merge_point()` revset function which (similar to `fork_point`) finds the
   point where multiple branches merge.
 
+* When `jj workspace update-stale` resets a working copy with un-snapshotted
+  changes, it now provides a hint on how to recover them.
+  [#7229](https://github.com/jj-vcs/jj/issues/7229)
+
 ### Fixed bugs
 
 * Recursive alias definitions are detected more precisely. jj can now expand
