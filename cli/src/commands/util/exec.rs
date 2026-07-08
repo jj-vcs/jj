@@ -92,7 +92,7 @@ pub async fn cmd_util_exec(
 
     let status = cmd.status().map_err(|err| {
         user_error_with_message(
-            format!("Failed to execute external command '{}'", &args.command),
+            format!("Failed to execute external command '{}'", args.command),
             err,
         )
     })?;
