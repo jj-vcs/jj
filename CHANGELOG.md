@@ -23,6 +23,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   aliases are available for `jj workspace list`, and `WorkspaceRef.root()` now
   returns an optional `FsPath` value.
 
+* `jj workspace forget` now hints, when you forget the workspace you're currently
+  in, that its working copy is left on disk as an unregistered checkout — and that
+  a later workspace reusing the same name (e.g. `jj workspace add <path>` deriving
+  the name from the path) would silently shadow it.
+
 ### Fixed bugs
 
 * Recursive alias definitions are detected more precisely. jj can now expand
