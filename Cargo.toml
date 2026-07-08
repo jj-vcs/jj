@@ -71,6 +71,7 @@ itertools = "0.15.0"
 jsonschema = { version = "0.46.5", default-features = false }
 libc = { version = "0.2.186" }
 maplit = "1.0.2"
+memchr = "2.8.2"
 # no_thp due to perf issues with kernel page compaction, see #9708
 mimalloc = { version = "0.1.52", features = ["no_thp"] }
 nix = "0.31.3"

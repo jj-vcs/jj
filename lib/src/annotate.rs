@@ -423,7 +423,7 @@ fn copy_same_lines_with(
     for hunk in diff.hunks() {
         match hunk.kind {
             DiffHunkKind::Matching => {
-                let count = hunk.contents[0].split_inclusive(|b| *b == b'\n').count();
+                let count = count_lines(hunk.contents[0]);
                 copy(current_line_counter, parent_line_counter, count);
                 current_line_counter += count;
                 parent_line_counter += count;
@@ -431,11 +431,20 @@ fn copy_same_lines_with(
             DiffHunkKind::Different => {
                 let current_output = hunk.contents[0];
                 let parent_output = hunk.contents[1];
-                current_line_counter += current_output.split_inclusive(|b| *b == b'\n').count();
-                parent_line_counter += parent_output.split_inclusive(|b| *b == b'\n').count();
+                current_line_counter += count_lines(current_output);
+                parent_line_counter += count_lines(parent_output);
             }
         }
     }
+}
+
+/// Counts the number of lines in `text`, where the last line may not end with
+/// a newline character. Equivalent to `text.split_inclusive(|b| *b ==
+/// b'\n').count()`, but faster.
+fn count_lines(text: &[u8]) -> usize {
+    let newlines = memchr::memchr_iter(b'\n', text).count();
+    let end_is_not_newline = text.last().is_some_and(|b| *b != b'\n');
+    newlines + usize::from(end_is_not_newline)
 }
 
 async fn get_file_contents(
@@ -564,5 +573,17 @@ mod tests {
                 (Ok(&commit_id3), 4..7),
             ]
         );
+    }
+
+    #[test]
+    fn test_count_lines() {
+        assert_eq!(count_lines(b""), 0);
+        assert_eq!(count_lines(b"\n"), 1);
+        assert_eq!(count_lines(b"foo"), 1);
+        assert_eq!(count_lines(b"foo\n"), 1);
+        assert_eq!(count_lines(b"foo\nbar"), 2);
+        assert_eq!(count_lines(b"foo\nbar\n"), 2);
+        assert_eq!(count_lines(b"foo\n\nbar\n"), 3);
+        assert_eq!(count_lines(b"foo\n\nbar\n\n"), 4);
     }
 }
