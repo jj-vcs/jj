@@ -173,6 +173,23 @@ fn strip_common_path_prefix<'a, 'b>(
     suffix_paths
 }
 
+/// Returns an absolute, normalized path to an existing filesystem entry.
+///
+/// On platforms other than WASI, resolves symlinks using
+/// [`dunce::canonicalize()`]. On WASI, assumes symlinks are not supported and
+/// makes the path absolute before normalizing it lexically. Relative paths are
+/// resolved against the guest's current directory.
+pub fn canonicalize(path: impl AsRef<Path>) -> io::Result<PathBuf> {
+    #[cfg(not(target_os = "wasi"))]
+    {
+        dunce::canonicalize(path)
+    }
+    #[cfg(target_os = "wasi")]
+    {
+        platform::canonicalize(path.as_ref())
+    }
+}
+
 /// Consumes as much `..` and `.` as possible without considering symlinks.
 pub fn normalize_path(path: &Path) -> PathBuf {
     let mut result = PathBuf::new();
@@ -497,6 +514,22 @@ mod platform {
 
     pub fn file_identity_from_file(file: File) -> io::Result<FileIdentity> {
         same_file::Handle::from_file(file)
+    }
+}
+
+#[cfg(target_os = "wasi")]
+mod platform {
+    use std::io;
+    use std::path::Path;
+    use std::path::PathBuf;
+
+    pub use super::normalize_path;
+
+    pub fn canonicalize(path: &Path) -> io::Result<PathBuf> {
+        let absolute = std::path::absolute(path)?;
+        let normalized = normalize_path(&absolute);
+
+        Ok(normalized)
     }
 }
 

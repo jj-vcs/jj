@@ -84,6 +84,7 @@ use jj_core::store::Store;
 use jj_core::view::RenameWorkspaceError;
 use jj_core::view::View;
 use jj_core::workspace_store::WorkspaceStore;
+use jj_local_util::file_util;
 use jj_local_util::file_util::IoResultExt as _;
 use jj_local_util::file_util::PathError;
 use once_cell::sync::OnceCell;
@@ -196,7 +197,7 @@ impl ReadonlyRepo {
         index_store_initializer: &IndexStoreInitializer<'_>,
         submodule_store_initializer: &SubmoduleStoreInitializer<'_>,
     ) -> Result<Arc<Self>, RepoInitError> {
-        let repo_path = dunce::canonicalize(repo_path).context(repo_path)?;
+        let repo_path = file_util::canonicalize(repo_path).context(repo_path)?;
 
         let store_path = repo_path.join("store");
         fs::create_dir(&store_path).context(&store_path)?;
