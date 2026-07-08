@@ -4600,6 +4600,12 @@ fn warn_if_args_mismatch(
     Ok(())
 }
 
+pub fn shell_quote(s: &str) -> Cow<'_, str> {
+    // shlex::try_quote fails if `s` has a nul byte, which
+    // shouldn't usually happen. Fall back to unquoted on error.
+    shlex::try_quote(s).unwrap_or(s.into())
+}
+
 #[cfg(test)]
 mod tests {
     use clap::CommandFactory as _;

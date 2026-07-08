@@ -33,6 +33,7 @@ use jj_lib::workspace::Workspace;
 use super::RepoPresets;
 use super::write_repo_presets;
 use crate::cli_util::CommandHelper;
+use crate::cli_util::shell_quote;
 use crate::cli_util::start_repo_transaction;
 use crate::command_error::CommandError;
 use crate::command_error::cli_error;
@@ -359,8 +360,8 @@ fn print_trackable_remote_bookmarks(ui: &Ui, view: &View) -> io::Result<()> {
             writeln!(
                 formatter.labeled("hint"),
                 "  jj bookmark track {name} --remote={remote}",
-                name = symbol.name.as_symbol(),
-                remote = symbol.remote.as_symbol()
+                name = shell_quote(&symbol.name.as_symbol().to_string()),
+                remote = shell_quote(&symbol.remote.as_symbol().to_string()),
             )?;
         }
     }
