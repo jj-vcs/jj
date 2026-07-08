@@ -175,6 +175,24 @@ fn strip_common_path_prefix<'a, 'b>(
     suffix_paths
 }
 
+/// Returns an absolute, normalized path.
+///
+/// On platforms other than WASI, resolves symlinks using
+/// [`dunce::canonicalize()`], which requires the path to exist. On WASI, only
+/// accepts paths that are already absolute and contain no redundant components
+/// or separators. Returns these paths unchanged, without resolving symlinks or
+/// checking whether they exist.
+pub fn canonicalize(path: impl AsRef<Path>) -> io::Result<PathBuf> {
+    #[cfg(not(target_os = "wasi"))]
+    {
+        dunce::canonicalize(path)
+    }
+    #[cfg(target_os = "wasi")]
+    {
+        platform::canonicalize(path.as_ref())
+    }
+}
+
 /// Consumes as much `..` and `.` as possible without considering symlinks.
 pub fn normalize_path(path: &Path) -> PathBuf {
     let mut result = PathBuf::new();
@@ -541,6 +559,29 @@ mod platform {
 
     pub fn file_identity_from_file(file: File) -> io::Result<FileIdentity> {
         same_file::Handle::from_file(file)
+    }
+}
+
+#[cfg(target_os = "wasi")]
+mod platform {
+    use std::io;
+    use std::path::Component;
+    use std::path::Path;
+    use std::path::PathBuf;
+
+    pub fn canonicalize(path: &Path) -> io::Result<PathBuf> {
+        if !path.is_absolute()
+            || path
+                .components()
+                .any(|c| matches!(c, Component::CurDir | Component::ParentDir))
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "path must be absolute and contain no redundant components or separators",
+            ));
+        }
+
+        Ok(path.components().collect())
     }
 }
 
