@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCandidates;
+use indoc::writedoc;
 use itertools::Itertools as _;
 #[cfg(feature = "git")]
 use jj_lib::git::GitSubprocessOptions;
@@ -89,6 +90,10 @@ pub async fn cmd_workspace_forget(
             .collect_vec()
     };
 
+    let forgot_current = forget_ws
+        .iter()
+        .any(|ws| **ws == *workspace_command.workspace_name());
+
     // bundle every workspace forget into a single transaction, so that e.g.
     // undo correctly restores all of them at once.
     let mut tx = workspace_command.start_transaction();
@@ -112,6 +117,19 @@ pub async fn cmd_workspace_forget(
     };
 
     tx.finish(ui, description).await?;
+
+    if forgot_current {
+        let name = workspace_command.workspace_name().as_symbol();
+        writedoc!(
+            ui.hint_default(),
+            "
+            The working copy for '{name}' is left on disk but is no longer a registered
+            workspace. Creating another workspace with the same name will make this
+            directory shadow it; give future workspaces a distinct name with
+            `jj workspace add --name`.
+            ",
+        )?;
+    }
 
     #[cfg(feature = "git")]
     {
