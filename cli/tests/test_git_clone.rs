@@ -976,8 +976,6 @@ fn test_git_clone_trunk_deleted() {
     ------- stderr -------
     Forgot 1 local bookmarks.
     Forgot 1 remote bookmarks.
-    Warning: Failed to resolve `revset-aliases.trunk()`: Revision `main@origin` doesn't exist
-    Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
     [EOF]
     ");
 

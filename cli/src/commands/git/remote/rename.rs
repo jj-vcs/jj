@@ -41,6 +41,7 @@ pub async fn cmd_git_remote_rename(
     let mut workspace_command = command.workspace_helper(ui).await?;
     let mut tx = workspace_command.start_transaction();
     git::rename_remote(tx.repo_mut(), &args.old, &args.new)?;
+    rename_remote_in_repo_config(ui, command.raw_config(), &args.old, &args.new)?;
     if tx.repo().has_changes() {
         tx.finish(
             ui,
@@ -54,6 +55,5 @@ pub async fn cmd_git_remote_rename(
     } else {
         // Do not print "Nothing changed."
     }
-    rename_remote_in_repo_config(ui, command.raw_config(), &args.old, &args.new)?;
     Ok(())
 }

@@ -2227,19 +2227,6 @@ to the current parents may contain changes from multiple commits.
         description: impl Into<String>,
         _git_import_export_lock: &GitImportExportLock,
     ) -> Result<(), CommandError> {
-        if let Err(err) =
-            revset_util::try_resolve_trunk_alias(tx.repo(), &self.env.revset_parse_context())
-        {
-            writeln!(
-                ui.warning_default(),
-                "Failed to resolve `revset-aliases.trunk()`: {err}"
-            )?;
-            writeln!(
-                ui.hint_default(),
-                "Use `jj config edit --repo` to adjust the `trunk()` alias."
-            )?;
-        }
-
         let old_repo = tx.base_repo().clone();
 
         let maybe_old_wc_commit = old_repo

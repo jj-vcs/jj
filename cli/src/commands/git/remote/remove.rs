@@ -38,12 +38,12 @@ pub async fn cmd_git_remote_remove(
     let mut workspace_command = command.workspace_helper(ui).await?;
     let mut tx = workspace_command.start_transaction();
     git::remove_remote(tx.repo_mut(), &args.remote)?;
+    remove_remote_from_repo_config(ui, command.raw_config(), &args.remote)?;
     if tx.repo().has_changes() {
         tx.finish(ui, format!("remove git remote {}", args.remote.as_symbol()))
             .await?;
     } else {
         // Do not print "Nothing changed." for the remote named "git".
     }
-    remove_remote_from_repo_config(ui, command.raw_config(), &args.remote)?;
     Ok(())
 }

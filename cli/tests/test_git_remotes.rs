@@ -653,6 +653,36 @@ fn test_git_remote_rename() {
 }
 
 #[test]
+fn test_git_remote_rename_updates_trunk() {
+    // Verify trunk() resolves correctly after renaming the remote it references.
+    let test_env = TestEnvironment::default();
+
+    let remote_repo = git::init(test_env.env_root().join("remote"));
+    git::add_commit(&remote_repo, "refs/heads/main", "file", b"", "init", &[]);
+    git::set_symbolic_reference(&remote_repo, "HEAD", "refs/heads/main");
+    test_env
+        .run_jj_in(".", ["git", "clone", "--branch=main", "remote", "local"])
+        .success();
+    let local_dir = test_env.work_dir("local");
+
+    let output = local_dir.run_jj(["git", "remote", "rename", "origin", "upstream"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Updating the revset alias `trunk()` to `main@upstream`.
+    [EOF]
+    ");
+
+    // trunk() should resolve to the correct commit after the rename
+    let output = local_dir.run_jj(["log", "-r", "trunk()", "-T", "description"]);
+    insta::assert_snapshot!(output, @"
+    ◆  init
+    │
+    ~
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_git_remote_with_preset_config() {
     let test_env = TestEnvironment::default();
     // Add user-level config which shouldn't be renamed
@@ -714,12 +744,9 @@ fn test_git_remote_with_preset_config() {
     "#);
 
     // Preset repo-level config should be updated automatically
-    // TODO: suppress warning about unresolvable trunk()
     let output = local_dir.run_jj(["git", "remote", "rename", "origin", "foo"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: Failed to resolve `revset-aliases.trunk()`: Revision `main@origin` doesn't exist
-    Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
     Updating the revset alias `trunk()` to `main@foo`.
     [EOF]
     ");
@@ -742,8 +769,6 @@ fn test_git_remote_with_preset_config() {
     let output = local_dir.run_jj(["git", "remote", "remove", "foo"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: Failed to resolve `revset-aliases.trunk()`: Revision `main@foo` doesn't exist
-    Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
     Resetting the revset alias `trunk()` to default value.
     [EOF]
     ");
