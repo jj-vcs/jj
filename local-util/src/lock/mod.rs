@@ -14,7 +14,10 @@
 
 #![expect(missing_docs)]
 
+#[cfg(not(unix))]
 mod backoff;
+#[cfg(not(any(unix, windows)))]
+mod fallback;
 #[cfg(unix)]
 mod unix;
 #[cfg(windows)]
@@ -25,6 +28,8 @@ use std::path::PathBuf;
 
 use thiserror::Error;
 
+#[cfg(not(any(unix, windows)))]
+pub use self::fallback::FileLock;
 #[cfg(unix)]
 pub use self::unix::FileLock;
 #[cfg(windows)]
