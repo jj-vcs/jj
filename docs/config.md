@@ -617,6 +617,7 @@ needing the original behavior.
 You can configure the template used when no `-T` is specified.
 
 - `templates.config_list` for `jj config list`
+- `templates.workspace_list` for `jj workspace list`
 
 If you want to see the config variable origin (type and path) when you do `jj config list`
 you can add this to your config:
@@ -624,6 +625,24 @@ you can add this to your config:
 ```toml
 [templates]
 config_list = "builtin_config_list_detailed"
+```
+
+If you want `jj workspace list` to show each workspace root, you can use the
+shipped root-path template:
+
+```sh
+jj workspace list -T builtin_workspace_list_with_root
+```
+
+Workspaces whose roots are not recorded or cannot be resolved are shown without
+the root path. Workspace roots are not recorded for workspaces created before jj
+0.38.0.
+
+Or make it your default:
+
+```toml
+[templates]
+workspace_list = "builtin_workspace_list_with_root"
 ```
 
 ## Log

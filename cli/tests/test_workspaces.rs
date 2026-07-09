@@ -1772,6 +1772,18 @@ fn test_list_workspaces_template_root() {
     second: ../secondary
     [EOF]
     ");
+
+    let output = main_dir.run_jj([
+        "workspace",
+        "list",
+        "-T",
+        "builtin_workspace_list_with_root",
+    ]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    default: . qpvuntsm e8849ae1 (empty) (no description set)
+    second: ../secondary uuqppmxq 94f41578 (empty) (no description set)
+    [EOF]
+    ");
 }
 
 #[test]
@@ -1798,6 +1810,18 @@ fn test_list_workspaces_template_root_unavailable() {
     insta::assert_snapshot!(output, @"
     default: .
     second: 
+    [EOF]
+    ");
+
+    let output = main_dir.run_jj([
+        "workspace",
+        "list",
+        "-T",
+        "builtin_workspace_list_with_root",
+    ]);
+    insta::assert_snapshot!(output, @"
+    default: . qpvuntsm e8849ae1 (empty) (no description set)
+    second: uuqppmxq 94f41578 (empty) (no description set)
     [EOF]
     ");
 }

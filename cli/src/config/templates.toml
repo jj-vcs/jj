@@ -44,14 +44,7 @@ concat(
 
 tag_list = 'format_commit_ref(self, "tag") ++ "\n"'
 
-workspace_list = '''
-concat(
-  name,
-  ": ",
-  format_commit_summary_with_refs(target, format_commit_ref_names(target.bookmarks())),
-  "\n",
-)
-'''
+workspace_list = 'builtin_workspace_list'
 
 op_summary = '''
 separate(" ",
@@ -299,6 +292,28 @@ label(if(op.current_operation(), "current_operation"),
     if(op.root(), format_root_operation(op)),
     format_operation_redacted(op),
   )
+)
+'''
+
+builtin_workspace_list = '''
+concat(
+  name,
+  ": ",
+  format_commit_summary_with_refs(target, format_commit_ref_names(target.bookmarks())),
+  "\n",
+)
+'''
+
+builtin_workspace_list_with_root = '''
+concat(
+  name,
+  ": ",
+  separate(
+    " ",
+    if(root, root.relative()),
+    format_commit_summary_with_refs(target, format_commit_ref_names(target.bookmarks())),
+  ),
+  "\n",
 )
 '''
 
