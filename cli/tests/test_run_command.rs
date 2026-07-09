@@ -1381,10 +1381,10 @@ fn test_run_order() {
         &["run", "-r=..@", "--", "sh", "-c", "echo $JJ_CHANGE_ID"]
     };
     assert_snapshot!(work_dir.run_jj(jj_args).success().stdout,@"
-    zsuskulnrvyrovkzqrwmxqlsskqntxvp
-    kkmpptxzrspxrzommnulwmwkkqwworpl
-    rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    rlvkpnrzqnoowoytxnquwvuryrwnrmlp
+    kkmpptxzrspxrzommnulwmwkkqwworpl
+    zsuskulnrvyrovkzqrwmxqlsskqntxvp
     [EOF]
     ");
 }

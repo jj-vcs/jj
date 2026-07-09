@@ -654,7 +654,7 @@ pub async fn cmd_run(
     fs::create_dir_all(&base_path)?;
 
     let mut workspace_command = command.workspace_helper(ui).await?;
-    let resolved_commits: Vec<_> = if args.revisions.is_empty() {
+    let mut resolved_commits: Vec<_> = if args.revisions.is_empty() {
         let revs = workspace_command.settings().get_string("revsets.run")?;
         workspace_command
             .parse_revset(ui, &RevisionArg::from(revs))?
@@ -668,6 +668,7 @@ pub async fn cmd_run(
             .try_collect()
             .await?
     };
+    resolved_commits.reverse();
 
     workspace_command
         .check_rewritable(resolved_commits.iter().ids())
