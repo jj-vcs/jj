@@ -1581,6 +1581,8 @@ fn test_template_alias() {
     builtin_op_log_node_ascii
     builtin_op_log_oneline
     builtin_op_log_redacted
+    builtin_workspace_list
+    builtin_workspace_list_with_root
     commit_summary_separator
     default_commit_description
     description_placeholder

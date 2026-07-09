@@ -19,6 +19,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * New `merge_point()` revset function which (similar to `fork_point`) finds the
   point where multiple branches merge.
 
+* New `builtin_workspace_list` and `builtin_workspace_list_with_root` template
+  aliases are available for `jj workspace list`, and `WorkspaceRef.root()` now
+  returns an optional `FsPath` value.
+
 ### Fixed bugs
 
 * Recursive alias definitions are detected more precisely. jj can now expand
