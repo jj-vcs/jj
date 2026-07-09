@@ -26,6 +26,7 @@ use std::ops::Range;
 use std::path::Path;
 use std::sync::Arc;
 
+use futures::future::LocalBoxFuture;
 use itertools::Itertools as _;
 use smallvec::smallvec;
 use thiserror::Error;
@@ -44,6 +45,8 @@ use super::entry::SmallLocalCommitPositionsVec;
 use super::mutable::DefaultMutableIndex;
 use super::revset_engine;
 use super::revset_engine::RevsetImpl;
+use super::store::DefaultIndexStorage;
+use super::store::DefaultIndexStorageError;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::graph::GraphNode;
@@ -61,7 +64,7 @@ use crate::revset::Revset;
 use crate::revset::RevsetEvaluationError;
 use crate::store::Store;
 
-/// Error while loading index segment file.
+/// Error while loading an index segment.
 #[derive(Debug, Error)]
 pub enum ReadonlyIndexLoadError {
     #[error("Unexpected {kind} index version")]
@@ -71,7 +74,24 @@ pub enum ReadonlyIndexLoadError {
         found_version: u32,
         expected_version: u32,
     },
-    #[error("Failed to load {kind} index file '{name}'")]
+    #[error("{kind} index segment '{name}' is missing")]
+    Missing {
+        /// Index type.
+        kind: &'static str,
+        /// Index file name.
+        name: String,
+    },
+    #[error("Failed to read {kind} index segment '{name}' from storage")]
+    Storage {
+        /// Index type.
+        kind: &'static str,
+        /// Index file name.
+        name: String,
+        /// Underlying error.
+        #[source]
+        error: DefaultIndexStorageError,
+    },
+    #[error("Failed to load {kind} index segment '{name}'")]
     Other {
         /// Index type.
         kind: &'static str,
@@ -108,10 +128,30 @@ impl ReadonlyIndexLoadError {
         }
     }
 
+    pub(super) fn from_storage_err(
+        kind: &'static str,
+        name: impl Into<String>,
+        error: DefaultIndexStorageError,
+    ) -> Self {
+        Self::Storage {
+            kind,
+            name: name.into(),
+            error,
+        }
+    }
+
+    pub(super) fn missing(kind: &'static str, name: impl Into<String>) -> Self {
+        Self::Missing {
+            kind,
+            name: name.into(),
+        }
+    }
+
     /// Returns true if the underlying error suggests data corruption.
     pub(super) fn is_corrupt_or_not_found(&self) -> bool {
         match self {
-            Self::UnexpectedVersion { .. } => true,
+            Self::UnexpectedVersion { .. } | Self::Missing { .. } => true,
+            Self::Storage { .. } => false,
             Self::Other { error, .. } => {
                 // If the parent file name field is corrupt, the file wouldn't be found.
                 // And there's no need to distinguish it from an empty file.
@@ -275,8 +315,46 @@ impl Debug for ReadonlyCommitIndexSegment {
     }
 }
 
+fn read_commit_segment_header(
+    file: &mut dyn Read,
+    id: &CommitIndexSegmentId,
+) -> Result<Option<CommitIndexSegmentId>, ReadonlyIndexLoadError> {
+    let from_io_err = |err| ReadonlyIndexLoadError::from_io_err("commit", id.hex(), err);
+    let read_u32 = |file: &mut dyn Read| {
+        let mut buf = [0; 4];
+        file.read_exact(&mut buf).map_err(from_io_err)?;
+        Ok(u32::from_le_bytes(buf))
+    };
+    let format_version = read_u32(file)?;
+    if format_version != COMMIT_INDEX_SEGMENT_FILE_FORMAT_VERSION {
+        return Err(ReadonlyIndexLoadError::UnexpectedVersion {
+            kind: "commit",
+            found_version: format_version,
+            expected_version: COMMIT_INDEX_SEGMENT_FILE_FORMAT_VERSION,
+        });
+    }
+    let parent_filename_len = read_u32(file)?;
+    if parent_filename_len > 0 {
+        let mut parent_filename_bytes = vec![0; parent_filename_len as usize];
+        file.read_exact(&mut parent_filename_bytes)
+            .map_err(from_io_err)?;
+        let parent_file_id =
+            CommitIndexSegmentId::try_from_hex(parent_filename_bytes).ok_or_else(|| {
+                ReadonlyIndexLoadError::invalid_data(
+                    "commit",
+                    id.hex(),
+                    "parent file name is not valid hex",
+                )
+            })?;
+        Ok(Some(parent_file_id))
+    } else {
+        Ok(None)
+    }
+}
+
 impl ReadonlyCommitIndexSegment {
     /// Loads both parent segments and local entries from the given file `name`.
+    #[allow(dead_code)]
     pub(super) fn load(
         dir: &Path,
         id: CommitIndexSegmentId,
@@ -287,42 +365,43 @@ impl ReadonlyCommitIndexSegment {
         Self::load_from(&mut file, dir, id, lengths)
     }
 
+    /// Loads both parent segments and local entries from the given storage.
+    pub(super) fn load_from_storage(
+        storage: &dyn DefaultIndexStorage,
+        id: CommitIndexSegmentId,
+        lengths: FieldLengths,
+    ) -> LocalBoxFuture<'_, Result<Arc<Self>, ReadonlyIndexLoadError>> {
+        Box::pin(async move {
+            let name = id.hex();
+            let data = storage
+                .read_commit_segment(&name)
+                .await
+                .map_err(|err| {
+                    ReadonlyIndexLoadError::from_storage_err("commit", name.clone(), err)
+                })?
+                .ok_or_else(|| ReadonlyIndexLoadError::missing("commit", name.clone()))?;
+            let mut file = &data[..];
+            let maybe_parent_file =
+                if let Some(parent_file_id) = read_commit_segment_header(&mut file, &id)? {
+                    Some(Self::load_from_storage(storage, parent_file_id, lengths).await?)
+                } else {
+                    None
+                };
+            Self::load_with_parent_file(&mut file, id, maybe_parent_file, lengths)
+        })
+    }
+
     /// Loads both parent segments and local entries from the given `file`.
+    #[allow(dead_code)]
     pub(super) fn load_from(
         file: &mut dyn Read,
         dir: &Path,
         id: CommitIndexSegmentId,
         lengths: FieldLengths,
     ) -> Result<Arc<Self>, ReadonlyIndexLoadError> {
-        let from_io_err = |err| ReadonlyIndexLoadError::from_io_err("commit", id.hex(), err);
-        let read_u32 = |file: &mut dyn Read| {
-            let mut buf = [0; 4];
-            file.read_exact(&mut buf).map_err(from_io_err)?;
-            Ok(u32::from_le_bytes(buf))
-        };
-        let format_version = read_u32(file)?;
-        if format_version != COMMIT_INDEX_SEGMENT_FILE_FORMAT_VERSION {
-            return Err(ReadonlyIndexLoadError::UnexpectedVersion {
-                kind: "commit",
-                found_version: format_version,
-                expected_version: COMMIT_INDEX_SEGMENT_FILE_FORMAT_VERSION,
-            });
-        }
-        let parent_filename_len = read_u32(file)?;
-        let maybe_parent_file = if parent_filename_len > 0 {
-            let mut parent_filename_bytes = vec![0; parent_filename_len as usize];
-            file.read_exact(&mut parent_filename_bytes)
-                .map_err(from_io_err)?;
-            let parent_file_id = CommitIndexSegmentId::try_from_hex(parent_filename_bytes)
-                .ok_or_else(|| {
-                    ReadonlyIndexLoadError::invalid_data(
-                        "commit",
-                        id.hex(),
-                        "parent file name is not valid hex",
-                    )
-                })?;
-            let parent_file = Self::load(dir, parent_file_id, lengths)?;
-            Some(parent_file)
+        let maybe_parent_file = if let Some(parent_file_id) = read_commit_segment_header(file, &id)?
+        {
+            Some(Self::load(dir, parent_file_id, lengths)?)
         } else {
             None
         };

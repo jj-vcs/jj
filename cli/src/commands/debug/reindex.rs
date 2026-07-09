@@ -39,7 +39,7 @@ pub async fn cmd_debug_reindex(
     let op = command.resolve_operation(ui, repo_loader, workspace.workspace_name())?;
     let index_store = repo_loader.index_store();
     if let Some(default_index_store) = index_store.downcast_ref::<DefaultIndexStore>() {
-        default_index_store.reinit().map_err(internal_error)?;
+        default_index_store.reinit().await.map_err(internal_error)?;
         let default_index = default_index_store
             .build_index_at_operation(&op, repo_loader.store())
             .await

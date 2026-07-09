@@ -33,6 +33,9 @@ use tempfile::NamedTempFile;
 
 use super::entry::GlobalCommitPosition;
 use super::readonly::ReadonlyIndexLoadError;
+use super::store::DefaultIndexStorage;
+use super::store::DefaultIndexStorageError;
+use super::store::DefaultIndexStorageResult;
 use crate::backend::BackendResult;
 use crate::commit::Commit;
 use crate::file_util::IoResultExt as _;
@@ -132,6 +135,22 @@ impl ReadonlyChangedPathIndexSegment {
         let mut file = File::open(dir.join(id.hex()))
             .map_err(|err| ReadonlyIndexLoadError::from_io_err("changed-path", id.hex(), err))?;
         Self::load_from(&mut file, id)
+    }
+
+    /// Loads one changed-path segment from storage.
+    pub(super) async fn load_from_storage(
+        storage: &dyn DefaultIndexStorage,
+        id: ChangedPathIndexSegmentId,
+    ) -> Result<Arc<Self>, ReadonlyIndexLoadError> {
+        let name = id.hex();
+        let data = storage
+            .read_changed_path_segment(&name)
+            .await
+            .map_err(|err| {
+                ReadonlyIndexLoadError::from_storage_err("changed-path", name.clone(), err)
+            })?
+            .ok_or_else(|| ReadonlyIndexLoadError::missing("changed-path", name))?;
+        Self::load_from(&mut &data[..], id)
     }
 
     pub(super) fn load_from(
@@ -347,16 +366,20 @@ impl MutableChangedPathIndexSegment {
         }
     }
 
-    pub(super) fn save_in(
-        &self,
-        dir: &Path,
-    ) -> Result<Arc<ReadonlyChangedPathIndexSegment>, PathError> {
+    fn serialize_to_bytes(&self) -> (Vec<u8>, ChangedPathIndexSegmentId) {
         let mut buf = Vec::new();
         self.serialize_into(&mut buf);
         let mut hasher = Blake2b512::new();
         hasher.update(&buf);
-
         let file_id = ChangedPathIndexSegmentId::from_bytes(&hasher.finalize());
+        (buf, file_id)
+    }
+
+    pub(super) fn save_in(
+        &self,
+        dir: &Path,
+    ) -> Result<Arc<ReadonlyChangedPathIndexSegment>, PathError> {
+        let (buf, file_id) = self.serialize_to_bytes();
         let file_path = dir.join(file_id.hex());
         let mut file = NamedTempFile::new_in(dir).context(dir)?;
         file.as_file_mut().write_all(&buf).context(file.path())?;
@@ -365,6 +388,18 @@ impl MutableChangedPathIndexSegment {
         let segment = ReadonlyChangedPathIndexSegment::load_from(&mut &buf[..], file_id)
             .expect("in-memory index data should be valid and readable");
         Ok(segment)
+    }
+
+    pub(super) async fn save_to_storage(
+        &self,
+        storage: &dyn DefaultIndexStorage,
+    ) -> DefaultIndexStorageResult<Arc<ReadonlyChangedPathIndexSegment>> {
+        let (buf, file_id) = self.serialize_to_bytes();
+        let file_name = file_id.hex();
+        storage.write_changed_path_segment(&file_name, &buf).await?;
+
+        ReadonlyChangedPathIndexSegment::load_from(&mut &buf[..], file_id)
+            .map_err(|err| Box::new(err) as DefaultIndexStorageError)
     }
 }
 
@@ -400,6 +435,7 @@ impl CompositeChangedPathIndex {
         }
     }
 
+    #[allow(dead_code)]
     pub(super) fn load(
         dir: &Path,
         start_commit_pos: GlobalCommitPosition,
@@ -409,6 +445,30 @@ impl CompositeChangedPathIndex {
             .iter()
             .map(|id| ReadonlyChangedPathIndexSegment::load(dir, id.clone()))
             .try_collect()?;
+        let num_commits = readonly_segments
+            .iter()
+            .map(|segment| segment.num_local_commits())
+            .sum();
+        Ok(Self {
+            start_commit_pos: Some(start_commit_pos),
+            num_commits,
+            readonly_segments,
+            mutable_segment: None,
+        })
+    }
+
+    /// Loads the changed-path segment stack from storage.
+    pub(super) async fn load_segments_from_storage(
+        storage: &dyn DefaultIndexStorage,
+        start_commit_pos: GlobalCommitPosition,
+        ids: &[ChangedPathIndexSegmentId],
+    ) -> Result<Self, ReadonlyIndexLoadError> {
+        let mut readonly_segments = Vec::with_capacity(ids.len());
+        for id in ids {
+            readonly_segments.push(
+                ReadonlyChangedPathIndexSegment::load_from_storage(storage, id.clone()).await?,
+            );
+        }
         let num_commits = readonly_segments
             .iter()
             .map(|segment| segment.num_local_commits())
@@ -548,6 +608,7 @@ impl CompositeChangedPathIndex {
     }
 
     /// Writes mutable segment if exists, turns it into readonly segment.
+    #[allow(dead_code)]
     pub(super) fn save_in(&mut self, dir: &Path) -> Result<(), PathError> {
         let Some(segment) = self.mutable_segment.take() else {
             return Ok(());
@@ -556,6 +617,22 @@ impl CompositeChangedPathIndex {
             return Ok(());
         }
         let segment = segment.save_in(dir)?;
+        self.readonly_segments.push(segment);
+        Ok(())
+    }
+
+    /// Writes mutable segment if exists, turns it into readonly segment.
+    pub(super) async fn save_to_storage(
+        &mut self,
+        storage: &dyn DefaultIndexStorage,
+    ) -> DefaultIndexStorageResult<()> {
+        let Some(segment) = self.mutable_segment.take() else {
+            return Ok(());
+        };
+        if segment.is_empty() {
+            return Ok(());
+        }
+        let segment = segment.save_to_storage(storage).await?;
         self.readonly_segments.push(segment);
         Ok(())
     }

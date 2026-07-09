@@ -49,6 +49,9 @@ use super::readonly::DefaultReadonlyIndex;
 use super::readonly::FieldLengths;
 use super::readonly::OVERFLOW_FLAG;
 use super::readonly::ReadonlyCommitIndexSegment;
+use super::store::DefaultIndexStorage;
+use super::store::DefaultIndexStorageError;
+use super::store::DefaultIndexStorageResult;
 use crate::backend::BackendResult;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
@@ -312,6 +315,18 @@ impl MutableCommitIndexSegment {
         }
     }
 
+    fn serialize_to_bytes(&self) -> (Vec<u8>, usize, CommitIndexSegmentId) {
+        let mut buf = Vec::new();
+        buf.extend(COMMIT_INDEX_SEGMENT_FILE_FORMAT_VERSION.to_le_bytes());
+        self.serialize_parent_filename(&mut buf);
+        let local_entries_offset = buf.len();
+        self.serialize_local_entries(&mut buf);
+        let mut hasher = Blake2b512::new();
+        hasher.update(&buf);
+        let index_file_id = CommitIndexSegmentId::from_bytes(&hasher.finalize());
+        (buf, local_entries_offset, index_file_id)
+    }
+
     /// If the mutable segment has more than half the commits of its parent
     /// segment, return mutable segment with the commits from both. This is done
     /// recursively, so the stack of index segments has O(log n) files.
@@ -346,6 +361,7 @@ impl MutableCommitIndexSegment {
         squashed
     }
 
+    #[allow(dead_code)]
     pub(super) fn save_in(
         mut self,
         dir: &Path,
@@ -356,14 +372,7 @@ impl MutableCommitIndexSegment {
             return Ok(parent_file);
         }
 
-        let mut buf = Vec::new();
-        buf.extend(COMMIT_INDEX_SEGMENT_FILE_FORMAT_VERSION.to_le_bytes());
-        self.serialize_parent_filename(&mut buf);
-        let local_entries_offset = buf.len();
-        self.serialize_local_entries(&mut buf);
-        let mut hasher = Blake2b512::new();
-        hasher.update(&buf);
-        let index_file_id = CommitIndexSegmentId::from_bytes(&hasher.finalize());
+        let (buf, local_entries_offset, index_file_id) = self.serialize_to_bytes();
         let index_file_path = dir.join(index_file_id.hex());
 
         let mut temp_file = NamedTempFile::new_in(dir).context(dir)?;
@@ -379,6 +388,29 @@ impl MutableCommitIndexSegment {
             self.field_lengths,
         )
         .expect("in-memory index data should be valid and readable"))
+    }
+
+    pub(super) async fn save_to_storage(
+        mut self,
+        storage: &dyn DefaultIndexStorage,
+    ) -> DefaultIndexStorageResult<Arc<ReadonlyCommitIndexSegment>> {
+        if self.num_local_commits() == 0
+            && let Some(parent_file) = self.parent_file.take()
+        {
+            return Ok(parent_file);
+        }
+
+        let (buf, local_entries_offset, index_file_id) = self.serialize_to_bytes();
+        let index_file_name = index_file_id.hex();
+        storage.write_commit_segment(&index_file_name, &buf).await?;
+
+        ReadonlyCommitIndexSegment::load_with_parent_file(
+            &mut &buf[local_entries_offset..],
+            index_file_id,
+            self.parent_file,
+            self.field_lengths,
+        )
+        .map_err(|err| Box::new(err) as DefaultIndexStorageError)
     }
 }
 

@@ -393,7 +393,7 @@ fn test_index_commits_previous_operations() -> TestResult {
 
     // Delete index from disk
     let default_index_store: &DefaultIndexStore = repo.index_store().downcast_ref().unwrap();
-    default_index_store.reinit()?;
+    default_index_store.reinit().block_on()?;
 
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
     let index = as_readonly_index(&repo);
@@ -449,7 +449,7 @@ fn test_index_commits_hidden_but_referenced() -> TestResult {
 
     // Delete index from disk
     let default_index_store: &DefaultIndexStore = repo.index_store().downcast_ref().unwrap();
-    default_index_store.reinit()?;
+    default_index_store.reinit().block_on()?;
 
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
     // All commits should be reindexed
@@ -789,7 +789,7 @@ fn test_reindex_missing_commit() -> TestResult {
     // Reindexing error should include the operation id where the commit
     // couldn't be found.
     let default_index_store: &DefaultIndexStore = repo.index_store().downcast_ref().unwrap();
-    default_index_store.reinit()?;
+    default_index_store.reinit().block_on()?;
     let err = default_index_store
         .build_index_at_operation(repo.operation(), repo.store())
         .block_on()

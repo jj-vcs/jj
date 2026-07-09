@@ -39,9 +39,13 @@ pub use self::readonly::DefaultReadonlyIndexRevset;
 pub use self::readonly::IndexStats;
 pub use self::readonly::ReadonlyIndexLoadError;
 pub use self::store::DefaultChangedPathIndexProgress;
+pub use self::store::DefaultIndexStorage;
+pub use self::store::DefaultIndexStorageError;
+pub use self::store::DefaultIndexStorageResult;
 pub use self::store::DefaultIndexStore;
 pub use self::store::DefaultIndexStoreError;
 pub use self::store::DefaultIndexStoreInitError;
+pub use self::store::FileDefaultIndexStore;
 
 #[cfg(test)]
 #[rustversion::attr(

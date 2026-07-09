@@ -15,6 +15,8 @@
 #![expect(missing_docs)]
 
 use std::collections::HashMap;
+use std::error::Error as StdError;
+use std::fmt::Debug;
 use std::fs;
 use std::future;
 use std::io;
@@ -53,6 +55,7 @@ use crate::dag_walk_async;
 use crate::file_util;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
+use crate::file_util::persist_content_addressed_temp_file;
 use crate::file_util::persist_temp_file;
 use crate::index::IndexStore;
 use crate::index::IndexStoreError;
@@ -80,19 +83,34 @@ impl From<DefaultIndexStoreInitError> for BackendInitError {
     }
 }
 
+/// Error returned by default-index storage backends.
+pub type DefaultIndexStorageError = Box<dyn StdError + Send + Sync + 'static>;
+
+/// Result returned by default-index storage backends.
+pub type DefaultIndexStorageResult<T> = Result<T, DefaultIndexStorageError>;
+
 #[derive(Debug, Error)]
 pub enum DefaultIndexStoreError {
-    #[error("Failed to associate index files with an operation {op_id}")]
+    #[error("Failed to associate index records with an operation {op_id}")]
     AssociateIndex {
         op_id: OperationId,
-        source: PathError,
+        #[source]
+        source: DefaultIndexStorageError,
     },
-    #[error("Failed to load associated index file names")]
-    LoadAssociation(#[source] PathError),
+    #[error("No index records are associated with operation {op_id}")]
+    IndexNotAssociated { op_id: OperationId },
+    #[error("Failed to load associated index records for operation {op_id}")]
+    LoadAssociation {
+        op_id: OperationId,
+        #[source]
+        source: DefaultIndexStorageError,
+    },
     #[error(transparent)]
     LoadIndex(ReadonlyIndexLoadError),
-    #[error("Failed to write index file")]
-    SaveIndex(#[source] PathError),
+    #[error("Failed to save index data")]
+    SaveIndex(#[source] DefaultIndexStorageError),
+    #[error("Failed to reinitialize index store")]
+    Reinit(#[source] DefaultIndexStorageError),
     #[error("Failed to index commits at operation {op_id}")]
     IndexCommits {
         op_id: OperationId,
@@ -102,55 +120,97 @@ pub enum DefaultIndexStoreError {
     OpStore(#[from] OpStoreError),
 }
 
+/// Provides persistent storage for default index records.
+#[async_trait(?Send)]
+pub trait DefaultIndexStorage: Send + Sync + Debug {
+    /// Reads the segment-control record associated with `op_id`.
+    ///
+    /// Returns `Ok(None)` if no record exists. Backend failures should be
+    /// returned as errors, not absence.
+    async fn read_operation_link(
+        &self,
+        op_id: &OperationId,
+    ) -> DefaultIndexStorageResult<Option<Vec<u8>>>;
+
+    /// Writes the segment-control record associated with `op_id`.
+    ///
+    /// This is the publication point for an index version. Implementations must
+    /// make referenced segments durable and visible before this record becomes
+    /// visible to readers.
+    async fn write_operation_link(
+        &self,
+        op_id: &OperationId,
+        data: &[u8],
+    ) -> DefaultIndexStorageResult<()>;
+
+    /// Returns true if a segment-control record exists for `op_id`.
+    ///
+    /// Implementations should avoid reading the whole record if the backend has
+    /// an efficient existence check.
+    async fn has_operation_link(&self, op_id: &OperationId) -> DefaultIndexStorageResult<bool>;
+
+    /// Reads a commit index segment by content-addressed name.
+    ///
+    /// Returns `Ok(None)` if no segment exists. Backend failures should be
+    /// returned as errors, not absence.
+    async fn read_commit_segment(&self, name: &str) -> DefaultIndexStorageResult<Option<Vec<u8>>>;
+
+    /// Writes a commit index segment by content-addressed name.
+    ///
+    /// Segment names are derived from their content, so implementations should
+    /// treat writes of identical data to an existing name as idempotent.
+    async fn write_commit_segment(&self, name: &str, data: &[u8]) -> DefaultIndexStorageResult<()>;
+
+    /// Reads a changed-path index segment by content-addressed name.
+    ///
+    /// Returns `Ok(None)` if no segment exists. Backend failures should be
+    /// returned as errors, not absence.
+    async fn read_changed_path_segment(
+        &self,
+        name: &str,
+    ) -> DefaultIndexStorageResult<Option<Vec<u8>>>;
+
+    /// Writes a changed-path index segment by content-addressed name.
+    ///
+    /// Segment names are derived from their content, so implementations should
+    /// treat writes of identical data to an existing name as idempotent.
+    async fn write_changed_path_segment(
+        &self,
+        name: &str,
+        data: &[u8],
+    ) -> DefaultIndexStorageResult<()>;
+
+    /// Clears operation links and segment records so the index can be rebuilt.
+    async fn reinit(&self) -> DefaultIndexStorageResult<()>;
+}
+
+/// Stores default index records in local filesystem directories.
 #[derive(Debug)]
-pub struct DefaultIndexStore {
+pub struct FileDefaultIndexStore {
     dir: PathBuf,
 }
 
-impl DefaultIndexStore {
-    pub fn name() -> &'static str {
-        "default"
-    }
-
+impl FileDefaultIndexStore {
+    /// Creates filesystem-backed index storage in `dir`.
     pub fn init(dir: &Path) -> Result<Self, DefaultIndexStoreInitError> {
-        let store = Self {
-            dir: dir.to_owned(),
-        };
-        store.ensure_base_dirs()?;
-        Ok(store)
+        let storage = Self::load(dir);
+        storage.ensure_base_dirs()?;
+        Ok(storage)
     }
 
+    /// Loads filesystem-backed index storage from `dir`.
     pub fn load(dir: &Path) -> Self {
         Self {
             dir: dir.to_owned(),
         }
     }
 
-    pub fn reinit(&self) -> Result<(), DefaultIndexStoreInitError> {
-        // Create base directories in case the store was initialized by old jj.
-        self.ensure_base_dirs()?;
-        // Remove all operation links to trigger rebuilding.
-        file_util::remove_dir_contents(&self.op_links_dir())?;
-        let legacy_operations_dir = self.dir.join("operations"); // jj < 0.33
-        if legacy_operations_dir.exists() {
-            file_util::remove_dir_contents(&legacy_operations_dir)?;
-            fs::remove_dir(&legacy_operations_dir).context(&legacy_operations_dir)?;
+    fn read_file(path: PathBuf) -> DefaultIndexStorageResult<Option<Vec<u8>>> {
+        match fs::read(&path) {
+            Ok(data) => Ok(Some(data)),
+            Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(None),
+            Err(err) => Err(PathError { path, source: err }.into()),
         }
-        // Remove index segments to save disk space. If raced, new segment file
-        // will be created by the other process.
-        file_util::remove_dir_contents(&self.commit_segments_dir())?;
-        file_util::remove_dir_contents(&self.changed_path_segments_dir())?;
-        // jj <= 0.14 created segment files in the top directory
-        for entry in self.dir.read_dir().context(&self.dir)? {
-            let entry = entry.context(&self.dir)?;
-            let path = entry.path();
-            if path.file_name().unwrap().len() != SEGMENT_FILE_NAME_LENGTH {
-                // Skip "type" file, "operations" directory, etc.
-                continue;
-            }
-            fs::remove_file(&path).context(&path)?;
-        }
-        Ok(())
     }
 
     fn ensure_base_dirs(&self) -> Result<(), PathError> {
@@ -178,20 +238,176 @@ impl DefaultIndexStore {
     fn changed_path_segments_dir(&self) -> PathBuf {
         self.dir.join("changed_paths")
     }
+}
 
-    fn load_index_at_operation(
+#[async_trait(?Send)]
+impl DefaultIndexStorage for FileDefaultIndexStore {
+    async fn read_operation_link(
+        &self,
+        op_id: &OperationId,
+    ) -> DefaultIndexStorageResult<Option<Vec<u8>>> {
+        Self::read_file(self.op_links_dir().join(op_id.hex()))
+    }
+
+    async fn write_operation_link(
+        &self,
+        op_id: &OperationId,
+        data: &[u8],
+    ) -> DefaultIndexStorageResult<()> {
+        self.ensure_base_dirs()?;
+        let dir = self.op_links_dir();
+        let path = dir.join(op_id.hex());
+        let mut temp_file = NamedTempFile::new_in(&dir).context(&dir)?;
+        temp_file
+            .as_file_mut()
+            .write_all(data)
+            .context(temp_file.path())?;
+        persist_temp_file(temp_file, &path).context(&path)?;
+        Ok(())
+    }
+
+    async fn has_operation_link(&self, op_id: &OperationId) -> DefaultIndexStorageResult<bool> {
+        let path = self.op_links_dir().join(op_id.hex());
+        Ok(path.try_exists().context(&path)?)
+    }
+
+    async fn read_commit_segment(&self, name: &str) -> DefaultIndexStorageResult<Option<Vec<u8>>> {
+        Self::read_file(self.commit_segments_dir().join(name))
+    }
+
+    async fn write_commit_segment(&self, name: &str, data: &[u8]) -> DefaultIndexStorageResult<()> {
+        self.ensure_base_dirs()?;
+        let dir = self.commit_segments_dir();
+        let path = dir.join(name);
+        let mut temp_file = NamedTempFile::new_in(&dir).context(&dir)?;
+        temp_file
+            .as_file_mut()
+            .write_all(data)
+            .context(temp_file.path())?;
+        persist_content_addressed_temp_file(temp_file, &path).context(&path)?;
+        Ok(())
+    }
+
+    async fn read_changed_path_segment(
+        &self,
+        name: &str,
+    ) -> DefaultIndexStorageResult<Option<Vec<u8>>> {
+        Self::read_file(self.changed_path_segments_dir().join(name))
+    }
+
+    async fn write_changed_path_segment(
+        &self,
+        name: &str,
+        data: &[u8],
+    ) -> DefaultIndexStorageResult<()> {
+        self.ensure_base_dirs()?;
+        let dir = self.changed_path_segments_dir();
+        let path = dir.join(name);
+        let mut temp_file = NamedTempFile::new_in(&dir).context(&dir)?;
+        temp_file
+            .as_file_mut()
+            .write_all(data)
+            .context(temp_file.path())?;
+        persist_content_addressed_temp_file(temp_file, &path).context(&path)?;
+        Ok(())
+    }
+
+    async fn reinit(&self) -> DefaultIndexStorageResult<()> {
+        // Create base directories in case the store was initialized by old jj.
+        self.ensure_base_dirs()?;
+        // Remove all operation links to trigger rebuilding.
+        let op_links_dir = self.op_links_dir();
+        file_util::remove_dir_contents(&op_links_dir)?;
+        let legacy_operations_dir = self.dir.join("operations"); // jj < 0.33
+        if legacy_operations_dir.exists() {
+            file_util::remove_dir_contents(&legacy_operations_dir)?;
+            fs::remove_dir(&legacy_operations_dir).context(&legacy_operations_dir)?;
+        }
+        // Remove index segments to save disk space. If raced, new segment file
+        // will be created by the other process.
+        let commit_segments_dir = self.commit_segments_dir();
+        file_util::remove_dir_contents(&commit_segments_dir)?;
+        let changed_path_segments_dir = self.changed_path_segments_dir();
+        file_util::remove_dir_contents(&changed_path_segments_dir)?;
+        // jj <= 0.14 created segment files in the top directory
+        for entry in self.dir.read_dir().context(&self.dir)? {
+            let entry = entry.context(&self.dir)?;
+            let path = entry.path();
+            let Some(file_name) = path.file_name() else {
+                continue;
+            };
+            if file_name.len() != SEGMENT_FILE_NAME_LENGTH {
+                // Skip "type" file, "operations" directory, etc.
+                continue;
+            }
+            fs::remove_file(&path).context(&path)?;
+        }
+        Ok(())
+    }
+}
+
+/// Stores, builds, and loads the default commit index.
+#[derive(Debug)]
+pub struct DefaultIndexStore {
+    storage: Arc<dyn DefaultIndexStorage>,
+}
+
+impl DefaultIndexStore {
+    /// Returns the stable index-store backend name.
+    pub fn name() -> &'static str {
+        "default"
+    }
+
+    /// Creates a default index store backed by `storage`.
+    pub fn with_storage(storage: Arc<dyn DefaultIndexStorage>) -> Self {
+        Self { storage }
+    }
+
+    /// Creates a filesystem-backed default index store in `dir`.
+    pub fn init(dir: &Path) -> Result<Self, DefaultIndexStoreInitError> {
+        Ok(Self::with_storage(Arc::new(FileDefaultIndexStore::init(
+            dir,
+        )?)))
+    }
+
+    /// Loads a filesystem-backed default index store from `dir`.
+    pub fn load(dir: &Path) -> Self {
+        Self::with_storage(Arc::new(FileDefaultIndexStore::load(dir)))
+    }
+
+    /// Clears stored index records so the index can be rebuilt.
+    pub async fn reinit(&self) -> Result<(), DefaultIndexStoreError> {
+        self.storage
+            .reinit()
+            .await
+            .map_err(DefaultIndexStoreError::Reinit)
+    }
+
+    async fn load_index_at_operation(
         &self,
         op_id: &OperationId,
         lengths: FieldLengths,
     ) -> Result<DefaultReadonlyIndex, DefaultIndexStoreError> {
-        let op_link_file = self.op_links_dir().join(op_id.hex());
-        let data = fs::read(&op_link_file)
-            .context(&op_link_file)
-            .map_err(DefaultIndexStoreError::LoadAssociation)?;
-        let proto = crate::protos::default_index::SegmentControl::decode(&*data)
-            .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))
-            .context(&op_link_file)
-            .map_err(DefaultIndexStoreError::LoadAssociation)?;
+        let Some(data) = self
+            .storage
+            .read_operation_link(op_id)
+            .await
+            .map_err(|source| DefaultIndexStoreError::LoadAssociation {
+                op_id: op_id.clone(),
+                source,
+            })?
+        else {
+            return Err(DefaultIndexStoreError::IndexNotAssociated {
+                op_id: op_id.clone(),
+            });
+        };
+        let proto =
+            crate::protos::default_index::SegmentControl::decode(&*data).map_err(|err| {
+                DefaultIndexStoreError::LoadAssociation {
+                    op_id: op_id.clone(),
+                    source: io::Error::new(io::ErrorKind::InvalidData, err).into(),
+                }
+            })?;
         let commit_segment_id = CommitIndexSegmentId::new(proto.commit_segment_id);
         let changed_path_start_commit_pos = proto
             .changed_path_start_commit_pos
@@ -202,19 +418,21 @@ impl DefaultIndexStore {
             .map(ChangedPathIndexSegmentId::new)
             .collect_vec();
 
-        let commits = ReadonlyCommitIndexSegment::load(
-            &self.commit_segments_dir(),
+        let commits = ReadonlyCommitIndexSegment::load_from_storage(
+            self.storage.as_ref(),
             commit_segment_id,
             lengths,
         )
+        .await
         .map_err(DefaultIndexStoreError::LoadIndex)?;
         // TODO: lazy load or mmap?
         let changed_paths = if let Some(start_commit_pos) = changed_path_start_commit_pos {
-            CompositeChangedPathIndex::load(
-                &self.changed_path_segments_dir(),
+            CompositeChangedPathIndex::load_segments_from_storage(
+                self.storage.as_ref(),
                 start_commit_pos,
                 &changed_path_segment_ids,
             )
+            .await
             .map_err(DefaultIndexStoreError::LoadIndex)?
         } else {
             CompositeChangedPathIndex::null()
@@ -233,7 +451,6 @@ impl DefaultIndexStore {
         store: &Arc<Store>,
     ) -> Result<DefaultReadonlyIndex, DefaultIndexStoreError> {
         tracing::info!("scanning operations to index");
-        let op_links_dir = self.op_links_dir();
         let field_lengths = FieldLengths {
             commit_id: store.commit_id_length(),
             change_id: store.change_id_length(),
@@ -244,7 +461,15 @@ impl DefaultIndexStore {
         let mut ancestors = pin!(op_walk::walk_ancestors(slice::from_ref(operation)));
         while let Some(op) = ancestors.next().await {
             let op = op?;
-            if op_links_dir.join(op.id().hex()).is_file() {
+            if self
+                .storage
+                .has_operation_link(op.id())
+                .await
+                .map_err(|source| DefaultIndexStoreError::LoadAssociation {
+                    op_id: op.id().clone(),
+                    source,
+                })?
+            {
                 parent_op = Some(op);
                 break;
             } else {
@@ -283,7 +508,7 @@ impl DefaultIndexStore {
                 maybe_parent_index = None;
             }
             Some(op) => {
-                let parent_index = self.load_index_at_operation(op.id(), field_lengths)?;
+                let parent_index = self.load_index_at_operation(op.id(), field_lengths).await?;
                 mutable_index = parent_index.start_modification();
                 maybe_parent_index = Some(parent_index);
             }
@@ -339,7 +564,9 @@ impl DefaultIndexStore {
             })?;
         }
 
-        let index = self.save_mutable_index(mutable_index, operation.id())?;
+        let index = self
+            .save_mutable_index(mutable_index, operation.id())
+            .await?;
         tracing::info!(?index, commits_count = commits.len(), "saved new index");
 
         Ok(index)
@@ -357,14 +584,11 @@ impl DefaultIndexStore {
         max_commits: u32,
         mut progress_callback: impl FnMut(&DefaultChangedPathIndexProgress),
     ) -> Result<DefaultReadonlyIndex, DefaultIndexStoreError> {
-        // Create directories in case the store was initialized by jj < 0.33.
-        self.ensure_base_dirs()
-            .map_err(DefaultIndexStoreError::SaveIndex)?;
         let field_lengths = FieldLengths {
             commit_id: store.commit_id_length(),
             change_id: store.change_id_length(),
         };
-        let index = self.load_index_at_operation(op_id, field_lengths)?;
+        let index = self.load_index_at_operation(op_id, field_lengths).await?;
         let old_changed_paths = index.changed_paths();
 
         // Distribute max_commits to contiguous pre/post ranges:
@@ -422,7 +646,8 @@ impl DefaultIndexStore {
                 .map_err(to_index_err)?;
         }
         new_changed_paths
-            .save_in(&self.changed_path_segments_dir())
+            .save_to_storage(self.storage.as_ref())
+            .await
             .map_err(DefaultIndexStoreError::SaveIndex)?;
 
         // Copy previously-indexed segments
@@ -439,53 +664,45 @@ impl DefaultIndexStore {
         }
         new_changed_paths.maybe_squash_with_ancestors();
         new_changed_paths
-            .save_in(&self.changed_path_segments_dir())
+            .save_to_storage(self.storage.as_ref())
+            .await
             .map_err(DefaultIndexStoreError::SaveIndex)?;
 
         // Update the operation link to point to the new segments
         let commits = index.readonly_commits().clone();
         let index = DefaultReadonlyIndex::from_segment(commits, new_changed_paths);
-        self.associate_index_with_operation(&index, op_id)
-            .map_err(|source| DefaultIndexStoreError::AssociateIndex {
-                op_id: op_id.to_owned(),
-                source,
-            })?;
+        self.associate_index_with_operation(&index, op_id).await?;
         emit_progress();
         Ok(index)
     }
 
-    fn save_mutable_index(
+    async fn save_mutable_index(
         &self,
         index: DefaultMutableIndex,
         op_id: &OperationId,
     ) -> Result<DefaultReadonlyIndex, DefaultIndexStoreError> {
-        // Create directories in case the store was initialized by jj < 0.33.
-        self.ensure_base_dirs()
-            .map_err(DefaultIndexStoreError::SaveIndex)?;
         let (commits, mut changed_paths) = index.into_segment();
         let commits = commits
             .maybe_squash_with_ancestors()
-            .save_in(&self.commit_segments_dir())
+            .save_to_storage(self.storage.as_ref())
+            .await
             .map_err(DefaultIndexStoreError::SaveIndex)?;
         changed_paths.maybe_squash_with_ancestors();
         changed_paths
-            .save_in(&self.changed_path_segments_dir())
+            .save_to_storage(self.storage.as_ref())
+            .await
             .map_err(DefaultIndexStoreError::SaveIndex)?;
         let index = DefaultReadonlyIndex::from_segment(commits, changed_paths);
-        self.associate_index_with_operation(&index, op_id)
-            .map_err(|source| DefaultIndexStoreError::AssociateIndex {
-                op_id: op_id.to_owned(),
-                source,
-            })?;
+        self.associate_index_with_operation(&index, op_id).await?;
         Ok(index)
     }
 
     /// Records a link from the given operation to the this index version.
-    fn associate_index_with_operation(
+    async fn associate_index_with_operation(
         &self,
         index: &DefaultReadonlyIndex,
         op_id: &OperationId,
-    ) -> Result<(), PathError> {
+    ) -> Result<(), DefaultIndexStoreError> {
         let proto = crate::protos::default_index::SegmentControl {
             commit_segment_id: index.readonly_commits().id().to_bytes(),
             changed_path_start_commit_pos: index
@@ -499,13 +716,13 @@ impl DefaultIndexStore {
                 .map(|segment| segment.id().to_bytes())
                 .collect(),
         };
-        let dir = self.op_links_dir();
-        let mut temp_file = NamedTempFile::new_in(&dir).context(&dir)?;
-        let file = temp_file.as_file_mut();
-        file.write_all(&proto.encode_to_vec())
-            .context(temp_file.path())?;
-        let path = dir.join(op_id.hex());
-        persist_temp_file(temp_file, &path).context(&path)?;
+        self.storage
+            .write_operation_link(op_id, &proto.encode_to_vec())
+            .await
+            .map_err(|source| DefaultIndexStoreError::AssociateIndex {
+                op_id: op_id.to_owned(),
+                source,
+            })?;
         Ok(())
     }
 }
@@ -525,10 +742,8 @@ impl IndexStore for DefaultIndexStore {
             commit_id: store.commit_id_length(),
             change_id: store.change_id_length(),
         };
-        let index = match self.load_index_at_operation(op.id(), field_lengths) {
-            Err(DefaultIndexStoreError::LoadAssociation(PathError { source: error, .. }))
-                if error.kind() == io::ErrorKind::NotFound =>
-            {
+        let index = match self.load_index_at_operation(op.id(), field_lengths).await {
+            Err(DefaultIndexStoreError::IndexNotAssociated { .. }) => {
                 self.build_index_at_operation(op, store).await
             }
             Err(DefaultIndexStoreError::LoadIndex(err)) if err.is_corrupt_or_not_found() => {
@@ -545,11 +760,18 @@ impl IndexStore for DefaultIndexStore {
                              {expected_version}. Reindexing..."
                         );
                     }
+                    ReadonlyIndexLoadError::Missing { .. } => {
+                        eprintln!("{err}. Reindexing...");
+                    }
+                    ReadonlyIndexLoadError::Storage { error, .. } => {
+                        eprintln!("{err}: {error}. Reindexing...");
+                    }
                     ReadonlyIndexLoadError::Other { error, .. } => {
                         eprintln!("{err} (maybe the format has changed): {error}. Reindexing...");
                     }
                 }
                 self.reinit()
+                    .await
                     .map_err(|err| IndexStoreError::Read(err.into()))?;
                 self.build_index_at_operation(op, store).await
             }
@@ -559,7 +781,7 @@ impl IndexStore for DefaultIndexStore {
         Ok(Box::new(index))
     }
 
-    fn write_index(
+    async fn write_index(
         &self,
         index: Box<dyn MutableIndex>,
         op: &Operation,
@@ -569,6 +791,7 @@ impl IndexStore for DefaultIndexStore {
             .expect("index to merge in must be a DefaultMutableIndex");
         let index = self
             .save_mutable_index(*index, op.id())
+            .await
             .map_err(|err| IndexStoreError::Write(err.into()))?;
         Ok(Box::new(index))
     }

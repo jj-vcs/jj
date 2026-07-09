@@ -81,7 +81,7 @@ pub trait IndexStore: Any + Send + Sync + Debug {
 
     /// Writes `index` to the index store and returns a read-only version of the
     /// index.
-    fn write_index(
+    async fn write_index(
         &self,
         index: Box<dyn MutableIndex>,
         op: &Operation,
