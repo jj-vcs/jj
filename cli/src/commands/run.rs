@@ -77,8 +77,8 @@ use crate::ui::Ui;
 enum RunError {
     #[error("failed to checkout the commit {}", .0)]
     FailedCheckout(CommitId),
-    #[error("the command '{}' failed with {} for commit {}", .0,.1, .2)]
-    CommandFailure(String, ExitStatus, CommitId),
+    #[error("the command '{}' failed with {}", .0, .1)]
+    CommandFailure(String, ExitStatus),
     #[error(transparent)]
     IoError(#[from] io::Error),
     #[error("failed to create path {}: {}", .0.to_string_lossy(), .1)]
@@ -758,12 +758,14 @@ pub async fn cmd_run(
                             err.write_all(&res.stderr)?;
                         }
                         if !status.success() {
-                            return Err(RunError::CommandFailure(
-                                spec.to_string(),
-                                status,
-                                res.old_id,
-                            )
-                            .into());
+                            let commit = store.get_commit_async(&res.old_id).await?;
+                            let mut error: CommandError =
+                                RunError::CommandFailure(spec.to_string(), status).into();
+                            error.add_formatted_hint_with(|formatter| {
+                                write!(formatter, "Failed revision: ")?;
+                                tx.write_commit_summary(formatter, &commit)
+                            });
+                            return Err(error);
                         }
                     }
                     if res.dirty

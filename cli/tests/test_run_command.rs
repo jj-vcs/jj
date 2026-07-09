@@ -1290,14 +1290,15 @@ fn test_run_failure_shows_output() {
             ("exit code", "exit status"), // Windows
         ],
     }, {
-        insta::assert_snapshot!(&output.normalize_stderr_with(|stderr| stderr.replace(&fake_formatter_path.clone(), "fake-formatter")), @r"
+        insta::assert_snapshot!(&output.normalize_stderr_with(|stderr| stderr.replace(&fake_formatter_path.clone(), "fake-formatter")), @"
         hello stdout
         [EOF]
         ------- stderr -------
         hello stderr
         Error: the command 'fake-formatter --stdout hello stdout
          --stderr hello stderr
-         --fail' failed with exit status: 1 for commit 26d8ff9bba4faa4da6735ced959c57280e49afa7
+         --fail' failed with exit status: 1
+        Hint: Failed revision: qpvuntsm 26d8ff9b A
         [EOF]
         [exit status: 1]
         ");
