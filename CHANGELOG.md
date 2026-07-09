@@ -43,6 +43,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
    order is guaranteed: each revision begins execution only after the previous
    one has started, even with `--jobs` higher than 1.
 
+* `jj run` gained a `--passthrough` flag that connects the subprocess's
+  stdout/stderr directly to the terminal instead of capturing output.
+
 ### Fixed bugs
 
 * Recursive alias definitions are detected more precisely. jj can now expand
