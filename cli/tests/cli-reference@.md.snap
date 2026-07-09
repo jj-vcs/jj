@@ -2997,6 +2997,9 @@ $ jj run -j 4 -- pre-commit run .github/pre-commit.yaml
 
    By default `jj run` reuses working copies between invocations so build artifacts are preserved. With `--clean`, every commit starts from a freshly checked-out tree.
 * `--restore-descendants` — Preserve the content (not the diff) when rebasing descendants
+* `--passthrough` — Pass through stdout and stderr directly to the terminal
+
+   The command's stdout and stderr are connected directly to the terminal (instead of being captured), so programs that behave differently on a TTY (e.g. colored output, progress bars) work as expected. Stdin is not inherited. Only one job is allowed since parallel jobs would interleave their output.
 
 
 

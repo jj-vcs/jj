@@ -1388,3 +1388,107 @@ fn test_run_order() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_run_passthrough() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("A.txt", "A");
+    work_dir.run_jj(&["commit", "-m", "A"]).success();
+    work_dir.write_file("b.txt", "b");
+    work_dir.run_jj(&["commit", "-m", "B"]).success();
+
+    insta::assert_snapshot!(
+        work_dir.run_jj(&["log", "-T", r#"change_id ++ " " ++ description ++ "\n""#, "-r", "..@"]),
+        @r"
+    @  kkmpptxzrspxrzommnulwmwkkqwworpl
+    ○  rlvkpnrzqnoowoytxnquwvuryrwnrmlp B
+    │
+    ○  qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu A
+    │
+    ~
+    [EOF]
+    "
+    );
+
+    // --passthrough passes the child's stdout/stderr directly through. The output
+    // appears in `jj run`'s own stdout/stderr (captured by the test harness).
+    let jj_args: &[&str] = if cfg!(windows) {
+        &[
+            "run",
+            "--passthrough",
+            "-r",
+            "..@",
+            "--",
+            "cmd",
+            "/c",
+            "echo hello from passthrough",
+        ]
+    } else {
+        &[
+            "run",
+            "--passthrough",
+            "-r",
+            "..@",
+            "--",
+            "echo",
+            "hello from passthrough",
+        ]
+    };
+    let output = work_dir.run_jj(jj_args).success();
+    insta::assert_snapshot!(output.stdout, @"hello from passthrough
+hello from passthrough
+hello from passthrough
+[EOF]
+");
+}
+
+#[test]
+fn test_run_passthrough_failure_rewrites_nothing() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("A.txt", "A");
+    work_dir.run_jj(&["commit", "-m", "A"]).success();
+    work_dir.write_file("b.txt", "b");
+    work_dir.run_jj(&["commit", "-m", "B"]).success();
+    let log_before = get_log_output(&work_dir);
+    insta::assert_snapshot!(log_before, @r"
+    @  kkmpptxzrspxrzommnulwmwkkqwworpl
+    ○  rlvkpnrzqnoowoytxnquwvuryrwnrmlpB
+    │
+    ○  qpvuntsmwlqtpsluzzsnyyzlmlwvmlnuA
+    │
+    ◆  zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+    [EOF]
+    ");
+
+    // A failing command run with --passthrough should not rewrite any commits.
+    let output = work_dir.run_jj(&["run", "--passthrough", "-r", "..@", "--", "false"]);
+    assert!(!output.status.success(), "expected `jj run` to fail");
+    assert_eq!(get_log_output(&work_dir), log_before);
+}
+
+#[test]
+fn test_run_passthrough_rejects_multi_job() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj(&[
+        "run",
+        "--passthrough",
+        "--jobs",
+        "2",
+        "-r",
+        "@",
+        "--",
+        "true",
+    ]);
+    assert!(!output.status.success());
+    insta::assert_snapshot!(output.stderr, @r"
+    Error: cannot use --passthrough with more than one job
+    [EOF]
+    ");
+}

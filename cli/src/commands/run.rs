@@ -25,6 +25,7 @@ use std::num::NonZeroUsize;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::ExitStatus;
+use std::process::Output;
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
@@ -376,6 +377,7 @@ struct RunJob {
 }
 
 // TODO: make this more revset/commit stream friendly.
+#[allow(clippy::too_many_arguments)]
 async fn run_inner(
     tx: &WorkspaceCommandTransaction<'_>,
     sender: Sender<RunJob>,
@@ -384,6 +386,7 @@ async fn run_inner(
     pool: Arc<WorkspacePool>,
     commits: Arc<Vec<Commit>>,
     jobs: usize,
+    passthrough: bool,
 ) -> Result<(), RunError> {
     let base_ignores = tx.base_workspace_helper().base_ignores().unwrap().clone();
     let semaphore = Arc::new(Semaphore::new(jobs));
@@ -403,7 +406,7 @@ async fn run_inner(
             async move {
                 let _permit = permit;
                 // TODO: handle/propagate error here
-                rewrite_commit(base_ignores, pool, commit, spec).await
+                rewrite_commit(base_ignores, pool, commit, spec, passthrough).await
             },
             handle,
         );
@@ -433,6 +436,7 @@ async fn rewrite_commit(
     pool: Arc<WorkspacePool>,
     commit: Commit,
     spec: Arc<CommandSpec>,
+    passthrough: bool,
 ) -> Result<RunJob, RunError> {
     let mut workspace = pool.acquire(&commit, base_ignores.clone()).await?;
     let working_copy_dir = workspace.working_copy_dir.clone();
@@ -477,22 +481,34 @@ async fn rewrite_commit(
     // ...
     // ```
     tracing::debug!("trying to run command '{}' on commit {}", spec, commit.id());
-    // Pipe and buffer the subprocess's stdout/stderr so we can emit them
-    // atomically to the parent's stdout/stderr after the process exits. Writing
-    // concurrently from multiple jobs would interleave output.
-    let command = tokio::process::Command::new(&spec.program)
+
+    let mut command = tokio::process::Command::new(&spec.program);
+    command
         .args(&spec.args)
         .current_dir(&exec_dir)
         .env("JJ_WORKSPACE_ROOT", &working_copy_dir)
         .env("JJ_CHANGE_ID", commit.change_id().reverse_hex())
         .env("JJ_COMMIT_ID", commit.id().hex())
         .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true) // No zombies allowed.
-        .spawn()?;
-
-    let output = command.wait_with_output().await?;
+        .kill_on_drop(true);
+    let output = if passthrough {
+        // Connect stdout/stderr directly to the terminal so TTY-aware
+        // programs work as expected. Capture is not possible; we wait
+        // for the process to exit and return empty stdout/stderr.
+        command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
+        let status = command.status().await?;
+        Output {
+            status,
+            stdout: Vec::new(),
+            stderr: Vec::new(),
+        }
+    } else {
+        // Pipe and buffer the subprocess's stdout/stderr so we can emit them
+        // atomically to the parent's stdout/stderr after the process exits.
+        // Writing concurrently from multiple jobs would interleave output.
+        command.stdout(Stdio::piped()).stderr(Stdio::piped());
+        command.spawn()?.wait_with_output().await?
+    };
 
     let options = pool.snapshot_options(base_ignores);
     tracing::debug!("trying to snapshot the new tree");
@@ -612,6 +628,16 @@ pub struct RunArgs {
     /// Preserve the content (not the diff) when rebasing descendants
     #[arg(long)]
     restore_descendants: bool,
+
+    /// Pass through stdout and stderr directly to the terminal
+    ///
+    /// The command's stdout and stderr are connected directly to the
+    /// terminal (instead of being captured), so programs that behave
+    /// differently on a TTY (e.g. colored output, progress bars) work
+    /// as expected. Stdin is not inherited. Only one job is allowed
+    /// since parallel jobs would interleave their output.
+    #[arg(long)]
+    passthrough: bool,
 }
 
 /// Precedence: `--jobs`, `run.jobs` config, 1.
@@ -676,6 +702,13 @@ pub async fn cmd_run(
 
     let jobs = resolve_jobs(&workspace_command, args.jobs)?;
 
+    if args.passthrough && jobs.get() > 1 {
+        return Err(CommandError::new(
+            CommandErrorKind::Cli,
+            "cannot use --passthrough with more than one job".to_string(),
+        ));
+    }
+
     tracing::debug!(?jobs, "starting `jj run`");
 
     // Run each command from the subdirectory the user invoked `jj run` from,
@@ -734,6 +767,7 @@ pub async fn cmd_run(
                 pool.clone(),
                 Arc::new(resolved_commits.clone()),
                 jobs.get(),
+                args.passthrough,
             )
             .await
             .map_err(CommandError::from)
