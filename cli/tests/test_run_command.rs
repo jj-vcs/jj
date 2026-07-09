@@ -1362,3 +1362,29 @@ fn get_log_output(work_dir: &TestWorkDir) -> String {
         .stdout
         .to_string()
 }
+
+#[test]
+fn test_run_order() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("file.txt", "a");
+    work_dir.run_jj(&["commit", "-m", "A"]).success();
+    work_dir.write_file("file.txt", "b");
+    work_dir.run_jj(&["commit", "-m", "B"]).success();
+    work_dir.write_file("file.txt", "c");
+    work_dir.run_jj(&["commit", "-m", "C"]).success();
+
+    let jj_args: &[&str] = if cfg!(windows) {
+        &["run", "-r=..@", "--", "cmd", "/c", "echo %JJ_CHANGE_ID%"]
+    } else {
+        &["run", "-r=..@", "--", "sh", "-c", "echo $JJ_CHANGE_ID"]
+    };
+    assert_snapshot!(work_dir.run_jj(jj_args).success().stdout,@"
+    zsuskulnrvyrovkzqrwmxqlsskqntxvp
+    kkmpptxzrspxrzommnulwmwkkqwworpl
+    rlvkpnrzqnoowoytxnquwvuryrwnrmlp
+    qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    [EOF]
+    ");
+}

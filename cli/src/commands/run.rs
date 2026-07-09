@@ -57,7 +57,6 @@ use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::tree::Tree;
 use jj_lib::working_copy::SnapshotOptions;
 use tokio::runtime::Builder;
-use tokio::sync::OwnedSemaphorePermit;
 use tokio::sync::Semaphore;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::Sender;
@@ -390,15 +389,19 @@ async fn run_inner(
     let semaphore = Arc::new(Semaphore::new(jobs));
     let mut command_futures: JoinSet<Result<RunJob, RunError>> = JoinSet::new();
     for commit in commits.iter() {
-        let permit_future = semaphore.clone().acquire_owned();
+        // Acquire the permit before spawning so tasks start in commit order.
+        let permit = semaphore
+            .clone()
+            .acquire_owned()
+            .await
+            .expect("semaphore not closed");
         let base_ignores = base_ignores.clone();
         let pool = pool.clone();
         let commit = commit.clone();
         let spec = spec.clone();
         command_futures.spawn_on(
             async move {
-                let _permit: OwnedSemaphorePermit =
-                    permit_future.await.expect("semaphore not closed");
+                let _permit = permit;
                 // TODO: handle/propagate error here
                 rewrite_commit(base_ignores, pool, commit, spec).await
             },
