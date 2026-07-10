@@ -3109,12 +3109,7 @@ pub fn print_large_file_hint(
 ) -> io::Result<()> {
     let (command, extra) = large_files
         .map(|files| {
-            // shlex::try_quote fails if the string contains a nul byte, which
-            // shouldn't happen for file paths. Fall back to unquoted on error.
-            let files_list = files
-                .iter()
-                .map(|s| shlex::try_quote(s).unwrap_or(s.into()))
-                .join(" ");
+            let files_list = files.iter().map(|s| shell_quote(s)).join(" ");
             let command = format!("file track {files_list}");
             let extra = format!(
                 r"
