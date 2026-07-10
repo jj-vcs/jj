@@ -384,14 +384,14 @@ async fn run_inner(
     handle: &tokio::runtime::Handle,
     spec: Arc<CommandSpec>,
     pool: Arc<WorkspacePool>,
-    commits: Arc<Vec<Commit>>,
+    commits: &[Commit],
     jobs: usize,
     passthrough: bool,
 ) -> Result<(), RunError> {
     let base_ignores = tx.base_workspace_helper().base_ignores().unwrap().clone();
     let semaphore = Arc::new(Semaphore::new(jobs));
     let mut command_futures: JoinSet<Result<RunJob, RunError>> = JoinSet::new();
-    for commit in commits.iter() {
+    for commit in commits {
         // Acquire the permit before spawning so tasks start in commit order.
         let permit = semaphore
             .clone()
@@ -765,7 +765,7 @@ pub async fn cmd_run(
                 rt.handle(),
                 spec.clone(),
                 pool.clone(),
-                Arc::new(resolved_commits.clone()),
+                &resolved_commits,
                 jobs.get(),
                 args.passthrough,
             )
