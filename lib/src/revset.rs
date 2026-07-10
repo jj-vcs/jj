@@ -2921,91 +2921,86 @@ fn resolve_commit_ref(
     repo: &dyn Repo,
     commit_ref: &RevsetCommitRef,
     symbol_resolver: &SymbolResolver,
-) -> Result<Vec<CommitId>, RevsetResolutionError> {
-    match commit_ref {
+) -> Result<Arc<ResolvedRevsetExpression>, RevsetResolutionError> {
+    let commit_ids = match commit_ref {
         RevsetCommitRef::Symbol(symbol) => {
             let commit_id = symbol_resolver.resolve_symbol(repo, symbol)?;
-            Ok(vec![commit_id])
+            vec![commit_id]
         }
         RevsetCommitRef::RemoteSymbol(symbol) => {
             let commit_id = resolve_remote_symbol(repo, symbol.as_ref())?;
-            Ok(vec![commit_id])
+            vec![commit_id]
         }
         RevsetCommitRef::WorkingCopy(name) => {
-            if let Some(commit_id) = repo.view().get_wc_commit_id(name) {
-                Ok(vec![commit_id.clone()])
-            } else {
-                Err(RevsetResolutionError::WorkspaceMissingWorkingCopy { name: name.clone() })
-            }
+            let Some(commit_id) = repo.view().get_wc_commit_id(name) else {
+                return Err(RevsetResolutionError::WorkspaceMissingWorkingCopy {
+                    name: name.clone(),
+                });
+            };
+            vec![commit_id.clone()]
         }
         RevsetCommitRef::WorkingCopies => {
             let wc_commits = repo.view().wc_commit_ids().values().cloned().collect_vec();
-            Ok(wc_commits)
+            wc_commits
         }
         RevsetCommitRef::ChangeId(prefix) => {
             let resolver = &symbol_resolver.change_id_resolver;
-            Ok(resolver
+            resolver
                 .try_resolve(repo, prefix)?
                 .and_then(ResolvedChangeTargets::into_visible)
-                .unwrap_or_else(Vec::new))
+                .unwrap_or_else(Vec::new)
         }
         RevsetCommitRef::CommitId(prefix) => {
             let resolver = &symbol_resolver.commit_id_resolver;
-            Ok(resolver.try_resolve(repo, prefix)?.into_iter().collect())
+            resolver
+                .try_resolve(repo, prefix)?
+                .into_iter()
+                .collect_vec()
         }
-        RevsetCommitRef::Bookmarks(expression) => {
-            let commit_ids = repo
-                .view()
-                .local_bookmarks_matching(&expression.to_matcher())
-                .flat_map(|(_, target)| target.added_ids())
-                .cloned()
-                .collect();
-            Ok(commit_ids)
-        }
+        RevsetCommitRef::Bookmarks(expression) => repo
+            .view()
+            .local_bookmarks_matching(&expression.to_matcher())
+            .flat_map(|(_, target)| target.added_ids())
+            .cloned()
+            .collect_vec(),
         RevsetCommitRef::RemoteBookmarks {
             symbol,
             remote_ref_state,
         } => {
             let name_matcher = symbol.name.to_matcher();
             let remote_matcher = symbol.remote.to_matcher();
-            let commit_ids = repo
-                .view()
+            repo.view()
                 .remote_bookmarks_matching(&name_matcher, &remote_matcher)
                 .filter(|(_, remote_ref)| {
                     remote_ref_state.is_none_or(|state| remote_ref.state == state)
                 })
                 .flat_map(|(_, remote_ref)| remote_ref.target.added_ids())
                 .cloned()
-                .collect();
-            Ok(commit_ids)
+                .collect_vec()
         }
-        RevsetCommitRef::Tags(expression) => {
-            let commit_ids = repo
-                .view()
-                .local_tags_matching(&expression.to_matcher())
-                .flat_map(|(_, target)| target.added_ids())
-                .cloned()
-                .collect();
-            Ok(commit_ids)
-        }
+        RevsetCommitRef::Tags(expression) => repo
+            .view()
+            .local_tags_matching(&expression.to_matcher())
+            .flat_map(|(_, target)| target.added_ids())
+            .cloned()
+            .collect_vec(),
         RevsetCommitRef::RemoteTags {
             symbol,
             remote_ref_state,
         } => {
             let name_matcher = symbol.name.to_matcher();
             let remote_matcher = symbol.remote.to_matcher();
-            let commit_ids = repo
-                .view()
+            repo.view()
                 .remote_tags_matching(&name_matcher, &remote_matcher)
                 .filter(|(_, remote_ref)| {
                     remote_ref_state.is_none_or(|state| remote_ref.state == state)
                 })
                 .flat_map(|(_, remote_ref)| remote_ref.target.added_ids())
                 .cloned()
-                .collect();
-            Ok(commit_ids)
+                .collect_vec()
         }
-    }
+    };
+    Ok(RevsetExpression::commits(commit_ids))
 }
 
 /// Resolves symbols and commit refs recursively.
@@ -3065,8 +3060,7 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
         &mut self,
         commit_ref: &RevsetCommitRef,
     ) -> Result<Arc<ResolvedRevsetExpression>, Self::Error> {
-        let commit_ids = resolve_commit_ref(self.repo(), commit_ref, self.symbol_resolver)?;
-        Ok(RevsetExpression::commits(commit_ids))
+        resolve_commit_ref(self.repo(), commit_ref, self.symbol_resolver)
     }
 
     fn fold_at_operation(
