@@ -121,7 +121,13 @@ pub(crate) async fn cmd_restore(
     // copy.
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
     let matcher = fileset_expression.to_matcher();
-    workspace_command.maybe_snapshot(ui).await?;
+    if args.paths.is_empty() {
+        workspace_command.maybe_snapshot(ui).await?;
+    } else {
+        workspace_command
+            .maybe_snapshot_with_matcher(ui, matcher.as_ref())
+            .await?;
+    }
     let (from_commits, from_tree, to_commit);
     if args.from.is_some() || args.into.is_some() {
         to_commit = workspace_command

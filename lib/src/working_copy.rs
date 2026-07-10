@@ -220,6 +220,8 @@ pub struct SnapshotOptions<'a> {
     /// For new files that are not already tracked, start tracking them if they
     /// match this.
     pub start_tracking_matcher: &'a dyn Matcher,
+    /// Only snapshot paths that match this.
+    pub snapshot_matcher: &'a dyn Matcher,
     /// For files that match the ignore patterns or are too large, start
     /// tracking them anyway if they match this.
     pub force_tracking_matcher: &'a dyn Matcher,

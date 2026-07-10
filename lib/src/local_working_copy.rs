@@ -1296,6 +1296,7 @@ impl TreeState {
             base_ignores,
             progress,
             start_tracking_matcher,
+            snapshot_matcher,
             force_tracking_matcher,
             max_new_file_size,
         } = options;
@@ -1316,8 +1317,11 @@ impl TreeState {
         };
 
         let matcher = IntersectionMatcher::new(
-            sparse_matcher.as_ref(),
-            UnionMatcher::new(fsmonitor_matcher, force_tracking_matcher),
+            snapshot_matcher,
+            IntersectionMatcher::new(
+                sparse_matcher.as_ref(),
+                UnionMatcher::new(fsmonitor_matcher, force_tracking_matcher),
+            ),
         );
         if matcher.visit(RepoPath::root()).is_nothing() {
             // No need to load the current tree, set up channels, etc.

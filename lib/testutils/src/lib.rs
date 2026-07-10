@@ -156,6 +156,7 @@ pub fn empty_snapshot_options() -> SnapshotOptions<'static> {
         base_ignores: GitIgnoreFile::empty(),
         progress: None,
         start_tracking_matcher: &EverythingMatcher,
+        snapshot_matcher: &EverythingMatcher,
         force_tracking_matcher: &NothingMatcher,
         max_new_file_size: u64::MAX,
     }

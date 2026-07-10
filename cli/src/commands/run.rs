@@ -321,6 +321,7 @@ impl WorkspacePool {
         SnapshotOptions {
             base_ignores,
             start_tracking_matcher: self.auto_tracking_matcher.as_ref(),
+            snapshot_matcher: &EverythingMatcher,
             progress: None,
             // TODO: read from current wc/settings
             max_new_file_size: 64_000_u64, // 64 MB for now

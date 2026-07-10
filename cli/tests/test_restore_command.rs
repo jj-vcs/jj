@@ -167,6 +167,11 @@ fn test_restore() {
     Nothing changed.
     [EOF]
     ");
+
+    // Path-limited restore should also remove newly created untracked files.
+    work_dir.write_file("new-file", "temporary\n");
+    work_dir.run_jj(["restore", "new-file"]).success();
+    assert!(!work_dir.root().join("new-file").exists());
 }
 
 #[test]

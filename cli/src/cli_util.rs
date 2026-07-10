@@ -77,6 +77,7 @@ use jj_lib::gitignore::GitIgnoreError;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::lock::FileLock;
+use jj_lib::matchers::EverythingMatcher;
 use jj_lib::matchers::Matcher;
 use jj_lib::matchers::NothingMatcher;
 use jj_lib::merge::Diff;
@@ -473,22 +474,24 @@ impl CommandHelper {
     ) -> Result<(WorkspaceCommandHelper, SnapshotStats), CommandError> {
         let mut workspace_command = self.workspace_helper_no_snapshot(ui).await?;
 
-        let (workspace_command, stats) = match workspace_command.maybe_snapshot_impl(ui).await {
-            Ok(stats) => (workspace_command, stats),
-            Err(SnapshotWorkingCopyError::Command(err)) => return Err(err),
-            Err(SnapshotWorkingCopyError::StaleWorkingCopy(err)) => {
-                let auto_update_stale = self.settings().get_bool("snapshot.auto-update-stale")?;
-                if !auto_update_stale {
-                    return Err(err);
-                }
+        let (workspace_command, stats) =
+            match workspace_command.maybe_snapshot_impl(ui, None, None).await {
+                Ok(stats) => (workspace_command, stats),
+                Err(SnapshotWorkingCopyError::Command(err)) => return Err(err),
+                Err(SnapshotWorkingCopyError::StaleWorkingCopy(err)) => {
+                    let auto_update_stale =
+                        self.settings().get_bool("snapshot.auto-update-stale")?;
+                    if !auto_update_stale {
+                        return Err(err);
+                    }
 
-                // We detected the working copy was stale and the client is configured to
-                // auto-update-stale, so let's do that now. We need to do it up here, not at a
-                // lower level (e.g. inside snapshot_working_copy()) to avoid recursive locking
-                // of the working copy.
-                self.recover_stale_working_copy(ui).await?
-            }
-        };
+                    // We detected the working copy was stale and the client is configured to
+                    // auto-update-stale, so let's do that now. We need to do it up here, not at a
+                    // lower level (e.g. inside snapshot_working_copy()) to avoid recursive locking
+                    // of the working copy.
+                    self.recover_stale_working_copy(ui).await?
+                }
+            };
 
         Ok((workspace_command, stats))
     }
@@ -597,7 +600,7 @@ impl CommandHelper {
                 // merged repo wouldn't change because the old one wins, but it's probably
                 // fine if we picked the new wc_commit_id.
                 let stale_stats = workspace_command
-                    .snapshot_working_copy(ui)
+                    .snapshot_working_copy(ui, None, None)
                     .await
                     .map_err(|err| err.into_command_error())?;
 
@@ -653,7 +656,7 @@ impl CommandHelper {
                 // copy became stale. The result wouldn't be ideal, but there
                 // should be no data loss at least.
                 let fresh_stats = workspace_command
-                    .maybe_snapshot_impl(ui)
+                    .maybe_snapshot_impl(ui, None, None)
                     .await
                     .map_err(|err| err.into_command_error())?;
                 let merged_stats = {
@@ -1203,6 +1206,8 @@ impl WorkspaceCommandHelper {
     async fn maybe_snapshot_impl(
         &mut self,
         ui: &Ui,
+        snapshot_matcher: Option<&dyn Matcher>,
+        start_tracking_matcher: Option<&dyn Matcher>,
     ) -> Result<SnapshotStats, SnapshotWorkingCopyError> {
         if !self.may_snapshot_working_copy {
             return Ok(SnapshotStats::default());
@@ -1250,7 +1255,9 @@ impl WorkspaceCommandHelper {
         // pointing to the new working-copy commit might not be exported.
         // In that situation, the ref would be conflicted anyway, so export
         // failure is okay.
-        let stats = self.snapshot_working_copy(ui).await?;
+        let stats = self
+            .snapshot_working_copy(ui, snapshot_matcher, start_tracking_matcher)
+            .await?;
 
         // import_git_refs() can rebase the working-copy commit.
         #[cfg(feature = "git")]
@@ -1270,7 +1277,25 @@ impl WorkspaceCommandHelper {
     pub async fn maybe_snapshot(&mut self, ui: &Ui) -> Result<bool, CommandError> {
         let op_id_before = self.repo().op_id().clone();
         let stats = self
-            .maybe_snapshot_impl(ui)
+            .maybe_snapshot_impl(ui, None, None)
+            .await
+            .map_err(|err| err.into_command_error())?;
+        print_snapshot_stats(ui, &stats, self.env().path_converter())?;
+        let op_id_after = self.repo().op_id();
+        Ok(op_id_before != *op_id_after)
+    }
+
+    /// Snapshots only the paths selected by `snapshot_matcher` if allowed, and
+    /// imports Git refs if the working copy is collocated with Git.
+    #[instrument(skip_all)]
+    pub async fn maybe_snapshot_with_matcher(
+        &mut self,
+        ui: &Ui,
+        snapshot_matcher: &dyn Matcher,
+    ) -> Result<bool, CommandError> {
+        let op_id_before = self.repo().op_id().clone();
+        let stats = self
+            .maybe_snapshot_impl(ui, Some(snapshot_matcher), None)
             .await
             .map_err(|err| err.into_command_error())?;
         print_snapshot_stats(ui, &stats, self.env().path_converter())?;
@@ -1474,7 +1499,7 @@ to the current parents may contain changes from multiple commits.
         locked_ws.finish(repo.op_id().clone()).await?;
         self.user_repo = ReadonlyUserRepo::new(repo);
 
-        self.maybe_snapshot_impl(ui)
+        self.maybe_snapshot_impl(ui, None, None)
             .await
             .map_err(|err| err.into_command_error())
     }
@@ -1550,6 +1575,14 @@ to the current parents may contain changes from multiple commits.
         &self,
         start_tracking_matcher: &'a dyn Matcher,
     ) -> Result<SnapshotOptions<'a>, CommandError> {
+        self.snapshot_options_with_matchers(start_tracking_matcher, &EverythingMatcher)
+    }
+
+    pub fn snapshot_options_with_matchers<'a>(
+        &self,
+        start_tracking_matcher: &'a dyn Matcher,
+        snapshot_matcher: &'a dyn Matcher,
+    ) -> Result<SnapshotOptions<'a>, CommandError> {
         let base_ignores = self.base_ignores()?;
         let HumanByteSize(mut max_new_file_size) = self
             .settings()
@@ -1561,6 +1594,7 @@ to the current parents may contain changes from multiple commits.
             base_ignores,
             progress: None,
             start_tracking_matcher,
+            snapshot_matcher,
             force_tracking_matcher: &NothingMatcher,
             max_new_file_size,
         })
@@ -1993,14 +2027,21 @@ to the current parents may contain changes from multiple commits.
     async fn snapshot_working_copy(
         &mut self,
         ui: &Ui,
+        snapshot_matcher: Option<&dyn Matcher>,
+        start_tracking_matcher: Option<&dyn Matcher>,
     ) -> Result<SnapshotStats, SnapshotWorkingCopyError> {
         let workspace_name = self.workspace_name().to_owned();
         let repo = self.repo().clone();
         let auto_tracking_matcher = self
             .auto_tracking_matcher(ui)
             .map_err(snapshot_command_error)?;
+        let start_tracking_matcher =
+            start_tracking_matcher.unwrap_or(auto_tracking_matcher.as_ref());
         let options = self
-            .snapshot_options_with_start_tracking_matcher(&auto_tracking_matcher)
+            .snapshot_options_with_matchers(
+                start_tracking_matcher,
+                snapshot_matcher.unwrap_or(&EverythingMatcher),
+            )
             .map_err(snapshot_command_error)?;
 
         // Compare working-copy tree and operation with repo's, and reload as needed.
