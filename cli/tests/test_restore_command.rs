@@ -169,6 +169,21 @@ fn test_restore() {
     ");
 }
 
+#[test]
+fn test_restore_invalid_fileset_does_not_snapshot() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("new-file", "temporary\n");
+    let operation_id = work_dir.current_operation_id();
+    let output = work_dir.run_jj(["restore", "abc~"]);
+    assert!(!output.status.success());
+
+    // Invalid fileset syntax must not snapshot the working copy first.
+    assert_eq!(work_dir.current_operation_id(), operation_id);
+}
+
 // Much of this test is copied from test_resolve_command
 #[test]
 fn test_restore_conflicted_merge() {

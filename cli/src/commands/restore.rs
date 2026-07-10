@@ -106,8 +106,7 @@ pub(crate) async fn cmd_restore(
     command: &CommandHelper,
     args: &RestoreArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui).await?;
-    let (from_commits, from_tree, to_commit);
+    let mut workspace_command = command.workspace_helper_no_snapshot(ui).await?;
     if args.revision.is_some() {
         return Err(
             user_error("`jj restore` does not have a `--revision`/`-r` option.")
@@ -117,6 +116,13 @@ pub(crate) async fn cmd_restore(
                 ),
         );
     }
+
+    // Parse paths before snapshotting so invalid input cannot mutate the working
+    // copy.
+    let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
+    let matcher = fileset_expression.to_matcher();
+    workspace_command.maybe_snapshot(ui).await?;
+    let (from_commits, from_tree, to_commit);
     if args.from.is_some() || args.into.is_some() {
         to_commit = workspace_command
             .resolve_single_rev(ui, args.into.as_ref().unwrap_or(&RevisionArg::AT))
@@ -137,8 +143,6 @@ pub(crate) async fn cmd_restore(
     }
     workspace_command.check_rewritable([to_commit.id()]).await?;
 
-    let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
-    let matcher = fileset_expression.to_matcher();
     let diff_selector =
         workspace_command.diff_selector(ui, args.tool.as_deref(), args.interactive)?;
     let to_tree = to_commit.tree();
