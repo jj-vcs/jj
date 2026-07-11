@@ -444,13 +444,13 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
 
     let output = work_dir.run_jj(["status"]);
 
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     Working copy changes:
     M conflicted1.txt
     M conflicted2.txt
     Working copy  (@) : wqnwkozp 4ecf4b33 fixed 1
     Parent commit (@-): yqosqzyt 06b8a9dd (conflict) (empty) boom-cont-2
-    Hint: Conflict in parent commit has been resolved in working copy
+    Hint: Conflict in parent commit has been resolved in working copy.
     [EOF]
     ");
 
@@ -700,8 +700,8 @@ fn test_status_no_working_copy() {
     let work_dir = test_env.work_dir("repo");
     work_dir.run_jj(["workspace", "forget"]).success();
 
-    insta::assert_snapshot!(work_dir.run_jj(["status"]), @"
-    No working copy
+    insta::assert_snapshot!(work_dir.run_jj(["status"]), @r"
+    No working copy.
     [EOF]
     ");
 }

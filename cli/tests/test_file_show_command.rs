@@ -148,7 +148,7 @@ fn test_show_symlink() -> TestResult {
     // Can print multiple files with template
     let template = r#""--- " ++ path ++ " [" ++ file_type ++ "]\n""#;
     let output = work_dir.run_jj(["file", "show", "-T", template, "."]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     --- dir/file2 [file]
     c
     --- file1 [file]
@@ -156,7 +156,7 @@ fn test_show_symlink() -> TestResult {
     --- symlink1 [symlink]
     [EOF]
     ------- stderr -------
-    Warning: Path 'symlink1' exists but is not a file
+    Warning: Path 'symlink1' exists but is not a file.
     [EOF]
     ");
     Ok(())

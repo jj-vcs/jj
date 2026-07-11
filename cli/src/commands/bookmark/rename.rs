@@ -122,7 +122,7 @@ pub async fn cmd_bookmark_rename(
             writeln!(
                 ui.hint_default(),
                 "To track the existing remote bookmark, run `jj bookmark track {name} \
-                 --remote={remote}`",
+                 --remote={remote}`.",
                 name = new_remote_bookmark.name.as_symbol(),
                 remote = new_remote_bookmark.remote.as_symbol()
             )?;

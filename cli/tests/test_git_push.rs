@@ -2674,10 +2674,10 @@ fn test_git_push_sign_on_push() {
     [EOF]
     ");
     let output = work_dir.run_jj(["git", "push"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Updated signatures of 2 commits
-    Rebased 2 descendant commits
+    Updated signatures of 2 commits.
+    Rebased 2 descendant commits.
     Changes to push to origin:
       bookmark: bookmark2 [move forward from 38a204733702 to d45e2adce0ad]
     Working copy  (@) now at: kmkuslsw 3d5a9465 (empty) commit which should not be signed 2
@@ -2762,9 +2762,9 @@ fn test_git_push_sign_on_push() {
     [EOF]
     ");
     let output = work_dir.run_jj(["git", "push"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Updated signatures of 1 commits
+    Updated signatures of 1 commits.
     Changes to push to origin:
       bookmark: bookmark1 [move sideways from 9b2e76de3920 to 0617b6813c01]
     Working copy  (@) now at: pzsxstzt 0617b681 bookmark1 | (empty) commit to be signed 3

@@ -838,11 +838,11 @@ pub async fn cmd_run(
             },
         )
         .await?;
-    writeln!(ui.stderr(), "Rewrote {count} commits")?;
+    writeln!(ui.stderr(), "Rewrote {count} commits.")?;
     if restore_descendants && num_reparented > 0 {
         writeln!(
             ui.stderr(),
-            "Rebased {num_reparented} descendant commits (while preserving their content)"
+            "Rebased {num_reparented} descendant commits (while preserving their content)."
         )?;
     }
     tx.finish(ui, format!("run: rewrite {count} commits"))

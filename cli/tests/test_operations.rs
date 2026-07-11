@@ -2224,7 +2224,7 @@ fn test_op_diff_at_merge_op_with_rebased_commits() {
     work_dir.run_jj(["desc", "-r@-", "-m1"]).success();
     work_dir.run_jj(["desc", "--at-op=@-", "-m2b"]).success();
 
-    insta::assert_snapshot!(work_dir.run_jj(["log"]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["log"]), @r"
     @  rlvkpnrz/2 test.user@example.com 2001-02-03 08:05:09 7ed5a610 (divergent)
     │  (empty) 2a
     │ ○  rlvkpnrz/0 test.user@example.com 2001-02-03 08:05:11 8f35f6a6 (divergent)
@@ -2235,7 +2235,7 @@ fn test_op_diff_at_merge_op_with_rebased_commits() {
     [EOF]
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
-    Rebased 1 descendant commits onto commits rewritten by other operation
+    Rebased 1 descendant commits onto commits rewritten by other operation.
     [EOF]
     ");
 

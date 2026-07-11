@@ -262,7 +262,7 @@ fn print_imported_changes(
     if !stats.rewritten_commit_ids.is_empty() {
         writeln!(
             formatter,
-            "Updated {} rewritten commits",
+            "Updated {} rewritten commits.",
             stats.rewritten_commit_ids.len()
         )?;
     }
@@ -311,7 +311,7 @@ pub fn print_git_import_stats_summary(ui: &Ui, stats: &GitImportStats) -> Result
         if !stats.rewritten_commit_ids.is_empty() {
             writeln!(
                 formatter,
-                "Updated {} rewritten commits",
+                "Updated {} rewritten commits.",
                 stats.rewritten_commit_ids.len()
             )?;
         }

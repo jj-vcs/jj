@@ -622,7 +622,7 @@ impl CommandHelper {
                         drop(locked_ws);
                         writeln!(
                             ui.status(),
-                            "Attempted recovery, but the working copy is not stale"
+                            "Attempted recovery, but the working copy is not stale."
                         )?;
                     }
                     WorkingCopyFreshness::WorkingCopyStale
@@ -740,7 +740,7 @@ impl CommandHelper {
                             writeln!(
                                 ui.status(),
                                 "Rebased {num_rebased} descendant commits onto commits rewritten \
-                                 by other operation"
+                                 by other operation."
                             )?;
                         }
                     }
@@ -1344,7 +1344,7 @@ impl WorkspaceCommandHelper {
             // Unlikely, but the HEAD ref got deleted by git?
             let num_rebased = tx.repo_mut().rebase_descendants().await?;
             if num_rebased > 0 {
-                writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
+                writeln!(ui.status(), "Rebased {num_rebased} descendant commits.")?;
             }
             self.finish_transaction(ui, tx, "import git head", git_import_export_lock)
                 .await?;
@@ -1384,7 +1384,7 @@ impl WorkspaceCommandHelper {
         if num_rebased > 0 {
             writeln!(
                 ui.status(),
-                "Rebased {num_rebased} descendant commits off of commits rewritten from git"
+                "Rebased {num_rebased} descendant commits off of commits rewritten from Git."
             )?;
         }
         self.finish_transaction(ui, tx, "import git refs", git_import_export_lock)
@@ -1981,7 +1981,7 @@ to the current parents may contain changes from multiple commits.
             let exact = upper_bound == Some(lower_bound);
             let or_more = if exact { "" } else { " or more" };
             error.add_hint(format!(
-                "This operation would rewrite {lower_bound}{or_more} immutable commits"
+                "This operation would rewrite {lower_bound}{or_more} immutable commits."
             ));
 
             error
@@ -2083,7 +2083,7 @@ to the current parents may contain changes from multiple commits.
             if num_rebased > 0 {
                 writeln!(
                     ui.status(),
-                    "Rebased {num_rebased} descendant commits onto updated working copy"
+                    "Rebased {num_rebased} descendant commits onto updated working copy."
                 )
                 .map_err(snapshot_command_error)?;
             }
@@ -2409,7 +2409,7 @@ to the current parents may contain changes from multiple commits.
                 .sum();
             writeln!(
                 fmt,
-                "Existing conflicts were resolved or abandoned from {num_resolved} commits"
+                "Existing conflicts were resolved or abandoned from {num_resolved} commits."
             )?;
         }
         if !new_conflicts_by_change_id.is_empty() {
@@ -2680,7 +2680,7 @@ impl WorkspaceCommandTransaction<'_> {
         }
         let num_rebased = rebase_mutable_descendants(&helper.env, &mut tx).await?;
         if num_rebased > 0 {
-            writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
+            writeln!(ui.status(), "Rebased {num_rebased} descendant commits.")?;
         }
         // Acquire git import/export lock before finishing the transaction to ensure
         // Git HEAD export happens atomically with the transaction commit.
@@ -3806,7 +3806,7 @@ fn load_aliases<'config>(
     {
         writeln!(
             ui.warning_default(),
-            "Cannot define an alias that overrides the built-in command '{alias}'"
+            "Cannot define an alias that overrides the built-in command '{alias}'."
         )?;
     }
     Ok(defined_aliases)

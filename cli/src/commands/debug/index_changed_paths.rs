@@ -59,7 +59,7 @@ pub async fn cmd_debug_index_changed_paths(
     let stats = index.stats();
     writeln!(
         ui.status(),
-        "Finished indexing {:?} commits",
+        "Finished indexing {:?} commits.",
         stats.changed_path_commits_range.unwrap()
     )?;
     Ok(())

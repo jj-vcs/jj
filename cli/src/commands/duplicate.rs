@@ -151,7 +151,7 @@ pub(crate) async fn cmd_duplicate(
                 if tx.repo().index().is_ancestor(commit_id, parent_commit_id)? {
                     writeln!(
                         ui.warning_default(),
-                        "Duplicating commit {} as a descendant of itself",
+                        "Duplicating commit {} as a descendant of itself.",
                         short_commit_hash(commit_id)
                     )?;
                     break;
@@ -164,7 +164,7 @@ pub(crate) async fn cmd_duplicate(
                 if tx.repo().index().is_ancestor(child_commit_id, commit_id)? {
                     writeln!(
                         ui.warning_default(),
-                        "Duplicating commit {} as an ancestor of itself",
+                        "Duplicating commit {} as an ancestor of itself.",
                         short_commit_hash(commit_id)
                     )?;
                     break;
@@ -216,7 +216,7 @@ pub(crate) async fn cmd_duplicate(
         if num_rebased > 0 {
             writeln!(
                 ui.status(),
-                "Rebased {num_rebased} commits onto duplicated commits"
+                "Rebased {num_rebased} commits onto duplicated commits."
             )?;
         }
     }

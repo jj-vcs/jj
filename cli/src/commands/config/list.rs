@@ -114,9 +114,9 @@ pub async fn cmd_config_list(
     } else {
         // Note to stderr explaining why output is empty.
         if let Some(name) = &args.name {
-            writeln!(ui.warning_default(), "No matching config key for {name}")?;
+            writeln!(ui.warning_default(), "No matching config key for: {name}")?;
         } else {
-            writeln!(ui.warning_default(), "No config to list")?;
+            writeln!(ui.warning_default(), "No config to list.")?;
         }
     }
     Ok(())

@@ -26,6 +26,36 @@ correctly (we have tests in `jj-lib` for that), but they should check that the
 
 Use end-to-end tests for testing the CLI commands themselves.
 
+## Logging messages
+
+When messages are logged, such as with `writeln!(ui.status(), "Message...")?;`,
+prefer to end the message with a period as if it were a full sentence. For
+example:
+
+```rust
+// CORRECT:
+writeln!(ui.status(), "Rebased {num_rebased} descendant commits.")?;
+// INCORRECT:
+writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
+```
+
+There are of course exceptions to this, such as messages that are printing
+interpolated values at the end, or need to print some templated value:
+
+```rust
+// These are fine:
+writeln!(
+    ui.status(),
+    "Operation left uncommitted because --no-integrate-operation was requested: {}",
+    short_operation_hash(self.repo().op_id())
+)?;
+writeln!(ui.warning_default(), "No matching entries for paths: {paths}")?;
+```
+
+Also try not to put periods right after any printed IDs or symbols (such as
+commit IDs), since users may double click to copy the value, which may include
+the period.
+
 ## Documentation comments
 
 ### General

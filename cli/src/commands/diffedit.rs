@@ -165,7 +165,7 @@ don't make any changes, then the operation will be aborted.",
         {
             writeln!(
                 formatter,
-                "Rebased {num_rebased} descendant commits{extra_msg}"
+                "Rebased {num_rebased} descendant commits{extra_msg}."
             )?;
         }
         tx.finish(ui, format!("edit commit {}", target_commit.id().hex()))

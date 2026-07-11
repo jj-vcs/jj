@@ -591,7 +591,7 @@ fn test_snapshot_jjconflict_trees() -> TestResult {
 
     // We should see a warning regarding '.jjconflict' trees being checked out.
     let output = work_dir.run_jj(["st"]);
-    insta::assert_snapshot!(output.to_string().replace('\\', "/"), @"
+    insta::assert_snapshot!(output.to_string().replace('\\', "/"), @r"
     Working copy changes:
     A .jjconflict-base-0/file
     A .jjconflict-side-0/file
@@ -600,7 +600,7 @@ fn test_snapshot_jjconflict_trees() -> TestResult {
     M file
     Working copy  (@) : zsuskuln 2681a418 (no description set)
     Parent commit (@-): kkmpptxz aadeb8eb (conflict) side-b
-    Hint: Conflict in parent commit has been resolved in working copy
+    Hint: Conflict in parent commit has been resolved in working copy.
     [EOF]
     ------- stderr -------
     Warning: The working copy contains '.jjconflict' files. These files are used by `jj` internally and should not be present in the working copy.

@@ -186,7 +186,7 @@ fn write_repo_presets(
             .expect("initial repo config shouldn't have invalid values");
         writeln!(
             ui.status(),
-            "Setting the revset alias `trunk()` to `{symbol}`",
+            "Setting the revset alias `trunk()` to `{symbol}`.",
         )?;
     }
     file.save()?;

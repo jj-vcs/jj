@@ -637,7 +637,7 @@ pub async fn cmd_gerrit_upload(
     let remote_ref = format!("refs/for/{remote_branch}");
     writeln!(
         ui.status(),
-        "Found {} heads to push to Gerrit (remote '{}'), target branch '{}'",
+        "Found {} heads to push to Gerrit (remote '{}'), target branch '{}'.",
         old_heads.len(),
         remote,
         remote_branch,

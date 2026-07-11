@@ -141,9 +141,9 @@ fn test_diffedit() -> TestResult {
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(&edit_script, "write file3\nmodified\n")?;
     let output = work_dir.run_jj(["diffedit", "-r", "@-"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Rebased 1 descendant commits
+    Rebased 1 descendant commits.
     Working copy  (@) now at: kkmpptxz 9f0ebae1 (no description set)
     Parent commit (@-)      : rlvkpnrz 72bcd8e9 (no description set)
     Added 0 files, modified 1 files, removed 0 files
@@ -214,9 +214,9 @@ fn test_diffedit() -> TestResult {
         .join("\0"),
     )?;
     let output = work_dir.run_jj(["diffedit", "--to", "@-"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Rebased 1 descendant commits
+    Rebased 1 descendant commits.
     Working copy  (@) now at: kkmpptxz 9a4e9bcc (no description set)
     Parent commit (@-)      : rlvkpnrz fb5c77f4 (no description set)
     [EOF]
@@ -486,7 +486,7 @@ fn test_diffedit_external_tool_conflict_marker_style() -> TestResult {
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
-    Existing conflicts were resolved or abandoned from 1 commits
+    Existing conflicts were resolved or abandoned from 1 commits.
     [EOF]
     ");
     // Conflicts should render using "snapshot" format in diff editor
@@ -720,9 +720,9 @@ fn test_diffedit_merge() -> TestResult {
         "files-before file1\0files-after JJ-INSTRUCTIONS file1 file3\0rm file1",
     )?;
     let output = work_dir.run_jj(["diffedit", "-r", "@-"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Rebased 1 descendant commits
+    Rebased 1 descendant commits.
     Working copy  (@) now at: yqosqzyt 9fc53f3e (conflict) (empty) (no description set)
     Parent commit (@-)      : royxmykx 70ca98fe (conflict) merge
     Added 0 files, modified 0 files, removed 1 files
@@ -872,9 +872,9 @@ fn test_diffedit_restore_descendants() -> TestResult {
     // Add a ";" after the line with "bar". There should be no conflict.
     std::fs::write(edit_script, "write file\nprintln!(\"bar\");\n")?;
     let output = work_dir.run_jj(["diffedit", "-r", "@-", "--restore-descendants"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Rebased 1 descendant commits (while preserving their content)
+    Rebased 1 descendant commits (while preserving their content).
     Working copy  (@) now at: kkmpptxz a35ef1a5 (no description set)
     Parent commit (@-)      : rlvkpnrz 2e949a84 (no description set)
     [EOF]

@@ -517,7 +517,7 @@ pub fn invoke_external_diff(
     if !exit_ok {
         writeln!(
             ui.warning_default(),
-            "Tool exited with {exit_status} (run with --debug to see the exact invocation)",
+            "Tool exited with {exit_status} (run with --debug to see the exact invocation).",
         )
         .ok();
     }

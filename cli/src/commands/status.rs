@@ -191,14 +191,14 @@ pub(crate) async fn cmd_status(
                 if parent.has_conflict() {
                     writeln!(
                         formatter.labeled("hint").with_heading("Hint: "),
-                        "Conflict in parent commit has been resolved in working copy"
+                        "Conflict in parent commit has been resolved in working copy."
                     )?;
                     break;
                 }
             }
         }
     } else {
-        writeln!(formatter, "No working copy")?;
+        writeln!(formatter, "No working copy.")?;
     }
 
     let conflicted_local_bookmarks = repo

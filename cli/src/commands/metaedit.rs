@@ -250,7 +250,7 @@ pub(crate) async fn cmd_metaedit(
         }
     }
     if num_reparented > 0 {
-        writeln!(ui.status(), "Rebased {num_reparented} descendant commits")?;
+        writeln!(ui.status(), "Rebased {num_reparented} descendant commits.")?;
     }
     tx.finish(ui, tx_description).await?;
     Ok(())

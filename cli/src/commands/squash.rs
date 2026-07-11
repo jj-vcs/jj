@@ -399,7 +399,7 @@ pub(crate) async fn cmd_squash(
                 writeln!(formatter)?;
             }
             if num_rebased > 0 {
-                writeln!(formatter, "Rebased {num_rebased} descendant commits")?;
+                writeln!(formatter, "Rebased {num_rebased} descendant commits.")?;
             }
         }
     } else {
@@ -414,7 +414,7 @@ pub(crate) async fn cmd_squash(
                 writeln!(formatter)?;
             }
             if num_rebased > 0 {
-                writeln!(formatter, "Rebased {num_rebased} descendant commits")?;
+                writeln!(formatter, "Rebased {num_rebased} descendant commits.")?;
             }
         }
 

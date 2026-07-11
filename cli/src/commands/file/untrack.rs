@@ -103,7 +103,7 @@ Make sure they're ignored, then try again.",
     }
     let num_rebased = tx.repo_mut().rebase_descendants().await?;
     if num_rebased > 0 {
-        writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
+        writeln!(ui.status(), "Rebased {num_rebased} descendant commits.")?;
     }
     if working_copy_shared_with_git {
         export_working_copy_changes_to_git(ui, tx.repo_mut(), &wc_tree, &new_commit.tree()).await?;

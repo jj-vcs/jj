@@ -57,16 +57,16 @@ fn test_config_list_single() {
 fn test_config_list_nonexistent() {
     let test_env = TestEnvironment::default();
     let output = test_env.run_jj_in(".", ["config", "list", "nonexistent-test-key"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Warning: No matching config key for nonexistent-test-key
+    Warning: No matching config key for: nonexistent-test-key
     [EOF]
     ");
 
     let output = test_env.run_jj_in(".", ["config", "list", "--repo"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Warning: No config to list
+    Warning: No config to list.
     [EOF]
     ");
 }
@@ -1463,9 +1463,9 @@ fn test_config_path_syntax() {
 
     // Not a table
     let output = test_env.run_jj_in(".", ["config", "list", "a.'b()'.x"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Warning: No matching config key for a.'b()'.x
+    Warning: No matching config key for: a.'b()'.x
     [EOF]
     ");
     let output = test_env.run_jj_in(".", ["config", "get", "a.'b()'.x"]);
@@ -1795,7 +1795,7 @@ fn test_config_author_change_warning() {
     ------- stderr -------
     Warning: This setting will only impact future commits.
     The author of the working copy will stay "Test User <test.user@example.com>".
-    To change the working copy author, use "jj metaedit --update-author"
+    To change the working copy author, use "jj metaedit --update-author".
     [EOF]
     "#);
 
@@ -1825,7 +1825,7 @@ fn test_config_author_change_warning() {
     ------- stderr -------
     Warning: This setting will only impact future commits.
     The author of the working copy will stay "Test User <Foo>".
-    To change the working copy author, use "jj metaedit --update-author"
+    To change the working copy author, use "jj metaedit --update-author".
     [EOF]
     "#);
 
