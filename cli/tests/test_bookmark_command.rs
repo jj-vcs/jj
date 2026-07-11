@@ -679,10 +679,10 @@ fn test_bookmark_rename() {
         .run_jj(["bookmark", "forget", "bremote-untracked"])
         .success();
     let output = work_dir.run_jj(["bookmark", "rename", "bremote2", "bremote-untracked"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: The renamed bookmark already exists on the remote 'origin', tracking state was dropped.
-    Hint: To track the existing remote bookmark, run `jj bookmark track bremote-untracked --remote=origin`
+    Hint: To track the existing remote bookmark, run `jj bookmark track bremote-untracked --remote=origin`.
     Warning: Tracked remote bookmarks for bookmark bremote2 were not renamed.
     Hint: To rename the bookmark on the remote, you can `jj git push --bookmark bremote2` first (to delete it on the remote), and then `jj git push --bookmark bremote-untracked`. `jj git push --all --deleted` would also be sufficient.
     [EOF]
@@ -910,10 +910,10 @@ fn test_bookmark_rename_overwrite() {
         "a-absent-tracked",
         "b-present-tracked",
     ]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: The renamed bookmark already exists on the remote 'origin', tracking state was dropped.
-    Hint: To track the existing remote bookmark, run `jj bookmark track b-present-tracked --remote=origin`
+    Hint: To track the existing remote bookmark, run `jj bookmark track b-present-tracked --remote=origin`.
     [EOF]
     ");
     let output = work_dir.run_jj([
@@ -923,10 +923,10 @@ fn test_bookmark_rename_overwrite() {
         "a-present-tracked",
         "c-present-tracked",
     ]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: The renamed bookmark already exists on the remote 'origin', tracking state was dropped.
-    Hint: To track the existing remote bookmark, run `jj bookmark track c-present-tracked --remote=origin`
+    Hint: To track the existing remote bookmark, run `jj bookmark track c-present-tracked --remote=origin`.
     Warning: Tracked remote bookmarks for bookmark a-present-tracked were not renamed.
     Hint: To rename the bookmark on the remote, you can `jj git push --bookmark a-present-tracked` first (to delete it on the remote), and then `jj git push --bookmark c-present-tracked`. `jj git push --all --deleted` would also be sufficient.
     [EOF]
@@ -997,10 +997,10 @@ fn test_bookmark_rename_overwrite() {
         "a-absent-tracked",
         "b-present-untracked",
     ]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: The renamed bookmark already exists on the remote 'origin', tracking state was dropped.
-    Hint: To track the existing remote bookmark, run `jj bookmark track b-present-untracked --remote=origin`
+    Hint: To track the existing remote bookmark, run `jj bookmark track b-present-untracked --remote=origin`.
     [EOF]
     ");
     let output = work_dir.run_jj([
@@ -1010,10 +1010,10 @@ fn test_bookmark_rename_overwrite() {
         "a-present-tracked",
         "c-present-untracked",
     ]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: The renamed bookmark already exists on the remote 'origin', tracking state was dropped.
-    Hint: To track the existing remote bookmark, run `jj bookmark track c-present-untracked --remote=origin`
+    Hint: To track the existing remote bookmark, run `jj bookmark track c-present-untracked --remote=origin`.
     Warning: Tracked remote bookmarks for bookmark a-present-tracked were not renamed.
     Hint: To rename the bookmark on the remote, you can `jj git push --bookmark a-present-tracked` first (to delete it on the remote), and then `jj git push --bookmark c-present-untracked`. `jj git push --all --deleted` would also be sufficient.
     [EOF]

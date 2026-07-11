@@ -520,12 +520,12 @@ fn test_metaedit_multiple_revisions() {
         "--update-author",
         "kkmpptxz::mzvwutvl",
     ]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Modified 2 commits:
       kkmpptxz d84add51 b | (no description set)
       mzvwutvl 447d6d8a c | (no description set)
-    Rebased 1 descendant commits
+    Rebased 1 descendant commits.
     Working copy  (@) now at: yostqsxw ebd66676 (empty) (no description set)
     Parent commit (@-)      : mzvwutvl 447d6d8a c | (no description set)
     [EOF]
@@ -595,11 +595,11 @@ fn test_new_change_id() {
     work_dir.write_file("file1", "c\n");
 
     let output = work_dir.run_jj(["metaedit", "--update-change-id", "kkmpptxzrspx"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Modified 1 commits:
       yqosqzyt 01d6741e b | (no description set)
-    Rebased 1 descendant commits
+    Rebased 1 descendant commits.
     Working copy  (@) now at: mzvwutvl 0c3fe2d8 c | (no description set)
     Parent commit (@-)      : yqosqzyt 01d6741e b | (no description set)
     [EOF]

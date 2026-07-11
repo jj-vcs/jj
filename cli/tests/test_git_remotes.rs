@@ -779,9 +779,9 @@ fn test_git_remote_with_preset_config() {
     remotes.bar.fetch-bookmarks = "repo-bar"
     [EOF]
     "#);
-    insta::assert_snapshot!(list_trunk_config(), @"
+    insta::assert_snapshot!(list_trunk_config(), @r"
     ------- stderr -------
-    Warning: No matching config key for revset-aliases.'trunk()'
+    Warning: No matching config key for: revset-aliases.'trunk()'
     [EOF]
     ");
 

@@ -82,14 +82,14 @@ fn test_concurrent_operations_auto_rebase() {
 
     // We should be informed about the concurrent modification
     let output = get_log_output(&work_dir);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ○  new child
     @  rewritten
     ◆
     [EOF]
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
-    Rebased 1 descendant commits onto commits rewritten by other operation
+    Rebased 1 descendant commits onto commits rewritten by other operation.
     [EOF]
     ");
 }

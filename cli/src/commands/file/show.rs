@@ -192,7 +192,7 @@ async fn write_tree_entries(
                 let ui_path = workspace_command.format_file_path(&entry.path);
                 writeln!(
                     ui.warning_default(),
-                    "Path '{ui_path}' exists but is not a file"
+                    "Path '{ui_path}' exists but is not a file."
                 )?;
             }
             MaterializedTreeValue::Tree(_) => panic!("entries should not contain trees"),

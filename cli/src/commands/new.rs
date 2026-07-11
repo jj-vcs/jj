@@ -273,7 +273,7 @@ pub(crate) async fn cmd_new(
         // The description of the new commit will be printed by tx.finish()
     }
     if num_rebased > 0 {
-        writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
+        writeln!(ui.status(), "Rebased {num_rebased} descendant commits.")?;
     }
 
     // Does nothing if there's no bookmarks to advance.

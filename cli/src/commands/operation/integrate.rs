@@ -66,7 +66,7 @@ pub async fn cmd_op_integrate(
                     writeln!(
                         ui.status(),
                         "Rebased {num_rebased} descendant commits onto commits rewritten by other \
-                         operation"
+                         operation."
                     )?;
                 }
             }

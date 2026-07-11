@@ -211,14 +211,14 @@ backend = "test"
         ])
         .success();
     let output = work_dir.run_jj(["sign", "-r", "..@-"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Signed 3 commits:
       qpvuntsm 2c0b7924 (empty) one
       rlvkpnrz 0e054ee0 (empty) two
       kkmpptxz ed55e398 (empty) three
-    Warning: 3 of these commits are not authored by you
-    Rebased 1 descendant commits
+    Warning: 3 of these commits are not authored by you.
+    Rebased 1 descendant commits.
     Working copy  (@) now at: zsuskuln 1b3596cb (empty) (no description set)
     Parent commit (@-)      : kkmpptxz ed55e398 (empty) three
     [EOF]
@@ -261,12 +261,12 @@ backend = "test"
     work_dir.run_jj(["desc", "-m", "C"]).success();
 
     let output = work_dir.run_jj(["sign", "-r", "@|@--"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Signed 2 commits:
       qpvuntsm 0e149d92 (empty) A
       kkmpptxz ab7e21e9 (empty) C
-    Rebased 1 descendant commits
+    Rebased 1 descendant commits.
     Working copy  (@) now at: kkmpptxz ab7e21e9 (empty) C
     Parent commit (@-)      : rlvkpnrz 3981b3e4 (empty) B
     [EOF]
@@ -349,11 +349,11 @@ backend = "test"
 
     // Unsign a single commit, resigning the descendant
     let output = work_dir.run_jj(["unsign", "-r", "@-"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Unsigned 1 commits:
       kkmpptxz 9efcace6 (empty) three
-    Rebased 1 descendant commits
+    Rebased 1 descendant commits.
     Working copy  (@) now at: zsuskuln 654e12b9 (empty) (no description set)
     Parent commit (@-)      : kkmpptxz 9efcace6 (empty) three
     [EOF]
@@ -375,12 +375,12 @@ backend = "test"
 
     // Unsign multiple commits, with both signed and unsigned descendants
     let output = work_dir.run_jj(["unsign", "-r", "..@--"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Unsigned 2 commits:
       qpvuntsm d265d645 (empty) one
       rlvkpnrz 6e8ced57 (empty) two
-    Rebased 2 descendant commits
+    Rebased 2 descendant commits.
     Working copy  (@) now at: zsuskuln ad24007a (empty) (no description set)
     Parent commit (@-)      : kkmpptxz df10e25c (empty) three
     [EOF]
@@ -442,13 +442,13 @@ backend = "test"
     };
 
     let (_, stderr) = run_jj_as_someone_else(&["unsign", "-r", "..@"]);
-    insta::assert_snapshot!(stderr, @"
+    insta::assert_snapshot!(stderr, @r"
     Unsigned 4 commits:
       qpvuntsm 4430b844 (empty) one
       rlvkpnrz 65d9cdf7 (empty) two
       kkmpptxz f6eb4a7e (empty) three
       zsuskuln 0fda7ce2 (empty) (no description set)
-    Warning: 4 of these commits are not authored by you
+    Warning: 4 of these commits are not authored by you.
     Working copy  (@) now at: zsuskuln 0fda7ce2 (empty) (no description set)
     Parent commit (@-)      : kkmpptxz f6eb4a7e (empty) three
     [EOF]

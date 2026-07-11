@@ -254,10 +254,10 @@ pub(crate) async fn cmd_describe(
         )
         .await?;
     if num_described > 1 {
-        writeln!(ui.status(), "Updated {num_described} commits")?;
+        writeln!(ui.status(), "Updated {num_described} commits.")?;
     }
     if num_reparented > 0 {
-        writeln!(ui.status(), "Rebased {num_reparented} descendant commits")?;
+        writeln!(ui.status(), "Rebased {num_reparented} descendant commits.")?;
     }
     tx.finish(ui, tx_description).await?;
     Ok(())

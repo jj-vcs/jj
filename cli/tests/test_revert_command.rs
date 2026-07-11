@@ -117,7 +117,7 @@ fn test_revert() {
     ------- stderr -------
     Reverted 1 commits as follows:
       nmzmmopx 9e7b8585 Revert "a"
-    Rebased 2 descendant commits
+    Rebased 2 descendant commits.
     Working copy  (@) now at: vruxwmqv b1885396 d | (empty) d
     Parent commit (@-)      : royxmykx efc4bd83 c | (empty) c
     Added 0 files, modified 0 files, removed 1 files
@@ -147,7 +147,7 @@ fn test_revert() {
     ------- stderr -------
     Reverted 1 commits as follows:
       pzsxstzt d51ea564 Revert "a"
-    Rebased 1 descendant commits
+    Rebased 1 descendant commits.
     Working copy  (@) now at: vruxwmqv 5c5d60a6 d | (empty) d
     Parent commit (@-)      : pzsxstzt d51ea564 Revert "a"
     Added 0 files, modified 0 files, removed 1 files
@@ -177,7 +177,7 @@ fn test_revert() {
     ------- stderr -------
     Reverted 1 commits as follows:
       oupztwtk d311a8f0 Revert "a"
-    Rebased 1 descendant commits
+    Rebased 1 descendant commits.
     Working copy  (@) now at: vruxwmqv 5b97d572 d | (empty) d
     Parent commit (@-)      : royxmykx 96ff4227 c | (empty) c
     Parent commit (@-)      : oupztwtk d311a8f0 Revert "a"

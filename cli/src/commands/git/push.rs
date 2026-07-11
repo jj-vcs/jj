@@ -868,12 +868,12 @@ async fn sign_commits_before_push(
         let num_updated_signatures = commit_ids.len();
         writeln!(
             formatter,
-            "Updated signatures of {num_updated_signatures} commits"
+            "Updated signatures of {num_updated_signatures} commits."
         )?;
         if num_rebased_descendants > 0 {
             writeln!(
                 formatter,
-                "Rebased {num_rebased_descendants} descendant commits"
+                "Rebased {num_rebased_descendants} descendant commits."
             )?;
         }
     }

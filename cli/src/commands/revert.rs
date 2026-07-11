@@ -234,7 +234,7 @@ pub(crate) async fn cmd_revert(
             &reverted_commits,
         )?;
         if num_rebased > 0 {
-            writeln!(formatter, "Rebased {num_rebased} descendant commits")?;
+            writeln!(formatter, "Rebased {num_rebased} descendant commits.")?;
         }
     }
     tx.finish(ui, transaction_description).await?;

@@ -105,7 +105,7 @@ fn bench_revset<M: Measurement>(
     let after = Instant::now();
     writeln!(
         ui.status(),
-        "First run took {:?} and produced {result} commits",
+        "First run took {:?} and produced {result} commits.",
         after.duration_since(before),
     )?;
 

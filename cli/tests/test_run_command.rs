@@ -270,7 +270,7 @@ fn test_run_from_subdir_skips_commits_without_it() {
         .normalize_backslash();
     insta::assert_snapshot!(output.stderr, @r"
     Skipped commit 3bb1f1ca3c09a8e6be46ef48515803464b16b426: directory does not exist: sub
-    Rewrote 1 commits
+    Rewrote 1 commits.
     Working copy  (@) now at: kkmpptxz 3548431a (empty) (no description set)
     Parent commit (@-)      : rlvkpnrz 3aa9a235 with-sub
     Added 1 files, modified 0 files, removed 0 files
@@ -1184,8 +1184,8 @@ fn test_run_restore_descendants_preserves_content() {
     };
     let output = work_dir.run_jj(args).success();
     assert_snapshot!(output.stderr, @r"
-    Rewrote 2 commits
-    Rebased 1 descendant commits (while preserving their content)
+    Rewrote 2 commits.
+    Rebased 1 descendant commits (while preserving their content).
     Working copy  (@) now at: royxmykx a741a7d3 c | c
     Parent commit (@-)      : zsuskuln 43c5a714 b | b
     [EOF]

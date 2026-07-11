@@ -202,7 +202,7 @@ pub(crate) async fn cmd_restore(
         {
             writeln!(
                 formatter,
-                "Rebased {num_rebased} descendant commits{extra_msg}"
+                "Rebased {num_rebased} descendant commits{extra_msg}."
             )?;
         }
         tx.finish(ui, format!("restore into commit {}", to_commit.id().hex()))

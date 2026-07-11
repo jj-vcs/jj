@@ -44,11 +44,11 @@ fn test_basics() {
     let setup_opid = work_dir.current_operation_id();
 
     let output = work_dir.run_jj(["abandon", "--retain-bookmarks", "d"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned 1 commits:
       vruxwmqv 636920e4 d | d
-    Rebased 1 descendant commits onto parents of abandoned commits
+    Rebased 1 descendant commits onto parents of abandoned commits.
     Working copy  (@) now at: znkkpsqq 38e96a1f e | e
     Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
     Parent commit (@-)      : royxmykx c12952d9 c d | c
@@ -239,12 +239,12 @@ fn test_bug_2600() {
 
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["abandon", "base"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned 1 commits:
       zsuskuln 67c2f714 base | base
     Deleted bookmarks: base
-    Rebased 3 descendant commits onto parents of abandoned commits
+    Rebased 3 descendant commits onto parents of abandoned commits.
     Working copy  (@) now at: znkkpsqq c1223866 c | c
     Parent commit (@-)      : vruxwmqv 1dfaa834 b | b
     Added 0 files, modified 0 files, removed 1 files
@@ -265,12 +265,12 @@ fn test_bug_2600() {
 
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["abandon", "a"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned 1 commits:
       royxmykx 183dbbca a | a
     Deleted bookmarks: a
-    Rebased 2 descendant commits onto parents of abandoned commits
+    Rebased 2 descendant commits onto parents of abandoned commits.
     Working copy  (@) now at: znkkpsqq f863da3f c | c
     Parent commit (@-)      : vruxwmqv d7aed853 b | b
     Added 0 files, modified 0 files, removed 1 files
@@ -290,12 +290,12 @@ fn test_bug_2600() {
 
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["abandon", "b"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned 1 commits:
       vruxwmqv cedee197 b | b
     Deleted bookmarks: b
-    Rebased 1 descendant commits onto parents of abandoned commits
+    Rebased 1 descendant commits onto parents of abandoned commits.
     Working copy  (@) now at: znkkpsqq 4dc308fb c | c
     Parent commit (@-)      : zsuskuln 67c2f714 base | base
     Parent commit (@-)      : royxmykx 183dbbca a | a
@@ -328,12 +328,12 @@ fn test_bug_2600() {
     [EOF]
     ");
     let output = work_dir.run_jj(["abandon", "--retain-bookmarks", "a", "b"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned 2 commits:
       vruxwmqv cedee197 b | b
       royxmykx 183dbbca a | a
-    Rebased 1 descendant commits onto parents of abandoned commits
+    Rebased 1 descendant commits onto parents of abandoned commits.
     Working copy  (@) now at: znkkpsqq b350f44b c | c
     Parent commit (@-)      : zsuskuln 67c2f714 a b base | base
     Added 0 files, modified 0 files, removed 2 files
@@ -443,11 +443,11 @@ fn test_abandon_restore_descendants() {
 
     // Remove the commit containing "bar"
     let output = work_dir.run_jj(["abandon", "-r@-", "--restore-descendants"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned 1 commits:
       rlvkpnrz b23f92c3 (no description set)
-    Rebased 1 descendant commits (while preserving their content) onto parents of abandoned commits
+    Rebased 1 descendant commits (while preserving their content) onto parents of abandoned commits.
     Working copy  (@) now at: kkmpptxz 2b575035 (no description set)
     Parent commit (@-)      : qpvuntsm d0c049cd (no description set)
     [EOF]

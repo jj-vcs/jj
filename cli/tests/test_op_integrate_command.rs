@@ -122,9 +122,9 @@ fn test_integrate_rebase_descendants() -> TestResult {
     // at the unintegrated operation that's mentioned in
     // `.jj/working_copy/checkout`.
     let output = work_dir.run_jj(["describe", "-m=parent", "--ignore-working-copy"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Rebased 1 descendant commits
+    Rebased 1 descendant commits.
     [EOF]
     ");
 
@@ -140,9 +140,9 @@ fn test_integrate_rebase_descendants() -> TestResult {
 
     // Integrate the operation
     let output = work_dir.run_jj(["op", "integrate", &unintegrated_id]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Rebased 1 descendant commits onto commits rewritten by other operation
+    Rebased 1 descendant commits onto commits rewritten by other operation.
     The specified operation has been integrated with other existing operations.
     [EOF]
     ");

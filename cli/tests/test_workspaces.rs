@@ -718,9 +718,9 @@ fn test_workspaces_conflicting_edits() {
     // Squash the changes from the main workspace into the initial commit (before
     // running any command in the secondary workspace
     let output = main_dir.run_jj(["squash"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Rebased 1 descendant commits
+    Rebased 1 descendant commits.
     Working copy  (@) now at: mzvwutvl 3a9b690d (empty) (no description set)
     Parent commit (@-)      : qpvuntsm b853f7c8 (no description set)
     [EOF]
@@ -758,10 +758,10 @@ fn test_workspaces_conflicting_edits() {
     // Since there was an uncommitted change in the working copy, it should
     // have been committed first (causing divergence)
     let output = secondary_dir.run_jj(["workspace", "update-stale"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
-    Rebased 1 descendant commits onto commits rewritten by other operation
+    Rebased 1 descendant commits onto commits rewritten by other operation.
     Working copy  (@) now at: pmmvwywv/2 90f3d42e (divergent) (empty) (no description set)
     Parent commit (@-)      : qpvuntsm b853f7c8 (no description set)
     Added 0 files, modified 1 files, removed 0 files
@@ -819,9 +819,9 @@ fn test_workspaces_updated_by_other() {
     // Rewrite the check-out commit in one workspace.
     main_dir.write_file("file", "changed in main\n");
     let output = main_dir.run_jj(["squash"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Rebased 1 descendant commits
+    Rebased 1 descendant commits.
     Working copy  (@) now at: mzvwutvl 3a9b690d (empty) (no description set)
     Parent commit (@-)      : qpvuntsm b853f7c8 (no description set)
     [EOF]
@@ -896,9 +896,9 @@ fn test_workspaces_updated_by_other_automatic() {
     // Rewrite the check-out commit in one workspace.
     main_dir.write_file("file", "changed in main\n");
     let output = main_dir.run_jj(["squash"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Rebased 1 descendant commits
+    Rebased 1 descendant commits.
     Working copy  (@) now at: mzvwutvl 3a9b690d (empty) (no description set)
     Parent commit (@-)      : qpvuntsm b853f7c8 (no description set)
     [EOF]
@@ -969,9 +969,9 @@ fn test_workspaces_updated_by_other_with_changes_in_working_copy_automatic() {
     // Rewrite all commits from one workspace.
     main_dir.write_file("file", "changed in main\n");
     let output = main_dir.run_jj(["squash"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Rebased 1 descendant commits
+    Rebased 1 descendant commits.
     Working copy  (@) now at: mzvwutvl 3a9b690d (empty) (no description set)
     Parent commit (@-)      : qpvuntsm b853f7c8 (no description set)
     [EOF]
@@ -990,10 +990,10 @@ fn test_workspaces_updated_by_other_with_changes_in_working_copy_automatic() {
     // The first working copy gets automatically updated.
     secondary_dir.write_file("file", "modified contents\n");
     let output = secondary_dir.run_jj(["describe", "-m", "modified"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
-    Rebased 1 descendant commits onto commits rewritten by other operation
+    Rebased 1 descendant commits onto commits rewritten by other operation.
     Working copy  (@) now at: pmmvwywv/2 90f3d42e (divergent) (empty) (no description set)
     Parent commit (@-)      : qpvuntsm b853f7c8 (no description set)
     Added 0 files, modified 1 files, removed 0 files
@@ -1226,9 +1226,9 @@ fn test_workspaces_update_stale_noop() {
     let main_dir = test_env.work_dir("main");
 
     let output = main_dir.run_jj(["workspace", "update-stale"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Attempted recovery, but the working copy is not stale
+    Attempted recovery, but the working copy is not stale.
     [EOF]
     ");
 
@@ -1309,10 +1309,10 @@ fn test_workspaces_update_stale_snapshot() {
     // operations, but should be resolved cleanly.
     secondary_dir.write_file("file", "changed in second\n");
     let output = secondary_dir.run_jj(["workspace", "update-stale"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
-    Attempted recovery, but the working copy is not stale
+    Attempted recovery, but the working copy is not stale.
     [EOF]
     ");
 

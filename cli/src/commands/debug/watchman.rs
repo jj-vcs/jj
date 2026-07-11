@@ -125,7 +125,7 @@ pub async fn cmd_debug_watchman(
             };
             locked_local_wc.reset_watchman()?;
             locked_ws.finish(repo.op_id().clone()).await?;
-            writeln!(ui.status(), "Reset Watchman clock")?;
+            writeln!(ui.status(), "Reset Watchman clock.")?;
         }
     }
     Ok(())

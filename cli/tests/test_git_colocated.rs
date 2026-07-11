@@ -436,14 +436,14 @@ fn test_git_colocated_rebase_on_import() -> TestResult {
         gix::refs::transaction::PreviousValue::Any,
         "update ref",
     )?;
-    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  d46583362b91d0e172aec469ea1689995540de81
     ○  cbd6c887108743a4abb0919305646a6a914a665e master add a file
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ------- stderr -------
     Abandoned 1 commits that are no longer reachable.
-    Rebased 1 descendant commits off of commits rewritten from git
+    Rebased 1 descendant commits off of commits rewritten from Git.
     Working copy  (@) now at: zsuskuln d4658336 (empty) (no description set)
     Parent commit (@-)      : qpvuntsm cbd6c887 master | add a file
     Added 0 files, modified 1 files, removed 0 files
@@ -741,7 +741,7 @@ fn test_git_colocated_fetch_deleted_or_moved_bookmark() -> TestResult {
     bookmark: C_to_move@origin   [updated] tracked
     Abandoned 1 commits that are no longer reachable:
       zsuskuln b2ea51c0 B_to_delete@git | (empty) B_to_delete
-    Updated 1 rewritten commits
+    Updated 1 rewritten commits.
     [EOF]
     ");
     // "original C" and "B_to_delete" are abandoned, as the corresponding bookmarks

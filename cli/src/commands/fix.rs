@@ -440,7 +440,7 @@ fn run_tool(
     else {
         writeln!(
             ui.warning_default(),
-            "Failed to start `{}`",
+            "Failed to start `{}`.",
             tool_command.split_name(),
         )
         .ok();

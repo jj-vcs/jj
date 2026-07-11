@@ -71,17 +71,17 @@ fn test_gerrit_upload_dryrun() {
 
     test_env.add_config(r#"gerrit.default-remote-branch="main""#);
     let output = work_dir.run_jj(["gerrit", "upload", "-r", "b", "--dry-run"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'.
     Dry-run: Would push zsuskuln 123b4d91 b | b
     [EOF]
     ");
 
     let output = work_dir.run_jj(["gerrit", "upload", "-r", "b", "--dry-run", "-b", "other"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'other'
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'other'.
     Dry-run: Would push zsuskuln 123b4d91 b | b
     [EOF]
     ");
@@ -113,7 +113,7 @@ fn test_gerrit_upload_default_revision() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     No revision provided. Defaulting to @
-    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'.
     Dry-run: Would push kkmpptxz a41ea4e9 parent
     [EOF]
     ");
@@ -123,7 +123,7 @@ fn test_gerrit_upload_default_revision() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     No revision provided and @ has no description. Defaulting to @-
-    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'.
     Dry-run: Would push kkmpptxz a41ea4e9 parent
     [EOF]
     ");
@@ -180,7 +180,7 @@ fn test_gerrit_upload_default_revision_already_in_trunk() {
     Hint: For more information, see:
           - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
           - `jj help -k config`, "Set of immutable commits"
-    Hint: This operation would rewrite 1 immutable commits
+    Hint: This operation would rewrite 1 immutable commits.
     [EOF]
     [exit status: 1]
     "#);
@@ -292,9 +292,9 @@ fn test_gerrit_upload_failure() {
         .run_jj(["git", "remote", "set-url", "origin", "nonexistent"])
         .success();
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "d", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'.
     Pushing znkkpsqq 47f1f88c d | d
     Error: Internal git error while pushing to gerrit
     Caused by: Could not find repository at '$TEST_ENV/local/nonexistent'
@@ -344,9 +344,9 @@ fn test_gerrit_upload_local_implicit_change_ids() {
     ");
 
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "c", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'.
     Pushing yqosqzyt f6e97ced c | c
     [EOF]
     ");
@@ -442,9 +442,9 @@ review-url = "https://gerrit.example.com/"
     ");
 
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "c", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'.
     Pushing yqosqzyt f6e97ced c | c
     [EOF]
     ");
@@ -553,9 +553,9 @@ fn test_gerrit_upload_local_explicit_change_ids() {
     ");
 
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "c", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'.
     Pushing vruxwmqv b4124fc9 c | c
     [EOF]
     ");
@@ -648,9 +648,9 @@ fn test_gerrit_upload_local_mixed_change_ids() {
     ");
 
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "c", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'.
     Pushing yqosqzyt 8d46d915 c | c
     [EOF]
     ");
@@ -800,13 +800,13 @@ fn test_gerrit_upload_bad_change_ids() {
 
     // check both badly and slightly malformed Change-Id / Link trailers
     let output = local_dir.run_jj(["gerrit", "upload", "-rb4", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Invalid Change-Id footer in revision mzvwutvlkqwt
     Warning: Invalid Change-Id footer in revision yqosqzytrlsw
     Warning: Invalid Link footer in revision yostqsxwqrlt
     Warning: Invalid Link footer in revision kpqxywonksrl
-    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'.
     Pushing kpqxywon 69536ef3 b4
     [EOF]
     ");
@@ -858,9 +858,9 @@ fn test_gerrit_upload_rejected_by_remote() -> TestResult {
     ");
 
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "b", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'.
     Pushing mzvwutvl 887a7016 b | b
     remote: error: hook declined to update refs/for/main        
     Warning: The remote rejected the following updates:

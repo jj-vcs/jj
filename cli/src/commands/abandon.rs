@@ -168,12 +168,12 @@ pub(crate) async fn cmd_abandon(
                 writeln!(
                     formatter,
                     "Rebased {num_rebased} descendant commits (while preserving their content) \
-                     onto parents of abandoned commits",
+                     onto parents of abandoned commits.",
                 )?;
             } else {
                 writeln!(
                     formatter,
-                    "Rebased {num_rebased} descendant commits onto parents of abandoned commits",
+                    "Rebased {num_rebased} descendant commits onto parents of abandoned commits.",
                 )?;
             }
         }

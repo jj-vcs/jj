@@ -122,6 +122,6 @@ fn warn_wc_author(ui: &Ui, user_name: &str, user_email: &str) -> io::Result<()> 
         ui.warning_default(),
         "This setting will only impact future commits.\nThe author of the working copy will stay \
          \"{user_name} <{user_email}>\".\nTo change the working copy author, use \"jj metaedit \
-         --update-author\""
+         --update-author\"."
     )?)
 }

@@ -3167,9 +3167,9 @@ fn test_diff_external_tool() -> TestResult {
         settings
     };
     insta_portable_exit_status.bind(|| {
-        insta::assert_snapshot!(output, @"
+        insta::assert_snapshot!(output, @r"
         ------- stderr -------
-        Warning: Tool exited with <exit status>: 1 (run with --debug to see the exact invocation)
+        Warning: Tool exited with <exit status>: 1 (run with --debug to see the exact invocation).
         [EOF]
         ");
     });
@@ -3299,7 +3299,7 @@ fn test_diff_external_tool() -> TestResult {
     // Non-zero exit code isn't an error
     std::fs::write(&edit_script, "print diff\0fail")?;
     let output = work_dir.run_jj(["show", "--tool=fake-diff-editor"]);
-    insta::assert_snapshot!(output.normalize_stderr_exit_status(), @"
+    insta::assert_snapshot!(output.normalize_stderr_exit_status(), @r"
     Commit ID: b1e84e171e795eeb9cea971f052a30a21255a0a5
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -3310,7 +3310,7 @@ fn test_diff_external_tool() -> TestResult {
     diff
     [EOF]
     ------- stderr -------
-    Warning: Tool exited with exit status: 1 (run with --debug to see the exact invocation)
+    Warning: Tool exited with exit status: 1 (run with --debug to see the exact invocation).
     [EOF]
     ");
 

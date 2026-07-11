@@ -409,7 +409,7 @@ pub(crate) async fn cmd_split(
     };
     if let Some(mut formatter) = ui.status_formatter() {
         if num_rebased > 0 {
-            writeln!(formatter, "Rebased {num_rebased} descendant commits")?;
+            writeln!(formatter, "Rebased {num_rebased} descendant commits.")?;
         }
         write!(formatter, "Selected changes : ")?;
         tx.write_commit_summary(formatter.as_mut(), &first_commit)?;
@@ -587,12 +587,12 @@ The changes that are not selected will replace the original commit.
     if selection.is_full_selection() {
         writeln!(
             ui.warning_default(),
-            "All changes have been selected, so the original revision will become empty"
+            "All changes have been selected, so the original revision will become empty."
         )?;
     } else if selection.is_empty_selection() {
         writeln!(
             ui.warning_default(),
-            "No changes have been selected, so the new revision will be empty"
+            "No changes have been selected, so the new revision will be empty."
         )?;
     }
 
