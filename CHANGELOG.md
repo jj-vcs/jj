@@ -25,6 +25,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   aliases that are simply repeated. For example, with the alias `jj = []`, the
   command `jj jj jj log` will resolve to `jj log` as expected.
 
+* The `change_id()` revset function now behaves as expected when used with
+  hidden commits. For instance, if `bookmark@origin` is hidden and points to a
+  commit with change ID `xyz`, then `bookmark@origin & change_id(xyz)` now
+  returns that commit (previously it would return nothing).
+
 ## [0.43.0] - 2026-07-01
 
 ### Release highlights

@@ -2947,10 +2947,16 @@ fn resolve_commit_ref(
         }
         RevsetCommitRef::ChangeId(prefix) => {
             let resolver = &symbol_resolver.change_id_resolver;
-            resolver
-                .try_resolve(repo, prefix)?
-                .and_then(ResolvedChangeTargets::into_visible)
-                .unwrap_or_else(Vec::new)
+            let Some(targets) = resolver.try_resolve(repo, prefix)? else {
+                return Ok(RevsetExpression::none());
+            };
+            let change_id_predicate = RevsetFilterPredicate::ChangeId(targets.change_id.clone());
+            let visible = RevsetExpression::commits(targets.into_visible().unwrap_or_default());
+            let hidden_referenced = RevsetExpression::visible_heads()
+                .ancestors()
+                .negated()
+                .intersection(&RevsetExpression::filter(change_id_predicate));
+            return Ok(visible.union(&hidden_referenced));
         }
         RevsetCommitRef::CommitId(prefix) => {
             let resolver = &symbol_resolver.commit_id_resolver;
