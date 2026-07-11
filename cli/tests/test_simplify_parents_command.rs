@@ -144,9 +144,9 @@ fn test_simplify_parents_redundant_parent(args: &[&str]) {
     }
     let output = work_dir.run_jj(args);
     insta::allow_duplicates! {
-        insta::assert_snapshot!(output, @"
+        insta::assert_snapshot!(output, @r"
         ------- stderr -------
-        Removed 1 edges from 1 out of 3 commits.
+        Removed 1 edges from 1 out of 3 commits
         Working copy  (@) now at: royxmykx 265f0407 c | c
         Parent commit (@-)      : zsuskuln 123b4d91 b | b
         [EOF]
@@ -196,9 +196,9 @@ fn test_simplify_parents_multiple_redundant_parents() {
 
     // Test with `-r`.
     let output = work_dir.run_jj(["simplify-parents", "-r", "c", "-r", "f"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Removed 2 edges from 2 out of 2 commits.
+    Removed 2 edges from 2 out of 2 commits
     Rebased 2 descendant commits
     Working copy  (@) now at: kmkuslsw 5ad764e9 f | f
     Parent commit (@-)      : znkkpsqq 9102487c e | e
@@ -220,9 +220,9 @@ fn test_simplify_parents_multiple_redundant_parents() {
     // Test with `-s`.
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["simplify-parents", "-s", "c"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Removed 2 edges from 2 out of 4 commits.
+    Removed 2 edges from 2 out of 4 commits
     Rebased 2 descendant commits
     Working copy  (@) now at: kmkuslsw 2b2c1c63 f | f
     Parent commit (@-)      : znkkpsqq 9142e3bb e | e
@@ -272,9 +272,9 @@ fn test_simplify_parents_no_args() {
     let setup_opid = work_dir.current_operation_id();
 
     let output = work_dir.run_jj(["simplify-parents"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Removed 2 edges from 2 out of 6 commits.
+    Removed 2 edges from 2 out of 6 commits
     Rebased 2 descendant commits
     Working copy  (@) now at: kmkuslsw 5ad764e9 f | f
     Parent commit (@-)      : znkkpsqq 9102487c e | e
@@ -297,9 +297,9 @@ fn test_simplify_parents_no_args() {
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     test_env.add_config(r#"revsets.simplify-parents = "d::""#);
     let output = work_dir.run_jj(["simplify-parents"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Removed 1 edges from 1 out of 3 commits.
+    Removed 1 edges from 1 out of 3 commits
     Working copy  (@) now at: kmkuslsw 1180d0f5 f | f
     Parent commit (@-)      : znkkpsqq 009aef72 e | e
     [EOF]

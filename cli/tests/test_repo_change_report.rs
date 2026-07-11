@@ -49,13 +49,13 @@ fn test_report_conflicts() {
     ");
 
     let output = work_dir.run_jj(["rebase", "-d=subject(A)"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 commits to destination
     Working copy  (@) now at: zsuskuln bad741db (empty) (no description set)
     Parent commit (@-)      : kkmpptxz cec3d034 C
     Added 0 files, modified 1 files, removed 0 files
-    Existing conflicts were resolved or abandoned from 2 commits.
+    Existing conflicts were resolved or abandoned from 2 commits
     [EOF]
     ");
 
@@ -96,11 +96,11 @@ fn test_report_conflicts() {
     ");
     work_dir.write_file("file", "resolved\n");
     let output = work_dir.run_jj(["squash"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: yostqsxw 350a6e50 (empty) (no description set)
     Parent commit (@-)      : rlvkpnrz 1aa1004b B
-    Existing conflicts were resolved or abandoned from 1 commits.
+    Existing conflicts were resolved or abandoned from 1 commits
     [EOF]
     ");
 }
@@ -146,13 +146,13 @@ fn test_report_conflicts_with_divergent_commits() {
     ");
 
     let output = work_dir.run_jj(["rebase", "-d=subject(A)"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 commits to destination
     Working copy  (@) now at: zsuskuln/1 27ef05d9 (divergent) C2
     Parent commit (@-)      : kkmpptxz 9039ed49 B
     Added 0 files, modified 1 files, removed 0 files
-    Existing conflicts were resolved or abandoned from 3 commits.
+    Existing conflicts were resolved or abandoned from 3 commits
     [EOF]
     ");
 
@@ -193,21 +193,21 @@ fn test_report_conflicts_with_divergent_commits() {
     ");
 
     let output = work_dir.run_jj(["rebase", "-s=subject(C2)", "-d=subject(B)"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
     Working copy  (@) now at: zsuskuln/0 3fcf2fd2 (divergent) C2
     Parent commit (@-)      : kkmpptxz 9039ed49 B
     Added 0 files, modified 1 files, removed 0 files
-    Existing conflicts were resolved or abandoned from 1 commits.
+    Existing conflicts were resolved or abandoned from 1 commits
     [EOF]
     ");
 
     let output = work_dir.run_jj(["rebase", "-s=subject(C3)", "-d=subject(B)"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
-    Existing conflicts were resolved or abandoned from 1 commits.
+    Existing conflicts were resolved or abandoned from 1 commits
     [EOF]
     ");
 }

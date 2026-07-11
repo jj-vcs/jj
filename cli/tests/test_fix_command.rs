@@ -904,7 +904,7 @@ fn test_fix_immutable_commit() {
     Hint: For more information, see:
           - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
           - `jj help -k config`, "Set of immutable commits"
-    Hint: This operation would rewrite 1 immutable commits.
+    Hint: This operation would rewrite 1 immutable commits
     [EOF]
     [exit status: 1]
     "#);

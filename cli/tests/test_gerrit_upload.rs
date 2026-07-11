@@ -171,7 +171,7 @@ fn test_gerrit_upload_default_revision_already_in_trunk() {
     local_dir.run_jj(["describe", "-m="]).success();
 
     let output = local_dir.run_jj(["gerrit", "upload", "--dry-run"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     No revision provided and @ has no description. Defaulting to @-
     Error: Commit 57df4838fd85 is immutable
@@ -179,11 +179,11 @@ fn test_gerrit_upload_default_revision_already_in_trunk() {
     Hint: Immutable commits are used to protect shared history.
     Hint: For more information, see:
           - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
-          - `jj help -k config`, \"Set of immutable commits\"
-    Hint: This operation would rewrite 1 immutable commits.
+          - `jj help -k config`, "Set of immutable commits"
+    Hint: This operation would rewrite 1 immutable commits
     [EOF]
     [exit status: 1]
-    ");
+    "#);
 }
 
 #[test]

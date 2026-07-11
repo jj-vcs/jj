@@ -747,7 +747,7 @@ fn test_parallelize_no_immutable_non_base_commits() {
     Hint: For more information, see:
           - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
           - `jj help -k config`, "Set of immutable commits"
-    Hint: This operation would rewrite 1 immutable commits.
+    Hint: This operation would rewrite 1 immutable commits
     [EOF]
     [exit status: 1]
     "#);
