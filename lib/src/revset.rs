@@ -222,6 +222,8 @@ pub enum RevsetFilterPredicate {
     HasConflict,
     /// Commits that are cryptographically signed.
     Signed,
+    /// Commits with the specified change ID.
+    HasChangeId(ChangeId),
     /// Custom predicates provided by extensions
     Extension(Arc<dyn RevsetFilterExtension>),
 }
