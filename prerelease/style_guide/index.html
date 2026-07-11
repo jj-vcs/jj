@@ -1434,6 +1434,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#logging-messages" class="md-nav__link">
+    <span class="md-ellipsis">
+      Logging messages
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#documentation-comments" class="md-nav__link">
     <span class="md-ellipsis">
       Documentation comments
@@ -1989,6 +1998,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#logging-messages" class="md-nav__link">
+    <span class="md-ellipsis">
+      Logging messages
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#documentation-comments" class="md-nav__link">
     <span class="md-ellipsis">
       Documentation comments
@@ -2106,6 +2124,28 @@ tests for <code>jj log</code> don't need to test that all kinds of revsets are e
 correctly (we have tests in <code>jj-lib</code> for that), but they should check that the
 <code>-r</code> flag is respected.</p>
 <p>Use end-to-end tests for testing the CLI commands themselves.</p>
+<h2 id="logging-messages">Logging messages<a class="headerlink" href="#logging-messages" title="Permanent link">&para;</a></h2>
+<p>When messages are logged, such as with <code>writeln!(ui.status(), "Message...")?;</code>,
+prefer to end the message with a period as if it were a full sentence. For
+example:</p>
+<div class="highlight"><pre><span></span><code><span class="c1">// CORRECT:</span>
+<span class="fm">writeln!</span><span class="p">(</span><span class="n">ui</span><span class="p">.</span><span class="n">status</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;Rebased {num_rebased} descendant commits.&quot;</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+<span class="c1">// INCORRECT:</span>
+<span class="fm">writeln!</span><span class="p">(</span><span class="n">ui</span><span class="p">.</span><span class="n">status</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;Rebased {num_rebased} descendant commits&quot;</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</code></pre></div>
+<p>There are of course exceptions to this, such as messages that are printing
+interpolated values at the end, or need to print some templated value:</p>
+<div class="highlight"><pre><span></span><code><span class="c1">// These are fine:</span>
+<span class="fm">writeln!</span><span class="p">(</span>
+<span class="w">    </span><span class="n">ui</span><span class="p">.</span><span class="n">status</span><span class="p">(),</span>
+<span class="w">    </span><span class="s">&quot;Operation left uncommitted because --no-integrate-operation was requested: {}&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="n">short_operation_hash</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">repo</span><span class="p">().</span><span class="n">op_id</span><span class="p">())</span>
+<span class="p">)</span><span class="o">?</span><span class="p">;</span>
+<span class="fm">writeln!</span><span class="p">(</span><span class="n">ui</span><span class="p">.</span><span class="n">warning_default</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;No matching entries for paths: {paths}&quot;</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</code></pre></div>
+<p>Also try not to put periods right after any printed IDs or symbols (such as
+commit IDs), since users may double click to copy the value, which may include
+the period.</p>
 <h2 id="documentation-comments">Documentation comments<a class="headerlink" href="#documentation-comments" title="Permanent link">&para;</a></h2>
 <h3 id="general">General<a class="headerlink" href="#general" title="Permanent link">&para;</a></h3>
 <p>In general, try to follow <a href="https://github.com/rust-lang/rfcs/blob/master/text/1574-more-api-documentation-conventions.md"><code>rust-lang/rfcs</code> 1574</a>. The important points are:</p>
