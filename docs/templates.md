@@ -857,6 +857,8 @@ concat(
   format_field("Change ID", change_id),
 )
 '''
+'format_field(key, value)' = 'key ++ ": " ++ value ++ "\n"'
+'json:x' = 'json(x) ++ "\n"'
 ```
 
 ### Alias descriptions
@@ -875,9 +877,6 @@ You can also use the dotted key syntax:
 [template-aliases]
 sh.definition = 'commit_id.short()'
 sh.doc = 'Short commit ID'
-```
-'format_field(key, value)' = 'key ++ ": " ++ value ++ "\n"'
-'json:x' = 'json(x) ++ "\n"'
 ```
 
 ## Examples
