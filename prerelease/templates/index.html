@@ -1440,6 +1440,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      Examples
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2795,6 +2804,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      Examples
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3581,6 +3599,8 @@ functions will be shadowed by name, and can't co-exist with aliases.</p>
 <span class="s1">  format_field(&quot;Change ID&quot;, change_id),</span>
 <span class="s1">)</span>
 <span class="s1">&#39;&#39;&#39;</span>
+<span class="s1">&#39;format_field(key, value)&#39;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;key ++ &quot;: &quot; ++ value ++ &quot;\n&quot;&#39;</span>
+<span class="s1">&#39;json:x&#39;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;json(x) ++ &quot;\n&quot;&#39;</span>
 </code></pre></div>
 <h3 id="alias-descriptions">Alias descriptions<a class="headerlink" href="#alias-descriptions" title="Permanent link">&para;</a></h3>
 <p>Alias descriptions can be surfaced in shell completions by defining the alias
@@ -3589,19 +3609,14 @@ as a table with <code>.doc</code> and <code>.definition</code> properties. For e
 <span class="n">sh</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">definition</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s1">&#39;commit_id.short()&#39;</span><span class="p">,</span><span class="w"> </span><span class="n">doc</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s1">&#39;Short commit ID&#39;</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <p>You can also use the dotted key syntax:</p>
-<p><div class="highlight"><pre><span></span><code><span class="k">[template-aliases]</span>
+<div class="highlight"><pre><span></span><code><span class="k">[template-aliases]</span>
 <span class="n">sh</span><span class="p">.</span><span class="n">definition</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;commit_id.short()&#39;</span>
 <span class="n">sh</span><span class="p">.</span><span class="n">doc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;Short commit ID&#39;</span>
 </code></pre></div>
-'format_field(key, value)' = 'key ++ ": " ++ value ++ "\n"'
-'json:x' = 'json(x) ++ "\n"'
-<div class="highlight"><pre><span></span><code>## Examples
-
-Get short commit IDs of the working-copy parents:
-
-```sh
-jj log -G -r @ -T &#39;parents.map(|c| c.commit_id().short()).join(&quot;,&quot;)&#39;
-</code></pre></div></p>
+<h2 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h2>
+<p>Get short commit IDs of the working-copy parents:</p>
+<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>log<span class="w"> </span>-G<span class="w"> </span>-r<span class="w"> </span>@<span class="w"> </span>-T<span class="w"> </span><span class="s1">&#39;parents.map(|c| c.commit_id().short()).join(&quot;,&quot;)&#39;</span>
+</code></pre></div>
 <p>Show machine-readable list of full commit and change IDs:</p>
 <div class="highlight"><pre><span></span><code>jj<span class="w"> </span>log<span class="w"> </span>-G<span class="w"> </span>-T<span class="w"> </span><span class="s1">&#39;commit_id ++ &quot; &quot; ++ change_id ++ &quot;\n&quot;&#39;</span>
 </code></pre></div>
