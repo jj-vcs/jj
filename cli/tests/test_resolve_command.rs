@@ -1464,13 +1464,13 @@ fn test_resolve_change_delete_executable() -> TestResult {
 
     // Take modified content, the executable bit should be kept as "x"
     let output = work_dir.run_jj(["resolve", "file5", "--tool=:theirs"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: kmkuslsw 7337267a conflict | conflict
     Parent commit (@-)      : mzvwutvl e2d3924b a | a
     Parent commit (@-)      : vruxwmqv 888b6cc3 b | b
     Added 0 files, modified 1 files, removed 0 files
-    Existing conflicts were resolved or abandoned from 1 commits.
+    Existing conflicts were resolved or abandoned from 1 commits
     [EOF]
     ");
 

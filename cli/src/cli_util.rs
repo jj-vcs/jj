@@ -1981,7 +1981,7 @@ to the current parents may contain changes from multiple commits.
             let exact = upper_bound == Some(lower_bound);
             let or_more = if exact { "" } else { " or more" };
             error.add_hint(format!(
-                "This operation would rewrite {lower_bound}{or_more} immutable commits."
+                "This operation would rewrite {lower_bound}{or_more} immutable commits"
             ));
 
             error
@@ -2409,7 +2409,7 @@ to the current parents may contain changes from multiple commits.
                 .sum();
             writeln!(
                 fmt,
-                "Existing conflicts were resolved or abandoned from {num_resolved} commits."
+                "Existing conflicts were resolved or abandoned from {num_resolved} commits"
             )?;
         }
         if !new_conflicts_by_change_id.is_empty() {

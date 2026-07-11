@@ -46,7 +46,7 @@ pub async fn cmd_debug_reindex(
             .map_err(internal_error)?;
         writeln!(
             ui.status(),
-            "Finished indexing {} commits.",
+            "Finished indexing {} commits",
             default_index.num_commits()
         )?;
     } else {

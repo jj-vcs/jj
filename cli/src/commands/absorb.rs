@@ -121,7 +121,7 @@ pub(crate) async fn cmd_absorb(
         if stats.num_rebased > 0 {
             writeln!(
                 formatter,
-                "Rebased {} descendant commits.",
+                "Rebased {} descendant commits",
                 stats.num_rebased
             )?;
         }

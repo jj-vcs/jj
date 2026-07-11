@@ -735,13 +735,13 @@ fn test_git_colocated_fetch_deleted_or_moved_bookmark() -> TestResult {
         .run_jj(["describe", "C_to_move", "-m", "moved C"])
         .success();
     let output = clone_dir.run_jj(["git", "fetch"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     bookmark: B_to_delete@origin [deleted] untracked
     bookmark: C_to_move@origin   [updated] tracked
     Abandoned 1 commits that are no longer reachable:
       zsuskuln b2ea51c0 B_to_delete@git | (empty) B_to_delete
-    Updated 1 rewritten commits.
+    Updated 1 rewritten commits
     [EOF]
     ");
     // "original C" and "B_to_delete" are abandoned, as the corresponding bookmarks

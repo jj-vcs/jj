@@ -478,7 +478,7 @@ fn test_diffedit_external_tool_conflict_marker_style() -> TestResult {
         .join("\0"),
     )?;
     let output = work_dir.run_jj(["diffedit"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: mzvwutvl a2e4617e (conflict) (empty) (no description set)
     Parent commit (@-)      : rlvkpnrz 74e448a1 side-a
@@ -486,7 +486,7 @@ fn test_diffedit_external_tool_conflict_marker_style() -> TestResult {
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
-    Existing conflicts were resolved or abandoned from 1 commits.
+    Existing conflicts were resolved or abandoned from 1 commits
     [EOF]
     ");
     // Conflicts should render using "snapshot" format in diff editor

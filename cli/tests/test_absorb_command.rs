@@ -56,11 +56,11 @@ fn test_absorb_simple() {
     // Modify middle line in hunk
     work_dir.write_file("file1", "1X\n1A\n1b\n2a\n2b\n2Z\n");
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 1 revisions:
       kkmpptxz 5810eb0f 1
-    Rebased 1 descendant commits.
+    Rebased 1 descendant commits
     Working copy  (@) now at: vruxwmqv 48c7d8fa (empty) (no description set)
     Parent commit (@-)      : zsuskuln 8edd60a2 2
     [EOF]
@@ -173,11 +173,11 @@ fn test_absorb_replace_single_line_hunk() {
     work_dir.run_jj(["new"]).success();
     work_dir.write_file("file1", "2a\n1A\n2b\n");
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 1 revisions:
       qpvuntsm 125fba68 (conflict) 1
-    Rebased 1 descendant commits.
+    Rebased 1 descendant commits
     Working copy  (@) now at: mzvwutvl deeb043a (empty) (no description set)
     Parent commit (@-)      : kkmpptxz 732472fb 2
     New conflicts appeared in 1 commits:
@@ -260,12 +260,12 @@ fn test_absorb_merge() {
     // Modify first and last lines, absorb from merge
     work_dir.write_file("file1", "1A\n1b\n0a\n2a\n2B\n");
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 2 revisions:
       zsuskuln a6fde7ea 2
       kkmpptxz 00ecc958 1
-    Rebased 1 descendant commits.
+    Rebased 1 descendant commits
     Working copy  (@) now at: mzvwutvl 30499858 (empty) 3
     Parent commit (@-)      : kkmpptxz 00ecc958 1
     Parent commit (@-)      : zsuskuln a6fde7ea 2
@@ -360,12 +360,12 @@ fn test_absorb_discardable_merge_with_descendant() {
     work_dir.write_file("file2", "3a\n");
     // Then absorb the merge commit
     let output = work_dir.run_jj(["absorb", "--from=@-"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 2 revisions:
       zsuskuln a6cd8e87 2
       kkmpptxz 98b7d214 1
-    Rebased 1 descendant commits.
+    Rebased 1 descendant commits
     Working copy  (@) now at: royxmykx df946e9b 3
     Parent commit (@-)      : kkmpptxz 98b7d214 1
     Parent commit (@-)      : zsuskuln a6cd8e87 2
@@ -495,11 +495,11 @@ fn test_absorb_deleted_file() {
     // Since the destinations are chosen based on content diffs, file3 cannot be
     // absorbed.
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 1 revisions:
       qpvuntsm 38af7fd3 1
-    Rebased 1 descendant commits.
+    Rebased 1 descendant commits
     Working copy  (@) now at: kkmpptxz efd883f6 (no description set)
     Parent commit (@-)      : qpvuntsm 38af7fd3 1
     Remaining changes:
@@ -550,12 +550,12 @@ fn test_absorb_deleted_file_with_multiple_hunks() {
     work_dir.remove_file("file1");
     work_dir.remove_file("file2");
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 2 revisions:
       kkmpptxz 3e1b2472 (conflict) 2
       qpvuntsm c49bcdd3 (conflict) 1
-    Rebased 1 descendant commits.
+    Rebased 1 descendant commits
     Working copy  (@) now at: zsuskuln 9376eb56 (no description set)
     Parent commit (@-)      : kkmpptxz 3e1b2472 (conflict) 2
     New conflicts appeared in 2 commits:
@@ -667,11 +667,11 @@ fn test_absorb_file_mode() {
 
     // Mode change shouldn't be absorbed
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 1 revisions:
       qpvuntsm 2a0c7f1d 1
-    Rebased 1 descendant commits.
+    Rebased 1 descendant commits
     Working copy  (@) now at: zsuskuln 8ca9761d (no description set)
     Parent commit (@-)      : qpvuntsm 2a0c7f1d 1
     Remaining changes:
@@ -713,11 +713,11 @@ fn test_absorb_from_into() {
     work_dir.run_jj(["new"]).success();
     work_dir.write_file("file1", "1a\nX\n2a\n1b\nY\n1c\n2b\nZ\n");
     let output = work_dir.run_jj(["absorb", "--into=@-"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 1 revisions:
       kkmpptxz cae507ef 2
-    Rebased 1 descendant commits.
+    Rebased 1 descendant commits
     Working copy  (@) now at: zsuskuln f02fd9ea (no description set)
     Parent commit (@-)      : kkmpptxz cae507ef 2
     Remaining changes:
@@ -758,11 +758,11 @@ fn test_absorb_from_into() {
     // Absorb all lines from the working-copy parent. An empty commit won't be
     // discarded because "absorb" isn't a command to squash commit descriptions.
     let output = work_dir.run_jj(["absorb", "--from=@-"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 1 revisions:
       rlvkpnrz ddaed33d 1
-    Rebased 2 descendant commits.
+    Rebased 2 descendant commits
     Working copy  (@) now at: zsuskuln 3652e5e5 (no description set)
     Parent commit (@-)      : kkmpptxz 7f4339e7 (empty) 2
     [EOF]
@@ -828,11 +828,11 @@ fn test_absorb_paths() {
     ");
 
     let output = work_dir.run_jj(["absorb", "file1"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 1 revisions:
       qpvuntsm ca07fabe 1
-    Rebased 1 descendant commits.
+    Rebased 1 descendant commits
     Working copy  (@) now at: kkmpptxz 4d80ada8 (no description set)
     Parent commit (@-)      : qpvuntsm ca07fabe 1
     Remaining changes:
@@ -889,11 +889,11 @@ fn test_absorb_immutable() {
 
     // Immutable revisions are excluded by default
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 1 revisions:
       kkmpptxz e68cc3e2 2
-    Rebased 1 descendant commits.
+    Rebased 1 descendant commits
     Working copy  (@) now at: mzvwutvl 88443af7 (no description set)
     Parent commit (@-)      : kkmpptxz e68cc3e2 2
     Remaining changes:
@@ -911,7 +911,7 @@ fn test_absorb_immutable() {
     Hint: For more information, see:
           - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
           - `jj help -k config`, "Set of immutable commits"
-    Hint: This operation would rewrite 1 immutable commits.
+    Hint: This operation would rewrite 1 immutable commits
     [EOF]
     [exit status: 1]
     "#);
