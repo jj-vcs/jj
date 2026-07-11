@@ -1144,9 +1144,10 @@ impl EvaluationContext<'_> {
                             PrefixResolution::NoMatch => {
                                 panic!("the commit itself should be reachable")
                             }
-                            PrefixResolution::SingleMatch((_change_id, positions)) => {
+                            PrefixResolution::SingleMatch((change_id, positions)) => {
                                 let mut reachable_set = reachable_set.borrow_mut();
                                 let targets = commits.resolve_change_targets_for_positions(
+                                    change_id,
                                     &positions,
                                     &mut reachable_set,
                                 );

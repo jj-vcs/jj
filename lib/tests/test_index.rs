@@ -1191,30 +1191,35 @@ fn test_change_id_index() {
     assert_eq!(
         resolve_prefix("0"),
         PrefixResolution::SingleMatch(ResolvedChangeTargets {
+            change_id: root_commit.change_id().clone(),
             targets: vec![(root_commit.id().clone(), ResolvedChangeState::Visible)],
         })
     );
     assert_eq!(
         resolve_prefix("aaaaaa"),
         PrefixResolution::SingleMatch(ResolvedChangeTargets {
+            change_id: commit_3.change_id().clone(),
             targets: vec![(commit_3.id().clone(), ResolvedChangeState::Visible)],
         })
     );
     assert_eq!(
         resolve_prefix("aaaaab"),
         PrefixResolution::SingleMatch(ResolvedChangeTargets {
+            change_id: commit_2.change_id().clone(),
             targets: vec![(commit_2.id().clone(), ResolvedChangeState::Visible)],
         })
     );
     assert_eq!(
         resolve_prefix("ab"),
         PrefixResolution::SingleMatch(ResolvedChangeTargets {
+            change_id: commit_1.change_id().clone(),
             targets: vec![(commit_1.id().clone(), ResolvedChangeState::Visible)],
         })
     );
     assert_eq!(
         resolve_prefix("b"),
         PrefixResolution::SingleMatch(ResolvedChangeTargets {
+            change_id: commit_4.change_id().clone(),
             targets: vec![
                 (commit_5.id().clone(), ResolvedChangeState::Visible),
                 (commit_4.id().clone(), ResolvedChangeState::Visible),
@@ -1225,6 +1230,7 @@ fn test_change_id_index() {
     assert_eq!(
         resolve_prefix("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
         PrefixResolution::SingleMatch(ResolvedChangeTargets {
+            change_id: commit_3.change_id().clone(),
             targets: vec![(commit_3.id().clone(), ResolvedChangeState::Visible)],
         })
     );
@@ -1243,18 +1249,21 @@ fn test_change_id_index() {
     assert_eq!(
         resolve_prefix("0"),
         PrefixResolution::SingleMatch(ResolvedChangeTargets {
+            change_id: root_commit.change_id().clone(),
             targets: vec![(root_commit.id().clone(), ResolvedChangeState::Visible)],
         })
     );
     assert_eq!(
         resolve_prefix("aaaaab"),
         PrefixResolution::SingleMatch(ResolvedChangeTargets {
+            change_id: commit_2.change_id().clone(),
             targets: vec![(commit_2.id().clone(), ResolvedChangeState::Visible)],
         })
     );
     assert_eq!(
         resolve_prefix("aaaaaa"),
         PrefixResolution::SingleMatch(ResolvedChangeTargets {
+            change_id: commit_3.change_id().clone(),
             targets: vec![(commit_3.id().clone(), ResolvedChangeState::Hidden)],
         })
     );
@@ -1262,6 +1271,7 @@ fn test_change_id_index() {
     assert_eq!(
         resolve_prefix("b"),
         PrefixResolution::SingleMatch(ResolvedChangeTargets {
+            change_id: commit_4.change_id().clone(),
             targets: vec![
                 (commit_5.id().clone(), ResolvedChangeState::Visible),
                 (commit_4.id().clone(), ResolvedChangeState::Hidden),

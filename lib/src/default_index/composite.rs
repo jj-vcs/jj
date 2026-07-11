@@ -294,6 +294,7 @@ impl CompositeCommitIndex {
     /// provided. Requires positions to be in descending order.
     pub(super) fn resolve_change_targets_for_positions(
         &self,
+        change_id: ChangeId,
         positions: &[GlobalCommitPosition],
         reachable_set: &mut AncestorsBitSet,
     ) -> ResolvedChangeTargets {
@@ -311,7 +312,7 @@ impl CompositeCommitIndex {
                 (commit_id, state)
             })
             .collect_vec();
-        ResolvedChangeTargets { targets }
+        ResolvedChangeTargets { change_id, targets }
     }
 
     pub fn is_ancestor(&self, ancestor_id: &CommitId, descendant_id: &CommitId) -> bool {
@@ -687,9 +688,13 @@ impl<I: AsCompositeIndex + Send + Sync> ChangeIdIndex for ChangeIdIndexImpl<I> {
         let index = self.index.as_composite().commits();
         Ok(index
             .resolve_change_id_prefix(prefix)
-            .map(|(_change_id, positions)| {
+            .map(|(change_id, positions)| {
                 let mut reachable_set = self.reachable_set.lock().unwrap();
-                index.resolve_change_targets_for_positions(&positions, &mut reachable_set)
+                index.resolve_change_targets_for_positions(
+                    change_id,
+                    &positions,
+                    &mut reachable_set,
+                )
             }))
     }
 

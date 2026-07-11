@@ -214,6 +214,8 @@ pub enum ResolvedChangeState {
 /// can also be returned to allow showing a change offset number in the evolog.
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct ResolvedChangeTargets {
+    /// The fully resolved change ID.
+    pub change_id: ChangeId,
     /// All indexed commits with this change ID. The sort order of the commits
     /// is determined by the index implementation, but it is preferred that more
     /// recent commits should be sorted before later commits when possible. All
