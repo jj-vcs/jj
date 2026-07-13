@@ -117,6 +117,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj workspace list` templates are now labeled with `workspace name`,
   `workspace root`, etc.
 
+* The "Did you mean" hint for a mistyped bookmark, revision, or function no
+  longer lists every similar name. It now shows the 5 most similar ones,
+  most similar first, followed by e.g. `or 20 others`.
+  [#8017](https://github.com/jj-vcs/jj/issues/8017)
+
 ## [0.45.1] - 2026-09-03
 
 This release fixes an error that prevented the new jj-core crate from being
