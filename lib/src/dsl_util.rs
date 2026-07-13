@@ -979,9 +979,58 @@ where
         .collect()
 }
 
+/// Picks at most `max` names most similar to `name`, preserving the order of
+/// the `candidates` list.
+pub fn take_most_similar<'a, S: AsRef<str>>(
+    name: &str,
+    candidates: &'a [S],
+    max: usize,
+) -> Vec<&'a str> {
+    if candidates.len() <= max {
+        return candidates.iter().map(|cand| cand.as_ref()).collect();
+    }
+    let mut scored = candidates
+        .iter()
+        .map(|cand| cand.as_ref())
+        .enumerate()
+        .map(|(index, cand)| (index, cand, strsim::jaro(name, cand)))
+        .collect_vec();
+    // Ties are broken by the input order, so the picked names don't depend on
+    // the sort algorithm.
+    scored.sort_unstable_by(|(index1, _, score1), (index2, _, score2)| {
+        score2.total_cmp(score1).then(index1.cmp(index2))
+    });
+    scored.truncate(max);
+    scored.sort_unstable_by_key(|&(index, _, _)| index);
+    scored.into_iter().map(|(_, cand, _)| cand).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_take_most_similar() {
+        // Sorted by name, as collect_similar() returns them.
+        let candidates = [
+            "feature-1",
+            "feature-10",
+            "feature-11",
+            "feature-2",
+            "feature-9",
+        ];
+        assert_eq!(take_most_similar("feature-9x", &candidates, 5), candidates);
+        // "feature-9" sorts last, but it's the most similar name.
+        assert_eq!(
+            take_most_similar("feature-9x", &candidates, 3),
+            ["feature-1", "feature-2", "feature-9"]
+        );
+        // Equally similar names are picked in the input order.
+        assert_eq!(
+            take_most_similar("feature-9x", &candidates, 2),
+            ["feature-1", "feature-9"]
+        );
+    }
 
     #[test]
     fn test_expect_arguments() {

@@ -101,6 +101,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   conflict is now preserved in the rewritten commit.
   [#9747](https://github.com/jj-vcs/jj/issues/9747)
 
+* The "Did you mean" hint for a mistyped bookmark, revision, or function no
+  longer lists every similar name. It now shows the 5 most similar ones,
+  followed by e.g. `or 20 others`.
+  [#8017](https://github.com/jj-vcs/jj/issues/8017)
+
 ## [0.43.0] - 2026-07-01
 
 ### Release highlights
