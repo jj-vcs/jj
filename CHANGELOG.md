@@ -25,6 +25,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj git push --all` now pushes all tags in addition to bookmarks.
 
+* The `WorkspaceRef.root()` and `RepoPath.absolute()` template functions now
+  return `Option<FsPath>` and `FsPath` respectively, instead of `String`.
+
 ### Deprecations
 
 ### New features
@@ -33,8 +36,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   point where multiple branches merge.
 
 * New `builtin_workspace_list` and `builtin_workspace_list_with_root` template
-  aliases are available for `jj workspace list`, and `WorkspaceRef.root()` now
-  returns an optional `FsPath` value.
+  aliases are available for `jj workspace list`.
 
 ### Fixed bugs
 

@@ -551,8 +551,7 @@ _Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
 A slash-separated path relative to the repository root. The following methods
 are defined.
 
-* `.absolute() -> String`: Format as absolute path using platform-native
-  separator.
+* `.absolute() -> FsPath`: Absolute filesystem path.
 * `.display() -> String`: Format path for display. The formatted path uses
   platform-native separator, and is relative to the current working directory.
 * `.parent() -> Option<RepoPath>`: Parent directory path.

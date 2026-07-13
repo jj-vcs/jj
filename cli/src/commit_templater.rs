@@ -2072,11 +2072,7 @@ fn builtin_repo_path_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, R
             // `RepoPathUiConverter` because absolute paths only make sense for
             // filesystem paths. Other cases should fail here.
             let out_property = self_property.and_then(move |path| match path_converter {
-                RepoPathUiConverter::Fs { cwd: _, base } => path
-                    .to_fs_path(base)?
-                    .into_os_string()
-                    .into_string()
-                    .map_err(|_| TemplatePropertyError("Invalid UTF-8 sequence in path".into())),
+                RepoPathUiConverter::Fs { cwd: _, base } => Ok(path.to_fs_path(base)?),
             });
             Ok(out_property.into_dyn_wrapped())
         },
