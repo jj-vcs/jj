@@ -766,6 +766,8 @@ fn test_workspaces_conflicting_edits() {
     Parent commit (@-)      : qpvuntsm b853f7c8 (no description set)
     Added 0 files, modified 1 files, removed 0 files
     Updated working copy to fresh commit 90f3d42e0bff
+    Hint: Working-copy changes were saved in commit 5f9e41510c33.
+    Restore them with `jj restore --from 5f9e41510c33`.
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&secondary_dir),
@@ -998,6 +1000,8 @@ fn test_workspaces_updated_by_other_with_changes_in_working_copy_automatic() {
     Parent commit (@-)      : qpvuntsm b853f7c8 (no description set)
     Added 0 files, modified 1 files, removed 0 files
     Updated working copy to fresh commit 90f3d42e0bff
+    Hint: Working-copy changes were saved in commit 8e2b91d60d5d.
+    Restore them with `jj restore --from 8e2b91d60d5d`.
     Working copy  (@) now at: pmmvwywv/0 c38323e3 (divergent) (empty) modified
     Parent commit (@-)      : qpvuntsm b853f7c8 (no description set)
     [EOF]
@@ -1325,6 +1329,55 @@ fn test_workspaces_update_stale_snapshot() {
     ◆  000000000000
     [EOF]
     ");
+}
+
+/// `jj workspace update-stale` overwrites the working copy on disk, but should
+/// tell the user which commit their un-snapshotted changes were saved in, and
+/// that commit should recover them via `jj restore`.
+#[test]
+fn test_workspaces_update_stale_recovers_changes() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+    let secondary_dir = test_env.work_dir("secondary");
+
+    main_dir.write_file("file", "contents\n");
+    main_dir.run_jj(["new"]).success();
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+
+    // Make an un-snapshotted change in the secondary working copy, then rewrite
+    // that workspace's working-copy commit from the main workspace so the
+    // secondary working copy becomes stale.
+    secondary_dir.write_file("file", "precious changes\n");
+    main_dir.write_file("file", "changed in main\n");
+    main_dir.run_jj(["squash"]).success();
+
+    // Recovering the stale working copy overwrites the file on disk, but the
+    // hint points at the commit that preserved the un-snapshotted change.
+    let output = secondary_dir.run_jj(["workspace", "update-stale"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Concurrent modification detected, resolving automatically.
+    Rebased 1 descendant commits onto commits rewritten by other operation.
+    Working copy  (@) now at: pmmvwywv/2 9986aa24 (divergent) (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm dcf7f611 (no description set)
+    Added 0 files, modified 1 files, removed 0 files
+    Updated working copy to fresh commit 9986aa24e594
+    Hint: Working-copy changes were saved in commit 9ae6e8703803.
+    Restore them with `jj restore --from 9ae6e8703803`.
+    [EOF]
+    ");
+
+    // The un-snapshotted change is no longer on disk...
+    insta::assert_snapshot!(secondary_dir.read_file("file"), @"changed in main");
+
+    // ...but restoring from the hinted commit brings it back.
+    secondary_dir
+        .run_jj(["restore", "--from", "9ae6e8703803"])
+        .success();
+    insta::assert_snapshot!(secondary_dir.read_file("file"), @"precious changes\n");
 }
 
 /// Test that "workspace update-stale" works in colocated repos.
