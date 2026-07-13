@@ -55,6 +55,11 @@ and this project adheres to
   and `jj` commands could import partially fetched refs, causing divergence.
   [#7349](https://github.com/jj-vcs/jj/issues/7349)
 
+* The "Did you mean" hint for a mistyped bookmark, revision, or function no
+  longer lists every similar name. It now shows the 5 most similar ones,
+  most similar first, followed by e.g. `or 20 others`.
+  [#8017](https://github.com/jj-vcs/jj/issues/8017)
+
 ## [0.46.0] - 2026-10-07
 
 ### Release highlights
