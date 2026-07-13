@@ -1299,7 +1299,10 @@ fn test_import_refs_reimport_remote_tags_deleted() -> TestResult {
     tx.repo_mut().rebase_descendants().block_on()?;
     let repo = tx.commit("test").block_on()?;
     assert_eq!(stats.changed_remote_tags.len(), 1);
-    assert_eq!(stats.changed_remote_tags[0].0, remote_symbol("tag1", "git"));
+    assert_eq!(
+        stats.changed_remote_tags[0].symbol,
+        remote_symbol("tag1", "git")
+    );
 
     // Deleted local and @git tags should be imported.
     assert!(repo.view().get_local_tag("tag1".as_ref()).is_absent());
@@ -4551,7 +4554,7 @@ fn test_fetch_multiple_branches() -> TestResult {
         stats
             .changed_remote_bookmarks
             .iter()
-            .map(|(symbol, _)| symbol)
+            .map(|update| &update.symbol)
             .collect_vec(),
         [remote_symbol("main", "origin")]
     );
@@ -4649,11 +4652,11 @@ fn test_fetch_with_tag_changes() -> TestResult {
     let repo = tx.commit("test").block_on()?;
     assert_eq!(stats.changed_remote_tags.len(), 2);
     assert_eq!(
-        stats.changed_remote_tags[0].0,
+        stats.changed_remote_tags[0].symbol,
         remote_symbol("tag1", "origin")
     );
     assert_eq!(
-        stats.changed_remote_tags[1].0,
+        stats.changed_remote_tags[1].symbol,
         remote_symbol("tag2", "origin")
     );
 
@@ -4712,7 +4715,7 @@ fn test_fetch_with_explicit_tag_patterns() -> TestResult {
     let repo = tx.commit("test").block_on()?;
     assert_eq!(stats.changed_remote_tags.len(), 1);
     assert_eq!(
-        stats.changed_remote_tags[0].0,
+        stats.changed_remote_tags[0].symbol,
         remote_symbol("tag2", "origin")
     );
 
@@ -4734,7 +4737,7 @@ fn test_fetch_with_explicit_tag_patterns() -> TestResult {
     let repo = tx.commit("test").block_on()?;
     assert_eq!(stats.changed_remote_tags.len(), 1);
     assert_eq!(
-        stats.changed_remote_tags[0].0,
+        stats.changed_remote_tags[0].symbol,
         remote_symbol("tag1", "origin")
     );
 
