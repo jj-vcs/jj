@@ -59,7 +59,7 @@ pub struct ConfigListArgs {
     /// * `value: ConfigValue`: Value to be formatted in TOML syntax.
     /// * `overridden: Boolean`: True if the value is shadowed by other.
     /// * `source: String`: Source of the value.
-    /// * `path: String`: Path to the config file.
+    /// * `path: Option<FsPath>`: Path to the config file.
     ///
     /// Can be overridden by the `templates.config_list` setting. To
     /// see a detailed config list, use the `builtin_config_list_detailed`
@@ -146,13 +146,7 @@ fn config_template_language(settings: &UserSettings, current_dir: &Path) -> Conf
         Ok(out_property.into_dyn_wrapped())
     });
     language.add_keyword("path", |self_property| {
-        let out_property = self_property.map(|annotated| {
-            // TODO: maybe add FilePath(PathBuf) template type?
-            annotated
-                .path
-                .as_ref()
-                .map_or_else(String::new, |path| path.to_string_lossy().into_owned())
-        });
+        let out_property = self_property.map(|annotated| annotated.path);
         Ok(out_property.into_dyn_wrapped())
     });
     language.add_keyword("overridden", |self_property| {

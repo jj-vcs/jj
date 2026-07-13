@@ -26,7 +26,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj git push --all` now pushes all tags in addition to bookmarks.
 
 * The `WorkspaceRef.root()` and `RepoPath.absolute()` template functions now
-  return `Option<FsPath>` and `FsPath` respectively, instead of `String`.
+  return `Option<FsPath>` and `FsPath` respectively, instead of `String`. The
+  `path` keyword in `jj config list` templates now returns `Option<FsPath>`.
 
 ### Deprecations
 
