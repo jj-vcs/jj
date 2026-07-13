@@ -7344,6 +7344,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <li>
 <p><code>jj git push --all</code> now pushes all tags in addition to bookmarks.</p>
 </li>
+<li>
+<p>The <code>WorkspaceRef.root()</code> and <code>RepoPath.absolute()</code> template functions now
+  return <code>Option&lt;FsPath&gt;</code> and <code>FsPath</code> respectively, instead of <code>String</code>. The
+  <code>path</code> keyword in <code>jj config list</code> templates now returns <code>Option&lt;FsPath&gt;</code>.</p>
+</li>
 </ul>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
@@ -7354,8 +7359,7 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 </li>
 <li>
 <p>New <code>builtin_workspace_list</code> and <code>builtin_workspace_list_with_root</code> template
-  aliases are available for <code>jj workspace list</code>, and <code>WorkspaceRef.root()</code> now
-  returns an optional <code>FsPath</code> value.</p>
+  aliases are available for <code>jj workspace list</code>.</p>
 </li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
