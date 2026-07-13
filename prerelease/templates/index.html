@@ -1178,6 +1178,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#fspath-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      FsPath type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#integer-type" class="md-nav__link">
     <span class="md-ellipsis">
       Integer type
@@ -2542,6 +2551,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#fspath-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      FsPath type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#integer-type" class="md-nav__link">
     <span class="md-ellipsis">
       Integer type
@@ -3254,6 +3272,17 @@ multiple <code>@</code>s.</p>
 <li><code>.domain() -&gt; String</code>: the part of the email after the first <code>@</code> or the empty
   string.</li>
 </ul>
+<h3 id="fspath-type"><code>FsPath</code> type<a class="headerlink" href="#fspath-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
+<p>A filesystem path. Paths can contain bytes that are not valid UTF-8. Rendering
+and path formatting methods preserve those bytes. Serialization with <code>json()</code>
+follows Rust's <code>Path</code> serialization, which can reject non-UTF-8 paths.</p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code>.absolute() -&gt; FsPath</code>: Return an absolute filesystem path.</li>
+<li><code>.relative() -&gt; FsPath</code>: Return the path relative to the current working
+  directory.</li>
+</ul>
 <h3 id="integer-type"><code>Integer</code> type<a class="headerlink" href="#integer-type" title="Permanent link">&para;</a></h3>
 <p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
 <p>No methods are defined.</p>
@@ -3553,7 +3582,13 @@ only occur directly in the call site they are used in.</p>
 <ul>
 <li><code>.name() -&gt; RefSymbol</code>: Returns the workspace name as a symbol.</li>
 <li><code>.target() -&gt; Commit</code>: Returns the working-copy commit of this workspace.</li>
-<li><code>.root() -&gt; Template</code>: Returns the absolute path to the workspace root.</li>
+<li>
+<p><code>.root() -&gt; Option&lt;FsPath&gt;</code>: Returns the workspace root path, if the root path
+  is recorded and can be resolved.</p>
+<p>This is optional because workspaces created before jj 0.38.0 did not record
+workspace root paths, and a recorded path can also become stale if the
+workspace directory is moved or deleted.</p>
+</li>
 </ul>
 <h2 id="color-labels">Color labels<a class="headerlink" href="#color-labels" title="Permanent link">&para;</a></h2>
 <p>You can <a href="../config/#custom-colors-and-styles">customize the output colors</a> by using color labels. <code>jj</code>

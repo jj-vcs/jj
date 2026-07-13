@@ -7331,8 +7331,15 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
 <ul>
-<li>New <code>merge_point()</code> revset function which (similar to <code>fork_point</code>) finds the
-  point where multiple branches merge.</li>
+<li>
+<p>New <code>merge_point()</code> revset function which (similar to <code>fork_point</code>) finds the
+  point where multiple branches merge.</p>
+</li>
+<li>
+<p>New <code>builtin_workspace_list</code> and <code>builtin_workspace_list_with_root</code> template
+  aliases are available for <code>jj workspace list</code>, and <code>WorkspaceRef.root()</code> now
+  returns an optional <code>FsPath</code> value.</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
