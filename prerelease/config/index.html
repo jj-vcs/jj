@@ -5470,9 +5470,6 @@ default fetch refspecs for the remotes are read from the Git configuration.</p>
 <p>The glob pattern supports only <code>*</code> (other wildcard characters like <code>?</code> are <em>not</em>
 supported). You can combine patterns with logical operators to specify multiple
 bookmarks and tags, but only union and negative intersection are supported.</p>
-<p>Note that <strong><code>remotes.&lt;name&gt;.fetch-tags</code> is experimental</strong>. Tags matching this
-pattern will be fetched as tracked <code>&lt;name&gt;@&lt;remote&gt;</code> tags, and corresponding
-local tags will be created.</p>
 <div class="highlight"><pre><span></span><code><span class="k">[remotes.origin]</span>
 <span class="n">fetch-bookmarks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;~gh-pages&quot;</span>
 <span class="n">fetch-tags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;v*&quot;</span>

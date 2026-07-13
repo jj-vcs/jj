@@ -7825,23 +7825,14 @@ configuration.</p>
 <p><code>--depth &lt;DEPTH&gt;</code> — Create a shallow clone of the given depth</p>
 </li>
 <li>
-<p><code>--fetch-tags &lt;FETCH_TAGS&gt;</code> — Configure when to fetch tags</p>
-<p>Unless otherwise specified, the initial clone will fetch all tags, while all subsequent fetches will only fetch included tags.</p>
-<p>Possible values:</p>
-<ul>
-<li><code>all</code>:
-  Always fetch all tags</li>
-<li><code>included</code>:
-  Only fetch tags that point to objects that are already being transmitted</li>
-<li><code>none</code>:
-  Do not fetch any tags</li>
-</ul>
-</li>
-<li>
 <p><code>-b</code>, <code>--branch &lt;BRANCH&gt;</code> — Name of the branch to fetch and use as the parent of the working-copy change (can be repeated)</p>
 <p>If not present, all branches are fetched and the repository's default branch is used as parent of the working-copy change.</p>
 <p>By default, the specified pattern matches branch names with glob syntax, but only <code>*</code> is expanded. Other wildcard characters such as <code>?</code> are <em>not</em> supported. Patterns can be repeated or combined with <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">logical operators</a> to specify multiple branches, but only union and negative intersection are supported. If there are multiple matching branches, the first exact branch name is used as the working-copy parent.</p>
 <p>Examples: <code>push-*</code>, <code>(push-* | foo/*) ~ foo/unwanted</code></p>
+</li>
+<li>
+<p><code>-t</code>, <code>--tag &lt;TAG&gt;</code> — Fetch only some of the tags (can be repeated)</p>
+<p>By default, the specified pattern matches tag names with glob syntax, but only <code>*</code> is expanded. Other wildcard characters such as <code>?</code> are <em>not</em> supported. Patterns can be repeated or combined with <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">logical operators</a> to specify multiple tags, but only union and negative intersection are supported.</p>
 </li>
 </ul>
 <h2 id="jj-git-colocation"><code>jj git colocation</code><a class="headerlink" href="#jj-git-colocation" title="Permanent link">&para;</a></h2>
@@ -7883,8 +7874,12 @@ configuration.</p>
 <p>Examples: <code>push-*</code>, <code>(push-* | foo/*) ~ foo/unwanted</code></p>
 </li>
 <li>
-<p><code>--tracked</code> — Fetch only tracked bookmarks</p>
-<p>This fetches only bookmarks that are already tracked from the specified remote(s).</p>
+<p><code>-t</code>, <code>--tag &lt;TAG&gt;</code> — Fetch only some of the tags (can be repeated)</p>
+<p>By default, the specified pattern matches tag names with glob syntax, but only <code>*</code> is expanded. Other wildcard characters such as <code>?</code> are <em>not</em> supported. Patterns can be repeated or combined with <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">logical operators</a> to specify multiple tags, but only union and negative intersection are supported.</p>
+</li>
+<li>
+<p><code>--tracked</code> — Fetch only tracked bookmarks and tags</p>
+<p>This fetches only bookmarks and tags that are already tracked from the specified remote(s).</p>
 </li>
 <li>
 <p><code>--remote &lt;REMOTE&gt;</code> — The remote to fetch from (only named remotes are supported, can be repeated)</p>
@@ -7933,9 +7928,9 @@ configuration.</p>
 </ul>
 <h2 id="jj-git-push"><code>jj git push</code><a class="headerlink" href="#jj-git-push" title="Permanent link">&para;</a></h2>
 <p>Push to a Git remote</p>
-<p>By default, pushes tracking bookmarks pointing to <code>remote_bookmarks(remote=&lt;remote&gt;)..@</code>. Use <code>--bookmark</code> to push specific bookmarks. Use <code>--all</code> to push all bookmarks. Use <code>--change</code> to generate bookmark names based on the change IDs of specific commits.</p>
-<p>When pushing a bookmark, the command pushes all commits in the range from the remote's current position up to and including the bookmark's target commit. Any descendant commits beyond the bookmark are not pushed.</p>
-<p>If the local bookmark has changed from the last fetch, push will update the remote bookmark to the new position after passing safety checks. This is similar to <code>git push --force-with-lease</code> - the remote is updated only if its current state matches what Jujutsu last fetched.</p>
+<p>By default, pushes tracking bookmarks and tags pointing to <code>remote_bookmarks(remote=&lt;remote&gt;)..@</code>. Use <code>--bookmark</code>/<code>--tag</code> to push specific bookmarks or tags. Use <code>--all</code> to push all bookmarks and tags. Use <code>--change</code> to generate bookmark names based on the change IDs of specific commits.</p>
+<p>When pushing a bookmark or tag, the command pushes all commits in the range from the remote's current position up to and including its target commit. Any descendant commits beyond the reference are not pushed.</p>
+<p>If the local reference has changed from the last fetch, push will update the remote reference to the new position after passing safety checks. This is similar to <code>git push --force-with-lease</code> - the remote is updated only if its current state matches what Jujutsu last fetched.</p>
 <p>Unlike in Git, the remote to push to is not derived from the tracked remote bookmarks. Use <code>--remote</code> to select the remote Git repository by name. There is no option to push to multiple remotes.</p>
 <p>Before the command actually moves, creates, or deletes a remote bookmark, it makes several <a href="https://docs.jj-vcs.dev/latest/bookmarks/#pushing-bookmarks-safety-checks">safety checks</a>. If there is a problem, you may need to run <code>jj git fetch --remote &lt;remote name&gt;</code> and/or resolve some <a href="https://docs.jj-vcs.dev/latest/bookmarks/#conflicts">bookmark conflicts</a>.</p>
 <p><strong>Usage:</strong> <code>jj git push [OPTIONS]</code></p>
@@ -7951,15 +7946,20 @@ configuration.</p>
 <p>By default, the specified pattern matches bookmark names with glob syntax. You can also use other <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">string pattern syntax</a>.</p>
 </li>
 <li>
-<p><code>--all</code> — Push all bookmarks (including new bookmarks)</p>
+<p><code>-t</code>, <code>--tag &lt;TAG&gt;</code> — Push only this tag, or tags matching a pattern (can be repeated)</p>
+<p>If a tag isn't tracking anything yet, the remote tag will be tracked automatically.</p>
+<p>By default, the specified pattern matches tag names with glob syntax. You can also use other <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">string pattern syntax</a>.</p>
 </li>
 <li>
-<p><code>--tracked</code> — Push all tracked bookmarks</p>
-<p>This usually means that the bookmark was already pushed to or fetched from the <a href="https://docs.jj-vcs.dev/latest/bookmarks#remotes-and-tracked-bookmarks">relevant remote</a>.</p>
+<p><code>--all</code> — Push all bookmarks and tags (including new ones)</p>
 </li>
 <li>
-<p><code>--deleted</code> — Push all deleted bookmarks</p>
-<p>Only tracked bookmarks can be successfully deleted on the remote. A warning will be printed if any untracked bookmarks on the remote correspond to missing local bookmarks.</p>
+<p><code>--tracked</code> — Push all tracked bookmarks and tags</p>
+<p>This usually means that the bookmark or tag was already pushed to or fetched from the <a href="https://docs.jj-vcs.dev/latest/bookmarks#remotes-and-tracked-bookmarks">relevant remote</a>.</p>
+</li>
+<li>
+<p><code>--deleted</code> — Push all deleted bookmarks and tags</p>
+<p>Only tracked bookmarks and tags can be successfully deleted on the remote. A warning will be printed if any untracked bookmarks or tags on the remote correspond to missing local bookmarks or tags.</p>
 </li>
 <li>
 <p><code>--allow-empty-description</code> — Allow pushing commits with empty descriptions</p>
@@ -7969,7 +7969,7 @@ configuration.</p>
 <p>The set of private commits can be configured by the <code>git.private-commits</code> setting. The default is <code>none()</code>, meaning all commits are eligible to be pushed.</p>
 </li>
 <li>
-<p><code>-r</code>, <code>--revision &lt;REVSETS&gt;</code> — Push bookmarks pointing to these commits (can be repeated)</p>
+<p><code>-r</code>, <code>--revision &lt;REVSETS&gt;</code> — Push bookmarks and tags pointing to these commits (can be repeated)</p>
 </li>
 <li>
 <p><code>-c</code>, <code>--change &lt;REVSETS&gt;</code> — Push this commit by creating a bookmark (can be repeated)</p>
@@ -8009,19 +8009,6 @@ configuration.</p>
 </ul>
 <h6 id="options_36"><strong>Options:</strong><a class="headerlink" href="#options_36" title="Permanent link">&para;</a></h6>
 <ul>
-<li>
-<p><code>--fetch-tags &lt;FETCH_TAGS&gt;</code> — Configure when to fetch tags</p>
-<p>Default value: <code>included</code></p>
-<p>Possible values:</p>
-<ul>
-<li><code>all</code>:
-  Always fetch all tags</li>
-<li><code>included</code>:
-  Only fetch tags that point to objects that are already being transmitted</li>
-<li><code>none</code>:
-  Do not fetch any tags</li>
-</ul>
-</li>
 <li>
 <p><code>--push-url &lt;PUSH_URL&gt;</code> — The URL used for push</p>
 <p>Local path will be resolved to absolute form</p>
@@ -9269,7 +9256,18 @@ achieved with <code>jj new</code>.</p>
 <h6 id="options_61"><strong>Options:</strong><a class="headerlink" href="#options_61" title="Permanent link">&para;</a></h6>
 <ul>
 <li><code>-a</code>, <code>--all-remotes</code> — Show all tracked and untracked remote tags including the ones whose targets are synchronized with the local tags</li>
-<li><code>-c</code>, <code>--conflicted</code> — Show conflicted tags only</li>
+<li>
+<p><code>--remote &lt;REMOTE&gt;</code> — Show all tracked and untracked remote tags belonging to this remote</p>
+<p>Can be combined with <code>--tracked</code> or <code>--conflicted</code> to filter the tags shown (can be repeated.)</p>
+<p>By default, the specified pattern matches remote names with glob syntax. You can also use other <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">string pattern syntax</a>.</p>
+</li>
+<li>
+<p><code>-t</code>, <code>--tracked</code> — Show tracked remote tags only</p>
+<p>This omits local Git-tracking tags by default.</p>
+</li>
+<li>
+<p><code>-c</code>, <code>--conflicted</code> — Show conflicted tags only</p>
+</li>
 <li>
 <p><code>-r</code>, <code>--revision &lt;REVSETS&gt;</code> — Show tags whose local targets are in the given revisions</p>
 <p>Note that <code>-r deleted_tag</code> will not work since <code>deleted_tag</code> wouldn't have a local target.</p>

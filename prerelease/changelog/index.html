@@ -7328,6 +7328,23 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h2 id="unreleased"><a href="https://github.com/jj-vcs/jj/compare/v0.43.0...HEAD">Unreleased</a><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <h3 id="release-highlights">Release highlights<a class="headerlink" href="#release-highlights" title="Permanent link">&para;</a></h3>
 <h3 id="breaking-changes">Breaking changes<a class="headerlink" href="#breaking-changes" title="Permanent link">&para;</a></h3>
+<ul>
+<li>
+<p><code>jj git fetch</code> now fetches tags the same way it fetches bookmarks. Tags are
+  fetched as <code>&lt;name&gt;@&lt;remote&gt;</code>, and these remote tags are automatically tracked
+  by local tags of the same name. Running <code>jj git fetch</code> in an existing
+  repository will re-fetch all tags to initialize the tracking state.</p>
+<p>Git's <code>tagOpt</code> is no longer respected. To disable tag fetching, set
+<code>remotes.&lt;name&gt;.fetch-tags = '~*'</code> in the jj configuration.</p>
+</li>
+<li>
+<p><code>jj git clone --fetch-tags=all|none|included</code> is removed in favor of
+  <code>--tag=PATTERN</code>.</p>
+</li>
+<li>
+<p><code>jj git push --all</code> now pushes all tags in addition to bookmarks.</p>
+</li>
+</ul>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
 <ul>
