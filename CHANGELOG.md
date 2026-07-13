@@ -22,6 +22,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * New `builtin_workspace_list` and `builtin_workspace_list_with_root` template
   aliases are available for `jj workspace list`, and `WorkspaceRef.root()` now
   returns an optional `FsPath` value.
+  
+* `squash -r` now take multiple changes. The destination to squash into is 
+  `roots(REVSETS)-`. Note: when a single commit is supplied, the behavior 
+  remains unchanged.
 
 ### Fixed bugs
 
