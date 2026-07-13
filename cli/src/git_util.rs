@@ -32,6 +32,7 @@ use jj_lib::git;
 use jj_lib::git::FailedRefExportReason;
 use jj_lib::git::GitExportStats;
 use jj_lib::git::GitImportOptions;
+use jj_lib::git::GitImportRefUpdate;
 use jj_lib::git::GitImportStats;
 use jj_lib::git::GitProgress;
 use jj_lib::git::GitPushStats;
@@ -39,9 +40,6 @@ use jj_lib::git::GitRefKind;
 use jj_lib::git::GitSettings;
 use jj_lib::git::GitSidebandLineTerminator;
 use jj_lib::git::GitSubprocessCallback;
-use jj_lib::op_store::RefTarget;
-use jj_lib::op_store::RemoteRef;
-use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::settings::RemoteSettingsMap;
@@ -238,9 +236,7 @@ fn print_imported_changes(
     ] {
         let refs_stats = changes
             .iter()
-            .map(|(symbol, (remote_ref, ref_target))| {
-                RefStatus::new(kind, symbol.as_ref(), remote_ref, ref_target, tx.repo())
-            })
+            .map(|update| RefStatus::new(kind, update, tx.repo()))
             .collect_vec();
         let Some(max_width) = refs_stats.iter().map(|x| x.symbol.width()).max() else {
             continue;
@@ -412,16 +408,14 @@ struct RefStatus {
 }
 
 impl RefStatus {
-    fn new(
-        ref_kind: GitRefKind,
-        symbol: RemoteRefSymbol<'_>,
-        remote_ref: &RemoteRef,
-        ref_target: &RefTarget,
-        repo: &dyn Repo,
-    ) -> Self {
+    fn new(ref_kind: GitRefKind, update: &GitImportRefUpdate, repo: &dyn Repo) -> Self {
         let tracking_status = match ref_kind {
             GitRefKind::Bookmark => {
-                if repo.view().get_remote_bookmark(symbol).is_tracked() {
+                if repo
+                    .view()
+                    .get_remote_bookmark(update.symbol.as_ref())
+                    .is_tracked()
+                {
                     TrackingStatus::Tracked
                 } else {
                     TrackingStatus::Untracked
@@ -430,14 +424,17 @@ impl RefStatus {
             GitRefKind::Tag => TrackingStatus::NotApplicable,
         };
 
-        let import_status = match (remote_ref.target.is_absent(), ref_target.is_absent()) {
+        let import_status = match (
+            update.old_remote_ref.target.is_absent(),
+            update.new_target.is_absent(),
+        ) {
             (true, false) => ImportStatus::New,
             (false, true) => ImportStatus::Deleted,
             _ => ImportStatus::Updated,
         };
 
         Self {
-            symbol: symbol.to_string(),
+            symbol: update.symbol.to_string(),
             tracking_status,
             import_status,
             ref_kind,
