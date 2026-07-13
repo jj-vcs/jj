@@ -907,7 +907,7 @@ Martin von Zweigbergk</p>
 <li><code dir="auto">value: ConfigValue</code>: Value to be formatted in TOML syntax.</li>
 <li><code dir="auto">overridden: Boolean</code>: True if the value is shadowed by other.</li>
 <li><code dir="auto">source: String</code>: Source of the value.</li>
-<li><code dir="auto">path: String</code>: Path to the config file.</li>
+<li><code dir="auto">path: Option&#x3C;FsPath></code>: Path to the config file.</li>
 </ul>
 <p>Can be overridden by the <code dir="auto">templates.config_list</code> setting. To
 see a detailed config list, use the <code dir="auto">builtin_config_list_detailed</code>
