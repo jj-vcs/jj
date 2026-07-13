@@ -1150,8 +1150,10 @@ edit-args = ["--newtab", "$left", "$right"]
 
 `jj` makes the following substitutions:
 
-- `$left` and `$right` are replaced with the paths to the left and right
-  directories to diff respectively.
+- `$left` is a directory containing the original contents before any changes.
+
+- `$right` is the directory containing the changed contents.
+  Edits are read back from here, so this is where tools should make changes.
 
 - If no `edit-args` are specified, `["$left", "$right"]` are set by default.
 
