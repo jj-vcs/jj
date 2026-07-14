@@ -16,7 +16,6 @@ use jj_lib::op_heads_store;
 use jj_lib::operation::Operation;
 
 use crate::cli_util::CommandHelper;
-use crate::cli_util::command_args_to_transaction_attribute;
 use crate::cli_util::merge_operations;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
@@ -55,17 +54,13 @@ pub async fn cmd_op_integrate(
         async |op_heads| -> Result<Operation, CommandError> {
             // TODO: It may be helpful to print each operation we're merging here
             let transaction_description = "reconcile divergent operations";
-            let transaction_attributes = [(
-                "args".to_string(),
-                command_args_to_transaction_attribute(command.string_args()),
-            )];
             let merged_operation = merge_operations(
                 Some(ui),
                 repo_loader,
                 op_heads,
                 Some(workspace_command.workspace_name()),
                 Some(transaction_description),
-                transaction_attributes,
+                command.string_args(),
             )
             .await?;
             writeln!(

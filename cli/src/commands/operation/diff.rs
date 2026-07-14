@@ -129,14 +129,14 @@ pub async fn cmd_op_diff(
 
     let workspace_name = None;
     let transaction_description = None;
-    let transaction_attributes = [];
+    let command_args = [];
     let merged_from_op = merge_operations(
         None,
         repo_loader,
         from_ops.clone(),
         workspace_name,
         transaction_description,
-        transaction_attributes,
+        &command_args,
     )
     .await?;
     let from_repo = repo_loader.load_at(&merged_from_op).await?;

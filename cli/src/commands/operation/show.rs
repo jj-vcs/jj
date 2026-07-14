@@ -92,14 +92,14 @@ pub async fn cmd_op_show(
     let parent_ops = op.parents().await?;
     let workspace_name = None;
     let transaction_description = None;
-    let transaction_attributes = [];
+    let command_args = [];
     let merged_parent_op = merge_operations(
         None,
         repo_loader,
         parent_ops.clone(),
         workspace_name,
         transaction_description,
-        transaction_attributes,
+        &command_args,
     )
     .await?;
     let parent_repo = repo_loader.load_at(&merged_parent_op).await?;

@@ -114,7 +114,6 @@ use crate::store::Store;
 use crate::submodule_store::SubmoduleStore;
 use crate::transaction::Transaction;
 use crate::transaction::TransactionCommitError;
-use crate::transaction::start_repo_transaction;
 use crate::tree_merge::MergeOptions;
 use crate::view::RenameWorkspaceError;
 use crate::view::View;
@@ -867,12 +866,13 @@ impl RepoLoader {
         // the arguments to that method.
         let mut closest_common_ancestors: HashMap<_, Vec<Operation>> = HashMap::new();
 
-        let transaction_attributes = transaction_attributes.into_iter().collect_vec();
-        let tx = start_repo_transaction(
-            &self.load_at(&operations[0]).await?,
-            workspace_name,
-            transaction_attributes.clone(),
-        );
+        let mut tx = self.load_at(&operations[0]).await?.start_transaction();
+        if let Some(workspace_name) = workspace_name {
+            tx.set_workspace_name(workspace_name);
+        }
+        for (key, value) in transaction_attributes {
+            tx.set_attribute(key, value);
+        }
         let mut stack = vec![(1, operations, tx)];
 
         while let Some((index, operations, mut tx)) = stack.pop() {
