@@ -832,11 +832,13 @@ fn test_merge_views_criss_cross(op_b_first: bool) -> TestResult {
     let mut tx_d = repo_b.start_transaction();
     tx_d.merge_operation(repo_a.operation(), repo_c.operation())
         .block_on()?;
+    tx_d.repo_mut().rebase_descendants().block_on()?;
     let repo_d = tx_d.commit("D").block_on()?;
 
     let mut tx_e = repo_b.start_transaction();
     tx_e.merge_operation(repo_a.operation(), repo_c.operation())
         .block_on()?;
+    tx_e.repo_mut().rebase_descendants().block_on()?;
     let _repo_e = tx_e.commit("E").block_on()?;
 
     let mut tx_f = repo_d.start_transaction();

@@ -98,19 +98,17 @@ impl Transaction {
     }
 
     /// Merges other_op into this transaction, using base_op as the merge base.
-    /// Returns the number of rebased descendants.
     pub async fn merge_operation(
         &mut self,
         base_op: &Operation,
         other_op: &Operation,
-    ) -> Result<usize, RepoLoaderError> {
+    ) -> Result<(), RepoLoaderError> {
         let repo_loader = self.base_repo().loader();
         let base_op_repo = repo_loader.load_at(base_op).await?;
         let other_repo = repo_loader.load_at(other_op).await?;
         self.parent_ops.push(other_op.clone());
         self.repo_mut().merge(&base_op_repo, &other_repo).await?;
-        let num_rebased = self.repo_mut().rebase_descendants().await?;
-        Ok(num_rebased)
+        Ok(())
     }
 
     pub fn set_is_snapshot(&mut self, is_snapshot: bool) {
