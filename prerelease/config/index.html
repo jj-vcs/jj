@@ -4934,8 +4934,11 @@ the following config keys.</p>
 <p><code>jj</code> makes the following substitutions:</p>
 <ul>
 <li>
-<p><code>$left</code> and <code>$right</code> are replaced with the paths to the left and right
-  directories to diff respectively.</p>
+<p><code>$left</code> is a directory containing the original contents before any changes.</p>
+</li>
+<li>
+<p><code>$right</code> is the directory containing the changed contents.
+  Edits are read back from here, so this is where tools should make changes.</p>
 </li>
 <li>
 <p>If no <code>edit-args</code> are specified, <code>["$left", "$right"]</code> are set by default.</p>
