@@ -7366,6 +7366,10 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
    order is guaranteed: each revision begins execution only after the previous
    one has started, even with <code>--jobs</code> higher than 1.</p>
 </li>
+<li>
+<p><code>jj run</code> gained a <code>--passthrough</code> flag that connects the subprocess's
+  stdout/stderr directly to the terminal instead of capturing output.</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>

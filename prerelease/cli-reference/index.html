@@ -8970,6 +8970,10 @@ $<span class="w"> </span>jj<span class="w"> </span>run<span class="w"> </span>-j
 <li>
 <p><code>--restore-descendants</code> — Preserve the content (not the diff) when rebasing descendants</p>
 </li>
+<li>
+<p><code>--passthrough</code> — Pass through stdout and stderr directly to the terminal</p>
+<p>The command's stdout and stderr are connected directly to the terminal (instead of being captured), so programs that behave differently on a TTY (e.g. colored output, progress bars) work as expected. Stdin is not inherited. Only one job is allowed since parallel jobs would interleave their output.</p>
+</li>
 </ul>
 <h2 id="jj-show"><code>jj show</code><a class="headerlink" href="#jj-show" title="Permanent link">&para;</a></h2>
 <p>Show revision metadata and diff</p>
