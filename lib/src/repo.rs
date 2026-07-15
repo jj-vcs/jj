@@ -926,7 +926,8 @@ impl RepoLoader {
             if let Some(merged_ancestor_op) = ancestor_op {
                 // We have the merge of the ancestor operations. We can proceed to merge with
                 // other_op.
-                num_rebased += tx.merge_operation(merged_ancestor_op, other_op).await?;
+                tx.merge_operation(merged_ancestor_op, other_op).await?;
+                num_rebased += tx.repo_mut().rebase_descendants().await?;
                 // Push state on the stack to continue merging the rest of the operations.
                 stack.push((index + 1, operations, tx));
                 continue;
