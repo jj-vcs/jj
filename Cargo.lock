@@ -328,9 +328,9 @@ checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
 name = "bytes"
-version = "1.12.0"
+version = "1.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ae3f5d315924270530207e2a68396c3cc547f6dca3fbdca317cfb1a51edb593"
+checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 dependencies = [
  "serde",
 ]
@@ -2598,6 +2598,46 @@ dependencies = [
 ]
 
 [[package]]
+name = "jj-core"
+version = "0.43.0"
+dependencies = [
+ "assert_matches",
+ "blake2",
+ "chrono",
+ "clru",
+ "digest",
+ "etcetera",
+ "eyre",
+ "futures 0.3.32",
+ "insta",
+ "itertools 0.15.0",
+ "jj-core-proc-macros",
+ "pest",
+ "pest_derive",
+ "pollster",
+ "ref-cast",
+ "same-file",
+ "serde",
+ "smallvec",
+ "strsim",
+ "tempfile",
+ "test-case",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "winreg",
+]
+
+[[package]]
+name = "jj-core-proc-macros"
+version = "0.43.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.118",
+]
+
+[[package]]
 name = "jj-lib"
 version = "0.43.0"
 dependencies = [
@@ -2623,7 +2663,8 @@ dependencies = [
  "insta",
  "interim",
  "itertools 0.15.0",
- "jj-lib-proc-macros",
+ "jj-core",
+ "jj-core-proc-macros",
  "maplit",
  "memchr",
  "nix 0.31.3",
@@ -2917,9 +2958,9 @@ dependencies = [
 
 [[package]]
 name = "memchr"
-version = "2.8.2"
+version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88904434abc2901f197fe8cc55f0445e7ded921dba5911dad2e2b39b48e663c4"
+checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
 name = "memmap2"
@@ -3110,11 +3151,10 @@ dependencies = [
 
 [[package]]
 name = "num-iter"
-version = "0.1.45"
+version = "0.1.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1429034a0490724d0075ebb2bc9e875d6503c3cf69e235a8941aa757d83ef5bf"
+checksum = "c92800bd69a1eac91786bcfe9da64a897eb72911b8dc3095decbd07429e8048b"
 dependencies = [
- "autocfg",
  "num-integer",
  "num-traits",
 ]

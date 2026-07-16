@@ -1,0 +1,1395 @@
+// Copyright 2024 The Jujutsu Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! Parser for the fileset language.
+
+// TODO: finish documenting fileset.pest
+#![allow(missing_docs)]
+use std::error;
+use std::sync::LazyLock;
+
+use itertools::Itertools as _;
+use pest::Parser as _;
+use pest::iterators::Pair;
+use pest::pratt_parser::Assoc;
+use pest::pratt_parser::Op;
+use pest::pratt_parser::PrattParser;
+use pest_derive::Parser;
+use thiserror::Error;
+
+use crate::dsl_util;
+use crate::dsl_util::AliasDeclaration;
+use crate::dsl_util::AliasDeclarationParser;
+use crate::dsl_util::AliasDefinitionParser;
+use crate::dsl_util::AliasExpandError;
+use crate::dsl_util::AliasExpandableExpression;
+use crate::dsl_util::AliasId;
+use crate::dsl_util::AliasesMap;
+use crate::dsl_util::Diagnostics;
+use crate::dsl_util::ExpressionFolder;
+use crate::dsl_util::FoldableExpression;
+use crate::dsl_util::InvalidArguments;
+use crate::dsl_util::StringLiteralParser;
+
+/// A parser for the Fileset language.
+#[derive(Parser)]
+#[grammar = "fileset.pest"]
+struct FilesetParser;
+
+const STRING_LITERAL_PARSER: StringLiteralParser<Rule> = StringLiteralParser {
+    content_rule: Rule::string_content,
+    escape_rule: Rule::string_escape,
+};
+
+impl Rule {
+    fn to_symbol(self) -> Option<&'static str> {
+        match self {
+            Self::EOI => None,
+            Self::whitespace => None,
+            Self::identifier => None,
+            Self::strict_identifier_part => None,
+            Self::strict_identifier => None,
+            Self::bare_string => None,
+            Self::string_escape => None,
+            Self::string_content_char => None,
+            Self::string_content => None,
+            Self::string_literal => None,
+            Self::raw_string_content => None,
+            Self::raw_string_literal => None,
+            Self::pattern_kind_op => Some(":"),
+            Self::negate_op => Some("~"),
+            Self::union_op => Some("|"),
+            Self::intersection_op => Some("&"),
+            Self::difference_op => Some("~"),
+            Self::prefix_ops => None,
+            Self::infix_ops => None,
+            Self::function => None,
+            Self::function_name => None,
+            Self::function_arguments => None,
+            Self::formal_parameters => None,
+            Self::pattern => None,
+            Self::bare_string_pattern => None,
+            Self::primary => None,
+            Self::expression => None,
+            Self::program => None,
+            Self::program_or_bare_string => None,
+            Self::function_alias_declaration => None,
+            Self::pattern_alias_declaration => None,
+            Self::alias_declaration => None,
+        }
+    }
+}
+
+/// Manages diagnostic messages emitted during fileset parsing and name
+/// resolution.
+pub type FilesetDiagnostics = Diagnostics<FilesetParseError>;
+
+/// Result of fileset parsing and name resolution.
+pub type FilesetParseResult<T> = Result<T, FilesetParseError>;
+
+/// Error occurred during fileset parsing and name resolution.
+#[derive(Debug, Error)]
+#[error("{pest_error}")]
+pub struct FilesetParseError {
+    kind: FilesetParseErrorKind,
+    pest_error: Box<pest::error::Error<Rule>>,
+    source: Option<Box<dyn error::Error + Send + Sync>>,
+}
+
+/// Categories of fileset parsing and name resolution error.
+#[derive(Clone, Debug, Eq, Error, PartialEq)]
+pub enum FilesetParseErrorKind {
+    /// A syntax error occurred.
+    #[error("Syntax error")]
+    SyntaxError,
+    /// No function for the given name exists.
+    #[error("Function `{name}` doesn't exist")]
+    NoSuchFunction {
+        /// The name of the passed function.
+        name: String,
+        /// Potential candidates matching the given name.
+        candidates: Vec<String>,
+    },
+    /// A fileset function received invalid arguments.
+    #[error("Function `{name}`: {message}")]
+    InvalidArguments {
+        /// The name of the function.
+        name: String,
+        /// An additional message to provide more context.
+        message: String,
+    },
+    /// A redefinition of a function parameter was detected.
+    #[error("Redefinition of function parameter")]
+    RedefinedFunctionParameter,
+    /// An erroneous expression was encountered.
+    #[error("{0}")]
+    Expression(String),
+    /// A fileset expression failed to expand correctly.
+    #[error("In alias `{0}`")]
+    InAliasExpansion(String),
+    /// A function parameter failed to expand correctly.
+    #[error("In function parameter `{0}`")]
+    InParameterExpansion(String),
+    /// An Alias expanded recursively.
+    #[error("Alias `{0}` expanded recursively")]
+    RecursiveAlias(String),
+}
+
+impl FilesetParseError {
+    /// Create a new `FilesetParseError` from with the given `kind` and `span`.
+    pub fn new(kind: FilesetParseErrorKind, span: pest::Span<'_>) -> Self {
+        let message = kind.to_string();
+        let pest_error = Box::new(pest::error::Error::new_from_span(
+            pest::error::ErrorVariant::CustomError { message },
+            span,
+        ));
+        Self {
+            kind,
+            pest_error,
+            source: None,
+        }
+    }
+
+    /// Add an additional error source to the `FilesetParseError`.
+    pub fn with_source(mut self, source: impl Into<Box<dyn error::Error + Send + Sync>>) -> Self {
+        self.source = Some(source.into());
+        self
+    }
+
+    /// Some other expression error.
+    pub fn expression(message: impl Into<String>, span: pest::Span<'_>) -> Self {
+        Self::new(FilesetParseErrorKind::Expression(message.into()), span)
+    }
+
+    /// Category of the underlying error.
+    pub fn kind(&self) -> &FilesetParseErrorKind {
+        &self.kind
+    }
+}
+
+impl AliasExpandError for FilesetParseError {
+    fn invalid_arguments(err: InvalidArguments<'_>) -> Self {
+        err.into()
+    }
+
+    fn recursive_expansion(id: AliasId<'_>, span: pest::Span<'_>) -> Self {
+        Self::new(FilesetParseErrorKind::RecursiveAlias(id.to_string()), span)
+    }
+
+    fn within_alias_expansion(self, id: AliasId<'_>, span: pest::Span<'_>) -> Self {
+        let kind = match id {
+            AliasId::Symbol(_) | AliasId::Pattern(..) | AliasId::Function(..) => {
+                FilesetParseErrorKind::InAliasExpansion(id.to_string())
+            }
+            AliasId::Parameter(_) => FilesetParseErrorKind::InParameterExpansion(id.to_string()),
+        };
+        Self::new(kind, span).with_source(self)
+    }
+}
+
+impl From<pest::error::Error<Rule>> for FilesetParseError {
+    fn from(err: pest::error::Error<Rule>) -> Self {
+        Self {
+            kind: FilesetParseErrorKind::SyntaxError,
+            pest_error: Box::new(rename_rules_in_pest_error(err)),
+            source: None,
+        }
+    }
+}
+
+impl From<InvalidArguments<'_>> for FilesetParseError {
+    fn from(err: InvalidArguments<'_>) -> Self {
+        let kind = FilesetParseErrorKind::InvalidArguments {
+            name: err.name.to_owned(),
+            message: err.message,
+        };
+        Self::new(kind, err.span)
+    }
+}
+
+fn rename_rules_in_pest_error(err: pest::error::Error<Rule>) -> pest::error::Error<Rule> {
+    err.renamed_rules(|rule| {
+        rule.to_symbol()
+            .map(|sym| format!("`{sym}`"))
+            .unwrap_or_else(|| format!("<{rule:?}>"))
+    })
+}
+
+/// Describes the types of Expressions the fileset language supports.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ExpressionKind<'i> {
+    /// A identifier
+    Identifier(&'i str),
+    /// A String.
+    String(String),
+    /// `<name>:<value>` where `<value>` is usually `Identifier` or `String`.
+    Pattern(Box<PatternNode<'i>>),
+    /// A urnary expression.
+    Unary(UnaryOp, Box<ExpressionNode<'i>>),
+    /// A binary expression with both of its nodes.
+    Binary(BinaryOp, Box<ExpressionNode<'i>>, Box<ExpressionNode<'i>>),
+    /// `x | y | ..`
+    UnionAll(Vec<ExpressionNode<'i>>),
+    /// A function call.
+    FunctionCall(Box<FunctionCallNode<'i>>),
+    /// Identity node to preserve the span in the source text.
+    AliasExpanded(AliasId<'i>, Box<ExpressionNode<'i>>),
+}
+
+impl<'i> FoldableExpression<'i> for ExpressionKind<'i> {
+    fn fold<F>(self, folder: &mut F, span: pest::Span<'i>) -> Result<Self, F::Error>
+    where
+        F: ExpressionFolder<'i, Self> + ?Sized,
+    {
+        match self {
+            Self::Identifier(name) => folder.fold_identifier(name, span),
+            Self::String(_) => Ok(self),
+            Self::Pattern(pattern) => folder.fold_pattern(pattern, span),
+            Self::Unary(op, arg) => {
+                let arg = Box::new(folder.fold_expression(*arg)?);
+                Ok(Self::Unary(op, arg))
+            }
+            Self::Binary(op, lhs, rhs) => {
+                let lhs = Box::new(folder.fold_expression(*lhs)?);
+                let rhs = Box::new(folder.fold_expression(*rhs)?);
+                Ok(Self::Binary(op, lhs, rhs))
+            }
+            Self::UnionAll(nodes) => {
+                let nodes = dsl_util::fold_expression_nodes(folder, nodes)?;
+                Ok(Self::UnionAll(nodes))
+            }
+            Self::FunctionCall(function) => folder.fold_function_call(function, span),
+            Self::AliasExpanded(id, subst) => {
+                let subst = Box::new(folder.fold_expression(*subst)?);
+                Ok(Self::AliasExpanded(id, subst))
+            }
+        }
+    }
+}
+
+impl<'i> AliasExpandableExpression<'i> for ExpressionKind<'i> {
+    fn identifier(name: &'i str) -> Self {
+        Self::Identifier(name)
+    }
+
+    fn pattern(pattern: Box<PatternNode<'i>>) -> Self {
+        Self::Pattern(pattern)
+    }
+
+    fn function_call(function: Box<FunctionCallNode<'i>>) -> Self {
+        Self::FunctionCall(function)
+    }
+
+    fn alias_expanded(id: AliasId<'i>, subst: Box<ExpressionNode<'i>>) -> Self {
+        Self::AliasExpanded(id, subst)
+    }
+}
+
+/// A urnary operation in the Fileset language.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum UnaryOp {
+    /// `~`
+    Negate,
+}
+
+/// A binary operation in the Fileset language.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum BinaryOp {
+    /// `&`
+    Intersection,
+    /// `~`
+    Difference,
+}
+
+/// A Expression in the Fileset language.
+pub type ExpressionNode<'i> = dsl_util::ExpressionNode<'i, ExpressionKind<'i>>;
+/// A FunctionCall in the Fileset language.
+pub type FunctionCallNode<'i> = dsl_util::FunctionCallNode<'i, ExpressionKind<'i>>;
+/// A Pattern in the Fileset language.
+pub type PatternNode<'i> = dsl_util::PatternNode<'i, ExpressionKind<'i>>;
+
+fn union_nodes<'i>(lhs: ExpressionNode<'i>, rhs: ExpressionNode<'i>) -> ExpressionNode<'i> {
+    let span = lhs.span.start_pos().span(&rhs.span.end_pos());
+    let expr = match lhs.kind {
+        // Flatten "x | y | z" to save recursion stack. Machine-generated query
+        // might have long chain of unions.
+        ExpressionKind::UnionAll(mut nodes) => {
+            nodes.push(rhs);
+            ExpressionKind::UnionAll(nodes)
+        }
+        _ => ExpressionKind::UnionAll(vec![lhs, rhs]),
+    };
+    ExpressionNode::new(expr, span)
+}
+
+fn parse_function_call_node(pair: Pair<Rule>) -> FilesetParseResult<FunctionCallNode> {
+    assert_eq!(pair.as_rule(), Rule::function);
+    let [name_pair, args_pair] = pair.into_inner().collect_array().unwrap();
+    assert_eq!(name_pair.as_rule(), Rule::function_name);
+    assert_eq!(args_pair.as_rule(), Rule::function_arguments);
+    let name_span = name_pair.as_span();
+    let args_span = args_pair.as_span();
+    let name = name_pair.as_str();
+    let args = args_pair
+        .into_inner()
+        .map(parse_expression_node)
+        .try_collect()?;
+    Ok(FunctionCallNode {
+        name,
+        name_span,
+        args,
+        keyword_args: vec![], // unsupported
+        args_span,
+    })
+}
+
+fn parse_as_string_literal(pair: Pair<Rule>) -> String {
+    match pair.as_rule() {
+        Rule::identifier => pair.as_str().to_owned(),
+        Rule::string_literal => STRING_LITERAL_PARSER.parse(pair.into_inner()),
+        Rule::raw_string_literal => {
+            let [content] = pair.into_inner().collect_array().unwrap();
+            assert_eq!(content.as_rule(), Rule::raw_string_content);
+            content.as_str().to_owned()
+        }
+        r => panic!("unexpected string literal rule: {r:?}"),
+    }
+}
+
+fn parse_primary_node(pair: Pair<Rule>) -> FilesetParseResult<ExpressionNode> {
+    assert_eq!(pair.as_rule(), Rule::primary);
+    let span = pair.as_span();
+    let first = pair.into_inner().next().unwrap();
+    let expr = match first.as_rule() {
+        // Ignore inner span to preserve parenthesized expression as such.
+        Rule::expression => parse_expression_node(first)?.kind,
+        Rule::function => {
+            let function = Box::new(parse_function_call_node(first)?);
+            ExpressionKind::FunctionCall(function)
+        }
+        Rule::pattern => {
+            let [lhs, op, rhs] = first.into_inner().collect_array().unwrap();
+            assert_eq!(lhs.as_rule(), Rule::strict_identifier);
+            assert_eq!(op.as_rule(), Rule::pattern_kind_op);
+            let pattern = Box::new(PatternNode {
+                name: lhs.as_str(),
+                name_span: lhs.as_span(),
+                value: parse_primary_node(rhs)?,
+            });
+            ExpressionKind::Pattern(pattern)
+        }
+        Rule::identifier => ExpressionKind::Identifier(first.as_str()),
+        Rule::string_literal | Rule::raw_string_literal => {
+            ExpressionKind::String(parse_as_string_literal(first))
+        }
+        r => panic!("unexpected primary rule: {r:?}"),
+    };
+    Ok(ExpressionNode::new(expr, span))
+}
+
+fn parse_expression_node(pair: Pair<Rule>) -> FilesetParseResult<ExpressionNode> {
+    assert_eq!(pair.as_rule(), Rule::expression);
+    static PRATT: LazyLock<PrattParser<Rule>> = LazyLock::new(|| {
+        PrattParser::new()
+            .op(Op::infix(Rule::union_op, Assoc::Left))
+            .op(Op::infix(Rule::intersection_op, Assoc::Left)
+                | Op::infix(Rule::difference_op, Assoc::Left))
+            .op(Op::prefix(Rule::negate_op))
+    });
+    PRATT
+        .map_primary(parse_primary_node)
+        .map_prefix(|op, rhs| {
+            let op_kind = match op.as_rule() {
+                Rule::negate_op => UnaryOp::Negate,
+                r => panic!("unexpected prefix operator rule {r:?}"),
+            };
+            let rhs = Box::new(rhs?);
+            let span = op.as_span().start_pos().span(&rhs.span.end_pos());
+            let expr = ExpressionKind::Unary(op_kind, rhs);
+            Ok(ExpressionNode::new(expr, span))
+        })
+        .map_infix(|lhs, op, rhs| {
+            let op_kind = match op.as_rule() {
+                Rule::union_op => return Ok(union_nodes(lhs?, rhs?)),
+                Rule::intersection_op => BinaryOp::Intersection,
+                Rule::difference_op => BinaryOp::Difference,
+                r => panic!("unexpected infix operator rule {r:?}"),
+            };
+            let lhs = Box::new(lhs?);
+            let rhs = Box::new(rhs?);
+            let span = lhs.span.start_pos().span(&rhs.span.end_pos());
+            let expr = ExpressionKind::Binary(op_kind, lhs, rhs);
+            Ok(ExpressionNode::new(expr, span))
+        })
+        .parse(pair.into_inner())
+}
+
+/// Parses text into expression tree. No name resolution is made at this stage.
+pub fn parse_program(text: &str) -> FilesetParseResult<ExpressionNode<'_>> {
+    let mut pairs = FilesetParser::parse(Rule::program, text)?;
+    let first = pairs.next().unwrap();
+    parse_expression_node(first)
+}
+
+/// Parses text into expression tree with bare string fallback. No name
+/// resolution is made at this stage.
+///
+/// If the text can't be parsed as a fileset expression, and if it doesn't
+/// contain any operator-like characters, it will be parsed as a file path.
+pub fn parse_program_or_bare_string(text: &str) -> FilesetParseResult<ExpressionNode<'_>> {
+    let mut pairs = FilesetParser::parse(Rule::program_or_bare_string, text)?;
+    let first = pairs.next().unwrap();
+    let span = first.as_span();
+    let expr = match first.as_rule() {
+        Rule::expression => return parse_expression_node(first),
+        Rule::bare_string_pattern => {
+            let [lhs, op, rhs] = first.into_inner().collect_array().unwrap();
+            assert_eq!(lhs.as_rule(), Rule::strict_identifier);
+            assert_eq!(op.as_rule(), Rule::pattern_kind_op);
+            assert_eq!(rhs.as_rule(), Rule::bare_string);
+            let name_span = lhs.as_span();
+            let value_span = rhs.as_span();
+            let name = lhs.as_str();
+            let value_expr = ExpressionKind::String(rhs.as_str().to_owned());
+            let pattern = Box::new(PatternNode {
+                name,
+                name_span,
+                value: ExpressionNode::new(value_expr, value_span),
+            });
+            ExpressionKind::Pattern(pattern)
+        }
+        Rule::bare_string => ExpressionKind::String(first.as_str().to_owned()),
+        r => panic!("unexpected program or bare string rule: {r:?}"),
+    };
+    Ok(ExpressionNode::new(expr, span))
+}
+
+/// Map of fileset aliases.
+pub type FilesetAliasesMap = AliasesMap<FilesetAliasParser, String>;
+
+/// A FilesetAliasesParser is responsible for parsing String expressions into
+/// Fileset Aliases.
+#[derive(Clone, Debug, Default)]
+pub struct FilesetAliasParser;
+
+impl AliasDeclarationParser for FilesetAliasParser {
+    type Error = FilesetParseError;
+
+    fn parse_declaration(&self, source: &str) -> Result<AliasDeclaration, Self::Error> {
+        let mut pairs = FilesetParser::parse(Rule::alias_declaration, source)?;
+        let first = pairs.next().unwrap();
+        match first.as_rule() {
+            Rule::strict_identifier => Ok(AliasDeclaration::Symbol(first.as_str().to_owned())),
+            Rule::pattern_alias_declaration => {
+                let [name_pair, op, param_pair] = first.into_inner().collect_array().unwrap();
+                assert_eq!(name_pair.as_rule(), Rule::strict_identifier);
+                assert_eq!(op.as_rule(), Rule::pattern_kind_op);
+                assert_eq!(param_pair.as_rule(), Rule::strict_identifier);
+                let name = name_pair.as_str().to_owned();
+                let param = param_pair.as_str().to_owned();
+                Ok(AliasDeclaration::Pattern(name, param))
+            }
+            Rule::function_alias_declaration => {
+                let [name_pair, params_pair] = first.into_inner().collect_array().unwrap();
+                assert_eq!(name_pair.as_rule(), Rule::function_name);
+                assert_eq!(params_pair.as_rule(), Rule::formal_parameters);
+                let name = name_pair.as_str().to_owned();
+                let params_span = params_pair.as_span();
+                let params = params_pair
+                    .into_inner()
+                    .map(|pair| match pair.as_rule() {
+                        Rule::strict_identifier => pair.as_str().to_owned(),
+                        r => panic!("unexpected formal parameter rule {r:?}"),
+                    })
+                    .collect_vec();
+                if params.iter().all_unique() {
+                    Ok(AliasDeclaration::Function(name, params))
+                } else {
+                    Err(FilesetParseError::new(
+                        FilesetParseErrorKind::RedefinedFunctionParameter,
+                        params_span,
+                    ))
+                }
+            }
+            r => panic!("unexpected alias declaration rule {r:?}"),
+        }
+    }
+}
+
+impl AliasDefinitionParser for FilesetAliasParser {
+    type Output<'i> = ExpressionKind<'i>;
+    type Error = FilesetParseError;
+
+    fn parse_definition<'i>(&self, source: &'i str) -> Result<ExpressionNode<'i>, Self::Error> {
+        parse_program(source)
+    }
+}
+
+/// Expand the aliases in `node` and `aliases_map`.
+pub fn expand_aliases<'i>(
+    node: ExpressionNode<'i>,
+    aliases_map: &'i FilesetAliasesMap,
+) -> FilesetParseResult<ExpressionNode<'i>> {
+    dsl_util::expand_aliases(node, aliases_map)
+}
+
+/// Expect a String literal of `type_name` in `node`.
+pub fn expect_string_literal<'a>(
+    type_name: &str,
+    node: &'a ExpressionNode<'_>,
+) -> FilesetParseResult<&'a str> {
+    catch_aliases_no_diagnostics(node, |node| match &node.kind {
+        ExpressionKind::Identifier(name) => Ok(*name),
+        ExpressionKind::String(name) => Ok(name),
+        _ => Err(FilesetParseError::expression(
+            format!("Expected {type_name}"),
+            node.span,
+        )),
+    })
+}
+
+/// Applies the given function to the innermost `node` by unwrapping alias
+/// expansion nodes. Appends alias expansion stack to error and diagnostics.
+pub fn catch_aliases<'a, 'i, T>(
+    diagnostics: &mut FilesetDiagnostics,
+    node: &'a ExpressionNode<'i>,
+    f: impl FnOnce(&mut FilesetDiagnostics, &'a ExpressionNode<'i>) -> Result<T, FilesetParseError>,
+) -> Result<T, FilesetParseError> {
+    let (node, stack) = skip_aliases(node);
+    if stack.is_empty() {
+        f(diagnostics, node)
+    } else {
+        let mut inner_diagnostics = FilesetDiagnostics::new();
+        let result = f(&mut inner_diagnostics, node);
+        diagnostics.extend_with(inner_diagnostics, |diag| attach_aliases_err(diag, &stack));
+        result.map_err(|err| attach_aliases_err(err, &stack))
+    }
+}
+
+fn catch_aliases_no_diagnostics<'a, 'i, T>(
+    node: &'a ExpressionNode<'i>,
+    f: impl FnOnce(&'a ExpressionNode<'i>) -> Result<T, FilesetParseError>,
+) -> Result<T, FilesetParseError> {
+    let (node, stack) = skip_aliases(node);
+    f(node).map_err(|err| attach_aliases_err(err, &stack))
+}
+
+fn skip_aliases<'a, 'i>(
+    mut node: &'a ExpressionNode<'i>,
+) -> (&'a ExpressionNode<'i>, Vec<(AliasId<'i>, pest::Span<'i>)>) {
+    let mut stack = Vec::new();
+    while let ExpressionKind::AliasExpanded(id, subst) = &node.kind {
+        stack.push((*id, node.span));
+        node = subst;
+    }
+    (node, stack)
+}
+
+fn attach_aliases_err(
+    err: FilesetParseError,
+    stack: &[(AliasId<'_>, pest::Span<'_>)],
+) -> FilesetParseError {
+    stack
+        .iter()
+        .rfold(err, |err, &(id, span)| err.within_alias_expansion(id, span))
+}
+
+#[cfg(test)]
+mod tests {
+    use assert_matches::assert_matches;
+
+    use super::*;
+    use crate::dsl_util::KeywordArgument;
+    use crate::tests::TestResult;
+
+    #[derive(Debug)]
+    struct WithFilesetAliasesMap {
+        aliases_map: FilesetAliasesMap,
+    }
+
+    impl WithFilesetAliasesMap {
+        fn parse<'i>(&'i self, text: &'i str) -> FilesetParseResult<ExpressionNode<'i>> {
+            let node = parse_program(text)?;
+            expand_aliases(node, &self.aliases_map)
+        }
+
+        fn parse_normalized<'i>(&'i self, text: &'i str) -> ExpressionNode<'i> {
+            normalize_tree(self.parse(text).unwrap())
+        }
+    }
+
+    fn with_aliases(
+        aliases: impl IntoIterator<Item = (impl AsRef<str>, impl Into<String>)>,
+    ) -> WithFilesetAliasesMap {
+        let mut aliases_map = FilesetAliasesMap::new();
+        for (decl, defn) in aliases {
+            aliases_map.insert(decl, defn, None).unwrap();
+        }
+        WithFilesetAliasesMap { aliases_map }
+    }
+
+    fn parse_into_kind(text: &str) -> Result<ExpressionKind<'_>, FilesetParseErrorKind> {
+        parse_program(text)
+            .map(|node| node.kind)
+            .map_err(|err| err.kind)
+    }
+
+    fn parse_maybe_bare_into_kind(text: &str) -> Result<ExpressionKind<'_>, FilesetParseErrorKind> {
+        parse_program_or_bare_string(text)
+            .map(|node| node.kind)
+            .map_err(|err| err.kind)
+    }
+
+    fn parse_normalized(text: &str) -> ExpressionNode<'_> {
+        normalize_tree(parse_program(text).unwrap())
+    }
+
+    fn parse_maybe_bare_normalized(text: &str) -> ExpressionNode<'_> {
+        normalize_tree(parse_program_or_bare_string(text).unwrap())
+    }
+
+    /// Drops auxiliary data from parsed tree so it can be compared with other.
+    fn normalize_tree(node: ExpressionNode) -> ExpressionNode {
+        fn empty_span() -> pest::Span<'static> {
+            pest::Span::new("", 0, 0).unwrap()
+        }
+
+        fn normalize_list(nodes: Vec<ExpressionNode>) -> Vec<ExpressionNode> {
+            nodes.into_iter().map(normalize_tree).collect()
+        }
+
+        fn normalize_function_call(function: FunctionCallNode) -> FunctionCallNode {
+            FunctionCallNode {
+                name: function.name,
+                name_span: empty_span(),
+                args: normalize_list(function.args),
+                keyword_args: function
+                    .keyword_args
+                    .into_iter()
+                    .map(|arg| KeywordArgument {
+                        name: arg.name,
+                        name_span: empty_span(),
+                        value: normalize_tree(arg.value),
+                    })
+                    .collect(),
+                args_span: empty_span(),
+            }
+        }
+
+        let normalized_kind = match node.kind {
+            ExpressionKind::Identifier(_) | ExpressionKind::String(_) => node.kind,
+            ExpressionKind::Pattern(pattern) => {
+                let pattern = Box::new(PatternNode {
+                    name: pattern.name,
+                    name_span: empty_span(),
+                    value: normalize_tree(pattern.value),
+                });
+                ExpressionKind::Pattern(pattern)
+            }
+            ExpressionKind::Unary(op, arg) => {
+                let arg = Box::new(normalize_tree(*arg));
+                ExpressionKind::Unary(op, arg)
+            }
+            ExpressionKind::Binary(op, lhs, rhs) => {
+                let lhs = Box::new(normalize_tree(*lhs));
+                let rhs = Box::new(normalize_tree(*rhs));
+                ExpressionKind::Binary(op, lhs, rhs)
+            }
+            ExpressionKind::UnionAll(nodes) => {
+                let nodes = normalize_list(nodes);
+                ExpressionKind::UnionAll(nodes)
+            }
+            ExpressionKind::FunctionCall(function) => {
+                let function = Box::new(normalize_function_call(*function));
+                ExpressionKind::FunctionCall(function)
+            }
+            ExpressionKind::AliasExpanded(_, subst) => normalize_tree(*subst).kind,
+        };
+        ExpressionNode {
+            kind: normalized_kind,
+            span: empty_span(),
+        }
+    }
+
+    #[test]
+    fn test_parse_tree_eq() {
+        assert_eq!(
+            parse_normalized(r#" foo( x ) | ~bar:"baz" "#),
+            parse_normalized(r#"(foo(x))|(~(bar:"baz"))"#)
+        );
+        assert_ne!(parse_normalized(r#" foo "#), parse_normalized(r#" "foo" "#));
+    }
+
+    #[test]
+    fn test_parse_invalid_function_name() {
+        assert_eq!(
+            parse_into_kind("5foo(x)"),
+            Err(FilesetParseErrorKind::SyntaxError)
+        );
+    }
+
+    #[test]
+    fn test_parse_whitespace() {
+        let ascii_whitespaces: String = ('\x00'..='\x7f')
+            .filter(char::is_ascii_whitespace)
+            .collect();
+        assert_eq!(
+            parse_normalized(&format!("{ascii_whitespaces}f()")),
+            parse_normalized("f()")
+        );
+    }
+
+    #[test]
+    fn test_parse_identifier() {
+        assert_eq!(
+            parse_into_kind("dir/foo-bar_0.baz"),
+            Ok(ExpressionKind::Identifier("dir/foo-bar_0.baz"))
+        );
+        assert_eq!(
+            parse_into_kind("cli-reference@.md.snap"),
+            Ok(ExpressionKind::Identifier("cli-reference@.md.snap"))
+        );
+        assert_eq!(
+            parse_into_kind("柔術.jj"),
+            Ok(ExpressionKind::Identifier("柔術.jj"))
+        );
+        assert_eq!(
+            parse_into_kind(r#"Windows\Path"#),
+            Ok(ExpressionKind::Identifier(r#"Windows\Path"#))
+        );
+        assert_eq!(
+            parse_into_kind("glob*[chars]?"),
+            Ok(ExpressionKind::Identifier("glob*[chars]?"))
+        );
+    }
+
+    #[test]
+    fn test_parse_string_literal() {
+        // "\<char>" escapes
+        assert_eq!(
+            parse_into_kind(r#" "\t\r\n\"\\\0\e" "#),
+            Ok(ExpressionKind::String("\t\r\n\"\\\0\u{1b}".to_owned())),
+        );
+
+        // Invalid "\<char>" escape
+        assert_eq!(
+            parse_into_kind(r#" "\y" "#),
+            Err(FilesetParseErrorKind::SyntaxError),
+        );
+
+        // Single-quoted raw string
+        assert_eq!(
+            parse_into_kind(r#" '' "#),
+            Ok(ExpressionKind::String("".to_owned())),
+        );
+        assert_eq!(
+            parse_into_kind(r#" 'a\n' "#),
+            Ok(ExpressionKind::String(r"a\n".to_owned())),
+        );
+        assert_eq!(
+            parse_into_kind(r#" '\' "#),
+            Ok(ExpressionKind::String(r"\".to_owned())),
+        );
+        assert_eq!(
+            parse_into_kind(r#" '"' "#),
+            Ok(ExpressionKind::String(r#"""#.to_owned())),
+        );
+
+        // Hex bytes
+        assert_eq!(
+            parse_into_kind(r#""\x61\x65\x69\x6f\x75""#),
+            Ok(ExpressionKind::String("aeiou".to_owned())),
+        );
+        assert_eq!(
+            parse_into_kind(r#""\xe0\xe8\xec\xf0\xf9""#),
+            Ok(ExpressionKind::String("àèìðù".to_owned())),
+        );
+        assert_eq!(
+            parse_into_kind(r#""\x""#),
+            Err(FilesetParseErrorKind::SyntaxError),
+        );
+        assert_eq!(
+            parse_into_kind(r#""\xf""#),
+            Err(FilesetParseErrorKind::SyntaxError),
+        );
+        assert_eq!(
+            parse_into_kind(r#""\xgg""#),
+            Err(FilesetParseErrorKind::SyntaxError),
+        );
+    }
+
+    #[test]
+    fn test_parse_pattern() -> TestResult {
+        fn unwrap_pattern(kind: ExpressionKind<'_>) -> (&str, ExpressionKind<'_>) {
+            match kind {
+                ExpressionKind::Pattern(pattern) => (pattern.name, pattern.value.kind),
+                _ => panic!("unexpected expression: {kind:?}"),
+            }
+        }
+
+        assert_eq!(
+            unwrap_pattern(parse_into_kind(r#" foo:bar "#)?),
+            ("foo", ExpressionKind::Identifier("bar"))
+        );
+        assert_eq!(
+            unwrap_pattern(parse_into_kind(" foo:glob*[chars]? ")?),
+            ("foo", ExpressionKind::Identifier("glob*[chars]?"))
+        );
+        assert_eq!(
+            unwrap_pattern(parse_into_kind(r#" foo:"bar" "#)?),
+            ("foo", ExpressionKind::String("bar".to_owned()))
+        );
+        assert_eq!(
+            unwrap_pattern(parse_into_kind(r#" foo:"" "#)?),
+            ("foo", ExpressionKind::String("".to_owned()))
+        );
+        assert_eq!(
+            unwrap_pattern(parse_into_kind(r#" foo:'\' "#)?),
+            ("foo", ExpressionKind::String(r"\".to_owned()))
+        );
+        assert_eq!(
+            parse_into_kind(r#" foo: "#),
+            Err(FilesetParseErrorKind::SyntaxError)
+        );
+
+        // Whitespace isn't allowed in between
+        assert_eq!(
+            parse_into_kind(r#" foo: "" "#),
+            Err(FilesetParseErrorKind::SyntaxError)
+        );
+        assert_eq!(
+            parse_into_kind(r#" foo :"" "#),
+            Err(FilesetParseErrorKind::SyntaxError)
+        );
+        // Whitespace is allowed in parenthesized value expression
+        assert_eq!(
+            parse_normalized("foo:( 'bar' )"),
+            parse_normalized("foo:'bar'")
+        );
+
+        // Functions are allowed
+        assert_eq!(parse_normalized("x:f(y)"), parse_normalized("x:(f(y))"));
+        // Logical operators have lower binding strength
+        assert_eq!(parse_normalized("x:y&z"), parse_normalized("(x:y)&(z)"));
+        assert_matches!(
+            parse_into_kind("x:~y"), // (x:) ~ (y)
+            Err(FilesetParseErrorKind::SyntaxError)
+        );
+
+        // Pattern prefix is like (type)x cast, so is evaluated from right
+        assert_eq!(parse_normalized("x:y:z"), parse_normalized("x:(y:z)"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_operator() -> TestResult {
+        assert_matches!(
+            parse_into_kind("~x"),
+            Ok(ExpressionKind::Unary(UnaryOp::Negate, _))
+        );
+        assert_matches!(
+            parse_into_kind("x|y"),
+            Ok(ExpressionKind::UnionAll(nodes)) if nodes.len() == 2
+        );
+        assert_matches!(
+            parse_into_kind("x|y|z"),
+            Ok(ExpressionKind::UnionAll(nodes)) if nodes.len() == 3
+        );
+        assert_matches!(
+            parse_into_kind("x&y"),
+            Ok(ExpressionKind::Binary(BinaryOp::Intersection, _, _))
+        );
+        assert_matches!(
+            parse_into_kind("x~y"),
+            Ok(ExpressionKind::Binary(BinaryOp::Difference, _, _))
+        );
+
+        // Set operator associativity/precedence
+        assert_eq!(parse_normalized("~x|y"), parse_normalized("(~x)|y"));
+        assert_eq!(parse_normalized("x&~y"), parse_normalized("x&(~y)"));
+        assert_eq!(parse_normalized("x~~y"), parse_normalized("x~(~y)"));
+        assert_eq!(parse_normalized("x~~~y"), parse_normalized("x~(~(~y))"));
+        assert_eq!(parse_normalized("x|y|z"), parse_normalized("(x|y)|z"));
+        assert_eq!(parse_normalized("x&y|z"), parse_normalized("(x&y)|z"));
+        assert_eq!(parse_normalized("x|y&z"), parse_normalized("x|(y&z)"));
+        assert_eq!(parse_normalized("x|y~z"), parse_normalized("x|(y~z)"));
+        assert_eq!(parse_normalized("~x:y"), parse_normalized("~(x:y)"));
+        assert_eq!(parse_normalized("x|y:z"), parse_normalized("x|(y:z)"));
+
+        // Expression span
+        assert_eq!(parse_program(" ~ x ")?.span.as_str(), "~ x");
+        assert_eq!(parse_program(" x |y ")?.span.as_str(), "x |y");
+        assert_eq!(parse_program(" (x) ")?.span.as_str(), "(x)");
+        assert_eq!(parse_program("~( x|y) ")?.span.as_str(), "~( x|y)");
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_function_call() -> TestResult {
+        fn unwrap_function_call(node: ExpressionNode<'_>) -> Box<FunctionCallNode<'_>> {
+            match node.kind {
+                ExpressionKind::FunctionCall(function) => function,
+                _ => panic!("unexpected expression: {node:?}"),
+            }
+        }
+
+        assert_matches!(
+            parse_into_kind("foo()"),
+            Ok(ExpressionKind::FunctionCall(_))
+        );
+
+        // Trailing comma isn't allowed for empty argument
+        assert!(parse_into_kind("foo(,)").is_err());
+
+        // Trailing comma is allowed for the last argument
+        assert_eq!(parse_normalized("foo(a,)"), parse_normalized("foo(a)"));
+        assert_eq!(parse_normalized("foo(a ,  )"), parse_normalized("foo(a)"));
+        assert!(parse_into_kind("foo(,a)").is_err());
+        assert!(parse_into_kind("foo(a,,)").is_err());
+        assert!(parse_into_kind("foo(a  , , )").is_err());
+        assert_eq!(parse_normalized("foo(a,b,)"), parse_normalized("foo(a,b)"));
+        assert!(parse_into_kind("foo(a,,b)").is_err());
+
+        // Expression span
+        let function = unwrap_function_call(parse_program("foo( a, (b) , ~(c) )")?);
+        assert_eq!(function.name_span.as_str(), "foo");
+        assert_eq!(function.args_span.as_str(), "a, (b) , ~(c)");
+        assert_eq!(function.args[0].span.as_str(), "a");
+        assert_eq!(function.args[1].span.as_str(), "(b)");
+        assert_eq!(function.args[2].span.as_str(), "~(c)");
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_bare_string() -> TestResult {
+        fn unwrap_pattern(kind: ExpressionKind<'_>) -> (&str, ExpressionKind<'_>) {
+            match kind {
+                ExpressionKind::Pattern(pattern) => (pattern.name, pattern.value.kind),
+                _ => panic!("unexpected expression: {kind:?}"),
+            }
+        }
+
+        // Valid expression should be parsed as such
+        assert_eq!(
+            parse_maybe_bare_into_kind(" valid "),
+            Ok(ExpressionKind::Identifier("valid"))
+        );
+        assert_eq!(
+            parse_maybe_bare_normalized("f(x)&y"),
+            parse_normalized("f(x)&y")
+        );
+        assert_eq!(
+            unwrap_pattern(parse_maybe_bare_into_kind("foo:bar")?),
+            ("foo", ExpressionKind::Identifier("bar"))
+        );
+
+        // Bare string
+        assert_eq!(
+            parse_maybe_bare_into_kind("Foo Bar.txt"),
+            Ok(ExpressionKind::String("Foo Bar.txt".to_owned()))
+        );
+        assert_eq!(
+            parse_maybe_bare_into_kind(r#"Windows\Path with space"#),
+            Ok(ExpressionKind::String(
+                r#"Windows\Path with space"#.to_owned()
+            ))
+        );
+        assert_eq!(
+            parse_maybe_bare_into_kind("柔 術 . j j"),
+            Ok(ExpressionKind::String("柔 術 . j j".to_owned()))
+        );
+        assert_eq!(
+            parse_maybe_bare_into_kind("Unicode emoji 💩"),
+            Ok(ExpressionKind::String("Unicode emoji 💩".to_owned()))
+        );
+        assert_eq!(
+            parse_maybe_bare_into_kind("looks like & expression"),
+            Err(FilesetParseErrorKind::SyntaxError)
+        );
+        assert_eq!(
+            parse_maybe_bare_into_kind("unbalanced_parens("),
+            Err(FilesetParseErrorKind::SyntaxError)
+        );
+
+        // Bare string pattern
+        assert_eq!(
+            unwrap_pattern(parse_maybe_bare_into_kind("foo: bar baz")?),
+            ("foo", ExpressionKind::String(" bar baz".to_owned()))
+        );
+        assert_eq!(
+            unwrap_pattern(parse_maybe_bare_into_kind("foo:glob * [chars]?")?),
+            ("foo", ExpressionKind::String("glob * [chars]?".to_owned()))
+        );
+        assert_eq!(
+            parse_maybe_bare_into_kind("foo: bar:baz"),
+            Err(FilesetParseErrorKind::SyntaxError)
+        );
+        assert_eq!(
+            parse_maybe_bare_into_kind("foo:"),
+            Err(FilesetParseErrorKind::SyntaxError)
+        );
+        assert_eq!(
+            parse_maybe_bare_into_kind(r#"foo:"unclosed quote"#),
+            Err(FilesetParseErrorKind::SyntaxError)
+        );
+
+        // Surrounding spaces are simply preserved. They could be trimmed, but
+        // space is valid bare_string character.
+        assert_eq!(
+            parse_maybe_bare_into_kind(" No trim "),
+            Ok(ExpressionKind::String(" No trim ".to_owned()))
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_error() {
+        insta::assert_snapshot!(parse_program("foo|").unwrap_err().to_string(), @"
+         --> 1:5
+          |
+        1 | foo|
+          |     ^---
+          |
+          = expected `~` or <primary>
+        ");
+    }
+
+    #[test]
+    fn test_parse_alias_symbol_decl() -> TestResult {
+        let mut aliases_map = FilesetAliasesMap::new();
+        aliases_map.insert("sym", "symbol", None)?;
+        assert_eq!(aliases_map.symbol_names().count(), 1);
+        let (id, defn, _doc) = aliases_map.get_symbol("sym").unwrap();
+        assert_eq!(id, AliasId::Symbol("sym"));
+        assert_eq!(defn, "symbol");
+
+        // Non-ASCII character isn't allowed in alias symbol. This rule can be
+        // relaxed if needed.
+        assert!(aliases_map.insert("柔術", "none()", None).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_alias_pattern_decl() -> TestResult {
+        let mut aliases_map = FilesetAliasesMap::new();
+        assert!(aliases_map.insert("pat:", "bad_pattern", None).is_err());
+        aliases_map.insert("pat:a", "pattern_a", None)?;
+        aliases_map.insert("pat:b", "pattern_b", None)?;
+        assert_eq!(aliases_map.pattern_names().count(), 1);
+        let (id, param, defn, _doc) = aliases_map.get_pattern("pat").unwrap();
+        assert_eq!(id, AliasId::Pattern("pat", "b"));
+        assert_eq!(param, "b");
+        assert_eq!(defn, "pattern_b");
+
+        // Non-ASCII character isn't allowed. This rule can be relaxed if
+        // needed.
+        assert!(aliases_map.insert("柔術:x", "none()", None).is_err());
+        assert!(aliases_map.insert("x:柔術", "none()", None).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_alias_func_decl() -> TestResult {
+        let mut aliases_map = FilesetAliasesMap::new();
+        assert!(aliases_map.insert("5func()", "bad_function", None).is_err());
+        aliases_map.insert("func()", "function_0", None)?;
+        aliases_map.insert("func(a)", "function_1a", None)?;
+        aliases_map.insert("func(b)", "function_1b", None)?;
+        aliases_map.insert("func(a, b)", "function_2", None)?;
+        assert_eq!(aliases_map.function_names().count(), 1);
+
+        let (id, params, defn, _doc) = aliases_map.get_function("func", 0).unwrap();
+        assert_eq!(id, AliasId::Function("func", &[]));
+        assert!(params.is_empty());
+        assert_eq!(defn, "function_0");
+
+        let (id, params, defn, _doc) = aliases_map.get_function("func", 1).unwrap();
+        assert_eq!(id, AliasId::Function("func", &["b".to_owned()]));
+        assert_eq!(params, ["b"]);
+        assert_eq!(defn, "function_1b");
+
+        let (id, params, defn, _doc) = aliases_map.get_function("func", 2).unwrap();
+        assert_eq!(
+            id,
+            AliasId::Function("func", &["a".to_owned(), "b".to_owned()])
+        );
+        assert_eq!(params, ["a", "b"]);
+        assert_eq!(defn, "function_2");
+
+        assert!(aliases_map.get_function("func", 3).is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_alias_formal_parameter() {
+        let mut aliases_map = FilesetAliasesMap::new();
+        // Formal parameter 'a' can't be redefined
+        assert_eq!(
+            aliases_map.insert("f(a, a)", "bad", None).unwrap_err().kind,
+            FilesetParseErrorKind::RedefinedFunctionParameter
+        );
+        // Trailing comma isn't allowed for empty parameter
+        assert!(aliases_map.insert("f(,)", "bad", None).is_err());
+        // Trailing comma is allowed for the last parameter
+        assert!(aliases_map.insert("g(a,)", "bad", None).is_ok());
+        assert!(aliases_map.insert("h(a ,  )", "bad", None).is_ok());
+        assert!(aliases_map.insert("i(,a)", "bad", None).is_err());
+        assert!(aliases_map.insert("j(a,,)", "bad", None).is_err());
+        assert!(aliases_map.insert("k(a  , , )", "bad", None).is_err());
+        assert!(aliases_map.insert("l(a,b,)", "bad", None).is_ok());
+        assert!(aliases_map.insert("m(a,,b)", "bad", None).is_err());
+    }
+
+    #[test]
+    fn test_expand_symbol_alias() {
+        assert_eq!(
+            with_aliases([("AB", "a&b")]).parse_normalized("AB|c"),
+            parse_normalized("(a&b)|c")
+        );
+        assert_eq!(
+            with_aliases([("AB", "a|b")]).parse_normalized("AB~f(AB)"),
+            parse_normalized("(a|b)~f(a|b)")
+        );
+
+        // Not string substitution 'a&b|c', but tree substitution.
+        assert_eq!(
+            with_aliases([("BC", "b|c")]).parse_normalized("a&BC"),
+            parse_normalized("a&(b|c)")
+        );
+
+        // String literal should not be substituted with alias.
+        assert_eq!(
+            with_aliases([("A", "a")]).parse_normalized(r#"A|"A"|'A'"#),
+            parse_normalized("a|'A'|'A'")
+        );
+
+        // Kind of string pattern should not be substituted, which is similar to
+        // function name.
+        assert_eq!(
+            with_aliases([("A", "a")]).parse_normalized("A:b"),
+            parse_normalized("A:b")
+        );
+
+        // Value of string pattern can be substituted if it's an identifier.
+        assert_eq!(
+            with_aliases([("A", "a")]).parse_normalized("p:A"),
+            parse_normalized("p:a")
+        );
+        assert_eq!(
+            with_aliases([("A", "a")]).parse_normalized("p:'A'"),
+            parse_normalized("p:'A'")
+        );
+
+        // Multi-level substitution.
+        assert_eq!(
+            with_aliases([("A", "BC"), ("BC", "b|C"), ("C", "c")]).parse_normalized("A"),
+            parse_normalized("b|c")
+        );
+
+        // Infinite recursion, where the top-level error isn't of RecursiveAlias kind.
+        assert_eq!(
+            with_aliases([("A", "A")]).parse("A").unwrap_err().kind,
+            FilesetParseErrorKind::InAliasExpansion("A".to_owned())
+        );
+        assert_eq!(
+            with_aliases([("A", "B"), ("B", "b|C"), ("C", "c|B")])
+                .parse("A")
+                .unwrap_err()
+                .kind,
+            FilesetParseErrorKind::InAliasExpansion("A".to_owned())
+        );
+
+        // Error in alias definition.
+        assert_eq!(
+            with_aliases([("A", "a(")]).parse("A").unwrap_err().kind,
+            FilesetParseErrorKind::InAliasExpansion("A".to_owned())
+        );
+    }
+
+    #[test]
+    fn test_expand_pattern_alias() {
+        assert_eq!(
+            with_aliases([("P:x", "x")]).parse_normalized("P:a"),
+            parse_normalized("a")
+        );
+
+        // Argument should be resolved in the current scope.
+        assert_eq!(
+            with_aliases([("P:x", "x|a")]).parse_normalized("P:x"),
+            parse_normalized("x|a")
+        );
+        // P:a -> (Q:a)&y -> (x|a)&y
+        assert_eq!(
+            with_aliases([("P:x", "(Q:x)&y"), ("Q:y", "x|y")]).parse_normalized("P:a"),
+            parse_normalized("(x|a)&y")
+        );
+
+        // Pattern parameter should precede the symbol alias.
+        assert_eq!(
+            with_aliases([("P:X", "X"), ("X", "x")]).parse_normalized("(P:a)|X"),
+            parse_normalized("a|x")
+        );
+
+        // Pattern parameter shouldn't be expanded in symbol alias.
+        assert_eq!(
+            with_aliases([("P:x", "x|A"), ("A", "x")]).parse_normalized("P:a"),
+            parse_normalized("a|x")
+        );
+
+        // String literal should not be substituted with pattern parameter.
+        assert_eq!(
+            with_aliases([("P:x", "x|'x'")]).parse_normalized("P:a"),
+            parse_normalized("a|'x'")
+        );
+
+        // Pattern and symbol aliases reside in separate namespaces.
+        assert_eq!(
+            with_aliases([("A:x", "A"), ("A", "a")]).parse_normalized("A:x"),
+            parse_normalized("a")
+        );
+
+        // Infinite recursion, where the top-level error isn't of RecursiveAlias kind.
+        assert_eq!(
+            with_aliases([("P:x", "Q:x"), ("Q:x", "R:x"), ("R:x", "P:x")])
+                .parse("P:a")
+                .unwrap_err()
+                .kind,
+            FilesetParseErrorKind::InAliasExpansion("P:x".to_owned())
+        );
+    }
+
+    #[test]
+    fn test_expand_function_alias() {
+        assert_eq!(
+            with_aliases([("F(  )", "a")]).parse_normalized("F()"),
+            parse_normalized("a")
+        );
+        assert_eq!(
+            with_aliases([("F( x  )", "x")]).parse_normalized("F(a)"),
+            parse_normalized("a")
+        );
+        assert_eq!(
+            with_aliases([("F( x,  y )", "x|y")]).parse_normalized("F(a, b)"),
+            parse_normalized("a|b")
+        );
+
+        // Not recursion because functions are overloaded by arity.
+        assert_eq!(
+            with_aliases([("F(x)", "F(x,b)"), ("F(x,y)", "x|y")]).parse_normalized("F(a)"),
+            parse_normalized("a|b")
+        );
+
+        // Arguments should be resolved in the current scope.
+        assert_eq!(
+            with_aliases([("F(x,y)", "x|y")]).parse_normalized("F(a~y,b~x)"),
+            parse_normalized("(a~y)|(b~x)")
+        );
+        // F(a) -> G(a)&y -> (x|a)&y
+        assert_eq!(
+            with_aliases([("F(x)", "G(x)&y"), ("G(y)", "x|y")]).parse_normalized("F(a)"),
+            parse_normalized("(x|a)&y")
+        );
+        // F(G(a)) -> F(x|a) -> G(x|a)&y -> (x|(x|a))&y
+        assert_eq!(
+            with_aliases([("F(x)", "G(x)&y"), ("G(y)", "x|y")]).parse_normalized("F(G(a))"),
+            parse_normalized("(x|(x|a))&y")
+        );
+
+        // Function parameter should precede the symbol alias.
+        assert_eq!(
+            with_aliases([("F(X)", "X"), ("X", "x")]).parse_normalized("F(a)|X"),
+            parse_normalized("a|x")
+        );
+
+        // Function parameter shouldn't be expanded in symbol alias.
+        assert_eq!(
+            with_aliases([("F(x)", "x|A"), ("A", "x")]).parse_normalized("F(a)"),
+            parse_normalized("a|x")
+        );
+
+        // String literal should not be substituted with function parameter.
+        assert_eq!(
+            with_aliases([("F(x)", "x|'x'")]).parse_normalized("F(a)"),
+            parse_normalized("a|'x'")
+        );
+
+        // Function and symbol aliases reside in separate namespaces.
+        assert_eq!(
+            with_aliases([("A()", "A"), ("A", "a")]).parse_normalized("A()"),
+            parse_normalized("a")
+        );
+
+        // Invalid number of arguments.
+        assert_eq!(
+            with_aliases([("F()", "x")]).parse("F(a)").unwrap_err().kind,
+            FilesetParseErrorKind::InvalidArguments {
+                name: "F".to_owned(),
+                message: "Expected 0 arguments".to_owned()
+            }
+        );
+        assert_eq!(
+            with_aliases([("F(x)", "x")]).parse("F()").unwrap_err().kind,
+            FilesetParseErrorKind::InvalidArguments {
+                name: "F".to_owned(),
+                message: "Expected 1 arguments".to_owned()
+            }
+        );
+        assert_eq!(
+            with_aliases([("F(x,y)", "x|y")])
+                .parse("F(a,b,c)")
+                .unwrap_err()
+                .kind,
+            FilesetParseErrorKind::InvalidArguments {
+                name: "F".to_owned(),
+                message: "Expected 2 arguments".to_owned()
+            }
+        );
+        assert_eq!(
+            with_aliases([("F(x)", "x"), ("F(x,y)", "x|y")])
+                .parse("F()")
+                .unwrap_err()
+                .kind,
+            FilesetParseErrorKind::InvalidArguments {
+                name: "F".to_owned(),
+                message: "Expected 1 to 2 arguments".to_owned()
+            }
+        );
+        assert_eq!(
+            with_aliases([("F()", "x"), ("F(x,y)", "x|y")])
+                .parse("F(a)")
+                .unwrap_err()
+                .kind,
+            FilesetParseErrorKind::InvalidArguments {
+                name: "F".to_owned(),
+                message: "Expected 0, 2 arguments".to_owned()
+            }
+        );
+
+        // Infinite recursion, where the top-level error isn't of RecursiveAlias kind.
+        assert_eq!(
+            with_aliases([("F(x)", "G(x)"), ("G(x)", "H(x)"), ("H(x)", "F(x)")])
+                .parse("F(a)")
+                .unwrap_err()
+                .kind,
+            FilesetParseErrorKind::InAliasExpansion("F(x)".to_owned())
+        );
+        assert_eq!(
+            with_aliases([("F(x)", "F(x,b)"), ("F(x,y)", "F(x|y)")])
+                .parse("F(a)")
+                .unwrap_err()
+                .kind,
+            FilesetParseErrorKind::InAliasExpansion("F(x)".to_owned())
+        );
+    }
+}

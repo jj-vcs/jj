@@ -1,4 +1,5 @@
 mod content_hash;
+
 extern crate proc_macro;
 
 use quote::quote;
@@ -10,7 +11,6 @@ use syn::parse_macro_input;
 /// Derives the `ContentHash` trait for a struct by calling `ContentHash::hash`
 /// on each of the struct members in the order that they're declared. All
 /// members of the struct must implement the `ContentHash` trait.
-// TODO: there should be a way to reuse the impl in `core/proc-macros/`.
 #[proc_macro_derive(ContentHash)]
 pub fn derive_content_hash(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

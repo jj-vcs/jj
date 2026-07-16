@@ -28,6 +28,9 @@ use futures::Stream;
 use futures::StreamExt as _;
 use futures::stream::LocalBoxStream;
 use itertools::Itertools as _;
+pub use jj_core::revset::format_remote_symbol;
+pub use jj_core::revset::format_string;
+pub use jj_core::revset::format_symbol;
 use pollster::FutureExt as _;
 use thiserror::Error;
 
@@ -3565,31 +3568,6 @@ impl<'a> LoweringContext<'a> {
 pub struct RevsetWorkspaceContext<'a> {
     pub path_converter: &'a RepoPathUiConverter,
     pub workspace_name: &'a WorkspaceName,
-}
-
-/// Formats a string as symbol by quoting and escaping it if necessary.
-///
-/// Note that symbols may be substituted to user aliases. Use
-/// [`format_string()`] to ensure that the provided string is resolved as a
-/// tag/bookmark name, commit/change ID prefix, etc.
-pub fn format_symbol(literal: &str) -> String {
-    if revset_parser::is_identifier(literal) {
-        literal.to_string()
-    } else {
-        format_string(literal)
-    }
-}
-
-/// Formats a string by quoting and escaping it.
-pub fn format_string(literal: &str) -> String {
-    format!(r#""{}""#, dsl_util::escape_string(literal))
-}
-
-/// Formats a `name@remote` symbol, applies quoting and escaping if necessary.
-pub fn format_remote_symbol(name: &str, remote: &str) -> String {
-    let name = format_symbol(name);
-    let remote = format_symbol(remote);
-    format!("{name}@{remote}")
 }
 
 #[cfg(test)]
