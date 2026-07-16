@@ -209,7 +209,7 @@ impl Signer {
         Self {
             main_backend,
             backends: other_backends,
-            cache: Mutex::new(CLruCache::new(COMMIT_CACHE_CAPACITY.try_into().unwrap())),
+            cache: Mutex::new(CLruCache::new(COMMIT_CACHE_CAPACITY)),
         }
     }
 
