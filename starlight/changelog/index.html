@@ -251,6 +251,12 @@ repository will re-fetch all tags to initialize the tracking state.</p>
 return <code dir="auto">Option&#x3C;FsPath></code> and <code dir="auto">FsPath</code> respectively, instead of <code dir="auto">String</code>. The
 <code dir="auto">path</code> keyword in <code dir="auto">jj config list</code> templates now returns <code dir="auto">Option&#x3C;FsPath></code>.</p>
 </li>
+<li>
+<p><code dir="auto">jj file search</code> now prints every matched line prefixed by the file path,
+instead of only the file paths of files containing a match. Use
+<code dir="auto">--name-only</code> for the previous behavior.
+<a href="https://github.com/jj-vcs/jj/issues/9399">#9399</a></p>
+</li>
 </ul>
 <div class="sl-heading-wrapper level-h3"><h3 id="deprecations">Deprecations</h3><a class="sl-anchor-link" href="#deprecations"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Deprecations”</span></a></div>
 <div class="sl-heading-wrapper level-h3"><h3 id="new-features">New features</h3><a class="sl-anchor-link" href="#new-features"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “New features”</span></a></div>
@@ -271,6 +277,10 @@ one has started, even with <code dir="auto">--jobs</code> higher than 1.</p>
 <li>
 <p><code dir="auto">jj run</code> gained a <code dir="auto">--passthrough</code> flag that connects the subprocess's
 stdout/stderr directly to the terminal instead of capturing output.</p>
+</li>
+<li>
+<p><code dir="auto">jj file search</code> now supports <code dir="auto">-n</code>/<code dir="auto">--line-number</code> to prefix each match with
+its 1-based line number within the file.</p>
 </li>
 </ul>
 <div class="sl-heading-wrapper level-h3"><h3 id="fixed-bugs">Fixed bugs</h3><a class="sl-anchor-link" href="#fixed-bugs"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Fixed bugs”</span></a></div>
