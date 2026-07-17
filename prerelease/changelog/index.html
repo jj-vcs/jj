@@ -7349,6 +7349,12 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   return <code>Option&lt;FsPath&gt;</code> and <code>FsPath</code> respectively, instead of <code>String</code>. The
   <code>path</code> keyword in <code>jj config list</code> templates now returns <code>Option&lt;FsPath&gt;</code>.</p>
 </li>
+<li>
+<p><code>jj file search</code> now prints every matched line prefixed by the file path,
+  instead of only the file paths of files containing a match. Use
+  <code>--name-only</code> for the previous behavior.
+  <a href="https://github.com/jj-vcs/jj/issues/9399">#9399</a></p>
+</li>
 </ul>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
@@ -7369,6 +7375,10 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <li>
 <p><code>jj run</code> gained a <code>--passthrough</code> flag that connects the subprocess's
   stdout/stderr directly to the terminal instead of capturing output.</p>
+</li>
+<li>
+<p><code>jj file search</code> now supports <code>-n</code>/<code>--line-number</code> to prefix each match with
+  its 1-based line number within the file.</p>
 </li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>

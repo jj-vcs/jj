@@ -7506,8 +7506,8 @@ Martin von Zweigbergk</p>
 </ul>
 <h2 id="jj-file-search"><code>jj file search</code><a class="headerlink" href="#jj-file-search" title="Permanent link">&para;</a></h2>
 <p>Search for content in files</p>
-<p>Lists files containing the specified pattern.</p>
-<p>This is an early version of the command. It only supports glob matching for now, it doesn't search files concurrently, and it doesn't indicate where in the file the match was found.</p>
+<p>Prints each line that matches the specified pattern, prefixed by the file path. Use <code>--name-only</code> to print only the file paths.</p>
+<p>This is an early version of the command. It does not search files concurrently.</p>
 <p><strong>Usage:</strong> <code>jj file search [OPTIONS] --pattern &lt;PATTERN&gt; [FILESETS]...</code></p>
 <h6 id="arguments_27"><strong>Arguments:</strong><a class="headerlink" href="#arguments_27" title="Permanent link">&para;</a></h6>
 <ul>
@@ -7524,6 +7524,10 @@ Martin von Zweigbergk</p>
 <p>It is a <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">string pattern syntax</a> like <code>kind:pattern</code>.  The kind defaults to regex when omitted.</p>
 <p>If it is a glob pattern, the whole line must match the pattern, so you may want to pass something like <code>--pattern 'glob:*foo*'</code>.</p>
 </li>
+<li>
+<p><code>--name-only</code> — Print only the paths of files that contain a match, not the matched lines</p>
+</li>
+<li><code>-n</code>, <code>--line-number</code> — Prefix each matched line with its 1-based line number within the file</li>
 </ul>
 <h2 id="jj-file-show"><code>jj file show</code><a class="headerlink" href="#jj-file-show" title="Permanent link">&para;</a></h2>
 <p>Print contents of files in a revision</p>
