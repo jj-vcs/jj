@@ -7834,6 +7834,13 @@ configuration.</p>
 <p><code>-t</code>, <code>--tag &lt;TAG&gt;</code> — Fetch only some of the tags (can be repeated)</p>
 <p>By default, the specified pattern matches tag names with glob syntax, but only <code>*</code> is expanded. Other wildcard characters such as <code>?</code> are <em>not</em> supported. Patterns can be repeated or combined with <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">logical operators</a> to specify multiple tags, but only union and negative intersection are supported.</p>
 </li>
+<li>
+<p><code>--object-hash &lt;OBJECT_HASH&gt;</code> — Object hash algorithm for the local Git repository.</p>
+<p><em>Must</em> match the remote's hash algorithm, otherwise the operation will fail. Most existing repositories today still use the classic SHA-1 format, which is also the default if not configured otherwise by the [git.object-hash config].</p>
+<p>See also Git's [hash-function-transition] document for an in-depth explanation of the migration towards stronger hash functions.</p>
+<p>[git.object-hash config]: https://docs.jj-vcs.dev/latest/config/#default-object-hash-format [hash-function-transition]: https://git-scm.com/docs/hash-function-transition</p>
+<p>Possible values: <code>sha1</code>, <code>sha256</code></p>
+</li>
 </ul>
 <h2 id="jj-git-colocation"><code>jj git colocation</code><a class="headerlink" href="#jj-git-colocation" title="Permanent link">&para;</a></h2>
 <p>Manage Jujutsu repository colocation with Git</p>
@@ -7919,6 +7926,13 @@ configuration.</p>
 <p><code>--no-colocate</code> — Disable colocation of the Jujutsu repo with the git repo</p>
 <p>Prevent Git tools that are unaware of <code>jj</code> and regular Git commands from operating on the repo. The Git repository that stores most of the repo data will be hidden inside a sub-directory of the <code>.jj</code> directory.</p>
 <p>See <a href="https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-repos">colocation docs</a> for some minor advantages of non-colocated workspaces.</p>
+</li>
+<li>
+<p><code>--object-hash &lt;OBJECT_HASH&gt;</code> — Object hash algorithm for the newly created Git repository.</p>
+<p>Corresponds to <code>git init</code>'s <code>--object-format</code> option. If not given, the [git.object-hash config] determines the default value.</p>
+<p>Note that the object hash cannot currently be changed for an existing repo, and not all code forges support SHA-256 repositories yet. See also Git's [hash-function-transition] document for an in-depth explanation of the migration towards stronger hash functions.</p>
+<p>[git.object-hash config]: https://docs.jj-vcs.dev/latest/config/#default-object-hash-format [hash-function-transition]: https://git-scm.com/docs/hash-function-transition</p>
+<p>Possible values: <code>sha1</code>, <code>sha256</code></p>
 </li>
 <li>
 <p><code>--git-repo &lt;GIT_REPO&gt;</code> — Specifies a path to an <strong>existing</strong> git repository to be used as the backing git repo for the newly created <code>jj</code> repo.</p>

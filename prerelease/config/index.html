@@ -1661,6 +1661,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#default-object-hash-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      Default object hash format
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#default-remotes-for-jj-git-fetch-and-jj-git-push" class="md-nav__link">
     <span class="md-ellipsis">
       Default remotes for jj git fetch and jj git push
@@ -3700,6 +3709,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#default-object-hash-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      Default object hash format
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#default-remotes-for-jj-git-fetch-and-jj-git-push" class="md-nav__link">
     <span class="md-ellipsis">
       Default remotes for jj git fetch and jj git push
@@ -5441,6 +5459,16 @@ worse in large repos.</p>
 default. Set <code>git.colocate</code> to <code>false</code> to disable it.</p>
 <p>See <a href="../git-compatibility/#colocated-jujutsugit-repos">Colocated Jujutsu/Git workspaces</a>
 for more information.</p>
+<h3 id="default-object-hash-format">Default object hash format<a class="headerlink" href="#default-object-hash-format" title="Permanent link">&para;</a></h3>
+<p>Traditionally, Git used the SHA-1 hash function to compute the identifiers for
+<a href="https://git-scm.com/book/en/v2/Git-Internals-Git-Objects">objects</a>. Because SHA-1 is not considered cryptographically secure anymore, Git
+is in the <a href="https://git-scm.com/docs/hash-function-transition">process of transitioning</a> to a stronger hash function,
+namely SHA-256.</p>
+<p>Currently, the object hash function can only be set when initializing a new Git
+repository. The setting <code>git.object-hash</code> controls the default choice for that
+purpose. It can take the values <code>sha1</code> (default) and <code>sha256</code>.</p>
+<p>Note that at the moment there is no interopability between the formats, and not
+all code forges support SHA-256 repositories yet.</p>
 <h3 id="default-remotes-for-jj-git-fetch-and-jj-git-push">Default remotes for <code>jj git fetch</code> and <code>jj git push</code><a class="headerlink" href="#default-remotes-for-jj-git-fetch-and-jj-git-push" title="Permanent link">&para;</a></h3>
 <p>By default, if a single remote exists it is used for <code>jj git fetch</code> and <code>jj git
 push</code>; however if multiple remotes exist, the default remote is assumed to be
