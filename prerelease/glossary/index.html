@@ -731,6 +731,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#author-date" class="md-nav__link">
+    <span class="md-ellipsis">
+      Author date
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#backend" class="md-nav__link">
     <span class="md-ellipsis">
       Backend
@@ -797,6 +806,15 @@
   <a href="#commit-id" class="md-nav__link">
     <span class="md-ellipsis">
       Commit ID
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#committer-date" class="md-nav__link">
+    <span class="md-ellipsis">
+      Committer date
     </span>
   </a>
   
@@ -2130,6 +2148,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#author-date" class="md-nav__link">
+    <span class="md-ellipsis">
+      Author date
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#backend" class="md-nav__link">
     <span class="md-ellipsis">
       Backend
@@ -2196,6 +2223,15 @@
   <a href="#commit-id" class="md-nav__link">
     <span class="md-ellipsis">
       Commit ID
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#committer-date" class="md-nav__link">
+    <span class="md-ellipsis">
+      Committer date
     </span>
   </a>
   
@@ -2412,6 +2448,14 @@
 Jujutsu keeps commits on anonymous branches around until they are explicitly
 abandoned. Visible anonymous branches are tracked by the <a href="#view">view</a>, which
 stores a list of <a href="#head">heads</a> of such branches.</p>
+<h2 id="author-date">Author date<a class="headerlink" href="#author-date" title="Permanent link">&para;</a></h2>
+<p>The author date of a <a href="#commit">commit</a> records when the commit's changes were
+originally authored. It is set when the commit is first authored and usually
+stays the same when the commit is <a href="#rewrite">rewritten</a>. For a newly-created
+commit, the author date and <a href="#committer-date">committer date</a> are usually the
+same, but they can differ after history-editing commands such as <code>jj rebase</code>,
+<code>jj describe</code>, or <code>jj squash</code>. When using the Git <a href="#backend">backend</a>, this is
+stored as Git's native author date field.</p>
 <h2 id="backend">Backend<a class="headerlink" href="#backend" title="Permanent link">&para;</a></h2>
 <p>A backend is an implementation of the storage layer. There is currently only one
 production-ready builtin commit backend: the Git backend. The Git backend stores
@@ -2455,8 +2499,9 @@ instance, the most recent commit with change ID <code>xyz</code> could be referr
 <h2 id="commit">Commit<a class="headerlink" href="#commit" title="Permanent link">&para;</a></h2>
 <p>A snapshot of the files in the repository at a given point in time (technically
 a <a href="#tree">tree object</a>), together with some metadata. The metadata includes the
-author, the date, and pointers to the commit's parents. Through the pointers to
-the parents, the commits form a
+author, the committer, the <a href="#author-date">author date</a>, the
+<a href="#committer-date">committer date</a>, and pointers to the commit's parents. Through
+the pointers to the parents, the commits form a
 <a href="https://en.wikipedia.org/wiki/Directed_acyclic_graph">Directed Acyclic Graph (DAG)</a>
 .</p>
 <p>Note that even though commits are stored as snapshots, they are often treated
@@ -2471,6 +2516,14 @@ those changes onto another base commit.</p>
 long when using the Git backend. They are presented in regular hexadecimal
 format at the end of the line in <code>jj log</code>, using 12 hexadecimal digits by
 default. When using the Git backend, the commit ID is the Git commit ID.</p>
+<h2 id="committer-date">Committer date<a class="headerlink" href="#committer-date" title="Permanent link">&para;</a></h2>
+<p>The committer date of a <a href="#commit">commit</a> records when that particular commit
+object was created. It is set for a new commit and updated whenever <code>jj</code>
+<a href="#rewrite">rewrites</a> the commit, such as when rebasing, describing, or squashing
+it. For a newly-created commit, the committer date and
+<a href="#author-date">author date</a> are usually the same, but they can differ after the
+commit has been rewritten. When using the Git <a href="#backend">backend</a>, this is
+stored as Git's native committer date field.</p>
 <h2 id="colocated-workspaces"><a name="colocated-repos"></a>Colocated workspaces<a class="headerlink" href="#colocated-workspaces" title="Permanent link">&para;</a></h2>
 <p>When using the Git <a href="#backend">backend</a> and the backing Git repository's <code>.git/</code>
 directory is a sibling of <code>.jj/</code>, we call the workspace colocated. Most
