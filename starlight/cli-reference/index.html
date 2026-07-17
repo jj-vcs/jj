@@ -1562,6 +1562,13 @@ All relevant users, including owner, reviewers, cc'd, users that have starred th
 <p><code dir="auto">-t</code>, <code dir="auto">--tag &#x3C;TAG></code> — Fetch only some of the tags (can be repeated)</p>
 <p>By default, the specified pattern matches tag names with glob syntax, but only <code dir="auto">*</code> is expanded. Other wildcard characters such as <code dir="auto">?</code> are <em>not</em> supported. Patterns can be repeated or combined with <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">logical operators</a> to specify multiple tags, but only union and negative intersection are supported.</p>
 </li>
+<li>
+<p><code dir="auto">--object-hash &#x3C;OBJECT_HASH></code> — Object hash algorithm for the local Git repository.</p>
+<p><em>Must</em> match the remote's hash algorithm, otherwise the operation will fail. Most existing repositories today still use the classic SHA-1 format, which is also the default if not configured otherwise by the [git.object-hash config].</p>
+<p>See also Git's [hash-function-transition] document for an in-depth explanation of the migration towards stronger hash functions.</p>
+<p>[git.object-hash config]: <a href="https://docs.jj-vcs.dev/latest/config/#default-object-hash-format">https://docs.jj-vcs.dev/latest/config/#default-object-hash-format</a> [hash-function-transition]: <a href="https://git-scm.com/docs/hash-function-transition">https://git-scm.com/docs/hash-function-transition</a></p>
+<p>Possible values: <code dir="auto">sha1</code>, <code dir="auto">sha256</code></p>
+</li>
 </ul>
 <div class="sl-heading-wrapper level-h2"><h2 id="jj-git-colocation"><code dir="auto">jj git colocation</code></h2><a class="sl-anchor-link" href="#jj-git-colocation"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “jj git colocation”</span></a></div>
 <p>Manage Jujutsu repository colocation with Git</p>
@@ -1647,6 +1654,13 @@ All relevant users, including owner, reviewers, cc'd, users that have starred th
 <p><code dir="auto">--no-colocate</code> — Disable colocation of the Jujutsu repo with the git repo</p>
 <p>Prevent Git tools that are unaware of <code dir="auto">jj</code> and regular Git commands from operating on the repo. The Git repository that stores most of the repo data will be hidden inside a sub-directory of the <code dir="auto">.jj</code> directory.</p>
 <p>See <a href="https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-repos">colocation docs</a> for some minor advantages of non-colocated workspaces.</p>
+</li>
+<li>
+<p><code dir="auto">--object-hash &#x3C;OBJECT_HASH></code> — Object hash algorithm for the newly created Git repository.</p>
+<p>Corresponds to <code dir="auto">git init</code>'s <code dir="auto">--object-format</code> option. If not given, the [git.object-hash config] determines the default value.</p>
+<p>Note that the object hash cannot currently be changed for an existing repo, and not all code forges support SHA-256 repositories yet. See also Git's [hash-function-transition] document for an in-depth explanation of the migration towards stronger hash functions.</p>
+<p>[git.object-hash config]: <a href="https://docs.jj-vcs.dev/latest/config/#default-object-hash-format">https://docs.jj-vcs.dev/latest/config/#default-object-hash-format</a> [hash-function-transition]: <a href="https://git-scm.com/docs/hash-function-transition">https://git-scm.com/docs/hash-function-transition</a></p>
+<p>Possible values: <code dir="auto">sha1</code>, <code dir="auto">sha256</code></p>
 </li>
 <li>
 <p><code dir="auto">--git-repo &#x3C;GIT_REPO></code> — Specifies a path to an <strong>existing</strong> git repository to be used as the backing git repo for the newly created <code dir="auto">jj</code> repo.</p>
