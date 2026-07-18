@@ -41,8 +41,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * New `merge_point()` revset function which (similar to `fork_point`) finds the
   point where multiple branches merge.
 
-* New `builtin_workspace_list` and `builtin_workspace_list_with_root` template
-  aliases are available for `jj workspace list`.
+* `jj workspace list` now shows workspace roots by default. The output can be
+  customized with `templates.workspace_list` or `-T`, and `WorkspaceRef.root()`
+  returns an optional `FsPath` value.
+  [#9713](https://github.com/jj-vcs/jj/pull/9713),
+  [#9826](https://github.com/jj-vcs/jj/pull/9826)
 
 * `jj run` now processes revisions from oldest to newest by default. The start
   order is guaranteed: each revision begins execution only after the previous

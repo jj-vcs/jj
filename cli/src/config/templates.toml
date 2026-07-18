@@ -299,15 +299,6 @@ builtin_workspace_list = '''
 concat(
   name,
   ": ",
-  format_commit_summary_with_refs(target, format_commit_ref_names(target.bookmarks())),
-  "\n",
-)
-'''
-
-builtin_workspace_list_with_root = '''
-concat(
-  name,
-  ": ",
   separate(
     " ",
     if(root, root.relative()),
