@@ -143,7 +143,6 @@ fn test_new_wc_commit_when_wc_immutable() {
     work_dir
         .run_jj(["bookmark", "create", "-r@", "main"])
         .success();
-    test_env.add_config(r#"revset-aliases."immutable_heads()" = "main""#);
     work_dir.run_jj(["new", "-m=a"]).success();
     let output = work_dir.run_jj(["bookmark", "set", "main", "-r@"]);
     insta::assert_snapshot!(output, @"
@@ -151,6 +150,8 @@ fn test_new_wc_commit_when_wc_immutable() {
     Moved 1 bookmarks to kkmpptxz e1cb4cf3 main | (empty) a
     [EOF]
     ");
+    // Make the working copy immutable after the fact
+    test_env.add_config(r#"revset-aliases."immutable_heads()" = "main""#);
     work_dir.write_file("file", "a");
     let output = work_dir.run_jj(["log", "-r.."]);
     insta::assert_snapshot!(output, @"
@@ -177,18 +178,23 @@ fn test_immutable_heads_set_to_working_copy() {
         .run_jj(["bookmark", "create", "-r@", "main"])
         .success();
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "@""#);
+    // New working-copy commit is created to mitigate weird UX
     let output = work_dir.run_jj(["new", "-m=a"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: kkmpptxz e1cb4cf3 (empty) a
-    Parent commit (@-)      : qpvuntsm e8849ae1 main | (empty) (no description set)
+    Warning: The working-copy commit became immutable; a new commit has been created on top of it.
+    Working copy  (@) now at: pmmvwywv 08e27304 (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz e1cb4cf3 (empty) a
     [EOF]
     ");
+    // New working-copy commit is created again because @ is still immutable
     work_dir.write_file("file", "a");
     let output = work_dir.run_jj(["log", "-r.."]);
     insta::assert_snapshot!(output, @"
-    @  zsuskuln test.user@example.com 2001-02-03 08:05:10 aa4d78a2
+    @  zsuskuln test.user@example.com 2001-02-03 08:05:10 2e9c5f50
     │  (no description set)
+    ◆  pmmvwywv test.user@example.com 2001-02-03 08:05:09 08e27304
+    │  (empty) (no description set)
     ◆  kkmpptxz test.user@example.com 2001-02-03 08:05:09 e1cb4cf3
     │  (empty) a
     ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:07 main e8849ae1
@@ -197,6 +203,15 @@ fn test_immutable_heads_set_to_working_copy() {
     [EOF]
     ------- stderr -------
     Warning: The working-copy commit is immutable; a new commit has been created on top of it.
+    [EOF]
+    ");
+    // New working-copy commit shouldn't be created repeatedly with no changes
+    let output = work_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output, @"
+    Working copy changes:
+    A file
+    Working copy  (@) : zsuskuln 2e9c5f50 (no description set)
+    Parent commit (@-): pmmvwywv 08e27304 (empty) (no description set)
     [EOF]
     ");
 }
@@ -217,16 +232,20 @@ fn test_new_wc_commit_when_wc_immutable_multi_workspace() {
     let workspace1_dir = test_env.work_dir("workspace1");
     workspace1_dir.run_jj(["edit", "default@"]).success();
 
+    // New working-copy commit is created early for the current workspace
     let output = work_dir.run_jj(["bookmark", "set", "main", "-r@"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Moved 1 bookmarks to kkmpptxz e1cb4cf3 main | (empty) a
+    Warning: The working-copy commit became immutable; a new commit has been created on top of it.
+    Working copy  (@) now at: royxmykx cec19492 (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz e1cb4cf3 main | (empty) a
     [EOF]
     ");
     work_dir.write_file("file", "a");
     let output = work_dir.run_jj(["log", "-r.."]);
     insta::assert_snapshot!(output, @"
-    @  yqosqzyt test.user@example.com 2001-02-03 08:05:13 default@ 3386b5c7
+    @  royxmykx test.user@example.com 2001-02-03 08:05:13 default@ acbba76f
     │  (no description set)
     ◆  kkmpptxz test.user@example.com 2001-02-03 08:05:09 main workspace1@ e1cb4cf3
     │  (empty) a
@@ -234,17 +253,15 @@ fn test_new_wc_commit_when_wc_immutable_multi_workspace() {
     │  (empty) (no description set)
     ~
     [EOF]
-    ------- stderr -------
-    Warning: The working-copy commit is immutable; a new commit has been created on top of it.
-    [EOF]
     ");
 
+    // New working-copy commit is created for the other workspaces as needed
     workspace1_dir.write_file("file", "a");
     let output = workspace1_dir.run_jj(["log", "-r.."]);
     insta::assert_snapshot!(output, @"
     @  vruxwmqv test.user@example.com 2001-02-03 08:05:14 workspace1@ bbc55980
     │  (no description set)
-    │ ○  yqosqzyt test.user@example.com 2001-02-03 08:05:13 default@ 3386b5c7
+    │ ○  royxmykx test.user@example.com 2001-02-03 08:05:13 default@ acbba76f
     ├─╯  (no description set)
     ◆  kkmpptxz test.user@example.com 2001-02-03 08:05:09 main e1cb4cf3
     │  (empty) a
