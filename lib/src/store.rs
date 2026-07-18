@@ -50,7 +50,7 @@ use crate::tree_merge::MergeOptions;
 // There are more tree objects than commits, and trees are often shared across
 // commits.
 pub(crate) const COMMIT_CACHE_CAPACITY: NonZeroUsize = NonZeroUsize::new(100).unwrap();
-const TREE_CACHE_CAPACITY: usize = 1000;
+const TREE_CACHE_CAPACITY: NonZeroUsize = NonZeroUsize::new(1000).unwrap();
 
 /// Wraps the low-level backend and makes it return more convenient types. Also
 /// adds caching.
@@ -80,7 +80,7 @@ impl Store {
             backend,
             signer,
             commit_cache: Mutex::new(CLruCache::new(COMMIT_CACHE_CAPACITY)),
-            tree_cache: Mutex::new(CLruCache::new(TREE_CACHE_CAPACITY.try_into().unwrap())),
+            tree_cache: Mutex::new(CLruCache::new(TREE_CACHE_CAPACITY)),
             merge_options,
         })
     }
