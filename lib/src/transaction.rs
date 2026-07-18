@@ -19,6 +19,7 @@ use std::sync::Arc;
 use thiserror::Error;
 
 use crate::backend::Timestamp;
+use crate::index::IndexError;
 use crate::index::IndexStoreError;
 use crate::index::ReadonlyIndex;
 use crate::op_heads_store::OpHeadsStore;
@@ -41,6 +42,7 @@ use crate::view::View;
 #[derive(Debug, Error)]
 #[error("Failed to commit new operation")]
 pub enum TransactionCommitError {
+    Index(#[from] IndexError),
     IndexStore(#[from] IndexStoreError),
     OpHeadsStore(#[from] OpHeadsStoreError),
     OpStore(#[from] OpStoreError),
@@ -141,7 +143,7 @@ impl Transaction {
             "BUG: Descendants have not been rebased after the last rewrites."
         );
         let base_repo = mut_repo.base_repo().clone();
-        let (mut_index, view, predecessors) = mut_repo.consume();
+        let (mut_index, view, predecessors) = mut_repo.consume()?;
 
         let operation = {
             let view_id = base_repo.op_store().write_view(view.store_view()).await?;

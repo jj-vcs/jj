@@ -34,7 +34,6 @@ use once_cell::sync::OnceCell;
 use thiserror::Error;
 use tracing::instrument;
 
-use self::dirty_cell::DirtyCell;
 use crate::backend::Backend;
 use crate::backend::BackendError;
 use crate::backend::BackendInitError;
@@ -994,7 +993,7 @@ impl Rewrite {
 pub struct MutableRepo {
     base_repo: Arc<ReadonlyRepo>,
     index: Box<dyn MutableIndex>,
-    view: DirtyCell<View>,
+    view: View,
     /// Mapping from new commit to its predecessors.
     ///
     /// This is similar to (the reverse of) `parent_mapping`, but
@@ -1013,12 +1012,11 @@ pub struct MutableRepo {
 
 impl MutableRepo {
     pub fn new(base_repo: Arc<ReadonlyRepo>, index: &dyn ReadonlyIndex, view: &View) -> Self {
-        let mut_view = view.clone();
         let mut_index = index.start_modification();
         Self {
             base_repo,
             index: mut_index,
-            view: DirtyCell::with_clean(mut_view),
+            view: view.clone(),
             commit_predecessors: Default::default(),
             parent_mapping: Default::default(),
         }
@@ -1026,10 +1024,6 @@ impl MutableRepo {
 
     pub fn base_repo(&self) -> &Arc<ReadonlyRepo> {
         &self.base_repo
-    }
-
-    fn view_mut(&mut self) -> &mut View {
-        self.view.get_mut()
     }
 
     pub fn mutable_index(&self) -> &dyn MutableIndex {
@@ -1041,7 +1035,6 @@ impl MutableRepo {
     }
 
     pub fn has_changes(&self) -> bool {
-        self.view.ensure_clean(|v| self.enforce_view_invariants(v));
         !(self.commit_predecessors.is_empty()
             && self.parent_mapping.is_empty()
             && self.view() == &self.base_repo.view)
@@ -1049,13 +1042,18 @@ impl MutableRepo {
 
     pub(crate) fn consume(
         self,
-    ) -> (
-        Box<dyn MutableIndex>,
-        View,
-        BTreeMap<CommitId, Vec<CommitId>>,
-    ) {
-        self.view.ensure_clean(|v| self.enforce_view_invariants(v));
-        (self.index, self.view.into_inner(), self.commit_predecessors)
+    ) -> Result<
+        (
+            Box<dyn MutableIndex>,
+            View,
+            BTreeMap<CommitId, Vec<CommitId>>,
+        ),
+        IndexError,
+    > {
+        let root_commit_id = self.store().root_commit_id().clone();
+        let mut view = self.view;
+        view.normalize_heads(self.index.as_index(), &root_commit_id)?;
+        Ok((self.index, view, self.commit_predecessors))
     }
 
     /// Returns a [`CommitBuilder`] to write new commit to the repo.
@@ -1610,13 +1608,13 @@ impl MutableRepo {
         if &commit_id == self.store().root_commit_id() {
             return Err(RewriteRootCommit);
         }
-        self.view_mut().set_wc_commit(name, commit_id);
+        self.view.set_wc_commit(name, commit_id);
         Ok(())
     }
 
     pub async fn remove_wc_commit(&mut self, name: &WorkspaceName) -> Result<(), EditCommitError> {
         self.maybe_abandon_wc_commit(name).await?;
-        self.view_mut().remove_wc_commit(name);
+        self.view.remove_wc_commit(name);
         Ok(())
     }
 
@@ -1628,8 +1626,7 @@ impl MutableRepo {
         base_id: Option<&CommitId>,
         other_id: Option<&CommitId>,
     ) {
-        let view = self.view.get_mut();
-        let self_id = view.get_wc_commit_id(name);
+        let self_id = self.view.get_wc_commit_id(name);
         // Not using merge_ref_targets(). Since the working-copy pointer moves
         // towards random direction, it doesn't make sense to resolve conflict
         // based on ancestry.
@@ -1645,8 +1642,8 @@ impl MutableRepo {
             self_id.cloned()
         };
         match new_id {
-            Some(id) => view.set_wc_commit(name.to_owned(), id),
-            None => view.remove_wc_commit(name),
+            Some(id) => self.view.set_wc_commit(name.to_owned(), id),
+            None => self.view.remove_wc_commit(name),
         }
     }
 
@@ -1655,7 +1652,7 @@ impl MutableRepo {
         old_name: &WorkspaceName,
         new_name: WorkspaceNameBuf,
     ) -> Result<(), RenameWorkspaceError> {
-        self.view_mut().rename_workspace(old_name, new_name)
+        self.view.rename_workspace(old_name, new_name)
     }
 
     pub async fn check_out(
@@ -1698,9 +1695,7 @@ impl MutableRepo {
             .any(|id| id == commit_id)
         };
 
-        let maybe_wc_commit_id = self
-            .view
-            .with_ref(|v| v.get_wc_commit_id(workspace_name).cloned());
+        let maybe_wc_commit_id = self.view.get_wc_commit_id(workspace_name).cloned();
         if let Some(wc_commit_id) = maybe_wc_commit_id {
             let wc_commit = self
                 .store()
@@ -1708,9 +1703,7 @@ impl MutableRepo {
                 .await
                 .map_err(EditCommitError::WorkingCopyCommitNotFound)?;
             if wc_commit.is_discardable(self).await?
-                && self
-                    .view
-                    .with_ref(|v| !is_commit_referenced(v, wc_commit.id()))
+                && !is_commit_referenced(&self.view, wc_commit.id())
                 && self.view().heads().contains(wc_commit.id())
             {
                 // Abandon the working-copy commit we're leaving if it's
@@ -1721,28 +1714,6 @@ impl MutableRepo {
         }
 
         Ok(())
-    }
-
-    fn enforce_view_invariants(&self, view: &mut View) {
-        let view = view.store_view_mut();
-        let root_commit_id = self.store().root_commit_id();
-        if view.head_ids.is_empty() {
-            view.head_ids.insert(root_commit_id.clone());
-        } else if view.head_ids.len() > 1 {
-            // An empty head_ids set is padded with the root_commit_id, but the
-            // root id is unwanted during the heads resolution.
-            view.head_ids.remove(root_commit_id);
-            // It is unclear if `heads` can never fail for default implementation,
-            // but it can definitely fail for non-default implementations.
-            // TODO: propagate errors.
-            view.head_ids = self
-                .index()
-                .heads(&mut view.head_ids.iter())
-                .unwrap()
-                .into_iter()
-                .collect();
-        }
-        assert!(!view.head_ids.is_empty());
     }
 
     /// Ensures that the given `head` and ancestor commits are reachable from
@@ -1758,7 +1729,7 @@ impl MutableRepo {
     /// and ancestors of the other heads. The `heads` and ancestor commits
     /// should exist in the store.
     pub async fn add_heads(&mut self, heads: &[Commit]) -> BackendResult<()> {
-        let current_heads = self.view.get_mut().heads();
+        let current_heads = self.view.heads();
         // Use incremental update for common case of adding a single commit on top a
         // current head. TODO: Also use incremental update when adding a single
         // commit on top a non-head.
@@ -1775,25 +1746,23 @@ impl MutableRepo {
                     .await
                     // TODO: indexing error shouldn't be a "BackendError"
                     .map_err(|err| BackendError::Other(err.into()))?;
-                self.view.get_mut().add_head(head.id());
+                self.view.add_head(head.id());
                 for parent_id in head.parent_ids() {
-                    self.view.get_mut().remove_head(parent_id);
+                    self.view.remove_head(parent_id);
                 }
             }
             _ => {
                 self.index_commits(heads).await?;
                 for head in heads {
-                    self.view.get_mut().add_head(head.id());
+                    self.view.add_head(head.id());
                 }
-                self.view.mark_dirty();
             }
         }
         Ok(())
     }
 
     pub fn remove_head(&mut self, head: &CommitId) {
-        self.view_mut().remove_head(head);
-        self.view.mark_dirty();
+        self.view.remove_head(head);
     }
 
     /// Adds the given `heads` and ancestor commits to the index without making
@@ -1843,16 +1812,14 @@ impl MutableRepo {
     }
 
     pub fn get_local_bookmark(&self, name: &RefName) -> RefTarget {
-        self.view.with_ref(|v| v.get_local_bookmark(name).clone())
+        self.view.get_local_bookmark(name).clone()
     }
 
     pub fn set_local_bookmark_target(&mut self, name: &RefName, target: RefTarget) {
-        let view = self.view_mut();
         for id in target.added_ids() {
-            view.add_head(id);
+            self.view.add_head(id);
         }
-        view.set_local_bookmark_target(name, target);
-        self.view.mark_dirty();
+        self.view.set_local_bookmark_target(name, target);
     }
 
     pub fn merge_local_bookmark(
@@ -1861,21 +1828,19 @@ impl MutableRepo {
         base_target: &RefTarget,
         other_target: &RefTarget,
     ) -> IndexResult<()> {
-        let view = self.view.get_mut();
         let index = self.index.as_index();
-        let self_target = view.get_local_bookmark(name);
+        let self_target = self.view.get_local_bookmark(name);
         let new_target = merge_ref_targets(index, self_target, base_target, other_target)?;
         self.set_local_bookmark_target(name, new_target);
         Ok(())
     }
 
     pub fn get_remote_bookmark(&self, symbol: RemoteRefSymbol<'_>) -> RemoteRef {
-        self.view
-            .with_ref(|v| v.get_remote_bookmark(symbol).clone())
+        self.view.get_remote_bookmark(symbol).clone()
     }
 
     pub fn set_remote_bookmark(&mut self, symbol: RemoteRefSymbol<'_>, remote_ref: RemoteRef) {
-        self.view_mut().set_remote_bookmark(symbol, remote_ref);
+        self.view.set_remote_bookmark(symbol, remote_ref);
     }
 
     fn merge_remote_bookmark(
@@ -1884,11 +1849,10 @@ impl MutableRepo {
         base_ref: &RemoteRef,
         other_ref: &RemoteRef,
     ) -> IndexResult<()> {
-        let view = self.view.get_mut();
         let index = self.index.as_index();
-        let self_ref = view.get_remote_bookmark(symbol);
+        let self_ref = self.view.get_remote_bookmark(symbol);
         let new_ref = merge_remote_refs(index, self_ref, base_ref, other_ref)?;
-        view.set_remote_bookmark(symbol, new_ref);
+        self.view.set_remote_bookmark(symbol, new_ref);
         Ok(())
     }
 
@@ -1911,23 +1875,23 @@ impl MutableRepo {
     }
 
     pub fn ensure_remote(&mut self, remote_name: &RemoteName) {
-        self.view_mut().ensure_remote(remote_name);
+        self.view.ensure_remote(remote_name);
     }
 
     pub fn remove_remote(&mut self, remote_name: &RemoteName) {
-        self.view_mut().remove_remote(remote_name);
+        self.view.remove_remote(remote_name);
     }
 
     pub fn rename_remote(&mut self, old: &RemoteName, new: &RemoteName) {
-        self.view_mut().rename_remote(old, new);
+        self.view.rename_remote(old, new);
     }
 
     pub fn get_local_tag(&self, name: &RefName) -> RefTarget {
-        self.view.with_ref(|v| v.get_local_tag(name).clone())
+        self.view.get_local_tag(name).clone()
     }
 
     pub fn set_local_tag_target(&mut self, name: &RefName, target: RefTarget) {
-        self.view_mut().set_local_tag_target(name, target);
+        self.view.set_local_tag_target(name, target);
     }
 
     pub fn merge_local_tag(
@@ -1936,20 +1900,19 @@ impl MutableRepo {
         base_target: &RefTarget,
         other_target: &RefTarget,
     ) -> IndexResult<()> {
-        let view = self.view.get_mut();
         let index = self.index.as_index();
-        let self_target = view.get_local_tag(name);
+        let self_target = self.view.get_local_tag(name);
         let new_target = merge_ref_targets(index, self_target, base_target, other_target)?;
-        view.set_local_tag_target(name, new_target);
+        self.view.set_local_tag_target(name, new_target);
         Ok(())
     }
 
     pub fn get_remote_tag(&self, symbol: RemoteRefSymbol<'_>) -> RemoteRef {
-        self.view.with_ref(|v| v.get_remote_tag(symbol).clone())
+        self.view.get_remote_tag(symbol).clone()
     }
 
     pub fn set_remote_tag(&mut self, symbol: RemoteRefSymbol<'_>, remote_ref: RemoteRef) {
-        self.view_mut().set_remote_tag(symbol, remote_ref);
+        self.view.set_remote_tag(symbol, remote_ref);
     }
 
     fn merge_remote_tag(
@@ -1958,20 +1921,19 @@ impl MutableRepo {
         base_ref: &RemoteRef,
         other_ref: &RemoteRef,
     ) -> IndexResult<()> {
-        let view = self.view.get_mut();
         let index = self.index.as_index();
-        let self_ref = view.get_remote_tag(symbol);
+        let self_ref = self.view.get_remote_tag(symbol);
         let new_ref = merge_remote_refs(index, self_ref, base_ref, other_ref)?;
-        view.set_remote_tag(symbol, new_ref);
+        self.view.set_remote_tag(symbol, new_ref);
         Ok(())
     }
 
     pub fn get_git_ref(&self, name: &GitRefName) -> RefTarget {
-        self.view.with_ref(|v| v.get_git_ref(name).clone())
+        self.view.get_git_ref(name).clone()
     }
 
     pub fn set_git_ref_target(&mut self, name: &GitRefName, target: RefTarget) {
-        self.view_mut().set_git_ref_target(name, target);
+        self.view.set_git_ref_target(name, target);
     }
 
     fn merge_git_ref(
@@ -1980,25 +1942,24 @@ impl MutableRepo {
         base_target: &RefTarget,
         other_target: &RefTarget,
     ) -> IndexResult<()> {
-        let view = self.view.get_mut();
         let index = self.index.as_index();
-        let self_target = view.get_git_ref(name);
+        let self_target = self.view.get_git_ref(name);
         let new_target = merge_ref_targets(index, self_target, base_target, other_target)?;
-        view.set_git_ref_target(name, new_target);
+        self.view.set_git_ref_target(name, new_target);
         Ok(())
     }
 
     pub fn git_head(&self) -> RefTarget {
-        self.view.with_ref(|v| v.git_head().clone())
+        self.view.git_head().clone()
     }
 
     pub fn set_git_head_target(&mut self, target: RefTarget) {
-        self.view_mut().set_git_head_target(target);
+        self.view.set_git_head_target(target);
     }
 
     pub fn set_view(&mut self, data: op_store::View) {
-        self.view_mut().set_view(data);
-        self.view.mark_dirty();
+        let head_normalized = false;
+        self.view.set_view(data, head_normalized);
     }
 
     pub async fn merge(
@@ -2013,9 +1974,10 @@ impl MutableRepo {
         self.index.merge_in(base_repo.readonly_index())?;
         self.index.merge_in(other_repo.readonly_index())?;
 
-        self.view.ensure_clean(|v| self.enforce_view_invariants(v));
+        let root_commit_id = self.store().root_commit_id().clone();
+        self.view.normalize_heads(self.index.as_index(), &root_commit_id)?;
+
         self.merge_view(&base_repo.view, &other_repo.view).await?;
-        self.view.mark_dirty();
         Ok(())
     }
 
@@ -2046,11 +2008,11 @@ impl MutableRepo {
             // marked them abandoned or rewritten.
         } else {
             for removed_head in base.heads().difference(other.heads()) {
-                self.view_mut().remove_head(removed_head);
+                self.view.remove_head(removed_head);
             }
         }
         for added_head in other.heads().difference(base.heads()) {
-            self.view_mut().add_head(added_head);
+            self.view.add_head(added_head);
         }
 
         let changed_local_bookmarks =
@@ -2183,8 +2145,7 @@ impl Repo for MutableRepo {
     }
 
     fn view(&self) -> &View {
-        self.view
-            .get_or_ensure_clean(|v| self.enforce_view_invariants(v))
+        &self.view
     }
 
     fn submodule_store(&self) -> &Arc<dyn SubmoduleStore> {
@@ -2228,71 +2189,4 @@ pub enum CheckOutCommitError {
     CreateCommit(#[from] BackendError),
     #[error("Failed to edit commit")]
     EditCommit(#[from] EditCommitError),
-}
-
-mod dirty_cell {
-    use std::cell::OnceCell;
-    use std::cell::RefCell;
-
-    /// Cell that lazily updates the value after `mark_dirty()`.
-    ///
-    /// A clean value can be immutably borrowed within the `self` lifetime.
-    #[derive(Clone, Debug)]
-    pub struct DirtyCell<T> {
-        // Either clean or dirty value is set. The value is boxed to reduce stack space
-        // and memcopy overhead.
-        clean: OnceCell<Box<T>>,
-        dirty: RefCell<Option<Box<T>>>,
-    }
-
-    impl<T> DirtyCell<T> {
-        pub fn with_clean(value: T) -> Self {
-            Self {
-                clean: OnceCell::from(Box::new(value)),
-                dirty: RefCell::new(None),
-            }
-        }
-
-        pub fn get_or_ensure_clean(&self, f: impl FnOnce(&mut T)) -> &T {
-            self.clean.get_or_init(|| {
-                // Panics if ensure_clean() is invoked from with_ref() callback for example.
-                let mut value = self.dirty.borrow_mut().take().unwrap();
-                f(&mut value);
-                value
-            })
-        }
-
-        pub fn ensure_clean(&self, f: impl FnOnce(&mut T)) {
-            self.get_or_ensure_clean(f);
-        }
-
-        pub fn into_inner(self) -> T {
-            *self
-                .clean
-                .into_inner()
-                .or_else(|| self.dirty.into_inner())
-                .unwrap()
-        }
-
-        pub fn with_ref<R>(&self, f: impl FnOnce(&T) -> R) -> R {
-            if let Some(value) = self.clean.get() {
-                f(value)
-            } else {
-                f(self.dirty.borrow().as_ref().unwrap())
-            }
-        }
-
-        pub fn get_mut(&mut self) -> &mut T {
-            self.clean
-                .get_mut()
-                .or_else(|| self.dirty.get_mut().as_mut())
-                .unwrap()
-        }
-
-        pub fn mark_dirty(&mut self) {
-            if let Some(value) = self.clean.take() {
-                *self.dirty.get_mut() = Some(value);
-            }
-        }
-    }
 }

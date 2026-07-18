@@ -116,7 +116,9 @@ impl Operation {
 
     pub async fn view(&self) -> OpStoreResult<View> {
         let data = self.op_store.read_view(&self.data.view_id).await?;
-        Ok(View::new(data))
+        // head ids read from the database should always be normalized.
+        let head_normalized = true;
+        Ok(View::new(data, head_normalized))
     }
 
     pub fn metadata(&self) -> &OperationMetadata {

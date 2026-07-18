@@ -21,6 +21,9 @@ use itertools::Itertools as _;
 use thiserror::Error;
 
 use crate::backend::CommitId;
+use crate::index::Index;
+use crate::index::IndexError;
+use crate::index::IndexResult;
 use crate::op_store;
 use crate::op_store::LocalRemoteRefTarget;
 use crate::op_store::RefTarget;
@@ -39,15 +42,23 @@ use crate::refs::LocalAndRemoteRef;
 use crate::str_util::StringMatcher;
 
 /// A wrapper around [`op_store::View`] that defines additional methods.
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(Eq, Debug, Clone)]
 pub struct View {
     data: op_store::View,
+    head_normalized: bool,
+}
+
+impl PartialEq for View {
+  fn eq(&self, other: &Self) -> bool {
+    self.data == other.data
+  }
 }
 
 impl View {
-    pub fn new(op_store_view: op_store::View) -> Self {
+    pub fn new(op_store_view: op_store::View, head_normalized: bool) -> Self {
         Self {
             data: op_store_view,
+            head_normalized,
         }
     }
 
@@ -130,10 +141,12 @@ impl View {
 
     pub fn add_head(&mut self, head_id: &CommitId) {
         self.data.head_ids.insert(head_id.clone());
+        self.head_normalized = false;
     }
 
     pub fn remove_head(&mut self, head_id: &CommitId) {
         self.data.head_ids.remove(head_id);
+        self.head_normalized = false;
     }
 
     /// Iterates local bookmark `(name, target)`s in lexicographical order.
@@ -586,8 +599,9 @@ impl View {
         )
     }
 
-    pub fn set_view(&mut self, data: op_store::View) {
+    pub fn set_view(&mut self, data: op_store::View, head_normalized: bool) {
         self.data = data;
+        self.head_normalized = head_normalized;
     }
 
     pub fn store_view(&self) -> &op_store::View {
@@ -596,6 +610,37 @@ impl View {
 
     pub fn store_view_mut(&mut self) -> &mut op_store::View {
         &mut self.data
+    }
+
+    pub fn normalize_heads(
+        &mut self,
+        index: &dyn Index,
+        root_commit_id: &CommitId,
+    ) -> IndexResult<()> {
+        if self.head_normalized {
+            return Ok(());
+        }
+        let view = self.store_view_mut();
+        if view.head_ids.is_empty() {
+            view.head_ids.insert(root_commit_id.clone());
+        } else if view.head_ids.len() > 1 {
+            // An empty head_ids set is padded with the root_commit_id, but the
+            // root id is unwanted during the heads resolution.
+            view.head_ids.remove(root_commit_id);
+            view.head_ids = index
+                .heads(&mut view.head_ids.iter())?
+                .into_iter()
+                .collect();
+        }
+        if view.head_ids.is_empty() {
+            return Err(IndexError::Other(
+                Box::<dyn std::error::Error + Send + Sync>::from(
+                    "Empty head_ids after normalizing heads",
+                ),
+            ));
+        }
+        self.head_normalized = true;
+        Ok(())
     }
 }
 
@@ -629,6 +674,7 @@ mod tests {
     fn test_absent_tracked_bookmarks() {
         let mut view = View {
             data: op_store::View::make_root(CommitId::from_hex("000000")),
+            head_normalized: true,
         };
         let absent_tracked_ref = RemoteRef {
             target: RefTarget::absent(),
@@ -680,6 +726,7 @@ mod tests {
     fn test_absent_tracked_tags() {
         let mut view = View {
             data: op_store::View::make_root(CommitId::from_hex("000000")),
+            head_normalized: true
         };
         let absent_tracked_ref = RemoteRef {
             target: RefTarget::absent(),
