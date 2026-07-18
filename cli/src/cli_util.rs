@@ -596,10 +596,13 @@ impl CommandHelper {
                 // operation, then merge the divergent operations. The wc_commit_id of the
                 // merged repo wouldn't change because the old one wins, but it's probably
                 // fine if we picked the new wc_commit_id.
-                let stale_stats = workspace_command
-                    .snapshot_working_copy(ui)
-                    .await
-                    .map_err(|err| err.into_command_error())?;
+                let stale_stats = {
+                    let git_import_export_lock = workspace_command.lock_git_import_export()?;
+                    workspace_command
+                        .snapshot_working_copy(ui, &git_import_export_lock)
+                        .await
+                        .map_err(|err| err.into_command_error())?
+                };
 
                 let wc_commit_id = workspace_command.get_wc_commit_id().unwrap();
                 let repo = workspace_command.repo().clone();
@@ -1237,7 +1240,6 @@ impl WorkspaceCommandHelper {
         // Acquire git import/export lock once for the entire import/snapshot/export
         // cycle. This prevents races with other processes during Git HEAD and
         // refs import/export.
-        #[cfg_attr(not(feature = "git"), allow(unused_variables))]
         let git_import_export_lock = self
             .lock_git_import_export()
             .map_err(snapshot_command_error)?;
@@ -1276,7 +1278,9 @@ impl WorkspaceCommandHelper {
         // pointing to the new working-copy commit might not be exported.
         // In that situation, the ref would be conflicted anyway, so export
         // failure is okay.
-        let stats = self.snapshot_working_copy(ui).await?;
+        let stats = self
+            .snapshot_working_copy(ui, &git_import_export_lock)
+            .await?;
 
         // import_git_refs() can rebase the working-copy commit.
         #[cfg(feature = "git")]
@@ -2020,6 +2024,7 @@ to the current parents may contain changes from multiple commits.
     async fn snapshot_working_copy(
         &mut self,
         ui: &Ui,
+        git_import_export_lock: &GitImportExportLock,
     ) -> Result<SnapshotStats, SnapshotWorkingCopyError> {
         let workspace_name = self.workspace_name().to_owned();
         let repo = self.repo().clone();
@@ -2117,11 +2122,24 @@ to the current parents may contain changes from multiple commits.
 
             #[cfg(feature = "git")]
             if self.working_copy_shared_with_git && self.env.command.should_commit_transaction() {
-                let old_tree = wc_commit.tree();
-                let new_tree = new_wc_commit.tree();
-                export_working_copy_changes_to_git(ui, mut_repo, &old_tree, &new_tree)
-                    .await
-                    .map_err(snapshot_command_error)?;
+                if wc_immutable {
+                    // New working-copy commit is created on top. Reset Git HEAD and index.
+                    try_reset_git_head(ui, mut_repo, &new_wc_commit, git_import_export_lock)
+                        .await
+                        .map_err(snapshot_command_error)?;
+                    // export_refs() is probably unnecessary because there should be no
+                    // rewritten descendants, but it's harmless.
+                    let stats =
+                        jj_lib::git::export_refs(mut_repo).map_err(snapshot_command_error)?;
+                    crate::git_util::print_git_export_stats(ui, &stats)
+                        .map_err(snapshot_command_error)?;
+                } else {
+                    let old_tree = wc_commit.tree();
+                    let new_tree = new_wc_commit.tree();
+                    export_working_copy_changes_to_git(ui, mut_repo, &old_tree, &new_tree)
+                        .await
+                        .map_err(snapshot_command_error)?;
+                }
             }
 
             let repo = self
@@ -2252,7 +2270,7 @@ to the current parents may contain changes from multiple commits.
         ui: &Ui,
         mut tx: Transaction,
         description: impl Into<String>,
-        _git_import_export_lock: &GitImportExportLock,
+        git_import_export_lock: &GitImportExportLock,
     ) -> Result<(), CommandError> {
         let old_repo = tx.base_repo().clone();
 
@@ -2270,22 +2288,8 @@ to the current parents may contain changes from multiple commits.
 
         #[cfg(feature = "git")]
         if self.working_copy_shared_with_git && self.env.command.should_commit_transaction() {
-            use std::error::Error as _;
             if let Some(wc_commit) = &maybe_new_wc_commit {
-                // Export Git HEAD while holding the git-head lock to prevent races:
-                // - Between two finish_transaction calls updating HEAD
-                // - With import_git_head importing HEAD concurrently
-                // This can still fail if HEAD was updated concurrently by another JJ process
-                // (overlapping transaction) or a non-JJ process (e.g., git checkout). In that
-                // case, the actual state will be imported on the next snapshot.
-                match jj_lib::git::reset_head(tx.repo_mut(), wc_commit).await {
-                    Ok(()) => {}
-                    Err(err @ jj_lib::git::GitResetHeadError::UpdateHeadRef(_)) => {
-                        writeln!(ui.warning_default(), "{err}")?;
-                        print_error_sources(ui, err.source())?;
-                    }
-                    Err(err) => return Err(err.into()),
-                }
+                try_reset_git_head(ui, tx.repo_mut(), wc_commit, git_import_export_lock).await?;
             }
             let stats = jj_lib::git::export_refs(tx.repo_mut())?;
             crate::git_util::print_git_export_stats(ui, &stats)?;
@@ -2604,6 +2608,31 @@ pub async fn export_working_copy_changes_to_git(
     _new_tree: &MergedTree,
 ) -> Result<(), CommandError> {
     Ok(())
+}
+
+#[cfg(feature = "git")]
+async fn try_reset_git_head(
+    ui: &Ui,
+    mut_repo: &mut MutableRepo,
+    wc_commit: &Commit,
+    _git_import_export_lock: &GitImportExportLock,
+) -> Result<(), CommandError> {
+    use std::error::Error as _;
+    // Export Git HEAD while holding the git-head lock to prevent races:
+    // - Between two finish_transaction calls updating HEAD
+    // - With import_git_head importing HEAD concurrently
+    // This can still fail if HEAD was updated concurrently by another JJ process
+    // (overlapping transaction) or a non-JJ process (e.g., git checkout). In that
+    // case, the actual state will be imported on the next snapshot.
+    match jj_lib::git::reset_head(mut_repo, wc_commit).await {
+        Ok(()) => Ok(()),
+        Err(err @ jj_lib::git::GitResetHeadError::UpdateHeadRef(_)) => {
+            writeln!(ui.warning_default(), "{err}")?;
+            print_error_sources(ui, err.source())?;
+            Ok(())
+        }
+        Err(err) => Err(err.into()),
+    }
 }
 
 /// An ongoing [`Transaction`] tied to a particular workspace.

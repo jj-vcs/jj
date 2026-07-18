@@ -173,6 +173,77 @@ fn test_git_colocated_intent_to_add() -> TestResult {
 }
 
 #[test]
+fn test_git_colocated_new_wc_commit_when_wc_immutable() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create Git HEAD commit
+    work_dir.write_file("file1", "a\n");
+    work_dir.run_jj(["new"]).success();
+
+    // Prepare working copy that will become immutable
+    work_dir.write_file("file2", "b\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "main"])
+        .success();
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: eb7b8a1f02b8d0915290e1163a3526bfa4e417fa
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @"
+    Unconflicted Mode(FILE) 78981922613b ctime=0:0 mtime=0:0 size=0 flags=0 file1
+    Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 file2
+    ");
+
+    // Make the working copy immutable and snapshot changes
+    test_env.add_config(r#"revset-aliases."immutable_heads()" = "main""#);
+    work_dir.write_file("file2", "b\nc\n");
+    work_dir.write_file("file3", "d\n");
+    let output = work_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output, @"
+    Working copy changes:
+    M file2
+    A file3
+    Working copy  (@) : mzvwutvl d1b1d7e9 (no description set)
+    Parent commit (@-): rlvkpnrz 1d3e40a3 main | (no description set)
+    [EOF]
+    ------- stderr -------
+    Warning: The working-copy commit is immutable; a new commit has been created on top of it.
+    [EOF]
+    ");
+    // New working-copy commit is created, and the Git HEAD should be updated
+    let output = work_dir.run_jj(["log", "-r..", "--summary"]);
+    insta::assert_snapshot!(output, @"
+    @  mzvwutvl test.user@example.com 2001-02-03 08:05:11 d1b1d7e9
+    │  (no description set)
+    │  M file2
+    │  A file3
+    ◆  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 main 1d3e40a3
+    │  (no description set)
+    │  A file2
+    ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:08 eb7b8a1f
+    │  (no description set)
+    ~  A file1
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: 1d3e40a35156c275f7a535fdaa50cb5882d500eb
+    [EOF]
+    ");
+    // file3 should be marked as "intent-to-add"
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @"
+    Unconflicted Mode(FILE) 78981922613b ctime=0:0 mtime=0:0 size=0 flags=0 file1
+    Unconflicted Mode(FILE) 61780798228d ctime=0:0 mtime=0:0 size=0 flags=0 file2
+    Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 file3
+    ");
+}
+
+#[test]
 fn test_git_colocated_unborn_bookmark() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
