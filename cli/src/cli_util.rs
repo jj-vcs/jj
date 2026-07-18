@@ -2282,6 +2282,33 @@ to the current parents may contain changes from multiple commits.
             .get_wc_commit_id(self.workspace_name())
             .map(|commit_id| tx.repo().store().get_commit(commit_id))
             .transpose()?;
+        // Create a new mutable working-copy commit to reduce unintended states.
+        // This isn't strictly required for correctness, so symbol resolution
+        // failures can be ignored. snapshot_working_copy() ensures that the
+        // working-copy commit is mutable.
+        let maybe_new_wc_commit = if let Some(wc_commit) = &maybe_new_wc_commit
+            && let Ok(immutable_expr) = self.env.resolve_immutable_expression(tx.repo())
+            && !immutable_expr
+                .intersection(&RevsetExpression::commit(wc_commit.id().clone()))
+                .evaluate(tx.repo())?
+                .is_empty()?
+        {
+            let new_wc_commit = tx
+                .repo_mut()
+                .new_commit(vec![wc_commit.id().clone()], wc_commit.tree())
+                .write()
+                .await?;
+            tx.repo_mut()
+                .set_wc_commit(self.workspace_name().to_owned(), new_wc_commit.id().clone())?;
+            writeln!(
+                ui.warning_default(),
+                "The working-copy commit became immutable; a new commit has been created on top \
+                 of it.",
+            )?;
+            Some(new_wc_commit)
+        } else {
+            maybe_new_wc_commit
+        };
 
         #[cfg(feature = "git")]
         if self.working_copy_shared_with_git && self.env.command.should_commit_transaction() {

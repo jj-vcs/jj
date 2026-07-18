@@ -205,6 +205,9 @@ fn test_git_private_commits_can_be_overridden() {
     ------- stderr -------
     Changes to push to origin:
       bookmark: main [move forward from 95cc152cd086 to 7f665ca27d4e]
+    Warning: The working-copy commit became immutable; a new commit has been created on top of it.
+    Working copy  (@) now at: znkkpsqq 8227d51b (empty) (no description set)
+    Parent commit (@-)      : yqosqzyt 7f665ca2 main | (empty) private 1
     [EOF]
     ");
 }
@@ -227,6 +230,9 @@ fn test_git_private_commits_are_not_checked_if_immutable() {
     ------- stderr -------
     Changes to push to origin:
       bookmark: main [move forward from 95cc152cd086 to 7f665ca27d4e]
+    Warning: The working-copy commit became immutable; a new commit has been created on top of it.
+    Working copy  (@) now at: yostqsxw 17947f20 (empty) (no description set)
+    Parent commit (@-)      : yqosqzyt 7f665ca2 main | (empty) private 1
     [EOF]
     ");
 }
@@ -316,6 +322,9 @@ fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
     Changes to push to origin:
       bookmark: bookmark1 [add to 95cc152cd086]
       bookmark: main [move forward from 95cc152cd086 to 03bc2bf271e0]
+    Warning: The working-copy commit became immutable; a new commit has been created on top of it.
+    Working copy  (@) now at: kpqxywon 5308110d (empty) (no description set)
+    Parent commit (@-)      : yostqsxw 03bc2bf2 main | (empty) public 3
     [EOF]
     ");
 

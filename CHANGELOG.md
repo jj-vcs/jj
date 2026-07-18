@@ -69,6 +69,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Fixed Git HEAD mismatch after the working copy became immutable.
   [#9827](https://github.com/jj-vcs/jj/issues/9827)
 
+* `jj` now creates a new working-copy revision as soon as the one of the current
+  workspace becomes immutable, as well as during snapshotting. This brings the
+  behavior closer to `jj` 0.42 and earlier.
+
 ## [0.43.0] - 2026-07-01
 
 ### Release highlights

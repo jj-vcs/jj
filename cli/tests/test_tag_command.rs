@@ -57,10 +57,14 @@ fn test_tag_set_delete() {
     Warning: Target revision is empty.
     Created 1 tags pointing to rlvkpnrz bbc74930 (empty) (no description set)
     Moved 1 tags to rlvkpnrz bbc74930 (empty) (no description set)
+    Warning: The working-copy commit became immutable; a new commit has been created on top of it.
+    Working copy  (@) now at: yqosqzyt 13cbd515 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz bbc74930 (empty) (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  bbc749308d7f baz foo
+    @  13cbd51558a6
+    ◆  bbc749308d7f baz foo
     ◆  b876c5f49546 bar
     ◆  000000000000
     [EOF]
@@ -73,7 +77,8 @@ fn test_tag_set_delete() {
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  bbc749308d7f baz
+    @  13cbd51558a6
+    ◆  bbc749308d7f baz
     ◆  b876c5f49546 bar
     ◆  000000000000
     [EOF]
@@ -83,11 +88,16 @@ fn test_tag_set_delete() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Target revision is empty.
-    Nothing changed.
+    Moved 1 tags to yqosqzyt 13cbd515 (empty) (no description set)
+    Warning: The working-copy commit became immutable; a new commit has been created on top of it.
+    Working copy  (@) now at: kpqxywon cca3d7af (empty) (no description set)
+    Parent commit (@-)      : yqosqzyt 13cbd515 (empty) (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  bbc749308d7f baz
+    @  cca3d7af9d98
+    ◆  13cbd51558a6 baz
+    ◆  bbc749308d7f
     ◆  b876c5f49546 bar
     ◆  000000000000
     [EOF]
@@ -100,7 +110,9 @@ fn test_tag_set_delete() {
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  bbc749308d7f
+    @  cca3d7af9d98
+    ○  13cbd51558a6
+    ○  bbc749308d7f
     ○  b876c5f49546
     ◆  000000000000
     [EOF]
@@ -273,7 +285,7 @@ fn test_tag_list() {
     [38;5;5mconflicted_tag[39m [38;5;1m(conflicted)[39m:
       - [1m[38;5;5mrl[0m[38;5;8mvkpnrz[39m [1m[38;5;4m8[0m[38;5;8m93e67dc[39m [38;5;2m(empty)[39m commit1
       + [1m[38;5;5mzs[0m[38;5;8muskuln[39m [1m[38;5;4m7[0m[38;5;8m6abdd20[39m [38;5;2m(empty)[39m commit2
-      + [1m[38;5;13mr[38;5;8moyxmykx[39m [38;5;12m1[38;5;8m3c4e819[39m [38;5;10m(empty)[39m commit3[0m
+      + [1m[38;5;5mr[0m[38;5;8moyxmykx[39m [1m[38;5;4m1[0m[38;5;8m3c4e819[39m [38;5;2m(empty)[39m commit3
     [38;5;5mtest_tag[39m: [1m[38;5;5mrl[0m[38;5;8mvkpnrz[39m [1m[38;5;4m8[0m[38;5;8m93e67dc[39m [38;5;2m(empty)[39m commit1
     [38;5;5mtest_tag2[39m: [1m[38;5;5mzs[0m[38;5;8muskuln[39m [1m[38;5;4m7[0m[38;5;8m6abdd20[39m [38;5;2m(empty)[39m commit2
     [EOF]
