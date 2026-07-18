@@ -3112,6 +3112,7 @@ fn resolve_visibility(
         referenced_commits: &[],
         visible_heads: &repo.view().heads().iter().cloned().collect_vec(),
         root: repo.store().root_commit_id(),
+        is_heads_normalized: repo.view().is_heads_normalized(),
     };
     context.resolve(expression)
 }
@@ -3121,6 +3122,7 @@ struct VisibilityResolutionContext<'a> {
     referenced_commits: &'a [CommitId],
     visible_heads: &'a [CommitId],
     root: &'a CommitId,
+    is_heads_normalized: bool,
 }
 
 impl VisibilityResolutionContext<'_> {
@@ -3234,6 +3236,7 @@ impl VisibilityResolutionContext<'_> {
                     referenced_commits: commits,
                     visible_heads: self.visible_heads,
                     root: self.root,
+                    is_heads_normalized: self.is_heads_normalized,
                 };
                 context.resolve(candidates)
             }
@@ -3245,6 +3248,7 @@ impl VisibilityResolutionContext<'_> {
                     referenced_commits: self.referenced_commits,
                     visible_heads,
                     root: self.root,
+                    is_heads_normalized: self.is_heads_normalized,
                 };
                 context.resolve(candidates)
             }
@@ -3294,7 +3298,12 @@ impl VisibilityResolutionContext<'_> {
     }
 
     fn resolve_visible_heads(&self) -> ResolvedExpression {
-        ResolvedExpression::Commits(self.visible_heads.to_owned())
+        let visible_heads = ResolvedExpression::Commits(self.visible_heads.to_owned());
+        if self.is_heads_normalized {
+            visible_heads
+        } else {
+            ResolvedExpression::Heads(visible_heads.into())
+        }
     }
 
     fn resolve_visible_heads_or_referenced(&self) -> ResolvedExpression {
