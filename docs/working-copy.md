@@ -84,8 +84,7 @@ while you continue developing in another, for example. If needed,
 `jj workspace root --name <workspace>` prints the root path of the specified
 workspace (defaults to the current one).
 
-Use `jj workspace list -T builtin_workspace_list_with_root` to show every
-workspace together with its available root path.
+`jj workspace list` shows every workspace together with its available root path.
 
 When you're done using a workspace, use `jj workspace forget` to make the repo
 forget about it. The files can be deleted from disk separately (either before or

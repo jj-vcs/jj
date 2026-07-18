@@ -627,24 +627,6 @@ you can add this to your config:
 config_list = "builtin_config_list_detailed"
 ```
 
-If you want `jj workspace list` to show each workspace root, you can use the
-shipped root-path template:
-
-```sh
-jj workspace list -T builtin_workspace_list_with_root
-```
-
-Workspaces whose roots are not recorded or cannot be resolved are shown without
-the root path. Workspace roots are not recorded for workspaces created before jj
-0.38.0.
-
-Or make it your default:
-
-```toml
-[templates]
-workspace_list = "builtin_workspace_list_with_root"
-```
-
 ## Log
 
 ### Default revisions
