@@ -52,6 +52,8 @@ use crate::templater::Template;
 use crate::templater::TemplateFormatter;
 use crate::templater::TemplatePropertyExt as _;
 use crate::templater::WrapTemplateProperty;
+use crate::templater::list_to_boolean;
+use crate::templater::option_to_boolean;
 
 pub trait OperationTemplateLanguageExtension {
     fn build_fn_table(&self) -> OperationTemplateLanguageBuildFnTable;
@@ -219,8 +221,8 @@ impl<'a> OperationTemplatePropertyKind<'a> {
     pub fn try_into_boolean(self) -> Result<BoxedTemplateProperty<'a, bool>, Self> {
         match self {
             Self::Operation(_) => Err(self),
-            Self::OperationOpt(property) => Ok(property.map(|opt| opt.is_some()).into_dyn()),
-            Self::OperationList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::OperationOpt(property) => Ok(option_to_boolean(property)),
+            Self::OperationList(property) => Ok(list_to_boolean(property)),
             Self::OperationId(_) => Err(self),
         }
     }

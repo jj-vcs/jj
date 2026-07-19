@@ -601,6 +601,18 @@ pub trait AnyTemplateProperty<'a> {
 }
 pub type BoxedAnyProperty<'a> = Box<dyn AnyTemplateProperty<'a> + 'a>;
 
+pub fn list_to_boolean<'a, T: 'a>(
+    property: BoxedTemplateProperty<'a, Vec<T>>,
+) -> BoxedTemplateProperty<'a, bool> {
+    property.map(|list| !list.is_empty()).into_dyn()
+}
+
+pub fn option_to_boolean<'a, T: 'a>(
+    property: BoxedTemplateProperty<'a, Option<T>>,
+) -> BoxedTemplateProperty<'a, bool> {
+    property.map(|opt| opt.is_some()).into_dyn()
+}
+
 /// Adapter that wraps literal value in `TemplateProperty`.
 pub struct Literal<O>(pub O);
 

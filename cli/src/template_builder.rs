@@ -81,6 +81,8 @@ use crate::templater::TemplatePropertyExt as _;
 use crate::templater::TemplateRenderer;
 use crate::templater::TryList;
 use crate::templater::WrapTemplateProperty;
+use crate::templater::list_to_boolean;
+use crate::templater::option_to_boolean;
 use crate::text_util;
 use crate::text_util::write_replaced;
 use crate::time_util;
@@ -341,16 +343,16 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
     fn try_into_boolean(self) -> Result<BoxedTemplateProperty<'a, bool>, Self> {
         match self {
             Self::ByteString(property) => Ok(property.map(|s| !s.is_empty()).into_dyn()),
-            Self::ByteStringList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::ByteStringList(property) => Ok(list_to_boolean(property)),
             Self::String(property) => Ok(property.map(|s| !s.is_empty()).into_dyn()),
-            Self::StringList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::StringList(property) => Ok(list_to_boolean(property)),
             Self::Boolean(property) => Ok(property),
             Self::Integer(_) => Err(self),
-            Self::IntegerOpt(property) => Ok(property.map(|opt| opt.is_some()).into_dyn()),
+            Self::IntegerOpt(property) => Ok(option_to_boolean(property)),
             Self::ConfigValue(_) => Err(self),
-            Self::ConfigValueOpt(property) => Ok(property.map(|opt| opt.is_some()).into_dyn()),
+            Self::ConfigValueOpt(property) => Ok(option_to_boolean(property)),
             Self::FsPath(_) => Err(self),
-            Self::FsPathOpt(property) => Ok(property.map(|opt| opt.is_some()).into_dyn()),
+            Self::FsPathOpt(property) => Ok(option_to_boolean(property)),
             Self::Signature(_) => Err(self),
             Self::Email(property) => Ok(property.map(|e| !e.0.is_empty()).into_dyn()),
             Self::SizeHint(_) => Err(self),
