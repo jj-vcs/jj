@@ -2022,7 +2022,9 @@ hunk-level = "line"
 
 `jj` by default resolves conflicts if all sides made the same change. This
 matches what Git and Mercurial do (in the 3-way case at least), but not what
-Darcs does. It also means that repeated 3-way merging of multiple trees may give
+Darcs does. See the technical docs on the
+[same-change rule](technical/conflicts.md#same-change-rule) for background and
+trade-offs. It also means that repeated 3-way merging of multiple trees may give
 different results depending on the order of merging. To turn it off, set
 `same-change = "keep"`.
 
