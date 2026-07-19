@@ -386,6 +386,11 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
             }
+            CommitTemplatePropertyKind::CryptographicSignature(property) => {
+                let table = &self.build_fn_table.cryptographic_signature_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(self, diagnostics, build_ctx, property, function)
+            }
             CommitTemplatePropertyKind::CryptographicSignatureOpt(property) => {
                 let type_name = "CryptographicSignature";
                 let table = &self.build_fn_table.cryptographic_signature_methods;
@@ -472,6 +477,7 @@ pub enum CommitTemplatePropertyKind<'repo> {
     DiffStats(BoxedTemplateProperty<'repo, DiffStatsFormatted<'repo>>),
     DiffStatEntry(BoxedTemplateProperty<'repo, DiffStatEntry>),
     DiffStatEntryList(BoxedTemplateProperty<'repo, Vec<DiffStatEntry>>),
+    CryptographicSignature(BoxedTemplateProperty<'repo, CryptographicSignature>),
     CryptographicSignatureOpt(BoxedTemplateProperty<'repo, Option<CryptographicSignature>>),
     AnnotationLine(BoxedTemplateProperty<'repo, AnnotationLine>),
     Trailer(BoxedTemplateProperty<'repo, Trailer>),
@@ -506,6 +512,7 @@ template_builder::impl_property_wrappers!(<'repo> CommitTemplatePropertyKind<'re
     DiffStats(DiffStatsFormatted<'repo>),
     DiffStatEntry(DiffStatEntry),
     DiffStatEntryList(Vec<DiffStatEntry>),
+    CryptographicSignature(CryptographicSignature),
     CryptographicSignatureOpt(Option<CryptographicSignature>),
     AnnotationLine(AnnotationLine),
     Trailer(Trailer),
@@ -554,6 +561,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::DiffStats(_) => "DiffStats",
             Self::DiffStatEntry(_) => "DiffStatEntry",
             Self::DiffStatEntryList(_) => "List<DiffStatEntry>",
+            Self::CryptographicSignature(_) => "CryptographicSignature",
             Self::CryptographicSignatureOpt(_) => "Option<CryptographicSignature>",
             Self::AnnotationLine(_) => "AnnotationLine",
             Self::Trailer(_) => "Trailer",
@@ -612,6 +620,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::DiffStats(_) => Err(self),
             Self::DiffStatEntry(_) => Err(self),
             Self::DiffStatEntryList(property) => Ok(list_to_boolean(property)),
+            Self::CryptographicSignature(_) => Err(self),
             Self::CryptographicSignatureOpt(property) => Ok(option_to_boolean(property)),
             Self::AnnotationLine(_) => Err(self),
             Self::Trailer(_) => Err(self),
@@ -664,6 +673,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::DiffStats(_) => None,
             Self::DiffStatEntry(_) => None,
             Self::DiffStatEntryList(_) => None,
+            Self::CryptographicSignature(_) => None,
             Self::CryptographicSignatureOpt(_) => None,
             Self::AnnotationLine(_) => None,
             Self::Trailer(_) => None,
@@ -700,6 +710,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::DiffStats(property) => Some(property.into_template()),
             Self::DiffStatEntry(_) => None,
             Self::DiffStatEntryList(_) => None,
+            Self::CryptographicSignature(_) => None,
             Self::CryptographicSignatureOpt(_) => None,
             Self::AnnotationLine(_) => None,
             Self::Trailer(property) => Some(property.into_template()),
@@ -769,6 +780,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             (Self::DiffStats(_), _) => None,
             (Self::DiffStatEntry(_), _) => None,
             (Self::DiffStatEntryList(_), _) => None,
+            (Self::CryptographicSignature(_), _) => None,
             (Self::CryptographicSignatureOpt(_), _) => None,
             (Self::AnnotationLine(_), _) => None,
             (Self::Trailer(_), _) => None,
@@ -811,6 +823,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             (Self::DiffStats(_), _) => None,
             (Self::DiffStatEntry(_), _) => None,
             (Self::DiffStatEntryList(_), _) => None,
+            (Self::CryptographicSignature(_), _) => None,
             (Self::CryptographicSignatureOpt(_), _) => None,
             (Self::AnnotationLine(_), _) => None,
             (Self::Trailer(_), _) => None,
