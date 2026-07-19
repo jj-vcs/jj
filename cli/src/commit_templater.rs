@@ -399,7 +399,6 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 build(self, diagnostics, build_ctx, inner_property, function)
             }
             CommitTemplatePropertyKind::AnnotationLine(property) => {
-                let type_name = "AnnotationLine";
                 let table = &self.build_fn_table.annotation_line_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
