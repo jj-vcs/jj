@@ -129,6 +129,8 @@ use crate::templater::Template;
 use crate::templater::TemplateFormatter;
 use crate::templater::TemplatePropertyError;
 use crate::templater::TemplatePropertyExt as _;
+use crate::templater::list_to_boolean;
+use crate::templater::option_to_boolean;
 
 pub trait CommitTemplateLanguageExtension {
     fn build_fn_table<'repo>(&self) -> CommitTemplateBuildFnTable<'repo>;
@@ -584,19 +586,19 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::Core(property) => property.try_into_boolean().map_err(Self::Core),
             Self::Operation(property) => property.try_into_boolean().map_err(Self::Operation),
             Self::Commit(_) => Err(self),
-            Self::CommitOpt(property) => Ok(property.map(|opt| opt.is_some()).into_dyn()),
-            Self::CommitList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::CommitOpt(property) => Ok(option_to_boolean(property)),
+            Self::CommitList(property) => Ok(list_to_boolean(property)),
             Self::CommitEvolutionEntry(_) => Err(self),
             Self::CommitRef(_) => Err(self),
-            Self::CommitRefOpt(property) => Ok(property.map(|opt| opt.is_some()).into_dyn()),
-            Self::CommitRefList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::CommitRefOpt(property) => Ok(option_to_boolean(property)),
+            Self::CommitRefList(property) => Ok(list_to_boolean(property)),
             Self::WorkspaceRef(_) => Err(self),
-            Self::WorkspaceRefOpt(property) => Ok(property.map(|opt| opt.is_some()).into_dyn()),
-            Self::WorkspaceRefList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::WorkspaceRefOpt(property) => Ok(option_to_boolean(property)),
+            Self::WorkspaceRefList(property) => Ok(list_to_boolean(property)),
             Self::RefSymbol(_) => Err(self),
-            Self::RefSymbolOpt(property) => Ok(property.map(|opt| opt.is_some()).into_dyn()),
+            Self::RefSymbolOpt(property) => Ok(option_to_boolean(property)),
             Self::RepoPath(_) => Err(self),
-            Self::RepoPathOpt(property) => Ok(property.map(|opt| opt.is_some()).into_dyn()),
+            Self::RepoPathOpt(property) => Ok(option_to_boolean(property)),
             Self::ChangeId(_) => Err(self),
             Self::CommitId(_) => Err(self),
             Self::ShortestIdPrefix(_) => Err(self),
@@ -604,18 +606,16 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             // diff.empty() method might be better.
             Self::TreeDiff(_) => Err(self),
             Self::TreeDiffEntry(_) => Err(self),
-            Self::TreeDiffEntryList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::TreeDiffEntryList(property) => Ok(list_to_boolean(property)),
             Self::TreeEntry(_) => Err(self),
-            Self::TreeEntryList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::TreeEntryList(property) => Ok(list_to_boolean(property)),
             Self::DiffStats(_) => Err(self),
             Self::DiffStatEntry(_) => Err(self),
-            Self::DiffStatEntryList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
-            Self::CryptographicSignatureOpt(property) => {
-                Ok(property.map(|sig| sig.is_some()).into_dyn())
-            }
+            Self::DiffStatEntryList(property) => Ok(list_to_boolean(property)),
+            Self::CryptographicSignatureOpt(property) => Ok(option_to_boolean(property)),
             Self::AnnotationLine(_) => Err(self),
             Self::Trailer(_) => Err(self),
-            Self::TrailerList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::TrailerList(property) => Ok(list_to_boolean(property)),
         }
     }
 
