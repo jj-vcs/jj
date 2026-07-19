@@ -458,11 +458,8 @@ where
                 build(language, diagnostics, build_ctx, property, function)
             }
             OperationTemplatePropertyKind::OperationOpt(property) => {
-                let type_name = "Operation";
-                let table = &self.operation_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                let inner_property = property.try_unwrap(type_name).into_dyn();
-                build(language, diagnostics, build_ctx, inner_property, function)
+                let inner_property = property.try_unwrap(type_name).into_dyn_wrapped();
+                self.build_method(language, diagnostics, build_ctx, inner_property, function)
             }
             OperationTemplatePropertyKind::OperationList(property) => {
                 let table = &self.operation_list_methods;

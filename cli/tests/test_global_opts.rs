@@ -809,7 +809,7 @@ fn test_color_ui_messages() {
     ]);
     insta::assert_snapshot!(output, @"
     [38;5;4m8afc18ff677d32e40043e1bc8c1683c2f9c2e916[39m
-    [1m[39m<[38;5;1mError: [39mNo Commit available>[0m  [38;5;8m(elided revisions)[39m
+    [1m[39m<[38;5;1mError: [39mNo value set to Option<Commit>>[0m  [38;5;8m(elided revisions)[39m
     [38;5;4m0000000000000000000000000000000000000000[39m
     [EOF]
     ");

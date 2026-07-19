@@ -2398,7 +2398,7 @@ fn test_bookmark_list() -> TestResult {
     [absent-tracked@origin]
     present: false
     conflict: false
-    normal_target: <Error: No Commit available>
+    normal_target: <Error: No value set to Option<Commit>>
     removed_targets:
     added_targets:
     tracked: true
@@ -2418,7 +2418,7 @@ fn test_bookmark_list() -> TestResult {
     [remote-delete]
     present: false
     conflict: false
-    normal_target: <Error: No Commit available>
+    normal_target: <Error: No value set to Option<Commit>>
     removed_targets:
     added_targets:
     tracked: false
