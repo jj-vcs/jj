@@ -343,6 +343,10 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
             }
+            CommitTemplatePropertyKind::TreeDiffEntryOpt(property) => {
+                let inner_property = property.try_unwrap(type_name).into_dyn_wrapped();
+                self.build_method(diagnostics, build_ctx, inner_property, function)
+            }
             CommitTemplatePropertyKind::TreeDiffEntryList(property) => {
                 let table = &self.build_fn_table.tree_diff_entry_list_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
@@ -352,6 +356,10 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 let table = &self.build_fn_table.tree_entry_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
+            }
+            CommitTemplatePropertyKind::TreeEntryOpt(property) => {
+                let inner_property = property.try_unwrap(type_name).into_dyn_wrapped();
+                self.build_method(diagnostics, build_ctx, inner_property, function)
             }
             CommitTemplatePropertyKind::TreeEntryList(property) => {
                 let table = &self.build_fn_table.tree_entry_list_methods;
@@ -380,6 +388,10 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
             }
+            CommitTemplatePropertyKind::DiffStatEntryOpt(property) => {
+                let inner_property = property.try_unwrap(type_name).into_dyn_wrapped();
+                self.build_method(diagnostics, build_ctx, inner_property, function)
+            }
             CommitTemplatePropertyKind::DiffStatEntryList(property) => {
                 let table = &self.build_fn_table.diff_stat_entry_list_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
@@ -403,6 +415,10 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 let table = &self.build_fn_table.trailer_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
+            }
+            CommitTemplatePropertyKind::TrailerOpt(property) => {
+                let inner_property = property.try_unwrap(type_name).into_dyn_wrapped();
+                self.build_method(diagnostics, build_ctx, inner_property, function)
             }
             CommitTemplatePropertyKind::TrailerList(property) => {
                 let table = &self.build_fn_table.trailer_list_methods;
@@ -466,18 +482,22 @@ pub enum CommitTemplatePropertyKind<'repo> {
     ShortestIdPrefix(BoxedTemplateProperty<'repo, ShortestIdPrefix>),
     TreeDiff(BoxedTemplateProperty<'repo, TreeDiff>),
     TreeDiffEntry(BoxedTemplateProperty<'repo, TreeDiffEntry>),
+    TreeDiffEntryOpt(BoxedTemplateProperty<'repo, Option<TreeDiffEntry>>),
     TreeDiffEntryList(BoxedTemplateProperty<'repo, Vec<TreeDiffEntry>>),
     TreeEntry(BoxedTemplateProperty<'repo, TreeEntry>),
+    TreeEntryOpt(BoxedTemplateProperty<'repo, Option<TreeEntry>>),
     TreeEntryList(BoxedTemplateProperty<'repo, Vec<TreeEntry>>),
     TreeValue(BoxedTemplateProperty<'repo, TreeValue>),
     TreeValueOpt(BoxedTemplateProperty<'repo, Option<TreeValue>>),
     DiffStats(BoxedTemplateProperty<'repo, DiffStatsFormatted<'repo>>),
     DiffStatEntry(BoxedTemplateProperty<'repo, DiffStatEntry>),
+    DiffStatEntryOpt(BoxedTemplateProperty<'repo, Option<DiffStatEntry>>),
     DiffStatEntryList(BoxedTemplateProperty<'repo, Vec<DiffStatEntry>>),
     CryptographicSignature(BoxedTemplateProperty<'repo, CryptographicSignature>),
     CryptographicSignatureOpt(BoxedTemplateProperty<'repo, Option<CryptographicSignature>>),
     AnnotationLine(BoxedTemplateProperty<'repo, AnnotationLine>),
     Trailer(BoxedTemplateProperty<'repo, Trailer>),
+    TrailerOpt(BoxedTemplateProperty<'repo, Option<Trailer>>),
     TrailerList(BoxedTemplateProperty<'repo, Vec<Trailer>>),
 }
 
@@ -503,18 +523,22 @@ template_builder::impl_property_wrappers!(<'repo> CommitTemplatePropertyKind<'re
     ShortestIdPrefix(ShortestIdPrefix),
     TreeDiff(TreeDiff),
     TreeDiffEntry(TreeDiffEntry),
+    TreeDiffEntryOpt(Option<TreeDiffEntry>),
     TreeDiffEntryList(Vec<TreeDiffEntry>),
     TreeEntry(TreeEntry),
+    TreeEntryOpt(Option<TreeEntry>),
     TreeEntryList(Vec<TreeEntry>),
     TreeValue(TreeValue),
     TreeValueOpt(Option<TreeValue>),
     DiffStats(DiffStatsFormatted<'repo>),
     DiffStatEntry(DiffStatEntry),
+    DiffStatEntryOpt(Option<DiffStatEntry>),
     DiffStatEntryList(Vec<DiffStatEntry>),
     CryptographicSignature(CryptographicSignature),
     CryptographicSignatureOpt(Option<CryptographicSignature>),
     AnnotationLine(AnnotationLine),
     Trailer(Trailer),
+    TrailerOpt(Option<Trailer>),
     TrailerList(Vec<Trailer>),
 });
 
@@ -554,18 +578,22 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::ShortestIdPrefix(_) => "ShortestIdPrefix",
             Self::TreeDiff(_) => "TreeDiff",
             Self::TreeDiffEntry(_) => "TreeDiffEntry",
+            Self::TreeDiffEntryOpt(_) => "Option<TreeDiffEntry>",
             Self::TreeDiffEntryList(_) => "List<TreeDiffEntry>",
             Self::TreeEntry(_) => "TreeEntry",
+            Self::TreeEntryOpt(_) => "Option<TreeEntry>",
             Self::TreeEntryList(_) => "List<TreeEntry>",
             Self::TreeValue(_) => "TreeValue",
             Self::TreeValueOpt(_) => "Option<TreeValue>",
             Self::DiffStats(_) => "DiffStats",
             Self::DiffStatEntry(_) => "DiffStatEntry",
+            Self::DiffStatEntryOpt(_) => "Option<DiffStatEntry>",
             Self::DiffStatEntryList(_) => "List<DiffStatEntry>",
             Self::CryptographicSignature(_) => "CryptographicSignature",
             Self::CryptographicSignatureOpt(_) => "Option<CryptographicSignature>",
             Self::AnnotationLine(_) => "AnnotationLine",
             Self::Trailer(_) => "Trailer",
+            Self::TrailerOpt(_) => "Option<Trailer>",
             Self::TrailerList(_) => "List<Trailer>",
         }
     }
@@ -615,18 +643,22 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             // diff.empty() method might be better.
             Self::TreeDiff(_) => Err(self),
             Self::TreeDiffEntry(_) => Err(self),
+            Self::TreeDiffEntryOpt(property) => Ok(option_to_boolean(property)),
             Self::TreeDiffEntryList(property) => Ok(list_to_boolean(property)),
             Self::TreeEntry(_) => Err(self),
+            Self::TreeEntryOpt(property) => Ok(option_to_boolean(property)),
             Self::TreeEntryList(property) => Ok(list_to_boolean(property)),
             Self::TreeValue(_) => Err(self),
             Self::TreeValueOpt(property) => Ok(option_to_boolean(property)),
             Self::DiffStats(_) => Err(self),
             Self::DiffStatEntry(_) => Err(self),
+            Self::DiffStatEntryOpt(property) => Ok(option_to_boolean(property)),
             Self::DiffStatEntryList(property) => Ok(list_to_boolean(property)),
             Self::CryptographicSignature(_) => Err(self),
             Self::CryptographicSignatureOpt(property) => Ok(option_to_boolean(property)),
             Self::AnnotationLine(_) => Err(self),
             Self::Trailer(_) => Err(self),
+            Self::TrailerOpt(property) => Ok(option_to_boolean(property)),
             Self::TrailerList(property) => Ok(list_to_boolean(property)),
         }
     }
@@ -670,18 +702,22 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::ShortestIdPrefix(property) => Some(property.into_serialize()),
             Self::TreeDiff(_) => None,
             Self::TreeDiffEntry(_) => None,
+            Self::TreeDiffEntryOpt(_) => None,
             Self::TreeDiffEntryList(_) => None,
             Self::TreeEntry(_) => None,
+            Self::TreeEntryOpt(_) => None,
             Self::TreeEntryList(_) => None,
             Self::TreeValue(_) => None,
             Self::TreeValueOpt(_) => None,
             Self::DiffStats(_) => None,
             Self::DiffStatEntry(_) => None,
+            Self::DiffStatEntryOpt(_) => None,
             Self::DiffStatEntryList(_) => None,
             Self::CryptographicSignature(_) => None,
             Self::CryptographicSignatureOpt(_) => None,
             Self::AnnotationLine(_) => None,
             Self::Trailer(_) => None,
+            Self::TrailerOpt(_) => None,
             Self::TrailerList(_) => None,
         }
     }
@@ -709,18 +745,22 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::ShortestIdPrefix(property) => Some(property.into_template()),
             Self::TreeDiff(_) => None,
             Self::TreeDiffEntry(_) => None,
+            Self::TreeDiffEntryOpt(_) => None,
             Self::TreeDiffEntryList(_) => None,
             Self::TreeEntry(_) => None,
+            Self::TreeEntryOpt(_) => None,
             Self::TreeEntryList(_) => None,
             Self::TreeValue(property) => Some(property.into_template()),
             Self::TreeValueOpt(property) => Some(property.into_template()),
             Self::DiffStats(property) => Some(property.into_template()),
             Self::DiffStatEntry(_) => None,
+            Self::DiffStatEntryOpt(_) => None,
             Self::DiffStatEntryList(_) => None,
             Self::CryptographicSignature(_) => None,
             Self::CryptographicSignatureOpt(_) => None,
             Self::AnnotationLine(_) => None,
             Self::Trailer(property) => Some(property.into_template()),
+            Self::TrailerOpt(property) => Some(property.into_template()),
             Self::TrailerList(property) => Some(property.into_template()),
         }
     }
@@ -781,18 +821,22 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             (Self::ShortestIdPrefix(_), _) => None,
             (Self::TreeDiff(_), _) => None,
             (Self::TreeDiffEntry(_), _) => None,
+            (Self::TreeDiffEntryOpt(_), _) => None,
             (Self::TreeDiffEntryList(_), _) => None,
             (Self::TreeEntry(_), _) => None,
+            (Self::TreeEntryOpt(_), _) => None,
             (Self::TreeEntryList(_), _) => None,
             (Self::TreeValue(_), _) => None,
             (Self::TreeValueOpt(_), _) => None,
             (Self::DiffStats(_), _) => None,
             (Self::DiffStatEntry(_), _) => None,
+            (Self::DiffStatEntryOpt(_), _) => None,
             (Self::DiffStatEntryList(_), _) => None,
             (Self::CryptographicSignature(_), _) => None,
             (Self::CryptographicSignatureOpt(_), _) => None,
             (Self::AnnotationLine(_), _) => None,
             (Self::Trailer(_), _) => None,
+            (Self::TrailerOpt(_), _) => None,
             (Self::TrailerList(_), _) => None,
         }
     }
@@ -826,18 +870,22 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             (Self::ShortestIdPrefix(_), _) => None,
             (Self::TreeDiff(_), _) => None,
             (Self::TreeDiffEntry(_), _) => None,
+            (Self::TreeDiffEntryOpt(_), _) => None,
             (Self::TreeDiffEntryList(_), _) => None,
             (Self::TreeEntry(_), _) => None,
+            (Self::TreeEntryOpt(_), _) => None,
             (Self::TreeEntryList(_), _) => None,
             (Self::TreeValue(_), _) => None,
             (Self::TreeValueOpt(_), _) => None,
             (Self::DiffStats(_), _) => None,
             (Self::DiffStatEntry(_), _) => None,
+            (Self::DiffStatEntryOpt(_), _) => None,
             (Self::DiffStatEntryList(_), _) => None,
             (Self::CryptographicSignature(_), _) => None,
             (Self::CryptographicSignatureOpt(_), _) => None,
             (Self::AnnotationLine(_), _) => None,
             (Self::Trailer(_), _) => None,
+            (Self::TrailerOpt(_), _) => None,
             (Self::TrailerList(_), _) => None,
         }
     }
