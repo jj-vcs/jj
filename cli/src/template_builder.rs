@@ -369,9 +369,10 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
     }
 
     fn try_into_integer(self) -> Result<BoxedTemplateProperty<'a, i64>, Self> {
+        let type_name = self.type_name();
         match self {
             Self::Integer(property) => Ok(property),
-            Self::IntegerOpt(property) => Ok(property.try_unwrap("Integer").into_dyn()),
+            Self::IntegerOpt(property) => Ok(property.try_unwrap(type_name).into_dyn()),
             _ => Err(self),
         }
     }
@@ -761,11 +762,8 @@ where
                 build(language, diagnostics, build_ctx, property, function)
             }
             CoreTemplatePropertyKind::IntegerOpt(property) => {
-                let type_name = "Integer";
-                let table = &self.integer_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                let inner_property = property.try_unwrap(type_name).into_dyn();
-                build(language, diagnostics, build_ctx, inner_property, function)
+                let inner_property = property.try_unwrap(type_name).into_dyn_wrapped();
+                self.build_method(language, diagnostics, build_ctx, inner_property, function)
             }
             CoreTemplatePropertyKind::ConfigValue(property) => {
                 let table = &self.config_value_methods;
@@ -773,11 +771,8 @@ where
                 build(language, diagnostics, build_ctx, property, function)
             }
             CoreTemplatePropertyKind::ConfigValueOpt(property) => {
-                let type_name = "ConfigValue";
-                let table = &self.config_value_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                let inner_property = property.try_unwrap(type_name).into_dyn();
-                build(language, diagnostics, build_ctx, inner_property, function)
+                let inner_property = property.try_unwrap(type_name).into_dyn_wrapped();
+                self.build_method(language, diagnostics, build_ctx, inner_property, function)
             }
             CoreTemplatePropertyKind::FsPath(property) => {
                 let table = &self.fs_path_methods;
@@ -785,11 +780,8 @@ where
                 build(language, diagnostics, build_ctx, property, function)
             }
             CoreTemplatePropertyKind::FsPathOpt(property) => {
-                let type_name = "FsPath";
-                let table = &self.fs_path_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                let inner_property = property.try_unwrap(type_name).into_dyn();
-                build(language, diagnostics, build_ctx, inner_property, function)
+                let inner_property = property.try_unwrap(type_name).into_dyn_wrapped();
+                self.build_method(language, diagnostics, build_ctx, inner_property, function)
             }
             CoreTemplatePropertyKind::Signature(property) => {
                 let table = &self.signature_methods;
@@ -3627,7 +3619,7 @@ mod tests {
         // Property errors do not evaluate
         insta::assert_snapshot!(
             env.render_ok("if(-none_i64 == 1, true, false)"),
-            @"<Error: No Integer available>"
+            @"<Error: No value set to Option<Integer>>"
         );
 
         insta::assert_snapshot!(env.parse_err(r#"if(label("", ""), true, false)"#), @r#"
@@ -3723,12 +3715,12 @@ mod tests {
 
         // Since methods of the contained value can be invoked, it makes sense
         // to apply operators to optional integers as well.
-        insta::assert_snapshot!(env.render_ok(r#"-none_i64"#), @"<Error: No Integer available>");
+        insta::assert_snapshot!(env.render_ok(r#"-none_i64"#), @"<Error: No value set to Option<Integer>>");
         insta::assert_snapshot!(env.render_ok(r#"-some_i64"#), @"-1");
         insta::assert_snapshot!(env.render_ok(r#"some_i64 + some_i64"#), @"2");
-        insta::assert_snapshot!(env.render_ok(r#"some_i64 + none_i64"#), @"<Error: No Integer available>");
-        insta::assert_snapshot!(env.render_ok(r#"none_i64 + some_i64"#), @"<Error: No Integer available>");
-        insta::assert_snapshot!(env.render_ok(r#"none_i64 + none_i64"#), @"<Error: No Integer available>");
+        insta::assert_snapshot!(env.render_ok(r#"some_i64 + none_i64"#), @"<Error: No value set to Option<Integer>>");
+        insta::assert_snapshot!(env.render_ok(r#"none_i64 + some_i64"#), @"<Error: No value set to Option<Integer>>");
+        insta::assert_snapshot!(env.render_ok(r#"none_i64 + none_i64"#), @"<Error: No value set to Option<Integer>>");
 
         // No panic on integer overflow.
         insta::assert_snapshot!(
@@ -3790,7 +3782,7 @@ mod tests {
         insta::assert_snapshot!(env.render_ok("json(fs_path.relative())"), @r#""workspace""#);
         insta::assert_snapshot!(
             env.render_ok("none_fs_path.relative()"),
-            @"<Error: No FsPath available>"
+            @"<Error: No value set to Option<FsPath>>"
         );
     }
 

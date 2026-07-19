@@ -1693,7 +1693,7 @@ fn test_signature_templates() {
     });
     insta::assert_snapshot!(output, @"
     @  rlvkpnrz test.user 2001-02-03 08:05:09 eb0e9b58 status: good (empty) signed
-    ○  qpvuntsm test.user 2001-02-03 08:05:08 0604e056 status: <Error: No CryptographicSignature available> (empty) unsigned
+    ○  qpvuntsm test.user 2001-02-03 08:05:08 0604e056 status: <Error: No value set to Option<CryptographicSignature>> (empty) unsigned
     │
     ~
     [EOF]

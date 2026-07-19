@@ -250,11 +250,8 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 build(self, diagnostics, build_ctx, property, function)
             }
             CommitTemplatePropertyKind::CommitOpt(property) => {
-                let type_name = "Commit";
-                let table = &self.build_fn_table.commit_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                let inner_property = property.try_unwrap(type_name).into_dyn();
-                build(self, diagnostics, build_ctx, inner_property, function)
+                let inner_property = property.try_unwrap(type_name).into_dyn_wrapped();
+                self.build_method(diagnostics, build_ctx, inner_property, function)
             }
             CommitTemplatePropertyKind::CommitList(property) => {
                 let table = &self.build_fn_table.commit_list_methods;
@@ -272,11 +269,8 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 build(self, diagnostics, build_ctx, property, function)
             }
             CommitTemplatePropertyKind::CommitRefOpt(property) => {
-                let type_name = "CommitRef";
-                let table = &self.build_fn_table.commit_ref_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                let inner_property = property.try_unwrap(type_name).into_dyn();
-                build(self, diagnostics, build_ctx, inner_property, function)
+                let inner_property = property.try_unwrap(type_name).into_dyn_wrapped();
+                self.build_method(diagnostics, build_ctx, inner_property, function)
             }
             CommitTemplatePropertyKind::CommitRefList(property) => {
                 let table = &self.build_fn_table.commit_ref_list_methods;
@@ -289,11 +283,8 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 build(self, diagnostics, build_ctx, property, function)
             }
             CommitTemplatePropertyKind::WorkspaceRefOpt(property) => {
-                let type_name = "WorkspaceRef";
-                let table = &self.build_fn_table.workspace_ref_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                let inner_property = property.try_unwrap(type_name).into_dyn();
-                build(self, diagnostics, build_ctx, inner_property, function)
+                let inner_property = property.try_unwrap(type_name).into_dyn_wrapped();
+                self.build_method(diagnostics, build_ctx, inner_property, function)
             }
             CommitTemplatePropertyKind::WorkspaceRefList(property) => {
                 let table = &self.build_fn_table.workspace_ref_list_methods;
@@ -301,20 +292,15 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 build(self, diagnostics, build_ctx, property, function)
             }
             CommitTemplatePropertyKind::RefSymbol(property) => {
+                // Forward to String methods, but the type_name is "RefSymbol"
                 let table = &self.build_fn_table.core.string_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 let inner_property = property.map(|RefSymbolBuf(s)| s).into_dyn();
                 build(self, diagnostics, build_ctx, inner_property, function)
             }
             CommitTemplatePropertyKind::RefSymbolOpt(property) => {
-                let type_name = "RefSymbol";
-                let table = &self.build_fn_table.core.string_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                let inner_property = property
-                    .try_unwrap(type_name)
-                    .map(|RefSymbolBuf(s)| s)
-                    .into_dyn();
-                build(self, diagnostics, build_ctx, inner_property, function)
+                let inner_property = property.try_unwrap(type_name).into_dyn_wrapped();
+                self.build_method(diagnostics, build_ctx, inner_property, function)
             }
             CommitTemplatePropertyKind::RepoPath(property) => {
                 let table = &self.build_fn_table.repo_path_methods;
@@ -322,11 +308,8 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 build(self, diagnostics, build_ctx, property, function)
             }
             CommitTemplatePropertyKind::RepoPathOpt(property) => {
-                let type_name = "RepoPath";
-                let table = &self.build_fn_table.repo_path_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                let inner_property = property.try_unwrap(type_name).into_dyn();
-                build(self, diagnostics, build_ctx, inner_property, function)
+                let inner_property = property.try_unwrap(type_name).into_dyn_wrapped();
+                self.build_method(diagnostics, build_ctx, inner_property, function)
             }
             CommitTemplatePropertyKind::ChangeId(property) => {
                 let table = &self.build_fn_table.change_id_methods;
@@ -392,11 +375,8 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 build(self, diagnostics, build_ctx, property, function)
             }
             CommitTemplatePropertyKind::CryptographicSignatureOpt(property) => {
-                let type_name = "CryptographicSignature";
-                let table = &self.build_fn_table.cryptographic_signature_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                let inner_property = property.try_unwrap(type_name).into_dyn();
-                build(self, diagnostics, build_ctx, inner_property, function)
+                let inner_property = property.try_unwrap(type_name).into_dyn_wrapped();
+                self.build_method(diagnostics, build_ctx, inner_property, function)
             }
             CommitTemplatePropertyKind::AnnotationLine(property) => {
                 let table = &self.build_fn_table.annotation_line_methods;
