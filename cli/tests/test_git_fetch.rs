@@ -301,7 +301,7 @@ fn test_git_fetch_default_bookmarks_and_tags() {
     let output = work_dir.run_jj(["git", "fetch", "--all-remotes", "--tag=~*"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Nothing changed.
+    Fetched from git remote(s) rem1, rem2: nothing changed.
     [EOF]
     ");
 }
@@ -385,7 +385,7 @@ fn test_git_fetch_with_ignored_refspecs() {
     Warning: Ignored refspec `refs/heads/bar` from `origin`: fetch-only refspecs are not supported
     Warning: Ignored refspec `+refs/heads/bar*:refs/tags/bar*` from `origin`: only refs/remotes/ is supported for fetch destinations
     Warning: Ignored refspec `+refs/heads/foo*:refs/remotes/origin/baz*` from `origin`: renaming is not supported
-    Nothing changed.
+    Fetched from git remote(s) origin: nothing changed.
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
@@ -804,7 +804,7 @@ fn test_git_fetch_tags_by_name() -> TestResult {
     let output = work_dir.run_jj(["git", "fetch", "--tag=~*"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Nothing changed.
+    Fetched from git remote(s) origin: nothing changed.
     [EOF]
     ");
 
@@ -1154,7 +1154,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
     let output = target_dir.run_jj(["git", "fetch", "--branch", "a1"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Nothing changed.
+    Fetched from git remote(s) origin: nothing changed.
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
@@ -1297,7 +1297,7 @@ fn test_git_fetch_bookmarks_some_missing() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching branches found on any specified/configured remote: noexist
-    Nothing changed.
+    Fetched from git remote(s) origin: nothing changed.
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
@@ -1309,7 +1309,7 @@ fn test_git_fetch_bookmarks_some_missing() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching branches found on any specified/configured remote: noexist1, noexist2
-    Nothing changed.
+    Fetched from git remote(s) origin: nothing changed.
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
@@ -1359,7 +1359,7 @@ fn test_git_fetch_bookmarks_some_missing() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching branches found on any specified/configured remote: notexist
-    Nothing changed.
+    Fetched from git remote(s) rem1: nothing changed.
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
@@ -1397,7 +1397,7 @@ fn test_git_fetch_bookmarks_missing_with_subprocess_localized_message() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching branches found on any specified/configured remote: unknown
-    Nothing changed.
+    Fetched from git remote(s) origin: nothing changed.
     [EOF]
     ");
 }
@@ -1713,7 +1713,7 @@ fn test_git_fetch_rename_fetch() {
     let output = work_dir.run_jj(["git", "fetch", "--remote", "upstream"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Nothing changed.
+    Fetched from git remote(s) upstream: nothing changed.
     [EOF]
     ");
 }
@@ -1780,7 +1780,7 @@ fn test_git_fetch_removed_bookmark() {
     let output = target_dir.run_jj(["git", "fetch", "--branch", "a1"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Nothing changed.
+    Fetched from git remote(s) origin: nothing changed.
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
@@ -2494,7 +2494,7 @@ fn test_git_fetch_tracked_no_tracked_bookmarks() {
     let output = work_dir.run_jj(["git", "fetch", "--tracked"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Nothing changed.
+    Fetched from git remote(s) origin: nothing changed.
     [EOF]
     ");
 }
