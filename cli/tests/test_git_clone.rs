@@ -78,6 +78,7 @@ fn test_git_clone() {
     let output = clone_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Fetching from Git remotes: origin
     Nothing changed.
     [EOF]
     ");
@@ -344,6 +345,7 @@ fn test_git_clone_colocate() -> TestResult {
     let output = clone_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Fetching from Git remotes: origin
     Nothing changed.
     [EOF]
     ");
@@ -542,6 +544,7 @@ fn test_git_clone_default_bookmarks_and_tags() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Hint: Fetching from the only existing remote: rem3
+    Fetching from Git remotes: rem3
     bookmark: branch1@rem3 [new] untracked
     tag: tag1@rem3 [new] tracked
     [EOF]
@@ -1291,6 +1294,7 @@ fn test_git_clone_branch_or_tag() {
     let output = repo_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Fetching from Git remotes: origin
     Nothing changed.
     [EOF]
     ");
@@ -1324,6 +1328,7 @@ fn test_git_clone_branch_or_tag() {
     let output = repo_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Fetching from Git remotes: origin
     Nothing changed.
     [EOF]
     ");
@@ -1376,6 +1381,7 @@ fn test_git_clone_branch_or_tag() {
     let output = repo_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Fetching from Git remotes: origin
     Nothing changed.
     [EOF]
     ");

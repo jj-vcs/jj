@@ -339,6 +339,7 @@ fn test_tag_track_untrack() {
     let output = local_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Fetching from Git remotes: origin
     tag: tag1@origin [updated] tracked
     tag: tag2@origin [updated] untracked
     tag: tag3@origin [updated] tracked
@@ -401,6 +402,7 @@ fn test_tag_track_untrack_multiple_remotes() {
     let output = local_dir.run_jj(["git", "fetch", "--remote=*"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Fetching from Git remotes: remote1, remote2
     tag: tag1@remote1 [new] tracked
     tag: tag2@remote1 [new] tracked
     tag: tag2@remote2 [new] tracked

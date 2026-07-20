@@ -239,6 +239,12 @@ pub async fn cmd_git_fetch(
         &import_options,
     )?;
 
+    let remote_names = matching_remotes
+        .iter()
+        .map(|name| name.as_symbol())
+        .join(", ");
+    writeln!(ui.status(), "Fetching from Git remotes: {remote_names}")?;
+
     for (remote, expanded) in expansions {
         let mut callback = GitSubprocessUi::new(ui);
         git_fetch.fetch(remote, expanded, &mut callback, None)?;
@@ -251,14 +257,8 @@ pub async fn cmd_git_fetch(
         warn_if_branches_not_found(ui, &tx, bookmark_expr, &matching_remotes)?;
     }
     // TODO: warn_if_tags_not_found()
-    tx.finish(
-        ui,
-        format!(
-            "fetch from git remote(s) {}",
-            matching_remotes.iter().map(|n| n.as_symbol()).join(",")
-        ),
-    )
-    .await?;
+    tx.finish(ui, format!("fetch from git remote(s) {remote_names}"))
+        .await?;
     Ok(())
 }
 

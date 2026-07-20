@@ -1434,6 +1434,7 @@ fn test_bookmark_forget_fetched_bookmark() {
     let output = work_dir.run_jj(["git", "fetch", "--remote=origin"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Fetching from Git remotes: origin
     bookmark: feature1@origin [new] tracked
     [EOF]
     ");
@@ -1452,6 +1453,7 @@ fn test_bookmark_forget_fetched_bookmark() {
     let output = work_dir.run_jj(["git", "fetch", "--remote=origin"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Fetching from Git remotes: origin
     bookmark: feature1@origin [new] tracked
     [EOF]
     ");
@@ -1483,6 +1485,7 @@ fn test_bookmark_forget_fetched_bookmark() {
     let output = work_dir.run_jj(["git", "fetch", "--remote=origin"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Fetching from Git remotes: origin
     bookmark: feature1@origin [new] tracked
     [EOF]
     ");
@@ -1504,6 +1507,7 @@ fn test_bookmark_forget_fetched_bookmark() {
     let output = work_dir.run_jj(["git", "fetch", "--remote=origin"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Fetching from Git remotes: origin
     Nothing changed.
     [EOF]
     ");
@@ -1602,6 +1606,7 @@ fn test_bookmark_forget_untracked_remote_only_bookmark() {
     let output = work_dir.run_jj(["git", "fetch", "--remote=origin"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Fetching from Git remotes: origin
     bookmark: feature1@origin [new] untracked
     [EOF]
     ");
@@ -1654,6 +1659,7 @@ fn test_bookmark_track_untrack() -> TestResult {
     let output = work_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Fetching from Git remotes: origin
     bookmark: feature1@origin [new] untracked
     bookmark: feature2@origin [new] untracked
     bookmark: main@origin     [new] untracked
@@ -1763,6 +1769,7 @@ fn test_bookmark_track_untrack() -> TestResult {
     let output = work_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Fetching from Git remotes: origin
     bookmark: feature1@origin [updated] untracked
     bookmark: feature2@origin [updated] untracked
     bookmark: main@origin     [updated] tracked
@@ -1803,6 +1810,7 @@ fn test_bookmark_track_untrack() -> TestResult {
     let output = work_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Fetching from Git remotes: origin
     bookmark: feature1@origin [updated] untracked
     bookmark: feature2@origin [updated] untracked
     bookmark: feature3@origin [new] tracked
@@ -1946,6 +1954,7 @@ fn test_bookmark_track_untrack_patterns() -> TestResult {
     let output = work_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Fetching from Git remotes: origin
     bookmark: feature1@origin [new] untracked
     bookmark: feature2@origin [new] untracked
     [EOF]
@@ -2164,6 +2173,7 @@ fn test_bookmark_track_absent() -> TestResult {
     let output = work_dir.run_jj(["git", "fetch", "--all-remotes"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Fetching from Git remotes: remote1, remote2
     bookmark: feature1@remote1 [new] untracked
     [EOF]
     ");

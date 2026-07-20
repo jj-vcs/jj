@@ -936,6 +936,7 @@ fn test_git_colocated_fetch_deleted_or_moved_bookmark() -> TestResult {
     let output = clone_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Fetching from Git remotes: origin
     bookmark: B_to_delete@origin [deleted] untracked
     bookmark: C_to_move@origin   [updated] tracked
     Abandoned 1 commits that are no longer reachable:
