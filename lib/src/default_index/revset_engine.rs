@@ -188,8 +188,8 @@ impl<I: AsCompositeIndex + Clone> Revset for RevsetImpl<I> {
         futures::stream::iter(self.iter_graph_impl(skip_transitive_edges)).boxed_local()
     }
 
-    fn is_empty(&self) -> bool {
-        self.positions().next().is_none()
+    fn is_empty(&self) -> Result<bool, RevsetEvaluationError> {
+        Ok(self.positions().next().transpose()?.is_none())
     }
 
     fn count_estimate(&self) -> Result<(usize, Option<usize>), RevsetEvaluationError> {

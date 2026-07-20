@@ -2072,15 +2072,12 @@ to the current parents may contain changes from multiple commits.
                 .env
                 .resolve_immutable_expression(tx.repo())
                 .map_err(snapshot_command_error)?;
-            let wc_immutable = immutable_expr
+            let wc_immutable = !immutable_expr
                 .intersection(&RevsetExpression::commit(wc_commit.id().clone()))
                 .evaluate(tx.repo())
                 .map_err(snapshot_command_error)?
-                .stream()
-                .try_next()
-                .await
-                .map_err(snapshot_command_error)?
-                .is_some();
+                .is_empty()
+                .map_err(snapshot_command_error)?;
             let mut_repo = tx.repo_mut();
             let new_wc_commit;
             if wc_immutable {

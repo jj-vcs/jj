@@ -3407,8 +3407,8 @@ pub trait Revset: fmt::Debug {
     where
         Self: 'a;
 
-    /// Returns true if iterator will emit no commit nor error.
-    fn is_empty(&self) -> bool;
+    /// Returns true if iterator will emit no commit.
+    fn is_empty(&self) -> Result<bool, RevsetEvaluationError>;
 
     /// Inclusive lower bound and, optionally, inclusive upper bound of how many
     /// commits are in the revset. The implementation can use its discretion as
