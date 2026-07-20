@@ -101,6 +101,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   conflict is now preserved in the rewritten commit.
   [#9747](https://github.com/jj-vcs/jj/issues/9747)
 
+* Fixed a panic when passing overly-large length parameters to ID templater
+  functions (`commit_id.short()`, `commit_id.shortest()`, etc.).
+  [#9833](https://github.com/jj-vcs/jj/issues/9833)
 ## [0.43.0] - 2026-07-01
 
 ### Release highlights
