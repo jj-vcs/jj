@@ -382,7 +382,7 @@ pub(crate) async fn cmd_log(
                  this is often not useful because all non-empty commits touch '.'. If you meant \
                  to show the working copy commit, pass -r '@' instead."
             )?;
-        } else if revset.is_empty()
+        } else if revset.is_empty()?
             && workspace_command
                 .parse_revset(ui, &RevisionArg::from(only_path.to_owned()))
                 .is_ok()
