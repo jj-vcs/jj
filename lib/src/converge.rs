@@ -648,8 +648,8 @@ where
     // provide change-offsets for hidden commits, we consider those as having
     // maximum change-offset and use input-order as the secondary sorting criterion.
     // By input-order we refer to the order of commits passed to converge_change.
-    // But some commits are not given as input, so we use CommitId as tertiary
-    // sorting criterion.
+    // But some commits are not given as input, so we use commit timestamp and
+    // CommitId as additional sorting criteria.
 
     let resolved_change_targets = truncated_evolution_graph
         .repo()
@@ -660,6 +660,7 @@ where
         .enumerate()
         .map(|(position, commit_id)| (commit_id, position))
         .collect();
+
     let producer = producers
         .iter()
         .min_by_key(|commit_id: &&CommitId| {
@@ -668,7 +669,17 @@ where
                 None => usize::MAX,
             };
             let input_position = *input_position.get(commit_id).unwrap_or(&usize::MAX);
-            (change_offset, input_position, *commit_id)
+            let commit = truncated_evolution_graph
+                .repo()
+                .store()
+                .get_commit(commit_id)
+                .unwrap();
+            (
+                change_offset,
+                input_position,
+                commit.committer().timestamp,
+                *commit_id,
+            )
         })
         .unwrap()
         .clone();
