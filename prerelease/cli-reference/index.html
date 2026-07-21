@@ -8951,7 +8951,8 @@ J           J
 <p>Checks out each revision in an isolated working copy, runs the command, then
 amends the revision with the resulting working copy. By default, descendants
 are rebased on top of the amended revisions, propagating the diff. Use
-<code>--restore-descendants</code> to keep descendants' content unchanged instead.</p>
+<code>--restore-descendants</code> to keep descendants' content unchanged instead, or
+<code>--ignore-changes</code> to run the command without rewriting any commits.</p>
 <p>The command is executed with the following environment variables set:</p>
 <ul>
 <li>JJ_CHANGE_ID</li>
@@ -8991,6 +8992,11 @@ $<span class="w"> </span>jj<span class="w"> </span>run<span class="w"> </span>-j
 <li>
 <p><code>--passthrough</code> — Pass through stdout and stderr directly to the terminal</p>
 <p>The command's stdout and stderr are connected directly to the terminal (instead of being captured), so programs that behave differently on a TTY (e.g. colored output, progress bars) work as expected. Stdin is not inherited. Only one job is allowed since parallel jobs would interleave their output.</p>
+</li>
+<li>
+<p><code>--ignore-changes</code> — Run the command without rewriting any commits.</p>
+<p>Each revision is checked out and the command is executed, but changes made to the working copy are discarded. Useful for read-only checks (tests, linters).</p>
+<p>This option permits running on immutable commits without passing <code>--ignore-immutable</code>.</p>
 </li>
 </ul>
 <h2 id="jj-show"><code>jj show</code><a class="headerlink" href="#jj-show" title="Permanent link">&para;</a></h2>
