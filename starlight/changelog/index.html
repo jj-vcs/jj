@@ -266,8 +266,11 @@ instead of only the file paths of files containing a match. Use
 point where multiple branches merge.</p>
 </li>
 <li>
-<p>New <code dir="auto">builtin_workspace_list</code> and <code dir="auto">builtin_workspace_list_with_root</code> template
-aliases are available for <code dir="auto">jj workspace list</code>.</p>
+<p><code dir="auto">jj workspace list</code> now shows workspace roots by default. The output can be
+customized with <code dir="auto">templates.workspace_list</code> or <code dir="auto">-T</code>, and <code dir="auto">WorkspaceRef.root()</code>
+returns an optional <code dir="auto">FsPath</code> value.
+<a href="https://github.com/jj-vcs/jj/pull/9713">#9713</a>,
+<a href="https://github.com/jj-vcs/jj/pull/9826">#9826</a></p>
 </li>
 <li>
 <p><code dir="auto">jj run</code> now processes revisions from oldest to newest by default. The start
