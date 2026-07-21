@@ -93,6 +93,14 @@ pub struct WorkspaceAddArgs {
     #[arg(long, value_enum, default_value_t = SparseInheritance::Copy)]
     sparse_patterns: SparseInheritance,
 
+    /// Create a Git worktree for the new workspace (force colocation)
+    ///
+    /// Overrides the `git.auto-register-worktrees` config and the parent
+    /// workspace's colocation status. Has no effect in a non-colocated repo.
+    #[cfg(feature = "git")]
+    #[arg(long, conflicts_with = "no_colocate")]
+    colocate: bool,
+
     /// Do not create a Git worktree for the new workspace
     ///
     /// By default, the new workspace will be colocated if and only if the
@@ -142,13 +150,16 @@ pub async fn cmd_workspace_add(
             is_colocated_git_workspace(old_workspace_command.workspace(), repo.as_ref());
 
         // Determine if colocation is requested:
-        // - --no-colocate: never colocate (override auto-detect)
-        // - (no flag): colocate if parent is colocated (auto-detect)
+        // - --no-colocate: never colocate (overrides everything)
+        // - --colocate: always colocate (overrides auto-detect + config)
+        // - (no flag): colocate if the parent is colocated AND the
+        //   `git.auto-register-worktrees` config is enabled (default true)
         let colocate_requested = if args.no_colocate {
             false
+        } else if args.colocate {
+            true
         } else {
-            // Auto-detect from parent
-            parent_is_colocated
+            parent_is_colocated && command.settings().get_bool("git.auto-register-worktrees")?
         };
 
         if colocate_requested {

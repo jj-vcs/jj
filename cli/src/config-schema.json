@@ -539,6 +539,11 @@
                     "description": "Path to the git executable",
                     "default": "git"
                 },
+                "auto-register-worktrees": {
+                    "type": "boolean",
+                    "description": "Whether `jj workspace add` in a colocated repo automatically registers a Git worktree for the new workspace, so plain `git` commands work inside it. Distinct from `git.colocate` (which controls `jj git init`/`jj git clone`). No-op in a non-colocated repo.",
+                    "default": true
+                },
                 "colocate": {
                     "type": "boolean",
                     "description": "Whether to colocate the working copy with the git repository",

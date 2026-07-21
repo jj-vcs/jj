@@ -2619,6 +2619,43 @@ fn test_workspace_gc_preserves_colocated_worktree() {
 }
 
 #[test]
+fn test_workspace_add_colocate_config_gate() {
+    // This test requires git command
+    if skip_if_git_unavailable() {
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    // Disable automatic Git-worktree registration for colocated workspaces.
+    test_env.add_config("git.auto-register-worktrees = false\n");
+    let work_dir = test_env.work_dir("repo");
+
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    work_dir.write_file("file", "contents");
+    work_dir.run_jj(["commit", "-m", "first commit"]).success();
+
+    // (no flag) + config disabled => no Git worktree (behaves like non-colocated).
+    let off_dir = test_env.work_dir("off");
+    work_dir.run_jj(["workspace", "add", "../off"]).success();
+    assert!(
+        !off_dir.root().join(".git").exists(),
+        "with git.auto-register-worktrees=false, a secondary workspace must have no .git"
+    );
+
+    // --colocate overrides the disabled config and forces a Git worktree.
+    let forced_dir = test_env.work_dir("forced");
+    work_dir
+        .run_jj(["workspace", "add", "--colocate", "../forced"])
+        .success();
+    assert!(
+        forced_dir.root().join(".git").is_file(),
+        "--colocate must create a Git worktree (.git file) even with the config disabled"
+    );
+}
+
+#[test]
 fn test_workspace_add_colocate_git_failure() {
     // This test requires git command
     if skip_if_git_unavailable() {
