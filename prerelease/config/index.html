@@ -4547,17 +4547,6 @@ you can add this to your config:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[templates]</span>
 <span class="n">config_list</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;builtin_config_list_detailed&quot;</span>
 </code></pre></div>
-<p>If you want <code>jj workspace list</code> to show each workspace root, you can use the
-shipped root-path template:</p>
-<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>workspace<span class="w"> </span>list<span class="w"> </span>-T<span class="w"> </span>builtin_workspace_list_with_root
-</code></pre></div>
-<p>Workspaces whose roots are not recorded or cannot be resolved are shown without
-the root path. Workspace roots are not recorded for workspaces created before jj
-0.38.0.</p>
-<p>Or make it your default:</p>
-<div class="highlight"><pre><span></span><code><span class="k">[templates]</span>
-<span class="n">workspace_list</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;builtin_workspace_list_with_root&quot;</span>
-</code></pre></div>
 <h2 id="log">Log<a class="headerlink" href="#log" title="Permanent link">&para;</a></h2>
 <h3 id="default-revisions">Default revisions<a class="headerlink" href="#default-revisions" title="Permanent link">&para;</a></h3>
 <p>You can configure the revisions <code>jj log</code> would show when neither <code>-r</code> nor any paths are specified.</p>

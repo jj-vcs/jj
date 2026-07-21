@@ -7364,8 +7364,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   point where multiple branches merge.</p>
 </li>
 <li>
-<p>New <code>builtin_workspace_list</code> and <code>builtin_workspace_list_with_root</code> template
-  aliases are available for <code>jj workspace list</code>.</p>
+<p><code>jj workspace list</code> now shows workspace roots by default. The output can be
+  customized with <code>templates.workspace_list</code> or <code>-T</code>, and <code>WorkspaceRef.root()</code>
+  returns an optional <code>FsPath</code> value.
+  <a href="https://github.com/jj-vcs/jj/pull/9713">#9713</a>,
+  <a href="https://github.com/jj-vcs/jj/pull/9826">#9826</a></p>
 </li>
 <li>
 <p><code>jj run</code> now processes revisions from oldest to newest by default. The start
