@@ -813,7 +813,7 @@ where
                         if condition { on_true } else { on_false }
                     },
                 )
-                .into_serialize(),
+                .into_dyn(),
         )
     }
 
