@@ -648,8 +648,8 @@ where
     // provide change-offsets for hidden commits, we consider those as having
     // maximum change-offset and use input-order as the secondary sorting criterion.
     // By input-order we refer to the order of commits passed to converge_change.
-    // But some commits are not given as input, so we use CommitId as tertiary
-    // sorting criterion.
+    // But some commits are not given as input, so we use commit timestamp and
+    // CommitId as additional sorting criteria.
 
     let resolved_change_targets = truncated_evolution_graph
         .repo()
@@ -661,19 +661,36 @@ where
         .enumerate()
         .map(|(position, commit_id)| (commit_id, position))
         .collect();
-    let producer = producers
-        .iter()
-        .min_by_key(|commit_id: &&CommitId| {
+
+    // The sorting key is (change_offset, input_position, negated millis since Unix
+    // epoch, commit_id).
+    type SortingKey = (usize, usize, i64, CommitId);
+    let producers: Vec<_> = try_join_all(producers.iter().map(
+        async |commit_id| -> Result<SortingKey, ConvergeError> {
             let change_offset = match &resolved_change_targets {
                 Some(change_targets) => change_targets.find_offset(commit_id).unwrap_or(usize::MAX),
                 None => usize::MAX,
             };
             let input_position = *input_position.get(commit_id).unwrap_or(&usize::MAX);
-            (change_offset, input_position, *commit_id)
-        })
-        .unwrap()
-        .clone();
-    Ok(producer)
+            let commit = truncated_evolution_graph
+                .repo()
+                .store()
+                .get_commit_async(commit_id)
+                .await?;
+            // We take MillisSinceEpoch and negate it, so that more recent commits are
+            // before older ones.
+            let millis_since_unix_epoch = commit.committer().timestamp.timestamp.0;
+            Ok((
+                change_offset,
+                input_position,
+                -millis_since_unix_epoch,
+                commit_id.clone(),
+            ))
+        },
+    ))
+    .await?;
+    let (_, _, _, commit_id) = producers.iter().min().unwrap().clone();
+    Ok(commit_id)
 }
 
 async fn rebase_tree_onto_solution_parents(
