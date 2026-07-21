@@ -8999,6 +8999,11 @@ $<span class="w"> </span>jj<span class="w"> </span>run<span class="w"> </span>-j
 <p>Each revision is checked out and the command is executed, but changes made to the working copy are discarded. Useful for read-only checks (tests, linters).</p>
 <p>This option permits running on immutable commits without passing <code>--ignore-immutable</code>.</p>
 </li>
+<li>
+<p><code>--ignore-errors</code> — Continue with remaining revisions when a command's exit code indicates failure</p>
+<p>Any changes made by a failed command will not be saved, but changes from successful commands are still applied atomically at the end.</p>
+<p>The exit code from any failed command will not impact the exit code of <code>jj run</code> itself.</p>
+</li>
 </ul>
 <h2 id="jj-show"><code>jj show</code><a class="headerlink" href="#jj-show" title="Permanent link">&para;</a></h2>
 <p>Show revision metadata and diff</p>
