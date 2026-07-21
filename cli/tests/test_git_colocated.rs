@@ -2569,6 +2569,56 @@ fn test_workspace_add_colocate_creates_git_worktree() {
 }
 
 #[test]
+fn test_workspace_gc_preserves_colocated_worktree() {
+    // This test requires git command
+    if skip_if_git_unavailable() {
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    let work_dir = test_env.work_dir("repo");
+    let second_work_dir = test_env.work_dir("second");
+
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    work_dir.write_file("file", "contents");
+    work_dir.run_jj(["commit", "-m", "first commit"]).success();
+
+    // Colocated secondary workspace, with its own commit.
+    work_dir.run_jj(["workspace", "add", "../second"]).success();
+    second_work_dir.write_file("wsfile", "second workspace contents");
+    second_work_dir
+        .run_jj(["commit", "-m", "second workspace commit"])
+        .success();
+
+    // Resolve the worktree admin dir (`<repo>/.git/worktrees/<id>`) from the
+    // secondary workspace's `.git` gitlink file.
+    let git_link = second_work_dir.read_file(".git");
+    let git_link = String::from_utf8(git_link.into()).unwrap();
+    let admin_dir = std::path::PathBuf::from(git_link.strip_prefix("gitdir:").unwrap().trim());
+    assert!(
+        admin_dir.exists(),
+        "worktree admin dir should exist before gc: {admin_dir:?}"
+    );
+
+    // Make the worktree "prunable" from Git's perspective by removing its working
+    // directory. Without `gc.worktreePruneExpire=never`, `git gc --prune=@<now>`
+    // (via `jj util gc --expire=now`) auto-runs `git worktree prune` and would
+    // delete the admin dir, orphaning the workspace's Git side.
+    std::fs::remove_dir_all(second_work_dir.root()).unwrap();
+
+    work_dir.run_jj(["util", "gc", "--expire=now"]).success();
+
+    // The registration must survive: our run_git_gc passes
+    // `-c gc.worktreePruneExpire=never`.
+    assert!(
+        admin_dir.exists(),
+        "`jj util gc` must not prune the registered worktree admin dir: {admin_dir:?}"
+    );
+}
+
+#[test]
 fn test_workspace_add_colocate_git_failure() {
     // This test requires git command
     if skip_if_git_unavailable() {
