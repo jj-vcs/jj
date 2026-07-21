@@ -133,8 +133,10 @@ fn test_no_subcommand() {
     work_dir.run_jj(["new"]).success();
     work_dir.write_file("file.txt", "file");
     let output = work_dir.run_jj([""; 0]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A file.txt
     Working copy  (@) now at: kxryzmor 8db1ba9a (empty) (no description set)
     Parent commit (@-)      : lylxulpl 19f3adb2 foo
     [EOF]
@@ -206,9 +208,13 @@ fn test_ignore_working_copy() {
 
     work_dir.write_file("file", "initial");
     let output = work_dir.run_jj(["log", "-T", "commit_id"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     @  82a10a4d9ef783fd68b661f40ce10dd80d599d9e
     ◆  0000000000000000000000000000000000000000
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A file
     [EOF]
     ");
 
@@ -216,7 +222,8 @@ fn test_ignore_working_copy() {
     // ID.
     work_dir.write_file("file", "modified");
     let output_again = work_dir.run_jj(["log", "-T", "commit_id", "--ignore-working-copy"]);
-    assert_eq!(output_again, output);
+    assert_eq!(output_again.stdout, output.stdout);
+    insta::assert_snapshot!(output_again.stderr, @r"");
 
     // But without --ignore-working-copy, we get a new commit ID.
     let output = work_dir.run_jj(["log", "-T", "commit_id"]);
@@ -250,8 +257,10 @@ fn test_no_integrate_operation() {
     std::fs::write(repo_path.join("file2"), "initial").unwrap();
     let output = test_env.run_jj_in(&repo_path, &["squash", "--no-integrate-operation"]);
     insta::assert_snapshot!(output.stdout, @"");
-    insta::assert_snapshot!(output.stderr, @"
+    insta::assert_snapshot!(output.stderr, @r"
     Snapshot operation left uncommitted because --no-integrate-operation was requested: 13357990b38a
+    Auto-tracking 1 new file:
+    A file2
     Operation left uncommitted because --no-integrate-operation was requested: a028de7aa4f4
     [EOF]
     ");
@@ -265,7 +274,7 @@ fn test_no_integrate_operation() {
 
     // We can see the resulting log and op log with --at-op
     let stdout = test_env.run_jj_in(&repo_path, &["log", "-s", "--at-op", op_id_hex.as_str()]);
-    insta::assert_snapshot!(stdout, @"
+    insta::assert_snapshot!(stdout, @r"
     @  mzvwutvl test.user@example.com 2001-02-03 08:05:11 10644da4
     │  (empty) (no description set)
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:11 599772f7
@@ -319,8 +328,10 @@ fn test_no_integrate_operation_colocated() {
     std::fs::write(repo_path.join("file2"), "initial").unwrap();
     let output = test_env.run_jj_in(&repo_path, &["squash", "--no-integrate-operation"]);
     insta::assert_snapshot!(output.stdout, @"");
-    insta::assert_snapshot!(output.stderr, @"
+    insta::assert_snapshot!(output.stderr, @r"
     Snapshot operation left uncommitted because --no-integrate-operation was requested: f9d2255ff5a3
+    Auto-tracking 1 new file:
+    A file2
     Operation left uncommitted because --no-integrate-operation was requested: 0eccbf94f56f
     [EOF]
     ");
@@ -334,7 +345,7 @@ fn test_no_integrate_operation_colocated() {
 
     // We can see the resulting log and op log with --at-op
     let stdout = test_env.run_jj_in(&repo_path, &["log", "-s", "--at-op", op_id_hex.as_str()]);
-    insta::assert_snapshot!(stdout, @"
+    insta::assert_snapshot!(stdout, @r"
     @  mzvwutvl test.user@example.com 2001-02-03 08:05:11 10644da4
     │  (empty) (no description set)
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:11 599772f7

@@ -32,8 +32,14 @@ fn test_sparse_manage_patterns() {
 
     // By default, all files are tracked
     let output = work_dir.run_jj(["sparse", "list"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     .
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 3 new files:
+    A file1
+    A file2
+    A file3
     [EOF]
     ");
 

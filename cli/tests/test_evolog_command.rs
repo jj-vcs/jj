@@ -749,7 +749,7 @@ fn test_evolog_template_predecessors_and_inter_diff() {
             r#"-T=builtin_evolog_compact ++ self.inter_diff("file1").git()"#,
         ])
         .success();
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     @  kkmpptxz test.user@example.com 2001-02-03 08:05:10 c6106cde
     │  d
     │  -- operation d23cb3c75003 snapshot working copy
@@ -763,6 +763,11 @@ fn test_evolog_template_predecessors_and_inter_diff() {
     ○  kkmpptxz/1 test.user@example.com 2001-02-03 08:05:09 780d27be (hidden)
        (empty) d
        -- operation 442a733fd961 new empty commit
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A file1
+    A file2
     [EOF]
     ");
 

@@ -260,8 +260,10 @@ fn test_commit_interactive_with_paths() -> TestResult {
 
     // Select file1 and file2 by args, then select file1 interactively
     let output = work_dir.run_jj(["commit", "-i", "file1", "file2"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A file1
     Working copy  (@) now at: kkmpptxz 50f426df (no description set)
     Parent commit (@-)      : rlvkpnrz eb640375 edit
     [EOF]
@@ -432,8 +434,11 @@ fn test_commit_paths_warning() {
     work_dir.write_file("file2", "bar\n");
 
     let output = work_dir.run_jj(["commit", "-m=first", "file3"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 2 new files:
+    A file1
+    A file2
     Warning: The given paths do not match any file: file3
     Working copy  (@) now at: rlvkpnrz 4c6f0146 (no description set)
     Parent commit (@-)      : qpvuntsm 68a50538 (empty) first
@@ -463,8 +468,10 @@ fn test_commit_trailers() -> TestResult {
     work_dir.write_file("file1", "foo\n");
 
     let output = work_dir.run_jj(["commit", "-m=first"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A file1
     Working copy  (@) now at: rlvkpnrz 0c0495f3 (empty) (no description set)
     Parent commit (@-)      : qpvuntsm ae86ffd4 first
     [EOF]
@@ -629,8 +636,10 @@ fn test_commit_with_editor_without_message() -> TestResult {
     ◆  000000000000
     [EOF]
     ");
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A file1
     Hint: The commit message was left empty.
     If this was not intentional, run `jj undo` to restore the previous state.
     Or run `jj desc @-` to add a description to the parent commit.

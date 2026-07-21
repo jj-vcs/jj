@@ -80,6 +80,7 @@ use jj_lib::lock::FileLock;
 use jj_lib::matchers::Matcher;
 use jj_lib::matchers::NothingMatcher;
 use jj_lib::merge::Diff;
+use jj_lib::merge::Merge;
 use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
@@ -130,10 +131,12 @@ use jj_lib::str_util::StringExpression;
 use jj_lib::str_util::StringMatcher;
 use jj_lib::transaction::Transaction;
 use jj_lib::transaction::TransactionCommitError;
+use jj_lib::tree::Tree;
 use jj_lib::working_copy;
 use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::LockedWorkingCopy;
 use jj_lib::working_copy::SnapshotOptions;
+use jj_lib::working_copy::SnapshotResult;
 use jj_lib::working_copy::SnapshotStats;
 use jj_lib::working_copy::UntrackedReason;
 use jj_lib::working_copy::WorkingCopy;
@@ -455,42 +458,53 @@ impl CommandHelper {
     /// Loads workspace and repo, then snapshots the working copy if allowed.
     #[instrument(skip(self, ui))]
     pub async fn workspace_helper(&self, ui: &Ui) -> Result<WorkspaceCommandHelper, CommandError> {
-        let (workspace_command, stats) = self.workspace_helper_with_stats(ui).await?;
-        print_snapshot_stats(ui, &stats, workspace_command.env().path_converter())?;
+        let (workspace_command, maybe_snapshot_result) =
+            self.workspace_helper_with_result(ui).await?;
+        print_maybe_snapshot_result(
+            ui,
+            self.settings().config(),
+            &maybe_snapshot_result,
+            workspace_command.env().path_converter(),
+        )
+        .await?;
         Ok(workspace_command)
     }
 
     /// Loads workspace and repo, then snapshots the working copy if allowed and
-    /// returns the SnapshotStats.
+    /// returns the SnapshotResult.
     ///
     /// Note that unless you have a good reason not to do so, you should always
-    /// call [`print_snapshot_stats`] with the [`SnapshotStats`] returned by
-    /// this function to present possible untracked files to the user.
+    /// call [`print_maybe_snapshot_result`] with the [`Option<SnapshotResult>`]
+    /// returned by this function to present possible untracked files to the
+    /// user.
     #[instrument(skip(self, ui))]
-    pub async fn workspace_helper_with_stats(
+    pub async fn workspace_helper_with_result(
         &self,
         ui: &Ui,
-    ) -> Result<(WorkspaceCommandHelper, SnapshotStats), CommandError> {
+    ) -> Result<(WorkspaceCommandHelper, Option<SnapshotResult>), CommandError> {
         let mut workspace_command = self.workspace_helper_no_snapshot(ui).await?;
 
-        let (workspace_command, stats) = match workspace_command.maybe_snapshot_impl(ui).await {
-            Ok(stats) => (workspace_command, stats),
-            Err(SnapshotWorkingCopyError::Command(err)) => return Err(err),
-            Err(SnapshotWorkingCopyError::StaleWorkingCopy(err)) => {
-                let auto_update_stale = self.settings().get_bool("snapshot.auto-update-stale")?;
-                if !auto_update_stale {
-                    return Err(err);
-                }
+        let (workspace_command, maybe_snapshot_result) = {
+            match workspace_command.maybe_snapshot_impl(ui).await {
+                Ok(maybe_snapshot_result) => (workspace_command, maybe_snapshot_result),
+                Err(SnapshotWorkingCopyError::Command(err)) => return Err(err),
+                Err(SnapshotWorkingCopyError::StaleWorkingCopy(err)) => {
+                    let auto_update_stale =
+                        self.settings().get_bool("snapshot.auto-update-stale")?;
+                    if !auto_update_stale {
+                        return Err(err);
+                    }
 
-                // We detected the working copy was stale and the client is configured to
-                // auto-update-stale, so let's do that now. We need to do it up here, not at a
-                // lower level (e.g. inside snapshot_working_copy()) to avoid recursive locking
-                // of the working copy.
-                self.recover_stale_working_copy(ui).await?
+                    // We detected the working copy was stale and the client is configured to
+                    // auto-update-stale, so let's do that now. We need to do it up here, not at a
+                    // lower level (e.g. inside snapshot_working_copy()) to avoid recursive locking
+                    // of the working copy.
+                    self.recover_stale_working_copy(ui).await?
+                }
             }
         };
 
-        Ok((workspace_command, stats))
+        Ok((workspace_command, maybe_snapshot_result))
     }
 
     /// Loads workspace and repo, but never snapshots the working copy. Most
@@ -577,12 +591,13 @@ impl CommandHelper {
     }
 
     /// Note that unless you have a good reason not to do so, you should always
-    /// call [`print_snapshot_stats`] with the [`SnapshotStats`] returned by
-    /// this function to present possible untracked files to the user.
+    /// call [`print_maybe_snapshot_result`] with the [`Option<SnapshotResult>`]
+    /// returned by this function to present possible untracked files to the
+    /// user.
     pub async fn recover_stale_working_copy(
         &self,
         ui: &Ui,
-    ) -> Result<(WorkspaceCommandHelper, SnapshotStats), CommandError> {
+    ) -> Result<(WorkspaceCommandHelper, Option<SnapshotResult>), CommandError> {
         let workspace = self.load_workspace()?;
         let op_id = workspace.working_copy().operation_id();
 
@@ -596,14 +611,13 @@ impl CommandHelper {
                 // operation, then merge the divergent operations. The wc_commit_id of the
                 // merged repo wouldn't change because the old one wins, but it's probably
                 // fine if we picked the new wc_commit_id.
-                let stale_stats = {
+                let stale_result = {
                     let git_import_export_lock = workspace_command.lock_git_import_export()?;
                     workspace_command
                         .snapshot_working_copy(ui, &git_import_export_lock)
                         .await
                         .map_err(|err| err.into_command_error())?
                 };
-
                 let wc_commit_id = workspace_command.get_wc_commit_id().unwrap();
                 let repo = workspace_command.repo().clone();
                 let stale_wc_commit = repo.store().get_commit_async(wc_commit_id).await?;
@@ -630,7 +644,7 @@ impl CommandHelper {
                     }
                     WorkingCopyFreshness::WorkingCopyStale
                     | WorkingCopyFreshness::SiblingOperation => {
-                        let stats = update_stale_working_copy(
+                        let checkout_stats = update_stale_working_copy(
                             locked_ws,
                             repo.op_id().clone(),
                             &stale_wc_commit,
@@ -641,7 +655,7 @@ impl CommandHelper {
                             ui,
                             Some(&stale_wc_commit),
                             &desired_wc_commit,
-                            &stats,
+                            &checkout_stats,
                         )?;
                         writeln!(
                             ui.status(),
@@ -655,18 +669,26 @@ impl CommandHelper {
                 // will also be imported if it was updated after the working
                 // copy became stale. The result wouldn't be ideal, but there
                 // should be no data loss at least.
-                let fresh_stats = workspace_command
+                let fresh_result = workspace_command
                     .maybe_snapshot_impl(ui)
                     .await
                     .map_err(|err| err.into_command_error())?;
-                let merged_stats = {
-                    let SnapshotStats {
-                        mut untracked_paths,
-                    } = stale_stats;
-                    untracked_paths.extend(fresh_stats.untracked_paths);
-                    SnapshotStats { untracked_paths }
+                let merged_result = {
+                    if let Some(fresh_result) = fresh_result {
+                        let new_tree = fresh_result.new_tree;
+                        let mut stats = stale_result.map_or(SnapshotStats::default(), |r| r.stats);
+                        stats
+                            .untracked_paths
+                            .extend(fresh_result.stats.untracked_paths);
+                        stats
+                            .newly_tracked_paths
+                            .extend(fresh_result.stats.newly_tracked_paths);
+                        Some(SnapshotResult { new_tree, stats })
+                    } else {
+                        stale_result
+                    }
                 };
-                Ok((workspace_command, merged_stats))
+                Ok((workspace_command, merged_result))
             }
             Err(e @ OpStoreError::ObjectNotFound { .. }) => {
                 writeln!(
@@ -676,10 +698,10 @@ impl CommandHelper {
                 )?;
 
                 let mut workspace_command = self.workspace_helper_no_snapshot(ui).await?;
-                let stats = workspace_command
+                let snapshot_result = workspace_command
                     .create_and_check_out_recovery_commit(ui)
                     .await?;
-                Ok((workspace_command, stats))
+                Ok((workspace_command, snapshot_result))
             }
             Err(e) => Err(e.into()),
         }
@@ -1226,15 +1248,16 @@ impl WorkspaceCommandHelper {
     }
 
     /// Note that unless you have a good reason not to do so, you should always
-    /// call [`print_snapshot_stats`] with the [`SnapshotStats`] returned by
-    /// this function to present possible untracked files to the user.
+    /// call [`print_maybe_snapshot_result`] with the [`Option<SnapshotResult>`]
+    /// returned by this function to present possible untracked files to the
+    /// user.
     #[instrument(skip_all)]
     async fn maybe_snapshot_impl(
         &mut self,
         ui: &Ui,
-    ) -> Result<SnapshotStats, SnapshotWorkingCopyError> {
+    ) -> Result<Option<SnapshotResult>, SnapshotWorkingCopyError> {
         if !self.may_snapshot_working_copy {
-            return Ok(SnapshotStats::default());
+            return Ok(None);
         }
 
         // Acquire git import/export lock once for the entire import/snapshot/export
@@ -1278,7 +1301,7 @@ impl WorkspaceCommandHelper {
         // pointing to the new working-copy commit might not be exported.
         // In that situation, the ref would be conflicted anyway, so export
         // failure is okay.
-        let stats = self
+        let result = self
             .snapshot_working_copy(ui, &git_import_export_lock)
             .await?;
 
@@ -1289,7 +1312,7 @@ impl WorkspaceCommandHelper {
                 .await
                 .map_err(snapshot_command_error)?;
         }
-        Ok(stats)
+        Ok(result)
     }
 
     /// Snapshots the working copy if allowed, and imports Git refs if the
@@ -1299,11 +1322,18 @@ impl WorkspaceCommandHelper {
     #[instrument(skip_all)]
     pub async fn maybe_snapshot(&mut self, ui: &Ui) -> Result<bool, CommandError> {
         let op_id_before = self.repo().op_id().clone();
-        let stats = self
+        let maybe_snapshot_result = self
             .maybe_snapshot_impl(ui)
             .await
             .map_err(|err| err.into_command_error())?;
-        print_snapshot_stats(ui, &stats, self.env().path_converter())?;
+
+        print_maybe_snapshot_result(
+            ui,
+            self.env.settings.config(),
+            &maybe_snapshot_result,
+            self.env().path_converter(),
+        )
+        .await?;
         let op_id_after = self.repo().op_id();
         Ok(op_id_before != *op_id_after)
     }
@@ -1476,7 +1506,7 @@ impl WorkspaceCommandHelper {
     async fn create_and_check_out_recovery_commit(
         &mut self,
         ui: &Ui,
-    ) -> Result<SnapshotStats, CommandError> {
+    ) -> Result<Option<SnapshotResult>, CommandError> {
         self.check_working_copy_writable()?;
 
         let workspace_name = self.workspace_name().to_owned();
@@ -2025,7 +2055,7 @@ to the current parents may contain changes from multiple commits.
         &mut self,
         ui: &Ui,
         git_import_export_lock: &GitImportExportLock,
-    ) -> Result<SnapshotStats, SnapshotWorkingCopyError> {
+    ) -> Result<Option<SnapshotResult>, SnapshotWorkingCopyError> {
         let workspace_name = self.workspace_name().to_owned();
         let repo = self.repo().clone();
         let auto_tracking_matcher = self
@@ -2047,11 +2077,11 @@ to the current parents may contain changes from multiple commits.
         else {
             // If the workspace has been deleted, it's unclear what to do, so we just skip
             // committing the working copy.
-            return Ok(SnapshotStats::default());
+            return Ok(None);
         };
 
         self.user_repo = ReadonlyUserRepo::new(repo);
-        let (new_tree, stats) = {
+        let snapshot_result = {
             let mut options = options;
             let progress = crate::progress::snapshot_progress(ui);
             options.progress = progress.as_ref().map(|x| x as _);
@@ -2061,7 +2091,8 @@ to the current parents may contain changes from multiple commits.
                 .await
                 .map_err(snapshot_command_error)?
         };
-        if new_tree.tree_ids_and_labels() != wc_commit.tree().tree_ids_and_labels() {
+        if snapshot_result.new_tree.tree_ids_and_labels() != wc_commit.tree().tree_ids_and_labels()
+        {
             let mut tx = start_repo_transaction(
                 &self.user_repo.repo,
                 &workspace_name,
@@ -2082,7 +2113,10 @@ to the current parents may contain changes from multiple commits.
             let new_wc_commit;
             if wc_immutable {
                 new_wc_commit = mut_repo
-                    .new_commit(vec![wc_commit.id().clone()], new_tree.clone())
+                    .new_commit(
+                        vec![wc_commit.id().clone()],
+                        snapshot_result.new_tree.clone(),
+                    )
                     .write()
                     .await
                     .map_err(snapshot_command_error)?;
@@ -2095,7 +2129,7 @@ to the current parents may contain changes from multiple commits.
             } else {
                 new_wc_commit = mut_repo
                     .rewrite_commit(&wc_commit)
-                    .set_tree(new_tree.clone())
+                    .set_tree(snapshot_result.new_tree.clone())
                     .write()
                     .await
                     .map_err(snapshot_command_error)?;
@@ -2159,7 +2193,8 @@ to the current parents may contain changes from multiple commits.
 
         #[cfg(feature = "git")]
         if self.working_copy_shared_with_git
-            && let Ok(resolved_tree) = new_tree
+            && let Ok(resolved_tree) = snapshot_result
+                .new_tree
                 .trees()
                 .await
                 .map_err(snapshot_command_error)?
@@ -2192,7 +2227,7 @@ to the current parents may contain changes from multiple commits.
                 .await
                 .map_err(snapshot_command_error)?;
         }
-        Ok(stats)
+        Ok(Some(snapshot_result))
     }
 
     async fn update_working_copy(
@@ -3142,6 +3177,83 @@ fn build_untracked_reason_message(reason: &UntrackedReason) -> Option<String> {
     }
 }
 
+pub fn snapshot_stats_from_maybe_result(
+    maybe_snapshot_result: Option<SnapshotResult>,
+) -> SnapshotStats {
+    maybe_snapshot_result.map_or(SnapshotStats::default(), |r| r.stats)
+}
+
+pub async fn print_newly_tracked(
+    ui: &Ui,
+    config: &StackedConfig,
+    snapshot_result: &SnapshotResult,
+    path_converter: &RepoPathUiConverter,
+) -> Result<(), CommandError> {
+    let show_newly_tracked = config.get::<bool>("ui.show-newly-tracked").unwrap_or(true);
+
+    if !show_newly_tracked {
+        return Ok(());
+    }
+
+    let SnapshotResult { new_tree, stats } = snapshot_result;
+
+    if stats.newly_tracked_paths.is_empty() {
+        return Ok(());
+    }
+
+    let Some(mut formatter) = ui.status_formatter() else {
+        return Ok(());
+    };
+
+    write!(formatter, "Auto-tracking ")?;
+    write!(
+        formatter.labeled("diff").labeled("added"),
+        "{}",
+        stats.newly_tracked_paths.len()
+    )?;
+    writeln!(
+        formatter,
+        " new file{}:",
+        if stats.newly_tracked_paths.len() > 1 {
+            "s"
+        } else {
+            ""
+        }
+    )?;
+
+    visit_collapsed_tracked_files(
+        &stats.newly_tracked_paths,
+        &stats.untracked_paths.keys().collect::<Vec<&RepoPathBuf>>(),
+        &stats
+            .ignored_paths
+            .iter()
+            .map(|(p, is_dir)| (p, *is_dir))
+            .collect::<Vec<(&RepoPathBuf, bool)>>(),
+        new_tree,
+        |path, is_dir| {
+            if let Some(dir_files) = is_dir {
+                write!(
+                    formatter.labeled("diff").labeled("added"),
+                    "A {}{}",
+                    path_converter.format_file_path(path.as_ref()),
+                    std::path::MAIN_SEPARATOR_STR
+                )?;
+                writeln!(formatter, " ({dir_files} files)")?;
+            } else {
+                writeln!(
+                    formatter.labeled("diff").labeled("added"),
+                    "A {}",
+                    path_converter.format_file_path(path.as_ref())
+                )?;
+            }
+            Ok(())
+        },
+    )
+    .await?;
+
+    Ok(())
+}
+
 /// Print a warning to the user, listing untracked files that he may care about
 pub fn print_untracked_files(
     ui: &Ui,
@@ -3165,23 +3277,62 @@ pub fn print_untracked_files(
     Ok(())
 }
 
-pub fn print_snapshot_stats(
+pub async fn print_maybe_snapshot_result(
     ui: &Ui,
-    stats: &SnapshotStats,
+    config: &StackedConfig,
+    maybe_result: &Option<SnapshotResult>,
     path_converter: &RepoPathUiConverter,
-) -> io::Result<()> {
-    print_untracked_files(ui, &stats.untracked_paths, path_converter)?;
+) -> Result<(), CommandError> {
+    if let Some(result) = maybe_result.as_ref() {
+        print_snapshot_result(ui, config, result, path_converter).await
+    } else {
+        Ok(())
+    }
+}
 
-    let large_files_sizes = stats
-        .untracked_paths
-        .values()
-        .filter_map(|reason| match reason {
-            UntrackedReason::FileTooLarge { size, .. } => Some(size),
-            UntrackedReason::FileNotAutoTracked => None,
-        });
+pub async fn print_snapshot_result(
+    ui: &Ui,
+    config: &StackedConfig,
+    result: &SnapshotResult,
+    path_converter: &RepoPathUiConverter,
+) -> Result<(), CommandError> {
+    print_newly_tracked(ui, config, result, path_converter).await?;
+    print_snapshot_result_without_newly_tracked(ui, result, path_converter)
+}
+
+pub fn print_maybe_snapshot_result_without_newly_tracked(
+    ui: &Ui,
+    maybe_result: &Option<SnapshotResult>,
+    path_converter: &RepoPathUiConverter,
+) -> Result<(), CommandError> {
+    if let Some(result) = maybe_result.as_ref() {
+        print_snapshot_result_without_newly_tracked(ui, result, path_converter)
+    } else {
+        Ok(())
+    }
+}
+
+pub fn print_snapshot_result_without_newly_tracked(
+    ui: &Ui,
+    result: &SnapshotResult,
+    path_converter: &RepoPathUiConverter,
+) -> Result<(), CommandError> {
+    print_untracked_files(ui, &result.stats.untracked_paths, path_converter)?;
+
+    let large_files_sizes =
+        result
+            .stats
+            .untracked_paths
+            .values()
+            .filter_map(|reason| match reason {
+                UntrackedReason::FileTooLarge { size, .. } => Some(size),
+                UntrackedReason::FileNotAutoTracked => None,
+            });
+
     if let Some(size) = large_files_sizes.max() {
         print_large_file_hint(ui, *size, None)?;
     }
+
     Ok(())
 }
 
@@ -4693,9 +4844,195 @@ pub fn shell_quote(s: &str) -> Cow<'_, str> {
     shlex::try_quote(s).unwrap_or(s.into())
 }
 
+pub async fn visit_collapsed_tracked_files(
+    paths: impl IntoIterator<Item = impl AsRef<RepoPath>>,
+    untracked_files: &[impl AsRef<RepoPath>],
+    ignored_paths: &[(impl AsRef<RepoPath>, bool)],
+    tree: &MergedTree,
+    mut on_path: impl FnMut(&RepoPathBuf, Option<usize>) -> Result<(), CommandError>,
+) -> Result<(), CommandError> {
+    // We want to collapse several paths from tracked paths into a single
+    // common directory paths if:
+    // - all tracked paths from the directory are in tracked_paths.
+    // - the directory has no untracked or ignored paths.
+    // - the collapsed directory cannot be the root of the repository.
+    // - if the smallest collapsed source is a directory that contains only one
+    //   file, then we do not collapse.
+    // So if we can print one line with the directory instead of listing each
+    // file of the directory.
+
+    // The trees will give us the complete list of tracked paths.
+    let root_tree = tree.trees().await?;
+
+    // parent: Vec<(path, number of files, is_dir)
+    let mut candidates = BTreeMap::new();
+
+    for path in paths {
+        let path_buf = path.as_ref().to_owned();
+        candidates
+            .entry(path_buf.parent().unwrap().to_owned())
+            .or_insert(Vec::new())
+            .push((path_buf, 1, false));
+    }
+
+    async fn is_collapsable(
+        parent: &RepoPathBuf,
+        paths: Vec<&RepoPathBuf>,
+        untracked_files: &[impl AsRef<RepoPath>],
+        ignored_paths: &[(impl AsRef<RepoPath>, bool)],
+        root_tree: &Merge<Tree>,
+    ) -> Result<bool, CommandError> {
+        Ok(if parent.as_ref() == RepoPath::root() {
+            // Root cannot be the collapsed directory.
+            false
+        } else if untracked_files
+            .iter()
+            .any(|p| p.as_ref().starts_with(parent))
+        {
+            // No dangling untracked files within.
+            false
+        } else if ignored_paths.iter().any(|(p, is_dir)| {
+            if *is_dir {
+                // Not within an ignored directory.
+                parent.starts_with(p.as_ref())
+            } else {
+                // No dangling ignored files
+                p.as_ref().starts_with(parent)
+            }
+        }) {
+            false
+        } else {
+            // All tracked files at this path are listed to be printed.
+            let parent_len = parent.components().count();
+            root_tree
+                .sub_tree_recursive(parent)
+                .await?
+                .unwrap()
+                .iter()
+                .flat_map(|t| t.entries_non_recursive())
+                .dedup()
+                .zip(paths)
+                // That works because list are sorted.
+                .all(|(x, y)| x.name() == y.components().nth(parent_len).unwrap())
+        })
+    }
+
+    while let Some((parent, paths)) = candidates.pop_first() {
+        if is_collapsable(
+            &parent,
+            paths.iter().map(|(v, _, _)| v).collect(),
+            untracked_files,
+            ignored_paths,
+            &root_tree,
+        )
+        .await?
+        {
+            let num_file = paths.iter().map(|v| v.1).sum();
+            if num_file == 1 {
+                candidates.insert(parent.parent().unwrap().to_owned(), paths);
+            } else {
+                candidates.insert(
+                    parent.parent().unwrap().to_owned(),
+                    vec![(parent, num_file, true)],
+                );
+            }
+        } else {
+            for (path, num_files, is_dir) in paths {
+                on_path(&path, is_dir.then_some(num_files))?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+pub async fn visit_collapsed_untracked_files(
+    untracked_paths: impl IntoIterator<Item = (impl AsRef<RepoPath>, bool)>,
+    other_non_tracked_paths: impl IntoIterator<Item = impl AsRef<RepoPath>>,
+    tree: &MergedTree,
+    mut on_path: impl FnMut(&RepoPath, bool) -> Result<(), CommandError>,
+) -> Result<(), CommandError> {
+    let trees = tree.trees().await?;
+    let mut stack = vec![trees];
+
+    // Any directory containing other non tracked files, cannot be collapsed.
+    let non_collapsable_dirs: Vec<RepoPathBuf> = other_non_tracked_paths
+        .into_iter()
+        .filter_map(|p| p.as_ref().parent().map(|p| p.to_owned()))
+        .unique()
+        .collect();
+
+    // TODO: This loop can be improved with BTreeMap cursors once that's stable,
+    // would remove the need for the whole `skip_prefixed_by` thing and turn it
+    // into a B-tree lookup.
+    let mut skip_prefixed_by_dir: Option<RepoPathBuf> = None;
+    'untracked: for (path, is_dir) in untracked_paths {
+        let path = path.as_ref();
+        if skip_prefixed_by_dir
+            .as_ref()
+            .is_some_and(|p| path.starts_with(p))
+        {
+            continue;
+        } else {
+            skip_prefixed_by_dir = None;
+        }
+
+        let mut it = path.components().dropping_back(1);
+        let first_mismatch = it.by_ref().enumerate().find(|(i, component)| {
+            stack.get(i + 1).is_none_or(|tree| {
+                tree.dir()
+                    .components()
+                    .next_back()
+                    .expect("should always have at least one element (the root)")
+                    != *component
+            })
+        });
+
+        if let Some((i, component)) = first_mismatch {
+            stack.truncate(i + 1);
+            for component in std::iter::once(component).chain(it) {
+                let parent = stack
+                    .last()
+                    .expect("should always have at least one element (the root)");
+
+                if let Some(subtree) = parent.sub_tree(component).await? {
+                    stack.push(subtree);
+                } else {
+                    let mut candidate = parent.dir().join(component);
+                    let mut is_dir = true;
+
+                    if non_collapsable_dirs.iter().any(|p| p == &candidate) {
+                        candidate = candidate.join(path.components().nth(i + 1).expect(
+                            "should always a next component (worst case being the file name)",
+                        ));
+                        is_dir = candidate.components().count() != path.components().count();
+                    }
+
+                    on_path(&candidate, is_dir)?;
+                    if is_dir {
+                        skip_prefixed_by_dir = Some(candidate);
+                    }
+
+                    continue 'untracked;
+                }
+            }
+        }
+
+        on_path(path, is_dir)?;
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
+    use std::fmt::Write as _;
+
     use clap::CommandFactory as _;
+    use pollster::FutureExt as _;
+    use testutils::TestRepo;
+    use testutils::TestTreeBuilder;
+    use testutils::repo_path;
 
     use super::*;
 
@@ -4731,6 +5068,234 @@ mod tests {
         assert_eq!(
             parse(&["jj", "--foo=1", "--baz", "--bar=2", "--foo", "3"]),
             vec![("foo", 1), ("bar", 2), ("foo", 3)]
+        );
+    }
+
+    fn collect_collapsed_untracked_files_string(
+        untracked_paths: &Vec<(&RepoPath, bool)>,
+        other_non_tracked_paths: &Vec<&RepoPath>,
+        tree: &MergedTree,
+    ) -> String {
+        let mut result = String::new();
+        visit_collapsed_untracked_files(
+            untracked_paths.iter().copied(),
+            other_non_tracked_paths,
+            tree,
+            |path, is_dir| {
+                result.push_str("? ");
+                if is_dir {
+                    result.push_str(&path.to_internal_dir_string());
+                } else {
+                    result.push_str(path.as_internal_file_string());
+                }
+                result.push('\n');
+                Ok(())
+            },
+        )
+        .block_on()
+        .unwrap();
+        result
+    }
+
+    fn collect_collapsed_tracked_files_string(
+        paths: &[&RepoPath],
+        untracked_paths: &Vec<&RepoPath>,
+        ignored_paths: &[(&RepoPath, bool)],
+        tree: &MergedTree,
+        prefix: &str,
+    ) -> String {
+        let mut result = String::new();
+        visit_collapsed_tracked_files(
+            paths,
+            untracked_paths,
+            ignored_paths,
+            tree,
+            |path, is_dir| {
+                result.push_str(prefix);
+                if let Some(dir_files) = is_dir {
+                    write!(
+                        result,
+                        "{} ({} files)",
+                        path.to_internal_dir_string(),
+                        dir_files
+                    )
+                    .unwrap();
+                } else {
+                    result.push_str(path.as_internal_file_string());
+                }
+                result.push('\n');
+                Ok(())
+            },
+        )
+        .block_on()
+        .unwrap();
+        result
+    }
+
+    enum FileState {
+        Tracked,
+        Untracked,
+        Ignored,
+    }
+
+    #[test]
+    fn test_collapsed_files() {
+        let repo = TestRepo::init();
+
+        let files = &[
+            // Top level files
+            // - tracked
+            (repo_path("top_level_file"), FileState::Tracked),
+            // - untracked
+            (repo_path("untracked_top_level_file"), FileState::Untracked),
+            // - Ignored
+            (repo_path("ignored_top_level_file"), FileState::Ignored),
+            // Top-level directories:
+            // - tracked with a single file
+            (repo_path("tracked/a"), FileState::Tracked),
+            // - tracked with multiple files
+            (repo_path("fully_tracked/b"), FileState::Tracked),
+            (repo_path("fully_tracked/c"), FileState::Tracked),
+            // - partially tracked
+            (repo_path("partially_tracked/d"), FileState::Tracked),
+            (repo_path("partially_tracked/e"), FileState::Untracked),
+            (repo_path("partially_tracked/f"), FileState::Ignored),
+            // - untracked with a single file
+            (repo_path("untracked/g"), FileState::Untracked),
+            // - untracked with multiple files
+            (repo_path("fully_untracked/h"), FileState::Untracked),
+            (repo_path("fully_untracked/i"), FileState::Untracked),
+            // - Ignored with a single file
+            (repo_path("ignored/j"), FileState::Ignored),
+            // - Ignored with multiple files
+            (repo_path("fully_ignored/k"), FileState::Ignored),
+            (repo_path("fully_ignored/l"), FileState::Ignored),
+            // - Mix untracked / ignored
+            (repo_path("untracked_ignored/m"), FileState::Untracked),
+            (repo_path("untracked_ignored/n"), FileState::Ignored),
+            // - Mix tracked / ignored
+            (repo_path("tracked_ignored/o"), FileState::Tracked),
+            (repo_path("tracked_ignored/p"), FileState::Ignored),
+            // - Mix tracked / untracked
+            (repo_path("tracked_untracked/q"), FileState::Tracked),
+            (repo_path("tracked_untracked/r"), FileState::Untracked),
+            // Sub-directories:
+            // - tracked with a single file
+            (repo_path("dir/tracked/s"), FileState::Tracked),
+            // - tracked with multiple files
+            (repo_path("dir/fully_tracked/t"), FileState::Tracked),
+            (repo_path("dir/fully_tracked/u"), FileState::Tracked),
+            // - partially tracked
+            (repo_path("dir/partially_tracked/v"), FileState::Tracked),
+            (repo_path("dir/partially_tracked/w"), FileState::Untracked),
+            (repo_path("dir/partially_tracked/x"), FileState::Ignored),
+            // - untracked with a single file
+            (repo_path("dir/untracked/y"), FileState::Untracked),
+            // - untracked with multiple files
+            (repo_path("dir/fully_untracked/z"), FileState::Untracked),
+            (repo_path("dir/fully_untracked/aa"), FileState::Untracked),
+            // - ignored with a single file
+            (repo_path("dir/ignored/ab"), FileState::Ignored),
+            // - untracked with multiple files
+            (repo_path("dir/fully_ignored/ac"), FileState::Ignored),
+            (repo_path("dir/fully_ignored/ad"), FileState::Ignored),
+            // - Mix untracked / ignored
+            (repo_path("dir/untracked_ignored/ae"), FileState::Untracked),
+            (repo_path("dir/untracked_ignored/af"), FileState::Ignored),
+            // - Mix tracked / ignored
+            (repo_path("dir/tracked_ignored/ag"), FileState::Tracked),
+            (repo_path("dir/tracked_ignored/ah"), FileState::Ignored),
+            // - Mix tracked / untracked
+            (repo_path("dir/tracked_untracked/ai"), FileState::Tracked),
+            (repo_path("dir/tracked_untracked/aj"), FileState::Untracked),
+        ];
+        let ignored_dir = [repo_path("fully_ignored"), repo_path("dir/fully_ignored")];
+
+        let tree = {
+            let mut builder = TestTreeBuilder::new(repo.repo.store().clone());
+
+            builder.file(
+                repo_path(".gitignore"),
+                files
+                    .iter()
+                    .filter_map(|(repo_path, file_state)| {
+                        matches!(file_state, FileState::Ignored).then_some(repo_path)
+                    })
+                    .fold(String::new(), |mut acc, repo_path| {
+                        writeln!(acc, "{repo_path:?}").unwrap();
+                        acc
+                    }),
+            );
+
+            for (repo_path, file_state) in files {
+                if matches!(file_state, FileState::Tracked) {
+                    builder.file(repo_path, "");
+                }
+            }
+
+            builder.write_merged_tree()
+        };
+
+        let tracked_files = files
+            .iter()
+            .filter_map(|(repo_path, file_state)| {
+                matches!(file_state, FileState::Tracked).then_some(*repo_path)
+            })
+            .collect_vec();
+
+        let untracked_files = files
+            .iter()
+            .filter_map(|(repo_path, file_state)| {
+                matches!(file_state, FileState::Untracked).then_some((*repo_path, false))
+            })
+            .collect_vec();
+        let mut ignored_paths = files
+            .iter()
+            .filter_map(|(repo_path, file_state)| {
+                (matches!(file_state, FileState::Ignored)
+                    && !ignored_dir.iter().any(|d| repo_path.starts_with(d)))
+                .then_some((*repo_path, false))
+            })
+            .collect_vec();
+        ignored_paths.extend(ignored_dir.iter().map(|p| (*p, true)));
+
+        insta::assert_snapshot!(
+           collect_collapsed_untracked_files_string(
+               &untracked_files,
+               &ignored_paths.iter().map(|(p, _)| *p).collect(),
+               &tree),
+            @r"
+        ? untracked_top_level_file
+        ? partially_tracked/e
+        ? untracked/
+        ? fully_untracked/
+        ? untracked_ignored/m
+        ? tracked_untracked/r
+        ? dir/partially_tracked/w
+        ? dir/untracked/
+        ? dir/fully_untracked/
+        ? dir/untracked_ignored/ae
+        ? dir/tracked_untracked/aj
+        "
+        );
+
+        insta::assert_snapshot!(
+        collect_collapsed_tracked_files_string(&tracked_files,
+            &untracked_files.into_iter().map(|(p, _)| p).collect(),
+            &ignored_paths, &tree, "A "),
+        @r"
+        A top_level_file
+        A dir/fully_tracked/ (2 files)
+        A dir/partially_tracked/v
+        A dir/tracked/s
+        A dir/tracked_ignored/ag
+        A dir/tracked_untracked/ai
+        A fully_tracked/ (2 files)
+        A partially_tracked/d
+        A tracked/a
+        A tracked_ignored/o
+        A tracked_untracked/q
+        "
         );
     }
 }

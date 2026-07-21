@@ -1722,8 +1722,10 @@ fn test_op_diff_patch() {
     // Update working copy with a single file and create new commit.
     work_dir.write_file("file", "a\n");
     let output = work_dir.run_jj(["new"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A file
     Working copy  (@) now at: rlvkpnrz c1c924b8 (empty) (no description set)
     Parent commit (@-)      : qpvuntsm 6b57e33c (no description set)
     [EOF]
@@ -2838,8 +2840,10 @@ fn test_op_show_patch() {
     // Update working copy with a single file and create new commit.
     work_dir.write_file("file", "a\n");
     let output = work_dir.run_jj(["new"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A file
     Working copy  (@) now at: rlvkpnrz c1c924b8 (empty) (no description set)
     Parent commit (@-)      : qpvuntsm 6b57e33c (no description set)
     [EOF]

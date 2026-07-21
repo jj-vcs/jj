@@ -336,8 +336,10 @@ fn test_workspaces_add_at_operation() {
 
     main_dir.write_file("file1", "");
     let output = main_dir.run_jj(["commit", "-m1"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A file1
     Working copy  (@) now at: rlvkpnrz 59e07459 (empty) (no description set)
     Parent commit (@-)      : qpvuntsm 9e4b0b91 1
     [EOF]
@@ -345,8 +347,10 @@ fn test_workspaces_add_at_operation() {
 
     main_dir.write_file("file2", "");
     let output = main_dir.run_jj(["commit", "-m2"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A file2
     Working copy  (@) now at: kkmpptxz 6e9610ac (empty) (no description set)
     Parent commit (@-)      : rlvkpnrz 8b7259b9 2
     [EOF]
@@ -369,7 +373,7 @@ fn test_workspaces_add_at_operation() {
     // New snapshot can be taken in the secondary workspace.
     secondary_dir.write_file("file4", "");
     let output = secondary_dir.run_jj(["status"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     Working copy changes:
     A file4
     Working copy  (@) : rzvqmyuk f2ff8257 (no description set)
@@ -1122,7 +1126,7 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         secondary_dir.run_jj(["help"]).success();
 
         let output = secondary_dir.run_jj(["st"]);
-        insta::assert_snapshot!(output, @"
+        insta::assert_snapshot!(output, @r"
         Working copy changes:
         C {modified => added}
         D deleted
@@ -1147,10 +1151,12 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         ");
 
         let output = secondary_dir.run_jj(["workspace", "update-stale"]);
-        insta::assert_snapshot!(output, @"
+        insta::assert_snapshot!(output, @r"
         ------- stderr -------
         Failed to read working copy's current operation; attempting recovery. Error message from read attempt: Object 0d3faebd8cf4f0e39ea3eab47f22c9cdbcdaa54d95e79a86a0dab4ebe3b0377f69e1d64fa4661913c8c6af01dc0ebb5ad7c8b2bfa3d229827b2ba756d729e0bf of type operation not found
         Created and checked out recovery commit 866928d1e0fd
+        Auto-tracking 1 new file:
+        A added
         [EOF]
         ");
     }

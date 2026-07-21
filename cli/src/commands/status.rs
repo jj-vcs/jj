@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::collections::BTreeMap;
-
 use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::commit::Commit;
@@ -23,17 +21,17 @@ use jj_lib::merge::Diff;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::Repo;
 use jj_lib::repo_path::RepoPath;
-use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
+use jj_lib::working_copy::SnapshotResult;
 use jj_lib::working_copy::SnapshotStats;
-use jj_lib::working_copy::UntrackedReason;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::print_conflicted_paths;
-use crate::cli_util::print_snapshot_stats;
+use crate::cli_util::print_maybe_snapshot_result_without_newly_tracked;
 use crate::cli_util::print_unmatched_explicit_paths;
+use crate::cli_util::visit_collapsed_untracked_files;
 use crate::command_error::CommandError;
 use crate::diff_util::DiffFormat;
 use crate::diff_util::get_copy_records;
@@ -61,6 +59,9 @@ pub(crate) struct StatusArgs {
     /// Restrict the status display to these paths
     #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
     paths: Vec<String>,
+    /// Show ignored files as well.
+    #[arg(short, long, action = clap::ArgAction::SetTrue)]
+    ignored: bool,
 }
 
 #[instrument(skip_all)]
@@ -69,10 +70,11 @@ pub(crate) async fn cmd_status(
     command: &CommandHelper,
     args: &StatusArgs,
 ) -> Result<(), CommandError> {
-    let (workspace_command, snapshot_stats) = command.workspace_helper_with_stats(ui).await?;
-    print_snapshot_stats(
+    let (workspace_command, maybe_snapshot_result) =
+        command.workspace_helper_with_result(ui).await?;
+    print_maybe_snapshot_result_without_newly_tracked(
         ui,
-        &snapshot_stats,
+        &maybe_snapshot_result,
         workspace_command.env().path_converter(),
     )?;
     let repo = workspace_command.repo();
@@ -87,7 +89,8 @@ pub(crate) async fn cmd_status(
     let formatter = formatter.as_mut();
 
     if let Some(wc_commit) = &maybe_wc_commit {
-        let status = collect_working_copy_status(repo.as_ref(), wc_commit, snapshot_stats).await?;
+        let status =
+            collect_working_copy_status(repo.as_ref(), wc_commit, maybe_snapshot_result).await?;
         print_unmatched_explicit_paths(
             ui,
             &workspace_command,
@@ -129,8 +132,9 @@ pub(crate) async fn cmd_status(
             if matching_untracked_paths.peek().is_some() {
                 writeln!(formatter, "Untracked paths:")?;
                 visit_collapsed_untracked_files(
-                    matching_untracked_paths,
-                    status.tree.clone(),
+                    matching_untracked_paths.map(|p| (p, false)),
+                    status.ignored_paths().map(|(p, _)| p),
+                    &status.tree,
                     |path, is_dir| {
                         let ui_path = workspace_command.path_converter().format_file_path(path);
                         writeln!(
@@ -147,6 +151,29 @@ pub(crate) async fn cmd_status(
                 )
                 .await?;
             }
+        }
+
+        if args.ignored && status.has_any_ignored_paths() {
+            writeln!(formatter, "Ignored paths:")?;
+            visit_collapsed_untracked_files(
+                status.ignored_paths(),
+                status.ignored_paths().map(|(p, _)| p),
+                &status.tree,
+                |path, is_dir| {
+                    let ui_path = workspace_command.path_converter().format_file_path(path);
+                    writeln!(
+                        formatter.labeled("diff").labeled("ignored"),
+                        "! {ui_path}{}",
+                        if is_dir {
+                            std::path::MAIN_SEPARATOR_STR
+                        } else {
+                            ""
+                        }
+                    )?;
+                    Ok(())
+                },
+            )
+            .await?;
         }
 
         let template = workspace_command.commit_summary_template();
@@ -254,7 +281,7 @@ struct WorkingCopyStatus {
     parents: Vec<Commit>,
     parent_tree: MergedTree,
     tree: MergedTree,
-    untracked_paths: BTreeMap<RepoPathBuf, UntrackedReason>,
+    snapshot_stats: SnapshotStats,
 }
 
 impl WorkingCopyStatus {
@@ -263,167 +290,44 @@ impl WorkingCopyStatus {
     }
 
     fn has_any_untracked_paths(&self) -> bool {
-        !self.untracked_paths.is_empty()
+        !self.snapshot_stats.untracked_paths.is_empty()
     }
 
     fn untracked_paths_matching(&self, matcher: &dyn Matcher) -> impl Iterator<Item = &RepoPath> {
-        self.untracked_paths
+        self.snapshot_stats
+            .untracked_paths
             .keys()
             .filter(|path| matcher.matches(path))
             .map(|path| path.as_ref())
+    }
+
+    fn has_any_ignored_paths(&self) -> bool {
+        !self.snapshot_stats.ignored_paths.is_empty()
+    }
+
+    fn ignored_paths(&self) -> impl Iterator<Item = (&RepoPath, bool)> {
+        self.snapshot_stats
+            .ignored_paths
+            .iter()
+            .map(|(p, b)| (p.as_ref(), *b))
     }
 }
 
 async fn collect_working_copy_status(
     repo: &dyn Repo,
     commit: &Commit,
-    snapshot_stats: SnapshotStats,
+    maybe_snapshot_result: Option<SnapshotResult>,
 ) -> Result<WorkingCopyStatus, CommandError> {
     let commit = commit.clone();
     let parents = commit.parents().await?;
     let parent_tree = commit.parent_tree(repo).await?;
     let tree = commit.tree();
-    let untracked_paths = snapshot_stats.untracked_paths;
 
     Ok(WorkingCopyStatus {
         commit,
         parents,
         parent_tree,
         tree,
-        untracked_paths,
+        snapshot_stats: maybe_snapshot_result.map_or(SnapshotStats::default(), |r| r.stats),
     })
-}
-
-async fn visit_collapsed_untracked_files(
-    untracked_paths: impl IntoIterator<Item = impl AsRef<RepoPath>>,
-    tree: MergedTree,
-    mut on_path: impl FnMut(&RepoPath, bool) -> Result<(), CommandError>,
-) -> Result<(), CommandError> {
-    let trees = tree.trees().await?;
-    let mut stack = vec![trees];
-
-    // TODO: This loop can be improved with BTreeMap cursors once that's stable,
-    // would remove the need for the whole `skip_prefixed_by` thing and turn it
-    // into a B-tree lookup.
-    let mut skip_prefixed_by_dir: Option<RepoPathBuf> = None;
-    'untracked: for path in untracked_paths {
-        let path = path.as_ref();
-        if skip_prefixed_by_dir
-            .as_ref()
-            .is_some_and(|p| path.starts_with(p))
-        {
-            continue;
-        } else {
-            skip_prefixed_by_dir = None;
-        }
-
-        let mut it = path.components().dropping_back(1);
-        let first_mismatch = it.by_ref().enumerate().find(|(i, component)| {
-            stack.get(i + 1).is_none_or(|tree| {
-                tree.dir()
-                    .components()
-                    .next_back()
-                    .expect("should always have at least one element (the root)")
-                    != *component
-            })
-        });
-
-        if let Some((i, component)) = first_mismatch {
-            stack.truncate(i + 1);
-            for component in std::iter::once(component).chain(it) {
-                let parent = stack
-                    .last()
-                    .expect("should always have at least one element (the root)");
-
-                if let Some(subtree) = parent.sub_tree(component).await? {
-                    stack.push(subtree);
-                } else {
-                    let dir = parent.dir().join(component);
-
-                    on_path(&dir, true)?;
-                    skip_prefixed_by_dir = Some(dir);
-
-                    continue 'untracked;
-                }
-            }
-        }
-
-        on_path(path, false)?;
-    }
-
-    Ok(())
-}
-
-#[cfg(test)]
-mod test {
-    use pollster::FutureExt as _;
-    use testutils::TestRepo;
-    use testutils::TestTreeBuilder;
-    use testutils::repo_path;
-
-    use super::*;
-
-    fn collect_collapsed_untracked_files_string(
-        untracked_paths: &[&RepoPath],
-        tree: MergedTree,
-    ) -> String {
-        let mut result = String::new();
-        visit_collapsed_untracked_files(untracked_paths, tree, |path, is_dir| {
-            result.push_str("? ");
-            if is_dir {
-                result.push_str(&path.to_internal_dir_string());
-            } else {
-                result.push_str(path.as_internal_file_string());
-            }
-            result.push('\n');
-            Ok(())
-        })
-        .block_on()
-        .unwrap();
-        result
-    }
-
-    #[test]
-    fn test_collapsed_untracked_files() {
-        let repo = TestRepo::init();
-
-        let tracked = {
-            let mut builder = TestTreeBuilder::new(repo.repo.store().clone());
-
-            builder.file(repo_path("top_level_file"), "");
-            // ? "untracked_top_level_file"
-            // ? "dir"
-            // ? "dir2/c"
-            builder.file(repo_path("dir2/d"), "");
-            // ? "dir3/partially_tracked/e"
-            builder.file(repo_path("dir3/partially_tracked/f"), "");
-            // ? "dir3/fully_untracked/"
-            builder.file(repo_path("dir3/j"), "");
-            // ? "dir3/k"
-
-            builder.write_merged_tree()
-        };
-        let untracked = &[
-            repo_path("untracked_top_level_file"),
-            repo_path("dir/a"),
-            repo_path("dir/b"),
-            repo_path("dir2/c"),
-            repo_path("dir3/partially_tracked/e"),
-            repo_path("dir3/fully_untracked/g"),
-            repo_path("dir3/fully_untracked/h"),
-            repo_path("dir3/k"),
-        ];
-
-        insta::assert_snapshot!(
-            collect_collapsed_untracked_files_string(untracked, tracked),
-            @"
-        ? untracked_top_level_file
-        ? dir/
-        ? dir2/c
-        ? dir3/partially_tracked/e
-        ? dir3/fully_untracked/
-        ? dir3/k
-        "
-        );
-    }
 }
