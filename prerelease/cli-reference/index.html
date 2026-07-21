@@ -7987,8 +7987,9 @@ configuration.</p>
 <p>The set of private commits can be configured by the <code>git.private-commits</code> setting. The default is <code>none()</code>, meaning all commits are eligible to be pushed.</p>
 </li>
 <li>
-<p><code>-r</code>, <code>--revision &lt;REVSETS&gt;</code> — Push bookmarks and tags pointing to these commits (can be repeated)</p>
+<p><code>--allow-conflicts</code> — Allow pushing commits that contain conflicts</p>
 </li>
+<li><code>-r</code>, <code>--revision &lt;REVSETS&gt;</code> — Push bookmarks and tags pointing to these commits (can be repeated)</li>
 <li>
 <p><code>-c</code>, <code>--change &lt;REVSETS&gt;</code> — Push this commit by creating a bookmark (can be repeated)</p>
 <p>The created bookmark will be tracked automatically. Use the <code>templates.git_push_bookmark</code> setting to customize the generated bookmark name. The default is <code>"push-" ++ change_id.short()</code>.</p>
