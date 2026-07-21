@@ -175,6 +175,7 @@ nav: # This lists all the files that become part of the documentation
   - Design docs:
       - git-submodules: 'design/git-submodules.md'
       - git-submodule-storage: 'design/git-submodule-storage.md'
+      - Interactive TUI: 'design/interactive-tui.md'
       - JJ run: 'design/run.md'
       - Sparse patterns v2: 'design/sparse-v2.md'
       - Tracking branches: 'design/tracking-branches.md'
