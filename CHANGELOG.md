@@ -76,6 +76,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   workspace becomes immutable, as well as during snapshotting. This brings the
   behavior closer to `jj` 0.42 and earlier.
 
+* Fixed failure when reading configuration in copied repo with an empty
+  repo-level configuration directory.
+
 ## [0.43.0] - 2026-07-01
 
 ### Release highlights
