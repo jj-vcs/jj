@@ -256,11 +256,15 @@ impl SecureConfig {
             // config with what it copied from.
             let old_config_path = config_dir.join(CONFIG_FILE);
             metadata.path = encoded.map(|b| b.to_vec());
-            let old_config_content = fs::read(&old_config_path).context(&old_config_path)?;
+            let old_config_content = match fs::read(&old_config_path).context(&old_config_path) {
+                Ok(content) => Some(content),
+                Err(err) if err.source.kind() == NotFound => None,
+                Err(err) => return Err(err.into()),
+            };
             let config_path = self.generate_config(
                 root_config_dir,
                 &generate_config_id(rng),
-                Some(&old_config_content),
+                old_config_content.as_deref(),
                 &metadata,
             )?;
             return Ok(LoadedSecureConfig {
@@ -423,6 +427,7 @@ mod tests {
 
     use rand::SeedableRng as _;
     use tempfile::TempDir;
+    use test_case::test_case;
 
     use super::*;
     use crate::tests::TestResult;
@@ -536,12 +541,16 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_repo_copied() -> TestResult {
+    #[test_case(None; "with empty metadata directory")]
+    #[test_case(Some(""); "with empty config file")]
+    #[test_case(Some("content"); "with non-empty config file")]
+    fn test_repo_copied(config_contents: Option<&str>) -> TestResult {
         let mut env = TestEnv::new();
         let loaded = env.config.load_config(&mut env.rng, &env.config_dir)?;
         let path = loaded.config_file.unwrap();
-        fs::write(&path, "config")?;
+        if let Some(contents) = config_contents {
+            fs::write(&path, contents)?;
+        }
 
         let dest = env.repo_dir.parent().unwrap().join("copied");
         fs::create_dir(&dest)?;
@@ -550,8 +559,12 @@ mod tests {
         let loaded2 = config.load_config(&mut env.rng, &env.config_dir)?;
         let path2 = loaded2.config_file.unwrap();
         assert_ne!(path, path2);
-        let path2_contents = fs::read_to_string(path2)?;
-        assert_eq!(path2_contents, "config");
+        if let Some(expected) = config_contents {
+            let path2_contents = fs::read_to_string(path2)?;
+            assert_eq!(path2_contents, expected);
+        } else {
+            assert!(!path2.exists());
+        }
         assert_ne!(loaded.metadata.path, loaded2.metadata.path);
         // We should get a warning about the repo having been copied.
         assert!(!loaded2.warnings.is_empty());
