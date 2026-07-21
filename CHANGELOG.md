@@ -44,6 +44,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * New `builtin_workspace_list` and `builtin_workspace_list_with_root` template
   aliases are available for `jj workspace list`.
 
+* New `try(expr, fallback...)` template function to suppress runtime errors.
+
 * `jj run` now processes revisions from oldest to newest by default. The start
   order is guaranteed: each revision begins execution only after the previous
   one has started, even with `--jobs` higher than 1.

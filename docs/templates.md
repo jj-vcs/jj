@@ -119,6 +119,9 @@ The following functions are defined.
 * `json(value: Serialize) -> String`: Serialize `value` in JSON format.
 * `if(condition: Boolean, then: Any, [else: Any]) -> Any`:
   Conditionally evaluates to `then` / `else` content.
+* `try(expr: Any, fallback: Any...) -> Any`: Evaluates each expression in order
+  and returns the first successful result. Suppresses preceding runtime errors,
+  but lets parsing errors (such as type errors) pass through.
 * `coalesce(content: Template...) -> Template`: Returns the first **non-empty**
   content.
 * `concat(content: Template...) -> Template`:
@@ -915,4 +918,10 @@ Print the description of the current commit, defaulting to `(no description set)
 
 ```sh
 jj log -G -r @ -T 'coalesce(description, "(no description set)\n")'
+```
+
+For each revision, print the name of its first bookmark or change ID:
+
+```sh
+jj log -T 'try(bookmarks.first().name(), change_id.shortest(8)) ++ "\n"'
 ```
