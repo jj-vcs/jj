@@ -2656,6 +2656,294 @@ fn test_workspace_add_colocate_config_gate() {
 }
 
 #[test]
+fn test_workspace_add_colocate_git_status_and_diff() {
+    // This test requires git command
+    if skip_if_git_unavailable() {
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    let work_dir = test_env.work_dir("repo");
+    let ws2 = test_env.work_dir("second");
+
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    work_dir.write_file("file", "line1\n");
+    work_dir.run_jj(["commit", "-m", "first commit"]).success();
+
+    work_dir.run_jj(["workspace", "add", "../second"]).success();
+
+    // Raw `git` in the secondary workspace (read-only; inherits hermetic config).
+    let git_out = |args: &[&str]| -> String {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(ws2.root())
+            .args(args)
+            .output()
+            .expect("git command failed to run");
+        assert!(
+            out.status.success(),
+            "git {args:?} failed: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8(out.stdout).unwrap()
+    };
+
+    // AC1: an unmodified secondary colocated workspace has a CLEAN `git status`
+    // (the `.jj` control dir is ignored, and the per-worktree index equals the
+    // wc-parent tree).
+    let status = git_out(&["status", "--porcelain"]);
+    assert_eq!(
+        status, "",
+        "git status in the secondary workspace should be clean after add, got:\n{status}"
+    );
+
+    // AC1b: edit one tracked file, snapshot via a jj command (exercises the
+    // mutable-@ hot path -> update_intent_to_add against the per-worktree index),
+    // and confirm `git` sees EXACTLY that change (not the wrong index / not all
+    // files).
+    ws2.write_file("file", "line1\nline2\n");
+    ws2.run_jj(["status"]).success();
+
+    let status = git_out(&["status", "--porcelain"]);
+    assert_eq!(
+        status.lines().count(),
+        1,
+        "exactly one path should be modified in the secondary worktree's index, got:\n{status}"
+    );
+    assert!(
+        status.contains("file") && !status.contains(".jj"),
+        "git status should show only `file` modified (no `.jj`), got:\n{status}"
+    );
+
+    // And `git diff` reflects the same change `jj diff` shows.
+    let git_diff = git_out(&["diff"]);
+    assert!(
+        git_diff.contains("+line2"),
+        "git diff in the secondary workspace should include the added line, got:\n{git_diff}"
+    );
+}
+
+#[test]
+fn test_workspace_add_colocate_worktree_list_and_common_dir() {
+    // This test requires git command
+    if skip_if_git_unavailable() {
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    let work_dir = test_env.work_dir("repo");
+    let ws2 = test_env.work_dir("second");
+
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    work_dir.write_file("file", "contents");
+    work_dir.run_jj(["commit", "-m", "first commit"]).success();
+    work_dir.run_jj(["workspace", "add", "../second"]).success();
+
+    let git_stdout = |dir: &std::path::Path, args: &[&str]| -> String {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(dir)
+            .args(args)
+            .output()
+            .expect("git command failed to run");
+        assert!(
+            out.status.success(),
+            "git {args:?} failed: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8(out.stdout).unwrap()
+    };
+
+    // AC2 + AC11: the secondary is a valid, non-prunable linked worktree. On macOS
+    // the test tmpdir is a `/var -> /private/var` symlink; if realpath handling
+    // were wrong Git would report the worktree as `prunable`, so this also
+    // guards AC11.
+    let list = git_stdout(work_dir.root(), &["worktree", "list", "--porcelain"]);
+    assert!(
+        !list.contains("prunable"),
+        "no registered worktree should be prunable, got:\n{list}"
+    );
+    assert!(
+        list.contains("second"),
+        "the secondary worktree should be listed, got:\n{list}"
+    );
+
+    // AC2: the secondary's git-common-dir resolves to the primary's `.git`.
+    let common = git_stdout(ws2.root(), &["rev-parse", "--git-common-dir"]);
+    let common = std::path::Path::new(common.trim());
+    let expected = work_dir.root().join(".git");
+    assert_eq!(
+        std::fs::canonicalize(common).ok(),
+        std::fs::canonicalize(&expected).ok(),
+        "the secondary workspace's git-common-dir should be the primary's .git"
+    );
+}
+
+#[test]
+fn test_workspace_add_colocate_merge_working_copy() {
+    // This test requires git command
+    if skip_if_git_unavailable() {
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    let work_dir = test_env.work_dir("repo");
+    let ws2 = test_env.work_dir("second");
+
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    // Two sibling commits on top of the root commit.
+    work_dir.write_file("a", "a\n");
+    work_dir.run_jj(["commit", "-m", "commit a"]).success();
+    let commit_a = work_dir
+        .run_jj(["log", "--no-graph", "-T", "commit_id", "-r", "@-"])
+        .success()
+        .stdout
+        .into_raw();
+    work_dir.run_jj(["new", "root()"]).success();
+    work_dir.write_file("b", "b\n");
+    work_dir.run_jj(["commit", "-m", "commit b"]).success();
+    let commit_b = work_dir
+        .run_jj(["log", "--no-graph", "-T", "commit_id", "-r", "@-"])
+        .success()
+        .stdout
+        .into_raw();
+
+    // Secondary workspace whose working-copy commit is a MERGE of a and b.
+    work_dir
+        .run_jj([
+            "workspace",
+            "add",
+            "../second",
+            "-r",
+            &commit_a,
+            "-r",
+            &commit_b,
+        ])
+        .success();
+
+    // AC5b: for a merge working-copy commit, the worktree's Git HEAD is the FIRST
+    // parent (a). `git status` must not crash in this state.
+    let head = std::process::Command::new("git")
+        .arg("-C")
+        .arg(ws2.root())
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .expect("git rev-parse failed to run");
+    assert!(head.status.success());
+    assert_eq!(
+        String::from_utf8(head.stdout).unwrap().trim(),
+        commit_a.trim(),
+        "a merge working-copy commit's Git HEAD should be its first parent"
+    );
+    ws2.run_jj(["status"]).success();
+}
+
+#[test]
+fn test_workspace_add_colocate_conflicted_working_copy() {
+    // This test requires git command
+    if skip_if_git_unavailable() {
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    let work_dir = test_env.work_dir("repo");
+    let ws2 = test_env.work_dir("second");
+
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let commit_id = |dir: &TestWorkDir| {
+        dir.run_jj(["log", "--no-graph", "-T", "commit_id", "-r", "@-"])
+            .success()
+            .stdout
+            .into_raw()
+    };
+
+    // base, then two siblings that both change `file` differently.
+    work_dir.write_file("file", "base\n");
+    work_dir.run_jj(["commit", "-m", "base"]).success();
+    let base = commit_id(&work_dir);
+    work_dir.write_file("file", "left\n");
+    work_dir.run_jj(["commit", "-m", "left"]).success();
+    let left = commit_id(&work_dir);
+    work_dir.run_jj(["new", &base]).success();
+    work_dir.write_file("file", "right\n");
+    work_dir.run_jj(["commit", "-m", "right"]).success();
+    let right = commit_id(&work_dir);
+
+    // Secondary workspace whose working-copy commit is the (conflicted) merge.
+    work_dir
+        .run_jj(["workspace", "add", "../second", "-r", &left, "-r", &right])
+        .success();
+
+    // AC4: jj sees the conflict, and `git status` must not crash on the conflicted
+    // index in the secondary worktree.
+    let jj_status = ws2.run_jj(["status"]).success();
+    assert!(
+        jj_status
+            .stdout
+            .normalized()
+            .to_lowercase()
+            .contains("conflict")
+            || jj_status
+                .stderr
+                .normalized()
+                .to_lowercase()
+                .contains("conflict"),
+        "jj status should report the conflict in the secondary workspace:\n{}",
+        jj_status.stdout.normalized()
+    );
+    let git_status = std::process::Command::new("git")
+        .arg("-C")
+        .arg(ws2.root())
+        .args(["status", "--porcelain"])
+        .output()
+        .expect("git status failed to run");
+    assert!(
+        git_status.status.success(),
+        "git status must not crash on a conflicted secondary worktree: {}",
+        String::from_utf8_lossy(&git_status.stderr)
+    );
+}
+
+#[test]
+fn test_workspace_add_colocate_undo() {
+    // This test requires git command
+    if skip_if_git_unavailable() {
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    let work_dir = test_env.work_dir("repo");
+
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    work_dir.write_file("file", "contents");
+    work_dir.run_jj(["commit", "-m", "first commit"]).success();
+    work_dir.run_jj(["workspace", "add", "../second"]).success();
+
+    // AC14: `jj undo` reverses the op-store side of `workspace add`. The Git
+    // worktree admin files were written OUTSIDE the transaction, so they are
+    // not reversed (they persist, now orphaned); the important guarantee is
+    // that jj does not crash.
+    let output = work_dir.run_jj(["undo"]);
+    assert!(
+        output.status.success(),
+        "jj undo after `workspace add` should succeed: {}",
+        output.stderr.normalized()
+    );
+    // The primary workspace remains fully functional afterwards.
+    work_dir.run_jj(["status"]).success();
+}
+
+#[test]
 fn test_workspace_add_colocate_git_failure() {
     // This test requires git command
     if skip_if_git_unavailable() {
