@@ -230,6 +230,9 @@ Thanks to the people who made this release happen!
   launched once per changed file, making it possible to use per-file tools like
   `vimdiff` for editing.
 
+* `jj util snapshot` now reports the resulting working-copy state together with
+  the current operation summary.
+
 ### Fixed bugs
 
 * `jj git remote add` now reports an error instead of panicking when the

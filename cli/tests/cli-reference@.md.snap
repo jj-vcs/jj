@@ -3663,9 +3663,9 @@ Print the CLI help for all subcommands in Markdown
 
 Snapshot the working copy if needed
 
-Snapshots the working copy and updates the working-copy commit if the working copy has changed since the last snapshot. Since almost every command snapshots the working copy, there is very little reason to run this command as a human; it is mostly meant for scripts.
+Snapshots the working copy and updates the working-copy commit if the working copy has changed since the last snapshot. Since almost every command snapshots the working copy, there is very little reason to run this command as a human; it is mostly meant for scripts. It prints the resulting working-copy state together with the current operation summary.
 
-If you want to see the ID of the current operation after this command, run `jj operation log --limit 1`. However, since that command also snapshots the working copy, there would be no need to run `jj util snapshot` first.
+If you want to query the current operation ID directly, run `jj operation log --limit 1`. However, since that command also snapshots the working copy, there would often be no need to run `jj util snapshot` first.
 
 **Usage:** `jj util snapshot`
 
