@@ -1357,6 +1357,17 @@ impl MutableRepo {
             view.head_ids.remove(commit_id);
         }
         view.head_ids.extend(heads_to_add);
+        // Fetched Git refs intentionally name the remote-imported commit, not
+        // the user's later local rewrite of that change. If that commit is
+        // rewritten locally, removing the old head would otherwise leave refs
+        // like refs/pull/123/head@origin pointing at a hidden commit.
+        let fetched_ref_heads = view
+            .fetched_git_refs
+            .values()
+            .flat_map(|refs| refs.values())
+            .flat_map(|target| target.added_ids().cloned())
+            .collect_vec();
+        view.head_ids.extend(fetched_ref_heads);
         self.set_view(view);
         Ok(())
     }
@@ -1694,6 +1705,14 @@ impl MutableRepo {
                 view.local_bookmarks()
                     .flat_map(|(_, target)| target.added_ids()),
                 view.local_tags().flat_map(|(_, target)| target.added_ids()),
+                // A fetched Git ref names the remote-imported commit, not the
+                // user's later local rewrite of that change. Keep that original
+                // commit visible so refs like refs/pull/123/head@origin don't
+                // end up pointing at a hidden commit after `jj edit`.
+                view.fetched_git_refs()
+                    .values()
+                    .flat_map(|refs| refs.values())
+                    .flat_map(|target| target.added_ids()),
             )
             .any(|id| id == commit_id)
         };
@@ -1988,6 +2007,44 @@ impl MutableRepo {
         Ok(())
     }
 
+    pub fn get_fetched_git_ref(
+        &self,
+        remote_name: &RemoteName,
+        ref_name: &GitRefName,
+    ) -> RefTarget {
+        self.view
+            .with_ref(|v| v.get_fetched_git_ref(remote_name, ref_name).clone())
+    }
+
+    pub fn set_fetched_git_ref_target(
+        &mut self,
+        remote_name: &RemoteName,
+        ref_name: &GitRefName,
+        target: RefTarget,
+    ) {
+        let view = self.view_mut();
+        for id in target.added_ids() {
+            view.add_head(id);
+        }
+        view.set_fetched_git_ref_target(remote_name, ref_name, target);
+        self.view.mark_dirty();
+    }
+
+    fn merge_fetched_git_ref(
+        &mut self,
+        remote_name: &RemoteName,
+        ref_name: &GitRefName,
+        base_target: &RefTarget,
+        other_target: &RefTarget,
+    ) -> IndexResult<()> {
+        let view = self.view.get_mut();
+        let index = self.index.as_index();
+        let self_target = view.get_fetched_git_ref(remote_name, ref_name);
+        let new_target = merge_ref_targets(index, self_target, base_target, other_target)?;
+        self.set_fetched_git_ref_target(remote_name, ref_name, new_target);
+        Ok(())
+    }
+
     pub fn git_head(&self) -> RefTarget {
         self.view.with_ref(|v| v.git_head().clone())
     }
@@ -2067,6 +2124,43 @@ impl MutableRepo {
         let changed_git_refs = diff_named_ref_targets(base.git_refs(), other.git_refs());
         for (name, (base_target, other_target)) in changed_git_refs {
             self.merge_git_ref(name, base_target, other_target)?;
+        }
+
+        let mut fetched_ref_remotes = BTreeMap::new();
+        for remote_name in base
+            .fetched_git_refs()
+            .keys()
+            .chain(self.view().fetched_git_refs().keys())
+            .chain(other.fetched_git_refs().keys())
+        {
+            fetched_ref_remotes.insert(remote_name.clone(), ());
+        }
+        for remote_name in fetched_ref_remotes.keys() {
+            let empty_refs = BTreeMap::new();
+            let base_refs = base
+                .fetched_git_refs()
+                .get(remote_name)
+                .unwrap_or(&empty_refs);
+            let other_refs = other
+                .fetched_git_refs()
+                .get(remote_name)
+                .unwrap_or(&empty_refs);
+            let changed_fetched_refs = diff_named_ref_targets(
+                base_refs
+                    .iter()
+                    .map(|(name, target)| (name.as_ref(), target)),
+                other_refs
+                    .iter()
+                    .map(|(name, target)| (name.as_ref(), target)),
+            );
+            for (ref_name, (base_target, other_target)) in changed_fetched_refs {
+                self.merge_fetched_git_ref(
+                    remote_name.as_ref(),
+                    ref_name,
+                    base_target,
+                    other_target,
+                )?;
+            }
         }
 
         let changed_remote_bookmarks =
