@@ -570,11 +570,13 @@ pub trait Backend: Any + Send + Sync + Debug {
     /// too much load on its storage, e.g. by queueing requests if necessary.
     fn concurrency(&self) -> usize;
 
-    /// Returns a reader for reading the contents of a file from the backend.
+    /// Returns a reader for reading the contents of a file from the backend,
+    /// starting from `offset`.
     async fn read_file(
         &self,
         path: &RepoPath,
         id: &FileId,
+        offset: u64,
     ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>>;
 
     /// Writes the contents of the writer to the backend. Returns the ID of the

@@ -148,8 +148,9 @@ impl Backend for JitBackend {
         &self,
         path: &RepoPath,
         id: &FileId,
+        offset: u64,
     ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>> {
-        self.inner.read_file(path, id).await
+        self.inner.read_file(path, id, offset).await
     }
 
     async fn write_file(
