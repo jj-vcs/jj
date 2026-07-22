@@ -39,8 +39,9 @@ updates:
     nix-dependencies:
       patterns:
       - "*"
+# Docs website
 - package-ecosystem: "npm"
-  directory: "/"
+  directory: "/web/docs"
   schedule:
     interval: "weekly"
   cooldown:
