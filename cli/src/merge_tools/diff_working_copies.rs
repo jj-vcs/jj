@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use futures::StreamExt as _;
 use jj_lib::conflicts::ConflictMarkerStyle;
+use jj_lib::fileset::FilesetExpression;
 use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::local_working_copy::EolConversionMode;
@@ -46,6 +47,7 @@ pub(crate) struct DiffWorkingCopies {
     left: TreeState,
     right: TreeState,
     output: Option<TreeState>,
+    changed_files: Vec<RepoPathBuf>,
 }
 
 impl DiffWorkingCopies {
@@ -68,7 +70,7 @@ impl DiffWorkingCopies {
         if let Some(output) = &self.output {
             debug_assert_eq!(self.left.sparse_patterns(), output.sparse_patterns());
         }
-        self.left.sparse_patterns()
+        &self.changed_files
     }
 
     /// Returns command variables (`$left`, `$right`, and optionally `$output`)
@@ -181,7 +183,14 @@ pub(crate) async fn check_out_trees(
             fsmonitor_settings: FsmonitorSettings::None,
         };
         let mut state = TreeState::init(store.clone(), wc_path, state_dir, &tree_state_settings)?;
-        state.set_sparse_patterns(changed_files.clone())?;
+        let sparse_expression = FilesetExpression::union_all(
+            changed_files
+                .iter()
+                .cloned()
+                .map(FilesetExpression::file_path)
+                .collect(),
+        );
+        state.set_sparse_patterns(sparse_expression)?;
         state.check_out(tree)?;
         Ok(state)
     };
@@ -197,6 +206,7 @@ pub(crate) async fn check_out_trees(
         left,
         right,
         output,
+        changed_files,
     })
 }
 

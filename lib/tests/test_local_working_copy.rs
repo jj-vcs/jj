@@ -40,6 +40,7 @@ use jj_lib::file_util::check_symlink_support;
 use jj_lib::file_util::symlink_dir;
 use jj_lib::file_util::symlink_file;
 use jj_lib::files::FileMergeHunkLevel;
+use jj_lib::fileset::FilesetExpression;
 use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::git::get_git_backend;
 use jj_lib::gitignore::GitIgnoreFile;
@@ -129,7 +130,7 @@ fn test_root() -> TestResult {
     let mut test_workspace = TestWorkspace::init();
 
     let wc = test_workspace.workspace.working_copy();
-    assert_eq!(wc.sparse_patterns()?, vec![RepoPathBuf::root()]);
+    assert_eq!(*wc.sparse_patterns()?, FilesetExpression::all());
     let new_tree = test_workspace.snapshot()?;
     let repo = &test_workspace.repo;
     let wc_commit_id = repo

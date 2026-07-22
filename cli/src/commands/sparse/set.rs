@@ -12,10 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::collections::HashSet;
-
-use itertools::Itertools as _;
-use jj_lib::repo_path::RepoPathBuf;
+use jj_lib::fileset::FilesetExpression;
 use tracing::instrument;
 
 use super::update_sparse_patterns_with;
@@ -30,26 +27,30 @@ use crate::ui::Ui;
 /// If you no longer need the `lib` directory, use `jj sparse set --remove lib`.
 #[derive(clap::Args, Clone, Debug)]
 pub struct SparseSetArgs {
-    /// Patterns to add to the working copy
-    #[arg(
-        long,
-        value_hint = clap::ValueHint::AnyPath,
-        value_parser = |s: &str| RepoPathBuf::from_relative_path(s),
-    )]
-    add: Vec<RepoPathBuf>,
+    /// Fileset expressions to add to the working copy
+    #[arg(long, value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
+    add: Vec<String>,
 
-    /// Patterns to remove from the working copy
+    /// Fileset expressions to remove from the working copy
     #[arg(
         long,
         conflicts_with = "clear",
-        value_hint = clap::ValueHint::AnyPath,
-        value_parser = |s: &str| RepoPathBuf::from_relative_path(s),
+        value_name = "FILESETS",
+        value_hint = clap::ValueHint::AnyPath
     )]
-    remove: Vec<RepoPathBuf>,
+    remove: Vec<String>,
 
     /// Include no files in the working copy (combine with --add)
     #[arg(long)]
     clear: bool,
+
+    /// Fileset expressions to set in the working copy
+    #[arg(
+        value_name = "FILESETS",
+        conflicts_with = "clear",
+        value_hint = clap::ValueHint::AnyPath
+    )]
+    filesets: Vec<String>,
 }
 
 #[instrument(skip_all)]
@@ -59,18 +60,42 @@ pub async fn cmd_sparse_set(
     args: &SparseSetArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui).await?;
+    let fileset_expr = if !args.filesets.is_empty() {
+        Some(workspace_command.parse_union_filesets(ui, &args.filesets)?)
+    } else {
+        None
+    };
+    let add_expr = if !args.add.is_empty() {
+        Some(workspace_command.parse_union_filesets(ui, &args.add)?)
+    } else {
+        None
+    };
+    let remove_expr = if !args.remove.is_empty() {
+        Some(workspace_command.parse_union_filesets(ui, &args.remove)?)
+    } else {
+        None
+    };
     update_sparse_patterns_with(ui, &mut workspace_command, |_ui, old_patterns| {
-        let mut new_patterns = HashSet::new();
-        if !args.clear {
-            new_patterns.extend(old_patterns.iter().cloned());
-            for path in &args.remove {
-                new_patterns.remove(path);
+        let mut expr = if let Some(base) = fileset_expr {
+            base
+        } else if args.clear {
+            FilesetExpression::none()
+        } else {
+            old_patterns.clone()
+        };
+        if let Some(add) = add_expr {
+            if matches!(expr, FilesetExpression::None) {
+                expr = add;
+            } else if !matches!(expr, FilesetExpression::All) {
+                expr = FilesetExpression::union_all(vec![expr, add]);
             }
         }
-        for path in &args.add {
-            new_patterns.insert(path.to_owned());
+        if let Some(remove) = remove_expr
+            && !matches!(expr, FilesetExpression::None)
+        {
+            expr = FilesetExpression::difference(expr, remove);
         }
-        Ok(new_patterns.into_iter().sorted_unstable().collect())
+        Ok(expr)
     })
     .await
 }

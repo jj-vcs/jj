@@ -85,6 +85,11 @@ use crate::file_util::check_symlink_support;
 use crate::file_util::copy_async_to_sync;
 use crate::file_util::persist_temp_file;
 use crate::file_util::symlink_file;
+use crate::fileset;
+use crate::fileset::FilesetAliasesMap;
+use crate::fileset::FilesetDiagnostics;
+use crate::fileset::FilesetExpression;
+use crate::fileset::FilesetParseContext;
 use crate::fsmonitor::FsmonitorSettings;
 #[cfg(feature = "watchman")]
 use crate::fsmonitor::WatchmanConfig;
@@ -113,6 +118,7 @@ use crate::ref_name::WorkspaceNameBuf;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponent;
+use crate::repo_path::RepoPathUiConverter;
 use crate::settings::UserSettings;
 use crate::store::Store;
 use crate::working_copy::CheckoutError;
@@ -648,20 +654,53 @@ fn is_file_state_entries_proto_unique_and_sorted(
         .is_sorted_by(|path1, path2| path1 < path2)
 }
 
+fn parse_root_fileset_expression(
+    expression: &str,
+) -> Result<FilesetExpression, fileset::FilesetParseError> {
+    let mut diagnostics = FilesetDiagnostics::new();
+    let converter = RepoPathUiConverter::Fs {
+        cwd: "".into(),
+        base: "".into(),
+    };
+    let aliases_map = FilesetAliasesMap::new();
+    let context = FilesetParseContext {
+        aliases_map: &aliases_map,
+        path_converter: &converter,
+    };
+    fileset::parse(&mut diagnostics, expression, &context)
+}
+
 fn sparse_patterns_from_proto(
+    state_path: &Path,
     proto: Option<&crate::protos::local_working_copy::SparsePatterns>,
-) -> Vec<RepoPathBuf> {
-    let mut sparse_patterns = vec![];
+) -> Result<FilesetExpression, TreeStateError> {
     if let Some(proto_sparse_patterns) = proto {
-        for prefix in &proto_sparse_patterns.prefixes {
-            sparse_patterns.push(RepoPathBuf::from_internal_string(prefix).unwrap());
+        if !proto_sparse_patterns.fileset_expression.is_empty() {
+            return parse_root_fileset_expression(&proto_sparse_patterns.fileset_expression)
+                .map_err(|err| TreeStateError::ReadTreeState {
+                    path: state_path.to_owned(),
+                    source: io::Error::new(io::ErrorKind::InvalidData, err),
+                });
         }
-    } else {
-        // For compatibility with old working copies.
-        // TODO: Delete this is late 2022 or so.
-        sparse_patterns.push(RepoPathBuf::root());
+        if !proto_sparse_patterns.prefixes.is_empty() {
+            if proto_sparse_patterns.prefixes.as_slice() == [""] {
+                return Ok(FilesetExpression::all());
+            }
+            let mut prefix_exprs = Vec::new();
+            for prefix in &proto_sparse_patterns.prefixes {
+                let path = RepoPathBuf::from_internal_string(prefix).map_err(|err| {
+                    TreeStateError::ReadTreeState {
+                        path: state_path.to_owned(),
+                        source: io::Error::new(io::ErrorKind::InvalidData, err),
+                    }
+                })?;
+                prefix_exprs.push(FilesetExpression::prefix_path(path));
+            }
+            return Ok(FilesetExpression::union_all(prefix_exprs));
+        }
     }
-    sparse_patterns
+    // For compatibility with old working copies / default when both are empty.
+    Ok(FilesetExpression::all())
 }
 
 /// Creates intermediate directories from the `working_copy_path` to the
@@ -993,8 +1032,8 @@ pub struct TreeState {
     state_path: PathBuf,
     tree: MergedTree,
     file_states: FileStatesMap,
-    // Currently only path prefixes
-    sparse_patterns: Vec<RepoPathBuf>,
+    // Currently fileset expression
+    sparse_patterns: FilesetExpression,
     own_mtime: MillisSinceEpoch,
     symlink_support: bool,
 
@@ -1039,12 +1078,12 @@ impl TreeState {
         self.file_states.all()
     }
 
-    pub fn sparse_patterns(&self) -> &Vec<RepoPathBuf> {
+    pub fn sparse_patterns(&self) -> &FilesetExpression {
         &self.sparse_patterns
     }
 
     fn sparse_matcher(&self) -> Box<dyn Matcher> {
-        Box::new(PrefixMatcher::new(&self.sparse_patterns))
+        self.sparse_patterns.to_matcher()
     }
 
     pub fn init(
@@ -1089,7 +1128,7 @@ impl TreeState {
             state_path,
             tree: store.empty_merged_tree(),
             file_states: FileStatesMap::new(),
-            sparse_patterns: vec![RepoPathBuf::root()],
+            sparse_patterns: FilesetExpression::all(),
             own_mtime: MillisSinceEpoch(0),
             symlink_support: check_symlink_support().unwrap_or(false),
             watchman_clock: None,
@@ -1169,7 +1208,8 @@ impl TreeState {
         }
         self.file_states =
             FileStatesMap::from_proto(proto.file_states, proto.is_file_states_sorted);
-        self.sparse_patterns = sparse_patterns_from_proto(proto.sparse_patterns.as_ref());
+        self.sparse_patterns =
+            sparse_patterns_from_proto(&self.state_path, proto.sparse_patterns.as_ref())?;
         self.watchman_clock = proto.watchman_clock;
         Ok(())
     }
@@ -1188,11 +1228,7 @@ impl TreeState {
         // `FileStatesMap` is guaranteed to be sorted.
         proto.is_file_states_sorted = true;
         let mut sparse_patterns = crate::protos::local_working_copy::SparsePatterns::default();
-        for path in &self.sparse_patterns {
-            sparse_patterns
-                .prefixes
-                .push(path.as_internal_file_string().to_owned());
-        }
+        sparse_patterns.fileset_expression = self.sparse_patterns.to_string();
         proto.sparse_patterns = Some(sparse_patterns);
         proto.watchman_clock = self.watchman_clock.clone();
 
@@ -2169,11 +2205,11 @@ impl TreeState {
 
     pub fn set_sparse_patterns(
         &mut self,
-        sparse_patterns: Vec<RepoPathBuf>,
+        sparse_patterns: FilesetExpression,
     ) -> Result<CheckoutStats, CheckoutError> {
         let tree = self.tree.clone();
-        let old_matcher = PrefixMatcher::new(&self.sparse_patterns);
-        let new_matcher = PrefixMatcher::new(&sparse_patterns);
+        let old_matcher = self.sparse_matcher();
+        let new_matcher = sparse_patterns.to_matcher();
         let added_matcher = DifferenceMatcher::new(&new_matcher, &old_matcher);
         let removed_matcher = DifferenceMatcher::new(&old_matcher, &new_matcher);
         let empty_tree = self.store.empty_merged_tree();
@@ -2623,7 +2659,7 @@ impl WorkingCopy for LocalWorkingCopy {
         Ok(self.tree_state()?.current_tree())
     }
 
-    fn sparse_patterns(&self) -> Result<&[RepoPathBuf], WorkingCopyStateError> {
+    fn sparse_patterns(&self) -> Result<&FilesetExpression, WorkingCopyStateError> {
         Ok(self.tree_state()?.sparse_patterns())
     }
 
@@ -2886,13 +2922,13 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
         Ok(())
     }
 
-    fn sparse_patterns(&self) -> Result<&[RepoPathBuf], WorkingCopyStateError> {
+    fn sparse_patterns(&self) -> Result<&FilesetExpression, WorkingCopyStateError> {
         self.wc.sparse_patterns()
     }
 
     async fn set_sparse_patterns(
         &mut self,
-        new_sparse_patterns: Vec<RepoPathBuf>,
+        new_sparse_patterns: FilesetExpression,
     ) -> Result<CheckoutStats, CheckoutError> {
         // TODO: Write a "pending_checkout" file with new sparse patterns so we can
         // continue an interrupted update if we find such a file.
