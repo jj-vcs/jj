@@ -47,6 +47,7 @@ use crate::backend::CopyHistory;
 use crate::backend::CopyId;
 use crate::backend::CopyRecord;
 use crate::backend::FileId;
+use crate::backend::FileMetadata;
 use crate::backend::MillisSinceEpoch;
 use crate::backend::RelatedCopy;
 use crate::backend::SecureSig;
@@ -178,6 +179,16 @@ impl Backend for SimpleBackend {
 
     fn concurrency(&self) -> usize {
         1
+    }
+
+    async fn get_file_metadata(
+        &self,
+        _path: &RepoPath,
+        id: &FileId,
+    ) -> BackendResult<FileMetadata> {
+        let disk_path = self.file_path(id);
+        let meta = fs::metadata(disk_path).map_err(to_other_err)?;
+        Ok(FileMetadata { size: meta.len() })
     }
 
     async fn read_file(
