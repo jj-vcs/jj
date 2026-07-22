@@ -339,6 +339,11 @@ Thanks to the people who made this release happen!
 * `JJ_PAGER` can now override the `ui.pager` config, matching `JJ_EDITOR` for
   callers that need a jj-specific environment override.
 
+* New `ui.add-description-comment-hint` configuration option (default `true`)
+  which, when set to `false`, omits the comment hint appended to description
+  editor buffers: `JJ: Lines starting with "JJ:" (like this one) will be
+  removed.`.
+
 ### Fixed bugs
 
 * Improving consistency with `git` handling of `.gitignore`, including `/`
