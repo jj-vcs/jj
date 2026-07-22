@@ -16,6 +16,7 @@
 //! <https://github.com/jj-vcs/jj/blob/main/docs/design/jj-converge-command.md>
 //! for more details.
 
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::hash::Hash;
@@ -58,7 +59,7 @@ use jj_lib::store::Store;
 use thiserror::Error;
 
 /// Maps change-ids to commits with that change-id.
-pub type CommitsByChangeId = HashMap<ChangeId, HashMap<CommitId, Commit>>;
+pub type CommitsByChangeId = BTreeMap<ChangeId, Vec<Commit>>;
 
 /// The result of attempting to converge a particular attribute (description,
 /// author, parents, tree) of a set of divergent commits.
@@ -124,7 +125,7 @@ pub enum ConvergeError {
 pub async fn find_divergent_changes(
     repo: &Arc<ReadonlyRepo>,
     revset_expression: Arc<ResolvedRevsetExpression>,
-) -> Result<CommitsByChangeId, RevsetEvaluationError> {
+) -> Result<CommitsByChangeId, ConvergeError> {
     let mut result = CommitsByChangeId::new();
     let mut stream = revset_expression.evaluate(repo.as_ref())?.stream();
     while let Some(commit_id) = stream.try_next().await? {
@@ -132,7 +133,7 @@ pub async fn find_divergent_changes(
         result
             .entry(commit.change_id().clone())
             .or_default()
-            .insert(commit.id().clone(), commit);
+            .push(commit);
     }
     // Remove entries that have only a single commit — we only care about
     // changes with multiple divergent commits.
