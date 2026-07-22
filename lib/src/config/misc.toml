@@ -48,6 +48,8 @@ conflict-marker-style = "diff"
 [user]
 email = ""
 name = ""
+# Possible values are "day", "month", and "year".
+# commit-timestamp-granularity = <none>
 
 [working-copy]
 eol-conversion = "none"
