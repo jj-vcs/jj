@@ -16,6 +16,8 @@
 //! <https://github.com/jj-vcs/jj/blob/main/docs/design/jj-converge-command.md>
 //! for more details.
 
+use std::cmp::Ordering;
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::hash::Hash;
@@ -57,8 +59,13 @@ use jj_lib::rewrite::merge_commit_trees_no_resolve;
 use jj_lib::store::Store;
 use thiserror::Error;
 
-/// Maps change-ids to commits with that change-id.
-pub type CommitsByChangeId = HashMap<ChangeId, HashMap<CommitId, Commit>>;
+/// Maps change-ids to commits with that change-id. The commits are sorted by
+/// this criteria:
+/// * increasing change-offset (if we cannot determine change-offset for a
+///   commit we pretend it is usize::MAX)
+/// * decreasing commit timestamp (if change-offsets are equal)
+/// * if we still have a tie, by increasing commit id.
+pub type CommitsByChangeId = BTreeMap<ChangeId, Vec<Commit>>;
 
 /// The result of attempting to converge a particular attribute (description,
 /// author, parents, tree) of a set of divergent commits.
@@ -124,20 +131,24 @@ pub enum ConvergeError {
 pub async fn find_divergent_changes(
     repo: &Arc<ReadonlyRepo>,
     revset_expression: Arc<ResolvedRevsetExpression>,
-) -> Result<CommitsByChangeId, RevsetEvaluationError> {
-    let mut result = CommitsByChangeId::new();
+) -> Result<CommitsByChangeId, ConvergeError> {
+    let mut commits_by_change_id: BTreeMap<ChangeId, Vec<Commit>> = BTreeMap::new();
     let mut stream = revset_expression.evaluate(repo.as_ref())?.stream();
     while let Some(commit_id) = stream.try_next().await? {
         let commit = repo.store().get_commit_async(&commit_id).await?;
-        result
+        commits_by_change_id
             .entry(commit.change_id().clone())
             .or_default()
-            .insert(commit.id().clone(), commit);
+            .push(commit);
     }
     // Remove entries that have only a single commit — we only care about
     // changes with multiple divergent commits.
-    result.retain(|_, commits| commits.len() > 1);
-    Ok(result)
+    commits_by_change_id.retain(|_, commits| commits.len() > 1);
+
+    for (change_id, commits) in &mut commits_by_change_id {
+        sort_divergent_commits(repo, change_id, commits)?;
+    }
+    Ok(commits_by_change_id)
 }
 
 /// Attempts to solve divergence in the divergent commits given by the
@@ -732,6 +743,48 @@ pub async fn remove_descendants(
         &format!("the result of remove_descendants should never be empty; commits: {commit_ids:?}"),
     )?;
     Ok(result)
+}
+
+fn sort_divergent_commits(
+    repo: &ReadonlyRepo,
+    change_id: &ChangeId,
+    commits: &mut [Commit],
+) -> Result<(), ConvergeError> {
+    let resolved_change_targets = repo.resolve_change_id(change_id)?;
+    let change_offsets = if let Some(change_targets) = resolved_change_targets {
+        commits
+            .iter()
+            .map(|commit| {
+                let change_offset = change_targets
+                    .find_offset(commit.id())
+                    .unwrap_or(usize::MAX);
+                (commit.id().clone(), change_offset)
+            })
+            .collect()
+    } else {
+        HashMap::new()
+    };
+    commits.sort_unstable_by(|commit_a, commit_b| {
+        let change_offset_a = change_offsets.get(commit_a.id()).unwrap_or(&usize::MAX);
+        let change_offset_b = change_offsets.get(commit_b.id()).unwrap_or(&usize::MAX);
+        // Sort by increasing change offset.
+        if change_offset_a < change_offset_b {
+            return Ordering::Less;
+        } else if change_offset_a > change_offset_b {
+            return Ordering::Greater;
+        }
+        // If change offsets are the same (for example both are usize::MAX), sort by
+        // DECREASING commit timestamp.
+        if commit_a.committer().timestamp > commit_b.committer().timestamp {
+            Ordering::Less
+        } else if commit_a.committer().timestamp < commit_b.committer().timestamp {
+            Ordering::Greater
+        } else {
+            // Everything else being equal, sort by increasing commit id.
+            commit_a.id().cmp(commit_b.id())
+        }
+    });
+    Ok(())
 }
 
 fn validate(predicate: bool, msg: &str) -> Result<(), ConvergeError> {

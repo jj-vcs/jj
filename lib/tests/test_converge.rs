@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::slice;
@@ -135,7 +136,7 @@ fn assert_divergent_changes(
     repo: &Arc<ReadonlyRepo>,
     expected: &[(&ChangeId, &[Commit])],
 ) -> TestResult<CommitsByChangeId> {
-    let expected_divergent_commits: HashMap<ChangeId, HashSet<CommitId>> = expected
+    let expected_divergent_commits: HashMap<ChangeId, Vec<CommitId>> = expected
         .iter()
         .map(|(change_id, commits)| {
             (
@@ -145,10 +146,10 @@ fn assert_divergent_changes(
         })
         .collect();
     let actual = find_divergent_changes(repo, RevsetExpression::all()).block_on()?;
-    let simplified: HashMap<ChangeId, HashSet<CommitId>> = actual
+    let simplified: HashMap<ChangeId, Vec<CommitId>> = actual
         .clone()
         .into_iter()
-        .map(|(change_id, commits)| (change_id, commits.into_keys().collect::<HashSet<_>>()))
+        .map(|(change_id, commits)| (change_id, commits.iter().map(|c| c.id().clone()).collect()))
         .collect();
     assert_eq!(simplified, expected_divergent_commits);
     Ok(actual)
@@ -263,13 +264,7 @@ fn test_find_divergent_changes_exactly_one_found() -> TestResult {
     let repo = repo.reload_at_head().block_on()?;
     assert_eq!(
         find_divergent_changes(&repo, RevsetExpression::all()).block_on()?,
-        HashMap::from([(
-            change_aa.clone(),
-            HashMap::from([
-                (commit_1.id().clone(), commit_1.clone()),
-                (commit_2.id().clone(), commit_2.clone()),
-            ]),
-        )])
+        BTreeMap::from([(change_aa.clone(), vec![commit_2.clone(), commit_1.clone()])])
     );
 
     Ok(())
@@ -350,8 +345,8 @@ fn test_find_divergent_changes_two_found() -> TestResult {
     drop(assert_divergent_changes(
         &repo,
         &[
-            (&change_aa, &[commit_1.clone(), commit_2.clone()]),
-            (&change_bb, &[commit_3.clone(), commit_4.clone()]),
+            (&change_aa, &[commit_2.clone(), commit_1.clone()]),
+            (&change_bb, &[commit_4.clone(), commit_3.clone()]),
         ],
     )?);
     Ok(())
@@ -545,13 +540,7 @@ fn test_manual_converge_description_concurrent_ops() -> TestResult {
     let change_id = commit1.change_id().clone();
     assert_eq!(
         find_divergent_changes(&repo5, RevsetExpression::all()).block_on()?,
-        HashMap::from([(
-            change_id.clone(),
-            HashMap::from([
-                (commit4.id().clone(), commit4.clone()),
-                (commit5.id().clone(), commit5.clone()),
-            ]),
-        )])
+        BTreeMap::from([(change_id.clone(), vec![commit5.clone(), commit4.clone()])])
     );
 
     let divergent_commits = vec![commit4.clone(), commit5.clone()];
@@ -655,7 +644,7 @@ fn test_automatic_converge_description_and_parent() -> TestResult {
     let repo5 = tx.commit("test").block_on()?;
 
     let change_id = commit1.change_id().clone();
-    let divergent_commits = vec![commit3.clone(), commit4.clone()];
+    let divergent_commits = vec![commit4.clone(), commit3.clone()];
     assert_divergent_changes(&repo5, &[(&change_id, &divergent_commits)])?;
 
     let truncated_evolution_graph =
@@ -789,7 +778,7 @@ fn test_automatic_converge_description_parent_and_trees() -> TestResult {
     let repo5 = tx.commit("test").block_on()?;
 
     let change_id = commit1.change_id().clone();
-    let divergent_commits = vec![commit3.clone(), commit4.clone()];
+    let divergent_commits = vec![commit4.clone(), commit3.clone()];
     let divergent_commit_ids = divergent_commits
         .iter()
         .map(|c| c.id().clone())
@@ -803,8 +792,8 @@ fn test_automatic_converge_description_parent_and_trees() -> TestResult {
 
     let expected_tree = create_merged_tree(vec![
         (
-            commit1.tree().clone(),
-            format!("converge base: {}", commit1.conflict_label()),
+            commit4.tree().clone(),
+            format!("divergent commit: {}", commit4.conflict_label()),
         ),
         (
             commit1.tree().clone(),
@@ -819,8 +808,8 @@ fn test_automatic_converge_description_parent_and_trees() -> TestResult {
             format!("converge base: {}", commit1.conflict_label()),
         ),
         (
-            commit4.tree().clone(),
-            format!("divergent commit: {}", commit4.conflict_label()),
+            commit1.tree().clone(),
+            format!("converge base: {}", commit1.conflict_label()),
         ),
     ]);
 
@@ -878,8 +867,8 @@ fn test_automatic_converge_description_parent_and_trees() -> TestResult {
         Merge::from_removes_adds(
             vec![get_merged_tree_value(&tree1, "file")?],
             vec![
-                get_merged_tree_value(&tree3, "file")?,
                 get_merged_tree_value(&tree4, "file")?,
+                get_merged_tree_value(&tree3, "file")?,
             ],
         ),
     );
@@ -996,7 +985,7 @@ fn test_automatic_converge_description_parent_and_trees_with_reparent() -> TestR
     let repo5 = tx.commit("test").block_on()?;
 
     let change_id = commit1.change_id().clone();
-    let divergent_commits = vec![commit3.clone(), commit4.clone()];
+    let divergent_commits = vec![commit4.clone(), commit3.clone()];
     assert_divergent_changes(&repo5, &[(&change_id, &divergent_commits)])?;
     let divergent_commit_ids = divergent_commits
         .iter()
