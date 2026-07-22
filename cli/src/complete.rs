@@ -1142,7 +1142,6 @@ fn get_jj_command() -> Result<(JjBuilder, UserSettings), CommandError> {
     let args = std::env::args_os().skip(2);
     let args = expand_args(&ui, &app, args, &config)?;
     let arg_matches = app
-        .clone()
         .disable_version_flag(true)
         .disable_help_flag(true)
         .ignore_errors(true)

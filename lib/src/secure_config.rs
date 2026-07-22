@@ -268,7 +268,7 @@ impl SecureConfig {
                 &metadata,
             )?;
             return Ok(LoadedSecureConfig {
-                config_file: Some(config_path.clone()),
+                config_file: Some(config_path),
                 metadata,
                 warnings: vec![format!(
                     "Your repo appears to have been copied from {} to {}. The corresponding repo \

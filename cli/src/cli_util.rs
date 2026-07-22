@@ -1216,7 +1216,7 @@ impl WorkspaceCommandHelper {
     fn lock_git_import_export(&self) -> Result<GitImportExportLock, CommandError> {
         let lock = if self.working_copy_shared_with_git {
             let lock_path = self.workspace.repo_path().join("git_import_export.lock");
-            Some(FileLock::lock(lock_path.clone()).map_err(|err| {
+            Some(FileLock::lock(lock_path).map_err(|err| {
                 user_error_with_message("Failed to take lock for Git import/export", err)
             })?)
         } else {

@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![cfg_attr(test, allow(clippy::redundant_clone, reason = "ok for tests"))]
+
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::env;
@@ -590,7 +592,7 @@ impl TestThreeWayMergeTreeBuilder {
         ]
         .map(|builder| builder.write_single_tree().id().clone());
         MergedTree::new(
-            self.store.clone(),
+            self.store,
             Merge::from_vec(tree_ids.to_vec()),
             ConflictLabels::unlabeled(),
         )
@@ -825,7 +827,7 @@ fn assert_in_rebased_map(
             expected_old_commit.id().hex()
         )
     });
-    repo.store().get_commit(new_commit_id).unwrap().clone()
+    repo.store().get_commit(new_commit_id).unwrap()
 }
 
 pub fn assert_rebased_onto(
