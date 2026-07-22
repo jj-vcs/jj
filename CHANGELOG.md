@@ -88,6 +88,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Fixed failure when reading configuration in copied repo with an empty
   repo-level configuration directory.
 
+* Fixed Unix file locking on Docker for Mac VirtioFS bind mounts. Previously,
+  colocated Git repositories could allow concurrent Git import/export work,
+  which could leave jj commands failing with `Failed to reset Git HEAD state`
+  and `Shared index checksum mismatch`.
+
 ## [0.43.0] - 2026-07-01
 
 ### Release highlights

@@ -15,6 +15,9 @@
 #![expect(missing_docs)]
 
 use std::fs::File;
+use std::fs::OpenOptions;
+use std::io;
+use std::path::Path;
 use std::path::PathBuf;
 
 use rustix::fs::FlockOperation;
@@ -48,12 +51,23 @@ impl FileLock {
             FlockOperation::NonBlockingLockExclusive
         };
         loop {
-            // Create lockfile, or open pre-existing one
-            let file = File::create(&path).map_err(|err| FileLockError {
-                message: "Failed to open lock file",
-                path: path.clone(),
-                err,
-            })?;
+            let file = match open_lock_file(&path) {
+                Ok(file) => file,
+                Err(err) if err.kind() == io::ErrorKind::NotFound => {
+                    // Another lock holder may have removed the lock path
+                    // between our create-or-observe step and our reopen step.
+                    // Retry so we do not report a transient deletion as a
+                    // lock acquisition failure.
+                    continue;
+                }
+                Err(err) => {
+                    return Err(FileLockError {
+                        message: "Failed to open lock file",
+                        path: path.clone(),
+                        err,
+                    });
+                }
+            };
             // If the lock was already held, block until it's released, or (in
             // non-blocking mode) report that it's currently unavailable.
             match rustix::fs::flock(&file, operation) {
@@ -99,6 +113,43 @@ impl FileLock {
             return Ok(Some(Self { path, file }));
         }
     }
+}
+
+fn open_lock_file(path: &Path) -> io::Result<File> {
+    match OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create_new(true)
+        .open(path)
+    {
+        Ok(created_file) => {
+            // Docker for Mac's VirtioFS bind mounts have allowed two
+            // exclusive flock holders when the first holder creates a missing
+            // lock file and then flocks the same descriptor. See:
+            // https://github.com/docker/for-mac/issues/7004
+            //
+            // The failure matters when a jj repository lives on a host
+            // directory bind-mounted into a Docker for Mac container. A fresh
+            // short-lived lock path is often missing because FileLock removes
+            // it on drop, so the next process is likely to be the process that
+            // creates the file. Taking flock on that creation descriptor can
+            // fail to exclude a concurrent process on affected VirtioFS mounts.
+            //
+            // Close the creation descriptor explicitly before reopening the
+            // file. The working probe showed that the create-close-open
+            // sequence preserves mutual exclusion on both ordinary directories
+            // and Docker for Mac VirtioFS bind mounts.
+            drop(created_file);
+        }
+        Err(err) if err.kind() == io::ErrorKind::AlreadyExists => {
+            // The lock file already exists, so no creation descriptor was
+            // involved in this process. Opening the existing file directly is
+            // the pattern that works on the affected VirtioFS mounts.
+        }
+        Err(err) => return Err(err),
+    }
+
+    OpenOptions::new().read(true).write(true).open(path)
 }
 
 impl Drop for FileLock {
