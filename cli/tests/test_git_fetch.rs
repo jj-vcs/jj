@@ -1484,8 +1484,8 @@ fn test_git_fetch_undo() {
     let output = target_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Undid operation: 353367639195 (2001-02-03 08:05:20) fetch from git remote(s) origin
-    Restored to operation: abd709a7b737 (2001-02-03 08:05:07) add git remote origin
+    Undid operation: 1c39477c94b6 (2001-02-03 08:05:20) fetch from git remote(s) origin
+    Restored to operation: b75080dbde19 (2001-02-03 08:05:07) add git remote origin
     [EOF]
     ");
     // The undo works as expected
@@ -1575,7 +1575,7 @@ fn test_fetch_undo_what() {
     let output = work_dir.run_jj(["op", "restore", "--what", "repo", &base_operation_id]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Restored to operation: abd709a7b737 (2001-02-03 08:05:07) add git remote origin
+    Restored to operation: b75080dbde19 (2001-02-03 08:05:07) add git remote origin
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
@@ -1607,7 +1607,7 @@ fn test_fetch_undo_what() {
     ]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Restored to operation: abd709a7b737 (2001-02-03 08:05:07) add git remote origin
+    Restored to operation: b75080dbde19 (2001-02-03 08:05:07) add git remote origin
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
@@ -2115,12 +2115,12 @@ fn test_git_fetch_remotely_rewritten() {
     insta::assert_snapshot!(output, @"
     ◆  kkmpptxz test.user@example.com 2001-02-03 08:05:14 book@origin 3ee37bc8
     │  (empty) bookmarked
-    │  -- operation 747e22d526e2 fetch from git remote(s) origin
+    │  -- operation b8a5f0b136a7 fetch from git remote(s) origin
     ○  kkmpptxz/1 test.user@example.com 2001-02-03 08:05:09 eedc2709 (hidden)
        (empty) bookmarked
     ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:14 f30445f7
     │  (empty) modified
-    │  -- operation 747e22d526e2 fetch from git remote(s) origin
+    │  -- operation b8a5f0b136a7 fetch from git remote(s) origin
     ○  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 97604bbe (hidden)
        (empty) original
     [EOF]
@@ -2154,12 +2154,12 @@ fn test_git_fetch_remotely_rewritten() {
     insta::assert_snapshot!(output, @"
     ◆  kkmpptxz test.user@example.com 2001-02-03 08:05:14 book@origin 3ee37bc8
     │  (empty) bookmarked
-    │  -- operation 747e22d526e2 fetch from git remote(s) origin
+    │  -- operation b8a5f0b136a7 fetch from git remote(s) origin
     ○  kkmpptxz/1 test.user@example.com 2001-02-03 08:05:09 eedc2709 (hidden)
        (empty) bookmarked
     ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:14 f30445f7
     │  (empty) modified
-    │  -- operation 747e22d526e2 fetch from git remote(s) origin
+    │  -- operation b8a5f0b136a7 fetch from git remote(s) origin
     ○  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 97604bbe (hidden)
        (empty) original
     [EOF]
@@ -2327,17 +2327,17 @@ fn test_git_fetch_remotely_rewritten_descendants() {
     insta::assert_snapshot!(output, @"
     ◆  mzvwutvl test.user@example.com 2001-02-03 08:05:16 book2@origin 3faff772
     │  (empty) bookmarked 2
-    │  -- operation 8285ffe9ef99 fetch from git remote(s) origin
+    │  -- operation c63a28bc19c4 fetch from git remote(s) origin
     ○  mzvwutvl/1 test.user@example.com 2001-02-03 08:05:11 cce448c2 (hidden)
        (empty) bookmarked 2
     ◆  kkmpptxz test.user@example.com 2001-02-03 08:05:16 book1@origin ad5c5f3c
     │  (empty) bookmarked 1
-    │  -- operation eed0c1c063f4 fetch from git remote(s) origin
+    │  -- operation 95e4baa93d75 fetch from git remote(s) origin
     ○  kkmpptxz/1 test.user@example.com 2001-02-03 08:05:09 2a6bbeb4 (hidden)
        (empty) bookmarked 1
     ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:16 a843bfad
     │  (empty) modified
-    │  -- operation eed0c1c063f4 fetch from git remote(s) origin
+    │  -- operation 95e4baa93d75 fetch from git remote(s) origin
     ○  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 97604bbe (hidden)
        (empty) original
     [EOF]

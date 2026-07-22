@@ -949,7 +949,14 @@ fn run_git_gc(program: &OsStr, git_dir: &Path, keep_newer: SystemTime) -> Result
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap_or_default(); // underflow
     let mut git = Command::new(program);
+    // Never prune jj-registered Git worktrees (secondary colocated workspaces).
+    // `git gc` auto-runs `git worktree prune` honoring `gc.worktreePruneExpire`
+    // (default 3 months), which would delete a live worktree's admin dir and let
+    // its detached-HEAD commit be garbage-collected. The `-c` override must precede
+    // the `gc` subcommand.
     git.arg("--git-dir=.") // turn off discovery
+        .arg("-c")
+        .arg("gc.worktreePruneExpire=never")
         .arg("gc")
         .arg(format!("--prune=@{} +0000", keep_newer.as_secs()));
     // Don't specify it by GIT_DIR/--git-dir. On Windows, the path could be
