@@ -714,7 +714,7 @@
                 "log": {
                     "type": "string",
                     "description": "Default set of revisions to show when no explicit revset is given for jj log and similar commands",
-                    "default": "present(@) | ancestors(immutable_heads().., 2) | trunk()"
+                    "default": "builtin_log()"
                 },
                 "short-prefixes": {
                     "type": "string",

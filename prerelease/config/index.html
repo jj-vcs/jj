@@ -4554,8 +4554,9 @@ you can add this to your config:</p>
 <span class="c1"># Show commits that are not in `main@origin`</span>
 <span class="n">log</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;main@origin..&quot;</span>
 </code></pre></div>
-<p>The default value for <code>revsets.log</code> is
-<code>'present(@) | ancestors(immutable_heads().., 2) | trunk()'</code>.</p>
+<p>The default value for <code>revsets.log</code> is <code>builtin_log()</code>, which is defined as
+<code>'present(@) | ancestors(immutable_heads().., 2) | trunk()'</code>. You can use
+<code>builtin_log()</code> as a starting point for your own custom log revset.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>When <code>revsets.short-prefixes</code> is not specified, it defaults to the value of <code>revsets.log</code>. This

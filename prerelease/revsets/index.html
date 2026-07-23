@@ -2756,6 +2756,12 @@ always resolves to exactly one commit. For example:</p>
 </code></pre></div>
 </li>
 <li>
+<p><code>builtin_log()</code>: Resolves to <code>present(@) |
+  ancestors(immutable_heads().., 2) | trunk()</code>. It is used as the default value
+  for <code>revsets.log</code>, which is the set of revisions shown by <code>jj log</code> if no
+  revisions or paths are specified.</p>
+</li>
+<li>
 <p><code>builtin_immutable_heads()</code>: Resolves to <code>trunk() | tags() |
   untracked_remote_bookmarks()</code>. It is used as the default definition for
   <code>immutable_heads()</code> below. It is not recommended to redefine this
