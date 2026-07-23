@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use testutils::TestResult;
+use testutils::git;
 
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
@@ -182,6 +183,48 @@ fn test_git_colocation_enable_with_existing_git_dir() -> TestResult {
     [exit status: 1]
     ");
     Ok(())
+}
+
+#[test]
+fn test_git_colocation_enable_external_git_repo() {
+    let test_env = TestEnvironment::default();
+
+    // Initialize a Jujutsu workspace backed by an external Git repository
+    let git_repo_path = test_env.env_root().join("git-repo");
+    git::init(&git_repo_path);
+    test_env
+        .run_jj_in(
+            test_env.env_root(),
+            [
+                "git",
+                "init",
+                "repo",
+                "--git-repo",
+                git_repo_path.to_str().unwrap(),
+            ],
+        )
+        .success();
+    let work_dir = test_env.work_dir("repo");
+
+    // The status hint shouldn't suggest enabling colocation
+    let output = work_dir.run_jj(["git", "colocation", "status"]);
+    insta::assert_snapshot!(output, @"
+    Workspace is currently not colocated with Git.
+    Last imported/exported Git HEAD: (none)
+    [EOF]
+    ------- stderr -------
+    Hint: Colocation cannot be enabled because the workspace is backed by an external Git repository.
+    [EOF]
+    ");
+
+    // Trying to colocate should fail with a clean error
+    let output = work_dir.run_jj(["git", "colocation", "enable"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Cannot colocate a workspace backed by an external Git repository at $TEST_ENV/git-repo/.git
+    [EOF]
+    [exit status: 1]
+    ");
 }
 
 #[test]

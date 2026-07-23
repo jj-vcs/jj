@@ -132,6 +132,17 @@ async fn cmd_git_colocation_status(
             ui.hint_default(),
             "To disable colocation, run: `jj git colocation disable`"
         )?;
+    } else if !workspace_command
+        .repo_path()
+        .join("store")
+        .join("git")
+        .exists()
+    {
+        writeln!(
+            ui.hint_default(),
+            "Colocation cannot be enabled because the workspace is backed by an external Git \
+             repository."
+        )?;
     } else {
         writeln!(
             ui.hint_default(),
@@ -175,6 +186,17 @@ async fn cmd_git_colocation_enable(
     std::fs::rename(&git_store_path, &dot_git_path).map_err(|err| match err.kind() {
         ErrorKind::AlreadyExists | ErrorKind::DirectoryNotEmpty => {
             user_error("A .git directory already exists in the workspace root. Cannot colocate.")
+        }
+        // An external Git repository (e.g. created by `jj git init
+        // --git-repo=<path>`) isn't managed by jj and cannot be moved.
+        // workspace_supports_git_colocation_commands() already ensured that
+        // the backend is Git.
+        ErrorKind::NotFound => {
+            let git_backend = git::get_git_backend(workspace_command.repo().store()).unwrap();
+            user_error(format!(
+                "Cannot colocate a workspace backed by an external Git repository at {}",
+                git_backend.git_repo_path().display()
+            ))
         }
         _ => user_error_with_message(
             "Failed to move Git repository from .jj/repo/store/git to workspace root directory.",
