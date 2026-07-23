@@ -2263,7 +2263,24 @@ to the current parents may contain changes from multiple commits.
             helper: self,
             tx,
             id_prefix_context,
+            git_import_export_lock: None,
         }
+    }
+
+    /// Starts a transaction that holds the Git import/export lock, so a
+    /// concurrent snapshot can't import or export Git refs while the
+    /// transaction is open. The lock is released when the transaction is
+    /// finished or dropped.
+    ///
+    /// Don't trigger anything that takes the same lock while the transaction
+    /// is open.
+    pub fn start_locked_git_import_export_transaction(
+        &mut self,
+    ) -> Result<WorkspaceCommandTransaction<'_>, CommandError> {
+        let lock = self.lock_git_import_export()?;
+        let mut tx = self.start_transaction();
+        tx.git_import_export_lock = Some(lock);
+        Ok(tx)
     }
 
     async fn finish_transaction(
@@ -2676,6 +2693,10 @@ pub struct WorkspaceCommandTransaction<'a> {
     tx: Transaction,
     /// Cache of index built against the current MutableRepo state.
     id_prefix_context: OnceCell<IdPrefixContext>,
+    /// Lock taken by
+    /// [`WorkspaceCommandHelper::start_locked_git_import_export_transaction`],
+    /// reused when the transaction is finished.
+    git_import_export_lock: Option<GitImportExportLock>,
 }
 
 impl WorkspaceCommandTransaction<'_> {
@@ -2757,7 +2778,12 @@ impl WorkspaceCommandTransaction<'_> {
     }
 
     pub async fn finish(self, ui: &Ui, description: impl Into<String>) -> Result<(), CommandError> {
-        let Self { helper, mut tx, .. } = self;
+        let Self {
+            helper,
+            mut tx,
+            git_import_export_lock,
+            ..
+        } = self;
         if !tx.repo().has_changes() {
             writeln!(ui.status(), "Nothing changed.")?;
             return Ok(());
@@ -2766,9 +2792,11 @@ impl WorkspaceCommandTransaction<'_> {
         if num_rebased > 0 {
             writeln!(ui.status(), "Rebased {num_rebased} descendant commits.")?;
         }
-        // Acquire git import/export lock before finishing the transaction to ensure
-        // Git HEAD export happens atomically with the transaction commit.
-        let git_import_export_lock = helper.lock_git_import_export()?;
+        // Reuse the Git import/export lock held since the transaction was started,
+        // or acquire one now, so Git HEAD export happens atomically with the
+        // transaction commit.
+        let git_import_export_lock =
+            git_import_export_lock.map_or_else(|| helper.lock_git_import_export(), Ok)?;
         helper
             .finish_transaction(ui, tx, description, &git_import_export_lock)
             .await
