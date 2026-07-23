@@ -2073,11 +2073,11 @@ The working-copy commit is indicated by a `@` symbol in the graph. [Immutable re
 
    Run `jj log -T` to list the built-in templates.
 
-   You can also specify arbitrary template expressions using the [built-in keywords]. See [`jj help -k templates`] for more information.
+   All 0-argument methods of the [`Commit` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
 
    If not specified, this defaults to the `templates.log` setting.
 
-   [built-in keywords]: https://docs.jj-vcs.dev/latest/templates/#commit-keywords
+   [`Commit` type]: https://docs.jj-vcs.dev/latest/templates/#commit-type
 
    [`jj help -k templates`]: https://docs.jj-vcs.dev/latest/templates/
 * `-p`, `--patch` — Show patch
@@ -2399,9 +2399,9 @@ Like other commands, `jj op log` snapshots the current working-copy changes and 
 * `-G`, `--no-graph` — Don't show the graph, show a flat list of operations
 * `-T`, `--template <TEMPLATE>` — Render each operation using the given template
 
-   You can specify arbitrary template expressions using the [built-in keywords]. See [`jj help -k templates`] for more information.
+   All 0-argument methods of the [`Operation` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
 
-   [built-in keywords]: https://docs.jj-vcs.dev/latest/templates/#operation-keywords
+   [`Operation` type]: https://docs.jj-vcs.dev/latest/templates/#operation-type
 
    [`jj help -k templates`]: https://docs.jj-vcs.dev/latest/templates/
 * `-d`, `--op-diff` — Show changes to the repository at each operation
@@ -2511,9 +2511,9 @@ Show changes to the repository in an operation
 * `-G`, `--no-graph` — Don't show the graph, show a flat list of modified changes
 * `-T`, `--template <TEMPLATE>` — Render the operation using the given template
 
-   You can specify arbitrary template expressions using the [built-in keywords]. See [`jj help -k templates`] for more information.
+   All 0-argument methods of the [`Operation` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
 
-   [built-in keywords]: https://docs.jj-vcs.dev/latest/templates/#operation-keywords
+   [`Operation` type]: https://docs.jj-vcs.dev/latest/templates/#operation-type
 
    [`jj help -k templates`]: https://docs.jj-vcs.dev/latest/templates/
 * `-p`, `--patch` — Show patch of modifications to changes
@@ -3051,9 +3051,11 @@ Show revision metadata and diff
 * `--reversed` — Show revisions in the opposite order (older revisions first)
 * `-T`, `--template <TEMPLATE>` — Render each revision using the given template
 
-   You can specify arbitrary template expressions using the [built-in keywords]. See [`jj help -k templates`] for more information.
+   All 0-argument methods of the [`Commit` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
 
-   [built-in keywords]: https://docs.jj-vcs.dev/latest/templates/#commit-keywords
+   If not specified, this defaults to the `templates.show` setting.
+
+   [`Commit` type]: https://docs.jj-vcs.dev/latest/templates/#commit-type
 
    [`jj help -k templates`]: https://docs.jj-vcs.dev/latest/templates/
 * `-s`, `--summary` — For each path, show only whether it was modified, added, or deleted
