@@ -835,14 +835,14 @@ mod tests {
         let unchanged = repo_path("unchanged");
         let changed_path = repo_path("changed");
         let added_path = repo_path("added");
-        let left_tree = testutils::create_tree(
+        let left_tree = testutils::create_tree_with_placeholder_copy_ids(
             &test_repo.repo,
             &[
                 (unchanged, "unchanged\n"),
                 (changed_path, "line1\nline2\nline3\n"),
             ],
         );
-        let right_tree = testutils::create_tree(
+        let right_tree = testutils::create_tree_with_placeholder_copy_ids(
             &test_repo.repo,
             &[
                 (unchanged, "unchanged\n"),
@@ -1232,7 +1232,10 @@ mod tests {
 
         let added_empty_file_path = repo_path("empty_file");
         let left_tree = testutils::create_tree(&test_repo.repo, &[]);
-        let right_tree = testutils::create_tree(&test_repo.repo, &[(added_empty_file_path, "")]);
+        let right_tree = testutils::create_tree_with_placeholder_copy_ids(
+            &test_repo.repo,
+            &[(added_empty_file_path, "")],
+        );
 
         let (changed_files, files) = make_diff(store, &left_tree, &right_tree);
         insta::assert_debug_snapshot!(changed_files, @r#"
@@ -1282,6 +1285,7 @@ mod tests {
         let right_tree = testutils::create_tree_with(&test_repo.repo, |builder| {
             builder
                 .file(added_executable_file_path, "executable")
+                .copy_id(CopyId::placeholder())
                 .executable(true);
         });
 
@@ -1960,7 +1964,9 @@ mod tests {
             builder.file(&file_in_folder_path, vec![]);
         });
         let right_tree = testutils::create_tree_with(&test_repo.repo, |builder| {
-            builder.file(folder_path, vec![]);
+            builder
+                .file(folder_path, vec![])
+                .copy_id(CopyId::placeholder());
         });
 
         let (changed_files, files) = make_diff(store, &left_tree, &right_tree);

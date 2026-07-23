@@ -18,6 +18,7 @@ use std::sync::Arc;
 
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
+use jj_lib::backend::CopyId;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo_path::RepoPath;
@@ -116,7 +117,10 @@ impl WorkingCopyReferenceStateMachine {
                         contents,
                         executable,
                     } => {
-                        builder.file(path, contents).executable(executable);
+                        builder
+                            .file(path, contents)
+                            .executable(executable)
+                            .copy_id(CopyId::placeholder());
                     }
                     DirEntry::Symlink { target } => builder.symlink(path, &target),
                     DirEntry::GitSubmodule { commit } => builder.submodule(path, commit),
