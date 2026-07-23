@@ -1212,6 +1212,23 @@ impl WorkspaceCommandHelper {
         }
     }
 
+    async fn reload_repo_at_head(&mut self, ui: &Ui) -> Result<(), CommandError> {
+        assert!(self.env.command.is_at_head_operation());
+        let repo = self.repo();
+        let op_heads_store = repo.loader().op_heads_store();
+        let op_heads = op_heads_store.get_op_heads().await?;
+        if std::slice::from_ref(repo.op_id()) == op_heads {
+            return Ok(());
+        }
+        let op = self
+            .env
+            .command
+            .resolve_operation(ui, repo.loader(), self.workspace_name())?;
+        let current_repo = repo.loader().load_at(&op).await?;
+        self.user_repo = ReadonlyUserRepo::new(current_repo);
+        Ok(())
+    }
+
     /// Acquires a lock for git import/export operations if the workspace is
     /// colocated with Git. Returns a token that can be passed to functions
     /// that need to import from or export to Git. For non-colocated repos,
@@ -1244,25 +1261,9 @@ impl WorkspaceCommandHelper {
         // Reload at current head to avoid creating divergent operations if another
         // process committed an operation while we were waiting for the lock.
         if self.env.working_copy_shared_with_git {
-            let repo = self.repo().clone();
-            let op_heads_store = repo.loader().op_heads_store();
-            let op_heads = op_heads_store
-                .get_op_heads()
+            self.reload_repo_at_head(ui)
                 .await
                 .map_err(snapshot_command_error)?;
-            if std::slice::from_ref(repo.op_id()) != op_heads {
-                let op = self
-                    .env
-                    .command
-                    .resolve_operation(ui, repo.loader(), self.workspace_name())
-                    .map_err(snapshot_command_error)?;
-                let current_repo = repo
-                    .loader()
-                    .load_at(&op)
-                    .await
-                    .map_err(snapshot_command_error)?;
-                self.user_repo = ReadonlyUserRepo::new(current_repo);
-            }
         }
 
         #[cfg(feature = "git")]
