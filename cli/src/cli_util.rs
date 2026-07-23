@@ -472,8 +472,11 @@ impl CommandHelper {
         ui: &Ui,
     ) -> Result<(WorkspaceCommandHelper, SnapshotStats), CommandError> {
         let mut workspace_command = self.workspace_helper_no_snapshot(ui).await?;
+        if !self.is_working_copy_writable() {
+            return Ok((workspace_command, SnapshotStats::default()));
+        }
 
-        let (workspace_command, stats) = match workspace_command.maybe_snapshot_impl(ui).await {
+        let (workspace_command, stats) = match workspace_command.snapshot_impl(ui).await {
             Ok(stats) => (workspace_command, stats),
             Err(SnapshotWorkingCopyError::Command(err)) => return Err(err),
             Err(SnapshotWorkingCopyError::StaleWorkingCopy(err)) => {
@@ -657,7 +660,7 @@ impl CommandHelper {
                 // copy became stale. The result wouldn't be ideal, but there
                 // should be no data loss at least.
                 let fresh_stats = workspace_command
-                    .maybe_snapshot_impl(ui)
+                    .snapshot_impl(ui)
                     .await
                     .map_err(|err| err.into_command_error())?;
                 let merged_stats = {
@@ -1229,14 +1232,8 @@ impl WorkspaceCommandHelper {
     /// call [`print_snapshot_stats`] with the [`SnapshotStats`] returned by
     /// this function to present possible untracked files to the user.
     #[instrument(skip_all)]
-    async fn maybe_snapshot_impl(
-        &mut self,
-        ui: &Ui,
-    ) -> Result<SnapshotStats, SnapshotWorkingCopyError> {
-        if !self.may_snapshot_working_copy {
-            return Ok(SnapshotStats::default());
-        }
-
+    async fn snapshot_impl(&mut self, ui: &Ui) -> Result<SnapshotStats, SnapshotWorkingCopyError> {
+        assert!(self.may_snapshot_working_copy);
         // Acquire git import/export lock once for the entire import/snapshot/export
         // cycle. This prevents races with other processes during Git HEAD and
         // refs import/export.
@@ -1298,9 +1295,12 @@ impl WorkspaceCommandHelper {
     /// Returns whether a snapshot was taken.
     #[instrument(skip_all)]
     pub async fn maybe_snapshot(&mut self, ui: &Ui) -> Result<bool, CommandError> {
+        if !self.may_snapshot_working_copy {
+            return Ok(false);
+        }
         let op_id_before = self.repo().op_id().clone();
         let stats = self
-            .maybe_snapshot_impl(ui)
+            .snapshot_impl(ui)
             .await
             .map_err(|err| err.into_command_error())?;
         print_snapshot_stats(ui, &stats, self.env().path_converter())?;
@@ -1504,7 +1504,7 @@ to the current parents may contain changes from multiple commits.
         locked_ws.finish(repo.op_id().clone()).await?;
         self.user_repo = ReadonlyUserRepo::new(repo);
 
-        self.maybe_snapshot_impl(ui)
+        self.snapshot_impl(ui)
             .await
             .map_err(|err| err.into_command_error())
     }
