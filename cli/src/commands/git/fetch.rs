@@ -167,7 +167,9 @@ pub async fn cmd_git_fetch(
 
     // Hold the Git import/export lock across the network fetch, so the fetched
     // refs get imported by this command, not by a concurrent snapshot.
-    let mut tx = workspace_command.start_locked_git_import_export_transaction()?;
+    let mut tx = workspace_command
+        .start_locked_git_import_export_transaction(ui)
+        .await?;
     let remote_settings = tx.settings().remote_settings()?;
 
     let is_specific = args.branches.is_some() || args.tags.is_some();

@@ -2267,17 +2267,25 @@ to the current parents may contain changes from multiple commits.
         }
     }
 
-    /// Starts a transaction that holds the Git import/export lock, so a
-    /// concurrent snapshot can't import or export Git refs while the
-    /// transaction is open. The lock is released when the transaction is
-    /// finished or dropped.
+    /// Starts a transaction that holds the Git import/export lock and runs on
+    /// the latest operation, so a concurrent snapshot can't import or export
+    /// Git refs while the transaction is open, and the import can't repeat
+    /// a rewrite that a concurrent operation already committed, which would
+    /// create divergent changes. The lock is released when the transaction
+    /// is finished or dropped.
     ///
     /// Don't trigger anything that takes the same lock while the transaction
     /// is open.
-    pub fn start_locked_git_import_export_transaction(
+    pub async fn start_locked_git_import_export_transaction(
         &mut self,
+        ui: &Ui,
     ) -> Result<WorkspaceCommandTransaction<'_>, CommandError> {
         let lock = self.lock_git_import_export()?;
+        // Under --at-op the command must run on the operation the user named,
+        // even if the heads have moved on.
+        if self.env.command.should_commit_transaction() && self.env.command.is_at_head_operation() {
+            self.reload_repo_at_head(ui).await?;
+        }
         let mut tx = self.start_transaction();
         tx.git_import_export_lock = Some(lock);
         Ok(tx)

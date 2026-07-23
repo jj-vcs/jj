@@ -2655,7 +2655,6 @@ fn test_git_fetch_auto_track_bookmarks() {
 ///
 /// Modeled on `test_concurrent_operations::test_git_head_race_condition`.
 #[test]
-#[should_panic(expected = "must not be divergent")]
 fn test_git_fetch_race_condition() {
     let test_env = TestEnvironment::default();
 
