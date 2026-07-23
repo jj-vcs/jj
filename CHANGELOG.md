@@ -34,6 +34,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `--name-only` for the previous behavior.
   [#9399](https://github.com/jj-vcs/jj/issues/9399)
 
+* `jj evolog` now accepts positional revsets. The previous `--revisions` flag
+  (with aliases `-r` and `--revision`) now only supports `-r` (breaking change).
+
 ### Deprecations
 
 ### New features
@@ -65,6 +68,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj run` gained a `--ignore-errors` flag to continue running against the
   remaining revisions even if the command exits with a nonzero exit code.
+
+* `jj evolog` now accepts positional revsets. The previous `--revisions` flag
+  (with aliases `-r` and `--revision`) now only supports `-r` (breaking change).
 
 ### Fixed bugs
 

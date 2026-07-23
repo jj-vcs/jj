@@ -66,7 +66,7 @@ fn test_evolog_with_or_without_diff() {
     ");
 
     // There should be no diff caused by the rebase because it was a pure rebase
-    // (even even though it resulted in a conflict).
+    // (even though it resulted in a conflict).
     let output = work_dir.run_jj(["evolog", "-p"]);
     insta::assert_snapshot!(output, @r#"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:10 33c10ace
@@ -102,7 +102,7 @@ fn test_evolog_with_or_without_diff() {
     "#);
 
     // Multiple starting revisions
-    let output = work_dir.run_jj(["evolog", "-r.."]);
+    let output = work_dir.run_jj(["evolog", ".."]);
     insta::assert_snapshot!(output, @"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:10 33c10ace
     │  my description
@@ -225,14 +225,14 @@ fn test_evolog_template() {
     let work_dir = test_env.work_dir("local");
 
     // default template with operation
-    let output = work_dir.run_jj(["evolog", "-r@"]);
+    let output = work_dir.run_jj(["evolog"]);
     insta::assert_snapshot!(output, @"
     @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 2b17ac71
        (empty) (no description set)
        -- operation 379ad03e4902 add workspace 'default'
     [EOF]
     ");
-    let output = work_dir.run_jj(["evolog", "-r@", "--color=debug"]);
+    let output = work_dir.run_jj(["evolog", "--color=debug"]);
     insta::assert_snapshot!(output, @"
     [1m[38;5;2m<<evolog commit node working_copy mutable::@>>[0m  [1m[38;5;13m<<evolog working_copy mutable commit change_id shortest prefix::k>>[38;5;8m<<evolog working_copy mutable commit change_id shortest rest::kmpptxz>>[39m<<evolog working_copy mutable:: >>[38;5;3m<<evolog working_copy mutable commit author email local::test.user>><<evolog working_copy mutable commit author email::@>><<evolog working_copy mutable commit author email domain::example.com>>[39m<<evolog working_copy mutable:: >>[38;5;14m<<evolog working_copy mutable commit committer timestamp local format::2001-02-03 08:05:09>>[39m<<evolog working_copy mutable:: >>[38;5;12m<<evolog working_copy mutable commit commit_id shortest prefix::2>>[38;5;8m<<evolog working_copy mutable commit commit_id shortest rest::b17ac71>>[39m<<evolog working_copy mutable::>>[0m
        [1m[38;5;10m<<evolog working_copy mutable empty::(empty)>>[39m<<evolog working_copy mutable:: >>[38;5;10m<<evolog working_copy mutable empty description placeholder::(no description set)>>[39m<<evolog working_copy mutable::>>[0m
@@ -241,13 +241,13 @@ fn test_evolog_template() {
     ");
 
     // default template without operation
-    let output = work_dir.run_jj(["evolog", "-rmain@origin"]);
+    let output = work_dir.run_jj(["evolog", "main@origin"]);
     insta::assert_snapshot!(output, @"
     ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:07 main@origin e8849ae1
        (empty) (no description set)
     [EOF]
     ");
-    let output = work_dir.run_jj(["evolog", "-rmain@origin", "--color=debug"]);
+    let output = work_dir.run_jj(["evolog", "main@origin", "--color=debug"]);
     insta::assert_snapshot!(output, @"
     [1m[38;5;14m<<evolog commit node immutable::◆>>[0m  [1m[38;5;5m<<evolog immutable commit change_id shortest prefix::q>>[0m[38;5;8m<<evolog immutable commit change_id shortest rest::pvuntsm>>[39m<<evolog immutable:: >>[38;5;3m<<evolog immutable commit author email local::test.user>><<evolog immutable commit author email::@>><<evolog immutable commit author email domain::example.com>>[39m<<evolog immutable:: >>[38;5;6m<<evolog immutable commit committer timestamp local format::2001-02-03 08:05:07>>[39m<<evolog immutable:: >>[38;5;5m<<evolog immutable commit bookmarks name::main>><<evolog immutable commit bookmarks::@>><<evolog immutable commit bookmarks remote::origin>>[39m<<evolog immutable:: >>[1m[38;5;4m<<evolog immutable commit commit_id shortest prefix::e>>[0m[38;5;8m<<evolog immutable commit commit_id shortest rest::8849ae1>>[39m<<evolog immutable::>>
        [38;5;2m<<evolog immutable empty::(empty)>>[39m<<evolog immutable:: >>[38;5;2m<<evolog immutable empty description placeholder::(no description set)>>[39m<<evolog immutable::>>
@@ -255,23 +255,23 @@ fn test_evolog_template() {
     ");
 
     // default template with root commit
-    let output = work_dir.run_jj(["evolog", "-rroot()"]);
+    let output = work_dir.run_jj(["evolog", "root()"]);
     insta::assert_snapshot!(output, @"
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
-    let output = work_dir.run_jj(["evolog", "-rroot()", "--color=debug"]);
+    let output = work_dir.run_jj(["evolog", "root()", "--color=debug"]);
     insta::assert_snapshot!(output, @"
     [1m[38;5;14m<<evolog commit node immutable::◆>>[0m  [1m[38;5;5m<<evolog immutable commit change_id shortest prefix::z>>[0m[38;5;8m<<evolog immutable commit change_id shortest rest::zzzzzzz>>[39m<<evolog immutable:: >>[38;5;2m<<evolog immutable root::root()>>[39m<<evolog immutable:: >>[1m[38;5;4m<<evolog immutable commit commit_id shortest prefix::0>>[0m[38;5;8m<<evolog immutable commit commit_id shortest rest::0000000>>[39m<<evolog immutable::>>
     [EOF]
     ");
 
     // JSON output with operation
-    let output = work_dir.run_jj(["evolog", "-r@", "-Tjson(self)", "--no-graph"]);
+    let output = work_dir.run_jj(["evolog", "@", "-Tjson(self)", "--no-graph"]);
     insta::assert_snapshot!(output, @r#"{"commit":{"commit_id":"2b17ac719c7db025e2514f5708d2b0328fc6b268","parents":["0000000000000000000000000000000000000000"],"change_id":"kkmpptxzrspxrzommnulwmwkkqwworpl","description":"","author":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:09+07:00"},"committer":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:09+07:00"}},"operation":{"id":"379ad03e4902abe8dddde72816a45f76a8f81e9c8800b498b4808d0e96c5f2b79866003108fd88c9664387c1a2e15d9b2bab18c33ba0d2a9803eb8b8ea1cf81f","parents":["00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"],"time":{"start":"2001-02-03T04:05:09+07:00","end":"2001-02-03T04:05:09+07:00"},"description":"add workspace 'default'","hostname":"host.example.com","username":"test-username","is_snapshot":false,"workspace_name":null,"attributes":{}}}[EOF]"#);
 
     // JSON output without operation
-    let output = work_dir.run_jj(["evolog", "-rmain@origin", "-Tjson(self)", "--no-graph"]);
+    let output = work_dir.run_jj(["evolog", "main@origin", "-Tjson(self)", "--no-graph"]);
     insta::assert_snapshot!(output, @r#"{"commit":{"commit_id":"e8849ae12c709f2321908879bc724fdb2ab8a781","parents":["0000000000000000000000000000000000000000"],"change_id":"qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu","description":"","author":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:07+07:00"},"committer":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:07+07:00"}},"operation":null}[EOF]"#);
 }
 
@@ -668,12 +668,8 @@ fn test_evolog_reverse_with_graph() {
     work_dir.run_jj(["describe", "-m", "a"]).success();
     work_dir.run_jj(["describe", "-m", "b"]).success();
     work_dir.run_jj(["describe", "-m", "c"]).success();
-    work_dir
-        .run_jj(["new", "-r", "subject(c)", "-m", "d"])
-        .success();
-    work_dir
-        .run_jj(["new", "-r", "subject(c)", "-m", "e"])
-        .success();
+    work_dir.run_jj(["new", "subject(c)", "-m", "d"]).success();
+    work_dir.run_jj(["new", "subject(c)", "-m", "e"]).success();
     work_dir
         .run_jj([
             "squash",
@@ -734,9 +730,7 @@ fn test_evolog_template_predecessors_and_inter_diff() {
     work_dir.run_jj(["describe", "-m", "c"]).success();
 
     // Two sibling changes to be squashed into "c".
-    work_dir
-        .run_jj(["new", "-r", "subject(c)", "-m", "d"])
-        .success();
+    work_dir.run_jj(["new", "subject(c)", "-m", "d"]).success();
     work_dir.write_file("file1", "d\n");
     work_dir.write_file("file2", "d\n");
 
@@ -744,7 +738,6 @@ fn test_evolog_template_predecessors_and_inter_diff() {
     let output = work_dir
         .run_jj([
             "evolog",
-            "-r@",
             r#"-T=builtin_evolog_compact ++ self.inter_diff("file1").git()"#,
         ])
         .success();
@@ -765,9 +758,7 @@ fn test_evolog_template_predecessors_and_inter_diff() {
     [EOF]
     ");
 
-    work_dir
-        .run_jj(["new", "-r", "subject(c)", "-m", "e"])
-        .success();
+    work_dir.run_jj(["new", "subject(c)", "-m", "e"]).success();
     work_dir.write_file("file3", "e\n");
 
     // Squash both changes into "c". This should record multiple predecessors
