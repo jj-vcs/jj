@@ -528,7 +528,8 @@ impl CommandHelper {
                 .expect("valid syntax");
             env.reload_revset_expressions(ui)?;
         }
-        WorkspaceCommandHelper::new(ui, workspace, repo, env, self.is_at_head_operation())
+        let may_snapshot_working_copy = self.is_working_copy_writable();
+        WorkspaceCommandHelper::new(ui, workspace, repo, env, may_snapshot_working_copy)
     }
 
     pub fn get_working_copy_factory(&self) -> Result<&dyn WorkingCopyFactory, CommandError> {
@@ -760,8 +761,10 @@ impl CommandHelper {
         repo: Arc<ReadonlyRepo>,
     ) -> Result<WorkspaceCommandHelper, CommandError> {
         let env = self.workspace_environment(ui, &workspace)?;
-        let loaded_at_head = true;
-        WorkspaceCommandHelper::new(ui, workspace, repo, env, loaded_at_head)
+        // No is_at_head_operation() check here because the repo isn't loaded at
+        // the specified operation.
+        let may_snapshot_working_copy = !self.global_args().ignore_working_copy;
+        WorkspaceCommandHelper::new(ui, workspace, repo, env, may_snapshot_working_copy)
     }
 }
 
@@ -1159,13 +1162,11 @@ impl WorkspaceCommandHelper {
         workspace: Workspace,
         repo: Arc<ReadonlyRepo>,
         env: WorkspaceCommandEnvironment,
-        loaded_at_head: bool,
+        may_snapshot_working_copy: bool,
     ) -> Result<Self, CommandError> {
         let settings = workspace.settings();
         let commit_summary_template_text = settings.get_string("templates.commit_summary")?;
         let op_summary_template_text = settings.get_string("templates.op_summary")?;
-        let may_snapshot_working_copy =
-            loaded_at_head && !env.command.global_args().ignore_working_copy;
         let may_update_working_copy =
             may_snapshot_working_copy && env.command.should_commit_transaction();
         let working_copy_shared_with_git =
