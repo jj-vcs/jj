@@ -16,11 +16,13 @@ use std::collections::HashMap;
 use std::io::Write as _;
 use std::path::Path;
 use std::process::Stdio;
+use std::sync::Mutex;
 
 use clap_complete::ArgValueCompleter;
 use futures::AsyncReadExt as _;
 use futures::TryStreamExt as _;
 use itertools::Itertools as _;
+use jj_lib::backend::CommitId;
 use jj_lib::backend::FileId;
 use jj_lib::commit::Commit;
 use jj_lib::fileset;
@@ -36,6 +38,7 @@ use jj_lib::fix::compute_changed_ranges;
 use jj_lib::fix::compute_file_line_count;
 use jj_lib::fix::fix_files;
 use jj_lib::matchers::Matcher;
+use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::revset::RevsetStreamExt as _;
@@ -46,6 +49,7 @@ use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::WorkspaceCommandTransaction;
 use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
 use crate::command_error::config_error;
@@ -230,29 +234,47 @@ pub(crate) async fn cmd_fix(
     let matcher = fileset_expression.to_matcher();
 
     let mut tx = workspace_command.start_transaction();
+    let failures = Mutex::new(Vec::new());
+    let ctx = FixContext {
+        ui,
+        workspace_root: &workspace_root,
+        path_converter: &path_converter,
+        tools_config: &tools_config,
+        all_lines: args.all_lines,
+        failures: &failures,
+    };
     let mut parallel_fixer = ParallelFileFixer::new(|store, file_to_fix| {
-        fix_one_file(
-            ui,
-            &workspace_root,
-            &path_converter,
-            &tools_config,
-            store,
-            file_to_fix,
-            args.all_lines,
-        )
-        .block_on()
+        fix_one_file(&ctx, store, file_to_fix).block_on()
     });
 
     print_unmatched_explicit_paths(ui, tx.base_workspace_helper(), &fileset_expression, &trees)?;
 
-    let summary = fix_files(
+    let result = fix_files(
         commit_ids,
         &matcher,
         args.include_unchanged_files,
         tx.repo_mut(),
         &mut parallel_fixer,
     )
-    .await?;
+    .await;
+    // Report collected failures even if fixing errored partway, so their
+    // warnings aren't lost. Without a summary we can only name the path.
+    let empty_commits = HashMap::new();
+    let empty_rewrites = HashMap::new();
+    let (commits_by_file, rewrites) = match &result {
+        Ok(summary) => (&summary.commits_by_file, &summary.rewrites),
+        Err(_) => (&empty_commits, &empty_rewrites),
+    };
+    report_tool_failures(
+        ui,
+        &tx,
+        &path_converter,
+        &commits,
+        commits_by_file,
+        rewrites,
+        failures.into_inner().unwrap(),
+    )?;
+    let summary = result?;
     writeln!(
         ui.status(),
         "Fixed {} commits of {} checked.",
@@ -263,28 +285,132 @@ pub(crate) async fn cmd_fix(
         .await
 }
 
+struct FixFailure {
+    file_to_fix: FileToFix,
+    tool_name: String,
+    kind: FixFailureKind,
+}
+
+enum FixFailureKind {
+    FailedToStart,
+    FailedToRun,
+    NonZeroExit,
+}
+
+fn report_tool_failures(
+    ui: &Ui,
+    tx: &WorkspaceCommandTransaction,
+    path_converter: &RepoPathUiConverter,
+    commits: &[Commit],
+    commits_by_file: &HashMap<FileToFix, Vec<CommitId>>,
+    rewrites: &HashMap<CommitId, CommitId>,
+    mut failures: Vec<FixFailure>,
+) -> Result<(), CommandError> {
+    let commit_index: HashMap<&CommitId, usize> = commits
+        .iter()
+        .enumerate()
+        .map(|(i, c)| (c.id(), i))
+        .collect();
+    // Sort ancestors-first: commits are listed descendants-first, so a larger
+    // index is an older ancestor. The trailing fields just make the key total.
+    failures.sort_by_cached_key(|failure| {
+        let ancestor_rank = commits_by_file
+            .get(&failure.file_to_fix)
+            .and_then(|ids| ids.first())
+            .and_then(|id| commit_index.get(id).copied())
+            .map(|index| commits.len() - index)
+            .unwrap_or(0);
+        (
+            ancestor_rank,
+            failure.file_to_fix.repo_path.clone(),
+            failure.file_to_fix.file_id.hex(),
+            failure.file_to_fix.base_file_id.as_ref().map(|id| id.hex()),
+            failure.tool_name.clone(),
+        )
+    });
+    for failure in failures {
+        let path = path_converter.format_file_path(&failure.file_to_fix.repo_path);
+        let summaries = commits_by_file
+            .get(&failure.file_to_fix)
+            .into_iter()
+            .flatten()
+            // Follow rewrites so we show the current commit, not a pre-fix one
+            // hidden by fixes to its other files.
+            .map(|id| rewrites.get(id).unwrap_or(id))
+            .filter_map(|id| {
+                tx.repo()
+                    .store()
+                    .get_commit(id)
+                    .inspect_err(|err| {
+                        tracing::debug!(?err, ?id, "failed to load commit for fix failure report");
+                    })
+                    .ok()
+            })
+            .map(|commit| tx.format_commit_summary(&commit))
+            .collect_vec();
+        let verb = match failure.kind {
+            FixFailureKind::FailedToStart => "failed to start",
+            FixFailureKind::FailedToRun => "failed to run",
+            FixFailureKind::NonZeroExit => "exited with non-zero exit code",
+        };
+        let mut writer = ui.warning_default();
+        match summaries.as_slice() {
+            [] => {
+                write!(
+                    writer,
+                    "Fix tool `{}` {verb} for `{path}`",
+                    failure.tool_name
+                )?;
+            }
+            [summary] => {
+                write!(
+                    writer,
+                    "Fix tool `{}` {verb} for `{path}` in {summary}",
+                    failure.tool_name
+                )?;
+            }
+            summaries => {
+                write!(
+                    writer,
+                    "Fix tool `{}` {verb} for `{path}` in commits:",
+                    failure.tool_name
+                )?;
+                for summary in summaries {
+                    write!(writer, "\n  {summary}")?;
+                }
+            }
+        }
+        writeln!(writer)?;
+    }
+    Ok(())
+}
+
+/// Shared context for fixing files with the configured tools.
+struct FixContext<'a> {
+    ui: &'a Ui,
+    workspace_root: &'a Path,
+    path_converter: &'a RepoPathUiConverter,
+    tools_config: &'a ToolsConfig,
+    all_lines: bool,
+    failures: &'a Mutex<Vec<FixFailure>>,
+}
+
 /// Invokes all matching tools (if any) to file_to_fix. If the content is
 /// successfully transformed the new content is written and the new FileId is
 /// returned. Returns None if the content is unchanged.
 ///
 /// The matching tools are invoked in order, with the result of one tool feeding
 /// into the next tool. Returns FixError if there is an error reading or writing
-/// the file. However, if a tool invocation fails for whatever reason, the tool
-/// is simply skipped and we proceed to invoke the next tool (this is
-/// indistinguishable from succeeding with no changes).
-///
-/// TODO: Better error handling so we can tell the user what went wrong with
-/// each failed input.
+/// the file. If a tool invocation fails, the tool is skipped and we proceed to
+/// the next one, recording a `FixFailure` in `ctx.failures` so the caller can
+/// report which commit(s) it ran on.
 async fn fix_one_file(
-    ui: &Ui,
-    workspace_root: &Path,
-    path_converter: &RepoPathUiConverter,
-    tools_config: &ToolsConfig,
+    ctx: &FixContext<'_>,
     store: &Store,
     file_to_fix: &FileToFix,
-    all_lines_arg: bool,
 ) -> Result<Option<FileId>, FixError> {
-    let mut matching_tools = tools_config
+    let mut matching_tools = ctx
+        .tools_config
         .tools
         .iter()
         .filter(|tool_config| tool_config.matcher.matches(&file_to_fix.repo_path))
@@ -312,7 +438,7 @@ async fn fix_one_file(
     }
 
     // Load the base content from the file_to_fix (if exists) iff any tool needs it.
-    let base_content = if all_lines_arg {
+    let base_content = if ctx.all_lines {
         None
     } else {
         match &file_to_fix.base_file_id {
@@ -350,19 +476,23 @@ async fn fix_one_file(
         }
 
         match run_tool(
-            ui,
-            workspace_root,
-            path_converter,
+            ctx.ui,
+            ctx.workspace_root,
+            ctx.path_converter,
             &tool_config.command,
             file_to_fix,
             &prev_content,
             &extra_args,
         ) {
             Ok(next_content) => next_content,
-            // TODO: Because the stderr is passed through, this isn't always failing
-            // silently, but it should do something better will the exit code, tool
-            // name, etc.
-            Err(()) => prev_content,
+            Err(kind) => {
+                ctx.failures.lock().unwrap().push(FixFailure {
+                    file_to_fix: file_to_fix.clone(),
+                    tool_name: tool_config.command.split_name().into_owned(),
+                    kind,
+                });
+                prev_content
+            }
         }
     });
 
@@ -404,9 +534,9 @@ pub fn compute_regions_to_format(
 /// The `old_content` is assumed to be that of the `file_to_fix`'s `FileId`, but
 /// this is not verified.
 ///
-/// Returns the new file content, whose value will be the same as `old_content`
-/// unless the command introduced changes. Returns `None` if there were any
-/// failures when starting, stopping, or communicating with the subprocess.
+/// Returns the tool's stdout on success. The tool's own stderr is passed
+/// through to the user regardless of outcome; on failure a `FixFailureKind`
+/// describing why is returned so the caller can report it with commit context.
 fn run_tool(
     ui: &Ui,
     workspace_root: &Path,
@@ -415,7 +545,7 @@ fn run_tool(
     file_to_fix: &FileToFix,
     old_content: &[u8],
     extra_args: &[String],
-) -> Result<Vec<u8>, ()> {
+) -> Result<Vec<u8>, FixFailureKind> {
     let mut vars: HashMap<&str, &str> = HashMap::new();
     vars.insert("path", file_to_fix.repo_path.as_internal_file_string());
     // TODO: workspace_root.to_str() returns None if the workspace path is not
@@ -438,13 +568,7 @@ fn run_tool(
         .stderr(Stdio::piped())
         .spawn()
     else {
-        writeln!(
-            ui.warning_default(),
-            "Failed to start `{}`.",
-            tool_command.split_name(),
-        )
-        .ok();
-        return Err(());
+        return Err(FixFailureKind::FailedToStart);
     };
     let mut stdin = child.stdin.take().expect(
         "The child process is created with piped stdin, and it's our first access to stdin.",
@@ -453,7 +577,9 @@ fn run_tool(
         s.spawn(move || {
             stdin.write_all(old_content).ok();
         });
-        child.wait_with_output().or(Err(()))
+        child
+            .wait_with_output()
+            .or(Err(FixFailureKind::FailedToRun))
     })?;
     tracing::debug!(?command, ?output.status, "fix tool exited:");
     if !output.stderr.is_empty() {
@@ -470,14 +596,7 @@ fn run_tool(
     if output.status.success() {
         Ok(output.stdout)
     } else {
-        writeln!(
-            ui.warning_default(),
-            "Fix tool `{}` exited with non-zero exit code for `{}`",
-            tool_command.split_name(),
-            path_converter.format_file_path(&file_to_fix.repo_path)
-        )
-        .ok();
-        Err(())
+        Err(FixFailureKind::NonZeroExit)
     }
 }
 
