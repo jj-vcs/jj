@@ -870,6 +870,7 @@ pub struct WorkspaceCommandEnvironment {
     template_aliases_map: TemplateAliasesMap,
     default_ignored_remote: Option<&'static RemoteName>,
     path_converter: RepoPathUiConverter,
+    working_copy_shared_with_git: bool,
     workspace_name: WorkspaceNameBuf,
     immutable_heads_expression: Arc<UserRevsetExpression>,
     short_prefixes_expression: Option<Arc<UserRevsetExpression>>,
@@ -888,6 +889,7 @@ impl WorkspaceCommandEnvironment {
             cwd: command.cwd().to_owned(),
             base: workspace.workspace_root().to_owned(),
         };
+        let working_copy_shared_with_git = crate::git_util::is_colocated_git_workspace(workspace);
         let mut env = Self {
             command: command.clone(),
             settings: settings.clone(),
@@ -896,6 +898,7 @@ impl WorkspaceCommandEnvironment {
             template_aliases_map,
             default_ignored_remote,
             path_converter,
+            working_copy_shared_with_git,
             workspace_name: workspace.workspace_name().to_owned(),
             immutable_heads_expression: RevsetExpression::root(),
             short_prefixes_expression: None,
@@ -1131,7 +1134,6 @@ pub struct WorkspaceCommandHelper {
     op_summary_template_text: String,
     may_snapshot_working_copy: bool,
     may_update_working_copy: bool,
-    working_copy_shared_with_git: bool,
 }
 
 enum SnapshotWorkingCopyError {
@@ -1169,7 +1171,6 @@ impl WorkspaceCommandHelper {
         let op_summary_template_text = settings.get_string("templates.op_summary")?;
         let may_update_working_copy =
             may_snapshot_working_copy && env.command.should_commit_transaction();
-        let working_copy_shared_with_git = crate::git_util::is_colocated_git_workspace(&workspace);
 
         let helper = Self {
             workspace,
@@ -1179,7 +1180,6 @@ impl WorkspaceCommandHelper {
             op_summary_template_text,
             may_snapshot_working_copy,
             may_update_working_copy,
-            working_copy_shared_with_git,
         };
         // Parse commit_summary template early to report error before starting
         // mutable operation.
@@ -1214,7 +1214,7 @@ impl WorkspaceCommandHelper {
     /// that need to import from or export to Git. For non-colocated repos,
     /// returns a token with no lock inside.
     fn lock_git_import_export(&self) -> Result<GitImportExportLock, CommandError> {
-        let lock = if self.working_copy_shared_with_git {
+        let lock = if self.env.working_copy_shared_with_git {
             let lock_path = self.workspace.repo_path().join("git_import_export.lock");
             Some(FileLock::lock(lock_path.clone()).map_err(|err| {
                 user_error_with_message("Failed to take lock for Git import/export", err)
@@ -1246,7 +1246,7 @@ impl WorkspaceCommandHelper {
 
         // Reload at current head to avoid creating divergent operations if another
         // process committed an operation while we were waiting for the lock.
-        if self.working_copy_shared_with_git {
+        if self.env.working_copy_shared_with_git {
             let repo = self.repo().clone();
             let op_heads_store = repo.loader().op_heads_store();
             let op_heads = op_heads_store
@@ -1269,7 +1269,7 @@ impl WorkspaceCommandHelper {
         }
 
         #[cfg(feature = "git")]
-        if self.working_copy_shared_with_git {
+        if self.env.working_copy_shared_with_git {
             self.import_git_head(ui, &git_import_export_lock)
                 .await
                 .map_err(snapshot_command_error)?;
@@ -1284,7 +1284,7 @@ impl WorkspaceCommandHelper {
 
         // import_git_refs() can rebase the working-copy commit.
         #[cfg(feature = "git")]
-        if self.working_copy_shared_with_git {
+        if self.env.working_copy_shared_with_git {
             self.import_git_refs(ui, &git_import_export_lock)
                 .await
                 .map_err(snapshot_command_error)?;
@@ -1522,7 +1522,7 @@ to the current parents may contain changes from multiple commits.
     }
 
     pub fn working_copy_shared_with_git(&self) -> bool {
-        self.working_copy_shared_with_git
+        self.env.working_copy_shared_with_git
     }
 
     pub fn format_file_path(&self, file: &RepoPath) -> String {
@@ -2118,7 +2118,8 @@ to the current parents may contain changes from multiple commits.
             }
 
             #[cfg(feature = "git")]
-            if self.working_copy_shared_with_git && self.env.command.should_commit_transaction() {
+            if self.env.working_copy_shared_with_git && self.env.command.should_commit_transaction()
+            {
                 if wc_immutable {
                     // New working-copy commit is created on top. Reset Git HEAD and index.
                     try_reset_git_head(ui, mut_repo, &new_wc_commit, git_import_export_lock)
@@ -2158,7 +2159,7 @@ to the current parents may contain changes from multiple commits.
         }
 
         #[cfg(feature = "git")]
-        if self.working_copy_shared_with_git
+        if self.env.working_copy_shared_with_git
             && let Ok(resolved_tree) = new_tree
                 .trees()
                 .await
@@ -2311,7 +2312,7 @@ to the current parents may contain changes from multiple commits.
         };
 
         #[cfg(feature = "git")]
-        if self.working_copy_shared_with_git && self.env.command.should_commit_transaction() {
+        if self.env.working_copy_shared_with_git && self.env.command.should_commit_transaction() {
             if let Some(wc_commit) = &maybe_new_wc_commit {
                 try_reset_git_head(ui, tx.repo_mut(), wc_commit, git_import_export_lock).await?;
             }
