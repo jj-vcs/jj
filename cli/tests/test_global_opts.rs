@@ -199,6 +199,352 @@ fn test_no_subcommand() {
 }
 
 #[test]
+fn test_deprecated_removed_command_hints() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj(["op", "undo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unrecognized subcommand 'undo'
+
+    Usage: jj operation [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    Hint: Use `jj undo` to undo the latest operation. Use `jj op revert` to revert a specific operation.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["op", "redo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unrecognized subcommand 'redo'
+
+    Usage: jj operation [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    Hint: Use `jj redo` instead.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["backout"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unrecognized subcommand 'backout'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    Hint: Use `jj revert` instead.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["branch", "list"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unrecognized subcommand 'branch'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    Hint: Use `jj bookmark` and its subcommands instead.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["cat", "file"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unrecognized subcommand 'cat'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    Hint: Use `jj file show` instead.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["chmod", "x", "file"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unrecognized subcommand 'chmod'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    Hint: Use `jj file chmod` instead.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["checkout"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unrecognized subcommand 'checkout'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    Hint: Use `jj new` instead.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["co"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unrecognized subcommand 'co'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    Hint: Use `jj new` instead.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["files"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unrecognized subcommand 'files'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    Hint: Use `jj file list` instead.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["merge"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unrecognized subcommand 'merge'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    Hint: Use `jj new` instead.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["move"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unrecognized subcommand 'move'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    Hint: Use `jj squash` instead.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["util", "mangen"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unrecognized subcommand 'mangen'
+
+    Usage: jj util [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    Hint: Use `jj util install-man-pages` instead.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["untrack", "file"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unrecognized subcommand 'untrack'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    Hint: Use `jj file untrack` instead.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["unsquash"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unrecognized subcommand 'unsquash'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    Hint: Use `jj squash` or `jj diffedit --restore-descendants` instead.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["log", "-l", "5"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unexpected argument '-l' found
+
+    For more information, try '--help'.
+    Hint: Use `-n` instead.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["op", "log", "-l", "5"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unexpected argument '-l' found
+
+    For more information, try '--help'.
+    Hint: Use `-n` instead.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["git", "push", "--allow-new"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unexpected argument '--allow-new' found
+
+    For more information, try '--help'.
+    Hint: Push a specific bookmark with `jj git push --bookmark <name>` instead.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["commit", "--reset-author"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unexpected argument '--reset-author' found
+
+    For more information, try '--help'.
+    Hint: Use `jj metaedit --update-author` instead.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["commit", "--author", "A. U. Thor <author@example.com>"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unexpected argument '--author' found
+
+    For more information, try '--help'.
+    Hint: Use `jj metaedit --author <author>` instead.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["describe", "--edit"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unexpected argument '--edit' found
+
+    For more information, try '--help'.
+    Hint: Use `jj describe --editor` instead.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["describe", "--no-edit"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unexpected argument '--no-edit' found
+
+    For more information, try '--help'.
+    Hint: Omit `--no-edit`; `jj describe --message <message>` already avoids opening an editor.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["rebase", "--skip-empty"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unexpected argument '--skip-empty' found
+
+    For more information, try '--help'.
+    Hint: Use `jj rebase --skip-emptied` instead.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["split", "--siblings"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unexpected argument '--siblings' found
+
+    For more information, try '--help'.
+    Hint: Use `jj split --parallel` instead.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["abandon", "--summary"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unexpected argument '--summary' found
+
+    For more information, try '--help'.
+    Hint: Omit `--summary`; `jj abandon` now limits the abandoned commit list automatically.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["metaedit", "--update-committer-timestamp"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unexpected argument '--update-committer-timestamp' found
+
+    For more information, try '--help'.
+    Hint: Use `jj metaedit --force-rewrite` instead.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["describe", "--reset-author"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unexpected argument '--reset-author' found
+
+    For more information, try '--help'.
+    Hint: Use `jj metaedit --update-author` instead.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["describe", "--author", "A. U. Thor <author@example.com>"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unexpected argument '--author' found
+
+    For more information, try '--help'.
+    Hint: Use `jj metaedit --author <author>` instead.
+    [EOF]
+    [exit status: 2]
+    ");
+}
+
+#[test]
+fn test_soft_deprecated_command_still_runs() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj(["debug", "snapshot"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: `jj debug snapshot` is deprecated; use `jj util snapshot` instead
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_ignore_working_copy() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
