@@ -959,6 +959,23 @@ impl WorkspaceCommandEnvironment {
         &self.workspace_name
     }
 
+    /// Acquires a lock for Git import/export operations if the workspace is
+    /// supposed to be colocated.
+    fn lock_git_import_export(
+        &self,
+        workspace: &Workspace,
+    ) -> Result<GitImportExportLock, CommandError> {
+        let lock = if self.working_copy_shared_with_git {
+            let lock_path = workspace.repo_path().join("git_import_export.lock");
+            Some(FileLock::lock(lock_path).map_err(|err| {
+                user_error_with_message("Failed to take lock for Git import/export", err)
+            })?)
+        } else {
+            None
+        };
+        Ok(GitImportExportLock { _lock: lock })
+    }
+
     /// Parsing context for fileset expressions specified by command arguments.
     pub(crate) fn fileset_parse_context(&self) -> FilesetParseContext<'_> {
         FilesetParseContext {
@@ -1252,15 +1269,7 @@ impl WorkspaceCommandHelper {
     /// that need to import from or export to Git. For non-colocated repos,
     /// returns a token with no lock inside.
     fn lock_git_import_export(&self) -> Result<GitImportExportLock, CommandError> {
-        let lock = if self.env.working_copy_shared_with_git {
-            let lock_path = self.workspace.repo_path().join("git_import_export.lock");
-            Some(FileLock::lock(lock_path.clone()).map_err(|err| {
-                user_error_with_message("Failed to take lock for Git import/export", err)
-            })?)
-        } else {
-            None
-        };
-        Ok(GitImportExportLock { _lock: lock })
+        self.env.lock_git_import_export(&self.workspace)
     }
 
     /// Note that unless you have a good reason not to do so, you should always
