@@ -471,7 +471,9 @@ impl CommandHelper {
         &self,
         ui: &Ui,
     ) -> Result<(WorkspaceCommandHelper, SnapshotStats), CommandError> {
-        let mut workspace_command = self.workspace_helper_no_snapshot(ui).await?;
+        let workspace = self.load_workspace()?;
+        let env = self.workspace_environment(ui, &workspace)?;
+        let mut workspace_command = self.load_from_workspace(ui, workspace, env).await?;
         if !self.is_working_copy_writable() {
             return Ok((workspace_command, SnapshotStats::default()));
         }
@@ -504,10 +506,19 @@ impl CommandHelper {
         ui: &Ui,
     ) -> Result<WorkspaceCommandHelper, CommandError> {
         let workspace = self.load_workspace()?;
+        let env = self.workspace_environment(ui, &workspace)?;
+        self.load_from_workspace(ui, workspace, env).await
+    }
+
+    async fn load_from_workspace(
+        &self,
+        ui: &Ui,
+        workspace: Workspace,
+        mut env: WorkspaceCommandEnvironment,
+    ) -> Result<WorkspaceCommandHelper, CommandError> {
         let op_head =
             self.resolve_operation(ui, workspace.repo_loader(), workspace.workspace_name())?;
         let repo = workspace.repo_loader().load_at(&op_head).await?;
-        let mut env = self.workspace_environment(ui, &workspace)?;
         if let Err(err) =
             revset_util::try_resolve_trunk_alias(repo.as_ref(), &env.revset_parse_context())
         {
@@ -609,10 +620,11 @@ impl CommandHelper {
                 };
 
                 let wc_commit_id = workspace_command.get_wc_commit_id().unwrap();
-                let repo = workspace_command.repo().clone();
+                let repo = workspace_command.repo();
                 let stale_wc_commit = repo.store().get_commit_async(wc_commit_id).await?;
 
-                let mut workspace_command = self.workspace_helper_no_snapshot(ui).await?;
+                let WorkspaceCommandHelper { workspace, env, .. } = workspace_command;
+                let mut workspace_command = self.load_from_workspace(ui, workspace, env).await?;
 
                 let repo = workspace_command.repo().clone();
                 let (mut locked_ws, desired_wc_commit) = workspace_command
@@ -679,7 +691,8 @@ impl CommandHelper {
                      message from read attempt: {e}"
                 )?;
 
-                let mut workspace_command = self.workspace_helper_no_snapshot(ui).await?;
+                let env = self.workspace_environment(ui, &workspace)?;
+                let mut workspace_command = self.load_from_workspace(ui, workspace, env).await?;
                 let stats = workspace_command
                     .create_and_check_out_recovery_commit(ui)
                     .await?;
