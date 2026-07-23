@@ -72,6 +72,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* `jj git fetch` and `jj git import` no longer create divergent changes when
+  another process concurrently commits an operation. The Git ref import now runs
+  on the latest operation under the Git import/export lock.
+
 * Recursive alias definitions are detected more precisely. jj can now expand
   aliases that are simply repeated. For example, with the alias `jj = []`, the
   command `jj jj jj` will resolve to `jj`. Aliases can also fall back to the

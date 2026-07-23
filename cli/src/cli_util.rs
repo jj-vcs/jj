@@ -2266,16 +2266,24 @@ to the current parents may contain changes from multiple commits.
     }
 
     /// Starts a transaction for importing Git refs. Takes the Git import/export
-    /// lock, so a concurrent snapshot can't import refs while the transaction
-    /// is open. The lock is held until the transaction is finished.
+    /// lock and reloads to the latest operation, so the import can't repeat a
+    /// rewrite that a concurrent operation (e.g. a snapshot) already committed,
+    /// which would create divergent changes. The lock is held until the
+    /// transaction is finished.
     ///
     /// Don't trigger anything that takes the same lock while the transaction
     /// is open.
     #[cfg(feature = "git")]
-    pub fn start_git_import_transaction(
+    pub async fn start_git_import_transaction(
         &mut self,
+        ui: &Ui,
     ) -> Result<WorkspaceCommandTransaction<'_>, CommandError> {
         let lock = self.lock_git_import_export()?;
+        // Under --at-op the command must run on the operation the user named,
+        // even if the heads have moved on.
+        if self.env.command.should_commit_transaction() && self.env.command.is_at_head_operation() {
+            self.reload_repo_at_head(ui).await?;
+        }
         let mut tx = self.start_transaction();
         tx.git_import_lock = Some(lock);
         Ok(tx)
