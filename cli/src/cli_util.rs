@@ -1247,25 +1247,9 @@ impl WorkspaceCommandHelper {
         // Reload at current head to avoid creating divergent operations if another
         // process committed an operation while we were waiting for the lock.
         if self.working_copy_shared_with_git {
-            let repo = self.repo().clone();
-            let op_heads_store = repo.loader().op_heads_store();
-            let op_heads = op_heads_store
-                .get_op_heads()
+            self.reload_repo_at_head(ui)
                 .await
                 .map_err(snapshot_command_error)?;
-            if std::slice::from_ref(repo.op_id()) != op_heads {
-                let op = self
-                    .env
-                    .command
-                    .resolve_operation(ui, repo.loader(), self.workspace_name())
-                    .map_err(snapshot_command_error)?;
-                let current_repo = repo
-                    .loader()
-                    .load_at(&op)
-                    .await
-                    .map_err(snapshot_command_error)?;
-                self.user_repo = ReadonlyUserRepo::new(current_repo);
-            }
         }
 
         #[cfg(feature = "git")]
@@ -1290,6 +1274,24 @@ impl WorkspaceCommandHelper {
                 .map_err(snapshot_command_error)?;
         }
         Ok(stats)
+    }
+
+    /// Reloads the repo at the current operation head if it has advanced since
+    /// this command loaded it, e.g. because another process committed an
+    /// operation.
+    pub async fn reload_repo_at_head(&mut self, ui: &Ui) -> Result<(), CommandError> {
+        let repo = self.repo().clone();
+        let op_heads_store = repo.loader().op_heads_store();
+        let op_heads = op_heads_store.get_op_heads().await?;
+        if std::slice::from_ref(repo.op_id()) != op_heads {
+            let op =
+                self.env
+                    .command
+                    .resolve_operation(ui, repo.loader(), self.workspace_name())?;
+            let current_repo = repo.loader().load_at(&op).await?;
+            self.user_repo = ReadonlyUserRepo::new(current_repo);
+        }
+        Ok(())
     }
 
     /// Snapshots the working copy if allowed, and imports Git refs if the
