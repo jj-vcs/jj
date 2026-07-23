@@ -1169,8 +1169,7 @@ impl WorkspaceCommandHelper {
         let op_summary_template_text = settings.get_string("templates.op_summary")?;
         let may_update_working_copy =
             may_snapshot_working_copy && env.command.should_commit_transaction();
-        let working_copy_shared_with_git =
-            crate::git_util::is_colocated_git_workspace(&workspace, &repo);
+        let working_copy_shared_with_git = crate::git_util::is_colocated_git_workspace(&workspace);
 
         let helper = Self {
             workspace,

@@ -35,7 +35,7 @@ pub mod git_util {
     use jj_lib::repo::ReadonlyRepo;
     use jj_lib::workspace::Workspace;
 
-    pub fn is_colocated_git_workspace(_workspace: &Workspace, _repo: &ReadonlyRepo) -> bool {
+    pub fn is_colocated_git_workspace(_workspace: &Workspace) -> bool {
         false
     }
 
