@@ -58,8 +58,8 @@ use crate::revset_util::parse_remote_auto_track_bookmarks_map;
 use crate::ui::ProgressOutput;
 use crate::ui::Ui;
 
-pub fn is_colocated_git_workspace(workspace: &Workspace, repo: &ReadonlyRepo) -> bool {
-    let Ok(git_backend) = git::get_git_backend(repo.store()) else {
+pub fn is_colocated_git_workspace(workspace: &Workspace) -> bool {
+    let Ok(git_backend) = git::get_git_backend(workspace.repo_loader().store()) else {
         return false;
     };
     let Some(git_workdir) = git_backend.git_workdir() else {
