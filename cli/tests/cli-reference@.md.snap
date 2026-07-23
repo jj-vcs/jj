@@ -1083,24 +1083,21 @@ Show how a change has evolved over time
 
 Lists the previous commits which a change has pointed to. The commit of a change evolves when the change is updated, rebased, etc.
 
-**Usage:** `jj evolog [OPTIONS] [FILESETS]...`
+**Usage:** `jj evolog [OPTIONS] [REVSETS]...`
 
 **Command Alias:** `evolution-log`
 
 ###### **Arguments:**
 
-* `<FILESETS>` — Show revisions modifying the given paths
+* `<REVSETS>` — The revision(s) to follow changes for (default: @) [aliases: -r]
 
 ###### **Options:**
 
-* `-r`, `--revisions <REVSETS>` — The revision(s) to follow changes for
-
-  Default value: `@`
 * `-n`, `--limit <LIMIT>` — Limit number of revisions to show
 
    Applied after revisions are reordered topologically, but before being reversed.
 * `--reversed` — Show revisions in the opposite order (older revisions first)
-* `-G`, `--no-graph` — Don't show the graph, show a flat list of revisions
+* `-G`, `--no-graph` — Show a flat list of revisions instead of a graph
 * `-T`, `--template <TEMPLATE>` — Render each revision using the given template
 
    All 0-argument methods of the [`CommitEvolutionEntry` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
@@ -2072,7 +2069,7 @@ The working-copy commit is indicated by a `@` symbol in the graph. [Immutable re
 
    Applied after revisions are filtered and reordered topologically, but before being reversed.
 * `--reversed` — Show revisions in the opposite order (older revisions first)
-* `-G`, `--no-graph` — Don't show the graph, show a flat list of revisions
+* `-G`, `--no-graph` — Show a flat list of revisions instead of a graph
 * `-T`, `--template <TEMPLATE>` — Render each revision using the given template
 
    Run `jj log -T` to list the built-in templates.
@@ -2344,7 +2341,7 @@ Compare changes to the repository between two operations
 * `--operation <OPERATION>` [alias: `op`] — Show repository changes in this operation, compared to its parent
 * `-f`, `--from <FROM>` — Show repository changes from this operation
 * `-t`, `--to <TO>` — Show repository changes to this operation
-* `-G`, `--no-graph` — Don't show the graph, show a flat list of modified changes
+* `-G`, `--no-graph` — Show a flat list of modified changes instead of a graph
 * `-p`, `--patch` — Show patch of modifications to changes
 
    If the previous version has different parents, it will be temporarily rebased to the parents of the new version, so the diff is not contaminated by unrelated changes.
@@ -2400,7 +2397,7 @@ Like other commands, `jj op log` snapshots the current working-copy changes and 
 
    Applied after operations are reordered topologically, but before being reversed.
 * `--reversed` — Show operations in the opposite order (older operations first)
-* `-G`, `--no-graph` — Don't show the graph, show a flat list of operations
+* `-G`, `--no-graph` — Show a flat list of operations instead of a graph
 * `-T`, `--template <TEMPLATE>` — Render each operation using the given template
 
    You can specify arbitrary template expressions using the [built-in keywords]. See [`jj help -k templates`] for more information.
@@ -2512,7 +2509,7 @@ Show changes to the repository in an operation
 
 ###### **Options:**
 
-* `-G`, `--no-graph` — Don't show the graph, show a flat list of modified changes
+* `-G`, `--no-graph` — Show a flat list of modified changes instead of a graph
 * `-T`, `--template <TEMPLATE>` — Render the operation using the given template
 
    You can specify arbitrary template expressions using the [built-in keywords]. See [`jj help -k templates`] for more information.
