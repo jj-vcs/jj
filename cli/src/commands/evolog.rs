@@ -20,6 +20,7 @@ use futures::TryStreamExt as _;
 use futures::stream;
 use futures::stream::LocalBoxStream;
 use itertools::Itertools as _;
+use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::evolution::CommitEvolutionEntry;
 use jj_lib::evolution::walk_predecessors;
@@ -43,20 +44,18 @@ use crate::ui::Ui;
 
 /// Show how a change has evolved over time
 ///
-/// Lists the previous commits which a change has pointed to. The current commit
-/// of a change evolves when the change is updated, rebased, etc.
+/// Lists the previous commits which a change has pointed to. The commit of a
+/// change evolves when the change is updated, rebased, etc.
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct EvologArgs {
-    /// Follow changes from these revisions
-    #[arg(
-        long,
-        short,
-        default_value = "@",
-        value_name = "REVSETS",
-        alias = "revision"
-    )]
+    /// The revision(s) to follow changes for (default: @) [aliases: -r]
+    #[arg(value_name = "REVSETS")]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
-    revisions: Vec<RevisionArg>,
+    revisions_pos: Vec<RevisionArg>,
+
+    #[arg(short, hide = true, value_name = "REVSETS")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
+    revisions_opt: Vec<RevisionArg>,
 
     /// Limit number of revisions to show
     ///
@@ -69,7 +68,7 @@ pub(crate) struct EvologArgs {
     #[arg(long)]
     reversed: bool,
 
-    /// Don't show the graph, show a flat list of revisions
+    /// Show a flat list of revisions instead of a graph
     #[arg(long, short = 'G')]
     no_graph: bool,
 
@@ -110,8 +109,13 @@ pub(crate) async fn cmd_evolog(
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui).await?;
 
-    let start_commit_ids: Vec<_> = workspace_command
-        .parse_union_revsets(ui, &args.revisions)?
+    let start_commit_ids: Vec<CommitId> =
+        if !args.revisions_pos.is_empty() || !args.revisions_opt.is_empty() {
+            workspace_command
+                .parse_union_revsets(ui, &[&*args.revisions_pos, &*args.revisions_opt].concat())?
+        } else {
+            workspace_command.parse_revset(ui, &RevisionArg::AT)?
+        }
         .evaluate_to_commit_ids()?
         .try_collect()
         .await?;

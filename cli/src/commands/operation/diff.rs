@@ -83,7 +83,7 @@ pub struct OperationDiffArgs {
     #[arg(add = ArgValueCandidates::new(complete::operations))]
     to: Option<String>,
 
-    /// Don't show the graph, show a flat list of modified changes
+    /// Show a flat list of modified changes instead of a graph
     #[arg(long, short = 'G')]
     no_graph: bool,
 
