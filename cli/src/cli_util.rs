@@ -491,7 +491,9 @@ impl CommandHelper {
                 // auto-update-stale, so let's do that now. We need to do it up here, not at a
                 // lower level (e.g. inside snapshot_working_copy()) to avoid recursive locking
                 // of the working copy.
-                self.recover_stale_working_copy(ui).await?
+                let WorkspaceCommandHelper { workspace, env, .. } = workspace_command;
+                self.recover_stale_working_copy_impl(ui, workspace, env)
+                    .await?
             }
         };
 
@@ -599,12 +601,31 @@ impl CommandHelper {
         ui: &Ui,
     ) -> Result<(WorkspaceCommandHelper, SnapshotStats), CommandError> {
         let workspace = self.load_workspace()?;
+        let env = self.workspace_environment(ui, &workspace)?;
+        self.recover_stale_working_copy_impl(ui, workspace, env)
+            .await
+    }
+
+    async fn recover_stale_working_copy_impl(
+        &self,
+        ui: &Ui,
+        workspace: Workspace,
+        env: WorkspaceCommandEnvironment,
+    ) -> Result<(WorkspaceCommandHelper, SnapshotStats), CommandError> {
         let op_id = workspace.working_copy().operation_id();
 
         match workspace.repo_loader().load_operation(op_id).await {
             Ok(op) => {
+                // self.for_workable_repo(), but reuse loaded env.
                 let repo = workspace.repo_loader().load_at(&op).await?;
-                let mut workspace_command = self.for_workable_repo(ui, workspace, repo)?;
+                let may_snapshot_working_copy = !self.global_args().ignore_working_copy;
+                let mut workspace_command = WorkspaceCommandHelper::new(
+                    ui,
+                    workspace,
+                    repo,
+                    env,
+                    may_snapshot_working_copy,
+                )?;
                 workspace_command.check_working_copy_writable()?;
 
                 // Snapshot the current working copy on top of the last known working-copy
@@ -691,7 +712,6 @@ impl CommandHelper {
                      message from read attempt: {e}"
                 )?;
 
-                let env = self.workspace_environment(ui, &workspace)?;
                 let mut workspace_command = self.load_from_workspace(ui, workspace, env).await?;
                 let stats = workspace_command
                     .create_and_check_out_recovery_commit(ui)
