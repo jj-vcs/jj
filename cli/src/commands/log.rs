@@ -96,7 +96,7 @@ pub(crate) struct LogArgs {
     #[arg(long)]
     reversed: bool,
 
-    /// Don't show the graph, show a flat list of revisions
+    /// Show a flat list of revisions instead of a graph
     #[arg(long, short = 'G')]
     no_graph: bool,
 
