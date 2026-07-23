@@ -70,6 +70,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `revsets.log` now defaults to `builtin_log()`, so custom log revsets can
   reuse the built-in default instead of copying its full expression.
 
+* `jj evolog` now supports positional filesets to filter the evolution graph.
+
 ### Fixed bugs
 
 * Recursive alias definitions are detected more precisely. jj can now expand

@@ -20,6 +20,8 @@ use futures::TryStreamExt as _;
 use futures::stream;
 use futures::stream::LocalBoxStream;
 use itertools::Itertools as _;
+use jj_lib::backend::BackendResult;
+use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::evolution::CommitEvolutionEntry;
 use jj_lib::evolution::walk_predecessors;
@@ -27,12 +29,17 @@ use jj_lib::graph::GraphEdge;
 use jj_lib::graph::TopoGroupedGraph;
 use jj_lib::graph::reverse_graph;
 use jj_lib::matchers::EverythingMatcher;
+use jj_lib::matchers::Visit;
+use jj_lib::repo_path::RepoPath;
+use jj_lib::rewrite::merge_commit_trees;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::format_template;
+use crate::cli_util::print_no_matching_entries_for_paths;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::diff_util::DiffFormatArgs;
@@ -43,11 +50,11 @@ use crate::ui::Ui;
 
 /// Show how a change has evolved over time
 ///
-/// Lists the previous commits which a change has pointed to. The current commit
-/// of a change evolves when the change is updated, rebased, etc.
+/// Lists the previous commits which a change has pointed to. The commit of a
+/// change evolves when the change is updated, rebased, etc.
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct EvologArgs {
-    /// Follow changes from these revisions
+    /// The revision(s) to follow changes for
     #[arg(
         long,
         short,
@@ -57,6 +64,11 @@ pub(crate) struct EvologArgs {
     )]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     revisions: Vec<RevisionArg>,
+
+    /// Show revisions modifying the given paths
+    #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
+    #[arg(add = ArgValueCompleter::new(complete::all_historical_modified_revision_files))]
+    paths: Vec<String>,
 
     /// Limit number of revisions to show
     ///
@@ -110,7 +122,14 @@ pub(crate) async fn cmd_evolog(
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui).await?;
 
-    let start_commit_ids: Vec<_> = workspace_command
+    let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
+    let mut explicit_paths = fileset_expression.explicit_paths().collect_vec();
+    let matcher = fileset_expression.to_matcher();
+    let fileset_matches_all = matcher.visit(RepoPath::root()) == Visit::AllRecursively;
+
+    // Do not filter by paths yet, since the requested paths might be in the
+    // evolution history rather than in the specific given revisions.
+    let start_commit_ids: Vec<CommitId> = workspace_command
         .parse_union_revsets(ui, &args.revisions)?
         .evaluate_to_commit_ids()?
         .try_collect()
@@ -142,6 +161,25 @@ pub(crate) async fn cmd_evolog(
             )?
             .labeled(["evolog", "commit", "node"]);
     }
+
+    // Returns whether `entry` matches the given fileset. Also keeps track of
+    // which explicit paths have been seen.
+    let mut evolution_entry_matches_fileset = async |entry: &CommitEvolutionEntry| {
+        if fileset_matches_all {
+            // Optimization for a common case.
+            return BackendResult::Ok(true);
+        }
+        let tree = entry.commit.tree();
+        // TODO: propagate errors
+        explicit_paths.retain(|&path| tree.path_value(path).block_on().unwrap().is_absent());
+        let predecessors = &entry.predecessors().await?;
+        let from_tree = merge_commit_trees(workspace_command.repo().as_ref(), predecessors).await?;
+        Ok(tree
+            .diff_stream(&from_tree, matcher.as_ref())
+            .next()
+            .await
+            .is_some())
+    };
 
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
@@ -181,6 +219,9 @@ pub(crate) async fn cmd_evolog(
         };
 
         while let Some((entry, edges)) = evolution_nodes.try_next().await? {
+            if !evolution_entry_matches_fileset(&entry).await? {
+                continue;
+            }
             let mut buffer = vec![];
             let within_graph =
                 with_content_format.sub_width(graph.width(entry.commit.id(), &edges));
@@ -221,6 +262,9 @@ pub(crate) async fn cmd_evolog(
         };
 
         while let Some(entry) = evolution_entries.try_next().await? {
+            if !evolution_entry_matches_fileset(&entry).await? {
+                continue;
+            }
             with_content_format
                 .write(formatter, async |formatter| {
                     template.format(&entry, formatter)
@@ -242,6 +286,8 @@ pub(crate) async fn cmd_evolog(
             }
         }
     }
+
+    print_no_matching_entries_for_paths(ui, &workspace_command, &explicit_paths)?;
 
     Ok(())
 }

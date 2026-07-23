@@ -3268,9 +3268,17 @@ pub fn print_unmatched_explicit_paths<'a>(
         // TODO: propagate errors
         explicit_paths.retain(|&path| tree.path_value(path).block_on().unwrap().is_absent());
     }
+    print_no_matching_entries_for_paths(ui, workspace_command, &explicit_paths)
+}
 
-    if !explicit_paths.is_empty() {
-        let ui_paths = explicit_paths
+/// Prints warning about the given paths not matching anything.
+pub fn print_no_matching_entries_for_paths(
+    ui: &Ui,
+    workspace_command: &WorkspaceCommandHelper,
+    paths: &Vec<&RepoPath>,
+) -> io::Result<()> {
+    if !paths.is_empty() {
+        let ui_paths = paths
             .iter()
             .map(|&path| workspace_command.format_file_path(path))
             .join(", ");
@@ -3279,7 +3287,6 @@ pub fn print_unmatched_explicit_paths<'a>(
             "No matching entries for paths: {ui_paths}"
         )?;
     }
-
     Ok(())
 }
 

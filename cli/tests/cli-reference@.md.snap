@@ -1081,15 +1081,19 @@ Note: it is [generally recommended] to instead use `jj new` and `jj squash`.
 
 Show how a change has evolved over time
 
-Lists the previous commits which a change has pointed to. The current commit of a change evolves when the change is updated, rebased, etc.
+Lists the previous commits which a change has pointed to. The commit of a change evolves when the change is updated, rebased, etc.
 
-**Usage:** `jj evolog [OPTIONS]`
+**Usage:** `jj evolog [OPTIONS] [FILESETS]...`
 
 **Command Alias:** `evolution-log`
 
+###### **Arguments:**
+
+* `<FILESETS>` — Show revisions modifying the given paths
+
 ###### **Options:**
 
-* `-r`, `--revisions <REVSETS>` — Follow changes from these revisions
+* `-r`, `--revisions <REVSETS>` — The revision(s) to follow changes for
 
   Default value: `@`
 * `-n`, `--limit <LIMIT>` — Limit number of revisions to show

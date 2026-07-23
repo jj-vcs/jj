@@ -39,6 +39,7 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::format_template;
+use crate::cli_util::print_no_matching_entries_for_paths;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::diff_util::DiffFormatArgs;
@@ -359,16 +360,7 @@ pub(crate) async fn cmd_log(
             }
         }
 
-        if !explicit_paths.is_empty() {
-            let ui_paths = explicit_paths
-                .iter()
-                .map(|&path| workspace_command.format_file_path(path))
-                .join(", ");
-            writeln!(
-                ui.warning_default(),
-                "No matching entries for paths: {ui_paths}"
-            )?;
-        }
+        print_no_matching_entries_for_paths(ui, &workspace_command, &explicit_paths)?;
     }
 
     // Check to see if the user might have specified a path when they intended

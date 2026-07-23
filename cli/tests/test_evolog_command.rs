@@ -577,6 +577,209 @@ fn test_evolog_abandoned_op() {
 }
 
 #[test]
+fn test_evolog_with_filesets() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m", "commit1"]).success();
+    work_dir.write_file("file1", "foo\n");
+    work_dir.run_jj(["new", "-m", "commit2"]).success();
+    work_dir.write_file("file2", "abc\ndef\n");
+    work_dir.run_jj(["new", "-m", "commit3"]).success();
+    work_dir.write_file("file1", "foo\nbar\n");
+    work_dir.write_file("README.md", "# My Project\n");
+
+    // Revert to an old version.
+    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["new", "-m", "better commit3"]).success();
+    work_dir.write_file("file2", "ABC\nDEF\n");
+
+    work_dir
+        .run_jj(["squash", "-t", "subject(commit1)", "-m", "best commit"])
+        .success();
+
+    // Modify more files in the working copy.
+    work_dir.remove_file("file1");
+    work_dir.write_file("file2", "changed again\n");
+    work_dir.run_jj(["util", "snapshot"]).success();
+    work_dir.write_file("README.md", "I did more things\n");
+    work_dir.run_jj(["util", "snapshot"]).success();
+    work_dir.write_file("file3", "new file");
+
+    // Full evolog.
+    let output = work_dir.run_jj(["evolog", "-r..", "-p"]);
+    insta::assert_snapshot!(output, @r"
+    @  yqosqzyt test.user@example.com 2001-02-03 08:05:16 85c3cb39
+    │  (no description set)
+    │  -- operation 96602dbe17dc snapshot working copy
+    │  Added regular file file3:
+    │          1: new file
+    ○  yqosqzyt/1 test.user@example.com 2001-02-03 08:05:15 c6aca54c (hidden)
+    │  (no description set)
+    │  -- operation d964b0678350 snapshot working copy
+    │  Added regular file README.md:
+    │          1: I did more things
+    ○  yqosqzyt/2 test.user@example.com 2001-02-03 08:05:14 e993c6da (hidden)
+    │  (no description set)
+    │  -- operation 327df63897b6 snapshot working copy
+    │  Removed regular file file1:
+    │     1     : foo
+    │  Modified regular file file2:
+    │     1     : ABC
+    │     2     : DEF
+    │          1: changed again
+    ○  yqosqzyt/3 test.user@example.com 2001-02-03 08:05:13 e8854787 (hidden)
+       (empty) (no description set)
+       -- operation ef3274b9c1f8 squash commits into 6f48fb12aaf6833353a96bd8b8b8c8c0f546ee64
+    ○  zsuskuln test.user@example.com 2001-02-03 08:05:13 836922b0
+    │  (empty) commit3
+    │  -- operation ef3274b9c1f8 squash commits into 6f48fb12aaf6833353a96bd8b8b8c8c0f546ee64
+    ○  zsuskuln/2 test.user@example.com 2001-02-03 08:05:10 76a61f5f (hidden)
+       (empty) commit3
+       -- operation 77530b1b32ce new empty commit
+       Modified commit description:
+               1: commit3
+    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:13 ebe9edd0
+    │  commit2
+    │  -- operation ef3274b9c1f8 squash commits into 6f48fb12aaf6833353a96bd8b8b8c8c0f546ee64
+    ○  kkmpptxz/1 test.user@example.com 2001-02-03 08:05:10 9a998c22 (hidden)
+    │  commit2
+    │  -- operation 2d5618b3a8ed snapshot working copy
+    │  Added regular file file2:
+    │          1: abc
+    │          2: def
+    ○  kkmpptxz/2 test.user@example.com 2001-02-03 08:05:09 4dffbc24 (hidden)
+       (empty) commit2
+       -- operation d32e67902fc1 new empty commit
+       Modified commit description:
+               1: commit2
+    ×    qpvuntsm test.user@example.com 2001-02-03 08:05:13 a9c28563 (conflict)
+    ├─╮  best commit
+    │ │  -- operation ef3274b9c1f8 squash commits into 6f48fb12aaf6833353a96bd8b8b8c8c0f546ee64
+    │ │  Modified commit description:
+    │ │     1     : <<<<<<< conflict 1 of 1
+    │ │     2     : %%%%%%% diff from: base
+    │ │     3     : \\\\\\\        to: side #1
+    │ │     4     : +commit1
+    │ │     5     : +++++++ side #2
+    │ │     6     : better commit3
+    │ │     7     : >>>>>>> conflict 1 of 1 ends
+    │ │          1: best commit
+    │ ○  royxmykx/0 test.user@example.com 2001-02-03 08:05:13 2f50bc34 (hidden)
+    │ │  better commit3
+    │ │  -- operation fe776c83dbcd snapshot working copy
+    │ │  Modified regular file file2:
+    │ │     1     : abc
+    │ │     2     : def
+    │ │          1: ABC
+    │ │          2: DEF
+    │ ○  royxmykx/1 test.user@example.com 2001-02-03 08:05:12 a40e3e34 (hidden)
+    │    (empty) better commit3
+    │    -- operation d1cb41df18bc new empty commit
+    │    Modified commit description:
+    │            1: better commit3
+    ○  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:09 6f48fb12 (hidden)
+    │  commit1
+    │  -- operation 1e8d9c23221f snapshot working copy
+    │  Added regular file file1:
+    │          1: foo
+    ○  qpvuntsm/2 test.user@example.com 2001-02-03 08:05:08 b876c5f4 (hidden)
+    │  (empty) commit1
+    │  -- operation c83ae0f92707 describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
+    │  Modified commit description:
+    │          1: commit1
+    ○  qpvuntsm/3 test.user@example.com 2001-02-03 08:05:07 e8849ae1 (hidden)
+       (empty) (no description set)
+       -- operation 90267f31f904 add workspace 'default'
+    [EOF]
+    ");
+
+    // With filesets, only the commits matching the files are shown.
+    let output = work_dir.run_jj(["evolog", "--summary", "-rsubject('best commit')", "file2"]);
+    insta::assert_snapshot!(output, @r"
+    ×    qpvuntsm test.user@example.com 2001-02-03 08:05:13 a9c28563 (conflict)
+    ├─╮  best commit
+    │ │  -- operation ef3274b9c1f8 squash commits into 6f48fb12aaf6833353a96bd8b8b8c8c0f546ee64
+    │ ○  royxmykx/0 test.user@example.com 2001-02-03 08:05:13 2f50bc34 (hidden)
+    │ │  better commit3
+    │ │  -- operation fe776c83dbcd snapshot working copy
+    │ │  M file2
+    │ ○  royxmykx/1 test.user@example.com 2001-02-03 08:05:12 a40e3e34 (hidden)
+    │    (empty) better commit3
+    │    -- operation d1cb41df18bc new empty commit
+    [EOF]
+    ");
+
+    // Fileset can match non-contiguous commits.
+    let output = work_dir.run_jj(["evolog", "--summary", "-r..", "file1"]);
+    insta::assert_snapshot!(output, @r"
+    ○  yqosqzyt/2 test.user@example.com 2001-02-03 08:05:14 e993c6da (hidden)
+    │  (no description set)
+    │  -- operation 327df63897b6 snapshot working copy
+    │  D file1
+    │  M file2
+    ○  yqosqzyt/3 test.user@example.com 2001-02-03 08:05:13 e8854787 (hidden)
+       (empty) (no description set)
+       -- operation ef3274b9c1f8 squash commits into 6f48fb12aaf6833353a96bd8b8b8c8c0f546ee64
+    ○  zsuskuln/2 test.user@example.com 2001-02-03 08:05:10 76a61f5f (hidden)
+       (empty) commit3
+       -- operation 77530b1b32ce new empty commit
+    ○  kkmpptxz/2 test.user@example.com 2001-02-03 08:05:09 4dffbc24 (hidden)
+       (empty) commit2
+       -- operation d32e67902fc1 new empty commit
+    ○  royxmykx/1 test.user@example.com 2001-02-03 08:05:12 a40e3e34 (hidden)
+       (empty) better commit3
+       -- operation d1cb41df18bc new empty commit
+    ○  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:09 6f48fb12 (hidden)
+    │  commit1
+    │  -- operation 1e8d9c23221f snapshot working copy
+    │  A file1
+    [EOF]
+    ");
+
+    // No revisions (defaults to `@`); only filesets.
+    let output = work_dir.run_jj(["evolog", "--summary", "file*"]);
+    insta::assert_snapshot!(output, @r"
+    @  yqosqzyt test.user@example.com 2001-02-03 08:05:16 85c3cb39
+    │  (no description set)
+    │  -- operation 96602dbe17dc snapshot working copy
+    │  A file3
+    │ ○  yqosqzyt/2 test.user@example.com 2001-02-03 08:05:14 e993c6da (hidden)
+    │ │  (no description set)
+    │ │  -- operation 327df63897b6 snapshot working copy
+    │ │  D file1
+    │ │  M file2
+    │ ○  yqosqzyt/3 test.user@example.com 2001-02-03 08:05:13 e8854787 (hidden)
+    │    (empty) (no description set)
+    │    -- operation ef3274b9c1f8 squash commits into 6f48fb12aaf6833353a96bd8b8b8c8c0f546ee64
+    [EOF]
+    ");
+
+    // No matching explicit filesets.
+    let output = work_dir.run_jj(["evolog", "--summary", "-rsubject(commit2)", "README.md"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: No matching entries for paths: README.md
+    [EOF]
+    ");
+
+    // Even if fileset matches everything, a warning is still printed for
+    // non-matching paths.
+    let output = work_dir.run_jj(["evolog", "--summary", "-r..", "-n", "*", "does-not-exist"]);
+    insta::assert_snapshot!(output, @r"
+    @  yqosqzyt test.user@example.com 2001-02-03 08:05:16 85c3cb39
+    │  (no description set)
+    │  -- operation 96602dbe17dc snapshot working copy
+    │  A file3
+    [EOF]
+    ------- stderr -------
+    Warning: No matching entries for paths: does-not-exist
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_evolog_with_no_template() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
