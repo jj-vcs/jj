@@ -473,13 +473,24 @@ impl CommandHelper {
     ) -> Result<(WorkspaceCommandHelper, SnapshotStats, bool), CommandError> {
         let workspace = self.load_workspace()?;
         let env = self.workspace_environment(ui, &workspace)?;
+        // Acquire the lock to ensure that the loaded repo points to the head
+        // operation whose refs should be synchronized with the Git repo. This
+        // prevents races with other processes during Git HEAD and refs
+        // import/export.
+        let git_import_export_lock = self
+            .is_working_copy_writable()
+            .then(|| env.lock_git_import_export(&workspace))
+            .transpose()?;
         let mut workspace_command = self.load_from_workspace(ui, workspace, env).await?;
-        if !self.is_working_copy_writable() {
+        let Some(git_import_export_lock) = git_import_export_lock else {
             return Ok((workspace_command, SnapshotStats::default(), false));
-        }
+        };
 
         let old_repo = workspace_command.repo().clone();
-        let (workspace_command, stats) = match workspace_command.snapshot_impl(ui).await {
+        let (workspace_command, stats) = match workspace_command
+            .snapshot_impl(ui, &git_import_export_lock)
+            .await
+        {
             Ok(stats) => (workspace_command, stats),
             Err(SnapshotWorkingCopyError::Command(err)) => return Err(err),
             Err(SnapshotWorkingCopyError::StaleWorkingCopy(err)) => {
@@ -493,7 +504,7 @@ impl CommandHelper {
                 // lower level (e.g. inside snapshot_working_copy()) to avoid recursive locking
                 // of the working copy.
                 let WorkspaceCommandHelper { workspace, env, .. } = workspace_command;
-                self.recover_stale_working_copy_impl(ui, workspace, env)
+                self.recover_stale_working_copy_impl(ui, workspace, env, &git_import_export_lock)
                     .await?
             }
         };
@@ -604,7 +615,8 @@ impl CommandHelper {
     ) -> Result<(WorkspaceCommandHelper, SnapshotStats), CommandError> {
         let workspace = self.load_workspace()?;
         let env = self.workspace_environment(ui, &workspace)?;
-        self.recover_stale_working_copy_impl(ui, workspace, env)
+        let git_import_export_lock = env.lock_git_import_export(&workspace)?;
+        self.recover_stale_working_copy_impl(ui, workspace, env, &git_import_export_lock)
             .await
     }
 
@@ -613,9 +625,9 @@ impl CommandHelper {
         ui: &Ui,
         workspace: Workspace,
         env: WorkspaceCommandEnvironment,
+        git_import_export_lock: &GitImportExportLock,
     ) -> Result<(WorkspaceCommandHelper, SnapshotStats), CommandError> {
         let op_id = workspace.working_copy().operation_id();
-
         match workspace.repo_loader().load_operation(op_id).await {
             Ok(op) => {
                 // self.for_workable_repo(), but reuse loaded env.
@@ -634,13 +646,10 @@ impl CommandHelper {
                 // operation, then merge the divergent operations. The wc_commit_id of the
                 // merged repo wouldn't change because the old one wins, but it's probably
                 // fine if we picked the new wc_commit_id.
-                let stale_stats = {
-                    let git_import_export_lock = workspace_command.lock_git_import_export()?;
-                    workspace_command
-                        .snapshot_working_copy(ui, &git_import_export_lock)
-                        .await
-                        .map_err(|err| err.into_command_error())?
-                };
+                let stale_stats = workspace_command
+                    .snapshot_working_copy(ui, git_import_export_lock)
+                    .await
+                    .map_err(|err| err.into_command_error())?;
 
                 let wc_commit_id = workspace_command.get_wc_commit_id().unwrap();
                 let repo = workspace_command.repo();
@@ -695,7 +704,7 @@ impl CommandHelper {
                 // copy became stale. The result wouldn't be ideal, but there
                 // should be no data loss at least.
                 let fresh_stats = workspace_command
-                    .snapshot_impl(ui)
+                    .snapshot_impl(ui, git_import_export_lock)
                     .await
                     .map_err(|err| err.into_command_error())?;
                 let merged_stats = {
@@ -716,7 +725,7 @@ impl CommandHelper {
 
                 let mut workspace_command = self.load_from_workspace(ui, workspace, env).await?;
                 let stats = workspace_command
-                    .create_and_check_out_recovery_commit(ui)
+                    .create_and_check_out_recovery_commit(ui, git_import_export_lock)
                     .await?;
                 Ok((workspace_command, stats))
             }
@@ -1276,42 +1285,15 @@ impl WorkspaceCommandHelper {
     /// call [`print_snapshot_stats`] with the [`SnapshotStats`] returned by
     /// this function to present possible untracked files to the user.
     #[instrument(skip_all)]
-    async fn snapshot_impl(&mut self, ui: &Ui) -> Result<SnapshotStats, SnapshotWorkingCopyError> {
+    async fn snapshot_impl(
+        &mut self,
+        ui: &Ui,
+        git_import_export_lock: &GitImportExportLock,
+    ) -> Result<SnapshotStats, SnapshotWorkingCopyError> {
         assert!(self.may_snapshot_working_copy);
-        // Acquire git import/export lock once for the entire import/snapshot/export
-        // cycle. This prevents races with other processes during Git HEAD and
-        // refs import/export.
-        let git_import_export_lock = self
-            .lock_git_import_export()
-            .map_err(snapshot_command_error)?;
-
-        // Reload at current head to avoid creating divergent operations if another
-        // process committed an operation while we were waiting for the lock.
-        if self.env.working_copy_shared_with_git {
-            let repo = self.repo().clone();
-            let op_heads_store = repo.loader().op_heads_store();
-            let op_heads = op_heads_store
-                .get_op_heads()
-                .await
-                .map_err(snapshot_command_error)?;
-            if std::slice::from_ref(repo.op_id()) != op_heads {
-                let op = self
-                    .env
-                    .command
-                    .resolve_operation(ui, repo.loader(), self.workspace_name())
-                    .map_err(snapshot_command_error)?;
-                let current_repo = repo
-                    .loader()
-                    .load_at(&op)
-                    .await
-                    .map_err(snapshot_command_error)?;
-                self.user_repo = ReadonlyUserRepo::new(current_repo);
-            }
-        }
-
         #[cfg(feature = "git")]
         if self.env.working_copy_shared_with_git {
-            self.import_git_head(ui, &git_import_export_lock)
+            self.import_git_head(ui, git_import_export_lock)
                 .await
                 .map_err(snapshot_command_error)?;
         }
@@ -1320,13 +1302,13 @@ impl WorkspaceCommandHelper {
         // In that situation, the ref would be conflicted anyway, so export
         // failure is okay.
         let stats = self
-            .snapshot_working_copy(ui, &git_import_export_lock)
+            .snapshot_working_copy(ui, git_import_export_lock)
             .await?;
 
         // import_git_refs() can rebase the working-copy commit.
         #[cfg(feature = "git")]
         if self.env.working_copy_shared_with_git {
-            self.import_git_refs(ui, &git_import_export_lock)
+            self.import_git_refs(ui, git_import_export_lock)
                 .await
                 .map_err(snapshot_command_error)?;
         }
@@ -1340,8 +1322,9 @@ impl WorkspaceCommandHelper {
         if !self.may_snapshot_working_copy {
             return Ok(());
         }
+        let git_import_export_lock = self.lock_git_import_export()?;
         let stats = self
-            .snapshot_impl(ui)
+            .snapshot_impl(ui, &git_import_export_lock)
             .await
             .map_err(|err| err.into_command_error())?;
         print_snapshot_stats(ui, &stats, self.env().path_converter())?;
@@ -1516,6 +1499,7 @@ impl WorkspaceCommandHelper {
     async fn create_and_check_out_recovery_commit(
         &mut self,
         ui: &Ui,
+        git_import_export_lock: &GitImportExportLock,
     ) -> Result<SnapshotStats, CommandError> {
         self.check_working_copy_writable()?;
 
@@ -1544,7 +1528,7 @@ to the current parents may contain changes from multiple commits.
         locked_ws.finish(repo.op_id().clone()).await?;
         self.user_repo = ReadonlyUserRepo::new(repo);
 
-        self.snapshot_impl(ui)
+        self.snapshot_impl(ui, git_import_export_lock)
             .await
             .map_err(|err| err.into_command_error())
     }
