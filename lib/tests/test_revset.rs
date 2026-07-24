@@ -2458,6 +2458,14 @@ fn test_evaluate_expression_visible_heads() {
         resolve_commit_ids(mut_repo, "visible_heads()"),
         vec![commit3.id().clone(), commit2.id().clone()]
     );
+
+    // Un-normalized view containing redundant head nodes
+    mut_repo.add_head(&commit1).block_on().unwrap();
+    assert!(!mut_repo.view().is_heads_normalized());
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "visible_heads()"),
+        vec![commit3.id().clone(), commit2.id().clone()]
+    );
 }
 
 #[test]
