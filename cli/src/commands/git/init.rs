@@ -51,35 +51,43 @@ use crate::git_util::print_git_import_stats_summary;
 use crate::ui::Ui;
 
 /// Create a new Git backed repo.
+///
+/// To use an existing Git repository as the backing store, run `jj git init`
+/// from that repository's root directory. This is the usual way to start using
+/// Jujutsu in an existing Git checkout. See [colocation docs].
+///
+/// If the setting `git.colocate` has the value `false`, then new repositories
+/// will not be colocated. Pass `--colocate` to override this.
+///
+/// [colocation docs]:
+///     https://docs.jj-vcs.dev/latest/git-compatibility/#creating-a-repo-backed-by-an-existing-git-repo
 #[derive(clap::Args, Clone, Debug)]
 pub struct GitInitArgs {
     /// The destination directory where the `jj` repo will be created.
     /// If the directory does not exist, it will be created.
     /// If no directory is given, the current directory is used.
-    ///
-    /// By default the `git` repo is under `$destination/.jj`
     #[arg(default_value = ".", value_hint = clap::ValueHint::DirPath)]
     destination: String,
 
-    /// Colocate the Jujutsu repo with the git repo
+    /// Colocate the workspace of the Jujutsu repo with the Git repo
     ///
-    /// Specifies that the `jj` repo should also be a valid `git` repo, allowing
-    /// the use of both `jj` and `git` commands in the same directory.
+    /// Specifies that the workspace of the `jj` repo should also be a valid
+    /// `git` repo, allowing the use of both `jj` and `git` commands in the same
+    /// directory. The workspace will contain a `.git` dir in the top-level, so
+    /// regular Git tools will be able to operate on the repo.
     ///
-    /// The repository will contain a `.git` dir in the top-level. Regular Git
-    /// tools will be able to operate on the repo.
-    ///
-    /// **This is the default**, and this option has no effect, unless the
+    /// **This is the default** (and this option has no effect) unless the
     /// [git.colocate config] is set to `false`.
     ///
-    /// This option is mutually exclusive with `--git-repo`.
+    /// The `--colocate` option is equivalent to `--git-repo=DESTINATION`. These
+    /// options are mutually exclusive.
     ///
     /// [git.colocate config]:
     ///     https://docs.jj-vcs.dev/latest/config/#default-colocation
     #[arg(long, conflicts_with = "git_repo")]
     colocate: bool,
 
-    /// Disable colocation of the Jujutsu repo with the git repo
+    /// Disable colocation for the workspace of the Jujutsu repo with the Git repo
     ///
     /// Prevent Git tools that are unaware of `jj` and regular Git commands from
     /// operating on the repo. The Git repository that stores most of the repo
@@ -89,7 +97,7 @@ pub struct GitInitArgs {
     /// workspaces.
     ///
     /// [colocation docs]:
-    ///     https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-repos
+    ///     https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-workspaces
     #[arg(long, conflicts_with = "colocate")]
     no_colocate: bool,
 
@@ -113,13 +121,19 @@ pub struct GitInitArgs {
     /// Specifies a path to an **existing** git repository to be
     /// used as the backing git repo for the newly created `jj` repo.
     ///
-    /// If the specified `--git-repo` path happens to be the same as
-    /// the `jj` repo path (both .jj and .git directories are in the
-    /// same working directory), then both `jj` and `git` commands
-    /// will work on the same repo. This is called a colocated workspace.
+    /// If the specified `--git-repo` path is the same as `DESTINATION`, then a
+    /// [colocated workspace] will be created, and both `jj` and `git` commands
+    /// will work on the repo. It is an error to provide `--no-colocate` in this
+    /// case.
     ///
-    /// This option is mutually exclusive with `--colocate`, and so if passed,
-    /// turns colocation off.
+    /// If the specified `--git-repo` path is outside of the given
+    /// `DESTINATION`, then the Jujutsu repo will store a reference to it (not a
+    /// colocated workspace). It is an error to provide `--colocate` in this
+    /// case. To convert an existing Git checkout in place, prefer running
+    /// `jj git init` from that directory instead.
+    ///
+    /// [colocated workspace]:
+    ///     https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-workspaces
     #[arg(
         long,
         conflicts_with_all = ["colocate", "object_hash"],
