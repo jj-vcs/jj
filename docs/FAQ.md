@@ -100,6 +100,14 @@ Alternatively, you can use [jj-fzf](https://github.com/tim-janik/jj-fzf), where 
 
 The wiki lists additional TUIs and GUIs beyond the terminal: [GUI-and-TUI](https://github.com/jj-vcs/jj/wiki/GUI-and-TUI)
 
+### How do I convert an existing Git repo into a Jujutsu repo?
+
+From inside the Git repository, run `jj git init`. This creates a `.jj/`
+directory next to `.git/` and imports the existing history.
+
+See [Creating a repo backed by an existing Git
+repo](git-compatibility.md#creating-a-repo-backed-by-an-existing-git-repo).
+
 ### <a name="should-i-co-locate-my-repository"></a>Should I colocate my repository?
 
 Colocating a Jujutsu repository allows you to use both Jujutsu and Git in the

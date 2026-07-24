@@ -573,3 +573,19 @@ that descendant commits may have conflicts.
 Another command for rewriting contents of existing commits is `jj split`. Now
 that you've seen how `jj squash -i` and `jj diffedit` work, you can hopefully
 figure out how it works (with the help of the instructions in the diff).
+
+## Using an existing Git repository
+
+If you already have a local Git checkout, you can start using Jujutsu in that
+directory instead of cloning:
+
+```shell
+$ cd path/to/my-git-repo
+$ jj git init
+```
+
+This creates a [colocated](git-compatibility.md#colocated-jujutsugit-workspaces)
+workspace (`.jj/` next to `.git/`), so you can use both `jj` and `git` commands
+in the same directory. See [Creating a repo backed by an existing Git
+repo](git-compatibility.md#creating-a-repo-backed-by-an-existing-git-repo) for
+more details.
