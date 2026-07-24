@@ -11,6 +11,7 @@ use bstr::BString;
 use itertools::Itertools as _;
 use jj_lib::backend::CopyId;
 use jj_lib::backend::TreeValue;
+use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::conflicts;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::conflicts::ConflictMaterializeOptions;
@@ -23,8 +24,10 @@ use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree_builder::MergedTreeBuilder;
+use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::store::Store;
+use jj_lib::tree_merge::MergeOptions;
 use thiserror::Error;
 
 use super::ConflictResolveError;
@@ -195,95 +198,15 @@ async fn run_mergetool_external_single_file(
         file,
     } = merge_tool_file;
 
-    let uses_marker_length = find_all_variables(&editor.merge_args).contains(&"marker_length");
-
-    // If the merge tool doesn't get conflict markers pre-populated in the output
-    // file and doesn't accept "$marker_length", then we should default to accepting
-    // MIN_CONFLICT_MARKER_LEN since the merge tool can't know about our rules for
-    // conflict marker length.
-    let conflict_marker_len = if editor.merge_tool_edits_conflict_markers || uses_marker_length {
-        choose_materialized_conflict_marker_len(&file.contents)
-    } else {
-        MIN_CONFLICT_MARKER_LEN
-    };
-    let initial_output_content = if editor.merge_tool_edits_conflict_markers {
-        let options = ConflictMaterializeOptions {
-            marker_style: editor
-                .conflict_marker_style
-                .unwrap_or(default_conflict_marker_style),
-            marker_len: Some(conflict_marker_len),
-            merge: store.merge_options().clone(),
-        };
-        materialize_merge_result_to_bytes(&file.contents, &file.labels, &options)
-    } else {
-        BString::default()
-    };
-    assert_eq!(file.contents.num_sides(), 2);
-    let files: HashMap<&str, &[u8]> = maplit::hashmap! {
-        "base" => file.contents.get_remove(0).unwrap().as_slice(),
-        "left" => file.contents.get_add(0).unwrap().as_slice(),
-        "right" => file.contents.get_add(1).unwrap().as_slice(),
-        "output" => initial_output_content.as_slice(),
-    };
-
-    let temp_dir = new_utf8_temp_dir("jj-resolve-").map_err(ExternalToolError::SetUpDir)?;
-    let suffix = if let Some(filename) = repo_path.components().next_back() {
-        let name = filename
-            .to_fs_name()
-            .map_err(|err| err.with_path(repo_path))?;
-        format!("_{name}")
-    } else {
-        // This should never actually trigger, but we support it just in case
-        // resolving the root path ever makes sense.
-        "".to_owned()
-    };
-    let mut variables: HashMap<&str, _> = files
-        .iter()
-        .map(|(role, contents)| -> Result<_, ConflictResolveError> {
-            let path = temp_dir.path().join(format!("{role}{suffix}"));
-            std::fs::write(&path, contents).map_err(ExternalToolError::SetUpDir)?;
-            if *role != "output" {
-                // TODO: Should actually ignore the error here, or have a warning.
-                set_readonly_recursively(&path).map_err(ExternalToolError::SetUpDir)?;
-            }
-            Ok((
-                *role,
-                path.into_os_string()
-                    .into_string()
-                    .expect("temp_dir should be valid utf-8"),
-            ))
-        })
-        .try_collect()?;
-    variables.insert("marker_length", conflict_marker_len.to_string());
-    variables.insert("path", repo_path.as_internal_file_string().to_string());
-
-    let mut cmd = Command::new(&editor.program);
-    cmd.args(interpolate_variables(&editor.merge_args, &variables));
-    tracing::info!(?cmd, "Invoking the external merge tool:");
-    let exit_status = cmd
-        .status()
-        .map_err(|e| ExternalToolError::FailedToExecute {
-            tool_binary: editor.program.clone(),
-            source: e,
-        })?;
-    tracing::info!(%exit_status);
-
-    // Check whether the exit status implies that there should be conflict markers
-    let exit_status_implies_conflict = exit_status
-        .code()
-        .is_some_and(|code| editor.merge_conflict_exit_codes.contains(&code));
-
-    if !exit_status.success() && !exit_status_implies_conflict {
-        return Err(ConflictResolveError::from(ExternalToolError::ToolAborted {
-            exit_status,
-        }));
-    }
-
-    let output_file_contents: Vec<u8> =
-        std::fs::read(variables.get("output").unwrap()).map_err(ExternalToolError::Io)?;
-    if output_file_contents.is_empty() || output_file_contents == initial_output_content {
-        return Err(ConflictResolveError::EmptyOrUnchanged);
-    }
+    let (conflict_marker_len, exit_status, exit_status_implies_conflict, output_file_contents) =
+        run_mergetool_external_inner(
+            editor,
+            store.merge_options(),
+            default_conflict_marker_style,
+            Some(repo_path),
+            &file.contents,
+            &file.labels,
+        )?;
 
     let new_file_ids = if editor.merge_tool_edits_conflict_markers || exit_status_implies_conflict {
         tracing::info!(
@@ -331,6 +254,166 @@ async fn run_mergetool_external_single_file(
     };
     tree_builder.set_or_remove(repo_path.to_owned(), new_tree_value);
     Ok(())
+}
+
+/// Runs the merge tool on content with materialized conflict markers, and
+/// returns the new merged content.
+pub async fn run_mergetool_external_with_materialized_content(
+    editor: &ExternalMergeTool,
+    merge_options: &MergeOptions,
+    materialized_conflicted_contents: &Merge<BString>,
+    conflict_labels: &ConflictLabels,
+    default_conflict_marker_style: ConflictMarkerStyle,
+) -> Result<Option<Merge<BString>>, ConflictResolveError> {
+    let (conflict_marker_len, exit_status, exit_status_implies_conflict, output_file_contents) =
+        run_mergetool_external_inner(
+            editor,
+            merge_options,
+            default_conflict_marker_style,
+            None, // There is no repo_path to pass around.
+            materialized_conflicted_contents,
+            conflict_labels,
+        )?;
+
+    let new_contents = if editor.merge_tool_edits_conflict_markers || exit_status_implies_conflict {
+        tracing::info!(
+            ?exit_status_implies_conflict,
+            "jj is reparsing output for conflicts, `merge-tool-edits-conflict-markers = {}` in \
+             TOML config;",
+            editor.merge_tool_edits_conflict_markers
+        );
+        let (new_contents, _unchanged) = conflicts::update_from_materialized_content(
+            materialized_conflicted_contents,
+            output_file_contents.as_slice(),
+            conflict_marker_len,
+            merge_options,
+        );
+        new_contents
+    } else {
+        Some(Merge::resolved(BString::new(output_file_contents)))
+    };
+
+    // If the exit status indicated there should be conflict markers but there
+    // weren't any, it's likely that the tool generated invalid conflict markers, so
+    // we need to inform the user. If we didn't treat this as an error, the user
+    // might think the conflict was resolved successfully.
+    if exit_status_implies_conflict && new_contents.as_ref().is_none_or(|c| c.is_resolved()) {
+        return Err(ConflictResolveError::ExternalTool(
+            ExternalToolError::InvalidConflictMarkers { exit_status },
+        ));
+    }
+    Ok(new_contents)
+}
+
+fn run_mergetool_external_inner(
+    editor: &ExternalMergeTool,
+    merge_options: &MergeOptions,
+    default_conflict_marker_style: ConflictMarkerStyle,
+    repo_path: Option<&RepoPathBuf>,
+    materialized_conflicted_contents: &Merge<BString>,
+    conflict_labels: &ConflictLabels,
+) -> Result<(usize, ExitStatus, bool, Vec<u8>), ConflictResolveError> {
+    let file_contents = materialized_conflicted_contents;
+    let file_labels = conflict_labels;
+    let uses_marker_length = find_all_variables(&editor.merge_args).contains(&"marker_length");
+
+    // If the merge tool doesn't get conflict markers pre-populated in the output
+    // file and doesn't accept "$marker_length", then we should default to accepting
+    // MIN_CONFLICT_MARKER_LEN since the merge tool can't know about our rules for
+    // conflict marker length.
+    let conflict_marker_len = if editor.merge_tool_edits_conflict_markers || uses_marker_length {
+        choose_materialized_conflict_marker_len(file_contents)
+    } else {
+        MIN_CONFLICT_MARKER_LEN
+    };
+    let initial_output_content = if editor.merge_tool_edits_conflict_markers {
+        let options = ConflictMaterializeOptions {
+            marker_style: editor
+                .conflict_marker_style
+                .unwrap_or(default_conflict_marker_style),
+            marker_len: Some(conflict_marker_len),
+            merge: merge_options.clone(),
+        };
+        materialize_merge_result_to_bytes(file_contents, file_labels, &options)
+    } else {
+        BString::default()
+    };
+    assert_eq!(file_contents.num_sides(), 2);
+    let files: HashMap<&str, &[u8]> = maplit::hashmap! {
+        "base" => file_contents.get_remove(0).unwrap().as_slice(),
+        "left" => file_contents.get_add(0).unwrap().as_slice(),
+        "right" => file_contents.get_add(1).unwrap().as_slice(),
+        "output" => initial_output_content.as_slice(),
+    };
+
+    let temp_dir = new_utf8_temp_dir("jj-resolve-").map_err(ExternalToolError::SetUpDir)?;
+    let suffix = if let Some(real_repo_path) = repo_path
+        && let Some(filename) = real_repo_path.components().next_back()
+    {
+        let name = filename
+            .to_fs_name()
+            .map_err(|err| err.with_path(real_repo_path))?;
+        format!("_{name}")
+    } else {
+        // This should never actually trigger, but we support it just in case
+        // resolving the root path ever makes sense.
+        "".to_owned()
+    };
+    let mut variables: HashMap<&str, _> = files
+        .iter()
+        .map(|(role, contents)| -> Result<_, ConflictResolveError> {
+            let path = temp_dir.path().join(format!("{role}{suffix}"));
+            std::fs::write(&path, contents).map_err(ExternalToolError::SetUpDir)?;
+            if *role != "output" {
+                // TODO: Should actually ignore the error here, or have a warning.
+                set_readonly_recursively(&path).map_err(ExternalToolError::SetUpDir)?;
+            }
+            Ok((
+                *role,
+                path.into_os_string()
+                    .into_string()
+                    .expect("temp_dir should be valid utf-8"),
+            ))
+        })
+        .try_collect()?;
+    variables.insert("marker_length", conflict_marker_len.to_string());
+    if let Some(real_repo_path) = repo_path {
+        variables.insert("path", real_repo_path.as_internal_file_string().to_string());
+    }
+
+    let mut cmd = Command::new(&editor.program);
+    cmd.args(interpolate_variables(&editor.merge_args, &variables));
+    tracing::info!(?cmd, "Invoking the external merge tool:");
+    let exit_status = cmd
+        .status()
+        .map_err(|e| ExternalToolError::FailedToExecute {
+            tool_binary: editor.program.clone(),
+            source: e,
+        })?;
+    tracing::info!(%exit_status);
+
+    // Check whether the exit status implies that there should be conflict markers
+    let exit_status_implies_conflict = exit_status
+        .code()
+        .is_some_and(|code| editor.merge_conflict_exit_codes.contains(&code));
+
+    if !exit_status.success() && !exit_status_implies_conflict {
+        return Err(ConflictResolveError::from(ExternalToolError::ToolAborted {
+            exit_status,
+        }));
+    }
+
+    let output_file_contents: Vec<u8> =
+        std::fs::read(variables.get("output").unwrap()).map_err(ExternalToolError::Io)?;
+    if output_file_contents.is_empty() || output_file_contents == initial_output_content {
+        return Err(ConflictResolveError::EmptyOrUnchanged);
+    }
+    Ok((
+        conflict_marker_len,
+        exit_status,
+        exit_status_implies_conflict,
+        output_file_contents,
+    ))
 }
 
 pub async fn run_mergetool_external(
