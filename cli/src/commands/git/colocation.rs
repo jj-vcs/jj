@@ -14,6 +14,8 @@
 
 use std::io::ErrorKind;
 use std::io::Write as _;
+use std::path::Path;
+use std::path::PathBuf;
 
 use itertools::Itertools as _;
 use jj_lib::commit::Commit;
@@ -89,6 +91,29 @@ fn workspace_supports_git_colocation_commands(
     Ok(())
 }
 
+/// Returns the path to the backing Git repository if it lives outside the
+/// workspace (e.g. created by `jj git init --git-repo=<path>`). Such a
+/// repository isn't managed by jj and cannot be moved for colocation.
+fn external_git_repo_path(
+    workspace_command: &WorkspaceCommandHelper,
+) -> Result<Option<PathBuf>, CommandError> {
+    let git_backend = git::get_git_backend(workspace_command.repo().store())?;
+    let git_repo_path = git_backend.git_repo_path();
+    let git_store_path = workspace_command.repo_path().join("store").join("git");
+    let dot_git_path = workspace_command.workspace_root().join(".git");
+    let canonical = |path: &Path| dunce::canonicalize(path).ok();
+    let Some(actual_path) = canonical(git_repo_path) else {
+        return Ok(None);
+    };
+    if Some(&actual_path) == canonical(&git_store_path).as_ref()
+        || Some(&actual_path) == canonical(&dot_git_path).as_ref()
+    {
+        Ok(None)
+    } else {
+        Ok(Some(git_repo_path.to_owned()))
+    }
+}
+
 async fn cmd_git_colocation_status(
     ui: &mut Ui,
     command: &CommandHelper,
@@ -132,6 +157,12 @@ async fn cmd_git_colocation_status(
             ui.hint_default(),
             "To disable colocation, run: `jj git colocation disable`"
         )?;
+    } else if external_git_repo_path(&workspace_command)?.is_some() {
+        writeln!(
+            ui.hint_default(),
+            "Colocation cannot be enabled because the workspace is backed by an external Git \
+             repository."
+        )?;
     } else {
         writeln!(
             ui.hint_default(),
@@ -156,6 +187,15 @@ async fn cmd_git_colocation_enable(
     if is_colocated_git_workspace(workspace_command.workspace(), workspace_command.repo()) {
         writeln!(ui.status(), "Workspace is already colocated with Git.")?;
         return Ok(());
+    }
+
+    // An external Git repository isn't managed by jj and cannot be moved into
+    // the workspace root
+    if let Some(git_repo_path) = external_git_repo_path(&workspace_command)? {
+        return Err(user_error(format!(
+            "Cannot colocate a workspace backed by an external Git repository at {}",
+            git_repo_path.display()
+        )));
     }
 
     // And that it has a working copy (whose parent we'll use later to set the git

@@ -378,6 +378,10 @@ Thanks to the people who made this release happen!
   much less likely to happen in practice.
   [#9314](https://github.com/jj-vcs/jj/issues/9314)
 
+* `jj git colocation enable` now reports a proper error in workspaces backed
+  by an external Git repository instead of failing with "No such file or
+  directory". [#9853](https://github.com/jj-vcs/jj/issues/9853)
+
 ### Contributors
 
 Thanks to the people who made this release happen!
