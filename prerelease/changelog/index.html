@@ -7428,6 +7428,12 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <p>Fixed failure when reading configuration in copied repo with an empty
   repo-level configuration directory.</p>
 </li>
+<li>
+<p><code>jj diff</code> and <code>jj status</code> no longer omit a rename or copy in a merge commit
+  when the renamed source is present in more than one parent. The identical copy
+  record reported for each parent was mistaken for a conflict and discarded.
+  <a href="https://github.com/jj-vcs/jj/issues/9752">#9752</a></p>
+</li>
 </ul>
 <h2 id="0430-2026-07-01"><a href="https://github.com/jj-vcs/jj/compare/v0.42.0...v0.43.0">0.43.0</a> - 2026-07-01<a class="headerlink" href="#0430-2026-07-01" title="Permanent link">&para;</a></h2>
 <h3 id="release-highlights_1">Release highlights<a class="headerlink" href="#release-highlights_1" title="Permanent link">&para;</a></h3>
