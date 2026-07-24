@@ -14,9 +14,12 @@
 
 #![expect(missing_docs)]
 
+#[cfg(windows)]
 mod backoff;
 #[cfg(unix)]
 mod unix;
+#[cfg(target_os = "wasi")]
+mod wasi;
 #[cfg(windows)]
 mod windows;
 
@@ -27,6 +30,8 @@ use thiserror::Error;
 
 #[cfg(unix)]
 pub use self::unix::FileLock;
+#[cfg(target_os = "wasi")]
+pub use self::wasi::FileLock;
 #[cfg(windows)]
 pub use self::windows::FileLock;
 
