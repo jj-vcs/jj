@@ -68,12 +68,12 @@ pub struct OperationLogArgs {
 
     /// Render each operation using the given template
     ///
-    /// You can specify arbitrary template expressions using the
-    /// [built-in keywords]. See [`jj help -k templates`] for more
-    /// information.
+    /// All 0-argument methods of the [`Operation` type] are available as
+    /// keywords in the template expression. See [`jj help -k templates`] for
+    /// more information.
     ///
-    /// [built-in keywords]:
-    ///     https://docs.jj-vcs.dev/latest/templates/#operation-keywords
+    /// [`Operation` type]:
+    ///     https://docs.jj-vcs.dev/latest/templates/#operation-type
     ///
     /// [`jj help -k templates`]:
     ///     https://docs.jj-vcs.dev/latest/templates/
