@@ -101,6 +101,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   conflict is now preserved in the rewritten commit.
   [#9747](https://github.com/jj-vcs/jj/issues/9747)
 
+* `jj op diff` of a merge operation (e.g. "reconcile divergent operations")
+  now shows an empty diff, consistent with `jj op log --op-diff` and
+  `jj op show`. It previously re-executed the merge, which could show
+  spurious changed commits or fail with "Predecessors cycle detected".
+  [#8925](https://github.com/jj-vcs/jj/issues/8925)
+
 ## [0.43.0] - 2026-07-01
 
 ### Release highlights
