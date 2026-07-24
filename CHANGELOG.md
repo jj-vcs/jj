@@ -154,6 +154,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   aliases of the reserved `.git` and `.jj` directories.
   [#8924](https://github.com/jj-vcs/jj/issues/8924)
 
+* Concurrent working-copy checkout races (e.g. a snapshot from another process
+  while an editor is open) now produce a user-facing warning explaining that the
+  operation was recorded and how to refresh the working copy, instead of an
+  internal error.
+  [#9408](https://github.com/jj-vcs/jj/issues/9408)
+
 * `jj` now creates a new working-copy revision during snapshotting if the
   working copy was immutable. Previously, the new revision was created
   immediately after the working copy became immutable.

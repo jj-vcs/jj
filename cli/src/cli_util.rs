@@ -131,6 +131,7 @@ use jj_lib::str_util::StringMatcher;
 use jj_lib::transaction::Transaction;
 use jj_lib::transaction::TransactionCommitError;
 use jj_lib::working_copy;
+use jj_lib::working_copy::CheckoutError;
 use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::LockedWorkingCopy;
 use jj_lib::working_copy::SnapshotOptions;
@@ -2203,13 +2204,17 @@ to the current parents may contain changes from multiple commits.
     ) -> Result<(), CommandError> {
         assert!(self.may_update_working_copy);
         let stats = update_working_copy(
+            ui,
             &self.user_repo.repo,
             &mut self.workspace,
             maybe_old_commit,
             new_commit,
         )
         .await?;
-        self.print_updated_working_copy_stats(ui, maybe_old_commit, new_commit, &stats)
+        if let Some(stats) = stats {
+            self.print_updated_working_copy_stats(ui, maybe_old_commit, new_commit, &stats)?;
+        }
+        Ok(())
     }
 
     fn print_updated_working_copy_stats(
@@ -3284,24 +3289,37 @@ pub fn print_unmatched_explicit_paths<'a>(
 }
 
 pub async fn update_working_copy(
+    ui: &Ui,
     repo: &Arc<ReadonlyRepo>,
     workspace: &mut Workspace,
     old_commit: Option<&Commit>,
     new_commit: &Commit,
-) -> Result<CheckoutStats, CommandError> {
+) -> Result<Option<CheckoutStats>, CommandError> {
     let old_tree = old_commit.map(|commit| commit.tree());
-    // TODO: CheckoutError::ConcurrentCheckout should probably just result in a
-    // warning for most commands (but be an error for the checkout command)
-    let stats = workspace
+    match workspace
         .check_out(repo.op_id().clone(), old_tree.as_ref(), new_commit)
         .await
-        .map_err(|err| {
-            internal_error_with_message(
-                format!("Failed to check out commit {}", new_commit.id().hex()),
-                err,
-            )
-        })?;
-    Ok(stats)
+    {
+        Ok(stats) => Ok(Some(stats)),
+        // TODO: This should probably be an error for the checkout command.
+        Err(CheckoutError::ConcurrentCheckout) => {
+            writeln!(
+                ui.warning_default(),
+                "The working copy was concurrently modified while this command was running."
+            )?;
+            writeln!(
+                ui.hint_default(),
+                "The operation's result was recorded, but the working copy was not updated. \
+                 Re-run the command if needed, or run `jj status` to update the working copy on \
+                 the next snapshot."
+            )?;
+            Ok(None)
+        }
+        Err(err) => Err(internal_error_with_message(
+            format!("Failed to check out commit {}", new_commit.id().hex()),
+            err,
+        )),
+    }
 }
 
 /// Returns the special remote name that should be ignored by default.
