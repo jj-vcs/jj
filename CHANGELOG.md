@@ -70,6 +70,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `revsets.log` now defaults to `builtin_log()`, so custom log revsets can
   reuse the built-in default instead of copying its full expression.
 
+* Add `remotes.<name>.ref_push_max_batch_size` setting to push a maximum of n
+  refs in a single push and for more use sequential git push commands rather
+  than updating all at once. Useful for some remote restrictions, for example
+  for multiple history rewrites or limited number of CI runs per push, which
+  usually guard against `git push --all` or `git push --mirror` but get tripped
+  by normal jj usage.
+
 ### Fixed bugs
 
 * Recursive alias definitions are detected more precisely. jj can now expand
