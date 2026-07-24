@@ -104,6 +104,10 @@ rebase --autosquash`.
 them incorporated into recent commits. It automatically moves each change in the
 working copy into the previous commit where that line was changed.
 
+Use `jj absorb --interactive` to choose only some hunks to consider for
+absorption. Any hunks that are not selected or cannot be absorbed unambiguously
+remain in the source commit.
+
 It doesn't solve all cases: If multiple commits in the stack modified the same
 line as was changed in the working copy, it will not move that change. But it
 does help the trivial cases, leaving you to decide how to squash the remaining

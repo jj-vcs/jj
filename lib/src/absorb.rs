@@ -68,6 +68,16 @@ impl AbsorbSource {
             parent_tree,
         })
     }
+
+    /// Returns the source commit.
+    pub fn commit(&self) -> &Commit {
+        &self.commit
+    }
+
+    /// Returns the tree of the parent of the source commit.
+    pub fn parent_tree(&self) -> &MergedTree {
+        &self.parent_tree
+    }
 }
 
 /// Error splitting an absorb source into modified ancestry trees.
@@ -93,19 +103,23 @@ pub struct SelectedTrees {
 
 /// Builds trees to be merged into destination commits by splitting source
 /// changes based on file annotation.
+///
+/// The `right_tree` is the tree containing the changes (relative to the
+/// source's parent tree) to consider for absorption. It may be a subset of
+/// `source.commit.tree()` when using interactive selection.
 pub async fn split_hunks_to_trees(
     repo: &dyn Repo,
     source: &AbsorbSource,
+    right_tree: &MergedTree,
     destinations: &Arc<ResolvedRevsetExpression>,
     matcher: &dyn Matcher,
 ) -> Result<SelectedTrees, AbsorbError> {
     let mut selected_trees = SelectedTrees::default();
 
     let left_tree = &source.parent_tree;
-    let right_tree = source.commit.tree();
     // TODO: enable copy tracking if we add support for annotate and merge
     let copy_records = CopyRecords::default();
-    let tree_diff = left_tree.diff_stream_with_copies(&right_tree, matcher, &copy_records);
+    let tree_diff = left_tree.diff_stream_with_copies(right_tree, matcher, &copy_records);
     let mut diff_stream = materialized_diff_stream(
         repo.store(),
         tree_diff,
