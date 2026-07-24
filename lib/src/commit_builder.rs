@@ -408,12 +408,18 @@ impl DetachedCommitBuilder {
                 // TODO: indexing error shouldn't be a "BackendError"
                 .map_err(|err| BackendError::Other(err.into()))?
         {
-            // Recording existing commit as new would create cycle in
-            // predecessors/parent mappings within the current transaction, and
-            // in predecessors graph globally.
-            return Err(BackendError::Other(
-                format!("Newly-created commit {id} already exists", id = commit.id()).into(),
-            ));
+            // The commit already exists in the index. This can happen when a
+            // rewrite produces content identical to an existing commit (e.g.
+            // cycling A→B→A, convergent rewrites, or duplicate creation).
+            // Record the rewrite mapping for descendant rebasing, but skip
+            // re-adding as head and overwriting predecessors.
+            if let Some(rewrite_source) = self.rewrite_source
+                && rewrite_source.id() != commit.id()
+                && !mut_repo.cancel_swap_rewrite(rewrite_source.id(), commit.id())
+            {
+                mut_repo.set_rewritten_commit(rewrite_source.id().clone(), commit.id().clone());
+            }
+            return Ok(commit);
         }
         mut_repo.add_head(&commit).await?;
         mut_repo.set_predecessors(commit.id().clone(), self.predecessors);
