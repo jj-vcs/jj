@@ -858,6 +858,66 @@ fn test_quiet() {
 }
 
 #[test]
+fn test_repeated_args() {
+    // Repeating an argument should be harmless rather than an error, so that an
+    // argument baked into an alias (or a wrapper command) can also be passed
+    // explicitly. See https://github.com/jj-vcs/jj/issues/9859 and
+    // https://github.com/jj-vcs/jj/issues/8101.
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // `--no-pager` is parsed by the early args parser, `--ignore-working-copy`
+    // is not. The repetition is accepted wherever the occurrences sit relative
+    // to the subcommand.
+    for flag in ["--no-pager", "--ignore-working-copy"] {
+        work_dir.run_jj([flag, flag, "status"]).success();
+        work_dir.run_jj([flag, "status", flag]).success();
+        work_dir.run_jj(["status", flag, flag]).success();
+    }
+
+    // Arguments of subcommands are covered as well.
+    let output = work_dir.run_jj(["log", "--no-graph", "-T=description"]);
+    let repeated_output = work_dir.run_jj(["log", "--no-graph", "--no-graph", "-T=description"]);
+    assert_eq!(repeated_output, output);
+
+    // Repeating a flag must not disable it: `--quiet` twice still suppresses
+    // the message about the new working-copy commit.
+    let output = work_dir.run_jj(["--quiet", "--quiet", "describe", "-m=new description"]);
+    insta::assert_snapshot!(output, @"");
+
+    // For an option that takes a value, the last occurrence wins.
+    work_dir.run_jj(["new", "-m=child"]).success();
+    let output = work_dir.run_jj(["log", "--no-graph", "-T=description", "-n=1", "-n=2"]);
+    insta::assert_snapshot!(output, @r"
+    child
+    new description
+    [EOF]
+    ");
+    work_dir.run_jj(["status", "-R=.", "-R=."]).success();
+
+    // Options that can be specified multiple times keep all of their values.
+    let output = work_dir.run_jj([
+        "--config=user.name=Custom User",
+        "--config=user.email=custom@example.com",
+        "config",
+        "list",
+        "user",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    user.name = "Custom User"
+    user.email = "custom@example.com"
+    [EOF]
+    "#);
+    let output = work_dir.run_jj(["log", "--no-graph", "-T=description", "-r=@", "-r=@-"]);
+    insta::assert_snapshot!(output, @r"
+    child
+    new description
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_early_args() {
     // Test that help output parses early args
     let test_env = TestEnvironment::default();

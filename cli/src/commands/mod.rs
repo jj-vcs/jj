@@ -91,6 +91,11 @@ const STYLES: Styles = Styles::styled()
 #[command(disable_help_subcommand = true)]
 #[command(after_long_help = help::show_keyword_hint_after_help())]
 #[command(add = SubcommandCandidates::new(complete::aliases))]
+// A repeated argument is accepted, and the last occurrence wins. This is a
+// propagated setting, so it also applies to subcommands and to custom commands
+// and global arguments registered by `CliRunner`. Arguments that can be
+// specified multiple times, such as `--config`, keep all of their values.
+#[command(args_override_self = true)]
 enum Command {
     Abandon(abandon::AbandonArgs),
     Absorb(absorb::AbsorbArgs),
