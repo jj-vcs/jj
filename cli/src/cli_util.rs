@@ -3632,7 +3632,7 @@ pub struct GlobalArgs {
     ///
     /// Loading the repository at a specific operation with `--at-operation`
     /// implies `--ignore-working-copy`.
-    #[arg(long, global = true)]
+    #[arg(long, global = true, overrides_with = "ignore_working_copy")]
     pub ignore_working_copy: bool,
 
     /// Run the command as usual but don't integrate any operations
@@ -3649,7 +3649,7 @@ pub struct GlobalArgs {
     /// Note that this does *not* prevent side effects outside the repo. For
     /// example, `jj git push --no-integrate-operation` will still perform the
     /// push.
-    #[arg(long, global = true)]
+    #[arg(long, global = true, overrides_with = "no_integrate_operation")]
     pub no_integrate_operation: bool,
 
     /// Allow rewriting immutable commits
@@ -3660,7 +3660,7 @@ pub struct GlobalArgs {
     ///
     /// This option only affects the check. It does not affect the
     /// `immutable_heads()` revset or the `immutable` template keyword.
-    #[arg(long, global = true)]
+    #[arg(long, global = true, overrides_with = "ignore_immutable")]
     pub ignore_immutable: bool,
 
     /// Operation to load the repo at
@@ -3690,7 +3690,7 @@ pub struct GlobalArgs {
     pub at_operation: Option<String>,
 
     /// Enable debug logging
-    #[arg(long, global = true)]
+    #[arg(long, global = true, overrides_with = "debug")]
     pub debug: bool,
 
     #[command(flatten)]
@@ -3709,13 +3709,13 @@ pub struct EarlyArgs {
     /// you if the working copy was snapshotted or if descendants were rebased.
     ///
     /// Warnings and errors will still be printed.
-    #[arg(long, global = true, action = ArgAction::SetTrue)]
+    #[arg(long, global = true, action = ArgAction::SetTrue, overrides_with = "quiet")]
     // Parsing with ignore_errors will crash if this is bool, so use
     // Option<bool>.
     pub quiet: Option<bool>,
 
     /// Disable the pager
-    #[arg(long, global = true, action = ArgAction::SetTrue)]
+    #[arg(long, global = true, action = ArgAction::SetTrue, overrides_with = "no_pager")]
     // Parsing with ignore_errors will crash if this is bool, so use
     // Option<bool>.
     pub no_pager: Option<bool>,

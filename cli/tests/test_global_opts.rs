@@ -858,6 +858,34 @@ fn test_quiet() {
 }
 
 #[test]
+fn test_repeated_boolean_global_flags() {
+    // Repeating an idempotent boolean global flag should be harmless rather
+    // than an error, so that a flag baked into an alias (or a wrapper command)
+    // can also be passed explicitly. See
+    // https://github.com/jj-vcs/jj/issues/9859.
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    for flag in [
+        "--no-pager",
+        "--quiet",
+        "--ignore-working-copy",
+        "--ignore-immutable",
+        "--no-integrate-operation",
+        "--debug",
+    ] {
+        work_dir.run_jj([flag, flag, "status"]).success();
+    }
+
+    // Repeating a flag must not disable it: `--quiet` twice still suppresses
+    // the message about the new working-copy commit.
+    work_dir.write_file("file1", "contents");
+    let output = work_dir.run_jj(["--quiet", "--quiet", "describe", "-m=new description"]);
+    insta::assert_snapshot!(output, @"");
+}
+
+#[test]
 fn test_early_args() {
     // Test that help output parses early args
     let test_env = TestEnvironment::default();
