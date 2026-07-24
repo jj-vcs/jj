@@ -29,6 +29,157 @@ fn strip_ansi_escape_codes(output: String) -> String {
 }
 
 #[test]
+fn test_diff_git_hunk_header_section() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file(
+        "src/lib.rs",
+        indoc! {"
+            fn unchanged() {
+                let value = 1;
+            }
+
+            pub async fn changed(value: i32) -> i32 {
+                value + 1
+            }
+        "},
+    );
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file(
+        "src/lib.rs",
+        indoc! {"
+            fn unchanged() {
+                let value = 1;
+            }
+
+            pub async fn changed(value: i32) -> i32 {
+                value + 2
+            }
+        "},
+    );
+
+    let output = work_dir.run_jj(["diff", "--git", "--context=0"]);
+    insta::assert_snapshot!(output, @"
+    diff --git a/src/lib.rs b/src/lib.rs
+    index a29875152a..dc32bb3132 100644
+    --- a/src/lib.rs
+    +++ b/src/lib.rs
+    @@ -6,1 +6,1 @@ pub async fn changed(value: i32) -> i32 {
+    -    value + 1
+    +    value + 2
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_diff_git_hunk_header_added_section_uses_first_and_is_truncated() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("example.rs", "preamble\n");
+    work_dir.run_jj(["new"]).success();
+
+    let first_header = format!("fn first_{}() {{", "x".repeat(100));
+    work_dir.write_file(
+        "example.rs",
+        format!("preamble\n\n{first_header}\n}}\nfn second() {{\n}}\n"),
+    );
+
+    let output = work_dir.run_jj(["diff", "--git", "--context=0"]);
+    insta::assert_snapshot!(output, @"
+    diff --git a/example.rs b/example.rs
+    index 17a33febd0..381a95e747 100644
+    --- a/example.rs
+    +++ b/example.rs
+    @@ -1,0 +2,5 @@ fn first_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    +
+    +fn first_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx() {
+    +}
+    +fn second() {
+    +}
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_diff_git_hunk_header_truncates_multibyte_symbol_by_bytes() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let header = format!("fn example() {{ // {}", "€".repeat(100));
+    work_dir.write_file("example.rs", format!("{header}\n    1\n}}\n"));
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("example.rs", format!("{header}\n    2\n}}\n"));
+
+    let output = work_dir.run_jj(["diff", "--git", "--context=0"]);
+    let hunk_header = output
+        .stdout
+        .raw()
+        .lines()
+        .find(|line| line.starts_with("@@"))
+        .unwrap();
+    let source_symbol = hunk_header.rsplit_once("@@ ").unwrap().1;
+    assert_eq!(
+        source_symbol,
+        format!("fn example() {{ // {}", "€".repeat(20))
+    );
+    assert_eq!(source_symbol.len(), 78);
+}
+
+#[test]
+fn test_diff_git_hunk_header_deletion_uses_deleted_section() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file(
+        "src/lib.rs",
+        indoc! {"
+            fn deleted() {
+                let value = 1;
+            }
+
+            fn later() {}
+        "},
+    );
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("src/lib.rs", "fn later() {}\n");
+
+    let output = work_dir.run_jj(["diff", "--git"]);
+    insta::assert_snapshot!(output, @"
+    diff --git a/src/lib.rs b/src/lib.rs
+    index 1c67155809..43e292937e 100644
+    --- a/src/lib.rs
+    +++ b/src/lib.rs
+    @@ -1,5 +1,1 @@ fn deleted() {
+    -fn deleted() {
+    -    let value = 1;
+    -}
+    -
+     fn later() {}
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["diff", "--git", "--context=0"]);
+    insta::assert_snapshot!(output, @"
+    diff --git a/src/lib.rs b/src/lib.rs
+    index 1c67155809..43e292937e 100644
+    --- a/src/lib.rs
+    +++ b/src/lib.rs
+    @@ -1,4 +0,0 @@ fn deleted() {
+    -fn deleted() {
+    -    let value = 1;
+    -}
+    -
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_diff_basic() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
