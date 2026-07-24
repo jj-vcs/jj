@@ -79,6 +79,7 @@ use crate::templater::TemplateProperty;
 use crate::templater::TemplatePropertyError;
 use crate::templater::TemplatePropertyExt as _;
 use crate::templater::TemplateRenderer;
+use crate::templater::TryList;
 use crate::templater::WrapTemplateProperty;
 use crate::text_util;
 use crate::text_util::write_replaced;
@@ -2574,6 +2575,13 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
             .transpose()?;
         let property = ConditionalProperty::new(condition, true_any, false_any);
         Ok(L::Property::wrap_any(Box::new(property)))
+    });
+    map.insert("try", |language, diagnostics, build_ctx, function| {
+        let ([node], nodes) = function.expect_some_arguments()?;
+        let properties = itertools::chain([node], nodes)
+            .map(|node| expect_any_expression(language, diagnostics, build_ctx, node))
+            .try_collect()?;
+        Ok(L::Property::wrap_any(Box::new(TryList::new(properties))))
     });
     map.insert("coalesce", |language, diagnostics, build_ctx, function| {
         let ([], content_nodes) = function.expect_some_arguments()?;
@@ -5457,6 +5465,77 @@ mod tests {
           |
           = Expected expression of type `Serialize`, but actual type is `Any`
         "###);
+    }
+
+    #[test]
+    fn test_try_function() {
+        let mut env = TestTemplateEnv::new();
+        env.add_keyword("bad_string", || new_error_property::<String>("Bad string"));
+        env.add_keyword("bad_i64", || new_error_property::<i64>("Bad i64"));
+        env.add_keyword("bad_size_hint", || {
+            new_error_property::<SizeHint>("Bad size hint")
+        });
+        env.add_color("red", crossterm::style::Color::Red);
+
+        insta::assert_snapshot!(env.render_ok("try(bad_string)"), @"<Error: Bad string>");
+        insta::assert_snapshot!(env.render_ok("try(bad_string, bad_i64)"), @"<Error: Bad i64>");
+        insta::assert_snapshot!(env.render_ok("try('foo', 'bar', bad_string)"), @"foo");
+        insta::assert_snapshot!(env.render_ok("try(bad_string, 'foo')"), @"foo");
+        insta::assert_snapshot!(env.render_ok("try(bad_string, 'foo', 'bar')"), @"foo");
+
+        // Error from inner template expression
+        insta::assert_snapshot!(env.render_ok("try('foo' ++ bad_string, 'bar')"), @"bar");
+        insta::assert_snapshot!(
+            env.render_ok("try('foo' ++ bad_string, 'bar' ++ bad_i64)"), @"bar<Error: Bad i64>");
+        insta::assert_snapshot!(env.render_ok("try(try(bad_string, 'foo'), 'bar')"), @"foo");
+        insta::assert_snapshot!(env.render_ok("try(try(bad_string, bad_i64), 'foo')"), @"foo");
+
+        // Colorized output
+        insta::assert_snapshot!(env.render_ok("try(bad_string, label('red', 'foo'))"), @"[38;5;9mfoo[39m");
+        insta::assert_snapshot!(env.render_ok("try(label('red', 'foo'), bad_string)"), @"[38;5;9mfoo[39m");
+
+        // Serialize
+        insta::assert_snapshot!(env.render_ok("json(try(bad_string, 'foo'))"), @r#""foo""#);
+        insta::assert_snapshot!(env.render_ok("json(try('foo', bad_string))"), @r#""foo""#);
+        insta::assert_snapshot!(env.render_ok("json(try(bad_string, bad_i64, 0, ''))"), @"0");
+
+        // No arguments
+        insta::assert_snapshot!(env.parse_err("try()"), @"
+         --> 1:5
+          |
+        1 | try()
+          |     ^
+          |
+          = Function `try`: Expected at least 1 arguments
+        ");
+
+        // Parse error in arguments
+        insta::assert_snapshot!(env.parse_err("try('foo' == 0, '')"), @"
+         --> 1:5
+          |
+        1 | try('foo' == 0, '')
+          |     ^--------^
+          |
+          = Cannot compare expressions of type `String` and `Integer`
+        ");
+
+        // Unsupported type in error arguments
+        insta::assert_snapshot!(env.parse_err("json(try('foo' ++ bad_string, ''))"), @"
+         --> 1:6
+          |
+        1 | json(try('foo' ++ bad_string, ''))
+          |      ^--------------------------^
+          |
+          = Expected expression of type `Serialize`, but actual type is `Any`
+        ");
+        insta::assert_snapshot!(env.parse_err("try(bad_size_hint, '')"), @"
+         --> 1:1
+          |
+        1 | try(bad_size_hint, '')
+          | ^--------------------^
+          |
+          = Expected expression of type `Template`, but actual type is `Any`
+        ");
     }
 
     #[test]

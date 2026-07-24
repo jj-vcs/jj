@@ -47,6 +47,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   [#9713](https://github.com/jj-vcs/jj/pull/9713),
   [#9826](https://github.com/jj-vcs/jj/pull/9826)
 
+* New `try(expr, fallback...)` template function to suppress runtime errors.
+
 * `jj run` now processes revisions from oldest to newest by default. The start
   order is guaranteed: each revision begins execution only after the previous
   one has started, even with `--jobs` higher than 1.

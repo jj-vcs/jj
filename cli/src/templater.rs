@@ -813,7 +813,7 @@ where
                         if condition { on_true } else { on_false }
                     },
                 )
-                .into_serialize(),
+                .into_dyn(),
         )
     }
 
@@ -875,6 +875,70 @@ where
         match condition {
             true => self.true_template.format(formatter),
             false => self.false_template.format(formatter),
+        }
+    }
+}
+
+/// Attempts to render or extract contents in order, returns the first
+/// successful output.
+pub struct TryList<T>(Vec<T>);
+
+impl<T> TryList<T> {
+    pub fn new(contents: Vec<T>) -> Self {
+        assert!(!contents.is_empty());
+        Self(contents)
+    }
+
+    fn try_into_inner<U>(self, mut f: impl FnMut(T) -> Option<U>) -> Option<Vec<U>> {
+        self.0.into_iter().map(&mut f).collect()
+    }
+}
+
+/// Converts type-erased properties if all items support the operation.
+impl<'a> AnyTemplateProperty<'a> for TryList<BoxedAnyProperty<'a>> {
+    fn try_into_serialize(self: Box<Self>) -> Option<BoxedSerializeProperty<'a>> {
+        let properties = self.try_into_inner(|p| p.try_into_serialize())?;
+        Some(Box::new(TryList(properties)))
+    }
+
+    fn try_into_template(self: Box<Self>) -> Option<Box<dyn Template + 'a>> {
+        let templates = self.try_into_inner(|p| p.try_into_template())?;
+        Some(Box::new(TryList(templates)))
+    }
+
+    fn try_join(
+        self: Box<Self>,
+        _separator: Box<dyn Template + 'a>,
+    ) -> Option<Box<dyn Template + 'a>> {
+        // NOTE: This is implementable, but currently cannot be called.
+        None
+    }
+}
+
+impl<T: Template> Template for TryList<T> {
+    fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
+        let (last, contents) = self.0.split_last().unwrap();
+        if let Some(recorder) = contents.iter().find_map(|content| {
+            let mut recorder = FormatRecorder::new(formatter.maybe_color());
+            let mut wrapper = TemplateFormatter::new(&mut recorder, propagate_property_error);
+            content.format(&mut wrapper).is_ok().then_some(recorder)
+        }) {
+            recorder.replay(formatter.as_mut())
+        } else {
+            last.format(formatter) // render the last error normally
+        }
+    }
+}
+
+impl<T: TemplateProperty> TemplateProperty for TryList<T> {
+    type Output = T::Output;
+
+    fn extract(&self) -> Result<Self::Output, TemplatePropertyError> {
+        let (last, contents) = self.0.split_last().unwrap();
+        if let Some(value) = contents.iter().find_map(|p| p.extract().ok()) {
+            Ok(value)
+        } else {
+            last.extract() // propagate the last error
         }
     }
 }
