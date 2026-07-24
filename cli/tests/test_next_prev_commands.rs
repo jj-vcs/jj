@@ -755,6 +755,94 @@ fn test_next_editing() {
 }
 
 #[test]
+fn test_prev_keep() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["commit", "-m", "first"]).success();
+    work_dir.run_jj(["commit", "-m", "second"]).success();
+    work_dir.run_jj(["commit", "-m", "third"]).success();
+    work_dir.run_jj(["commit", "-m", "fourth"]).success();
+    // add some content that will be kept while moving
+    work_dir.write_file("file1", "a\n");
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    @  mzvwutvlkqwt
+    │  A file1
+    ○  zsuskulnrvyr fourth
+    ○  kkmpptxzrspx third
+    ○  rlvkpnrzqnoo second
+    ○  qpvuntsmwlqt first
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["prev", "--keep"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: mzvwutvl 6ffff6f0 (no description set)
+    Parent commit (@-)      : kkmpptxz 7576de42 (empty) third
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    @  mzvwutvlkqwt
+    │  A file1
+    │ ○  zsuskulnrvyr fourth
+    ├─╯
+    ○  kkmpptxzrspx third
+    ○  rlvkpnrzqnoo second
+    ○  qpvuntsmwlqt first
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_next_keep() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["commit", "-m", "first"]).success();
+    work_dir.run_jj(["commit", "-m", "second"]).success();
+    work_dir.run_jj(["commit", "-m", "third"]).success();
+    work_dir.run_jj(["commit", "-m", "fourth"]).success();
+    work_dir.run_jj(["new", "@---"]).success();
+    // add some content that will be kept while moving
+    work_dir.write_file("file1", "a\n");
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    @  royxmykxtrkr
+    │  A file1
+    │ ○  zsuskulnrvyr fourth
+    │ ○  kkmpptxzrspx third
+    ├─╯
+    ○  rlvkpnrzqnoo second
+    ○  qpvuntsmwlqt first
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["next", "--keep"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: royxmykx 12148bb3 (no description set)
+    Parent commit (@-)      : kkmpptxz 7576de42 (empty) third
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    @  royxmykxtrkr
+    │  A file1
+    │ ○  zsuskulnrvyr fourth
+    ├─╯
+    ○  kkmpptxzrspx third
+    ○  rlvkpnrzqnoo second
+    ○  qpvuntsmwlqt first
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_prev_conflict() {
     // Make the first commit our new parent.
     let test_env = TestEnvironment::default();
@@ -1238,4 +1326,11 @@ fn test_next_when_wc_has_descendants() {
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     let template = r#"separate(" ", change_id.short(), local_bookmarks, if(conflict, "conflict"), description)"#;
     work_dir.run_jj(["log", "-T", template])
+}
+
+#[must_use]
+fn get_log_with_summary(work_dir: &TestWorkDir) -> CommandOutput {
+    let template =
+        r#"separate(" ", change_id.short(), local_bookmarks, coalesce(description, "\n"))"#;
+    work_dir.run_jj(["log", "-T", template, "--summary"])
 }
