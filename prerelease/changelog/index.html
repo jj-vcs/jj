@@ -7434,6 +7434,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   record reported for each parent was mistaken for a conflict and discarded.
   <a href="https://github.com/jj-vcs/jj/issues/9752">#9752</a></p>
 </li>
+<li>
+<p><code>jj run</code> no longer panics when its revset includes a conflicted commit. The
+  conflict is now preserved in the rewritten commit.
+  <a href="https://github.com/jj-vcs/jj/issues/9747">#9747</a></p>
+</li>
 </ul>
 <h2 id="0430-2026-07-01"><a href="https://github.com/jj-vcs/jj/compare/v0.42.0...v0.43.0">0.43.0</a> - 2026-07-01<a class="headerlink" href="#0430-2026-07-01" title="Permanent link">&para;</a></h2>
 <h3 id="release-highlights_1">Release highlights<a class="headerlink" href="#release-highlights_1" title="Permanent link">&para;</a></h3>
