@@ -112,7 +112,7 @@ same working copy. The benefits of doing so are:
 - Tooling that expects a Git repository still works (IDEs, build tooling, etc.)
 
 The [colocation documentation describes the
-drawbacks](git-compatibility.md#colocated-jujutsugit-repos) but the most
+drawbacks](git-compatibility.md#colocated-jujutsugit-workspaces) but the most
 important ones are:
 
 - Interleaving `git` and `jj` commands may create confusing bookmark conflicts

@@ -1599,7 +1599,7 @@ Create a new repo backed by a clone of a Git repo
 
    See [colocation docs] for some minor advantages of non-colocated workspaces.
 
-   [colocation docs]: https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-repos
+   [colocation docs]: https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-workspaces
 * `--depth <DEPTH>` — Create a shallow clone of the given depth
 * `-b`, `--branch <BRANCH>` — Name of the branch to fetch and use as the parent of the working-copy change (can be repeated)
 
@@ -1767,7 +1767,7 @@ Create a new Git backed repo
 
    See [colocation docs] for some minor advantages of non-colocated workspaces.
 
-   [colocation docs]: https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-repos
+   [colocation docs]: https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-workspaces
 * `--object-hash <OBJECT_HASH>` — Object hash algorithm for the newly created Git repository.
 
    Corresponds to `git init`'s `--object-format` option. If not given, the [git.object-hash config] determines the default value.

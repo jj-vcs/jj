@@ -89,7 +89,7 @@ pub struct GitInitArgs {
     /// workspaces.
     ///
     /// [colocation docs]:
-    ///     https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-repos
+    ///     https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-workspaces
     #[arg(long, conflicts_with = "colocate")]
     no_colocate: bool,
 

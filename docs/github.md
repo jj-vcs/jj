@@ -67,7 +67,7 @@ flag for each of them, or pass multiple `-b` arguments, one for every branch.
 ## Working in a Git colocated workspaces
 
 After doing `jj git init`, which
-[colocates](git-compatibility.md#colocated-jujutsugit-repos) the `.jj` and
+[colocates](git-compatibility.md#colocated-jujutsugit-workspaces) the `.jj` and
 `.git` directories, Git will be in a [detached HEAD state][detached], which is
 unusual, as Git mainly works with named branches; jj does not.
 
@@ -183,7 +183,7 @@ You can find more information on that setting [here][auto-bookmark].
 ## Using GitHub CLI
 
 GitHub CLI will have trouble finding the proper Git repository path in jj repos
-that aren't [colocated](./git-compatibility.md#colocated-jujutsugit-repos)
+that aren't [colocated](./git-compatibility.md#colocated-jujutsugit-workspaces)
 (see [issue #1008]). You can configure the `$GIT_DIR` environment variable to
 point it to the right path:
 
