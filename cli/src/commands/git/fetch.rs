@@ -165,7 +165,9 @@ pub async fn cmd_git_fetch(
         return Err(user_error("No git remotes to fetch from"));
     }
 
-    let mut tx = workspace_command.start_transaction();
+    // Hold the Git import/export lock across the network fetch, so the fetched
+    // refs get imported by this command, not by a concurrent snapshot.
+    let mut tx = workspace_command.start_git_import_transaction(ui).await?;
     let remote_settings = tx.settings().remote_settings()?;
 
     let is_specific = args.branches.is_some() || args.tags.is_some();
