@@ -2166,8 +2166,11 @@ where
                     )
                 })
                 .transpose()?;
-            let out_property = (self_property, len_property)
-                .map(|(id, len)| format!("{id:.len$}", len = len.unwrap_or(12)));
+            let out_property = (self_property, len_property).map(|(id, len)| {
+                let mut id_str = id.to_string();
+                id_str.truncate(len.unwrap_or(12));
+                id_str
+            });
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -2205,7 +2208,8 @@ where
             // `len` and the length of the shortest unique prefix.
             let out_property = (self_property, len_property).and_then(move |(id, len)| {
                 let prefix_len = id.shortest_prefix_len(repo, &index)?;
-                let mut hex = format!("{id:.len$}", len = max(prefix_len, len.unwrap_or(0)));
+                let mut hex = id.to_string();
+                hex.truncate(max(prefix_len, len.unwrap_or(0)));
                 let rest = hex.split_off(prefix_len);
                 Ok(ShortestIdPrefix { prefix: hex, rest })
             });
@@ -3248,6 +3252,8 @@ mod tests {
         insta::assert_snapshot!(
             env.render_ok("self.short(100)", &id), @"08a70ab33d7143b7130ed8594d8216ef688623c0");
         insta::assert_snapshot!(
+            env.render_ok("self.short(65536)", &id), @"08a70ab33d7143b7130ed8594d8216ef688623c0");
+        insta::assert_snapshot!(
             env.render_ok("self.short(-100)", &id),
             @"<Error: out of range integral type conversion attempted>");
 
@@ -3256,6 +3262,8 @@ mod tests {
         insta::assert_snapshot!(env.render_ok("self.shortest(-0)", &id), @"08");
         insta::assert_snapshot!(
             env.render_ok("self.shortest(100)", &id), @"08a70ab33d7143b7130ed8594d8216ef688623c0");
+        insta::assert_snapshot!(
+            env.render_ok("self.shortest(65536)", &id), @"08a70ab33d7143b7130ed8594d8216ef688623c0");
         insta::assert_snapshot!(
             env.render_ok("self.shortest(-100)", &id),
             @"<Error: out of range integral type conversion attempted>");
@@ -3281,6 +3289,8 @@ mod tests {
         insta::assert_snapshot!(
             env.render_ok("self.short(100)", &id), @"kkmpptxzrspxrzommnulwmwkkqwworpl");
         insta::assert_snapshot!(
+            env.render_ok("self.short(65536)", &id), @"kkmpptxzrspxrzommnulwmwkkqwworpl");
+        insta::assert_snapshot!(
             env.render_ok("self.short(-100)", &id),
             @"<Error: out of range integral type conversion attempted>");
 
@@ -3289,6 +3299,8 @@ mod tests {
         insta::assert_snapshot!(env.render_ok("self.shortest(-0)", &id), @"k");
         insta::assert_snapshot!(
             env.render_ok("self.shortest(100)", &id), @"kkmpptxzrspxrzommnulwmwkkqwworpl");
+        insta::assert_snapshot!(
+            env.render_ok("self.shortest(65536)", &id), @"kkmpptxzrspxrzommnulwmwkkqwworpl");
         insta::assert_snapshot!(
             env.render_ok("self.shortest(-100)", &id),
             @"<Error: out of range integral type conversion attempted>");
