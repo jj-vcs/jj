@@ -29,6 +29,7 @@ use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigLoadError;
 use jj_lib::config::ConfigMigrateError;
 use jj_lib::dsl_util::Diagnostics;
+use jj_lib::dsl_util::take_most_similar;
 use jj_lib::evolution::WalkPredecessorsError;
 use jj_lib::fileset::FilePatternParseError;
 use jj_lib::fileset::FilesetParseError;
@@ -223,12 +224,23 @@ pub fn internal_error_with_message(
     CommandError::with_message(CommandErrorKind::Internal, message, source)
 }
 
-fn format_similarity_hint<S: AsRef<str>>(candidates: &[S]) -> Option<String> {
+/// Number of similar names to list before summarizing the rest.
+const MAX_SIMILAR_NAMES: usize = 5;
+
+fn format_similarity_hint<S: AsRef<str>>(
+    name: &str,
+    candidates: &[S],
+    max: Option<usize>,
+) -> Option<String> {
     match candidates {
         [] => None,
         names => {
-            let quoted_names = names.iter().map(|s| format!("`{}`", s.as_ref())).join(", ");
-            Some(format!("Did you mean {quoted_names}?"))
+            let similar_names = take_most_similar(name, names, max.unwrap_or(names.len()));
+            let quoted_names = similar_names.iter().map(|s| format!("`{s}`")).join(", ");
+            match names.len() - similar_names.len() {
+                0 => Some(format!("Did you mean {quoted_names}?")),
+                n => Some(format!("Did you mean {quoted_names}, or {n} others?")),
+            }
         }
     }
 }
@@ -834,10 +846,9 @@ fn fileset_parse_error_hint(err: &FilesetParseError) -> Option<String> {
             "See https://docs.jj-vcs.dev/latest/filesets/ or use `jj help -k filesets` for \
              filesets syntax and how to match file paths.",
         )),
-        FilesetParseErrorKind::NoSuchFunction {
-            name: _,
-            candidates,
-        } => format_similarity_hint(candidates),
+        FilesetParseErrorKind::NoSuchFunction { name, candidates } => {
+            format_similarity_hint(name, candidates, Some(MAX_SIMILAR_NAMES))
+        }
         FilesetParseErrorKind::InvalidArguments { .. } => find_source_parse_error_hint(&err),
         FilesetParseErrorKind::RedefinedFunctionParameter => None,
         FilesetParseErrorKind::Expression(_) => find_source_parse_error_hint(&err),
@@ -887,10 +898,9 @@ pub(crate) fn revset_parse_error_hint(err: &RevsetParseError) -> Option<String> 
             similar_op,
             description,
         } => Some(format!("Did you mean `{similar_op}` for {description}?")),
-        RevsetParseErrorKind::NoSuchFunction {
-            name: _,
-            candidates,
-        } => format_similarity_hint(candidates),
+        RevsetParseErrorKind::NoSuchFunction { name, candidates } => {
+            format_similarity_hint(name, candidates, Some(MAX_SIMILAR_NAMES))
+        }
         RevsetParseErrorKind::InvalidFunctionArguments { .. }
         | RevsetParseErrorKind::Expression(_) => find_source_parse_error_hint(bottom_err),
         _ => None,
@@ -905,10 +915,11 @@ fn revset_resolution_error_hints(err: &RevsetResolutionError) -> Vec<String> {
         )
     };
     match err {
-        RevsetResolutionError::NoSuchRevision {
-            name: _,
-            candidates,
-        } => format_similarity_hint(candidates).into_iter().collect(),
+        RevsetResolutionError::NoSuchRevision { name, candidates } => {
+            format_similarity_hint(name, candidates, Some(MAX_SIMILAR_NAMES))
+                .into_iter()
+                .collect()
+        }
         RevsetResolutionError::DivergentChangeId {
             symbol,
             visible_targets,
@@ -968,11 +979,18 @@ fn template_parse_error_hint(err: &TemplateParseError) -> Option<String> {
     // Only for the bottom error, which is usually the root cause
     let bottom_err = iter::successors(Some(err), |e| e.origin()).last().unwrap();
     match bottom_err.kind() {
-        TemplateParseErrorKind::NoSuchKeyword { candidates, .. }
-        | TemplateParseErrorKind::NoSuchFunction { candidates, .. }
-        | TemplateParseErrorKind::NoSuchMethod { candidates, .. } => {
-            format_similarity_hint(candidates)
+        // Keyword hints aren't capped. `-Tbuiltin` uses this to list every
+        // builtin_* alias, and template-aliases share the list, so a large
+        // alias set isn't truncated here either. (#9811)
+        TemplateParseErrorKind::NoSuchKeyword {
+            name, candidates, ..
+        } => format_similarity_hint(name, candidates, None),
+        TemplateParseErrorKind::NoSuchFunction {
+            name, candidates, ..
         }
+        | TemplateParseErrorKind::NoSuchMethod {
+            name, candidates, ..
+        } => format_similarity_hint(name, candidates, Some(MAX_SIMILAR_NAMES)),
         TemplateParseErrorKind::InvalidArguments { .. } | TemplateParseErrorKind::Expression(_) => {
             find_source_parse_error_hint(bottom_err)
         }
