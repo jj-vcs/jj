@@ -2645,3 +2645,168 @@ fn test_git_fetch_auto_track_bookmarks() {
     [EOF]
     ");
 }
+
+/// Concurrent `jj git fetch` processes importing a remotely-rewritten bookmark
+/// must not turn a local commit stacked on it into a divergent change. A
+/// background thread keeps rewriting the bookmark while several fetchers race
+/// to import it; each import rebases the local commit. When two imports start
+/// from the same operation, their rebases get different commit ids and the
+/// change becomes divergent.
+///
+/// Modeled on `test_concurrent_operations::test_git_head_race_condition`.
+#[test]
+fn test_git_fetch_race_condition() {
+    let test_env = TestEnvironment::default();
+
+    // Colocated remote with a bookmark `feat`.
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "remote"])
+        .success();
+    let remote_dir = test_env.work_dir("remote");
+    remote_dir.run_jj(["describe", "-m", "v0"]).success();
+    remote_dir
+        .run_jj(["bookmark", "create", "-r@", "feat"])
+        .success();
+
+    // Clone colocated and stack a local commit on top of `feat`.
+    test_env
+        .run_jj_in(".", ["git", "clone", "--colocate", "remote", "local"])
+        .success();
+    let local_dir = test_env.work_dir("local");
+    local_dir
+        .run_jj(["new", "feat@origin", "-m", "local work"])
+        .success();
+    // The bottom commit stacked on `feat` is the one every import rebases;
+    // capture its change id now, while it's still unambiguous.
+    let local_change_id = local_dir
+        .run_jj(["log", "--no-graph", "-r", "@", "-T", "change_id"])
+        .success()
+        .stdout
+        .into_raw();
+    let local_change_id = local_change_id.trim().to_owned();
+    // Stack a few more commits so each import rebases a taller subtree, which
+    // widens the window for two concurrent imports to collide.
+    for i in 0..4 {
+        local_dir
+            .run_jj(["new", "-m", &format!("local work {i}")])
+            .success();
+    }
+
+    // Rewrite the bookmark once before the fetchers start, so they have a
+    // rewrite to import even if the writer thread below is slow to get going.
+    remote_dir
+        .run_jj(["describe", "-r", "feat", "-m", "v1"])
+        .success();
+
+    // Spawned processes need fresh timestamps/seed so each concurrent rebase
+    // produces a distinct commit id.
+    let base_cmd = test_env.new_jj_cmd();
+    let jj_bin = base_cmd.get_program().to_owned();
+    let base_env: Vec<_> = base_cmd
+        .get_envs()
+        .filter_map(|(k, v)| v.map(|v| (k.to_owned(), v.to_owned())))
+        .filter(|(k, _)| k != "JJ_TIMESTAMP" && k != "JJ_OP_TIMESTAMP" && k != "JJ_RANDOMNESS_SEED")
+        .collect();
+
+    let remote_path = remote_dir.root().to_owned();
+    let local_path = local_dir.root().to_owned();
+    let duration = std::time::Duration::from_secs(5);
+    let start = std::time::Instant::now();
+    // Every spawned command must succeed; the counts only guard against a
+    // vacuous pass if a loop never got to run a command at all.
+    let rewrite_count = std::sync::atomic::AtomicUsize::new(0);
+    let fetch_count = std::sync::atomic::AtomicUsize::new(0);
+    let failures = std::sync::Mutex::new(Vec::new());
+    let succeeded = |command: &str, output: std::process::Output| {
+        if output.status.success() {
+            return true;
+        }
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        failures
+            .lock()
+            .unwrap()
+            .push(format!("`{command}` failed: {}", stderr.trim()));
+        false
+    };
+
+    std::thread::scope(|s| {
+        // Keep rewriting the remote bookmark so each fetch has a rewrite to
+        // import.
+        s.spawn(|| {
+            let mut n = 2;
+            while start.elapsed() < duration {
+                let mut cmd = std::process::Command::new(&jj_bin);
+                cmd.current_dir(&remote_path);
+                cmd.args(["describe", "-r", "feat", "-m", &format!("v{n}")]);
+                for (key, value) in &base_env {
+                    cmd.env(key, value);
+                }
+                let output = cmd.output().expect("failed to spawn jj describe");
+                if succeeded("jj describe", output) {
+                    rewrite_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                }
+                n += 1;
+            }
+        });
+        // Several fetchers race to import the rewrite.
+        for _ in 0..4 {
+            s.spawn(|| {
+                while start.elapsed() < duration {
+                    let mut cmd = std::process::Command::new(&jj_bin);
+                    cmd.current_dir(&local_path);
+                    cmd.args(["git", "fetch"]);
+                    for (key, value) in &base_env {
+                        cmd.env(key, value);
+                    }
+                    let output = cmd.output().expect("failed to spawn jj git fetch");
+                    if succeeded("jj git fetch", output) {
+                        fetch_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    }
+                }
+            });
+        }
+    });
+
+    // Exactly one visible commit must share the local commit's change id.
+    // --ignore-working-copy: don't run another Git import cycle, which can hit
+    // unrelated races in the Git state the concurrent fetches left behind.
+    let revset = format!("change_id({local_change_id})");
+    let output = local_dir
+        .run_jj([
+            "log",
+            "--ignore-working-copy",
+            "--no-graph",
+            "-r",
+            revset.as_str(),
+            "-T",
+            r#"commit_id.short() ++ "\n""#,
+        ])
+        .success();
+    let copies = output
+        .stdout
+        .raw()
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .count();
+    assert_eq!(
+        copies, 1,
+        "the local commit must not be divergent after concurrent fetches; got {copies} copies"
+    );
+
+    // Divergence is asserted first because it's the symptom this test is about;
+    // unserialized imports also make the concurrent fetches fail to update
+    // `refs/remotes/origin/feat`, which these assertions catch.
+    let failures = failures.into_inner().unwrap();
+    assert!(
+        failures.is_empty(),
+        "concurrent commands failed: {failures:#?}"
+    );
+    assert!(
+        rewrite_count.load(std::sync::atomic::Ordering::Relaxed) > 0,
+        "expected the remote bookmark to be rewritten at least once"
+    );
+    assert!(
+        fetch_count.load(std::sync::atomic::Ordering::Relaxed) > 0,
+        "expected `jj git fetch` to run at least once"
+    );
+}

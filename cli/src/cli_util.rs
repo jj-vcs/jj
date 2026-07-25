@@ -1209,6 +1209,26 @@ impl WorkspaceCommandHelper {
         }
     }
 
+    /// Reloads the repo at the current operation head if it has advanced since
+    /// this command loaded it, e.g. because another process committed an
+    /// operation.
+    async fn reload_repo_at_head(&mut self, ui: &Ui) -> Result<(), CommandError> {
+        assert!(self.env.command.is_at_head_operation());
+        let repo = self.repo();
+        let op_heads_store = repo.loader().op_heads_store();
+        let op_heads = op_heads_store.get_op_heads().await?;
+        if std::slice::from_ref(repo.op_id()) == op_heads {
+            return Ok(());
+        }
+        let op = self
+            .env
+            .command
+            .resolve_operation(ui, repo.loader(), self.workspace_name())?;
+        let current_repo = repo.loader().load_at(&op).await?;
+        self.user_repo = ReadonlyUserRepo::new(current_repo);
+        Ok(())
+    }
+
     /// Acquires a lock for git import/export operations if the workspace is
     /// colocated with Git. Returns a token that can be passed to functions
     /// that need to import from or export to Git. For non-colocated repos,
@@ -1247,25 +1267,9 @@ impl WorkspaceCommandHelper {
         // Reload at current head to avoid creating divergent operations if another
         // process committed an operation while we were waiting for the lock.
         if self.working_copy_shared_with_git {
-            let repo = self.repo().clone();
-            let op_heads_store = repo.loader().op_heads_store();
-            let op_heads = op_heads_store
-                .get_op_heads()
+            self.reload_repo_at_head(ui)
                 .await
                 .map_err(snapshot_command_error)?;
-            if std::slice::from_ref(repo.op_id()) != op_heads {
-                let op = self
-                    .env
-                    .command
-                    .resolve_operation(ui, repo.loader(), self.workspace_name())
-                    .map_err(snapshot_command_error)?;
-                let current_repo = repo
-                    .loader()
-                    .load_at(&op)
-                    .await
-                    .map_err(snapshot_command_error)?;
-                self.user_repo = ReadonlyUserRepo::new(current_repo);
-            }
         }
 
         #[cfg(feature = "git")]
@@ -2259,7 +2263,32 @@ to the current parents may contain changes from multiple commits.
             helper: self,
             tx,
             id_prefix_context,
+            git_import_export_lock: None,
         }
+    }
+
+    /// Starts a transaction that holds the Git import/export lock and runs on
+    /// the latest operation, so a concurrent snapshot can't import or export
+    /// Git refs while the transaction is open, and the import can't repeat
+    /// a rewrite that a concurrent operation already committed, which would
+    /// create divergent changes. The lock is released when the transaction
+    /// is finished or dropped.
+    ///
+    /// Don't trigger anything that takes the same lock while the transaction
+    /// is open.
+    pub async fn start_locked_git_import_export_transaction(
+        &mut self,
+        ui: &Ui,
+    ) -> Result<WorkspaceCommandTransaction<'_>, CommandError> {
+        let lock = self.lock_git_import_export()?;
+        // Under --at-op the command must run on the operation the user named,
+        // even if the heads have moved on.
+        if self.env.command.should_commit_transaction() && self.env.command.is_at_head_operation() {
+            self.reload_repo_at_head(ui).await?;
+        }
+        let mut tx = self.start_transaction();
+        tx.git_import_export_lock = Some(lock);
+        Ok(tx)
     }
 
     async fn finish_transaction(
@@ -2672,6 +2701,10 @@ pub struct WorkspaceCommandTransaction<'a> {
     tx: Transaction,
     /// Cache of index built against the current MutableRepo state.
     id_prefix_context: OnceCell<IdPrefixContext>,
+    /// Lock taken by
+    /// [`WorkspaceCommandHelper::start_locked_git_import_export_transaction`],
+    /// reused when the transaction is finished.
+    git_import_export_lock: Option<GitImportExportLock>,
 }
 
 impl WorkspaceCommandTransaction<'_> {
@@ -2753,7 +2786,12 @@ impl WorkspaceCommandTransaction<'_> {
     }
 
     pub async fn finish(self, ui: &Ui, description: impl Into<String>) -> Result<(), CommandError> {
-        let Self { helper, mut tx, .. } = self;
+        let Self {
+            helper,
+            mut tx,
+            git_import_export_lock,
+            ..
+        } = self;
         if !tx.repo().has_changes() {
             writeln!(ui.status(), "Nothing changed.")?;
             return Ok(());
@@ -2762,9 +2800,11 @@ impl WorkspaceCommandTransaction<'_> {
         if num_rebased > 0 {
             writeln!(ui.status(), "Rebased {num_rebased} descendant commits.")?;
         }
-        // Acquire git import/export lock before finishing the transaction to ensure
-        // Git HEAD export happens atomically with the transaction commit.
-        let git_import_export_lock = helper.lock_git_import_export()?;
+        // Reuse the Git import/export lock held since the transaction was started,
+        // or acquire one now, so Git HEAD export happens atomically with the
+        // transaction commit.
+        let git_import_export_lock =
+            git_import_export_lock.map_or_else(|| helper.lock_git_import_export(), Ok)?;
         helper
             .finish_transaction(ui, tx, description, &git_import_export_lock)
             .await
