@@ -1758,7 +1758,7 @@ The setting `git.colocate` is a boolean option that controls whether or not the
 `jj git init` and `jj git clone` commands should create colocated workspace by
 default. Set `git.colocate` to `false` to disable it.
 
-See [Colocated Jujutsu/Git workspaces](git-compatibility.md#colocated-jujutsugit-repos)
+See [Colocated Jujutsu/Git workspaces](git-compatibility.md#colocated-jujutsugit-workspaces)
 for more information.
 
 ### Default object hash format
