@@ -455,13 +455,13 @@ impl CommandHelper {
     /// Loads workspace and repo, then snapshots the working copy if allowed.
     #[instrument(skip(self, ui))]
     pub async fn workspace_helper(&self, ui: &Ui) -> Result<WorkspaceCommandHelper, CommandError> {
-        let (workspace_command, stats) = self.workspace_helper_with_stats(ui).await?;
+        let (workspace_command, stats, _) = self.workspace_helper_with_stats(ui).await?;
         print_snapshot_stats(ui, &stats, workspace_command.env().path_converter())?;
         Ok(workspace_command)
     }
 
-    /// Loads workspace and repo, then snapshots the working copy if allowed and
-    /// returns the SnapshotStats.
+    /// Loads workspace and repo, then snapshots the working copy if allowed.
+    /// Returns [`SnapshotStats`] and a bool indicating if a snapshot was taken.
     ///
     /// Note that unless you have a good reason not to do so, you should always
     /// call [`print_snapshot_stats`] with the [`SnapshotStats`] returned by
@@ -470,14 +470,15 @@ impl CommandHelper {
     pub async fn workspace_helper_with_stats(
         &self,
         ui: &Ui,
-    ) -> Result<(WorkspaceCommandHelper, SnapshotStats), CommandError> {
+    ) -> Result<(WorkspaceCommandHelper, SnapshotStats, bool), CommandError> {
         let workspace = self.load_workspace()?;
         let env = self.workspace_environment(ui, &workspace)?;
         let mut workspace_command = self.load_from_workspace(ui, workspace, env).await?;
         if !self.is_working_copy_writable() {
-            return Ok((workspace_command, SnapshotStats::default()));
+            return Ok((workspace_command, SnapshotStats::default(), false));
         }
 
+        let old_repo = workspace_command.repo().clone();
         let (workspace_command, stats) = match workspace_command.snapshot_impl(ui).await {
             Ok(stats) => (workspace_command, stats),
             Err(SnapshotWorkingCopyError::Command(err)) => return Err(err),
@@ -497,7 +498,8 @@ impl CommandHelper {
             }
         };
 
-        Ok((workspace_command, stats))
+        let changed = old_repo.op_id() != workspace_command.repo().op_id();
+        Ok((workspace_command, stats, changed))
     }
 
     /// Loads workspace and repo, but never snapshots the working copy. Most
@@ -1324,21 +1326,17 @@ impl WorkspaceCommandHelper {
 
     /// Snapshots the working copy if allowed, and imports Git refs if the
     /// working copy is colocated with Git.
-    ///
-    /// Returns whether a snapshot was taken.
     #[instrument(skip_all)]
-    pub async fn maybe_snapshot(&mut self, ui: &Ui) -> Result<bool, CommandError> {
+    pub async fn maybe_snapshot(&mut self, ui: &Ui) -> Result<(), CommandError> {
         if !self.may_snapshot_working_copy {
-            return Ok(false);
+            return Ok(());
         }
-        let op_id_before = self.repo().op_id().clone();
         let stats = self
             .snapshot_impl(ui)
             .await
             .map_err(|err| err.into_command_error())?;
         print_snapshot_stats(ui, &stats, self.env().path_converter())?;
-        let op_id_after = self.repo().op_id();
-        Ok(op_id_before != *op_id_after)
+        Ok(())
     }
 
     /// Imports new HEAD from the colocated Git repo.
