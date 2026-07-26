@@ -617,22 +617,25 @@ impl<'input> ContentDiff<'input> {
         let base_input = inputs.next().expect("inputs must not be empty");
         let other_inputs: SmallVec<[&BStr; 1]> = inputs.collect();
         // First tokenize each input
-        let base_token_ranges: Vec<Range<usize>>;
-        let other_token_ranges: Vec<Vec<Range<usize>>>;
         // No need to tokenize if one of the inputs is empty. Non-empty inputs
         // are all different as long as the tokenizer emits non-empty ranges.
         // This means "" and " " are different even if the compare function is
         // ignore-whitespace. They are tokenized as [] and [" "] respectively.
-        if base_input.is_empty() || other_inputs.iter().any(|input| input.is_empty()) {
-            base_token_ranges = vec![];
-            other_token_ranges = std::iter::repeat_n(vec![], other_inputs.len()).collect();
-        } else {
-            base_token_ranges = tokenizer(base_input);
-            other_token_ranges = other_inputs
-                .iter()
-                .map(|other_input| tokenizer(other_input))
-                .collect();
-        }
+        let (base_token_ranges, other_token_ranges) =
+            if base_input.is_empty() || other_inputs.iter().any(|input| input.is_empty()) {
+                (
+                    vec![],
+                    std::iter::repeat_n(vec![], other_inputs.len()).collect_vec(),
+                )
+            } else {
+                (
+                    tokenizer(base_input),
+                    other_inputs
+                        .iter()
+                        .map(|other_input| tokenizer(other_input))
+                        .collect_vec(),
+                )
+            };
         Self::with_inputs_and_token_ranges(
             base_input,
             other_inputs,
