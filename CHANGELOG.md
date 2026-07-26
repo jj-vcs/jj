@@ -70,6 +70,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `revsets.log` now defaults to `builtin_log()`, so custom log revsets can
   reuse the built-in default instead of copying its full expression.
 
+* Added config option `diff.stat.max-bar-width` for use with `--stat` to limit
+  the `++--` bar width. In the templating language, `diff.stat()` can optionally
+  take a second (positional or named) argument `max_bar_width` for an equivalent
+  effect.
+
 ### Fixed bugs
 
 * Recursive alias definitions are detected more precisely. jj can now expand

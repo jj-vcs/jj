@@ -452,6 +452,16 @@
                             "default": true
                         }
                     }
+                },
+                "stat": {
+                    "type": "object",
+                    "description": "Options for the diff stat display",
+                    "properties": {
+                        "context": {
+                            "type": "integer",
+                            "description": "Maximum number of characters to show in the `++--` stat bar"
+                        }
+                    }
                 }
             }
         },

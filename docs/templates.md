@@ -760,7 +760,10 @@ This type cannot be printed. The following methods are defined.
 * `.color_words([context: Integer]) -> Template`: Format as a word-level diff
   with changes indicated only by color.
 * `.git([context: Integer]) -> Template`: Format as a Git diff.
-* `.stat([width: Integer]) -> DiffStats`: Calculate stats of changed lines.
+* `.stat([width: Integer], [max_bar_width: Integer]) -> DiffStats`: Calculate
+  stats of changed lines. `width` sets the entire width of the diff stat
+  including paths, and `max_bar_width` limits the maximum character length of
+  the `++--` bar.
 * `.summary() -> Template`: Format as a list of status code and path pairs.
 
 ### `TreeDiffEntry` type

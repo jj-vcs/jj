@@ -93,6 +93,7 @@ use serde::Serialize as _;
 
 use crate::diff_util;
 use crate::diff_util::DiffStatEntry;
+use crate::diff_util::DiffStatOptions;
 use crate::diff_util::DiffStats;
 use crate::formatter::Formatter;
 use crate::git_util;
@@ -2469,7 +2470,8 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
     map.insert(
         "stat",
         |language, diagnostics, build_ctx, self_property, function| {
-            let ([], [width_node]) = function.expect_arguments()?;
+            let ([], [width_node, max_bar_width_node]) =
+                function.expect_named_arguments(&["", "max_bar_width"])?;
             let width_property = width_node
                 .map(|node| {
                     template_builder::expect_usize_expression(
@@ -2480,23 +2482,44 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
                     )
                 })
                 .transpose()?;
+            let max_bar_width_property = max_bar_width_node
+                .map(|node| {
+                    template_builder::expect_usize_expression(
+                        language,
+                        diagnostics,
+                        build_ctx,
+                        node,
+                    )
+                })
+                .transpose()?;
             let path_converter = language.path_converter;
-            // No user configuration exists for diff stat.
-            let options = diff_util::DiffStatOptions::default();
+            let options =
+                diff_util::DiffStatOptions::from_settings(language.settings()).map_err(|err| {
+                    let message = "Failed to load diff settings";
+                    TemplateParseError::expression(message, function.name_span).with_source(err)
+                })?;
             let conflict_marker_style = language.conflict_marker_style;
             // TODO: cache and reuse stats within the current evaluation?
-            let out_property = (self_property, width_property).and_then(move |(diff, width)| {
-                let store = diff.from_tree.store();
-                let tree_diff = diff.diff_stream();
-                let stats = DiffStats::calculate(store, tree_diff, &options, conflict_marker_style)
-                    .block_on()?;
-                Ok(DiffStatsFormatted {
-                    stats,
-                    path_converter,
-                    // TODO: fall back to current available width
-                    width: width.unwrap_or(80),
-                })
-            });
+            let out_property = (self_property, width_property, max_bar_width_property).and_then(
+                move |(diff, width, max_bar_width)| {
+                    let mut options = options.clone();
+                    if let Some(max_bar_width) = max_bar_width {
+                        options.max_bar_width = Some(max_bar_width);
+                    }
+                    let store = diff.from_tree.store();
+                    let tree_diff = diff.diff_stream();
+                    let stats =
+                        DiffStats::calculate(store, tree_diff, &options, conflict_marker_style)
+                            .block_on()?;
+                    Ok(DiffStatsFormatted {
+                        stats,
+                        path_converter,
+                        // TODO: fall back to current available width
+                        width: width.unwrap_or(80),
+                        options,
+                    })
+                },
+            );
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -2701,6 +2724,7 @@ pub struct DiffStatsFormatted<'a> {
     stats: DiffStats,
     path_converter: &'a RepoPathUiConverter,
     width: usize,
+    options: DiffStatOptions,
 }
 
 impl Template for DiffStatsFormatted<'_> {
@@ -2710,6 +2734,7 @@ impl Template for DiffStatsFormatted<'_> {
             &self.stats,
             self.path_converter,
             self.width,
+            &self.options,
         )
     }
 }

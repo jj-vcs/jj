@@ -4118,3 +4118,68 @@ fn test_diff_rename_in_merge_commit() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_diff_stat_max_bar_width() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config(
+        r#"
+    [diff.stat]
+    max-bar-width = 10
+    "#,
+    );
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // A file adding 50 lines should occupy
+    // all 10 characters of the max bar width
+    let mut file_contents: String = "\n".repeat(50);
+    work_dir.write_file("file", file_contents);
+    let output = work_dir.run_jj(["diff", "--stat"]);
+    insta::assert_snapshot!(output, @"
+    file | 50 ++++++++++
+    1 file changed, 50 insertions(+), 0 deletions(-)
+    [EOF]
+    ");
+    work_dir.run_jj(["new"]).success();
+    // Modify the last 25 lines for a total of 50 removed+added lines.
+    // (Modified lines are interpreted as removing and then adding a line.)
+    // the diff stat should be half + and half -
+    file_contents = "\n".repeat(25);
+    file_contents.push_str(&"A\n".repeat(25));
+    // There is a second file which takes up 20% of the space by lines changed
+    let file2_contents: String = "\n".repeat(10);
+    work_dir.write_file("file", file_contents);
+    work_dir.write_file("file2", file2_contents);
+    let output = work_dir.run_jj(["diff", "--stat"]);
+    insta::assert_snapshot!(output, @"
+    file  | 50 +++++-----
+    file2 | 10 ++
+    2 files changed, 35 insertions(+), 25 deletions(-)
+    [EOF]
+    ");
+
+    // Setting the max-bar-width higher than the column space shouldn't overflow
+    let output = work_dir.run_jj_with(|cmd| {
+        cmd.args(["diff", "--stat", "--config=diff.stat.max-bar-width=100"])
+            .env("COLUMNS", "30")
+    });
+    insta::assert_snapshot!(output, @"
+    file  | 50 +++++++++----------
+    file2 | 10 +++
+    2 files changed, 35 insertions(+), 25 deletions(-)
+    [EOF]
+    ");
+
+    // Setting max-bar-width=0 should not crash. The current implementation
+    // cannot reduce the max width below 2. Currently, setting max-bar-width=0
+    // with the following test writes '++' instead of '+-'.
+    let output = work_dir
+        .run_jj_with(|cmd| cmd.args(["diff", "--stat", "--config=diff.stat.max-bar-width=0"]));
+    insta::assert_snapshot!(output, @"
+    file  | 50 ++
+    file2 | 10 +
+    2 files changed, 35 insertions(+), 25 deletions(-)
+    [EOF]
+    ");
+}

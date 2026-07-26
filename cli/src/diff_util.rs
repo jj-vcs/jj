@@ -14,6 +14,7 @@
 
 use std::borrow::Cow;
 use std::cmp::max;
+use std::cmp::min;
 use std::future;
 use std::io;
 use std::iter;
@@ -35,6 +36,7 @@ use jj_lib::backend::CopyRecord;
 use jj_lib::backend::TreeValue;
 use jj_lib::commit::Commit;
 use jj_lib::config::ConfigGetError;
+use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::conflicts::ConflictMaterializeOptions;
@@ -255,7 +257,7 @@ impl BuiltinFormatKind {
         match self {
             Self::Summary => Ok(DiffFormat::Summary),
             Self::Stat => {
-                let mut options = DiffStatOptions::default();
+                let mut options = DiffStatOptions::from_settings(settings)?;
                 options.merge_args(args);
                 Ok(DiffFormat::Stat(Box::new(options)))
             }
@@ -489,7 +491,13 @@ impl<'a> DiffRenderer<'a> {
                     let stats =
                         DiffStats::calculate(store, tree_diff, options, self.conflict_marker_style)
                             .await?;
-                    show_diff_stats(*formatter.labeled("stat"), &stats, path_converter, width)?;
+                    show_diff_stats(
+                        *formatter.labeled("stat"),
+                        &stats,
+                        path_converter,
+                        width,
+                        options,
+                    )?;
                 }
                 DiffFormat::Types => {
                     let tree_diff = diff_stream();
@@ -1891,9 +1899,19 @@ pub fn diff_status(
 pub struct DiffStatOptions {
     /// How lines are tokenized and compared.
     pub line_diff: LineDiffOptions,
+    /// How many characters to use at most, for the bar portion.
+    /// If None, there is no width limit.
+    pub max_bar_width: Option<usize>,
 }
 
 impl DiffStatOptions {
+    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
+        Ok(Self {
+            line_diff: LineDiffOptions::default(),
+            max_bar_width: settings.get("diff.stat.max-bar-width").optional()?,
+        })
+    }
+
     fn merge_args(&mut self, args: &DiffFormatArgs) {
         self.line_diff.merge_args(args);
     }
@@ -2048,7 +2066,8 @@ pub fn show_diff_stats(
     formatter: &mut dyn Formatter,
     stats: &DiffStats,
     path_converter: &RepoPathUiConverter,
-    display_width: usize,
+    total_display_width: usize,
+    options: &DiffStatOptions,
 ) -> io::Result<()> {
     let ui_paths = stats
         .entries()
@@ -2073,7 +2092,7 @@ pub fn show_diff_stats(
 
     // Fit to the available display width, but always assume at least a tiny bit of
     // room.
-    let available_width = max(display_width.saturating_sub(" | ".len()), 8);
+    let available_width = max(total_display_width.saturating_sub(" | ".len()), 8);
 
     // Measure the widest right side for line diffs and reduce max_path_width if
     // needed.
@@ -2112,8 +2131,13 @@ pub fn show_diff_stats(
 
     // Now that we've chosen the path width, use the rest of the space for the ++--
     // bar.
-    let max_bar_width =
+
+    let mut max_bar_width =
         available_width.saturating_sub(max_path_width + diff_number_width + " ".len());
+    if let Some(bar_width) = options.max_bar_width {
+        max_bar_width = min(max_bar_width, bar_width);
+    }
+
     let factor = match max_diffs {
         Some(max) if max > max_bar_width => max_bar_width as f64 / max as f64,
         _ => 1.0,

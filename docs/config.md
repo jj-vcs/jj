@@ -487,6 +487,20 @@ context = 3
 show-path-prefix = true
 ```
 
+#### Diff stat options
+
+When using a subcommand that displays the diff stat menu like `jj show --stat`,
+the bar portion that renders as `++--` can be limited to a maximum width in
+characters.
+
+```toml
+[diff.stat]
+max-bar-width = 10
+```
+
+By default without this option set, the bar width is unbounded and will use the
+remaining available space, with a minimum of 30% of the total width.
+
 ### Generating diffs by external command
 
 If `ui.diff-formatter` is not a builtin format, the specified diff command will
