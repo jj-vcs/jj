@@ -70,7 +70,7 @@ indoc = "2.0.7"
 insta = { version = "1.47.2", features = ["filters"] }
 interim = { version = "0.2.1", features = ["chrono_0_4"] }
 itertools = "0.15.0"
-jsonschema = { version = "0.47.0", default-features = false }
+jsonschema = { version = "0.48.1", default-features = false }
 libc = { version = "0.2.186" }
 maplit = "1.0.2"
 memchr = "2.8.2"
@@ -115,7 +115,7 @@ smallvec = { version = "1.15.1", features = [
     "union",
 ] }
 strsim = "0.11.1"
-syn = "2.0.111"
+syn = "3.0.2"
 tempfile = "3.27.0"
 test-case = "3.3.1"
 textwrap = "0.16.2"
