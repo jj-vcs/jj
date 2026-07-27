@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![cfg_attr(test, allow(clippy::redundant_clone, reason = "ok for tests"))]
+
 use std::io::Result;
 use std::path::Path;
 

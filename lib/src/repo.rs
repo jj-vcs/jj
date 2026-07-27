@@ -1101,10 +1101,8 @@ impl MutableRepo {
         new_ids: impl IntoIterator<Item = CommitId>,
     ) {
         assert_ne!(old_id, *self.store().root_commit_id());
-        self.parent_mapping.insert(
-            old_id.clone(),
-            Rewrite::Divergent(new_ids.into_iter().collect()),
-        );
+        self.parent_mapping
+            .insert(old_id, Rewrite::Divergent(new_ids.into_iter().collect()));
     }
 
     /// Record a commit as having been abandoned in this transaction.

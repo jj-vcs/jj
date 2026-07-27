@@ -235,7 +235,6 @@ fn pop_scope_condition(
         return Ok(ScopeCondition::default());
     };
     let value = item
-        .clone()
         .into_value()
         .expect("Item::None should not exist in table");
     ScopeCondition::from_value(value, context).map_err(|err| ConfigGetError::Type {

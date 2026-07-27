@@ -1391,7 +1391,7 @@ impl TreeState {
             .in_scope(async || -> Result<(), BackendError> {
                 let new_tree = tree_builder.write_tree().await?;
                 is_dirty |= new_tree.tree_ids_and_labels() != self.tree.tree_ids_and_labels();
-                self.tree = new_tree.clone();
+                self.tree = new_tree;
                 Ok(())
             })
             .await?;

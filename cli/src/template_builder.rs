@@ -2544,7 +2544,7 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
 
         let template = new_replace_template(
             content,
-            regex.clone(),
+            regex,
             captures_placeholder.clone(),
             move |formatter| replacement_template.format(formatter),
         );

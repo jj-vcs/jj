@@ -373,7 +373,7 @@ impl Backend for TestBackend {
             data.trees
                 .entry(path.clone())
                 .or_default()
-                .insert(id.clone(), contents.clone());
+                .insert(id.clone(), contents);
             Ok(id)
         })
         .await

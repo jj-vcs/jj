@@ -786,7 +786,7 @@ impl<'matcher> TreeDiffStreamImpl<'matcher> {
     ) -> BackendResult<Tree> {
         match value {
             Some(TreeValue::Tree(tree_id)) => store.get_tree(dir, tree_id).await,
-            _ => Ok(Tree::empty(store.clone(), dir.clone())),
+            _ => Ok(Tree::empty(store.clone(), dir)),
         }
     }
 
