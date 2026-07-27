@@ -7355,6 +7355,15 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   <code>--name-only</code> for the previous behavior.
   <a href="https://github.com/jj-vcs/jj/issues/9399">#9399</a></p>
 </li>
+<li>
+<p>Passing an argument more than once is no longer an error. The last occurrence
+  wins, so <code>jj --no-pager --no-pager version</code> and <code>jj log -n 5 -n 10</code> now work,
+  and an argument baked into an alias or a wrapper can be given explicitly as
+  well. Arguments that can be specified multiple times, such as <code>--config</code> and
+  <code>jj log -r</code>, are unaffected and still collect all of their values.
+  <a href="https://github.com/jj-vcs/jj/issues/8101">#8101</a>
+  <a href="https://github.com/jj-vcs/jj/issues/9859">#9859</a></p>
+</li>
 </ul>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
