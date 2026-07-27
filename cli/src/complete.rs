@@ -313,8 +313,9 @@ fn revisions(match_prefix: &str, revset_filter: Option<&str>) -> Vec<CompletionC
         const LOCAL_BOOKMARK: usize = 0;
         const TAG: usize = 1;
         const CHANGE_ID: usize = 2;
-        const REMOTE_BOOKMARK: usize = 3;
-        const REVSET_ALIAS: usize = 4;
+        const WORKSPACE: usize = 3;
+        const REMOTE_BOOKMARK: usize = 4;
+        const REVSET_ALIAS: usize = 5;
 
         let mut candidates = Vec::new();
 
@@ -378,6 +379,37 @@ fn revisions(match_prefix: &str, revset_filter: Option<&str>) -> Vec<CompletionC
                 CompletionCandidate::new(name)
                     .help(desc)
                     .display_order(Some(TAG))
+            }));
+        }
+
+        // workspace names
+
+        let output = jj
+            .build()
+            .arg("workspace")
+            .arg("list")
+            .arg("--template")
+            .arg(r#"name ++ "\n""#)
+            .output()
+            .map_err(user_error)?;
+        let stdout = String::from_utf8_lossy(&output.stdout);
+
+        // If there's only one workspace, the user can just use `@`, and they may even
+        // be confused if they see `default@` as an option.
+        if stdout.lines().count() > 1 {
+            candidates.extend(stdout.lines().filter_map(|name| {
+                let symbol = format!("{name}@");
+                if symbol.starts_with(match_prefix) {
+                    Some(
+                        CompletionCandidate::new(symbol)
+                            .help(Some(
+                                format!("The working copy for workspace `{name}`").into(),
+                            ))
+                            .display_order(Some(WORKSPACE)),
+                    )
+                } else {
+                    None
+                }
             }));
         }
 

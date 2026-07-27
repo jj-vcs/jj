@@ -1256,6 +1256,42 @@ fn test_revisions() {
 }
 
 #[test]
+fn test_revisions_workspace_symbols() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir
+        .run_jj(["describe", "-m", "main workspace"])
+        .success();
+
+    // workspace working-copy symbols are not completed when there is only one
+    // workspace
+    let output = work_dir.complete_fish(["show", "def"]);
+    insta::assert_snapshot!(output, @"
+    ");
+
+    work_dir
+        .run_jj(["workspace", "add", "--name", "secondary", "../secondary"])
+        .success();
+
+    // workspace working-copy symbols are completed
+    let output = work_dir.complete_fish(["show", "def"]);
+    insta::assert_snapshot!(output, @"
+    default@	The working copy for workspace `default`
+    [EOF]
+    ");
+
+    // they are also completed within revset expressions and respect the
+    // mutable-revisions filter
+    let output = work_dir.complete_fish(["abandon", "..def"]);
+    insta::assert_snapshot!(output, @"
+    ..default@	The working copy for workspace `default`
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_operations() {
     let test_env = TestEnvironment::default();
 
