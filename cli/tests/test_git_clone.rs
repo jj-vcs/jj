@@ -514,7 +514,7 @@ fn test_git_clone_default_bookmarks_and_tags() {
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/local1"
     bookmark: branch1@origin [new] untracked
-    tag: tag1@origin [new] 
+    tag: tag1@origin [new] tracked
     Working copy  (@) now at: sqpuoqvx d3619ee8 (empty) (no description set)
     Parent commit (@-)      : sotzwqom 0e985955 branch1@origin | 1b
     Added 1 files, modified 0 files, removed 0 files
@@ -525,7 +525,7 @@ fn test_git_clone_default_bookmarks_and_tags() {
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/local2"
     bookmark: branch2@rem2 [new] untracked
-    tag: tag2@rem2 [new] 
+    tag: tag2@rem2 [new] tracked
     Working copy  (@) now at: uuqppmxq 92acf2c2 (empty) (no description set)
     Parent commit (@-)      : lqvtntpl 147076c8 branch2@rem2 | 1d
     Added 1 files, modified 0 files, removed 0 files
@@ -543,7 +543,7 @@ fn test_git_clone_default_bookmarks_and_tags() {
     ------- stderr -------
     Hint: Fetching from the only existing remote: rem3
     bookmark: branch1@rem3 [new] untracked
-    tag: tag1@rem3 [new] 
+    tag: tag1@rem3 [new] tracked
     [EOF]
     ");
 
@@ -600,8 +600,8 @@ fn test_git_clone_tags() {
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/default"
     bookmark: main@origin [new] tracked
-    tag: v1.0@origin [new] 
-    tag: v2.0@origin [new] 
+    tag: v1.0@origin [new] tracked
+    tag: v2.0@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`.
     Working copy  (@) now at: sqpuoqvx 88542a00 (empty) (no description set)
     Parent commit (@-)      : lnmyztun e93ca54d main | message
@@ -1307,8 +1307,8 @@ fn test_git_clone_branch_or_tag() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone_tags"
-    tag: tag1@origin [new] 
-    tag: tag2@origin [new] 
+    tag: tag1@origin [new] tracked
+    tag: tag2@origin [new] tracked
     [EOF]
     "#);
 
@@ -1355,8 +1355,8 @@ fn test_git_clone_branch_or_tag() {
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone_all_but"
     bookmark: main@origin [new] tracked
-    tag: tag2@origin [new] 
-    tag: tag3@origin [new] 
+    tag: tag2@origin [new] tracked
+    tag: tag3@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`.
     Working copy  (@) now at: uuzqqzqu c871b515 (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 main | message

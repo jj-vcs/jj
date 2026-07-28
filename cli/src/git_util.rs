@@ -40,6 +40,7 @@ use jj_lib::git::GitRefKind;
 use jj_lib::git::GitSettings;
 use jj_lib::git::GitSidebandLineTerminator;
 use jj_lib::git::GitSubprocessCallback;
+use jj_lib::op_store::RemoteRefState;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::settings::RemoteSettingsMap;
@@ -403,25 +404,15 @@ fn draw_progress(progress: f32, buffer: &mut String, width: usize) {
 struct RefStatus {
     ref_kind: GitRefKind,
     symbol: String,
-    tracking_status: TrackingStatus,
+    remote_ref_state: RemoteRefState,
     import_status: ImportStatus,
 }
 
 impl RefStatus {
     fn new(ref_kind: GitRefKind, update: &GitImportRefUpdate, repo: &dyn Repo) -> Self {
-        let tracking_status = match ref_kind {
-            GitRefKind::Bookmark => {
-                if repo
-                    .view()
-                    .get_remote_bookmark(update.symbol.as_ref())
-                    .is_tracked()
-                {
-                    TrackingStatus::Tracked
-                } else {
-                    TrackingStatus::Untracked
-                }
-            }
-            GitRefKind::Tag => TrackingStatus::NotApplicable,
+        let new_remote_ref = match ref_kind {
+            GitRefKind::Bookmark => repo.view().get_remote_bookmark(update.symbol.as_ref()),
+            GitRefKind::Tag => repo.view().get_remote_tag(update.symbol.as_ref()),
         };
 
         let import_status = match (
@@ -435,17 +426,16 @@ impl RefStatus {
 
         Self {
             symbol: update.symbol.to_string(),
-            tracking_status,
+            remote_ref_state: new_remote_ref.state,
             import_status,
             ref_kind,
         }
     }
 
     fn output(&self, max_symbol_width: usize, out: &mut dyn Formatter) -> std::io::Result<()> {
-        let tracking_status = match self.tracking_status {
-            TrackingStatus::Tracked => "tracked",
-            TrackingStatus::Untracked => "untracked",
-            TrackingStatus::NotApplicable => "",
+        let tracking_status = match self.remote_ref_state {
+            RemoteRefState::New => "untracked",
+            RemoteRefState::Tracked => "tracked",
         };
 
         let import_status = match self.import_status {
@@ -467,12 +457,6 @@ impl RefStatus {
         write!(out.labeled(label), "{padded_symbol}")?;
         writeln!(out, " [{import_status}] {tracking_status}")
     }
-}
-
-enum TrackingStatus {
-    Tracked,
-    Untracked,
-    NotApplicable, // for tags
 }
 
 enum ImportStatus {

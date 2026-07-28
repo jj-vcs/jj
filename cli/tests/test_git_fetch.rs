@@ -277,8 +277,8 @@ fn test_git_fetch_default_bookmarks_and_tags() {
     ------- stderr -------
     bookmark: branch1@rem1 [new] untracked
     bookmark: branch2@rem2 [new] untracked
-    tag: tag1@rem1 [new] 
-    tag: tag2@rem2 [new] 
+    tag: tag1@rem1 [new] tracked
+    tag: tag2@rem2 [new] tracked
     [EOF]
     ");
 
@@ -820,7 +820,7 @@ fn test_git_fetch_tags_by_name() -> TestResult {
     let output = work_dir.run_jj(["git", "fetch", "--tag=tag1"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    tag: tag1@origin [new] 
+    tag: tag1@origin [new] tracked
     [EOF]
     ");
 
@@ -828,8 +828,8 @@ fn test_git_fetch_tags_by_name() -> TestResult {
     let output = work_dir.run_jj(["git", "fetch", "--tag=*"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    tag: tag2@origin [new] 
-    tag: tag3@origin [new] 
+    tag: tag2@origin [new] tracked
+    tag: tag3@origin [new] tracked
     [EOF]
     ");
 
@@ -853,8 +853,8 @@ fn test_git_fetch_tags_by_name() -> TestResult {
     let output = work_dir.run_jj(["git", "fetch", "--tag=*"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    tag: tag1@origin [updated] 
-    tag: tag2@origin [deleted] 
+    tag: tag1@origin [updated] tracked
+    tag: tag2@origin [deleted] untracked
     [EOF]
     ");
 
@@ -1468,7 +1468,7 @@ fn test_git_fetch_undo() {
     ------- stderr -------
     bookmark: a1@origin [new] tracked
     bookmark: b@origin  [new] tracked
-    tag: tag1@origin [new] 
+    tag: tag1@origin [new] tracked
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
@@ -1499,7 +1499,7 @@ fn test_git_fetch_undo() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: b@origin [new] tracked
-    tag: tag1@origin [new] 
+    tag: tag1@origin [new] tracked
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
