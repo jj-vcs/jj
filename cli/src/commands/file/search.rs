@@ -68,6 +68,16 @@ pub(crate) struct FileSearchArgs {
     #[arg(long, short = 'n')]
     line_number: bool,
 
+    /// Treat binary files as text, matching and printing raw bytes even if
+    /// they contain null bytes (mirrors `git grep -a`)
+    #[arg(long, short = 'a', conflicts_with = "no_binary")]
+    text: bool,
+
+    /// Skip binary files entirely, even if they contain matches (mirrors
+    /// `git grep -I`)
+    #[arg(long, short = 'I')]
+    no_binary: bool,
+
     /// Only search files matching these prefixes (instead of all files)
     #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
     #[arg(add = ArgValueCompleter::new(complete::all_revision_files))]
@@ -115,8 +125,21 @@ pub(crate) async fn cmd_file_search(
             }
             MaterializedTreeValue::File(mut materialized_file_value) => {
                 let content = materialized_file_value.read_all(&path).await?;
-                // TODO: Make output templated
                 let ui_path = workspace_command.format_file_path(&path);
+                if !args.text && is_probably_binary(&content) {
+                    if args.no_binary {
+                        continue;
+                    }
+                    if pattern_matcher.match_lines(&content).next().is_some() {
+                        if args.name_only {
+                            writeln!(formatter, "{ui_path}")?;
+                        } else {
+                            writeln!(formatter, "Binary file {ui_path} matches")?;
+                        }
+                    }
+                    continue;
+                }
+                // TODO: Make output templated
                 if args.name_only {
                     if pattern_matcher.match_lines(&content).next().is_some() {
                         writeln!(formatter, "{ui_path}")?;
@@ -134,6 +157,31 @@ pub(crate) async fn cmd_file_search(
             MaterializedTreeValue::Symlink { .. } => {}
             MaterializedTreeValue::FileConflict(materialized_file_value) => {
                 let ui_path = workspace_command.format_file_path(&path);
+                if !args.text
+                    && materialized_file_value
+                        .contents
+                        .adds()
+                        .any(|c| is_probably_binary(c))
+                {
+                    // At least one side looks binary; treat the whole file as
+                    // binary rather than emitting bytes from the text side(s).
+                    if args.no_binary {
+                        continue;
+                    }
+                    let any_match = materialized_file_value
+                        .contents
+                        .adds()
+                        .any(|c| pattern_matcher.match_lines(c).next().is_some());
+                    if !any_match {
+                        continue;
+                    }
+                    if args.name_only {
+                        writeln!(formatter, "{ui_path}")?;
+                    } else {
+                        writeln!(formatter, "Binary file {ui_path} matches")?;
+                    }
+                    continue;
+                }
                 // TODO: Optionally also print the conflict side
                 let mut adds = materialized_file_value.contents.adds();
                 if args.name_only {
@@ -163,6 +211,14 @@ pub(crate) async fn cmd_file_search(
     }
     print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree])?;
     Ok(())
+}
+
+/// Naive binary detection: any null byte in the first 8KB. Matches the
+/// heuristic used by `git grep`. `jj_lib::eol::is_binary` uses a similar
+/// probe but is `pub(crate)`; unifying the codebase's binary detectors is
+/// left as a follow-up.
+fn is_probably_binary(content: &[u8]) -> bool {
+    content.iter().take(8192).any(|b| *b == 0)
 }
 
 fn write_matches(

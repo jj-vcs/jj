@@ -78,6 +78,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `revsets.log` now defaults to `builtin_log()`, so custom log revsets can
   reuse the built-in default instead of copying its full expression.
 
+* `jj file search` now detects binary files (any null byte in the first
+  8KB) and emits `Binary file <path> matches` instead of dumping raw
+  bytes to stdout. Mirrors `git grep`'s default. Use `-a`/`--text` to
+  force text treatment, or `-I`/`--no-binary` to skip binary files
+  entirely.
+
 ### Fixed bugs
 
 * Recursive alias definitions are detected more precisely. jj can now expand
