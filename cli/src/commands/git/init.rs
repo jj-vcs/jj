@@ -18,6 +18,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use indoc::writedoc;
 use itertools::Itertools as _;
 use jj_lib::file_util;
 use jj_lib::git;
@@ -387,18 +388,17 @@ fn print_trackable_remote_bookmarks(ui: &Ui, view: &View) -> io::Result<()> {
             write!(formatter, "  ")?;
             writeln!(formatter.labeled("bookmark"), "{symbol}")?;
         }
-        writeln!(
+        writedoc!(
             formatter.labeled("hint").with_heading("Hint: "),
-            "Run the following command to keep local bookmarks updated on future pulls:"
+            "
+            Run the following command to keep local bookmarks updated on future pulls:
+              jj bookmark track {syms}
+            ",
+            syms = remote_bookmark_symbols
+                .iter()
+                .map(|s| shell_quote(&s.to_string()).into_owned())
+                .join(" ")
         )?;
-        for symbol in &remote_bookmark_symbols {
-            writeln!(
-                formatter.labeled("hint"),
-                "  jj bookmark track {name} --remote={remote}",
-                name = shell_quote(&symbol.name.as_symbol().to_string()),
-                remote = shell_quote(&symbol.remote.as_symbol().to_string()),
-            )?;
-        }
     }
     Ok(())
 }

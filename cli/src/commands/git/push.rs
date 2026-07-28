@@ -1025,18 +1025,14 @@ fn classify_bookmark_update(
         RefPushAction::RemoteUntracked => Err(RejectedRefUpdateReason {
             message: format!("Non-tracking remote bookmark {remote_symbol} exists"),
             hint: Some(format!(
-                "Run `jj bookmark track {name} --remote={remote}` to import the remote bookmark.",
-                name = remote_symbol.name.as_symbol(),
-                remote = remote_symbol.remote.as_symbol()
+                "Run `jj bookmark track {remote_symbol}` to import the remote bookmark."
             )),
         }),
         RefPushAction::Update(_) if !targets.remote_ref.is_tracked() && !allow_new => {
             Err(RejectedRefUpdateReason {
                 message: format!("Refusing to create new remote bookmark {remote_symbol}"),
                 hint: Some(format!(
-                    "Run `jj bookmark track {name} --remote={remote}` and try again.",
-                    name = remote_symbol.name.as_symbol(),
-                    remote = remote_symbol.remote.as_symbol()
+                    "Run `jj bookmark track {remote_symbol}` and try again."
                 )),
             })
         }

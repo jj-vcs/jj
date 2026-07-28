@@ -126,7 +126,7 @@ fn test_git_push_default_remote_selection() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Refusing to create new remote bookmark bookmark1@other
-    Hint: Run `jj bookmark track bookmark1 --remote=other` and try again.
+    Hint: Run `jj bookmark track bookmark1@other` and try again.
     [EOF]
     [exit status: 1]
     ");
@@ -681,7 +681,7 @@ fn test_git_push_locally_created_and_rewritten() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Refusing to create new remote bookmark my@origin
-    Hint: Run `jj bookmark track my --remote=origin` and try again.
+    Hint: Run `jj bookmark track my@origin` and try again.
     Nothing changed.
     [EOF]
     ");
@@ -1367,7 +1367,7 @@ fn test_git_push_changes_with_name_untracked_or_forgotten() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Non-tracking remote bookmark b1@origin exists
-    Hint: Run `jj bookmark track b1 --remote=origin` to import the remote bookmark.
+    Hint: Run `jj bookmark track b1@origin` to import the remote bookmark.
     [EOF]
     [exit status: 1]
     ");
@@ -1376,7 +1376,7 @@ fn test_git_push_changes_with_name_untracked_or_forgotten() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Non-tracking remote bookmark b1@origin exists
-    Hint: Run `jj bookmark track b1 --remote=origin` to import the remote bookmark.
+    Hint: Run `jj bookmark track b1@origin` to import the remote bookmark.
     [EOF]
     [exit status: 1]
     ");
@@ -1615,9 +1615,9 @@ fn test_git_push_mixed() {
     ------- stderr -------
     Creating bookmark push-yqosqzytrlsw for revision yqosqzytrlsw
     Warning: Refusing to create new remote bookmark bookmark-2a@origin
-    Hint: Run `jj bookmark track bookmark-2a --remote=origin` and try again.
+    Hint: Run `jj bookmark track bookmark-2a@origin` and try again.
     Warning: Refusing to create new remote bookmark bookmark-2b@origin
-    Hint: Run `jj bookmark track bookmark-2b --remote=origin` and try again.
+    Hint: Run `jj bookmark track bookmark-2b@origin` and try again.
     Changes to push to origin:
       bookmark: push-yqosqzytrlsw [add to 0f8164cd580b]
       bookmark: bookmark-1 [add to bc7f5ebae839]
@@ -1764,7 +1764,7 @@ fn test_git_push_allow_new_heuristics() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Refusing to create new remote bookmark untracked@origin
-    Hint: Run `jj bookmark track untracked --remote=origin` and try again.
+    Hint: Run `jj bookmark track untracked@origin` and try again.
     [EOF]
     [exit status: 1]
     ");
@@ -2433,7 +2433,7 @@ fn test_git_push_tracked_vs_all() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Non-tracking remote bookmark bookmark1@origin exists
-    Hint: Run `jj bookmark track bookmark1 --remote=origin` to import the remote bookmark.
+    Hint: Run `jj bookmark track bookmark1@origin` to import the remote bookmark.
     Warning: Refusing to push deleted tag tag2
     Hint: Push deleted tags with --deleted.
     Changes to push to origin:
@@ -2462,7 +2462,7 @@ fn test_git_push_moved_forward_untracked() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Non-tracking remote bookmark bookmark1@origin exists
-    Hint: Run `jj bookmark track bookmark1 --remote=origin` to import the remote bookmark.
+    Hint: Run `jj bookmark track bookmark1@origin` to import the remote bookmark.
     Nothing changed.
     [EOF]
     ");
@@ -2487,7 +2487,7 @@ fn test_git_push_moved_sideways_untracked() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Non-tracking remote bookmark bookmark1@origin exists
-    Hint: Run `jj bookmark track bookmark1 --remote=origin` to import the remote bookmark.
+    Hint: Run `jj bookmark track bookmark1@origin` to import the remote bookmark.
     Nothing changed.
     [EOF]
     ");
