@@ -56,7 +56,6 @@ use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::working_copy::SnapshotOptions;
 use tokio::runtime::Builder;
-use tokio::sync::Semaphore;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::Sender;
 use tokio::task::JoinError;
@@ -386,42 +385,47 @@ async fn run_inner(
     commits: &[Commit],
     jobs: usize,
     passthrough: bool,
+    ignore_errors: bool,
 ) -> Result<(), RunError> {
     let base_ignores = tx.base_workspace_helper().base_ignores().unwrap().clone();
-    let semaphore = Arc::new(Semaphore::new(jobs));
     let mut command_futures: JoinSet<Result<RunJob, RunError>> = JoinSet::new();
-    for commit in commits {
-        // Acquire the permit before spawning so tasks start in commit order.
-        let permit = semaphore
-            .clone()
-            .acquire_owned()
-            .await
-            .expect("semaphore not closed");
-        let base_ignores = base_ignores.clone();
-        let pool = pool.clone();
-        let commit = commit.clone();
-        let spec = spec.clone();
-        command_futures.spawn_on(
-            async move {
-                let _permit = permit;
-                // TODO: handle/propagate error here
-                rewrite_commit(base_ignores, pool, commit, spec, passthrough).await
-            },
-            handle,
-        );
-    }
+    let mut commits_iter = commits.iter();
+    loop {
+        // Launch commits in order, keeping at most `jobs` in flight so tasks
+        // start in commit order and the pool is never oversubscribed.
+        while command_futures.len() < jobs {
+            let Some(commit) = commits_iter.next() else {
+                break;
+            };
+            let base_ignores = base_ignores.clone();
+            let pool = pool.clone();
+            let commit = commit.clone();
+            let spec = spec.clone();
+            command_futures.spawn_on(
+                async move { rewrite_commit(base_ignores, pool, commit, spec, passthrough).await },
+                handle,
+            );
+        }
 
-    while let Some(res) = command_futures.join_next().await {
+        let Some(res) = command_futures.join_next().await else {
+            break;
+        };
         let done = match res {
             Ok(rj) => rj?,
             Err(err) => return Err(RunError::JobFailure(err)),
         };
+        let failed = done.status.is_some_and(|status| !status.success());
         let should_quit = sender.send(done).await.is_err();
         if should_quit {
             tracing::debug!(
                 ?should_quit,
                 "receiver is no longer available, exiting loop"
             );
+            break;
+        }
+        if failed && !ignore_errors {
+            // Any remaining commands in the JoinSet will be canceled due to
+            // `kill_on_drop(true)`
             break;
         }
     }
@@ -792,6 +796,7 @@ pub async fn cmd_run(
                 &resolved_commits,
                 jobs.get(),
                 args.passthrough,
+                args.ignore_errors,
             )
             .await
             .map_err(CommandError::from)
