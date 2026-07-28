@@ -81,9 +81,9 @@ fn test_config_nonexistent_tool() {
     work_dir.write_file("file", "content\n");
     let output = work_dir.run_jj(["fix"]);
     // We inform the user about the non-existent tool
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: Failed to start `nonexistent-fix-tool-binary`.
+    Warning: Fix tool `nonexistent-fix-tool-binary` failed to start for `file` in qpvuntsm 0883ea50 (no description set)
     Fixed 0 commits of 1 checked.
     Nothing changed.
     [EOF]
@@ -1170,7 +1170,7 @@ fn test_failure() {
     let output = work_dir.run_jj(["fix", "-s", "@"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: Fix tool `$FAKE_FORMATTER_PATH` exited with non-zero exit code for `file`
+    Warning: Fix tool `$FAKE_FORMATTER_PATH` exited with non-zero exit code for `file` in qpvuntsm 7238ff9c (no description set)
     Fixed 0 commits of 1 checked.
     Nothing changed.
     [EOF]
@@ -1223,13 +1223,114 @@ fn test_stderr_failure() {
     ------- stderr -------
     file:
     error
-    Warning: Fix tool `$FAKE_FORMATTER_PATH` exited with non-zero exit code for `file`
+    Warning: Fix tool `$FAKE_FORMATTER_PATH` exited with non-zero exit code for `file` in qpvuntsm 8616b42c (no description set)
     Fixed 0 commits of 1 checked.
     Nothing changed.
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
     insta::assert_snapshot!(output, @"old content[EOF]");
+}
+
+#[test]
+fn test_failure_reports_commits() {
+    // A failing tool is reported against the commit(s) that contained the file.
+    let mut test_env = TestEnvironment::default();
+    set_up_fake_formatter(&mut test_env, &["--fail"]);
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // commit-b and commit-c share content, so one tool run maps to both.
+    work_dir.write_file("file", "foo\n");
+    work_dir.run_jj(["describe", "-m", "commit-a"]).success();
+    work_dir.run_jj(["new", "-m", "commit-b"]).success();
+    work_dir.write_file("file", "bar\n");
+    work_dir.run_jj(["new", "-m", "commit-c"]).success();
+    work_dir.write_file("file", "bar\n");
+
+    let output = work_dir.run_jj(["fix"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Fix tool `$FAKE_FORMATTER_PATH` exited with non-zero exit code for `file` in qpvuntsm 058057fb commit-a
+    Warning: Fix tool `$FAKE_FORMATTER_PATH` exited with non-zero exit code for `file` in commits:
+      kkmpptxz f1734cd5 commit-b
+      zsuskuln 435bd9dd (empty) commit-c
+    Fixed 0 commits of 3 checked.
+    Nothing changed.
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_failure_alongside_success() {
+    // A failure on one file is reported while another file is still fixed.
+    let mut test_env = TestEnvironment::default();
+    let formatter_path = assert_cmd::cargo::cargo_bin!("fake-formatter");
+    let formatter = to_toml_value(formatter_path.to_str().unwrap());
+    test_env.add_config(format!(
+        r###"
+        [fix.tools.good]
+        command = [{formatter}, "--uppercase"]
+        patterns = ["good"]
+
+        [fix.tools.bad]
+        command = [{formatter}, "--fail"]
+        patterns = ["bad"]
+        "###,
+    ));
+    test_env.add_paths_to_normalize(formatter_path, "$FAKE_FORMATTER_PATH");
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("good", "abc\n");
+    work_dir.write_file("bad", "xyz\n");
+
+    let output = work_dir.run_jj(["fix"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Fix tool `$FAKE_FORMATTER_PATH` exited with non-zero exit code for `bad` in qpvuntsm e6d45d19 (no description set)
+    Fixed 1 commits of 1 checked.
+    Working copy  (@) now at: qpvuntsm e6d45d19 (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "good", "-r", "@"]), @"
+    ABC
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "bad", "-r", "@"]), @"
+    xyz
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_failed_to_start_reports_commits() {
+    // A tool that can't start is reported against its commit(s), like any failure.
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    test_env.add_config(indoc! {"
+        [fix.tools.bad-tool]
+        command = ['this_executable_shouldnt_exist']
+        patterns = ['all()']
+    "});
+    // Both commits share content, so one lookup maps to both.
+    work_dir.write_file("file", "foo\n");
+    work_dir.run_jj(["describe", "-m", "c1"]).success();
+    work_dir.run_jj(["new", "-m", "c2"]).success();
+    work_dir.write_file("file", "foo\n");
+
+    let output = work_dir.run_jj(["fix"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Fix tool `this_executable_shouldnt_exist` failed to start for `file` in commits:
+      qpvuntsm 180b974f c1
+      kkmpptxz 7adde26e (empty) c2
+    Fixed 0 commits of 2 checked.
+    Nothing changed.
+    [EOF]
+    ");
 }
 
 #[test]
@@ -1883,7 +1984,7 @@ fn test_fix_with_run_tool_if_zero_line_ranges() {
 
     For more information, try '--help'.
 
-    Warning: Fix tool `fake-formatter` exited with non-zero exit code for `qux`
+    Warning: Fix tool `fake-formatter` exited with non-zero exit code for `qux` in kmkuslsw 06a0a58e c3 | (no description set)
     Fixed 0 commits of 1 checked.
     Nothing changed.
     [EOF]

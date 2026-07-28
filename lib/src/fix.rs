@@ -112,6 +112,12 @@ pub struct FixSummary {
     /// The number of new commits created due to file content changed by the
     /// fixer.
     pub num_fixed_commits: i32,
+
+    /// The commits that contained each file passed to the file fixer, in
+    /// topological order (ancestors first). Since a file to fix is deduplicated
+    /// across commits (by path, content, and base content), one may map to
+    /// several commits.
+    pub commits_by_file: HashMap<FileToFix, Vec<CommitId>>,
 }
 
 /// A [FileFixer] that applies fix_fn to each file, in parallel.
@@ -303,6 +309,12 @@ pub async fn fix_files(
                         repo_path: repo_path.clone(),
                     };
                     unique_files_to_fix.insert(file_to_fix.clone());
+                    let file_commits = summary.commits_by_file.entry(file_to_fix).or_default();
+                    // Skip duplicate `after` terms; a commit is visited once, so
+                    // they'd be consecutive.
+                    if file_commits.last() != Some(commit.id()) {
+                        file_commits.push(commit.id().clone());
+                    }
                     paths.insert(repo_path.clone());
                 }
             }
