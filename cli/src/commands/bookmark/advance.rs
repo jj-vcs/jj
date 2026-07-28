@@ -145,14 +145,13 @@ pub async fn cmd_bookmark_advance(
                     Ok(fallible_any(target.added_ids(), &is_source_commit)?)
                 };
 
-                repo.view()
-                    .local_bookmarks()
-                    .filter_map(|(name, target)| {
-                        is_source_ref(target)
-                            .map(|matched| matched.then_some((name, target)))
-                            .transpose()
-                    })
-                    .try_collect()?
+                let mut bookmarks = vec![];
+                for (name, target) in repo.view().local_bookmarks() {
+                    if is_source_ref(target)? {
+                        bookmarks.push((name, target));
+                    }
+                }
+                bookmarks
             }
         };
         // Noop matches aren't errors, but should be excluded from stats.

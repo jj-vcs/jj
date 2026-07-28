@@ -93,15 +93,12 @@ pub async fn cmd_bookmark_move(
             None => StringExpression::all(),
         };
         let name_matcher = name_expr.to_matcher();
-        let mut bookmarks: Vec<_> = repo
-            .view()
-            .local_bookmarks_matching(&name_matcher)
-            .filter_map(|(name, target)| {
-                is_source_ref(target)
-                    .map(|matched| matched.then_some((name, target)))
-                    .transpose()
-            })
-            .try_collect()?;
+        let mut bookmarks = vec![];
+        for (name, target) in repo.view().local_bookmarks_matching(&name_matcher) {
+            if is_source_ref(target)? {
+                bookmarks.push((name, target));
+            }
+        }
         warn_unmatched_local_bookmarks(ui, repo.view(), &name_expr)?;
         // Noop matches aren't errors, but should be excluded from stats.
         bookmarks.retain(|(_, old_target)| old_target.as_normal() != Some(target_commit.id()));
