@@ -752,7 +752,7 @@ impl<'repo> CommitsValidator<'repo> {
                 reasons.push("has conflicts");
             }
             if let Some((revset_str, is_private)) = &self.private_commits
-                && is_private(commit.id())?
+                && is_private(commit.id()).await?
             {
                 reasons.push("is private");
                 hint = Some(format!("Configured git.private-commits: '{revset_str}'"));

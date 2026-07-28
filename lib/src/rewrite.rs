@@ -1496,7 +1496,10 @@ pub async fn find_duplicate_divergent_commits(
     // rebased at the same time, so it should be good enough in practice.
     for (target_commit, ancestor_candidates) in divergent_changes {
         for ancestor_candidate_id in ancestor_candidates {
-            if !is_new_ancestor(&ancestor_candidate_id).map_err(|err| err.into_backend_error())? {
+            if !is_new_ancestor(&ancestor_candidate_id)
+                .await
+                .map_err(|err| err.into_backend_error())?
+            {
                 continue;
             }
 

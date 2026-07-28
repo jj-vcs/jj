@@ -20,6 +20,7 @@ use std::collections::HashSet;
 use std::collections::hash_map::HashMap;
 use std::convert::Infallible;
 use std::fmt;
+use std::future::ready;
 use std::iter;
 use std::ops::Range;
 use std::rc::Rc;
@@ -217,7 +218,10 @@ impl<I: AsCompositeIndex + Clone> Revset for RevsetImpl<I> {
         Self: 'a,
     {
         let positions = PositionsAccumulator::new(self.index.clone(), self.inner.positions());
-        Box::new(move |commit_id| positions.contains(commit_id))
+        Box::new(move |commit_id| {
+            let result = positions.contains(commit_id);
+            Box::pin(ready(result))
+        })
     }
 }
 

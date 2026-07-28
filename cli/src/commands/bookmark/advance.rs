@@ -142,7 +142,10 @@ pub async fn cmd_bookmark_advance(
                     .evaluate()?
                     .containing_fn();
                 let is_source_ref = async |target: &RefTarget| -> Result<bool, CommandError> {
-                    Ok(fallible_any(target.added_ids(), async |old| is_source_commit(old)).await?)
+                    Ok(
+                        fallible_any(target.added_ids(), async |old| is_source_commit(old).await)
+                            .await?,
+                    )
                 };
 
                 let mut bookmarks = vec![];

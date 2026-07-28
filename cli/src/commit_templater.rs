@@ -1274,7 +1274,8 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
                 .keyword_cache
                 .is_immutable_fn(language, function.name_span)?
                 .clone();
-            let out_property = self_property.and_then(move |commit| Ok(is_immutable(commit.id())?));
+            let out_property =
+                self_property.and_then(move |commit| Ok(is_immutable(commit.id()).block_on()?));
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -1290,7 +1291,8 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
                     Ok(revset.containing_fn())
                 })?;
 
-            let out_property = self_property.and_then(move |commit| Ok(is_contained(commit.id())?));
+            let out_property =
+                self_property.and_then(move |commit| Ok(is_contained(commit.id()).block_on()?));
             Ok(out_property.into_dyn_wrapped())
         },
     );

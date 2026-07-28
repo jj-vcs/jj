@@ -89,14 +89,16 @@ pub async fn cmd_bookmark_move(
         } else {
             None
         };
-        let is_source_ref = async |target: &RefTarget| -> Result<bool, CommandError> {
-            match &is_source_commit {
-                Some(is_source_commit) => {
-                    Ok(fallible_any(target.added_ids(), async |old| is_source_commit(old)).await?)
+        let is_source_ref =
+            async |target: &RefTarget| -> Result<bool, CommandError> {
+                match &is_source_commit {
+                    Some(is_source_commit) => Ok(fallible_any(target.added_ids(), async |old| {
+                        is_source_commit(old).await
+                    })
+                    .await?),
+                    None => Ok(true),
                 }
-                None => Ok(true),
-            }
-        };
+            };
         let name_expr = match &args.names {
             Some(texts) => parse_union_name_patterns(ui, texts)?,
             None => StringExpression::all(),

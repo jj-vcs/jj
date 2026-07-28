@@ -26,6 +26,7 @@ use std::sync::LazyLock;
 
 use futures::Stream;
 use futures::StreamExt as _;
+use futures::future::LocalBoxFuture;
 use futures::stream::LocalBoxStream;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
@@ -3436,7 +3437,8 @@ pub trait Revset: fmt::Debug {
 }
 
 /// Function that checks if a commit is contained within the revset.
-pub type RevsetContainingFn<'a> = dyn Fn(&CommitId) -> Result<bool, RevsetEvaluationError> + 'a;
+pub type RevsetContainingFn<'a> =
+    dyn Fn(&CommitId) -> LocalBoxFuture<'a, Result<bool, RevsetEvaluationError>> + 'a;
 
 pub trait RevsetStreamExt {
     fn commits(
