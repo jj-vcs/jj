@@ -934,8 +934,15 @@ fn all_files_from_rev(rev: String, current: &std::ffi::OsStr) -> Vec<CompletionC
     })
 }
 
-fn modified_files_from_rev_with_jj_cmd(
-    rev: (String, Option<String>),
+/// Returns the modified files candidates after running `cmd`, which is expected
+/// to have all revision and template arguments populated, with the given
+/// `current` fileset.
+///
+/// The templated output is expected to have the format:
+///   status ++ ' ' ++ path display ++ "\n"
+/// With an additional line for renamed entries:
+///   'renamed.source' ++ ' ' ++ source path display ++ "\n"
+fn modified_files_candidates_from_cmd(
     mut cmd: std::process::Command,
     current: &std::ffi::OsStr,
 ) -> Result<Vec<CompletionCandidate>, CommandError> {
@@ -946,21 +953,10 @@ fn modified_files_from_rev_with_jj_cmd(
     let normalized_prefix = normalize_path(Path::new(current));
     let normalized_prefix = slash_path(&normalized_prefix);
 
-    // In case of a rename, one entry of `diff` results in two suggestions.
-    let template = indoc! {r#"
-        concat(
-          status ++ ' ' ++ path.display() ++ "\n",
-          if(status == 'renamed', 'renamed.source ' ++ source.path().display() ++ "\n"),
-        )
-    "#};
-    cmd.arg("diff")
-        .args(["--template", template])
-        .arg(current_prefix_to_fileset(current));
-    match rev {
-        (rev, None) => cmd.arg("--revisions").arg(rev),
-        (from, Some(to)) => cmd.arg("--from").arg(from).arg("--to").arg(to),
-    };
-    let output = cmd.output().map_err(user_error)?;
+    let output = cmd
+        .arg(current_prefix_to_fileset(current))
+        .output()
+        .map_err(user_error)?;
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     let mut include_renames = false;
@@ -992,11 +988,63 @@ fn modified_files_from_rev_with_jj_cmd(
     Ok(candidates)
 }
 
+fn modified_files_from_rev_with_jj_cmd(
+    rev: (String, Option<String>),
+    mut cmd: std::process::Command,
+    current: &std::ffi::OsStr,
+) -> Result<Vec<CompletionCandidate>, CommandError> {
+    // In case of a rename, one entry of `diff` results in two suggestions.
+    let template = indoc! {r#"
+        concat(
+          status ++ ' ' ++ path.display() ++ "\n",
+          if(status == 'renamed', 'renamed.source ' ++ source.path().display() ++ "\n"),
+        )
+    "#};
+    cmd.arg("diff").args(["--template", template]);
+    match rev {
+        (rev, None) => cmd.arg("--revisions").arg(rev),
+        (from, Some(to)) => cmd.arg("--from").arg(from).arg("--to").arg(to),
+    };
+    modified_files_candidates_from_cmd(cmd, current)
+}
+
+fn modified_files_from_rev_evolution_with_jj_cmd(
+    rev: String,
+    mut cmd: std::process::Command,
+    current: &std::ffi::OsStr,
+) -> Result<Vec<CompletionCandidate>, CommandError> {
+    // In case of a rename, one entry of `diff` results in two suggestions.
+    // Need the final `.join` so that the `List<String>` is turned into a single
+    // `String`; otherwise, it will be joined with spaces by default, so all
+    // files after the first one will be indented by one space.
+    let template = indoc! {r#"
+        self.inter_diff().files().map(|entry| concat(
+          entry.status() ++ ' ' ++ entry.path().entry() ++ "\n",
+          if(entry.status() == 'renamed',
+            'renamed.source ' ++ entry.source().path().display() ++ "\n"
+          ),
+        ).join('')
+    "#};
+    cmd.arg("evolog")
+        .arg("--no-graph")
+        .arg("--revisions")
+        .arg(rev)
+        .args(["--template", template]);
+    modified_files_candidates_from_cmd(cmd, current)
+}
+
 fn modified_files_from_rev(
     rev: (String, Option<String>),
     current: &std::ffi::OsStr,
 ) -> Vec<CompletionCandidate> {
     with_jj(|jj, _| modified_files_from_rev_with_jj_cmd(rev, jj.build(), current))
+}
+
+fn modified_files_from_rev_evolution(
+    rev: String,
+    current: &std::ffi::OsStr,
+) -> Vec<CompletionCandidate> {
+    with_jj(|jj, _| modified_files_from_rev_evolution_with_jj_cmd(rev, jj.build(), current))
 }
 
 fn conflicted_files_from_rev(rev: &str, current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
@@ -1051,6 +1099,14 @@ pub fn modified_range_files(current: &std::ffi::OsStr) -> Vec<CompletionCandidat
         Some((from, to)) => modified_files_from_rev((from, Some(to)), current),
         None => modified_files_from_rev(("@".into(), None), current),
     }
+}
+
+/// Completes files modified in `--revisions` (default `@`) and all their
+/// previous commits.
+pub fn all_historical_modified_revision_files(
+    current: &std::ffi::OsStr,
+) -> Vec<CompletionCandidate> {
+    modified_files_from_rev_evolution(parse::revision_or_wc(), current)
 }
 
 /// Completes files in `@` *or* the `--from` revision (not the diff between
