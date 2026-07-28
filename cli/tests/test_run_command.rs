@@ -545,6 +545,153 @@ fn test_run_ignore_errors_all_fail() {
     assert_eq!(get_log_output(&work_dir), log_before);
 }
 
+/// `jj run --passthrough` must fail fast: once a command exits non-zero it
+/// should stop, not keep running the command against every remaining revision.
+/// `--passthrough` forces a single job, so the revisions run sequentially and
+/// the output is deterministic.
+#[test]
+fn test_run_passthrough_stops_after_first_failure() {
+    let mut test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let fake_formatter = assert_cmd::cargo::cargo_bin("fake-formatter");
+    assert!(fake_formatter.is_file());
+    let fake_formatter_path = fake_formatter.to_string_lossy().into_owned();
+    test_env.add_paths_to_normalize(fake_formatter.clone(), "$FAKE_FORMATTER_PATH");
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("a.txt", "a");
+    work_dir.run_jj(&["commit", "-m", "A"]).success();
+    work_dir.write_file("b.txt", "b");
+    work_dir.run_jj(&["commit", "-m", "B"]).success();
+    work_dir.write_file("c.txt", "c");
+    work_dir.run_jj(&["commit", "-m", "C"]).success();
+
+    // Each invocation prints "x" (no newline) and exits non-zero. With
+    // `--passthrough` the command's stdout is streamed straight through, so the
+    // number of "x"es tells us how many revisions the command ran against.
+    // `jj run` must stop after the first failure, printing "x" exactly once
+    // rather than once per revision in `..@`.
+    let output = work_dir.run_jj(&[
+        "run",
+        "--passthrough",
+        "-r",
+        "..@",
+        "--",
+        &fake_formatter_path,
+        "--stdout",
+        "x",
+        "--fail",
+    ]);
+    insta::with_settings!({
+        filters => [
+            ("exit code", "exit status"), // Windows
+        ],
+    }, {
+        insta::assert_snapshot!(output, @r"
+        x[EOF]
+        ------- stderr -------
+        Error: the command '$FAKE_FORMATTER_PATH --stdout x --fail' failed with exit status: 1
+        Hint: Failed revision: qpvuntsm ffa1359e A
+        [EOF]
+        [exit status: 1]
+        ");
+    });
+
+    // With `--ignore-errors` the command runs against every revision in `..@`
+    // (A, B, C and the empty working-copy commit), so "x" is printed once per
+    // commit.
+    let output = work_dir.run_jj(&[
+        "run",
+        "--passthrough",
+        "--ignore-errors",
+        "-r",
+        "..@",
+        "--",
+        &fake_formatter_path,
+        "--stdout",
+        "x",
+        "--fail",
+    ]);
+    insta::assert_snapshot!(output.success(), @r"
+    xxxx[EOF]
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_run_stops_after_first_failure() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let fake_formatter = assert_cmd::cargo::cargo_bin("fake-formatter");
+    assert!(fake_formatter.is_file());
+    let fake_formatter_path = fake_formatter.to_string_lossy().into_owned();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("a.txt", "a");
+    work_dir.run_jj(&["commit", "-m", "A"]).success();
+    work_dir.write_file("b.txt", "b");
+    work_dir.run_jj(&["commit", "-m", "B"]).success();
+    work_dir.write_file("c.txt", "c");
+    work_dir.run_jj(&["commit", "-m", "C"]).success();
+
+    // The counter lives outside every ephemeral working copy, so all invocations
+    // append to the same file and its byte length is the execution count.
+    let counter = test_env.env_root().join("run-count.txt");
+    let counter_arg = counter.to_str().unwrap();
+
+    // Default (no `--ignore-errors`): the command fails on the first revision,
+    // so `jj run` must not touch the remaining revisions in `..@`.
+    let output = work_dir.run_jj(&[
+        "run",
+        "--jobs",
+        "1",
+        "-r",
+        "..@",
+        "--",
+        &fake_formatter_path,
+        "--stdout",
+        "x",
+        "--tee",
+        counter_arg,
+        "--fail",
+    ]);
+    assert!(!output.status.success(), "expected `jj run` to fail");
+    assert_eq!(
+        fs::read(&counter).unwrap().len(),
+        1,
+        "command should have run against exactly one revision before stopping"
+    );
+
+    // Verify with `--ignore-errors` the same command runs against every
+    // revision in `..@` (A, B, C and the empty working-copy commit)
+    let counter_all = test_env.env_root().join("run-count-all.txt");
+    let counter_all_arg = counter_all.to_str().unwrap();
+    let output = work_dir.run_jj(&[
+        "run",
+        "--ignore-errors",
+        "--jobs",
+        "1",
+        "-r",
+        "..@",
+        "--",
+        &fake_formatter_path,
+        "--stdout",
+        "x",
+        "--tee",
+        counter_all_arg,
+        "--fail",
+    ]);
+    assert!(
+        output.status.success(),
+        "expected `jj run --ignore-errors` to succeed"
+    );
+    assert_eq!(
+        fs::read(&counter_all).unwrap().len(),
+        4,
+        "with --ignore-errors the command should run against all four revisions"
+    );
+}
+
 #[test]
 fn test_run_recovers_after_failure() {
     let test_env = TestEnvironment::default();

@@ -39,6 +39,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Git HEAD to the parent of the fresh working-copy commit.
   [#9936](https://github.com/jj-vcs/jj/issues/9936)
 
+* `jj run` no longer runs against the remaining revisions if a process exits
+  with a nonzero exit code.
+
 ## [0.44.0] - 2026-08-05
 
 ### Release highlights
