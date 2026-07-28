@@ -871,7 +871,7 @@ pub async fn compute_move_commits(
                             {
                                 new_parents.extend(parents.iter().cloned());
                             } else if !fallible_any(&new_children, async |child| {
-                                repo.index().is_ancestor(child.id(), parent_id)
+                                repo.index().is_ancestor(child.id(), parent_id).await
                             })
                             .await
                             // TODO: indexing error shouldn't be a "BackendError"
@@ -1379,6 +1379,7 @@ pub async fn squash_commits<'repo>(
     if fallible_any(sources, async |source| {
         repo.index()
             .is_ancestor(source.commit.id(), destination.id())
+            .await
     })
     .await
     // TODO: indexing error shouldn't be a "BackendError"

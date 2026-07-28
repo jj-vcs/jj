@@ -97,6 +97,7 @@ impl dyn IndexStore {
 
 /// Defines the interface for types that provide an index of the commits in a
 /// repository by [`CommitId`].
+#[async_trait]
 pub trait Index: Send + Sync {
     /// Returns the minimum prefix length to disambiguate `commit_id` from other
     /// commits in the index. The length returned is the number of hexadecimal
@@ -119,7 +120,11 @@ pub trait Index: Send + Sync {
 
     /// Returns true if `ancestor_id` commit is an ancestor of the
     /// `descendant_id` commit, or if `ancestor_id` equals `descendant_id`.
-    fn is_ancestor(&self, ancestor_id: &CommitId, descendant_id: &CommitId) -> IndexResult<bool>;
+    async fn is_ancestor(
+        &self,
+        ancestor_id: &CommitId,
+        descendant_id: &CommitId,
+    ) -> IndexResult<bool>;
 
     /// Returns the best common ancestor or ancestors of the commits in `set1`
     /// and `set2`. A "best common ancestor" has no descendants that are also

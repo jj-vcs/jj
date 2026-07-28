@@ -55,6 +55,7 @@ mod tests {
     use std::sync::Arc;
 
     use itertools::Itertools as _;
+    use pollster::FutureExt as _;
     use smallvec::smallvec_inline;
     use test_case::test_case;
 
@@ -117,7 +118,10 @@ mod tests {
         ancestor_id: &CommitId,
         descendant_id: &CommitId,
     ) -> bool {
-        index.is_ancestor(ancestor_id, descendant_id).unwrap()
+        index
+            .is_ancestor(ancestor_id, descendant_id)
+            .block_on()
+            .unwrap()
     }
 
     #[test_case(false; "memory")]

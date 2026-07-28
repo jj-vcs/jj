@@ -549,6 +549,7 @@ impl AsCompositeIndex for DefaultMutableIndex {
     }
 }
 
+#[async_trait]
 impl Index for DefaultMutableIndex {
     fn shortest_unique_commit_id_prefix_len(&self, commit_id: &CommitId) -> IndexResult<usize> {
         self.0.shortest_unique_commit_id_prefix_len(commit_id)
@@ -565,8 +566,12 @@ impl Index for DefaultMutableIndex {
         self.0.has_id(commit_id)
     }
 
-    fn is_ancestor(&self, ancestor_id: &CommitId, descendant_id: &CommitId) -> IndexResult<bool> {
-        self.0.is_ancestor(ancestor_id, descendant_id)
+    async fn is_ancestor(
+        &self,
+        ancestor_id: &CommitId,
+        descendant_id: &CommitId,
+    ) -> IndexResult<bool> {
+        self.0.is_ancestor(ancestor_id, descendant_id).await
     }
 
     fn common_ancestors(&self, set1: &[CommitId], set2: &[CommitId]) -> IndexResult<Vec<CommitId>> {

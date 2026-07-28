@@ -93,7 +93,10 @@ fn is_ancestor(
     ancestor_id: &CommitId,
     descendant_id: &CommitId,
 ) -> bool {
-    index.is_ancestor(ancestor_id, descendant_id).unwrap()
+    index
+        .is_ancestor(ancestor_id, descendant_id)
+        .block_on()
+        .unwrap()
 }
 
 #[test]

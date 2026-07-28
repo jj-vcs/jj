@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use jj_lib::repo::Repo as _;
+use pollster::FutureExt as _;
 
 use super::CriterionArgs;
 use super::run_bench;
@@ -45,7 +46,11 @@ pub async fn cmd_bench_is_ancestor(
         .resolve_single_rev(ui, &args.descendant)
         .await?;
     let index = workspace_command.repo().index();
-    let routine = || index.is_ancestor(ancestor_commit.id(), descendant_commit.id());
+    let routine = || {
+        index
+            .is_ancestor(ancestor_commit.id(), descendant_commit.id())
+            .block_on()
+    };
     run_bench(
         ui,
         &format!("is-ancestor-{}-{}", args.ancestor, args.descendant),

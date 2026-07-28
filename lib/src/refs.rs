@@ -176,13 +176,13 @@ async fn find_pair_to_remove(
             // combination should be somehow weighted?
             let (add_index, add_id) = match (add1, add2) {
                 (Some(id1), Some(id2)) if id1 == id2 => (add_index1, id1),
-                (Some(id1), Some(id2)) if index.is_ancestor(id1, id2)? => (add_index1, id1),
-                (Some(id1), Some(id2)) if index.is_ancestor(id2, id1)? => (add_index2, id2),
+                (Some(id1), Some(id2)) if index.is_ancestor(id1, id2).await? => (add_index1, id1),
+                (Some(id1), Some(id2)) if index.is_ancestor(id2, id1).await? => (add_index2, id2),
                 _ => continue,
             };
             if let Some(remove_index) =
                 fallible_position(conflict.removes(), async |remove| match remove {
-                    Some(id) => index.is_ancestor(id, add_id),
+                    Some(id) => index.is_ancestor(id, add_id).await,
                     None => Ok(true), // Absent ref can be considered a root
                 })
                 .await?

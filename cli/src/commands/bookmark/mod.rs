@@ -172,7 +172,7 @@ async fn is_fast_forward(
         // conflict resolution by setting bookmark to "any" of the old target
         // descendants.
         let found = fallible_any(old_target.added_ids(), async |old| {
-            repo.index().is_ancestor(old, new_target_id)
+            repo.index().is_ancestor(old, new_target_id).await
         })
         .await?;
         Ok(found)

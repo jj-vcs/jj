@@ -146,9 +146,10 @@ pub(crate) async fn cmd_duplicate(
     if let Some((parent_commit_ids, children_commit_ids)) = &location
         && !parent_commit_ids.is_empty()
     {
+        let index = tx.repo().index();
         for commit_id in &to_duplicate {
             for parent_commit_id in parent_commit_ids {
-                if tx.repo().index().is_ancestor(commit_id, parent_commit_id)? {
+                if index.is_ancestor(commit_id, parent_commit_id).await? {
                     writeln!(
                         ui.warning_default(),
                         "Duplicating commit {} as a descendant of itself.",
@@ -161,7 +162,7 @@ pub(crate) async fn cmd_duplicate(
 
         for commit_id in &to_duplicate {
             for child_commit_id in children_commit_ids {
-                if tx.repo().index().is_ancestor(child_commit_id, commit_id)? {
+                if index.is_ancestor(child_commit_id, commit_id).await? {
                     writeln!(
                         ui.warning_default(),
                         "Duplicating commit {} as an ancestor of itself.",

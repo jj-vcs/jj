@@ -558,7 +558,7 @@ pub async fn cmd_git_push(
             "Changes to push to {remote}:",
             remote = remote.as_symbol()
         )?;
-        print_commits_ready_to_push(formatter.as_mut(), tx.repo(), &ref_updates)?;
+        print_commits_ready_to_push(formatter.as_mut(), tx.repo(), &ref_updates).await?;
     }
 
     if args.dry_run {
@@ -886,30 +886,31 @@ async fn sign_commits_before_push(
     Ok(ref_updates)
 }
 
-fn print_commits_ready_to_push(
+async fn print_commits_ready_to_push(
     formatter: &mut dyn Formatter,
     repo: &dyn Repo,
     ref_updates: &GitPushRefTargets,
 ) -> Result<(), CommandError> {
-    let to_direction =
-        |old_target: &CommitId, new_target: &CommitId| -> IndexResult<BookmarkMoveDirection> {
-            assert_ne!(old_target, new_target);
-            if repo.index().is_ancestor(old_target, new_target)? {
-                Ok(BookmarkMoveDirection::Forward)
-            } else if repo.index().is_ancestor(new_target, old_target)? {
-                Ok(BookmarkMoveDirection::Backward)
-            } else {
-                Ok(BookmarkMoveDirection::Sideways)
-            }
-        };
-    let describe_update = |update: &Diff<Option<CommitId>>| -> IndexResult<String> {
+    let to_direction = async |old_target: &CommitId,
+                              new_target: &CommitId|
+           -> IndexResult<BookmarkMoveDirection> {
+        assert_ne!(old_target, new_target);
+        if repo.index().is_ancestor(old_target, new_target).await? {
+            Ok(BookmarkMoveDirection::Forward)
+        } else if repo.index().is_ancestor(new_target, old_target).await? {
+            Ok(BookmarkMoveDirection::Backward)
+        } else {
+            Ok(BookmarkMoveDirection::Sideways)
+        }
+    };
+    let describe_update = async |update: &Diff<Option<CommitId>>| -> IndexResult<String> {
         let desc = match (&update.before, &update.after) {
             (Some(old_target), Some(new_target)) => {
                 let old = short_commit_hash(old_target);
                 let new = short_commit_hash(new_target);
                 // TODO: People on Discord suggest "... forward by n commits",
                 // possibly "... sideways (X forward, Y back)".
-                match to_direction(old_target, new_target)? {
+                match to_direction(old_target, new_target).await? {
                     BookmarkMoveDirection::Forward => {
                         format!("move forward from {old} to {new}")
                     }
@@ -941,7 +942,7 @@ fn print_commits_ready_to_push(
     ];
     for (kind, updates) in kind_updates {
         for (name, update) in updates {
-            let desc = describe_update(update)?;
+            let desc = describe_update(update).await?;
             writeln!(
                 formatter,
                 "  {kind}: {name} [{desc}]",
