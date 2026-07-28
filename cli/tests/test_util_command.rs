@@ -289,6 +289,9 @@ fn test_util_snapshot() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Snapshot complete.
+    Working copy  (@) now at: qpvuntsm 0f7e5910 (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Current operation: 400986d31c96 (2001-02-03 08:05:08) snapshot working copy
     [EOF]
     ");
 }
@@ -303,6 +306,8 @@ fn test_util_snapshot_nothing_changed() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     No snapshot needed.
+    Working copy change (@): qpvuntsm
+    Current operation: 90267f31f904 (2001-02-03 08:05:07) add workspace 'default'
     [EOF]
     ");
 }
