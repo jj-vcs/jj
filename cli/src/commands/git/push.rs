@@ -1088,8 +1088,7 @@ fn classify_tag_update(
         RefPushAction::Update(_) if !targets.remote_ref.is_tracked() && !allow_new => {
             Err(RejectedRefUpdateReason {
                 message: format!("Refusing to create new remote tag {remote_symbol}"),
-                // TODO: suggest `jj tag track`?
-                hint: None,
+                hint: Some(format!("Run `jj tag track {remote_symbol}` and try again.")),
             })
         }
         RefPushAction::Update(update) if update.after.is_none() && !allow_delete => {

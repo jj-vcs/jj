@@ -1772,6 +1772,7 @@ fn test_git_push_allow_new_heuristics() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Refusing to create new remote tag untracked@origin
+    Hint: Run `jj tag track untracked@origin` and try again.
     [EOF]
     [exit status: 1]
     ");

@@ -233,6 +233,421 @@ fn test_tag_unknown() {
 }
 
 #[test]
+fn test_tag_track_untrack() {
+    let test_env = TestEnvironment::default();
+
+    // Set up remote
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "origin"])
+        .success();
+    let origin_dir = test_env.work_dir("origin");
+    origin_dir.run_jj(["commit", "-mcommit 1"]).success();
+    origin_dir
+        .run_jj(["tag", "set", "-r@-", "tag1", "tag2", "tag3", "tag4"])
+        .success();
+
+    // Remote tags are tracked by default
+    let output = test_env.run_jj_in(".", ["git", "clone", "origin", "local"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/local"
+    tag: tag1@origin [new] tracked
+    tag: tag2@origin [new] tracked
+    tag: tag3@origin [new] tracked
+    tag: tag4@origin [new] tracked
+    [EOF]
+    "#);
+    let local_dir = test_env.work_dir("local");
+    insta::assert_snapshot!(get_tag_output(&local_dir), @"
+    tag1: qpvuntsm 4de4efb4 (empty) commit 1
+      @origin: qpvuntsm 4de4efb4 (empty) commit 1
+    tag2: qpvuntsm 4de4efb4 (empty) commit 1
+      @origin: qpvuntsm 4de4efb4 (empty) commit 1
+    tag3: qpvuntsm 4de4efb4 (empty) commit 1
+      @origin: qpvuntsm 4de4efb4 (empty) commit 1
+    tag4: qpvuntsm 4de4efb4 (empty) commit 1
+      @origin: qpvuntsm 4de4efb4 (empty) commit 1
+    [EOF]
+    ");
+
+    // Untrack existing and locally deleted tags: targets shouldn't be changed
+    local_dir.run_jj(["tag", "delete", "tag3"]).success();
+    let output = local_dir.run_jj(["tag", "untrack", "'tag[234]'"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Stopped tracking 3 remote tags.
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_tag_output(&local_dir), @"
+    tag1: qpvuntsm 4de4efb4 (empty) commit 1
+      @origin: qpvuntsm 4de4efb4 (empty) commit 1
+    tag2: qpvuntsm 4de4efb4 (empty) commit 1
+    tag2@origin: qpvuntsm 4de4efb4 (empty) commit 1
+    tag3@origin: qpvuntsm 4de4efb4 (empty) commit 1
+    tag4: qpvuntsm 4de4efb4 (empty) commit 1
+    tag4@origin: qpvuntsm 4de4efb4 (empty) commit 1
+    [EOF]
+    ");
+
+    // Create and move tags
+    local_dir.run_jj(["tag", "set", "tag5"]).success();
+    local_dir.run_jj(["new", "root()"]).success();
+    local_dir.run_jj(["commit", "-mcommit 2"]).success();
+    local_dir
+        .run_jj(["tag", "set", "--allow-move", "tag4"])
+        .success();
+
+    // Track tracked, untracked, conflicting, new, and unknown tags
+    let output = local_dir.run_jj(["tag", "track", "'tag[1345]'", "unknown"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: No matching tags for names: unknown
+    Warning: Remote tag already tracked: tag1@origin
+    Started tracking 3 remote tags.
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_tag_output(&local_dir), @"
+    tag1: qpvuntsm 4de4efb4 (empty) commit 1
+      @origin: qpvuntsm 4de4efb4 (empty) commit 1
+    tag2: qpvuntsm 4de4efb4 (empty) commit 1
+    tag2@origin: qpvuntsm 4de4efb4 (empty) commit 1
+    tag3: qpvuntsm 4de4efb4 (empty) commit 1
+      @origin: qpvuntsm 4de4efb4 (empty) commit 1
+    tag4 (conflicted):
+      + kpqxywon 3fea8afe (empty) (no description set)
+      + qpvuntsm 4de4efb4 (empty) commit 1
+      @origin (behind by 2 commits): qpvuntsm 4de4efb4 (empty) commit 1
+    tag5: zsuskuln c2934cfb (empty) (no description set)
+      @origin (not created yet)
+    [EOF]
+    ");
+
+    // Fetch new commit: only tracking tags should be merged
+    origin_dir.run_jj(["commit", "-mcommit 3"]).success();
+    origin_dir
+        .run_jj([
+            "tag",
+            "set",
+            "-r@-",
+            "--allow-move",
+            "tag1",
+            "tag2",
+            "tag3",
+            "tag4",
+        ])
+        .success();
+    let output = local_dir.run_jj(["git", "fetch"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    tag: tag1@origin [updated] tracked
+    tag: tag2@origin [updated] untracked
+    tag: tag3@origin [updated] tracked
+    tag: tag4@origin [updated] tracked
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_tag_output(&local_dir), @"
+    tag1: rlvkpnrz bdaad04f (empty) commit 3
+      @origin: rlvkpnrz bdaad04f (empty) commit 3
+    tag2: qpvuntsm 4de4efb4 (empty) commit 1
+    tag2@origin: rlvkpnrz bdaad04f (empty) commit 3
+    tag3: rlvkpnrz bdaad04f (empty) commit 3
+      @origin: rlvkpnrz bdaad04f (empty) commit 3
+    tag4 (conflicted):
+      + kpqxywon 3fea8afe (empty) (no description set)
+      + rlvkpnrz bdaad04f (empty) commit 3
+      @origin (behind by 2 commits): rlvkpnrz bdaad04f (empty) commit 3
+    tag5: zsuskuln c2934cfb (empty) (no description set)
+      @origin (not created yet)
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_tag_track_untrack_multiple_remotes() {
+    let test_env = TestEnvironment::default();
+
+    // Set up remotes
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "remote1"])
+        .success();
+    let remote1_dir = test_env.work_dir("remote1");
+    remote1_dir.run_jj(["commit", "-mcommit 1"]).success();
+    remote1_dir
+        .run_jj(["tag", "set", "-r@-", "tag1", "tag2", "tag3"])
+        .success();
+
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "remote2"])
+        .success();
+    let remote2_dir = test_env.work_dir("remote2");
+    remote2_dir.run_jj(["commit", "-mcommit 2"]).success();
+    remote2_dir
+        .run_jj(["tag", "set", "-r@-", "tag2", "tag3", "tag4"])
+        .success();
+
+    // Set up colocated repo where pseudo @git remote exists
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "local"])
+        .success();
+    let local_dir = test_env.work_dir("local");
+    local_dir
+        .run_jj(["git", "remote", "add", "remote1", "../remote1"])
+        .success();
+    local_dir
+        .run_jj(["git", "remote", "add", "remote2", "../remote2"])
+        .success();
+
+    // Remote tags are tracked by default
+    let output = local_dir.run_jj(["git", "fetch", "--remote=*"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    tag: tag1@remote1 [new] tracked
+    tag: tag2@remote1 [new] tracked
+    tag: tag2@remote2 [new] tracked
+    tag: tag3@remote1 [new] tracked
+    tag: tag3@remote2 [new] tracked
+    tag: tag4@remote2 [new] tracked
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_tag_output(&local_dir), @"
+    tag1: qpvuntsm 4de4efb4 (empty) commit 1
+      @git: qpvuntsm 4de4efb4 (empty) commit 1
+      @remote1: qpvuntsm 4de4efb4 (empty) commit 1
+    tag2 (conflicted):
+      + qpvuntsm 4de4efb4 (empty) commit 1
+      + zsuskuln b322488a (empty) commit 2
+      @remote1 (behind by 1 commits): qpvuntsm 4de4efb4 (empty) commit 1
+      @remote2 (behind by 1 commits): zsuskuln b322488a (empty) commit 2
+    tag3 (conflicted):
+      + qpvuntsm 4de4efb4 (empty) commit 1
+      + zsuskuln b322488a (empty) commit 2
+      @remote1 (behind by 1 commits): qpvuntsm 4de4efb4 (empty) commit 1
+      @remote2 (behind by 1 commits): zsuskuln b322488a (empty) commit 2
+    tag4: zsuskuln b322488a (empty) commit 2
+      @git: zsuskuln b322488a (empty) commit 2
+      @remote2: zsuskuln b322488a (empty) commit 2
+    [EOF]
+    ");
+
+    // Resolve conflict to reduce test complexity
+    local_dir
+        .run_jj([
+            "tag",
+            "set",
+            "--allow-move",
+            "-rsubject('commit 1')",
+            "tag2",
+            "tag3",
+        ])
+        .success();
+
+    // Untrack by name@remote syntax
+    let output = local_dir.run_jj(["tag", "untrack", "tag1@git", "tag2@remote1", "tag2@unknown"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: No matching remote tags for names: tag2@unknown
+    Warning: Git-tracking tag cannot be untracked: tag1@git
+    Stopped tracking 1 remote tags.
+    [EOF]
+    ");
+    // Untrack with --remote
+    let output = local_dir.run_jj(["tag", "untrack", "tag2", "tag3", "--remote=remote2"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Stopped tracking 2 remote tags.
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_tag_output(&local_dir), @"
+    tag1: qpvuntsm 4de4efb4 (empty) commit 1
+      @git: qpvuntsm 4de4efb4 (empty) commit 1
+      @remote1: qpvuntsm 4de4efb4 (empty) commit 1
+    tag2: qpvuntsm 4de4efb4 (empty) commit 1
+      @git: qpvuntsm 4de4efb4 (empty) commit 1
+    tag2@remote1: qpvuntsm 4de4efb4 (empty) commit 1
+    tag2@remote2: zsuskuln b322488a (empty) commit 2
+    tag3: qpvuntsm 4de4efb4 (empty) commit 1
+      @git: qpvuntsm 4de4efb4 (empty) commit 1
+      @remote1: qpvuntsm 4de4efb4 (empty) commit 1
+    tag3@remote2: zsuskuln b322488a (empty) commit 2
+    tag4: zsuskuln b322488a (empty) commit 2
+      @git: zsuskuln b322488a (empty) commit 2
+      @remote2: zsuskuln b322488a (empty) commit 2
+    [EOF]
+    ");
+
+    // Untrack all
+    let output = local_dir.run_jj(["tag", "untrack", "*"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Remote tag not tracked yet: tag2@remote1
+    Warning: Remote tag not tracked yet: tag2@remote2
+    Warning: Remote tag not tracked yet: tag3@remote2
+    Warning: Remote tag not tracked yet: tag4@remote1
+    Warning: Remote tag not tracked yet: tag1@remote2
+    Stopped tracking 3 remote tags.
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_tag_output(&local_dir), @"
+    tag1: qpvuntsm 4de4efb4 (empty) commit 1
+      @git: qpvuntsm 4de4efb4 (empty) commit 1
+    tag1@remote1: qpvuntsm 4de4efb4 (empty) commit 1
+    tag2: qpvuntsm 4de4efb4 (empty) commit 1
+      @git: qpvuntsm 4de4efb4 (empty) commit 1
+    tag2@remote1: qpvuntsm 4de4efb4 (empty) commit 1
+    tag2@remote2: zsuskuln b322488a (empty) commit 2
+    tag3: qpvuntsm 4de4efb4 (empty) commit 1
+      @git: qpvuntsm 4de4efb4 (empty) commit 1
+    tag3@remote1: qpvuntsm 4de4efb4 (empty) commit 1
+    tag3@remote2: zsuskuln b322488a (empty) commit 2
+    tag4: zsuskuln b322488a (empty) commit 2
+      @git: zsuskuln b322488a (empty) commit 2
+    tag4@remote2: zsuskuln b322488a (empty) commit 2
+    [EOF]
+    ");
+
+    // Noop untrack
+    let output = local_dir.run_jj(["tag", "untrack", "tag1@remote1"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Remote tag not tracked yet: tag1@remote1
+    Nothing changed.
+    [EOF]
+    ");
+
+    // Track by name@remote syntax
+    let output = local_dir.run_jj(["tag", "track", "tag2@git", "tag3@remote2", "tag3@unknown"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: No matching remote tags for names: tag3@unknown
+    Warning: Remote tag already tracked: tag2@git
+    Started tracking 1 remote tags.
+    [EOF]
+    ");
+    // Track with --remote
+    let output = local_dir.run_jj(["tag", "track", "tag1", "tag2", "--remote=remote1"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Started tracking 2 remote tags.
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_tag_output(&local_dir), @"
+    tag1: qpvuntsm 4de4efb4 (empty) commit 1
+      @git: qpvuntsm 4de4efb4 (empty) commit 1
+      @remote1: qpvuntsm 4de4efb4 (empty) commit 1
+    tag2: qpvuntsm 4de4efb4 (empty) commit 1
+      @git: qpvuntsm 4de4efb4 (empty) commit 1
+      @remote1: qpvuntsm 4de4efb4 (empty) commit 1
+    tag2@remote2: zsuskuln b322488a (empty) commit 2
+    tag3 (conflicted):
+      + qpvuntsm 4de4efb4 (empty) commit 1
+      + zsuskuln b322488a (empty) commit 2
+      @git (behind by 1 commits): qpvuntsm 4de4efb4 (empty) commit 1
+      @remote2 (behind by 1 commits): zsuskuln b322488a (empty) commit 2
+    tag3@remote1: qpvuntsm 4de4efb4 (empty) commit 1
+    tag4: zsuskuln b322488a (empty) commit 2
+      @git: zsuskuln b322488a (empty) commit 2
+    tag4@remote2: zsuskuln b322488a (empty) commit 2
+    [EOF]
+    ");
+
+    // Track all
+    let output = local_dir.run_jj(["tag", "track", "*"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Remote tag already tracked: tag1@remote1
+    Warning: Remote tag already tracked: tag2@remote1
+    Warning: Remote tag already tracked: tag3@remote2
+    Started tracking 5 remote tags.
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_tag_output(&local_dir), @"
+    tag1: qpvuntsm 4de4efb4 (empty) commit 1
+      @git: qpvuntsm 4de4efb4 (empty) commit 1
+      @remote1: qpvuntsm 4de4efb4 (empty) commit 1
+      @remote2 (not created yet)
+    tag2 (conflicted):
+      + qpvuntsm 4de4efb4 (empty) commit 1
+      + zsuskuln b322488a (empty) commit 2
+      @git (behind by 1 commits): qpvuntsm 4de4efb4 (empty) commit 1
+      @remote1 (behind by 1 commits): qpvuntsm 4de4efb4 (empty) commit 1
+      @remote2 (behind by 1 commits): zsuskuln b322488a (empty) commit 2
+    tag3 (conflicted):
+      + qpvuntsm 4de4efb4 (empty) commit 1
+      + zsuskuln b322488a (empty) commit 2
+      @git (behind by 1 commits): qpvuntsm 4de4efb4 (empty) commit 1
+      @remote1 (behind by 1 commits): qpvuntsm 4de4efb4 (empty) commit 1
+      @remote2 (behind by 1 commits): zsuskuln b322488a (empty) commit 2
+    tag4: zsuskuln b322488a (empty) commit 2
+      @git: zsuskuln b322488a (empty) commit 2
+      @remote1 (not created yet)
+      @remote2: zsuskuln b322488a (empty) commit 2
+    [EOF]
+    ");
+
+    // Noop track
+    let output = local_dir.run_jj(["tag", "track", "tag1@remote1"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Remote tag already tracked: tag1@remote1
+    Nothing changed.
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_tag_track_untrack_bad_args() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj(["tag", "track", "--remote=foo", "bar@baz"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: --remote cannot be used with <tag>@<remote> symbols
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["tag", "track", "foo", "bar@baz"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Cannot specify both <tag> patterns and <tag>@<remote> symbols
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["tag", "track", "~foo@bar"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Failed to parse name pattern or remote symbol: Invalid string expression
+    Caused by:  --> 1:2
+      |
+    1 | ~foo@bar
+      |  ^-----^
+      |
+      = Invalid string expression
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = work_dir.run_jj(["tag", "untrack", "--remote=foo", "bar@baz"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: --remote cannot be used with <tag>@<remote> symbols
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["tag", "untrack", "foo", "bar@baz"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Cannot specify both <tag> patterns and <tag>@<remote> symbols
+    [EOF]
+    [exit status: 2]
+    ");
+}
+
+#[test]
 fn test_tag_list() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -447,4 +862,9 @@ fn test_tag_list_remotes() {
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     let template = r#"separate(" ", commit_id.short(), tags) ++ "\n""#;
     work_dir.run_jj(["log", "-rall()", "-T", template])
+}
+
+#[must_use]
+fn get_tag_output(work_dir: &TestWorkDir) -> CommandOutput {
+    work_dir.run_jj(["tag", "list", "--all-remotes"])
 }

@@ -71,6 +71,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj git push` gained a `--allow-conflicts` flag to allow pushing commits
   containing conflicts.
 
+* New `jj tag track`/`untrack` commands to associate local tags with remotes.
+  Note that fetched tags are tracked by default.
+
 * `jj run` gained a `--ignore-errors` flag to continue running against the
   remaining revisions even if the command exits with a nonzero exit code.
 

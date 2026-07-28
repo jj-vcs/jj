@@ -1942,6 +1942,24 @@ impl MutableRepo {
         Ok(())
     }
 
+    /// Merges the specified remote tag in to local tag, and starts tracking it.
+    pub async fn track_remote_tag(&mut self, symbol: RemoteRefSymbol<'_>) -> IndexResult<()> {
+        let mut remote_ref = self.get_remote_tag(symbol);
+        let base_target = remote_ref.tracked_target();
+        self.merge_local_tag(symbol.name, base_target, &remote_ref.target)
+            .await?;
+        remote_ref.state = RemoteRefState::Tracked;
+        self.set_remote_tag(symbol, remote_ref);
+        Ok(())
+    }
+
+    /// Stops tracking the specified remote tag.
+    pub fn untrack_remote_tag(&mut self, symbol: RemoteRefSymbol<'_>) {
+        let mut remote_ref = self.get_remote_tag(symbol);
+        remote_ref.state = RemoteRefState::New;
+        self.set_remote_tag(symbol, remote_ref);
+    }
+
     pub fn get_git_ref(&self, name: &GitRefName) -> RefTarget {
         self.view.get_git_ref(name).clone()
     }
