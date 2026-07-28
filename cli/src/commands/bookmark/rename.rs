@@ -128,7 +128,9 @@ pub async fn cmd_bookmark_rename(
             )?;
             continue;
         }
-        tx.repo_mut().track_remote_bookmark(new_remote_bookmark)?;
+        tx.repo_mut()
+            .track_remote_bookmark(new_remote_bookmark)
+            .await?;
     }
 
     // Warn about present+tracked remotes of the overwritten bookmark where the

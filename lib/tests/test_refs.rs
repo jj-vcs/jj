@@ -55,7 +55,9 @@ fn test_merge_ref_targets() -> TestResult {
 
     let index = repo.index();
     let merge = |left: &RefTarget, base: &RefTarget, right: &RefTarget| {
-        merge_ref_targets(index, left, base, right).unwrap()
+        merge_ref_targets(index, left, base, right)
+            .block_on()
+            .unwrap()
     };
 
     // Left moved forward

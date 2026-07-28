@@ -2784,7 +2784,7 @@ impl WorkspaceCommandTransaction<'_> {
     /// commit. If the bookmark is conflicted before the update, it will
     /// remain conflicted after the update, but the conflict will involve
     /// the `move_to` commit instead of the old commit.
-    pub fn advance_bookmarks(
+    pub async fn advance_bookmarks(
         &mut self,
         bookmarks: Vec<AdvanceableBookmark>,
         move_to: &CommitId,
@@ -2792,11 +2792,13 @@ impl WorkspaceCommandTransaction<'_> {
         for bookmark in bookmarks {
             // This removes the old commit ID from the bookmark's RefTarget and
             // replaces it with the `move_to` ID.
-            self.repo_mut().merge_local_bookmark(
-                &bookmark.name,
-                &RefTarget::normal(bookmark.old_commit_id),
-                &RefTarget::normal(move_to.clone()),
-            )?;
+            self.repo_mut()
+                .merge_local_bookmark(
+                    &bookmark.name,
+                    &RefTarget::normal(bookmark.old_commit_id),
+                    &RefTarget::normal(move_to.clone()),
+                )
+                .await?;
         }
         Ok(())
     }

@@ -141,13 +141,13 @@ pub async fn cmd_bookmark_advance(
                     .attach_revset_evaluator(expression)
                     .evaluate()?
                     .containing_fn();
-                let is_source_ref = |target: &RefTarget| -> Result<bool, CommandError> {
-                    Ok(fallible_any(target.added_ids(), &is_source_commit)?)
+                let is_source_ref = async |target: &RefTarget| -> Result<bool, CommandError> {
+                    Ok(fallible_any(target.added_ids(), async |old| is_source_commit(old)).await?)
                 };
 
                 let mut bookmarks = vec![];
                 for (name, target) in repo.view().local_bookmarks() {
-                    if is_source_ref(target)? {
+                    if is_source_ref(target).await? {
                         bookmarks.push((name, target));
                     }
                 }
@@ -166,11 +166,13 @@ pub async fn cmd_bookmark_advance(
 
     if let Some((name, _)) = fallible_find(
         matched_bookmarks.iter(),
-        |(_, old_target)| -> Result<_, CommandError> {
-            let is_ff = is_fast_forward(repo.as_ref(), old_target, target_commit.id())?;
+        async |(_, old_target)| -> Result<_, CommandError> {
+            let is_ff = is_fast_forward(repo.as_ref(), old_target, target_commit.id()).await?;
             Ok(!is_ff)
         },
-    )? {
+    )
+    .await?
+    {
         return Err(user_error(format!(
             "Refusing to advance bookmark backwards or sideways: {name}",
             name = name.as_symbol()

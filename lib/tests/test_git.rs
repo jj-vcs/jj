@@ -4172,7 +4172,8 @@ fn test_fetch_prune_deleted_ref() -> TestResult {
     let mut tx = test_data.repo.start_transaction();
     fetch_import_all(tx.repo_mut(), "origin".as_ref());
     tx.repo_mut()
-        .track_remote_bookmark(remote_symbol("main", "origin"))?;
+        .track_remote_bookmark(remote_symbol("main", "origin"))
+        .block_on()?;
     // Test the setup
     assert!(tx.repo().get_local_bookmark("main".as_ref()).is_present());
     assert!(

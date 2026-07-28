@@ -704,7 +704,9 @@ async fn import_refs_inner(
             },
         };
         if new_remote_ref.is_tracked() {
-            mut_repo.merge_local_bookmark(symbol.name, base_target, &new_remote_ref.target)?;
+            mut_repo
+                .merge_local_bookmark(symbol.name, base_target, &new_remote_ref.target)
+                .await?;
         }
         // Remote-tracking branch is the last known state of the branch in the remote.
         // It shouldn't diverge even if we had inconsistent view.
@@ -722,7 +724,9 @@ async fn import_refs_inner(
             },
         };
         if new_remote_ref.is_tracked() {
-            mut_repo.merge_local_tag(symbol.name, base_target, &new_remote_ref.target)?;
+            mut_repo
+                .merge_local_tag(symbol.name, base_target, &new_remote_ref.target)
+                .await?;
         }
         // Remote-tracking tag is the last known state of the tag in the remote.
         // It shouldn't diverge even if we had inconsistent view.

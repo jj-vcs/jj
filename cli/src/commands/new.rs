@@ -278,7 +278,7 @@ pub(crate) async fn cmd_new(
 
     // Does nothing if there's no bookmarks to advance.
     if let Some(target) = advance_bookmarks_target {
-        tx.advance_bookmarks(advanceable_bookmarks, &target)?;
+        tx.advance_bookmarks(advanceable_bookmarks, &target).await?;
     }
 
     tx.finish(ui, "new empty commit").await?;

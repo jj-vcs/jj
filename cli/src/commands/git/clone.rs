@@ -451,7 +451,7 @@ async fn fetch_new_remote(
     {
         // For convenience, create local bookmark as Git would do.
         let remote_symbol = name.to_remote_symbol(remote_name);
-        tx.repo_mut().track_remote_bookmark(remote_symbol)?;
+        tx.repo_mut().track_remote_bookmark(remote_symbol).await?;
     }
     print_git_import_stats(ui, &tx, &import_stats)?;
     tx.finish(ui, "fetch from git remote into empty repo")

@@ -841,9 +841,8 @@ pub async fn compute_move_commits(
     let descendants = repo
         .find_descendants_for_rebase(roots.clone(), &RevsetExpression::none())
         .await?;
-    let commit_new_parents_map = descendants
-        .iter()
-        .map(|commit| -> BackendResult<_> {
+    let commit_new_parents_entries =
+        try_join_all(descendants.iter().map(async |commit| -> BackendResult<_> {
             let commit_id = commit.id();
             let new_parent_ids =
                 if let Some(new_child_parents) = new_children_parents.get(commit_id) {
@@ -871,9 +870,10 @@ pub async fn compute_move_commits(
                                 connected_target_commits_internal_parents.get(parent_id)
                             {
                                 new_parents.extend(parents.iter().cloned());
-                            } else if !fallible_any(&new_children, |child| {
+                            } else if !fallible_any(&new_children, async |child| {
                                 repo.index().is_ancestor(child.id(), parent_id)
                             })
+                            .await
                             // TODO: indexing error shouldn't be a "BackendError"
                             .map_err(|err| BackendError::Other(err.into()))?
                             {
@@ -902,8 +902,9 @@ pub async fn compute_move_commits(
                     commit.parent_ids().iter().cloned().collect_vec()
                 };
             Ok((commit.id().clone(), new_parent_ids))
-        })
-        .try_collect()?;
+        }))
+        .await?;
+    let commit_new_parents_map = commit_new_parents_entries.into_iter().collect();
 
     Ok(ComputedMoveCommits {
         target_commit_ids,
@@ -1375,10 +1376,11 @@ pub async fn squash_commits<'repo>(
     }
 
     let mut rewritten_destination = destination.clone();
-    if fallible_any(sources, |source| {
+    if fallible_any(sources, async |source| {
         repo.index()
             .is_ancestor(source.commit.id(), destination.id())
     })
+    .await
     // TODO: indexing error shouldn't be a "BackendError"
     .map_err(|err| BackendError::Other(err.into()))?
     {

@@ -80,7 +80,7 @@ pub async fn cmd_bookmark_set(
         } else if old_target.as_normal() != Some(target_commit.id()) {
             moved_bookmark_count += 1;
         }
-        if !args.allow_backwards && !is_fast_forward(repo, old_target, target_commit.id())? {
+        if !args.allow_backwards && !is_fast_forward(repo, old_target, target_commit.id()).await? {
             return Err(user_error(format!(
                 "Refusing to move bookmark backwards or sideways: {name}",
                 name = name.as_symbol()
@@ -115,7 +115,7 @@ pub async fn cmd_bookmark_set(
                         "Auto-tracking bookmark that exists on the remote: {symbol}"
                     )?;
                 }
-                tx.repo_mut().track_remote_bookmark(symbol)?;
+                tx.repo_mut().track_remote_bookmark(symbol).await?;
             }
         }
     }

@@ -162,7 +162,7 @@ fn trackable_remote_bookmarks_matching<'a>(
     itertools::chain(present_or_tracked_matches, absent_matches)
 }
 
-fn is_fast_forward(
+async fn is_fast_forward(
     repo: &dyn Repo,
     old_target: &RefTarget,
     new_target_id: &CommitId,
@@ -171,9 +171,10 @@ fn is_fast_forward(
         // Strictly speaking, "all" old targets should be ancestors, but we allow
         // conflict resolution by setting bookmark to "any" of the old target
         // descendants.
-        let found = fallible_any(old_target.added_ids(), |old| {
+        let found = fallible_any(old_target.added_ids(), async |old| {
             repo.index().is_ancestor(old, new_target_id)
-        })?;
+        })
+        .await?;
         Ok(found)
     } else {
         Ok(true)

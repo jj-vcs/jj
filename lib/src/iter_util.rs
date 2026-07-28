@@ -16,12 +16,12 @@
 
 /// Returns `Ok(true)` if any element satisfies the fallible predicate,
 /// `Ok(false)` if none do. Returns `Err` on the first error encountered.
-pub fn fallible_any<T, E>(
+pub async fn fallible_any<T, E>(
     iter: impl IntoIterator<Item = T>,
-    mut predicate: impl FnMut(T) -> Result<bool, E>,
+    mut predicate: impl AsyncFnMut(T) -> Result<bool, E>,
 ) -> Result<bool, E> {
     for item in iter {
-        if predicate(item)? {
+        if predicate(item).await? {
             return Ok(true);
         }
     }
@@ -31,12 +31,12 @@ pub fn fallible_any<T, E>(
 /// Returns `Ok(Some(item))` for the first element where the predicate returns
 /// `Ok(true)`, `Ok(None)` if no element satisfies it, or `Err` on the first
 /// error.
-pub fn fallible_find<T, E>(
+pub async fn fallible_find<T, E>(
     iter: impl IntoIterator<Item = T>,
-    mut predicate: impl FnMut(&T) -> Result<bool, E>,
+    mut predicate: impl AsyncFnMut(&T) -> Result<bool, E>,
 ) -> Result<Option<T>, E> {
     for item in iter {
-        if predicate(&item)? {
+        if predicate(&item).await? {
             return Ok(Some(item));
         }
     }
@@ -46,12 +46,12 @@ pub fn fallible_find<T, E>(
 /// Returns `Ok(Some(index))` for the first element where the predicate returns
 /// `Ok(true)`, `Ok(None)` if no element satisfies it, or `Err` on the first
 /// error.
-pub fn fallible_position<T, E>(
+pub async fn fallible_position<T, E>(
     iter: impl IntoIterator<Item = T>,
-    mut predicate: impl FnMut(T) -> Result<bool, E>,
+    mut predicate: impl AsyncFnMut(T) -> Result<bool, E>,
 ) -> Result<Option<usize>, E> {
     for (index, item) in iter.into_iter().enumerate() {
-        if predicate(item)? {
+        if predicate(item).await? {
             return Ok(Some(index));
         }
     }

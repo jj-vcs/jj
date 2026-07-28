@@ -107,7 +107,7 @@ pub async fn cmd_bookmark_create(
                     "Auto-tracking bookmark that exists on the remote: {symbol}"
                 )?;
             }
-            tx.repo_mut().track_remote_bookmark(symbol)?;
+            tx.repo_mut().track_remote_bookmark(symbol).await?;
         }
     }
 
