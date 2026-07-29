@@ -95,7 +95,7 @@ pub(crate) struct SquashArgs {
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     from: Vec<RevisionArg>,
 
-    /// Revision to squash into (default: @)
+    /// Revision to squash into (default: @-)
     #[arg(
         long,
         short = 't',
