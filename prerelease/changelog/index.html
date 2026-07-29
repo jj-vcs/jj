@@ -7409,6 +7409,12 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   <code>revsets.log</code> now defaults to <code>builtin_log()</code>, so custom log revsets can
   reuse the built-in default instead of copying its full expression.</p>
 </li>
+<li>
+<p>Added config option <code>diff.stat.max-bar-width</code> for use with <code>--stat</code> to limit
+  the <code>++--</code> bar width. In the templating language, <code>diff.stat()</code> can optionally
+  take a second (positional or named) argument <code>max_bar_width</code> for an equivalent
+  effect.</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>

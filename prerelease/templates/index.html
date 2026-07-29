@@ -3546,7 +3546,10 @@ only occur directly in the call site they are used in.</p>
 <li><code>.color_words([context: Integer]) -&gt; Template</code>: Format as a word-level diff
   with changes indicated only by color.</li>
 <li><code>.git([context: Integer]) -&gt; Template</code>: Format as a Git diff.</li>
-<li><code>.stat([width: Integer]) -&gt; DiffStats</code>: Calculate stats of changed lines.</li>
+<li><code>.stat([width: Integer], [max_bar_width: Integer]) -&gt; DiffStats</code>: Calculate
+  stats of changed lines. <code>width</code> sets the entire width of the diff stat
+  including paths, and <code>max_bar_width</code> limits the maximum character length of
+  the <code>++--</code> bar.</li>
 <li><code>.summary() -&gt; Template</code>: Format as a list of status code and path pairs.</li>
 </ul>
 <h3 id="treediffentry-type"><code>TreeDiffEntry</code> type<a class="headerlink" href="#treediffentry-type" title="Permanent link">&para;</a></h3>

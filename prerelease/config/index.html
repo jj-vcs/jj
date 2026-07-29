@@ -1073,6 +1073,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#diff-stat-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      Diff stat options
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3121,6 +3130,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#diff-stat-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      Diff stat options
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -4438,6 +4456,15 @@ You can also change the default number of lines of context shown.</p>
 <span class="n">context</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span>
 <span class="n">show-path-prefix</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
 </code></pre></div>
+<h4 id="diff-stat-options">Diff stat options<a class="headerlink" href="#diff-stat-options" title="Permanent link">&para;</a></h4>
+<p>When using a subcommand that displays the diff stat menu like <code>jj show --stat</code>,
+the bar portion that renders as <code>++--</code> can be limited to a maximum width in
+characters.</p>
+<div class="highlight"><pre><span></span><code><span class="k">[diff.stat]</span>
+<span class="n">max-bar-width</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">10</span>
+</code></pre></div>
+<p>By default without this option set, the bar width is unbounded and will use the
+remaining available space, with a minimum of 30% of the total width.</p>
 <h3 id="generating-diffs-by-external-command">Generating diffs by external command<a class="headerlink" href="#generating-diffs-by-external-command" title="Permanent link">&para;</a></h3>
 <p>If <code>ui.diff-formatter</code> is not a builtin format, the specified diff command will
 be called.</p>
