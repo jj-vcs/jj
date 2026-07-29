@@ -1382,7 +1382,7 @@ fn test_help() {
           --ignore-working-copy          Don't snapshot the working copy, and don't update it
           --no-integrate-operation       Run the command as usual but don't integrate any operations
           --ignore-immutable             Allow rewriting immutable commits
-          --at-operation <AT_OPERATION>  Operation to load the repo at [aliases: --at-op]
+          --at-operation <AT_OPERATION>  Operation to load the repo at [alias: --at-op]
           --debug                        Enable debug logging
           --color <WHEN>                 When to colorize output [possible values: always, never, debug,
                                          auto]
