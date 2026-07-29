@@ -18,6 +18,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* A side of a conflict whose contents end with a carriage return no longer loses
+  that byte when the materialized conflict is parsed back, such as when a
+  conflicted file is snapshotted from the working copy.
+  [#9868](https://github.com/jj-vcs/jj/issues/9868)
+
 ## [0.44.0] - 2026-08-05
 
 ### Release highlights

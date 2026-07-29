@@ -848,11 +848,13 @@ pub fn parse_conflict(
     let mut resolved_start = 0;
     let mut conflict_start = None;
     let mut conflict_start_len = 0;
+    let mut conflict_start_eol_is_crlf = false;
     for line in input.lines_with_terminator() {
         match parse_conflict_marker(line, expected_marker_len) {
             Some(ConflictMarkerLineChar::ConflictStart) => {
                 conflict_start = Some(pos);
                 conflict_start_len = line.len();
+                conflict_start_eol_is_crlf = line.ends_with(b"\r\n");
             }
             Some(ConflictMarkerLineChar::ConflictEnd) => {
                 if let Some(conflict_start_index) = conflict_start.take() {
@@ -866,9 +868,13 @@ pub fn parse_conflict(
                         if !line.ends_with(b"\n") {
                             // If the conflict end marker doesn't end with an EOL, the last EOL on
                             // every side performs only as a separator, and we need to do remove the
-                            // last EOL to retrieve the original contents.
+                            // last EOL to retrieve the original contents. That separator is the EOL
+                            // which terminates the conflict start marker line, so only drop a CR if
+                            // that EOL was CRLF. Otherwise the CR belongs to the contents.
                             for term in &mut hunk {
-                                if term.pop_if(|x| *x == b'\n').is_some() {
+                                if term.pop_if(|x| *x == b'\n').is_some()
+                                    && conflict_start_eol_is_crlf
+                                {
                                     term.pop_if(|x| *x == b'\r');
                                 }
                             }
@@ -1405,5 +1411,34 @@ mod tests {
         let actual_merge = actual_merge.map(|content| content.to_str().unwrap().to_owned());
         let merge = merge.map(|content| content.to_string());
         assert_eq!(actual_merge, merge);
+    }
+
+    #[test_case(Merge::from_vec(vec![
+        "left\r",
+        "base",
+        "right",
+    ]); "lf")]
+    #[test_case(Merge::from_vec(vec![
+        "left\r\nmore\r",
+        "base\r\n",
+        "right\r\n",
+    ]); "crlf")]
+    fn test_materialize_conflict_trailing_cr(merge: Merge<&str>) {
+        // A side ending with a CR but no ending EOL must survive the round trip.
+        // The only EOL parsing may strip is the separator the materialization
+        // added, not one the content already carried.
+        let options = ConflictMaterializeOptions {
+            marker_style: ConflictMarkerStyle::Git,
+            marker_len: None,
+            merge: MergeOptions {
+                hunk_level: FileMergeHunkLevel::Line,
+                same_change: SameChange::Keep,
+            },
+        };
+        let merge = merge.map(|content| BString::from(*content));
+        let materialized =
+            materialize_merge_result_to_bytes(&merge, &ConflictLabels::unlabeled(), &options);
+        let hunks = parse_conflict(&materialized, 2, 7).unwrap();
+        assert_eq!(hunks, vec![merge]);
     }
 }
