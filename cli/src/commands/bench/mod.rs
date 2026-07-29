@@ -23,6 +23,7 @@ use std::time::Instant;
 
 use clap::Subcommand;
 use criterion::Criterion;
+use criterion::async_executor::FuturesExecutor;
 
 use self::common_ancestors::BenchCommonAncestorsArgs;
 use self::common_ancestors::cmd_bench_common_ancestors;
@@ -85,14 +86,20 @@ fn new_criterion(ui: &Ui, args: &CriterionArgs) -> Criterion {
     criterion.sample_size(args.sample_size as usize)
 }
 
-fn run_bench<R, O>(ui: &mut Ui, id: &str, args: &CriterionArgs, mut routine: R) -> io::Result<()>
+async fn run_bench<R, O, F>(
+    ui: &mut Ui,
+    id: &str,
+    args: &CriterionArgs,
+    mut routine: R,
+) -> io::Result<()>
 where
-    R: (FnMut() -> O) + Copy,
+    R: (FnMut() -> F) + Copy,
+    F: Future<Output = O>,
     O: Debug,
 {
     let mut criterion = new_criterion(ui, args);
     let before = Instant::now();
-    let result = routine();
+    let result = routine().await;
     let after = Instant::now();
     writeln!(
         ui.status(),
@@ -101,7 +108,7 @@ where
         result
     )?;
     criterion.bench_function(id, |bencher: &mut criterion::Bencher| {
-        bencher.iter(routine);
+        bencher.to_async(FuturesExecutor).iter(routine);
     });
     Ok(())
 }

@@ -619,6 +619,7 @@ dependencies = [
  "ciborium",
  "clap",
  "criterion-plot",
+ "futures 0.3.33",
  "itertools 0.13.0",
  "num-traits",
  "oorandom",
