@@ -10,9 +10,9 @@
     "astro": "astro"
   },
   "dependencies": {
-    "@astrojs/starlight": "^0.40.0",
+    "@astrojs/starlight": "^0.41.0",
     "js-yaml": "^4.1.0",
-    "astro": "^6.4.8",
+    "astro": "^7.0.2",
     "astro-starlight-remark-asides": "^0.0.7",
     "marked": "^17.0.1",
     "mdast-util-from-markdown": "^2.0.2",
