@@ -2148,7 +2148,8 @@ commit IDs), since users may double click to copy the value, which may include
 the period.</p>
 <h2 id="documentation-comments">Documentation comments<a class="headerlink" href="#documentation-comments" title="Permanent link">&para;</a></h2>
 <h3 id="general">General<a class="headerlink" href="#general" title="Permanent link">&para;</a></h3>
-<p>In general, try to follow <a href="https://github.com/rust-lang/rfcs/blob/master/text/1574-more-api-documentation-conventions.md"><code>rust-lang/rfcs</code> 1574</a>. The important points are:</p>
+<p>In general, try to follow <a href="https://github.com/rust-lang/rfcs/blob/master/text/1574-more-api-documentation-conventions.md"><code>rust-lang/rfcs</code> 1574</a>. The
+important points are:</p>
 <ul>
 <li>
 <p>Use documentation comments (<code>///</code>) on types, functions, and fields.</p>
@@ -2265,12 +2266,16 @@ Creates new bookmarks with the given names and assigns them to the given target 
   CLI.</p>
 <ul>
 <li>For example, <code>jj rebase --help</code>.</li>
+<li>Markdown can be used, but make sure to use at least level 3 headings (<code>###</code>
+  or more). The CLI reference page uses level 2 headings for each command
+  (e.g., <code>## jj root</code>), so the Table of Contents might break if any command
+  documentation uses level 1 or level 2 headings.</li>
 </ul>
 </li>
 <li>
-<p>Default aliases (i.e., those defined in <a href="https://github.com/jj-vcs/jj/blob/main/cli/src/config/misc.toml"><code>misc.toml</code></a>) are not automatically
-  shown by <code>clap</code>, since it doesn't know about them. Mention these at the end of
-  the first line for the command in question in the format
+<p>Default aliases (i.e., those defined in <a href="https://github.com/jj-vcs/jj/blob/main/cli/src/config/misc.toml"><code>misc.toml</code></a>) are not
+  automatically shown by <code>clap</code>, since it doesn't know about them. Mention these
+  at the end of the first line for the command in question in the format
   <code>[default alias: &lt;alias&gt;]</code>. For example, the first line of <code>jj describe</code> is:</p>
 <div class="highlight"><pre><span></span><code>Update the change description or other metadata [default alias: desc]
 </code></pre></div>
