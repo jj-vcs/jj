@@ -1482,6 +1482,62 @@ fn test_snapshot_special_file() -> TestResult {
     Ok(())
 }
 
+#[cfg(unix)]
+#[test]
+fn test_snapshot_non_utf8_path() -> TestResult {
+    // Tests that paths that can't be represented as RepoPaths are skipped
+    // instead of failing the whole snapshot. #9774
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt as _;
+
+    let mut test_workspace = TestWorkspace::init();
+    let workspace_root = test_workspace.workspace.workspace_root().to_owned();
+
+    if testutils::check_strict_utf8_fs(&workspace_root) {
+        eprintln!(
+            "Skipping test \"test_snapshot_non_utf8_path\" due to strict UTF-8 filesystem for \
+             path {workspace_root:?}"
+        );
+        return Ok(());
+    }
+
+    let file_path = repo_path("file");
+    std::fs::write(file_path.to_fs_path_unchecked(&workspace_root), "contents")?;
+    let bad_file_name = OsStr::from_bytes(b"file\xe0");
+    std::fs::write(workspace_root.join(bad_file_name), "contents")?;
+    let bad_dir_name = OsStr::from_bytes(b"dir\xe0");
+    let bad_dir_disk_path = workspace_root.join(bad_dir_name);
+    std::fs::create_dir(&bad_dir_disk_path)?;
+    std::fs::write(bad_dir_disk_path.join("file"), "contents")?;
+
+    let ws = &mut test_workspace.workspace;
+    let mut locked_ws = ws.start_working_copy_mutation().block_on()?;
+    let (tree, stats) = locked_ws
+        .locked_wc()
+        .snapshot(&empty_snapshot_options())
+        .block_on()?;
+    locked_ws
+        .finish(OperationId::from_hex("abc123"))
+        .block_on()?;
+
+    // Only the path with a valid UTF-8 name should be in the tree. The
+    // directory isn't descended into, so it's reported as a single path.
+    assert_eq!(
+        tree.entries().map(|(path, _value)| path).collect_vec(),
+        to_owned_path_vec(&[file_path])
+    );
+    assert_eq!(
+        stats.invalid_utf8_paths,
+        [
+            (RepoPathBuf::root(), bad_dir_name.to_owned()),
+            (RepoPathBuf::root(), bad_file_name.to_owned()),
+        ]
+        .into()
+    );
+    assert!(stats.untracked_paths.is_empty());
+    Ok(())
+}
+
 #[test]
 fn test_gitignores() -> TestResult {
     // Tests that .gitignore files are respected.

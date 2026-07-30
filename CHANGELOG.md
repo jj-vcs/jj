@@ -102,6 +102,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   workspace becomes immutable, as well as during snapshotting. This brings the
   behavior closer to `jj` 0.42 and earlier.
 
+* Snapshotting no longer fails if the working copy contains a path whose name
+  isn't valid UTF-8. Such paths can't be tracked, so they are now skipped and
+  reported as a warning instead.
+  [#9774](https://github.com/jj-vcs/jj/issues/9774)
+
 * Fixed failure when reading configuration in copied repo with an empty
   repo-level configuration directory.
 

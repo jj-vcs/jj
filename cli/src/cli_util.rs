@@ -15,6 +15,7 @@
 use std::borrow::Cow;
 use std::cell::OnceCell;
 use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::env;
@@ -666,9 +667,14 @@ impl CommandHelper {
                 let merged_stats = {
                     let SnapshotStats {
                         mut untracked_paths,
+                        mut invalid_utf8_paths,
                     } = stale_stats;
                     untracked_paths.extend(fresh_stats.untracked_paths);
-                    SnapshotStats { untracked_paths }
+                    invalid_utf8_paths.extend(fresh_stats.invalid_utf8_paths);
+                    SnapshotStats {
+                        untracked_paths,
+                        invalid_utf8_paths,
+                    }
                 };
                 Ok((workspace_command, merged_stats))
             }
@@ -3168,12 +3174,38 @@ pub fn print_untracked_files(
     Ok(())
 }
 
+/// Print a warning listing paths that were skipped because their names aren't
+/// valid UTF-8.
+fn print_invalid_utf8_paths(
+    ui: &Ui,
+    paths: &BTreeSet<(RepoPathBuf, OsString)>,
+    path_converter: &RepoPathUiConverter,
+) -> io::Result<()> {
+    if paths.is_empty() {
+        return Ok(());
+    }
+    writeln!(
+        ui.warning_default(),
+        "Skipped some paths because they are not valid UTF-8:"
+    )?;
+    let mut formatter = ui.stderr_formatter();
+    for (dir, name) in paths {
+        writeln!(
+            formatter,
+            "  {}: {name:?}",
+            path_converter.format_file_path(dir)
+        )?;
+    }
+    Ok(())
+}
+
 pub fn print_snapshot_stats(
     ui: &Ui,
     stats: &SnapshotStats,
     path_converter: &RepoPathUiConverter,
 ) -> io::Result<()> {
     print_untracked_files(ui, &stats.untracked_paths, path_converter)?;
+    print_invalid_utf8_paths(ui, &stats.invalid_utf8_paths, path_converter)?;
 
     let large_files_sizes = stats
         .untracked_paths

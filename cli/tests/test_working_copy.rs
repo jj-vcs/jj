@@ -290,6 +290,62 @@ fn test_snapshot_invalid_ignore_pattern() {
     ");
 }
 
+#[cfg(unix)]
+#[test]
+fn test_snapshot_non_utf8_path() {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt as _;
+
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    if testutils::check_strict_utf8_fs(work_dir.root()) {
+        eprintln!(
+            "Skipping test \"test_snapshot_non_utf8_path\" due to strict UTF-8 filesystem for \
+             path {:?}",
+            work_dir.root()
+        );
+        return;
+    }
+
+    std::fs::write(work_dir.root().join(OsStr::from_bytes(b"file\xe0")), "").unwrap();
+    std::fs::create_dir(work_dir.root().join(OsStr::from_bytes(b"dir\xe0"))).unwrap();
+    work_dir.write_file("file", "");
+
+    // The paths that can't be represented as RepoPaths are skipped, and the
+    // snapshot succeeds.
+    insta::assert_snapshot!(work_dir.run_jj(["st"]), @r#"
+    Working copy changes:
+    A file
+    Working copy  (@) : qpvuntsm 3dcf981e (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ------- stderr -------
+    Warning: Skipped some paths because they are not valid UTF-8:
+      .: "dir\xE0"
+      .: "file\xE0"
+    [EOF]
+    "#);
+
+    // .gitignore doesn't apply because we can't build a RepoPath to match
+    // against, so the paths are still reported.
+    work_dir.write_file(".gitignore", b"dir\xe0\nfile\xe0\n");
+    insta::assert_snapshot!(work_dir.run_jj(["st"]), @r#"
+    Working copy changes:
+    A .gitignore
+    A file
+    Working copy  (@) : qpvuntsm 0fbe2679 (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ------- stderr -------
+    Warning: Skipped some paths because they are not valid UTF-8:
+      .: "dir\xE0"
+      .: "file\xE0"
+    [EOF]
+    "#);
+}
+
 #[test]
 fn test_conflict_marker_length_stored_in_working_copy() -> TestResult {
     let test_env = TestEnvironment::default();

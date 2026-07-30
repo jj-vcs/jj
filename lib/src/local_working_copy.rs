@@ -19,6 +19,7 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::error::Error;
+use std::ffi::OsString;
 use std::fs;
 use std::fs::DirEntry;
 use std::fs::File;
@@ -1328,6 +1329,7 @@ impl TreeState {
         let (tree_entries_tx, tree_entries_rx) = channel();
         let (file_states_tx, file_states_rx) = channel();
         let (untracked_paths_tx, untracked_paths_rx) = channel();
+        let (invalid_utf8_paths_tx, invalid_utf8_paths_rx) = channel();
         let (deleted_files_tx, deleted_files_rx) = channel();
 
         trace_span!("traverse filesystem").in_scope(|| -> Result<(), SnapshotError> {
@@ -1341,6 +1343,7 @@ impl TreeState {
                 tree_entries_tx,
                 file_states_tx,
                 untracked_paths_tx,
+                invalid_utf8_paths_tx,
                 deleted_files_tx,
                 error: OnceLock::new(),
                 progress: *progress,
@@ -1363,6 +1366,7 @@ impl TreeState {
 
         let stats = SnapshotStats {
             untracked_paths: untracked_paths_rx.into_iter().collect(),
+            invalid_utf8_paths: invalid_utf8_paths_rx.into_iter().collect(),
         };
         let mut tree_builder = MergedTreeBuilder::new(self.tree.clone());
         trace_span!("process tree entries").in_scope(|| {
@@ -1408,7 +1412,9 @@ impl TreeState {
         // Since untracked paths aren't cached in the tree state, we'll need to
         // rescan the working directory changes to report or track them later.
         // TODO: store untracked paths and update watchman_clock?
-        if stats.untracked_paths.is_empty() || watchman_clock.is_none() {
+        if (stats.untracked_paths.is_empty() && stats.invalid_utf8_paths.is_empty())
+            || watchman_clock.is_none()
+        {
             self.watchman_clock = watchman_clock;
         } else {
             tracing::info!("not updating watchman clock because there are untracked files");
@@ -1512,6 +1518,7 @@ struct FileSnapshotter<'a> {
     tree_entries_tx: Sender<(RepoPathBuf, MergedTreeValue)>,
     file_states_tx: Sender<(RepoPathBuf, FileState)>,
     untracked_paths_tx: Sender<(RepoPathBuf, UntrackedReason)>,
+    invalid_utf8_paths_tx: Sender<(RepoPathBuf, OsString)>,
     deleted_files_tx: Sender<RepoPathBuf>,
     error: OnceLock<SnapshotError>,
     progress: Option<&'a SnapshotProgress<'a>>,
@@ -1595,9 +1602,16 @@ impl FileSnapshotter<'_> {
     ) -> Result<Option<(PresentDirEntryKind, String)>, SnapshotError> {
         let file_type = entry.file_type().unwrap();
         let file_name = entry.file_name();
-        let name_string = file_name
-            .into_string()
-            .map_err(|path| SnapshotError::InvalidUtf8Path { path })?;
+        let name_string = match file_name.into_string() {
+            Ok(name_string) => name_string,
+            Err(name) => {
+                // A path that isn't valid UTF-8 can't be represented as a
+                // RepoPath, so it can never be tracked. Skip it instead of
+                // failing the whole snapshot, and let the caller report it.
+                self.invalid_utf8_paths_tx.send((dir.to_owned(), name)).ok();
+                return Ok(None);
+            }
+        };
 
         if RESERVED_DIR_NAMES.contains(&name_string.as_str()) {
             return Ok(None);
