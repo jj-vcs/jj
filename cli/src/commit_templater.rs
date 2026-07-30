@@ -96,7 +96,6 @@ use crate::diff_util::DiffStatEntry;
 use crate::diff_util::DiffStatOptions;
 use crate::diff_util::DiffStats;
 use crate::formatter::Formatter;
-use crate::git_util;
 use crate::operation_templater;
 use crate::operation_templater::OperationTemplateBuildFnTable;
 use crate::operation_templater::OperationTemplateEnvironment;
@@ -1047,10 +1046,19 @@ fn builtin_commit_template_functions<'repo>()
                 Some(node) => expect_stringify_expression(language, diagnostics, build_ctx, node)?,
                 None => Box::new(Literal("origin".to_owned())),
             };
-            let repo = language.repo;
-            let out_property = remote_property.map(move |remote_name| {
-                git_util::get_remote_web_url(repo.base_repo(), &remote_name).unwrap_or_default()
-            });
+            #[cfg(feature = "git")]
+            let out_property = {
+                let repo = language.repo;
+                remote_property.map(move |remote_name| {
+                    crate::git_util::get_remote_web_url(repo.base_repo(), &remote_name)
+                        .unwrap_or_default()
+                })
+            };
+            #[cfg(not(feature = "git"))]
+            let out_property = {
+                drop(remote_property);
+                Literal(String::new())
+            };
             Ok(out_property.into_dyn_wrapped())
         },
     );

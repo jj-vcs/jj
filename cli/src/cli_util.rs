@@ -936,7 +936,10 @@ impl WorkspaceCommandEnvironment {
             cwd: command.cwd().to_owned(),
             base: workspace.workspace_root().to_owned(),
         };
+        #[cfg(feature = "git")]
         let working_copy_shared_with_git = crate::git_util::is_colocated_git_workspace(workspace);
+        #[cfg(not(feature = "git"))]
+        let working_copy_shared_with_git = false;
         let mut env = Self {
             command: command.clone(),
             settings: settings.clone(),
