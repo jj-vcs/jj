@@ -60,7 +60,8 @@ the period.
 
 ### General
 
-In general, try to follow [`rust-lang/rfcs` 1574][rust-lang/rfcs-1574]. The important points are:
+In general, try to follow [`rust-lang/rfcs` 1574][rust-lang/rfcs-1574]. The
+important points are:
 
 - Use documentation comments (`///`) on types, functions, and fields.
 
@@ -171,10 +172,14 @@ Specifically for `jj` subcommands:
   documentation page so that all the relevant info can still be accessed via the
   CLI.
   - For example, `jj rebase --help`.
+  - Markdown can be used, but make sure to use at least level 3 headings (`###`
+    or more). The CLI reference page uses level 2 headings for each command
+    (e.g., `## jj root`), so the Table of Contents might break if any command
+    documentation uses level 1 or level 2 headings.
 
-- Default aliases (i.e., those defined in [`misc.toml`][misc.toml]) are not automatically
-  shown by `clap`, since it doesn't know about them. Mention these at the end of
-  the first line for the command in question in the format
+- Default aliases (i.e., those defined in [`misc.toml`][misc.toml]) are not
+  automatically shown by `clap`, since it doesn't know about them. Mention these
+  at the end of the first line for the command in question in the format
   `[default alias: <alias>]`. For example, the first line of `jj describe` is:
 
   ```
