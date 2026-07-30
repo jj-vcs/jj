@@ -40,7 +40,7 @@ pub mod tree {
         pub value: ::core::option::Option<super::TreeValue>,
     }
 }
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Commit {
     #[prost(bytes = "vec", repeated, tag = "1")]
     pub parents: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
@@ -62,6 +62,9 @@ pub struct Commit {
     pub committer: ::core::option::Option<commit::Signature>,
     #[prost(bytes = "vec", optional, tag = "9")]
     pub secure_sig: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
+    /// Sorted by key so the serialized form is deterministic
+    #[prost(message, repeated, tag = "11")]
+    pub metadata: ::prost::alloc::vec::Vec<commit::MetadataEntry>,
 }
 /// Nested message and enum types in `Commit`.
 pub mod commit {
@@ -80,5 +83,12 @@ pub mod commit {
         pub email: ::prost::alloc::string::String,
         #[prost(message, optional, tag = "3")]
         pub timestamp: ::core::option::Option<Timestamp>,
+    }
+    #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+    pub struct MetadataEntry {
+        #[prost(string, tag = "1")]
+        pub key: ::prost::alloc::string::String,
+        #[prost(bytes = "vec", tag = "2")]
+        pub value: ::prost::alloc::vec::Vec<u8>,
     }
 }

@@ -16,6 +16,7 @@
 //! trait for reading and writing commits, trees, files, etc.
 
 use std::any::Any;
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::pin::Pin;
 use std::slice;
@@ -215,6 +216,12 @@ pub struct Commit {
     /// A cryptographic signature of this commit.
     #[serde(skip)] // raw data wouldn't be useful
     pub secure_sig: Option<SecureSig>,
+    /// Additional metadata about this commit. This allows servers and custom
+    /// clients to attach arbitrary data to a commit. It is not preserved on
+    /// rewrite. It is part of the commit's identity; two commits with
+    /// different metadata but otherwise identical should have different IDs.
+    #[serde(skip)] // raw data wouldn't be useful
+    pub metadata: HashMap<String, Vec<u8>>,
 }
 
 /// An individual copy event, from file A -> B.
@@ -530,6 +537,7 @@ pub fn make_root_commit(root_change_id: ChangeId, empty_tree_id: TreeId) -> Comm
         author: signature.clone(),
         committer: signature,
         secure_sig: None,
+        metadata: HashMap::new(),
     }
 }
 
