@@ -218,26 +218,98 @@ fn derivation_is_deterministic_and_cache_independent() {
     );
 }
 
-/// The cache is keyed on trees, and the fixture's monorepo files are shared by
-/// every commit, so the number of distinct filtered trees stays below the
-/// number of commits. That ratio is what makes incremental derivation cheap.
+/// The direction elision is actually for: monorepo commits that leave the
+/// vendored path alone. Each one should vanish from the view, and each one
+/// should cost a single tree read rather than one per path component, since
+/// every tree on the way in except the changed root is shared with its parent.
 #[test]
-fn the_tree_cache_is_smaller_than_the_history() {
+fn monorepo_commits_that_miss_the_path_elide_and_cost_one_read_each() {
+    const CHAIN: usize = 20;
+
     let filter = Filter::prefix(PREFIX).expect("a valid prefix");
     let world = inject(&filter);
-    let head = world
+    let mut head = *world
         .map
         .get(&world.upstream.head)
         .expect("the head was injected");
 
     let mut cache = Cache::new();
-    jj_views::derive(&world.repo, head, &filter, &mut cache).expect("a derivation");
-    assert!(
-        cache.tree_entries() <= cache.commit_entries(),
-        "one tree entry per commit at most, got {} trees for {} commits",
-        cache.tree_entries(),
-        cache.commit_entries()
+    let view_before =
+        jj_views::derive(&world.repo, &head, &filter, &mut cache).expect("a derivation");
+    let trees_before = cache.tree_reads();
+    let commits_before = cache.commit_entries();
+
+    // A chain that only ever rewrites a monorepo file, so the subtree under
+    // PREFIX is untouched and its tree object is shared by every commit.
+    for step in 0..CHAIN {
+        head = append_monorepo_commit(&world.repo, &head, step);
+    }
+    let view_after =
+        jj_views::derive(&world.repo, &head, &filter, &mut cache).expect("a derivation");
+
+    assert_eq!(
+        view_after, view_before,
+        "commits that miss the filtered path must leave the view unchanged"
     );
+    let commits_added = cache.commit_entries() - commits_before;
+    assert_eq!(
+        commits_added, CHAIN,
+        "every new commit should have been mapped"
+    );
+    let reads_added = cache.tree_reads() - trees_before;
+    // One read per commit for its own root tree, which is the one tree that did
+    // change. Anything more means a deeper level was re-read per commit, which
+    // is what per-level memoization exists to prevent, and what would make
+    // incremental derivation cost the depth of the path on every commit.
+    assert_eq!(
+        reads_added, CHAIN,
+        "expected {CHAIN} tree reads for {CHAIN} commits that changed only the root, got \
+         {reads_added}"
+    );
+}
+
+/// Adds a commit on top of `parent` that rewrites one monorepo file and nothing
+/// under [`PREFIX`].
+fn append_monorepo_commit(repo: &gix::Repository, parent: &ObjectId, step: usize) -> ObjectId {
+    let parent_raw = repo.find_object(*parent).expect("a commit").detach().data;
+    let parent_tree = gix::objs::CommitRef::from_bytes(&parent_raw, repo.object_hash())
+        .expect("a well formed commit")
+        .tree();
+    let blob = repo
+        .write_blob(format!("monorepo revision {step}\n").as_bytes())
+        .expect("a blob")
+        .detach();
+
+    let base = repo.find_object(parent_tree).expect("a tree").detach().data;
+    let decoded =
+        gix::objs::TreeRef::from_bytes(&base, repo.object_hash()).expect("a well formed tree");
+    let mut entries: Vec<gix::objs::tree::Entry> = decoded
+        .entries
+        .iter()
+        .map(|entry| gix::objs::tree::Entry {
+            mode: entry.mode,
+            filename: entry.filename.to_owned(),
+            oid: entry.oid.to_owned(),
+        })
+        .collect();
+    for entry in &mut entries {
+        if entry.filename == "MONOREPO" {
+            entry.oid = blob;
+        }
+    }
+    entries.sort();
+    let tree = repo
+        .write_object(&gix::objs::Tree { entries })
+        .expect("a tree")
+        .detach();
+
+    let raw = format!(
+        "tree {tree}\nparent {parent}\nauthor Monorepo <mono@example.invalid> 100000000{step} \
+         +0000\ncommitter Monorepo <mono@example.invalid> 100000000{step} +0000\n\nmonorepo \
+         change {step}\n"
+    );
+    gix::objs::Write::write_buf(&repo.objects, gix::objs::Kind::Commit, raw.as_bytes())
+        .expect("a commit")
 }
 
 /// A path absent from the whole history has no view, rather than an empty one.

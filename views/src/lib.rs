@@ -170,8 +170,17 @@ pub struct Cache {
 
 #[derive(Default)]
 struct FilterCache {
-    /// Parent tree to filtered tree, `None` when the path is absent there.
-    trees: HashMap<ObjectId, Option<ObjectId>>,
+    /// Subtree lookups, keyed on the tree and how many path components have
+    /// been consumed so far, `None` when the path is absent below it.
+    ///
+    /// Keying on the root tree alone gives almost no sharing, which is worth
+    /// spelling out because it is the opposite of what one expects: a monorepo
+    /// commit that touched some other directory has a *different* root tree and
+    /// the *same* filtered subtree, and that is the common case. The sharing is
+    /// one level down, so every level is memoized and a commit that left the
+    /// filtered path alone is answered from the first shared tree on the way
+    /// in.
+    trees: HashMap<(ObjectId, usize), Option<ObjectId>>,
     /// Parent commit to view commit, `None` when nothing of the path exists in
     /// its ancestry.
     commits: HashMap<ObjectId, Option<ObjectId>>,
@@ -180,6 +189,9 @@ struct FilterCache {
     view_trees: HashMap<ObjectId, ObjectId>,
     /// View commit back to the parent commit it came from, for [`unfilter`].
     grafts: HashMap<ObjectId, ObjectId>,
+    /// Tree objects read while descending, so the cost of a derivation can be
+    /// measured rather than assumed.
+    tree_reads: usize,
 }
 
 impl Cache {
@@ -199,6 +211,17 @@ impl Cache {
     #[must_use]
     pub fn commit_entries(&self) -> usize {
         self.per_filter.values().map(|per| per.commits.len()).sum()
+    }
+
+    /// How many tree objects have been read, over all filters.
+    ///
+    /// This is the number the cache exists to hold down. A commit that did not
+    /// touch the filtered path should cost one read, not one per path
+    /// component, because every tree on the way in except the changed root
+    /// is shared with its parent commit.
+    #[must_use]
+    pub fn tree_reads(&self) -> usize {
+        self.per_filter.values().map(|per| per.tree_reads).sum()
     }
 
     /// The view commit `commit` maps to, if this cache has already derived it.
@@ -423,29 +446,28 @@ impl Deriver<'_> {
         Ok(id)
     }
 
-    /// The subtree of `tree` at the filter's path, memoized.
+    /// The subtree of `tree` at the filter's path, memoized at every level.
     fn derive_tree(&mut self, tree: &oid) -> Result<Option<ObjectId>, Error> {
-        if let Some(hit) = self.cache.trees.get(tree) {
+        self.descend(tree.to_owned(), 0)
+    }
+
+    /// Recursion depth is the filter's path depth, a handful of components, not
+    /// anything that grows with the size of history.
+    fn descend(&mut self, tree: ObjectId, depth: usize) -> Result<Option<ObjectId>, Error> {
+        let Some(component) = self.filter.components.get(depth) else {
+            return Ok(Some(tree));
+        };
+        if let Some(hit) = self.cache.trees.get(&(tree, depth)) {
             return Ok(*hit);
         }
-        let mut current = tree.to_owned();
-        let mut found = Some(current);
-        for component in &self.filter.components {
-            let entry = lookup(self.repo, &current, component.as_bstr())?;
-            // A blob where the filter expects a directory means the path is
-            // absent at this revision, not that the history is broken.
-            match entry {
-                Some((mode, oid)) if mode.is_tree() => {
-                    current = oid;
-                    found = Some(current);
-                }
-                _ => {
-                    found = None;
-                    break;
-                }
-            }
-        }
-        self.cache.trees.insert(tree.to_owned(), found);
+        self.cache.tree_reads += 1;
+        // A blob where the filter expects a directory means the path is absent
+        // at this revision, not that the history is broken.
+        let found = match lookup(self.repo, &tree, component.as_bstr())? {
+            Some((mode, child)) if mode.is_tree() => self.descend(child, depth + 1)?,
+            _ => None,
+        };
+        self.cache.trees.insert((tree, depth), found);
         Ok(found)
     }
 }

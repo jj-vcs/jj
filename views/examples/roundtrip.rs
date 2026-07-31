@@ -142,10 +142,9 @@ fn report(
         // Elision maps a commit onto one of its own parents, so it has no
         // distinct counterpart. That is not the same failure as a commit that
         // was rebuilt wrongly, and counting them together hides which is which.
-        let parents: Vec<ObjectId> =
-            gix::objs::CommitRef::from_bytes(&raw, parent.object_hash())?
-                .parents()
-                .collect();
+        let parents: Vec<ObjectId> = gix::objs::CommitRef::from_bytes(&raw, parent.object_hash())?
+            .parents()
+            .collect();
         let onto_a_parent = parents.iter().any(|source| {
             injected
                 .get(source)
