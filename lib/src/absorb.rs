@@ -38,6 +38,7 @@ use crate::conflicts::materialized_diff_stream;
 use crate::copies::CopyRecords;
 use crate::diff::ContentDiff;
 use crate::diff::DiffHunkKind;
+use crate::fileset::FilesetExpression;
 use crate::matchers::Matcher;
 use crate::merge::Diff;
 use crate::merge::Merge;
@@ -48,6 +49,8 @@ use crate::repo::Repo;
 use crate::repo_path::RepoPathBuf;
 use crate::revset::ResolvedRevsetExpression;
 use crate::revset::RevsetEvaluationError;
+use crate::revset::RevsetExpression;
+use crate::revset::RevsetFilterPredicate;
 
 /// The source commit to absorb into its ancestry.
 #[derive(Clone, Debug)]
@@ -91,6 +94,16 @@ pub struct SelectedTrees {
     pub skipped_paths: Vec<(RepoPathBuf, String)>,
 }
 
+/// Decides the scope used for matching changes in the source revision to
+/// destination revisions.
+#[derive(Debug, Clone, Copy)]
+pub enum AbsorbScope {
+    /// Match if overlapping lines are modified.
+    Lines,
+    /// Match if the same file is modified.
+    File,
+}
+
 /// Builds trees to be merged into destination commits by splitting source
 /// changes based on file annotation.
 pub async fn split_hunks_to_trees(
@@ -98,6 +111,7 @@ pub async fn split_hunks_to_trees(
     source: &AbsorbSource,
     destinations: &Arc<ResolvedRevsetExpression>,
     matcher: &dyn Matcher,
+    scope: AbsorbScope,
 ) -> Result<SelectedTrees, AbsorbError> {
     let mut selected_trees = SelectedTrees::default();
 
@@ -111,6 +125,7 @@ pub async fn split_hunks_to_trees(
         tree_diff,
         Diff::new(left_tree.labels(), right_tree.labels()),
     );
+    // Go through all the diffs from the source commit (the one to be absorbed)
     while let Some(entry) = diff_stream.next().await {
         let left_path = entry.path.source();
         let right_path = entry.path.target();
@@ -146,37 +161,71 @@ pub async fn split_hunks_to_trees(
             FileAnnotator::with_file_content(source.commit.id(), left_path, left_text.clone());
         annotator.compute(repo, destinations).await?;
         let annotation = annotator.to_annotation();
-        let annotation_ranges = annotation
-            .compact_line_ranges()
-            .filter_map(|(commit_id, range)| Some((commit_id.ok()?, range)))
-            .collect_vec();
-        let diff = ContentDiff::by_line([&left_text, &right_text]);
-        let selected_ranges = split_file_hunks(&annotation_ranges, &diff);
-        // Build trees containing parent (= left) contents + selected hunks
-        for (&commit_id, ranges) in &selected_ranges {
-            let tree_builder = selected_trees
-                .target_commits
-                .entry(commit_id.clone())
-                .or_insert_with(|| MergedTreeBuilder::new(left_tree.clone()));
-            let new_text = combine_texts(&left_text, &right_text, ranges);
-            // Since changes to be absorbed are represented as diffs relative to
-            // the source parent, we can propagate file deletion only if the
-            // whole file content is deleted at a single destination commit.
-            let new_tree_value = if new_text.is_empty() && deleted {
-                Merge::absent()
-            } else {
-                let id = repo
-                    .store()
-                    .write_file(left_path, &mut new_text.as_slice())
-                    .await?;
-                Merge::normal(TreeValue::File {
-                    id,
-                    executable,
-                    copy_id: copy_id.clone(),
-                })
+
+        let add_tree =
+            async |selected_trees: &mut SelectedTrees, commit_id: CommitId, new_text: BString| {
+                let tree_builder = selected_trees
+                    .target_commits
+                    .entry(commit_id)
+                    .or_insert_with(|| MergedTreeBuilder::new(left_tree.clone()));
+                // Since changes to be absorbed are represented as diffs relative to
+                // the source parent, we can propagate file deletion only if the
+                // whole file content is deleted at a single destination commit.
+                let new_tree_value = if new_text.is_empty() && deleted {
+                    Merge::absent()
+                } else {
+                    let id = repo
+                        .store()
+                        .write_file(left_path, &mut new_text.as_slice())
+                        .await?;
+                    Merge::normal(TreeValue::File {
+                        id,
+                        executable,
+                        copy_id: copy_id.clone(),
+                    })
+                };
+                tree_builder.set_or_remove(left_path.to_owned(), new_tree_value);
+                Ok::<(), AbsorbError>(())
             };
-            tree_builder.set_or_remove(left_path.to_owned(), new_tree_value);
-        }
+
+        match scope {
+            AbsorbScope::Lines => {
+                let annotation_ranges = annotation
+                    .compact_line_ranges()
+                    .filter_map(|(commit_id, range)| Some((commit_id.ok()?, range)))
+                    .collect_vec();
+                let diff = ContentDiff::by_line([&left_text, &right_text]);
+                let selected_ranges = split_file_hunks(&annotation_ranges, &diff);
+                // Build trees containing parent (= left) contents + selected hunks
+                for (&commit_id, ranges) in &selected_ranges {
+                    let new_text = combine_texts(&left_text, &right_text, ranges);
+                    add_tree(&mut selected_trees, commit_id.clone(), new_text).await?;
+                }
+            }
+            AbsorbScope::File => {
+                let file_filter =
+                    RevsetFilterPredicate::File(FilesetExpression::file_path(left_path.to_owned()));
+                let source_commit = RevsetExpression::commit(source.commit.id().to_owned());
+                let mut target_commits = destinations
+                    .intersection(&source_commit.ancestors())
+                    // We pick up the source_commit when looking for ancestors
+                    // and it can also have been included in the user-provided
+                    // `destinations`. Remove it from the set of absorb target
+                    // commits.
+                    .minus(&source_commit)
+                    .filtered(file_filter)
+                    .evaluate(repo)?
+                    .stream();
+
+                let commit_id = target_commits.next().await;
+                let other_commit_id = target_commits.next().await;
+                if let (Some(Ok(commit_id)), None) = (commit_id, other_commit_id) {
+                    // Only one commit in the destination set modified the file,
+                    // so we can unambiguously select it.
+                    add_tree(&mut selected_trees, commit_id.clone(), right_text.into()).await?;
+                }
+            }
+        };
     }
 
     Ok(selected_trees)

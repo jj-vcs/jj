@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCompleter;
+use jj_lib::absorb::AbsorbScope;
 use jj_lib::absorb::AbsorbSource;
 use jj_lib::absorb::absorb_hunks;
 use jj_lib::absorb::split_hunks_to_trees;
@@ -31,9 +32,9 @@ use crate::ui::Ui;
 /// Move changes from a revision into the stack of mutable revisions
 ///
 /// This command splits changes in the source revision and moves each change to
-/// the closest mutable ancestor where the corresponding lines were modified
-/// last. If the destination revision cannot be determined unambiguously, the
-/// change will be left in the source revision.
+/// the closest mutable ancestor where the corresponding lines (or files) were
+/// modified last. If the destination revision cannot be determined
+/// unambiguously, the change will be left in the source revision.
 ///
 /// The source revision will be abandoned if all changes are absorbed into the
 /// destination revisions, and if the source revision has no description.
@@ -59,10 +60,23 @@ pub(crate) struct AbsorbArgs {
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     into: Vec<RevisionArg>,
 
+    /// Condition for when to move changes into an ancestor
+    #[arg(long, short, value_enum, default_value_t = AbsorbScopeArg::Lines)]
+    scope: AbsorbScopeArg,
+
     /// Move only changes to these paths (instead of all paths)
     #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
     #[arg(add = ArgValueCompleter::new(complete::modified_from_files))]
     paths: Vec<String>,
+}
+
+/// Condition for when to move changes into an ancestor
+#[derive(clap::ValueEnum, Clone, Debug)]
+pub(crate) enum AbsorbScopeArg {
+    /// The same lines are modified.
+    Lines,
+    /// The same file is modified.
+    File,
 }
 
 #[instrument(skip_all)]
@@ -81,9 +95,15 @@ pub(crate) async fn cmd_absorb(
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
     let matcher = fileset_expression.to_matcher();
 
+    let scope = match args.scope {
+        AbsorbScopeArg::File => AbsorbScope::File,
+        AbsorbScopeArg::Lines => AbsorbScope::Lines,
+    };
+
     let repo = workspace_command.repo().as_ref();
     let source = AbsorbSource::from_commit(repo, source_commit.clone()).await?;
-    let selected_trees = split_hunks_to_trees(repo, &source, &destinations, &matcher).await?;
+    let selected_trees =
+        split_hunks_to_trees(repo, &source, &destinations, &matcher, scope).await?;
 
     print_unmatched_explicit_paths(
         ui,
