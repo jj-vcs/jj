@@ -90,9 +90,10 @@ fn write_base(repo: &gix::Repository) -> ObjectId {
 /// commit comes back with its own hash, byte for byte.
 #[test]
 fn every_injected_commit_derives_back_to_its_own_hash() {
-    let filter = Filter::prefix(PREFIX)
-        .expect("a valid prefix")
-        .elide_empty(false);
+    // The DEFAULT filter, elision included. Identity does not require turning
+    // elision off; it requires elision to ask whether the commit was empty
+    // before filtering, which `Elide::Unchanged` does.
+    let filter = Filter::prefix(PREFIX).expect("a valid prefix");
     let world = inject(&filter);
 
     let mut cache = Cache::new();
@@ -133,52 +134,165 @@ fn every_injected_commit_derives_back_to_its_own_hash() {
     );
 }
 
-/// Elision is the documented exception, and it is transitive. The empty commit
-/// loses its counterpart, and everything after it is rebuilt on a different
-/// parent list, so its hash moves too.
+/// The check on the check, part one. A comparison loop that matched nothing
+/// prints the same "0 mismatches" as one that passed, so the round trip
+/// assertion is worthless until it has been watched to fail for a known reason.
+///
+/// Corrupting the tip gives the clean single-mismatch case: the tip has no
+/// descendants, so exactly one commit may be reported and it must be that one.
 #[test]
-fn elision_costs_the_empty_commit_and_every_descendant() {
+fn corrupting_the_tip_is_detected_as_exactly_one_mismatch() {
+    let moved = corrupt_and_collect_moved("duplicate-parents");
+    assert_eq!(
+        moved,
+        vec!["duplicate-parents"],
+        "corrupting the tip must be reported as exactly that one commit moving; anything else \
+         means the comparison is not comparing"
+    );
+}
+
+/// The check on the check, part two. Corrupting a commit in the middle must
+/// report the victim *and* every descendant, because a moved hash changes its
+/// children's parent lines. Requiring only the victim here would be requiring
+/// the wrong answer; what matters is that the victim is named and comes first.
+#[test]
+fn corrupting_a_middle_commit_is_detected_on_it_and_its_descendants() {
+    let moved = corrupt_and_collect_moved("modes-symlink-gitlink");
+    assert_eq!(
+        moved,
+        vec![
+            "modes-symlink-gitlink",
+            "tree-order-siblings",
+            "left",
+            "right",
+            "third",
+            "merge-with-mergetag",
+            "octopus",
+            "duplicate-parents",
+        ],
+        "the corrupted commit and exactly its descendants must be reported, in order"
+    );
+}
+
+/// Injects the fixture, corrupts the message of the commit labeled `label`,
+/// repoints its descendants at the corrupted commit, and returns the labels the
+/// round trip check reports as moved, in topological order.
+fn corrupt_and_collect_moved(label: &str) -> Vec<&'static str> {
     let filter = Filter::prefix(PREFIX).expect("a valid prefix");
     let world = inject(&filter);
 
-    let mut cache = Cache::new();
-    let mut matched: Vec<&str> = Vec::new();
-    let mut moved: Vec<&str> = Vec::new();
-    let mut dropped: Vec<&str> = Vec::new();
-    for (label, commit) in &world.upstream.commits {
-        let injected = world.map.get(commit).expect("every commit was injected");
-        let derived = jj_views::derive(&world.repo, injected, &filter, &mut cache)
-            .expect("deriving a prefix cannot fail on a well formed history");
-        match derived {
-            Some(derived) if derived == *commit => matched.push(label),
-            Some(_) => moved.push(label),
-            None => dropped.push(label),
-        }
+    let (_, victim) = *world
+        .upstream
+        .commits
+        .iter()
+        .find(|(candidate, _)| *candidate == label)
+        .expect("the fixture has this commit");
+    let injected_victim = *world.map.get(&victim).expect("it was injected");
+
+    let corrupted = corrupt_message(&world.repo, &injected_victim);
+    let mut map = world.map.clone();
+    let mut rewritten: HashMap<ObjectId, ObjectId> = HashMap::new();
+    rewritten.insert(injected_victim, corrupted);
+    // The victim's own entry has to move too, not just its children's parent
+    // lines, or the derivation walks the pristine commit and the corruption is
+    // reported against its descendants instead of itself.
+    map.insert(victim, corrupted);
+    for (_, upstream) in &world.upstream.commits {
+        let injected = *map.get(upstream).expect("it was injected");
+        let Some(fresh) = repoint_parents(&world.repo, &injected, &rewritten) else {
+            continue;
+        };
+        rewritten.insert(injected, fresh);
+        map.insert(*upstream, fresh);
     }
 
-    // Everything up to and including the commit before the empty one keeps its
-    // hash, because nothing before it was elided.
-    assert_eq!(
-        matched,
-        vec![
-            "root",
-            "non-ascii",
-            "encoding-latin1",
-            "gpgsig",
-            "gpgsig-before-encoding",
-            "negative-zero-offset",
-            "odd-timezone-offset",
-        ],
-        "commits before the first elision must be unaffected"
-    );
-    // The empty commit derives to its own parent, so it is not dropped from the
-    // view, it just stops being a distinct commit.
+    let mut cache = Cache::new();
+    let mut moved: Vec<&'static str> = Vec::new();
+    for (candidate, upstream) in &world.upstream.commits {
+        let injected = map.get(upstream).expect("it was injected");
+        let derived =
+            jj_views::derive(&world.repo, injected, &filter, &mut cache).expect("a derivation");
+        if derived != Some(*upstream) {
+            moved.push(candidate);
+        }
+    }
+    moved
+}
+
+/// Rewrites a commit with one byte of its message changed, keeping everything
+/// else including its tree and parents.
+fn corrupt_message(repo: &gix::Repository, commit: &ObjectId) -> ObjectId {
+    let raw = repo.find_object(*commit).expect("a commit").detach().data;
+    let mut corrupted = raw.clone();
+    // The message starts after the blank line that ends the header block.
+    let at = corrupted
+        .windows(2)
+        .position(|pair| pair == b"\n\n")
+        .expect("a commit has a header block")
+        + 2;
+    let byte = corrupted.get_mut(at).expect("the message is not empty");
+    *byte = if *byte == b'X' { b'Y' } else { b'X' };
+    let id = gix::objs::Write::write_buf(&repo.objects, gix::objs::Kind::Commit, &corrupted)
+        .expect("a commit");
+    assert_ne!(id, *commit, "the corruption must change the hash");
+    id
+}
+
+/// Rewrites `commit` with any parent found in `rewritten` replaced, or returns
+/// `None` when none of its parents moved.
+fn repoint_parents(
+    repo: &gix::Repository,
+    commit: &ObjectId,
+    rewritten: &HashMap<ObjectId, ObjectId>,
+) -> Option<ObjectId> {
+    let raw = repo.find_object(*commit).expect("a commit").detach().data;
+    let parsed =
+        gix::objs::CommitRef::from_bytes(&raw, repo.object_hash()).expect("a well formed commit");
+    let parents: Vec<ObjectId> = parsed.parents().collect();
+    if !parents.iter().any(|parent| rewritten.contains_key(parent)) {
+        return None;
+    }
+    let mut out = Vec::new();
+    for line in raw.split_inclusive(|byte| *byte == b'\n') {
+        if line.starts_with(b"parent ") {
+            continue;
+        }
+        if line.starts_with(b"author ") {
+            for parent in &parents {
+                let mapped = rewritten.get(parent).unwrap_or(parent);
+                out.extend_from_slice(format!("parent {mapped}\n").as_bytes());
+            }
+        }
+        out.extend_from_slice(line);
+    }
+    Some(
+        gix::objs::Write::write_buf(&repo.objects, gix::objs::Kind::Commit, &out)
+            .expect("a commit"),
+    )
+}
+
+/// The one condition that makes elision compatible with hash identity, pinned
+/// from both sides.
+///
+/// `Elide::Unchanged` spares a commit that was already empty before filtering,
+/// so every hash survives. `Elide::UnchangedIncludingAlreadyEmpty` is the rule
+/// one writes by accident: it looks the same, it drops the deliberately empty
+/// commit, and because a moved hash changes every descendant's parent line it
+/// takes the rest of history with it.
+#[test]
+fn eliding_an_already_empty_commit_is_what_breaks_identity() {
+    let safe = Filter::prefix(PREFIX).expect("a valid prefix");
+    let unsafe_rule = Filter::prefix(PREFIX)
+        .expect("a valid prefix")
+        .elide(jj_views::Elide::UnchangedIncludingAlreadyEmpty);
+
     assert!(
-        dropped.is_empty(),
-        "nothing should lose its counterpart outright: {dropped:?}"
+        moved_labels(&safe).is_empty(),
+        "the default rule must move nothing: {:?}",
+        moved_labels(&safe)
     );
     assert_eq!(
-        moved,
+        moved_labels(&unsafe_rule),
         vec![
             "empty",
             "modes-symlink-gitlink",
@@ -190,8 +304,25 @@ fn elision_costs_the_empty_commit_and_every_descendant() {
             "octopus",
             "duplicate-parents",
         ],
-        "the elided commit and every descendant must be reported as moved"
+        "eliding the already empty commit must take it and every descendant"
     );
+}
+
+/// Injects the fixture under `filter` and returns the labels whose derived
+/// commit is not the upstream commit it came from.
+fn moved_labels(filter: &Filter) -> Vec<&'static str> {
+    let world = inject(filter);
+    let mut cache = Cache::new();
+    let mut moved: Vec<&'static str> = Vec::new();
+    for (label, commit) in &world.upstream.commits {
+        let injected = world.map.get(commit).expect("every commit was injected");
+        let derived =
+            jj_views::derive(&world.repo, injected, filter, &mut cache).expect("a derivation");
+        if derived != Some(*commit) {
+            moved.push(label);
+        }
+    }
+    moved
 }
 
 /// Derivation is a pure function, so a second run over the same input has to
@@ -338,7 +469,7 @@ fn a_merge_whose_side_elides_stops_being_a_merge() {
         .iter()
         .find(|(label, _)| *label == "left")
         .map(|(_, commit)| world.map.get(commit).expect("it was injected"))
-        .expect("the fixture has a commit labelled left");
+        .expect("the fixture has a commit labeled left");
     let merge = append_merge(&world.repo, &[head, side], &tree_of(&world.repo, elsewhere));
 
     let mut cache = Cache::new();

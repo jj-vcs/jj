@@ -1,22 +1,24 @@
 //! Deterministic path filters over git history.
 //!
 //! A *view* is a child repository that is nothing but a pure function of a
-//! parent monorepo's history. [`derive`] computes it: given a parent commit and
-//! a path, it produces the commit of the history restricted to that path.
+//! parent monorepo's history. [`derive()`] computes it: given a parent commit
+//! and a path, it produces the commit of the history restricted to that path.
 //! [`unfilter`] is the inverse, lifting a commit of the view back into the
 //! parent.
 //!
 //! The property the rest of the design rests on is *round trip hash identity*.
 //! Take an upstream repository, inject all of its history into a parent repo by
 //! moving every tree under `vendor/upstream/` and copying commit metadata
-//! verbatim, then [`derive`] the parent with the filter `vendor/upstream`. The
-//! commits that come back out carry upstream's original hashes, byte for byte.
-//! That is what makes the view share real ancestry with upstream, so merge
-//! bases are correct and syncing is an ordinary fetch and rebase rather than a
-//! translation layer.
+//! verbatim, then [`derive()`] the parent with the filter `vendor/upstream`.
+//! The commits that come back out carry upstream's original hashes, byte for
+//! byte. That is what makes the view share real ancestry with upstream, so
+//! merge bases are correct and syncing is an ordinary fetch and rebase rather
+//! than a translation layer.
 //!
-//! Identity is not unconditional, and [`Filter::elide_empty`] is where it
-//! breaks. See that method for the exact trade.
+//! Identity survives elision, but only because the elision rule asks whether a
+//! commit was empty *before* filtering rather than only after. See [`Elide`]
+//! for why that one condition is what makes a view both clean and hash
+//! compatible.
 //!
 //! Only prefix filters are supported.
 
@@ -79,21 +81,53 @@ pub enum Error {
 
 /// A path prefix to restrict history to.
 ///
-/// Two filters differing only in [`elide_empty`](Self::elide_empty) are
-/// distinct filters and get distinct cache entries, because they produce
-/// different commits.
+/// Two filters differing only in their [`Elide`] policy or their trivial merge
+/// policy are distinct filters and get distinct cache entries, because they
+/// produce different commits.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Filter {
     components: Vec<BString>,
-    elide_empty: bool,
+    elide: Elide,
+    keep_trivial_merges: bool,
+}
+
+/// What to do with a commit whose filtered tree is unchanged from its parent's.
+///
+/// This is hash affecting, so it is part of the filter's identity and belongs
+/// in a recorded semantics version rather than in a caller's discretion.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+pub enum Elide {
+    /// Keep every commit. The view has one commit per parent commit.
+    Nothing,
+    /// Drop it, unless the commit was already empty *before* filtering.
+    ///
+    /// The exception is the whole trick, and it is what lets a view be both
+    /// clean and hash compatible. A monorepo commit that touched only some
+    /// other directory has a tree that differs from its parent's, so it is
+    /// dropped and does not clutter the view. An upstream commit that was
+    /// deliberately empty has a tree identical to its parent's before
+    /// filtering as well as after, so it survives, and the hashes of it and
+    /// everything after it are preserved.
+    ///
+    /// This matches josh's default, implemented in `select_parent_commits` in
+    /// `josh-core/src/history.rs` as `if affects_filtered || all_diffs_empty`.
+    Unchanged,
+    /// Drop it whether or not it was already empty before filtering.
+    ///
+    /// Do not use this on a history whose hashes must match an upstream. It is
+    /// here because it is the rule one writes by accident, it looks correct,
+    /// and the damage is invisible until something compares hashes: on
+    /// git.git's 85050 commits it drops 7 deliberately empty commits and,
+    /// because a moved hash changes every descendant's parent line, moves
+    /// 78500 more.
+    UnchangedIncludingAlreadyEmpty,
 }
 
 impl Filter {
     /// A filter keeping only what lives under `path`.
     ///
-    /// Empty commits are elided by default, matching what a josh style filter
-    /// does. See [`elide_empty`](Self::elide_empty) for when you do not want
-    /// that.
+    /// Defaults to [`Elide::Unchanged`] and to dropping trivial merges, which
+    /// is what josh does by default and what preserves hash identity.
     pub fn prefix(path: &str) -> Result<Self, Error> {
         let components: Vec<BString> = path
             .trim_matches('/')
@@ -112,32 +146,33 @@ impl Filter {
         }
         Ok(Self {
             components,
-            elide_empty: true,
+            elide: Elide::Unchanged,
+            keep_trivial_merges: false,
         })
     }
 
-    /// Whether a commit that leaves the filtered tree unchanged is dropped in
-    /// favour of its parent.
-    ///
-    /// Elision is what makes a view read like a repository of its own: a
-    /// monorepo commit that only touched some other directory should not show
-    /// up as an empty commit in the view. It is also the one thing that breaks
-    /// round trip hash identity, and it breaks it transitively.
-    ///
-    /// Upstream histories contain commits whose tree equals their parent's:
-    /// deliberate empty commits, and merges that resolve entirely to one side.
-    /// Under a full prefix injection the filtered tree of such a commit equals
-    /// its parent's, so elision drops it, so it has no counterpart whose hash
-    /// could match. Every descendant is then built on a different parent list
-    /// and its hash moves too, so one elided commit near the root invalidates
-    /// everything after it.
-    ///
-    /// Set this to `false` for a view that must stay hash compatible with the
-    /// history it was injected from. Leave it `true` for a view carved out of
-    /// history that only ever existed in the monorepo.
+    /// Sets what happens to a commit whose filtered tree is unchanged.
     #[must_use]
-    pub fn elide_empty(mut self, elide: bool) -> Self {
-        self.elide_empty = elide;
+    pub fn elide(mut self, elide: Elide) -> Self {
+        self.elide = elide;
+        self
+    }
+
+    /// Whether a merge whose filtered tree equals its first filtered parent's
+    /// is kept.
+    ///
+    /// Dropping them, the default, is what keeps a view from filling up with
+    /// merges that say nothing about the filtered path; rust-lang called the
+    /// merge flood the main problem they hit with josh, over 10000 merges for
+    /// one initial sync. Keeping them preserves the branch structure at the
+    /// cost of degenerate merges whose parents collapse onto one chain.
+    ///
+    /// A merge that was *already* trivial before filtering is never dropped,
+    /// for the same reason an already empty commit is not: dropping it would
+    /// move its hash and every descendant's.
+    #[must_use]
+    pub fn keep_trivial_merges(mut self, keep: bool) -> Self {
+        self.keep_trivial_merges = keep;
         self
     }
 
@@ -187,6 +222,10 @@ struct FilterCache {
     /// View commit to its own tree, so elision does not have to re-read the
     /// parent's commit object once per commit.
     view_trees: HashMap<ObjectId, ObjectId>,
+    /// Parent-repo commit to its own unfiltered tree. Needed because the
+    /// elision rule turns on whether a commit was empty *before* filtering, so
+    /// the unfiltered trees of its parents have to be on hand.
+    source_trees: HashMap<ObjectId, ObjectId>,
     /// View commit back to the parent commit it came from, for [`unfilter`].
     grafts: HashMap<ObjectId, ObjectId>,
     /// Tree objects read while descending, so the cost of a derivation can be
@@ -249,7 +288,7 @@ pub fn derive(
     cache: &mut Cache,
 ) -> Result<Option<ObjectId>, Error> {
     let per_filter = cache.per_filter.entry(filter.clone()).or_default();
-    Deriver {
+    Derivation {
         repo,
         filter,
         cache: per_filter,
@@ -263,8 +302,8 @@ pub fn derive(
 /// The result has `onto`'s tree with the filtered path replaced by `commit`'s
 /// tree, and keeps `commit`'s metadata verbatim. Its parents are the parent
 /// repo counterparts of `commit`'s parents where `cache` knows them, which is
-/// the case when `commit` came out of [`derive`] or an earlier `unfilter` with
-/// the same cache; a root or an unknown single parent lands on `onto`.
+/// the case when `commit` came out of [`derive()`] or an earlier `unfilter`
+/// with the same cache; a root or an unknown single parent lands on `onto`.
 ///
 /// `cache` is updated so a later `unfilter` of a descendant finds this commit.
 /// Applying this over an entire history, parents first with `onto` set to the
@@ -316,7 +355,7 @@ pub fn unfilter(
     Ok(id)
 }
 
-struct Deriver<'a> {
+struct Derivation<'a> {
     repo: &'a gix::Repository,
     filter: &'a Filter,
     cache: &'a mut FilterCache,
@@ -330,7 +369,7 @@ enum Step {
     Map(ObjectId),
 }
 
-impl Deriver<'_> {
+impl Derivation<'_> {
     fn run(&mut self, head: &oid) -> Result<Option<ObjectId>, Error> {
         // An explicit stack rather than recursion: the histories this is for
         // run hundreds of thousands of commits deep on a single chain, which
@@ -366,18 +405,111 @@ impl Deriver<'_> {
     }
 
     /// Maps one commit whose parents are already mapped.
+    ///
+    /// The order of the decisions here follows `create_filtered_commit2` in
+    /// josh's `josh-core/src/history.rs`, because the two rules that keep hash
+    /// identity are both easy to get wrong in the same direction and both live
+    /// in that order: a trivial merge is spared if it was already trivial, and
+    /// an unchanged commit is spared if it was already empty.
     fn map(&mut self, id: &oid, raw: &[u8]) -> Result<(), Error> {
         let parsed = gix::objs::CommitRef::from_bytes(raw, self.repo.object_hash())
             .map_err(|_| Error::MalformedCommit)?;
-        let subtree = self.derive_tree(&parsed.tree())?;
-
-        // Two *distinct* parents can map to the same view commit once elision
-        // collapses one onto the other, and a merge with twin parents is not a
-        // merge, so that duplicate is dropped. A commit that already listed the
-        // same parent twice is a different matter: git stores and preserves it,
-        // so collapsing it would move the commit's hash for no reason. Only
-        // duplicates the filter introduced are removed.
+        let source_tree = parsed.tree();
         let sources: Vec<ObjectId> = parsed.parents().collect();
+        let subtree = self.derive_tree(&source_tree)?;
+        self.cache.source_trees.insert(id.to_owned(), source_tree);
+
+        // An absent path is the empty tree, not a special case. Treating it
+        // uniformly is what makes a commit that *deletes* the filtered
+        // directory show up in the view as a commit that empties it, rather
+        // than vanishing.
+        let filtered_tree =
+            subtree.unwrap_or_else(|| ObjectId::empty_tree(self.repo.object_hash()));
+        let parents = self.derived_parents(&sources);
+
+        // Did this commit change the filtered path relative to any parent?
+        let mut affects_filtered = false;
+        for parent in &parents {
+            if self.view_tree(parent)? != filtered_tree {
+                affects_filtered = true;
+                break;
+            }
+        }
+        // Was the commit already empty before filtering? Vacuously true for a
+        // root, matching josh, so a root is never dropped for being unchanged.
+        let already_empty = sources
+            .iter()
+            .all(|parent| self.cache.source_trees.get(parent) == Some(&source_tree));
+
+        let mapped = if let Some(collapsed) =
+            self.trivial_merge_target(&sources, source_tree, filtered_tree, &parents)?
+        {
+            Some(collapsed)
+        } else {
+            let unchanged = !affects_filtered;
+            let drop = match self.filter.elide {
+                Elide::Nothing => false,
+                Elide::Unchanged => unchanged && !already_empty,
+                Elide::UnchangedIncludingAlreadyEmpty => unchanged,
+            };
+            match (drop, parents.first()) {
+                // Dropped, and the parent takes its place in the view.
+                (true, Some(first)) => Some(*first),
+                // Dropped with nothing to fall back to, and nothing of the path
+                // here, so there is no counterpart at all.
+                (true, None) if subtree.is_none() => None,
+                _ if subtree.is_none() && parents.is_empty() => None,
+                _ => Some(self.build(id, raw, &filtered_tree, &parents)?),
+            }
+        };
+
+        self.cache.commits.insert(id.to_owned(), mapped);
+        Ok(())
+    }
+
+    /// The view commit a trivial merge collapses onto, if it collapses.
+    ///
+    /// A merge whose filtered tree equals its first filtered parent's says
+    /// nothing about the filtered path. It is dropped unless it was already
+    /// trivial before filtering, in which case dropping it would move its hash.
+    fn trivial_merge_target(
+        &mut self,
+        sources: &[ObjectId],
+        source_tree: ObjectId,
+        filtered_tree: ObjectId,
+        parents: &[ObjectId],
+    ) -> Result<Option<ObjectId>, Error> {
+        if self.filter.keep_trivial_merges || parents.len() < 2 {
+            return Ok(None);
+        }
+        let Some(first) = parents.first() else {
+            return Ok(None);
+        };
+        if self.view_tree(first)? != filtered_tree {
+            return Ok(None);
+        }
+        let was_trivial = sources
+            .first()
+            .and_then(|parent| self.cache.source_trees.get(parent))
+            == Some(&source_tree);
+        Ok((!was_trivial).then_some(*first))
+    }
+
+    /// The view commits this commit's parents map to.
+    ///
+    /// Two *distinct* parents can map to the same view commit once elision
+    /// collapses one onto the other, and a merge with twin parents is not a
+    /// merge, so that duplicate is dropped. A commit that already listed the
+    /// same parent twice is a different matter: git stores and preserves it, so
+    /// collapsing it would move the commit's hash for no reason. The linux
+    /// kernel has four such commits and the earliest, from 2005, has 1458483 of
+    /// its 1464098 commits as descendants, so a blind dedupe moves 99.6% of
+    /// that history. Only duplicates the filter introduced are removed.
+    ///
+    /// josh does not dedupe at all here, so it can emit a merge whose parents
+    /// are the same commit twice. That difference is deliberate and is part of
+    /// this filter's semantics.
+    fn derived_parents(&self, sources: &[ObjectId]) -> Vec<ObjectId> {
         let mut parents: Vec<ObjectId> = Vec::with_capacity(sources.len());
         for (at, source) in sources.iter().enumerate() {
             let Some(mapped) = self.cache.commits.get(source).copied().flatten() else {
@@ -391,34 +523,17 @@ impl Deriver<'_> {
                 parents.push(mapped);
             }
         }
+        parents
+    }
 
-        let single = match parents.as_slice() {
-            [only] => Some(*only),
-            _ => None,
-        };
-        let mapped = match subtree {
-            // Nothing of the filtered path here. A single line of history just
-            // continues at the parent; a merge is kept, with an empty tree, so
-            // the view does not silently lose a branch point.
-            None if parents.len() < 2 => single,
-            None => {
-                let empty = ObjectId::empty_tree(self.repo.object_hash());
-                Some(self.build(id, raw, &empty, &parents)?)
-            }
-            Some(subtree) => {
-                let elide = self.filter.elide_empty
-                    && single
-                        .is_some_and(|parent| self.cache.view_trees.get(&parent) == Some(&subtree));
-                if elide {
-                    single
-                } else {
-                    Some(self.build(id, raw, &subtree, &parents)?)
-                }
-            }
-        };
-
-        self.cache.commits.insert(id.to_owned(), mapped);
-        Ok(())
+    /// The tree of a view commit, from the cache where possible.
+    fn view_tree(&mut self, view: &oid) -> Result<ObjectId, Error> {
+        if let Some(hit) = self.cache.view_trees.get(view) {
+            return Ok(*hit);
+        }
+        let tree = commit_tree(self.repo, view)?;
+        self.cache.view_trees.insert(view.to_owned(), tree);
+        Ok(tree)
     }
 
     fn build(

@@ -9,8 +9,12 @@
 //! fresh repository, so the source is never touched and no objects are copied.
 //!
 //! ```text
-//! cargo run --release --example roundtrip -- <source.git> <work-dir> vendor/linux [--elide]
+//! cargo run --release --example roundtrip -- <source.git> <work-dir> vendor/linux [--elide=RULE]
 //! ```
+//!
+//! `--elide=` takes `nothing`, `unchanged` (the default, and josh's) or
+//! `including-already-empty`, the rule that looks right and silently breaks
+//! hash identity.
 //!
 //! `--survey-only` skips the injection and reports just which commit shapes the
 //! source contains. That works on a treeless clone (`--filter=tree:0`), so the
@@ -25,6 +29,7 @@ use std::path::PathBuf;
 
 use gix::ObjectId;
 use jj_views::Cache;
+use jj_views::Elide;
 use jj_views::Filter;
 use jj_views::fixture;
 
@@ -34,14 +39,25 @@ fn main() -> Result<(), Failure> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let [source, work, path, rest @ ..] = args.as_slice() else {
         return Err(
-            "usage: roundtrip <source.git> <work-dir> <prefix> [--elide] [--survey-only]".into(),
+            "usage: roundtrip <source.git> <work-dir> <prefix> [--elide=RULE] [--survey-only]"
+                .into(),
         );
     };
-    let elide = rest.iter().any(|arg| arg == "--elide");
+    let rule = rest
+        .iter()
+        .filter_map(|arg| arg.strip_prefix("--elide="))
+        .next_back()
+        .unwrap_or("unchanged");
+    let elide = match rule {
+        "nothing" => Elide::Nothing,
+        "unchanged" => Elide::Unchanged,
+        "including-already-empty" => Elide::UnchangedIncludingAlreadyEmpty,
+        other => return Err(format!("unknown elide rule {other:?}").into()),
+    };
     let survey_only = rest.iter().any(|arg| arg == "--survey-only");
 
     let source = gix::open(source)?;
-    let filter = Filter::prefix(path)?.elide_empty(elide);
+    let filter = Filter::prefix(path)?.elide(elide);
 
     // Surveying reads only, so it neither needs nor may create the work
     // directory; doing so would clobber a concurrent injection using it.
@@ -51,9 +67,9 @@ fn main() -> Result<(), Failure> {
         return survey(&source, &order);
     }
 
-    let parent = open_parent(Path::new(work), source.git_dir(), elide)?;
+    let parent = open_parent(Path::new(work), source.git_dir(), rule)?;
     println!(
-        "source {:?}\nparent {:?}\nfilter {} (elide_empty={elide})",
+        "source {:?}\nparent {:?}\nfilter {} (elide={rule})",
         source.git_dir(),
         parent.git_dir(),
         filter.path()
@@ -286,7 +302,7 @@ fn same_but_for_parents(expected: &[u8], actual: &[u8]) -> bool {
 /// Which extra headers a commit carries, as a stable label for grouping.
 fn header_summary(raw: &[u8], hash: gix::hash::Kind) -> String {
     let Ok(parsed) = gix::objs::CommitRef::from_bytes(raw, hash) else {
-        return "an unparseable header block".to_owned();
+        return "a header block that will not parse".to_owned();
     };
     let mut names: Vec<String> = parsed
         .extra_headers
@@ -309,13 +325,9 @@ fn header_summary(raw: &[u8], hash: gix::hash::Kind) -> String {
 
 /// A fresh repository that reads the source's objects through an alternate and
 /// writes only its own.
-fn open_parent(
-    work: &Path,
-    source_objects: &Path,
-    elide: bool,
-) -> Result<gix::Repository, Failure> {
+fn open_parent(work: &Path, source_objects: &Path, rule: &str) -> Result<gix::Repository, Failure> {
     std::fs::create_dir_all(work)?;
-    let dir: PathBuf = work.join(format!("parent-elide-{elide}.git"));
+    let dir: PathBuf = work.join(format!("parent-elide-{rule}.git"));
     if dir.exists() {
         std::fs::remove_dir_all(&dir)?;
     }

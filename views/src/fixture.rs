@@ -132,19 +132,16 @@ pub fn write_upstream(repo: &gix::Repository) -> Result<Upstream, Error> {
     commits.push(("root", root));
 
     // Non-ASCII in both the author name and the message, stored as UTF-8.
-    files.insert(
-        "docs/\u{e9}t\u{e9}.txt",
-        Content::File("caf\u{e9}\n".as_bytes()),
-    );
+    files.insert("docs/été.txt", Content::File("café\n".as_bytes()));
     let non_ascii = write_commit(
         repo,
         &CommitSpec {
             tree: write_snapshot(repo, &files)?,
             parents: vec![root],
-            author: "Bj\u{f6}rn \u{5f20}\u{4f1f} <bjorn@example.invalid> 1100000100 +0200",
-            committer: "Bj\u{f6}rn \u{5f20}\u{4f1f} <bjorn@example.invalid> 1100000100 +0200",
+            author: "Björn 张伟 <bjorn@example.invalid> 1100000100 +0200",
+            committer: "Björn 张伟 <bjorn@example.invalid> 1100000100 +0200",
             headers: &[],
-            message: "add caf\u{e9} \u{2014} \u{4e2d}\u{6587}\n".as_bytes(),
+            message: "add café · 中文\n".as_bytes(),
         },
     )?;
     commits.push(("non-ascii", non_ascii));
@@ -157,11 +154,11 @@ pub fn write_upstream(repo: &gix::Repository) -> Result<Upstream, Error> {
         &CommitSpec {
             tree: write_snapshot(repo, &files)?,
             parents: vec![non_ascii],
-            author: "Ren\u{e9} <rene@example.invalid> 1100000200 +0100",
-            committer: "Ren\u{e9} <rene@example.invalid> 1100000200 +0100",
+            author: "René <rene@example.invalid> 1100000200 +0100",
+            committer: "René <rene@example.invalid> 1100000200 +0100",
             headers: &[("encoding", &["ISO-8859-1"])],
             // 0xE9 is `e` acute in Latin-1 and an invalid UTF-8 sequence.
-            message: b"caf\xe9 in latin-1\n",
+            message: b"latin-1 body \xe9\n",
         },
     )?;
     commits.push(("encoding-latin1", encoded));
