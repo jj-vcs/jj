@@ -138,6 +138,12 @@ pub enum Semantics {
     ///    that was already trivial before filtering is never dropped.
     /// 6. Tree entries are ordered by git's rule, with a directory name
     ///    compared as though it ended in a slash.
+    ///
+    /// Rule 1 has a useful consequence: a commit message trailer convention for
+    /// per-commit upstream provenance, of the `UPSTREAM:` or `Git-commit:` kind
+    /// that kernel forks converge on, rides through derivation and lifting in
+    /// both directions untouched. Adopting one is a decision about how commits
+    /// are written, not about this filter, and needs no version bump here.
     #[default]
     V1,
 }
