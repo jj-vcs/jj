@@ -446,11 +446,17 @@ pub fn derive(
 /// Lifts `commit`, a commit of a view, back into the parent repository on top
 /// of `onto`.
 ///
-/// The result has `onto`'s tree with the filtered path replaced by `commit`'s
-/// tree, and keeps `commit`'s metadata verbatim. Its parents are the parent
+/// The result keeps `commit`'s metadata verbatim. Its parents are the parent
 /// repo counterparts of `commit`'s parents where `cache` knows them, which is
 /// the case when `commit` came out of [`derive()`] or an earlier `unfilter`
 /// with the same cache; a root or an unknown single parent lands on `onto`.
+///
+/// Its tree is the FIRST PARENT's tree with the filtered path replaced, falling
+/// back to `onto`'s tree only when no parent has a counterpart. So `onto`
+/// positions a commit whose ancestry is unknown here; it does not pull in
+/// monorepo changes that the commit's own parent does not have. Putting a
+/// lifted patch on top of a monorepo that has moved is two operations, this one
+/// and then a merge, and this one will not silently do the second.
 ///
 /// `cache` is updated so a later `unfilter` of a descendant finds this commit.
 /// Applying this over an entire history, parents first with `onto` set to the
@@ -487,8 +493,17 @@ pub fn unfilter(
         }
     }
 
-    let onto_tree = commit_tree(repo, onto)?;
-    let tree = graft_tree(repo, &onto_tree, &filter.components, &parsed.tree())?;
+    // The base for the tree is the first parent's counterpart when there is one,
+    // and only otherwise `onto`. Taking `onto`'s tree while parenting the result
+    // on a different commit is not a graft, it is a fabrication: the result would
+    // carry every change `onto` made outside the prefix while naming a parent that
+    // does not contain them, so those changes would look like this commit's own
+    // work and `onto` would be an ancestor of nothing. Lifting a patch and merging
+    // the monorepo forward are two operations, and conflating them is how
+    // reverse-applying a rewritten view ends up rewriting the monorepo.
+    let base = parents.first().copied().unwrap_or_else(|| onto.to_owned());
+    let base_tree = commit_tree(repo, &base)?;
+    let tree = graft_tree(repo, &base_tree, &filter.components, &parsed.tree())?;
     let bytes = raw::replace_ids(&raw, &tree, &parents)?;
     let id = repo.objects.write_buf(gix::objs::Kind::Commit, &bytes)?;
     per_filter.grafts.insert(commit.to_owned(), id);

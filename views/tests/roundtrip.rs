@@ -731,3 +731,127 @@ fn a_spec_this_version_cannot_read_is_refused() {
         );
     }
 }
+
+/// josh's `--check-roundtrip`, as a test: take a commit of the view, lift it
+/// back into the monorepo, filter it out again, and require the same commit
+/// back.
+///
+/// The round trip test above covers this for commits that came from an
+/// injection, where `unfilter` is doing nothing but wrapping trees. This covers
+/// the case the design actually needs and which nothing else here reaches: a
+/// view commit that DIVERGED from what was injected, which is what a local
+/// patch on the vendored copy is, grafted onto a monorepo head that has moved
+/// on its own since.
+#[test]
+fn a_divergent_view_commit_survives_unfilter_then_derive() {
+    let filter = Filter::prefix(PREFIX).expect("a valid prefix");
+    let world = inject(&filter);
+    let injected_head = *world
+        .map
+        .get(&world.upstream.head)
+        .expect("the head was injected");
+
+    // The monorepo moves on its own, so the graft is not onto the commit the
+    // view was derived from. This is the part that makes it a graft rather than
+    // a continuation.
+    let monorepo_head = append_monorepo_commit(&world.repo, &injected_head, 7);
+
+    let mut cache = Cache::new();
+    let view_head = jj_views::derive(&world.repo, &injected_head, &filter, &mut cache)
+        .expect("a derivation")
+        .expect("the head has a view");
+
+    // A local patch, authored against the view: a commit whose tree is a
+    // different vendored subtree, parented on the view's head.
+    let patch = append_commit(&world.repo, &[view_head], &vendored_subtree(&world, "left"));
+
+    let lifted = jj_views::unfilter(&world.repo, &patch, &monorepo_head, &filter, &mut cache)
+        .expect("a prefix graft cannot conflict on content");
+
+    // The lifted commit must sit on the monorepo head, and must carry the
+    // monorepo's own files as well as the patched subtree, or the graft dropped
+    // something outside the prefix.
+    let lifted_raw = world
+        .repo
+        .find_object(lifted)
+        .expect("the lifted commit")
+        .detach()
+        .data;
+    let lifted_parents: Vec<ObjectId> =
+        gix::objs::CommitRef::from_bytes(&lifted_raw, world.repo.object_hash())
+            .expect("a well formed commit")
+            .parents()
+            .collect();
+    assert_eq!(
+        lifted_parents,
+        vec![injected_head],
+        "the patch's parent is the view head, whose counterpart is known, so the lifted commit \
+         belongs on that and not on a monorepo head it has never seen"
+    );
+    let lifted_tree = tree_of(&world.repo, &lifted);
+    assert!(
+        has_entry(&world.repo, &lifted_tree, "MONOREPO"),
+        "the graft must keep the monorepo's own files, not just the filtered subtree"
+    );
+    // The important negative, and it has to compare the content OUTSIDE the
+    // prefix to mean anything. Comparing whole trees passes either way, because
+    // the patched subtree differs from the monorepo head's regardless. What
+    // distinguishes a graft from a fabrication is whose `MONOREPO` blob comes
+    // through: its own parent's, or the one the monorepo changed behind it.
+    assert_eq!(
+        entry_oid(&world.repo, &lifted_tree, "MONOREPO"),
+        entry_oid(
+            &world.repo,
+            &tree_of(&world.repo, &injected_head),
+            "MONOREPO"
+        ),
+        "the lifted commit must carry its own parent's content outside the prefix"
+    );
+    assert_ne!(
+        entry_oid(&world.repo, &lifted_tree, "MONOREPO"),
+        entry_oid(
+            &world.repo,
+            &tree_of(&world.repo, &monorepo_head),
+            "MONOREPO"
+        ),
+        "lifting must not absorb what the monorepo did behind this commit's back; those changes \
+         would look like its own work and the monorepo head would be an ancestor of nothing"
+    );
+
+    let round_tripped = jj_views::derive(&world.repo, &lifted, &filter, &mut cache)
+        .expect("a derivation")
+        .expect("the lifted commit has a view");
+    assert_eq!(
+        round_tripped, patch,
+        "filtering the lifted commit must give back the view commit it came from"
+    );
+}
+
+/// Whether a tree has a top level entry with this name.
+fn has_entry(repo: &gix::Repository, tree: &ObjectId, name: &str) -> bool {
+    entry_oid(repo, tree, name).is_some()
+}
+
+/// The object a tree's top level entry points at.
+fn entry_oid(repo: &gix::Repository, tree: &ObjectId, name: &str) -> Option<ObjectId> {
+    let raw = repo.find_object(*tree).expect("a tree").detach().data;
+    gix::objs::TreeRef::from_bytes(&raw, repo.object_hash())
+        .expect("a well formed tree")
+        .entries
+        .iter()
+        .find(|entry| entry.filename == name)
+        .map(|entry| entry.oid.to_owned())
+}
+
+/// The filtered subtree of the injected form of the fixture commit with this
+/// label, which is a valid tree for a view commit to carry.
+fn vendored_subtree(world: &Injected, label: &str) -> ObjectId {
+    let upstream = world
+        .upstream
+        .commits
+        .iter()
+        .find(|(candidate, _)| *candidate == label)
+        .map(|(_, commit)| commit)
+        .expect("the fixture has this commit");
+    tree_of(&world.repo, upstream)
+}
