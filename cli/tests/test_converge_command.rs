@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use test_case::test_case;
+
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
@@ -559,8 +561,9 @@ fn test_converge_one_side_rebased_one_side_description_changed() {
     ");
 }
 
-#[test]
-fn test_converge_description_changed_inconsistently() {
+#[test_case(false; "dont_invoke_text_editor")]
+#[test_case(true; "invoke_text_editor")]
+fn test_converge_description_changed_inconsistently(invoke_text_editor: bool) {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -614,9 +617,13 @@ fn test_converge_description_changed_inconsistently() {
     ");
 
     // Now check behavior in interactive mode.
-    let output =
-        work_dir.run_jj_with(|cmd| force_interactive(cmd).args(["converge"]).write_stdin("n\n"));
-    insta::assert_snapshot!(output, @r"
+    if invoke_text_editor {
+        let output = work_dir.run_jj_with(|cmd| {
+            force_interactive(cmd)
+                .args(["converge"])
+                .write_stdin("y\nmy-merged-description")
+        });
+        insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Found 1 divergent change(s) in the specified revset:
     - Change: zsuskulnrvyr with 2 commits:
@@ -634,8 +641,8 @@ fn test_converge_description_changed_inconsistently() {
     [EOF]
     ");
 
-    // Verify the commit graph after converge
-    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+        // Verify the commit graph after converge
+        insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
     @  d  yostqsxw  b7be53fe:  b1 b2
     ○  b1 b2  zsuskuln  12954f7d:  a
     ○  a  rlvkpnrz  08789390
@@ -643,8 +650,8 @@ fn test_converge_description_changed_inconsistently() {
     [EOF]
     ");
 
-    // Verify the evolution history after converge
-    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @r"
+        // Verify the evolution history after converge
+        insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @r"
     ○    zsuskuln 12954f7d <<<<<<< conflict 1 of 1
     ├─╮
     │ ○  zsuskuln/2 16aa57ac (hidden) today is a bad day
@@ -655,9 +662,9 @@ fn test_converge_description_changed_inconsistently() {
     [EOF]
     ");
 
-    // Verify the description after converge (it should have conflict markers)
-    let output = work_dir.run_jj(["log", "-T", "description", "-r", "b1", "--no-graph"]);
-    insta::assert_snapshot!(output, @r#"
+        // Verify the description after converge (it should have conflict markers)
+        let output = work_dir.run_jj(["log", "-T", "description", "-r", "b1", "--no-graph"]);
+        insta::assert_snapshot!(output, @r#"
     <<<<<<< conflict 1 of 1
     %%%%%%% diff from: zsuskuln 57aa7c1d "today is a good day"
     \\\\\\\        to: zsuskuln 48bf33ab "b2"
@@ -672,6 +679,66 @@ fn test_converge_description_changed_inconsistently() {
     >>>>>>> conflict 1 of 1 ends
     [EOF]
     "#);
+    } else {
+        let output = work_dir
+            .run_jj_with(|cmd| force_interactive(cmd).args(["converge"]).write_stdin("n\n"));
+        insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Found 1 divergent change(s) in the specified revset:
+    - Change: zsuskulnrvyr with 2 commits:
+        zsuskuln/0 57aa7c1d b1 | (divergent) today is a good day
+        zsuskuln/1 16aa57ac b2 | (divergent) today is a bad day
+
+    There are divergent descriptions. You can choose to merge them now in a
+    text editor, or skip merging and use the conflicted description (with
+    conflict markers). Do you want to merge them now? (Yn): 
+
+    Successfully converged change: created commit 12954f7d25c7.
+    Rebased 1 descendants
+    Working copy  (@) now at: yostqsxw b7be53fe d | d
+    Parent commit (@-)      : zsuskuln 12954f7d b1 b2 | <<<<<<< conflict 1 of 1
+    [EOF]
+    ");
+
+        // Verify the commit graph after converge
+        insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    @  d  yostqsxw  b7be53fe:  b1 b2
+    ○  b1 b2  zsuskuln  12954f7d:  a
+    ○  a  rlvkpnrz  08789390
+    ◆    zzzzzzzz  00000000
+    [EOF]
+    ");
+
+        // Verify the evolution history after converge
+        insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @r"
+    ○    zsuskuln 12954f7d <<<<<<< conflict 1 of 1
+    ├─╮
+    │ ○  zsuskuln/2 16aa57ac (hidden) today is a bad day
+    ○ │  zsuskuln/1 57aa7c1d (hidden) today is a good day
+    ├─╯
+    ○  zsuskuln/3 48bf33ab (hidden) b2
+    ○  zsuskuln/4 fd685708 (hidden) (empty) b2
+    [EOF]
+    ");
+
+        // Verify the description after converge (it should have conflict markers)
+        let output = work_dir.run_jj(["log", "-T", "description", "-r", "b1", "--no-graph"]);
+        insta::assert_snapshot!(output, @r#"
+    <<<<<<< conflict 1 of 1
+    %%%%%%% diff from: zsuskuln 57aa7c1d "today is a good day"
+    \\\\\\\        to: zsuskuln 48bf33ab "b2"
+    -today is a good day
+    +b2
+    %%%%%%% diff from: zsuskuln 16aa57ac "today is a bad day"
+    \\\\\\\        to: zsuskuln 48bf33ab "b2"
+    -today is a bad day
+    +b2
+    +++++++ zsuskuln 48bf33ab "b2"
+    b2
+    >>>>>>> conflict 1 of 1 ends
+    [EOF]
+    "#);
+    }
 }
 
 #[must_use]
