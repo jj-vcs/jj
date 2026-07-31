@@ -55,6 +55,7 @@ fn main() -> Result<(), Failure> {
         other => return Err(format!("unknown elide rule {other:?}").into()),
     };
     let survey_only = rest.iter().any(|arg| arg == "--survey-only");
+    let derive_only = rest.iter().any(|arg| arg == "--derive-only");
 
     let source = gix::open(source)?;
     let filter = Filter::prefix(path)?.elide(elide);
@@ -65,6 +66,20 @@ fn main() -> Result<(), Failure> {
         let order = topological_order(&source)?;
         println!("commits reachable from refs: {}", order.len());
         return survey(&source, &order);
+    }
+
+    // Deriving a path that is already in the source repository, with no
+    // injection step. This measures the walk itself: reading every commit,
+    // descending the path, and deciding what to keep. It exists because the
+    // injection half of the round trip is dominated by writing one loose object
+    // per tree per commit, which is an artifact of how this experiment stores
+    // things rather than a property of the filter, and at kernel scale that write
+    // amplification hides the number worth knowing.
+    if derive_only {
+        let parent = open_parent(Path::new(work), source.git_dir(), rule)?;
+        let order = topological_order(&source)?;
+        println!("commits reachable from refs: {}", order.len());
+        return derive_only_run(&parent, &order, &filter);
     }
 
     let parent = open_parent(Path::new(work), source.git_dir(), rule)?;
@@ -124,6 +139,48 @@ fn main() -> Result<(), Failure> {
     incremental(&parent, &injected, &order, &filter, &mut derive_cache)?;
 
     report(&parent, &order, &injected, &filter, &derive_cache)
+}
+
+/// Derives a filter over a repository's own history and reports what it cost.
+fn derive_only_run(
+    parent: &gix::Repository,
+    order: &[ObjectId],
+    filter: &Filter,
+) -> Result<(), Failure> {
+    let mut cache = Cache::new();
+    let started = std::time::Instant::now();
+    let mut mapped = 0_usize;
+    let mut absent = 0_usize;
+    for commit in order {
+        match jj_views::derive(parent, commit, filter, &mut cache)? {
+            Some(_) => mapped += 1,
+            None => absent += 1,
+        }
+    }
+    let elapsed = started.elapsed().as_secs_f64();
+
+    // How many commits kept a distinct view commit, as opposed to collapsing onto
+    // an ancestor. The gap is what elision removed, and on a real subdirectory of
+    // a large repository it is most of history.
+    let mut distinct: Vec<ObjectId> = order
+        .iter()
+        .filter_map(|commit| cache.derived(commit, filter).flatten())
+        .collect();
+    distinct.sort();
+    distinct.dedup();
+
+    println!(
+        "\nderived {} commits in {elapsed:.1}s ({:.0} commits/s)",
+        order.len(),
+        order.len() as f64 / elapsed
+    );
+    println!("  with a view:             {mapped}");
+    println!("  no counterpart at all:   {absent}");
+    println!("  distinct view commits:   {}", distinct.len());
+    println!("  tree reads:              {}", cache.tree_reads());
+    println!("  memoized trees:          {}", cache.tree_entries());
+    println!("  memoized commits:        {}", cache.commit_entries());
+    Ok(())
 }
 
 /// Times a re-derivation after new commits land, with the cache warm.
