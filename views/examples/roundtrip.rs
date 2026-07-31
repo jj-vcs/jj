@@ -41,8 +41,17 @@ fn main() -> Result<(), Failure> {
     let survey_only = rest.iter().any(|arg| arg == "--survey-only");
 
     let source = gix::open(source)?;
-    let parent = open_parent(Path::new(work), source.git_dir(), elide)?;
     let filter = Filter::prefix(path)?.elide_empty(elide);
+
+    // Surveying reads only, so it neither needs nor may create the work
+    // directory; doing so would clobber a concurrent injection using it.
+    if survey_only {
+        let order = topological_order(&source)?;
+        println!("commits reachable from refs: {}", order.len());
+        return survey(&source, &order);
+    }
+
+    let parent = open_parent(Path::new(work), source.git_dir(), elide)?;
     println!(
         "source {:?}\nparent {:?}\nfilter {} (elide_empty={elide})",
         source.git_dir(),
@@ -52,10 +61,6 @@ fn main() -> Result<(), Failure> {
 
     let order = topological_order(&source)?;
     println!("upstream commits reachable from refs: {}", order.len());
-
-    if survey_only {
-        return survey(&source, &order);
-    }
 
     // A monorepo the vendored history lands inside, so the injected trees are
     // not just the prefix and the experiment is not accidentally easier than
@@ -192,7 +197,7 @@ fn report(
 /// Reports which commit shapes a repository contains, reading commits only.
 fn survey(repo: &gix::Repository, order: &[ObjectId]) -> Result<(), Failure> {
     let mut naive_would_break: HashMap<String, usize> = HashMap::new();
-    let mut shapes: HashMap<&'static str, usize> = HashMap::new();
+    let mut shapes: HashMap<String, usize> = HashMap::new();
     let mut offsets: HashMap<String, usize> = HashMap::new();
     for id in order {
         let raw = repo.find_object(*id)?.detach().data;
@@ -207,24 +212,18 @@ fn survey(repo: &gix::Repository, order: &[ObjectId]) -> Result<(), Failure> {
         unique.sort();
         unique.dedup();
         if unique.len() < parents.len() {
-            *shapes.entry("duplicate parents").or_default() += 1;
+            *shapes.entry("duplicate parents".to_owned()).or_default() += 1;
         }
         if parents.len() > 2 {
-            *shapes.entry("octopus merge").or_default() += 1;
+            *shapes.entry("octopus merge".to_owned()).or_default() += 1;
         }
         for (name, _) in &parsed.extra_headers {
-            *shapes
-                .entry(match AsRef::<[u8]>::as_ref(name) {
-                    b"gpgsig" => "gpgsig",
-                    b"gpgsig-sha256" => "gpgsig-sha256",
-                    b"mergetag" => "mergetag",
-                    b"encoding" => "encoding (late)",
-                    _ => "some other extra header",
-                })
-                .or_default() += 1;
+            // Named rather than bucketed. A header nobody expected is exactly
+            // the thing a survey is for, and "some other header" hides it.
+            *shapes.entry(format!("{name} header")).or_default() += 1;
         }
         if parsed.encoding.is_some() {
-            *shapes.entry("encoding").or_default() += 1;
+            *shapes.entry("encoding header".to_owned()).or_default() += 1;
         }
         if let Some(offset) = parsed.author.rsplit(|byte| *byte == b' ').next()
             && offset.len() != 5
@@ -236,7 +235,7 @@ fn survey(repo: &gix::Repository, order: &[ObjectId]) -> Result<(), Failure> {
     }
 
     println!("\n=== shapes among {} commits", order.len());
-    let mut counted: Vec<(&&str, &usize)> = shapes.iter().collect();
+    let mut counted: Vec<(&String, &usize)> = shapes.iter().collect();
     counted.sort_by(|left, right| right.1.cmp(left.1));
     for (shape, count) in counted {
         println!("  {count:>8} {shape}");
@@ -315,6 +314,7 @@ fn open_parent(
     source_objects: &Path,
     elide: bool,
 ) -> Result<gix::Repository, Failure> {
+    std::fs::create_dir_all(work)?;
     let dir: PathBuf = work.join(format!("parent-elide-{elide}.git"));
     if dir.exists() {
         std::fs::remove_dir_all(&dir)?;
