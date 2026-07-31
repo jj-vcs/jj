@@ -1042,7 +1042,7 @@ fn test_git_colocated_external_checkout() -> TestResult {
     [EOF]
     ------- stderr -------
     Reset the working copy parent to the new Git HEAD.
-    Operation left uncommitted because --no-integrate-operation was requested: 4dd0ee71039d
+    Operation left uncommitted because --no-integrate-operation was requested: bbe960f5b642
     [EOF]
     ");
     let output = work_dir.run_jj(["status", "--no-integrate-operation"]);
@@ -1053,7 +1053,7 @@ fn test_git_colocated_external_checkout() -> TestResult {
     [EOF]
     ------- stderr -------
     Reset the working copy parent to the new Git HEAD.
-    Operation left uncommitted because --no-integrate-operation was requested: 1c501b6939b3
+    Operation left uncommitted because --no-integrate-operation was requested: a995bf65df58
     [EOF]
     ");
 
@@ -1228,8 +1228,8 @@ fn test_git_colocated_undo_head_move() -> TestResult {
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Undid operation: 370aaac5a54d (2001-02-03 08:05:15) new empty commit
-    Restored to operation: f4eb73ce02a5 (2001-02-03 08:05:14) new empty commit
+    Undid operation: c3aad0e25c1e (2001-02-03 08:05:15) new empty commit
+    Restored to operation: c6c88e19d828 (2001-02-03 08:05:14) new empty commit
     Working copy  (@) now at: vruxwmqv 23e6e06a (empty) (no description set)
     Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]

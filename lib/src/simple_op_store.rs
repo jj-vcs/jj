@@ -575,7 +575,14 @@ fn view_to_proto(view: &View) -> crate::protos::simple_op_store::View {
         })
         .collect();
 
-    let git_head = ref_target_to_proto(&view.git_head);
+    let git_heads = view
+        .git_heads
+        .iter()
+        .map(|(name, target)| crate::protos::simple_op_store::GitHead {
+            name: name.as_str().to_owned(),
+            target: ref_target_to_proto(target),
+        })
+        .collect();
 
     #[expect(deprecated)]
     crate::protos::simple_op_store::View {
@@ -587,9 +594,14 @@ fn view_to_proto(view: &View) -> crate::protos::simple_op_store::View {
         remote_views,
         git_refs,
         git_head_legacy: Default::default(),
-        git_head,
+        // TODO: Remove in jj 0.51+
+        git_head: view
+            .git_heads
+            .get(WorkspaceName::DEFAULT)
+            .and_then(ref_target_to_proto),
         // New/loaded view should have been migrated to the latest format
         has_git_refs_migrated_to_remote_tags: true,
+        git_heads,
     }
 }
 
@@ -667,14 +679,29 @@ fn view_from_proto(proto: crate::protos::simple_op_store::View) -> Result<View, 
         }
     }
 
+    let mut git_heads: BTreeMap<WorkspaceNameBuf, RefTarget> = proto
+        .git_heads
+        .into_iter()
+        .map(|entry| {
+            (
+                WorkspaceNameBuf::from(entry.name),
+                ref_target_from_proto(entry.target),
+            )
+        })
+        .collect();
     #[expect(deprecated)]
-    let git_head = if proto.git_head.is_some() {
-        ref_target_from_proto(proto.git_head)
-    } else if !proto.git_head_legacy.is_empty() {
-        RefTarget::normal(CommitId::new(proto.git_head_legacy))
-    } else {
-        RefTarget::absent()
-    };
+    if git_heads.is_empty() {
+        let git_head = if proto.git_head.is_some() {
+            ref_target_from_proto(proto.git_head)
+        } else if !proto.git_head_legacy.is_empty() {
+            RefTarget::normal(CommitId::new(proto.git_head_legacy))
+        } else {
+            RefTarget::absent()
+        };
+        if git_head.is_present() {
+            git_heads.insert(WorkspaceName::DEFAULT.to_owned(), git_head);
+        }
+    }
 
     Ok(View {
         head_ids,
@@ -682,7 +709,7 @@ fn view_from_proto(proto: crate::protos::simple_op_store::View) -> Result<View, 
         local_tags,
         remote_views,
         git_refs,
-        git_head,
+        git_heads,
         wc_commit_ids,
     })
 }
@@ -1001,7 +1028,9 @@ mod tests {
                 "refs/heads/main".into() => git_refs_main_target,
                 "refs/heads/feature".into() => git_refs_feature_target,
             },
-            git_head: RefTarget::normal(CommitId::from_hex("fff111")),
+            git_heads: btreemap! {
+                WorkspaceName::DEFAULT.to_owned() => RefTarget::normal(CommitId::from_hex("fff111")),
+            },
             wc_commit_ids: btreemap! {
                 WorkspaceName::DEFAULT.to_owned() => default_wc_commit_id,
                 "test".into() => test_wc_commit_id,
@@ -1057,7 +1086,7 @@ mod tests {
         // Test exact output so we detect regressions in compatibility
         assert_snapshot!(
             ViewId::new(blake2b_hash(&create_view()).to_vec()).hex(),
-            @"2c0b174d117ca85e7faa96f6d997362403105e8eb31e7f82ac9abd3dc48ae62683e9a76ef5d117ebc8a743d17e1945236df9ccefd7574f7e4b5336a63796b967"
+            @"b37a61a743f394241cd44e9016cc6f9b68321d7ae0e21e432d9124d08a1b5f98f08f6a1d04534ea0652ea4be74e9c4fb2075bdf00343165b5d380aa196790a14"
         );
     }
 

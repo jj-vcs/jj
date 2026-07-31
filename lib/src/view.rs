@@ -107,8 +107,12 @@ impl View {
         &self.data.git_refs
     }
 
-    pub fn git_head(&self) -> &RefTarget {
-        &self.data.git_head
+    pub fn git_head(&self, workspace: &WorkspaceName) -> &RefTarget {
+        self.data.git_heads.get(workspace).flatten()
+    }
+
+    pub fn all_git_heads(&self) -> &BTreeMap<WorkspaceNameBuf, RefTarget> {
+        &self.data.git_heads
     }
 
     pub fn set_wc_commit(&mut self, name: WorkspaceNameBuf, commit_id: CommitId) {
@@ -117,6 +121,7 @@ impl View {
 
     pub fn remove_wc_commit(&mut self, name: &WorkspaceName) {
         self.data.wc_commit_ids.remove(name);
+        self.data.git_heads.remove(name);
     }
 
     pub fn rename_workspace(
@@ -134,7 +139,12 @@ impl View {
                 name: old_name.to_owned(),
             }
         })?;
-        self.data.wc_commit_ids.insert(new_name, wc_commit_id);
+        self.data
+            .wc_commit_ids
+            .insert(new_name.clone(), wc_commit_id);
+        if let Some(git_head) = self.data.git_heads.remove(old_name) {
+            self.data.git_heads.insert(new_name, git_head);
+        }
         Ok(())
     }
 
@@ -564,10 +574,14 @@ impl View {
         }
     }
 
-    /// Sets Git HEAD to point to the given target. If the target is absent, the
-    /// reference will be cleared.
-    pub fn set_git_head_target(&mut self, target: RefTarget) {
-        self.data.git_head = target;
+    /// Sets Git HEAD for the given workspace to point to the given target. If
+    /// the target is absent, the entry will be removed.
+    pub fn set_git_head_target(&mut self, workspace: &WorkspaceName, target: RefTarget) {
+        if target.is_present() {
+            self.data.git_heads.insert(workspace.to_owned(), target);
+        } else {
+            self.data.git_heads.remove(workspace);
+        }
     }
 
     /// Iterates all commit ids referenced by this view.
@@ -593,7 +607,7 @@ impl View {
             local_tags,
             remote_views,
             git_refs,
-            git_head,
+            git_heads,
             wc_commit_ids,
         } = &self.data;
         itertools::chain!(
@@ -606,7 +620,7 @@ impl View {
                     .flat_map(|remote_ref| ref_target_ids(&remote_ref.target))
             }),
             git_refs.values().flat_map(ref_target_ids),
-            ref_target_ids(git_head),
+            git_heads.values().flat_map(ref_target_ids),
             wc_commit_ids.values()
         )
     }

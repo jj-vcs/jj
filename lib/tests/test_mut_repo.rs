@@ -670,6 +670,7 @@ fn test_remove_wc_commit_previous_not_discardable() -> TestResult {
     let old_wc_commit = write_random_commit(mut_repo);
     let ws_name = WorkspaceName::DEFAULT.to_owned();
     mut_repo.edit(ws_name.clone(), &old_wc_commit).block_on()?;
+    mut_repo.set_git_head_target(&ws_name, RefTarget::normal(old_wc_commit.id().clone()));
     let repo = tx.commit("test").block_on()?;
 
     let mut tx = repo.start_transaction();
@@ -677,6 +678,7 @@ fn test_remove_wc_commit_previous_not_discardable() -> TestResult {
     mut_repo.remove_wc_commit(&ws_name).block_on()?;
     mut_repo.rebase_descendants().block_on()?;
     assert!(mut_repo.view().heads().contains(old_wc_commit.id()));
+    assert!(mut_repo.view().git_head(&ws_name).is_absent());
     Ok(())
 }
 

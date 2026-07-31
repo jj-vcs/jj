@@ -90,6 +90,13 @@ pub struct GitRef {
     pub target: ::core::option::Option<RefTarget>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GitHead {
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "2")]
+    pub target: ::core::option::Option<RefTarget>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RemoteRef {
     #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,
@@ -134,11 +141,15 @@ pub struct View {
     #[deprecated]
     #[prost(bytes = "vec", tag = "7")]
     pub git_head_legacy: ::prost::alloc::vec::Vec<u8>,
+    #[deprecated]
     #[prost(message, optional, tag = "9")]
     pub git_head: ::core::option::Option<RefTarget>,
     /// Whether "@git" tags have been migrated to remote_views.
     #[prost(bool, tag = "12")]
     pub has_git_refs_migrated_to_remote_tags: bool,
+    /// Per-workspace Git HEAD targets, keyed by workspace name.
+    #[prost(message, repeated, tag = "13")]
+    pub git_heads: ::prost::alloc::vec::Vec<GitHead>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RemoteView {
