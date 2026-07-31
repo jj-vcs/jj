@@ -855,3 +855,178 @@ fn vendored_subtree(world: &Injected, label: &str) -> ObjectId {
         .expect("the fixture has this commit");
     tree_of(&world.repo, upstream)
 }
+
+/// Renaming a mount point destroys the view, in this implementation exactly as
+/// it does in josh. Pinned so the size of the problem is a measured number
+/// rather than a warning in a design note.
+///
+/// The mount path is part of the view's identity. Filtering `vendor/renamed`
+/// over a history where the content lived at `vendor/upstream` until a rename
+/// finds nothing before that commit, so the whole history behind it is gone and
+/// SHA continuity is broken. A fix needs a persisted rename ledger and an era
+/// splicing filter generated from it; this test is what that work has to
+/// change.
+#[test]
+fn renaming_a_mount_point_destroys_the_history_behind_it() {
+    let filter = Filter::prefix(PREFIX).expect("a valid prefix");
+    let world = inject(&filter);
+    let injected_head = *world
+        .map
+        .get(&world.upstream.head)
+        .expect("the head was injected");
+
+    // Before the rename, the full history is there.
+    let mut cache = Cache::new();
+    let before = jj_views::derive(&world.repo, &injected_head, &filter, &mut cache)
+        .expect("a derivation")
+        .expect("the head has a view");
+    assert_eq!(
+        count_ancestors(&world.repo, &before),
+        world.upstream.commits.len(),
+        "the view should have one commit per fixture commit before any rename"
+    );
+
+    // The monorepo renames the mount point, keeping the content identical.
+    let renamed_head = rename_mount_point(&world.repo, &injected_head, PREFIX, "vendor/renamed");
+
+    let after_filter = Filter::prefix("vendor/renamed").expect("a valid prefix");
+    let mut cache = Cache::new();
+    let after = jj_views::derive(&world.repo, &renamed_head, &after_filter, &mut cache)
+        .expect("a derivation")
+        .expect("the renamed path exists at the tip");
+    assert_eq!(
+        count_ancestors(&world.repo, &after),
+        1,
+        "this is the failure being pinned: everything behind the rename is gone and the view is a \
+         single orphan commit"
+    );
+
+    // And the old path's view does not simply stop: because an absent path
+    // filters to the empty tree, the rename shows up there as a commit that
+    // deletes everything. So neither filter alone describes the project. One
+    // reports the work as deleted, the other reports it as having no past.
+    let mut cache = Cache::new();
+    let old_path = jj_views::derive(&world.repo, &renamed_head, &filter, &mut cache)
+        .expect("a derivation")
+        .expect("the old path still has a view in the ancestry");
+    assert_eq!(
+        tree_of(&world.repo, &old_path),
+        gix::ObjectId::empty_tree(world.repo.object_hash()),
+        "the old path's view gains a commit that empties the tree"
+    );
+    let old_raw = world
+        .repo
+        .find_object(old_path)
+        .expect("a commit")
+        .detach()
+        .data;
+    let old_parents: Vec<ObjectId> =
+        gix::objs::CommitRef::from_bytes(&old_raw, world.repo.object_hash())
+            .expect("a well formed commit")
+            .parents()
+            .collect();
+    assert_eq!(
+        old_parents,
+        vec![before],
+        "and that deletion sits directly on the pre-rename view, so the history before the rename \
+         is intact under the old name and absent under the new one"
+    );
+}
+
+/// How many commits are reachable from `commit`, inclusive.
+fn count_ancestors(repo: &gix::Repository, commit: &ObjectId) -> usize {
+    let mut seen: HashMap<ObjectId, ()> = HashMap::new();
+    let mut stack = vec![*commit];
+    while let Some(id) = stack.pop() {
+        if seen.insert(id, ()).is_some() {
+            continue;
+        }
+        let raw = repo.find_object(id).expect("a commit").detach().data;
+        let parsed = gix::objs::CommitRef::from_bytes(&raw, repo.object_hash())
+            .expect("a well formed commit");
+        stack.extend(parsed.parents());
+    }
+    seen.len()
+}
+
+/// A commit on top of `parent_commit` that moves the subtree at `from` to `to`,
+/// leaving its content byte for byte identical.
+fn rename_mount_point(
+    repo: &gix::Repository,
+    parent_commit: &ObjectId,
+    from: &str,
+    to: &str,
+) -> ObjectId {
+    let base = tree_of(repo, parent_commit);
+    let subtree = lookup_path(repo, &base, from).expect("the mount point exists");
+    let emptied = write_path(repo, &base, from, None);
+    let moved = write_path(repo, &emptied, to, Some(subtree));
+
+    let raw = format!(
+        "tree {moved}\nparent {parent_commit}\nauthor Monorepo <mono@example.invalid> 1000000200 \
+         +0000\ncommitter Monorepo <mono@example.invalid> 1000000200 +0000\n\ngit mv {from} {to}\n"
+    );
+    gix::objs::Write::write_buf(&repo.objects, gix::objs::Kind::Commit, raw.as_bytes())
+        .expect("a commit")
+}
+
+/// The tree at a slash separated path inside `tree`.
+fn lookup_path(repo: &gix::Repository, tree: &ObjectId, path: &str) -> Option<ObjectId> {
+    let mut current = *tree;
+    for component in path.split('/') {
+        current = entry_oid(repo, &current, component)?;
+    }
+    Some(current)
+}
+
+/// `tree` with the subtree at `path` set to `sub`, or removed when `sub` is
+/// `None`, creating intermediate trees as needed.
+fn write_path(
+    repo: &gix::Repository,
+    tree: &ObjectId,
+    path: &str,
+    sub: Option<ObjectId>,
+) -> ObjectId {
+    let (name, rest) = match path.split_once('/') {
+        Some((name, rest)) => (name, Some(rest)),
+        None => (path, None),
+    };
+    let mut entries = decode_tree(repo, tree);
+    let child = match rest {
+        Some(rest) => {
+            let base = entry_oid(repo, tree, name)
+                .unwrap_or_else(|| gix::ObjectId::empty_tree(repo.object_hash()));
+            Some(write_path(repo, &base, rest, sub))
+        }
+        None => sub,
+    };
+    entries.retain(|entry| entry.filename != name);
+    if let Some(child) = child {
+        entries.push(gix::objs::tree::Entry {
+            mode: gix::objs::tree::EntryKind::Tree.into(),
+            filename: name.into(),
+            oid: child,
+        });
+    }
+    entries.sort();
+    repo.write_object(&gix::objs::Tree { entries })
+        .expect("a tree")
+        .detach()
+}
+
+fn decode_tree(repo: &gix::Repository, tree: &ObjectId) -> Vec<gix::objs::tree::Entry> {
+    if *tree == gix::ObjectId::empty_tree(repo.object_hash()) {
+        return Vec::new();
+    }
+    let raw = repo.find_object(*tree).expect("a tree").detach().data;
+    gix::objs::TreeRef::from_bytes(&raw, repo.object_hash())
+        .expect("a well formed tree")
+        .entries
+        .iter()
+        .map(|entry| gix::objs::tree::Entry {
+            mode: entry.mode,
+            filename: entry.filename.to_owned(),
+            oid: entry.oid.to_owned(),
+        })
+        .collect()
+}
