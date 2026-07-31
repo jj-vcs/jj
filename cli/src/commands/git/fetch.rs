@@ -245,7 +245,10 @@ pub async fn cmd_git_fetch(
     }
 
     let import_stats = git_fetch.import_refs().await?;
-    print_git_import_stats(ui, &tx, &import_stats)?;
+    {
+        let template = crate::git_util::commit_fetch_template(&tx);
+        print_git_import_stats(ui, &tx, &import_stats, &template)?;
+    }
 
     if let Some(bookmark_expr) = &common_bookmark_expr {
         warn_if_branches_not_found(ui, &tx, bookmark_expr, &matching_remotes)?;

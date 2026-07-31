@@ -54,7 +54,10 @@ pub async fn cmd_git_import(
     let import_options = load_git_import_options(ui, &git_settings, &remote_settings)?;
     let mut tx = workspace_command.start_transaction();
     let stats = git::import_refs(tx.repo_mut(), &import_options).await?;
-    print_git_import_stats(ui, &tx, &stats)?;
+    {
+        let template = crate::git_util::commit_fetch_template(&tx);
+        print_git_import_stats(ui, &tx, &stats, &template)?;
+    }
     tx.finish(ui, "import git refs").await?;
     Ok(())
 }

@@ -453,7 +453,10 @@ async fn fetch_new_remote(
         let remote_symbol = name.to_remote_symbol(remote_name);
         tx.repo_mut().track_remote_bookmark(remote_symbol).await?;
     }
-    print_git_import_stats(ui, &tx, &import_stats)?;
+    {
+        let template = crate::git_util::commit_fetch_template(&tx);
+        print_git_import_stats(ui, &tx, &import_stats, &template)?;
+    }
     tx.finish(ui, "fetch from git remote into empty repo")
         .await?;
     Ok((working_branch.map(ToOwned::to_owned), working_is_default))

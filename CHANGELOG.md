@@ -33,6 +33,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   back to prompting the user if the heuristics are inconclusive. It can also run
   in non-interactive mode, which aborts if prompting would be needed.
 
+* `jj git fetch`'s output can be customized with `templates.git_fetch` or `-T`
+  [#9311](https://github.com/jj-vcs/jj/pull/9311).
+
 ### Fixed bugs
 
 * `jj arrange` now scrolls the viewport to keep the selected commit visible

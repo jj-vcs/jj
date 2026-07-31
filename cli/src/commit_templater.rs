@@ -97,6 +97,8 @@ use crate::diff_util::DiffStatEntry;
 use crate::diff_util::DiffStatOptions;
 use crate::diff_util::DiffStats;
 use crate::formatter::Formatter;
+#[cfg(feature = "git")]
+use crate::git_util::RefStatus;
 use crate::operation_templater;
 use crate::operation_templater::OperationTemplateBuildFnTable;
 use crate::operation_templater::OperationTemplateEnvironment;
@@ -407,6 +409,12 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
             }
+            #[cfg(feature = "git")]
+            CommitTemplatePropertyKind::RefStatus(property) => {
+                let table = &self.build_fn_table.ref_status_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(self, diagnostics, build_ctx, property, function)
+            }
         }
     }
 }
@@ -474,6 +482,8 @@ pub enum CommitTemplatePropertyKind<'repo> {
     AnnotationLine(BoxedTemplateProperty<'repo, AnnotationLine>),
     Trailer(BoxedTemplateProperty<'repo, Trailer>),
     TrailerList(BoxedTemplateProperty<'repo, Vec<Trailer>>),
+    #[cfg(feature = "git")]
+    RefStatus(BoxedTemplateProperty<'repo, RefStatus>),
 }
 
 template_builder::impl_core_property_wrappers!(<'repo> CommitTemplatePropertyKind<'repo> => Core);
@@ -508,6 +518,8 @@ template_builder::impl_property_wrappers!(<'repo> CommitTemplatePropertyKind<'re
     AnnotationLine(AnnotationLine),
     Trailer(Trailer),
     TrailerList(Vec<Trailer>),
+    #[cfg(feature = "git")]
+    RefStatus(RefStatus),
 });
 
 impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo> {
@@ -556,6 +568,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::AnnotationLine(_) => "AnnotationLine",
             Self::Trailer(_) => "Trailer",
             Self::TrailerList(_) => "List<Trailer>",
+            #[cfg(feature = "git")]
+            Self::RefStatus(_) => "RefStatus",
         }
     }
 
@@ -616,6 +630,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::AnnotationLine(_) => Err(self),
             Self::Trailer(_) => Err(self),
             Self::TrailerList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
+            #[cfg(feature = "git")]
+            Self::RefStatus(_) => Err(self),
         }
     }
 
@@ -668,6 +684,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::AnnotationLine(_) => None,
             Self::Trailer(_) => None,
             Self::TrailerList(_) => None,
+            #[cfg(feature = "git")]
+            Self::RefStatus(_) => None,
         }
     }
 
@@ -704,6 +722,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::AnnotationLine(_) => None,
             Self::Trailer(property) => Some(property.into_template()),
             Self::TrailerList(property) => Some(property.into_template()),
+            #[cfg(feature = "git")]
+            Self::RefStatus(property) => Some(property.into_template()),
         }
     }
 
@@ -773,6 +793,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             (Self::AnnotationLine(_), _) => None,
             (Self::Trailer(_), _) => None,
             (Self::TrailerList(_), _) => None,
+            #[cfg(feature = "git")]
+            (Self::RefStatus(_), _) => None,
         }
     }
 
@@ -815,6 +837,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             (Self::AnnotationLine(_), _) => None,
             (Self::Trailer(_), _) => None,
             (Self::TrailerList(_), _) => None,
+            #[cfg(feature = "git")]
+            (Self::RefStatus(_), _) => None,
         }
     }
 }
@@ -853,6 +877,8 @@ pub struct CommitTemplateBuildFnTable<'repo> {
     pub annotation_line_methods: CommitTemplateBuildMethodFnMap<'repo, AnnotationLine>,
     pub trailer_methods: CommitTemplateBuildMethodFnMap<'repo, Trailer>,
     pub trailer_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<Trailer>>,
+    #[cfg(feature = "git")]
+    pub ref_status_methods: CommitTemplateBuildMethodFnMap<'repo, RefStatus>,
 }
 
 impl CommitTemplateBuildFnTable<'_> {
@@ -883,6 +909,8 @@ impl CommitTemplateBuildFnTable<'_> {
             annotation_line_methods: HashMap::new(),
             trailer_methods: HashMap::new(),
             trailer_list_methods: HashMap::new(),
+            #[cfg(feature = "git")]
+            ref_status_methods: HashMap::new(),
         }
     }
 
@@ -913,6 +941,8 @@ impl CommitTemplateBuildFnTable<'_> {
             annotation_line_methods,
             trailer_methods,
             trailer_list_methods,
+            #[cfg(feature = "git")]
+            ref_status_methods,
         } = other;
 
         self.core.merge(core);
@@ -958,6 +988,8 @@ impl CommitTemplateBuildFnTable<'_> {
         merge_fn_map(&mut self.annotation_line_methods, annotation_line_methods);
         merge_fn_map(&mut self.trailer_methods, trailer_methods);
         merge_fn_map(&mut self.trailer_list_methods, trailer_list_methods);
+        #[cfg(feature = "git")]
+        merge_fn_map(&mut self.ref_status_methods, ref_status_methods);
     }
 
     /// Creates new symbol table containing the builtin methods.
@@ -990,6 +1022,8 @@ impl CommitTemplateBuildFnTable<'_> {
             annotation_line_methods: builtin_annotation_line_methods(),
             trailer_methods: builtin_trailer_methods(),
             trailer_list_methods: builtin_trailer_list_methods(),
+            #[cfg(feature = "git")]
+            ref_status_methods: builtin_ref_status_methods(),
         }
     }
 }
@@ -2058,6 +2092,69 @@ impl Display for RefSymbolBuf {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.pad(&revset::format_symbol(&self.0))
     }
+}
+
+#[cfg(feature = "git")]
+impl Template for RefStatus {
+    fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
+        write!(formatter, "{}", self.name())
+    }
+}
+
+#[cfg(feature = "git")]
+fn builtin_ref_status_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, RefStatus> {
+    let mut map = CommitTemplateBuildMethodFnMap::<RefStatus>::new();
+    map.insert(
+        "name",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|ref_status| ref_status.name().to_owned());
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "tracked",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|ref_status| ref_status.is_tracked());
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "remote_ref_state",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property =
+                self_property.map(|ref_status| ref_status.remote_ref_state().to_owned());
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "import_status",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property =
+                self_property.map(|ref_status| ref_status.import_status().to_owned());
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "kind",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|ref_status| ref_status.kind().to_owned());
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "max_name_width",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|ref_status| ref_status.max_name_width() as i64);
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map
 }
 
 impl Template for RefSymbolBuf {
