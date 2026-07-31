@@ -2706,6 +2706,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "jj-views"
+version = "0.43.0"
+dependencies = [
+ "bstr",
+ "gix",
+ "tempfile",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "js-sys"
 version = "0.3.103"
 source = "registry+https://github.com/rust-lang/crates.io-index"
