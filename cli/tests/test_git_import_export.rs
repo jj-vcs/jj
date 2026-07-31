@@ -149,8 +149,8 @@ fn test_git_export_undo() -> TestResult {
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Undid operation: 563b0274c404 (2001-02-03 08:05:10) export git refs
-    Restored to operation: a8cc177d3fa6 (2001-02-03 08:05:08) create bookmark a pointing to commit e8849ae12c709f2321908879bc724fdb2ab8a781
+    Undid operation: 29447db431a3 (2001-02-03 08:05:10) export git refs
+    Restored to operation: 5142cb3d7c38 (2001-02-03 08:05:08) create bookmark a pointing to commit e8849ae12c709f2321908879bc724fdb2ab8a781
     [EOF]
     ");
     insta::assert_debug_snapshot!(get_git_repo_refs(&git_repo), @r#"
@@ -224,7 +224,7 @@ fn test_git_import_undo() -> TestResult {
     let output = work_dir.run_jj(["op", "restore", &base_operation_id]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Restored to operation: 90267f31f904 (2001-02-03 08:05:07) add workspace 'default'
+    Restored to operation: f63ee16f9553 (2001-02-03 08:05:07) add workspace 'default'
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
@@ -305,7 +305,7 @@ fn test_git_import_move_export_with_default_undo() -> TestResult {
     let output = work_dir.run_jj(["op", "restore", &base_operation_id]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Restored to operation: 90267f31f904 (2001-02-03 08:05:07) add workspace 'default'
+    Restored to operation: f63ee16f9553 (2001-02-03 08:05:07) add workspace 'default'
     Working copy  (@) now at: qpvuntsm e8849ae1 (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]

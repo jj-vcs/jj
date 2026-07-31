@@ -67,6 +67,7 @@ use crate::ref_name::RemoteName;
 use crate::ref_name::RemoteNameBuf;
 use crate::ref_name::RemoteRefSymbol;
 use crate::ref_name::RemoteRefSymbolBuf;
+use crate::ref_name::WorkspaceName;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::repo_path::RepoPath;
@@ -1166,18 +1167,22 @@ fn remotely_pinned_commit_ids(view: &View) -> Vec<CommitId> {
 ///
 /// Unlike `reset_head()`, this function doesn't move the working-copy commit to
 /// the child of the new HEAD revision.
-pub async fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportError> {
+pub async fn import_head(
+    mut_repo: &mut MutableRepo,
+    workspace: &WorkspaceName,
+) -> Result<(), GitImportError> {
     let store = mut_repo.store();
     let git_backend = get_git_backend(store)?;
     let git_repo = git_backend.git_repo();
 
-    let old_git_head = mut_repo.view().git_head();
+    let old_git_head = mut_repo.view().git_head(workspace);
     let new_git_head_id = if let Ok(oid) = git_repo.head_id() {
         Some(CommitId::from_bytes(oid.as_bytes()))
     } else {
         None
     };
-    if old_git_head.as_resolved() == Some(&new_git_head_id) {
+    let old_resolved = old_git_head.map(|t| t.as_resolved()).unwrap_or(Some(&None));
+    if old_resolved == Some(&new_git_head_id) {
         return Ok(());
     }
 
@@ -1198,7 +1203,7 @@ pub async fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportErro
         mut_repo.add_head(&commit).await?;
     }
 
-    mut_repo.set_git_head_target(RefTarget::resolved(new_git_head_id));
+    mut_repo.set_git_head_target(workspace, RefTarget::resolved(new_git_head_id));
     Ok(())
 }
 
@@ -1801,6 +1806,7 @@ impl GitResetHeadError {
 pub async fn reset_head(
     mut_repo: &mut MutableRepo,
     wc_commit: &Commit,
+    workspace: &WorkspaceName,
 ) -> Result<(), GitResetHeadError> {
     let git_repo = get_git_repo(mut_repo.store())?;
 
@@ -1812,7 +1818,7 @@ pub async fn reset_head(
     };
 
     // If the first parent of the working copy has changed, reset the Git HEAD.
-    let old_head_target = mut_repo.git_head();
+    let old_head_target = mut_repo.git_head(workspace);
     if old_head_target != new_head_target {
         let expected_ref = if let Some(id) = old_head_target.as_normal() {
             // We have to check the actual HEAD state because we don't record a
@@ -1833,7 +1839,7 @@ pub async fn reset_head(
         let new_oid = new_head_target.as_normal().map(owned_oid_from_commit_id);
         update_git_head(&git_repo, expected_ref, new_oid)
             .map_err(|err| GitResetHeadError::UpdateHeadRef(err.into()))?;
-        mut_repo.set_git_head_target(new_head_target);
+        mut_repo.set_git_head_target(workspace, new_head_target);
     }
 
     // If there is an ongoing operation (merge, rebase, etc.), we need to clean it

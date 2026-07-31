@@ -1924,12 +1924,15 @@ impl MutableRepo {
         Ok(())
     }
 
-    pub fn git_head(&self) -> RefTarget {
-        self.view.git_head().clone()
+    pub fn git_head(&self, workspace: &WorkspaceName) -> RefTarget {
+        self.view
+            .git_head(workspace)
+            .cloned()
+            .unwrap_or_else(RefTarget::absent)
     }
 
-    pub fn set_git_head_target(&mut self, target: RefTarget) {
-        self.view.set_git_head_target(target);
+    pub fn set_git_head_target(&mut self, workspace: &WorkspaceName, target: RefTarget) {
+        self.view.set_git_head_target(workspace, target);
     }
 
     pub fn set_view(&mut self, data: op_store::View) {
@@ -2020,14 +2023,16 @@ impl MutableRepo {
             self.merge_remote_tag(symbol, base_ref, other_ref).await?;
         }
 
-        let new_git_head_target = merge_ref_targets(
-            self.index(),
-            self.view().git_head(),
-            base.git_head(),
-            other.git_head(),
-        )
-        .await?;
-        self.set_git_head_target(new_git_head_target);
+        let changed_git_heads = diff_named_ref_targets(base.all_git_heads(), other.all_git_heads());
+        for (workspace, (base_target, other_target)) in changed_git_heads {
+            let self_target = self
+                .view()
+                .git_head(workspace)
+                .unwrap_or(RefTarget::absent_ref());
+            let new_target =
+                merge_ref_targets(self.index(), self_target, base_target, other_target).await?;
+            self.set_git_head_target(workspace, new_target);
+        }
 
         Ok(())
     }

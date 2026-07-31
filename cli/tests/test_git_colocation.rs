@@ -60,7 +60,7 @@ fn test_git_colocation_enable_success() -> TestResult {
     // And that there is no Git HEAD yet
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently not colocated with Git.
-    Last imported/exported Git HEAD: (none)
+    Last imported/exported Git HEAD: (absent)
     [EOF]
     ");
 
@@ -129,7 +129,7 @@ fn test_git_colocation_enable_empty() {
     // Verify that Git HEAD was set correctly
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently colocated with Git.
-    Last imported/exported Git HEAD: (none)
+    Last imported/exported Git HEAD: (absent)
     [EOF]
     ");
 
@@ -210,7 +210,7 @@ fn test_git_colocation_enable_external_git_repo() {
     let output = work_dir.run_jj(["git", "colocation", "status"]);
     insta::assert_snapshot!(output, @"
     Workspace is currently not colocated with Git.
-    Last imported/exported Git HEAD: (none)
+    Last imported/exported Git HEAD: (absent)
     [EOF]
     ------- stderr -------
     Hint: Colocation cannot be enabled because the workspace is backed by an external Git repository.
@@ -276,7 +276,7 @@ fn test_git_colocation_disable_success() {
     // Verify that Git HEAD was removed correctly
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently not colocated with Git.
-    Last imported/exported Git HEAD: (none)
+    Last imported/exported Git HEAD: (absent)
     [EOF]
     ");
 
@@ -302,7 +302,7 @@ fn test_git_colocation_disable_empty() {
     // Verify that Git HEAD is unset
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently colocated with Git.
-    Last imported/exported Git HEAD: (none)
+    Last imported/exported Git HEAD: (absent)
     [EOF]
     ");
 
@@ -357,7 +357,7 @@ fn test_git_colocation_status_non_colocated() {
     let output = work_dir.run_jj(["git", "colocation", "status"]);
     insta::assert_snapshot!(output, @"
     Workspace is currently not colocated with Git.
-    Last imported/exported Git HEAD: (none)
+    Last imported/exported Git HEAD: (absent)
     [EOF]
     ------- stderr -------
     Hint: To enable colocation, run: `jj git colocation enable`
@@ -379,7 +379,7 @@ fn test_git_colocation_status_colocated() {
     let output = work_dir.run_jj(["git", "colocation", "status"]);
     insta::assert_snapshot!(output, @"
     Workspace is currently colocated with Git.
-    Last imported/exported Git HEAD: (none)
+    Last imported/exported Git HEAD: (absent)
     [EOF]
     ------- stderr -------
     Hint: To disable colocation, run: `jj git colocation disable`

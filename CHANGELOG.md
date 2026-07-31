@@ -19,6 +19,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj bisect` will now mention when it cannot unambiguously find the first bad
   revision due to skips in evaluation.
 
+* Git HEAD state is now tracked per worktree internally. This prepares
+  colocated repositories for support of multiple Git worktrees, where each
+  jj workspace can have its own Git HEAD. Existing repositories are migrated
+  automatically.
+
 ### Fixed bugs
 
 * A side of a conflict whose contents end with a carriage return no longer loses
