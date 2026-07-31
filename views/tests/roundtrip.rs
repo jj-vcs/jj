@@ -11,6 +11,7 @@
 //! every run.
 
 use std::collections::HashMap;
+use std::fmt::Write as _;
 
 use gix::ObjectId;
 use jj_views::Cache;
@@ -307,6 +308,84 @@ fn append_monorepo_commit(repo: &gix::Repository, parent: &ObjectId, step: usize
         "tree {tree}\nparent {parent}\nauthor Monorepo <mono@example.invalid> 100000000{step} \
          +0000\ncommitter Monorepo <mono@example.invalid> 100000000{step} +0000\n\nmonorepo \
          change {step}\n"
+    );
+    gix::objs::Write::write_buf(&repo.objects, gix::objs::Kind::Commit, raw.as_bytes())
+        .expect("a commit")
+}
+
+/// The other half of the parent rule. When elision collapses one side of a
+/// merge onto the other, the derived commit must lose the duplicate and stop
+/// being a merge. This is the case that makes deduplication necessary at all,
+/// and it is the same rule that must *not* fire on a source commit that already
+/// listed the same parent twice.
+#[test]
+fn a_merge_whose_side_elides_stops_being_a_merge() {
+    let filter = Filter::prefix(PREFIX).expect("a valid prefix");
+    let world = inject(&filter);
+    let head = *world
+        .map
+        .get(&world.upstream.head)
+        .expect("the head was injected");
+
+    // A side branch that only touches a monorepo file, so it elides.
+    let side = append_monorepo_commit(&world.repo, &head, 0);
+    // The merge has to change the filtered path or it elides too and there is
+    // no derived merge left to inspect. Borrowing another injected commit's tree
+    // is the cheapest way to get a different subtree under PREFIX.
+    let elsewhere = world
+        .upstream
+        .commits
+        .iter()
+        .find(|(label, _)| *label == "left")
+        .map(|(_, commit)| world.map.get(commit).expect("it was injected"))
+        .expect("the fixture has a commit labelled left");
+    let merge = append_merge(&world.repo, &[head, side], &tree_of(&world.repo, elsewhere));
+
+    let mut cache = Cache::new();
+    let base = jj_views::derive(&world.repo, &head, &filter, &mut cache)
+        .expect("a derivation")
+        .expect("the injected head has a view");
+    let derived = jj_views::derive(&world.repo, &merge, &filter, &mut cache)
+        .expect("a derivation")
+        .expect("the merge has a view");
+
+    assert_ne!(
+        derived, base,
+        "the merge changes the filtered path, so it must survive as its own commit"
+    );
+    let raw = world
+        .repo
+        .find_object(derived)
+        .expect("the derived merge")
+        .detach()
+        .data;
+    let parents: Vec<ObjectId> = gix::objs::CommitRef::from_bytes(&raw, world.repo.object_hash())
+        .expect("a well formed commit")
+        .parents()
+        .collect();
+    assert_eq!(
+        parents,
+        vec![base],
+        "both sides derive to the same view commit, so the merge must keep one parent"
+    );
+}
+
+fn tree_of(repo: &gix::Repository, commit: &ObjectId) -> ObjectId {
+    let raw = repo.find_object(*commit).expect("a commit").detach().data;
+    gix::objs::CommitRef::from_bytes(&raw, repo.object_hash())
+        .expect("a well formed commit")
+        .tree()
+}
+
+/// A merge commit over `parents` with the given `tree`.
+fn append_merge(repo: &gix::Repository, parents: &[ObjectId], tree: &ObjectId) -> ObjectId {
+    let mut raw = format!("tree {tree}\n");
+    for parent in parents {
+        writeln!(raw, "parent {parent}").expect("writing to a String cannot fail");
+    }
+    raw.push_str(
+        "author Monorepo <mono@example.invalid> 1000000100 +0000\ncommitter Monorepo \
+         <mono@example.invalid> 1000000100 +0000\n\na merge\n",
     );
     gix::objs::Write::write_buf(&repo.objects, gix::objs::Kind::Commit, raw.as_bytes())
         .expect("a commit")
