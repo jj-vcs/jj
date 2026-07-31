@@ -470,7 +470,7 @@ fn a_merge_whose_side_elides_stops_being_a_merge() {
         .find(|(label, _)| *label == "left")
         .map(|(_, commit)| world.map.get(commit).expect("it was injected"))
         .expect("the fixture has a commit labeled left");
-    let merge = append_merge(&world.repo, &[head, side], &tree_of(&world.repo, elsewhere));
+    let merge = append_commit(&world.repo, &[head, side], &tree_of(&world.repo, elsewhere));
 
     let mut cache = Cache::new();
     let base = jj_views::derive(&world.repo, &head, &filter, &mut cache)
@@ -501,6 +501,21 @@ fn a_merge_whose_side_elides_stops_being_a_merge() {
     );
 }
 
+/// The tree of the injected form of the fixture commit with this label.
+fn injected_tree(world: &Injected, label: &str) -> ObjectId {
+    let upstream = world
+        .upstream
+        .commits
+        .iter()
+        .find(|(candidate, _)| *candidate == label)
+        .map(|(_, commit)| commit)
+        .expect("the fixture has this commit");
+    tree_of(
+        &world.repo,
+        world.map.get(upstream).expect("it was injected"),
+    )
+}
+
 fn tree_of(repo: &gix::Repository, commit: &ObjectId) -> ObjectId {
     let raw = repo.find_object(*commit).expect("a commit").detach().data;
     gix::objs::CommitRef::from_bytes(&raw, repo.object_hash())
@@ -508,8 +523,8 @@ fn tree_of(repo: &gix::Repository, commit: &ObjectId) -> ObjectId {
         .tree()
 }
 
-/// A merge commit over `parents` with the given `tree`.
-fn append_merge(repo: &gix::Repository, parents: &[ObjectId], tree: &ObjectId) -> ObjectId {
+/// A commit over `parents` with the given `tree`.
+fn append_commit(repo: &gix::Repository, parents: &[ObjectId], tree: &ObjectId) -> ObjectId {
     let mut raw = format!("tree {tree}\n");
     for parent in parents {
         writeln!(raw, "parent {parent}").expect("writing to a String cannot fail");
@@ -591,4 +606,128 @@ fn unusable_filter_paths_are_refused() {
         "vendor/linux",
         "a josh style spelling should normalize to the same filter"
     );
+}
+
+/// A version number nobody checks is decoration. This pins the exact object id
+/// each policy derives to, so any change to a hash affecting rule fails here
+/// and names the version that has to be bumped rather than silently producing a
+/// different history from the same input.
+///
+/// The scenario has to contain something each policy treats differently, or the
+/// test pins nothing about the policies. So it is the fixture injected, then a
+/// monorepo commit that touches nothing under the prefix, then a merge whose
+/// filtered tree equals its first parent's. The three specs must therefore give
+/// three DIFFERENT hashes, and that is asserted too.
+///
+/// If you are here because this test failed: do not update the constants. Add a
+/// `Semantics` variant, keep the old one behaving as it did, and add a line.
+#[test]
+fn semantics_v1_output_hashes_are_pinned() {
+    // The fixture's own tip, pinned separately so that a change to the fixture
+    // fails with its own message instead of looking like a rule change.
+    const FIXTURE_HEAD: &str = "4da40074cd503a78762551c225efd95e714a86f7";
+
+    let pinned = [
+        (
+            "semantics=1;prefix=vendor/upstream;elide=unchanged;trivial-merges=drop",
+            "66fd0506342cb5453fa460f045ecff8f0f14698c",
+        ),
+        (
+            "semantics=1;prefix=vendor/upstream;elide=nothing;trivial-merges=drop",
+            "981a00d7560fa5df6bffe2d8dc560dfa65b4c508",
+        ),
+        (
+            "semantics=1;prefix=vendor/upstream;elide=unchanged;trivial-merges=keep",
+            "2bcfd8401aa24a06ecc342de6846161a8c1d3964",
+        ),
+    ];
+
+    let mut actual: Vec<String> = Vec::new();
+    for (spec, _) in &pinned {
+        let filter = Filter::parse(spec).expect("a spec this version can read");
+        assert_eq!(&filter.spec(), spec, "a spec must round trip unchanged");
+        let world = inject(&filter);
+        assert_eq!(
+            format!("{}", world.upstream.head),
+            FIXTURE_HEAD,
+            "the fixture history changed; that is a separate matter from a rule change"
+        );
+
+        let head = *world
+            .map
+            .get(&world.upstream.head)
+            .expect("the head was injected");
+        // Two trees whose vendored subtrees differ, borrowed from injected
+        // commits, so a commit carrying one is a commit the filter must keep.
+        // They have to differ from EACH OTHER as well: if both sides of the merge
+        // below filtered to the same subtree, the elide rule would drop that
+        // merge on its own and mask what the trivial merge policy does.
+        let vendored = injected_tree(&world, "left");
+        let vendored_other = injected_tree(&world, "right");
+
+        // Two monorepo-only commits, which only the elide policy has an opinion
+        // about, with a commit that does touch the vendored path between them so
+        // that dropping them changes what its view is built on.
+        let quiet_one = append_monorepo_commit(&world.repo, &head, 0);
+        let touches = append_commit(&world.repo, &[quiet_one], &vendored);
+        let quiet_two = append_monorepo_commit(&world.repo, &touches, 1);
+        // A second line that also touches the vendored path, so the merge below
+        // keeps two distinct derived parents and the trivial merge rule is
+        // reachable at all.
+        let other_line = append_commit(&world.repo, &[head], &vendored_other);
+        // A merge resolving entirely to its first side under the filter, but not
+        // before it: its tree differs from that side's outside the prefix, so the
+        // "was already trivial" guard does not spare it and the trivial merge
+        // policy decides.
+        let trivial_source = append_monorepo_commit(&world.repo, &quiet_two, 2);
+        let trivial = append_commit(
+            &world.repo,
+            &[quiet_two, other_line],
+            &tree_of(&world.repo, &trivial_source),
+        );
+
+        let mut cache = Cache::new();
+        let derived = jj_views::derive(&world.repo, &trivial, &filter, &mut cache)
+            .expect("a derivation")
+            .expect("the tip has a view");
+        actual.push(format!("{derived}"));
+    }
+
+    let mut distinct = actual.clone();
+    distinct.sort();
+    distinct.dedup();
+    assert_eq!(
+        distinct.len(),
+        actual.len(),
+        "the three policies must produce three different hashes or this test pins nothing about \
+         them: {actual:?}"
+    );
+
+    let expected: Vec<String> = pinned.iter().map(|(_, id)| (*id).to_owned()).collect();
+    assert_eq!(
+        actual, expected,
+        "semantics v1 output hashes changed; add a Semantics variant rather than editing these \
+         constants"
+    );
+}
+
+/// A spec that a newer version wrote must fail loudly rather than being read as
+/// though its unknown rules did not apply.
+#[test]
+fn a_spec_this_version_cannot_read_is_refused() {
+    for spec in [
+        // A semantics version from the future.
+        "semantics=2;prefix=vendor/upstream;elide=unchanged;trivial-merges=drop",
+        // A rule this version does not have.
+        "semantics=1;prefix=vendor/upstream;elide=unchanged;trivial-merges=drop;squash=yes",
+        // A missing field, which would otherwise silently take a default.
+        "semantics=1;prefix=vendor/upstream;elide=unchanged",
+        // A value this version does not know.
+        "semantics=1;prefix=vendor/upstream;elide=sometimes;trivial-merges=drop",
+    ] {
+        assert!(
+            Filter::parse(spec).is_err(),
+            "{spec:?} must be refused, not read with defaults filled in"
+        );
+    }
 }

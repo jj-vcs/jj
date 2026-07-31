@@ -40,6 +40,13 @@ pub mod fixture;
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum Error {
+    /// A filter spec was missing a field, had an unknown field, or named a
+    /// value this version does not know.
+    #[error("filter spec {spec:?} is not one this version can read")]
+    BadSpec {
+        /// The rejected spec.
+        spec: String,
+    },
     /// The filter path was not usable as a prefix.
     #[error("filter path {path:?} must be relative, with no empty or dot components")]
     BadFilterPath {
@@ -89,6 +96,60 @@ pub struct Filter {
     components: Vec<BString>,
     elide: Elide,
     keep_trivial_merges: bool,
+    semantics: Semantics,
+}
+
+/// The version of the hash affecting rules a filter follows.
+///
+/// Every decision that can change an output commit hash is pinned by this
+/// number, and the number is written into the repository next to the filter so
+/// a view records what produced it. Without that, a change to any rule silently
+/// produces a different history from the same input, and the only symptom is
+/// that hashes stop matching a view somebody already has.
+///
+/// This is not hypothetical. josh has broken its own output hashes at least
+/// twice and its compatibility flags are the fossils: `gpgsig="norm-lf"` exists
+/// only to reproduce histories from a josh that normalized CRLF inside
+/// `gpgsig`, and `history="keep-trivial-merges"` was the default before it
+/// became opt in. rust-lang generated commits with a josh that stripped
+/// signatures and had to force push the entire history of rustc-dev-guide to
+/// recover, and their README now pins an exact josh tag with the reason written
+/// down.
+///
+/// Adding a rule, or changing one, means adding a variant here. Old variants
+/// keep their old behavior forever; that is the entire point of them.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash)]
+#[non_exhaustive]
+pub enum Semantics {
+    /// The initial rules.
+    ///
+    /// 1. Only the `tree` and `parent` lines of a commit object are rewritten.
+    ///    Every other byte, including `author`, `committer`, `encoding`,
+    ///    `gpgsig`, `mergetag`, any unknown extra header, their relative order,
+    ///    and the message, is copied through untouched.
+    /// 2. A path absent from a commit's tree filters to the empty tree, so a
+    ///    commit that deletes the filtered directory appears in the view as a
+    ///    commit that empties it.
+    /// 3. Derived parents keep duplicates the source commit already had, and
+    ///    drop only duplicates the filter itself introduced by collapsing two
+    ///    distinct parents onto one view commit.
+    /// 4. Elision follows the filter's [`Elide`] policy.
+    /// 5. Trivial merges follow the filter's trivial merge policy, and a merge
+    ///    that was already trivial before filtering is never dropped.
+    /// 6. Tree entries are ordered by git's rule, with a directory name
+    ///    compared as though it ended in a slash.
+    #[default]
+    V1,
+}
+
+impl Semantics {
+    /// The number as it appears in a filter spec.
+    #[must_use]
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::V1 => "1",
+        }
+    }
 }
 
 /// What to do with a commit whose filtered tree is unchanged from its parent's.
@@ -135,10 +196,16 @@ impl Filter {
             .map(|part| BString::from(part.as_bytes()))
             .collect();
         // An empty component comes from a doubled slash, and a dot component
-        // would make it ambiguous which tree entry the filter names.
-        let usable = components
-            .iter()
-            .all(|part| !matches!(part.as_slice(), b"" | b"." | b".."));
+        // would make it ambiguous which tree entry the filter names. A `;` or a
+        // control byte is refused so that a filter spec, which separates its
+        // fields with `;`, can be parsed back without an escaping scheme. git
+        // permits both in a path; no vendoring mount point needs them.
+        let usable = components.iter().all(|part| {
+            !matches!(part.as_slice(), b"" | b"." | b"..")
+                && !part
+                    .iter()
+                    .any(|byte| *byte == b';' || byte.is_ascii_control())
+        });
         if !usable {
             return Err(Error::BadFilterPath {
                 path: path.to_owned(),
@@ -148,6 +215,7 @@ impl Filter {
             components,
             elide: Elide::Unchanged,
             keep_trivial_merges: false,
+            semantics: Semantics::default(),
         })
     }
 
@@ -174,6 +242,85 @@ impl Filter {
     pub fn keep_trivial_merges(mut self, keep: bool) -> Self {
         self.keep_trivial_merges = keep;
         self
+    }
+
+    /// Sets the semantics version.
+    ///
+    /// Only needed to reproduce a view built by an older version of this crate.
+    #[must_use]
+    pub fn semantics(mut self, semantics: Semantics) -> Self {
+        self.semantics = semantics;
+        self
+    }
+
+    /// The canonical spec string, which is what gets written into a repository
+    /// beside the view so it records the rules that produced it.
+    ///
+    /// Round trips through [`parse`](Self::parse).
+    #[must_use]
+    pub fn spec(&self) -> String {
+        let elide = match self.elide {
+            Elide::Nothing => "nothing",
+            Elide::Unchanged => "unchanged",
+            Elide::UnchangedIncludingAlreadyEmpty => "including-already-empty",
+        };
+        let merges = if self.keep_trivial_merges {
+            "keep"
+        } else {
+            "drop"
+        };
+        format!(
+            "semantics={};prefix={};elide={elide};trivial-merges={merges}",
+            self.semantics.as_str(),
+            self.path()
+        )
+    }
+
+    /// Reads a filter back from its [`spec`](Self::spec).
+    ///
+    /// Every field is required and unknown fields are refused, so a spec
+    /// written by a newer version fails loudly here rather than being read
+    /// as though the missing rules did not exist.
+    pub fn parse(spec: &str) -> Result<Self, Error> {
+        let bad = || Error::BadSpec {
+            spec: spec.to_owned(),
+        };
+        let mut semantics = None;
+        let mut prefix = None;
+        let mut elide = None;
+        let mut merges = None;
+        for field in spec.split(';') {
+            let (key, value) = field.split_once('=').ok_or_else(bad)?;
+            match key {
+                "semantics" => {
+                    semantics = Some(match value {
+                        "1" => Semantics::V1,
+                        _ => return Err(bad()),
+                    });
+                }
+                "prefix" => prefix = Some(value),
+                "elide" => {
+                    elide = Some(match value {
+                        "nothing" => Elide::Nothing,
+                        "unchanged" => Elide::Unchanged,
+                        "including-already-empty" => Elide::UnchangedIncludingAlreadyEmpty,
+                        _ => return Err(bad()),
+                    });
+                }
+                "trivial-merges" => {
+                    merges = Some(match value {
+                        "keep" => true,
+                        "drop" => false,
+                        _ => return Err(bad()),
+                    });
+                }
+                _ => return Err(bad()),
+            }
+        }
+        Ok(Self::prefix(prefix.ok_or_else(bad)?)?
+            .semantics(semantics.ok_or_else(bad)?)
+            .elide(elide.ok_or_else(bad)?)
+            .keep_trivial_merges(merges.ok_or_else(bad)?))
     }
 
     /// The path this filter keeps, as `a/b/c`.
