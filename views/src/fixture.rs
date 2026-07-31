@@ -5,9 +5,17 @@
 //! reaches no network, it produces the same object ids on every run and every
 //! platform, and it contains the shapes that a naive rewrite gets wrong. The
 //! commits are assembled byte by byte rather than through git plumbing, because
-//! some of the interesting cases cannot be produced by the git CLI at all: an
-//! `encoding` header placed after `gpgsig`, and a timezone offset outside the
-//! range a normalizing serializer can reproduce.
+//! ordinary git commands will not produce some of the interesting cases: git
+//! appends `gpgsig` last, so it never writes `encoding` after it, and it will
+//! not author a timezone offset that a normalizing serializer cannot reproduce.
+//!
+//! `git fsck --strict` accepts every commit here except one, which deliberately
+//! carries an offset git reports as `badTimezone`. That check exists because
+//! such commits are in the wild, and a filter that must preserve hashes has to
+//! carry them through rather than quietly repair them. The `fixture_repo`
+//! example writes this history into a real repository so git can be pointed at
+//! it, which is how its hand folded headers and its tree entry ordering were
+//! checked against the real implementation rather than only against gix.
 //!
 //! What it covers, one commit each unless noted: a root commit, a non-ASCII
 //! author and message, an `encoding` header with a non-UTF-8 message body, a
