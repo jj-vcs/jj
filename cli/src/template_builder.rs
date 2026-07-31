@@ -143,24 +143,25 @@ macro_rules! impl_property_wrappers {
 macro_rules! _impl_property_wrappers_many {
     // lifetime/type parameters are packed in order to disable zipping.
     // https://github.com/rust-lang/rust/issues/96184#issuecomment-1294999418
-    ($ps:tt, $a:lifetime, $kind:path, { $( $var:ident($ty:ty), )* }) => {
+    ($ps:tt, $a:lifetime, $kind:path, { $( $(#[$attr:meta])* $var:ident($ty:ty), )* }) => {
         $(
             $crate::template_builder::_impl_property_wrappers_one!(
-                $ps, $a, $kind, $var, $ty, std::convert::identity);
+                $ps, $a, $kind, [$(#[$attr])*], $var, $ty, std::convert::identity);
         )*
     };
     // variant part in body is ignored so the same body can be reused for
     // implementing forwarding conversion.
-    ($ps:tt, $a:lifetime, $kind:path => $var:ident, { $( $ignored_var:ident($ty:ty), )* }) => {
+    ($ps:tt, $a:lifetime, $kind:path => $var:ident, { $( $(#[$attr:meta])* $ignored_var:ident($ty:ty), )* }) => {
         $(
             $crate::template_builder::_impl_property_wrappers_one!(
-                $ps, $a, $kind, $var, $ty, $crate::templater::WrapTemplateProperty::wrap_property);
+                $ps, $a, $kind, [$(#[$attr])*], $var, $ty, $crate::templater::WrapTemplateProperty::wrap_property);
         )*
     };
 }
 
 macro_rules! _impl_property_wrappers_one {
-    ([$($p:tt)*], $a:lifetime, $kind:path, $var:ident, $ty:ty, $inner:path) => {
+    ([$($p:tt)*], $a:lifetime, $kind:path, [$(#[$attr:meta])*], $var:ident, $ty:ty, $inner:path) => {
+        $(#[$attr])*
         impl<$($p)*> $crate::templater::WrapTemplateProperty<$a, $ty> for $kind {
             fn wrap_property(property: $crate::templater::BoxedTemplateProperty<$a, $ty>) -> Self {
                 Self::$var($inner(property))
