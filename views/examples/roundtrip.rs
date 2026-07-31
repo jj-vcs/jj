@@ -119,7 +119,84 @@ fn main() -> Result<(), Failure> {
         derive_cache.commit_entries()
     );
 
+    // The production cost is not the cold filter, it is what a fetch costs
+    // afterwards. Add commits on top and re-derive with the cache still warm.
+    incremental(&parent, &injected, &order, &filter, &mut derive_cache)?;
+
     report(&parent, &order, &injected, &filter, &derive_cache)
+}
+
+/// Times a re-derivation after new commits land, with the cache warm.
+///
+/// This is the number that decides whether a view is usable day to day: a fetch
+/// adds a handful of commits and the derivation has to cost something
+/// proportional to those, not to the size of history.
+fn incremental(
+    parent: &gix::Repository,
+    injected: &HashMap<ObjectId, ObjectId>,
+    order: &[ObjectId],
+    filter: &Filter,
+    cache: &mut Cache,
+) -> Result<(), Failure> {
+    const NEW: usize = 10;
+
+    let Some(tip) = order.last().and_then(|last| injected.get(last)) else {
+        return Ok(());
+    };
+    let mut head = *tip;
+    for step in 0..NEW {
+        head = append_monorepo_commit(parent, &head, step)?;
+    }
+
+    let reads_before = cache.tree_reads();
+    let started = std::time::Instant::now();
+    jj_views::derive(parent, &head, filter, cache)?;
+    println!(
+        "\nincremental: {NEW} new commits re-derived in {:.4}s, {} tree reads",
+        started.elapsed().as_secs_f64(),
+        cache.tree_reads() - reads_before
+    );
+    Ok(())
+}
+
+/// A commit on top of `parent_commit` that rewrites one monorepo file and
+/// nothing under the filtered path.
+fn append_monorepo_commit(
+    repo: &gix::Repository,
+    parent_commit: &ObjectId,
+    step: usize,
+) -> Result<ObjectId, Failure> {
+    let raw = repo.find_object(*parent_commit)?.detach().data;
+    let base = gix::objs::CommitRef::from_bytes(&raw, repo.object_hash())?.tree();
+    let blob = repo
+        .write_blob(format!("monorepo revision {step}\n").as_bytes())?
+        .detach();
+
+    let tree_raw = repo.find_object(base)?.detach().data;
+    let decoded = gix::objs::TreeRef::from_bytes(&tree_raw, repo.object_hash())?;
+    let mut entries: Vec<gix::objs::tree::Entry> = decoded
+        .entries
+        .iter()
+        .map(|entry| gix::objs::tree::Entry {
+            mode: entry.mode,
+            filename: entry.filename.to_owned(),
+            oid: entry.oid.to_owned(),
+        })
+        .collect();
+    for entry in &mut entries {
+        if entry.filename == "README" {
+            entry.oid = blob;
+        }
+    }
+    entries.sort();
+    let tree = repo.write_object(&gix::objs::Tree { entries })?.detach();
+
+    let raw = format!(
+        "tree {tree}\nparent {parent_commit}\nauthor Monorepo <mono@example.invalid> \
+         100000000{step} +0000\ncommitter Monorepo <mono@example.invalid> 100000000{step} \
+         +0000\n\nmonorepo change {step}\n"
+    );
+    gix::objs::Write::write_buf(&repo.objects, gix::objs::Kind::Commit, raw.as_bytes())
 }
 
 /// Compares every derived commit against the upstream commit it came from and
