@@ -100,7 +100,8 @@ async fn cmd_git_colocation_status(
     workspace_supports_git_colocation_commands(&workspace_command)?;
 
     let is_colocated = is_colocated_git_workspace(workspace_command.workspace());
-    let git_head = workspace_command.repo().view().git_head();
+    let workspace_name = workspace_command.workspace_name();
+    let git_head = workspace_command.repo().view().git_head(workspace_name);
 
     if is_colocated {
         writeln!(ui.stdout(), "Workspace is currently colocated with Git.")?;
@@ -323,8 +324,9 @@ async fn set_git_head_to_wc_parent(
     workspace_command: &mut WorkspaceCommandHelper,
     wc_commit: &Commit,
 ) -> Result<(), CommandError> {
+    let workspace_name = workspace_command.workspace_name().to_owned();
     let mut tx = workspace_command.start_transaction();
-    git::reset_head(tx.repo_mut(), wc_commit).await?;
+    git::reset_head(tx.repo_mut(), &workspace_name, wc_commit).await?;
     if tx.repo().has_changes() {
         tx.finish(ui, "set git head to working copy parent").await?;
     }
@@ -336,8 +338,10 @@ async fn remove_git_head(
     ui: &mut Ui,
     workspace_command: &mut WorkspaceCommandHelper,
 ) -> Result<(), CommandError> {
+    let workspace_name = workspace_command.workspace_name().to_owned();
     let mut tx = workspace_command.start_transaction();
-    tx.repo_mut().set_git_head_target(RefTarget::absent());
+    tx.repo_mut()
+        .set_git_head_target(&workspace_name, RefTarget::absent());
     if tx.repo().has_changes() {
         tx.finish(ui, "remove git head reference").await?;
     }
