@@ -2996,6 +2996,9 @@ including capture group 0 for the full match.</p>
 <li><code>json(value: Serialize) -&gt; String</code>: Serialize <code>value</code> in JSON format.</li>
 <li><code>if(condition: Boolean, then: Any, [else: Any]) -&gt; Any</code>:
   Conditionally evaluates to <code>then</code> / <code>else</code> content.</li>
+<li><code>try(expr: Any, fallback: Any...) -&gt; Any</code>: Evaluates each expression in order
+  and returns the first successful result. Suppresses preceding runtime errors,
+  but lets parsing errors (such as type errors) pass through.</li>
 <li><code>coalesce(content: Template...) -&gt; Template</code>: Returns the first <strong>non-empty</strong>
   content.</li>
 <li><code>concat(content: Template...) -&gt; Template</code>:
@@ -3659,6 +3662,9 @@ as a table with <code>.doc</code> and <code>.definition</code> properties. For e
 </code></pre></div>
 <p>Print the description of the current commit, defaulting to <code>(no description set)</code>:</p>
 <div class="highlight"><pre><span></span><code>jj<span class="w"> </span>log<span class="w"> </span>-G<span class="w"> </span>-r<span class="w"> </span>@<span class="w"> </span>-T<span class="w"> </span><span class="s1">&#39;coalesce(description, &quot;(no description set)\n&quot;)&#39;</span>
+</code></pre></div>
+<p>For each revision, print the name of its first bookmark or change ID:</p>
+<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>log<span class="w"> </span>-T<span class="w"> </span><span class="s1">&#39;try(bookmarks.first().name(), change_id.shortest(8)) ++ &quot;\n&quot;&#39;</span>
 </code></pre></div>
 
 
