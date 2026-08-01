@@ -2082,3 +2082,100 @@ fn test_run_multi_commit_partial_diff() {
         .to_string();
     assert_eq!(log_commit_a_before, log_commit_a_after);
 }
+
+#[test]
+fn test_run_sparse() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("a", "");
+    work_dir.run_jj(&["commit", "-m", "A"]).success();
+    work_dir.write_file("b", "");
+    work_dir.run_jj(&["commit", "-m", "B"]).success();
+    work_dir.write_file("c", "");
+    work_dir.run_jj(&["commit", "-m", "C"]).success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  zsuskulnrvyrovkzqrwmxqlsskqntxvp
+    ○  kkmpptxzrspxrzommnulwmwkkqwworplC
+    │
+    ○  rlvkpnrzqnoowoytxnquwvuryrwnrmlpB
+    │
+    ○  qpvuntsmwlqtpsluzzsnyyzlmlwvmlnuA
+    │
+    ◆  zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+    [EOF]
+    ");
+    let stdout = work_dir
+        .run_jj(&["run", "-r", "..@", "--", "ls"])
+        .success()
+        .stdout;
+    insta::assert_snapshot!(stdout, @r"
+        a
+        a
+        b
+        a
+        b
+        c
+        a
+        b
+        c
+        [EOF]
+        ");
+
+    work_dir
+        .run_jj(&["sparse", "set", "--clear", "--add", "a", "--add", "b"])
+        .success();
+
+    let stdout = work_dir
+        .run_jj(&["run", "-r", "..@", "--", "ls"])
+        .success()
+        .stdout;
+    insta::assert_snapshot!(stdout, @r"
+        a
+        a
+        b
+        a
+        b
+        a
+        b
+        [EOF]
+        ");
+
+    let stdout = work_dir
+        .run_jj(&["run", "-r", "..@", "--sparse-patterns", "copy", "--", "ls"])
+        .success()
+        .stdout;
+    insta::assert_snapshot!(stdout, @r"
+        a
+        a
+        b
+        a
+        b
+        a
+        b
+        [EOF]
+        ");
+
+    let stdout = work_dir
+        .run_jj(&["run", "-r", "..@", "--sparse-patterns", "empty", "--", "ls"])
+        .success()
+        .stdout;
+    insta::assert_snapshot!(stdout, @"");
+
+    let stdout = work_dir
+        .run_jj(&["run", "-r", "..@", "--sparse-patterns", "full", "--", "ls"])
+        .success()
+        .stdout;
+    insta::assert_snapshot!(stdout, @r"
+        a
+        a
+        b
+        a
+        b
+        c
+        a
+        b
+        c
+        [EOF]
+        ");
+}
