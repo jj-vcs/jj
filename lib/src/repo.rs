@@ -1041,7 +1041,7 @@ impl MutableRepo {
     }
 
     #[expect(clippy::type_complexity)]
-    pub(crate) fn consume(
+    pub fn consume(
         mut self,
     ) -> IndexResult<(
         Box<dyn MutableIndex>,
