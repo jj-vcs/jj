@@ -88,6 +88,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   take a second (positional or named) argument `max_bar_width` for an equivalent
   effect.
 
+* `jj absorb` now supports `--interactive`/`-i`/`--tool` to let you
+  interactively choose which hunks from the source to consider for absorption.
+  This is useful when you only want to absorb *part* of a commit without first
+  splitting it. Any hunks that are not selected or cannot be absorbed remain in
+  the source commit.
+
 ### Fixed bugs
 
 * Recursive alias definitions are detected more precisely. jj can now expand
@@ -148,15 +154,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Deprecations
 
 ### New features
-
-* `jj absorb` now supports `--interactive`/`-i` to let you interactively choose
-  which hunks from the source to consider for absorption. This is useful when
-  you only want to absorb *part* of a commit without first splitting it. Any
-  hunks that are not selected or cannot be absorbed remain in the source commit.
-
-* `jj absorb` now supports the `--tool` option to choose a specific diff editor
-  for use with `--interactive` / `-i` (consistent with `squash --tool`,
-  `split --tool`, etc.).
 
 * `jj show` now supports `--reversed` flag.
 
