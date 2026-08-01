@@ -394,7 +394,10 @@ fn test_bisect_run_skip() -> TestResult {
 
     Search complete. To discard any revisions created during search, run:
       jj op restore 07d6c9360663
-    The first bad revision is: zsuskuln 123b4d91 b | b
+    The first bad revisions are:
+    zsuskuln 123b4d91 b | b
+    These revisions may also be bad, but couldn't be evaluated:
+    rlvkpnrz 7d980be7 a | a
     [EOF]
     ------- stderr -------
     Working copy  (@) now at: royxmykx 2144134b (empty) (no description set)

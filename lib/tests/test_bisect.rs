@@ -145,9 +145,31 @@ fn test_bisect_linear() {
         (commit4.id(), Evaluation::Bad),
     ];
     let result = test_bisection(tx.repo(), &input_range, expected_tests);
-    // TODO: Indicate in the result that we're unsure if commit4 was the first bad
-    // commit because the commit before it in the set was skipped.
-    assert_eq!(result, BisectionResult::Found(vec![commit4.clone()]));
+    assert_eq!(
+        result,
+        BisectionResult::FoundDespiteSkips {
+            bad_commits: vec![commit4.clone()],
+            possibly_bad: vec![commit3.clone()]
+        }
+    );
+
+    // commit2 is the first bad commit; its parent and child commits were skipped
+    // * commit1 is a possibly_bad commit: it's between a bad and a good commit
+    // * commit3 is NOT a possibly_bad commit: it's implicitly bad due to commit2
+    let expected_tests = [
+        (commit3.id(), Evaluation::Skip),
+        (commit2.id(), Evaluation::Bad),
+        (root_commit.id(), Evaluation::Good),
+        (commit1.id(), Evaluation::Skip),
+    ];
+    let result = test_bisection(tx.repo(), &input_range, expected_tests);
+    assert_eq!(
+        result,
+        BisectionResult::FoundDespiteSkips {
+            bad_commits: vec![commit2.clone()],
+            possibly_bad: vec![commit1.clone()]
+        }
+    );
 
     // Commit 7 is the first bad commit but commits before 6 were skipped
     // TODO: Avoid testing every commit near first skipped commit. Test e.g. commit

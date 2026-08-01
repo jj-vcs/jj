@@ -15,6 +15,7 @@
 //! Bisect a range of commits.
 
 use std::collections::HashSet;
+use std::collections::VecDeque;
 use std::pin::pin;
 use std::sync::Arc;
 
@@ -87,6 +88,14 @@ pub enum BisectionResult {
     /// Found the first bad commit(s). It should be exactly one unless the input
     /// range had multiple disjoint heads.
     Found(Vec<Commit>),
+    /// The bisection frontier is blurred by the presence of skipped commits
+    FoundDespiteSkips {
+        /// The first commit(s) that did evaluate as bad
+        bad_commits: Vec<Commit>,
+        /// Skipped commits sandwiched between good and bad commits
+        /// Are they good or bad? We couldn't tell.
+        possibly_bad: Vec<Commit>,
+    },
     /// Could not determine the first bad commit because it was in a
     /// skipped range.
     Indeterminate,
@@ -233,7 +242,25 @@ impl<'repo> Bisector<'repo> {
             if bad_commits.is_empty() {
                 Ok(NextStep::Done(BisectionResult::Indeterminate))
             } else {
-                Ok(NextStep::Done(BisectionResult::Found(bad_commits)))
+                // were any commits skipped that could also be bad?
+                let mut todo: VecDeque<Commit> = VecDeque::from(bad_commits.clone());
+                let mut possibly_bad: Vec<Commit> = Vec::new();
+                while let Some(commit) = todo.pop_front() {
+                    for parent in commit.parents().await? {
+                        if self.skipped_commits.contains(parent.id()) {
+                            possibly_bad.push(parent.clone());
+                            todo.push_back(parent);
+                        }
+                    }
+                }
+                if possibly_bad.is_empty() {
+                    Ok(NextStep::Done(BisectionResult::Found(bad_commits)))
+                } else {
+                    Ok(NextStep::Done(BisectionResult::FoundDespiteSkips {
+                        bad_commits,
+                        possibly_bad,
+                    }))
+                }
             }
         }
     }

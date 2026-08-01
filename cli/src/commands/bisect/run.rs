@@ -232,6 +232,25 @@ pub(crate) async fn cmd_bisect_run(
                 }
             }
         }
+        BisectionResult::FoundDespiteSkips {
+            bad_commits,
+            possibly_bad,
+        } => {
+            let commit_template = workspace_command.commit_summary_template();
+            writeln!(formatter, "The first {target} revisions are:")?;
+            for commit in bad_commits {
+                commit_template.format(&commit, formatter.as_mut())?;
+                writeln!(formatter)?;
+            }
+            writeln!(
+                formatter,
+                "These revisions may also be {target}, but couldn't be evaluated:"
+            )?;
+            for commit in possibly_bad {
+                commit_template.format(&commit, formatter.as_mut())?;
+                writeln!(formatter)?;
+            }
+        }
     }
 
     Ok(())
