@@ -101,6 +101,10 @@ None
   or array of string patterns, or with the repeatable `--remote` flag,
   which also accepts string patterns.
 
+* `jj run` now uses the sparse patterns from the workspace it's run from.
+  Use the `--sparse-patterns` option to control this behavior (evaluated
+  per each `jj run` invocation).
+
 ### Fixed bugs
 
 * [The default `immutable_heads()` set](docs/config.md#set-of-immutable-commits)

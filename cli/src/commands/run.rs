@@ -53,6 +53,7 @@ use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
+use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::working_copy::SnapshotOptions;
 use tokio::runtime::Builder;
 use tokio::sync::mpsc;
@@ -67,6 +68,7 @@ use crate::cli_util::WorkspaceCommandHelper;
 use crate::cli_util::WorkspaceCommandTransaction;
 use crate::command_error::CommandError;
 use crate::command_error::CommandErrorKind;
+use crate::commands::workspace::SparseInheritance;
 use crate::ui::Ui;
 
 #[derive(Debug, thiserror::Error)]
@@ -166,6 +168,9 @@ struct WorkspacePool {
     /// When true, wipe each slot's working copy on acquisition so every commit
     /// starts from a freshly checked-out tree (no artifact reuse).
     clean: bool,
+    /// Sparse patterns that influence what parts of the tree are materialized
+    /// when running the command. If None, whole tree is materialized.
+    sparsity: Option<Vec<RepoPathBuf>>,
 }
 
 impl WorkspacePool {
@@ -174,6 +179,7 @@ impl WorkspacePool {
         size: NonZeroUsize,
         auto_tracking_matcher: Box<dyn Matcher>,
         clean: bool,
+        sparsity: Option<Vec<RepoPathBuf>>,
     ) -> Result<Self, RunError> {
         // The parent() call is needed to not write under `.jj/repo/`.
         let base_path = repo_path.parent().unwrap().join("run").join("default");
@@ -183,6 +189,7 @@ impl WorkspacePool {
             size,
             auto_tracking_matcher,
             clean,
+            sparsity,
         })
     }
 
@@ -256,6 +263,18 @@ impl WorkspacePool {
                 &settings,
             )
         };
+
+        if let Some(sparse_patterns) = &self.sparsity {
+            tree_state
+                .set_sparse_patterns(sparse_patterns.clone())
+                .map_err(|_| RunError::FailedCheckout(commit.id().clone()))?;
+        } else {
+            // Users can specify `--sparse-args full` to materialize whole tree,
+            // without having to clear the run "workspace" first with `--clean`.
+            tree_state
+                .set_sparse_patterns(vec![RepoPathBuf::root()])
+                .map_err(|_| RunError::FailedCheckout(commit.id().clone()))?;
+        }
 
         tree_state
             .check_out(&commit.tree())
@@ -661,6 +680,16 @@ pub struct RunArgs {
     /// `jj run` itself.
     #[arg(long)]
     ignore_errors: bool,
+
+    /// How to handle sparse patterns when running the command. This is
+    /// controlled per `jj run` invocation.
+    ///
+    /// If sparse patterns were inherited in a run and a subsequent run is
+    /// passed `--sparse-args full`, but no `--clean`, then the command will
+    /// run in fully materialized workspace together with all artifacts left
+    /// from the previous run.
+    #[arg(long, value_enum, default_value_t = SparseInheritance::Copy)]
+    sparse_patterns: SparseInheritance,
 }
 
 /// Precedence: `--jobs`, `run.jobs` config, 1.
@@ -754,6 +783,15 @@ pub async fn cmd_run(
     let store = workspace_command.repo().store().clone();
     let auto_tracking_matcher = workspace_command.auto_tracking_matcher(ui)?;
 
+    let sparsity = match args.sparse_patterns {
+        SparseInheritance::Full => None,
+        SparseInheritance::Empty => Some(vec![]),
+        SparseInheritance::Copy => {
+            let sparse_patterns = workspace_command.working_copy().sparse_patterns()?.to_vec();
+            Some(sparse_patterns)
+        }
+    };
+
     let mut tx = workspace_command.start_transaction();
 
     let rt = {
@@ -769,6 +807,7 @@ pub async fn cmd_run(
         jobs,
         auto_tracking_matcher,
         args.clean,
+        sparsity,
     )?);
 
     let spec = Arc::new(CommandSpec {
