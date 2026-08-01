@@ -19,6 +19,10 @@ use itertools::Itertools as _;
 use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::file_util;
 use jj_lib::file_util::IoResultExt as _;
+#[cfg(feature = "git")]
+use jj_lib::git::GitSubprocessOptions;
+#[cfg(feature = "git")]
+use jj_lib::git::create_worktree;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::merge_commit_trees;
@@ -30,6 +34,8 @@ use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
 use crate::command_error::internal_error_with_message;
 use crate::command_error::user_error;
+#[cfg(feature = "git")]
+use crate::commands::git::maybe_add_gitignore;
 use crate::description_util::add_trailers;
 use crate::description_util::join_message_paragraphs;
 use crate::ui::Ui;
@@ -81,6 +87,22 @@ pub struct WorkspaceAddArgs {
     #[arg(long = "message", short, value_name = "MESSAGE")]
     message_paragraphs: Vec<String>,
 
+    /// Create a corresponding Git worktree for this workspace
+    ///
+    /// By default, a Git worktree is created when the current workspace is
+    /// colocated and the [git.colocate config] is `true`.
+    ///
+    /// [git.colocate config]:
+    ///     https://docs.jj-vcs.dev/latest/config/#default-colocation
+    #[cfg(feature = "git")]
+    #[arg(long, conflicts_with = "no_colocate")]
+    colocate: bool,
+
+    /// Do not create a Git worktree for this workspace
+    #[cfg(feature = "git")]
+    #[arg(long, conflicts_with = "colocate")]
+    no_colocate: bool,
+
     /// How to handle sparse patterns when creating a new workspace.
     #[arg(long, value_enum, default_value_t = SparseInheritance::Copy)]
     sparse_patterns: SparseInheritance,
@@ -122,6 +144,24 @@ pub async fn cmd_workspace_add(
         ));
     }
 
+    #[cfg(feature = "git")]
+    {
+        let should_colocate = if args.colocate {
+            true
+        } else if args.no_colocate {
+            false
+        } else {
+            old_workspace_command.working_copy_shared_with_git()
+                && old_workspace_command.settings().get_bool("git.colocate")?
+        };
+        if should_colocate {
+            let subprocess_options =
+                GitSubprocessOptions::from_settings(old_workspace_command.settings())?;
+            create_worktree(repo.store(), subprocess_options, &destination_path)?;
+            writeln!(ui.status(), "Created Git worktree for the new workspace.")?;
+        }
+    }
+
     let working_copy_factory = command.get_working_copy_factory()?;
     let repo_path = old_workspace_command.repo_path();
     // If we add per-workspace configuration, we'll need to reload settings for
@@ -151,6 +191,9 @@ pub async fn cmd_workspace_add(
     }
 
     let mut new_workspace_command = command.for_workable_repo(ui, new_workspace, repo)?;
+    // Keep the colocated Git worktree from tracking Jujutsu's own files.
+    #[cfg(feature = "git")]
+    maybe_add_gitignore(&new_workspace_command)?;
 
     let sparsity = match args.sparse_patterns {
         SparseInheritance::Full => None,

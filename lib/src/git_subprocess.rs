@@ -16,6 +16,7 @@ use std::io;
 use std::io::BufReader;
 use std::io::Read;
 use std::num::NonZeroU32;
+use std::path::Path;
 use std::path::PathBuf;
 use std::process::Child;
 use std::process::Command;
@@ -43,8 +44,9 @@ use crate::ref_name::RemoteName;
 // * 2.29.0 introduced `git fetch --no-write-fetch-head`
 // * 2.40 still receives security patches (latest one was in Jan/2025)
 // * 2.41.0 introduced `git fetch --porcelain`
+// * 2.42.0 introduced `git worktree add --orphan`
 // If bumped, please update ../../docs/install-and-setup.md
-const MINIMUM_GIT_VERSION: &str = "2.41.0";
+const MINIMUM_GIT_VERSION: &str = "2.42.0";
 
 /// Error originating by a Git subprocess
 #[derive(Error, Debug)]
@@ -296,6 +298,44 @@ impl GitSubprocessContext {
 
         parse_git_push_output(output)
     }
+
+    /// Create a Git worktree at `destination` on the unborn branch
+    /// `branch_name`.
+    ///
+    /// `--orphan` is what lets the worktree be created without checking
+    /// anything out, and without requiring the repo to have any commits. It
+    /// insists on naming a branch (it rejects `--detach` and `--no-checkout`),
+    /// but leaves that branch unborn, so the caller can move HEAD off it
+    /// before anyone sees the worktree.
+    pub(crate) fn spawn_worktree_add(
+        &self,
+        destination: &Path,
+        branch_name: &str,
+    ) -> Result<(), GitSubprocessError> {
+        let mut command = self.create_command();
+        command.stdout(Stdio::null());
+        // Use relative paths to match jj's convention for portable
+        // repositories. Silently ignored by git versions that don't support
+        // it.
+        command.args(["-c", "worktree.useRelativePaths=true"]);
+        command.args(["worktree", "add", "--orphan", "-b", branch_name, "--"]);
+        command.arg(destination);
+
+        let output = wait_with_output(self.spawn_cmd(command)?)?;
+
+        parse_git_worktree_output(output)
+    }
+
+    /// Remove the bookkeeping of worktrees whose directories are gone.
+    pub(crate) fn spawn_worktree_prune(&self) -> Result<(), GitSubprocessError> {
+        let mut command = self.create_command();
+        command.stdout(Stdio::null());
+        command.args(["worktree", "prune"]);
+
+        let output = wait_with_output(self.spawn_cmd(command)?)?;
+
+        parse_git_worktree_output(output)
+    }
 }
 
 /// Generate a GitSubprocessError::ExternalGitError if the stderr output was not
@@ -508,6 +548,18 @@ fn parse_git_branch_prune_output(output: Output) -> Result<(), GitSubprocessErro
 
     if parse_no_remote_tracking_branch(&output.stderr).is_some() {
         return Ok(());
+    }
+
+    Err(external_git_error(&output.stderr))
+}
+
+fn parse_git_worktree_output(output: Output) -> Result<(), GitSubprocessError> {
+    if output.status.success() {
+        return Ok(());
+    }
+
+    if let Some(option) = parse_unknown_option(&output.stderr) {
+        return Err(GitSubprocessError::UnsupportedGitOption(option));
     }
 
     Err(external_git_error(&output.stderr))

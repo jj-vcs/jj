@@ -3945,6 +3945,12 @@ By default, the new workspace inherits the sparse patterns of the current worksp
 
    If any revisions are specified, the new workspace will be created, and the new working-copy commit will be created with all these revisions as parents, i.e. the working-copy commit will exist as if you had run `jj new r1 r2 r3 ...`.
 * `-m`, `--message <MESSAGE>` — The change description to use
+* `--colocate` — Create a corresponding Git worktree for this workspace
+
+   By default, a Git worktree is created when the current workspace is colocated and the [git.colocate config] is `true`.
+
+   [git.colocate config]: https://docs.jj-vcs.dev/latest/config/#default-colocation
+* `--no-colocate` — Do not create a Git worktree for this workspace
 * `--sparse-patterns <SPARSE_PATTERNS>` — How to handle sparse patterns when creating a new workspace
 
   Default value: `copy`
