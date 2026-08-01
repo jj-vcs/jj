@@ -20,6 +20,7 @@ use std::io::Write as _;
 use std::iter;
 use std::mem;
 use std::path::Path;
+use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -40,11 +41,13 @@ use jj_lib::git::GitRefKind;
 use jj_lib::git::GitSettings;
 use jj_lib::git::GitSidebandLineTerminator;
 use jj_lib::git::GitSubprocessCallback;
+use jj_lib::git::GitSubprocessOptions;
 use jj_lib::git_backend::GitRepoAtWorkdirError;
 use jj_lib::op_store::RemoteRefState;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::settings::RemoteSettingsMap;
+use jj_lib::store::Store;
 use jj_lib::workspace::Workspace;
 use unicode_width::UnicodeWidthStr as _;
 
@@ -53,6 +56,7 @@ use crate::cli_util::WorkspaceCommandTransaction;
 use crate::cli_util::print_updated_commits;
 use crate::command_error::CommandError;
 use crate::command_error::cli_error;
+use crate::command_error::print_error_sources;
 use crate::command_error::user_error;
 use crate::formatter::Formatter;
 use crate::formatter::FormatterExt as _;
@@ -555,6 +559,36 @@ pub fn print_push_stats(ui: &Ui, stats: &GitPushStats) -> io::Result<()> {
                 write!(formatter, ": {err}")?;
             }
             writeln!(formatter)?;
+        }
+    }
+    Ok(())
+}
+
+/// Disconnects the Git worktree backing a jj workspace, if there is one.
+///
+/// The workspace has already been forgotten by the time this runs, and a
+/// leftover gitlink or stale worktree metadata isn't worth failing the command
+/// over, so errors are reported as warnings.
+pub fn unlink_git_worktree(
+    ui: &Ui,
+    store: &Arc<Store>,
+    subprocess_options: GitSubprocessOptions,
+    worktree_path: &Path,
+) -> Result<(), CommandError> {
+    match git::unlink_worktree(store, subprocess_options, worktree_path) {
+        Ok(false) => {}
+        Ok(true) => writeln!(
+            ui.status(),
+            r#"Removed Git worktree for "{}"."#,
+            worktree_path.display()
+        )?,
+        Err(err) => {
+            writeln!(
+                ui.warning_default(),
+                r#"Failed to remove Git worktree for "{}"."#,
+                worktree_path.display()
+            )?;
+            print_error_sources(ui, Some(&err))?;
         }
     }
     Ok(())

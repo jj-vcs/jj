@@ -12,9 +12,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* The minimum supported `git` command version is now 2.42.0, up from 2.41.0.
+  `jj workspace add` uses `git worktree add --orphan`, which was added in
+  2.42.0.
+
 ### Deprecations
 
 ### New features
+
+* `jj workspace add` supports `--colocate`/`--no-colocate` flags to control
+  whether a Git worktree is created alongside the workspace. The default
+  colocates when the current workspace is colocated and the `git.colocate`
+  config is `true`. `jj workspace forget` removes the corresponding Git
+  worktree when one exists.
 
 ### Fixed bugs
 

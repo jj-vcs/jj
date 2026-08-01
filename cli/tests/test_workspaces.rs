@@ -2101,6 +2101,297 @@ fn test_workspaces_rename_workspace_from_before_workspace_store() {
     ");
 }
 
+#[test]
+fn test_workspaces_add_forget_colocated() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = true");
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "main"])
+        .success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    // `--no-colocate` overrides the colocated default.
+    let output = main_dir.run_jj(["workspace", "add", "--no-colocate", "../flag-off"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Created workspace in "../flag-off"
+    Working copy  (@) now at: pmmvwywv 058f604d (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 7b22a8cb initial
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+    assert!(!test_env.env_root().join("flag-off/.git").exists());
+
+    // So does `git.colocate = false`, even though the main workspace is
+    // colocated.
+    let output = main_dir.run_jj([
+        "workspace",
+        "add",
+        "--config=git.colocate=false",
+        "../config-off",
+    ]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Created workspace in "../config-off"
+    Working copy  (@) now at: rzvqmyuk bcc858e1 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 7b22a8cb initial
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+    assert!(!test_env.env_root().join("config-off/.git").exists());
+
+    // ...but `--colocate` overrides that in turn.
+    let output = main_dir.run_jj([
+        "workspace",
+        "add",
+        "--config=git.colocate=false",
+        "--colocate",
+        "../flag-on",
+    ]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Created Git worktree for the new workspace.
+    Created workspace in "../flag-on"
+    Working copy  (@) now at: zxsnswpr 1c1effec (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 7b22a8cb initial
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+    assert!(test_env.env_root().join("flag-on/.git").is_file());
+
+    // With neither flag, a colocated main workspace and `git.colocate = true`
+    // create a worktree.
+    let output = main_dir.run_jj(["workspace", "add", "../secondary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Created Git worktree for the new workspace.
+    Created workspace in "../secondary"
+    Working copy  (@) now at: nppvrztz 0bfa7004 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 7b22a8cb initial
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+    assert!(test_env.env_root().join("secondary/.git").is_file());
+
+    // The new workspace's .jj directory must be excluded, or Git would report
+    // it as untracked in the worktree.
+    assert!(
+        test_env
+            .env_root()
+            .join("secondary/.jj/.gitignore")
+            .is_file()
+    );
+    let secondary_repo = git::open(test_env.env_root().join("secondary"));
+    insta::assert_debug_snapshot!(git::status(&secondary_repo), @r#"
+    [
+        GitStatus {
+            path: ".jj/.gitignore",
+            status: Worktree(
+                Ignored,
+            ),
+        },
+        GitStatus {
+            path: ".jj/repo",
+            status: Worktree(
+                Ignored,
+            ),
+        },
+        GitStatus {
+            path: ".jj/working_copy",
+            status: Worktree(
+                Ignored,
+            ),
+        },
+    ]
+    "#);
+
+    // Forgetting the workspace disconnects the worktree, but leaves the
+    // directory contents in place.
+    let output = main_dir.run_jj(["workspace", "forget", "secondary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Removed Git worktree for "$TEST_ENV/secondary".
+    [EOF]
+    "#);
+    assert!(!test_env.env_root().join("secondary/.git").exists());
+    assert!(test_env.env_root().join("secondary/file").is_file());
+
+    // Git no longer knows about the worktree, but the others are untouched,
+    // and no worktree left behind the branch `git worktree add --orphan`
+    // insisted on naming.
+    let main_repo = git::open(test_env.env_root().join("main"));
+    assert_eq!(git_worktree_ids(&main_repo), ["flag-on"]);
+    assert_eq!(local_branches(&main_repo), [] as [String; 0]);
+}
+
+#[test]
+fn test_workspaces_add_colocated_at_revision() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = true");
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "main"])
+        .success();
+    let main_dir = test_env.work_dir("main");
+
+    // Build a chain of commits so the target is neither the tip nor the root.
+    main_dir.write_file("file1", "one\n");
+    main_dir.run_jj(["commit", "-m", "one"]).success();
+    main_dir.write_file("file2", "two\n");
+    main_dir.run_jj(["commit", "-m", "two"]).success();
+    main_dir.write_file("file3", "three\n");
+    main_dir.run_jj(["commit", "-m", "three"]).success();
+
+    // `@---` is the commit that added file1.
+    let target = main_dir
+        .run_jj(["log", "--no-graph", "-r", "@---", "-T", "commit_id"])
+        .success()
+        .stdout
+        .raw()
+        .trim()
+        .to_owned();
+
+    let output = main_dir.run_jj(["workspace", "add", "-r", "@---", "../secondary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Created Git worktree for the new workspace.
+    Created workspace in "../secondary"
+    Working copy  (@) now at: nppvrztz 514d6d42 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 44945a23 one
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+
+    // Git HEAD must be the revision that was asked for, not the main
+    // workspace's HEAD.
+    let secondary_repo = git::open(test_env.env_root().join("secondary"));
+    assert_eq!(git_head(&secondary_repo), target);
+
+    // jj, not git, is what populates the working copy, so only the files that
+    // exist at the target revision should be present.
+    assert!(test_env.env_root().join("secondary/file1").is_file());
+    assert!(!test_env.env_root().join("secondary/file2").exists());
+    assert!(!test_env.env_root().join("secondary/file3").exists());
+
+    // Git and jj must agree about the state of that working copy: Git has to
+    // read the worktree's own HEAD and index, not the main workspace's.
+    let secondary_dir = test_env.work_dir("secondary");
+    secondary_dir.write_file("file1", "modified in secondary\n");
+    insta::assert_snapshot!(secondary_dir.run_jj(["diff"]), @"
+    Modified regular file file1:
+       1     : one
+            1: modified in secondary
+    [EOF]
+    ");
+    insta::assert_debug_snapshot!(git::status(&secondary_repo), @r#"
+    [
+        GitStatus {
+            path: ".jj/.gitignore",
+            status: Worktree(
+                Ignored,
+            ),
+        },
+        GitStatus {
+            path: ".jj/repo",
+            status: Worktree(
+                Ignored,
+            ),
+        },
+        GitStatus {
+            path: ".jj/working_copy",
+            status: Worktree(
+                Ignored,
+            ),
+        },
+        GitStatus {
+            path: "file1",
+            status: Worktree(
+                Modified,
+            ),
+        },
+    ]
+    "#);
+}
+
+#[test]
+fn test_workspaces_add_colocated_unborn_head() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = true");
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "main"])
+        .success();
+    let main_dir = test_env.work_dir("main");
+
+    // A repo with no commits is fine: the worktree is created with an unborn
+    // HEAD rather than being refused.
+    let output = main_dir.run_jj(["workspace", "add", "../secondary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Created Git worktree for the new workspace.
+    Created workspace in "../secondary"
+    Working copy  (@) now at: uuqppmxq 94f41578 (empty) (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    "#);
+    let secondary_repo = git::open(test_env.env_root().join("secondary"));
+    assert_eq!(git_head(&secondary_repo), "refs/jj/root");
+
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    // Same for a workspace whose working-copy commit has the root commit as
+    // its parent: there is no Git commit to point HEAD at, so it must land on
+    // jj's unborn placeholder.
+    let output = main_dir.run_jj(["workspace", "add", "-r", "root()", "../tertiary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Created Git worktree for the new workspace.
+    Created workspace in "../tertiary"
+    Working copy  (@) now at: rzvqmyuk 42960ba4 (empty) (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    "#);
+    let tertiary_repo = git::open(test_env.env_root().join("tertiary"));
+    assert_eq!(git_head(&tertiary_repo), "refs/jj/root");
+    assert!(!test_env.env_root().join("tertiary/file").exists());
+}
+
+/// Returns the repo's Git HEAD: the ref name if HEAD points at a ref, or the
+/// commit id if HEAD is detached.
+fn git_head(repo: &gix::Repository) -> String {
+    match repo.head().unwrap().kind {
+        gix::head::Kind::Unborn(name) => name.as_bstr().to_string(),
+        gix::head::Kind::Symbolic(reference) => reference.name.as_bstr().to_string(),
+        gix::head::Kind::Detached { target, .. } => target.to_string(),
+    }
+}
+
+fn local_branches(repo: &gix::Repository) -> Vec<String> {
+    let mut names = repo
+        .references()
+        .unwrap()
+        .local_branches()
+        .unwrap()
+        .map(|reference| reference.unwrap().name().as_bstr().to_string())
+        .collect::<Vec<_>>();
+    names.sort();
+    names
+}
+
+/// Returns the ids of the linked Git worktrees registered in the repo.
+fn git_worktree_ids(repo: &gix::Repository) -> Vec<String> {
+    let mut ids = repo
+        .worktrees()
+        .unwrap()
+        .iter()
+        .map(|proxy| proxy.id().to_string())
+        .collect::<Vec<_>>();
+    ids.sort();
+    ids
+}
+
 #[must_use]
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     let template = r#"

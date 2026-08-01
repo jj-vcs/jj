@@ -14,7 +14,11 @@
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
+#[cfg(feature = "git")]
+use jj_lib::git::GitSubprocessOptions;
 use jj_lib::ref_name::WorkspaceNameBuf;
+#[cfg(feature = "git")]
+use jj_lib::repo::Repo as _;
 use jj_lib::workspace_store::SimpleWorkspaceStore;
 use jj_lib::workspace_store::WorkspaceStore as _;
 use tracing::instrument;
@@ -22,6 +26,8 @@ use tracing::instrument;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::complete;
+#[cfg(feature = "git")]
+use crate::git_util::unlink_git_worktree;
 use crate::ui::Ui;
 
 /// Stop tracking a workspace's working-copy commit in the repo
@@ -74,6 +80,18 @@ pub async fn cmd_workspace_forget(
 
     let workspace_store = SimpleWorkspaceStore::load(workspace_command.repo_path())?;
 
+    #[cfg(feature = "git")]
+    let workspace_paths = {
+        let repo_path = workspace_command.repo_path();
+        forget_ws
+            .iter()
+            .filter_map(|ws| {
+                let rel_path = workspace_store.get_workspace_path(ws).ok().flatten()?;
+                dunce::canonicalize(repo_path.join(rel_path)).ok()
+            })
+            .collect_vec()
+    };
+
     // bundle every workspace forget into a single transaction, so that e.g.
     // undo correctly restores all of them at once.
     let mut tx = workspace_command.start_transaction();
@@ -94,5 +112,15 @@ pub async fn cmd_workspace_forget(
     };
 
     tx.finish(ui, description).await?;
+
+    #[cfg(feature = "git")]
+    {
+        let subprocess_options = GitSubprocessOptions::from_settings(workspace_command.settings())?;
+        let store = workspace_command.repo().store();
+        for path in &workspace_paths {
+            unlink_git_worktree(ui, store, subprocess_options.clone(), path)?;
+        }
+    }
+
     Ok(())
 }

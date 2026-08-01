@@ -93,6 +93,10 @@ const REMOTE_BOOKMARK_REF_NAMESPACE: &str = "refs/remotes/";
 /// Git ref prefix where remote tags will be temporarily fetched.
 const REMOTE_TAG_REF_NAMESPACE: &str = "refs/jj/remote-tags/";
 /// Ref name used as a placeholder to unset HEAD without a commit.
+///
+/// This is not a normal branch ref, and is deliberately left unborn: HEAD is
+/// pointed at it symbolically while the ref itself is kept nonexistent. That
+/// is how jj represents "HEAD has no commit yet".
 const UNBORN_ROOT_REF_NAME: &str = "refs/jj/root";
 /// Dummy file to be added to the index to indicate that the user is editing a
 /// commit with a conflict that isn't represented in the Git index.
@@ -1816,6 +1820,109 @@ fn update_git_head(
     });
     git_repo.edit_references(ref_edits)?;
     Ok(())
+}
+
+#[derive(Debug, Error)]
+pub enum GitCreateWorktreeError {
+    #[error(transparent)]
+    Subprocess(#[from] GitSubprocessError),
+    #[error(transparent)]
+    Git(Box<dyn std::error::Error + Send + Sync>),
+    #[error(transparent)]
+    UnexpectedBackend(#[from] UnexpectedGitBackendError),
+}
+
+impl GitCreateWorktreeError {
+    fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
+        Self::Git(source.into())
+    }
+}
+
+/// Creates a Git worktree at `destination` to back a new jj workspace.
+///
+/// The worktree is created empty, with HEAD unborn. jj populates the working
+/// copy itself, and the subsequent HEAD export (see [`reset_head()`]) points
+/// HEAD at the parent of the new working-copy commit. Git is only responsible
+/// for the `.git` gitlink and the worktree bookkeeping under
+/// `.git/worktrees/`.
+pub fn create_worktree(
+    store: &Store,
+    subprocess_options: GitSubprocessOptions,
+    destination: &Path,
+) -> Result<(), GitCreateWorktreeError> {
+    let git_backend = get_git_backend(store)?;
+
+    // The unborn branch `git worktree add --orphan` insists on naming gets a
+    // random name: any name we could derive from the destination may already
+    // be taken by an exported bookmark.
+    let branch_name = format!("jj-worktree-{:016x}", rand::random::<u64>());
+    let git_ctx = GitSubprocessContext::from_git_backend(git_backend, subprocess_options);
+    git_ctx.spawn_worktree_add(destination, &branch_name)?;
+
+    // Nullifying HEAD puts the worktree in the same "HEAD has no commit yet"
+    // state jj uses everywhere else, so that a `git commit` in the new
+    // worktree can't materialize the branch nobody asked for. If the
+    // working-copy commit turns out to have a real parent, the HEAD export
+    // replaces this with a detached HEAD.
+    let git_repo = git_backend
+        .open_git_repo_at_workdir(destination)
+        .map_err(GitCreateWorktreeError::from_git)?;
+    let unborn_branch = gix::refs::Target::Symbolic(
+        format!("refs/heads/{branch_name}")
+            .try_into()
+            .expect("valid ref name"),
+    );
+    update_git_head(
+        &git_repo,
+        gix::refs::transaction::PreviousValue::MustExistAndMatch(unborn_branch),
+        None,
+    )
+    .map_err(GitCreateWorktreeError::from_git)
+}
+
+#[derive(Debug, Error)]
+pub enum GitUnlinkWorktreeError {
+    #[error("Failed to remove .git gitlink file")]
+    RemoveGitLink(#[source] PathError),
+    #[error(transparent)]
+    Subprocess(#[from] GitSubprocessError),
+    #[error(transparent)]
+    UnexpectedBackend(#[from] UnexpectedGitBackendError),
+}
+
+/// Disconnects the Git worktree at `worktree_path` from the repository.
+///
+/// Returns `false` if there was no Git worktree to disconnect.
+///
+/// The worktree directory and its contents are left in place: only the `.git`
+/// gitlink and Git's bookkeeping under `.git/worktrees/` are removed. This is
+/// the inverse of [`create_worktree()`], which likewise only sets those up.
+///
+/// The gitlink is removed before the bookkeeping is pruned, so an error means
+/// either that nothing was done, or that the worktree is already disconnected
+/// and only stale metadata remains. Neither is worth failing a command over,
+/// so callers may treat all errors as non-fatal.
+pub fn unlink_worktree(
+    store: &Store,
+    subprocess_options: GitSubprocessOptions,
+    worktree_path: &Path,
+) -> Result<bool, GitUnlinkWorktreeError> {
+    let dot_git = worktree_path.join(".git");
+    if !dot_git.is_file() {
+        return Ok(false);
+    }
+    let git_backend = get_git_backend(store)?;
+    // `git worktree remove` isn't used because it deletes the directory
+    // contents, and forgetting a workspace should preserve its files.
+    std::fs::remove_file(&dot_git)
+        .context(&dot_git)
+        .map_err(GitUnlinkWorktreeError::RemoveGitLink)?;
+    // TODO: `git worktree prune` removes metadata for all worktrees whose
+    // working directories are missing, not just the one we removed. Ideally
+    // we'd target only the specific worktree.
+    let git_ctx = GitSubprocessContext::from_git_backend(git_backend, subprocess_options);
+    git_ctx.spawn_worktree_prune()?;
+    Ok(true)
 }
 
 #[derive(Debug, Error)]

@@ -215,7 +215,7 @@ cd /usr/ports/devel/jujutsu/ && make install clean
 
 ## Runtime Requirements
 
-You will need git 2.41.0 or above. On older systems (e.g. Debian 11, Ubuntu
+You will need git 2.42.0 or above. On older systems (e.g. Debian 11, Ubuntu
 22.04) you will need to [upgrade Git](https://git-scm.com/install/).
 
 ## Initial configuration
