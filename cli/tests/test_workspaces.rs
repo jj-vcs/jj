@@ -375,6 +375,189 @@ fn test_git_worktree_adopt_all_none_found() {
 }
 
 #[test]
+fn test_git_worktree_auto_workspace() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("git.auto-sync-worktrees = true");
+    test_env.add_config("git.colocate = true");
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+    let linked_dir = test_env.work_dir("linked");
+
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+    let output = std::process::Command::new("git")
+        .args(["worktree", "add", "--detach"])
+        .arg(linked_dir.root())
+        .arg("HEAD")
+        .current_dir(main_dir.root())
+        .output()
+        .expect("git worktree add failed to spawn");
+    assert!(
+        output.status.success(),
+        "git worktree add failed with {}:
+{}
+{}",
+        output.status,
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(!linked_dir.root().join(".jj").exists());
+
+    let output = linked_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    The working copy has no changes.
+    Working copy  (@) : pmmvwywv 058f604d (empty) (no description set)
+    Parent commit (@-): qpvuntsm 7b22a8cb initial
+    [EOF]
+    ------- stderr -------
+    Created jj workspace for Git worktree at "$TEST_ENV/linked".
+    [EOF]
+    "#);
+    assert!(linked_dir.root().join(".jj").is_dir());
+
+    let output = main_dir.run_jj(["workspace", "list"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    default: . rlvkpnrz 504e3d8c (empty) (no description set)
+    linked: ../linked pmmvwywv 058f604d (empty) (no description set)
+    [EOF]
+    "#);
+
+    let output = std::process::Command::new("git")
+        .args(["worktree", "remove", "--force"])
+        .arg(linked_dir.root())
+        .current_dir(main_dir.root())
+        .output()
+        .expect("git worktree remove failed to spawn");
+    assert!(
+        output.status.success(),
+        "git worktree remove failed with {}:
+{}
+{}",
+        output.status,
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let output = main_dir.run_jj(["workspace", "list"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    default: . rlvkpnrz 504e3d8c (empty) (no description set)
+    [EOF]
+    "#);
+}
+
+#[test]
+fn test_git_worktree_custom_workspace_name_not_forgotten() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("git.auto-sync-worktrees = true");
+    test_env.add_config("git.colocate = true");
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+    main_dir
+        .run_jj(["workspace", "add", "--name", "foo", "../bar"])
+        .success();
+
+    let output = main_dir.run_jj(["workspace", "list"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    default: . rlvkpnrz 504e3d8c (empty) (no description set)
+    foo: ../bar pmmvwywv 058f604d (empty) (no description set)
+    [EOF]
+    "#);
+}
+
+#[test]
+fn test_git_worktree_move_repairs_workspace_path() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("git.auto-sync-worktrees = true");
+    test_env.add_config("git.colocate = true");
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+    let secondary_dir = test_env.work_dir("secondary");
+    let moved_dir = test_env.work_dir("nested/moved");
+
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+    main_dir.create_dir("../nested");
+    let output = std::process::Command::new("git")
+        .args(["worktree", "move"])
+        .arg(secondary_dir.root())
+        .arg(moved_dir.root())
+        .current_dir(main_dir.root())
+        .output()
+        .expect("git worktree move failed to spawn");
+    assert!(
+        output.status.success(),
+        "git worktree move failed with {}:
+{}
+{}",
+        output.status,
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let output = main_dir.run_jj(["workspace", "list"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    default: . rlvkpnrz 504e3d8c (empty) (no description set)
+    secondary: ../nested/moved pmmvwywv 058f604d (empty) (no description set)
+    [EOF]
+    "#);
+
+    let output = moved_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    The working copy has no changes.
+    Working copy  (@) : pmmvwywv 058f604d (empty) (no description set)
+    Parent commit (@-): qpvuntsm 7b22a8cb initial
+    [EOF]
+    "#);
+}
+
+#[test]
+fn test_git_worktree_created_after_unborn_head() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("git.auto-sync-worktrees = true");
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "main"])
+        .success();
+    let main_dir = test_env.work_dir("main");
+    let secondary_dir = test_env.work_dir("secondary");
+    let git_repo = git::open(main_dir.root());
+
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+    assert!(!secondary_dir.root().join(".git").exists());
+
+    git::set_symbolic_reference(&git_repo, "HEAD", "refs/heads/master");
+    git::add_commit(
+        &git_repo,
+        "refs/heads/master",
+        "file",
+        b"contents",
+        "initial",
+        &[],
+    );
+
+    let output = secondary_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    Working copy changes:
+    D file
+    Working copy  (@) : kkmpptxz 7ab2fc04 (no description set)
+    Parent commit (@-): slsumksp 97358f54 master | initial
+    [EOF]
+    ------- stderr -------
+    Created Git worktree for the current workspace.
+    Done importing changes from the underlying Git repo.
+    [EOF]
+    "#);
+    assert!(secondary_dir.root().join(".git").is_file());
+}
+
+#[test]
 fn test_workspaces_add_with_message() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "main"]).success();
