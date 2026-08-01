@@ -150,6 +150,10 @@ use jj_lib::workspace::WorkspaceLoadError;
 use jj_lib::workspace::WorkspaceLoader;
 use jj_lib::workspace::WorkspaceLoaderFactory;
 use jj_lib::workspace::get_working_copy_factory;
+#[cfg(feature = "git")]
+use jj_lib::workspace_store::SimpleWorkspaceStore;
+#[cfg(feature = "git")]
+use jj_lib::workspace_store::WorkspaceStore as _;
 use pollster::FutureExt as _;
 use tracing::instrument;
 use tracing_chrome::ChromeLayerBuilder;
@@ -182,6 +186,22 @@ use crate::diff_util::DiffRenderer;
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
 use crate::formatter::FormatterExt as _;
+#[cfg(feature = "git")]
+use crate::git_util::GitWorktreeRepoContext;
+#[cfg(feature = "git")]
+use crate::git_util::create_git_worktree_in_existing_workspace;
+#[cfg(feature = "git")]
+use crate::git_util::discover_git_worktree_paths;
+#[cfg(feature = "git")]
+use crate::git_util::git_head_resolves;
+#[cfg(feature = "git")]
+use crate::git_util::git_rev_parse_path;
+#[cfg(feature = "git")]
+use crate::git_util::git_worktree_paths;
+#[cfg(feature = "git")]
+use crate::git_util::repair_jj_repo_link;
+#[cfg(feature = "git")]
+use crate::git_util::workspace_abs_path;
 use crate::merge_tools::DiffEditor;
 use crate::merge_tools::MergeEditor;
 use crate::merge_tools::MergeToolConfigError;
@@ -473,22 +493,38 @@ impl CommandHelper {
         &self,
         ui: &Ui,
     ) -> Result<(WorkspaceCommandHelper, SnapshotStats, bool), CommandError> {
-        let workspace = self.load_workspace()?;
-        let env = self.workspace_environment(ui, &workspace)?;
-        // Acquire the lock to ensure that the loaded repo points to the head
-        // operation whose refs should be synchronized with the Git repo. This
-        // prevents races with other processes during Git HEAD and refs
-        // import/export.
-        let git_import_export_lock = self
-            .is_working_copy_writable()
-            .then(|| env.lock_git_import_export(&workspace))
-            .transpose()?;
-        let mut workspace_command = self.load_from_workspace(ui, workspace, env).await?;
+        let auto_sync = self.settings().get_bool("git.auto-sync-worktrees")?;
+        let (workspace_command, git_import_export_lock) = loop {
+            let workspace = if auto_sync {
+                self.load_workspace_or_auto_init_git_worktree(ui).await?
+            } else {
+                self.load_workspace()?
+            };
+            let env = self.workspace_environment(ui, &workspace)?;
+            // Acquire the lock to ensure that the loaded repo points to the head
+            // operation whose refs should be synchronized with the Git repo. This
+            // prevents races with other processes during Git HEAD and refs
+            // import/export.
+            let git_import_export_lock = self
+                .is_working_copy_writable()
+                .then(|| env.lock_git_import_export(&workspace))
+                .transpose()?;
+            let workspace_command = self.load_from_workspace(ui, workspace, env).await?;
+            if auto_sync && workspace_command.ensure_current_workspace_git_worktree(ui)? {
+                continue;
+            }
+            break (workspace_command, git_import_export_lock);
+        };
+        let mut workspace_command = workspace_command;
+        let old_repo = workspace_command.repo().clone();
+        if auto_sync && self.is_working_copy_writable() {
+            workspace_command.forget_removed_git_worktrees(ui).await?;
+        }
         let Some(git_import_export_lock) = git_import_export_lock else {
-            return Ok((workspace_command, SnapshotStats::default(), false));
+            let changed = old_repo.op_id() != workspace_command.repo().op_id();
+            return Ok((workspace_command, SnapshotStats::default(), changed));
         };
 
-        let old_repo = workspace_command.repo().clone();
         let (workspace_command, stats) = match workspace_command
             .snapshot_impl(ui, &git_import_export_lock)
             .await
@@ -522,12 +558,96 @@ impl CommandHelper {
         &self,
         ui: &Ui,
     ) -> Result<WorkspaceCommandHelper, CommandError> {
-        let workspace = self.load_workspace()?;
-        let env = self.workspace_environment(ui, &workspace)?;
-        self.load_from_workspace(ui, workspace, env).await
+        let auto_sync = self.settings().get_bool("git.auto-sync-worktrees")?;
+        let mut workspace_command = loop {
+            let workspace = if auto_sync {
+                self.load_workspace_or_auto_init_git_worktree(ui).await?
+            } else {
+                self.load_workspace()?
+            };
+            let env = self.workspace_environment(ui, &workspace)?;
+            let workspace_command = self.load_from_workspace(ui, workspace, env).await?;
+            if auto_sync && workspace_command.ensure_current_workspace_git_worktree(ui)? {
+                continue;
+            }
+            break workspace_command;
+        };
+        if auto_sync && self.is_working_copy_writable() {
+            workspace_command.forget_removed_git_worktrees(ui).await?;
+        }
+        Ok(workspace_command)
     }
 
-    async fn load_from_workspace(
+    pub async fn load_workspace_or_auto_init_git_worktree(
+        &self,
+        ui: &Ui,
+    ) -> Result<Workspace, CommandError> {
+        match self.load_workspace() {
+            Ok(workspace) => Ok(workspace),
+            Err(err) => {
+                if self.data.global_args.repository.is_none()
+                    && let Some(workspace) = self.auto_init_git_worktree_workspace(ui).await?
+                {
+                    return Ok(workspace);
+                }
+                Err(err)
+            }
+        }
+    }
+
+    #[cfg(feature = "git")]
+    async fn auto_init_git_worktree_workspace(
+        &self,
+        ui: &Ui,
+    ) -> Result<Option<Workspace>, CommandError> {
+        let git_settings = jj_lib::git::GitSettings::from_settings(self.settings())?;
+        let Some(git_paths) = discover_git_worktree_paths(&git_settings, self.cwd())? else {
+            return Ok(None);
+        };
+        let main_workspace_root = match git_paths.common_git_dir.parent() {
+            Some(path) if path.join(".jj").is_dir() => path,
+            _ => return Ok(None),
+        };
+        let main_workspace = self.load_workspace_at(main_workspace_root, self.settings())?;
+        let main_loader = self.new_workspace_loader_at(main_workspace_root)?;
+        let working_copy_factory =
+            get_working_copy_factory(main_loader.as_ref(), &self.data.working_copy_factories)
+                .map_err(|err| {
+                    map_workspace_load_error(WorkspaceLoadError::StoreLoadError(err), None)
+                })?;
+        let repo = main_workspace.repo_loader().load_at_head().await?;
+        if repo
+            .view()
+            .get_wc_commit_id(&git_paths.workspace_name)
+            .is_some()
+        {
+            return Ok(None);
+        }
+        let (workspace, _repo) = Workspace::init_workspace_with_existing_repo(
+            &git_paths.worktree_root,
+            main_workspace.repo_path(),
+            &repo,
+            working_copy_factory,
+            git_paths.workspace_name,
+        )
+        .await?;
+        writeln!(
+            ui.status(),
+            "Created jj workspace for Git worktree at \"{}\".",
+            git_paths.worktree_root.display()
+        )?;
+        Ok(Some(workspace))
+    }
+
+    #[cfg(not(feature = "git"))]
+    async fn auto_init_git_worktree_workspace(
+        &self,
+        _ui: &Ui,
+    ) -> Result<Option<Workspace>, CommandError> {
+        Ok(None)
+    }
+
+    pub async fn load_from_workspace(
         &self,
         ui: &Ui,
         workspace: Workspace,
@@ -2338,6 +2458,169 @@ to the current parents may contain changes from multiple commits.
             tx,
             id_prefix_context,
         }
+    }
+
+    #[cfg(feature = "git")]
+    fn git_worktree_repo_context(&self) -> Result<Option<GitWorktreeRepoContext>, CommandError> {
+        if jj_lib::git::get_git_repo(self.repo().store()).is_err() {
+            return Ok(None);
+        }
+        let workspace_store = SimpleWorkspaceStore::load(self.repo_path())?;
+        let Some(main_workspace_root) =
+            workspace_abs_path(self.repo_path(), &workspace_store, WorkspaceName::DEFAULT)?
+        else {
+            return Ok(None);
+        };
+        if !main_workspace_root.join(".git").exists() {
+            return Ok(None);
+        }
+        let git_executable: PathBuf = self.settings().get("git.executable-path")?;
+        if git_rev_parse_path(&git_executable, &main_workspace_root, "--git-common-dir")?.is_none()
+        {
+            return Ok(None);
+        }
+        Ok(Some(GitWorktreeRepoContext {
+            workspace_store,
+            main_workspace_root,
+            git_executable,
+        }))
+    }
+
+    #[cfg(feature = "git")]
+    pub fn ensure_current_workspace_git_worktree(&self, ui: &Ui) -> Result<bool, CommandError> {
+        if self.env.working_copy_shared_with_git || self.workspace_name() == WorkspaceName::DEFAULT
+        {
+            return Ok(false);
+        }
+        if self.workspace_root().join(".git").exists() {
+            return Ok(false);
+        }
+        let Some(ctx) = self.git_worktree_repo_context()? else {
+            return Ok(false);
+        };
+        if !git_head_resolves(&ctx.git_executable, &ctx.main_workspace_root)? {
+            return Ok(false);
+        }
+        create_git_worktree_in_existing_workspace(
+            &ctx.git_executable,
+            &ctx.main_workspace_root,
+            self.workspace_root(),
+        )?;
+        writeln!(
+            ui.status(),
+            "Created Git worktree for the current workspace."
+        )?;
+        Ok(true)
+    }
+
+    #[cfg(not(feature = "git"))]
+    pub fn ensure_current_workspace_git_worktree(&self, _ui: &Ui) -> Result<bool, CommandError> {
+        Ok(false)
+    }
+
+    #[cfg(feature = "git")]
+    pub async fn forget_removed_git_worktrees(&mut self, _ui: &Ui) -> Result<(), CommandError> {
+        let Some(ctx) = self.git_worktree_repo_context()? else {
+            return Ok(());
+        };
+        let live_worktree_paths =
+            git_worktree_paths(&ctx.git_executable, &ctx.main_workspace_root)?;
+        self.repair_moved_git_worktree_paths(&ctx.workspace_store, &live_worktree_paths)?;
+        let removed_workspaces = self
+            .repo()
+            .view()
+            .wc_commit_ids()
+            .keys()
+            .filter(|name| name.as_str() != WorkspaceName::DEFAULT.as_str())
+            .filter_map(|name| {
+                let path = workspace_abs_path(self.repo_path(), &ctx.workspace_store, name)
+                    .ok()
+                    .flatten()?;
+                if !path.exists()
+                    || (path.join(".git").is_file() && !live_worktree_paths.contains(&path))
+                {
+                    Some(name.clone())
+                } else {
+                    None
+                }
+            })
+            .collect_vec();
+        if removed_workspaces.is_empty() {
+            return Ok(());
+        }
+
+        let description = if let [workspace_name] = removed_workspaces.as_slice() {
+            format!(
+                "forget removed Git worktree workspace {}",
+                workspace_name.as_symbol()
+            )
+        } else {
+            format!(
+                "forget removed Git worktree workspaces {}",
+                removed_workspaces
+                    .iter()
+                    .map(|workspace_name| workspace_name.as_symbol())
+                    .join(", ")
+            )
+        };
+        let mut tx = start_repo_transaction(
+            self.repo(),
+            self.workspace_name(),
+            self.env.command.string_args(),
+        );
+        for workspace_name in &removed_workspaces {
+            tx.repo_mut().remove_workspace(workspace_name).await?;
+        }
+        rebase_mutable_descendants(&self.env, &mut tx).await?;
+        ctx.workspace_store.forget(
+            &removed_workspaces
+                .iter()
+                .map(|name| name.as_ref())
+                .collect_vec(),
+        )?;
+        let repo = tx.commit(description).await?;
+        self.user_repo = ReadonlyUserRepo::new(repo);
+        Ok(())
+    }
+
+    #[cfg(feature = "git")]
+    fn repair_moved_git_worktree_paths(
+        &self,
+        workspace_store: &SimpleWorkspaceStore,
+        live_worktree_paths: &HashSet<PathBuf>,
+    ) -> Result<(), CommandError> {
+        for path in live_worktree_paths {
+            if path == self.workspace_root() || !path.join(".jj").is_dir() {
+                continue;
+            }
+            repair_jj_repo_link(path, self.repo_path())?;
+            let Ok(workspace) = self.env.command.load_workspace_at(path, self.settings()) else {
+                continue;
+            };
+            if workspace.repo_path() != self.repo_path()
+                || self
+                    .repo()
+                    .view()
+                    .get_wc_commit_id(workspace.workspace_name())
+                    .is_none()
+            {
+                continue;
+            }
+            let old_path = workspace_abs_path(
+                self.repo_path(),
+                workspace_store,
+                workspace.workspace_name(),
+            )?;
+            if old_path.as_deref() != Some(path) && !old_path.is_some_and(|path| path.exists()) {
+                workspace_store.add(workspace.workspace_name(), path)?;
+            }
+        }
+        Ok(())
+    }
+
+    #[cfg(not(feature = "git"))]
+    pub async fn forget_removed_git_worktrees(&mut self, _ui: &Ui) -> Result<(), CommandError> {
+        Ok(())
     }
 
     async fn finish_transaction(

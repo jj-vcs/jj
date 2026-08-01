@@ -29,6 +29,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   follows the repository's colocation state. `jj workspace forget` removes
   the corresponding Git worktree when one exists.
 
+* `jj workspace sync` synchronizes jj workspaces with Git worktrees in
+  colocated repositories: adopting external worktrees, forgetting removed
+  ones, and repairing moved paths. This also runs automatically when
+  `git.auto-sync-worktrees` is enabled (the default).
+
 ### Fixed bugs
 
 * A side of a conflict whose contents end with a carriage return no longer loses

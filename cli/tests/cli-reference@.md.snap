@@ -132,6 +132,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj workspace list`↴](#jj-workspace-list)
 * [`jj workspace rename`↴](#jj-workspace-rename)
 * [`jj workspace root`↴](#jj-workspace-root)
+* [`jj workspace sync`↴](#jj-workspace-sync)
 * [`jj workspace update-stale`↴](#jj-workspace-update-stale)
 
 ## `jj`
@@ -3774,6 +3775,7 @@ Each workspace also has own sparse patterns.
 * `list` — List workspaces
 * `rename` — Renames the current workspace
 * `root` — Show the workspace root directory
+* `sync` — Synchronize jj workspaces with Git worktrees
 * `update-stale` — Update a workspace that has become stale
 
 
@@ -3880,6 +3882,24 @@ Show the workspace root directory
 ###### **Options:**
 
 * `--name <NAME>` — Name of the workspace (defaults to current)
+
+
+
+## `jj workspace sync`
+
+Synchronize jj workspaces with Git worktrees
+
+In a colocated Git repository, this command reconciles jj workspace state with Git worktree state:
+
+* Adopts Git worktrees created externally (e.g. via `git worktree add`) by creating corresponding jj workspaces.
+
+* Forgets jj workspaces whose Git worktrees have been removed.
+
+* Repairs workspace paths for Git worktrees that have been moved.
+
+This is equivalent to the automatic synchronization performed when `git.auto-sync-worktrees` is enabled (the default), but can be run manually when that setting is disabled.
+
+**Usage:** `jj workspace sync`
 
 
 

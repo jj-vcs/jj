@@ -17,6 +17,7 @@ mod forget;
 mod list;
 mod rename;
 mod root;
+mod sync;
 mod update_stale;
 
 use clap::Subcommand;
@@ -32,6 +33,8 @@ use self::rename::WorkspaceRenameArgs;
 use self::rename::cmd_workspace_rename;
 use self::root::WorkspaceRootArgs;
 use self::root::cmd_workspace_root;
+use self::sync::WorkspaceSyncArgs;
+use self::sync::cmd_workspace_sync;
 use self::update_stale::WorkspaceUpdateStaleArgs;
 use self::update_stale::cmd_workspace_update_stale;
 use crate::cli_util::CommandHelper;
@@ -56,6 +59,7 @@ pub(crate) enum WorkspaceCommand {
     List(WorkspaceListArgs),
     Rename(WorkspaceRenameArgs),
     Root(WorkspaceRootArgs),
+    Sync(WorkspaceSyncArgs),
     UpdateStale(WorkspaceUpdateStaleArgs),
 }
 
@@ -71,6 +75,7 @@ pub(crate) async fn cmd_workspace(
         WorkspaceCommand::List(args) => cmd_workspace_list(ui, command, args).await,
         WorkspaceCommand::Rename(args) => cmd_workspace_rename(ui, command, args).await,
         WorkspaceCommand::Root(args) => cmd_workspace_root(ui, command, args).await,
+        WorkspaceCommand::Sync(args) => cmd_workspace_sync(ui, command, args).await,
         WorkspaceCommand::UpdateStale(args) => cmd_workspace_update_stale(ui, command, args).await,
     }
 }
