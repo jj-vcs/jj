@@ -20,6 +20,7 @@ use std::io::Write as _;
 use std::iter;
 use std::mem;
 use std::path::Path;
+use std::process::Command;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -53,6 +54,7 @@ use crate::cli_util::print_updated_commits;
 use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::command_error::user_error;
+use crate::command_error::user_error_with_message;
 use crate::formatter::Formatter;
 use crate::formatter::FormatterExt as _;
 use crate::revset_util::parse_remote_auto_track_bookmarks_map;
@@ -69,9 +71,15 @@ pub fn is_colocated_git_workspace(workspace: &Workspace) -> bool {
     if git_workdir == workspace.workspace_root() {
         return true;
     }
-    // Colocated workspace should have ".git" directory, file, or symlink. Compare
+    let dot_git = workspace.workspace_root().join(".git");
+    // A .git file (gitlink) indicates a git worktree, making this a colocated
+    // workspace.
+    if dot_git.is_file() {
+        return true;
+    }
+    // Colocated workspace should have ".git" directory or symlink. Compare
     // its parent as the git_workdir might be resolved from the real ".git" path.
-    let Ok(dot_git_path) = dunce::canonicalize(workspace.workspace_root().join(".git")) else {
+    let Ok(dot_git_path) = dunce::canonicalize(dot_git) else {
         return false;
     };
     dunce::canonicalize(git_workdir).ok().as_deref() == dot_git_path.parent()
@@ -560,6 +568,99 @@ pub fn print_push_stats(ui: &Ui, stats: &GitPushStats) -> io::Result<()> {
                 write!(formatter, ": {err}")?;
             }
             writeln!(formatter)?;
+        }
+    }
+    Ok(())
+}
+
+pub fn create_git_worktree(
+    ui: &Ui,
+    git_settings: &GitSettings,
+    main_workspace_root: &Path,
+    destination: &Path,
+) -> Result<(), CommandError> {
+    // Use relative paths to match jj's convention for portable repositories.
+    // Silently ignored by git versions that don't support it.
+    let relative_paths_config = ["-c", "worktree.useRelativePaths=true"];
+
+    run_git_worktree_add(
+        git_settings,
+        &relative_paths_config,
+        main_workspace_root,
+        destination,
+    )?;
+
+    writeln!(ui.status(), "Created Git worktree for the new workspace.")?;
+    Ok(())
+}
+
+fn run_git_worktree_add(
+    git_settings: &GitSettings,
+    extra_config: &[&str],
+    main_workspace_root: &Path,
+    destination: &Path,
+) -> Result<(), CommandError> {
+    let output = Command::new(&git_settings.executable_path)
+        .args(extra_config)
+        .args(["worktree", "add", "--detach", "--no-checkout", "--"])
+        .arg(destination)
+        .arg("HEAD")
+        .current_dir(main_workspace_root)
+        .output()
+        .map_err(|err| user_error_with_message("Failed to run `git worktree add`", err))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(user_error(format!(
+            "Failed to create Git worktree: {stderr}"
+        )));
+    }
+    Ok(())
+}
+
+pub fn remove_git_worktree(
+    ui: &Ui,
+    git_settings: &GitSettings,
+    main_workspace_root: &Path,
+    worktree_path: &Path,
+) -> Result<(), CommandError> {
+    let dot_git = worktree_path.join(".git");
+    if !dot_git.is_file() {
+        return Ok(());
+    }
+    // Remove the .git gitlink file, then prune the worktree metadata.
+    // We don't use `git worktree remove` because it deletes the directory
+    // contents, and jj workspace forget should preserve workspace files.
+    std::fs::remove_file(&dot_git)
+        .map_err(|err| user_error_with_message("Failed to remove .git gitlink file", err))?;
+
+    // TODO: `git worktree prune` removes metadata for all worktrees whose
+    // working directories are missing, not just the one we removed. Ideally
+    // we'd target only the specific worktree.
+    let output = Command::new(&git_settings.executable_path)
+        .args(["worktree", "prune"])
+        .current_dir(main_workspace_root)
+        .output();
+    match output {
+        Ok(o) if o.status.success() => {
+            writeln!(
+                ui.status(),
+                r#"Removed Git worktree for "{}"."#,
+                worktree_path.display()
+            )?;
+        }
+        Ok(o) => {
+            let stderr = String::from_utf8_lossy(&o.stderr);
+            writeln!(
+                ui.warning_default(),
+                r#"Failed to prune Git worktree for "{}": {stderr}"#,
+                worktree_path.display()
+            )?;
+        }
+        Err(err) => {
+            writeln!(
+                ui.warning_default(),
+                "Failed to run `git worktree prune`: {err}"
+            )?;
         }
     }
     Ok(())

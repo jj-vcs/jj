@@ -124,6 +124,26 @@ fn test_workspaces_add_second_and_third_workspace() {
 }
 
 #[test]
+fn test_workspaces_add_colocated_unborn_git_head() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = true");
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "main"])
+        .success();
+    let main_dir = test_env.work_dir("main");
+
+    let output = main_dir.run_jj(["workspace", "add", "../secondary"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Cannot create colocated Git worktree because Git HEAD does not point to a commit yet.
+    Hint: Create a commit first, then retry.
+    [EOF]
+    [exit status: 1]
+    "#);
+    assert!(!test_env.env_root().join("secondary/.git").exists());
+}
+
+#[test]
 fn test_workspaces_add_with_message() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "main"]).success();
@@ -2099,6 +2119,167 @@ fn test_workspaces_rename_workspace_from_before_workspace_store() {
     third: 
     [EOF]
     ");
+}
+
+#[test]
+fn test_workspaces_add_colocated_no_colocate_flag() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "main"])
+        .success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    let output = main_dir.run_jj(["workspace", "add", "--no-colocate", "../secondary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Created workspace in "../secondary"
+    Working copy  (@) now at: pmmvwywv 058f604d (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 7b22a8cb initial
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+    assert!(!test_env.env_root().join("secondary/.git").exists());
+}
+
+#[test]
+fn test_workspaces_add_colocated_default_creates_worktree() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = true");
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "main"])
+        .success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    let output = main_dir.run_jj(["workspace", "add", "../secondary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Created Git worktree for the new workspace.
+    Created workspace in "../secondary"
+    Working copy  (@) now at: pmmvwywv 058f604d (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 7b22a8cb initial
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+    assert!(test_env.env_root().join("secondary/.git").is_file());
+}
+
+#[test]
+fn test_workspaces_forget_colocated_removes_worktree() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = true");
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "main"])
+        .success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+
+    assert!(test_env.env_root().join("secondary/.git").is_file());
+
+    let output = main_dir.run_jj(["workspace", "forget", "secondary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Removed Git worktree for "$TEST_ENV/secondary".
+    [EOF]
+    "#);
+    assert!(!test_env.env_root().join("secondary/.git").exists());
+    assert!(test_env.env_root().join("secondary").is_dir());
+    assert!(test_env.env_root().join("secondary/file").is_file());
+
+    let git_output = std::process::Command::new("git")
+        .args(["worktree", "list"])
+        .current_dir(test_env.env_root().join("main"))
+        .output()
+        .unwrap();
+    let worktree_list = String::from_utf8_lossy(&git_output.stdout);
+    assert!(
+        !worktree_list.contains("secondary"),
+        "git should no longer list the secondary worktree, got: {worktree_list}"
+    );
+}
+
+#[test]
+fn test_workspaces_add_colocate_config_false_with_flag_creates_worktree() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = false");
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "main"])
+        .success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    let output = main_dir.run_jj(["workspace", "add", "--colocate", "../secondary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Created Git worktree for the new workspace.
+    Created workspace in "../secondary"
+    Working copy  (@) now at: pmmvwywv 058f604d (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 7b22a8cb initial
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+    assert!(test_env.env_root().join("secondary/.git").is_file());
+}
+
+#[test]
+fn test_colocated_workspace_worktree_git_diff() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = true");
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "main"])
+        .success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir.write_file("file", "initial contents\n");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+
+    let secondary_dir = test_env.work_dir("secondary");
+    assert!(test_env.env_root().join("secondary/.git").is_file());
+
+    secondary_dir.write_file("file", "modified in secondary\n");
+
+    let jj_diff = secondary_dir.run_jj(["diff"]);
+    insta::assert_snapshot!(jj_diff, @r#"
+    Modified regular file file:
+       1     : initial contents
+            1: modified in secondary
+    [EOF]
+    "#);
+
+    let git_diff = String::from_utf8(
+        std::process::Command::new("git")
+            .args(["diff"])
+            .current_dir(test_env.env_root().join("secondary"))
+            .output()
+            .unwrap()
+            .stdout,
+    )
+    .unwrap();
+    insta::assert_snapshot!(git_diff, @r#"
+    diff --git a/file b/file
+    index 63af228..3104147 100644
+    --- a/file
+    +++ b/file
+    @@ -1 +1 @@
+    -initial contents
+    +modified in secondary
+    "#);
 }
 
 #[must_use]
