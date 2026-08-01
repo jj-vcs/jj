@@ -549,6 +549,11 @@
                     "description": "Path to the git executable",
                     "default": "git"
                 },
+                "auto-sync-worktrees": {
+                    "type": "boolean",
+                    "description": "Automatically synchronize jj workspaces with Git worktrees in colocated repositories",
+                    "default": false
+                },
                 "colocate": {
                     "type": "boolean",
                     "description": "Whether to colocate the working copy with the git repository",

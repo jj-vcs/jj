@@ -49,10 +49,23 @@ pub struct GitWorktreeAdoptArgs {
     all: bool,
 }
 
+/// Synchronize jj workspaces with Git worktrees
+///
+/// In a colocated Git repository, this command reconciles jj workspace
+/// state with Git worktree state. It adopts externally-created Git
+/// worktrees as jj workspaces, forgets workspaces whose Git worktrees
+/// have been removed, and repairs paths for moved worktrees.
+///
+/// Set `git.auto-sync-worktrees = true` to run this synchronization
+/// automatically on every jj invocation.
+#[derive(clap::Args, Clone, Debug)]
+pub struct GitWorktreeSyncArgs {}
+
 /// Manage Git worktrees
 #[derive(clap::Subcommand, Clone, Debug)]
 pub enum GitWorktreeCommand {
     Adopt(GitWorktreeAdoptArgs),
+    Sync(GitWorktreeSyncArgs),
 }
 
 pub async fn cmd_git_worktree(
@@ -62,6 +75,7 @@ pub async fn cmd_git_worktree(
 ) -> Result<(), CommandError> {
     match subcommand {
         GitWorktreeCommand::Adopt(args) => cmd_git_worktree_adopt(ui, command, args).await,
+        GitWorktreeCommand::Sync(args) => cmd_git_worktree_sync(ui, command, args).await,
     }
 }
 
@@ -285,5 +299,19 @@ async fn cmd_git_worktree_adopt_cwd(
         r#"Created jj workspace for Git worktree at "{}"."#,
         wt.worktree_root.display()
     )?;
+    Ok(())
+}
+
+#[instrument(skip_all)]
+async fn cmd_git_worktree_sync(
+    ui: &mut Ui,
+    command: &CommandHelper,
+    _args: &GitWorktreeSyncArgs,
+) -> Result<(), CommandError> {
+    let workspace = command.load_workspace_or_auto_init_git_worktree(ui).await?;
+    let env = command.workspace_environment(ui, &workspace)?;
+    let mut workspace_command = command.load_from_workspace(ui, workspace, env).await?;
+    workspace_command.ensure_current_workspace_git_worktree(ui)?;
+    workspace_command.forget_removed_git_worktrees(ui).await?;
     Ok(())
 }

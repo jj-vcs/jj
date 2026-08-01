@@ -14,7 +14,9 @@
 
 //! Git utilities shared by various commands.
 
+use std::collections::HashSet;
 use std::error;
+use std::fs;
 use std::io;
 use std::io::Write as _;
 use std::iter;
@@ -45,10 +47,13 @@ use jj_lib::git::GitSettings;
 use jj_lib::git::GitSidebandLineTerminator;
 use jj_lib::git::GitSubprocessCallback;
 use jj_lib::op_store::RemoteRefState;
+use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::settings::RemoteSettingsMap;
 use jj_lib::workspace::Workspace;
+use jj_lib::workspace_store::SimpleWorkspaceStore;
+use jj_lib::workspace_store::WorkspaceStore as _;
 use unicode_width::UnicodeWidthStr as _;
 
 use crate::cleanup_guard::CleanupGuard;
@@ -74,14 +79,23 @@ pub fn is_colocated_git_workspace(workspace: &Workspace) -> bool {
     if git_workdir == workspace.workspace_root() {
         return true;
     }
-    let dot_git = workspace.workspace_root().join(".git");
-    // A .git file (gitlink) indicates a git worktree, making this a colocated
-    // workspace.
-    if dot_git.is_file() {
-        return true;
+    if workspace.workspace_root().join(".git").is_file() {
+        let Ok(worktree_repo) = gix::open(workspace.workspace_root()) else {
+            return false;
+        };
+        let Ok(worktree_common_dir) = dunce::canonicalize(worktree_repo.common_dir()) else {
+            return false;
+        };
+        let Ok(backend_common_dir) = dunce::canonicalize(git_backend.git_repo().common_dir())
+        else {
+            return false;
+        };
+        return worktree_repo.git_dir() != worktree_repo.common_dir()
+            && worktree_common_dir == backend_common_dir;
     }
     // Colocated workspace should have ".git" directory or symlink. Compare
     // its parent as the git_workdir might be resolved from the real ".git" path.
+    let dot_git = workspace.workspace_root().join(".git");
     let Ok(dot_git_path) = dunce::canonicalize(dot_git) else {
         return false;
     };
@@ -719,13 +733,14 @@ pub fn discover_git_worktree_paths(
     git_settings: &GitSettings,
     cwd: &Path,
 ) -> Result<Option<GitWorktreePaths>, CommandError> {
-    let Some(worktree_root) = git_rev_parse_path(git_settings, cwd, "--show-toplevel")? else {
+    let git_executable = &git_settings.executable_path;
+    let Some(worktree_root) = git_rev_parse_path(git_executable, cwd, "--show-toplevel")? else {
         return Ok(None);
     };
-    let Some(git_dir) = git_rev_parse_path(git_settings, cwd, "--git-dir")? else {
+    let Some(git_dir) = git_rev_parse_path(git_executable, cwd, "--git-dir")? else {
         return Ok(None);
     };
-    let Some(common_git_dir) = git_rev_parse_path(git_settings, cwd, "--git-common-dir")? else {
+    let Some(common_git_dir) = git_rev_parse_path(git_executable, cwd, "--git-common-dir")? else {
         return Ok(None);
     };
     if git_dir == common_git_dir {
@@ -744,12 +759,12 @@ pub fn discover_git_worktree_paths(
     }))
 }
 
-fn git_rev_parse_path(
-    git_settings: &GitSettings,
+pub(crate) fn git_rev_parse_path(
+    git_executable: &Path,
     cwd: &Path,
     arg: &str,
 ) -> Result<Option<PathBuf>, CommandError> {
-    let Ok(output) = Command::new(&git_settings.executable_path)
+    let Ok(output) = Command::new(git_executable)
         .arg("rev-parse")
         .arg(arg)
         .current_dir(cwd)
@@ -777,6 +792,154 @@ fn git_rev_parse_path(
             err,
         )),
     }
+}
+
+pub(crate) struct GitWorktreeRepoContext {
+    pub(crate) workspace_store: SimpleWorkspaceStore,
+    pub(crate) main_workspace_root: PathBuf,
+    pub(crate) git_executable: PathBuf,
+}
+
+pub(crate) fn git_head_resolves(git_executable: &Path, cwd: &Path) -> Result<bool, CommandError> {
+    let output = std::process::Command::new(git_executable)
+        .args(["rev-parse", "--verify", "--quiet", "HEAD"])
+        .current_dir(cwd)
+        .output()
+        .map_err(|err| user_error(format!("Failed to run `git rev-parse`: {err}")))?;
+    Ok(output.status.success())
+}
+
+pub(crate) fn workspace_abs_path(
+    repo_path: &Path,
+    workspace_store: &SimpleWorkspaceStore,
+    workspace_name: &WorkspaceName,
+) -> Result<Option<PathBuf>, CommandError> {
+    let Some(path) = workspace_store.get_workspace_path(workspace_name)? else {
+        return Ok(None);
+    };
+    let path = if path.is_absolute() {
+        path
+    } else {
+        repo_path.join(path)
+    };
+    match dunce::canonicalize(&path) {
+        Ok(path) => Ok(Some(path)),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(Some(path)),
+        Err(err) => Err(user_error_with_message(
+            format!("Failed to resolve workspace path '{}'", path.display()),
+            err,
+        )),
+    }
+}
+
+pub(crate) fn repair_jj_repo_link(
+    workspace_root: &Path,
+    repo_path: &Path,
+) -> Result<(), CommandError> {
+    let jj_dir = workspace_root.join(".jj");
+    let repo_file_path = jj_dir.join("repo");
+    if !repo_file_path.is_file() {
+        return Ok(());
+    }
+    let jj_dir_abs = dunce::canonicalize(&jj_dir).map_err(|err| {
+        user_error_with_message(format!("Failed to resolve '{}'", jj_dir.display()), err)
+    })?;
+    let repo_dir = dunce::canonicalize(repo_path).map_err(|err| {
+        user_error_with_message(format!("Failed to resolve '{}'", repo_path.display()), err)
+    })?;
+    let path_to_store = file_util::relative_path(&jj_dir_abs, &repo_dir);
+    let path_to_store = if path_to_store.is_relative() {
+        file_util::slash_path(&path_to_store).into_owned()
+    } else {
+        path_to_store
+    };
+    let repo_dir_bytes = file_util::path_to_bytes(&path_to_store)
+        .map_err(|err| user_error_with_message("Failed to encode jj repo path", err))?;
+    if fs::read(&repo_file_path).ok().as_deref() == Some(repo_dir_bytes) {
+        return Ok(());
+    }
+    fs::write(&repo_file_path, repo_dir_bytes)
+        .map_err(|err| user_error_with_message("Failed to repair jj workspace link", err))?;
+    Ok(())
+}
+
+pub(crate) fn git_worktree_paths(
+    git_executable: &Path,
+    main_workspace_root: &Path,
+) -> Result<HashSet<PathBuf>, CommandError> {
+    let output = std::process::Command::new(git_executable)
+        .args(["worktree", "list", "--porcelain", "-z"])
+        .current_dir(main_workspace_root)
+        .output()
+        .map_err(|err| user_error(format!("Failed to run `git worktree list`: {err}")))?;
+    if !output.status.success() {
+        return Err(user_error(format!(
+            "Failed to list Git worktrees: {}",
+            String::from_utf8_lossy(&output.stderr)
+        )));
+    }
+    let mut paths = HashSet::new();
+    for field in output.stdout.split_str(b"\0") {
+        let Some(path) = field.strip_prefix(b"worktree ") else {
+            continue;
+        };
+        let Ok(path) = path.to_str() else {
+            continue;
+        };
+        if let Ok(path) = dunce::canonicalize(path) {
+            paths.insert(path);
+        }
+    }
+    Ok(paths)
+}
+
+pub(crate) fn create_git_worktree_in_existing_workspace(
+    git_executable: &Path,
+    main_workspace_root: &Path,
+    workspace_root: &Path,
+) -> Result<(), CommandError> {
+    let parent = workspace_root.parent().unwrap_or(workspace_root);
+    let temp_dir = tempfile::Builder::new()
+        .prefix(".jj-git-worktree-")
+        .tempdir_in(parent)
+        .map_err(|err| user_error_with_message("Failed to create temporary Git worktree", err))?;
+    let output = std::process::Command::new(git_executable)
+        .args(["worktree", "add", "--detach", "--no-checkout"])
+        .arg(temp_dir.path())
+        .arg("HEAD")
+        .current_dir(main_workspace_root)
+        .output()
+        .map_err(|err| user_error(format!("Failed to run `git worktree add`: {err}")))?;
+    if !output.status.success() {
+        return Err(user_error(format!(
+            "Failed to create Git worktree: {}",
+            String::from_utf8_lossy(&output.stderr)
+        )));
+    }
+
+    let temp_dot_git = temp_dir.path().join(".git");
+    let git_file = fs::read_to_string(&temp_dot_git)
+        .map_err(|err| user_error_with_message("Failed to read temporary Git worktree", err))?;
+    let Some(git_dir) = git_file.trim().strip_prefix("gitdir: ") else {
+        return Err(user_error(
+            "Temporary Git worktree has unexpected .git file",
+        ));
+    };
+    let git_dir = Path::new(git_dir);
+    let git_dir = if git_dir.is_absolute() {
+        git_dir.to_owned()
+    } else {
+        temp_dir.path().join(git_dir)
+    };
+    let dot_git = workspace_root.join(".git");
+    fs::rename(&temp_dot_git, &dot_git)
+        .map_err(|err| user_error_with_message("Failed to install Git worktree file", err))?;
+    fs::write(git_dir.join("gitdir"), dot_git.to_string_lossy().as_bytes())
+        .map_err(|err| user_error_with_message("Failed to update Git worktree metadata", err))?;
+    temp_dir
+        .close()
+        .map_err(|err| user_error_with_message("Failed to remove temporary Git worktree", err))?;
+    Ok(())
 }
 
 #[cfg(test)]
