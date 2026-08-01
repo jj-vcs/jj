@@ -15,6 +15,7 @@
 use std::slice;
 
 use jj_lib::repo::Repo as _;
+use pollster::FutureExt as _;
 
 use super::CriterionArgs;
 use super::run_bench;
@@ -47,8 +48,11 @@ pub async fn cmd_bench_common_ancestors(
         .resolve_single_rev(ui, &args.revision2)
         .await?;
     let index = workspace_command.repo().index();
-    let routine =
-        || index.common_ancestors(slice::from_ref(commit1.id()), slice::from_ref(commit2.id()));
+    let routine = || {
+        index
+            .common_ancestors(slice::from_ref(commit1.id()), slice::from_ref(commit2.id()))
+            .block_on()
+    };
     run_bench(
         ui,
         &format!("common-ancestors-{}-{}", args.revision1, args.revision2),

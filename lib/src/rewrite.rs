@@ -91,7 +91,7 @@ pub async fn merge_commit_trees_no_resolve_without_repo(
         .iter()
         .map(|commit| commit.id().clone())
         .collect_vec();
-    let commit_id_merge = find_recursive_merge_commits(store, index, commit_ids)?;
+    let commit_id_merge = find_recursive_merge_commits(store, index, commit_ids).await?;
     let tree_merge: Merge<(MergedTree, String)> = commit_id_merge
         .try_map_async(async |commit_id| {
             let commit = store.get_commit_async(commit_id).await?;
@@ -102,7 +102,7 @@ pub async fn merge_commit_trees_no_resolve_without_repo(
 }
 
 /// Find the commits to use as input to the recursive merge algorithm.
-pub fn find_recursive_merge_commits(
+pub async fn find_recursive_merge_commits(
     store: &Arc<Store>,
     index: &dyn Index,
     commit_ids: Vec<CommitId>,
@@ -159,6 +159,7 @@ pub fn find_recursive_merge_commits(
         if top.pos < top.commit_ids.len() {
             let ancestor_ids = index
                 .common_ancestors(&top.commit_ids[0..top.pos], &top.commit_ids[top.pos..][..1])
+                .await
                 // TODO: indexing error shouldn't be a "BackendError"
                 .map_err(|err| BackendError::Other(err.into()))?;
             match maybe_resolved(ancestor_ids) {

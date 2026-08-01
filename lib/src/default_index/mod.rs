@@ -110,7 +110,7 @@ mod tests {
         set1: &[CommitId],
         set2: &[CommitId],
     ) -> Vec<CommitId> {
-        index.common_ancestors(set1, set2).unwrap()
+        index.common_ancestors(set1, set2).block_on().unwrap()
     }
 
     fn is_ancestor(
