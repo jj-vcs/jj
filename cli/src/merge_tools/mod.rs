@@ -38,8 +38,8 @@ use jj_lib::merged_tree_builder::MergedTreeBuilder;
 use jj_lib::repo_path::InvalidRepoPathError;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
-use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::settings::UserSettings;
+use jj_lib::ui_path::RepoPathUiConverter;
 use jj_lib::working_copy::SnapshotError;
 use thiserror::Error;
 

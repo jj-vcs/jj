@@ -62,7 +62,6 @@ use crate::ref_name::WorkspaceNameBuf;
 use crate::repo::ReadonlyRepo;
 use crate::repo::Repo;
 use crate::repo::RepoLoaderError;
-use crate::repo_path::RepoPathUiConverter;
 use crate::revset_parser;
 pub use crate::revset_parser::BinaryOp;
 pub use crate::revset_parser::ExpressionKind;
@@ -81,6 +80,7 @@ use crate::str_util::StringExpression;
 use crate::str_util::StringPattern;
 use crate::time_util::DatePattern;
 use crate::time_util::DatePatternContext;
+use crate::ui_path::RepoPathUiConverter;
 
 /// Error occurred during symbol resolution.
 #[derive(Debug, Error)]

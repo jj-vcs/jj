@@ -115,6 +115,7 @@ pub mod trailer;
 pub mod transaction;
 pub mod tree;
 pub mod tree_builder;
+pub mod ui_path;
 pub mod union_find;
 pub mod view;
 pub mod working_copy;

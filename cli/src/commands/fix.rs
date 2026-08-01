@@ -37,10 +37,10 @@ use jj_lib::fix::compute_file_line_count;
 use jj_lib::fix::fix_files;
 use jj_lib::matchers::Matcher;
 use jj_lib::repo::Repo as _;
-use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::revset::RevsetStreamExt as _;
 use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
+use jj_lib::ui_path::RepoPathUiConverter;
 use pollster::FutureExt as _;
 use tracing::instrument;
 
