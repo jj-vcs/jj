@@ -1904,6 +1904,34 @@ pub fn create_worktree(
     .map_err(GitCreateWorktreeError::from_git)
 }
 
+/// Creates a Git worktree whose detached HEAD matches the current Git HEAD.
+pub fn create_worktree_at_git_head(
+    store: &Store,
+    subprocess_options: GitSubprocessOptions,
+    destination: &Path,
+) -> Result<(), GitCreateWorktreeError> {
+    let git_backend = get_git_backend(store)?;
+    let head_oid = git_backend
+        .git_repo()
+        .head_id()
+        .map_err(GitCreateWorktreeError::from_git)?
+        .detach();
+    create_worktree(store, subprocess_options, destination)?;
+    let git_repo = git_backend
+        .open_git_repo_at_workdir(destination)
+        .map_err(GitCreateWorktreeError::from_git)?;
+    let head = git_repo
+        .find_reference("HEAD")
+        .map_err(GitCreateWorktreeError::from_git)?;
+    let old_target = head.target().into();
+    update_git_head(
+        &git_repo,
+        gix::refs::transaction::PreviousValue::MustExistAndMatch(old_target),
+        Some(head_oid),
+    )
+    .map_err(GitCreateWorktreeError::from_git)
+}
+
 /// Adds a worktree for a directory that already has contents.
 ///
 /// `git worktree add` refuses to use a non-empty directory, so the worktree is

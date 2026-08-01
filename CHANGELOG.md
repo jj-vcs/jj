@@ -65,6 +65,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   directory; with names it adopts specific worktrees; with `--all` it
   adopts every unadopted worktree at once.
 
+* `jj git worktree sync` synchronizes jj workspaces with Git worktrees in
+  colocated repositories: adopting external worktrees, forgetting removed
+  ones, and repairing moved paths. Set `git.auto-sync-worktrees = true`
+  to run this automatically on every jj invocation.
+
 ### Fixed bugs
 
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,
