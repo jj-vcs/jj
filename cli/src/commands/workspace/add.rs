@@ -13,6 +13,8 @@
 // limitations under the License.
 
 use std::fs;
+use std::path::Path;
+use std::process::Command;
 
 use futures::future::try_join_all;
 use itertools::Itertools as _;
@@ -114,7 +116,24 @@ pub async fn cmd_workspace_add(
             name = workspace_name.as_symbol()
         )));
     }
-    if !destination_path.exists() {
+    let is_colocated = old_workspace_command.working_copy_shared_with_git();
+
+    if is_colocated {
+        let created_git_worktree = create_git_worktree(
+            ui,
+            old_workspace_command.workspace_root(),
+            &destination_path,
+        )?;
+        if !created_git_worktree {
+            if !destination_path.exists() {
+                fs::create_dir(&destination_path).context(&destination_path)?;
+            } else if !file_util::is_empty_dir(&destination_path)? {
+                return Err(user_error(
+                    "Destination path exists and is not an empty directory",
+                ));
+            }
+        }
+    } else if !destination_path.exists() {
         fs::create_dir(&destination_path).context(&destination_path)?;
     } else if !file_util::is_empty_dir(&destination_path)? {
         return Err(user_error(
@@ -124,8 +143,6 @@ pub async fn cmd_workspace_add(
 
     let working_copy_factory = command.get_working_copy_factory()?;
     let repo_path = old_workspace_command.repo_path();
-    // If we add per-workspace configuration, we'll need to reload settings for
-    // the new workspace.
     let (new_workspace, repo) = Workspace::init_workspace_with_existing_repo(
         &destination_path,
         repo_path,
@@ -233,4 +250,47 @@ pub async fn cmd_workspace_add(
     )
     .await?;
     Ok(())
+}
+
+fn create_git_worktree(
+    ui: &Ui,
+    main_workspace_root: &Path,
+    destination: &Path,
+) -> Result<bool, CommandError> {
+    let head_output = Command::new("git")
+        .args(["rev-parse", "--verify", "--quiet", "HEAD"])
+        .current_dir(main_workspace_root)
+        .output()
+        .map_err(|err| {
+            user_error(format!(
+                "Failed to run `git rev-parse`: {err}. Is `git` installed?"
+            ))
+        })?;
+    if !head_output.status.success() {
+        writeln!(
+            ui.warning_default(),
+            "Skipping Git worktree creation because Git HEAD does not point to a commit yet."
+        )?;
+        return Ok(false);
+    }
+
+    let output = Command::new("git")
+        .args(["worktree", "add", "--detach", "--no-checkout"])
+        .arg(destination)
+        .arg("HEAD")
+        .current_dir(main_workspace_root)
+        .output()
+        .map_err(|err| {
+            user_error(format!(
+                "Failed to run `git worktree add`: {err}. Is `git` installed?"
+            ))
+        })?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(user_error(format!(
+            "Failed to create Git worktree: {stderr}"
+        )));
+    }
+    writeln!(ui.status(), "Created Git worktree for the new workspace.")?;
+    Ok(true)
 }

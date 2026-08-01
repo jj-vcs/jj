@@ -124,6 +124,26 @@ fn test_workspaces_add_second_and_third_workspace() {
 }
 
 #[test]
+fn test_workspaces_add_colocated_unborn_git_head() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "main"])
+        .success();
+    let main_dir = test_env.work_dir("main");
+
+    let output = main_dir.run_jj(["workspace", "add", "../secondary"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Warning: Skipping Git worktree creation because Git HEAD does not point to a commit yet.
+    Created workspace in "../secondary"
+    Working copy  (@) now at: uuqppmxq 94f41578 (empty) (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    "#);
+    assert!(!test_env.env_root().join("secondary/.git").exists());
+}
+
+#[test]
 fn test_workspaces_add_with_message() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "main"]).success();
