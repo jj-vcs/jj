@@ -88,6 +88,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   take a second (positional or named) argument `max_bar_width` for an equivalent
   effect.
 
+* Added `git.ignore-filters` setting to specify what filtered files in
+  `.gitattributes` are ignored by `jj`. Defaults to `["lfs"]`.
+
 ### Fixed bugs
 
 * Recursive alias definitions are detected more precisely. jj can now expand

@@ -3117,3 +3117,181 @@ fn test_always_store_empty_tree() -> TestResult {
     assert!(empty_tree.data.is_empty());
     Ok(())
 }
+
+#[test_case(TestRepoBackend::Simple ; "simple backend")]
+#[test_case(TestRepoBackend::Git ; "git backend")]
+fn test_gitattributes_ignore_only_on_git_backend(backend: TestRepoBackend) -> TestResult {
+    let mut test_workspace = TestWorkspace::init_with_backend(backend);
+    let workspace_root = test_workspace.workspace.workspace_root().to_owned();
+
+    // Write .gitattributes with LFS filter.
+    std::fs::write(workspace_root.join(".gitattributes"), "*.txt filter=lfs\n").unwrap();
+    // Write a matching file.
+    std::fs::write(workspace_root.join("file.txt"), "some content").unwrap();
+    // Write a non-matching file.
+    std::fs::write(workspace_root.join("file.dat"), "some other content").unwrap();
+
+    let new_tree = test_workspace.snapshot()?;
+
+    // "file.dat" should always be present
+    assert!(
+        new_tree
+            .path_value(repo_path("file.dat"))
+            .block_on()?
+            .is_present()
+    );
+
+    // ".gitattributes" should always be present
+    assert!(
+        new_tree
+            .path_value(repo_path(".gitattributes"))
+            .block_on()?
+            .is_present()
+    );
+
+    match backend {
+        TestRepoBackend::Git => {
+            // Under Git backend, "file.txt" should be ignored
+            assert!(
+                new_tree
+                    .path_value(repo_path("file.txt"))
+                    .block_on()?
+                    .is_absent()
+            );
+        }
+        TestRepoBackend::Simple | TestRepoBackend::Test => {
+            // Under non-Git backends, "file.txt" should NOT be ignored
+            assert!(
+                new_tree
+                    .path_value(repo_path("file.txt"))
+                    .block_on()?
+                    .is_present()
+            );
+        }
+    }
+
+    Ok(())
+}
+
+// Regression test for a bug found during development.
+//
+// Snapshot prefers .gitattributes from disk but falls back to the current tree
+// when the disk file is missing. TreeState starts with an empty tree before
+// checkout, so caching GitAttributes there can leave the fallback pointed at
+// the empty tree even after checkout updates TreeState::tree. Removing the disk
+// .gitattributes file exercises that fallback; the tracked LFS file must keep
+// the tree contents instead of snapshotting the modified disk contents.
+#[test]
+fn test_gitattributes_use_store_fallback_after_checkout() -> TestResult {
+    let mut test_workspace = TestWorkspace::init_with_backend(TestRepoBackend::Git);
+    let repo = &test_workspace.repo;
+    let workspace_root = test_workspace.workspace.workspace_root().to_owned();
+
+    let tree = create_tree(
+        repo,
+        &[
+            (repo_path(".gitattributes"), "*.txt filter=lfs\n"),
+            (repo_path("file.txt"), "original\n"),
+        ],
+    );
+    let commit = commit_with_tree(repo.store(), tree.clone());
+    test_workspace
+        .workspace
+        .check_out(repo.op_id().clone(), None, &commit)
+        .block_on()?;
+
+    std::fs::remove_file(workspace_root.join(".gitattributes"))?;
+    std::fs::write(workspace_root.join("file.txt"), "modified\n")?;
+
+    let new_tree = test_workspace.snapshot()?;
+    assert_eq!(
+        new_tree.path_value(repo_path("file.txt")).block_on()?,
+        tree.path_value(repo_path("file.txt")).block_on()?,
+    );
+
+    Ok(())
+}
+
+// Regression test for a bug found during development.
+//
+// Snapshot handles files that are present on disk and files that were deleted
+// from disk through separate paths. If deletion emission does not apply the
+// .gitattributes filter check, removing a tracked LFS-filtered file from disk
+// records a deletion even though normal snapshots would ignore changes to that
+// file. The tree should keep the tracked contents instead.
+#[test]
+fn test_gitattributes_ignore_deleted_tracked_file() -> TestResult {
+    let mut test_workspace = TestWorkspace::init_with_backend(TestRepoBackend::Git);
+    let repo = test_workspace.repo.clone();
+    let workspace_root = test_workspace.workspace.workspace_root().to_owned();
+
+    let tracked_path = repo_path("file.bin");
+    let tree = create_tree(
+        &repo,
+        &[
+            (repo_path(".gitattributes"), "*.bin filter=lfs\n"),
+            (tracked_path, "original\n"),
+        ],
+    );
+    let commit = commit_with_tree(repo.store(), tree.clone());
+    test_workspace
+        .workspace
+        .check_out(repo.op_id().clone(), None, &commit)
+        .block_on()?;
+
+    std::fs::remove_file(tracked_path.to_fs_path_unchecked(&workspace_root))?;
+
+    let new_tree = test_workspace.snapshot()?;
+    assert_eq!(
+        new_tree.path_value(tracked_path).block_on()?,
+        tree.path_value(tracked_path).block_on()?,
+    );
+
+    Ok(())
+}
+
+// Regression test for a bug found during development.
+//
+// The normal snapshot path checks .gitattributes before updating or deleting a
+// file. When .gitignore ignores an entire directory, snapshot uses a shortcut
+// that scans only already-tracked files in that directory. This test puts a
+// tracked file under that shortcut and marks it with filter=lfs. Modifying the
+// disk file must not update the tree: the .gitattributes filter should still
+// apply even though traversal used the ignored-directory path.
+#[test]
+fn test_gitattributes_ignore_tracked_file_in_gitignored_dir() -> TestResult {
+    let mut test_workspace = TestWorkspace::init_with_backend(TestRepoBackend::Git);
+    let repo = test_workspace.repo.clone();
+    let workspace_root = test_workspace.workspace.workspace_root().to_owned();
+
+    let tracked_path = repo_path("ignored/file.bin");
+    let tree = create_tree(
+        &repo,
+        &[
+            (repo_path(".gitignore"), "/ignored/\n"),
+            (repo_path(".gitattributes"), "ignored/file.bin filter=lfs\n"),
+            (tracked_path, "original\n"),
+        ],
+    );
+    let commit = commit_with_tree(repo.store(), tree.clone());
+    test_workspace
+        .workspace
+        .check_out(repo.op_id().clone(), None, &commit)
+        .block_on()?;
+
+    std::fs::write(
+        tracked_path.to_fs_path_unchecked(&workspace_root),
+        "modified\n",
+    )?;
+
+    let new_tree = test_workspace.snapshot()?;
+
+    // The .gitattributes filter should still apply when .gitignore sends
+    // tracked files through the ignored-directory shortcut.
+    assert_eq!(
+        new_tree.path_value(tracked_path).block_on()?,
+        tree.path_value(tracked_path).block_on()?,
+    );
+
+    Ok(())
+}

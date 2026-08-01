@@ -42,6 +42,7 @@ etcetera = { workspace = true }
 futures = { workspace = true }
 gix = { workspace = true, optional = true }
 gix-ignore = { workspace = true }
+gix-attributes = { workspace = true }
 globset = { workspace = true }
 hashbrown = { workspace = true }
 indexmap = { workspace = true }
