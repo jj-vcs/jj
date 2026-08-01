@@ -69,6 +69,20 @@ pub fn is_colocated_git_workspace(workspace: &Workspace) -> bool {
     if git_workdir == workspace.workspace_root() {
         return true;
     }
+    if workspace.workspace_root().join(".git").is_file() {
+        let Ok(worktree_repo) = gix::open(workspace.workspace_root()) else {
+            return false;
+        };
+        let Ok(worktree_common_dir) = dunce::canonicalize(worktree_repo.common_dir()) else {
+            return false;
+        };
+        let Ok(backend_common_dir) = dunce::canonicalize(git_backend.git_repo().common_dir())
+        else {
+            return false;
+        };
+        return worktree_repo.git_dir() != worktree_repo.common_dir()
+            && worktree_common_dir == backend_common_dir;
+    }
     // Colocated workspace should have ".git" directory, file, or symlink. Compare
     // its parent as the git_workdir might be resolved from the real ".git" path.
     let Ok(dot_git_path) = dunce::canonicalize(workspace.workspace_root().join(".git")) else {

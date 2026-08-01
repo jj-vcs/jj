@@ -29,6 +29,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (LSPs, editors, etc) work in the new workspace out of the box.
   `jj workspace forget` automatically removes the corresponding Git worktree.
 
+* External Git worktrees in colocated repositories are now adopted as jj
+  workspaces on first use. jj also keeps workspace metadata in sync when Git
+  worktrees are moved or removed externally.
+
 ### Fixed bugs
 
 * A side of a conflict whose contents end with a carriage return no longer loses
