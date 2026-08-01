@@ -651,6 +651,7 @@ fn is_valid_repo_path_str(value: &str) -> bool {
 /// An error from `RepoPathUiConverter::parse_file_path`.
 #[derive(Debug, Error)]
 pub enum UiPathParseError {
+    /// Failure to parse a path a relative path inside the repo.
     #[error(transparent)]
     Fs(FsPathParseError),
 }
@@ -664,7 +665,12 @@ pub enum RepoPathUiConverter {
     ///
     /// The `cwd` and `base` paths are supposed to be absolute and normalized in
     /// the same manner.
-    Fs { cwd: PathBuf, base: PathBuf },
+    Fs {
+        /// The directory to which relative paths are interpreted.
+        cwd: PathBuf,
+        /// The repository root path.
+        base: PathBuf,
+    },
     // TODO: Add a no-op variant that uses the internal `RepoPath` representation. Can be useful
     // on a server.
 }
