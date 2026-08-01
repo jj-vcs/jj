@@ -22,6 +22,7 @@ mod update_stale;
 use clap::Subcommand;
 use tracing::instrument;
 
+pub(crate) use self::add::SparseInheritance;
 use self::add::WorkspaceAddArgs;
 use self::add::cmd_workspace_add;
 use self::forget::WorkspaceForgetArgs;
