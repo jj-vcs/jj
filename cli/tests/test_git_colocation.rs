@@ -518,6 +518,13 @@ fn test_git_colocation_enable_disable_child_workspace() {
     ");
     assert!(test_env.env_root().join("secondary/.git").is_file());
 
+    main_dir.run_jj(["git", "worktree", "sync"]).success();
+    insta::assert_snapshot!(main_dir.run_jj(["workspace", "list"]).normalize_backslash(), @r#"
+    default: . rlvkpnrz 504e3d8c (empty) (no description set)
+    secondary: ../secondary pmmvwywv 058f604d (empty) (no description set)
+    [EOF]
+    "#);
+
     // The workspace's .jj directory must be excluded, or Git would report it as
     // untracked in the worktree.
     assert!(
