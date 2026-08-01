@@ -124,6 +124,26 @@ fn test_workspaces_add_second_and_third_workspace() {
 }
 
 #[test]
+fn test_workspaces_add_colocated_unborn_git_head() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "main"])
+        .success();
+    let main_dir = test_env.work_dir("main");
+
+    let output = main_dir.run_jj(["workspace", "add", "../secondary"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Warning: Skipping Git worktree creation because Git HEAD does not point to a commit yet.
+    Created workspace in "../secondary"
+    Working copy  (@) now at: uuqppmxq 94f41578 (empty) (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    "#);
+    assert!(!test_env.env_root().join("secondary/.git").exists());
+}
+
+#[test]
 fn test_workspaces_add_with_message() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "main"]).success();
@@ -2099,6 +2119,78 @@ fn test_workspaces_rename_workspace_from_before_workspace_store() {
     third: 
     [EOF]
     ");
+}
+
+#[test]
+fn test_workspaces_add_colocated_no_colocate_flag() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "main"])
+        .success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    let output = main_dir.run_jj(["workspace", "add", "--no-colocate", "../secondary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Created workspace in "../secondary"
+    Working copy  (@) now at: pmmvwywv 058f604d (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 7b22a8cb initial
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+    assert!(!test_env.env_root().join("secondary/.git").exists());
+}
+
+#[test]
+fn test_workspaces_add_colocated_default_creates_worktree() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "main"])
+        .success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    let output = main_dir.run_jj(["workspace", "add", "../secondary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Created Git worktree for the new workspace.
+    Created workspace in "../secondary"
+    Working copy  (@) now at: pmmvwywv 058f604d (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 7b22a8cb initial
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+    assert!(test_env.env_root().join("secondary/.git").is_file());
+}
+
+#[test]
+fn test_workspaces_forget_colocated_removes_worktree() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "main"])
+        .success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+
+    assert!(test_env.env_root().join("secondary/.git").is_file());
+
+    let output = main_dir.run_jj(["workspace", "forget", "secondary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Removed Git worktree at "$TEST_ENV/secondary".
+    [EOF]
+    "#);
+    assert!(!test_env.env_root().join("secondary/.git").exists());
 }
 
 #[must_use]

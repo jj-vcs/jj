@@ -19,6 +19,8 @@ use itertools::Itertools as _;
 use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::file_util;
 use jj_lib::file_util::IoResultExt as _;
+#[cfg(feature = "git")]
+use jj_lib::git::GitSettings;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::merge_commit_trees;
@@ -32,6 +34,8 @@ use crate::command_error::internal_error_with_message;
 use crate::command_error::user_error;
 use crate::description_util::add_trailers;
 use crate::description_util::join_message_paragraphs;
+#[cfg(feature = "git")]
+use crate::git_util::create_git_worktree;
 use crate::ui::Ui;
 
 /// How to handle sparse patterns when creating a new workspace.
@@ -81,6 +85,20 @@ pub struct WorkspaceAddArgs {
     #[arg(long = "message", short, value_name = "MESSAGE")]
     message_paragraphs: Vec<String>,
 
+    /// Create a corresponding Git worktree for this workspace
+    ///
+    /// By default, this matches the colocation of the current repository.
+    /// Use `--no-colocate` to override.
+    #[arg(long, conflicts_with = "no_colocate")]
+    colocate: bool,
+
+    /// Do not create a Git worktree for this workspace
+    ///
+    /// By default, this matches the colocation of the current repository.
+    /// Use `--colocate` to override.
+    #[arg(long, conflicts_with = "colocate")]
+    no_colocate: bool,
+
     /// How to handle sparse patterns when creating a new workspace.
     #[arg(long, value_enum, default_value_t = SparseInheritance::Copy)]
     sparse_patterns: SparseInheritance,
@@ -114,12 +132,53 @@ pub async fn cmd_workspace_add(
             name = workspace_name.as_symbol()
         )));
     }
-    if !destination_path.exists() {
-        fs::create_dir(&destination_path).context(&destination_path)?;
-    } else if !file_util::is_empty_dir(&destination_path)? {
-        return Err(user_error(
-            "Destination path exists and is not an empty directory",
-        ));
+    #[cfg(feature = "git")]
+    let created_git_worktree = {
+        let should_colocate = if args.colocate {
+            if !jj_lib::git::get_git_backend(repo.store()).is_ok() {
+                return Err(user_error(
+                    "Cannot colocate workspace: the repository does not use a Git backend",
+                ));
+            }
+            true
+        } else if args.no_colocate {
+            false
+        } else {
+            old_workspace_command.working_copy_shared_with_git()
+        };
+        if should_colocate {
+            let git_settings = GitSettings::from_settings(old_workspace_command.settings())?;
+            let git_head = repo.view().git_head(old_workspace_command.workspace_name());
+            if git_head.is_absent() {
+                writeln!(
+                    ui.warning_default(),
+                    "Skipping Git worktree creation because Git HEAD does not point to a commit \
+                     yet."
+                )?;
+                false
+            } else {
+                create_git_worktree(
+                    ui,
+                    &git_settings,
+                    old_workspace_command.workspace_root(),
+                    &destination_path,
+                )?
+            }
+        } else {
+            false
+        }
+    };
+    #[cfg(not(feature = "git"))]
+    let created_git_worktree = false;
+
+    if !created_git_worktree {
+        if !destination_path.exists() {
+            fs::create_dir(&destination_path).context(&destination_path)?;
+        } else if !file_util::is_empty_dir(&destination_path)? {
+            return Err(user_error(
+                "Destination path exists and is not an empty directory",
+            ));
+        }
     }
 
     let working_copy_factory = command.get_working_copy_factory()?;

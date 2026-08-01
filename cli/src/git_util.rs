@@ -20,6 +20,7 @@ use std::io::Write as _;
 use std::iter;
 use std::mem;
 use std::path::Path;
+use std::process::Command;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -560,6 +561,76 @@ pub fn print_push_stats(ui: &Ui, stats: &GitPushStats) -> io::Result<()> {
                 write!(formatter, ": {err}")?;
             }
             writeln!(formatter)?;
+        }
+    }
+    Ok(())
+}
+
+pub fn create_git_worktree(
+    ui: &Ui,
+    git_settings: &GitSettings,
+    main_workspace_root: &Path,
+    destination: &Path,
+) -> Result<bool, CommandError> {
+    let output = Command::new(&git_settings.executable_path)
+        .args(["worktree", "add", "--detach", "--no-checkout"])
+        .arg(destination)
+        .arg("HEAD")
+        .current_dir(main_workspace_root)
+        .output()
+        .map_err(|err| {
+            user_error(format!(
+                "Failed to run `git worktree add`: {err}. Is `git` installed?"
+            ))
+        })?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(user_error(format!(
+            "Failed to create Git worktree: {stderr}"
+        )));
+    }
+    writeln!(ui.status(), "Created Git worktree for the new workspace.")?;
+    Ok(true)
+}
+
+pub fn remove_git_worktree(
+    ui: &Ui,
+    git_settings: &GitSettings,
+    main_workspace_root: &Path,
+    worktree_path: &Path,
+) -> Result<(), CommandError> {
+    let dot_git = worktree_path.join(".git");
+    if !dot_git.is_file() {
+        return Ok(());
+    }
+    // --force is needed because jj manages the working copy independently
+    // from git, so git may consider the worktree dirty.
+    let output = Command::new(&git_settings.executable_path)
+        .args(["worktree", "remove", "--force"])
+        .arg(worktree_path)
+        .current_dir(main_workspace_root)
+        .output();
+    match output {
+        Ok(o) if o.status.success() => {
+            writeln!(
+                ui.status(),
+                r#"Removed Git worktree at "{}"."#,
+                worktree_path.display()
+            )?;
+        }
+        Ok(o) => {
+            let stderr = String::from_utf8_lossy(&o.stderr);
+            writeln!(
+                ui.warning_default(),
+                r#"Failed to remove Git worktree at "{}": {stderr}"#,
+                worktree_path.display()
+            )?;
+        }
+        Err(err) => {
+            writeln!(
+                ui.warning_default(),
+                "Failed to run `git worktree remove`: {err}"
+            )?;
         }
     }
     Ok(())
