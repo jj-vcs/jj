@@ -19,13 +19,17 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::time::SystemTime;
 
+use assert_matches::assert_matches;
 use futures::executor::block_on_stream;
 use itertools::Itertools as _;
+use jj_lib::backend::Backend as _;
+use jj_lib::backend::BackendError;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::CopyRecord;
 use jj_lib::commit::Commit;
 use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::git_backend::GitBackend;
+use jj_lib::git_backend::JJ_CONFLICT_LABELS_COMMIT_HEADER;
 use jj_lib::git_backend::JJ_TREES_COMMIT_HEADER;
 use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;
@@ -449,6 +453,52 @@ fn test_jj_trees_header_with_one_tree() -> TestResult {
         },
     )
     "#);
+    Ok(())
+}
+
+#[test]
+fn test_invalid_conflict_labels_header() -> TestResult {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = test_repo.repo;
+    let git_backend = get_git_backend(&repo);
+    let git_repo = git_backend.git_repo();
+
+    let tree = create_single_tree(&repo, &[(repo_path("file"), "aaa")]);
+    let commit = commit_with_tree(
+        repo.store(),
+        MergedTree::resolved(repo.store().clone(), tree.id().clone()),
+    );
+    let git_commit_id = gix::ObjectId::from_bytes_or_panic(commit.id().as_bytes());
+    let git_commit = git_repo.find_commit(git_commit_id)?;
+
+    // Invalid UTF-8 and an even number of labels cannot represent a merge.
+    for labels in [b"\xff".as_slice(), b"left\nright\n".as_slice()] {
+        let mut new_commit: gix::objs::Commit = git_commit.decode()?.try_into()?;
+        new_commit.extra_headers = vec![(JJ_CONFLICT_LABELS_COMMIT_HEADER.into(), labels.into())];
+        let new_commit_id = git_repo.write_object(&new_commit)?;
+        let new_commit_id = CommitId::from_bytes(new_commit_id.as_bytes());
+
+        assert_matches!(
+            git_backend.import_head_commits(std::slice::from_ref(&new_commit_id)),
+            Err(BackendError::ReadObject { source, .. })
+                if source.to_string() == "Invalid jj:conflict-labels header"
+        );
+    }
+
+    // The direct-read path rejects an even number of labels, too.
+    let mut new_commit: gix::objs::Commit = git_commit.decode()?.try_into()?;
+    new_commit.extra_headers = vec![(
+        JJ_CONFLICT_LABELS_COMMIT_HEADER.into(),
+        "left\nright\n".into(),
+    )];
+    let new_commit_id = git_repo.write_object(&new_commit)?;
+    let new_commit_id = CommitId::from_bytes(new_commit_id.as_bytes());
+
+    assert_matches!(
+        git_backend.read_commit(&new_commit_id).block_on(),
+        Err(BackendError::ReadObject { source, .. })
+            if source.to_string() == "Invalid jj:conflict-labels header"
+    );
     Ok(())
 }
 
