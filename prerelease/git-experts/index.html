@@ -2071,6 +2071,9 @@ rebase --autosquash</code>.</p>
 <p><code>jj absorb</code> is useful when you've made small fixes in the working copy and want
 them incorporated into recent commits. It automatically moves each change in the
 working copy into the previous commit where that line was changed.</p>
+<p>Use <code>jj absorb --interactive</code> to choose only some hunks to consider for
+absorption. Any hunks that are not selected or cannot be absorbed unambiguously
+remain in the source commit.</p>
 <p>It doesn't solve all cases: If multiple commits in the stack modified the same
 line as was changed in the working copy, it will not move that change. But it
 does help the trivial cases, leaving you to decide how to squash the remaining

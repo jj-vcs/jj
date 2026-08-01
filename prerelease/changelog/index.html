@@ -7498,6 +7498,17 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h3 id="new-features_1">New features<a class="headerlink" href="#new-features_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
+<p><code>jj absorb</code> now supports <code>--interactive</code>/<code>-i</code> to let you interactively choose
+  which hunks from the source to consider for absorption. This is useful when
+  you only want to absorb <em>part</em> of a commit without first splitting it. Any
+  hunks that are not selected or cannot be absorbed remain in the source commit.</p>
+</li>
+<li>
+<p><code>jj absorb</code> now supports the <code>--tool</code> option to choose a specific diff editor
+  for use with <code>--interactive</code> / <code>-i</code> (consistent with <code>squash --tool</code>,
+  <code>split --tool</code>, etc.).</p>
+</li>
+<li>
 <p><code>jj show</code> now supports <code>--reversed</code> flag.</p>
 </li>
 <li>

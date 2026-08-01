@@ -8474,6 +8474,7 @@ does not match the <code>jj help</code> output exactly.</p>
 <h2 id="jj-absorb"><code>jj absorb</code><a class="headerlink" href="#jj-absorb" title="Permanent link">&para;</a></h2>
 <p>Move changes from a revision into the stack of mutable revisions</p>
 <p>This command splits changes in the source revision and moves each change to the closest mutable ancestor where the corresponding lines were modified last. If the destination revision cannot be determined unambiguously, the change will be left in the source revision.</p>
+<p>With the <code>--interactive</code> option, only the selected changes will be considered for absorption. This allows picking specific hunks to absorb (which may then be distributed across multiple ancestors). The <code>--tool</code> option can be used to select a different diff editor.</p>
 <p>The source revision will be abandoned if all changes are absorbed into the destination revisions, and if the source revision has no description.</p>
 <p>The modification made by <code>jj absorb</code> can be reviewed by <code>jj op show -p</code>.</p>
 <p><strong>Usage:</strong> <code>jj absorb [OPTIONS] [FILESETS]...</code></p>
@@ -8492,6 +8493,10 @@ does not match the <code>jj help</code> output exactly.</p>
 <p>Only ancestors of the source revision will be considered.</p>
 <p>Default value: <code>mutable()</code></p>
 </li>
+<li>
+<p><code>-i</code>, <code>--interactive</code> — Interactively choose which parts to absorb</p>
+</li>
+<li><code>--tool &lt;NAME&gt;</code> — Specify diff editor to be used (implies --interactive)</li>
 </ul>
 <h2 id="jj-arrange"><code>jj arrange</code><a class="headerlink" href="#jj-arrange" title="Permanent link">&para;</a></h2>
 <p>Interactively arrange the commit graph</p>
