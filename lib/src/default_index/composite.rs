@@ -637,7 +637,7 @@ impl Index for CompositeIndex {
         Ok(self.commits().heads(candidate_ids))
     }
 
-    fn changed_paths_in_commit(
+    async fn changed_paths_in_commit(
         &self,
         commit_id: &CommitId,
     ) -> IndexResult<Option<Box<dyn Iterator<Item = RepoPathBuf> + '_>>> {

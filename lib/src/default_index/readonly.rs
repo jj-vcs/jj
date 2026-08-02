@@ -753,11 +753,11 @@ impl Index for DefaultReadonlyIndex {
         self.0.heads(candidates)
     }
 
-    fn changed_paths_in_commit(
+    async fn changed_paths_in_commit(
         &self,
         commit_id: &CommitId,
     ) -> IndexResult<Option<Box<dyn Iterator<Item = RepoPathBuf> + '_>>> {
-        self.0.changed_paths_in_commit(commit_id)
+        self.0.changed_paths_in_commit(commit_id).await
     }
 
     fn evaluate_revset(
