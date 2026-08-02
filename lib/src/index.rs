@@ -150,7 +150,7 @@ pub trait Index: Send + Sync {
 
     /// Returns iterator over paths changed at the specified commit. The paths
     /// are sorted. Returns `None` if the commit wasn't indexed.
-    fn changed_paths_in_commit(
+    async fn changed_paths_in_commit(
         &self,
         commit_id: &CommitId,
     ) -> IndexResult<Option<Box<dyn Iterator<Item = RepoPathBuf> + '_>>>;

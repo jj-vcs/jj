@@ -80,6 +80,7 @@ fn enable_changed_path_index(repo: &ReadonlyRepo) -> Arc<ReadonlyRepo> {
 fn collect_changed_paths(repo: &ReadonlyRepo, commit_id: &CommitId) -> Option<Vec<RepoPathBuf>> {
     repo.index()
         .changed_paths_in_commit(commit_id)
+        .block_on()
         .unwrap()
         .map(|paths| paths.collect())
 }
