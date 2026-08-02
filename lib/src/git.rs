@@ -30,6 +30,7 @@ use bstr::BStr;
 use bstr::BString;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
+use futures::stream;
 use gix::refspec::Instruction;
 use itertools::Itertools as _;
 use thiserror::Error;
@@ -650,14 +651,18 @@ async fn import_refs_inner(
     // changed_git_refs aren't respected because changed_remote_bookmarks/tags
     // should include all heads that will become reachable in jj.
     let index = mut_repo.index();
-    let missing_head_ids: Vec<&CommitId> = new_referenced_heads
-        .iter()
-        .filter_map(|id| match index.has_id(id) {
-            Ok(false) => Some(Ok(id)),
-            Ok(true) => None,
-            Err(e) => Some(Err(e)),
+    let missing_head_ids: Vec<&CommitId> = stream::iter(&new_referenced_heads)
+        .map(|id| async move { (id, index.has_id(id).await) })
+        .buffered(mut_repo.store().concurrency())
+        .filter_map(|m| async move {
+            match m {
+                (id, Ok(false)) => Some(Ok(id)),
+                (_, Ok(true)) => None,
+                (_, Err(err)) => Some(Err(GitImportError::Index(err))),
+            }
         })
-        .try_collect()?;
+        .try_collect()
+        .await?;
     let heads_imported = git_backend.import_head_commits(missing_head_ids).is_ok();
 
     // Import new remote heads
@@ -668,7 +673,7 @@ async fn import_refs_inner(
             err,
         };
         // If bulk-import failed, try again to find bad head or ref.
-        if !heads_imported && !index.has_id(id)? {
+        if !heads_imported && !index.has_id(id).await? {
             git_backend
                 .import_head_commits([id])
                 .map_err(missing_ref_err)?;
@@ -1184,7 +1189,7 @@ pub async fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportErro
     // Import new head
     if let Some(head_id) = &new_git_head_id {
         let index = mut_repo.index();
-        if !index.has_id(head_id)? {
+        if !index.has_id(head_id).await? {
             git_backend.import_head_commits([head_id]).map_err(|err| {
                 GitImportError::MissingHeadTarget {
                     id: head_id.clone(),

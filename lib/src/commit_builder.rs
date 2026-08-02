@@ -405,6 +405,7 @@ impl DetachedCommitBuilder {
             && mut_repo
                 .index()
                 .has_id(commit.id())
+                .await
                 // TODO: indexing error shouldn't be a "BackendError"
                 .map_err(|err| BackendError::Other(err.into()))?
         {

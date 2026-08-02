@@ -1781,19 +1781,22 @@ impl MutableRepo {
     /// Adds the given `heads` and ancestor commits to the index without making
     /// them visible. Returns newly-indexed commits.
     pub async fn index_commits(&mut self, heads: &[Commit]) -> BackendResult<Vec<Commit>> {
+        let index = self.index();
         let missing_commits = dag_walk_async::topo_order_reverse_ord(
-            heads
-                .iter()
-                .filter_map(|commit| match self.index().has_id(commit.id()) {
-                    Ok(false) => Some(Ok(CommitByCommitterTimestamp(commit.clone()))),
-                    Ok(true) => None,
-                    // TODO: indexing error shouldn't be a "BackendError"
-                    Err(err) => Some(Err(BackendError::Other(err.into()))),
-                }),
+            stream::iter(heads)
+                .map(|commit| async move { (commit, index.has_id(commit.id()).await) })
+                .buffered(self.store().concurrency())
+                .filter_map(async |m| match m {
+                    (commit, Ok(false)) => Some(Ok(CommitByCommitterTimestamp(commit.clone()))),
+                    (_, Ok(true)) => None,
+                    (_, Err(err)) => Some(Err(BackendError::Other(err.into()))),
+                })
+                .collect::<Vec<_>>()
+                .await,
             |CommitByCommitterTimestamp(commit)| commit.id().clone(),
             async |CommitByCommitterTimestamp(commit)| {
                 stream::iter(commit.parent_ids())
-                    .filter_map(async |id| match self.index().has_id(id) {
+                    .filter_map(async |id| match index.has_id(id).await {
                         Ok(false) => Some(
                             self.store()
                                 .get_commit_async(id)
