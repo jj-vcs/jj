@@ -128,6 +128,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Fixed a panic when passing overly-large length parameters to ID templater
   functions (`commit_id.short()`, `commit_id.shortest()`, etc.).
   [#9833](https://github.com/jj-vcs/jj/issues/9833)
+
+* `jj git import` and `export` in colocated workspaces are now disabled by
+  default. These commands usually do nothing, but they had a race condition.
+
 ## [0.43.0] - 2026-07-01
 
 ### Release highlights

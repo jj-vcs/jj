@@ -703,6 +703,79 @@ fn test_git_colocated_conflicting_git_refs() -> TestResult {
 }
 
 #[test]
+fn test_git_colocated_explicit_import_export() -> TestResult {
+    let test_env = TestEnvironment::default();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = git::init(work_dir.root());
+    work_dir.run_jj(["git", "init", "--git-repo=."]).success();
+
+    // Create unexportable bookmark
+    work_dir
+        .run_jj(["bookmark", "create", "foo", "-r=root()"])
+        .success();
+    // Create unimportable remote ref
+    let target_id = work_dir
+        .run_jj(["log", "--no-graph", "-T=commit_id", "-r@"])
+        .success()
+        .stdout
+        .into_raw();
+    git_repo.reference(
+        "refs/remotes/git/bar",
+        gix::ObjectId::from_hex(target_id.as_bytes())?,
+        gix::refs::transaction::PreviousValue::Any,
+        "",
+    )?;
+
+    // Import refs during the snapshot by default
+    let output = work_dir.run_jj(["git", "import"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Failed to import some Git refs:
+      refs/remotes/git/bar
+    Hint: Git remote named 'git' is reserved for local Git repository.
+    Use `jj git remote rename` to give a different name.
+    No import needed in colocated workspaces.
+    [EOF]
+    ");
+
+    // Explicit import also works
+    let output = work_dir.run_jj(["git", "import", "--ignore-working-copy"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Failed to import some Git refs:
+      refs/remotes/git/bar
+    Hint: Git remote named 'git' is reserved for local Git repository.
+    Use `jj git remote rename` to give a different name.
+    Nothing changed.
+    [EOF]
+    ");
+
+    // Import refs during the snapshot by default, therefore no export
+    let output = work_dir.run_jj(["git", "export"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Failed to import some Git refs:
+      refs/remotes/git/bar
+    Hint: Git remote named 'git' is reserved for local Git repository.
+    Use `jj git remote rename` to give a different name.
+    No export needed in colocated workspaces.
+    [EOF]
+    ");
+
+    // Explicit export also works
+    let output = work_dir.run_jj(["git", "export", "--ignore-working-copy"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Nothing changed.
+    Warning: Failed to export some bookmarks:
+      foo@git: Ref cannot point to the root commit in Git
+    [EOF]
+    ");
+
+    Ok(())
+}
+
+#[test]
 fn test_git_colocated_checkout_non_empty_working_copy() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");

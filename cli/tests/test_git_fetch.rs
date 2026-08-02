@@ -624,14 +624,10 @@ fn test_git_fetch_from_remote_named_git() {
     [EOF]
     ");
 
-    // Explicit import also works. Warnings are printed twice because this is a
-    // colocated workspace. That should be fine since "jj git import" wouldn't
-    // be used in colocated environment. Warnings should be printed with
-    // --quiet, but hints shouldn't.
+    // Explicit import also works. Warnings should be printed with --quiet, but
+    // hints shouldn't.
     insta::assert_snapshot!(work_dir.run_jj(["git", "import", "--quiet"]), @"
     ------- stderr -------
-    Warning: Failed to import some Git refs:
-      refs/remotes/git/git
     Warning: Failed to import some Git refs:
       refs/remotes/git/git
     [EOF]

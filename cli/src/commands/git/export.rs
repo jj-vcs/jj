@@ -21,8 +21,9 @@ use crate::ui::Ui;
 
 /// Update the underlying Git repo with changes made in the repo
 ///
-/// There is no need to run this command if you're in colocated workspace
-/// because the export happens automatically there.
+/// By default, this command does nothing in colocated workspaces because the
+/// export happens automatically. Use `--ignore-working-copy` to forcibly export
+/// changes.
 #[derive(clap::Args, Clone, Debug)]
 pub struct GitExportArgs {}
 
@@ -32,6 +33,13 @@ pub async fn cmd_git_export(
     _args: &GitExportArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui).await?;
+    if command.is_working_copy_writable() && workspace_command.working_copy_shared_with_git() {
+        // Git refs are imported during the snapshot, so there are no ref
+        // changes to export.
+        writeln!(ui.status(), "No export needed in colocated workspaces.")?;
+        return Ok(());
+    }
+
     let mut tx = workspace_command.start_transaction();
     let stats = git::export_refs(tx.repo_mut())?;
     tx.finish(ui, "export git refs").await?;

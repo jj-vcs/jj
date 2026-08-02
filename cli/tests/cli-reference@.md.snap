@@ -1681,7 +1681,7 @@ Show the current colocation status
 
 Update the underlying Git repo with changes made in the repo
 
-There is no need to run this command if you're in colocated workspace because the export happens automatically there.
+By default, this command does nothing in colocated workspaces because the export happens automatically. Use `--ignore-working-copy` to forcibly export changes.
 
 **Usage:** `jj git export`
 
@@ -1735,7 +1735,7 @@ Commits that are no longer reachable from any branch in the Git repo will be con
 
 If a working-copy commit gets abandoned, it will be given a new, empty commit. This is true in general; it is not specific to this command.
 
-There is no need to run this command if you're in colocated workspace because the import happens automatically there.
+By default, this command does nothing in colocated workspaces because the import happens automatically. Use `--ignore-working-copy` to forcibly import changes.
 
 **Usage:** `jj git import`
 

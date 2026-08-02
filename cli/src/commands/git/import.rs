@@ -31,8 +31,9 @@ use crate::ui::Ui;
 /// If a working-copy commit gets abandoned, it will be given a new, empty
 /// commit. This is true in general; it is not specific to this command.
 ///
-/// There is no need to run this command if you're in colocated workspace
-/// because the import happens automatically there.
+/// By default, this command does nothing in colocated workspaces because the
+/// import happens automatically. Use `--ignore-working-copy` to forcibly import
+/// changes.
 #[derive(clap::Args, Clone, Debug)]
 pub struct GitImportArgs {}
 
@@ -42,6 +43,12 @@ pub async fn cmd_git_import(
     _args: &GitImportArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui).await?;
+    if command.is_working_copy_writable() && workspace_command.working_copy_shared_with_git() {
+        // Git refs are imported during the snapshot.
+        writeln!(ui.status(), "No import needed in colocated workspaces.")?;
+        return Ok(());
+    }
+
     let git_settings = GitSettings::from_settings(workspace_command.settings())?;
     let remote_settings = workspace_command.settings().remote_settings()?;
     let import_options = load_git_import_options(ui, &git_settings, &remote_settings)?;
