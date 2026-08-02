@@ -204,6 +204,7 @@ impl Backend for TestBackend {
         &self,
         path: &RepoPath,
         id: &FileId,
+        offset: u64,
     ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>> {
         let path = path.to_owned();
         let id = id.clone();
@@ -219,7 +220,8 @@ impl Backend for TestBackend {
                     hash: id.hex(),
                     source: format!("at path {path:?}").into(),
                 }),
-                Some(contents) => {
+                Some(mut contents) => {
+                    contents.drain(..offset as usize);
                     let reader: Pin<Box<dyn AsyncRead + Send>> = Box::pin(Cursor::new(contents));
                     Ok(reader)
                 }

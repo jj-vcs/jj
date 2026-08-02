@@ -232,8 +232,9 @@ impl Store {
         &self,
         path: &RepoPath,
         id: &FileId,
+        offset: u64,
     ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>> {
-        self.backend.read_file(path, id).await
+        self.backend.read_file(path, id, offset).await
     }
 
     pub async fn write_file(
