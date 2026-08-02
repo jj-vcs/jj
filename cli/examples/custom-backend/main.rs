@@ -34,6 +34,7 @@ use jj_lib::backend::CopyHistory;
 use jj_lib::backend::CopyId;
 use jj_lib::backend::CopyRecord;
 use jj_lib::backend::FileId;
+use jj_lib::backend::FileMetadata;
 use jj_lib::backend::RelatedCopy;
 use jj_lib::backend::SigningFn;
 use jj_lib::backend::SymlinkId;
@@ -142,6 +143,10 @@ impl Backend for JitBackend {
 
     fn concurrency(&self) -> usize {
         1
+    }
+
+    async fn get_file_metadata(&self, path: &RepoPath, id: &FileId) -> BackendResult<FileMetadata> {
+        self.inner.get_file_metadata(path, id).await
     }
 
     async fn read_file(
