@@ -630,9 +630,9 @@ impl Index for CompositeIndex {
         Ok(Box::new(self.commits().all_heads()))
     }
 
-    fn heads(
+    async fn heads(
         &self,
-        candidate_ids: &mut dyn Iterator<Item = &CommitId>,
+        candidate_ids: &mut (dyn Iterator<Item = &CommitId> + Send),
     ) -> IndexResult<Vec<CommitId>> {
         Ok(self.commits().heads(candidate_ids))
     }

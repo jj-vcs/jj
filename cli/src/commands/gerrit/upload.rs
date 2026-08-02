@@ -508,6 +508,7 @@ pub async fn cmd_gerrit_upload(
     let old_heads = base_repo
         .index()
         .heads(&mut revisions.iter())
+        .await
         .map_err(internal_error)?;
 
     let subprocess_options = GitSubprocessOptions::from_settings(command.settings())?;

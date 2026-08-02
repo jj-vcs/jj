@@ -981,15 +981,14 @@ impl MutableRepo {
             && self.view() == &self.base_repo.view)
     }
 
-    #[expect(clippy::type_complexity)]
-    pub fn consume(
+    pub async fn consume(
         mut self,
     ) -> IndexResult<(
         Box<dyn MutableIndex>,
         View,
         BTreeMap<CommitId, Vec<CommitId>>,
     )> {
-        self.normalize_heads()?;
+        self.normalize_heads().await?;
         Ok((self.index, self.view, self.commit_predecessors))
     }
 
@@ -1091,11 +1090,13 @@ impl MutableRepo {
         self.rewritten_ids_with(old_ids, |rewrite| !matches!(rewrite, Rewrite::Divergent(_)))
     }
 
-    fn normalize_heads(&mut self) -> IndexResult<()> {
-        self.view.normalize_heads(
-            self.index.as_index(),
-            self.base_repo.store().root_commit_id(),
-        )
+    async fn normalize_heads(&mut self) -> IndexResult<()> {
+        self.view
+            .normalize_heads(
+                self.index.as_index(),
+                self.base_repo.store().root_commit_id(),
+            )
+            .await
     }
 
     fn rewritten_ids_with(
@@ -1308,6 +1309,7 @@ impl MutableRepo {
         self.set_view(view);
         // TODO: indexing error shouldn't be a "RevsetEvaluationError"
         self.normalize_heads()
+            .await
             .map_err(|err| RevsetEvaluationError::Other(Box::new(err)))?;
         Ok(())
     }
@@ -1657,7 +1659,7 @@ impl MutableRepo {
                 .map_err(EditCommitError::WorkingCopyCommitNotFound)?;
             // Call normalized_heads() prior to .view().heads().contains() because
             // the caller expects non-head revisions don't exist in the set.
-            self.normalize_heads()?;
+            self.normalize_heads().await?;
             if wc_commit.is_discardable(self).await?
                 && !is_commit_referenced(&self.view, wc_commit.id())
                 && self.view().heads().contains(wc_commit.id())
@@ -1947,7 +1949,7 @@ impl MutableRepo {
         self.index.merge_in(base_repo.readonly_index())?;
         self.index.merge_in(other_repo.readonly_index())?;
 
-        self.normalize_heads()?;
+        self.normalize_heads().await?;
 
         self.merge_view(&base_repo.view, &other_repo.view).await?;
         Ok(())

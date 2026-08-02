@@ -286,11 +286,12 @@ impl<'repo> CommitRewriter<'repo> {
 
     /// If a merge commit would end up with one parent being an ancestor of the
     /// other, then filter out the ancestor.
-    pub fn simplify_ancestor_merge(&mut self) -> IndexResult<()> {
+    pub async fn simplify_ancestor_merge(&mut self) -> IndexResult<()> {
         let head_set: HashSet<_> = self
             .mut_repo
             .index()
-            .heads(&mut self.new_parents.iter())?
+            .heads(&mut self.new_parents.iter())
+            .await?
             .into_iter()
             .collect();
         self.new_parents.retain(|parent| head_set.contains(parent));
@@ -424,6 +425,7 @@ pub async fn rebase_commit_with_options(
     if options.simplify_ancestor_merge {
         rewriter
             .simplify_ancestor_merge()
+            .await
             // TODO: indexing error shouldn't be a "BackendError"
             .map_err(|err| BackendError::Other(err.into()))?;
     }

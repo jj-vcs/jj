@@ -143,7 +143,10 @@ pub trait Index: Send + Sync {
     /// Returns the subset of commit IDs in `candidates` which are not ancestors
     /// of other commits in `candidates`. If a commit id is duplicated in the
     /// `candidates` list it will appear at most once in the output.
-    fn heads(&self, candidates: &mut dyn Iterator<Item = &CommitId>) -> IndexResult<Vec<CommitId>>;
+    async fn heads(
+        &self,
+        candidates: &mut (dyn Iterator<Item = &CommitId> + Send),
+    ) -> IndexResult<Vec<CommitId>>;
 
     /// Returns iterator over paths changed at the specified commit. The paths
     /// are sorted. Returns `None` if the commit wasn't indexed.

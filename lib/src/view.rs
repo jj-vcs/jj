@@ -627,8 +627,8 @@ impl View {
     pub fn is_heads_normalized(&self) -> bool {
         self.head_normalized
     }
-    //
-    pub fn normalize_heads(
+
+    pub async fn normalize_heads(
         &mut self,
         index: &dyn Index,
         root_commit_id: &CommitId,
@@ -644,7 +644,8 @@ impl View {
             // root id is unwanted during the heads resolution.
             view.head_ids.remove(root_commit_id);
             view.head_ids = index
-                .heads(&mut view.head_ids.iter())?
+                .heads(&mut view.head_ids.iter())
+                .await?
                 .into_iter()
                 .collect();
         }

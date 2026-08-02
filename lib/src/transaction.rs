@@ -143,7 +143,7 @@ impl Transaction {
             "BUG: Descendants have not been rebased after the last rewrites."
         );
         let base_repo = mut_repo.base_repo().clone();
-        let (mut_index, view, predecessors) = mut_repo.consume()?;
+        let (mut_index, view, predecessors) = mut_repo.consume().await?;
         assert!(
             view.is_heads_normalized(),
             "BUG: View heads must be normalized before persisting in the database"

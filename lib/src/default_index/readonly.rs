@@ -749,8 +749,11 @@ impl Index for DefaultReadonlyIndex {
         self.0.all_heads_for_gc()
     }
 
-    fn heads(&self, candidates: &mut dyn Iterator<Item = &CommitId>) -> IndexResult<Vec<CommitId>> {
-        self.0.heads(candidates)
+    async fn heads(
+        &self,
+        candidates: &mut (dyn Iterator<Item = &CommitId> + Send),
+    ) -> IndexResult<Vec<CommitId>> {
+        self.0.heads(candidates).await
     }
 
     fn changed_paths_in_commit(
