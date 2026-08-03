@@ -78,7 +78,8 @@ pub(crate) async fn cmd_parallelize(
     // here with children before parents.
     let target_commits: Vec<Commit> = workspace_command
         .parse_union_revsets(ui, &[&*args.revisions_pos, &*args.revisions_opt].concat())?
-        .evaluate_to_commits()?
+        .evaluate_to_commits()
+        .await?
         .try_collect()
         .await?;
 

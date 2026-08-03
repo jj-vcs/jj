@@ -128,7 +128,8 @@ pub(crate) async fn cmd_bisect_run(
 
     let input_range = workspace_command
         .parse_union_revsets(ui, &args.range)?
-        .resolve()?;
+        .resolve()
+        .await?;
 
     let initial_repo = workspace_command.repo().clone();
 

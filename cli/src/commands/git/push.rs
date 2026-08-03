@@ -286,7 +286,7 @@ pub async fn cmd_git_push(
     let mut ref_updates = GitPushRefTargets::default();
     if args.all {
         let mut commits_validator =
-            CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args)?;
+            CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args).await?;
         for (name, targets) in view.local_remote_bookmarks(remote) {
             let remote_symbol = name.to_remote_symbol(remote);
             let allow_new = true; // implied by --all
@@ -317,7 +317,7 @@ pub async fn cmd_git_push(
         );
     } else if args.tracked {
         let mut commits_validator =
-            CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args)?;
+            CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args).await?;
         for (name, targets) in view.local_remote_bookmarks(remote) {
             if !targets.remote_ref.is_tracked() {
                 continue;
@@ -355,7 +355,7 @@ pub async fn cmd_git_push(
     } else if args.deleted {
         // There shouldn't be new heads to push, but we run validation for consistency.
         let mut commits_validator =
-            CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args)?;
+            CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args).await?;
         for (name, targets) in view.local_remote_bookmarks(remote) {
             if targets.local_target.is_present() {
                 continue;
@@ -486,7 +486,7 @@ pub async fn cmd_git_push(
         }
 
         let mut commits_validator =
-            CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args)?;
+            CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args).await?;
         // Error out if explicitly-specified targets can't be pushed.
         commits_validator
             .validate_updates(&ref_updates)
@@ -670,7 +670,7 @@ struct CommitsValidator<'repo> {
 }
 
 impl<'repo> CommitsValidator<'repo> {
-    fn new(
+    async fn new(
         ui: &Ui,
         workspace_helper: &'repo WorkspaceCommandHelper,
         remote: &RemoteName,
@@ -685,13 +685,15 @@ impl<'repo> CommitsValidator<'repo> {
             .collect();
         let immutable_heads = workspace_helper
             .attach_revset_evaluator(workspace_helper.env().immutable_heads_expression().clone())
-            .resolve()?;
+            .resolve()
+            .await?;
         let private_commits = if !args.allow_private {
             let settings = workspace_helper.settings();
             let revset_str = settings.get_string("git.private-commits")?;
             let is_private = workspace_helper
                 .parse_revset(ui, &RevisionArg::from(revset_str.clone()))?
-                .evaluate()?
+                .evaluate()
+                .await?
                 .containing_fn();
             Some((revset_str, is_private))
         } else {
@@ -809,7 +811,8 @@ async fn sign_commits_before_push(
     let commit_ids: IndexSet<CommitId> = tx
         .base_workspace_helper()
         .attach_revset_evaluator(commits_to_push)
-        .evaluate_to_commits()?
+        .evaluate_to_commits()
+        .await?
         // TODO: make filter condition configurable by revset?
         .try_filter(|commit| {
             future::ready(!commit.is_signed() && sign_settings.should_sign(commit.store_commit()))
@@ -1293,7 +1296,8 @@ async fn find_default_target_revisions(
     );
     let commit_ids = workspace_command
         .attach_revset_evaluator(expression)
-        .evaluate_to_commit_ids()?
+        .evaluate_to_commit_ids()
+        .await?
         .peekable();
     let mut commit_ids = std::pin::pin!(commit_ids);
     if commit_ids.as_mut().peek().await.is_none() {
@@ -1319,7 +1323,7 @@ async fn find_target_revisions(
             &RevsetExpression::bookmarks(StringExpression::all())
                 .union(&RevsetExpression::tags(StringExpression::all())),
         );
-        let commit_ids = expression.evaluate_to_commit_ids()?.peekable();
+        let commit_ids = expression.evaluate_to_commit_ids().await?.peekable();
         let mut commit_ids = std::pin::pin!(commit_ids);
         if commit_ids.as_mut().as_mut().peek().await.is_none() {
             writeln!(

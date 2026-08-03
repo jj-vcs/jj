@@ -706,13 +706,15 @@ pub async fn cmd_run(
         let revs = workspace_command.settings().get_string("revsets.run")?;
         workspace_command
             .parse_revset(ui, &RevisionArg::from(revs))?
-            .evaluate_to_commits()?
+            .evaluate_to_commits()
+            .await?
             .try_collect()
             .await?
     } else {
         workspace_command
             .parse_union_revsets(ui, &args.revisions)?
-            .evaluate_to_commits()?
+            .evaluate_to_commits()
+            .await?
             .try_collect()
             .await?
     };

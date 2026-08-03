@@ -52,7 +52,8 @@ pub async fn cmd_unsign(
 
     let target_expr = workspace_command
         .parse_union_revsets(ui, &args.revisions)?
-        .resolve()?;
+        .resolve()
+        .await?;
     workspace_command
         .check_rewritable_expr(&target_expr)
         .await?;

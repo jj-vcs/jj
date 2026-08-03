@@ -94,7 +94,8 @@ pub(crate) async fn cmd_absorb(
     let source_commit = workspace_command.resolve_single_rev(ui, &args.from).await?;
     let destinations = workspace_command
         .parse_union_revsets(ui, &args.into)?
-        .resolve()?;
+        .resolve()
+        .await?;
 
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
     let matcher = fileset_expression.to_matcher();

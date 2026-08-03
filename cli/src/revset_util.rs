@@ -106,7 +106,7 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
     }
 
     /// Resolves user symbols in the expression, returns new expression.
-    pub fn resolve(&self) -> Result<Arc<ResolvedRevsetExpression>, RevsetResolutionError> {
+    pub async fn resolve(&self) -> Result<Arc<ResolvedRevsetExpression>, RevsetResolutionError> {
         let symbol_resolver = default_symbol_resolver(
             self.repo,
             self.extensions.symbol_resolvers(),
@@ -117,8 +117,9 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
     }
 
     /// Evaluates the expression.
-    pub fn evaluate(&self) -> Result<Box<dyn Revset + 'repo>, UserRevsetEvaluationError> {
+    pub async fn evaluate(&self) -> Result<Box<dyn Revset + 'repo>, UserRevsetEvaluationError> {
         self.resolve()
+            .await
             .map_err(UserRevsetEvaluationError::Resolution)?
             .evaluate(self.repo)
             .map_err(UserRevsetEvaluationError::Evaluation)
@@ -126,25 +127,26 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
 
     /// Evaluates the expression to an iterator over commit ids. Entries are
     /// sorted in reverse topological order.
-    pub fn evaluate_to_commit_ids(
+    pub async fn evaluate_to_commit_ids(
         &self,
     ) -> Result<
         LocalBoxStream<'repo, Result<CommitId, RevsetEvaluationError>>,
         UserRevsetEvaluationError,
     > {
-        Ok(self.evaluate()?.stream())
+        Ok(self.evaluate().await?.stream())
     }
 
     /// Evaluates the expression to an iterator over commit objects. Entries are
     /// sorted in reverse topological order.
-    pub fn evaluate_to_commits(
+    pub async fn evaluate_to_commits(
         &self,
     ) -> Result<
         LocalBoxStream<'repo, Result<Commit, RevsetEvaluationError>>,
         UserRevsetEvaluationError,
     > {
         Ok(self
-            .evaluate()?
+            .evaluate()
+            .await?
             .stream()
             .commits(self.repo.store())
             .boxed_local())
@@ -231,7 +233,8 @@ pub(super) async fn evaluate_revset_to_single_commit<'a>(
     commit_summary_template: impl FnOnce() -> TemplateRenderer<'a, Commit>,
 ) -> Result<Commit, CommandError> {
     let commits: Vec<_> = expression
-        .evaluate_to_commits()?
+        .evaluate_to_commits()
+        .await?
         .take(6)
         .try_collect()
         .await?;

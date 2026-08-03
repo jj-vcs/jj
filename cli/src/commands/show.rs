@@ -91,7 +91,7 @@ pub(crate) async fn cmd_show(
         .labeled(["show", "commit"]);
     let diff_renderer = workspace_command.diff_renderer_for(&args.format)?;
 
-    let mut commit_stream = target_expr.evaluate_to_commits()?;
+    let mut commit_stream = target_expr.evaluate_to_commits().await?;
     if args.reversed {
         let commits: Vec<_> = commit_stream.try_collect().await?;
         commit_stream = stream::iter(commits.into_iter().rev().map(Ok)).boxed_local();
