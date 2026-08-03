@@ -204,7 +204,8 @@ pub(crate) async fn cmd_fix(
     } else {
         workspace_command.parse_union_revsets(ui, &args.source)?
     }
-    .resolve()?;
+    .resolve()
+    .await?;
     workspace_command
         .check_rewritable_expr(&target_expr)
         .await?;

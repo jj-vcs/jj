@@ -145,7 +145,8 @@ pub(crate) async fn cmd_metaedit(
     } else {
         workspace_command.parse_revset(ui, &RevisionArg::AT)?
     }
-    .resolve()?;
+    .resolve()
+    .await?;
     workspace_command
         .check_rewritable_expr(&target_expr)
         .await?;

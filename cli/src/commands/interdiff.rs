@@ -225,7 +225,7 @@ async fn resolve_revset(
     let arg = arg.unwrap_or(std::slice::from_ref(&RevisionArg::AT));
     let evaluator = workspace_command.parse_union_revsets(ui, arg)?;
     check_diff_revset_has_no_gaps(workspace_command, evaluator.expression()).await?;
-    let commits: Vec<Commit> = evaluator.evaluate_to_commits()?.try_collect().await?;
+    let commits: Vec<Commit> = evaluator.evaluate_to_commits().await?.try_collect().await?;
     if commits.is_empty() {
         return Err(user_error(format!(
             "Revset `{}` didn't resolve to any revisions",
@@ -234,12 +234,14 @@ async fn resolve_revset(
     }
     let roots = workspace_command
         .attach_revset_evaluator(evaluator.expression().roots())
-        .evaluate_to_commits()?
+        .evaluate_to_commits()
+        .await?
         .try_collect()
         .await?;
     let heads = workspace_command
         .attach_revset_evaluator(evaluator.expression().heads())
-        .evaluate_to_commits()?
+        .evaluate_to_commits()
+        .await?
         .try_collect()
         .await?;
     Ok((commits, roots, heads))

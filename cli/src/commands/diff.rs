@@ -147,12 +147,14 @@ pub(crate) async fn cmd_diff(
         check_diff_revset_has_no_gaps(&workspace_command, target_expression).await?;
         let heads: Vec<_> = workspace_command
             .attach_revset_evaluator(target_expression.heads())
-            .evaluate_to_commits()?
+            .evaluate_to_commits()
+            .await?
             .try_collect()
             .await?;
         let roots: Vec<_> = workspace_command
             .attach_revset_evaluator(target_expression.roots())
-            .evaluate_to_commits()?
+            .evaluate_to_commits()
+            .await?
             .try_collect()
             .await?;
 

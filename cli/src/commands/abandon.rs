@@ -79,7 +79,8 @@ pub(crate) async fn cmd_abandon(
         } else {
             workspace_command.parse_revset(ui, &RevisionArg::AT)?
         }
-        .resolve()?;
+        .resolve()
+        .await?;
         let visible_expr = target_expr.intersection(&RevsetExpression::visible_heads().ancestors());
         workspace_command
             .check_rewritable_expr(&visible_expr)

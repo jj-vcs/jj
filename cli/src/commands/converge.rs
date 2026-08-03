@@ -137,14 +137,16 @@ pub(crate) async fn cmd_converge(
                 Some(revset_string.clone()),
                 workspace_command
                     .parse_revset(ui, &RevisionArg::from(revset_string))?
-                    .resolve()?,
+                    .resolve()
+                    .await?,
             )
         } else {
             (
                 None,
                 workspace_command
                     .parse_union_revsets(ui, &args.revisions)?
-                    .resolve()?,
+                    .resolve()
+                    .await?,
             )
         }
     };
