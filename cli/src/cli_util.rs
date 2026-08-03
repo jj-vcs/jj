@@ -536,7 +536,7 @@ impl CommandHelper {
             self.resolve_operation(ui, workspace.repo_loader(), workspace.workspace_name())?;
         let repo = workspace.repo_loader().load_at(&op_head).await?;
         if let Err(err) =
-            revset_util::try_resolve_trunk_alias(repo.as_ref(), &env.revset_parse_context())
+            revset_util::try_resolve_trunk_alias(repo.as_ref(), &env.revset_parse_context()).await
         {
             // The fallback can be builtin_trunk() if we're willing to support
             // inferred trunk forever. (#7990)

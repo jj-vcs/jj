@@ -155,7 +155,10 @@ fn test_id_prefix() -> TestResult {
             .unwrap()
     };
     let resolve_commit_prefix = |index: &IdPrefixIndex, prefix: HexPrefix| {
-        index.resolve_commit_prefix(repo.as_ref(), &prefix).unwrap()
+        index
+            .resolve_commit_prefix(repo.as_ref(), &prefix)
+            .block_on()
+            .unwrap()
     };
     let shortest_change_prefix_len = |index: &IdPrefixIndex, change_id| {
         index
@@ -165,6 +168,7 @@ fn test_id_prefix() -> TestResult {
     let resolve_change_prefix = |index: &IdPrefixIndex, prefix: HexPrefix| {
         index
             .resolve_change_prefix(repo.as_ref(), &prefix)
+            .block_on()
             .unwrap()
             .filter_map(ResolvedChangeTargets::into_visible)
     };
@@ -325,6 +329,7 @@ fn test_id_prefix_divergent() -> TestResult {
     let resolve_change_prefix = |index: &IdPrefixIndex, prefix: HexPrefix| {
         index
             .resolve_change_prefix(repo.as_ref(), &prefix)
+            .block_on()
             .unwrap()
             .filter_map(ResolvedChangeTargets::into_visible)
     };
@@ -474,7 +479,10 @@ fn test_id_prefix_hidden() -> TestResult {
             .unwrap()
     };
     let resolve_commit_prefix = |index: &IdPrefixIndex, prefix: HexPrefix| {
-        index.resolve_commit_prefix(repo.as_ref(), &prefix).unwrap()
+        index
+            .resolve_commit_prefix(repo.as_ref(), &prefix)
+            .block_on()
+            .unwrap()
     };
     let shortest_change_prefix_len = |index: &IdPrefixIndex, change_id| {
         index
@@ -484,6 +492,7 @@ fn test_id_prefix_hidden() -> TestResult {
     let resolve_change_prefix = |index: &IdPrefixIndex, prefix: HexPrefix| {
         index
             .resolve_change_prefix(repo.as_ref(), &prefix)
+            .block_on()
             .unwrap()
             .filter_map(ResolvedChangeTargets::into_visible)
     };
