@@ -49,16 +49,19 @@ pub(crate) async fn cmd_simplify_parents(
             .get_string("revsets.simplify-parents")?;
         workspace_command
             .parse_revset(ui, &RevisionArg::from(revs))?
-            .resolve()?
+            .resolve()
+            .await?
     } else {
         workspace_command
             .parse_union_revsets(ui, &args.source)?
-            .resolve()?
+            .resolve()
+            .await?
             .descendants()
             .union(
                 &workspace_command
                     .parse_union_revsets(ui, &args.revisions)?
-                    .resolve()?,
+                    .resolve()
+                    .await?,
             )
     };
     workspace_command.check_rewritable_expr(&revs).await?;

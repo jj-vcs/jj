@@ -2517,7 +2517,7 @@ to the current parents may contain changes from multiple commits.
         let mut all_commits = IndexSet::new();
         for revision_arg in revision_args {
             let expression = self.parse_revset(ui, revision_arg)?;
-            let mut stream = expression.evaluate_to_commit_ids()?;
+            let mut stream = expression.evaluate_to_commit_ids().await?;
             while let Some(commit_id) = stream.try_next().await? {
                 all_commits.insert(commit_id);
             }

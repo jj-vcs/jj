@@ -160,7 +160,7 @@ pub(crate) async fn cmd_log(
         expression
     };
 
-    let revset = revset_expression.evaluate()?;
+    let revset = revset_expression.evaluate().await?;
 
     if args.count {
         let (lower, upper) = revset.count_estimate().await?;
@@ -251,7 +251,7 @@ pub(crate) async fn cmd_log(
             let stream: LocalBoxStream<_> = {
                 let mut topo_order = TopoGroupedGraph::new(revset.stream_graph(), |id| id);
 
-                let mut prio_stream = prio_revset.evaluate_to_commit_ids()?;
+                let mut prio_stream = prio_revset.evaluate_to_commit_ids().await?;
                 while let Some(prio) = prio_stream.try_next().await? {
                     topo_order.prioritize_branch(prio);
                 }

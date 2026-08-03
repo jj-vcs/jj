@@ -83,7 +83,8 @@ pub async fn cmd_bookmark_move(
             Some(
                 workspace_command
                     .parse_union_revsets(ui, &args.from)?
-                    .evaluate()?
+                    .evaluate()
+                    .await?
                     .containing_fn(),
             )
         } else {

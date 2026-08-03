@@ -480,7 +480,8 @@ pub async fn cmd_gerrit_upload(
     } else {
         workspace_command
             .parse_union_revsets(ui, &args.revisions)?
-            .resolve()?
+            .resolve()
+            .await?
             .evaluate(workspace_command.repo().as_ref())?
             .stream()
             .try_collect()
@@ -506,7 +507,8 @@ pub async fn cmd_gerrit_upload(
     .union(&RevsetExpression::root());
     let to_upload: Vec<Commit> = workspace_command
         .attach_revset_evaluator(on_remote.range(&RevsetExpression::commits(revisions.clone())))
-        .evaluate_to_commits()?
+        .evaluate_to_commits()
+        .await?
         .try_collect()
         .await?;
     if to_upload.is_empty() {

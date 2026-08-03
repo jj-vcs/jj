@@ -331,7 +331,8 @@ pub async fn cmd_git_push(
         };
 
         for remote in matching_remotes {
-            let mut commits_validator = CommitsValidator::new(ui, workspace_helper, remote, args)?;
+            let mut commits_validator =
+                CommitsValidator::new(ui, workspace_helper, remote, args).await?;
 
             let ref_updates = classify_tags_and_bookmark_updates(
                 ui,
@@ -458,7 +459,7 @@ pub async fn cmd_git_push(
             }
 
             let mut commits_validator =
-                CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args)?;
+                CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args).await?;
             // Error out if explicitly-specified targets can't be pushed.
             commits_validator
                 .validate_updates(&ref_updates)
@@ -766,7 +767,7 @@ struct CommitsValidator<'repo> {
 }
 
 impl<'repo> CommitsValidator<'repo> {
-    fn new(
+    async fn new(
         ui: &Ui,
         workspace_helper: &'repo WorkspaceCommandHelper,
         remote: &RemoteName,
@@ -786,7 +787,8 @@ impl<'repo> CommitsValidator<'repo> {
             let revset_str = settings.get_string("git.private-commits")?;
             let is_private = workspace_helper
                 .parse_revset(ui, &RevisionArg::from(revset_str.clone()))?
-                .evaluate()?
+                .evaluate()
+                .await?
                 .containing_fn();
             Some((revset_str, is_private))
         } else {
@@ -908,7 +910,8 @@ async fn sign_commits_before_push<'a>(
     let immutable = workspace_helper.env().immutable_expression();
     let skipped: Vec<Commit> = workspace_helper
         .attach_revset_evaluator(needs_signing.intersection(&immutable))
-        .evaluate_to_commits()?
+        .evaluate_to_commits()
+        .await?
         .take(11)
         .try_collect()
         .await?;
@@ -932,7 +935,8 @@ async fn sign_commits_before_push<'a>(
 
     let commit_ids: IndexSet<CommitId> = workspace_helper
         .attach_revset_evaluator(needs_signing.minus(&immutable))
-        .evaluate_to_commits()?
+        .evaluate_to_commits()
+        .await?
         .map_ok(|commit| commit.id().clone())
         .try_collect()
         .await?;
@@ -1418,7 +1422,8 @@ async fn find_default_target_revisions(
     );
     let commit_ids = workspace_command
         .attach_revset_evaluator(expression)
-        .evaluate_to_commit_ids()?
+        .evaluate_to_commit_ids()
+        .await?
         .peekable();
     let mut commit_ids = std::pin::pin!(commit_ids);
     if commit_ids.as_mut().peek().await.is_none() {
@@ -1443,7 +1448,7 @@ async fn find_target_revisions(
             &RevsetExpression::bookmarks(StringExpression::all())
                 .union(&RevsetExpression::tags(StringExpression::all())),
         );
-        let commit_ids = expression.evaluate_to_commit_ids()?.peekable();
+        let commit_ids = expression.evaluate_to_commit_ids().await?.peekable();
         let mut commit_ids = std::pin::pin!(commit_ids);
         if commit_ids.as_mut().as_mut().peek().await.is_none() {
             writeln!(

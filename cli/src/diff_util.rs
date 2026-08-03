@@ -694,7 +694,8 @@ pub async fn check_diff_revset_has_no_gaps(
                 .range(&expression.heads())
                 .minus(expression),
         )
-        .evaluate_to_commit_ids()?;
+        .evaluate_to_commit_ids()
+        .await?;
     if let Some(commit_id) = gaps_revset.try_next().await? {
         return Err(
             user_error("Cannot diff revsets with gaps in.").hinted(format!(

@@ -113,7 +113,8 @@ pub(crate) async fn cmd_duplicate(
         } else {
             workspace_command.parse_revset(ui, &RevisionArg::AT)?
         }
-        .evaluate_to_commit_ids()?
+        .evaluate_to_commit_ids()
+        .await?
         .try_collect()
         .await?; // in reverse topological order
     if to_duplicate.is_empty() {

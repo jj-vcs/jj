@@ -436,7 +436,8 @@ async fn plan_rebase_revisions(
 ) -> Result<MoveCommitsLocation, CommandError> {
     let target_expr = workspace_command
         .parse_union_revsets(ui, revisions)?
-        .resolve()?;
+        .resolve()
+        .await?;
     workspace_command
         .check_rewritable_expr(&target_expr)
         .await?;
