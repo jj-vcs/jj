@@ -22,6 +22,34 @@ use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
 
 #[test]
+fn test_git_export_basic() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "main"])
+        .success();
+
+    let output = work_dir.run_jj(["git", "export", "--no-integrate-operation"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: --no-integrate-operation is not respected
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["git", "export"]);
+    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-rmain@git"]), @"
+    @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 main e8849ae1
+    │  (empty) (no description set)
+    ~
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_resolution_of_git_tracking_bookmarks() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

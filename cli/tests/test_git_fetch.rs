@@ -126,7 +126,22 @@ fn test_git_fetch_with_default_config() {
     let work_dir = test_env.work_dir("repo");
     add_git_remote(&test_env, &work_dir, "origin");
 
-    work_dir.run_jj(["git", "fetch"]).success();
+    // If supported, this should show fetched refs without actually updating
+    // refs on disk.
+    let output = work_dir.run_jj(["git", "fetch", "--no-integrate-operation"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: --no-integrate-operation is not respected
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(["git", "fetch"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    bookmark: origin@origin [new] untracked
+    [EOF]
+    ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     origin@origin: qmyrypzk ab8b299e message
     [EOF]

@@ -270,6 +270,12 @@ pub async fn cmd_git_push(
     command: &CommandHelper,
     args: &GitPushArgs,
 ) -> Result<(), CommandError> {
+    if command.global_args().no_integrate_operation {
+        // Pushed refs shouldn't be left unintegrated.
+        return Err(cli_error(
+            "--no-integrate-operation is not respected; use --dry-run",
+        ));
+    }
     let mut workspace_command = command.workspace_helper(ui).await?;
 
     let default_remote;

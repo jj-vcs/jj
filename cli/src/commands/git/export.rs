@@ -16,6 +16,7 @@ use jj_lib::git;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
+use crate::command_error::cli_error;
 use crate::git_util::print_git_export_stats;
 use crate::ui::Ui;
 
@@ -31,6 +32,10 @@ pub async fn cmd_git_export(
     command: &CommandHelper,
     _args: &GitExportArgs,
 ) -> Result<(), CommandError> {
+    if command.global_args().no_integrate_operation {
+        // Exported refs shouldn't be left unintegrated.
+        return Err(cli_error("--no-integrate-operation is not respected"));
+    }
     let mut workspace_command = command.workspace_helper(ui).await?;
     let mut tx = workspace_command.start_transaction();
     let stats = git::export_refs(tx.repo_mut())?;

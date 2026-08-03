@@ -35,6 +35,7 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
 use crate::cli_util::WorkspaceCommandTransaction;
 use crate::command_error::CommandError;
+use crate::command_error::cli_error;
 use crate::command_error::user_error;
 use crate::commands::git::get_single_remote;
 use crate::complete;
@@ -132,6 +133,11 @@ pub async fn cmd_git_fetch(
     command: &CommandHelper,
     args: &GitFetchArgs,
 ) -> Result<(), CommandError> {
+    if command.global_args().no_integrate_operation {
+        // TODO: Remove this restriction by fetching remote refs in memory or
+        // into a temporary namespace.
+        return Err(cli_error("--no-integrate-operation is not respected"));
+    }
     let mut workspace_command = command.workspace_helper(ui).await?;
     let remote_expr = if args.all_remotes {
         StringExpression::all()

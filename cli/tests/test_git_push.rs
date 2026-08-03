@@ -185,6 +185,13 @@ fn test_git_push_current_bookmark() {
     Dry-run requested, not pushing.
     [EOF]
     ");
+    let output = work_dir.run_jj(["git", "push", "--no-integrate-operation"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: --no-integrate-operation is not respected; use --dry-run
+    [EOF]
+    [exit status: 2]
+    ");
     let output = work_dir.run_jj(["git", "push"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
