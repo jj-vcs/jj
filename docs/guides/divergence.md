@@ -59,7 +59,19 @@ Note that revsets must refer to the divergent commit either using its commit ID
 or using its change ID with a [change offset] like `/0` or `/1` as shown in the
 log, since the change ID is ambiguous by itself.
 
-### Strategy 1: Abandon one of the commits
+### Strategy 1: Use jj converge
+
+There is an experimental `jj converge` command that tries to resolve divergence
+automatically, and prompts the user for input to help the process otherwise.
+
+!!! note
+
+    This command uses heuristics to try to find a good solution, but no
+    algorithm will *always* do what the user wants since there is no objective
+    way to define what that is. You can inspect what the command did with `jj op
+    show -p`. You can run `jj undo` if you are not satisfied with the changes.
+
+### Strategy 2: Abandon one of the commits
 
 If one of the divergent commits is clearly obsolete or incorrect, simply abandon
 it:
@@ -75,7 +87,7 @@ jj abandon <unwanted-commit-id>
 
 This is the simplest solution when you know which version to keep.
 
-### Strategy 2: Generate a new change ID
+### Strategy 3: Generate a new change ID
 
 If you want to keep both versions as separate changes with different change IDs,
 you can generate a new change ID for one of the commits:
@@ -86,7 +98,7 @@ jj metaedit --update-change-id <commit-id>
 
 This preserves both versions of the content while resolving the divergence.
 
-### Strategy 3: Squash the commits together
+### Strategy 4: Squash the commits together
 
 When you want to combine the content from both divergent commits:
 
@@ -98,7 +110,7 @@ jj squash --from <source-commit-id> --into <target-commit-id>
 This combines the changes from both commits into a single commit. The source
 commit will be abandoned.
 
-### Strategy 4: Ignore the divergence
+### Strategy 5: Ignore the divergence
 
 Divergence isn't an error. If the divergence doesn't cause immediate problems,
 you can leave it as-is. If both commits are part of immutable history, this may
