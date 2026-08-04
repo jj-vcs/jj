@@ -104,26 +104,22 @@ pub async fn merge_commit_trees_no_resolve_without_repo(
 pub fn find_recursive_merge_commits(
     store: &Arc<Store>,
     index: &dyn Index,
-    mut commit_ids: Vec<CommitId>,
+    commit_ids: Vec<CommitId>,
 ) -> BackendResult<Merge<CommitId>> {
     if commit_ids.is_empty() {
         Ok(Merge::resolved(store.root_commit_id().clone()))
     } else if commit_ids.len() == 1 {
-        Ok(Merge::resolved(commit_ids.pop().unwrap()))
+        Ok(Merge::resolved(commit_ids.into_iter().next().unwrap()))
     } else {
         let mut result = Merge::resolved(commit_ids[0].clone());
-        for (i, other_commit_id) in commit_ids.iter().enumerate().skip(1) {
+        for i in 1..commit_ids.len() {
             let ancestor_ids = index
                 .common_ancestors(&commit_ids[0..i], &commit_ids[i..][..1])
                 // TODO: indexing error shouldn't be a "BackendError"
                 .map_err(|err| BackendError::Other(err.into()))?;
-            let ancestor_merge = find_recursive_merge_commits(store, index, ancestor_ids)?;
-            result = Merge::from_vec(vec![
-                result,
-                ancestor_merge,
-                Merge::resolved(other_commit_id.clone()),
-            ])
-            .flatten();
+            let ancestor = find_recursive_merge_commits(store, index, ancestor_ids)?;
+            let other = Merge::resolved(commit_ids[i].clone());
+            result = Merge::from_vec(vec![result, ancestor, other]).flatten();
         }
         Ok(result)
     }
