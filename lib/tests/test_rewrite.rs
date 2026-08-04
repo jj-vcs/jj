@@ -137,19 +137,30 @@ fn test_find_recursive_merge_commits() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
+    // G H I
+    // |X|X|
+    // D E F
+    // |X|/
+    // B C
+    // |/
+    // A
     let mut tx = repo.start_transaction();
     let commit_a = write_random_commit(tx.repo_mut());
     let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
     let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
     let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b, &commit_c]);
     let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b, &commit_c]);
+    let commit_f = write_random_commit_with_parents(tx.repo_mut(), &[&commit_c]);
+    let commit_g = write_random_commit_with_parents(tx.repo_mut(), &[&commit_d, &commit_e]);
+    let commit_h =
+        write_random_commit_with_parents(tx.repo_mut(), &[&commit_d, &commit_e, &commit_f]);
+    let commit_i = write_random_commit_with_parents(tx.repo_mut(), &[&commit_e, &commit_f]);
 
     let commit_id_merge = find_recursive_merge_commits(
         tx.repo().store(),
         tx.repo().index(),
         vec![commit_d.id().clone(), commit_e.id().clone()],
     )?;
-
     assert_eq!(
         commit_id_merge,
         Merge::from_vec(vec![
@@ -160,6 +171,33 @@ fn test_find_recursive_merge_commits() -> TestResult {
             commit_e.id().clone(),
         ])
     );
+
+    let commit_id_merge = find_recursive_merge_commits(
+        tx.repo().store(),
+        tx.repo().index(),
+        vec![
+            commit_g.id().clone(),
+            commit_h.id().clone(),
+            commit_i.id().clone(),
+        ],
+    )?;
+    assert_eq!(
+        commit_id_merge,
+        Merge::from_vec(vec![
+            commit_g.id().clone(),
+            commit_a.id().clone(),
+            commit_b.id().clone(),
+            commit_d.id().clone(),
+            commit_c.id().clone(),
+            commit_e.id().clone(),
+            commit_h.id().clone(),
+            commit_e.id().clone(),
+            commit_c.id().clone(),
+            commit_f.id().clone(),
+            commit_i.id().clone(),
+        ])
+    );
+
     Ok(())
 }
 
