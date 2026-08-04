@@ -1198,6 +1198,43 @@ fn show_color_words_inline_hunks(
     line_hunks: &[(DiffLineHunkSide, &BStr)],
     labels: Diff<&str>,
 ) -> io::Result<()> {
+    // A multi-line word diff can fail to find an anchor for a line that
+    // differs only by a prefix. Refine that pair so the suffix stays unstyled.
+    if let &[
+        (DiffLineHunkSide::Left, left),
+        (DiffLineHunkSide::Right, right),
+    ] = line_hunks
+    {
+        let left_content = strip_line_ending(left);
+        let right_content = strip_line_ending(right);
+        if let Some(prefix) = right_content.strip_suffix(left_content)
+            && !prefix.is_empty()
+        {
+            formatter
+                .labeled(labels.after)
+                .labeled("token")
+                .write_all(prefix)?;
+            formatter.write_all(&right[prefix.len()..])?;
+            if !right.ends_with(b"\n") {
+                writeln!(formatter)?;
+            }
+            return Ok(());
+        }
+        if let Some(prefix) = left_content.strip_suffix(right_content)
+            && !prefix.is_empty()
+        {
+            formatter
+                .labeled(labels.before)
+                .labeled("token")
+                .write_all(prefix)?;
+            formatter.write_all(&left[prefix.len()..])?;
+            if !left.ends_with(b"\n") {
+                writeln!(formatter)?;
+            }
+            return Ok(());
+        }
+    }
+
     for (side, data) in line_hunks {
         let label = match side {
             DiffLineHunkSide::Both => None,
@@ -1215,6 +1252,14 @@ fn show_color_words_inline_hunks(
         writeln!(formatter)?;
     }
     Ok(())
+}
+
+fn strip_line_ending(data: &BStr) -> &[u8] {
+    if let Some(data) = data.strip_suffix(b"\n") {
+        data.strip_suffix(b"\r").unwrap_or(data)
+    } else {
+        data
+    }
 }
 
 /// Prints left/right-only line tokens with the given label.

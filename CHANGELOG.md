@@ -96,6 +96,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* Color-words diffs now keep shared line suffixes unstyled when only a prefix
+  was added or removed.
+  [#9914](https://github.com/jj-vcs/jj/issues/9914)
+
 * Recursive alias definitions are detected more precisely. jj can now expand
   aliases that are simply repeated. For example, with the alias `jj = []`, the
   command `jj jj jj` will resolve to `jj`. Aliases can also fall back to the

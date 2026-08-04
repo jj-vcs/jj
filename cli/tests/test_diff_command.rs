@@ -2493,6 +2493,59 @@ fn test_diff_leading_trailing_context() {
 }
 
 #[test]
+fn test_diff_color_words_materialized_conflict_repeated_lines() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file", "start\nend\n");
+    work_dir.run_jj(["commit", "-m", "A"]).success();
+    work_dir.write_file(
+        "file",
+        indoc! {"
+            start
+              {
+                one,
+              },
+              {
+                two,
+              },
+            end
+        "},
+    );
+    work_dir.run_jj(["commit", "-m", "L"]).success();
+    work_dir.run_jj(["new", r#"subject("A")"#]).success();
+    work_dir.write_file(
+        "file",
+        indoc! {"
+            start
+              {
+                three,
+              },
+              {
+                four,
+              },
+              {
+                five,
+              },
+            end
+        "},
+    );
+    work_dir.run_jj(["commit", "-m", "M"]).success();
+    work_dir
+        .run_jj(["rebase", "-s", r#"subject("M")"#, "-d", r#"subject("L")"#])
+        .success();
+
+    let output = work_dir.run_jj(["diff", "--color=debug", "-r", r#"subject("M")"#]);
+    let output = strip_ansi_escape_codes(output.stdout.into_raw());
+    let repeated_line = output
+        .lines()
+        .find(|line| line.contains("removed line_number::   7"))
+        .unwrap();
+    insta::assert_snapshot!(repeated_line, @"<<diff color_words removed line_number::   7>><<diff color_words:: >><<diff color_words added line_number::  10>><<diff color_words::: >><<diff color_words added token::+>><<diff color_words::  },>>");
+}
+
+#[test]
 fn test_diff_conflict_sides_differ() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
