@@ -16,6 +16,7 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::mem;
 use std::slice;
 use std::sync::Arc;
 
@@ -106,22 +107,71 @@ pub fn find_recursive_merge_commits(
     index: &dyn Index,
     commit_ids: Vec<CommitId>,
 ) -> BackendResult<Merge<CommitId>> {
-    if commit_ids.is_empty() {
-        Ok(Merge::resolved(store.root_commit_id().clone()))
-    } else if commit_ids.len() == 1 {
-        Ok(Merge::resolved(commit_ids.into_iter().next().unwrap()))
-    } else {
-        let mut result = Merge::resolved(commit_ids[0].clone());
-        for i in 1..commit_ids.len() {
+    #[derive(Debug)]
+    struct WorkItem {
+        commit_ids: Vec<CommitId>,
+        result: Merge<CommitId>,
+        pos: usize,
+    }
+
+    impl WorkItem {
+        fn new(commit_ids: Vec<CommitId>) -> Self {
+            let result = Merge::resolved(commit_ids[0].clone());
+            Self {
+                commit_ids,
+                result,
+                pos: 1,
+            }
+        }
+
+        fn merge_next(&mut self, ancestor: Merge<CommitId>) {
+            let dummy = Merge::resolved(CommitId::new(vec![]));
+            let result = mem::replace(&mut self.result, dummy);
+            let other = Merge::resolved(self.commit_ids[self.pos].clone());
+            self.result = Merge::from_vec(vec![result, ancestor, other]).flatten();
+            self.pos += 1;
+        }
+    }
+
+    let maybe_resolved = |commit_ids: Vec<CommitId>| match commit_ids.len() {
+        0 => Ok(Merge::resolved(store.root_commit_id().clone())),
+        1 => Ok(Merge::resolved(commit_ids.into_iter().next().unwrap())),
+        _ => Err(commit_ids),
+    };
+
+    // Execute recursion without using the call stack:
+    // ```
+    // let mut result = Merge::resolved(commit_ids[0].clone());
+    // for pos in 1..commit_ids.len() {
+    //     let ancestor_ids = index.common_ancestors(&commit_ids[0..pos], &commit_ids[pos..][..1])?;
+    //     let ancestor = find_recursive_merge_commits(store, index, ancestor_ids)?;
+    //     let other = Merge::resolved(commit_ids[pos].clone());
+    //     result = Merge::from_vec(vec![result, ancestor, other]).flatten();
+    // }
+    // ```
+    let mut stack = Vec::new();
+    match maybe_resolved(commit_ids) {
+        Ok(result) => return Ok(result),
+        Err(commit_ids) => stack.push(WorkItem::new(commit_ids)),
+    }
+    loop {
+        let top = stack.last_mut().unwrap();
+        if top.pos < top.commit_ids.len() {
             let ancestor_ids = index
-                .common_ancestors(&commit_ids[0..i], &commit_ids[i..][..1])
+                .common_ancestors(&top.commit_ids[0..top.pos], &top.commit_ids[top.pos..][..1])
                 // TODO: indexing error shouldn't be a "BackendError"
                 .map_err(|err| BackendError::Other(err.into()))?;
-            let ancestor = find_recursive_merge_commits(store, index, ancestor_ids)?;
-            let other = Merge::resolved(commit_ids[i].clone());
-            result = Merge::from_vec(vec![result, ancestor, other]).flatten();
+            match maybe_resolved(ancestor_ids) {
+                Ok(ancestor) => top.merge_next(ancestor),
+                Err(ancestor_ids) => stack.push(WorkItem::new(ancestor_ids)),
+            }
+        } else {
+            let ancestor = stack.pop().unwrap();
+            let Some(top) = stack.last_mut() else {
+                return Ok(ancestor.result);
+            };
+            top.merge_next(ancestor.result);
         }
-        Ok(result)
     }
 }
 
