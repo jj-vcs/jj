@@ -107,7 +107,7 @@ fn test_git_remotes() {
         ".jj/repo/store/git/config",
         indoc! {r#"
             [remote "foo"]
-                url = invalid\
+                url = https://
         "#},
     );
     let output = work_dir.run_jj(["git", "remote", "list"]);
@@ -116,8 +116,9 @@ fn test_git_remotes() {
     Error: Failed to load configured remote foo
     Caused by:
     1: The fetch url under `remote.foo` was invalid
-    2: The url at "remote.<name>.url=" could not be parsed
-    3: local path "" does not specify a path to a repository
+    2: The url at "remote.<name>.url=https://" could not be parsed
+    3: URL "https://" can not be parsed as valid URL
+    4: Scheme requires host
     [EOF]
     [exit status: 1]
     "#);
