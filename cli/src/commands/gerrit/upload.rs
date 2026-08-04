@@ -279,7 +279,7 @@ fn calculate_push_remote(
     }
 
     // If there is a Git remote called "gerrit", use that
-    if remotes.iter().any(|r| **r == "gerrit") {
+    if remotes.iter().any(|r| r == "gerrit") {
         return Ok("gerrit".to_owned());
     }
 

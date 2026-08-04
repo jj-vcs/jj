@@ -2227,7 +2227,7 @@ pub fn save_git_config(config: &gix::config::File) -> std::io::Result<()> {
 }
 
 fn save_remote(
-    config: &mut gix::config::File<'static>,
+    config: &mut gix::config::File,
     remote_name: &RemoteName,
     remote: &mut gix::Remote,
 ) -> Result<(), GitRemoteManagementError> {
@@ -2238,10 +2238,7 @@ fn save_remote(
     // Note that this will produce useless empty sections if we ever
     // support remote configuration keys other than `fetch` and `url`.
     config
-        .new_section(
-            "remote",
-            Some(Cow::Owned(BString::from(remote_name.as_str()))),
-        )
+        .new_section("remote", remote_name.as_str())
         .map_err(GitRemoteManagementError::from_git)?;
     remote
         .save_as_to(remote_name.as_str(), config)
@@ -2263,19 +2260,19 @@ fn git_config_branch_section_ids_by_remote(
             if !remote_values
                 .iter()
                 .chain(push_remote_values.iter())
-                .any(|branch_remote_name| **branch_remote_name == remote_name.as_str())
+                .any(|branch_remote_name| branch_remote_name == remote_name.as_str())
             {
                 return None;
             }
             // https://github.com/jj-vcs/jj/issues/6984#issuecomment-3073761797
-            let is_supported_key = |name: &gix::config::parse::section::ValueName| -> bool {
-                name.eq_ignore_ascii_case(b"remote")
-                    || name.eq_ignore_ascii_case(b"merge")
-                    || name.eq_ignore_ascii_case(b"rebase")
+            let is_supported_key = |name: &str| -> bool {
+                name.eq_ignore_ascii_case("remote")
+                    || name.eq_ignore_ascii_case("merge")
+                    || name.eq_ignore_ascii_case("rebase")
             };
             if remote_values.len() > 1
                 || push_remote_values.len() > 1
-                || !section.value_names().all(is_supported_key)
+                || !section.value_names().all(|name| is_supported_key(&name))
             {
                 return Some(Err(GitRemoteManagementError::NonstandardConfiguration(
                     remote_name.to_owned(),
@@ -2295,12 +2292,8 @@ fn rename_remote_in_git_branch_config_sections(
         config
             .section_mut_by_id(id)
             .expect("found section to exist")
-            .set(
-                "remote"
-                    .try_into()
-                    .expect("'remote' to be a valid value name"),
-                BStr::new(new_remote_name.as_str()),
-            );
+            .set("remote", new_remote_name.as_str())
+            .expect("'remote' to be a valid value name");
     }
     Ok(())
 }
@@ -2330,9 +2323,9 @@ fn remove_remote_git_config_sections(
         })
         .map(|section| {
             if section.value_names().any(|name| {
-                !name.eq_ignore_ascii_case(b"url")
-                    && !name.eq_ignore_ascii_case(b"fetch")
-                    && !name.eq_ignore_ascii_case(b"tagOpt")
+                !name.eq_ignore_ascii_case("url")
+                    && !name.eq_ignore_ascii_case("fetch")
+                    && !name.eq_ignore_ascii_case("tagOpt")
             }) {
                 return Err(GitRemoteManagementError::NonstandardConfiguration(
                     remote_name.to_owned(),
@@ -2362,7 +2355,7 @@ fn iter_remote_names(git_repo: &gix::Repository) -> impl Iterator<Item = RemoteN
         .remote_names()
         .into_iter()
         // ignore non-UTF-8 remote names which we don't support
-        .filter_map(|name| String::from_utf8(name.into_owned().into()).ok())
+        .filter_map(|name| String::from_utf8(name.into()).ok())
         .map(RemoteNameBuf::from)
         // exclude empty [remote "<name>"] section
         .filter(|name| try_find_active_remote_inner(git_repo, name).is_some())

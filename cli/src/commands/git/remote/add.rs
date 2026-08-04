@@ -85,11 +85,11 @@ fn warn_if_remote_url_matches(
     let mut warned = false;
     for remote_name in git_repo.remote_names() {
         // Ignore the remote that was just added.
-        if remote_name.as_ref() == new_remote.as_str() {
+        if remote_name == new_remote.as_str() {
             continue;
         }
         // Ignore empty or unloadable remote sections for this advisory warning.
-        let Some(Ok(remote)) = git_repo.try_find_remote_without_url_rewrite(&*remote_name) else {
+        let Some(Ok(remote)) = git_repo.try_find_remote_without_url_rewrite(&**remote_name) else {
             continue;
         };
         let remote_fetch_url = remote.url(Direction::Fetch).map(Url::to_bstring);

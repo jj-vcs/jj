@@ -113,7 +113,7 @@ fn test_git_remotes() {
     let output = work_dir.run_jj(["git", "remote", "list"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Failed to load configured remote foo
+    Error: Unexpected Git error when managing remotes
     Caused by:
     1: The fetch url under `remote.foo` was invalid
     2: The url at "remote.<name>.url=https://" could not be parsed
