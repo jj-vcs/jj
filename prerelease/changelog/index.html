@@ -7454,6 +7454,12 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   behavior closer to <code>jj</code> 0.42 and earlier.</p>
 </li>
 <li>
+<p>Snapshotting no longer fails if the working copy contains a path whose name
+  isn't valid UTF-8. Such paths can't be tracked, so they are now skipped and
+  reported as a warning instead.
+  <a href="https://github.com/jj-vcs/jj/issues/9774">#9774</a></p>
+</li>
+<li>
 <p>Fixed failure when reading configuration in copied repo with an empty
   repo-level configuration directory.</p>
 </li>
