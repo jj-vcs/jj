@@ -12,6 +12,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+### Deprecations
+
+### New features
+
+### Fixed bugs
+
+## [0.44.0] - 2026-08-05
+
+### Release highlights
+
+* Support for fetching and pushing tags has now been stabilized. Tags can be
+  tracked or untracked just like bookmarks. Tracked tags are pushed by default.
+
+### Breaking changes
+
 * `jj git fetch` now fetches tags the same way it fetches bookmarks. Tags are
   fetched as `<name>@<remote>`, and these remote tags are automatically tracked
   by local tags of the same name. Running `jj git fetch` in an existing
@@ -44,6 +59,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Deprecations
 
+None
+
 ### New features
 
 * New `merge_point()` revset function which (similar to `fork_point`) finds the
@@ -64,20 +81,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj run` gained a `--passthrough` flag that connects the subprocess's
   stdout/stderr directly to the terminal instead of capturing output.
 
-* `jj file search` now supports `-n`/`--line-number` to prefix each match with
-  its 1-based line number within the file.
-
 * `jj run` gained a `--ignore-changes` flag to avoid editing any revisions even
   if the command modifies the working copy.
+
+* `jj run` gained a `--ignore-errors` flag to continue running against the
+  remaining revisions even if the command exits with a nonzero exit code.
+
+* `jj file search` now supports `-n`/`--line-number` to prefix each match with
+  its 1-based line number within the file.
 
 * `jj git push` gained a `--allow-conflicts` flag to allow pushing commits
   containing conflicts.
 
 * New `jj tag track`/`untrack` commands to associate local tags with remotes.
   Note that fetched tags are tracked by default.
-
-* `jj run` gained a `--ignore-errors` flag to continue running against the
-  remaining revisions even if the command exits with a nonzero exit code.
 
 * Added `builtin_log()` revset alias for the built-in default `jj log` revset.
   `revsets.log` now defaults to `builtin_log()`, so custom log revsets can
@@ -137,6 +154,46 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj git import` and `export` in colocated workspaces are now disabled by
   default. These commands usually do nothing, but they had a race condition.
+
+### Contributors
+
+Thanks to the people who made this release happen!
+
+* Aaron Bies (@slerpyyy)
+* Ada Alakbarova (@ada4a)
+* Alexandre Hallaine (@alexandre-hallaine)
+* Amaan Qureshi (@amaanq)
+* Austin Seipp (@thoughtpolice)
+* Caleb White (@calebdw)
+* Chawye Hsu (@chawyehsu)
+* David Rieber (@drieber)
+* Gaëtan Lehmann (@glehmann)
+* hexbinoct (@hexbinoct)
+* ivelieu (@ivelieu)
+* Joseph Lou (@josephlou5)
+* Josh McKinney (@joshka)
+* Josh Steadmon (@steadmon)
+* Kevin Liao (@kevincliao)
+* Luna Schwalbe (@lunagl)
+* Martin von Zweigbergk (@martinvonz)
+* Matt Van Horn (@mvanhorn)
+* Nika Layzell (@mystor)
+* Niko Savola (@nikosavola)
+* Nitzan Raz (@BackSlasher)
+* Noah Lev (@camelid)
+* OlshaMB (@OlshaMB)
+* Philip Metzger (@PhilipMetzger)
+* Remo Senekowitsch (@senekor)
+* Rob Pilling (@bobrippling)
+* Stephen Jennings (@jennings)
+* Techcable (@Techcable)
+* TogarashiPepper (@TogarashiPepper)
+* Vladimir Petrzhikovskii (@0xdeafbeef)
+* Waleed Khan (@arxanas)
+* Wang Yuantao (@0WD0)
+* xtqqczze (@xtqqczze)
+* Yash Bavadiya (@xevrion)
+* Yuya Nishihara (@yuja)
 
 ## [0.43.0] - 2026-07-01
 
@@ -5397,7 +5454,8 @@ No changes, only trying to get the automated build to work.
 
 Last release before this changelog started.
 
-[unreleased]: https://github.com/jj-vcs/jj/compare/v0.43.0...HEAD
+[unreleased]: https://github.com/jj-vcs/jj/compare/v0.44.0...HEAD
+[0.44.0]: https://github.com/jj-vcs/jj/compare/v0.43.0...v0.44.0
 [0.43.0]: https://github.com/jj-vcs/jj/compare/v0.42.0...v0.43.0
 [0.42.0]: https://github.com/jj-vcs/jj/compare/v0.41.0...v0.42.0
 [0.41.0]: https://github.com/jj-vcs/jj/compare/v0.40.0...v0.41.0
