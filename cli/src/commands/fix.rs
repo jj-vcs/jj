@@ -162,6 +162,7 @@ use crate::ui::Ui;
 /// configuration.
 #[derive(clap::Args, Clone, Debug)]
 #[command(verbatim_doc_comment)]
+#[command(group(clap::ArgGroup::new("format").args(&["summary", "stat"])))]
 pub(crate) struct FixArgs {
     /// Fix files in the specified revision(s) and their descendants. If no
     /// revisions are specified, this defaults to the `revsets.fix` setting, or
@@ -192,6 +193,10 @@ pub(crate) struct FixArgs {
     /// Display a summary of fixed files for each modified commit
     #[arg(long)]
     summary: bool,
+
+    /// Display a histogram of changes for each modified commit
+    #[arg(long)]
+    stat: bool,
 }
 
 #[instrument(skip_all)]
@@ -204,6 +209,7 @@ pub(crate) async fn cmd_fix(
     // use it directly for command parsing.
     let mut format_args = DiffFormatArgs::default();
     format_args.summary = args.summary;
+    format_args.stat = args.stat;
     let mut workspace_command = command.workspace_helper(ui).await?;
     let workspace_root = workspace_command.workspace_root().to_owned();
     let path_converter = workspace_command.path_converter().to_owned();

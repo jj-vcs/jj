@@ -1451,6 +1451,7 @@ configuration.
 
    If the formatter doesn't support formatting only modified lines, then this option has no effect since the formatter always formats all lines.
 * `--summary` — Display a summary of fixed files for each modified commit
+* `--stat` — Display a histogram of changes for each modified commit
 
 
 ## `jj gerrit`
