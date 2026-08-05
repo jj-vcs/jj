@@ -9573,7 +9573,7 @@ configuration.</p>
 <p><strong>Usage:</strong> <code>jj git colocation status</code></p>
 <h2 id="jj-git-export"><code>jj git export</code><a class="headerlink" href="#jj-git-export" title="Permanent link">&para;</a></h2>
 <p>Update the underlying Git repo with changes made in the repo</p>
-<p>There is no need to run this command if you're in colocated workspace because the export happens automatically there.</p>
+<p>By default, this command does nothing in colocated workspaces because the export happens automatically. Use <code>--ignore-working-copy</code> to forcibly export changes.</p>
 <p><strong>Usage:</strong> <code>jj git export</code></p>
 <h2 id="jj-git-fetch"><code>jj git fetch</code><a class="headerlink" href="#jj-git-fetch" title="Permanent link">&para;</a></h2>
 <p>Fetch from a Git remote</p>
@@ -9609,7 +9609,7 @@ configuration.</p>
 <p>Update repo with changes made in the underlying Git repo</p>
 <p>Commits that are no longer reachable from any branch in the Git repo will be considered abandoned in the Git repo, and will be abandoned in the jj repo to match the Git repo. Set <code>git.abandon-unreachable-commits</code> to <code>false</code> to disable this behavior.</p>
 <p>If a working-copy commit gets abandoned, it will be given a new, empty commit. This is true in general; it is not specific to this command.</p>
-<p>There is no need to run this command if you're in colocated workspace because the import happens automatically there.</p>
+<p>By default, this command does nothing in colocated workspaces because the import happens automatically. Use <code>--ignore-working-copy</code> to forcibly import changes.</p>
 <p><strong>Usage:</strong> <code>jj git import</code></p>
 <h2 id="jj-git-init"><code>jj git init</code><a class="headerlink" href="#jj-git-init" title="Permanent link">&para;</a></h2>
 <p>Create a new Git backed repo</p>
