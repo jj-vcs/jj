@@ -16,18 +16,18 @@
 //!
 //! Name types can be constructed from a string:
 //! ```
-//! # use jj_lib::ref_name::*;
+//! # use jj_core::ref_name::*;
 //! let _: RefNameBuf = "main".into();
 //! let _: &RemoteName = "origin".as_ref();
 //! ```
 //!
 //! However, they cannot be converted to other name types:
 //! ```compile_fail
-//! # use jj_lib::ref_name::*;
+//! # use jj_core::ref_name::*;
 //! let _: RefNameBuf = RemoteName::new("origin").into();
 //! ```
 //! ```compile_fail
-//! # use jj_lib::ref_name::*;
+//! # use jj_core::ref_name::*;
 //! let _: &RemoteName = RefName::new("main").as_ref();
 //! ```
 

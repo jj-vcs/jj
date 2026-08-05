@@ -68,7 +68,7 @@ pub mod gitignore;
 pub mod gpg_signing;
 pub mod graph;
 pub mod graph_dominators;
-pub mod hex_util;
+pub use jj_core::hex_util;
 pub mod id_prefix;
 pub mod index;
 pub mod iter_util;
@@ -85,7 +85,7 @@ pub mod op_walk;
 pub mod operation;
 #[expect(missing_docs)]
 pub mod protos;
-pub mod ref_name;
+pub use jj_core::ref_name;
 pub mod refs;
 pub mod repo;
 pub mod repo_path;

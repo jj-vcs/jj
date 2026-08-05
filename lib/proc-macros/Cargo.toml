@@ -1,6 +1,6 @@
 [package]
 name = "jj-lib-proc-macros"
-description = "Proc macros for the jj-lib crate"
+description = "Proc macros for the jj-lib crate (deprecated use jj-core-proc-macros instead)"
 
 version = { workspace = true }
 edition = { workspace = true }
@@ -17,9 +17,6 @@ include = ["/LICENSE", "/src/"]
 proc-macro = true
 
 [dependencies]
-proc-macro2 = { workspace = true }
-quote = { workspace = true }
-syn = { workspace = true }
 
 [lints]
 workspace = true

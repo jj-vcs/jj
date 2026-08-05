@@ -25,10 +25,11 @@ use async_trait::async_trait;
 use chrono::TimeZone as _;
 use futures::AsyncRead;
 use futures::stream::BoxStream;
+pub use jj_core::backend::ChangeId;
+pub use jj_core::backend::CommitId;
 use thiserror::Error;
 
 use crate::content_hash::ContentHash;
-use crate::hex_util;
 use crate::index::Index;
 use crate::merge::Merge;
 use crate::object_id::ObjectId as _;
@@ -39,16 +40,6 @@ use crate::repo_path::RepoPathComponent;
 use crate::repo_path::RepoPathComponentBuf;
 use crate::signing::SignResult;
 
-id_type!(
-    /// Identifier for a [`Commit`] based on its content. When a commit is
-    /// rewritten, its `CommitId` changes.
-    pub CommitId { hex() }
-);
-id_type!(
-    /// Stable identifier for a [`Commit`]. Unlike the `CommitId`, the `ChangeId`
-    /// follows the commit and is not updated when the commit is rewritten.
-    pub ChangeId { reverse_hex() }
-);
 id_type!(
     /// Identifier for a tree object.
     pub TreeId { hex() }
@@ -65,19 +56,6 @@ id_type!(
     /// Identifier for a copy history.
     pub CopyId { hex() }
 );
-
-impl ChangeId {
-    /// Parses the given "reverse" hex string into a `ChangeId`.
-    pub fn try_from_reverse_hex(hex: impl AsRef<[u8]>) -> Option<Self> {
-        hex_util::decode_reverse_hex(hex).map(Self)
-    }
-
-    /// Returns the hex string representation of this ID, which uses `z-k`
-    /// "digits" instead of `0-9a-f`.
-    pub fn reverse_hex(&self) -> String {
-        hex_util::encode_reverse_hex(&self.0)
-    }
-}
 
 impl CopyId {
     /// Returns a placeholder copy id to be used when we don't have a real copy
