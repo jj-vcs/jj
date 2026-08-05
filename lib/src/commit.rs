@@ -22,6 +22,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
 
+use futures::StreamExt as _;
 use futures::future::try_join_all;
 use itertools::Itertools as _;
 
@@ -271,13 +272,15 @@ pub(crate) async fn is_backend_commit_empty(
 }
 
 async fn is_commit_empty_by_index(repo: &dyn Repo, id: &CommitId) -> BackendResult<Option<bool>> {
-    let maybe_paths = repo
-        .index()
-        .changed_paths_in_commit(id)
-        .await
-        // TODO: index error shouldn't be a "BackendError"
-        .map_err(|err| BackendError::Other(err.into()))?;
-    Ok(maybe_paths.map(|mut paths| paths.next().is_none()))
+    match repo.index().changed_paths_in_commit(id) {
+        None => Ok(None),
+        Some(mut stream) => match stream.next().await {
+            None => Ok(Some(true)),
+            Some(Ok(..)) => Ok(Some(false)),
+            // TODO: index error shouldn't be a "BackendError"
+            Some(Err(err)) => Err(BackendError::Other(err.into())),
+        },
+    }
 }
 
 pub trait CommitIteratorExt<'c, I> {

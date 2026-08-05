@@ -17,6 +17,7 @@ use std::sync::Arc;
 
 use assert_matches::assert_matches;
 use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
@@ -80,9 +81,9 @@ fn enable_changed_path_index(repo: &ReadonlyRepo) -> Arc<ReadonlyRepo> {
 fn collect_changed_paths(repo: &ReadonlyRepo, commit_id: &CommitId) -> Option<Vec<RepoPathBuf>> {
     repo.index()
         .changed_paths_in_commit(commit_id)
-        .block_on()
+        .map(|stream| stream.try_collect().block_on())
+        .transpose()
         .unwrap()
-        .map(|paths| paths.collect())
 }
 
 fn index_has_id(index: &dyn Index, commit_id: &CommitId) -> bool {

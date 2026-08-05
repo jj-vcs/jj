@@ -27,6 +27,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use futures::stream::BoxStream;
 use itertools::Itertools as _;
 use smallvec::smallvec;
 use thiserror::Error;
@@ -753,11 +754,11 @@ impl Index for DefaultReadonlyIndex {
         self.0.heads(candidates)
     }
 
-    async fn changed_paths_in_commit(
+    fn changed_paths_in_commit<'a>(
         &self,
         commit_id: &CommitId,
-    ) -> IndexResult<Option<Box<dyn Iterator<Item = RepoPathBuf> + '_>>> {
-        self.0.changed_paths_in_commit(commit_id).await
+    ) -> Option<BoxStream<'_, IndexResult<RepoPathBuf>>> {
+        self.0.changed_paths_in_commit(commit_id)
     }
 
     fn evaluate_revset(

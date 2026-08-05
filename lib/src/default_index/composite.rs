@@ -23,6 +23,9 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use async_trait::async_trait;
+use futures::StreamExt as _;
+use futures::stream;
+use futures::stream::BoxStream;
 use itertools::Itertools as _;
 use ref_cast::RefCastCustom;
 use ref_cast::ref_cast_custom;
@@ -637,18 +640,14 @@ impl Index for CompositeIndex {
         Ok(self.commits().heads(candidate_ids))
     }
 
-    async fn changed_paths_in_commit(
+    fn changed_paths_in_commit(
         &self,
         commit_id: &CommitId,
-    ) -> IndexResult<Option<Box<dyn Iterator<Item = RepoPathBuf> + '_>>> {
-        let Some(paths) = self
-            .commits()
+    ) -> Option<BoxStream<'_, IndexResult<RepoPathBuf>>> {
+        self.commits()
             .commit_id_to_pos(commit_id)
             .and_then(|pos| self.changed_paths().changed_paths(pos))
-        else {
-            return Ok(None);
-        };
-        Ok(Some(Box::new(paths.map(|path| path.to_owned()))))
+            .map(|v| stream::iter(v.map(|path| Ok(path.to_owned()))).boxed())
     }
 
     fn evaluate_revset(
