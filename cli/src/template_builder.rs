@@ -2958,7 +2958,11 @@ pub fn expect_isize_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
     node: &ExpressionNode,
 ) -> TemplateParseResult<BoxedTemplateProperty<'a, isize>> {
     let i64_property = expect_integer_expression(language, diagnostics, build_ctx, node)?;
-    let isize_property = i64_property.and_then(|v| Ok(isize::try_from(v)?));
+    let isize_property = i64_property.and_then(|v| {
+        isize::try_from(v).map_err(|_| {
+            TemplatePropertyError("out of range integral type conversion attempted".into())
+        })
+    });
     Ok(isize_property.into_dyn())
 }
 
@@ -2970,7 +2974,11 @@ pub fn expect_usize_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
     node: &ExpressionNode,
 ) -> TemplateParseResult<BoxedTemplateProperty<'a, usize>> {
     let i64_property = expect_integer_expression(language, diagnostics, build_ctx, node)?;
-    let usize_property = i64_property.and_then(|v| Ok(usize::try_from(v)?));
+    let usize_property = i64_property.and_then(|v| {
+        usize::try_from(v).map_err(|_| {
+            TemplatePropertyError("out of range integral type conversion attempted".into())
+        })
+    });
     Ok(usize_property.into_dyn())
 }
 
