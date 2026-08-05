@@ -104,7 +104,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Git temporary files are now cleaned up more reliably in the presence of
   signals (e.g. `Ctrl-C`). This should reduce the rate of "Could not acquire
-  lock for index file" errors. (#7530)
+  lock for index file" errors.
+  ([#7530](https://github.com/jj-vcs/jj/issues/7530))
 
 * Fixed Git HEAD mismatch after the working copy became immutable.
   [#9827](https://github.com/jj-vcs/jj/issues/9827)
