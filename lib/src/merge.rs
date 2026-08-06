@@ -840,8 +840,8 @@ where
     /// The given `file_ids` should have the same shape as `self`. Only the
     /// `FileId` values may differ.
     pub fn with_new_file_ids(&self, file_ids: &Merge<Option<FileId>>) -> Merge<Option<TreeValue>> {
-        assert_eq!(self.values.len(), file_ids.values.len());
-        let values = zip(self, file_ids.iter().cloned())
+        assert_eq!(self.num_sides(), file_ids.num_sides());
+        let values: SmallVec<_> = zip(self, file_ids.iter().cloned())
             .map(
                 |(tree_value, file_id)| match (borrow_tree_value(tree_value.as_ref()), file_id) {
                     (
@@ -869,7 +869,7 @@ where
                 },
             )
             .collect();
-        Merge { values }
+        Merge::from_vec(values)
     }
 
     /// Give a summary description of the conflict's "removes" and "adds"
