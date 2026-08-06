@@ -22,3 +22,4 @@
 pub mod dag_walk;
 pub mod dag_walk_async;
 pub mod diff;
+pub mod hex_util;
