@@ -18,3 +18,6 @@
 #![warn(missing_docs)]
 #![forbid(unsafe_code)]
 #![deny(unused_must_use)]
+
+pub mod dag_walk;
+pub mod dag_walk_async;
