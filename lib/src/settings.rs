@@ -76,6 +76,10 @@ pub struct RemoteSettings {
     /// Tag name expression to fetch by default.
     #[serde(default)]
     pub fetch_tags: Option<String>,
+    /// Maximum number of refs in a single git push operation,
+    /// None or Some(0) means unlimited
+    #[serde(default)]
+    pub ref_push_max_batch_size: Option<usize>,
 }
 
 impl RemoteSettings {
