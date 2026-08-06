@@ -217,7 +217,7 @@ impl Backend for SimpleBackend {
             hasher.update(bytes);
         }
         file.flush().map_err(to_other_err)?;
-        let id = FileId::new(hasher.finalize().to_vec());
+        let id = FileId::from_vec(hasher.finalize().to_vec());
 
         persist_content_addressed_temp_file(temp_file, self.file_path(&id))
             .map_err(to_other_err)?;
@@ -238,7 +238,7 @@ impl Backend for SimpleBackend {
             .map_err(to_other_err)?;
         let mut hasher = Blake2b512::new();
         hasher.update(target.as_bytes());
-        let id = SymlinkId::new(hasher.finalize().to_vec());
+        let id = SymlinkId::from_vec(hasher.finalize().to_vec());
 
         persist_content_addressed_temp_file(temp_file, self.symlink_path(&id))
             .map_err(to_other_err)?;
@@ -281,7 +281,7 @@ impl Backend for SimpleBackend {
             .write_all(&proto.encode_to_vec())
             .map_err(to_other_err)?;
 
-        let id = TreeId::new(blake2b_hash(tree).to_vec());
+        let id = TreeId::from_vec(blake2b_hash(tree).to_vec());
 
         persist_content_addressed_temp_file(temp_file, self.tree_path(&id))
             .map_err(to_other_err)?;
@@ -331,7 +331,7 @@ impl Backend for SimpleBackend {
             .write_all(&proto.encode_to_vec())
             .map_err(to_other_err)?;
 
-        let id = CommitId::new(blake2b_hash(&commit).to_vec());
+        let id = CommitId::from_vec(blake2b_hash(&commit).to_vec());
 
         persist_content_addressed_temp_file(temp_file, self.commit_path(&id))
             .map_err(to_other_err)?;
@@ -380,12 +380,17 @@ fn commit_from_proto(mut proto: crate::protos::simple_store::Commit) -> Commit {
         sig,
     });
 
-    let parents = proto.parents.into_iter().map(CommitId::new).collect();
-    let predecessors = proto.predecessors.into_iter().map(CommitId::new).collect();
-    let merge_builder: MergeBuilder<_> = proto.root_tree.into_iter().map(TreeId::new).collect();
+    let parents = proto.parents.into_iter().map(CommitId::from_vec).collect();
+    let predecessors = proto
+        .predecessors
+        .into_iter()
+        .map(CommitId::from_vec)
+        .collect();
+    let merge_builder: MergeBuilder<_> =
+        proto.root_tree.into_iter().map(TreeId::from_vec).collect();
     let root_tree = merge_builder.build();
     let conflict_labels = ConflictLabels::from_vec(proto.conflict_labels);
-    let change_id = ChangeId::new(proto.change_id);
+    let change_id = ChangeId::from_vec(proto.change_id);
     Commit {
         parents,
         predecessors,
@@ -461,7 +466,7 @@ fn tree_value_to_proto(value: &TreeValue) -> crate::protos::simple_store::TreeVa
 fn tree_value_from_proto(proto: crate::protos::simple_store::TreeValue) -> TreeValue {
     match proto.value.unwrap() {
         crate::protos::simple_store::tree_value::Value::TreeId(id) => {
-            TreeValue::Tree(TreeId::new(id))
+            TreeValue::Tree(TreeId::from_vec(id))
         }
         crate::protos::simple_store::tree_value::Value::File(
             crate::protos::simple_store::tree_value::File {
@@ -470,12 +475,12 @@ fn tree_value_from_proto(proto: crate::protos::simple_store::TreeValue) -> TreeV
                 copy_id,
             },
         ) => TreeValue::File {
-            id: FileId::new(id),
+            id: FileId::from_vec(id),
             executable,
-            copy_id: CopyId::new(copy_id),
+            copy_id: CopyId::from_vec(copy_id),
         },
         crate::protos::simple_store::tree_value::Value::SymlinkId(id) => {
-            TreeValue::Symlink(SymlinkId::new(id))
+            TreeValue::Symlink(SymlinkId::from_vec(id))
         }
     }
 }

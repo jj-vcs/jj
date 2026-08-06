@@ -729,7 +729,7 @@ pub fn synthetic_change_id_from_git_commit_id(id: &CommitId) -> ChangeId {
         .rev()
         .map(|b| b.reverse_bits())
         .collect();
-    ChangeId::new(bytes)
+    ChangeId::from_vec(bytes)
 }
 
 const EMPTY_STRING_PLACEHOLDER: &str = "JJ_EMPTY_STRING";
@@ -798,7 +798,7 @@ fn serialize_extras(commit: &Commit) -> Vec<u8> {
 fn deserialize_extras(commit: &mut Commit, bytes: &[u8]) {
     let proto = crate::protos::git_store::Commit::decode(bytes).unwrap();
     if !proto.change_id.is_empty() {
-        commit.change_id = ChangeId::new(proto.change_id);
+        commit.change_id = ChangeId::from_vec(proto.change_id);
     }
     if commit.root_tree.is_resolved()
         && proto.uses_tree_conflict_format
@@ -1074,7 +1074,7 @@ impl Backend for GitBackend {
         contents.read_to_end(&mut bytes).await.unwrap();
 
         let oid = self.write_blob(&bytes, "file")?;
-        Ok(FileId::new(oid.as_bytes().to_vec()))
+        Ok(FileId::from_vec(oid.as_bytes().to_vec()))
     }
 
     async fn read_symlink(&self, _path: &RepoPath, id: &SymlinkId) -> BackendResult<String> {
@@ -1092,7 +1092,7 @@ impl Backend for GitBackend {
 
     async fn write_symlink(&self, _path: &RepoPath, target: &str) -> BackendResult<SymlinkId> {
         let oid = self.write_blob(target.as_bytes(), "symlink")?;
-        Ok(SymlinkId::new(oid.as_bytes().to_vec()))
+        Ok(SymlinkId::from_vec(oid.as_bytes().to_vec()))
     }
 
     async fn read_copy(&self, _id: &CopyId) -> BackendResult<CopyHistory> {
@@ -2296,7 +2296,7 @@ mod tests {
             predecessors: vec![],
             root_tree: Merge::resolved(backend.empty_tree_id().clone()),
             conflict_labels: Merge::resolved(String::new()),
-            change_id: ChangeId::new(vec![42; 16]),
+            change_id: ChangeId::from_vec(vec![42; 16]),
             description: "initial".to_string(),
             author: signature.clone(),
             committer: signature,
@@ -2469,7 +2469,7 @@ mod tests {
             predecessors: vec![],
             root_tree: Merge::resolved(backend.empty_tree_id().clone()),
             conflict_labels: Merge::resolved(String::new()),
-            change_id: ChangeId::new(vec![42; 16]),
+            change_id: ChangeId::from_vec(vec![42; 16]),
             description: "initial".to_string(),
             author: create_signature(),
             committer: create_signature(),

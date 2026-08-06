@@ -739,9 +739,9 @@ fn create_copy_records(paths: &[(&RepoPath, &RepoPath)]) -> CopyRecords {
     copy_records.add_records(paths.iter().map(|&(source, target)| CopyRecord {
         source: source.to_owned(),
         target: target.to_owned(),
-        target_commit: CommitId::new(vec![]),
-        source_commit: CommitId::new(vec![]),
-        source_file: FileId::new(vec![]),
+        target_commit: CommitId::from_vec(vec![]),
+        source_commit: CommitId::from_vec(vec![]),
+        source_file: FileId::from_vec(vec![]),
     }));
     copy_records
 }

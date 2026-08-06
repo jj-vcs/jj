@@ -60,7 +60,7 @@ use testutils::write_random_commit;
 use testutils::write_random_commit_with_parents;
 
 fn make_change_id(repo: &TestRepo, byte: u8) -> ChangeId {
-    ChangeId::new(vec![byte; repo.repo.store().change_id_length()])
+    ChangeId::from_vec(vec![byte; repo.repo.store().change_id_length()])
 }
 
 fn get_merged_tree_value(tree: &MergedTree, path: &str) -> TestResult<Option<TreeValue>> {
