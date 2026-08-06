@@ -71,6 +71,9 @@ None
 
 ### New features
 
+* `jj sparse set --stdin` now replaces the working copy's sparse patterns with
+  newline-separated, workspace-relative paths read from standard input.
+
 * New `merge_point()` revset function which (similar to `fork_point`) finds the
   point where multiple branches merge.
 
