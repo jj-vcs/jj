@@ -35,6 +35,9 @@ and this project adheres to
 * Templates now have a top-level `revset(revset: Stringify) -> List<Commit>`
   function for evaluating revsets during templating.
 
+* The builtin diff now attempts to split changes into smaller hunks by falling
+  back to the longest common substring algorithm.
+
 ### Fixed bugs
 
 * Shell completion now suggests tag names for `jj tag track`, `jj tag untrack`,
