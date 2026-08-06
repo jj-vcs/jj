@@ -23,3 +23,10 @@ pub mod dag_walk;
 pub mod dag_walk_async;
 pub mod diff;
 pub mod hex_util;
+pub mod str_util;
+
+#[cfg(test)]
+mod tests {
+    // Copied from `testutils::TestResult` to remove dependency cycle.
+    pub type TestResult<T = ()> = eyre::Result<T>;
+}
