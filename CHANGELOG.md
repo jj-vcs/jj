@@ -222,6 +222,8 @@ Thanks to the people who made this release happen!
 
 ### New features
 
+* New `JJ_NO_DEFAULT_COLORS` environment variable disables setting built-in default colors.
+
 * `jj show` now supports `--reversed` flag.
 
 * `jj` now looks for config files in `/etc/jj`.
