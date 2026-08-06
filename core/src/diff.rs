@@ -335,6 +335,7 @@ impl<'input> Histogram<'input> {
                 })
                 .or_insert_with(|| (word, smallvec![pos]));
         }
+        word_to_positions.retain(|(_, positions)| positions.len() <= max_occurrences);
         Self { word_to_positions }
     }
 
@@ -471,15 +472,11 @@ fn collect_unchanged_words_lcs<C: CompareBytes, S: BuildHasher>(
 ) {
     let max_occurrences = 100;
     let left_histogram = Histogram::calculate(left, comp, max_occurrences);
-    let left_count_to_entries = left_histogram.build_count_to_entries();
-    if *left_count_to_entries.keys().next().unwrap() > max_occurrences {
-        // If there are very many occurrences of all words, then we just give up.
-        return;
-    }
     let right_histogram = Histogram::calculate(right, comp, max_occurrences);
     // Look for words with few occurrences in `left` (could equally well have picked
     // `right`?). If any of them also occur in `right`, then we add the words to
     // the LCS.
+    let left_count_to_entries = left_histogram.build_count_to_entries();
     let Some(uncommon_shared_word_positions) =
         left_count_to_entries.values().find_map(|left_entries| {
             let mut both_positions = left_entries
@@ -1190,6 +1187,34 @@ mod tests {
         assert!(!comp.eq(b"a", b"ab"));
         assert!(!comp.eq(b"ab", b"ba"));
         assert!(!comp.eq(b"ab", b"a b"));
+    }
+
+    fn byte_ranges(len: usize, stride: usize) -> Vec<Range<usize>> {
+        (0..len).step_by(stride).map(|i| i..i + 1).collect()
+    }
+
+    #[test]
+    fn test_histogram_max_occurrences() {
+        let comp = WordComparator::new(CompareBytesExactly);
+        let ranges = byte_ranges(6, 1);
+        let source = DiffSource::new(b"abcaba", &ranges, &comp);
+        let [word_a, word_b, word_c] = source.local().hashed_words().next_array().unwrap();
+
+        // "a" exceeds max_occurrences
+        let max_occurrences = 2;
+        let histogram = Histogram::calculate(&source.local(), &comp, max_occurrences);
+        let count_to_entries = histogram.build_count_to_entries();
+        assert_eq!(count_to_entries.keys().copied().collect_vec(), [1, 2]);
+
+        assert_eq!(histogram.positions_by_word(word_a, &comp), None);
+        assert_eq!(
+            histogram.positions_by_word(word_b, &comp),
+            Some([LocalWordPosition(1), LocalWordPosition(4)].as_slice())
+        );
+        assert_eq!(
+            histogram.positions_by_word(word_c, &comp),
+            Some([LocalWordPosition(2)].as_slice())
+        );
     }
 
     fn unchanged_ranges(
