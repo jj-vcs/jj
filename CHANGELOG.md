@@ -29,6 +29,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Git-format diff hunk headers now include nearby source symbols for many common
   programming and markup languages.
 
+* The builtin diff now attempts to split changes into smaller hunks by falling
+  back to the longest common substring algorithm.
+
 * `jj workspace add` supports `--colocate`/`--no-colocate` flags to control
   whether a Git worktree is created alongside the workspace. The default
   colocates when the current workspace is colocated and the `git.colocate`
