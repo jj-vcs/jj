@@ -12,8 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Generic algorithms for working with merged values, plus specializations for
-//! some common types of merged values.
+//! Generic algorithms for working with merged values.
+//!
+//! Specializations for some common types of merged values live in the modules
+//! that define those types (e.g. the `Merge<Option<TreeValue>>` methods in the
+//! backend module).
 
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -29,9 +32,6 @@ use itertools::Itertools as _;
 use smallvec::SmallVec;
 use smallvec::smallvec;
 use smallvec::smallvec_inline;
-
-use crate::content_hash::ContentHash;
-use crate::content_hash::DigestUpdate;
 
 /// A generic diff/transition from one value to another.
 ///
@@ -701,12 +701,6 @@ impl<T> Merge<Merge<T>> {
             result.values.extend(add.values);
         }
         result
-    }
-}
-
-impl<T: ContentHash> ContentHash for Merge<T> {
-    fn hash(&self, state: &mut impl DigestUpdate) {
-        self.values.hash(state);
     }
 }
 
