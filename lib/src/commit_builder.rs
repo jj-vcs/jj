@@ -14,6 +14,7 @@
 
 #![expect(missing_docs)]
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use pollster::FutureExt as _;
@@ -136,6 +137,15 @@ impl CommitBuilder<'_> {
         self
     }
 
+    pub fn metadata(&self) -> &HashMap<String, Vec<u8>> {
+        self.inner.metadata()
+    }
+
+    pub fn set_metadata(mut self, metadata: HashMap<String, Vec<u8>>) -> Self {
+        self.inner.set_metadata(metadata);
+        self
+    }
+
     /// [`Commit::is_discardable()`] for the new commit.
     pub async fn is_discardable(&self) -> BackendResult<bool> {
         self.inner.is_discardable(self.mut_repo).await
@@ -207,6 +217,7 @@ impl DetachedCommitBuilder {
             author: signature.clone(),
             committer: signature,
             secure_sig: None,
+            metadata: HashMap::new(),
         };
         let record_predecessors_in_commit = settings
             .get_bool("experimental.record-predecessors-in-commit")
@@ -367,6 +378,15 @@ impl DetachedCommitBuilder {
 
     pub fn set_committer(&mut self, committer: Signature) -> &mut Self {
         self.commit.committer = committer;
+        self
+    }
+
+    pub fn metadata(&self) -> &HashMap<String, Vec<u8>> {
+        &self.commit.metadata
+    }
+
+    pub fn set_metadata(&mut self, metadata: HashMap<String, Vec<u8>>) -> &mut Self {
+        self.commit.metadata = metadata;
         self
     }
 

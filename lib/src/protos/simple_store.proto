@@ -61,4 +61,11 @@ message Commit {
   Signature author = 6;
   Signature committer = 7;
   optional bytes secure_sig = 9;
+
+  message MetadataEntry {
+    string key = 1;
+    bytes value = 2;
+  }
+  // Sorted by key so the serialized form is deterministic
+  repeated MetadataEntry metadata = 11;
 }

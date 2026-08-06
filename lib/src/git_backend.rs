@@ -14,6 +14,7 @@
 
 #![expect(missing_docs)]
 
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::fmt::Debug;
@@ -701,6 +702,7 @@ fn commit_from_git_without_root_parent(
         author,
         committer,
         secure_sig,
+        metadata: HashMap::new(),
     })
 }
 
@@ -1274,6 +1276,14 @@ impl Backend for GitBackend {
         mut sign_with: Option<&mut SigningFn>,
     ) -> BackendResult<(CommitId, Commit)> {
         assert!(contents.secure_sig.is_none(), "commit.secure_sig was set");
+
+        // TODO: Support writing metadata as custom Git commit headers (e.g.
+        // "jj:metadata:<key>: <value>")?
+        if !contents.metadata.is_empty() {
+            return Err(BackendError::Unsupported(
+                "The Git backend doesn't support writing commit metadata".to_owned(),
+            ));
+        }
 
         let locked_repo = self.lock_git_repo();
         let tree_ids = &contents.root_tree;
@@ -2014,6 +2024,7 @@ mod tests {
             author: create_signature(),
             committer: create_signature(),
             secure_sig: None,
+            metadata: HashMap::new(),
         };
 
         let (initial_commit_id, _init_commit) = backend.write_commit(commit, None).block_on()?;
@@ -2106,6 +2117,7 @@ mod tests {
             author: create_signature(),
             committer: create_signature(),
             secure_sig: None,
+            metadata: HashMap::new(),
         };
 
         let write_commit = |commit: Commit| -> BackendResult<(CommitId, Commit)> {
@@ -2195,6 +2207,7 @@ mod tests {
             author: create_signature(),
             committer: create_signature(),
             secure_sig: None,
+            metadata: HashMap::new(),
         };
 
         let write_commit = |commit: Commit| -> BackendResult<(CommitId, Commit)> {
@@ -2276,6 +2289,38 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn write_commit_with_metadata_fails() -> TestResult {
+        let settings = user_settings();
+        let temp_dir = new_temp_dir();
+        let backend = GitBackend::init_internal(&settings, temp_dir.path(), gix::hash::Kind::Sha1)?;
+        let signature = Signature {
+            name: "Someone".to_string(),
+            email: "someone@example.com".to_string(),
+            timestamp: Timestamp {
+                timestamp: MillisSinceEpoch(0),
+                tz_offset: 0,
+            },
+        };
+        let commit = Commit {
+            parents: vec![backend.root_commit_id().clone()],
+            predecessors: vec![],
+            root_tree: Merge::resolved(backend.empty_tree_id().clone()),
+            conflict_labels: Merge::resolved(String::new()),
+            change_id: ChangeId::new(vec![42; 16]),
+            description: "initial".to_string(),
+            author: signature.clone(),
+            committer: signature,
+            secure_sig: None,
+            metadata: HashMap::from([("foo".to_string(), b"bar".to_vec())]),
+        };
+        assert_matches!(
+            backend.write_commit(commit, None).block_on(),
+            Err(BackendError::Unsupported(_))
+        );
+        Ok(())
+    }
+
     #[test_case(gix::hash::Kind::Sha1 ; "sha1")]
     #[test_case(gix::hash::Kind::Sha256; "sha256")]
     fn commit_has_ref(object_hash: gix::hash::Kind) -> TestResult {
@@ -2301,6 +2346,7 @@ mod tests {
             author: signature.clone(),
             committer: signature,
             secure_sig: None,
+            metadata: HashMap::new(),
         };
         let commit_id = backend.write_commit(commit, None).block_on()?.0;
         let git_refs = git_repo.references()?;
@@ -2378,6 +2424,7 @@ mod tests {
             author: create_signature(),
             committer: create_signature(),
             secure_sig: None,
+            metadata: HashMap::new(),
         };
 
         let write_commit = |commit: Commit| -> BackendResult<(CommitId, Commit)> {
@@ -2474,6 +2521,7 @@ mod tests {
             author: create_signature(),
             committer: create_signature(),
             secure_sig: None,
+            metadata: HashMap::new(),
         };
 
         let mut signer = |data: &_| {

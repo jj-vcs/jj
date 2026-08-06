@@ -33,6 +33,7 @@ use futures::StreamExt as _;
 use futures::io::Cursor;
 use futures::stream;
 use futures::stream::BoxStream;
+use itertools::Itertools as _;
 use pollster::FutureExt as _;
 use prost::Message as _;
 use tempfile::NamedTempFile;
@@ -369,6 +370,18 @@ pub fn commit_to_proto(commit: &Commit) -> crate::protos::simple_store::Commit {
     proto.description = commit.description.clone();
     proto.author = Some(signature_to_proto(&commit.author));
     proto.committer = Some(signature_to_proto(&commit.committer));
+    // Sort by key to make the serialized form deterministic
+    proto.metadata = commit
+        .metadata
+        .iter()
+        .sorted_by_key(|&(key, _)| key)
+        .map(
+            |(key, value)| crate::protos::simple_store::commit::MetadataEntry {
+                key: key.clone(),
+                value: value.clone(),
+            },
+        )
+        .collect();
     proto
 }
 
@@ -382,6 +395,11 @@ fn commit_from_proto(mut proto: crate::protos::simple_store::Commit) -> Commit {
 
     let parents = proto.parents.into_iter().map(CommitId::new).collect();
     let predecessors = proto.predecessors.into_iter().map(CommitId::new).collect();
+    let metadata = proto
+        .metadata
+        .into_iter()
+        .map(|entry| (entry.key, entry.value))
+        .collect();
     let merge_builder: MergeBuilder<_> = proto.root_tree.into_iter().map(TreeId::new).collect();
     let root_tree = merge_builder.build();
     let conflict_labels = ConflictLabels::from_vec(proto.conflict_labels);
@@ -396,6 +414,7 @@ fn commit_from_proto(mut proto: crate::protos::simple_store::Commit) -> Commit {
         author: signature_from_proto(proto.author.unwrap_or_default()),
         committer: signature_from_proto(proto.committer.unwrap_or_default()),
         secure_sig,
+        metadata,
     }
 }
 
@@ -505,6 +524,8 @@ fn signature_from_proto(proto: crate::protos::simple_store::commit::Signature) -
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use assert_matches::assert_matches;
     use pollster::FutureExt as _;
 
@@ -530,6 +551,7 @@ mod tests {
             author: create_signature(),
             committer: create_signature(),
             secure_sig: None,
+            metadata: HashMap::new(),
         };
 
         let write_commit = |commit: Commit| -> BackendResult<(CommitId, Commit)> {
@@ -566,6 +588,36 @@ mod tests {
         let root_merge_id = write_commit(commit.clone())?.0;
         let root_merge_commit = backend.read_commit(&root_merge_id).block_on()?;
         assert_eq!(root_merge_commit, commit);
+        Ok(())
+    }
+
+    /// Test that commit metadata gets written and read back
+    #[test]
+    fn write_commit_metadata() -> TestResult {
+        let temp_dir = new_temp_dir();
+        let store_path = temp_dir.path();
+
+        let backend = SimpleBackend::init(store_path);
+        let commit = Commit {
+            parents: vec![backend.root_commit_id().clone()],
+            predecessors: vec![],
+            root_tree: Merge::resolved(backend.empty_tree_id().clone()),
+            conflict_labels: Merge::resolved(String::new()),
+            change_id: ChangeId::from_hex("abc123"),
+            description: "".to_string(),
+            author: create_signature(),
+            committer: create_signature(),
+            secure_sig: None,
+            metadata: HashMap::from([
+                ("foo".to_string(), b"bar".to_vec()),
+                ("binary".to_string(), vec![0x00, 0xff]),
+            ]),
+        };
+
+        let (id, returned_commit) = backend.write_commit(commit.clone(), None).block_on()?;
+        assert_eq!(returned_commit, commit);
+        let read_commit = backend.read_commit(&id).block_on()?;
+        assert_eq!(read_commit, commit);
         Ok(())
     }
 
