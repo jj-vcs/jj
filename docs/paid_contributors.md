@@ -39,6 +39,7 @@ See [contribution docs](contributing.md#code-reviews) for details on this policy
 * honglooker
 * hooper
 * incognito124
+* jlndr
 * jonathantanmy
 * josephlou5
 * kevincliao
