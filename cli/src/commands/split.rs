@@ -552,14 +552,14 @@ async fn select_diff(
     matcher: &dyn Matcher,
     diff_selector: &DiffSelector,
 ) -> Result<CommitWithSelection, CommandError> {
-    let format_instructions = || {
+    let format_instructions = |edit_side| {
         format!(
             "\
 You are splitting a commit into two: {}
 
 The diff initially shows the changes in the commit you're splitting.
 
-Adjust the right side until it shows the contents you want to split into the
+Adjust the {edit_side} side until it shows the contents you want to split into the
 new commit.
 The changes that are not selected will replace the original commit.
 ",
