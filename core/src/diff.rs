@@ -429,9 +429,18 @@ fn collect_unchanged_words<C: CompareBytes, S: BuildHasher>(
         return;
     }
 
+    let max_occurrences = 100;
+    let left_histogram = Histogram::calculate(left, comp, max_occurrences);
+    let right_histogram = Histogram::calculate(right, comp, max_occurrences);
+
     // Prioritize LCS-based algorithm than leading/trailing matches
     let old_len = found_positions.len();
-    collect_unchanged_words_lcs(found_positions, left, right, comp);
+    collect_unchanged_words_lcs(
+        found_positions,
+        (left, &left_histogram),
+        (right, &right_histogram),
+        comp,
+    );
     if found_positions.len() != old_len {
         return;
     }
@@ -466,13 +475,10 @@ fn collect_unchanged_words<C: CompareBytes, S: BuildHasher>(
 
 fn collect_unchanged_words_lcs<C: CompareBytes, S: BuildHasher>(
     found_positions: &mut Vec<(WordPosition, WordPosition)>,
-    left: &LocalDiffSource,
-    right: &LocalDiffSource,
+    (left, left_histogram): (&LocalDiffSource, &Histogram),
+    (right, right_histogram): (&LocalDiffSource, &Histogram),
     comp: &WordComparator<C, S>,
 ) {
-    let max_occurrences = 100;
-    let left_histogram = Histogram::calculate(left, comp, max_occurrences);
-    let right_histogram = Histogram::calculate(right, comp, max_occurrences);
     // Look for words with few occurrences in `left` (could equally well have picked
     // `right`?). If any of them also occur in `right`, then we add the words to
     // the LCS.
