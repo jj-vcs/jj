@@ -17,15 +17,21 @@ harness = false
 
 [dependencies]
 bstr = { workspace = true }
+either = { workspace = true }
 futures = { workspace = true }
+globset = { workspace = true }
 hashbrown = { workspace = true }
 indexmap = { workspace = true }
 itertools = { workspace = true }
+regex = { workspace = true }
 smallvec = { workspace = true }
+thiserror = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
 criterion = { workspace = true }
+eyre = { workspace = true }
+insta = { workspace = true }
 maplit = { workspace = true }
 pollster = { workspace = true }
 

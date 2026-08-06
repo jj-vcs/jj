@@ -2642,13 +2642,19 @@ dependencies = [
  "assert_matches",
  "bstr",
  "criterion",
+ "either",
+ "eyre",
  "futures 0.3.33",
+ "globset",
  "hashbrown 0.17.1",
  "indexmap",
+ "insta",
  "itertools 0.15.0",
  "maplit",
  "pollster",
+ "regex",
  "smallvec",
+ "thiserror 2.0.19",
 ]
 
 [[package]]
