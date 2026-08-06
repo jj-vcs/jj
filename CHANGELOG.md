@@ -114,6 +114,9 @@ None
 * `jj bisect` will now mention when it cannot unambiguously find the first bad revision
   due to skips in evaluation.
 
+* `jj revert` now inserts the reverted revision before the working copy (@) by
+  default.
+
 ### Fixed bugs
 
 * Recursive alias definitions are detected more precisely. jj can now expand
