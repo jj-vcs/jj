@@ -29,6 +29,9 @@ and this project adheres to
   for each use, so this is effectively the same as defining temporary template
   aliases for each expression (currently no performance benefit).
 
+* The builtin diff now attempts to split changes into smaller hunks by falling
+  back to the longest common substring algorithm.
+
 ### Fixed bugs
 
 * In colocated workspaces, `--ignore-working-copy` and `--at-op` now prevent
