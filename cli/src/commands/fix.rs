@@ -162,7 +162,7 @@ use crate::ui::Ui;
 /// configuration.
 #[derive(clap::Args, Clone, Debug)]
 #[command(verbatim_doc_comment)]
-#[command(group(clap::ArgGroup::new("format").args(&["summary", "stat"])))]
+#[command(group(clap::ArgGroup::new("format").args(&["summary", "stat", "patch"])))]
 pub(crate) struct FixArgs {
     /// Fix files in the specified revision(s) and their descendants. If no
     /// revisions are specified, this defaults to the `revsets.fix` setting, or
@@ -197,6 +197,10 @@ pub(crate) struct FixArgs {
     /// Display a histogram of changes for each modified commit
     #[arg(long)]
     stat: bool,
+
+    /// Display a patch of changes for each modified commit
+    #[arg(long, short)]
+    patch: bool,
 }
 
 #[instrument(skip_all)]
@@ -273,7 +277,16 @@ pub(crate) async fn cmd_fix(
         &mut parallel_fixer,
     )
     .await?;
-    print_fix_summary_and_status(ui, &tx, &matcher, &commits, &summary, &format_args).await?;
+    print_fix_summary_and_status(
+        ui,
+        &tx,
+        &matcher,
+        &commits,
+        &summary,
+        &format_args,
+        args.patch,
+    )
+    .await?;
     tx.finish(ui, format!("fixed {} commits", summary.num_fixed_commits))
         .await
 }
@@ -285,6 +298,7 @@ async fn print_fix_summary_and_status(
     commits: &[Commit],
     summary: &FixSummary,
     format_args: &DiffFormatArgs,
+    patch: bool,
 ) -> Result<(), CommandError> {
     let Some(mut formatter) = ui.status_formatter() else {
         return Ok(());
@@ -300,7 +314,7 @@ async fn print_fix_summary_and_status(
 
     let Some(diff_renderer) = tx
         .base_workspace_helper()
-        .diff_renderer_for_log(format_args, false)?
+        .diff_renderer_for_log(format_args, patch)?
     else {
         return Ok(());
     };
