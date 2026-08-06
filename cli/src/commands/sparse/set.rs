@@ -13,6 +13,8 @@
 // limitations under the License.
 
 use std::collections::HashSet;
+use std::io;
+use std::io::Read as _;
 
 use itertools::Itertools as _;
 use jj_lib::repo_path::RepoPathBuf;
@@ -21,6 +23,7 @@ use tracing::instrument;
 use super::update_sparse_patterns_with;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
+use crate::command_error::user_error_with_message;
 use crate::ui::Ui;
 
 /// Update the patterns that are present in the working copy
@@ -50,6 +53,10 @@ pub struct SparseSetArgs {
     /// Include no files in the working copy (combine with --add)
     #[arg(long)]
     clear: bool,
+
+    /// Read the replacement sparse patterns from stdin, one path per line
+    #[arg(long)]
+    stdin: bool,
 }
 
 #[instrument(skip_all)]
@@ -58,14 +65,31 @@ pub async fn cmd_sparse_set(
     command: &CommandHelper,
     args: &SparseSetArgs,
 ) -> Result<(), CommandError> {
+    let stdin_patterns = if args.stdin {
+        let mut input = String::new();
+        io::stdin().read_to_string(&mut input)?;
+        input
+            .lines()
+            .filter(|line| !line.is_empty())
+            .map(|line| {
+                RepoPathBuf::from_relative_path(line).map_err(|err| {
+                    user_error_with_message(format!("Failed to parse sparse pattern: {line}"), err)
+                })
+            })
+            .try_collect::<_, Vec<_>, _>()?
+    } else {
+        Vec::new()
+    };
+
     let mut workspace_command = command.workspace_helper(ui).await?;
     update_sparse_patterns_with(ui, &mut workspace_command, |_ui, old_patterns| {
         let mut new_patterns = HashSet::new();
-        if !args.clear {
+        if !args.clear && !args.stdin {
             new_patterns.extend(old_patterns.iter().cloned());
-            for path in &args.remove {
-                new_patterns.remove(path);
-            }
+        }
+        new_patterns.extend(stdin_patterns);
+        for path in &args.remove {
+            new_patterns.remove(path);
         }
         for path in &args.add {
             new_patterns.insert(path.to_owned());
