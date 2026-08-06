@@ -11,14 +11,21 @@ documentation.workspace = true
 categories.workspace = true
 keywords.workspace = true
 
+[[bench]]
+name = "diff_bench"
+harness = false
+
 [dependencies]
+bstr = { workspace = true }
 futures = { workspace = true }
+hashbrown = { workspace = true }
 indexmap = { workspace = true }
 itertools = { workspace = true }
 smallvec = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
+criterion = { workspace = true }
 maplit = { workspace = true }
 pollster = { workspace = true }
 
