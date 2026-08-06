@@ -21,3 +21,4 @@
 
 pub mod dag_walk;
 pub mod dag_walk_async;
+pub mod diff;

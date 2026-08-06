@@ -45,7 +45,7 @@ pub use jj_core::dag_walk_async;
 pub mod default_backend_factories;
 pub mod default_index;
 pub mod default_submodule_store;
-pub mod diff;
+pub use jj_core::diff;
 pub mod diff_presentation;
 pub mod dsl_util;
 pub(crate) mod eol;

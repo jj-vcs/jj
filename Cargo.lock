@@ -2640,7 +2640,10 @@ name = "jj-core"
 version = "0.44.0"
 dependencies = [
  "assert_matches",
+ "bstr",
+ "criterion",
  "futures 0.3.33",
+ "hashbrown 0.17.1",
  "indexmap",
  "itertools 0.15.0",
  "maplit",
@@ -2658,7 +2661,6 @@ dependencies = [
  "bstr",
  "chrono",
  "clru",
- "criterion",
  "digest 0.10.7",
  "dunce",
  "either",
@@ -2668,7 +2670,6 @@ dependencies = [
  "gix",
  "gix-ignore",
  "globset",
- "hashbrown 0.17.1",
  "indexmap",
  "indoc",
  "insta",
