@@ -19,7 +19,6 @@ use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Formatter;
-use std::fmt::Write as _;
 use std::hash::Hash;
 use std::iter;
 use std::iter::zip;
@@ -34,10 +33,9 @@ use smallvec::smallvec;
 use smallvec::smallvec_inline;
 
 use crate::backend::BackendResult;
-use crate::backend::CopyId;
-use crate::backend::FileId;
+use crate::backend::MergedTreeVal;
 use crate::backend::TreeValue;
-use crate::conflict_labels::ConflictLabels;
+use crate::backend::borrow_tree_value;
 use crate::content_hash::ContentHash;
 use crate::content_hash::DigestUpdate;
 use crate::repo_path::RepoPath;
@@ -722,87 +720,10 @@ impl<T: ContentHash> ContentHash for Merge<T> {
     }
 }
 
-/// Borrowed `MergedTreeValue`.
-pub type MergedTreeVal<'a> = Merge<Option<&'a TreeValue>>;
-
-/// The value at a given path in a commit.
-///
-/// It depends on the context whether it can be absent
-/// (`Merge::is_absent()`). For example, when getting the value at a
-/// specific path, it may be, but when iterating over entries in a
-/// tree, it shouldn't be.
-pub type MergedTreeValue = Merge<Option<TreeValue>>;
-
 impl<T> Merge<Option<T>>
 where
     T: Borrow<TreeValue>,
 {
-    /// Whether this merge should be recursed into when doing directory walks.
-    pub fn is_tree(&self) -> bool {
-        self.is_present()
-            && self.iter().all(|value| {
-                matches!(
-                    borrow_tree_value(value.as_ref()),
-                    Some(TreeValue::Tree(_)) | None
-                )
-            })
-    }
-
-    /// Whether this merge is present and not a tree
-    pub fn is_file_like(&self) -> bool {
-        self.is_present() && !self.is_tree()
-    }
-
-    /// If this merge contains only files or absent entries, returns a merge of
-    /// the `FileId`s. The executable bits and copy IDs will be ignored. Use
-    /// `Merge::with_new_file_ids()` to produce a new merge with the original
-    /// executable bits preserved.
-    pub fn to_file_merge(&self) -> Option<Merge<Option<FileId>>> {
-        let file_ids = self
-            .try_map(|term| match borrow_tree_value(term.as_ref()) {
-                None => Ok(None),
-                Some(TreeValue::File {
-                    id,
-                    executable: _,
-                    copy_id: _,
-                }) => Ok(Some(id.clone())),
-                _ => Err(()),
-            })
-            .ok()?;
-
-        Some(file_ids)
-    }
-
-    /// If this merge contains only files or absent entries, returns a merge of
-    /// the files' executable bits.
-    pub fn to_executable_merge(&self) -> Option<Merge<Option<bool>>> {
-        self.try_map(|term| match borrow_tree_value(term.as_ref()) {
-            None => Ok(None),
-            Some(TreeValue::File {
-                id: _,
-                executable,
-                copy_id: _,
-            }) => Ok(Some(*executable)),
-            _ => Err(()),
-        })
-        .ok()
-    }
-
-    /// If this merge contains only files or absent entries, returns a merge of
-    /// the files' copy IDs.
-    pub fn to_copy_id_merge(&self) -> Option<Merge<Option<CopyId>>> {
-        self.try_map(|term| match borrow_tree_value(term.as_ref()) {
-            None => Ok(None),
-            Some(TreeValue::File {
-                id: _,
-                executable: _,
-                copy_id,
-            }) => Ok(Some(copy_id.clone())),
-            _ => Err(()),
-        })
-        .ok()
-    }
-
     /// If every non-`None` term of a `MergedTreeValue`
     /// is a `TreeValue::Tree`, this converts it to
     /// a `Merge<Tree>`, with empty trees instead of
@@ -831,107 +752,6 @@ where
             ))
         } else {
             Ok(None)
-        }
-    }
-
-    /// Creates a new merge with the file ids from the given merge. In other
-    /// words, the executable bits and copy IDs from `self` will be preserved.
-    ///
-    /// The given `file_ids` should have the same shape as `self`. Only the
-    /// `FileId` values may differ.
-    pub fn with_new_file_ids(&self, file_ids: &Merge<Option<FileId>>) -> Merge<Option<TreeValue>> {
-        assert_eq!(self.num_sides(), file_ids.num_sides());
-        let values: SmallVec<_> = zip(self, file_ids.iter().cloned())
-            .map(
-                |(tree_value, file_id)| match (borrow_tree_value(tree_value.as_ref()), file_id) {
-                    (
-                        Some(TreeValue::File {
-                            id: _,
-                            executable,
-                            copy_id,
-                        }),
-                        Some(id),
-                    ) => Some(TreeValue::File {
-                        id,
-                        executable: *executable,
-                        copy_id: copy_id.clone(),
-                    }),
-                    (None, None) => None,
-                    // New files are populated to preserve the materialized conflict. The file won't
-                    // be checked out to the disk. So the metadata is not important, and we will
-                    // just use the default values.
-                    (None, Some(id)) => Some(TreeValue::File {
-                        id,
-                        executable: false,
-                        copy_id: CopyId::placeholder(),
-                    }),
-                    (old, new) => panic!("incompatible update: {old:?} to {new:?}"),
-                },
-            )
-            .collect();
-        Merge::from_vec(values)
-    }
-
-    /// Give a summary description of the conflict's "removes" and "adds"
-    pub fn describe(&self, labels: &ConflictLabels) -> String {
-        let mut buf = String::new();
-        writeln!(buf, "Conflict:").unwrap();
-        for (term, label) in self
-            .removes()
-            .enumerate()
-            .filter_map(|(i, term)| term.as_ref().map(|term| (term, labels.get_remove(i))))
-        {
-            write!(buf, "  Removing {}", describe_conflict_term(term.borrow())).unwrap();
-            if let Some(label) = label {
-                write!(buf, " ({label})").unwrap();
-            }
-            buf.push('\n');
-        }
-        for (term, label) in self
-            .adds()
-            .enumerate()
-            .filter_map(|(i, term)| term.as_ref().map(|term| (term, labels.get_add(i))))
-        {
-            write!(buf, "  Adding {}", describe_conflict_term(term.borrow())).unwrap();
-            if let Some(label) = label {
-                write!(buf, " ({label})").unwrap();
-            }
-            buf.push('\n');
-        }
-        buf
-    }
-}
-
-fn borrow_tree_value<T: Borrow<TreeValue> + ?Sized>(term: Option<&T>) -> Option<&TreeValue> {
-    term.map(|value| value.borrow())
-}
-
-fn describe_conflict_term(value: &TreeValue) -> String {
-    match value {
-        TreeValue::File {
-            id,
-            executable: false,
-            copy_id: _,
-        } => {
-            // TODO: include the copy here once we start using it
-            format!("file with id {id}")
-        }
-        TreeValue::File {
-            id,
-            executable: true,
-            copy_id: _,
-        } => {
-            // TODO: include the copy here once we start using it
-            format!("executable file with id {id}")
-        }
-        TreeValue::Symlink(id) => {
-            format!("symlink with id {id}")
-        }
-        TreeValue::Tree(id) => {
-            format!("tree with id {id}")
-        }
-        TreeValue::GitSubmodule(id) => {
-            format!("Git submodule with id {id}")
         }
     }
 }

@@ -20,10 +20,10 @@ use std::iter::zip;
 use futures::future::try_join_all;
 
 use crate::backend::BackendResult;
+use crate::backend::MergedTreeValue;
 use crate::backend::TreeId;
 use crate::conflict_labels::ConflictLabels;
 use crate::merge::Merge;
-use crate::merge::MergedTreeValue;
 use crate::merged_tree::MergedTree;
 use crate::repo_path::RepoPathBuf;
 use crate::tree_builder::TreeBuilder;

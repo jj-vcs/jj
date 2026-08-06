@@ -36,6 +36,8 @@ use pollster::FutureExt as _;
 
 use crate::backend::BackendResult;
 use crate::backend::CopyId;
+use crate::backend::MergedTreeVal;
+use crate::backend::MergedTreeValue;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::conflict_labels::ConflictLabels;
@@ -49,8 +51,6 @@ use crate::matchers::Matcher;
 use crate::merge::Diff;
 use crate::merge::Merge;
 use crate::merge::MergeBuilder;
-use crate::merge::MergedTreeVal;
-use crate::merge::MergedTreeValue;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponent;

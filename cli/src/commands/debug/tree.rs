@@ -16,9 +16,9 @@ use std::fmt::Debug;
 use std::io::Write as _;
 
 use jj_lib::backend::BackendResult;
+use jj_lib::backend::MergedTreeValue;
 use jj_lib::backend::TreeId;
 use jj_lib::merge::Merge;
-use jj_lib::merge::MergedTreeValue;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPathBuf;
 
