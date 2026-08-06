@@ -16,6 +16,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* The builtin diff now attempts to split changes into smaller hunks by falling
+  back to the longest common substring algorithm.
+
 ### Fixed bugs
 
 ## [0.45.1] - 2026-09-03
