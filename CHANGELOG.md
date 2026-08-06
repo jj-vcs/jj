@@ -55,6 +55,9 @@ and this project adheres to
 * `jj config gc` now also cleans up workspace configs whose paths no longer
   exist.
 
+* The builtin diff now attempts to split changes into smaller hunks by falling
+  back to the longest common substring algorithm.
+
 ### Fixed bugs
 
 * Date patterns such as `after:"2024-03-10 03:30"` are now resolved with the
