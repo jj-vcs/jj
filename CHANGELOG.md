@@ -19,8 +19,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj bisect` will now mention when it cannot unambiguously find the first bad
   revision due to skips in evaluation.
 
-* `jj fix` now supports `--summary` and `--stat` flags to display modified
-  files or a histogram per fixed commit.
+* `jj fix` now supports `--summary`, `--stat` and `-p`/`--patch` flags to
+  display modified files, a histogram or a patch of changes per fixed commit.
 
 ### Fixed bugs
 

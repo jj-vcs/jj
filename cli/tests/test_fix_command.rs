@@ -2356,3 +2356,94 @@ fn test_stat_no_changes() {
     [EOF]
     "###);
 }
+
+#[test]
+fn test_patch() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let formatter_path = assert_cmd::cargo::cargo_bin!("fake-formatter");
+    assert!(formatter_path.is_file());
+    let escaped_formatter_path = formatter_path.to_str().unwrap().replace('\\', r"\\");
+    test_env.add_config(format!(
+        r###"
+        [fix.tools.tool-1]
+        command = ["{formatter}", "--uppercase"]
+        patterns = ["file1"]
+
+        [fix.tools.tool-2]
+        command = ["{formatter}", "--append", "fixed"]
+        patterns = ["file2"]
+        "###,
+        formatter = escaped_formatter_path.as_str()
+    ));
+
+    work_dir.write_file("file1", "foo\nbar\n");
+    work_dir.write_file("file2", "baz\n");
+    work_dir.run_jj(["describe", "-m", "work item 1"]).success();
+    let output = work_dir.run_jj(["fix", "-p"]);
+    insta::assert_snapshot!(output, @r###"
+    ------- stderr -------
+    Fixed 1 commits of 1 checked.
+    qpvuntsm 17550c40 work item 1
+    Modified regular file file1:
+       1     : foo
+       2     : bar
+            1: FOO
+            2: BAR
+    Modified regular file file2:
+       1    1: baz
+            2: fixed
+    Working copy  (@) now at: qpvuntsm 17550c40 work item 1
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Added 0 files, modified 2 files, removed 0 files
+    [EOF]
+    "###);
+}
+
+#[test]
+fn test_patch_multiple_commits() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let formatter_path = assert_cmd::cargo::cargo_bin!("fake-formatter");
+    assert!(formatter_path.is_file());
+    let escaped_formatter_path = formatter_path.to_str().unwrap().replace('\\', r"\\");
+    test_env.add_config(format!(
+        r###"
+        [fix.tools.tool-1]
+        command = ["{formatter}", "--uppercase"]
+        patterns = ["file1"]
+
+        [fix.tools.tool-2]
+        command = ["{formatter}", "--append", "fixed"]
+        patterns = ["file2"]
+        "###,
+        formatter = escaped_formatter_path.as_str()
+    ));
+
+    work_dir.write_file("file1", "foo\nbar\n");
+    work_dir.run_jj(["describe", "-m", "work item 1"]).success();
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file2", "baz\n");
+    work_dir.run_jj(["describe", "-m", "work item 2"]).success();
+    let output = work_dir.run_jj(["fix", "-p"]);
+    insta::assert_snapshot!(output, @r###"
+    ------- stderr -------
+    Fixed 2 commits of 2 checked.
+    kkmpptxz 8331a050 work item 2
+    Modified regular file file2:
+       1    1: baz
+            2: fixed
+    qpvuntsm 3f596c8f work item 1
+    Modified regular file file1:
+       1     : foo
+       2     : bar
+            1: FOO
+            2: BAR
+    Working copy  (@) now at: kkmpptxz 8331a050 work item 2
+    Parent commit (@-)      : qpvuntsm 3f596c8f work item 1
+    Added 0 files, modified 2 files, removed 0 files
+    [EOF]
+    "###);
+}
