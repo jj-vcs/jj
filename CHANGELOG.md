@@ -16,6 +16,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj bisect` will now mention when it cannot unambiguously find the first bad
+  revision due to skips in evaluation.
+
 ### Fixed bugs
 
 ## [0.44.0] - 2026-08-05
@@ -110,9 +113,6 @@ None
   This is useful when you only want to absorb *part* of a commit without first
   splitting it. Any hunks that are not selected or cannot be absorbed remain in
   the source commit.
-
-* `jj bisect` will now mention when it cannot unambiguously find the first bad revision
-  due to skips in evaluation.
 
 ### Fixed bugs
 
