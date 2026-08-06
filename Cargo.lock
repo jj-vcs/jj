@@ -2638,6 +2638,15 @@ dependencies = [
 [[package]]
 name = "jj-core"
 version = "0.44.0"
+dependencies = [
+ "assert_matches",
+ "futures 0.3.33",
+ "indexmap",
+ "itertools 0.15.0",
+ "maplit",
+ "pollster",
+ "smallvec",
+]
 
 [[package]]
 name = "jj-lib"
@@ -2665,6 +2674,7 @@ dependencies = [
  "insta",
  "interim",
  "itertools 0.15.0",
+ "jj-core",
  "jj-lib-proc-macros",
  "maplit",
  "memchr",

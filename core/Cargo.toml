@@ -12,6 +12,15 @@ categories.workspace = true
 keywords.workspace = true
 
 [dependencies]
+futures = { workspace = true }
+indexmap = { workspace = true }
+itertools = { workspace = true }
+smallvec = { workspace = true }
+
+[dev-dependencies]
+assert_matches = { workspace = true }
+maplit = { workspace = true }
+pollster = { workspace = true }
 
 [lints]
 workspace = true
