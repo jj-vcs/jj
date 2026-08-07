@@ -447,20 +447,119 @@ fn collect_unchanged_words<C: CompareBytes, S: BuildHasher>(
         .take_while(|&(l, r)| comp.eq_hashed(l, r))
         .count();
 
-    found_positions.extend(itertools::chain(
-        (0..common_leading_len).map(|i| {
+    found_positions.extend((0..common_leading_len).map(|i| {
+        (
+            left.map_to_global(LocalWordPosition(i)),
+            right.map_to_global(LocalWordPosition(i)),
+        )
+    }));
+    let left_middle_len = left.ranges.len() - common_leading_len - common_trailing_len;
+    let right_middle_len = right.ranges.len() - common_leading_len - common_trailing_len;
+    // Match one middle occurring verbatim inside the other. Needs a strictly
+    // shorter side of at least two tokens.
+    if left_middle_len != right_middle_len && left_middle_len.min(right_middle_len) >= 2 {
+        collect_unchanged_embedded_words(
+            found_positions,
+            &left.narrowed(
+                LocalWordPosition(common_leading_len)
+                    ..LocalWordPosition(left.ranges.len() - common_trailing_len),
+            ),
+            &right.narrowed(
+                LocalWordPosition(common_leading_len)
+                    ..LocalWordPosition(right.ranges.len() - common_trailing_len),
+            ),
+            comp,
+        );
+    }
+    found_positions.extend((1..=common_trailing_len).rev().map(|i| {
+        (
+            left.map_to_global(LocalWordPosition(left.ranges.len() - i)),
+            right.map_to_global(LocalWordPosition(right.ranges.len() - i)),
+        )
+    }));
+}
+
+/// Matches the shorter side against the run where it appears verbatim inside
+/// the longer side, if one exists. The whole region then diffs as an insertion
+/// (or deletion) around that run instead of as a complete replacement.
+///
+/// This only handles regions where no other same-word-occurrence anchor exists
+/// on both sides (so [`collect_unchanged_words_lcs()`] found nothing).
+///
+/// Runs of fewer than two tokens are not matched (caller-enforced) since a lone
+/// shared token is weak evidence, and picking one of its occurrences would be
+/// arbitrary (see `test_unchanged_ranges_non_unique_removed`).
+fn collect_unchanged_embedded_words<C: CompareBytes, S: BuildHasher>(
+    found_positions: &mut Vec<(WordPosition, WordPosition)>,
+    left: &LocalDiffSource,
+    right: &LocalDiffSource,
+    comp: &WordComparator<C, S>,
+) {
+    let swapped = left.ranges.len() > right.ranges.len();
+    let (pattern, text) = if swapped {
+        (right, left)
+    } else {
+        (left, right)
+    };
+    let Some(offset) = find_embedded_run(pattern, text, comp) else {
+        return;
+    };
+    found_positions.extend((0..pattern.ranges.len()).map(|i| {
+        let pattern_pos = LocalWordPosition(i);
+        let text_pos = LocalWordPosition(offset + i);
+        if swapped {
             (
-                left.map_to_global(LocalWordPosition(i)),
-                right.map_to_global(LocalWordPosition(i)),
+                left.map_to_global(text_pos),
+                right.map_to_global(pattern_pos),
             )
-        }),
-        (1..=common_trailing_len).rev().map(|i| {
+        } else {
             (
-                left.map_to_global(LocalWordPosition(left.ranges.len() - i)),
-                right.map_to_global(LocalWordPosition(right.ranges.len() - i)),
+                left.map_to_global(pattern_pos),
+                right.map_to_global(text_pos),
             )
-        }),
-    ));
+        }
+    }));
+}
+
+/// Finds the leftmost occurrence of `pattern`'s tokens as a contiguous run
+/// within `text`, in O(pattern + text) time (Knuth-Morris-Pratt).
+fn find_embedded_run<C: CompareBytes, S: BuildHasher>(
+    pattern: &LocalDiffSource,
+    text: &LocalDiffSource,
+    comp: &WordComparator<C, S>,
+) -> Option<usize> {
+    let pattern_len = pattern.ranges.len();
+    let pattern_word = |i: usize| HashedWord {
+        hash: pattern.hashes[i],
+        text: &pattern.text[pattern.ranges[i].clone()],
+    };
+    // suffix_prefix_len[i]: length of the longest proper prefix of
+    // pattern[..=i] that is also a suffix of it
+    let mut suffix_prefix_len: SmallVec<[usize; 16]> = smallvec![0; pattern_len];
+    let mut len = 0;
+    for i in 1..pattern_len {
+        let word = pattern_word(i);
+        while len > 0 && !comp.eq_hashed(word, pattern_word(len)) {
+            len = suffix_prefix_len[len - 1];
+        }
+        if comp.eq_hashed(word, pattern_word(len)) {
+            len += 1;
+        }
+        suffix_prefix_len[i] = len;
+    }
+    let mut matched = 0;
+    for (pos, word) in text.hashed_words().enumerate() {
+        while matched > 0 && !comp.eq_hashed(word, pattern_word(matched)) {
+            matched = suffix_prefix_len[matched - 1];
+        }
+        if comp.eq_hashed(word, pattern_word(matched)) {
+            matched += 1;
+        }
+        if matched == pattern_len {
+            return Some(pos + 1 - matched);
+        }
+    }
+    None
 }
 
 fn collect_unchanged_words_lcs<C: CompareBytes, S: BuildHasher>(
@@ -1287,6 +1386,52 @@ mod tests {
     }
 
     #[test]
+    fn test_unchanged_ranges_embedded_run() {
+        // No word count is balanced and neither end matches, but the left side
+        // occurs verbatim within the right side and is matched as a run.
+        assert_eq!(
+            unchanged_ranges(
+                (b"x y", &[0..1, 2..3]),
+                (b"y x y x y x", &[0..1, 2..3, 4..5, 6..7, 8..9, 10..11]),
+            ),
+            vec![(0..1, 2..3), (2..3, 4..5)]
+        );
+        // The same in the other direction.
+        assert_eq!(
+            unchanged_ranges(
+                (b"y x y x y x", &[0..1, 2..3, 4..5, 6..7, 8..9, 10..11]),
+                (b"x y", &[0..1, 2..3]),
+            ),
+            vec![(2..3, 0..1), (4..5, 2..3)]
+        );
+        // Of several occurrences, the leftmost is matched.
+        assert_eq!(
+            unchanged_ranges(
+                (b"x x y", &[0..1, 2..3, 4..5]),
+                (b"y x x x y x", &[0..1, 2..3, 4..5, 6..7, 8..9, 10..11]),
+            ),
+            vec![(0..1, 4..5), (2..3, 6..7), (4..5, 8..9)]
+        );
+        // A single shared token is not a run. Either occurrence would be an
+        // arbitrary guess.
+        assert_eq!(
+            unchanged_ranges(
+                (b"x", std::slice::from_ref(&(0..1))),
+                (b"y x x y", &[0..1, 2..3, 4..5, 6..7]),
+            ),
+            vec![]
+        );
+        // A non-contiguous occurrence is not a run.
+        assert_eq!(
+            unchanged_ranges(
+                (b"x y", &[0..1, 2..3]),
+                (b"y x q y x", &[0..1, 2..3, 4..5, 6..7, 8..9]),
+            ),
+            vec![]
+        );
+    }
+
+    #[test]
     fn test_unchanged_ranges_recursion_needed() {
         // "|" matches first, then "b" matches within the left/right range.
         assert_eq!(
@@ -1332,6 +1477,44 @@ mod tests {
                 (b"a | a b c", &[0..1, 2..3, 4..5, 6..7, 8..9]),
             ),
             vec![(0..1, 2..3), (4..5, 4..5), (6..7, 6..7)]
+        );
+    }
+
+    #[test]
+    fn test_diff_materialized_conflict_line_prefix() {
+        // The "diff" conflict marker style repeats one side of the conflict with a
+        // "+" prefix on every line. Neither the repeated block nor the rest of the
+        // conflict lines up line by line, so all of it reaches the word and then
+        // the non-word pass. The last repeated line used to come out as a
+        // whole-line replacement, because "  }," has no word bytes and each of
+        // its non-word bytes occurs a different number of times on each side.
+        // rustfmt would wrap the long literals with backslash continuations,
+        // which swallow the significant leading spaces, so they stay on one line.
+        #[rustfmt::skip]
+        assert_eq!(
+            diff([
+                "  {\n    one,\n  },\n  {\n    two,\n  },\n",
+                "+  {\n+    one,\n+  },\n+  {\n+    two,\n+  },\n+++++++ side #2\n  {\n    three,\n  },\n  {\n    four,\n  },\n  {\n    five,\n  },\n>>>>>>> conflict 1 of 1 ends\n",
+            ]),
+            vec![
+                DiffHunk::different(["", "+"]),
+                DiffHunk::matching(["  {\n"].repeat(2)),
+                DiffHunk::different(["", "+"]),
+                DiffHunk::matching(["    one,\n"].repeat(2)),
+                DiffHunk::different(["", "+"]),
+                DiffHunk::matching(["  },\n"].repeat(2)),
+                DiffHunk::different(["", "+"]),
+                DiffHunk::matching(["  {\n"].repeat(2)),
+                DiffHunk::different(["", "+"]),
+                DiffHunk::matching(["    two,\n"].repeat(2)),
+                DiffHunk::different(["", "+"]),
+                DiffHunk::matching(["  },"].repeat(2)),
+                DiffHunk::different([
+                    "",
+                    "\n+++++++ side #2\n  {\n    three,\n  },\n  {\n    four,\n  },\n  {\n    five,\n  },\n>>>>>>> conflict 1 of 1 ends",
+                ]),
+                DiffHunk::matching(["\n"].repeat(2)),
+            ]
         );
     }
 

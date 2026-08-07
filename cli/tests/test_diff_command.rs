@@ -1624,8 +1624,8 @@ fn test_diff_color_words_omit_blank_right_line() {
         .normalize_stdout_with(strip_ansi_escape_codes);
     insta::assert_snapshot!(output, @"
     Modified regular file file1:
-       1    1: a x
-            2:  y
+       1    1: a
+       1    2:  xy
        2    3: z b
     Modified regular file file2:
        1    1: a x
