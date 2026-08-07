@@ -49,8 +49,8 @@ use crate::matchers::UnionMatcher;
 use crate::repo_path::RelativePathParseError;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
-use crate::repo_path::RepoPathUiConverter;
-use crate::repo_path::UiPathParseError;
+use crate::ui_path::RepoPathUiConverter;
+use crate::ui_path::UiPathParseError;
 
 /// Error occurred during file pattern parsing.
 #[derive(Debug, Error)]

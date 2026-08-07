@@ -15,7 +15,7 @@
 use std::io;
 use std::io::Write as _;
 
-use jj_lib::repo_path::RepoPathUiConverter;
+use jj_lib::ui_path::RepoPathUiConverter;
 use jj_lib::working_copy::SnapshotStats;
 use jj_lib::working_copy::UntrackedReason;
 use tracing::instrument;

@@ -23,8 +23,8 @@ use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree_builder::MergedTreeBuilder;
-use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::store::Store;
+use jj_lib::ui_path::RepoPathUiConverter;
 use thiserror::Error;
 
 use super::ConflictResolveError;
