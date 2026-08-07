@@ -81,6 +81,11 @@ impl Default for TestEnvironment {
 
 [git]
 colocate = false
+
+[ui]
+# Pin to color-words in tests so snapshots are stable regardless of tty.
+# The default :auto would select :git in non-tty test runners.
+diff-formatter = ":color-words"
         "#,
         );
 
