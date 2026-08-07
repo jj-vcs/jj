@@ -76,6 +76,12 @@ message GitRef {
   RefTarget target = 3;
 }
 
+message FetchedGitRef {
+  string remote_name = 1;
+  string ref_name = 2;
+  RefTarget target = 3;
+}
+
 message RemoteRef {
   string name = 1;
   repeated RefTargetTerm target_terms = 2;
@@ -106,6 +112,7 @@ message View {
   RefTarget git_head = 9;
   // Whether "@git" tags have been migrated to remote_views.
   bool has_git_refs_migrated_to_remote_tags = 12;
+  repeated FetchedGitRef fetched_git_refs = 13;
   reserved 10;
 }
 

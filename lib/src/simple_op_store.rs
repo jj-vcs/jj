@@ -577,6 +577,20 @@ fn view_to_proto(view: &View) -> crate::protos::simple_op_store::View {
 
     let git_head = ref_target_to_proto(&view.git_head);
 
+    let fetched_git_refs = view
+        .fetched_git_refs
+        .iter()
+        .flat_map(|(remote_name, refs)| {
+            refs.iter().map(
+                |(ref_name, target)| crate::protos::simple_op_store::FetchedGitRef {
+                    remote_name: remote_name.into(),
+                    ref_name: ref_name.into(),
+                    target: ref_target_to_proto(target),
+                },
+            )
+        })
+        .collect();
+
     #[expect(deprecated)]
     crate::protos::simple_op_store::View {
         head_ids,
@@ -590,6 +604,7 @@ fn view_to_proto(view: &View) -> crate::protos::simple_op_store::View {
         git_head,
         // New/loaded view should have been migrated to the latest format
         has_git_refs_migrated_to_remote_tags: true,
+        fetched_git_refs,
     }
 }
 
@@ -637,6 +652,17 @@ fn view_from_proto(proto: crate::protos::simple_op_store::View) -> Result<View, 
         })
         .collect();
 
+    let mut fetched_git_refs: BTreeMap<RemoteNameBuf, BTreeMap<GitRefNameBuf, RefTarget>> =
+        BTreeMap::new();
+    for fetched_ref in proto.fetched_git_refs {
+        let remote_name: RemoteNameBuf = fetched_ref.remote_name.into();
+        let ref_name: GitRefNameBuf = fetched_ref.ref_name.into();
+        fetched_git_refs
+            .entry(remote_name)
+            .or_default()
+            .insert(ref_name, ref_target_from_proto(fetched_ref.target));
+    }
+
     // Use legacy remote_views only when new data isn't available (jj < 0.34)
     if !proto.remote_views.is_empty() {
         remote_views = remote_views_from_proto(proto.remote_views)?;
@@ -682,6 +708,7 @@ fn view_from_proto(proto: crate::protos::simple_op_store::View) -> Result<View, 
         local_tags,
         remote_views,
         git_refs,
+        fetched_git_refs,
         git_head,
         wc_commit_ids,
     })
@@ -976,6 +1003,7 @@ mod tests {
             [CommitId::from_hex("fff111")],
             [CommitId::from_hex("fff222"), CommitId::from_hex("fff333")],
         );
+        let fetched_git_ref_target = RefTarget::normal(CommitId::from_hex("eee111"));
         let default_wc_commit_id = CommitId::from_hex("abc111");
         let test_wc_commit_id = CommitId::from_hex("abc222");
         View {
@@ -1001,6 +1029,11 @@ mod tests {
             git_refs: btreemap! {
                 "refs/heads/main".into() => git_refs_main_target,
                 "refs/heads/feature".into() => git_refs_feature_target,
+            },
+            fetched_git_refs: btreemap! {
+                "origin".into() => btreemap! {
+                    "refs/pull/123/head".into() => fetched_git_ref_target,
+                },
             },
             git_head: RefTarget::normal(CommitId::from_hex("fff111")),
             wc_commit_ids: btreemap! {
@@ -1058,7 +1091,7 @@ mod tests {
         // Test exact output so we detect regressions in compatibility
         assert_snapshot!(
             ViewId::new(blake2b_hash(&create_view()).to_vec()).hex(),
-            @"2c0b174d117ca85e7faa96f6d997362403105e8eb31e7f82ac9abd3dc48ae62683e9a76ef5d117ebc8a743d17e1945236df9ccefd7574f7e4b5336a63796b967"
+            @"5845efef83e5b17d2933f50f5dc848e1795aa1d929e4eaa5c3ed8a0c9c21fb1ccae735913d80526b8e8dd9995df3e5fdb0e8f0e7fef58da1a80f2d9bbd15fa24"
         );
     }
 
