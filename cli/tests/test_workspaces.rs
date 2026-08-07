@@ -1466,6 +1466,10 @@ fn test_workspaces_forget() {
     ------- stderr -------
     Warning: The current workspace 'default' no longer exists after this operation. The working copy was left untouched.
     Hint: Restore to an operation that contains the workspace (e.g. `jj undo` or `jj redo`).
+    Hint: The working copy for 'default' is left on disk but is no longer a registered
+    workspace. Creating another workspace with the same name will make this
+    directory shadow it; give future workspaces a distinct name with
+    `jj workspace add --name`.
     [EOF]
     ");
 
@@ -1535,6 +1539,38 @@ fn test_workspaces_forget() {
     insta::assert_snapshot!(output, @"");
 }
 
+/// Forgetting the current workspace warns that its leftover checkout could be
+/// shadowed by a same-named workspace; forgetting another one does not.
+#[test]
+fn test_workspaces_forget_warns_about_shadow() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+
+    // Forgetting a workspace other than the current one leaves the current working
+    // copy untouched, so there is no shadowing warning.
+    let output = main_dir.run_jj(["workspace", "forget", "secondary"]);
+    insta::assert_snapshot!(output, @"");
+
+    // Forgetting the current workspace leaves its working copy on disk as an
+    // unregistered checkout, so warn that a same-named workspace would shadow it.
+    let output = main_dir.run_jj(["workspace", "forget"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: The current workspace 'default' no longer exists after this operation. The working copy was left untouched.
+    Hint: Restore to an operation that contains the workspace (e.g. `jj undo` or `jj redo`).
+    Hint: The working copy for 'default' is left on disk but is no longer a registered
+    workspace. Creating another workspace with the same name will make this
+    directory shadow it; give future workspaces a distinct name with
+    `jj workspace add --name`.
+    [EOF]
+    ");
+}
+
 /// Test forgetting workspace created before workspace store
 #[test]
 fn test_workspaces_forget_from_before_workspace_store() {
@@ -1549,6 +1585,10 @@ fn test_workspaces_forget_from_before_workspace_store() {
     ------- stderr -------
     Warning: The current workspace 'default' no longer exists after this operation. The working copy was left untouched.
     Hint: Restore to an operation that contains the workspace (e.g. `jj undo` or `jj redo`).
+    Hint: The working copy for 'default' is left on disk but is no longer a registered
+    workspace. Creating another workspace with the same name will make this
+    directory shadow it; give future workspaces a distinct name with
+    `jj workspace add --name`.
     [EOF]
     ");
 

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCandidates;
+use indoc::writedoc;
 use itertools::Itertools as _;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::workspace_store::SimpleWorkspaceStore;
@@ -44,8 +45,10 @@ pub async fn cmd_workspace_forget(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui).await?;
 
+    let current_workspace = workspace_command.workspace_name().to_owned();
+
     let wss = if args.workspaces.is_empty() {
-        vec![workspace_command.workspace_name().to_owned()]
+        vec![current_workspace.clone()]
     } else {
         args.workspaces.clone()
     };
@@ -93,6 +96,27 @@ pub async fn cmd_workspace_forget(
         )
     };
 
+    let forgot_current = forget_ws.iter().any(|ws| **ws == current_workspace);
+
     tx.finish(ui, description).await?;
+
+    // Forgetting the workspace you're standing in leaves its working copy on
+    // disk as an unregistered checkout. If a new workspace later reuses this
+    // name (e.g. `jj workspace add <path>` derives the name from the path's
+    // basename), this directory will silently shadow it and jj commands run
+    // here can create divergent commits.
+    if forgot_current {
+        let name = current_workspace.as_symbol();
+        writedoc!(
+            ui.hint_default(),
+            "
+            The working copy for '{name}' is left on disk but is no longer a registered
+            workspace. Creating another workspace with the same name will make this
+            directory shadow it; give future workspaces a distinct name with
+            `jj workspace add --name`.
+            ",
+        )?;
+    }
+
     Ok(())
 }
