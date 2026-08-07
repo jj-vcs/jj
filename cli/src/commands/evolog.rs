@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::slice;
+
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use futures::Stream;
@@ -197,7 +199,7 @@ pub(crate) async fn cmd_evolog(
                         ui,
                         formatter.as_mut(),
                         &predecessors,
-                        &entry.commit,
+                        slice::from_ref(&entry.commit),
                         &EverythingMatcher,
                         within_graph.width(),
                     )
@@ -234,7 +236,7 @@ pub(crate) async fn cmd_evolog(
                         ui,
                         formatter,
                         &predecessors,
-                        &entry.commit,
+                        slice::from_ref(&entry.commit),
                         &EverythingMatcher,
                         width,
                     )
