@@ -103,7 +103,7 @@ fn test_initial(backend: TestRepoBackend) -> TestResult {
             tz_offset: -60,
         },
     };
-    let change_id = ChangeId::new(vec![100u8; 16]);
+    let change_id = ChangeId::from_vec(vec![100u8; 16]);
     let builder = tx
         .repo_mut()
         .new_commit(vec![store.root_commit_id().clone()], tree.clone())

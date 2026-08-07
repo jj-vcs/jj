@@ -1593,7 +1593,7 @@ mod tests {
 
     /// Generator of unique 16-byte ChangeId excluding root id
     fn change_id_generator() -> impl FnMut() -> ChangeId {
-        let mut iter = (1_u128..).map(|n| ChangeId::new(n.to_le_bytes().into()));
+        let mut iter = (1_u128..).map(|n| ChangeId::from_vec(n.to_le_bytes().into()));
         move || iter.next().unwrap()
     }
 

@@ -313,9 +313,9 @@ mod tests {
         Arc::new(backend::Commit {
             parents: vec![],
             predecessors: vec![],
-            root_tree: Merge::resolved(TreeId::new(vec![])),
+            root_tree: Merge::resolved(TreeId::from_vec(vec![])),
             conflict_labels: Merge::resolved(String::new()),
-            change_id: ChangeId::new(vec![]),
+            change_id: ChangeId::from_vec(vec![]),
             description: String::new(),
             author,
             committer,
@@ -335,7 +335,7 @@ mod tests {
     }
 
     fn commit_id_generator() -> impl FnMut() -> CommitId {
-        let mut iter = (1_u128..).map(|n| CommitId::new(n.to_le_bytes().into()));
+        let mut iter = (1_u128..).map(|n| CommitId::from_vec(n.to_le_bytes().into()));
         move || iter.next().unwrap()
     }
 

@@ -192,14 +192,14 @@ impl DefaultIndexStore {
             .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))
             .context(&op_link_file)
             .map_err(DefaultIndexStoreError::LoadAssociation)?;
-        let commit_segment_id = CommitIndexSegmentId::new(proto.commit_segment_id);
+        let commit_segment_id = CommitIndexSegmentId::from_vec(proto.commit_segment_id);
         let changed_path_start_commit_pos = proto
             .changed_path_start_commit_pos
             .map(GlobalCommitPosition);
         let changed_path_segment_ids = proto
             .changed_path_segment_ids
             .into_iter()
-            .map(ChangedPathIndexSegmentId::new)
+            .map(ChangedPathIndexSegmentId::from_vec)
             .collect_vec();
 
         let commits = ReadonlyCommitIndexSegment::load(

@@ -104,6 +104,12 @@ impl<T: ContentHash> ContentHash for Vec<T> {
     }
 }
 
+impl<T: ContentHash + ?Sized> ContentHash for Box<T> {
+    fn hash(&self, state: &mut impl DigestUpdate) {
+        (**self).hash(state);
+    }
+}
+
 impl ContentHash for str {
     fn hash(&self, state: &mut impl DigestUpdate) {
         self.as_bytes().hash(state);

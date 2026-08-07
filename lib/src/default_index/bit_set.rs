@@ -211,13 +211,13 @@ mod tests {
 
     /// Generator of unique 16-byte CommitId excluding root id
     fn commit_id_generator() -> impl FnMut() -> CommitId {
-        let mut iter = (1_u128..).map(|n| CommitId::new(n.to_le_bytes().into()));
+        let mut iter = (1_u128..).map(|n| CommitId::from_vec(n.to_le_bytes().into()));
         move || iter.next().unwrap()
     }
 
     /// Generator of unique 16-byte ChangeId excluding root id
     fn change_id_generator() -> impl FnMut() -> ChangeId {
-        let mut iter = (1_u128..).map(|n| ChangeId::new(n.to_le_bytes().into()));
+        let mut iter = (1_u128..).map(|n| ChangeId::from_vec(n.to_le_bytes().into()));
         move || iter.next().unwrap()
     }
 

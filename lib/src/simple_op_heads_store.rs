@@ -148,7 +148,7 @@ impl OpHeadsStore for SimpleOpHeadsStore {
                 )
             })?;
             if let Some(op_head) = hex_util::decode_hex(op_head_file_name) {
-                op_heads.push(OperationId::new(op_head));
+                op_heads.push(OperationId::from_vec(op_head));
             }
         }
         op_heads.sort();

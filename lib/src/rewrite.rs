@@ -125,7 +125,7 @@ pub async fn find_recursive_merge_commits(
         }
 
         fn merge_next(&mut self, ancestor: Merge<CommitId>) {
-            let dummy = Merge::resolved(CommitId::new(vec![]));
+            let dummy = Merge::resolved(CommitId::from_vec(vec![]));
             let result = mem::replace(&mut self.result, dummy);
             let other = Merge::resolved(self.commit_ids[self.pos].clone());
             self.result = Merge::from_vec(vec![result, ancestor, other]).flatten();

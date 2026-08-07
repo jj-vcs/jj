@@ -301,7 +301,7 @@ impl JJRng {
     pub fn new_change_id(&self, length: usize) -> ChangeId {
         let mut rng = self.0.lock().unwrap();
         let random_bytes = (0..length).map(|_| rng.random::<u8>()).collect();
-        ChangeId::new(random_bytes)
+        ChangeId::from_vec(random_bytes)
     }
 
     /// Creates a new RNGs. Could be made public, but we'd like to encourage all
