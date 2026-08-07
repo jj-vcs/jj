@@ -3441,6 +3441,98 @@ fn test_export_partial_failure() -> TestResult {
 }
 
 #[test]
+fn test_export_deletions_with_locked_ref() -> TestResult {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let git_repo = get_git_repo(&test_repo.repo);
+    {
+        let config_path = git_repo.path().join("config");
+        let mut config = fs::read_to_string(&config_path)?;
+        config.push_str(
+            "
+        [core]
+            filesRefLockTimeout = 0
+        ",
+        );
+        fs::write(config_path, config)?;
+    }
+
+    // Write a commit and a few bookmarks pointing at it.
+    let repo = test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let commit = write_random_commit(mut_repo);
+    let target = RefTarget::normal(commit.id().clone());
+    for name in ["a", "b", "c"] {
+        mut_repo.set_local_bookmark_target(name.as_ref(), target.clone());
+    }
+    let stats = git::export_refs(mut_repo)?;
+    assert!(stats.failed_bookmarks.is_empty());
+    assert!(stats.failed_tags.is_empty());
+
+    // Lock the bookmark `b`.
+    let bookmark_b_lock_path = git_repo.path().join("refs/heads/b.lock");
+    fs::write(&bookmark_b_lock_path, "")?;
+
+    // Delete all the bookmarks; batch deletion will fail due to `b` being locked.
+    for name in ["a", "b", "c"] {
+        mut_repo.set_local_bookmark_target(name.as_ref(), RefTarget::absent());
+    }
+    let stats = git::export_refs(mut_repo)?;
+    assert_eq!(stats.failed_bookmarks.len(), 1);
+    assert_eq!(
+        stats.failed_bookmarks[0].0.as_ref(),
+        remote_symbol("b", "git")
+    );
+    assert_matches!(
+        stats.failed_bookmarks[0].1,
+        FailedRefExportReason::FailedToDelete(_)
+    );
+    assert!(stats.failed_tags.is_empty());
+
+    // But other bookmarks are successfully deleted.
+    for name in ["a", "c"] {
+        let git_ref_name = format!("refs/heads/{name}");
+        assert!(git_repo.try_find_reference(&git_ref_name)?.is_none());
+        assert!(
+            mut_repo
+                .get_git_ref(git_ref_name.as_str().as_ref())
+                .is_absent()
+        );
+        assert_eq!(
+            mut_repo.get_remote_bookmark(remote_symbol(name, "git")),
+            &RemoteRef::absent()
+        );
+    }
+    assert_eq!(
+        git_repo.find_reference("refs/heads/b")?.target().id(),
+        git_id(&commit)
+    );
+    assert_eq!(mut_repo.get_git_ref("refs/heads/b".as_ref()), &target);
+    assert_eq!(
+        mut_repo.get_remote_bookmark(remote_symbol("b", "git")),
+        &RemoteRef {
+            target,
+            state: RemoteRefState::Tracked,
+        }
+    );
+
+    // Unlocking the bookmark lets us delete it on the next attempt.
+    fs::remove_file(bookmark_b_lock_path)?;
+    let stats = git::export_refs(mut_repo)?;
+    assert!(stats.failed_bookmarks.is_empty());
+    assert!(stats.failed_tags.is_empty());
+    assert!(git_repo.try_find_reference("refs/heads/b")?.is_none());
+    assert!(mut_repo.get_git_ref("refs/heads/b".as_ref()).is_absent());
+    assert_eq!(
+        mut_repo.get_remote_bookmark(remote_symbol("b", "git")),
+        &RemoteRef::absent()
+    );
+    Ok(())
+}
+
+#[test]
 fn test_export_reexport_transitions() -> TestResult {
     // Test exporting after making changes on the jj side, or the git side, or both
     let test_data = GitRepoData::create();
