@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use jj_lib::repo_path::RepoPathBuf;
+use jj_lib::fileset::FilesetExpression;
 use tracing::instrument;
 
 use super::update_sparse_patterns_with;
@@ -32,7 +32,7 @@ pub async fn cmd_sparse_reset(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui).await?;
     update_sparse_patterns_with(ui, &mut workspace_command, |_ui, _old_patterns| {
-        Ok(vec![RepoPathBuf::root()])
+        Ok(FilesetExpression::all())
     })
     .await
 }

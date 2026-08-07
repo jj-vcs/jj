@@ -44,6 +44,7 @@ message FileStateEntry {
 
 message SparsePatterns {
   repeated string prefixes = 1;
+  string fileset_expression = 2;
 }
 
 message TreeState {

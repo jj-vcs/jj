@@ -211,41 +211,42 @@ fn test_workspaces_sparse_patterns() {
         .success();
     ws1_dir.run_jj(["workspace", "add", "../ws2"]).success();
     let output = ws2_dir.run_jj(["sparse", "list"]);
-    insta::assert_snapshot!(output, @"
-    foo
+    insta::assert_snapshot!(output, @r#"
+    root:"foo"
     [EOF]
-    ");
+    "#);
     ws2_dir.run_jj(["sparse", "set", "--add=bar"]).success();
     ws2_dir.run_jj(["workspace", "add", "../ws3"]).success();
     let output = ws3_dir.run_jj(["sparse", "list"]);
-    insta::assert_snapshot!(output, @"
-    bar
-    foo
+    insta::assert_snapshot!(output, @r#"
+    root:"foo" | root:"bar"
     [EOF]
-    ");
+    "#);
     // --sparse-patterns behavior
     ws3_dir
         .run_jj(["workspace", "add", "--sparse-patterns=copy", "../ws4"])
         .success();
     let output = ws4_dir.run_jj(["sparse", "list"]);
-    insta::assert_snapshot!(output, @"
-    bar
-    foo
+    insta::assert_snapshot!(output, @r#"
+    root:"foo" | root:"bar"
     [EOF]
-    ");
+    "#);
     ws3_dir
         .run_jj(["workspace", "add", "--sparse-patterns=full", "../ws5"])
         .success();
     let output = ws5_dir.run_jj(["sparse", "list"]);
     insta::assert_snapshot!(output, @"
-    .
+    all()
     [EOF]
     ");
     ws3_dir
         .run_jj(["workspace", "add", "--sparse-patterns=empty", "../ws6"])
         .success();
     let output = ws6_dir.run_jj(["sparse", "list"]);
-    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(output, @"
+    none()
+    [EOF]
+    ");
 }
 
 /// Test adding a second workspace while the current workspace is editing a
@@ -1170,12 +1171,10 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
     // The sparse patterns should remain
     let output = secondary_dir.run_jj(["sparse", "list"]);
     insta::allow_duplicates! {
-        insta::assert_snapshot!(output, @"
-        added
-        deleted
-        modified
+        insta::assert_snapshot!(output, @r#"
+        root:"modified" | root:"deleted" | root:"added"
         [EOF]
-        ");
+        "#);
     }
     let output = secondary_dir.run_jj(["st"]);
     insta::allow_duplicates! {
