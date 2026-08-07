@@ -22,6 +22,7 @@ use std::env;
 use std::ffi::OsString;
 use std::fmt;
 use std::fmt::Debug;
+use std::fs;
 use std::io;
 use std::io::Write as _;
 use std::mem;
@@ -34,6 +35,7 @@ use std::sync::Arc;
 use std::sync::LazyLock;
 use std::time::SystemTime;
 
+use bstr::ByteSlice as _;
 use bstr::ByteVec as _;
 use chrono::TimeZone as _;
 use clap::ArgAction;
@@ -72,6 +74,7 @@ use jj_lib::config::StackedConfig;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::default_backend_factories::default_backend_factories;
 use jj_lib::default_backend_factories::default_working_copy_factories;
+use jj_lib::file_util;
 use jj_lib::fileset;
 use jj_lib::fileset::FilesetAliasesMap;
 use jj_lib::fileset::FilesetDiagnostics;
@@ -150,6 +153,8 @@ use jj_lib::workspace::WorkspaceLoadError;
 use jj_lib::workspace::WorkspaceLoader;
 use jj_lib::workspace::WorkspaceLoaderFactory;
 use jj_lib::workspace::get_working_copy_factory;
+use jj_lib::workspace_store::SimpleWorkspaceStore;
+use jj_lib::workspace_store::WorkspaceStore as _;
 use pollster::FutureExt as _;
 use tracing::instrument;
 use tracing_chrome::ChromeLayerBuilder;
@@ -473,22 +478,33 @@ impl CommandHelper {
         &self,
         ui: &Ui,
     ) -> Result<(WorkspaceCommandHelper, SnapshotStats, bool), CommandError> {
-        let workspace = self.load_workspace()?;
-        let env = self.workspace_environment(ui, &workspace)?;
-        // Acquire the lock to ensure that the loaded repo points to the head
-        // operation whose refs should be synchronized with the Git repo. This
-        // prevents races with other processes during Git HEAD and refs
-        // import/export.
-        let git_import_export_lock = self
-            .is_working_copy_writable()
-            .then(|| env.lock_git_import_export(&workspace))
-            .transpose()?;
-        let mut workspace_command = self.load_from_workspace(ui, workspace, env).await?;
+        let (workspace_command, git_import_export_lock) = loop {
+            let workspace = self.load_workspace_or_auto_init_git_worktree(ui).await?;
+            let env = self.workspace_environment(ui, &workspace)?;
+            // Acquire the lock to ensure that the loaded repo points to the head
+            // operation whose refs should be synchronized with the Git repo. This
+            // prevents races with other processes during Git HEAD and refs
+            // import/export.
+            let git_import_export_lock = self
+                .is_working_copy_writable()
+                .then(|| env.lock_git_import_export(&workspace))
+                .transpose()?;
+            let workspace_command = self.load_from_workspace(ui, workspace, env).await?;
+            if workspace_command.ensure_current_workspace_git_worktree(ui)? {
+                continue;
+            }
+            break (workspace_command, git_import_export_lock);
+        };
+        let mut workspace_command = workspace_command;
+        let old_repo = workspace_command.repo().clone();
+        if self.is_working_copy_writable() {
+            workspace_command.forget_removed_git_worktrees(ui).await?;
+        }
         let Some(git_import_export_lock) = git_import_export_lock else {
-            return Ok((workspace_command, SnapshotStats::default(), false));
+            let changed = old_repo.op_id() != workspace_command.repo().op_id();
+            return Ok((workspace_command, SnapshotStats::default(), changed));
         };
 
-        let old_repo = workspace_command.repo().clone();
         let (workspace_command, stats) = match workspace_command
             .snapshot_impl(ui, &git_import_export_lock)
             .await
@@ -522,9 +538,87 @@ impl CommandHelper {
         &self,
         ui: &Ui,
     ) -> Result<WorkspaceCommandHelper, CommandError> {
-        let workspace = self.load_workspace()?;
-        let env = self.workspace_environment(ui, &workspace)?;
-        self.load_from_workspace(ui, workspace, env).await
+        let mut workspace_command = loop {
+            let workspace = self.load_workspace_or_auto_init_git_worktree(ui).await?;
+            let env = self.workspace_environment(ui, &workspace)?;
+            let workspace_command = self.load_from_workspace(ui, workspace, env).await?;
+            if workspace_command.ensure_current_workspace_git_worktree(ui)? {
+                continue;
+            }
+            break workspace_command;
+        };
+        if self.is_working_copy_writable() {
+            workspace_command.forget_removed_git_worktrees(ui).await?;
+        }
+        Ok(workspace_command)
+    }
+
+    async fn load_workspace_or_auto_init_git_worktree(
+        &self,
+        ui: &Ui,
+    ) -> Result<Workspace, CommandError> {
+        match self.load_workspace() {
+            Ok(workspace) => Ok(workspace),
+            Err(err) => {
+                if self.data.global_args.repository.is_none()
+                    && let Some(workspace) = self.auto_init_git_worktree_workspace(ui).await?
+                {
+                    return Ok(workspace);
+                }
+                Err(err)
+            }
+        }
+    }
+
+    #[cfg(feature = "git")]
+    async fn auto_init_git_worktree_workspace(
+        &self,
+        ui: &Ui,
+    ) -> Result<Option<Workspace>, CommandError> {
+        let Some(git_paths) = discover_git_worktree_paths(self.cwd())? else {
+            return Ok(None);
+        };
+        let main_workspace_root = match git_paths.common_git_dir.parent() {
+            Some(path) if path.join(".jj").is_dir() => path,
+            _ => return Ok(None),
+        };
+        let main_workspace = self.load_workspace_at(main_workspace_root, self.settings())?;
+        let main_loader = self.new_workspace_loader_at(main_workspace_root)?;
+        let working_copy_factory =
+            get_working_copy_factory(main_loader.as_ref(), &self.data.working_copy_factories)
+                .map_err(|err| {
+                    map_workspace_load_error(WorkspaceLoadError::StoreLoadError(err), None)
+                })?;
+        let repo = main_workspace.repo_loader().load_at_head().await?;
+        if repo
+            .view()
+            .get_wc_commit_id(&git_paths.workspace_name)
+            .is_some()
+        {
+            return Ok(None);
+        }
+        let (workspace, _repo) = Workspace::init_workspace_with_existing_repo(
+            &git_paths.worktree_root,
+            main_workspace.repo_path(),
+            &repo,
+            working_copy_factory,
+            git_paths.workspace_name,
+        )
+        .await?;
+        writeln!(
+            ui.status(),
+            "Created jj workspace for Git worktree at \"{}\".",
+            git_paths.worktree_root.display()
+        )?;
+        Ok(Some(workspace))
+    }
+
+    #[cfg(not(feature = "git"))]
+    async fn auto_init_git_worktree_workspace(
+        &self,
+        _ui: &Ui,
+    ) -> Result<Option<Workspace>, CommandError> {
+        Ok(None)
     }
 
     async fn load_from_workspace(
@@ -2303,6 +2397,162 @@ to the current parents may contain changes from multiple commits.
         }
     }
 
+    #[cfg(feature = "git")]
+    fn ensure_current_workspace_git_worktree(&self, ui: &Ui) -> Result<bool, CommandError> {
+        if self.env.working_copy_shared_with_git || self.workspace_name() == WorkspaceName::DEFAULT
+        {
+            return Ok(false);
+        }
+        if self.workspace_root().join(".git").exists() {
+            return Ok(false);
+        }
+        if jj_lib::git::get_git_repo(self.repo().store()).is_err() {
+            return Ok(false);
+        }
+        let workspace_store = SimpleWorkspaceStore::load(self.repo_path())?;
+        let Some(main_workspace_root) =
+            workspace_abs_path(self.repo_path(), &workspace_store, WorkspaceName::DEFAULT)?
+        else {
+            return Ok(false);
+        };
+        if !main_workspace_root.join(".git").exists() {
+            return Ok(false);
+        }
+        if git_rev_parse_path(&main_workspace_root, "--git-common-dir")?.is_none() {
+            return Ok(false);
+        }
+        if !git_head_resolves(&main_workspace_root)? {
+            return Ok(false);
+        }
+        create_git_worktree_in_existing_workspace(&main_workspace_root, self.workspace_root())?;
+        writeln!(
+            ui.status(),
+            "Created Git worktree for the current workspace."
+        )?;
+        Ok(true)
+    }
+
+    #[cfg(not(feature = "git"))]
+    fn ensure_current_workspace_git_worktree(&self, _ui: &Ui) -> Result<bool, CommandError> {
+        Ok(false)
+    }
+
+    #[cfg(feature = "git")]
+    async fn forget_removed_git_worktrees(&mut self, _ui: &Ui) -> Result<(), CommandError> {
+        if jj_lib::git::get_git_repo(self.repo().store()).is_err() {
+            return Ok(());
+        }
+        let workspace_store = SimpleWorkspaceStore::load(self.repo_path())?;
+        let Some(main_workspace_root) =
+            workspace_abs_path(self.repo_path(), &workspace_store, WorkspaceName::DEFAULT)?
+        else {
+            return Ok(());
+        };
+        if !main_workspace_root.join(".git").exists() {
+            return Ok(());
+        }
+        if git_rev_parse_path(&main_workspace_root, "--git-common-dir")?.is_none() {
+            return Ok(());
+        }
+        let live_worktree_paths = git_worktree_paths(&main_workspace_root)?;
+        self.repair_moved_git_worktree_paths(&workspace_store, &live_worktree_paths)?;
+        let removed_workspaces: Vec<_> = self
+            .repo()
+            .view()
+            .wc_commit_ids()
+            .keys()
+            .filter(|name| name.as_str() != WorkspaceName::DEFAULT.as_str())
+            .filter_map(|name| {
+                let path = workspace_abs_path(self.repo_path(), &workspace_store, name)
+                    .ok()
+                    .flatten()?;
+                if !path.exists()
+                    || path.join(".git").is_file() && !live_worktree_paths.contains(&path)
+                {
+                    Some(name.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        if removed_workspaces.is_empty() {
+            return Ok(());
+        }
+
+        let description = if let [workspace_name] = removed_workspaces.as_slice() {
+            format!(
+                "forget removed Git worktree workspace {}",
+                workspace_name.as_symbol()
+            )
+        } else {
+            format!(
+                "forget removed Git worktree workspaces {}",
+                removed_workspaces
+                    .iter()
+                    .map(|workspace_name| workspace_name.as_symbol())
+                    .join(", ")
+            )
+        };
+        let mut tx = start_repo_transaction(
+            self.repo(),
+            self.workspace_name(),
+            self.env.command.string_args(),
+        );
+        for workspace_name in &removed_workspaces {
+            tx.repo_mut().remove_wc_commit(workspace_name).await?;
+        }
+        rebase_mutable_descendants(&self.env, &mut tx).await?;
+        workspace_store.forget(
+            &removed_workspaces
+                .iter()
+                .map(|name| name.as_ref())
+                .collect_vec(),
+        )?;
+        let repo = tx.commit(description).await?;
+        self.user_repo = ReadonlyUserRepo::new(repo);
+        Ok(())
+    }
+
+    #[cfg(feature = "git")]
+    fn repair_moved_git_worktree_paths(
+        &self,
+        workspace_store: &SimpleWorkspaceStore,
+        live_worktree_paths: &HashSet<PathBuf>,
+    ) -> Result<(), CommandError> {
+        for path in live_worktree_paths {
+            if path == self.workspace_root() || !path.join(".jj").is_dir() {
+                continue;
+            }
+            repair_jj_repo_link(path, self.repo_path())?;
+            let Ok(workspace) = self.env.command.load_workspace_at(path, self.settings()) else {
+                continue;
+            };
+            if workspace.repo_path() != self.repo_path()
+                || self
+                    .repo()
+                    .view()
+                    .get_wc_commit_id(workspace.workspace_name())
+                    .is_none()
+            {
+                continue;
+            }
+            let old_path = workspace_abs_path(
+                self.repo_path(),
+                workspace_store,
+                workspace.workspace_name(),
+            )?;
+            if old_path.as_deref() != Some(path) && !old_path.is_some_and(|path| path.exists()) {
+                workspace_store.add(workspace.workspace_name(), path)?;
+            }
+        }
+        Ok(())
+    }
+
+    #[cfg(not(feature = "git"))]
+    async fn forget_removed_git_worktrees(&mut self, _ui: &Ui) -> Result<(), CommandError> {
+        Ok(())
+    }
+
     async fn finish_transaction(
         &mut self,
         ui: &Ui,
@@ -2856,6 +3106,213 @@ pub fn find_workspace_dir(cwd: &Path) -> &Path {
     cwd.ancestors()
         .find(|path| path.join(".jj").is_dir())
         .unwrap_or(cwd)
+}
+
+#[cfg(feature = "git")]
+struct GitWorktreePaths {
+    worktree_root: PathBuf,
+    common_git_dir: PathBuf,
+    workspace_name: WorkspaceNameBuf,
+}
+
+#[cfg(feature = "git")]
+fn discover_git_worktree_paths(cwd: &Path) -> Result<Option<GitWorktreePaths>, CommandError> {
+    let Some(worktree_root) = git_rev_parse_path(cwd, "--show-toplevel")? else {
+        return Ok(None);
+    };
+    let Some(git_dir) = git_rev_parse_path(cwd, "--git-dir")? else {
+        return Ok(None);
+    };
+    let Some(common_git_dir) = git_rev_parse_path(cwd, "--git-common-dir")? else {
+        return Ok(None);
+    };
+    if git_dir == common_git_dir {
+        return Ok(None);
+    }
+    let Some(workspace_name) = git_dir.file_name().and_then(|name| name.to_str()) else {
+        return Ok(None);
+    };
+    if workspace_name.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(GitWorktreePaths {
+        worktree_root,
+        common_git_dir,
+        workspace_name: workspace_name.into(),
+    }))
+}
+
+#[cfg(feature = "git")]
+fn git_rev_parse_path(cwd: &Path, arg: &str) -> Result<Option<PathBuf>, CommandError> {
+    let args: Vec<_> = arg.split_ascii_whitespace().collect();
+    let Ok(output) = std::process::Command::new("git")
+        .arg("rev-parse")
+        .args(args)
+        .current_dir(cwd)
+        .output()
+    else {
+        return Ok(None);
+    };
+    if !output.status.success() {
+        return Ok(None);
+    }
+    let Ok(path) = String::from_utf8(output.stdout) else {
+        return Ok(None);
+    };
+    let path = Path::new(path.trim());
+    let path = if path.is_absolute() {
+        path.to_owned()
+    } else {
+        cwd.join(path)
+    };
+    match dunce::canonicalize(&path) {
+        Ok(path) => Ok(Some(path)),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(err) => Err(user_error_with_message(
+            format!("Failed to resolve git path '{}'", path.display()),
+            err,
+        )),
+    }
+}
+
+#[cfg(feature = "git")]
+fn git_head_resolves(cwd: &Path) -> Result<bool, CommandError> {
+    let output = std::process::Command::new("git")
+        .args(["rev-parse", "--verify", "--quiet", "HEAD"])
+        .current_dir(cwd)
+        .output()
+        .map_err(|err| user_error(format!("Failed to run `git rev-parse`: {err}")))?;
+    Ok(output.status.success())
+}
+
+#[cfg(feature = "git")]
+fn workspace_abs_path(
+    repo_path: &Path,
+    workspace_store: &SimpleWorkspaceStore,
+    workspace_name: &WorkspaceName,
+) -> Result<Option<PathBuf>, CommandError> {
+    let Some(path) = workspace_store.get_workspace_path(workspace_name)? else {
+        return Ok(None);
+    };
+    let path = if path.is_absolute() {
+        path
+    } else {
+        repo_path.join(path)
+    };
+    match dunce::canonicalize(&path) {
+        Ok(path) => Ok(Some(path)),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(Some(path)),
+        Err(err) => Err(user_error_with_message(
+            format!("Failed to resolve workspace path '{}'", path.display()),
+            err,
+        )),
+    }
+}
+
+#[cfg(feature = "git")]
+fn repair_jj_repo_link(workspace_root: &Path, repo_path: &Path) -> Result<(), CommandError> {
+    let jj_dir = workspace_root.join(".jj");
+    let repo_file_path = jj_dir.join("repo");
+    if !repo_file_path.is_file() {
+        return Ok(());
+    }
+    let jj_dir_abs = dunce::canonicalize(&jj_dir).map_err(|err| {
+        user_error_with_message(format!("Failed to resolve '{}'", jj_dir.display()), err)
+    })?;
+    let repo_dir = dunce::canonicalize(repo_path).map_err(|err| {
+        user_error_with_message(format!("Failed to resolve '{}'", repo_path.display()), err)
+    })?;
+    let path_to_store = file_util::relative_path(&jj_dir_abs, &repo_dir);
+    let path_to_store = if path_to_store.is_relative() {
+        file_util::slash_path(&path_to_store).into_owned()
+    } else {
+        path_to_store
+    };
+    let repo_dir_bytes = file_util::path_to_bytes(&path_to_store)
+        .map_err(|err| user_error_with_message("Failed to encode jj repo path", err))?;
+    if fs::read(&repo_file_path).ok().as_deref() == Some(repo_dir_bytes) {
+        return Ok(());
+    }
+    fs::write(&repo_file_path, repo_dir_bytes)
+        .map_err(|err| user_error_with_message("Failed to repair jj workspace link", err))?;
+    Ok(())
+}
+
+#[cfg(feature = "git")]
+fn git_worktree_paths(main_workspace_root: &Path) -> Result<HashSet<PathBuf>, CommandError> {
+    let output = std::process::Command::new("git")
+        .args(["worktree", "list", "--porcelain", "-z"])
+        .current_dir(main_workspace_root)
+        .output()
+        .map_err(|err| user_error(format!("Failed to run `git worktree list`: {err}")))?;
+    if !output.status.success() {
+        return Err(user_error(format!(
+            "Failed to list Git worktrees: {}",
+            String::from_utf8_lossy(&output.stderr)
+        )));
+    }
+    let mut paths = HashSet::new();
+    for field in output.stdout.split_str(b"\0") {
+        let Some(path) = field.strip_prefix(b"worktree ") else {
+            continue;
+        };
+        let Ok(path) = path.to_str() else {
+            continue;
+        };
+        if let Ok(path) = dunce::canonicalize(path) {
+            paths.insert(path);
+        }
+    }
+    Ok(paths)
+}
+
+#[cfg(feature = "git")]
+fn create_git_worktree_in_existing_workspace(
+    main_workspace_root: &Path,
+    workspace_root: &Path,
+) -> Result<(), CommandError> {
+    let parent = workspace_root.parent().unwrap_or(workspace_root);
+    let temp_dir = tempfile::Builder::new()
+        .prefix(".jj-git-worktree-")
+        .tempdir_in(parent)
+        .map_err(|err| user_error_with_message("Failed to create temporary Git worktree", err))?;
+    let output = std::process::Command::new("git")
+        .args(["worktree", "add", "--detach", "--no-checkout"])
+        .arg(temp_dir.path())
+        .arg("HEAD")
+        .current_dir(main_workspace_root)
+        .output()
+        .map_err(|err| user_error(format!("Failed to run `git worktree add`: {err}")))?;
+    if !output.status.success() {
+        return Err(user_error(format!(
+            "Failed to create Git worktree: {}",
+            String::from_utf8_lossy(&output.stderr)
+        )));
+    }
+
+    let temp_dot_git = temp_dir.path().join(".git");
+    let git_file = fs::read_to_string(&temp_dot_git)
+        .map_err(|err| user_error_with_message("Failed to read temporary Git worktree", err))?;
+    let Some(git_dir) = git_file.trim().strip_prefix("gitdir: ") else {
+        return Err(user_error(
+            "Temporary Git worktree has unexpected .git file",
+        ));
+    };
+    let git_dir = Path::new(git_dir);
+    let git_dir = if git_dir.is_absolute() {
+        git_dir.to_owned()
+    } else {
+        temp_dir.path().join(git_dir)
+    };
+    let dot_git = workspace_root.join(".git");
+    fs::rename(&temp_dot_git, &dot_git)
+        .map_err(|err| user_error_with_message("Failed to install Git worktree file", err))?;
+    fs::write(git_dir.join("gitdir"), dot_git.to_string_lossy().as_bytes())
+        .map_err(|err| user_error_with_message("Failed to update Git worktree metadata", err))?;
+    temp_dir
+        .close()
+        .map_err(|err| user_error_with_message("Failed to remove temporary Git worktree", err))?;
+    Ok(())
 }
 
 fn map_workspace_load_error(err: WorkspaceLoadError, user_wc_path: Option<&str>) -> CommandError {
