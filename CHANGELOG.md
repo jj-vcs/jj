@@ -31,6 +31,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   conflicted file is snapshotted from the working copy.
   [#9868](https://github.com/jj-vcs/jj/issues/9868)
 
+* In colocated workspaces, `jj workspace update-stale` now correctly resets the
+  Git HEAD to the parent of the fresh working-copy commit.
+  [#9936](https://github.com/jj-vcs/jj/issues/9936)
+
 ## [0.44.0] - 2026-08-05
 
 ### Release highlights
