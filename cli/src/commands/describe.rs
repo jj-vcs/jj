@@ -75,6 +75,12 @@ pub(crate) struct DescribeArgs {
     #[arg(long)]
     stdin: bool,
 
+    /// Append the message to the existing description instead of overwriting
+    ///
+    /// Only effective when combined with `--message` or `--stdin`.
+    #[arg(long)]
+    append: bool,
+
     /// Open an editor to edit the change description
     ///
     /// Forces an editor to open when using `--stdin` or `--message` to
@@ -139,8 +145,24 @@ pub(crate) async fn cmd_describe(
         .iter()
         .map(|commit| {
             let mut commit_builder = tx.repo_mut().rewrite_commit(commit).detach();
-            if let Some(description) = &shared_description {
-                commit_builder.set_description(description);
+            if let Some(new_message) = &shared_description {
+                if args.append {
+                    // Logic for --append
+                    // Get the old description and strip trailing whitespace
+                    let mut combined = commit.description().trim_end().to_owned();
+
+                    // Add a paragraph break if the old description wasn't empty
+                    if !combined.is_empty() {
+                        combined.push_str("\n\n");
+                    }
+
+                    // Append the new message
+                    combined.push_str(new_message.trim_start());
+                    commit_builder.set_description(combined);
+                } else {
+                    // Default behavior: overwrite
+                    commit_builder.set_description(new_message);
+                }
             }
             commit_builder
         })
