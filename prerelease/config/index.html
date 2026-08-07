@@ -5829,15 +5829,21 @@ with the <code>JJ_CONFIG</code> environment variable. If the environment variabl
 the default locations. It can be a path to a TOML file or a directory of TOML
 files, which will be loaded in lexicographic order and merged. Multiple paths
 can be specified by separating them with a platform-specific path separator (<code>:</code>
-on Unix-like systems, <code>;</code> on Windows).</p>
-<p>For example, the following could be used to run <code>jj</code> without loading any user
-configs:</p>
-<div class="highlight"><pre><span></span><code><span class="nv">JJ_CONFIG</span><span class="o">=</span><span class="w"> </span>jj<span class="w"> </span>log<span class="w">       </span><span class="c1"># Ignores any settings specified in any config files.</span>
+on Unix-like systems, <code>;</code> on Windows). Note that this variable only affects
+user-level and system-level config files; repo and workspace configs are
+unaffected and will continue to be loaded from their respective locations.
+(There is no environment variable to disable repo or workspace configs.)</p>
+<p>For example, the following could be used to run <code>jj</code> without loading any user or
+system configs:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Ignores any settings specified in `{PLATFORM,/etc}/jj/{config.toml,conf.d/*.toml}`,</span>
+<span class="c1"># but still loads repo and workspace configs.</span>
+<span class="nv">JJ_CONFIG</span><span class="o">=</span><span class="w"> </span>jj<span class="w"> </span>log
 </code></pre></div>
 <p>There are also the <code>--config-file &lt;PATH&gt;</code> and <code>--config &lt;NAME=VALUE&gt;</code>
-<a href="../cli-reference/#options">global options</a> which work with any <code>jj</code> command.</p>
+<a href="#specifying-config-on-the-command-line">global options</a> which work with any
+<code>jj</code> command.</p>
 <h3 id="system-config-files">System config files<a class="headerlink" href="#system-config-files" title="Permanent link">&para;</a></h3>
-<p>On unix-like platforms, system-wide <code>jj</code> configurations are by default loaded in
+<p>On Unix-like platforms, system-wide <code>jj</code> configurations are by default loaded in
 the following precedence order (with later configs overriding earlier ones).</p>
 <ul>
 <li><code>/etc/jj/config.toml</code></li>
@@ -5899,10 +5905,10 @@ config files or environment variables. For example,</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># Must not have spaces around the `=`</span>
 jj<span class="w"> </span>--config<span class="w"> </span>ui.color<span class="o">=</span>always<span class="w"> </span>--config<span class="w"> </span>ui.diff-editor<span class="o">=</span>meld<span class="w"> </span>split
 </code></pre></div>
-<p>Config value should be specified as a TOML expression. If string value isn't
-enclosed by any TOML constructs (such as array notation), quotes can be omitted.
-Here is an example with more advanced TOML constructs:</p>
-<div class="highlight"><pre><span></span><code><span class="c1"># Single quotes and the &#39;\&#39; are interpreted by the shell and assume a Unix shell</span>
+<p>The config value should be specified as a TOML expression. If it is a string
+value and isn't enclosed by any TOML constructs (such as array notation), quotes
+can be omitted. Here is an example with more advanced TOML constructs:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Single quotes and the &#39;\&#39; are interpreted by the shell (assuming a POSIX shell)</span>
 <span class="c1"># Double quotes are passed to jj and are parsed as TOML syntax</span>
 jj<span class="w"> </span>log<span class="w"> </span>--config<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span><span class="s1">&#39;template-aliases.&quot;format_timestamp(timestamp)&quot;=&quot;&quot;&quot;timestamp.format(&quot;%Y-%m-%d %H:%M %:::z&quot;)&quot;&quot;&quot;&#39;</span>
