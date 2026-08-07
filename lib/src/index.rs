@@ -19,6 +19,7 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use futures::stream::BoxStream;
 use itertools::Itertools as _;
 use thiserror::Error;
 
@@ -153,7 +154,7 @@ pub trait Index: Send + Sync {
     fn changed_paths_in_commit(
         &self,
         commit_id: &CommitId,
-    ) -> IndexResult<Option<Box<dyn Iterator<Item = RepoPathBuf> + '_>>>;
+    ) -> Option<BoxStream<'_, IndexResult<RepoPathBuf>>>;
 
     /// Resolves the revset `expression` against the index and corresponding
     /// `store`.
