@@ -2237,17 +2237,28 @@ fn test_op_diff_at_merge_op_with_rebased_commits() {
     [EOF]
     ");
 
-    // FIXME: the diff should be empty
+    // The diff of a merge operation is treated as empty.
     let output = work_dir.run_jj(["op", "diff"]);
     insta::assert_snapshot!(output, @"
     From operation: aebc639c7fdb (2001-02-03 08:05:09) describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
     From operation: f36a8c8cba9e (2001-02-03 08:05:10) describe commit ab92d1a87bebb4300165a16a753c5403bd7bc578
       To operation: 8f0e2ab3b7cc (2001-02-03 08:05:11) reconcile divergent operations
-
-    Changed commits:
-    ○  + rlvkpnrz/1 8f35f6a6 (divergent) (empty) 2b
-       - rlvkpnrz/0 4545eaf5 (hidden) (empty) 2b
     [EOF]
+    ");
+
+    // Argument validation still applies even though the diff is empty.
+    let output = work_dir.run_jj(["op", "diff", "--show-changes-in", "(bad"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Invalid `--show-changes-in` expression: (bad
+    Caused by:  --> 1:5
+      |
+    1 | (bad
+      |     ^---
+      |
+      = expected `@`, `:`, `-`, `+`, `::`, `..`, `|`, `&`, or `~`
+    [EOF]
+    [exit status: 1]
     ");
 
     let output = work_dir.run_jj(["op", "show"]);
