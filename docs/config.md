@@ -21,6 +21,9 @@ These are the config settings available to jj/Jujutsu.
   or found with `jj config path --workspace`. For security reasons, they are not
   located inside the workspace.
 
+- Settings from [environment variable overrides](#environment-variable-overrides)
+  (for example `$JJ_USER` / `$JJ_EMAIL`).
+
 - Settings [specified on the command-line].
 
 These are listed in the order they are loaded; the settings from earlier items
@@ -131,6 +134,22 @@ email = "YOUR_EMAIL@example.com"
 ```
 
 Don't forget to change these to your own details!
+
+These can also be set with environment variables (handy with tools like
+[direnv]):
+
+```bash
+export JJ_USER="Your Name"
+export JJ_EMAIL="you@example.com"
+```
+
+`$JJ_USER` overrides `user.name` and `$JJ_EMAIL` overrides `user.email`. They
+take precedence over values in config files (but not over `--config` /
+`--config-file`). See [Environment variable overrides](#environment-variable-overrides)
+for the full list. For directory-based switching without env vars, use
+[conditional variables](#conditional-variables).
+
+[direnv]: https://direnv.net/
 
 ## UI settings
 
@@ -2284,6 +2303,27 @@ Here are some popular editors with TOML schema validation support:
 - Emacs
   - Install [lsp-mode](https://github.com/emacs-lsp/lsp-mode) and [toml-mode](https://github.com/dryman/toml-mode.el)
   - Configure [taplo](https://github.com/tamasfe/taplo) as the LSP server
+
+### Environment variable overrides
+
+Besides `$JJ_CONFIG` (which controls [where user config files are loaded
+from](#user-config-files)), these environment variables override individual
+config keys. They take precedence over config files and are themselves
+overridden by `--config` / `--config-file`.
+
+| Variable          | Config key           |
+| :---------------- | :------------------- |
+| `$JJ_USER`        | `user.name`          |
+| `$JJ_EMAIL`       | `user.email`         |
+| `$JJ_EDITOR`      | `ui.editor`          |
+| `$JJ_PAGER`       | `ui.pager`           |
+| `$JJ_OP_HOSTNAME` | `operation.hostname` |
+| `$JJ_OP_USERNAME` | `operation.username` |
+
+A few other variables act as fallbacks when no matching config is set (for
+example `$VISUAL` / `$EDITOR` for the editor, and `$NO_COLOR` for color), rather
+than hard overrides of configured values. See [Editor](#editor) and
+[Colorizing output](#colorizing-output).
 
 ### Specifying config on the command-line
 
