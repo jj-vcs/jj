@@ -47,13 +47,15 @@ pub async fn cmd_bench_common_ancestors(
         .resolve_single_rev(ui, &args.revision2)
         .await?;
     let index = workspace_command.repo().index();
-    let routine =
-        || index.common_ancestors(slice::from_ref(commit1.id()), slice::from_ref(commit2.id()));
+    let set1 = slice::from_ref(commit1.id());
+    let set2 = slice::from_ref(commit2.id());
+    let routine = || async move { index.common_ancestors(set1, set2) };
     run_bench(
         ui,
         &format!("common-ancestors-{}-{}", args.revision1, args.revision2),
         &args.criterion,
         routine,
-    )?;
+    )
+    .await?;
     Ok(())
 }

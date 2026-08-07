@@ -38,12 +38,14 @@ pub async fn cmd_bench_resolve_prefix(
     let workspace_command = command.workspace_helper(ui).await?;
     let prefix = HexPrefix::try_from_hex(&args.prefix).unwrap();
     let index = workspace_command.repo().index();
-    let routine = || index.resolve_commit_id_prefix(&prefix);
+    let prefix = &prefix;
+    let routine = || async move { index.resolve_commit_id_prefix(prefix) };
     run_bench(
         ui,
         &format!("resolve-prefix-{}", prefix.hex()),
         &args.criterion,
         routine,
-    )?;
+    )
+    .await?;
     Ok(())
 }
