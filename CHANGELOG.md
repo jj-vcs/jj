@@ -121,6 +121,9 @@ None
 
 ### Fixed bugs
 
+* `jj` no longer panics when reading a Git commit with a malformed
+  `jj:conflict-labels` header.
+
 * Recursive alias definitions are detected more precisely. jj can now expand
   aliases that are simply repeated. For example, with the alias `jj = []`, the
   command `jj jj jj` will resolve to `jj`. Aliases can also fall back to the
