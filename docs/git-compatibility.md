@@ -79,13 +79,44 @@ there will be a `.jj` directory and a `.git` directory.
 
 ## Creating a repo backed by an existing Git repo
 
-To create a Jujutsu repo backed by a Git repo you already have on disk, use `jj
-git init --git-repo=<path to Git repo> <name>`. The repo will work similar to a
-[Git worktree](https://git-scm.com/docs/git-worktree), meaning that the working
-copies files and the record of the working-copy commit will be separate, but the
-commits will be accessible in both repos. Use `jj git import` to update the
-Jujutsu repo with changes made in the Git repo. Use `jj git export` to update
-the Git repo with changes made in the Jujutsu repo.
+There are two common ways to start using Jujutsu with a Git repository you
+already have on disk.
+
+### In the same working copy (colocated)
+
+To create a Jujutsu repo *in the Git repository itself* (a repo with a
+[colocated](#colocated-jujutsugit-workspaces) workspace), change into that
+directory and run:
+
+```shell
+$ cd path/to/git-repo
+$ jj git init
+```
+
+Jujutsu reuses the existing Git repository as its backing store, so both `.jj/`
+and `.git/` live at the top level of the same working copy and you can use both
+`jj` and `git` commands there. This is the usual way to start using Jujutsu on
+an existing local Git checkout.
+
+### In a separate working copy
+
+To create a Jujutsu repo that shares commits with an existing Git repo but has
+its own working-copy files (similar to a
+[Git worktree](https://git-scm.com/docs/git-worktree)), create it in a directory
+that is not already a Git checkout and point it at the Git repo:
+
+```shell
+$ cd path/to/new/jj-repo
+$ jj git init --git-repo=path/to/git-repo
+```
+
+(`path/to/git-repo` may be absolute, or relative to the current directory.) See
+`jj git init --help` for other arguments.
+
+The working-copy files and the record of the working-copy commit will be
+separate, but the commits will be accessible in both repos. Use `jj git import`
+to update the Jujutsu repo with changes made in the Git repo. Use
+`jj git export` to update the Git repo with changes made in the Jujutsu repo.
 
 ## Creating a repo by cloning a Git repo
 
