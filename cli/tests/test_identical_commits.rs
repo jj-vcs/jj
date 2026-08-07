@@ -92,10 +92,10 @@ fn test_identical_commits_by_cycling_rewrite() {
     insta::assert_snapshot!(work_dir.run_jj(["evolog"]), @"
     @  oxmtprsl test.user@example.com 2001-01-01 11:00:00 c5abd225
     │  (empty) test2
-    │  -- operation f0e7f7b1629b describe commit 053222c21fa06b9492e22346f8f70e732231ad4f
+    │  -- operation 0b504315f7ba describe commit 053222c21fa06b9492e22346f8f70e732231ad4f
     ○  oxmtprsl/1 test.user@example.com 2001-01-01 11:00:00 053222c2 (hidden)
        (empty) test1
-       -- operation 72d9ec4ca389 new empty commit
+       -- operation 166b2bc3dc53 new empty commit
     [EOF]
     ");
     // TODO: Test `jj op diff --from @--`
@@ -127,7 +127,7 @@ fn test_identical_commits_by_convergent_rewrite() {
     insta::assert_snapshot!(work_dir.run_jj(["evolog"]), @"
     @  oxmtprsl/1 test.user@example.com 2001-01-01 11:00:00 c5abd225 (divergent)
        (empty) test2
-       -- operation 2c0ac8f6dfb7 new empty commit
+       -- operation 4249d34636d2 new empty commit
     [EOF]
     ");
 }
@@ -163,7 +163,7 @@ fn test_identical_commits_by_convergent_rewrite_one_operation() {
     insta::assert_snapshot!(work_dir.run_jj(["evolog"]), @"
     @  oxmtprsl/0 test.user@example.com 2001-01-01 11:00:00 c5abd225 (divergent)
        (empty) test2
-       -- operation 2c0ac8f6dfb7 new empty commit
+       -- operation 4249d34636d2 new empty commit
     [EOF]
     ");
 }
@@ -204,13 +204,13 @@ fn test_identical_commits_swap_by_reordering() {
     insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r=@"]), @"
     @  oxmtprsl/0 test.user@example.com 2001-01-01 11:00:00 5bae90c9 (divergent)
        (empty) test
-       -- operation 51fb079a7e7c new empty commit
+       -- operation af5cee55f7e1 new empty commit
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r=@-"]), @"
     ○  oxmtprsl/1 test.user@example.com 2001-01-01 11:00:00 e94ed463 (divergent)
        (empty) test
-       -- operation 03fecb732164 new empty commit
+       -- operation 9d92250a8782 new empty commit
     [EOF]
     ");
     // TODO: Test that `jj op show` displays something reasonable

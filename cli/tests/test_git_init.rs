@@ -928,7 +928,7 @@ fn test_git_init_external_but_git_dir_exists() {
     ");
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently not colocated with Git.
-    Last imported/exported Git HEAD: (none)
+    Last imported/exported Git HEAD: (absent)
     [EOF]
     ");
 }
@@ -1104,7 +1104,7 @@ fn test_git_init_colocated_via_flag_git_dir_not_exists() {
     ");
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently colocated with Git.
-    Last imported/exported Git HEAD: (none)
+    Last imported/exported Git HEAD: (absent)
     [EOF]
     ");
 
@@ -1122,7 +1122,7 @@ fn test_git_init_colocated_via_flag_git_dir_not_exists() {
     ");
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently colocated with Git.
-    Last imported/exported Git HEAD: (none)
+    Last imported/exported Git HEAD: (absent)
     [EOF]
     ");
 }
