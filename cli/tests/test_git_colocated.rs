@@ -244,6 +244,60 @@ fn test_git_colocated_new_wc_commit_when_wc_immutable() {
 }
 
 #[test]
+fn test_git_colocated_update_stale_resets_git_head() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+
+    // A "parent" commit and a "child" working-copy commit on top
+    work_dir.write_file("file1", "a\n");
+    work_dir.run_jj(["describe", "-m", "parent"]).success();
+    work_dir.run_jj(["new", "-m", "child"]).success();
+    work_dir.write_file("file2", "b\n");
+    work_dir.run_jj(["status"]).success();
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: df69548750502d54d6f207b500d25da43ed6fe1e
+    [EOF]
+    ");
+
+    // From another workspace, amend "parent" directly: this rebases "child"
+    // and makes the default (colocated) workspace stale
+    work_dir
+        .run_jj(["workspace", "add", "--name", "second", "../secondary"])
+        .success();
+    let secondary_dir = test_env.work_dir("secondary");
+    secondary_dir
+        .run_jj(["edit", r#"subject(exact:"parent")"#])
+        .success();
+    secondary_dir.write_file("file1", "a\nmodified\n");
+    secondary_dir.run_jj(["status"]).success();
+
+    let output = work_dir.run_jj(["workspace", "update-stale"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Working copy  (@) now at: kkmpptxz 422aac81 child
+    Parent commit (@-)      : qpvuntsm 239acdab parent
+    Added 0 files, modified 1 files, removed 0 files
+    Updated working copy to fresh commit 422aac811963
+    [EOF]
+    ");
+
+    // Git HEAD should point to the amended "parent", not the stale one
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: 239acdab88e2b438ed43a99471a385d3832190ec
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @"
+    Unconflicted Mode(FILE) 76b5eb87f1cb ctime=0:0 mtime=0:0 size=0 flags=0 file1
+    Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 file2
+    ");
+}
+
+#[test]
 fn test_git_colocated_unborn_bookmark() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");

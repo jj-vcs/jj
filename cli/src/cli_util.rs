@@ -660,10 +660,17 @@ impl CommandHelper {
                 let WorkspaceCommandHelper { workspace, env, .. } = workspace_command;
                 let mut workspace_command = self.load_from_workspace(ui, workspace, env).await?;
 
-                let repo = workspace_command.repo().clone();
+                #[cfg_attr(not(feature = "git"), expect(unused_mut))]
+                let mut repo = workspace_command.repo().clone();
+                #[cfg(feature = "git")]
+                let colocated = workspace_command.working_copy_shared_with_git();
+                #[cfg(feature = "git")]
+                let workspace_name = workspace_command.workspace_name().to_owned();
+
                 let (mut locked_ws, desired_wc_commit) = workspace_command
                     .unchecked_start_working_copy_mutation()
                     .await?;
+
                 match WorkingCopyFreshness::check_stale(
                     locked_ws.locked_wc(),
                     &desired_wc_commit,
@@ -680,6 +687,23 @@ impl CommandHelper {
                     }
                     WorkingCopyFreshness::WorkingCopyStale
                     | WorkingCopyFreshness::SiblingOperation => {
+                        // Reset Git HEAD first if the repo is colocated
+                        #[cfg(feature = "git")]
+                        if colocated && self.should_commit_transaction() {
+                            let mut tx =
+                                start_repo_transaction(&repo, &workspace_name, self.string_args());
+                            try_reset_git_head(
+                                ui,
+                                tx.repo_mut(),
+                                &desired_wc_commit,
+                                git_import_export_lock,
+                            )
+                            .await?;
+                            if tx.repo().has_changes() {
+                                repo = self.maybe_commit_transaction(tx, "reset git head").await?;
+                            }
+                        }
+
                         let stats = update_stale_working_copy(
                             locked_ws,
                             repo.op_id().clone(),
@@ -687,6 +711,7 @@ impl CommandHelper {
                             &desired_wc_commit,
                         )
                         .await?;
+                        workspace_command.user_repo = ReadonlyUserRepo::new(repo);
                         workspace_command.print_updated_working_copy_stats(
                             ui,
                             Some(&stale_wc_commit),
