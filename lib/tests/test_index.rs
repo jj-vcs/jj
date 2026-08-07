@@ -85,7 +85,7 @@ fn collect_changed_paths(repo: &ReadonlyRepo, commit_id: &CommitId) -> Option<Ve
 }
 
 fn index_has_id(index: &dyn Index, commit_id: &CommitId) -> bool {
-    index.has_id(commit_id).unwrap()
+    index.has_id(commit_id).block_on().unwrap()
 }
 
 fn is_ancestor(

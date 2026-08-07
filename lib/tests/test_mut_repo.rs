@@ -50,7 +50,7 @@ where
 }
 
 fn index_has_id(index: &dyn Index, commit_id: &CommitId) -> bool {
-    index.has_id(commit_id).unwrap()
+    index.has_id(commit_id).block_on().unwrap()
 }
 
 #[test]
