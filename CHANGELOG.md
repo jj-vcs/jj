@@ -24,6 +24,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   jj workspace can have its own Git HEAD. Existing repositories are migrated
   automatically.
 
+* `jj workspace add` now automatically creates a corresponding Git worktree
+  when working in a colocated Git repository. This means Git-based tools
+  (LSPs, editors, etc) work in the new workspace out of the box.
+  `jj workspace forget` automatically removes the corresponding Git worktree.
+
 ### Fixed bugs
 
 * A side of a conflict whose contents end with a carriage return no longer loses
