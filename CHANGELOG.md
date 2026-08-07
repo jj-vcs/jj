@@ -265,6 +265,10 @@ Thanks to the people who made this release happen!
   aliases of the reserved `.git` and `.jj` directories.
   [#8924](https://github.com/jj-vcs/jj/issues/8924)
 
+* `jj git remote list` now shows all configured push URLs for a remote instead
+  of only one.
+  [#9651](https://github.com/jj-vcs/jj/issues/9651)
+
 * `jj` now creates a new working-copy revision during snapshotting if the
   working copy was immutable. Previously, the new revision was created
   immediately after the working copy became immutable.

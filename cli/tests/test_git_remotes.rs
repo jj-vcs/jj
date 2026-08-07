@@ -1091,3 +1091,39 @@ fn test_git_remote_name_validation() {
     [exit status: 1]
     "#);
 }
+
+#[test]
+fn test_git_list_multiple_push_urls() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir
+        .run_jj([
+            "git",
+            "remote",
+            "add",
+            "origin",
+            "https://example.com/repo/origin",
+            "--push-url",
+            "ssh://example.com/repo/origin",
+        ])
+        .success();
+    let mut config_file = fs::OpenOptions::new()
+        .append(true)
+        .open(work_dir.root().join(".jj/repo/store/git/config"))
+        .unwrap();
+    // Git allows multiple pushurl values for one remote.
+    writeln!(
+        config_file,
+        "\tpushurl = ssh://example.com/repo/origin-mirror"
+    )
+    .unwrap();
+    drop(config_file);
+
+    let output = work_dir.run_jj(["git", "remote", "list"]);
+    insta::assert_snapshot!(output, @"
+    origin https://example.com/repo/origin (push: ssh://example.com/repo/origin) (push: ssh://example.com/repo/origin-mirror)
+    [EOF]
+    ");
+}
