@@ -119,6 +119,9 @@ None
   splitting it. Any hunks that are not selected or cannot be absorbed remain in
   the source commit.
 
+* `jj prev` and `jj next` have gained a `--keep` flag to keep the current changes
+  while moving to the previous or next revision.
+
 ### Fixed bugs
 
 * Recursive alias definitions are detected more precisely. jj can now expand
