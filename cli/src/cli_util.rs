@@ -141,6 +141,7 @@ use jj_lib::working_copy::SnapshotStats;
 use jj_lib::working_copy::UntrackedReason;
 use jj_lib::working_copy::WorkingCopy;
 use jj_lib::working_copy::WorkingCopyFactory;
+use jj_lib::working_copy::WorkspaceAnnotations;
 use jj_lib::working_copy::WorkingCopyFreshness;
 use jj_lib::workspace::DefaultWorkspaceLoaderFactory;
 use jj_lib::workspace::LockedWorkspace;
@@ -2136,6 +2137,14 @@ to the current parents may contain changes from multiple commits.
             }
             mut_repo
                 .set_wc_commit(workspace_name, new_wc_commit.id().clone())
+                .map_err(snapshot_command_error)?;
+            let annotations = WorkspaceAnnotations {
+                commit_id: Some(new_wc_commit.id()),
+            };
+            locked_ws
+                .locked_wc()
+                .set_workspace_annotations(annotations)
+                .await
                 .map_err(snapshot_command_error)?;
 
             // Rebase descendants
