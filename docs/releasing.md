@@ -80,9 +80,7 @@ jj new v0.<number>.0
 Publish each crate:
 
 ```shell
-(cd lib/proc-macros && cargo publish)
-(cd lib && cargo publish)
-(cd cli && cargo publish)
+cargo publish --workspace
 ```
 
 [^1]: We recommend publishing from a new clone because `cargo publish` will
