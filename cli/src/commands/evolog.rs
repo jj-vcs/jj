@@ -112,7 +112,8 @@ pub(crate) async fn cmd_evolog(
 
     let start_commit_ids: Vec<_> = workspace_command
         .parse_union_revsets(ui, &args.revisions)?
-        .evaluate_to_commit_ids()?
+        .evaluate_to_commit_ids()
+        .await?
         .try_collect()
         .await?;
 

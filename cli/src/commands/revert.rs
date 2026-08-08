@@ -104,7 +104,8 @@ pub(crate) async fn cmd_revert(
     let mut workspace_command = command.workspace_helper(ui).await?;
     let to_revert: Vec<_> = workspace_command
         .parse_union_revsets(ui, &args.revisions)?
-        .evaluate_to_commits()?
+        .evaluate_to_commits()
+        .await?
         .try_collect()
         .await?; // in reverse topological order
     if to_revert.is_empty() {

@@ -106,7 +106,7 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
     }
 
     /// Resolves user symbols in the expression, returns new expression.
-    pub fn resolve(&self) -> Result<Arc<ResolvedRevsetExpression>, RevsetResolutionError> {
+    pub async fn resolve(&self) -> Result<Arc<ResolvedRevsetExpression>, RevsetResolutionError> {
         let symbol_resolver = default_symbol_resolver(
             self.repo,
             self.extensions.symbol_resolvers(),
@@ -114,11 +114,13 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
         );
         self.expression
             .resolve_user_expression(self.repo, &symbol_resolver)
+            .await
     }
 
     /// Evaluates the expression.
-    pub fn evaluate(&self) -> Result<Box<dyn Revset + 'repo>, UserRevsetEvaluationError> {
+    pub async fn evaluate(&self) -> Result<Box<dyn Revset + 'repo>, UserRevsetEvaluationError> {
         self.resolve()
+            .await
             .map_err(UserRevsetEvaluationError::Resolution)?
             .evaluate(self.repo)
             .map_err(UserRevsetEvaluationError::Evaluation)
@@ -126,25 +128,26 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
 
     /// Evaluates the expression to an iterator over commit ids. Entries are
     /// sorted in reverse topological order.
-    pub fn evaluate_to_commit_ids(
+    pub async fn evaluate_to_commit_ids(
         &self,
     ) -> Result<
         LocalBoxStream<'repo, Result<CommitId, RevsetEvaluationError>>,
         UserRevsetEvaluationError,
     > {
-        Ok(self.evaluate()?.stream())
+        Ok(self.evaluate().await?.stream())
     }
 
     /// Evaluates the expression to an iterator over commit objects. Entries are
     /// sorted in reverse topological order.
-    pub fn evaluate_to_commits(
+    pub async fn evaluate_to_commits(
         &self,
     ) -> Result<
         LocalBoxStream<'repo, Result<Commit, RevsetEvaluationError>>,
         UserRevsetEvaluationError,
     > {
         Ok(self
-            .evaluate()?
+            .evaluate()
+            .await?
             .stream()
             .commits(self.repo.store())
             .boxed_local())
@@ -207,9 +210,9 @@ pub fn parse_immutable_heads_expression(
 ///
 /// Returns `None` if the alias couldn't be parsed. Returns `Err` if the parsed
 /// expression had name resolution error.
-pub(super) fn try_resolve_trunk_alias(
+pub(super) async fn try_resolve_trunk_alias(
     repo: &dyn Repo,
-    context: &RevsetParseContext,
+    context: &RevsetParseContext<'_>,
 ) -> Result<Option<Arc<ResolvedRevsetExpression>>, RevsetResolutionError> {
     let (_, _, revset_str, _) = context
         .aliases_map
@@ -221,7 +224,9 @@ pub(super) fn try_resolve_trunk_alias(
     // Not using IdPrefixContext since trunk() revset shouldn't contain short
     // prefixes.
     let symbol_resolver = SymbolResolver::new(repo, context.extensions.symbol_resolvers());
-    let resolved = expression.resolve_user_expression(repo, &symbol_resolver)?;
+    let resolved = expression
+        .resolve_user_expression(repo, &symbol_resolver)
+        .await?;
     Ok(Some(resolved))
 }
 
@@ -231,7 +236,8 @@ pub(super) async fn evaluate_revset_to_single_commit<'a>(
     commit_summary_template: impl FnOnce() -> TemplateRenderer<'a, Commit>,
 ) -> Result<Commit, CommandError> {
     let commits: Vec<_> = expression
-        .evaluate_to_commits()?
+        .evaluate_to_commits()
+        .await?
         .take(6)
         .try_collect()
         .await?;

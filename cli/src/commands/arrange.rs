@@ -101,7 +101,8 @@ pub(crate) async fn cmd_arrange(
         workspace_command
             .parse_union_revsets(ui, &[&*args.revisions_pos, &*args.revisions_opt].concat())?
     }
-    .resolve()?;
+    .resolve()
+    .await?;
     workspace_command
         .check_rewritable_expr(&target_expression)
         .await?;

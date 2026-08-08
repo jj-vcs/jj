@@ -461,7 +461,8 @@ pub async fn cmd_gerrit_upload(
     } else {
         let target_expr = workspace_command
             .parse_union_revsets(ui, &args.revisions)?
-            .resolve()?;
+            .resolve()
+            .await?;
         workspace_command
             .check_rewritable_expr(&target_expr)
             .await?;
@@ -488,7 +489,8 @@ pub async fn cmd_gerrit_upload(
                 .immutable_expression()
                 .range(&RevsetExpression::commits(revisions.clone())),
         )
-        .evaluate_to_commits()?
+        .evaluate_to_commits()
+        .await?
         .try_collect()
         .await?;
 

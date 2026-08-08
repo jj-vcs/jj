@@ -82,7 +82,8 @@ pub async fn cmd_sign(
     } else {
         workspace_command.parse_union_revsets(ui, &args.revisions)?
     }
-    .resolve()?;
+    .resolve()
+    .await?;
 
     workspace_command
         .check_rewritable_expr(&revset_expression)

@@ -69,7 +69,8 @@ impl DisambiguationData {
             let symbol_resolver = SymbolResolver::new(repo, extensions);
             let revset = self
                 .expression
-                .resolve_user_expression(repo, &symbol_resolver)?
+                .resolve_user_expression(repo, &symbol_resolver)
+                .block_on()?
                 .evaluate(repo)?;
 
             let commit_change_ids: Vec<_> = revset.commit_change_ids().try_collect().block_on()?;
@@ -158,7 +159,7 @@ impl IdPrefixIndex<'_> {
     }
 
     /// Resolve an unambiguous commit ID prefix.
-    pub fn resolve_commit_prefix(
+    pub async fn resolve_commit_prefix(
         &self,
         repo: &dyn Repo,
         prefix: &HexPrefix,
@@ -219,7 +220,7 @@ impl IdPrefixIndex<'_> {
     }
 
     /// Resolve an unambiguous change ID prefix to the commit IDs in the revset.
-    pub fn resolve_change_prefix(
+    pub async fn resolve_change_prefix(
         &self,
         repo: &dyn Repo,
         prefix: &HexPrefix,

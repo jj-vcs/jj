@@ -238,7 +238,7 @@ pub fn parse_op_diff_changes_in(
 
 /// Resolves the `op-diff-changes-in` expression for both the "from" and "to"
 /// repositories.
-fn resolve_op_diff_changes_exprs(
+async fn resolve_op_diff_changes_exprs(
     workspace_env: &WorkspaceCommandEnvironment,
     op_diff_changes_expr: &UserRevsetExpression,
     from_repo: &ReadonlyRepo,
@@ -250,10 +250,12 @@ fn resolve_op_diff_changes_exprs(
         .symbol_resolvers();
     let from_repo_symbol_resolver = SymbolResolver::new(from_repo, extensions);
     let to_repo_symbol_resolver = SymbolResolver::new(to_repo, extensions);
-    let from_op_diff_changes_expr =
-        op_diff_changes_expr.resolve_user_expression(from_repo, &from_repo_symbol_resolver)?;
-    let to_op_diff_changes_expr =
-        op_diff_changes_expr.resolve_user_expression(to_repo, &to_repo_symbol_resolver)?;
+    let from_op_diff_changes_expr = op_diff_changes_expr
+        .resolve_user_expression(from_repo, &from_repo_symbol_resolver)
+        .await?;
+    let to_op_diff_changes_expr = op_diff_changes_expr
+        .resolve_user_expression(to_repo, &to_repo_symbol_resolver)
+        .await?;
     Ok((from_op_diff_changes_expr, to_op_diff_changes_expr))
 }
 
@@ -280,7 +282,9 @@ pub async fn show_op_diff(
         &op_diff_changes_expr,
         from_repo.as_ref(),
         to_repo.as_ref(),
-    ) {
+    )
+    .await
+    {
         Ok((from_op_diff_changes_expr, to_op_diff_changes_expr)) => {
             let op_commits_diff = compute_operation_commits_diff(
                 current_repo,
