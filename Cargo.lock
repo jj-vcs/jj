@@ -2636,6 +2636,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "jj-core"
+version = "0.44.0"
+dependencies = [
+ "assert_matches",
+ "bstr",
+ "criterion",
+ "either",
+ "eyre",
+ "futures 0.3.33",
+ "globset",
+ "hashbrown 0.17.1",
+ "indexmap",
+ "insta",
+ "itertools 0.15.0",
+ "maplit",
+ "pollster",
+ "regex",
+ "smallvec",
+ "thiserror 2.0.19",
+]
+
+[[package]]
 name = "jj-lib"
 version = "0.44.0"
 dependencies = [
@@ -2645,7 +2667,6 @@ dependencies = [
  "bstr",
  "chrono",
  "clru",
- "criterion",
  "digest 0.10.7",
  "dunce",
  "either",
@@ -2655,12 +2676,12 @@ dependencies = [
  "gix",
  "gix-ignore",
  "globset",
- "hashbrown 0.17.1",
  "indexmap",
  "indoc",
  "insta",
  "interim",
  "itertools 0.15.0",
+ "jj-core",
  "jj-lib-proc-macros",
  "maplit",
  "memchr",

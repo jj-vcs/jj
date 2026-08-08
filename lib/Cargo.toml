@@ -14,7 +14,6 @@ readme = { workspace = true }
 
 include = [
     "/LICENSE",
-    "/benches/",
     "/src/",
     "/tests/",
     "!*.pending-snap",
@@ -24,10 +23,6 @@ include = [
 
 [[test]]
 name = "runner"
-
-[[bench]]
-name = "diff_bench"
-harness = false
 
 [dependencies]
 async-trait = { workspace = true }
@@ -43,10 +38,10 @@ futures = { workspace = true }
 gix = { workspace = true, optional = true }
 gix-ignore = { workspace = true }
 globset = { workspace = true }
-hashbrown = { workspace = true }
 indexmap = { workspace = true }
 interim = { workspace = true }
 itertools = { workspace = true }
+jj-core = { workspace = true }
 jj-lib-proc-macros = { workspace = true }
 maplit = { workspace = true }
 memchr = { workspace = true }
@@ -79,7 +74,6 @@ winreg = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-criterion = { workspace = true }
 eyre = { workspace = true }
 indoc = { workspace = true }
 insta = { workspace = true }
