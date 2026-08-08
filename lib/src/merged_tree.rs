@@ -165,6 +165,9 @@ impl MergedTree {
     /// Tries to resolve any conflicts, resolving any conflicts that can be
     /// automatically resolved and leaving the rest unresolved.
     pub async fn resolve(self) -> BackendResult<Self> {
+        // TODO REVIEW: should we also pass in the conflict labels here? If so, should
+        // we just make merge_trees a method of MergedTree? It's not used
+        // anywhere else.
         let merged = merge_trees(&self.store, self.tree_ids).await?;
         // If the result can be resolved, then `merge_trees()` above would have returned
         // a resolved merge. However, that function will always preserve the arity of

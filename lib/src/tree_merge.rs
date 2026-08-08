@@ -28,6 +28,7 @@ use futures::future::BoxFuture;
 use futures::future::try_join_all;
 use futures::stream::FuturesUnordered;
 use itertools::Itertools as _;
+use pollster::FutureExt as _;
 
 use crate::backend;
 use crate::backend::BackendError;
@@ -37,10 +38,14 @@ use crate::backend::MergedTreeValue;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::config::ConfigGetError;
+use crate::conflict_labels::ConflictLabels;
+use crate::copies::RenameMap;
+use crate::copies::compute_rename_map;
 use crate::files;
 use crate::files::FileMergeHunkLevel;
 use crate::merge::Merge;
 use crate::merge::SameChange;
+use crate::merged_tree::MergedTree;
 use crate::merged_tree::all_merged_tree_entries;
 use crate::object_id::ObjectId as _;
 use crate::repo_path::RepoPath;
@@ -79,11 +84,17 @@ pub async fn merge_trees(store: &Arc<Store>, merge: Merge<TreeId>) -> BackendRes
         Err(merge) => merge,
     };
 
+    let root_merged_tree =
+        MergedTree::new(store.clone(), merge.clone(), ConflictLabels::unlabeled());
+    let rename_map = compute_rename_map(&root_merged_tree).await?;
+
     let mut merger = TreeMerger {
         store: store.clone(),
+        root_merge: root_merged_tree,
         trees_to_resolve: BTreeMap::new(),
         work: FuturesUnordered::new(),
         unstarted_work: BTreeMap::new(),
+        rename_map,
     };
     merger.enqueue_tree_read(
         RepoPathBuf::root(),
@@ -195,12 +206,15 @@ enum TreeMergeWorkItemKey {
 
 struct TreeMerger {
     store: Arc<Store>,
+    // The original trees in the merge, used for pulling values from arbitrary paths.
+    root_merge: MergedTree,
     // Trees we're currently working on.
     trees_to_resolve: BTreeMap<RepoPathBuf, MergedTreeInput>,
     // Futures we're currently processing. In order to respect the backend's concurrency limit.
     work: FuturesUnordered<BoxFuture<'static, TreeMergerWorkOutput>>,
     // Futures we haven't started polling yet, in order to respect the backend's concurrency limit.
     unstarted_work: BTreeMap<TreeMergeWorkItemKey, BoxFuture<'static, TreeMergerWorkOutput>>,
+    rename_map: RenameMap,
 }
 
 impl TreeMerger {
@@ -248,15 +262,80 @@ impl TreeMerger {
         // First resolve trivial merges (those that we don't need to load any more data
         // for)
         let same_change = self.store.merge_options().same_change;
+
+        // Find all basenames that belong in this directory according to the rename map.
+        let mut basenames: HashSet<RepoPathComponentBuf> = HashSet::new();
+        for target_path in self.rename_map.keys() {
+            if let Some((parent, basename)) = target_path.split()
+                && parent == dir.as_ref()
+            {
+                basenames.insert(basename.to_owned());
+            }
+        }
+
+        // Also include basenames present in the physical trees (in case they are not in
+        // rename_map).
+        for (basename, _) in all_merged_tree_entries(&tree) {
+            basenames.insert(basename.to_owned());
+        }
+
         let mut resolved = vec![];
         let mut non_trivial = vec![];
-        for (basename, path_merge) in all_merged_tree_entries(&tree) {
-            if let Some(value) = path_merge.resolve_trivial(same_change) {
-                if let Some(value) = value.cloned() {
-                    resolved.push((basename.to_owned(), value));
+
+        for basename in basenames.into_iter().sorted() {
+            let path = dir.join(&basename);
+
+            // Pull values for this path using the rename map.
+            let (path_merge, source_paths) = if let Some(term_paths) = self.rename_map.get(&path) {
+                use crate::merge::MergeBuilder;
+                let store = self.root_merge.store();
+                let tree_ids = self.root_merge.tree_ids();
+                let zipped = zip(term_paths.iter(), tree_ids.iter())
+                    .map(|(opt_source_path, tree_id)| {
+                        let value = if let Some(source_path) = opt_source_path {
+                            let root_tree = MergedTree::resolved(store.clone(), tree_id.clone());
+                            root_tree.path_value(source_path).block_on().unwrap()
+                        } else {
+                            MergedTreeValue::absent()
+                        };
+                        (value, Merge::resolved(opt_source_path.clone()))
+                    })
+                    .collect::<Vec<_>>();
+                let (path_merges, source_paths): (Vec<_>, Vec<_>) = zipped.into_iter().unzip();
+                let path_merge = path_merges
+                    .into_iter()
+                    .collect::<MergeBuilder<_>>()
+                    .build()
+                    .flatten();
+                let source_paths = source_paths
+                    .into_iter()
+                    .collect::<MergeBuilder<_>>()
+                    .build()
+                    .flatten();
+                (path_merge, source_paths)
+            } else {
+                let path_merge = tree.value(&basename).cloned();
+                let source_paths = Merge::repeated(Some(path.clone()), tree.num_sides());
+                (path_merge, source_paths)
+            };
+
+            let is_rename = source_paths
+                .iter()
+                .any(|opt_path| opt_path.as_ref().is_some_and(|p| p != &path));
+            let has_rename_descendant = self
+                .rename_map
+                .keys()
+                .any(|target_path| target_path.starts_with(&path) && target_path != &path);
+
+            if !is_rename
+                && !has_rename_descendant
+                && let Some(value) = path_merge.resolve_trivial(same_change)
+            {
+                if let Some(value) = value.as_ref() {
+                    resolved.push((basename, value.clone()));
                 }
             } else {
-                non_trivial.push((basename.to_owned(), path_merge.cloned()));
+                non_trivial.push((basename, path_merge, source_paths));
             }
         }
 
@@ -268,7 +347,7 @@ impl TreeMerger {
         }
 
         let mut unmerged_tree = MergedTreeInput::new(resolved.into_iter().collect());
-        for (basename, value) in non_trivial {
+        for (basename, value, source_paths) in non_trivial {
             let path = dir.join(&basename);
             unmerged_tree.pending_lookup.insert(basename);
             if value.is_tree() {
@@ -277,7 +356,7 @@ impl TreeMerger {
                 // TODO: If it's e.g. a dir/file conflict, there's no need to try to
                 // resolve it as a file. We should mark them to
                 // `unmerged_tree.conflicts` instead.
-                self.enqueue_file_merge(path, value);
+                self.enqueue_file_merge(path, value, source_paths);
             }
         }
 
@@ -303,10 +382,16 @@ impl TreeMerger {
         self.work.push(Box::pin(work_fut));
     }
 
-    fn enqueue_file_merge(&mut self, path: RepoPathBuf, value: MergedTreeValue) {
+    fn enqueue_file_merge(
+        &mut self,
+        path: RepoPathBuf,
+        value: MergedTreeValue,
+        source_paths: Merge<Option<RepoPathBuf>>,
+    ) {
         let key = TreeMergeWorkItemKey::MergeFiles { path: path.clone() };
-        let work_fut = resolve_file_values_owned(self.store.clone(), path.clone(), value)
-            .map(|result| TreeMergerWorkOutput::MergedFiles { path, result });
+        let work_fut =
+            resolve_file_values_owned(self.store.clone(), path.clone(), value, source_paths)
+                .map(|result| TreeMergerWorkOutput::MergedFiles { path, result });
         if self.work.len() < self.store.concurrency() {
             self.work.push(Box::pin(work_fut));
         } else {
@@ -360,9 +445,9 @@ async fn resolve_file_values_owned(
     store: Arc<Store>,
     path: RepoPathBuf,
     values: MergedTreeValue,
+    source_paths: Merge<Option<RepoPathBuf>>,
 ) -> BackendResult<MergedTreeValue> {
-    let maybe_resolved = try_resolve_file_values(&store, &path, &values).await?;
-    Ok(maybe_resolved.unwrap_or(values))
+    resolve_file_values_with_sources(&store, &path, values, source_paths).await
 }
 
 /// Tries to resolve file conflicts by merging the file contents. Treats missing
@@ -373,12 +458,43 @@ pub async fn resolve_file_values(
     path: &RepoPath,
     values: MergedTreeValue,
 ) -> BackendResult<MergedTreeValue> {
+    let source_paths = Merge::repeated(Some(path.to_owned()), values.num_sides());
+    resolve_file_values_with_sources(store, path, values, source_paths).await
+}
+
+/// Tries to resolve file conflicts by merging the file contents. Treats missing
+/// files as empty. If the file conflict cannot be resolved, returns the passed
+/// `values` unmodified.
+pub async fn resolve_file_values_with_sources(
+    store: &Arc<Store>,
+    path: &RepoPath,
+    values: MergedTreeValue,
+    source_paths: Merge<Option<RepoPathBuf>>,
+) -> BackendResult<MergedTreeValue> {
     let same_change = store.merge_options().same_change;
     if let Some(resolved) = values.resolve_trivial(same_change) {
+        if let Some(TreeValue::File { id, .. }) = resolved {
+            ensure_file_at_path(
+                store,
+                id,
+                path,
+                &source_paths,
+                &values.map(|opt| opt.as_ref()),
+            )
+            .await?;
+        }
         return Ok(Merge::resolved(resolved.clone()));
     }
 
-    let maybe_resolved = try_resolve_file_values(store, path, &values).await?;
+    let maybe_resolved = try_resolve_file_values(store, path, &values, &source_paths).await?;
+    if maybe_resolved.is_none() {
+        let values_ref = values.map(|opt| opt.as_ref());
+        for opt_val in &values {
+            if let Some(TreeValue::File { id, .. }) = opt_val {
+                ensure_file_at_path(store, id, path, &source_paths, &values_ref).await?;
+            }
+        }
+    }
     Ok(maybe_resolved.unwrap_or(values))
 }
 
@@ -386,15 +502,16 @@ async fn try_resolve_file_values<T: Borrow<TreeValue>>(
     store: &Arc<Store>,
     path: &RepoPath,
     values: &Merge<Option<T>>,
+    source_paths: &Merge<Option<RepoPathBuf>>,
 ) -> BackendResult<Option<MergedTreeValue>> {
-    // The values may contain trees canceling each other (notably padded absent
-    // trees), so we need to simplify them first.
-    let simplified = values
-        .map(|value| value.as_ref().map(Borrow::borrow))
-        .simplify();
+    let values_borrowed = values.map(|value| value.as_ref().map(Borrow::borrow));
+    let (simplified_source_paths, simplified_values) = source_paths.simplify_with(&values_borrowed);
+
     // No fast path for simplified.is_resolved(). If it could be resolved, it would
     // have been caught by values.resolve_trivial() above.
-    if let Some(resolved) = try_resolve_file_conflict(store, path, &simplified).await? {
+    if let Some(resolved) =
+        try_resolve_file_conflict(store, path, &simplified_values, &simplified_source_paths).await?
+    {
         Ok(Some(Merge::normal(resolved)))
     } else {
         // Failed to merge the files, or the paths are not files
@@ -410,55 +527,36 @@ async fn try_resolve_file_conflict(
     store: &Store,
     filename: &RepoPath,
     conflict: &MergedTreeVal<'_>,
+    source_paths: &Merge<Option<RepoPathBuf>>,
 ) -> BackendResult<Option<TreeValue>> {
     let options = store.merge_options();
-    // If there are any non-file or any missing parts in the conflict, we can't
-    // merge it. We check early so we don't waste time reading file contents if
-    // we can't merge them anyway. At the same time we determine whether the
-    // resulting file should be executable.
-    let Ok(file_id_conflict) = conflict.try_map(|term| match term {
-        Some(TreeValue::File {
-            id,
-            executable: _,
-            copy_id: _,
-        }) => Ok(id),
-        _ => Err(()),
-    }) else {
+    let Some(file_id_conflict) = conflict.to_file_merge() else {
         return Ok(None);
     };
-    let Ok(executable_conflict) = conflict.try_map(|term| match term {
-        Some(TreeValue::File {
-            id: _,
-            executable,
-            copy_id: _,
-        }) => Ok(executable),
-        _ => Err(()),
-    }) else {
+    let Some(executable_conflict) = conflict.to_executable_merge() else {
         return Ok(None);
     };
-    let Ok(copy_id_conflict) = conflict.try_map(|term| match term {
-        Some(TreeValue::File {
-            id: _,
-            executable: _,
-            copy_id,
-        }) => Ok(copy_id),
-        _ => Err(()),
-    }) else {
+    let Some(copy_id_conflict) = conflict.to_copy_id_merge() else {
         return Ok(None);
     };
     // TODO: Whether to respect options.same_change to merge executable and
     // copy_id? Should also update conflicts::resolve_file_executable().
-    let Some(&&executable) = executable_conflict.resolve_trivial(SameChange::Accept) else {
+    let Some(executable) = crate::conflicts::resolve_file_executable(&executable_conflict) else {
         // We're unable to determine whether the result should be executable
         return Ok(None);
     };
-    let Some(&copy_id) = copy_id_conflict.resolve_trivial(SameChange::Accept) else {
-        // We're unable to determine the file's copy ID
-        return Ok(None);
+    let copy_id = match copy_id_conflict.resolve_trivial(SameChange::Accept) {
+        Some(Some(copy_id)) => copy_id.clone(),
+        Some(None) => return Ok(None),
+        None => crate::copies::merge_copy_ids(store, filename, &copy_id_conflict).await?,
     };
-    if let Some(&resolved_file_id) = file_id_conflict.resolve_trivial(options.same_change) {
+    if let Some(resolved_file_id) = file_id_conflict.resolve_trivial(options.same_change) {
+        let Some(resolved_file_id) = resolved_file_id else {
+            return Ok(None);
+        };
         // Don't bother reading the file contents if the conflict can be trivially
         // resolved.
+        ensure_file_at_path(store, resolved_file_id, filename, source_paths, conflict).await?;
         return Ok(Some(TreeValue::File {
             id: resolved_file_id.clone(),
             executable,
@@ -472,20 +570,24 @@ async fn try_resolve_file_conflict(
     // 1. Avoid reading unchanged file contents
     // 2. The simplified conflict can sometimes be resolved when the unsimplfied one
     //    cannot
-    let file_id_conflict = file_id_conflict.simplify();
+    let (simplified_source_paths, file_id_conflict) = source_paths.simplify_with(&file_id_conflict);
 
-    let contents = file_id_conflict
-        .try_map_async(async |file_id| {
+    let zipped = file_id_conflict.clone().zip(simplified_source_paths);
+    let contents = zipped
+        .try_map_async(async |(opt_file_id, opt_source_path)| {
             let mut content = vec![];
-            let mut reader = store.read_file(filename, file_id).await?;
-            reader
-                .read_to_end(&mut content)
-                .await
-                .map_err(|err| BackendError::ReadObject {
-                    object_type: file_id.object_type(),
-                    hash: file_id.hex(),
-                    source: err.into(),
-                })?;
+            if let Some(file_id) = opt_file_id {
+                let source_path: &RepoPath = opt_source_path.as_deref().unwrap_or(filename);
+                let mut reader = store.read_file(source_path, file_id).await?;
+                reader
+                    .read_to_end(&mut content)
+                    .await
+                    .map_err(|err| BackendError::ReadObject {
+                        object_type: file_id.object_type(),
+                        hash: file_id.hex(),
+                        source: err.into(),
+                    })?;
+            }
             BackendResult::Ok(content)
         })
         .await?;
@@ -501,4 +603,35 @@ async fn try_resolve_file_conflict(
     } else {
         Ok(None)
     }
+}
+
+async fn ensure_file_at_path(
+    store: &Store,
+    id: &backend::FileId,
+    target_path: &RepoPath,
+    source_paths: &Merge<Option<RepoPathBuf>>,
+    values: &Merge<Option<&TreeValue>>,
+) -> BackendResult<()> {
+    let mut already_at_target = false;
+    let mut source_to_copy = None;
+
+    for (opt_val, opt_src_path) in zip(values.iter(), source_paths.iter()) {
+        if let Some(TreeValue::File { id: val_id, .. }) = opt_val
+            && val_id == id
+            && let Some(src_path) = opt_src_path
+        {
+            if src_path.as_ref() == target_path {
+                already_at_target = true;
+                break;
+            } else {
+                source_to_copy = Some(src_path);
+            }
+        }
+    }
+
+    if !already_at_target && let Some(source_path) = source_to_copy {
+        let mut reader = store.read_file(source_path, id).await?;
+        store.write_file(target_path, &mut reader).await?;
+    }
+    Ok(())
 }
