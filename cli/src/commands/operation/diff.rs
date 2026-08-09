@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::slice;
@@ -31,6 +32,7 @@ use jj_lib::matchers::EverythingMatcher;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::op_store::RemoteRefState;
+use jj_lib::ref_name::GitRefName;
 use jj_lib::refs::diff_named_commit_ids;
 use jj_lib::refs::diff_named_ref_targets;
 use jj_lib::refs::diff_named_remote_refs;
@@ -583,6 +585,81 @@ pub async fn show_op_diff(
                         &from_ref.target,
                         false,
                         Some(get_remote_ref_prefix(from_ref)),
+                    )
+                    .await
+                })
+                .await?;
+        }
+    }
+
+    let mut fetched_ref_remotes = BTreeMap::new();
+    for remote_name in from_repo
+        .view()
+        .fetched_git_refs()
+        .keys()
+        .chain(to_repo.view().fetched_git_refs().keys())
+    {
+        fetched_ref_remotes.insert(remote_name.clone(), ());
+    }
+    let empty_fetched_refs = BTreeMap::new();
+    let mut changed_fetched_refs = vec![];
+    for remote_name in fetched_ref_remotes.keys() {
+        let from_refs = from_repo
+            .view()
+            .fetched_git_refs()
+            .get(remote_name)
+            .unwrap_or(&empty_fetched_refs);
+        let to_refs = to_repo
+            .view()
+            .fetched_git_refs()
+            .get(remote_name)
+            .unwrap_or(&empty_fetched_refs);
+        changed_fetched_refs.extend(
+            diff_named_ref_targets(
+                from_refs.iter().map(|(name, target)| {
+                    let name: &GitRefName = name.as_ref();
+                    (name, target)
+                }),
+                to_refs.iter().map(|(name, target)| {
+                    let name: &GitRefName = name.as_ref();
+                    (name, target)
+                }),
+            )
+            .map(|(ref_name, targets)| (remote_name, ref_name, targets)),
+        );
+    }
+    if !changed_fetched_refs.is_empty() {
+        writeln!(formatter)?;
+        with_content_format
+            .write(formatter, async |formatter| {
+                writeln!(formatter, "Changed fetched Git refs:")
+            })
+            .await?;
+        for (remote_name, ref_name, (from_target, to_target)) in changed_fetched_refs {
+            with_content_format
+                .write(formatter, async |formatter| {
+                    writeln!(
+                        formatter,
+                        "{ref_name}@{remote_name}:",
+                        ref_name = ref_name.as_symbol(),
+                        remote_name = remote_name.as_symbol()
+                    )?;
+                    write_ref_target_summary(
+                        formatter,
+                        current_repo,
+                        commit_summary_template,
+                        to_target,
+                        true,
+                        None,
+                    )
+                    .await?;
+                    write_ref_target_summary(
+                        formatter,
+                        current_repo,
+                        commit_summary_template,
+                        from_target,
+                        false,
+                        None,
                     )
                     .await
                 })
