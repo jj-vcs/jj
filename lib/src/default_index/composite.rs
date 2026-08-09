@@ -603,7 +603,7 @@ impl Index for CompositeIndex {
             .shortest_unique_commit_id_prefix_len(commit_id))
     }
 
-    fn resolve_commit_id_prefix(
+    async fn resolve_commit_id_prefix(
         &self,
         prefix: &HexPrefix,
     ) -> IndexResult<PrefixResolution<CommitId>> {

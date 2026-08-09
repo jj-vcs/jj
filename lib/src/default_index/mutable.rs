@@ -555,11 +555,11 @@ impl Index for DefaultMutableIndex {
         self.0.shortest_unique_commit_id_prefix_len(commit_id)
     }
 
-    fn resolve_commit_id_prefix(
+    async fn resolve_commit_id_prefix(
         &self,
         prefix: &HexPrefix,
     ) -> IndexResult<PrefixResolution<CommitId>> {
-        self.0.resolve_commit_id_prefix(prefix)
+        self.0.resolve_commit_id_prefix(prefix).await
     }
 
     fn has_id(&self, commit_id: &CommitId) -> IndexResult<bool> {

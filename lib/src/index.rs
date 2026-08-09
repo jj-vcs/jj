@@ -110,7 +110,7 @@ pub trait Index: Send + Sync {
     /// Searches the index for commit IDs matching `prefix`. Returns a
     /// [`PrefixResolution`] with a [`CommitId`] if the prefix matches a single
     /// commit.
-    fn resolve_commit_id_prefix(
+    async fn resolve_commit_id_prefix(
         &self,
         prefix: &HexPrefix,
     ) -> IndexResult<PrefixResolution<CommitId>>;

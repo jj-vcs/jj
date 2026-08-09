@@ -14,6 +14,7 @@
 
 use jj_lib::object_id::HexPrefix;
 use jj_lib::repo::Repo as _;
+use pollster::FutureExt as _;
 
 use super::CriterionArgs;
 use super::run_bench;
@@ -38,7 +39,7 @@ pub async fn cmd_bench_resolve_prefix(
     let workspace_command = command.workspace_helper(ui).await?;
     let prefix = HexPrefix::try_from_hex(&args.prefix).unwrap();
     let index = workspace_command.repo().index();
-    let routine = || index.resolve_commit_id_prefix(&prefix);
+    let routine = || index.resolve_commit_id_prefix(&prefix).block_on();
     run_bench(
         ui,
         &format!("resolve-prefix-{}", prefix.hex()),

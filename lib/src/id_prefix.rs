@@ -185,7 +185,7 @@ impl IdPrefixIndex<'_> {
                 }
             }
         }
-        repo.index().resolve_commit_id_prefix(prefix)
+        repo.index().resolve_commit_id_prefix(prefix).block_on()
     }
 
     /// Returns the shortest length of a prefix of `commit_id` that can still be
