@@ -215,7 +215,9 @@ impl IdPrefixIndex<'_> {
         {
             return Ok(lookup.shortest_unique_prefix_len());
         }
-        repo.index().shortest_unique_commit_id_prefix_len(commit_id)
+        repo.index()
+            .shortest_unique_commit_id_prefix_len(commit_id)
+            .block_on()
     }
 
     /// Resolve an unambiguous change ID prefix to the commit IDs in the revset.
