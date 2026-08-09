@@ -176,7 +176,7 @@ fn test_merge_views_checkout() -> TestResult {
         .set_wc_commit(ws1_name.clone(), commit2.id().clone())?;
     tx1.repo_mut()
         .set_wc_commit(ws2_name.clone(), commit2.id().clone())?;
-    tx1.repo_mut().remove_wc_commit(&ws4_name).block_on()?;
+    tx1.repo_mut().remove_workspace(&ws4_name).block_on()?;
     tx1.repo_mut()
         .set_wc_commit(ws5_name.clone(), commit2.id().clone())?;
     tx1.repo_mut()
@@ -189,7 +189,7 @@ fn test_merge_views_checkout() -> TestResult {
         .set_wc_commit(ws3_name.clone(), commit3.id().clone())?;
     tx2.repo_mut()
         .set_wc_commit(ws4_name.clone(), commit3.id().clone())?;
-    tx2.repo_mut().remove_wc_commit(&ws5_name).block_on()?;
+    tx2.repo_mut().remove_workspace(&ws5_name).block_on()?;
     tx2.repo_mut()
         .set_wc_commit(ws7_name.clone(), commit3.id().clone())?;
 

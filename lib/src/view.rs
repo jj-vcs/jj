@@ -119,7 +119,7 @@ impl View {
         self.data.wc_commit_ids.insert(name, commit_id);
     }
 
-    pub fn remove_wc_commit(&mut self, name: &WorkspaceName) {
+    pub fn remove_workspace(&mut self, name: &WorkspaceName) {
         self.data.wc_commit_ids.remove(name);
         self.data.git_heads.remove(name);
     }

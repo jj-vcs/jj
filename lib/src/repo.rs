@@ -1567,9 +1567,9 @@ impl MutableRepo {
         Ok(())
     }
 
-    pub async fn remove_wc_commit(&mut self, name: &WorkspaceName) -> Result<(), EditCommitError> {
+    pub async fn remove_workspace(&mut self, name: &WorkspaceName) -> Result<(), EditCommitError> {
         self.maybe_abandon_wc_commit(name).await?;
-        self.view.remove_wc_commit(name);
+        self.view.remove_workspace(name);
         Ok(())
     }
 
@@ -1598,7 +1598,7 @@ impl MutableRepo {
         };
         match new_id {
             Some(id) => self.view.set_wc_commit(name.to_owned(), id),
-            None => self.view.remove_wc_commit(name),
+            None => self.view.remove_workspace(name),
         }
     }
 

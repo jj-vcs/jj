@@ -660,7 +660,7 @@ fn test_rename_remote() {
 
 #[test]
 fn test_remove_wc_commit_previous_not_discardable() -> TestResult {
-    // Test that MutableRepo::remove_wc_commit() does not usually abandon the
+    // Test that MutableRepo::remove_workspace() does not usually abandon the
     // previous commit.
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
@@ -675,7 +675,7 @@ fn test_remove_wc_commit_previous_not_discardable() -> TestResult {
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    mut_repo.remove_wc_commit(&ws_name).block_on()?;
+    mut_repo.remove_workspace(&ws_name).block_on()?;
     mut_repo.rebase_descendants().block_on()?;
     assert!(mut_repo.view().heads().contains(old_wc_commit.id()));
     assert!(mut_repo.view().git_head(&ws_name).is_absent());
@@ -684,7 +684,7 @@ fn test_remove_wc_commit_previous_not_discardable() -> TestResult {
 
 #[test]
 fn test_remove_wc_commit_previous_discardable() -> TestResult {
-    // Test that MutableRepo::remove_wc_commit() abandons the previous commit
+    // Test that MutableRepo::remove_workspace() abandons the previous commit
     // if it was discardable.
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
@@ -703,7 +703,7 @@ fn test_remove_wc_commit_previous_discardable() -> TestResult {
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    mut_repo.remove_wc_commit(&ws_name).block_on()?;
+    mut_repo.remove_workspace(&ws_name).block_on()?;
     mut_repo.rebase_descendants().block_on()?;
     assert!(!mut_repo.view().heads().contains(old_wc_commit.id()));
     Ok(())
