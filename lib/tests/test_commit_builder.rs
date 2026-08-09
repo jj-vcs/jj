@@ -15,7 +15,6 @@
 use assert_matches::assert_matches;
 use futures::StreamExt as _;
 use indoc::indoc;
-use jj_lib::backend::BackendError;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::MillisSinceEpoch;
 use jj_lib::backend::Signature;
@@ -377,26 +376,28 @@ fn test_rewrite_to_identical_commit(backend: TestRepoBackend) -> TestResult {
     // Writing to the store should work
     let commit2 = builder.write_hidden().block_on()?;
     assert_eq!(commit1, commit2);
-    // Writing to the repo shouldn't work, which would create cycle in
-    // predecessors/parent mappings
-    let result = builder.write(tx.repo_mut()).block_on();
-    assert_matches!(result, Err(BackendError::Other(_)));
+    // Writing an identical commit to the repo should succeed and return
+    // the same commit (rewrite mapping recorded, no duplicate created)
+    let commit3 = builder.write(tx.repo_mut()).block_on()?;
+    assert_eq!(commit1, commit3);
     tx.repo_mut().rebase_descendants().block_on()?;
     tx.commit("test").block_on()?;
 
     // Create two rewritten commits of the same content and metadata
     let mut tx = repo.start_transaction();
-    tx.repo_mut()
-        .rewrite_commit(&commit1)
-        .set_description("rewritten")
-        .write_unwrap();
-    let result = tx
+    let commit_dup1 = tx
         .repo_mut()
         .rewrite_commit(&commit1)
         .set_description("rewritten")
         .write()
-        .block_on();
-    assert_matches!(result, Err(BackendError::Other(_)));
+        .block_on()?;
+    let commit_dup2 = tx
+        .repo_mut()
+        .rewrite_commit(&commit1)
+        .set_description("rewritten")
+        .write()
+        .block_on()?;
+    assert_eq!(commit_dup1, commit_dup2);
     tx.repo_mut().rebase_descendants().block_on()?;
     tx.commit("test").block_on()?;
     Ok(())
