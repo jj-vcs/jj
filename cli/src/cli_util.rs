@@ -659,21 +659,16 @@ impl CommandHelper {
 
                 let WorkspaceCommandHelper { workspace, env, .. } = workspace_command;
                 let mut workspace_command = self.load_from_workspace(ui, workspace, env).await?;
-
-                #[cfg_attr(not(feature = "git"), expect(unused_mut))]
-                let mut repo = workspace_command.repo().clone();
-                #[cfg(feature = "git")]
-                let colocated = workspace_command.working_copy_shared_with_git();
-                #[cfg(feature = "git")]
-                let workspace_name = workspace_command.workspace_name().to_owned();
-
-                let (mut locked_ws, desired_wc_commit) = workspace_command
-                    .unchecked_start_working_copy_mutation()
+                let repo = &workspace_command.user_repo.repo;
+                let desired_wc_commit = workspace_command.prepare_working_copy_mutation().await?;
+                let mut locked_ws = workspace_command
+                    .workspace
+                    .start_working_copy_mutation()
                     .await?;
                 match WorkingCopyFreshness::check_stale(
                     locked_ws.locked_wc(),
                     &desired_wc_commit,
-                    &repo,
+                    repo,
                 )
                 .await?
                 {
@@ -688,30 +683,34 @@ impl CommandHelper {
                     | WorkingCopyFreshness::SiblingOperation => {
                         // Reset Git HEAD first if the repo is colocated
                         #[cfg(feature = "git")]
-                        if colocated && self.should_commit_transaction() {
+                        if workspace_command.env.working_copy_shared_with_git
+                            && self.should_commit_transaction()
+                        {
+                            let workspace_name = workspace_command.env.workspace_name();
                             let mut tx =
-                                start_repo_transaction(&repo, &workspace_name, self.string_args());
+                                start_repo_transaction(repo, workspace_name, self.string_args());
                             try_reset_git_head(
                                 ui,
                                 tx.repo_mut(),
-                                &workspace_name,
+                                workspace_name,
                                 &desired_wc_commit,
                                 git_import_export_lock,
                             )
                             .await?;
                             if tx.repo().has_changes() {
-                                repo = self.maybe_commit_transaction(tx, "reset git head").await?;
+                                let repo =
+                                    self.maybe_commit_transaction(tx, "reset git head").await?;
+                                workspace_command.user_repo = ReadonlyUserRepo::new(repo);
                             }
                         }
 
                         let stats = update_stale_working_copy(
                             locked_ws,
-                            repo.op_id().clone(),
+                            workspace_command.user_repo.repo.op_id().clone(),
                             &stale_wc_commit,
                             &desired_wc_commit,
                         )
                         .await?;
-                        workspace_command.user_repo = ReadonlyUserRepo::new(repo);
                         workspace_command.print_updated_working_copy_stats(
                             ui,
                             Some(&stale_wc_commit),
@@ -1504,25 +1503,20 @@ impl WorkspaceCommandHelper {
         &self.env
     }
 
-    pub async fn unchecked_start_working_copy_mutation(
-        &mut self,
-    ) -> Result<(LockedWorkspace<'_>, Commit), CommandError> {
+    async fn prepare_working_copy_mutation(&self) -> Result<Commit, CommandError> {
         self.check_working_copy_writable()?;
-        let wc_commit = if let Some(wc_commit_id) = self.get_wc_commit_id() {
-            self.repo().store().get_commit_async(wc_commit_id).await?
+        if let Some(wc_commit_id) = self.get_wc_commit_id() {
+            Ok(self.repo().store().get_commit_async(wc_commit_id).await?)
         } else {
-            return Err(user_error("Nothing checked out in this workspace"));
-        };
-
-        let locked_ws = self.workspace.start_working_copy_mutation().await?;
-
-        Ok((locked_ws, wc_commit))
+            Err(user_error("Nothing checked out in this workspace"))
+        }
     }
 
     pub async fn start_working_copy_mutation(
         &mut self,
     ) -> Result<(LockedWorkspace<'_>, Commit), CommandError> {
-        let (mut locked_ws, wc_commit) = self.unchecked_start_working_copy_mutation().await?;
+        let wc_commit = self.prepare_working_copy_mutation().await?;
+        let mut locked_ws = self.workspace.start_working_copy_mutation().await?;
         if wc_commit.tree().tree_ids_and_labels()
             != locked_ws.locked_wc().old_tree().tree_ids_and_labels()
         {
