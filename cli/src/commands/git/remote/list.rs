@@ -17,11 +17,11 @@ use std::io::Write as _;
 use bstr::BString;
 use gix::Remote;
 use jj_lib::git;
+use jj_lib::ref_name::RemoteName;
 use jj_lib::repo::Repo as _;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
-use crate::command_error::user_error_with_message;
 use crate::ui::Ui;
 
 /// List Git remotes
@@ -36,22 +36,26 @@ pub async fn cmd_git_remote_list(
     let workspace_command = command.workspace_helper(ui).await?;
     let git_repo = git::get_git_repo(workspace_command.repo().store())?;
     for remote_name in git_repo.remote_names() {
-        let remote = match git_repo.try_find_remote(&*remote_name) {
-            Some(Ok(remote)) => remote,
-            Some(Err(err)) => {
-                return Err(user_error_with_message(
-                    format!("Failed to load configured remote {remote_name}"),
-                    err,
-                ));
-            }
-            None => continue, // ignore empty [remote "<name>"] section
+        let Ok(remote_name) = str::from_utf8(&remote_name).map(RemoteName::new) else {
+            continue; // ignore non-UTF-8 remote names which we don't support
+        };
+        let Some(remote) = git::try_find_active_remote(&git_repo, remote_name)? else {
+            continue; // ignore empty [remote "<name>"] section
         };
         let fetch_url = get_url(&remote, gix::remote::Direction::Fetch);
         let push_url = get_url(&remote, gix::remote::Direction::Push);
         if fetch_url == push_url {
-            writeln!(ui.stdout(), "{remote_name} {fetch_url}")?;
+            writeln!(
+                ui.stdout(),
+                "{remote_name} {fetch_url}",
+                remote_name = remote_name.as_symbol()
+            )?;
         } else {
-            writeln!(ui.stdout(), "{remote_name} {fetch_url} (push: {push_url})")?;
+            writeln!(
+                ui.stdout(),
+                "{remote_name} {fetch_url} (push: {push_url})",
+                remote_name = remote_name.as_symbol()
+            )?;
         }
     }
     Ok(())

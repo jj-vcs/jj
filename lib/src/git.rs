@@ -2361,11 +2361,39 @@ fn iter_remote_names(git_repo: &gix::Repository) -> impl Iterator<Item = RemoteN
     git_repo
         .remote_names()
         .into_iter()
-        // exclude empty [remote "<name>"] section
-        .filter(|name| git_repo.try_find_remote(name.as_ref()).is_some())
         // ignore non-UTF-8 remote names which we don't support
         .filter_map(|name| String::from_utf8(name.into_owned().into()).ok())
         .map(RemoteNameBuf::from)
+        // exclude empty [remote "<name>"] section
+        .filter(|name| try_find_active_remote_inner(git_repo, name).is_some())
+}
+
+/// Finds a configured remote with the given `name`. Returns `None` if it
+/// doesn't exist or has no fetch or push URLs.
+pub fn try_find_active_remote<'a>(
+    git_repo: &'a gix::Repository,
+    name: &RemoteName,
+) -> Result<Option<gix::Remote<'a>>, GitRemoteManagementError> {
+    try_find_active_remote_inner(git_repo, name)
+        .transpose()
+        .map_err(GitRemoteManagementError::from_git)
+}
+
+fn try_find_active_remote_inner<'a>(
+    git_repo: &'a gix::Repository,
+    name: &RemoteName,
+) -> Option<Result<gix::Remote<'a>, gix::remote::find::Error>> {
+    // Since gix v0.86.0, try_find_remote() no longer filters out remotes
+    // without configured URLs.
+    git_repo
+        .try_find_remote(name.as_str())
+        .filter(|result| match result {
+            Ok(remote) => {
+                remote.url(gix::remote::Direction::Fetch).is_some()
+                    || remote.url(gix::remote::Direction::Push).is_some()
+            }
+            Err(_) => true,
+        })
 }
 
 pub fn add_remote(
@@ -2378,7 +2406,7 @@ pub fn add_remote(
 
     validate_remote_name(remote_name)?;
 
-    if git_repo.try_find_remote(remote_name.as_str()).is_some() {
+    if try_find_active_remote_inner(&git_repo, remote_name).is_some() {
         return Err(GitRemoteManagementError::RemoteAlreadyExists(
             remote_name.to_owned(),
         ));
@@ -2414,7 +2442,7 @@ pub fn remove_remote(
 ) -> Result<(), GitRemoteManagementError> {
     let mut git_repo = get_git_repo(mut_repo.store())?;
 
-    if git_repo.try_find_remote(remote_name.as_str()).is_none() {
+    if try_find_active_remote_inner(&git_repo, remote_name).is_none() {
         return Err(GitRemoteManagementError::NoSuchRemote(
             remote_name.to_owned(),
         ));
@@ -2489,14 +2517,10 @@ pub fn rename_remote(
 
     validate_remote_name(new_remote_name)?;
 
-    let Some(result) = git_repo.try_find_remote(old_remote_name.as_str()) else {
-        return Err(GitRemoteManagementError::NoSuchRemote(
-            old_remote_name.to_owned(),
-        ));
-    };
-    let mut remote = result.map_err(GitRemoteManagementError::from_git)?;
+    let mut remote = try_find_active_remote(&git_repo, old_remote_name)?
+        .ok_or_else(|| GitRemoteManagementError::NoSuchRemote(old_remote_name.to_owned()))?;
 
-    if git_repo.try_find_remote(new_remote_name.as_str()).is_some() {
+    if try_find_active_remote_inner(&git_repo, new_remote_name).is_some() {
         return Err(GitRemoteManagementError::RemoteAlreadyExists(
             new_remote_name.to_owned(),
         ));
@@ -2934,8 +2958,7 @@ pub fn load_default_fetch_bookmarks(
     remote_name: &RemoteName,
     git_repo: &gix::Repository,
 ) -> Result<(IgnoredRefspecs, StringExpression), GitDefaultRefspecError> {
-    let remote = git_repo
-        .try_find_remote(remote_name.as_str())
+    let remote = try_find_active_remote_inner(git_repo, remote_name)
         .ok_or_else(|| GitDefaultRefspecError::NoSuchRemote(remote_name.to_owned()))?
         .map_err(|e| {
             GitDefaultRefspecError::InvalidRemoteConfiguration(remote_name.to_owned(), Box::new(e))
@@ -3066,11 +3089,7 @@ impl<'a> GitFetch<'a> {
         validate_remote_name(remote_name)?;
 
         // check the remote exists
-        if self
-            .git_repo
-            .try_find_remote(remote_name.as_str())
-            .is_none()
-        {
+        if try_find_active_remote_inner(&self.git_repo, remote_name).is_none() {
             return Err(GitFetchError::NoSuchRemote(remote_name.to_owned()));
         }
 
@@ -3135,11 +3154,7 @@ impl<'a> GitFetch<'a> {
         &self,
         remote_name: &RemoteName,
     ) -> Result<Option<RefNameBuf>, GitFetchError> {
-        if self
-            .git_repo
-            .try_find_remote(remote_name.as_str())
-            .is_none()
-        {
+        if try_find_active_remote_inner(&self.git_repo, remote_name).is_none() {
             return Err(GitFetchError::NoSuchRemote(remote_name.to_owned()));
         }
         let default_branch = self.git_ctx.spawn_remote_show(remote_name)?;
@@ -3370,7 +3385,7 @@ pub fn push_updates(
     let git_ctx = GitSubprocessContext::from_git_backend(git_backend, subprocess_options);
 
     // check the remote exists
-    if git_repo.try_find_remote(remote_name.as_str()).is_none() {
+    if try_find_active_remote_inner(&git_repo, remote_name).is_none() {
         return Err(GitPushError::NoSuchRemote(remote_name.to_owned()));
     }
 
