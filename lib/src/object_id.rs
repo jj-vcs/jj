@@ -27,9 +27,9 @@ pub trait ObjectId {
 }
 
 // Defines a new struct type with visibility `vis` and name `ident` containing
-// a single Vec<u8> used to store an identifier (typically the output of a hash
-// function) as bytes. Types defined using this macro automatically implement
-// the `ObjectId` and `ContentHash` traits.
+// a single Box<[u8]> used to store an identifier (typically the output of a
+// hash function) as bytes. Types defined using this macro automatically
+// implement the `ObjectId` and `ContentHash` traits.
 // Documentation comments written inside the macro definition will be captured
 // and associated with the type defined by the macro.
 //
@@ -46,7 +46,7 @@ macro_rules! id_type {
     ) => {
         $(#[$attr])*
         #[derive($crate::content_hash::ContentHash, PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
-        $vis struct $name(Vec<u8>);
+        $vis struct $name(Box<[u8]>);
         $crate::object_id::impl_id_type!($name, $hex_method);
     };
 }
@@ -56,13 +56,13 @@ macro_rules! impl_id_type {
         #[allow(dead_code)]
         impl $name {
             /// Creates a new instance of this id type from the given bytes.
-            pub fn new(value: Vec<u8>) -> Self {
-                Self(value)
+            pub fn from_vec(value: Vec<u8>) -> Self {
+                Self(value.into())
             }
 
             /// Creates a new instance of this id type from the given byte slice.
             pub fn from_bytes(bytes: &[u8]) -> Self {
-                Self(bytes.to_vec())
+                Self(bytes.into())
             }
 
             /// Parses the given hex string into an ObjectId.
@@ -75,7 +75,7 @@ macro_rules! impl_id_type {
 
             /// Parses the given hex string into an ObjectId.
             pub fn try_from_hex(hex: impl AsRef<[u8]>) -> Option<Self> {
-                $crate::hex_util::decode_hex(hex).map(Self)
+                $crate::hex_util::decode_hex(hex).map(Self::from_vec)
             }
         }
 
@@ -119,7 +119,7 @@ macro_rules! impl_id_type {
             }
 
             fn to_bytes(&self) -> Vec<u8> {
-                self.0.clone()
+                self.0.to_vec()
             }
 
             fn hex(&self) -> String {

@@ -131,7 +131,7 @@ impl TestBackend {
     pub fn with_data(data: Arc<Mutex<TestBackendData>>) -> Self {
         let root_commit_id = CommitId::from_bytes(&[0; HASH_LENGTH]);
         let root_change_id = ChangeId::from_bytes(&[0; CHANGE_ID_LENGTH]);
-        let empty_tree_id = TreeId::new(get_hash(&Tree::default()));
+        let empty_tree_id = TreeId::from_vec(get_hash(&Tree::default()));
         let runtime = Runtime::new().unwrap();
 
         Self {
@@ -237,7 +237,7 @@ impl Backend for TestBackend {
         let mut bytes = Vec::new();
         contents.read_to_end(&mut bytes).await.unwrap();
         self.run_async(move |mut data| {
-            let id = FileId::new(get_hash(&bytes));
+            let id = FileId::from_vec(get_hash(&bytes));
             data.files
                 .entry(path.clone())
                 .or_default()
@@ -269,7 +269,7 @@ impl Backend for TestBackend {
     }
 
     async fn write_symlink(&self, path: &RepoPath, target: &str) -> BackendResult<SymlinkId> {
-        let id = SymlinkId::new(get_hash(target.as_bytes()));
+        let id = SymlinkId::from_vec(get_hash(target.as_bytes()));
         let path = path.to_owned();
         let target = target.to_owned();
         self.run_async(move |mut data| {
@@ -302,7 +302,7 @@ impl Backend for TestBackend {
     async fn write_copy(&self, contents: &CopyHistory) -> BackendResult<CopyId> {
         let contents = contents.clone();
         self.run_async(move |mut data| {
-            let id = CopyId::new(get_hash(&contents));
+            let id = CopyId::from_vec(get_hash(&contents));
             data.copies.insert(id.clone(), contents);
             Ok(id)
         })
@@ -369,7 +369,7 @@ impl Backend for TestBackend {
         let path = path.to_owned();
         let contents = contents.clone();
         self.run_async(move |mut data| {
-            let id = TreeId::new(get_hash(&contents));
+            let id = TreeId::from_vec(get_hash(&contents));
             data.trees
                 .entry(path.clone())
                 .or_default()
@@ -412,7 +412,7 @@ impl Backend for TestBackend {
         }
 
         self.run_async(move |mut data| {
-            let id = CommitId::new(get_hash(&contents));
+            let id = CommitId::from_vec(get_hash(&contents));
             data.commits.insert(id.clone(), contents.clone());
             Ok((id, contents))
         })

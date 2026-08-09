@@ -174,7 +174,7 @@ impl OpStore for SimpleOpStore {
             .context(temp_file.path())
             .map_err(|err| io_to_write_error(err, "view"))?;
 
-        let id = ViewId::new(blake2b_hash(view).to_vec());
+        let id = ViewId::from_vec(blake2b_hash(view).to_vec());
 
         let new_path = dir.join(id.hex());
         persist_content_addressed_temp_file(temp_file, &new_path)
@@ -219,7 +219,7 @@ impl OpStore for SimpleOpStore {
             .context(temp_file.path())
             .map_err(|err| io_to_write_error(err, "operation"))?;
 
-        let id = OperationId::new(blake2b_hash(operation).to_vec());
+        let id = OperationId::from_vec(blake2b_hash(operation).to_vec());
 
         let new_path = dir.join(id.hex());
         persist_content_addressed_temp_file(temp_file, &new_path)
@@ -408,7 +408,7 @@ fn operation_id_from_proto(bytes: Vec<u8>) -> Result<OperationId, PostDecodeErro
             actual: bytes.len(),
         })
     } else {
-        Ok(OperationId::new(bytes))
+        Ok(OperationId::from_vec(bytes))
     }
 }
 
@@ -419,7 +419,7 @@ fn view_id_from_proto(bytes: Vec<u8>) -> Result<ViewId, PostDecodeError> {
             actual: bytes.len(),
         })
     } else {
-        Ok(ViewId::new(bytes))
+        Ok(ViewId::from_vec(bytes))
     }
 }
 
@@ -494,11 +494,11 @@ fn commit_predecessors_map_from_proto(
     proto
         .into_iter()
         .map(|entry| {
-            let commit_id = CommitId::new(entry.commit_id);
+            let commit_id = CommitId::from_vec(entry.commit_id);
             let predecessor_ids = entry
                 .predecessor_ids
                 .into_iter()
-                .map(CommitId::new)
+                .map(CommitId::from_vec)
                 .collect();
             (commit_id, predecessor_ids)
         })
@@ -602,13 +602,13 @@ fn view_from_proto(proto: crate::protos::simple_op_store::View) -> Result<View, 
     if !proto.wc_commit_id.is_empty() {
         wc_commit_ids.insert(
             WorkspaceName::DEFAULT.to_owned(),
-            CommitId::new(proto.wc_commit_id),
+            CommitId::from_vec(proto.wc_commit_id),
         );
     }
     for (name, commit_id) in proto.wc_commit_ids {
-        wc_commit_ids.insert(WorkspaceNameBuf::from(name), CommitId::new(commit_id));
+        wc_commit_ids.insert(WorkspaceNameBuf::from(name), CommitId::from_vec(commit_id));
     }
-    let head_ids = proto.head_ids.into_iter().map(CommitId::new).collect();
+    let head_ids = proto.head_ids.into_iter().map(CommitId::from_vec).collect();
 
     let (local_bookmarks, mut remote_views) = bookmark_views_from_proto_legacy(proto.bookmarks)?;
 
@@ -631,7 +631,7 @@ fn view_from_proto(proto: crate::protos::simple_op_store::View) -> Result<View, 
             } else {
                 // Legacy format
                 #[expect(deprecated)]
-                RefTarget::normal(CommitId::new(git_ref.commit_id))
+                RefTarget::normal(CommitId::from_vec(git_ref.commit_id))
             };
             (name, target)
         })
@@ -671,7 +671,7 @@ fn view_from_proto(proto: crate::protos::simple_op_store::View) -> Result<View, 
     let git_head = if proto.git_head.is_some() {
         ref_target_from_proto(proto.git_head)
     } else if !proto.git_head_legacy.is_empty() {
-        RefTarget::normal(CommitId::new(proto.git_head_legacy))
+        RefTarget::normal(CommitId::from_vec(proto.git_head_legacy))
     } else {
         RefTarget::absent()
     };
@@ -832,7 +832,9 @@ fn ref_target_from_terms_proto(
 ) -> Result<RefTarget, PostDecodeError> {
     let terms: SmallVec<[_; 1]> = proto
         .into_iter()
-        .map(|crate::protos::simple_op_store::RefTargetTerm { value }| value.map(CommitId::new))
+        .map(|crate::protos::simple_op_store::RefTargetTerm { value }| {
+            value.map(CommitId::from_vec)
+        })
         .collect();
     if terms.len().is_multiple_of(2) {
         Err(PostDecodeError::EvenNumberOfRefTargetTerms(terms.len()))
@@ -903,18 +905,18 @@ fn ref_target_from_proto(
         #[expect(deprecated)]
         crate::protos::simple_op_store::ref_target::Value::CommitId(id) => {
             // Legacy non-conflicting id
-            RefTarget::normal(CommitId::new(id))
+            RefTarget::normal(CommitId::from_vec(id))
         }
         #[expect(deprecated)]
         crate::protos::simple_op_store::ref_target::Value::ConflictLegacy(conflict) => {
             // Legacy conflicting ids
-            let removes = conflict.removes.into_iter().map(CommitId::new);
-            let adds = conflict.adds.into_iter().map(CommitId::new);
+            let removes = conflict.removes.into_iter().map(CommitId::from_vec);
+            let adds = conflict.adds.into_iter().map(CommitId::from_vec);
             RefTarget::from_legacy_form(removes, adds)
         }
         crate::protos::simple_op_store::ref_target::Value::Conflict(conflict) => {
             let term_from_proto = |term: crate::protos::simple_op_store::ref_conflict::Term| {
-                term.value.map(CommitId::new)
+                term.value.map(CommitId::from_vec)
             };
             let removes = conflict.removes.into_iter().map(term_from_proto);
             let adds = conflict.adds.into_iter().map(term_from_proto);
@@ -1016,10 +1018,10 @@ mod tests {
             bytes
         };
         Operation {
-            view_id: ViewId::new(pad_id_bytes("aaa111", VIEW_ID_LENGTH)),
+            view_id: ViewId::from_vec(pad_id_bytes("aaa111", VIEW_ID_LENGTH)),
             parents: vec![
-                OperationId::new(pad_id_bytes("bbb111", OPERATION_ID_LENGTH)),
-                OperationId::new(pad_id_bytes("bbb222", OPERATION_ID_LENGTH)),
+                OperationId::from_vec(pad_id_bytes("bbb111", OPERATION_ID_LENGTH)),
+                OperationId::from_vec(pad_id_bytes("bbb222", OPERATION_ID_LENGTH)),
             ],
             metadata: OperationMetadata {
                 time: TimestampRange {
@@ -1056,7 +1058,7 @@ mod tests {
     fn test_hash_view() {
         // Test exact output so we detect regressions in compatibility
         assert_snapshot!(
-            ViewId::new(blake2b_hash(&create_view()).to_vec()).hex(),
+            ViewId::from_vec(blake2b_hash(&create_view()).to_vec()).hex(),
             @"2c0b174d117ca85e7faa96f6d997362403105e8eb31e7f82ac9abd3dc48ae62683e9a76ef5d117ebc8a743d17e1945236df9ccefd7574f7e4b5336a63796b967"
         );
     }
@@ -1065,7 +1067,7 @@ mod tests {
     fn test_hash_operation() {
         // Test exact output so we detect regressions in compatibility
         assert_snapshot!(
-            OperationId::new(blake2b_hash(&create_operation()).to_vec()).hex(),
+            OperationId::from_vec(blake2b_hash(&create_operation()).to_vec()).hex(),
             @"f5963c593a63bb852061a86ad919c12c6ba1940eeef30a832524c39ccea6a9f768aa2aa53becec34d379eb291ec6726837c4113857849cb9dcc62dbe0a517176"
         );
     }

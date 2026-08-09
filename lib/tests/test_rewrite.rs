@@ -2429,7 +2429,7 @@ fn test_find_duplicate_divergent_commits() -> TestResult {
     let mut make_commit = |change_id_byte, tree, parents| {
         tx.repo_mut()
             .new_commit(parents, tree)
-            .set_change_id(ChangeId::new(vec![
+            .set_change_id(ChangeId::from_vec(vec![
                 change_id_byte;
                 store.change_id_length()
             ]))

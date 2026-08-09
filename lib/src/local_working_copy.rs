@@ -1154,13 +1154,13 @@ impl TreeState {
         if proto.tree_ids.is_empty() {
             self.tree = MergedTree::resolved(
                 self.store.clone(),
-                TreeId::new(proto.legacy_tree_id.clone()),
+                TreeId::from_vec(proto.legacy_tree_id.clone()),
             );
         } else {
             let tree_ids_builder: MergeBuilder<TreeId> = proto
                 .tree_ids
                 .iter()
-                .map(|id| TreeId::new(id.clone()))
+                .map(|id| TreeId::from_vec(id.clone()))
                 .collect();
             self.tree = MergedTree::new(
                 self.store.clone(),
@@ -2575,7 +2575,7 @@ impl CheckoutState {
         let proto = crate::protos::local_working_copy::Checkout::decode(&*buf)
             .map_err(|err| wrap_err(err.into()))?;
         Ok(Self {
-            operation_id: OperationId::new(proto.operation_id),
+            operation_id: OperationId::from_vec(proto.operation_id),
             workspace_name: if proto.workspace_name.is_empty() {
                 // For compatibility with old working copies.
                 // TODO: Delete in mid 2022 or so

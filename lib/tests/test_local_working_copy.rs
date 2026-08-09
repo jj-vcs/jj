@@ -1875,7 +1875,7 @@ fn test_git_submodule(gitignore_content: &str) -> TestResult {
         Merge::normal(TreeValue::File {
             id: testutils::write_file(repo.store(), added_path, "added\n"),
             executable: false,
-            copy_id: CopyId::new(vec![]),
+            copy_id: CopyId::from_vec(vec![]),
         }),
     );
 
@@ -1909,7 +1909,7 @@ fn test_git_submodule(gitignore_content: &str) -> TestResult {
                 "file with same path as submodule\n",
             ),
             executable: false,
-            copy_id: CopyId::new(vec![]),
+            copy_id: CopyId::from_vec(vec![]),
         }),
     );
     let tree_id3 = tree_builder.write_tree().block_on()?;
