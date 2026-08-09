@@ -476,8 +476,6 @@ mod fallback {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Write as _;
-
     use futures::io::Cursor;
     use itertools::Itertools as _;
     use pollster::FutureExt as _;

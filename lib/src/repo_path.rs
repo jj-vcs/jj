@@ -842,7 +842,6 @@ mod tests {
     use std::panic;
 
     use assert_matches::assert_matches;
-    use itertools::Itertools as _;
 
     use super::*;
     use crate::tests::new_temp_dir;

@@ -945,7 +945,6 @@ fn remote_ref_state_from_proto(proto_value: i32) -> Result<RemoteRefState, PostD
 #[cfg(test)]
 mod tests {
     use insta::assert_snapshot;
-    use itertools::Itertools as _;
     use maplit::btreemap;
     use maplit::hashset;
 

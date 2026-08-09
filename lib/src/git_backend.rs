@@ -1613,7 +1613,6 @@ mod tests {
     use gix::date::parse::TimeBuf;
     use gix::objs::CommitRef;
     use indoc::indoc;
-    use pollster::FutureExt as _;
     use test_case::test_case;
 
     use super::*;
