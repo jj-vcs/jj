@@ -19,6 +19,7 @@ use testutils::git;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
+use crate::common::force_interactive;
 use crate::common::to_toml_value;
 
 fn git_repo_dir_for_jj_repo(work_dir: &TestWorkDir<'_>) -> std::path::PathBuf {
@@ -141,6 +142,85 @@ fn test_git_push_default_remote_selection() {
     Hint: Pushing to the only existing remote: other
     Changes to push to other:
       bookmark: bookmark1 [add to 9b2e76de3920]
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_push_confirm() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
+    test_env.add_config("git.confirm-before-push = 'always'");
+    let work_dir = test_env.work_dir("local");
+    test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
+    // Update some bookmarks. `bookmark1` is not a current bookmark, but
+    // `bookmark2` and `my-bookmark` are.
+    work_dir
+        .run_jj(["describe", "bookmark1", "-m", "modified bookmark1 commit"])
+        .success();
+    work_dir.run_jj(["new", "bookmark2"]).success();
+    work_dir
+        .run_jj(["bookmark", "set", "bookmark2", "-r@"])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "my-bookmark"])
+        .success();
+    work_dir.run_jj(["describe", "-m", "foo"]).success();
+    // Check the setup
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
+    bookmark1: qpvuntsm e5ce6d9a (empty) modified bookmark1 commit
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 9b2e76de (hidden) (empty) description 1
+    bookmark2: yostqsxw 88ca14a7 (empty) foo
+      @origin (behind by 1 commits): zsuskuln 38a20473 (empty) description 2
+    my-bookmark: yostqsxw 88ca14a7 (empty) foo
+      @origin (not created yet)
+    [EOF]
+    ");
+    // Abort push, should not change anything
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["git", "push"])
+            .write_stdin("n\n")
+    });
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      bookmark: bookmark2 [move forward from 38a204733702 to 88ca14a7d46f]
+      bookmark: my-bookmark [add to 88ca14a7d46f]
+    Continue? (Yn): Aborting; nothing was changed.
+    [EOF]
+    ");
+    // Make sure nothing has changed
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
+    bookmark1: qpvuntsm e5ce6d9a (empty) modified bookmark1 commit
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 9b2e76de (hidden) (empty) description 1
+    bookmark2: yostqsxw 88ca14a7 (empty) foo
+      @origin (behind by 1 commits): zsuskuln 38a20473 (empty) description 2
+    my-bookmark: yostqsxw 88ca14a7 (empty) foo
+      @origin (not created yet)
+    [EOF]
+    ");
+    // Accept push, should go though to remote
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["git", "push"])
+            .write_stdin("y\n")
+    });
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      bookmark: bookmark2 [move forward from 38a204733702 to 88ca14a7d46f]
+      bookmark: my-bookmark [add to 88ca14a7d46f]
+    Continue? (Yn): [EOF]
+    ");
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
+    bookmark1: qpvuntsm e5ce6d9a (empty) modified bookmark1 commit
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 9b2e76de (hidden) (empty) description 1
+    bookmark2: yostqsxw 88ca14a7 (empty) foo
+      @origin: yostqsxw 88ca14a7 (empty) foo
+    my-bookmark: yostqsxw 88ca14a7 (empty) foo
+      @origin: yostqsxw 88ca14a7 (empty) foo
     [EOF]
     ");
 }

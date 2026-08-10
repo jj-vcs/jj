@@ -65,6 +65,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The default target revisions for `jj git push` can now be configured via
   `revsets.git-push`.
 
+* `jj git push` can now be configured to ask for confirmation before pushing
+  changes to a remote using `git.confirm-before-push`.
+
 * `jj run` now uses the sparse patterns from the workspace it's run from.
   Use the `--sparse-patterns` option to control this behavior (evaluated
   per each `jj run` invocation).
