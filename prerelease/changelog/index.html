@@ -7469,8 +7469,16 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
 <ul>
-<li><code>jj bisect</code> will now mention when it cannot unambiguously find the first bad
-  revision due to skips in evaluation.</li>
+<li>
+<p><code>jj bisect</code> will now mention when it cannot unambiguously find the first bad
+  revision due to skips in evaluation.</p>
+</li>
+<li>
+<p>Git HEAD state is now tracked per worktree internally. This prepares
+  colocated repositories for support of multiple Git worktrees, where each
+  jj workspace can have its own Git HEAD. Existing repositories are migrated
+  automatically.</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
