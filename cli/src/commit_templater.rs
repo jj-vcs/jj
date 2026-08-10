@@ -52,6 +52,7 @@ use jj_lib::fileset::FilesetExpression;
 use jj_lib::fileset::FilesetParseContext;
 use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::id_prefix::IdPrefixIndex;
+use jj_lib::id_prefix::resolve_change_id;
 use jj_lib::index::IndexResult;
 use jj_lib::matchers::Matcher;
 use jj_lib::merge::Diff;
@@ -1242,7 +1243,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             let repo = language.repo;
             let out_property = self_property.and_then(|commit| {
                 // The given commit could be hidden in e.g. `jj evolog`.
-                let maybe_targets = repo.resolve_change_id(commit.change_id())?;
+                let maybe_targets = resolve_change_id(repo, commit.change_id())?;
                 let divergent = maybe_targets.is_some_and(|targets| targets.is_divergent());
                 Ok(divergent)
             });
@@ -1265,7 +1266,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             let repo = language.repo;
             let out_property = self_property.and_then(|commit| {
                 // The given commit could be hidden in e.g. `jj evolog`.
-                let maybe_targets = repo.resolve_change_id(commit.change_id())?;
+                let maybe_targets = resolve_change_id(repo, commit.change_id())?;
                 let offset = maybe_targets
                     .and_then(|targets| targets.find_offset(commit.id()))
                     .map(i64::try_from)

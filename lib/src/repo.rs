@@ -60,13 +60,10 @@ use crate::index::IndexStore;
 use crate::index::IndexStoreError;
 use crate::index::MutableIndex;
 use crate::index::ReadonlyIndex;
-use crate::index::ResolvedChangeTargets;
 use crate::merge::MergeBuilder;
 use crate::merge::SameChange;
 use crate::merge::trivial_merge;
 use crate::merged_tree::MergedTree;
-use crate::object_id::HexPrefix;
-use crate::object_id::PrefixResolution;
 use crate::op_heads_store;
 use crate::op_heads_store::OpHeadsStore;
 use crate::op_heads_store::OpHeadsStoreError;
@@ -131,28 +128,7 @@ pub trait Repo {
 
     fn submodule_store(&self) -> &Arc<dyn SubmoduleStore>;
 
-    fn resolve_change_id(
-        &self,
-        change_id: &ChangeId,
-    ) -> IndexResult<Option<ResolvedChangeTargets>> {
-        // Replace this if we added more efficient lookup method.
-        let prefix = HexPrefix::from_id(change_id);
-        match self.resolve_change_id_prefix(&prefix)? {
-            PrefixResolution::NoMatch => Ok(None),
-            PrefixResolution::SingleMatch(entries) => Ok(Some(entries)),
-            PrefixResolution::AmbiguousMatch => panic!("complete change_id should be unambiguous"),
-        }
-    }
-
-    fn resolve_change_id_prefix(
-        &self,
-        prefix: &HexPrefix,
-    ) -> IndexResult<PrefixResolution<ResolvedChangeTargets>>;
-
-    fn shortest_unique_change_id_prefix_len(
-        &self,
-        target_id_bytes: &ChangeId,
-    ) -> IndexResult<usize>;
+    fn change_id_index(&self) -> Box<dyn ChangeIdIndex + '_>;
 }
 
 pub struct ReadonlyRepo {
@@ -309,15 +285,6 @@ impl ReadonlyRepo {
         self.index.as_ref()
     }
 
-    fn change_id_index(&self) -> &dyn ChangeIdIndex {
-        self.change_id_index
-            .get_or_init(|| {
-                self.readonly_index()
-                    .change_id_index(&mut self.view().heads().iter())
-            })
-            .as_ref()
-    }
-
     pub fn op_heads_store(&self) -> &Arc<dyn OpHeadsStore> {
         self.loader.op_heads_store()
     }
@@ -370,15 +337,9 @@ impl Repo for ReadonlyRepo {
         self.loader.submodule_store()
     }
 
-    fn resolve_change_id_prefix(
-        &self,
-        prefix: &HexPrefix,
-    ) -> IndexResult<PrefixResolution<ResolvedChangeTargets>> {
-        self.change_id_index().resolve_prefix(prefix)
-    }
-
-    fn shortest_unique_change_id_prefix_len(&self, target_id: &ChangeId) -> IndexResult<usize> {
-        self.change_id_index().shortest_unique_prefix_len(target_id)
+    fn change_id_index(&self) -> Box<dyn ChangeIdIndex + '_> {
+        self.readonly_index()
+            .change_id_index(&mut self.view().heads().iter())
     }
 }
 
@@ -2130,17 +2091,8 @@ impl Repo for MutableRepo {
         self.base_repo.submodule_store()
     }
 
-    fn resolve_change_id_prefix(
-        &self,
-        prefix: &HexPrefix,
-    ) -> IndexResult<PrefixResolution<ResolvedChangeTargets>> {
-        let change_id_index = self.index.change_id_index(&mut self.view().heads().iter());
-        change_id_index.resolve_prefix(prefix)
-    }
-
-    fn shortest_unique_change_id_prefix_len(&self, target_id: &ChangeId) -> IndexResult<usize> {
-        let change_id_index = self.index.change_id_index(&mut self.view().heads().iter());
-        change_id_index.shortest_unique_prefix_len(target_id)
+    fn change_id_index(&self) -> Box<dyn ChangeIdIndex + '_> {
+        self.index.change_id_index(&mut self.view().heads().iter())
     }
 }
 

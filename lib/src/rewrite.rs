@@ -37,6 +37,7 @@ use crate::commit::CommitIteratorExt as _;
 use crate::commit::conflict_label_for_commits;
 use crate::commit_builder::CommitBuilder;
 use crate::conflict_labels::ConflictLabels;
+use crate::id_prefix::resolve_change_id;
 use crate::index::Index;
 use crate::index::IndexResult;
 use crate::index::ResolvedChangeTargets;
@@ -1511,8 +1512,7 @@ pub async fn find_duplicate_divergent_commits(
     let divergent_changes: Vec<(&Commit, Vec<CommitId>)> = target_commits
         .iter()
         .map(|target_commit| -> Result<_, BackendError> {
-            let mut ancestor_candidates = repo
-                .resolve_change_id(target_commit.change_id())
+            let mut ancestor_candidates = resolve_change_id(repo, target_commit.change_id())
                 // TODO: indexing error shouldn't be a "BackendError"
                 .map_err(|err| BackendError::Other(err.into()))?
                 .and_then(ResolvedChangeTargets::into_visible)

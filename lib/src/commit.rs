@@ -33,6 +33,7 @@ use crate::backend::CommitId;
 use crate::backend::Signature;
 use crate::backend::TreeId;
 use crate::conflict_labels::ConflictLabels;
+use crate::id_prefix::resolve_change_id;
 use crate::index::IndexResult;
 use crate::merge::Merge;
 use crate::merged_tree::MergedTree;
@@ -190,7 +191,7 @@ impl Commit {
 
     ///  A commit is hidden if its commit id is not in the change id index.
     pub fn is_hidden(&self, repo: &dyn Repo) -> IndexResult<bool> {
-        let maybe_targets = repo.resolve_change_id(self.change_id())?;
+        let maybe_targets = resolve_change_id(repo, self.change_id())?;
         Ok(maybe_targets.is_none_or(|targets| !targets.has_visible(&self.id)))
     }
 
