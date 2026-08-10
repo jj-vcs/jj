@@ -288,9 +288,8 @@ pub async fn cmd_git_push(
 
     let mut tx = workspace_command.start_transaction();
     let view = tx.repo().view();
-    let tx_description;
     let mut ref_updates = GitPushRefTargets::default();
-    if args.all {
+    let tx_description = if args.all {
         let mut commits_validator =
             CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args)?;
         for (name, targets) in view.local_remote_bookmarks(remote) {
@@ -317,10 +316,10 @@ pub async fn cmd_git_push(
                 Err(reason) => reason.print(ui)?,
             }
         }
-        tx_description = format!(
+        format!(
             "{TX_DESC_PUSH}all bookmarks/tags to git remote {remote}",
             remote = remote.as_symbol()
-        );
+        )
     } else if args.tracked {
         let mut commits_validator =
             CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args)?;
@@ -354,10 +353,10 @@ pub async fn cmd_git_push(
                 Err(reason) => reason.print(ui)?,
             }
         }
-        tx_description = format!(
+        format!(
             "{TX_DESC_PUSH}all tracked bookmarks/tags to git remote {remote}",
             remote = remote.as_symbol()
-        );
+        )
     } else if args.deleted {
         // There shouldn't be new heads to push, but we run validation for consistency.
         let mut commits_validator =
@@ -394,10 +393,10 @@ pub async fn cmd_git_push(
                 Err(reason) => reason.print(ui)?,
             }
         }
-        tx_description = format!(
+        format!(
             "{TX_DESC_PUSH}all deleted bookmarks/tags to git remote {remote}",
             remote = remote.as_symbol()
-        );
+        )
     } else {
         let mut seen_bookmarks: HashSet<&RefName> = HashSet::new();
         let mut seen_tags: HashSet<&RefName> = HashSet::new();
@@ -542,12 +541,13 @@ pub async fn cmd_git_push(
             }
         }
 
-        tx_description = format!(
+        format!(
             "{TX_DESC_PUSH}{names} to git remote {remote}",
             names = make_updates_term(&ref_updates),
             remote = remote.as_symbol()
-        );
-    }
+        )
+    };
+
     if ref_updates.bookmarks.is_empty() && ref_updates.tags.is_empty() {
         writeln!(ui.status(), "Nothing changed.")?;
         return Ok(());
