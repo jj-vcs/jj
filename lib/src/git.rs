@@ -1818,7 +1818,7 @@ pub async fn reset_head(
 
     // If the first parent of the working copy has changed, reset the Git HEAD.
     let old_head_target = mut_repo.git_head(workspace);
-    if old_head_target != new_head_target {
+    if *old_head_target != new_head_target {
         let expected_ref = if let Some(id) = old_head_target.as_normal() {
             // We have to check the actual HEAD state because we don't record a
             // symbolic ref as such.

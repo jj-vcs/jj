@@ -650,11 +650,11 @@ fn test_rename_remote() {
     mut_repo.rename_remote("origin".as_ref(), "upstream".as_ref());
     assert_eq!(
         mut_repo.get_remote_bookmark(remote_symbol("main", "upstream")),
-        remote_ref
+        &remote_ref
     );
     assert_eq!(
         mut_repo.get_remote_bookmark(remote_symbol("main", "origin")),
-        RemoteRef::absent()
+        RemoteRef::absent_ref()
     );
 }
 

@@ -1464,7 +1464,7 @@ fn test_rebase_descendants_basic_bookmark_update() -> TestResult {
     tx.repo_mut().rebase_descendants().block_on()?;
     assert_eq!(
         tx.repo().get_local_bookmark("main".as_ref()),
-        RefTarget::normal(commit_b2.id().clone())
+        &RefTarget::normal(commit_b2.id().clone())
     );
 
     assert_eq!(*tx.repo().view().heads(), hashset! {commit_b2.id().clone()});
@@ -1514,7 +1514,7 @@ fn test_rebase_descendants_bookmark_move_two_steps() -> TestResult {
     assert_eq!(commit_c3.parent_ids(), vec![commit_b2.id().clone()]);
     assert_eq!(
         tx.repo().get_local_bookmark("main".as_ref()),
-        RefTarget::normal(commit_c3.id().clone())
+        &RefTarget::normal(commit_c3.id().clone())
     );
     Ok(())
 }
@@ -1552,17 +1552,17 @@ fn test_rebase_descendants_basic_bookmark_update_with_non_local_bookmark() -> Te
     tx.repo_mut().rebase_descendants().block_on()?;
     assert_eq!(
         tx.repo().get_local_bookmark("main".as_ref()),
-        RefTarget::normal(commit_b2.id().clone())
+        &RefTarget::normal(commit_b2.id().clone())
     );
     // The remote bookmark and tag should not get updated
     assert_eq!(
         tx.repo()
             .get_remote_bookmark(remote_symbol("main", "origin")),
-        commit_b_remote_ref
+        &commit_b_remote_ref
     );
     assert_eq!(
         tx.repo().get_local_tag("v1".as_ref()),
-        RefTarget::normal(commit_b.id().clone())
+        &RefTarget::normal(commit_b.id().clone())
     );
 
     // Commit B is no longer visible even though the remote bookmark points to it.
@@ -1613,7 +1613,7 @@ fn test_rebase_descendants_update_bookmark_after_abandon(
     };
     let rebase_map = rebase_descendants_with_options_return_map(tx.repo_mut(), &options);
     assert_eq!(
-        tx.repo().get_local_bookmark("main".as_ref()),
+        *tx.repo().get_local_bookmark("main".as_ref()),
         if delete_abandoned_bookmarks {
             RefTarget::absent()
         } else {
@@ -1628,7 +1628,7 @@ fn test_rebase_descendants_update_bookmark_after_abandon(
     );
     assert_eq!(
         tx.repo().get_local_bookmark("other".as_ref()),
-        RefTarget::normal(rebase_map[commit_c.id()].clone())
+        &RefTarget::normal(rebase_map[commit_c.id()].clone())
     );
 
     assert_eq!(
@@ -1841,7 +1841,7 @@ fn test_rebase_descendants_rewrite_resolves_bookmark_conflict() -> TestResult {
     tx.repo_mut().rebase_descendants().block_on()?;
     assert_eq!(
         tx.repo().get_local_bookmark("main".as_ref()),
-        RefTarget::normal(commit_b2.id().clone())
+        &RefTarget::normal(commit_b2.id().clone())
     );
 
     assert_eq!(
@@ -1889,7 +1889,7 @@ fn test_rebase_descendants_bookmark_delete_modify_abandon(
     let _rebase_map = rebase_descendants_with_options_return_map(tx.repo_mut(), &options);
     assert_eq!(
         tx.repo().get_local_bookmark("main".as_ref()),
-        RefTarget::absent()
+        RefTarget::absent_ref()
     );
     Ok(())
 }
@@ -1934,7 +1934,7 @@ fn test_rebase_descendants_bookmark_move_forward_abandon(
     };
     let _rebase_map = rebase_descendants_with_options_return_map(tx.repo_mut(), &options);
     assert_eq!(
-        tx.repo().get_local_bookmark("main".as_ref()),
+        *tx.repo().get_local_bookmark("main".as_ref()),
         if delete_abandoned_bookmarks {
             RefTarget::from_merge(Merge::from_vec(vec![
                 None,
@@ -1988,7 +1988,7 @@ fn test_rebase_descendants_bookmark_move_sideways_abandon(
     };
     let _rebase_map = rebase_descendants_with_options_return_map(tx.repo_mut(), &options);
     assert_eq!(
-        tx.repo().get_local_bookmark("main".as_ref()),
+        *tx.repo().get_local_bookmark("main".as_ref()),
         if delete_abandoned_bookmarks {
             RefTarget::from_merge(Merge::from_vec(vec![
                 None,

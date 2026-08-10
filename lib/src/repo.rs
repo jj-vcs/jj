@@ -1767,8 +1767,8 @@ impl MutableRepo {
         Ok(indexed_commits)
     }
 
-    pub fn get_local_bookmark(&self, name: &RefName) -> RefTarget {
-        self.view.get_local_bookmark(name).clone()
+    pub fn get_local_bookmark(&self, name: &RefName) -> &RefTarget {
+        self.view.get_local_bookmark(name)
     }
 
     pub fn set_local_bookmark_target(&mut self, name: &RefName, target: RefTarget) {
@@ -1791,8 +1791,8 @@ impl MutableRepo {
         Ok(())
     }
 
-    pub fn get_remote_bookmark(&self, symbol: RemoteRefSymbol<'_>) -> RemoteRef {
-        self.view.get_remote_bookmark(symbol).clone()
+    pub fn get_remote_bookmark(&self, symbol: RemoteRefSymbol<'_>) -> &RemoteRef {
+        self.view.get_remote_bookmark(symbol)
     }
 
     pub fn set_remote_bookmark(&mut self, symbol: RemoteRefSymbol<'_>, remote_ref: RemoteRef) {
@@ -1815,7 +1815,7 @@ impl MutableRepo {
     /// Merges the specified remote bookmark in to local bookmark, and starts
     /// tracking it.
     pub async fn track_remote_bookmark(&mut self, symbol: RemoteRefSymbol<'_>) -> IndexResult<()> {
-        let mut remote_ref = self.get_remote_bookmark(symbol);
+        let mut remote_ref = self.get_remote_bookmark(symbol).clone();
         let base_target = remote_ref.tracked_target();
         self.merge_local_bookmark(symbol.name, base_target, &remote_ref.target)
             .await?;
@@ -1826,7 +1826,7 @@ impl MutableRepo {
 
     /// Stops tracking the specified remote bookmark.
     pub fn untrack_remote_bookmark(&mut self, symbol: RemoteRefSymbol<'_>) {
-        let mut remote_ref = self.get_remote_bookmark(symbol);
+        let mut remote_ref = self.get_remote_bookmark(symbol).clone();
         remote_ref.state = RemoteRefState::New;
         self.set_remote_bookmark(symbol, remote_ref);
     }
@@ -1843,8 +1843,8 @@ impl MutableRepo {
         self.view.rename_remote(old, new);
     }
 
-    pub fn get_local_tag(&self, name: &RefName) -> RefTarget {
-        self.view.get_local_tag(name).clone()
+    pub fn get_local_tag(&self, name: &RefName) -> &RefTarget {
+        self.view.get_local_tag(name)
     }
 
     pub fn set_local_tag_target(&mut self, name: &RefName, target: RefTarget) {
@@ -1864,8 +1864,8 @@ impl MutableRepo {
         Ok(())
     }
 
-    pub fn get_remote_tag(&self, symbol: RemoteRefSymbol<'_>) -> RemoteRef {
-        self.view.get_remote_tag(symbol).clone()
+    pub fn get_remote_tag(&self, symbol: RemoteRefSymbol<'_>) -> &RemoteRef {
+        self.view.get_remote_tag(symbol)
     }
 
     pub fn set_remote_tag(&mut self, symbol: RemoteRefSymbol<'_>, remote_ref: RemoteRef) {
@@ -1887,7 +1887,7 @@ impl MutableRepo {
 
     /// Merges the specified remote tag in to local tag, and starts tracking it.
     pub async fn track_remote_tag(&mut self, symbol: RemoteRefSymbol<'_>) -> IndexResult<()> {
-        let mut remote_ref = self.get_remote_tag(symbol);
+        let mut remote_ref = self.get_remote_tag(symbol).clone();
         let base_target = remote_ref.tracked_target();
         self.merge_local_tag(symbol.name, base_target, &remote_ref.target)
             .await?;
@@ -1898,13 +1898,13 @@ impl MutableRepo {
 
     /// Stops tracking the specified remote tag.
     pub fn untrack_remote_tag(&mut self, symbol: RemoteRefSymbol<'_>) {
-        let mut remote_ref = self.get_remote_tag(symbol);
+        let mut remote_ref = self.get_remote_tag(symbol).clone();
         remote_ref.state = RemoteRefState::New;
         self.set_remote_tag(symbol, remote_ref);
     }
 
-    pub fn get_git_ref(&self, name: &GitRefName) -> RefTarget {
-        self.view.get_git_ref(name).clone()
+    pub fn get_git_ref(&self, name: &GitRefName) -> &RefTarget {
+        self.view.get_git_ref(name)
     }
 
     pub fn set_git_ref_target(&mut self, name: &GitRefName, target: RefTarget) {
@@ -1924,8 +1924,8 @@ impl MutableRepo {
         Ok(())
     }
 
-    pub fn git_head(&self, workspace: &WorkspaceName) -> RefTarget {
-        self.view.git_head(workspace).clone()
+    pub fn git_head(&self, workspace: &WorkspaceName) -> &RefTarget {
+        self.view.git_head(workspace)
     }
 
     pub fn set_git_head_target(&mut self, workspace: &WorkspaceName, target: RefTarget) {

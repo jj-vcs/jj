@@ -2563,7 +2563,7 @@ fn test_export_refs_no_detach() -> TestResult {
     assert!(stats.failed_tags.is_empty());
     assert_eq!(
         mut_repo.get_git_ref("refs/heads/main".as_ref()),
-        RefTarget::normal(jj_id(commit1))
+        &RefTarget::normal(jj_id(commit1))
     );
     assert_eq!(git_repo.head_name()?.unwrap().as_bstr(), b"refs/heads/main");
     assert_eq!(
@@ -2606,7 +2606,7 @@ fn test_export_refs_bookmark_changed() -> TestResult {
     assert!(stats.failed_tags.is_empty());
     assert_eq!(
         mut_repo.get_git_ref("refs/heads/main".as_ref()),
-        RefTarget::normal(new_commit.id().clone())
+        &RefTarget::normal(new_commit.id().clone())
     );
     assert_eq!(
         git_repo
@@ -2665,21 +2665,21 @@ fn test_export_refs_tag_changed() -> TestResult {
     assert!(stats.failed_tags.is_empty());
     assert_eq!(
         mut_repo.get_git_ref("refs/tags/lightweight-change".as_ref()),
-        new_target
+        &new_target
     );
     assert_eq!(
         mut_repo.get_git_ref("refs/tags/lightweight-delete".as_ref()),
-        RefTarget::absent()
+        RefTarget::absent_ref()
     );
     assert_eq!(
         mut_repo.get_git_ref("refs/tags/annotated-change".as_ref()),
-        new_target
+        &new_target
     );
     assert_eq!(
         mut_repo.get_git_ref("refs/tags/annotated-delete".as_ref()),
-        RefTarget::absent()
+        RefTarget::absent_ref()
     );
-    assert_eq!(mut_repo.get_git_ref("refs/tags/new".as_ref()), new_target);
+    assert_eq!(mut_repo.get_git_ref("refs/tags/new".as_ref()), &new_target);
     assert_eq!(
         git_repo
             .find_reference("refs/tags/lightweight-change")?
@@ -2741,7 +2741,7 @@ fn test_export_refs_current_bookmark_changed() -> TestResult {
     assert!(stats.failed_tags.is_empty());
     assert_eq!(
         mut_repo.get_git_ref("refs/heads/main".as_ref()),
-        RefTarget::normal(new_commit.id().clone())
+        &RefTarget::normal(new_commit.id().clone())
     );
     assert_eq!(
         git_repo
@@ -2872,7 +2872,7 @@ fn test_export_refs_current_tag_changed() -> TestResult {
     assert!(stats.failed_tags.is_empty());
     assert_eq!(
         mut_repo.get_git_ref("refs/tags/v1.0".as_ref()),
-        RefTarget::normal(new_commit.id().clone())
+        &RefTarget::normal(new_commit.id().clone())
     );
     assert_eq!(
         git_repo
@@ -2919,7 +2919,7 @@ fn test_export_refs_unborn_git_bookmark(move_placeholder_ref: bool) -> TestResul
     assert!(stats.failed_tags.is_empty());
     assert_eq!(
         mut_repo.get_git_ref("refs/heads/main".as_ref()),
-        RefTarget::normal(new_commit.id().clone())
+        &RefTarget::normal(new_commit.id().clone())
     );
     assert_eq!(
         git_repo
@@ -2959,7 +2959,7 @@ fn test_export_import_sequence() -> TestResult {
     git::import_refs(mut_repo, &import_options).block_on()?;
     assert_eq!(
         mut_repo.get_git_ref("refs/heads/main".as_ref()),
-        RefTarget::normal(commit_a.id().clone())
+        &RefTarget::normal(commit_a.id().clone())
     );
 
     // Modify the bookmark in jj to point to B
@@ -2971,7 +2971,7 @@ fn test_export_import_sequence() -> TestResult {
     assert!(stats.failed_tags.is_empty());
     assert_eq!(
         mut_repo.get_git_ref("refs/heads/main".as_ref()),
-        RefTarget::normal(commit_b.id().clone())
+        &RefTarget::normal(commit_b.id().clone())
     );
 
     // Modify the bookmark in git to point to C
@@ -2986,7 +2986,7 @@ fn test_export_import_sequence() -> TestResult {
     git::import_refs(mut_repo, &import_options).block_on()?;
     assert_eq!(
         mut_repo.get_git_ref("refs/heads/main".as_ref()),
-        RefTarget::normal(commit_c.id().clone())
+        &RefTarget::normal(commit_c.id().clone())
     );
     assert_eq!(
         mut_repo.view().get_local_bookmark("main".as_ref()),
@@ -3025,7 +3025,7 @@ fn test_import_export_non_tracking_bookmark() -> TestResult {
     );
     assert_eq!(
         mut_repo.get_git_ref("refs/remotes/origin/main".as_ref()),
-        RefTarget::normal(jj_id(commit_main_t0))
+        &RefTarget::normal(jj_id(commit_main_t0))
     );
 
     // Export the bookmark to git
@@ -3034,7 +3034,7 @@ fn test_import_export_non_tracking_bookmark() -> TestResult {
     assert!(stats.failed_tags.is_empty());
     assert_eq!(
         mut_repo.get_git_ref("refs/heads/main".as_ref()),
-        RefTarget::absent()
+        RefTarget::absent_ref()
     );
 
     // Reimport with auto-track-bookmarks on. Local bookmark shouldn't be created
@@ -3152,21 +3152,21 @@ fn test_export_conflicts() -> TestResult {
     // Conflicted bookmarks shouldn't be copied to the "git" remote
     assert_eq!(
         mut_repo.get_remote_bookmark(remote_symbol("feature", "git")),
-        RemoteRef {
+        &RemoteRef {
             target: RefTarget::normal(commit_a.id().clone()),
             state: RemoteRefState::Tracked,
         },
     );
     assert_eq!(
         mut_repo.get_remote_bookmark(remote_symbol("main", "git")),
-        RemoteRef {
+        &RemoteRef {
             target: RefTarget::normal(commit_b.id().clone()),
             state: RemoteRefState::Tracked,
         },
     );
     assert_eq!(
         mut_repo.get_remote_tag(remote_symbol("v1.0", "git")),
-        RemoteRef {
+        &RemoteRef {
             target: RefTarget::normal(commit_a.id().clone()),
             state: RemoteRefState::Tracked,
         },
@@ -3270,26 +3270,26 @@ fn test_export_partial_failure() -> TestResult {
     // Failed bookmarks/tags shouldn't be copied to the "git" remote
     assert_eq!(
         mut_repo.get_remote_bookmark(remote_symbol("", "git")),
-        RemoteRef::absent()
+        RemoteRef::absent_ref()
     );
     assert_eq!(
         mut_repo.get_remote_bookmark(remote_symbol("HEAD", "git")),
-        RemoteRef::absent()
+        RemoteRef::absent_ref()
     );
     assert_eq!(
         mut_repo.get_remote_bookmark(remote_symbol("main", "git")),
-        RemoteRef {
+        &RemoteRef {
             target: target.clone(),
             state: RemoteRefState::Tracked,
         },
     );
     assert_eq!(
         mut_repo.get_remote_bookmark(remote_symbol("main/sub", "git")),
-        RemoteRef::absent()
+        RemoteRef::absent_ref()
     );
     assert_eq!(
         mut_repo.get_remote_tag(remote_symbol("", "git")),
-        RemoteRef::absent()
+        RemoteRef::absent_ref()
     );
 
     // Now remove the `main` bookmark and make sure that the `main/sub` gets
@@ -3334,26 +3334,26 @@ fn test_export_partial_failure() -> TestResult {
     // Failed bookmarks/tags shouldn't be copied to the "git" remote
     assert_eq!(
         mut_repo.get_remote_bookmark(remote_symbol("", "git")),
-        RemoteRef::absent()
+        RemoteRef::absent_ref()
     );
     assert_eq!(
         mut_repo.get_remote_bookmark(remote_symbol("HEAD", "git")),
-        RemoteRef::absent()
+        RemoteRef::absent_ref()
     );
     assert_eq!(
         mut_repo.get_remote_bookmark(remote_symbol("main", "git")),
-        RemoteRef::absent()
+        RemoteRef::absent_ref()
     );
     assert_eq!(
         mut_repo.get_remote_bookmark(remote_symbol("main/sub", "git")),
-        RemoteRef {
+        &RemoteRef {
             target: target.clone(),
             state: RemoteRefState::Tracked,
         },
     );
     assert_eq!(
         mut_repo.get_remote_tag(remote_symbol("", "git")),
-        RemoteRef::absent()
+        RemoteRef::absent_ref()
     );
     Ok(())
 }
@@ -3538,15 +3538,15 @@ fn test_export_undo_reexport() -> TestResult {
         git_repo.find_reference("refs/tags/v1.0")?.target().id(),
         git_id(&commit_a)
     );
-    assert_eq!(mut_repo.get_git_ref("refs/heads/main".as_ref()), target_a);
-    assert_eq!(mut_repo.get_git_ref("refs/tags/v1.0".as_ref()), target_a);
+    assert_eq!(mut_repo.get_git_ref("refs/heads/main".as_ref()), &target_a);
+    assert_eq!(mut_repo.get_git_ref("refs/tags/v1.0".as_ref()), &target_a);
     assert_eq!(
         mut_repo.get_remote_bookmark(remote_symbol("main", "git")),
-        remote_ref_a
+        &remote_ref_a
     );
     assert_eq!(
         mut_repo.get_remote_tag(remote_symbol("v1.0", "git")),
-        remote_ref_a
+        &remote_ref_a
     );
 
     // Undo remote changes only
@@ -3565,15 +3565,15 @@ fn test_export_undo_reexport() -> TestResult {
         git_repo.find_reference("refs/tags/v1.0")?.target().id(),
         git_id(&commit_a)
     );
-    assert_eq!(mut_repo.get_git_ref("refs/heads/main".as_ref()), target_a);
-    assert_eq!(mut_repo.get_git_ref("refs/tags/v1.0".as_ref()), target_a);
+    assert_eq!(mut_repo.get_git_ref("refs/heads/main".as_ref()), &target_a);
+    assert_eq!(mut_repo.get_git_ref("refs/tags/v1.0".as_ref()), &target_a);
     assert_eq!(
         mut_repo.get_remote_bookmark(remote_symbol("main", "git")),
-        remote_ref_a
+        &remote_ref_a
     );
     assert_eq!(
         mut_repo.get_remote_tag(remote_symbol("v1.0", "git")),
-        remote_ref_a
+        &remote_ref_a
     );
     Ok(())
 }
@@ -3606,7 +3606,7 @@ fn test_reset_head_to_root() -> TestResult {
     assert!(git_repo.head()?.is_detached(), "HEAD is detached");
     assert_eq!(
         tx.repo().git_head(WorkspaceName::DEFAULT),
-        RefTarget::normal(commit1.id().clone())
+        &RefTarget::normal(commit1.id().clone())
     );
 
     // Set Git HEAD back to root
@@ -3625,7 +3625,7 @@ fn test_reset_head_to_root() -> TestResult {
     assert!(git_repo.head_id().is_ok());
     assert_eq!(
         tx.repo().git_head(WorkspaceName::DEFAULT),
-        RefTarget::normal(commit1.id().clone())
+        &RefTarget::normal(commit1.id().clone())
     );
     assert!(git_repo.find_reference("refs/jj/root").is_ok());
 
@@ -3668,7 +3668,7 @@ fn test_reset_head_detached_out_of_sync() -> TestResult {
     git::reset_head(tx.repo_mut(), WorkspaceName::DEFAULT, &commit2).block_on()?;
     assert_eq!(
         tx.repo().git_head(WorkspaceName::DEFAULT),
-        RefTarget::normal(commit1.id().clone())
+        &RefTarget::normal(commit1.id().clone())
     );
 
     // External process updates HEAD to point to commit5
@@ -3679,7 +3679,7 @@ fn test_reset_head_detached_out_of_sync() -> TestResult {
     git::reset_head(tx.repo_mut(), WorkspaceName::DEFAULT, &commit3).block_on()?;
     assert_eq!(
         tx.repo().git_head(WorkspaceName::DEFAULT),
-        RefTarget::normal(commit1.id().clone())
+        &RefTarget::normal(commit1.id().clone())
     );
 
     // {expected: commit1, actual: commit5} -> commit3 (= commit4's parent)
@@ -3689,7 +3689,7 @@ fn test_reset_head_detached_out_of_sync() -> TestResult {
     );
     assert_eq!(
         tx.repo().git_head(WorkspaceName::DEFAULT),
-        RefTarget::normal(commit1.id().clone()),
+        &RefTarget::normal(commit1.id().clone()),
         "view shouldn't be updated on failed export"
     );
 
@@ -3697,14 +3697,14 @@ fn test_reset_head_detached_out_of_sync() -> TestResult {
     git::import_head(tx.repo_mut(), WorkspaceName::DEFAULT).block_on()?;
     assert_eq!(
         tx.repo().git_head(WorkspaceName::DEFAULT),
-        RefTarget::normal(commit5.id().clone())
+        &RefTarget::normal(commit5.id().clone())
     );
 
     // commit5 -> commit3 (= commit4's parent)
     git::reset_head(tx.repo_mut(), WorkspaceName::DEFAULT, &commit4).block_on()?;
     assert_eq!(
         tx.repo().git_head(WorkspaceName::DEFAULT),
-        RefTarget::normal(commit3.id().clone())
+        &RefTarget::normal(commit3.id().clone())
     );
     Ok(())
 }
@@ -4204,7 +4204,7 @@ fn test_fetch_prune_deleted_ref() -> TestResult {
     assert_eq!(
         tx.repo_mut()
             .get_remote_bookmark(remote_symbol("main", "origin")),
-        RemoteRef::absent()
+        RemoteRef::absent_ref()
     );
     Ok(())
 }
@@ -4259,14 +4259,14 @@ fn test_fetch_empty_refspecs() -> TestResult {
     assert_eq!(
         tx.repo_mut()
             .get_remote_bookmark(remote_symbol("main", "origin")),
-        RemoteRef::absent()
+        RemoteRef::absent_ref()
     );
     // No remote refs should have been fetched
     git::import_refs(tx.repo_mut(), &import_options).block_on()?;
     assert_eq!(
         tx.repo_mut()
             .get_remote_bookmark(remote_symbol("main", "origin")),
-        RemoteRef::absent()
+        RemoteRef::absent_ref()
     );
     Ok(())
 }

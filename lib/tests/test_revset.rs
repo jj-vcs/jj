@@ -704,15 +704,15 @@ fn test_resolve_symbol_bookmarks_only() -> TestResult {
     );
     mut_repo.set_remote_bookmark(
         remote_symbol("local-remote", "mirror"),
-        tracked_remote_ref(mut_repo.get_local_bookmark("local-remote".as_ref())),
+        tracked_remote_ref(mut_repo.get_local_bookmark("local-remote".as_ref()).clone()),
     );
     mut_repo.set_remote_bookmark(
         remote_symbol("local-remote", "untracked"),
-        new_remote_ref(mut_repo.get_local_bookmark("local-remote".as_ref())),
+        new_remote_ref(mut_repo.get_local_bookmark("local-remote".as_ref()).clone()),
     );
     mut_repo.set_remote_bookmark(
         remote_symbol("local-remote", git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
-        tracked_remote_ref(mut_repo.get_local_bookmark("local-remote".as_ref())),
+        tracked_remote_ref(mut_repo.get_local_bookmark("local-remote".as_ref()).clone()),
     );
 
     mut_repo.set_local_bookmark_target(
@@ -1012,11 +1012,11 @@ fn test_resolve_symbol_remote_tags_or_bookmarks() -> TestResult {
     );
     mut_repo.set_remote_tag(
         remote_symbol("local-remote-tag", "untracked"),
-        new_remote_ref(mut_repo.get_local_tag("local-remote-tag".as_ref())),
+        new_remote_ref(mut_repo.get_local_tag("local-remote-tag".as_ref()).clone()),
     );
     mut_repo.set_remote_tag(
         remote_symbol("local-remote-tag", "tracked"),
-        tracked_remote_ref(mut_repo.get_local_tag("local-remote-tag".as_ref())),
+        tracked_remote_ref(mut_repo.get_local_tag("local-remote-tag".as_ref()).clone()),
     );
 
     // Tag precedes bookmark
