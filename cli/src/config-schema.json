@@ -569,6 +569,11 @@
                     "enum": ["sha1", "sha256"],
                     "description": "Object hash algorithm used when initializing a new Git repository",
                     "default": "sha1"
+                },
+                "confirm-before-push": {
+                    "enum": ["always", "auto", "never"],
+                    "description": "When to prompt user before pushing changes to remote",
+                    "default": "never"
                 }
             }
         },
