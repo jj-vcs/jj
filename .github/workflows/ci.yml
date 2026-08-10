@@ -83,7 +83,7 @@ jobs:
         toolchain: 1.89
         # comma-separated list of extra targets to install
         targets: ${{ matrix.extra_targets }}
-    - uses: taiki-e/install-action@41049aa56687c35e0afa74eed4f09cec4f9afabf
+    - uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60
       with:
         tool: nextest
     - name: Install mold
@@ -303,7 +303,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81
+        uses: github/codeql-action/upload-sarif@d1ba80a13dd99fba24a470575428917156a28b43
         with:
           sarif_file: results.sarif
           category: zizmor
