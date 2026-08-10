@@ -24,6 +24,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   jj workspace can have its own Git HEAD. Existing repositories are migrated
   automatically.
 
+* `jj git push` can now be configured to ask for confirmation before pushing
+  changes to a remote using `git.confirm-before-push`. This prompt can be
+  skipped using the `-y`/`--yes` flag.
+
 ### Fixed bugs
 
 * The default pager flags now include `-K` (`--quit-on-intr`), so pressing

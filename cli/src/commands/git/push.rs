@@ -56,6 +56,7 @@ use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetStreamExt as _;
 use jj_lib::revset::UserRevsetExpression;
 use jj_lib::rewrite::CommitRewriter;
+use jj_lib::settings::UserSettings;
 use jj_lib::signing::SignBehavior;
 use jj_lib::str_util::StringExpression;
 use jj_lib::view::View;
@@ -230,6 +231,10 @@ pub struct GitPushArgs {
     /// Only display what will change on the remote
     #[arg(long)]
     dry_run: bool,
+
+    /// Automatically answer all prompts with "yes" and run non-interactively
+    #[arg(long, short)]
+    yes: bool,
 
     /// Git push options
     #[arg(long, short)]
@@ -553,6 +558,12 @@ pub async fn cmd_git_push(
         return Ok(());
     }
 
+    let needs_confirm = !args.dry_run
+        && !args.yes
+        && needs_confirm_from_settings(ui, tx.settings(), "git.confirm-before-push", || {
+            ref_updates.bookmarks.len() + ref_updates.tags.len() > 1
+        })?;
+
     if !args.dry_run && tx.settings().get_bool("git.sign-on-push")? {
         let to_push_expr = ready_to_push_revset_expression(&tx, remote, &ref_updates);
         ref_updates = sign_commits_before_push(ui, &mut tx, to_push_expr, ref_updates).await?;
@@ -569,6 +580,11 @@ pub async fn cmd_git_push(
 
     if args.dry_run {
         writeln!(ui.status(), "Dry-run requested, not pushing.")?;
+        return Ok(());
+    }
+
+    if needs_confirm && !ui.prompt_yes_no("Continue?", Some(true))? {
+        writeln!(ui.status(), "Aborting; nothing was changed.")?;
         return Ok(());
     }
 
@@ -595,6 +611,44 @@ pub async fn cmd_git_push(
     } else {
         Err(user_error("Failed to push some bookmarks"))
     }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PushConfirmChoice {
+    /// Always ask for confirmation before pushing
+    Always,
+    /// Never prompt the user before pushing a change
+    Never,
+    /// Only prompt if more than one bookmark/tag is about to be pushed
+    ///
+    /// If more than one bookmark or tag is moved in the same push, it is
+    /// possible that some of them were unintentional, so we should give the
+    /// user a chance to correct their mistake.
+    Auto,
+}
+
+fn needs_confirm_from_settings(
+    ui: &Ui,
+    settings: &UserSettings,
+    key: &'static str,
+    auto_cb: impl FnOnce() -> bool,
+) -> Result<bool, CommandError> {
+    Ok(if let Some(choice) = settings.get(key).optional()? {
+        match choice {
+            PushConfirmChoice::Always => true,
+            PushConfirmChoice::Never => false,
+            PushConfirmChoice::Auto => auto_cb(),
+        }
+    } else {
+        writeln!(
+            ui.hint_default(),
+            "Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or \
+             `auto` to disable this message."
+        )
+        .ok();
+        false
+    })
 }
 
 #[derive(Clone, Debug)]

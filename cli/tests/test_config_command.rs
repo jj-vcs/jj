@@ -1381,6 +1381,7 @@ fn test_config_get_yields_values_consistent_with_schema_defaults() -> TestResult
             "ui.merge-editor" => insta::assert_snapshot!(schema_default, @r#"":builtin""#),
             "git.fetch" => insta::assert_snapshot!(schema_default, @r#""origin""#),
             "git.push" => insta::assert_snapshot!(schema_default, @r#""origin""#),
+            "git.confirm-before-push" => insta::assert_snapshot!(schema_default, @r#""never""#),
 
             // When no `short-prefixes` revset is explicitly configured, the revset for `log` is
             // used instead, even if that has a value different from the default. The schema

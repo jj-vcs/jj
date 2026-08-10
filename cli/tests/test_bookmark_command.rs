@@ -668,6 +668,7 @@ fn test_bookmark_rename() {
     let output = work_dir.run_jj(["git", "push", "--bookmark", "bremote2"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: bremote2 [add to 1e76d54fcfce]
     [EOF]
