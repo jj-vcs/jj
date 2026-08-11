@@ -148,7 +148,11 @@ pub async fn cmd_tag_list(
         // Intersects with the set of local tag targets to minimize the lookup
         // space.
         expression.intersect_with(&RevsetExpression::tags(StringExpression::all()));
-        expression.evaluate_to_commit_ids()?.try_collect().await?
+        expression
+            .evaluate_to_commit_ids()
+            .await?
+            .try_collect()
+            .await?
     } else {
         HashSet::new()
     };

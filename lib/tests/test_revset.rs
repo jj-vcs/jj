@@ -111,7 +111,8 @@ fn resolve_symbol(repo: &dyn Repo, symbol: &str) -> Result<Vec<CommitId>, Revset
     assert_matches!(*expression, RevsetExpression::CommitRef(_));
     let symbol_resolver = default_symbol_resolver(repo);
     match expression
-        .resolve_user_expression(repo, &symbol_resolver)?
+        .resolve_user_expression(repo, &symbol_resolver)
+        .block_on()?
         .as_ref()
     {
         RevsetExpression::Commits(commits) => Ok(commits.clone()),
@@ -126,6 +127,7 @@ fn revset_for_commits<'index>(
     let symbol_resolver = default_symbol_resolver(repo);
     RevsetExpression::commits(commits.iter().map(|commit| commit.id().clone()).collect())
         .resolve_user_expression(repo, &symbol_resolver)
+        .block_on()
         .unwrap()
         .evaluate(repo)
         .unwrap()
@@ -243,7 +245,7 @@ fn test_resolve_symbol_commit_id() -> TestResult {
     };
     assert_matches!(
         parse(&mut RevsetDiagnostics::new(), "present(01)", &context)?
-            .resolve_user_expression(repo.as_ref(), &symbol_resolver),
+            .resolve_user_expression(repo.as_ref(), &symbol_resolver).block_on(),
         Err(RevsetResolutionError::AmbiguousCommitIdPrefix(s)) if s == "01"
     );
     assert_eq!(
@@ -543,24 +545,32 @@ fn test_resolve_symbol_in_different_disambiguation_context() -> TestResult {
     // Sanity check
     let change_hex = commit2.change_id().reverse_hex();
     assert_eq!(
-        symbol_resolver.resolve_symbol(repo2.as_ref(), &change_hex[0..1])?,
+        symbol_resolver
+            .resolve_symbol(repo2.as_ref(), &change_hex[0..1])
+            .block_on()?,
         commit2.id().clone()
     );
     assert_eq!(
-        symbol_resolver.resolve_symbol(repo2.as_ref(), &commit2.id().hex()[0..1])?,
+        symbol_resolver
+            .resolve_symbol(repo2.as_ref(), &commit2.id().hex()[0..1])
+            .block_on()?,
         commit2.id().clone()
     );
 
     // Change ID is disambiguated within repo2, then resolved in repo1.
     assert_eq!(
-        symbol_resolver.resolve_symbol(repo1.as_ref(), &change_hex[0..1])?,
+        symbol_resolver
+            .resolve_symbol(repo1.as_ref(), &change_hex[0..1])
+            .block_on()?,
         commit1.id().clone()
     );
 
     // Commit ID can be found in the disambiguation index, but doesn't exist in
     // repo1.
     assert_matches!(
-        symbol_resolver.resolve_symbol(repo1.as_ref(), &commit2.id().hex()[0..1]),
+        symbol_resolver
+            .resolve_symbol(repo1.as_ref(), &commit2.id().hex()[0..1])
+            .block_on(),
         Err(RevsetResolutionError::NoSuchRevision { .. })
     );
     Ok(())
@@ -582,7 +592,7 @@ fn test_resolve_working_copy() -> TestResult {
     let symbol_resolver = default_symbol_resolver(tx.repo());
     assert_matches!(
         RevsetExpression::working_copy(ws1.clone())
-            .resolve_user_expression(tx.repo(), &symbol_resolver),
+            .resolve_user_expression(tx.repo(), &symbol_resolver).block_on(),
         Err(RevsetResolutionError::WorkspaceMissingWorkingCopy { name }) if name == "ws1"
     );
 
@@ -590,7 +600,8 @@ fn test_resolve_working_copy() -> TestResult {
     assert_eq!(
         RevsetExpression::working_copy(ws1.clone())
             .present()
-            .resolve_user_expression(tx.repo(), &symbol_resolver)?
+            .resolve_user_expression(tx.repo(), &symbol_resolver)
+            .block_on()?
             .evaluate(tx.repo())?
             .stream()
             .map(Result::unwrap)
@@ -609,6 +620,7 @@ fn test_resolve_working_copy() -> TestResult {
     let resolve = |name: WorkspaceNameBuf| -> Vec<CommitId> {
         RevsetExpression::working_copy(name)
             .resolve_user_expression(tx.repo(), &symbol_resolver)
+            .block_on()
             .unwrap()
             .evaluate(tx.repo())
             .unwrap()
@@ -647,6 +659,7 @@ fn test_resolve_working_copies() -> TestResult {
     let resolve = || -> Vec<CommitId> {
         RevsetExpression::working_copies()
             .resolve_user_expression(tx.repo(), &symbol_resolver)
+            .block_on()
             .unwrap()
             .evaluate(tx.repo())
             .unwrap()
@@ -1072,7 +1085,9 @@ fn try_resolve_expression(
     };
     let expression = parse(&mut RevsetDiagnostics::new(), revset_str, &context).unwrap();
     let symbol_resolver = default_symbol_resolver(repo);
-    expression.resolve_user_expression(repo, &symbol_resolver)
+    expression
+        .resolve_user_expression(repo, &symbol_resolver)
+        .block_on()
 }
 
 fn try_resolve_commit_ids(
@@ -1126,6 +1141,7 @@ fn resolve_commit_ids_in_workspace(
     let symbol_resolver = default_symbol_resolver(repo);
     let expression = expression
         .resolve_user_expression(repo, &symbol_resolver)
+        .block_on()
         .unwrap();
     expression
         .evaluate(repo)
@@ -1252,7 +1268,8 @@ fn test_evaluate_expression_root_and_checkout() -> TestResult {
     // Shouldn't panic by unindexed commit ID
     let symbol_resolver = default_symbol_resolver(tx.repo());
     let expression = RevsetExpression::commit(commit1.id().clone())
-        .resolve_user_expression(tx.repo(), &symbol_resolver)?;
+        .resolve_user_expression(tx.repo(), &symbol_resolver)
+        .block_on()?;
     assert!(expression.evaluate(tx.base_repo().as_ref()).is_err());
     Ok(())
 }

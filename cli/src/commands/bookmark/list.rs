@@ -145,7 +145,11 @@ pub async fn cmd_bookmark_list(
         // Intersects with the set of local bookmark targets to minimize the lookup
         // space.
         expression.intersect_with(&RevsetExpression::bookmarks(StringExpression::all()));
-        expression.evaluate_to_commit_ids()?.try_collect().await?
+        expression
+            .evaluate_to_commit_ids()
+            .await?
+            .try_collect()
+            .await?
     } else {
         HashSet::new()
     };

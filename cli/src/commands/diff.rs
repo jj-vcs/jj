@@ -154,7 +154,8 @@ pub(crate) async fn cmd_diff(
                     .range(&target_expression.heads())
                     .minus(target_expression),
             )
-            .evaluate_to_commit_ids()?;
+            .evaluate_to_commit_ids()
+            .await?;
         if let Some(commit_id) = gaps_revset.try_next().await? {
             return Err(
                 user_error("Cannot diff revsets with gaps in.").hinted(format!(
@@ -165,12 +166,14 @@ pub(crate) async fn cmd_diff(
         }
         let heads: Vec<_> = workspace_command
             .attach_revset_evaluator(target_expression.heads())
-            .evaluate_to_commits()?
+            .evaluate_to_commits()
+            .await?
             .try_collect()
             .await?;
         let roots: Vec<_> = workspace_command
             .attach_revset_evaluator(target_expression.roots())
-            .evaluate_to_commits()?
+            .evaluate_to_commits()
+            .await?
             .try_collect()
             .await?;
 

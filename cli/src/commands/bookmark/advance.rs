@@ -139,7 +139,8 @@ pub async fn cmd_bookmark_advance(
 
                 let is_source_commit = workspace_command
                     .attach_revset_evaluator(expression)
-                    .evaluate()?
+                    .evaluate()
+                    .await?
                     .containing_fn();
                 let is_source_ref = async |target: &RefTarget| -> Result<bool, CommandError> {
                     Ok(

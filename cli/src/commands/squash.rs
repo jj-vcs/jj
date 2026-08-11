@@ -198,7 +198,8 @@ pub(crate) async fn cmd_squash(
         } else {
             workspace_command.parse_union_revsets(ui, &args.from)?
         }
-        .evaluate_to_commits()?
+        .evaluate_to_commits()
+        .await?
         .try_collect()
         .await?;
         if insert_destination_commit {

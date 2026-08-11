@@ -179,7 +179,8 @@ pub(crate) async fn cmd_status(
                         .filtered(RevsetFilterPredicate::HasConflict)
                         .minus(&workspace_command.env().immutable_expression()),
                 )
-                .evaluate_to_commit_ids()?
+                .evaluate_to_commit_ids()
+                .await?
                 .try_collect()
                 .await?;
 

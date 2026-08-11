@@ -537,7 +537,7 @@ impl CommandHelper {
             self.resolve_operation(ui, workspace.repo_loader(), workspace.workspace_name())?;
         let repo = workspace.repo_loader().load_at(&op_head).await?;
         if let Err(err) =
-            revset_util::try_resolve_trunk_alias(repo.as_ref(), &env.revset_parse_context())
+            revset_util::try_resolve_trunk_alias(repo.as_ref(), &env.revset_parse_context()).await
         {
             // The fallback can be builtin_trunk() if we're willing to support
             // inferred trunk forever. (#7990)
@@ -1115,7 +1115,7 @@ impl WorkspaceCommandEnvironment {
 
     /// Resolves the effective `immutable()` expression to test against commits
     /// during a rewrite, taking the `--ignore-immutable` flag into account.
-    fn resolve_immutable_expression(
+    async fn resolve_immutable_expression(
         &self,
         repo: &dyn Repo,
     ) -> Result<Arc<ResolvedRevsetExpression>, CommandError> {
@@ -1136,6 +1136,7 @@ impl WorkspaceCommandEnvironment {
             immutable_expression,
         )
         .resolve()
+        .await
         .map_err(|e| config_error_with_message("Invalid `revset-aliases.immutable_heads()`", e))
     }
 
@@ -1817,7 +1818,7 @@ to the current parents may contain changes from multiple commits.
         let mut all_commits = IndexSet::new();
         for revision_arg in revision_args {
             let expression = self.parse_revset(ui, revision_arg)?;
-            let mut stream = expression.evaluate_to_commit_ids()?;
+            let mut stream = expression.evaluate_to_commit_ids().await?;
             while let Some(commit_id) = stream.try_next().await? {
                 all_commits.insert(commit_id);
             }
@@ -2013,7 +2014,7 @@ to the current parents may contain changes from multiple commits.
         to_rewrite_expr: &Arc<ResolvedRevsetExpression>,
     ) -> Result<(), CommandError> {
         let repo = self.repo().as_ref();
-        let immutable_expr = self.env.resolve_immutable_expression(repo)?;
+        let immutable_expr = self.env.resolve_immutable_expression(repo).await?;
         let Some(commit_id) = immutable_expr
             .intersection(to_rewrite_expr)
             .evaluate(repo)?
@@ -2105,6 +2106,7 @@ to the current parents may contain changes from multiple commits.
             let immutable_expr = self
                 .env
                 .resolve_immutable_expression(tx.repo())
+                .await
                 .map_err(snapshot_command_error)?;
             let wc_immutable = !immutable_expr
                 .intersection(&RevsetExpression::commit(wc_commit.id().clone()))
@@ -2328,7 +2330,7 @@ to the current parents may contain changes from multiple commits.
         // failures can be ignored. snapshot_working_copy() ensures that the
         // working-copy commit is mutable.
         let maybe_new_wc_commit = if let Some(wc_commit) = &maybe_new_wc_commit
-            && let Ok(immutable_expr) = self.env.resolve_immutable_expression(tx.repo())
+            && let Ok(immutable_expr) = self.env.resolve_immutable_expression(tx.repo()).await
             && !immutable_expr
                 .intersection(&RevsetExpression::commit(wc_commit.id().clone()))
                 .evaluate(tx.repo())?
@@ -2947,7 +2949,9 @@ async fn rebase_mutable_descendants(
     // tx.base_repo() here because we're interested in existing immutable
     // commits that are still reachable.
     let mut num_rebased = 0;
-    let immutable = env.resolve_immutable_expression(tx.base_repo().as_ref())?;
+    let immutable = env
+        .resolve_immutable_expression(tx.base_repo().as_ref())
+        .await?;
     tx.repo_mut()
         .rebase_descendants_with_options(
             &immutable,
