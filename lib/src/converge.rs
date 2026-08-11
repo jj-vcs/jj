@@ -42,6 +42,7 @@ use jj_lib::evolution::walk_predecessors;
 use jj_lib::graph_dominators::FlowGraph;
 use jj_lib::graph_dominators::SimpleDirectedGraph;
 use jj_lib::graph_dominators::ValueCache;
+use jj_lib::id_prefix::resolve_change_id;
 use jj_lib::index::IndexError;
 use jj_lib::merge::Merge;
 use jj_lib::merge::MergeBuilder;
@@ -651,9 +652,10 @@ where
     // But some commits are not given as input, so we use CommitId as tertiary
     // sorting criterion.
 
-    let resolved_change_targets = truncated_evolution_graph
-        .repo()
-        .resolve_change_id(truncated_evolution_graph.change_id())?;
+    let resolved_change_targets = resolve_change_id(
+        truncated_evolution_graph.repo().as_ref(),
+        truncated_evolution_graph.change_id(),
+    )?;
     let input_position: HashMap<&CommitId, usize> = truncated_evolution_graph
         .divergent_commit_ids()
         .iter()

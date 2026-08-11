@@ -146,6 +146,19 @@ impl IdPrefixContext {
     }
 }
 
+/// Resolves a complete change ID in the repository.
+pub fn resolve_change_id(
+    repo: &dyn Repo,
+    change_id: &ChangeId,
+) -> IndexResult<Option<ResolvedChangeTargets>> {
+    let prefix = HexPrefix::from_id(change_id);
+    match repo.change_id_index().resolve_prefix(&prefix)? {
+        PrefixResolution::NoMatch => Ok(None),
+        PrefixResolution::SingleMatch(entries) => Ok(Some(entries)),
+        PrefixResolution::AmbiguousMatch => panic!("complete change ID should be unambiguous"),
+    }
+}
+
 /// Loaded index to disambiguate commit/change IDs.
 pub struct IdPrefixIndex<'a> {
     indexes: Option<&'a Indexes>,
@@ -235,7 +248,7 @@ impl IdPrefixIndex<'_> {
                     // Fall back to resolving in entire repo
                 }
                 PrefixResolution::SingleMatch(change_id) => {
-                    return match repo.resolve_change_id(&change_id)? {
+                    return match resolve_change_id(repo, &change_id)? {
                         // There may be more commits with this change id outside the narrower sets.
                         Some(commit_ids) => Ok(PrefixResolution::SingleMatch(commit_ids)),
                         // The disambiguation set may contain hidden commits.
@@ -247,7 +260,7 @@ impl IdPrefixIndex<'_> {
                 }
             }
         }
-        repo.resolve_change_id_prefix(prefix)
+        repo.change_id_index().resolve_prefix(prefix)
     }
 
     /// Returns the shortest length of a prefix of `change_id` that can still be
@@ -277,7 +290,7 @@ impl IdPrefixIndex<'_> {
         {
             return Ok(lookup.shortest_unique_prefix_len());
         }
-        repo.shortest_unique_change_id_prefix_len(change_id)
+        repo.change_id_index().shortest_unique_prefix_len(change_id)
     }
 }
 
