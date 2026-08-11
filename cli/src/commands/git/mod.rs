@@ -21,6 +21,7 @@ mod init;
 mod push;
 mod remote;
 mod root;
+mod worktree;
 
 use std::io::Write as _;
 
@@ -56,6 +57,8 @@ use self::remote::RemoteCommand;
 use self::remote::cmd_git_remote;
 use self::root::GitRootArgs;
 use self::root::cmd_git_root;
+use self::worktree::GitWorktreeCommand;
+use self::worktree::cmd_git_worktree;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
 use crate::command_error::CommandError;
@@ -87,6 +90,8 @@ pub enum GitCommand {
     #[command(subcommand)]
     Remote(RemoteCommand),
     Root(GitRootArgs),
+    #[command(subcommand)]
+    Worktree(GitWorktreeCommand),
 }
 
 pub async fn cmd_git(
@@ -104,19 +109,20 @@ pub async fn cmd_git(
         GitCommand::Push(args) => cmd_git_push(ui, command, args).await,
         GitCommand::Remote(args) => cmd_git_remote(ui, command, args).await,
         GitCommand::Root(args) => cmd_git_root(ui, command, args).await,
+        GitCommand::Worktree(args) => cmd_git_worktree(ui, command, args).await,
     }
+}
+
+/// Writes `.jj/.gitignore` so that a colocated Git repository doesn't track
+/// Jujutsu's own files.
+pub fn write_jj_gitignore(workspace_root: &std::path::Path) -> Result<(), CommandError> {
+    std::fs::write(workspace_root.join(".jj").join(".gitignore"), "/*\n")
+        .map_err(|e| user_error_with_message("Failed to write .jj/.gitignore file", e))
 }
 
 pub fn maybe_add_gitignore(workspace_command: &WorkspaceCommandHelper) -> Result<(), CommandError> {
     if workspace_command.working_copy_shared_with_git() {
-        std::fs::write(
-            workspace_command
-                .workspace_root()
-                .join(".jj")
-                .join(".gitignore"),
-            "/*\n",
-        )
-        .map_err(|e| user_error_with_message("Failed to write .jj/.gitignore file", e))
+        write_jj_gitignore(workspace_command.workspace_root())
     } else {
         Ok(())
     }
