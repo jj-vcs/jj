@@ -22,6 +22,7 @@ use std::sync::Arc;
 
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
+use futures::future::ready;
 use futures::future::try_join_all;
 use futures::try_join;
 use indexmap::IndexMap;
@@ -1508,11 +1509,11 @@ pub async fn find_duplicate_divergent_commits(
 
     // For each divergent change being rebased, we want to find all of the other
     // commits with the same change ID which are not being rebased.
-    let divergent_changes: Vec<(&Commit, Vec<CommitId>)> = target_commits
-        .iter()
-        .map(|target_commit| -> Result<_, BackendError> {
+    let divergent_changes: Vec<_> = futures::stream::iter(&target_commits)
+        .map(async |target_commit| -> BackendResult<_> {
             let mut ancestor_candidates = repo
                 .resolve_change_id(target_commit.change_id())
+                .await
                 // TODO: indexing error shouldn't be a "BackendError"
                 .map_err(|err| BackendError::Other(err.into()))?
                 .and_then(ResolvedChangeTargets::into_visible)
@@ -1520,8 +1521,10 @@ pub async fn find_duplicate_divergent_commits(
             ancestor_candidates.retain(|commit_id| !target_commit_ids.contains(commit_id));
             Ok((target_commit, ancestor_candidates))
         })
-        .filter_ok(|(_, candidates)| !candidates.is_empty())
-        .try_collect()?;
+        .buffered(repo.store().concurrency())
+        .try_filter(|(_, candidates)| ready(!candidates.is_empty()))
+        .try_collect()
+        .await?;
     if divergent_changes.is_empty() {
         return Ok(Vec::new());
     }

@@ -189,8 +189,8 @@ impl Commit {
     }
 
     ///  A commit is hidden if its commit id is not in the change id index.
-    pub fn is_hidden(&self, repo: &dyn Repo) -> IndexResult<bool> {
-        let maybe_targets = repo.resolve_change_id(self.change_id())?;
+    pub async fn is_hidden(&self, repo: &dyn Repo) -> IndexResult<bool> {
+        let maybe_targets = repo.resolve_change_id(self.change_id()).await?;
         Ok(maybe_targets.is_none_or(|targets| !targets.has_visible(&self.id)))
     }
 

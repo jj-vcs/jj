@@ -25,6 +25,7 @@ use std::path::Path;
 use std::slice;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use futures::future::try_join_all;
@@ -116,6 +117,7 @@ use crate::tree_merge::MergeOptions;
 use crate::view::RenameWorkspaceError;
 use crate::view::View;
 
+#[async_trait(?Send)]
 pub trait Repo {
     /// Base repository that contains all committed data. Returns `self` if this
     /// is a `ReadonlyRepo`,
@@ -131,25 +133,25 @@ pub trait Repo {
 
     fn submodule_store(&self) -> &Arc<dyn SubmoduleStore>;
 
-    fn resolve_change_id(
+    async fn resolve_change_id(
         &self,
         change_id: &ChangeId,
     ) -> IndexResult<Option<ResolvedChangeTargets>> {
         // Replace this if we added more efficient lookup method.
         let prefix = HexPrefix::from_id(change_id);
-        match self.resolve_change_id_prefix(&prefix)? {
+        match self.resolve_change_id_prefix(&prefix).await? {
             PrefixResolution::NoMatch => Ok(None),
             PrefixResolution::SingleMatch(entries) => Ok(Some(entries)),
             PrefixResolution::AmbiguousMatch => panic!("complete change_id should be unambiguous"),
         }
     }
 
-    fn resolve_change_id_prefix(
+    async fn resolve_change_id_prefix(
         &self,
         prefix: &HexPrefix,
     ) -> IndexResult<PrefixResolution<ResolvedChangeTargets>>;
 
-    fn shortest_unique_change_id_prefix_len(
+    async fn shortest_unique_change_id_prefix_len(
         &self,
         target_id_bytes: &ChangeId,
     ) -> IndexResult<usize>;
@@ -345,6 +347,7 @@ impl ReadonlyRepo {
     }
 }
 
+#[async_trait(?Send)]
 impl Repo for ReadonlyRepo {
     fn base_repo(&self) -> &ReadonlyRepo {
         self
@@ -370,15 +373,20 @@ impl Repo for ReadonlyRepo {
         self.loader.submodule_store()
     }
 
-    fn resolve_change_id_prefix(
+    async fn resolve_change_id_prefix(
         &self,
         prefix: &HexPrefix,
     ) -> IndexResult<PrefixResolution<ResolvedChangeTargets>> {
-        self.change_id_index().resolve_prefix(prefix)
+        self.change_id_index().resolve_prefix(prefix).await
     }
 
-    fn shortest_unique_change_id_prefix_len(&self, target_id: &ChangeId) -> IndexResult<usize> {
-        self.change_id_index().shortest_unique_prefix_len(target_id)
+    async fn shortest_unique_change_id_prefix_len(
+        &self,
+        target_id: &ChangeId,
+    ) -> IndexResult<usize> {
+        self.change_id_index()
+            .shortest_unique_prefix_len(target_id)
+            .await
     }
 }
 
@@ -2105,6 +2113,7 @@ impl MutableRepo {
     }
 }
 
+#[async_trait(?Send)]
 impl Repo for MutableRepo {
     fn base_repo(&self) -> &ReadonlyRepo {
         &self.base_repo
@@ -2130,17 +2139,20 @@ impl Repo for MutableRepo {
         self.base_repo.submodule_store()
     }
 
-    fn resolve_change_id_prefix(
+    async fn resolve_change_id_prefix(
         &self,
         prefix: &HexPrefix,
     ) -> IndexResult<PrefixResolution<ResolvedChangeTargets>> {
         let change_id_index = self.index.change_id_index(&mut self.view().heads().iter());
-        change_id_index.resolve_prefix(prefix)
+        change_id_index.resolve_prefix(prefix).await
     }
 
-    fn shortest_unique_change_id_prefix_len(&self, target_id: &ChangeId) -> IndexResult<usize> {
+    async fn shortest_unique_change_id_prefix_len(
+        &self,
+        target_id: &ChangeId,
+    ) -> IndexResult<usize> {
         let change_id_index = self.index.change_id_index(&mut self.view().heads().iter());
-        change_id_index.shortest_unique_prefix_len(target_id)
+        change_id_index.shortest_unique_prefix_len(target_id).await
     }
 }
 

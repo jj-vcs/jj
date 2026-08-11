@@ -1175,6 +1175,7 @@ fn test_change_id_index() {
     let prefix_len = |commit: &Commit| {
         change_id_index
             .shortest_unique_prefix_len(commit.change_id())
+            .block_on()
             .unwrap()
     };
     assert_eq!(prefix_len(&root_commit), 1);
@@ -1186,6 +1187,7 @@ fn test_change_id_index() {
     let resolve_prefix = |prefix: &str| {
         change_id_index
             .resolve_prefix(&HexPrefix::try_from_hex(prefix).unwrap())
+            .block_on()
             .unwrap()
     };
     // Ambiguous matches
@@ -1242,6 +1244,7 @@ fn test_change_id_index() {
     let resolve_prefix = |prefix: &str| {
         change_id_index
             .resolve_prefix(&HexPrefix::try_from_hex(prefix).unwrap())
+            .block_on()
             .unwrap()
     };
     assert_eq!(

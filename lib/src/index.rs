@@ -287,9 +287,10 @@ impl ResolvedChangeTargets {
 
 /// Defines the interface for types that provide an index of the commits in a
 /// repository by [`ChangeId`].
+#[async_trait]
 pub trait ChangeIdIndex: Send + Sync {
     /// Resolve an unambiguous change ID prefix to the commit IDs in the index.
-    fn resolve_prefix(
+    async fn resolve_prefix(
         &self,
         prefix: &HexPrefix,
     ) -> IndexResult<PrefixResolution<ResolvedChangeTargets>>;
@@ -308,5 +309,5 @@ pub trait ChangeIdIndex: Send + Sync {
     ///   order to disambiguate, you need every letter of the key *and* the
     ///   additional fact that it's the entire key). This case is extremely
     ///   unlikely for hashes with 12+ hexadecimal characters.
-    fn shortest_unique_prefix_len(&self, change_id: &ChangeId) -> IndexResult<usize>;
+    async fn shortest_unique_prefix_len(&self, change_id: &ChangeId) -> IndexResult<usize>;
 }

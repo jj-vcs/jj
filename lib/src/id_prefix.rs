@@ -219,7 +219,7 @@ impl IdPrefixIndex<'_> {
     }
 
     /// Resolve an unambiguous change ID prefix to the commit IDs in the revset.
-    pub fn resolve_change_prefix(
+    pub async fn resolve_change_prefix(
         &self,
         repo: &dyn Repo,
         prefix: &HexPrefix,
@@ -233,7 +233,7 @@ impl IdPrefixIndex<'_> {
                     // Fall back to resolving in entire repo
                 }
                 PrefixResolution::SingleMatch(change_id) => {
-                    return match repo.resolve_change_id(&change_id)? {
+                    return match repo.resolve_change_id(&change_id).await? {
                         // There may be more commits with this change id outside the narrower sets.
                         Some(commit_ids) => Ok(PrefixResolution::SingleMatch(commit_ids)),
                         // The disambiguation set may contain hidden commits.
@@ -245,17 +245,19 @@ impl IdPrefixIndex<'_> {
                 }
             }
         }
-        repo.resolve_change_id_prefix(prefix)
+        repo.resolve_change_id_prefix(prefix).await
     }
 
     /// Returns the shortest length of a prefix of `change_id` that can still be
     /// resolved by `resolve_change_prefix()` and [`SymbolResolver`].
-    pub fn shortest_change_prefix_len(
+    pub async fn shortest_change_prefix_len(
         &self,
         repo: &dyn Repo,
         change_id: &ChangeId,
     ) -> IndexResult<usize> {
-        let len = self.shortest_change_prefix_len_exact(repo, change_id)?;
+        let len = self
+            .shortest_change_prefix_len_exact(repo, change_id)
+            .await?;
         Ok(disambiguate_prefix_with_refs(
             repo.view(),
             &change_id.to_string(),
@@ -263,7 +265,7 @@ impl IdPrefixIndex<'_> {
         ))
     }
 
-    fn shortest_change_prefix_len_exact(
+    async fn shortest_change_prefix_len_exact(
         &self,
         repo: &dyn Repo,
         change_id: &ChangeId,
@@ -275,7 +277,7 @@ impl IdPrefixIndex<'_> {
         {
             return Ok(lookup.shortest_unique_prefix_len());
         }
-        repo.shortest_unique_change_id_prefix_len(change_id)
+        repo.shortest_unique_change_id_prefix_len(change_id).await
     }
 }
 

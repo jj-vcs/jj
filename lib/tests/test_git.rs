@@ -6209,12 +6209,14 @@ fn test_rewrite_imported_commit() -> TestResult {
 
     // The index should be consistent with the store.
     assert_eq!(
-        repo.resolve_change_id(imported_commit.change_id())?
+        repo.resolve_change_id(imported_commit.change_id())
+            .block_on()?
             .and_then(ResolvedChangeTargets::into_visible),
         Some(vec![imported_commit.id().clone()]),
     );
     assert_eq!(
-        repo.resolve_change_id(authored_commit.change_id())?
+        repo.resolve_change_id(authored_commit.change_id())
+            .block_on()?
             .and_then(ResolvedChangeTargets::into_visible),
         Some(vec![authored_commit.id().clone()]),
     );
@@ -6277,7 +6279,8 @@ fn test_concurrent_write_commit() -> TestResult {
         assert!(repo.index().has_id(commit_id)?);
         let commit = repo.store().get_commit(commit_id)?;
         assert_eq!(
-            repo.resolve_change_id(commit.change_id())?
+            repo.resolve_change_id(commit.change_id())
+                .block_on()?
                 .and_then(ResolvedChangeTargets::into_visible),
             Some(vec![commit_id.clone()]),
         );
@@ -6404,7 +6407,8 @@ fn test_concurrent_read_write_commit() -> TestResult {
         assert!(repo.index().has_id(commit_id)?);
         let commit = repo.store().get_commit(commit_id)?;
         assert_eq!(
-            repo.resolve_change_id(commit.change_id())?
+            repo.resolve_change_id(commit.change_id())
+                .block_on()?
                 .and_then(ResolvedChangeTargets::into_visible),
             Some(vec![commit_id.clone()]),
         );

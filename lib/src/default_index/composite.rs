@@ -684,13 +684,14 @@ impl<I: AsCompositeIndex> ChangeIdIndexImpl<I> {
     }
 }
 
+#[async_trait]
 impl<I: AsCompositeIndex + Send + Sync> ChangeIdIndex for ChangeIdIndexImpl<I> {
     // Resolves change ID prefix among all IDs.
     //
     // If `SingleMatch` is returned, there is at least one commit with the given
     // change ID (either visible or hidden). `AmbiguousMatch` may be returned even
     // if the prefix is unique within the visible entries.
-    fn resolve_prefix(
+    async fn resolve_prefix(
         &self,
         prefix: &HexPrefix,
     ) -> IndexResult<PrefixResolution<ResolvedChangeTargets>> {
@@ -709,7 +710,7 @@ impl<I: AsCompositeIndex + Send + Sync> ChangeIdIndex for ChangeIdIndexImpl<I> {
     // The returned length is usually a few digits longer than the minimum
     // length necessary to disambiguate within the visible entries since hidden
     // entries are also considered when determining the prefix length.
-    fn shortest_unique_prefix_len(&self, change_id: &ChangeId) -> IndexResult<usize> {
+    async fn shortest_unique_prefix_len(&self, change_id: &ChangeId) -> IndexResult<usize> {
         let index = self.index.as_composite().commits();
         Ok(index.shortest_unique_change_id_prefix_len(change_id))
     }
