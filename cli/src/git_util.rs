@@ -20,6 +20,7 @@ use std::io::Write as _;
 use std::iter;
 use std::mem;
 use std::path::Path;
+use std::path::PathBuf;
 use std::process::Command;
 use std::time::Duration;
 use std::time::Instant;
@@ -706,6 +707,76 @@ pub fn remove_git_worktree(
         }
     }
     Ok(())
+}
+
+pub struct GitWorktreePaths {
+    pub worktree_root: PathBuf,
+    pub common_git_dir: PathBuf,
+    pub workspace_name: jj_lib::ref_name::WorkspaceNameBuf,
+}
+
+pub fn discover_git_worktree_paths(
+    git_settings: &GitSettings,
+    cwd: &Path,
+) -> Result<Option<GitWorktreePaths>, CommandError> {
+    let Some(worktree_root) = git_rev_parse_path(git_settings, cwd, "--show-toplevel")? else {
+        return Ok(None);
+    };
+    let Some(git_dir) = git_rev_parse_path(git_settings, cwd, "--git-dir")? else {
+        return Ok(None);
+    };
+    let Some(common_git_dir) = git_rev_parse_path(git_settings, cwd, "--git-common-dir")? else {
+        return Ok(None);
+    };
+    if git_dir == common_git_dir {
+        return Ok(None);
+    }
+    let Some(workspace_name) = git_dir.file_name().and_then(|name| name.to_str()) else {
+        return Ok(None);
+    };
+    if workspace_name.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(GitWorktreePaths {
+        worktree_root,
+        common_git_dir,
+        workspace_name: workspace_name.into(),
+    }))
+}
+
+fn git_rev_parse_path(
+    git_settings: &GitSettings,
+    cwd: &Path,
+    arg: &str,
+) -> Result<Option<PathBuf>, CommandError> {
+    let Ok(output) = Command::new(&git_settings.executable_path)
+        .arg("rev-parse")
+        .arg(arg)
+        .current_dir(cwd)
+        .output()
+    else {
+        return Ok(None);
+    };
+    if !output.status.success() {
+        return Ok(None);
+    }
+    let Ok(path) = String::from_utf8(output.stdout) else {
+        return Ok(None);
+    };
+    let path = Path::new(path.trim());
+    let path = if path.is_absolute() {
+        path.to_owned()
+    } else {
+        cwd.join(path)
+    };
+    match dunce::canonicalize(&path) {
+        Ok(path) => Ok(Some(path)),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(err) => Err(user_error_with_message(
+            format!("Failed to resolve git path '{}'", path.display()),
+            err,
+        )),
+    }
 }
 
 #[cfg(test)]
