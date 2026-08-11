@@ -20,6 +20,7 @@ use std::io::Write as _;
 use std::iter;
 use std::mem;
 use std::path::Path;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
@@ -58,6 +59,7 @@ use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::command_error::print_error_sources;
 use crate::command_error::user_error;
+use crate::command_error::user_error_with_message;
 use crate::formatter::Formatter;
 use crate::formatter::FormatterExt as _;
 use crate::revset_util::parse_remote_auto_track_bookmarks_map;
@@ -604,6 +606,62 @@ pub fn unlink_git_worktree(
         }
     }
     Ok(())
+}
+
+pub struct GitWorktreePaths {
+    pub worktree_root: PathBuf,
+    pub common_git_dir: PathBuf,
+    pub workspace_name: jj_lib::ref_name::WorkspaceNameBuf,
+}
+
+/// Discovers the linked Git worktree containing `cwd`.
+///
+/// Returns `None` if `cwd` isn't inside a Git worktree at all, or is inside
+/// the main worktree rather than a linked one.
+pub fn discover_git_worktree_paths(cwd: &Path) -> Result<Option<GitWorktreePaths>, CommandError> {
+    let Ok(git_repo) = gix::discover(cwd) else {
+        return Ok(None);
+    };
+    let Some(worktree_root) = git_repo.workdir() else {
+        return Ok(None);
+    };
+    let Some(worktree_root) = canonicalize_existing(worktree_root)? else {
+        return Ok(None);
+    };
+    let Some(git_dir) = canonicalize_existing(git_repo.git_dir())? else {
+        return Ok(None);
+    };
+    let Some(common_git_dir) = canonicalize_existing(git_repo.common_dir())? else {
+        return Ok(None);
+    };
+    // A linked worktree keeps its own git dir under the common one, whereas
+    // the main worktree's git dir *is* the common dir.
+    if git_dir == common_git_dir {
+        return Ok(None);
+    }
+    let Some(workspace_name) = git_dir.file_name().and_then(|name| name.to_str()) else {
+        return Ok(None);
+    };
+    if workspace_name.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(GitWorktreePaths {
+        worktree_root,
+        common_git_dir,
+        workspace_name: workspace_name.into(),
+    }))
+}
+
+/// Canonicalizes `path`, treating a missing path as `None`.
+fn canonicalize_existing(path: &Path) -> Result<Option<PathBuf>, CommandError> {
+    match dunce::canonicalize(path) {
+        Ok(path) => Ok(Some(path)),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(err) => Err(user_error_with_message(
+            format!("Failed to resolve git path '{}'", path.display()),
+            err,
+        )),
+    }
 }
 
 #[cfg(test)]
