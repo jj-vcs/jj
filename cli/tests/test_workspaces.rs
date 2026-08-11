@@ -144,6 +144,48 @@ fn test_workspaces_add_colocated_unborn_git_head() {
 }
 
 #[test]
+fn test_workspaces_add_adopt_git_worktree() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("git.auto-sync-worktrees = false");
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "main"])
+        .success();
+    let main_dir = test_env.work_dir("main");
+    let linked_dir = test_env.work_dir("linked");
+
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+    let output = std::process::Command::new("git")
+        .args(["worktree", "add", "--detach"])
+        .arg(linked_dir.root())
+        .arg("HEAD")
+        .current_dir(main_dir.root())
+        .output()
+        .expect("git worktree add failed to spawn");
+    assert!(
+        output.status.success(),
+        "git worktree add failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(!linked_dir.root().join(".jj").exists());
+
+    let output = linked_dir.run_jj(["workspace", "add", "--adopt"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Created jj workspace for Git worktree at "$TEST_ENV/linked".
+    [EOF]
+    "#);
+    assert!(linked_dir.root().join(".jj").is_dir());
+
+    let output = main_dir.run_jj(["workspace", "list"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    default: . rlvkpnrz 504e3d8c (empty) (no description set)
+    linked: ../linked kkmpptxz 2b17ac71 (empty) (no description set)
+    [EOF]
+    "#);
+}
+
+#[test]
 fn test_workspaces_add_with_message() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "main"]).success();

@@ -3784,7 +3784,7 @@ Add a workspace
 
 By default, the new workspace inherits the sparse patterns of the current workspace. You can override this with the `--sparse-patterns` option.
 
-**Usage:** `jj workspace add [OPTIONS] <DESTINATION>`
+**Usage:** `jj workspace add [OPTIONS] [DESTINATION]`
 
 ###### **Arguments:**
 
@@ -3792,6 +3792,9 @@ By default, the new workspace inherits the sparse patterns of the current worksp
 
 ###### **Options:**
 
+* `--adopt` — Adopt the current Git worktree as a jj workspace
+
+   When run inside a Git worktree that belongs to a colocated jj repository, creates a jj workspace for it. No destination path is needed.
 * `--name <NAME>` — A name for the workspace
 
    To override the default, which is the basename of the destination directory.

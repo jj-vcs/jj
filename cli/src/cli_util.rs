@@ -576,6 +576,18 @@ impl CommandHelper {
         Ok(factory)
     }
 
+    pub fn get_working_copy_factory_at(
+        &self,
+        workspace_root: &Path,
+    ) -> Result<&dyn WorkingCopyFactory, CommandError> {
+        let loader = self.new_workspace_loader_at(workspace_root)?;
+        let factory: Result<_, WorkspaceLoadError> =
+            get_working_copy_factory(loader.as_ref(), &self.data.working_copy_factories)
+                .map_err(|e| e.into());
+        let factory = factory.map_err(|err| map_workspace_load_error(err, None))?;
+        Ok(factory)
+    }
+
     /// Loads workspace for the current command.
     #[instrument(skip_all)]
     pub fn load_workspace(&self) -> Result<Workspace, CommandError> {

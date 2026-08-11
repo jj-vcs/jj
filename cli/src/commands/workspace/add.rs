@@ -56,8 +56,16 @@ enum SparseInheritance {
 #[derive(clap::Args, Clone, Debug)]
 pub struct WorkspaceAddArgs {
     /// Where to create the new workspace
-    #[arg(value_hint = clap::ValueHint::DirPath)]
-    destination: String,
+    #[arg(value_hint = clap::ValueHint::DirPath, required_unless_present = "adopt")]
+    destination: Option<String>,
+
+    /// Adopt the current Git worktree as a jj workspace
+    ///
+    /// When run inside a Git worktree that belongs to a colocated jj
+    /// repository, creates a jj workspace for it. No destination path
+    /// is needed.
+    #[arg(long)]
+    adopt: bool,
 
     /// A name for the workspace
     ///
@@ -110,8 +118,13 @@ pub async fn cmd_workspace_add(
     command: &CommandHelper,
     args: &WorkspaceAddArgs,
 ) -> Result<(), CommandError> {
+    if args.adopt {
+        return cmd_workspace_add_adopt(ui, command).await;
+    }
+
+    let destination = args.destination.as_ref().expect("destination is required");
     let old_workspace_command = command.workspace_helper(ui).await?;
-    let destination_path = command.cwd().join(&args.destination);
+    let destination_path = command.cwd().join(destination);
     let workspace_name = if let Some(name) = &args.name {
         name.to_owned()
     } else {
@@ -200,11 +213,11 @@ pub async fn cmd_workspace_add(
     )?;
     // Show a warning if the user passed a path without a separator, since they
     // may have intended the argument to only be the name for the workspace.
-    if !args.destination.contains(std::path::is_separator) {
+    if !destination.contains(std::path::is_separator) {
         writeln!(
             ui.warning_default(),
             r#"Workspace created inside current directory. If this was unintentional, delete the "{}" directory and run `jj workspace forget {name}` to remove it."#,
-            args.destination,
+            destination,
             name = workspace_name.as_symbol()
         )?;
     }
@@ -292,4 +305,64 @@ pub async fn cmd_workspace_add(
     )
     .await?;
     Ok(())
+}
+
+#[cfg(feature = "git")]
+async fn cmd_workspace_add_adopt(ui: &mut Ui, command: &CommandHelper) -> Result<(), CommandError> {
+    use jj_lib::git::GitSettings;
+    use jj_lib::repo::Repo as _;
+    use jj_lib::workspace::Workspace;
+
+    use crate::git_util::discover_git_worktree_paths;
+
+    let git_settings = GitSettings::from_settings(command.settings())?;
+    let Some(git_paths) = discover_git_worktree_paths(&git_settings, command.cwd())? else {
+        return Err(user_error(
+            "Not inside a Git worktree. Run this from within a Git worktree to adopt it.",
+        ));
+    };
+    let main_workspace_root = match git_paths.common_git_dir.parent() {
+        Some(path) if path.join(".jj").is_dir() => path,
+        _ => {
+            return Err(user_error(
+                "The Git worktree's main repository is not a colocated jj repo.",
+            ));
+        }
+    };
+    let (main_settings, _) = command.settings_for_new_workspace(ui, main_workspace_root)?;
+    let main_workspace = command.load_workspace_at(main_workspace_root, &main_settings)?;
+    let working_copy_factory = command.get_working_copy_factory_at(main_workspace_root)?;
+    let repo = main_workspace.repo_loader().load_at_head().await?;
+    if repo
+        .view()
+        .get_wc_commit_id(&git_paths.workspace_name)
+        .is_some()
+    {
+        return Err(user_error(format!(
+            "Workspace '{}' already exists.",
+            git_paths.workspace_name.as_str()
+        )));
+    }
+    let (_workspace, _repo) = Workspace::init_workspace_with_existing_repo(
+        &git_paths.worktree_root,
+        main_workspace.repo_path(),
+        &repo,
+        working_copy_factory,
+        git_paths.workspace_name,
+    )
+    .await?;
+    writeln!(
+        ui.status(),
+        r#"Created jj workspace for Git worktree at "{}"."#,
+        git_paths.worktree_root.display()
+    )?;
+    Ok(())
+}
+
+#[cfg(not(feature = "git"))]
+async fn cmd_workspace_add_adopt(
+    _ui: &mut Ui,
+    _command: &CommandHelper,
+) -> Result<(), CommandError> {
+    Err(user_error("Git support is required for --adopt"))
 }
