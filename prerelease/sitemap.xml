@@ -208,4 +208,8 @@
          <loc>https://docs.jj-vcs.dev/latest/technical/conflicts/</loc>
          <lastmod>2026-08-11</lastmod>
     </url>
+    <url>
+         <loc>https://docs.jj-vcs.dev/latest/technical/revset-evaluation/</loc>
+         <lastmod>2026-08-11</lastmod>
+    </url>
 </urlset>

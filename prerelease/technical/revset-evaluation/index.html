@@ -8,13 +8,13 @@
       
       
       
-        <link rel="canonical" href="https://docs.jj-vcs.dev/latest/design/run/">
+        <link rel="canonical" href="https://docs.jj-vcs.dev/latest/technical/revset-evaluation/">
       
       
-        <link rel="prev" href="../git-submodule-storage/">
+        <link rel="prev" href="../conflicts/">
       
       
-        <link rel="next" href="../sparse-v2/">
+        <link rel="next" href="../../contributing/">
       
       
       <link rel="icon" href="../../images/favicon-96x96.png">
@@ -22,7 +22,7 @@
     
     
       
-        <title>JJ run - Jujutsu docs (prerelease)</title>
+        <title>Revset evaluation - Jujutsu docs (prerelease)</title>
       
     
     
@@ -74,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#introducing-jj-run" class="md-skip">
+        <a href="#revset-evaluation" class="md-skip">
           Skip to content
         </a>
       
@@ -114,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              JJ run
+              Revset evaluation
             
           </span>
         </div>
@@ -1131,18 +1131,20 @@
       
   
   
+    
   
   
+  
     
     
     
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" checked>
         
           
           <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
@@ -1158,7 +1160,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_11">
             <span class="md-nav__icon md-icon"></span>
             Technical details
@@ -1195,7 +1197,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../technical/architecture/" class="md-nav__link">
+      <a href="../architecture/" class="md-nav__link">
         
   
   
@@ -1218,7 +1220,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../technical/concurrency/" class="md-nav__link">
+      <a href="../concurrency/" class="md-nav__link">
         
   
   
@@ -1241,7 +1243,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../technical/conflicts/" class="md-nav__link">
+      <a href="../conflicts/" class="md-nav__link">
         
   
   
@@ -1261,10 +1263,32 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../technical/revset-evaluation/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Revset evaluation
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1275,6 +1299,176 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#parsing-and-alias-expansion" class="md-nav__link">
+    <span class="md-ellipsis">
+      Parsing and Alias Expansion
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#symbol-resolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      Symbol Resolution
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      Optimization
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Optimization">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-resolve-referenced-commits" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Resolve referenced commits
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-unfold-ranges-and-differences" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Unfold ranges and differences
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-fold-redundant-expressions" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Fold redundant expressions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-fold-generations" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Fold generations
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-flatten-intersections" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. Flatten intersections
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-sort-negations-and-ancestors" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. Sort negations and ancestors
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-fold-ancestors-union" class="md-nav__link">
+    <span class="md-ellipsis">
+      7. Fold ancestors union
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#8-internalize-filters" class="md-nav__link">
+    <span class="md-ellipsis">
+      8. Internalize filters
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#9-fold-heads-range" class="md-nav__link">
+    <span class="md-ellipsis">
+      9. Fold heads range
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#10-fold-ranges-and-differences" class="md-nav__link">
+    <span class="md-ellipsis">
+      10. Fold ranges and differences
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#11-fold-negated-ancestors" class="md-nav__link">
+    <span class="md-ellipsis">
+      11. Fold negated ancestors
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#visibility-resolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      Visibility Resolution
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#evaluation-by-index" class="md-nav__link">
+    <span class="md-ellipsis">
+      Evaluation by Index
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1520,20 +1714,18 @@
       
   
   
-    
   
   
-  
     
     
     
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" >
         
           
           <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="0">
@@ -1549,7 +1741,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_13">
             <span class="md-nav__icon md-icon"></span>
             Design docs
@@ -1563,7 +1755,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../git-submodules/" class="md-nav__link">
+      <a href="../../design/git-submodules/" class="md-nav__link">
         
   
   
@@ -1586,7 +1778,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../git-submodule-storage/" class="md-nav__link">
+      <a href="../../design/git-submodule-storage/" class="md-nav__link">
         
   
   
@@ -1606,32 +1798,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    JJ run
-    
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../design/run/" class="md-nav__link">
         
   
   
@@ -1642,206 +1812,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#preface" class="md-nav__link">
-    <span class="md-ellipsis">
-      Preface
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#context-and-scope" class="md-nav__link">
-    <span class="md-ellipsis">
-      Context and Scope
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#goals-and-non-goals" class="md-nav__link">
-    <span class="md-ellipsis">
-      Goals and Non-Goals
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Goals and Non-Goals">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#goals" class="md-nav__link">
-    <span class="md-ellipsis">
-      Goals
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#non-goals" class="md-nav__link">
-    <span class="md-ellipsis">
-      Non-Goals
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#use-cases-of-jj-run" class="md-nav__link">
-    <span class="md-ellipsis">
-      Use-Cases of jj run
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#design" class="md-nav__link">
-    <span class="md-ellipsis">
-      Design
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Design">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#base-design" class="md-nav__link">
-    <span class="md-ellipsis">
-      Base Design
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#modifying-the-working-copy" class="md-nav__link">
-    <span class="md-ellipsis">
-      Modifying the Working Copy
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#modifying-the-repo" class="md-nav__link">
-    <span class="md-ellipsis">
-      Modifying the Repo
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#rewriting-the-revisions" class="md-nav__link">
-    <span class="md-ellipsis">
-      Rewriting the revisions
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#execution-orderparallelism" class="md-nav__link">
-    <span class="md-ellipsis">
-      Execution order/parallelism
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#dealing-with-failure" class="md-nav__link">
-    <span class="md-ellipsis">
-      Dealing with failure
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#resource-constraints" class="md-nav__link">
-    <span class="md-ellipsis">
-      Resource constraints
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#command-options" class="md-nav__link">
-    <span class="md-ellipsis">
-      Command Options
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Command Options">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#integrating-with-other-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      Integrating with other commands
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#open-points" class="md-nav__link">
-    <span class="md-ellipsis">
-      Open Points
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#future-possibilities" class="md-nav__link">
-    <span class="md-ellipsis">
-      Future possibilities
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1854,7 +1824,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../sparse-v2/" class="md-nav__link">
+      <a href="../../design/sparse-v2/" class="md-nav__link">
         
   
   
@@ -1877,7 +1847,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../tracking-branches/" class="md-nav__link">
+      <a href="../../design/tracking-branches/" class="md-nav__link">
         
   
   
@@ -1900,7 +1870,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../copy-tracking/" class="md-nav__link">
+      <a href="../../design/copy-tracking/" class="md-nav__link">
         
   
   
@@ -1923,7 +1893,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../secure-config/" class="md-nav__link">
+      <a href="../../design/secure-config/" class="md-nav__link">
         
   
   
@@ -1946,7 +1916,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../managed-config/" class="md-nav__link">
+      <a href="../../design/managed-config/" class="md-nav__link">
         
   
   
@@ -1969,7 +1939,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../jj-converge-command/" class="md-nav__link">
+      <a href="../../design/jj-converge-command/" class="md-nav__link">
         
   
   
@@ -2063,46 +2033,127 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#preface" class="md-nav__link">
+  <a href="#parsing-and-alias-expansion" class="md-nav__link">
     <span class="md-ellipsis">
-      Preface
+      Parsing and Alias Expansion
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#context-and-scope" class="md-nav__link">
+  <a href="#symbol-resolution" class="md-nav__link">
     <span class="md-ellipsis">
-      Context and Scope
+      Symbol Resolution
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#goals-and-non-goals" class="md-nav__link">
+  <a href="#optimization" class="md-nav__link">
     <span class="md-ellipsis">
-      Goals and Non-Goals
+      Optimization
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Goals and Non-Goals">
+    <nav class="md-nav" aria-label="Optimization">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#goals" class="md-nav__link">
+  <a href="#1-resolve-referenced-commits" class="md-nav__link">
     <span class="md-ellipsis">
-      Goals
+      1. Resolve referenced commits
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#non-goals" class="md-nav__link">
+  <a href="#2-unfold-ranges-and-differences" class="md-nav__link">
     <span class="md-ellipsis">
-      Non-Goals
+      2. Unfold ranges and differences
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-fold-redundant-expressions" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Fold redundant expressions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-fold-generations" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Fold generations
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-flatten-intersections" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. Flatten intersections
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-sort-negations-and-ancestors" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. Sort negations and ancestors
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-fold-ancestors-union" class="md-nav__link">
+    <span class="md-ellipsis">
+      7. Fold ancestors union
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#8-internalize-filters" class="md-nav__link">
+    <span class="md-ellipsis">
+      8. Internalize filters
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#9-fold-heads-range" class="md-nav__link">
+    <span class="md-ellipsis">
+      9. Fold heads range
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#10-fold-ranges-and-differences" class="md-nav__link">
+    <span class="md-ellipsis">
+      10. Fold ranges and differences
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#11-fold-negated-ancestors" class="md-nav__link">
+    <span class="md-ellipsis">
+      11. Fold negated ancestors
     </span>
   </a>
   
@@ -2114,129 +2165,18 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#use-cases-of-jj-run" class="md-nav__link">
+  <a href="#visibility-resolution" class="md-nav__link">
     <span class="md-ellipsis">
-      Use-Cases of jj run
+      Visibility Resolution
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#design" class="md-nav__link">
+  <a href="#evaluation-by-index" class="md-nav__link">
     <span class="md-ellipsis">
-      Design
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Design">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#base-design" class="md-nav__link">
-    <span class="md-ellipsis">
-      Base Design
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#modifying-the-working-copy" class="md-nav__link">
-    <span class="md-ellipsis">
-      Modifying the Working Copy
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#modifying-the-repo" class="md-nav__link">
-    <span class="md-ellipsis">
-      Modifying the Repo
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#rewriting-the-revisions" class="md-nav__link">
-    <span class="md-ellipsis">
-      Rewriting the revisions
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#execution-orderparallelism" class="md-nav__link">
-    <span class="md-ellipsis">
-      Execution order/parallelism
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#dealing-with-failure" class="md-nav__link">
-    <span class="md-ellipsis">
-      Dealing with failure
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#resource-constraints" class="md-nav__link">
-    <span class="md-ellipsis">
-      Resource constraints
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#command-options" class="md-nav__link">
-    <span class="md-ellipsis">
-      Command Options
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Command Options">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#integrating-with-other-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      Integrating with other commands
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#open-points" class="md-nav__link">
-    <span class="md-ellipsis">
-      Open Points
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#future-possibilities" class="md-nav__link">
-    <span class="md-ellipsis">
-      Future possibilities
+      Evaluation by Index
     </span>
   </a>
   
@@ -2258,7 +2198,7 @@
 
 
   
-    <a href="https://github.com/jj-vcs/jj/edit/main/docs/design/run.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/jj-vcs/jj/edit/main/docs/technical/revset-evaluation.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75z"/></svg>
     </a>
@@ -2266,231 +2206,308 @@
   
 
 
-<h1 id="introducing-jj-run">Introducing JJ run<a class="headerlink" href="#introducing-jj-run" title="Permanent link">&para;</a></h1>
-<p>Authors: <a href="mailto:philipmetzger@bluewin.ch">Philip Metzger</a>, <a href="mailto:martinvonz@google.com">Martin von Zweigberk</a>, <a href="mailto:hooper@google.com">Danny Hooper</a>, <a href="mailto:me@waleedkhan.name">Waleed Khan</a></p>
-<p>Initial Version, 10.12.2022 (view full history <a href="https://docs.google.com/document/d/14BiAoEEy_e-BRPHYpXRFjvHMfgYVKh-pKWzzTDi-v-g/edit">here</a>)</p>
-<p><strong>Summary:</strong> This Document documents the design of a new <code>run</code> command for
-Jujutsu which will be used to seamlessly integrate with build systems, linters
-and formatters. This is achieved by running a user-provided command or script
-across multiple revisions. For more details, read the
-<a href="#use-cases-of-jj-run">Use-Cases of jj run</a>.</p>
-<h2 id="preface">Preface<a class="headerlink" href="#preface" title="Permanent link">&para;</a></h2>
-<p>The goal of this Design Document is to specify the correct behavior of <code>jj run</code>.
-The points we decide on here I (Philip Metzger) will try to implement. There
-exists some prior work in other DVCS:</p>
+<h1 id="revset-evaluation">Revset Evaluation<a class="headerlink" href="#revset-evaluation" title="Permanent link">&para;</a></h1>
+<p>Whenever a revset is evaluated, it must pass through several stages. These
+stages gradually transform the revset to a lower level representation that can
+be efficiently evaluated.</p>
+<p><em>Note: We often use a pseudo-revset syntax to make this documentation easier to
+follow. For instance, some operations described in this document are only used
+internally and aren't available in the revset language exposed to users.</em></p>
+<h2 id="parsing-and-alias-expansion">Parsing and Alias Expansion<a class="headerlink" href="#parsing-and-alias-expansion" title="Permanent link">&para;</a></h2>
+<p>As a revset is parsed, any uses of revset aliases are substituted with their
+definitions. For instance, given the following aliases:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[revset-aliases]</span>
+<span class="s2">&quot;trunk()&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;main@origin&quot;</span>
+<span class="s2">&quot;f(x, n)&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;x | ancestors(x.., n)&quot;</span>
+</code></pre></div>
+<p>Revsets are expanded as follows:</p>
 <ul>
-<li><code>git test</code>: part of <a href="https://github.com/arxanas/git-branchless">git-branchless</a>. Similar to this proposal for <code>jj run</code>.</li>
-<li><code>hg run</code>: Google's internal Mercurial extension. Similar to this proposal for
-<code>jj run</code>.
-Details not available.</li>
-<li><code>hg fix</code>: Google's open source Mercurial extension: <a href="https://repo.mercurial-scm.org/hg/file/tip/hgext/fix.py">source code</a>. A
-more specialized approach to rewriting file content without full context of the
-working directory.</li>
-<li><code>git rebase -x</code>: runs commands opportunistically as part of rebase.</li>
-<li><code>git bisect run</code>: run a command to determine which commit introduced a bug.</li>
+<li><code>trunk()</code> expands to <code>main@origin</code></li>
+<li><code>f(trunk(), 2)</code> expands to <code>main@origin | ancestors(main@origin.., 2)</code></li>
+<li><code>f(main | tags(), 2)</code> expands to <code>(main | tags()) | ancestors((main | tags()).., 2)</code></li>
 </ul>
-<h2 id="context-and-scope">Context and Scope<a class="headerlink" href="#context-and-scope" title="Permanent link">&para;</a></h2>
-<p>The initial need for some kind of command runner integrated in the VCS, surfaced
-in a <a href="https://github.com/jj-vcs/jj/issues/405">github discussion</a>. In a <a href="https://discord.com/channels/968932220549103686/969829516539228222/1047958933161119795">discussion on discord</a> about
-the git-hook model, there was consensus about not repeating their mistakes.</p>
-<p>For <code>jj run</code> there is prior art in Mercurial, git branchless and Google's
-internal Mercurial. Currently git-branchless <code>git test</code> and <code>hg fix</code> implement
-some kind of command runner. The Google internal <code>hg run</code> works in conjunction
-with CitC (Clients in the Cloud) which allows it to lazily apply the current
-command to any affected file. Currently no open-source Jujutsu backend (Git,
-Simple) has a fancy virtual filesystem supporting it, so we can't apply this
-optimization. We could do the same once we have an implementation of the working
-copy based on a virtual file system. Until then, we have to run the commands in
-regular local-disk working copies.</p>
-<h2 id="goals-and-non-goals">Goals and Non-Goals<a class="headerlink" href="#goals-and-non-goals" title="Permanent link">&para;</a></h2>
-<h3 id="goals">Goals<a class="headerlink" href="#goals" title="Permanent link">&para;</a></h3>
+<p>Notably, revset expansion works similarly to macro expansion in other languages;
+if a revset alias uses a parameter twice, then the entire argument is
+substituted into the result twice. This can lead to inefficient evaluations if
+an argument is expensive to evaluate.</p>
+<h2 id="symbol-resolution">Symbol Resolution<a class="headerlink" href="#symbol-resolution" title="Permanent link">&para;</a></h2>
+<p>Revsets are eventually evaluated by the <code>Index</code> implementation, but the <code>Index</code>
+only stores information about commits and change IDs; it doesn't know about the
+current state of the <code>Repo</code>. Therefore, any revsets relying on state from the
+<code>Repo</code> must be resolved early.</p>
+<p>Some examples include:</p>
 <ul>
-<li>We should be able to apply the command to any revision, published or unpublished.</li>
-<li>We should be able to parallelize running the actual command, while preserving a
-good console output.</li>
-<li>The run command should be able to work in any commit, the working-copy commit
-itself or any other commit.</li>
-<li>There should exist some way to signal hard failure.</li>
-<li>The command should build enough infrastructure for <code>jj test</code>, <code>jj fix</code> and
-<code>jj format</code>.</li>
-<li>The main goal is to be good enough, as we can always expand the functionality
-in the future.</li>
+<li>Working copies (e.g. <code>@</code>, <code>workspace@</code>)</li>
+<li>Commit ID prefixes (e.g. <code>123</code>)</li>
+<li>Change ID prefixes (e.g. <code>xyz</code>, <code>xyz/1</code>)</li>
+<li>Bookmark/tag names (e.g. <code>v1.0.0</code>, <code>main@origin</code>)</li>
+<li><code>bookmarks()</code>/<code>tags()</code></li>
+<li><code>remote_bookmarks()</code>/<code>remote_tags()</code></li>
 </ul>
-<h3 id="non-goals">Non-Goals<a class="headerlink" href="#non-goals" title="Permanent link">&para;</a></h3>
+<p>If any of these revsets fail to resolve, a symbol resolution error will be
+emitted immediately. <code>present()</code> can be used to suppress these errors in cases
+where it is expected that a symbol might not exist (e.g. when <code>main</code> doesn't
+exist, <code>present(main)</code> will return <code>none()</code> instead of failing).</p>
+<p>This stage also handles <code>at_operation()</code>, and it also inserts <code>WithinVisibility</code>
+nodes to keep track of the commit IDs in <code>visible_heads()</code>.</p>
+<p>Symbol resolution substitutes these revset functions with a list of commit IDs,
+meaning the <code>Index</code> doesn't need to handle these functions while evaluating a
+revset. It is also possible to extend <code>jj</code> with custom symbol resolvers which
+are also handled by the symbol resolution stage.</p>
+<p><em>Note: Although the <code>Index</code> does store information about commit ID prefixes
+and change ID prefixes, we still need to resolve these symbols during this
+stage because resolving unique prefixes also requires information about
+visible commits and the <code>revsets.short-prefixes</code> setting.</em></p>
+<h2 id="optimization">Optimization<a class="headerlink" href="#optimization" title="Permanent link">&para;</a></h2>
+<p>Revset optimization consists of a series of passes that recursively rewrite
+revset expressions. The ordering of these passes is important, since one pass
+may enable further optimizations in a later pass. These are the current passes:</p>
+<ol>
+<li>Resolve referenced commits</li>
+<li>Unfold ranges and differences</li>
+<li>Fold redundant expressions</li>
+<li>Fold generations</li>
+<li>Flatten intersections</li>
+<li>Sort negations and ancestors</li>
+<li>Fold ancestors union</li>
+<li>Internalize filters</li>
+<li>Fold heads range</li>
+<li>Fold ranges and differences</li>
+<li>Fold negated ancestors</li>
+</ol>
+<h3 id="1-resolve-referenced-commits">1. Resolve referenced commits<a class="headerlink" href="#1-resolve-referenced-commits" title="Permanent link">&para;</a></h3>
+<p>This pass finds all referenced commit IDs and inserts <code>WithinReference</code> nodes to
+keep track of referenced commit IDs. This information will be used when lowering
+revsets to backend expressions later, since <code>all()</code> must also include all
+ancestors of commits referenced in the revset in addition to ancestors of
+<code>visible_heads()</code>. This pass comes first because later passes may remove
+redundant expressions.</p>
+<h3 id="2-unfold-ranges-and-differences">2. Unfold ranges and differences<a class="headerlink" href="#2-unfold-ranges-and-differences" title="Permanent link">&para;</a></h3>
+<p>This pass unfolds range (<code>x..y</code>) and difference (<code>x ~ y</code>) operations into
+intersections. This enables further optimizations in later passes.</p>
+<p>Rules:</p>
 <ul>
-<li>While we should build a base for <code>jj test</code>, <code>jj format</code> and <code>jj fix</code>, we
-shouldn't mash their use-cases into <code>jj run</code>.</li>
-<li>The command shouldn't be too smart, as too many assumptions about workflows
-makes the command confusing for users.</li>
-<li>The smart caching of outputs, as user input commands can be unpredictable.
-makes the command confusing for users.</li>
-<li>Avoid the smart caching of outputs, as user input commands can be
-unpredictable.</li>
-<li>Fine grained user facing configuration, as it's unwarranted complexity.</li>
-<li>A <code>fix</code> subcommand as it cuts too much design space.</li>
+<li><code>x..y</code> =&gt; <code>::y &amp; ~(::x)</code></li>
+<li><code>x ~ y</code> =&gt; <code>x &amp; ~y</code></li>
 </ul>
-<h2 id="use-cases-of-jj-run">Use-Cases of jj run<a class="headerlink" href="#use-cases-of-jj-run" title="Permanent link">&para;</a></h2>
-<p><strong>Linting and Formatting:</strong></p>
+<p><em>Note: During parsing, <code>x..</code> is already converted to <code>~::x</code>, <code>..x</code> is converted
+to <code>root()..x</code>, and <code>..</code> is converted to <code>~root()</code>.</em></p>
+<h3 id="3-fold-redundant-expressions">3. Fold redundant expressions<a class="headerlink" href="#3-fold-redundant-expressions" title="Permanent link">&para;</a></h3>
+<p>This pass optimizes intersections and unions with <code>all()</code> and <code>none()</code>, as well
+as negations.</p>
+<p>Rules:</p>
 <ul>
-<li><code>jj run 'pre-commit run' -r $revset</code></li>
-<li><code>jj run 'cargo clippy' -r $revset</code></li>
-<li><code>jj run 'cargo +nightly fmt'</code></li>
+<li><code>~(~x)</code> =&gt; <code>x</code></li>
+<li><code>~none()</code> =&gt; <code>all()</code></li>
+<li><code>~all()</code> =&gt; <code>none()</code></li>
+<li><code>none() | x</code> =&gt; <code>x</code></li>
+<li><code>x | none()</code> =&gt; <code>x</code></li>
+<li><code>all() | x</code> =&gt; <code>all()</code></li>
+<li><code>x | all()</code> =&gt; <code>all()</code></li>
+<li><code>none() &amp; x</code> =&gt; <code>none()</code></li>
+<li><code>x &amp; none()</code> =&gt; <code>none()</code></li>
+<li><code>all() &amp; x</code> =&gt; <code>x</code></li>
+<li><code>x &amp; all()</code> =&gt; <code>x</code></li>
 </ul>
-<p><strong>Large scale changes across repositories, local and remote:</strong></p>
+<h3 id="4-fold-generations">4. Fold generations<a class="headerlink" href="#4-fold-generations" title="Permanent link">&para;</a></h3>
+<p>The internal representation of ancestors/parents/descendants/children revsets is
+slightly different from the normal revset syntax. There are two basic
+operations:</p>
 <ul>
-<li><code>jj run 'sed /some/test/' -r 'mine() &amp; ~remote_bookmarks("origin")'</code></li>
-<li><code>jj run '$rewrite-tool' -r '$revset'</code></li>
+<li><code>ancestors(heads, generation)</code></li>
+<li><code>descendants(roots, generation)</code></li>
 </ul>
-<p><strong>Build systems:</strong></p>
+<p>In this representation, <code>generation</code> is an exclusive range that specifies how
+far to walk backwards/forwards from the <code>heads</code>/<code>roots</code> (unlike the standard
+revset syntax, where <code>generation</code> is a single number).</p>
+<p>For example, this is how the following revsets are represented internally:</p>
 <ul>
-<li><code>jj run 'bazel build //some/target:somewhere'</code></li>
-<li><code>jj run 'ninja check-lld'</code></li>
+<li><code>ancestors(x)</code> =&gt; <code>ancestors(x, 0..MAX)</code></li>
+<li><code>ancestors(x, n)</code> =&gt; <code>ancestors(x, 0..n)</code></li>
+<li><code>parents(x)</code> =&gt; <code>ancestors(x, 1..2)</code></li>
+<li><code>parents(x, n)</code> =&gt; <code>ancestors(x, n..n+1)</code></li>
+<li><code>descendants(x)</code> =&gt; <code>descendants(x, 0..MAX)</code></li>
+<li><code>descendants(x, n)</code> =&gt; <code>descendants(x, 0..n)</code></li>
+<li><code>children(x)</code> =&gt; <code>descendants(x, 1..2)</code></li>
+<li><code>children(x, n)</code> =&gt; <code>descendants(x, n..n+1)</code></li>
 </ul>
-<p>Some of these use-cases should get a specialized command, as this allows
-further optimization. A command could be <code>jj format</code>, which runs a list of
-formatters over a subset of the files in a revision. Another command could be
-<code>jj fix</code>, which runs a command like <code>rustfmt --fix</code> or <code>cargo clippy --fix</code> over
-a subset of the files in a revision.</p>
-<h2 id="design">Design<a class="headerlink" href="#design" title="Permanent link">&para;</a></h2>
-<h3 id="base-design">Base Design<a class="headerlink" href="#base-design" title="Permanent link">&para;</a></h3>
-<p>All the work will be done in the <code>.jj/</code> directory. This allows us to hide all
-complexity from the users, while preserving the user's current workspace.</p>
-<p>We will copy the approach from git-branchless's <code>git test</code> of creating a
-temporary working copy for each parallel command. The working copies will be
-reused between <code>jj run</code> invocations. They will also be reused within <code>jj run</code>
-invocation if there are more commits to run on than there are parallel jobs.</p>
-<p>We will leave ignored files in the temporary directory between runs. That
-enables incremental builds (e.g. by letting cargo reuse its <code>target/</code>
-directory). However, it also means that runs potentially become less
-reproducible. We will provide a flag for removing ignored files from the
-temporary working copies to address that.</p>
-<p>Another problem with leaving ignored files in the temporary directories is that
-they take up space. That is especially problematic in the case of cargo (the
-<code>target/</code> directory often takes up tens of GBs). The same flag for cleaning up
-ignored files can be used to address that. We may want to also have a flag for
-cleaning up temporary working copies <em>after</em> running the command.</p>
-<p>An early version of the command will directly use <a href="https://github.com/jj-vcs/jj/blob/af85f552b676d66ed0e9ae0d401cd0c4ffbbeb21/lib/src/working_copy.rs#L117">Treestate</a> to
-manage the temporary working copies. That means that running <code>jj</code> inside the
-temporary working copies will not work . We can later extend that to use a full
-<a href="https://github.com/jj-vcs/jj/blob/af85f552b676d66ed0e9ae0d401cd0c4ffbbeb21/lib/src/workspace.rs#L54">Workspace</a>. To prevent operations in the working copies from
-impacting the repo, we can use a separate <a href="https://github.com/jj-vcs/jj/blob/main/lib/src/op_heads_store.rs">OpHeadsStore</a> for it.</p>
-<h3 id="modifying-the-working-copy">Modifying the Working Copy<a class="headerlink" href="#modifying-the-working-copy" title="Permanent link">&para;</a></h3>
-<p>Since the subprocesses will run in temporary working copies, they
-won't interfere with the user's working copy. The user can therefore continue
-to work in it while <code>jj run</code> is running.</p>
-<p>We want subprocesses to be able to make changes to the repo by updating their
-assigned working copy. Let's say the user runs <code>jj run</code> on just commits A and
-B, where B's parent is A. Any changes made on top of A would be squashed into
-A, forming A'. Similarly B' would be formed by squasing it into B. We can then
-either do a normal rebase of B' onto A', or we can simply update its parent to
-A'. The former is useful, e.g. when the subprocess only makes a partial update
-of the tree based on the parent commit. In addition to these two modes, we may
-want to have an option to ignore any changes made in the subprocess's working
-copy.</p>
-<h3 id="modifying-the-repo">Modifying the Repo<a class="headerlink" href="#modifying-the-repo" title="Permanent link">&para;</a></h3>
-<p>Once we give the subprocess access to a fork of the repo via separate
-<a href="https://github.com/jj-vcs/jj/blob/main/lib/src/op_heads_store.rs">OpHeadsStore</a>, it will be able to create new operations in its fork.
-If the user runs <code>jj run -r foo</code> and the subprocess checks out another commit,
-it's not clear what that should do. We should probably just verify that the
-working-copy commit's parents are unchanged after the subprocess returns. Any
-operations created by the subprocess will be ignored.</p>
-<h3 id="rewriting-the-revisions">Rewriting the revisions<a class="headerlink" href="#rewriting-the-revisions" title="Permanent link">&para;</a></h3>
-<p>Like all commands, <code>jj run</code> will refuse to rewrite public/immutable commits.
-For private/unpublished revisions, we either amend or reparent the changes,
-which are available as command options.</p>
-<h2 id="execution-orderparallelism">Execution order/parallelism<a class="headerlink" href="#execution-orderparallelism" title="Permanent link">&para;</a></h2>
-<p>It may be useful to execute commands in topological order. For example,
-commands with costs proportional to incremental changes, like build systems.
-There may also be other relevant heuristics, but topological order is an easy
-and effective way to start.</p>
-<p>Parallel execution of commands on different commits may choose to schedule
-commits to still reduce incremental changes in the working copy used by each
-execution slot/"thread". However, running the command on all commits
-concurrently should be possible if desired.</p>
-<p>Executing commands in topological order allows for more meaningful use of any
-potential features that stop execution "at the first failure". For example,
-when running tests on a chain of commits, it might be useful to proceed in
-topological/chronological order, and stop on the first failure, because it
-might imply that the remaining executions will be undesirable because they will
-also fail.</p>
-<h2 id="dealing-with-failure">Dealing with failure<a class="headerlink" href="#dealing-with-failure" title="Permanent link">&para;</a></h2>
-<p>It will be useful to have multiple strategies to deal with failures on a single
-or multiple revisions. The reason for these strategies is to allow customized
-conflict handling. These strategies then can be exposed in the ui with a
-matching option.</p>
-<p><strong>Continue:</strong> If any subprocess fails, we will continue the work on child
-revisions. Notify the user on exit about the failed revisions.</p>
-<p><strong>Stop:</strong> Signal a fatal failure and cancel any scheduled work that has not
-yet started running, but let any already started subprocess finish. Notify the
-user about the failed command and display the generated error from the
-subprocess.</p>
-<p><strong>Fatal:</strong> Signal a fatal failure and immediately stop processing and kill any
-running processes. Notify the user that we failed to apply the command to the
-specific revision.</p>
-<p>We will leave any affected commit in its current state, if any subprocess fails.
-This allows us to provide a better user experience, as leaving revisions in an
-undesirable state, e.g partially formatted, may confuse users.</p>
-<h2 id="resource-constraints">Resource constraints<a class="headerlink" href="#resource-constraints" title="Permanent link">&para;</a></h2>
-<p>It will be useful to constrain the execution to prevent resource exhaustion.
-Relevant resources could include:</p>
+<p>This optimization pass folds nested <code>ancestors()</code>/<code>descendants()</code> operations
+into a single operation using the following rules:</p>
 <ul>
-<li>CPU and memory available on the machine running the commands. <code>jj run</code> can
-provide some simple mitigations like limiting parallelism to "number of CPUs"
-by default, and limiting parallelism by dividing "available memory" by some
-estimate or measurement of per-invocation memory use of the commands.</li>
-<li>External resources that are not immediately known to jj. For example,
-commands run in parallel may wish to limit the total number of connections
-to a server. We might choose to defer any handling of this to the
-implementation of the command being invoked, instead of trying to
-communicate that information to jj.</li>
+<li><code>ancestors(ancestors(x, a..b), c..d)</code> =&gt; <code>ancestors(x, (a..b) + (c..d))</code></li>
+<li><code>descendants(descendants(x, a..b), c..d)</code> =&gt; `descendants(x, (a..b) + (c..d))</li>
 </ul>
-<h2 id="command-options">Command Options<a class="headerlink" href="#command-options" title="Permanent link">&para;</a></h2>
-<p>The base command of any jj command should be usable. By default <code>jj run</code> works
-on <code>@</code>, the current working copy.</p>
+<p>Where the addition of non-empty ranges <code>a..b</code> and <code>c..d</code> is defined as
+<code>(a + c)..(b + d - 1)</code>.</p>
+<p>Therefore, this pass allows these types of optimizations:</p>
 <ul>
-<li>--command, explicit name of the first argument</li>
-<li>-x, for git compatibility (may alias another command)</li>
-<li>-j, --jobs, the amount of parallelism to use</li>
-<li>-k, --keep-going, continue on failure (may alias another command)</li>
-<li>--show, display the diff for an affected revision</li>
-<li>--dry-run, do the command execution without doing any work, logging all
-intended files and arguments</li>
-<li>--rebase, rebase all parents on the consulitng diff (may alias another
-command)</li>
-<li>--reparent, change the parent of an effected revision to the new change
-(may alias another command)</li>
-<li>--clean, remove existing workspaces and remove the ignored files</li>
-<li>--readonly, ignore changes across multiple run invocations</li>
-<li>--error-strategy=<code>continue|stop|fatal</code>, see <a href="#dealing-with-failure">Dealing with failure</a></li>
+<li><code>x--</code> =&gt; <code>ancestors(x, 2..3)</code></li>
+<li><code>::(x-)</code> =&gt; <code>ancestors(x, 1..MAX)</code></li>
+<li><code>(::x)-</code> =&gt; <code>ancestors(x, 1..MAX)</code></li>
+<li><code>ancestors(x---, 5)</code> =&gt; <code>ancestors(x, 3..8)</code></li>
 </ul>
-<h3 id="integrating-with-other-commands">Integrating with other commands<a class="headerlink" href="#integrating-with-other-commands" title="Permanent link">&para;</a></h3>
+<p>There is also some additional logic for handling <code>first_parent()</code> and
+<code>first_ancestors()</code> correctly.</p>
+<h3 id="5-flatten-intersections">5. Flatten intersections<a class="headerlink" href="#5-flatten-intersections" title="Permanent link">&para;</a></h3>
+<p>This pass flattens intersections to be left-associtive. This makes later
+optimizations easier to implement. For example:</p>
 <ul>
-<li><code>jj log</code>: No special handling needed</li>
-<li><code>jj diff</code>: No special handling needed</li>
-<li><code>jj st</code>: For now reprint the final output of <code>jj run</code></li>
-<li><code>jj op log</code>: No special handling needed, but awaits further discussion in
-  <a href="https://github.com/jj-vcs/jj/issues/963">#963</a></li>
-<li><code>jj undo/jj op revert</code>: No special handling needed</li>
+<li><code>x &amp; (y &amp; z)</code> =&gt; <code>(x &amp; y) &amp; z</code></li>
+<li><code>(w &amp; (x &amp; y)) &amp; z</code> =&gt; <code>((w &amp; x) &amp; y) &amp; z</code></li>
 </ul>
-<h2 id="open-points">Open Points<a class="headerlink" href="#open-points" title="Permanent link">&para;</a></h2>
+<h3 id="6-sort-negations-and-ancestors">6. Sort negations and ancestors<a class="headerlink" href="#6-sort-negations-and-ancestors" title="Permanent link">&para;</a></h3>
+<p>This pass sorts the elements in an intersection based on 4 categories:</p>
+<ol>
+<li>Negated ancestors (<code>~ancestors(x, n..MAX)</code>)</li>
+<li>Ancestors (<code>ancestors(x, n..MAX)</code>)</li>
+<li>Other non-negated expressions</li>
+<li>Other negated expressions (<code>~x</code>)</li>
+</ol>
+<p>Negated ancestors are moved to the left to enable the "fold ancestors union"
+pass. Placing the ancestors next to the negated ancestors next allows them to be
+folded into a range easily in a later pass, and putting other negated
+expressions at the end allows them to be folded into a difference easily in a
+later pass as well.</p>
+<p>Examples:</p>
 <ul>
-<li>Should the command be working copy backend specific?</li>
-<li>How do we manage the Processes which the command will spawn?</li>
-<li>Configuration options, User and Repository Wide?</li>
+<li><code>~w &amp; x &amp; ~::y &amp; ::z</code> =&gt; <code>~::y &amp; ::z &amp; x &amp; ~w</code></li>
+<li><code>::w &amp; ~::x &amp; ::y &amp; ~::z</code> =&gt; <code>~::x &amp; ~::z &amp; ::w &amp; ::y</code></li>
 </ul>
-<h2 id="future-possibilities">Future possibilities<a class="headerlink" href="#future-possibilities" title="Permanent link">&para;</a></h2>
+<h3 id="7-fold-ancestors-union">7. Fold ancestors union<a class="headerlink" href="#7-fold-ancestors-union" title="Permanent link">&para;</a></h3>
+<p>This pass folds unions of ancestors into ancestors of unions. The main purpose
+of this optimization is to allow combining intersections of ranges into a single
+range in later passes (e.g. <code>a..b &amp; c..</code> can be optimized to <code>(a | c)..b</code>).</p>
+<p>Rules:</p>
 <ul>
-<li>We could rewrite the file in memory, which is a neat optimization</li>
-<li>Exposing some internal state, to allow preciser resource constraints</li>
-<li>Integration options for virtual filesystems, which allow them to cache the
-needed working copies.</li>
-<li>A Jujutsu wide concept for a cached working copy, as they could be expensive
-to materialize.</li>
-<li>Customized failure messages, this may be useful for bots, it could be similar
-to Bazel's <code>select(..., message = "arch not supported for $project")</code>.</li>
-<li>Make <code>jj run</code> asynchronous by spawning a <code>main</code> process, directly return to the
-user and incrementally updating the output of <code>jj st</code>.</li>
+<li><code>::x | ::y</code> =&gt; <code>::(x | y)</code></li>
+<li><code>~::x &amp; ~::y</code> =&gt; <code>~::(x | y)</code></li>
 </ul>
+<h3 id="8-internalize-filters">8. Internalize filters<a class="headerlink" href="#8-internalize-filters" title="Permanent link">&para;</a></h3>
+<p>Some revsets are implemented as filters. This means that the <code>Index</code> can't
+directly query for these revsets. Instead, it must check the filter against each
+commit individually to test whether it matches.</p>
+<p>Examples of filter revsets:</p>
+<ul>
+<li><code>merges()</code></li>
+<li><code>empty()</code>/<code>files()</code></li>
+<li><code>description()</code>/<code>subject()</code></li>
+<li><code>mine()</code>/<code>author_*()</code>/<code>committer_*()</code></li>
+<li><code>diff_lines()</code></li>
+<li><code>conflicts()</code></li>
+<li><code>signed()</code></li>
+<li><code>divergent()</code></li>
+</ul>
+<p>For instance, to evaluate <code>x..y &amp; conflicts()</code>, the <code>Index</code> implementation first
+evaluates <code>x..y</code>, then it checks every commit in that range to see whether it
+has a conflict or not. If there is no base set of commits, the <code>Index</code>
+implementation will instead have to check the filter against every commit in
+<code>all()</code>, which can be expensive on large repos.</p>
+<p>The purpose of this optimization pass is to group all filters together at the
+end of an intersection, meaning that all non-filter expressions can be
+intersected before checking the filter. This reduces the amount of commits that
+need to be checked.</p>
+<p>Rules:</p>
+<ul>
+<li><code>~filter(x)</code> =&gt; <code>filter(~x)</code></li>
+<li><code>filter(x) | filter(y) =&gt; filter(x | y)</code></li>
+<li><code>filter(x) | y</code> =&gt; <code>filter(x | y)</code></li>
+<li><code>x | filter(y)</code> =&gt; <code>filter(x | y)</code></li>
+<li><code>filter(x) &amp; filter(y) =&gt; filter(x &amp; y)</code></li>
+<li><code>filter(x) &amp; y</code> =&gt; <code>y &amp; filter(x)</code></li>
+<li><code>(x &amp; filter(y)) &amp; filter(z)</code> =&gt; <code>x &amp; filter(y &amp; z)</code></li>
+<li><code>(x &amp; filter(y)) &amp; z</code> =&gt; <code>(x &amp; z) &amp; filter(y)</code></li>
+</ul>
+<p>Examples:</p>
+<ul>
+<li><code>(::y | empty()) &amp; ::x</code> =&gt; <code>::x &amp; filter(::y | empty())</code></li>
+<li><code>conflicts() &amp; ::x &amp; empty()</code> =&gt; <code>::x &amp; filter(conflicts() &amp; empty())</code></li>
+</ul>
+<h3 id="9-fold-heads-range">9. Fold heads range<a class="headerlink" href="#9-fold-heads-range" title="Permanent link">&para;</a></h3>
+<p>Often, <code>heads()</code> is used to find the most recent commit satisfying some
+property. For instance, <code>heads(::@ ~ empty())</code> can be used to find the most
+recent non-empty ancestors of <code>@</code>. If we were to naively evaluate this revset,
+we would first have to find every non-empty commit which is an ancestor of <code>@</code>,
+and then take the <code>heads()</code> of that set. This would be very slow, since
+<code>empty()</code> is an expensive filter to check.</p>
+<p>This pass converts <code>heads()</code> on a filtered range of commits into a special
+<code>heads_range(roots, heads, [filter])</code> operation which can be evaluated more
+efficiently because it is able to stop scanning ancestor commits whenever a head
+is found.</p>
+<p>Examples:</p>
+<ul>
+<li><code>heads(x..y)</code> =&gt; <code>heads_range(x, y)</code></li>
+<li><code>heads(x..y &amp; conflicts())</code> =&gt; <code>heads_range(x, y, conflicts())</code></li>
+<li><code>heads(::x)</code> =&gt; <code>heads_range(none(), x)</code></li>
+<li><code>heads(~::x)</code> =&gt; <code>heads_range(x, visible_heads_or_referenced())</code></li>
+<li><code>heads(filter(x))</code> =&gt; <code>heads_range(none(), visible_heads_or_referenced(), x)</code></li>
+</ul>
+<p><em>Note: When there's no obvious <code>heads</code> for the filtered range, we can use
+<code>visible_heads_or_referenced()</code> instead, which represents a union of
+<code>visible_heads()</code> and all explicitly referenced commits in the revset
+expression. Since revsets can only return visible commits and ancestors of
+explicitly referenced commits, if we start at <code>visible_heads_or_referenced()</code>
+and walk backwards through the commit graph, we will eventually see every commit
+which could possibly be returned (and as we'll see later, this is actually how
+the <code>all()</code> revset is evaluated).</em></p>
+<p>Since <code>::x</code> is equivalent to <code>::heads(x)</code>, this pass also inserts
+<code>heads_range()</code> operations inside of <code>ancestors()</code> when possible:</p>
+<ul>
+<li><code>::(x..y)</code> =&gt; <code>::heads_range(x, y)</code></li>
+<li><code>::(~mine())</code> =&gt; <code>::heads_range(none(), visible_heads_or_referenced(), ~mine())</code></li>
+</ul>
+<h3 id="10-fold-ranges-and-differences">10. Fold ranges and differences<a class="headerlink" href="#10-fold-ranges-and-differences" title="Permanent link">&para;</a></h3>
+<p>This pass eliminates negated expressions by folding them into ranges and
+differences when possible. Negated expressions like <code>~x</code> are expensive to
+evaluate because they will be converted into <code>all() ~ x</code>, meaning they require
+iterating over every commit in the repo. Therefore, we want to eliminate as many
+negations as possible.</p>
+<p>Rules:</p>
+<ul>
+<li><code>::x &amp; ~::y</code> =&gt; <code>y..x</code></li>
+<li><code>~::x &amp; ::y</code> =&gt; <code>x..y</code></li>
+<li><code>x &amp; ~y</code> =&gt; <code>x ~ y</code></li>
+<li><code>~x &amp; y</code> =&gt; <code>y ~ x</code> (if <code>y</code> isn't a filter)</li>
+</ul>
+<h3 id="11-fold-negated-ancestors">11. Fold negated ancestors<a class="headerlink" href="#11-fold-negated-ancestors" title="Permanent link">&para;</a></h3>
+<p>This pass eliminates any remaining negated ancestors expressions by converting
+them to ranges. The heads of the range are all visible heads and all referenced
+commits in the revset.</p>
+<p>Rules:</p>
+<ul>
+<li><code>~::x</code> =&gt; <code>x..visible_heads_or_referenced()</code></li>
+</ul>
+<h2 id="visibility-resolution">Visibility Resolution<a class="headerlink" href="#visibility-resolution" title="Permanent link">&para;</a></h2>
+<p>After optimization, the revset is lowered to a <code>ResolvedExpression</code> that the
+<code>Index</code> implementation can evaluate directly without being aware of commit
+visibility. The main differences between a revset expression and a
+<code>ResolvedExpression</code> are:</p>
+<ul>
+<li>
+<p><code>all()</code> is converted to <code>::visible_heads_or_referenced()</code>.</p>
+</li>
+<li>
+<p>Negated expressions like <code>~x</code> are converted to
+  <code>::visible_heads_or_referenced() ~ x</code>.</p>
+</li>
+<li>
+<p>Filters are represented by a separate <code>ResolvedPredicateExpression</code> type which
+  can only appear in certain contexts. For instance, there is a separate
+  <code>FilterWithin</code> operation to handle intersections with filters. Filters outside
+  of intersections are handled as <code>::visible_heads_or_referenced() &amp; filter(f)</code>.</p>
+</li>
+<li>
+<p>All visibility information is removed from the expression, so
+  <code>visible_heads()</code> and <code>visible_heads_or_referenced()</code> are replaced by lists of
+  commit IDs.</p>
+</li>
+</ul>
+<h2 id="evaluation-by-index">Evaluation by Index<a class="headerlink" href="#evaluation-by-index" title="Permanent link">&para;</a></h2>
+<p>Finally, the <code>ResolvedExpression</code> is passed to the <code>Index</code> implementation to be
+evaluated into a <code>Revset</code> value. There is a built-in default index
+implementation, but <code>jj</code> can be extended with alternative implementations.</p>
+<p>A <code>Revset</code> can then be converted into a lazy stream of commits in topological
+order (with children before parents) or into a function that tests whether a
+<code>CommitId</code> is included in the revset.</p>
 
 
 

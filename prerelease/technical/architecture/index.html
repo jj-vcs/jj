@@ -1511,6 +1511,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../revset-evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Revset evaluation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2426,18 +2449,22 @@ remotes.</p>
 <p>A user-provided revset expression string goes through a few different stages to
 be evaluated:</p>
 <ol>
-<li>Parse the expression into a <code>RevsetExpression</code>, which is close to an AST</li>
+<li>Parse the expression into a <code>RevsetExpression</code>, which is close to an AST.
+   Aliases are also expanded during this stage.</li>
 <li>Resolve symbols and functions like <code>tags()</code> into specific commits. After
    this stage, the expression is still a <code>RevsetExpression</code>, but it won't have
    any <code>CommitRef</code> variants in it.</li>
+<li>Optimize the expression so that it can be evaluated more efficiently.</li>
 <li>Resolve visibility. This stage resolves <code>visible_heads()</code> and <code>all()</code> and
    produces a <code>ResolvedExpression</code>.</li>
 <li>Evaluate the <code>ResolvedExpression</code> into a <code>Revset</code>.</li>
 </ol>
 <p>This evaluation step is performed by <code>Index::evaluate_revset()</code>, allowing
 the <code>Revset</code> implementation to leverage the specifics of a custom index
-implementation. The first three steps are independent of the index
+implementation. The first four steps are independent of the index
 implementation.</p>
+<p>For more details, see the <a href="../revset-evaluation/">revset evaluation</a>
+documentation.</p>
 <h3 id="stackedtable">StackedTable<a class="headerlink" href="#stackedtable" title="Permanent link">&para;</a></h3>
 <p><code>StackedTable</code> (actually <code>ReadonlyTable</code> and <code>MutableTable</code>) is a simple disk
 format for storing key-value pairs sorted by key. The keys have to have the same
