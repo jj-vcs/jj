@@ -183,12 +183,21 @@ pub(crate) async fn cmd_log(
         return Ok(());
     }
 
-    let prio_revset = settings.get_string("revsets.log-graph-prioritize")?;
-    let mut prio_revset = workspace_command.parse_revset(ui, &RevisionArg::from(prio_revset))?;
-    prio_revset.intersect_with(revset_expression.expression());
-
     let repo = workspace_command.repo();
     let matcher = fileset_expression.to_matcher();
+
+    let prio_revset = {
+        let text = settings.get_string("revsets.log-graph-prioritize")?;
+        let mut prio_revset = workspace_command.parse_revset(ui, &RevisionArg::from(text))?;
+        // Resolve the query within a separate scope so its visibility and
+        // referenced commits aren't affected by the prioritize expression:
+        // `<prio> & at_operation(@, <query>)`
+        let query_expr = revset_expression
+            .expression()
+            .within_visibility(repo.as_ref());
+        prio_revset.intersect_with(&query_expr);
+        prio_revset
+    };
 
     let store = repo.store();
     let diff_renderer = workspace_command.diff_renderer_for_log(&args.diff_format, args.patch)?;

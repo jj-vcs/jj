@@ -42,6 +42,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj run` no longer runs against the remaining revisions if a process exits
   with a nonzero exit code.
 
+* Fixed crash in `jj log` involving hidden revisions and the
+  `log-graph-prioritize` revset.
+  [#9975](https://github.com/jj-vcs/jj/issues/9975)
+
 ## [0.44.0] - 2026-08-05
 
 ### Release highlights
