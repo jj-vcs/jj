@@ -616,6 +616,18 @@ impl<St: ExpressionState> RevsetExpression<St> {
         })
     }
 
+    /// Resolves visibility within the given repo.
+    ///
+    /// This is equivalent to `at_operation(repo.op_id(), self)`, except that
+    /// `CommitRef`s are resolved separately. Commits referenced by the `self`
+    /// expression are also scoped.
+    pub fn within_visibility(self: &Arc<Self>, repo: &dyn Repo) -> Arc<Self> {
+        Arc::new(Self::WithinVisibility {
+            candidates: self.clone(),
+            visible_heads: repo.view().heads().iter().cloned().collect(),
+        })
+    }
+
     /// Suppresses name resolution error within `self`.
     pub fn present(self: &Arc<Self>) -> Arc<Self> {
         Arc::new(Self::Present(self.clone()))
@@ -3092,12 +3104,9 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
         let repo = reload_repo_at_operation(self.repo(), operation)?;
         self.repo_stack.push(repo);
         let candidates = self.fold_expression(candidates)?;
-        let visible_heads = self.repo().view().heads().iter().cloned().collect();
+        let expression = candidates.within_visibility(self.repo());
         self.repo_stack.pop();
-        Ok(Arc::new(RevsetExpression::WithinVisibility {
-            candidates,
-            visible_heads,
-        }))
+        Ok(expression)
     }
 }
 
