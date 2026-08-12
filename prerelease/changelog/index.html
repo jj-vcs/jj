@@ -7506,6 +7506,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
+<p>The default pager flags now include <code>-K</code> (<code>--quit-on-intr</code>), so pressing
+  Ctrl+C in <code>less</code> exits cleanly instead of leaving the terminal in a
+  corrupted state (raw mode, visible escape sequences, broken input).</p>
+</li>
+<li>
 <p>A side of a conflict whose contents end with a carriage return no longer loses
   that byte when the materialized conflict is parsed back, such as when a
   conflicted file is snapshotted from the working copy.

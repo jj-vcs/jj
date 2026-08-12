@@ -4770,7 +4770,7 @@ available.</p>
 </code></pre></div>
 <h2 id="pager">Pager<a class="headerlink" href="#pager" title="Permanent link">&para;</a></h2>
 <p>By default, jj will paginate output that would scroll off the screen. It does
-this by passing output through <code>less -FRX</code> on most platforms (on Windows it uses
+this by passing output through <code>less -FRXK</code> on most platforms (on Windows it uses
 <a href="#builtin-pager">the pager</a> that is built-in to jj).</p>
 <p>Which pager to use can be customized by setting <code>ui.pager</code>. When choosing a
 pager, ensure that it either supports color codes or that you disable color (see
@@ -4779,14 +4779,14 @@ pager, ensure that it either supports color codes or that you disable color (see
 tool-specific environments that should not affect other programs. The generic
 <code>PAGER</code> environment variable is ignored.</p>
 <p>Examples:</p>
-<div class="highlight"><pre><span></span><code><span class="c1"># Pipe output through `less -FRX` (default on non-Windows platforms)</span>
-$<span class="w"> </span>jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--user<span class="w"> </span>ui.pager<span class="w"> </span><span class="s2">&quot;less -FRX&quot;</span>
+<div class="highlight"><pre><span></span><code><span class="c1"># Pipe output through `less -FRXK` (default on non-Windows platforms)</span>
+$<span class="w"> </span>jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--user<span class="w"> </span>ui.pager<span class="w"> </span><span class="s2">&quot;less -FRXK&quot;</span>
 
 <span class="c1"># Use the built-in pager (default on Windows)</span>
 $<span class="w"> </span>jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--user<span class="w"> </span>ui.pager<span class="w"> </span>:builtin
 
 <span class="c1"># Use `$PAGER` environment variable if set (on non-Windows platforms)</span>
-$<span class="w"> </span>jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--user<span class="w"> </span>ui.pager<span class="w"> </span><span class="s1">&#39;[&quot;sh&quot;, &quot;-c&quot;, &quot;exec ${PAGER:-less -FRX}&quot;]&#39;</span>
+$<span class="w"> </span>jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--user<span class="w"> </span>ui.pager<span class="w"> </span><span class="s1">&#39;[&quot;sh&quot;, &quot;-c&quot;, &quot;exec ${PAGER:-less -FRXK}&quot;]&#39;</span>
 </code></pre></div>
 <p>Additionally, paging behavior can be toggled via <code>ui.paginate</code> like so:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[ui]</span>
