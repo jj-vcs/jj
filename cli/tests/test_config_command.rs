@@ -1392,7 +1392,7 @@ fn test_config_get_yields_values_consistent_with_schema_defaults() -> TestResult
             // The default for `ui.pager` is a table; `ui.pager.command` is an array and `jj config
             // get` currently cannot print that. The schema default omits the env variable
             // `LESSCHARSET` and gives the default as a plain string.
-            "ui.pager" => insta::assert_snapshot!(schema_default, @r#""less -FRX""#),
+            "ui.pager" => insta::assert_snapshot!(schema_default, @r#""less -FRXK""#),
 
             // The `immutable_heads()` revset actually defaults to `builtin_immutable_heads()` but
             // this would be a poor starting point for a custom revset, so the schema "inlines"

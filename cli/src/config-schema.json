@@ -115,7 +115,7 @@
                 },
                 "pager": {
                     "description": "Pager to use for displaying command output",
-                    "default": "less -FRX",
+                    "default": "less -FRXK",
                     "oneOf": [
                         {
                             "$ref": "#/properties/ui/definitions/command"

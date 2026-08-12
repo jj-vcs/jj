@@ -719,7 +719,7 @@ show-cryptographic-signatures = true
 ## Pager
 
 By default, jj will paginate output that would scroll off the screen. It does
-this by passing output through `less -FRX` on most platforms (on Windows it uses
+this by passing output through `less -FRXK` on most platforms (on Windows it uses
 [the pager](#builtin-pager) that is built-in to jj).
 
 Which pager to use can be customized by setting `ui.pager`. When choosing a
@@ -729,14 +729,14 @@ pager, ensure that it either supports color codes or that you disable color (see
 Examples:
 
 ```shell
-# Pipe output through `less -FRX` (default on non-Windows platforms)
-$ jj config set --user ui.pager "less -FRX"
+# Pipe output through `less -FRXK` (default on non-Windows platforms)
+$ jj config set --user ui.pager "less -FRXK"
 
 # Use the built-in pager (default on Windows)
 $ jj config set --user ui.pager :builtin
 
 # Use `$PAGER` environment variable if set (on non-Windows platforms)
-$ jj config set --user ui.pager '["sh", "-c", "exec ${PAGER:-less -FRX}"]'
+$ jj config set --user ui.pager '["sh", "-c", "exec ${PAGER:-less -FRXK}"]'
 ```
 
 Additionally, paging behavior can be toggled via `ui.paginate` like so:
