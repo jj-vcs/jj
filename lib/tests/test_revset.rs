@@ -4239,6 +4239,37 @@ fn test_evaluate_expression_at_operation() -> TestResult {
         ]
     );
 
+    // Visibility and referenced commits resolution between sub expressions:
+    // each at_operation() node should create its own scope.
+    assert_eq!(
+        resolve_commit_ids(
+            repo2.as_ref(),
+            "at_operation(@, all()) & at_operation(@-, all())"
+        ),
+        vec![commit2_op1.id().clone(), root_commit.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(
+            repo2.as_ref(),
+            "at_operation(@, commit1_ref) & at_operation(@-, commit1_ref)"
+        ),
+        vec![]
+    );
+    assert_eq!(
+        resolve_commit_ids(
+            repo2.as_ref(),
+            "at_operation(@, commit1_ref) & at_operation(@-, all())"
+        ),
+        vec![]
+    );
+    assert_eq!(
+        resolve_commit_ids(
+            repo2.as_ref(),
+            "at_operation(@, all()) & at_operation(@-, commit1_ref)"
+        ),
+        vec![]
+    );
+
     // Operation is resolved relative to the outer ReadonlyRepo.
     assert_eq!(
         resolve_commit_ids(repo2.as_ref(), "at_operation(@-, at_operation(@-, all()))"),

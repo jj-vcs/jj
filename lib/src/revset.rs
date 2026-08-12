@@ -342,6 +342,8 @@ pub enum RevsetExpression<St: ExpressionState> {
         commits: Vec<CommitId>,
     },
     /// Resolves visibility within the specified repo state.
+    ///
+    /// Commits referenced by the `candidates` expression are also scoped.
     WithinVisibility {
         candidates: Arc<Self>,
         /// Copy of `repo.view().heads()` at the operation.
@@ -1932,6 +1934,15 @@ where
 fn resolve_referenced_commits<St: ExpressionState>(
     expression: &Arc<RevsetExpression<St>>,
 ) -> TransformedExpression<St> {
+    // Omit empty node to keep test/debug output concise
+    let omit_empty = true;
+    resolve_referenced_commits_sub(expression, omit_empty)
+}
+
+fn resolve_referenced_commits_sub<St: ExpressionState>(
+    expression: &Arc<RevsetExpression<St>>,
+    omit_empty: bool,
+) -> TransformedExpression<St> {
     // Trust precomputed value if any
     if matches!(
         expression.as_ref(),
@@ -1958,12 +1969,15 @@ fn resolve_referenced_commits<St: ExpressionState>(
             } => {
                 // ::visible_heads shouldn't be filtered out by outer
                 inner_commits.extend_from_slice(visible_heads);
-                let transformed = resolve_referenced_commits(candidates);
+                // Empty WithinReference node shouldn't be omitted because
+                // at_operation() creates a new resolution scope.
+                let transformed = resolve_referenced_commits_sub(candidates, false);
                 // Referenced commits shouldn't be filtered out by outer
-                if let RevsetExpression::WithinReference { commits, .. } =
-                    transformed.as_deref().unwrap_or(candidates)
-                {
-                    inner_commits.extend_from_slice(commits);
+                match transformed.as_deref().unwrap_or(candidates) {
+                    RevsetExpression::WithinReference { commits, .. } => {
+                        inner_commits.extend_from_slice(commits);
+                    }
+                    _ => unreachable!("WithinReference should never be omitted"),
                 }
                 ControlFlow::Break(transformed.map(|candidates| {
                     Arc::new(RevsetExpression::WithinVisibility {
@@ -1985,8 +1999,7 @@ fn resolve_referenced_commits<St: ExpressionState>(
     // Commits could be deduplicated here, but they'll be concatenated with
     // the visible heads later, which may have duplicates.
     outer_commits.extend(inner_commits);
-    if outer_commits.is_empty() {
-        // Omit empty node to keep test/debug output concise
+    if omit_empty && outer_commits.is_empty() {
         return transformed;
     }
     Some(Arc::new(RevsetExpression::WithinReference {
@@ -4593,7 +4606,9 @@ mod tests {
         )
         "#);
 
-        // Inner scope has no references, so WithinReference should be omitted.
+        // Inner scope has no references, but WithinReference isn't omitted
+        // because commits referenced by sibling expressions shouldn't be
+        // visible to the inner expression.
         insta::assert_debug_snapshot!(
             resolve_referenced_commits(
                 &visibility2
@@ -4605,7 +4620,10 @@ mod tests {
                 candidates: Union(
                     Intersection(
                         WithinVisibility {
-                            candidates: Filter(HasConflict),
+                            candidates: WithinReference {
+                                candidates: Filter(HasConflict),
+                                commits: [],
+                            },
                             visible_heads: [
                                 CommitId("200000"),
                             ],
@@ -4655,7 +4673,10 @@ mod tests {
                                 ],
                             },
                             WithinVisibility {
-                                candidates: Filter(HasConflict),
+                                candidates: WithinReference {
+                                    candidates: Filter(HasConflict),
+                                    commits: [],
+                                },
                                 visible_heads: [
                                     CommitId("200000"),
                                 ],
@@ -4899,7 +4920,10 @@ mod tests {
             })), @r#"
         WithinReference {
             candidates: WithinVisibility {
-                candidates: CommitRef(Bookmarks(Pattern(Substring("")))),
+                candidates: WithinReference {
+                    candidates: CommitRef(Bookmarks(Pattern(Substring("")))),
+                    commits: [],
+                },
                 visible_heads: [
                     CommitId("012345"),
                 ],
