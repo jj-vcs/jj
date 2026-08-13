@@ -21,8 +21,6 @@ use jj_lib::file_util;
 use jj_lib::file_util::IoResultExt as _;
 #[cfg(feature = "git")]
 use jj_lib::git::GitSubprocessOptions;
-#[cfg(feature = "git")]
-use jj_lib::git::create_worktree;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::merge_commit_trees;
@@ -38,6 +36,8 @@ use crate::command_error::user_error;
 use crate::commands::git::maybe_add_gitignore;
 use crate::description_util::add_trailers;
 use crate::description_util::join_message_paragraphs;
+#[cfg(feature = "git")]
+use crate::git_util::create_git_worktree;
 use crate::ui::Ui;
 
 /// How to handle sparse patterns when creating a new workspace.
@@ -157,8 +157,7 @@ pub async fn cmd_workspace_add(
         if should_colocate {
             let subprocess_options =
                 GitSubprocessOptions::from_settings(old_workspace_command.settings())?;
-            create_worktree(repo.store(), subprocess_options, &destination_path)?;
-            writeln!(ui.status(), "Created Git worktree for the new workspace.")?;
+            create_git_worktree(ui, repo.store(), subprocess_options, &destination_path)?;
         }
     }
 

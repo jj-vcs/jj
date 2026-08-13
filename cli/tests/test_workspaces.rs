@@ -2208,6 +2208,15 @@ fn test_workspaces_add_forget_colocated() {
     ]
     "#);
 
+    // The child workspace reports itself as colocated.
+    let secondary_dir = test_env.work_dir("secondary");
+    let output = secondary_dir.run_jj(["git", "colocation", "status", "--quiet"]);
+    insta::assert_snapshot!(output, @"
+    Workspace 'secondary' is currently colocated with Git.
+    Last imported/exported Git HEAD: 7b22a8cbe888adcb4d5ff6dd46a38049e870c6ab
+    [EOF]
+    ");
+
     // Forgetting the workspace disconnects the worktree, but leaves the
     // directory contents in place.
     let output = main_dir.run_jj(["workspace", "forget", "secondary"]);
