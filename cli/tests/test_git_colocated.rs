@@ -60,7 +60,7 @@ fn test_git_colocated() -> TestResult {
         @"97358f54806c7cd005ed5ade68a779595efbae7e"
     );
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
-    Workspace is currently colocated with Git.
+    Workspace 'default' is currently colocated with Git.
     Last imported/exported Git HEAD: 97358f54806c7cd005ed5ade68a779595efbae7e
     [EOF]
     ");
@@ -79,7 +79,7 @@ fn test_git_colocated() -> TestResult {
         @"97358f54806c7cd005ed5ade68a779595efbae7e"
     );
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
-    Workspace is currently colocated with Git.
+    Workspace 'default' is currently colocated with Git.
     Last imported/exported Git HEAD: 97358f54806c7cd005ed5ade68a779595efbae7e
     [EOF]
     ");
@@ -99,7 +99,7 @@ fn test_git_colocated() -> TestResult {
         @"9dfe8c7005c8dff6078ecdfd953c6bfddc633c90"
     );
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
-    Workspace is currently colocated with Git.
+    Workspace 'default' is currently colocated with Git.
     Last imported/exported Git HEAD: 9dfe8c7005c8dff6078ecdfd953c6bfddc633c90
     [EOF]
     ");
@@ -190,7 +190,7 @@ fn test_git_colocated_new_wc_commit_when_wc_immutable() {
         .run_jj(["bookmark", "create", "-r@", "main"])
         .success();
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
-    Workspace is currently colocated with Git.
+    Workspace 'default' is currently colocated with Git.
     Last imported/exported Git HEAD: eb7b8a1f02b8d0915290e1163a3526bfa4e417fa
     [EOF]
     ");
@@ -231,7 +231,7 @@ fn test_git_colocated_new_wc_commit_when_wc_immutable() {
     [EOF]
     ");
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
-    Workspace is currently colocated with Git.
+    Workspace 'default' is currently colocated with Git.
     Last imported/exported Git HEAD: 1d3e40a35156c275f7a535fdaa50cb5882d500eb
     [EOF]
     ");
@@ -258,7 +258,7 @@ fn test_git_colocated_update_stale_resets_git_head() {
     work_dir.write_file("file2", "b\n");
     work_dir.run_jj(["status"]).success();
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
-    Workspace is currently colocated with Git.
+    Workspace 'default' is currently colocated with Git.
     Last imported/exported Git HEAD: df69548750502d54d6f207b500d25da43ed6fe1e
     [EOF]
     ");
@@ -287,7 +287,7 @@ fn test_git_colocated_update_stale_resets_git_head() {
 
     // Git HEAD should point to the amended "parent", not the stale one
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
-    Workspace is currently colocated with Git.
+    Workspace 'default' is currently colocated with Git.
     Last imported/exported Git HEAD: 239acdab88e2b438ed43a99471a385d3832190ec
     [EOF]
     ");
@@ -341,7 +341,7 @@ fn test_git_colocated_unborn_bookmark() -> TestResult {
     [EOF]
     ");
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
-    Workspace is currently colocated with Git.
+    Workspace 'default' is currently colocated with Git.
     Last imported/exported Git HEAD: (none)
     [EOF]
     ");
@@ -369,7 +369,7 @@ fn test_git_colocated_unborn_bookmark() -> TestResult {
     [EOF]
     ");
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
-    Workspace is currently colocated with Git.
+    Workspace 'default' is currently colocated with Git.
     Last imported/exported Git HEAD: (none)
     [EOF]
     ");
@@ -406,7 +406,7 @@ fn test_git_colocated_unborn_bookmark() -> TestResult {
     [EOF]
     ");
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
-    Workspace is currently colocated with Git.
+    Workspace 'default' is currently colocated with Git.
     Last imported/exported Git HEAD: ff5366846b039b25c6c4998fa74dca821c246243
     [EOF]
     ");
@@ -447,7 +447,7 @@ fn test_git_colocated_unborn_bookmark() -> TestResult {
     [EOF]
     ");
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
-    Workspace is currently colocated with Git.
+    Workspace 'default' is currently colocated with Git.
     Last imported/exported Git HEAD: (none)
     [EOF]
     ");
@@ -481,7 +481,7 @@ fn test_git_colocated_unborn_bookmark() -> TestResult {
     [EOF]
     ");
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
-    Workspace is currently colocated with Git.
+    Workspace 'default' is currently colocated with Git.
     Last imported/exported Git HEAD: bb21bc2dce2af92973fdd6d42686d77bd16bc466
     [EOF]
     ");
@@ -882,7 +882,7 @@ fn test_git_colocated_checkout_non_empty_working_copy() -> TestResult {
     [EOF]
     ");
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
-    Workspace is currently colocated with Git.
+    Workspace 'default' is currently colocated with Git.
     Last imported/exported Git HEAD: 97358f54806c7cd005ed5ade68a779595efbae7e
     [EOF]
     ");
@@ -1239,7 +1239,7 @@ fn test_git_colocated_undo_head_move() -> TestResult {
     [EOF]
     ");
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
-    Workspace is currently colocated with Git.
+    Workspace 'default' is currently colocated with Git.
     Last imported/exported Git HEAD: e8849ae12c709f2321908879bc724fdb2ab8a781
     [EOF]
     ");
@@ -1253,7 +1253,7 @@ fn test_git_colocated_undo_head_move() -> TestResult {
     [EOF]
     ");
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
-    Workspace is currently colocated with Git.
+    Workspace 'default' is currently colocated with Git.
     Last imported/exported Git HEAD: (none)
     [EOF]
     ");
@@ -1269,7 +1269,7 @@ fn test_git_colocated_undo_head_move() -> TestResult {
     [EOF]
     ");
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
-    Workspace is currently colocated with Git.
+    Workspace 'default' is currently colocated with Git.
     Last imported/exported Git HEAD: 23e6e06a7471634da3567ef975fadf883082658f
     [EOF]
     ");
@@ -1299,7 +1299,7 @@ fn test_git_colocated_undo_head_move() -> TestResult {
     [EOF]
     ");
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
-    Workspace is currently colocated with Git.
+    Workspace 'default' is currently colocated with Git.
     Last imported/exported Git HEAD: e8849ae12c709f2321908879bc724fdb2ab8a781
     [EOF]
     ");
@@ -1951,7 +1951,7 @@ fn test_git_colocated_operation_cleanup() -> TestResult {
     [EOF]
     ");
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
-    Workspace is currently colocated with Git.
+    Workspace 'default' is currently colocated with Git.
     Last imported/exported Git HEAD: cf3bb116ded416d9b202e71303f260e504c2eeb9
     [EOF]
     ");

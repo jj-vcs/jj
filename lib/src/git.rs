@@ -34,6 +34,7 @@ use futures::TryStreamExt as _;
 use futures::stream;
 use gix::refspec::Instruction;
 use itertools::Itertools as _;
+use tempfile::TempDir;
 use thiserror::Error;
 
 use crate::backend::BackendError;
@@ -44,6 +45,7 @@ use crate::commit::Commit;
 use crate::config::ConfigGetError;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
+use crate::file_util::is_empty_dir;
 use crate::git_backend::GitBackend;
 use crate::git_subprocess::GitFetchStatus;
 pub use crate::git_subprocess::GitProgress;
@@ -1826,6 +1828,14 @@ fn update_git_head(
 pub enum GitCreateWorktreeError {
     #[error(transparent)]
     Subprocess(#[from] GitSubprocessError),
+    #[error("Failed to inspect the Git worktree destination")]
+    Destination(#[source] PathError),
+    #[error("Failed to create temporary directory for Git worktree")]
+    TempDir(#[source] std::io::Error),
+    #[error("A .git file or directory already exists in the Git worktree destination")]
+    ExistingGitLink,
+    #[error("Failed to move .git gitlink file into place")]
+    MoveGitLink(#[source] PathError),
     #[error(transparent)]
     Git(Box<dyn std::error::Error + Send + Sync>),
     #[error(transparent)]
@@ -1838,12 +1848,16 @@ impl GitCreateWorktreeError {
     }
 }
 
-/// Creates a Git worktree at `destination` to back a new jj workspace.
+/// Creates a Git worktree at `destination` to back a jj workspace.
 ///
-/// The worktree is created empty, with HEAD unborn. jj populates the working
-/// copy itself, and the subsequent HEAD export (see [`reset_head()`]) points
-/// HEAD at the parent of the new working-copy commit. Git is only responsible
-/// for the `.git` gitlink and the worktree bookkeeping under
+/// Nothing is checked out: the worktree is created with HEAD unborn, so jj
+/// remains responsible for the working-copy contents. `destination` may
+/// already hold a populated jj workspace, as it does when colocation is
+/// enabled after the fact.
+///
+/// For a new workspace, the subsequent HEAD export (see [`reset_head()`])
+/// points HEAD at the parent of the new working-copy commit. Git is only
+/// responsible for the `.git` gitlink and the worktree bookkeeping under
 /// `.git/worktrees/`.
 pub fn create_worktree(
     store: &Store,
@@ -1857,8 +1871,18 @@ pub fn create_worktree(
     // be taken by an exported bookmark.
     let branch_name = format!("jj-worktree-{:016x}", rand::random::<u64>());
     let git_ctx = GitSubprocessContext::from_git_backend(git_backend, subprocess_options);
-    git_ctx.spawn_worktree_add(destination, &branch_name)?;
 
+    let destination_is_populated = destination.exists()
+        && !is_empty_dir(destination).map_err(GitCreateWorktreeError::Destination)?;
+    if destination_is_populated {
+        add_worktree_to_populated_dir(&git_ctx, destination, &branch_name)?;
+    } else {
+        git_ctx.spawn_worktree_add(destination, &branch_name)?;
+    }
+
+    // Must run after the gitlink at `destination` resolves, i.e. after any
+    // `git worktree repair` above.
+    //
     // Nullifying HEAD puts the worktree in the same "HEAD has no commit yet"
     // state jj uses everywhere else, so that a `git commit` in the new
     // worktree can't materialize the branch nobody asked for. If the
@@ -1878,6 +1902,34 @@ pub fn create_worktree(
         None,
     )
     .map_err(GitCreateWorktreeError::from_git)
+}
+
+/// Adds a worktree for a directory that already has contents.
+///
+/// `git worktree add` refuses to use a non-empty directory, so the worktree is
+/// created in a temporary directory inside `destination`, its gitlink moved
+/// into place, and the recorded paths repaired.
+fn add_worktree_to_populated_dir(
+    git_ctx: &GitSubprocessContext,
+    destination: &Path,
+    branch_name: &str,
+) -> Result<(), GitCreateWorktreeError> {
+    let dot_git = destination.join(".git");
+    if dot_git.exists() {
+        return Err(GitCreateWorktreeError::ExistingGitLink);
+    }
+    let tmp_dir = TempDir::new_in(destination).map_err(GitCreateWorktreeError::TempDir)?;
+    let tmp_path = tmp_dir.path();
+    git_ctx.spawn_worktree_add(tmp_path, branch_name)?;
+
+    std::fs::rename(tmp_path.join(".git"), &dot_git)
+        .context(&dot_git)
+        .map_err(GitCreateWorktreeError::MoveGitLink)?;
+    if let Err(err) = git_ctx.spawn_worktree_repair(destination) {
+        std::fs::remove_file(&dot_git).ok();
+        return Err(err.into());
+    }
+    Ok(())
 }
 
 #[derive(Debug, Error)]
