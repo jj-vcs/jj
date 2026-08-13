@@ -43,6 +43,9 @@ published.
   `gpgsig-sha256` header, as Git does, so Git recognizes them as signed and
   jj can read them back.
 
+* `jj workspace remove` removes a workspace and its directory from disk. The
+  working-copy state is snapshotted into a commit before removal.
+
 * `jj undo` of `jj workspace forget` now correctly preserves the workspace's
   recorded path. Previously the path metadata was lost, leaving the workspace
   in a broken state after undo.
