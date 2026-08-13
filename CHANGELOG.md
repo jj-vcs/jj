@@ -35,6 +35,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   config is `true`. `jj workspace forget` removes the corresponding Git
   worktree when one exists.
 
+* `jj workspace remove` removes a workspace and its directory from disk. The
+  working-copy state is snapshotted into a commit before removal.
+
 * `jj git colocation status`/`enable`/`disable` now work on child
   workspaces. `status` correctly reports colocation state and includes
   the workspace name. `enable` creates a Git worktree and `disable`
