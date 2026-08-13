@@ -59,7 +59,7 @@ fn test_git_colocation_enable_success() -> TestResult {
 
     // And that there is no Git HEAD yet
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
-    Workspace is currently not colocated with Git.
+    Workspace 'default' is currently not colocated with Git.
     Last imported/exported Git HEAD: (none)
     [EOF]
     ");
@@ -90,7 +90,7 @@ fn test_git_colocation_enable_success() -> TestResult {
 
     // Verify that Git HEAD was set correctly
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
-    Workspace is currently colocated with Git.
+    Workspace 'default' is currently colocated with Git.
     Last imported/exported Git HEAD: e8849ae12c709f2321908879bc724fdb2ab8a781
     [EOF]
     ");
@@ -128,7 +128,7 @@ fn test_git_colocation_enable_empty() {
 
     // Verify that Git HEAD was set correctly
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
-    Workspace is currently colocated with Git.
+    Workspace 'default' is currently colocated with Git.
     Last imported/exported Git HEAD: (none)
     [EOF]
     ");
@@ -209,7 +209,7 @@ fn test_git_colocation_enable_external_git_repo() {
     // The status hint shouldn't suggest enabling colocation
     let output = work_dir.run_jj(["git", "colocation", "status"]);
     insta::assert_snapshot!(output, @"
-    Workspace is currently not colocated with Git.
+    Workspace 'default' is currently not colocated with Git.
     Last imported/exported Git HEAD: (none)
     [EOF]
     ------- stderr -------
@@ -243,7 +243,7 @@ fn test_git_colocation_disable_success() {
 
     // Verify that Git HEAD is set
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
-    Workspace is currently colocated with Git.
+    Workspace 'default' is currently colocated with Git.
     Last imported/exported Git HEAD: e8849ae12c709f2321908879bc724fdb2ab8a781
     [EOF]
     ");
@@ -275,7 +275,7 @@ fn test_git_colocation_disable_success() {
 
     // Verify that Git HEAD was removed correctly
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
-    Workspace is currently not colocated with Git.
+    Workspace 'default' is currently not colocated with Git.
     Last imported/exported Git HEAD: (none)
     [EOF]
     ");
@@ -301,7 +301,7 @@ fn test_git_colocation_disable_empty() {
 
     // Verify that Git HEAD is unset
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
-    Workspace is currently colocated with Git.
+    Workspace 'default' is currently colocated with Git.
     Last imported/exported Git HEAD: (none)
     [EOF]
     ");
@@ -356,7 +356,7 @@ fn test_git_colocation_status_non_colocated() {
     // Check status - should show non-colocated
     let output = work_dir.run_jj(["git", "colocation", "status"]);
     insta::assert_snapshot!(output, @"
-    Workspace is currently not colocated with Git.
+    Workspace 'default' is currently not colocated with Git.
     Last imported/exported Git HEAD: (none)
     [EOF]
     ------- stderr -------
@@ -378,7 +378,7 @@ fn test_git_colocation_status_colocated() {
     // Check status - should show colocated
     let output = work_dir.run_jj(["git", "colocation", "status"]);
     insta::assert_snapshot!(output, @"
-    Workspace is currently colocated with Git.
+    Workspace 'default' is currently colocated with Git.
     Last imported/exported Git HEAD: (none)
     [EOF]
     ------- stderr -------
@@ -400,26 +400,86 @@ fn test_git_colocation_in_secondary_workspace() {
     let secondary_dir = test_env.work_dir("secondary");
 
     let output = secondary_dir.run_jj(["git", "colocation", "status"]);
-    insta::assert_snapshot!(output, @"
-    ------- stderr -------
-    Error: This command cannot be used in a non-main Jujutsu workspace
+    insta::assert_snapshot!(output, @r#"
+    Workspace 'secondary' is currently not colocated with Git.
+    Last imported/exported Git HEAD: (none)
     [EOF]
-    [exit status: 1]
-    ");
+    ------- stderr -------
+    Hint: To enable colocation, run: `jj git colocation enable`
+    [EOF]
+    "#);
 
     let output = secondary_dir.run_jj(["git", "colocation", "enable"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: This command cannot be used in a non-main Jujutsu workspace
+    Error: Cannot colocate: bare Git repository
     [EOF]
     [exit status: 1]
-    ");
+    "#);
 
     let output = secondary_dir.run_jj(["git", "colocation", "disable"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: This command cannot be used in a non-main Jujutsu workspace
+    Workspace is already not colocated with Git.
     [EOF]
-    [exit status: 1]
-    ");
+    "#);
+}
+
+#[test]
+fn test_git_colocation_enable_disable_child_workspace() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = true");
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "main"])
+        .success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    main_dir
+        .run_jj(["workspace", "add", "--no-colocate", "../secondary"])
+        .success();
+    let secondary_dir = test_env.work_dir("secondary");
+
+    assert!(!test_env.env_root().join("secondary/.git").exists());
+
+    let output = secondary_dir.run_jj(["git", "colocation", "status", "--quiet"]);
+    insta::assert_snapshot!(output, @r#"
+    Workspace 'secondary' is currently not colocated with Git.
+    Last imported/exported Git HEAD: (none)
+    [EOF]
+    "#);
+
+    let output = secondary_dir.run_jj(["git", "colocation", "enable"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Created Git worktree for the new workspace.
+    Workspace successfully converted into a colocated Jujutsu/Git workspace.
+    [EOF]
+    "#);
+    assert!(test_env.env_root().join("secondary/.git").is_file());
+
+    let output = secondary_dir.run_jj(["git", "colocation", "status", "--quiet"]);
+    insta::assert_snapshot!(output, @r#"
+    Workspace 'secondary' is currently colocated with Git.
+    Last imported/exported Git HEAD: 7b22a8cbe888adcb4d5ff6dd46a38049e870c6ab
+    [EOF]
+    "#);
+
+    let output = secondary_dir.run_jj(["git", "colocation", "disable"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Removed Git worktree for "$TEST_ENV/secondary".
+    Workspace successfully converted into a non-colocated Jujutsu/Git workspace.
+    [EOF]
+    "#);
+    assert!(!test_env.env_root().join("secondary/.git").exists());
+
+    let output = secondary_dir.run_jj(["git", "colocation", "status", "--quiet"]);
+    insta::assert_snapshot!(output, @r#"
+    Workspace 'secondary' is currently not colocated with Git.
+    Last imported/exported Git HEAD: (none)
+    [EOF]
+    "#);
 }
