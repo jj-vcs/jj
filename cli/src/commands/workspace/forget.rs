@@ -80,6 +80,7 @@ pub async fn cmd_workspace_forget(
         return Ok(());
     }
 
+    #[cfg(feature = "git")]
     let workspace_store = SimpleWorkspaceStore::load(workspace_command.repo_path())?;
 
     #[cfg(feature = "git")]
@@ -107,15 +108,12 @@ pub async fn cmd_workspace_forget(
         tx.repo_mut().remove_workspace(ws).await?;
     }
 
-    let description = if let [ws] = forget_ws.as_slice() {
-        format!("forget workspace {}", ws.as_symbol())
+    let names = forget_ws.iter().map(|ws| ws.as_symbol()).join(", ");
+    let description = if forget_ws.len() == 1 {
+        format!("forget workspace {names}")
     } else {
-        format!(
-            "forget workspaces {}",
-            forget_ws.iter().map(|ws| ws.as_symbol()).join(", ")
-        )
+        format!("forget workspaces {names}")
     };
-
     tx.finish(ui, description).await?;
 
     #[cfg(feature = "git")]

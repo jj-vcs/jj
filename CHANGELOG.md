@@ -49,6 +49,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Use the `--sparse-patterns` option to control this behavior (evaluated
   per each `jj run` invocation).
 
+* `jj workspace remove` removes a workspace and its directory from disk. The
+  working-copy state is snapshotted into a commit before removal.
+
 ### Fixed bugs
 
 * `jj undo` of `jj workspace forget` now correctly preserves the workspace's
