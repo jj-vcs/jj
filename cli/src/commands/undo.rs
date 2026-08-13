@@ -172,5 +172,21 @@ pub async fn cmd_undo(
     )
     .await?;
 
+    if target_op
+        .metadata()
+        .description
+        .starts_with("delete workspace")
+    {
+        writeln!(
+            ui.warning_default(),
+            "Undoing a workspace delete restores the workspace, but does not restore the \
+             workspace directory."
+        )?;
+        writeln!(
+            ui.hint_default(),
+            "Run `jj workspace forget` then `jj workspace add` to recreate the directory."
+        )?;
+    }
+
     Ok(())
 }

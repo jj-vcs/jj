@@ -16,6 +16,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj workspace delete` removes a workspace and its directory from disk. The
+  working-copy state is snapshotted into a commit before removal.
+
 * `jj bisect` will now mention when it cannot unambiguously find the first bad
   revision due to skips in evaluation.
 

@@ -127,6 +127,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj version`↴](#jj-version)
 * [`jj workspace`↴](#jj-workspace)
 * [`jj workspace add`↴](#jj-workspace-add)
+* [`jj workspace delete`↴](#jj-workspace-delete)
 * [`jj workspace forget`↴](#jj-workspace-forget)
 * [`jj workspace list`↴](#jj-workspace-list)
 * [`jj workspace rename`↴](#jj-workspace-rename)
@@ -3801,6 +3802,7 @@ Each workspace also has own sparse patterns.
 ###### **Subcommands:**
 
 * `add` — Add a workspace
+* `delete` — Delete a workspace and its working-copy files from disk
 * `forget` — Stop tracking a workspace's working-copy commit in the repo
 * `list` — List workspaces
 * `rename` — Renames the current workspace
@@ -3844,6 +3846,20 @@ By default, the new workspace inherits the sparse patterns of the current worksp
   - `empty`:
     Clear all files from the workspace (it will be empty)
 
+
+
+
+## `jj workspace delete`
+
+Delete a workspace and its working-copy files from disk
+
+The workspace directory and its contents are removed from disk. The working-copy state is snapshotted into a commit before the workspace is deleted. The main workspace cannot be deleted.
+
+**Usage:** `jj workspace delete <WORKSPACES>...`
+
+###### **Arguments:**
+
+* `<WORKSPACES>` — Names of the workspaces to delete
 
 
 
