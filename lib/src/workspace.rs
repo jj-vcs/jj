@@ -72,6 +72,8 @@ pub enum WorkspaceInitError {
     #[error(transparent)]
     CheckOutCommit(#[from] CheckOutCommitError),
     #[error(transparent)]
+    Checkout(#[from] CheckoutError),
+    #[error(transparent)]
     WorkingCopyState(#[from] WorkingCopyStateError),
     #[error(transparent)]
     Path(#[from] PathError),
@@ -405,6 +407,71 @@ impl Workspace {
         )?;
         workspace_store.add(workspace.workspace_name(), workspace.workspace_root())?;
         Ok((workspace, repo))
+    }
+
+    pub async fn restore_workspace_with_existing_repo(
+        workspace_root: &Path,
+        repo_path: &Path,
+        repo: &Arc<ReadonlyRepo>,
+        working_copy_factory: &dyn WorkingCopyFactory,
+        workspace_name: WorkspaceNameBuf,
+        wc_commit: &Commit,
+    ) -> Result<Self, WorkspaceInitError> {
+        if !workspace_root.exists() {
+            fs::create_dir(workspace_root).context(workspace_root)?;
+        } else if !file_util::is_empty_dir(workspace_root)? {
+            return Err(WorkspaceInitError::DestinationExists(
+                workspace_root.to_path_buf(),
+            ));
+        }
+
+        let jj_dir = create_jj_dir(workspace_root)?;
+
+        async {
+            let repo_dir = dunce::canonicalize(repo_path).context(repo_path)?;
+            let jj_dir_abs = dunce::canonicalize(&jj_dir).context(&jj_dir)?;
+            let path_to_store = file_util::relative_path(&jj_dir_abs, &repo_dir);
+            let path_to_store = if path_to_store.is_relative() {
+                file_util::slash_path(&path_to_store).into_owned()
+            } else {
+                path_to_store
+            };
+            let repo_dir_bytes = file_util::path_to_bytes(&path_to_store)
+                .map_err(WorkspaceInitError::EncodeRepoPath)?;
+            let repo_file_path = jj_dir.join("repo");
+            fs::write(&repo_file_path, repo_dir_bytes).context(&repo_file_path)?;
+
+            let working_copy_state_path = jj_dir.join("working_copy");
+            std::fs::create_dir(&working_copy_state_path).context(&working_copy_state_path)?;
+            let working_copy = working_copy_factory.init_working_copy(
+                repo.store().clone(),
+                workspace_root.to_path_buf(),
+                working_copy_state_path.clone(),
+                repo.op_id().clone(),
+                workspace_name,
+                repo.settings(),
+            )?;
+            let working_copy_type_path = working_copy_state_path.join("type");
+            fs::write(&working_copy_type_path, working_copy.name())
+                .context(&working_copy_type_path)?;
+
+            let workspace_store = SimpleWorkspaceStore::load(repo_path)?;
+            let mut workspace = Self::new(
+                workspace_root,
+                repo_dir,
+                working_copy,
+                repo.loader().clone(),
+            )?;
+            workspace
+                .check_out(repo.op_id().clone(), None, wc_commit)
+                .await?;
+            workspace_store.add(workspace.workspace_name(), workspace.workspace_root())?;
+            Ok(workspace)
+        }
+        .await
+        .inspect_err(|_err| {
+            std::fs::remove_dir_all(jj_dir).ok();
+        })
     }
 
     pub fn load(

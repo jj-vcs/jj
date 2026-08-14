@@ -1621,8 +1621,8 @@ fn test_workspaces_forget_multi_transaction() {
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
     default: . rlvkpnrz f6bf8819 (empty) (no description set)
-    second: pmmvwywv 31da1455 (empty) (no description set)
-    third: rzvqmyuk bf5b5b4d (empty) (no description set)
+    second: ../second pmmvwywv 31da1455 (empty) (no description set)
+    third: ../third rzvqmyuk bf5b5b4d (empty) (no description set)
     [EOF]
     ");
 }
@@ -1903,6 +1903,107 @@ fn test_workspaces_delete_current_workspace() {
     [EOF]
     "#);
     assert!(!test_env.env_root().join("secondary").exists());
+}
+
+#[test]
+fn test_workspaces_delete_undo_redo_restores_directory() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+    let secondary_dir = test_env.work_dir("secondary");
+    secondary_dir.write_file("secondary_file", "secondary contents");
+
+    main_dir
+        .run_jj(["workspace", "delete", "secondary"])
+        .success();
+    assert!(!test_env.env_root().join("secondary").exists());
+
+    let output = main_dir.run_jj(["undo"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Undid operation: 393d77283fee (2001-02-03 08:05:10) delete workspace secondary
+    Restored to operation: 014a22bea38d (2001-02-03 08:05:10) snapshot working copy
+    Restored workspace directory "$TEST_ENV/secondary".
+    [EOF]
+    "#);
+    assert!(
+        test_env
+            .env_root()
+            .join("secondary/secondary_file")
+            .is_file()
+    );
+
+    let output = main_dir.run_jj(["redo"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Restored to operation: 393d77283fee (2001-02-03 08:05:10) delete workspace secondary
+    Removed workspace directory "$TEST_ENV/secondary".
+    [EOF]
+    "#);
+    assert!(!test_env.env_root().join("secondary").exists());
+}
+
+#[test]
+fn test_workspaces_delete_undo_refuses_existing_directory() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+    main_dir
+        .run_jj(["workspace", "delete", "secondary"])
+        .success();
+    assert!(!test_env.env_root().join("secondary").exists());
+
+    let secondary_dir = test_env.work_dir("secondary");
+    secondary_dir.write_file("new-owner.txt", "do not delete");
+
+    let output = main_dir.run_jj(["undo"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Error: Cannot restore workspace 'secondary' because directory '$TEST_ENV/secondary' already exists
+    Hint: Move the directory away, then retry `jj undo`.
+    [EOF]
+    [exit status: 1]
+    "#);
+    assert!(
+        test_env
+            .env_root()
+            .join("secondary/new-owner.txt")
+            .is_file()
+    );
+
+    let output = main_dir.run_jj(["workspace", "list"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    default: . rlvkpnrz 504e3d8c (empty) (no description set)
+    [EOF]
+    "#);
+
+    let output = main_dir.run_jj(["redo"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Nothing to redo
+    [EOF]
+    [exit status: 1]
+    "#);
+    assert!(
+        test_env
+            .env_root()
+            .join("secondary/new-owner.txt")
+            .is_file()
+    );
 }
 
 /// Test context of commit summary template

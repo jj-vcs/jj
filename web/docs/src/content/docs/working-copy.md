@@ -93,7 +93,9 @@ the files around.
 Use `jj workspace delete` to forget a workspace and remove its directory from
 disk. Tracked changes are snapshotted before the directory is removed, but
 ignored files in that directory are deleted. The main workspace cannot be
-deleted, and deleting the current workspace is rejected on Windows.
+deleted, and deleting the current workspace is rejected on Windows. `jj undo`
+recreates the workspace directory and checks out the snapshotted working-copy
+commit if the path is still available; `jj redo` removes it again.
 
 ## Stale working copy
 

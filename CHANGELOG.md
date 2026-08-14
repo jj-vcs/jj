@@ -29,6 +29,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* `jj undo` now restores workspace paths when undoing `jj workspace forget`.
+  It also recreates workspace directories when undoing `jj workspace delete`,
+  if the path is still available, and `jj redo` removes those directories
+  again.
+
 * The default pager flags now include `-K` (`--quit-on-intr`), so pressing
   Ctrl+C in `less` exits cleanly instead of leaving the terminal in a
   corrupted state (raw mode, visible escape sequences, broken input).

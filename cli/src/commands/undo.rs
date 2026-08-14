@@ -15,8 +15,15 @@
 use itertools::Itertools as _;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::OperationId;
+use jj_lib::op_store::View;
+use jj_lib::ref_name::WorkspaceNameBuf;
+use jj_lib::repo::Repo as _;
+use jj_lib::workspace::Workspace;
+use jj_lib::workspace_store::SimpleWorkspaceStore;
+use jj_lib::workspace_store::WorkspaceStore as _;
 
 use crate::cli_util::CommandHelper;
+use crate::cli_util::WorkspaceCommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::internal_error;
 use crate::command_error::user_error;
@@ -43,6 +50,7 @@ use crate::ui::Ui;
 pub struct UndoArgs {}
 
 pub(crate) const UNDO_OP_DESC_PREFIX: &str = "undo: restore to operation ";
+pub(crate) const WORKSPACE_DELETE_OP_DESC_PREFIX: &str = "delete workspace";
 
 pub async fn cmd_undo(
     ui: &mut Ui,
@@ -148,12 +156,22 @@ pub async fn cmd_undo(
             .await?;
     }
 
+    let old_view = workspace_command.repo().view().store_view().clone();
+    let restored_view = target_op_parent.view().await?.store_view().clone();
+    let restores_workspace_delete = target_op
+        .metadata()
+        .description
+        .starts_with(WORKSPACE_DELETE_OP_DESC_PREFIX);
+    if restores_workspace_delete {
+        check_workspace_restore_directories_available(
+            &workspace_command,
+            &old_view,
+            &restored_view,
+        )?;
+    }
     let mut tx = workspace_command.start_transaction();
-    let new_view = view_with_desired_portions_restored(
-        target_op_parent.view().await?.store_view(),
-        tx.base_repo().view().store_view(),
-        &DEFAULT_REVERT_WHAT,
-    );
+    let new_view =
+        view_with_desired_portions_restored(&restored_view, &old_view, &DEFAULT_REVERT_WHAT);
     tx.repo_mut().set_view(new_view);
     if let Some(mut formatter) = ui.status_formatter() {
         let template = tx.base_workspace_helper().operation_summary_template();
@@ -172,5 +190,160 @@ pub async fn cmd_undo(
     )
     .await?;
 
+    if restores_workspace_delete {
+        restore_workspace_directories(ui, command, &workspace_command, &old_view, &restored_view)
+            .await?;
+    }
+
     Ok(())
+}
+
+pub(crate) async fn restore_workspace_directories(
+    ui: &mut Ui,
+    command: &CommandHelper,
+    workspace_command: &WorkspaceCommandHelper,
+    old_view: &View,
+    new_view: &View,
+) -> Result<(), CommandError> {
+    let workspace_store = SimpleWorkspaceStore::load(workspace_command.repo_path())?;
+    let working_copy_factory = command.get_working_copy_factory()?;
+    for workspace_name in new_view
+        .wc_commit_ids
+        .keys()
+        .filter(|workspace_name| !old_view.wc_commit_ids.contains_key(*workspace_name))
+        .cloned()
+        .collect_vec()
+    {
+        let Some(rel_path) = workspace_store.get_workspace_path(&workspace_name)? else {
+            continue;
+        };
+        let workspace_path = normalize_maybe_missing(workspace_command.repo_path().join(rel_path))?;
+        if workspace_path.exists() {
+            return Err(workspace_restore_blocked_error(
+                &workspace_name,
+                &workspace_path,
+            ));
+        }
+        let Some(wc_commit_id) = workspace_command
+            .repo()
+            .view()
+            .get_wc_commit_id(&workspace_name)
+        else {
+            continue;
+        };
+        let wc_commit = workspace_command
+            .repo()
+            .store()
+            .get_commit_async(wc_commit_id)
+            .await?;
+        Workspace::restore_workspace_with_existing_repo(
+            &workspace_path,
+            workspace_command.repo_path(),
+            workspace_command.repo(),
+            working_copy_factory,
+            workspace_name,
+            &wc_commit,
+        )
+        .await?;
+        writeln!(
+            ui.status(),
+            r#"Restored workspace directory "{}"."#,
+            workspace_path.display()
+        )?;
+    }
+    Ok(())
+}
+
+fn check_workspace_restore_directories_available(
+    workspace_command: &WorkspaceCommandHelper,
+    old_view: &View,
+    new_view: &View,
+) -> Result<(), CommandError> {
+    let workspace_store = SimpleWorkspaceStore::load(workspace_command.repo_path())?;
+    for workspace_name in new_view
+        .wc_commit_ids
+        .keys()
+        .filter(|workspace_name| !old_view.wc_commit_ids.contains_key(*workspace_name))
+        .cloned()
+        .collect_vec()
+    {
+        let Some(rel_path) = workspace_store.get_workspace_path(&workspace_name)? else {
+            continue;
+        };
+        let workspace_path = normalize_maybe_missing(workspace_command.repo_path().join(rel_path))?;
+        if workspace_path.exists() {
+            return Err(workspace_restore_blocked_error(
+                &workspace_name,
+                &workspace_path,
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn workspace_restore_blocked_error(
+    workspace_name: &WorkspaceNameBuf,
+    workspace_path: &std::path::Path,
+) -> CommandError {
+    user_error(format!(
+        "Cannot restore workspace '{}' because directory '{}' already exists",
+        workspace_name.as_symbol(),
+        workspace_path.display()
+    ))
+    .hinted("Move the directory away, then retry `jj undo`.")
+}
+
+pub(crate) fn remove_workspace_directories(
+    ui: &mut Ui,
+    workspace_command: &WorkspaceCommandHelper,
+    old_view: &View,
+    new_view: &View,
+) -> Result<(), CommandError> {
+    let workspace_store = SimpleWorkspaceStore::load(workspace_command.repo_path())?;
+    for workspace_name in old_view
+        .wc_commit_ids
+        .keys()
+        .filter(|workspace_name| !new_view.wc_commit_ids.contains_key(*workspace_name))
+        .cloned()
+        .collect_vec()
+    {
+        let Some(rel_path) = workspace_store.get_workspace_path(&workspace_name)? else {
+            continue;
+        };
+        let Ok(workspace_path) =
+            normalize_maybe_missing(workspace_command.repo_path().join(rel_path))
+        else {
+            continue;
+        };
+        if workspace_path.join(".jj").join("repo").is_dir() || !workspace_path.exists() {
+            continue;
+        }
+        if let Err(err) = std::fs::remove_dir_all(&workspace_path) {
+            writeln!(
+                ui.warning_default(),
+                r#"Failed to remove workspace directory "{}": {err}"#,
+                workspace_path.display()
+            )?;
+        } else {
+            writeln!(
+                ui.status(),
+                r#"Removed workspace directory "{}"."#,
+                workspace_path.display()
+            )?;
+        }
+    }
+    Ok(())
+}
+
+fn normalize_maybe_missing(path: std::path::PathBuf) -> Result<std::path::PathBuf, CommandError> {
+    if path.exists() {
+        return Ok(dunce::canonicalize(path)?);
+    }
+    let Some(parent) = path.parent() else {
+        return Ok(path);
+    };
+    let Some(file_name) = path.file_name() else {
+        return Ok(dunce::canonicalize(parent)?);
+    };
+    Ok(dunce::canonicalize(parent)?.join(file_name))
 }

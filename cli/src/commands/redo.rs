@@ -23,6 +23,8 @@ use crate::command_error::user_error;
 use crate::commands::operation::DEFAULT_REVERT_WHAT;
 use crate::commands::operation::view_with_desired_portions_restored;
 use crate::commands::undo::UNDO_OP_DESC_PREFIX;
+use crate::commands::undo::WORKSPACE_DELETE_OP_DESC_PREFIX;
+use crate::commands::undo::remove_workspace_directories;
 use crate::ui::Ui;
 
 /// Redo the most recently undone operation
@@ -150,11 +152,10 @@ pub async fn cmd_redo(
     }
 
     let mut tx = workspace_command.start_transaction();
-    let new_view = view_with_desired_portions_restored(
-        target_op_parent.view().await?.store_view(),
-        tx.base_repo().view().store_view(),
-        &DEFAULT_REVERT_WHAT,
-    );
+    let old_view = tx.base_repo().view().store_view().clone();
+    let restored_view = target_op_parent.view().await?.store_view().clone();
+    let new_view =
+        view_with_desired_portions_restored(&restored_view, &old_view, &DEFAULT_REVERT_WHAT);
     tx.repo_mut().set_view(new_view);
     if let Some(mut formatter) = ui.status_formatter() {
         write!(formatter, "Restored to operation: ")?;
@@ -167,6 +168,14 @@ pub async fn cmd_redo(
         format!("{REDO_OP_DESC_PREFIX}{}", target_op_parent.id().hex()),
     )
     .await?;
+
+    if target_op_parent
+        .metadata()
+        .description
+        .starts_with(WORKSPACE_DELETE_OP_DESC_PREFIX)
+    {
+        remove_workspace_directories(ui, &workspace_command, &old_view, &restored_view)?;
+    }
 
     Ok(())
 }

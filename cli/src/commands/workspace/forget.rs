@@ -15,8 +15,6 @@
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::ref_name::WorkspaceNameBuf;
-use jj_lib::workspace_store::SimpleWorkspaceStore;
-use jj_lib::workspace_store::WorkspaceStore as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -83,9 +81,6 @@ pub(super) async fn forget_workspaces(
     forget_ws: &[&WorkspaceNameBuf],
     description_verb: &str,
 ) -> Result<(), CommandError> {
-    let workspace_store = SimpleWorkspaceStore::load(workspace_command.repo_path())?;
-    workspace_store.forget(&forget_ws.iter().map(|x| x.as_ref()).collect_vec())?;
-
     // bundle every workspace forget into a single transaction, so that e.g.
     // undo correctly restores all of them at once.
     let mut tx = workspace_command.start_transaction();
