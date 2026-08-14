@@ -35,7 +35,7 @@ use crate::ui::Ui;
 /// This feature may be removed or replaced by an embedded scripting language in
 /// the future.
 ///
-/// Let's assume you have a script called "my-jj-script" in you $PATH and you
+/// Let's assume you have a script called "my-jj-script" in your $PATH and you
 /// would like to execute it as "jj my-script". You would add the following line
 /// to your configuration file to achieve that:
 ///
