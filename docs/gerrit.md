@@ -151,6 +151,22 @@ footers associated with the desired changes. Be sure not to duplicate the same
 duplicate `Change-Id`s, but if the uploads are done separately, you may
 unintentionally overwrite an existing change.
 
+### Uploading without a `Change-Id` footer
+
+If you are working with a Gerrit host that natively understands JJ change IDs,
+you can skip the automatic `Change-Id` footer injection with `--no-change-id`:
+
+```shell
+$ jj gerrit upload --no-change-id
+```
+
+Commits that already contain a `Change-Id` or `Link` footer are never modified,
+regardless of this flag.
+
+> Note: Native JJ change-ID support in Gerrit is not yet merged upstream. The
+> default behaviour (adding a `Change-Id` footer) remains correct for all
+> current Gerrit installations.
+
 ## Alternative `Link` trailer
 
 Since version 3.3.1 Gerrit supports an alternative to the `Change-Id` trailer,
