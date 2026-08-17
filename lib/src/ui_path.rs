@@ -169,6 +169,7 @@ pub fn parse_fs_path(
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use assert_matches::assert_matches;
 

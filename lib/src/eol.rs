@@ -188,6 +188,7 @@ async fn convert_eol<'a>(
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use std::error::Error;
     use std::pin::Pin;

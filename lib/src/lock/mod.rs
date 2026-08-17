@@ -40,6 +40,7 @@ pub struct FileLockError {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use std::cmp::max;
     use std::fs;
