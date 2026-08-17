@@ -2176,7 +2176,7 @@ mod tests {
 
         type Reference = WorkingCopyReferenceStateMachine;
 
-        fn init_test(ref_state: &WorkingCopyReferenceStateMachine) -> Self::SystemUnderTest {
+        fn init_test(ref_state: &Self::Reference) -> Self::SystemUnderTest {
             let test_repo = TestRepo::init();
             let initial_tree = ref_state.create_tree(&test_repo.repo);
             Self {
@@ -2187,8 +2187,8 @@ mod tests {
 
         fn apply(
             state: Self::SystemUnderTest,
-            ref_state: &WorkingCopyReferenceStateMachine,
-            transition: Transition,
+            ref_state: &Self::Reference,
+            transition: <Self::Reference as ReferenceStateMachine>::Transition,
         ) -> Self::SystemUnderTest {
             match transition {
                 Transition::Commit => {
@@ -2206,10 +2206,7 @@ mod tests {
             }
         }
 
-        fn check_invariants(
-            state: &Self::SystemUnderTest,
-            ref_state: &WorkingCopyReferenceStateMachine,
-        ) {
+        fn check_invariants(state: &Self::SystemUnderTest, ref_state: &Self::Reference) {
             let store = state.test_repo.repo.store();
             let left_tree = &state.prev_tree;
             let right_tree = ref_state.create_tree(&state.test_repo.repo);
@@ -2267,7 +2264,7 @@ mod tests {
         type SystemUnderTest = Self;
         type Reference = WorkingCopyWithSelectionStateMachine;
 
-        fn init_test(ref_state: &WorkingCopyWithSelectionStateMachine) -> Self::SystemUnderTest {
+        fn init_test(ref_state: &Self::Reference) -> Self::SystemUnderTest {
             let test_repo = TestRepo::init();
             let initial_tree = ref_state.working_copy.create_tree(&test_repo.repo);
             Self {
@@ -2279,8 +2276,8 @@ mod tests {
 
         fn apply(
             state: Self::SystemUnderTest,
-            ref_state: &WorkingCopyWithSelectionStateMachine,
-            transition: Transition,
+            ref_state: &Self::Reference,
+            transition: <Self::Reference as ReferenceStateMachine>::Transition,
         ) -> Self::SystemUnderTest {
             match transition {
                 Transition::Commit => {
@@ -2304,10 +2301,7 @@ mod tests {
             }
         }
 
-        fn check_invariants(
-            state: &Self::SystemUnderTest,
-            ref_state: &WorkingCopyWithSelectionStateMachine,
-        ) {
+        fn check_invariants(state: &Self::SystemUnderTest, ref_state: &Self::Reference) {
             let store = state.test_repo.repo.store();
             let left_tree = &state.prev_tree;
             let right_tree = ref_state.working_copy.create_tree(&state.test_repo.repo);
