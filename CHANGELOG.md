@@ -51,6 +51,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* `jj undo` of `jj workspace forget` now correctly preserves the workspace's
+  recorded path. Previously the path metadata was lost, leaving the workspace
+  in a broken state after undo.
+  [#9991](https://github.com/jj-vcs/jj/issues/9991)
+
 ## [0.45.1] - 2026-09-03
 
 This release fixes an error that prevented the new jj-core crate from being
