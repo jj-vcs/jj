@@ -481,6 +481,7 @@ mod fallback {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use futures::io::Cursor;
     use itertools::Itertools as _;

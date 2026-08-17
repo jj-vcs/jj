@@ -586,6 +586,7 @@ impl Debug for StringMatcher {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use assert_matches::assert_matches;
     use itertools::Itertools as _;
