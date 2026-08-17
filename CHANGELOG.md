@@ -43,6 +43,11 @@ published.
   `gpgsig-sha256` header, as Git does, so Git recognizes them as signed and
   jj can read them back.
 
+* `jj undo` of `jj workspace forget` now correctly preserves the workspace's
+  recorded path. Previously the path metadata was lost, leaving the workspace
+  in a broken state after undo.
+  [#9991](https://github.com/jj-vcs/jj/issues/9991)
+
 ## [0.45.0] - 2026-09-02
 
 ### Release highlights

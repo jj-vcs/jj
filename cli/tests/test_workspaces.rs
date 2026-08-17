@@ -1615,12 +1615,13 @@ fn test_workspaces_forget_multi_transaction() {
     // now, undo, and that should restore both workspaces
     main_dir.run_jj(["undo"]).success();
 
-    // finally, there should be three workspaces at the end
+    // finally, there should be three workspaces at the end, with their
+    // recorded paths intact
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
     default: . rlvkpnrz f6bf8819 (empty) (no description set)
-    second: pmmvwywv 31da1455 (empty) (no description set)
-    third: rzvqmyuk bf5b5b4d (empty) (no description set)
+    second: ../second pmmvwywv 31da1455 (empty) (no description set)
+    third: ../third rzvqmyuk bf5b5b4d (empty) (no description set)
     [EOF]
     ");
 }
@@ -1988,6 +1989,36 @@ fn test_workspaces_rename_new_workspace_name_already_used() {
     [EOF]
     [exit status: 1]
     ");
+}
+
+#[test]
+fn test_workspaces_forget_undo_preserves_path() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+
+    let output = main_dir.run_jj(["workspace", "root", "--name", "secondary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    $TEST_ENV/secondary
+    [EOF]
+    "#);
+
+    main_dir
+        .run_jj(["workspace", "forget", "secondary"])
+        .success();
+    main_dir.run_jj(["undo"]).success();
+
+    let output = main_dir.run_jj(["workspace", "root", "--name", "secondary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    $TEST_ENV/secondary
+    [EOF]
+    "#);
 }
 
 #[test]
