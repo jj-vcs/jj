@@ -43,8 +43,11 @@ use crate::ui::Ui;
 
 /// Update the change description or other metadata [default alias: desc]
 ///
-/// Starts an editor to let you edit the description of changes. The editor
-/// will be $EDITOR, or `nano` if that's not defined (`Notepad` on Windows).
+/// Starts an editor to let you edit the description of changes. Set `ui.editor`
+/// to customize your editor. See `jj help -k config` or the [editor docs] for
+/// more information on how the editor is chosen.
+///
+/// [editor docs]: https://docs.jj-vcs.dev/latest/config/#editor
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct DescribeArgs {
     /// The revision(s) whose description to edit (default: @) [aliases: -r]
