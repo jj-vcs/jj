@@ -1615,12 +1615,13 @@ fn test_workspaces_forget_multi_transaction() {
     // now, undo, and that should restore both workspaces
     main_dir.run_jj(["undo"]).success();
 
-    // finally, there should be three workspaces at the end
+    // finally, there should be three workspaces at the end, with their
+    // recorded paths intact
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
     default: . rlvkpnrz f6bf8819 (empty) (no description set)
-    second: pmmvwywv 31da1455 (empty) (no description set)
-    third: rzvqmyuk bf5b5b4d (empty) (no description set)
+    second: ../second pmmvwywv 31da1455 (empty) (no description set)
+    third: ../third rzvqmyuk bf5b5b4d (empty) (no description set)
     [EOF]
     ");
 }
