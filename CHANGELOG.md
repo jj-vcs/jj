@@ -141,6 +141,11 @@ None
 
 ### Fixed bugs
 
+* Diffs no longer report a region as entirely replaced when one side of it
+  appears verbatim within the other side. This fixes an issue in color-words
+  diffs of conflicted files, where the last line was previously shown as a
+  removal followed by a `+`-prefixed addition, corrupting the `+` column.
+
 * Recursive alias definitions are detected more precisely. jj can now expand
   aliases that are simply repeated. For example, with the alias `jj = []`, the
   command `jj jj jj` will resolve to `jj`. Aliases can also fall back to the
