@@ -2225,6 +2225,36 @@ fn test_workspaces_delete_and_readd() {
 }
 
 #[test]
+fn test_workspaces_forget_undo_preserves_path() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+
+    let output = main_dir.run_jj(["workspace", "root", "--name", "secondary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    $TEST_ENV/secondary
+    [EOF]
+    "#);
+
+    main_dir
+        .run_jj(["workspace", "forget", "secondary"])
+        .success();
+    main_dir.run_jj(["undo"]).success();
+
+    let output = main_dir.run_jj(["workspace", "root", "--name", "secondary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    $TEST_ENV/secondary
+    [EOF]
+    "#);
+}
+
+#[test]
 fn test_workspaces_delete_undo_readd() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "main"]).success();
