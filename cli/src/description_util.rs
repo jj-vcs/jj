@@ -457,6 +457,7 @@ pub fn description_template(
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use indexmap::indexmap;
     use indoc::indoc;

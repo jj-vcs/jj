@@ -4820,6 +4820,7 @@ pub fn shell_quote(s: &str) -> Cow<'_, str> {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use clap::CommandFactory as _;
 

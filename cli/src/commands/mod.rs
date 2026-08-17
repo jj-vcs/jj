@@ -233,6 +233,7 @@ pub async fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
 

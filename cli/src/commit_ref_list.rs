@@ -298,6 +298,7 @@ fn sort_inner(
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use jj_lib::backend::ChangeId;
     use jj_lib::backend::MillisSinceEpoch;

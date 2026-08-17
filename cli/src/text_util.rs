@@ -602,6 +602,7 @@ pub fn parse_author(author: &str) -> Result<(String, String), &'static str> {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use std::io::Write as _;
 

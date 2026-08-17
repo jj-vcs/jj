@@ -561,6 +561,7 @@ pub fn print_push_stats(ui: &Ui, stats: &GitPushStats) -> io::Result<()> {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use std::path::MAIN_SEPARATOR;
 
