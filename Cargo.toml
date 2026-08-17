@@ -182,6 +182,10 @@ while_let_loop = "warn"
 [workspace.lints.rust]
 let_underscore_drop = "warn"
 redundant_imports = "warn"
+# set by cargo-llvm-cov, see .cargo/config.toml
+unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(coverage, coverage_nightly)',
+] }
 
 [profile.dev.package."*"]
 # Compile all dependencies with opt-level=3 to help speed up tests and
