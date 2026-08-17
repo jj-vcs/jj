@@ -49,6 +49,7 @@ See [contribution docs](contributing.md#code-reviews) for details on this policy
 * michaelchirico
 * mlcui-corp
 * orthros
+* pmandloi28
 * prattmic
 * qfel
 * Ralith
