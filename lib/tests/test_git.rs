@@ -85,6 +85,7 @@ use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
 use jj_lib::str_util::StringExpression;
 use jj_lib::str_util::StringMatcher;
+use jj_lib::workspace::Workspace;
 use maplit::btreemap;
 use maplit::hashset;
 use pollster::FutureExt as _;
@@ -216,6 +217,20 @@ fn rewrite_commit(repo: &mut MutableRepo, predecessor: &Commit, description: &st
         .unwrap()
 }
 
+fn import_head(mut_repo: &mut MutableRepo, workspace: &Workspace) -> Result<(), GitImportError> {
+    let workspace_name = workspace.workspace_name();
+    git::import_head(mut_repo, workspace_name).block_on()
+}
+
+fn reset_head(
+    mut_repo: &mut MutableRepo,
+    workspace: &Workspace,
+    wc_commit: &Commit,
+) -> Result<(), GitResetHeadError> {
+    let workspace_name = workspace.workspace_name();
+    git::reset_head(mut_repo, workspace_name, wc_commit).block_on()
+}
+
 /// Fetches and imports all refs with the default configuration.
 fn fetch_import_all(mut_repo: &mut MutableRepo, remote: &RemoteName) -> GitImportStats {
     let git_settings = GitSettings::from_settings(mut_repo.base_repo().settings()).unwrap();
@@ -282,7 +297,7 @@ fn test_import_refs() -> TestResult {
 
     let old_heads = repo.view().heads();
     let mut tx = repo.start_transaction();
-    git::import_head(tx.repo_mut(), WorkspaceName::DEFAULT).block_on()?;
+    import_head(tx.repo_mut(), &test_workspace.workspace)?;
     let stats = git::import_refs(tx.repo_mut(), &import_options).block_on()?;
     tx.repo_mut().rebase_descendants().block_on()?;
     let repo = tx.commit("test").block_on()?;
@@ -569,14 +584,14 @@ fn test_import_refs_reimport_git_head_does_not_count() -> TestResult {
     testutils::git::set_head_to_id(&git_repo, commit);
 
     let mut tx = repo.start_transaction();
-    git::import_head(tx.repo_mut(), WorkspaceName::DEFAULT).block_on()?;
+    import_head(tx.repo_mut(), &test_workspace.workspace)?;
     git::import_refs(tx.repo_mut(), &import_options).block_on()?;
     tx.repo_mut().rebase_descendants().block_on()?;
 
     // Delete the bookmark and re-import. The commit should still be there since
     // HEAD points to it
     git_repo.find_reference("refs/heads/main")?.delete()?;
-    git::import_head(tx.repo_mut(), WorkspaceName::DEFAULT).block_on()?;
+    import_head(tx.repo_mut(), &test_workspace.workspace)?;
     git::import_refs(tx.repo_mut(), &import_options).block_on()?;
     tx.repo_mut().rebase_descendants().block_on()?;
     assert!(!tx.repo().view().heads().contains(&jj_id(commit)));
@@ -599,7 +614,7 @@ fn test_import_refs_reimport_git_head_without_ref() -> TestResult {
     testutils::git::set_head_to_id(&git_repo, git_id(&commit1));
 
     // Import HEAD.
-    git::import_head(tx.repo_mut(), WorkspaceName::DEFAULT).block_on()?;
+    import_head(tx.repo_mut(), &test_workspace.workspace)?;
     git::import_refs(tx.repo_mut(), &import_options).block_on()?;
     tx.repo_mut().rebase_descendants().block_on()?;
     assert!(tx.repo().view().heads().contains(commit1.id()));
@@ -612,7 +627,7 @@ fn test_import_refs_reimport_git_head_without_ref() -> TestResult {
     // would be moved by `git checkout` command. This isn't always true because the
     // detached HEAD commit could be rewritten by e.g. `git commit --amend` command,
     // but it should be safer than abandoning old checkout branch.
-    git::import_head(tx.repo_mut(), WorkspaceName::DEFAULT).block_on()?;
+    import_head(tx.repo_mut(), &test_workspace.workspace)?;
     git::import_refs(tx.repo_mut(), &import_options).block_on()?;
     tx.repo_mut().rebase_descendants().block_on()?;
     assert!(tx.repo().view().heads().contains(commit1.id()));
@@ -641,7 +656,7 @@ fn test_import_refs_reimport_git_head_with_moved_ref() -> TestResult {
     testutils::git::set_head_to_id(&git_repo, git_id(&commit1));
 
     // Import HEAD and main.
-    git::import_head(tx.repo_mut(), WorkspaceName::DEFAULT).block_on()?;
+    import_head(tx.repo_mut(), &test_workspace.workspace)?;
     git::import_refs(tx.repo_mut(), &import_options).block_on()?;
     tx.repo_mut().rebase_descendants().block_on()?;
     assert!(tx.repo().view().heads().contains(commit1.id()));
@@ -657,13 +672,13 @@ fn test_import_refs_reimport_git_head_with_moved_ref() -> TestResult {
     testutils::git::set_head_to_id(&git_repo, git_id(&commit2));
 
     // Reimport HEAD and main, which abandons the old main branch.
-    git::import_head(tx.repo_mut(), WorkspaceName::DEFAULT).block_on()?;
+    import_head(tx.repo_mut(), &test_workspace.workspace)?;
     git::import_refs(tx.repo_mut(), &import_options).block_on()?;
     tx.repo_mut().rebase_descendants().block_on()?;
     assert!(!tx.repo().view().heads().contains(commit1.id()));
     assert!(tx.repo().view().heads().contains(commit2.id()));
     // Reimport HEAD and main, which abandons the old main bookmark.
-    git::import_head(tx.repo_mut(), WorkspaceName::DEFAULT).block_on()?;
+    import_head(tx.repo_mut(), &test_workspace.workspace)?;
     git::import_refs(tx.repo_mut(), &import_options).block_on()?;
     tx.repo_mut().rebase_descendants().block_on()?;
     assert!(!tx.repo().view().heads().contains(commit1.id()));
@@ -1348,7 +1363,7 @@ fn test_import_refs_reimport_git_head_with_fixed_ref() -> TestResult {
     testutils::git::set_head_to_id(&git_repo, git_id(&commit1));
 
     // Import HEAD and main.
-    git::import_head(tx.repo_mut(), WorkspaceName::DEFAULT).block_on()?;
+    import_head(tx.repo_mut(), &test_workspace.workspace)?;
     git::import_refs(tx.repo_mut(), &import_options).block_on()?;
     tx.repo_mut().rebase_descendants().block_on()?;
     assert!(tx.repo().view().heads().contains(commit1.id()));
@@ -1358,7 +1373,7 @@ fn test_import_refs_reimport_git_head_with_fixed_ref() -> TestResult {
     testutils::git::set_head_to_id(&git_repo, git_id(&commit2));
 
     // Reimport HEAD, which shouldn't abandon the old HEAD branch.
-    git::import_head(tx.repo_mut(), WorkspaceName::DEFAULT).block_on()?;
+    import_head(tx.repo_mut(), &test_workspace.workspace)?;
     git::import_refs(tx.repo_mut(), &import_options).block_on()?;
     tx.repo_mut().rebase_descendants().block_on()?;
     assert!(tx.repo().view().heads().contains(commit1.id()));
@@ -2481,7 +2496,7 @@ fn test_import_refs_missing_git_commit() -> TestResult {
     git_repo.find_reference("refs/heads/main")?.delete()?;
     testutils::git::set_head_to_id(&git_repo, commit2);
     let mut tx = repo.start_transaction();
-    let result = git::import_head(tx.repo_mut(), WorkspaceName::DEFAULT).block_on();
+    let result = import_head(tx.repo_mut(), &test_workspace.workspace);
     assert_matches!(
         result,
         Err(GitImportError::MissingHeadTarget {
@@ -2512,7 +2527,7 @@ fn test_import_refs_missing_git_commit() -> TestResult {
     testutils::git::set_head_to_id(&git_repo, commit1);
     fs::rename(&object_file, &backup_object_file)?;
     let mut tx = repo.start_transaction();
-    let result = git::import_head(tx.repo_mut(), WorkspaceName::DEFAULT).block_on();
+    let result = import_head(tx.repo_mut(), &test_workspace.workspace);
     assert!(result.is_ok());
     Ok(())
 }
@@ -2531,7 +2546,7 @@ fn test_import_refs_detached_head() -> TestResult {
 
     let old_heads = repo.view().heads();
     let mut tx = repo.start_transaction();
-    git::import_head(tx.repo_mut(), WorkspaceName::DEFAULT).block_on()?;
+    import_head(tx.repo_mut(), &test_workspace.workspace)?;
     git::import_refs(tx.repo_mut(), &import_options).block_on()?;
     tx.repo_mut().rebase_descendants().block_on()?;
     let repo = tx.commit("test").block_on()?;
@@ -2561,7 +2576,7 @@ fn test_export_refs_no_detach() -> TestResult {
     testutils::git::set_symbolic_reference(&git_repo, "HEAD", "refs/heads/main");
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    git::import_head(mut_repo, WorkspaceName::DEFAULT).block_on()?;
+    import_head(mut_repo, &test_workspace.workspace)?;
     git::import_refs(mut_repo, &import_options).block_on()?;
     mut_repo.rebase_descendants().block_on()?;
 
@@ -2599,7 +2614,7 @@ fn test_export_refs_bookmark_changed() -> TestResult {
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    git::import_head(mut_repo, WorkspaceName::DEFAULT).block_on()?;
+    import_head(mut_repo, &test_workspace.workspace)?;
     git::import_refs(mut_repo, &import_options).block_on()?;
     mut_repo.rebase_descendants().block_on()?;
     let stats = git::export_refs(mut_repo)?;
@@ -2734,7 +2749,7 @@ fn test_export_refs_current_bookmark_changed() -> TestResult {
     testutils::git::set_symbolic_reference(&git_repo, "HEAD", "refs/heads/main");
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    git::import_head(mut_repo, WorkspaceName::DEFAULT).block_on()?;
+    import_head(mut_repo, &test_workspace.workspace)?;
     git::import_refs(mut_repo, &import_options).block_on()?;
     mut_repo.rebase_descendants().block_on()?;
     let stats = git::export_refs(mut_repo)?;
@@ -2788,7 +2803,7 @@ fn test_export_refs_worktree_head_changed() -> TestResult {
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    git::import_head(mut_repo, WorkspaceName::DEFAULT).block_on()?;
+    import_head(mut_repo, &test_workspace.workspace)?;
     git::import_refs(mut_repo, &import_options).block_on()?;
     mut_repo.rebase_descendants().block_on()?;
 
@@ -2832,7 +2847,7 @@ fn test_export_refs_worktree_no_detach() -> TestResult {
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    git::import_head(mut_repo, WorkspaceName::DEFAULT).block_on()?;
+    import_head(mut_repo, &test_workspace.workspace)?;
     git::import_refs(mut_repo, &import_options).block_on()?;
     mut_repo.rebase_descendants().block_on()?;
 
@@ -2907,7 +2922,7 @@ fn test_export_refs_unborn_git_bookmark(move_placeholder_ref: bool) -> TestResul
     testutils::git::set_symbolic_reference(&git_repo, "HEAD", "refs/heads/main");
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    git::import_head(mut_repo, WorkspaceName::DEFAULT).block_on()?;
+    import_head(mut_repo, &test_workspace.workspace)?;
     git::import_refs(mut_repo, &import_options).block_on()?;
     mut_repo.rebase_descendants().block_on()?;
     let stats = git::export_refs(mut_repo)?;
@@ -3608,7 +3623,7 @@ fn test_reset_head_to_root() -> TestResult {
         .write_unwrap();
 
     // Set Git HEAD to commit2's parent (i.e. commit1)
-    git::reset_head(tx.repo_mut(), WorkspaceName::DEFAULT, &commit2).block_on()?;
+    reset_head(tx.repo_mut(), &test_workspace.workspace, &commit2)?;
     assert!(git_repo.head()?.is_detached(), "HEAD is detached");
     assert_eq!(
         tx.repo().git_head(WorkspaceName::DEFAULT),
@@ -3616,7 +3631,7 @@ fn test_reset_head_to_root() -> TestResult {
     );
 
     // Set Git HEAD back to root
-    git::reset_head(tx.repo_mut(), WorkspaceName::DEFAULT, &commit1).block_on()?;
+    reset_head(tx.repo_mut(), &test_workspace.workspace, &commit1)?;
     assert!(git_repo.head()?.is_unborn(), "HEAD is unborn");
     assert!(tx.repo().git_head(WorkspaceName::DEFAULT).is_absent());
 
@@ -3627,7 +3642,7 @@ fn test_reset_head_to_root() -> TestResult {
         gix::refs::transaction::PreviousValue::MustNotExist,
         "",
     )?;
-    git::reset_head(tx.repo_mut(), WorkspaceName::DEFAULT, &commit2).block_on()?;
+    reset_head(tx.repo_mut(), &test_workspace.workspace, &commit2)?;
     assert!(git_repo.head_id().is_ok());
     assert_eq!(
         tx.repo().git_head(WorkspaceName::DEFAULT),
@@ -3636,7 +3651,7 @@ fn test_reset_head_to_root() -> TestResult {
     assert!(git_repo.find_reference("refs/jj/root").is_ok());
 
     // Set Git HEAD back to root
-    git::reset_head(tx.repo_mut(), WorkspaceName::DEFAULT, &commit1).block_on()?;
+    reset_head(tx.repo_mut(), &test_workspace.workspace, &commit1)?;
     assert!(git_repo.head()?.is_unborn(), "HEAD is unborn");
     assert!(tx.repo().git_head(WorkspaceName::DEFAULT).is_absent());
     // The placeholder ref should be deleted
@@ -3666,7 +3681,7 @@ fn test_reset_head_detached_out_of_sync() -> TestResult {
     let commit5 = write_random_commit(tx.repo_mut());
 
     // unborn -> commit1 (= commit2's parent)
-    git::reset_head(tx.repo_mut(), WorkspaceName::DEFAULT, &commit2).block_on()?;
+    reset_head(tx.repo_mut(), &test_workspace.workspace, &commit2)?;
     assert_eq!(
         tx.repo().git_head(WorkspaceName::DEFAULT),
         &RefTarget::normal(commit1.id().clone())
@@ -3677,7 +3692,7 @@ fn test_reset_head_detached_out_of_sync() -> TestResult {
 
     // {expected: commit1, actual: commit5} -> commit1 (= commit3's parent):
     // works because the expected HEAD is unchanged.
-    git::reset_head(tx.repo_mut(), WorkspaceName::DEFAULT, &commit3).block_on()?;
+    reset_head(tx.repo_mut(), &test_workspace.workspace, &commit3)?;
     assert_eq!(
         tx.repo().git_head(WorkspaceName::DEFAULT),
         &RefTarget::normal(commit1.id().clone())
@@ -3685,7 +3700,7 @@ fn test_reset_head_detached_out_of_sync() -> TestResult {
 
     // {expected: commit1, actual: commit5} -> commit3 (= commit4's parent)
     assert_matches!(
-        git::reset_head(tx.repo_mut(), WorkspaceName::DEFAULT, &commit4).block_on(),
+        reset_head(tx.repo_mut(), &test_workspace.workspace, &commit4),
         Err(GitResetHeadError::UpdateHeadRef(_))
     );
     assert_eq!(
@@ -3695,14 +3710,14 @@ fn test_reset_head_detached_out_of_sync() -> TestResult {
     );
 
     // Import the HEAD moved by external process
-    git::import_head(tx.repo_mut(), WorkspaceName::DEFAULT).block_on()?;
+    import_head(tx.repo_mut(), &test_workspace.workspace)?;
     assert_eq!(
         tx.repo().git_head(WorkspaceName::DEFAULT),
         &RefTarget::normal(commit5.id().clone())
     );
 
     // commit5 -> commit3 (= commit4's parent)
-    git::reset_head(tx.repo_mut(), WorkspaceName::DEFAULT, &commit4).block_on()?;
+    reset_head(tx.repo_mut(), &test_workspace.workspace, &commit4)?;
     assert_eq!(
         tx.repo().git_head(WorkspaceName::DEFAULT),
         &RefTarget::normal(commit3.id().clone())
@@ -3747,7 +3762,7 @@ fn test_reset_head_with_index() -> TestResult {
         .write_unwrap();
 
     // Set Git HEAD to commit2's parent (i.e. commit1)
-    git::reset_head(tx.repo_mut(), WorkspaceName::DEFAULT, &commit2).block_on()?;
+    reset_head(tx.repo_mut(), &test_workspace.workspace, &commit2)?;
     insta::assert_snapshot!(get_index_state(workspace_root), @"");
 
     // Add "staged changes" to the Git index
@@ -3759,7 +3774,7 @@ fn test_reset_head_with_index() -> TestResult {
     insta::assert_snapshot!(get_index_state(workspace_root), @"Unconflicted file.txt Mode(FILE)");
 
     // Reset head and the Git index
-    git::reset_head(tx.repo_mut(), WorkspaceName::DEFAULT, &commit2).block_on()?;
+    reset_head(tx.repo_mut(), &test_workspace.workspace, &commit2)?;
     insta::assert_snapshot!(get_index_state(workspace_root), @"");
     Ok(())
 }
@@ -3797,7 +3812,7 @@ fn test_reset_head_with_index_no_conflict() -> TestResult {
         .write_unwrap();
 
     // Reset head to working copy commit
-    git::reset_head(mut_repo, WorkspaceName::DEFAULT, &wc_commit).block_on()?;
+    reset_head(mut_repo, &test_workspace.workspace, &wc_commit)?;
 
     // Git index should contain all files from the tree.
     // `Mode(DIR | SYMLINK)` actually means `MODE(COMMIT)`, as in a git submodule.
@@ -3886,7 +3901,7 @@ fn test_reset_head_with_index_merge_conflict() -> TestResult {
         .write_unwrap();
 
     // Reset head to working copy commit with merge conflict
-    git::reset_head(mut_repo, WorkspaceName::DEFAULT, &wc_commit).block_on()?;
+    reset_head(mut_repo, &test_workspace.workspace, &wc_commit)?;
 
     // Index should contain conflicted files from merge of parent commits.
     // `Mode(DIR | SYMLINK)` actually means `MODE(COMMIT)`, as in a git submodule.
@@ -3945,7 +3960,7 @@ fn test_reset_head_with_index_file_directory_conflict() -> TestResult {
         .write_unwrap();
 
     // Reset head to working copy commit with file-directory conflict
-    git::reset_head(mut_repo, WorkspaceName::DEFAULT, &wc_commit).block_on()?;
+    reset_head(mut_repo, &test_workspace.workspace, &wc_commit)?;
 
     // Only the file should be added to the index (the tree should be skipped).
     insta::assert_snapshot!(get_index_state(workspace_root), @"Theirs test Mode(FILE)");
