@@ -1646,6 +1646,7 @@ fn test_op_diff() {
     let output = work_dir.run_jj(["git", "push", "--tracked", "--deleted"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: bookmark-1 [move forward from 0dee631320b1 to 96f3a57c9a4a]
       bookmark: bookmark-2 [delete from e1a239a57eb1]
@@ -2789,6 +2790,7 @@ fn test_op_show() {
     let output = work_dir.run_jj(["git", "push", "--tracked", "--deleted"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: bookmark-1 [move forward from 0dee631320b1 to 8f340dd76dc6]
       bookmark: bookmark-2 [delete from e1a239a57eb1]

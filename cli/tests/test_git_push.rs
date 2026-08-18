@@ -19,6 +19,7 @@ use testutils::git;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
+use crate::common::force_interactive;
 use crate::common::to_toml_value;
 
 fn git_repo_dir_for_jj_repo(work_dir: &TestWorkDir<'_>) -> std::path::PathBuf {
@@ -139,8 +140,108 @@ fn test_git_push_default_remote_selection() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Hint: Pushing to the only existing remote: other
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to other:
       bookmark: bookmark1 [add to 9b2e76de3920]
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_push_confirm() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
+    test_env.add_config("git.confirm-before-push = 'always'");
+    let work_dir = test_env.work_dir("local");
+    test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
+    // Update some bookmarks. `bookmark1` is not a current bookmark, but
+    // `bookmark2` and `my-bookmark` are.
+    work_dir
+        .run_jj(["describe", "bookmark1", "-m", "modified bookmark1 commit"])
+        .success();
+    work_dir.run_jj(["new", "bookmark2"]).success();
+    work_dir
+        .run_jj(["bookmark", "set", "bookmark2", "-r@"])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "my-bookmark"])
+        .success();
+    work_dir.run_jj(["describe", "-m", "foo"]).success();
+    // Check the setup
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
+    bookmark1: qpvuntsm e5ce6d9a (empty) modified bookmark1 commit
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 9b2e76de (hidden) (empty) description 1
+    bookmark2: yostqsxw 88ca14a7 (empty) foo
+      @origin (behind by 1 commits): zsuskuln 38a20473 (empty) description 2
+    my-bookmark: yostqsxw 88ca14a7 (empty) foo
+      @origin (not created yet)
+    [EOF]
+    ");
+    // Abort push, should not change anything
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["git", "push"])
+            .write_stdin("n\n")
+    });
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      bookmark: bookmark2 [move forward from 38a204733702 to 88ca14a7d46f]
+      bookmark: my-bookmark [add to 88ca14a7d46f]
+    Continue? (Yn): Aborting; nothing was changed.
+    [EOF]
+    ");
+    // Make sure nothing has changed
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
+    bookmark1: qpvuntsm e5ce6d9a (empty) modified bookmark1 commit
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 9b2e76de (hidden) (empty) description 1
+    bookmark2: yostqsxw 88ca14a7 (empty) foo
+      @origin (behind by 1 commits): zsuskuln 38a20473 (empty) description 2
+    my-bookmark: yostqsxw 88ca14a7 (empty) foo
+      @origin (not created yet)
+    [EOF]
+    ");
+    // Accept push, should go though to remote
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["git", "push"])
+            .write_stdin("y\n")
+    });
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      bookmark: bookmark2 [move forward from 38a204733702 to 88ca14a7d46f]
+      bookmark: my-bookmark [add to 88ca14a7d46f]
+    Continue? (Yn): [EOF]
+    ");
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
+    bookmark1: qpvuntsm e5ce6d9a (empty) modified bookmark1 commit
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 9b2e76de (hidden) (empty) description 1
+    bookmark2: yostqsxw 88ca14a7 (empty) foo
+      @origin: yostqsxw 88ca14a7 (empty) foo
+    my-bookmark: yostqsxw 88ca14a7 (empty) foo
+      @origin: yostqsxw 88ca14a7 (empty) foo
+    [EOF]
+    ");
+    // Make another change
+    work_dir.run_jj(["describe", "-m", "bar"]).success();
+    // Accept push using the `--yes` this time
+    let output = work_dir.run_jj(["git", "push", "-y"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      bookmark: bookmark2 [move sideways from 88ca14a7d46f to 70b1accc61c9]
+      bookmark: my-bookmark [move sideways from 88ca14a7d46f to 70b1accc61c9]
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
+    bookmark1: qpvuntsm e5ce6d9a (empty) modified bookmark1 commit
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 9b2e76de (hidden) (empty) description 1
+    bookmark2: yostqsxw 70b1accc (empty) bar
+      @origin: yostqsxw 70b1accc (empty) bar
+    my-bookmark: yostqsxw 70b1accc (empty) bar
+      @origin: yostqsxw 70b1accc (empty) bar
     [EOF]
     ");
 }
@@ -195,6 +296,7 @@ fn test_git_push_current_bookmark() {
     let output = work_dir.run_jj(["git", "push"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: bookmark2 [move forward from 38a204733702 to 88ca14a7d46f]
       bookmark: my-bookmark [add to 88ca14a7d46f]
@@ -233,6 +335,7 @@ fn test_git_push_current_bookmark() {
     let output = work_dir.run_jj(["git", "push", "-bbookmark2"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: bookmark2 [move backward from 88ca14a7d46f to 38a204733702]
     [EOF]
@@ -256,6 +359,7 @@ fn test_git_push_parent_bookmark() {
     let output = work_dir.run_jj(["git", "push"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: bookmark1 [move sideways from 9b2e76de3920 to 80560a3e08e2]
     [EOF]
@@ -283,6 +387,7 @@ fn test_git_push_tag_in_default_target() {
     let output = work_dir.run_jj(["git", "push"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       tag: tag1 [move sideways from 110db8edfa5f to b60842ac7691]
     [EOF]
@@ -351,6 +456,7 @@ fn test_git_push_other_remote_has_bookmark() {
     let output = work_dir.run_jj(["git", "push"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: bookmark1 [move sideways from 9b2e76de3920 to a843bfad2abb]
     [EOF]
@@ -377,6 +483,7 @@ fn test_git_push_other_remote_has_bookmark() {
     let output = work_dir.run_jj(["git", "push", "--remote=other"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to other:
       bookmark: bookmark1 [add to a843bfad2abb]
     [EOF]
@@ -411,6 +518,7 @@ fn test_git_push_forward_unexpectedly_moved() {
     let output = work_dir.run_jj(["git", "push"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: bookmark1 [move forward from 9b2e76de3920 to 624f94a35f00]
     Warning: The following references unexpectedly moved on the remote:
@@ -425,6 +533,7 @@ fn test_git_push_forward_unexpectedly_moved() {
     let output = work_dir.run_jj(["git", "push", "--color=always"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    [1m[38;5;6mHint: [0m[39mPushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.[39m
     Changes to push to origin:
       bookmark: bookmark1 [move forward from 9b2e76de3920 to 624f94a35f00]
     [1m[38;5;3mWarning: [39mThe following references unexpectedly moved on the remote:[0m
@@ -477,6 +586,7 @@ fn test_git_push_sideways_unexpectedly_moved() {
     let output = work_dir.run_jj(["git", "push"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: bookmark1 [move sideways from 9b2e76de3920 to 827b8a385853]
     Warning: The following references unexpectedly moved on the remote:
@@ -491,6 +601,7 @@ fn test_git_push_sideways_unexpectedly_moved() {
     let output = work_dir.run_jj(["git", "push", "--color=always"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    [1m[38;5;6mHint: [0m[39mPushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.[39m
     Changes to push to origin:
       bookmark: bookmark1 [move sideways from 9b2e76de3920 to 827b8a385853]
     [1m[38;5;3mWarning: [39mThe following references unexpectedly moved on the remote:[0m
@@ -543,6 +654,7 @@ fn test_git_push_deletion_unexpectedly_moved() {
     let output = work_dir.run_jj(["git", "push", "--bookmark", "bookmark1"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: bookmark1 [delete from 9b2e76de3920]
     Warning: The following references unexpectedly moved on the remote:
@@ -592,6 +704,7 @@ fn test_git_push_unexpectedly_deleted() {
     let output = work_dir.run_jj(["git", "push"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: bookmark1 [move sideways from 9b2e76de3920 to 09919fb051bf]
     Warning: The following references unexpectedly moved on the remote:
@@ -618,6 +731,7 @@ fn test_git_push_unexpectedly_deleted() {
     let output = work_dir.run_jj(["git", "push", "-bbookmark1"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: bookmark1 [delete from 9b2e76de3920]
     Warning: The following references unexpectedly moved on the remote:
@@ -660,6 +774,7 @@ fn test_git_push_creation_unexpectedly_already_exists() {
     let output = work_dir.run_jj(["git", "push"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: bookmark1 [add to a43cb8011c85]
     Warning: The following references unexpectedly moved on the remote:
@@ -699,6 +814,7 @@ fn test_git_push_locally_created_and_rewritten() {
     let output = work_dir.run_jj(["git", "push"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: my [add to e0cba5e497ee]
     [EOF]
@@ -719,6 +835,7 @@ fn test_git_push_locally_created_and_rewritten() {
     let output = work_dir.run_jj(["git", "push"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: my [move sideways from e0cba5e497ee to 5eb416c1ff97]
     [EOF]
@@ -893,6 +1010,7 @@ fn test_git_push_multiple() {
     let output = work_dir.run_jj(["git", "push", "--all", "--deleted"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: bookmark1 [delete from 9b2e76de3920]
       bookmark: bookmark2 [move sideways from 38a204733702 to 0cb91ecd4965]
@@ -965,6 +1083,7 @@ fn test_git_push_changes() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Creating bookmark push-yostqsxwqrlt for revision yostqsxwqrlt
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: push-yostqsxwqrlt [add to 916414184c47]
     [EOF]
@@ -985,6 +1104,7 @@ fn test_git_push_changes() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Creating bookmark push-yqosqzytrlsw for revision yqosqzytrlsw
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: push-yostqsxwqrlt [move sideways from 916414184c47 to 107f11285524]
       bookmark: push-yqosqzytrlsw [add to 0f8164cd580b]
@@ -996,6 +1116,7 @@ fn test_git_push_changes() {
     let output = work_dir.run_jj(["git", "push", "-c=(@|@)"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: push-yostqsxwqrlt [move sideways from 107f11285524 to 7436a8a600a4]
     [EOF]
@@ -1006,6 +1127,7 @@ fn test_git_push_changes() {
     let output = work_dir.run_jj(["git", "push", "-c=@", "-b=push-yostqsxwqrlt"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: push-yostqsxwqrlt [move sideways from 7436a8a600a4 to a8b93bdd0f68]
     [EOF]
@@ -1060,6 +1182,7 @@ fn test_git_push_changes() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Creating bookmark test-yostqsxwqrlt for revision yostqsxwqrlt
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: test-yostqsxwqrlt [add to 4b18f5ea2994]
     [EOF]
@@ -1126,6 +1249,7 @@ fn test_git_push_changes_with_name() {
     let output = work_dir.run_jj(["git", "push", "--named", "b1=@"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: b1 [add to 5f4f9a466c96]
     [EOF]
@@ -1220,6 +1344,7 @@ fn test_git_push_changes_with_name() {
     let output = work_dir.run_jj(["git", "push", "--named=b2=@", "-b=b2"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: b2 [add to 95ba7bdacb38]
     [EOF]
@@ -1257,6 +1382,7 @@ fn test_git_push_changes_with_name_deleted_tracked() {
     let output = work_dir.run_jj(["git", "push", "--named", "b1=@"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: b1 [add to 08f401c17d51]
     [EOF]
@@ -1310,6 +1436,7 @@ fn test_git_push_changes_with_name_deleted_tracked() {
     let output = work_dir.run_jj(["git", "push", "--named", "b1=@", "--remote=another_remote"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to another_remote:
       bookmark: b1 [add to 08f401c17d51]
     [EOF]
@@ -1407,6 +1534,7 @@ fn test_git_push_changes_with_name_untracked_or_forgotten() {
     let output = work_dir.run_jj(["git", "push", "--named", "b1=@-"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: b1 [add to aa9ad64cb4ce]
     Warning: The following references unexpectedly moved on the remote:
@@ -1427,6 +1555,7 @@ fn test_git_push_changes_with_name_untracked_or_forgotten() {
     let output = work_dir.run_jj(["git", "push", "--named", "b1=@+"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: b1 [add to 9a0f76645905]
     Warning: The following references unexpectedly moved on the remote:
@@ -1442,6 +1571,7 @@ fn test_git_push_changes_with_name_untracked_or_forgotten() {
     let output = work_dir.run_jj(["git", "push", "--named", "b1=@"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: b1 [add to 767b63a598e1]
     [EOF]
@@ -1625,6 +1755,7 @@ fn test_git_push_mixed() {
     Hint: Run `jj bookmark track bookmark-2a@origin` and try again.
     Warning: Refusing to create new remote bookmark bookmark-2b@origin
     Hint: Run `jj bookmark track bookmark-2b@origin` and try again.
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: push-yqosqzytrlsw [add to 0f8164cd580b]
       bookmark: bookmark-1 [add to bc7f5ebae839]
@@ -1748,6 +1879,7 @@ fn test_git_push_allow_new_heuristics() {
     let output = work_dir.run_jj(["git", "push", "--bookmark=untracked", "--tag=untracked"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: untracked [add to b9124726209b]
       tag: untracked [add to b9124726209b]
@@ -2089,6 +2221,7 @@ fn test_git_push_deleted() {
     let output = work_dir.run_jj(["git", "push", "--deleted"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: bookmark1 [delete from 9b2e76de3920]
       tag: tag1 [delete from 9b2e76de3920]
@@ -2181,6 +2314,7 @@ fn test_git_push_conflicting_bookmarks() -> TestResult {
     ------- stderr -------
     Warning: Bookmark bookmark2 is conflicted
     Hint: Run `jj bookmark list` to inspect, and use `jj bookmark set` to fix it up.
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: bookmark1 [move forward from 9b2e76de3920 to 749c2e6d999f]
     [EOF]
@@ -2193,6 +2327,7 @@ fn test_git_push_conflicting_bookmarks() -> TestResult {
     ------- stderr -------
     Warning: Bookmark bookmark2 is conflicted
     Hint: Run `jj bookmark list` to inspect, and use `jj bookmark set` to fix it up.
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: bookmark1 [move forward from 749c2e6d999f to 9bb0f427b517]
     [EOF]
@@ -2444,6 +2579,7 @@ fn test_git_push_tracked_vs_all() {
     Hint: Run `jj bookmark track bookmark1@origin` to import the remote bookmark.
     Warning: Refusing to push deleted tag tag2
     Hint: Push deleted tags with --deleted.
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: bookmark3 [add to db4b95184aca]
       tag: tag3 [add to db4b95184aca]
@@ -2516,6 +2652,7 @@ fn test_git_push_to_remote_named_git() {
     let output = work_dir.run_jj(["git", "push", "--all", "--remote=git"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to git:
       bookmark: bookmark1 [add to 9b2e76de3920]
       bookmark: bookmark2 [add to 38a204733702]
@@ -2541,6 +2678,7 @@ fn test_git_push_to_remote_with_slashes() {
     let output = work_dir.run_jj(["git", "push", "--all", "--remote=slash/origin"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to slash/origin:
       bookmark: bookmark1 [add to 9b2e76de3920]
       bookmark: bookmark2 [add to 38a204733702]
@@ -2667,6 +2805,7 @@ fn test_git_push_sign_on_push() {
     signing.backend = "test"
     signing.key = "impeccable"
     git.sign-on-push = true
+    git.confirm-before-push = "always"
     "#,
     );
     let output = work_dir.run_jj(["git", "push", "--dry-run"]);
@@ -2690,15 +2829,46 @@ fn test_git_push_sign_on_push() {
     ◆
     [EOF]
     ");
-    let output = work_dir.run_jj(["git", "push"]);
-    insta::assert_snapshot!(output, @r"
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["git", "push"])
+            .write_stdin("n\n")
+    });
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Updated signatures of 2 commits.
     Rebased 2 descendant commits.
     Changes to push to origin:
       bookmark: bookmark2 [move forward from 38a204733702 to d45e2adce0ad]
-    Working copy  (@) now at: kmkuslsw 3d5a9465 (empty) commit which should not be signed 2
-    Parent commit (@-)      : kpqxywon 48ea83e9 (empty) commit which should not be signed 1
+    Continue? (Yn): Aborting; nothing was changed.
+    [EOF]
+    ");
+    // There should be no signed commits aborting a push
+    let output = work_dir.run_jj(["log", "-T", template]);
+    insta::assert_snapshot!(output, @"
+    @  commit which should not be signed 2
+    ○  commit which should not be signed 1
+    ○  commit to be signed 2
+    ○  commit to be signed 1
+    ○  description 2
+    │ ○  description 1
+    ├─╯
+    ◆
+    [EOF]
+    ");
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["git", "push"])
+            .write_stdin("y\n")
+    });
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Updated signatures of 2 commits.
+    Rebased 2 descendant commits.
+    Changes to push to origin:
+      bookmark: bookmark2 [move forward from 38a204733702 to 87d9bf2ca4fb]
+    Continue? (Yn): Working copy  (@) now at: kmkuslsw 50a620ed (empty) commit which should not be signed 2
+    Parent commit (@-)      : kpqxywon f4169ad1 (empty) commit which should not be signed 1
     [EOF]
     ");
     // Only commits which are being pushed should be signed
@@ -2721,15 +2891,15 @@ fn test_git_push_sign_on_push() {
     let output = work_dir.run_jj(["bookmark", "move", "bookmark2", "--to", "@-"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Moved 1 bookmarks to kpqxywon 48ea83e9 bookmark2* | (empty) commit which should not be signed 1
+    Moved 1 bookmarks to kpqxywon f4169ad1 bookmark2* | (empty) commit which should not be signed 1
     [EOF]
     ");
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "bookmark2""#);
-    let output = work_dir.run_jj(["git", "push"]);
+    let output = work_dir.run_jj(["git", "push", "-y"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      bookmark: bookmark2 [move forward from d45e2adce0ad to 48ea83e9499c]
+      bookmark: bookmark2 [move forward from 87d9bf2ca4fb to f4169ad1a603]
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "-T", template, "-r", "::"]);
@@ -2778,14 +2948,14 @@ fn test_git_push_sign_on_push() {
     ◆
     [EOF]
     ");
-    let output = work_dir.run_jj(["git", "push"]);
+    let output = work_dir.run_jj(["git", "push", "-y"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Updated signatures of 1 commits.
     Changes to push to origin:
-      bookmark: bookmark1 [move sideways from 9b2e76de3920 to 0617b6813c01]
-    Working copy  (@) now at: pzsxstzt 0617b681 bookmark1 | (empty) commit to be signed 3
-    Parent commit (@-)      : kmkuslsw 5114df95 (empty) commit which should not be signed 2
+      bookmark: bookmark1 [move sideways from 9b2e76de3920 to 14bd874a5304]
+    Working copy  (@) now at: uuuvxpvw 14bd874a bookmark1 | (empty) commit to be signed 3
+    Parent commit (@-)      : kmkuslsw 78f629cb (empty) commit which should not be signed 2
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "-T", template]);
@@ -2861,6 +3031,7 @@ fn test_git_push_rejected_by_remote() -> TestResult {
     settings.bind(|| {
         insta::assert_snapshot!(output, @"
         ------- stderr -------
+        Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
         Changes to push to origin:
           bookmark: bookmark1 [move forward from 9b2e76de3920 to 0fc4cf312e83]
         remote: error: hook declined to update refs/heads/bookmark1
@@ -2912,6 +3083,7 @@ fn test_git_push_unmapped_refs() {
     let output = local_dir.run_jj(["git", "push", "--bookmark=bookmark1"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: bookmark1 [add to 5792bfac70a2]
     [EOF]
@@ -2933,6 +3105,7 @@ fn test_git_push_unmapped_refs() {
     let output = local_dir.run_jj(["git", "push", "--bookmark=bookmark2"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: bookmark2 [add to aa5df56a071b]
     Warning: The following bookmarks couldn't be updated locally:

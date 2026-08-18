@@ -1967,6 +1967,19 @@ git_push_bookmark = '"martinvonz/push-" ++ change_id.short()'
 This template should include expressions like `change_id` to generate unique and
 stable bookmark.
 
+### Ask for confirmation on push
+
+The command `jj git push` can be configured to ask for confirmation before
+applying any changes to a remote using the setting `git.confirm-before-push`.
+Possible values are `always`, `never` and `auto` (default: `never`); a value
+of `auto` will prompt the user only when multiple bookmarks or tags are about
+to be updated in a single push. For example:
+
+```toml
+[git]
+confirm-before-push = 'auto'
+```
+
 ### Set of private commits
 
 You can configure the set of private commits by setting `git.private-commits` to

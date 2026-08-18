@@ -169,6 +169,7 @@ fn test_git_private_commits_block_pushing() {
     let output = work_dir.run_jj(["git", "push", "--all"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: main [move forward from 95cc152cd086 to 469f044473ed]
       tag: alpha [move sideways from 95cc152cd086 to 69b30fdbc569]
@@ -203,6 +204,7 @@ fn test_git_private_commits_can_be_overridden() {
     let output = work_dir.run_jj(["git", "push", "--all", "--allow-private"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: main [move forward from 95cc152cd086 to 7f665ca27d4e]
     Warning: The working-copy commit became immutable; a new commit has been created on top of it.
@@ -228,6 +230,7 @@ fn test_git_private_commits_are_not_checked_if_immutable() {
     let output = work_dir.run_jj(["git", "push", "--all"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: main [move forward from 95cc152cd086 to 7f665ca27d4e]
     Warning: The working-copy commit became immutable; a new commit has been created on top of it.
@@ -291,6 +294,7 @@ fn test_git_private_commits_descending_from_commits_pushed_do_not_block_pushing(
     Warning: Won't push bookmark wip2: commit c3ad06b3e0ea is private
       yostqsxw c3ad06b3 wip1 wip2 | (empty) private 1
     Hint: Configured git.private-commits: 'description('private*')'
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: main [move forward from 95cc152cd086 to f0291dea729d]
     [EOF]
@@ -319,6 +323,7 @@ fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
     let output = work_dir.run_jj(["git", "push", "-b=main", "-b=bookmark1"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: bookmark1 [add to 95cc152cd086]
       bookmark: main [move forward from 95cc152cd086 to 03bc2bf271e0]
@@ -337,6 +342,7 @@ fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
     let output = work_dir.run_jj(["git", "push", "--all"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: bookmark1 [move forward from 95cc152cd086 to 03bc2bf271e0]
     [EOF]
@@ -353,6 +359,7 @@ fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
     let output = work_dir.run_jj(["git", "push", "-b=bookmark2"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: bookmark2 [add to 987ee765174d]
     [EOF]
@@ -377,6 +384,7 @@ fn test_git_private_commits_are_evaluated_separately_for_each_remote() {
     let output = work_dir.run_jj(["git", "push", "-b=main"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Hint: Pushing non-interactively; set `git.confirm-before-push` to `always`, `never`, or `auto` to disable this message.
     Changes to push to origin:
       bookmark: main [move forward from 95cc152cd086 to efa3666d00e4]
     [EOF]
