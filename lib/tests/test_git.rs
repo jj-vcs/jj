@@ -21,6 +21,7 @@ use std::io::Write as _;
 use std::iter;
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::Command;
 use std::slice;
 use std::sync::Arc;
 use std::sync::Barrier;
@@ -40,6 +41,7 @@ use jj_lib::commit::Commit;
 use jj_lib::commit_builder::CommitBuilder;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
+use jj_lib::default_backend_factories::default_working_copy_factory;
 use jj_lib::git;
 use jj_lib::git::FailedRefExportReason;
 use jj_lib::git::GitFetch;
@@ -219,7 +221,8 @@ fn rewrite_commit(repo: &mut MutableRepo, predecessor: &Commit, description: &st
 
 fn import_head(mut_repo: &mut MutableRepo, workspace: &Workspace) -> Result<(), GitImportError> {
     let workspace_name = workspace.workspace_name();
-    git::import_head(mut_repo, workspace_name).block_on()
+    let workspace_root = workspace.workspace_root();
+    git::import_head(mut_repo, workspace_name, workspace_root).block_on()
 }
 
 fn reset_head(
@@ -228,7 +231,8 @@ fn reset_head(
     wc_commit: &Commit,
 ) -> Result<(), GitResetHeadError> {
     let workspace_name = workspace.workspace_name();
-    git::reset_head(mut_repo, workspace_name, wc_commit).block_on()
+    let workspace_root = workspace.workspace_root();
+    git::reset_head(mut_repo, workspace_name, workspace_root, wc_commit).block_on()
 }
 
 /// Fetches and imports all refs with the default configuration.
@@ -2561,6 +2565,62 @@ fn test_import_refs_detached_head() -> TestResult {
         repo.view().git_head(WorkspaceName::DEFAULT),
         &RefTarget::normal(jj_id(commit1))
     );
+    Ok(())
+}
+
+#[test]
+fn test_import_export_head_bare_and_worktree() -> TestResult {
+    // The main workspace is backed by a bare Git repository
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = &test_repo.repo;
+    let git_repo = get_git_repo(repo);
+    let commit1_oid = empty_git_commit(&git_repo, "refs/heads/commit1", &[]);
+    assert!(git_repo.is_bare());
+    assert!(git_repo.head()?.is_unborn());
+
+    // Create a new colocated workspace
+    let workspace_root = test_repo.env.root().join("wt");
+    let output = Command::new("git")
+        .args(["worktree", "add", "--detach"])
+        .arg(&workspace_root)
+        .arg(commit1_oid.to_string())
+        .current_dir(git_repo.path())
+        .output()?;
+    assert!(output.status.success(), "{output:?}");
+    let (workspace, repo) = Workspace::init_workspace_with_existing_repo(
+        &workspace_root,
+        test_repo.repo_path(),
+        repo,
+        &*default_working_copy_factory(),
+        "wt".into(),
+    )
+    .block_on()?;
+    let work_git_repo = get_git_backend(&repo).open_git_repo_at_workdir(&workspace_root)?;
+
+    // Git HEAD shouldn't be imported yet
+    assert_eq!(
+        repo.view().git_head(workspace.workspace_name()),
+        RefTarget::absent_ref()
+    );
+
+    // Import Git HEAD from "wt"
+    let mut tx = repo.start_transaction();
+    import_head(tx.repo_mut(), &workspace)?;
+    assert_eq!(
+        tx.repo().view().git_head(workspace.workspace_name()),
+        &RefTarget::normal(jj_id(commit1_oid))
+    );
+
+    // Export Git HEAD, which should update the "wt" HEAD
+    let commit2 = write_random_commit(tx.repo_mut());
+    let wc_commit = tx
+        .repo_mut()
+        .check_out(workspace.workspace_name().to_owned(), &commit2)
+        .block_on()?;
+    reset_head(tx.repo_mut(), &workspace, &wc_commit)?;
+    assert!(git_repo.head()?.is_unborn());
+    assert_eq!(work_git_repo.head_id()?, git_id(&commit2));
+
     Ok(())
 }
 

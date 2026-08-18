@@ -23,6 +23,7 @@ use std::ffi::OsString;
 use std::fs::File;
 use std::iter;
 use std::num::NonZeroU32;
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -1172,13 +1173,16 @@ fn remotely_pinned_commit_ids(view: &View) -> Vec<CommitId> {
 /// the child of the new HEAD revision.
 pub async fn import_head(
     mut_repo: &mut MutableRepo,
-    workspace: &WorkspaceName,
+    workspace_name: &WorkspaceName,
+    workspace_root: &Path,
 ) -> Result<(), GitImportError> {
     let store = mut_repo.store();
     let git_backend = get_git_backend(store)?;
-    let git_repo = git_backend.git_repo();
+    let git_repo = git_backend
+        .open_git_repo_at_workdir(workspace_root)
+        .map_err(GitImportError::from_git)?;
 
-    let old_git_head = mut_repo.view().git_head(workspace);
+    let old_git_head = mut_repo.view().git_head(workspace_name);
     let new_git_head_id = if let Ok(oid) = git_repo.head_id() {
         Some(CommitId::from_bytes(oid.as_bytes()))
     } else {
@@ -1205,7 +1209,7 @@ pub async fn import_head(
         mut_repo.add_head(&commit).await?;
     }
 
-    mut_repo.set_git_head_target(workspace, RefTarget::resolved(new_git_head_id));
+    mut_repo.set_git_head_target(workspace_name, RefTarget::resolved(new_git_head_id));
     Ok(())
 }
 
@@ -1836,10 +1840,14 @@ impl GitResetHeadError {
 /// the Git index.
 pub async fn reset_head(
     mut_repo: &mut MutableRepo,
-    workspace: &WorkspaceName,
+    workspace_name: &WorkspaceName,
+    workspace_root: &Path,
     wc_commit: &Commit,
 ) -> Result<(), GitResetHeadError> {
-    let git_repo = get_git_repo(mut_repo.store())?;
+    let git_backend = get_git_backend(mut_repo.store())?;
+    let git_repo = git_backend
+        .open_git_repo_at_workdir(workspace_root)
+        .map_err(GitResetHeadError::from_git)?;
 
     let first_parent_id = &wc_commit.parent_ids()[0];
     let new_head_target = if first_parent_id != mut_repo.store().root_commit_id() {
@@ -1849,7 +1857,7 @@ pub async fn reset_head(
     };
 
     // If the first parent of the working copy has changed, reset the Git HEAD.
-    let old_head_target = mut_repo.git_head(workspace);
+    let old_head_target = mut_repo.git_head(workspace_name);
     if *old_head_target != new_head_target {
         let expected_ref = if let Some(id) = old_head_target.as_normal() {
             // We have to check the actual HEAD state because we don't record a
@@ -1870,7 +1878,7 @@ pub async fn reset_head(
         let new_oid = new_head_target.as_normal().map(owned_oid_from_commit_id);
         update_git_head(&git_repo, expected_ref, new_oid)
             .map_err(|err| GitResetHeadError::UpdateHeadRef(err.into()))?;
-        mut_repo.set_git_head_target(workspace, new_head_target);
+        mut_repo.set_git_head_target(workspace_name, new_head_target);
     }
 
     // If there is an ongoing operation (merge, rebase, etc.), we need to clean it
@@ -2091,10 +2099,14 @@ fn build_index_from_merged_tree(
 /// parent(s) has changed.
 pub async fn update_intent_to_add(
     repo: &dyn Repo,
+    workspace_root: &Path,
     old_tree: &MergedTree,
     new_tree: &MergedTree,
 ) -> Result<(), GitResetHeadError> {
-    let git_repo = get_git_repo(repo.store())?;
+    let git_backend = get_git_backend(repo.store())?;
+    let git_repo = git_backend
+        .open_git_repo_at_workdir(workspace_root)
+        .map_err(GitResetHeadError::from_git)?;
     let mut index = git_repo
         .index_or_empty()
         .map_err(GitResetHeadError::from_git)?;
