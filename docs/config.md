@@ -27,6 +27,9 @@ These are listed in the order they are loaded; the settings from earlier items
 in the list are overridden by the settings from later items if they disagree.
 Every type of config except for the built-in settings is optional.
 
+Individual config files can also be targeted with
+`jj config {edit,set,unset} --file <PATH>`.
+
 You can enable JSON Schema validation in your editor by adding a `#:schema`
 reference at the top of your TOML config files. See [JSON Schema Support] for
 details.
@@ -2322,6 +2325,9 @@ the following precedence order (with later configs overriding earlier ones).
 These configs can be overridden by [the user config files], and will be disabled
 in favor of the `JJ_CONFIG` environment variable if it is set.
 
+Existing system config files loaded by `jj` can be edited using
+`jj config {edit,set,unset} --file <PATH>`.
+
 ### JSON Schema Support
 
 Many popular editors support TOML file syntax highlighting and validation. To
@@ -2450,6 +2456,15 @@ work = "heads(::@ ~ description(''))::"
 
 [aliases]
 wip = ["log", "-r", "work"]
+```
+
+You can modify specific configuration files such as those in
+`conf.d/` directly using the `--file` option (the file will be created if it
+doesn't already exist):
+
+```shell
+jj config set --file ~/.config/jj/conf.d/work.toml user.email "YOUR_WORK_EMAIL@workplace.com"
+jj config edit --file ~/.config/jj/conf.d/work.toml
 ```
 
 #### Available condition keys

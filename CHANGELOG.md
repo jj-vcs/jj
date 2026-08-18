@@ -33,6 +33,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   back to prompting the user if the heuristics are inconclusive. It can also run
   in non-interactive mode, which aborts if prompting would be needed.
 
+* `jj config {edit,set,unset}` now support a `--file <PATH>` option to
+  target a specific configuration file (such as files inside a `conf.d/`
+  directory or loaded via `--config-file`). This allows precise file targeting
+  and avoids interactive prompts when multiple config files exist.
+
 ### Fixed bugs
 
 * `jj arrange` now scrolls the viewport to keep the selected commit visible

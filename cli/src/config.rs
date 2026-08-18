@@ -51,6 +51,7 @@ use tracing::instrument;
 use crate::command_error::CommandError;
 use crate::command_error::config_error;
 use crate::command_error::config_error_with_message;
+use crate::command_error::user_error;
 use crate::ui::Ui;
 
 // TODO(#879): Consider generating entire schema dynamically vs. static file.
@@ -664,6 +665,75 @@ impl ConfigEnv {
         Ok(())
     }
 
+    /// Returns the configuration file at the specified `path` for modification.
+    ///
+    /// Validates that the path is a recognized Jujutsu configuration location
+    /// (such as a loaded layer, a user config path or file in `conf.d/`,
+    /// or a repo/workspace config path). If the file is already loaded in
+    /// `config`, its existing [`ConfigFile`] representation is reused;
+    /// otherwise, a new [`ConfigFile`] is initialized.
+    pub fn resolve_file_to_edit(
+        &self,
+        ui: &Ui,
+        config: &RawConfig,
+        path: &Path,
+    ) -> Result<ConfigFile, CommandError> {
+        let canonical_path = dunce::canonicalize(path).ok();
+        let matches_path = |p: &Path| p == path || Some(p) == canonical_path.as_deref();
+
+        // 1. Check if it matches an already loaded layer (user, system, repo,
+        //    workspace, --config-file, JJ_CONFIG, etc.)
+        for layer in config.as_ref().layers() {
+            if let Some(layer_path) = layer.path.as_ref()
+                && matches_path(layer_path)
+                && let Ok(file) = ConfigFile::from_layer(layer.clone())
+            {
+                return Ok(file);
+            }
+        }
+
+        // 2. Check repo config path (even if not yet created on disk)
+        if let Ok(Some(repo_path)) = self.repo_config_path(ui)
+            && matches_path(&repo_path)
+        {
+            if let Some(parent) = path.parent() {
+                create_dir_all(parent).ok();
+            }
+            return Ok(ConfigFile::load_or_empty(ConfigSource::Repo, path)?);
+        }
+
+        // 3. Check workspace config path (even if not yet created on disk)
+        if let Ok(Some(workspace_path)) = self.workspace_config_path(ui)
+            && matches_path(&workspace_path)
+        {
+            if let Some(parent) = path.parent() {
+                create_dir_all(parent).ok();
+            }
+            return Ok(ConfigFile::load_or_empty(ConfigSource::Workspace, path)?);
+        }
+
+        // 4. Check user config paths (e.g. ~/.config/jj/config.toml,
+        //    ~/.jjconfig.toml, or files in conf.d)
+        for user_path in self.user_config_paths() {
+            if matches_path(user_path) || is_file_in_config_dir(path, user_path) {
+                if let Some(parent) = path.parent() {
+                    create_dir_all(parent).ok();
+                }
+                return Ok(ConfigFile::load_or_empty(ConfigSource::User, path)?);
+            }
+        }
+
+        Err(user_error(format!(
+            "Configuration file '{}' is not a valid jj configuration file location",
+            path.display()
+        ))
+        .hinted(
+            "Valid config locations include user configs (`~/.config/jj/config.toml` or \
+             `conf.d/*.toml`), repo/workspace configs, or files loaded with the global flag \
+             `--config-file <PATH>`.",
+        ))
+    }
+
     /// Resolves conditional scopes within the current environment. Returns new
     /// resolved config.
     pub fn resolve_config(&self, config: &RawConfig) -> Result<StackedConfig, ConfigGetError> {
@@ -705,6 +775,22 @@ fn config_files_for(
         files.extend(new_file()?);
     }
     Ok(files)
+}
+
+fn is_file_in_config_dir(file_path: &Path, dir_path: &Path) -> bool {
+    if file_path.extension() != Some("toml".as_ref()) {
+        return false;
+    }
+    if dir_path.is_file() {
+        return false;
+    }
+    let Some(parent) = file_path.parent() else {
+        return false;
+    };
+    if parent == dir_path {
+        return true;
+    }
+    dunce::canonicalize(parent).ok().as_deref() == Some(dir_path)
 }
 
 /// Initializes stacked config with the given `default_layers` and infallible
