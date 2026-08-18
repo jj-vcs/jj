@@ -100,7 +100,41 @@ impl ConfigLevelArgs {
             panic!("No config_level provided")
         }
     }
+}
 
+#[derive(clap::Args, Clone, Debug)]
+#[group(id = "config_target", multiple = false, required = true)]
+pub(crate) struct ConfigTargetArgs {
+    /// Target the user-level config
+    #[arg(long)]
+    user: bool,
+
+    /// Target the repo-level config
+    #[arg(long)]
+    repo: bool,
+
+    /// Target the workspace-level config
+    #[arg(long)]
+    workspace: bool,
+
+    /// Target the config file specified by the given path
+    ///
+    /// The path must point to a valid configuration file location recognized
+    /// by Jujutsu (such as a user/repo/workspace config, a file inside a
+    /// `conf.d/` directory, or any file loaded via system configs, `$JJ_CONFIG`,
+    /// or `--config-file`).
+    ///
+    /// Unlike the global `--config-file` option (which loads an extra config
+    /// file when running commands), this option specifies which file to
+    /// inspect, edit, or modify on disk.
+    ///
+    /// If the file does not exist, commands like `set` and `edit` will create
+    /// it and any missing parent directories.
+    #[arg(long, value_name = "PATH", value_hint = clap::ValueHint::FilePath)]
+    file: Option<PathBuf>,
+}
+
+impl ConfigTargetArgs {
     fn edit_config_file(
         &self,
         ui: &Ui,
@@ -123,7 +157,10 @@ impl ConfigLevelArgs {
             }
             files.pop().ok_or_else(|| user_error(not_found_error))
         };
-        if self.user {
+        if let Some(file) = &self.file {
+            let path = command.cwd().join(file);
+            config_env.resolve_file_to_edit(ui, config, &path)
+        } else if self.user {
             pick_one(
                 config_env.user_config_files(config)?,
                 "No user config path found to edit",
@@ -139,7 +176,7 @@ impl ConfigLevelArgs {
                 "No workspace config path found to edit",
             )
         } else {
-            panic!("No config_level provided")
+            panic!("No config_target provided")
         }
     }
 }
