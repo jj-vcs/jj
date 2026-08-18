@@ -2643,7 +2643,6 @@ fn test_export_refs_tag_changed() -> TestResult {
 
     let mut tx = test_data.repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    git::import_head(mut_repo, WorkspaceName::DEFAULT).block_on()?;
     let stats = git::import_refs(mut_repo, &import_options).block_on()?;
     assert_eq!(stats.changed_remote_tags.len(), 4);
     mut_repo.rebase_descendants().block_on()?;
@@ -2856,7 +2855,6 @@ fn test_export_refs_current_tag_changed() -> TestResult {
     testutils::git::set_symbolic_reference(&git_repo, "HEAD", "refs/tags/v1.0");
     let mut tx = test_data.repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    git::import_head(mut_repo, WorkspaceName::DEFAULT).block_on()?;
     git::import_refs(mut_repo, &import_options).block_on()?;
     mut_repo.rebase_descendants().block_on()?;
     let stats = git::export_refs(mut_repo)?;
