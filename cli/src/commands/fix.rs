@@ -29,6 +29,7 @@ use jj_lib::fileset::FilesetExpression;
 use jj_lib::fileset::FilesetParseContext;
 use jj_lib::fix::FileToFix;
 use jj_lib::fix::FixError;
+use jj_lib::fix::FixSummary;
 use jj_lib::fix::LineRange;
 use jj_lib::fix::ParallelFileFixer;
 use jj_lib::fix::RegionsToFormat;
@@ -46,12 +47,14 @@ use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::WorkspaceCommandTransaction;
 use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
 use crate::command_error::config_error;
 use crate::command_error::print_parse_diagnostics;
 use crate::complete;
 use crate::config::CommandNameAndArgs;
+use crate::diff_util::DiffFormatArgs;
 use crate::ui::Ui;
 
 /// Update files with formatting fixes or other changes
@@ -159,6 +162,7 @@ use crate::ui::Ui;
 /// configuration.
 #[derive(clap::Args, Clone, Debug)]
 #[command(verbatim_doc_comment)]
+#[command(group(clap::ArgGroup::new("format").args(&["summary", "stat", "patch"])))]
 pub(crate) struct FixArgs {
     /// Fix files in the specified revision(s) and their descendants. If no
     /// revisions are specified, this defaults to the `revsets.fix` setting, or
@@ -182,6 +186,21 @@ pub(crate) struct FixArgs {
     /// this option has no effect since the formatter always formats all lines.
     #[arg(long, short)]
     all_lines: bool,
+
+    // TODO: `-s` is used by `--source` above, which means we can't reuse
+    // `DiffFormatArgs` with full diff formatting options and share it with
+    // `diff` and `op log`.
+    /// Display a summary of fixed files for each modified commit
+    #[arg(long)]
+    summary: bool,
+
+    /// Display a histogram of changes for each modified commit
+    #[arg(long)]
+    stat: bool,
+
+    /// Display a patch of changes for each modified commit
+    #[arg(long, short)]
+    patch: bool,
 }
 
 #[instrument(skip_all)]
@@ -190,6 +209,11 @@ pub(crate) async fn cmd_fix(
     command: &CommandHelper,
     args: &FixArgs,
 ) -> Result<(), CommandError> {
+    // Reuse `DiffFormatArgs` for consistency across commands, even though we can't
+    // use it directly for command parsing.
+    let mut format_args = DiffFormatArgs::default();
+    format_args.summary = args.summary;
+    format_args.stat = args.stat;
     let mut workspace_command = command.workspace_helper(ui).await?;
     let workspace_root = workspace_command.workspace_root().to_owned();
     let path_converter = workspace_command.path_converter().to_owned();
@@ -253,14 +277,75 @@ pub(crate) async fn cmd_fix(
         &mut parallel_fixer,
     )
     .await?;
-    writeln!(
-        ui.status(),
-        "Fixed {} commits of {} checked.",
-        summary.num_fixed_commits,
-        summary.num_checked_commits
-    )?;
+    print_fix_summary_and_status(
+        ui,
+        &tx,
+        &matcher,
+        &commits,
+        &summary,
+        &format_args,
+        args.patch,
+    )
+    .await?;
     tx.finish(ui, format!("fixed {} commits", summary.num_fixed_commits))
         .await
+}
+
+async fn print_fix_summary_and_status(
+    ui: &mut Ui,
+    tx: &WorkspaceCommandTransaction<'_>,
+    matcher: &dyn Matcher,
+    commits: &[Commit],
+    summary: &FixSummary,
+    format_args: &DiffFormatArgs,
+    patch: bool,
+) -> Result<(), CommandError> {
+    let Some(mut formatter) = ui.status_formatter() else {
+        return Ok(());
+    };
+    writeln!(
+        formatter,
+        "Fixed {} commits of {} checked.",
+        summary.num_fixed_commits, summary.num_checked_commits
+    )?;
+    if summary.rewrites.is_empty() {
+        return Ok(());
+    }
+
+    let Some(diff_renderer) = tx
+        .base_workspace_helper()
+        .diff_renderer_for_log(format_args, patch)?
+    else {
+        return Ok(());
+    };
+
+    let mut buffer = Vec::new();
+    for old_commit in commits {
+        let Some(new_id) = summary.rewrites.get(old_commit.id()) else {
+            continue;
+        };
+        let new_commit = tx.repo().store().get_commit(new_id)?;
+
+        buffer.clear();
+        diff_renderer
+            .show_inter_diff(
+                ui,
+                ui.new_formatter(&mut buffer).as_mut(),
+                std::slice::from_ref(old_commit),
+                &new_commit,
+                matcher,
+                ui.term_width(),
+            )
+            .await?;
+
+        if !buffer.is_empty() {
+            tx.write_commit_summary(formatter.as_mut(), &new_commit)?;
+            writeln!(formatter)?;
+            formatter.raw()?.write_all(&buffer)?;
+        }
+    }
+
+    Ok(())
 }
 
 /// Invokes all matching tools (if any) to file_to_fix. If the content is
