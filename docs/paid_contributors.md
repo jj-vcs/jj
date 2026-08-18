@@ -58,6 +58,7 @@ See [contribution docs](contributing.md#code-reviews) for details on this policy
 * spectral54
 * steadmon
 * tbodt
+* vaghinak-vardanyan
 * zygoloid
 
 ## IMC Trading
