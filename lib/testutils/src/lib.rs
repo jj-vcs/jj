@@ -359,6 +359,24 @@ impl TestWorkspace {
         }
     }
 
+    pub fn init_colocated_git() -> Self {
+        let env = TestEnvironment::init();
+        let workspace_root = env.root().join("repo");
+        fs::create_dir(&workspace_root).unwrap();
+        let (workspace, repo) = Workspace::init_colocated_git(
+            &user_settings(),
+            &workspace_root,
+            gix::hash::Kind::default(),
+        )
+        .block_on()
+        .unwrap();
+        Self {
+            env,
+            workspace,
+            repo,
+        }
+    }
+
     pub fn root_dir(&self) -> PathBuf {
         self.env.root().join("repo").join("..")
     }

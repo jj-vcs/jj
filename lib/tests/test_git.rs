@@ -85,7 +85,6 @@ use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
 use jj_lib::str_util::StringExpression;
 use jj_lib::str_util::StringMatcher;
-use jj_lib::workspace::Workspace;
 use maplit::btreemap;
 use maplit::hashset;
 use pollster::FutureExt as _;
@@ -95,6 +94,7 @@ use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
 use testutils::TestRepoBackend;
 use testutils::TestResult;
+use testutils::TestWorkspace;
 use testutils::base_user_config;
 use testutils::commit_transactions;
 use testutils::create_random_commit;
@@ -262,8 +262,8 @@ fn push_status_rejected_references(push_stats: GitPushStats) -> Vec<GitRefNameBu
 
 #[test]
 fn test_import_refs() -> TestResult {
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
-    let repo = &test_repo.repo;
+    let test_workspace = TestWorkspace::init_colocated_git();
+    let repo = &test_workspace.repo;
     let git_repo = get_git_repo(repo);
     let import_options = default_import_options();
 
@@ -280,6 +280,7 @@ fn test_import_refs() -> TestResult {
 
     testutils::git::set_symbolic_reference(&git_repo, "HEAD", "refs/heads/main");
 
+    let old_heads = repo.view().heads();
     let mut tx = repo.start_transaction();
     git::import_head(tx.repo_mut(), WorkspaceName::DEFAULT).block_on()?;
     let stats = git::import_refs(tx.repo_mut(), &import_options).block_on()?;
@@ -289,12 +290,15 @@ fn test_import_refs() -> TestResult {
 
     assert!(stats.abandoned_commits.is_empty());
     assert!(stats.rewritten_commit_ids.is_empty());
-    let expected_heads = hashset! {
-        jj_id(commit3),
-        jj_id(commit4),
-        jj_id(commit5),
-        jj_id(commit6),
-    };
+    let expected_heads = HashSet::from_iter(itertools::chain(
+        old_heads.iter().cloned(),
+        [
+            jj_id(commit3),
+            jj_id(commit4),
+            jj_id(commit5),
+            jj_id(commit6),
+        ],
+    ));
     assert_eq!(*view.heads(), expected_heads);
 
     assert_eq!(view.bookmarks().count(), 4);
@@ -556,8 +560,8 @@ fn test_import_refs_reimport_head_removed() -> TestResult {
 fn test_import_refs_reimport_git_head_does_not_count() -> TestResult {
     // Test that if a bookmark is removed, the corresponding commit is abandoned
     // no matter if the Git HEAD points to the commit (or a descendant of it.)
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
-    let repo = &test_repo.repo;
+    let test_workspace = TestWorkspace::init_colocated_git();
+    let repo = &test_workspace.repo;
     let git_repo = get_git_repo(repo);
     let import_options = default_import_options();
 
@@ -583,8 +587,8 @@ fn test_import_refs_reimport_git_head_does_not_count() -> TestResult {
 fn test_import_refs_reimport_git_head_without_ref() -> TestResult {
     // Simulate external `git checkout` in colocated workspace, from anonymous
     // bookmark.
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
-    let repo = &test_repo.repo;
+    let test_workspace = TestWorkspace::init_colocated_git();
+    let repo = &test_workspace.repo;
     let git_repo = get_git_repo(repo);
     let import_options = default_import_options();
 
@@ -619,8 +623,8 @@ fn test_import_refs_reimport_git_head_without_ref() -> TestResult {
 #[test]
 fn test_import_refs_reimport_git_head_with_moved_ref() -> TestResult {
     // Simulate external history rewriting in colocated workspace.
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
-    let repo = &test_repo.repo;
+    let test_workspace = TestWorkspace::init_colocated_git();
+    let repo = &test_workspace.repo;
     let git_repo = get_git_repo(repo);
     let import_options = default_import_options();
 
@@ -1326,8 +1330,8 @@ fn test_import_refs_reimport_remote_tags_deleted() -> TestResult {
 #[test]
 fn test_import_refs_reimport_git_head_with_fixed_ref() -> TestResult {
     // Simulate external `git checkout` in colocated workspace, from named bookmark.
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
-    let repo = &test_repo.repo;
+    let test_workspace = TestWorkspace::init_colocated_git();
+    let repo = &test_workspace.repo;
     let git_repo = get_git_repo(repo);
     let import_options = default_import_options();
 
@@ -2446,7 +2450,7 @@ fn test_import_refs_empty_git_repo() -> TestResult {
 
 #[test]
 fn test_import_refs_missing_git_commit() -> TestResult {
-    let test_workspace = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let test_workspace = TestWorkspace::init_colocated_git();
     let repo = &test_workspace.repo;
     let git_repo = get_git_repo(repo);
     let import_options = default_import_options();
@@ -2515,24 +2519,27 @@ fn test_import_refs_missing_git_commit() -> TestResult {
 
 #[test]
 fn test_import_refs_detached_head() -> TestResult {
-    let test_data = GitRepoData::create();
+    let test_workspace = TestWorkspace::init_colocated_git();
+    let repo = &test_workspace.repo;
+    let git_repo = get_git_repo(repo);
     let import_options = default_import_options();
-    let commit1 = empty_git_commit(&test_data.git_repo, "refs/heads/main", &[]);
+    let commit1 = empty_git_commit(&git_repo, "refs/heads/main", &[]);
     // Delete the reference. Check that the detached HEAD commit still gets added to
     // the set of heads
-    test_data
-        .git_repo
-        .find_reference("refs/heads/main")?
-        .delete()?;
-    testutils::git::set_head_to_id(&test_data.git_repo, commit1);
+    git_repo.find_reference("refs/heads/main")?.delete()?;
+    testutils::git::set_head_to_id(&git_repo, commit1);
 
-    let mut tx = test_data.repo.start_transaction();
+    let old_heads = repo.view().heads();
+    let mut tx = repo.start_transaction();
     git::import_head(tx.repo_mut(), WorkspaceName::DEFAULT).block_on()?;
     git::import_refs(tx.repo_mut(), &import_options).block_on()?;
     tx.repo_mut().rebase_descendants().block_on()?;
     let repo = tx.commit("test").block_on()?;
 
-    let expected_heads = hashset! { jj_id(commit1) };
+    let expected_heads = HashSet::from_iter(itertools::chain(
+        old_heads.iter().cloned(),
+        [jj_id(commit1)],
+    ));
     assert_eq!(*repo.view().heads(), expected_heads);
     assert_eq!(repo.view().git_refs().len(), 0);
     assert_eq!(
@@ -2546,12 +2553,13 @@ fn test_import_refs_detached_head() -> TestResult {
 fn test_export_refs_no_detach() -> TestResult {
     // When exporting the bookmark that's current checked out, don't detach HEAD if
     // the target already matches
-    let test_data = GitRepoData::create();
+    let test_workspace = TestWorkspace::init_colocated_git();
+    let repo = &test_workspace.repo;
+    let git_repo = get_git_repo(repo);
     let import_options = default_import_options();
-    let git_repo = test_data.git_repo;
     let commit1 = empty_git_commit(&git_repo, "refs/heads/main", &[]);
     testutils::git::set_symbolic_reference(&git_repo, "HEAD", "refs/heads/main");
-    let mut tx = test_data.repo.start_transaction();
+    let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     git::import_head(mut_repo, WorkspaceName::DEFAULT).block_on()?;
     git::import_refs(mut_repo, &import_options).block_on()?;
@@ -2576,9 +2584,10 @@ fn test_export_refs_no_detach() -> TestResult {
 #[test]
 fn test_export_refs_bookmark_changed() -> TestResult {
     // We can export a change to a bookmark
-    let test_data = GitRepoData::create();
+    let test_workspace = TestWorkspace::init_colocated_git();
+    let repo = &test_workspace.repo;
+    let git_repo = get_git_repo(repo);
     let import_options = default_import_options();
-    let git_repo = test_data.git_repo;
     let commit = empty_git_commit(&git_repo, "refs/heads/main", &[]);
     git_repo.reference(
         "refs/heads/feature",
@@ -2588,7 +2597,7 @@ fn test_export_refs_bookmark_changed() -> TestResult {
     )?;
     testutils::git::set_symbolic_reference(&git_repo, "HEAD", "refs/heads/feature");
 
-    let mut tx = test_data.repo.start_transaction();
+    let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     git::import_head(mut_repo, WorkspaceName::DEFAULT).block_on()?;
     git::import_refs(mut_repo, &import_options).block_on()?;
@@ -2717,12 +2726,13 @@ fn test_export_refs_tag_changed() -> TestResult {
 fn test_export_refs_current_bookmark_changed() -> TestResult {
     // If we update a bookmark that is checked out in the git repo, HEAD gets
     // detached
-    let test_data = GitRepoData::create();
+    let test_workspace = TestWorkspace::init_colocated_git();
+    let repo = &test_workspace.repo;
+    let git_repo = get_git_repo(repo);
     let import_options = default_import_options();
-    let git_repo = test_data.git_repo;
     let commit1 = empty_git_commit(&git_repo, "refs/heads/main", &[]);
     testutils::git::set_symbolic_reference(&git_repo, "HEAD", "refs/heads/main");
-    let mut tx = test_data.repo.start_transaction();
+    let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     git::import_head(mut_repo, WorkspaceName::DEFAULT).block_on()?;
     git::import_refs(mut_repo, &import_options).block_on()?;
@@ -2756,13 +2766,14 @@ fn test_export_refs_current_bookmark_changed() -> TestResult {
 
 #[test]
 fn test_export_refs_worktree_head_changed() -> TestResult {
-    let test_data = GitRepoData::create();
+    let test_workspace = TestWorkspace::init_colocated_git();
+    let repo = &test_workspace.repo;
+    let git_repo = get_git_repo(repo);
     let import_options = default_import_options();
-    let git_repo = test_data.git_repo;
     let commit1 = empty_git_commit(&git_repo, "refs/heads/main", &[]);
     testutils::git::set_symbolic_reference(&git_repo, "HEAD", "refs/heads/main");
 
-    let worktree_dir = test_data._temp_dir.path().join("git-wt");
+    let worktree_dir = test_workspace.env.root().join("git-wt");
     let git_workdir = git_repo.workdir().expect("git repo must have workdir");
     let output = std::process::Command::new("git")
         .args(["worktree", "add", "-b", "wt-branch"])
@@ -2775,7 +2786,7 @@ fn test_export_refs_worktree_head_changed() -> TestResult {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    let mut tx = test_data.repo.start_transaction();
+    let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     git::import_head(mut_repo, WorkspaceName::DEFAULT).block_on()?;
     git::import_refs(mut_repo, &import_options).block_on()?;
@@ -2799,13 +2810,14 @@ fn test_export_refs_worktree_head_changed() -> TestResult {
 
 #[test]
 fn test_export_refs_worktree_no_detach() -> TestResult {
-    let test_data = GitRepoData::create();
+    let test_workspace = TestWorkspace::init_colocated_git();
+    let repo = &test_workspace.repo;
+    let git_repo = get_git_repo(repo);
     let import_options = default_import_options();
-    let git_repo = test_data.git_repo;
     let commit1 = empty_git_commit(&git_repo, "refs/heads/main", &[]);
     testutils::git::set_symbolic_reference(&git_repo, "HEAD", "refs/heads/main");
 
-    let worktree_dir = test_data._temp_dir.path().join("git-wt");
+    let worktree_dir = test_workspace.env.root().join("git-wt");
     let git_workdir = git_repo.workdir().expect("git repo must have workdir");
     let output = std::process::Command::new("git")
         .args(["worktree", "add", "-b", "wt-branch"])
@@ -2818,7 +2830,7 @@ fn test_export_refs_worktree_no_detach() -> TestResult {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    let mut tx = test_data.repo.start_transaction();
+    let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     git::import_head(mut_repo, WorkspaceName::DEFAULT).block_on()?;
     git::import_refs(mut_repo, &import_options).block_on()?;
@@ -2888,11 +2900,12 @@ fn test_export_refs_current_tag_changed() -> TestResult {
 #[test_case(true; "with moved placeholder ref")]
 fn test_export_refs_unborn_git_bookmark(move_placeholder_ref: bool) -> TestResult {
     // Can export to an empty Git repo (we can handle Git's "unborn bookmark" state)
-    let test_data = GitRepoData::create();
+    let test_workspace = TestWorkspace::init_colocated_git();
+    let repo = &test_workspace.repo;
+    let git_repo = get_git_repo(repo);
     let import_options = default_import_options();
-    let git_repo = test_data.git_repo;
     testutils::git::set_symbolic_reference(&git_repo, "HEAD", "refs/heads/main");
-    let mut tx = test_data.repo.start_transaction();
+    let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     git::import_head(mut_repo, WorkspaceName::DEFAULT).block_on()?;
     git::import_refs(mut_repo, &import_options).block_on()?;
@@ -3578,14 +3591,9 @@ fn test_export_undo_reexport() -> TestResult {
 
 #[test]
 fn test_reset_head_to_root() -> TestResult {
-    // Create colocated workspace
-    let settings = testutils::user_settings();
-    let temp_dir = testutils::new_temp_dir();
-    let workspace_root = temp_dir.path().join("repo");
-    let git_repo = testutils::git::init(&workspace_root);
-    let (_workspace, repo) =
-        Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
-            .block_on()?;
+    let test_workspace = TestWorkspace::init_colocated_git();
+    let repo = &test_workspace.repo;
+    let git_repo = get_git_repo(repo);
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -3638,14 +3646,9 @@ fn test_reset_head_to_root() -> TestResult {
 
 #[test]
 fn test_reset_head_detached_out_of_sync() -> TestResult {
-    // Create colocated workspace
-    let settings = testutils::user_settings();
-    let temp_dir = testutils::new_temp_dir();
-    let workspace_root = temp_dir.path().join("repo");
-    let git_repo = testutils::git::init(&workspace_root);
-    let (_workspace, repo) =
-        Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
-            .block_on()?;
+    let test_workspace = TestWorkspace::init_colocated_git();
+    let repo = &test_workspace.repo;
+    let git_repo = get_git_repo(repo);
 
     let mut tx = repo.start_transaction();
 
@@ -3726,14 +3729,10 @@ fn get_index_state(workspace_root: &Path) -> String {
 
 #[test]
 fn test_reset_head_with_index() -> TestResult {
-    // Create colocated workspace
-    let settings = testutils::user_settings();
-    let temp_dir = testutils::new_temp_dir();
-    let workspace_root = temp_dir.path().join("repo");
-    let git_repo = testutils::git::init(&workspace_root);
-    let (_workspace, repo) =
-        Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
-            .block_on()?;
+    let test_workspace = TestWorkspace::init_colocated_git();
+    let repo = &test_workspace.repo;
+    let git_repo = get_git_repo(repo);
+    let workspace_root = test_workspace.workspace.workspace_root();
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -3749,7 +3748,7 @@ fn test_reset_head_with_index() -> TestResult {
 
     // Set Git HEAD to commit2's parent (i.e. commit1)
     git::reset_head(tx.repo_mut(), WorkspaceName::DEFAULT, &commit2).block_on()?;
-    insta::assert_snapshot!(get_index_state(&workspace_root), @"");
+    insta::assert_snapshot!(get_index_state(workspace_root), @"");
 
     // Add "staged changes" to the Git index
     {
@@ -3757,30 +3756,25 @@ fn test_reset_head_with_index() -> TestResult {
         index_manager.add_file("file.txt", b"i am a file\n");
         index_manager.sync_index();
     }
-    insta::assert_snapshot!(get_index_state(&workspace_root), @"Unconflicted file.txt Mode(FILE)");
+    insta::assert_snapshot!(get_index_state(workspace_root), @"Unconflicted file.txt Mode(FILE)");
 
     // Reset head and the Git index
     git::reset_head(tx.repo_mut(), WorkspaceName::DEFAULT, &commit2).block_on()?;
-    insta::assert_snapshot!(get_index_state(&workspace_root), @"");
+    insta::assert_snapshot!(get_index_state(workspace_root), @"");
     Ok(())
 }
 
 #[test]
 fn test_reset_head_with_index_no_conflict() -> TestResult {
-    // Create colocated workspace
-    let settings = testutils::user_settings();
-    let temp_dir = testutils::new_temp_dir();
-    let workspace_root = temp_dir.path().join("repo");
-    gix::init(&workspace_root)?;
-    let (_workspace, repo) =
-        Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
-            .block_on()?;
+    let test_workspace = TestWorkspace::init_colocated_git();
+    let repo = &test_workspace.repo;
+    let workspace_root = test_workspace.workspace.workspace_root();
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
 
     // Build tree containing every mode of file
-    let tree = testutils::create_tree_with(&repo, |builder| {
+    let tree = testutils::create_tree_with(repo, |builder| {
         builder
             .file(repo_path("some/dir/normal-file"), "file\n")
             .executable(false);
@@ -3807,7 +3801,7 @@ fn test_reset_head_with_index_no_conflict() -> TestResult {
 
     // Git index should contain all files from the tree.
     // `Mode(DIR | SYMLINK)` actually means `MODE(COMMIT)`, as in a git submodule.
-    insta::assert_snapshot!(get_index_state(&workspace_root), @"
+    insta::assert_snapshot!(get_index_state(workspace_root), @"
     Unconflicted some/dir/commit Mode(DIR | SYMLINK)
     Unconflicted some/dir/executable-file Mode(FILE | FILE_EXECUTABLE)
     Unconflicted some/dir/normal-file Mode(FILE)
@@ -3818,20 +3812,15 @@ fn test_reset_head_with_index_no_conflict() -> TestResult {
 
 #[test]
 fn test_reset_head_with_index_merge_conflict() -> TestResult {
-    // Create colocated workspace
-    let settings = testutils::user_settings();
-    let temp_dir = testutils::new_temp_dir();
-    let workspace_root = temp_dir.path().join("repo");
-    gix::init(&workspace_root)?;
-    let (_workspace, repo) =
-        Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
-            .block_on()?;
+    let test_workspace = TestWorkspace::init_colocated_git();
+    let repo = &test_workspace.repo;
+    let workspace_root = test_workspace.workspace.workspace_root();
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
 
     // Build conflict trees containing every mode of file
-    let base_tree = testutils::create_tree_with(&repo, |builder| {
+    let base_tree = testutils::create_tree_with(repo, |builder| {
         builder
             .file(repo_path("some/dir/normal-file"), "base\n")
             .executable(false);
@@ -3845,7 +3834,7 @@ fn test_reset_head_with_index_merge_conflict() -> TestResult {
         );
     });
 
-    let left_tree = testutils::create_tree_with(&repo, |builder| {
+    let left_tree = testutils::create_tree_with(repo, |builder| {
         builder
             .file(repo_path("some/dir/normal-file"), "left\n")
             .executable(false);
@@ -3859,7 +3848,7 @@ fn test_reset_head_with_index_merge_conflict() -> TestResult {
         );
     });
 
-    let right_tree = testutils::create_tree_with(&repo, |builder| {
+    let right_tree = testutils::create_tree_with(repo, |builder| {
         builder
             .file(repo_path("some/dir/normal-file"), "right\n")
             .executable(false);
@@ -3901,7 +3890,7 @@ fn test_reset_head_with_index_merge_conflict() -> TestResult {
 
     // Index should contain conflicted files from merge of parent commits.
     // `Mode(DIR | SYMLINK)` actually means `MODE(COMMIT)`, as in a git submodule.
-    insta::assert_snapshot!(get_index_state(&workspace_root), @"
+    insta::assert_snapshot!(get_index_state(workspace_root), @"
     Base some/dir/commit Mode(DIR | SYMLINK)
     Ours some/dir/commit Mode(DIR | SYMLINK)
     Theirs some/dir/commit Mode(DIR | SYMLINK)
@@ -3920,23 +3909,18 @@ fn test_reset_head_with_index_merge_conflict() -> TestResult {
 
 #[test]
 fn test_reset_head_with_index_file_directory_conflict() -> TestResult {
-    // Create colocated workspace
-    let settings = testutils::user_settings();
-    let temp_dir = testutils::new_temp_dir();
-    let workspace_root = temp_dir.path().join("repo");
-    gix::init(&workspace_root)?;
-    let (_workspace, repo) =
-        Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
-            .block_on()?;
+    let test_workspace = TestWorkspace::init_colocated_git();
+    let repo = &test_workspace.repo;
+    let workspace_root = test_workspace.workspace.workspace_root();
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
 
     // Build conflict trees containing file-directory conflict
-    let left_tree = testutils::create_tree_with(&repo, |builder| {
+    let left_tree = testutils::create_tree_with(repo, |builder| {
         builder.file(repo_path("test/dir/file"), "dir\n");
     });
-    let right_tree = testutils::create_tree_with(&repo, |builder| {
+    let right_tree = testutils::create_tree_with(repo, |builder| {
         builder.file(repo_path("test"), "file\n");
     });
 
@@ -3964,7 +3948,7 @@ fn test_reset_head_with_index_file_directory_conflict() -> TestResult {
     git::reset_head(mut_repo, WorkspaceName::DEFAULT, &wc_commit).block_on()?;
 
     // Only the file should be added to the index (the tree should be skipped).
-    insta::assert_snapshot!(get_index_state(&workspace_root), @"Theirs test Mode(FILE)");
+    insta::assert_snapshot!(get_index_state(workspace_root), @"Theirs test Mode(FILE)");
     Ok(())
 }
 
