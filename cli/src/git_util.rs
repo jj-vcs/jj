@@ -40,6 +40,7 @@ use jj_lib::git::GitRefKind;
 use jj_lib::git::GitSettings;
 use jj_lib::git::GitSidebandLineTerminator;
 use jj_lib::git::GitSubprocessCallback;
+use jj_lib::git_backend::GitRepoAtWorkdirError;
 use jj_lib::op_store::RemoteRefState;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
@@ -59,22 +60,16 @@ use crate::revset_util::parse_remote_auto_track_bookmarks_map;
 use crate::ui::ProgressOutput;
 use crate::ui::Ui;
 
-pub fn is_colocated_git_workspace(workspace: &Workspace) -> bool {
+pub fn is_colocated_git_workspace(workspace: &Workspace) -> Result<bool, CommandError> {
     let Ok(git_backend) = git::get_git_backend(workspace.repo_loader().store()) else {
-        return false;
+        return Ok(false);
     };
-    let Some(git_workdir) = git_backend.git_workdir() else {
-        return false; // Bare repository
-    };
-    if git_workdir == workspace.workspace_root() {
-        return true;
+    match git_backend.open_git_repo_at_workdir(workspace.workspace_root()) {
+        Ok(_) => Ok(true),
+        Err(GitRepoAtWorkdirError::NotFound { .. }) => Ok(false),
+        Err(GitRepoAtWorkdirError::Unrelated { .. }) => Ok(false),
+        Err(err @ GitRepoAtWorkdirError::Other(_)) => Err(user_error(err)),
     }
-    // Colocated workspace should have ".git" directory, file, or symlink. Compare
-    // its parent as the git_workdir might be resolved from the real ".git" path.
-    let Ok(dot_git_path) = dunce::canonicalize(workspace.workspace_root().join(".git")) else {
-        return false;
-    };
-    dunce::canonicalize(git_workdir).ok().as_deref() == dot_git_path.parent()
 }
 
 /// Parses user-specified remote URL or path to absolute form.

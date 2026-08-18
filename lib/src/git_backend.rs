@@ -158,6 +158,19 @@ impl From<GitBackendError> for BackendError {
 }
 
 #[derive(Debug, Error)]
+pub enum GitRepoAtWorkdirError {
+    #[error("No Git repository found at {path}")]
+    NotFound {
+        path: PathBuf,
+        source: gix::discover::is_git::Error,
+    },
+    #[error("Unrelated Git repository found at {path}")]
+    Unrelated { path: PathBuf },
+    #[error("Failed to open Git repository")]
+    Other(#[source] Box<dyn std::error::Error + Send + Sync>),
+}
+
+#[derive(Debug, Error)]
 pub enum GitGcError {
     #[error("Failed to run git gc command")]
     GcCommand(#[source] std::io::Error),
@@ -352,19 +365,54 @@ impl GitBackend {
         self.repo.lock().unwrap()
     }
 
-    /// Returns new thread-local instance to access to the underlying Git repo.
+    /// Returns a new thread-local handle for the underlying Git repository.
+    ///
+    /// Use [`Self::open_git_repo_at_workdir()`] for worktree operations.
     pub fn git_repo(&self) -> gix::Repository {
         self.base_repo.to_thread_local()
+    }
+
+    /// Reopens the repository at the given workspace path. Returns a new
+    /// thread-local handle.
+    pub fn open_git_repo_at_workdir(
+        &self,
+        path: &Path,
+    ) -> Result<gix::Repository, GitRepoAtWorkdirError> {
+        // Try the open repository first.
+        let open_repo = self.git_repo();
+        if let Some(workdir) = open_repo.workdir()
+            && (workdir == path || dunce::canonicalize(path).is_ok_and(|path| workdir == path))
+        {
+            return Ok(open_repo);
+        }
+
+        // The input path doesn't include ".git".
+        let opts = open_repo.open_options().clone().open_path_as_is(false);
+        let work_repo = gix::ThreadSafeRepository::open_opts(path, opts)
+            .map_err(|err| match err {
+                gix::open::Error::NotARepository { path, source } => {
+                    GitRepoAtWorkdirError::NotFound { path, source }
+                }
+                err => GitRepoAtWorkdirError::Other(err.into()),
+            })?
+            .to_thread_local();
+        let canonicalize = |path: &Path| {
+            dunce::canonicalize(path).map_err(|err| GitRepoAtWorkdirError::Other(err.into()))
+        };
+        if open_repo.common_dir() == work_repo.common_dir()
+            || canonicalize(open_repo.common_dir())? == canonicalize(work_repo.common_dir())?
+        {
+            // The last (path, work_repo) can be cached if needed.
+            Ok(work_repo)
+        } else {
+            let path = path.to_owned();
+            Err(GitRepoAtWorkdirError::Unrelated { path })
+        }
     }
 
     /// Path to the `.git` directory or the repository itself if it's bare.
     pub fn git_repo_path(&self) -> &Path {
         self.base_repo.path()
-    }
-
-    /// Path to the working directory if the repository isn't bare.
-    pub fn git_workdir(&self) -> Option<&Path> {
-        self.base_repo.work_dir()
     }
 
     fn shallow_root_ids(&self, git_repo: &gix::Repository) -> BackendResult<&[CommitId]> {
@@ -1652,6 +1700,48 @@ mod tests {
         )
         .unwrap()
         .to_thread_local()
+    }
+
+    #[test]
+    fn open_git_repo_at_workdir() -> TestResult {
+        let settings = user_settings();
+        let temp_dir = new_temp_dir();
+        let store_path = temp_dir.path().join("store");
+        fs::create_dir(&store_path)?;
+
+        let git_repo_path = temp_dir.path().join("git1");
+        let git_repo = git_init(&git_repo_path, gix::hash::Kind::default());
+        let other_git_repo_path = temp_dir.path().join("git2");
+        let _other_git_repo = git_init(&other_git_repo_path, gix::hash::Kind::default());
+
+        let worktree_dir = temp_dir.path().join("git1-wt");
+        let output = Command::new("git")
+            .args(["worktree", "add", "--orphan"])
+            .arg(&worktree_dir)
+            .current_dir(&git_repo_path)
+            .output()?;
+        assert!(output.status.success(), "{output:?}");
+
+        let backend = GitBackend::init_external(&settings, &store_path, git_repo.path())?;
+
+        assert_matches!(
+            backend.open_git_repo_at_workdir(&git_repo_path),
+            Ok(repo) if repo.workdir() == Some(backend.git_repo().workdir().unwrap())
+        );
+        assert_matches!(
+            backend.open_git_repo_at_workdir(&worktree_dir),
+            Ok(repo) if repo.workdir() == Some(worktree_dir.as_ref())
+        );
+        assert_matches!(
+            backend.open_git_repo_at_workdir(&temp_dir.path().join("unknown")),
+            Err(GitRepoAtWorkdirError::NotFound { .. })
+        );
+        assert_matches!(
+            backend.open_git_repo_at_workdir(&other_git_repo_path),
+            Err(GitRepoAtWorkdirError::Unrelated { .. })
+        );
+
+        Ok(())
     }
 
     #[test_case(gix::hash::Kind::Sha1 ; "sha1")]

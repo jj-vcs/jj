@@ -67,7 +67,7 @@ fn test_init_internal_git(object_hash: gix::hash::Kind) -> TestResult {
         git_backend.git_repo_path(),
         canonical.join(PathBuf::from_iter([".jj", "repo", "store", "git"])),
     );
-    assert!(git_backend.git_workdir().is_none());
+    assert!(git_backend.git_repo().workdir().is_none());
     assert_eq!(
         std::fs::read_to_string(repo_path.join("store").join("git_target"))?,
         "git"
@@ -91,7 +91,7 @@ fn test_init_colocated_git(object_hash: gix::hash::Kind) -> TestResult {
     let repo_path = canonical.join(".jj").join("repo");
     assert_eq!(workspace.workspace_root(), &canonical);
     assert_eq!(git_backend.git_repo_path(), canonical.join(".git"));
-    assert_eq!(git_backend.git_workdir(), Some(canonical.as_ref()));
+    assert_eq!(git_backend.git_repo().workdir(), Some(canonical.as_ref()));
     assert_eq!(
         std::fs::read_to_string(repo_path.join("store").join("git_target"))?,
         "../../../.git"
@@ -124,7 +124,7 @@ fn test_init_external_git() -> TestResult {
         canonical.join("git").join(".git")
     );
     assert_eq!(
-        git_backend.git_workdir(),
+        git_backend.git_repo().workdir(),
         Some(canonical.join("git").as_ref())
     );
 
