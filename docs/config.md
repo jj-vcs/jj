@@ -27,6 +27,10 @@ These are listed in the order they are loaded; the settings from earlier items
 in the list are overridden by the settings from later items if they disagree.
 Every type of config except for the built-in settings is optional.
 
+You can also view, edit, or modify specific configuration files (such as a
+file in `conf.d/` or one loaded via `--config-file`) directly using
+`jj config {edit,list,set,unset} --file <PATH>`.
+
 You can enable JSON Schema validation in your editor by adding a `#:schema`
 reference at the top of your TOML config files. See [JSON Schema Support] for
 details.
@@ -2409,6 +2413,15 @@ work = "heads(::@ ~ description(''))::"
 
 [aliases]
 wip = ["log", "-r", "work"]
+```
+
+You can view, edit, or modify specific configuration files such as those in
+`conf.d/` directly using the `--file` option:
+
+```shell
+jj config set --file ~/.config/jj/conf.d/work.toml user.email "YOUR_WORK_EMAIL@workplace.com"
+jj config edit --file ~/.config/jj/conf.d/work.toml
+jj config list --file ~/.config/jj/conf.d/work.toml
 ```
 
 #### Available condition keys

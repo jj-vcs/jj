@@ -20,7 +20,7 @@ use jj_lib::config::ConfigSource;
 use jj_lib::settings::UserSettings;
 use tracing::instrument;
 
-use super::ConfigLevelArgs;
+use super::ConfigTargetArgs;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::complete;
@@ -34,14 +34,14 @@ use crate::ui::Ui;
 
 /// List variables set in config files, along with their values.
 #[derive(clap::Args, Clone, Debug)]
-#[command(mut_group("config_level", |g| g.required(false)))]
+#[command(mut_group("config_target", |g| g.required(false)))]
 pub struct ConfigListArgs {
     /// An optional name of a specific config option to look up.
     #[arg(add = ArgValueCandidates::new(complete::config_keys))]
     pub name: Option<ConfigNamePathBuf>,
 
     /// Whether to explicitly include built-in default values in the list.
-    #[arg(long, conflicts_with = "config_level")]
+    #[arg(long, conflicts_with = "config_target")]
     pub include_defaults: bool,
 
     /// Allow printing overridden values.
@@ -49,7 +49,7 @@ pub struct ConfigListArgs {
     pub include_overridden: bool,
 
     #[command(flatten)]
-    pub level: ConfigLevelArgs,
+    pub target: ConfigTargetArgs,
 
     /// Render each variable using the given template
     ///
@@ -98,8 +98,14 @@ pub async fn cmd_config_list(
     // The default layer could be excluded beforehand as layers[len..], but we
     // can't do the same for "annotated.source == target_source" in order for
     // resolved_config_values() to mark values overridden by the upper layers.
-    if let Some(target_source) = args.level.get_source_kind() {
+    if let Some(target_source) = args.target.get_source_kind() {
         annotated_values.retain(|annotated| annotated.source == target_source);
+    } else if let Some((path, _)) = args.target.resolve_file(ui, command)? {
+        annotated_values.retain(|annotated| {
+            annotated.path.as_ref().is_some_and(|p| {
+                dunce::canonicalize(p).ok() == dunce::canonicalize(path).ok() || p == path
+            })
+        });
     } else if !args.include_defaults {
         annotated_values.retain(|annotated| annotated.source != ConfigSource::Default);
     }

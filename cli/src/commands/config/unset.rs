@@ -16,7 +16,7 @@ use clap_complete::ArgValueCandidates;
 use jj_lib::config::ConfigNamePathBuf;
 use tracing::instrument;
 
-use super::ConfigLevelArgs;
+use super::ConfigTargetArgs;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
@@ -32,7 +32,7 @@ pub struct ConfigUnsetArgs {
     name: ConfigNamePathBuf,
 
     #[command(flatten)]
-    level: ConfigLevelArgs,
+    target: ConfigTargetArgs,
 }
 
 #[instrument(skip_all)]
@@ -41,7 +41,7 @@ pub async fn cmd_config_unset(
     command: &CommandHelper,
     args: &ConfigUnsetArgs,
 ) -> Result<(), CommandError> {
-    let mut file = args.level.edit_config_file(ui, command)?;
+    let mut file = args.target.edit_config_file(ui, command)?;
     let old_value = file
         .delete_value(&args.name)
         .map_err(|err| user_error_with_message(format!("Failed to unset {}", args.name), err))?;

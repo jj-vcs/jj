@@ -57,14 +57,14 @@ fn test_config_list_single() {
 fn test_config_list_nonexistent() {
     let test_env = TestEnvironment::default();
     let output = test_env.run_jj_in(".", ["config", "list", "nonexistent-test-key"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching config key for: nonexistent-test-key
     [EOF]
     ");
 
     let output = test_env.run_jj_in(".", ["config", "list", "--repo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No config to list.
     [EOF]
@@ -259,6 +259,17 @@ fn test_config_list_layer() {
         .success();
 
     let output = work_dir.run_jj(["config", "list", "--user"]);
+    insta::assert_snapshot!(output, @r#"
+    test-key = "test-val"
+    [EOF]
+    "#);
+
+    let output = work_dir.run_jj([
+        "config",
+        "list",
+        "--file",
+        user_config_path.to_str().unwrap(),
+    ]);
     insta::assert_snapshot!(output, @r#"
     test-key = "test-val"
     [EOF]
@@ -583,11 +594,11 @@ fn test_config_set_bad_opts() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: the following required arguments were not provided:
-      <--user|--repo|--workspace>
+      <--user|--repo|--workspace|--file <PATH>>
       <NAME>
       <VALUE>
 
-    Usage: jj config set <--user|--repo|--workspace> <NAME> <VALUE>
+    Usage: jj config set <--user|--repo|--workspace|--file <PATH>> <NAME> <VALUE>
 
     For more information, try '--help'.
     [EOF]
@@ -776,6 +787,48 @@ fn test_config_set_for_workspace() {
 
     test-key = "ws-val"
     "#);
+}
+
+#[test]
+fn test_config_set_for_file() -> TestResult {
+    let test_env = TestEnvironment::default();
+
+    // Create a second config file
+    test_env.add_config("");
+    let first_path = test_env.first_config_file_path();
+    let last_path = test_env.last_config_file_path();
+
+    // Setting a key with --file shouldn't prompt even if multiple files exist
+    let output = test_env.run_jj_in(
+        ".",
+        [
+            "config",
+            "set",
+            "--file",
+            last_path.to_str().unwrap(),
+            "test-key",
+            "test-val",
+        ],
+    );
+    insta::assert_snapshot!(output, @"");
+
+    insta::assert_snapshot!(
+        std::fs::read_to_string(last_path)?,
+        @r#"test-key = "test-val""#);
+
+    // Verify the first file remained unchanged
+    insta::assert_snapshot!(
+        std::fs::read_to_string(first_path)?,
+        @r#"
+
+    [template-aliases]
+    'format_time_range(time_range)' = 'time_range.start() ++ " - " ++ time_range.end()'
+
+    [git]
+    colocate = false
+    "#);
+
+    Ok(())
 }
 
 #[test]
@@ -1021,15 +1074,54 @@ fn test_config_unset_for_workspace() {
 }
 
 #[test]
+fn test_config_unset_for_file() -> TestResult {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("");
+    let last_path = test_env.last_config_file_path();
+
+    test_env
+        .run_jj_in(
+            ".",
+            [
+                "config",
+                "set",
+                "--file",
+                last_path.to_str().unwrap(),
+                "foo",
+                "true",
+            ],
+        )
+        .success();
+
+    let output = test_env.run_jj_in(
+        ".",
+        [
+            "config",
+            "unset",
+            "--file",
+            last_path.to_str().unwrap(),
+            "foo",
+        ],
+    );
+    insta::assert_snapshot!(output, @"");
+
+    insta::assert_snapshot!(
+        std::fs::read_to_string(last_path)?,
+        @"");
+
+    Ok(())
+}
+
+#[test]
 fn test_config_edit_missing_opt() {
     let test_env = TestEnvironment::default();
     let output = test_env.run_jj_in(".", ["config", "edit"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: the following required arguments were not provided:
-      <--user|--repo|--workspace>
+      <--user|--repo|--workspace|--file <PATH>>
 
-    Usage: jj config edit <--user|--repo|--workspace>
+    Usage: jj config edit <--user|--repo|--workspace|--file <PATH>>
 
     For more information, try '--help'.
     [EOF]
@@ -1073,6 +1165,26 @@ fn test_config_edit_user_new_file() {
         user_config_path.exists(),
         "new file and directory should be created"
     );
+}
+
+#[test]
+fn test_config_edit_file() -> TestResult {
+    let mut test_env = TestEnvironment::default();
+    test_env.add_config("");
+    let last_path = test_env.last_config_file_path();
+    let edit_script = test_env.set_up_fake_editor();
+
+    std::fs::write(edit_script, "dump-path path")?;
+    test_env
+        .run_jj_in(
+            ".",
+            ["config", "edit", "--file", last_path.to_str().unwrap()],
+        )
+        .success();
+
+    let edited_path = PathBuf::from(std::fs::read_to_string(test_env.env_root().join("path"))?);
+    assert_eq!(edited_path, dunce::simplified(&last_path));
+    Ok(())
 }
 
 #[test]
@@ -1463,7 +1575,7 @@ fn test_config_path_syntax() {
 
     // Not a table
     let output = test_env.run_jj_in(".", ["config", "list", "a.'b()'.x"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching config key for: a.'b()'.x
     [EOF]
@@ -1889,7 +2001,7 @@ fn test_config_gc_no_repos_dir() {
     let test_env = TestEnvironment::default();
     // No repo config dir created at all.
     let output = test_env.run_jj_in(".", ["config", "gc"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Missing repo configs (repo path no longer exists):
       (none)
@@ -1903,7 +2015,7 @@ fn test_config_gc_all_existing() -> TestResult {
     create_repo_with_config(&mut test_env, "repo")?;
 
     let output = test_env.run_jj_in(".", ["config", "gc"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Missing repo configs (repo path no longer exists):
       (none)
@@ -1921,7 +2033,7 @@ fn test_config_gc_missing_default_no() -> TestResult {
 
     // Non-interactive: the prompt auto-answers with the default ("no").
     let output = test_env.run_jj_in(".", ["config", "gc"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Missing repo configs (repo path no longer exists):
       $TEST_ENV/home/.config/jj/repos/8e4fac809cbb3b162c95
@@ -1946,7 +2058,7 @@ fn test_config_gc_missing_confirmed() -> TestResult {
             .args(["config", "gc"])
             .write_stdin("y\n")
     });
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Missing repo configs (repo path no longer exists):
       $TEST_ENV/home/.config/jj/repos/8e4fac809cbb3b162c95
@@ -1981,7 +2093,7 @@ fn test_config_gc_missing_with_extra_file() -> TestResult {
             .unwrap()
             .replace_all(&s, "$1: <directory not empty>")
             .into_owned()
-    }), @r"
+    }), @"
     ------- stderr -------
     Missing repo configs (repo path no longer exists):
       $TEST_ENV/home/.config/jj/repos/8e4fac809cbb3b162c95
@@ -1996,5 +2108,108 @@ fn test_config_gc_missing_with_extra_file() -> TestResult {
     // The known jj-managed files should be gone.
     assert!(!config_dir.join("config.toml").exists());
     assert!(!config_dir.join("metadata.binpb").exists());
+    Ok(())
+}
+
+#[test]
+fn test_config_file_validation() -> TestResult {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Rejects random non-jj paths
+    let output = work_dir.run_jj(["config", "set", "--file", "abc/random/path.toml", "k", "v"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Configuration file 'abc/random/path.toml' is not a valid jj configuration file location
+    Hint: Valid config locations include user configs (`~/.config/jj/config.toml` or `conf.d/*.toml`), repo/workspace configs, or files loaded with global `--config-file <PATH>`.
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // Rejects typos like .config/jj/config.toml relative to cwd
+    let output = work_dir.run_jj([
+        "config",
+        "set",
+        "--file",
+        ".config/jj/config.toml",
+        "k",
+        "v",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Configuration file '.config/jj/config.toml' is not a valid jj configuration file location
+    Hint: Valid config locations include user configs (`~/.config/jj/config.toml` or `conf.d/*.toml`), repo/workspace configs, or files loaded with global `--config-file <PATH>`.
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // Rejects non-toml files even under a valid config directory
+    let invalid_ext_file = test_env.config_path().join("notes.txt");
+    let output = work_dir.run_jj([
+        "config",
+        "set",
+        "--file",
+        invalid_ext_file.to_str().unwrap(),
+        "k",
+        "v",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Configuration file '$TEST_ENV/config/notes.txt' is not a valid jj configuration file location
+    Hint: Valid config locations include user configs (`~/.config/jj/config.toml` or `conf.d/*.toml`), repo/workspace configs, or files loaded with global `--config-file <PATH>`.
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // Allows creating a new .toml file under a valid config directory
+    let valid_file = test_env.config_path().join("custom.toml");
+    let output = work_dir.run_jj([
+        "config",
+        "set",
+        "--file",
+        valid_file.to_str().unwrap(),
+        "custom-key",
+        "custom-val",
+    ]);
+    insta::assert_snapshot!(output, @"");
+    assert!(valid_file.exists());
+
+    // list --file on invalid path also fails
+    let output = work_dir.run_jj(["config", "list", "--file", "random/path.toml"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Configuration file 'random/path.toml' is not a valid jj configuration file location
+    Hint: Valid config locations include user configs (`~/.config/jj/config.toml` or `conf.d/*.toml`), repo/workspace configs, or files loaded with global `--config-file <PATH>`.
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // list --file on the valid file succeeds
+    let output = work_dir.run_jj(["config", "list", "--file", valid_file.to_str().unwrap()]);
+    insta::assert_snapshot!(output, @r#"
+    custom-key = "custom-val"
+    [EOF]
+    "#);
+
+    // Using global --config-file allows targeting any custom file with --file
+    let custom_file = test_env.env_root().join("outside.toml");
+    std::fs::write(&custom_file, "")?;
+    let output = work_dir.run_jj([
+        "--config-file",
+        custom_file.to_str().unwrap(),
+        "config",
+        "set",
+        "--file",
+        custom_file.to_str().unwrap(),
+        "outside-key",
+        "outside-val",
+    ]);
+    insta::assert_snapshot!(output, @"");
+    assert_eq!(
+        std::fs::read_to_string(&custom_file)?,
+        "outside-key = \"outside-val\"\n"
+    );
+
     Ok(())
 }
