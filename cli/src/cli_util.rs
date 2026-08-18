@@ -998,6 +998,11 @@ impl WorkspaceCommandEnvironment {
         cwd
     }
 
+    pub fn workspace_root(&self) -> &Path {
+        let RepoPathUiConverter::Fs { cwd: _, base } = &self.path_converter;
+        base
+    }
+
     pub fn workspace_name(&self) -> &WorkspaceName {
         &self.workspace_name
     }
