@@ -24,6 +24,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   jj workspace can have its own Git HEAD. Existing repositories are migrated
   automatically.
 
+* `jj gerrit upload` now supports `--no-change-id` to push to Gerrit without
+  adding a `Change-Id` footer. Commits that already have a `Change-Id` or `Link`
+  footer are unaffected.
+
 ### Fixed bugs
 
 * The default pager flags now include `-K` (`--quit-on-intr`), so pressing
