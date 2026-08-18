@@ -520,9 +520,19 @@
                     "default": "none()"
                 },
                 "push": {
-                    "type": "string",
-                    "description": "The remote to which commits are pushed",
-                    "default": "origin"
+                    "description": "The remote(s) to which commits are pushed",
+                    "default": "origin",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                        }
+                    ]
                 },
                 "record-synthetic-predecessors": {
                     "type": "boolean",
