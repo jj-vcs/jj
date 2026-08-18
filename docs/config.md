@@ -1822,11 +1822,9 @@ push to a different remote:
 
 ```sh
 jj config set --repo git.push "github"
+jj config set --repo git.push "regex:'^(remote|upstream)'"
+jj config set --repo git.push '["remote*", "upstream*"]'
 ```
-
-Note that unlike `git.fetch`, `git.push` can currently only be a single remote.
-This is not a hard limitation, and could be changed in the future if there is
-demand.
 
 ### Default bookmarks and tags to fetch
 

@@ -2958,6 +2958,92 @@ fn test_git_push_unmapped_refs() {
     ");
 }
 
+fn add_remote(test_env: &TestEnvironment, work_dir: &TestWorkDir, name: &str) {
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", name])
+        .success();
+    work_dir
+        .run_jj([
+            "git",
+            "remote",
+            "add",
+            name,
+            test_env.work_dir(name).root().to_str().unwrap(),
+        ])
+        .success();
+    work_dir.run_jj(["bookmark", "track", "*"]).success();
+}
+
+#[test]
+fn test_git_push_parse_multiple_remotes_from_args_or_config() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let local_dir = test_env.work_dir("local");
+    add_remote(&test_env, &local_dir, "other_1");
+    add_remote(&test_env, &local_dir, "other_2");
+
+    let variants: [&[&str]; _] = [
+        &[r#"--config=git.push=["other_*"]"#],
+        &[r#"--config=git.push=["other_1", "other_2"]"#],
+        &[r#"--config=git.push="regex:'^(other_1|other_2)$'""#],
+        &["--remote=other_1", "--remote=other_2"],
+        &["--remote=other_*"],
+    ];
+    insta::allow_duplicates!(for variant_args in variants {
+        let output = local_dir
+            .run_jj(
+                [
+                    r#"--config=git.push=["other_1", "other_2"]"#,
+                    "git",
+                    "push",
+                    "-bbookmark1",
+                    "--dry-run",
+                ]
+                .iter()
+                .chain(variant_args),
+            )
+            .success();
+
+        insta::assert_snapshot!(output, @"
+        ------- stderr -------
+        Changes to push to other_1:
+          bookmark: bookmark1 [add to 9b2e76de3920]
+        Changes to push to other_2:
+          bookmark: bookmark1 [add to 9b2e76de3920]
+        Dry-run requested, not pushing.
+        [EOF]
+        ");
+    });
+}
+
+#[test]
+fn test_git_push_named_multiple_remotes_from_config() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let local_dir = test_env.work_dir("local");
+    add_remote(&test_env, &local_dir, "other_1");
+    add_remote(&test_env, &local_dir, "other_2");
+    local_dir.run_jj(["describe", "-mdescription"]).success();
+
+    let output = local_dir
+        .run_jj([
+            r#"--config=git.push=["other_1", "other_2"]"#,
+            "git",
+            "push",
+            "--named=named-bookmark=@",
+        ])
+        .success();
+
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to other_1:
+      bookmark: named-bookmark [add to d7738fce4d92]
+    Changes to push to other_2:
+      bookmark: named-bookmark [add to d7738fce4d92]
+    [EOF]
+    ");
+}
+
 #[must_use]
 fn get_bookmark_output(work_dir: &TestWorkDir) -> CommandOutput {
     // --quiet to suppress deleted bookmarks hint

@@ -1905,9 +1905,13 @@ Before the command actually moves, creates, or deletes a remote bookmark, it mak
 
 ###### **Options:**
 
-* `--remote <REMOTE>` — The remote to push to (only named remotes are supported)
+* `--remote <REMOTE>` — The remote(s) to push to (can be repeated)
 
    This defaults to the `git.push` setting. If that is not configured, and if there are multiple remotes, the remote named "origin" will be used.
+
+   By default, the specified pattern matches remote names with glob syntax, e.g., `--remote '*'`. You can also use other [string pattern syntax].
+
+   [string pattern syntax]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 * `-b`, `--bookmark <BOOKMARK>` — Push only this bookmark, or bookmarks matching a pattern (can be repeated)
 
    If a bookmark isn't tracking anything yet, the remote bookmark will be tracked automatically.
