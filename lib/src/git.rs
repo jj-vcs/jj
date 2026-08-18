@@ -1209,6 +1209,35 @@ pub async fn import_head(
     Ok(())
 }
 
+/// Imports the HEAD commit without updating the view.
+pub async fn import_head_commit(
+    mut_repo: &mut MutableRepo,
+) -> Result<Option<Commit>, GitImportError> {
+    let store = mut_repo.store();
+    let git_backend = get_git_backend(store)?;
+    let git_repo = git_backend.git_repo();
+
+    let Ok(oid) = git_repo.head_id() else {
+        return Ok(None);
+    };
+    let head_id = CommitId::from_bytes(oid.as_bytes());
+
+    let index = mut_repo.index();
+    if !index.has_id(&head_id).await? {
+        git_backend.import_head_commits([&head_id]).map_err(|err| {
+            GitImportError::MissingHeadTarget {
+                id: head_id.clone(),
+                err,
+            }
+        })?;
+    }
+    // It's unlikely the imported commits were missing, but I/O-related error
+    // can still occur.
+    let commit = store.get_commit_async(&head_id).await?;
+    mut_repo.add_head(&commit).await?;
+    Ok(Some(commit))
+}
+
 #[derive(Error, Debug)]
 pub enum GitExportError {
     #[error(transparent)]

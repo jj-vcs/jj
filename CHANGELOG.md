@@ -12,6 +12,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* `jj git import` in non-colocated repositories no longer imports commits from a
+  detached Git HEAD branch.
+
 ### Deprecations
 
 ### New features

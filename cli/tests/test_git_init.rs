@@ -220,9 +220,10 @@ fn test_git_init_external(bare: bool) {
         ◆  000000000000
         [EOF]
         ");
+        // Non-colocated repo shouldn't record the Git HEAD
         insta::assert_snapshot!(get_colocation_status(&work_dir), @"
         Workspace is currently not colocated with Git.
-        Last imported/exported Git HEAD: e80a42cccd069007c7a2bb427ac7f1d10b408633
+        Last imported/exported Git HEAD: (none)
         [EOF]
         ");
     }
