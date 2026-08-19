@@ -27,6 +27,8 @@ pub struct FileStateEntry {
 pub struct SparsePatterns {
     #[prost(string, repeated, tag = "1")]
     pub prefixes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, tag = "2")]
+    pub fileset_expression: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TreeState {
