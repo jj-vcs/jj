@@ -87,6 +87,13 @@ pub(crate) struct BisectRunArgs {
     /// will abort the bisection, and any other non-zero exit status means the
     /// revision is "bad".
     ///
+    /// In order for bisection to be meaningful, `COMMAND` must succeed for
+    /// every revision in `heads(REVSETS)`, and it must fail for every revision
+    /// in `parents(connected(REVSETS)) ~ connected(REVSETS)`; if you are using
+    /// `--find-good`, these checks are reversed. (Visit
+    /// <https://docs.jj-vcs.dev/latest/revsets/>
+    /// for more information about the jj revset language.)
+    ///
     /// The target's commit ID is available to the command in the
     /// `$JJ_BISECT_TARGET` environment variable.
     #[arg(value_name = "COMMAND")]
@@ -106,6 +113,15 @@ pub(crate) struct BisectRunArgs {
     /// good.
     #[arg(long, value_name = "TARGET", default_value_t = false)]
     find_good: bool,
+
+    /// Skip the pre-bisection checks
+    ///
+    /// By default, `COMMAND` will be run on every revision `jj bisect run`
+    /// assumes to be good or bad before bisection actually begins, as detailed
+    /// under the documentation for `COMMAND`. This flag disables these
+    /// checks.
+    #[arg(long)]
+    trust_endpoints: bool,
 }
 
 #[instrument(skip_all)]
@@ -132,9 +148,46 @@ pub(crate) async fn cmd_bisect_run(
 
     let initial_repo = workspace_command.repo().clone();
 
-    let mut bisector = Bisector::new(initial_repo.as_ref(), input_range).await?;
+    let mut bisector =
+        Bisector::new(initial_repo.as_ref(), input_range, !args.trust_endpoints).await?;
+
     let bisection_result = loop {
         match bisector.next_step().await? {
+            jj_lib::bisect::NextStep::Verify {
+                commit,
+                expected_evaluation,
+            } => {
+                // with --find-good, the assumptions on endpoint commits are flipped
+                let expected = expected_evaluation.invert_if(args.find_good);
+
+                {
+                    let mut formatter = ui.stdout_formatter();
+                    writeln!(
+                        formatter,
+                        "Pre-bisection check: ensuring this revision is {expected}:"
+                    )?;
+                    let commit_template = workspace_command.commit_summary_template();
+                    commit_template.format(&commit, formatter.as_mut())?;
+                    writeln!(formatter)?;
+                }
+
+                let cmd = get_command(args);
+                let EvaluationOutcome {
+                    evaluation: actual,
+                    exit_code,
+                } = evaluate_commit(ui, &mut workspace_command, cmd, &commit).await?;
+
+                if actual != expected {
+                    let mut formatter = ui.stdout_formatter();
+                    writeln!(
+                        formatter,
+                        "Cannot bisect: this revision was expected to be {expected}, but was \
+                         {actual} (exit status: {exit_code}) instead."
+                    )?;
+                    break BisectionResult::VerificationFailed;
+                }
+            }
+
             jj_lib::bisect::NextStep::Evaluate(commit) => {
                 {
                     let mut formatter = ui.stdout_formatter();
@@ -161,7 +214,8 @@ pub(crate) async fn cmd_bisect_run(
                 }
 
                 let cmd = get_command(args);
-                let evaluation = evaluate_commit(ui, &mut workspace_command, cmd, &commit).await?;
+                let EvaluationOutcome { evaluation, .. } =
+                    evaluate_commit(ui, &mut workspace_command, cmd, &commit).await?;
 
                 {
                     let mut formatter = ui.stdout_formatter();
@@ -180,13 +234,9 @@ pub(crate) async fn cmd_bisect_run(
                     writeln!(formatter)?;
                 }
 
-                if args.find_good {
-                    // If we're looking for the first good revision,
-                    // invert the evaluation result.
-                    bisector.mark(commit.id().clone(), evaluation.invert());
-                } else {
-                    bisector.mark(commit.id().clone(), evaluation);
-                }
+                // If we're looking for the first good revision,
+                // invert the evaluation result.
+                bisector.mark(commit.id().clone(), evaluation.invert_if(args.find_good));
 
                 // Reload the workspace because the evaluation command may run `jj` commands.
                 workspace_command = command.workspace_helper(ui).await?;
@@ -208,8 +258,15 @@ pub(crate) async fn cmd_bisect_run(
         short_operation_hash(initial_repo.op_id())
     )?;
 
-    let target = if args.find_good { "good" } else { "bad" };
+    let target = if args.find_good {
+        Evaluation::Good
+    } else {
+        Evaluation::Bad
+    };
     match bisection_result {
+        BisectionResult::VerificationFailed => {
+            return Err(user_error("Bisection preconditions failed"));
+        }
         BisectionResult::Abort => {
             return Err(user_error("Bisection aborted"));
         }
@@ -266,12 +323,17 @@ fn get_command(args: &BisectRunArgs) -> std::process::Command {
     }
 }
 
+struct EvaluationOutcome {
+    evaluation: Evaluation,
+    exit_code: i32,
+}
+
 async fn evaluate_commit(
     ui: &mut Ui,
     workspace_command: &mut WorkspaceCommandHelper,
     mut cmd: std::process::Command,
     commit: &Commit,
-) -> Result<Evaluation, CommandError> {
+) -> Result<EvaluationOutcome, CommandError> {
     let mut tx = workspace_command.start_transaction();
     let commit_id_hex = commit.id().hex();
     tx.check_out(commit)?;
@@ -300,5 +362,8 @@ async fn evaluate_commit(
         }
     };
 
-    Ok(evaluation)
+    Ok(EvaluationOutcome {
+        evaluation,
+        exit_code: status.code().unwrap_or(-1),
+    })
 }
