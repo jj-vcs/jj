@@ -132,9 +132,44 @@ pub(crate) async fn cmd_bisect_run(
 
     let initial_repo = workspace_command.repo().clone();
 
-    let mut bisector = Bisector::new(initial_repo.as_ref(), input_range).await?;
+    let mut bisector = Bisector::new(initial_repo.as_ref(), input_range, false).await?;
     let bisection_result = loop {
         match bisector.next_step().await? {
+            jj_lib::bisect::NextStep::Verify {
+                commit,
+                expected_evaluation,
+            } => {
+                // with --find-good, the assumptions on terminal commits are flipped
+                let expected = expected_evaluation.invert_if(args.find_good);
+
+                {
+                    let mut formatter = ui.stdout_formatter();
+                    writeln!(
+                        formatter,
+                        "Pre-bisection check: ensuring this commit is {expected:#?}:"
+                    )?;
+                    let commit_template = workspace_command.commit_summary_template();
+                    commit_template.format(&commit, formatter.as_mut())?;
+                    writeln!(formatter)?;
+                }
+
+                let cmd = get_command(args);
+                let EvaluationOutcome {
+                    evaluation: actual,
+                    exit_code,
+                } = evaluate_commit(ui, &mut workspace_command, cmd, &commit).await?;
+
+                if actual != expected {
+                    let mut formatter = ui.stdout_formatter();
+                    writeln!(
+                        formatter,
+                        "Cannot bisect: this commit was expected to be {expected:#?}, but was \
+                         found to be {actual:#?} (exit status: {exit_code}) instead."
+                    )?;
+                    break BisectionResult::VerificationFailed;
+                }
+            }
+
             jj_lib::bisect::NextStep::Evaluate(commit) => {
                 {
                     let mut formatter = ui.stdout_formatter();
@@ -161,7 +196,8 @@ pub(crate) async fn cmd_bisect_run(
                 }
 
                 let cmd = get_command(args);
-                let evaluation = evaluate_commit(ui, &mut workspace_command, cmd, &commit).await?;
+                let EvaluationOutcome { evaluation, .. } =
+                    evaluate_commit(ui, &mut workspace_command, cmd, &commit).await?;
 
                 {
                     let mut formatter = ui.stdout_formatter();
@@ -180,13 +216,9 @@ pub(crate) async fn cmd_bisect_run(
                     writeln!(formatter)?;
                 }
 
-                if args.find_good {
-                    // If we're looking for the first good revision,
-                    // invert the evaluation result.
-                    bisector.mark(commit.id().clone(), evaluation.invert());
-                } else {
-                    bisector.mark(commit.id().clone(), evaluation);
-                }
+                // If we're looking for the first good revision,
+                // invert the evaluation result.
+                bisector.mark(commit.id().clone(), evaluation.invert_if(args.find_good));
 
                 // Reload the workspace because the evaluation command may run `jj` commands.
                 workspace_command = command.workspace_helper(ui).await?;
@@ -210,6 +242,9 @@ pub(crate) async fn cmd_bisect_run(
 
     let target = if args.find_good { "good" } else { "bad" };
     match bisection_result {
+        BisectionResult::VerificationFailed => {
+            return Err(user_error("Bisection preconditions failed"));
+        }
         BisectionResult::Abort => {
             return Err(user_error("Bisection aborted"));
         }
@@ -266,12 +301,17 @@ fn get_command(args: &BisectRunArgs) -> std::process::Command {
     }
 }
 
+struct EvaluationOutcome {
+    evaluation: Evaluation,
+    exit_code: i32,
+}
+
 async fn evaluate_commit(
     ui: &mut Ui,
     workspace_command: &mut WorkspaceCommandHelper,
     mut cmd: std::process::Command,
     commit: &Commit,
-) -> Result<Evaluation, CommandError> {
+) -> Result<EvaluationOutcome, CommandError> {
     let mut tx = workspace_command.start_transaction();
     let commit_id_hex = commit.id().hex();
     tx.check_out(commit)?;
@@ -300,5 +340,8 @@ async fn evaluate_commit(
         }
     };
 
-    Ok(evaluation)
+    Ok(EvaluationOutcome {
+        evaluation,
+        exit_code: status.code().unwrap_or(-1),
+    })
 }

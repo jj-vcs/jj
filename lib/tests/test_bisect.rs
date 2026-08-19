@@ -31,11 +31,33 @@ fn test_bisection<'a>(
     repo: &dyn Repo,
     input_range: &Arc<ResolvedRevsetExpression>,
     results: impl IntoIterator<Item = (&'a CommitId, Evaluation)>,
+    verify_preconditions: bool,
 ) -> BisectionResult {
-    let mut bisector = Bisector::new(repo, input_range.clone()).block_on().unwrap();
+    let mut bisector = Bisector::new(repo, input_range.clone(), verify_preconditions)
+        .block_on()
+        .unwrap();
     let mut iter = results.into_iter().enumerate();
     loop {
         match bisector.next_step().block_on().unwrap() {
+            NextStep::Verify {
+                commit,
+                expected_evaluation: evaluation,
+            } => {
+                let (i, (expected_id, expected_evaluation)) =
+                    iter.next().expect("More commits than expected were tested");
+                let description = commit.description();
+                assert_eq!(
+                    commit.id(),
+                    expected_id,
+                    "Attempt to test unexpected commit at iteration {i}: {commit:#?} with \
+                     description {description}"
+                );
+                assert_eq!(
+                    evaluation, expected_evaluation,
+                    "Pre-bisection check at iteration {i} was {evaluation:#?}; should've been \
+                     {expected_evaluation:#?}"
+                );
+            }
             NextStep::Evaluate(commit) => {
                 let (i, (expected_id, result)) =
                     iter.next().expect("More commits than expected were tested");
@@ -61,7 +83,7 @@ fn test_bisect_empty_input() {
 
     let input_range = ResolvedRevsetExpression::none();
     let expected_tests = [];
-    let result = test_bisection(repo.as_ref(), &input_range, expected_tests);
+    let result = test_bisection(repo.as_ref(), &input_range, expected_tests, true);
     assert_matches!(result, BisectionResult::Indeterminate);
 }
 
@@ -88,7 +110,7 @@ fn test_bisect_linear() {
         (commit1.id(), Evaluation::Bad),
         (root_commit.id(), Evaluation::Bad),
     ];
-    let result = test_bisection(tx.repo(), &input_range, expected_tests);
+    let result = test_bisection(tx.repo(), &input_range, expected_tests, false);
     assert_eq!(result, BisectionResult::Found(vec![root_commit.clone()]));
 
     // Commit 1 is the first bad commit
@@ -97,7 +119,7 @@ fn test_bisect_linear() {
         (commit1.id(), Evaluation::Bad),
         (root_commit.id(), Evaluation::Good),
     ];
-    let result = test_bisection(tx.repo(), &input_range, expected_tests);
+    let result = test_bisection(tx.repo(), &input_range, expected_tests, false);
     assert_eq!(result, BisectionResult::Found(vec![commit1.clone()]));
 
     // Commit 3 is the first bad commit
@@ -106,7 +128,7 @@ fn test_bisect_linear() {
         (commit1.id(), Evaluation::Good),
         (commit2.id(), Evaluation::Good),
     ];
-    let result = test_bisection(tx.repo(), &input_range, expected_tests);
+    let result = test_bisection(tx.repo(), &input_range, expected_tests, false);
     assert_eq!(result, BisectionResult::Found(vec![commit3.clone()]));
 
     // Commit 5 is the first bad commit
@@ -115,7 +137,7 @@ fn test_bisect_linear() {
         (commit5.id(), Evaluation::Bad),
         (commit4.id(), Evaluation::Good),
     ];
-    let result = test_bisection(tx.repo(), &input_range, expected_tests);
+    let result = test_bisection(tx.repo(), &input_range, expected_tests, false);
     assert_eq!(result, BisectionResult::Found(vec![commit5.clone()]));
 
     // Commit 7 is the first bad commit
@@ -124,7 +146,7 @@ fn test_bisect_linear() {
         (commit5.id(), Evaluation::Good),
         (commit6.id(), Evaluation::Good),
     ];
-    let result = test_bisection(tx.repo(), &input_range, expected_tests);
+    let result = test_bisection(tx.repo(), &input_range, expected_tests, false);
     assert_eq!(result, BisectionResult::Found(vec![commit7.clone()]));
 
     // Commit 2 is the first bad commit but commit 3 is skipped
@@ -134,7 +156,7 @@ fn test_bisect_linear() {
         (root_commit.id(), Evaluation::Good),
         (commit1.id(), Evaluation::Good),
     ];
-    let result = test_bisection(tx.repo(), &input_range, expected_tests);
+    let result = test_bisection(tx.repo(), &input_range, expected_tests, false);
     assert_eq!(result, BisectionResult::Found(vec![commit2.clone()]));
 
     // Commit 4 is the first bad commit but commit 3 is skipped
@@ -144,7 +166,7 @@ fn test_bisect_linear() {
         (commit5.id(), Evaluation::Bad),
         (commit4.id(), Evaluation::Bad),
     ];
-    let result = test_bisection(tx.repo(), &input_range, expected_tests);
+    let result = test_bisection(tx.repo(), &input_range, expected_tests, false);
     assert_eq!(
         result,
         BisectionResult::FoundDespiteSkips {
@@ -162,7 +184,7 @@ fn test_bisect_linear() {
         (root_commit.id(), Evaluation::Good),
         (commit1.id(), Evaluation::Skip),
     ];
-    let result = test_bisection(tx.repo(), &input_range, expected_tests);
+    let result = test_bisection(tx.repo(), &input_range, expected_tests, false);
     assert_eq!(
         result,
         BisectionResult::FoundDespiteSkips {
@@ -183,7 +205,7 @@ fn test_bisect_linear() {
         (root_commit.id(), Evaluation::Skip),
         (commit6.id(), Evaluation::Good),
     ];
-    let result = test_bisection(tx.repo(), &input_range, expected_tests);
+    let result = test_bisection(tx.repo(), &input_range, expected_tests, false);
     assert_eq!(result, BisectionResult::Found(vec![commit7.clone()]));
 
     // Gaps in the input range are allowed
@@ -198,7 +220,17 @@ fn test_bisect_linear() {
         (commit2.id(), Evaluation::Good),
         (commit4.id(), Evaluation::Bad),
     ];
-    let result = test_bisection(tx.repo(), &input_range, expected_tests);
+    let result = test_bisection(tx.repo(), &input_range, expected_tests, false);
+    assert_eq!(result, BisectionResult::Found(vec![commit4.clone()]));
+
+    // Same, but now while verifying preconditions
+    let expected_tests = [
+        (commit7.id(), Evaluation::Bad),
+        (root_commit.id(), Evaluation::Good),
+        (commit2.id(), Evaluation::Good),
+        (commit4.id(), Evaluation::Bad),
+    ];
+    let result = test_bisection(tx.repo(), &input_range, expected_tests, true);
     assert_eq!(result, BisectionResult::Found(vec![commit4.clone()]));
 }
 
@@ -233,7 +265,7 @@ fn test_bisect_nonlinear() {
         (commit3.id(), Evaluation::Bad),
         (root_commit.id(), Evaluation::Bad),
     ];
-    let result = test_bisection(tx.repo(), &input_range, expected_tests);
+    let result = test_bisection(tx.repo(), &input_range, expected_tests, false);
     assert_eq!(result, BisectionResult::Found(vec![root_commit.clone()]));
 
     // Commit 3 is the first bad commit
@@ -242,7 +274,7 @@ fn test_bisect_nonlinear() {
         (root_commit.id(), Evaluation::Good),
         (commit1.id(), Evaluation::Good),
     ];
-    let result = test_bisection(tx.repo(), &input_range, expected_tests);
+    let result = test_bisection(tx.repo(), &input_range, expected_tests, false);
     assert_eq!(result, BisectionResult::Found(vec![commit3.clone()]));
 
     // Commit 4 is the first bad commit
@@ -251,7 +283,7 @@ fn test_bisect_nonlinear() {
         (commit4.id(), Evaluation::Bad),
         (commit2.id(), Evaluation::Good),
     ];
-    let result = test_bisection(tx.repo(), &input_range, expected_tests);
+    let result = test_bisection(tx.repo(), &input_range, expected_tests, false);
     assert_eq!(result, BisectionResult::Found(vec![commit4.clone()]));
 
     // Commit 6 is the first bad commit
@@ -261,7 +293,7 @@ fn test_bisect_nonlinear() {
         (commit5.id(), Evaluation::Good),
         (commit6.id(), Evaluation::Bad),
     ];
-    let result = test_bisection(tx.repo(), &input_range, expected_tests);
+    let result = test_bisection(tx.repo(), &input_range, expected_tests, false);
     assert_eq!(result, BisectionResult::Found(vec![commit6.clone()]));
 }
 
@@ -274,6 +306,7 @@ fn test_bisect_disjoint_sets() {
     // |/
     // 0
     let mut tx = repo.start_transaction();
+    let root_commit = repo.store().root_commit();
     let commit1 = write_random_commit(tx.repo_mut());
     let commit2 = write_random_commit(tx.repo_mut());
 
@@ -282,10 +315,22 @@ fn test_bisect_disjoint_sets() {
 
     // Both commit 1 and commit 2 are (implicitly) the first bad commits
     let expected_tests = [];
-    let result = test_bisection(tx.repo(), &input_range, expected_tests);
+    let result = test_bisection(tx.repo(), &input_range, expected_tests, false);
     assert_eq!(
         result,
         BisectionResult::Found(vec![commit2.clone(), commit1.clone()])
+    );
+
+    // Both commit 1 and commit 2 are (implicitly) the first bad commits
+    test_bisection(
+        tx.repo(),
+        &input_range,
+        [
+            (commit1.id(), Evaluation::Bad),
+            (commit2.id(), Evaluation::Bad),
+            (root_commit.id(), Evaluation::Good),
+        ],
+        true,
     );
 }
 
@@ -310,6 +355,6 @@ fn test_bisect_abort() {
         (commit3.id(), Evaluation::Good),
         (commit5.id(), Evaluation::Abort),
     ];
-    let result = test_bisection(tx.repo(), &input_range, expected_tests);
+    let result = test_bisection(tx.repo(), &input_range, expected_tests, false);
     assert_eq!(result, BisectionResult::Abort);
 }

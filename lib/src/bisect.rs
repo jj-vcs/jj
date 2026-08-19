@@ -16,6 +16,7 @@
 
 use std::collections::HashSet;
 use std::collections::VecDeque;
+use std::iter;
 use std::pin::pin;
 use std::sync::Arc;
 
@@ -45,7 +46,7 @@ pub enum BisectionError {
 
 /// Indicates whether a given commit was good, bad, or if it could not be
 /// determined.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Evaluation {
     /// The commit was good
     Good,
@@ -70,6 +71,11 @@ impl Evaluation {
             Abort => Abort,
         }
     }
+
+    /// Returns the inverted evaluation if `condition` is true.
+    pub fn invert_if(self, condition: bool) -> Self {
+        if condition { self.invert() } else { self }
+    }
 }
 
 /// Performs bisection to find the first bad commit in a range.
@@ -80,6 +86,7 @@ pub struct Bisector<'repo> {
     bad_commits: HashSet<CommitId>,
     skipped_commits: HashSet<CommitId>,
     aborted: bool,
+    verifications: Vec<(CommitId, Evaluation)>,
 }
 
 /// The result of bisection.
@@ -101,11 +108,20 @@ pub enum BisectionResult {
     Indeterminate,
     /// Bisection was aborted.
     Abort,
+    /// Bisection preconditions were not met.
+    VerificationFailed,
 }
 
 /// The next bisection step.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum NextStep {
+    /// The commit must evaluate a certain way.
+    Verify {
+        /// The commit being verified.
+        commit: Commit,
+        /// If the commit does not evaluate to this, bisection isn't possible.
+        expected_evaluation: Evaluation,
+    },
     /// The commit must be evaluated.
     Evaluate(Commit),
     /// Bisection is complete.
@@ -115,20 +131,49 @@ pub enum NextStep {
 impl<'repo> Bisector<'repo> {
     /// Create a new bisector. The range's heads are assumed to be bad.
     /// Parents of the range's roots are assumed to be good.
+    /// If `verify_preconditions` is true, these assumptions are verified.
     pub async fn new(
         repo: &'repo dyn Repo,
         input_range: Arc<ResolvedRevsetExpression>,
+        verify_preconditions: bool,
     ) -> Result<Self, BisectionError> {
-        let bad_commits = input_range
+        let bad_commits: Vec<CommitId> = input_range
             .heads()
             .evaluate(repo)?
             .stream()
             .try_collect()
             .await?;
+        let good_commits: Vec<CommitId> = input_range
+            .roots()
+            .parents()
+            .evaluate(repo)?
+            .stream()
+            .try_collect()
+            .await?;
+
+        let verifications: Vec<(CommitId, Evaluation)> = if verify_preconditions {
+            // these will be run in reverse order
+            iter::empty()
+                .chain(
+                    good_commits
+                        .iter()
+                        .map(|commit_id| (commit_id.clone(), Evaluation::Good)),
+                )
+                .chain(
+                    bad_commits
+                        .iter()
+                        .map(|commit_id| (commit_id.clone(), Evaluation::Bad)),
+                )
+                .collect()
+        } else {
+            vec![]
+        };
+
         Ok(Self {
             repo,
             input_range,
-            bad_commits,
+            verifications,
+            bad_commits: HashSet::from_iter(bad_commits),
             good_commits: HashSet::new(),
             skipped_commits: HashSet::new(),
             aborted: false,
@@ -228,7 +273,13 @@ impl<'repo> Bisector<'repo> {
         // TODO: Handle long ranges of skipped revisions better
         let to_evaluate_expr = self.candidates().bisect().latest(1);
         let to_evaluate_set = to_evaluate_expr.evaluate(self.repo)?;
-        if let Some(commit_id) = pin!(to_evaluate_set.stream()).try_next().await? {
+        if let Some(verification) = self.verifications.pop() {
+            let commit = self.repo.store().get_commit_async(&verification.0).await?;
+            Ok(NextStep::Verify {
+                commit,
+                expected_evaluation: verification.1,
+            })
+        } else if let Some(commit_id) = pin!(to_evaluate_set.stream()).try_next().await? {
             let commit = self.repo.store().get_commit_async(&commit_id).await?;
             Ok(NextStep::Evaluate(commit))
         } else {
