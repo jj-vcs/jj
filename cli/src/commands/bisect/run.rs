@@ -87,6 +87,12 @@ pub(crate) struct BisectRunArgs {
     /// will abort the bisection, and any other non-zero exit status means the
     /// revision is "bad".
     ///
+    /// In order for bisection to be meaningful, `COMMAND` must succeed on every
+    /// revisions in `heads(REVSETS)`, and it must fail for on every revision in
+    /// `parents(roots(REVSETS))`; if you are using `--find-good`, these checks
+    /// are reversed. (Note that `parents(roots(REVSETS))` contains revisions
+    /// that are not in `REVSETS`.)
+    ///
     /// The target's commit ID is available to the command in the
     /// `$JJ_BISECT_TARGET` environment variable.
     #[arg(value_name = "COMMAND")]
@@ -106,6 +112,15 @@ pub(crate) struct BisectRunArgs {
     /// good.
     #[arg(long, value_name = "TARGET", default_value_t = false)]
     find_good: bool,
+
+    /// Skip the pre-bisection checks
+    ///
+    /// By default, `COMMAND` will be run on every commit `jj bisect run`
+    /// assumes to be good or bad before bisection actually begins, as detailed
+    /// under the documentation for `COMMAND`. This flag disables these
+    /// checks.
+    #[arg(long)]
+    trust_endpoints: bool,
 }
 
 #[instrument(skip_all)]
@@ -132,7 +147,9 @@ pub(crate) async fn cmd_bisect_run(
 
     let initial_repo = workspace_command.repo().clone();
 
-    let mut bisector = Bisector::new(initial_repo.as_ref(), input_range, false).await?;
+    let mut bisector =
+        Bisector::new(initial_repo.as_ref(), input_range, !args.trust_endpoints).await?;
+
     let bisection_result = loop {
         match bisector.next_step().await? {
             jj_lib::bisect::NextStep::Verify {

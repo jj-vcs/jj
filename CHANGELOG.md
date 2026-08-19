@@ -19,6 +19,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj bisect` will now mention when it cannot unambiguously find the first bad
   revision due to skips in evaluation.
 
+* `jj bisect run --verify-endpoints` runs some consistency checks before proceeding to bisect,
+  making sure that the provided command can indeed tell good and bad commits apart.
+  
 * Git HEAD state is now tracked per worktree internally. This prepares
   colocated repositories for support of multiple Git worktrees, where each
   jj workspace can have its own Git HEAD. Existing repositories are migrated
