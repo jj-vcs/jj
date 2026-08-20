@@ -934,8 +934,20 @@ fn all_files_from_rev(rev: String, current: &std::ffi::OsStr) -> Vec<CompletionC
     })
 }
 
-fn modified_files_from_rev_with_jj_cmd(
-    rev: (String, Option<String>),
+#[derive(Clone, Debug)]
+enum DiffSelection {
+    Revisions(Vec<String>),
+    Range { from: String, to: String },
+}
+
+impl DiffSelection {
+    fn revision(revision: String) -> Self {
+        Self::Revisions(vec![revision])
+    }
+}
+
+fn modified_files_from_selection_with_jj_cmd(
+    selection: &DiffSelection,
     mut cmd: std::process::Command,
     current: &std::ffi::OsStr,
 ) -> Result<Vec<CompletionCandidate>, CommandError> {
@@ -953,13 +965,19 @@ fn modified_files_from_rev_with_jj_cmd(
           if(status == 'renamed', 'renamed.source ' ++ source.path().display() ++ "\n"),
         )
     "#};
-    cmd.arg("diff")
-        .args(["--template", template])
-        .arg(current_prefix_to_fileset(current));
-    match rev {
-        (rev, None) => cmd.arg("--revisions").arg(rev),
-        (from, Some(to)) => cmd.arg("--from").arg(from).arg("--to").arg(to),
-    };
+    cmd.arg("diff").args(["--template", template]);
+    match selection {
+        DiffSelection::Revisions(revisions) => {
+            for revision in revisions {
+                cmd.arg("--revisions").arg(revision);
+            }
+        }
+        DiffSelection::Range { from, to } => {
+            cmd.arg("--from").arg(from).arg("--to").arg(to);
+        }
+    }
+    cmd.arg(current_prefix_to_fileset(current));
+
     let output = cmd.output().map_err(user_error)?;
     let stdout = String::from_utf8_lossy(&output.stdout);
 
@@ -992,11 +1010,24 @@ fn modified_files_from_rev_with_jj_cmd(
     Ok(candidates)
 }
 
-fn modified_files_from_rev(
-    rev: (String, Option<String>),
+fn modified_files_from_rev_with_jj_cmd(
+    rev: String,
+    cmd: std::process::Command,
+    current: &std::ffi::OsStr,
+) -> Result<Vec<CompletionCandidate>, CommandError> {
+    let selection = DiffSelection::revision(rev);
+    modified_files_from_selection_with_jj_cmd(&selection, cmd, current)
+}
+
+fn modified_files_from_selection(
+    selection: DiffSelection,
     current: &std::ffi::OsStr,
 ) -> Vec<CompletionCandidate> {
-    with_jj(|jj, _| modified_files_from_rev_with_jj_cmd(rev, jj.build(), current))
+    with_jj(|jj, _| modified_files_from_selection_with_jj_cmd(&selection, jj.build(), current))
+}
+
+fn modified_files_from_rev(rev: String, current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+    modified_files_from_selection(DiffSelection::revision(rev), current)
 }
 
 fn conflicted_files_from_rev(rev: &str, current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
@@ -1035,7 +1066,7 @@ fn conflicted_files_from_rev(rev: &str, current: &std::ffi::OsStr) -> Vec<Comple
 }
 
 pub fn modified_files(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
-    modified_files_from_rev(("@".into(), None), current)
+    modified_files_from_rev("@".into(), current)
 }
 
 pub fn all_revision_files(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
@@ -1043,32 +1074,35 @@ pub fn all_revision_files(current: &std::ffi::OsStr) -> Vec<CompletionCandidate>
 }
 
 pub fn modified_revision_files(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
-    modified_files_from_rev((parse::revision_or_wc(), None), current)
+    modified_files_from_rev(parse::revision_or_wc(), current)
 }
 
 pub fn modified_range_files(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
     match parse::range() {
-        Some((from, to)) => modified_files_from_rev((from, Some(to)), current),
-        None => modified_files_from_rev(("@".into(), None), current),
+        Some((from, to)) => {
+            modified_files_from_selection(DiffSelection::Range { from, to }, current)
+        }
+        None => modified_files_from_rev("@".into(), current),
     }
 }
 
 /// Completes files in `@` *or* the `--from` revision (not the diff between
 /// `--from` and `@`)
 pub fn modified_from_files(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
-    modified_files_from_rev((parse::from_or_wc(), None), current)
+    modified_files_from_rev(parse::from_or_wc(), current)
 }
 
 pub fn modified_revision_or_range_files(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
-    if let Some(rev) = parse::revision() {
-        return modified_files_from_rev((rev, None), current);
+    let revisions = parse::revisions();
+    if revisions.is_empty() {
+        return modified_range_files(current);
     }
-    modified_range_files(current)
+    modified_files_from_selection(DiffSelection::Revisions(revisions), current)
 }
 
 pub fn modified_changes_in_or_range_files(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
     if let Some(rev) = parse::changes_in() {
-        return modified_files_from_rev((rev, None), current);
+        return modified_files_from_rev(rev, current);
     }
     modified_range_files(current)
 }
@@ -1080,7 +1114,7 @@ pub fn revision_conflicted_files(current: &std::ffi::OsStr) -> Vec<CompletionCan
 /// Specific function for completing file paths for `jj squash`
 pub fn squash_revision_files(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
     let rev = parse::squash_revision().unwrap_or_else(|| "@".into());
-    modified_files_from_rev((rev, None), current)
+    modified_files_from_rev(rev, current)
 }
 
 /// Specific function for completing file paths for `jj interdiff`
@@ -1092,9 +1126,9 @@ pub fn interdiff_files(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
     // files that are the same in both, which is a false positive. This approach
     // is more lightweight than actually doing a temporary rebase here.
     with_jj(|jj, _| {
-        let mut res = modified_files_from_rev_with_jj_cmd((from, None), jj.build(), current)?;
+        let mut res = modified_files_from_rev_with_jj_cmd(from, jj.build(), current)?;
         res.extend(modified_files_from_rev_with_jj_cmd(
-            (to, None),
+            to,
             jj.build(),
             current,
         )?);
@@ -1104,7 +1138,7 @@ pub fn interdiff_files(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
 
 /// Specific function for completing file paths for `jj log`
 pub fn log_files(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
-    let mut rev = parse::log_revisions().join(")|(");
+    let mut rev = parse::revisions().join(")|(");
     if rev.is_empty() {
         rev = "@".into();
     } else {
@@ -1308,6 +1342,11 @@ mod parse {
         parse_revision_impl(std::env::args())
     }
 
+    pub fn revisions() -> Vec<String> {
+        let candidates = &["-r", "--revision", "--revisions"];
+        parse_flag(candidates, std::env::args()).collect()
+    }
+
     pub fn parse_changes_in_impl(args: impl Iterator<Item = String>) -> Option<String> {
         parse_flag(&["-c", "--changes-in"], args).next()
     }
@@ -1330,12 +1369,15 @@ mod parse {
     where
         T: Iterator<Item = String>,
     {
-        let from = parse_flag(&["-f", "--from"], args()).next()?;
-        let to = parse_flag(&["-t", "--to"], args())
-            .next()
-            .unwrap_or_else(|| "@".into());
-
-        Some((from, to))
+        let from = parse_flag(&["-f", "--from"], args()).next();
+        let to = parse_flag(&["-t", "--to"], args()).next();
+        if from.is_none() && to.is_none() {
+            return None;
+        }
+        Some((
+            from.unwrap_or_else(|| "@".into()),
+            to.unwrap_or_else(|| "@".into()),
+        ))
     }
 
     pub fn range() -> Option<(String, String)> {
@@ -1351,13 +1393,6 @@ mod parse {
             return Some(rev);
         }
         parse_flag(&["-f", "--from"], std::env::args()).next()
-    }
-
-    // Special parse function only for `jj log`. It has a --revisions flag,
-    // instead of the usual --revision, and it can be supplied multiple times.
-    pub fn log_revisions() -> Vec<String> {
-        let candidates = &["-r", "--revisions"];
-        parse_flag(candidates, std::env::args()).collect()
     }
 
     fn strip_shell_quotes(s: &str) -> &str {
@@ -1509,6 +1544,16 @@ mod tests {
             assert_eq!(
                 parse::parse_range_impl(|| args.clone()),
                 Some(("foo".into(), "@".into())),
+                "case: {case:?}",
+            );
+        }
+        let from_working_copy_cases: &[&[&str]] =
+            &[&["-t", "bar"], &["--to", "bar"], &["-t=bar"], &["--to=bar"]];
+        for case in from_working_copy_cases {
+            let args = case.iter().map(|s| s.to_string());
+            assert_eq!(
+                parse::parse_range_impl(|| args.clone()),
+                Some(("@".into(), "bar".into())),
                 "case: {case:?}",
             );
         }

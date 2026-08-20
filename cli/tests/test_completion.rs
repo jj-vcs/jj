@@ -1982,6 +1982,35 @@ fn test_files() {
     [EOF]
     ");
 
+    let output = work_dir.complete_fish(["diff", "--revisions=@-", "f_"]);
+    insta::assert_snapshot!(output, @"
+    f_added	Added
+    f_another_renamed_2	Renamed
+    f_copied	Copied
+    f_deleted	Deleted
+    f_dir/
+    f_modified	Modified
+    f_not_yet_copied	Modified
+    f_not_yet_renamed	Renamed
+    f_not_yet_renamed_2	Renamed
+    f_not_yet_renamed_3	Renamed
+    f_renamed	Renamed
+    [EOF]
+    ");
+
+    let output = work_dir.complete_fish(["diff", "-r", "first", "--revisions=second", "f_"]);
+    insta::assert_snapshot!(output, @"
+    f_added	Added
+    f_another_renamed_2	Added
+    f_copied	Added
+    f_dir/
+    f_modified	Added
+    f_not_yet_copied	Added
+    f_renamed	Added
+    f_unchanged	Added
+    [EOF]
+    ");
+
     let output = work_dir.complete_fish(["diff", "-r", "@-", "f_dir/../"]);
     insta::assert_snapshot!(output, @"
     f_dir/../f_added	Added
@@ -2029,6 +2058,13 @@ fn test_files() {
     f_not_yet_copied	Added
     f_renamed	Added
     f_unchanged	Added
+    [EOF]
+    ");
+
+    let output = work_dir.complete_fish(["diff", "--to=second", "f_"]);
+    insta::assert_snapshot!(output, @"
+    f_added_2	Deleted
+    f_modified	Modified
     [EOF]
     ");
 
