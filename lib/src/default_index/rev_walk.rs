@@ -615,7 +615,7 @@ impl RevWalkItemGenerationRange {
 }
 
 /// Walks queue items until `bottom_pos`. Returns item if found at `bottom_pos`.
-fn flush_queue_until<I: RevWalkIndex + ?Sized>(
+pub(super) fn flush_queue_until<I: RevWalkIndex + ?Sized>(
     queue: &mut RevWalkQueue<I::Position, ()>,
     index: &I,
     bottom_pos: I::Position,
