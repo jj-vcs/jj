@@ -4023,6 +4023,158 @@ fn test_fetch_empty_repo() -> TestResult {
 }
 
 #[test]
+fn test_fetch_commits_from_refs() -> TestResult {
+    let test_data = GitRepoData::create();
+    let commit_id1 = empty_git_commit(&test_data.origin_repo, "refs/pull/123/head", &[]);
+    let commit_id2 = empty_git_commit(&test_data.origin_repo, "refs/changes/456", &[]);
+    // A one-off fetch must not overwrite or delete a pre-existing internal ref.
+    let existing_ref_name = "refs/jj/fetch/origin/refs/pull/123/head";
+    let existing_ref_target = test_data.git_repo.write_blob(b"keep this ref")?.detach();
+    test_data.git_repo.reference(
+        existing_ref_name,
+        existing_ref_target,
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "test existing ref",
+    )?;
+    let subprocess_options = GitSubprocessOptions::from_settings(test_data.repo.settings())?;
+    let fetched_ids = git::fetch_commits(
+        test_data.repo.store(),
+        subprocess_options,
+        "origin".as_ref(),
+        &["refs/pull/123/head", "refs/changes/456"],
+        &mut NullCallback,
+        None,
+    )?;
+
+    assert_eq!(fetched_ids, [jj_id(commit_id1), jj_id(commit_id2)]);
+    assert_eq!(
+        test_data.git_repo.find_reference(existing_ref_name)?.id(),
+        existing_ref_target
+    );
+    assert_eq!(
+        test_data
+            .git_repo
+            .references()?
+            .prefixed("refs/jj/fetch/")?
+            .count(),
+        1
+    );
+    let mut tx = test_data.repo.start_transaction();
+    for fetched_id in fetched_ids {
+        let commit = git::import_commit(tx.repo_mut(), fetched_id).block_on()?;
+        assert!(tx.repo().view().heads().contains(commit.id()));
+    }
+    Ok(())
+}
+
+#[test]
+fn test_fetch_commit_by_id() -> TestResult {
+    let test_data = GitRepoData::create();
+    let commit_id = empty_git_commit(&test_data.origin_repo, "refs/hidden/review", &[]);
+    let subprocess_options = GitSubprocessOptions::from_settings(test_data.repo.settings())?;
+    let commit_id_string = commit_id.to_string();
+    let [fetched_id] = git::fetch_commits(
+        test_data.repo.store(),
+        subprocess_options,
+        "origin".as_ref(),
+        &[&commit_id_string],
+        &mut NullCallback,
+        None,
+    )?
+    .try_into()
+    .unwrap();
+
+    assert_eq!(fetched_id, jj_id(commit_id));
+    let mut tx = test_data.repo.start_transaction();
+    let commit = git::import_commit(tx.repo_mut(), fetched_id).block_on()?;
+    assert!(tx.repo().view().heads().contains(commit.id()));
+    Ok(())
+}
+
+#[test]
+fn test_fetch_commit_cleans_up_non_commit_target() -> TestResult {
+    let test_data = GitRepoData::create();
+    let blob_id = test_data.origin_repo.write_blob(b"not a commit")?.detach();
+    test_data.origin_repo.reference(
+        "refs/meta/blob",
+        blob_id,
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "create non-commit ref",
+    )?;
+    let subprocess_options = GitSubprocessOptions::from_settings(test_data.repo.settings())?;
+    let result = git::fetch_commits(
+        test_data.repo.store(),
+        subprocess_options,
+        "origin".as_ref(),
+        &["refs/meta/blob"],
+        &mut NullCallback,
+        None,
+    );
+
+    assert_matches!(result, Err(GitFetchError::NotACommit { .. }));
+    assert!(
+        test_data
+            .git_repo
+            .references()?
+            .prefixed("refs/jj/fetch/")?
+            .next()
+            .is_none()
+    );
+    Ok(())
+}
+
+#[test]
+fn test_fetch_commits_cleans_up_if_source_is_missing() -> TestResult {
+    let test_data = GitRepoData::create();
+    empty_git_commit(&test_data.origin_repo, "refs/pull/123/head", &[]);
+    let subprocess_options = GitSubprocessOptions::from_settings(test_data.repo.settings())?;
+    let result = git::fetch_commits(
+        test_data.repo.store(),
+        subprocess_options,
+        "origin".as_ref(),
+        &["refs/pull/123/head", "refs/pull/missing/head"],
+        &mut NullCallback,
+        None,
+    );
+
+    assert_matches!(
+        result,
+        Err(GitFetchError::NoSuchSource { fetch_source, .. })
+            if fetch_source == "refs/pull/missing/head"
+    );
+    assert!(
+        test_data
+            .git_repo
+            .references()?
+            .prefixed("refs/jj/fetch/")?
+            .next()
+            .is_none()
+    );
+    Ok(())
+}
+
+#[test]
+fn test_fetch_commit_rejects_invalid_source() -> TestResult {
+    let test_data = GitRepoData::create();
+    let subprocess_options = GitSubprocessOptions::from_settings(test_data.repo.settings())?;
+    let result = git::fetch_commits(
+        test_data.repo.store(),
+        subprocess_options,
+        "origin".as_ref(),
+        &["refs/pull/../head"],
+        &mut NullCallback,
+        None,
+    );
+
+    assert_matches!(
+        result,
+        Err(GitFetchError::InvalidSource { fetch_source })
+            if fetch_source == "refs/pull/../head"
+    );
+    Ok(())
+}
+
+#[test]
 fn test_fetch_initial_commit_head_is_not_set() -> TestResult {
     let test_data = GitRepoData::create();
     let subprocess_options = GitSubprocessOptions::from_settings(test_data.repo.settings())?;
