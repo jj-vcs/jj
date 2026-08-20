@@ -149,6 +149,132 @@ fn test_git_fetch_with_default_config() {
 }
 
 #[test]
+fn test_git_ref_fetch_imports_anonymous_heads() -> TestResult {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = add_git_remote(&test_env, &work_dir, "origin");
+    git::add_commit(
+        &git_repo,
+        "refs/pull/123/head",
+        "pr123",
+        b"pr123",
+        "pull request 123",
+        &[],
+    );
+    git::add_commit(
+        &git_repo,
+        "refs/changes/456",
+        "change456",
+        b"change456",
+        "change 456",
+        &[],
+    );
+
+    insta::assert_snapshot!(
+        work_dir.run_jj([
+            "git",
+            "ref",
+            "fetch",
+            "refs/pull/123/head",
+            "refs/changes/456",
+        ]),
+        @r"
+    ------- stderr -------
+    Fetched refs/pull/123/head as spovxuoz 84c6f409 pull request 123
+    Fetched refs/changes/456 as pmuwoskk 6085075a change 456
+    [EOF]
+    "
+    );
+    insta::assert_snapshot!(
+        work_dir.run_jj([
+            "log",
+            "--no-graph",
+            "-r",
+            r#"visible_heads() & (description(exact:"pull request 123") | description(exact:"change 456"))"#,
+            "-T=description.first_line() ++ '\n'",
+        ]),
+        @r"
+    change 456
+    pull request 123
+    [EOF]
+    "
+    );
+    let bookmark_output = get_bookmark_output(&work_dir).success();
+    assert!(bookmark_output.stdout.raw().is_empty());
+    assert!(bookmark_output.stderr.raw().is_empty());
+    Ok(())
+}
+
+#[test]
+fn test_git_ref_fetch_missing_source() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    add_git_remote(&test_env, &work_dir, "origin");
+
+    insta::assert_snapshot!(
+        work_dir.run_jj([
+            "git",
+            "ref",
+            "fetch",
+            "--remote=origin",
+            "refs/pull/missing/head",
+        ]),
+        @r"
+    ------- stderr -------
+    Error: Git remote 'origin' has no ref or commit ID matching 'refs/pull/missing/head'
+    [EOF]
+    [exit status: 1]
+    "
+    );
+}
+
+#[test]
+fn test_git_ref_fetch_requires_source() {
+    let test_env = TestEnvironment::default();
+
+    insta::assert_snapshot!(
+        test_env.run_jj_in(".", ["git", "ref", "fetch"]),
+        @r"
+    ------- stderr -------
+    error: the following required arguments were not provided:
+      <REF>...
+
+    Usage: jj git ref fetch <REF>...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    "
+    );
+}
+
+#[test]
+fn test_git_ref_fetch_invalid_source() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    add_git_remote(&test_env, &work_dir, "origin");
+
+    insta::assert_snapshot!(
+        work_dir.run_jj([
+            "git",
+            "ref",
+            "fetch",
+            "--remote=origin",
+            "refs/pull/../head",
+        ]),
+        @r"
+    ------- stderr -------
+    Error: Invalid Git ref or commit ID: refs/pull/../head
+    [EOF]
+    [exit status: 1]
+    "
+    );
+}
+
+#[test]
 fn test_git_fetch_default_remote() {
     let test_env = TestEnvironment::default();
     test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
