@@ -17,6 +17,15 @@
                     "type": "string",
                     "description": "User's email address, used in commits",
                     "format": "email"
+                },
+                "commit-timestamp-granularity": {
+                    "type": "string",
+                    "description": "If set, the granularity used to truncate commit timestamps for privacy.",
+                    "enum": [
+                        "day",
+                        "month",
+                        "year"
+                    ]
                 }
             }
         },
