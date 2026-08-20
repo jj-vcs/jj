@@ -33,6 +33,7 @@ use crate::backend::CopyHistory;
 use crate::backend::CopyId;
 use crate::backend::CopyRecord;
 use crate::backend::FileId;
+use crate::backend::FileMetadata;
 use crate::backend::RelatedCopy;
 use crate::backend::SigningFn;
 use crate::backend::SymlinkId;
@@ -113,6 +114,10 @@ impl Backend for SecretBackend {
 
     fn concurrency(&self) -> usize {
         1
+    }
+
+    async fn get_file_metadata(&self, path: &RepoPath, id: &FileId) -> BackendResult<FileMetadata> {
+        self.inner.get_file_metadata(path, id).await
     }
 
     async fn read_file(
