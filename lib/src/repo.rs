@@ -1450,6 +1450,82 @@ impl MutableRepo {
         commits: Vec<Commit>,
         new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
         options: &RewriteRefsOptions,
+        callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()>,
+    ) -> BackendResult<()> {
+        self.transform_commits_inner(commits, new_parents_map, callback)
+            .await?;
+        self.update_rewritten_references(options).await?;
+        // Since we didn't necessarily visit all descendants of rewritten commits (e.g.
+        // if they were rewritten in the callback), there can still be commits left to
+        // rebase, so we don't clear `parent_mapping` here.
+        // TODO: Should we make this stricter? We could check that there were no
+        // rewrites before this function was called, and we can check that only
+        // commits in the `to_visit` set were added by the callback. Then we
+        // could clear `parent_mapping` here and not have to scan it again at
+        // the end of the transaction when we call `rebase_descendants()`.
+
+        Ok(())
+    }
+
+    /// Transforms only `commits`, without visiting other descendants.
+    ///
+    /// `new_parents_map` supplies parent overrides. Commits are visited in
+    /// dependency order under the resulting graph.
+    ///
+    /// The callback must leave rewrite or abandonment mappings for exactly the
+    /// supplied commit IDs. This is verified before references and working
+    /// copies are updated.
+    ///
+    /// On success, rewritten references are updated and the temporary rewrite
+    /// mapping is cleared.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the mutable repository already contains rewrite mappings,
+    /// `commits` contains duplicate commit IDs, or the callback leaves mappings
+    /// for a different set of commits.
+    ///
+    /// # Transaction safety
+    ///
+    /// The caller must discard the transaction if this method returns an error
+    /// or if its future is cancelled before completion. On failure, the
+    /// repository may contain partial in-memory mutations.
+    pub(crate) async fn transform_commits_exact(
+        &mut self,
+        commits: Vec<Commit>,
+        new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
+        options: &RewriteRefsOptions,
+        callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()>,
+    ) -> BackendResult<()> {
+        assert!(
+            self.parent_mapping.is_empty(),
+            "exact commit transform requires an empty rewrite mapping"
+        );
+        let expected_ids: HashSet<_> = commits.iter().map(|commit| commit.id().clone()).collect();
+        assert_eq!(
+            expected_ids.len(),
+            commits.len(),
+            "exact commit transform received duplicate commits"
+        );
+
+        self.transform_commits_inner(commits, new_parents_map, callback)
+            .await?;
+        let rewritten_ids: HashSet<_> = self.parent_mapping.keys().cloned().collect();
+        assert_eq!(
+            rewritten_ids, expected_ids,
+            "exact commit transform generated an unexpected rewrite set"
+        );
+        // Working-copy finalization may replace mappings for the same old IDs, so
+        // verify the callback's exact rewrite set before updating references.
+        self.update_rewritten_references(options).await?;
+        self.parent_mapping.clear();
+        Ok(())
+    }
+
+    async fn transform_commits_inner(
+        &mut self,
+        commits: Vec<Commit>,
+        new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
         mut callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()>,
     ) -> BackendResult<()> {
         let mut to_visit = self
@@ -1463,16 +1539,6 @@ impl MutableRepo {
             let rewriter = CommitRewriter::new(self, old_commit, new_parent_ids);
             callback(rewriter).await?;
         }
-        self.update_rewritten_references(options).await?;
-        // Since we didn't necessarily visit all descendants of rewritten commits (e.g.
-        // if they were rewritten in the callback), there can still be commits left to
-        // rebase, so we don't clear `parent_mapping` here.
-        // TODO: Should we make this stricter? We could check that there were no
-        // rewrites before this function was called, and we can check that only
-        // commits in the `to_visit` set were added by the callback. Then we
-        // could clear `parent_mapping` here and not have to scan it again at
-        // the end of the transaction when we call `rebase_descendants()`.
-
         Ok(())
     }
 
