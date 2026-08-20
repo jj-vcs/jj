@@ -42,7 +42,7 @@ in
       [
         installShellFiles
       ]
-      ++ lib.optionals stdenv.isLinux [
+      ++ lib.optionals stdenv.hostPlatform.isLinux [
         mold
       ];
     buildInputs = [];
@@ -58,7 +58,7 @@ in
     env = {
       RUST_BACKTRACE = 1;
       CARGO_INCREMENTAL = "0"; # https://github.com/rust-lang/rust/issues/139110
-      RUSTFLAGS = lib.optionalString stdenv.isLinux "-C link-arg=-fuse-ld=mold";
+      RUSTFLAGS = lib.optionalString stdenv.hostPlatform.isLinux "-C link-arg=-fuse-ld=mold";
       NIX_JJ_GIT_HASH = gitRev;
     };
 

@@ -53,9 +53,13 @@
 
       # But, whenever we are running CI builds or checks, we want to use a
       # smaller closure. This reduces the CI impact on fresh clones/VMs, etc.
-      rustMinimalPlatform =
-        let platform = pkgs.rust-bin.selectLatestNightlyWith (t: t.minimal);
-        in pkgs.makeRustPlatform { rustc = platform; cargo = platform; };
+      rustMinimalPlatform = let
+        platform = pkgs.rust-bin.selectLatestNightlyWith (t: t.minimal);
+      in
+        pkgs.makeRustPlatform {
+          rustc = platform;
+          cargo = platform;
+        };
     in {
       formatter = pkgs.alejandra;
 
@@ -111,9 +115,9 @@
         # efficient than the defaults. these noticeably improve link time even for
         # medium sized rust projects like jj
         rustLinkerFlags =
-          if pkgs.stdenv.isLinux
+          if pkgs.stdenv.hostPlatform.isLinux
           then ["-fuse-ld=mold" "-Wl,--compress-debug-sections=zstd"]
-          else if pkgs.stdenv.isDarwin
+          else if pkgs.stdenv.hostPlatform.isDarwin
           then
             # on darwin, /usr/bin/ld actually looks at the environment variable
             # $DEVELOPER_DIR, which is set by the nix stdenv, and if set,
