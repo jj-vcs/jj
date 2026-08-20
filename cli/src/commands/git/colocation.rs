@@ -325,8 +325,15 @@ async fn set_git_head_to_wc_parent(
     wc_commit: &Commit,
 ) -> Result<(), CommandError> {
     let workspace_name = workspace_command.workspace_name().to_owned();
+    let workspace_root = workspace_command.workspace_root().to_owned();
     let mut tx = workspace_command.start_transaction();
-    git::reset_head(tx.repo_mut(), &workspace_name, wc_commit).await?;
+    git::reset_head(
+        tx.repo_mut(),
+        &workspace_name,
+        wc_commit,
+        Some(&workspace_root),
+    )
+    .await?;
     if tx.repo().has_changes() {
         tx.finish(ui, "set git head to working copy parent").await?;
     }
