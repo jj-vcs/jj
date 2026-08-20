@@ -288,104 +288,62 @@ pub async fn cmd_git_push(
     };
 
     let mut tx = workspace_command.start_transaction();
-    let view = tx.repo().view();
     let mut ref_updates = GitPushRefTargets::default();
     if args.all {
-        let mut commits_validator =
-            CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args)?;
-        for (name, targets) in view.local_remote_bookmarks(remote) {
-            let remote_symbol = name.to_remote_symbol(remote);
-            let allow_new = true; // implied by --all
-            match classify_bookmark_update(remote_symbol, targets, allow_new, args.deleted) {
-                Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
-                    Ok(()) => ref_updates.bookmarks.push((name.to_owned(), update)),
-                    Err(reason) => reason.print_bookmark(ui, tx.base_workspace_helper(), name)?,
-                },
-                Ok(None) => {}
-                Err(reason) => reason.print(ui)?,
-            }
-        }
-        for (name, targets) in view.local_remote_tags(remote) {
-            let remote_symbol = name.to_remote_symbol(remote);
-            let allow_new = true; // implied by --all
-            match classify_tag_update(remote_symbol, targets, allow_new, args.deleted) {
-                Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
-                    Ok(()) => ref_updates.tags.push((name.to_owned(), update)),
-                    Err(reason) => reason.print_tag(ui, tx.base_workspace_helper(), name)?,
-                },
-                Ok(None) => {}
-                Err(reason) => reason.print(ui)?,
-            }
-        }
+        let workspace_helper = tx.base_workspace_helper();
+        let mut commits_validator = CommitsValidator::new(ui, workspace_helper, remote, args)?;
+
+        let params = ClassifyParams {
+            allow_new: true, // implied by --all
+            allow_delete: args.deleted,
+        };
+
+        ref_updates = classify_tags_and_bookmark_updates(
+            ui,
+            workspace_helper,
+            &mut commits_validator,
+            remote,
+            |_targets| true,
+            params,
+        )
+        .await?;
     } else if args.tracked {
-        let mut commits_validator =
-            CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args)?;
-        for (name, targets) in view.local_remote_bookmarks(remote) {
-            if !targets.remote_ref.is_tracked() {
-                continue;
-            }
-            let remote_symbol = name.to_remote_symbol(remote);
-            let allow_new = false; // doesn't matter
-            match classify_bookmark_update(remote_symbol, targets, allow_new, args.deleted) {
-                Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
-                    Ok(()) => ref_updates.bookmarks.push((name.to_owned(), update)),
-                    Err(reason) => reason.print_bookmark(ui, tx.base_workspace_helper(), name)?,
-                },
-                Ok(None) => {}
-                Err(reason) => reason.print(ui)?,
-            }
-        }
-        for (name, targets) in view.local_remote_tags(remote) {
-            if !targets.remote_ref.is_tracked() {
-                continue;
-            }
-            let remote_symbol = name.to_remote_symbol(remote);
-            let allow_new = false; // doesn't matter
-            match classify_tag_update(remote_symbol, targets, allow_new, args.deleted) {
-                Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
-                    Ok(()) => ref_updates.tags.push((name.to_owned(), update)),
-                    Err(reason) => reason.print_tag(ui, tx.base_workspace_helper(), name)?,
-                },
-                Ok(None) => {}
-                Err(reason) => reason.print(ui)?,
-            }
-        }
+        let workspace_helper = tx.base_workspace_helper();
+        let mut commits_validator = CommitsValidator::new(ui, workspace_helper, remote, args)?;
+
+        let params = ClassifyParams {
+            allow_new: true, // doesn't matter
+            allow_delete: args.deleted,
+        };
+
+        ref_updates = classify_tags_and_bookmark_updates(
+            ui,
+            workspace_helper,
+            &mut commits_validator,
+            remote,
+            |targets| targets.remote_ref.is_tracked(),
+            params,
+        )
+        .await?;
     } else if args.deleted {
+        let workspace_helper = tx.base_workspace_helper();
+        let mut commits_validator = CommitsValidator::new(ui, workspace_helper, remote, args)?;
+
         // There shouldn't be new heads to push, but we run validation for consistency.
-        let mut commits_validator =
-            CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args)?;
-        for (name, targets) in view.local_remote_bookmarks(remote) {
-            if targets.local_target.is_present() {
-                continue;
-            }
-            let remote_symbol = name.to_remote_symbol(remote);
-            let allow_new = false; // doesn't matter
-            let allow_delete = true;
-            match classify_bookmark_update(remote_symbol, targets, allow_new, allow_delete) {
-                Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
-                    Ok(()) => ref_updates.bookmarks.push((name.to_owned(), update)),
-                    Err(reason) => reason.print_bookmark(ui, tx.base_workspace_helper(), name)?,
-                },
-                Ok(None) => {}
-                Err(reason) => reason.print(ui)?,
-            }
-        }
-        for (name, targets) in view.local_remote_tags(remote) {
-            if targets.local_target.is_present() {
-                continue;
-            }
-            let remote_symbol = name.to_remote_symbol(remote);
-            let allow_new = false; // doesn't matter
-            let allow_delete = true;
-            match classify_tag_update(remote_symbol, targets, allow_new, allow_delete) {
-                Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
-                    Ok(()) => ref_updates.tags.push((name.to_owned(), update)),
-                    Err(reason) => reason.print_tag(ui, tx.base_workspace_helper(), name)?,
-                },
-                Ok(None) => {}
-                Err(reason) => reason.print(ui)?,
-            }
-        }
+        let params = ClassifyParams {
+            allow_new: true, // doesn't matter
+            allow_delete: true,
+        };
+
+        ref_updates = classify_tags_and_bookmark_updates(
+            ui,
+            workspace_helper,
+            &mut commits_validator,
+            remote,
+            |targets| !targets.local_target.is_present(),
+            params,
+        )
+        .await?;
     } else {
         let mut seen_bookmarks: HashSet<&RefName> = HashSet::new();
         let mut seen_tags: HashSet<&RefName> = HashSet::new();
@@ -423,9 +381,11 @@ pub async fn cmd_git_push(
             if !seen_bookmarks.insert(name) {
                 continue;
             }
-            let allow_new = true; // --change implies creation of remote bookmark
-            let allow_delete = false; // doesn't matter
-            match classify_bookmark_update(remote_symbol, targets, allow_new, allow_delete) {
+            let params = ClassifyParams {
+                allow_new: true,     // --change implies creation of remote bookmark
+                allow_delete: false, // doesn't matter
+            };
+            match classify_bookmark_update(remote_symbol, targets, params) {
                 Ok(Some(update)) => ref_updates.bookmarks.push((name.to_owned(), update)),
                 Ok(None) => writeln!(
                     ui.status(),
@@ -443,12 +403,15 @@ pub async fn cmd_git_push(
                 continue;
             }
             let remote_symbol = name.to_remote_symbol(remote);
-            // Override allow_new if the bookmark is not tracked with any remote
-            // already. The user has specified --bookmark, so their intent which
-            // bookmarks to push is clear.
-            let allow_new = !has_tracked_remote_bookmarks(tx.repo(), name);
-            let allow_delete = true; // named explicitly, allow delete without --delete
-            match classify_bookmark_update(remote_symbol, targets, allow_new, allow_delete) {
+
+            let params = ClassifyParams {
+                // Override allow_new if the bookmark is not tracked with any remote
+                // already. The user has specified --bookmark, so their intent which
+                // bookmarks to push is clear.
+                allow_new: !has_tracked_remote_bookmarks(tx.repo(), name),
+                allow_delete: true, // named explicitly, allow delete without --delete
+            };
+            match classify_bookmark_update(remote_symbol, targets, params) {
                 Ok(Some(update)) => ref_updates.bookmarks.push((name.to_owned(), update)),
                 Ok(None) => writeln!(
                     ui.status(),
@@ -465,10 +428,12 @@ pub async fn cmd_git_push(
                 continue;
             }
             let remote_symbol = name.to_remote_symbol(remote);
-            // named explicitly, allow track or delete
-            let allow_new = !has_tracked_remote_tags(tx.repo(), name);
-            let allow_delete = true;
-            match classify_tag_update(remote_symbol, targets, allow_new, allow_delete) {
+            let params = ClassifyParams {
+                // named explicitly, allow track or delete
+                allow_new: !has_tracked_remote_tags(tx.repo(), name),
+                allow_delete: true,
+            };
+            match classify_tag_update(remote_symbol, targets, params) {
                 Ok(Some(update)) => ref_updates.tags.push((name.to_owned(), update)),
                 Ok(None) => writeln!(
                     ui.status(),
@@ -497,14 +462,17 @@ pub async fn cmd_git_push(
         } else {
             find_target_revisions(ui, tx.base_workspace_helper(), &args.revisions).await?
         };
+
+        let params = ClassifyParams {
+            allow_new: false,
+            allow_delete: false,
+        };
         for (name, targets) in tx.base_repo().view().local_remote_bookmarks(remote) {
             if !matches_local_target(targets, &target_revisions) || !seen_bookmarks.insert(name) {
                 continue;
             }
             let remote_symbol = name.to_remote_symbol(remote);
-            let allow_new = false;
-            let allow_delete = false;
-            match classify_bookmark_update(remote_symbol, targets, allow_new, allow_delete) {
+            match classify_bookmark_update(remote_symbol, targets, params) {
                 Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
                     Ok(()) => ref_updates.bookmarks.push((name.to_owned(), update)),
                     Err(reason) => reason.print_bookmark(ui, tx.base_workspace_helper(), name)?,
@@ -518,9 +486,7 @@ pub async fn cmd_git_push(
                 continue;
             }
             let remote_symbol = name.to_remote_symbol(remote);
-            let allow_new = false;
-            let allow_delete = false;
-            match classify_tag_update(remote_symbol, targets, allow_new, allow_delete) {
+            match classify_tag_update(remote_symbol, targets, params) {
                 Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
                     Ok(()) => ref_updates.tags.push((name.to_owned(), update)),
                     Err(reason) => reason.print_tag(ui, tx.base_workspace_helper(), name)?,
@@ -599,6 +565,53 @@ pub async fn cmd_git_push(
     } else {
         Err(user_error("Failed to push some bookmarks"))
     }
+}
+
+#[derive(Debug, Copy, Clone)]
+struct ClassifyParams {
+    allow_new: bool,
+    allow_delete: bool,
+}
+
+async fn classify_tags_and_bookmark_updates(
+    ui: &Ui,
+    workspace_helper: &WorkspaceCommandHelper,
+    commits_validator: &mut CommitsValidator<'_>,
+    remote: &RemoteName,
+    predicate: impl Fn(LocalAndRemoteRef<'_>) -> bool,
+    params: ClassifyParams,
+) -> Result<GitPushRefTargets, CommandError> {
+    let view = workspace_helper.repo().view();
+    let mut ref_updates = GitPushRefTargets::default();
+    for (name, targets) in view
+        .local_remote_bookmarks(remote)
+        .filter(|(_, targets)| predicate(*targets))
+    {
+        let remote_symbol = name.to_remote_symbol(remote);
+        match classify_bookmark_update(remote_symbol, targets, params) {
+            Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
+                Ok(()) => ref_updates.bookmarks.push((name.to_owned(), update)),
+                Err(reason) => reason.print_bookmark(ui, workspace_helper, name)?,
+            },
+            Ok(None) => {}
+            Err(reason) => reason.print(ui)?,
+        }
+    }
+    for (name, targets) in view
+        .local_remote_tags(remote)
+        .filter(|(_name, targets)| predicate(*targets))
+    {
+        let remote_symbol = name.to_remote_symbol(remote);
+        match classify_tag_update(remote_symbol, targets, params) {
+            Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
+                Ok(()) => ref_updates.tags.push((name.to_owned(), update)),
+                Err(reason) => reason.print_tag(ui, workspace_helper, name)?,
+            },
+            Ok(None) => {}
+            Err(reason) => reason.print(ui)?,
+        }
+    }
+    Ok(ref_updates)
 }
 
 #[derive(Clone, Debug)]
@@ -1041,8 +1054,7 @@ impl From<RejectedRefUpdateReason> for CommandError {
 fn classify_bookmark_update(
     remote_symbol: RemoteRefSymbol<'_>,
     targets: LocalAndRemoteRef,
-    allow_new: bool,
-    allow_delete: bool,
+    params: ClassifyParams,
 ) -> Result<Option<Diff<Option<CommitId>>>, RejectedRefUpdateReason> {
     let push_action = classify_ref_push_action(targets);
     match push_action {
@@ -1067,7 +1079,7 @@ fn classify_bookmark_update(
                 "Run `jj bookmark track {remote_symbol}` to import the remote bookmark."
             )),
         }),
-        RefPushAction::Update(_) if !targets.remote_ref.is_tracked() && !allow_new => {
+        RefPushAction::Update(_) if !targets.remote_ref.is_tracked() && !params.allow_new => {
             Err(RejectedRefUpdateReason {
                 message: format!("Refusing to create new remote bookmark {remote_symbol}"),
                 hint: Some(format!(
@@ -1075,7 +1087,7 @@ fn classify_bookmark_update(
                 )),
             })
         }
-        RefPushAction::Update(update) if update.after.is_none() && !allow_delete => {
+        RefPushAction::Update(update) if update.after.is_none() && !params.allow_delete => {
             Err(RejectedRefUpdateReason {
                 message: format!(
                     "Refusing to push deleted bookmark {name}",
@@ -1095,8 +1107,7 @@ fn classify_bookmark_update(
 fn classify_tag_update(
     remote_symbol: RemoteRefSymbol<'_>,
     targets: LocalAndRemoteRef<'_>,
-    allow_new: bool,
-    allow_delete: bool,
+    params: ClassifyParams,
 ) -> Result<Option<Diff<Option<CommitId>>>, RejectedRefUpdateReason> {
     let push_action = classify_ref_push_action(targets);
     match push_action {
@@ -1119,13 +1130,13 @@ fn classify_tag_update(
             // No suggestion because tags are tracked by default
             hint: None,
         }),
-        RefPushAction::Update(_) if !targets.remote_ref.is_tracked() && !allow_new => {
+        RefPushAction::Update(_) if !targets.remote_ref.is_tracked() && !params.allow_new => {
             Err(RejectedRefUpdateReason {
                 message: format!("Refusing to create new remote tag {remote_symbol}"),
                 hint: Some(format!("Run `jj tag track {remote_symbol}` and try again.")),
             })
         }
-        RefPushAction::Update(update) if update.after.is_none() && !allow_delete => {
+        RefPushAction::Update(update) if update.after.is_none() && !params.allow_delete => {
             Err(RejectedRefUpdateReason {
                 message: format!(
                     "Refusing to push deleted tag {name}",
