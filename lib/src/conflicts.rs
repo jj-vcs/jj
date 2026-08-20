@@ -100,7 +100,7 @@ async fn get_file_contents(
 ) -> BackendResult<BString> {
     match term {
         Some(id) => {
-            let mut reader = store.read_file(path, id).await?;
+            let mut reader = store.read_file(path, id, 0).await?;
             let mut content = vec![];
             reader
                 .read_to_end(&mut content)
@@ -231,7 +231,7 @@ async fn materialize_tree_value_no_access_denied(
             executable,
             copy_id,
         })) => {
-            let reader = store.read_file(path, &id).await?;
+            let reader = store.read_file(path, &id, 0).await?;
             Ok(MaterializedTreeValue::File(MaterializedFileValue {
                 id,
                 executable,
