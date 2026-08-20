@@ -319,37 +319,16 @@ pub async fn cmd_git_push(
 
     let view = tx.repo().view();
     if args.all {
+        let params = ClassifyParams {
+            // classify all tags and bookmarks (implied by --all)
+            predicate: |_targets: LocalAndRemoteRef| true,
+            // implied by --all
+            allow_new: true,
+            allow_delete: args.deleted,
+        };
         for remote in matching_remotes {
-            let mut ref_updates = GitPushRefTargets::default();
-
-            let mut commits_validator =
-                CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args)?;
-            for (name, targets) in view.local_remote_bookmarks(remote) {
-                let remote_symbol = name.to_remote_symbol(remote);
-                let allow_new = true; // implied by --all
-                match classify_bookmark_update(remote_symbol, targets, allow_new, args.deleted) {
-                    Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
-                        Ok(()) => ref_updates.bookmarks.push((name.to_owned(), update)),
-                        Err(reason) => {
-                            reason.print_bookmark(ui, tx.base_workspace_helper(), name)?;
-                        }
-                    },
-                    Ok(None) => {}
-                    Err(reason) => reason.print(ui)?,
-                }
-            }
-            for (name, targets) in view.local_remote_tags(remote) {
-                let remote_symbol = name.to_remote_symbol(remote);
-                let allow_new = true; // implied by --all
-                match classify_tag_update(remote_symbol, targets, allow_new, args.deleted) {
-                    Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
-                        Ok(()) => ref_updates.tags.push((name.to_owned(), update)),
-                        Err(reason) => reason.print_tag(ui, tx.base_workspace_helper(), name)?,
-                    },
-                    Ok(None) => {}
-                    Err(reason) => reason.print(ui)?,
-                }
-            }
+            let ref_updates =
+                classify_tags_and_bookmark_updates(remote, &params, ui, args, &tx, view).await?;
             let tx_description = format!(
                 "{TX_DESC_PUSH}all bookmarks/tags to git remote {remote}",
                 remote = remote.as_symbol()
@@ -357,43 +336,17 @@ pub async fn cmd_git_push(
             by_remote.push((remote, ref_updates, tx_description));
         }
     } else if args.tracked {
+        let params = ClassifyParams {
+            // classify tracked tags and bookmarks only
+            predicate: |targets: LocalAndRemoteRef| targets.remote_ref.is_tracked(),
+            // doesn't matter
+            allow_new: true,
+            allow_delete: args.deleted,
+        };
         for remote in matching_remotes {
-            let mut ref_updates = GitPushRefTargets::default();
+            let ref_updates =
+                classify_tags_and_bookmark_updates(remote, &params, ui, args, &tx, view).await?;
 
-            let mut commits_validator =
-                CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args)?;
-            for (name, targets) in view.local_remote_bookmarks(remote) {
-                if !targets.remote_ref.is_tracked() {
-                    continue;
-                }
-                let remote_symbol = name.to_remote_symbol(remote);
-                let allow_new = false; // doesn't matter
-                match classify_bookmark_update(remote_symbol, targets, allow_new, args.deleted) {
-                    Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
-                        Ok(()) => ref_updates.bookmarks.push((name.to_owned(), update)),
-                        Err(reason) => {
-                            reason.print_bookmark(ui, tx.base_workspace_helper(), name)?;
-                        }
-                    },
-                    Ok(None) => {}
-                    Err(reason) => reason.print(ui)?,
-                }
-            }
-            for (name, targets) in view.local_remote_tags(remote) {
-                if !targets.remote_ref.is_tracked() {
-                    continue;
-                }
-                let remote_symbol = name.to_remote_symbol(remote);
-                let allow_new = false; // doesn't matter
-                match classify_tag_update(remote_symbol, targets, allow_new, args.deleted) {
-                    Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
-                        Ok(()) => ref_updates.tags.push((name.to_owned(), update)),
-                        Err(reason) => reason.print_tag(ui, tx.base_workspace_helper(), name)?,
-                    },
-                    Ok(None) => {}
-                    Err(reason) => reason.print(ui)?,
-                }
-            }
             let tx_description = format!(
                 "{TX_DESC_PUSH}all tracked bookmarks/tags to git remote {remote}",
                 remote = remote.as_symbol()
@@ -401,46 +354,18 @@ pub async fn cmd_git_push(
             by_remote.push((remote, ref_updates, tx_description));
         }
     } else if args.deleted {
-        for remote in matching_remotes {
-            let mut ref_updates = GitPushRefTargets::default();
+        let params = ClassifyParams {
+            // classify tags and bookmarks that are not (no longer) present locally
+            predicate: |targets: LocalAndRemoteRef| !targets.local_target.is_present(),
+            // doesn't matter
+            allow_new: true,
+            allow_delete: true,
+        };
 
+        for remote in matching_remotes {
             // There shouldn't be new heads to push, but we run validation for consistency.
-            let mut commits_validator =
-                CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args)?;
-            for (name, targets) in view.local_remote_bookmarks(remote) {
-                if targets.local_target.is_present() {
-                    continue;
-                }
-                let remote_symbol = name.to_remote_symbol(remote);
-                let allow_new = false; // doesn't matter
-                let allow_delete = true;
-                match classify_bookmark_update(remote_symbol, targets, allow_new, allow_delete) {
-                    Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
-                        Ok(()) => ref_updates.bookmarks.push((name.to_owned(), update)),
-                        Err(reason) => {
-                            reason.print_bookmark(ui, tx.base_workspace_helper(), name)?;
-                        }
-                    },
-                    Ok(None) => {}
-                    Err(reason) => reason.print(ui)?,
-                }
-            }
-            for (name, targets) in view.local_remote_tags(remote) {
-                if targets.local_target.is_present() {
-                    continue;
-                }
-                let remote_symbol = name.to_remote_symbol(remote);
-                let allow_new = false; // doesn't matter
-                let allow_delete = true;
-                match classify_tag_update(remote_symbol, targets, allow_new, allow_delete) {
-                    Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
-                        Ok(()) => ref_updates.tags.push((name.to_owned(), update)),
-                        Err(reason) => reason.print_tag(ui, tx.base_workspace_helper(), name)?,
-                    },
-                    Ok(None) => {}
-                    Err(reason) => reason.print(ui)?,
-                }
-            }
+            let ref_updates =
+                classify_tags_and_bookmark_updates(remote, &params, ui, args, &tx, view).await?;
             let tx_description = format!(
                 "{TX_DESC_PUSH}all deleted bookmarks/tags to git remote {remote}",
                 remote = remote.as_symbol()
@@ -681,6 +606,67 @@ pub async fn cmd_git_push(
     }
 
     Ok(())
+}
+
+#[derive(Debug, Copy, Clone)]
+struct ClassifyParams<F> {
+    predicate: F,
+    allow_new: bool,
+    allow_delete: bool,
+}
+
+async fn classify_tags_and_bookmark_updates<F: Fn(LocalAndRemoteRef) -> bool>(
+    remote: &RemoteName,
+    params: &ClassifyParams<F>,
+    ui: &mut Ui,
+    args: &GitPushArgs,
+    tx: &WorkspaceCommandTransaction<'_>,
+    view: &View,
+) -> Result<GitPushRefTargets, CommandError> {
+    let mut ref_updates = GitPushRefTargets::default();
+    let mut commits_validator =
+        CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args)?;
+    for (name, targets) in view
+        .local_remote_bookmarks(remote)
+        .filter(|(_, targets)| (params.predicate)(*targets))
+    {
+        let remote_symbol = name.to_remote_symbol(remote);
+        match classify_bookmark_update(
+            remote_symbol,
+            targets,
+            params.allow_new,
+            params.allow_delete,
+        ) {
+            Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
+                Ok(()) => ref_updates.bookmarks.push((name.to_owned(), update)),
+                Err(reason) => {
+                    reason.print_bookmark(ui, tx.base_workspace_helper(), name)?;
+                }
+            },
+            Ok(None) => {}
+            Err(reason) => reason.print(ui)?,
+        }
+    }
+    for (name, targets) in view
+        .local_remote_tags(remote)
+        .filter(|(_name, targets)| (params.predicate)(*targets))
+    {
+        let remote_symbol = name.to_remote_symbol(remote);
+        match classify_tag_update(
+            remote_symbol,
+            targets,
+            params.allow_new,
+            params.allow_delete,
+        ) {
+            Ok(Some(update)) => match commits_validator.validate_update(&update).await? {
+                Ok(()) => ref_updates.tags.push((name.to_owned(), update)),
+                Err(reason) => reason.print_tag(ui, tx.base_workspace_helper(), name)?,
+            },
+            Ok(None) => {}
+            Err(reason) => reason.print(ui)?,
+        }
+    }
+    Ok(ref_updates)
 }
 
 #[derive(Clone, Debug)]
