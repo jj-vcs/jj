@@ -1060,10 +1060,13 @@ pub fn modified_from_files(current: &std::ffi::OsStr) -> Vec<CompletionCandidate
 }
 
 pub fn modified_revision_or_range_files(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
-    if let Some(rev) = parse::revision() {
-        return modified_files_from_rev((rev, None), current);
+    let revisions = parse::revisions();
+    if revisions.is_empty() {
+        return modified_range_files(current);
     }
-    modified_range_files(current)
+    // TODO: Replace this hacky solution.
+    let rev = format!("({})", revisions.join(")|("));
+    modified_files_from_rev((rev, None), current)
 }
 
 pub fn modified_changes_in_or_range_files(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
@@ -1260,10 +1263,8 @@ impl JjBuilder {
 /// Parsing is done on a best-effort basis and relies on the heuristic that
 /// most command line flags are consistent across different subcommands.
 ///
-/// In some cases, this parsing will be incorrect, but it's not worth the effort
-/// to fix that. For example, if the user specifies any of the relevant flags
-/// multiple times, the parsing will pick any of the available ones, while the
-/// actual execution of the command would fail.
+/// Most consumers use the first matching flag value. Commands that accept
+/// repeatable revision selectors use dedicated parsers below.
 mod parse {
     pub(super) fn parse_flag(
         candidates: &[&str],
@@ -1308,6 +1309,14 @@ mod parse {
         parse_revision_impl(std::env::args())
     }
 
+    pub fn parse_revisions_impl(args: impl Iterator<Item = String>) -> Vec<String> {
+        parse_flag(&["-r", "--revision", "--revisions"], args).collect()
+    }
+
+    pub fn revisions() -> Vec<String> {
+        parse_revisions_impl(std::env::args())
+    }
+
     pub fn parse_changes_in_impl(args: impl Iterator<Item = String>) -> Option<String> {
         parse_flag(&["-c", "--changes-in"], args).next()
     }
@@ -1330,12 +1339,15 @@ mod parse {
     where
         T: Iterator<Item = String>,
     {
-        let from = parse_flag(&["-f", "--from"], args()).next()?;
-        let to = parse_flag(&["-t", "--to"], args())
-            .next()
-            .unwrap_or_else(|| "@".into());
-
-        Some((from, to))
+        let from = parse_flag(&["-f", "--from"], args()).next();
+        let to = parse_flag(&["-t", "--to"], args()).next();
+        if from.is_none() && to.is_none() {
+            return None;
+        }
+        Some((
+            from.unwrap_or_else(|| "@".into()),
+            to.unwrap_or_else(|| "@".into()),
+        ))
     }
 
     pub fn range() -> Option<(String, String)> {
@@ -1509,6 +1521,16 @@ mod tests {
             assert_eq!(
                 parse::parse_range_impl(|| args.clone()),
                 Some(("foo".into(), "@".into())),
+                "case: {case:?}",
+            );
+        }
+        let from_working_copy_cases: &[&[&str]] =
+            &[&["-t", "bar"], &["--to", "bar"], &["-t=bar"], &["--to=bar"]];
+        for case in from_working_copy_cases {
+            let args = case.iter().map(|s| s.to_string());
+            assert_eq!(
+                parse::parse_range_impl(|| args.clone()),
+                Some(("@".into(), "bar".into())),
                 "case: {case:?}",
             );
         }
