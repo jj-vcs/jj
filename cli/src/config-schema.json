@@ -295,6 +295,11 @@
                             "committer-date-"
                         ]
                     }
+                },
+                "add-description-comment-hint": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Whether to add the comment hint to description editor buffers: `JJ: Lines starting with \"JJ:\" (like this one) will be removed.`"
                 }
             }
         },
