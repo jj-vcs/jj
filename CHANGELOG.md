@@ -30,6 +30,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   back to prompting the user if the heuristics are inconclusive. It can also run
   in non-interactive mode, which aborts if prompting would be needed.
 
+* `jj workspace add` supports `--colocate`/`--no-colocate` flags to control
+  whether a Git worktree is created alongside the workspace. The default
+  colocates when the current workspace is colocated and the `git.colocate`
+  config is `true`. `jj workspace forget` removes the corresponding Git
+  worktree when one exists.
+
 ### Fixed bugs
 
 * The default pager flags now include `-K` (`--quit-on-intr`), so pressing

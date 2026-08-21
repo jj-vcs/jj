@@ -260,7 +260,7 @@ async fn do_init(
             if !workspace_command.working_copy_shared_with_git() {
                 let workspace_name = workspace_command.workspace_name().to_owned();
                 let mut tx = workspace_command.start_transaction();
-                jj_lib::git::import_head(tx.repo_mut(), &workspace_name).await?;
+                jj_lib::git::import_head(tx.repo_mut(), &workspace_name, None).await?;
                 if let Some(git_head_id) = tx
                     .repo()
                     .view()

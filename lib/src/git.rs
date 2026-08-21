@@ -23,6 +23,7 @@ use std::ffi::OsString;
 use std::fs::File;
 use std::iter;
 use std::num::NonZeroU32;
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -425,6 +426,38 @@ pub fn get_git_backend(store: &Store) -> Result<&GitBackend, UnexpectedGitBacken
 /// Returns new thread-local instance to access to the underlying Git repo.
 pub fn get_git_repo(store: &Store) -> Result<gix::Repository, UnexpectedGitBackendError> {
     get_git_backend(store).map(|backend| backend.git_repo())
+}
+
+/// Returns `true` if the workspace root contains a `.git` gitlink file
+/// that points to a git worktree directory (i.e. `.git/worktrees/<name>`).
+///
+/// This distinguishes worktree gitlinks from regular gitlinks that point to
+/// an external `.git` directory.
+fn is_git_worktree(workspace_root: &Path) -> bool {
+    let dot_git = workspace_root.join(".git");
+    if !dot_git.is_file() {
+        return false;
+    }
+    let Ok(content) = std::fs::read_to_string(&dot_git) else {
+        return false;
+    };
+    let Some(gitdir) = content.strip_prefix("gitdir: ") else {
+        return false;
+    };
+    Path::new(gitdir.trim())
+        .components()
+        .any(|c| c.as_os_str() == "worktrees")
+}
+
+/// Opens a `gix::Repository` at the given workspace root path.
+///
+/// For git worktree workspaces, this opens a handle whose HEAD and index
+/// operations target the worktree-specific files rather than the main
+/// repository's.
+fn open_git_repo_at(workspace_root: &Path) -> Result<gix::Repository, Box<gix::open::Error>> {
+    let opts = gix::open::Options::default().strict_config(true);
+    let repo = gix::ThreadSafeRepository::open_opts(workspace_root, opts)?;
+    Ok(repo.to_thread_local())
 }
 
 /// Checks if `git_ref` points to a Git commit object, and returns its id.
@@ -1173,10 +1206,16 @@ fn remotely_pinned_commit_ids(view: &View) -> Vec<CommitId> {
 pub async fn import_head(
     mut_repo: &mut MutableRepo,
     workspace: &WorkspaceName,
+    workspace_root: Option<&Path>,
 ) -> Result<(), GitImportError> {
     let store = mut_repo.store();
     let git_backend = get_git_backend(store)?;
-    let git_repo = git_backend.git_repo();
+    let git_repo = match workspace_root {
+        Some(root) if is_git_worktree(root) => {
+            open_git_repo_at(root).map_err(GitImportError::from_git)?
+        }
+        _ => git_backend.git_repo(),
+    };
 
     let old_git_head = mut_repo.view().git_head(workspace);
     let new_git_head_id = if let Ok(oid) = git_repo.head_id() {
@@ -1809,8 +1848,14 @@ pub async fn reset_head(
     mut_repo: &mut MutableRepo,
     workspace: &WorkspaceName,
     wc_commit: &Commit,
+    workspace_root: Option<&Path>,
 ) -> Result<(), GitResetHeadError> {
-    let git_repo = get_git_repo(mut_repo.store())?;
+    let git_repo = match workspace_root {
+        Some(root) if is_git_worktree(root) => {
+            open_git_repo_at(root).map_err(GitResetHeadError::from_git)?
+        }
+        _ => get_git_repo(mut_repo.store())?,
+    };
 
     let first_parent_id = &wc_commit.parent_ids()[0];
     let new_head_target = if first_parent_id != mut_repo.store().root_commit_id() {

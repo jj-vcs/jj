@@ -661,6 +661,7 @@ impl CommandHelper {
                 let mut workspace_command = self.load_from_workspace(ui, workspace, env).await?;
                 let repo = &workspace_command.user_repo.repo;
                 let desired_wc_commit = workspace_command.prepare_working_copy_mutation().await?;
+                let workspace_root = workspace_command.workspace_root().to_owned();
                 let mut locked_ws = workspace_command
                     .workspace
                     .start_working_copy_mutation()
@@ -694,6 +695,7 @@ impl CommandHelper {
                                 tx.repo_mut(),
                                 workspace_name,
                                 &desired_wc_commit,
+                                &workspace_root,
                                 git_import_export_lock,
                             )
                             .await?;
@@ -1380,8 +1382,9 @@ impl WorkspaceCommandHelper {
     ) -> Result<(), CommandError> {
         assert!(self.may_snapshot_working_copy);
         let workspace_name = self.workspace_name().to_owned();
+        let workspace_root = self.workspace_root().to_owned();
         let mut tx = self.start_transaction();
-        jj_lib::git::import_head(tx.repo_mut(), &workspace_name).await?;
+        jj_lib::git::import_head(tx.repo_mut(), &workspace_name, Some(&workspace_root)).await?;
         if !tx.repo().has_changes() {
             return Ok(());
         }
@@ -2080,6 +2083,7 @@ to the current parents may contain changes from multiple commits.
         git_import_export_lock: &GitImportExportLock,
     ) -> Result<SnapshotStats, SnapshotWorkingCopyError> {
         let workspace_name = self.workspace_name().to_owned();
+        let workspace_root = self.workspace_root().to_owned();
         let repo = self.repo().clone();
         let auto_tracking_matcher = self
             .auto_tracking_matcher(ui)
@@ -2180,6 +2184,7 @@ to the current parents may contain changes from multiple commits.
                         mut_repo,
                         &workspace_name,
                         &new_wc_commit,
+                        &workspace_root,
                         git_import_export_lock,
                     )
                     .await
@@ -2378,6 +2383,7 @@ to the current parents may contain changes from multiple commits.
                     tx.repo_mut(),
                     self.workspace_name(),
                     wc_commit,
+                    self.workspace_root(),
                     git_import_export_lock,
                 )
                 .await?;
@@ -2707,6 +2713,7 @@ async fn try_reset_git_head(
     mut_repo: &mut MutableRepo,
     workspace_name: &WorkspaceName,
     wc_commit: &Commit,
+    workspace_root: &Path,
     _git_import_export_lock: &GitImportExportLock,
 ) -> Result<(), CommandError> {
     use std::error::Error as _;
@@ -2716,7 +2723,7 @@ async fn try_reset_git_head(
     // This can still fail if HEAD was updated concurrently by another JJ process
     // (overlapping transaction) or a non-JJ process (e.g., git checkout). In that
     // case, the actual state will be imported on the next snapshot.
-    match jj_lib::git::reset_head(mut_repo, workspace_name, wc_commit).await {
+    match jj_lib::git::reset_head(mut_repo, workspace_name, wc_commit, Some(workspace_root)).await {
         Ok(()) => Ok(()),
         Err(err @ jj_lib::git::GitResetHeadError::UpdateHeadRef(_)) => {
             writeln!(ui.warning_default(), "{err}")?;
