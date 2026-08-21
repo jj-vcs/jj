@@ -42,6 +42,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   removes it, allowing colocation to be toggled after workspace
   creation.
 
+* `jj git worktree adopt` adopts existing Git worktrees as jj
+  workspaces. With no arguments it adopts the worktree at the current
+  directory; with names it adopts specific worktrees; with `--all` it
+  adopts every unadopted worktree at once.
+
 ### Fixed bugs
 
 * The default pager flags now include `-K` (`--quit-on-intr`), so pressing
