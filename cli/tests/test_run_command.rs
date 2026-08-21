@@ -20,6 +20,7 @@ use insta::assert_snapshot;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
 use crate::common::create_commit_with_files;
+use crate::common::fake_editor_path;
 
 #[test]
 fn test_run_simple() {
@@ -271,8 +272,8 @@ fn test_run_from_subdir_skips_commits_without_it() {
     insta::assert_snapshot!(output.stderr, @r"
     Skipped commit 3bb1f1ca3c09a8e6be46ef48515803464b16b426: directory does not exist: sub
     Rewrote 1 commits.
-    Working copy  (@) now at: kkmpptxz 3548431a (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 3aa9a235 with-sub
+    Working copy  (@) now at: kkmpptxz 47736de8 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz cb2b6779 with-sub
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -487,8 +488,8 @@ fn test_run_ignore_errors_rewrites_successes() {
         output.success(), @r"
     ------- stderr -------
     Rewrote 1 commits.
-    Working copy  (@) now at: zsuskuln f3c3b6ac b | b
-    Parent commit (@-)      : rlvkpnrz 2385de9f a | a
+    Working copy  (@) now at: zsuskuln 8dcecfe7 b | b
+    Parent commit (@-)      : rlvkpnrz b42c1b2c a | a
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "
@@ -1979,4 +1980,104 @@ fn test_run_on_conflicted_commit() {
     touched.txt
     [EOF]
     ");
+}
+
+#[test]
+fn test_run_touches_file_without_diff() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("file.txt", "content\n");
+    work_dir.run_jj(&["commit", "-m", "initial"]).success();
+
+    let log_before = work_dir
+        .run_jj(&["log", "-T", "commit_id.short()"])
+        .success()
+        .stdout
+        .to_string();
+
+    std::fs::write(&edit_script, "write\ncontent\n").unwrap();
+    let output = work_dir
+        .run_jj(&["run", "-r", "@-", "--", &fake_editor_path(), "file.txt"])
+        .success();
+    insta::assert_snapshot!(output.stderr, @r"
+    Nothing changed.
+    [EOF]
+    ");
+
+    let log_after = work_dir
+        .run_jj(&["log", "-T", "commit_id.short()"])
+        .success()
+        .stdout
+        .to_string();
+    assert_eq!(log_before, log_after);
+}
+
+#[test]
+fn test_run_multi_commit_partial_diff() {
+    let mut test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let fake_formatter = assert_cmd::cargo::cargo_bin("fake-formatter");
+    assert!(fake_formatter.is_file());
+    let fake_formatter_path = fake_formatter.to_string_lossy().into_owned();
+    test_env.add_paths_to_normalize(fake_formatter.clone(), "$FAKE_FORMATTER_PATH");
+    let work_dir = test_env.work_dir("repo");
+
+    // First commit has only root-level file; no `sub/` exists.
+    work_dir.write_file("file_a.txt", "content_a\n");
+    work_dir.run_jj(&["describe", "-m", "commit_a"]).success();
+
+    // Second commit adds `sub/file_b.txt`.
+    work_dir.run_jj(&["new", "-m", "commit_b"]).success();
+    work_dir.write_file("sub/file_b.txt", "content_b\n");
+
+    let log_commit_a_before = work_dir
+        .run_jj(&[
+            "log",
+            "-r",
+            "description('commit_a')",
+            "-T",
+            "commit_id.short()",
+        ])
+        .success()
+        .stdout
+        .to_string();
+
+    let sub_dir = work_dir.dir("sub");
+    let output = sub_dir
+        .run_jj(&[
+            "run",
+            "-r",
+            "..@",
+            "--",
+            &fake_formatter_path,
+            "--tee",
+            "ran.txt",
+        ])
+        .success()
+        .normalize_backslash();
+
+    insta::assert_snapshot!(output.stderr, @r"
+    Skipped commit 9c0b665484a6ebf6770a7f72511c1a9c8ea75183: directory does not exist: sub
+    Rewrote 1 commits.
+    Working copy  (@) now at: kkmpptxz 54d102ff commit_b
+    Parent commit (@-)      : qpvuntsm 9c0b6654 commit_a
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    ");
+
+    // commit_a was skipped and must NOT have been rewritten
+    let log_commit_a_after = work_dir
+        .run_jj(&[
+            "log",
+            "-r",
+            "description('commit_a')",
+            "-T",
+            "commit_id.short()",
+        ])
+        .success()
+        .stdout
+        .to_string();
+    assert_eq!(log_commit_a_before, log_commit_a_after);
 }

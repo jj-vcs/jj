@@ -16,7 +16,6 @@
 
 use std::cmp::min;
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::fmt;
 use std::fs;
 use std::io;
@@ -360,8 +359,6 @@ struct RunJob {
     /// run (i.e. the commit was skipped). May be a conflicted tree when the
     /// command left conflicts in the working copy.
     new_tree: Option<MergedTree>,
-    /// Was the tree even modified.
-    dirty: bool,
     /// Bytes the subprocess wrote to its stdout, captured in full.
     stdout: Vec<u8>,
     /// Bytes the subprocess wrote to its stderr, captured in full.
@@ -465,7 +462,6 @@ async fn rewrite_commit(
                 old_id,
                 old_tree,
                 new_tree: None,
-                dirty: false,
                 stdout: Vec::new(),
                 stderr: Vec::new(),
                 skipped: true,
@@ -561,7 +557,6 @@ async fn rewrite_commit(
         old_id,
         old_tree,
         new_tree,
-        dirty,
         stdout: output.stdout,
         stderr: output.stderr,
         skipped: false,
@@ -767,7 +762,6 @@ pub async fn cmd_run(
         builder.enable_time();
         builder.build().unwrap()
     };
-    let mut done_commits = HashSet::new();
     let (sender_tx, mut receiver) = mpsc::channel(jobs.get());
 
     let pool = Arc::new(WorkspacePool::new(
@@ -837,10 +831,9 @@ pub async fn cmd_run(
                             return Err(error);
                         }
                     }
-                    if res.dirty
-                        && let Some(new_tree) = res.new_tree
+                    if let Some(new_tree) = res.new_tree
+                        && new_tree.tree_ids_and_labels() != res.old_tree.tree_ids_and_labels()
                     {
-                        done_commits.insert(res.old_id.clone());
                         rewritten_commits.insert(res.old_id.clone(), (res.old_tree, new_tree));
                     }
                 }
@@ -888,13 +881,19 @@ pub async fn cmd_run(
                         builder.set_tree(merged).write().await?;
                     }
                     (None, true) => {
-                        // Descendant outside the run set — keep its content.
-                        rewriter.reparent().write().await?;
-                        num_reparented += 1;
+                        // Descendant outside the run set or unmodified commit —
+                        // keep its content if an ancestor changed.
+                        if rewriter.parents_changed() {
+                            rewriter.reparent().write().await?;
+                            num_reparented += 1;
+                        }
                     }
                     (None, false) => {
-                        // Default: propagate the diff into descendants.
-                        rewriter.rebase().await?.write().await?;
+                        // Default: propagate the diff into descendants if an
+                        // ancestor changed.
+                        if rewriter.parents_changed() {
+                            rewriter.rebase().await?.write().await?;
+                        }
                     }
                 }
                 Ok(())
