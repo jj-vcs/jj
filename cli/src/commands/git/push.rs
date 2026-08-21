@@ -288,7 +288,6 @@ pub async fn cmd_git_push(
 
     let mut tx = workspace_command.start_transaction();
     let view = tx.repo().view();
-    let tx_description;
     let mut ref_updates = GitPushRefTargets::default();
     if args.all {
         let mut commits_validator =
@@ -317,10 +316,6 @@ pub async fn cmd_git_push(
                 Err(reason) => reason.print(ui)?,
             }
         }
-        tx_description = format!(
-            "{TX_DESC_PUSH}all bookmarks/tags to git remote {remote}",
-            remote = remote.as_symbol()
-        );
     } else if args.tracked {
         let mut commits_validator =
             CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args)?;
@@ -354,10 +349,6 @@ pub async fn cmd_git_push(
                 Err(reason) => reason.print(ui)?,
             }
         }
-        tx_description = format!(
-            "{TX_DESC_PUSH}all tracked bookmarks/tags to git remote {remote}",
-            remote = remote.as_symbol()
-        );
     } else if args.deleted {
         // There shouldn't be new heads to push, but we run validation for consistency.
         let mut commits_validator =
@@ -394,10 +385,6 @@ pub async fn cmd_git_push(
                 Err(reason) => reason.print(ui)?,
             }
         }
-        tx_description = format!(
-            "{TX_DESC_PUSH}all deleted bookmarks/tags to git remote {remote}",
-            remote = remote.as_symbol()
-        );
     } else {
         let mut seen_bookmarks: HashSet<&RefName> = HashSet::new();
         let mut seen_tags: HashSet<&RefName> = HashSet::new();
@@ -541,12 +528,6 @@ pub async fn cmd_git_push(
                 Err(reason) => reason.print(ui)?,
             }
         }
-
-        tx_description = format!(
-            "{TX_DESC_PUSH}{names} to git remote {remote}",
-            names = make_updates_term(&ref_updates),
-            remote = remote.as_symbol()
-        );
     }
     if ref_updates.bookmarks.is_empty() && ref_updates.tags.is_empty() {
         writeln!(ui.status(), "Nothing changed.")?;
@@ -588,7 +569,29 @@ pub async fn cmd_git_push(
     // TODO: On partial success, locally-created --change/--named bookmarks will
     // be committed. It's probably better to remove failed local bookmarks.
     if push_stats.all_ok() || push_stats.some_exported() {
-        tx.finish(ui, tx_description).await?;
+        let description = if args.all {
+            format!(
+                "{TX_DESC_PUSH}all bookmarks/tags to git remote {remote}",
+                remote = remote.as_symbol()
+            )
+        } else if args.tracked {
+            format!(
+                "{TX_DESC_PUSH}all tracked bookmarks/tags to git remote {remote}",
+                remote = remote.as_symbol()
+            )
+        } else if args.deleted {
+            format!(
+                "{TX_DESC_PUSH}all deleted bookmarks/tags to git remote {remote}",
+                remote = remote.as_symbol()
+            )
+        } else {
+            format!(
+                "{TX_DESC_PUSH}{names} to git remote {remote}",
+                names = make_updates_term(&ref_updates),
+                remote = remote.as_symbol()
+            )
+        };
+        tx.finish(ui, description).await?;
     }
     if push_stats.all_ok() {
         Ok(())
