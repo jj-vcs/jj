@@ -2167,6 +2167,14 @@ fn test_workspaces_add_colocated_default_creates_worktree() {
     [EOF]
     "#);
     assert!(test_env.env_root().join("secondary/.git").is_file());
+
+    let secondary_dir = test_env.work_dir("secondary");
+    let output = secondary_dir.run_jj(["git", "colocation", "status", "--quiet"]);
+    insta::assert_snapshot!(output, @r#"
+    Workspace 'secondary' is currently colocated with Git.
+    Last imported/exported Git HEAD: 7b22a8cbe888adcb4d5ff6dd46a38049e870c6ab
+    [EOF]
+    "#);
 }
 
 #[test]

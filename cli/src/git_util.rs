@@ -29,6 +29,8 @@ use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
 use indoc::writedoc;
 use itertools::Itertools as _;
+use jj_lib::file_util;
+use jj_lib::file_util::IoResultExt as _;
 use jj_lib::git;
 use jj_lib::git::FailedRefExportReason;
 use jj_lib::git::GitExportStats;
@@ -583,12 +585,52 @@ pub fn create_git_worktree(
     // Silently ignored by git versions that don't support it.
     let relative_paths_config = ["-c", "worktree.useRelativePaths=true"];
 
-    run_git_worktree_add(
-        git_settings,
-        &relative_paths_config,
-        main_workspace_root,
-        destination,
-    )?;
+    let dest_exists = destination.exists() && !file_util::is_empty_dir(destination)?;
+    if dest_exists {
+        // `git worktree add` refuses to create a worktree in a non-empty
+        // directory. Work around this by creating in a temporary sibling
+        // directory, moving the .git gitlink, and repairing the paths.
+        let tmp =
+            tempfile::TempDir::new_in(destination.parent().unwrap_or(std::path::Path::new(".")))
+                .map_err(|err| {
+                    user_error_with_message(
+                        "Failed to create temporary directory for Git worktree",
+                        err,
+                    )
+                })?;
+        let tmp_path = tmp.keep();
+
+        run_git_worktree_add(
+            git_settings,
+            &relative_paths_config,
+            main_workspace_root,
+            &tmp_path,
+        )?;
+
+        std::fs::rename(tmp_path.join(".git"), destination.join(".git")).context(destination)?;
+        std::fs::remove_dir_all(&tmp_path).ok();
+
+        let output = Command::new(&git_settings.executable_path)
+            .args(relative_paths_config)
+            .args(["worktree", "repair", "--"])
+            .arg(destination)
+            .current_dir(main_workspace_root)
+            .output()
+            .map_err(|err| user_error_with_message("Failed to run `git worktree repair`", err))?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(user_error(format!(
+                "Failed to repair Git worktree paths: {stderr}"
+            )));
+        }
+    } else {
+        run_git_worktree_add(
+            git_settings,
+            &relative_paths_config,
+            main_workspace_root,
+            destination,
+        )?;
+    }
 
     writeln!(ui.status(), "Created Git worktree for the new workspace.")?;
     Ok(())
