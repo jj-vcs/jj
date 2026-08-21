@@ -1404,12 +1404,14 @@ original change ID and any existing bookmarks.
 
 ```toml
 [split]
-# To keep the change ID and bookmarks with the revision containing the selected
-# changes:
-identity-strategy = ["selected"]
+# First attempt to keep the change ID and bookmarks with the revision that keeps
+# the original description, then fall back to the revision with remaining changes:
+identity-strategy = ["follow-description", "remaining"]
 ```
 
-The available strategies are:
+The strategies defined in the config array are evaluated in order, falling back
+to the next one if it is unable to select an identity revision. The available
+strategies are:
 
 * `selected`: The revision containing the selected changes inherits the
   original change ID and any existing bookmarks. The revision with the remaining
@@ -1417,6 +1419,11 @@ The available strategies are:
 * `remaining` (default): The revision containing the remaining changes inherits the
   original change ID and any existing bookmarks. The revision with the selected
   changes gets a new change ID.
+* `follow-description`: Compares the descriptions of the two split revisions
+  with the original revision's description. If exactly one of the split revisions
+  retains the non-empty original description, that revision inherits the change
+  ID and bookmarks. If both were modified, both match, or the original
+  description was empty, this strategy yields to the next strategy in the chain.
 
 ## Code formatting and other file content transformations
 

@@ -321,12 +321,15 @@ pub(crate) async fn cmd_split(
         target_tree
     };
 
+    // Tentatively determine which commit will inherit the original change ID.
+    // This might change if follow-description is configured, but it prevents us
+    // from showing change IDs in the editor that are guaranteed to be wrong.
     let strategies = load_identity_strategies(tx.settings())?;
-    let identity_recipient = resolve_identity_recipient(&strategies);
+    let tentative_recipient = find_static_identity_recipient(&strategies);
 
     let mut first_commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
     first_commit_builder.set_tree(target.selected_tree.clone());
-    if identity_recipient == IdentityRecipient::Remaining {
+    if tentative_recipient == IdentityRecipient::Remaining {
         first_commit_builder.clear_rewrite_source();
         // Generate a new change id so that the commit being split doesn't
         // become divergent.
@@ -335,7 +338,7 @@ pub(crate) async fn cmd_split(
     let first_description =
         resolve_first_description(ui, &mut tx, &text_editor, &mut first_commit_builder, args)
             .await?;
-    first_commit_builder.set_description(first_description);
+    first_commit_builder.set_description(&first_description);
 
     let parents = if parallel {
         target.commit.parent_ids().to_vec()
@@ -346,8 +349,8 @@ pub(crate) async fn cmd_split(
     let mut second_commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
     second_commit_builder
         .set_parents(parents)
-        .set_tree(second_tree);
-    if identity_recipient == IdentityRecipient::Selected {
+        .set_tree(second_tree.clone());
+    if tentative_recipient == IdentityRecipient::Selected {
         second_commit_builder.clear_rewrite_source();
         // Generate a new change id so that the commit being split doesn't
         // become divergent.
@@ -362,7 +365,42 @@ pub(crate) async fn cmd_split(
         args,
     )
     .await?;
-    second_commit_builder.set_description(second_description);
+    second_commit_builder.set_description(&second_description);
+
+    let identity_recipient = resolve_identity_recipient(
+        &strategies,
+        &target,
+        &first_description,
+        &second_description,
+    );
+
+    if identity_recipient != tentative_recipient {
+        match identity_recipient {
+            IdentityRecipient::Selected => {
+                first_commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
+                first_commit_builder.set_tree(target.selected_tree.clone());
+                first_commit_builder.set_description(first_description);
+
+                second_commit_builder.clear_rewrite_source();
+                // Generate a new change id so that the commit being split doesn't
+                // become divergent.
+                second_commit_builder.generate_new_change_id();
+            }
+            IdentityRecipient::Remaining => {
+                first_commit_builder.clear_rewrite_source();
+                // Generate a new change id so that the commit being split doesn't
+                // become divergent.
+                first_commit_builder.generate_new_change_id();
+
+                let parents = second_commit_builder.parents().to_vec();
+                second_commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
+                second_commit_builder
+                    .set_parents(parents)
+                    .set_tree(second_tree);
+                second_commit_builder.set_description(second_description);
+            }
+        }
+    }
 
     let first_commit = first_commit_builder.write(tx.repo_mut()).await?;
     if !parallel {
@@ -602,7 +640,7 @@ async fn resolve_first_description(
         description
     };
     let description = if use_editor {
-        commit_builder.set_description(description);
+        commit_builder.set_description(&description);
         let temp_commit = commit_builder.write_hidden().await?;
         let intro = "Enter a description for the selected changes.";
         let template = description_template(ui, tx, intro, &temp_commit)?;
@@ -629,7 +667,12 @@ async fn resolve_second_description(
         commit_builder.description().to_owned()
     };
     let description = if show_editor {
-        let new_description = add_trailers(ui, tx, commit_builder).await?;
+        let new_description = if !description.is_empty() {
+            commit_builder.set_description(description);
+            add_trailers(ui, tx, commit_builder).await?
+        } else {
+            description
+        };
         commit_builder.set_description(new_description);
         let temp_commit = commit_builder.write_hidden().await?;
         let intro = "Enter a description for the remaining changes.";
@@ -651,6 +694,7 @@ pub(crate) enum IdentityRecipient {
 pub(crate) enum IdentityStrategy {
     Selected,
     Remaining,
+    FollowDescription,
 }
 
 impl IdentityStrategy {
@@ -658,6 +702,7 @@ impl IdentityStrategy {
         match s {
             "selected" => Ok(Self::Selected),
             "remaining" => Ok(Self::Remaining),
+            "follow-description" => Ok(Self::FollowDescription),
             other => Err(user_error(format!("Invalid identity strategy `{other}`."))),
         }
     }
@@ -681,9 +726,41 @@ fn load_identity_strategies(
         .collect()
 }
 
-fn resolve_identity_recipient(strategies: &[IdentityStrategy]) -> IdentityRecipient {
-    match strategies.first().unwrap_or(&IdentityStrategy::Remaining) {
-        IdentityStrategy::Selected => IdentityRecipient::Selected,
-        IdentityStrategy::Remaining => IdentityRecipient::Remaining,
+fn find_static_identity_recipient(strategies: &[IdentityStrategy]) -> IdentityRecipient {
+    for strategy in strategies {
+        match strategy {
+            IdentityStrategy::Selected => return IdentityRecipient::Selected,
+            IdentityStrategy::Remaining => return IdentityRecipient::Remaining,
+            IdentityStrategy::FollowDescription => {}
+        }
     }
+    IdentityRecipient::Remaining
+}
+
+fn resolve_identity_recipient(
+    strategies: &[IdentityStrategy],
+    target: &CommitWithSelection,
+    first_description: &str,
+    second_description: &str,
+) -> IdentityRecipient {
+    for strategy in strategies {
+        match strategy {
+            IdentityStrategy::Selected => return IdentityRecipient::Selected,
+            IdentityStrategy::Remaining => return IdentityRecipient::Remaining,
+            IdentityStrategy::FollowDescription => {
+                let orig_desc = target.commit.description();
+                if !orig_desc.is_empty() {
+                    let first_matches = first_description == orig_desc;
+                    let second_matches = second_description == orig_desc;
+                    match (first_matches, second_matches) {
+                        (true, false) => return IdentityRecipient::Selected,
+                        (false, true) => return IdentityRecipient::Remaining,
+                        _ => {} // Ambiguous or both edited; yield to next strategy in chain
+                    }
+                }
+            }
+        }
+    }
+
+    IdentityRecipient::Remaining
 }
