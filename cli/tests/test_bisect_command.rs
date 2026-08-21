@@ -71,7 +71,7 @@ fn test_bisect_run() -> TestResult {
     create_commit(&work_dir, "f", &["e"]);
 
     std::fs::write(&bisection_script, ["fail"].join("\0"))?;
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", "--trust-endpoints", &bisector_path]), @"
     Bisecting: 5 revisions left to test after this (roughly 3 steps)
     Now evaluating: royxmykx dffaa0d4 c | c
     fake-bisector testing commit dffaa0d4daccf6cee70bac3498fae3b3fd5d6b5b
@@ -111,7 +111,7 @@ fn test_bisect_run() -> TestResult {
     // Try with legacy command argument
     std::fs::write(&bisection_script, ["fail"].join("\0"))?;
     // Testing only stderr to avoid a variable op id in the stdout.
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", "--command", &bisector_path]).success().stderr, @"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", "--trust-endpoints", "--command", &bisector_path]).success().stderr, @"
     Warning: `--command` is deprecated; use positional arguments instead: `jj bisect run --range=... -- $FAKE_BISECTOR_PATH`
     Working copy  (@) now at: nkmrtpmo 1601f7b4 (empty) (no description set)
     Parent commit (@-)      : royxmykx dffaa0d4 c | c
@@ -151,7 +151,7 @@ fn test_bisect_run_find_first_good() {
     create_commit(&work_dir, "e", &["d"]);
     create_commit(&work_dir, "f", &["e"]);
 
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", "--find-good", &bisector_path]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", "--find-good", "--trust-endpoints", &bisector_path]), @"
     Bisecting: 5 revisions left to test after this (roughly 3 steps)
     Now evaluating: royxmykx dffaa0d4 c | c
     fake-bisector testing commit dffaa0d4daccf6cee70bac3498fae3b3fd5d6b5b
@@ -202,7 +202,13 @@ fn test_bisect_run_missing_bisector() {
     create_commit(&work_dir, "e", &["d"]);
     create_commit(&work_dir, "f", &["e"]);
 
-    let output = work_dir.run_jj(["bisect", "run", "--range=..", "nonexistent"]);
+    let output = work_dir.run_jj([
+        "bisect",
+        "run",
+        "--range=..",
+        "--trust-endpoints",
+        "nonexistent",
+    ]);
     if cfg!(unix) {
         insta::assert_snapshot!(output, @r"
         Bisecting: 5 revisions left to test after this (roughly 3 steps)
@@ -250,6 +256,12 @@ fn test_bisect_run_with_args() {
     create_commit(&work_dir, "f", &["e"]);
 
     insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", "--find-good", "--", &bisector_path, "--require-file=c"]), @"
+    Pre-bisection check: ensuring this commit is Good:
+    kmkuslsw 8b67af28 f | f
+    fake-bisector testing commit 8b67af2884669a7718bc480a54cdc1ff69af91f2
+    Pre-bisection check: ensuring this commit is Bad:
+    zzzzzzzz 00000000 (empty) (no description set)
+    fake-bisector testing commit 0000000000000000000000000000000000000000
     Bisecting: 5 revisions left to test after this (roughly 3 steps)
     Now evaluating: royxmykx dffaa0d4 c | c
     fake-bisector testing commit dffaa0d4daccf6cee70bac3498fae3b3fd5d6b5b
@@ -270,19 +282,24 @@ fn test_bisect_run_with_args() {
     The first good revision is: royxmykx dffaa0d4 c | c
     [EOF]
     ------- stderr -------
-    Working copy  (@) now at: lylxulpl 68b3a16f (empty) (no description set)
+    Working copy  (@) now at: lylxulpl 4f293dd6 (empty) (no description set)
+    Parent commit (@-)      : kmkuslsw 8b67af28 f | f
+    Working copy  (@) now at: rsllmpnm 8afab1b9 (empty) (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Added 0 files, modified 0 files, removed 6 files
+    Working copy  (@) now at: zqsquwqt 844e5bd4 (empty) (no description set)
     Parent commit (@-)      : royxmykx dffaa0d4 c | c
-    Added 0 files, modified 0 files, removed 3 files
-    Working copy  (@) now at: rsllmpnm 5f328bc5 (empty) (no description set)
+    Added 3 files, modified 0 files, removed 0 files
+    Working copy  (@) now at: pkpnqqml f47d20e7 (empty) (no description set)
     Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
     Added 0 files, modified 0 files, removed 2 files
-    Working copy  (@) now at: zqsquwqt 042badd2 (empty) (no description set)
+    Working copy  (@) now at: zlurrkkr 72034991 (empty) (no description set)
     Parent commit (@-)      : zsuskuln 123b4d91 b | b
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
-    @  zqsquwqtrvts 042badd28c1d '' files:
+    @  zlurrkkrtuyq 72034991fbf9 '' files:
     │ ○  kmkuslswpqwq 8b67af288466 'f' files: f
     │ ○  znkkpsqqskkl 62d30ded0e8f 'e' files: e
     │ ○  vruxwmqvtpmx 86be7a223919 'd' files: d
@@ -312,7 +329,7 @@ fn test_bisect_run_crash() -> TestResult {
 
     // bisector crash is equivalent to a failure
     std::fs::write(&bisection_script, ["crash"].join("\0"))?;
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", "--trust-endpoints", &bisector_path]), @"
     Bisecting: 5 revisions left to test after this (roughly 3 steps)
     Now evaluating: royxmykx dffaa0d4 c | c
     fake-bisector testing commit dffaa0d4daccf6cee70bac3498fae3b3fd5d6b5b
@@ -353,7 +370,7 @@ fn test_bisect_run_abort() -> TestResult {
 
     // stop immediately on failure
     std::fs::write(&bisection_script, ["abort"].join("\0"))?;
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", "--trust-endpoints", &bisector_path]), @"
     Bisecting: 2 revisions left to test after this (roughly 2 steps)
     Now evaluating: rlvkpnrz 7d980be7 a | a
     fake-bisector testing commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
@@ -386,7 +403,7 @@ fn test_bisect_run_skip() -> TestResult {
     create_commit(&work_dir, "b", &["a"]);
 
     std::fs::write(&bisection_script, ["skip"].join("\0"))?;
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", "--trust-endpoints", &bisector_path]), @"
     Bisecting: 1 revisions left to test after this (roughly 1 steps)
     Now evaluating: rlvkpnrz 7d980be7 a | a
     fake-bisector testing commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
@@ -422,7 +439,7 @@ fn test_bisect_run_multiple_results() {
     create_commit(&work_dir, "c", &["a"]);
     create_commit(&work_dir, "d", &["c"]);
 
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=a|b|c|d", &bisector_path]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=a|b|c|d", "--trust-endpoints", &bisector_path]), @"
     Bisecting: 2 revisions left to test after this (roughly 2 steps)
     Now evaluating: rlvkpnrz 7d980be7 a | a
     fake-bisector testing commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
@@ -468,7 +485,7 @@ fn test_bisect_run_write_file() -> TestResult {
         &bisection_script,
         ["write new-file\nsome contents", "fail"].join("\0"),
     )?;
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", "--trust-endpoints", &bisector_path]), @"
     Bisecting: 4 revisions left to test after this (roughly 3 steps)
     Now evaluating: zsuskuln 123b4d91 b | b
     fake-bisector testing commit 123b4d91f6e5e39bfed39bae3bacf9380dc79078
@@ -534,7 +551,7 @@ fn test_bisect_run_jj_command() -> TestResult {
     create_commit(&work_dir, "e", &["d"]);
 
     std::fs::write(&bisection_script, ["jj new -mtesting", "fail"].join("\0"))?;
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", "--trust-endpoints", &bisector_path]), @"
     Bisecting: 4 revisions left to test after this (roughly 3 steps)
     Now evaluating: zsuskuln 123b4d91 b | b
     fake-bisector testing commit 123b4d91f6e5e39bfed39bae3bacf9380dc79078
