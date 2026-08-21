@@ -1047,10 +1047,24 @@
             "type": "object",
             "description": "Settings for jj split",
             "properties": {
+                "identity-strategy": {
+                    "type": "array",
+                    "description": "The strategy chain to determine Change ID and bookmark assignment after split",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "selected",
+                            "remaining"
+                        ]
+                    },
+                    "default": [
+                        "remaining"
+                    ]
+                },
                 "legacy-bookmark-behavior": {
                     "type": "boolean",
-                    "description": "If true, bookmarks will move to the second commit instead of the first.",
-                    "default": true
+                    "deprecated": true,
+                    "description": "Deprecated: use split.identity-strategy instead. If true, bookmarks will move to the second commit instead of the first."
                 }
             }
         },
