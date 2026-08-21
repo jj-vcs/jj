@@ -35,7 +35,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Added `split.identity-strategy` configuration setting to control which commit
   inherits the original Change ID and where bookmarks move after `jj split`.
-  Supported strategies are `"selected"` and `"remaining"` (default).
+  Supported strategies are `"selected"`, `"remaining"` (default), and
+  `"follow-description"`.
 
 ### Fixed bugs
 
