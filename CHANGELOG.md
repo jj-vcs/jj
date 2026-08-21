@@ -14,6 +14,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Deprecations
 
+* `split.legacy-bookmark-behavior` is now deprecated in favor of
+  `split.identity-strategy`.
+
 ### New features
 
 * `jj bisect` will now mention when it cannot unambiguously find the first bad
@@ -29,6 +32,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   heuristics to try to automatically come up with a good solution, and falls
   back to prompting the user if the heuristics are inconclusive. It can also run
   in non-interactive mode, which aborts if prompting would be needed.
+
+* Added `split.identity-strategy` configuration setting to control which commit
+  inherits the original Change ID and where bookmarks move after `jj split`.
+  Supported strategies are `"selected"` and `"remaining"` (default).
 
 ### Fixed bugs
 

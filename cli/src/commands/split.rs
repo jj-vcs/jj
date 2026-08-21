@@ -19,6 +19,7 @@ use clap_complete::ArgValueCompleter;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::commit_builder::DetachedCommitBuilder;
+use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::matchers::Matcher;
 use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
@@ -33,6 +34,7 @@ use jj_lib::rewrite::RebaseOptions;
 use jj_lib::rewrite::RebasedCommit;
 use jj_lib::rewrite::RewriteRefsOptions;
 use jj_lib::rewrite::move_commits;
+use jj_lib::settings::UserSettings;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -43,6 +45,7 @@ use crate::cli_util::WorkspaceCommandTransaction;
 use crate::cli_util::compute_commit_location;
 use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::complete;
 use crate::description_util::TextEditor;
 use crate::description_util::add_trailers;
@@ -318,9 +321,12 @@ pub(crate) async fn cmd_split(
         target_tree
     };
 
+    let strategies = load_identity_strategies(tx.settings())?;
+    let identity_recipient = resolve_identity_recipient(&strategies);
+
     let mut first_commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
     first_commit_builder.set_tree(target.selected_tree.clone());
-    if use_move_flags {
+    if identity_recipient == IdentityRecipient::Remaining {
         first_commit_builder.clear_rewrite_source();
         // Generate a new change id so that the commit being split doesn't
         // become divergent.
@@ -341,7 +347,7 @@ pub(crate) async fn cmd_split(
     second_commit_builder
         .set_parents(parents)
         .set_tree(second_tree);
-    if !use_move_flags {
+    if identity_recipient == IdentityRecipient::Selected {
         second_commit_builder.clear_rewrite_source();
         // Generate a new change id so that the commit being split doesn't
         // become divergent.
@@ -375,7 +381,15 @@ pub(crate) async fn cmd_split(
         )
         .await?
     } else {
-        rewrite_descendants(&mut tx, &target, first_commit, second_commit, parallel).await?
+        rewrite_descendants(
+            &mut tx,
+            &target,
+            first_commit,
+            second_commit,
+            parallel,
+            identity_recipient,
+        )
+        .await?
     };
     if let Some(mut formatter) = ui.status_formatter() {
         if num_rebased > 0 {
@@ -470,9 +484,9 @@ async fn rewrite_descendants(
     first_commit: Commit,
     second_commit: Commit,
     parallel: bool,
+    identity_recipient: IdentityRecipient,
 ) -> Result<(Commit, Commit, usize), CommandError> {
-    let legacy_bookmark_behavior = tx.settings().get_bool("split.legacy-bookmark-behavior")?;
-    if legacy_bookmark_behavior {
+    if identity_recipient == IdentityRecipient::Remaining {
         // Mark the commit being split as rewritten to the second commit. This
         // moves any bookmarks pointing to the target commit to the second
         // commit.
@@ -485,7 +499,7 @@ async fn rewrite_descendants(
             vec![target.commit.id().clone()],
             async |mut rewriter: CommitRewriter<'_>| {
                 num_rebased += 1;
-                if parallel && legacy_bookmark_behavior {
+                if parallel && identity_recipient == IdentityRecipient::Remaining {
                     // The old_parent is the second commit due to the rewrite above.
                     rewriter.replace_parent(
                         second_commit.id(),
@@ -625,4 +639,51 @@ async fn resolve_second_description(
         description
     };
     Ok(description)
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum IdentityRecipient {
+    Selected,
+    Remaining,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum IdentityStrategy {
+    Selected,
+    Remaining,
+}
+
+impl IdentityStrategy {
+    fn from_str(s: &str) -> Result<Self, CommandError> {
+        match s {
+            "selected" => Ok(Self::Selected),
+            "remaining" => Ok(Self::Remaining),
+            other => Err(user_error(format!("Invalid identity strategy `{other}`."))),
+        }
+    }
+}
+
+fn load_identity_strategies(
+    settings: &UserSettings,
+) -> Result<Vec<IdentityStrategy>, CommandError> {
+    let raw_strategies: Vec<String> =
+        if let Ok(list) = settings.get::<Vec<String>>("split.identity-strategy") {
+            list
+        } else if let Some(single) = settings.get_string("split.identity-strategy").optional()? {
+            vec![single]
+        } else {
+            vec!["remaining".to_string()]
+        };
+
+    raw_strategies
+        .iter()
+        .map(|s| IdentityStrategy::from_str(s))
+        .collect()
+}
+
+fn resolve_identity_recipient(strategies: &[IdentityStrategy]) -> IdentityRecipient {
+    match strategies.first().unwrap_or(&IdentityStrategy::Remaining) {
+        IdentityStrategy::Selected => IdentityRecipient::Selected,
+        IdentityStrategy::Remaining => IdentityRecipient::Remaining,
+    }
 }

@@ -1396,6 +1396,28 @@ The conflict marker style can also be customized per tool using the
 `merge-tools.TOOL.conflict-marker-style` option, which takes the same values as
 [`ui.conflict-marker-style`](#conflict-marker-style).
 
+## Splitting commits
+
+The `split.identity-strategy` setting configures the strategy chain that
+determines which of the two revisions resulting from `jj split` inherits the
+original change ID and any existing bookmarks.
+
+```toml
+[split]
+# To keep the change ID and bookmarks with the revision containing the selected
+# changes:
+identity-strategy = ["selected"]
+```
+
+The available strategies are:
+
+* `selected`: The revision containing the selected changes inherits the
+  original change ID and any existing bookmarks. The revision with the remaining
+  changes gets a new change ID.
+* `remaining` (default): The revision containing the remaining changes inherits the
+  original change ID and any existing bookmarks. The revision with the selected
+  changes gets a new change ID.
+
 ## Code formatting and other file content transformations
 
 The `jj fix` command allows you to efficiently rewrite files in complex commit
