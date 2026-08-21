@@ -30,6 +30,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   back to prompting the user if the heuristics are inconclusive. It can also run
   in non-interactive mode, which aborts if prompting would be needed.
 
+* `jj git push` now supports pushing to multiple remotes at the same time.
+  This can be configured via `git.push` set to a string pattern
+  or array of string patterns, or with the repeatable `--remote` flag,
+  which also accepts string patterns.
+
 ### Fixed bugs
 
 * The default pager flags now include `-K` (`--quit-on-intr`), so pressing
