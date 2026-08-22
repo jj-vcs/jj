@@ -36,7 +36,7 @@ use crate::ui::Ui;
 
 /// How to handle sparse patterns when creating a new workspace.
 #[derive(clap::ValueEnum, Clone, Debug, Eq, PartialEq)]
-enum SparseInheritance {
+pub(crate) enum SparseInheritance {
     /// Copy all sparse patterns from the current workspace.
     Copy,
     /// Include all files in the new workspace.
