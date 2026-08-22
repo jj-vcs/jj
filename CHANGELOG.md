@@ -52,6 +52,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `log-graph-prioritize` revset.
   [#9975](https://github.com/jj-vcs/jj/issues/9975)
 
+* In colocated repos, an external `git add` after a `jj` command no longer
+  produces a tree with duplicate entries (`git fsck: duplicateEntries`). `jj`
+  was leaving a stale cache-tree behind in `.git/index`. Repositories already
+  corrupted this way are not repaired by the fix.
+  [#9711](https://github.com/jj-vcs/jj/issues/9711)
+  [#8884](https://github.com/jj-vcs/jj/issues/8884)
+
 ## [0.44.0] - 2026-08-05
 
 ### Release highlights
