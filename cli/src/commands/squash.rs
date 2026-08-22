@@ -46,6 +46,8 @@ use crate::description_util::description_template;
 use crate::description_util::edit_description;
 use crate::description_util::join_message_paragraphs;
 use crate::description_util::try_combine_messages;
+use crate::revset_util::RevsetEvaluationSizeError;
+use crate::revset_util::evaluate_revset_to_single_commit;
 use crate::ui::Ui;
 
 /// Move changes from a revision into another revision
@@ -216,9 +218,25 @@ pub(crate) async fn cmd_squash(
         // a little faster.
         sources.reverse();
     } else {
-        let source = workspace_command
-            .resolve_single_rev(ui, args.revision.as_ref().unwrap_or(&RevisionArg::AT))
-            .await?;
+        let revision_arg = args.revision.as_ref().unwrap_or(&RevisionArg::AT);
+        let source_expression = workspace_command.parse_revset(ui, revision_arg)?;
+        let source = evaluate_revset_to_single_commit(&source_expression)
+            .await
+            .map_err(|err| {
+                let was_multiple = matches!(err, RevsetEvaluationSizeError::Multiple(_, _));
+                let command_error = err.to_command_error(
+                    revision_arg.as_ref(),
+                    &workspace_command.commit_summary_template(),
+                );
+                if was_multiple {
+                    command_error.hinted(
+                        "--revision must resolve to a single revision. Use --from and --into \
+                         instead if you want to squash multiple revisions.",
+                    )
+                } else {
+                    command_error
+                }
+            })?;
         let mut parents = source.parents().await?;
         if parents.len() != 1 {
             return Err(

@@ -225,29 +225,61 @@ pub(super) fn try_resolve_trunk_alias(
     Ok(Some(resolved))
 }
 
-pub(super) async fn evaluate_revset_to_single_commit<'a>(
-    revision_str: &str,
+/// Error when evaluating a revset into a single commit.
+#[derive(Debug)]
+pub enum RevsetEvaluationSizeError {
+    /// The revset evaluated to no commits.
+    Empty,
+    /// The revset evaluated to multiple commits. The vector only contains a few
+    /// commits (enough for an error message), and the bool indicates whether
+    /// there were more; do not expect this to be the entire evaluated revset.
+    Multiple(Vec<Commit>, bool),
+    /// An error occurred during revset evaluation; size unknown.
+    Other(UserRevsetEvaluationError),
+}
+
+impl RevsetEvaluationSizeError {
+    pub fn to_command_error(
+        self,
+        revision_str: &str,
+        commit_summary_template: &TemplateRenderer<'_, Commit>,
+    ) -> CommandError {
+        match self {
+            Self::Empty => user_error(format!(
+                "Revset `{revision_str}` didn't resolve to any revisions"
+            )),
+            Self::Multiple(commits, has_more) => format_multiple_revisions_error(
+                revision_str,
+                &commits,
+                has_more,
+                commit_summary_template,
+            ),
+            Self::Other(error) => error.into(),
+        }
+    }
+}
+
+pub(super) async fn evaluate_revset_to_single_commit(
     expression: &RevsetExpressionEvaluator<'_>,
-    commit_summary_template: impl FnOnce() -> TemplateRenderer<'a, Commit>,
-) -> Result<Commit, CommandError> {
-    let commits: Vec<_> = expression
-        .evaluate_to_commits()?
-        .take(6)
+) -> Result<Commit, RevsetEvaluationSizeError> {
+    // The number of commits to pass to the error (will be shown in the error
+    // message).
+    let max_commits = 5;
+    let mut commits: Vec<_> = expression
+        .evaluate_to_commits()
+        .map_err(RevsetEvaluationSizeError::Other)?
+        .take(max_commits + 1)
         .try_collect()
-        .await?;
+        .await
+        .map_err(UserRevsetEvaluationError::Evaluation)
+        .map_err(RevsetEvaluationSizeError::Other)?;
     match commits.as_slice() {
         [commit] => Ok(commit.clone()),
-        [] => Err(user_error(format!(
-            "Revset `{revision_str}` didn't resolve to any revisions"
-        ))),
+        [] => Err(RevsetEvaluationSizeError::Empty),
         _ => {
-            let elided = commits.len() > 5;
-            Err(format_multiple_revisions_error(
-                revision_str,
-                &commits[..std::cmp::min(5, commits.len())],
-                elided,
-                &commit_summary_template(),
-            ))
+            let has_more = commits.len() > max_commits;
+            commits.truncate(max_commits);
+            Err(RevsetEvaluationSizeError::Multiple(commits, has_more))
         }
     }
 }

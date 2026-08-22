@@ -1820,18 +1820,19 @@ to the current parents may contain changes from multiple commits.
         op_walk::resolve_op_with_repo(self.repo(), op_str).block_on()
     }
 
-    /// Resolve a revset to a single revision. Return an error if the revset is
-    /// empty or has multiple revisions.
+    /// Resolves a revset to a single revision. Returns an error if the revset
+    /// is empty or has multiple revisions.
     pub async fn resolve_single_rev(
         &self,
         ui: &Ui,
         revision_arg: &RevisionArg,
     ) -> Result<Commit, CommandError> {
         let expression = self.parse_revset(ui, revision_arg)?;
-        revset_util::evaluate_revset_to_single_commit(revision_arg.as_ref(), &expression, || {
-            self.commit_summary_template()
-        })
-        .await
+        revset_util::evaluate_revset_to_single_commit(&expression)
+            .await
+            .map_err(|err| {
+                err.to_command_error(revision_arg.as_ref(), &self.commit_summary_template())
+            })
     }
 
     /// Evaluates revset expressions to set of commit IDs. The

@@ -396,6 +396,55 @@ fn test_squash_partial() -> TestResult {
 }
 
 #[test]
+fn test_squash_revision_flag_exactly_one_errors() {
+    // Test error cases where the `--revision` flag does not resolve to a single
+    // revision.
+
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "a\n");
+    work_dir.run_jj(["bookmark", "create", "a"]).success();
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file1", "b\n");
+    work_dir.run_jj(["bookmark", "create", "b"]).success();
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file1", "c\n");
+    work_dir.run_jj(["bookmark", "create", "c"]).success();
+
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    @  68a8af64312c c
+    ○  ffe91d7f157b b
+    ○  eb7b8a1f02b8 a
+    ◆  000000000000 (empty)
+    [EOF]
+    ");
+
+    // Try to squash multiple revisions.
+    let output = work_dir.run_jj(["squash", "-rb|c"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Revset `b|c` resolved to more than one revision
+    Hint: The revset `b|c` resolved to these revisions:
+      mzvwutvl 68a8af64 c | (no description set)
+      kkmpptxz ffe91d7f b | (no description set)
+    Hint: --revision must resolve to a single revision. Use --from and --into instead if you want to squash multiple revisions.
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // Try to squash no revisions.
+    let output = work_dir.run_jj(["squash", "-rb&c"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Revset `b&c` didn't resolve to any revisions
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
 fn test_squash_keep_emptied() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
