@@ -1812,17 +1812,35 @@ to the current parents may contain changes from multiple commits.
         op_walk::resolve_op_with_repo(self.repo(), op_str).block_on()
     }
 
-    /// Resolve a revset to a single revision. Return an error if the revset is
-    /// empty or has multiple revisions.
+    /// Resolves a revset to a single revision. Returns an error if the revset
+    /// is empty or has multiple revisions.
     pub async fn resolve_single_rev(
         &self,
         ui: &Ui,
         revision_arg: &RevisionArg,
     ) -> Result<Commit, CommandError> {
+        self.resolve_single_rev_map_error(ui, revision_arg, |e| e, |e| e)
+            .await
+    }
+
+    /// Resolves a revset to a single revision. Returns an error if the revset
+    /// is empty or has multiple revisions, with custom error mapping for either
+    /// case.
+    pub async fn resolve_single_rev_map_error(
+        &self,
+        ui: &Ui,
+        revision_arg: &RevisionArg,
+        map_empty_revset_error: impl FnOnce(CommandError) -> CommandError,
+        map_multiple_revisions_error: impl FnOnce(CommandError) -> CommandError,
+    ) -> Result<Commit, CommandError> {
         let expression = self.parse_revset(ui, revision_arg)?;
-        revset_util::evaluate_revset_to_single_commit(revision_arg.as_ref(), &expression, || {
-            self.commit_summary_template()
-        })
+        revset_util::evaluate_revset_to_single_commit(
+            revision_arg.as_ref(),
+            &expression,
+            || self.commit_summary_template(),
+            map_empty_revset_error,
+            map_multiple_revisions_error,
+        )
         .await
     }
 

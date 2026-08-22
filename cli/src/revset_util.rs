@@ -229,6 +229,8 @@ pub(super) async fn evaluate_revset_to_single_commit<'a>(
     revision_str: &str,
     expression: &RevsetExpressionEvaluator<'_>,
     commit_summary_template: impl FnOnce() -> TemplateRenderer<'a, Commit>,
+    map_empty_revset_error: impl FnOnce(CommandError) -> CommandError,
+    map_multiple_revisions_error: impl FnOnce(CommandError) -> CommandError,
 ) -> Result<Commit, CommandError> {
     let commits: Vec<_> = expression
         .evaluate_to_commits()?
@@ -237,16 +239,18 @@ pub(super) async fn evaluate_revset_to_single_commit<'a>(
         .await?;
     match commits.as_slice() {
         [commit] => Ok(commit.clone()),
-        [] => Err(user_error(format!(
+        [] => Err(map_empty_revset_error(user_error(format!(
             "Revset `{revision_str}` didn't resolve to any revisions"
-        ))),
+        )))),
         _ => {
             let elided = commits.len() > 5;
-            Err(format_multiple_revisions_error(
-                revision_str,
-                &commits[..std::cmp::min(5, commits.len())],
-                elided,
-                &commit_summary_template(),
+            Err(map_multiple_revisions_error(
+                format_multiple_revisions_error(
+                    revision_str,
+                    &commits[..std::cmp::min(5, commits.len())],
+                    elided,
+                    &commit_summary_template(),
+                ),
             ))
         }
     }

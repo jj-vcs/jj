@@ -217,7 +217,18 @@ pub(crate) async fn cmd_squash(
         sources.reverse();
     } else {
         let source = workspace_command
-            .resolve_single_rev(ui, args.revision.as_ref().unwrap_or(&RevisionArg::AT))
+            .resolve_single_rev_map_error(
+                ui,
+                args.revision.as_ref().unwrap_or(&RevisionArg::AT),
+                // No special hint for empty revset errors.
+                |e| e,
+                |error| {
+                    error.hinted(
+                        "--revision must resolve to a single revision. Use --from and --into \
+                         instead if you want to squash multiple revisions.",
+                    )
+                },
+            )
             .await?;
         let mut parents = source.parents().await?;
         if parents.len() != 1 {
