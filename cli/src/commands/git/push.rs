@@ -66,6 +66,7 @@ use crate::cli_util::WorkspaceCommandHelper;
 use crate::cli_util::WorkspaceCommandTransaction;
 use crate::cli_util::has_tracked_remote_bookmarks;
 use crate::cli_util::has_tracked_remote_tags;
+use crate::cli_util::print_updated_commits;
 use crate::cli_util::short_change_hash;
 use crate::cli_util::short_commit_hash;
 use crate::command_error::CommandError;
@@ -798,12 +799,12 @@ fn ready_to_push_revset_expression(
         .flat_map(|(_, old_head)| old_head.target.added_ids())
         .cloned()
         .collect_vec();
-    RevsetExpression::commits(old_heads)
-        .union(workspace_helper.env().immutable_heads_expression())
-        .range(&RevsetExpression::commits(new_heads))
+    RevsetExpression::commits(old_heads).range(&RevsetExpression::commits(new_heads))
 }
 
 /// Signs commits before pushing.
+///
+/// Warns about commits that need a signature but are immutable.
 ///
 /// Returns the updated list of bookmark names and corresponding
 /// [`BookmarkPushUpdate`]s.
@@ -815,14 +816,42 @@ async fn sign_commits_before_push(
 ) -> Result<GitPushRefTargets, CommandError> {
     let mut sign_settings = tx.settings().sign_settings();
     sign_settings.behavior = SignBehavior::Own;
-    let commit_ids: IndexSet<CommitId> = tx
-        .base_workspace_helper()
-        .attach_revset_evaluator(commits_to_push)
+    // TODO: make filter condition configurable by revset?
+    let needs_signing = |commit: &Commit| {
+        future::ready(!commit.is_signed() && sign_settings.should_sign(commit.store_commit()))
+    };
+
+    let workspace_helper = tx.base_workspace_helper();
+    let immutable = workspace_helper.env().immutable_expression();
+    let skipped: Vec<Commit> = workspace_helper
+        .attach_revset_evaluator(commits_to_push.intersection(&immutable))
         .evaluate_to_commits()?
-        // TODO: make filter condition configurable by revset?
-        .try_filter(|commit| {
-            future::ready(!commit.is_signed() && sign_settings.should_sign(commit.store_commit()))
-        })
+        .try_filter(needs_signing)
+        .take(11)
+        .try_collect()
+        .await?;
+    if !skipped.is_empty() {
+        let count = if skipped.len() > 10 {
+            "10+".to_owned()
+        } else {
+            skipped.len().to_string()
+        };
+        writeln!(
+            ui.warning_default(),
+            "Skipped signing {count} immutable commits:"
+        )?;
+        let mut formatter = ui.stderr_formatter();
+        print_updated_commits(
+            formatter.as_mut(),
+            &workspace_helper.commit_summary_template(),
+            &skipped,
+        )?;
+    }
+
+    let commit_ids: IndexSet<CommitId> = workspace_helper
+        .attach_revset_evaluator(commits_to_push.minus(&immutable))
+        .evaluate_to_commits()?
+        .try_filter(needs_signing)
         .map_ok(|commit| commit.id().clone())
         .try_collect()
         .await?;

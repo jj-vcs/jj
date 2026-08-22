@@ -2728,6 +2728,8 @@ fn test_git_push_sign_on_push() {
     let output = work_dir.run_jj(["git", "push"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Warning: Skipped signing 1 immutable commits:
+      kpqxywon 48ea83e9 bookmark2* | (empty) commit which should not be signed 1
     Changes to push to origin:
       bookmark: bookmark2 [move forward from d45e2adce0ad to 48ea83e9499c]
     [EOF]
