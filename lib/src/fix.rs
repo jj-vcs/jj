@@ -23,27 +23,27 @@ use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use futures::future::try_join_all;
 use indexmap::IndexSet;
-use jj_lib::backend::BackendError;
-use jj_lib::backend::CommitId;
-use jj_lib::backend::FileId;
-use jj_lib::backend::TreeValue;
-use jj_lib::commit::Commit;
-use jj_lib::diff::ContentDiff;
-use jj_lib::diff::DiffHunkKind;
-use jj_lib::matchers::Matcher;
-use jj_lib::merged_tree::TreeDiffEntry;
-use jj_lib::merged_tree_builder::MergedTreeBuilder;
-use jj_lib::repo::MutableRepo;
-use jj_lib::repo::Repo as _;
-use jj_lib::repo_path::RepoPathBuf;
-use jj_lib::revset::RevsetExpression;
-use jj_lib::rewrite::merge_commit_trees;
-use jj_lib::store::Store;
 use rayon::iter::IntoParallelIterator as _;
 use rayon::prelude::ParallelIterator as _;
 
+use crate::backend::BackendError;
+use crate::backend::CommitId;
+use crate::backend::FileId;
+use crate::backend::TreeValue;
+use crate::commit::Commit;
+use crate::diff::ContentDiff;
+use crate::diff::DiffHunkKind;
+use crate::matchers::Matcher;
+use crate::merged_tree::TreeDiffEntry;
+use crate::merged_tree_builder::MergedTreeBuilder;
+use crate::repo::MutableRepo;
+use crate::repo::Repo as _;
+use crate::repo_path::RepoPathBuf;
 use crate::revset::RevsetEvaluationError;
+use crate::revset::RevsetExpression;
 use crate::revset::RevsetStreamExt as _;
+use crate::rewrite::merge_commit_trees;
+use crate::store::Store;
 
 /// Represents a file whose content may be transformed by a FileFixer.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]

@@ -33,6 +33,9 @@ use smallvec::SmallVec;
 use smallvec::smallvec;
 use smallvec::smallvec_inline;
 
+use crate::content_hash::ContentHash;
+use crate::content_hash::DigestUpdate;
+
 /// A generic diff/transition from one value to another.
 ///
 /// This is not a diff in the `patch(1)` sense. See `diff::ContentDiff` for
@@ -186,6 +189,12 @@ where
 pub struct Merge<T> {
     /// Alternates between positive and negative terms, starting with positive.
     values: SmallVec<[T; 1]>,
+}
+
+impl<T: ContentHash> ContentHash for Merge<T> {
+    fn hash(&self, state: &mut impl DigestUpdate) {
+        self.as_slice().hash(state);
+    }
 }
 
 impl<T: Debug> Debug for Merge<T> {

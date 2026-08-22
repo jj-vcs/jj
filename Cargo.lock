@@ -2679,8 +2679,10 @@ name = "jj-core"
 version = "0.44.0"
 dependencies = [
  "assert_matches",
+ "blake2",
  "bstr",
  "criterion",
+ "digest 0.10.7",
  "either",
  "eyre",
  "futures 0.3.34",
@@ -2689,11 +2691,21 @@ dependencies = [
  "indexmap",
  "insta",
  "itertools 0.15.0",
+ "jj-core-proc-macros",
  "maplit",
  "pollster",
  "regex",
  "smallvec",
  "thiserror 2.0.20",
+]
+
+[[package]]
+name = "jj-core-proc-macros"
+version = "0.44.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.3",
 ]
 
 [[package]]
@@ -2721,7 +2733,6 @@ dependencies = [
  "interim",
  "itertools 0.15.0",
  "jj-core",
- "jj-lib-proc-macros",
  "maplit",
  "memchr",
  "nix 0.31.3",
@@ -2754,15 +2765,6 @@ dependencies = [
  "tracing",
  "watchman_client",
  "winreg",
-]
-
-[[package]]
-name = "jj-lib-proc-macros"
-version = "0.44.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 3.0.3",
 ]
 
 [[package]]

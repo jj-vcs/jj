@@ -5,7 +5,7 @@ use blake2::Blake2b512;
 // external crates without directly depending on the digest crate.
 pub use digest::Update as DigestUpdate;
 use itertools::Itertools as _;
-pub use jj_lib_proc_macros::ContentHash;
+pub use jj_core_proc_macros::ContentHash;
 
 /// Portable, stable hashing suitable for identifying values
 ///
@@ -167,12 +167,6 @@ where
             k.hash(state);
             v.hash(state);
         }
-    }
-}
-
-impl<T: ContentHash> ContentHash for crate::merge::Merge<T> {
-    fn hash(&self, state: &mut impl DigestUpdate) {
-        self.as_slice().hash(state);
     }
 }
 

@@ -19,6 +19,15 @@
 #![forbid(unsafe_code)]
 #![deny(unused_must_use)]
 
+// Needed so that proc macros can be used inside jj_core and by external crates
+// that depend on it.
+//
+// See:
+// - https://github.com/rust-lang/rust/issues/54647#issuecomment-432015102
+// - https://github.com/rust-lang/rust/issues/54363
+extern crate self as jj_core;
+
+pub mod content_hash;
 pub mod dag_walk;
 pub mod dag_walk_async;
 pub mod diff;
