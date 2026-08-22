@@ -145,6 +145,9 @@ None
   splitting it. Any hunks that are not selected or cannot be absorbed remain in
   the source commit.
 
+* `jj revert` now inserts the reverted revision before the working copy (@) by
+  default.
+
 ### Fixed bugs
 
 * Recursive alias definitions are detected more precisely. jj can now expand
