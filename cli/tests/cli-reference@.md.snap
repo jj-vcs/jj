@@ -3213,6 +3213,7 @@ For example, if all you need is the `README.md` and the `lib/` directory, use `j
 * `--add <ADD>` — Patterns to add to the working copy
 * `--remove <REMOVE>` — Patterns to remove from the working copy
 * `--clear` — Include no files in the working copy (combine with --add)
+* `--stdin` — Read the replacement sparse patterns from stdin, one path per line
 
 
 

@@ -196,6 +196,105 @@ fn test_sparse_manage_patterns() {
 }
 
 #[test]
+fn test_sparse_set_from_stdin_replaces_patterns() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("file1", "contents");
+    work_dir.write_file("file2", "contents");
+    work_dir.write_file("file3", "contents");
+
+    work_dir
+        .run_jj_with(|cmd| {
+            cmd.args(["sparse", "set", "--stdin"])
+                .write_stdin("file3\nfile1\nfile3\n")
+        })
+        .success();
+
+    insta::assert_snapshot!(work_dir.run_jj(["sparse", "list"]), @"
+    file1
+    file3
+    [EOF]
+    ");
+    assert!(work_dir.root().join("file1").exists());
+    assert!(!work_dir.root().join("file2").exists());
+    assert!(work_dir.root().join("file3").exists());
+}
+
+#[test]
+fn test_sparse_set_from_stdin_combines_command_line_paths() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("file1", "contents");
+    work_dir.write_file("directory/file with spaces", "contents");
+    work_dir.write_file("excluded", "contents");
+
+    work_dir
+        .run_jj_with(|cmd| {
+            cmd.args([
+                "sparse", "set", "--stdin", "--add", "file1", "--remove", "excluded",
+            ])
+            .write_stdin("\ndirectory/file with spaces\r\nexcluded\n\n")
+        })
+        .success();
+
+    insta::assert_snapshot!(work_dir.run_jj(["sparse", "list"]).normalize_backslash(), @"
+    directory/file with spaces
+    file1
+    [EOF]
+    ");
+    assert!(work_dir.root().join("directory/file with spaces").exists());
+    assert!(!work_dir.root().join("excluded").exists());
+}
+
+#[test]
+fn test_sparse_set_from_empty_stdin_clears_patterns() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("file1", "contents");
+
+    // Git's `sparse-checkout set --stdin` also clears all patterns on empty input.
+    work_dir
+        .run_jj_with(|cmd| cmd.args(["sparse", "set", "--stdin"]).write_stdin(""))
+        .success();
+
+    insta::assert_snapshot!(work_dir.run_jj(["sparse", "list"]), @"");
+    assert!(!work_dir.root().join("file1").exists());
+    insta::assert_snapshot!(work_dir.run_jj(["file", "list"]), @"
+    file1
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_sparse_set_from_stdin_rejects_invalid_paths_without_changing_patterns() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("file1", "contents");
+
+    let output = work_dir.run_jj_with(|cmd| {
+        cmd.args(["sparse", "set", "--stdin"])
+            .write_stdin("file1\n../outside\n")
+    });
+
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Failed to parse sparse pattern: ../outside
+    Caused by: Invalid component ".." in repo-relative path "../outside"
+    [EOF]
+    [exit status: 1]
+    "#);
+    insta::assert_snapshot!(work_dir.run_jj(["sparse", "list"]), @"
+    .
+    [EOF]
+    ");
+    assert!(work_dir.root().join("file1").exists());
+}
+
+#[test]
 fn test_sparse_editor_avoids_unc() -> TestResult {
     use std::path::PathBuf;
 

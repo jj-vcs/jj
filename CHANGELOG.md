@@ -16,6 +16,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj sparse set --stdin` now replaces the working copy's sparse patterns with
+  newline-separated, workspace-relative paths read from standard input.
+
 * `jj bisect` will now mention when it cannot unambiguously find the first bad
   revision due to skips in evaluation.
 
