@@ -104,14 +104,14 @@ pub(crate) struct LogArgs {
     ///
     /// Run `jj log -T` to list the built-in templates.
     ///
-    /// You can also specify arbitrary template expressions using the
-    /// [built-in keywords]. See [`jj help -k templates`] for more
-    /// information.
+    /// All 0-argument methods of the [`Commit` type] are available as
+    /// keywords in the template expression. See [`jj help -k templates`] for
+    /// more information.
     ///
     /// If not specified, this defaults to the `templates.log` setting.
     ///
-    /// [built-in keywords]:
-    ///     https://docs.jj-vcs.dev/latest/templates/#commit-keywords
+    /// [`Commit` type]:
+    ///     https://docs.jj-vcs.dev/latest/templates/#commit-type
     ///
     /// [`jj help -k templates`]:
     ///     https://docs.jj-vcs.dev/latest/templates/
