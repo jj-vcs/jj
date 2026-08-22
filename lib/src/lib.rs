@@ -25,9 +25,6 @@
 // - https://github.com/rust-lang/rust/issues/54363
 extern crate self as jj_lib;
 
-#[macro_use]
-pub mod content_hash;
-
 pub mod absorb;
 pub mod annotate;
 pub mod backend;
@@ -38,6 +35,7 @@ pub mod config;
 mod config_resolver;
 pub mod conflict_labels;
 pub mod conflicts;
+pub mod content_hash;
 pub mod converge;
 pub mod copies;
 pub use jj_core::dag_walk;
