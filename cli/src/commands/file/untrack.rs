@@ -55,6 +55,7 @@ pub(crate) async fn cmd_file_untrack(
         workspace_command.snapshot_options_with_start_tracking_matcher(&auto_tracking_matcher)?;
 
     let working_copy_shared_with_git = workspace_command.working_copy_shared_with_git();
+    let workspace_root = workspace_command.workspace_root().to_owned();
 
     let mut tx = workspace_command.start_transaction().into_inner();
     let (mut locked_ws, wc_commit) = workspace_command.start_working_copy_mutation().await?;
@@ -106,7 +107,14 @@ Make sure they're ignored, then try again.",
         writeln!(ui.status(), "Rebased {num_rebased} descendant commits.")?;
     }
     if working_copy_shared_with_git {
-        export_working_copy_changes_to_git(ui, tx.repo_mut(), &wc_tree, &new_commit.tree()).await?;
+        export_working_copy_changes_to_git(
+            ui,
+            tx.repo_mut(),
+            &workspace_root,
+            &wc_tree,
+            &new_commit.tree(),
+        )
+        .await?;
     }
     let repo = tx.commit("untrack paths").await?;
     locked_ws.finish(repo.op_id().clone()).await?;

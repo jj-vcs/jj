@@ -99,7 +99,7 @@ async fn cmd_git_colocation_status(
     // Make sure that the workspace supports git colocation commands
     workspace_supports_git_colocation_commands(&workspace_command)?;
 
-    let is_colocated = is_colocated_git_workspace(workspace_command.workspace());
+    let is_colocated = is_colocated_git_workspace(workspace_command.workspace())?;
     let workspace_name = workspace_command.workspace_name();
     let git_head = workspace_command.repo().view().git_head(workspace_name);
 
@@ -164,7 +164,7 @@ async fn cmd_git_colocation_enable(
     workspace_supports_git_colocation_commands(&workspace_command)?;
 
     // Then ensure that the workspace is not already colocated before proceeding
-    if is_colocated_git_workspace(workspace_command.workspace()) {
+    if is_colocated_git_workspace(workspace_command.workspace())? {
         writeln!(ui.status(), "Workspace is already colocated with Git.")?;
         return Ok(());
     }
@@ -245,7 +245,7 @@ async fn cmd_git_colocation_disable(
     workspace_supports_git_colocation_commands(&workspace_command)?;
 
     // Then ensure that the repo is colocated before proceeding
-    if !is_colocated_git_workspace(workspace_command.workspace()) {
+    if !is_colocated_git_workspace(workspace_command.workspace())? {
         writeln!(ui.status(), "Workspace is already not colocated with Git.")?;
         return Ok(());
     }
@@ -325,8 +325,9 @@ async fn set_git_head_to_wc_parent(
     wc_commit: &Commit,
 ) -> Result<(), CommandError> {
     let workspace_name = workspace_command.workspace_name().to_owned();
+    let workspace_root = workspace_command.workspace_root().to_owned();
     let mut tx = workspace_command.start_transaction();
-    git::reset_head(tx.repo_mut(), &workspace_name, wc_commit).await?;
+    git::reset_head(tx.repo_mut(), &workspace_name, &workspace_root, wc_commit).await?;
     if tx.repo().has_changes() {
         tx.finish(ui, "set git head to working copy parent").await?;
     }
