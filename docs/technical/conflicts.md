@@ -73,6 +73,11 @@ has the same changes (or a subset thereof) and then rebasing it back will lose
 changes (for a real-life example see [bug #6369]). We do it because it is more
 user-friendly in the vast majority of cases.
 
+You can configure this with the
+[`merge.same-change`](../config.md#resolution-of-same-change-conflicts)
+setting (`accept` by default, or `keep` to leave same-change conflicts
+unresolved).
+
 [bug #6369]: https://github.com/jj-vcs/jj/issues/6369
 [merge-rs]: https://github.com/jj-vcs/jj/blob/main/lib/src/merge.rs
 [resolve]: https://github.com/jj-vcs/jj/blob/53272510bf879086d83bb5eea1406f75ba31f138/lib/src/merge.rs#L85-L99
