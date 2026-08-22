@@ -79,6 +79,7 @@ use testutils::assert_tree_eq;
 use testutils::commit_with_tree;
 use testutils::create_tree;
 use testutils::create_tree_with;
+use testutils::create_tree_with_placeholder_copy_ids;
 use testutils::empty_snapshot_options;
 use testutils::repo_path;
 use testutils::repo_path_buf;
@@ -834,8 +835,10 @@ fn test_snapshot_file_directory_transition() -> TestResult {
     let file1p_path = file1_path.parent().unwrap();
     let file2p_path = file2_path.parent().unwrap();
 
-    let tree1 = create_tree(&repo, &[(file1p_path, "1p"), (file2p_path, "2p")]);
-    let tree2 = create_tree(&repo, &[(file1_path, "1"), (file2_path, "2")]);
+    let tree1 =
+        create_tree_with_placeholder_copy_ids(&repo, &[(file1p_path, "1p"), (file2p_path, "2p")]);
+    let tree2 =
+        create_tree_with_placeholder_copy_ids(&repo, &[(file1_path, "1"), (file2_path, "2")]);
     let commit1 = commit_with_tree(repo.store(), tree1.clone());
     let commit2 = commit_with_tree(repo.store(), tree2.clone());
 
@@ -2841,7 +2844,8 @@ fn track_ignored_with_flag_and_fsmonitor() -> TestResult {
     let force_tracking_matcher = FilesMatcher::new([ignored_path]);
     let tree_state = snapshot(&[], Some(&force_tracking_matcher));
 
-    let expected_tree = create_tree(repo, &[(ignored_path, "contents\n")]);
+    let expected_tree =
+        create_tree_with_placeholder_copy_ids(repo, &[(ignored_path, "contents\n")]);
     assert_tree_eq!(*tree_state.current_tree(), expected_tree);
     Ok(())
 }
@@ -2892,12 +2896,16 @@ fn fsmonitor_gitignore_rescan_subtree() -> TestResult {
     };
 
     let tree_state = snapshot(&[gitignore_path, ignored_path]);
-    let expected_tree = create_tree(repo, &[(gitignore_path, "*.ignored\n")]);
+    let expected_tree =
+        create_tree_with_placeholder_copy_ids(repo, &[(gitignore_path, "*.ignored\n")]);
     assert_tree_eq!(*tree_state.current_tree(), expected_tree);
 
     testutils::write_working_copy_file(&workspace_root, gitignore_path, "");
     let tree_state = snapshot(&[gitignore_path]);
-    let expected_tree = create_tree(repo, &[(gitignore_path, ""), (ignored_path, "contents\n")]);
+    let expected_tree = create_tree_with_placeholder_copy_ids(
+        repo,
+        &[(gitignore_path, ""), (ignored_path, "contents\n")],
+    );
     assert_tree_eq!(*tree_state.current_tree(), expected_tree);
     Ok(())
 }

@@ -29,6 +29,7 @@ use futures::AsyncReadExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend;
 use jj_lib::backend::Backend;
+use jj_lib::backend::BackendError;
 use jj_lib::backend::BackendInitError;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
@@ -481,7 +482,7 @@ impl TestTreeBuilder {
             contents: contents.as_ref().to_vec(),
             executable: false,
             copy_history: None,
-            copy_id: CopyId::placeholder(),
+            copy_id: None,
         }
     }
 
@@ -516,7 +517,7 @@ pub struct TestTreeFileEntryBuilder<'a> {
     contents: Vec<u8>,
     executable: bool,
     copy_history: Option<CopyHistory>,
-    copy_id: CopyId,
+    copy_id: Option<CopyId>,
 }
 
 impl TestTreeFileEntryBuilder<'_> {
@@ -529,14 +530,14 @@ impl TestTreeFileEntryBuilder<'_> {
     /// calls.
     pub fn copy_history(mut self, copy_history: &CopyHistory) -> Self {
         self.copy_history = Some(copy_history.clone());
-        self.copy_id = CopyId::placeholder();
+        self.copy_id = None;
         self
     }
 
     /// Setting an explicit `CopyId` overrides any previous `.copy_history()`
     /// calls.
     pub fn copy_id(mut self, copy_id: CopyId) -> Self {
-        self.copy_id = copy_id;
+        self.copy_id = Some(copy_id);
         self.copy_history = None;
         self
     }
@@ -558,8 +559,24 @@ impl Drop for TestTreeFileEntryBuilder<'_> {
                 .write_copy(copy_history)
                 .block_on()
                 .unwrap()
+        } else if let Some(copy_id) = &self.copy_id {
+            copy_id.clone()
         } else {
-            self.copy_id.clone()
+            let res = self
+                .tree_builder
+                .store()
+                .backend()
+                .write_copy(&CopyHistory {
+                    current_path: path.clone(),
+                    parents: vec![],
+                    salt: vec![],
+                })
+                .block_on();
+            match res {
+                Err(BackendError::Unsupported(_)) => Ok(CopyId::placeholder()),
+                r => r,
+            }
+            .unwrap()
         };
         self.tree_builder.set(
             path,
@@ -669,6 +686,17 @@ pub fn create_tree_with_copy_id(
     create_tree_with(repo, |builder| {
         for (path, contents, id) in path_contents_id {
             builder.file(path, contents).copy_id((*id).clone());
+        }
+    })
+}
+
+pub fn create_tree_with_placeholder_copy_ids(
+    repo: &Arc<ReadonlyRepo>,
+    path_contents: &[(&RepoPath, &str)],
+) -> MergedTree {
+    create_tree_with(repo, |builder| {
+        for (path, contents) in path_contents {
+            builder.file(path, contents).copy_id(CopyId::placeholder());
         }
     })
 }

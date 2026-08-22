@@ -423,6 +423,19 @@ impl<T> Merge<T> {
         self.apply_simplified_mapping(&mapping)
     }
 
+    /// Simplify this merge and another merge together, using the other merge's
+    /// values to determine the simplification mapping.
+    pub fn simplify_with<U: PartialEq + Clone>(&self, other: &Merge<U>) -> (Self, Merge<U>)
+    where
+        T: Clone,
+    {
+        let mapping = other.get_simplified_mapping();
+        (
+            self.apply_simplified_mapping(&mapping),
+            other.apply_simplified_mapping(&mapping),
+        )
+    }
+
     /// Updates the merge based on the given simplified merge.
     pub fn update_from_simplified(mut self, simplified: Self) -> Self
     where
