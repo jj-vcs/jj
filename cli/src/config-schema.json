@@ -210,7 +210,7 @@
                 },
                 "diff-formatter": {
                     "description": "Tool for displaying or generating diffs",
-                    "default": ":color-words",
+                    "default": ":auto",
                     "oneOf": [
                         {
                             "$ref": "#/properties/ui/definitions/command"
