@@ -146,6 +146,9 @@ None
   the source commit.
 
 ### Fixed bugs
+* `jj arrange` now scrolls the viewport to keep the selected commit visible
+  when the commit stack is taller than the terminal.
+  [#9033](https://github.com/jj-vcs/jj/issues/9033).
 
 * Recursive alias definitions are detected more precisely. jj can now expand
   aliases that are simply repeated. For example, with the alias `jj = []`, the
