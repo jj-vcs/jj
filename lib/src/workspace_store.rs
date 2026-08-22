@@ -20,21 +20,22 @@ use std::io::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
 
-use jj_lib::file_util::BadPathEncoding;
-use jj_lib::file_util::IoResultExt as _;
-use jj_lib::file_util::PathError;
-use jj_lib::file_util::path_from_bytes;
-use jj_lib::file_util::path_to_bytes;
-use jj_lib::file_util::persist_temp_file;
-use jj_lib::file_util::relative_path;
-use jj_lib::file_util::slash_path;
-use jj_lib::lock::FileLock;
-use jj_lib::lock::FileLockError;
-use jj_lib::protos::simple_workspace_store;
-use jj_lib::ref_name::WorkspaceName;
 use prost::Message as _;
 use tempfile::NamedTempFile;
 use thiserror::Error;
+
+use crate::file_util::BadPathEncoding;
+use crate::file_util::IoResultExt as _;
+use crate::file_util::PathError;
+use crate::file_util::path_from_bytes;
+use crate::file_util::path_to_bytes;
+use crate::file_util::persist_temp_file;
+use crate::file_util::relative_path;
+use crate::file_util::slash_path;
+use crate::lock::FileLock;
+use crate::lock::FileLockError;
+use crate::protos::simple_workspace_store;
+use crate::ref_name::WorkspaceName;
 
 /// Errors that can occur when interacting with a workspace store.
 #[derive(Error, Debug)]
