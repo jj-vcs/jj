@@ -170,12 +170,6 @@ where
     }
 }
 
-impl<T: ContentHash> ContentHash for crate::merge::Merge<T> {
-    fn hash(&self, state: &mut impl DigestUpdate) {
-        self.as_slice().hash(state);
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
