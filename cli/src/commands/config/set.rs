@@ -21,7 +21,7 @@ use jj_lib::config::ConfigValue;
 use jj_lib::repo::Repo as _;
 use tracing::instrument;
 
-use super::ConfigLevelArgs;
+use super::ConfigTargetArgs;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
 use crate::command_error::CommandError;
@@ -53,7 +53,7 @@ pub struct ConfigSetArgs {
     value: ConfigValue,
 
     #[command(flatten)]
-    level: ConfigLevelArgs,
+    target: ConfigTargetArgs,
 }
 
 /// Denotes a type of author change
@@ -68,7 +68,7 @@ pub async fn cmd_config_set(
     command: &CommandHelper,
     args: &ConfigSetArgs,
 ) -> Result<(), CommandError> {
-    let mut file = args.level.edit_config_file(ui, command)?;
+    let mut file = args.target.edit_config_file(ui, command)?;
 
     // If the user is trying to change the author config, we should warn them that
     // it won't affect the working copy author

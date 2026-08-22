@@ -15,7 +15,7 @@
 use jj_lib::config::ConfigLayer;
 use tracing::instrument;
 
-use super::ConfigLevelArgs;
+use super::ConfigTargetArgs;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::print_error_sources;
@@ -28,7 +28,7 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub struct ConfigEditArgs {
     #[command(flatten)]
-    pub level: ConfigLevelArgs,
+    pub target: ConfigTargetArgs,
 }
 
 #[instrument(skip_all)]
@@ -38,7 +38,7 @@ pub async fn cmd_config_edit(
     args: &ConfigEditArgs,
 ) -> Result<(), CommandError> {
     let editor = command.text_editor()?;
-    let file = args.level.edit_config_file(ui, command)?;
+    let file = args.target.edit_config_file(ui, command)?;
     if !file.path().exists() {
         file.save()?;
     }

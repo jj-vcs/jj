@@ -773,7 +773,7 @@ Start an editor on a jj config file.
 
 Creates the file if it doesn't already exist regardless of what the editor does.
 
-**Usage:** `jj config edit <--user|--repo|--workspace>`
+**Usage:** `jj config edit <--user|--repo|--workspace|--file <PATH>>`
 
 **Command Alias:** `e`
 
@@ -782,6 +782,13 @@ Creates the file if it doesn't already exist regardless of what the editor does.
 * `--user` — Target the user-level config
 * `--repo` — Target the repo-level config
 * `--workspace` — Target the workspace-level config
+* `--file <PATH>` — Target the config file specified by the given path
+
+   The path must point to a valid configuration file location recognized by Jujutsu (such as a user/repo/workspace config, a file inside a `conf.d/` directory, or a file loaded via `$JJ_CONFIG` or `--config-file`).
+
+   Unlike the global `--config-file` option (which loads an extra config file when running commands), this option specifies which file to inspect, edit, or modify on disk.
+
+   If the file does not exist, commands like `set` and `edit` will create it and any missing parent directories.
 
 
 
@@ -834,6 +841,13 @@ List variables set in config files, along with their values
 * `--user` — Target the user-level config
 * `--repo` — Target the repo-level config
 * `--workspace` — Target the workspace-level config
+* `--file <PATH>` — Target the config file specified by the given path
+
+   The path must point to a valid configuration file location recognized by Jujutsu (such as a user/repo/workspace config, a file inside a `conf.d/` directory, or a file loaded via `$JJ_CONFIG` or `--config-file`).
+
+   Unlike the global `--config-file` option (which loads an extra config file when running commands), this option specifies which file to inspect, edit, or modify on disk.
+
+   If the file does not exist, commands like `set` and `edit` will create it and any missing parent directories.
 * `-T`, `--template <TEMPLATE>` — Render each variable using the given template
 
    The following keywords are available in the template expression:
@@ -883,7 +897,7 @@ See `jj config edit` if you'd like to immediately edit a file.
 
 Update a config file to set the given option to a given value
 
-**Usage:** `jj config set <--user|--repo|--workspace> <NAME> <VALUE>`
+**Usage:** `jj config set <--user|--repo|--workspace|--file <PATH>> <NAME> <VALUE>`
 
 **Command Alias:** `s`
 
@@ -901,6 +915,13 @@ Update a config file to set the given option to a given value
 * `--user` — Target the user-level config
 * `--repo` — Target the repo-level config
 * `--workspace` — Target the workspace-level config
+* `--file <PATH>` — Target the config file specified by the given path
+
+   The path must point to a valid configuration file location recognized by Jujutsu (such as a user/repo/workspace config, a file inside a `conf.d/` directory, or a file loaded via `$JJ_CONFIG` or `--config-file`).
+
+   Unlike the global `--config-file` option (which loads an extra config file when running commands), this option specifies which file to inspect, edit, or modify on disk.
+
+   If the file does not exist, commands like `set` and `edit` will create it and any missing parent directories.
 
 
 
@@ -908,7 +929,7 @@ Update a config file to set the given option to a given value
 
 Update a config file to unset the given option
 
-**Usage:** `jj config unset <--user|--repo|--workspace> <NAME>`
+**Usage:** `jj config unset <--user|--repo|--workspace|--file <PATH>> <NAME>`
 
 **Command Alias:** `u`
 
@@ -921,6 +942,13 @@ Update a config file to unset the given option
 * `--user` — Target the user-level config
 * `--repo` — Target the repo-level config
 * `--workspace` — Target the workspace-level config
+* `--file <PATH>` — Target the config file specified by the given path
+
+   The path must point to a valid configuration file location recognized by Jujutsu (such as a user/repo/workspace config, a file inside a `conf.d/` directory, or a file loaded via `$JJ_CONFIG` or `--config-file`).
+
+   Unlike the global `--config-file` option (which loads an extra config file when running commands), this option specifies which file to inspect, edit, or modify on disk.
+
+   If the file does not exist, commands like `set` and `edit` will create it and any missing parent directories.
 
 
 

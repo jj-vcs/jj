@@ -20,9 +20,9 @@ mod path;
 mod set;
 mod unset;
 
+use std::path::Path;
 use std::path::PathBuf;
 
-use itertools::Itertools as _;
 use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigSource;
 use tracing::instrument;
@@ -44,12 +44,11 @@ use self::unset::cmd_config_unset;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
-use crate::config::ConfigEnv;
 use crate::ui::Ui;
 
 #[derive(clap::Args, Clone, Debug)]
-#[group(id = "config_level", multiple = false, required = true)]
-pub(crate) struct ConfigLevelArgs {
+#[group(id = "config_target", multiple = false, required = true)]
+pub(crate) struct ConfigTargetArgs {
     /// Target the user-level config
     #[arg(long)]
     user: bool,
@@ -61,9 +60,49 @@ pub(crate) struct ConfigLevelArgs {
     /// Target the workspace-level config
     #[arg(long)]
     workspace: bool,
+
+    /// Target the config file specified by the given path
+    ///
+    /// The path must point to a valid configuration file location recognized
+    /// by Jujutsu (such as a user/repo/workspace config, a file inside a
+    /// `conf.d/` directory, or a file loaded via `$JJ_CONFIG` or
+    /// `--config-file`).
+    ///
+    /// Unlike the global `--config-file` option (which loads an extra config
+    /// file when running commands), this option specifies which file to
+    /// inspect, edit, or modify on disk.
+    ///
+    /// If the file does not exist, commands like `set` and `edit` will create
+    /// it and any missing parent directories.
+    #[arg(long, value_name = "PATH")]
+    file: Option<PathBuf>,
 }
 
-impl ConfigLevelArgs {
+fn path_matches(a: &Path, b: &Path) -> bool {
+    if a == b {
+        return true;
+    }
+    match (dunce::canonicalize(a), dunce::canonicalize(b)) {
+        (Ok(ca), Ok(cb)) => ca == cb,
+        _ => false,
+    }
+}
+
+fn is_file_in_config_dir(file_path: &Path, dir_path: &Path) -> bool {
+    if file_path.extension() != Some("toml".as_ref()) {
+        return false;
+    }
+    if dir_path.is_file() {
+        return false;
+    }
+    if let Some(parent) = file_path.parent() {
+        path_matches(parent, dir_path)
+    } else {
+        false
+    }
+}
+
+impl ConfigTargetArgs {
     fn get_source_kind(&self) -> Option<ConfigSource> {
         if self.user {
             Some(ConfigSource::User)
@@ -76,29 +115,76 @@ impl ConfigLevelArgs {
         }
     }
 
-    fn config_paths(&self, ui: &Ui, config_env: &ConfigEnv) -> Result<Vec<PathBuf>, CommandError> {
-        if self.user {
-            let paths = config_env
-                .user_config_paths()
-                .map(|p| p.to_path_buf())
-                .collect_vec();
-            if paths.is_empty() {
-                return Err(user_error("No user config path found"));
-            }
-            Ok(paths)
-        } else if self.repo {
-            config_env
-                .repo_config_path(ui)?
-                .map(|p| vec![p])
-                .ok_or_else(|| user_error("No repo config path found"))
-        } else if self.workspace {
-            config_env
-                .workspace_config_path(ui)?
-                .map(|p| vec![p])
-                .ok_or_else(|| user_error("No workspace config path found"))
+    pub(crate) fn resolve_file(
+        &self,
+        ui: &Ui,
+        command: &CommandHelper,
+    ) -> Result<Option<(&Path, ConfigSource)>, CommandError> {
+        let Some(path) = &self.file else {
+            return Ok(None);
+        };
+        let config_env = command.config_env();
+        let raw_config = command.raw_config();
+        let abs_path = if path.is_absolute() {
+            path.clone()
         } else {
-            panic!("No config_level provided")
+            command.cwd().join(path)
+        };
+
+        // 1. Check if it matches an already loaded layer (user, system, repo,
+        //    workspace, --config-file, JJ_CONFIG, etc.)
+        for layer in raw_config.as_ref().layers() {
+            if let Some(layer_path) = layer.path.as_ref()
+                && (path_matches(layer_path, &abs_path) || path_matches(layer_path, path))
+            {
+                return Ok(Some((path.as_path(), layer.source)));
+            }
         }
+
+        // 2. Check repo config path (even if not yet created on disk)
+        if let Ok(Some(repo_path)) = config_env.repo_config_path(ui)
+            && (path_matches(&repo_path, &abs_path) || path_matches(&repo_path, path))
+        {
+            return Ok(Some((path.as_path(), ConfigSource::Repo)));
+        }
+
+        // 3. Check workspace config path (even if not yet created on disk)
+        if let Ok(Some(workspace_path)) = config_env.workspace_config_path(ui)
+            && (path_matches(&workspace_path, &abs_path) || path_matches(&workspace_path, path))
+        {
+            return Ok(Some((path.as_path(), ConfigSource::Workspace)));
+        }
+
+        // 4. Check user config paths (e.g. ~/.config/jj/config.toml, ~/.jjconfig.toml,
+        //    or files in conf.d)
+        for user_path in config_env.user_config_paths() {
+            if path_matches(user_path, &abs_path) || path_matches(user_path, path) {
+                return Ok(Some((path.as_path(), ConfigSource::User)));
+            }
+            if is_file_in_config_dir(&abs_path, user_path) {
+                return Ok(Some((path.as_path(), ConfigSource::User)));
+            }
+        }
+
+        // 5. Check system config paths (/etc/jj/config.toml or files in /etc/jj/conf.d)
+        for sys_path in config_env.system_config_paths() {
+            if path_matches(sys_path, &abs_path) || path_matches(sys_path, path) {
+                return Ok(Some((path.as_path(), ConfigSource::System)));
+            }
+            if is_file_in_config_dir(&abs_path, sys_path) {
+                return Ok(Some((path.as_path(), ConfigSource::System)));
+            }
+        }
+
+        Err(user_error(format!(
+            "Configuration file '{}' is not a valid jj configuration file location",
+            path.display()
+        ))
+        .hinted(
+            "Valid config locations include user configs (`~/.config/jj/config.toml` or \
+             `conf.d/*.toml`), repo/workspace configs, or files loaded with global `--config-file \
+             <PATH>`.",
+        ))
     }
 
     fn edit_config_file(
@@ -123,7 +209,9 @@ impl ConfigLevelArgs {
             }
             files.pop().ok_or_else(|| user_error(not_found_error))
         };
-        if self.user {
+        if let Some((path, source)) = self.resolve_file(ui, command)? {
+            Ok(ConfigFile::load_or_empty(source, path)?)
+        } else if self.user {
             pick_one(
                 config_env.user_config_files(config)?,
                 "No user config path found to edit",
@@ -139,7 +227,7 @@ impl ConfigLevelArgs {
                 "No workspace config path found to edit",
             )
         } else {
-            panic!("No config_level provided")
+            panic!("No config_target provided")
         }
     }
 }

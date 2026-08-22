@@ -437,6 +437,10 @@ impl ConfigEnv {
         Ok(())
     }
 
+    pub fn system_config_paths(&self) -> impl Iterator<Item = &Path> {
+        self.system_config_paths.iter().map(ConfigPath::as_path)
+    }
+
     pub fn existing_system_config_paths(&self) -> impl Iterator<Item = &Path> {
         self.system_config_paths
             .iter()
