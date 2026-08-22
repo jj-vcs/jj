@@ -1,6 +1,6 @@
 [package]
-name = "jj-lib-proc-macros"
-description = "Proc macros for the jj-lib crate"
+name = "jj-core-proc-macros"
+description = "Proc macros for the jj-core crate"
 
 version = { workspace = true }
 edition = { workspace = true }

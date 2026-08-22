@@ -18,13 +18,6 @@
 #![deny(unused_must_use)]
 #![forbid(unsafe_code)]
 
-// Needed so that proc macros can be used inside jj_lib and by external crates
-// that depend on it.
-// See:
-// - https://github.com/rust-lang/rust/issues/54647#issuecomment-432015102
-// - https://github.com/rust-lang/rust/issues/54363
-extern crate self as jj_lib;
-
 pub mod absorb;
 pub mod annotate;
 pub mod backend;
@@ -35,7 +28,7 @@ pub mod config;
 mod config_resolver;
 pub mod conflict_labels;
 pub mod conflicts;
-pub mod content_hash;
+pub use jj_core::content_hash;
 pub mod converge;
 pub mod copies;
 pub use jj_core::dag_walk;
