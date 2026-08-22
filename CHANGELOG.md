@@ -16,6 +16,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj workspace delete` removes a workspace and its directory from disk. The
+  working-copy state is snapshotted into a commit before removal.
+
 * `jj bisect` will now mention when it cannot unambiguously find the first bad
   revision due to skips in evaluation.
 
@@ -31,6 +34,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   in non-interactive mode, which aborts if prompting would be needed.
 
 ### Fixed bugs
+
+* `jj undo` of `jj workspace forget` now correctly preserves the workspace's
+  recorded path. Previously the path metadata was lost, leaving the workspace
+  in a broken state after undo.
+  [#9991](https://github.com/jj-vcs/jj/issues/9991)
 
 * The default pager flags now include `-K` (`--quit-on-intr`), so pressing
   Ctrl+C in `less` exits cleanly instead of leaving the terminal in a

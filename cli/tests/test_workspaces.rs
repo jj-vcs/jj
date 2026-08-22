@@ -1530,6 +1530,8 @@ fn test_workspaces_forget() {
     Warning: No such workspace: nonexistent
     [EOF]
     ");
+    assert!(test_env.env_root().join("secondary").is_dir());
+    assert!(test_env.env_root().join("third").is_dir());
     // No workspaces left
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output, @"");
@@ -1619,8 +1621,8 @@ fn test_workspaces_forget_multi_transaction() {
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
     default: . rlvkpnrz f6bf8819 (empty) (no description set)
-    second: pmmvwywv 31da1455 (empty) (no description set)
-    third: rzvqmyuk bf5b5b4d (empty) (no description set)
+    second: ../second pmmvwywv 31da1455 (empty) (no description set)
+    third: ../third rzvqmyuk bf5b5b4d (empty) (no description set)
     [EOF]
     ");
 }
@@ -1691,6 +1693,216 @@ fn test_workspaces_forget_abandon_commits() {
     ◆  000000000000
     [EOF]
     ");
+}
+
+#[test]
+fn test_workspaces_delete_removes_directory() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+    let secondary_dir = test_env.work_dir("secondary");
+    secondary_dir.write_file("secondary_file", "secondary contents");
+    secondary_dir.run_jj(["status"]).success();
+
+    assert!(test_env.env_root().join("secondary").is_dir());
+    assert!(test_env.env_root().join("secondary/file").is_file());
+    assert!(
+        test_env
+            .env_root()
+            .join("secondary/secondary_file")
+            .is_file()
+    );
+
+    let output = main_dir.run_jj(["workspace", "delete", "secondary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Removed workspace directory "$TEST_ENV/secondary".
+    [EOF]
+    "#);
+
+    assert!(!test_env.env_root().join("secondary").exists());
+
+    let output = main_dir.run_jj(["log", "--limit", "3"]);
+    insta::assert_snapshot!(output, @r#"
+    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 504e3d8c
+    │  (empty) (no description set)
+    │ ○  pmmvwywv test.user@example.com 2001-02-03 08:05:10 0464fb03
+    ├─╯  (no description set)
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 7b22a8cb
+    │  initial
+    [EOF]
+    "#);
+
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+    assert!(test_env.env_root().join("secondary").is_dir());
+}
+
+#[test]
+fn test_workspaces_delete_snapshots_before_removal() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+
+    let secondary_dir = test_env.work_dir("secondary");
+    secondary_dir.write_file("unsnapshotted.txt", "important data");
+
+    let output = main_dir.run_jj(["workspace", "delete", "secondary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Removed workspace directory "$TEST_ENV/secondary".
+    [EOF]
+    "#);
+
+    assert!(!test_env.env_root().join("secondary").exists());
+
+    let output = main_dir.run_jj(["log", "-r", r#"files("unsnapshotted.txt")"#, "--summary"]);
+    assert!(
+        output.stdout.normalized().contains("unsnapshotted.txt"),
+        "unsnapshotted.txt should be preserved in a commit but was not found in log output:\n{}",
+        output.stdout.normalized()
+    );
+}
+
+#[test]
+fn test_workspaces_delete_refuses_ignore_working_copy() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+    let secondary_dir = test_env.work_dir("secondary");
+    secondary_dir.write_file("unsnapshotted.txt", "important data");
+
+    let output = main_dir.run_jj(["--ignore-working-copy", "workspace", "delete", "secondary"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Cannot delete workspace with --ignore-working-copy
+    Hint: Use `jj workspace forget` to stop tracking a workspace without deleting files.
+    [EOF]
+    [exit status: 1]
+    "#);
+    assert!(
+        test_env
+            .env_root()
+            .join("secondary/unsnapshotted.txt")
+            .is_file()
+    );
+
+    let output = main_dir.run_jj(["--at-op=@", "workspace", "delete", "secondary"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Cannot delete workspace with --at-operation
+    Hint: Use `jj workspace forget` to stop tracking a workspace without deleting files.
+    [EOF]
+    [exit status: 1]
+    "#);
+    assert!(
+        test_env
+            .env_root()
+            .join("secondary/unsnapshotted.txt")
+            .is_file()
+    );
+
+    let output = main_dir.run_jj([
+        "--no-integrate-operation",
+        "workspace",
+        "delete",
+        "secondary",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Cannot delete workspace with --no-integrate-operation
+    Hint: Use `jj workspace forget` to stop tracking a workspace without deleting files.
+    [EOF]
+    [exit status: 1]
+    "#);
+    assert!(
+        test_env
+            .env_root()
+            .join("secondary/unsnapshotted.txt")
+            .is_file()
+    );
+}
+
+#[test]
+fn test_workspaces_delete_refuses_main_workspace() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+
+    let output = main_dir.run_jj(["workspace", "delete", "default"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Cannot delete main workspace 'default'
+    Hint: Use `jj workspace forget` to stop tracking a workspace without deleting files.
+    [EOF]
+    [exit status: 1]
+    "#);
+    assert!(test_env.env_root().join("main/.jj/repo").is_dir());
+}
+
+#[test]
+#[cfg(windows)]
+fn test_workspaces_delete_refuses_current_workspace() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+    let secondary_dir = test_env.work_dir("secondary");
+
+    let output = secondary_dir.run_jj(["workspace", "delete", "secondary"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Cannot delete current workspace 'secondary'
+    Hint: Run this command from another workspace.
+    [EOF]
+    [exit status: 1]
+    "#);
+    assert!(test_env.env_root().join("secondary/.jj").is_dir());
+}
+
+#[test]
+#[cfg(unix)]
+fn test_workspaces_delete_current_workspace() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+    let secondary_dir = test_env.work_dir("secondary");
+
+    let output = secondary_dir.run_jj(["workspace", "delete", "secondary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Warning: The current workspace 'secondary' no longer exists after this operation. The working copy was left untouched.
+    Hint: Restore to an operation that contains the workspace (e.g. `jj undo` or `jj redo`).
+    Removed workspace directory "$TEST_ENV/secondary".
+    [EOF]
+    "#);
+    assert!(!test_env.env_root().join("secondary").exists());
 }
 
 /// Test context of commit summary template
@@ -1991,22 +2203,98 @@ fn test_workspaces_rename_new_workspace_name_already_used() {
 }
 
 #[test]
-fn test_workspaces_rename_forgotten_workspace() {
+fn test_workspaces_delete_and_readd() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_dir = test_env.work_dir("main");
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+
     main_dir
         .run_jj(["workspace", "add", "--name", "second", "../secondary"])
         .success();
-    main_dir.run_jj(["workspace", "forget", "second"]).success();
-    let secondary_dir = test_env.work_dir("secondary");
-    let output = secondary_dir.run_jj(["workspace", "rename", "third"]);
-    insta::assert_snapshot!(output, @"
-    ------- stderr -------
-    Error: The current workspace 'second' is not tracked in the repo.
+    assert!(test_env.env_root().join("secondary").is_dir());
+
+    main_dir.run_jj(["workspace", "delete", "second"]).success();
+    assert!(!test_env.env_root().join("secondary").exists());
+
+    main_dir
+        .run_jj(["workspace", "add", "--name", "second", "../secondary"])
+        .success();
+    assert!(test_env.env_root().join("secondary").is_dir());
+}
+
+#[test]
+fn test_workspaces_forget_undo_preserves_path() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+
+    let output = main_dir.run_jj(["workspace", "root", "--name", "secondary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    $TEST_ENV/secondary
     [EOF]
-    [exit status: 1]
-    ");
+    "#);
+
+    main_dir
+        .run_jj(["workspace", "forget", "secondary"])
+        .success();
+    main_dir.run_jj(["undo"]).success();
+
+    let output = main_dir.run_jj(["workspace", "root", "--name", "secondary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    $TEST_ENV/secondary
+    [EOF]
+    "#);
+}
+
+#[test]
+fn test_workspaces_delete_undo_readd() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+    assert!(test_env.env_root().join("secondary").is_dir());
+
+    main_dir
+        .run_jj(["workspace", "delete", "secondary"])
+        .success();
+    assert!(!test_env.env_root().join("secondary").exists());
+
+    let output = main_dir.run_jj(["undo"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Undid operation: df951f86e65c (2001-02-03 08:05:10) delete workspace secondary
+    Restored to operation: 9d798e222e29 (2001-02-03 08:05:09) create initial working-copy commit in workspace secondary
+    Warning: Undoing a workspace delete restores the workspace, but does not restore the workspace directory.
+    Hint: Run `jj workspace forget` then `jj workspace add` to recreate the directory.
+    [EOF]
+    "#);
+
+    main_dir
+        .run_jj(["workspace", "forget", "secondary"])
+        .success();
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+    assert!(test_env.env_root().join("secondary").is_dir());
+
+    let output = main_dir.run_jj(["workspace", "root", "--name", "secondary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    $TEST_ENV/secondary
+    [EOF]
+    "#);
 }
 
 #[test]

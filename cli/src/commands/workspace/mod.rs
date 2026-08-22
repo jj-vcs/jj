@@ -13,6 +13,7 @@
 // limitations under the License.
 
 mod add;
+mod delete;
 mod forget;
 mod list;
 mod rename;
@@ -24,6 +25,8 @@ use tracing::instrument;
 
 use self::add::WorkspaceAddArgs;
 use self::add::cmd_workspace_add;
+use self::delete::WorkspaceDeleteArgs;
+use self::delete::cmd_workspace_delete;
 use self::forget::WorkspaceForgetArgs;
 use self::forget::cmd_workspace_forget;
 use self::list::WorkspaceListArgs;
@@ -52,6 +55,7 @@ use crate::ui::Ui;
 #[derive(Subcommand, Clone, Debug)]
 pub(crate) enum WorkspaceCommand {
     Add(WorkspaceAddArgs),
+    Delete(WorkspaceDeleteArgs),
     Forget(WorkspaceForgetArgs),
     List(WorkspaceListArgs),
     Rename(WorkspaceRenameArgs),
@@ -67,6 +71,7 @@ pub(crate) async fn cmd_workspace(
 ) -> Result<(), CommandError> {
     match subcommand {
         WorkspaceCommand::Add(args) => cmd_workspace_add(ui, command, args).await,
+        WorkspaceCommand::Delete(args) => cmd_workspace_delete(ui, command, args).await,
         WorkspaceCommand::Forget(args) => cmd_workspace_forget(ui, command, args).await,
         WorkspaceCommand::List(args) => cmd_workspace_list(ui, command, args).await,
         WorkspaceCommand::Rename(args) => cmd_workspace_rename(ui, command, args).await,

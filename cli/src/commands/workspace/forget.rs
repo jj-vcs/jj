@@ -15,11 +15,10 @@
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::ref_name::WorkspaceNameBuf;
-use jj_lib::workspace_store::SimpleWorkspaceStore;
-use jj_lib::workspace_store::WorkspaceStore as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
+use crate::cli_util::WorkspaceCommandHelper;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::ui::Ui;
@@ -72,23 +71,29 @@ pub async fn cmd_workspace_forget(
         return Ok(());
     }
 
-    let workspace_store = SimpleWorkspaceStore::load(workspace_command.repo_path())?;
+    forget_workspaces(ui, &mut workspace_command, &forget_ws, "forget").await?;
+    Ok(())
+}
 
+pub(super) async fn forget_workspaces(
+    ui: &mut Ui,
+    workspace_command: &mut WorkspaceCommandHelper,
+    forget_ws: &[&WorkspaceNameBuf],
+    description_verb: &str,
+) -> Result<(), CommandError> {
     // bundle every workspace forget into a single transaction, so that e.g.
     // undo correctly restores all of them at once.
     let mut tx = workspace_command.start_transaction();
 
-    for ws in &forget_ws {
+    for ws in forget_ws {
         tx.repo_mut().remove_workspace(ws).await?;
     }
 
-    workspace_store.forget(&forget_ws.iter().map(|x| x.as_ref()).collect::<Vec<_>>())?;
-
-    let description = if let [ws] = forget_ws.as_slice() {
-        format!("forget workspace {}", ws.as_symbol())
+    let description = if let [ws] = forget_ws {
+        format!("{description_verb} workspace {}", ws.as_symbol())
     } else {
         format!(
-            "forget workspaces {}",
+            "{description_verb} workspaces {}",
             forget_ws.iter().map(|ws| ws.as_symbol()).join(", ")
         )
     };
