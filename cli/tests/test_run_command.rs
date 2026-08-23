@@ -269,9 +269,10 @@ fn test_run_from_subdir_skips_commits_without_it() {
         ])
         .success()
         .normalize_backslash();
-    insta::assert_snapshot!(output.stderr, @r"
+    insta::assert_snapshot!(output.stderr, @"
     Skipped commit 3bb1f1ca3c09a8e6be46ef48515803464b16b426: directory does not exist: sub
     Rewrote 1 commits.
+    Rebased 1 descendant commits.
     Working copy  (@) now at: kkmpptxz 47736de8 (empty) (no description set)
     Parent commit (@-)      : rlvkpnrz cb2b6779 with-sub
     Added 1 files, modified 0 files, removed 0 files

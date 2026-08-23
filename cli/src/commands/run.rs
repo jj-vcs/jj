@@ -851,7 +851,7 @@ pub async fn cmd_run(
     // The command did something, so rewrite the commits.
     let restore_descendants = args.restore_descendants;
     let mut count: u32 = 0;
-    let mut num_reparented: u32 = 0;
+    let mut num_rebased: u32 = 0;
     tx.repo_mut()
         .transform_descendants(
             resolved_commits.iter().ids().cloned().collect_vec(),
@@ -880,19 +880,15 @@ pub async fn cmd_run(
                         .await?;
                         builder.set_tree(merged).write().await?;
                     }
-                    (None, true) => {
-                        // Descendant outside the run set or unmodified commit —
-                        // keep its content if an ancestor changed.
+                    (None, restore_descendants) => {
+                        // Descendant outside the run set
                         if rewriter.parents_changed() {
-                            rewriter.reparent().write().await?;
-                            num_reparented += 1;
-                        }
-                    }
-                    (None, false) => {
-                        // Default: propagate the diff into descendants if an
-                        // ancestor changed.
-                        if rewriter.parents_changed() {
-                            rewriter.rebase().await?.write().await?;
+                            if restore_descendants {
+                                rewriter.reparent().write().await?;
+                            } else {
+                                rewriter.rebase().await?.write().await?;
+                            }
+                            num_rebased += 1;
                         }
                     }
                 }
@@ -901,11 +897,15 @@ pub async fn cmd_run(
         )
         .await?;
     writeln!(ui.status(), "Rewrote {count} commits.")?;
-    if restore_descendants && num_reparented > 0 {
-        writeln!(
-            ui.status(),
-            "Rebased {num_reparented} descendant commits (while preserving their content)."
-        )?;
+    if num_rebased > 0 {
+        if restore_descendants {
+            writeln!(
+                ui.status(),
+                "Rebased {num_rebased} descendant commits (while preserving their content)."
+            )?;
+        } else {
+            writeln!(ui.status(), "Rebased {num_rebased} descendant commits.")?;
+        }
     }
     tx.finish(ui, format!("run: rewrite {count} commits"))
         .await?;
