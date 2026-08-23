@@ -26,32 +26,39 @@ pub trait ObjectId {
     fn hex(&self) -> String;
 }
 
-// Defines a new struct type with visibility `vis` and name `ident` containing
-// a single Vec<u8> used to store an identifier (typically the output of a hash
-// function) as bytes. Types defined using this macro automatically implement
-// the `ObjectId` and `ContentHash` traits.
-// Documentation comments written inside the macro definition will be captured
-// and associated with the type defined by the macro.
-//
-// Example:
-// ```no_run
-// id_type!(
-//     /// My favorite id type.
-//     pub MyId { hex() }
-// );
-// ```
-macro_rules! id_type {
+/// Defines a new struct type representing an object ID, with visibility `vis`
+/// and name `ident`.
+///
+/// The struct contains a single `Vec<u8>` used to store the identifier
+/// (typically the output of a hash function) as bytes. Types defined using this
+/// macro automatically implement the `ObjectId` and `ContentHash` traits.
+/// Documentation comments written inside the macro definition will be captured
+/// and associated with the type defined by the macro.
+///
+/// Example:
+/// ```
+/// # use jj_core::object_id::*;
+/// id_type!(
+///     /// My favorite id type.
+///     pub MyId { hex() }
+/// );
+/// ```
+#[doc(hidden)] // hide jj_core::_id_type!()
+#[macro_export]
+macro_rules! _id_type {
     (   $(#[$attr:meta])*
         $vis:vis $name:ident { $hex_method:ident() }
     ) => {
         $(#[$attr])*
         #[derive($crate::content_hash::ContentHash, PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
         $vis struct $name(Vec<u8>);
-        $crate::object_id::impl_id_type!($name, $hex_method);
+        $crate::object_id::_impl_id_type!($name, $hex_method);
     };
 }
 
-macro_rules! impl_id_type {
+#[doc(hidden)]
+#[macro_export]
+macro_rules! _impl_id_type {
     ($name:ident, $hex_method:ident) => {
         #[allow(dead_code)]
         impl $name {
@@ -105,7 +112,7 @@ macro_rules! impl_id_type {
             }
         }
 
-        impl crate::object_id::ObjectId for $name {
+        impl $crate::object_id::ObjectId for $name {
             fn object_type(&self) -> String {
                 stringify!($name)
                     .strip_suffix("Id")
@@ -129,8 +136,9 @@ macro_rules! impl_id_type {
     };
 }
 
-pub(crate) use id_type;
-pub(crate) use impl_id_type;
+#[doc(inline)]
+pub use _id_type as id_type;
+pub use _impl_id_type;
 
 /// An identifier prefix (typically from a type implementing the [`ObjectId`]
 /// trait) with facilities for converting between bytes and a hex string.

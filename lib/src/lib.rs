@@ -69,7 +69,7 @@ pub mod matchers;
 pub mod merge;
 pub mod merged_tree;
 pub mod merged_tree_builder;
-pub mod object_id;
+pub use jj_core::object_id;
 pub mod op_heads_store;
 pub mod op_store;
 pub mod op_walk;

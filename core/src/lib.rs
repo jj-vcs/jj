@@ -32,6 +32,7 @@ pub mod dag_walk;
 pub mod dag_walk_async;
 pub mod diff;
 pub mod hex_util;
+pub mod object_id;
 pub mod str_util;
 
 #[cfg(test)]

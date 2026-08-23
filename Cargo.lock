@@ -2695,6 +2695,7 @@ dependencies = [
  "maplit",
  "pollster",
  "regex",
+ "serde",
  "smallvec",
  "thiserror 2.0.20",
 ]
