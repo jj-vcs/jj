@@ -9,20 +9,19 @@ A couple of `jj` commands accept a template via `-T`/`--template` option.
 ## Keywords
 
 Keywords represent objects of different types; the types are described in
-a follow-up section. In addition to context-specific keywords, the top-level
-object can be referenced as `self`.
+the following sections. The top-level object for a template can always be
+referenced as `self`. Its concrete type depends on the command (and is
+documented on each command's `--template` help).
 
-### Commit keywords
+In any template, all 0-argument methods of that top-level `self` type are
+available as keywords. For example:
 
-In `jj log` templates, all 0-argument methods of [the `Commit`
-type](#commit-type) are available as keywords. For example, `commit_id` is
-equivalent to `self.commit_id()`.
-
-### Operation keywords
-
-In `jj op log` templates, all 0-argument methods of [the `Operation`
-type](#operation-type) are available as keywords. For example,
-`current_operation` is equivalent to `self.current_operation()`.
+* In `jj log`, `self` is [the `Commit` type](#commit-type), so `commit_id` is
+  equivalent to `self.commit_id()`.
+* In `jj op log`, `self` is [the `Operation` type](#operation-type), so
+  `current_operation` is equivalent to `self.current_operation()`.
+* In `jj file list`, `self` is [the `TreeEntry` type](#treeentry-type), so
+  `path` is equivalent to `self.path()`.
 
 ## Operators
 
