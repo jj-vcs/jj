@@ -47,6 +47,7 @@ use crate::dsl_util::collect_similar;
 use crate::ref_name::RefNameBuf;
 use crate::ref_name::RemoteNameBuf;
 use crate::ref_name::RemoteRefSymbolBuf;
+use crate::symbol_util::format_string;
 
 #[derive(Parser)]
 #[grammar = "revset.pest"]
@@ -673,6 +674,26 @@ pub fn parse_symbol(text: &str) -> Result<String, RevsetParseError> {
     } else {
         Ok(name)
     }
+}
+
+/// Formats a string as symbol by quoting and escaping it if necessary.
+///
+/// Note that symbols may be substituted to user aliases. Use
+/// [`format_string()`] to ensure that the provided string is resolved as a
+/// tag/bookmark name, commit/change ID prefix, etc.
+pub fn format_symbol(literal: &str) -> String {
+    if is_identifier(literal) {
+        literal.to_string()
+    } else {
+        format_string(literal)
+    }
+}
+
+/// Formats a `name@remote` symbol, applies quoting and escaping if necessary.
+pub fn format_remote_symbol(name: &str, remote: &str) -> String {
+    let name = format_symbol(name);
+    let remote = format_symbol(remote);
+    format!("{name}@{remote}")
 }
 
 pub type RevsetAliasesMap = AliasesMap<RevsetAliasParser, String>;
@@ -1954,6 +1975,42 @@ mod tests {
                 .set_local("A", "a")
                 .parse_normalized("A|B|F(A)"),
             parse_normalized("a|A|(a&A)")
+        );
+    }
+
+    #[test]
+    fn test_escape_string_literal() {
+        // Valid identifiers don't need quoting
+        assert_eq!(format_symbol("foo"), "foo");
+        assert_eq!(format_symbol("foo.bar"), "foo.bar");
+
+        // Invalid identifiers need quoting
+        assert_eq!(format_symbol("foo@bar"), r#""foo@bar""#);
+        assert_eq!(format_symbol("foo bar"), r#""foo bar""#);
+        assert_eq!(format_symbol(" foo "), r#"" foo ""#);
+        assert_eq!(format_symbol("(foo)"), r#""(foo)""#);
+        assert_eq!(format_symbol("all:foo"), r#""all:foo""#);
+
+        // Some characters also need escaping
+        assert_eq!(format_symbol("foo\"bar"), r#""foo\"bar""#);
+        assert_eq!(format_symbol("foo\\bar"), r#""foo\\bar""#);
+        assert_eq!(format_symbol("foo\\\"bar"), r#""foo\\\"bar""#);
+        assert_eq!(format_symbol("foo\nbar"), r#""foo\nbar""#);
+
+        // Some characters don't technically need escaping, but we escape them for
+        // clarity
+        assert_eq!(format_symbol("foo\"bar"), r#""foo\"bar""#);
+        assert_eq!(format_symbol("foo\\bar"), r#""foo\\bar""#);
+        assert_eq!(format_symbol("foo\\\"bar"), r#""foo\\\"bar""#);
+        assert_eq!(format_symbol("foo \x01 bar"), r#""foo \x01 bar""#);
+    }
+
+    #[test]
+    fn test_escape_remote_symbol() {
+        assert_eq!(format_remote_symbol("foo", "bar"), "foo@bar");
+        assert_eq!(
+            format_remote_symbol(" foo ", "bar:baz"),
+            r#"" foo "@"bar:baz""#
         );
     }
 }
