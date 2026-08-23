@@ -17,6 +17,7 @@ use clap_complete::ArgValueCompleter;
 use jj_lib::annotate::FileAnnotation;
 use jj_lib::annotate::FileAnnotator;
 use jj_lib::annotate::LineOrigin;
+use jj_lib::backend::MergedTreeValueExt as _;
 use jj_lib::repo::Repo;
 use jj_lib::revset::RevsetExpression;
 use tracing::instrument;

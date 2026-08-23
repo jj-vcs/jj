@@ -65,6 +65,7 @@ use crate::backend::BackendError;
 use crate::backend::CopyId;
 use crate::backend::FileId;
 use crate::backend::MergedTreeValue;
+use crate::backend::MergedTreeValueExt as _;
 use crate::backend::MillisSinceEpoch;
 use crate::backend::SymlinkId;
 use crate::backend::TreeId;

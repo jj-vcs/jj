@@ -28,6 +28,7 @@ use super::diff_by_line;
 use super::file_content_for_diff;
 use super::unzip_diff_hunks_to_lines;
 use crate::backend::BackendError;
+use crate::backend::MergedTreeValueExt as _;
 use crate::conflicts::ConflictMaterializeOptions;
 use crate::conflicts::MaterializedTreeValue;
 use crate::conflicts::materialize_merge_result_to_bytes;

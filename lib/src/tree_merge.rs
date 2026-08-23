@@ -34,6 +34,7 @@ use crate::backend::BackendError;
 use crate::backend::BackendResult;
 use crate::backend::MergedTreeVal;
 use crate::backend::MergedTreeValue;
+use crate::backend::MergedTreeValueExt as _;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::config::ConfigGetError;
@@ -48,6 +49,7 @@ use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponentBuf;
 use crate::settings::UserSettings;
 use crate::store::Store;
+use crate::tree::ToTreeMergeExt as _;
 use crate::tree::Tree;
 
 /// Options for tree/file conflict resolution.
