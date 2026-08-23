@@ -26,9 +26,10 @@ use pest::iterators::Pair;
 use pest::pratt_parser::Assoc;
 use pest::pratt_parser::Op;
 use pest::pratt_parser::PrattParser;
-use pest_derive::Parser;
 use thiserror::Error;
 
+use self::private::RevsetParser;
+use self::private::Rule;
 use crate::dsl_util;
 use crate::dsl_util::AliasDeclaration;
 use crate::dsl_util::AliasDeclarationParser;
@@ -49,9 +50,14 @@ use crate::ref_name::RemoteNameBuf;
 use crate::ref_name::RemoteRefSymbolBuf;
 use crate::symbol_util::format_string;
 
-#[derive(Parser)]
-#[grammar = "revset.pest"]
-struct RevsetParser;
+mod private {
+    use pest_derive::Parser;
+
+    // This generates a `pub enum Rule` type.
+    #[derive(Parser)]
+    #[grammar = "revset.pest"]
+    pub struct RevsetParser;
+}
 
 const STRING_LITERAL_PARSER: StringLiteralParser<Rule> = StringLiteralParser {
     content_rule: Rule::string_content,
