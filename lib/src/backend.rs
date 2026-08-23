@@ -433,12 +433,45 @@ pub type MergedTreeVal<'a> = Merge<Option<&'a TreeValue>>;
 /// tree, it shouldn't be.
 pub type MergedTreeValue = Merge<Option<TreeValue>>;
 
-impl<T> Merge<Option<T>>
+/// Extension methods for tree-value merges such as [`MergedTreeValue`] and
+/// [`MergedTreeVal`].
+pub trait MergedTreeValueExt {
+    /// Whether this merge should be recursed into when doing directory walks.
+    fn is_tree(&self) -> bool;
+
+    /// Whether this merge is present and not a tree
+    fn is_file_like(&self) -> bool;
+
+    /// If this merge contains only files or absent entries, returns a merge of
+    /// the `FileId`s. The executable bits and copy IDs will be ignored. Use
+    /// `Merge::with_new_file_ids()` to produce a new merge with the original
+    /// executable bits preserved.
+    fn to_file_merge(&self) -> Option<Merge<Option<FileId>>>;
+
+    /// If this merge contains only files or absent entries, returns a merge of
+    /// the files' executable bits.
+    fn to_executable_merge(&self) -> Option<Merge<Option<bool>>>;
+
+    /// If this merge contains only files or absent entries, returns a merge of
+    /// the files' copy IDs.
+    fn to_copy_id_merge(&self) -> Option<Merge<Option<CopyId>>>;
+
+    /// Creates a new merge with the file ids from the given merge. In other
+    /// words, the executable bits and copy IDs from `self` will be preserved.
+    ///
+    /// The given `file_ids` should have the same shape as `self`. Only the
+    /// `FileId` values may differ.
+    fn with_new_file_ids(&self, file_ids: &Merge<Option<FileId>>) -> Merge<Option<TreeValue>>;
+
+    /// Give a summary description of the conflict's "removes" and "adds"
+    fn describe(&self, labels: &ConflictLabels) -> String;
+}
+
+impl<T> MergedTreeValueExt for Merge<Option<T>>
 where
     T: Borrow<TreeValue>,
 {
-    /// Whether this merge should be recursed into when doing directory walks.
-    pub fn is_tree(&self) -> bool {
+    fn is_tree(&self) -> bool {
         self.is_present()
             && self.iter().all(|value| {
                 matches!(
@@ -448,16 +481,11 @@ where
             })
     }
 
-    /// Whether this merge is present and not a tree
-    pub fn is_file_like(&self) -> bool {
+    fn is_file_like(&self) -> bool {
         self.is_present() && !self.is_tree()
     }
 
-    /// If this merge contains only files or absent entries, returns a merge of
-    /// the `FileId`s. The executable bits and copy IDs will be ignored. Use
-    /// `Merge::with_new_file_ids()` to produce a new merge with the original
-    /// executable bits preserved.
-    pub fn to_file_merge(&self) -> Option<Merge<Option<FileId>>> {
+    fn to_file_merge(&self) -> Option<Merge<Option<FileId>>> {
         let file_ids = self
             .try_map(|term| match borrow_tree_value(term.as_ref()) {
                 None => Ok(None),
@@ -473,9 +501,7 @@ where
         Some(file_ids)
     }
 
-    /// If this merge contains only files or absent entries, returns a merge of
-    /// the files' executable bits.
-    pub fn to_executable_merge(&self) -> Option<Merge<Option<bool>>> {
+    fn to_executable_merge(&self) -> Option<Merge<Option<bool>>> {
         self.try_map(|term| match borrow_tree_value(term.as_ref()) {
             None => Ok(None),
             Some(TreeValue::File {
@@ -488,9 +514,7 @@ where
         .ok()
     }
 
-    /// If this merge contains only files or absent entries, returns a merge of
-    /// the files' copy IDs.
-    pub fn to_copy_id_merge(&self) -> Option<Merge<Option<CopyId>>> {
+    fn to_copy_id_merge(&self) -> Option<Merge<Option<CopyId>>> {
         self.try_map(|term| match borrow_tree_value(term.as_ref()) {
             None => Ok(None),
             Some(TreeValue::File {
@@ -503,12 +527,7 @@ where
         .ok()
     }
 
-    /// Creates a new merge with the file ids from the given merge. In other
-    /// words, the executable bits and copy IDs from `self` will be preserved.
-    ///
-    /// The given `file_ids` should have the same shape as `self`. Only the
-    /// `FileId` values may differ.
-    pub fn with_new_file_ids(&self, file_ids: &Merge<Option<FileId>>) -> Merge<Option<TreeValue>> {
+    fn with_new_file_ids(&self, file_ids: &Merge<Option<FileId>>) -> Merge<Option<TreeValue>> {
         assert_eq!(self.num_sides(), file_ids.num_sides());
         let values: SmallVec<_> = zip(self, file_ids.iter().cloned())
             .map(
@@ -541,8 +560,7 @@ where
         Merge::from_vec(values)
     }
 
-    /// Give a summary description of the conflict's "removes" and "adds"
-    pub fn describe(&self, labels: &ConflictLabels) -> String {
+    fn describe(&self, labels: &ConflictLabels) -> String {
         let mut buf = String::new();
         writeln!(buf, "Conflict:").unwrap();
         for (term, label) in self

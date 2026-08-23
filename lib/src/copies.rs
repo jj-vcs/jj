@@ -39,6 +39,7 @@ use crate::backend::CopyHistory;
 use crate::backend::CopyId;
 use crate::backend::CopyRecord;
 use crate::backend::MergedTreeValue;
+use crate::backend::MergedTreeValueExt as _;
 use crate::backend::TreeValue;
 use crate::dag_walk;
 use crate::merge::Diff;

@@ -22,6 +22,7 @@ use futures::future::try_join_all;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::CopyId;
 use jj_lib::backend::MergedTreeValue;
+use jj_lib::backend::MergedTreeValueExt as _;
 use jj_lib::backend::TreeValue;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigGetResultExt as _;

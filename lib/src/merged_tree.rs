@@ -38,6 +38,7 @@ use crate::backend::BackendResult;
 use crate::backend::CopyId;
 use crate::backend::MergedTreeVal;
 use crate::backend::MergedTreeValue;
+use crate::backend::MergedTreeValueExt as _;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::conflict_labels::ConflictLabels;
@@ -55,7 +56,9 @@ use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponent;
 use crate::store::Store;
+use crate::tree::ToTreeMergeExt as _;
 use crate::tree::Tree;
+use crate::tree::TreeMergeExt as _;
 use crate::tree_merge::merge_trees;
 
 /// Presents a view of a merged set of trees at the root directory, as well as

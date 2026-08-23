@@ -21,6 +21,7 @@ use jj_lib::backend::CopyHistory;
 use jj_lib::backend::CopyRecord;
 use jj_lib::backend::FileId;
 use jj_lib::backend::MergedTreeValue;
+use jj_lib::backend::MergedTreeValueExt as _;
 use jj_lib::backend::TreeValue;
 use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::copies::CopiesTreeDiffEntryPath;

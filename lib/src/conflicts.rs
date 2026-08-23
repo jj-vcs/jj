@@ -38,6 +38,7 @@ use crate::backend::CommitId;
 use crate::backend::CopyId;
 use crate::backend::FileId;
 use crate::backend::MergedTreeValue;
+use crate::backend::MergedTreeValueExt as _;
 use crate::backend::SymlinkId;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;

@@ -12,11 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Generic algorithms for working with merged values.
-//!
-//! Specializations for some common types of merged values live in the modules
-//! that define those types (e.g. the `Merge<Option<TreeValue>>` methods in the
-//! backend module).
+//! Generic data structures and algorithms for working with merges and diffs of
+//! values.
 
 use std::collections::HashMap;
 use std::fmt::Debug;
