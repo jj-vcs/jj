@@ -33,6 +33,7 @@ pub mod dag_walk_async;
 pub mod diff;
 pub mod file_util;
 pub mod hex_util;
+pub mod merge;
 pub mod object_id;
 pub mod repo_path;
 pub mod str_util;
