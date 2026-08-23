@@ -870,3 +870,19 @@ impl dyn Backend {
         (self as &dyn Any).downcast_ref()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_display_object_id() {
+        let commit_id = CommitId::from_hex("deadbeef0123");
+        assert_eq!(format!("{commit_id}"), "deadbeef0123");
+        assert_eq!(format!("{commit_id:.6}"), "deadbe");
+
+        let change_id = ChangeId::from_hex("deadbeef0123");
+        assert_eq!(format!("{change_id}"), "mlpmollkzyxw");
+        assert_eq!(format!("{change_id:.6}"), "mlpmol");
+    }
+}
