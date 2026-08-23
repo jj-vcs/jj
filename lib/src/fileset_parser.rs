@@ -23,9 +23,10 @@ use pest::iterators::Pair;
 use pest::pratt_parser::Assoc;
 use pest::pratt_parser::Op;
 use pest::pratt_parser::PrattParser;
-use pest_derive::Parser;
 use thiserror::Error;
 
+use self::private::FilesetParser;
+use self::private::Rule;
 use crate::dsl_util;
 use crate::dsl_util::AliasDeclaration;
 use crate::dsl_util::AliasDeclarationParser;
@@ -40,9 +41,14 @@ use crate::dsl_util::FoldableExpression;
 use crate::dsl_util::InvalidArguments;
 use crate::dsl_util::StringLiteralParser;
 
-#[derive(Parser)]
-#[grammar = "fileset.pest"]
-struct FilesetParser;
+mod private {
+    use pest_derive::Parser;
+
+    // This generates a `pub enum Rule` type.
+    #[derive(Parser)]
+    #[grammar = "fileset.pest"]
+    pub struct FilesetParser;
+}
 
 const STRING_LITERAL_PARSER: StringLiteralParser<Rule> = StringLiteralParser {
     content_rule: Rule::string_content,
