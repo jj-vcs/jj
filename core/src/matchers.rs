@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![expect(missing_docs)]
+//! Contains the [`Matcher`] trait which is used for matching against
+//! [`RepoPath`]s and guiding walks of directory trees.
 
 use std::collections::HashSet;
 use std::fmt;
@@ -27,13 +28,17 @@ use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathComponentBuf;
 use crate::repo_path::RepoPathTree;
 
+/// Describes which tree entries need to be visited.
 #[derive(PartialEq, Eq, Debug)]
 pub enum Visit {
     /// Everything in the directory is *guaranteed* to match, no need to check
     /// descendants
     AllRecursively,
+    /// Visit only the specified directories or files.
     Specific {
+        /// Visit these specific directories.
         dirs: VisitDirs,
+        /// Visit these specific files.
         files: VisitFiles,
     },
     /// Nothing in the directory or its subdirectories will match.
@@ -52,7 +57,8 @@ impl Visit {
         files: VisitFiles::All,
     };
 
-    fn sets(dirs: HashSet<RepoPathComponentBuf>, files: HashSet<RepoPathComponentBuf>) -> Self {
+    /// Visit these sets of `dirs` and `files`.
+    pub fn sets(dirs: HashSet<RepoPathComponentBuf>, files: HashSet<RepoPathComponentBuf>) -> Self {
         if dirs.is_empty() && files.is_empty() {
             Self::Nothing
         } else {
@@ -63,25 +69,36 @@ impl Visit {
         }
     }
 
+    /// Returns true if nothing is matched.
     pub fn is_nothing(&self) -> bool {
         *self == Self::Nothing
     }
 }
 
+/// Describes which subdirectories to visit.
 #[derive(PartialEq, Eq, Debug)]
 pub enum VisitDirs {
+    /// Visit all possible directories.
     All,
+    /// Visit the specified set of directories.
     Set(HashSet<RepoPathComponentBuf>),
 }
 
+/// Describes which files to visit.
 #[derive(PartialEq, Eq, Debug)]
 pub enum VisitFiles {
+    /// Visit all possible files.
     All,
+    /// Visit the specified set of files.
     Set(HashSet<RepoPathComponentBuf>),
 }
 
+/// A [`Matcher`] matches against `RepoPath`s and helps guide a traversal of a
+/// directory files.
 pub trait Matcher: Debug + Send + Sync {
+    /// Returns true if the `file` matches the path.
     fn matches(&self, file: &RepoPath) -> bool;
+    /// Returns a `Visit` which specifies how further traversal should commence.
     fn visit(&self, dir: &RepoPath) -> Visit;
 }
 
@@ -105,6 +122,7 @@ impl<T: Matcher + ?Sized> Matcher for Box<T> {
     }
 }
 
+/// Matches no paths.
 #[derive(PartialEq, Eq, Debug)]
 pub struct NothingMatcher;
 
@@ -118,6 +136,7 @@ impl Matcher for NothingMatcher {
     }
 }
 
+/// Matches all paths.
 #[derive(PartialEq, Eq, Debug)]
 pub struct EverythingMatcher;
 
@@ -131,12 +150,14 @@ impl Matcher for EverythingMatcher {
     }
 }
 
+/// Matches the specified files.
 #[derive(PartialEq, Eq, Debug)]
 pub struct FilesMatcher {
     tree: RepoPathTree<FilesNodeKind>,
 }
 
 impl FilesMatcher {
+    /// Create a new `FilesMatcher` for the given `files`.
     pub fn new(files: impl IntoIterator<Item = impl AsRef<RepoPath>>) -> Self {
         let mut tree = RepoPathTree::default();
         for f in files {
@@ -184,12 +205,14 @@ fn files_tree_to_visit_sets(tree: &RepoPathTree<FilesNodeKind>) -> Visit {
     Visit::sets(dirs, files)
 }
 
+/// Matches paths on the given prefixes.
 #[derive(Debug)]
 pub struct PrefixMatcher {
     tree: RepoPathTree<PrefixNodeKind>,
 }
 
 impl PrefixMatcher {
+    /// Create a new `PrefixMatcher` for the given `prefixes`.
     #[instrument(skip(prefixes))]
     pub fn new(prefixes: impl IntoIterator<Item = impl AsRef<RepoPath>>) -> Self {
         let mut tree = RepoPathTree::default();
@@ -424,6 +447,7 @@ pub struct UnionMatcher<M1, M2> {
 }
 
 impl<M1: Matcher, M2: Matcher> UnionMatcher<M1, M2> {
+    /// Create a `UnionMatcher` matching when either of the inputs match.
     pub fn new(input1: M1, input2: M2) -> Self {
         Self { input1, input2 }
     }
@@ -481,6 +505,8 @@ pub struct DifferenceMatcher<M1, M2> {
 }
 
 impl<M1: Matcher, M2: Matcher> DifferenceMatcher<M1, M2> {
+    /// Create a new `DifferenceMatcher` matching when `wanted` matches and
+    /// `unwanted` does not.
     pub fn new(wanted: M1, unwanted: M2) -> Self {
         Self { wanted, unwanted }
     }
@@ -511,6 +537,7 @@ pub struct IntersectionMatcher<M1, M2> {
 }
 
 impl<M1: Matcher, M2: Matcher> IntersectionMatcher<M1, M2> {
+    /// Create a `IntersectionMatcher` matching when both inputs match.
     pub fn new(input1: M1, input2: M2) -> Self {
         Self { input1, input2 }
     }
