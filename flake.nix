@@ -111,9 +111,9 @@
         # efficient than the defaults. these noticeably improve link time even for
         # medium sized rust projects like jj
         rustLinkerFlags =
-          if pkgs.stdenv.isLinux
+          if pkgs.stdenv.hostPlatform.isLinux
           then ["-fuse-ld=mold" "-Wl,--compress-debug-sections=zstd"]
-          else if pkgs.stdenv.isDarwin
+          else if pkgs.stdenv.hostPlatform.isDarwin
           then
             # on darwin, /usr/bin/ld actually looks at the environment variable
             # $DEVELOPER_DIR, which is set by the nix stdenv, and if set,
