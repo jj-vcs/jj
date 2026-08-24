@@ -472,7 +472,7 @@ fn to_binary_expression<T>(
     }
 }
 
-type DynMatchFn = dyn Fn(&[u8]) -> bool;
+type DynMatchFn = dyn Fn(&[u8]) -> bool + Send + Sync;
 
 /// Matcher for strings and bytes.
 pub enum StringMatcher {
