@@ -2283,7 +2283,10 @@ recommended for better integration with platform services.
 
 The files in the `conf.d` directory are loaded in lexicographic order. This
 allows configs to be split across multiple files and combines well with
-[Conditional Variables](#conditional-variables).
+[Conditional Variables](#conditional-variables). Modifying user configuration
+with `jj config {edit,set,unset} --user` targets the primary user config file
+(or the first loaded file in `conf.d/`). Individual files in `conf.d/` can be
+targeted with `--file <PATH>`.
 
 | Platform        | Location of `<PLATFORM_SPECIFIC>` dir | Example config file location                              |
 | :-------------- | :------------------------------------ | :-------------------------------------------------------- |

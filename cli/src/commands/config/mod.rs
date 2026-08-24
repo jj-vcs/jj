@@ -121,8 +121,8 @@ pub(crate) struct ConfigTargetArgs {
     ///
     /// The path must point to a valid configuration file location recognized
     /// by Jujutsu (such as a user/repo/workspace config, a file inside a
-    /// `conf.d/` directory, or any file loaded via system configs, `$JJ_CONFIG`,
-    /// or `--config-file`).
+    /// `conf.d/` directory, or any file loaded via system configs,
+    /// `$JJ_CONFIG`, or `--config-file`).
     ///
     /// Unlike the global `--config-file` option (which loads an extra config
     /// file when running commands), this option specifies which file to
@@ -142,36 +142,27 @@ impl ConfigTargetArgs {
     ) -> Result<ConfigFile, CommandError> {
         let config_env = command.config_env();
         let config = command.raw_config();
-        let pick_one = |mut files: Vec<ConfigFile>, not_found_error: &str| {
-            if files.len() > 1 {
-                let mut choices = vec![];
-                let mut formatter = ui.stderr_formatter();
-                for (i, file) in files.iter().enumerate() {
-                    writeln!(formatter, "{}: {}", i + 1, file.path().display())?;
-                    choices.push((i + 1).to_string());
-                }
-                drop(formatter);
-                let index =
-                    ui.prompt_choice("Choose a config file (default 1)", &choices, Some(0))?;
-                return Ok(files[index].clone());
-            }
-            files.pop().ok_or_else(|| user_error(not_found_error))
+        let pick_first = |files: Vec<ConfigFile>, not_found_error: &str| {
+            files
+                .into_iter()
+                .next()
+                .ok_or_else(|| user_error(not_found_error))
         };
         if let Some(file) = &self.file {
             let path = command.cwd().join(file);
             config_env.resolve_file_to_edit(ui, config, &path)
         } else if self.user {
-            pick_one(
+            pick_first(
                 config_env.user_config_files(config)?,
                 "No user config path found to edit",
             )
         } else if self.repo {
-            pick_one(
+            pick_first(
                 config_env.repo_config_files(ui, config)?,
                 "No repo config path found to edit",
             )
         } else if self.workspace {
-            pick_one(
+            pick_first(
                 config_env.workspace_config_files(ui, config)?,
                 "No workspace config path found to edit",
             )
