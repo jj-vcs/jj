@@ -16,15 +16,28 @@
 //! to the user (e.g. relative to CWD).
 
 use std::iter;
+use std::path::Path;
 use std::path::PathBuf;
 
 use thiserror::Error;
 
 use crate::file_util;
 use crate::merge::Diff;
-use crate::repo_path::FsPathParseError;
+use crate::repo_path::RelativePathParseError;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
+
+/// An error which occurs when we're parsing paths.
+#[derive(Clone, Debug, Eq, Error, PartialEq)]
+#[error(r#"Path "{input}" is not in the repo "{base}""#)]
+pub struct FsPathParseError {
+    /// Repository or workspace root path relative to the `cwd`.
+    pub base: Box<Path>,
+    /// Input path without normalization.
+    pub input: Box<Path>,
+    /// Source error.
+    pub source: RelativePathParseError,
+}
 
 /// An error from `RepoPathUiConverter::parse_file_path`.
 #[derive(Debug, Error)]
@@ -85,9 +98,7 @@ impl RepoPathUiConverter {
     /// where relative paths are interpreted as relative to.
     pub fn parse_file_path(&self, input: &str) -> Result<RepoPathBuf, UiPathParseError> {
         match self {
-            Self::Fs { cwd, base } => {
-                RepoPathBuf::parse_fs_path(cwd, base, input).map_err(UiPathParseError::Fs)
-            }
+            Self::Fs { cwd, base } => parse_fs_path(cwd, base, input).map_err(UiPathParseError::Fs),
         }
     }
 }
@@ -137,10 +148,32 @@ fn collapse_copied_path(paths: Diff<&str>, separator: char) -> String {
     collapsed
 }
 
+/// Parses an `input` path into a `RepoPathBuf` relative to `base`.
+///
+/// The `cwd` and `base` paths are supposed to be absolute and normalized in
+/// the same manner. The `input` path may be either relative to `cwd` or
+/// absolute.
+pub fn parse_fs_path(
+    cwd: &Path,
+    base: &Path,
+    input: impl AsRef<Path>,
+) -> Result<RepoPathBuf, FsPathParseError> {
+    let input = input.as_ref();
+    let abs_input_path = file_util::normalize_path(&cwd.join(input));
+    let repo_relative_path = file_util::relative_path(base, &abs_input_path);
+    RepoPathBuf::from_relative_path(repo_relative_path).map_err(|source| FsPathParseError {
+        base: file_util::relative_path(cwd, base).into(),
+        input: input.into(),
+        source,
+    })
+}
+
 #[cfg(test)]
 mod tests {
+    use assert_matches::assert_matches;
 
     use super::*;
+    use crate::tests::new_temp_dir;
 
     fn repo_path(value: &str) -> &RepoPath {
         RepoPath::from_internal_string(value).unwrap()
@@ -185,6 +218,138 @@ mod tests {
         assert_eq!(
             format("x/something/1to2.txt", "x/something/something/1to2.txt"),
             "x/something/{ => something}/1to2.txt"
+        );
+    }
+
+    #[test]
+    fn parse_fs_path_wc_in_cwd() {
+        let temp_dir = new_temp_dir();
+        let cwd_path = temp_dir.path().join("repo");
+        let wc_path = &cwd_path;
+
+        assert_eq!(
+            parse_fs_path(&cwd_path, wc_path, "").as_deref(),
+            Ok(RepoPath::root())
+        );
+        assert_eq!(
+            parse_fs_path(&cwd_path, wc_path, ".").as_deref(),
+            Ok(RepoPath::root())
+        );
+        assert_eq!(
+            parse_fs_path(&cwd_path, wc_path, "file").as_deref(),
+            Ok(repo_path("file"))
+        );
+        // Both slash and the platform's separator are allowed
+        assert_eq!(
+            parse_fs_path(
+                &cwd_path,
+                wc_path,
+                format!("dir{}file", std::path::MAIN_SEPARATOR)
+            )
+            .as_deref(),
+            Ok(repo_path("dir/file"))
+        );
+        assert_eq!(
+            parse_fs_path(&cwd_path, wc_path, "dir/file").as_deref(),
+            Ok(repo_path("dir/file"))
+        );
+        assert_matches!(
+            parse_fs_path(&cwd_path, wc_path, ".."),
+            Err(FsPathParseError {
+                source: RelativePathParseError::InvalidComponent { .. },
+                ..
+            })
+        );
+        assert_eq!(
+            parse_fs_path(&cwd_path, &cwd_path, "../repo").as_deref(),
+            Ok(RepoPath::root())
+        );
+        assert_eq!(
+            parse_fs_path(&cwd_path, &cwd_path, "../repo/file").as_deref(),
+            Ok(repo_path("file"))
+        );
+        // Input may be absolute path with ".."
+        assert_eq!(
+            parse_fs_path(
+                &cwd_path,
+                &cwd_path,
+                cwd_path.join("../repo").to_str().unwrap()
+            )
+            .as_deref(),
+            Ok(RepoPath::root())
+        );
+    }
+
+    #[test]
+    fn parse_fs_path_wc_in_cwd_parent() {
+        let temp_dir = new_temp_dir();
+        let cwd_path = temp_dir.path().join("dir");
+        let wc_path = cwd_path.parent().unwrap().to_path_buf();
+
+        assert_eq!(
+            parse_fs_path(&cwd_path, &wc_path, "").as_deref(),
+            Ok(repo_path("dir"))
+        );
+        assert_eq!(
+            parse_fs_path(&cwd_path, &wc_path, ".").as_deref(),
+            Ok(repo_path("dir"))
+        );
+        assert_eq!(
+            parse_fs_path(&cwd_path, &wc_path, "file").as_deref(),
+            Ok(repo_path("dir/file"))
+        );
+        assert_eq!(
+            parse_fs_path(&cwd_path, &wc_path, "subdir/file").as_deref(),
+            Ok(repo_path("dir/subdir/file"))
+        );
+        assert_eq!(
+            parse_fs_path(&cwd_path, &wc_path, "..").as_deref(),
+            Ok(RepoPath::root())
+        );
+        assert_matches!(
+            parse_fs_path(&cwd_path, &wc_path, "../.."),
+            Err(FsPathParseError {
+                source: RelativePathParseError::InvalidComponent { .. },
+                ..
+            })
+        );
+        assert_eq!(
+            parse_fs_path(&cwd_path, &wc_path, "../other-dir/file").as_deref(),
+            Ok(repo_path("other-dir/file"))
+        );
+    }
+
+    #[test]
+    fn parse_fs_path_wc_in_cwd_child() {
+        let temp_dir = new_temp_dir();
+        let cwd_path = temp_dir.path().join("cwd");
+        let wc_path = cwd_path.join("repo");
+
+        assert_matches!(
+            parse_fs_path(&cwd_path, &wc_path, ""),
+            Err(FsPathParseError {
+                source: RelativePathParseError::InvalidComponent { .. },
+                ..
+            })
+        );
+        assert_matches!(
+            parse_fs_path(&cwd_path, &wc_path, "not-repo"),
+            Err(FsPathParseError {
+                source: RelativePathParseError::InvalidComponent { .. },
+                ..
+            })
+        );
+        assert_eq!(
+            parse_fs_path(&cwd_path, &wc_path, "repo").as_deref(),
+            Ok(RepoPath::root())
+        );
+        assert_eq!(
+            parse_fs_path(&cwd_path, &wc_path, "repo/file").as_deref(),
+            Ok(repo_path("file"))
+        );
+        assert_eq!(
+            parse_fs_path(&cwd_path, &wc_path, "repo/dir/file").as_deref(),
+            Ok(repo_path("dir/file"))
         );
     }
 }
