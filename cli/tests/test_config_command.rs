@@ -683,13 +683,7 @@ fn test_config_set_for_user_directory() -> TestResult {
         ".",
         ["config", "set", "--user", "test-key", "test-other-val"],
     );
-    insta::assert_snapshot!(output, @"
-    ------- stderr -------
-    1: $TEST_ENV/config/config0001.toml
-    2: $TEST_ENV/config/config0002.toml
-    Choose a config file (default 1): 1
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"");
 
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.first_config_file_path())?,
@@ -1393,9 +1387,6 @@ fn test_config_only_loads_toml_files() -> TestResult {
     std::fs::File::create(test_env.config_path().join("is-not.loaded"))?;
     insta::assert_snapshot!(test_env.run_jj_in(".", ["config", "edit", "--user"]), @"
     ------- stderr -------
-    1: $TEST_ENV/config/config0001.toml
-    2: $TEST_ENV/config/config0002.toml
-    Choose a config file (default 1): 1
     Editing file: $TEST_ENV/config/config0001.toml
     [EOF]
     ");

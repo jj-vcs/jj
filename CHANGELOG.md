@@ -15,6 +15,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj git import` in non-colocated repositories no longer imports commits from a
   detached Git HEAD branch.
 
+* `jj config {edit,set,unset} --user` now targets the first loaded user
+  configuration file (e.g. `~/.config/jj/config.toml` or the first file in
+  `conf.d/`) instead of prompting interactively when multiple files exist.
+  Use `--file <PATH>` to target a specific config file.
+
 ### Deprecations
 
 ### New features
