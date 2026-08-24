@@ -12,17 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![expect(missing_docs)]
+//! Identifiers for objects (commits, changes, trees, etc.), and utilities for
+//! parsing and matching identifier prefixes.
 
 use std::fmt;
 use std::fmt::Debug;
 
 use crate::hex_util;
 
+/// An identifier for an object, such as a commit or a tree, usually the output
+/// of a hash function.
 pub trait ObjectId {
+    /// A lowercase name identifying the type of object (e.g. "commit").
     fn object_type(&self) -> String;
+    /// The identifier as a byte slice.
     fn as_bytes(&self) -> &[u8];
+    /// The identifier as an owned byte vector.
     fn to_bytes(&self) -> Vec<u8>;
+    /// String representation of the identifier using hex digits.
     fn hex(&self) -> String;
 }
 
@@ -171,6 +178,8 @@ impl HexPrefix {
         })
     }
 
+    /// Returns a new `HexPrefix` representing the given full bytes (i.e. an
+    /// even number of hex digits.)
     pub fn from_bytes(bytes: &[u8]) -> Self {
         Self {
             min_prefix_bytes: bytes.to_owned(),
@@ -247,12 +256,16 @@ impl Debug for HexPrefix {
 /// The result of a prefix search.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PrefixResolution<T> {
+    /// The prefix matched no objects.
     NoMatch,
+    /// The prefix matched exactly one object.
     SingleMatch(T),
+    /// The prefix matched more than one object.
     AmbiguousMatch,
 }
 
 impl<T> PrefixResolution<T> {
+    /// Transforms the matched object, if any, by applying `f` to it.
     pub fn map<U>(self, f: impl FnOnce(T) -> U) -> PrefixResolution<U> {
         match self {
             Self::NoMatch => PrefixResolution::NoMatch,
@@ -261,6 +274,8 @@ impl<T> PrefixResolution<T> {
         }
     }
 
+    /// Transforms the matched object, if any, by applying `f` to it, turning
+    /// a single match into [`NoMatch`](Self::NoMatch) if `f` returns `None`.
     pub fn filter_map<U>(self, f: impl FnOnce(T) -> Option<U>) -> PrefixResolution<U> {
         match self {
             Self::NoMatch => PrefixResolution::NoMatch,
@@ -274,6 +289,8 @@ impl<T> PrefixResolution<T> {
 }
 
 impl<T: Clone> PrefixResolution<T> {
+    /// Combines two resolutions, e.g. from different sources, turning two
+    /// single matches into an ambiguous match.
     pub fn plus(&self, other: &Self) -> Self {
         match (self, other) {
             (Self::NoMatch, other) => other.clone(),
