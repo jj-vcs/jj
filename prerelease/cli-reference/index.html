@@ -1775,11 +1775,11 @@
           <li class="md-nav__item">
   <a href="#execution-example" class="md-nav__link">
     <span class="md-ellipsis">
-      Execution Example
+      Execution example
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Execution Example">
+    <nav class="md-nav" aria-label="Execution example">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -6342,11 +6342,11 @@
           <li class="md-nav__item">
   <a href="#execution-example" class="md-nav__link">
     <span class="md-ellipsis">
-      Execution Example
+      Execution example
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Execution Example">
+    <nav class="md-nav" aria-label="Execution example">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -9443,10 +9443,10 @@ output.</p>
 <h3 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h3>
 <p>See <code>jj help -k config</code> chapter <code>Code formatting and other file content
 transformations</code> to understand how to configure your tools.</p>
-<h3 id="execution-example">Execution Example<a class="headerlink" href="#execution-example" title="Permanent link">&para;</a></h3>
-<p>Let's consider the following configuration is set. We have two code
-formatters (<code>clang-format</code> and <code>black</code>), which apply to three different
-file extensions (<code>.cc</code>, <code>.h</code>, and <code>.py</code>):</p>
+<h3 id="execution-example">Execution example<a class="headerlink" href="#execution-example" title="Permanent link">&para;</a></h3>
+<p>Let's consider the following configuration. We have two code formatters
+(<code>clang-format</code> and <code>black</code>), which apply to three different file extensions
+(<code>.cc</code>, <code>.h</code>, and <code>.py</code>):</p>
 <div class="highlight"><pre><span></span><code><span class="k">[fix.tools.clang-format]</span>
 <span class="n">command</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;/usr/bin/clang-format&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;--assume-filename=$path&quot;</span><span class="p">]</span>
 <span class="n">patterns</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;glob:&#39;**/*.cc&#39;&quot;</span><span class="p">,</span>
@@ -9469,22 +9469,22 @@ A (mutable)
 |
 X (immutable)
 </code></pre></div>
-<p>By default, <code>jj fix</code> will modify revisions that matches the revset
-<code>reachable(@, mutable())</code> (see <code>jj help -k revsets</code>) which corresponds to
+<p>By default, <code>jj fix</code> will modify revisions that match the revset
+<code>reachable(@, mutable())</code> (see <code>jj help -k revsets</code>), which corresponds to
 the revisions <code>A</code>, <code>B</code> and <code>C</code> here.</p>
 <p>The following operations will then happen:</p>
 <ul>
-<li>For revision <code>A</code>, content from this revision for files <code>src/bar.cc</code> and
-  <code>src/bar.h</code> will each be provided to <code>clang-format</code> and the result output
-  will be used to recreate revision <code>A</code> which we will call <code>A'</code>. All other
-  files are untouched.</li>
-<li>For revision <code>B</code>, same thing happen for files <code>src/bar.cc</code> and <code>src/bar.h</code>
-  Their content from revision <code>B</code> will go through <code>clang-format</code>. The file
-  <code>README.md</code> as any other files, are untouched as no pattern matches it. We
-  obtain revision <code>B'</code>.</li>
-<li>For revision <code>C</code>, <code>src/bar.cc</code> and <code>src/bar.h</code> goes through <code>clang-format</code>
-  and file <code>foo.py</code> is fixed using <code>black</code>. Any other file is untouched. We
-  obtain revision <code>C'</code>.</li>
+<li>For revision <code>A</code>, the contents from this revision for files <code>src/bar.cc</code>
+  and <code>src/bar.h</code> will be provided to <code>clang-format</code>, and the resulting
+  output will be used to recreate revision <code>A</code>, which we will call <code>A'</code>. All
+  other files are untouched.</li>
+<li>For revision <code>B</code>, the same thing happens for files <code>src/bar.cc</code> and
+  <code>src/bar.h</code>. Their contents from revision <code>B</code> will go through
+  <code>clang-format</code>. The file <code>README.md</code>, same as all other files, is
+  untouched as no pattern matches it. We obtain revision <code>B'</code>.</li>
+<li>For revision <code>C</code>, the files <code>src/bar.cc</code> and <code>src/bar.h</code> go through
+  <code>clang-format</code> and the file <code>foo.py</code> is fixed using <code>black</code>. All other
+  files are untouched. We obtain revision <code>C'</code>.</li>
 </ul>
 <div class="highlight"><pre><span></span><code>C (mutable)                    /-&gt; C&#39;
 |  src/bar.cc -&gt; clang-format -|   |
