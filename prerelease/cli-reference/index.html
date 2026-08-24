@@ -3536,6 +3536,30 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="jj util snapshot">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#example-of-programmatic-snapshotting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example of programmatic snapshotting
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#checking-if-the-operation-id-changed" class="md-nav__link">
+    <span class="md-ellipsis">
+      Checking if the operation ID changed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -8079,6 +8103,30 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="jj util snapshot">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#example-of-programmatic-snapshotting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example of programmatic snapshotting
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#checking-if-the-operation-id-changed" class="md-nav__link">
+    <span class="md-ellipsis">
+      Checking if the operation ID changed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -11308,8 +11356,53 @@ already explicitly passing your script into the right shell.</p>
 <p><strong>Usage:</strong> <code>jj util markdown-help</code></p>
 <h2 id="jj-util-snapshot"><code>jj util snapshot</code><a class="headerlink" href="#jj-util-snapshot" title="Permanent link">&para;</a></h2>
 <p>Snapshot the working copy if needed</p>
-<p>Snapshots the working copy and updates the working-copy commit if the working copy has changed since the last snapshot. Since almost every command snapshots the working copy, there is very little reason to run this command as a human; it is mostly meant for scripts.</p>
-<p>If you want to see the ID of the current operation after this command, run <code>jj operation log --limit 1</code>. However, since that command also snapshots the working copy, there would be no need to run <code>jj util snapshot</code> first.</p>
+<p>Snapshots the working copy and updates the working-copy commit if the
+working copy has changed since the last snapshot. Since almost every command
+snapshots the working copy, there is very little reason to run this command
+as a human; it is mostly meant for scripts.</p>
+<p>If you want to see the ID of the current operation after this command, run
+<code>jj operation log --limit 1</code>. However, since that command also snapshots the
+working copy, there would be no need to run <code>jj util snapshot</code> first.</p>
+<h3 id="example-of-programmatic-snapshotting">Example of programmatic snapshotting<a class="headerlink" href="#example-of-programmatic-snapshotting" title="Permanent link">&para;</a></h3>
+<p>Consider the following:</p>
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span><span class="nb">echo</span><span class="w"> </span>content<span class="w"> </span>&gt;<span class="w"> </span>new-file.txt
+<span class="c1"># At this point, `jj` does not know about `new-file.txt`.</span>
+$<span class="w"> </span>./my-script-that-runs-jj-commands
+<span class="c1"># Since the script ran `jj` commands, the changes to `new-file.txt` have</span>
+<span class="c1"># been snapshotted in an operation, which you can see with:</span>
+$<span class="w"> </span>jj<span class="w"> </span>operation<span class="w"> </span>log<span class="w"> </span>--patch
+</code></pre></div>
+<p>If <code>my-script-that-runs-jj-commands</code> has a "sandwich" of <code>jj util snapshot</code>
+at the beginning and end of the script, then the operation that captures
+<code>new-file.txt</code> will be distinct from the operations created by the <code>jj</code>
+commands in that script. In addition, the <code>jj operation log --patch</code> that
+you ran on the command-line after the script would also have its own
+operation if needed. However, without <code>jj util snapshot</code>, these operations
+will be mixed together in the operation log. If this is important to you,
+then <code>jj util snapshot</code> is useful here to explicitly trigger a snapshot.</p>
+<h3 id="checking-if-the-operation-id-changed">Checking if the operation ID changed<a class="headerlink" href="#checking-if-the-operation-id-changed" title="Permanent link">&para;</a></h3>
+<p>If you want to compare "before and after" operation IDs, it may be better to
+use <code>jj operation log --no-graph --limit 1 -T id</code> to query for operation
+information, which you can store in a variable in a script. You can then
+compare these values as needed to figure out if anything changed during a
+<code>jj</code> command, such as:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">start_op_id</span><span class="o">=</span><span class="s2">&quot;</span><span class="k">$(</span>jj<span class="w"> </span>op<span class="w"> </span>log<span class="w"> </span>-G<span class="w"> </span>-n<span class="w"> </span><span class="m">1</span><span class="w"> </span>-T<span class="w"> </span>id<span class="k">)</span><span class="s2">&quot;</span>
+jj<span class="w"> </span>git<span class="w"> </span>fetch<span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">exit</span>
+<span class="nv">fetch_op_id</span><span class="o">=</span><span class="s2">&quot;</span><span class="k">$(</span>jj<span class="w"> </span>op<span class="w"> </span>log<span class="w"> </span>-G<span class="w"> </span>-n<span class="w"> </span><span class="m">1</span><span class="w"> </span>-T<span class="w"> </span>id<span class="k">)</span><span class="s2">&quot;</span>
+<span class="k">if</span><span class="w"> </span><span class="o">[[</span><span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">start_op_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">fetch_op_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">]]</span><span class="p">;</span><span class="w"> </span><span class="k">then</span>
+<span class="w">  </span><span class="c1"># Nothing was fetched.</span>
+<span class="w">  </span><span class="nb">exit</span><span class="w"> </span><span class="m">0</span>
+<span class="k">fi</span>
+jj<span class="w"> </span>rebase<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;mutable()&#39;</span><span class="w"> </span>-o<span class="w"> </span><span class="s1">&#39;trunk()&#39;</span>
+<span class="nv">rebase_op_id</span><span class="o">=</span><span class="s2">&quot;</span><span class="k">$(</span>jj<span class="w"> </span>op<span class="w"> </span>log<span class="w"> </span>-G<span class="w"> </span>-n<span class="w"> </span><span class="m">1</span><span class="w"> </span>-T<span class="w"> </span>id<span class="k">)</span><span class="s2">&quot;</span>
+<span class="k">if</span><span class="w"> </span><span class="o">[[</span><span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">fetch_op_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">rebase_op_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">]]</span><span class="p">;</span><span class="w"> </span><span class="k">then</span>
+<span class="w">  </span><span class="c1"># Nothing was rebased.</span>
+<span class="w">  </span><span class="nb">exit</span><span class="w"> </span><span class="m">0</span>
+<span class="k">fi</span>
+<span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;Fetched and rebased!&quot;</span>
+</code></pre></div>
+<p>Note that <code>jj util snapshot</code> does not output an operation ID, so it is not
+suitable for checks such as these.</p>
 <p><strong>Usage:</strong> <code>jj util snapshot</code></p>
 <h2 id="jj-version"><code>jj version</code><a class="headerlink" href="#jj-version" title="Permanent link">&para;</a></h2>
 <p>Display version information</p>
