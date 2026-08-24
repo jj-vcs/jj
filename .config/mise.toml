@@ -11,10 +11,6 @@ rust_version = "1.89"
 uv_version = "0.8.13"
 node_version = "24"
 
-[settings]
-# the default cmd doesn't support shell expansion, use PowerShell instead
-windows_default_inline_shell_args = "pwsh -Command"
-
 [tools]
 # We need cargo-binstall so that Mise would download "cargo:" tools instead of building them.
 "cargo-binstall" = "latest"
