@@ -862,7 +862,7 @@ async fn show_change_diff(
                     // but it's less of an issue there because "evolog" shows the
                     // predecessors recursively.
                     predecessors.get(..1).unwrap_or(&[]),
-                    commit,
+                    slice::from_ref(commit),
                     &EverythingMatcher,
                     width,
                 )
