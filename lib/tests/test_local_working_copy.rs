@@ -53,6 +53,7 @@ use jj_lib::merge::SameChange;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree_builder::MergedTreeBuilder;
 use jj_lib::op_store::OperationId;
+use jj_lib::protos::local_working_copy as working_copy_proto;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
@@ -69,6 +70,7 @@ use jj_lib::working_copy::UntrackedReason;
 use jj_lib::working_copy::WorkingCopy as _;
 use jj_lib::workspace::Workspace;
 use pollster::FutureExt as _;
+use prost::Message as _;
 use test_case::test_case;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
@@ -2706,6 +2708,17 @@ fn test_fsmonitor() -> TestResult {
         state_path.clone(),
         &tree_state_settings,
     )?;
+    // Seed the tree state with a clock from an earlier monitor query.
+    let tree_state_path = state_path.join("tree_state");
+    let old_watchman_clock = working_copy_proto::WatchmanClock {
+        watchman_clock: Some(
+            working_copy_proto::watchman_clock::WatchmanClock::StringClock("c:1:1".to_string()),
+        ),
+    };
+    let mut proto =
+        working_copy_proto::TreeState::decode(std::fs::read(&tree_state_path)?.as_slice())?;
+    proto.watchman_clock = Some(old_watchman_clock.clone());
+    std::fs::write(&tree_state_path, proto.encode_to_vec())?;
 
     let foo_path = repo_path("foo");
     let bar_path = repo_path("bar");
@@ -2735,24 +2748,30 @@ fn test_fsmonitor() -> TestResult {
             &settings,
         )
         .unwrap();
-        tree_state
+        let (is_dirty, _) = tree_state
             .snapshot(&empty_snapshot_options())
             .block_on()
             .unwrap();
-        tree_state
+        (is_dirty, tree_state)
     };
 
-    let tree_state = snapshot(&[]);
+    let (is_dirty, mut tree_state) = snapshot(&[]);
+    // An empty response should not require saving the tree state.
+    assert!(!is_dirty);
     assert_tree_eq!(*tree_state.current_tree(), repo.store().empty_merged_tree());
+    // Saving explicitly verifies that the in-memory clock was retained.
+    tree_state.save()?;
+    let proto = working_copy_proto::TreeState::decode(std::fs::read(&tree_state_path)?.as_slice())?;
+    assert_eq!(proto.watchman_clock, Some(old_watchman_clock));
 
-    let tree_state = snapshot(&[foo_path]);
+    let (_, tree_state) = snapshot(&[foo_path]);
     insta::assert_snapshot!(testutils::dump_tree(tree_state.current_tree()), @r#"
     merged tree (sides: 1)
       tree 2a5341b103917cfdb48a
         file "foo" (e99c2057c15160add351): "foo\n"
     "#);
 
-    let mut tree_state = snapshot(&[foo_path, bar_path, nested_path, ignored_path]);
+    let (_, mut tree_state) = snapshot(&[foo_path, bar_path, nested_path, ignored_path]);
     insta::assert_snapshot!(testutils::dump_tree(tree_state.current_tree()), @r#"
     merged tree (sides: 1)
       tree 1c5c336421714b1df7bb
@@ -2764,7 +2783,7 @@ fn test_fsmonitor() -> TestResult {
 
     testutils::write_working_copy_file(&workspace_root, foo_path, "updated foo\n");
     testutils::write_working_copy_file(&workspace_root, bar_path, "updated bar\n");
-    let tree_state = snapshot(&[foo_path]);
+    let (_, tree_state) = snapshot(&[foo_path]);
     insta::assert_snapshot!(testutils::dump_tree(tree_state.current_tree()), @r#"
     merged tree (sides: 1)
       tree f653dfa18d0b025bdb9e
@@ -2774,7 +2793,7 @@ fn test_fsmonitor() -> TestResult {
     "#);
 
     std::fs::remove_file(foo_path.to_fs_path_unchecked(&workspace_root))?;
-    let mut tree_state = snapshot(&[foo_path]);
+    let (_, mut tree_state) = snapshot(&[foo_path]);
     insta::assert_snapshot!(testutils::dump_tree(tree_state.current_tree()), @r#"
     merged tree (sides: 1)
       tree b7416fc248a038b920c3
