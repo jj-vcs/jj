@@ -179,28 +179,39 @@ fn test_run_sets_env_vars() {
     "
     );
 
-    // Each subprocess echoes its JJ_CHANGE_ID and JJ_COMMIT_ID into files in
-    // the per-commit working copy, modifying the tree so the commit gets
-    // rewritten with those files.
+    // Each subprocess echoes its JJ_CHANGE_ID, JJ_COMMIT_ID, and JJ_LABEL into
+    // files in the per-commit working copy, modifying the tree so the commit gets
+    // rewritten with those files. Specifying duplicate matching labels and an
+    // overlapping unlabeled revision exercises deduplication and label precedence.
     let jj_args: &[&str] = if cfg!(windows) {
         &[
             "run",
+            "-r",
+            "my_label=@-",
+            "-r",
+            "my_label=@-",
             "-r",
             "@-",
             "--",
             "cmd",
             "/c",
-            "echo %JJ_CHANGE_ID%>change_id.txt && echo %JJ_COMMIT_ID%>commit_id.txt",
+            "echo %JJ_CHANGE_ID%>change_id.txt && echo %JJ_COMMIT_ID%>commit_id.txt && echo \
+             %JJ_LABEL%>label.txt",
         ]
     } else {
         &[
             "run",
             "-r",
+            "my_label=@-",
+            "-r",
+            "my_label=@-",
+            "-r",
             "@-",
             "--",
             "sh",
             "-c",
-            "echo $JJ_CHANGE_ID > change_id.txt && echo $JJ_COMMIT_ID > commit_id.txt",
+            "echo $JJ_CHANGE_ID > change_id.txt && echo $JJ_COMMIT_ID > commit_id.txt && echo \
+             $JJ_LABEL > label.txt",
         ]
     };
     work_dir.run_jj(jj_args).success();
@@ -231,6 +242,40 @@ fn test_run_sets_env_vars() {
     [EOF]
     "
     );
+    insta::assert_snapshot!(
+        work_dir
+            .run_jj(&["file", "show", "-r", "@-", "label.txt"])
+            .normalize_stdout_with(normalize_whitespace),
+        @r"
+    my_label
+    [EOF]
+    "
+    );
+}
+
+#[test]
+fn test_run_conflicting_labels() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("seed.txt", "seed");
+    work_dir.run_jj(&["commit", "-m", "seed"]).success();
+
+    let output = work_dir.run_jj(&[
+        "run",
+        "-r",
+        "first_label=@-",
+        "-r",
+        "second_label=@-",
+        "--",
+        "true",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Commit qpvuntsm 5fbe9056 seed has multiple different labels: first_label and second_label
+    [EOF]
+    [exit status: 1]
+    ");
 }
 
 #[test]

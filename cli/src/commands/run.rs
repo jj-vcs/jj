@@ -27,6 +27,7 @@ use std::process::ExitStatus;
 use std::process::Output;
 use std::process::Stdio;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use std::time::Duration;
 
 use futures::StreamExt as _;
@@ -35,7 +36,6 @@ use itertools::Itertools as _;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
-use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::gitignore::GitIgnoreFile;
@@ -54,6 +54,7 @@ use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::working_copy::SnapshotOptions;
+use regex::Regex;
 use tokio::runtime::Builder;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::Sender;
@@ -67,6 +68,7 @@ use crate::cli_util::WorkspaceCommandHelper;
 use crate::cli_util::WorkspaceCommandTransaction;
 use crate::command_error::CommandError;
 use crate::command_error::CommandErrorKind;
+use crate::command_error::user_error;
 use crate::ui::Ui;
 
 #[derive(Debug, thiserror::Error)]
@@ -379,7 +381,7 @@ async fn run_inner(
     handle: &tokio::runtime::Handle,
     spec: Arc<CommandSpec>,
     pool: Arc<WorkspacePool>,
-    commits: &[Commit],
+    commits: &[(Commit, Option<String>)],
     jobs: usize,
     passthrough: bool,
     ignore_errors: bool,
@@ -391,15 +393,18 @@ async fn run_inner(
         // Launch commits in order, keeping at most `jobs` in flight so tasks
         // start in commit order and the pool is never oversubscribed.
         while command_futures.len() < jobs {
-            let Some(commit) = commits_iter.next() else {
+            let Some((commit, label)) = commits_iter.next() else {
                 break;
             };
             let base_ignores = base_ignores.clone();
             let pool = pool.clone();
             let commit = commit.clone();
+            let label = label.clone();
             let spec = spec.clone();
             command_futures.spawn_on(
-                async move { rewrite_commit(base_ignores, pool, commit, spec, passthrough).await },
+                async move {
+                    rewrite_commit(base_ignores, pool, commit, label, spec, passthrough).await
+                },
                 handle,
             );
         }
@@ -437,6 +442,7 @@ async fn rewrite_commit(
     base_ignores: Arc<GitIgnoreFile>,
     pool: Arc<WorkspacePool>,
     commit: Commit,
+    label: Option<String>,
     spec: Arc<CommandSpec>,
     passthrough: bool,
 ) -> Result<RunJob, RunError> {
@@ -492,6 +498,9 @@ async fn rewrite_commit(
         .env("JJ_COMMIT_ID", commit.id().hex())
         .stdin(Stdio::null())
         .kill_on_drop(true);
+    if let Some(ref l) = label {
+        command.env("JJ_LABEL", l);
+    }
     let output = if passthrough {
         // Connect stdout/stderr directly to the terminal so TTY-aware
         // programs work as expected. Capture is not possible; we wait
@@ -577,6 +586,7 @@ async fn rewrite_commit(
 /// - JJ_CHANGE_ID
 /// - JJ_COMMIT_ID
 /// - JJ_WORKSPACE_ROOT
+/// - JJ_LABEL (if a label was specified for the revision)
 ///
 /// ### Example
 ///
@@ -598,9 +608,12 @@ pub struct RunArgs {
     #[arg(value_name = "ARGS")]
     args: Vec<String>,
 
-    /// The revisions to change
+    /// The revisions to change.
+    ///
+    /// An optional label prefix can be specified (e.g. `-r before=trunk() -r
+    /// after=@`), which will be exposed to the command in `$JJ_LABEL`.
     #[arg(long = "revision", short, value_name = "REVSETS", alias = "revisions")]
-    revisions: Vec<RevisionArg>,
+    revisions: Vec<String>,
 
     /// A no-op option to match the interface of `git rebase -x`
     #[arg(short = 'x', hide = true)]
@@ -692,6 +705,20 @@ fn resolve_jobs(
     Ok(NonZeroUsize::MIN)
 }
 
+static LABEL_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^([a-zA-Z_][a-zA-Z0-9_-]*)=(.*)$").unwrap());
+
+fn parse_labeled_revision(s: &str) -> (RevisionArg, Option<String>) {
+    if let Some(caps) = LABEL_RE.captures(s) {
+        (
+            RevisionArg::from(caps[2].to_string()),
+            Some(caps[1].to_string()),
+        )
+    } else {
+        (RevisionArg::from(s.to_string()), None)
+    }
+}
+
 pub async fn cmd_run(
     ui: &mut Ui,
     command: &CommandHelper,
@@ -703,25 +730,53 @@ pub async fn cmd_run(
     fs::create_dir_all(&base_path)?;
 
     let mut workspace_command = command.workspace_helper(ui).await?;
-    let mut resolved_commits: Vec<_> = if args.revisions.is_empty() {
+    let labeled_revisions: Vec<(RevisionArg, Option<String>)> = if args.revisions.is_empty() {
         let revs = workspace_command.settings().get_string("revsets.run")?;
-        workspace_command
-            .parse_revset(ui, &RevisionArg::from(revs))?
-            .evaluate_to_commits()?
-            .try_collect()
-            .await?
+        vec![parse_labeled_revision(&revs)]
     } else {
-        workspace_command
-            .parse_union_revsets(ui, &args.revisions)?
+        args.revisions
+            .iter()
+            .map(|arg| parse_labeled_revision(arg.as_ref()))
+            .collect()
+    };
+
+    let mut seen_commits: HashMap<CommitId, usize> = HashMap::new();
+    let mut resolved_commits: Vec<(Commit, Option<String>)> = Vec::new();
+    for (rev, label) in &labeled_revisions {
+        let commits: Vec<Commit> = workspace_command
+            .parse_revset(ui, rev)?
             .evaluate_to_commits()?
             .try_collect()
-            .await?
-    };
-    resolved_commits.reverse();
+            .await?;
+        // If a commit is specified in multiple revsets, this is perfectly valid, we
+        // simply take the union of revsets and run it on that. However, if there are
+        // multiple labels, there's no one correct thing to do, so we error out.
+        // If a commit is specified as both labeled and non-labeled, the labeled
+        // wins.
+        for commit in commits.into_iter().rev() {
+            if let Some(&idx) = seen_commits.get(commit.id()) {
+                match (&resolved_commits[idx].1, label) {
+                    (Some(existing), Some(new)) if existing != new => {
+                        return Err(user_error(format!(
+                            "Commit {} has multiple different labels: {existing} and {new}",
+                            workspace_command.format_commit_summary(&commit),
+                        )));
+                    }
+                    (None, Some(new)) => {
+                        resolved_commits[idx].1 = Some(new.clone());
+                    }
+                    _ => {}
+                }
+            } else {
+                seen_commits.insert(commit.id().clone(), resolved_commits.len());
+                resolved_commits.push((commit, label.clone()));
+            }
+        }
+    }
 
     if !args.ignore_changes {
         workspace_command
-            .check_rewritable(resolved_commits.iter().ids())
+            .check_rewritable(resolved_commits.iter().map(|(commit, _)| commit.id()))
             .await?;
     }
 
@@ -854,7 +909,11 @@ pub async fn cmd_run(
     let mut num_rebased: u32 = 0;
     tx.repo_mut()
         .transform_descendants(
-            resolved_commits.iter().ids().cloned().collect_vec(),
+            resolved_commits
+                .iter()
+                .map(|(commit, _)| commit.id())
+                .cloned()
+                .collect_vec(),
             async |rewriter| {
                 let old_id = rewriter.old_commit().id().clone();
                 match (rewritten_commits.get(&old_id), restore_descendants) {
@@ -911,4 +970,44 @@ pub async fn cmd_run(
         .await?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_labeled_revision_without_label() {
+        let (rev, label) = parse_labeled_revision("@-");
+        assert_eq!(rev.as_ref(), "@-");
+        assert_eq!(label, None);
+    }
+
+    #[test]
+    fn test_parse_labeled_revision_with_simple_label() {
+        let (rev, label) = parse_labeled_revision("before=@-");
+        assert_eq!(rev.as_ref(), "@-");
+        assert_eq!(label, Some("before".to_string()));
+    }
+
+    #[test]
+    fn test_parse_labeled_revision_with_quoted_string() {
+        let (rev, label) = parse_labeled_revision(r#""branch=name""#);
+        assert_eq!(rev.as_ref(), r#""branch=name""#);
+        assert_eq!(label, None);
+    }
+
+    #[test]
+    fn test_parse_labeled_revision_with_keyword_function() {
+        let (rev, label) = parse_labeled_revision("remote_bookmarks(remote=\"origin\")");
+        assert_eq!(rev.as_ref(), "remote_bookmarks(remote=\"origin\")");
+        assert_eq!(label, None);
+    }
+
+    #[test]
+    fn test_parse_labeled_revision_with_label_and_function() {
+        let (rev, label) = parse_labeled_revision("candidate=remote_bookmarks(remote=\"origin\")");
+        assert_eq!(rev.as_ref(), "remote_bookmarks(remote=\"origin\")");
+        assert_eq!(label, Some("candidate".to_string()));
+    }
 }
