@@ -51,12 +51,6 @@ pub struct RefTarget {
     merge: Merge<Option<CommitId>>,
 }
 
-impl Default for RefTarget {
-    fn default() -> Self {
-        Self::absent()
-    }
-}
-
 impl RefTarget {
     /// Creates non-conflicting target pointing to no commit.
     pub const fn absent() -> Self {
