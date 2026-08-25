@@ -191,21 +191,22 @@ impl WorkspacePool {
     async fn acquire(
         &self,
         commit: &Commit,
+        label: Option<&str>,
         base_ignores: Arc<GitIgnoreFile>,
     ) -> Result<RunWorkspace, RunError> {
         // Find a free slot. The first iteration may fail if another worker
         // (this process or another) holds every slot; sleep and retry.
         let mut cur_sleep = Duration::from_millis(10);
         let max_sleep = Duration::from_millis(250);
-        let (slot_index, lock) = loop {
-            if let Some(found) = self.try_acquire_any_slot()? {
+        let (slot_name, lock) = loop {
+            if let Some(found) = self.try_acquire_slot(label)? {
                 break found;
             }
             sleep(cur_sleep).await;
             cur_sleep = min(cur_sleep.saturating_mul(2), max_sleep);
         };
 
-        let slot_path = self.slot_path(slot_index);
+        let slot_path = self.slot_path(&slot_name);
         let working_copy_dir = slot_path.join("working_copy");
         let state_dir = slot_path.join("state");
         let tree_state_path = state_dir.join("tree_state");
@@ -326,25 +327,40 @@ impl WorkspacePool {
         }
     }
 
-    fn slot_path(&self, index: usize) -> PathBuf {
-        self.base_path.join(index.to_string())
+    fn slot_path(&self, slot_name: &str) -> PathBuf {
+        self.base_path.join(slot_name)
     }
 
-    fn slot_lock_path(&self, index: usize) -> PathBuf {
-        self.base_path.join(format!("{index}.lock"))
+    fn slot_lock_path(&self, slot_name: &str) -> PathBuf {
+        self.base_path.join(format!("{slot_name}.lock"))
     }
 
-    /// Try to acquire any slot's lock without blocking. Returns the slot
-    /// index and the held lock if one was available, `Ok(None)` if every
+    /// Try to acquire a slot's lock without blocking. Returns the slot
+    /// name and the held lock if one was available, `Ok(None)` if every
     /// slot was contended.
-    fn try_acquire_any_slot(&self) -> Result<Option<(usize, FileLock)>, RunError> {
-        for slot in 1..=self.size.get() {
-            let slot_path = self.slot_path(slot);
+    fn try_acquire_slot(
+        &self,
+        label: Option<&str>,
+    ) -> Result<Option<(String, FileLock)>, RunError> {
+        if let Some(label) = label {
+            let slot_path = self.slot_path(label);
             fs::create_dir_all(&slot_path)
                 .map_err(|e| RunError::PathCreationFailure(slot_path.clone(), e))?;
-            if let Some(lock) = FileLock::try_lock(self.slot_lock_path(slot))? {
-                tracing::debug!(slot, "acquired pool slot");
-                return Ok(Some((slot, lock)));
+            if let Some(lock) = FileLock::try_lock(self.slot_lock_path(label))? {
+                tracing::debug!(slot = label, "acquired labeled pool slot");
+                return Ok(Some((label.to_string(), lock)));
+            }
+            return Ok(None);
+        }
+
+        for slot in 1..=self.size.get() {
+            let slot_name = slot.to_string();
+            let slot_path = self.slot_path(&slot_name);
+            fs::create_dir_all(&slot_path)
+                .map_err(|e| RunError::PathCreationFailure(slot_path.clone(), e))?;
+            if let Some(lock) = FileLock::try_lock(self.slot_lock_path(&slot_name))? {
+                tracing::debug!(slot = slot, "acquired pool slot");
+                return Ok(Some((slot_name, lock)));
             }
         }
         Ok(None)
@@ -446,7 +462,9 @@ async fn rewrite_commit(
     spec: Arc<CommandSpec>,
     passthrough: bool,
 ) -> Result<RunJob, RunError> {
-    let mut workspace = pool.acquire(&commit, base_ignores.clone()).await?;
+    let mut workspace = pool
+        .acquire(&commit, label.as_deref(), base_ignores.clone())
+        .await?;
     let working_copy_dir = workspace.working_copy_dir.clone();
     let old_id = commit.id().clone();
     let old_tree = commit.tree();
@@ -608,11 +626,23 @@ pub struct RunArgs {
     #[arg(value_name = "ARGS")]
     args: Vec<String>,
 
-    /// The revisions to change.
+    /// The revisions to change
     ///
-    /// An optional label prefix can be specified (e.g. `-r before=trunk() -r
-    /// after=@`), which will be exposed to the command in `$JJ_LABEL`.
-    #[arg(long = "revision", short, value_name = "REVSETS", alias = "revisions")]
+    /// An optional label prefix can be specified, with at most one label per
+    /// revision (e.g. `-r before=trunk() -r after=@`). If it is specified:
+    ///
+    /// * It will be exposed to the command in `$JJ_LABEL`, allowing you to
+    ///   store outputs at known paths - for example: `jj run ... bash -c
+    ///   'run_build && cp out/binary /tmp/$JJ_LABEL'`
+    /// * It will run in a consistent workspace, ensuring cache affinity for
+    ///   incremental builds.
+    #[arg(
+        long = "revision",
+        short,
+        value_name = "REVSETS",
+        alias = "revisions",
+        verbatim_doc_comment
+    )]
     revisions: Vec<String>,
 
     /// A no-op option to match the interface of `git rebase -x`

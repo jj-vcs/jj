@@ -251,6 +251,16 @@ fn test_run_sets_env_vars() {
     [EOF]
     "
     );
+    assert!(
+        work_dir
+            .root()
+            .join(".jj")
+            .join("run")
+            .join("default")
+            .join("my_label")
+            .is_dir(),
+        "labeled revision should allocate a dedicated slot directory named after the label"
+    );
 }
 
 #[test]
