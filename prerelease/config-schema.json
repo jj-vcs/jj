@@ -328,6 +328,7 @@
             "description": "Mapping from jj formatter labels to colors",
             "definitions": {
                 "colorNames": {
+                    "type": "string",
                     "enum": [
                         "default",
                         "black",
