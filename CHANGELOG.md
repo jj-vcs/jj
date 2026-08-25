@@ -55,6 +55,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `log-graph-prioritize` revset.
   [#9975](https://github.com/jj-vcs/jj/issues/9975)
 
+* `jj gerrit upload` on commits with unrelated Links can be uploaded again.
+
 ## [0.44.0] - 2026-08-05
 
 ### Release highlights
@@ -543,7 +545,6 @@ Thanks to the people who made this release happen!
 * Thomas Axelsson (@thomasa88)
 * xtqqczze (@xtqqczze)
 * Yuya Nishihara (@yuja)
-
 ## [0.40.0] - 2026-04-01
 
 ### Release highlights
