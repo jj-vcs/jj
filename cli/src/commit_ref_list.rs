@@ -75,7 +75,7 @@ pub fn collect_items<'a>(
                     .present_adds()
                     .any(|id| predicates.matched_local_targets.contains(id))
         })
-        .filter(|(_, targets)| !predicates.conflicted || targets.local_target.has_conflict());
+        .filter(|(_, targets)| !predicates.conflicted || !targets.local_target.is_resolved());
     for (name, targets) in refs_to_list {
         let LocalRemoteRefTarget {
             local_target,

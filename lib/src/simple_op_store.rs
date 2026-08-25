@@ -898,7 +898,7 @@ fn ref_target_to_proto_legacy(
             )),
         };
         Some(proto)
-    } else if value.has_conflict() {
+    } else if !value.is_resolved() {
         let ref_conflict_proto = crate::protos::simple_op_store::RefConflictLegacy {
             removes: value.present_removes().map(|id| id.to_bytes()).collect(),
             adds: value.present_adds().map(|id| id.to_bytes()).collect(),

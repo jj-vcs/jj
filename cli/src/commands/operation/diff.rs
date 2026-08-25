@@ -676,7 +676,7 @@ async fn write_ref_target_summary(
     if ref_target.is_absent() {
         write_prefix(formatter, added, prefix)?;
         writeln!(formatter, "(absent)")?;
-    } else if ref_target.has_conflict() {
+    } else if !ref_target.is_resolved() {
         for commit_id in ref_target.present_adds() {
             write_prefix(formatter, added, prefix)?;
             write!(formatter, "(added) ")?;

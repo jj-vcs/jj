@@ -218,9 +218,9 @@ pub fn classify_ref_push_action(targets: LocalAndRemoteRef) -> RefPushAction {
     let remote_target = targets.remote_ref.tracked_target();
     if local_target == remote_target {
         RefPushAction::AlreadyMatches
-    } else if local_target.has_conflict() {
+    } else if !local_target.is_resolved() {
         RefPushAction::LocalConflicted
-    } else if remote_target.has_conflict() {
+    } else if !remote_target.is_resolved() {
         RefPushAction::RemoteConflicted
     } else if targets.remote_ref.is_present() && !targets.remote_ref.is_tracked() {
         RefPushAction::RemoteUntracked
