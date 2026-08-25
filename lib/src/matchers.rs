@@ -15,9 +15,11 @@
 #![expect(missing_docs)]
 
 use std::collections::HashSet;
+use std::fmt;
 use std::fmt::Debug;
 
 use globset::Glob;
+use globset::GlobBuilder;
 use itertools::Itertools as _;
 use tracing::instrument;
 
@@ -300,7 +302,7 @@ impl Matcher for GlobsMatcher {
 /// Constructs [`GlobsMatcher`] from patterns.
 #[derive(Clone, Debug)]
 pub struct GlobsMatcherBuilder<'a> {
-    dir_patterns: Vec<(&'a RepoPath, &'a Glob)>,
+    dir_patterns: Vec<(&'a RepoPath, &'a PathGlobPattern)>,
     matches_prefix_paths: bool,
 }
 
@@ -320,7 +322,7 @@ impl<'a> GlobsMatcherBuilder<'a> {
     ///
     /// The `dir` should be the longest directory path that contains no glob
     /// meta characters.
-    pub fn add(&mut self, dir: &'a RepoPath, pattern: &'a Glob) {
+    pub fn add(&mut self, dir: &'a RepoPath, pattern: &'a PathGlobPattern) {
         self.dir_patterns.push((dir, pattern));
     }
 
@@ -337,10 +339,10 @@ impl<'a> GlobsMatcherBuilder<'a> {
             // Based on new_regex() in globset. We don't use GlobSet because
             // RepoPath separator should be "/" on all platforms.
             let mut regex_builder = if matches_prefix_paths {
-                let regex_patterns = chunk.map(|(_, pattern)| glob_to_prefix_regex(pattern));
+                let regex_patterns = chunk.map(|(_, pattern)| pattern.to_prefix_regex());
                 regex::bytes::RegexSetBuilder::new(regex_patterns)
             } else {
-                regex::bytes::RegexSetBuilder::new(chunk.map(|(_, pattern)| pattern.regex()))
+                regex::bytes::RegexSetBuilder::new(chunk.map(|(_, pattern)| pattern.as_regex()))
             };
             let regex = regex_builder
                 .dot_matches_new_line(true)
@@ -358,15 +360,60 @@ impl<'a> GlobsMatcherBuilder<'a> {
     }
 }
 
-fn glob_to_prefix_regex(glob: &Glob) -> String {
-    // Here we rely on the implementation detail of the globset crate.
-    // Alternatively, we can construct an anchored regex automaton and test
-    // prefix matching by feeding characters one by one.
-    let prefix = glob
-        .regex()
-        .strip_suffix('$')
-        .expect("glob regex should be anchored");
-    format!("{prefix}(?:/|$)")
+/// Wrapper for a [`Glob`] parsed with `literal_separator = true`.
+#[derive(Clone)]
+pub struct PathGlobPattern(Glob);
+
+impl Debug for PathGlobPattern {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("PathGlobPattern")
+            .field("glob", &self.0.glob())
+            .field("re", &self.0.regex())
+            // Omit opts and tokens
+            .finish_non_exhaustive()
+    }
+}
+
+impl PathGlobPattern {
+    /// Parses case-sensitive glob pattern.
+    pub fn parse(input: &str) -> Result<Self, globset::Error> {
+        Self::parse_inner(input, false)
+    }
+
+    /// Parses case-insensitive glob pattern.
+    pub fn parse_i(input: &str) -> Result<Self, globset::Error> {
+        Self::parse_inner(input, true)
+    }
+
+    fn parse_inner(input: &str, icase: bool) -> Result<Self, globset::Error> {
+        let glob = GlobBuilder::new(input)
+            .literal_separator(true)
+            .case_insensitive(icase)
+            .build()?;
+        Ok(Self(glob))
+    }
+
+    /// Returns the original glob pattern.
+    pub fn as_str(&self) -> &str {
+        self.0.glob()
+    }
+
+    /// Returns the regular expression string for this glob.
+    pub fn as_regex(&self) -> &str {
+        self.0.regex()
+    }
+
+    fn to_prefix_regex(&self) -> String {
+        // Here we rely on the implementation detail of the globset crate.
+        // Alternatively, we can construct an anchored regex automaton and test
+        // prefix matching by feeding characters one by one.
+        let prefix = self
+            .0
+            .regex()
+            .strip_suffix('$')
+            .expect("glob regex should be anchored");
+        format!("{prefix}(?:/|$)")
+    }
 }
 
 /// Matches paths that are matched by any of the input matchers.
@@ -526,7 +573,6 @@ mod tests {
     use maplit::hashset;
 
     use super::*;
-    use crate::fileset::parse_file_glob;
 
     fn repo_path(value: &str) -> &RepoPath {
         RepoPath::from_internal_string(value).unwrap()
@@ -536,12 +582,11 @@ mod tests {
         RepoPathComponentBuf::new(value).unwrap()
     }
 
-    fn glob(s: &str) -> Glob {
-        let icase = false;
-        parse_file_glob(s, icase).unwrap()
+    fn glob(s: &str) -> PathGlobPattern {
+        PathGlobPattern::parse(s).unwrap()
     }
 
-    fn new_file_globs_matcher(dir_patterns: &[(&RepoPath, Glob)]) -> GlobsMatcher {
+    fn new_file_globs_matcher(dir_patterns: &[(&RepoPath, PathGlobPattern)]) -> GlobsMatcher {
         let mut builder = GlobsMatcher::builder();
         for (dir, pattern) in dir_patterns {
             builder.add(dir, pattern);
@@ -549,7 +594,7 @@ mod tests {
         builder.build()
     }
 
-    fn new_prefix_globs_matcher(dir_patterns: &[(&RepoPath, Glob)]) -> GlobsMatcher {
+    fn new_prefix_globs_matcher(dir_patterns: &[(&RepoPath, PathGlobPattern)]) -> GlobsMatcher {
         let mut builder = GlobsMatcher::builder().prefix_paths(true);
         for (dir, pattern) in dir_patterns {
             builder.add(dir, pattern);

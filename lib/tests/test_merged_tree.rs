@@ -15,7 +15,6 @@
 use std::collections::HashMap;
 
 use futures::StreamExt as _;
-use globset::GlobBuilder;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::CopyHistory;
@@ -34,6 +33,7 @@ use jj_lib::matchers::EverythingMatcher;
 use jj_lib::matchers::FilesMatcher;
 use jj_lib::matchers::GlobsMatcher;
 use jj_lib::matchers::Matcher;
+use jj_lib::matchers::PathGlobPattern;
 use jj_lib::matchers::PrefixMatcher;
 use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
@@ -1955,10 +1955,7 @@ fn test_diff_with_trees_glob_matcher_for_path() -> TestResult {
     let merged2 = MergedTree::resolved(repo.store().clone(), tree2.id().clone());
 
     let mut builder = GlobsMatcher::builder().prefix_paths(true);
-    let glob = GlobBuilder::new("**/m")
-        .literal_separator(true)
-        .case_insensitive(false)
-        .build()?;
+    let glob = PathGlobPattern::parse("**/m")?;
     builder.add(RepoPath::root(), &glob);
     let matcher = builder.build();
     // Just make sure the matcher is configured as expected.

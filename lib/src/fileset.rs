@@ -20,8 +20,6 @@ use std::path;
 use std::slice;
 use std::sync::LazyLock;
 
-use globset::Glob;
-use globset::GlobBuilder;
 use itertools::Itertools as _;
 use thiserror::Error;
 
@@ -44,6 +42,7 @@ use crate::matchers::GlobsMatcher;
 use crate::matchers::IntersectionMatcher;
 use crate::matchers::Matcher;
 use crate::matchers::NothingMatcher;
+use crate::matchers::PathGlobPattern;
 use crate::matchers::PrefixMatcher;
 use crate::matchers::UnionMatcher;
 use crate::repo_path::RelativePathParseError;
@@ -81,14 +80,14 @@ pub enum FilePattern {
         /// Prefix directory path where the `pattern` will be evaluated.
         dir: RepoPathBuf,
         /// Glob pattern relative to `dir`.
-        pattern: Box<Glob>,
+        pattern: Box<PathGlobPattern>,
     },
     /// Matches path prefix with glob pattern.
     PrefixGlob {
         /// Prefix directory path where the `pattern` will be evaluated.
         dir: RepoPathBuf,
         /// Glob pattern relative to `dir`.
-        pattern: Box<Glob>,
+        pattern: Box<PathGlobPattern>,
     },
     // TODO: add more patterns:
     // - FilesInPath: files in directory, non-recursively?
@@ -280,11 +279,12 @@ impl FilePattern {
     }
 }
 
-pub(super) fn parse_file_glob(input: &str, icase: bool) -> Result<Glob, globset::Error> {
-    GlobBuilder::new(input)
-        .literal_separator(true)
-        .case_insensitive(icase)
-        .build()
+fn parse_file_glob(input: &str, icase: bool) -> Result<PathGlobPattern, globset::Error> {
+    if icase {
+        PathGlobPattern::parse_i(input)
+    } else {
+        PathGlobPattern::parse(input)
+    }
 }
 
 /// Checks if a character is a glob metacharacter.
@@ -646,15 +646,6 @@ mod tests {
 
     fn insta_settings() -> insta::Settings {
         let mut settings = insta::Settings::clone_current();
-        // Elide parsed glob options and tokens, which aren't interesting.
-        settings.add_filter(
-            r"(?m)^(\s{12}opts):\s*GlobOptions\s*\{\n(\s{16}.*\n)*\s{12}\},",
-            "$1: _,",
-        );
-        settings.add_filter(
-            r"(?m)^(\s{12}tokens):\s*Tokens\(\n(\s{16}.*\n)*\s{12}\),",
-            "$1: _,",
-        );
         // Collapse short "Thing(_,)" repeatedly to save vertical space and make
         // the output more readable.
         for _ in 0..4 {
@@ -699,11 +690,10 @@ mod tests {
         Pattern(
             PrefixGlob {
                 dir: "cur",
-                pattern: Glob {
+                pattern: PathGlobPattern {
                     glob: "*.*",
                     re: "(?-u)^[^/]*\\.[^/]*$",
-                    opts: _,
-                    tokens: _,
+                    ..
                 },
             },
         )
@@ -772,11 +762,10 @@ mod tests {
         Pattern(
             FileGlob {
                 dir: "cur*",
-                pattern: Glob {
+                pattern: PathGlobPattern {
                     glob: "*",
                     re: "(?-u)^[^/]*$",
-                    opts: _,
-                    tokens: _,
+                    ..
                 },
             },
         )
@@ -786,11 +775,10 @@ mod tests {
         Pattern(
             FileGlob {
                 dir: "cur*",
-                pattern: Glob {
+                pattern: PathGlobPattern {
                     glob: "*",
                     re: "(?-u)^[^/]*$",
-                    opts: _,
-                    tokens: _,
+                    ..
                 },
             },
         )
@@ -800,11 +788,10 @@ mod tests {
         Pattern(
             FileGlob {
                 dir: "",
-                pattern: Glob {
+                pattern: PathGlobPattern {
                     glob: "*",
                     re: "(?-u)^[^/]*$",
-                    opts: _,
-                    tokens: _,
+                    ..
                 },
             },
         )
@@ -815,11 +802,10 @@ mod tests {
         Pattern(
             FileGlob {
                 dir: "cur*",
-                pattern: Glob {
+                pattern: PathGlobPattern {
                     glob: "**",
                     re: "(?-u)^.*$",
-                    opts: _,
-                    tokens: _,
+                    ..
                 },
             },
         )
@@ -829,11 +815,10 @@ mod tests {
         Pattern(
             FileGlob {
                 dir: "foo",
-                pattern: Glob {
+                pattern: PathGlobPattern {
                     glob: "b?r/baz",
                     re: "(?-u)^b[^/]r/baz$",
-                    opts: _,
-                    tokens: _,
+                    ..
                 },
             },
         )
@@ -853,11 +838,10 @@ mod tests {
             Pattern(
                 FileGlob {
                     dir: "foo",
-                    pattern: Glob {
+                    pattern: PathGlobPattern {
                         glob: "*/bar",
                         re: "(?-u)^[^/]*/bar$",
-                        opts: _,
-                        tokens: _,
+                        ..
                     },
                 },
             )
@@ -869,11 +853,10 @@ mod tests {
             Pattern(
                 FileGlob {
                     dir: "cur*",
-                    pattern: Glob {
+                    pattern: PathGlobPattern {
                         glob: "..\\foo\\*\\bar",
                         re: "(?-u)^\\.\\.foo\\*bar$",
-                        opts: _,
-                        tokens: _,
+                        ..
                     },
                 },
             )
@@ -897,11 +880,10 @@ mod tests {
         Pattern(
             FileGlob {
                 dir: "",
-                pattern: Glob {
+                pattern: PathGlobPattern {
                     glob: "*",
                     re: "(?-u)^[^/]*$",
-                    opts: _,
-                    tokens: _,
+                    ..
                 },
             },
         )
@@ -911,11 +893,10 @@ mod tests {
         Pattern(
             FileGlob {
                 dir: "foo/bar",
-                pattern: Glob {
+                pattern: PathGlobPattern {
                     glob: "b[az]",
                     re: "(?-u)^b[az]$",
-                    opts: _,
-                    tokens: _,
+                    ..
                 },
             },
         )
@@ -925,11 +906,10 @@ mod tests {
         Pattern(
             FileGlob {
                 dir: "foo/bar",
-                pattern: Glob {
+                pattern: PathGlobPattern {
                     glob: "b{ar,az}",
                     re: "(?-u)^b(?:ar|az)$",
-                    opts: _,
-                    tokens: _,
+                    ..
                 },
             },
         )
@@ -946,11 +926,10 @@ mod tests {
             Pattern(
                 FileGlob {
                     dir: "foo",
-                    pattern: Glob {
+                    pattern: PathGlobPattern {
                         glob: "bar\\baz",
                         re: "(?-u)^barbaz$",
-                        opts: _,
-                        tokens: _,
+                        ..
                     },
                 },
             )
@@ -978,11 +957,10 @@ mod tests {
         Pattern(
             FileGlob {
                 dir: "cur",
-                pattern: Glob {
+                pattern: PathGlobPattern {
                     glob: "*.TXT",
                     re: "(?-u)(?i)^[^/]*\\.TXT$",
-                    opts: _,
-                    tokens: _,
+                    ..
                 },
             },
         )
@@ -994,11 +972,10 @@ mod tests {
         Pattern(
             FileGlob {
                 dir: "cur",
-                pattern: Glob {
+                pattern: PathGlobPattern {
                     glob: "[Ff]oo",
                     re: "(?-u)(?i)^[Ff]oo$",
-                    opts: _,
-                    tokens: _,
+                    ..
                 },
             },
         )
@@ -1010,11 +987,10 @@ mod tests {
         Pattern(
             FileGlob {
                 dir: "",
-                pattern: Glob {
+                pattern: PathGlobPattern {
                     glob: "*.Rs",
                     re: "(?-u)(?i)^[^/]*\\.Rs$",
-                    opts: _,
-                    tokens: _,
+                    ..
                 },
             },
         )
@@ -1026,11 +1002,10 @@ mod tests {
         Pattern(
             FileGlob {
                 dir: "cur",
-                pattern: Glob {
+                pattern: PathGlobPattern {
                     glob: "SubDir/*.rs",
                     re: "(?-u)(?i)^SubDir/[^/]*\\.rs$",
-                    opts: _,
-                    tokens: _,
+                    ..
                 },
             },
         )
@@ -1042,11 +1017,10 @@ mod tests {
         Pattern(
             FileGlob {
                 dir: "cur/SubDir",
-                pattern: Glob {
+                pattern: PathGlobPattern {
                     glob: "*.rs",
                     re: "(?-u)^[^/]*\\.rs$",
-                    opts: _,
-                    tokens: _,
+                    ..
                 },
             },
         )
@@ -1058,11 +1032,10 @@ mod tests {
         Pattern(
             FileGlob {
                 dir: "",
-                pattern: Glob {
+                pattern: PathGlobPattern {
                     glob: "SomeDir/*.rs",
                     re: "(?-u)(?i)^SomeDir/[^/]*\\.rs$",
-                    opts: _,
-                    tokens: _,
+                    ..
                 },
             },
         )
@@ -1074,11 +1047,10 @@ mod tests {
         Pattern(
             FileGlob {
                 dir: "cur",
-                pattern: Glob {
+                pattern: PathGlobPattern {
                     glob: "SomeFile*.txt",
                     re: "(?-u)(?i)^SomeFile[^/]*\\.txt$",
-                    opts: _,
-                    tokens: _,
+                    ..
                 },
             },
         )
@@ -1120,11 +1092,10 @@ mod tests {
         Pattern(
             PrefixGlob {
                 dir: "cur*",
-                pattern: Glob {
+                pattern: PathGlobPattern {
                     glob: "*",
                     re: "(?-u)^[^/]*$",
-                    opts: _,
-                    tokens: _,
+                    ..
                 },
             },
         )
@@ -1136,11 +1107,10 @@ mod tests {
         Pattern(
             PrefixGlob {
                 dir: "",
-                pattern: Glob {
+                pattern: PathGlobPattern {
                     glob: "foo",
                     re: "(?-u)(?i)^foo$",
-                    opts: _,
-                    tokens: _,
+                    ..
                 },
             },
         )
@@ -1160,11 +1130,10 @@ mod tests {
         Pattern(
             PrefixGlob {
                 dir: "",
-                pattern: Glob {
+                pattern: PathGlobPattern {
                     glob: "*",
                     re: "(?-u)^[^/]*$",
-                    opts: _,
-                    tokens: _,
+                    ..
                 },
             },
         )
@@ -1176,11 +1145,10 @@ mod tests {
         Pattern(
             PrefixGlob {
                 dir: "_",
-                pattern: Glob {
+                pattern: PathGlobPattern {
                     glob: "foo",
                     re: "(?-u)(?i)^foo$",
-                    opts: _,
-                    tokens: _,
+                    ..
                 },
             },
         )
@@ -1329,13 +1297,13 @@ mod tests {
         let file_glob_expr = |dir: &str, pattern: &str| {
             FilesetExpression::pattern(FilePattern::FileGlob {
                 dir: repo_path_buf(dir),
-                pattern: Box::new(parse_file_glob(pattern, false).unwrap()),
+                pattern: Box::new(PathGlobPattern::parse(pattern).unwrap()),
             })
         };
         let prefix_glob_expr = |dir: &str, pattern: &str| {
             FilesetExpression::pattern(FilePattern::PrefixGlob {
                 dir: repo_path_buf(dir),
-                pattern: Box::new(parse_file_glob(pattern, false).unwrap()),
+                pattern: Box::new(PathGlobPattern::parse(pattern).unwrap()),
             })
         };
 
