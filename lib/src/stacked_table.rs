@@ -401,6 +401,8 @@ pub enum TableStoreError {
     LoadHeads(#[source] io::Error),
     #[error("Failed to save table heads")]
     SaveHeads(#[source] io::Error),
+    #[error("Failed to remove table heads")]
+    RemoveHeads(#[source] io::Error),
     #[error("Failed to load table segment '{name}'")]
     LoadSegment {
         name: String,
@@ -459,7 +461,7 @@ impl TableStore {
         if let Some(parent_table) = maybe_parent_table
             && parent_table.name != table.name
         {
-            self.remove_head(&parent_table);
+            self.remove_head(&parent_table)?;
         }
         {
             let mut locked_cache = self.cached_tables.write().unwrap();
@@ -473,12 +475,20 @@ impl TableStore {
             .map_err(TableStoreError::SaveHeads)
     }
 
-    fn remove_head(&self, table: &Arc<ReadonlyTable>) {
+    fn remove_head(&self, table: &Arc<ReadonlyTable>) -> TableStoreResult<()> {
         // It's fine if the old head was not found. It probably means
         // that we're on a distributed file system where the locking
         // doesn't work. We'll probably end up with two current
         // heads. We'll detect that next time we load the table.
-        std::fs::remove_file(self.dir.join("heads").join(&table.name)).ok();
+        std::fs::remove_file(self.dir.join("heads").join(&table.name))
+            .or_else(|err| {
+                if err.kind() == io::ErrorKind::NotFound {
+                    Ok(())
+                } else {
+                    Err(err)
+                }
+            })
+            .map_err(TableStoreError::RemoveHeads)
     }
 
     fn lock(&self) -> TableStoreResult<FileLock> {
@@ -560,7 +570,7 @@ impl TableStore {
         }
         let merged_table = self.save_table(merged_table)?;
         for table in &tables[1..] {
-            self.remove_head(table);
+            self.remove_head(table)?;
         }
         Ok((merged_table, lock))
     }
@@ -822,6 +832,57 @@ mod tests {
         // Table head shouldn't be removed on empty save
         let table = store.get_head()?;
         assert_eq!(table.get_value(b"abc"), Some(b"value".as_slice()));
+        Ok(())
+    }
+
+    #[test]
+    fn stacked_table_store_save_table_tolerates_missing_parent_head() -> TestResult {
+        let temp_dir = new_temp_dir();
+        let store = TableStore::init(temp_dir.path().to_path_buf(), 3);
+
+        let mut mut_table_a = store.get_head()?.start_mutation();
+        mut_table_a.add_entry(b"abc".to_vec(), b"value1".to_vec());
+        let table_a = store.save_table(mut_table_a)?;
+
+        // Simulate another process (e.g. on a distributed file system where
+        // locking doesn't work) having already removed table A's head
+        // marker before we get around to it.
+        fs::remove_file(temp_dir.path().join("heads").join(&table_a.name))?;
+
+        let mut mut_table_b = MutableTable::incremental(table_a.clone());
+        mut_table_b.add_entry(b"abd".to_vec(), b"value2".to_vec());
+        let table_b = store.save_table(mut_table_b)?;
+
+        let head_names: Vec<String> = fs::read_dir(temp_dir.path().join("heads"))?
+            .map(|entry| entry.unwrap().file_name().to_str().unwrap().to_owned())
+            .collect();
+        assert_eq!(head_names, vec![table_b.name.clone()]);
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn stacked_table_store_remove_head_propagates_permission_error() -> TestResult {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        let temp_dir = new_temp_dir();
+        let store = TableStore::init(temp_dir.path().to_path_buf(), 3);
+
+        let mut mut_table = store.get_head()?.start_mutation();
+        mut_table.add_entry(b"abc".to_vec(), b"value".to_vec());
+        let table = store.save_table(mut_table)?;
+
+        let heads_dir = temp_dir.path().join("heads");
+        let original_permissions = fs::metadata(&heads_dir)?.permissions();
+        fs::set_permissions(&heads_dir, fs::Permissions::from_mode(0o555))?;
+
+        let result = store.remove_head(&table);
+
+        // Restore permissions before the temp dir is dropped, otherwise
+        // cleanup of the directory contents fails.
+        fs::set_permissions(&heads_dir, original_permissions)?;
+
+        assert!(matches!(result, Err(TableStoreError::RemoveHeads(_))));
         Ok(())
     }
 }
