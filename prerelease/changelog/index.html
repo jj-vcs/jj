@@ -7541,6 +7541,14 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   <code>log-graph-prioritize</code> revset.
   <a href="https://github.com/jj-vcs/jj/issues/9975">#9975</a></p>
 </li>
+<li>
+<p>In colocated repos, an external <code>git add</code> after a <code>jj</code> command no longer
+  produces a tree with duplicate entries (<code>git fsck: duplicateEntries</code>). <code>jj</code>
+  was leaving a stale cache-tree behind in <code>.git/index</code>. Repositories already
+  corrupted this way are not repaired by the fix.
+  <a href="https://github.com/jj-vcs/jj/issues/9711">#9711</a>
+  <a href="https://github.com/jj-vcs/jj/issues/8884">#8884</a></p>
+</li>
 </ul>
 <h2 id="0440-2026-08-05"><a href="https://github.com/jj-vcs/jj/compare/v0.43.0...v0.44.0">0.44.0</a> - 2026-08-05<a class="headerlink" href="#0440-2026-08-05" title="Permanent link">&para;</a></h2>
 <h3 id="release-highlights_1">Release highlights<a class="headerlink" href="#release-highlights_1" title="Permanent link">&para;</a></h3>
