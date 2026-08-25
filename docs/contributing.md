@@ -19,6 +19,8 @@ again. In other words, the Google CLA is not scoped to a specific project. If
 you sign the Google CLA, it applies to other Google open-source projects as
 well (including future projects).
 
+{% include-markdown '../AI_POLICY.md' heading-offset=1 %}
+
 ### Commit guidelines
 
 Unlike many GitHub projects (but like many VCS projects), we care more about the
