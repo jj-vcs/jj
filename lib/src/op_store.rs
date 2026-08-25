@@ -114,9 +114,9 @@ impl RefTarget {
         self.merge.is_present()
     }
 
-    /// Whether this target has conflicts.
-    pub fn has_conflict(&self) -> bool {
-        !self.merge.is_resolved()
+    /// Whether this target is resolved.
+    pub fn is_resolved(&self) -> bool {
+        self.merge.is_resolved()
     }
 
     pub fn present_removes(&self) -> impl Iterator<Item = &CommitId> {
