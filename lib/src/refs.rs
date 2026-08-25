@@ -102,13 +102,9 @@ pub async fn merge_ref_targets(
         return Ok(resolved.clone());
     }
 
-    let mut merge = Merge::from_vec(vec![
-        left.as_merge().clone(),
-        base.as_merge().clone(),
-        right.as_merge().clone(),
-    ])
-    .flatten()
-    .simplify();
+    let mut merge = Merge::from_vec(vec![left.clone(), base.clone(), right.clone()])
+        .flatten()
+        .simplify();
     // Suppose left = [A - C + B], base = [B], right = [A], the merge result is
     // [A - C + A], which can now be trivially resolved.
     if let Some(resolved) = merge.resolve_trivial(SameChange::Accept) {
@@ -117,7 +113,7 @@ pub async fn merge_ref_targets(
         merge_ref_targets_non_trivial(index, &mut merge).await?;
         // TODO: Maybe better to try resolve_trivial() again, but the result is
         // unreliable since merge_ref_targets_non_trivial() is order dependent.
-        Ok(RefTarget::from_merge(merge))
+        Ok(merge)
     }
 }
 

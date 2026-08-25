@@ -68,7 +68,6 @@ use jj_lib::git_backend::GitBackend;
 use jj_lib::hex_util;
 use jj_lib::index::ResolvedChangeTargets;
 use jj_lib::merge::Diff;
-use jj_lib::merge::Merge;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::ABSENT_REF_TARGET;
 use jj_lib::op_store::LocalRemoteRefTarget;
@@ -1279,11 +1278,11 @@ fn test_import_refs_reimport_absent_tracked_remote_tags() -> TestResult {
     // Tracked refs should be merged and their state should be preserved.
     assert_eq!(
         repo.view().get_local_tag("foo".as_ref()),
-        &RefTarget::from_merge(Merge::from_vec(vec![
+        &RefTarget::from_vec(vec![
             Some(commit2.id().clone()),
             None,
             Some(commit3.id().clone()),
-        ])),
+        ]),
     );
     assert_eq!(
         repo.view().get_remote_tag(remote_symbol("bar", "git")),
@@ -4775,16 +4774,10 @@ fn test_fetch_local_remote_conflicts() -> TestResult {
     assert_eq!(stats.changed_remote_bookmarks.len(), 1);
     assert_eq!(stats.changed_remote_tags.len(), 1);
 
-    let conflicted_target2 = RefTarget::from_merge(Merge::from_vec(vec![
-        Some(commit2.id().clone()),
-        None,
-        Some(jj_id(commit1)),
-    ]));
-    let conflicted_target3 = RefTarget::from_merge(Merge::from_vec(vec![
-        Some(commit3.id().clone()),
-        None,
-        Some(jj_id(commit1)),
-    ]));
+    let conflicted_target2 =
+        RefTarget::from_vec(vec![Some(commit2.id().clone()), None, Some(jj_id(commit1))]);
+    let conflicted_target3 =
+        RefTarget::from_vec(vec![Some(commit3.id().clone()), None, Some(jj_id(commit1))]);
     assert_eq!(
         repo.view().get_local_bookmark("bookmark".as_ref()),
         &conflicted_target2
