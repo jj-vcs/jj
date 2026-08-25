@@ -62,6 +62,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   [#9711](https://github.com/jj-vcs/jj/issues/9711)
   [#8884](https://github.com/jj-vcs/jj/issues/8884)
 
+* A foreign file (e.g. `.DS_Store`, or an AppleDouble `._*` file that appears
+  when a macOS-created archive is extracted on another system) in
+  `store/extra/heads` is now ignored instead of breaking every command that
+  reads commit metadata, or panicking on a non-UTF8 file name. Skipped
+  entries are logged at `warn` level (visible with `--debug` or `JJ_LOG`). If
+  no valid head remains, `jj` now reports an error instead of silently
+  reinitializing the store.
+  [#9775](https://github.com/jj-vcs/jj/issues/9775)
+
 ## [0.44.0] - 2026-08-05
 
 ### Release highlights

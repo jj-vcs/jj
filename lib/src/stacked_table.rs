@@ -413,6 +413,14 @@ pub enum TableStoreError {
         #[source]
         err: io::Error,
     },
+    #[error(
+        "Heads directory '{dir}' contains no valid head (invalid entries skipped: \
+         {invalid_entries})"
+    )]
+    NoValidHeads {
+        dir: PathBuf,
+        invalid_entries: usize,
+    },
     #[error("Failed to lock table store")]
     Lock(#[source] FileLockError),
 }
@@ -507,13 +515,27 @@ impl TableStore {
     }
 
     fn get_head_tables(&self) -> TableStoreResult<Vec<Arc<ReadonlyTable>>> {
+        let heads_dir = self.dir.join("heads");
         let mut tables = vec![];
-        for head_entry in
-            std::fs::read_dir(self.dir.join("heads")).map_err(TableStoreError::LoadHeads)?
-        {
-            let head_file_name = head_entry.map_err(TableStoreError::LoadHeads)?.file_name();
-            let table = self.load_table(head_file_name.to_str().unwrap().to_string())?;
+        let mut invalid_entries = 0;
+        for head_entry in std::fs::read_dir(&heads_dir).map_err(TableStoreError::LoadHeads)? {
+            let head_entry = head_entry.map_err(TableStoreError::LoadHeads)?;
+            let head_file_name = head_entry.file_name();
+            let Some(name) = head_file_name.to_str().filter(|name| {
+                name.len() == SEGMENT_FILE_NAME_LENGTH && hex_util::decode_hex(name).is_some()
+            }) else {
+                tracing::warn!(?head_file_name, "skipping invalid head file name");
+                invalid_entries += 1;
+                continue;
+            };
+            let table = self.load_table(name.to_string())?;
             tables.push(table);
+        }
+        if tables.is_empty() && invalid_entries > 0 {
+            return Err(TableStoreError::NoValidHeads {
+                dir: heads_dir,
+                invalid_entries,
+            });
         }
         Ok(tables)
     }
@@ -627,6 +649,7 @@ impl TableStore {
 
 #[cfg(test)]
 mod tests {
+    use assert_matches::assert_matches;
     use test_case::test_case;
 
     use super::*;
@@ -820,6 +843,102 @@ mod tests {
         store.save_table(mut_table)?;
 
         // Table head shouldn't be removed on empty save
+        let table = store.get_head()?;
+        assert_eq!(table.get_value(b"abc"), Some(b"value".as_slice()));
+        Ok(())
+    }
+
+    #[test]
+    fn stacked_table_store_ignores_foreign_head_files() -> TestResult {
+        let temp_dir = new_temp_dir();
+        let store = TableStore::init(temp_dir.path().to_path_buf(), 3);
+        let mut mut_table = store.get_head()?.start_mutation();
+        mut_table.add_entry(b"abc".to_vec(), b"value".to_vec());
+        store.save_table(mut_table)?;
+
+        let heads_dir = temp_dir.path().join("heads");
+        let ds_store = heads_dir.join(".DS_Store");
+        let apple_double = heads_dir.join(format!("._{}", "a".repeat(SEGMENT_FILE_NAME_LENGTH)));
+        // Right length, but not hex: exercises the hex-validity half of the
+        // predicate (the other junk names here are already rejected on
+        // length alone).
+        let right_length_non_hex = heads_dir.join("g".repeat(SEGMENT_FILE_NAME_LENGTH));
+        std::fs::write(&ds_store, "")?;
+        std::fs::write(&apple_double, "")?;
+        std::fs::write(&right_length_non_hex, "")?;
+
+        // Load a fresh store so we don't rely on the in-memory head cache.
+        let store = TableStore::load(temp_dir.path().to_path_buf(), 3);
+        let table = store.get_head()?;
+        assert_eq!(table.get_value(b"abc"), Some(b"value".as_slice()));
+
+        assert!(ds_store.exists());
+        assert!(apple_double.exists());
+        assert!(right_length_non_hex.exists());
+        Ok(())
+    }
+
+    #[test]
+    fn stacked_table_store_errors_when_all_heads_are_invalid() -> TestResult {
+        let temp_dir = new_temp_dir();
+        let store = TableStore::init(temp_dir.path().to_path_buf(), 3);
+        let mut mut_table = store.get_head()?.start_mutation();
+        mut_table.add_entry(b"abc".to_vec(), b"value".to_vec());
+        let table = store.save_table(mut_table)?;
+
+        // Replace the only (valid) head with junk, simulating a heads/
+        // directory that holds nothing but foreign files.
+        let heads_dir = temp_dir.path().join("heads");
+        std::fs::remove_file(heads_dir.join(table.name()))?;
+        std::fs::write(heads_dir.join(".DS_Store"), "")?;
+
+        let store = TableStore::load(temp_dir.path().to_path_buf(), 3);
+        // `ReadonlyTable` (the `Ok` side of this `Result`) isn't `Debug`, so
+        // destructure out the error rather than matching the whole `Result`.
+        let Err(err) = store.get_head() else {
+            panic!("expected TableStoreError::NoValidHeads");
+        };
+        assert_matches!(err, TableStoreError::NoValidHeads { .. });
+        Ok(())
+    }
+
+    // APFS rejects non-UTF8 file names outright (the `fs::write` below would
+    // fail with EILSEQ), so this can only run where the filesystem allows
+    // them.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn stacked_table_store_ignores_non_utf8_head_file_name() -> TestResult {
+        use std::ffi::OsString;
+        use std::os::unix::ffi::OsStringExt as _;
+
+        let temp_dir = new_temp_dir();
+        let store = TableStore::init(temp_dir.path().to_path_buf(), 3);
+        let mut mut_table = store.get_head()?.start_mutation();
+        mut_table.add_entry(b"abc".to_vec(), b"value".to_vec());
+        store.save_table(mut_table)?;
+
+        let heads_dir = temp_dir.path().join("heads");
+        let non_utf8_name = OsString::from_vec(vec![0x66, 0x6f, 0x80]);
+        std::fs::write(heads_dir.join(&non_utf8_name), "")?;
+
+        let store = TableStore::load(temp_dir.path().to_path_buf(), 3);
+        let table = store.get_head()?;
+        assert_eq!(table.get_value(b"abc"), Some(b"value".as_slice()));
+        Ok(())
+    }
+
+    #[test]
+    fn stacked_table_store_ignores_wrong_length_head_file_name() -> TestResult {
+        let temp_dir = new_temp_dir();
+        let store = TableStore::init(temp_dir.path().to_path_buf(), 3);
+        let mut mut_table = store.get_head()?.start_mutation();
+        mut_table.add_entry(b"abc".to_vec(), b"value".to_vec());
+        store.save_table(mut_table)?;
+
+        let heads_dir = temp_dir.path().join("heads");
+        std::fs::write(heads_dir.join("deadbeef"), "")?;
+
+        let store = TableStore::load(temp_dir.path().to_path_buf(), 3);
         let table = store.get_head()?;
         assert_eq!(table.get_value(b"abc"), Some(b"value".as_slice()));
         Ok(())
