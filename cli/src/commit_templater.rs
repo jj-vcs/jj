@@ -1660,9 +1660,9 @@ impl CommitRef {
         self.target.is_present()
     }
 
-    /// Whether the ref target has conflicts.
-    pub fn has_conflict(&self) -> bool {
-        self.target.has_conflict()
+    /// Whether the ref target is resolved.
+    pub fn is_resolved(&self) -> bool {
+        self.target.is_resolved()
     }
 
     /// Returns true if this ref is tracked by a local ref. The local ref might
@@ -1720,7 +1720,7 @@ impl Template for Rc<CommitRef> {
         }
         // Don't show both conflict and unsynced sigils as conflicted ref wouldn't
         // be pushed.
-        if self.has_conflict() {
+        if !self.is_resolved() {
             write!(formatter, "??")?;
         } else if self.is_local() && !self.synced {
             write!(formatter, "*")?;
@@ -1869,7 +1869,7 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
         "conflict",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property = self_property.map(|commit_ref| commit_ref.has_conflict());
+            let out_property = self_property.map(|commit_ref| !commit_ref.is_resolved());
             Ok(out_property.into_dyn_wrapped())
         },
     );

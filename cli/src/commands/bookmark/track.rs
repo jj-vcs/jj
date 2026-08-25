@@ -167,7 +167,7 @@ pub async fn cmd_bookmark_track(
                 .view()
                 .bookmarks()
                 .filter(|(name, target)| {
-                    remote_per_bookmark.contains_key(name) && target.local_target.has_conflict()
+                    remote_per_bookmark.contains_key(name) && !target.local_target.is_resolved()
                 });
 
         for (name, bookmark_target) in bookmarks_to_list {

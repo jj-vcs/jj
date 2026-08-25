@@ -1495,7 +1495,7 @@ fn copy_exportable_local_bookmarks_to_remote_view(
             // bookmarks)
             let old_target = &targets.remote_ref.target;
             let new_target = targets.local_target;
-            (!new_target.has_conflict() && old_target != new_target).then_some((name, new_target))
+            (new_target.is_resolved() && old_target != new_target).then_some((name, new_target))
         })
         .filter(|&(name, _)| name_filter(name))
         .map(|(name, new_target)| (name.to_owned(), new_target.clone()))
@@ -1521,7 +1521,7 @@ fn copy_exportable_local_tags_to_remote_view(
             // TODO: filter out untracked tags (if we add support for untracked @git tags)
             let old_target = &targets.remote_ref.target;
             let new_target = targets.local_target;
-            (!new_target.has_conflict() && old_target != new_target).then_some((name, new_target))
+            (new_target.is_resolved() && old_target != new_target).then_some((name, new_target))
         })
         .filter(|&(name, _)| name_filter(name))
         .map(|(name, new_target)| (name.to_owned(), new_target.clone()))
@@ -1613,7 +1613,7 @@ fn collect_changed_refs_to_export(
         }
         let old_oid = if let Some(id) = old_target.as_normal() {
             Some(owned_oid_from_commit_id(id))
-        } else if old_target.has_conflict() {
+        } else if !old_target.is_resolved() {
             // The old git ref should only be a conflict if there were concurrent import
             // operations while the value changed. Don't overwrite these values.
             failed.push((symbol.to_owned(), FailedRefExportReason::ConflictedOldState));
@@ -1625,7 +1625,7 @@ fn collect_changed_refs_to_export(
         if let Some(id) = new_target.as_normal() {
             let new_oid = owned_oid_from_commit_id(id);
             to_update.push((symbol.to_owned(), (old_oid, new_oid)));
-        } else if new_target.has_conflict() {
+        } else if !new_target.is_resolved() {
             // Skip conflicts and leave the old value in git_refs
             continue;
         } else {

@@ -206,7 +206,7 @@ pub async fn cmd_bookmark_list(
 
     if bookmark_list_items
         .iter()
-        .any(|item| item.primary.is_local() && item.primary.has_conflict())
+        .any(|item| item.primary.is_local() && !item.primary.is_resolved())
     {
         writeln!(
             ui.hint_default(),

@@ -1699,7 +1699,7 @@ fn test_rebase_descendants_update_bookmarks_after_divergent_rewrite() -> TestRes
     tx.repo_mut().rebase_descendants().block_on()?;
 
     let main_target = tx.repo().get_local_bookmark("main".as_ref());
-    assert!(main_target.has_conflict());
+    assert!(!main_target.is_resolved());
     // If the bookmark were moved at each rewrite point, there would be separate
     // negative terms: { commit_b => 2, commit_b4 => 1 }. Since we flatten
     // intermediate rewrites, commit_b4 doesn't appear in the removed_ids.
@@ -1780,7 +1780,7 @@ fn test_rebase_descendants_rewrite_updates_bookmark_conflict() -> TestResult {
     tx.repo_mut().rebase_descendants().block_on()?;
 
     let target = tx.repo().get_local_bookmark("main".as_ref());
-    assert!(target.has_conflict());
+    assert!(!target.is_resolved());
     assert_eq!(
         target.present_removes().counts(),
         hashmap! { commit_a.id() => 1, commit_b.id() => 1 },
