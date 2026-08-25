@@ -1916,11 +1916,11 @@ fn test_rebase_descendants_bookmark_move_forward_abandon(
     let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
     tx.repo_mut().set_local_bookmark_target(
         "main".as_ref(),
-        RefTarget::from_merge(Merge::from_vec(vec![
+        RefTarget::from_vec(vec![
             Some(commit_b.id().clone()),
             Some(commit_a.id().clone()),
             Some(commit_c.id().clone()),
-        ])),
+        ]),
     );
     let repo = tx.commit("test").block_on()?;
 
@@ -1936,11 +1936,11 @@ fn test_rebase_descendants_bookmark_move_forward_abandon(
     assert_eq!(
         *tx.repo().get_local_bookmark("main".as_ref()),
         if delete_abandoned_bookmarks {
-            RefTarget::from_merge(Merge::from_vec(vec![
+            RefTarget::from_vec(vec![
                 None,
                 Some(commit_a.id().clone()),
                 Some(commit_c.id().clone()),
-            ]))
+            ])
         } else {
             RefTarget::normal(commit_c.id().clone())
         }
@@ -1970,11 +1970,11 @@ fn test_rebase_descendants_bookmark_move_sideways_abandon(
     let commit_c = write_random_commit(tx.repo_mut());
     tx.repo_mut().set_local_bookmark_target(
         "main".as_ref(),
-        RefTarget::from_merge(Merge::from_vec(vec![
+        RefTarget::from_vec(vec![
             Some(commit_b.id().clone()),
             Some(commit_a.id().clone()),
             Some(commit_c.id().clone()),
-        ])),
+        ]),
     );
     let repo = tx.commit("test").block_on()?;
 
@@ -1990,17 +1990,17 @@ fn test_rebase_descendants_bookmark_move_sideways_abandon(
     assert_eq!(
         *tx.repo().get_local_bookmark("main".as_ref()),
         if delete_abandoned_bookmarks {
-            RefTarget::from_merge(Merge::from_vec(vec![
+            RefTarget::from_vec(vec![
                 None,
                 Some(commit_a.id().clone()),
                 Some(commit_c.id().clone()),
-            ]))
+            ])
         } else {
-            RefTarget::from_merge(Merge::from_vec(vec![
+            RefTarget::from_vec(vec![
                 Some(repo.store().root_commit_id().clone()),
                 Some(commit_a.id().clone()),
                 Some(commit_c.id().clone()),
-            ]))
+            ])
         }
     );
     Ok(())
