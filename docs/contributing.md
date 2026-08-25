@@ -474,6 +474,15 @@ the configuration file at `.config/mise.toml`.
 You can customize this configuration using
 [a `mise.local.toml` file](https://mise.jdx.dev/configuration.html#mise-toml).
 
+On Windows, some tasks use shell expansion, which the default `cmd /c` doesn't
+support. `mise` only honors the shell settings from your global configuration,
+so set this in `~/.config/mise/config.toml` to run tasks with PowerShell:
+
+```toml
+[settings]
+windows_default_inline_shell_args = "pwsh -Command"
+```
+
 ## Previewing the HTML documentation
 
 The documentation for `jj` is automatically published online at
