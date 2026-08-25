@@ -1235,7 +1235,7 @@ impl MutableRepo {
             } else {
                 let ids = itertools::intersperse(new_commit_ids, old_commit_id)
                     .map(|id| Some(id.clone()));
-                RefTarget::from_merge(MergeBuilder::from_iter(ids).build())
+                MergeBuilder::from_iter(ids).build()
             };
 
             self.merge_local_bookmark(&bookmark_name, &old_target, &new_target)

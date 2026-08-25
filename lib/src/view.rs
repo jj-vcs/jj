@@ -597,7 +597,7 @@ impl View {
         // Include both added/removed ids since ancestry information of old
         // references will be needed while merging views.
         fn ref_target_ids(target: &RefTarget) -> impl Iterator<Item = &CommitId> {
-            target.as_merge().iter().flatten()
+            target.iter().flatten()
         }
 
         // Some of the fields (e.g. wc_commit_ids) would be redundant, but let's

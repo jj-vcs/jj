@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use jj_lib::merge::Merge;
 use jj_lib::op_store::RefTarget;
 use jj_lib::refs::merge_ref_targets;
 use jj_lib::repo::Repo as _;
@@ -147,21 +146,21 @@ fn test_merge_ref_targets() -> TestResult {
     // Left removed, right moved forward
     assert_eq!(
         merge(&RefTarget::absent(), &target1, &target3),
-        RefTarget::from_merge(Merge::from_vec(vec![
+        RefTarget::from_vec(vec![
             None,
             Some(commit1.id().clone()),
             Some(commit3.id().clone()),
-        ]))
+        ])
     );
 
     // Right removed, left moved forward
     assert_eq!(
         merge(&target3, &target1, &RefTarget::absent()),
-        RefTarget::from_merge(Merge::from_vec(vec![
+        RefTarget::from_vec(vec![
             Some(commit3.id().clone()),
             Some(commit1.id().clone()),
             None,
-        ]))
+        ])
     );
 
     // Left became conflicted, right moved forward

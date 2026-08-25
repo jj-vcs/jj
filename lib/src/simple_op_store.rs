@@ -43,7 +43,6 @@ use crate::dag_walk_async;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::file_util::persist_content_addressed_temp_file;
-use crate::merge::Merge;
 use crate::object_id::HexPrefix;
 use crate::object_id::ObjectId;
 use crate::object_id::PrefixResolution;
@@ -847,7 +846,6 @@ fn ref_target_to_terms_proto(
     value: &RefTarget,
 ) -> Vec<crate::protos::simple_op_store::RefTargetTerm> {
     value
-        .as_merge()
         .iter()
         .map(|term| term.as_ref().map(|id| id.to_bytes()))
         .map(|value| crate::protos::simple_op_store::RefTargetTerm { value })
@@ -864,7 +862,7 @@ fn ref_target_from_terms_proto(
     if terms.len().is_multiple_of(2) {
         Err(PostDecodeError::EvenNumberOfRefTargetTerms(terms.len()))
     } else {
-        Ok(RefTarget::from_merge(Merge::from_vec(terms)))
+        Ok(RefTarget::from_vec(terms))
     }
 }
 
@@ -873,10 +871,9 @@ fn ref_target_to_proto(value: &RefTarget) -> Option<crate::protos::simple_op_sto
         |term: &Option<CommitId>| crate::protos::simple_op_store::ref_conflict::Term {
             value: term.as_ref().map(|id| id.to_bytes()),
         };
-    let merge = value.as_merge();
     let conflict_proto = crate::protos::simple_op_store::RefConflict {
-        removes: merge.removes().map(term_to_proto).collect(),
-        adds: merge.adds().map(term_to_proto).collect(),
+        removes: value.removes().map(term_to_proto).collect(),
+        adds: value.adds().map(term_to_proto).collect(),
     };
     let proto = crate::protos::simple_op_store::RefTarget {
         value: Some(crate::protos::simple_op_store::ref_target::Value::Conflict(
@@ -945,7 +942,7 @@ fn ref_target_from_proto(
             };
             let removes = conflict.removes.into_iter().map(term_from_proto);
             let adds = conflict.adds.into_iter().map(term_from_proto);
-            RefTarget::from_merge(Merge::from_removes_adds(removes, adds))
+            RefTarget::from_removes_adds(removes, adds)
         }
     }
 }
@@ -1276,18 +1273,18 @@ mod tests {
 
     #[test]
     fn test_ref_target_change_delete_order_roundtrip() {
-        let target = RefTarget::from_merge(Merge::from_removes_adds(
+        let target = RefTarget::from_removes_adds(
             vec![Some(CommitId::from_hex("111111"))],
             vec![Some(CommitId::from_hex("222222")), None],
-        ));
+        );
         let maybe_proto = ref_target_to_proto(&target);
         assert_eq!(ref_target_from_proto(maybe_proto), target);
 
         // If it were legacy format, order of None entry would be lost.
-        let target = RefTarget::from_merge(Merge::from_removes_adds(
+        let target = RefTarget::from_removes_adds(
             vec![Some(CommitId::from_hex("111111"))],
             vec![None, Some(CommitId::from_hex("222222"))],
-        ));
+        );
         let maybe_proto = ref_target_to_proto(&target);
         assert_eq!(ref_target_from_proto(maybe_proto), target);
     }

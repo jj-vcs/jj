@@ -54,78 +54,7 @@ pub static ABSENT_REF_TARGET: RefTarget = RefTarget::absent();
 /// This will typically be used in place of `None` returned by a map lookup.
 pub static ABSENT_REMOTE_REF: RemoteRef = RemoteRef::absent();
 
-#[derive(ContentHash, PartialEq, Eq, Hash, Clone, Debug, serde::Serialize)]
-#[serde(transparent)]
-pub struct RefTarget {
-    merge: Merge<Option<CommitId>>,
-}
-
-impl RefTarget {
-    /// Creates non-conflicting target pointing to no commit.
-    pub const fn absent() -> Self {
-        Self::from_merge(Merge::absent())
-    }
-
-    /// Creates non-conflicting target that optionally points to a commit.
-    pub fn resolved(maybe_id: Option<CommitId>) -> Self {
-        Self::from_merge(Merge::resolved(maybe_id))
-    }
-
-    /// Creates non-conflicting target pointing to a commit.
-    pub fn normal(id: CommitId) -> Self {
-        Self::from_merge(Merge::normal(id))
-    }
-
-    /// Creates target from removed/added ids.
-    pub fn from_legacy_form(
-        removed_ids: impl IntoIterator<Item = CommitId>,
-        added_ids: impl IntoIterator<Item = CommitId>,
-    ) -> Self {
-        Self::from_merge(Merge::from_legacy_form(removed_ids, added_ids))
-    }
-
-    pub const fn from_merge(merge: Merge<Option<CommitId>>) -> Self {
-        Self { merge }
-    }
-
-    /// Returns the underlying value if this target is non-conflicting.
-    pub fn as_resolved(&self) -> Option<&Option<CommitId>> {
-        self.merge.as_resolved()
-    }
-
-    /// Returns id if this target is non-conflicting and points to a commit.
-    pub fn as_normal(&self) -> Option<&CommitId> {
-        self.merge.as_normal()
-    }
-
-    /// Returns true if this target points to no commit.
-    pub fn is_absent(&self) -> bool {
-        self.merge.is_absent()
-    }
-
-    /// Returns true if this target points to any commit. Conflicting target is
-    /// always "present" as it should have at least one commit id.
-    pub fn is_present(&self) -> bool {
-        self.merge.is_present()
-    }
-
-    /// Whether this target is resolved.
-    pub fn is_resolved(&self) -> bool {
-        self.merge.is_resolved()
-    }
-
-    pub fn present_removes(&self) -> impl Iterator<Item = &CommitId> {
-        self.merge.present_removes()
-    }
-
-    pub fn present_adds(&self) -> impl Iterator<Item = &CommitId> {
-        self.merge.present_adds()
-    }
-
-    pub fn as_merge(&self) -> &Merge<Option<CommitId>> {
-        &self.merge
-    }
-}
+pub type RefTarget = Merge<Option<CommitId>>;
 
 /// Remote bookmark or tag.
 #[derive(ContentHash, Clone, Debug, Eq, Hash, PartialEq)]
