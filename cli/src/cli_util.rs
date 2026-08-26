@@ -105,7 +105,6 @@ use jj_lib::repo::EditCommitError;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
-use jj_lib::repo::RepoLoader;
 use jj_lib::repo::StoreFactories;
 use jj_lib::repo::StoreLoadError;
 use jj_lib::repo::merge_factories_map;
@@ -534,9 +533,8 @@ impl CommandHelper {
         workspace: Workspace,
         mut env: WorkspaceCommandEnvironment,
     ) -> Result<WorkspaceCommandHelper, CommandError> {
-        let op_head =
-            self.resolve_operation(ui, workspace.repo_loader(), workspace.workspace_name())?;
-        let repo = workspace.repo_loader().load_at(&op_head).await?;
+        let op_head = self.resolve_operation(ui, &workspace)?;
+        let repo = workspace.load_at(&op_head).await?;
         if let Err(err) =
             revset_util::try_resolve_trunk_alias(repo.as_ref(), &env.revset_parse_context())
         {
@@ -634,7 +632,7 @@ impl CommandHelper {
         match workspace.repo_loader().load_operation(op_id).await {
             Ok(op) => {
                 // self.for_workable_repo(), but reuse loaded env.
-                let repo = workspace.repo_loader().load_at(&op).await?;
+                let repo = workspace.load_at(&op).await?;
                 let may_snapshot_working_copy = !self.global_args().ignore_working_copy;
                 let mut workspace_command = WorkspaceCommandHelper::new(
                     ui,
@@ -798,9 +796,9 @@ impl CommandHelper {
     pub fn resolve_operation(
         &self,
         ui: &Ui,
-        repo_loader: &RepoLoader,
-        workspace_name: &WorkspaceName,
+        workspace: &Workspace,
     ) -> Result<Operation, CommandError> {
+        let repo_loader = workspace.repo_loader();
         if let Some(op_str) = &self.data.global_args.at_operation {
             Ok(op_walk::resolve_op_for_load(repo_loader, op_str).block_on()?)
         } else {
@@ -816,9 +814,8 @@ impl CommandHelper {
                     let transaction_description = "reconcile divergent operations";
                     merge_operations(
                         Some(ui),
-                        repo_loader,
+                        workspace,
                         op_heads,
-                        Some(workspace_name),
                         Some(transaction_description),
                         &self.data.string_args,
                     )
@@ -852,17 +849,17 @@ impl CommandHelper {
 /// operation. If `ui` is set, reports the number of rebased descendants.
 pub async fn merge_operations(
     ui: Option<&Ui>,
-    repo_loader: &RepoLoader,
+    workspace: &Workspace,
     operations: Vec<Operation>,
-    workspace_name: Option<&WorkspaceName>,
     transaction_description: Option<&str>,
     command_args: &[String],
 ) -> Result<Operation, CommandError> {
     let transaction_attributes = command_args_to_transaction_attribute(command_args);
-    let (merged_repo, num_rebased) = repo_loader
+    let (merged_repo, num_rebased) = workspace
+        .repo_loader()
         .merge_operations(
             operations,
-            workspace_name,
+            workspace.workspace_name(),
             transaction_description,
             transaction_attributes,
         )
@@ -2772,6 +2769,10 @@ impl WorkspaceCommandTransaction<'_> {
     /// Workspace helper that may use the base repo.
     pub fn base_workspace_helper(&self) -> &WorkspaceCommandHelper {
         self.helper
+    }
+
+    pub fn workspace(&self) -> &Workspace {
+        self.helper.workspace()
     }
 
     /// Settings for this workspace.

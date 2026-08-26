@@ -106,8 +106,12 @@ impl Transaction {
         other_op: &Operation,
     ) -> Result<(), RepoLoaderError> {
         let repo_loader = self.base_repo().loader();
-        let base_op_repo = repo_loader.load_at(base_op).await?;
-        let other_repo = repo_loader.load_at(other_op).await?;
+        let base_op_repo = repo_loader
+            .load_at(base_op, self.base_repo().workspace_name())
+            .await?;
+        let other_repo = repo_loader
+            .load_at(other_op, self.base_repo().workspace_name())
+            .await?;
         self.parent_ops.push(other_op.clone());
         self.repo_mut().merge(&base_op_repo, &other_repo).await?;
         Ok(())
@@ -168,7 +172,13 @@ impl Transaction {
         };
 
         let index = base_repo.index_store().write_index(mut_index, &operation)?;
-        let unpublished = UnpublishedOperation::new(base_repo.loader(), operation, view, index);
+        let unpublished = UnpublishedOperation::new(
+            base_repo.loader(),
+            operation,
+            view,
+            base_repo.workspace_name(),
+            index,
+        );
         Ok(unpublished)
     }
 }
@@ -216,11 +226,12 @@ impl UnpublishedOperation {
         repo_loader: &RepoLoader,
         operation: Operation,
         view: View,
+        workspace_name: &WorkspaceName,
         index: Box<dyn ReadonlyIndex>,
     ) -> Self {
         Self {
             op_heads_store: repo_loader.op_heads_store().clone(),
-            repo: repo_loader.create_from(operation, view, index),
+            repo: repo_loader.create_from(operation, view, workspace_name, index),
         }
     }
 

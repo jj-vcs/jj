@@ -34,6 +34,7 @@ use crate::file_util::PathError;
 use crate::merged_tree::MergedTree;
 use crate::op_heads_store::OpHeadsStoreError;
 use crate::op_store::OperationId;
+use crate::operation::Operation;
 use crate::ref_name::WorkspaceName;
 use crate::ref_name::WorkspaceNameBuf;
 use crate::repo::BackendInitializer;
@@ -45,6 +46,7 @@ use crate::repo::ReadonlyRepo;
 use crate::repo::Repo as _;
 use crate::repo::RepoInitError;
 use crate::repo::RepoLoader;
+use crate::repo::RepoLoaderError;
 use crate::repo::StoreFactories;
 use crate::repo::StoreLoadError;
 use crate::repo::SubmoduleStoreInitializer;
@@ -194,11 +196,19 @@ impl Workspace {
     pub async fn init_simple(
         user_settings: &UserSettings,
         workspace_root: &Path,
+        workspace_name: &WorkspaceName,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let backend_initializer: &BackendInitializer =
             &|_settings, store_path| Ok(Box::new(SimpleBackend::init(store_path)));
         let signer = signer_from_settings(user_settings)?;
-        Self::init_with_backend(user_settings, workspace_root, backend_initializer, signer).await
+        Self::init_with_backend(
+            user_settings,
+            workspace_root,
+            workspace_name,
+            backend_initializer,
+            signer,
+        )
+        .await
     }
 
     /// Initializes a workspace with a new Git backend and bare Git repo in
@@ -207,6 +217,7 @@ impl Workspace {
     pub async fn init_internal_git(
         user_settings: &UserSettings,
         workspace_root: &Path,
+        workspace_name: &WorkspaceName,
         object_hash: gix::hash::Kind,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let backend_initializer: &BackendInitializer = &|settings, store_path| {
@@ -217,7 +228,14 @@ impl Workspace {
             )?))
         };
         let signer = signer_from_settings(user_settings)?;
-        Self::init_with_backend(user_settings, workspace_root, backend_initializer, signer).await
+        Self::init_with_backend(
+            user_settings,
+            workspace_root,
+            workspace_name,
+            backend_initializer,
+            signer,
+        )
+        .await
     }
 
     /// Initializes a workspace with a new Git backend and Git repo that shares
@@ -226,6 +244,7 @@ impl Workspace {
     pub async fn init_colocated_git(
         user_settings: &UserSettings,
         workspace_root: &Path,
+        workspace_name: &WorkspaceName,
         object_hash: gix::hash::Kind,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let backend_initializer = |settings: &UserSettings,
@@ -249,7 +268,14 @@ impl Workspace {
             Ok(Box::new(backend))
         };
         let signer = signer_from_settings(user_settings)?;
-        Self::init_with_backend(user_settings, workspace_root, &backend_initializer, signer).await
+        Self::init_with_backend(
+            user_settings,
+            workspace_root,
+            workspace_name,
+            &backend_initializer,
+            signer,
+        )
+        .await
     }
 
     /// Initializes a workspace with an existing Git repo at the specified path.
@@ -260,6 +286,7 @@ impl Workspace {
     pub async fn init_external_git(
         user_settings: &UserSettings,
         workspace_root: &Path,
+        workspace_name: &WorkspaceName,
         git_repo_path: &Path,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let backend_initializer = |settings: &UserSettings,
@@ -289,13 +316,21 @@ impl Workspace {
             Ok(Box::new(backend))
         };
         let signer = signer_from_settings(user_settings)?;
-        Self::init_with_backend(user_settings, workspace_root, &backend_initializer, signer).await
+        Self::init_with_backend(
+            user_settings,
+            workspace_root,
+            workspace_name,
+            &backend_initializer,
+            signer,
+        )
+        .await
     }
 
     #[expect(clippy::too_many_arguments)]
     pub async fn init_with_factories(
         user_settings: &UserSettings,
         workspace_root: &Path,
+        workspace_name: &WorkspaceName,
         backend_initializer: &BackendInitializer<'_>,
         signer: Signer,
         workspace_store_initializer: &WorkspaceStoreInitializer<'_>,
@@ -304,7 +339,6 @@ impl Workspace {
         index_store_initializer: &IndexStoreInitializer<'_>,
         submodule_store_initializer: &SubmoduleStoreInitializer<'_>,
         working_copy_factory: &dyn WorkingCopyFactory,
-        workspace_name: WorkspaceNameBuf,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let jj_dir = create_jj_dir(workspace_root)?;
         async {
@@ -313,6 +347,7 @@ impl Workspace {
             let repo = ReadonlyRepo::init(
                 user_settings,
                 &repo_dir,
+                workspace_name,
                 backend_initializer,
                 signer,
                 workspace_store_initializer,
@@ -332,7 +367,7 @@ impl Workspace {
                 workspace_root,
                 &jj_dir,
                 working_copy_factory,
-                workspace_name,
+                workspace_name.to_owned(),
             )
             .await?;
             let repo_loader = repo.loader().clone();
@@ -352,12 +387,14 @@ impl Workspace {
     pub async fn init_with_backend(
         user_settings: &UserSettings,
         workspace_root: &Path,
+        workspace_name: &WorkspaceName,
         backend_initializer: &BackendInitializer<'_>,
         signer: Signer,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         Self::init_with_factories(
             user_settings,
             workspace_root,
+            workspace_name,
             backend_initializer,
             signer,
             ReadonlyRepo::default_workspace_store_initializer(),
@@ -366,7 +403,6 @@ impl Workspace {
             ReadonlyRepo::default_index_store_initializer(),
             ReadonlyRepo::default_submodule_store_initializer(),
             &*default_working_copy_factory(),
-            WorkspaceName::DEFAULT.to_owned(),
         )
         .await
     }
@@ -446,6 +482,14 @@ impl Workspace {
 
     pub fn working_copy(&self) -> &dyn WorkingCopy {
         self.working_copy.as_ref()
+    }
+
+    pub async fn load_at_head(&self) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+        self.repo_loader().load_at_head(self.workspace_name()).await
+    }
+
+    pub async fn load_at(&self, op: &Operation) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+        self.repo_loader().load_at(op, self.workspace_name()).await
     }
 
     pub async fn start_working_copy_mutation(

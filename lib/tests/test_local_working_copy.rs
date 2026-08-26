@@ -507,7 +507,7 @@ fn test_acl() -> TestResult {
         &default_working_copy_factories(),
     )?;
     // Reload commits from the store associated with the workspace
-    let repo = ws.repo_loader().load_at(repo.operation()).block_on()?;
+    let repo = ws.load_at(repo.operation()).block_on()?;
     let commit1 = repo.store().get_commit(commit1.id())?;
     let commit2 = repo.store().get_commit(commit2.id())?;
 

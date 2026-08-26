@@ -41,6 +41,7 @@ pub async fn cmd_op_integrate(
     args: &OperationIntegrateArgs,
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper_no_snapshot(ui).await?;
+    let workspace = workspace_command.workspace();
     let target_op = workspace_command.resolve_single_op(&args.operation)?;
     let repo_loader = workspace_command.repo().loader();
     repo_loader
@@ -56,9 +57,8 @@ pub async fn cmd_op_integrate(
             let transaction_description = "reconcile divergent operations";
             let merged_operation = merge_operations(
                 Some(ui),
-                repo_loader,
+                workspace,
                 op_heads,
-                Some(workspace_command.workspace_name()),
                 Some(transaction_description),
                 command.string_args(),
             )
