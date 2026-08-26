@@ -5,9 +5,39 @@ pub struct Workspace {
     pub name: ::prost::alloc::string::String,
     #[prost(bytes = "vec", tag = "2")]
     pub path: ::prost::alloc::vec::Vec<u8>,
+    /// Introduced in jj 0.44
+    #[prost(enumeration = "WorkspaceType", tag = "3")]
+    pub workspace_type: i32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Workspaces {
     #[prost(message, repeated, tag = "1")]
     pub workspaces: ::prost::alloc::vec::Vec<Workspace>,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum WorkspaceType {
+    Regular = 0,
+    Independent = 1,
+}
+impl WorkspaceType {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic
+    /// use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Regular => "Regular",
+            Self::Independent => "Independent",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "Regular" => Some(Self::Regular),
+            "Independent" => Some(Self::Independent),
+            _ => None,
+        }
+    }
 }

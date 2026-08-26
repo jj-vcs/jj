@@ -27,8 +27,6 @@ use thiserror::Error;
 use crate::file_util::BadPathEncoding;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
-use crate::file_util::path_from_bytes;
-use crate::file_util::path_to_bytes;
 use crate::file_util::persist_temp_file;
 use crate::file_util::relative_path;
 use crate::file_util::slash_path;
@@ -36,6 +34,8 @@ use crate::lock::FileLock;
 use crate::lock::FileLockError;
 use crate::protos::simple_workspace_store;
 use crate::ref_name::WorkspaceName;
+use crate::ref_name::WorkspaceNameBuf;
+use crate::workspace::WorkspaceType;
 
 /// Errors that can occur when interacting with a workspace store.
 #[derive(Error, Debug)]
@@ -45,13 +45,106 @@ pub enum WorkspaceStoreError {
     Other(#[from] Box<dyn std::error::Error + Send + Sync>),
 }
 
+/// Metadata about a workspace.
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct WorkspaceMetadata {
+    name: WorkspaceNameBuf,
+    workspace_path: PathBuf,
+    workspace_type: WorkspaceType,
+}
+
+impl WorkspaceMetadata {
+    /// Creates a new `WorkspaceMetadata` instance.
+    fn new(
+        repo_path: &Path,
+        name: WorkspaceNameBuf,
+        workspace_path: &Path,
+        workspace_type: WorkspaceType,
+    ) -> Self {
+        let workspace_path = Self::to_canonical_workspace_path(repo_path, workspace_path);
+        Self {
+            name,
+            workspace_path,
+            workspace_type,
+        }
+    }
+
+    /// Returns the name of the workspace.
+    pub fn name(&self) -> &WorkspaceName {
+        &self.name
+    }
+
+    /// Returns the path of the workspace.
+    pub fn workspace_path(&self) -> &Path {
+        &self.workspace_path
+    }
+
+    /// Returns the type of the workspace.
+    pub fn workspace_type(&self) -> WorkspaceType {
+        self.workspace_type
+    }
+
+    fn from_proto(
+        repo_path: &Path,
+        workspace_proto: &simple_workspace_store::Workspace,
+    ) -> Result<Self, SimpleWorkspaceStoreError> {
+        let name = workspace_proto.name.clone().into();
+        let path = Self::path_from_bytes(&workspace_proto.path)?;
+        let workspace_type = match workspace_proto.workspace_type() {
+            simple_workspace_store::WorkspaceType::Regular => WorkspaceType::Regular,
+            simple_workspace_store::WorkspaceType::Independent => WorkspaceType::Independent,
+        };
+        Ok(Self::new(repo_path, name, &path, workspace_type))
+    }
+
+    fn to_proto(&self) -> Result<simple_workspace_store::Workspace, SimpleWorkspaceStoreError> {
+        let workspace_type = match self.workspace_type() {
+            WorkspaceType::Regular => crate::protos::simple_workspace_store::WorkspaceType::Regular,
+            WorkspaceType::Independent => {
+                crate::protos::simple_workspace_store::WorkspaceType::Independent
+            }
+        };
+        Ok(simple_workspace_store::Workspace {
+            name: self.name().as_str().to_string(),
+            path: Self::path_to_bytes(self.workspace_path())?,
+            workspace_type: workspace_type.into(),
+        })
+    }
+
+    fn to_canonical_workspace_path(repo_path: &Path, workspace_path: &Path) -> PathBuf {
+        let workspace_path = relative_path(repo_path, workspace_path);
+        if workspace_path.is_relative() {
+            slash_path(&workspace_path).into_owned()
+        } else {
+            workspace_path
+        }
+    }
+
+    fn path_to_bytes(path: &Path) -> Result<Vec<u8>, SimpleWorkspaceStoreError> {
+        Ok(crate::file_util::path_to_bytes(path)
+            .map_err(SimpleWorkspaceStoreError::BadPathEncoding)?
+            .to_owned())
+    }
+
+    fn path_from_bytes(path: &[u8]) -> Result<PathBuf, SimpleWorkspaceStoreError> {
+        crate::file_util::path_from_bytes(path)
+            .map(|p| p.to_path_buf())
+            .map_err(SimpleWorkspaceStoreError::BadPathEncoding)
+    }
+}
+
 /// A storage backend for workspace metadata.
 pub trait WorkspaceStore: Send + Sync + Debug {
     /// Returns the name of this workspace store implementation.
     fn name(&self) -> &str;
 
     /// Adds a workspace with the given name and path to the store.
-    fn add(&self, workspace_name: &WorkspaceName, path: &Path) -> Result<(), WorkspaceStoreError>;
+    fn add(
+        &self,
+        workspace_name: &WorkspaceName,
+        path: &Path,
+        workspace_type: WorkspaceType,
+    ) -> Result<(), WorkspaceStoreError>;
 
     /// Forgets the workspaces with the given names.
     fn forget(&self, workspace_names: &[&WorkspaceName]) -> Result<(), WorkspaceStoreError>;
@@ -63,11 +156,26 @@ pub trait WorkspaceStore: Send + Sync + Debug {
         new_name: &WorkspaceName,
     ) -> Result<(), WorkspaceStoreError>;
 
+    /// Returns the metadata for the workspace matching the given path in this store, if it exists.
+    fn get_workspace_metadata_by_workspace_path(
+        &self,
+        workspace_path: &Path,
+    ) -> Result<Option<WorkspaceMetadata>, WorkspaceStoreError>;
+
     /// Gets the path of the workspace with the given name, if it exists.
     fn get_workspace_path(
         &self,
         workspace_name: &WorkspaceName,
     ) -> Result<Option<PathBuf>, WorkspaceStoreError>;
+
+    /// Gets the type of the workspace with the given name, if it exists.
+    fn get_workspace_type(
+        &self,
+        workspace_name: &WorkspaceName,
+    ) -> Result<Option<WorkspaceType>, WorkspaceStoreError>;
+
+    /// Returns metadata about all workspaces in the store.
+    fn get_all_workspaces(&self) -> Result<Vec<WorkspaceMetadata>, WorkspaceStoreError>;
 }
 
 /// Errors specific to the `SimpleWorkspaceStore` implementation.
@@ -94,7 +202,7 @@ impl From<SimpleWorkspaceStoreError> for WorkspaceStoreError {
 }
 
 /// A simple file-based implementation of `WorkspaceStore`.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct SimpleWorkspaceStore {
     repo_path: PathBuf,
     store_file: PathBuf,
@@ -126,6 +234,22 @@ impl SimpleWorkspaceStore {
         }
 
         Ok(store)
+    }
+
+    fn get_workspace_metadata_by_workspace_name(
+        &self,
+        workspace_name: &WorkspaceName,
+    ) -> Result<Option<WorkspaceMetadata>, WorkspaceStoreError> {
+        let store_proto = self.read_store()?;
+        let Some(workspace_proto) = store_proto
+            .workspaces
+            .iter()
+            .find(|w| w.name.as_str() == workspace_name.as_str())
+        else {
+            return Ok(None);
+        };
+        let workspace_metadata = WorkspaceMetadata::from_proto(&self.repo_path, workspace_proto)?;
+        Ok(Some(workspace_metadata))
     }
 
     fn lock(&self) -> Result<FileLock, SimpleWorkspaceStoreError> {
@@ -164,33 +288,30 @@ impl WorkspaceStore for SimpleWorkspaceStore {
         "simple"
     }
 
-    fn add(&self, workspace_name: &WorkspaceName, path: &Path) -> Result<(), WorkspaceStoreError> {
+    fn add(
+        &self,
+        workspace_name: &WorkspaceName,
+        path: &Path,
+        workspace_type: WorkspaceType,
+    ) -> Result<(), WorkspaceStoreError> {
         let _lock = self.lock()?;
 
-        let mut workspaces_proto = self.read_store()?;
+        let workspace_metadata = WorkspaceMetadata::new(
+            &self.repo_path,
+            workspace_name.to_owned(),
+            path,
+            workspace_type,
+        );
 
+        let mut workspaces_proto = self.read_store()?;
         // Delete any existing entry with the same name
         workspaces_proto
             .workspaces
             .retain(|w| w.name.as_str() != workspace_name.as_str());
-
-        let path_to_store = relative_path(&self.repo_path, path);
-        let path_to_store = if path_to_store.is_relative() {
-            slash_path(&path_to_store).into_owned()
-        } else {
-            path_to_store
-        };
         workspaces_proto
             .workspaces
-            .push(simple_workspace_store::Workspace {
-                name: workspace_name.as_str().to_string(),
-                path: path_to_bytes(&path_to_store)
-                    .map_err(SimpleWorkspaceStoreError::BadPathEncoding)?
-                    .to_owned(),
-            });
-
+            .push(workspace_metadata.to_proto()?);
         self.write_store(workspaces_proto)?;
-
         Ok(())
     }
 
@@ -230,23 +351,57 @@ impl WorkspaceStore for SimpleWorkspaceStore {
         Ok(())
     }
 
+    fn get_workspace_metadata_by_workspace_path(
+        &self,
+        workspace_path: &Path,
+    ) -> Result<Option<WorkspaceMetadata>, WorkspaceStoreError> {
+        let canonical_workspace_path =
+            WorkspaceMetadata::to_canonical_workspace_path(&self.repo_path, workspace_path);
+        let store_proto = self.read_store()?;
+        let metadata = store_proto.workspaces.iter().find_map(|workspace_proto| {
+            if let Ok(m) = WorkspaceMetadata::from_proto(&self.repo_path, workspace_proto)
+                && m.workspace_path() == canonical_workspace_path
+            {
+                Some(m)
+            } else {
+                None
+            }
+        });
+        Ok(metadata)
+    }
+
     fn get_workspace_path(
         &self,
         workspace_name: &WorkspaceName,
     ) -> Result<Option<PathBuf>, WorkspaceStoreError> {
-        let workspace = self
-            .read_store()?
-            .workspaces
-            .iter()
-            .find(|w| w.name.as_str() == workspace_name.as_str())
-            .cloned();
+        let Some(workspace_metadata) =
+            self.get_workspace_metadata_by_workspace_name(workspace_name)?
+        else {
+            return Ok(None);
+        };
+        Ok(Some(workspace_metadata.workspace_path().to_path_buf()))
+    }
 
-        Ok(workspace
-            .map(|w| {
-                path_from_bytes(&w.path)
-                    .map(|p| p.to_path_buf())
-                    .map_err(SimpleWorkspaceStoreError::BadPathEncoding)
-            })
-            .transpose()?)
+    fn get_workspace_type(
+        &self,
+        workspace_name: &WorkspaceName,
+    ) -> Result<Option<WorkspaceType>, WorkspaceStoreError> {
+        let Some(workspace_metadata) =
+            self.get_workspace_metadata_by_workspace_name(workspace_name)?
+        else {
+            return Ok(None);
+        };
+        Ok(Some(workspace_metadata.workspace_type()))
+    }
+
+    fn get_all_workspaces(&self) -> Result<Vec<WorkspaceMetadata>, WorkspaceStoreError> {
+        let mut workspaces = self.read_store()?;
+        workspaces.workspaces.sort_by(|a, b| a.name.cmp(&b.name));
+        let workspaces = workspaces
+            .workspaces
+            .into_iter()
+            .map(|w| WorkspaceMetadata::from_proto(&self.repo_path, &w))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(workspaces)
     }
 }

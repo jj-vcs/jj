@@ -17,8 +17,12 @@ use std::path::Path;
 use itertools::Itertools as _;
 use jj_lib::default_backend_factories::default_backend_factories;
 use jj_lib::default_backend_factories::default_working_copy_factories;
+use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::Repo as _;
 use jj_lib::workspace::Workspace;
+use jj_lib::workspace::WorkspaceType;
+use jj_lib::workspace_store::SimpleWorkspaceStore;
+use jj_lib::workspace_store::WorkspaceStore as _;
 use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::TestRepoBackend;
@@ -191,11 +195,17 @@ fn test_bad_locking_interrupted(backend: TestRepoBackend) -> TestResult {
 
     copy_directory(&backup_path, &op_heads_dir);
     // Reload the repo and check that only the new head is present.
-    let reloaded_repo = test_env.load_repo_at_head(&settings, test_workspace.repo_path());
+
+    let workspace_store = SimpleWorkspaceStore::load(test_workspace.repo_path()).unwrap();
+    workspace_store.add(WorkspaceName::DEFAULT, &backup_path, WorkspaceType::Regular)?;
+
+    let reloaded_repo =
+        test_env.load_workspace_at_head(&settings, &backup_path, test_workspace.repo_path());
     assert_eq!(reloaded_repo.op_id(), &op_id);
     // Reload once more to make sure that the .jj/op_heads/ directory was updated
     // correctly.
-    let reloaded_repo = test_env.load_repo_at_head(&settings, test_workspace.repo_path());
+    let reloaded_repo =
+        test_env.load_workspace_at_head(&settings, &backup_path, test_workspace.repo_path());
     assert_eq!(reloaded_repo.op_id(), &op_id);
     Ok(())
 }

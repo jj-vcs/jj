@@ -22,6 +22,8 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use async_trait::async_trait;
+use jj_core::ref_name::WorkspaceName;
+use jj_core::ref_name::WorkspaceNameBuf;
 use thiserror::Error;
 
 use crate::backend::BackendInitError;
@@ -34,6 +36,7 @@ use crate::op_heads_store::OpHeadsStore;
 use crate::op_heads_store::OpHeadsStoreError;
 use crate::op_heads_store::OpHeadsStoreLock;
 use crate::op_store::OperationId;
+use crate::workspace::WorkspaceType;
 
 /// Error that may occur during [`SimpleOpHeadsStore`] initialization.
 #[derive(Debug, Error)]
@@ -47,13 +50,15 @@ impl From<SimpleOpHeadsStoreInitError> for BackendInitError {
 }
 
 pub struct SimpleOpHeadsStore {
-    dir: PathBuf,
+    root_dir: PathBuf,
+    workspace_name: WorkspaceNameBuf,
+    workspace_type: WorkspaceType,
 }
 
 impl Debug for SimpleOpHeadsStore {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SimpleOpHeadsStore")
-            .field("dir", &self.dir)
+            .field("root_dir", &self.root_dir)
             .finish()
     }
 }
@@ -63,26 +68,77 @@ impl SimpleOpHeadsStore {
         "simple_op_heads_store"
     }
 
-    pub fn init(dir: &Path, root_op_id: &OperationId) -> Result<Self, SimpleOpHeadsStoreInitError> {
-        let op_heads_dir = dir.join("heads");
-        fs::create_dir(&op_heads_dir).context(&op_heads_dir)?;
-        let store = Self { dir: op_heads_dir };
-        store.add_op_head(root_op_id)?;
+    pub fn init(
+        root_dir: &Path,
+        workspace_name: &WorkspaceName,
+        workspace_type: WorkspaceType,
+        root_op_id: &OperationId,
+    ) -> Result<Self, SimpleOpHeadsStoreInitError> {
+        let store = Self {
+            root_dir: root_dir.to_path_buf(),
+            workspace_name: workspace_name.to_owned(),
+            workspace_type,
+        };
+        store.initialize(workspace_name, workspace_type, root_op_id)?;
         Ok(store)
     }
 
-    pub fn load(dir: &Path) -> Self {
-        let op_heads_dir = dir.join("heads");
-        Self { dir: op_heads_dir }
+    fn initialize(
+        &self,
+        workspace_name: &WorkspaceName,
+        workspace_type: WorkspaceType,
+        root_op_id: &OperationId,
+    ) -> Result<(), SimpleOpHeadsStoreInitError> {
+        let repo_heads_dir = self.repo_heads_dir();
+        fs::create_dir(&repo_heads_dir).context(&repo_heads_dir)?;
+        let workspace_heads_root = self.root_dir.join("workspace_heads");
+        fs::create_dir(&workspace_heads_root).context(&workspace_heads_root)?;
+        match workspace_type {
+            WorkspaceType::Regular => {
+                // Nothing to do here
+            }
+            WorkspaceType::Independent => {
+                // TODO: XXX:W Do this instead, to reuse existing logic:
+                // self.init_per_workspace_op_heads(workspace_name, root_op_id)?;
+                let workspace_opheads_dir = self.workspace_heads_dir(workspace_name);
+                fs::create_dir(&workspace_opheads_dir).context(&workspace_opheads_dir)?;
+            }
+        }
+        self.add_op_head(workspace_name, workspace_type, root_op_id)?;
+        Ok(())
     }
 
-    fn add_op_head(&self, id: &OperationId) -> Result<(), PathError> {
-        let path = self.dir.join(id.hex());
+    pub fn load(
+        root_dir: &Path,
+        workspace_name: &WorkspaceName,
+        workspace_type: WorkspaceType,
+    ) -> Self {
+        Self {
+            root_dir: root_dir.to_path_buf(),
+            workspace_name: workspace_name.to_owned(),
+            workspace_type,
+        }
+    }
+
+    fn add_op_head(
+        &self,
+        workspace_name: &WorkspaceName,
+        workspace_type: WorkspaceType,
+        id: &OperationId,
+    ) -> Result<(), PathError> {
+        let dir = self.operations_dir(workspace_name, workspace_type);
+        let path = dir.join(id.hex());
         std::fs::write(&path, "").context(path)
     }
 
-    fn remove_op_head(&self, id: &OperationId) -> Result<(), PathError> {
-        let path = self.dir.join(id.hex());
+    fn remove_op_head(
+        &self,
+        workspace_name: &WorkspaceName,
+        workspace_type: WorkspaceType,
+        id: &OperationId,
+    ) -> Result<(), PathError> {
+        let dir = self.operations_dir(workspace_name, workspace_type);
+        let path = dir.join(id.hex());
         std::fs::remove_file(&path)
             .or_else(|err| {
                 if err.kind() == io::ErrorKind::NotFound {
@@ -96,6 +152,28 @@ impl SimpleOpHeadsStore {
                 }
             })
             .context(path)
+    }
+
+    fn operations_dir(
+        &self,
+        workspace_name: &WorkspaceName,
+        workspace_type: WorkspaceType,
+    ) -> PathBuf {
+        match workspace_type {
+            WorkspaceType::Regular => self.repo_heads_dir(),
+            WorkspaceType::Independent => self.workspace_heads_dir(workspace_name),
+        }
+    }
+
+    fn repo_heads_dir(&self) -> PathBuf {
+        self.root_dir.join("heads")
+    }
+
+    fn workspace_heads_dir(&self, workspace_name: &WorkspaceName) -> PathBuf {
+        // TODO: XXX:W use a different identifier for the directory containing the workspaces op heads.
+        self.root_dir
+            .join("workspace_heads")
+            .join(workspace_name.as_str())
     }
 }
 
@@ -113,10 +191,12 @@ impl OpHeadsStore for SimpleOpHeadsStore {
 
     async fn update_op_heads(
         &self,
+        workspace_name: &WorkspaceName,
+        workspace_type: WorkspaceType,
         old_ids: &[OperationId],
         new_id: &OperationId,
     ) -> Result<(), OpHeadsStoreError> {
-        self.add_op_head(new_id)
+        self.add_op_head(workspace_name, workspace_type, new_id)
             .map_err(|err| OpHeadsStoreError::Write {
                 new_op_id: new_id.clone(),
                 source: err.into(),
@@ -125,7 +205,7 @@ impl OpHeadsStore for SimpleOpHeadsStore {
             if old_id == new_id {
                 continue;
             }
-            self.remove_op_head(old_id)
+            self.remove_op_head(workspace_name, workspace_type, old_id)
                 .map_err(|err| OpHeadsStoreError::Write {
                     new_op_id: new_id.clone(),
                     source: err.into(),
@@ -134,10 +214,15 @@ impl OpHeadsStore for SimpleOpHeadsStore {
         Ok(())
     }
 
-    async fn get_op_heads(&self) -> Result<Vec<OperationId>, OpHeadsStoreError> {
+    async fn get_op_heads(
+        &self,
+        workspace_name: &WorkspaceName,
+        workspace_type: WorkspaceType,
+    ) -> Result<Vec<OperationId>, OpHeadsStoreError> {
         let mut op_heads = vec![];
+        let dir = self.operations_dir(workspace_name, workspace_type);
         for op_head_entry in
-            std::fs::read_dir(&self.dir).map_err(|err| OpHeadsStoreError::Read(err.into()))?
+            std::fs::read_dir(&dir).map_err(|err| OpHeadsStoreError::Read(err.into()))?
         {
             let op_head_file_name = op_head_entry
                 .map_err(|err| OpHeadsStoreError::Read(err.into()))?
@@ -161,10 +246,44 @@ impl OpHeadsStore for SimpleOpHeadsStore {
         }
     }
 
-    async fn lock(&self) -> Result<Box<dyn OpHeadsStoreLock + '_>, OpHeadsStoreError> {
-        let lock = FileLock::lock(self.dir.join("lock"))
-            .map_err(|err| OpHeadsStoreError::Lock(err.into()))?;
+    async fn init_per_workspace_op_heads(
+        &self,
+        workspace_name: &WorkspaceName,
+        root_op_id: &OperationId,
+    ) -> Result<(), OpHeadsStoreError> {
+        let workspace_op_heads_dir =
+            self.operations_dir(workspace_name, WorkspaceType::Independent);
+        create_dir_helper(&workspace_op_heads_dir)
+            .map_err(|err| OpHeadsStoreError::Init(Box::new(err)))?;
+        self.add_op_head(workspace_name, WorkspaceType::Independent, root_op_id)
+            .map_err(|err| OpHeadsStoreError::Init(Box::new(err)))?;
+        Ok(())
+    }
+
+    async fn lock(
+        &self,
+        workspace_name: &WorkspaceName,
+        workspace_type: WorkspaceType,
+    ) -> Result<Box<dyn OpHeadsStoreLock + '_>, OpHeadsStoreError> {
+        let dir = self.operations_dir(workspace_name, workspace_type);
+        let lock =
+            FileLock::lock(dir.join("lock")).map_err(|err| OpHeadsStoreError::Lock(err.into()))?;
         Ok(Box::new(SimpleOpHeadsStoreLock { _lock: lock }))
+    }
+}
+
+fn create_dir_helper(path: &Path) -> Result<(), PathError> {
+    match fs::create_dir(path).context(path) {
+        Ok(_) => Ok(()),
+        Err(e) if e.source.kind() == io::ErrorKind::AlreadyExists => {
+            // Verify if the existing path is a directory
+            if path.is_dir() {
+                Ok(()) // Success: It already exists and is a directory
+            } else {
+                Err(e)
+            }
+        }
+        Err(e) => Err(e),
     }
 }
 
@@ -181,6 +300,8 @@ mod tests {
     #[test]
     fn test_op_heads() -> TestResult {
         let dir = tempfile::tempdir()?;
+        let workspace_name = WorkspaceName::DEFAULT.to_owned();
+        let workspace_type = WorkspaceType::Regular;
 
         let op1 = OperationId::from_hex("1111");
         let op2 = OperationId::from_hex("2222");
@@ -188,47 +309,78 @@ mod tests {
         let op4 = OperationId::from_hex("4444");
 
         // Initial op head is respected
-        let op_heads_store = SimpleOpHeadsStore::init(dir.path(), &op1)?;
-        let op_heads = op_heads_store.get_op_heads().block_on()?;
+        let op_heads_store =
+            SimpleOpHeadsStore::init(dir.path(), &workspace_name, workspace_type, &op1)?;
+        let op_heads = op_heads_store
+            .get_op_heads(&workspace_name, workspace_type)
+            .block_on()?;
         assert_eq!(op_heads, vec![op1.clone()]);
 
         // Simple replacement
         op_heads_store
-            .update_op_heads(slice::from_ref(&op1), &op2)
+            .update_op_heads(&workspace_name, workspace_type, slice::from_ref(&op1), &op2)
             .block_on()?;
-        let op_heads = op_heads_store.get_op_heads().block_on()?;
+        let op_heads = op_heads_store
+            .get_op_heads(&workspace_name, workspace_type)
+            .block_on()?;
         assert_eq!(op_heads, vec![op2.clone()]);
 
         // Duplicating is a no-op
-        op_heads_store.update_op_heads(&[], &op2).block_on()?;
-        let op_heads = op_heads_store.get_op_heads().block_on()?;
+        op_heads_store
+            .update_op_heads(&workspace_name, workspace_type, &[], &op2)
+            .block_on()?;
+        let op_heads = op_heads_store
+            .get_op_heads(&workspace_name, workspace_type)
+            .block_on()?;
         assert_eq!(op_heads, vec![op2.clone()]);
 
         // Deleting non-head is a no-op
         op_heads_store
-            .update_op_heads(slice::from_ref(&op1), &op2)
+            .update_op_heads(&workspace_name, workspace_type, slice::from_ref(&op1), &op2)
             .block_on()?;
-        let op_heads = op_heads_store.get_op_heads().block_on()?;
+        let op_heads = op_heads_store
+            .get_op_heads(&workspace_name, workspace_type)
+            .block_on()?;
         assert_eq!(op_heads, vec![op2.clone()]);
 
         // Can create multiple heads
-        op_heads_store.update_op_heads(&[], &op3).block_on()?;
-        let op_heads = op_heads_store.get_op_heads().block_on()?;
+        op_heads_store
+            .update_op_heads(&workspace_name, workspace_type, &[], &op3)
+            .block_on()?;
+        let op_heads = op_heads_store
+            .get_op_heads(&workspace_name, workspace_type)
+            .block_on()?;
         assert_eq!(op_heads, vec![op2.clone(), op3.clone()]);
 
         // Can replace multiple heads
         op_heads_store
-            .update_op_heads(&[op2.clone(), op3.clone()], &op4)
+            .update_op_heads(
+                &workspace_name,
+                workspace_type,
+                &[op2.clone(), op3.clone()],
+                &op4,
+            )
             .block_on()?;
-        let op_heads = op_heads_store.get_op_heads().block_on()?;
+        let op_heads = op_heads_store
+            .get_op_heads(&workspace_name, workspace_type)
+            .block_on()?;
         assert_eq!(op_heads, vec![op4.clone()]);
 
         // Can replace multiple heads by one of the old heads
-        op_heads_store.update_op_heads(&[], &op3).block_on()?;
         op_heads_store
-            .update_op_heads(&[op3.clone(), op4.clone()], &op4)
+            .update_op_heads(&workspace_name, workspace_type, &[], &op3)
             .block_on()?;
-        let op_heads = op_heads_store.get_op_heads().block_on()?;
+        op_heads_store
+            .update_op_heads(
+                &workspace_name,
+                workspace_type,
+                &[op3.clone(), op4.clone()],
+                &op4,
+            )
+            .block_on()?;
+        let op_heads = op_heads_store
+            .get_op_heads(&workspace_name, workspace_type)
+            .block_on()?;
         assert_eq!(op_heads, vec![op4.clone()]);
 
         Ok(())

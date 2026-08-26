@@ -45,12 +45,19 @@ pub async fn cmd_op_integrate(
     let repo_loader = workspace_command.repo().loader();
     repo_loader
         .op_heads_store()
-        .update_op_heads(target_op.parent_ids(), target_op.id())
+        .update_op_heads(
+            repo_loader.workspace_name(),
+            repo_loader.workspace_type(),
+            target_op.parent_ids(),
+            target_op.id(),
+        )
         .await?;
 
     op_heads_store::resolve_op_heads(
         repo_loader.op_heads_store().as_ref(),
         repo_loader.op_store(),
+        repo_loader.workspace_name(),
+        repo_loader.workspace_type(),
         async |op_heads| -> Result<Operation, CommandError> {
             // TODO: It may be helpful to print each operation we're merging here
             let transaction_description = "reconcile divergent operations";
@@ -58,7 +65,6 @@ pub async fn cmd_op_integrate(
                 Some(ui),
                 repo_loader,
                 op_heads,
-                Some(workspace_command.workspace_name()),
                 Some(transaction_description),
                 command.string_args(),
             )

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::fs;
+use std::sync::Arc;
 
 use futures::future::try_join_all;
 use itertools::Itertools as _;
@@ -45,6 +46,20 @@ enum SparseInheritance {
     Empty,
 }
 
+/// The type of workspace to create.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, clap::ValueEnum)]
+enum WorkspaceType {
+    /// The workspace will store operations in the repo op log (alias: normal)
+    // We use short names for enum values so that errors say that the possible values are `n, i`.
+    #[value(name = "n", alias("normal"))]
+    Normal,
+
+    /// The workspace will store operations in its own independent op log
+    /// (alias: independent)
+    #[value(name = "i", alias("independent"))]
+    Independent,
+}
+
 /// Add a workspace
 ///
 /// By default, the new workspace inherits the sparse patterns of the current
@@ -61,6 +76,10 @@ pub struct WorkspaceAddArgs {
     /// directory.
     #[arg(long)]
     name: Option<WorkspaceNameBuf>,
+
+    /// The type of workspace to create
+    #[arg(long, value_enum, default_value_t = WorkspaceType::Normal)]
+    workspace_type: WorkspaceType,
 
     /// A list of parent revisions for the working-copy commit of the newly
     /// created workspace. You may specify nothing, or any number of parents.
@@ -86,6 +105,8 @@ pub struct WorkspaceAddArgs {
     sparse_patterns: SparseInheritance,
 }
 
+// TODO: XXX:W: When running `jj workspace add` in an independent workspace, we should make sure
+// the operation happens in the repo's op log.
 #[instrument(skip_all)]
 pub async fn cmd_workspace_add(
     ui: &mut Ui,
@@ -122,16 +143,68 @@ pub async fn cmd_workspace_add(
         ));
     }
 
+    let workspace_type = match args.workspace_type {
+        WorkspaceType::Normal => jj_lib::workspace::WorkspaceType::Regular,
+        WorkspaceType::Independent => jj_lib::workspace::WorkspaceType::Independent,
+    };
+
     let working_copy_factory = command.get_working_copy_factory()?;
-    let repo_path = old_workspace_command.repo_path();
+    let repo_path = old_workspace_command.repo_path().to_path_buf();
+
+    // If no parent revisions are specified, create a working-copy commit based
+    // on the parent of the current working-copy commit.
+    let parents = if args.revisions.is_empty() {
+        // Check out parents of the current workspace's working-copy commit, or the
+        // root if there is no working-copy commit in the current workspace.
+        if let Some(old_wc_commit_id) = repo
+            .base_repo()
+            .view()
+            .get_wc_commit_id(old_workspace_command.workspace_name())
+        {
+            repo.store()
+                .get_commit_async(old_wc_commit_id)
+                .await?
+                .parents()
+                .await?
+        } else {
+            vec![repo.store().root_commit()]
+        }
+    } else {
+        try_join_all(
+            old_workspace_command
+                .resolve_some_revsets(ui, &args.revisions)
+                .await?
+                .iter()
+                .map(|id| repo.store().get_commit_async(id)),
+        )
+        .await?
+    };
+
+    let sparsity = match args.sparse_patterns {
+        SparseInheritance::Full => None,
+        SparseInheritance::Empty => Some(vec![]),
+        SparseInheritance::Copy => {
+            let sparse_patterns = old_workspace_command
+                .working_copy()
+                .sparse_patterns()?
+                .to_vec();
+            Some(sparse_patterns)
+        }
+    };
+
+    let repo = Arc::try_unwrap(old_workspace_command.into_repo())
+        .expect("we hold the last reference to the Arc<>")
+        .switch_workspace(&workspace_name, workspace_type);
+
     // If we add per-workspace configuration, we'll need to reload settings for
     // the new workspace.
     let (new_workspace, repo) = Workspace::init_workspace_with_existing_repo(
         &destination_path,
-        repo_path,
-        repo,
+        &repo_path,
+        &repo,
         working_copy_factory,
         workspace_name.clone(),
+        workspace_type,
     )
     .await?;
     writeln!(
@@ -152,18 +225,6 @@ pub async fn cmd_workspace_add(
 
     let mut new_workspace_command = command.for_workable_repo(ui, new_workspace, repo)?;
 
-    let sparsity = match args.sparse_patterns {
-        SparseInheritance::Full => None,
-        SparseInheritance::Empty => Some(vec![]),
-        SparseInheritance::Copy => {
-            let sparse_patterns = old_workspace_command
-                .working_copy()
-                .sparse_patterns()?
-                .to_vec();
-            Some(sparse_patterns)
-        }
-    };
-
     if let Some(sparse_patterns) = sparsity {
         let (mut locked_ws, _wc_commit) =
             new_workspace_command.start_working_copy_mutation().await?;
@@ -177,36 +238,6 @@ pub async fn cmd_workspace_add(
     }
 
     let mut tx = new_workspace_command.start_transaction();
-
-    // If no parent revisions are specified, create a working-copy commit based
-    // on the parent of the current working-copy commit.
-    let parents = if args.revisions.is_empty() {
-        // Check out parents of the current workspace's working-copy commit, or the
-        // root if there is no working-copy commit in the current workspace.
-        if let Some(old_wc_commit_id) = tx
-            .base_repo()
-            .view()
-            .get_wc_commit_id(old_workspace_command.workspace_name())
-        {
-            tx.repo()
-                .store()
-                .get_commit_async(old_wc_commit_id)
-                .await?
-                .parents()
-                .await?
-        } else {
-            vec![tx.repo().store().root_commit()]
-        }
-    } else {
-        try_join_all(
-            old_workspace_command
-                .resolve_some_revsets(ui, &args.revisions)
-                .await?
-                .iter()
-                .map(|id| tx.repo().store().get_commit_async(id)),
-        )
-        .await?
-    };
 
     let tree = merge_commit_trees(tx.repo(), &parents).await?;
     let parent_ids = parents.iter().ids().cloned().collect_vec();

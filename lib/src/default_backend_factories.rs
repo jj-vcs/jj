@@ -65,7 +65,13 @@ pub fn default_backend_factories() -> StoreFactories {
     // OpHeadsStores
     factories.add_op_heads_store(
         SimpleOpHeadsStore::name(),
-        Box::new(|_settings, store_path| Ok(Box::new(SimpleOpHeadsStore::load(store_path)))),
+        Box::new(|_settings, store_path, workspace_name, workspace_type| {
+            Ok(Box::new(SimpleOpHeadsStore::load(
+                store_path,
+                workspace_name,
+                workspace_type,
+            )))
+        }),
     );
 
     // Index

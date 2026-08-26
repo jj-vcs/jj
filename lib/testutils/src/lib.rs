@@ -53,6 +53,7 @@ use jj_lib::matchers::NothingMatcher;
 use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
+use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
@@ -76,6 +77,9 @@ use jj_lib::working_copy::SnapshotError;
 use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::SnapshotStats;
 use jj_lib::workspace::Workspace;
+use jj_lib::workspace::WorkspaceType;
+use jj_lib::workspace_store::SimpleWorkspaceStore;
+use jj_lib::workspace_store::WorkspaceStore as _;
 use pollster::FutureExt as _;
 use tempfile::TempDir;
 
@@ -219,11 +223,34 @@ impl TestEnvironment {
         settings: &UserSettings,
         repo_path: &Path,
     ) -> Arc<ReadonlyRepo> {
-        RepoLoader::init_from_file_system(settings, repo_path, &self.default_backend_factories())
-            .unwrap()
-            .load_at_head()
-            .block_on()
-            .unwrap()
+        RepoLoader::init_from_file_system(
+            settings,
+            self.root(),
+            repo_path,
+            &self.default_backend_factories(),
+        )
+        .unwrap()
+        .load_at_head()
+        .block_on()
+        .unwrap()
+    }
+
+    pub fn load_workspace_at_head(
+        &self,
+        settings: &UserSettings,
+        workspace_root: &Path,
+        repo_path: &Path,
+    ) -> Arc<ReadonlyRepo> {
+        RepoLoader::init_from_file_system(
+            settings,
+            workspace_root,
+            repo_path,
+            &self.default_backend_factories(),
+        )
+        .unwrap()
+        .load_at_head()
+        .block_on()
+        .unwrap()
     }
 }
 
@@ -265,15 +292,40 @@ impl TestRepo {
     }
 
     pub fn init_with_backend(backend: TestRepoBackend) -> Self {
-        Self::init_with_backend_and_settings(backend, &user_settings())
+        Self::init_with_backend_and_settings(
+            backend,
+            WorkspaceName::DEFAULT,
+            WorkspaceType::Regular,
+            &user_settings(),
+        )
+    }
+
+    pub fn init_with_backend_and_custom_workspace(
+        backend: TestRepoBackend,
+        workspace_name: &WorkspaceName,
+        workspace_type: WorkspaceType,
+    ) -> Self {
+        Self::init_with_backend_and_settings(
+            backend,
+            workspace_name,
+            workspace_type,
+            &user_settings(),
+        )
     }
 
     pub fn init_with_settings(settings: &UserSettings) -> Self {
-        Self::init_with_backend_and_settings(TestRepoBackend::Test, settings)
+        Self::init_with_backend_and_settings(
+            TestRepoBackend::Test,
+            WorkspaceName::DEFAULT,
+            WorkspaceType::Regular,
+            settings,
+        )
     }
 
     pub fn init_with_backend_and_settings(
         backend: TestRepoBackend,
+        workspace_name: &WorkspaceName,
+        workspace_type: WorkspaceType,
         settings: &UserSettings,
     ) -> Self {
         let env = TestEnvironment::init();
@@ -284,6 +336,8 @@ impl TestRepo {
         let repo = ReadonlyRepo::init(
             settings,
             &repo_dir,
+            workspace_name,
+            workspace_type,
             &|settings, store_path| backend.init_backend(&env, settings, store_path),
             Signer::from_settings(settings).unwrap(),
             ReadonlyRepo::default_op_store_initializer(),
@@ -294,6 +348,11 @@ impl TestRepo {
         .block_on()
         .unwrap();
 
+        // TODO: XXX:W propagate the error.
+        let workspace_store = SimpleWorkspaceStore::load(&repo_dir).unwrap();
+        workspace_store
+            .add(workspace_name, env.root(), workspace_type)
+            .unwrap();
         Self {
             env,
             repo,
@@ -313,6 +372,23 @@ pub struct TestWorkspace {
 }
 
 impl TestWorkspace {
+    pub fn new(env: TestEnvironment, workspace: Workspace, repo: Arc<ReadonlyRepo>) -> Self {
+        // TODO: XXX:W propagate the error.
+        let workspace_store = SimpleWorkspaceStore::load(workspace.repo_path()).unwrap();
+        workspace_store
+            .add(
+                workspace.workspace_name(),
+                workspace.workspace_root(),
+                workspace.workspace_type(),
+            )
+            .unwrap();
+        Self {
+            env,
+            workspace,
+            repo,
+        }
+    }
+
     pub fn init() -> Self {
         Self::init_with_backend(TestRepoBackend::Test)
     }
@@ -346,17 +422,15 @@ impl TestWorkspace {
         let (workspace, repo) = Workspace::init_with_backend(
             settings,
             &workspace_root,
+            WorkspaceName::DEFAULT,
+            WorkspaceType::Regular,
             &|settings, store_path| backend.init_backend(&env, settings, store_path),
             signer,
         )
         .block_on()
         .unwrap();
 
-        Self {
-            env,
-            workspace,
-            repo,
-        }
+        Self::new(env, workspace, repo)
     }
 
     pub fn init_colocated_git() -> Self {
@@ -366,15 +440,13 @@ impl TestWorkspace {
         let (workspace, repo) = Workspace::init_colocated_git(
             &user_settings(),
             &workspace_root,
+            WorkspaceName::DEFAULT,
+            WorkspaceType::Regular,
             gix::hash::Kind::default(),
         )
         .block_on()
         .unwrap();
-        Self {
-            env,
-            workspace,
-            repo,
-        }
+        Self::new(env, workspace, repo)
     }
 
     pub fn root_dir(&self) -> PathBuf {

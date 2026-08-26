@@ -27,6 +27,7 @@ use futures::future::ready;
 use futures::future::try_join_all;
 use futures::stream;
 use itertools::Itertools as _;
+use jj_core::ref_name::WorkspaceName;
 use pollster::FutureExt as _;
 use thiserror::Error;
 
@@ -44,6 +45,7 @@ use crate::operation::Operation;
 use crate::repo::ReadonlyRepo;
 use crate::repo::Repo as _;
 use crate::repo::RepoLoader;
+use crate::workspace::WorkspaceType;
 
 /// Error that may occur during evaluation of operation set expression.
 #[derive(Debug, Error)]
@@ -95,16 +97,30 @@ pub async fn resolve_op_for_load(
     let op_store = repo_loader.op_store();
     let op_heads_store = repo_loader.op_heads_store().as_ref();
     let get_current_op = async || {
-        op_heads_store::resolve_op_heads(op_heads_store, op_store, async |op_heads| {
-            Err(OpsetResolutionError::MultipleOperations {
-                expr: "@".to_owned(),
-                candidates: op_heads.iter().map(|op| op.id().clone()).collect(),
-            }
-            .into())
-        })
+        op_heads_store::resolve_op_heads(
+            op_heads_store,
+            op_store,
+            repo_loader.workspace_name(),
+            repo_loader.workspace_type(),
+            async |op_heads| {
+                Err(OpsetResolutionError::MultipleOperations {
+                    expr: "@".to_owned(),
+                    candidates: op_heads.iter().map(|op| op.id().clone()).collect(),
+                }
+                .into())
+            },
+        )
         .await
     };
-    let get_head_ops = async || get_current_head_ops(op_store, op_heads_store).await;
+    let get_head_ops = async || {
+        get_current_head_ops(
+            op_store,
+            op_heads_store,
+            repo_loader.workspace_name(),
+            repo_loader.workspace_type(),
+        )
+        .await
+    };
     resolve_single_op(op_store, get_current_op, get_head_ops, op_str).await
 }
 
@@ -212,13 +228,17 @@ async fn resolve_single_op_from_store(
 pub async fn get_current_head_ops(
     op_store: &Arc<dyn OpStore>,
     op_heads_store: &dyn OpHeadsStore,
+    workspace_name: &WorkspaceName,
+    workspace_type: WorkspaceType,
 ) -> Result<Vec<Operation>, OpsetEvaluationError> {
-    let head_ops_futures = op_heads_store.get_op_heads().await?.into_iter().map(
-        async |id| -> OpStoreResult<Operation> {
+    let head_ops_futures = op_heads_store
+        .get_op_heads(workspace_name, workspace_type)
+        .await?
+        .into_iter()
+        .map(async |id| -> OpStoreResult<Operation> {
             let data = op_store.read_operation(&id).await?;
             Ok(Operation::new(op_store.clone(), id, data))
-        },
-    );
+        });
     let mut head_ops = try_join_all(head_ops_futures).await?;
     // To stabilize output, sort in the same order as resolve_op_heads()
     head_ops.sort_by_key(|op| op.metadata().time.end.timestamp);

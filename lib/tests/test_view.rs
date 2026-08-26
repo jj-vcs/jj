@@ -776,7 +776,6 @@ fn test_merge_three_operations() -> TestResult {
                 repo_c.operation().clone(),
                 repo_d.operation().clone(),
             ],
-            None,
             Some("merge B, C, D"),
             [],
         )
@@ -916,7 +915,6 @@ fn test_merge_operations_back_to_back_criss_cross() -> TestResult {
         .loader()
         .merge_operations(
             vec![repo_b.operation().clone(), repo_c.operation().clone()],
-            None,
             Some("merge B, C"),
             [],
         )
@@ -927,7 +925,6 @@ fn test_merge_operations_back_to_back_criss_cross() -> TestResult {
         .loader()
         .merge_operations(
             vec![repo_b.operation().clone(), repo_c.operation().clone()],
-            None,
             Some("merge B, C again, concurrently"),
             [],
         )
@@ -978,7 +975,6 @@ fn test_merge_operations_back_to_back_criss_cross() -> TestResult {
         .loader()
         .merge_operations(
             vec![repo_d.operation().clone(), repo_e.operation().clone()],
-            None,
             Some("merge D, E"),
             [],
         )
@@ -989,7 +985,6 @@ fn test_merge_operations_back_to_back_criss_cross() -> TestResult {
         .loader()
         .merge_operations(
             vec![repo_d.operation().clone(), repo_e.operation().clone()],
-            None,
             Some("merge D, E again, concurrently"),
             [],
         )
@@ -1005,7 +1000,6 @@ fn test_merge_operations_back_to_back_criss_cross() -> TestResult {
         .loader()
         .merge_operations(
             vec![repo_f.operation().clone(), repo_g.operation().clone()],
-            None,
             Some("merge F, G"),
             [],
         )

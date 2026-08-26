@@ -116,6 +116,10 @@ use crate::transaction::TransactionCommitError;
 use crate::tree_merge::MergeOptions;
 use crate::view::RenameWorkspaceError;
 use crate::view::View;
+use crate::workspace::WorkspaceLoadError;
+use crate::workspace::WorkspaceType;
+use crate::workspace_store::SimpleWorkspaceStore;
+use crate::workspace_store::WorkspaceStore as _;
 
 #[async_trait(?Send)]
 pub trait Repo {
@@ -192,8 +196,13 @@ impl ReadonlyRepo {
     }
 
     pub fn default_op_heads_store_initializer() -> &'static OpHeadsStoreInitializer<'static> {
-        &|_settings, store_path, root_op_id| {
-            Ok(Box::new(SimpleOpHeadsStore::init(store_path, root_op_id)?))
+        &|_settings, store_path, workspace_name, workspace_type, root_op_id| {
+            Ok(Box::new(SimpleOpHeadsStore::init(
+                store_path,
+                workspace_name,
+                workspace_type,
+                root_op_id,
+            )?))
         }
     }
 
@@ -209,6 +218,8 @@ impl ReadonlyRepo {
     pub async fn init(
         settings: &UserSettings,
         repo_path: &Path,
+        workspace_name: &WorkspaceName,
+        workspace_type: WorkspaceType,
         backend_initializer: &BackendInitializer<'_>,
         signer: Signer,
         op_store_initializer: &OpStoreInitializer<'_>,
@@ -239,8 +250,13 @@ impl ReadonlyRepo {
 
         let op_heads_path = repo_path.join("op_heads");
         fs::create_dir(&op_heads_path).context(&op_heads_path)?;
-        let op_heads_store =
-            op_heads_store_initializer(settings, &op_heads_path, op_store.root_operation_id())?;
+        let op_heads_store = op_heads_store_initializer(
+            settings,
+            &op_heads_path,
+            workspace_name,
+            workspace_type,
+            op_store.root_operation_id(),
+        )?;
         let op_heads_type_path = op_heads_path.join("type");
         fs::write(&op_heads_type_path, op_heads_store.name()).context(&op_heads_type_path)?;
         let op_heads_store: Arc<dyn OpHeadsStore> = Arc::from(op_heads_store);
@@ -260,14 +276,16 @@ impl ReadonlyRepo {
             .context(&submodule_store_type_path)?;
         let submodule_store = Arc::from(submodule_store);
 
-        let loader = RepoLoader {
-            settings: settings.clone(),
+        let loader = RepoLoader::new(
+            workspace_name,
+            workspace_type,
+            settings.clone(),
             store,
             op_store,
             op_heads_store,
             index_store,
             submodule_store,
-        };
+        );
 
         let root_operation = loader.root_operation().await;
         let root_view = root_operation
@@ -345,6 +363,21 @@ impl ReadonlyRepo {
     pub async fn reload_at(&self, operation: &Operation) -> Result<Arc<Self>, RepoLoaderError> {
         self.loader().load_at(operation).await
     }
+
+    /// Returns a new ReadonlyRepo that points to the given workspace.
+    pub fn switch_workspace(
+        self,
+        workspace_name: &WorkspaceName,
+        workspace_type: WorkspaceType,
+    ) -> Arc<Self> {
+        Arc::new(Self {
+            loader: self.loader.switch_workspace(workspace_name, workspace_type),
+            operation: self.operation.clone(),
+            index: self.index,
+            change_id_index: OnceCell::new(),
+            view: self.view.clone(),
+        })
+    }
 }
 
 #[async_trait(?Send)]
@@ -398,7 +431,7 @@ pub type OpStoreInitializer<'a> =
     + 'a;
 #[rustfmt::skip] // auto-formatted line would exceed the maximum width
 pub type OpHeadsStoreInitializer<'a> = 
-    dyn Fn(&UserSettings, &Path, &OperationId)
+    dyn Fn(&UserSettings, &Path, &WorkspaceName, WorkspaceType, &OperationId)
     -> Result<Box<dyn OpHeadsStore>, BackendInitError>
     + 'a;
 pub type IndexStoreInitializer<'a> =
@@ -411,8 +444,14 @@ type BackendFactory =
 type OpStoreFactory = Box<
     dyn Fn(&UserSettings, &Path, RootOperationData) -> Result<Box<dyn OpStore>, BackendLoadError>,
 >;
-type OpHeadsStoreFactory =
-    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn OpHeadsStore>, BackendLoadError>>;
+type OpHeadsStoreFactory = Box<
+    dyn Fn(
+        &UserSettings,
+        &Path,
+        &WorkspaceName,
+        WorkspaceType,
+    ) -> Result<Box<dyn OpHeadsStore>, BackendLoadError>,
+>;
 type IndexStoreFactory =
     Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn IndexStore>, BackendLoadError>>;
 type SubmoduleStoreFactory =
@@ -535,6 +574,8 @@ impl StoreFactories {
         &self,
         settings: &UserSettings,
         store_path: &Path,
+        workspace_name: &WorkspaceName,
+        workspace_type: WorkspaceType,
     ) -> Result<Box<dyn OpHeadsStore>, StoreLoadError> {
         let op_heads_store_type = read_store_type("operation heads", store_path.join("type"))?;
         let op_heads_store_factory = self
@@ -544,7 +585,12 @@ impl StoreFactories {
                 store: "operation heads",
                 store_type: op_heads_store_type.clone(),
             })?;
-        Ok(op_heads_store_factory(settings, store_path)?)
+        Ok(op_heads_store_factory(
+            settings,
+            store_path,
+            workspace_name,
+            workspace_type,
+        )?)
     }
 
     pub fn add_index_store(&mut self, name: &str, factory: IndexStoreFactory) {
@@ -621,6 +667,8 @@ pub enum RepoLoaderError {
 #[derive(Clone)]
 pub struct RepoLoader {
     settings: UserSettings,
+    workspace_name: WorkspaceNameBuf,
+    workspace_type: WorkspaceType,
     store: Arc<Store>,
     op_store: Arc<dyn OpStore>,
     op_heads_store: Arc<dyn OpHeadsStore>,
@@ -629,7 +677,10 @@ pub struct RepoLoader {
 }
 
 impl RepoLoader {
+    #[expect(clippy::too_many_arguments)]
     pub fn new(
+        workspace_name: &WorkspaceName,
+        workspace_type: WorkspaceType,
         settings: UserSettings,
         store: Arc<Store>,
         op_store: Arc<dyn OpStore>,
@@ -638,6 +689,8 @@ impl RepoLoader {
         submodule_store: Arc<dyn SubmoduleStore>,
     ) -> Self {
         Self {
+            workspace_name: workspace_name.to_owned(),
+            workspace_type,
             settings,
             store,
             op_store,
@@ -652,11 +705,21 @@ impl RepoLoader {
     /// backends from `store_factories`.
     pub fn init_from_file_system(
         settings: &UserSettings,
+        workspace_root: &Path,
         repo_path: &Path,
         store_factories: &StoreFactories,
-    ) -> Result<Self, StoreLoadError> {
-        let merge_options =
-            MergeOptions::from_settings(settings).map_err(|err| BackendLoadError(err.into()))?;
+    ) -> Result<Self, WorkspaceLoadError> {
+        // Make sure we are in a workspace registered in the jj repo. A forgotten workspace is not registered.
+        let workspace_store = SimpleWorkspaceStore::load(repo_path)?;
+        let Some(workspace_metadata) =
+            workspace_store.get_workspace_metadata_by_workspace_path(workspace_root)?
+        else {
+            return Err(WorkspaceLoadError::WorkspaceNotInRepo(
+                workspace_root.to_path_buf(),
+            ));
+        };
+
+        let merge_options = MergeOptions::from_settings(settings)?;
         let store = Store::new(
             store_factories.load_backend(settings, &repo_path.join("store"))?,
             Signer::from_settings(settings)?,
@@ -670,25 +733,56 @@ impl RepoLoader {
             &repo_path.join("op_store"),
             root_op_data,
         )?);
-        let op_heads_store =
-            Arc::from(store_factories.load_op_heads_store(settings, &repo_path.join("op_heads"))?);
+        let op_heads_store = Arc::from(store_factories.load_op_heads_store(
+            settings,
+            &repo_path.join("op_heads"),
+            workspace_metadata.name(),
+            workspace_metadata.workspace_type(),
+        )?);
         let index_store =
             Arc::from(store_factories.load_index_store(settings, &repo_path.join("index"))?);
         let submodule_store = Arc::from(
             store_factories.load_submodule_store(settings, &repo_path.join("submodule_store"))?,
         );
-        Ok(Self {
-            settings: settings.clone(),
+        Ok(Self::new(
+            workspace_metadata.name(),
+            workspace_metadata.workspace_type(),
+            settings.clone(),
             store,
             op_store,
             op_heads_store,
             index_store,
             submodule_store,
-        })
+        ))
+    }
+
+    fn switch_workspace(
+        self,
+        workspace_name: &WorkspaceName,
+        workspace_type: WorkspaceType,
+    ) -> Self {
+        Self {
+            settings: self.settings.clone(),
+            workspace_name: workspace_name.to_owned(),
+            workspace_type,
+            store: self.store,
+            op_store: self.op_store,
+            op_heads_store: self.op_heads_store,
+            index_store: self.index_store,
+            submodule_store: self.submodule_store,
+        }
     }
 
     pub fn settings(&self) -> &UserSettings {
         &self.settings
+    }
+
+    pub fn workspace_name(&self) -> &WorkspaceName {
+        &self.workspace_name
+    }
+
+    pub fn workspace_type(&self) -> WorkspaceType {
+        self.workspace_type
     }
 
     pub fn store(&self) -> &Arc<Store> {
@@ -715,18 +809,14 @@ impl RepoLoader {
         let op = op_heads_store::resolve_op_heads(
             self.op_heads_store.as_ref(),
             &self.op_store,
+            self.workspace_name(),
+            self.workspace_type(),
             async |op_heads| -> Result<Operation, RepoLoaderError> {
                 assert!(op_heads.len() > 1);
-                let workspace_name = None;
                 let transaction_description = Some("reconcile divergent operations");
                 let transaction_attributes = [];
                 let (merged_repo, _num_rebased) = self
-                    .merge_operations(
-                        op_heads,
-                        workspace_name,
-                        transaction_description,
-                        transaction_attributes,
-                    )
+                    .merge_operations(op_heads, transaction_description, transaction_attributes)
                     .await?;
                 Ok(merged_repo.operation().clone())
             },
@@ -781,7 +871,6 @@ impl RepoLoader {
     pub async fn merge_operations(
         &self,
         operations: Vec<Operation>,
-        workspace_name: Option<&WorkspaceName>,
         transaction_description: Option<&str>,
         transaction_attributes: impl IntoIterator<Item = (String, String)>,
     ) -> Result<(Arc<ReadonlyRepo>, usize), RepoLoaderError> {
@@ -815,9 +904,7 @@ impl RepoLoader {
         let mut closest_common_ancestors: HashMap<_, Vec<Operation>> = HashMap::new();
 
         let mut tx = self.load_at(&operations[0]).await?.start_transaction();
-        if let Some(workspace_name) = workspace_name {
-            tx.set_workspace_name(workspace_name);
-        }
+        tx.set_workspace_name(&self.workspace_name);
         for (key, value) in transaction_attributes {
             tx.set_attribute(key, value);
         }

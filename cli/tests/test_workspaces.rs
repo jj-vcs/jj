@@ -1461,6 +1461,8 @@ fn test_workspaces_forget() {
     main_dir
         .run_jj(["workspace", "add", "../secondary"])
         .success();
+    let secondary_dir = test_env.work_dir("secondary");
+
     let output = main_dir.run_jj(["workspace", "forget"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -1470,21 +1472,30 @@ fn test_workspaces_forget() {
     ");
 
     // When listing workspaces, only the secondary workspace shows up
-    let output = main_dir.run_jj(["workspace", "list"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @"
-    secondary: ../secondary pmmvwywv 31da1455 (empty) (no description set)
+    let output = secondary_dir.run_jj(["workspace", "list"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    secondary: . pmmvwywv 31da1455 (empty) (no description set)
     [EOF]
+    ");
+
+    // After forgetting the default, you can no longer list workspaces from there
+    let output = main_dir.run_jj(["workspace", "list"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    ------- stderr -------
+    Error: The workspace at $TEST_ENV/main has been forgetten
+    [EOF]
+    [exit status: 1]
     ");
 
     // After forgetting the default, secondary root is still recorded, default no
     // longer exists
-    let output = main_dir.run_jj(["workspace", "root", "--name", "secondary"]);
-    insta::assert_snapshot!(output, @"
+    let output = secondary_dir.run_jj(["workspace", "root", "--name", "secondary"]);
+    insta::assert_snapshot!(output, @r"
     $TEST_ENV/secondary
     [EOF]
     ");
-    let output = main_dir.run_jj(["workspace", "root", "--name", "default"]);
-    insta::assert_snapshot!(output, @"
+    let output = secondary_dir.run_jj(["workspace", "root", "--name", "default"]);
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: No such workspace: default
     [EOF]
@@ -1495,26 +1506,24 @@ fn test_workspaces_forget() {
     // TODO: It seems useful to still have the "secondary@" marker here even though
     // there's only one workspace. We should show it when the command is not run
     // from that workspace.
-    insta::assert_snapshot!(get_log_output(&main_dir), @"
-    ○  31da14559558
+    insta::assert_snapshot!(get_log_output(&secondary_dir), @r"
+    @  31da14559558
     ○  006bd1130b84
     ◆  000000000000
     [EOF]
     ");
 
-    // Revision "@" cannot be used
-    let output = main_dir.run_jj(["log", "-r", "@"]);
-    insta::assert_snapshot!(output, @"
-    ------- stderr -------
-    Error: Workspace `default` doesn't have a working-copy commit
-    [EOF]
-    [exit status: 1]
-    ");
-
     // Try to add back the workspace
     // TODO: We should make this just add it back instead of failing
     let output = main_dir.run_jj(["workspace", "add", "."]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: The workspace at $TEST_ENV/main has been forgetten
+    [EOF]
+    [exit status: 1]
+    ");
+    let output = secondary_dir.run_jj(["workspace", "add", "../main"]);
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Destination path exists and is not an empty directory
     [EOF]
@@ -1522,17 +1531,18 @@ fn test_workspaces_forget() {
     ");
 
     // Add a third workspace...
-    main_dir.run_jj(["workspace", "add", "../third"]).success();
+    secondary_dir
+        .run_jj(["workspace", "add", "../third"])
+        .success();
     // ... and then forget it, a non-existent one, and the secondary workspace too
-    let output = main_dir.run_jj(["workspace", "forget", "secondary", "nonexistent", "third"]);
-    insta::assert_snapshot!(output, @"
+    let output = secondary_dir.run_jj(["workspace", "forget", "secondary", "nonexistent", "third"]);
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: No such workspace: nonexistent
+    Warning: The current workspace 'secondary' no longer exists after this operation. The working copy was left untouched.
+    Hint: Restore to an operation that contains the workspace (e.g. `jj undo` or `jj redo`).
     [EOF]
     ");
-    // No workspaces left
-    let output = main_dir.run_jj(["workspace", "list"]);
-    insta::assert_snapshot!(output, @"");
 }
 
 /// Test forgetting workspace created before workspace store
@@ -1545,16 +1555,21 @@ fn test_workspaces_forget_from_before_workspace_store() {
     main_dir.remove_dir_all(".jj/repo/workspace_store");
 
     let output = main_dir.run_jj(["workspace", "forget"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Warning: The current workspace 'default' no longer exists after this operation. The working copy was left untouched.
-    Hint: Restore to an operation that contains the workspace (e.g. `jj undo` or `jj redo`).
+    Error: The workspace at $TEST_ENV/main has been forgetten
     [EOF]
+    [exit status: 1]
     ");
 
     // No workspaces left
     let output = main_dir.run_jj(["workspace", "list"]);
-    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: The workspace at $TEST_ENV/main has been forgetten
+    [EOF]
+    [exit status: 1]
+    ");
 }
 
 #[test]
@@ -1636,6 +1651,7 @@ fn test_workspaces_forget_abandon_commits() {
     main_dir.run_jj(["workspace", "add", "../second"]).success();
     main_dir.run_jj(["workspace", "add", "../third"]).success();
     main_dir.run_jj(["workspace", "add", "../fourth"]).success();
+    let second_dir = test_env.work_dir("second");
     let third_dir = test_env.work_dir("third");
     third_dir.run_jj(["edit", "second@"]).success();
     let fourth_dir = test_env.work_dir("fourth");
@@ -1662,35 +1678,30 @@ fn test_workspaces_forget_abandon_commits() {
     main_dir
         .run_jj(["workspace", "forget", "default"])
         .success();
-    insta::assert_snapshot!(get_log_output(&main_dir), @"
-    ○  94f41578a9e1 fourth@ second@ third@
-    │ ○  006bd1130b84
-    ├─╯
-    ◆  000000000000
+    insta::assert_snapshot!(get_log_output(&main_dir), @r"
+    ------- stderr -------
+    Error: The workspace at $TEST_ENV/main has been forgetten
     [EOF]
+    [exit status: 1]
     ");
 
     // delete the second workspace (should not abandon commit since other workspaces
     // still have commit checked out)
-    main_dir.run_jj(["workspace", "forget", "second"]).success();
-    insta::assert_snapshot!(get_log_output(&main_dir), @"
-    ○  94f41578a9e1 fourth@ third@
+    second_dir
+        .run_jj(["workspace", "forget", "second"])
+        .success();
+    insta::assert_snapshot!(get_log_output(&third_dir), @r"
+    @  94f41578a9e1 fourth@ third@
     │ ○  006bd1130b84
     ├─╯
     ◆  000000000000
     [EOF]
     ");
 
-    // delete the last 2 workspaces (commit should be abandoned now even though
-    // forgotten in same tx)
-    main_dir
+    // delete the last 2 workspaces
+    third_dir
         .run_jj(["workspace", "forget", "third", "fourth"])
         .success();
-    insta::assert_snapshot!(get_log_output(&main_dir), @"
-    ○  006bd1130b84
-    ◆  000000000000
-    [EOF]
-    ");
 }
 
 /// Test context of commit summary template
@@ -2001,9 +2012,9 @@ fn test_workspaces_rename_forgotten_workspace() {
     main_dir.run_jj(["workspace", "forget", "second"]).success();
     let secondary_dir = test_env.work_dir("secondary");
     let output = secondary_dir.run_jj(["workspace", "rename", "third"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: The current workspace 'second' is not tracked in the repo.
+    Error: The workspace at $TEST_ENV/secondary has been forgetten
     [EOF]
     [exit status: 1]
     ");
@@ -2077,27 +2088,36 @@ fn test_workspaces_rename_workspace_from_before_workspace_store() {
     main_dir.remove_dir_all(".jj/repo/workspace_store");
 
     let output = main_dir.run_jj(["workspace", "rename", "third"]);
-    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: The workspace at $TEST_ENV/main has been forgetten
+    [EOF]
+    [exit status: 1]
+    ");
 
     let output = main_dir.run_jj(["workspace", "list"]);
-    insta::assert_snapshot!(output, @"
-    third: qpvuntsm e8849ae1 (empty) (no description set)
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: The workspace at $TEST_ENV/main has been forgetten
     [EOF]
+    [exit status: 1]
     ");
 
     // The workspace root is not in the store
     let output = main_dir.run_jj(["workspace", "root", "--name", "third"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Workspace has no recorded path: third
+    Error: The workspace at $TEST_ENV/main has been forgetten
     [EOF]
     [exit status: 1]
     ");
 
     let output = main_dir.run_jj(["workspace", "list", "-T", r#"name ++ ": " ++ root ++ "\n""#]);
-    insta::assert_snapshot!(output, @"
-    third: 
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: The workspace at $TEST_ENV/main has been forgetten
     [EOF]
+    [exit status: 1]
     ");
 }
 

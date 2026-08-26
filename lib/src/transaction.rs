@@ -229,9 +229,20 @@ impl UnpublishedOperation {
     }
 
     pub async fn publish(self) -> Result<Arc<ReadonlyRepo>, TransactionCommitError> {
-        let _lock = self.op_heads_store.lock().await?;
+        let _lock = self
+            .op_heads_store
+            .lock(
+                self.repo.loader().workspace_name(),
+                self.repo.loader().workspace_type(),
+            )
+            .await?;
         self.op_heads_store
-            .update_op_heads(self.operation().parent_ids(), self.operation().id())
+            .update_op_heads(
+                self.repo.loader().workspace_name(),
+                self.repo.loader().workspace_type(),
+                self.operation().parent_ids(),
+                self.operation().id(),
+            )
             .await?;
         Ok(self.repo)
     }

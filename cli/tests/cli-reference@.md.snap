@@ -3881,6 +3881,16 @@ By default, the new workspace inherits the sparse patterns of the current worksp
 * `--name <NAME>` — A name for the workspace
 
    To override the default, which is the basename of the destination directory.
+* `--workspace-type <WORKSPACE_TYPE>` — The type of workspace to create
+
+  Default value: `n`
+
+  Possible values:
+  - `n`:
+    The workspace will store operations in the repo op log (alias: normal)
+  - `i`:
+    The workspace will store operations in its own independent op log (alias: independent)
+
 * `-r`, `--revision <REVSETS>` — A list of parent revisions for the working-copy commit of the newly created workspace. You may specify nothing, or any number of parents.
 
    If no revisions are specified, the new workspace will be created, and its working-copy commit will exist on top of the parent(s) of the working-copy commit in the current workspace, i.e. they will share the same parent(s).
