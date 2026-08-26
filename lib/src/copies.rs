@@ -41,6 +41,7 @@ use crate::backend::CopyRecord;
 use crate::backend::MergedTreeValue;
 use crate::backend::TreeValue;
 use crate::dag_walk;
+use crate::matchers::EverythingMatcher;
 use crate::merge::Diff;
 use crate::merge::Merge;
 use crate::merge::SameChange;
@@ -49,6 +50,7 @@ use crate::merged_tree::TreeDiffEntry;
 use crate::merged_tree::TreeDiffStream;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
+use crate::store::Store;
 
 /// A collection of CopyRecords.
 #[derive(Default, Debug)]
@@ -251,6 +253,230 @@ impl Stream for CopiesTreeDiffStream<'_> {
 
         Poll::Ready(None)
     }
+}
+
+/// Maps a path in the output tree to the paths in each term of the input
+/// merge. The length of the inner Merge should be the same as the input
+/// merge.
+pub type RenameMap = HashMap<RepoPathBuf, Merge<Option<RepoPathBuf>>>;
+
+/// Computes renames between the terms of a merge.
+///
+/// When merging multiple trees (e.g. in a conflict or a merge commit), files
+/// may have been renamed or copied differently on different sides. To perform
+/// a copy-aware merge, we need to align these paths so that we can merge their
+/// contents correctly.
+///
+/// This function calculates a `RenameMap`, which maps each path that should
+/// exist in the merged output (an "active" path) to its corresponding path in
+/// each of the input terms.
+///
+/// The input `merge` represents the merge state as a `MergedTree`, which
+/// contains a list of terms (positive and negative) alternating:
+/// `A - C + B - E + D ...` where `C`, `E` are bases (negative terms) and
+/// `A`, `B`, `D` are sides (positive terms).
+pub async fn compute_rename_map(merge: &MergedTree) -> BackendResult<RenameMap> {
+    let store = merge.store();
+    let tree_ids = merge.tree_ids();
+    let num_sides = tree_ids.num_sides();
+    if num_sides < 2 {
+        return Ok(RenameMap::default());
+    }
+    let num_terms = num_sides * 2 - 1;
+    let trees = tree_ids
+        .iter()
+        .map(|id| MergedTree::resolved(store.clone(), id.clone()))
+        .collect_vec();
+
+    let mut parents: HashMap<RepoPathBuf, RepoPathBuf> = HashMap::new();
+    fn find<'a>(
+        parents: &'a HashMap<RepoPathBuf, RepoPathBuf>,
+        mut curr: &'a RepoPathBuf,
+    ) -> &'a RepoPathBuf {
+        while let Some(next) = parents.get(curr) {
+            if next == curr {
+                break;
+            }
+            curr = next;
+        }
+        curr
+    }
+    fn union(parents: &mut HashMap<RepoPathBuf, RepoPathBuf>, a: &RepoPathBuf, b: &RepoPathBuf) {
+        let root_a = find(parents, a).clone();
+        let root_b = find(parents, b).clone();
+        if root_a != root_b {
+            parents.insert(root_a, root_b);
+        }
+    }
+
+    // We'll be scanning diffs between the different merge terms soon. We want to
+    // track:
+    // * every path mentioned in the diff, including copy/rename parents
+    // * whether a path with diffs is present in each merge term
+    // * whether a path with diffs was renamed from a parent in each merge term
+    let mut all_mentioned_paths: HashSet<RepoPathBuf> = HashSet::new();
+    let mut presence: Vec<HashSet<RepoPathBuf>> = vec![HashSet::new(); num_terms];
+    let mut renamed_from: Vec<HashSet<RepoPathBuf>> = vec![HashSet::new(); num_terms];
+
+    // We chain the terms to find relations. We compare each negative term (base)
+    // with its adjacent positive terms (sides).
+    // For example, in `A - C + B`, we compare `C` with `A` and `C` with `B`.
+    // This allows us to track renames/copies from `C` to `A` and `C` to `B`.
+    // We use a union-find structure (`parents`) to group all paths that are
+    // related through these transitions.
+    for i in 1..num_sides {
+        let before_idx = 2 * i - 1; // remove[i - 1]
+        let before_tree = trees[before_idx].clone();
+        // after_idx <- add[i - 1] THEN add[i]
+        for after_idx in [2 * i - 2, 2 * i] {
+            let mut stream =
+                before_tree.diff_stream_with_copy_history(&trees[after_idx], &EverythingMatcher);
+            while let Some(entry) = stream.next().await {
+                let diffs = match entry.diffs {
+                    Ok(diffs) => diffs,
+                    Err(BackendError::Unsupported(_)) => return Ok(RenameMap::default()),
+                    Err(err) => return Err(err),
+                };
+                for diffterm in &diffs {
+                    all_mentioned_paths.insert(entry.target_path.clone());
+                    if diffterm.target_value.is_some() {
+                        presence[after_idx].insert(entry.target_path.clone());
+                    }
+                    for (source, value) in &diffterm.sources {
+                        if !value.is_resolved() {
+                            continue;
+                        }
+                        match source {
+                            CopyHistorySource::Normal => {
+                                if value.is_present() {
+                                    presence[before_idx].insert(entry.target_path.clone());
+                                }
+                            }
+                            CopyHistorySource::Copy(p) => {
+                                union(&mut parents, p, &entry.target_path);
+                                all_mentioned_paths.insert(p.clone());
+                                if value.is_present() {
+                                    presence[before_idx].insert(p.clone());
+                                }
+                            }
+                            CopyHistorySource::Rename(p) => {
+                                union(&mut parents, p, &entry.target_path);
+                                all_mentioned_paths.insert(p.clone());
+                                if value.is_present() {
+                                    presence[before_idx].insert(p.clone());
+                                }
+                                renamed_from[after_idx].insert(p.clone());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if all_mentioned_paths.is_empty() {
+        return Ok(RenameMap::default());
+    }
+
+    // Fill in missing presence info
+    for (term, tree) in presence.iter_mut().zip(trees) {
+        for p in &all_mentioned_paths {
+            if !term.contains(p) && tree.path_value(p).await?.is_present() {
+                term.insert(p.clone());
+            }
+        }
+    }
+
+    // Count how many merge terms had this path as a rename target
+    let mut rename_counts: HashMap<RepoPathBuf, usize> = HashMap::new();
+    for rf_term in renamed_from {
+        for path in rf_term {
+            rename_counts
+                .entry(path)
+                .and_modify(|c| *c += 1)
+                .or_insert(1);
+        }
+    }
+
+    let mut groups: HashMap<RepoPathBuf, Vec<RepoPathBuf>> = HashMap::new();
+    for path in all_mentioned_paths.into_iter().sorted() {
+        let root = find(&parents, &path).clone();
+        groups.entry(root).or_default().push(path);
+    }
+
+    // Now we process each group of related paths.
+    // A path is "active" if it is present in at least one of the positive terms
+    // and was not a rename target in any transition. Active paths are the
+    // candidates for existing in the merged output.
+    //
+    // For each active path, we construct its history across all terms.
+    // If there are no divergent renames (i.e. a path renamed to multiple different
+    // targets on different sides), we can simply map the active path to the
+    // first present path in each term within its group.
+    //
+    // If there are divergent renames (e.g. `foo` renamed to `bar` on one side and
+    // `baz` on another), we must be more careful. We use the copy history to find
+    // the ancestors of the active path and use those ancestors to fill in the
+    // path for terms where the active path itself is not present. This ensures
+    // that changes to the source file (`foo`) are correctly propagated to both
+    // rename targets (`bar` and `baz`), leading to conflicts at both paths.
+    let is_active = |p: &RepoPathBuf| -> bool {
+        !rename_counts.contains_key(p) && (0..num_sides).any(|i| presence[2 * i].contains(p))
+    };
+
+    let mut result = RenameMap::default();
+    for group_paths in groups.into_values() {
+        if group_paths.len() <= 1 {
+            continue;
+        }
+
+        let mut term_present_paths = vec![vec![]; num_terms];
+        let mut active_ancestors = HashMap::new();
+        let has_divergent_rename = group_paths
+            .iter()
+            .any(|p| rename_counts.get(p).copied().unwrap_or(0) >= 2);
+
+        for p in &group_paths {
+            if has_divergent_rename && is_active(p) {
+                let ancestors = get_ancestor_paths(merge, &presence, p).await?;
+                active_ancestors.insert(p.clone(), ancestors);
+            } else {
+                for j in 0..num_terms {
+                    if presence[j].contains(p) {
+                        term_present_paths[j].push(p.clone());
+                    }
+                }
+            }
+        }
+
+        for p in &group_paths {
+            if is_active(p) {
+                let mut terms: Vec<Option<RepoPathBuf>> = Vec::with_capacity(num_terms);
+                for j in 0..num_terms {
+                    if presence[j].contains(p) {
+                        terms.push(Some(p.clone()));
+                    } else if has_divergent_rename {
+                        let ancestors = active_ancestors
+                            .get(p)
+                            .and_then(|ancestors| {
+                                ancestors
+                                    .iter()
+                                    .find(|ancestor| presence[j].contains(*ancestor))
+                            })
+                            .cloned();
+                        terms.push(ancestors);
+                    } else {
+                        terms.push(term_present_paths[j].first().cloned());
+                    }
+                }
+                result.insert(p.clone(), Merge::from_vec(terms));
+            } else {
+                result.insert(p.clone(), Merge::absent());
+            }
+        }
+    }
+
+    Ok(result)
 }
 
 /// Maps `CopyId`s to `CopyHistory`s
@@ -540,6 +766,12 @@ async fn diffs_from_copies(
     let copy_id = after_file.copy_id().ok_or(BackendError::Other(
         "Expected TreeValue::File with a CopyId".into(),
     ))?;
+    if copy_id.is_placeholder() {
+        return Ok(Merge::resolved(CopyHistoryDiffTerm {
+            target_value: Some(after_file),
+            sources: vec![],
+        }));
+    }
     let copy_graph: CopyGraph = before_tree
         .store()
         .backend()
@@ -710,4 +942,141 @@ async fn find_diff_sources_from_copies(
         }
     }
     Ok(sources)
+}
+
+async fn get_ancestor_paths(
+    merge: &MergedTree,
+    presence: &[HashSet<RepoPathBuf>],
+    path: &RepoPath,
+) -> BackendResult<Vec<RepoPathBuf>> {
+    let store = merge.store();
+    let tree_ids = merge.tree_ids();
+    let trees = tree_ids
+        .iter()
+        .map(|id| MergedTree::resolved(store.clone(), id.clone()))
+        .collect_vec();
+
+    // Find the copy ID of the path in the first merge term where the path is
+    // present.
+    let Some((_, tree)) = presence
+        .iter()
+        .zip(&trees)
+        .find(|(term, _)| term.contains(path))
+    else {
+        return Ok(vec![]);
+    };
+    let Some(TreeValue::File { copy_id, .. }) =
+        tree.path_value(path).await?.into_resolved().ok().flatten()
+    else {
+        return Ok(vec![]);
+    };
+
+    if copy_id.is_placeholder() {
+        return Ok(vec![]);
+    }
+
+    let copy_graph: CopyGraph = store
+        .backend()
+        .get_related_copies(&copy_id)
+        .await?
+        .into_iter()
+        .map(|related| (related.id, related.history))
+        .collect();
+
+    // Find ancestor paths which are actually present in at least one merge term.
+    let mut ancestor_paths = vec![];
+    for ancestor_id in iterate_ancestors(&copy_graph, &copy_id) {
+        if ancestor_id == &copy_id {
+            continue;
+        }
+        for tree in &trees {
+            if tree.copy_value(ancestor_id).await?.is_some() {
+                ancestor_paths.push(copy_graph[ancestor_id].current_path.clone());
+                break;
+            }
+        }
+    }
+    Ok(ancestor_paths)
+}
+
+/// Merges conflicting `CopyId`s by finding DAG heads and writing a new
+/// `CopyHistory` if there are multiple heads.
+///
+/// If there is a `CopyId` that matches the current `path`, it is preferred.
+///
+/// When merging branches that have copy/rename history, a file might end up
+/// with multiple different `CopyId`s (e.g. because it was copied from different
+/// sources or has divergent history). To represent this merged history in the
+/// snapshot, we merge the `CopyId`s.
+///
+/// If one `CopyId` is a descendant of all others in the copy history DAG, it
+/// already contains the full history, so we can use it.
+/// If there are multiple independent heads in the history, we create a new
+/// `CopyHistory` node that lists all these heads as parents, effectively
+/// merging the history DAG.
+pub async fn merge_copy_ids(
+    store: &Store,
+    path: &RepoPath,
+    copy_id_merge: &Merge<Option<CopyId>>,
+) -> BackendResult<CopyId> {
+    let adds: HashSet<&CopyId> = copy_id_merge.adds().flatten().collect();
+    if adds.is_empty() {
+        return Err(BackendError::Other("Empty copy id merge".into()));
+    }
+    if adds.len() == 1 {
+        return Ok((*adds.iter().next().unwrap()).clone());
+    }
+
+    let mut copy_graph = CopyGraph::new();
+    // NOTE: this loop creates a CopyGraph that does not necessarily follow the rule
+    // that related copies are ordered with children before parents.
+    for id in &adds {
+        copy_graph.extend(
+            store
+                .backend()
+                .get_related_copies(id)
+                .await?
+                .into_iter()
+                .map(|related| (related.id, related.history)),
+        );
+    }
+
+    let matching_paths: Vec<&CopyId> = adds
+        .iter()
+        .filter(|id| {
+            copy_graph
+                .get(**id)
+                .is_some_and(|h| h.current_path.as_ref() == path)
+        })
+        .copied()
+        .collect();
+    if matching_paths.len() == 1 {
+        return Ok(matching_paths[0].clone());
+    }
+
+    let heads = dag_walk::heads(
+        adds.iter().copied(),
+        |id| *id,
+        |id| {
+            copy_graph
+                .get(*id)
+                .map_or(&[] as &[_], |h| &h.parents)
+                .iter()
+        },
+    );
+
+    if heads.len() == 1 {
+        return Ok((*heads.iter().next().unwrap()).clone());
+    }
+
+    let sorted_heads = heads.into_iter().cloned().sorted().collect_vec();
+
+    let new_history = CopyHistory {
+        current_path: path.to_owned(),
+        parents: sorted_heads,
+        salt: vec![],
+    };
+
+    let new_id = store.backend().write_copy(&new_history).await?;
+    Ok(new_id)
 }

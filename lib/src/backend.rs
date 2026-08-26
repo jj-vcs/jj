@@ -91,6 +91,11 @@ impl CopyId {
     pub fn placeholder() -> Self {
         Self::new(vec![])
     }
+
+    /// Returns true if this is a placeholder copy id.
+    pub fn is_placeholder(&self) -> bool {
+        self.0.is_empty()
+    }
 }
 
 /// Error that may occur when converting a `Timestamp` to a `Datetime``.
