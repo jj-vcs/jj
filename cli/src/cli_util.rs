@@ -56,6 +56,7 @@ use indexmap::IndexSet;
 use indoc::indoc;
 use indoc::writedoc;
 use itertools::Itertools as _;
+use jj_core::workspace_store::WorkspaceType;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
@@ -105,7 +106,6 @@ use jj_lib::repo::EditCommitError;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
-use jj_lib::repo::RepoLoader;
 use jj_lib::repo::StoreFactories;
 use jj_lib::repo::StoreLoadError;
 use jj_lib::repo::merge_factories_map;
@@ -534,9 +534,8 @@ impl CommandHelper {
         workspace: Workspace,
         mut env: WorkspaceCommandEnvironment,
     ) -> Result<WorkspaceCommandHelper, CommandError> {
-        let op_head =
-            self.resolve_operation(ui, workspace.repo_loader(), workspace.workspace_name())?;
-        let repo = workspace.repo_loader().load_at(&op_head).await?;
+        let op_head = self.resolve_operation(ui, &workspace)?;
+        let repo = workspace.load_at(&op_head).await?;
         if let Err(err) =
             revset_util::try_resolve_trunk_alias(repo.as_ref(), &env.revset_parse_context())
         {
@@ -634,7 +633,7 @@ impl CommandHelper {
         match workspace.repo_loader().load_operation(op_id).await {
             Ok(op) => {
                 // self.for_workable_repo(), but reuse loaded env.
-                let repo = workspace.repo_loader().load_at(&op).await?;
+                let repo = workspace.load_at(&op).await?;
                 let may_snapshot_working_copy = !self.global_args().ignore_working_copy;
                 let mut workspace_command = WorkspaceCommandHelper::new(
                     ui,
@@ -800,15 +799,23 @@ impl CommandHelper {
     pub fn resolve_operation(
         &self,
         ui: &Ui,
-        repo_loader: &RepoLoader,
-        workspace_name: &WorkspaceName,
+        workspace: &Workspace,
     ) -> Result<Operation, CommandError> {
+        let repo_loader = workspace.repo_loader();
         if let Some(op_str) = &self.data.global_args.at_operation {
-            Ok(op_walk::resolve_op_for_load(repo_loader, op_str).block_on()?)
+            Ok(op_walk::resolve_op_for_load(
+                repo_loader,
+                workspace.workspace_name(),
+                workspace.workspace_type(),
+                op_str,
+            )
+            .block_on()?)
         } else {
             op_heads_store::resolve_op_heads(
                 repo_loader.op_heads_store().as_ref(),
                 repo_loader.op_store(),
+                workspace.workspace_name(),
+                workspace.workspace_type(),
                 async |op_heads| {
                     writeln!(
                         ui.status(),
@@ -818,9 +825,8 @@ impl CommandHelper {
                     let transaction_description = "reconcile divergent operations";
                     merge_operations(
                         Some(ui),
-                        repo_loader,
+                        workspace,
                         op_heads,
-                        Some(workspace_name),
                         Some(transaction_description),
                         &self.data.string_args,
                     )
@@ -854,17 +860,18 @@ impl CommandHelper {
 /// operation. If `ui` is set, reports the number of rebased descendants.
 pub async fn merge_operations(
     ui: Option<&Ui>,
-    repo_loader: &RepoLoader,
+    workspace: &Workspace,
     operations: Vec<Operation>,
-    workspace_name: Option<&WorkspaceName>,
     transaction_description: Option<&str>,
     command_args: &[String],
 ) -> Result<Operation, CommandError> {
     let transaction_attributes = command_args_to_transaction_attribute(command_args);
-    let (merged_repo, num_rebased) = repo_loader
+    let (merged_repo, num_rebased) = workspace
+        .repo_loader()
         .merge_operations(
             operations,
-            workspace_name,
+            workspace.workspace_name(),
+            workspace.workspace_type(),
             transaction_description,
             transaction_attributes,
         )
@@ -1577,6 +1584,10 @@ to the current parents may contain changes from multiple commits.
         self.workspace.workspace_name()
     }
 
+    pub fn workspace_type(&self) -> WorkspaceType {
+        self.workspace.workspace_type()
+    }
+
     pub fn get_wc_commit_id(&self) -> Option<&CommitId> {
         self.repo().view().get_wc_commit_id(self.workspace_name())
     }
@@ -2105,7 +2116,7 @@ to the current parents may contain changes from multiple commits.
             .map_err(snapshot_command_error)?;
 
         let Some((repo, wc_commit)) =
-            handle_stale_working_copy(locked_ws.locked_wc(), repo, &workspace_name).await?
+            handle_stale_working_copy(locked_ws.locked_wc(), repo).await?
         else {
             // If the workspace has been deleted, it's unclear what to do, so we just skip
             // committing the working copy.
@@ -2769,6 +2780,10 @@ impl WorkspaceCommandTransaction<'_> {
         self.helper
     }
 
+    pub fn workspace(&self) -> &Workspace {
+        self.helper.workspace()
+    }
+
     /// Settings for this workspace.
     pub fn settings(&self) -> &UserSettings {
         self.helper.settings()
@@ -2925,12 +2940,19 @@ jj git init",
                 err,
             )
         }
+        WorkspaceLoadError::WorkspaceNotInRepo(_) => user_error(err),
         WorkspaceLoadError::StoreLoadError(
             err @ (StoreLoadError::ReadError { .. } | StoreLoadError::Backend(_)),
         ) => internal_error_with_message("The repository appears broken or inaccessible", err),
         WorkspaceLoadError::StoreLoadError(StoreLoadError::Signing(err)) => user_error(err),
+        WorkspaceLoadError::WorkspaceStoreError(err) => {
+            internal_error_with_message("The repository appears broken or inaccessible", err)
+        }
         WorkspaceLoadError::WorkingCopyState(err) => internal_error(err),
-        WorkspaceLoadError::DecodeRepoPath(_) | WorkspaceLoadError::Path(_) => user_error(err),
+        WorkspaceLoadError::ConfigGetError(_) => internal_error(err),
+        WorkspaceLoadError::SignInitError(_) => internal_error(err),
+        WorkspaceLoadError::DecodeRepoPath(_) => user_error(err),
+        WorkspaceLoadError::Path(_) => user_error(err),
     }
 }
 
@@ -3006,11 +3028,10 @@ async fn rebase_mutable_descendants(
 async fn handle_stale_working_copy(
     locked_wc: &mut dyn LockedWorkingCopy,
     repo: Arc<ReadonlyRepo>,
-    workspace_name: &WorkspaceName,
 ) -> Result<Option<(Arc<ReadonlyRepo>, Commit)>, SnapshotWorkingCopyError> {
     let get_wc_commit = |repo: &ReadonlyRepo| -> Result<Option<_>, _> {
         repo.view()
-            .get_wc_commit_id(workspace_name)
+            .get_wc_commit_id(repo.workspace_name())
             .map(|id| repo.store().get_commit(id))
             .transpose()
             .map_err(snapshot_command_error)

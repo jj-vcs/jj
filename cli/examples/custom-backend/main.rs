@@ -22,6 +22,7 @@ use jj_cli::cli_util::CliRunner;
 use jj_cli::cli_util::CommandHelper;
 use jj_cli::command_error::CommandError;
 use jj_cli::ui::Ui;
+use jj_core::workspace_store::WorkspaceType;
 use jj_lib::backend::Backend;
 use jj_lib::backend::BackendInitError;
 use jj_lib::backend::BackendLoadError;
@@ -39,6 +40,7 @@ use jj_lib::backend::SymlinkId;
 use jj_lib::backend::Tree;
 use jj_lib::backend::TreeId;
 use jj_lib::git_backend::GitBackend;
+use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::StoreFactories;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
@@ -77,6 +79,8 @@ async fn run_custom_command(
             Workspace::init_with_backend(
                 &settings,
                 wc_path,
+                WorkspaceName::DEFAULT,
+                WorkspaceType::Regular,
                 &|settings, store_path| Ok(Box::new(JitBackend::init(settings, store_path)?)),
                 signer_from_settings(&settings).map_err(WorkspaceInitError::SignInit)?,
             )

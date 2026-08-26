@@ -86,24 +86,22 @@ pub async fn cmd_op_show(
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui).await?;
     let workspace_env = workspace_command.env();
-    let repo_loader = workspace_command.workspace().repo_loader();
+    let workspace = workspace_command.workspace();
     let settings = workspace_command.settings();
     let op = workspace_command.resolve_single_op(&args.operation)?;
     let parent_ops = op.parents().await?;
-    let workspace_name = None;
     let transaction_description = None;
     let command_args = [];
     let merged_parent_op = merge_operations(
         None,
-        repo_loader,
+        workspace,
         parent_ops.clone(),
-        workspace_name,
         transaction_description,
         &command_args,
     )
     .await?;
-    let parent_repo = repo_loader.load_at(&merged_parent_op).await?;
-    let repo = repo_loader.load_at(&op).await?;
+    let parent_repo = workspace.load_at(&merged_parent_op).await?;
+    let repo = workspace.load_at(&op).await?;
 
     let id_prefix_context = workspace_env.new_id_prefix_context();
     let commit_summary_template = {

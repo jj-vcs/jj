@@ -14,6 +14,7 @@
 
 //! Contains the implementation of a simple file-based `WorkspaceStore`.
 
+use std::fmt::Debug;
 use std::fs;
 use std::io::Write as _;
 use std::path::Path;
@@ -21,6 +22,8 @@ use std::path::PathBuf;
 
 use jj_core::backend::BackendInitError;
 use jj_core::backend::BackendLoadError;
+use jj_core::workspace_store::WorkspaceMetadata;
+use jj_core::workspace_store::WorkspaceType;
 use prost::Message as _;
 use tempfile::NamedTempFile;
 use thiserror::Error;
@@ -28,8 +31,6 @@ use thiserror::Error;
 use crate::file_util::BadPathEncoding;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
-use crate::file_util::path_from_bytes;
-use crate::file_util::path_to_bytes;
 use crate::file_util::persist_temp_file;
 use crate::file_util::relative_path;
 use crate::file_util::slash_path;
@@ -64,7 +65,7 @@ impl From<SimpleWorkspaceStoreError> for WorkspaceStoreError {
 }
 
 /// A simple file-based implementation of `WorkspaceStore`.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct SimpleWorkspaceStore {
     store_dir: PathBuf,
     store_file: PathBuf,
@@ -116,6 +117,23 @@ impl SimpleWorkspaceStore {
         FileLock::lock(self.lock_file.clone())
     }
 
+    fn get_workspace_metadata_by_workspace_name(
+        &self,
+        workspace_name: &WorkspaceName,
+    ) -> Result<Option<(WorkspaceMetadata, PathBuf)>, WorkspaceStoreError> {
+        let store_proto = self.read_store()?;
+        let Some(workspace_proto) = store_proto
+            .workspaces
+            .iter()
+            .find(|w| w.name.as_str() == workspace_name.as_str())
+        else {
+            return Ok(None);
+        };
+        let workspace_metadata = Self::proto_to_workspace_metadata(workspace_proto)?;
+        let workspace_path = Self::path_from_bytes(&workspace_proto.path)?;
+        Ok(Some((workspace_metadata, workspace_path)))
+    }
+
     fn read_store(&self) -> Result<simple_workspace_store::Workspaces, SimpleWorkspaceStoreError> {
         let workspace_data = fs::read(&self.store_file).context(&self.store_file)?;
 
@@ -128,9 +146,7 @@ impl SimpleWorkspaceStore {
         &self,
         workspaces_proto: simple_workspace_store::Workspaces,
     ) -> Result<(), SimpleWorkspaceStoreError> {
-        // We had created the store dir in load(), so parent() must exist.
-        let store_file_parent = self.store_file.parent().unwrap();
-        let temp_file = NamedTempFile::new_in(store_file_parent).context(store_file_parent)?;
+        let temp_file = NamedTempFile::new_in(&self.store_dir).context(&self.store_dir)?;
 
         temp_file
             .as_file()
@@ -141,6 +157,65 @@ impl SimpleWorkspaceStore {
 
         Ok(())
     }
+
+    fn to_canonical_workspace_path(
+        &self,
+        workspace_path: &Path,
+    ) -> Result<PathBuf, SimpleWorkspaceStoreError> {
+        let repo_path = self
+            .store_dir
+            .parent()
+            .expect("store_dir must be under the repo_path");
+        let workspace_path = dunce::canonicalize(workspace_path)
+            .context(workspace_path)
+            .map_err(SimpleWorkspaceStoreError::Path)?;
+        let workspace_path = relative_path(repo_path, &workspace_path);
+        if workspace_path.is_relative() {
+            Ok(slash_path(&workspace_path).into_owned())
+        } else {
+            Ok(workspace_path)
+        }
+    }
+
+    fn proto_to_workspace_metadata(
+        workspace_proto: &simple_workspace_store::Workspace,
+    ) -> Result<WorkspaceMetadata, SimpleWorkspaceStoreError> {
+        let name = workspace_proto.name.clone().into();
+        let workspace_type = match workspace_proto.workspace_type() {
+            simple_workspace_store::WorkspaceType::Regular => WorkspaceType::Regular,
+            simple_workspace_store::WorkspaceType::Independent => WorkspaceType::Independent,
+        };
+        Ok(WorkspaceMetadata::new(name, workspace_type))
+    }
+
+    fn workspace_metadata_to_proto(
+        workspace_metadata: &WorkspaceMetadata,
+        workspace_path: &Path,
+    ) -> Result<simple_workspace_store::Workspace, SimpleWorkspaceStoreError> {
+        let workspace_type = match workspace_metadata.workspace_type() {
+            WorkspaceType::Regular => crate::protos::simple_workspace_store::WorkspaceType::Regular,
+            WorkspaceType::Independent => {
+                crate::protos::simple_workspace_store::WorkspaceType::Independent
+            }
+        };
+        Ok(simple_workspace_store::Workspace {
+            name: workspace_metadata.name().as_str().to_string(),
+            path: Self::path_to_bytes(workspace_path)?,
+            workspace_type: workspace_type.into(),
+        })
+    }
+
+    fn path_to_bytes(path: &Path) -> Result<Vec<u8>, SimpleWorkspaceStoreError> {
+        Ok(crate::file_util::path_to_bytes(path)
+            .map_err(SimpleWorkspaceStoreError::BadPathEncoding)?
+            .to_owned())
+    }
+
+    fn path_from_bytes(path: &[u8]) -> Result<PathBuf, SimpleWorkspaceStoreError> {
+        crate::file_util::path_from_bytes(path)
+            .map(|p| p.to_path_buf())
+            .map_err(SimpleWorkspaceStoreError::BadPathEncoding)
+    }
 }
 
 impl WorkspaceStore for SimpleWorkspaceStore {
@@ -148,37 +223,31 @@ impl WorkspaceStore for SimpleWorkspaceStore {
         Self::NAME
     }
 
-    fn add(&self, workspace_name: &WorkspaceName, path: &Path) -> Result<(), WorkspaceStoreError> {
+    // TODO: XXX:W If the add call is adding a workspace that already exists,
+    // make sure the workspace type is the same as the existing record.
+    fn add(
+        &self,
+        workspace_name: &WorkspaceName,
+        path: &Path,
+        workspace_type: WorkspaceType,
+    ) -> Result<(), WorkspaceStoreError> {
         let _lock = self.lock().map_err(SimpleWorkspaceStoreError::Lock)?;
 
-        let mut workspaces_proto = self.read_store()?;
+        let workspace_path = self.to_canonical_workspace_path(path)?;
+        let workspace_metadata = WorkspaceMetadata::new(workspace_name.to_owned(), workspace_type);
 
+        let mut workspaces_proto = self.read_store()?;
         // Delete any existing entry with the same name
         workspaces_proto
             .workspaces
             .retain(|w| w.name.as_str() != workspace_name.as_str());
-
-        let repo_path = self
-            .store_dir
-            .parent()
-            .expect("store_dir must be under the repo_path");
-        let path_to_store = relative_path(repo_path, path);
-        let path_to_store = if path_to_store.is_relative() {
-            slash_path(&path_to_store).into_owned()
-        } else {
-            path_to_store
-        };
         workspaces_proto
             .workspaces
-            .push(simple_workspace_store::Workspace {
-                name: workspace_name.as_str().to_string(),
-                path: path_to_bytes(&path_to_store)
-                    .map_err(SimpleWorkspaceStoreError::BadPathEncoding)?
-                    .to_owned(),
-            });
-
+            .push(Self::workspace_metadata_to_proto(
+                &workspace_metadata,
+                &workspace_path,
+            )?);
         self.write_store(workspaces_proto)?;
-
         Ok(())
     }
 
@@ -218,23 +287,45 @@ impl WorkspaceStore for SimpleWorkspaceStore {
         Ok(())
     }
 
+    fn get_workspace_metadata_by_workspace_path(
+        &self,
+        workspace_path: &Path,
+    ) -> Result<Option<WorkspaceMetadata>, WorkspaceStoreError> {
+        let canonical_workspace_path = self.to_canonical_workspace_path(workspace_path)?;
+        let store_proto = self.read_store()?;
+        let metadata = store_proto.workspaces.iter().find_map(|workspace_proto| {
+            if let Ok(path) = Self::path_from_bytes(&workspace_proto.path)
+                && path == canonical_workspace_path
+            {
+                Self::proto_to_workspace_metadata(workspace_proto).ok()
+            } else {
+                None
+            }
+        });
+        Ok(metadata)
+    }
+
     fn get_workspace_path(
         &self,
         workspace_name: &WorkspaceName,
     ) -> Result<Option<PathBuf>, WorkspaceStoreError> {
-        let workspace = self
-            .read_store()?
-            .workspaces
-            .iter()
-            .find(|w| w.name.as_str() == workspace_name.as_str())
-            .cloned();
+        let Some((_workspace_metadata, workspace_path)) =
+            self.get_workspace_metadata_by_workspace_name(workspace_name)?
+        else {
+            return Ok(None);
+        };
+        Ok(Some(workspace_path))
+    }
 
-        Ok(workspace
-            .map(|w| {
-                path_from_bytes(&w.path)
-                    .map(|p| p.to_path_buf())
-                    .map_err(SimpleWorkspaceStoreError::BadPathEncoding)
-            })
-            .transpose()?)
+    fn get_workspace_type(
+        &self,
+        workspace_name: &WorkspaceName,
+    ) -> Result<Option<WorkspaceType>, WorkspaceStoreError> {
+        let Some((workspace_metadata, _workspace_path)) =
+            self.get_workspace_metadata_by_workspace_name(workspace_name)?
+        else {
+            return Ok(None);
+        };
+        Ok(Some(workspace_metadata.workspace_type()))
     }
 }

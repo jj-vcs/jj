@@ -32,6 +32,7 @@ use futures::TryStreamExt as _;
 use futures::future::try_join_all;
 use futures::stream;
 use itertools::Itertools as _;
+use jj_core::workspace_store::WorkspaceType;
 use once_cell::sync::OnceCell;
 use thiserror::Error;
 use tracing::instrument;
@@ -119,6 +120,7 @@ use crate::transaction::TransactionCommitError;
 use crate::tree_merge::MergeOptions;
 use crate::view::RenameWorkspaceError;
 use crate::view::View;
+use crate::workspace::WorkspaceLoadError;
 use crate::workspace_store::WorkspaceStore;
 
 #[async_trait(?Send)]
@@ -168,12 +170,16 @@ pub struct ReadonlyRepo {
     change_id_index: OnceCell<Box<dyn ChangeIdIndex>>,
     // TODO: This should eventually become part of the index and not be stored fully in memory.
     view: View,
+    workspace_name: WorkspaceNameBuf,
+    workspace_type: WorkspaceType,
 }
 
 impl Debug for ReadonlyRepo {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
         f.debug_struct("ReadonlyRepo")
             .field("store", &self.loader.store)
+            .field("workspace_name", &self.workspace_name)
+            .field("workspace_type", &self.workspace_type)
             .finish_non_exhaustive()
     }
 }
@@ -200,8 +206,13 @@ impl ReadonlyRepo {
     }
 
     pub fn default_op_heads_store_initializer() -> &'static OpHeadsStoreInitializer<'static> {
-        &|_settings, store_path, root_op_id| {
-            Ok(Box::new(SimpleOpHeadsStore::init(store_path, root_op_id)?))
+        &|_settings, store_path, workspace_name, workspace_type, root_op_id| {
+            Ok(Box::new(SimpleOpHeadsStore::init(
+                store_path,
+                workspace_name,
+                workspace_type,
+                root_op_id,
+            )?))
         }
     }
 
@@ -217,6 +228,8 @@ impl ReadonlyRepo {
     pub async fn init(
         settings: &UserSettings,
         repo_path: &Path,
+        workspace_name: &WorkspaceName,
+        workspace_type: WorkspaceType,
         backend_initializer: &BackendInitializer<'_>,
         signer: Signer,
         workspace_store_initializer: &WorkspaceStoreInitializer<'_>,
@@ -256,8 +269,13 @@ impl ReadonlyRepo {
 
         let op_heads_path = repo_path.join("op_heads");
         fs::create_dir(&op_heads_path).context(&op_heads_path)?;
-        let op_heads_store =
-            op_heads_store_initializer(settings, &op_heads_path, op_store.root_operation_id())?;
+        let op_heads_store = op_heads_store_initializer(
+            settings,
+            &op_heads_path,
+            workspace_name,
+            workspace_type,
+            op_store.root_operation_id(),
+        )?;
         let op_heads_type_path = op_heads_path.join("type");
         fs::write(&op_heads_type_path, op_heads_store.name()).context(&op_heads_type_path)?;
         let op_heads_store: Arc<dyn OpHeadsStore> = Arc::from(op_heads_store);
@@ -277,15 +295,15 @@ impl ReadonlyRepo {
             .context(&submodule_store_type_path)?;
         let submodule_store = Arc::from(submodule_store);
 
-        let loader = RepoLoader {
-            settings: settings.clone(),
+        let loader = RepoLoader::new(
+            settings.clone(),
             store,
             workspace_store,
             op_store,
             op_heads_store,
             index_store,
             submodule_store,
-        };
+        );
 
         let root_operation = loader.root_operation().await;
         let root_view = root_operation
@@ -306,6 +324,8 @@ impl ReadonlyRepo {
             index,
             change_id_index: OnceCell::new(),
             view: root_view,
+            workspace_name: workspace_name.to_owned(),
+            workspace_type,
         }))
     }
 
@@ -323,6 +343,14 @@ impl ReadonlyRepo {
 
     pub fn view(&self) -> &View {
         &self.view
+    }
+
+    pub fn workspace_name(&self) -> &WorkspaceName {
+        &self.workspace_name
+    }
+
+    pub fn workspace_type(&self) -> WorkspaceType {
+        self.workspace_type
     }
 
     pub fn readonly_index(&self) -> &dyn ReadonlyIndex {
@@ -355,13 +383,44 @@ impl ReadonlyRepo {
         Transaction::new(mut_repo, self.settings())
     }
 
-    pub async fn reload_at_head(&self) -> Result<Arc<Self>, RepoLoaderError> {
-        self.loader().load_at_head().await
+    pub async fn reload_at_head(
+        &self
+    ) -> Result<Arc<Self>, RepoLoaderError> {
+        self.loader()
+            .load_at_head(&self.workspace_name, self.workspace_type)
+            .await
     }
 
     #[instrument]
-    pub async fn reload_at(&self, operation: &Operation) -> Result<Arc<Self>, RepoLoaderError> {
-        self.loader().load_at(operation).await
+    pub async fn reload_at(
+        &self,
+        operation: &Operation,
+    ) -> Result<Arc<Self>, RepoLoaderError> {
+        self.loader()
+            .load_at(operation, self.workspace_name(), self.workspace_type())
+            .await
+    }
+
+    /// Returns a new ReadonlyRepo that points to the given workspace.
+    pub async fn for_other_workspace(
+        repo: &Arc<Self>,
+        workspace_name: &WorkspaceName,
+        workspace_type: WorkspaceType,
+    ) -> Result<Arc<Self>, RepoLoaderError> {
+        let repo_loader = RepoLoader {
+            settings: repo.settings().clone(),
+            store: repo.store().clone(),
+            workspace_store: repo.loader().workspace_store().clone(),
+            op_store: repo.op_store().clone(),
+            op_heads_store: repo.op_heads_store().clone(),
+            index_store: repo.index_store().clone(),
+            submodule_store: repo.submodule_store().clone(),
+        };
+        // TODO: XXX:W we should probably NOT clone the operation here, but instead
+        // let the caller pass in the operation they want.
+        repo_loader
+            .load_at(repo.operation(), workspace_name, workspace_type)
+            .await
     }
 }
 
@@ -418,7 +477,7 @@ pub type OpStoreInitializer<'a> =
     + 'a;
 #[rustfmt::skip] // auto-formatted line would exceed the maximum width
 pub type OpHeadsStoreInitializer<'a> = 
-    dyn Fn(&UserSettings, &Path, &OperationId)
+    dyn Fn(&UserSettings, &Path, &WorkspaceName, WorkspaceType, &OperationId)
     -> Result<Box<dyn OpHeadsStore>, BackendInitError>
     + 'a;
 pub type IndexStoreInitializer<'a> =
@@ -734,15 +793,14 @@ impl RepoLoader {
         settings: &UserSettings,
         repo_path: &Path,
         store_factories: &StoreFactories,
-    ) -> Result<Self, StoreLoadError> {
-        let merge_options =
-            MergeOptions::from_settings(settings).map_err(|err| BackendLoadError(err.into()))?;
+    ) -> Result<Self, WorkspaceLoadError> {
+        let merge_options = MergeOptions::from_settings(settings)?;
         let store = Store::new(
             store_factories.load_backend(settings, &repo_path.join("store"))?,
             signer_from_settings(settings)?,
             merge_options,
         );
-        let workspace_store = Arc::from(
+        let workspace_store: Arc<dyn WorkspaceStore> = Arc::from(
             store_factories.load_workspace_store(settings, &repo_path.join("workspace_store"))?,
         );
         let root_op_data = RootOperationData {
@@ -760,15 +818,15 @@ impl RepoLoader {
         let submodule_store = Arc::from(
             store_factories.load_submodule_store(settings, &repo_path.join("submodule_store"))?,
         );
-        Ok(Self {
-            settings: settings.clone(),
+        Ok(Self::new(
+            settings.clone(),
             store,
             workspace_store,
             op_store,
             op_heads_store,
             index_store,
             submodule_store,
-        })
+        ))
     }
 
     pub fn settings(&self) -> &UserSettings {
@@ -799,19 +857,25 @@ impl RepoLoader {
         &self.submodule_store
     }
 
-    pub async fn load_at_head(&self) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+    pub async fn load_at_head(
+        &self,
+        workspace_name: &WorkspaceName,
+        workspace_type: WorkspaceType,
+    ) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
         let op = op_heads_store::resolve_op_heads(
             self.op_heads_store.as_ref(),
             &self.op_store,
+            workspace_name,
+            workspace_type,
             async |op_heads| -> Result<Operation, RepoLoaderError> {
                 assert!(op_heads.len() > 1);
-                let workspace_name = None;
                 let transaction_description = Some("reconcile divergent operations");
                 let transaction_attributes = [];
                 let (merged_repo, _num_rebased) = self
                     .merge_operations(
                         op_heads,
                         workspace_name,
+                        workspace_type,
                         transaction_description,
                         transaction_attributes,
                     )
@@ -821,19 +885,28 @@ impl RepoLoader {
         )
         .await?;
         let view = op.view().await?;
-        self.finish_load(op, view).await
+        self.finish_load(op, view, workspace_name, workspace_type)
+            .await
     }
 
     #[instrument(skip(self))]
-    pub async fn load_at(&self, op: &Operation) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+    pub async fn load_at(
+        &self,
+        op: &Operation,
+        workspace_name: &WorkspaceName,
+        workspace_type: WorkspaceType,
+    ) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
         let view = op.view().await?;
-        self.finish_load(op.clone(), view).await
+        self.finish_load(op.clone(), view, workspace_name, workspace_type)
+            .await
     }
 
     pub fn create_from(
         &self,
         operation: Operation,
         view: View,
+        workspace_name: &WorkspaceName,
+        workspace_type: WorkspaceType,
         index: Box<dyn ReadonlyIndex>,
     ) -> Arc<ReadonlyRepo> {
         let repo = ReadonlyRepo {
@@ -842,6 +915,8 @@ impl RepoLoader {
             index,
             change_id_index: OnceCell::new(),
             view,
+            workspace_name: workspace_name.to_owned(),
+            workspace_type,
         };
         Arc::new(repo)
     }
@@ -869,7 +944,8 @@ impl RepoLoader {
     pub async fn merge_operations(
         &self,
         operations: Vec<Operation>,
-        workspace_name: Option<&WorkspaceName>,
+        workspace_name: &WorkspaceName,
+        workspace_type: WorkspaceType,
         transaction_description: Option<&str>,
         transaction_attributes: impl IntoIterator<Item = (String, String)>,
     ) -> Result<(Arc<ReadonlyRepo>, usize), RepoLoaderError> {
@@ -881,11 +957,13 @@ impl RepoLoader {
         match &operations[..] {
             [] => {
                 let root_operation = self.root_operation().await;
-                let root_repo = self.load_at(&root_operation).await?;
+                let root_repo = self
+                    .load_at(&root_operation, workspace_name, workspace_type)
+                    .await?;
                 return Ok((root_repo, 0));
             }
             [op] => {
-                let repo = self.load_at(op).await?;
+                let repo = self.load_at(op, workspace_name, workspace_type).await?;
                 return Ok((repo, 0));
             }
             _ => {}
@@ -902,10 +980,11 @@ impl RepoLoader {
         // the arguments to that method.
         let mut closest_common_ancestors: HashMap<_, Vec<Operation>> = HashMap::new();
 
-        let mut tx = self.load_at(&operations[0]).await?.start_transaction();
-        if let Some(workspace_name) = workspace_name {
-            tx.set_workspace_name(workspace_name);
-        }
+        let mut tx = self
+            .load_at(&operations[0], workspace_name, workspace_type)
+            .await?
+            .start_transaction();
+        tx.set_workspace_name(workspace_name);
         for (key, value) in transaction_attributes {
             tx.set_attribute(key, value);
         }
@@ -975,19 +1054,28 @@ impl RepoLoader {
             stack.push((index, operations, tx));
             // Then we push the ancestor ops to the stack so that we can merge them first.
             // We need to start a separate transaction for this.
-            let new_tx = self.load_at(&ancestor_ops[0]).await?.start_transaction();
+            let new_tx = self
+                .load_at(&ancestor_ops[0], workspace_name, workspace_type)
+                .await?
+                .start_transaction();
             stack.push((1, ancestor_ops.clone(), new_tx));
         }
 
         // We are all done! The result should be in the cache.
         let merged_operation = merged_operations.get(&operation_ids).cloned().unwrap();
-        Ok((self.load_at(&merged_operation).await?, num_rebased))
+        Ok((
+            self.load_at(&merged_operation, workspace_name, workspace_type)
+                .await?,
+            num_rebased,
+        ))
     }
 
     async fn finish_load(
         &self,
         operation: Operation,
         view: View,
+        workspace_name: &WorkspaceName,
+        workspace_type: WorkspaceType,
     ) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
         let index = self
             .index_store
@@ -999,6 +1087,8 @@ impl RepoLoader {
             index,
             change_id_index: OnceCell::new(),
             view,
+            workspace_name: workspace_name.to_owned(),
+            workspace_type,
         };
         Ok(Arc::new(repo))
     }
@@ -2036,6 +2126,24 @@ impl MutableRepo {
     pub fn set_view(&mut self, data: op_store::View) {
         let head_normalized = false;
         self.view.set_view(data, head_normalized);
+    }
+
+    pub async fn set_view_for_new_independent_workspace(&mut self, workspace_name: &WorkspaceName, new_wc_commit: &Commit) -> BackendResult<()> {
+        let other_wc_commits = self.view.wc_commit_ids().keys().cloned().collect_vec();
+        let previous_heads = self.view.heads().clone();
+        for workspace in other_wc_commits {
+            if workspace != workspace_name {
+                self.view.remove_workspace(&workspace);
+            }
+        }
+        self.add_head(new_wc_commit).await?;
+        for head in previous_heads {
+            if head != *new_wc_commit.id() {
+                self.remove_head(&head);
+            }
+        }
+        self.view.set_wc_commit(workspace_name.to_owned(), new_wc_commit.id().clone());
+        Ok(())
     }
 
     pub async fn merge(
