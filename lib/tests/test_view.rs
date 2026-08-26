@@ -738,6 +738,7 @@ fn test_merge_three_operations() -> TestResult {
 
     let test_repo = TestRepo::init();
     let workspace_name = test_repo.repo.workspace_name();
+    let workspace_type = test_repo.repo.workspace_type();
 
     let mut tx_a = test_repo.repo.start_transaction();
     let commit_k = write_random_commit(tx_a.repo_mut());
@@ -778,6 +779,7 @@ fn test_merge_three_operations() -> TestResult {
                 repo_d.operation().clone(),
             ],
             workspace_name,
+            workspace_type,
             Some("merge B, C, D"),
             [],
         )
@@ -887,6 +889,7 @@ fn test_merge_operations_back_to_back_criss_cross() -> TestResult {
 
     let test_repo = TestRepo::init();
     let workspace_name = test_repo.repo.workspace_name();
+    let workspace_type = test_repo.repo.workspace_type();
 
     let mut tx_a = test_repo.repo.start_transaction();
     let commit_k = write_random_commit(tx_a.repo_mut());
@@ -919,6 +922,7 @@ fn test_merge_operations_back_to_back_criss_cross() -> TestResult {
         .merge_operations(
             vec![repo_b.operation().clone(), repo_c.operation().clone()],
             workspace_name,
+            workspace_type,
             Some("merge B, C"),
             [],
         )
@@ -930,6 +934,7 @@ fn test_merge_operations_back_to_back_criss_cross() -> TestResult {
         .merge_operations(
             vec![repo_b.operation().clone(), repo_c.operation().clone()],
             workspace_name,
+            workspace_type,
             Some("merge B, C again, concurrently"),
             [],
         )
@@ -981,6 +986,7 @@ fn test_merge_operations_back_to_back_criss_cross() -> TestResult {
         .merge_operations(
             vec![repo_d.operation().clone(), repo_e.operation().clone()],
             workspace_name,
+            workspace_type,
             Some("merge D, E"),
             [],
         )
@@ -992,6 +998,7 @@ fn test_merge_operations_back_to_back_criss_cross() -> TestResult {
         .merge_operations(
             vec![repo_d.operation().clone(), repo_e.operation().clone()],
             workspace_name,
+            workspace_type,
             Some("merge D, E again, concurrently"),
             [],
         )
@@ -1008,6 +1015,7 @@ fn test_merge_operations_back_to_back_criss_cross() -> TestResult {
         .merge_operations(
             vec![repo_f.operation().clone(), repo_g.operation().clone()],
             workspace_name,
+            workspace_type,
             Some("merge F, G"),
             [],
         )

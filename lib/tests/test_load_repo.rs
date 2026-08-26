@@ -24,6 +24,7 @@ fn test_load_at_operation() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
     let workspace_name = repo.workspace_name();
+    let workspace_type = repo.workspace_type();
 
     let mut tx = repo.start_transaction();
     let commit = write_random_commit(tx.repo_mut());
@@ -40,7 +41,9 @@ fn test_load_at_operation() -> TestResult {
         test_repo.repo_path(),
         &test_repo.env.default_backend_factories(),
     )?;
-    let head_repo = loader.load_at_head(workspace_name).block_on()?;
+    let head_repo = loader
+        .load_at_head(workspace_name, workspace_type)
+        .block_on()?;
     assert!(!head_repo.view().heads().contains(commit.id()));
 
     // If we load the repo at the previous operation, we should see the commit since
@@ -51,7 +54,7 @@ fn test_load_at_operation() -> TestResult {
         &test_repo.env.default_backend_factories(),
     )?;
     let old_repo = loader
-        .load_at(repo.operation(), workspace_name)
+        .load_at(repo.operation(), workspace_name, workspace_type)
         .block_on()?;
     assert!(old_repo.view().heads().contains(commit.id()));
     Ok(())

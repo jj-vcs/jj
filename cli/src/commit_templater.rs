@@ -90,6 +90,8 @@ use jj_lib::template_parser::TemplateParseResult;
 use jj_lib::trailer;
 use jj_lib::trailer::Trailer;
 use jj_lib::ui_path::RepoPathUiConverter;
+use jj_lib::workspace_store::WorkspaceStoreError;
+use jj_lib::workspace_store::WorkspaceType;
 use once_cell::unsync::OnceCell;
 use pollster::FutureExt as _;
 use serde::Serialize as _;
@@ -1908,7 +1910,30 @@ fn builtin_workspace_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'rep
             Ok(out_property.into_dyn_wrapped())
         },
     );
+    // TODO: XXX:W
+    // map.insert(
+    //     "workspace_type",
+    //     |language, _diagnostics, _build_ctx, self_property, function| {
+    //         function.expect_no_arguments()?;
+    //         let workspace_store = language.repo.base_repo().loader().workspace_store();
+    //         let out_property = self_property.map(|ws_ref| {
+    //             describe_workspace_type(workspace_store.get_workspace_type(&ws_ref.name))
+    //         });
+    //         Ok(out_property.into_dyn_wrapped())
+    //     },
+    // );
     map
+}
+
+#[expect(unused)]
+fn describe_workspace_type(
+    value: Result<Option<WorkspaceType>, WorkspaceStoreError>,
+) -> &'static str {
+    match value {
+        Ok(Some(WorkspaceType::Regular)) => "regular",
+        Ok(Some(WorkspaceType::Independent)) => "independent",
+        _ => "", // absent
+    }
 }
 
 #[expect(clippy::ref_option)]

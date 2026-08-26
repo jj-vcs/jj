@@ -93,6 +93,7 @@ fn test_walk_predecessors_basic_legacy_op() -> TestResult {
     let test_repo = TestRepo::init();
     let repo0 = test_repo.repo;
     let workspace_name = repo0.workspace_name();
+    let workspace_type = repo0.workspace_type();
     let loader = repo0.loader();
 
     let mut tx = repo0.start_transaction();
@@ -114,7 +115,9 @@ fn test_walk_predecessors_basic_legacy_op() -> TestResult {
         data.commit_predecessors = None;
         let op_id = loader.op_store().write_operation(&data).block_on()?;
         let op = loader.load_operation(&op_id).block_on()?;
-        loader.load_at(&op, workspace_name).block_on()?
+        loader
+            .load_at(&op, workspace_name, workspace_type)
+            .block_on()?
     };
 
     let entries = collect_predecessors(&repo2, commit2.id());
@@ -435,6 +438,7 @@ fn test_walk_predecessors_direct_cycle_within_op() -> TestResult {
     let test_repo = TestRepo::init();
     let repo0 = test_repo.repo;
     let workspace_name = repo0.workspace_name();
+    let workspace_type = repo0.workspace_type();
     let loader = repo0.loader();
 
     let mut tx = repo0.start_transaction();
@@ -448,7 +452,9 @@ fn test_walk_predecessors_direct_cycle_within_op() -> TestResult {
         });
         let op_id = loader.op_store().write_operation(&data).block_on()?;
         let op = loader.load_operation(&op_id).block_on()?;
-        loader.load_at(&op, workspace_name).block_on()?
+        loader
+            .load_at(&op, workspace_name, workspace_type)
+            .block_on()?
     };
     assert_matches!(
         walk_predecessors(&repo1, slice::from_ref(commit1.id()))
@@ -465,6 +471,7 @@ fn test_walk_predecessors_indirect_cycle_within_op() -> TestResult {
     let test_repo = TestRepo::init();
     let repo0 = test_repo.repo;
     let workspace_name = repo0.workspace_name();
+    let workspace_type = repo0.workspace_type();
     let loader = repo0.loader();
 
     let mut tx = repo0.start_transaction();
@@ -482,7 +489,9 @@ fn test_walk_predecessors_indirect_cycle_within_op() -> TestResult {
         });
         let op_id = loader.op_store().write_operation(&data).block_on()?;
         let op = loader.load_operation(&op_id).block_on()?;
-        loader.load_at(&op, workspace_name).block_on()?
+        loader
+            .load_at(&op, workspace_name, workspace_type)
+            .block_on()?
     };
     assert_matches!(
         walk_predecessors(&repo1, slice::from_ref(commit3.id()))

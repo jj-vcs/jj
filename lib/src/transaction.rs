@@ -16,6 +16,7 @@
 
 use std::sync::Arc;
 
+use jj_core::workspace_store::WorkspaceType;
 use thiserror::Error;
 
 use crate::backend::Timestamp;
@@ -107,10 +108,18 @@ impl Transaction {
     ) -> Result<(), RepoLoaderError> {
         let repo_loader = self.base_repo().loader();
         let base_op_repo = repo_loader
-            .load_at(base_op, self.base_repo().workspace_name())
+            .load_at(
+                base_op,
+                self.base_repo().workspace_name(),
+                self.base_repo().workspace_type(),
+            )
             .await?;
         let other_repo = repo_loader
-            .load_at(other_op, self.base_repo().workspace_name())
+            .load_at(
+                other_op,
+                self.base_repo().workspace_name(),
+                self.base_repo().workspace_type(),
+            )
             .await?;
         self.parent_ops.push(other_op.clone());
         self.repo_mut().merge(&base_op_repo, &other_repo).await?;
@@ -177,6 +186,7 @@ impl Transaction {
             operation,
             view,
             base_repo.workspace_name(),
+            base_repo.workspace_type(),
             index,
         );
         Ok(unpublished)
@@ -227,11 +237,12 @@ impl UnpublishedOperation {
         operation: Operation,
         view: View,
         workspace_name: &WorkspaceName,
+        workspace_type: WorkspaceType,
         index: Box<dyn ReadonlyIndex>,
     ) -> Self {
         Self {
             op_heads_store: repo_loader.op_heads_store().clone(),
-            repo: repo_loader.create_from(operation, view, workspace_name, index),
+            repo: repo_loader.create_from(operation, view, workspace_name, workspace_type, index),
         }
     }
 
@@ -240,9 +251,17 @@ impl UnpublishedOperation {
     }
 
     pub async fn publish(self) -> Result<Arc<ReadonlyRepo>, TransactionCommitError> {
-        let _lock = self.op_heads_store.lock().await?;
+        let _lock = self
+            .op_heads_store
+            .lock(self.repo.workspace_name(), self.repo.workspace_type())
+            .await?;
         self.op_heads_store
-            .update_op_heads(self.operation().parent_ids(), self.operation().id())
+            .update_op_heads(
+                self.repo.workspace_name(),
+                self.repo.workspace_type(),
+                self.operation().parent_ids(),
+                self.operation().id(),
+            )
             .await?;
         Ok(self.repo)
     }

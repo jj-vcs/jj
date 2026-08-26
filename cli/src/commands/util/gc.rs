@@ -64,6 +64,8 @@ pub async fn cmd_util_gc(
         .await?;
     #[cfg(feature = "git")]
     if let Ok(git_backend) = jj_lib::git::get_git_backend(repo.store()) {
+        // TODO: XXX:W The index we pass here should be a union of the indices of the
+        // global opheads + the opheads of all independent workspaces.
         git_backend.gc(repo.index(), keep_newer)?;
     }
     Ok(())

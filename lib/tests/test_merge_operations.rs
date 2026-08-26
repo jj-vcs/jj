@@ -64,6 +64,7 @@ fn test_merge_operations_deep_criss_cross() -> TestResult {
 fn run_merge_operations_deep_criss_cross(num_levels: usize) -> TestResult {
     let test_repo = TestRepo::init();
     let workspace_name = test_repo.repo.workspace_name();
+    let workspace_type = test_repo.repo.workspace_type();
     let repo_loader = test_repo.repo.loader();
 
     let mut tx_a = test_repo.repo.start_transaction();
@@ -120,6 +121,7 @@ fn run_merge_operations_deep_criss_cross(num_levels: usize) -> TestResult {
         .merge_operations(
             vec![left_op.clone(), right_op.clone()],
             workspace_name,
+            workspace_type,
             Some("merge deep criss-cross"),
             transaction_attributes,
         )

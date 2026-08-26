@@ -30,6 +30,7 @@ use std::thread;
 
 use gix::remote::Direction;
 use itertools::Itertools as _;
+use jj_core::workspace_store::WorkspaceType;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
@@ -185,6 +186,7 @@ fn init_external_git_repo(test_repo: &TestRepo, name: &Path) -> TestResult<Arc<R
         settings,
         &repo_dir,
         WorkspaceName::DEFAULT,
+        WorkspaceType::Regular,
         &|settings, store_path| {
             let backend = GitBackend::init_external(settings, store_path, git_repo_path)?;
             Ok(Box::new(backend))
@@ -2429,6 +2431,7 @@ impl GitRepoData {
             &settings,
             &jj_repo_dir,
             WorkspaceName::DEFAULT,
+            WorkspaceType::Regular,
             &|settings, store_path| {
                 Ok(Box::new(GitBackend::init_external(
                     settings,
@@ -2589,12 +2592,14 @@ fn test_import_export_head_bare_and_worktree() -> TestResult {
         &workspace_root,
         Some(&commit1_oid.to_string()),
     );
+
     let (workspace, repo) = Workspace::init_workspace_with_existing_repo(
         &workspace_root,
         test_repo.repo_path(),
         repo,
         &*default_working_copy_factory(),
         "wt".into(),
+        WorkspaceType::Regular,
     )
     .block_on()?;
     let work_git_repo = get_git_backend(&repo).open_git_repo_at_workdir(&workspace_root)?;
@@ -4072,6 +4077,7 @@ fn test_update_intent_to_add_drops_stale_cache_tree() -> TestResult {
         &settings,
         &workspace_root,
         WorkspaceName::DEFAULT,
+        WorkspaceType::Regular,
         &workspace_root.join(".git"),
     )
     .block_on()?;
@@ -4162,6 +4168,7 @@ fn test_init() -> TestResult {
         &settings,
         &jj_repo_dir,
         WorkspaceName::DEFAULT,
+        WorkspaceType::Regular,
         &|settings, store_path| {
             Ok(Box::new(GitBackend::init_external(
                 settings,
@@ -5270,6 +5277,7 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
         settings,
         &jj_repo_dir,
         WorkspaceName::DEFAULT,
+        WorkspaceType::Regular,
         &|settings, store_path| {
             Ok(Box::new(GitBackend::init_external(
                 settings,
@@ -6543,6 +6551,7 @@ fn test_rewrite_imported_commit() -> TestResult {
     let test_repo = TestRepo::init_with_backend_and_settings(
         TestRepoBackend::Git,
         WorkspaceName::DEFAULT,
+        WorkspaceType::Regular,
         &user_settings_without_change_id(),
     );
     let repo = &test_repo.repo;
