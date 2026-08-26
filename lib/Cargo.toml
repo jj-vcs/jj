@@ -76,7 +76,6 @@ num_cpus = { workspace = true }
 pretty_assertions = { workspace = true }
 proptest = { workspace = true }
 rustversion = { workspace = true }
-sapling-renderdag = { workspace = true }
 test-case = { workspace = true }
 testutils = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
