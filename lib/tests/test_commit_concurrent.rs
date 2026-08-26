@@ -97,7 +97,8 @@ fn test_commit_parallel_instances(backend: TestRepoBackend) -> TestResult {
     thread::scope(|s| {
         for _ in 0..num_threads {
             let settings = settings.clone();
-            let repo = test_env.load_repo_at_head(&settings, test_workspace.repo_path());
+            let repo = test_env
+                .load_workspace_at_head(&settings, test_workspace.workspace.workspace_root());
             s.spawn(move || {
                 let mut tx = repo.start_transaction();
                 write_random_commit(tx.repo_mut());
@@ -107,7 +108,8 @@ fn test_commit_parallel_instances(backend: TestRepoBackend) -> TestResult {
     });
     // One commit per thread plus the commit from the initial working-copy commit on
     // top of the root commit
-    let repo = test_env.load_repo_at_head(&settings, test_workspace.repo_path());
+    let repo =
+        test_env.load_workspace_at_head(&settings, test_workspace.workspace.workspace_root());
     assert_eq!(repo.view().heads().len(), num_threads + 1);
 
     // One additional operation for the root operation, one for checking out the

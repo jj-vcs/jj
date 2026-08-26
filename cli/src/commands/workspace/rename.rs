@@ -13,8 +13,6 @@
 // limitations under the License.
 
 use jj_lib::ref_name::WorkspaceNameBuf;
-use jj_lib::workspace_store::SimpleWorkspaceStore;
-use jj_lib::workspace_store::WorkspaceStore as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -60,7 +58,7 @@ pub async fn cmd_workspace_rename(
         )));
     }
 
-    let workspace_store = SimpleWorkspaceStore::load(workspace_command.repo_path())?;
+    let workspace_store = workspace_command.repo().loader().workspace_store().clone();
 
     let mut tx = workspace_command.start_transaction().into_inner();
     let (mut locked_ws, _wc_commit) = workspace_command.start_working_copy_mutation().await?;
