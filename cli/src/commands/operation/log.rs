@@ -121,8 +121,7 @@ pub async fn cmd_op_log(
         let workspace = command.load_workspace()?;
         let workspace_env = command.workspace_environment(ui, &workspace)?;
         let repo_loader = workspace.repo_loader();
-        let current_op =
-            command.resolve_operation(ui, workspace.repo_loader(), workspace.workspace_name())?;
+        let current_op = command.resolve_operation(ui, workspace.repo_loader())?;
         do_op_log(ui, &workspace_env, repo_loader, &current_op, args).await
     }
 }
@@ -173,14 +172,12 @@ async fn do_op_log(
                                op: &Operation,
                                with_content_format: &LogContentFormat| {
             let parent_ops = op.parents().await?;
-            let workspace_name = None;
             let transaction_description = None;
             let command_args = [];
             let merged_parent_op = merge_operations(
                 None,
                 repo_loader,
                 parent_ops.clone(),
-                workspace_name,
                 transaction_description,
                 &command_args,
             )

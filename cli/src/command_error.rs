@@ -358,6 +358,9 @@ impl From<WorkspaceInitError> for CommandError {
             WorkspaceInitError::OpHeadsStore(err) => {
                 user_error_with_message("Failed to record initial operation", err)
             }
+            WorkspaceInitError::RepoLoader(err) => {
+                internal_error_with_message("Failed to load the repo", err)
+            }
             WorkspaceInitError::WorkspaceStore(err) => {
                 internal_error_with_message("Failed to record workspace path", err)
             }
