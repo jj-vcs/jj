@@ -7517,6 +7517,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
+<p><code>jj arrange</code> now scrolls the viewport to keep the selected commit visible
+  when the commit stack is taller than the terminal.
+  <a href="https://github.com/jj-vcs/jj/issues/9033">#9033</a>.</p>
+</li>
+<li>
 <p>The default pager flags now include <code>-K</code> (<code>--quit-on-intr</code>), so pressing
   Ctrl+C in <code>less</code> exits cleanly instead of leaving the terminal in a
   corrupted state (raw mode, visible escape sequences, broken input).</p>
