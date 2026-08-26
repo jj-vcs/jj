@@ -316,9 +316,11 @@ fn test_log_default_without_working_copy() {
 
     work_dir.run_jj(["workspace", "forget"]).success();
     let output = work_dir.run_jj(["log"]);
-    insta::assert_snapshot!(output, @"
-    ◆  zzzzzzzz root() 00000000
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: The workspace at $TEST_ENV/repo has been forgetten
     [EOF]
+    [exit status: 1]
     ");
 }
 
