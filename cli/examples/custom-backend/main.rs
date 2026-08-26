@@ -41,6 +41,7 @@ use jj_lib::backend::Tree;
 use jj_lib::backend::TreeId;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::index::Index;
+use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::StoreFactories;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
@@ -48,6 +49,7 @@ use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
 use jj_lib::workspace::Workspace;
 use jj_lib::workspace::WorkspaceInitError;
+use jj_lib::workspace::WorkspaceType;
 
 #[derive(clap::Parser, Clone, Debug)]
 enum CustomCommand {
@@ -79,6 +81,8 @@ async fn run_custom_command(
             Workspace::init_with_backend(
                 &settings,
                 wc_path,
+                WorkspaceName::DEFAULT,
+                WorkspaceType::Regular,
                 &|settings, store_path| Ok(Box::new(JitBackend::init(settings, store_path)?)),
                 Signer::from_settings(&settings).map_err(WorkspaceInitError::SignInit)?,
             )
