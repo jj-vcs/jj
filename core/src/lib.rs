@@ -27,6 +27,7 @@
 // - https://github.com/rust-lang/rust/issues/54363
 extern crate self as jj_core;
 
+pub mod conflict_labels;
 pub mod content_hash;
 pub mod dag_walk;
 pub mod dag_walk_async;

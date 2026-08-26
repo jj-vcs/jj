@@ -26,7 +26,7 @@ pub mod commit;
 pub mod commit_builder;
 pub mod config;
 mod config_resolver;
-pub mod conflict_labels;
+pub use jj_core::conflict_labels;
 pub mod conflicts;
 pub use jj_core::content_hash;
 pub mod converge;
