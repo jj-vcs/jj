@@ -87,6 +87,7 @@ use jj_lib::store::Store;
 use jj_lib::trailer;
 use jj_lib::trailer::Trailer;
 use jj_lib::ui_path::RepoPathUiConverter;
+use jj_lib::workspace_store::WorkspaceType;
 use once_cell::unsync::OnceCell;
 use pollster::FutureExt as _;
 use serde::Serialize as _;
@@ -1817,6 +1818,21 @@ impl WorkspaceRef {
             .map(|workspace_path| repo_path.join(workspace_path))
             .and_then(|path| dunce::canonicalize(path).ok());
         Ok(path)
+    }
+
+    #[expect(unused)]
+    fn workspace_type(
+        &self,
+        path_converter: &RepoPathUiConverter,
+    ) -> Result<Option<WorkspaceType>, TemplatePropertyError> {
+        let RepoPathUiConverter::Fs { cwd: _, base } = path_converter;
+        // TODO: Stop reconstructing the workspace loader here once we've
+        // decided which object should own the workspace store.
+        let workspace_loader = default_workspace_loader_factory().create(base)?;
+        let repo_path = workspace_loader.repo_path().to_owned();
+        let workspace_store = default_workspace_store_factory().load(&repo_path)?;
+        let workspace_type = workspace_store.get_workspace_type(self.name())?;
+        Ok(workspace_type)
     }
 }
 

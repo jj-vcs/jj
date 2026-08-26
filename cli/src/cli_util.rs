@@ -57,6 +57,7 @@ use indexmap::IndexSet;
 use indoc::indoc;
 use indoc::writedoc;
 use itertools::Itertools as _;
+use jj_core::workspace_store::WorkspaceType;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
@@ -540,8 +541,7 @@ impl CommandHelper {
         workspace: Workspace,
         mut env: WorkspaceCommandEnvironment,
     ) -> Result<WorkspaceCommandHelper, CommandError> {
-        let op_head =
-            self.resolve_operation(ui, workspace.repo_loader(), workspace.workspace_name())?;
+        let op_head = self.resolve_operation(ui, workspace.repo_loader())?;
         let repo = workspace.repo_loader().load_at(&op_head).await?;
         if let Err(err) =
             revset_util::try_resolve_trunk_alias(repo.as_ref(), &env.revset_parse_context())
@@ -592,6 +592,10 @@ impl CommandHelper {
             .workspace_store_factory
             .load(repo_path)
             .map_err(|err| match err {
+                WorkspaceStoreError::StoreNotFound(path) => internal_error(format!(
+                    "There is no workspace in this repo at path {}",
+                    path.display()
+                )),
                 WorkspaceStoreError::Other(err) => internal_error_with_message(
                     "The repository appears broken or inaccessible",
                     err,
@@ -828,7 +832,6 @@ impl CommandHelper {
         &self,
         ui: &Ui,
         repo_loader: &RepoLoader,
-        workspace_name: &WorkspaceName,
     ) -> Result<Operation, CommandError> {
         if let Some(op_str) = &self.data.global_args.at_operation {
             Ok(op_walk::resolve_op_for_load(repo_loader, op_str).block_on()?)
@@ -836,6 +839,8 @@ impl CommandHelper {
             op_heads_store::resolve_op_heads(
                 repo_loader.op_heads_store().as_ref(),
                 repo_loader.op_store(),
+                repo_loader.workspace_name(),
+                repo_loader.workspace_type(),
                 async |op_heads| {
                     writeln!(
                         ui.status(),
@@ -847,7 +852,6 @@ impl CommandHelper {
                         Some(ui),
                         repo_loader,
                         op_heads,
-                        Some(workspace_name),
                         Some(transaction_description),
                         &self.data.string_args,
                     )
@@ -883,18 +887,12 @@ pub async fn merge_operations(
     ui: Option<&Ui>,
     repo_loader: &RepoLoader,
     operations: Vec<Operation>,
-    workspace_name: Option<&WorkspaceName>,
     transaction_description: Option<&str>,
     command_args: &[String],
 ) -> Result<Operation, CommandError> {
     let transaction_attributes = command_args_to_transaction_attribute(command_args);
     let (merged_repo, num_rebased) = repo_loader
-        .merge_operations(
-            operations,
-            workspace_name,
-            transaction_description,
-            transaction_attributes,
-        )
+        .merge_operations(operations, transaction_description, transaction_attributes)
         .await?;
     if let Some(ui) = ui
         && num_rebased > 0
@@ -1604,6 +1602,10 @@ to the current parents may contain changes from multiple commits.
 
     pub fn workspace_name(&self) -> &WorkspaceName {
         self.workspace.workspace_name()
+    }
+
+    pub fn workspace_type(&self) -> WorkspaceType {
+        self.workspace.workspace_type()
     }
 
     pub fn get_wc_commit_id(&self) -> Option<&CommitId> {
@@ -2953,6 +2955,7 @@ jj git init",
                 err,
             )
         }
+        WorkspaceLoadError::WorkspaceNotInRepo(_) => user_error(err),
         WorkspaceLoadError::StoreLoadError(
             err @ (StoreLoadError::ReadError { .. } | StoreLoadError::Backend(_)),
         ) => internal_error_with_message("The repository appears broken or inaccessible", err),
@@ -2961,7 +2964,10 @@ jj git init",
             internal_error_with_message("The repository appears broken or inaccessible", err)
         }
         WorkspaceLoadError::WorkingCopyState(err) => internal_error(err),
-        WorkspaceLoadError::DecodeRepoPath(_) | WorkspaceLoadError::Path(_) => user_error(err),
+        WorkspaceLoadError::ConfigGetError(_) => internal_error(err),
+        WorkspaceLoadError::SignInitError(_) => internal_error(err),
+        WorkspaceLoadError::DecodeRepoPath(_) => user_error(err),
+        WorkspaceLoadError::Path(_) => user_error(err),
     }
 }
 

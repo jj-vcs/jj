@@ -42,6 +42,7 @@ fn test_load_at_operation() -> TestResult {
         Arc::from(default_workspace_store_factory().load(test_repo.repo_path())?);
     let loader = RepoLoader::init_from_file_system(
         &settings,
+        test_repo.env.root(),
         test_repo.repo_path(),
         workspace_store.clone(),
         &test_repo.env.default_backend_factories(),
@@ -53,6 +54,7 @@ fn test_load_at_operation() -> TestResult {
     // it has not been removed yet
     let loader = RepoLoader::init_from_file_system(
         &settings,
+        test_repo.env.root(),
         test_repo.repo_path(),
         workspace_store,
         &test_repo.env.default_backend_factories(),
