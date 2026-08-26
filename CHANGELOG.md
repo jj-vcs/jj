@@ -35,6 +35,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* Revision suggestions in error hints are now limited to five names, followed by
+  the number of additional matches, instead of printing every similar bookmark
+  or tag name. [#8017](https://github.com/jj-vcs/jj/issues/8017).
+
 * `jj arrange` now scrolls the viewport to keep the selected commit visible
   when the commit stack is taller than the terminal.
   [#9033](https://github.com/jj-vcs/jj/issues/9033).

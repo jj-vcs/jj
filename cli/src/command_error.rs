@@ -224,14 +224,39 @@ pub fn internal_error_with_message(
     CommandError::with_message(CommandErrorKind::Internal, message, source)
 }
 
-fn format_similarity_hint<S: AsRef<str>>(candidates: &[S]) -> Option<String> {
+const MAX_REVISION_HINT_CANDIDATES: usize = 5;
+
+fn format_similarity_hint_with_limit<S: AsRef<str>>(
+    candidates: &[S],
+    max_candidates: usize,
+) -> Option<String> {
     match candidates {
         [] => None,
         names => {
-            let quoted_names = names.iter().map(|s| format!("`{}`", s.as_ref())).join(", ");
-            Some(format!("Did you mean {quoted_names}?"))
+            let quoted_names = names
+                .iter()
+                .take(max_candidates)
+                .map(|s| format!("`{}`", s.as_ref()))
+                .join(", ");
+            let omitted_count = names.len().saturating_sub(max_candidates);
+            if omitted_count == 0 {
+                Some(format!("Did you mean {quoted_names}?"))
+            } else {
+                let noun = if omitted_count == 1 {
+                    "other"
+                } else {
+                    "others"
+                };
+                Some(format!(
+                    "Did you mean {quoted_names}, or {omitted_count} {noun}?"
+                ))
+            }
         }
     }
+}
+
+fn format_similarity_hint<S: AsRef<str>>(candidates: &[S]) -> Option<String> {
+    format_similarity_hint_with_limit(candidates, candidates.len())
 }
 
 impl From<io::Error> for CommandError {
@@ -925,7 +950,9 @@ fn revset_resolution_error_hints(err: &RevsetResolutionError) -> Vec<String> {
         RevsetResolutionError::NoSuchRevision {
             name: _,
             candidates,
-        } => format_similarity_hint(candidates).into_iter().collect(),
+        } => format_similarity_hint_with_limit(candidates, MAX_REVISION_HINT_CANDIDATES)
+            .into_iter()
+            .collect(),
         RevsetResolutionError::DivergentChangeId {
             symbol,
             visible_targets,

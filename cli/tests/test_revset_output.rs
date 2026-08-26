@@ -447,6 +447,48 @@ fn test_function_name_hint() {
 }
 
 #[test]
+fn test_revision_name_hint_is_truncated() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let evaluate = || work_dir.run_jj(["log", "-r", "feature-branch"]);
+
+    for suffix in 0..5 {
+        let name = format!("feature-branch-{suffix}");
+        work_dir.run_jj(["bookmark", "create", &name]).success();
+    }
+    insta::assert_snapshot!(evaluate(), @"
+    ------- stderr -------
+    Error: Revision `feature-branch` doesn't exist
+    Hint: Did you mean `feature-branch-0`, `feature-branch-1`, `feature-branch-2`, `feature-branch-3`, `feature-branch-4`?
+    [EOF]
+    [exit status: 1]
+    ");
+
+    work_dir
+        .run_jj(["bookmark", "create", "feature-branch-5"])
+        .success();
+    insta::assert_snapshot!(evaluate(), @"
+    ------- stderr -------
+    Error: Revision `feature-branch` doesn't exist
+    Hint: Did you mean `feature-branch-0`, `feature-branch-1`, `feature-branch-2`, `feature-branch-3`, `feature-branch-4`, or 1 other?
+    [EOF]
+    [exit status: 1]
+    ");
+
+    work_dir
+        .run_jj(["bookmark", "create", "feature-branch-6", "feature-branch-7"])
+        .success();
+    insta::assert_snapshot!(evaluate(), @"
+    ------- stderr -------
+    Error: Revision `feature-branch` doesn't exist
+    Hint: Did you mean `feature-branch-0`, `feature-branch-1`, `feature-branch-2`, `feature-branch-3`, `feature-branch-4`, or 3 others?
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
 fn test_bad_symbol_or_argument_should_not_be_optimized_out() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
