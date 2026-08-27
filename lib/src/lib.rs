@@ -88,6 +88,7 @@ pub mod secret_backend;
 pub mod secure_config;
 pub mod settings;
 pub mod signing;
+use jj_core::symbol_util;
 pub mod tree_merge;
 // TODO: This file is mostly used for testing, whenever we no longer require it
 // in the lib it should be moved to the examples (e.g

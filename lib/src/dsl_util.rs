@@ -14,7 +14,6 @@
 
 //! Domain-specific language helpers.
 
-use std::ascii;
 use std::collections::HashMap;
 use std::fmt;
 use std::slice;
@@ -23,6 +22,9 @@ use itertools::Itertools as _;
 use pest::RuleType;
 use pest::iterators::Pair;
 use pest::iterators::Pairs;
+
+pub use crate::symbol_util::escape_string;
+use crate::symbol_util::unescape_char;
 
 /// Manages diagnostic messages emitted during parsing.
 ///
@@ -447,49 +449,13 @@ impl<R: RuleType> StringLiteralParser<R> {
             if part.as_rule() == self.content_rule {
                 result.push_str(part.as_str());
             } else if part.as_rule() == self.escape_rule {
-                match &part.as_str()[1..] {
-                    "\"" => result.push('"'),
-                    "\\" => result.push('\\'),
-                    "t" => result.push('\t'),
-                    "r" => result.push('\r'),
-                    "n" => result.push('\n'),
-                    "0" => result.push('\0'),
-                    "e" => result.push('\x1b'),
-                    hex if hex.starts_with('x') => {
-                        result.push(char::from(
-                            u8::from_str_radix(&hex[1..], 16).expect("hex characters"),
-                        ));
-                    }
-                    char => panic!("invalid escape: \\{char:?}"),
-                }
+                result.push(unescape_char(part.as_str()));
             } else {
                 panic!("unexpected part of string: {part:?}");
             }
         }
         result
     }
-}
-
-/// Escape special characters in the input
-pub fn escape_string(unescaped: &str) -> String {
-    let mut escaped = String::with_capacity(unescaped.len());
-    for c in unescaped.chars() {
-        match c {
-            '"' => escaped.push_str(r#"\""#),
-            '\\' => escaped.push_str(r#"\\"#),
-            '\t' => escaped.push_str(r#"\t"#),
-            '\r' => escaped.push_str(r#"\r"#),
-            '\n' => escaped.push_str(r#"\n"#),
-            '\0' => escaped.push_str(r#"\0"#),
-            c if c.is_ascii_control() => {
-                for b in ascii::escape_default(c as u8) {
-                    escaped.push(b as char);
-                }
-            }
-            c => escaped.push(c),
-        }
-    }
-    escaped
 }
 
 /// Helper to parse function call.
