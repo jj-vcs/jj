@@ -40,7 +40,7 @@ use ref_cast::RefCastCustom;
 use ref_cast::ref_cast_custom;
 
 use crate::content_hash::ContentHash;
-use crate::revset;
+use crate::symbol_util::format_string;
 
 /// Owned Git ref name in fully-qualified form (e.g. `refs/heads/main`.)
 ///
@@ -333,7 +333,11 @@ impl RefSymbol {
 
 impl Display for RefSymbol {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.pad(&revset::format_symbol(&self.0))
+        if is_safe_identifier(&self.0) {
+            f.pad(&self.0)
+        } else {
+            f.pad(&format_string(&self.0))
+        }
     }
 }
 
@@ -420,6 +424,77 @@ impl Display for RemoteRefSymbolBuf {
 impl Display for RemoteRefSymbol<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let RemoteRefSymbol { name, remote } = self;
-        f.pad(&revset::format_remote_symbol(&name.0, &remote.0))
+        f.pad(&format!("{}@{}", name.as_symbol(), remote.as_symbol()))
+    }
+}
+
+/// Returns `true` if the `symbol` never requires quoting in revsets.
+///
+/// Note that this check is conservative; it may return `false` for some valid
+/// unquoted symbols.
+fn is_safe_identifier(symbol: &str) -> bool {
+    // Based on the strict_identifier rule in revset.pest
+    let is_safe_byte = |b: u8| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'/');
+    symbol
+        .split(&['.', '-', '+'])
+        .all(|part| !part.is_empty() && part.as_bytes().iter().copied().all(is_safe_byte))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_symbol_formatting() {
+        assert_eq!(RefSymbol::new("").to_string(), r#""""#);
+        assert_eq!(RefSymbol::new("foo").to_string(), "foo");
+        assert_eq!(RefSymbol::new("..").to_string(), r#""..""#);
+        assert_eq!(RefSymbol::new("柔術").to_string(), r#""柔術""#);
+        assert_eq!(
+            RemoteRefSymbol {
+                name: "foo".as_ref(),
+                remote: "bar".as_ref()
+            }
+            .to_string(),
+            "foo@bar"
+        );
+        assert_eq!(
+            RemoteRefSymbol {
+                name: ".".as_ref(),
+                remote: "-".as_ref()
+            }
+            .to_string(),
+            r#""."@"-""#
+        );
+    }
+
+    #[test]
+    fn test_is_safe_identifier() {
+        // Empty symbol requires quoting
+        assert!(!is_safe_identifier(""));
+        // Integer is a symbol
+        assert!(is_safe_identifier("0"));
+        // Tag/bookmark name separated by /
+        assert!(is_safe_identifier("foo_bar/baz"));
+        // Glob literal with star: rejected by the strict_identifier rule
+        assert!(!is_safe_identifier("*/foo/**"));
+
+        // Internal '.', '-', and '+': accepted
+        assert!(is_safe_identifier("foo.bar-v1+7"));
+        // '.', '-', and '+' at the beginning or end: rejected
+        assert!(!is_safe_identifier(".foo"));
+        assert!(!is_safe_identifier("foo."));
+        assert!(!is_safe_identifier("-foo"));
+        assert!(!is_safe_identifier("foo-"));
+        assert!(!is_safe_identifier("+foo"));
+        assert!(!is_safe_identifier("foo+"));
+        // Multiple '.', '-', and '+': rejected
+        assert!(!is_safe_identifier("foo--bar"));
+        assert!(!is_safe_identifier("foo.+bar"));
+        assert!(!is_safe_identifier("foo++bar"));
+        assert!(!is_safe_identifier("foo+-bar"));
+
+        // Non-ASCII tag/bookmark name: rejected by the strict_identifier rule
+        assert!(!is_safe_identifier("柔術"));
     }
 }
