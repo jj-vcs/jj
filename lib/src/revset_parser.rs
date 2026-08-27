@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![expect(missing_docs)]
+//! Parser for the revset language.
 
 use std::collections::HashSet;
 use std::error;
@@ -151,6 +151,7 @@ impl Rule {
 /// resolution.
 pub type RevsetDiagnostics = Diagnostics<RevsetParseError>;
 
+/// Error occurred during revset parsing and name resolution.
 #[derive(Debug, Error)]
 #[error("{pest_error}")]
 pub struct RevsetParseError {
@@ -160,6 +161,7 @@ pub struct RevsetParseError {
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
+#[expect(missing_docs)]
 pub enum RevsetParseErrorKind {
     #[error("Syntax error")]
     SyntaxError,
@@ -205,6 +207,7 @@ pub enum RevsetParseErrorKind {
 }
 
 impl RevsetParseError {
+    /// Creates a new error with the given `kind` and `span`.
     pub(super) fn with_span(kind: RevsetParseErrorKind, span: pest::Span<'_>) -> Self {
         let message = kind.to_string();
         let pest_error = Box::new(pest::error::Error::new_from_span(
@@ -218,6 +221,7 @@ impl RevsetParseError {
         }
     }
 
+    /// Attaches the `source` error.
     pub(super) fn with_source(
         mut self,
         source: impl Into<Box<dyn error::Error + Send + Sync>>,
@@ -247,6 +251,7 @@ impl RevsetParseError {
         self
     }
 
+    /// Category of the underlying error.
     pub fn kind(&self) -> &RevsetParseErrorKind {
         &self.kind
     }
@@ -321,6 +326,7 @@ fn rename_rules_in_pest_error(mut err: pest::error::Error<Rule>) -> pest::error:
     })
 }
 
+/// AST expression item.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ExpressionKind<'i> {
     /// Unquoted symbol.
@@ -339,10 +345,13 @@ pub enum ExpressionKind<'i> {
     DagRangeAll,
     /// `..`
     RangeAll,
+    /// `<op> <arg>` or `<arg> <op>`.
     Unary(UnaryOp, Box<ExpressionNode<'i>>),
+    /// `<lhs> <op> <rhs>`.
     Binary(BinaryOp, Box<ExpressionNode<'i>>, Box<ExpressionNode<'i>>),
     /// `x | y | ..`
     UnionAll(Vec<ExpressionNode<'i>>),
+    /// `<name>(<args>..)`
     FunctionCall(Box<FunctionCallNode<'i>>),
     /// Identity node to preserve the span in the source text.
     AliasExpanded(AliasId<'i>, Box<ExpressionNode<'i>>),
@@ -402,6 +411,7 @@ impl<'i> AliasExpandableExpression<'i> for ExpressionKind<'i> {
     }
 }
 
+/// Unary operator.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum UnaryOp {
     /// `~x`
@@ -420,6 +430,7 @@ pub enum UnaryOp {
     Children,
 }
 
+/// Binary operator.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum BinaryOp {
     /// `&`
@@ -432,8 +443,11 @@ pub enum BinaryOp {
     Range,
 }
 
+/// AST node without type or name checking.
 pub type ExpressionNode<'i> = dsl_util::ExpressionNode<'i, ExpressionKind<'i>>;
+/// Function call in AST.
 pub type FunctionCallNode<'i> = dsl_util::FunctionCallNode<'i, ExpressionKind<'i>>;
+/// `<name>:<value>` expression in AST.
 pub type PatternNode<'i> = dsl_util::PatternNode<'i, ExpressionKind<'i>>;
 
 fn union_nodes<'i>(lhs: ExpressionNode<'i>, rhs: ExpressionNode<'i>) -> ExpressionNode<'i> {
@@ -702,8 +716,10 @@ pub fn format_remote_symbol(name: &str, remote: &str) -> String {
     format!("{name}@{remote}")
 }
 
+/// Map of revset aliases.
 pub type RevsetAliasesMap = AliasesMap<RevsetAliasParser, String>;
 
+/// Parser for the revset symbol and function alias declarations.
 #[derive(Clone, Debug, Default)]
 pub struct RevsetAliasParser;
 
@@ -760,6 +776,8 @@ impl AliasDefinitionParser for RevsetAliasParser {
     }
 }
 
+/// Unwraps the inner value if the given `node` is an identifier, string or
+/// string pattern.
 pub(super) fn expect_string_pattern<'a>(
     type_name: &str,
     node: &'a ExpressionNode<'_>,
@@ -778,6 +796,7 @@ pub(super) fn expect_string_pattern<'a>(
     })
 }
 
+/// Parses the inner value if the given `node` is an identifier or string.
 pub fn expect_literal<T: FromStr>(
     type_name: &str,
     node: &ExpressionNode,
@@ -790,6 +809,7 @@ pub fn expect_literal<T: FromStr>(
     })
 }
 
+/// Unwraps the inner value if the given `node` is an identifier or string.
 pub(super) fn expect_string_literal<'a>(
     type_name: &str,
     node: &'a ExpressionNode<'_>,
