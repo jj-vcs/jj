@@ -78,7 +78,7 @@ pub use crate::revset_parser::parse_symbol;
 use crate::store::Store;
 use crate::str_util::StringExpression;
 use crate::str_util::StringPattern;
-use crate::symbol_util::escape_string;
+use crate::symbol_util::format_string;
 use crate::time_util::DatePattern;
 use crate::time_util::DatePatternContext;
 use crate::ui_path::RepoPathUiConverter;
@@ -3613,11 +3613,6 @@ pub fn format_symbol(literal: &str) -> String {
     } else {
         format_string(literal)
     }
-}
-
-/// Formats a string by quoting and escaping it.
-pub fn format_string(literal: &str) -> String {
-    format!(r#""{}""#, escape_string(literal))
 }
 
 /// Formats a `name@remote` symbol, applies quoting and escaping if necessary.

@@ -19,6 +19,20 @@ use std::ascii;
 /// Escapes special characters in the input.
 pub fn escape_string(unescaped: &str) -> String {
     let mut escaped = String::with_capacity(unescaped.len());
+    escape_string_to_buf(&mut escaped, unescaped);
+    escaped
+}
+
+/// Formats a string by quoting and escaping it.
+pub fn format_string(unescaped: &str) -> String {
+    let mut escaped = String::with_capacity(unescaped.len() + 2);
+    escaped.push('"');
+    escape_string_to_buf(&mut escaped, unescaped);
+    escaped.push('"');
+    escaped
+}
+
+fn escape_string_to_buf(escaped: &mut String, unescaped: &str) {
     for c in unescaped.chars() {
         match c {
             '"' => escaped.push_str(r#"\""#),
@@ -35,7 +49,6 @@ pub fn escape_string(unescaped: &str) -> String {
             c => escaped.push(c),
         }
     }
-    escaped
 }
 
 /// Parses an escape sequence into a character.
