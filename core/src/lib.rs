@@ -40,6 +40,7 @@ pub mod merge;
 pub mod object_id;
 pub mod repo_path;
 pub mod str_util;
+pub mod symbol_util;
 
 #[cfg(test)]
 mod tests {
