@@ -136,6 +136,7 @@ pub enum FilesetParseErrorKind {
 }
 
 impl FilesetParseError {
+    /// Creates a new error with the given `kind` and `span`.
     pub(super) fn new(kind: FilesetParseErrorKind, span: pest::Span<'_>) -> Self {
         let message = kind.to_string();
         let pest_error = Box::new(pest::error::Error::new_from_span(
@@ -149,6 +150,7 @@ impl FilesetParseError {
         }
     }
 
+    /// Attaches the `source` error.
     pub(super) fn with_source(
         mut self,
         source: impl Into<Box<dyn error::Error + Send + Sync>>,
@@ -216,16 +218,22 @@ fn rename_rules_in_pest_error(err: pest::error::Error<Rule>) -> pest::error::Err
     })
 }
 
+/// AST expression item.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ExpressionKind<'i> {
+    /// Unquoted symbol.
     Identifier(&'i str),
+    /// Quoted symbol or string.
     String(String),
     /// `<name>:<value>` where `<value>` is usually `Identifier` or `String`.
     Pattern(Box<PatternNode<'i>>),
+    /// `<op> <arg>` or `<arg> <op>`.
     Unary(UnaryOp, Box<ExpressionNode<'i>>),
+    /// `<lhs> <op> <rhs>`.
     Binary(BinaryOp, Box<ExpressionNode<'i>>, Box<ExpressionNode<'i>>),
     /// `x | y | ..`
     UnionAll(Vec<ExpressionNode<'i>>),
+    /// `<name>(<args>..)`
     FunctionCall(Box<FunctionCallNode<'i>>),
     /// Identity node to preserve the span in the source text.
     AliasExpanded(AliasId<'i>, Box<ExpressionNode<'i>>),
@@ -280,12 +288,14 @@ impl<'i> AliasExpandableExpression<'i> for ExpressionKind<'i> {
     }
 }
 
+/// Unary operator.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum UnaryOp {
     /// `~`
     Negate,
 }
 
+/// Binary operator.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum BinaryOp {
     /// `&`
@@ -294,8 +304,11 @@ pub enum BinaryOp {
     Difference,
 }
 
+/// AST node without type or name checking.
 pub type ExpressionNode<'i> = dsl_util::ExpressionNode<'i, ExpressionKind<'i>>;
+/// Function call in AST.
 pub type FunctionCallNode<'i> = dsl_util::FunctionCallNode<'i, ExpressionKind<'i>>;
+/// `<name>:<value>` expression in AST.
 pub type PatternNode<'i> = dsl_util::PatternNode<'i, ExpressionKind<'i>>;
 
 fn union_nodes<'i>(lhs: ExpressionNode<'i>, rhs: ExpressionNode<'i>) -> ExpressionNode<'i> {
@@ -457,6 +470,7 @@ pub fn parse_program_or_bare_string(text: &str) -> FilesetParseResult<Expression
 /// Map of fileset aliases.
 pub type FilesetAliasesMap = AliasesMap<FilesetAliasParser, String>;
 
+/// Parser for the fileset symbol and function alias declarations.
 #[derive(Clone, Debug, Default)]
 pub struct FilesetAliasParser;
 
@@ -513,6 +527,7 @@ impl AliasDefinitionParser for FilesetAliasParser {
     }
 }
 
+/// Expands aliases recursively.
 pub fn expand_aliases<'i>(
     node: ExpressionNode<'i>,
     aliases_map: &'i FilesetAliasesMap,
@@ -520,6 +535,7 @@ pub fn expand_aliases<'i>(
     dsl_util::expand_aliases(node, aliases_map)
 }
 
+/// Unwraps the inner value if the given `node` is an identifier or string.
 pub(super) fn expect_string_literal<'a>(
     type_name: &str,
     node: &'a ExpressionNode<'_>,
