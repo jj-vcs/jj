@@ -76,7 +76,7 @@ pub mod op_walk;
 pub mod operation;
 #[expect(missing_docs)]
 pub mod protos;
-pub mod ref_name;
+pub use jj_core::ref_name;
 pub mod refs;
 pub mod repo;
 pub use jj_core::repo_path;

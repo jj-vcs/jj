@@ -38,6 +38,7 @@ pub mod hex_util;
 pub mod matchers;
 pub mod merge;
 pub mod object_id;
+pub mod ref_name;
 pub mod repo_path;
 pub mod str_util;
 pub mod symbol_util;
