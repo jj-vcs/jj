@@ -24,6 +24,7 @@ use pest::iterators::Pair;
 use pest::iterators::Pairs;
 
 pub use crate::symbol_util::escape_string;
+pub use crate::symbol_util::format_string;
 use crate::symbol_util::unescape_char;
 
 /// Manages diagnostic messages emitted during parsing.
