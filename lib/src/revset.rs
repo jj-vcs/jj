@@ -90,7 +90,10 @@ pub enum RevsetResolutionError {
         name: String,
         candidates: Vec<String>,
     },
-    #[error("Workspace `{}` doesn't have a working-copy commit", name.as_symbol())]
+    #[error(
+        "Workspace `{}` doesn't have a working-copy commit",
+        format_ref_name(name)
+    )]
     WorkspaceMissingWorkingCopy { name: WorkspaceNameBuf },
     #[error("An empty string is not a valid revision")]
     EmptyString,
@@ -2650,20 +2653,21 @@ fn resolve_remote_symbol(
     repo: &dyn Repo,
     symbol: RemoteRefSymbol<'_>,
 ) -> Result<CommitId, RevsetResolutionError> {
+    let symbol_str = format_remote_ref_symbol(symbol);
     let remote_ref = repo.view().get_remote_tag(symbol);
-    if let Some(id) = to_resolved_ref("remote_tag", symbol, &remote_ref.target)? {
+    if let Some(id) = to_resolved_ref("remote_tag", &symbol_str, &remote_ref.target)? {
         return Ok(id);
     }
     let remote_ref = repo.view().get_remote_bookmark(symbol);
-    if let Some(id) = to_resolved_ref("remote_bookmark", symbol, &remote_ref.target)? {
+    if let Some(id) = to_resolved_ref("remote_bookmark", &symbol_str, &remote_ref.target)? {
         return Ok(id);
     }
-    Err(make_no_such_symbol_error(repo, symbol.to_string()))
+    Err(make_no_such_symbol_error(repo, symbol_str))
 }
 
 fn to_resolved_ref(
     kind: &'static str,
-    symbol: impl ToString,
+    symbol: &str,
     target: &RefTarget,
 ) -> Result<Option<CommitId>, RevsetResolutionError> {
     match target.as_resolved() {
@@ -2671,7 +2675,7 @@ fn to_resolved_ref(
         Some(None) => Ok(None),
         None => Err(RevsetResolutionError::ConflictedRef {
             kind,
-            symbol: symbol.to_string(),
+            symbol: symbol.to_owned(),
             targets: target.added_ids().cloned().collect(),
         }),
     }
@@ -2683,9 +2687,7 @@ fn all_formatted_ref_symbols<'a>(
 ) -> impl Iterator<Item = String> {
     all_refs.flat_map(move |(name, targets)| {
         let local_target = targets.local_target;
-        let local_symbol = local_target
-            .is_present()
-            .then(|| format_symbol(name.as_str()));
+        let local_symbol = local_target.is_present().then(|| format_ref_name(name));
         let remote_symbols = targets
             .remote_refs
             .into_iter()
@@ -3599,6 +3601,18 @@ impl<'a> LoweringContext<'a> {
 pub struct RevsetWorkspaceContext<'a> {
     pub path_converter: &'a RepoPathUiConverter,
     pub workspace_name: &'a WorkspaceName,
+}
+
+/// Formats a name (e.g. bookmark, tag, workspace, or remote name) as a revset
+/// symbol by quoting and escaping it if necessary.
+pub fn format_ref_name(name: impl AsRef<str>) -> String {
+    format_symbol(name.as_ref())
+}
+
+/// Formats a remote bookmark or tag name as a revset symbol in
+/// `{name}@{remote}` form, quoting and escaping it if necessary.
+pub fn format_remote_ref_symbol(symbol: RemoteRefSymbol<'_>) -> String {
+    format_remote_symbol(symbol.name.as_str(), symbol.remote.as_str())
 }
 
 /// Formats a string as symbol by quoting and escaping it if necessary.

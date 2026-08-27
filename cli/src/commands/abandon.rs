@@ -22,6 +22,7 @@ use indexmap::IndexSet;
 use itertools::Itertools as _;
 use jj_lib::refs::diff_named_ref_targets;
 use jj_lib::repo::Repo as _;
+use jj_lib::revset;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::rewrite::RewriteRefsOptions;
 use tracing::instrument;
@@ -160,7 +161,10 @@ pub(crate) async fn cmd_abandon(
             writeln!(
                 formatter,
                 "Deleted bookmarks: {}",
-                deleted_bookmarks.iter().map(|n| n.as_symbol()).join(", ")
+                deleted_bookmarks
+                    .iter()
+                    .map(revset::format_ref_name)
+                    .join(", ")
             )?;
         }
         if num_rebased > 0 {

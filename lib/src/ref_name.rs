@@ -32,19 +32,17 @@
 //! ```
 
 use std::borrow::Borrow;
-use std::fmt;
-use std::fmt::Display;
 use std::ops::Deref;
 
 use ref_cast::RefCastCustom;
 use ref_cast::ref_cast_custom;
 
 use crate::content_hash::ContentHash;
-use crate::revset;
 
 /// Owned Git ref name in fully-qualified form (e.g. `refs/heads/main`.)
 ///
-/// Use `.as_str()` or `.as_symbol()` for displaying. Other than that, this can
+/// Use `.as_str()` or `revset::format_ref_name()` for displaying. Other than
+/// that, this can
 /// be considered an immutable `String`.
 // Eq, Hash, and Ord must be compatible with GitRefName.
 #[derive(Clone, ContentHash, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -52,7 +50,8 @@ pub struct GitRefNameBuf(String);
 
 /// Borrowed Git ref name in fully-qualified form (e.g. `refs/heads/main`.)
 ///
-/// Use `.as_str()` or `.as_symbol()` for displaying. Other than that, this can
+/// Use `.as_str()` or `revset::format_ref_name()` for displaying. Other than
+/// that, this can
 /// be considered an immutable `str`.
 #[derive(ContentHash, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, RefCastCustom)]
 #[repr(transparent)]
@@ -60,7 +59,8 @@ pub struct GitRefName(str);
 
 /// Owned local (or local part of remote) bookmark or tag name.
 ///
-/// Use `.as_str()` or `.as_symbol()` for displaying. Other than that, this can
+/// Use `.as_str()` or `revset::format_ref_name()` for displaying. Other than
+/// that, this can
 /// be considered an immutable `String`.
 // Eq, Hash, and Ord must be compatible with RefName.
 #[derive(Clone, ContentHash, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -68,7 +68,8 @@ pub struct RefNameBuf(String);
 
 /// Borrowed local (or local part of remote) bookmark or tag name.
 ///
-/// Use `.as_str()` or `.as_symbol()` for displaying. Other than that, this can
+/// Use `.as_str()` or `revset::format_ref_name()` for displaying. Other than
+/// that, this can
 /// be considered an immutable `str`.
 #[derive(ContentHash, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, RefCastCustom)]
 #[repr(transparent)]
@@ -76,7 +77,8 @@ pub struct RefName(str);
 
 /// Owned remote name.
 ///
-/// Use `.as_str()` or `.as_symbol()` for displaying. Other than that, this can
+/// Use `.as_str()` or `revset::format_ref_name()` for displaying. Other than
+/// that, this can
 /// be considered an immutable `String`.
 // Eq, Hash, and Ord must be compatible with RemoteName.
 #[derive(Clone, ContentHash, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -84,7 +86,8 @@ pub struct RemoteNameBuf(String);
 
 /// Borrowed remote name.
 ///
-/// Use `.as_str()` or `.as_symbol()` for displaying. Other than that, this can
+/// Use `.as_str()` or `revset::format_ref_name()` for displaying. Other than
+/// that, this can
 /// be considered an immutable `str`.
 #[derive(ContentHash, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, RefCastCustom)]
 #[repr(transparent)]
@@ -92,7 +95,8 @@ pub struct RemoteName(str);
 
 /// Owned workspace name.
 ///
-/// Use `.as_str()` or `.as_symbol()` for displaying. Other than that, this can
+/// Use `.as_str()` or `revset::format_ref_name()` for displaying. Other than
+/// that, this can
 /// be considered an immutable `String`.
 // Eq, Hash, and Ord must be compatible with WorkspaceName.
 #[derive(Clone, ContentHash, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, serde::Serialize)]
@@ -101,7 +105,8 @@ pub struct WorkspaceNameBuf(String);
 
 /// Borrowed workspace name.
 ///
-/// Use `.as_str()` or `.as_symbol()` for displaying. Other than that, this can
+/// Use `.as_str()` or `revset::format_ref_name()` for displaying. Other than
+/// that, this can
 /// be considered an immutable `str`.
 #[derive(
     ContentHash, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, RefCastCustom, serde::Serialize,
@@ -159,11 +164,6 @@ macro_rules! impl_name_type {
             /// Returns the underlying string.
             pub const fn as_str(&self) -> &str {
                 &self.0
-            }
-
-            /// Converts to symbol for displaying.
-            pub fn as_symbol(&self) -> &RefSymbol {
-                RefSymbol::new(&self.0)
             }
         }
 
@@ -318,29 +318,10 @@ impl WorkspaceName {
     pub const DEFAULT: &Self = Self::new("default");
 }
 
-/// Symbol for displaying.
-///
-/// This type can be displayed with quoting and escaping if necessary.
-#[derive(Debug, RefCastCustom)]
-#[repr(transparent)]
-pub struct RefSymbol(str);
-
-impl RefSymbol {
-    /// Wraps string name.
-    #[ref_cast_custom]
-    const fn new(name: &str) -> &Self;
-}
-
-impl Display for RefSymbol {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.pad(&revset::format_symbol(&self.0))
-    }
-}
-
 /// Owned remote bookmark or tag name.
 ///
-/// This type can be displayed in `{name}@{remote}` form, with quoting and
-/// escaping if necessary.
+/// Use `revset::format_remote_ref_symbol()` to display this in
+/// `{name}@{remote}` form, with quoting and escaping if necessary.
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct RemoteRefSymbolBuf {
     /// Local name.
@@ -361,8 +342,8 @@ impl RemoteRefSymbolBuf {
 
 /// Borrowed remote bookmark or tag name.
 ///
-/// This type can be displayed in `{name}@{remote}` form, with quoting and
-/// escaping if necessary.
+/// Use `revset::format_remote_ref_symbol()` to display this in
+/// `{name}@{remote}` form, with quoting and escaping if necessary.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct RemoteRefSymbol<'a> {
     /// Local name.
@@ -408,18 +389,5 @@ impl PartialEq<RemoteRefSymbolBuf> for RemoteRefSymbol<'_> {
 impl PartialEq<&RemoteRefSymbolBuf> for RemoteRefSymbol<'_> {
     fn eq(&self, other: &&RemoteRefSymbolBuf) -> bool {
         *self == other.as_ref()
-    }
-}
-
-impl Display for RemoteRefSymbolBuf {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        Display::fmt(&self.as_ref(), f)
-    }
-}
-
-impl Display for RemoteRefSymbol<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let RemoteRefSymbol { name, remote } = self;
-        f.pad(&revset::format_remote_symbol(&name.0, &remote.0))
     }
 }

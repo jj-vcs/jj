@@ -48,6 +48,7 @@ use crate::repo::StoreFactories;
 use crate::repo::StoreLoadError;
 use crate::repo::SubmoduleStoreInitializer;
 use crate::repo::read_store_type;
+use crate::revset;
 use crate::settings::UserSettings;
 use crate::signing::SignInitError;
 use crate::signing::Signer;
@@ -144,7 +145,10 @@ async fn init_working_copy(
         .check_out(workspace_name.clone(), &repo.store().root_commit())
         .await?;
     let repo = tx
-        .commit(format!("add workspace '{}'", workspace_name.as_symbol()))
+        .commit(format!(
+            "add workspace '{}'",
+            revset::format_ref_name(&workspace_name)
+        ))
         .await?;
 
     let working_copy = working_copy_factory.init_working_copy(

@@ -21,6 +21,7 @@ use jj_lib::file_util;
 use jj_lib::file_util::IoResultExt as _;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
+use jj_lib::revset;
 use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::workspace::Workspace;
 use tracing::instrument;
@@ -111,7 +112,7 @@ pub async fn cmd_workspace_add(
     if repo.view().get_wc_commit_id(&workspace_name).is_some() {
         return Err(user_error(format!(
             "Workspace named '{name}' already exists",
-            name = workspace_name.as_symbol()
+            name = revset::format_ref_name(&workspace_name)
         )));
     }
     if !destination_path.exists() {
@@ -146,7 +147,7 @@ pub async fn cmd_workspace_add(
             ui.warning_default(),
             r#"Workspace created inside current directory. If this was unintentional, delete the "{}" directory and run `jj workspace forget {name}` to remove it."#,
             args.destination,
-            name = workspace_name.as_symbol()
+            name = revset::format_ref_name(&workspace_name)
         )?;
     }
 
@@ -228,7 +229,7 @@ pub async fn cmd_workspace_add(
         ui,
         format!(
             "create initial working-copy commit in workspace {name}",
-            name = workspace_name.as_symbol()
+            name = revset::format_ref_name(&workspace_name)
         ),
     )
     .await?;

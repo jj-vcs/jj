@@ -15,6 +15,7 @@
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::repo::Repo as _;
+use jj_lib::revset;
 use jj_lib::str_util::StringExpression;
 
 use super::resolve_trackable_remote_tags;
@@ -109,7 +110,11 @@ pub async fn cmd_tag_track(
     let mut symbols = Vec::new();
     for (symbol, remote_ref) in matched_refs {
         if remote_ref.is_tracked() {
-            writeln!(ui.warning_default(), "Remote tag already tracked: {symbol}")?;
+            writeln!(
+                ui.warning_default(),
+                "Remote tag already tracked: {symbol}",
+                symbol = revset::format_remote_ref_symbol(symbol)
+            )?;
         } else {
             symbols.push(symbol);
         }
@@ -127,7 +132,13 @@ pub async fn cmd_tag_track(
     }
     tx.finish(
         ui,
-        format!("track remote tag {}", symbols.iter().join(", ")),
+        format!(
+            "track remote tag {}",
+            symbols
+                .iter()
+                .map(|&symbol| revset::format_remote_ref_symbol(symbol))
+                .join(", ")
+        ),
     )
     .await?;
     Ok(())

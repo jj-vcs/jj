@@ -466,7 +466,7 @@ fn parse_remote_string_expression(
         let hint = revset_parse_error_hint(&err);
         let message = format!(
             "Invalid `remotes.{}.{field_name}`: {}",
-            name.as_symbol(),
+            revset::format_ref_name(name),
             err.kind()
         );
         let mut cmd_err = config_error_with_message(message, err);
@@ -475,7 +475,10 @@ fn parse_remote_string_expression(
     })?;
     print_parse_diagnostics(
         ui,
-        &format!("In `remotes.{}.{field_name}`", name.as_symbol()),
+        &format!(
+            "In `remotes.{}.{field_name}`",
+            revset::format_ref_name(name)
+        ),
         &diagnostics,
     )?;
     Ok(expr)

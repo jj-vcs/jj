@@ -29,6 +29,7 @@ use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::OperationId;
 use jj_lib::operation::Operation;
 use jj_lib::repo::RepoLoader;
+use jj_lib::revset;
 use jj_lib::settings::UserSettings;
 use pollster::FutureExt as _;
 
@@ -590,7 +591,7 @@ where
                 op.metadata()
                     .workspace_name
                     .as_ref()
-                    .map(|name| format!("{}@", name.as_symbol()))
+                    .map(|name| format!("{}@", revset::format_ref_name(name)))
                     .unwrap_or_default()
             });
             Ok(out_property.into_dyn_wrapped())

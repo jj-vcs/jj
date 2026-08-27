@@ -44,6 +44,7 @@ use jj_lib::git_backend::GitRepoAtWorkdirError;
 use jj_lib::op_store::RemoteRefState;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
+use jj_lib::revset;
 use jj_lib::settings::RemoteSettingsMap;
 use jj_lib::workspace::Workspace;
 use unicode_width::UnicodeWidthStr as _;
@@ -283,7 +284,7 @@ fn print_failed_git_import(ui: &Ui, stats: &GitImportStats) -> Result<(), Comman
             Git remote named '{name}' is reserved for local Git repository.
             Use `jj git remote rename` to give a different name.
             ",
-            name = git::REMOTE_NAME_FOR_LOCAL_GIT_REPO.as_symbol(),
+            name = revset::format_ref_name(git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
         )?;
     }
     Ok(())
@@ -420,7 +421,7 @@ impl RefStatus {
         };
 
         Self {
-            symbol: update.symbol.to_string(),
+            symbol: revset::format_remote_ref_symbol(update.symbol.as_ref()),
             remote_ref_state: new_remote_ref.state,
             import_status,
             ref_kind,
@@ -466,7 +467,11 @@ pub fn print_git_export_stats(ui: &Ui, stats: &GitExportStats) -> Result<(), std
         let mut formatter = ui.stderr_formatter();
         for (symbol, reason) in &stats.failed_bookmarks {
             write!(formatter, "  ")?;
-            write!(formatter.labeled("bookmark"), "{symbol}")?;
+            write!(
+                formatter.labeled("bookmark"),
+                "{symbol}",
+                symbol = revset::format_remote_ref_symbol(symbol.as_ref())
+            )?;
             for err in iter::successors(Some(reason as &dyn error::Error), |err| err.source()) {
                 write!(formatter, ": {err}")?;
             }
@@ -478,7 +483,11 @@ pub fn print_git_export_stats(ui: &Ui, stats: &GitExportStats) -> Result<(), std
         let mut formatter = ui.stderr_formatter();
         for (symbol, reason) in &stats.failed_tags {
             write!(formatter, "  ")?;
-            write!(formatter.labeled("tag"), "{symbol}")?;
+            write!(
+                formatter.labeled("tag"),
+                "{symbol}",
+                symbol = revset::format_remote_ref_symbol(symbol.as_ref())
+            )?;
             for err in iter::successors(Some(reason as &dyn error::Error), |err| err.source()) {
                 write!(formatter, ": {err}")?;
             }
@@ -509,7 +518,11 @@ pub fn print_push_stats(ui: &Ui, stats: &GitPushStats) -> io::Result<()> {
         let mut formatter = ui.stderr_formatter();
         for (reference, reason) in &stats.rejected {
             write!(formatter, "  ")?;
-            write!(formatter.labeled("git_ref"), "{}", reference.as_symbol())?;
+            write!(
+                formatter.labeled("git_ref"),
+                "{}",
+                revset::format_ref_name(reference)
+            )?;
             if let Some(r) = reason {
                 write!(formatter, " (reason: {r})")?;
             }
@@ -530,7 +543,11 @@ pub fn print_push_stats(ui: &Ui, stats: &GitPushStats) -> io::Result<()> {
         let mut formatter = ui.stderr_formatter();
         for (reference, reason) in &stats.remote_rejected {
             write!(formatter, "  ")?;
-            write!(formatter.labeled("git_ref"), "{}", reference.as_symbol())?;
+            write!(
+                formatter.labeled("git_ref"),
+                "{}",
+                revset::format_ref_name(reference)
+            )?;
             if let Some(r) = reason {
                 write!(formatter, " (reason: {r})")?;
             }
@@ -550,7 +567,11 @@ pub fn print_push_stats(ui: &Ui, stats: &GitPushStats) -> io::Result<()> {
         let mut formatter = ui.stderr_formatter();
         for (symbol, reason) in &stats.unexported_bookmarks {
             write!(formatter, "  ")?;
-            write!(formatter.labeled("bookmark"), "{symbol}")?;
+            write!(
+                formatter.labeled("bookmark"),
+                "{symbol}",
+                symbol = revset::format_remote_ref_symbol(symbol.as_ref())
+            )?;
             for err in iter::successors(Some(reason as &dyn error::Error), |err| err.source()) {
                 write!(formatter, ": {err}")?;
             }

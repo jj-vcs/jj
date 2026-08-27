@@ -73,6 +73,7 @@ use crate::ref_name::WorkspaceName;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::repo_path::RepoPath;
+use crate::revset;
 use crate::revset::ResolvedRevsetExpression;
 use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExpression;
@@ -149,10 +150,10 @@ impl GitSubprocessOptions {
 pub enum GitRemoteNameError {
     #[error(
         "Git remote named '{name}' is reserved for local Git repository",
-        name = REMOTE_NAME_FOR_LOCAL_GIT_REPO.as_symbol()
+        name = revset::format_ref_name(REMOTE_NAME_FOR_LOCAL_GIT_REPO)
     )]
     ReservedForLocalGitRepo,
-    #[error("Git remotes with slashes are incompatible with jj: {}", .0.as_symbol())]
+    #[error("Git remotes with slashes are incompatible with jj: {}", revset::format_ref_name(.0))]
     WithSlash(RemoteNameBuf),
     #[error("Invalid Git remote name")]
     InvalidName(#[from] gix::remote::name::Error),
@@ -492,7 +493,10 @@ pub enum GitImportError {
         #[source]
         err: BackendError,
     },
-    #[error("Ancestor of Git ref {symbol} is missing")]
+    #[error(
+        "Ancestor of Git ref {} is missing",
+        revset::format_remote_ref_symbol(.symbol.as_ref())
+    )]
     MissingRefAncestor {
         symbol: RemoteRefSymbolBuf,
         #[source]
@@ -2206,13 +2210,13 @@ async fn update_intent_to_add_impl(
 
 #[derive(Debug, Error)]
 pub enum GitRemoteManagementError {
-    #[error("No git remote named '{}'", .0.as_symbol())]
+    #[error("No git remote named '{}'", revset::format_ref_name(.0))]
     NoSuchRemote(RemoteNameBuf),
-    #[error("Git remote named '{}' already exists", .0.as_symbol())]
+    #[error("Git remote named '{}' already exists", revset::format_ref_name(.0))]
     RemoteAlreadyExists(RemoteNameBuf),
     #[error(transparent)]
     RemoteName(#[from] GitRemoteNameError),
-    #[error("Git remote named '{}' has nonstandard configuration", .0.as_symbol())]
+    #[error("Git remote named '{}' has nonstandard configuration", revset::format_ref_name(.0))]
     NonstandardConfiguration(RemoteNameBuf),
     #[error("Error saving Git configuration")]
     GitConfigSaveError(#[source] std::io::Error),
@@ -2630,8 +2634,8 @@ fn rename_remote_git_refs(
     let to_rename_edits = {
         let ref_log_message = BString::from(format!(
             "renamed remote {old_remote_name} to {new_remote_name}",
-            old_remote_name = old_remote_name.as_symbol(),
-            new_remote_name = new_remote_name.as_symbol(),
+            old_remote_name = revset::format_ref_name(old_remote_name),
+            new_remote_name = revset::format_ref_name(new_remote_name),
         ));
         move |old_prefix: &str, new_prefix: &str, old_ref: gix::Reference| {
             let new_name = BString::new(
@@ -2749,11 +2753,11 @@ const INVALID_REFSPEC_CHARS: [char; 5] = [':', '^', '?', '[', ']'];
 
 #[derive(Error, Debug)]
 pub enum GitFetchError {
-    #[error("No git remote named '{}'", .0.as_symbol())]
+    #[error("No git remote named '{}'", revset::format_ref_name(.0))]
     NoSuchRemote(RemoteNameBuf),
     #[error(transparent)]
     RemoteName(#[from] GitRemoteNameError),
-    #[error("Failed to update refs: {}", .0.iter().map(|n| n.as_symbol()).join(", "))]
+    #[error("Failed to update refs: {}", .0.iter().map(revset::format_ref_name).join(", "))]
     RejectedUpdates(Vec<GitRefNameBuf>),
     #[error(transparent)]
     Subprocess(#[from] GitSubprocessError),
@@ -2761,9 +2765,9 @@ pub enum GitFetchError {
 
 #[derive(Error, Debug)]
 pub enum GitDefaultRefspecError {
-    #[error("No git remote named '{}'", .0.as_symbol())]
+    #[error("No git remote named '{}'", revset::format_ref_name(.0))]
     NoSuchRemote(RemoteNameBuf),
-    #[error("Invalid configuration for remote `{}`", .0.as_symbol())]
+    #[error("Invalid configuration for remote `{}`", revset::format_ref_name(.0))]
     InvalidRemoteConfiguration(RemoteNameBuf, #[source] Box<gix::remote::find::Error>),
 }
 
@@ -3253,7 +3257,7 @@ impl<'a> GitFetch<'a> {
 
 #[derive(Error, Debug)]
 pub enum GitPushError {
-    #[error("No git remote named '{}'", .0.as_symbol())]
+    #[error("No git remote named '{}'", revset::format_ref_name(.0))]
     NoSuchRemote(RemoteNameBuf),
     #[error(transparent)]
     RemoteName(#[from] GitRemoteNameError),
@@ -3520,7 +3524,6 @@ mod tests {
     use assert_matches::assert_matches;
 
     use super::*;
-    use crate::revset;
     use crate::revset::RevsetDiagnostics;
 
     #[test]

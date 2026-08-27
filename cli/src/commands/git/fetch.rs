@@ -29,6 +29,7 @@ use jj_lib::git::load_default_fetch_bookmarks;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::repo::Repo as _;
+use jj_lib::revset;
 use jj_lib::str_util::StringExpression;
 
 use crate::cli_util::CommandHelper;
@@ -164,7 +165,7 @@ pub async fn cmd_git_fetch(
         writeln!(
             ui.warning_default(),
             "No matching remotes for names: {}",
-            unmatched_remotes.map(|name| name.as_symbol()).join(", ")
+            unmatched_remotes.map(revset::format_ref_name).join(", ")
         )?;
     }
     if matching_remotes.is_empty() {
@@ -255,7 +256,10 @@ pub async fn cmd_git_fetch(
         ui,
         format!(
             "fetch from git remote(s) {}",
-            matching_remotes.iter().map(|n| n.as_symbol()).join(",")
+            matching_remotes
+                .iter()
+                .map(revset::format_ref_name)
+                .join(",")
         ),
     )
     .await?;
@@ -280,7 +284,7 @@ fn get_default_fetch_remotes(
             writeln!(
                 ui.hint_default(),
                 "Fetching from the only existing remote: {remote}",
-                remote = remote.as_symbol()
+                remote = revset::format_ref_name(&remote)
             )?;
         }
         Ok(StringExpression::exact(remote))
@@ -316,7 +320,7 @@ fn warn_if_branches_not_found(
     writeln!(
         ui.warning_default(),
         "No matching branches found on any specified/configured remote: {}",
-        missing_branches.map(|name| name.as_symbol()).join(", ")
+        missing_branches.map(revset::format_ref_name).join(", ")
     )
 }
 
@@ -325,7 +329,7 @@ fn warn_ignored_refspecs(
     remote_name: &RemoteName,
     IgnoredRefspecs(ignored_refspecs): IgnoredRefspecs,
 ) -> Result<(), CommandError> {
-    let remote_name = remote_name.as_symbol();
+    let remote_name = revset::format_ref_name(remote_name);
     for IgnoredRefspec { refspec, reason } in ignored_refspecs {
         writeln!(
             ui.warning_default(),

@@ -44,6 +44,7 @@ use crate::repo::RewriteRootCommit;
 use crate::repo_path::InvalidRepoPathError;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
+use crate::revset;
 use crate::settings::UserSettings;
 use crate::store::Store;
 use crate::transaction::TransactionCommitError;
@@ -416,7 +417,7 @@ pub enum RecoverWorkspaceError {
     #[error(transparent)]
     TransactionCommit(#[from] TransactionCommitError),
     /// Working copy commit is missing.
-    #[error(r#""{}" doesn't have a working-copy commit"#, .0.as_symbol())]
+    #[error(r#""{}" doesn't have a working-copy commit"#, revset::format_ref_name(.0))]
     WorkspaceMissingWorkingCopy(WorkspaceNameBuf),
 }
 

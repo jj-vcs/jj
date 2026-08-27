@@ -19,6 +19,7 @@ use gix::Remote;
 use jj_lib::git;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::repo::Repo as _;
+use jj_lib::revset;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
@@ -48,13 +49,13 @@ pub async fn cmd_git_remote_list(
             writeln!(
                 ui.stdout(),
                 "{remote_name} {fetch_url}",
-                remote_name = remote_name.as_symbol()
+                remote_name = revset::format_ref_name(remote_name)
             )?;
         } else {
             writeln!(
                 ui.stdout(),
                 "{remote_name} {fetch_url} (push: {push_url})",
-                remote_name = remote_name.as_symbol()
+                remote_name = revset::format_ref_name(remote_name)
             )?;
         }
     }

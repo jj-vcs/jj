@@ -16,6 +16,7 @@ use clap_complete::ArgValueCandidates;
 use jj_lib::op_store::RefTarget;
 use jj_lib::ref_name::RefNameBuf;
 use jj_lib::repo::Repo as _;
+use jj_lib::revset;
 use jj_lib::str_util::StringExpression;
 use jj_lib::str_util::StringMatcher;
 
@@ -59,7 +60,7 @@ pub async fn cmd_bookmark_rename(
     if ref_target.is_absent() {
         return Err(user_error(format!(
             "No such bookmark: {old_bookmark}",
-            old_bookmark = old_bookmark.as_symbol()
+            old_bookmark = revset::format_ref_name(old_bookmark)
         )));
     }
 
@@ -67,7 +68,7 @@ pub async fn cmd_bookmark_rename(
     if !args.overwrite_existing && base_view.get_local_bookmark(new_bookmark).is_present() {
         return Err(user_error(format!(
             "Bookmark already exists: {new_bookmark}",
-            new_bookmark = new_bookmark.as_symbol()
+            new_bookmark = revset::format_ref_name(new_bookmark)
         )));
     }
     if old_bookmark == new_bookmark {
@@ -117,12 +118,13 @@ pub async fn cmd_bookmark_rename(
                 ui.warning_default(),
                 "The renamed bookmark already exists on the remote '{remote}', tracking state was \
                  dropped.",
-                remote = new_remote_bookmark.remote.as_symbol(),
+                remote = revset::format_ref_name(new_remote_bookmark.remote),
             )?;
             writeln!(
                 ui.hint_default(),
                 "To track the existing remote bookmark, run `jj bookmark track \
                  {new_remote_bookmark}`.",
+                new_remote_bookmark = revset::format_remote_ref_symbol(new_remote_bookmark),
             )?;
             continue;
         }
@@ -148,8 +150,8 @@ pub async fn cmd_bookmark_rename(
             writeln!(
                 ui.warning_default(),
                 "Tracking of remote bookmark {new_bookmark}@{remote} was dropped.",
-                new_bookmark = new_bookmark.as_symbol(),
-                remote = symbol.remote.as_symbol(),
+                new_bookmark = revset::format_ref_name(new_bookmark),
+                remote = revset::format_ref_name(symbol.remote),
             )?;
             writeln!(
                 ui.hint_default(),
@@ -162,8 +164,8 @@ pub async fn cmd_bookmark_rename(
         ui,
         format!(
             "rename bookmark {old_bookmark} to {new_bookmark}",
-            old_bookmark = old_bookmark.as_symbol(),
-            new_bookmark = new_bookmark.as_symbol()
+            old_bookmark = revset::format_ref_name(old_bookmark),
+            new_bookmark = revset::format_ref_name(new_bookmark)
         ),
     )
     .await?;
@@ -172,15 +174,15 @@ pub async fn cmd_bookmark_rename(
         writeln!(
             ui.warning_default(),
             "Tracked remote bookmarks for bookmark {old_bookmark} were not renamed.",
-            old_bookmark = old_bookmark.as_symbol(),
+            old_bookmark = revset::format_ref_name(old_bookmark),
         )?;
         writeln!(
             ui.hint_default(),
             "To rename the bookmark on the remote, you can `jj git push --bookmark \
              {old_bookmark}` first (to delete it on the remote), and then `jj git push --bookmark \
              {new_bookmark}`. `jj git push --all --deleted` would also be sufficient.",
-            old_bookmark = old_bookmark.as_symbol(),
-            new_bookmark = new_bookmark.as_symbol()
+            old_bookmark = revset::format_ref_name(old_bookmark),
+            new_bookmark = revset::format_ref_name(new_bookmark)
         )?;
     }
     if !args.overwrite_existing {
@@ -195,12 +197,12 @@ pub async fn cmd_bookmark_rename(
             writeln!(
                 ui.warning_default(),
                 "Tracked remote bookmarks for bookmark {new_bookmark} exist.",
-                new_bookmark = new_bookmark.as_symbol()
+                new_bookmark = revset::format_ref_name(new_bookmark)
             )?;
             writeln!(
                 ui.hint_default(),
                 "Run `jj bookmark untrack {new_bookmark}` to disassociate them.",
-                new_bookmark = new_bookmark.as_symbol()
+                new_bookmark = revset::format_ref_name(new_bookmark)
             )?;
         }
     }

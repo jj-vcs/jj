@@ -28,6 +28,7 @@ use jj_lib::git::GitSettings;
 use jj_lib::git::parse_git_ref;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
+use jj_lib::revset;
 use jj_lib::view::View;
 use jj_lib::workspace::Workspace;
 
@@ -384,7 +385,11 @@ fn print_trackable_remote_bookmarks(ui: &Ui, view: &View) -> io::Result<()> {
         )?;
         for symbol in &remote_bookmark_symbols {
             write!(formatter, "  ")?;
-            writeln!(formatter.labeled("bookmark"), "{symbol}")?;
+            writeln!(
+                formatter.labeled("bookmark"),
+                "{symbol}",
+                symbol = revset::format_remote_ref_symbol(*symbol)
+            )?;
         }
         writedoc!(
             formatter.labeled("hint").with_heading("Hint: "),
@@ -394,7 +399,7 @@ fn print_trackable_remote_bookmarks(ui: &Ui, view: &View) -> io::Result<()> {
             ",
             syms = remote_bookmark_symbols
                 .iter()
-                .map(|s| shell_quote(&s.to_string()).into_owned())
+                .map(|&s| shell_quote(&revset::format_remote_ref_symbol(s)).into_owned())
                 .join(" ")
         )?;
     }

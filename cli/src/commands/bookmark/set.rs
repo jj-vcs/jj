@@ -20,6 +20,7 @@ use itertools::Itertools as _;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::RefTarget;
 use jj_lib::ref_name::RefNameBuf;
+use jj_lib::revset;
 
 use super::is_fast_forward;
 use crate::cli_util::CommandHelper;
@@ -83,7 +84,7 @@ pub async fn cmd_bookmark_set(
         if !args.allow_backwards && !is_fast_forward(repo, old_target, target_commit.id()).await? {
             return Err(user_error(format!(
                 "Refusing to move bookmark backwards or sideways: {name}",
-                name = name.as_symbol()
+                name = revset::format_ref_name(name)
             ))
             .hinted("Use --allow-backwards to allow it."));
         }
@@ -112,7 +113,8 @@ pub async fn cmd_bookmark_set(
                 if view.bookmarks.contains_key(name) {
                     writeln!(
                         ui.warning_default(),
-                        "Auto-tracking bookmark that exists on the remote: {symbol}"
+                        "Auto-tracking bookmark that exists on the remote: {symbol}",
+                        symbol = revset::format_remote_ref_symbol(symbol)
                     )?;
                 }
                 tx.repo_mut().track_remote_bookmark(symbol).await?;
@@ -141,7 +143,10 @@ pub async fn cmd_bookmark_set(
         ui,
         format!(
             "point bookmark {names} to commit {id}",
-            names = bookmark_names.iter().map(|n| n.as_symbol()).join(", "),
+            names = bookmark_names
+                .iter()
+                .map(revset::format_ref_name)
+                .join(", "),
             id = target_commit.id().hex()
         ),
     )

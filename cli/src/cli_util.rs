@@ -2487,7 +2487,7 @@ to the current parents may contain changes from multiple commits.
                 fmt.labeled("warning").with_heading("Warning: "),
                 "The current workspace '{}' no longer exists after this operation. The working \
                  copy was left untouched.",
-                workspace_name.as_symbol(),
+                revset::format_ref_name(workspace_name),
             )?;
             writeln!(
                 fmt.labeled("hint").with_heading("Hint: "),

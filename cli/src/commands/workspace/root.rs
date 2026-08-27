@@ -17,6 +17,7 @@ use std::io::Write as _;
 use clap_complete::ArgValueCandidates;
 use jj_lib::file_util;
 use jj_lib::ref_name::WorkspaceNameBuf;
+use jj_lib::revset;
 use jj_lib::workspace_store::SimpleWorkspaceStore;
 use jj_lib::workspace_store::WorkspaceStore as _;
 use tracing::instrument;
@@ -57,7 +58,7 @@ pub async fn cmd_workspace_root(
                 .ok_or_else(|| {
                     user_error(format!(
                         "Workspace has no recorded path: {}",
-                        ws_name.as_symbol()
+                        revset::format_ref_name(ws_name)
                     ))
                 })?;
             let full_path = workspace_command.repo_path().join(path);
@@ -73,7 +74,7 @@ pub async fn cmd_workspace_root(
         } else {
             return Err(user_error(format!(
                 "No such workspace: {}",
-                ws_name.as_symbol()
+                revset::format_ref_name(ws_name)
             )));
         }
     } else {

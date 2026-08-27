@@ -24,6 +24,7 @@ use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::Repo;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
+use jj_lib::revset;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
 use jj_lib::tree::TreeMergeExt as _;
@@ -221,7 +222,11 @@ pub(crate) async fn cmd_status(
         )?;
         for name in conflicted_local_bookmarks {
             write!(formatter, "  ")?;
-            write!(formatter.labeled("bookmark"), "{}", name.as_symbol())?;
+            write!(
+                formatter.labeled("bookmark"),
+                "{}",
+                revset::format_ref_name(name)
+            )?;
             writeln!(formatter)?;
         }
         writeln!(
@@ -237,7 +242,11 @@ pub(crate) async fn cmd_status(
         )?;
         for symbol in conflicted_remote_bookmarks {
             write!(formatter, "  ")?;
-            write!(formatter.labeled("bookmark"), "{symbol}")?;
+            write!(
+                formatter.labeled("bookmark"),
+                "{symbol}",
+                symbol = revset::format_remote_ref_symbol(symbol)
+            )?;
             writeln!(formatter)?;
         }
         writeln!(

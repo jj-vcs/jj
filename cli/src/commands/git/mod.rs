@@ -181,7 +181,8 @@ fn write_repo_presets(
         .expect("initial repo config shouldn't have invalid values");
     }
     if let Some(symbol) = presets.trunk {
-        file.set_value(TRUNK_CONFIG_NAME, symbol.to_string())
+        let symbol = revset::format_remote_ref_symbol(symbol);
+        file.set_value(TRUNK_CONFIG_NAME, symbol.clone())
             .expect("initial repo config shouldn't have invalid values");
         writeln!(
             ui.status(),
@@ -215,8 +216,9 @@ fn rename_remote_in_repo_config(
     if let Some(old_symbol) = get_trunk_symbol(file.layer())
         && old_symbol.remote == old_remote
     {
-        let new_symbol = old_symbol.name.to_remote_symbol(new_remote);
-        file.set_value(TRUNK_CONFIG_NAME, new_symbol.to_string())
+        let new_symbol =
+            revset::format_remote_ref_symbol(old_symbol.name.to_remote_symbol(new_remote));
+        file.set_value(TRUNK_CONFIG_NAME, new_symbol.clone())
             .expect("old value was string");
         writeln!(
             ui.status(),

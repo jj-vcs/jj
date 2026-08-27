@@ -17,6 +17,7 @@ use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::op_store::RefTarget;
 use jj_lib::ref_name::RefNameBuf;
+use jj_lib::revset;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
@@ -70,7 +71,7 @@ pub async fn cmd_tag_set(
         if old_target.is_present() && !args.allow_move {
             return Err(user_error(format!(
                 "Refusing to move tag: {name}",
-                name = name.as_symbol()
+                name = revset::format_ref_name(name)
             ))
             .hinted("Use --allow-move to update existing tags."));
         }
@@ -107,7 +108,7 @@ pub async fn cmd_tag_set(
         ui,
         format!(
             "set tag {names} to commit {id}",
-            names = args.names.iter().map(|n| n.as_symbol()).join(", "),
+            names = args.names.iter().map(revset::format_ref_name).join(", "),
             id = target_commit.id()
         ),
     )

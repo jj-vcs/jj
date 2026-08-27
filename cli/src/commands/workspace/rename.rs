@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use jj_lib::ref_name::WorkspaceNameBuf;
+use jj_lib::revset;
 use jj_lib::workspace_store::SimpleWorkspaceStore;
 use jj_lib::workspace_store::WorkspaceStore as _;
 use tracing::instrument;
@@ -56,7 +57,7 @@ pub async fn cmd_workspace_rename(
     {
         return Err(user_error(format!(
             "The current workspace '{}' is not tracked in the repo.",
-            old_name.as_symbol()
+            revset::format_ref_name(old_name)
         )));
     }
 
@@ -75,8 +76,8 @@ pub async fn cmd_workspace_rename(
     let repo = tx
         .commit(format!(
             "Renamed workspace '{old}' to '{new}'",
-            old = old_name.as_symbol(),
-            new = new_name.as_symbol()
+            old = revset::format_ref_name(old_name),
+            new = revset::format_ref_name(new_name)
         ))
         .await?;
     locked_ws.finish(repo.op_id().clone()).await?;

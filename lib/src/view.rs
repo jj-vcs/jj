@@ -38,6 +38,7 @@ use crate::ref_name::WorkspaceName;
 use crate::ref_name::WorkspaceNameBuf;
 use crate::refs;
 use crate::refs::LocalAndRemoteRef;
+use crate::revset;
 use crate::str_util::StringMatcher;
 
 /// A wrapper around [`op_store::View`] that defines additional methods.
@@ -672,10 +673,10 @@ impl View {
 /// Error from attempts to rename a workspace
 #[derive(Debug, Error)]
 pub enum RenameWorkspaceError {
-    #[error("Workspace {} not found", name.as_symbol())]
+    #[error("Workspace {} not found", revset::format_ref_name(name))]
     WorkspaceDoesNotExist { name: WorkspaceNameBuf },
 
-    #[error("Workspace {} already exists", name.as_symbol())]
+    #[error("Workspace {} already exists", revset::format_ref_name(name))]
     WorkspaceAlreadyExists { name: WorkspaceNameBuf },
 }
 

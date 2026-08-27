@@ -31,6 +31,7 @@ use jj_lib::ref_name::RefNameBuf;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteNameBuf;
 use jj_lib::repo::Repo as _;
+use jj_lib::revset;
 use jj_lib::str_util::StringExpression;
 use jj_lib::workspace::Workspace;
 
@@ -313,7 +314,10 @@ pub async fn cmd_git_clone(
             }
             tx.finish(
                 ui,
-                format!("check out git remote's branch: {}", name.as_symbol()),
+                format!(
+                    "check out git remote's branch: {}",
+                    revset::format_ref_name(name)
+                ),
             )
             .await?;
         }
@@ -349,8 +353,11 @@ async fn configure_remote(
 ) -> Result<WorkspaceCommandHelper, CommandError> {
     let mut tx = workspace_command.start_transaction();
     git::add_remote(tx.repo_mut(), remote_name, source, None)?;
-    tx.finish(ui, format!("add git remote {}", remote_name.as_symbol()))
-        .await?;
+    tx.finish(
+        ui,
+        format!("add git remote {}", revset::format_ref_name(remote_name)),
+    )
+    .await?;
     // Reload workspace to apply new remote configuration to
     // gix::ThreadSafeRepository behind the store.
     let workspace = command.load_workspace_at(
@@ -438,7 +445,7 @@ async fn fetch_new_remote(
             "No matching branches found on remote: {}",
             missing_branches
                 .iter()
-                .map(|name| name.as_symbol())
+                .map(revset::format_ref_name)
                 .join(", ")
         )?;
     }

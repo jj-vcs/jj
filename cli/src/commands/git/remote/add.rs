@@ -18,6 +18,7 @@ use jj_lib::git;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteNameBuf;
 use jj_lib::repo::Repo;
+use jj_lib::revset;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
@@ -60,8 +61,11 @@ pub async fn cmd_git_remote_add(
 
     git::add_remote(tx.repo_mut(), &args.remote, &url, push_url.as_deref())?;
     warn_if_remote_url_matches(ui, tx.repo(), &args.remote, &url, push_url.as_deref())?;
-    tx.finish(ui, format!("add git remote {}", args.remote.as_symbol()))
-        .await?;
+    tx.finish(
+        ui,
+        format!("add git remote {}", revset::format_ref_name(&args.remote)),
+    )
+    .await?;
     Ok(())
 }
 
@@ -112,7 +116,7 @@ fn warn_if_remote_url_matches(
         writeln!(
             ui.hint_default(),
             "If this was a mistake, run `jj git remote remove {new_remote}`.",
-            new_remote = new_remote.as_symbol()
+            new_remote = revset::format_ref_name(new_remote)
         )?;
     }
     Ok(())

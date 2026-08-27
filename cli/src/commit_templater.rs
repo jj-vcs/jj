@@ -1793,7 +1793,7 @@ impl WorkspaceRef {
 
 impl Template for WorkspaceRef {
     fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
-        write!(formatter, "{}@", self.name.as_symbol())
+        write!(formatter, "{}@", revset::format_ref_name(&self.name))
     }
 }
 

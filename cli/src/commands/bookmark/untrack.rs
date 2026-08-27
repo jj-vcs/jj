@@ -15,6 +15,7 @@
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::repo::Repo as _;
+use jj_lib::revset;
 use jj_lib::str_util::StringExpression;
 
 use super::resolve_trackable_remote_bookmarks;
@@ -117,12 +118,14 @@ pub async fn cmd_bookmark_untrack(
             // bookmarks.
             writeln!(
                 ui.warning_default(),
-                "Git-tracking bookmark cannot be untracked: {symbol}"
+                "Git-tracking bookmark cannot be untracked: {symbol}",
+                symbol = revset::format_remote_ref_symbol(symbol)
             )?;
         } else if !remote_ref.is_tracked() {
             writeln!(
                 ui.warning_default(),
-                "Remote bookmark not tracked yet: {symbol}"
+                "Remote bookmark not tracked yet: {symbol}",
+                symbol = revset::format_remote_ref_symbol(symbol)
             )?;
         } else {
             symbols.push(symbol);
@@ -141,7 +144,13 @@ pub async fn cmd_bookmark_untrack(
     }
     tx.finish(
         ui,
-        format!("untrack remote bookmark {}", symbols.iter().join(", ")),
+        format!(
+            "untrack remote bookmark {}",
+            symbols
+                .iter()
+                .map(|&symbol| revset::format_remote_ref_symbol(symbol))
+                .join(", ")
+        ),
     )
     .await?;
     Ok(())

@@ -19,6 +19,7 @@ use jj_lib::iter_util::fallible_any;
 use jj_lib::iter_util::fallible_find;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::RefTarget;
+use jj_lib::revset;
 use jj_lib::str_util::StringExpression;
 
 use super::is_fast_forward;
@@ -133,7 +134,7 @@ pub async fn cmd_bookmark_move(
     {
         return Err(user_error(format!(
             "Refusing to move bookmark backwards or sideways: {name}",
-            name = name.as_symbol()
+            name = revset::format_ref_name(name)
         ))
         .hinted("Use --allow-backwards to allow it."));
     }
@@ -165,7 +166,7 @@ pub async fn cmd_bookmark_move(
             "point bookmark {names} to commit {id}",
             names = matched_bookmarks
                 .iter()
-                .map(|(name, _)| name.as_symbol())
+                .map(|(name, _)| revset::format_ref_name(name))
                 .join(", "),
             id = target_commit.id().hex()
         ),

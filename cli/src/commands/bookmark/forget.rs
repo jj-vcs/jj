@@ -19,6 +19,7 @@ use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::ref_name::RefName;
 use jj_lib::repo::Repo as _;
+use jj_lib::revset;
 use jj_lib::view::View;
 
 use super::warn_unmatched_local_or_remote_bookmarks;
@@ -106,7 +107,7 @@ pub async fn cmd_bookmark_forget(
     }
     let forgotten_bookmarks = matched_bookmarks
         .iter()
-        .map(|(name, _)| name.as_symbol())
+        .map(|(name, _)| revset::format_ref_name(name))
         .join(", ");
     tx.finish(ui, format!("forget bookmark {forgotten_bookmarks}"))
         .await?;

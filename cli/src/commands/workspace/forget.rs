@@ -15,6 +15,7 @@
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::ref_name::WorkspaceNameBuf;
+use jj_lib::revset;
 use jj_lib::workspace_store::SimpleWorkspaceStore;
 use jj_lib::workspace_store::WorkspaceStore as _;
 use tracing::instrument;
@@ -61,7 +62,7 @@ pub async fn cmd_workspace_forget(
             writeln!(
                 ui.warning_default(),
                 "No such workspace: {}",
-                ws.as_symbol(),
+                revset::format_ref_name(ws),
             )?;
         } else {
             forget_ws.push(ws);
@@ -85,11 +86,11 @@ pub async fn cmd_workspace_forget(
     workspace_store.forget(&forget_ws.iter().map(|x| x.as_ref()).collect::<Vec<_>>())?;
 
     let description = if let [ws] = forget_ws.as_slice() {
-        format!("forget workspace {}", ws.as_symbol())
+        format!("forget workspace {}", revset::format_ref_name(ws))
     } else {
         format!(
             "forget workspaces {}",
-            forget_ws.iter().map(|ws| ws.as_symbol()).join(", ")
+            forget_ws.iter().map(revset::format_ref_name).join(", ")
         )
     };
 

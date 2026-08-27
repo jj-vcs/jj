@@ -15,6 +15,7 @@
 use clap_complete::ArgValueCandidates;
 use jj_lib::git;
 use jj_lib::ref_name::RemoteNameBuf;
+use jj_lib::revset;
 
 use super::super::rename_remote_in_repo_config;
 use crate::cli_util::CommandHelper;
@@ -47,8 +48,8 @@ pub async fn cmd_git_remote_rename(
             ui,
             format!(
                 "rename git remote {old} to {new}",
-                old = args.old.as_symbol(),
-                new = args.new.as_symbol()
+                old = revset::format_ref_name(&args.old),
+                new = revset::format_ref_name(&args.new)
             ),
         )
         .await?;

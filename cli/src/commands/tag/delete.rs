@@ -15,6 +15,7 @@
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::op_store::RefTarget;
+use jj_lib::revset;
 
 use super::warn_unmatched_local_tags;
 use crate::cli_util::CommandHelper;
@@ -66,7 +67,10 @@ pub async fn cmd_tag_delete(
         ui,
         format!(
             "delete tag {names}",
-            names = matched_tags.iter().map(|(n, _)| n.as_symbol()).join(", ")
+            names = matched_tags
+                .iter()
+                .map(|(n, _)| revset::format_ref_name(n))
+                .join(", ")
         ),
     )
     .await?;

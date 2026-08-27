@@ -48,6 +48,7 @@ use jj_lib::refs::LocalAndRemoteRef;
 use jj_lib::refs::RefPushAction;
 use jj_lib::refs::classify_ref_push_action;
 use jj_lib::repo::Repo;
+use jj_lib::revset;
 use jj_lib::revset::RemoteRefSymbolExpression;
 use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::RevsetContainingFn;
@@ -245,10 +246,12 @@ fn make_updates_term(ref_updates: &GitPushRefTargets) -> String {
         .into_iter()
         .filter_map(|(kind, kinds, refs)| match &**refs {
             [] => None,
-            [(name, _)] => Some(format!("{kind} {}", name.as_symbol())),
+            [(name, _)] => Some(format!("{kind} {}", revset::format_ref_name(name))),
             _ => Some(format!(
                 "{kinds} {}",
-                refs.iter().map(|(name, _)| name.as_symbol()).join(", ")
+                refs.iter()
+                    .map(|(name, _)| revset::format_ref_name(name))
+                    .join(", ")
             )),
         })
         .join(", ")
@@ -429,7 +432,8 @@ pub async fn cmd_git_push(
                 Ok(None) => writeln!(
                     ui.status(),
                     "Bookmark {remote_symbol} already matches {name}",
-                    name = name.as_symbol()
+                    remote_symbol = revset::format_remote_ref_symbol(remote_symbol),
+                    name = revset::format_ref_name(name)
                 )?,
                 Err(reason) => return Err(reason.into()),
             }
@@ -452,7 +456,8 @@ pub async fn cmd_git_push(
                 Ok(None) => writeln!(
                     ui.status(),
                     "Bookmark {remote_symbol} already matches {name}",
-                    name = name.as_symbol()
+                    remote_symbol = revset::format_remote_ref_symbol(remote_symbol),
+                    name = revset::format_ref_name(name)
                 )?,
                 Err(reason) => return Err(reason.into()),
             }
@@ -472,7 +477,8 @@ pub async fn cmd_git_push(
                 Ok(None) => writeln!(
                     ui.status(),
                     "Tag {remote_symbol} already matches {name}",
-                    name = name.as_symbol()
+                    remote_symbol = revset::format_remote_ref_symbol(remote_symbol),
+                    name = revset::format_ref_name(name)
                 )?,
                 Err(reason) => return Err(reason.into()),
             }
@@ -543,7 +549,7 @@ pub async fn cmd_git_push(
         writeln!(
             formatter,
             "Changes to push to {remote}:",
-            remote = remote.as_symbol()
+            remote = revset::format_ref_name(remote)
         )?;
         print_commits_ready_to_push(formatter.as_mut(), tx.repo(), &ref_updates).await?;
     }
@@ -572,23 +578,23 @@ pub async fn cmd_git_push(
         let description = if args.all {
             format!(
                 "{TX_DESC_PUSH}all bookmarks/tags to git remote {remote}",
-                remote = remote.as_symbol()
+                remote = revset::format_ref_name(remote)
             )
         } else if args.tracked {
             format!(
                 "{TX_DESC_PUSH}all tracked bookmarks/tags to git remote {remote}",
-                remote = remote.as_symbol()
+                remote = revset::format_ref_name(remote)
             )
         } else if args.deleted {
             format!(
                 "{TX_DESC_PUSH}all deleted bookmarks/tags to git remote {remote}",
-                remote = remote.as_symbol()
+                remote = revset::format_ref_name(remote)
             )
         } else {
             format!(
                 "{TX_DESC_PUSH}{names} to git remote {remote}",
                 names = make_updates_term(&ref_updates),
-                remote = remote.as_symbol()
+                remote = revset::format_ref_name(remote)
             )
         };
         tx.finish(ui, description).await?;
@@ -636,7 +642,7 @@ impl RejectedCommitReason {
         writeln!(
             ui.warning_default(),
             "Won't push {kind} {name}: commit {id} {message}",
-            name = name.as_symbol(),
+            name = revset::format_ref_name(name),
             id = short_commit_hash(self.commit.id()),
             message = self.message,
         )?;
@@ -955,7 +961,7 @@ async fn print_commits_ready_to_push(
             writeln!(
                 formatter,
                 "  {kind}: {name} [{desc}]",
-                name = name.as_symbol()
+                name = revset::format_ref_name(name)
             )?;
         }
     }
@@ -975,7 +981,7 @@ fn get_default_push_remote(
             writeln!(
                 ui.hint_default(),
                 "Pushing to the only existing remote: {remote}",
-                remote = remote.as_symbol()
+                remote = revset::format_ref_name(&remote)
             )?;
         }
         Ok(remote)
@@ -1016,12 +1022,14 @@ fn classify_bookmark_update(
     allow_delete: bool,
 ) -> Result<Option<Diff<Option<CommitId>>>, RejectedRefUpdateReason> {
     let push_action = classify_ref_push_action(targets);
+    let name = remote_symbol.name;
+    let remote_symbol = revset::format_remote_ref_symbol(remote_symbol);
     match push_action {
         RefPushAction::AlreadyMatches => Ok(None),
         RefPushAction::LocalConflicted => Err(RejectedRefUpdateReason {
             message: format!(
                 "Bookmark {name} is conflicted",
-                name = remote_symbol.name.as_symbol()
+                name = revset::format_ref_name(name)
             ),
             hint: Some(
                 "Run `jj bookmark list` to inspect, and use `jj bookmark set` to fix it up."
@@ -1050,7 +1058,7 @@ fn classify_bookmark_update(
             Err(RejectedRefUpdateReason {
                 message: format!(
                     "Refusing to push deleted bookmark {name}",
-                    name = remote_symbol.name.as_symbol(),
+                    name = revset::format_ref_name(name),
                 ),
                 hint: Some(
                     "Push deleted bookmarks with --deleted or forget the bookmark to suppress \
@@ -1070,12 +1078,14 @@ fn classify_tag_update(
     allow_delete: bool,
 ) -> Result<Option<Diff<Option<CommitId>>>, RejectedRefUpdateReason> {
     let push_action = classify_ref_push_action(targets);
+    let name = remote_symbol.name;
+    let remote_symbol = revset::format_remote_ref_symbol(remote_symbol);
     match push_action {
         RefPushAction::AlreadyMatches => Ok(None),
         RefPushAction::LocalConflicted => Err(RejectedRefUpdateReason {
             message: format!(
                 "Tag {name} is conflicted",
-                name = remote_symbol.name.as_symbol()
+                name = revset::format_ref_name(name)
             ),
             hint: Some(
                 "Run `jj tag list` to inspect, and use `jj tag set` to fix it up.".to_owned(),
@@ -1100,7 +1110,7 @@ fn classify_tag_update(
             Err(RejectedRefUpdateReason {
                 message: format!(
                     "Refusing to push deleted tag {name}",
-                    name = remote_symbol.name.as_symbol(),
+                    name = revset::format_ref_name(name),
                 ),
                 // TODO: suggest `jj tag forget`?
                 hint: Some("Push deleted tags with --deleted.".to_owned()),
@@ -1111,7 +1121,7 @@ fn classify_tag_update(
 }
 
 fn ensure_new_bookmark_name(repo: &dyn Repo, name: &RefName) -> Result<(), CommandError> {
-    let symbol = name.as_symbol();
+    let symbol = revset::format_ref_name(name);
     if repo.view().get_local_bookmark(name).is_present() {
         return Err(
             user_error(format!("Bookmark already exists: {symbol}")).hinted(format!(
@@ -1204,7 +1214,7 @@ async fn create_change_bookmarks(
         writeln!(
             ui.status(),
             "Creating bookmark {name} for revision {change_id:.12}",
-            name = name.as_symbol(),
+            name = revset::format_ref_name(name),
             change_id = commit.change_id()
         )?;
         tx.repo_mut().set_local_bookmark_target(name, target);
@@ -1241,7 +1251,7 @@ fn find_bookmarks_to_push<'a>(
         writeln!(
             ui.warning_default(),
             "No matching bookmarks for names: {}",
-            unmatched_names.map(|name| name.as_symbol()).join(", ")
+            unmatched_names.map(revset::format_ref_name).join(", ")
         )?;
     }
     Ok(matching_bookmarks)
@@ -1275,7 +1285,7 @@ fn find_tags_to_push<'a>(
         writeln!(
             ui.warning_default(),
             "No matching tags for names: {}",
-            unmatched_names.map(|name| name.as_symbol()).join(", ")
+            unmatched_names.map(revset::format_ref_name).join(", ")
         )?;
     }
     Ok(matching_tags)
@@ -1310,7 +1320,7 @@ async fn find_default_target_revisions(
             ui.warning_default(),
             "No bookmarks/tags found in the default push revset: \
              remote_bookmarks(remote={remote})..@",
-            remote = remote.as_symbol()
+            remote = revset::format_ref_name(remote)
         )?;
     }
     Ok(commit_ids.try_collect().await?)

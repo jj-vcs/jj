@@ -178,7 +178,7 @@ pub async fn cmd_bookmark_advance(
     {
         return Err(user_error(format!(
             "Refusing to advance bookmark backwards or sideways: {name}",
-            name = name.as_symbol()
+            name = revset::format_ref_name(name)
         )));
     }
     if target_commit.is_discardable(repo.as_ref()).await? {
@@ -213,7 +213,7 @@ pub async fn cmd_bookmark_advance(
             "point bookmark {names} to commit {id}",
             names = matched_bookmarks
                 .iter()
-                .map(|(name, _)| name.as_symbol())
+                .map(|(name, _)| revset::format_ref_name(name))
                 .join(", "),
             id = target_commit.id().hex()
         ),

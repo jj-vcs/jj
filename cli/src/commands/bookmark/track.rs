@@ -18,6 +18,7 @@ use std::rc::Rc;
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::repo::Repo as _;
+use jj_lib::revset;
 use jj_lib::str_util::StringExpression;
 
 use super::resolve_trackable_remote_bookmarks;
@@ -118,7 +119,8 @@ pub async fn cmd_bookmark_track(
         if remote_ref.is_tracked() {
             writeln!(
                 ui.warning_default(),
-                "Remote bookmark already tracked: {symbol}"
+                "Remote bookmark already tracked: {symbol}",
+                symbol = revset::format_remote_ref_symbol(symbol)
             )?;
         } else {
             symbols.push(symbol);
@@ -137,7 +139,13 @@ pub async fn cmd_bookmark_track(
     }
     tx.finish(
         ui,
-        format!("track remote bookmark {}", symbols.iter().join(", ")),
+        format!(
+            "track remote bookmark {}",
+            symbols
+                .iter()
+                .map(|&symbol| revset::format_remote_ref_symbol(symbol))
+                .join(", ")
+        ),
     )
     .await?;
 

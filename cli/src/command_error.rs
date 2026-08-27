@@ -813,7 +813,8 @@ fn bookmark_name_parse_error_hint(err: &BookmarkNameParseError) -> Option<String
     use revset::ExpressionKind;
     match revset::parse_program(&err.input).map(|node| node.kind) {
         Ok(ExpressionKind::RemoteSymbol(symbol)) => Some(format!(
-            "Looks like remote bookmark. Run `jj bookmark track {symbol}` to track it."
+            "Looks like remote bookmark. Run `jj bookmark track {symbol}` to track it.",
+            symbol = revset::format_remote_ref_symbol(symbol.as_ref())
         )),
         _ => Some(REVSET_SYMBOL_HINT.to_owned()),
     }

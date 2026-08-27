@@ -35,6 +35,7 @@ use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::ref_name::RemoteRefSymbolBuf;
 use jj_lib::repo::Repo;
+use jj_lib::revset;
 use jj_lib::str_util::StringExpression;
 use jj_lib::str_util::StringMatcher;
 use jj_lib::view::View;
@@ -139,7 +140,10 @@ fn resolve_trackable_remote_bookmarks<'a>(
         writeln!(
             ui.warning_default(),
             "No matching remote bookmarks for names: {}",
-            unmatched_symbols.iter().join(", ")
+            unmatched_symbols
+                .iter()
+                .map(|&symbol| revset::format_remote_ref_symbol(symbol))
+                .join(", ")
         )?;
     }
     Ok(trackable_refs)
@@ -198,7 +202,7 @@ fn warn_unmatched_local_bookmarks(
     writeln!(
         ui.warning_default(),
         "No matching bookmarks for names: {}",
-        names.map(|name| name.as_symbol()).join(", ")
+        names.map(revset::format_ref_name).join(", ")
     )
 }
 
@@ -224,7 +228,7 @@ fn warn_unmatched_local_or_remote_bookmarks(
     writeln!(
         ui.warning_default(),
         "No matching bookmarks for names: {}",
-        names.map(|name| name.as_symbol()).join(", ")
+        names.map(revset::format_ref_name).join(", ")
     )
 }
 
@@ -241,6 +245,6 @@ fn warn_unmatched_remotes(ui: &Ui, view: &View, name_expr: &StringExpression) ->
     writeln!(
         ui.warning_default(),
         "No matching remotes for names: {}",
-        names.map(|name| name.as_symbol()).join(", ")
+        names.map(revset::format_ref_name).join(", ")
     )
 }

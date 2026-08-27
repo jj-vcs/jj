@@ -15,6 +15,7 @@
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::op_store::RefTarget;
+use jj_lib::revset;
 
 use super::warn_unmatched_local_bookmarks;
 use crate::cli_util::CommandHelper;
@@ -82,7 +83,7 @@ pub async fn cmd_bookmark_delete(
             "delete bookmark {}",
             matched_bookmarks
                 .iter()
-                .map(|(name, _)| name.as_symbol())
+                .map(|(name, _)| revset::format_ref_name(name))
                 .join(", ")
         ),
     )

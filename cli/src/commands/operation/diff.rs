@@ -399,7 +399,11 @@ pub async fn show_op_diff(
                     // Usually, there is at most one working copy changed per operation, so we put
                     // the working copy name in the heading.
                     write!(formatter, "Changed working copy ")?;
-                    write!(formatter.labeled("working_copies"), "{}@", name.as_symbol())?;
+                    write!(
+                        formatter.labeled("working_copies"),
+                        "{}@",
+                        revset::format_ref_name(name)
+                    )?;
                     writeln!(formatter, ":")?;
                     write_ref_target_summary(
                         formatter,
@@ -439,7 +443,7 @@ pub async fn show_op_diff(
         for (name, (from_target, to_target)) in changed_local_bookmarks {
             with_content_format
                 .write(formatter, async |formatter| {
-                    writeln!(formatter, "{name}:", name = name.as_symbol())?;
+                    writeln!(formatter, "{name}:", name = revset::format_ref_name(name))?;
                     write_ref_target_summary(
                         formatter,
                         current_repo,
@@ -476,7 +480,7 @@ pub async fn show_op_diff(
         for (name, (from_target, to_target)) in changed_local_tags {
             with_content_format
                 .write(formatter, async |formatter| {
-                    writeln!(formatter, "{name}:", name = name.as_symbol())?;
+                    writeln!(formatter, "{name}:", name = revset::format_ref_name(name))?;
                     write_ref_target_summary(
                         formatter,
                         current_repo,
@@ -524,7 +528,11 @@ pub async fn show_op_diff(
         for (symbol, (from_ref, to_ref)) in changed_remote_bookmarks {
             with_content_format
                 .write(formatter, async |formatter| {
-                    writeln!(formatter, "{symbol}:")?;
+                    writeln!(
+                        formatter,
+                        "{symbol}:",
+                        symbol = revset::format_remote_ref_symbol(symbol)
+                    )?;
                     write_ref_target_summary(
                         formatter,
                         current_repo,
@@ -566,7 +574,11 @@ pub async fn show_op_diff(
         for (symbol, (from_ref, to_ref)) in changed_remote_tags {
             with_content_format
                 .write(formatter, async |formatter| {
-                    writeln!(formatter, "{symbol}:")?;
+                    writeln!(
+                        formatter,
+                        "{symbol}:",
+                        symbol = revset::format_remote_ref_symbol(symbol)
+                    )?;
                     write_ref_target_summary(
                         formatter,
                         current_repo,
