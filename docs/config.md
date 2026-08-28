@@ -1997,6 +1997,47 @@ you can:
 executable-path = "/path/to/git"
 ```
 
+## Gerrit settings
+
+### Default remote
+
+To configure the default remote that `jj gerrit upload` will push to, set
+`gerrit.default-remote`. This can be overridden with the `--remote` option.
+
+```toml
+[gerrit]
+default-remote = "gerrit"
+```
+
+### Default remote branch
+
+To configure the default branch that `jj gerrit upload` will push to, set
+`gerrit.default-remote-branch`. This can be overridden with the
+`--remote-branch` option.
+
+```toml
+[gerrit]
+default-remote-branch = "main"
+```
+
+### `Link` trailer
+
+Since version 3.3.1 Gerrit supports an alternative to the `Change-Id` trailer,
+using a [`Link` trailer][Gerrit Link trailer] in the format of
+`<review-url>/id/I<change-id>`. To have `jj gerrit upload` automatically add a
+`Link` trailer instead of a `Change-Id` trailer, set `gerrit.review-url` to the
+URL preview you'd like to use.
+
+```toml
+[gerrit]
+review-url = "https://review.gerrithub.io/your/project"
+```
+
+Note that if a `Change-Id` or `Link` trailer already exists in a change, then
+`jj gerrit upload` will not add any trailer.
+
+[Gerrit Link trailer]: https://gerrit-documentation.storage.googleapis.com/Documentation/3.3.1/cmd-hook-commit-msg.html
+
 ## Merge settings
 
 ### Granularity of hunks

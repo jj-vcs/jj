@@ -47,59 +47,58 @@ use crate::git_util::GitSubprocessUi;
 use crate::git_util::print_push_stats;
 use crate::ui::Ui;
 
-/// Upload changes to Gerrit for code review, or update existing changes.
+/// Upload changes to Gerrit for code review, or update existing changes
 ///
-/// Uploading in a set of revisions to Gerrit creates a single "change" for
-/// each revision included in the revset. These changes are then available
-/// for review on your Gerrit instance.
-///
-/// Note: The Gerrit commit Id may not match that of your local commit Id,
-/// since we add a `Change-Id` footer to the commit message if one does not
-/// already exist. This ID is based off the jj Change-Id, but is not the same.
+/// Uploading a set of revisions to Gerrit creates a single "change" for each
+/// revision included in the revset and all their mutable ancestors. These
+/// changes will then be available for review on your Gerrit instance.
 ///
 /// If a change already exists for a given revision (i.e. it contains the
 /// same `Change-Id`), this command will update the contents of the existing
 /// change to match.
 ///
-/// Note: this command takes 1-or-more revsets arguments, each of which can
-/// resolve to multiple revisions; so you may post trees or ranges of
-/// commits to Gerrit for review all at once.
+/// Note: The Gerrit commit ID may not match your local commit ID, since this
+/// command adds a `Change-Id` trailer to the commit message if one does not
+/// already exist. This ID is based on the jj change ID, but is not the same.
+///
+/// Also see the [Jujutsu docs on Gerrit].
+///
+/// [Jujutsu docs on Gerrit]: https://docs.jj-vcs.dev/latest/gerrit
 #[derive(clap::Args, Clone, Debug, Default)]
 pub struct UploadArgs {
-    /// The revset, selecting which revisions are sent in to Gerrit
+    /// The revisions to upload to Gerrit
     ///
-    /// This can be any arbitrary set of commits. Note that when you push a
-    /// commit at the head of a stack, all ancestors are pushed too. This means
-    /// that `jj gerrit upload -r foo` is equivalent to `jj gerrit upload -r
-    /// 'mutable()::foo`.
+    /// All mutable ancestors of specified revisions will also be pushed. This
+    /// means that `jj gerrit upload -r foo` is equivalent to `jj gerrit upload
+    /// -r 'mutable()::foo'`.
     ///
-    /// If this is not provided, it will check whether @ has a description.
-    /// * If it does, it will upload @
-    /// * Otherwise, it will upload @-
-    #[arg(long = "revision", short, value_name = "REVSETS", alias = "revisions")]
+    /// If this is not provided, `@` will be uploaded if it has a description,
+    /// and `@-` will be uploaded otherwise.
+    #[arg(long = "revision", short, value_name = "REVSETS", alias = "revision")]
     revisions: Vec<RevisionArg>,
 
     /// The location where your changes are intended to land
     ///
-    /// This should be a branch on the remote. Can be configured with the
-    /// `gerrit.default-remote-branch` repository option.
+    /// This should be a branch on the remote. The default is the
+    /// `gerrit.default-remote-branch` setting.
     #[arg(long, short = 'b')]
     remote_branch: Option<String>,
 
     /// The Gerrit remote to push to
     ///
-    /// Can be configured with the `gerrit.default-remote` repository option as
-    /// well. This is typically a full SSH URL for your Gerrit instance.
+    /// This can point to any configured Git remote, or can be a full SSH URL.
+    /// The default is the `gerrit.default-remote` setting.
     #[arg(long)]
     remote: Option<String>,
 
-    /// Do not actually push the changes to Gerrit
+    /// Only display what will change on the remote; do not push changes to
+    /// Gerrit
     #[arg(long, short = 'n')]
     dry_run: bool,
 
     // The following flags are options Gerrit supports during upload.
     // They are documented at
-    // https://gerrit-review.googlesource.com/Documentation/user-upload.html
+    // https://gerrit-review.googlesource.com/Documentation/user-upload.html.
     /// Add these emails as a reviewer (can be repeated)
     #[arg(long)]
     reviewer: Vec<String>,
@@ -110,72 +109,79 @@ pub struct UploadArgs {
 
     /// Add the following labels configured by Gerrit (can be repeated)
     ///
-    /// Gerrit silently ignores labels not present on your gerrit host.
-    /// Defaults to +1 if no value is set.
-    /// Eg. --label=Commit-Queue will set the Commit-Queue label to +1.
-    /// Eg. --label=Commit-Queue+2 will set it to +2.
-    #[arg(long, short)]
+    /// Each label can have a suffix of the value to set, such as "+2". The
+    /// default is "+1" if no value is set.
+    ///
+    /// Note that Gerrit silently ignores labels not present on your Gerrit
+    /// host.
+    ///
+    /// Examples:
+    /// - `--label=Commit-Queue` will set the `Commit-Queue` label to +1.
+    /// - `--label=Commit-Queue+2` will set it to +2.
+    #[arg(long, short, verbatim_doc_comment)]
     label: Vec<String>,
 
-    /// Applies a topic to the change
+    /// Apply a topic to the change
     ///
-    /// See https://gerrit-review.googlesource.com/Documentation/intro-user.html#topics.
     /// Changes can be grouped by topic, and Gerrit can be configured to submit
     /// all changes in a topic together in a single click.
+    ///
+    /// See https://gerrit-review.googlesource.com/Documentation/intro-user.html#topics.
     #[arg(long)]
     topic: Option<String>,
 
-    /// Applies a hashtag to the change (can be repeated)
+    /// Apply a hashtag to the change (can be repeated)
     ///
-    /// See https://gerrit-review.googlesource.com/Documentation/intro-user.html#hashtags.
     /// Hashtags are freeform strings associated with a change, like on social
     /// media platforms. Similar to topics, hashtags can be used to group
-    /// related changes together, and to search using the hashtag: operator.
+    /// related changes together, and to search using the `hashtag:` operator.
     /// Unlike topics, a change can have multiple hashtags, and they are only
     /// used for informational grouping. Changes with the same hashtags are
     /// not necessarily submitted together.
+    ///
+    /// See https://gerrit-review.googlesource.com/Documentation/intro-user.html#hashtags.
     #[arg(long)]
     hashtag: Vec<String>,
 
-    /// A patch set description for the new patch set
+    /// The description for the patch set
     #[arg(long, short)]
     message: Option<String>,
 
     /// Push the change as a change edit
     ///
-    /// To push a change edit the underlying change need to already exist on the
-    /// gerrit server. Change edits don't immediately create a new patchset,
-    /// but need to be published from the web UI first. There can only be
+    /// To push a change edit the underlying change needs to already exist on
+    /// the Gerrit server. Change edits don't immediately create a new patch
+    /// set, but need to be published from the web UI first. There can only be
     /// one edit for each change. Pushing a new change edit will replace the
     /// previous one.
     #[arg(long)]
     edit: bool,
 
-    /// Marks the change as WIP (work in progress)
+    /// Mark the change as WIP (work in progress)
     ///
     /// See https://gerrit-review.googlesource.com/Documentation/intro-user.html#wip.
     #[arg(long)]
     wip: bool,
 
-    /// Unmarks the change as WIP (work in progress)
+    /// Mark the change as ready (no longer work in progress)
     #[arg(long)]
     ready: bool,
 
-    /// Marks the change as private
+    /// Mark the change as private
     ///
     /// See https://gerrit-review.googlesource.com/Documentation/intro-user.html#private-changes.
     #[arg(long)]
     private: bool,
 
-    /// Unmarks the change as private
+    /// Unmark the change as private
     #[arg(long)]
     remove_private: bool,
 
-    /// Publishes any draft comments for the given change
+    /// Publish draft comments for the given change
     #[arg(long)]
     publish_comments: bool,
 
-    /// Disables publishing of any draft comments for the given change
+    /// Do not publish draft comments for the given change
     ///
     /// This is only useful if the user has configured Gerrit to publish
     /// comments by default.
@@ -223,9 +229,9 @@ pub struct UploadArgs {
     trace: Option<String>,
     // Note: An option "message" exists on Gerrit hosts. It is currently not
     // implemented because it could be easy to confuse a "-m"/"--message" flag
-    // for a patchset with a message for a commit description.
-    // We can consider adding it later, but that will involve a more comprehensive
-    // discussion about the option name.
+    // for a patch set with a message for a commit description.
+    // We can consider adding it later, but that will involve a more
+    // comprehensive discussion about the option name.
     // See https://gerrit-review.googlesource.com/Documentation/user-upload.html#patch_set_description
 }
 
@@ -476,11 +482,11 @@ pub async fn cmd_gerrit_upload(
         return Ok(());
     }
 
-    // If you have the changes main -> A -> B, and then run `jj gerrit upload -r B`,
-    // then that uploads both A and B. Thus, we need to ensure that A also
-    // has a Change-ID.
+    // If you have the changes main -> A -> B, then `jj gerrit upload -r B`
+    // uploads both A and B. Thus, we need to ensure that A also has a
+    // `Change-Id` trailer.
     // We make an assumption here that all immutable commits already have a
-    // Change-ID.
+    // `Change-Id` trailer.
     let to_upload: Vec<Commit> = workspace_command
         .attach_revset_evaluator(
             workspace_command
@@ -493,14 +499,10 @@ pub async fn cmd_gerrit_upload(
         .await?;
 
     // Note: This transaction is intentionally never finished. This way, the
-    // Change-Id is never part of the commit description in jj.
-    // This avoids scenarios where you have many commits with the same
-    // Change-Id, or a single commit with many Change-Ids after running
-    // jj split / jj squash respectively.
-    // If a user doesn't like this behavior, they can add the following to
-    // their Cargo.toml.
-    // commit_trailers = 'if(!trailers.contains_key("Change-Id"),
-    // format_gerrit_change_id_trailer(self))'
+    // `Change-Id` trailer is never part of the commit description in the user's
+    // local repo. This avoids scenarios where you have many commits with the
+    // same `Change-Id` or a single commit with many `Change-Id`s (e.g., after
+    // running `jj split` / `jj squash` respectively).
     let mut tx = workspace_command.start_transaction();
     let base_repo = tx.base_repo();
     let store = base_repo.store().clone();
@@ -545,26 +547,25 @@ pub async fn cmd_gerrit_upload(
             .filter(|trailer| trailer.key == "Change-Id" || trailer.key == "Link")
             .collect();
 
-        // There shouldn't be multiple change-ID fields. So just error out if
-        // there is.
+        // There shouldn't be multiple `Change-Id` fields.
         if change_id_trailers.len() > 1 {
             return Err(user_error(format!(
-                "Multiple Change-Id footers in revision {}",
+                "Multiple Change-Id trailers in revision {}",
                 short_change_hash(original_commit.change_id())
             )));
         }
 
-        // The user can choose to explicitly set their own change-ID to
-        // override the default change-ID based on the jj change-ID.
+        // The user can choose to explicitly set their own `Change-Id` to
+        // override the generated one based on the jj change ID.
         let new_description = if let Some(trailer) = change_id_trailers.first() {
-            // Check the change-id format is correct, intentionally leave the
-            // invalid change IDs as-is.
+            // Check the `Change-Id` format is correct. Intentionally do not
+            // modify the invalid ones.
             if trailer.key == "Change-Id"
                 && (trailer.value.len() != 41 || !trailer.value.starts_with('I'))
             {
                 writeln!(
                     ui.warning_default(),
-                    "Invalid Change-Id footer in revision {}",
+                    "Invalid Change-Id trailer in revision {}",
                     short_change_hash(original_commit.change_id()),
                 )?;
             }
@@ -573,16 +574,16 @@ pub async fn cmd_gerrit_upload(
             {
                 writeln!(
                     ui.warning_default(),
-                    "Invalid Link footer in revision {}",
+                    "Invalid Link trailer in revision {}",
                     short_change_hash(original_commit.change_id()),
                 )?;
             }
 
             original_commit.description().to_owned()
         } else {
-            // Gerrit change id is 40 chars, jj change id is 32, so we need padding.
-            // To be consistent with `format_gerrit_change_id_trailer``, we pad with
-            // 6a6a6964 (hex of "jjid").
+            // Gerrit `Change-Id` is 40 chars, jj change ID is 32, so we need
+            // padding. To be consistent with `format_gerrit_change_id_trailer`,
+            // we pad with 6a6a6964 (hex of "jjid") at the end.
             let gerrit_change_id = format!("I{}6a6a6964", original_commit.change_id().hex());
 
             let change_id_trailer =
@@ -626,7 +627,7 @@ pub async fn cmd_gerrit_upload(
             .set_parents(new_parents)
             // Set the timestamp back to the timestamp of the original commit.
             // Otherwise, `jj gerrit upload @ && jj gerrit upload @` will upload
-            // two patchsets with the only difference being the timestamp.
+            // two patch sets with the only difference being the timestamp.
             .set_committer(original_commit.committer().clone())
             .set_author(original_commit.author().clone())
             .write()
