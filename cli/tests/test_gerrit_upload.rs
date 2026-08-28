@@ -779,33 +779,33 @@ fn test_gerrit_upload_bad_change_ids() {
     let output = local_dir.run_jj(["gerrit", "upload", "-rc", "--remote-branch=main"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Multiple Change-Id footers in revision wqnwkozpkust
+    Error: Multiple Change-Id trailers in revision wqnwkozpkust
     [EOF]
     [exit status: 1]
     ");
     let output = local_dir.run_jj(["gerrit", "upload", "-rd", "--remote-branch=main"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Multiple Change-Id footers in revision kxryzmorwvtz
+    Error: Multiple Change-Id trailers in revision kxryzmorwvtz
     [EOF]
     [exit status: 1]
     ");
     let output = local_dir.run_jj(["gerrit", "upload", "-re", "--remote-branch=main"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Multiple Change-Id footers in revision uyznsvlquzzm
+    Error: Multiple Change-Id trailers in revision uyznsvlquzzm
     [EOF]
     [exit status: 1]
     ");
 
     // check both badly and slightly malformed Change-Id / Link trailers
     let output = local_dir.run_jj(["gerrit", "upload", "-rb4", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: Invalid Change-Id footer in revision mzvwutvlkqwt
-    Warning: Invalid Change-Id footer in revision yqosqzytrlsw
-    Warning: Invalid Link footer in revision yostqsxwqrlt
-    Warning: Invalid Link footer in revision kpqxywonksrl
+    Warning: Invalid Change-Id trailer in revision mzvwutvlkqwt
+    Warning: Invalid Change-Id trailer in revision yqosqzytrlsw
+    Warning: Invalid Link trailer in revision yostqsxwqrlt
+    Warning: Invalid Link trailer in revision kpqxywonksrl
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'.
     Pushing kpqxywon 69536ef3 b4
     [EOF]
