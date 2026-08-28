@@ -542,19 +542,12 @@ impl TableStore {
     pub fn get_head_locked(&self) -> TableStoreResult<(Arc<ReadonlyTable>, FileLock)> {
         let lock = self.lock()?;
         let mut tables = self.get_head_tables()?;
-
-        if tables.is_empty() {
-            let empty_table = MutableTable::full(self.key_size);
-            let table = self.save_table(empty_table)?;
-            return Ok((table, lock));
-        }
-
-        if tables.len() == 1 {
-            // Return early so we don't write a table with no changes compared to its parent
-            return Ok((tables.pop().unwrap(), lock));
-        }
-
-        let merged_table = self.resolve_multiple_heads(tables)?;
+        let merged_table = match tables.len() {
+            0 => self.save_table(MutableTable::full(self.key_size))?,
+            // Don't write a table with no changes compared to its parent
+            1 => tables.pop().unwrap(),
+            _ => self.resolve_multiple_heads(tables)?,
+        };
         Ok((merged_table, lock))
     }
 
