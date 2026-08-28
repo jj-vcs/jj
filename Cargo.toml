@@ -71,6 +71,7 @@ gix = { version = "0.86.0", default-features = false, features = [
 gix-ignore = { version = "0.22.0" }
 globset = "0.4.18"
 hashbrown = { version = "0.17.1", default-features = false, features = ["inline-more"] }
+hegeltest = "0.36.1"
 indexmap = { version = "2.14.0", features = ["serde"] }
 indoc = "2.0.7"
 insta = { version = "1.47.2", features = ["filters"] }
@@ -91,9 +92,6 @@ pest_derive = "2.8.6"
 pollster = "1.0.1"
 pretty_assertions = "1.4.1"
 proc-macro2 = "1.0.104"
-proptest = "1.11.0"
-proptest-derive = "0.8.0"
-proptest-state-machine = "0.8.0"
 prost = "0.14.3"
 prost-build = "0.14.3"
 quote = "1.0.45"
