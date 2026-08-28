@@ -66,6 +66,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   [#9711](https://github.com/jj-vcs/jj/issues/9711)
   [#8884](https://github.com/jj-vcs/jj/issues/8884)
 
+* `TableStore` now reports I/O errors encountered while removing a stale
+  table head, instead of silently discarding them. Only the head already
+  being missing is tolerated; other failures (e.g. a permission error or a
+  full disk) now propagate instead of being masked.
+  [#10060](https://github.com/jj-vcs/jj/issues/10060)
+
 ## [0.44.0] - 2026-08-05
 
 ### Release highlights
