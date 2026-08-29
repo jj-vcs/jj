@@ -39,7 +39,9 @@ latest(
 
 # If immutable_heads() failed to evaluate, many jj commands wouldn't work. Use
 # present(expr) if symbols in expr might not always exist.
-'builtin_immutable_heads()' = 'trunk() | tags() | untracked_remote_bookmarks()'
+'builtin_immutable_heads()' = '''
+trunk() | tags() | untracked_remote_bookmarks() | untracked_remote_tags()
+'''
 'immutable_heads()' = 'builtin_immutable_heads()'
 'immutable()' = '::(immutable_heads() | root())'
 'mutable()' = '~immutable()'

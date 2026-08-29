@@ -43,6 +43,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Ctrl+C in `less` exits cleanly instead of leaving the terminal in a
   corrupted state (raw mode, visible escape sequences, broken input).
 
+* [The default `immutable_heads()` set](docs/config.md#set-of-immutable-commits)
+  now includes `untracked_remote_tags()`.
+
 * A side of a conflict whose contents end with a carriage return no longer loses
   that byte when the materialized conflict is parsed back, such as when a
   conflicted file is snapshotted from the working copy.
