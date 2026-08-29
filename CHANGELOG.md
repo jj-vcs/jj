@@ -82,6 +82,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `ui.editor` now supports `$path` and `$line` substitution variables. Example:
   `ui.editor = ["emacs", "+$line", "$path"]`
 
+* `fill` template function now supports an additional named parameter
+  `break_words`, that allows specifying if the template should break words
+  longer than `width` passed in the input to ensure no words overflow the
+  specified width.
+
 ### Fixed bugs
 
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,
