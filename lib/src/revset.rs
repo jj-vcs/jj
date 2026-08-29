@@ -990,8 +990,6 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
         let state = None;
         Ok(RevsetExpression::remote_tags(symbol, state))
     });
-    // TODO: Document tracked/untracked_remote_tags() if we add untracked state
-    // to remote tags.
     map.insert("tracked_remote_tags", |diagnostics, function, context| {
         let symbol = parse_remote_refs_arguments(diagnostics, function, context)?;
         let state = Some(RemoteRefState::Tracked);

@@ -325,6 +325,14 @@ revsets (expressions) as arguments.
 * `remote_tags([name_pattern], [[remote=]remote_pattern])`: All remote tags
   targets across all remotes. See `remote_bookmarks()` for arguments.
 
+* `tracked_remote_tags([name_pattern], [[remote=]remote_pattern])`: All targets
+  of tracked remote tags. Supports the same optional arguments as
+  `remote_tags()`.
+
+* `untracked_remote_tags([name_pattern], [[remote=]remote_pattern])`: All
+  targets of untracked remote tags. Supports the same optional arguments as
+  `remote_tags()`.
+
 * `visible_heads()`: All visible heads (same as `heads(all())` if no hidden
   revisions are mentioned).
 
