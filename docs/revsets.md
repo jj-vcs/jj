@@ -646,16 +646,16 @@ for a comprehensive list.
   revisions or paths are specified.
 
 * `builtin_immutable_heads()`: Resolves to `trunk() | tags() |
-  untracked_remote_bookmarks()`. It is used as the default definition for
-  `immutable_heads()` below. It is not recommended to redefine this
-  alias. Prefer to redefine `immutable_heads()` instead.
+  untracked_remote_bookmarks() | untracked_remote_tags()`. It is used as the
+  default definition for `immutable_heads()` below. It is not recommended to
+  redefine this alias. Prefer to redefine `immutable_heads()` instead.
 
 * `immutable_heads()`: The heads of the set of immutable commits (not "heads
   that are immutable"). Resolves to `trunk() | tags() |
-  untracked_remote_bookmarks()` by default. It is actually defined as
-  `builtin_immutable_heads()`, and can be overridden as required. The full set
-  of immutable commits is `::immutable_heads()` (i.e., `immutable()`). See
-  [here](config.md#set-of-immutable-commits) for details.
+  untracked_remote_bookmarks() | untracked_remote_tags()` by default. It is
+  actually defined as `builtin_immutable_heads()`, and can be overridden as
+  required. The full set of immutable commits is `::immutable_heads()` (i.e.,
+  `immutable()`). See [here](config.md#set-of-immutable-commits) for details.
 
 * `immutable()`: The set of commits that `jj` treats as immutable. This is
   equivalent to `::(immutable_heads() | root())`. It is not recommended to redefine
