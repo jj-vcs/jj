@@ -55,6 +55,7 @@ use indexmap::IndexSet;
 use indoc::indoc;
 use indoc::writedoc;
 use itertools::Itertools as _;
+use jj_lib::backend::BackendError;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
@@ -3379,11 +3380,10 @@ pub fn print_unmatched_explicit_paths<'a>(
     workspace_command: &WorkspaceCommandHelper,
     expression: &FilesetExpression,
     trees: impl IntoIterator<Item = &'a MergedTree>,
-) -> io::Result<()> {
+) -> Result<(), CommandError> {
     let mut explicit_paths = expression.explicit_paths().collect_vec();
     for tree in trees {
-        // TODO: propagate errors
-        explicit_paths.retain(|&path| tree.path_value(path).block_on().unwrap().is_absent());
+        retain_paths_absent_from_merge_tree(&mut explicit_paths, tree)?;
     }
 
     if !explicit_paths.is_empty() {
@@ -3397,6 +3397,22 @@ pub fn print_unmatched_explicit_paths<'a>(
         )?;
     }
 
+    Ok(())
+}
+
+pub fn retain_paths_absent_from_merge_tree(
+    paths: &mut Vec<&RepoPath>,
+    tree: &MergedTree,
+) -> Result<(), BackendError> {
+    *paths = paths
+        .drain(..)
+        .map(|path| {
+            tree.path_value(path)
+                .block_on()
+                .map(|m| m.is_absent().then_some(path))
+        })
+        .filter_map_ok(std::convert::identity)
+        .try_collect()?;
     Ok(())
 }
 

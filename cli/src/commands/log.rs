@@ -32,13 +32,13 @@ use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
 use jj_lib::revset::RevsetStreamExt as _;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::format_template;
+use crate::cli_util::retain_paths_absent_from_merge_tree;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::diff_util::DiffFormatArgs;
@@ -312,9 +312,7 @@ pub(crate) async fn cmd_log(
                 )?;
 
                 let tree = commit.map(|c| c.tree()).unwrap();
-                // TODO: propagate errors
-                explicit_paths
-                    .retain(|&path| tree.path_value(path).block_on().unwrap().is_absent());
+                retain_paths_absent_from_merge_tree(&mut explicit_paths, &tree)?;
 
                 for elided_target in elided_targets {
                     let elided_key = (elided_target, true);
@@ -362,9 +360,7 @@ pub(crate) async fn cmd_log(
                 }
 
                 let tree = commit.tree();
-                // TODO: propagate errors
-                explicit_paths
-                    .retain(|&path| tree.path_value(path).block_on().unwrap().is_absent());
+                retain_paths_absent_from_merge_tree(&mut explicit_paths, &tree)?;
             }
         }
 
