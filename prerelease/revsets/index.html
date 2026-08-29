@@ -2469,6 +2469,16 @@ its possible targets are included.</p>
   targets across all remotes. See <code>remote_bookmarks()</code> for arguments.</p>
 </li>
 <li>
+<p><code>tracked_remote_tags([name_pattern], [[remote=]remote_pattern])</code>: All targets
+  of tracked remote tags. Supports the same optional arguments as
+  <code>remote_tags()</code>.</p>
+</li>
+<li>
+<p><code>untracked_remote_tags([name_pattern], [[remote=]remote_pattern])</code>: All
+  targets of untracked remote tags. Supports the same optional arguments as
+  <code>remote_tags()</code>.</p>
+</li>
+<li>
 <p><code>visible_heads()</code>: All visible heads (same as <code>heads(all())</code> if no hidden
   revisions are mentioned).</p>
 </li>
@@ -2786,17 +2796,17 @@ always resolves to exactly one commit. For example:</p>
 </li>
 <li>
 <p><code>builtin_immutable_heads()</code>: Resolves to <code>trunk() | tags() |
-  untracked_remote_bookmarks()</code>. It is used as the default definition for
-  <code>immutable_heads()</code> below. It is not recommended to redefine this
-  alias. Prefer to redefine <code>immutable_heads()</code> instead.</p>
+  untracked_remote_bookmarks() | untracked_remote_tags()</code>. It is used as the
+  default definition for <code>immutable_heads()</code> below. It is not recommended to
+  redefine this alias. Prefer to redefine <code>immutable_heads()</code> instead.</p>
 </li>
 <li>
 <p><code>immutable_heads()</code>: The heads of the set of immutable commits (not "heads
   that are immutable"). Resolves to <code>trunk() | tags() |
-  untracked_remote_bookmarks()</code> by default. It is actually defined as
-  <code>builtin_immutable_heads()</code>, and can be overridden as required. The full set
-  of immutable commits is <code>::immutable_heads()</code> (i.e., <code>immutable()</code>). See
-  <a href="../config/#set-of-immutable-commits">here</a> for details.</p>
+  untracked_remote_bookmarks() | untracked_remote_tags()</code> by default. It is
+  actually defined as <code>builtin_immutable_heads()</code>, and can be overridden as
+  required. The full set of immutable commits is <code>::immutable_heads()</code> (i.e.,
+  <code>immutable()</code>). See <a href="../config/#set-of-immutable-commits">here</a> for details.</p>
 </li>
 <li>
 <p><code>immutable()</code>: The set of commits that <code>jj</code> treats as immutable. This is

@@ -4569,8 +4569,8 @@ page</a>.</p>
 <p>You can configure the set of immutable commits via
 <code>revset-aliases."immutable_heads()"</code>. The default set of immutable heads is
 <code>builtin_immutable_heads()</code>, which in turn is defined as <code>trunk() | tags() |
-untracked_remote_bookmarks()</code>. For example, to also consider the
-<code>release@origin</code> bookmark immutable:</p>
+untracked_remote_bookmarks() | untracked_remote_tags()</code>. For example, to also
+consider the <code>release@origin</code> bookmark immutable:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[revset-aliases]</span>
 <span class="s2">&quot;immutable_heads()&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;builtin_immutable_heads() | release@origin&quot;</span>
 </code></pre></div>

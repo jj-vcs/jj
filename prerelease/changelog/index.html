@@ -7527,6 +7527,10 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   corrupted state (raw mode, visible escape sequences, broken input).</p>
 </li>
 <li>
+<p><a href="../config/#set-of-immutable-commits">The default <code>immutable_heads()</code> set</a>
+  now includes <code>untracked_remote_tags()</code>.</p>
+</li>
+<li>
 <p>A side of a conflict whose contents end with a carriage return no longer loses
   that byte when the materialized conflict is parsed back, such as when a
   conflicted file is snapshotted from the working copy.
