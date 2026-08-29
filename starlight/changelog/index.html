@@ -270,6 +270,10 @@ Ctrl+C in <code dir="auto">less</code> exits cleanly instead of leaving the term
 corrupted state (raw mode, visible escape sequences, broken input).</p>
 </li>
 <li>
+<p><a href="../docs/config/#set-of-immutable-commits">The default <code dir="auto">immutable_heads()</code> set</a>
+now includes <code dir="auto">untracked_remote_tags()</code>.</p>
+</li>
+<li>
 <p>A side of a conflict whose contents end with a carriage return no longer loses
 that byte when the materialized conflict is parsed back, such as when a
 conflicted file is snapshotted from the working copy.
