@@ -33,6 +33,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   back to prompting the user if the heuristics are inconclusive. It can also run
   in non-interactive mode, which aborts if prompting would be needed.
 
+* `fill` template function now supports an additional named parameter
+  `break_words`, that allows specifying if the template should break words
+  longer than `width` passed in the input to ensure no words overflow the
+  specified width.
+
 ### Fixed bugs
 
 * `jj arrange` now scrolls the viewport to keep the selected commit visible

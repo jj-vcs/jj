@@ -176,6 +176,41 @@ fn test_log_author_timestamp_local() {
 }
 
 #[test]
+fn test_log_fill() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir
+        .run_jj([
+            "describe",
+            "-m",
+            "A change with a long description and a LongCharSequenceWithoutSpaces",
+        ])
+        .success();
+
+    let template = "fill(20, description)";
+    let output = work_dir.run_jj(["log", "--no-graph", "-T", template]);
+    insta::assert_snapshot!(output, @"
+    A change with a long
+    description and a
+    LongCharSequenceWithoutSpaces
+    [EOF]
+    ");
+
+    // Should break words longer than width if specified
+    let template = "fill(20, description, break_words=true)";
+    let output = work_dir.run_jj(["log", "--no-graph", "-T", template]);
+    insta::assert_snapshot!(output, @"
+    A change with a long
+    description and a
+    LongCharSequenceWith
+    outSpaces
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_log_author_timestamp_after_before() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
