@@ -57,14 +57,31 @@ use crate::ui::Ui;
 /// same `Change-Id`), this command will update the contents of the existing
 /// change to match.
 ///
-/// Note: The Gerrit commit ID may not match your local commit ID, since this
-/// command adds a `Change-Id` trailer to the commit message if one does not
-/// already exist. This ID is based on the jj change ID, but is not the same.
+/// Note: Any commit in the given revset that does not have a `Change-Id`
+/// trailer will have one generated based on the Jujutsu change ID. This trailer
+/// is only added to the uploaded commit, which means the resulting commit ID
+/// uploaded to Gerrit may not match your local commit ID. As a result, you may
+/// encounter divergence when you fetch a merged change into your local repo. To
+/// address this, you can abandon your local change or rebase it on top of trunk
+/// with `jj rebase --skip-emptied ...`, which will resolve the divergence.
+/// Alternatively, you can add the following to your Jujutsu config to add
+/// `Change-Id` trailers to your local commits automatically before `jj gerrit
+/// upload` does:
+/// ```toml
+/// [templates]
+/// commit_trailers = '''
+/// if(
+///   !trailers.contains_key("Change-Id"),
+///   format_gerrit_change_id_trailer(self)
+/// )
+/// '''
+/// ```
 ///
 /// Also see the [Jujutsu docs on Gerrit].
 ///
 /// [Jujutsu docs on Gerrit]: https://docs.jj-vcs.dev/latest/gerrit
 #[derive(clap::Args, Clone, Debug, Default)]
+#[command(verbatim_doc_comment)]
 pub struct UploadArgs {
     /// The revisions to upload to Gerrit
     ///

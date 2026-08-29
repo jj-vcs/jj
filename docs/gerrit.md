@@ -159,6 +159,16 @@ trailer associated with the desired changes. Be sure not to duplicate the same
 duplicate `Change-Id`s, but if the uploads are done separately, you may
 unintentionally overwrite an existing change.
 
+Note that when `jj gerrit upload` automatically adds a `Change-Id` trailer
+before pushing to Gerrit, this addition to the commit description will only be
+reflected on the uploaded commit, not your local commit. This means the server
+will have a different commit ID than you do. As a result, you may encounter
+divergence when you fetch a merged change into your local repo. To address this,
+you can abandon your local change or rebase it on top of trunk with
+`jj rebase --skip-emptied ...`, which will resolve the divergence. Alternatively,
+add the above config so that the `Change-Id` trailer is automatically added to
+your local commits before `jj gerrit upload` does.
+
 ## Alternative `Link` trailer
 
 Since version 3.3.1 Gerrit supports an alternative to the `Change-Id` trailer,
