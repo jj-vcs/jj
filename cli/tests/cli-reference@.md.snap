@@ -50,6 +50,8 @@ This document contains the help content for the `jj` command-line program.
 * [`jj file delete`↴](#jj-file-delete)
 * [`jj file edit`↴](#jj-file-edit)
 * [`jj file list`↴](#jj-file-list)
+* [`jj file list-ignored`↴](#jj-file-list-ignored)
+* [`jj file remove-ignored`↴](#jj-file-remove-ignored)
 * [`jj file search`↴](#jj-file-search)
 * [`jj file show`↴](#jj-file-show)
 * [`jj file track`↴](#jj-file-track)
@@ -1212,6 +1214,8 @@ File operations
 * `delete` — Delete files from the given revision
 * `edit` — Edit the contents of a file in a revision
 * `list` — List files in a revision
+* `list-ignored` — List files ignored by .gitignore in the working copy
+* `remove-ignored` — Remove files ignored by .gitignore in the working copy
 * `search` — Search for content in files
 * `show` — Print contents of files in a revision
 * `track` — Start tracking specified paths in the working copy
@@ -1344,6 +1348,22 @@ List files in a revision
    [TreeEntry]: https://docs.jj-vcs.dev/latest/templates/#treeentry-type
 
    [templates]: https://docs.jj-vcs.dev/latest/templates/
+
+
+
+## `jj file list-ignored`
+
+List files ignored by .gitignore in the working copy
+
+**Usage:** `jj file list-ignored`
+
+
+
+## `jj file remove-ignored`
+
+Remove files ignored by .gitignore in the working copy
+
+**Usage:** `jj file remove-ignored`
 
 
 

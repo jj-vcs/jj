@@ -238,6 +238,8 @@ pub struct SnapshotStats {
     /// as (directory, file name) pairs. These paths cannot be represented as
     /// `RepoPath`s.
     pub invalid_utf8_paths: BTreeSet<(RepoPathBuf, OsString)>,
+    /// List of paths that were ignored by .gitignore.
+    pub ignored_paths: BTreeSet<RepoPathBuf>,
 }
 
 /// Reason why the new path isn't tracked.
