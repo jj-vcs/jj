@@ -67,8 +67,8 @@ fn test_advance_bookmarks_enabled(make_commit: CommitFn) {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    // First, test with advance-bookmarks enabled. Start by creating a bookmark on
-    // the root commit.
+    // First, test with advance-bookmarks enabled. Start by creating a bookmark
+    // on the root commit.
     set_advance_bookmarks(&test_env, true);
     work_dir
         .run_jj(["bookmark", "create", "-r", "@-", "test_bookmark"])
@@ -94,7 +94,8 @@ fn test_advance_bookmarks_enabled(make_commit: CommitFn) {
     ");
     }
 
-    // Now disable advance bookmarks and commit again. The bookmark shouldn't move.
+    // Now disable advance bookmarks and commit again. The bookmark shouldn't
+    // move.
     set_advance_bookmarks(&test_env, false);
     make_commit(&work_dir, "second");
     insta::allow_duplicates! {
@@ -140,8 +141,8 @@ fn test_advance_bookmarks_at_minus(make_commit: CommitFn) {
     ");
     }
 
-    // Create a second bookmark pointing to @. On the next commit, only the first
-    // bookmark, which points to @-, will advance.
+    // Create a second bookmark pointing to @. On the next commit, only the
+    // first bookmark, which points to @-, will advance.
     work_dir
         .run_jj(["bookmark", "create", "test_bookmark2", "-r", "@"])
         .success();
@@ -241,9 +242,9 @@ fn test_advance_bookmarks_overrides(make_commit: CommitFn) {
     ");
     }
 
-    // If we create a new bookmark at @- and move test_bookmark there as well. When
-    // we commit, only "second_bookmark" will advance since "test_bookmark" is
-    // disabled.
+    // If we create a new bookmark at @- and move test_bookmark there as well.
+    // When we commit, only "second_bookmark" will advance since
+    // "test_bookmark" is disabled.
     work_dir
         .run_jj(["bookmark", "create", "second_bookmark", "-r", "@-"])
         .success();
@@ -328,7 +329,8 @@ fn test_new_advance_bookmarks_interior() {
     [EOF]
     ");
 
-    // Create a gap in the commits for us to insert our new commit with --before.
+    // Create a gap in the commits for us to insert our new commit with
+    // --before.
     work_dir.run_jj(["commit", "-m", "first"]).success();
     work_dir.run_jj(["commit", "-m", "second"]).success();
     work_dir.run_jj(["commit", "-m", "third"]).success();
@@ -372,7 +374,8 @@ fn test_new_advance_bookmarks_before() {
     [EOF]
     ");
 
-    // Create a gap in the commits for us to insert our new commit with --before.
+    // Create a gap in the commits for us to insert our new commit with
+    // --before.
     work_dir.run_jj(["commit", "-m", "first"]).success();
     work_dir.run_jj(["commit", "-m", "second"]).success();
     work_dir.run_jj(["commit", "-m", "third"]).success();

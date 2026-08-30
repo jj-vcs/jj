@@ -115,7 +115,8 @@ impl DiffWorkingCopies {
 pub(crate) fn new_utf8_temp_dir(prefix: &str) -> io::Result<TempDir> {
     let temp_dir = tempfile::Builder::new().prefix(prefix).tempdir()?;
     if temp_dir.path().to_str().is_none() {
-        // Not using .display() as we know the path contains unprintable character
+        // Not using .display() as we know the path contains unprintable
+        // character
         let message = format!("path {:?} is not valid UTF-8", temp_dir.path());
         return Err(io::Error::new(io::ErrorKind::InvalidData, message));
     }
@@ -123,8 +124,8 @@ pub(crate) fn new_utf8_temp_dir(prefix: &str) -> io::Result<TempDir> {
 }
 
 pub(crate) fn set_readonly_recursively(path: &Path) -> Result<(), std::io::Error> {
-    // Directory permission is unchanged since files under readonly directory cannot
-    // be removed.
+    // Directory permission is unchanged since files under readonly directory
+    // cannot be removed.
     let metadata = path.symlink_metadata()?;
     if metadata.is_dir() {
         for entry in path.read_dir()? {
@@ -244,8 +245,8 @@ impl DiffEditWorkingCopies {
             None => (None, working_copies.right.working_copy_path()),
         };
         let output_instructions_path = output_wc_path.join("JJ-INSTRUCTIONS");
-        // In the unlikely event that the file already exists, then the user will simply
-        // not get any instructions.
+        // In the unlikely event that the file already exists, then the user
+        // will simply not get any instructions.
         if output_instructions_path.exists() {
             return Ok(None);
         }
@@ -272,8 +273,9 @@ diff editing in mind and be a little inaccurate.
             right_instructions_file
                 .write_all(instructions.as_bytes())
                 .map_err(ExternalToolError::SetUpDir)?;
-            // Note that some diff tools might not show this message and delete the contents
-            // of the output dir instead. Meld does show this message.
+            // Note that some diff tools might not show this message and delete
+            // the contents of the output dir instead. Meld does
+            // show this message.
             output_instructions_file
                 .write_all(
                     b"\

@@ -148,8 +148,8 @@ pub async fn cmd_op_show(
     template.format(&op, formatter.as_mut())?;
 
     if !args.no_op_diff {
-        // TODO: Merged repo may have newly rebased commits, which wouldn't exist in
-        // the index. (#4465)
+        // TODO: Merged repo may have newly rebased commits, which wouldn't
+        // exist in the index. (#4465)
         if parent_ops.len() > 1 {
             return Ok(());
         }

@@ -113,8 +113,8 @@ pub async fn cmd_bookmark_untrack(
     let mut symbols = Vec::new();
     for (symbol, remote_ref) in matched_refs {
         if ignored_remote.is_some_and(|ignored| symbol.remote == ignored) {
-            // This restriction can be lifted if we want to support untracked @git
-            // bookmarks.
+            // This restriction can be lifted if we want to support untracked
+            // @git bookmarks.
             writeln!(
                 ui.warning_default(),
                 "Git-tracking bookmark cannot be untracked: {symbol}"

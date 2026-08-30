@@ -42,8 +42,8 @@ fn test_load_at_operation() -> TestResult {
     let head_repo = loader.load_at_head().block_on()?;
     assert!(!head_repo.view().heads().contains(commit.id()));
 
-    // If we load the repo at the previous operation, we should see the commit since
-    // it has not been removed yet
+    // If we load the repo at the previous operation, we should see the commit
+    // since it has not been removed yet
     let loader = RepoLoader::init_from_file_system(
         &settings,
         test_repo.repo_path(),

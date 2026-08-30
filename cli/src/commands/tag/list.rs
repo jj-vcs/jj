@@ -143,7 +143,8 @@ pub async fn cmd_tag_list(
         (None, None) => StringExpression::all(),
     };
     let matched_local_targets: HashSet<_> = if let Some(revisions) = &args.revisions {
-        // Match against local targets only, which is consistent with "jj git push".
+        // Match against local targets only, which is consistent with "jj git
+        // push".
         let mut expression = workspace_command.parse_union_revsets(ui, revisions)?;
         // Intersects with the set of local tag targets to minimize the lookup
         // space.

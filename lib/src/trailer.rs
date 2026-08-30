@@ -90,8 +90,9 @@ pub fn parse_trailers(body: &str) -> Result<Vec<Trailer>, TrailerParseError> {
 fn parse_trailers_impl(body: &str) -> (Vec<Trailer>, bool, bool, Option<String>) {
     // a trailer always comes at the end of a message; we can split the message
     // by newline, but we need to immediately reverse the order of the lines
-    // to ensure we parse the trailer in an unambiguous manner; this avoids cases
-    // where a colon in the body of the message is mistaken for a trailer
+    // to ensure we parse the trailer in an unambiguous manner; this avoids
+    // cases where a colon in the body of the message is mistaken for a
+    // trailer
     let lines = body.trim_ascii_end().lines().rev();
     let trailer_re =
         regex::Regex::new(r"^([a-zA-Z0-9-]+) *: *(.*)$").expect("Trailer regex should be valid");

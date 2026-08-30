@@ -217,8 +217,8 @@ impl ReferenceStateMachine for WorkingCopyReferenceStateMachine {
             Transition::SetDirEntry { path, dir_entry } => {
                 assert_ne!(path.as_ref(), RepoPath::root());
                 let entries = &mut state.entries;
-                // Remove all entries which are contained within `path` (in case it is a
-                // pre-existing directory).
+                // Remove all entries which are contained within `path` (in case
+                // it is a pre-existing directory).
                 entries.retain(|extant_path, _| !extant_path.starts_with(path));
                 for new_dir in path.ancestors().skip(1) {
                     entries.remove(new_dir);

@@ -761,8 +761,8 @@ mod tests {
             m.visit(RepoPath::root()),
             Visit::sets(hashset! {repo_path_component_buf("foo")}, hashset! {})
         );
-        // Inside parent directory "foo/", both subdirectory "bar" and file "bar" may
-        // match
+        // Inside parent directory "foo/", both subdirectory "bar" and file
+        // "bar" may match
         assert_eq!(
             m.visit(repo_path("foo")),
             Visit::sets(
@@ -770,12 +770,13 @@ mod tests {
                 hashset! {repo_path_component_buf("bar")}
             )
         );
-        // Inside a directory that matches the prefix, everything matches recursively
+        // Inside a directory that matches the prefix, everything matches
+        // recursively
         assert_eq!(m.visit(repo_path("foo/bar")), Visit::AllRecursively);
         // Same thing in subdirectories of the prefix
         assert_eq!(m.visit(repo_path("foo/bar/baz")), Visit::AllRecursively);
-        // Nothing in directories that are siblings of the prefix can match, so don't
-        // visit
+        // Nothing in directories that are siblings of the prefix can match, so
+        // don't visit
         assert_eq!(m.visit(repo_path("bar")), Visit::Nothing);
     }
 
@@ -796,7 +797,8 @@ mod tests {
                 hashset! {repo_path_component_buf("foo")}
             )
         );
-        // Inside a directory that matches the prefix, everything matches recursively
+        // Inside a directory that matches the prefix, everything matches
+        // recursively
         assert_eq!(m.visit(repo_path("foo")), Visit::AllRecursively);
         // Same thing in subdirectories of the prefix
         assert_eq!(m.visit(repo_path("foo/bar/baz")), Visit::AllRecursively);

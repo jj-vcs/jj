@@ -331,17 +331,19 @@ pub fn maybe_set_repository_level_trunk_alias(
             .try_find_reference(&ref_name)
             .map_err(internal_error)?
         {
-            // Found a HEAD reference for this remote. Even if we can't parse it,
-            // we should stop here and not try other remotes because it doesn't
-            // really make sense if "origin" were to be set as the default if we
-            // know "upstream" exists.
+            // Found a HEAD reference for this remote. Even if we can't parse
+            // it, we should stop here and not try other remotes
+            // because it doesn't really make sense if "origin" were
+            // to be set as the default if we know "upstream"
+            // exists.
             if let Some(reference_name) = reference.target().try_name()
                 && let Some((GitRefKind::Bookmark, symbol)) =
                     str::from_utf8(reference_name.as_bstr())
                         .ok()
                         .and_then(|name| parse_git_ref(name.as_ref()))
             {
-                // TODO: Can we assume the symbolic target points to the same remote?
+                // TODO: Can we assume the symbolic target points to the same
+                // remote?
                 let symbol = symbol.name.to_remote_symbol(remote.as_ref());
                 write_repo_presets(
                     ui,

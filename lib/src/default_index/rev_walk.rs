@@ -271,7 +271,8 @@ impl RevWalkDescendantsIndex {
         index: &CompositeCommitIndex,
         positions: impl IntoIterator<Item = GlobalCommitPosition>,
     ) -> Self {
-        // For dense set, it's probably cheaper to use `Vec` instead of `HashMap`.
+        // For dense set, it's probably cheaper to use `Vec` instead of
+        // `HashMap`.
         let mut children_map: HashMap<GlobalCommitPosition, DescendantIndexPositionsVec> =
             HashMap::new();
         for pos in positions {
@@ -393,8 +394,8 @@ impl<'a> RevWalkBuilder<'a> {
         self,
         root_positions: impl IntoIterator<Item = GlobalCommitPosition>,
     ) -> RevWalkAncestors<'a> {
-        // We can also make it stop visiting based on the generation number. Maybe
-        // it will perform better for unbalanced branchy history.
+        // We can also make it stop visiting based on the generation number.
+        // Maybe it will perform better for unbalanced branchy history.
         // https://github.com/jj-vcs/jj/pull/1492#discussion_r1160678325
         let min_pos = root_positions
             .into_iter()
@@ -554,8 +555,9 @@ impl<I: RevWalkIndex + ?Sized> RevWalk<I> for RevWalkGenerationRangeImpl<I::Posi
             let mut some_in_range = pending_gen.contains_end(self.generation_end);
             while let Some(x) = self.wanted_queue.pop_eq(&item.pos) {
                 // Merge overlapped ranges to reduce number of the queued items.
-                // For queries like `:(heads-)`, `gen.end` is close to `u32::MAX`, so
-                // ranges can be merged into one. If this is still slow, maybe we can add
+                // For queries like `:(heads-)`, `gen.end` is close to
+                // `u32::MAX`, so ranges can be merged into one.
+                // If this is still slow, maybe we can add
                 // special case for upper/lower bounded ranges.
                 let Reverse(generation) = x.value;
                 some_in_range |= generation.contains_end(self.generation_end);
@@ -812,8 +814,8 @@ mod tests {
             walk_commit_ids(&[id_0.clone(), id_0.clone()], &[]),
             vec![id_0.clone()]
         );
-        // If a commit and its ancestor are both wanted, the ancestor still gets walked
-        // only once
+        // If a commit and its ancestor are both wanted, the ancestor still gets
+        // walked only once
         assert_eq!(
             walk_commit_ids(&[id_0.clone(), id_1.clone()], &[]),
             vec![id_1.clone(), id_0.clone()]
@@ -823,8 +825,8 @@ mod tests {
             walk_commit_ids(&[id_2.clone()], &[id_1.clone()]),
             vec![id_2.clone()]
         );
-        // Same as above, but the opposite order, to make sure that order in index
-        // doesn't matter
+        // Same as above, but the opposite order, to make sure that order in
+        // index doesn't matter
         assert_eq!(
             walk_commit_ids(&[id_1.clone()], &[id_2.clone()]),
             vec![id_1.clone()]
@@ -1031,8 +1033,8 @@ mod tests {
             [&ids[5], &ids[4], &ids[2], &ids[1]].map(Clone::clone)
         );
 
-        // Multiple non-overlapping generation ranges to track, and merged later:
-        // 10->7: 3..5, 7: 0..2
+        // Multiple non-overlapping generation ranges to track, and merged
+        // later: 10->7: 3..5, 7: 0..2
         // 10->6: 4..6, 7->6, 1..3, 6: 0..2
         assert_eq!(
             walk_commit_ids(&[&ids[10], &ids[7], &ids[6]].map(Clone::clone), 5..7),

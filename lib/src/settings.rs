@@ -377,8 +377,8 @@ fn parse_human_byte_size(v: &str) -> Result<u64, &'static str> {
             prefix as u32 + 1
         }
     };
-    // A string consisting only of base 10 digits is either a valid u64 or really
-    // huge.
+    // A string consisting only of base 10 digits is either a valid u64 or
+    // really huge.
     let factor = digits.parse::<u64>().unwrap_or(u64::MAX);
     Ok(factor.saturating_mul(1024u64.saturating_pow(exponent)))
 }

@@ -323,8 +323,8 @@ fn test_restore_restore_descendants() {
     [EOF]
     ");
 
-    // Check that "a", "b", and "ab" have their expected content by diffing them.
-    // "ab" must have kept its content.
+    // Check that "a", "b", and "ab" have their expected content by diffing
+    // them. "ab" must have kept its content.
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--from=a", "--to=ab", "--git"]), @"
     diff --git a/file b/file
     index 7898192261..81bf396956 100644

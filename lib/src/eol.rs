@@ -21,9 +21,9 @@ use crate::config::ConfigGetError;
 use crate::settings::UserSettings;
 
 fn is_binary(bytes: &[u8]) -> bool {
-    // TODO(06393993): align the algorithm with git so that the git config autocrlf
-    // users won't see different decisions on whether a file is binary and needs to
-    // perform EOL conversion.
+    // TODO(06393993): align the algorithm with git so that the git config
+    // autocrlf users won't see different decisions on whether a file is
+    // binary and needs to perform EOL conversion.
     let mut bytes = bytes.iter().peekable();
     while let Some(byte) = bytes.next() {
         match *byte {
@@ -179,8 +179,8 @@ async fn convert_eol<'a>(
             // If the line ends with an EOL, we should append the target EOL.
             res.extend_from_slice(eol);
         } else {
-            // If the line doesn't end with an EOL, we don't append the EOL. This can happen
-            // on the last line.
+            // If the line doesn't end with an EOL, we don't append the EOL.
+            // This can happen on the last line.
             res.extend_from_slice(line);
         }
     }
@@ -252,8 +252,8 @@ mod tests {
         let message = "test error";
         let error_reader = ErrorReader::new(std::io::Error::other(message));
         let mut output = vec![];
-        // TODO: use TryFutureExt::and_then and async closure after we upgrade to 1.85.0
-        // or later.
+        // TODO: use TryFutureExt::and_then and async closure after we upgrade
+        // to 1.85.0 or later.
         let err = match convert_eol(error_reader, target_eol).await {
             Ok(mut reader) => reader.read_to_end(&mut output).await,
             Err(e) => Err(e),

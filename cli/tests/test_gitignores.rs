@@ -32,7 +32,8 @@ fn test_gitignores() -> TestResult {
     let mut file = std::fs::OpenOptions::new()
         .append(true)
         .open(work_dir.root().join(".git").join("config"))?;
-    // Put the file in "~/my-ignores" so we also test that "~" expands to "$HOME"
+    // Put the file in "~/my-ignores" so we also test that "~" expands to
+    // "$HOME"
     file.write_all(b"[core]\nexcludesFile=~/my-ignores\n")?;
     drop(file);
     std::fs::write(
@@ -47,8 +48,8 @@ fn test_gitignores() -> TestResult {
     file.write_all(b"!file2\n!file3")?;
     drop(file);
 
-    // Say in .gitignore (in the working copy) that we actually do not want file2
-    // (again)
+    // Say in .gitignore (in the working copy) that we actually do not want
+    // file2 (again)
     work_dir.write_file(".gitignore", "file2");
 
     // Writes some files to the working copy

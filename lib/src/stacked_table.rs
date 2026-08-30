@@ -321,8 +321,9 @@ impl MutableTable {
         loop {
             match maybe_parent_file {
                 Some(parent_file) => {
-                    // TODO: We should probably also squash if the parent file has less than N
-                    // commits, regardless of how many (few) are in `self`.
+                    // TODO: We should probably also squash if the parent file
+                    // has less than N commits, regardless
+                    // of how many (few) are in `self`.
                     if 2 * num_new_entries < parent_file.num_local_entries {
                         squashed = Self::incremental(parent_file);
                         break;
@@ -527,13 +528,15 @@ impl TableStore {
         } else if tables.len() == 1 {
             Ok(tables.pop().unwrap())
         } else {
-            // There are multiple heads. We take a lock, then check if there are still
-            // multiple heads (it's likely that another process was in the process of
-            // deleting on of them). If there are still multiple heads, we attempt to
-            // merge all the tables into one. We then save that table and record the new
-            // head. Note that the locking isn't necessary for correctness; we
-            // take the lock only to avoid other concurrent processes from doing
-            // the same work (and producing another set of divergent heads).
+            // There are multiple heads. We take a lock, then check if there are
+            // still multiple heads (it's likely that another
+            // process was in the process of deleting on of them).
+            // If there are still multiple heads, we attempt to
+            // merge all the tables into one. We then save that table and record
+            // the new head. Note that the locking isn't necessary
+            // for correctness; we take the lock only to avoid other
+            // concurrent processes from doing the same work (and
+            // producing another set of divergent heads).
             let (table, _) = self.get_head_locked()?;
             Ok(table)
         }
@@ -763,8 +766,9 @@ mod tests {
         assert_eq!(mut_table2.get_value(b"abc"), Some(b"value1".as_slice()));
         assert_eq!(mut_table2.get_value(b"abd"), Some(b"value 2".as_slice()));
         assert_eq!(mut_table2.get_value(b"abe"), Some(b"value 4".as_slice()));
-        // The caller shouldn't write two values for the same key, so it's undefined
-        // which wins, but let's test how it currently behaves.
+        // The caller shouldn't write two values for the same key, so it's
+        // undefined which wins, but let's test how it currently
+        // behaves.
         assert_eq!(mut_table2.get_value(b"mmm"), Some(b"side 1".as_slice()));
         assert_eq!(mut_table2.get_value(b"yyy"), Some(b"val5".as_slice()));
         assert_eq!(mut_table2.get_value(b"zzz"), Some(b"val3".as_slice()));
@@ -801,8 +805,8 @@ mod tests {
         assert_eq!(merged_table.get_value(b"abc"), Some(b"value1".as_slice()));
         assert_eq!(merged_table.get_value(b"abd"), Some(b"value 2".as_slice()));
         assert_eq!(merged_table.get_value(b"abe"), Some(b"value 4".as_slice()));
-        // The caller shouldn't write two values for the same key, so it's undefined
-        // which wins.
+        // The caller shouldn't write two values for the same key, so it's
+        // undefined which wins.
         let value_mmm = merged_table.get_value(b"mmm");
         assert!(value_mmm == Some(b"side 1".as_slice()) || value_mmm == Some(b"side 2".as_slice()));
         assert_eq!(merged_table.get_value(b"yyy"), Some(b"val5".as_slice()));
@@ -813,9 +817,10 @@ mod tests {
 
     #[test]
     fn stacked_table_multi_head_squashed_preserves_head_marker() -> TestResult {
-        // When the newer segment is small enough to squash into a full table, the
-        // two head markers are not physically parent/child linked. Merging them
-        // still yields a table whose name matches one of the inputs.
+        // When the newer segment is small enough to squash into a full table,
+        // the two head markers are not physically parent/child linked.
+        // Merging them still yields a table whose name matches one of
+        // the inputs.
         let temp_dir = new_temp_dir();
         let store = TableStore::init(temp_dir.path().to_path_buf(), 3);
 
@@ -876,7 +881,8 @@ mod tests {
             base_table.name()
         );
 
-        // Simulate stale parent marker still present alongside the child marker.
+        // Simulate stale parent marker still present alongside the child
+        // marker.
         store.add_head(&base_table)?;
         assert_eq!(store.get_head_tables()?.len(), 2);
 

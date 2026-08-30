@@ -532,8 +532,8 @@ impl IndexStore for DefaultIndexStore {
                 self.build_index_at_operation(op, store).await
             }
             Err(DefaultIndexStoreError::LoadIndex(err)) if err.is_corrupt_or_not_found() => {
-                // If the index was corrupt (maybe it was written in a different format),
-                // we just reindex.
+                // If the index was corrupt (maybe it was written in a different
+                // format), we just reindex.
                 match &err {
                     ReadonlyIndexLoadError::UnexpectedVersion {
                         kind,

@@ -144,7 +144,8 @@ fn test_interdiff_paths() {
     [EOF]
     ");
 
-    // Running interdiff on commits with deleted files should not show a warning.
+    // Running interdiff on commits with deleted files should not show a
+    // warning.
     work_dir.run_jj(["edit", "right"]).success();
     work_dir.remove_file("file1");
     work_dir.run_jj(["new"]).success();

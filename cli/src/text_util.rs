@@ -256,7 +256,8 @@ pub fn write_truncated_start(
     };
 
     if data_width > max_width {
-        // The ellipsis itself may be larger than max_width, so maybe truncate it too.
+        // The ellipsis itself may be larger than max_width, so maybe truncate
+        // it too.
         let (start, ellipsis_width) = truncate_start_pos_bytes(ellipsis_data, max_width);
         let truncated_start = start + count_start_zero_width_chars_bytes(&ellipsis_data[start..]);
         truncated_width += ellipsis_width;
@@ -300,7 +301,8 @@ pub fn write_truncated_end(
 
     replay_truncated(recorded_content, truncated_end)?;
     if data_width > max_width {
-        // The ellipsis itself may be larger than max_width, so maybe truncate it too.
+        // The ellipsis itself may be larger than max_width, so maybe truncate
+        // it too.
         let (truncated_end, ellipsis_width) = truncate_end_pos_bytes(ellipsis_data, max_width);
         truncated_width += ellipsis_width;
         replay_truncated(recorded_ellipsis, truncated_end)?;
@@ -397,8 +399,8 @@ pub fn write_indented(
     recorded_content.replay_with(formatter, |formatter, range| {
         for line in data[range].split_inclusive(|&c| c == b'\n') {
             if new_line && line != b"\n" {
-                // Prefix inherits the current labels. This is implementation detail
-                // and may be fixed later.
+                // Prefix inherits the current labels. This is implementation
+                // detail and may be fixed later.
                 write_prefix(formatter)?;
             }
             formatter.write_all(line)?;
@@ -418,7 +420,8 @@ struct ByteFragment<'a> {
 
 impl<'a> ByteFragment<'a> {
     fn new(word: &'a [u8], whitespace_len: usize) -> Self {
-        // We don't care about the width of non-UTF-8 bytes, but should not panic.
+        // We don't care about the width of non-UTF-8 bytes, but should not
+        // panic.
         let word_width = textwrap::core::display_width(&String::from_utf8_lossy(word));
         Self {
             word,
@@ -521,8 +524,9 @@ pub fn write_wrapped(
             start..start + line.len()
         })
         .peekable();
-    // The recorded data ranges are contiguous, and the line ranges are increasing
-    // sequence (with some holes.) Both ranges should start from data[0].
+    // The recorded data ranges are contiguous, and the line ranges are
+    // increasing sequence (with some holes.) Both ranges should start from
+    // data[0].
     recorded_content.replay_with(formatter, |formatter, data_range| {
         while let Some(line_range) = line_ranges.peek() {
             let start = cmp::max(data_range.start, line_range.start);
@@ -574,7 +578,8 @@ pub fn write_replaced(
             // Only continue if replacement begins in the boundaries of the current data range.
             .next_if(|(_, replacement_range)| replacement_range.start < data_range.end)
         {
-            // Write any data before the replacement, followed by the replacement content.
+            // Write any data before the replacement, followed by the
+            // replacement content.
             if position < replacement_range.start {
                 formatter.write_all(&data[position..replacement_range.start])?;
             }

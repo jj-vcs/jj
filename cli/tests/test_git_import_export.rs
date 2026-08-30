@@ -144,8 +144,9 @@ fn test_git_export_undo() -> TestResult {
     [EOF]
     ");
 
-    // Exported refs won't be removed by undoing the export, but the git-tracking
-    // bookmark is. This is the same as remote-tracking bookmarks.
+    // Exported refs won't be removed by undoing the export, but the
+    // git-tracking bookmark is. This is the same as remote-tracking
+    // bookmarks.
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -299,9 +300,9 @@ fn test_git_import_move_export_with_default_undo() -> TestResult {
     [EOF]
     ");
 
-    // "git import" can be undone with the default `restore` behavior, as shown in
-    // the previous test. However, "git export" can't: the bookmarks in the git
-    // repo stay where they were.
+    // "git import" can be undone with the default `restore` behavior, as shown
+    // in the previous test. However, "git export" can't: the bookmarks in
+    // the git repo stay where they were.
     let output = work_dir.run_jj(["op", "restore", &base_operation_id]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------

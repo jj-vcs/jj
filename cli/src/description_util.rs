@@ -332,7 +332,8 @@ pub async fn combine_messages_for_editing(
     }
 
     if let Some(template) = parse_trailers_template(ui, tx)? {
-        // show the user only trailers that were not in one of the squashed commits
+        // show the user only trailers that were not in one of the squashed
+        // commits
         let old_trailers: Vec<_> = sources
             .iter()
             .chain(destination)
@@ -362,8 +363,8 @@ pub async fn combine_messages_for_editing(
 /// Based on the Git CLI behavior. See `opt_parse_m()` and `cleanup_mode` in
 /// `git/builtin/commit.c`.
 pub fn join_message_paragraphs(paragraphs: &[String]) -> String {
-    // Ensure each paragraph ends with a newline, then add another newline between
-    // paragraphs.
+    // Ensure each paragraph ends with a newline, then add another newline
+    // between paragraphs.
     paragraphs
         .iter()
         .map(|p| text_util::complete_newline(p.as_str()))

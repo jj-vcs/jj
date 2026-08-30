@@ -365,8 +365,8 @@ fn test_gerrit_upload_local_implicit_change_ids() {
     [EOF]
     ");
 
-    // There's no particular reason to run this with jj util exec, it's just that
-    // the infra makes it easier to run this way.
+    // There's no particular reason to run this with jj util exec, it's just
+    // that the infra makes it easier to run this way.
     let output = remote_dir.run_jj(["util", "exec", "--", "git", "log", "refs/for/main"]);
     insta::assert_snapshot!(output, @"
     commit 68b986d2eb820643b767ae219fb48128dcc2fc03
@@ -463,8 +463,8 @@ review-url = "https://gerrit.example.com/"
     [EOF]
     ");
 
-    // There's no particular reason to run this with jj util exec, it's just that
-    // the infra makes it easier to run this way.
+    // There's no particular reason to run this with jj util exec, it's just
+    // that the infra makes it easier to run this way.
     let output = remote_dir.run_jj(["util", "exec", "--", "git", "log", "refs/for/main"]);
     insta::assert_snapshot!(output, @r"
     commit b2731737e530be944c12679a86dacca2a3d3c6ad
@@ -574,8 +574,8 @@ fn test_gerrit_upload_local_explicit_change_ids() {
     [EOF]
     ");
 
-    // There's no particular reason to run this with jj util exec, it's just that
-    // the infra makes it easier to run this way.
+    // There's no particular reason to run this with jj util exec, it's just
+    // that the infra makes it easier to run this way.
     let output = remote_dir.run_jj(["util", "exec", "--", "git", "log", "refs/for/main"]);
     insta::assert_snapshot!(output, @"
     commit b4124fc9d4694eecb4d9938cf4874cd13f1252b6
@@ -669,8 +669,8 @@ fn test_gerrit_upload_local_mixed_change_ids() {
     [EOF]
     ");
 
-    // There's no particular reason to run this with jj util exec, it's just that
-    // the infra makes it easier to run this way.
+    // There's no particular reason to run this with jj util exec, it's just
+    // that the infra makes it easier to run this way.
     let output = remote_dir.run_jj(["util", "exec", "--", "git", "log", "refs/for/main"]);
     insta::assert_snapshot!(output, @"
     commit 015df2b1d38bdc71ae7ef24c2889100e39d34ef8

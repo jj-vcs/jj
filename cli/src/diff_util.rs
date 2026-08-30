@@ -185,8 +185,9 @@ enum BuiltinFormatKind {
 
 impl BuiltinFormatKind {
     // Alternatively, we could use or vendor one of the crates `strum`,
-    // `enum-iterator`, or `variant_count` (for a check that the length of the array
-    // is correct). The latter is very simple and is also a nightly feature.
+    // `enum-iterator`, or `variant_count` (for a check that the length of the
+    // array is correct). The latter is very simple and is also a nightly
+    // feature.
     const ALL_VARIANTS: &[Self] = &[
         Self::Summary,
         Self::Stat,
@@ -2091,8 +2092,8 @@ pub fn show_diff_stats(
     // rest. Start with the longest path.  The code below might shorten it.
     let mut max_path_width = ui_paths.iter().map(|s| s.width()).max().unwrap_or(0);
 
-    // Fit to the available display width, but always assume at least a tiny bit of
-    // room.
+    // Fit to the available display width, but always assume at least a tiny bit
+    // of room.
     let available_width = max(total_display_width.saturating_sub(" | ".len()), 8);
 
     // Measure the widest right side for line diffs and reduce max_path_width if
@@ -2130,8 +2131,8 @@ pub fn show_diff_stats(
         max_path_width = max_path_width.min(available_width.saturating_sub(width));
     }
 
-    // Now that we've chosen the path width, use the rest of the space for the ++--
-    // bar.
+    // Now that we've chosen the path width, use the rest of the space for the
+    // ++-- bar.
 
     let mut max_bar_width =
         available_width.saturating_sub(max_path_width + diff_number_width + " ".len());
@@ -2155,12 +2156,14 @@ pub fn show_diff_stats(
         )?;
         if let Some((added, removed)) = stat.added_removed {
             let bar_length = ((added + removed) as f64 * factor) as usize;
-            // If neither adds nor removes are present, bar length should be zero.
-            // If only one is present, bar length should be at least 1.
-            // If both are present, bar length should be at least 2.
+            // If neither adds nor removes are present, bar length should be
+            // zero. If only one is present, bar length should be at
+            // least 1. If both are present, bar length should be at
+            // least 2.
             //
-            // Fractional space after scaling is given to whichever of adds/removes is
-            // smaller, to show at least one tick for small (but nonzero) counts.
+            // Fractional space after scaling is given to whichever of
+            // adds/removes is smaller, to show at least one tick
+            // for small (but nonzero) counts.
             let bar_length = bar_length.max(usize::from(added > 0) + usize::from(removed > 0));
             let (bar_added, bar_removed) = if added < removed {
                 let len = (added as f64 * factor).ceil() as usize;

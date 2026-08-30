@@ -473,8 +473,8 @@ async fn rewrite_commit(
         working_copy_dir.clone()
     };
 
-    // TODO: Later this should take some trait which allows `run` to integrate with
-    // something like Bazels RE protocol.
+    // TODO: Later this should take some trait which allows `run` to integrate
+    // with something like Bazels RE protocol.
     // e.g
     // ```
     // let mut executor /* Arc<dyn CommandExecutor> */ = store.get_executor();
@@ -523,9 +523,10 @@ async fn rewrite_commit(
 
     if !output.status.success() {
         // Remove non-ignored untracked files left by the command. Ignored paths
-        // are absent from `untracked_paths` and survive for build-artifact reuse.
-        // This keeps the slot free of stale files that would cause silent
-        // `skipped_files` collisions in the next `check_out`.
+        // are absent from `untracked_paths` and survive for build-artifact
+        // reuse. This keeps the slot free of stale files that would
+        // cause silent `skipped_files` collisions in the next
+        // `check_out`.
         for path in stats.untracked_paths.keys() {
             let abs = path.to_fs_path_unchecked(&working_copy_dir);
             if let Err(err) = fs::remove_file(&abs)
@@ -810,8 +811,8 @@ pub async fn cmd_run(
                     if let Some(status) = res.status {
                         // Emit the subprocess's captured streams. Acquiring
                         // `ui.stdout()` / `ui.stderr()` for the duration of the
-                        // write keeps each commit's output from interleaving with
-                        // another's.
+                        // write keeps each commit's output from interleaving
+                        // with another's.
                         if !res.stdout.is_empty() {
                             let mut out = ui.stdout();
                             out.write_all(&res.stdout)?;

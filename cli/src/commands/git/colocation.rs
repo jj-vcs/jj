@@ -169,8 +169,8 @@ async fn cmd_git_colocation_enable(
         return Ok(());
     }
 
-    // And that it has a working copy (whose parent we'll use later to set the git
-    // HEAD)
+    // And that it has a working copy (whose parent we'll use later to set the
+    // git HEAD)
     let wc_commit_id = workspace_command
         .get_wc_commit_id()
         .ok_or_else(|| user_error("This command requires a working copy"))?

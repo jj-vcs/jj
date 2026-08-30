@@ -56,8 +56,8 @@ fn test_status_merge() {
     work_dir.write_file("file", "right");
     work_dir.run_jj(["new", "left", "@"]).success();
 
-    // The output should mention each parent, and the diff should be empty (compared
-    // to the auto-merged parents)
+    // The output should mention each parent, and the diff should be empty
+    // (compared to the auto-merged parents)
     let output = work_dir.run_jj(["status"]);
     insta::assert_snapshot!(output, @"
     The working copy has no changes.
@@ -109,7 +109,8 @@ fn test_status_filtered() {
     [EOF]
     ");
 
-    // The diff summary should preserve ANSI color codes instead of sanitizing them.
+    // The diff summary should preserve ANSI color codes instead of sanitizing
+    // them.
     let output = work_dir.run_jj(["status", "file_1", "--color=always"]);
     insta::assert_snapshot!(output, @"
     Working copy changes:
@@ -283,8 +284,8 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     work_dir
         .run_jj(["new", "--message", "boom", "(@-)+"])
         .success();
-    // Adding more descendants to ensure we correctly find the root ancestors with
-    // conflicts, not just the parents.
+    // Adding more descendants to ensure we correctly find the root ancestors
+    // with conflicts, not just the parents.
     work_dir.run_jj(["new", "--message", "boom-cont"]).success();
     work_dir
         .run_jj(["new", "--message", "boom-cont-2"])
@@ -454,8 +455,8 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     [EOF]
     ");
 
-    // Step back to all the way to `root()+` so that wc has no conflict, even though
-    // there is a conflict later in the tree. So that we can confirm
+    // Step back to all the way to `root()+` so that wc has no conflict, even
+    // though there is a conflict later in the tree. So that we can confirm
     // our hinting logic doesn't get confused.
     work_dir.run_jj(["edit", "root()+"]).success();
     let output = work_dir.run_jj(["log", "-r", "::"]);
@@ -499,8 +500,8 @@ fn test_status_simplify_conflict_sides() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    // Creates a 4-sided conflict, with fileA and fileB having different conflicts:
-    // fileA: A - B + C - B + B - B + B
+    // Creates a 4-sided conflict, with fileA and fileB having different
+    // conflicts: fileA: A - B + C - B + B - B + B
     // fileB: A - A + A - A + B - C + D
     create_commit_with_files(
         &work_dir,

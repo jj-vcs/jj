@@ -121,9 +121,10 @@ impl UiOutput {
             } => {
                 drop(child_stdin);
                 if let Err(err) = child.wait() {
-                    // It's possible (though unlikely) that this write fails, but
-                    // this function gets called so late that there's not much we
-                    // can do about it.
+                    // It's possible (though unlikely) that this write fails,
+                    // but this function gets called so late
+                    // that there's not much we can do about
+                    // it.
                     writeln!(
                         ui.warning_default(),
                         "Failed to wait on pager: {err}",
@@ -396,7 +397,8 @@ impl Ui {
             PagerConfig::External(command_name_and_args) => {
                 UiOutput::new_paged(command_name_and_args)
                     .inspect_err(|err| {
-                        // The pager executable couldn't be found or couldn't be run
+                        // The pager executable couldn't be found or couldn't be
+                        // run
                         writeln!(
                             self.warning_default(),
                             "Failed to spawn pager '{name}': {err}",
@@ -718,7 +720,8 @@ impl<W> ProgressOutput<W> {
     }
 
     pub fn term_width(&self) -> Option<u16> {
-        // Terminal can be resized while progress is displayed, so don't cache it.
+        // Terminal can be resized while progress is displayed, so don't cache
+        // it.
         self.term_width.or_else(term_width)
     }
 

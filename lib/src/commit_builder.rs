@@ -233,8 +233,8 @@ impl DetachedCommitBuilder {
         let mut commit = backend::Commit::clone(predecessor.store_commit());
         commit.predecessors = vec![];
         commit.committer = settings.signature();
-        // If the user had not configured a name and email before but now they have,
-        // update the author fields with the new information.
+        // If the user had not configured a name and email before but now they
+        // have, update the author fields with the new information.
         if commit.author.name.is_empty() {
             commit.author.name.clone_from(&commit.committer.name);
         }

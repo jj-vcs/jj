@@ -522,9 +522,10 @@ fn materialize_conflict_hunks(
             conflict_index += 1;
             let conflict_info = format!("conflict {conflict_index} of {num_conflicts}");
 
-            // If any side doesn't have the ending EOL, we remove the ending EOL from the
-            // conflict end marker line and "spread" the ending EOL to every side as a
-            // separator, so that contents without an ending EOL won't be concatenated with
+            // If any side doesn't have the ending EOL, we remove the ending EOL
+            // from the conflict end marker line and "spread" the
+            // ending EOL to every side as a separator, so that
+            // contents without an ending EOL won't be concatenated with
             // the conflict markers.
             let all_sides_have_ending_eol = hunk
                 .iter()
@@ -582,8 +583,8 @@ fn build_hunk_sides(hunk: Merge<BString>, labels: &ConflictLabels) -> Merge<Hunk
             .get_remove(base_index)
             .map(|label| label.to_owned())
             .unwrap_or_else(|| {
-                // The vast majority of conflicts one actually tries to resolve manually have 1
-                // base.
+                // The vast majority of conflicts one actually tries to resolve
+                // manually have 1 base.
                 if num_bases == 1 {
                     "base".to_string()
                 } else {
@@ -646,9 +647,9 @@ fn materialize_git_style_conflict(
     output.write_all(eol)?;
 
     output.write_all(&right.contents)?;
-    // The caller handles the ending EOL conflict and decides whether to append the
-    // ending EOL to the end of the conflict hunk, so we don't write an extra new
-    // line character after the conflict end marker.
+    // The caller handles the ending EOL conflict and decides whether to append
+    // the ending EOL to the end of the conflict hunk, so we don't write an
+    // extra new line character after the conflict end marker.
     write_conflict_marker(
         output,
         ConflictMarkerLineChar::ConflictEnd,
@@ -733,8 +734,8 @@ fn materialize_jj_style_conflict(
 
         let right1 = hunk.get_add(add_index).unwrap();
 
-        // Write the base and side separately if the conflict marker style doesn't
-        // support diffs.
+        // Write the base and side separately if the conflict marker style
+        // doesn't support diffs.
         if !conflict_marker_style.allows_diff() {
             write_base(left, output)?;
             write_side(right1, output)?;
@@ -744,17 +745,19 @@ fn materialize_jj_style_conflict(
         let diff1 = ContentDiff::by_line([&left.contents, &right1.contents])
             .hunks()
             .collect_vec();
-        // If we haven't written a snapshot yet, then we need to decide whether to
-        // format the current side as a snapshot or a diff. We write the current side as
-        // a diff unless the next side has a smaller diff compared to the current base.
+        // If we haven't written a snapshot yet, then we need to decide whether
+        // to format the current side as a snapshot or a diff. We write
+        // the current side as a diff unless the next side has a smaller
+        // diff compared to the current base.
         if !snapshot_written {
             let right2 = hunk.get_add(add_index + 1).unwrap();
             let diff2 = ContentDiff::by_line([&left.contents, &right2.contents])
                 .hunks()
                 .collect_vec();
             if diff_size(&diff2) < diff_size(&diff1) {
-                // If the next positive term is a better match, emit the current positive term
-                // as a snapshot and the next positive term as a diff.
+                // If the next positive term is a better match, emit the current
+                // positive term as a snapshot and the next
+                // positive term as a diff.
                 write_side(right1, output)?;
                 write_diff(left, right2, &diff2, output)?;
                 snapshot_written = true;
@@ -867,11 +870,16 @@ pub fn parse_conflict(
                             hunks.push(Merge::resolved(BString::from(resolved_slice)));
                         }
                         if !line.ends_with(b"\n") {
-                            // If the conflict end marker doesn't end with an EOL, the last EOL on
-                            // every side performs only as a separator, and we need to do remove the
-                            // last EOL to retrieve the original contents. That separator is the EOL
-                            // which terminates the conflict start marker line, so only drop a CR if
-                            // that EOL was CRLF. Otherwise the CR belongs to the contents.
+                            // If the conflict end marker doesn't end with an
+                            // EOL, the last EOL on
+                            // every side performs only as a separator, and we
+                            // need to do remove the
+                            // last EOL to retrieve the original contents. That
+                            // separator is the EOL
+                            // which terminates the conflict start marker line,
+                            // so only drop a CR if
+                            // that EOL was CRLF. Otherwise the CR belongs to
+                            // the contents.
                             for term in &mut hunk {
                                 if term.pop_if(|x| *x == b'\n').is_some()
                                     && conflict_start_eol_is_crlf
@@ -972,9 +980,11 @@ fn parse_jj_style_conflict_hunk(input: &[u8], expected_marker_len: usize) -> Mer
                     removes.last_mut().unwrap().extend_from_slice(rest);
                     adds.last_mut().unwrap().extend_from_slice(rest);
                 } else if line == b"\n" || line == b"\r\n" {
-                    // Some editors strip trailing whitespace, so " \n" might become "\n". It would
-                    // be unfortunate if this prevented the conflict from being parsed, so we add
-                    // the empty line to the "remove" and "add" as if there was a space in front
+                    // Some editors strip trailing whitespace, so " \n" might
+                    // become "\n". It would be unfortunate
+                    // if this prevented the conflict from being parsed, so we
+                    // add the empty line to the "remove"
+                    // and "add" as if there was a space in front
                     removes.last_mut().unwrap().extend_from_slice(line);
                     adds.last_mut().unwrap().extend_from_slice(line);
                 } else {
@@ -1104,8 +1114,8 @@ pub async fn update_from_content(
         }
     }
 
-    // Now write the new files contents we found by parsing the file with conflict
-    // markers.
+    // Now write the new files contents we found by parsing the file with
+    // conflict markers.
     let new_file_ids: Vec<Option<FileId>> = try_join_all(zip(&contents, &simplified_file_ids).map(
         async |(content, file_id)| -> BackendResult<Option<FileId>> {
             if file_id.is_some() || !content.is_empty() {
@@ -1359,7 +1369,8 @@ mod tests {
         style: ConflictMarkerStyle,
         eol: &str,
     ) {
-        // Add a leading EOL to suggest the correct EOL to use for materialization.
+        // Add a leading EOL to suggest the correct EOL to use for
+        // materialization.
         let base = format!("\n{base}{base_ending_eol}").replace('\n', eol);
         let side1 = format!("\n{side1}{side1_ending_eol}").replace('\n', eol);
         let side2 = format!("\n{side2}{side2_ending_eol}").replace('\n', eol);
@@ -1377,7 +1388,8 @@ mod tests {
                 .into(),
         )
         .unwrap();
-        // We expect the materialized conflict to keep the original EOL, LF or CRLF.
+        // We expect the materialized conflict to keep the original EOL, LF or
+        // CRLF.
         for line in actual_contents.as_bytes().lines_with_terminator() {
             let line = line.as_bstr();
             if !line.ends_with(b"\n") {
@@ -1425,9 +1437,9 @@ mod tests {
         "right\r\n",
     ]); "crlf")]
     fn test_materialize_conflict_trailing_cr(merge: Merge<&str>) {
-        // A side ending with a CR but no ending EOL must survive the round trip.
-        // The only EOL parsing may strip is the separator the materialization
-        // added, not one the content already carried.
+        // A side ending with a CR but no ending EOL must survive the round
+        // trip. The only EOL parsing may strip is the separator the
+        // materialization added, not one the content already carried.
         let options = ConflictMaterializeOptions {
             marker_style: ConflictMarkerStyle::Git,
             marker_len: None,

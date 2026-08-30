@@ -1265,8 +1265,8 @@ fn test_fix_renamed_file() -> TestResult {
         .store()
         .get_commit(summary.rewrites.get(&c2).unwrap())?;
 
-    // Since we are not using copy tracking right now, we are doing the diff against
-    // an empty tree. Thus, we format the whole file.
+    // Since we are not using copy tracking right now, we are doing the diff
+    // against an empty tree. Thus, we format the whole file.
     let expected_tree = create_tree(repo, &[(path_b, "Formatted\n")]);
     assert_tree_eq!(new_c2.tree(), expected_tree);
     Ok(())

@@ -1024,9 +1024,10 @@ impl<'repo> CommitKeywordCache<'repo> {
         language: &CommitTemplateLanguage<'repo>,
         span: pest::Span<'_>,
     ) -> TemplateParseResult<&Rc<RevsetContainingFn<'repo>>> {
-        // Alternatively, a negated (i.e. visible mutable) set could be computed.
-        // It's usually smaller than the immutable set. The revset engine can also
-        // optimize "::<recent_heads>" query to use bitset-based implementation.
+        // Alternatively, a negated (i.e. visible mutable) set could be
+        // computed. It's usually smaller than the immutable set. The
+        // revset engine can also optimize "::<recent_heads>" query to
+        // use bitset-based implementation.
         self.is_immutable_fn.get_or_try_init(|| {
             let expression = &language.immutable_expression;
             let revset = evaluate_revset_expression(language, span, expression)?;
@@ -1726,8 +1727,8 @@ impl Template for Rc<CommitRef> {
             write!(formatter, "@")?;
             write!(formatter.labeled("remote"), "{remote}")?;
         }
-        // Don't show both conflict and unsynced sigils as conflicted ref wouldn't
-        // be pushed.
+        // Don't show both conflict and unsynced sigils as conflicted ref
+        // wouldn't be pushed.
         if self.has_conflict() {
             write!(formatter, "??")?;
         } else if self.is_local() && !self.synced {
@@ -1780,9 +1781,10 @@ impl WorkspaceRef {
         let workspace_loader = DefaultWorkspaceLoaderFactory.create(base)?;
         let repo_path = workspace_loader.repo_path().to_owned();
         let workspace_store = SimpleWorkspaceStore::load(&repo_path)?;
-        // Workspaces created before jj 0.38.0 may not have a recorded path. List
-        // templates should also keep rendering if a recorded path is stale or
-        // unavailable. Use `jj workspace root --name` for strict path diagnostics.
+        // Workspaces created before jj 0.38.0 may not have a recorded path.
+        // List templates should also keep rendering if a recorded path
+        // is stale or unavailable. Use `jj workspace root --name` for
+        // strict path diagnostics.
         let path = workspace_store
             .get_workspace_path(self.name())?
             .map(|workspace_path| repo_path.join(workspace_path))

@@ -98,8 +98,8 @@ fn warn_if_remote_url_matches(
             .iter()
             .flatten()
             .any(|remote_url| remote_url == new_fetch_url || remote_url == new_push_url);
-        // Don't print the URL itself because remote URLs can contain credentials,
-        // such as user:password or token path segments.
+        // Don't print the URL itself because remote URLs can contain
+        // credentials, such as user:password or token path segments.
         if remote_url_matches {
             writeln!(
                 ui.warning_default(),

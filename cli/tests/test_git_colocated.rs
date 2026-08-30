@@ -65,8 +65,8 @@ fn test_git_colocated() -> TestResult {
     [EOF]
     ");
 
-    // Modify the working copy. The working-copy commit should changed, but the Git
-    // HEAD commit should not
+    // Modify the working copy. The working-copy commit should changed, but the
+    // Git HEAD commit should not
     work_dir.write_file("file", "modified");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  9dfe8c7005c8dff6078ecdfd953c6bfddc633c90
@@ -121,8 +121,8 @@ fn test_git_colocated_intent_to_add() -> TestResult {
     work_dir.run_jj(["status"]).success();
     insta::assert_snapshot!(get_index_state(work_dir.root()), @"Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 file1.txt");
 
-    // Previously, this would fail due to the empty blob not being written to the
-    // store when marking files as intent-to-add.
+    // Previously, this would fail due to the empty blob not being written to
+    // the store when marking files as intent-to-add.
     work_dir.run_jj(["util", "gc"]).success();
 
     // Another new file should be marked as intent-to-add
@@ -136,7 +136,8 @@ fn test_git_colocated_intent_to_add() -> TestResult {
 
     let op_id_new_file = work_dir.current_operation_id();
 
-    // After creating a new commit, it should not longer be marked as intent-to-add
+    // After creating a new commit, it should not longer be marked as
+    // intent-to-add
     work_dir.run_jj(["new"]).success();
     work_dir.write_file("file2.txt", "contents");
     work_dir.run_jj(["status"]).success();
@@ -509,8 +510,8 @@ fn test_git_colocated_export_bookmarks_on_snapshot() -> TestResult {
     [EOF]
     ");
 
-    // The bookmark gets updated when we modify the working copy, and it should get
-    // exported to Git without requiring any other changes
+    // The bookmark gets updated when we modify the working copy, and it should
+    // get exported to Git without requiring any other changes
     work_dir.write_file("file", "modified");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  00fc09f48ccf5c8b025a0f93b0ec3b0e4294a598 foo
@@ -598,8 +599,8 @@ fn test_git_colocated_bookmarks() -> TestResult {
     [EOF]
     ");
 
-    // Create a bookmark in jj. It should be exported to Git even though it points
-    // to the working-copy commit.
+    // Create a bookmark in jj. It should be exported to Git even though it
+    // points to the working-copy commit.
     work_dir
         .run_jj(["bookmark", "create", "-r@", "master"])
         .success();
@@ -942,8 +943,8 @@ fn test_git_colocated_fetch_deleted_or_moved_bookmark() -> TestResult {
     Updated 1 rewritten commits.
     [EOF]
     ");
-    // "original C" and "B_to_delete" are abandoned, as the corresponding bookmarks
-    // were deleted or moved on the remote (#864)
+    // "original C" and "B_to_delete" are abandoned, as the corresponding
+    // bookmarks were deleted or moved on the remote (#864)
     insta::assert_snapshot!(get_log_output(&clone_dir), @"
     @  0060713e4c7c46c4ce0d69a43ac16451582eda79
     │ ○  fb297975e4ef98dc057f65b761aed2cdb0386598 C_to_move moved C
@@ -1040,8 +1041,8 @@ fn test_git_colocated_external_checkout() -> TestResult {
     // Check out another bookmark by external command
     git_check_out_ref("refs/heads/master")?;
 
-    // The old working-copy commit gets abandoned, but the whole bookmark should not
-    // be abandoned. (#1042)
+    // The old working-copy commit gets abandoned, but the whole bookmark should
+    // not be abandoned. (#1042)
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  7ceeaaae54c8ac99ad34eeed7fe1e896f535be99
     ○  8777db25171cace71ad014598663d5ffc4fae6b1 master A
@@ -1347,9 +1348,10 @@ fn test_git_colocated_update_index_preserves_timestamps() -> TestResult {
     Unconflicted Mode(FILE) d5f7fc3f74f7 ctime=0:0 mtime=0:0 size=0 flags=0 file4.txt
     ");
 
-    // Update index with stats for all files. We may want to do this automatically
-    // in the future after we update the index in `git::reset_head` (#3786), but for
-    // now, we at least want to preserve existing stat information when possible.
+    // Update index with stats for all files. We may want to do this
+    // automatically in the future after we update the index in
+    // `git::reset_head` (#3786), but for now, we at least want to preserve
+    // existing stat information when possible.
     update_git_index(work_dir.root());
 
     insta::assert_snapshot!(get_index_state(work_dir.root()), @"
@@ -1358,8 +1360,8 @@ fn test_git_colocated_update_index_preserves_timestamps() -> TestResult {
     Unconflicted Mode(FILE) d5f7fc3f74f7 ctime=[nonzero] mtime=[nonzero] size=6 flags=0 file4.txt
     ");
 
-    // Edit parent commit, causing the changes to be removed from the index without
-    // touching the working copy
+    // Edit parent commit, causing the changes to be removed from the index
+    // without touching the working copy
     work_dir.run_jj(["edit", "commit2"]).success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @"
@@ -1563,8 +1565,9 @@ fn test_git_colocated_update_index_rebase_conflict() -> TestResult {
     [EOF]
     ");
 
-    // Index should contain files from parent commit, so there should be no conflict
-    // in conflict.txt yet. The stat for base.txt should not change.
+    // Index should contain files from parent commit, so there should be no
+    // conflict in conflict.txt yet. The stat for base.txt should not
+    // change.
     insta::assert_snapshot!(get_index_state(work_dir.root()), @"
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 flags=0 base.txt
     Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 flags=0 conflict.txt
@@ -1583,8 +1586,8 @@ fn test_git_colocated_update_index_rebase_conflict() -> TestResult {
     [EOF]
     ");
 
-    // Now the working copy commit's parent is conflicted, so the index should have
-    // a conflict with correct blob IDs.
+    // Now the working copy commit's parent is conflicted, so the index should
+    // have a conflict with correct blob IDs.
     insta::assert_snapshot!(get_index_state(work_dir.root()), @"
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 flags=0 base.txt
     Base         Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 flags=1000 conflict.txt
@@ -1666,8 +1669,8 @@ fn test_git_colocated_update_index_3_sided_conflict() -> TestResult {
     [EOF]
     ");
 
-    // We can't add conflicts with more than 2 sides to the index, so we add a dummy
-    // conflict instead. The stat for base.txt should not change.
+    // We can't add conflicts with more than 2 sides to the index, so we add a
+    // dummy conflict instead. The stat for base.txt should not change.
     insta::assert_snapshot!(get_index_state(work_dir.root()), @"
     Ours         Mode(FILE) eb8299123d2a ctime=0:0 mtime=0:0 size=0 flags=2000 .jj-do-not-resolve-this-conflict
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 flags=0 base.txt

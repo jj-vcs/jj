@@ -972,13 +972,14 @@ fn test_absorb_interactive() -> TestResult {
     // Working copy with changes to lines from both ancestors.
     work_dir.run_jj(["new"]).success();
     work_dir.write_file("file1", "1X\n1b\n2Y\n2b\n");
-    // Snapshot the changes so they are part of the source commit when we capture
-    // the op id (otherwise op restore would land on an empty @).
+    // Snapshot the changes so they are part of the source commit when we
+    // capture the op id (otherwise op restore would land on an empty @).
     work_dir.run_jj(["util", "snapshot"]).success();
     let setup_opid = work_dir.current_operation_id();
 
     // If we don't make any changes in the diff-editor, all selected changes are
-    // considered for absorption (and distributed by the usual annotation logic).
+    // considered for absorption (and distributed by the usual annotation
+    // logic).
     std::fs::write(&edit_script, "dump JJ-INSTRUCTIONS instrs")?;
     let output = work_dir.run_jj(["absorb", "-i"]);
     insta::assert_snapshot!(output, @"
@@ -1009,7 +1010,8 @@ fn test_absorb_interactive() -> TestResult {
     // Can absorb only some changes in interactive mode (pick hunks that target
     // only the "1" commit).
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
-    // The right side written here has only the change to the lines from commit 1.
+    // The right side written here has only the change to the lines from commit
+    // 1.
     std::fs::write(&edit_script, "write file1\n1X\n1b\n2a\n2b\n")?;
     let output = work_dir.run_jj(["absorb", "-i"]);
     insta::assert_snapshot!(output, @"

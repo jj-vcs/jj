@@ -474,7 +474,8 @@ fn gpgsm_invalid_signature() -> TestResult {
         Err(SignError::InvalidSignatureFormat)
     );
 
-    // Large data: gpgsm command will exit early because the signature is invalid.
+    // Large data: gpgsm command will exit early because the signature is
+    // invalid.
     assert_matches!(
         backend.verify(&b"a".repeat(100 * 1024), signature),
         Err(SignError::InvalidSignatureFormat)

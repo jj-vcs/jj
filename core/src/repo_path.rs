@@ -479,8 +479,8 @@ impl RepoPath {
         for (self_comp, _other_comp) in common_components {
             if prefix_len > 0 {
                 // + 1 for all paths to take their separators into account.
-                // We skip the first one since there are ComponentCount - 1 separators in a
-                // path.
+                // We skip the first one since there are ComponentCount - 1
+                // separators in a path.
                 prefix_len += 1;
             }
 

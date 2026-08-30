@@ -498,13 +498,13 @@ async fn apply_changes(
 
         if file_mode == mode::ABSENT {
             // The file is not present in the selected changes.
-            // Either a file mode change was selected to delete an existing file, so we
-            // should remove it from the tree,
+            // Either a file mode change was selected to delete an existing
+            // file, so we should remove it from the tree,
             if file_mode_change_selected {
                 tree_builder.set_or_remove(path, Merge::absent());
             }
-            // or the file's creation has been split out of the change, in which case we
-            // don't need to change the tree.
+            // or the file's creation has been split out of the change, in which
+            // case we don't need to change the tree.
             // In either case, we're done with this file afterwards.
             continue;
         }
@@ -513,7 +513,8 @@ async fn apply_changes(
         match contents {
             scm_record::SelectedContents::Unchanged => {
                 if file_mode_change_selected {
-                    // File contents haven't changed, but file mode needs to be updated on the tree.
+                    // File contents haven't changed, but file mode needs to be
+                    // updated on the tree.
                     let value = override_file_executable_bit(select_left(&path).await?, executable);
                     tree_builder.set_or_remove(path, value);
                 } else {
@@ -531,7 +532,8 @@ async fn apply_changes(
                 old_description: _,
                 new_description: None,
             } => {
-                // File contents emptied out, but file mode is not absent => write empty file.
+                // File contents emptied out, but file mode is not absent =>
+                // write empty file.
                 let value = write_file(&path, &[], executable).await?;
                 tree_builder.set_or_remove(path, value);
             }
@@ -1016,10 +1018,11 @@ mod tests {
         create_left_tree: impl FnOnce(&Arc<Store>, &RepoPath, bool) -> MergedTree,
         create_right_tree: impl FnOnce(&Arc<Store>, &RepoPath, bool) -> MergedTree,
     ) {
-        // In this test, we create 2 trees that consist of only one file under the same
-        // path. The executable bits are the same. Either of the left tree and the right
-        // tree can be resolved or have conflicts. Regardless of whether the file is
-        // resolved or have conflicts, the file has the same executable bit in both
+        // In this test, we create 2 trees that consist of only one file under
+        // the same path. The executable bits are the same. Either of
+        // the left tree and the right tree can be resolved or have
+        // conflicts. Regardless of whether the file is resolved or have
+        // conflicts, the file has the same executable bit in both
         // trees, so we don't expect a file mode section in the diff.
 
         let test_repo = TestRepo::init();
@@ -1924,8 +1927,9 @@ mod tests {
         ]
         "#);
         let no_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        // TODO: we should ensure that `jj diffedit` preserves labels when restoring a
-        // conflict. It also should work when restoring conflicts of differing arities.
+        // TODO: we should ensure that `jj diffedit` preserves labels when
+        // restoring a conflict. It also should work when restoring
+        // conflicts of differing arities.
         let left_tree_without_labels = MergedTree::new(
             left_tree.store().clone(),
             left_tree.tree_ids().clone(),
@@ -2201,7 +2205,8 @@ mod tests {
                 }
 
                 Transition::SetDirEntry { .. } => {
-                    // Do nothing; this is handled by the reference state machine.
+                    // Do nothing; this is handled by the reference state
+                    // machine.
                     state
                 }
             }
@@ -2296,7 +2301,8 @@ mod tests {
                 }
 
                 Transition::SetDirEntry { .. } => {
-                    // Do nothing; this is handled by the reference state machine.
+                    // Do nothing; this is handled by the reference state
+                    // machine.
                     state
                 }
             }
@@ -2315,7 +2321,8 @@ mod tests {
                     section.set_checked(*selected);
                 }
 
-                // Sanity checks: Does the partial selection make sense on its own?
+                // Sanity checks: Does the partial selection make sense on its
+                // own?
                 if let Some(scm_record::Section::FileMode { is_checked, mode }) =
                     file.sections.first()
                 {
@@ -2334,7 +2341,8 @@ mod tests {
                         file.set_checked(true);
                     }
                     if !did_file_exist && is_anything_selected {
-                        // File was created, so if any changes are selected, then so must the file
+                        // File was created, so if any changes are selected,
+                        // then so must the file
                         // mode change.
                         file.sections[0].set_checked(true);
                     }
@@ -2354,7 +2362,8 @@ mod tests {
                     .skip(1)
                     .any(|dir| state.prev_file_list.contains(dir))
                 {
-                    // Do not create files which would create directories overwriting files.
+                    // Do not create files which would create directories
+                    // overwriting files.
                     file.set_checked(false);
                 }
             }
@@ -2382,8 +2391,9 @@ mod tests {
                 // If the file has been renamed, it's now in its new position.
                 file.old_path = None;
 
-                // Only keep sections which weren't selected previously. For text files,
-                // transform additions which have already been applied into `Unchanged` hunks.
+                // Only keep sections which weren't selected previously. For
+                // text files, transform additions which have
+                // already been applied into `Unchanged` hunks.
                 file.sections = std::mem::take(&mut file.sections)
                     .into_iter()
                     .flat_map(|sec| {

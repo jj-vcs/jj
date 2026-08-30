@@ -73,8 +73,9 @@ fn test_workspaces_add_second_and_third_workspace() {
     [EOF]
     "#);
 
-    // Can see the working-copy commit in each workspace in the log output. The "@"
-    // node in the graph indicates the current workspace's working-copy commit.
+    // Can see the working-copy commit in each workspace in the log output. The
+    // "@" node in the graph indicates the current workspace's working-copy
+    // commit.
     insta::assert_snapshot!(get_log_output(&main_dir), @r#"
     @  504e3d8c1bcd default@
     │ ○  bcc858e1d93f second@
@@ -270,7 +271,8 @@ fn test_workspaces_add_second_workspace_on_merge() {
         .run_jj(["workspace", "add", "--name", "second", "../secondary"])
         .success();
 
-    // The new workspace's working-copy commit shares all parents with the old one.
+    // The new workspace's working-copy commit shares all parents with the old
+    // one.
     insta::assert_snapshot!(get_log_output(&main_dir), @r#"
     @    46ed31b61ce9 default@ "merge"
     ├─╮
@@ -436,8 +438,9 @@ fn test_workspaces_add_workspace_at_revision() {
     [EOF]
     "#);
 
-    // Can see the working-copy commit in each workspace in the log output. The "@"
-    // node in the graph indicates the current workspace's working-copy commit.
+    // Can see the working-copy commit in each workspace in the log output. The
+    // "@" node in the graph indicates the current workspace's working-copy
+    // commit.
     insta::assert_snapshot!(get_log_output(&main_dir), @r#"
     @  5ac9178da8b2 default@
     ○  a47d8a593529 "second"
@@ -715,8 +718,8 @@ fn test_workspaces_conflicting_edits() {
     // Make changes in both working copies
     main_dir.write_file("file", "changed in main\n");
     secondary_dir.write_file("file", "changed in second\n");
-    // Squash the changes from the main workspace into the initial commit (before
-    // running any command in the secondary workspace
+    // Squash the changes from the main workspace into the initial commit
+    // (before running any command in the secondary workspace
     let output = main_dir.run_jj(["squash"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1024,9 +1027,10 @@ fn test_workspaces_updated_by_other_with_changes_in_working_copy_automatic() {
     [EOF]
     ");
 
-    // We get divergence between the newly described commit and the commit created
-    // by snapshotting (the reconciliation happened to point secondary@ to the child
-    // of the squashed commit rather than the snapshot commit).
+    // We get divergence between the newly described commit and the commit
+    // created by snapshotting (the reconciliation happened to point
+    // secondary@ to the child of the squashed commit rather than the
+    // snapshot commit).
     insta::assert_snapshot!(get_log_output(&secondary_dir),
     @r#"
     @  c38323e3e6f3 secondary@ (divergent) "modified"
@@ -1077,8 +1081,8 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
     secondary_dir.remove_file("deleted");
     secondary_dir.write_file("added", "secondary\n");
 
-    // Create an op by abandoning the parent commit. Importantly, that commit also
-    // changes the target tree in the secondary workspace.
+    // Create an op by abandoning the parent commit. Importantly, that commit
+    // also changes the target tree in the secondary workspace.
     main_dir.run_jj(["abandon", "@-"]).success();
 
     let output = main_dir.run_jj([
@@ -1305,8 +1309,8 @@ fn test_workspaces_update_stale_snapshot() {
     // Record new operation in one workspace.
     main_dir.run_jj(["new"]).success();
 
-    // Snapshot the other working copy, which unfortunately results in concurrent
-    // operations, but should be resolved cleanly.
+    // Snapshot the other working copy, which unfortunately results in
+    // concurrent operations, but should be resolved cleanly.
     secondary_dir.write_file("file", "changed in second\n");
     let output = secondary_dir.run_jj(["workspace", "update-stale"]);
     insta::assert_snapshot!(output, @r"
@@ -1406,9 +1410,9 @@ fn test_colocated_workspace_update_stale() {
     [exit status: 1]
     ");
 
-    // Before the fix, this would fail with the same "working copy is stale" error
-    // because the colocated repo reload logic would reload to HEAD before
-    // snapshotting, breaking the recovery.
+    // Before the fix, this would fail with the same "working copy is stale"
+    // error because the colocated repo reload logic would reload to HEAD
+    // before snapshotting, breaking the recovery.
     let output = main_dir.run_jj(["workspace", "update-stale"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -1476,8 +1480,8 @@ fn test_workspaces_forget() {
     [EOF]
     ");
 
-    // After forgetting the default, secondary root is still recorded, default no
-    // longer exists
+    // After forgetting the default, secondary root is still recorded, default
+    // no longer exists
     let output = main_dir.run_jj(["workspace", "root", "--name", "secondary"]);
     insta::assert_snapshot!(output, @"
     $TEST_ENV/secondary
@@ -1492,9 +1496,9 @@ fn test_workspaces_forget() {
     ");
 
     // The old working copy doesn't get an "@" in the log output
-    // TODO: It seems useful to still have the "secondary@" marker here even though
-    // there's only one workspace. We should show it when the command is not run
-    // from that workspace.
+    // TODO: It seems useful to still have the "secondary@" marker here even
+    // though there's only one workspace. We should show it when the command
+    // is not run from that workspace.
     insta::assert_snapshot!(get_log_output(&main_dir), @"
     ○  31da14559558
     ○  006bd1130b84
@@ -1523,7 +1527,8 @@ fn test_workspaces_forget() {
 
     // Add a third workspace...
     main_dir.run_jj(["workspace", "add", "../third"]).success();
-    // ... and then forget it, a non-existent one, and the secondary workspace too
+    // ... and then forget it, a non-existent one, and the secondary workspace
+    // too
     let output = main_dir.run_jj(["workspace", "forget", "secondary", "nonexistent", "third"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -1603,7 +1608,8 @@ fn test_workspaces_forget_multi_transaction() {
     [EOF]
     ");
 
-    // the op log should have the multiple valid workspaces forgotten in a single tx
+    // the op log should have the multiple valid workspaces forgotten in a
+    // single tx
     let output = main_dir.run_jj(["op", "log", "--limit", "1"]);
     insta::assert_snapshot!(output, @"
     @  da3075edb24f test-username@host.example.com default@ 2001-02-03 04:05:12.000 +07:00 - 2001-02-03 04:05:12.000 +07:00
@@ -1641,7 +1647,8 @@ fn test_workspaces_forget_abandon_commits() {
     let fourth_dir = test_env.work_dir("fourth");
     fourth_dir.run_jj(["edit", "second@"]).success();
 
-    // there should be four workspaces, three of which are at the same empty commit
+    // there should be four workspaces, three of which are at the same empty
+    // commit
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"
     default: . qpvuntsm 006bd113 (no description set)
@@ -1670,8 +1677,8 @@ fn test_workspaces_forget_abandon_commits() {
     [EOF]
     ");
 
-    // delete the second workspace (should not abandon commit since other workspaces
-    // still have commit checked out)
+    // delete the second workspace (should not abandon commit since other
+    // workspaces still have commit checked out)
     main_dir.run_jj(["workspace", "forget", "second"]).success();
     insta::assert_snapshot!(get_log_output(&main_dir), @"
     ○  94f41578a9e1 fourth@ third@

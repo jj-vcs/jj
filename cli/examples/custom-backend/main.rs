@@ -57,8 +57,8 @@ enum CustomCommand {
 
 fn create_store_factories() -> StoreFactories {
     let mut store_factories = StoreFactories::empty();
-    // Register the backend so it can be loaded when the repo is loaded. The name
-    // must match `Backend::name()`.
+    // Register the backend so it can be loaded when the repo is loaded. The
+    // name must match `Backend::name()`.
     store_factories.add_backend(
         "jit",
         Box::new(|settings, store_path| Ok(Box::new(JitBackend::load(settings, store_path)?))),

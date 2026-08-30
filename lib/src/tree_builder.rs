@@ -98,8 +98,8 @@ impl TreeBuilder {
             }
         }
 
-        // Write trees in reverse lexicographical order, starting with trees without
-        // children.
+        // Write trees in reverse lexicographical order, starting with trees
+        // without children.
         // TODO: Writing trees concurrently should help on high-latency backends
         let store = &self.store;
         while let Some((dir, cur_entries)) = trees_to_write.pop_last() {
@@ -118,7 +118,8 @@ impl TreeBuilder {
                     parent_entries.insert(basename.to_owned(), TreeValue::Tree(tree.id().clone()));
                 }
             } else {
-                // We're writing the root tree. Write it even if empty. Return its id.
+                // We're writing the root tree. Write it even if empty. Return
+                // its id.
                 assert!(trees_to_write.is_empty());
                 let data = backend::Tree::from_sorted_entries(cur_entries.into_iter().collect());
                 let written_tree = store.write_tree(&dir, data).await?;

@@ -59,12 +59,12 @@ pub async fn file_content_for_diff<T>(
     map_resolved: impl FnOnce(BString) -> T,
 ) -> BackendResult<FileContent<T>> {
     // If this is a binary file, don't show the full contents.
-    // Determine whether it's binary by whether the first 8k bytes contain a null
-    // character; this is the same heuristic used by git as of writing: https://github.com/git/git/blob/eea0e59ffbed6e33d171ace5be13cde9faa41639/xdiff-interface.c#L192-L198
+    // Determine whether it's binary by whether the first 8k bytes contain a
+    // null character; this is the same heuristic used by git as of writing: https://github.com/git/git/blob/eea0e59ffbed6e33d171ace5be13cde9faa41639/xdiff-interface.c#L192-L198
     const PEEK_SIZE: usize = 8000;
-    // TODO: currently we look at the whole file, even though for binary files we
-    // only need to know the file size. To change that we'd have to extend all
-    // the data backends to support getting the length.
+    // TODO: currently we look at the whole file, even though for binary files
+    // we only need to know the file size. To change that we'd have to
+    // extend all the data backends to support getting the length.
     let contents = BString::new(file.read_all(path).await?);
     let start = &contents[..PEEK_SIZE.min(contents.len())];
     Ok(FileContent {

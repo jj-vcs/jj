@@ -126,8 +126,8 @@ pub enum RevsetEvaluationError {
 }
 
 impl RevsetEvaluationError {
-    // TODO: Create a higher-level error instead of putting non-BackendErrors in a
-    // BackendError
+    // TODO: Create a higher-level error instead of putting non-BackendErrors in
+    // a BackendError
     pub fn into_backend_error(self) -> BackendError {
         match self {
             Self::Backend(err) => err,
@@ -1087,9 +1087,10 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
     });
     map.insert("mine", |_diagnostics, function, context| {
         function.expect_no_arguments()?;
-        // Email address domains are inherently case‐insensitive, and the local‐parts
-        // are generally (although not universally) treated as case‐insensitive too, so
-        // we use a case‐insensitive match here.
+        // Email address domains are inherently case‐insensitive, and the
+        // local‐parts are generally (although not universally) treated
+        // as case‐insensitive too, so we use a case‐insensitive match
+        // here.
         let pattern = StringPattern::exact_i(context.user_email);
         let predicate = RevsetFilterPredicate::AuthorEmail(StringExpression::pattern(pattern));
         Ok(RevsetExpression::filter(predicate))
@@ -2055,8 +2056,8 @@ fn sort_intersection_by_key<St: ExpressionState, T: Ord>(
     expression: &Arc<RevsetExpression<St>>,
     mut get_key: impl FnMut(&RevsetExpression<St>) -> T,
 ) -> TransformedExpression<St> {
-    // We only want to compute the key for `expression` once instead of computing it
-    // on every iteration.
+    // We only want to compute the key for `expression` once instead of
+    // computing it on every iteration.
     fn sort_intersection_helper<St: ExpressionState, T: Ord>(
         base: &Arc<RevsetExpression<St>>,
         expression: &Arc<RevsetExpression<St>>,
@@ -2350,9 +2351,9 @@ fn fold_heads_range<St: ExpressionState>(
     fn to_filtered_range<St: ExpressionState>(
         expression: &Arc<RevsetExpression<St>>,
     ) -> Option<FilteredRange<St>> {
-        // If the first expression is `ancestors(x)`, then we already know the range
-        // must be `none()..x`, since any roots would've been moved to the left by an
-        // earlier pass.
+        // If the first expression is `ancestors(x)`, then we already know the
+        // range must be `none()..x`, since any roots would've been
+        // moved to the left by an earlier pass.
         if let Ok(heads_and_parents_range) = ancestors_to_heads_and_parents_range(expression) {
             return Some(FilteredRange {
                 roots: RevsetExpression::none(),
@@ -2367,8 +2368,9 @@ fn fold_heads_range<St: ExpressionState>(
                 if let Ok(roots) = ancestors_to_heads(complement) {
                     Some(FilteredRange::new(roots))
                 } else {
-                    // If the first expression is a non-ancestors negation, we still want to use
-                    // `HeadsRange` since `~x` is equivalent to `::visible_heads() ~ x`.
+                    // If the first expression is a non-ancestors negation, we
+                    // still want to use `HeadsRange` since
+                    // `~x` is equivalent to `::visible_heads() ~ x`.
                     Some(FilteredRange::new(RevsetExpression::none()).add_filter(expression))
                 }
             }
@@ -2437,7 +2439,8 @@ fn to_difference_range<St: ExpressionState>(
     };
     let roots = ancestors_to_heads(complement).ok()?;
     // ::heads & ~(::roots) -> roots..heads
-    // ::heads & ~(::roots-) -> ::heads & ~ancestors(roots, 1..) -> roots-..heads
+    // ::heads & ~(::roots-) -> ::heads & ~ancestors(roots, 1..) ->
+    // roots-..heads
     Some(Arc::new(RevsetExpression::Range {
         roots,
         heads: heads.clone(),
@@ -3237,7 +3240,8 @@ impl VisibilityResolutionContext<'_> {
                 count: *count,
             },
             RevsetExpression::Filter(_) | RevsetExpression::AsFilter(_) => {
-                // Top-level filter without intersection: e.g. "~author(_)" is represented as
+                // Top-level filter without intersection: e.g. "~author(_)" is
+                // represented as
                 // `AsFilter(NotIn(Filter(Author(_))))`.
                 ResolvedExpression::FilterWithin {
                     candidates: self.resolve_all().into(),
@@ -4806,8 +4810,9 @@ mod tests {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
 
-        // Check that transform_expression_bottom_up() never rewrites enum variant
-        // (e.g. Range -> DagRange) nor reorders arguments unintentionally.
+        // Check that transform_expression_bottom_up() never rewrites enum
+        // variant (e.g. Range -> DagRange) nor reorders arguments
+        // unintentionally.
 
         insta::assert_debug_snapshot!(
             optimize(parse("parents(bookmarks() & all())")?), @r#"
@@ -4979,7 +4984,8 @@ mod tests {
             }
         }
 
-        // transform_expression_bottom_up() should not recreate tree unnecessarily.
+        // transform_expression_bottom_up() should not recreate tree
+        // unnecessarily.
         let parsed = parse("foo-")?;
         let optimized = optimize(parsed.clone());
         assert!(Arc::ptr_eq(&parsed, &optimized));
@@ -5076,7 +5082,8 @@ mod tests {
         )
         "#);
 
-        // Binary difference operation should go through the same optimization passes.
+        // Binary difference operation should go through the same optimization
+        // passes.
         insta::assert_debug_snapshot!(
             optimize(parse("all() ~ foo")?),
             @r#"NotIn(CommitRef(Symbol("foo")))"#);
@@ -5208,8 +5215,8 @@ mod tests {
         )
         "#);
 
-        // Negated ancestors can be combined into a range regardless of intersection
-        // grouping order and intervening expressions.
+        // Negated ancestors can be combined into a range regardless of
+        // intersection grouping order and intervening expressions.
         insta::assert_debug_snapshot!(optimize(parse("foo ~ ::a & (::b & bar & ::c) & (baz ~ ::d)")?), @r#"
         Intersection(
             Intersection(
@@ -5311,7 +5318,8 @@ mod tests {
         // '~empty()' -> '~~file(*)' -> 'file(*)'
         insta::assert_debug_snapshot!(optimize(parse("~empty()")?), @"Filter(File(All))");
 
-        // '& baz' can be moved into the filter node, and form a difference node.
+        // '& baz' can be moved into the filter node, and form a difference
+        // node.
         insta::assert_debug_snapshot!(
             optimize(parse("(author_name(foo) & ~bar) & baz")?), @r#"
         Intersection(
@@ -5960,9 +5968,9 @@ mod tests {
         }
         "#);
 
-        // TODO: Inner Descendants can be folded into DagRange. Perhaps, we can rewrite
-        // 'x::y' to 'x:: & ::y' first, so the common substitution rule can handle both
-        // 'x+::y' and 'x+ & ::y'.
+        // TODO: Inner Descendants can be folded into DagRange. Perhaps, we can
+        // rewrite 'x::y' to 'x:: & ::y' first, so the common
+        // substitution rule can handle both 'x+::y' and 'x+ & ::y'.
         insta::assert_debug_snapshot!(optimize(parse("(foo++)::bar")?), @r#"
         DagRange {
             roots: Descendants {
@@ -6097,8 +6105,8 @@ mod tests {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
 
-        // Negated ancestors and ancestors should be moved to the left, and other
-        // negations should be moved to the right.
+        // Negated ancestors and ancestors should be moved to the left, and
+        // other negations should be moved to the right.
         insta::assert_debug_snapshot!(optimize(parse("~a & ::b & ~::c & d ~ e & f & ::g & ~::h")?), @r#"
         Difference(
             Difference(
@@ -6154,8 +6162,9 @@ mod tests {
             filter: All,
         }
         "#);
-        // It might be better to use `roots: Root`, but it would require adding a
-        // special case for `~root()`, and this should be similar in performance.
+        // It might be better to use `roots: Root`, but it would require adding
+        // a special case for `~root()`, and this should be similar in
+        // performance.
         insta::assert_debug_snapshot!(optimize(parse("heads(..)")?), @"
         HeadsRange {
             roots: None,
@@ -6481,8 +6490,8 @@ mod tests {
         assert_eq!(format_symbol("foo\\\"bar"), r#""foo\\\"bar""#);
         assert_eq!(format_symbol("foo\nbar"), r#""foo\nbar""#);
 
-        // Some characters don't technically need escaping, but we escape them for
-        // clarity
+        // Some characters don't technically need escaping, but we escape them
+        // for clarity
         assert_eq!(format_symbol("foo\"bar"), r#""foo\"bar""#);
         assert_eq!(format_symbol("foo\\bar"), r#""foo\\bar""#);
         assert_eq!(format_symbol("foo\\\"bar"), r#""foo\\\"bar""#);

@@ -309,12 +309,14 @@ impl GitBackend {
             .map_err(GitBackendInitError::Path)?;
         let target_path = store_path.join("git_target");
         let git_repo_path = if cfg!(windows) && git_repo_path.is_relative() {
-            // When a repository is created in Windows, format the path with *forward
-            // slashes* and not backwards slashes. This makes it possible to use the same
-            // repository under Windows Subsystem for Linux.
+            // When a repository is created in Windows, format the path with
+            // *forward slashes* and not backwards slashes. This
+            // makes it possible to use the same repository under
+            // Windows Subsystem for Linux.
             //
-            // This only works for relative paths. If the path is absolute, there's not much
-            // we can do, and it simply won't work inside and outside WSL at the same time.
+            // This only works for relative paths. If the path is absolute,
+            // there's not much we can do, and it simply won't work
+            // inside and outside WSL at the same time.
             file_util::slash_path(git_repo_path)
         } else {
             git_repo_path.into()
@@ -466,8 +468,9 @@ impl GitBackend {
             .extra_metadata_store
             .save_table(mut_table)
             .map_err(GitBackendError::WriteMetadata)?;
-        // Since the parent table was the head, saved table are likely to be new head.
-        // If it's not, cache will be reloaded when entry can't be found.
+        // Since the parent table was the head, saved table are likely to be new
+        // head. If it's not, cache will be reloaded when entry can't be
+        // found.
         *self.cached_extra_metadata.lock().unwrap() = Some(table);
         Ok(())
     }
@@ -496,8 +499,9 @@ impl GitBackend {
             .edit_references(head_ids.iter().copied().map(to_no_gc_ref_update))
             .map_err(|err| BackendError::Other(Box::new(err)))?;
 
-        // These commits are imported from Git. Make our change ids persist (otherwise
-        // future write_commit() could reassign new change id.)
+        // These commits are imported from Git. Make our change ids persist
+        // (otherwise future write_commit() could reassign new change
+        // id.)
         tracing::debug!(
             heads_count = head_ids.len(),
             "import extra metadata entries"
@@ -586,8 +590,8 @@ impl GitBackend {
 
         let locked_repo = self.lock_git_repo();
         if !locked_repo.objects.exists(&oid) {
-            // reuse the precomputed hash, since Gitoxide provides an API for it (otherwise
-            // Gitoxide recomputes it).
+            // reuse the precomputed hash, since Gitoxide provides an API for it
+            // (otherwise Gitoxide recomputes it).
             let write_oid = locked_repo
                 .objects
                 .write_buf_with_known_id(gix::objs::Kind::Blob, bytes, oid)
@@ -694,7 +698,8 @@ fn commit_from_git_without_root_parent(
 
     // shallow commits don't have parents their parents actually fetched, so we
     // discard them here
-    // TODO: This causes issues when a shallow repository is deepened/unshallowed
+    // TODO: This causes issues when a shallow repository is
+    // deepened/unshallowed
     let parents = if is_shallow {
         vec![]
     } else {
@@ -708,12 +713,12 @@ fn commit_from_git_without_root_parent(
     let conflict_labels = extract_conflict_labels_from_commit(&commit);
     // Conflicted commits written before we started using the `jj:trees` header
     // (~March 2024) may have the root trees stored in the extra metadata table
-    // instead. For such commits, we'll update the root tree later when we read the
-    // extra metadata.
+    // instead. For such commits, we'll update the root tree later when we read
+    // the extra metadata.
     let root_tree = extract_root_tree_from_commit(&commit)
         .map_err(|()| to_read_object_err("Invalid jj:trees header", id))?;
-    // Use lossy conversion as commit message with "mojibake" is still better than
-    // nothing.
+    // Use lossy conversion as commit message with "mojibake" is still better
+    // than nothing.
     // TODO: what should we do with commit.encoding?
     let description = String::from_utf8_lossy(commit.message).into_owned();
     let author = signature_from_git(commit.author().map_err(decode_err)?);
@@ -721,8 +726,8 @@ fn commit_from_git_without_root_parent(
 
     // If the commit is signed, extract both the signature and the signed data
     // (which is the commit buffer with the gpgsig header omitted).
-    // We have to re-parse the raw commit data because gix CommitRef does not give
-    // us the sogned data, only the signature.
+    // We have to re-parse the raw commit data because gix CommitRef does not
+    // give us the sogned data, only the signature.
     // Ideally, we could use try_to_commit_ref_iter at the beginning of this
     // function and extract everything from that. For now, this works
     let secure_sig = commit
@@ -1053,8 +1058,9 @@ fn import_extra_metadata_entries_from_heads(
             .map_err(|err| map_not_found_err(err, &id))?;
         let is_shallow = shallow_roots.contains(&id);
         // TODO(#1624): Should we read the root tree here and check if it has a
-        // `.jjconflict-...` entries? That could happen if the user used `git` to e.g.
-        // change the description of a commit with tree-level conflicts.
+        // `.jjconflict-...` entries? That could happen if the user used `git`
+        // to e.g. change the description of a commit with tree-level
+        // conflicts.
         let commit = commit_from_git_without_root_parent(&id, &git_object, is_shallow)?;
         mut_table.add_entry(id.to_bytes(), serialize_extras(&commit));
         work_ids.extend(
@@ -1304,10 +1310,10 @@ impl Backend for GitBackend {
         if let Some(extras) = table.get_value(id.as_bytes()) {
             deserialize_extras(&mut commit, extras);
         } else {
-            // TODO: Remove this hack and map to ObjectNotFound error if we're sure that
-            // there are no reachable ancestor commits without extras metadata. Git commits
-            // imported by jj < 0.8.0 might not have extras (#924).
-            // https://github.com/jj-vcs/jj/issues/2343
+            // TODO: Remove this hack and map to ObjectNotFound error if we're
+            // sure that there are no reachable ancestor commits
+            // without extras metadata. Git commits imported by jj <
+            // 0.8.0 might not have extras (#924). https://github.com/jj-vcs/jj/issues/2343
             tracing::info!("unimported Git commit found");
             self.import_head_commits([id])?;
             let table = self.cached_extra_metadata_table()?;
@@ -1341,10 +1347,11 @@ impl Backend for GitBackend {
         let mut parents = SmallVec::new();
         for parent_id in &contents.parents {
             if *parent_id == self.root_commit_id {
-                // Git doesn't have a root commit, so if the parent is the root commit, we don't
-                // add it to the list of parents to write in the Git commit. We also check that
-                // there are no other parents since Git cannot represent a merge between a root
-                // commit and another commit.
+                // Git doesn't have a root commit, so if the parent is the root
+                // commit, we don't add it to the list of
+                // parents to write in the Git commit. We also check that
+                // there are no other parents since Git cannot represent a merge
+                // between a root commit and another commit.
                 if contents.parents.len() > 1 {
                     return Err(BackendError::Unsupported(
                         "The Git backend does not support creating merge commits with the root \
@@ -1358,7 +1365,8 @@ impl Backend for GitBackend {
         }
         let mut extra_headers: Vec<(BString, BString)> = vec![];
         if !contents.conflict_labels.is_resolved() {
-            // Labels cannot contain '\n' since we use it as a separator in the header.
+            // Labels cannot contain '\n' since we use it as a separator in the
+            // header.
             assert!(
                 contents
                     .conflict_labels
@@ -1397,12 +1405,13 @@ impl Backend for GitBackend {
 
         let extras = serialize_extras(&contents);
 
-        // If two writers write commits of the same id with different metadata, they
-        // will both succeed and the metadata entries will be "merged" later. Since
-        // metadata entry is keyed by the commit id, one of the entries would be lost.
-        // To prevent such race condition locally, we extend the scope covered by the
-        // table lock. This is still racy if multiple machines are involved and the
-        // repository is rsync-ed.
+        // If two writers write commits of the same id with different metadata,
+        // they will both succeed and the metadata entries will be
+        // "merged" later. Since metadata entry is keyed by the commit
+        // id, one of the entries would be lost. To prevent such race
+        // condition locally, we extend the scope covered by the
+        // table lock. This is still racy if multiple machines are involved and
+        // the repository is rsync-ed.
         let (table, table_lock) = self.read_extra_metadata_table_locked()?;
         let id = loop {
             let mut commit = gix::objs::Commit {
@@ -1459,14 +1468,14 @@ impl Backend for GitBackend {
             }
         };
 
-        // Everything up to this point had no permanent effect on the repo except
-        // GC-able objects
+        // Everything up to this point had no permanent effect on the repo
+        // except GC-able objects
         locked_repo
             .edit_reference(to_no_gc_ref_update(&id))
             .map_err(|err| BackendError::Other(Box::new(err)))?;
 
-        // Update the signature to match the one that was actually written to the object
-        // store
+        // Update the signature to match the one that was actually written to
+        // the object store
         contents.committer.timestamp.timestamp = MillisSinceEpoch(committer.time.seconds * 1000);
         let mut mut_table = table.start_mutation();
         mut_table.add_entry(id.to_bytes(), extras);
@@ -1935,8 +1944,8 @@ mod tests {
 
         let backend = GitBackend::init_external(&settings, store_path, git_repo.path())?;
 
-        // read_commit() without import_head_commits() works as of now. This might be
-        // changed later.
+        // read_commit() without import_head_commits() works as of now. This
+        // might be changed later.
         assert!(
             backend
                 .read_commit(&CommitId::from_bytes(git_commit_id.as_bytes()))
@@ -2060,8 +2069,8 @@ mod tests {
             @r#"Some(ChangeId("efbc06dc4721683f2a45568dbda31e99"))"#
         );
 
-        // We only look at the first change id if multiple are present, so this should
-        // error
+        // We only look at the first change id if multiple are present, so this
+        // should error
         let commit = indoc! {b"
             tree 126799bf8058d1b5c531e93079f4fe79733920dd
             parent bd50783bdf38406dd6143475cd1a3c27938db2ee
@@ -2291,8 +2300,8 @@ mod tests {
             backend.write_commit(commit, None).block_on()
         };
 
-        // When writing a tree-level conflict, the root tree on the git side has the
-        // individual trees as subtrees.
+        // When writing a tree-level conflict, the root tree on the git side has
+        // the individual trees as subtrees.
         let read_commit_id = write_commit(commit.clone())?.0;
         let read_commit = backend.read_commit(&read_commit_id).block_on()?;
         assert_eq!(read_commit, commit);
@@ -2350,8 +2359,8 @@ mod tests {
         assert_eq!(entry.mode().value(), 0o100644);
         assert!(iter.next().is_none());
 
-        // When writing a single tree using the new format, it's represented by a
-        // regular git tree.
+        // When writing a single tree using the new format, it's represented by
+        // a regular git tree.
         commit.root_tree = Merge::resolved(create_tree(5));
         let read_commit_id = write_commit(commit.clone())?.0;
         let read_commit = backend.read_commit(&read_commit_id).block_on()?;
@@ -2476,8 +2485,8 @@ mod tests {
 
         let (commit_id1, mut commit2) = write_commit(commit1)?;
         commit2.predecessors.push(commit_id1.clone());
-        // `write_commit` should prevent the ids from being the same by changing the
-        // committer timestamp of the commit it actually writes.
+        // `write_commit` should prevent the ids from being the same by changing
+        // the committer timestamp of the commit it actually writes.
         let (commit_id2, mut actual_commit2) = write_commit(commit2.clone())?;
         // The returned matches the ID
         assert_eq!(backend.read_commit(&commit_id2).block_on()?, actual_commit2);

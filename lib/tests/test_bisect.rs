@@ -153,9 +153,11 @@ fn test_bisect_linear() {
         }
     );
 
-    // commit2 is the first bad commit; its parent and child commits were skipped
+    // commit2 is the first bad commit; its parent and child commits were
+    // skipped
     // * commit1 is a possibly_bad commit: it's between a bad and a good commit
-    // * commit3 is NOT a possibly_bad commit: it's implicitly bad due to commit2
+    // * commit3 is NOT a possibly_bad commit: it's implicitly bad due to
+    //   commit2
     let expected_tests = [
         (commit3.id(), Evaluation::Skip),
         (commit2.id(), Evaluation::Bad),
@@ -172,8 +174,8 @@ fn test_bisect_linear() {
     );
 
     // Commit 7 is the first bad commit but commits before 6 were skipped
-    // TODO: Avoid testing every commit near first skipped commit. Test e.g. commit
-    // 1 and commit 5 once we see that commit 3 was indeterminate.
+    // TODO: Avoid testing every commit near first skipped commit. Test e.g.
+    // commit 1 and commit 5 once we see that commit 3 was indeterminate.
     let expected_tests = [
         (commit3.id(), Evaluation::Skip),
         (commit2.id(), Evaluation::Skip),

@@ -12,8 +12,9 @@ type GuardTable = Slab<Box<dyn FnOnce() + Send>>;
 /// Prepare to run [`CleanupGuard`]s on `SIGINT`/`SIGTERM`/`SIGHUP`
 pub fn init() {
     if let Err(e) = ctrlc::set_handler(|| {
-        // We must hold the lock for the remainder of the process's lifetime to avoid a
-        // race where a guard is created after we unlock but before we exit.
+        // We must hold the lock for the remainder of the process's lifetime to
+        // avoid a race where a guard is created after we unlock but
+        // before we exit.
         let guards = &mut *LIVE_GUARDS.lock().unwrap();
         if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| {
             for guard in guards.drain() {

@@ -126,7 +126,8 @@ fn test_shell_completions() {
     #[track_caller]
     fn test(shell: &str) {
         let test_env = TestEnvironment::default();
-        // Use the local backend because GitBackend::gc() depends on the git CLI.
+        // Use the local backend because GitBackend::gc() depends on the git
+        // CLI.
         let output = test_env
             .run_jj_in(".", ["util", "completion", shell])
             .success();

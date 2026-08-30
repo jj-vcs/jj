@@ -116,8 +116,9 @@ pub fn hermetic_git() {
         HERMETIC_GIT_CONFIGS.len().to_string(),
     ));
     for (key, value) in envs {
-        // SAFETY: This is actually not safe. `getenv` and `setenv` are not thread safe,
-        // and we can't guarantee that the following call won't have race conditions.
+        // SAFETY: This is actually not safe. `getenv` and `setenv` are not
+        // thread safe, and we can't guarantee that the following call
+        // won't have race conditions.
         unsafe { env::set_var(key, value) };
     }
 }
@@ -904,8 +905,8 @@ pub fn assert_no_forgotten_test_files(test_dir: &Path) {
         vec![]
     };
 
-    // Add to that all submodules which are declared in the main test modules via
-    // `mod`.
+    // Add to that all submodules which are declared in the main test modules
+    // via `mod`.
     let mut test_mods: HashSet<_> = test_bin_mods
         .iter()
         .flat_map(|test_mod| {

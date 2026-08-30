@@ -428,7 +428,8 @@ fn test_jj_trees_header_with_one_tree() -> TestResult {
     let git_commit_id = gix::ObjectId::from_bytes_or_panic(commit.id().as_bytes());
     let git_commit = git_repo.find_commit(git_commit_id)?;
 
-    // Add `jj:trees` with a single tree which is different from the Git commit tree
+    // Add `jj:trees` with a single tree which is different from the Git commit
+    // tree
     let mut new_commit: gix::objs::Commit = git_commit.decode()?.try_into()?;
     new_commit.extra_headers = vec![(
         JJ_TREES_COMMIT_HEADER.into(),
@@ -438,8 +439,8 @@ fn test_jj_trees_header_with_one_tree() -> TestResult {
     let new_commit_id = CommitId::from_bytes(new_commit_id.as_bytes());
 
     // Import new commit into `jj` repo. This should fail, because allowing a
-    // non-conflicted commit to have a different tree in `jj` than in Git could be
-    // used to hide malicious code.
+    // non-conflicted commit to have a different tree in `jj` than in Git could
+    // be used to hide malicious code.
     insta::assert_debug_snapshot!(git_backend.import_head_commits(std::slice::from_ref(&new_commit_id)), @r#"
     Err(
         ReadObject {
@@ -465,9 +466,10 @@ fn test_conflict_headers_roundtrip() -> TestResult {
     let tree_6 = create_single_tree(&repo, &[(repo_path("file"), "fff")]);
     let tree_7 = create_single_tree(&repo, &[(repo_path("file"), "ggg")]);
 
-    // This creates a Git commit header with leading and trailing newlines to ensure
-    // that it can still be parsed correctly. The resulting `jj:conflict-labels`
-    // header value will look like `\nbase 1\nside 2\n\nside 3\n\n\n`.
+    // This creates a Git commit header with leading and trailing newlines to
+    // ensure that it can still be parsed correctly. The resulting
+    // `jj:conflict-labels` header value will look like `\nbase 1\nside
+    // 2\n\nside 3\n\n\n`.
     let merged_tree = MergedTree::new(
         repo.store().clone(),
         Merge::from_vec(vec![

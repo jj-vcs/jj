@@ -172,8 +172,8 @@ async fn find_pair_to_remove(
     // "adds" is an ancestor of the other, then pick the descendant.
     for (add_index1, add1) in conflict.adds().enumerate() {
         for (add_index2, add2) in conflict.adds().enumerate().skip(add_index1 + 1) {
-            // TODO: Instead of relying on the list order, maybe ((add1, add2), remove)
-            // combination should be somehow weighted?
+            // TODO: Instead of relying on the list order, maybe ((add1, add2),
+            // remove) combination should be somehow weighted?
             let (add_index, add_id) = match (add1, add2) {
                 (Some(id1), Some(id2)) if id1 == id2 => (add_index1, id1),
                 (Some(id1), Some(id2)) if index.is_ancestor(id1, id2).await? => (add_index1, id1),

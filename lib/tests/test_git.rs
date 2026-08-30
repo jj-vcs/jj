@@ -628,10 +628,11 @@ fn test_import_refs_reimport_git_head_without_ref() -> TestResult {
     // Move HEAD to commit2 (by e.g. `git checkout` command)
     testutils::git::set_head_to_id(&git_repo, git_id(&commit2));
 
-    // Reimport HEAD, which doesn't abandon the old HEAD branch because jj thinks it
-    // would be moved by `git checkout` command. This isn't always true because the
-    // detached HEAD commit could be rewritten by e.g. `git commit --amend` command,
-    // but it should be safer than abandoning old checkout branch.
+    // Reimport HEAD, which doesn't abandon the old HEAD branch because jj
+    // thinks it would be moved by `git checkout` command. This isn't always
+    // true because the detached HEAD commit could be rewritten by e.g. `git
+    // commit --amend` command, but it should be safer than abandoning old
+    // checkout branch.
     import_head(tx.repo_mut(), &test_workspace.workspace)?;
     git::import_refs(tx.repo_mut(), &import_options).block_on()?;
     tx.repo_mut().rebase_descendants().block_on()?;
@@ -1349,7 +1350,8 @@ fn test_import_refs_reimport_remote_tags_deleted() -> TestResult {
 
 #[test]
 fn test_import_refs_reimport_git_head_with_fixed_ref() -> TestResult {
-    // Simulate external `git checkout` in colocated workspace, from named bookmark.
+    // Simulate external `git checkout` in colocated workspace, from named
+    // bookmark.
     let test_workspace = TestWorkspace::init_colocated_git();
     let repo = &test_workspace.repo;
     let git_repo = get_git_repo(repo);
@@ -1388,8 +1390,9 @@ fn test_import_refs_reimport_git_head_with_fixed_ref() -> TestResult {
 
 #[test]
 fn test_import_refs_reimport_all_from_root_removed() -> TestResult {
-    // Test that if a chain of commits all the way from the root gets unreferenced,
-    // we abandon the whole stack, but not including the root commit.
+    // Test that if a chain of commits all the way from the root gets
+    // unreferenced, we abandon the whole stack, but not including the root
+    // commit.
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);
@@ -2251,8 +2254,8 @@ fn test_import_some_refs() -> TestResult {
     };
     assert_eq!(*view.heads(), expected_heads);
 
-    // Check that bookmarks feature[1-4] have been locally imported and are known to
-    // be present on origin as well.
+    // Check that bookmarks feature[1-4] have been locally imported and are
+    // known to be present on origin as well.
     assert_eq!(view.bookmarks().count(), 4);
     let commit_feat1_remote_ref = RemoteRef {
         target: RefTarget::normal(jj_id(commit_feat1)),
@@ -2323,8 +2326,9 @@ fn test_import_some_refs() -> TestResult {
     );
     assert!(!view.heads().contains(&jj_id(commit_ign)));
 
-    // Delete bookmark feature1, feature3 and feature4 in git repository and import
-    // bookmark feature2 only. That should have no impact on the jj repository.
+    // Delete bookmark feature1, feature3 and feature4 in git repository and
+    // import bookmark feature2 only. That should have no impact on the jj
+    // repository.
     delete_git_ref(&git_repo, "refs/remotes/origin/feature1");
     delete_git_ref(&git_repo, "refs/remotes/origin/feature3");
     delete_git_ref(&git_repo, "refs/remotes/origin/feature4");
@@ -2336,8 +2340,8 @@ fn test_import_some_refs() -> TestResult {
     tx.repo_mut().rebase_descendants().block_on()?;
     let repo = tx.commit("test").block_on()?;
 
-    // feature2 and feature4 will still be heads, and all four bookmarks should be
-    // present.
+    // feature2 and feature4 will still be heads, and all four bookmarks should
+    // be present.
     let view = repo.view();
     assert_eq!(view.bookmarks().count(), 4);
     assert_eq!(*view.heads(), expected_heads);
@@ -2544,8 +2548,8 @@ fn test_import_refs_detached_head() -> TestResult {
     let git_repo = get_git_repo(repo);
     let import_options = default_import_options();
     let commit1 = empty_git_commit(&git_repo, "refs/heads/main", &[]);
-    // Delete the reference. Check that the detached HEAD commit still gets added to
-    // the set of heads
+    // Delete the reference. Check that the detached HEAD commit still gets
+    // added to the set of heads
     git_repo.find_reference("refs/heads/main")?.delete()?;
     testutils::git::set_head_to_id(&git_repo, commit1);
 
@@ -2627,8 +2631,8 @@ fn test_import_export_head_bare_and_worktree() -> TestResult {
 
 #[test]
 fn test_export_refs_no_detach() -> TestResult {
-    // When exporting the bookmark that's current checked out, don't detach HEAD if
-    // the target already matches
+    // When exporting the bookmark that's current checked out, don't detach HEAD
+    // if the target already matches
     let test_workspace = TestWorkspace::init_colocated_git();
     let repo = &test_workspace.repo;
     let git_repo = get_git_repo(repo);
@@ -2975,7 +2979,8 @@ fn test_export_refs_current_tag_changed() -> TestResult {
 #[test_case(false; "without moved placeholder ref")]
 #[test_case(true; "with moved placeholder ref")]
 fn test_export_refs_unborn_git_bookmark(move_placeholder_ref: bool) -> TestResult {
-    // Can export to an empty Git repo (we can handle Git's "unborn bookmark" state)
+    // Can export to an empty Git repo (we can handle Git's "unborn bookmark"
+    // state)
     let test_workspace = TestWorkspace::init_colocated_git();
     let repo = &test_workspace.repo;
     let git_repo = get_git_repo(repo);
@@ -3024,9 +3029,9 @@ fn test_export_refs_unborn_git_bookmark(move_placeholder_ref: bool) -> TestResul
 
 #[test]
 fn test_export_import_sequence() -> TestResult {
-    // Import a bookmark pointing to A, modify it in jj to point to B, export it,
-    // modify it in git to point to C, then import it again. There should be no
-    // conflict.
+    // Import a bookmark pointing to A, modify it in jj to point to B, export
+    // it, modify it in git to point to C, then import it again. There
+    // should be no conflict.
     let test_data = GitRepoData::create();
     let import_options = default_import_options();
     let git_repo = test_data.git_repo;
@@ -3084,8 +3089,8 @@ fn test_export_import_sequence() -> TestResult {
 
 #[test]
 fn test_import_export_non_tracking_bookmark() -> TestResult {
-    // Import a remote tracking bookmark and export it. We should not create a git
-    // bookmark.
+    // Import a remote tracking bookmark and export it. We should not create a
+    // git bookmark.
     let test_data = GitRepoData::create();
     let git_repo = test_data.git_repo;
     let commit_main_t0 = empty_git_commit(&git_repo, "refs/remotes/origin/main", &[]);
@@ -3124,8 +3129,8 @@ fn test_import_export_non_tracking_bookmark() -> TestResult {
         RefTarget::absent_ref()
     );
 
-    // Reimport with auto-track-bookmarks on. Local bookmark shouldn't be created
-    // for the known bookmark "main".
+    // Reimport with auto-track-bookmarks on. Local bookmark shouldn't be
+    // created for the known bookmark "main".
     let commit_main_t1 = empty_git_commit(&git_repo, "refs/remotes/origin/main", &[commit_main_t0]);
     let commit_feat_t1 = empty_git_commit(&git_repo, "refs/remotes/origin/feat", &[]);
     git::import_refs(mut_repo, &auto_track_import_options()).block_on()?;
@@ -3158,7 +3163,8 @@ fn test_import_export_non_tracking_bookmark() -> TestResult {
         },
     );
 
-    // Reimport with auto-track-bookmarks off. Tracking bookmark should be imported.
+    // Reimport with auto-track-bookmarks off. Tracking bookmark should be
+    // imported.
     let commit_main_t2 = empty_git_commit(&git_repo, "refs/remotes/origin/main", &[commit_main_t1]);
     let commit_feat_t2 = empty_git_commit(&git_repo, "refs/remotes/origin/feat", &[commit_feat_t1]);
     git::import_refs(mut_repo, &default_import_options()).block_on()?;
@@ -3211,8 +3217,8 @@ fn test_export_conflicts() -> TestResult {
     assert!(stats.failed_bookmarks.is_empty());
     assert!(stats.failed_tags.is_empty());
 
-    // Create a conflict and export. It should not be exported, but other changes
-    // should be.
+    // Create a conflict and export. It should not be exported, but other
+    // changes should be.
     mut_repo.set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit_b.id().clone()));
     let conflict_target = RefTarget::from_legacy_form(
         [commit_a.id().clone()],
@@ -3300,8 +3306,8 @@ fn test_export_partial_failure() -> TestResult {
     // Branch named HEAD is disallowed by Git CLI
     mut_repo.set_local_bookmark_target("HEAD".as_ref(), target.clone());
     mut_repo.set_local_bookmark_target("main".as_ref(), target.clone());
-    // `main/sub` will conflict with `main` in Git, at least when using loose ref
-    // storage
+    // `main/sub` will conflict with `main` in Git, at least when using loose
+    // ref storage
     mut_repo.set_local_bookmark_target("main/sub".as_ref(), target.clone());
     // Non-git remote tags are ignored since there are no remote tags in Git
     mut_repo.set_remote_tag(
@@ -3344,7 +3350,8 @@ fn test_export_partial_failure() -> TestResult {
         FailedRefExportReason::InvalidGitName
     );
 
-    // The `main` bookmark should have succeeded but the other should have failed
+    // The `main` bookmark should have succeeded but the other should have
+    // failed
     assert!(git_repo.find_reference("refs/heads/").is_err());
     assert!(git_repo.find_reference("refs/heads/HEAD").is_err());
     assert_eq!(
@@ -3447,7 +3454,8 @@ fn test_export_partial_failure() -> TestResult {
 
 #[test]
 fn test_export_reexport_transitions() -> TestResult {
-    // Test exporting after making changes on the jj side, or the git side, or both
+    // Test exporting after making changes on the jj side, or the git side, or
+    // both
     let test_data = GitRepoData::create();
     let git_repo = test_data.git_repo;
     let mut tx = test_data.repo.start_transaction();
@@ -3455,11 +3463,12 @@ fn test_export_reexport_transitions() -> TestResult {
     let commit_a = write_random_commit(mut_repo);
     let commit_b = write_random_commit(mut_repo);
     let commit_c = write_random_commit(mut_repo);
-    // Create a few bookmarks whose names indicate how they change in jj in git. The
-    // first letter represents the bookmark's target in the last export. The second
-    // letter represents the bookmark's target in jj. The third letter represents
-    // the bookmark's target in git. "X" means that the bookmark doesn't exist.
-    // "A", "B", or "C" means that the bookmark points to that commit.
+    // Create a few bookmarks whose names indicate how they change in jj in git.
+    // The first letter represents the bookmark's target in the last export.
+    // The second letter represents the bookmark's target in jj. The third
+    // letter represents the bookmark's target in git. "X" means that the
+    // bookmark doesn't exist. "A", "B", or "C" means that the bookmark
+    // points to that commit.
     //
     // AAB: Branch modified in git
     // AAX: Branch deleted in git
@@ -3529,8 +3538,8 @@ fn test_export_reexport_transitions() -> TestResult {
         "",
     )?;
 
-    // TODO: The bookmarks that we made conflicting changes to should have failed to
-    // export. They should have been unchanged in git and in
+    // TODO: The bookmarks that we made conflicting changes to should have
+    // failed to export. They should have been unchanged in git and in
     // mut_repo.view().git_refs().
     let stats = git::export_refs(mut_repo)?;
     assert_eq!(
@@ -3876,7 +3885,8 @@ fn test_reset_head_with_index_no_conflict() -> TestResult {
     reset_head(mut_repo, &test_workspace.workspace, &wc_commit)?;
 
     // Git index should contain all files from the tree.
-    // `Mode(DIR | SYMLINK)` actually means `MODE(COMMIT)`, as in a git submodule.
+    // `Mode(DIR | SYMLINK)` actually means `MODE(COMMIT)`, as in a git
+    // submodule.
     insta::assert_snapshot!(get_index_state(workspace_root), @"
     Unconflicted some/dir/commit Mode(DIR | SYMLINK)
     Unconflicted some/dir/executable-file Mode(FILE | FILE_EXECUTABLE)
@@ -3951,9 +3961,9 @@ fn test_reset_head_with_index_merge_conflict() -> TestResult {
         .new_commit(vec![base_commit.id().clone()], right_tree.clone())
         .write_unwrap();
 
-    // Create working copy commit with resolution of conflict by taking the right
-    // tree. This shouldn't affect the index, since the index is based on the parent
-    // commit.
+    // Create working copy commit with resolution of conflict by taking the
+    // right tree. This shouldn't affect the index, since the index is based
+    // on the parent commit.
     let wc_commit = mut_repo
         .new_commit(
             vec![left_commit.id().clone(), right_commit.id().clone()],
@@ -3965,7 +3975,8 @@ fn test_reset_head_with_index_merge_conflict() -> TestResult {
     reset_head(mut_repo, &test_workspace.workspace, &wc_commit)?;
 
     // Index should contain conflicted files from merge of parent commits.
-    // `Mode(DIR | SYMLINK)` actually means `MODE(COMMIT)`, as in a git submodule.
+    // `Mode(DIR | SYMLINK)` actually means `MODE(COMMIT)`, as in a git
+    // submodule.
     insta::assert_snapshot!(get_index_state(workspace_root), @"
     Base some/dir/commit Mode(DIR | SYMLINK)
     Ours some/dir/commit Mode(DIR | SYMLINK)
@@ -4172,8 +4183,8 @@ fn test_init() -> TestResult {
         ReadonlyRepo::default_submodule_store_initializer(),
     )
     .block_on()?;
-    // The refs were *not* imported -- it's the caller's responsibility to import
-    // any refs they care about.
+    // The refs were *not* imported -- it's the caller's responsibility to
+    // import any refs they care about.
     assert!(!repo.view().heads().contains(&jj_id(initial_git_commit)));
     Ok(())
 }
@@ -4402,9 +4413,9 @@ fn test_fetch_no_default_branch() -> TestResult {
         "refs/heads/main",
         &[initial_git_commit],
     );
-    // It's actually not enough to have a detached HEAD, it also needs to point to a
-    // commit without a bookmark (that's possibly a bug in Git *and* libgit2), so
-    // we point it to initial_git_commit.
+    // It's actually not enough to have a detached HEAD, it also needs to point
+    // to a commit without a bookmark (that's possibly a bug in Git *and*
+    // libgit2), so we point it to initial_git_commit.
     testutils::git::set_head_to_id(&test_data.origin_repo, initial_git_commit);
 
     let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options)?;
@@ -4593,8 +4604,8 @@ fn test_load_default_fetch_bookmarks_invalid_configuration() -> TestResult {
     let git_repo = get_git_repo(&test_repo.repo);
     let config = git_repo.config_snapshot().clone();
 
-    // These refspecs are already rejected by gix, but we want to assert the error
-    // reporting here
+    // These refspecs are already rejected by gix, but we want to assert the
+    // error reporting here
     std::fs::OpenOptions::new()
         .append(true)
         .open(
@@ -5980,16 +5991,17 @@ fn test_push_updates_unexpectedly_moved_sideways_on_remote() -> TestResult {
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
 
-    // The main bookmark is actually at `main_commit` on the remote. If we expect
-    // it to be at `sideways_commit`, it unexpectedly moved sideways from our
-    // perspective.
+    // The main bookmark is actually at `main_commit` on the remote. If we
+    // expect it to be at `sideways_commit`, it unexpectedly moved sideways
+    // from our perspective.
     //
     // We cannot delete it or move it anywhere else. However, "moving" it to the
     // same place it already is is OK, following the behavior in
     // `test_merge_ref_targets`.
     //
-    // For each test, we check that the push succeeds if and only if the bookmark
-    // conflict `jj git fetch` would generate resolves to the push destination.
+    // For each test, we check that the push succeeds if and only if the
+    // bookmark conflict `jj git fetch` would generate resolves to the push
+    // destination.
 
     let attempt_push_expecting_sideways = |target: Option<&Commit>| {
         let subprocess_options = GitSubprocessOptions::from_settings(&settings).unwrap();
@@ -6073,8 +6085,9 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote() -> TestResult {
     // actual location is the descendant of the expected location, and the new
     // location is the descendant of that.
     //
-    // For each test, we check that the push succeeds if and only if the bookmark
-    // conflict `jj git fetch` would generate resolves to the push destination.
+    // For each test, we check that the push succeeds if and only if the
+    // bookmark conflict `jj git fetch` would generate resolves to the push
+    // destination.
 
     let attempt_push_expecting_parent = |target: Option<&Commit>| {
         let subprocess_options = GitSubprocessOptions::from_settings(&settings).unwrap();
@@ -6105,11 +6118,12 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote() -> TestResult {
         ["refs/heads/main"].map(GitRefNameBuf::from)
     );
 
-    // Here, the local bookmark hasn't moved from `parent_of_main_commit`, but it
-    // moved to `main` on the remote. So, the conflict resolves to `main`.
+    // Here, the local bookmark hasn't moved from `parent_of_main_commit`, but
+    // it moved to `main` on the remote. So, the conflict resolves to
+    // `main`.
     //
-    // `jj` should not actually attempt a push in this case, but if it did, the push
-    // should fail.
+    // `jj` should not actually attempt a push in this case, but if it did, the
+    // push should fail.
     assert_eq!(
         push_status_rejected_references(attempt_push_expecting_parent(Some(
             &setup.parent_of_main_commit
@@ -6133,14 +6147,15 @@ fn test_push_updates_unexpectedly_exists_on_remote() -> TestResult {
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
 
-    // The main bookmark is actually at `main_commit` on the remote. In this test,
-    // we expect it to not exist on the remote at all.
+    // The main bookmark is actually at `main_commit` on the remote. In this
+    // test, we expect it to not exist on the remote at all.
     //
     // We cannot move the bookmark backwards or sideways, but we *can* move it
     // forward (as a special case).
     //
-    // For each test, we check that the push succeeds if and only if the bookmark
-    // conflict `jj git fetch` would generate resolves to the push destination.
+    // For each test, we check that the push succeeds if and only if the
+    // bookmark conflict `jj git fetch` would generate resolves to the push
+    // destination.
 
     let attempt_push_expecting_absence = |target: Option<&Commit>| {
         let subprocess_options = GitSubprocessOptions::from_settings(&settings).unwrap();
@@ -6326,8 +6341,9 @@ fn test_bulk_update_extra_on_import_refs() -> TestResult {
         tx.commit("test").block_on().unwrap()
     };
 
-    // Extra metadata table shouldn't be created per read_commit() call. The number
-    // of the table files should be way smaller than the number of the heads.
+    // Extra metadata table shouldn't be created per read_commit() call. The
+    // number of the table files should be way smaller than the number of
+    // the heads.
     let mut commit = empty_git_commit(&git_repo, "refs/heads/main", &[]);
     for _ in 1..10 {
         commit = empty_git_commit(&git_repo, "refs/heads/main", &[commit]);
@@ -6413,8 +6429,9 @@ fn test_concurrent_write_commit() -> TestResult {
     let test_env = &test_repo.env;
     let repo = &test_repo.repo;
 
-    // Try to create identical commits with different change ids. Timestamp of the
-    // commits should be adjusted such that each commit has a unique commit id.
+    // Try to create identical commits with different change ids. Timestamp of
+    // the commits should be adjusted such that each commit has a unique
+    // commit id.
     let num_thread = 8;
     let (sender, receiver) = mpsc::channel();
     thread::scope(|s| {
@@ -6532,8 +6549,8 @@ fn test_concurrent_read_write_commit() -> TestResult {
             pending_commit_ids.rotate_left(i); // start lookup from different place
             s.spawn(move || {
                 barrier.wait();
-                // This loop should finish within a couple of retries, but terminate in case
-                // it doesn't.
+                // This loop should finish within a couple of retries, but
+                // terminate in case it doesn't.
                 for _ in 0..100 {
                     if pending_commit_ids.is_empty() {
                         break;
@@ -6546,7 +6563,8 @@ fn test_concurrent_read_write_commit() -> TestResult {
                         .filter_map(|commit_id| {
                             match git_backend.import_head_commits([&commit_id]) {
                                 Ok(()) => {
-                                    // update index as git::import_refs() would do
+                                    // update index as git::import_refs() would
+                                    // do
                                     let commit = repo.store().get_commit(&commit_id).unwrap();
                                     tx.repo_mut().add_head(&commit).block_on().unwrap();
                                     None
@@ -6572,9 +6590,10 @@ fn test_concurrent_read_write_commit() -> TestResult {
                     thread::yield_now();
                 }
                 if !pending_commit_ids.is_empty() {
-                    // It's not an error if some of the readers couldn't observe the commits. It's
-                    // unlikely, but possible if the git backend had strong negative object cache
-                    // for example.
+                    // It's not an error if some of the readers couldn't observe
+                    // the commits. It's unlikely, but
+                    // possible if the git backend had strong negative object
+                    // cache for example.
                     eprintln!(
                         "reader {i} couldn't observe the following commits: \
                          {pending_commit_ids:#?}"

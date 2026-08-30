@@ -106,10 +106,10 @@ impl GitSubprocessContext {
             git_cmd.creation_flags(CREATE_NO_WINDOW);
         }
 
-        // TODO: here we are passing the full path to the git_dir, which can lead to UNC
-        // bugs in Windows. The ideal way to do this is to pass the workspace
-        // root to Command::current_dir and then pass a relative path to the git
-        // dir
+        // TODO: here we are passing the full path to the git_dir, which can
+        // lead to UNC bugs in Windows. The ideal way to do this is to
+        // pass the workspace root to Command::current_dir and then pass
+        // a relative path to the git dir
         git_cmd
             // The gitconfig-controlled automated spawning of the macOS `fsmonitor--daemon`
             // can cause strange behavior with certain subprocess operations.
@@ -179,7 +179,8 @@ impl GitSubprocessContext {
         let mut command = self.create_command();
         command.stdout(Stdio::piped());
         // attempt to prune stale refs with --prune
-        // --no-write-fetch-head ensures our request is invisible to other parties
+        // --no-write-fetch-head ensures our request is invisible to other
+        // parties
         command.args(["fetch", "--porcelain", "--prune", "--no-write-fetch-head"]);
         if callback.needs_progress() {
             command.arg("--progress");
@@ -263,8 +264,8 @@ impl GitSubprocessContext {
     ) -> Result<GitPushStats, GitSubprocessError> {
         let mut command = self.create_command();
         command.stdout(Stdio::piped());
-        // Currently jj does not support commit hooks, so we prevent git from running
-        // them
+        // Currently jj does not support commit hooks, so we prevent git from
+        // running them
         //
         // https://github.com/jj-vcs/jj/issues/3577 and https://github.com/jj-vcs/jj/issues/405
         // offer more context

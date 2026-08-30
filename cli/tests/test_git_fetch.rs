@@ -917,7 +917,8 @@ fn test_git_fetch_all() {
     let source_dir = test_env.work_dir("source");
     git::init(source_dir.root());
 
-    // Clone an empty repo. The target repo is a normal `jj` repo, *not* colocated
+    // Clone an empty repo. The target repo is a normal `jj` repo, *not*
+    // colocated
     let output = test_env.run_jj_in(".", ["git", "clone", "source", "target"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -995,7 +996,8 @@ fn test_git_fetch_all() {
     ◆  000000000000 ""
     [EOF]
     "#);
-    // Change a bookmark in the source repo as well, so that it becomes conflicted.
+    // Change a bookmark in the source repo as well, so that it becomes
+    // conflicted.
     target_dir
         .run_jj(["describe", "b", "-m=new_descr_for_b_to_create_conflict"])
         .success();
@@ -1075,7 +1077,8 @@ fn test_git_fetch_some_of_many_bookmarks() {
     let source_dir = test_env.work_dir("source");
     git::init(source_dir.root());
 
-    // Clone an empty repo. The target repo is a normal `jj` repo, *not* colocated
+    // Clone an empty repo. The target repo is a normal `jj` repo, *not*
+    // colocated
     let output = test_env.run_jj_in(".", ["git", "clone", "source", "target"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -1196,7 +1199,8 @@ fn test_git_fetch_some_of_many_bookmarks() {
     ◆  000000000000 ""
     [EOF]
     "#);
-    // Change a bookmark in the source repo as well, so that it becomes conflicted.
+    // Change a bookmark in the source repo as well, so that it becomes
+    // conflicted.
     target_dir
         .run_jj(["describe", "b", "-m=new_descr_for_b_to_create_conflict"])
         .success();
@@ -1238,7 +1242,8 @@ fn test_git_fetch_some_of_many_bookmarks() {
     [EOF]
     "#);
 
-    // We left a2 where it was before, let's see how `jj bookmark list` sees this.
+    // We left a2 where it was before, let's see how `jj bookmark list` sees
+    // this.
     insta::assert_snapshot!(get_bookmark_output(&target_dir), @"
     a1: mzvwutvl bc7e74c2 a1
       @origin: mzvwutvl bc7e74c2 a1
@@ -1251,8 +1256,8 @@ fn test_git_fetch_some_of_many_bookmarks() {
       @origin (behind by 1 commits): yostqsxw/0 2b30dbc9 (divergent) b
     [EOF]
     ");
-    // Now, let's fetch a2 and double-check that fetching a1 and b again doesn't do
-    // anything.
+    // Now, let's fetch a2 and double-check that fetching a1 and b again doesn't
+    // do anything.
     let output = target_dir.run_jj(["git", "fetch", "--branch", "b", "--branch", "a*"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1338,8 +1343,8 @@ fn test_git_fetch_bookmarks_some_missing() {
     [EOF]
     ");
 
-    // multiple existing bookmark, explicit remotes, each bookmark is only in one
-    // remote.
+    // multiple existing bookmark, explicit remotes, each bookmark is only in
+    // one remote.
     let output = work_dir.run_jj([
         "git", "fetch", "--branch", "rem1", "--branch", "rem2", "--branch", "rem3", "--remote",
         "rem1", "--remote", "rem2", "--remote", "rem3",
@@ -1448,7 +1453,8 @@ fn test_git_fetch_undo() {
     let source_dir = test_env.work_dir("source");
     git::init(source_dir.root());
 
-    // Clone an empty repo. The target repo is a normal `jj` repo, *not* colocated
+    // Clone an empty repo. The target repo is a normal `jj` repo, *not*
+    // colocated
     let output = test_env.run_jj_in(".", ["git", "clone", "source", "target"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -1532,7 +1538,8 @@ fn test_fetch_undo_what() {
     let source_dir = test_env.work_dir("source");
     git::init(source_dir.root());
 
-    // Clone an empty repo. The target repo is a normal `jj` repo, *not* colocated
+    // Clone an empty repo. The target repo is a normal `jj` repo, *not*
+    // colocated
     let output = test_env.run_jj_in(".", ["git", "clone", "source", "target"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -1607,8 +1614,8 @@ fn test_fetch_undo_what() {
       @origin (not created yet)
     [EOF]
     ");
-    // Restoring just the remote-tracking state will not affect `newbookmark`, but
-    // will eliminate `b@origin`.
+    // Restoring just the remote-tracking state will not affect `newbookmark`,
+    // but will eliminate `b@origin`.
     let output = work_dir.run_jj([
         "op",
         "restore",
@@ -1736,7 +1743,8 @@ fn test_git_fetch_removed_bookmark() {
     let source_dir = test_env.work_dir("source");
     git::init(source_dir.root());
 
-    // Clone an empty repo. The target repo is a normal `jj` repo, *not* colocated
+    // Clone an empty repo. The target repo is a normal `jj` repo, *not*
+    // colocated
     let output = test_env.run_jj_in(".", ["git", "clone", "source", "target"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -1807,7 +1815,8 @@ fn test_git_fetch_removed_bookmark() {
     [EOF]
     "#);
 
-    // Fetch bookmarks a2 from origin, and check that it has been removed locally
+    // Fetch bookmarks a2 from origin, and check that it has been removed
+    // locally
     let output = target_dir.run_jj(["git", "fetch", "--branch", "a2"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -1835,7 +1844,8 @@ fn test_git_fetch_removed_parent_bookmark() {
     let source_dir = test_env.work_dir("source");
     git::init(source_dir.root());
 
-    // Clone an empty repo. The target repo is a normal `jj` repo, *not* colocated
+    // Clone an empty repo. The target repo is a normal `jj` repo, *not*
+    // colocated
     let output = test_env.run_jj_in(".", ["git", "clone", "source", "target"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -1886,9 +1896,9 @@ fn test_git_fetch_removed_parent_bookmark() {
         .run_jj(["bookmark", "forget", "--include-remotes", "*"])
         .success();
 
-    // Fetch bookmarks master, trunk1 and a1 from origin and check that only those
-    // bookmarks have been removed and that others were not rebased because of
-    // abandoned commits.
+    // Fetch bookmarks master, trunk1 and a1 from origin and check that only
+    // those bookmarks have been removed and that others were not rebased
+    // because of abandoned commits.
     let output = target_dir.run_jj([
         "git", "fetch", "--branch", "master", "--branch", "trunk1", "--branch", "a1",
     ]);

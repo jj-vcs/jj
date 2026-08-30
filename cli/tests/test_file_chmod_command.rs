@@ -309,8 +309,8 @@ fn test_chmod_exec_bit_settings() -> TestResult {
     let work_dir = test_env.work_dir("repo");
     let path = &work_dir.root().join("file");
 
-    // The timestamps in the `jj debug local-working-copy` output change, so we want
-    // to remove them before asserting the snapshot
+    // The timestamps in the `jj debug local-working-copy` output change, so we
+    // want to remove them before asserting the snapshot
     let timestamp_regex = Regex::new(r"\b\d{10,}\b")?;
     let redact_timestamp = |output: String| {
         let output = timestamp_regex.replace_all(&output, "<timestamp>");

@@ -499,6 +499,9 @@ pub async fn cmd_gerrit_upload(
         return Ok(());
     }
 
+    // If you have the changes main -> A -> B, and then run
+    // `jj gerrit upload -r B`, then that uploads both A and B. Thus, we need to
+    // ensure that A also has a Change-ID.
     // If you have the changes main -> A -> B, then `jj gerrit upload -r B`
     // uploads both A and B. Thus, we need to ensure that A also has a
     // `Change-Id` trailer.

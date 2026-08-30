@@ -590,7 +590,8 @@ fn test_git_remote_rename() {
 
 #[test]
 fn test_git_remote_rename_updates_trunk() {
-    // Verify trunk() resolves correctly after renaming the remote it references.
+    // Verify trunk() resolves correctly after renaming the remote it
+    // references.
     let test_env = TestEnvironment::default();
 
     let remote_repo = git::init(test_env.env_root().join("remote"));

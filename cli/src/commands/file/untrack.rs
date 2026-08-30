@@ -74,8 +74,8 @@ pub(crate) async fn cmd_file_untrack(
         .await?;
     // Reset the working copy to the new commit
     locked_ws.locked_wc().reset(&new_commit).await?;
-    // Commit the working copy again so we can inform the user if paths couldn't be
-    // untracked because they're not ignored.
+    // Commit the working copy again so we can inform the user if paths couldn't
+    // be untracked because they're not ignored.
     let (new_wc_tree, stats) = locked_ws.locked_wc().snapshot(&options).await?;
     if new_wc_tree.tree_ids() != new_commit.tree_ids() {
         let added_back = new_wc_tree.entries_matching(matcher.as_ref()).collect_vec();
@@ -97,8 +97,9 @@ pub(crate) async fn cmd_file_untrack(
 Make sure they're ignored, then try again.",
             ));
         } else {
-            // This means there were some concurrent changes made in the working copy. We
-            // don't want to mix those in, so reset the working copy again.
+            // This means there were some concurrent changes made in the working
+            // copy. We don't want to mix those in, so reset the
+            // working copy again.
             locked_ws.locked_wc().reset(&new_commit).await?;
         }
     }

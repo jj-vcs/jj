@@ -249,8 +249,8 @@ fn test_sparse_commit() -> TestResult {
         "modified",
     )?;
 
-    // Create a tree from the working copy. Only dir1/file1 should be updated in the
-    // tree.
+    // Create a tree from the working copy. Only dir1/file1 should be updated in
+    // the tree.
     let modified_tree = test_workspace.snapshot()?;
     let diff: Vec<_> = tree
         .diff_stream(&modified_tree, &EverythingMatcher)
@@ -271,8 +271,8 @@ fn test_sparse_commit() -> TestResult {
         .block_on()?;
     locked_ws.finish(op_id).block_on()?;
 
-    // Create a tree from the working copy. Only dir1/file1 and dir2/file1 should be
-    // updated in the tree.
+    // Create a tree from the working copy. Only dir1/file1 and dir2/file1
+    // should be updated in the tree.
     let modified_tree = test_workspace.snapshot()?;
     let diff: Vec<_> = tree
         .diff_stream(&modified_tree, &EverythingMatcher)
@@ -286,7 +286,8 @@ fn test_sparse_commit() -> TestResult {
 
 #[test]
 fn test_sparse_commit_gitignore() -> TestResult {
-    // Test that (untracked) .gitignore files in parent directories are respected
+    // Test that (untracked) .gitignore files in parent directories are
+    // respected
     let mut test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
     let working_copy_path = test_workspace.workspace.workspace_root().to_owned();
@@ -307,7 +308,8 @@ fn test_sparse_commit_gitignore() -> TestResult {
         .block_on()?;
     locked_ws.finish(repo.op_id().clone()).block_on()?;
 
-    // Write dir1/file1 and dir1/file2 and a .gitignore saying to ignore dir1/file1
+    // Write dir1/file1 and dir1/file2 and a .gitignore saying to ignore
+    // dir1/file1
     std::fs::write(working_copy_path.join(".gitignore"), "dir1/file1")?;
     std::fs::create_dir(dir1_path.to_fs_path_unchecked(&working_copy_path))?;
     std::fs::write(
@@ -319,8 +321,8 @@ fn test_sparse_commit_gitignore() -> TestResult {
         "contents",
     )?;
 
-    // Create a tree from the working copy. Only dir1/file2 should be updated in the
-    // tree because dir1/file1 is ignored.
+    // Create a tree from the working copy. Only dir1/file2 should be updated in
+    // the tree because dir1/file1 is ignored.
     let modified_tree = test_workspace.snapshot()?;
     let entries = modified_tree.entries().collect_vec();
     assert_eq!(entries.len(), 1);

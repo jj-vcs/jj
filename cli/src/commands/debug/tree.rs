@@ -65,8 +65,9 @@ pub async fn cmd_debug_tree(
             };
             let store = workspace_command.repo().store();
             let tree = store.get_tree(dir, &tree_id).await?;
-            // We can't use `MergedTree` here, since it only supports iterating from the
-            // root, but we support a `--dir` option to read trees at any path.
+            // We can't use `MergedTree` here, since it only supports iterating
+            // from the root, but we support a `--dir` option to
+            // read trees at any path.
             Box::new(
                 tree.entries_matching(matcher.as_ref())
                     .map(|(path, value)| (path, Ok(Merge::normal(value)))),

@@ -52,7 +52,8 @@ pub async fn cmd_op_integrate(
         repo_loader.op_heads_store().as_ref(),
         repo_loader.op_store(),
         async |op_heads| -> Result<Operation, CommandError> {
-            // TODO: It may be helpful to print each operation we're merging here
+            // TODO: It may be helpful to print each operation we're merging
+            // here
             let transaction_description = "reconcile divergent operations";
             let merged_operation = merge_operations(
                 Some(ui),

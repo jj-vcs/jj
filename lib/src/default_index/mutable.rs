@@ -320,8 +320,9 @@ impl MutableCommitIndexSegment {
         let mut files_to_squash = vec![];
         let mut base_parent_file = None;
         for parent_file in self.as_composite().ancestor_files_without_local() {
-            // TODO: We should probably also squash if the parent file has less than N
-            // commits, regardless of how many (few) are in `self`.
+            // TODO: We should probably also squash if the parent file has less
+            // than N commits, regardless of how many (few) are in
+            // `self`.
             if 2 * num_new_commits < parent_file.num_local_commits() {
                 base_parent_file = Some(parent_file.clone());
                 break;

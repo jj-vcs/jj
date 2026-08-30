@@ -182,8 +182,8 @@ fn test_rewrite(backend: TestRepoBackend) -> TestResult {
     let rewrite_settings = UserSettings::from_config(config)?;
     let repo = test_env.load_repo_at_head(&rewrite_settings, test_repo.repo_path());
     let store = repo.store();
-    // We have a new store instance, so we need to associate the old tree with the
-    // new store instance.
+    // We have a new store instance, so we need to associate the old tree with
+    // the new store instance.
     let (tree_ids, labels) = rewritten_tree.into_tree_ids_and_labels();
     let rewritten_tree = MergedTree::new(store.clone(), tree_ids, labels);
     let initial_commit = store.get_commit(initial_commit.id())?;

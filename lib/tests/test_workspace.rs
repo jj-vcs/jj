@@ -31,7 +31,8 @@ fn test_load_bad_path() {
     let settings = testutils::user_settings();
     let test_env = TestEnvironment::init();
     let workspace_root = test_env.root().to_owned();
-    // We haven't created a repo in the workspace_root, so it should fail to load.
+    // We haven't created a repo in the workspace_root, so it should fail to
+    // load.
     let result = Workspace::load(
         &settings,
         &workspace_root,

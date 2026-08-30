@@ -27,8 +27,8 @@ pub async fn cmd_util_markdown_help(
     command: &CommandHelper,
     _args: &UtilMarkdownHelp,
 ) -> Result<(), CommandError> {
-    // If we ever need more flexibility, the code of `clap_markdown` is simple and
-    // readable. We could reimplement the parts we need without trouble.
+    // If we ever need more flexibility, the code of `clap_markdown` is simple
+    // and readable. We could reimplement the parts we need without trouble.
     let markdown = clap_markdown::help_markdown_command(command.app()).into_bytes();
     ui.stdout().write_all(&markdown)?;
     Ok(())

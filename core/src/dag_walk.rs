@@ -213,9 +213,9 @@ where
     NI: IntoIterator<Item = Result<T, E>>,
 {
     let mut heads: HashSet<T> = start.into_iter().try_collect()?;
-    // Do a BFS until we have only one item left in the frontier. That frontier must
-    // have originated from one of the heads, and since there can't be cycles,
-    // it won't be able to eliminate any other heads.
+    // Do a BFS until we have only one item left in the frontier. That frontier
+    // must have originated from one of the heads, and since there can't be
+    // cycles, it won't be able to eliminate any other heads.
     let mut frontier: Vec<T> = heads.iter().cloned().collect();
     let mut visited: HashSet<ID> = heads.iter().map(&id_fn).collect();
     let mut root_reached = false;

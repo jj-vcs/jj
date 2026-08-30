@@ -337,8 +337,8 @@ fn test_git_head_race_condition() -> TestResult {
     }
 
     // Verify the operation description for importing Git HEAD hasn't changed
-    // First ensure we're not already on the initial commit (prev/next loop may have
-    // ended there)
+    // First ensure we're not already on the initial commit (prev/next loop may
+    // have ended there)
     work_dir.run_jj(["new"]).success();
     // Use git to checkout the initial commit, then trigger import
     std::process::Command::new("git")

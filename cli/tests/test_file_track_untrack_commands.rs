@@ -27,8 +27,8 @@ fn test_track_untrack() {
     target_dir.write_file("file2", "initial");
     target_dir.write_file("file3", "initial");
 
-    // Run a command so all the files get tracked, then add "*.bak" to the ignore
-    // patterns
+    // Run a command so all the files get tracked, then add "*.bak" to the
+    // ignore patterns
     work_dir.run_jj(["st"]).success();
     work_dir.write_file(".gitignore", "*.bak\n");
     let files_before = work_dir.run_jj(["file", "list"]).success();
@@ -137,8 +137,8 @@ fn test_track_untrack_sparse() {
     file1
     [EOF]
     ");
-    // Trying to manually track a file that's not included in the sparse working has
-    // no effect. TODO: At least a warning would be useful
+    // Trying to manually track a file that's not included in the sparse working
+    // has no effect. TODO: At least a warning would be useful
     let output = work_dir.run_jj(["file", "track", "file2"]);
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["file", "list"]);
@@ -185,7 +185,8 @@ fn test_auto_track() {
     [EOF]
     ");
 
-    // CWD-relative paths in `snapshot.auto-track` are evaluated from the repo root
+    // CWD-relative paths in `snapshot.auto-track` are evaluated from the repo
+    // root
     let sub_dir = work_dir.create_dir("sub");
     sub_dir.write_file("file1.rs", "initial");
     let output = sub_dir.run_jj(["file", "list"]);

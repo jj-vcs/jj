@@ -64,10 +64,11 @@ impl MergedTreeBuilder {
         let labels = if labels.num_sides() == Some(new_tree_ids.num_sides()) {
             labels
         } else {
-            // If the number of sides changed, we need to discard the conflict labels,
-            // otherwise `MergedTree::new` would panic.
-            // TODO: we should preserve conflict labels when setting conflicted tree values
-            // originating from a different tree than the base tree.
+            // If the number of sides changed, we need to discard the conflict
+            // labels, otherwise `MergedTree::new` would panic.
+            // TODO: we should preserve conflict labels when setting conflicted
+            // tree values originating from a different tree than
+            // the base tree.
             ConflictLabels::unlabeled()
         };
         let (labels, new_tree_ids) = labels.simplify_with(&new_tree_ids);
@@ -96,25 +97,26 @@ impl MergedTreeBuilder {
         for (path, values) in self.overrides {
             match values.into_resolved() {
                 Ok(value) => {
-                    // This path was overridden with a resolved value. Apply that to all
-                    // builders.
+                    // This path was overridden with a resolved value. Apply
+                    // that to all builders.
                     for builder in &mut tree_builders {
                         builder.set_or_remove(path.clone(), value.clone());
                     }
                 }
                 Err(mut values) => {
                     values.pad_to(num_sides, &None);
-                    // This path was overridden with a conflicted value. Apply each term to
-                    // its corresponding builder.
+                    // This path was overridden with a conflicted value. Apply
+                    // each term to its corresponding
+                    // builder.
                     for (builder, value) in zip(&mut tree_builders, values) {
                         builder.set_or_remove(path.clone(), value);
                     }
                 }
             }
         }
-        // TODO: This can be made more efficient. If there's a single resolved conflict
-        // in `dir/file`, we shouldn't have to write the `dir/` and root trees more than
-        // once.
+        // TODO: This can be made more efficient. If there's a single resolved
+        // conflict in `dir/file`, we shouldn't have to write the `dir/`
+        // and root trees more than once.
         let tree_ids = try_join_all(
             tree_builders
                 .into_iter()

@@ -273,7 +273,8 @@ impl CompositeCommitIndex {
                     let num_parent_commits = segment.num_parent_commits();
                     move |LocalCommitPosition(pos)| GlobalCommitPosition(pos + num_parent_commits)
                 };
-                // Similar to PrefixResolution::plus(), but merges matches of the same id.
+                // Similar to PrefixResolution::plus(), but merges matches of
+                // the same id.
                 match (acc_match, segment.resolve_change_id_prefix(prefix)) {
                     (NoMatch, local_match) => local_match.map(|(id, positions)| {
                         (id, positions.into_iter().rev().map(to_global_pos).collect())
@@ -450,9 +451,10 @@ impl CompositeCommitIndex {
             return candidate_positions;
         };
 
-        // Iterate though the candidates by reverse index position, keeping track of the
-        // ancestors of already-found heads. If a candidate is an ancestor of an
-        // already-found head, then it can be removed.
+        // Iterate though the candidates by reverse index position, keeping
+        // track of the ancestors of already-found heads. If a candidate
+        // is an ancestor of an already-found head, then it can be
+        // removed.
         let mut parents = BinaryHeap::new();
         let mut heads = Vec::new();
         'outer: for candidate in candidate_positions {
@@ -464,7 +466,8 @@ impl CompositeCommitIndex {
                     shift_to_parents(&mut parents, parent, &entry.parent_positions());
                 }
                 if parent == candidate {
-                    // The candidate is an ancestor of an existing head, so we can skip it.
+                    // The candidate is an ancestor of an existing head, so we
+                    // can skip it.
                     continue 'outer;
                 }
             }
@@ -692,8 +695,8 @@ impl<I: AsCompositeIndex + Send + Sync> ChangeIdIndex for ChangeIdIndexImpl<I> {
     // Resolves change ID prefix among all IDs.
     //
     // If `SingleMatch` is returned, there is at least one commit with the given
-    // change ID (either visible or hidden). `AmbiguousMatch` may be returned even
-    // if the prefix is unique within the visible entries.
+    // change ID (either visible or hidden). `AmbiguousMatch` may be returned
+    // even if the prefix is unique within the visible entries.
     async fn resolve_prefix(
         &self,
         prefix: &HexPrefix,

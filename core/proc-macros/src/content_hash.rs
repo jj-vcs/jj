@@ -114,7 +114,8 @@ fn enum_bindings_with_type<'a>(fields: impl IntoIterator<Item = &'a Field>) -> V
         .into_iter()
         .enumerate()
         .map(|(i, f)| {
-            // If the field is named, use the name, otherwise generate a placeholder name.
+            // If the field is named, use the name, otherwise generate a
+            // placeholder name.
             (
                 f.ty.clone(),
                 f.ident.clone().unwrap_or(format_ident!("field_{}", i)),

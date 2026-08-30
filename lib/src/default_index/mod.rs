@@ -231,8 +231,8 @@ mod tests {
         mutable_segment.add_commit_data(id_1.clone(), change_id1.clone(), &[id_0.clone()]);
         mutable_segment.add_commit_data(id_2.clone(), change_id2.clone(), &[id_0.clone()]);
 
-        // If testing incremental indexing, write the first three commits to one file
-        // now and build the remainder as another segment on top.
+        // If testing incremental indexing, write the first three commits to one
+        // file now and build the remainder as another segment on top.
         if incremental {
             let initial_file = mutable_segment.save_in(temp_dir.path()).unwrap();
             mutable_segment = MutableCommitIndexSegment::incremental(initial_file);
@@ -407,7 +407,8 @@ mod tests {
         mutable_segment.add_commit_data(id_1.clone(), new_change_id(), &[]);
         mutable_segment.add_commit_data(id_2.clone(), new_change_id(), &[]);
 
-        // Write the first three commits to one file and build the remainder on top.
+        // Write the first three commits to one file and build the remainder on
+        // top.
         let initial_file = mutable_segment.save_in(temp_dir.path())?;
         mutable_segment = MutableCommitIndexSegment::incremental(initial_file);
 
@@ -480,7 +481,8 @@ mod tests {
         mutable_segment.add_commit_data(id_1.clone(), new_change_id(), &[]);
         mutable_segment.add_commit_data(id_2.clone(), new_change_id(), &[]);
 
-        // Write the first three commits to one file and build the remainder on top.
+        // Write the first three commits to one file and build the remainder on
+        // top.
         let initial_file = mutable_segment.save_in(temp_dir.path())?;
         mutable_segment = MutableCommitIndexSegment::incremental(initial_file.clone());
 
@@ -533,7 +535,8 @@ mod tests {
             (Some(id_3.clone()), None),
         );
 
-        // Local lookup in mutable index, commit_id does not exist. id_5 < id_3 < id_4
+        // Local lookup in mutable index, commit_id does not exist. id_5 < id_3
+        // < id_4
         assert_eq!(
             mutable_segment.resolve_neighbor_commit_ids(&CommitId::from_hex("033332")),
             (None, Some(id_5.clone())),
@@ -547,7 +550,8 @@ mod tests {
             (Some(id_4.clone()), None),
         );
 
-        // Global lookup, commit_id exists. id_0 < id_1 < id_5 < id_3 < id_2 < id_4
+        // Global lookup, commit_id exists. id_0 < id_1 < id_5 < id_3 < id_2 <
+        // id_4
         let composite_index = CompositeCommitIndex::new(&mutable_segment);
         assert_eq!(
             composite_index.resolve_neighbor_commit_ids(&id_0),
@@ -574,8 +578,8 @@ mod tests {
             (Some(id_2.clone()), None),
         );
 
-        // Global lookup, commit_id doesn't exist. id_0 < id_1 < id_5 < id_3 < id_2 <
-        // id_4
+        // Global lookup, commit_id doesn't exist. id_0 < id_1 < id_5 < id_3 <
+        // id_2 < id_4
         assert_eq!(
             composite_index.resolve_neighbor_commit_ids(&CommitId::from_hex("000000")),
             (None, Some(id_0.clone())),
@@ -609,7 +613,8 @@ mod tests {
         mutable_segment.add_commit_data(id_1.clone(), new_change_id(), &[]);
         mutable_segment.add_commit_data(id_2.clone(), new_change_id(), &[]);
 
-        // Write the first three commits to one file and build the remainder on top.
+        // Write the first three commits to one file and build the remainder on
+        // top.
         let initial_file = mutable_segment.save_in(temp_dir.path())?;
         mutable_segment = MutableCommitIndexSegment::incremental(initial_file);
 
@@ -630,7 +635,8 @@ mod tests {
         assert_eq!(index.shortest_unique_commit_id_prefix_len(&id_4), 4);
         assert_eq!(index.shortest_unique_commit_id_prefix_len(&id_5), 2);
 
-        // Public API: calculate shortest unique prefix len with unknown commit_id
+        // Public API: calculate shortest unique prefix len with unknown
+        // commit_id
         assert_eq!(
             index.shortest_unique_commit_id_prefix_len(&CommitId::from_hex("000002")),
             6
@@ -1328,8 +1334,8 @@ mod tests {
         index.add_commit_data(id_4.clone(), new_change_id(), &[id_1.clone()]);
         index.add_commit_data(id_5.clone(), new_change_id(), &[id_4.clone(), id_2.clone()]);
 
-        // Helper function to convert commit IDs to/from index positions and call
-        // `heads_from_range_and_filter`.
+        // Helper function to convert commit IDs to/from index positions and
+        // call `heads_from_range_and_filter`.
         let heads_range = |roots: &[&CommitId],
                            heads: &[&CommitId],
                            parents_range: &Range<u32>,

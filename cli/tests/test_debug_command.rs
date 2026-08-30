@@ -344,7 +344,8 @@ fn test_debug_tree() {
     "#
     );
 
-    // Can filter by paths when showing non-root tree (matcher applies from root)
+    // Can filter by paths when showing non-root tree (matcher applies from
+    // root)
     let output = work_dir.run_jj([
         "debug",
         "tree",

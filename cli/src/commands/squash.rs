@@ -213,9 +213,9 @@ pub(crate) async fn cmd_squash(
             sources.retain(|source| source.id() != destination.id());
             pre_existing_destination = Some(destination);
         }
-        // Reverse the set so we apply the oldest commits first. It shouldn't affect the
-        // result, but it avoids creating transient conflicts and is therefore probably
-        // a little faster.
+        // Reverse the set so we apply the oldest commits first. It shouldn't
+        // affect the result, but it avoids creating transient conflicts
+        // and is therefore probably a little faster.
         sources.reverse();
     } else {
         let revision_arg = args.revision.as_ref().unwrap_or(&RevisionArg::AT);
@@ -390,7 +390,8 @@ pub(crate) async fn cmd_squash(
                 &commit_builder,
             )
             .await?;
-            // It's weird that commit.description() contains "JJ: " lines, but works.
+            // It's weird that commit.description() contains "JJ: " lines, but
+            // works.
             commit_builder.set_description(combined);
             let temp_commit = commit_builder.write_hidden().await?;
             let intro = "Enter a description for the combined commit.";
@@ -469,7 +470,8 @@ enum SquashedDescription {
 
 impl SquashedDescription {
     fn from_args(args: &SquashArgs) -> Self {
-        // These options are incompatible and Clap is configured to prevent this.
+        // These options are incompatible and Clap is configured to prevent
+        // this.
         assert!(args.message_paragraphs.is_none() || !args.use_destination_message);
 
         if let Some(paragraphs) = &args.message_paragraphs {

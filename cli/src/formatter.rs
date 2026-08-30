@@ -357,15 +357,17 @@ impl<W: Write> ColorFormatter<W> {
         if let Some(cached) = self.cached_styles.get(&self.labels) {
             cached.clone()
         } else {
-            // We use the reverse list of matched indices as a measure of how well the rule
-            // matches the actual labels. For example, for rule "a d" and the actual labels
-            // "a b c d", we'll get [3,0]. We compare them by Rust's default Vec comparison.
+            // We use the reverse list of matched indices as a measure of how
+            // well the rule matches the actual labels. For example,
+            // for rule "a d" and the actual labels "a b c d", we'll
+            // get [3,0]. We compare them by Rust's default Vec comparison.
             // That means "a d" will trump both rule "d" (priority [3]) and rule
             // "a b c" (priority [2,1,0]).
             let mut matched_styles = vec![];
             for (labels, style) in self.rules.as_ref() {
                 let mut labels_iter = self.labels.iter().enumerate();
-                // The indexes in the current label stack that match the required label.
+                // The indexes in the current label stack that match the
+                // required label.
                 let mut matched_indices = vec![];
                 for required_label in labels {
                     for (label_index, label) in &mut labels_iter {
@@ -1128,7 +1130,8 @@ mod tests {
 
     #[test]
     fn test_color_formatter_bold_reset() -> TestResult {
-        // Test that we don't lose other attributes when we reset the bold attribute.
+        // Test that we don't lose other attributes when we reset the bold
+        // attribute.
         let config = config_from_string(indoc! {"
             [colors]
             not_bold = { fg = 'red', bg = 'blue', italic = true, underline = true }
@@ -1157,7 +1160,8 @@ mod tests {
 
     #[test]
     fn test_color_formatter_dim_reset() -> TestResult {
-        // Test that we don't lose other attributes when we reset the dim attribute.
+        // Test that we don't lose other attributes when we reset the dim
+        // attribute.
         let config = config_from_string(indoc! {"
             [colors]
             not_dim = { fg = 'red', bg = 'blue', italic = true, underline = true }
@@ -1301,9 +1305,10 @@ mod tests {
 
     #[test]
     fn test_color_formatter_nested() -> TestResult {
-        // A color can be associated with a combination of labels. A more specific match
-        // overrides a less specific match. After the inner label is removed, the outer
-        // color is used again (we don't reset).
+        // A color can be associated with a combination of labels. A more
+        // specific match overrides a less specific match. After the
+        // inner label is removed, the outer color is used again (we
+        // don't reset).
         let config = config_from_string(
             r#"
         colors.outer = "blue"
@@ -1421,8 +1426,8 @@ mod tests {
 
     #[test]
     fn test_color_formatter_normal_color() -> TestResult {
-        // The "default" color resets the color. It is possible to reset only the
-        // background or only the foreground.
+        // The "default" color resets the color. It is possible to reset only
+        // the background or only the foreground.
         let config = config_from_string(
             r#"
         colors."outer" = {bg="yellow", fg="blue"}
@@ -1524,8 +1529,8 @@ mod tests {
 
     #[test]
     fn test_color_formatter_dropped() -> TestResult {
-        // Test that the style gets reset if the formatter is dropped without popping
-        // all labels.
+        // Test that the style gets reset if the formatter is dropped without
+        // popping all labels.
         let config = config_from_string(
             r#"
         colors.outer = "green"
@@ -1543,8 +1548,9 @@ mod tests {
 
     #[test]
     fn test_color_formatter_debug() -> TestResult {
-        // Behaves like the color formatter, but surrounds each write with <<...>>,
-        // adding the active labels before the actual content separated by a ::.
+        // Behaves like the color formatter, but surrounds each write with
+        // <<...>>, adding the active labels before the actual content
+        // separated by a ::.
         let config = config_from_string(
             r#"
         colors.outer = "green"

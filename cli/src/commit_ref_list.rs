@@ -348,8 +348,8 @@ mod tests {
         move || iter.next().unwrap()
     }
 
-    // Helper function to prepare test data, sort and prepare snapshot with relevant
-    // information.
+    // Helper function to prepare test data, sort and prepare snapshot with
+    // relevant information.
     fn prepare_data_sort_and_snapshot(sort_keys: &[SortKey]) -> String {
         let mut new_commit_id = commit_id_generator();
         let mut new_timestamp = commit_ts_generator();
@@ -449,7 +449,8 @@ mod tests {
         sort_and_snapshot(&mut bookmark_items, sort_keys, &commits)
     }
 
-    // Helper function to sort refs and prepare snapshot with relevant information.
+    // Helper function to sort refs and prepare snapshot with relevant
+    // information.
     fn sort_and_snapshot(
         items: &mut [RefListItem],
         sort_keys: &[SortKey],

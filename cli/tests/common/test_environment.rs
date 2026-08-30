@@ -72,8 +72,9 @@ impl Default for TestEnvironment {
             config_file_number: RefCell::new(0),
             command_number: RefCell::new(0),
         };
-        // Use absolute timestamps in the operation log to make tests independent of the
-        // current time. Use non-colocated workspaces by default for simplicity.
+        // Use absolute timestamps in the operation log to make tests
+        // independent of the current time. Use non-colocated workspaces
+        // by default for simplicity.
         env.add_config(
             r#"
 [template-aliases]
@@ -138,7 +139,8 @@ impl TestEnvironment {
             // https://doc.rust-lang.org/stable/std/env/fn.temp_dir.html
             cmd.env("TMPDIR", &self.tmp_dir);
         } else {
-            // Ensure that our tests don't write to the real %USERPROFILE% or %APPDATA%.
+            // Ensure that our tests don't write to the real %USERPROFILE% or
+            // %APPDATA%.
             cmd.env("USERPROFILE", &self.home_dir);
             cmd.env("APPDATA", self.home_dir.join(".config"));
             // On Windows, "/tmp" mounted in Git Bash appears to be leaked to
@@ -214,8 +216,8 @@ impl TestEnvironment {
         if self.config_path.is_file() {
             panic!("add_config not supported when config_path is a file");
         }
-        // Concatenating two valid TOML files does not (generally) result in a valid
-        // TOML file, so we create a new file every time instead.
+        // Concatenating two valid TOML files does not (generally) result in a
+        // valid TOML file, so we create a new file every time instead.
         let mut config_file_number = self.config_file_number.borrow_mut();
         *config_file_number += 1;
         let config_file_number = *config_file_number;

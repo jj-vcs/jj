@@ -120,8 +120,8 @@ fn test_consecutive_operations() -> TestResult {
     assert_ne!(op_id2, op_id1);
     assert_eq!(list_dir(&op_heads_dir), vec![op_id2.hex()]);
 
-    // Reloading the repo makes no difference (there are no conflicting operations
-    // to resolve).
+    // Reloading the repo makes no difference (there are no conflicting
+    // operations to resolve).
     let _repo = repo.reload_at_head().block_on()?;
     assert_eq!(list_dir(&op_heads_dir), vec![op_id2.hex()]);
     Ok(())
@@ -129,8 +129,9 @@ fn test_consecutive_operations() -> TestResult {
 
 #[test]
 fn test_concurrent_operations() -> TestResult {
-    // Test that consecutive operations result in multiple op-heads on disk until
-    // the repo has been reloaded (which currently happens right away).
+    // Test that consecutive operations result in multiple op-heads on disk
+    // until the repo has been reloaded (which currently happens right
+    // away).
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -149,8 +150,8 @@ fn test_concurrent_operations() -> TestResult {
     assert_ne!(op_id1, op_id0);
     assert_eq!(list_dir(&op_heads_dir), vec![op_id1.hex()]);
 
-    // After both transactions have committed, we should have two op-heads on disk,
-    // since they were run in parallel.
+    // After both transactions have committed, we should have two op-heads on
+    // disk, since they were run in parallel.
     let mut tx2 = repo.start_transaction();
     write_random_commit(tx2.repo_mut());
     let op_id2 = tx2
@@ -223,7 +224,8 @@ fn test_isolation() -> TestResult {
     assert_heads(repo.as_ref(), vec![initial.id()]);
     assert_heads(mut_repo2, vec![rewrite2.id()]);
 
-    // The base repo still doesn't see the commits after both transactions commit.
+    // The base repo still doesn't see the commits after both transactions
+    // commit.
     tx2.commit("transaction 2").block_on()?;
     assert_heads(repo.as_ref(), vec![initial.id()]);
     // After reload, the base repo sees both rewrites.
@@ -799,8 +801,9 @@ fn test_resolve_op_parents_children() -> TestResult {
     let repo = testutils::commit_transactions(vec![tx1, tx2]);
     let parent_op_ids = repo.operation().parent_ids();
 
-    // The subexpression that resolves to multiple operations (i.e. the accompanying
-    // op ids) should be reported, not the full expression provided by the user.
+    // The subexpression that resolves to multiple operations (i.e. the
+    // accompanying op ids) should be reported, not the full expression
+    // provided by the user.
     let op5_id_hex = repo.operation().id().hex();
     let parents_op_str = format!("{op5_id_hex}-");
     let error = op_walk::resolve_op_with_repo(&repo, &parents_op_str)

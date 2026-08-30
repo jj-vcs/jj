@@ -1219,8 +1219,8 @@ fn test_revisions() {
 
     // Begin testing `jj git push --named`
 
-    // The name of a bookmark does not get completed, since we want to create a new
-    // bookmark
+    // The name of a bookmark does not get completed, since we want to create a
+    // new bookmark
     let output = work_dir.complete_fish(["git", "push", "--named", ""]);
     insta::assert_snapshot!(output, @"");
     let output = work_dir.complete_fish(["git", "push", "--named", "a"]);
@@ -1470,8 +1470,8 @@ fn test_config_unset() {
         .run_jj(["config", "set", "--repo", "ui.diff-formatter", ":git"])
         .success();
 
-    // Only config options set in TestEnvironment are suggested initially + other
-    // viable flags
+    // Only config options set in TestEnvironment are suggested initially +
+    // other viable flags
     let output = test_env.complete_fish(["config", "unset", ""]);
     insta::assert_snapshot!(output.take_stdout_n_lines(5), @r#"
     template-aliases."format_time_range(time_range)"	user: 'time_range.start() ++ " - " ++ time_range.end()'
@@ -1536,7 +1536,8 @@ fn test_config_unset() {
     [EOF]
     "#);
 
-    // If no config source is specified yet, options from all sources are completed
+    // If no config source is specified yet, options from all sources are
+    // completed
     let output = repo_dir.complete_fish(["config", "unset", "ui"]);
     insta::assert_snapshot!(output, @r#"
     ui.editor	user: "nvim"
@@ -1546,7 +1547,8 @@ fn test_config_unset() {
     [EOF]
     "#);
 
-    // If a config source has already been specified, only its options as completed
+    // If a config source has already been specified, only its options as
+    // completed
     let output = repo_dir.complete_fish(["config", "unset", "--user", "ui"]);
     insta::assert_snapshot!(output, @r#"
     ui.editor	user: "nvim"
@@ -1576,8 +1578,8 @@ fn test_config_unset() {
     [EOF]
     "#);
 
-    // If a config source has already been specified, the value according to that
-    // source is listed
+    // If a config source has already been specified, the value according to
+    // that source is listed
     let output = repo_dir.complete_fish(["config", "unset", "--user", "ui.editor"]);
     insta::assert_snapshot!(output, @r#"
     ui.editor	user: "nvim"
@@ -2029,9 +2031,10 @@ fn test_files() {
 
     // Given that the path prefix uses the main separator (e.g. `\` on Windows),
     // check that the completion continues to use the same separator.
-    // The assertion maps the main separator to some arbitrary fictitious separator
-    // (`→`) which is not used by real OSes (yet) to check that the main separator
-    // is preserved on platforms where it differs from `/`.
+    // The assertion maps the main separator to some arbitrary fictitious
+    // separator (`→`) which is not used by real OSes (yet) to check that
+    // the main separator is preserved on platforms where it differs from
+    // `/`.
     let output = work_dir.complete_fish([
         "diff",
         "-r",

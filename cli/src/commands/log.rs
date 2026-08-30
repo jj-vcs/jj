@@ -255,8 +255,9 @@ pub(crate) async fn cmd_log(
                 }
                 let forward_stream = topo_order.stream();
 
-                // The input to TopoGroupedGraph shouldn't be truncated because the prioritized
-                // commit must exist in the input set.
+                // The input to TopoGroupedGraph shouldn't be truncated because
+                // the prioritized commit must exist in the
+                // input set.
                 let forward_stream = forward_stream.take(args.limit.unwrap_or(usize::MAX));
                 if args.reversed {
                     let nodes: Vec<_> = forward_stream.collect().await;
@@ -269,9 +270,10 @@ pub(crate) async fn cmd_log(
             while let Some((commit_id, edges)) = stream.try_next().await? {
                 // The graph is keyed by (CommitId, is_synthetic)
                 let mut graphlog_edges = vec![];
-                // TODO: Should we update revset.stream_graph() to yield a `has_missing` flag
-                // instead of all the missing edges since we don't care about
-                // where they point here anyway?
+                // TODO: Should we update revset.stream_graph() to yield a
+                // `has_missing` flag instead of all the missing
+                // edges since we don't care about where they
+                // point here anyway?
                 let mut missing_edge_id = None;
                 let mut elided_targets = vec![];
                 for edge in edges {
@@ -392,7 +394,8 @@ pub(crate) async fn cmd_log(
     // to specify a revset.
     if let ([], [only_path]) = (args.revisions.as_slice(), args.paths.as_slice()) {
         if only_path == "." && workspace_command.parse_file_path(only_path)?.is_root() {
-            // For users of e.g. Mercurial, where `.` indicates the current commit.
+            // For users of e.g. Mercurial, where `.` indicates the current
+            // commit.
             writeln!(
                 ui.warning_default(),
                 "The argument {only_path:?} is being interpreted as a fileset expression, but \

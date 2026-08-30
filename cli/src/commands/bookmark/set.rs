@@ -73,8 +73,9 @@ pub async fn cmd_bookmark_set(
     let mut moved_bookmark_count = 0;
     for name in bookmark_names {
         let old_target = repo.view().get_local_bookmark(name);
-        // If a bookmark is absent locally but is still tracking remote bookmarks,
-        // we are resurrecting the local bookmark, not "creating" a new bookmark.
+        // If a bookmark is absent locally but is still tracking remote
+        // bookmarks, we are resurrecting the local bookmark, not
+        // "creating" a new bookmark.
         if old_target.is_absent() && !has_tracked_remote_bookmarks(repo, name) {
             new_bookmarks.insert(name);
         } else if old_target.as_normal() != Some(target_commit.id()) {

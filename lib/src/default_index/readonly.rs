@@ -114,8 +114,9 @@ impl ReadonlyIndexLoadError {
         match self {
             Self::UnexpectedVersion { .. } => true,
             Self::Other { error, .. } => {
-                // If the parent file name field is corrupt, the file wouldn't be found.
-                // And there's no need to distinguish it from an empty file.
+                // If the parent file name field is corrupt, the file wouldn't
+                // be found. And there's no need to distinguish
+                // it from an empty file.
                 matches!(
                     error.kind(),
                     io::ErrorKind::NotFound

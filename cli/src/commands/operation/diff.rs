@@ -396,8 +396,9 @@ pub async fn show_op_diff(
         for (name, (from_commit, to_commit)) in changed_working_copies {
             with_content_format
                 .write(formatter, async |formatter| {
-                    // Usually, there is at most one working copy changed per operation, so we put
-                    // the working copy name in the heading.
+                    // Usually, there is at most one working copy changed per
+                    // operation, so we put the working copy
+                    // name in the heading.
                     write!(formatter, "Changed working copy ")?;
                     write!(formatter.labeled("working_copies"), "{}@", name.as_symbol())?;
                     writeln!(formatter, ":")?;

@@ -438,7 +438,8 @@ fn resolve_git_ref_to_commit_id(
 ) -> Option<gix::ObjectId> {
     let mut peeling_ref = Cow::Borrowed(git_ref);
 
-    // Try fast path if we have a candidate id which is known to be a commit object.
+    // Try fast path if we have a candidate id which is known to be a commit
+    // object.
     if let Some(known_oid) = known_commit_oid {
         let raw_ref = &git_ref.inner;
         if let Some(oid) = raw_ref.target.try_id()
@@ -449,13 +450,13 @@ fn resolve_git_ref_to_commit_id(
         if let Some(oid) = raw_ref.peeled
             && oid == known_oid
         {
-            // Perhaps an annotated tag stored in packed-refs file, and pointing to the
-            // already known target commit.
+            // Perhaps an annotated tag stored in packed-refs file, and pointing
+            // to the already known target commit.
             return Some(oid);
         }
-        // A tag (according to ref name.) Try to peel one more level. This is slightly
-        // faster than recurse into into_fully_peeled_id(). If we recorded a tag oid, we
-        // could skip this at all.
+        // A tag (according to ref name.) Try to peel one more level. This is
+        // slightly faster than recurse into into_fully_peeled_id(). If
+        // we recorded a tag oid, we could skip this at all.
         if raw_ref.peeled.is_none() && git_ref.name().as_bstr().starts_with(b"refs/tags/") {
             let maybe_tag = git_ref
                 .try_id()
@@ -464,11 +465,12 @@ fn resolve_git_ref_to_commit_id(
             if let Some(oid) = maybe_tag.as_ref().and_then(|tag| tag.target_id().ok()) {
                 let oid = oid.detach();
                 if oid == known_oid {
-                    // An annotated tag pointing to the already known target commit.
+                    // An annotated tag pointing to the already known target
+                    // commit.
                     return Some(oid);
                 }
-                // Unknown id. Recurse from the current state. A tag may point to
-                // non-commit object.
+                // Unknown id. Recurse from the current state. A tag may point
+                // to non-commit object.
                 peeling_ref.to_mut().inner.target = gix::refs::Target::Object(oid);
             }
         }
@@ -713,8 +715,9 @@ async fn import_refs_inner(
                 .merge_local_bookmark(symbol.name, base_target, &new_remote_ref.target)
                 .await?;
         }
-        // Remote-tracking branch is the last known state of the branch in the remote.
-        // It shouldn't diverge even if we had inconsistent view.
+        // Remote-tracking branch is the last known state of the branch in the
+        // remote. It shouldn't diverge even if we had inconsistent
+        // view.
         mut_repo.set_remote_bookmark(symbol, new_remote_ref);
     }
     for update in &changed_remote_tags {
@@ -865,7 +868,8 @@ async fn record_synthetic_predecessors(
         // Predecessors are recorded only for newly imported commits to prevent
         // cycles in the evolution graph. While this restriction can be lifted
         // later, note that the existing predecessor chain may be more detailed
-        // than "imported from Git" if the original commits were created locally.
+        // than "imported from Git" if the original commits were created
+        // locally.
         for new_commit_id in new_commit_ids
             .iter()
             .filter(|&id| imported_commit_ids.contains(id))
@@ -903,7 +907,8 @@ fn diff_refs_to_import(
         .git_refs()
         .iter()
         .filter_map(|(full_name, target)| {
-            // TODO: or clean up invalid ref in case it was stored due to historical bug?
+            // TODO: or clean up invalid ref in case it was stored due to
+            // historical bug?
             let (kind, symbol) =
                 parse_git_ref(full_name).expect("stored git ref should be parsable");
             git_ref_filter(kind, symbol).then_some((full_name.as_ref(), target))
@@ -1051,8 +1056,8 @@ fn collect_changed_refs_to_import(
         if new_target != *old_git_target {
             changed_git_refs.push((full_name.to_owned(), new_target.clone()));
         }
-        // TODO: Make it configurable which remotes are publishing and update public
-        // heads here.
+        // TODO: Make it configurable which remotes are publishing and update
+        // public heads here.
         let old_remote_ref = known_remote_refs
             .remove(&symbol)
             .unwrap_or_else(|| RemoteRef::absent_ref());
@@ -1487,8 +1492,8 @@ fn copy_exportable_local_bookmarks_to_remote_view(
         .view()
         .local_remote_bookmarks(remote)
         .filter_map(|(name, targets)| {
-            // TODO: filter out untracked bookmarks (if we add support for untracked @git
-            // bookmarks)
+            // TODO: filter out untracked bookmarks (if we add support for
+            // untracked @git bookmarks)
             let old_target = &targets.remote_ref.target;
             let new_target = targets.local_target;
             (!new_target.has_conflict() && old_target != new_target).then_some((name, new_target))
@@ -1514,7 +1519,8 @@ fn copy_exportable_local_tags_to_remote_view(
         .view()
         .local_remote_tags(remote)
         .filter_map(|(name, targets)| {
-            // TODO: filter out untracked tags (if we add support for untracked @git tags)
+            // TODO: filter out untracked tags (if we add support for untracked
+            // @git tags)
             let old_target = &targets.remote_ref.target;
             let new_target = targets.local_target;
             (!new_target.has_conflict() && old_target != new_target).then_some((name, new_target))
@@ -1537,8 +1543,9 @@ fn diff_refs_to_export(
     root_commit_id: &CommitId,
     git_ref_filter: impl Fn(GitRefKind, RemoteRefSymbol<'_>) -> bool,
 ) -> AllRefsToExport {
-    // Local targets will be copied to the "git" remote if successfully exported. So
-    // the local refs are considered to be the new "git" remote refs.
+    // Local targets will be copied to the "git" remote if successfully
+    // exported. So the local refs are considered to be the new "git" remote
+    // refs.
     let mut all_bookmark_targets: HashMap<RemoteRefSymbol, (&RefTarget, &RefTarget)> =
         itertools::chain(
             view.local_bookmarks().map(|(name, target)| {
@@ -1610,8 +1617,9 @@ fn collect_changed_refs_to_export(
         let old_oid = if let Some(id) = old_target.as_normal() {
             Some(owned_oid_from_commit_id(id))
         } else if old_target.has_conflict() {
-            // The old git ref should only be a conflict if there were concurrent import
-            // operations while the value changed. Don't overwrite these values.
+            // The old git ref should only be a conflict if there were
+            // concurrent import operations while the value changed.
+            // Don't overwrite these values.
             failed.push((symbol.to_owned(), FailedRefExportReason::ConflictedOldState));
             continue;
         } else {
@@ -1881,8 +1889,8 @@ pub async fn reset_head(
         mut_repo.set_git_head_target(workspace_name, new_head_target);
     }
 
-    // If there is an ongoing operation (merge, rebase, etc.), we need to clean it
-    // up.
+    // If there is an ongoing operation (merge, rebase, etc.), we need to clean
+    // it up.
     if git_repo.state().is_some() {
         clear_operation_state(&git_repo)?;
     }
@@ -1929,21 +1937,23 @@ async fn reset_index(
     wc_commit: &Commit,
 ) -> Result<(), GitResetHeadError> {
     let parent_tree = wc_commit.parent_tree(repo).await?;
-    // Use the merged parent tree as the Git index, allowing `git diff` to show the
-    // same changes as `jj diff`. If the merged parent tree has conflicts, then the
-    // Git index will also be conflicted.
+    // Use the merged parent tree as the Git index, allowing `git diff` to show
+    // the same changes as `jj diff`. If the merged parent tree has
+    // conflicts, then the Git index will also be conflicted.
     let mut index = if let Some(tree_id) = parent_tree.tree_ids().as_resolved() {
         if tree_id == repo.store().empty_tree_id() {
-            // If the tree is empty, gix can fail to load the object (since Git doesn't
-            // require the empty tree to actually be present in the object database), so we
-            // just use an empty index directly.
+            // If the tree is empty, gix can fail to load the object (since Git
+            // doesn't require the empty tree to actually be present
+            // in the object database), so we just use an empty
+            // index directly.
             gix::index::File::from_state(
                 gix::index::State::new(git_repo.object_hash()),
                 git_repo.index_path(),
             )
         } else {
-            // If the parent tree is resolved, we can use gix's `index_from_tree` method.
-            // This is more efficient than iterating over the tree and adding each entry.
+            // If the parent tree is resolved, we can use gix's
+            // `index_from_tree` method. This is more efficient than
+            // iterating over the tree and adding each entry.
             git_repo
                 .index_from_tree(&gix::ObjectId::from_bytes_or_panic(tree_id.as_bytes()))
                 .map_err(GitResetHeadError::from_git)?
@@ -1955,8 +1965,8 @@ async fn reset_index(
     let wc_tree = wc_commit.tree();
     update_intent_to_add_impl(git_repo, &mut index, &parent_tree, &wc_tree).await?;
 
-    // Match entries in the new index with entries in the old index, and copy stat
-    // information if the entry didn't change.
+    // Match entries in the new index with entries in the old index, and copy
+    // stat information if the entry didn't change.
     if let Some(old_index) = git_repo.try_index().map_err(GitResetHeadError::from_git)? {
         index
             .entries_mut_with_paths()
@@ -2006,10 +2016,11 @@ fn build_index_from_merged_tree(
                 }
                 TreeValue::Symlink(id) => (id.as_bytes(), gix::index::entry::Mode::SYMLINK),
                 TreeValue::Tree(_) => {
-                    // This case is only possible if there is a file-directory conflict, since
-                    // `MergedTree::entries` handles the recursion otherwise. We only materialize a
-                    // file in the working copy for file-directory conflicts, so we don't add the
-                    // tree to the index here either.
+                    // This case is only possible if there is a file-directory
+                    // conflict, since `MergedTree::entries` handles
+                    // the recursion otherwise. We only materialize a
+                    // file in the working copy for file-directory conflicts, so we
+                    // don't add the tree to the index here either.
                     return;
                 }
                 TreeValue::GitSubmodule(id) => (id.as_bytes(), gix::index::entry::Mode::COMMIT),
@@ -2017,8 +2028,9 @@ fn build_index_from_merged_tree(
 
             let path = BStr::new(path.as_internal_file_string());
 
-            // It is safe to push the entry because we ensure that we only add each path to
-            // a stage once, and we sort the entries after we finish adding them.
+            // It is safe to push the entry because we ensure that we only add each
+            // path to a stage once, and we sort the entries after we finish
+            // adding them.
             index.dangerously_push_entry(
                 gix::index::entry::Stat::default(),
                 gix::ObjectId::from_bytes_or_panic(id),
@@ -2044,12 +2056,14 @@ fn build_index_from_merged_tree(
             push_index_entry(&path, base, gix::index::entry::Stage::Base);
             push_index_entry(&path, right, gix::index::entry::Stage::Theirs);
         } else {
-            // We can't represent many-sided conflicts in the Git index, so just add the
-            // first side as staged. This is preferable to adding the first 2 sides as a
-            // conflict, since some tools rely on being able to resolve conflicts using the
-            // index, which could lead to an incorrect conflict resolution if the index
-            // didn't contain all of the conflict sides. Instead, we add a dummy conflict of
-            // a file named ".jj-do-not-resolve-this-conflict" to prevent the user from
+            // We can't represent many-sided conflicts in the Git index, so just
+            // add the first side as staged. This is preferable to
+            // adding the first 2 sides as a conflict, since some
+            // tools rely on being able to resolve conflicts using the
+            // index, which could lead to an incorrect conflict resolution if
+            // the index didn't contain all of the conflict sides.
+            // Instead, we add a dummy conflict of a file named
+            // ".jj-do-not-resolve-this-conflict" to prevent the user from
             // accidentally committing the conflict markers.
             has_many_sided_conflict = true;
             push_index_entry(
@@ -2060,12 +2074,13 @@ fn build_index_from_merged_tree(
         }
     }
 
-    // Required after `dangerously_push_entry` for correctness. We use do a lookup
-    // in the index after this, so it must be sorted before we do the lookup.
+    // Required after `dangerously_push_entry` for correctness. We use do a
+    // lookup in the index after this, so it must be sorted before we do the
+    // lookup.
     index.sort_entries();
 
-    // If the conflict had an unrepresentable conflict and the dummy file path isn't
-    // already added in the index, add a dummy file as a conflict.
+    // If the conflict had an unrepresentable conflict and the dummy file path
+    // isn't already added in the index, add a dummy file as a conflict.
     if has_many_sided_conflict
         && index
             .entry_index_by_path(INDEX_DUMMY_CONFLICT_FILE.into())
@@ -2083,8 +2098,8 @@ fn build_index_from_merged_tree(
             gix::index::entry::Mode::FILE,
             INDEX_DUMMY_CONFLICT_FILE.into(),
         );
-        // We need to sort again for correctness before writing the index file since we
-        // added a new entry.
+        // We need to sort again for correctness before writing the index file
+        // since we added a new entry.
         index.sort_entries();
     }
 
@@ -2159,7 +2174,8 @@ async fn update_intent_to_add_impl(
     }
 
     if !added_paths.is_empty() {
-        // We need to write the empty blob, otherwise `jj util gc` will report an error.
+        // We need to write the empty blob, otherwise `jj util gc` will report
+        // an error.
         let empty_blob = git_repo
             .write_blob(b"")
             .map_err(GitResetHeadError::from_git)?
@@ -3189,8 +3205,8 @@ impl<'a> GitFetch<'a> {
             return Err(GitFetchError::RejectedUpdates(names));
         }
 
-        // Even if git fetch has --prune, if a branch is not found it will not be
-        // pruned on fetch
+        // Even if git fetch has --prune, if a branch is not found it will not
+        // be pruned on fetch
         self.git_ctx.spawn_branch_prune(&branches_to_prune)?;
 
         self.fetched.push(FetchedRefs {

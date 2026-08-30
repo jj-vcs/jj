@@ -56,8 +56,9 @@ impl GlobPattern {
 
     /// Converts this glob pattern to a bytes regex.
     pub fn to_regex(&self) -> regex::bytes::Regex {
-        // Based on new_regex() in globset. We don't use GlobMatcher::is_match(path)
-        // because the input string shouldn't be normalized as path.
+        // Based on new_regex() in globset. We don't use
+        // GlobMatcher::is_match(path) because the input string
+        // shouldn't be normalized as path.
         regex::bytes::RegexBuilder::new(self.glob.regex())
             .dot_matches_new_line(true)
             .build()
@@ -202,9 +203,9 @@ impl StringPattern {
     ///
     /// This can be used to optimize map lookup by exact key.
     pub fn as_exact(&self) -> Option<&str> {
-        // TODO: Handle trivial case‐insensitive patterns here? It might make people
-        // expect they can use case‐insensitive patterns in contexts where they
-        // generally can’t.
+        // TODO: Handle trivial case‐insensitive patterns here? It might make
+        // people expect they can use case‐insensitive patterns in
+        // contexts where they generally can’t.
         match self {
             Self::Exact(literal) => Some(literal),
             _ => None,
@@ -228,9 +229,9 @@ impl StringPattern {
     /// Converts this pattern to a glob string. Returns `None` if the pattern
     /// can't be represented as a glob.
     pub fn to_glob(&self) -> Option<Cow<'_, str>> {
-        // TODO: Handle trivial case‐insensitive patterns here? It might make people
-        // expect they can use case‐insensitive patterns in contexts where they
-        // generally can’t.
+        // TODO: Handle trivial case‐insensitive patterns here? It might make
+        // people expect they can use case‐insensitive patterns in
+        // contexts where they generally can’t.
         match self {
             Self::Exact(literal) => Some(globset::escape(literal).into()),
             Self::Substring(needle) => {
@@ -257,13 +258,15 @@ impl StringPattern {
         // manner where relevant. That said, regex patterns are unicode-aware by
         // default, so we already have some inconsistencies.
         //
-        // Care will need to be taken regarding normalization and the choice of an
-        // appropriate case‐insensitive comparison scheme (`toNFKC_Casefold`?) to ensure
-        // that it is compatible with the standard case‐insensitivity of haystack
-        // components (like internationalized domain names in email addresses). The
-        // availability of normalization and case folding schemes in database backends
-        // will also need to be considered. A locale‐specific case folding
-        // scheme would likely not be appropriate for Jujutsu.
+        // Care will need to be taken regarding normalization and the choice of
+        // an appropriate case‐insensitive comparison scheme
+        // (`toNFKC_Casefold`?) to ensure that it is compatible with the
+        // standard case‐insensitivity of haystack components (like
+        // internationalized domain names in email addresses). The
+        // availability of normalization and case folding schemes in database
+        // backends will also need to be considered. A locale‐specific
+        // case folding scheme would likely not be appropriate for
+        // Jujutsu.
         //
         // For some discussion of this topic, see:
         // <https://github.com/unicode-org/icu4x/issues/3151>
@@ -511,8 +514,8 @@ impl StringMatcher {
 
     /// Iterates over matching lines in `text`.
     pub fn match_lines<'a>(&self, text: &'a [u8]) -> impl Iterator<Item = &'a [u8]> {
-        // The pattern is matched line by line so that it can be anchored to line
-        // start/end. For example, exact:"" will match blank lines.
+        // The pattern is matched line by line so that it can be anchored to
+        // line start/end. For example, exact:"" will match blank lines.
         text.split_inclusive(|b| *b == b'\n').filter(|line| {
             let line = line.strip_suffix(b"\n").unwrap_or(line);
             self.is_match_bytes(line)

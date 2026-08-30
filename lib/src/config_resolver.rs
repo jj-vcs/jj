@@ -1343,8 +1343,8 @@ mod tests {
         assert_eq!(resolved_config.layers().len(), 1);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
 
-        // MY_ENV=yes matches first scope, OR scope, key-exists scope, and second
-        // layer (but not nested scope or absent-exists scope)
+        // MY_ENV=yes matches first scope, OR scope, key-exists scope, and
+        // second layer (but not nested scope or absent-exists scope)
         let environment = HashMap::from([("MY_ENV".into(), "yes".into())]);
         let context = ConfigResolutionContext {
             home_dir: Some(Path::new("/home/dir")),

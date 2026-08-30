@@ -212,7 +212,8 @@ impl Iterator for TreeEntriesIterator<'_> {
             if let Some((path, value)) = top.entries.pop() {
                 match value {
                     TreeValue::Tree(id) => {
-                        // TODO: Handle the other cases (specific files and trees)
+                        // TODO: Handle the other cases (specific files and
+                        // trees)
                         if self.matcher.visit(&path).is_nothing() {
                             continue;
                         }

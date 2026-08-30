@@ -168,9 +168,9 @@ async fn is_fast_forward(
     new_target_id: &CommitId,
 ) -> Result<bool, CommandError> {
     if old_target.is_present() {
-        // Strictly speaking, "all" old targets should be ancestors, but we allow
-        // conflict resolution by setting bookmark to "any" of the old target
-        // descendants.
+        // Strictly speaking, "all" old targets should be ancestors, but we
+        // allow conflict resolution by setting bookmark to "any" of the
+        // old target descendants.
         let found = fallible_any(old_target.added_ids(), async |old| {
             repo.index().is_ancestor(old, new_target_id).await
         })

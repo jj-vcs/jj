@@ -1436,7 +1436,8 @@ fn test_op_diff() {
     let first_parent_id = op_log_lines[3].split(' ').nth(3).unwrap();
     let second_parent_id = op_log_lines[6].split(' ').nth(3).unwrap();
 
-    // Diff between the first parent of the merge operation and the merge operation.
+    // Diff between the first parent of the merge operation and the merge
+    // operation.
     let output = work_dir.run_jj(["op", "diff", "--from", first_parent_id, "--to", op_id]);
     insta::assert_snapshot!(output, @"
     From operation: 68d99f04e273 (2001-02-03 08:05:19) point bookmark bookmark-1 to commit e8849ae12c709f2321908879bc724fdb2ab8a781
@@ -3301,7 +3302,8 @@ fn test_op_immutable_revisions() {
     [EOF]
     ");
 
-    // 4. Case where exactly one immutable revision is elided (singular "revision")
+    // 4. Case where exactly one immutable revision is elided (singular
+    //    "revision")
     work_dir
         .run_jj(["new", "root()", "-m", "single-1"])
         .success();
@@ -3594,8 +3596,8 @@ commit_summary = 'commit_id.short() ++ " " ++ description.first_line()'
     [EOF]
     ");
 
-    // 7. Test op show for op_create with the flag: should show all changes and NO
-    //    WARNING.
+    // 7. Test op show for op_create with the flag: should show all changes and
+    //    NO WARNING.
     insta::assert_snapshot!(work_dir.run_jj(["op", "show", &op_create, "--show-changes-in", "all()"]), @"
     e57fae0b2f31 test-username@host.example.com default@ 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
     create bookmark bookmark_x pointing to commit 2308e5a241f7a47f186b0686ffb17aa613a727d7

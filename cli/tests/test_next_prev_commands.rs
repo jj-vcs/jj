@@ -829,8 +829,8 @@ fn test_prev_conflict_editing() {
 
 #[test]
 fn test_next_conflict() {
-    // There is a conflict in the third commit, so after next it should be the new
-    // parent.
+    // There is a conflict in the third commit, so after next it should be the
+    // new parent.
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -901,7 +901,8 @@ fn test_next_conflict_editing() {
 
 #[test]
 fn test_next_conflict_head() {
-    // When editing a head with conflicts, `jj next --conflict [--edit]` errors out.
+    // When editing a head with conflicts, `jj next --conflict [--edit]` errors
+    // out.
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");

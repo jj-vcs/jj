@@ -490,9 +490,9 @@ where
     NI: IntoIterator<Item = T>,
 {
     let mut heads: HashSet<T> = start.into_iter().collect();
-    // Do a BFS until we have only one item left in the frontier. That frontier must
-    // have originated from one of the heads, and since there can't be cycles,
-    // it won't be able to eliminate any other heads.
+    // Do a BFS until we have only one item left in the frontier. That frontier
+    // must have originated from one of the heads, and since there can't be
+    // cycles, it won't be able to eliminate any other heads.
     let mut frontier: Vec<T> = heads.iter().cloned().collect();
     let mut visited: HashSet<ID> = heads.iter().map(&id_fn).collect();
     let mut root_reached = false;
@@ -917,8 +917,8 @@ mod tests {
             .unwrap();
         assert_eq!(common, vec!['E', 'D', 'C', 'B', 'a']);
 
-        // The root node 'a' is visited before 'C'. If the graph were split there,
-        // the branch 'C->B->a' would be orphaned.
+        // The root node 'a' is visited before 'C'. If the graph were split
+        // there, the branch 'C->B->a' would be orphaned.
         let common: Vec<_> = topo_order_reverse_lazy(vec![Ok('E')], id_fn, neighbors_fn, cycle_fn)
             .try_collect()
             .block_on()
@@ -1052,8 +1052,8 @@ mod tests {
             .unwrap();
         assert_eq!(common, vec!['G', 'F', 'E', 'D', 'c', 'B', 'A']);
 
-        // Iterator can be lazy for linear chunks. The node 'c' is visited before 'D',
-        // but it will be processed lazily.
+        // Iterator can be lazy for linear chunks. The node 'c' is visited
+        // before 'D', but it will be processed lazily.
         let neighbors_fn = async |node: &char| to_ok_iter(neighbors[node].iter().copied());
         let mut inner_iter = TopoOrderReverseLazyInner::empty();
         inner_iter.extend([Ok('G')]);
@@ -1388,9 +1388,9 @@ mod tests {
 
     #[test]
     fn test_closest_common_nodes_tricky() {
-        // Test this case where A is the shortest distance away, but we still want the
-        // result to be B because A is an ancestor of B. In other words, we want
-        // to minimize the longest distance.
+        // Test this case where A is the shortest distance away, but we still
+        // want the result to be B because A is an ancestor of B. In
+        // other words, we want to minimize the longest distance.
         //
         //  E       H
         //  |\     /|
@@ -1420,9 +1420,9 @@ mod tests {
 
     #[test]
     fn test_closest_common_nodes_tricky_ancestor() {
-        // Find the clostest common ancestor between B and F. It should be B because
-        // it's even an ancestor of F, but we used to find A because the path to it
-        // from F is shorter (via E).
+        // Find the clostest common ancestor between B and F. It should be B
+        // because it's even an ancestor of F, but we used to find A
+        // because the path to it from F is shorter (via E).
         //
         //  F
         //  |\
@@ -1451,8 +1451,8 @@ mod tests {
 
     #[test]
     fn test_closest_common_nodes_tricky_ancestor_with_bad_heuristic() {
-        // Find the clostest common ancestor between D and A. It should be D because
-        // it's even an ancestor of A.
+        // Find the clostest common ancestor between D and A. It should be D
+        // because it's even an ancestor of A.
         //
         //  A
         //  |\
@@ -1505,9 +1505,10 @@ mod tests {
 
     #[test]
     fn test_closest_common_nodes_many_paths() {
-        // One side has very many possible paths due to repeated forking and merging. We
-        // must not walk the exponential number of paths between A and MN when finding
-        // common ancestors between MN and B.
+        // One side has very many possible paths due to repeated forking and
+        // merging. We must not walk the exponential number of paths
+        // between A and MN when finding common ancestors between MN and
+        // B.
         //
         //  MN
         //  |\
@@ -1559,8 +1560,8 @@ mod tests {
 
     #[test]
     fn test_closest_common_nodes_simple_with_bad_heuristic() {
-        // We still find the right common ancestor between C and A when given a bad
-        // heuristic.
+        // We still find the right common ancestor between C and A when given a
+        // bad heuristic.
         //
         //  C A
         //  |/
@@ -1583,8 +1584,8 @@ mod tests {
 
     #[test]
     fn test_closest_common_nodes_ancestor_with_bad_heuristic() {
-        // We still find the right common ancestor between A and B when given a bad
-        // heuristic.
+        // We still find the right common ancestor between A and B when given a
+        // bad heuristic.
         //
         //  A
         //  |

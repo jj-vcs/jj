@@ -220,8 +220,8 @@ fn test_git_push_current_bookmark() {
             "--allow-backwards",
         ])
         .success();
-    // This behavior is a strangeness of our definition of the default push revset.
-    // We could consider changing it.
+    // This behavior is a strangeness of our definition of the default push
+    // revset. We could consider changing it.
     let output = work_dir.run_jj(["git", "push"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -363,12 +363,13 @@ fn test_git_push_other_remote_has_bookmark() {
     Nothing changed.
     [EOF]
     ");
-    // The bookmark was moved on the "other" remote as well (since it's actually the
-    // same remote), but `jj` is not aware of that since it thinks this is a
-    // different remote. So, the push should fail.
+    // The bookmark was moved on the "other" remote as well (since it's actually
+    // the same remote), but `jj` is not aware of that since it thinks this
+    // is a different remote. So, the push should fail.
     //
-    // But it succeeds! That's because the bookmark is created at the same location
-    // as it is on the remote. This would also work for a descendant.
+    // But it succeeds! That's because the bookmark is created at the same
+    // location as it is on the remote. This would also work for a
+    // descendant.
     //
     // TODO: Saner test?
     work_dir
@@ -613,8 +614,8 @@ fn test_git_push_unexpectedly_deleted() {
     [EOF]
     ");
 
-    // git does not allow to push a deleted bookmark if we expect it to exist even
-    // though it was already deleted
+    // git does not allow to push a deleted bookmark if we expect it to exist
+    // even though it was already deleted
     let output = work_dir.run_jj(["git", "push", "-bbookmark1"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -704,8 +705,8 @@ fn test_git_push_locally_created_and_rewritten() {
     [EOF]
     ");
 
-    // Rewrite it and push again, which would fail if the pushed bookmark weren't
-    // set to "tracking"
+    // Rewrite it and push again, which would fail if the pushed bookmark
+    // weren't set to "tracking"
     work_dir.run_jj(["describe", "-mlocal 2"]).success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     bookmark1: qpvuntsm 9b2e76de (empty) description 1
@@ -1001,7 +1002,8 @@ fn test_git_push_changes() {
     [EOF]
     ");
 
-    // specifying the same bookmark with --change/--bookmark doesn't break things
+    // specifying the same bookmark with --change/--bookmark doesn't break
+    // things
     work_dir.write_file("file", "modified4");
     let output = work_dir.run_jj(["git", "push", "-c=@", "-b=push-yostqsxwqrlt"]);
     insta::assert_snapshot!(output, @"
@@ -1130,8 +1132,8 @@ fn test_git_push_changes_with_name() {
       bookmark: b1 [add to 5f4f9a466c96]
     [EOF]
     ");
-    // Spaces before the = sign are treated like part of the bookmark name and such
-    // bookmarks cannot be pushed.
+    // Spaces before the = sign are treated like part of the bookmark name and
+    // such bookmarks cannot be pushed.
     let output = work_dir.run_jj(["git", "push", "--named", "b1 = @"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -1230,8 +1232,8 @@ fn test_git_push_changes_with_name() {
 fn test_git_push_changes_with_name_deleted_tracked() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
-    // Unset immutable_heads so that untracking branches does not move the working
-    // copy
+    // Unset immutable_heads so that untracking branches does not move the
+    // working copy
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
     let work_dir = test_env.work_dir("local");
     // Create a second empty remote `another_remote`
@@ -1276,8 +1278,8 @@ fn test_git_push_changes_with_name_deleted_tracked() {
     [EOF]
     ");
 
-    // Can't push `b1` with --named to the same or another remote if it's deleted
-    // locally and still tracked on `origin`
+    // Can't push `b1` with --named to the same or another remote if it's
+    // deleted locally and still tracked on `origin`
     let output = work_dir.run_jj(["git", "push", "--named", "b1=@", "--remote=another_remote"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -1295,8 +1297,8 @@ fn test_git_push_changes_with_name_deleted_tracked() {
     [exit status: 1]
     ");
 
-    // OK to push to a different remote once the bookmark is no longer tracked on
-    // `origin`
+    // OK to push to a different remote once the bookmark is no longer tracked
+    // on `origin`
     work_dir
         .run_jj(["bookmark", "untrack", "b1", "--remote=origin"])
         .success();
@@ -1330,8 +1332,8 @@ fn test_git_push_changes_with_name_untracked_or_forgotten() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
-    // Unset immutable_heads so that untracking branches does not move the working
-    // copy
+    // Unset immutable_heads so that untracking branches does not move the
+    // working copy
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
     work_dir.run_jj(["describe", "-m", "parent"]).success();
     work_dir.run_jj(["new", "-m", "pushed_to_remote"]).success();
@@ -1402,8 +1404,8 @@ fn test_git_push_changes_with_name_untracked_or_forgotten() {
     [EOF]
     ");
 
-    // Make sure push still errors if we try to push a bookmark with the same name
-    // to a different location.
+    // Make sure push still errors if we try to push a bookmark with the same
+    // name to a different location.
     let output = work_dir.run_jj(["git", "push", "--named", "b1=@-"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -1436,9 +1438,9 @@ fn test_git_push_changes_with_name_untracked_or_forgotten() {
     [EOF]
     [exit status: 1]
     ");
-    // In this case, pushing the bookmark to the same location where it already is
-    // succeeds. TODO: This seems pretty safe, but perhaps it should still show
-    // an error or some sort of warning?
+    // In this case, pushing the bookmark to the same location where it already
+    // is succeeds. TODO: This seems pretty safe, but perhaps it should
+    // still show an error or some sort of warning?
     let output = work_dir.run_jj(["git", "push", "--named", "b1=@"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -2422,18 +2424,20 @@ fn test_git_push_tracked_vs_all() {
     ");
 
     // All bookmarks are still untracked.
-    // - --all tries to push bookmark1, but fails because a bookmark with the same
+    // - --all tries to push bookmark1, but fails because a bookmark with the
+    //   same
     // name exist on the remote.
-    // - --all succeeds in pushing bookmark3, since there is no bookmark of the same
+    // - --all succeeds in pushing bookmark3, since there is no bookmark of the
+    //   same
     // name on the remote.
     // - It does not try to push bookmark2.
     //
-    // TODO: Not trying to push bookmark2 could be considered correct, or perhaps
-    // we want to consider this as a deletion of the bookmark that failed because
-    // the bookmark was untracked. In the latter case, an error message should be
-    // printed. Some considerations:
-    // - Whatever we do should be consistent with what `jj bookmark list` does; it
-    //   currently does *not* list bookmarks like bookmark2 as "about to be
+    // TODO: Not trying to push bookmark2 could be considered correct, or
+    // perhaps we want to consider this as a deletion of the bookmark that
+    // failed because the bookmark was untracked. In the latter case, an
+    // error message should be printed. Some considerations:
+    // - Whatever we do should be consistent with what `jj bookmark list` does;
+    //   it currently does *not* list bookmarks like bookmark2 as "about to be
     //   deleted", as can be seen above.
     // - We could consider showing some hint on `jj bookmark untrack bookmark2
     //   --remote=origin` instead of showing an error here.
@@ -2850,14 +2854,14 @@ fn test_git_push_rejected_by_remote() -> TestResult {
     // push bookmark
     let output = work_dir.run_jj(["git", "push"]);
 
-    // The git remote sideband adds a dummy suffix of 8 spaces to attempt to clear
-    // any leftover data. This is done to help with cases where the line is
-    // rewritten.
+    // The git remote sideband adds a dummy suffix of 8 spaces to attempt to
+    // clear any leftover data. This is done to help with cases where the
+    // line is rewritten.
     //
     // However, a common option in a lot of editors removes trailing whitespace.
-    // This means that anyone with that option that opens this file would make the
-    // following snapshot fail. Using the insta filter here normalizes the
-    // output.
+    // This means that anyone with that option that opens this file would make
+    // the following snapshot fail. Using the insta filter here normalizes
+    // the output.
     let mut settings = insta::Settings::clone_current();
     settings.add_filter(r"\s*\n", "\n");
     settings.bind(|| {

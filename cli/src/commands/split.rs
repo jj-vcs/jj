@@ -517,7 +517,8 @@ async fn rewrite_descendants(
             async |mut rewriter: CommitRewriter<'_>| {
                 num_rebased += 1;
                 if parallel && legacy_bookmark_behavior {
-                    // The old_parent is the second commit due to the rewrite above.
+                    // The old_parent is the second commit due to the rewrite
+                    // above.
                     rewriter.replace_parent(
                         second_commit.id(),
                         [first_commit.id(), second_commit.id()],

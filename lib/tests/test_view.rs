@@ -132,7 +132,8 @@ fn test_merge_views_heads() -> TestResult {
 
 #[test]
 fn test_merge_views_checkout() -> TestResult {
-    // Tests merging of the view's checkout (by performing divergent operations).
+    // Tests merging of the view's checkout (by performing divergent
+    // operations).
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -591,8 +592,8 @@ fn test_merge_views_divergent() -> TestResult {
 #[test_case(false ; "rewrite first")]
 #[test_case(true ; "add child first")]
 fn test_merge_views_child_on_rewritten(child_first: bool) -> TestResult {
-    // We start with just commit A. Operation 1 adds commit B on top. Operation 2
-    // rewrites A as A2.
+    // We start with just commit A. Operation 1 adds commit B on top. Operation
+    // 2 rewrites A as A2.
     let test_repo = TestRepo::init();
 
     let mut tx = test_repo.repo.start_transaction();
@@ -634,10 +635,10 @@ fn test_merge_views_child_on_rewritten_divergent(
     on_rewritten: bool,
     child_first: bool,
 ) -> TestResult {
-    // We start with divergent commits A2 and A3. Operation 1 adds commit B on top
-    // of A2 or A3. Operation 2 rewrites A2 as A4. The result should be that B
-    // gets rebased onto A4 if it was based on A2 before, but if it was based on
-    // A3, it should remain there.
+    // We start with divergent commits A2 and A3. Operation 1 adds commit B on
+    // top of A2 or A3. Operation 2 rewrites A2 as A4. The result should be
+    // that B gets rebased onto A4 if it was based on A2 before, but if it
+    // was based on A3, it should remain there.
     let test_repo = TestRepo::init();
 
     let mut tx = test_repo.repo.start_transaction();
@@ -666,7 +667,8 @@ fn test_merge_views_child_on_rewritten_divergent(
     };
 
     if on_rewritten {
-        // A3 should remain as a head. The other head should be B2 (B rebased onto A4).
+        // A3 should remain as a head. The other head should be B2 (B rebased
+        // onto A4).
         let mut heads = repo.view().heads().clone();
         assert_eq!(heads.len(), 2);
         assert!(heads.remove(commit_a3.id()));
@@ -687,8 +689,8 @@ fn test_merge_views_child_on_rewritten_divergent(
 #[test_case(false ; "abandon first")]
 #[test_case(true ; "add child first")]
 fn test_merge_views_child_on_abandoned(child_first: bool) -> TestResult {
-    // We start with commit B on top of commit A. Operation 1 adds commit C on top.
-    // Operation 2 abandons B.
+    // We start with commit B on top of commit A. Operation 1 adds commit C on
+    // top. Operation 2 abandons B.
     let test_repo = TestRepo::init();
 
     let mut tx = test_repo.repo.start_transaction();
@@ -794,10 +796,11 @@ fn test_merge_three_operations() -> TestResult {
 #[test_case(false ; "operation C first")]
 #[test_case(true ; "operation B first")]
 fn test_merge_views_criss_cross(op_b_first: bool) -> TestResult {
-    // Consider the operation log below, where D and E are both merges of B and C.
-    // When merging F and E, if we pick C as common ancestor, we will get divergence
-    // because the working-copy commit was rewritten from K to L in operation E (but
-    // actually in operation B) and it was rewritten from K to M in operation F.
+    // Consider the operation log below, where D and E are both merges of B and
+    // C. When merging F and E, if we pick C as common ancestor, we will get
+    // divergence because the working-copy commit was rewritten from K to L
+    // in operation E (but actually in operation B) and it was rewritten
+    // from K to M in operation F.
     //
     // F wc: M
     // |

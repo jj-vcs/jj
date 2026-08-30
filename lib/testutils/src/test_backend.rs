@@ -320,8 +320,9 @@ impl Backend for TestBackend {
                     source: "".into(),
                 });
             }
-            // Return all copy histories to test that the caller correctly ignores histories
-            // that are not relevant to the trees they're working with.
+            // Return all copy histories to test that the caller correctly
+            // ignores histories that are not relevant to the trees
+            // they're working with.
             let mut histories = vec![];
             for id in topo_order_reverse(
                 copies.keys().sorted(),
@@ -470,8 +471,8 @@ mod tests {
                 .is_err()
         );
 
-        // Looking up by any id returns the related copies in the same order (children
-        // before parents)
+        // Looking up by any id returns the related copies in the same order
+        // (children before parents)
         let related = backend.get_related_copies(&copy1_id).block_on()?;
         assert_eq!(
             related,

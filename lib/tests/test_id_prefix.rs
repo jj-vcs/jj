@@ -228,8 +228,8 @@ fn test_id_prefix() -> TestResult {
         SingleMatch(vec![commits[2].id().clone()])
     );
 
-    // Single commit in revset. Length 0 is unambiguous, but we pretend 1 digit is
-    // needed.
+    // Single commit in revset. Length 0 is unambiguous, but we pretend 1 digit
+    // is needed.
     // ---------------------------------------------------------------------------------------------
     let expression = RevsetExpression::commit(root_commit_id.clone());
     let context = context.disambiguate_within(expression);
@@ -376,9 +376,9 @@ fn test_id_prefix_divergent() -> TestResult {
     // - We find both commits with the same change id, even though
     // `third_commit_divergent_with_second` is not in the short prefix set
     // (#2476).
-    // - The short prefix set still works: we do *not* find the first commit and the
-    //   match is not ambiguous, even though the first commit's change id would also
-    //   match the prefix.
+    // - The short prefix set still works: we do *not* find the first commit and
+    //   the match is not ambiguous, even though the first commit's change id
+    //   would also match the prefix.
     assert_eq!(
         resolve_change_prefix(&index, prefix("a")),
         SingleMatch(vec![

@@ -191,7 +191,8 @@ impl SecureConfig {
             fs::write(&config_path, content).context(&config_path)?;
         }
 
-        // Write the config ID atomically. A half-formed config ID would be very bad.
+        // Write the config ID atomically. A half-formed config ID would be very
+        // bad.
         atomic_write(
             &self.repo_dir.join(self.config_id_name),
             config_id.as_bytes(),
@@ -308,9 +309,10 @@ impl SecureConfig {
         // I considered making this readonly, but that would prevent you from
         // updating the config with old versions of jj.
         // In the future, we consider something a little more robust, where as
-        // the non-legacy config changes, we propagate that to the legacy config.
-        // However, it seems a little overkill, considering it only affects windows
-        // users who use multiple versions of jj at once, and only for a year.
+        // the non-legacy config changes, we propagate that to the legacy
+        // config. However, it seems a little overkill, considering it
+        // only affects windows users who use multiple versions of jj at
+        // once, and only for a year.
         let mut new_content = CONTENT_PREFIX.as_bytes().to_vec();
         new_content.extend_from_slice(content);
         fs::write(&legacy_config, new_content).context(&legacy_config)?;
@@ -571,8 +573,8 @@ mod tests {
         Ok(())
     }
 
-    // This feature works on windows as well, it just isn't easy to replicate with a
-    // test.
+    // This feature works on windows as well, it just isn't easy to replicate
+    // with a test.
     #[cfg(unix)]
     #[test]
     fn test_repo_aliased() -> TestResult {

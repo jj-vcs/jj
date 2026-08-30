@@ -1348,7 +1348,8 @@ fn test_bookmark_forget_export() {
     [EOF]
     ");
     // Forgetting a bookmark with --include-remotes deletes local and
-    // remote-tracking bookmarks including the corresponding git-tracking bookmark.
+    // remote-tracking bookmarks including the corresponding git-tracking
+    // bookmark.
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
     let output = work_dir.run_jj(["log", "-r=foo", "--no-graph"]);
     insta::assert_snapshot!(output, @"
@@ -1359,9 +1360,9 @@ fn test_bookmark_forget_export() {
     ");
 
     // `jj git export` will delete the bookmark from git. In a colocated
-    // workspace, this will happen automatically immediately after a `jj bookmark
-    // forget`. This is demonstrated in `test_git_colocated_bookmark_forget` in
-    // test_git_colocated.rs
+    // workspace, this will happen automatically immediately after a `jj
+    // bookmark forget`. This is demonstrated in
+    // `test_git_colocated_bookmark_forget` in test_git_colocated.rs
     let output = work_dir.run_jj(["git", "export"]);
     insta::assert_snapshot!(output, @"");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
@@ -1369,8 +1370,8 @@ fn test_bookmark_forget_export() {
 
 #[test]
 fn test_bookmark_forget_fetched_bookmark() {
-    // Much of this test is borrowed from `test_git_fetch_remote_only_bookmark` in
-    // test_git_fetch.rs
+    // Much of this test is borrowed from `test_git_fetch_remote_only_bookmark`
+    // in test_git_fetch.rs
 
     // Set up a git repo with a bookmark and a jj repo that has it as a remote.
     let test_env = TestEnvironment::default();
@@ -1413,12 +1414,12 @@ fn test_bookmark_forget_fetched_bookmark() {
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
 
     // At this point `jj git export && jj git import` does *not* recreate the
-    // bookmark. This behavior is important in colocated workspaces, as otherwise a
-    // forgotten bookmark would be immediately resurrected.
+    // bookmark. This behavior is important in colocated workspaces, as
+    // otherwise a forgotten bookmark would be immediately resurrected.
     //
     // Technically, this is because `jj bookmark forget` preserved
-    // the ref in jj view's `git_refs` tracking the local git repo's remote-tracking
-    // bookmark.
+    // the ref in jj view's `git_refs` tracking the local git repo's
+    // remote-tracking bookmark.
     // TODO: Show that jj git push is also a no-op
     let output = work_dir.run_jj(["git", "export"]);
     insta::assert_snapshot!(output, @"");
@@ -1515,8 +1516,8 @@ fn test_bookmark_forget_fetched_bookmark() {
 
 #[test]
 fn test_bookmark_forget_deleted_or_nonexistent_bookmark() {
-    // Much of this test is borrowed from `test_git_fetch_remote_only_bookmark` in
-    // test_git_fetch.rs
+    // Much of this test is borrowed from `test_git_fetch_remote_only_bookmark`
+    // in test_git_fetch.rs
 
     // ======== Beginning of test setup ========
     // Set up a git repo with a bookmark and a jj repo that has it as a remote.
@@ -1722,8 +1723,8 @@ fn test_bookmark_track_untrack() -> TestResult {
     [EOF]
     ");
 
-    // Untrack existing and locally-deleted bookmarks. Bookmark targets should be
-    // unchanged
+    // Untrack existing and locally-deleted bookmarks. Bookmark targets should
+    // be unchanged
     work_dir
         .run_jj(["bookmark", "delete", "feature2"])
         .success();
@@ -2593,8 +2594,8 @@ fn test_bookmark_list_filtered() -> TestResult {
     let query =
         |args: &[&str]| local_dir.run_jj_with(|cmd| cmd.args(["bookmark", "list"]).args(args));
 
-    // "all()" doesn't include deleted bookmarks since they have no local targets.
-    // So "all()" is identical to "bookmarks()".
+    // "all()" doesn't include deleted bookmarks since they have no local
+    // targets. So "all()" is identical to "bookmarks()".
     insta::assert_snapshot!(query(&["-rall()"]), @"
     local-keep: kpqxywon 4b2bc95c (empty) local-keep
     remote-keep: rlvkpnrz c2f2ee40 (empty) remote-keep

@@ -199,8 +199,8 @@ pub mod watchman {
                 resolved_root,
             };
 
-            // Registering the trigger causes an unconditional evaluation of the query, so
-            // test if it is already registered first.
+            // Registering the trigger causes an unconditional evaluation of the
+            // query, so test if it is already registered first.
             if !config.register_trigger {
                 monitor.unregister_trigger().await?;
             } else if !monitor.is_trigger_registered().await? {
@@ -248,9 +248,10 @@ pub mod watchman {
             let clock = Clock(clock);
             if is_fresh_instance {
                 // The Watchman documentation states that if it was a fresh
-                // instance, we need to delete any tree entries that didn't appear
-                // in the returned list of changed files. For now, the caller will
-                // handle this by manually crawling the working copy again.
+                // instance, we need to delete any tree entries that didn't
+                // appear in the returned list of changed files.
+                // For now, the caller will handle this by
+                // manually crawling the working copy again.
                 Ok((clock, None))
             } else {
                 let paths = files

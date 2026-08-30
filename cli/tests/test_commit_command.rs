@@ -43,8 +43,8 @@ fn test_commit_with_editor() -> TestResult {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    // Check that the text file gets initialized with the current description and
-    // set a new one
+    // Check that the text file gets initialized with the current description
+    // and set a new one
     work_dir.run_jj(["describe", "-m=initial"]).success();
     std::fs::write(&edit_script, ["dump editor0", "write\nmodified"].join("\0"))?;
     work_dir.run_jj(["commit"]).success();
@@ -608,7 +608,8 @@ fn test_commit_with_editor_without_message() -> TestResult {
 
     work_dir.write_file("file1", "foo\n");
 
-    // --editor without -m should behave the same as without --editor (normal flow)
+    // --editor without -m should behave the same as without --editor (normal
+    // flow)
     std::fs::write(&edit_script, "dump editor")?;
     let output = work_dir.run_jj(["commit", "--editor"]).success();
 

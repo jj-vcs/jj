@@ -122,8 +122,8 @@ fn test_identical_commits_by_convergent_rewrite() {
     [EOF]
     [exit status: 255]
     ");
-    // TODO: The "test3" commit should have either "test1" or "test2" as predecessor
-    // (or both?)
+    // TODO: The "test3" commit should have either "test1" or "test2" as
+    // predecessor (or both?)
     insta::assert_snapshot!(work_dir.run_jj(["evolog"]), @"
     @  oxmtprsl/1 test.user@example.com 2001-01-01 11:00:00 c5abd225 (divergent)
        (empty) test2
@@ -158,8 +158,8 @@ fn test_identical_commits_by_convergent_rewrite_one_operation() {
     ◆  000000000000
     [EOF]
     ");
-    // TODO: The "test3" commit should have either "test1" or "test2" as predecessor
-    // (or both?)
+    // TODO: The "test3" commit should have either "test1" or "test2" as
+    // predecessor (or both?)
     insta::assert_snapshot!(work_dir.run_jj(["evolog"]), @"
     @  oxmtprsl/0 test.user@example.com 2001-01-01 11:00:00 c5abd225 (divergent)
        (empty) test2

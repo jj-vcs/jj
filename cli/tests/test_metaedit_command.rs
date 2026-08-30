@@ -352,7 +352,8 @@ fn test_metaedit() {
     [EOF]
     ");
 
-    // When resetting the description has no effect, the commits are not rewritten.
+    // When resetting the description has no effect, the commits are not
+    // rewritten.
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["metaedit", "--message", "", "kkmpptxzrspx"]);
     insta::assert_snapshot!(output, @"

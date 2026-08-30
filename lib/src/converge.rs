@@ -274,9 +274,9 @@ impl TruncatedEvolutionGraph {
             walk_predecessors(&repo, divergent_commit_ids.as_slice()).boxed_local(),
         );
 
-        // These are the commits in the graph that have no predecessors. Typically
-        // there is exactly one entry in initial_nodes (the first commit for the
-        // change-id).
+        // These are the commits in the graph that have no predecessors.
+        // Typically there is exactly one entry in initial_nodes (the
+        // first commit for the change-id).
         let mut initial_nodes = vec![];
 
         for node in evolution_nodes {
@@ -288,13 +288,16 @@ impl TruncatedEvolutionGraph {
             }
             to_visit.remove(commit_id);
             if !seen.insert(commit_id.clone()) {
-                // TODO: think about this some more. Can 2 different operations result in the
-                // same commit? Maybe the key should be (commit-id, operation-id).
+                // TODO: think about this some more. Can 2 different operations
+                // result in the same commit? Maybe the key
+                // should be (commit-id, operation-id).
 
-                // Note: currently walk_predecessors returns an error if the graph is cyclic, so
-                // we shouldn't encounter the same commit twice. But in the future we could
-                // allow cyclic evolution, and if we do there is no reason to disallow it here.
-                // By continuing we future proof this.
+                // Note: currently walk_predecessors returns an error if the
+                // graph is cyclic, so we shouldn't encounter
+                // the same commit twice. But in the future we could
+                // allow cyclic evolution, and if we do there is no reason to
+                // disallow it here. By continuing we future
+                // proof this.
                 continue;
             }
             let predecessors = entry
@@ -331,9 +334,10 @@ impl TruncatedEvolutionGraph {
         let initial_node = if initial_nodes.len() == 1 {
             initial_nodes[0].clone()
         } else {
-            // In graphs with multiple "real" initial nodes we introduce a virtual initial
-            // node (the root commit) and pretend the two or more "real" initial nodes are
-            // successors of the root commit.
+            // In graphs with multiple "real" initial nodes we introduce a
+            // virtual initial node (the root commit) and pretend
+            // the two or more "real" initial nodes are successors
+            // of the root commit.
             let root_commit_id = repo.store().root_commit_id().clone();
             for initial_node in initial_nodes {
                 edges.push((root_commit_id.clone(), initial_node));
@@ -409,9 +413,10 @@ async fn converge_description(
 async fn converge_parents(
     graph: &TruncatedEvolutionGraph,
 ) -> Result<ConvergedAttribute<Vec<CommitId>>, ConvergeError> {
-    // Filter out divergent commits that are descendants of other divergent commits
-    // (we cannot use the parents of those commits because that would introduce
-    // cycles when we rebase everything on top of the parents).
+    // Filter out divergent commits that are descendants of other divergent
+    // commits (we cannot use the parents of those commits because that
+    // would introduce cycles when we rebase everything on top of the
+    // parents).
     let viable_commits = remove_descendants(graph.repo(), graph.divergent_commit_ids()).await?;
     let excluded_divergent_commits: HashSet<CommitId> = graph
         .divergent_commit_ids()
@@ -497,9 +502,10 @@ async fn converge_trees(
     let parents_merged_tree = merge_commit_trees_no_resolve(repo.as_ref(), &parent_commits).await?;
     let rebased_resolved_trees = Arc::new(Mutex::new(HashMap::<CommitId, TreeIdsAndLabels>::new()));
 
-    // We first compute the dominator value of the trees (in the value history graph
-    // of the trees), together with the commit(s) that produce that tree. Any
-    // such commit is a good candidate to be used as the base of the merge.
+    // We first compute the dominator value of the trees (in the value history
+    // graph of the trees), together with the commit(s) that produce that
+    // tree. Any such commit is a good candidate to be used as the base of
+    // the merge.
 
     let value_fn = async |commit: &Commit| -> Result<Merge<TreeId>, ConvergeError> {
         let tree_ids_and_labels = TreeIdsAndLabels::new(
@@ -509,10 +515,10 @@ async fn converge_trees(
             .lock()
             .unwrap()
             .insert(commit.id().clone(), tree_ids_and_labels.clone());
-        // Note we only return the tree ids here, not the labels. We do that to increase
-        // the chances of finding a common dominator value that is closer to the
-        // divergent commits, ideally one that result in a simple merge of the trees
-        // later on.
+        // Note we only return the tree ids here, not the labels. We do that to
+        // increase the chances of finding a common dominator value that
+        // is closer to the divergent commits, ideally one that result
+        // in a simple merge of the trees later on.
         Ok(tree_ids_and_labels.tree_ids.clone())
     };
 
@@ -645,13 +651,14 @@ where
         _ => {}
     }
 
-    // If there is more than one producer we choose the one of minimum rank, where
-    // rank is defined as lowest change-offset. Because some backends may not
-    // provide change-offsets for hidden commits, we consider those as having
-    // maximum change-offset and use input-order as the secondary sorting criterion.
-    // By input-order we refer to the order of commits passed to converge_change.
-    // But some commits are not given as input, so we use commit timestamp and
-    // CommitId as additional sorting criteria.
+    // If there is more than one producer we choose the one of minimum rank,
+    // where rank is defined as lowest change-offset. Because some backends
+    // may not provide change-offsets for hidden commits, we consider those
+    // as having maximum change-offset and use input-order as the secondary
+    // sorting criterion. By input-order we refer to the order of commits
+    // passed to converge_change. But some commits are not given as input,
+    // so we use commit timestamp and CommitId as additional sorting
+    // criteria.
 
     let resolved_change_targets = truncated_evolution_graph
         .repo()
@@ -664,8 +671,8 @@ where
         .map(|(position, commit_id)| (commit_id, position))
         .collect();
 
-    // The sorting key is (change_offset, input_position, negated millis since Unix
-    // epoch, commit_id).
+    // The sorting key is (change_offset, input_position, negated millis since
+    // Unix epoch, commit_id).
     type SortingKey = (usize, usize, i64, CommitId);
     let producers: Vec<_> = try_join_all(producers.iter().map(
         async |commit_id| -> Result<SortingKey, ConvergeError> {
@@ -679,8 +686,8 @@ where
                 .store()
                 .get_commit_async(commit_id)
                 .await?;
-            // We take MillisSinceEpoch and negate it, so that more recent commits are
-            // before older ones.
+            // We take MillisSinceEpoch and negate it, so that more recent
+            // commits are before older ones.
             let millis_since_unix_epoch = commit.committer().timestamp.timestamp.0;
             Ok((
                 change_offset,

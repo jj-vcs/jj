@@ -464,8 +464,9 @@ fn test_diffedit_external_tool_conflict_marker_style() -> TestResult {
     // Set up diff editor to use "snapshot" conflict markers
     test_env.add_config(r#"merge-tools.fake-diff-editor.conflict-marker-style = "snapshot""#);
 
-    // We want to see whether the diff editor is using the correct conflict markers,
-    // and reset it to make sure that it parses the conflict markers as well
+    // We want to see whether the diff editor is using the correct conflict
+    // markers, and reset it to make sure that it parses the conflict
+    // markers as well
     std::fs::write(
         &edit_script,
         [
@@ -588,8 +589,8 @@ fn test_diffedit_3pane() -> TestResult {
     work_dir.run_jj(["debug", "snapshot"]).success();
     let setup_opid = work_dir.current_operation_id();
 
-    // 2 configs for a 3-pane setup. In the first, "$right" is passed to what the
-    // fake diff editor considers the "after" state.
+    // 2 configs for a 3-pane setup. In the first, "$right" is passed to what
+    // the fake diff editor considers the "after" state.
     let config_with_right_as_after =
         "merge-tools.fake-diff-editor.edit-args=['$left', '$right', '--ignore=$output']";
     let config_with_output_as_after =
@@ -613,7 +614,8 @@ fn test_diffedit_3pane() -> TestResult {
     M file2
     [EOF]
     ");
-    // Nothing happens if we make no changes, `config_with_right_as_after` version
+    // Nothing happens if we make no changes, `config_with_right_as_after`
+    // version
     let output = work_dir.run_jj(["diffedit", "--config", config_with_right_as_after]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -714,7 +716,8 @@ fn test_diffedit_merge() -> TestResult {
     [EOF]
     ");
 
-    // Remove file1. The conflict remains in the working copy on top of the merge.
+    // Remove file1. The conflict remains in the working copy on top of the
+    // merge.
     std::fs::write(
         edit_script,
         "files-before file1\0files-after JJ-INSTRUCTIONS file1 file3\0rm file1",
@@ -895,10 +898,10 @@ fn test_diffedit_restore_descendants() -> TestResult {
 
 #[test]
 fn test_diffedit_external_tool_eol_conversion() -> TestResult {
-    // Create 2 changes: one creates a file with a single LF, another changes the
-    // file to contain 2 LFs. The diff editor should see the same EOL in both the
-    // before file and the after file. And when the diff editor adds another EOL to
-    // update, we should always see 3 LFs in the store.
+    // Create 2 changes: one creates a file with a single LF, another changes
+    // the file to contain 2 LFs. The diff editor should see the same EOL in
+    // both the before file and the after file. And when the diff editor
+    // adds another EOL to update, we should always see 3 LFs in the store.
 
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_diff_editor();
@@ -965,8 +968,8 @@ fn test_diffedit_external_tool_eol_conversion() -> TestResult {
     let eol = first_eol;
 
     // With the previous diffedit command, file now contains the same content as
-    // commit 1, i.e., 1 LF. We create another commit 3 with the 2-LF file, so that
-    // the file shows up in the next diffedit command.
+    // commit 1, i.e., 1 LF. We create another commit 3 with the 2-LF file, so
+    // that the file shows up in the next diffedit command.
     work_dir.write_file(file_path, "\n\n");
     work_dir
         .run_jj(["squash", "--config", eol_conversion_none_config, "-m", "2"])

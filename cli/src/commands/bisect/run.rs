@@ -188,7 +188,8 @@ pub(crate) async fn cmd_bisect_run(
                     bisector.mark(commit.id().clone(), evaluation);
                 }
 
-                // Reload the workspace because the evaluation command may run `jj` commands.
+                // Reload the workspace because the evaluation command may run
+                // `jj` commands.
                 workspace_command = command.workspace_helper(ui).await?;
             }
             jj_lib::bisect::NextStep::Done(bisection_result) => {

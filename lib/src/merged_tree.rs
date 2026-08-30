@@ -150,16 +150,18 @@ impl MergedTree {
             assert!(!self.labels.has_labels());
             Merge::resolved(label)
         } else if self.labels.has_labels() {
-            // If the merge is conflicted and it already has labels, then we want to use
-            // those labels instead of the provided label. This ensures that rebasing
-            // conflicted commits keeps meaningful labels.
+            // If the merge is conflicted and it already has labels, then we
+            // want to use those labels instead of the provided
+            // label. This ensures that rebasing conflicted commits
+            // keeps meaningful labels.
             let labels = self.labels.as_merge();
             assert_eq!(labels.num_sides(), self.tree_ids.num_sides());
             labels.map(|label| label.as_str())
         } else {
-            // If the merge is conflicted but it doesn't have labels (e.g. conflicts created
-            // before labels were added), then we use empty strings to indicate missing
-            // labels. We could consider using `label` for all the sides instead, but it
+            // If the merge is conflicted but it doesn't have labels (e.g.
+            // conflicts created before labels were added), then we
+            // use empty strings to indicate missing labels. We
+            // could consider using `label` for all the sides instead, but it
             // might be confusing.
             Merge::repeated("", self.tree_ids.num_sides())
         }
@@ -169,18 +171,19 @@ impl MergedTree {
     /// automatically resolved and leaving the rest unresolved.
     pub async fn resolve(self) -> BackendResult<Self> {
         let merged = merge_trees(&self.store, self.tree_ids).await?;
-        // If the result can be resolved, then `merge_trees()` above would have returned
-        // a resolved merge. However, that function will always preserve the arity of
-        // conflicts it cannot resolve. So we simplify the conflict again
-        // here to possibly reduce a complex conflict to a simpler one.
+        // If the result can be resolved, then `merge_trees()` above would have
+        // returned a resolved merge. However, that function will always
+        // preserve the arity of conflicts it cannot resolve. So we
+        // simplify the conflict again here to possibly reduce a complex
+        // conflict to a simpler one.
         let (simplified_labels, simplified) = if merged.is_resolved() {
             (ConflictLabels::unlabeled(), merged)
         } else {
             self.labels.simplify_with(&merged)
         };
-        // If debug assertions are enabled, check that the merge was idempotent. In
-        // particular, that this last simplification doesn't enable further automatic
-        // resolutions
+        // If debug assertions are enabled, check that the merge was idempotent.
+        // In particular, that this last simplification doesn't enable
+        // further automatic resolutions
         if cfg!(debug_assertions) {
             let re_merged = merge_trees(&self.store, simplified.clone()).await.unwrap();
             debug_assert_eq!(re_merged, simplified);
@@ -572,13 +575,16 @@ impl Iterator for ConflictIterator<'_> {
             if let Some((path, tree_values)) = top.entries.pop() {
                 match tree_values.to_tree_merge(&self.store, &path).block_on() {
                     Ok(Some(trees)) => {
-                        // If all sides are trees or missing, descend into the merged tree
+                        // If all sides are trees or missing, descend into the
+                        // merged tree
                         self.stack.push(ConflictsDirItem::new(&trees, self.matcher));
                     }
                     Ok(None) => {
-                        // Otherwise this is a conflict between files, trees, etc. If they could
-                        // be automatically resolved, they should have been when the top-level
-                        // tree conflict was written, so we assume that they can't be.
+                        // Otherwise this is a conflict between files, trees,
+                        // etc. If they could
+                        // be automatically resolved, they should have been when
+                        // the top-level tree conflict
+                        // was written, so we assume that they can't be.
                         return Some((path, Ok(tree_values)));
                     }
                     Err(err) => {
@@ -649,8 +655,8 @@ impl TreeDiffDir {
             let path = dir.join(name);
             let tree_before = diff.before.is_tree();
             let tree_after = diff.after.is_tree();
-            // Check if trees and files match, but only if either side is a tree or a file
-            // (don't query the matcher unnecessarily).
+            // Check if trees and files match, but only if either side is a tree
+            // or a file (don't query the matcher unnecessarily).
             let tree_matches = (tree_before || tree_after) && !matcher.visit(&path).is_nothing();
             let file_matches = (!tree_before || !tree_after) && matcher.matches(&path);
 
@@ -813,8 +819,8 @@ impl<'matcher> TreeDiffStreamImpl<'matcher> {
             let path = dir.join(basename);
             let tree_before = diff.before.is_tree();
             let tree_after = diff.after.is_tree();
-            // Check if trees and files match, but only if either side is a tree or a file
-            // (don't query the matcher unnecessarily).
+            // Check if trees and files match, but only if either side is a tree
+            // or a file (don't query the matcher unnecessarily).
             let tree_matches =
                 (tree_before || tree_after) && !self.matcher.visit(&path).is_nothing();
             let file_matches = (!tree_before || !tree_after) && self.matcher.matches(&path);
@@ -834,7 +840,8 @@ impl<'matcher> TreeDiffStreamImpl<'matcher> {
                 continue;
             }
 
-            // If the path was a tree on either side of the diff, read those trees.
+            // If the path was a tree on either side of the diff, read those
+            // trees.
             if tree_matches {
                 let before_tree_future =
                     Self::trees(self.store.clone(), path.clone(), before.cloned());
@@ -882,8 +889,9 @@ impl<'matcher> TreeDiffStreamImpl<'matcher> {
                 }
             }
 
-            // If none of the futures have been polled and returned `Poll::Pending`, we must
-            // not return. If we did, nothing would call the waker so we might never get
+            // If none of the futures have been polled and returned
+            // `Poll::Pending`, we must not return. If we did,
+            // nothing would call the waker so we might never get
             // polled again.
             if all_pending || (some_pending && self.items.len() >= self.max_queued_items) {
                 return;
@@ -899,10 +907,11 @@ impl Stream for TreeDiffStreamImpl<'_> {
         // Go through all pending tree futures and poll them.
         self.poll_tree_futures(cx);
 
-        // Now emit the first file, or the first tree that completed with an error
+        // Now emit the first file, or the first tree that completed with an
+        // error
         if let Some((path, _)) = self.items.first_key_value() {
-            // Check if there are any pending trees before this item that we need to finish
-            // polling before we can emit this item.
+            // Check if there are any pending trees before this item that we
+            // need to finish polling before we can emit this item.
             if let Some((dir, _)) = self.pending_trees.first_key_value()
                 && dir < path
             {
@@ -966,8 +975,9 @@ impl Stream for DiffStreamForFileSystem<'_> {
             Some(next) => Some(next),
             None => ready!(self.inner.as_mut().poll_next(cx)),
         } {
-            // Filter out changes where neither side (before or after) is_file_like.
-            // This ensures we only process file-level changes and transitions.
+            // Filter out changes where neither side (before or after)
+            // is_file_like. This ensures we only process file-level
+            // changes and transitions.
             if let Ok(diff) = &next.values
                 && !diff.before.is_file_like()
                 && !diff.after.is_file_like()
@@ -975,8 +985,9 @@ impl Stream for DiffStreamForFileSystem<'_> {
                 continue;
             }
 
-            // If there's a held file "foo" and the next item to emit is not "foo/...", then
-            // we must be done with the "foo/" directory and it's time to emit "foo" as a
+            // If there's a held file "foo" and the next item to emit is not
+            // "foo/...", then we must be done with the "foo/"
+            // directory and it's time to emit "foo" as a
             // removed file.
             if let Some(held_entry) = self
                 .held_file

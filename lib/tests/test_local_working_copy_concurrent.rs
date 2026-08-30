@@ -69,7 +69,8 @@ fn test_concurrent_checkout() -> TestResult {
             .block_on()?;
     }
 
-    // Checking out another tree (via the first workspace instance) should now fail.
+    // Checking out another tree (via the first workspace instance) should now
+    // fail.
     assert_matches!(
         ws1.check_out(repo.op_id().clone(), Some(&tree1), &commit3)
             .block_on(),
@@ -104,8 +105,8 @@ fn test_checkout_parallel() -> TestResult {
         trees.push(tree);
     }
 
-    // Create another tree just so we can test the update stats reliably from the
-    // first update
+    // Create another tree just so we can test the update stats reliably from
+    // the first update
     let tree = create_tree(repo, &[(repo_path("other file"), "contents")]);
     let commit = commit_with_tree(repo.store(), tree);
     test_workspace
@@ -136,7 +137,8 @@ fn test_checkout_parallel() -> TestResult {
                     .block_on()
                     .unwrap();
                 let commit = repo.store().get_commit(commit.id()).unwrap();
-                // The operation ID is not correct, but that doesn't matter for this test
+                // The operation ID is not correct, but that doesn't matter for
+                // this test
                 let stats = workspace
                     .check_out(op_id, None, &commit)
                     .block_on()
@@ -144,9 +146,10 @@ fn test_checkout_parallel() -> TestResult {
                 assert_eq!(stats.updated_files, 0);
                 assert_eq!(stats.added_files, 1);
                 assert_eq!(stats.removed_files, 1);
-                // Check that the working copy contains one of the trees. We may see a
-                // different tree than the one we just checked out, but since
-                // write_tree() should take the same lock as check_out(), write_tree()
+                // Check that the working copy contains one of the trees. We may
+                // see a different tree than the one we just
+                // checked out, but since write_tree() should
+                // take the same lock as check_out(), write_tree()
                 // should never produce a different tree.
                 let mut locked_ws = workspace.start_working_copy_mutation().block_on().unwrap();
                 let (new_tree, _stats) = locked_ws
@@ -184,8 +187,9 @@ fn test_racy_checkout() -> TestResult {
             std::fs::read(path.to_fs_path_unchecked(&workspace_root))?,
             b"1".to_vec()
         );
-        // A file written right after checkout (hopefully, from the test's perspective,
-        // within the file system timestamp granularity) is detected as changed.
+        // A file written right after checkout (hopefully, from the test's
+        // perspective, within the file system timestamp granularity) is
+        // detected as changed.
         write_working_copy_file(&workspace_root, path, "x");
         let modified_tree = test_workspace.snapshot()?;
         if modified_tree.tree_ids() == tree.tree_ids() {

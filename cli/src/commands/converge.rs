@@ -216,10 +216,11 @@ impl<'a> Converge<'a> {
             short_change_hash(&self.change_id)
         )?;
 
-        // Call the library function to attempt to converge the change automatically.
+        // Call the library function to attempt to converge the change
+        // automatically.
         let automatic_converge_result = {
-            // Initially we start with zero knowledge about what the solution should look
-            // like.
+            // Initially we start with zero knowledge about what the solution
+            // should look like.
             let author = None;
             let description = None;
             let parents = None;
@@ -234,8 +235,8 @@ impl<'a> Converge<'a> {
             .await?
         };
 
-        // Now solve the author, description and parents, prompting the user for input
-        // if necessary.
+        // Now solve the author, description and parents, prompting the user for
+        // input if necessary.
         let author = self.generic_solver(automatic_converge_result.author, Self::choose_author)?;
         let description = self.generic_solver(
             automatic_converge_result.description,
@@ -264,8 +265,9 @@ impl<'a> Converge<'a> {
             return Err(user_error("Could not converge change"));
         };
 
-        // If we do not have a tree yet, call the converge_change library function
-        // again, now that we have the author, description and parents.
+        // If we do not have a tree yet, call the converge_change library
+        // function again, now that we have the author, description and
+        // parents.
         let tree = match automatic_converge_result.tree {
             Some(tree) => Ok(tree),
             None => {
@@ -391,8 +393,9 @@ impl<'a> Converge<'a> {
 
         let value_fn = |commit: &Commit| commit.parent_ids().to_vec();
 
-        // A function that takes one of the divergent commits and returns a string that
-        // displays that commit's id and then its parents (one parent per line)
+        // A function that takes one of the divergent commits and returns a
+        // string that displays that commit's id and then its parents
+        // (one parent per line)
         let display_fn = |commit: &Commit, _formatter: &mut dyn Formatter| {
             let mut display_string = String::new();
             writeln!(display_string, "{}:", short_commit_hash(commit.id()))
@@ -425,8 +428,8 @@ impl<'a> Converge<'a> {
         _excluded_divergent_commits: HashSet<CommitId>,
     ) -> Result<String, CommandError> {
         let distinct_values = {
-            // Add the values of the divergent commits to the map, deduplicating them as we
-            // go.
+            // Add the values of the divergent commits to the map, deduplicating
+            // them as we go.
             let mut distinct_values = IndexMap::new();
             for commit in self.truncated_evolution_graph.divergent_commits() {
                 distinct_values
@@ -483,9 +486,10 @@ fn choose_change<'a>(
     if divergent_changes.len() == 1 {
         return Ok(Some(divergent_changes.keys().next().unwrap()));
     }
-    // TODO: consider using heuristics to automatically choose a "good" change-id to
-    // converge, falling back to prompting the user only if the heuristics are
-    // inconclusive. This is specially important in non-interactive mode.
+    // TODO: consider using heuristics to automatically choose a "good"
+    // change-id to converge, falling back to prompting the user only if the
+    // heuristics are inconclusive. This is specially important in
+    // non-interactive mode.
     if !interactive {
         return Err(
             user_error("Cannot automatically choose which change to converge").hinted(
@@ -535,8 +539,8 @@ where
 {
     assert!(!divergent_commits.is_empty());
     let distinct_values = {
-        // Add the values of the divergent commits to the map, deduplicating them as we
-        // go.
+        // Add the values of the divergent commits to the map, deduplicating
+        // them as we go.
         let mut distinct_values = IndexMap::new();
         for commit in divergent_commits {
             distinct_values.entry(value_fn(commit)).or_insert(commit);

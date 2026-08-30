@@ -66,10 +66,11 @@ impl CopyRecords {
     /// conflicts is discarded and treated as not having an origin.
     pub fn add_records(&mut self, copy_records: impl IntoIterator<Item = CopyRecord>) {
         for r in copy_records {
-            // The same copy or rename is reported once per parent when diffing a
-            // merge commit. Identical (source, target) pairs describe the same
-            // operation, so skip the duplicate instead of marking both maps as
-            // conflicting, which would otherwise drop the copy/rename entirely.
+            // The same copy or rename is reported once per parent when diffing
+            // a merge commit. Identical (source, target) pairs
+            // describe the same operation, so skip the duplicate
+            // instead of marking both maps as conflicting, which
+            // would otherwise drop the copy/rename entirely.
             let is_duplicate = self
                 .targets
                 .get(&r.target)
@@ -281,7 +282,8 @@ fn collect_descendants(copy_graph: &CopyGraph) -> IndexMap<CopyId, IndexSet<Copy
     )
     .expect("Could not walk CopyGraph")
     {
-        // For each ID we visit, we should have visited all of its parents first.
+        // For each ID we visit, we should have visited all of its parents
+        // first.
         let mut ancestors = IndexSet::new();
         for parent in &copy_graph[id].parents {
             ancestors.extend(ancestor_map[parent].iter().cloned());
@@ -296,8 +298,8 @@ fn collect_descendants(copy_graph: &CopyGraph) -> IndexMap<CopyId, IndexSet<Copy
         for ancestor in ancestors {
             result.entry(ancestor).or_default().insert(id.clone());
         }
-        // Make sure every CopyId in the graph has an entry in the descendants map, even
-        // if it has no descendants of its own.
+        // Make sure every CopyId in the graph has an entry in the descendants
+        // map, even if it has no descendants of its own.
         result.entry(id.clone()).or_default();
     }
     result
@@ -415,14 +417,16 @@ impl Stream for CopyHistoryDiffStream<'_> {
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         loop {
-            // First, check if we have newly-finished futures. If this returns Pending, we
-            // intentionally fall through to poll `self.inner`.
+            // First, check if we have newly-finished futures. If this returns
+            // Pending, we intentionally fall through to poll
+            // `self.inner`.
             if let Poll::Ready(Some(next)) = self.pending.poll_next_unpin(cx) {
                 return Poll::Ready(Some(next));
             }
 
-            // If we didn't have queued results above, we want to check our wrapped stream
-            // for the next non-copy-matched diff entry.
+            // If we didn't have queued results above, we want to check our
+            // wrapped stream for the next non-copy-matched diff
+            // entry.
             let next_diff_entry = match ready!(self.inner.poll_next_unpin(cx)) {
                 Some(diff_entry) => diff_entry,
                 None if self.pending.is_empty() => return Poll::Ready(None),
@@ -439,7 +443,8 @@ impl Stream for CopyHistoryDiffStream<'_> {
 
             // Don't try copy-tracing if we have conflicts on either side.
             //
-            // TODO: consider accepting conflicts if the copy IDs can be resolved.
+            // TODO: consider accepting conflicts if the copy IDs can be
+            // resolved.
             let Some(before) = before.as_resolved() else {
                 self.pending
                     .push_back(Box::pin(ready(CopyHistoryTreeDiffEntry::normal(
@@ -469,22 +474,31 @@ impl Stream for CopyHistoryDiffStream<'_> {
 
                 (other, Some(f @ TreeValue::File { .. })) => {
                     if let Some(other) = other {
-                        // For files with non-matching copy-ids, or for a non-file that changes to a
-                        // file, mark the first as deleted and do copy-tracing on the second.
+                        // For files with non-matching copy-ids, or for a
+                        // non-file that changes to a
+                        // file, mark the first as deleted and do copy-tracing
+                        // on the second.
                         //
-                        // NOTE[deletion-diff-entry]: this may emit two diff entries, where the old
-                        // diffstream would contain only one (even with gix's heuristic-based copy
+                        // NOTE[deletion-diff-entry]: this may emit two diff
+                        // entries, where the old
+                        // diffstream would contain only one (even with gix's
+                        // heuristic-based copy
                         // detection).
                         //
-                        // This may be desirable in some cases (such as replacing a file X with a
-                        // copy of some other file Y; the deletion entry makes it more clear that
-                        // the original X was replaced by a formerly unrelated file). It is less
-                        // desirable in cases where the new file shares some actual relation to the
+                        // This may be desirable in some cases (such as
+                        // replacing a file X with a
+                        // copy of some other file Y; the deletion entry makes
+                        // it more clear that
+                        // the original X was replaced by a formerly unrelated
+                        // file). It is less
+                        // desirable in cases where the new file shares some
+                        // actual relation to the
                         // old one.
                         //
-                        // We plan to improve this in the near future, but for now we'll keep the
-                        // simpler implementation since this behavior is not visible outside of
-                        // tests yet.
+                        // We plan to improve this in the near future, but for
+                        // now we'll keep the
+                        // simpler implementation since this behavior is not
+                        // visible outside of tests yet.
                         self.pending
                             .push_back(Box::pin(ready(CopyHistoryTreeDiffEntry {
                                 target_path: next_diff_entry.path.clone(),
@@ -618,8 +632,8 @@ async fn classify_source(
     {
         Ok(CopyHistorySource::Copy(before_path))
     } else {
-        //  before_path in before_tree & after_tree are not ancestors/descendants of
-        //  each other
+        //  before_path in before_tree & after_tree are not
+        // ancestors/descendants of  each other
         Ok(CopyHistorySource::Rename(before_path))
     }
 }
@@ -630,8 +644,8 @@ async fn find_diff_sources_from_copies(
     copy_graph: &CopyGraph,
     descendants: &IndexMap<CopyId, IndexSet<CopyId>>,
 ) -> BackendResult<Vec<(RepoPathBuf, TreeValue)>> {
-    // Related copies MUST contain ancestors AND descendants. It may also contain
-    // unrelated copies.
+    // Related copies MUST contain ancestors AND descendants. It may also
+    // contain unrelated copies.
     let history = copy_graph.get(copy_id).ok_or(BackendError::Other(
         "CopyId should be present in `get_related_copies()` result".into(),
     ))?;
@@ -651,8 +665,8 @@ async fn find_diff_sources_from_copies(
 
     let mut sources = vec![];
 
-    // Finds at most one related TreeValue::File present in `tree` per parent listed
-    // in `file`'s CopyHistory.
+    // Finds at most one related TreeValue::File present in `tree` per parent
+    // listed in `file`'s CopyHistory.
     //
     // TODO: this correctly finds the shallowest relative, but it only finds
     // one. I'm not sure what is the best thing to do when one of our parents
@@ -664,12 +678,12 @@ async fn find_diff_sources_from_copies(
     //     / \
     //    A   B
     //
-    // where D is `file`, C is its parent but is not present in `tree`, but both A
-    // and B are present, this will find either A or B, not both. Should we
-    // return both A and B instead? I don't think there's a way to do that with
-    // the current dag_walk functions. Do we care enough to implement something
-    // new there that pays more attention to the depth in the DAG? Perhaps
-    // a variant of closest_common_nodes?
+    // where D is `file`, C is its parent but is not present in `tree`, but both
+    // A and B are present, this will find either A or B, not both. Should
+    // we return both A and B instead? I don't think there's a way to do
+    // that with the current dag_walk functions. Do we care enough to
+    // implement something new there that pays more attention to the depth
+    // in the DAG? Perhaps a variant of closest_common_nodes?
     'parents: for parent_copy_id in &history.parents {
         let mut absent_ancestors = vec![];
 
@@ -688,8 +702,8 @@ async fn find_diff_sources_from_copies(
 
         // If not, then try descendants of the parent
         //
-        // TODO: This will find a relative, when what we really want is probably the
-        // "closest" relative.
+        // TODO: This will find a relative, when what we really want is probably
+        // the "closest" relative.
         for descendant_id in &descendants[parent_copy_id] {
             if let Some(descendant) = tree.copy_value(descendant_id).await? {
                 sources.push((copy_graph[descendant_id].current_path.clone(), descendant));
@@ -699,8 +713,8 @@ async fn find_diff_sources_from_copies(
 
         // Finally, try descendants of any ancestor
         //
-        // TODO: This will find a relative, when what we really want is probably the
-        // "closest" relative.
+        // TODO: This will find a relative, when what we really want is probably
+        // the "closest" relative.
         for ancestor_id in absent_ancestors {
             for descendant_id in descendants[ancestor_id].difference(&descendants[parent_copy_id]) {
                 if let Some(descendant) = tree.copy_value(descendant_id).await? {

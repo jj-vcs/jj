@@ -339,8 +339,8 @@ fn test_edit_previous_empty_non_head() -> TestResult {
 
 #[test]
 fn test_edit_initial() -> TestResult {
-    // Test that MutableRepo::edit() can be used on the initial working-copy commit
-    // in a workspace
+    // Test that MutableRepo::edit() can be used on the initial working-copy
+    // commit in a workspace
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -380,13 +380,13 @@ fn test_edit_hidden_commit() -> TestResult {
 
 #[test]
 fn test_add_head_success() -> TestResult {
-    // Test that MutableRepo::add_head() adds the head, and that it's still there
-    // after commit. It should also be indexed.
+    // Test that MutableRepo::add_head() adds the head, and that it's still
+    // there after commit. It should also be indexed.
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    // Create a commit outside of the repo by using a temporary transaction. Then
-    // add that as a head.
+    // Create a commit outside of the repo by using a temporary transaction.
+    // Then add that as a head.
     let mut tx = repo.start_transaction();
     let new_commit = write_random_commit(tx.repo_mut());
     drop(tx);
@@ -407,8 +407,8 @@ fn test_add_head_success() -> TestResult {
 
 #[test]
 fn test_add_head_ancestor() -> TestResult {
-    // Test that MutableRepo::add_head() does not add a head if it's an ancestor of
-    // an existing head.
+    // Test that MutableRepo::add_head() does not add a head if it's an ancestor
+    // of an existing head.
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -428,8 +428,8 @@ fn test_add_head_ancestor() -> TestResult {
 
 #[test]
 fn test_add_head_not_immediate_child() -> TestResult {
-    // Test that MutableRepo::add_head() can be used for adding a head that is not
-    // an immediate child of a current head.
+    // Test that MutableRepo::add_head() can be used for adding a head that is
+    // not an immediate child of a current head.
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -463,9 +463,9 @@ fn test_add_head_not_immediate_child() -> TestResult {
 
 #[test]
 fn test_remove_head() -> TestResult {
-    // Test that MutableRepo::remove_head() removes the head, and that it's still
-    // removed after commit. It should remain in the index, since we otherwise would
-    // have to reindex everything.
+    // Test that MutableRepo::remove_head() removes the head, and that it's
+    // still removed after commit. It should remain in the index, since we
+    // otherwise would have to reindex everything.
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -499,9 +499,9 @@ fn test_remove_head() -> TestResult {
 
 #[test]
 fn test_has_changed() -> TestResult {
-    // Test that MutableRepo::has_changed() reports changes iff the view has changed
-    // (e.g. not after setting a bookmark to point to where it was already
-    // pointing).
+    // Test that MutableRepo::has_changed() reports changes iff the view has
+    // changed (e.g. not after setting a bookmark to point to where it was
+    // already pointing).
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
     let normal_remote_ref = |id: &CommitId| RemoteRef {
@@ -573,7 +573,8 @@ fn test_has_changed() -> TestResult {
 
 #[test]
 fn test_rebase_descendants_simple() -> TestResult {
-    // There are many additional tests of this functionality in `test_rewrite.rs`.
+    // There are many additional tests of this functionality in
+    // `test_rewrite.rs`.
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -767,8 +768,8 @@ fn test_reparent_descendants() -> TestResult {
             // "b" and "child_b" have been kept untouched.
             assert_eq!(commit.id(), &rewritten_id);
         } else {
-            // All commits except "b", and "child_b" have been reparented while keeping
-            // their content.
+            // All commits except "b", and "child_b" have been reparented while
+            // keeping their content.
             assert_ne!(commit.id(), &rewritten_id);
             let rewritten_commit = repo.store().get_commit(&rewritten_id)?;
             assert_eq!(commit.tree_ids(), rewritten_commit.tree_ids());
@@ -783,8 +784,8 @@ fn test_reparent_descendants() -> TestResult {
 
 #[test]
 fn test_bookmark_hidden_commit() -> TestResult {
-    // Test that MutableRepo::set_local_bookmark_target() on a hidden commit makes
-    // it visible.
+    // Test that MutableRepo::set_local_bookmark_target() on a hidden commit
+    // makes it visible.
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
     let root_commit = repo.store().root_commit();

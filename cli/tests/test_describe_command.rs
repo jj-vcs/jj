@@ -46,8 +46,8 @@ fn test_describe() -> TestResult {
     [EOF]
     ");
 
-    // Check that the text file gets initialized with the current description and
-    // make no changes
+    // Check that the text file gets initialized with the current description
+    // and make no changes
     std::fs::write(&edit_script, "dump editor0")?;
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @"

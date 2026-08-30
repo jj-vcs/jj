@@ -191,7 +191,8 @@ fn test_resolution() -> TestResult {
     "#);
 
     // Check that if merge tool leaves conflict markers in output file and
-    // `merge-tool-edits-conflict-markers=true`, these markers are properly parsed.
+    // `merge-tool-edits-conflict-markers=true`, these markers are properly
+    // parsed.
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"");
     std::fs::write(
@@ -334,8 +335,8 @@ fn test_resolution() -> TestResult {
     [exit status: 2]
     ");
 
-    // Check that merge tool can override conflict marker style setting, and that
-    // the merge tool can output Git-style conflict markers
+    // Check that merge tool can override conflict marker style setting, and
+    // that the merge tool can output Git-style conflict markers
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"");
     std::fs::write(
@@ -484,7 +485,8 @@ fn test_resolution() -> TestResult {
     ");
 
     // Check that an error is reported if a merge tool indicated it would leave
-    // conflict markers, but the output file didn't contain valid conflict markers.
+    // conflict markers, but the output file didn't contain valid conflict
+    // markers.
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"");
     std::fs::write(
@@ -623,8 +625,8 @@ fn check_resolve_produces_input_file(
     std::fs::write(editor_script, format!("expect\n{expected_content}")).unwrap();
 
     let merge_arg_config = format!(r#"merge-tools.fake-editor.merge-args=["${role}"]"#);
-    // This error means that fake-editor exited successfully but did not modify the
-    // output file.
+    // This error means that fake-editor exited successfully but did not modify
+    // the output file.
     let output = work_dir.run_jj(["resolve", "--config", &merge_arg_config, filename]);
     insta::allow_duplicates! {
         insta::assert_snapshot!(
@@ -762,8 +764,8 @@ fn test_simplify_conflict_sides() -> TestResult {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    // Creates a 4-sided conflict, with fileA and fileB having different conflicts:
-    // fileA: A - B + C - B + B - B + B
+    // Creates a 4-sided conflict, with fileA and fileB having different
+    // conflicts: fileA: A - B + C - B + B - B + B
     // fileB: A - A + A - A + B - C + D
     create_commit_with_files(
         &work_dir,
@@ -812,7 +814,8 @@ fn test_simplify_conflict_sides() -> TestResult {
     >>>>>>> conflict 1 of 1 ends
     "#);
 
-    // Conflict should be simplified before being handled by external merge tool.
+    // Conflict should be simplified before being handled by external merge
+    // tool.
     check_resolve_produces_input_file(&mut test_env, "repo", "fileA", "base", "base\n");
     check_resolve_produces_input_file(&mut test_env, "repo", "fileA", "left", "1\n");
     check_resolve_produces_input_file(&mut test_env, "repo", "fileA", "right", "2\n");
@@ -820,8 +823,8 @@ fn test_simplify_conflict_sides() -> TestResult {
     check_resolve_produces_input_file(&mut test_env, "repo", "fileB", "left", "1\n");
     check_resolve_produces_input_file(&mut test_env, "repo", "fileB", "right", "2\n");
 
-    // Check that simplified conflicts are still parsed as conflicts after editing
-    // when `merge-tool-edits-conflict-markers=true`.
+    // Check that simplified conflicts are still parsed as conflicts after
+    // editing when `merge-tool-edits-conflict-markers=true`.
     let editor_script = test_env.set_up_fake_editor();
     std::fs::write(
         editor_script,
@@ -1029,8 +1032,8 @@ fn test_resolve_conflicts_with_executable() -> TestResult {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    // Create a conflict in "file1" where all 3 terms are executables, and create a
-    // conflict in "file2" where one side set the executable bit.
+    // Create a conflict in "file1" where all 3 terms are executables, and
+    // create a conflict in "file2" where one side set the executable bit.
     create_commit_with_files(
         &work_dir,
         "base",
@@ -1081,7 +1084,8 @@ fn test_resolve_conflicts_with_executable() -> TestResult {
     );
     let setup_opid = work_dir.current_operation_id();
 
-    // Test resolving the conflict in "file1", which should produce an executable
+    // Test resolving the conflict in "file1", which should produce an
+    // executable
     std::fs::write(&editor_script, b"write\nresolution1\n")?;
     let output = work_dir.run_jj(["resolve", "file1"]);
     insta::assert_snapshot!(output, @"
@@ -1125,7 +1129,8 @@ fn test_resolve_conflicts_with_executable() -> TestResult {
     [EOF]
     ");
 
-    // Test resolving the conflict in "file2", which should produce an executable
+    // Test resolving the conflict in "file2", which should produce an
+    // executable
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(&editor_script, b"write\nresolution2\n")?;
     let output = work_dir.run_jj(["resolve", "file2"]);
@@ -1747,8 +1752,8 @@ fn test_resolve_long_conflict_markers() -> TestResult {
     [EOF]
     ");
 
-    // If the merge tool accepts the marker length as an argument, then the conflict
-    // markers should be at least as long as "$marker_length"
+    // If the merge tool accepts the marker length as an argument, then the
+    // conflict markers should be at least as long as "$marker_length"
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(
         &editor_script,
@@ -2074,7 +2079,8 @@ fn test_multiple_conflicts_with_error() -> TestResult {
     );
     let setup_opid = work_dir.current_operation_id();
 
-    // Test resolving one conflict, then exiting without resolving the second one
+    // Test resolving one conflict, then exiting without resolving the second
+    // one
     std::fs::write(
         &editor_script,
         ["write\nresolution1\n", "next invocation\n"].join("\0"),

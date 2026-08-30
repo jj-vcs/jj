@@ -91,8 +91,8 @@ fn test_converge_simple() {
     [EOF]
     ");
 
-    // Run `jj converge` command and check the output. In this case no user input is
-    // needed.
+    // Run `jj converge` command and check the output. In this case no user
+    // input is needed.
     let output = work_dir.run_jj(["converge"]).success();
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -164,8 +164,8 @@ fn test_converge_two_divergent_changes_in_non_interactive_mode() {
         .success();
     create_commit_with_files(&work_dir, "g", &["e1"], &[("file7", "7")]);
 
-    // Test the setup: look at the commit graph (commit B is duplicated and commit E
-    // is duplicated)
+    // Test the setup: look at the commit graph (commit B is duplicated and
+    // commit E is duplicated)
     insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
     @  g  xznxytkn  46658cae - description: g
     ○  e1  kmkuslsw/1  15962bae - description: e2
@@ -203,9 +203,9 @@ fn test_converge_two_divergent_changes_in_non_interactive_mode() {
     [exit status: 1]
     ");
 
-    // Note: in the test environment jj commands run in non-interactive (quiet) mode
-    // by default, so the following also fails but for a different reason: it
-    // cannot prompt the user
+    // Note: in the test environment jj commands run in non-interactive (quiet)
+    // mode by default, so the following also fails but for a different
+    // reason: it cannot prompt the user
     let output = work_dir.run_jj(["converge"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -280,8 +280,8 @@ fn test_converge_two_divergent_changes() {
         .success();
     create_commit_with_files(&work_dir, "g", &["e1"], &[("file7", "7")]);
 
-    // Test the setup: look at the commit graph (commit B is duplicated and commit E
-    // is duplicated)
+    // Test the setup: look at the commit graph (commit B is duplicated and
+    // commit E is duplicated)
     insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
     @  g  xznxytkn  46658cae - description: g
     ○  e1  kmkuslsw/1  15962bae - description: e2
@@ -341,10 +341,10 @@ fn test_converge_two_divergent_changes() {
     [EOF]
     ");
 
-    // Run the command again, this time the user chooses the first divergent change.
-    // This invocation succeeds to automatically converge that change. A hint is
-    // printed to inform the user that there is still one divergent change
-    // remaining.
+    // Run the command again, this time the user chooses the first divergent
+    // change. This invocation succeeds to automatically converge that
+    // change. A hint is printed to inform the user that there is still one
+    // divergent change remaining.
     let output = work_dir
         .run_jj_with(|cmd| force_interactive(cmd).args(["converge"]).write_stdin("1\n"))
         .success();
@@ -502,8 +502,8 @@ fn test_converge_simple_with_revisions_arg() {
     [EOF]
     ");
 
-    // `-r a::` resolves to {a, b1, b2, c, d}. Now the command "sees" two commits
-    // with the same change-id and converges them.
+    // `-r a::` resolves to {a, b1, b2, c, d}. Now the command "sees" two
+    // commits with the same change-id and converges them.
     let output = work_dir.run_jj(["converge", "-r", "a::"]).success();
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -583,8 +583,8 @@ fn test_converge_simple_with_revisions_arg_and_two_divergent_changes() {
         .success();
     create_commit_with_files(&work_dir, "g", &["e2"], &[("file7", "7")]);
 
-    // Test the setup: look at the commit graph (commit B is duplicated and commit E
-    // is duplicated)
+    // Test the setup: look at the commit graph (commit B is duplicated and
+    // commit E is duplicated)
     insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
     @  g  nmzmmopx  7e4fac7e - description: g
     ○  e2  kmkuslsw/0  c8976369 - description: blah blah blah
@@ -630,8 +630,8 @@ fn test_converge_simple_with_revisions_arg_and_two_divergent_changes() {
     [EOF]
     ");
 
-    // `-r a::` does resolve to both divergent changes. In this test we simulate the
-    // user aborts at the prompt.
+    // `-r a::` does resolve to both divergent changes. In this test we simulate
+    // the user aborts at the prompt.
     let output = work_dir
         .run_jj_with(|cmd| {
             force_interactive(cmd)
@@ -661,9 +661,9 @@ fn test_converge_simple_with_revisions_arg_and_two_divergent_changes() {
     [EOF]
     ");
 
-    // `-r b1|e3` resolve to those two commits. Both ARE divergent commits, but in
-    // the search space there are no other commits with either change-id so the
-    // command does nothing.
+    // `-r b1|e3` resolve to those two commits. Both ARE divergent commits, but
+    // in the search space there are no other commits with either change-id
+    // so the command does nothing.
     let output = work_dir
         .run_jj_with(|cmd| {
             force_interactive(cmd)
@@ -677,8 +677,8 @@ fn test_converge_simple_with_revisions_arg_and_two_divergent_changes() {
     [EOF]
     ");
 
-    // Specifying `-r b1|b2` resolves to that divergent change and only that one.
-    // There should not be any prompt.
+    // Specifying `-r b1|b2` resolves to that divergent change and only that
+    // one. There should not be any prompt.
     let output = work_dir
         .run_jj_with(|cmd| {
             force_interactive(cmd)
@@ -1029,7 +1029,8 @@ fn test_converge_description_changed_inconsistently(invoke_text_editor: bool) ->
         [EOF]
         ");
 
-        // Verify the description after converge (it should have conflict markers)
+        // Verify the description after converge (it should have conflict
+        // markers)
         let output = work_dir.run_jj(["log", "-T", "description", "-r", "b1", "--no-graph"]);
         insta::assert_snapshot!(output, @r#"
         <<<<<<< conflict 1 of 1
@@ -1094,8 +1095,8 @@ fn test_converge_with_inconsistent_parents() {
     [EOF]
     ");
 
-    // First check behavior in non-interactive mode. The command cannot determine
-    // which parents to use, so it should fail.
+    // First check behavior in non-interactive mode. The command cannot
+    // determine which parents to use, so it should fail.
     let output =
         work_dir.run_jj_with(|cmd| force_interactive(cmd).args(["converge", "--no-interactive"]));
     insta::assert_snapshot!(output, @r"
@@ -1213,10 +1214,11 @@ fn test_converge_one_divergent_commit_is_a_descendant_of_another_divergent_commi
 
     // Start by setting description to "message 1", then simulate two concurrent
     // operations, one changing the description to "message 2" and the other
-    // changing it to "message 3" (--at-op=@- is what allows us to pretend these two
-    // operations happen concurrently). At this point we have two divergent commits.
-    // Then we set up bookmarks b2 and b3 to point to the commits. Finally we rebase
-    // b2 onto b3. This sets the stage for this test's scenario.
+    // changing it to "message 3" (--at-op=@- is what allows us to pretend these
+    // two operations happen concurrently). At this point we have two
+    // divergent commits. Then we set up bookmarks b2 and b3 to point to the
+    // commits. Finally we rebase b2 onto b3. This sets the stage for this
+    // test's scenario.
     work_dir.run_jj(["describe", "-m", "message 1"]).success();
     work_dir.run_jj(["describe", "-m", "message 2"]).success();
     work_dir
@@ -1265,8 +1267,8 @@ fn test_converge_one_divergent_commit_is_a_descendant_of_another_divergent_commi
     [EOF]
     ");
 
-    // Test the setup: look at the commit graph (commit B is duplicated and commit E
-    // is duplicated)
+    // Test the setup: look at the commit graph (commit B is duplicated and
+    // commit E is duplicated)
     insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
     @  b2  qpvuntsm/0  cca75b59 - description: message 2
     ○  b3  qpvuntsm/1  4734557e - description: message 3
@@ -1291,9 +1293,10 @@ fn test_converge_one_divergent_commit_is_a_descendant_of_another_divergent_commi
     [EOF]
     ");
 
-    // Run `jj converge` command and check the output. In this case the user must
-    // merge the descriptions in a text editor. However, the parents are chosen
-    // automatically (b2 is ignored because it is a descendant of b3).
+    // Run `jj converge` command and check the output. In this case the user
+    // must merge the descriptions in a text editor. However, the parents
+    // are chosen automatically (b2 is ignored because it is a descendant of
+    // b3).
     std::fs::write(
         &edit_script,
         ["dump editor0", "write\nmy-merged-description"].join("\0"),
@@ -1390,12 +1393,12 @@ fn test_converge_two_divergent_commits_with_unrelated_commit_in_between() -> Tes
 
     // Start by setting description to "message 1", then simulate two concurrent
     // operations, one changing the description to "message 2" and the other
-    // changing it to "message 3" (--at-op=@- is what allows us to pretend these two
-    // operations happen concurrently). At this point we have two divergent commits.
-    // Then we set up bookmarks b2 and b3 to point to the commits. After that we
-    // create foo as a child of b3, then we rebase b2 onto foo. This sets the
-    // stage for this test's scenario. We create two other commits (bar and baz)
-    // to observe how descendants are rebased.
+    // changing it to "message 3" (--at-op=@- is what allows us to pretend these
+    // two operations happen concurrently). At this point we have two
+    // divergent commits. Then we set up bookmarks b2 and b3 to point to the
+    // commits. After that we create foo as a child of b3, then we rebase b2
+    // onto foo. This sets the stage for this test's scenario. We create two
+    // other commits (bar and baz) to observe how descendants are rebased.
     work_dir.run_jj(["describe", "-m", "message 1"]).success();
     work_dir.run_jj(["describe", "-m", "message 2"]).success();
     work_dir
@@ -1453,8 +1456,8 @@ fn test_converge_two_divergent_commits_with_unrelated_commit_in_between() -> Tes
     [EOF]
     ");
 
-    // Test the setup: look at the commit graph (commit B is duplicated and commit E
-    // is duplicated)
+    // Test the setup: look at the commit graph (commit B is duplicated and
+    // commit E is duplicated)
     insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
     @    znkkpsqq  aac9c864 - description: baz
     │ ○    yostqsxw  38a29791 - description: bar
@@ -1483,9 +1486,10 @@ fn test_converge_two_divergent_commits_with_unrelated_commit_in_between() -> Tes
     [EOF]
     ");
 
-    // Run `jj converge` command and check the output. In this case the user must
-    // merge the descriptions in a text editor. However, the parents are chosen
-    // automatically (b2 is ignored because it is a descendant of b3).
+    // Run `jj converge` command and check the output. In this case the user
+    // must merge the descriptions in a text editor. However, the parents
+    // are chosen automatically (b2 is ignored because it is a descendant of
+    // b3).
     std::fs::write(
         &edit_script,
         ["dump editor0", "write\nmy-merged-description"].join("\0"),
@@ -1554,7 +1558,8 @@ fn test_converge_two_divergent_commits_with_unrelated_commit_in_between() -> Tes
     ");
 
     // Verify the commit graph after converge; notice the commit that was
-    // "sandwiched" between b2 and b3 (foo) is now a child of the solution commit.
+    // "sandwiched" between b2 and b3 (foo) is now a child of the solution
+    // commit.
     insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
     @    znkkpsqq  3ea044e0 - description: baz
     │ ○    yostqsxw  a4dd040e - description: bar

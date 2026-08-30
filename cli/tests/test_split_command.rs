@@ -112,8 +112,8 @@ fn test_split_by_paths() -> TestResult {
     [EOF]
     ");
 
-    // The author dates of the new commits should be inherited from the commit being
-    // split. The committer dates should be newer.
+    // The author dates of the new commits should be inherited from the commit
+    // being split. The committer dates should be newer.
     insta::assert_snapshot!(get_recorded_dates(&work_dir, "@"), @"
     Author date:  2001-02-03 04:05:08.000 +07:00
     Committer date: 2001-02-03 04:05:10.000 +07:00[EOF]
@@ -617,7 +617,8 @@ fn test_split_parallel_with_descendants() -> TestResult {
     work_dir
         .run_jj(["commit", "-m", "Add file1 & file2"])
         .success();
-    // Second commit. This will be the child of the sibling commits after the split.
+    // Second commit. This will be the child of the sibling commits after the
+    // split.
     work_dir.write_file("file3", "baz\n");
     work_dir.run_jj(["commit", "-m", "Add file3"]).success();
     // Third commit.
@@ -773,7 +774,8 @@ fn test_split_parallel_with_conflict() -> TestResult {
     [EOF]
     ");
 
-    // Create a conflict by splitting two consecutive lines into parallel commits.
+    // Create a conflict by splitting two consecutive lines into parallel
+    // commits.
     std::fs::write(
         diff_editor,
         ["write file\nline 1\nline 2.1\nline 3\n"].join("\0"),
@@ -824,8 +826,8 @@ fn test_split_parallel_with_conflict() -> TestResult {
     line 3
     ");
 
-    // The old commit shouldn't be conflicted, since it matches the selection from
-    // the editor.
+    // The old commit shouldn't be conflicted, since it matches the selection
+    // from the editor.
     insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r=@+-~@", "file"]), @"
     line 1
     line 2.1
@@ -992,8 +994,8 @@ fn test_split_interactive_with_paths() -> TestResult {
     .join("\0");
     std::fs::write(diff_editor, diff_script)?;
 
-    // Select file1 and file2 by args, then select file1 interactively via the diff
-    // script.
+    // Select file1 and file2 by args, then select file1 interactively via the
+    // diff script.
     let output = work_dir.run_jj(["split", "-i", "file1", "file2"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -1060,8 +1062,9 @@ fn test_split_with_multiple_workspaces_same_working_copy() -> TestResult {
     secondary_dir
         .run_jj(["edit", "-r", "subject(first-commit)"])
         .success();
-    // Check the working-copy commit in each workspace in the log output. The "@"
-    // node in the graph indicates the current workspace's working-copy commit.
+    // Check the working-copy commit in each workspace in the log output. The
+    // "@" node in the graph indicates the current workspace's working-copy
+    // commit.
     insta::assert_snapshot!(get_workspace_log_output(&main_dir), @"
     @  qpvuntsmwlqt default@ second@ first-commit
     ◆  zzzzzzzzzzzz
@@ -1117,8 +1120,9 @@ fn test_split_with_multiple_workspaces_different_working_copy() -> TestResult {
     main_dir
         .run_jj(["workspace", "add", "--name", "second", "../secondary"])
         .success();
-    // Check the working-copy commit in each workspace in the log output. The "@"
-    // node in the graph indicates the current workspace's working-copy commit.
+    // Check the working-copy commit in each workspace in the log output. The
+    // "@" node in the graph indicates the current workspace's working-copy
+    // commit.
     insta::assert_snapshot!(get_workspace_log_output(&main_dir), @"
     @  qpvuntsmwlqt default@ first-commit
     │ ○  pmmvwywvzvvn second@
@@ -1712,7 +1716,8 @@ fn test_split_with_editor_and_message_args() -> TestResult {
         ])
         .success();
 
-    // Verify editor was opened for the first commit with message from command line
+    // Verify editor was opened for the first commit with message from command
+    // line
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor1"))?, @r#"
     JJ: Enter a description for the selected changes.
@@ -1725,7 +1730,8 @@ fn test_split_with_editor_and_message_args() -> TestResult {
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 
-    // Verify editor was opened for the second commit with the original description
+    // Verify editor was opened for the second commit with the original
+    // description
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor2"))?, @r#"
     JJ: Enter a description for the remaining changes.
@@ -1799,7 +1805,8 @@ fn test_split_with_editor_and_empty_message() -> TestResult {
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
-    // Verify editor was opened for the second commit with the original description
+    // Verify editor was opened for the second commit with the original
+    // description
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor2"))?, @r#"
     JJ: Enter a description for the remaining changes.
@@ -1835,7 +1842,8 @@ fn test_split_with_editor_without_message() -> TestResult {
         .run_jj(["describe", "-m", "original description"])
         .success();
 
-    // --editor without -m should behave the same as without --editor (normal flow)
+    // --editor without -m should behave the same as without --editor (normal
+    // flow)
     std::fs::write(
         &edit_script,
         [

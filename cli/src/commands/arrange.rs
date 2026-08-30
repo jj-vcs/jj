@@ -374,9 +374,9 @@ impl State {
     /// viewport.
     fn clamp_scroll(&mut self, viewport_rows: u16) {
         // `render()` configures the graph renderer with a minimum row height of
-        // two, so this estimates how many commits fit in the common case. Custom
-        // templates and graph topology can make a commit taller, so this is not
-        // a strict bound.
+        // two, so this estimates how many commits fit in the common case.
+        // Custom templates and graph topology can make a commit taller,
+        // so this is not a strict bound.
         let max_visible = (viewport_rows / 2).max(1) as usize;
         let total_commits =
             self.external_children.len() + self.current_order.len() + self.external_parents.len();
@@ -528,8 +528,8 @@ fn run_tui<B: ratatui::backend::Backend>(
         if let Event::Key(event) =
             event::read().map_err(|e| internal_error(format!("Failed to read TUI events: {e}")))?
         {
-            // On Windows, we get Press and Release (and maybe Repeat) events, but on Linux
-            // we only get Press.
+            // On Windows, we get Press and Release (and maybe Repeat) events,
+            // but on Linux we only get Press.
             if event.is_release() {
                 continue;
             }
@@ -600,8 +600,8 @@ fn render(
         .chain(state.external_parents.iter())
         .skip(state.scroll_top);
     for id in commits_to_render {
-        // TODO: Make the graph column width depend on what's needed to render the
-        // graph.
+        // TODO: Make the graph column width depend on what's needed to render
+        // the graph.
         let row_layout = Layout::horizontal([
             Constraint::Min(2),
             Constraint::Min(10),
@@ -621,9 +621,9 @@ fn render(
         let commit_state = state.commits.get(id).unwrap();
         let action = &commit_state.action;
 
-        // TODO: The graph can be misaligned with the text because sometimes `renderdag`
-        // inserts a line of edges before the line with the node and we assume the node
-        // is the first line emitted.
+        // TODO: The graph can be misaligned with the text because sometimes
+        // `renderdag` inserts a line of edges before the line with the
+        // node and we assume the node is the first line emitted.
         let edges = commit_state
             .parents
             .iter()
@@ -756,7 +756,8 @@ mod tests {
             ]
         );
 
-        // Update parents and head order and check that the commit order changes.
+        // Update parents and head order and check that the commit order
+        // changes.
         state.commits.get_mut(commit_a.id()).unwrap().parents = vec![commit_c.id().clone()];
         state.commits.get_mut(commit_b.id()).unwrap().parents =
             vec![store.root_commit_id().clone()];
@@ -1013,7 +1014,8 @@ mod tests {
             ]
         );
 
-        // Attempting to swap D down should have no effect because it has two parents
+        // Attempting to swap D down should have no effect because it has two
+        // parents
         state.current_selection = 0;
         assert_eq!(state.current_id(), commit_d.id());
         let state_before = state.clone();
@@ -1070,8 +1072,8 @@ mod tests {
         );
         assert_eq!(state.current_selection, 3);
 
-        // Attempting to swap C down should have no effect because it would move outside
-        // of range
+        // Attempting to swap C down should have no effect because it would move
+        // outside of range
         state.current_selection = 3;
         assert_eq!(state.current_id(), commit_c.id());
         let state_before = state.clone();
@@ -1132,16 +1134,17 @@ mod tests {
             ]
         );
 
-        // Attempting to swap A up should have no effect because it has two children
+        // Attempting to swap A up should have no effect because it has two
+        // children
         state.current_selection = 3;
         assert_eq!(state.current_id(), commit_a.id());
         let state_before = state.clone();
         state.swap_selection_up();
         assert_eq!(state, state_before);
 
-        // Attempting to swap C up should have no effect because it has two children
-        // even though one is external. We could change this to ignore the external
-        // child.
+        // Attempting to swap C up should have no effect because it has two
+        // children even though one is external. We could change this to
+        // ignore the external child.
         state.current_selection = 2;
         assert_eq!(state.current_id(), commit_c.id());
         let state_before = state.clone();
@@ -1173,8 +1176,8 @@ mod tests {
         );
         assert_eq!(state.current_selection, 0);
 
-        // Attempting to swap B up should have no effect because it would move outside
-        // of range
+        // Attempting to swap B up should have no effect because it would move
+        // outside of range
         state.current_selection = 0;
         assert_eq!(state.current_id(), commit_b.id());
         let state_before = state.clone();

@@ -95,8 +95,8 @@ fn test_graph_iterator_virtual_octopus(skip_transitive_edges: bool, padding: u32
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    // Tests that merges outside the set can result in more parent edges than there
-    // was in the input:
+    // Tests that merges outside the set can result in more parent edges than
+    // there was in the input:
     //
     // F
     // |\
@@ -194,8 +194,8 @@ fn test_graph_iterator_multiple_missing(skip_transitive_edges: bool, padding: u3
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    // Tests that we get missing edges to "a" and "c" and not just one missing edge
-    // to the root.
+    // Tests that we get missing edges to "a" and "c" and not just one missing
+    // edge to the root.
     //   F
     //  / \        F
     // d   e   => /|\
@@ -239,9 +239,9 @@ fn test_graph_iterator_edge_to_ancestor(skip_transitive_edges: bool, padding: u3
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    // Tests that we get both an edge from F to D and to D's ancestor C if we keep
-    // transitive edges and only the edge from F to D if we skip transitive
-    // edges:
+    // Tests that we get both an edge from F to D and to D's ancestor C if we
+    // keep transitive edges and only the edge from F to D if we skip
+    // transitive edges:
     // F          F
     // |\         |\
     // D e        D :

@@ -811,10 +811,11 @@ fn test_resolve_symbol_bookmarks_only() -> TestResult {
     );
 
     // Typo of local/remote bookmark name:
-    // For "local-emote" (without @remote part), "local-remote@mirror"/"@git" aren't
-    // suggested since they point to the same target as "local-remote". OTOH,
-    // "local-remote@untracked" is suggested because non-tracking bookmark is
-    // unrelated to the local bookmark of the same name.
+    // For "local-emote" (without @remote part), "local-remote@mirror"/"@git"
+    // aren't suggested since they point to the same target as
+    // "local-remote". OTOH, "local-remote@untracked" is suggested because
+    // non-tracking bookmark is unrelated to the local bookmark of the same
+    // name.
     insta::assert_debug_snapshot!(
         resolve_symbol(mut_repo, "local-emote").unwrap_err(), @r#"
     NoSuchRevision {
@@ -863,8 +864,8 @@ fn test_resolve_symbol_bookmarks_only() -> TestResult {
         ],
     }
     "#);
-    // "local-remote@mirror" shouldn't be omitted just because it points to the same
-    // target as "local-remote".
+    // "local-remote@mirror" shouldn't be omitted just because it points to the
+    // same target as "local-remote".
     insta::assert_debug_snapshot!(
         resolve_symbol(mut_repo, "remote@mirror").unwrap_err(), @r#"
     NoSuchRevision {
@@ -1295,8 +1296,8 @@ fn test_evaluate_expression_heads() {
         vec![commit3.id().clone()]
     );
 
-    // Heads of a grandparent and a grandchild is the grandchild (unlike Mercurial's
-    // heads() revset, which would include both)
+    // Heads of a grandparent and a grandchild is the grandchild (unlike
+    // Mercurial's heads() revset, which would include both)
     assert_eq!(
         resolve_commit_ids(
             mut_repo,
@@ -1594,8 +1595,8 @@ fn test_evaluate_expression_children() {
         vec![commit1.id().clone()]
     );
 
-    // Children of all commits in input are returned, including those already in the
-    // input set
+    // Children of all commits in input are returned, including those already in
+    // the input set
     assert_eq!(
         resolve_commit_ids(mut_repo, &format!("({} | {})+", commit1.id(), commit2.id())),
         vec![
@@ -1684,8 +1685,8 @@ fn test_evaluate_expression_ancestors() {
         vec![root_commit.id().clone()]
     );
 
-    // Can find ancestors of a specific commit. Commits reachable via multiple paths
-    // are not repeated.
+    // Can find ancestors of a specific commit. Commits reachable via multiple
+    // paths are not repeated.
     assert_eq!(
         resolve_commit_ids(mut_repo, &format!("::{}", commit4.id())),
         vec![
@@ -1697,8 +1698,8 @@ fn test_evaluate_expression_ancestors() {
         ]
     );
 
-    // Can find ancestors of parents or parents of ancestors, which may be optimized
-    // to single query
+    // Can find ancestors of parents or parents of ancestors, which may be
+    // optimized to single query
     assert_eq!(
         resolve_commit_ids(mut_repo, &format!("::({}-)", commit4.id())),
         vec![
@@ -1828,7 +1829,8 @@ fn test_evaluate_expression_first_ancestors() {
     let commit4 = write_random_commit_with_parents(mut_repo, &[&commit2, &commit3]);
     let commit5 = write_random_commit_with_parents(mut_repo, &[&commit3, &commit4]);
 
-    // The first-parent ancestors of the root commit is just the root commit itself
+    // The first-parent ancestors of the root commit is just the root commit
+    // itself
     assert_eq!(
         resolve_commit_ids(mut_repo, "first_ancestors(root())"),
         vec![root_commit.id().clone()]
@@ -1900,8 +1902,8 @@ fn test_evaluate_expression_range() {
     let commit3 = write_random_commit_with_parents(mut_repo, &[&commit2]);
     let commit4 = write_random_commit_with_parents(mut_repo, &[&commit1, &commit3]);
 
-    // The range from the root to the root is empty (because the left side of the
-    // range is exclusive)
+    // The range from the root to the root is empty (because the left side of
+    // the range is exclusive)
     assert_eq!(resolve_commit_ids(mut_repo, "root()..root()"), vec![]);
 
     // Linear range
@@ -2130,11 +2132,12 @@ fn test_evaluate_expression_reachable() {
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
 
-    // Construct 3 separate subgraphs off the root commit. The creation of subgraphs
-    // 1 and 2 is interleaved so that their index positions are also interleaved.
-    // This makes it more likely that the tests will fail if we evaluate the revset
-    // predicate in the wrong order (e.g. if we check all of subgraph 1 before 2).
-    // 1 is a chain, 2 is a merge, 3 is a pyramidal monstrosity
+    // Construct 3 separate subgraphs off the root commit. The creation of
+    // subgraphs 1 and 2 is interleaved so that their index positions are
+    // also interleaved. This makes it more likely that the tests will fail
+    // if we evaluate the revset predicate in the wrong order (e.g. if we
+    // check all of subgraph 1 before 2). 1 is a chain, 2 is a merge, 3 is a
+    // pyramidal monstrosity
     let graph1commit1 = write_random_commit(mut_repo);
     let graph2commit1 = write_random_commit(mut_repo);
     let graph2commit2 = write_random_commit(mut_repo);
@@ -2153,10 +2156,10 @@ fn test_evaluate_expression_reachable() {
     let graph3commit7 =
         write_random_commit_with_parents(mut_repo, &[&graph3commit4, &graph3commit5]);
 
-    // Test predicate involving ancestors, which can produce incorrect results if
-    // evaluated in the wrong order. The first example fails if subgraph 1 is
-    // evaluated before subgraph 2, and the second example fails if subgraph 2 is
-    // evaluated before subgraph 1.
+    // Test predicate involving ancestors, which can produce incorrect results
+    // if evaluated in the wrong order. The first example fails if subgraph
+    // 1 is evaluated before subgraph 2, and the second example fails if
+    // subgraph 2 is evaluated before subgraph 1.
     assert_eq!(
         resolve_commit_ids(
             mut_repo,
@@ -2539,8 +2542,8 @@ fn test_evaluate_expression_bookmarks() {
         vec![]
     );
     assert_eq!(resolve_commit_ids(mut_repo, "bookmarks(ookmark1)"), vec![]);
-    // Two bookmarks pointing to the same commit does not result in a duplicate in
-    // the revset
+    // Two bookmarks pointing to the same commit does not result in a duplicate
+    // in the revset
     mut_repo.set_local_bookmark_target(
         "bookmark3".as_ref(),
         RefTarget::normal(commit2.id().clone()),
@@ -2718,8 +2721,8 @@ fn test_evaluate_expression_remote_bookmarks() {
         resolve_commit_ids(mut_repo, "untracked_remote_bookmarks(bookmark2)"),
         vec![]
     );
-    // Two bookmarks pointing to the same commit does not result in a duplicate in
-    // the revset
+    // Two bookmarks pointing to the same commit does not result in a duplicate
+    // in the revset
     mut_repo.set_remote_bookmark(
         remote_symbol("bookmark3", "origin"),
         normal_tracked_remote_ref(commit2.id()),
@@ -5248,10 +5251,11 @@ fn test_reverse_graph() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    // Tests that merges, forks, direct edges, indirect edges, and "missing" edges
-    // are correct in reversed graph. "Missing" edges (i.e. edges to commits not
-    // in the input set) won't be part of the reversed graph. Conversely, there
-    // won't be missing edges to children not in the input.
+    // Tests that merges, forks, direct edges, indirect edges, and "missing"
+    // edges are correct in reversed graph. "Missing" edges (i.e. edges to
+    // commits not in the input set) won't be part of the reversed graph.
+    // Conversely, there won't be missing edges to children not in the
+    // input.
     //
     //  F
     //  |\

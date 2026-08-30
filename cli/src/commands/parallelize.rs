@@ -82,9 +82,9 @@ pub(crate) async fn cmd_parallelize(
         .try_collect()
         .await?;
 
-    // New parents for commits in the target set. Since commits in the set are now
-    // supposed to be independent, they inherit the parent's non-target parents,
-    // recursively.
+    // New parents for commits in the target set. Since commits in the set are
+    // now supposed to be independent, they inherit the parent's non-target
+    // parents, recursively.
     let mut new_target_parents: HashMap<CommitId, Vec<CommitId>> = HashMap::new();
     let mut needs_rewrite = Vec::new();
     for commit in target_commits.iter().rev() {
@@ -103,9 +103,10 @@ pub(crate) async fn cmd_parallelize(
     workspace_command.check_rewritable(needs_rewrite).await?;
     let mut tx = workspace_command.start_transaction();
 
-    // If a commit outside the target set has a commit in the target set as parent,
-    // then - after the transformation - it should also have that commit's
-    // parents as direct parents, if those commits are also in the target set.
+    // If a commit outside the target set has a commit in the target set as
+    // parent, then - after the transformation - it should also have that
+    // commit's parents as direct parents, if those commits are also in the
+    // target set.
     let mut new_child_parents: HashMap<CommitId, IndexSet<CommitId>> = HashMap::new();
     for commit in target_commits.iter().rev() {
         let mut new_parents = IndexSet::new();
@@ -122,8 +123,8 @@ pub(crate) async fn cmd_parallelize(
         .transform_descendants(
             target_commits.iter().ids().cloned().collect_vec(),
             async |mut rewriter| {
-                // Commits in the target set do not depend on each other but they still depend
-                // on other parents
+                // Commits in the target set do not depend on each other but
+                // they still depend on other parents
                 if let Some(new_parents) = new_target_parents.get(rewriter.old_commit().id()) {
                     rewriter.set_new_rewritten_parents(new_parents);
                 } else if rewriter

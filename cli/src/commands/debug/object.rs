@@ -108,8 +108,8 @@ pub async fn cmd_debug_object(
     command: &CommandHelper,
     args: &DebugObjectArgs,
 ) -> Result<(), CommandError> {
-    // Resolve the operation without loading the repo, so this command can be used
-    // even if e.g. the view object is broken.
+    // Resolve the operation without loading the repo, so this command can be
+    // used even if e.g. the view object is broken.
     let workspace = command.load_workspace()?;
     let repo_loader = workspace.repo_loader();
 

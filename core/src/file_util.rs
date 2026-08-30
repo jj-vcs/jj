@@ -344,7 +344,8 @@ mod platform {
     /// Whether changing executable bits is permitted on the filesystem of this
     /// directory, and whether attempting to flip one has an observable effect.
     pub fn check_executable_bit_support(path: impl AsRef<Path>) -> io::Result<bool> {
-        // Get current permissions and try to flip just the user's executable bit.
+        // Get current permissions and try to flip just the user's executable
+        // bit.
         let temp_file = tempfile::tempfile_in(path)?;
         let old_mode = temp_file.metadata()?.permissions().mode();
         let new_mode = old_mode ^ 0o100;
@@ -443,9 +444,10 @@ mod platform {
         // same way it does (read access, plus `FILE_FLAG_BACKUP_SEMANTICS` so a
         // directory can be opened too), but add `FILE_FLAG_OPEN_REPARSE_POINT`
         // so the handle refers to the symlink itself instead of its target.
-        // This matches the Unix implementation, which uses `symlink_metadata()`.
-        // The reparse-point flag is ignored for paths that aren't reparse
-        // points, so regular files and hard links are unaffected.
+        // This matches the Unix implementation, which uses
+        // `symlink_metadata()`. The reparse-point flag is ignored for
+        // paths that aren't reparse points, so regular files and hard
+        // links are unaffected.
         const FILE_FLAG_BACKUP_SEMANTICS: u32 = 0x0200_0000;
         const FILE_FLAG_OPEN_REPARSE_POINT: u32 = 0x0020_0000;
         let file = OpenOptions::new()
@@ -767,8 +769,8 @@ mod tests {
             FileIdentity::from_symlink_path(&symlink_path)?
         );
         // symlink should be different from the target directory. The
-        // `File::open()` follow-through is not checked here because File::open()
-        // can't open a directory on Windows.
+        // `File::open()` follow-through is not checked here because
+        // File::open() can't open a directory on Windows.
         assert_ne!(
             FileIdentity::from_symlink_path(&dir_path)?,
             FileIdentity::from_symlink_path(&symlink_path)?

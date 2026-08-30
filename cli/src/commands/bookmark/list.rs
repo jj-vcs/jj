@@ -140,10 +140,11 @@ pub async fn cmd_bookmark_list(
         (None, None) => StringExpression::all(),
     };
     let matched_local_targets: HashSet<_> = if let Some(revisions) = &args.revisions {
-        // Match against local targets only, which is consistent with "jj git push".
+        // Match against local targets only, which is consistent with "jj git
+        // push".
         let mut expression = workspace_command.parse_union_revsets(ui, revisions)?;
-        // Intersects with the set of local bookmark targets to minimize the lookup
-        // space.
+        // Intersects with the set of local bookmark targets to minimize the
+        // lookup space.
         expression.intersect_with(&RevsetExpression::bookmarks(StringExpression::all()));
         expression.evaluate_to_commit_ids()?.try_collect().await?
     } else {
@@ -216,8 +217,9 @@ pub async fn cmd_bookmark_list(
 
     #[cfg(feature = "git")]
     if jj_lib::git::get_git_backend(repo.store()).is_ok() {
-        // Print only one of these hints. It's not important to mention unexported
-        // bookmarks, but user might wonder why deleted bookmarks are still listed.
+        // Print only one of these hints. It's not important to mention
+        // unexported bookmarks, but user might wonder why deleted
+        // bookmarks are still listed.
         let deleted_tracking = bookmark_list_items
             .iter()
             .filter(|item| item.primary.is_local() && item.primary.is_absent())

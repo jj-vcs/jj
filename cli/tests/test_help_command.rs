@@ -112,7 +112,8 @@ fn test_help() {
 fn test_help_keyword() {
     let test_env = TestEnvironment::default();
 
-    // It should show help for a certain keyword if the `--keyword` flag is present
+    // It should show help for a certain keyword if the `--keyword` flag is
+    // present
     let help_cmd = test_env
         .run_jj_in(".", ["help", "--keyword", "revsets"])
         .success();

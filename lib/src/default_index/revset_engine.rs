@@ -195,9 +195,10 @@ impl<I: AsCompositeIndex + Clone> Revset for RevsetImpl<I> {
 
     fn count_estimate(&self) -> Result<(usize, Option<usize>), RevsetEvaluationError> {
         if cfg!(feature = "testing") {
-            // Exercise the estimation feature in tests. (If we ever have a Revset
-            // implementation in production code that returns estimates, we can probably
-            // remove this and rewrite the associated tests.)
+            // Exercise the estimation feature in tests. (If we ever have a
+            // Revset implementation in production code that returns
+            // estimates, we can probably remove this and rewrite
+            // the associated tests.)
             let count = self
                 .positions()
                 .take(10)
@@ -841,7 +842,8 @@ impl EvaluationContext<'_> {
                             .iter()
                             .any(|parent_pos| root_positions.contains(parent_pos)))
                     });
-                    // TODO: Suppose heads include all visible heads, ToPredicateFn version can be
+                    // TODO: Suppose heads include all visible heads,
+                    // ToPredicateFn version can be
                     // optimized to only test the predicate()
                     Ok(Box::new(FilterRevset {
                         candidates,
@@ -854,8 +856,9 @@ impl EvaluationContext<'_> {
                     positions.reverse();
                     Ok(Box::new(EagerRevset { positions }))
                 } else {
-                    // For small generation range, it might be better to build a reachable map
-                    // with generation bit set, which can be calculated incrementally from roots:
+                    // For small generation range, it might be better to build a
+                    // reachable map with generation bit
+                    // set, which can be calculated incrementally from roots:
                     //   reachable[pos] = (reachable[parent_pos] | ...) << 1
                     let mut positions = builder
                         .descendants_filtered_by_generation(
@@ -882,19 +885,22 @@ impl EvaluationContext<'_> {
                         }
                     }
                 }
-                // `UnionFind::find` is somewhat slow, so it's faster to only do this once and
-                // then cache the result.
+                // `UnionFind::find` is somewhat slow, so it's faster to only do
+                // this once and then cache the result.
                 let domain_reps = domain_vec.iter().map(|&pos| sets.find(pos)).collect_vec();
 
-                // Identify disjoint sets reachable from sources. Using a predicate here can be
-                // significantly faster for cases like `reachable(filter, X)`, since the filter
-                // can be checked for only commits in `X` instead of for all visible commits,
-                // and the difference is usually negligible for non-filter revsets.
+                // Identify disjoint sets reachable from sources. Using a
+                // predicate here can be significantly faster
+                // for cases like `reachable(filter, X)`, since the filter
+                // can be checked for only commits in `X` instead of for all
+                // visible commits, and the difference is
+                // usually negligible for non-filter revsets.
                 let sources_revset = self.evaluate(sources)?;
                 let mut sources_predicate = sources_revset.to_predicate_fn();
                 let mut set_reps = HashSet::new();
                 for (&pos, &rep) in domain_vec.iter().zip(&domain_reps) {
-                    // Skip evaluating predicate if `rep` has already been added.
+                    // Skip evaluating predicate if `rep` has already been
+                    // added.
                     if set_reps.contains(&rep) {
                         continue;
                     }
@@ -1232,9 +1238,9 @@ impl EvaluationContext<'_> {
             }))
         };
 
-        // Maintain min-heap containing the latest (greatest) count items. For small
-        // count and large candidate set, this is probably cheaper than building vec
-        // and applying selection algorithm.
+        // Maintain min-heap containing the latest (greatest) count items. For
+        // small count and large candidate set, this is probably cheaper
+        // than building vec and applying selection algorithm.
         let mut candidate_iter = candidate_set
             .positions()
             .attach(self.index)

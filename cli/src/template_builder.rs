@@ -4624,7 +4624,8 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#""Hello World Hello".replace(regex-i:"hello", "hi")"#), @"hi World hi");
         insta::assert_snapshot!(env.render_ok(r#""Hello World Hello".replace(regex-i:"hello", "hi", 1)"#), @"hi World Hello");
 
-        // replace with strings that look regex-y ($n patterns are always expanded)
+        // replace with strings that look regex-y ($n patterns are always
+        // expanded)
         insta::assert_snapshot!(env.render_ok(r#"'hello\d+world'.replace('\d+', "X")"#), @"helloXworld");
         insta::assert_snapshot!(env.render_ok(r#""(foo)($1)bar".replace("$1", "$2")"#), @"(foo)()bar");
         insta::assert_snapshot!(env.render_ok(r#""test(abc)end".replace("(abc)", "X")"#), @"testXend");
@@ -5076,8 +5077,8 @@ mod tests {
         env.add_color("warning", crossterm::style::Color::DarkYellow);
         env.add_color("hint", crossterm::style::Color::DarkCyan);
 
-        // Empty line shouldn't be indented. Not using insta here because we test
-        // whitespace existence.
+        // Empty line shouldn't be indented. Not using insta here because we
+        // test whitespace existence.
         assert_eq!(env.render_ok(r#"indent("__", "")"#), "");
         assert_eq!(env.render_ok(r#"indent("__", "\n")"#), "\n");
         assert_eq!(env.render_ok(r#"indent("__", "a\n\nb")"#), "__a\n\n__b");

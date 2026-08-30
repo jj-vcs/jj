@@ -71,7 +71,8 @@ impl FileLock {
             match rustix::fs::fstat(&file) {
                 Ok(stat) => {
                     if stat.st_nlink == 0 {
-                        // Lockfile was deleted, probably by the previous holder's `Drop` impl;
+                        // Lockfile was deleted, probably by the previous
+                        // holder's `Drop` impl;
                         // create a new one so our ownership is visible,
                         // rather than hidden in an unlinked file. Not
                         // always necessary, since the previous holder might
@@ -106,9 +107,9 @@ impl Drop for FileLock {
     fn drop(&mut self) {
         // Removing the file isn't strictly necessary, but reduces confusion.
         std::fs::remove_file(&self.path).ok();
-        // Unblock any processes that tried to acquire the lock while we held it.
-        // They're responsible for creating and locking a new lockfile, since we
-        // just deleted this one.
+        // Unblock any processes that tried to acquire the lock while we held
+        // it. They're responsible for creating and locking a new
+        // lockfile, since we just deleted this one.
         rustix::fs::flock(&self.file, FlockOperation::Unlock).ok();
     }
 }

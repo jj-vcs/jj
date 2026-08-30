@@ -3174,7 +3174,8 @@ fn test_diff_external_tool() -> TestResult {
         ");
     });
 
-    // nonzero exit codes should not print a warning if it's an expected exit code
+    // nonzero exit codes should not print a warning if it's an expected exit
+    // code
     std::fs::write(&edit_script, "fail")?;
     let output = work_dir.run_jj([
         "diff",
@@ -3980,8 +3981,8 @@ fn test_diff_stat_binary_and_text() {
     [EOF]
     ");
 
-    // If the binary file size changed, the right side must be wide enough for that
-    // text.
+    // If the binary file size changed, the right side must be wide enough for
+    // that text.
     work_dir.write_file("binary_with_elided_long_file_name.png", b"\x0033");
     let output = work_dir.run_jj(["diff", "--stat"]);
     // Rightmost display column          ->|
@@ -4097,9 +4098,9 @@ fn test_diff_rename_in_merge_commit() {
     let work_dir = test_env.work_dir("repo");
 
     // A rename in a merge commit is detected once per parent. When the renamed
-    // source is present in more than one parent, the same copy record is reported
-    // for each, and those duplicates must not cancel each other out and drop the
-    // rename. https://github.com/jj-vcs/jj/issues/9752
+    // source is present in more than one parent, the same copy record is
+    // reported for each, and those duplicates must not cancel each other
+    // out and drop the rename. https://github.com/jj-vcs/jj/issues/9752
     work_dir.write_file("a.txt", "aaa\n");
     work_dir.run_jj(["describe", "-m", "base"]).success();
     work_dir.run_jj(["new", "-m", "first branch"]).success();

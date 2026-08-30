@@ -358,8 +358,8 @@ fn revisions(match_prefix: &str, revset_filter: Option<&str>) -> Vec<CompletionC
 
         // Tags cannot be filtered by revisions. In order to avoid suggesting
         // immutable tags for mutable revision args, we skip tags entirely if
-        // revset_filter is set. This is not a big loss, since tags usually point
-        // to immutable revisions anyway.
+        // revset_filter is set. This is not a big loss, since tags usually
+        // point to immutable revisions anyway.
         if revset_filter.is_none() {
             let output = jj
                 .build()
@@ -394,8 +394,8 @@ fn revisions(match_prefix: &str, revset_filter: Option<&str>) -> Vec<CompletionC
             .map_err(user_error)?;
         let stdout = String::from_utf8_lossy(&output.stdout);
 
-        // If there's only one workspace, the user can just use `@`, and they may even
-        // be confused if they see `default@` as an option.
+        // If there's only one workspace, the user can just use `@`, and they
+        // may even be confused if they see `default@` as an option.
         if stdout.lines().count() > 1 {
             candidates.extend(stdout.lines().filter_map(|name| {
                 let symbol = format!("{name}@");
@@ -865,9 +865,9 @@ fn path_completion_candidate_from(
     let path = slash_path(path);
     let mut remainder = path.to_str()?.strip_prefix(normalized_prefix)?;
 
-    // Trailing slash might have been normalized away in which case we need to strip
-    // the leading slash in the remainder away, or else the slash would appear
-    // twice.
+    // Trailing slash might have been normalized away in which case we need to
+    // strip the leading slash in the remainder away, or else the slash
+    // would appear twice.
     if current_prefix.ends_with(std::path::is_separator) {
         remainder = remainder.strip_prefix('/').unwrap_or(remainder);
     }

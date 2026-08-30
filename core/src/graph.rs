@@ -247,7 +247,8 @@ where
             .blocked_ids
             .iter()
             .map(|id| {
-                // Borrow from self.nodes so self.blocked_ids can be mutated later
+                // Borrow from self.nodes so self.blocked_ids can be mutated
+                // later
                 let (id, _) = self.nodes.get_key_value(id).unwrap();
                 id
             })
@@ -266,10 +267,11 @@ where
             .expect("blocking head should exist");
         let new_head_id = self.new_head_ids.remove(index).unwrap();
 
-        // Unmark ancestors of the selected head so they won't contribute to future
-        // new-head resolution within the newly-unblocked sub graph. The sub graph
-        // can have many fork points, and the corresponding heads should be picked in
-        // the fork-point order, not in the head appearance order.
+        // Unmark ancestors of the selected head so they won't contribute to
+        // future new-head resolution within the newly-unblocked sub
+        // graph. The sub graph can have many fork points, and the
+        // corresponding heads should be picked in the fork-point order,
+        // not in the head appearance order.
         to_visit.push(&new_head_id);
         visited.remove(&new_head_id);
         while let Some(id) = to_visit.pop() {
@@ -561,8 +563,8 @@ mod tests {
         ├─╯
         A
         ");
-        // D-A is found earlier than B-A, but B is emitted first because it belongs to
-        // the emitting branch.
+        // D-A is found earlier than B-A, but B is emitted first because it
+        // belongs to the emitting branch.
         insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
         E  direct(B)
         │
@@ -980,8 +982,8 @@ mod tests {
         │
         ~
         ");
-        // K-E,J is resolved without queuing new heads. Then, G::H, F::I, B::C, and
-        // A::D.
+        // K-E,J is resolved without queuing new heads. Then, G::H, F::I, B::C,
+        // and A::D.
         insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
         K    direct(E), direct(J)
         ├─╮
@@ -1046,8 +1048,8 @@ mod tests {
         │
         ~
         ");
-        // K-I,J is resolved without queuing new heads. Then, D::F, B::H, C::E, and
-        // A::G.
+        // K-I,J is resolved without queuing new heads. Then, D::F, B::H, C::E,
+        // and A::G.
         insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
         K    direct(I), direct(J)
         ├─╮
@@ -1902,9 +1904,9 @@ mod tests {
         A
         ");
 
-        // A is queued once by C-A because B isn't populated at this point. Since
-        // B is the second parent, B-A is processed next and A is queued again. So
-        // one of them in the queue has to be ignored.
+        // A is queued once by C-A because B isn't populated at this point.
+        // Since B is the second parent, B-A is processed next and A is
+        // queued again. So one of them in the queue has to be ignored.
         let mut iter = topo_grouped(graph.iter().cloned());
         assert_eq!(iter.next().unwrap()?.0, 'C');
         assert_eq!(iter.next().unwrap()?.0, 'B');
@@ -1915,8 +1917,8 @@ mod tests {
 
     #[test]
     fn test_topo_grouped_duplicated_edges() -> TestResult {
-        // The graph shouldn't have duplicated parent->child edges, but topo-grouped
-        // iterator can handle it anyway.
+        // The graph shouldn't have duplicated parent->child edges, but
+        // topo-grouped iterator can handle it anyway.
         let graph = [('B', vec![direct('A'), direct('A')]), ('A', vec![])].map(Ok);
         insta::assert_snapshot!(format_graph(graph.iter().cloned()), @"
         B  direct(A), direct(A)

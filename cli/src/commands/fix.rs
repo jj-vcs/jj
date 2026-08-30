@@ -299,8 +299,8 @@ async fn fix_one_file(
     // subsequent matching tool gets its input from the previous matching tool's
     // output.
 
-    // TODO: Consider adding a check for some max file size config or some global
-    // limit for both `old_content` and `base_content`.
+    // TODO: Consider adding a check for some max file size config or some
+    // global limit for both `old_content` and `base_content`.
     let mut old_content = vec![];
     let mut read = store
         .read_file(&file_to_fix.repo_path, &file_to_fix.file_id)
@@ -312,7 +312,8 @@ async fn fix_one_file(
         return Ok(None);
     }
 
-    // Load the base content from the file_to_fix (if exists) iff any tool needs it.
+    // Load the base content from the file_to_fix (if exists) iff any tool needs
+    // it.
     let base_content = if all_lines_arg {
         None
     } else {
@@ -336,8 +337,9 @@ async fn fix_one_file(
             let RegionsToFormat::LineRanges(ranges) =
                 compute_regions_to_format(base_content.as_deref(), &prev_content);
             if ranges.is_empty() && !tool_config.run_tool_if_zero_line_ranges {
-                // Don't run the tool if there are no line ranges to format and the tool is
-                // configured to not run in that case.
+                // Don't run the tool if there are no line ranges to format and
+                // the tool is configured to not run in that
+                // case.
                 return prev_content;
             }
 
@@ -384,11 +386,12 @@ pub fn compute_regions_to_format(
     current_content: &[u8],
 ) -> RegionsToFormat {
     if current_content.is_empty() {
-        // If the current file content is empty, then there are no regions to format.
+        // If the current file content is empty, then there are no regions to
+        // format.
         RegionsToFormat::LineRanges(vec![])
     } else if let Some(base) = base_content {
-        // If the base file content is available, then compute the modified line ranges
-        // to format between the base and current file.
+        // If the base file content is available, then compute the modified line
+        // ranges to format between the base and current file.
         compute_changed_ranges(base, current_content)
     } else {
         // Otherwise, format the entire file.

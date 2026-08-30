@@ -810,8 +810,8 @@ impl RepoLoader {
 
         // Caches the result of merging some operations.
         let mut merged_operations: HashMap<Vec<OperationId>, Operation> = HashMap::new();
-        // Caches the result of op_walk::closest_common_ancestors invocations. Keyed by
-        // the arguments to that method.
+        // Caches the result of op_walk::closest_common_ancestors invocations.
+        // Keyed by the arguments to that method.
         let mut closest_common_ancestors: HashMap<_, Vec<Operation>> = HashMap::new();
 
         let mut tx = self.load_at(&operations[0]).await?.start_transaction();
@@ -827,8 +827,9 @@ impl RepoLoader {
             assert!(operations.len() > 1);
             assert!(index <= operations.len());
             if index == operations.len() {
-                // We are done processing the operations, but there is more work on the stack.
-                // Commit the transaction and cache the result.
+                // We are done processing the operations, but there is more work
+                // on the stack. Commit the transaction and
+                // cache the result.
                 let tx_description = transaction_description.map_or_else(
                     || format!("merge {} operations", operations.len()),
                     |tx_description| tx_description.to_string(),
@@ -843,9 +844,9 @@ impl RepoLoader {
 
             let other_op = &operations[index];
 
-            // Get the ancestor operations between the operations we have merged so far
-            // (represented by `tx.parent_ops()`) and the next operation to merge
-            // (`other_op`).
+            // Get the ancestor operations between the operations we have merged
+            // so far (represented by `tx.parent_ops()`) and the
+            // next operation to merge (`other_op`).
             let ancestor_ops = match closest_common_ancestors
                 .entry((to_operation_ids(tx.parent_ops()), other_op.id().clone()))
             {
@@ -865,28 +866,31 @@ impl RepoLoader {
                 // There is a single common ancestor.
                 Some(ancestor_op)
             } else {
-                // There are multiple common ancestors, check to see if we have cached their
-                // merge result.
+                // There are multiple common ancestors, check to see if we have
+                // cached their merge result.
                 let ancestor_op_ids = ancestor_ops.iter().map(|op| op.id().clone()).collect_vec();
                 merged_operations.get(&ancestor_op_ids)
             };
 
             if let Some(merged_ancestor_op) = ancestor_op {
-                // We have the merge of the ancestor operations. We can proceed to merge with
-                // other_op.
+                // We have the merge of the ancestor operations. We can proceed
+                // to merge with other_op.
                 tx.merge_operation(merged_ancestor_op, other_op).await?;
                 num_rebased += tx.repo_mut().rebase_descendants().await?;
-                // Push state on the stack to continue merging the rest of the operations.
+                // Push state on the stack to continue merging the rest of the
+                // operations.
                 stack.push((index + 1, operations, tx));
                 continue;
             }
 
             // We have to merge the ancestor ops.
-            // We first push the current state to the stack so that after we merge the
-            // ancestor ops, we can continue merging the rest of the operations.
+            // We first push the current state to the stack so that after we
+            // merge the ancestor ops, we can continue merging the
+            // rest of the operations.
             stack.push((index, operations, tx));
-            // Then we push the ancestor ops to the stack so that we can merge them first.
-            // We need to start a separate transaction for this.
+            // Then we push the ancestor ops to the stack so that we can merge
+            // them first. We need to start a separate transaction
+            // for this.
             let new_tx = self.load_at(&ancestor_ops[0]).await?.start_transaction();
             stack.push((1, ancestor_ops.clone(), new_tx));
         }
@@ -1264,7 +1268,8 @@ impl MutableRepo {
                 Some(Rewrite::Abandoned(_))
             );
             let new_wc_commit = if !abandoned_old_commit {
-                // We arbitrarily pick a new working-copy commit among the candidates.
+                // We arbitrarily pick a new working-copy commit among the
+                // candidates.
                 self.store().get_commit_async(&new_commit_ids[0]).await?
             } else if let Some(commit) = recreated_wc_commits.get(old_commit_id) {
                 commit.clone()
@@ -1356,8 +1361,9 @@ impl MutableRepo {
         let to_visit_set: HashSet<CommitId> =
             to_visit.iter().map(|commit| commit.id().clone()).collect();
         let mut visited = HashSet::new();
-        // Calculate an order where we rebase parents first, but if the parents were
-        // rewritten, make sure we rebase the rewritten parent first.
+        // Calculate an order where we rebase parents first, but if the parents
+        // were rewritten, make sure we rebase the rewritten parent
+        // first.
         let store = self.store();
         dag_walk_async::topo_order_reverse(
             to_visit.into_iter().map(Ok),
@@ -1464,12 +1470,13 @@ impl MutableRepo {
             callback(rewriter).await?;
         }
         self.update_rewritten_references(options).await?;
-        // Since we didn't necessarily visit all descendants of rewritten commits (e.g.
-        // if they were rewritten in the callback), there can still be commits left to
-        // rebase, so we don't clear `parent_mapping` here.
-        // TODO: Should we make this stricter? We could check that there were no
-        // rewrites before this function was called, and we can check that only
-        // commits in the `to_visit` set were added by the callback. Then we
+        // Since we didn't necessarily visit all descendants of rewritten
+        // commits (e.g. if they were rewritten in the callback), there
+        // can still be commits left to rebase, so we don't clear
+        // `parent_mapping` here. TODO: Should we make this stricter? We
+        // could check that there were no rewrites before this function
+        // was called, and we can check that only commits in the
+        // `to_visit` set were added by the callback. Then we
         // could clear `parent_mapping` here and not have to scan it again at
         // the end of the transaction when we call `rebase_descendants()`.
 
@@ -1665,8 +1672,9 @@ impl MutableRepo {
                 .get_commit_async(&wc_commit_id)
                 .await
                 .map_err(EditCommitError::WorkingCopyCommitNotFound)?;
-            // Call normalized_heads() prior to .view().heads().contains() because
-            // the caller expects non-head revisions don't exist in the set.
+            // Call normalized_heads() prior to .view().heads().contains()
+            // because the caller expects non-head revisions don't
+            // exist in the set.
             self.normalize_heads().await?;
             if wc_commit.is_discardable(self).await?
                 && !is_commit_referenced(&self.view, wc_commit.id())
@@ -1696,9 +1704,9 @@ impl MutableRepo {
     /// should exist in the store.
     pub async fn add_heads(&mut self, heads: &[Commit]) -> BackendResult<()> {
         let current_heads = self.view.heads();
-        // Use incremental update for common case of adding a single commit on top a
-        // current head. TODO: Also use incremental update when adding a single
-        // commit on top a non-head.
+        // Use incremental update for common case of adding a single commit on
+        // top a current head. TODO: Also use incremental update when
+        // adding a single commit on top a non-head.
         match heads {
             [] => {}
             [head]
@@ -1954,10 +1962,11 @@ impl MutableRepo {
         base_repo: &ReadonlyRepo,
         other_repo: &ReadonlyRepo,
     ) -> Result<(), RepoLoaderError> {
-        // First, merge the index, so we can take advantage of a valid index when
-        // merging the view. Merging in base_repo's index isn't typically
-        // necessary, but it can be if base_repo is ahead of either self or other_repo
-        // (e.g. because we're undoing an operation that hasn't been published).
+        // First, merge the index, so we can take advantage of a valid index
+        // when merging the view. Merging in base_repo's index isn't
+        // typically necessary, but it can be if base_repo is ahead of
+        // either self or other_repo (e.g. because we're undoing an
+        // operation that hasn't been published).
         self.index.merge_in(base_repo.readonly_index())?;
         self.index.merge_in(other_repo.readonly_index())?;
 
@@ -1981,11 +1990,12 @@ impl MutableRepo {
         let own_heads = self.view().heads().iter().cloned().collect_vec();
         let other_heads = other.heads().iter().cloned().collect_vec();
 
-        // HACK: Don't walk long ranges of commits to find rewrites when using other
-        // custom implementations. The only custom index implementation we're currently
-        // aware of is Google's. That repo has too high commit rate for it to be
-        // feasible to walk all added and removed commits.
-        // TODO: Fix this somehow. Maybe a method on `Index` to find rewritten commits
+        // HACK: Don't walk long ranges of commits to find rewrites when using
+        // other custom implementations. The only custom index
+        // implementation we're currently aware of is Google's. That
+        // repo has too high commit rate for it to be feasible to walk
+        // all added and removed commits. TODO: Fix this somehow. Maybe
+        // a method on `Index` to find rewritten commits
         // given `base_heads`, `own_heads` and `other_heads`?
         if self.is_backed_by_default_index() {
             self.record_rewrites(&base_heads, &own_heads).await?;

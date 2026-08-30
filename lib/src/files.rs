@@ -128,8 +128,8 @@ where
     type Item = DiffLine<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        // TODO: Should we attempt to interpret as utf-8 and otherwise break only at
-        // newlines?
+        // TODO: Should we attempt to interpret as utf-8 and otherwise break
+        // only at newlines?
         while self.queued_lines.is_empty() {
             let Some(hunk) = self.diff_hunks.next() else {
                 break;
@@ -312,8 +312,8 @@ where
     B: FromMergeHunks<'input>,
 {
     // TODO: Using the first remove as base (first in the inputs) is how it's
-    // usually done for 3-way conflicts. Are there better heuristics when there are
-    // more than 3 parts?
+    // usually done for 3-way conflicts. Are there better heuristics when there
+    // are more than 3 parts?
     let num_diffs = inputs.removes().len();
     let diff = ContentDiff::by_line(inputs.removes().chain(inputs.adds()));
     let hunks = resolve_diff_hunks(&diff, num_diffs, options.same_change);
@@ -947,9 +947,9 @@ mod tests {
             merge_hunks(&conflict([b"b", b"a", b"a", b"a", b"c"])),
             MergeResult::Conflict(vec![conflict([b"b", b"a", b"a", b"a", b"c"])])
         );
-        // Merge of an unresolved conflict and another branch, where the other branch
-        // undid the change from one of the inputs to the unresolved conflict in the
-        // first.
+        // Merge of an unresolved conflict and another branch, where the other
+        // branch undid the change from one of the inputs to the
+        // unresolved conflict in the first.
         assert_eq!(
             merge_hunks(&conflict([b"b", b"a", b"a", b"b", b"c"])),
             MergeResult::Resolved(hunk(b"c"))
@@ -975,7 +975,8 @@ mod tests {
         let merge_hunks = |inputs: &_| merge_hunks(inputs, &options);
         let merge = |inputs: &_| merge(inputs, &options);
         let try_merge = |inputs: &_| try_merge(inputs, &options);
-        // Two sides left one line unchanged, and added conflicting additional lines
+        // Two sides left one line unchanged, and added conflicting additional
+        // lines
         let inputs = conflict([b"a\nb\n", b"a\n", b"a\nc\n"]);
         assert_eq!(
             merge_hunks(&inputs),
@@ -1024,9 +1025,10 @@ mod tests {
         );
         assert_eq!(try_merge(&inputs), None);
 
-        // One side changes a line and adds a block after. The other side just adds the
-        // same block. You might expect the last block would be deduplicated. However,
-        // the changes in the first side can be parsed as follows:
+        // One side changes a line and adds a block after. The other side just
+        // adds the same block. You might expect the last block would be
+        // deduplicated. However, the changes in the first side can be
+        // parsed as follows:
         // ```
         //  a {
         // -    p
@@ -1037,8 +1039,9 @@ mod tests {
         // +    x
         //  }
         // ```
-        // Therefore, the first side modifies the block `a { .. }`, and the second side
-        // adds `b { .. }`. Git and Mercurial both duplicate the block in the result.
+        // Therefore, the first side modifies the block `a { .. }`, and the
+        // second side adds `b { .. }`. Git and Mercurial both duplicate
+        // the block in the result.
         let base = indoc! {b"
             a {
                 p

@@ -167,7 +167,8 @@ pub(crate) async fn cmd_status(
 
             let wc_revset = RevsetExpression::commit(status.commit.id().clone());
 
-            // Ancestors with conflicts, excluding the current working copy commit.
+            // Ancestors with conflicts, excluding the current working copy
+            // commit.
             let ancestors_conflicts: Vec<_> = workspace_command
                 .attach_revset_evaluator(
                     wc_revset

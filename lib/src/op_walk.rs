@@ -268,8 +268,8 @@ pub fn walk_ancestors(
         .cloned()
         .map(OperationByEndTime)
         .collect_vec();
-    // Lazily load operations based on timestamp-based heuristic. This works so long
-    // as the operation history is mostly linear.
+    // Lazily load operations based on timestamp-based heuristic. This works so
+    // long as the operation history is mostly linear.
     dag_walk_async::topo_order_reverse_lazy(
         head_ops.into_iter().map(Ok),
         |OperationByEndTime(op)| op.id().clone(),
@@ -304,8 +304,8 @@ pub fn walk_ancestors_range(
         collect_ancestors_until_roots(&mut start_ops, unwanted_ids)
     };
 
-    // Lazily load operations based on timestamp-based heuristic. This works so long
-    // as the operation history is mostly linear.
+    // Lazily load operations based on timestamp-based heuristic. This works so
+    // long as the operation history is mostly linear.
     let trailing_stream = dag_walk_async::topo_order_reverse_lazy(
         start_ops.into_iter().map(Ok),
         |OperationByEndTime(op)| op.id().clone(),

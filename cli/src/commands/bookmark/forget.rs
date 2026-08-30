@@ -83,15 +83,16 @@ pub async fn cmd_bookmark_forget(
             .set_local_bookmark_target(name, RefTarget::absent());
         for (remote, _) in &bookmark_target.remote_refs {
             let symbol = name.to_remote_symbol(remote);
-            // If `--include-remotes` is specified, we forget the corresponding remote
-            // bookmarks instead of untracking them
+            // If `--include-remotes` is specified, we forget the corresponding
+            // remote bookmarks instead of untracking them
             if args.include_remotes {
                 tx.repo_mut()
                     .set_remote_bookmark(symbol, RemoteRef::absent());
                 forgotten_remote += 1;
                 continue;
             }
-            // Git-tracking remote bookmarks cannot be untracked currently, so skip them
+            // Git-tracking remote bookmarks cannot be untracked currently, so
+            // skip them
             if ignored_remote.is_some_and(|ignored| symbol.remote == ignored) {
                 continue;
             }

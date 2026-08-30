@@ -181,8 +181,9 @@ pub async fn cmd_workspace_add(
     // If no parent revisions are specified, create a working-copy commit based
     // on the parent of the current working-copy commit.
     let parents = if args.revisions.is_empty() {
-        // Check out parents of the current workspace's working-copy commit, or the
-        // root if there is no working-copy commit in the current workspace.
+        // Check out parents of the current workspace's working-copy commit, or
+        // the root if there is no working-copy commit in the current
+        // workspace.
         if let Some(old_wc_commit_id) = tx
             .base_repo()
             .view()
@@ -214,9 +215,10 @@ pub async fn cmd_workspace_add(
     let mut description = join_message_paragraphs(&args.message_paragraphs);
     if !description.is_empty() {
         // The first trailer would become the first line of the description.
-        // Also, a commit with no description is treated in a special way in jujutsu: it
-        // can be discarded as soon as it's no longer the working copy. Adding a
-        // trailer to an empty description would break that logic.
+        // Also, a commit with no description is treated in a special way in
+        // jujutsu: it can be discarded as soon as it's no longer the
+        // working copy. Adding a trailer to an empty description would
+        // break that logic.
         commit_builder.set_description(description);
         description = add_trailers(ui, &tx, &commit_builder).await?;
     }

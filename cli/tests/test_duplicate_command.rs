@@ -511,7 +511,8 @@ fn test_duplicate_insert_after() {
     [EOF]
     ");
 
-    // Duplicate a single commit after a single commit with no direct relationship.
+    // Duplicate a single commit after a single commit with no direct
+    // relationship.
     let output = work_dir.run_jj(["duplicate", "a1", "--after", "b1"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1141,7 +1142,8 @@ fn test_duplicate_insert_before() {
     [EOF]
     ");
 
-    // Duplicate a single commit before a single commit with no direct relationship.
+    // Duplicate a single commit before a single commit with no direct
+    // relationship.
     let output = work_dir.run_jj(["duplicate", "a1", "--before", "b2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1320,8 +1322,8 @@ fn test_duplicate_insert_before() {
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
-    // Duplicate multiple commits without a direct ancestry relationship before a
-    // single commit without a direct relationship.
+    // Duplicate multiple commits without a direct ancestry relationship before
+    // a single commit without a direct relationship.
     let output = work_dir.run_jj(["duplicate", "a1", "b1", "--before", "c1"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1353,8 +1355,9 @@ fn test_duplicate_insert_before() {
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
-    // Duplicate multiple commits without a direct ancestry relationship before a
-    // single commit which is an ancestor of one of the duplicated commits.
+    // Duplicate multiple commits without a direct ancestry relationship before
+    // a single commit which is an ancestor of one of the duplicated
+    // commits.
     let output = work_dir.run_jj(["duplicate", "a3", "b1", "--before", "a2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1387,8 +1390,9 @@ fn test_duplicate_insert_before() {
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
-    // Duplicate multiple commits without a direct ancestry relationship before a
-    // single commit which is a descendant of one of the duplicated commits.
+    // Duplicate multiple commits without a direct ancestry relationship before
+    // a single commit which is a descendant of one of the duplicated
+    // commits.
     let output = work_dir.run_jj(["duplicate", "a1", "b1", "--before", "a3"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1835,8 +1839,8 @@ fn test_duplicate_insert_after_before() {
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
-    // Duplicate a single commit in between an ancestor commit and a commit with no
-    // direct relationship.
+    // Duplicate a single commit in between an ancestor commit and a commit with
+    // no direct relationship.
     let output = work_dir.run_jj(["duplicate", "a3", "--before", "a2", "--after", "b2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1895,8 +1899,8 @@ fn test_duplicate_insert_after_before() {
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
-    // Duplicate a single commit in between a descendant commit and a commit with no
-    // direct relationship.
+    // Duplicate a single commit in between a descendant commit and a commit
+    // with no direct relationship.
     let output = work_dir.run_jj(["duplicate", "a1", "--after", "a3", "--before", "b2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1997,9 +2001,9 @@ fn test_duplicate_insert_after_before() {
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
-    // Duplicate multiple commits without a direct ancestry relationship between a
-    // commit which is an ancestor of one of the duplicated commits and a commit
-    // with no direct relationship.
+    // Duplicate multiple commits without a direct ancestry relationship between
+    // a commit which is an ancestor of one of the duplicated commits and a
+    // commit with no direct relationship.
     let output = work_dir.run_jj(["duplicate", "a3", "b1", "--after", "a2", "--before", "c2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -2032,8 +2036,8 @@ fn test_duplicate_insert_after_before() {
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
-    // Duplicate multiple commits without a direct ancestry relationship between a
-    // commit which is a descendant of one of the duplicated commits and a
+    // Duplicate multiple commits without a direct ancestry relationship between
+    // a commit which is a descendant of one of the duplicated commits and a
     // commit with no direct relationship.
     let output = work_dir.run_jj(["duplicate", "a1", "b1", "--after", "a3", "--before", "c2"]);
     insta::assert_snapshot!(output, @r"
@@ -2211,8 +2215,8 @@ fn test_duplicate_insert_after_before() {
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
-    // Duplicate multiple commits with an ancestry relationship between descendant
-    // commits.
+    // Duplicate multiple commits with an ancestry relationship between
+    // descendant commits.
     let output = work_dir.run_jj(["duplicate", "a3", "a4", "--after", "a1", "--before", "a2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -2277,8 +2281,8 @@ fn test_duplicate_insert_after_before() {
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
-    // Duplicate multiple commits with an ancestry relationship between an ancestor
-    // commit and a descendant commit.
+    // Duplicate multiple commits with an ancestry relationship between an
+    // ancestor commit and a descendant commit.
     let output = work_dir.run_jj(["duplicate", "a2", "a3", "--after", "a1", "--before", "a4"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -2411,8 +2415,8 @@ fn test_rebase_duplicates() {
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
-    // Some of the duplicate commits' timestamps were changed a little to make them
-    // have distinct commit ids.
+    // Some of the duplicate commits' timestamps were changed a little to make
+    // them have distinct commit ids.
     insta::assert_snapshot!(get_log_output_with_ts(&work_dir), @"
     @  fa60711d6bd1   c @ 2001-02-03 04:05:18.000 +07:00
     │ ○  e320e3d23be0   c @ 2001-02-03 04:05:18.000 +07:00

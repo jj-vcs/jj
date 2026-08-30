@@ -882,8 +882,8 @@ where
                 };
                 return Err(E::invalid_arguments(err));
             };
-            // Resolve arguments in the current scope, and pass them in to the alias
-            // expansion scope.
+            // Resolve arguments in the current scope, and pass them in to the
+            // alias expansion scope.
             let args = fold_expression_nodes(self, function.args)?;
             let locals = params.iter().map(|s| s.as_str()).zip(args).collect();
             self.expand_defn(id, defn, locals, span)

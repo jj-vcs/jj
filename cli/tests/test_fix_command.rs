@@ -524,8 +524,8 @@ fn test_relative_paths() {
     [EOF]
     ");
 
-    // The current directory does not change the interpretation of the config, so
-    // foo2 is fixed but not dir/foo3.
+    // The current directory does not change the interpretation of the config,
+    // so foo2 is fixed but not dir/foo3.
     sub_dir.run_jj(["fix"]).success();
     let output = work_dir.run_jj(["file", "show", "foo1", "-r", "@"]);
     insta::assert_snapshot!(output, @"Fixed![EOF]");
@@ -817,9 +817,9 @@ fn test_default_revset() {
         .success();
     work_dir.run_jj(["edit", "bar2"]).success();
 
-    // With no args and no revset configuration, we fix `reachable(@, mutable())`,
-    // which includes bar{1,2,3} and excludes trunk{1,2} (which is immutable) and
-    // foo (which is mutable but not reachable).
+    // With no args and no revset configuration, we fix `reachable(@,
+    // mutable())`, which includes bar{1,2,3} and excludes trunk{1,2} (which
+    // is immutable) and foo (which is mutable but not reachable).
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "trunk2""#);
     let output = work_dir.run_jj(["fix"]);
     insta::assert_snapshot!(output, @"
@@ -936,14 +936,14 @@ fn test_fix_empty_file() {
 #[test]
 fn test_fix_large_file() {
     let mut test_env = TestEnvironment::default();
-    // Set to byte mode, so that fake-formatter doesn't read from the stdin all at
-    // once.
+    // Set to byte mode, so that fake-formatter doesn't read from the stdin all
+    // at once.
     set_up_fake_formatter(&mut test_env, &["--lowercase", "--byte-mode"]);
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
-    // 512KB should be larger than most default page size, so that the stdin pipe
-    // will be blocked if fake-formatter doesn't read, and the stdout pipe will
-    // be blocked if jj doesn't read.
+    // 512KB should be larger than most default page size, so that the stdin
+    // pipe will be blocked if fake-formatter doesn't read, and the stdout
+    // pipe will be blocked if jj doesn't read.
     let mut large_contents = b"A".repeat(0x800_000);
     large_contents.push(b'\n');
     work_dir.write_file("file", &large_contents);
@@ -1037,15 +1037,16 @@ fn test_fix_cyclic() {
 
 #[test]
 fn test_deduplication() {
-    // Append all fixed content to a log file. Note that fix tools are always run
-    // from the workspace root, so this will always write to $root/$path-fixlog.
+    // Append all fixed content to a log file. Note that fix tools are always
+    // run from the workspace root, so this will always write to
+    // $root/$path-fixlog.
     let mut test_env = TestEnvironment::default();
     set_up_fake_formatter(&mut test_env, &["--uppercase", "--tee", "$path-fixlog"]);
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    // There are at least two interesting cases: the content is repeated immediately
-    // in the child commit, or later in another descendant.
+    // There are at least two interesting cases: the content is repeated
+    // immediately in the child commit, or later in another descendant.
     work_dir.write_file("file", "foo\n");
     work_dir
         .run_jj(["bookmark", "create", "-r@", "a"])
@@ -1096,9 +1097,10 @@ fn test_deduplication() {
     [EOF]
     ");
 
-    // Each new content string only appears once in the log, because all the other
-    // inputs (like file name) were identical, and so the results were reused. We
-    // sort the log because the order of execution inside `jj fix` is undefined.
+    // Each new content string only appears once in the log, because all the
+    // other inputs (like file name) were identical, and so the results were
+    // reused. We sort the log because the order of execution inside `jj
+    // fix` is undefined.
     insta::assert_snapshot!(sorted_lines(work_dir.root().join("file-fixlog")), @"
     BAR
     FOO
@@ -1117,8 +1119,9 @@ fn sorted_lines(path: PathBuf) -> String {
 
 #[test]
 fn test_executed_but_nothing_changed() {
-    // Show that the tool ran by causing a side effect with --tee, and test that we
-    // do the right thing when the tool's output is exactly equal to its input.
+    // Show that the tool ran by causing a side effect with --tee, and test that
+    // we do the right thing when the tool's output is exactly equal to its
+    // input.
     let mut test_env = TestEnvironment::default();
     set_up_fake_formatter(&mut test_env, &["--tee", "$path-copy"]);
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -1190,8 +1193,8 @@ fn test_stderr_success() {
     let work_dir = test_env.work_dir("repo");
     work_dir.write_file("file", "old content");
 
-    // TODO: Associate the stderr lines with the relevant tool/file/commit instead
-    // of passing it through directly.
+    // TODO: Associate the stderr lines with the relevant tool/file/commit
+    // instead of passing it through directly.
     let output = work_dir.run_jj(["fix", "-s", "@"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -1242,9 +1245,9 @@ fn test_missing_command() {
         command = ['this_executable_shouldnt_exist']
         patterns = ['all()']
     "});
-    // TODO: We should display a warning about invalid tool configurations. When we
-    // support multiple tools, we should also keep going to see if any of the other
-    // executions succeed.
+    // TODO: We should display a warning about invalid tool configurations. When
+    // we support multiple tools, we should also keep going to see if any of
+    // the other executions succeed.
     let output = work_dir.run_jj(["fix", "-s", "@"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -1309,8 +1312,8 @@ fn test_fix_executable() -> TestResult {
 
 #[test]
 fn test_fix_trivial_merge_commit() {
-    // All the changes are attributable to a parent, so none are fixed (in the same
-    // way that none would be shown in `jj diff -r @`).
+    // All the changes are attributable to a parent, so none are fixed (in the
+    // same way that none would be shown in `jj diff -r @`).
     let mut test_env = TestEnvironment::default();
     set_up_fake_formatter(&mut test_env, &["--uppercase"]);
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -1345,8 +1348,8 @@ fn test_fix_trivial_merge_commit() {
 
 #[test]
 fn test_fix_adding_merge_commit() {
-    // None of the changes are attributable to a parent, so they are all fixed (in
-    // the same way that they would be shown in `jj diff -r @`).
+    // None of the changes are attributable to a parent, so they are all fixed
+    // (in the same way that they would be shown in `jj diff -r @`).
     let mut test_env = TestEnvironment::default();
     set_up_fake_formatter(&mut test_env, &["--uppercase"]);
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -1405,8 +1408,8 @@ fn test_fix_both_sides_of_conflict() {
         .success();
     work_dir.run_jj(["new", "a", "b"]).success();
 
-    // The conflicts are not different from the merged parent, so they would not be
-    // fixed if we didn't fix the parents also.
+    // The conflicts are not different from the merged parent, so they would not
+    // be fixed if we didn't fix the parents also.
     let output = work_dir.run_jj(["fix", "-s", "a", "-s", "b"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -1444,8 +1447,8 @@ fn test_fix_both_sides_of_conflict() {
 
 #[test]
 fn test_fix_resolve_conflict() {
-    // If both sides of the conflict look the same after being fixed, the conflict
-    // will be resolved.
+    // If both sides of the conflict look the same after being fixed, the
+    // conflict will be resolved.
     let mut test_env = TestEnvironment::default();
     set_up_fake_formatter(&mut test_env, &["--uppercase"]);
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -1461,8 +1464,8 @@ fn test_fix_resolve_conflict() {
         .success();
     work_dir.run_jj(["new", "a", "b"]).success();
 
-    // The conflicts are not different from the merged parent, so they would not be
-    // fixed if we didn't fix the parents also.
+    // The conflicts are not different from the merged parent, so they would not
+    // be fixed if we didn't fix the parents also.
     let output = work_dir.run_jj(["fix", "-s", "a", "-s", "b"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -1494,8 +1497,8 @@ fn test_all_files() {
     // File B:     in patterns, NOT changed in child
     // File C: NOT in patterns, NOT changed in child
     // File D: NOT in patterns,     changed in child
-    // Some files will be in subdirectories to make sure we're covering that aspect
-    // of matching.
+    // Some files will be in subdirectories to make sure we're covering that
+    // aspect of matching.
     test_env.add_config(format!(
         r###"
         [fix.tools.tool]
@@ -1517,10 +1520,11 @@ fn test_all_files() {
     work_dir.write_file("ddd", "child ddd\n");
     work_dir.run_jj(["describe", "-m", "child"]).success();
 
-    // Specifying files means exactly those files will be fixed in each revision,
-    // although some like file C won't have any tools configured to make changes to
-    // them. Specified but unfixed files are silently skipped, whether they lack
-    // configuration, are ignored, don't exist, aren't normal files, etc.
+    // Specifying files means exactly those files will be fixed in each
+    // revision, although some like file C won't have any tools configured
+    // to make changes to them. Specified but unfixed files are silently
+    // skipped, whether they lack configuration, are ignored, don't exist,
+    // aren't normal files, etc.
     let output = work_dir.run_jj([
         "fix",
         "--include-unchanged-files",
@@ -1793,8 +1797,8 @@ fn test_fix_with_run_tool_if_zero_line_ranges() {
         .run_jj(["bookmark", "create", "-r@", "c1"])
         .success();
 
-    // Create a new commit doing a deletion of a line in foo and bar (which should
-    // produce empty line ranges).
+    // Create a new commit doing a deletion of a line in foo and bar (which
+    // should produce empty line ranges).
     work_dir.run_jj(["new"]).success();
     work_dir.write_file("foo", "Foo1\nFoo3\n");
     work_dir.write_file("bar", "Bar1\nBar3\n");
@@ -1855,8 +1859,8 @@ fn test_fix_with_run_tool_if_zero_line_ranges() {
     [EOF]
     ");
 
-    // Create a new commit doing a deletion of a line in qux. This commit's parent
-    // is c1.
+    // Create a new commit doing a deletion of a line in qux. This commit's
+    // parent is c1.
     work_dir.run_jj(["new", "-r", "c1"]).success();
     work_dir.write_file("qux", "Qux1\nQux3\n");
     work_dir
@@ -1864,10 +1868,11 @@ fn test_fix_with_run_tool_if_zero_line_ranges() {
         .success();
 
     // Run `jj fix` on the third commit. This command should pass, but the
-    // fake-formatter should fail to format qux because `--split-even-length-lines`
-    // requires line-ranges to be passed into the fake formatter and qux should
-    // not have any line ranges passed due to run-tool-if-zero-line-ranges.
-    // This should result in no changes to qux.
+    // fake-formatter should fail to format qux because
+    // `--split-even-length-lines` requires line-ranges to be passed into
+    // the fake formatter and qux should not have any line ranges passed due
+    // to run-tool-if-zero-line-ranges. This should result in no changes to
+    // qux.
     let output = work_dir.run_jj(["fix", "-s", "c3"]).success();
     let output = output.normalize_stderr_with(|s| {
         s.replace(formatter_path.to_str().unwrap(), "fake-formatter")
@@ -2056,8 +2061,8 @@ fn test_fix_with_line_ranges_multiple_formatters() {
     [EOF]
     ");
 
-    // Check that split lines was applied first and then upper was only applied to
-    // the second half.
+    // Check that split lines was applied first and then upper was only applied
+    // to the second half.
     let output = work_dir.run_jj(["file", "show", "foo", "-r", "c2"]);
     insta::assert_snapshot!(output, @r"
     ab
@@ -2151,8 +2156,8 @@ fn test_fix_with_line_ranges_and_include_unchanged_files_all_lines() {
     [EOF]
     ");
 
-    // Check that the formatter was applied to the second commit and all lines were
-    // affected.
+    // Check that the formatter was applied to the second commit and all lines
+    // were affected.
     let output = work_dir.run_jj(["file", "show", "changed.txt", "-r", "c2"]);
     insta::assert_snapshot!(output, @"
     FOO1

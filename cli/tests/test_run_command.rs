@@ -48,8 +48,8 @@ fn test_run_simple() {
     ◆  zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
     [EOF]
     ");
-    // `--tee touched.txt` creates a file in each working copy, so every commit's
-    // tree gets rewritten.
+    // `--tee touched.txt` creates a file in each working copy, so every
+    // commit's tree gets rewritten.
     let stdout = work_dir
         .run_jj(&[
             "run",
@@ -636,8 +636,9 @@ fn test_run_stops_after_first_failure() {
     work_dir.write_file("c.txt", "c");
     work_dir.run_jj(&["commit", "-m", "C"]).success();
 
-    // The counter lives outside every ephemeral working copy, so all invocations
-    // append to the same file and its byte length is the execution count.
+    // The counter lives outside every ephemeral working copy, so all
+    // invocations append to the same file and its byte length is the
+    // execution count.
     let counter = test_env.env_root().join("run-count.txt");
     let counter_arg = counter.to_str().unwrap();
 
@@ -1615,7 +1616,8 @@ fn test_run_ignore_changes_does_not_rewrite() {
     let log_before = get_log_output(&work_dir);
 
     // --tee touched.txt writes a new file in each working copy. Without
-    // --ignore-changes this would amend the commits; with it nothing is rewritten.
+    // --ignore-changes this would amend the commits; with it nothing is
+    // rewritten.
     let output = work_dir
         .run_jj(&[
             "run",
@@ -1653,9 +1655,9 @@ fn test_run_ignore_changes_does_not_rewrite() {
 #[test]
 fn test_run_ignore_changes_does_not_leak_between_invocations() {
     // Mirrors test_run_pool_no_file_leak_between_invocations but run 1 uses
-    // --ignore-changes. The pool slot's tree_state is still updated by the snapshot
-    // during run 1, so run 2 correctly removes artifact.txt from the slot
-    // before checking out commit1.
+    // --ignore-changes. The pool slot's tree_state is still updated by the
+    // snapshot during run 1, so run 2 correctly removes artifact.txt from
+    // the slot before checking out commit1.
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -1664,9 +1666,10 @@ fn test_run_ignore_changes_does_not_leak_between_invocations() {
     work_dir.run_jj(&["commit", "-m", "commit1"]).success();
     work_dir.run_jj(&["commit", "-m", "commit2"]).success();
 
-    // Run 1 (--ignore-changes): writes artifact.txt in the pool slot for commit2
-    // but does not amend any commit. The slot's tree_state must record
-    // artifact.txt so run 2 can remove it when checking out a different tree.
+    // Run 1 (--ignore-changes): writes artifact.txt in the pool slot for
+    // commit2 but does not amend any commit. The slot's tree_state must
+    // record artifact.txt so run 2 can remove it when checking out a
+    // different tree.
     let touch_cmd: &[&str] = if cfg!(windows) {
         &[
             "run",
@@ -1830,8 +1833,9 @@ fn test_run_passthrough() {
     "
     );
 
-    // --passthrough passes the child's stdout/stderr directly through. The output
-    // appears in `jj run`'s own stdout/stderr (captured by the test harness).
+    // --passthrough passes the child's stdout/stderr directly through. The
+    // output appears in `jj run`'s own stdout/stderr (captured by the test
+    // harness).
     let jj_args: &[&str] = if cfg!(windows) {
         &[
             "run",
@@ -1936,9 +1940,9 @@ fn test_run_on_conflicted_commit() {
     [EOF]
     ");
 
-    // `jj run` over the conflicted commit used to panic. `--tee` writes a file in
-    // its working copy so the commit is actually rewritten, proving the conflict
-    // survives the rewrite instead of crashing.
+    // `jj run` over the conflicted commit used to panic. `--tee` writes a file
+    // in its working copy so the commit is actually rewritten, proving the
+    // conflict survives the rewrite instead of crashing.
     let output = work_dir.run_jj(&[
         "run",
         "-r",

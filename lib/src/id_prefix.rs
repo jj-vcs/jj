@@ -172,8 +172,9 @@ impl IdPrefixIndex<'_> {
                     // Fall back to resolving in entire repo
                 }
                 PrefixResolution::SingleMatch(id) => {
-                    // The disambiguation set may be loaded from a different repo,
-                    // and contain a commit that doesn't exist in the current repo.
+                    // The disambiguation set may be loaded from a different
+                    // repo, and contain a commit that
+                    // doesn't exist in the current repo.
                     if repo.index().has_id(&id).block_on()? {
                         return Ok(PrefixResolution::SingleMatch(id));
                     } else {
@@ -412,7 +413,8 @@ where
 
         let min_bytes = prefix.min_prefix_bytes();
         if min_bytes.is_empty() {
-            // We consider an empty prefix ambiguous even if the index has a single entry.
+            // We consider an empty prefix ambiguous even if the index has a
+            // single entry.
             return PrefixResolution::AmbiguousMatch;
         }
 
@@ -421,9 +423,10 @@ where
             (entry.to_key(), entry)
         };
         if min_bytes.len() > N {
-            // If the min prefix (including odd byte) is longer than the stored short keys,
-            // we are sure that min_bytes[..N] does not include the odd byte. Use it to
-            // take contiguous range, then filter by (longer) prefix.matches().
+            // If the min prefix (including odd byte) is longer than the stored
+            // short keys, we are sure that min_bytes[..N] does not
+            // include the odd byte. Use it to take contiguous
+            // range, then filter by (longer) prefix.matches().
             let short_bytes = unwrap_as_short_key(min_bytes);
             let pos = self.index.partition_point(|(s, _)| s < short_bytes);
             let range = self.index[pos..]
@@ -433,8 +436,9 @@ where
                 .filter(|(k, _)| prefix.matches(k));
             collect(range, entry_mapper)
         } else {
-            // Otherwise, use prefix.matches() to deal with odd byte. Since the prefix is
-            // covered by short key width, we're sure that the matching prefixes are sorted.
+            // Otherwise, use prefix.matches() to deal with odd byte. Since the
+            // prefix is covered by short key width, we're sure that
+            // the matching prefixes are sorted.
             let pos = self.index.partition_point(|(s, _)| &s[..] < min_bytes);
             let range = self.index[pos..]
                 .iter()
@@ -529,9 +533,10 @@ where
     }
 
     pub fn shortest_unique_prefix_len(&self) -> usize {
-        // Since entries having the same short key aren't sorted by the full-length key,
-        // we need to scan all entries in the current chunk, plus left/right neighbors.
-        // Typically, current.len() is 1.
+        // Since entries having the same short key aren't sorted by the
+        // full-length key, we need to scan all entries in the current
+        // chunk, plus left/right neighbors. Typically, current.len() is
+        // 1.
         let short_key = unwrap_as_short_key(self.key.as_bytes());
         let left = self.pos.checked_sub(1).map(|p| &self.index[p]);
         let (current, right) = {
@@ -540,8 +545,8 @@ where
             (&range[..count], range.get(count))
         };
 
-        // Left/right neighbors should have unique short keys. For the current chunk,
-        // we need to look up full-length keys.
+        // Left/right neighbors should have unique short keys. For the current
+        // chunk, we need to look up full-length keys.
         let unique_len = |a: &[u8], b: &[u8]| hex_util::common_hex_len(a, b) + 1;
         let neighbor_lens = left
             .iter()
@@ -552,7 +557,8 @@ where
             .map(|(_, p)| self.source.entry_at(p).to_key())
             .filter(|key| key != self.key)
             .map(|key| unique_len(key.as_bytes(), self.key.as_bytes()));
-        // Even if the key is the only one in the index, we require at least one digit.
+        // Even if the key is the only one in the index, we require at least one
+        // digit.
         neighbor_lens.chain(current_lens).max().unwrap_or(1)
     }
 }
@@ -669,8 +675,8 @@ mod tests {
             resolve_prefix(&HexPrefix::try_from_hex("0001").unwrap()),
             PrefixResolution::NoMatch,
         );
-        // For short key "00", ["0000", "0099", "0099"] would match. We shouldn't
-        // break at "009".matches("0000").
+        // For short key "00", ["0000", "0099", "0099"] would match. We
+        // shouldn't break at "009".matches("0000").
         assert_eq!(
             resolve_prefix(&HexPrefix::try_from_hex("009").unwrap()),
             PrefixResolution::SingleMatch((ChangeId::from_hex("0099"), vec![1, 2])),

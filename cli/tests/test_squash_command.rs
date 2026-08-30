@@ -98,8 +98,8 @@ fn test_squash() {
     [EOF]
     ");
 
-    // Cannot squash a merge commit (because it's unclear which parent it should go
-    // into)
+    // Cannot squash a merge commit (because it's unclear which parent it should
+    // go into)
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     work_dir.run_jj(["edit", "b"]).success();
     work_dir.run_jj(["new"]).success();
@@ -195,8 +195,8 @@ fn test_squash_partial() -> TestResult {
 
     let start_op_id = work_dir.current_operation_id();
 
-    // If we don't make any changes in the diff-editor, the whole change is moved
-    // into the parent
+    // If we don't make any changes in the diff-editor, the whole change is
+    // moved into the parent
     std::fs::write(&edit_script, "dump JJ-INSTRUCTIONS instrs")?;
     let output = work_dir.run_jj(["squash", "-r", "b", "-i"]);
     insta::assert_snapshot!(output, @r"
@@ -323,7 +323,8 @@ fn test_squash_partial() -> TestResult {
     [EOF]
     ");
 
-    // We get a warning if we pass a positional argument that looks like a revset
+    // We get a warning if we pass a positional argument that looks like a
+    // revset
     work_dir.run_jj(["op", "restore", &start_op_id]).success();
     let output = work_dir.run_jj(["squash", "b"]);
     insta::assert_snapshot!(output, @r#"
@@ -512,8 +513,8 @@ fn test_squash_from_to() {
     // |/
     // A
     //
-    // When moving changes between e.g. C and F, we should not get unrelated changes
-    // from B and D.
+    // When moving changes between e.g. C and F, we should not get unrelated
+    // changes from B and D.
     work_dir
         .run_jj(["bookmark", "create", "-r@", "a"])
         .success();
@@ -621,8 +622,9 @@ fn test_squash_from_to() {
     ◆  000000000000 (empty)
     [EOF]
     ");
-    // The change from the source has been applied (the file contents were already
-    // "f", as is typically the case when moving changes from an ancestor)
+    // The change from the source has been applied (the file contents were
+    // already "f", as is typically the case when moving changes from an
+    // ancestor)
     let output = work_dir.run_jj(["file", "show", "file2"]);
     insta::assert_snapshot!(output, @"
     f
@@ -735,7 +737,8 @@ fn test_squash_from_to_partial() -> TestResult {
     ");
     let setup_opid = work_dir.current_operation_id();
 
-    // If we don't make any changes in the diff-editor, the whole change is moved
+    // If we don't make any changes in the diff-editor, the whole change is
+    // moved
     let output = work_dir.run_jj(["squash", "-i", "--from", "c"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -849,7 +852,8 @@ fn test_squash_from_to_partial() -> TestResult {
     [EOF]
     ");
 
-    // Can squash only part of the change from a descendant in non-interactive mode
+    // Can squash only part of the change from a descendant in non-interactive
+    // mode
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     // Clear the script so we know it won't be used
     std::fs::write(&edit_script, "")?;
@@ -1203,7 +1207,8 @@ fn test_squash_from_multiple_partial() {
     f
     [EOF]
     ");
-    // The selected changes from the sources have been applied to the destination
+    // The selected changes from the sources have been applied to the
+    // destination
     let output = work_dir.run_jj(["file", "show", "-r=e", "file1"]);
     insta::assert_snapshot!(output, @"
     f
@@ -1342,8 +1347,8 @@ fn test_squash_description() -> TestResult {
     [EOF]
     ");
 
-    // If the destination description is non-empty and the source's description is
-    // empty, the resulting description is from the destination
+    // If the destination description is non-empty and the source's description
+    // is empty, the resulting description is from the destination
     work_dir.run_jj(["op", "restore", &setup_opid1]).success();
     work_dir
         .run_jj(["describe", "@-", "-m", "destination"])
@@ -1363,7 +1368,8 @@ fn test_squash_description() -> TestResult {
     [EOF]
     ");
 
-    // If both descriptions were non-empty, we get asked for a combined description
+    // If both descriptions were non-empty, we get asked for a combined
+    // description
     work_dir.run_jj(["op", "restore", &setup_opid2]).success();
     work_dir.run_jj(["describe", "-m", "source"]).success();
     let setup_opid3 = work_dir.current_operation_id();
@@ -1393,8 +1399,8 @@ fn test_squash_description() -> TestResult {
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 
-    // An explicit description on the command-line overrides prevents launching an
-    // editor
+    // An explicit description on the command-line overrides prevents launching
+    // an editor
     work_dir.run_jj(["op", "restore", &setup_opid3]).success();
     work_dir.run_jj(["squash", "-m", "custom"]).success();
     insta::assert_snapshot!(get_description(&work_dir, "@-"), @"
@@ -1421,8 +1427,8 @@ fn test_squash_description() -> TestResult {
     [EOF]
     ");
 
-    // If the source's *content* doesn't become empty, then the source remains and
-    // both descriptions are unchanged
+    // If the source's *content* doesn't become empty, then the source remains
+    // and both descriptions are unchanged
     work_dir.run_jj(["op", "restore", &setup_opid3]).success();
     work_dir.run_jj(["squash", "file1"]).success();
     insta::assert_snapshot!(get_description(&work_dir, "@-"), @"
@@ -1504,9 +1510,9 @@ fn test_squash_description() -> TestResult {
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 
-    // If the destination description is non-empty and the source's description is
-    // empty, the resulting description is from the destination, with additional
-    // trailers if defined in the commit_trailers template
+    // If the destination description is non-empty and the source's description
+    // is empty, the resulting description is from the destination, with
+    // additional trailers if defined in the commit_trailers template
     work_dir.run_jj(["op", "restore", &setup_opid3]).success();
     work_dir.run_jj(["describe", "-m", ""]).success();
     insta::assert_snapshot!(get_log_output_with_description(&work_dir), @"
@@ -2455,8 +2461,8 @@ fn test_squash_with_editor_combine_messages() -> TestResult {
     work_dir.run_jj(["new", "-m", "source"]).success();
     work_dir.write_file("file1", "b\n");
 
-    // Both source and destination have descriptions, so editor will open to combine
-    // them; the --editor was superfluous.
+    // Both source and destination have descriptions, so editor will open to
+    // combine them; the --editor was superfluous.
     std::fs::write(
         &edit_script,
         ["dump editor", "write\nfinal description from editor"].join("\0"),

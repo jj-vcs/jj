@@ -109,10 +109,10 @@ fn test_eol_conversion_snapshot(
     }: Config,
 ) -> Vec<u8> {
     // This test creates snapshots with different working-copy.eol-conversion
-    // configurations, where proper EOL conversion should apply before writing files
-    // back to the store. Then files are checked out with
-    // working-copy.eol-conversion = "none", which won't touch the EOLs, so that we
-    // can tell whether the exact EOLs written to the store are expected.
+    // configurations, where proper EOL conversion should apply before writing
+    // files back to the store. Then files are checked out with
+    // working-copy.eol-conversion = "none", which won't touch the EOLs, so that
+    // we can tell whether the exact EOLs written to the store are expected.
 
     let extra_setting = format!("{extra_setting}\n");
     let user_settings = base_user_settings_with_extra_configs(&extra_setting);
@@ -191,8 +191,8 @@ fn test_eol_conversion_snapshot(
 // checkout the snapshot with the given setting, and return the content of the
 // file.
 fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
-    // Use the working-copy.eol-conversion = "none" setting to write files to the
-    // store as is.
+    // Use the working-copy.eol-conversion = "none" setting to write files to
+    // the store as is.
     let no_eol_conversion_settings =
         base_user_settings_with_extra_configs("working-copy.eol-conversion = \"none\"\n");
     let mut test_workspace = TestWorkspace::init_with_backend_and_settings(
@@ -249,8 +249,8 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
         .block_on()
         .unwrap();
     let merge_commit = commit_with_tree(test_workspace.repo.store(), tree);
-    // Append new texts to the file with conflicts to make sure the last line is not
-    // conflict markers.
+    // Append new texts to the file with conflicts to make sure the last line is
+    // not conflict markers.
     test_workspace
         .workspace
         .check_out(test_workspace.repo.op_id().clone(), None, &merge_commit)
@@ -276,8 +276,8 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
     // Create the new merge commit with the conflict file appended.
     let merge_commit = commit_with_tree(test_workspace.repo.store(), tree);
 
-    // Reload the Workspace with the working-copy.eol-conversion = "none" setting to
-    // check the EOL of the file written to the store previously.
+    // Reload the Workspace with the working-copy.eol-conversion = "none"
+    // setting to check the EOL of the file written to the store previously.
     test_workspace.workspace = Workspace::load(
         &no_eol_conversion_settings,
         test_workspace.workspace.workspace_root(),
@@ -285,8 +285,8 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
         &default_working_copy_factories(),
     )
     .expect("Failed to reload the workspace");
-    // Checkout the empty commit to clear the directory, so that the test file will
-    // be recreated.
+    // Checkout the empty commit to clear the directory, so that the test file
+    // will be recreated.
     test_workspace
         .workspace
         .check_out(
@@ -344,9 +344,9 @@ fn test_eol_conversion_input_snapshot_conflicts() -> TestResult {
 #[test]
 fn test_eol_conversion_none_snapshot_conflicts() -> TestResult {
     let contents = create_conflict_snapshot_and_read(r#"working-copy.eol-conversion = "none""#);
-    // We only check the last line, because it is only guaranteed that the last line
-    // is not the conflict markers. The conflict markers in the store are supposed
-    // to use the LF EOL.
+    // We only check the last line, because it is only guaranteed that the last
+    // line is not the conflict markers. The conflict markers in the store
+    // are supposed to use the LF EOL.
     let line = contents.lines_with_terminator().next_back().unwrap();
     assert!(
         line.ends_with(b"\r\n"),
@@ -401,7 +401,8 @@ fn test_eol_conversion_update_conflicts(
     }: UpdateConflictsTestConfig,
 ) -> TestResult {
     // Create a conflict commit with 2 given contents on one file, checkout that
-    // conflict with the given EOL conversion settings, and test if the EOL matches.
+    // conflict with the given EOL conversion settings, and test if the EOL
+    // matches.
 
     let extra_setting = format!("{extra_setting}\n");
     let user_settings = base_user_settings_with_extra_configs(&extra_setting);
@@ -516,15 +517,15 @@ fn test_eol_conversion_checkout(
         file_content,
     }: Config,
 ) -> Vec<u8> {
-    // This test checks in files with working-copy.eol-conversion = "none", so that
-    // the store stores files as is. Then we use jj to check out those files with
-    // different working-copy.eol-conversion configurations to verify if the EOLs
-    // are converted as expected.
+    // This test checks in files with working-copy.eol-conversion = "none", so
+    // that the store stores files as is. Then we use jj to check out those
+    // files with different working-copy.eol-conversion configurations to
+    // verify if the EOLs are converted as expected.
 
     let no_eol_conversion_settings =
         base_user_settings_with_extra_configs("working-copy.eol-conversion = \"none\"\n");
-    // Use the working-copy.eol-conversion = "none" setting, so that the input files
-    // are stored as is.
+    // Use the working-copy.eol-conversion = "none" setting, so that the input
+    // files are stored as is.
     let mut test_workspace = TestWorkspace::init_with_backend_and_settings(
         TestRepoBackend::Git,
         &no_eol_conversion_settings,
@@ -573,19 +574,19 @@ fn test_eol_conversion_checkout(
         .store()
         .get_commit(commit.id())
         .expect("Failed to find the commit with the test file");
-    // Check out the commit with the test file. TreeState::update should update the
-    // EOL accordingly.
+    // Check out the commit with the test file. TreeState::update should update
+    // the EOL accordingly.
     test_workspace
         .workspace
         .check_out(test_workspace.repo.op_id().clone(), None, &commit)
         .block_on()
         .unwrap();
 
-    // When we take a snapshot now, the tree may not be clean, because the EOL our
-    // snapshot creates may not align with what is currently used in store. e.g.
-    // with working-copy.eol-conversion = "input-output", the test-eol-file may have
-    // CRLF line endings in the store, but the snapshot will change the EOL to LF,
-    // hence the diff.
+    // When we take a snapshot now, the tree may not be clean, because the EOL
+    // our snapshot creates may not align with what is currently used in
+    // store. e.g. with working-copy.eol-conversion = "input-output", the
+    // test-eol-file may have CRLF line endings in the store, but the
+    // snapshot will change the EOL to LF, hence the diff.
 
     assert!(std::fs::exists(&file_disk_path).unwrap());
     std::fs::read(&file_disk_path).unwrap()

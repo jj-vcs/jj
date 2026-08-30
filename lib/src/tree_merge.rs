@@ -221,7 +221,8 @@ impl TreeMerger {
                         assert!(self.unstarted_work.is_empty());
                         return Ok(tree);
                     }
-                    // Propagate the write to the parent tree, replacing empty trees by `None`.
+                    // Propagate the write to the parent tree, replacing empty
+                    // trees by `None`.
                     let new_value = tree.map(|tree| {
                         (tree.id() != self.store.empty_tree_id())
                             .then(|| TreeValue::Tree(tree.id().clone()))
@@ -247,8 +248,8 @@ impl TreeMerger {
     }
 
     fn process_tree(&mut self, dir: RepoPathBuf, tree: Merge<Tree>) {
-        // First resolve trivial merges (those that we don't need to load any more data
-        // for)
+        // First resolve trivial merges (those that we don't need to load any
+        // more data for)
         let same_change = self.store.merge_options().same_change;
         let mut resolved = vec![];
         let mut non_trivial = vec![];
@@ -276,9 +277,9 @@ impl TreeMerger {
             if value.is_tree() {
                 self.enqueue_tree_read(path, value);
             } else {
-                // TODO: If it's e.g. a dir/file conflict, there's no need to try to
-                // resolve it as a file. We should mark them to
-                // `unmerged_tree.conflicts` instead.
+                // TODO: If it's e.g. a dir/file conflict, there's no need to
+                // try to resolve it as a file. We should mark
+                // them to `unmerged_tree.conflicts` instead.
                 self.enqueue_file_merge(path, value);
             }
         }
@@ -300,8 +301,9 @@ impl TreeMerger {
     fn enqueue_tree_write(&mut self, dir: RepoPathBuf, backend_trees: Merge<backend::Tree>) {
         let work_fut = write_trees(self.store.clone(), dir.clone(), backend_trees)
             .map(|result| TreeMergerWorkOutput::WrittenTrees { dir, result });
-        // Bypass the `unstarted_work` queue because writing trees usually results in
-        // saving memory (each tree gets replaced by a `TreeValue::Tree`)
+        // Bypass the `unstarted_work` queue because writing trees usually
+        // results in saving memory (each tree gets replaced by a
+        // `TreeValue::Tree`)
         self.work.push(Box::pin(work_fut));
     }
 
@@ -321,8 +323,9 @@ impl TreeMerger {
         let tree = self.trees_to_resolve.get_mut(dir).unwrap();
         let same_change = self.store.merge_options().same_change;
         tree.mark_completed(basename.to_owned(), value, same_change);
-        // If all entries in this tree have been processed (either resolved or still a
-        // conflict), schedule the writing of the tree(s) to the backend.
+        // If all entries in this tree have been processed (either resolved or
+        // still a conflict), schedule the writing of the tree(s) to the
+        // backend.
         if tree.pending_lookup.is_empty() {
             let tree = self.trees_to_resolve.remove(dir).unwrap();
             self.enqueue_tree_write(dir.to_owned(), tree.into_backend_trees());
@@ -394,8 +397,8 @@ async fn try_resolve_file_values<T: Borrow<TreeValue>>(
     let simplified = values
         .map(|value| value.as_ref().map(Borrow::borrow))
         .simplify();
-    // No fast path for simplified.is_resolved(). If it could be resolved, it would
-    // have been caught by values.resolve_trivial() above.
+    // No fast path for simplified.is_resolved(). If it could be resolved, it
+    // would have been caught by values.resolve_trivial() above.
     if let Some(resolved) = try_resolve_file_conflict(store, path, &simplified).await? {
         Ok(Some(Merge::normal(resolved)))
     } else {
@@ -459,8 +462,8 @@ async fn try_resolve_file_conflict(
         return Ok(None);
     };
     if let Some(&resolved_file_id) = file_id_conflict.resolve_trivial(options.same_change) {
-        // Don't bother reading the file contents if the conflict can be trivially
-        // resolved.
+        // Don't bother reading the file contents if the conflict can be
+        // trivially resolved.
         return Ok(Some(TreeValue::File {
             id: resolved_file_id.clone(),
             executable,
@@ -472,8 +475,8 @@ async fn try_resolve_file_conflict(
     // terms which only differ in executable bits. Simplify the conflict further
     // for two reasons:
     // 1. Avoid reading unchanged file contents
-    // 2. The simplified conflict can sometimes be resolved when the unsimplfied one
-    //    cannot
+    // 2. The simplified conflict can sometimes be resolved when the unsimplfied
+    //    one cannot
     let file_id_conflict = file_id_conflict.simplify();
 
     let contents = file_id_conflict

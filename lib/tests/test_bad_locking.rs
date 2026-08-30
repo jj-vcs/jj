@@ -58,8 +58,8 @@ fn merge_directories(left: &Path, base: &Path, right: &Path, output: &Path) {
             }
         }
     }
-    // Walk the base and find files removed in the right side, then remove them in
-    // the output
+    // Walk the base and find files removed in the right side, then remove them
+    // in the output
     if base.exists() {
         for entry in std::fs::read_dir(base).unwrap() {
             let path = entry.unwrap().path();
@@ -74,8 +74,8 @@ fn merge_directories(left: &Path, base: &Path, right: &Path, output: &Path) {
             }
         }
     }
-    // Walk the right side and find files added in the right side, then add them in
-    // the output
+    // Walk the right side and find files added in the right side, then add them
+    // in the output
     if right.exists() {
         for entry in std::fs::read_dir(right).unwrap() {
             let path = entry.unwrap().path();
@@ -86,8 +86,9 @@ fn merge_directories(left: &Path, base: &Path, right: &Path, output: &Path) {
             if child_right.is_dir() {
                 sub_dirs.push(base_name.to_os_string());
             } else if !child_base.exists() {
-                // This overwrites the left side if that's been written. That's fine, since the
-                // point of the test is that it should be okay for either side to win.
+                // This overwrites the left side if that's been written. That's
+                // fine, since the point of the test is that it
+                // should be okay for either side to win.
                 std::fs::copy(&child_right, child_output).unwrap();
             }
         }
@@ -105,8 +106,8 @@ fn merge_directories(left: &Path, base: &Path, right: &Path, output: &Path) {
 #[test_case(TestRepoBackend::Simple; "simple backend")]
 #[test_case(TestRepoBackend::Git; "git backend")]
 fn test_bad_locking_children(backend: TestRepoBackend) -> TestResult {
-    // Test that two new commits created on separate machines are both visible (not
-    // lost due to lack of locking)
+    // Test that two new commits created on separate machines are both visible
+    // (not lost due to lack of locking)
     let settings = testutils::user_settings();
     let test_workspace = TestWorkspace::init_with_backend_and_settings(backend, &settings);
     let repo = &test_workspace.repo;
@@ -144,8 +145,8 @@ fn test_bad_locking_children(backend: TestRepoBackend) -> TestResult {
     let child2 = write_random_commit_with_parents(machine2_tx.repo_mut(), &[&initial]);
     machine2_tx.commit("test").block_on()?;
 
-    // Simulate that the distributed file system now has received the changes from
-    // both machines
+    // Simulate that the distributed file system now has received the changes
+    // from both machines
     let merged_path = test_workspace.root_dir().join("merged");
     merge_directories(&machine1_root, workspace_root, &machine2_root, &merged_path);
     let merged_workspace = Workspace::load(
@@ -178,10 +179,10 @@ fn test_bad_locking_interrupted(backend: TestRepoBackend) -> TestResult {
     let initial = write_random_commit(tx.repo_mut());
     let repo = tx.commit("test").block_on()?;
 
-    // Simulate a crash that resulted in the old op-head left in place. We simulate
-    // it somewhat hackily by copying the .jj/op_heads/ directory before the
-    // operation and then copying that back afterwards, leaving the existing
-    // op-head(s) in place.
+    // Simulate a crash that resulted in the old op-head left in place. We
+    // simulate it somewhat hackily by copying the .jj/op_heads/ directory
+    // before the operation and then copying that back afterwards, leaving
+    // the existing op-head(s) in place.
     let op_heads_dir = test_workspace.repo_path().join("op_heads");
     let backup_path = test_workspace.root_dir().join("backup");
     copy_directory(&op_heads_dir, &backup_path);
@@ -193,8 +194,8 @@ fn test_bad_locking_interrupted(backend: TestRepoBackend) -> TestResult {
     // Reload the repo and check that only the new head is present.
     let reloaded_repo = test_env.load_repo_at_head(&settings, test_workspace.repo_path());
     assert_eq!(reloaded_repo.op_id(), &op_id);
-    // Reload once more to make sure that the .jj/op_heads/ directory was updated
-    // correctly.
+    // Reload once more to make sure that the .jj/op_heads/ directory was
+    // updated correctly.
     let reloaded_repo = test_env.load_repo_at_head(&settings, test_workspace.repo_path());
     assert_eq!(reloaded_repo.op_id(), &op_id);
     Ok(())

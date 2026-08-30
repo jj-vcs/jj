@@ -373,8 +373,9 @@ pub fn commit_to_proto(commit: &Commit) -> crate::protos::simple_store::Commit {
 }
 
 fn commit_from_proto(mut proto: crate::protos::simple_store::Commit) -> Commit {
-    // Note how .take() sets the secure_sig field to None before we encode the data.
-    // Needs to be done first since proto is partially moved a bunch below
+    // Note how .take() sets the secure_sig field to None before we encode the
+    // data. Needs to be done first since proto is partially moved a bunch
+    // below
     let secure_sig = proto.secure_sig.take().map(|sig| SecureSig {
         data: proto.encode_to_vec(),
         sig,

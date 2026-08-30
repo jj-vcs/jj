@@ -198,10 +198,10 @@ async fn run_mergetool_external_single_file(
 
     let uses_marker_length = find_all_variables(&editor.merge_args).contains(&"marker_length");
 
-    // If the merge tool doesn't get conflict markers pre-populated in the output
-    // file and doesn't accept "$marker_length", then we should default to accepting
-    // MIN_CONFLICT_MARKER_LEN since the merge tool can't know about our rules for
-    // conflict marker length.
+    // If the merge tool doesn't get conflict markers pre-populated in the
+    // output file and doesn't accept "$marker_length", then we should
+    // default to accepting MIN_CONFLICT_MARKER_LEN since the merge tool
+    // can't know about our rules for conflict marker length.
     let conflict_marker_len = if editor.merge_tool_edits_conflict_markers || uses_marker_length {
         choose_materialized_conflict_marker_len(&file.contents)
     } else {
@@ -244,7 +244,8 @@ async fn run_mergetool_external_single_file(
             let path = temp_dir.path().join(format!("{role}{suffix}"));
             std::fs::write(&path, contents).map_err(ExternalToolError::SetUpDir)?;
             if *role != "output" {
-                // TODO: Should actually ignore the error here, or have a warning.
+                // TODO: Should actually ignore the error here, or have a
+                // warning.
                 set_readonly_recursively(&path).map_err(ExternalToolError::SetUpDir)?;
             }
             Ok((
@@ -269,7 +270,8 @@ async fn run_mergetool_external_single_file(
         })?;
     tracing::info!(%exit_status);
 
-    // Check whether the exit status implies that there should be conflict markers
+    // Check whether the exit status implies that there should be conflict
+    // markers
     let exit_status_implies_conflict = exit_status
         .code()
         .is_some_and(|code| editor.merge_conflict_exit_codes.contains(&code));
@@ -309,9 +311,9 @@ async fn run_mergetool_external_single_file(
     };
 
     // If the exit status indicated there should be conflict markers but there
-    // weren't any, it's likely that the tool generated invalid conflict markers, so
-    // we need to inform the user. If we didn't treat this as an error, the user
-    // might think the conflict was resolved successfully.
+    // weren't any, it's likely that the tool generated invalid conflict
+    // markers, so we need to inform the user. If we didn't treat this as an
+    // error, the user might think the conflict was resolved successfully.
     if exit_status_implies_conflict && new_file_ids.is_resolved() {
         return Err(ConflictResolveError::ExternalTool(
             ExternalToolError::InvalidConflictMarkers { exit_status },
@@ -367,8 +369,9 @@ pub async fn run_mergetool_external(
                 return Err(err);
             }
             Err(err) => {
-                // Some conflicts were already resolved, so we should return an error with the
-                // partially-resolved tree so that the caller can save the resolved files.
+                // Some conflicts were already resolved, so we should return an
+                // error with the partially-resolved tree so
+                // that the caller can save the resolved files.
                 partial_resolution_error = Some(MergeToolPartialResolutionError {
                     source: err,
                     resolved_count: i,
@@ -508,8 +511,8 @@ pub fn invoke_external_diff(
             source,
         })?;
     let copy_result = io::copy(&mut child.stdout.take().unwrap(), writer);
-    // Non-zero exit code isn't an error. For example, the traditional diff command
-    // will exit with 1 if inputs are different.
+    // Non-zero exit code isn't an error. For example, the traditional diff
+    // command will exit with 1 if inputs are different.
     let exit_status = child.wait().map_err(ExternalToolError::Io)?;
     tracing::info!(?cmd, ?exit_status, "The external diff generator exited:");
     let exit_ok = exit_status

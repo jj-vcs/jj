@@ -186,8 +186,9 @@ impl SshBackend {
             .arg("-s")
             .arg(signature_file_path);
 
-        // We can't use the existing run_command helper here as `-Y find-principals`
-        // will return a non-0 exit code if no principals are found.
+        // We can't use the existing run_command helper here as `-Y
+        // find-principals` will return a non-0 exit code if no
+        // principals are found.
         //
         // In this case we don't want to error out, just return None.
         tracing::info!(?command, "running SSH signing command");
@@ -223,11 +224,11 @@ impl SigningBackend for SshBackend {
             return Err(SshError::MissingKey.into());
         };
 
-        // The ssh-keygen `-f` flag expects to be given a file which contains either a
-        // private or public key.
+        // The ssh-keygen `-f` flag expects to be given a file which contains
+        // either a private or public key.
         //
-        // As it expects a file and we might have an inlined public key instead, we need
-        // to ensure it is written to a file first.
+        // As it expects a file and we might have an inlined public key instead,
+        // we need to ensure it is written to a file first.
         let pub_key_path = ensure_key_as_file(key)?;
         let mut command = self.create_command();
 

@@ -74,8 +74,8 @@ fn test_commit_parallel(backend: TestRepoBackend) -> TestResult {
         }
     });
     let repo = repo.reload_at_head().block_on()?;
-    // One commit per thread plus the commit from the initial working-copy on top of
-    // the root commit
+    // One commit per thread plus the commit from the initial working-copy on
+    // top of the root commit
     assert_eq!(repo.view().heads().len(), num_threads + 1);
 
     // One additional operation for the root operation, one for checking out the
@@ -87,8 +87,8 @@ fn test_commit_parallel(backend: TestRepoBackend) -> TestResult {
 #[test_case(TestRepoBackend::Simple ; "simple backend")]
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn test_commit_parallel_instances(backend: TestRepoBackend) -> TestResult {
-    // Like the test above but creates a new repo instance for every thread, which
-    // makes it behave very similar to separate processes.
+    // Like the test above but creates a new repo instance for every thread,
+    // which makes it behave very similar to separate processes.
     let settings = testutils::user_settings();
     let test_workspace = TestWorkspace::init_with_backend_and_settings(backend, &settings);
     let test_env = &test_workspace.env;
@@ -105,8 +105,8 @@ fn test_commit_parallel_instances(backend: TestRepoBackend) -> TestResult {
             });
         }
     });
-    // One commit per thread plus the commit from the initial working-copy commit on
-    // top of the root commit
+    // One commit per thread plus the commit from the initial working-copy
+    // commit on top of the root commit
     let repo = test_env.load_repo_at_head(&settings, test_workspace.repo_path());
     assert_eq!(repo.view().heads().len(), num_threads + 1);
 

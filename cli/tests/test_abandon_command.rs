@@ -215,8 +215,8 @@ fn test_bug_2600() {
     let work_dir = test_env.work_dir("repo");
 
     // We will not touch "nottherootcommit". See the
-    // `test_bug_2600_rootcommit_special_case` for the one case where base being the
-    // child of the root commit changes the expected behavior.
+    // `test_bug_2600_rootcommit_special_case` for the one case where base being
+    // the child of the root commit changes the expected behavior.
     create_commit(&work_dir, "nottherootcommit", &[]);
     create_commit(&work_dir, "base", &["nottherootcommit"]);
     create_commit(&work_dir, "a", &["base"]);
@@ -250,8 +250,8 @@ fn test_bug_2600() {
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
-    // Commits "a" and "b" should both have "nottherootcommit" as parent, and "b"
-    // should keep "a" as second parent.
+    // Commits "a" and "b" should both have "nottherootcommit" as parent, and
+    // "b" should keep "a" as second parent.
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  [znk] c
     ○    [vru] b
@@ -277,8 +277,8 @@ fn test_bug_2600() {
     [EOF]
     ");
     // Commit "b" should have "base" as parent. It should not have two parent
-    // pointers to that commit even though it was a merge commit before we abandoned
-    // "a".
+    // pointers to that commit even though it was a merge commit before we
+    // abandoned "a".
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  [znk] c
     ○  [vru] b
@@ -339,8 +339,8 @@ fn test_bug_2600() {
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
-    // Commit "c" should have "base" as parent. As when we abandoned "a", it should
-    // not have two parent pointers to the same commit.
+    // Commit "c" should have "base" as parent. As when we abandoned "a", it
+    // should not have two parent pointers to the same commit.
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  [znk] c
     ○  [zsu] a b base

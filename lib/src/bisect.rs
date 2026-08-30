@@ -162,9 +162,9 @@ impl<'repo> Bisector<'repo> {
     /// Mark a commit as causing an abort
     pub fn mark_abort(&mut self, id: CommitId) {
         // TODO: Right now, we only use this state for triggering an abort.
-        // A potential improvement would be to make the CLI print out the revset with
-        // the current status of each change, making it possible for a user
-        // to restart an aborted bisect in progress.
+        // A potential improvement would be to make the CLI print out the revset
+        // with the current status of each change, making it possible
+        // for a user to restart an aborted bisect in progress.
         assert!(!self.good_commits.contains(&id));
         assert!(!self.bad_commits.contains(&id));
         assert!(!self.skipped_commits.contains(&id));
@@ -222,8 +222,8 @@ impl<'repo> Bisector<'repo> {
         if self.aborted {
             return Ok(NextStep::Done(BisectionResult::Abort));
         }
-        // Intersect the input range with the current bad range and then bisect it to
-        // find the next commit to evaluate.
+        // Intersect the input range with the current bad range and then bisect
+        // it to find the next commit to evaluate.
         // Skipped revisions are simply subtracted from the set.
         // TODO: Handle long ranges of skipped revisions better
         let to_evaluate_expr = self.candidates().bisect().latest(1);

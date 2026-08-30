@@ -24,11 +24,12 @@ fn main() {
     println!("cargo:rerun-if-env-changed=NIX_JJ_GIT_HASH");
     let git_hash = get_git_hash_from_nix().or_else(|| {
         if Path::new(GIT_HEAD_PATH).exists() {
-            // In colocated workspace, .git/HEAD should reflect the working-copy parent.
+            // In colocated workspace, .git/HEAD should reflect the working-copy
+            // parent.
             println!("cargo:rerun-if-changed={GIT_HEAD_PATH}");
         } else if Path::new(JJ_OP_HEADS_PATH).exists() {
-            // op_heads changes when working-copy files are mutated, which is way more
-            // frequent than .git/HEAD.
+            // op_heads changes when working-copy files are mutated, which is
+            // way more frequent than .git/HEAD.
             println!("cargo:rerun-if-changed={JJ_OP_HEADS_PATH}");
         }
         get_git_hash_from_jj().or_else(get_git_hash_from_git)
@@ -70,8 +71,9 @@ fn get_git_hash_from_jj() -> Option<String> {
         .filter(|output| output.status.success())
         .map(|output| {
             let mut parent_commits = String::from_utf8(output.stdout).unwrap();
-            // If a development version of `jj` is compiled at a merge commit, this will
-            // result in several commit ids separated by `-`s.
+            // If a development version of `jj` is compiled at a merge commit,
+            // this will result in several commit ids separated by
+            // `-`s.
             parent_commits.truncate(parent_commits.trim_end_matches('-').len());
             parent_commits
         })

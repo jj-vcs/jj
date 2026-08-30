@@ -69,7 +69,8 @@ fn test_rewrite_immutable_generic() {
     [EOF]
     [exit status: 1]
     "#);
-    // Cannot rewrite the root commit even with an empty set of immutable commits
+    // Cannot rewrite the root commit even with an empty set of immutable
+    // commits
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
     let output = work_dir.run_jj(["edit", "root()"]);
     insta::assert_snapshot!(output, @"
@@ -331,8 +332,8 @@ fn test_rewrite_immutable_commands() {
     work_dir
         .run_jj(["new", "visible_heads()", "-m=merge"])
         .success();
-    // Create another file to make sure the merge commit isn't empty (to satisfy `jj
-    // split`) and still has a conflict (to satisfy `jj resolve`).
+    // Create another file to make sure the merge commit isn't empty (to satisfy
+    // `jj split`) and still has a conflict (to satisfy `jj resolve`).
     work_dir.write_file("file2", "merged");
     work_dir
         .run_jj(["bookmark", "create", "-r@", "main"])

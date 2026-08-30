@@ -55,8 +55,9 @@ fn test_revert_merge_operation() {
 
 #[test]
 fn test_revert_rewrite_with_child() {
-    // Test that if we revert an operation that rewrote some commit, any descendants
-    // after that will be rebased on top of the un-rewritten commit.
+    // Test that if we revert an operation that rewrote some commit, any
+    // descendants after that will be rebased on top of the un-rewritten
+    // commit.
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -73,8 +74,8 @@ fn test_revert_rewrite_with_child() {
     ");
     work_dir.run_jj(["op", "revert", "@-"]).success();
 
-    // Since we undid the description-change, the child commit should now be on top
-    // of the initial commit
+    // Since we undid the description-change, the child commit should now be on
+    // top of the initial commit
     let output = work_dir.run_jj(["log", "-T", "description"]);
     insta::assert_snapshot!(output, @"
     @  child
@@ -225,9 +226,9 @@ fn test_git_push_revert_with_import() {
     [EOF]
     ");
 
-    // PROBLEM: inserting this import changes the outcome compared to previous test
-    // TODO: decide if this is the better behavior, and whether import of
-    // remote-tracking bookmarks should happen on every operation.
+    // PROBLEM: inserting this import changes the outcome compared to previous
+    // test TODO: decide if this is the better behavior, and whether import
+    // of remote-tracking bookmarks should happen on every operation.
     work_dir.run_jj(["git", "import"]).success();
     //                     | jj refs | jj's   | git
     //                     |         | git    | repo
@@ -243,8 +244,8 @@ fn test_git_push_revert_with_import() {
     test_env.advance_test_rng_seed_to_multiple_of(100_000);
     work_dir.run_jj(["describe", "-m", "CC"]).success();
     work_dir.run_jj(["git", "fetch"]).success();
-    // There is not a conflict. This seems like a good outcome; reverting `git push`
-    // was essentially a no-op.
+    // There is not a conflict. This seems like a good outcome; reverting `git
+    // push` was essentially a no-op.
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main: qpvuntsm 1e742089 (empty) CC
       @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 d9a9f6a0 (hidden) (empty) BB
@@ -326,8 +327,8 @@ fn test_git_push_revert_colocated() {
     test_env.advance_test_rng_seed_to_multiple_of(100_000);
     work_dir.run_jj(["describe", "-m", "CC"]).success();
     work_dir.run_jj(["git", "fetch"]).success();
-    // We have the same conflict as `test_git_push_revert`. TODO: why did we get the
-    // same result in a seemingly different way?
+    // We have the same conflict as `test_git_push_revert`. TODO: why did we get
+    // the same result in a seemingly different way?
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main (conflicted):
       - qpvuntsm/2 3a44d6c5 (hidden) (empty) AA
@@ -374,7 +375,8 @@ fn test_git_push_revert_repo_only() {
     let pre_push_opid = work_dir.current_operation_id();
     work_dir.run_jj(["git", "push"]).success();
 
-    // Revert the push, but keep both the git_refs and the remote-tracking bookmarks
+    // Revert the push, but keep both the git_refs and the remote-tracking
+    // bookmarks
     work_dir
         .run_jj(["op", "restore", "--what=repo", &pre_push_opid])
         .success();
@@ -386,7 +388,8 @@ fn test_git_push_revert_repo_only() {
     test_env.advance_test_rng_seed_to_multiple_of(100_000);
     work_dir.run_jj(["describe", "-m", "CC"]).success();
     work_dir.run_jj(["git", "fetch"]).success();
-    // This currently gives an identical result to `test_git_push_revert_import`.
+    // This currently gives an identical result to
+    // `test_git_push_revert_import`.
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main: qpvuntsm 1e742089 (empty) CC
       @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 d9a9f6a0 (hidden) (empty) BB

@@ -194,8 +194,8 @@ fn editor_args_from_settings(
     settings: &UserSettings,
     key: &'static str,
 ) -> Result<CommandNameAndArgs, ConfigGetError> {
-    // TODO: Make this configuration have a table of possible editors and detect the
-    // best one here.
+    // TODO: Make this configuration have a table of possible editors and detect
+    // the best one here.
     if let Some(args) = settings.get(key).optional()? {
         Ok(args)
     } else {
@@ -478,8 +478,8 @@ async fn pick_conflict_side(
 ) -> Result<MergedTree, BackendError> {
     let mut tree_builder = MergedTreeBuilder::new(tree.clone());
     for merge_tool_file in merge_tool_files {
-        // We use file IDs here to match the logic for the other external merge tools.
-        // This ensures that the behavior is consistent.
+        // We use file IDs here to match the logic for the other external merge
+        // tools. This ensures that the behavior is consistent.
         let file = &merge_tool_file.file;
         let file_id = file.ids.get_add(add_index).unwrap();
         let executable = file.executable.expect("should have been resolved");
@@ -757,7 +757,8 @@ mod tests {
         )
         "#);
 
-        // List args should never be a merge-tools key, edit_args are filled by default
+        // List args should never be a merge-tools key, edit_args are filled by
+        // default
         insta::assert_debug_snapshot!(get(r#"ui.diff-editor = ["meld"]"#).unwrap(), @r#"
         External(
             ExternalMergeTool {

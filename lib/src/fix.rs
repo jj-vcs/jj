@@ -187,21 +187,22 @@ pub async fn fix_files(
 ) -> Result<FixSummary, FixError> {
     let mut summary = FixSummary::default();
 
-    // Collect all of the unique `FileToFix`s we're going to use. file_fixer should
-    // be deterministic, and should not consider outside information, so it is
-    // safe to deduplicate inputs that correspond to multiple files or commits.
-    // This is typically more efficient, but it does prevent certain use cases
-    // like providing commit IDs as inputs to be inserted into files. We also
-    // need to record the mapping between files-to-fix and paths/commits, to
-    // efficiently rewrite the commits later.
+    // Collect all of the unique `FileToFix`s we're going to use. file_fixer
+    // should be deterministic, and should not consider outside information,
+    // so it is safe to deduplicate inputs that correspond to multiple files
+    // or commits. This is typically more efficient, but it does prevent
+    // certain use cases like providing commit IDs as inputs to be inserted
+    // into files. We also need to record the mapping between files-to-fix
+    // and paths/commits, to efficiently rewrite the commits later.
     //
-    // If a path is being fixed in a particular commit, it must also be fixed in all
-    // that commit's descendants. We do this as a way of propagating changes,
-    // under the assumption that it is more useful than performing a rebase and
-    // risking merge conflicts. In the case of code formatters, rebasing wouldn't
-    // reliably produce well formatted code anyway. Deduplicating inputs helps
-    // to prevent quadratic growth in the number of tool executions required for
-    // doing this in long chains of commits with disjoint sets of modified files.
+    // If a path is being fixed in a particular commit, it must also be fixed in
+    // all that commit's descendants. We do this as a way of propagating
+    // changes, under the assumption that it is more useful than performing
+    // a rebase and risking merge conflicts. In the case of code formatters,
+    // rebasing wouldn't reliably produce well formatted code anyway.
+    // Deduplicating inputs helps to prevent quadratic growth in the number
+    // of tool executions required for doing this in long chains of commits
+    // with disjoint sets of modified files.
     let commits: Vec<_> = RevsetExpression::commits(root_commits.clone())
         .descendants()
         .evaluate(repo_mut)?
@@ -242,10 +243,11 @@ pub async fn fix_files(
         }
         let base_tree = merge_commit_trees(repo_mut, &base_commits).await?;
 
-        // If --include-unchanged-files, we always fix every matching file in the tree.
-        // Otherwise, we fix the matching changed files in this commit, plus any that
-        // were fixed in ancestors, so we don't lose those changes. We do this
-        // instead of rebasing onto those changes, to avoid merge conflicts.
+        // If --include-unchanged-files, we always fix every matching file in
+        // the tree. Otherwise, we fix the matching changed files in
+        // this commit, plus any that were fixed in ancestors, so we
+        // don't lose those changes. We do this instead of rebasing onto
+        // those changes, to avoid merge conflicts.
         let diff_base_tree = if include_unchanged_files {
             &repo_mut.store().empty_merged_tree()
         } else {
@@ -269,9 +271,10 @@ pub async fn fix_files(
                 values.before.into_iter().next()
             };
 
-            // Deleted files have no file content to fix, and they have no terms in `after`,
-            // so we don't add any files-to-fix for them. For conflicted files in the base
-            // commit(s), we diff against the first side of the conflict. For conflicted
+            // Deleted files have no file content to fix, and they have no terms
+            // in `after`, so we don't add any files-to-fix for
+            // them. For conflicted files in the base commit(s), we
+            // diff against the first side of the conflict. For conflicted
             // files in the current commit, we add all sides of the conflict to
             // the files-to-fix.
             let before_file_id = if let Some(Some(TreeValue::File {
@@ -287,16 +290,18 @@ pub async fn fix_files(
             };
 
             for after_term in values.after {
-                // We currently only support fixing the content of normal files, so we skip
-                // directories and symlinks, and we ignore the executable bit.
+                // We currently only support fixing the content of normal files,
+                // so we skip directories and symlinks, and we
+                // ignore the executable bit.
                 if let Some(TreeValue::File {
                     id,
                     executable: _,
                     copy_id: _,
                 }) = after_term
                 {
-                    // TODO: Skip the file if its content is larger than some configured size,
-                    // preferably without actually reading it yet.
+                    // TODO: Skip the file if its content is larger than some
+                    // configured size, preferably without
+                    // actually reading it yet.
                     let file_to_fix = FileToFix {
                         file_id: id.clone(),
                         base_file_id: before_file_id.clone(),
@@ -320,13 +325,14 @@ pub async fn fix_files(
     let fixed_file_ids = file_fixer.fix_files(repo_mut.store().as_ref(), &unique_files_to_fix)?;
     tracing::debug!(?fixed_file_ids, "file fixer fixed these files:");
 
-    // Substitute the fixed file IDs into all of the affected commits. Currently,
-    // fixes cannot delete or rename files, change the executable bit, or modify
-    // other parts of the commit like the description.
+    // Substitute the fixed file IDs into all of the affected commits.
+    // Currently, fixes cannot delete or rename files, change the executable
+    // bit, or modify other parts of the commit like the description.
     repo_mut
         .transform_descendants(root_commits, async |rewriter| {
-            // TODO: Build the trees in parallel before `transform_descendants()` and only
-            // keep the tree IDs in memory, so we can pass them to the rewriter.
+            // TODO: Build the trees in parallel before
+            // `transform_descendants()` and only keep the tree IDs
+            // in memory, so we can pass them to the rewriter.
             let old_commit_id = rewriter.old_commit().id().clone();
             let repo_paths = commit_paths.get(&old_commit_id).unwrap();
             let old_tree = rewriter.old_commit().tree();
@@ -427,8 +433,9 @@ pub fn compute_changed_ranges(base: &[u8], current: &[u8]) -> RegionsToFormat {
             DiffHunkKind::Matching => {}
             DiffHunkKind::Different => {
                 if line_count > 0 {
-                    // We want the diff ranges to be 1-based and inclusive [first, last] as this
-                    // is what most formatters expect.
+                    // We want the diff ranges to be 1-based and inclusive
+                    // [first, last] as this is what most
+                    // formatters expect.
                     ranges.push(LineRange {
                         first: current_line,
                         last: current_line + line_count - 1,
@@ -480,12 +487,13 @@ pub async fn get_base_commit_map(
         .map(|base_commit| base_commit.id().clone())
         .collect();
 
-    // Build a map of each commit to its "base commits" (closest ancestors not in
-    // `commits`).
+    // Build a map of each commit to its "base commits" (closest ancestors not
+    // in `commits`).
     //
     // We process commits in topological order (parents before children) so that
     // we can propagate the base commits from parents to children. Note that the
-    // `commits` vector is in reverse topological order, so we iterate in reverse.
+    // `commits` vector is in reverse topological order, so we iterate in
+    // reverse.
     let mut base_commit_map: HashMap<CommitId, IndexSet<CommitId>> = HashMap::new();
     for commit in commits.iter().rev() {
         let mut parent_commit_ids: IndexSet<CommitId> = IndexSet::new();

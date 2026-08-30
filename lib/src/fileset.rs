@@ -996,7 +996,8 @@ mod tests {
         )
         "#);
 
-        // case-insensitive pattern with directory component (should not split the path)
+        // case-insensitive pattern with directory component (should not split
+        // the path)
         insta::assert_debug_snapshot!(
             parse(r#"glob-i:"SubDir/*.rs""#)?, @r#"
         Pattern(
@@ -1011,7 +1012,8 @@ mod tests {
         )
         "#);
 
-        // case-sensitive pattern with directory component (should split the path)
+        // case-sensitive pattern with directory component (should split the
+        // path)
         insta::assert_debug_snapshot!(
             parse(r#"glob:"SubDir/*.rs""#)?, @r#"
         Pattern(
@@ -1026,7 +1028,8 @@ mod tests {
         )
         "#);
 
-        // case-insensitive pattern with leading dots (should split dots but not dirs)
+        // case-insensitive pattern with leading dots (should split dots but not
+        // dirs)
         insta::assert_debug_snapshot!(
             parse(r#"glob-i:"../SomeDir/*.rs""#)?, @r#"
         Pattern(

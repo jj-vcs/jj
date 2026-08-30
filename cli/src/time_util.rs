@@ -13,7 +13,8 @@ pub struct FormattingItems<'a> {
 impl<'a> FormattingItems<'a> {
     /// Parses strftime-like format string.
     pub fn parse(format: &'a str) -> Option<Self> {
-        // If the parsed format contained an error, format().to_string() would panic.
+        // If the parsed format contained an error, format().to_string() would
+        // panic.
         let items = StrftimeItems::new(format)
             .map(|item| match item {
                 chrono::format::Item::Error => None,

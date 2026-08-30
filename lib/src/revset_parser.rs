@@ -1570,7 +1570,8 @@ mod tests {
         assert_eq!(parse_normalized("x|y&z"), parse_normalized("x|(y&z)"));
         assert_eq!(parse_normalized("x|y~z"), parse_normalized("x|(y~z)"));
         assert_eq!(parse_normalized("::&.."), parse_normalized("(::)&(..)"));
-        // Parse repeated "ancestors"/"descendants"/"dag range"/"range" operators
+        // Parse repeated "ancestors"/"descendants"/"dag range"/"range"
+        // operators
         assert_eq!(
             parse_into_kind("::foo::"),
             Err(RevsetParseErrorKind::SyntaxError)
@@ -1639,8 +1640,8 @@ mod tests {
             parse_into_kind("::.."),
             Err(RevsetParseErrorKind::SyntaxError)
         );
-        // Parse combinations of "parents"/"children" operators and the range operators.
-        // The former bind more strongly.
+        // Parse combinations of "parents"/"children" operators and the range
+        // operators. The former bind more strongly.
         assert_eq!(parse_normalized("foo-+"), parse_normalized("(foo-)+"));
         assert_eq!(parse_normalized("foo-::"), parse_normalized("(foo-)::"));
         assert_eq!(parse_normalized("::foo+"), parse_normalized("::(foo+)"));
@@ -1730,7 +1731,8 @@ mod tests {
             parse_normalized("b|c")
         );
 
-        // Infinite recursion, where the top-level error isn't of RecursiveAlias kind.
+        // Infinite recursion, where the top-level error isn't of RecursiveAlias
+        // kind.
         assert_eq!(
             *with_aliases([("A", "A")]).parse("A").unwrap_err().kind,
             RevsetParseErrorKind::InAliasExpansion("A".to_owned())
@@ -1792,7 +1794,8 @@ mod tests {
             parse_normalized("a")
         );
 
-        // Infinite recursion, where the top-level error isn't of RecursiveAlias kind.
+        // Infinite recursion, where the top-level error isn't of RecursiveAlias
+        // kind.
         assert_eq!(
             *with_aliases([("P:x", "Q:x"), ("Q:x", "R:x"), ("R:x", "P:x")])
                 .parse("P:a")
@@ -1921,7 +1924,8 @@ mod tests {
             }
         );
 
-        // Infinite recursion, where the top-level error isn't of RecursiveAlias kind.
+        // Infinite recursion, where the top-level error isn't of RecursiveAlias
+        // kind.
         assert_eq!(
             *with_aliases([("F(x)", "G(x)"), ("G(x)", "H(x)"), ("H(x)", "F(x)")])
                 .parse("F(a)")

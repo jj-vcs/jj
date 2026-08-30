@@ -281,7 +281,8 @@ fn test_git_init_external_import_trunk(bare: bool) -> TestResult {
     // Explicitly enable git.colocate (which is also the default)
     test_env.add_config("git.colocate = true");
 
-    // Add remote bookmark "trunk" for remote "origin", and set it as "origin/HEAD"
+    // Add remote bookmark "trunk" for remote "origin", and set it as
+    // "origin/HEAD"
     let oid = git_repo.find_reference("refs/heads/my-bookmark")?.id();
 
     git_repo.reference(
@@ -320,7 +321,8 @@ fn test_git_init_external_import_trunk(bare: bool) -> TestResult {
     "#);
     }
 
-    // "trunk()" alias should be set to remote "origin"'s default bookmark "trunk"
+    // "trunk()" alias should be set to remote "origin"'s default bookmark
+    // "trunk"
     let work_dir = test_env.work_dir("repo");
     let output = work_dir.run_jj(["config", "list", "--repo", "revset-aliases.\"trunk()\""]);
     insta::allow_duplicates! {
@@ -912,7 +914,8 @@ fn test_git_init_external_but_git_dir_exists() {
     [EOF]
     "#);
 
-    // The local ".git" repository is unrelated, so no commits should be imported
+    // The local ".git" repository is unrelated, so no commits should be
+    // imported
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  e8849ae12c70
     ◆  000000000000
@@ -1114,8 +1117,8 @@ fn test_git_init_colocated_via_flag_git_dir_not_exists() {
         .run_jj(["bookmark", "create", "-r@", "main", "master"])
         .success();
 
-    // If .git/HEAD pointed to the default bookmark, new working-copy commit would
-    // be created on top.
+    // If .git/HEAD pointed to the default bookmark, new working-copy commit
+    // would be created on top.
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  e8849ae12c70 main master
     ◆  000000000000
@@ -1299,7 +1302,8 @@ fn test_git_init_colocate_gitlink_not_worktree() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.add_config("git.colocate = true");
 
-    // Create a bare git repo at a path containing "worktrees" as a directory name
+    // Create a bare git repo at a path containing "worktrees" as a directory
+    // name
     let git_repo_path = test_env.env_root().join("worktrees").join("my-repo.git");
     std::fs::create_dir_all(&git_repo_path)?;
     init_git_repo(&git_repo_path, true);

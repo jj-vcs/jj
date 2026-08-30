@@ -264,10 +264,11 @@ impl Workspace {
         let backend_initializer = |settings: &UserSettings,
                                    store_path: &Path|
          -> Result<Box<dyn crate::backend::Backend>, _> {
-            // If the git repo is inside the workspace, use a relative path to it so the
-            // whole workspace can be moved without breaking.
-            // TODO: Clean up path normalization. store_path is canonicalized by
-            // ReadonlyRepo::init(). workspace_root will be canonicalized by
+            // If the git repo is inside the workspace, use a relative path to
+            // it so the whole workspace can be moved without
+            // breaking. TODO: Clean up path normalization.
+            // store_path is canonicalized by ReadonlyRepo::init().
+            // workspace_root will be canonicalized by
             // Workspace::new(), but it's not yet here.
             let store_relative_git_repo_path = match (
                 dunce::canonicalize(workspace_root),
@@ -460,10 +461,10 @@ impl Workspace {
         commit: &Commit,
     ) -> Result<CheckoutStats, CheckoutError> {
         let mut locked_ws = self.start_working_copy_mutation().await?;
-        // Check if the current working-copy commit has changed on disk compared to what
-        // the caller expected. It's safe to check out another commit
-        // regardless, but it's probably not what  the caller wanted, so we let
-        // them know.
+        // Check if the current working-copy commit has changed on disk compared
+        // to what the caller expected. It's safe to check out another
+        // commit regardless, but it's probably not what  the caller
+        // wanted, so we let them know.
         if let Some(old_tree) = old_tree
             && old_tree.tree_ids_and_labels()
                 != locked_ws.locked_wc().old_tree().tree_ids_and_labels()
@@ -573,8 +574,9 @@ impl DefaultWorkspaceLoader {
             ));
         }
         let mut repo_dir = jj_dir.join("repo");
-        // If .jj/repo is a file, then we interpret its contents as a relative path to
-        // the actual repo directory (typically in another workspace).
+        // If .jj/repo is a file, then we interpret its contents as a relative
+        // path to the actual repo directory (typically in another
+        // workspace).
         if repo_dir.is_file() {
             let buf = fs::read(&repo_dir).context(&repo_dir)?;
             let repo_path =

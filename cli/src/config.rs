@@ -168,7 +168,8 @@ pub fn resolved_config_values(
             // Cannot retain inline table formatting because inner values may be
             // overridden independently.
             if let Some(table) = item.as_table_like() {
-                // current table and children may be shadowed by value in upper layer
+                // current table and children may be shadowed by value in upper
+                // layer
                 let is_overridden = is_parent_overridden || upper_value_names.contains(&name);
                 for (k, v) in table.iter() {
                     let mut sub_name = name.clone();
@@ -176,7 +177,8 @@ pub fn resolved_config_values(
                     config_stack.push((sub_name, v, is_overridden)); // in reverse order
                 }
             } else {
-                // current value may be shadowed by value or table in upper layer
+                // current value may be shadowed by value or table in upper
+                // layer
                 let maybe_child = upper_value_names
                     .range(&name..)
                     .next()
@@ -388,7 +390,8 @@ impl ConfigEnv {
         };
         let environment = env::vars_os()
             .filter_map(|(k, v)| {
-                // Silently ignore non-Unicode environment variables. Don't panic like vars()
+                // Silently ignore non-Unicode environment variables. Don't
+                // panic like vars()
                 let k = k.into_string().ok()?;
                 let v = v.into_string().ok()?;
                 Some((k, v))
@@ -750,8 +753,8 @@ fn env_base_layer() -> ConfigLayer {
         layer.set_value(OP_USERNAME, value).unwrap();
     }
     if !env::var("NO_COLOR").unwrap_or_default().is_empty() {
-        // "User-level configuration files and per-instance command-line arguments
-        // should override $NO_COLOR." https://no-color.org/
+        // "User-level configuration files and per-instance command-line
+        // arguments should override $NO_COLOR." https://no-color.org/
         layer.set_value("ui.color", "never").unwrap();
     }
     if let Ok(value) = env::var("VISUAL") {
@@ -765,8 +768,8 @@ fn env_base_layer() -> ConfigLayer {
 }
 
 pub fn default_config_layers() -> Vec<ConfigLayer> {
-    // Syntax error in default config isn't a user error. That's why defaults are
-    // loaded by separate builder.
+    // Syntax error in default config isn't a user error. That's why defaults
+    // are loaded by separate builder.
     let parse = |text: &'static str| ConfigLayer::parse(ConfigSource::Default, text).unwrap();
     let mut layers = vec![
         parse(include_str!("config/colors.toml")),

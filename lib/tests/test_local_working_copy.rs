@@ -145,9 +145,9 @@ fn test_root() -> TestResult {
 #[test_case(TestRepoBackend::Simple ; "simple backend")]
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn test_checkout_file_transitions(backend: TestRepoBackend) -> TestResult {
-    // Tests switching between commits where a certain path is of one type in one
-    // commit and another type in the other. Includes a "missing" type, so we cover
-    // additions and removals as well.
+    // Tests switching between commits where a certain path is of one type in
+    // one commit and another type in the other. Includes a "missing" type,
+    // so we cover additions and removals as well.
 
     let mut test_workspace = TestWorkspace::init_with_backend(backend);
     let repo = &test_workspace.repo;
@@ -396,8 +396,9 @@ fn test_checkout_file_transitions(backend: TestRepoBackend) -> TestResult {
 
 #[test]
 fn test_checkout_no_op() -> TestResult {
-    // Check out another commit with the same tree that's already checked out. The
-    // recorded operation should be updated even though the tree is unchanged.
+    // Check out another commit with the same tree that's already checked out.
+    // The recorded operation should be updated even though the tree is
+    // unchanged.
     let mut test_workspace = TestWorkspace::init();
     let repo = test_workspace.repo.clone();
 
@@ -734,9 +735,9 @@ fn test_reset() -> TestResult {
     let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     assert!(wc.file_states()?.contains_path(ignored_path));
 
-    // After we reset to the commit without the file, it should still exist on disk,
-    // but it should not be in the tree state, and it should not get added when we
-    // commit the working copy (because it's ignored).
+    // After we reset to the commit without the file, it should still exist on
+    // disk, but it should not be in the tree state, and it should not get
+    // added when we commit the working copy (because it's ignored).
     let mut locked_ws = ws.start_working_copy_mutation().block_on()?;
     locked_ws
         .locked_wc()
@@ -765,9 +766,9 @@ fn test_reset() -> TestResult {
 
 #[test]
 fn test_checkout_discard() -> TestResult {
-    // Start a mutation, do a checkout, and then discard the mutation. The working
-    // copy files should remain changed, but the state files should not be
-    // written.
+    // Start a mutation, do a checkout, and then discard the mutation. The
+    // working copy files should remain changed, but the state files should
+    // not be written.
     let mut test_workspace = TestWorkspace::init();
     let repo = test_workspace.repo.clone();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
@@ -808,7 +809,8 @@ fn test_checkout_discard() -> TestResult {
     assert!(!reloaded_wc.file_states()?.contains_path(file2_path));
     drop(locked_ws);
 
-    // The change should remain in the working copy, but not in memory and not saved
+    // The change should remain in the working copy, but not in memory and not
+    // saved
     let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     assert!(wc.file_states()?.contains_path(file1_path));
     assert!(!wc.file_states()?.contains_path(file2_path));
@@ -1068,8 +1070,8 @@ fn test_materialize_snapshot_unchanged_conflicts() -> TestResult {
     );
     let commit_with_labels = commit_with_tree(repo.store(), merged_tree_with_labels.clone());
 
-    // When checking out a commit with the same conflicts but different labels, the
-    // file should still be updated.
+    // When checking out a commit with the same conflicts but different labels,
+    // the file should still be updated.
     let stats = test_workspace
         .workspace
         .check_out(repo.op_id().clone(), None, &commit_with_labels)
@@ -1429,8 +1431,8 @@ fn test_snapshot_racy_timestamps() -> TestResult {
 #[cfg(unix)]
 #[test]
 fn test_snapshot_special_file() -> TestResult {
-    // Tests that we ignore when special files (such as sockets and pipes) exist on
-    // disk.
+    // Tests that we ignore when special files (such as sockets and pipes) exist
+    // on disk.
     let mut test_workspace = TestWorkspace::init();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
     let ws = &mut test_workspace.workspace;
@@ -1642,8 +1644,8 @@ fn test_gitignores_walk() -> TestResult {
 
 #[test]
 fn test_gitignores_in_ignored_dir() -> TestResult {
-    // Tests that .gitignore files in an ignored directory are ignored, i.e. that
-    // they cannot override the ignores from the parent
+    // Tests that .gitignore files in an ignored directory are ignored, i.e.
+    // that they cannot override the ignores from the parent
 
     let mut test_workspace = TestWorkspace::init();
     let op_id = test_workspace.repo.op_id().clone();
@@ -1689,8 +1691,8 @@ fn test_gitignores_in_ignored_dir() -> TestResult {
 
 #[test]
 fn test_gitignores_checkout_never_overwrites_ignored() -> TestResult {
-    // Tests that a .gitignore'd file doesn't get overwritten if check out a commit
-    // where the file is tracked.
+    // Tests that a .gitignore'd file doesn't get overwritten if check out a
+    // commit where the file is tracked.
 
     let mut test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
@@ -1992,7 +1994,8 @@ fn test_git_submodule(gitignore_content: &str) -> TestResult {
     );
     assert_eq!(stats.skipped_files, 0);
 
-    // Restore submodule contents (pretend that the user did `git submodule update`)
+    // Restore submodule contents (pretend that the user did `git submodule
+    // update`)
     testutils::write_working_copy_file(
         &workspace_root,
         added_submodule_path,
@@ -2021,7 +2024,8 @@ fn test_git_submodule(gitignore_content: &str) -> TestResult {
     let (new_tree, _stats) = test_workspace.snapshot_with_options(&snapshot_options)?;
     assert_tree_eq!(new_tree, tree_id2);
 
-    // Restore submodule contents (pretend that the user did `git submodule update`)
+    // Restore submodule contents (pretend that the user did `git submodule
+    // update`)
     testutils::write_working_copy_file(
         &workspace_root,
         added_submodule_path,
@@ -3164,7 +3168,8 @@ fn test_always_store_empty_tree() -> TestResult {
     test_workspace.snapshot()?;
 
     let mut buf = Vec::new();
-    // Use objects.find as it doesn't short-circuit when asked for the empty tree
+    // Use objects.find as it doesn't short-circuit when asked for the empty
+    // tree
     let (empty_tree, _) = git_repo
         .objects
         .find(&empty_tree_id, &mut buf)

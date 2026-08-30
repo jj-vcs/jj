@@ -351,7 +351,8 @@ pub async fn cmd_git_push(
             }
         }
     } else if args.deleted {
-        // There shouldn't be new heads to push, but we run validation for consistency.
+        // There shouldn't be new heads to push, but we run validation for
+        // consistency.
         let mut commits_validator =
             CommitsValidator::new(ui, tx.base_workspace_helper(), remote, args)?;
         for (name, targets) in view.local_remote_bookmarks(remote) {
@@ -1192,8 +1193,8 @@ async fn create_change_bookmarks(
     changes: &[RevisionArg],
 ) -> Result<Vec<RefNameBuf>, CommandError> {
     if changes.is_empty() {
-        // NOTE: we don't want resolve_some_revsets_default_single to fail if the
-        // changes argument wasn't provided, so handle that
+        // NOTE: we don't want resolve_some_revsets_default_single to fail if
+        // the changes argument wasn't provided, so handle that
         return Ok(vec![]);
     }
 
@@ -1252,8 +1253,8 @@ fn find_bookmarks_to_push<'a>(
     let matching_bookmarks = view
         .local_remote_bookmarks_matching(&bookmark_matcher, remote)
         .filter(|(_, targets)| {
-            // If the remote exists but is not tracked, the absent local shouldn't
-            // be considered a deleted bookmark.
+            // If the remote exists but is not tracked, the absent local
+            // shouldn't be considered a deleted bookmark.
             targets.local_target.is_present() || targets.remote_ref.is_tracked()
         })
         .collect();
@@ -1287,8 +1288,8 @@ fn find_tags_to_push<'a>(
     let matching_tags = view
         .local_remote_tags_matching(&tag_matcher, remote)
         .filter(|(_, targets)| {
-            // If the remote exists but is not tracked, the absent local shouldn't
-            // be considered a deleted tag.
+            // If the remote exists but is not tracked, the absent local
+            // shouldn't be considered a deleted tag.
             targets.local_target.is_present() || targets.remote_ref.is_tracked()
         })
         .collect();

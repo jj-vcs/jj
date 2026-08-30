@@ -218,8 +218,8 @@ where
             rev_adj[node_to_id[v]].push(node_to_id[u]);
         }
 
-        // Find the immediate dominators for each node using the Cooper-Harvey-Kennedy
-        // iterative algorithm.
+        // Find the immediate dominators for each node using the
+        // Cooper-Harvey-Kennedy iterative algorithm.
         let immediate_dominators = Self::calculate_immediate_dominators(&rev_adj);
 
         Ok(Self {
@@ -265,8 +265,8 @@ where
             return Err(DominatorFinderError::EmptyTargetSet);
         }
 
-        // The closest common dominator of a set of nodes is the lowest common ancestor
-        // of those nodes in the dominator tree.
+        // The closest common dominator of a set of nodes is the lowest common
+        // ancestor of those nodes in the dominator tree.
         let closest_common_dominator =
             Self::find_lowest_common_ancestor(&target_ids, &self.immediate_dominators);
 
@@ -274,33 +274,34 @@ where
         Ok(self.id_to_node[closest_common_dominator].clone())
     }
 
-    // Applies the Cooper-Harvey-Kennedy iterative algorithm to find the immediate
-    // dominators for each node in the graph.
+    // Applies the Cooper-Harvey-Kennedy iterative algorithm to find the
+    // immediate dominators for each node in the graph.
     // See http://www.hipersoft.rice.edu/grads/publications/dom14.pdf for details on how this function works.
     fn calculate_immediate_dominators(rev_adj: &[Vec<InternalId>]) -> Vec<InternalId> {
         // Step 1: Compute Dominators on Reverse Graph
         let num_nodes = rev_adj.len();
         let start_node_id = num_nodes - 1;
 
-        // We hold the immediate dominator for each node in the following vector, in
-        // index position (the kth entry is the immediate dominator of the node with ID
-        // k). We initialize the immediate dominator of every node to usize::MAX to
-        // represent that those nodes are not processed yet. Once a node is
-        // processed, its immediate dominator is guaranteed to be a valid node
-        // index.
+        // We hold the immediate dominator for each node in the following
+        // vector, in index position (the kth entry is the immediate
+        // dominator of the node with ID k). We initialize the immediate
+        // dominator of every node to usize::MAX to represent that those
+        // nodes are not processed yet. Once a node is processed, its
+        // immediate dominator is guaranteed to be a valid node index.
         let mut immediate_dominators: Vec<InternalId> = vec![usize::MAX; num_nodes];
-        // NOTE: technically speaking the immediate dominator is NOT defined for the
-        // start node, but it is convenient for the algorithm to set it to itself; this
-        // is consistent with the literature and specifically with
-        // Cooper-Harvey-Kennedy.
+        // NOTE: technically speaking the immediate dominator is NOT defined for
+        // the start node, but it is convenient for the algorithm to set
+        // it to itself; this is consistent with the literature and
+        // specifically with Cooper-Harvey-Kennedy.
         immediate_dominators[start_node_id] = start_node_id;
 
         loop {
-            // Each iteration of the loop processes all nodes in reverse postorder, trying
-            // to improve the immediate dominator for each node. The loop continues until we
-            // have an iteration where no immediate dominator is changed. Note that the
-            // entries in immediate_dominators are only guaranteed to be correct when the
-            // loop terminates.
+            // Each iteration of the loop processes all nodes in reverse
+            // postorder, trying to improve the immediate dominator
+            // for each node. The loop continues until we
+            // have an iteration where no immediate dominator is changed. Note
+            // that the entries in immediate_dominators are only
+            // guaranteed to be correct when the loop terminates.
             let mut changed = false;
 
             // Iterate in reverse postorder, skipping the start node.
@@ -314,8 +315,10 @@ where
                         continue;
                     }
                     if new_idom == usize::MAX {
-                        // This is the first predecessor of u that has been processed so far. We use
-                        // it as the starting point for finding the new "improved" immediate
+                        // This is the first predecessor of u that has been
+                        // processed so far. We use
+                        // it as the starting point for finding the new
+                        // "improved" immediate
                         // dominator for u.
                         new_idom = p;
                     } else {
@@ -324,8 +327,9 @@ where
                     }
                 }
                 if new_idom == usize::MAX {
-                    // None of the predecessors of u have been processed yet. That's fine, we will
-                    // try again of the next iteration of the outer loop.
+                    // None of the predecessors of u have been processed yet.
+                    // That's fine, we will try again of the
+                    // next iteration of the outer loop.
                     continue;
                 }
                 if immediate_dominators[u] != new_idom {
@@ -341,9 +345,9 @@ where
             }
         }
 
-        // At this point we know the immediate dominator of every node, but we keep the
-        // Option wrapper so that we can use the intersect function during
-        // find_lowest_common_ancestor.
+        // At this point we know the immediate dominator of every node, but we
+        // keep the Option wrapper so that we can use the intersect
+        // function during find_lowest_common_ancestor.
         immediate_dominators
     }
 
@@ -443,7 +447,8 @@ where
         let mut values = vec![];
         let mut futures = vec![];
 
-        // 1. Filter out nodes already in the map and create futures for new nodes.
+        // 1. Filter out nodes already in the map and create futures for new
+        //    nodes.
         for node in nodes {
             match self.node_values.get(node) {
                 Some(value) => {
@@ -544,7 +549,8 @@ where
         V: Hash + Eq,
         VF: AsyncFn(&N) -> Result<V, E>,
     {
-        // First compute the values of all final nodes asynchronously and concurrently.
+        // First compute the values of all final nodes asynchronously and
+        // concurrently.
         let final_values = value_cache
             .get_values(final_nodes)
             .await
@@ -557,8 +563,9 @@ where
                 ));
             }
             [final_value] => {
-                // Optimization: if all final nodes have the same value, that value is the
-                // closest common dominator. There is no need to build the value flow graph.
+                // Optimization: if all final nodes have the same value, that
+                // value is the closest common dominator. There
+                // is no need to build the value flow graph.
                 return Ok(final_value.clone());
             }
             _ => {}
@@ -578,20 +585,22 @@ where
             .await
             .map_err(|err| FindDominatorValueError::ValueFnError(err))?;
 
-        // NOTE: at this point we could compare the cardinality of the value set versus
-        // the number of nodes: if equal then we know that every node has a
-        // different value, and it is tempting to conclude that the result should be
-        // `start_value` (because the shape of the value flow graph is identical
-        // to the shape of the original flow graph). That is not always correct,
+        // NOTE: at this point we could compare the cardinality of the value set
+        // versus the number of nodes: if equal then we know that every
+        // node has a different value, and it is tempting to conclude
+        // that the result should be `start_value` (because the shape of
+        // the value flow graph is identical to the shape of the
+        // original flow graph). That is not always correct,
         // consider this example with start node A and final nodes C and D:
         //
         // A(1) -> B(2) -> C(3)
         //            \--> D(4)
         //
-        // However, IF start node IS the closest common dominator of the original graph
-        // (it is not in the example above) then the answer would be `start_value`;
-        // so IF we knew that to be true we could skip building the value flow graph and
-        // running the dominator algorithm in the value flow graph.
+        // However, IF start node IS the closest common dominator of the
+        // original graph (it is not in the example above) then the
+        // answer would be `start_value`; so IF we knew that to be true
+        // we could skip building the value flow graph and running the
+        // dominator algorithm in the value flow graph.
 
         let value_flow_graph = self.create_value_flow_graph(&value_cache.node_values);
         let dominator_finder = DominatorFinder::calculate(&value_flow_graph)?;
@@ -629,9 +638,9 @@ where
             // Push the node back onto the stack with processed = true.
             // It will be popped and yielded AFTER its children.
             stack.push((node, true));
-            // Push the neighbors onto the stack with processed = false. The neighbors are
-            // added in reverse order, so they are processed in the
-            // original order.
+            // Push the neighbors onto the stack with processed = false. The
+            // neighbors are added in reverse order, so they are
+            // processed in the original order.
             for neighbor in neighbors.rev() {
                 if !visited.contains(&neighbor) {
                     stack.push((neighbor, false));
@@ -1582,8 +1591,8 @@ mod tests {
 
     #[test]
     fn test_find_dominator_value_with_invalid_flow_graph() {
-        // Invalid flow graph: A(1) -> B(1), C(2) -> D(2) (C and D are not reachable
-        // from A).
+        // Invalid flow graph: A(1) -> B(1), C(2) -> D(2) (C and D are not
+        // reachable from A).
         let simple_graph = SimpleDirectedGraph::new([("A", "B"), ("C", "D")]);
         let flow_graph = FlowGraph::new(simple_graph, "A");
         let value_fn = async |node: &&str| match *node {
@@ -1591,12 +1600,14 @@ mod tests {
             "C" | "D" => Ok(2),
             _ => Err("Unknown node".to_string()),
         };
-        // Todo: the flow_graph is invalid because C and D are not reachable from A, so
-        // ideally find_dominator_value should return UnreachableNodesInFlowGraph, but
-        // the optimizations in find_dominator_value currently cause it to
-        // return the start value. The best way to fix this is to calculate (and store)
-        // the post-order in FlowGraph::new, that way we could not possibly construct an
-        // invalid flow graph. This is not a big concern in practice though.
+        // Todo: the flow_graph is invalid because C and D are not reachable
+        // from A, so ideally find_dominator_value should return
+        // UnreachableNodesInFlowGraph, but the optimizations in
+        // find_dominator_value currently cause it to return the start
+        // value. The best way to fix this is to calculate (and store)
+        // the post-order in FlowGraph::new, that way we could not possibly
+        // construct an invalid flow graph. This is not a big concern in
+        // practice though.
         assert_eq!(
             flow_graph
                 .find_dominator_value(&["B", "D"], value_fn)

@@ -231,8 +231,9 @@ impl<'a> RevsetGraphWalk<'a> {
                     // The parent is not in the input set
                     Some([CommitGraphEdge::missing(parent_position)].into())
                 } else {
-                    // The parent is not in the input set but it's somewhere in the range
-                    // where we have commits in the input set, so continue searching.
+                    // The parent is not in the input set but it's somewhere in
+                    // the range where we have commits in
+                    // the input set, so continue searching.
                     stack.push(parent);
                     None
                 }
@@ -260,8 +261,9 @@ impl<'a> RevsetGraphWalk<'a> {
                         // The parent is not in the input set
                         edges.push(CommitGraphEdge::missing(parent_position));
                     } else {
-                        // The parent is not in the input set but it's somewhere in the range
-                        // where we have commits in the input set, so continue searching.
+                        // The parent is not in the input set but it's somewhere
+                        // in the range where we have
+                        // commits in the input set, so continue searching.
                         stack.push(parent);
                         parents_complete = false;
                     }
@@ -315,7 +317,8 @@ impl<'a> RevsetGraphWalk<'a> {
             min_generation = min(min_generation, entry.generation_number());
             enqueue_parents(&mut work, &entry);
         }
-        // Find commits reachable transitively and add them to the `unwanted` set.
+        // Find commits reachable transitively and add them to the `unwanted`
+        // set.
         let mut unwanted = PositionsBitSet::with_max_pos(max_pos);
         while let Some(pos) = work.pop() {
             if unwanted.get_set(pos) {

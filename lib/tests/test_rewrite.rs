@@ -305,8 +305,8 @@ fn test_restore_tree_with_conflicts() -> TestResult {
     )
     .block_on()?;
 
-    // After simplifying, the result should have path 1 from the left side and path
-    // 2 from the right side.
+    // After simplifying, the result should have path 1 from the left side and
+    // path 2 from the right side.
     assert_eq!(
         restored.path_value(path1).block_on()?.simplify(),
         left.path_value(path1).block_on()?.simplify()
@@ -442,8 +442,8 @@ fn test_restore_tree_with_conflicts() -> TestResult {
     )
     .block_on()?;
 
-    // After simplifying, the result should have paths 1 and 3 from the right side
-    // and path 2 from the left side.
+    // After simplifying, the result should have paths 1 and 3 from the right
+    // side and path 2 from the left side.
     assert_eq!(
         restored.path_value(path1).block_on()?.simplify(),
         right.path_value(path1).block_on()?.simplify()
@@ -490,8 +490,8 @@ fn test_restore_tree_with_conflicts() -> TestResult {
     )
     .block_on()?;
 
-    // After simplifying, the result should have paths 1 and 2 from the right side
-    // and path 3 from the left side.
+    // After simplifying, the result should have paths 1 and 2 from the right
+    // side and path 3 from the left side.
     assert_eq!(
         restored.path_value(path1).block_on()?.simplify(),
         right.path_value(path1).block_on()?.simplify()
@@ -505,8 +505,8 @@ fn test_restore_tree_with_conflicts() -> TestResult {
         left.path_value(path3).block_on()?.simplify()
     );
 
-    // path3 is updated in the existing conflict terms due to `MergedTree::resolve`.
-    // If we implement https://github.com/jj-vcs/jj/issues/4152, the conflict would
+    // path3 is updated in the existing conflict terms due to
+    // `MergedTree::resolve`. If we implement https://github.com/jj-vcs/jj/issues/4152, the conflict would
     // instead have an extra side showing the diff from the restore.
     let expected_side1 = create_tree(
         repo,
@@ -583,8 +583,8 @@ fn test_rebase_descendants_forward() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    // Commit B was replaced by commit F. Commits C and E should be rebased onto F.
-    // Commit D does not get rebased because it's an ancestor of the
+    // Commit B was replaced by commit F. Commits C and E should be rebased onto
+    // F. Commit D does not get rebased because it's an ancestor of the
     // destination. Commit G does not get replaced because it's already in
     // place.
     // TODO: The above is not what actually happens! The test below shows what
@@ -801,8 +801,9 @@ fn test_rebase_descendants_external_merge() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    // Commit C was replaced by commit F. Commits E should be rebased. The rebased
-    // commit E should have F as first parent and commit D as second parent.
+    // Commit C was replaced by commit F. Commits E should be rebased. The
+    // rebased commit E should have F as first parent and commit D as second
+    // parent.
     //
     // F
     // | E
@@ -913,8 +914,8 @@ fn test_rebase_descendants_abandon_and_replace() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    // Commit B was replaced by commit E. Commit C was abandoned. Commit D should
-    // get rebased onto commit E.
+    // Commit B was replaced by commit E. Commit C was abandoned. Commit D
+    // should get rebased onto commit E.
     //
     //   D
     //   C
@@ -947,8 +948,8 @@ fn test_rebase_descendants_abandon_degenerate_merge_simplify() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    // Commit B was abandoned. Commit D should get rebased to have only C as parent
-    // (not A and C).
+    // Commit B was abandoned. Commit D should get rebased to have only C as
+    // parent (not A and C).
     //
     // D
     // |\
@@ -1024,8 +1025,8 @@ fn test_rebase_descendants_abandon_widen_merge() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    // Commit E was abandoned. Commit F should get rebased to have B, C, and D as
-    // parents (in that order).
+    // Commit E was abandoned. Commit F should get rebased to have B, C, and D
+    // as parents (in that order).
     //
     // F
     // |\
@@ -1064,8 +1065,8 @@ fn test_rebase_descendants_multiple_sideways() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    // Commit B and commit D were both replaced by commit F. Commit C and commit E
-    // should get rebased onto it.
+    // Commit B and commit D were both replaced by commit F. Commit C and commit
+    // E should get rebased onto it.
     //
     // C E
     // B D F
@@ -1154,10 +1155,10 @@ fn test_rebase_descendants_divergent_rewrite() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    // Commit B was replaced by commit B2. Commit D was replaced by commits D2 and
-    // D3. Commit F was replaced by commit F2. Commit C should be rebased onto
-    // B2. Commit E should not be rebased. Commit G should be rebased onto
-    // commit F2.
+    // Commit B was replaced by commit B2. Commit D was replaced by commits D2
+    // and D3. Commit F was replaced by commit F2. Commit C should be
+    // rebased onto B2. Commit E should not be rebased. Commit G should be
+    // rebased onto commit F2.
     //
     // G
     // F
@@ -1221,7 +1222,8 @@ fn test_rebase_descendants_hidden() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    // Commits B and C are hidden. C is then replaced by D. B should remain hidden.
+    // Commits B and C are hidden. C is then replaced by D. B should remain
+    // hidden.
     //
     // D
     // | C
@@ -1565,8 +1567,9 @@ fn test_rebase_descendants_basic_bookmark_update_with_non_local_bookmark() -> Te
         &RefTarget::normal(commit_b.id().clone())
     );
 
-    // Commit B is no longer visible even though the remote bookmark points to it.
-    // (The user can still see it using e.g. the `remote_bookmarks()` revset.)
+    // Commit B is no longer visible even though the remote bookmark points to
+    // it. (The user can still see it using e.g. the `remote_bookmarks()`
+    // revset.)
     assert_eq!(*tx.repo().view().heads(), hashset! {commit_b2.id().clone()});
     Ok(())
 }
@@ -1643,9 +1646,9 @@ fn test_rebase_descendants_update_bookmarks_after_divergent_rewrite() -> TestRes
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    // Bookmark "main" points to commit B. B gets rewritten as {B2, B3, B4}, then
-    // B4 as {B41, B42}. Bookmark main should become a conflict pointing to {B2,
-    // B3, B41, B42}.
+    // Bookmark "main" points to commit B. B gets rewritten as {B2, B3, B4},
+    // then B4 as {B41, B42}. Bookmark main should become a conflict
+    // pointing to {B2, B3, B41, B42}.
     //
     //                                  C other
     //                C other           | B42 main?
@@ -1738,9 +1741,10 @@ fn test_rebase_descendants_rewrite_updates_bookmark_conflict() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    // Bookmark "main" is a conflict removing commit A and adding commits B and C.
-    // A gets rewritten as A2 and A3. B gets rewritten as B2 and B2. The bookmark
-    // should become a conflict removing A and B, and adding B2, B3, C.
+    // Bookmark "main" is a conflict removing commit A and adding commits B and
+    // C. A gets rewritten as A2 and A3. B gets rewritten as B2 and B2. The
+    // bookmark should become a conflict removing A and B, and adding B2,
+    // B3, C.
     let mut tx = repo.start_transaction();
     let commit_a = write_random_commit(tx.repo_mut());
     let commit_b = write_random_commit(tx.repo_mut());
@@ -1812,13 +1816,13 @@ fn test_rebase_descendants_rewrite_resolves_bookmark_conflict() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    // Bookmark "main" is a conflict removing ancestor commit A and adding commit B
-    // and C (maybe it moved forward to B locally and moved forward to C
-    // remotely). Now B gets rewritten as B2, which is a descendant of C (maybe
-    // B was automatically rebased on top of the updated remote). That
-    // would result in a conflict removing A and adding B2 and C. However, since C
-    // is a descendant of A, and B2 is a descendant of C, the conflict gets
-    // resolved to B2.
+    // Bookmark "main" is a conflict removing ancestor commit A and adding
+    // commit B and C (maybe it moved forward to B locally and moved forward
+    // to C remotely). Now B gets rewritten as B2, which is a descendant of
+    // C (maybe B was automatically rebased on top of the updated remote).
+    // That would result in a conflict removing A and adding B2 and C.
+    // However, since C is a descendant of A, and B2 is a descendant of C,
+    // the conflict gets resolved to B2.
     let mut tx = repo.start_transaction();
     let commit_a = write_random_commit(tx.repo_mut());
     let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
@@ -1859,14 +1863,15 @@ fn test_rebase_descendants_bookmark_delete_modify_abandon(
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    // Bookmark "main" initially points to commit A. One operation rewrites it to
-    // point to B (child of A). A concurrent operation deletes the bookmark. That
-    // leaves the bookmark pointing to "0-A+B". We now abandon B.
+    // Bookmark "main" initially points to commit A. One operation rewrites it
+    // to point to B (child of A). A concurrent operation deletes the
+    // bookmark. That leaves the bookmark pointing to "0-A+B". We now
+    // abandon B.
     //
-    // - If delete_abandoned_bookmarks = false, that should result in the bookmark
-    //   pointing to "0-A+A=0".
-    // - If delete_abandoned_bookmarks = true, that should result in the bookmark
-    //   pointing to "0-A+0=0".
+    // - If delete_abandoned_bookmarks = false, that should result in the
+    //   bookmark pointing to "0-A+A=0".
+    // - If delete_abandoned_bookmarks = true, that should result in the
+    //   bookmark pointing to "0-A+0=0".
     //
     // In both cases, the bookmark should be deleted.
     let mut tx = repo.start_transaction();
@@ -1906,10 +1911,10 @@ fn test_rebase_descendants_bookmark_move_forward_abandon(
     // rewrites it to point to A's children. That leaves the bookmark pointing
     // to "B-A+C". We now abandon B.
     //
-    // - If delete_abandoned_bookmarks = false, that should result in the bookmark
-    //   pointing to "A-A+C=C", so the conflict should be resolved.
-    // - If delete_abandoned_bookmarks = true, that should result in the bookmark
-    //   pointing to "0-A+C".
+    // - If delete_abandoned_bookmarks = false, that should result in the
+    //   bookmark pointing to "A-A+C=C", so the conflict should be resolved.
+    // - If delete_abandoned_bookmarks = true, that should result in the
+    //   bookmark pointing to "0-A+C".
     let mut tx = repo.start_transaction();
     let commit_a = write_random_commit(tx.repo_mut());
     let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
@@ -1960,10 +1965,10 @@ fn test_rebase_descendants_bookmark_move_sideways_abandon(
     // rewrites it to point to A's siblings. That leaves the bookmark pointing
     // to "B-A+C". We now abandon B.
     //
-    // - If delete_abandoned_bookmarks = false, that should result in the bookmark
-    //   pointing to "A.parent-A+C".
-    // - If delete_abandoned_bookmarks = true, that should result in the bookmark
-    //   pointing to "0-A+C".
+    // - If delete_abandoned_bookmarks = false, that should result in the
+    //   bookmark pointing to "A.parent-A+C".
+    // - If delete_abandoned_bookmarks = true, that should result in the
+    //   bookmark pointing to "0-A+C".
     let mut tx = repo.start_transaction();
     let commit_a = write_random_commit(tx.repo_mut());
     let commit_b = write_random_commit(tx.repo_mut());
@@ -2040,8 +2045,8 @@ fn test_rebase_descendants_update_checkout() -> TestResult {
     tx.repo_mut().rebase_descendants().block_on()?;
     let repo = tx.commit("test").block_on()?;
 
-    // Workspaces 1 and 2 had B checked out, so they get updated to C. Workspace 3
-    // had A checked out, so it doesn't get updated.
+    // Workspaces 1 and 2 had B checked out, so they get updated to C. Workspace
+    // 3 had A checked out, so it doesn't get updated.
     assert_eq!(repo.view().get_wc_commit_id(&ws1_name), Some(commit_c.id()));
     assert_eq!(repo.view().get_wc_commit_id(&ws2_name), Some(commit_c.id()));
     assert_eq!(repo.view().get_wc_commit_id(&ws3_name), Some(commit_a.id()));
@@ -2079,7 +2084,8 @@ fn test_rebase_descendants_update_checkout_abandoned() -> TestResult {
     let repo = tx.commit("test").block_on()?;
 
     // Workspaces 1 and 2 had B checked out, so they get updated to the same new
-    // commit on top of C. Workspace 3 had A checked out, so it doesn't get updated.
+    // commit on top of C. Workspace 3 had A checked out, so it doesn't get
+    // updated.
     assert_eq!(
         repo.view().get_wc_commit_id(&ws1_name),
         repo.view().get_wc_commit_id(&ws2_name)
@@ -2097,8 +2103,8 @@ fn test_rebase_descendants_update_checkout_abandoned_merge() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    // Checked-out merge commit D was abandoned. A new merge commit should become
-    // checked out.
+    // Checked-out merge commit D was abandoned. A new merge commit should
+    // become checked out.
     //
     // D
     // |\
@@ -2226,8 +2232,8 @@ fn test_empty_commit_option(empty_behavior: EmptyBehavior) {
             // The commit C isn't empty.
             let new_commit_c =
                 assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_c, &[commit_bd.id()]);
-            // D and E are empty, and F is a clean merge with only one child. Thus, F is
-            // also considered empty.
+            // D and E are empty, and F is a clean merge with only one child.
+            // Thus, F is also considered empty.
             assert_abandoned_with_parent(tx.repo_mut(), &rebase_map, &commit_d, commit_bd.id());
             assert_abandoned_with_parent(tx.repo_mut(), &rebase_map, &commit_e, commit_bd.id());
             assert_abandoned_with_parent(tx.repo_mut(), &rebase_map, &commit_f, new_commit_c.id());
@@ -2242,9 +2248,9 @@ fn test_empty_commit_option(empty_behavior: EmptyBehavior) {
 
             // The changes in D are included in BD, so D is newly empty.
             assert_abandoned_with_parent(tx.repo_mut(), &rebase_map, &commit_d, commit_bd.id());
-            // E was already empty, so F is a merge commit with C and E as parents.
-            // Although it's empty, we still keep it because we don't want to drop merge
-            // commits.
+            // E was already empty, so F is a merge commit with C and E as
+            // parents. Although it's empty, we still keep it
+            // because we don't want to drop merge commits.
             let new_commit_e =
                 assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_e, &[commit_bd.id()]);
             let new_commit_f = assert_rebased_onto(

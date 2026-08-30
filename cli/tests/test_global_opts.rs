@@ -244,9 +244,9 @@ fn test_no_integrate_operation() {
     let working_copy_output = test_env.run_jj_in(&repo_path, &["debug", "working-copy"]);
 
     // Modify the working copy and run a mutating operation. With
-    // --no-integrate-operation, the working copy gets snapshotted and the operation
-    // gets created, but there's no new operation in the operation log, and the
-    // working copy state is not updated.
+    // --no-integrate-operation, the working copy gets snapshotted and the
+    // operation gets created, but there's no new operation in the operation
+    // log, and the working copy state is not updated.
     std::fs::write(repo_path.join("file2"), "initial").unwrap();
     let output = test_env.run_jj_in(&repo_path, &["squash", "--no-integrate-operation"]);
     insta::assert_snapshot!(output.stdout, @"");
@@ -313,9 +313,9 @@ fn test_no_integrate_operation_colocated() {
     let working_copy_output = test_env.run_jj_in(&repo_path, &["debug", "working-copy"]);
 
     // Modify the working copy and run a mutating operation. With
-    // --no-integrate-operation, the working copy gets snapshotted and the operation
-    // gets created, but there's no new operation in the operation log, and the
-    // working copy state is not updated.
+    // --no-integrate-operation, the working copy gets snapshotted and the
+    // operation gets created, but there's no new operation in the operation
+    // log, and the working copy state is not updated.
     std::fs::write(repo_path.join("file2"), "initial").unwrap();
     let output = test_env.run_jj_in(&repo_path, &["squash", "--no-integrate-operation"]);
     insta::assert_snapshot!(output.stdout, @"");
@@ -423,7 +423,8 @@ fn test_resolve_workspace_directory() {
     [EOF]
     ");
 
-    // "../../..".ancestors() contains "../..", but it should never be looked up.
+    // "../../..".ancestors() contains "../..", but it should never be looked
+    // up.
     let output = sub_dir.run_jj(["status", "-R", "../../.."]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -677,7 +678,8 @@ fn test_color_config() {
     [EOF]
     ");
 
-    // Test that NO_COLOR does NOT override the request for color in the config file
+    // Test that NO_COLOR does NOT override the request for color in the config
+    // file
     test_env.add_env_var("NO_COLOR", "1");
     let work_dir = test_env.work_dir("repo");
     let output = work_dir.run_jj(["log", "-T", "commit_id"]);
@@ -1307,7 +1309,8 @@ fn test_default_config() -> TestResult {
 
 #[test]
 fn test_no_user_configured() {
-    // Test that the user is reminded if they haven't configured their name or email
+    // Test that the user is reminded if they haven't configured their name or
+    // email
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");

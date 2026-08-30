@@ -1486,15 +1486,16 @@ mod tests {
             with_aliases([("A", "a")]).parse_normalized("|| A"),
             parse_normalized("|| a"),
         );
-        // No matter if 'A' is a formal parameter. Alias substitution isn't scoped.
-        // If we don't like this behavior, maybe we can turn off alias substitution
-        // for lambda parameters.
+        // No matter if 'A' is a formal parameter. Alias substitution isn't
+        // scoped. If we don't like this behavior, maybe we can turn off
+        // alias substitution for lambda parameters.
         assert_eq!(
             with_aliases([("A", "a ++ b")]).parse_normalized("|A| A"),
             parse_normalized("|A| (a ++ b)"),
         );
 
-        // Infinite recursion, where the top-level error isn't of RecursiveAlias kind.
+        // Infinite recursion, where the top-level error isn't of RecursiveAlias
+        // kind.
         assert_eq!(
             with_aliases([("A", "A")]).parse("A").unwrap_err().kind,
             TemplateParseErrorKind::InAliasExpansion("A".to_owned()),
@@ -1557,7 +1558,8 @@ mod tests {
             parse_normalized("|x| a"),
         );
 
-        // Infinite recursion, where the top-level error isn't of RecursiveAlias kind.
+        // Infinite recursion, where the top-level error isn't of RecursiveAlias
+        // kind.
         assert_eq!(
             with_aliases([("P:x", "Q:x"), ("Q:x", "R:x"), ("R:x", "P:x")])
                 .parse("P:a")
@@ -1652,7 +1654,8 @@ mod tests {
             TemplateParseErrorKind::InvalidArguments { .. }
         );
 
-        // Infinite recursion, where the top-level error isn't of RecursiveAlias kind.
+        // Infinite recursion, where the top-level error isn't of RecursiveAlias
+        // kind.
         assert_eq!(
             with_aliases([("F(x)", "G(x)"), ("G(x)", "H(x)"), ("H(x)", "F(x)")])
                 .parse("F(a)")

@@ -139,9 +139,9 @@ pub trait LockedWorkingCopy: Any + Send {
     /// Updates the patterns that decide which paths from the current tree
     /// should be checked out in the working copy.
     // TODO: Use a different error type here so we can include a
-    // `SparseNotSupported` variants for working copies that don't support sparse
-    // checkouts (e.g. because they use a virtual file system so there's no reason
-    // to use sparse).
+    // `SparseNotSupported` variants for working copies that don't support
+    // sparse checkouts (e.g. because they use a virtual file system so
+    // there's no reason to use sparse).
     async fn set_sparse_patterns(
         &mut self,
         new_sparse_patterns: Vec<RepoPathBuf>,
@@ -376,15 +376,18 @@ impl WorkingCopyFreshness {
             let ancestor_ops =
                 op_walk::closest_common_ancestors([wc_operation.clone()], [repo_operation.clone()])
                     .await?;
-            // TODO: test all operations instead of using only a single common operation
+            // TODO: test all operations instead of using only a single common
+            // operation
             let ancestor_op = ancestor_ops.into_iter().next().unwrap();
             if ancestor_op.id() == repo_operation.id() {
-                // The working copy was updated since we loaded the repo. The repo must be
-                // reloaded at the working copy's operation.
+                // The working copy was updated since we loaded the repo. The
+                // repo must be reloaded at the working copy's
+                // operation.
                 Ok(Self::Updated(Box::new(wc_operation)))
             } else if ancestor_op.id() == wc_operation.id() {
-                // The working copy was not updated when some repo operation committed,
-                // meaning that it's stale compared to the repo view.
+                // The working copy was not updated when some repo operation
+                // committed, meaning that it's stale compared
+                // to the repo view.
                 if locked_wc.old_tree().tree_ids_and_labels()
                     == wc_commit.tree().tree_ids_and_labels()
                 {

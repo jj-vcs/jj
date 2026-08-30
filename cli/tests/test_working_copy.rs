@@ -406,8 +406,8 @@ fn test_conflict_marker_length_stored_in_working_copy() -> TestResult {
     >>>>>>>>>>> conflict 1 of 1 ends
     "#);
 
-    // The timestamps in the `jj debug local-working-copy` output change, so we want
-    // to remove them before asserting the snapshot
+    // The timestamps in the `jj debug local-working-copy` output change, so we
+    // want to remove them before asserting the snapshot
     let timestamp_regex = Regex::new(r"\b\d{10,}\b")?;
     let redact_output = |output: String| {
         let output = timestamp_regex.replace_all(&output, "<timestamp>");
@@ -541,8 +541,8 @@ fn test_submodule_ignored() {
         .success();
     let work_dir = test_env.work_dir("repo");
 
-    // There's no particular reason to run this with jj util exec, it's just that
-    // the infra makes it easier to run this way.
+    // There's no particular reason to run this with jj util exec, it's just
+    // that the infra makes it easier to run this way.
     let output = work_dir.run_jj([
         "util",
         "exec",
@@ -590,8 +590,8 @@ fn test_submodule_ignored() {
 
     // Switch to a historical commit before the submodule was checked in.
     work_dir.run_jj(["prev"]).success();
-    // jj new (or equivalently prev) should always leave you with an empty working
-    // copy.
+    // jj new (or equivalently prev) should always leave you with an empty
+    // working copy.
     let output = work_dir.run_jj(["diff", "--summary"]);
     insta::assert_snapshot!(output, @"");
 }

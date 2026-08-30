@@ -255,7 +255,8 @@ impl View {
         bookmark_matcher: &StringMatcher,
         remote_matcher: &StringMatcher,
     ) -> impl Iterator<Item = (RemoteRefSymbol<'_>, &RemoteRef)> {
-        // Use kmerge instead of flat_map for consistency with all_remote_bookmarks().
+        // Use kmerge instead of flat_map for consistency with
+        // all_remote_bookmarks().
         remote_matcher
             .filter_btree_map_as_deref(&self.data.remote_views)
             .map(|(remote, remote_view)| {
@@ -332,8 +333,8 @@ impl View {
         bookmark_matcher: &'b StringMatcher,
         remote_name: &RemoteName,
     ) -> impl Iterator<Item = (&'a RefName, LocalAndRemoteRef<'a>)> + use<'a, 'b> {
-        // Change remote_name to StringMatcher if needed, but merge-join adapter won't
-        // be usable.
+        // Change remote_name to StringMatcher if needed, but merge-join adapter
+        // won't be usable.
         let maybe_remote_view = self.data.remote_views.get(remote_name);
         refs::iter_named_local_remote_refs(
             bookmark_matcher.filter_btree_map_as_deref(&self.data.local_bookmarks),
@@ -469,7 +470,8 @@ impl View {
         tag_matcher: &StringMatcher,
         remote_matcher: &StringMatcher,
     ) -> impl Iterator<Item = (RemoteRefSymbol<'_>, &RemoteRef)> {
-        // Use kmerge instead of flat_map for consistency with all_remote_tags().
+        // Use kmerge instead of flat_map for consistency with
+        // all_remote_tags().
         remote_matcher
             .filter_btree_map_as_deref(&self.data.remote_views)
             .map(|(remote, remote_view)| {
@@ -541,8 +543,8 @@ impl View {
         tag_matcher: &'b StringMatcher,
         remote_name: &RemoteName,
     ) -> impl Iterator<Item = (&'a RefName, LocalAndRemoteRef<'a>)> + use<'a, 'b> {
-        // Change remote_name to StringMatcher if needed, but merge-join adapter won't
-        // be usable.
+        // Change remote_name to StringMatcher if needed, but merge-join adapter
+        // won't be usable.
         let maybe_remote_view = self.data.remote_views.get(remote_name);
         refs::iter_named_local_remote_refs(
             tag_matcher.filter_btree_map_as_deref(&self.data.local_tags),

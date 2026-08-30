@@ -192,9 +192,10 @@ fn test_index_commits_criss_cross() -> TestResult {
 
     let num_generations = 50;
 
-    // Create a long chain of criss-crossed merges. If they were traversed without
-    // keeping track of visited nodes, it would be 2^50 visits, so if this test
-    // finishes in reasonable time, we know that we don't do a naive traversal.
+    // Create a long chain of criss-crossed merges. If they were traversed
+    // without keeping track of visited nodes, it would be 2^50 visits, so
+    // if this test finishes in reasonable time, we know that we don't do a
+    // naive traversal.
     let mut tx = repo.start_transaction();
     let mut left_commits = vec![write_random_commit(tx.repo_mut())];
     let mut right_commits = vec![write_random_commit(tx.repo_mut())];
@@ -244,8 +245,8 @@ fn test_index_commits_criss_cross() -> TestResult {
         );
     }
 
-    // The left and right commits of the same generation should not be ancestors of
-    // each other
+    // The left and right commits of the same generation should not be ancestors
+    // of each other
     for generation in 0..num_generations {
         assert!(!is_ancestor(
             index,
@@ -259,8 +260,8 @@ fn test_index_commits_criss_cross() -> TestResult {
         ));
     }
 
-    // Both sides of earlier generations should be ancestors. Check a few different
-    // earlier generations.
+    // Both sides of earlier generations should be ancestors. Check a few
+    // different earlier generations.
     for generation in 1..num_generations {
         for ancestor_side in &[&left_commits, &right_commits] {
             for descendant_side in &[&left_commits, &right_commits] {
@@ -331,8 +332,9 @@ fn test_index_commits_criss_cross() -> TestResult {
         2
     );
 
-    // RevWalkGenerationRange deduplicates chains by (entry, generation), which may
-    // be more expensive than RevWalk, but should still finish in reasonable time.
+    // RevWalkGenerationRange deduplicates chains by (entry, generation), which
+    // may be more expensive than RevWalk, but should still finish in
+    // reasonable time.
     assert_eq!(
         count_revs(
             &[left_commits[num_generations - 1].id().clone()],
@@ -470,8 +472,8 @@ fn test_index_commits_incremental() -> TestResult {
     let test_env = &test_repo.env;
     let repo = &test_repo.repo;
 
-    // Create A in one operation, then B and C in another. Check that the index is
-    // valid after.
+    // Create A in one operation, then B and C in another. Check that the index
+    // is valid after.
     // o C
     // o B
     // o A

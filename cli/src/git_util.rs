@@ -74,10 +74,11 @@ pub fn is_colocated_git_workspace(workspace: &Workspace) -> Result<bool, Command
 
 /// Parses user-specified remote URL or path to absolute form.
 pub fn absolute_git_url(cwd: &Path, source: &str) -> Result<String, CommandError> {
-    // Git appears to turn URL-like source to absolute path if local git directory
-    // exits, and fails because '$PWD/https' is unsupported protocol. Since it would
-    // be tedious to copy the exact git (or libgit2) behavior, we simply let gix
-    // parse the input as URL, rcp-like, or local path.
+    // Git appears to turn URL-like source to absolute path if local git
+    // directory exits, and fails because '$PWD/https' is unsupported
+    // protocol. Since it would be tedious to copy the exact git (or
+    // libgit2) behavior, we simply let gix parse the input as URL,
+    // rcp-like, or local path.
     let mut url = gix::url::parse(source).map_err(cli_error)?;
     url.canonicalize(cwd).map_err(user_error)?;
     // As of gix 0.68.0, the canonicalized path uses platform-native directory
@@ -85,7 +86,8 @@ pub fn absolute_git_url(cwd: &Path, source: &str) -> Result<String, CommandError
     if url.scheme == gix::url::Scheme::File {
         url.path = gix::path::to_unix_separators_on_windows(mem::take(&mut url.path)).into_owned();
     }
-    // It's less likely that cwd isn't utf-8, so just fall back to original source.
+    // It's less likely that cwd isn't utf-8, so just fall back to original
+    // source.
     Ok(String::from_utf8(url.to_bstring().into()).unwrap_or_else(|_| source.to_owned()))
 }
 
@@ -707,8 +709,9 @@ mod tests {
         assert_snapshot!(update(Duration::from_millis(10), 13), @"");
         // We get an update now that we go over the threshold
         assert_snapshot!(update(Duration::from_millis(100), 30), @"\r 30% [█████▍            ]\u{1b}[K");
-        // Even though we went over by quite a bit, the new threshold is relative to the
-        // previous output, so we don't get an update here
+        // Even though we went over by quite a bit, the new threshold is
+        // relative to the previous output, so we don't get an update
+        // here
         assert_snapshot!(update(Duration::from_millis(30), 40), @"");
     }
 }

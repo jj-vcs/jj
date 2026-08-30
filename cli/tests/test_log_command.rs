@@ -288,7 +288,8 @@ fn test_log_with_or_without_diff() {
     [EOF]
     ");
 
-    // `-p` enables default "color-words" diff output, so `--color-words` is noop
+    // `-p` enables default "color-words" diff output, so `--color-words` is
+    // noop
     let output = work_dir.run_jj(["log", "-T", "description", "-p", "--color-words"]);
     insta::assert_snapshot!(output, @"
     @  a new commit
@@ -1173,8 +1174,8 @@ fn test_log_warn_path_might_be_revset() {
     [EOF]
     "#);
 
-    // warn when checking `jj log .` in a subdirectory because this folder hasn't
-    // been added to the working copy, yet.
+    // warn when checking `jj log .` in a subdirectory because this folder
+    // hasn't been added to the working copy, yet.
     let sub_dir = work_dir.create_dir_all("dir");
     let output = sub_dir.run_jj(["log", "."]);
     insta::assert_snapshot!(output, @"
@@ -1279,7 +1280,8 @@ fn test_multiple_revsets() {
             .success();
     }
 
-    // Default revset should be overridden if one or more -r options are specified.
+    // Default revset should be overridden if one or more -r options are
+    // specified.
     test_env.add_config(r#"revsets.log = "root()""#);
 
     insta::assert_snapshot!(
@@ -1309,7 +1311,8 @@ fn test_multiple_revsets() {
 
 #[test]
 fn test_graph_template_color() {
-    // Test that color codes from a multi-line template don't span the graph lines.
+    // Test that color codes from a multi-line template don't span the graph
+    // lines.
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -1689,8 +1692,8 @@ fn test_elided() {
     [EOF]
     ");
 
-    // Elide some commits from each side of the merge. It's unclear that a revision
-    // was skipped on the left side.
+    // Elide some commits from each side of the merge. It's unclear that a
+    // revision was skipped on the left side.
     test_env.add_config("ui.log-synthetic-elided-nodes = false");
     insta::assert_snapshot!(get_log("@ | @- | subject(initial)"), @"
     @    merge
@@ -1705,8 +1708,8 @@ fn test_elided() {
     [EOF]
     ");
 
-    // Elide shared commits. It's unclear that a revision was skipped on the right
-    // side (#1252).
+    // Elide shared commits. It's unclear that a revision was skipped on the
+    // right side (#1252).
     insta::assert_snapshot!(get_log("@-- | root()"), @"
     ○  side bookmark 1
     ╷

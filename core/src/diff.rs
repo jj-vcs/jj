@@ -391,8 +391,9 @@ fn find_lcs(input: &[usize]) -> Vec<(usize, usize)> {
                     if len > global_longest {
                         global_longest = len;
                         global_longest_right_pos = right_pos;
-                        // If this is the longest chain globally so far, we cannot find a
-                        // longer one by using a previous value, so break early.
+                        // If this is the longest chain globally so far, we
+                        // cannot find a longer one by
+                        // using a previous value, so break early.
                         break;
                     }
                 }
@@ -473,13 +474,14 @@ fn collect_unchanged_words_lcs<C: CompareBytes, S: BuildHasher>(
     let left_histogram = Histogram::calculate(left, comp, max_occurrences);
     let left_count_to_entries = left_histogram.build_count_to_entries();
     if *left_count_to_entries.keys().next().unwrap() > max_occurrences {
-        // If there are very many occurrences of all words, then we just give up.
+        // If there are very many occurrences of all words, then we just give
+        // up.
         return;
     }
     let right_histogram = Histogram::calculate(right, comp, max_occurrences);
-    // Look for words with few occurrences in `left` (could equally well have picked
-    // `right`?). If any of them also occur in `right`, then we add the words to
-    // the LCS.
+    // Look for words with few occurrences in `left` (could equally well have
+    // picked `right`?). If any of them also occur in `right`, then we add
+    // the words to the LCS.
     let Some(uncommon_shared_word_positions) =
         left_count_to_entries.values().find_map(|left_entries| {
             let mut both_positions = left_entries
@@ -669,7 +671,8 @@ impl<'input> ContentDiff<'input> {
             // found ranges with the ranges in the diff.
             [first_other_source, tail_other_sources @ ..] => {
                 let mut unchanged_regions = Vec::new();
-                // Add an empty range at the start to make life easier for hunks().
+                // Add an empty range at the start to make life easier for
+                // hunks().
                 unchanged_regions.push(UnchangedRange {
                     base: 0..0,
                     others: smallvec![0..0; other_inputs.len()],
@@ -721,7 +724,8 @@ impl<'input> ContentDiff<'input> {
                         },
                     ));
                 }
-                // Add an empty range at the end to make life easier for hunks().
+                // Add an empty range at the end to make life easier for
+                // hunks().
                 unchanged_regions.push(UnchangedRange {
                     base: base_input.len()..base_input.len(),
                     others: other_inputs
@@ -809,10 +813,10 @@ impl<'input> ContentDiff<'input> {
         let mut new_unchanged_ranges = vec![self.unchanged_regions[0].clone()];
         for window in self.unchanged_regions.windows(2) {
             let [previous, current]: &[_; 2] = window.try_into().unwrap();
-            // For the changed region between the previous region and the current one,
-            // create a new Diff instance. Then adjust the start positions and
-            // offsets to be valid in the context of the larger Diff instance
-            // (`self`).
+            // For the changed region between the previous region and the
+            // current one, create a new Diff instance. Then adjust
+            // the start positions and offsets to be valid in the
+            // context of the larger Diff instance (`self`).
             let refined_diff = ContentDiff::for_tokenizer(
                 self.hunk_between(previous, current),
                 &tokenizer,
@@ -1027,7 +1031,8 @@ mod tests {
     use super::*;
 
     // Extracted to a function because type inference is ambiguous due to
-    // `impl PartialEq<aho_corasick::util::search::Span> for std::ops::Range<usize>`
+    // `impl PartialEq<aho_corasick::util::search::Span> for
+    // std::ops::Range<usize>`
     fn no_ranges() -> Vec<Range<usize>> {
         vec![]
     }
@@ -1220,8 +1225,8 @@ mod tests {
 
     #[test]
     fn test_unchanged_ranges_non_unique_removed() {
-        // We used to consider the first two "a" in the first input to match the two
-        // "a"s in the second input. We no longer do.
+        // We used to consider the first two "a" in the first input to match the
+        // two "a"s in the second input. We no longer do.
         assert_eq!(
             unchanged_ranges(
                 (b"a a a a", &[0..1, 2..3, 4..5, 6..7]),
@@ -1254,8 +1259,8 @@ mod tests {
 
     #[test]
     fn test_unchanged_ranges_non_unique_added() {
-        // We used to consider the first two "a" in the first input to match the two
-        // "a"s in the second input. We no longer do.
+        // We used to consider the first two "a" in the first input to match the
+        // two "a"s in the second input. We no longer do.
         assert_eq!(
             unchanged_ranges(
                 (b"a b a c", &[0..1, 2..3, 4..5, 6..7]),
@@ -1595,11 +1600,13 @@ mod tests {
 
     #[test]
     fn test_diff_real_case_write_fmt() {
-        // This is from src/ui.rs in commit f44d246e3f88 in this repo. It highlights the
-        // need for recursion into the range at the end: after splitting at "Arguments"
-        // and "formatter", the region at the end has the unique words "write_fmt"
-        // and "fmt", but we forgot to recurse into that region, so we ended up
-        // saying that "write_fmt(fmt).unwrap()" was replaced by b"write_fmt(fmt)".
+        // This is from src/ui.rs in commit f44d246e3f88 in this repo. It
+        // highlights the need for recursion into the range at the end:
+        // after splitting at "Arguments" and "formatter", the region at
+        // the end has the unique words "write_fmt" and "fmt", but we
+        // forgot to recurse into that region, so we ended up
+        // saying that "write_fmt(fmt).unwrap()" was replaced by
+        // b"write_fmt(fmt)".
         #[rustfmt::skip]
         assert_eq!(
             diff([

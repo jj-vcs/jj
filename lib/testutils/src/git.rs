@@ -65,8 +65,8 @@ pub fn clone(dest_path: &Path, repo_url: &str, remote_name: Option<&str>) -> gix
     // gitoxide doesn't write the remote HEAD as a symbolic link, which prevents
     // `jj` from getting it.
     //
-    // This, plus the fact that the code to clone a repo in gitoxide is non-trivial,
-    // makes it appealing to just spawn a git subprocess
+    // This, plus the fact that the code to clone a repo in gitoxide is
+    // non-trivial, makes it appealing to just spawn a git subprocess
     let output = std::process::Command::new("git")
         .args(["clone", repo_url, "--origin", remote_name])
         .arg(dest_path)

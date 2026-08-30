@@ -146,9 +146,9 @@ where
         };
     }
 
-    // Number of occurrences of each value, with positive indexes counted as +1 and
-    // negative as -1, thereby letting positive and negative terms with the same
-    // value (i.e. key in the map) cancel each other.
+    // Number of occurrences of each value, with positive indexes counted as +1
+    // and negative as -1, thereby letting positive and negative terms with
+    // the same value (i.e. key in the map) cancel each other.
     let mut counts: HashMap<&T, i32> = HashMap::new();
     for (value, n) in zip(values, [1, -1].into_iter().cycle()) {
         counts.entry(value).and_modify(|e| *e += n).or_insert(n);
@@ -158,7 +158,8 @@ where
     // canceled out.
     counts.retain(|_, count| *count != 0);
     if counts.len() == 1 {
-        // If there is a single value with a count of 1 left, then that is the result.
+        // If there is a single value with a count of 1 left, then that is the
+        // result.
         let (value, count) = counts.into_iter().next().unwrap();
         assert_eq!(count, 1);
         Some(value)
@@ -196,8 +197,8 @@ impl<T: ContentHash> ContentHash for Merge<T> {
 
 impl<T: Debug> Debug for Merge<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-        // Format like an enum with two variants to make it less verbose in the common
-        // case of a resolved state.
+        // Format like an enum with two variants to make it less verbose in the
+        // common case of a resolved state.
         if let Some(value) = self.as_resolved() {
             f.debug_tuple("Resolved").field(value).finish()
         } else {
@@ -381,8 +382,8 @@ impl<T> Merge<T> {
             if let Some((remove_index, _)) = remove_indices
                 .find(|&(_, original_remove_index)| &self.values[*original_remove_index] == add)
             {
-                // Align the current "add" value to the `remove_index/2`-th diff, then
-                // delete the diff pair.
+                // Align the current "add" value to the `remove_index/2`-th
+                // diff, then delete the diff pair.
                 simplified_to_original_indices.swap(remove_index + 1, add_index);
                 simplified_to_original_indices.drain(remove_index..remove_index + 2);
             } else {
@@ -696,8 +697,8 @@ impl<T> Merge<Merge<T>> {
         let mut outer_values = self.values.into_iter();
         let mut result = outer_values.next().unwrap();
         while let Some(mut remove) = outer_values.next() {
-            // Add removes reversed, and with the first element moved last, so we preserve
-            // the diffs
+            // Add removes reversed, and with the first element moved last, so
+            // we preserve the diffs
             remove.values.rotate_left(1);
             for i in 0..remove.values.len() / 2 {
                 remove.values.swap(i * 2, i * 2 + 1);
@@ -1118,8 +1119,8 @@ mod tests {
         );
 
         assert_eq!(c(&[0, 0, 3, 1, 3, 2, 4]).simplify(), c(&[3, 1, 3, 2, 4]));
-        // Check that the `3`s are replaced correctly and that `4` ends up in the
-        // correct position.
+        // Check that the `3`s are replaced correctly and that `4` ends up in
+        // the correct position.
         assert_eq!(
             c(&[0, 0, 3, 1, 3, 2, 4]).update_from_simplified(c(&[10, 1, 11, 2, 4])),
             c(&[0, 0, 10, 1, 11, 2, 4])

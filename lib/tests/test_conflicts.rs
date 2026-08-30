@@ -80,8 +80,8 @@ fn test_materialize_conflict_basic() {
         "},
     );
 
-    // The left side should come first. The diff should be use the smaller (right)
-    // side, and the left side should be a snapshot.
+    // The left side should come first. The diff should be use the smaller
+    // (right) side, and the left side should be a snapshot.
     let conflict = Merge::from_removes_adds(
         vec![Some(base_id.clone())],
         vec![Some(left_id.clone()), Some(right_id.clone())],
@@ -105,8 +105,8 @@ fn test_materialize_conflict_basic() {
     line 5
     "
     );
-    // Swap the positive terms in the conflict. The diff should still use the right
-    // side, but now the right side should come first.
+    // Swap the positive terms in the conflict. The diff should still use the
+    // right side, but now the right side should come first.
     let conflict = Merge::from_removes_adds(
         vec![Some(base_id.clone())],
         vec![Some(right_id.clone()), Some(left_id.clone())],
@@ -669,8 +669,8 @@ fn test_materialize_conflict_no_newlines_at_eof() {
     >>>>>>> conflict 1 of 1 ends[EOF]
     "
     );
-    // The conflict markers are parsed with the trailing newline, but it is removed
-    // by `update_from_content`
+    // The conflict markers are parsed with the trailing newline, but it is
+    // removed by `update_from_content`
     insta::assert_debug_snapshot!(
         parse_conflict(
             materialized.as_bytes(),
@@ -827,8 +827,8 @@ fn test_materialize_conflict_two_forward_diffs() {
             Some(c_id.clone()),
         ],
     );
-    // The materialized conflict should still have exactly one snapshot despite our
-    // attempted temptation.
+    // The materialized conflict should still have exactly one snapshot despite
+    // our attempted temptation.
     insta::assert_snapshot!(
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff),
         @r"
@@ -1177,8 +1177,8 @@ fn test_parse_conflict_simple() {
     )
     "#
     );
-    // The conflict markers are longer than the originally materialized markers, but
-    // we allow them to parse anyway
+    // The conflict markers are longer than the originally materialized markers,
+    // but we allow them to parse anyway
     insta::assert_debug_snapshot!(
         parse_conflict(indoc! {b"
             line 1
@@ -1402,8 +1402,9 @@ fn test_parse_conflict_crlf_markers() {
 
 #[test]
 fn test_parse_conflict_diff_stripped_whitespace() {
-    // Should be able to parse conflict even if diff contains empty line (without
-    // even a leading space, which is sometimes stripped by text editors)
+    // Should be able to parse conflict even if diff contains empty line
+    // (without even a leading space, which is sometimes stripped by text
+    // editors)
     insta::assert_debug_snapshot!(
         parse_conflict(
             indoc! {b"
@@ -1765,8 +1766,8 @@ fn test_update_conflict_from_content() -> TestResult {
         vec![Some(left_file_id.clone()), Some(right_file_id.clone())],
     );
 
-    // If the content is unchanged compared to the materialized value, we get the
-    // old conflict id back.
+    // If the content is unchanged compared to the materialized value, we get
+    // the old conflict id back.
     let materialized =
         materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff);
     let parse = |content| {
@@ -1816,8 +1817,8 @@ fn test_update_conflict_from_content_modify_delete() -> TestResult {
     let conflict =
         Merge::from_removes_adds(vec![Some(before_file_id)], vec![Some(after_file_id), None]);
 
-    // If the content is unchanged compared to the materialized value, we get the
-    // old conflict id back.
+    // If the content is unchanged compared to the materialized value, we get
+    // the old conflict id back.
     let materialized =
         materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff);
     let parse = |content| {
@@ -1870,8 +1871,8 @@ fn test_update_conflict_from_content_simplified_conflict() -> TestResult {
     );
     let simplified_conflict = conflict.simplify();
 
-    // If the content is unchanged compared to the materialized value, we get the
-    // old conflict id back.
+    // If the content is unchanged compared to the materialized value, we get
+    // the old conflict id back.
     let materialized =
         materialize_conflict_string(store, path, &simplified_conflict, ConflictMarkerStyle::Diff);
     let parse = |content| {
@@ -2018,8 +2019,8 @@ fn test_update_conflict_from_content_with_long_markers() -> TestResult {
     };
     assert_eq!(parse(&conflict, materialized.as_bytes()), conflict);
 
-    // Test resolving the conflict, leaving some fake conflict markers which should
-    // not be parsed since they are too short
+    // Test resolving the conflict, leaving some fake conflict markers which
+    // should not be parsed since they are too short
     let resolved_file_contents = indoc! {"
         <<<<<<<<<<<< not a real conflict!
         ++++++++++++
@@ -2036,7 +2037,8 @@ fn test_update_conflict_from_content_with_long_markers() -> TestResult {
         Merge::normal(resolved_file_id)
     );
 
-    // Resolve one of the conflicts, decreasing the minimum conflict marker length
+    // Resolve one of the conflicts, decreasing the minimum conflict marker
+    // length
     let new_conflict_contents = indoc! {"
         <<<<<<<<<<<<<<<< conflict 1 of 2
         ++++++++++++++++ side #1

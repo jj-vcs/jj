@@ -286,7 +286,8 @@ impl TracingSubscription {
             .modify(|filter| {
                 // The default is INFO.
                 // jj-lib and jj-cli are whitelisted for DEBUG logging.
-                // This ensures that other crates' logging doesn't show up by default.
+                // This ensures that other crates' logging doesn't show up by
+                // default.
                 *filter = tracing_subscriber::EnvFilter::builder()
                     .with_default_directive(tracing::metadata::LevelFilter::INFO.into())
                     .with_env_var(Self::ENV_VAR_NAME)
@@ -503,10 +504,11 @@ impl CommandHelper {
                     return Err(err);
                 }
 
-                // We detected the working copy was stale and the client is configured to
-                // auto-update-stale, so let's do that now. We need to do it up here, not at a
-                // lower level (e.g. inside snapshot_working_copy()) to avoid recursive locking
-                // of the working copy.
+                // We detected the working copy was stale and the client is
+                // configured to auto-update-stale, so let's do
+                // that now. We need to do it up here, not at a
+                // lower level (e.g. inside snapshot_working_copy()) to avoid
+                // recursive locking of the working copy.
                 let WorkspaceCommandHelper { workspace, env, .. } = workspace_command;
                 self.recover_stale_working_copy_impl(ui, workspace, env, &git_import_export_lock)
                     .await?
@@ -646,10 +648,12 @@ impl CommandHelper {
                 )?;
                 workspace_command.check_working_copy_writable()?;
 
-                // Snapshot the current working copy on top of the last known working-copy
-                // operation, then merge the divergent operations. The wc_commit_id of the
-                // merged repo wouldn't change because the old one wins, but it's probably
-                // fine if we picked the new wc_commit_id.
+                // Snapshot the current working copy on top of the last known
+                // working-copy operation, then merge the
+                // divergent operations. The wc_commit_id of the
+                // merged repo wouldn't change because the old one wins, but
+                // it's probably fine if we picked the new
+                // wc_commit_id.
                 let stale_stats = workspace_command
                     .snapshot_working_copy(ui, git_import_export_lock)
                     .await
@@ -815,7 +819,8 @@ impl CommandHelper {
                         ui.status(),
                         "Concurrent modification detected, resolving automatically.",
                     )?;
-                    // TODO: It may be helpful to print each operation we're merging here
+                    // TODO: It may be helpful to print each operation we're
+                    // merging here
                     let transaction_description = "reconcile divergent operations";
                     merge_operations(
                         Some(ui),
@@ -1406,9 +1411,9 @@ impl WorkspaceCommandHelper {
                 .check_out(workspace_name, &new_git_head_commit)
                 .await?;
             let mut locked_ws = self.workspace.start_working_copy_mutation().await?;
-            // The working copy was presumably updated by the git command that updated
-            // HEAD, so we just need to reset our working copy
-            // state to it without updating working copy files.
+            // The working copy was presumably updated by the git command that
+            // updated HEAD, so we just need to reset our working
+            // copy state to it without updating working copy files.
             locked_ws.locked_wc().reset(&wc_commit).await?;
             tx.repo_mut().rebase_descendants().await?;
             self.user_repo = ReadonlyUserRepo::new(
@@ -1672,14 +1677,15 @@ to the current parents may contain changes from multiple commits.
     #[instrument(skip_all)]
     pub fn base_ignores(&self) -> Result<Arc<GitIgnoreFile>, GitIgnoreError> {
         let get_excludes_file_path = |config: &gix::config::File| -> Option<PathBuf> {
-            // TODO: maybe use path() and interpolate(), which can process non-utf-8
-            // path on Unix.
+            // TODO: maybe use path() and interpolate(), which can process
+            // non-utf-8 path on Unix.
             if let Some(value) = config.string("core.excludesFile") {
                 let path = str::from_utf8(&value)
                     .ok()
                     .map(jj_lib::file_util::expand_home_path)?;
-                // The configured path is usually absolute, but if it's relative,
-                // the "git" command would read the file at the work-tree directory.
+                // The configured path is usually absolute, but if it's
+                // relative, the "git" command would read the
+                // file at the work-tree directory.
                 Some(self.workspace_root().join(path))
             } else {
                 xdg_config_home().map(|x| x.join("git").join("ignore"))
@@ -2099,7 +2105,8 @@ to the current parents may contain changes from multiple commits.
             .snapshot_options_with_start_tracking_matcher(&auto_tracking_matcher)
             .map_err(snapshot_command_error)?;
 
-        // Compare working-copy tree and operation with repo's, and reload as needed.
+        // Compare working-copy tree and operation with repo's, and reload as
+        // needed.
         let mut locked_ws = self
             .workspace
             .start_working_copy_mutation()
@@ -2109,8 +2116,8 @@ to the current parents may contain changes from multiple commits.
         let Some((repo, wc_commit)) =
             handle_stale_working_copy(locked_ws.locked_wc(), repo, &workspace_name).await?
         else {
-            // If the workspace has been deleted, it's unclear what to do, so we just skip
-            // committing the working copy.
+            // If the workspace has been deleted, it's unclear what to do, so we
+            // just skip committing the working copy.
             return Ok(SnapshotStats::default());
         };
 
@@ -2186,7 +2193,8 @@ to the current parents may contain changes from multiple commits.
             {
                 let workspace_root = self.env.workspace_root();
                 if wc_immutable {
-                    // New working-copy commit is created on top. Reset Git HEAD and index.
+                    // New working-copy commit is created on top. Reset Git HEAD
+                    // and index.
                     try_reset_git_head(
                         ui,
                         mut_repo,
@@ -2197,8 +2205,9 @@ to the current parents may contain changes from multiple commits.
                     )
                     .await
                     .map_err(snapshot_command_error)?;
-                    // export_refs() is probably unnecessary because there should be no
-                    // rewritten descendants, but it's harmless.
+                    // export_refs() is probably unnecessary because there
+                    // should be no rewritten descendants,
+                    // but it's harmless.
                     let stats =
                         jj_lib::git::export_refs(mut_repo).map_err(snapshot_command_error)?;
                     crate::git_util::print_git_export_stats(ui, &stats)
@@ -2501,11 +2510,13 @@ to the current parents may contain changes from multiple commits.
 
         let old_heads = RevsetExpression::commits(old_view.heads().iter().cloned().collect());
         let new_heads = RevsetExpression::commits(new_view.heads().iter().cloned().collect());
-        // Filter the revsets by conflicts instead of reading all commits and doing the
-        // filtering here. That way, we can afford to evaluate the revset even if there
-        // are millions of commits added to the repo, assuming the revset engine can
-        // efficiently skip non-conflicting commits. Filter out empty commits mostly so
-        // `jj new <conflicted commit>` doesn't result in a message about new conflicts.
+        // Filter the revsets by conflicts instead of reading all commits and
+        // doing the filtering here. That way, we can afford to evaluate
+        // the revset even if there are millions of commits added to the
+        // repo, assuming the revset engine can efficiently skip
+        // non-conflicting commits. Filter out empty commits mostly so
+        // `jj new <conflicted commit>` doesn't result in a message about new
+        // conflicts.
         let conflicts = RevsetExpression::filter(RevsetFilterPredicate::HasConflict)
             .filtered(RevsetFilterPredicate::File(FilesetExpression::all()));
         let removed_conflicts_expr = new_heads.range(&old_heads).intersection(&conflicts);
@@ -2543,8 +2554,9 @@ to the current parents may contain changes from multiple commits.
         // TODO: Also report new divergence and maybe resolved divergence
         if !resolved_conflicts_by_change_id.is_empty() {
             // TODO: Report resolved and abandoned numbers separately. However,
-            // that involves resolving the change_id among the visible commits in the new
-            // repo, which isn't currently supported by Google's revset engine.
+            // that involves resolving the change_id among the visible commits
+            // in the new repo, which isn't currently supported by
+            // Google's revset engine.
             let num_resolved: usize = resolved_conflicts_by_change_id
                 .values()
                 .map(|commits| commits.len())
@@ -2567,15 +2579,17 @@ to the current parents may contain changes from multiple commits.
             )?;
         }
 
-        // Hint that the user might want to `jj new` to the first conflict commit to
-        // resolve conflicts. Only show the hints if there were any new or resolved
-        // conflicts, and only if there are still some conflicts.
+        // Hint that the user might want to `jj new` to the first conflict
+        // commit to resolve conflicts. Only show the hints if there
+        // were any new or resolved conflicts, and only if there are
+        // still some conflicts.
         if !(added_conflict_commits.is_empty()
             || resolved_conflicts_by_change_id.is_empty() && new_conflicts_by_change_id.is_empty())
         {
-            // If the user just resolved some conflict and squashed them in, there won't be
-            // any new conflicts. Clarify to them that there are still some other conflicts
-            // to resolve. (We don't mention conflicts in commits that weren't affected by
+            // If the user just resolved some conflict and squashed them in,
+            // there won't be any new conflicts. Clarify to them
+            // that there are still some other conflicts to resolve.
+            // (We don't mention conflicts in commits that weren't affected by
             // the operation, however.)
             if new_conflicts_by_change_id.is_empty() {
                 writeln!(
@@ -2620,7 +2634,8 @@ to the current parents may contain changes from multiple commits.
             .try_collect()
             .await?;
 
-        // The common part of these strings is not extracted, to avoid i18n issues.
+        // The common part of these strings is not extracted, to avoid i18n
+        // issues.
         let instruction = if only_one_conflicted_commit {
             indoc! {"
             To resolve the conflicts, start by creating a commit on top of
@@ -2736,9 +2751,10 @@ async fn try_reset_git_head(
     // Export Git HEAD while holding the git-head lock to prevent races:
     // - Between two finish_transaction calls updating HEAD
     // - With import_git_head importing HEAD concurrently
-    // This can still fail if HEAD was updated concurrently by another JJ process
-    // (overlapping transaction) or a non-JJ process (e.g., git checkout). In that
-    // case, the actual state will be imported on the next snapshot.
+    // This can still fail if HEAD was updated concurrently by another JJ
+    // process (overlapping transaction) or a non-JJ process (e.g., git
+    // checkout). In that case, the actual state will be imported on the
+    // next snapshot.
     match jj_lib::git::reset_head(mut_repo, workspace_name, workspace_root, wc_commit).await {
         Ok(()) => Ok(()),
         Err(err @ jj_lib::git::GitResetHeadError::UpdateHeadRef(_)) => {
@@ -2853,8 +2869,9 @@ impl WorkspaceCommandTransaction<'_> {
         if num_rebased > 0 {
             writeln!(ui.status(), "Rebased {num_rebased} descendant commits.")?;
         }
-        // Acquire git import/export lock before finishing the transaction to ensure
-        // Git HEAD export happens atomically with the transaction commit.
+        // Acquire git import/export lock before finishing the transaction to
+        // ensure Git HEAD export happens atomically with the
+        // transaction commit.
         let git_import_export_lock = helper.lock_git_import_export()?;
         helper
             .finish_transaction(ui, tx, description, &git_import_export_lock)
@@ -2953,8 +2970,8 @@ fn command_args_to_transaction_attribute(command_args: &[String]) -> Vec<(String
     if command_args.is_empty() {
         return vec![];
     }
-    // TODO: Either do better shell-escaping here or store the values in some list
-    // type (which we currently don't have).
+    // TODO: Either do better shell-escaping here or store the values in some
+    // list type (which we currently don't have).
     let shell_escape = |arg: &String| {
         if arg.as_bytes().iter().all(|b| {
             matches!(b,
@@ -3138,8 +3155,8 @@ pub fn print_conflicted_paths(
         .map(|p| format!("{:width$}", p, width = max_path_len.min(32) + 3));
 
     for ((_, conflict), formatted_path) in std::iter::zip(conflicts, formatted_paths) {
-        // TODO: Display the error for the path instead of failing the whole command if
-        // `conflict` is an error?
+        // TODO: Display the error for the path instead of failing the whole
+        // command if `conflict` is an error?
         let conflict = conflict?.simplify();
         let sides = conflict.num_sides();
         let n_adds = conflict.adds().flatten().count();
@@ -3156,8 +3173,8 @@ pub fn print_conflicted_paths(
                 "normal", // Deletions don't interfere with `jj resolve` or diff display
             );
         }
-        // TODO: We might decide it's OK for `jj resolve` to ignore special files in the
-        // `removes` of a conflict (see e.g. https://github.com/jj-vcs/jj/pull/978). In
+        // TODO: We might decide it's OK for `jj resolve` to ignore special
+        // files in the `removes` of a conflict (see e.g. https://github.com/jj-vcs/jj/pull/978). In
         // that case, `conflict.removes` should be removed below.
         for term in itertools::chain(conflict.removes(), conflict.adds()).flatten() {
             seen_objects.insert(
@@ -3660,8 +3677,9 @@ pub async fn compute_commit_location(
                         .map(|id| workspace_command.repo().store().get_commit_async(id)),
                 )
                 .await?;
-                // Not using `RevsetExpression::parents` here to persist the order of parents
-                // specified in `before_commits`.
+                // Not using `RevsetExpression::parents` here to persist the
+                // order of parents specified in
+                // `before_commits`.
                 let new_parent_ids = before_commits
                     .iter()
                     .flat_map(|commit| commit.parent_ids())
@@ -4049,7 +4067,8 @@ fn resolve_aliases(
             .map(|arg| arg.to_str().unwrap().to_string())
             .collect_vec();
         let Some(&alias_name) = defined_aliases.get(&*alias_name) else {
-            // Not a real command and not an alias, so return what we've resolved so far
+            // Not a real command and not an alias, so return what we've
+            // resolved so far
             return Ok(string_args);
         };
         let alias_definition: Vec<String> = match config.get(["aliases", alias_name]) {
@@ -4170,8 +4189,8 @@ fn handle_shell_completion(
             let mut expanded_args =
                 expand_args_for_completion(ui, app, padded_args.take(index + 1), config)?;
 
-            // Adjust env var to compensate for shift of the completion point in the
-            // expanded command line.
+            // Adjust env var to compensate for shift of the completion point in
+            // the expanded command line.
             // SAFETY: Program is running single-threaded at this point.
             unsafe {
                 env::set_var(
@@ -4180,8 +4199,8 @@ fn handle_shell_completion(
                 );
             }
 
-            // Remove extra padding again to align with clap_complete's expectations for
-            // zsh.
+            // Remove extra padding again to align with clap_complete's
+            // expectations for zsh.
             let split_off_padding = expanded_args.split_off(expanded_args.len() - pad_len);
             assert!(
                 split_off_padding.iter().all(|s| s.is_empty()),
@@ -4189,7 +4208,8 @@ fn handle_shell_completion(
                  {split_off_padding:?}",
             );
 
-            // Append the remaining arguments to the right of the completion point.
+            // Append the remaining arguments to the right of the completion
+            // point.
             expanded_args.extend(to_string_args(orig_args)?);
             expanded_args
         } else {
@@ -4257,15 +4277,15 @@ fn expand_args_for_completion(
     let mut string_args = to_string_args(args_os)?;
     let aliases = load_aliases(ui, config, app)?;
 
-    // Resolution of subcommand aliases must not consider the argument that is being
-    // completed.
+    // Resolution of subcommand aliases must not consider the argument that is
+    // being completed.
     let cursor_arg = string_args.pop();
     string_args = resolve_aliases(config, app, &aliases, string_args)?;
     string_args.extend(cursor_arg);
 
-    // If a subcommand has been given, including the potentially incomplete argument
-    // that is being completed, the default command is not resolved and the
-    // completion candidates for the subcommand are prioritized.
+    // If a subcommand has been given, including the potentially incomplete
+    // argument that is being completed, the default command is not resolved
+    // and the completion candidates for the subcommand are prioritized.
     string_args = resolve_default_command(ui, config, app, string_args)?;
 
     let cursor_arg = string_args.pop();
@@ -4576,8 +4596,9 @@ impl<'a> CliRunner<'a> {
         ui: &mut Ui,
         mut raw_config: RawConfig,
     ) -> Result<(), CommandError> {
-        // `cwd` is canonicalized for consistency with `Workspace::workspace_root()` and
-        // to easily compute relative paths between them.
+        // `cwd` is canonicalized for consistency with
+        // `Workspace::workspace_root()` and to easily compute relative
+        // paths between them.
         let cwd = env::current_dir()
             .and_then(dunce::canonicalize)
             .map_err(|_| {

@@ -1166,7 +1166,8 @@ mod tests {
             parse_normalized("b|c")
         );
 
-        // Infinite recursion, where the top-level error isn't of RecursiveAlias kind.
+        // Infinite recursion, where the top-level error isn't of RecursiveAlias
+        // kind.
         assert_eq!(
             with_aliases([("A", "A")]).parse("A").unwrap_err().kind,
             FilesetParseErrorKind::InAliasExpansion("A".to_owned())
@@ -1228,7 +1229,8 @@ mod tests {
             parse_normalized("a")
         );
 
-        // Infinite recursion, where the top-level error isn't of RecursiveAlias kind.
+        // Infinite recursion, where the top-level error isn't of RecursiveAlias
+        // kind.
         assert_eq!(
             with_aliases([("P:x", "Q:x"), ("Q:x", "R:x"), ("R:x", "P:x")])
                 .parse("P:a")
@@ -1345,7 +1347,8 @@ mod tests {
             }
         );
 
-        // Infinite recursion, where the top-level error isn't of RecursiveAlias kind.
+        // Infinite recursion, where the top-level error isn't of RecursiveAlias
+        // kind.
         assert_eq!(
             with_aliases([("F(x)", "G(x)"), ("G(x)", "H(x)"), ("H(x)", "F(x)")])
                 .parse("F(a)")

@@ -203,9 +203,9 @@ fn test_path_value_and_entries() -> TestResult {
         ),
     );
     // Get file inside file/dir conflict
-    // There is a conflict in the parent directory, so it is considered to not be a
-    // directory in the merged tree, making the file hidden until the directory
-    // conflict has been resolved.
+    // There is a conflict in the parent directory, so it is considered to not
+    // be a directory in the merged tree, making the file hidden until the
+    // directory conflict has been resolved.
     assert_eq!(
         merged_tree
             .path_value(file_dir_conflict_sub_path)
@@ -218,8 +218,8 @@ fn test_path_value_and_entries() -> TestResult {
         .entries()
         .map(|(path, result)| (path, result.unwrap()))
         .collect_vec();
-    // missing_path, resolved_dir_path, and file_dir_conflict_sub_path should not
-    // appear
+    // missing_path, resolved_dir_path, and file_dir_conflict_sub_path should
+    // not appear
     let expected_entries = [
         resolved_file_path,
         conflicted_file_path,
@@ -360,8 +360,8 @@ fn test_resolve_with_conflict() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    // The trivial conflict should be resolved but the non-trivial should not (and
-    // cannot)
+    // The trivial conflict should be resolved but the non-trivial should not
+    // (and cannot)
     let trivial_path = repo_path("dir1/trivial");
     let conflict_path = repo_path("dir2/file_conflict");
 
@@ -1296,10 +1296,10 @@ fn test_diff_dir_file() -> TestResult {
         diff_stream_equals_iter(&left_merged, &right_merged, &matcher);
     }
 
-    // Diff while filtering by `path6` (directory1 -> file1+(directory1-absent)) as
-    // a file. We don't see the directory at `path6` on the left side, but we
-    // do see the directory that's included in the conflict with a file on the right
-    // side.
+    // Diff while filtering by `path6` (directory1 -> file1+(directory1-absent))
+    // as a file. We don't see the directory at `path6` on the left side,
+    // but we do see the directory that's included in the conflict with a
+    // file on the right side.
     {
         let matcher = FilesMatcher::new([&path6]);
         let actual_diff: Vec<_> = left_merged
@@ -1481,9 +1481,9 @@ fn test_merge_simplify_result() -> TestResult {
     );
 
     // Although we pass labels here, they don't appear in the final result. The
-    // "side 1" label is ignored because that side is already conflicted. The "base
-    // 1" and "side 2" labels are used, but then those sides are removed after
-    // resolving and simplifying.
+    // "side 1" label is ignored because that side is already conflicted. The
+    // "base 1" and "side 2" labels are used, but then those sides are
+    // removed after resolving and simplifying.
     let merged = MergedTree::merge(Merge::from_vec(vec![
         (side1_merged, "side 1".into()),
         (base1_merged, "base 1".into()),
@@ -1536,10 +1536,11 @@ fn test_merge_simplify_result_with_resolved_labels() -> TestResult {
         ConflictLabels::from_vec(vec!["side 1".into(), "".into(), "side 2 left".into()]),
     );
 
-    // Since side 1 is resolved, it will use the provided "side 1" label. Since side
-    // 2 is conflicted, its existing labels are used instead of the provided "side
-    // 2" label. Two of the terms from side 2 will be removed after resolving and
-    // simplifying. One of the terms has an empty label, which should be preserved.
+    // Since side 1 is resolved, it will use the provided "side 1" label. Since
+    // side 2 is conflicted, its existing labels are used instead of the
+    // provided "side 2" label. Two of the terms from side 2 will be removed
+    // after resolving and simplifying. One of the terms has an empty label,
+    // which should be preserved.
     let merged = MergedTree::merge(Merge::from_vec(vec![
         (side1_merged, "side 1".into()),
         (base1_merged, "".into()),
@@ -1680,10 +1681,11 @@ fn test_merge_simplify_file_conflict() -> TestResult {
     .block_on()?;
     assert_tree_eq!(merged, expected_merged);
 
-    // Also test the setup by checking that the unsimplified content conflict cannot
-    // be resolved. If we later change files::merge() so this no longer fails, it
-    // probably means that we can delete this whole test (the Merge::simplify() call
-    // in try_resolve_file_conflict() is just an optimization then).
+    // Also test the setup by checking that the unsimplified content conflict
+    // cannot be resolved. If we later change files::merge() so this no
+    // longer fails, it probably means that we can delete this whole test
+    // (the Merge::simplify() call in try_resolve_file_conflict() is just an
+    // optimization then).
     let text_merge = Merge::from_removes_adds(
         vec![Merge::from_removes_adds(
             vec![parent_base_text.as_bytes()],
@@ -1772,8 +1774,8 @@ fn test_diff_with_trees_dir_added_removed() -> TestResult {
         .collect()
         .block_on();
 
-    // Expecting 3 entries: the root directory, the directory itself, and the file
-    // inside it.
+    // Expecting 3 entries: the root directory, the directory itself, and the
+    // file inside it.
     assert_eq!(diff.len(), 3);
 
     // 1. Change in the root directory
@@ -2266,9 +2268,10 @@ fn test_copy_diffstream_symlink_mismatch() -> TestResult {
         [expected_normal(path, &file_val, &symlink_val)],
     );
 
-    // N.B.: this case is asymmetric because of copy-history tracking when the right
-    // side is a file. If we address the TODO in CopyDiffStream::poll_next(), this
-    // would also be a single `expected_normal` entry.
+    // N.B.: this case is asymmetric because of copy-history tracking when the
+    // right side is a file. If we address the TODO in
+    // CopyDiffStream::poll_next(), this would also be a single
+    // `expected_normal` entry.
     assert_eq!(
         collect_diffs(&right, &left),
         [
@@ -2600,8 +2603,8 @@ fn test_copy_diffstream_same_path_parent() -> TestResult {
     let test_repo = testutils::TestRepo::init();
     let repo = &test_repo.repo;
 
-    // CASE: foo is recreated with a new copy history, descending from the original
-    // foo
+    // CASE: foo is recreated with a new copy history, descending from the
+    // original foo
     let foo = repo_path("foo.txt");
     let foo_history1 = CopyHistory {
         current_path: foo.to_owned(),
@@ -2879,10 +2882,10 @@ fn test_copy_diffstream_merge_twoway() -> TestResult {
     //
     // `Backend::get_related_copies()` does not fully specify an ordering
     // for the list of related CopyHistories. If files X and Y are both copies
-    // of A, then [X, Y, A] and [Y, X, A] are both valid orderings. We specify that
-    // the backend should always return the same ordering, so the result is
-    // deterministic, but the specific ordering chosen depends on the ordering of
-    // the `CopyId`s involved.
+    // of A, then [X, Y, A] and [Y, X, A] are both valid orderings. We specify
+    // that the backend should always return the same ordering, so the
+    // result is deterministic, but the specific ordering chosen depends on
+    // the ordering of the `CopyId`s involved.
     //
     // The current related-copy-matching in `CopyHistoryDiffStream` is dependent
     // on the ordering produced by the backend. So, for the case below, we
@@ -2893,8 +2896,8 @@ fn test_copy_diffstream_merge_twoway() -> TestResult {
     //   new bar -> bar
     //
     // For this particular test case and the related-copies ordering provided by
-    // the test backend, we end up with a copy from foo to bar, and a "normal" diff
-    // for foo.
+    // the test backend, we end up with a copy from foo to bar, and a "normal"
+    // diff for foo.
 
     assert_eq!(
         collect_diffs(&right, &left),

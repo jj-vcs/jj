@@ -56,12 +56,12 @@ pub async fn cmd_undo(
     // Growing the "undo-stack" works as follows. See also the
     // [redo-stack](./redo.rs), which works in a similar way.
     //
-    // - If the operation to undo is a regular one (not an undo-operation), simply
-    //   undo it (== restore its parent).
-    // - If the operation to undo is an undo-operation itself, undo that operation
-    //   to which the previous undo-operation restored the repo.
-    // - If the operation to restore to is an undo-operation, restore directly to
-    //   the original operation. This avoids creating a linked list of
+    // - If the operation to undo is a regular one (not an undo-operation),
+    //   simply undo it (== restore its parent).
+    // - If the operation to undo is an undo-operation itself, undo that
+    //   operation to which the previous undo-operation restored the repo.
+    // - If the operation to restore to is an undo-operation, restore directly
+    //   to the original operation. This avoids creating a linked list of
     //   undo-operations, which subsequently may have to be walked with an
     //   inefficient loop.
     //

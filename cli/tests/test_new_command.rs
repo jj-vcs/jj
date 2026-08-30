@@ -34,7 +34,8 @@ fn test_new() {
     [EOF]
     ");
 
-    // Start a new change off of a specific commit (the root commit in this case).
+    // Start a new change off of a specific commit (the root commit in this
+    // case).
     work_dir
         .run_jj(["new", "-m", "off of root", "root()"])
         .success();

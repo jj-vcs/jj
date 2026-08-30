@@ -54,8 +54,8 @@ fn test_integrate_sibling_operation() -> TestResult {
         heads_dir.join(&unintegrated_id),
         heads_dir.join(&base_op_id),
     )?;
-    // We use --ignore-working-copy to prevent the automatic reloading of the repo
-    // at the unintegrated operation that's mentioned in
+    // We use --ignore-working-copy to prevent the automatic reloading of the
+    // repo at the unintegrated operation that's mentioned in
     // `.jj/working_copy/checkout`.
     let output = work_dir.run_jj(["new", "-m=second", "--ignore-working-copy"]);
     insta::assert_snapshot!(output, @"");
@@ -118,8 +118,8 @@ fn test_integrate_rebase_descendants() -> TestResult {
         heads_dir.join(&base_op_id),
     )?;
 
-    // We use --ignore-working-copy to prevent the automatic reloading of the repo
-    // at the unintegrated operation that's mentioned in
+    // We use --ignore-working-copy to prevent the automatic reloading of the
+    // repo at the unintegrated operation that's mentioned in
     // `.jj/working_copy/checkout`.
     let output = work_dir.run_jj(["describe", "-m=parent", "--ignore-working-copy"]);
     insta::assert_snapshot!(output, @r"
@@ -200,8 +200,8 @@ fn test_integrate_concurrent_operations() -> TestResult {
         heads_dir.join(&base_op_id),
     )?;
 
-    // We use --ignore-working-copy to prevent the automatic reloading of the repo
-    // at the unintegrated operation that's mentioned in
+    // We use --ignore-working-copy to prevent the automatic reloading of the
+    // repo at the unintegrated operation that's mentioned in
     // `.jj/working_copy/checkout`.
     let output = work_dir.run_jj(["describe", "-m=right", "--ignore-working-copy"]);
     insta::assert_snapshot!(output, @"");

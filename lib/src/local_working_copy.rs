@@ -135,11 +135,12 @@ fn symlink_target_convert_to_store(path: &Path) -> Option<Cow<'_, str>> {
     if std::path::MAIN_SEPARATOR == '/' {
         Some(Cow::Borrowed(path))
     } else {
-        // When storing the symlink target on Windows, convert "\" to "/", so that the
-        // symlink remains valid on Unix.
+        // When storing the symlink target on Windows, convert "\" to "/", so
+        // that the symlink remains valid on Unix.
         //
         // Note that we don't use std::path to handle the conversion, because it
-        // performs poorly with Windows verbatim paths like \\?\Global\C:\file.txt.
+        // performs poorly with Windows verbatim paths like
+        // \\?\Global\C:\file.txt.
         Some(Cow::Owned(path.replace(std::path::MAIN_SEPARATOR_STR, "/")))
     }
 }
@@ -148,8 +149,8 @@ fn symlink_target_convert_to_disk(path: &str) -> PathBuf {
     let path = if std::path::MAIN_SEPARATOR == '/' {
         Cow::Borrowed(path)
     } else {
-        // Use the main separator to reformat the input path to avoid creating a broken
-        // symlink with the incorrect separator "/".
+        // Use the main separator to reformat the input path to avoid creating a
+        // broken symlink with the incorrect separator "/".
         //
         // See https://github.com/jj-vcs/jj/issues/6934 for the relevant bug.
         Cow::Owned(path.replace('/', std::path::MAIN_SEPARATOR_STR))
@@ -339,8 +340,9 @@ impl FileState {
 
     fn for_symlink(metadata: &Metadata) -> Result<Self, MtimeOutOfRange> {
         // When using fscrypt, the reported size is not the content size. So if
-        // we were to record the content size here (like we do for regular files), we
-        // would end up thinking the file has changed every time we snapshot.
+        // we were to record the content size here (like we do for regular
+        // files), we would end up thinking the file has changed every
+        // time we snapshot.
         Ok(Self {
             file_type: FileType::Symlink,
             mtime: mtime_from_metadata(metadata)?,
@@ -861,8 +863,8 @@ fn reject_reserved_existing_path(disk_path: &Path) -> Result<(), CheckoutError> 
         })?
     else {
         // If the existing disk_path pointed to the reserved path, we would have
-        // gotten an identity back. Since we got nothing, the file does not exist
-        // and cannot be a reserved path name.
+        // gotten an identity back. Since we got nothing, the file does not
+        // exist and cannot be a reserved path name.
         return Ok(());
     };
 
@@ -895,9 +897,10 @@ fn reject_reserved_existing_file_identity(
                 }
             })?
         else {
-            // If the existing disk_path pointed to the reserved path, we would have
-            // gotten an identity back. Since we got nothing, the file does not exist
-            // and cannot be a reserved path name.
+            // If the existing disk_path pointed to the reserved path, we would
+            // have gotten an identity back. Since we got nothing,
+            // the file does not exist and cannot be a reserved path
+            // name.
             continue;
         };
 
@@ -1210,8 +1213,8 @@ impl TreeState {
         // update own write time while we before we rename it, so we know
         // there is no unknown data in it
         self.update_own_mtime();
-        // TODO: Retry if persisting fails (it will on Windows if the file happened to
-        // be open for read).
+        // TODO: Retry if persisting fails (it will on Windows if the file
+        // happened to be open for read).
         let target_path = self.state_path.join("tree_state");
         persist_temp_file(temp_file, &target_path).map_err(|source| {
             TreeStateError::PersistTreeState {
@@ -1458,7 +1461,8 @@ impl TreeState {
                             .iter()
                             .filter_map(|path| RepoPathBuf::from_relative_path(path).ok())
                             .collect_vec();
-                        // .gitignore changes require rescanning parent directories to pick up newly
+                        // .gitignore changes require rescanning parent
+                        // directories to pick up newly
                         // unignored files.
                         let gitignore_prefixes = repo_paths
                             .iter()
@@ -1832,8 +1836,9 @@ impl FileSnapshotter<'_> {
                 false
             }
             Some(current_file_state) => {
-                // If the file's mtime was set at the same time as this state file's own mtime,
-                // then we don't know if the file was modified before or after this state file.
+                // If the file's mtime was set at the same time as this state
+                // file's own mtime, then we don't know if the
+                // file was modified before or after this state file.
                 new_file_state.is_clean(current_file_state)
                     && current_file_state.mtime < self.tree_state.own_mtime
             }
@@ -1924,7 +1929,8 @@ impl FileSnapshotter<'_> {
                 copy_id,
             }))
         } else if let Some(old_file_ids) = current_tree_values.to_file_merge() {
-            // Safe to unwrap because the copy id exists exactly on the file variant
+            // Safe to unwrap because the copy id exists exactly on the file
+            // variant
             let copy_id_merge = current_tree_values.to_copy_id_merge().unwrap();
             let copy_id = copy_id_merge
                 .resolve_trivial(SameChange::Accept)
@@ -1965,7 +1971,8 @@ impl FileSnapshotter<'_> {
             .await?;
             match new_file_ids.into_resolved() {
                 Ok(file_id) => {
-                    // On Windows, we preserve the executable bit from the merged trees.
+                    // On Windows, we preserve the executable bit from the
+                    // merged trees.
                     let executable = exec_bit.for_tree_value(self.tree_state.exec_policy, || {
                         current_tree_values
                             .to_executable_merge()
@@ -2088,10 +2095,11 @@ impl TreeState {
             })?;
         set_executable(exec_bit, disk_path)
             .map_err(|err| checkout_error_for_stat_error(err, disk_path))?;
-        // Read the file state from the file descriptor. That way, know that the file
-        // exists and is of the expected type, and the stat information is most likely
-        // accurate, except for other processes modifying the file concurrently (The
-        // mtime is set at write time and won't change when we close the file.)
+        // Read the file state from the file descriptor. That way, know that the
+        // file exists and is of the expected type, and the stat
+        // information is most likely accurate, except for other
+        // processes modifying the file concurrently (The mtime is set
+        // at write time and won't change when we close the file.)
         let metadata = file
             .metadata()
             .map_err(|err| checkout_error_for_stat_error(err, disk_path))?;
@@ -2103,13 +2111,13 @@ impl TreeState {
         let target = symlink_target_convert_to_disk(&target);
 
         if cfg!(windows) {
-            // On Windows, "/" can't be part of valid file name, and "/" is also not a valid
-            // separator for the symlink target. See an example of this issue in
-            // https://github.com/jj-vcs/jj/issues/6934.
+            // On Windows, "/" can't be part of valid file name, and "/" is also
+            // not a valid separator for the symlink target. See an
+            // example of this issue in https://github.com/jj-vcs/jj/issues/6934.
             //
-            // We use debug_assert_* instead of assert_* because we want to avoid panic in
-            // release build, and we are sure that we shouldn't create invalid symlinks in
-            // tests.
+            // We use debug_assert_* instead of assert_* because we want to
+            // avoid panic in release build, and we are sure that we
+            // shouldn't create invalid symlinks in tests.
             debug_assert_ne!(
                 target.as_os_str().to_str().map(|path| path.contains('/')),
                 Some(true),
@@ -2216,8 +2224,8 @@ impl TreeState {
         new_tree: &MergedTree,
         matcher: &dyn Matcher,
     ) -> Result<CheckoutStats, CheckoutError> {
-        // TODO: maybe it's better not include the skipped counts in the "intended"
-        // counts
+        // TODO: maybe it's better not include the skipped counts in the
+        // "intended" counts
         let mut stats = CheckoutStats {
             updated_files: 0,
             added_files: 0,
@@ -2256,26 +2264,29 @@ impl TreeState {
                 return Ok(());
             }
 
-            // This path and the previous one we did work for may have a common prefix. We
-            // can adjust the "working copy" path to the parent directory which we know
-            // is already created. If there is no common prefix, this will by default use
+            // This path and the previous one we did work for may have a common
+            // prefix. We can adjust the "working copy" path to the
+            // parent directory which we know is already created. If
+            // there is no common prefix, this will by default use
             // RepoPath::root() as the common prefix.
             let (common_prefix, adjusted_diff_file_path) =
                 path.split_common_prefix(&prev_created_path);
 
             let disk_path = if adjusted_diff_file_path.is_root() {
-                // The path being "root" here implies that the entire path has already been
-                // created.
+                // The path being "root" here implies that the entire path has
+                // already been created.
                 //
-                // e.g we may have have already processed a path like: "foo/bar/baz" and this is
+                // e.g we may have have already processed a path like:
+                // "foo/bar/baz" and this is
                 // our `prev_created_path`.
                 //
                 // and the current path is:
                 // "foo/bar"
                 //
-                // This results in a common prefix of "foo/bar" with empty string for the
-                // remainder since its entire prefix has already been created.
-                // This means that we _dont_ need to create its parent dirs
+                // This results in a common prefix of "foo/bar" with empty
+                // string for the remainder since its entire
+                // prefix has already been created. This means
+                // that we _dont_ need to create its parent dirs
                 // either.
 
                 path.to_fs_path(self.working_copy_path())?
@@ -2283,8 +2294,9 @@ impl TreeState {
                 let adjusted_working_copy_path =
                     common_prefix.to_fs_path(self.working_copy_path())?;
 
-                // Create parent directories no matter if after.is_present(). This
-                // ensures that the path never traverses symlinks.
+                // Create parent directories no matter if after.is_present().
+                // This ensures that the path never traverses
+                // symlinks.
                 let Some(disk_path) =
                     create_parent_dirs(&adjusted_working_copy_path, adjusted_diff_file_path)?
                 else {
@@ -2341,11 +2353,13 @@ impl TreeState {
             // executable bit.
             let get_prev_exec = || self.file_states().get_exec_bit(&path);
 
-            // TODO: Check that the file has not changed before overwriting/removing it.
+            // TODO: Check that the file has not changed before
+            // overwriting/removing it.
             let file_state = match after {
                 MaterializedTreeValue::Absent | MaterializedTreeValue::AccessDenied(_) => {
-                    // Reset the previous path to avoid scenarios where this path is deleted,
-                    // then on the next iteration recreation is skipped because of this
+                    // Reset the previous path to avoid scenarios where this
+                    // path is deleted, then on the next
+                    // iteration recreation is skipped because of this
                     // optimization.
                     prev_created_path = RepoPathBuf::root();
 
@@ -2439,17 +2453,19 @@ impl TreeState {
             })
             .buffered(self.store.concurrency());
 
-        // If a conflicted file didn't change between the two trees, but the conflict
-        // labels did, we still need to re-materialize it in the working copy. We don't
-        // need to do this if the conflicts have different numbers of sides though since
-        // these conflicts are considered different, so they will be materialized by
+        // If a conflicted file didn't change between the two trees, but the
+        // conflict labels did, we still need to re-materialize it in
+        // the working copy. We don't need to do this if the conflicts
+        // have different numbers of sides though since these conflicts
+        // are considered different, so they will be materialized by
         // `MergedTree::diff_stream_for_file_system` already.
         let mut conflicts_to_rematerialize: HashMap<RepoPathBuf, MergedTreeValue> =
             if old_tree.tree_ids().num_sides() == new_tree.tree_ids().num_sides()
                 && old_tree.labels() != new_tree.labels()
             {
-                // TODO: it might be better to use an async stream here and merge it with the
-                // other diff stream, but it could be difficult since the diff stream is not
+                // TODO: it might be better to use an async stream here and
+                // merge it with the other diff stream, but it
+                // could be difficult since the diff stream is not
                 // sorted in the same order as the conflicts iterator.
                 new_tree
                     .conflicts_matching(matcher)
@@ -2473,8 +2489,8 @@ impl TreeState {
                 process_diff_entry(path, conflict, materialized).await?;
             }
 
-            // We need to re-sort the changed file states since we may have inserted a
-            // conflicted file out of order.
+            // We need to re-sort the changed file states since we may have
+            // inserted a conflicted file out of order.
             changed_file_states.sort_unstable_by(|(path1, _), (path2, _)| path1.cmp(path2));
         }
 
@@ -2517,7 +2533,8 @@ impl TreeState {
                         }
                     },
                     Err(_values) => {
-                        // TODO: Try to set the executable bit based on the conflict
+                        // TODO: Try to set the executable bit based on the
+                        // conflict
                         FileType::Normal {
                             exec_bit: ExecBit(false),
                         }
@@ -2603,8 +2620,8 @@ impl CheckoutState {
             .as_file_mut()
             .write_all(&proto.encode_to_vec())
             .map_err(|err| wrap_err(err.into()))?;
-        // TODO: Retry if persisting fails (it will on Windows if the file happened to
-        // be open for read).
+        // TODO: Retry if persisting fails (it will on Windows if the file
+        // happened to be open for read).
         persist_temp_file(temp_file, state_path.join("checkout"))
             .map_err(|err| wrap_err(err.into()))?;
         Ok(())
@@ -2909,8 +2926,8 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
         &mut self,
         new_sparse_patterns: Vec<RepoPathBuf>,
     ) -> Result<CheckoutStats, CheckoutError> {
-        // TODO: Write a "pending_checkout" file with new sparse patterns so we can
-        // continue an interrupted update if we find such a file.
+        // TODO: Write a "pending_checkout" file with new sparse patterns so we
+        // can continue an interrupted update if we find such a file.
         let stats = self
             .wc
             .tree_state_mut()?

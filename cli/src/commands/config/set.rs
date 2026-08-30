@@ -70,8 +70,8 @@ pub async fn cmd_config_set(
 ) -> Result<(), CommandError> {
     let mut file = args.level.edit_config_file(ui, command)?;
 
-    // If the user is trying to change the author config, we should warn them that
-    // it won't affect the working copy author
+    // If the user is trying to change the author config, we should warn them
+    // that it won't affect the working copy author
     if args.name == ConfigNamePathBuf::from_iter(vec!["user", "name"]) {
         check_wc_author(ui, command, &args.value, AuthorChange::Name).await?;
     } else if args.name == ConfigNamePathBuf::from_iter(vec!["user", "email"]) {

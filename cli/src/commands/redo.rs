@@ -54,13 +54,13 @@ pub async fn cmd_redo(
     //
     // - If the operation to redo is a regular one (neither an undo- or
     //   redo-operation): Fail, because there is nothing to redo.
-    // - If the operation to redo is an undo-operation, try to redo it (by restoring
-    //   its parent operation).
-    // - If the operation to redo is a redo-operation itself, redo the operation the
-    //   early redo-operation restored to.
-    // - If the operation to restore to is a redo-operation itself, restore directly
-    //   to the original operation. This avoids creating a linked list of
-    //   redo-operations, which subsequently may have to be walked with an
+    // - If the operation to redo is an undo-operation, try to redo it (by
+    //   restoring its parent operation).
+    // - If the operation to redo is a redo-operation itself, redo the operation
+    //   the early redo-operation restored to.
+    // - If the operation to restore to is a redo-operation itself, restore
+    //   directly to the original operation. This avoids creating a linked list
+    //   of redo-operations, which subsequently may have to be walked with an
     //   inefficient loop.
     //
     // This described behavior leads to "jumping over" old redo-stacks if the

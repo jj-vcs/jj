@@ -198,8 +198,8 @@ impl OpStore for SimpleOpStore {
         let mut operation =
             operation_from_proto(proto).map_err(|err| to_read_error(err.into(), id))?;
         if operation.parents.is_empty() {
-            // Repos created before we had the root operation will have an operation without
-            // parents.
+            // Repos created before we had the root operation will have an
+            // operation without parents.
             operation.parents.push(self.root_operation_id.clone());
         }
         Ok(operation)
@@ -607,8 +607,8 @@ fn view_to_proto(view: &View) -> crate::protos::simple_op_store::View {
 
 fn view_from_proto(proto: crate::protos::simple_op_store::View) -> Result<View, PostDecodeError> {
     // TODO: validate commit id length?
-    // For compatibility with old repos before we had support for multiple working
-    // copies
+    // For compatibility with old repos before we had support for multiple
+    // working copies
     let mut wc_commit_ids = BTreeMap::new();
     #[expect(deprecated)]
     if !proto.wc_commit_id.is_empty() {
@@ -920,8 +920,8 @@ fn ref_target_to_proto_legacy(
 fn ref_target_from_proto(
     maybe_proto: Option<crate::protos::simple_op_store::RefTarget>,
 ) -> RefTarget {
-    // TODO: Delete legacy format handling when we decide to drop support for views
-    // saved by jj <= 0.8.
+    // TODO: Delete legacy format handling when we decide to drop support for
+    // views saved by jj <= 0.8.
     let Some(proto) = maybe_proto else {
         // Legacy absent id
         return RefTarget::absent();
