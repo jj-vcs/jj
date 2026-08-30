@@ -32,7 +32,6 @@ use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
 use jj_lib::revset::RevsetStreamExt as _;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -141,7 +140,6 @@ pub(crate) async fn cmd_log(
     let settings = workspace_command.settings();
 
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
-    let mut explicit_paths = fileset_expression.explicit_paths().collect_vec();
     let revset_expression = {
         // only use default revset if neither revset nor path are specified
         let mut expression = if args.revisions.is_empty() && args.paths.is_empty() {
@@ -222,6 +220,24 @@ pub(crate) async fn cmd_log(
             .labeled(["log", "commit", "node"]);
     }
 
+    let mut unmatched_explicit_paths = fileset_expression.explicit_paths().collect_vec();
+    let mut update_unmatched_explicit_paths = async |commit: &Commit| -> Result<(), CommandError> {
+        if unmatched_explicit_paths.is_empty() {
+            return Ok(());
+        }
+        let tree = &commit.tree();
+        unmatched_explicit_paths = stream::iter(unmatched_explicit_paths.iter().copied())
+            .filter_map(|path| async move {
+                tree.path_value(path)
+                    .await
+                    .map(|value| value.is_absent().then_some(path))
+                    .transpose()
+            })
+            .try_collect()
+            .await?;
+        Ok(())
+    };
+
     {
         ui.request_pager();
         let mut formatter = ui.stdout_formatter();
@@ -282,6 +298,7 @@ pub(crate) async fn cmd_log(
                 let mut buffer = vec![];
                 let key = (commit_id, false);
                 let commit = store.get_commit_async(&key.0).await?;
+                update_unmatched_explicit_paths(&commit).await?;
                 let within_graph =
                     with_content_format.sub_width(graph.width(&key, &graphlog_edges));
                 within_graph
@@ -310,11 +327,6 @@ pub(crate) async fn cmd_log(
                     &node_symbol,
                     &String::from_utf8_lossy(&buffer),
                 )?;
-
-                let tree = commit.map(|c| c.tree()).unwrap();
-                // TODO: propagate errors
-                explicit_paths
-                    .retain(|&path| tree.path_value(path).block_on().unwrap().is_absent());
 
                 for elided_target in elided_targets {
                     let elided_key = (elided_target, true);
@@ -349,6 +361,7 @@ pub(crate) async fn cmd_log(
             };
             let mut commit_stream = id_stream.commits(store);
             while let Some(commit) = commit_stream.try_next().await? {
+                update_unmatched_explicit_paths(&commit).await?;
                 with_content_format
                     .write(formatter, async |formatter| {
                         template.format(&commit, formatter)
@@ -360,16 +373,11 @@ pub(crate) async fn cmd_log(
                         .show_patch(ui, formatter, &commit, matcher.as_ref(), width)
                         .await?;
                 }
-
-                let tree = commit.tree();
-                // TODO: propagate errors
-                explicit_paths
-                    .retain(|&path| tree.path_value(path).block_on().unwrap().is_absent());
             }
         }
 
-        if !explicit_paths.is_empty() {
-            let ui_paths = explicit_paths
+        if !unmatched_explicit_paths.is_empty() {
+            let ui_paths = unmatched_explicit_paths
                 .iter()
                 .map(|&path| workspace_command.format_file_path(path))
                 .join(", ");
