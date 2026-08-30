@@ -48,8 +48,10 @@ use clap::error::ContextKind;
 use clap::error::ContextValue;
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use futures::future::try_join_all;
+use futures::stream;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use indoc::indoc;
@@ -3374,16 +3376,23 @@ Discard the conflicting changes with `jj restore --from {}`.",
 
 /// Prints warning about explicit paths that don't match any of the tree
 /// entries.
-pub fn print_unmatched_explicit_paths<'a>(
+pub async fn print_unmatched_explicit_paths<'a>(
     ui: &Ui,
     workspace_command: &WorkspaceCommandHelper,
     expression: &FilesetExpression,
     trees: impl IntoIterator<Item = &'a MergedTree>,
-) -> io::Result<()> {
+) -> Result<(), CommandError> {
     let mut explicit_paths = expression.explicit_paths().collect_vec();
     for tree in trees {
-        // TODO: propagate errors
-        explicit_paths.retain(|&path| tree.path_value(path).block_on().unwrap().is_absent());
+        explicit_paths = stream::iter(explicit_paths)
+            .filter_map(|path| async move {
+                tree.path_value(path)
+                    .await
+                    .map(|value| value.is_absent().then_some(path))
+                    .transpose()
+            })
+            .try_collect()
+            .await?;
     }
 
     if !explicit_paths.is_empty() {

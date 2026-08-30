@@ -131,7 +131,7 @@ pub(crate) async fn cmd_file_show(
             .map_ok(|(path, value)| TreeEntry { path, value }),
     )
     .await?;
-    print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree])?;
+    print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree]).await?;
     Ok(())
 }
 

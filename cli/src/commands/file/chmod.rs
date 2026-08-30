@@ -78,7 +78,7 @@ pub(crate) async fn cmd_file_chmod(
     // parse_union_filesets(). paths = [] should be "none()" if supported.
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
     let matcher = fileset_expression.to_matcher();
-    print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree])?;
+    print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree]).await?;
 
     let mut tx = workspace_command.start_transaction();
 

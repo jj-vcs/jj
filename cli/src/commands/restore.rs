@@ -176,7 +176,8 @@ pub(crate) async fn cmd_restore(
         &workspace_command,
         &fileset_expression,
         [&to_tree, &from_tree],
-    )?;
+    )
+    .await?;
 
     if new_tree.tree_ids() == to_commit.tree_ids() {
         writeln!(ui.status(), "Nothing changed.")?;

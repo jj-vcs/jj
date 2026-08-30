@@ -88,7 +88,7 @@ pub(crate) async fn cmd_resolve(
     let tree = commit.tree();
     let conflicts = tree.conflicts_matching(&matcher).collect_vec();
 
-    print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree])?;
+    print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree]).await?;
 
     if conflicts.is_empty() {
         return Err(cli_error(if args.paths.is_empty() {

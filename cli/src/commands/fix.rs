@@ -243,7 +243,8 @@ pub(crate) async fn cmd_fix(
         .block_on()
     });
 
-    print_unmatched_explicit_paths(ui, tx.base_workspace_helper(), &fileset_expression, &trees)?;
+    print_unmatched_explicit_paths(ui, tx.base_workspace_helper(), &fileset_expression, &trees)
+        .await?;
 
     let summary = fix_files(
         commit_ids,

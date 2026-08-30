@@ -343,7 +343,8 @@ pub(crate) async fn cmd_squash(
         tx.base_workspace_helper(),
         &fileset_expression,
         source_commits.iter().map(|commit| &commit.selected_tree),
-    )?;
+    )
+    .await?;
 
     if let Some(squashed) = rewrite::squash_commits(
         tx.repo_mut(),

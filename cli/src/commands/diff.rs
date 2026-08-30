@@ -229,6 +229,7 @@ pub(crate) async fn cmd_diff(
         &workspace_command,
         &fileset_expression,
         [&from_tree, &to_tree],
-    )?;
+    )
+    .await?;
     Ok(())
 }
