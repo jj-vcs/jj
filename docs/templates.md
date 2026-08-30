@@ -829,11 +829,15 @@ jj op log -T 'self.id().short()'
 
 The exact names of such labels are often straightforward, but are not currently
 documented. You can discover the actual label names used with the
-`--color=debug` option, e.g.
+`--color=debug` option:
 
 ```sh
 jj op log -T 'self.id().short()' --color=debug
 ```
+
+This can be useful if you are trying to figure out whether or not a label is
+present or which labels you should define or override colors for to get the
+output that you want.
 
 Additionally, you can **manually** insert arbitrary labels using the
 `label(label, content)` function. For example,
@@ -850,16 +854,28 @@ nested invocations of `label()`.
 You are free to use custom label names as well. This will only have a visible
 effect if you also [customize their colors][config-colors] explicitly.
 
+To see all the default colors and what customizations apply from your own
+config, run:
+
+```sh
+jj config list --include-defaults --include-overridden colors
+```
+
+The default colors can be found in [`colors.toml`], and the default explicitly
+added labels (such as `mutable` or `divergent`) can be found in
+[`templates.toml`]. Labels that appear in `colors.toml` but that are not
+explicitly present in `templates.toml` will have been automatically added by
+`jj` (such as `author` or `change_id`).
+
 [config-colors]: config.md#custom-colors-and-styles
+[`colors.toml`]: https://github.com/jj-vcs/jj/blob/main/cli/src/config/colors.toml
+[`templates.toml`]: https://github.com/jj-vcs/jj/blob/main/cli/src/config/templates.toml
 
 ## Configuration
 
 The default templates and aliases() are defined in the `[templates]` and
 `[template-aliases]` sections of the config respectively. The exact definitions
-can be seen in the [`cli/src/config/templates.toml`][1] file in jj's source
-tree.
-
-[1]: https://github.com/jj-vcs/jj/blob/main/cli/src/config/templates.toml
+can be seen in the [`templates.toml`] file.
 
 <!--- TODO: Find a way to embed the default config files in the docs -->
 
