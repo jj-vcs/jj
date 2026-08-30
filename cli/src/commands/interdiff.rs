@@ -107,7 +107,8 @@ pub(crate) async fn cmd_interdiff(
             &to.parent_tree(repo.as_ref()).await?,
             &to.tree(),
         ],
-    )?;
+    )
+    .await?;
 
     let diff_renderer = workspace_command.diff_renderer_for(&args.format)?;
     ui.request_pager();

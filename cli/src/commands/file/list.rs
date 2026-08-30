@@ -90,6 +90,6 @@ pub(crate) async fn cmd_file_list(
         };
         template.format(&entry, formatter.as_mut())?;
     }
-    print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree])?;
+    print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree]).await?;
     Ok(())
 }

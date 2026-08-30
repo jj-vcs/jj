@@ -246,7 +246,8 @@ impl SplitArgs {
                 &target_commit.parent_tree(repo.as_ref()).await?,
                 &target_commit.tree(),
             ],
-        )?;
+        )
+        .await?;
 
         Ok(ResolvedSplitArgs {
             target_commit,

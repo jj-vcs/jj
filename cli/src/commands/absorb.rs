@@ -104,7 +104,8 @@ pub(crate) async fn cmd_absorb(
         &workspace_command,
         &fileset_expression,
         [&source_commit.tree()],
-    )?;
+    )
+    .await?;
 
     let diff_selector =
         workspace_command.diff_selector(ui, args.tool.as_deref(), args.interactive)?;

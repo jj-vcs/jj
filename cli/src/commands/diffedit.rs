@@ -176,6 +176,7 @@ don't make any changes, then the operation will be aborted.",
         &workspace_command,
         &fileset_expression,
         [&base_tree, &tree],
-    )?;
+    )
+    .await?;
     Ok(())
 }
