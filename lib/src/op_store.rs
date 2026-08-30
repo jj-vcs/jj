@@ -19,7 +19,6 @@ use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::iter;
-use std::sync::LazyLock;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
@@ -60,15 +59,15 @@ impl Default for RefTarget {
 
 impl RefTarget {
     /// Creates non-conflicting target pointing to no commit.
-    pub fn absent() -> Self {
+    pub const fn absent() -> Self {
         Self::from_merge(Merge::absent())
     }
 
     /// Returns non-conflicting target pointing to no commit.
     ///
     /// This will typically be used in place of `None` returned by map lookup.
-    pub fn absent_ref() -> &'static Self {
-        static TARGET: LazyLock<RefTarget> = LazyLock::new(RefTarget::absent);
+    pub const fn absent_ref() -> &'static Self {
+        static TARGET: RefTarget = RefTarget::absent();
         &TARGET
     }
 
@@ -90,7 +89,7 @@ impl RefTarget {
         Self::from_merge(Merge::from_legacy_form(removed_ids, added_ids))
     }
 
-    pub fn from_merge(merge: Merge<Option<CommitId>>) -> Self {
+    pub const fn from_merge(merge: Merge<Option<CommitId>>) -> Self {
         Self { merge }
     }
 
@@ -142,7 +141,7 @@ pub struct RemoteRef {
 
 impl RemoteRef {
     /// Creates remote ref pointing to no commit.
-    pub fn absent() -> Self {
+    pub const fn absent() -> Self {
         Self {
             target: RefTarget::absent(),
             state: RemoteRefState::New,
@@ -152,8 +151,8 @@ impl RemoteRef {
     /// Returns remote ref pointing to no commit.
     ///
     /// This will typically be used in place of `None` returned by map lookup.
-    pub fn absent_ref() -> &'static Self {
-        static TARGET: LazyLock<RemoteRef> = LazyLock::new(RemoteRef::absent);
+    pub const fn absent_ref() -> &'static Self {
+        static TARGET: RemoteRef = RemoteRef::absent();
         &TARGET
     }
 
