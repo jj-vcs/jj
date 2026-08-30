@@ -223,6 +223,26 @@ fn test_git_push_confirm() {
       @origin: yostqsxw 88ca14a7 (empty) foo
     [EOF]
     ");
+    // Make another change
+    work_dir.run_jj(["describe", "-m", "bar"]).success();
+    // Accept push using the `--yes` this time
+    let output = work_dir.run_jj(["git", "push", "-y"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      bookmark: bookmark2 [move sideways from 88ca14a7d46f to 70b1accc61c9]
+      bookmark: my-bookmark [move sideways from 88ca14a7d46f to 70b1accc61c9]
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
+    bookmark1: qpvuntsm e5ce6d9a (empty) modified bookmark1 commit
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 9b2e76de (hidden) (empty) description 1
+    bookmark2: yostqsxw 70b1accc (empty) bar
+      @origin: yostqsxw 70b1accc (empty) bar
+    my-bookmark: yostqsxw 70b1accc (empty) bar
+      @origin: yostqsxw 70b1accc (empty) bar
+    [EOF]
+    ");
 }
 
 #[test]
@@ -2837,18 +2857,14 @@ fn test_git_push_sign_on_push() {
     [EOF]
     ");
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "bookmark2""#);
-    let output = work_dir.run_jj_with(|cmd| {
-        force_interactive(cmd)
-            .args(["git", "push"])
-            .write_stdin("y\n")
-    });
+    let output = work_dir.run_jj(["git", "push", "-y"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Skipped signing 1 immutable commits:
       kpqxywon f4169ad1 bookmark2* | (empty) commit which should not be signed 1
     Changes to push to origin:
       bookmark: bookmark2 [move forward from 87d9bf2ca4fb to f4169ad1a603]
-    Continue? (Yn): [EOF]
+    [EOF]
     ");
     let output = work_dir.run_jj(["log", "-T", template, "-r", "::"]);
     insta::assert_snapshot!(output, @"
@@ -2896,17 +2912,13 @@ fn test_git_push_sign_on_push() {
     ◆
     [EOF]
     ");
-    let output = work_dir.run_jj_with(|cmd| {
-        force_interactive(cmd)
-            .args(["git", "push"])
-            .write_stdin("y\n")
-    });
+    let output = work_dir.run_jj(["git", "push", "-y"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Updated signatures of 1 commits.
     Changes to push to origin:
       bookmark: bookmark1 [move sideways from 9b2e76de3920 to 14bd874a5304]
-    Continue? (Yn): Working copy  (@) now at: uuuvxpvw 14bd874a bookmark1 | (empty) commit to be signed 3
+    Working copy  (@) now at: uuuvxpvw 14bd874a bookmark1 | (empty) commit to be signed 3
     Parent commit (@-)      : kmkuslsw 78f629cb (empty) commit which should not be signed 2
     [EOF]
     ");

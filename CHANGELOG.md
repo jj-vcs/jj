@@ -46,7 +46,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   which also accepts string patterns.
 
 * `jj git push` can now be configured to ask for confirmation before pushing
-  changes to a remote using `git.confirm-before-push`.
+  changes to a remote using `git.confirm-before-push`. This prompt can be
+  skipped using the `-y`/`--yes` flag.
 
 * `jj run` now uses the sparse patterns from the workspace it's run from.
   Use the `--sparse-patterns` option to control this behavior (evaluated
