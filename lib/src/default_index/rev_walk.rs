@@ -557,8 +557,8 @@ impl<I: RevWalkIndex + ?Sized> RevWalk<I> for RevWalkGenerationRangeImpl<I::Posi
                 // Merge overlapped ranges to reduce number of the queued items.
                 // For queries like `:(heads-)`, `gen.end` is close to
                 // `u32::MAX`, so ranges can be merged into one.
-                // If this is still slow, maybe we can add
-                // special case for upper/lower bounded ranges.
+                // If this is still slow, maybe we can add special case for
+                // upper/lower bounded ranges.
                 let Reverse(generation) = x.value;
                 some_in_range |= generation.contains_end(self.generation_end);
                 pending_gen = if let Some(merged) = pending_gen.try_merge_end(generation) {

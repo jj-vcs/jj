@@ -322,8 +322,8 @@ impl MutableTable {
             match maybe_parent_file {
                 Some(parent_file) => {
                     // TODO: We should probably also squash if the parent file
-                    // has less than N commits, regardless
-                    // of how many (few) are in `self`.
+                    // has less than N commits, regardless of how many (few)
+                    // are in `self`.
                     if 2 * num_new_entries < parent_file.num_local_entries {
                         squashed = Self::incremental(parent_file);
                         break;
@@ -529,14 +529,13 @@ impl TableStore {
             Ok(tables.pop().unwrap())
         } else {
             // There are multiple heads. We take a lock, then check if there are
-            // still multiple heads (it's likely that another
-            // process was in the process of deleting on of them).
-            // If there are still multiple heads, we attempt to
-            // merge all the tables into one. We then save that table and record
-            // the new head. Note that the locking isn't necessary
-            // for correctness; we take the lock only to avoid other
-            // concurrent processes from doing the same work (and
-            // producing another set of divergent heads).
+            // still multiple heads (it's likely that another process was in the
+            // process of deleting on of them). If there are still multiple
+            // heads, we attempt to merge all the tables into one. We then save
+            // that table and record the new head. Note that the locking isn't
+            // necessary for correctness; we take the lock only to avoid other
+            // concurrent processes from doing the same work (and producing
+            // another set of divergent heads).
             let (table, _) = self.get_head_locked()?;
             Ok(table)
         }

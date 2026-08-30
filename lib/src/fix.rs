@@ -244,10 +244,10 @@ pub async fn fix_files(
         let base_tree = merge_commit_trees(repo_mut, &base_commits).await?;
 
         // If --include-unchanged-files, we always fix every matching file in
-        // the tree. Otherwise, we fix the matching changed files in
-        // this commit, plus any that were fixed in ancestors, so we
-        // don't lose those changes. We do this instead of rebasing onto
-        // those changes, to avoid merge conflicts.
+        // the tree. Otherwise, we fix the matching changed files in this
+        // commit, plus any that were fixed in ancestors, so we don't lose
+        // those changes. We do this instead of rebasing onto those changes,
+        // to avoid merge conflicts.
         let diff_base_tree = if include_unchanged_files {
             &repo_mut.store().empty_merged_tree()
         } else {
@@ -272,11 +272,10 @@ pub async fn fix_files(
             };
 
             // Deleted files have no file content to fix, and they have no terms
-            // in `after`, so we don't add any files-to-fix for
-            // them. For conflicted files in the base commit(s), we
-            // diff against the first side of the conflict. For conflicted
-            // files in the current commit, we add all sides of the conflict to
-            // the files-to-fix.
+            // in `after`, so we don't add any files-to-fix for them. For
+            // conflicted files in the base commit(s), we diff against the first
+            // side of the conflict. For conflicted files in the current commit,
+            // we add all sides of the conflict to the files-to-fix.
             let before_file_id = if let Some(Some(TreeValue::File {
                 id: before_id,
                 executable: _,
@@ -291,8 +290,8 @@ pub async fn fix_files(
 
             for after_term in values.after {
                 // We currently only support fixing the content of normal files,
-                // so we skip directories and symlinks, and we
-                // ignore the executable bit.
+                // so we skip directories and symlinks, and we ignore the
+                // executable bit.
                 if let Some(TreeValue::File {
                     id,
                     executable: _,
@@ -300,8 +299,8 @@ pub async fn fix_files(
                 }) = after_term
                 {
                     // TODO: Skip the file if its content is larger than some
-                    // configured size, preferably without
-                    // actually reading it yet.
+                    // configured size, preferably without actually reading it
+                    // yet.
                     let file_to_fix = FileToFix {
                         file_id: id.clone(),
                         base_file_id: before_file_id.clone(),
@@ -434,8 +433,7 @@ pub fn compute_changed_ranges(base: &[u8], current: &[u8]) -> RegionsToFormat {
             DiffHunkKind::Different => {
                 if line_count > 0 {
                     // We want the diff ranges to be 1-based and inclusive
-                    // [first, last] as this is what most
-                    // formatters expect.
+                    // [first, last] as this is what most formatters expect.
                     ranges.push(LineRange {
                         first: current_line,
                         last: current_line + line_count - 1,

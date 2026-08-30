@@ -5254,8 +5254,7 @@ fn test_reverse_graph() -> TestResult {
     // Tests that merges, forks, direct edges, indirect edges, and "missing"
     // edges are correct in reversed graph. "Missing" edges (i.e. edges to
     // commits not in the input set) won't be part of the reversed graph.
-    // Conversely, there won't be missing edges to children not in the
-    // input.
+    // Conversely, there won't be missing edges to children not in the input.
     //
     //  F
     //  |\

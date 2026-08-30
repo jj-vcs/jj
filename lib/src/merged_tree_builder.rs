@@ -106,8 +106,7 @@ impl MergedTreeBuilder {
                 Err(mut values) => {
                     values.pad_to(num_sides, &None);
                     // This path was overridden with a conflicted value. Apply
-                    // each term to its corresponding
-                    // builder.
+                    // each term to its corresponding builder.
                     for (builder, value) in zip(&mut tree_builders, values) {
                         builder.set_or_remove(path.clone(), value);
                     }

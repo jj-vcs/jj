@@ -268,10 +268,10 @@ where
         let new_head_id = self.new_head_ids.remove(index).unwrap();
 
         // Unmark ancestors of the selected head so they won't contribute to
-        // future new-head resolution within the newly-unblocked sub
-        // graph. The sub graph can have many fork points, and the
-        // corresponding heads should be picked in the fork-point order,
-        // not in the head appearance order.
+        // future new-head resolution within the newly-unblocked sub graph.
+        // The sub graph can have many fork points, and the corresponding
+        // heads should be picked in the fork-point order, not in the head
+        // appearance order.
         to_visit.push(&new_head_id);
         visited.remove(&new_head_id);
         while let Some(id) = to_visit.pop() {

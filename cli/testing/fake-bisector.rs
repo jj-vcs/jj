@@ -51,8 +51,7 @@ fn main() {
     let mut instructions = edit_script.split('\0').collect_vec();
     if let Some(pos) = instructions.iter().position(|&i| i == "next invocation\n") {
         // Overwrite the edit script. The next time `fake-bisector` is called,
-        // it will only see the part after the `next invocation`
-        // command.
+        // it will only see the part after the `next invocation` command.
         fs::write(&edit_script_path, instructions[pos + 1..].join("\0")).unwrap();
         instructions.truncate(pos);
     }

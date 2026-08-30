@@ -2425,11 +2425,9 @@ fn test_git_push_tracked_vs_all() {
 
     // All bookmarks are still untracked.
     // - --all tries to push bookmark1, but fails because a bookmark with the
-    //   same
-    // name exist on the remote.
+    //   same name exist on the remote.
     // - --all succeeds in pushing bookmark3, since there is no bookmark of the
-    //   same
-    // name on the remote.
+    //   same name on the remote.
     // - It does not try to push bookmark2.
     //
     // TODO: Not trying to push bookmark2 could be considered correct, or

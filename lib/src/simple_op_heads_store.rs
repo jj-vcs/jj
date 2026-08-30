@@ -87,10 +87,10 @@ impl SimpleOpHeadsStore {
             .or_else(|err| {
                 if err.kind() == io::ErrorKind::NotFound {
                     // It's fine if the old head was not found. It probably
-                    // means that we're on a distributed
-                    // file system where the locking doesn't
-                    // work. We'll probably end up with two current
-                    // heads. We'll detect that next time we load the view.
+                    // means that we're on a distributed file system where the
+                    // locking doesn't work. We'll probably end up with two
+                    // current heads. We'll detect that next time we load the
+                    // view.
                     Ok(())
                 } else {
                     Err(err)

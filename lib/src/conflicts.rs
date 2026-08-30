@@ -523,10 +523,9 @@ fn materialize_conflict_hunks(
             let conflict_info = format!("conflict {conflict_index} of {num_conflicts}");
 
             // If any side doesn't have the ending EOL, we remove the ending EOL
-            // from the conflict end marker line and "spread" the
-            // ending EOL to every side as a separator, so that
-            // contents without an ending EOL won't be concatenated with
-            // the conflict markers.
+            // from the conflict end marker line and "spread" the ending EOL to
+            // every side as a separator, so that contents without an ending EOL
+            // won't be concatenated with the conflict markers.
             let all_sides_have_ending_eol = hunk
                 .iter()
                 .all(|content| content.last().is_none_or(|last| *last == b'\n'));
@@ -746,9 +745,9 @@ fn materialize_jj_style_conflict(
             .hunks()
             .collect_vec();
         // If we haven't written a snapshot yet, then we need to decide whether
-        // to format the current side as a snapshot or a diff. We write
-        // the current side as a diff unless the next side has a smaller
-        // diff compared to the current base.
+        // to format the current side as a snapshot or a diff. We write the
+        // current side as a diff unless the next side has a smaller diff
+        // compared to the current base.
         if !snapshot_written {
             let right2 = hunk.get_add(add_index + 1).unwrap();
             let diff2 = ContentDiff::by_line([&left.contents, &right2.contents])
@@ -756,8 +755,8 @@ fn materialize_jj_style_conflict(
                 .collect_vec();
             if diff_size(&diff2) < diff_size(&diff1) {
                 // If the next positive term is a better match, emit the current
-                // positive term as a snapshot and the next
-                // positive term as a diff.
+                // positive term as a snapshot and the next positive term as a
+                // diff.
                 write_side(right1, output)?;
                 write_diff(left, right2, &diff2, output)?;
                 snapshot_written = true;
@@ -871,13 +870,11 @@ pub fn parse_conflict(
                         }
                         if !line.ends_with(b"\n") {
                             // If the conflict end marker doesn't end with an
-                            // EOL, the last EOL on
-                            // every side performs only as a separator, and we
-                            // need to do remove the
-                            // last EOL to retrieve the original contents. That
-                            // separator is the EOL
-                            // which terminates the conflict start marker line,
-                            // so only drop a CR if
+                            // EOL, the last EOL on every side performs only as
+                            // a separator, and we need to do remove the last
+                            // EOL to retrieve the original contents. That
+                            // separator is the EOL which terminates the
+                            // conflict start marker line, so only drop a CR if
                             // that EOL was CRLF. Otherwise the CR belongs to
                             // the contents.
                             for term in &mut hunk {
@@ -981,10 +978,10 @@ fn parse_jj_style_conflict_hunk(input: &[u8], expected_marker_len: usize) -> Mer
                     adds.last_mut().unwrap().extend_from_slice(rest);
                 } else if line == b"\n" || line == b"\r\n" {
                     // Some editors strip trailing whitespace, so " \n" might
-                    // become "\n". It would be unfortunate
-                    // if this prevented the conflict from being parsed, so we
-                    // add the empty line to the "remove"
-                    // and "add" as if there was a space in front
+                    // become "\n". It would be unfortunate if this prevented
+                    // the conflict from being parsed, so we add the empty line
+                    // to the "remove" and "add" as if there was a space in
+                    // front
                     removes.last_mut().unwrap().extend_from_slice(line);
                     adds.last_mut().unwrap().extend_from_slice(line);
                 } else {

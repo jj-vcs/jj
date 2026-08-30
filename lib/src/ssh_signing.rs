@@ -187,8 +187,8 @@ impl SshBackend {
             .arg(signature_file_path);
 
         // We can't use the existing run_command helper here as `-Y
-        // find-principals` will return a non-0 exit code if no
-        // principals are found.
+        // find-principals` will return a non-0 exit code if no principals are
+        // found.
         //
         // In this case we don't want to error out, just return None.
         tracing::info!(?command, "running SSH signing command");

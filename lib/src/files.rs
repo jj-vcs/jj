@@ -948,8 +948,8 @@ mod tests {
             MergeResult::Conflict(vec![conflict([b"b", b"a", b"a", b"a", b"c"])])
         );
         // Merge of an unresolved conflict and another branch, where the other
-        // branch undid the change from one of the inputs to the
-        // unresolved conflict in the first.
+        // branch undid the change from one of the inputs to the unresolved
+        // conflict in the first.
         assert_eq!(
             merge_hunks(&conflict([b"b", b"a", b"a", b"b", b"c"])),
             MergeResult::Resolved(hunk(b"c"))
@@ -1027,8 +1027,8 @@ mod tests {
 
         // One side changes a line and adds a block after. The other side just
         // adds the same block. You might expect the last block would be
-        // deduplicated. However, the changes in the first side can be
-        // parsed as follows:
+        // deduplicated. However, the changes in the first side can be parsed
+        // as follows:
         // ```
         //  a {
         // -    p

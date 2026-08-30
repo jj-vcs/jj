@@ -338,8 +338,7 @@ async fn fix_one_file(
                 compute_regions_to_format(base_content.as_deref(), &prev_content);
             if ranges.is_empty() && !tool_config.run_tool_if_zero_line_ranges {
                 // Don't run the tool if there are no line ranges to format and
-                // the tool is configured to not run in that
-                // case.
+                // the tool is configured to not run in that case.
                 return prev_content;
             }
 

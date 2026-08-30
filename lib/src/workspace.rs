@@ -265,10 +265,9 @@ impl Workspace {
                                    store_path: &Path|
          -> Result<Box<dyn crate::backend::Backend>, _> {
             // If the git repo is inside the workspace, use a relative path to
-            // it so the whole workspace can be moved without
-            // breaking. TODO: Clean up path normalization.
-            // store_path is canonicalized by ReadonlyRepo::init().
-            // workspace_root will be canonicalized by
+            // it so the whole workspace can be moved without breaking.
+            // TODO: Clean up path normalization. store_path is canonicalized by
+            // ReadonlyRepo::init(). workspace_root will be canonicalized by
             // Workspace::new(), but it's not yet here.
             let store_relative_git_repo_path = match (
                 dunce::canonicalize(workspace_root),

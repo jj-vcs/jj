@@ -274,8 +274,8 @@ diff editing in mind and be a little inaccurate.
                 .write_all(instructions.as_bytes())
                 .map_err(ExternalToolError::SetUpDir)?;
             // Note that some diff tools might not show this message and delete
-            // the contents of the output dir instead. Meld does
-            // show this message.
+            // the contents of the output dir instead. Meld does show this
+            // message.
             output_instructions_file
                 .write_all(
                     b"\

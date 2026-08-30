@@ -505,10 +505,10 @@ impl CommandHelper {
                 }
 
                 // We detected the working copy was stale and the client is
-                // configured to auto-update-stale, so let's do
-                // that now. We need to do it up here, not at a
-                // lower level (e.g. inside snapshot_working_copy()) to avoid
-                // recursive locking of the working copy.
+                // configured to auto-update-stale, so let's do that now. We
+                // need to do it up here, not at a lower level (e.g. inside
+                // snapshot_working_copy()) to avoid recursive locking of the
+                // working copy.
                 let WorkspaceCommandHelper { workspace, env, .. } = workspace_command;
                 self.recover_stale_working_copy_impl(ui, workspace, env, &git_import_export_lock)
                     .await?
@@ -649,10 +649,9 @@ impl CommandHelper {
                 workspace_command.check_working_copy_writable()?;
 
                 // Snapshot the current working copy on top of the last known
-                // working-copy operation, then merge the
-                // divergent operations. The wc_commit_id of the
-                // merged repo wouldn't change because the old one wins, but
-                // it's probably fine if we picked the new
+                // working-copy operation, then merge the divergent operations.
+                // The wc_commit_id of the merged repo wouldn't change because
+                // the old one wins, but it's probably fine if we picked the new
                 // wc_commit_id.
                 let stale_stats = workspace_command
                     .snapshot_working_copy(ui, git_import_export_lock)
@@ -1412,8 +1411,8 @@ impl WorkspaceCommandHelper {
                 .await?;
             let mut locked_ws = self.workspace.start_working_copy_mutation().await?;
             // The working copy was presumably updated by the git command that
-            // updated HEAD, so we just need to reset our working
-            // copy state to it without updating working copy files.
+            // updated HEAD, so we just need to reset our working copy state
+            // to it without updating working copy files.
             locked_ws.locked_wc().reset(&wc_commit).await?;
             tx.repo_mut().rebase_descendants().await?;
             self.user_repo = ReadonlyUserRepo::new(
@@ -1684,8 +1683,8 @@ to the current parents may contain changes from multiple commits.
                     .ok()
                     .map(jj_lib::file_util::expand_home_path)?;
                 // The configured path is usually absolute, but if it's
-                // relative, the "git" command would read the
-                // file at the work-tree directory.
+                // relative, the "git" command would read the file at the
+                // work-tree directory.
                 Some(self.workspace_root().join(path))
             } else {
                 xdg_config_home().map(|x| x.join("git").join("ignore"))
@@ -2206,8 +2205,7 @@ to the current parents may contain changes from multiple commits.
                     .await
                     .map_err(snapshot_command_error)?;
                     // export_refs() is probably unnecessary because there
-                    // should be no rewritten descendants,
-                    // but it's harmless.
+                    // should be no rewritten descendants, but it's harmless.
                     let stats =
                         jj_lib::git::export_refs(mut_repo).map_err(snapshot_command_error)?;
                     crate::git_util::print_git_export_stats(ui, &stats)
@@ -2511,10 +2509,10 @@ to the current parents may contain changes from multiple commits.
         let old_heads = RevsetExpression::commits(old_view.heads().iter().cloned().collect());
         let new_heads = RevsetExpression::commits(new_view.heads().iter().cloned().collect());
         // Filter the revsets by conflicts instead of reading all commits and
-        // doing the filtering here. That way, we can afford to evaluate
-        // the revset even if there are millions of commits added to the
-        // repo, assuming the revset engine can efficiently skip
-        // non-conflicting commits. Filter out empty commits mostly so
+        // doing the filtering here. That way, we can afford to evaluate the
+        // revset even if there are millions of commits added to the repo,
+        // assuming the revset engine can efficiently skip non-conflicting
+        // commits. Filter out empty commits mostly so
         // `jj new <conflicted commit>` doesn't result in a message about new
         // conflicts.
         let conflicts = RevsetExpression::filter(RevsetFilterPredicate::HasConflict)
@@ -2555,8 +2553,8 @@ to the current parents may contain changes from multiple commits.
         if !resolved_conflicts_by_change_id.is_empty() {
             // TODO: Report resolved and abandoned numbers separately. However,
             // that involves resolving the change_id among the visible commits
-            // in the new repo, which isn't currently supported by
-            // Google's revset engine.
+            // in the new repo, which isn't currently supported by Google's
+            // revset engine.
             let num_resolved: usize = resolved_conflicts_by_change_id
                 .values()
                 .map(|commits| commits.len())
@@ -2580,17 +2578,17 @@ to the current parents may contain changes from multiple commits.
         }
 
         // Hint that the user might want to `jj new` to the first conflict
-        // commit to resolve conflicts. Only show the hints if there
-        // were any new or resolved conflicts, and only if there are
-        // still some conflicts.
+        // commit to resolve conflicts. Only show the hints if there were any
+        // new or resolved conflicts, and only if there are still some
+        // conflicts.
         if !(added_conflict_commits.is_empty()
             || resolved_conflicts_by_change_id.is_empty() && new_conflicts_by_change_id.is_empty())
         {
             // If the user just resolved some conflict and squashed them in,
-            // there won't be any new conflicts. Clarify to them
-            // that there are still some other conflicts to resolve.
-            // (We don't mention conflicts in commits that weren't affected by
-            // the operation, however.)
+            // there won't be any new conflicts. Clarify to them that there are
+            // still some other conflicts to resolve. (We don't mention
+            // conflicts in commits that weren't affected by the operation,
+            // however.)
             if new_conflicts_by_change_id.is_empty() {
                 writeln!(
                     fmt,
@@ -2870,8 +2868,8 @@ impl WorkspaceCommandTransaction<'_> {
             writeln!(ui.status(), "Rebased {num_rebased} descendant commits.")?;
         }
         // Acquire git import/export lock before finishing the transaction to
-        // ensure Git HEAD export happens atomically with the
-        // transaction commit.
+        // ensure Git HEAD export happens atomically with the transaction
+        // commit.
         let git_import_export_lock = helper.lock_git_import_export()?;
         helper
             .finish_transaction(ui, tx, description, &git_import_export_lock)
@@ -3174,8 +3172,9 @@ pub fn print_conflicted_paths(
             );
         }
         // TODO: We might decide it's OK for `jj resolve` to ignore special
-        // files in the `removes` of a conflict (see e.g. https://github.com/jj-vcs/jj/pull/978). In
-        // that case, `conflict.removes` should be removed below.
+        // files in the `removes` of a conflict (see e.g.
+        // https://github.com/jj-vcs/jj/pull/978). In that case,
+        // `conflict.removes` should be removed below.
         for term in itertools::chain(conflict.removes(), conflict.adds()).flatten() {
             seen_objects.insert(
                 match term {
@@ -3678,8 +3677,7 @@ pub async fn compute_commit_location(
                 )
                 .await?;
                 // Not using `RevsetExpression::parents` here to persist the
-                // order of parents specified in
-                // `before_commits`.
+                // order of parents specified in `before_commits`.
                 let new_parent_ids = before_commits
                     .iter()
                     .flat_map(|commit| commit.parent_ids())

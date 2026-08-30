@@ -310,13 +310,13 @@ impl GitBackend {
         let target_path = store_path.join("git_target");
         let git_repo_path = if cfg!(windows) && git_repo_path.is_relative() {
             // When a repository is created in Windows, format the path with
-            // *forward slashes* and not backwards slashes. This
-            // makes it possible to use the same repository under
-            // Windows Subsystem for Linux.
+            // *forward slashes* and not backwards slashes. This makes it
+            // possible to use the same repository under Windows Subsystem for
+            // Linux.
             //
             // This only works for relative paths. If the path is absolute,
-            // there's not much we can do, and it simply won't work
-            // inside and outside WSL at the same time.
+            // there's not much we can do, and it simply won't work inside and
+            // outside WSL at the same time.
             file_util::slash_path(git_repo_path)
         } else {
             git_repo_path.into()
@@ -469,8 +469,7 @@ impl GitBackend {
             .save_table(mut_table)
             .map_err(GitBackendError::WriteMetadata)?;
         // Since the parent table was the head, saved table are likely to be new
-        // head. If it's not, cache will be reloaded when entry can't be
-        // found.
+        // head. If it's not, cache will be reloaded when entry can't be found.
         *self.cached_extra_metadata.lock().unwrap() = Some(table);
         Ok(())
     }
@@ -500,8 +499,7 @@ impl GitBackend {
             .map_err(|err| BackendError::Other(Box::new(err)))?;
 
         // These commits are imported from Git. Make our change ids persist
-        // (otherwise future write_commit() could reassign new change
-        // id.)
+        // (otherwise future write_commit() could reassign new change id.)
         tracing::debug!(
             heads_count = head_ids.len(),
             "import extra metadata entries"
@@ -727,7 +725,7 @@ fn commit_from_git_without_root_parent(
     // If the commit is signed, extract both the signature and the signed data
     // (which is the commit buffer with the gpgsig header omitted).
     // We have to re-parse the raw commit data because gix CommitRef does not
-    // give us the sogned data, only the signature.
+    // give us the signed data, only the signature.
     // Ideally, we could use try_to_commit_ref_iter at the beginning of this
     // function and extract everything from that. For now, this works
     let secure_sig = commit
@@ -1311,9 +1309,9 @@ impl Backend for GitBackend {
             deserialize_extras(&mut commit, extras);
         } else {
             // TODO: Remove this hack and map to ObjectNotFound error if we're
-            // sure that there are no reachable ancestor commits
-            // without extras metadata. Git commits imported by jj <
-            // 0.8.0 might not have extras (#924). https://github.com/jj-vcs/jj/issues/2343
+            // sure that there are no reachable ancestor commits without
+            // extras metadata. Git commits imported by jj < 0.8.0 might not
+            // have extras (#924). https://github.com/jj-vcs/jj/issues/2343
             tracing::info!("unimported Git commit found");
             self.import_head_commits([id])?;
             let table = self.cached_extra_metadata_table()?;
@@ -1348,10 +1346,10 @@ impl Backend for GitBackend {
         for parent_id in &contents.parents {
             if *parent_id == self.root_commit_id {
                 // Git doesn't have a root commit, so if the parent is the root
-                // commit, we don't add it to the list of
-                // parents to write in the Git commit. We also check that
-                // there are no other parents since Git cannot represent a merge
-                // between a root commit and another commit.
+                // commit, we don't add it to the list of parents to write in
+                // the Git commit. We also check that there are no other parents
+                // since Git cannot represent a merge between a root commit and
+                // another commit.
                 if contents.parents.len() > 1 {
                     return Err(BackendError::Unsupported(
                         "The Git backend does not support creating merge commits with the root \
@@ -1407,11 +1405,10 @@ impl Backend for GitBackend {
 
         // If two writers write commits of the same id with different metadata,
         // they will both succeed and the metadata entries will be
-        // "merged" later. Since metadata entry is keyed by the commit
-        // id, one of the entries would be lost. To prevent such race
-        // condition locally, we extend the scope covered by the
-        // table lock. This is still racy if multiple machines are involved and
-        // the repository is rsync-ed.
+        // "merged" later. Since metadata entry is keyed by the commit id, one
+        // of the entries would be lost. To prevent such race condition locally,
+        // we extend the scope covered by the table lock. This is still racy if
+        // multiple machines are involved and the repository is rsync-ed.
         let (table, table_lock) = self.read_extra_metadata_table_locked()?;
         let id = loop {
             let mut commit = gix::objs::Commit {

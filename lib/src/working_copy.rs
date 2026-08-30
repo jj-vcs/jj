@@ -381,13 +381,11 @@ impl WorkingCopyFreshness {
             let ancestor_op = ancestor_ops.into_iter().next().unwrap();
             if ancestor_op.id() == repo_operation.id() {
                 // The working copy was updated since we loaded the repo. The
-                // repo must be reloaded at the working copy's
-                // operation.
+                // repo must be reloaded at the working copy's operation.
                 Ok(Self::Updated(Box::new(wc_operation)))
             } else if ancestor_op.id() == wc_operation.id() {
                 // The working copy was not updated when some repo operation
-                // committed, meaning that it's stale compared
-                // to the repo view.
+                // committed, meaning that it's stale compared to the repo view.
                 if locked_wc.old_tree().tree_ids_and_labels()
                     == wc_commit.tree().tree_ids_and_labels()
                 {

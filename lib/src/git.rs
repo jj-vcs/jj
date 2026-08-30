@@ -716,8 +716,7 @@ async fn import_refs_inner(
                 .await?;
         }
         // Remote-tracking branch is the last known state of the branch in the
-        // remote. It shouldn't diverge even if we had inconsistent
-        // view.
+        // remote. It shouldn't diverge even if we had inconsistent view.
         mut_repo.set_remote_bookmark(symbol, new_remote_ref);
     }
     for update in &changed_remote_tags {
@@ -1938,22 +1937,21 @@ async fn reset_index(
 ) -> Result<(), GitResetHeadError> {
     let parent_tree = wc_commit.parent_tree(repo).await?;
     // Use the merged parent tree as the Git index, allowing `git diff` to show
-    // the same changes as `jj diff`. If the merged parent tree has
-    // conflicts, then the Git index will also be conflicted.
+    // the same changes as `jj diff`. If the merged parent tree has conflicts,
+    // then the Git index will also be conflicted.
     let mut index = if let Some(tree_id) = parent_tree.tree_ids().as_resolved() {
         if tree_id == repo.store().empty_tree_id() {
             // If the tree is empty, gix can fail to load the object (since Git
-            // doesn't require the empty tree to actually be present
-            // in the object database), so we just use an empty
-            // index directly.
+            // doesn't require the empty tree to actually be present in the
+            // object database), so we just use an empty index directly.
             gix::index::File::from_state(
                 gix::index::State::new(git_repo.object_hash()),
                 git_repo.index_path(),
             )
         } else {
             // If the parent tree is resolved, we can use gix's
-            // `index_from_tree` method. This is more efficient than
-            // iterating over the tree and adding each entry.
+            // `index_from_tree` method. This is more efficient than iterating
+            // over the tree and adding each entry.
             git_repo
                 .index_from_tree(&gix::ObjectId::from_bytes_or_panic(tree_id.as_bytes()))
                 .map_err(GitResetHeadError::from_git)?
@@ -2017,10 +2015,10 @@ fn build_index_from_merged_tree(
                 TreeValue::Symlink(id) => (id.as_bytes(), gix::index::entry::Mode::SYMLINK),
                 TreeValue::Tree(_) => {
                     // This case is only possible if there is a file-directory
-                    // conflict, since `MergedTree::entries` handles
-                    // the recursion otherwise. We only materialize a
-                    // file in the working copy for file-directory conflicts, so we
-                    // don't add the tree to the index here either.
+                    // conflict, since `MergedTree::entries` handles the
+                    // recursion otherwise. We only materialize a file in the
+                    // working copy for file-directory conflicts, so we don't
+                    // add the tree to the index here either.
                     return;
                 }
                 TreeValue::GitSubmodule(id) => (id.as_bytes(), gix::index::entry::Mode::COMMIT),
@@ -2028,9 +2026,9 @@ fn build_index_from_merged_tree(
 
             let path = BStr::new(path.as_internal_file_string());
 
-            // It is safe to push the entry because we ensure that we only add each
-            // path to a stage once, and we sort the entries after we finish
-            // adding them.
+            // It is safe to push the entry because we ensure that we only add
+            // each path to a stage once, and we sort the entries after we
+            // finish adding them.
             index.dangerously_push_entry(
                 gix::index::entry::Stat::default(),
                 gix::ObjectId::from_bytes_or_panic(id),
@@ -2057,13 +2055,12 @@ fn build_index_from_merged_tree(
             push_index_entry(&path, right, gix::index::entry::Stage::Theirs);
         } else {
             // We can't represent many-sided conflicts in the Git index, so just
-            // add the first side as staged. This is preferable to
-            // adding the first 2 sides as a conflict, since some
-            // tools rely on being able to resolve conflicts using the
-            // index, which could lead to an incorrect conflict resolution if
-            // the index didn't contain all of the conflict sides.
-            // Instead, we add a dummy conflict of a file named
-            // ".jj-do-not-resolve-this-conflict" to prevent the user from
+            // add the first side as staged. This is preferable to adding the
+            // first 2 sides as a conflict, since some tools rely on being able
+            // to resolve conflicts using the index, which could lead to an
+            // incorrect conflict resolution if the index didn't contain all of
+            // the conflict sides. Instead, we add a dummy conflict of a file
+            // named ".jj-do-not-resolve-this-conflict" to prevent the user from
             // accidentally committing the conflict markers.
             has_many_sided_conflict = true;
             push_index_entry(

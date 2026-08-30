@@ -67,10 +67,10 @@ impl CopyRecords {
     pub fn add_records(&mut self, copy_records: impl IntoIterator<Item = CopyRecord>) {
         for r in copy_records {
             // The same copy or rename is reported once per parent when diffing
-            // a merge commit. Identical (source, target) pairs
-            // describe the same operation, so skip the duplicate
-            // instead of marking both maps as conflicting, which
-            // would otherwise drop the copy/rename entirely.
+            // a merge commit. Identical (source, target) pairs describe the
+            // same operation, so skip the duplicate instead of marking both
+            // maps as conflicting, which would otherwise drop the copy/rename
+            // entirely.
             let is_duplicate = self
                 .targets
                 .get(&r.target)
@@ -418,15 +418,13 @@ impl Stream for CopyHistoryDiffStream<'_> {
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         loop {
             // First, check if we have newly-finished futures. If this returns
-            // Pending, we intentionally fall through to poll
-            // `self.inner`.
+            // Pending, we intentionally fall through to poll `self.inner`.
             if let Poll::Ready(Some(next)) = self.pending.poll_next_unpin(cx) {
                 return Poll::Ready(Some(next));
             }
 
             // If we didn't have queued results above, we want to check our
-            // wrapped stream for the next non-copy-matched diff
-            // entry.
+            // wrapped stream for the next non-copy-matched diff entry.
             let next_diff_entry = match ready!(self.inner.poll_next_unpin(cx)) {
                 Some(diff_entry) => diff_entry,
                 None if self.pending.is_empty() => return Poll::Ready(None),
@@ -475,30 +473,23 @@ impl Stream for CopyHistoryDiffStream<'_> {
                 (other, Some(f @ TreeValue::File { .. })) => {
                     if let Some(other) = other {
                         // For files with non-matching copy-ids, or for a
-                        // non-file that changes to a
-                        // file, mark the first as deleted and do copy-tracing
-                        // on the second.
+                        // non-file that changes to a file, mark the first as
+                        // deleted and do copy-tracing on the second.
                         //
                         // NOTE[deletion-diff-entry]: this may emit two diff
-                        // entries, where the old
-                        // diffstream would contain only one (even with gix's
-                        // heuristic-based copy
-                        // detection).
+                        // entries, where the old diffstream would contain only
+                        // one (even with gix's heuristic-based copy detection).
                         //
                         // This may be desirable in some cases (such as
-                        // replacing a file X with a
-                        // copy of some other file Y; the deletion entry makes
-                        // it more clear that
-                        // the original X was replaced by a formerly unrelated
-                        // file). It is less
-                        // desirable in cases where the new file shares some
-                        // actual relation to the
-                        // old one.
+                        // replacing a file X with a copy of some other file Y;
+                        // the deletion entry makes it more clear that the
+                        // original X was replaced by a formerly unrelated
+                        // file). It is less desirable in cases where the new
+                        // file shares some actual relation to the old one.
                         //
                         // We plan to improve this in the near future, but for
-                        // now we'll keep the
-                        // simpler implementation since this behavior is not
-                        // visible outside of tests yet.
+                        // now we'll keep the simpler implementation since this
+                        // behavior is not visible outside of tests yet.
                         self.pending
                             .push_back(Box::pin(ready(CopyHistoryTreeDiffEntry {
                                 target_path: next_diff_entry.path.clone(),
@@ -679,11 +670,11 @@ async fn find_diff_sources_from_copies(
     //    A   B
     //
     // where D is `file`, C is its parent but is not present in `tree`, but both
-    // A and B are present, this will find either A or B, not both. Should
-    // we return both A and B instead? I don't think there's a way to do
-    // that with the current dag_walk functions. Do we care enough to
-    // implement something new there that pays more attention to the depth
-    // in the DAG? Perhaps a variant of closest_common_nodes?
+    // A and B are present, this will find either A or B, not both. Should we
+    // return both A and B instead? I don't think there's a way to do that with
+    // the current dag_walk functions. Do we care enough to implement something
+    // new there that pays more attention to the depth in the DAG? Perhaps a
+    // variant of closest_common_nodes?
     'parents: for parent_copy_id in &history.parents {
         let mut absent_ancestors = vec![];
 

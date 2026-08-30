@@ -798,9 +798,9 @@ fn test_merge_three_operations() -> TestResult {
 fn test_merge_views_criss_cross(op_b_first: bool) -> TestResult {
     // Consider the operation log below, where D and E are both merges of B and
     // C. When merging F and E, if we pick C as common ancestor, we will get
-    // divergence because the working-copy commit was rewritten from K to L
-    // in operation E (but actually in operation B) and it was rewritten
-    // from K to M in operation F.
+    // divergence because the working-copy commit was rewritten from K to L in
+    // operation E (but actually in operation B) and it was rewritten from K to
+    // M in operation F.
     //
     // F wc: M
     // |

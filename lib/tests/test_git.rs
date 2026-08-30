@@ -3465,9 +3465,9 @@ fn test_export_reexport_transitions() -> TestResult {
     let commit_c = write_random_commit(mut_repo);
     // Create a few bookmarks whose names indicate how they change in jj in git.
     // The first letter represents the bookmark's target in the last export.
-    // The second letter represents the bookmark's target in jj. The third
-    // letter represents the bookmark's target in git. "X" means that the
-    // bookmark doesn't exist. "A", "B", or "C" means that the bookmark
+    // The second letter represents the bookmark's target in jj.
+    // The third letter represents the bookmark's target in git. "X" means that
+    // the bookmark doesn't exist. "A", "B", or "C" means that the bookmark
     // points to that commit.
     //
     // AAB: Branch modified in git
@@ -6119,8 +6119,7 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote() -> TestResult {
     );
 
     // Here, the local bookmark hasn't moved from `parent_of_main_commit`, but
-    // it moved to `main` on the remote. So, the conflict resolves to
-    // `main`.
+    // it moved to `main` on the remote. So, the conflict resolves to `main`.
     //
     // `jj` should not actually attempt a push in this case, but if it did, the
     // push should fail.
@@ -6591,9 +6590,8 @@ fn test_concurrent_read_write_commit() -> TestResult {
                 }
                 if !pending_commit_ids.is_empty() {
                     // It's not an error if some of the readers couldn't observe
-                    // the commits. It's unlikely, but
-                    // possible if the git backend had strong negative object
-                    // cache for example.
+                    // the commits. It's unlikely, but possible if the git
+                    // backend had strong negative object cache for example.
                     eprintln!(
                         "reader {i} couldn't observe the following commits: \
                          {pending_commit_ids:#?}"

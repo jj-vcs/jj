@@ -76,9 +76,9 @@ pub fn is_colocated_git_workspace(workspace: &Workspace) -> Result<bool, Command
 pub fn absolute_git_url(cwd: &Path, source: &str) -> Result<String, CommandError> {
     // Git appears to turn URL-like source to absolute path if local git
     // directory exits, and fails because '$PWD/https' is unsupported
-    // protocol. Since it would be tedious to copy the exact git (or
-    // libgit2) behavior, we simply let gix parse the input as URL,
-    // rcp-like, or local path.
+    // protocol. Since it would be tedious to copy the exact git (or libgit2)
+    // behavior, we simply let gix parse the input as URL, rcp-like, or local
+    // path.
     let mut url = gix::url::parse(source).map_err(cli_error)?;
     url.canonicalize(cwd).map_err(user_error)?;
     // As of gix 0.68.0, the canonicalized path uses platform-native directory

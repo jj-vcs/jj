@@ -87,8 +87,8 @@ fn merge_directories(left: &Path, base: &Path, right: &Path, output: &Path) {
                 sub_dirs.push(base_name.to_os_string());
             } else if !child_base.exists() {
                 // This overwrites the left side if that's been written. That's
-                // fine, since the point of the test is that it
-                // should be okay for either side to win.
+                // fine, since the point of the test is that it should be okay
+                // for either side to win.
                 std::fs::copy(&child_right, child_output).unwrap();
             }
         }

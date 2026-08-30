@@ -453,8 +453,7 @@ impl CompositeCommitIndex {
 
         // Iterate though the candidates by reverse index position, keeping
         // track of the ancestors of already-found heads. If a candidate
-        // is an ancestor of an already-found head, then it can be
-        // removed.
+        // is an ancestor of an already-found head, then it can be removed.
         let mut parents = BinaryHeap::new();
         let mut heads = Vec::new();
         'outer: for candidate in candidate_positions {

@@ -173,8 +173,8 @@ impl IdPrefixIndex<'_> {
                 }
                 PrefixResolution::SingleMatch(id) => {
                     // The disambiguation set may be loaded from a different
-                    // repo, and contain a commit that
-                    // doesn't exist in the current repo.
+                    // repo, and contain a commit that doesn't exist in the
+                    // current repo.
                     if repo.index().has_id(&id).block_on()? {
                         return Ok(PrefixResolution::SingleMatch(id));
                     } else {
@@ -424,9 +424,9 @@ where
         };
         if min_bytes.len() > N {
             // If the min prefix (including odd byte) is longer than the stored
-            // short keys, we are sure that min_bytes[..N] does not
-            // include the odd byte. Use it to take contiguous
-            // range, then filter by (longer) prefix.matches().
+            // short keys, we are sure that min_bytes[..N] does not include the
+            // odd byte. Use it to take contiguous range, then filter by
+            // (longer) prefix.matches().
             let short_bytes = unwrap_as_short_key(min_bytes);
             let pos = self.index.partition_point(|(s, _)| s < short_bytes);
             let range = self.index[pos..]
@@ -437,8 +437,8 @@ where
             collect(range, entry_mapper)
         } else {
             // Otherwise, use prefix.matches() to deal with odd byte. Since the
-            // prefix is covered by short key width, we're sure that
-            // the matching prefixes are sorted.
+            // prefix is covered by short key width, we're sure that the
+            // matching prefixes are sorted.
             let pos = self.index.partition_point(|(s, _)| &s[..] < min_bytes);
             let range = self.index[pos..]
                 .iter()

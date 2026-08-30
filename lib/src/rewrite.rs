@@ -207,9 +207,9 @@ pub async fn restore_tree(
             let labeled_empty_tree = MergedTree::new(tree.store().clone(), empty_tree_ids, labels);
             let mut builder = MergedTreeBuilder::new(labeled_empty_tree);
             for (path, value) in tree.entries_matching(&matcher) {
-                // TODO: if https://github.com/jj-vcs/jj/issues/4152 is implemented, we will need
-                // to expand resolved conflicts into `Merge::repeated(value,
-                // num_sides)`.
+                // TODO: if https://github.com/jj-vcs/jj/issues/4152 is
+                // implemented, we will need to expand resolved conflicts into
+                // `Merge::repeated(value, num_sides)`.
                 builder.set_or_remove(path, value?);
             }
             builder.write_tree().await
@@ -724,8 +724,8 @@ pub async fn compute_move_commits(
             )
             .await?;
             // We don't have to compute the internal parents for the connected
-            // target set, since the connected target set is the
-            // same as the target set.
+            // target set, since the connected target set is the same as the
+            // target set.
             connected_target_commits_internal_parents = HashMap::new();
             target_roots = root_ids.iter().cloned().collect();
         }
@@ -786,8 +786,7 @@ pub async fn compute_move_commits(
                 .map_err(|err| err.into_backend_error())?;
 
         // For all commits in the target set, compute its transitive descendant
-        // commits which are outside of the target set by up to 1
-        // generation.
+        // commits which are outside of the target set by up to 1 generation.
         let mut target_commit_external_descendants: HashMap<CommitId, IndexSet<Commit>> =
             HashMap::new();
         // Iterate through all descendants of the target set, going through
@@ -863,10 +862,9 @@ pub async fn compute_move_commits(
                     };
 
                     // If the original parents of the new children are the new
-                    // parents of the `target_heads`,
-                    // replace them with the target heads since we are
-                    // "inserting" the target commits in
-                    // between the new parents and the new children.
+                    // parents of the `target_heads`, replace them with the
+                    // target heads since we are "inserting" the target commits
+                    // in between the new parents and the new children.
                     for id in old_child_parent_ids {
                         if new_parent_ids.contains(id) {
                             new_child_parent_ids.extend(target_heads.clone());
@@ -1173,10 +1171,9 @@ pub async fn duplicate_commits(
                 let mut child_new_parent_ids = IndexSet::new();
                 for old_parent_id in rewriter.old_commit().parent_ids() {
                     // If the original parents of the new children are the new
-                    // parents of `target_head_ids`, replace
-                    // them with `target_head_ids` since we are
-                    // "inserting" the target commits in between the new parents
-                    // and the new children.
+                    // parents of `target_head_ids`, replace them with
+                    // `target_head_ids` since we are "inserting" the target
+                    // commits in between the new parents and the new children.
                     if parent_commit_ids.contains(old_parent_id) {
                         child_new_parent_ids.extend(target_head_ids.clone());
                     } else {
@@ -1389,15 +1386,13 @@ pub async fn squash_commits<'repo>(
         let abandon = !keep_emptied && source.is_full_selection();
         if !abandon && source.is_empty_selection() {
             // Nothing selected from this commit. If it's abandoned (i.e.
-            // already empty), we still include it so `jj squash`
-            // can be used for abandoning an empty commit in
-            // the middle of a stack.
+            // already empty), we still include it so `jj squash` can be used
+            // for abandoning an empty commit in the middle of a stack.
             continue;
         }
 
         // TODO: Do we want to optimize the case of moving to the parent commit
-        // (`jj squash -r`)? The source tree will be unchanged in that
-        // case.
+        // (`jj squash -r`)? The source tree will be unchanged in that case.
         source_commits.push(SourceCommit {
             commit: source,
             diff: source

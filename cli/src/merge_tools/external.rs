@@ -370,8 +370,8 @@ pub async fn run_mergetool_external(
             }
             Err(err) => {
                 // Some conflicts were already resolved, so we should return an
-                // error with the partially-resolved tree so
-                // that the caller can save the resolved files.
+                // error with the partially-resolved tree so that the caller can
+                // save the resolved files.
                 partial_resolution_error = Some(MergeToolPartialResolutionError {
                     source: err,
                     resolved_count: i,

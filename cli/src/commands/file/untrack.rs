@@ -98,8 +98,8 @@ Make sure they're ignored, then try again.",
             ));
         } else {
             // This means there were some concurrent changes made in the working
-            // copy. We don't want to mix those in, so reset the
-            // working copy again.
+            // copy. We don't want to mix those in, so reset the working copy
+            // again.
             locked_ws.locked_wc().reset(&new_commit).await?;
         }
     }

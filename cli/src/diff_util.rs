@@ -2157,9 +2157,9 @@ pub fn show_diff_stats(
         if let Some((added, removed)) = stat.added_removed {
             let bar_length = ((added + removed) as f64 * factor) as usize;
             // If neither adds nor removes are present, bar length should be
-            // zero. If only one is present, bar length should be at
-            // least 1. If both are present, bar length should be at
-            // least 2.
+            // zero.
+            // If only one is present, bar length should be at least 1.
+            // If both are present, bar length should be at least 2.
             //
             // Fractional space after scaling is given to whichever of
             // adds/removes is smaller, to show at least one tick

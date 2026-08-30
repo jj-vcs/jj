@@ -278,8 +278,8 @@ impl TreeMerger {
                 self.enqueue_tree_read(path, value);
             } else {
                 // TODO: If it's e.g. a dir/file conflict, there's no need to
-                // try to resolve it as a file. We should mark
-                // them to `unmerged_tree.conflicts` instead.
+                // try to resolve it as a file. We should mark them to
+                // `unmerged_tree.conflicts` instead.
                 self.enqueue_file_merge(path, value);
             }
         }

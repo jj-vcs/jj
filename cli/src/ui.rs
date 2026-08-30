@@ -122,9 +122,8 @@ impl UiOutput {
                 drop(child_stdin);
                 if let Err(err) = child.wait() {
                     // It's possible (though unlikely) that this write fails,
-                    // but this function gets called so late
-                    // that there's not much we can do about
-                    // it.
+                    // but this function gets called so late that there's not
+                    // much we can do about it.
                     writeln!(
                         ui.warning_default(),
                         "Failed to wait on pager: {err}",

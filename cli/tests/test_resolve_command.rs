@@ -765,7 +765,8 @@ fn test_simplify_conflict_sides() -> TestResult {
     let work_dir = test_env.work_dir("repo");
 
     // Creates a 4-sided conflict, with fileA and fileB having different
-    // conflicts: fileA: A - B + C - B + B - B + B
+    // conflicts:
+    // fileA: A - B + C - B + B - B + B
     // fileB: A - A + A - A + B - C + D
     create_commit_with_files(
         &work_dir,

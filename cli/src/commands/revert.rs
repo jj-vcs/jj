@@ -202,10 +202,9 @@ pub(crate) async fn cmd_revert(
                 let mut child_new_parent_ids = IndexSet::new();
                 for old_parent_id in rewriter.old_commit().parent_ids() {
                     // If the original parents of the new children are the new
-                    // parents of `target_head_ids`, replace
-                    // them with `new_head_ids` since we are
-                    // "inserting" the new commits in between the new parents
-                    // and the new children.
+                    // parents of `target_head_ids`, replace them with
+                    // `new_head_ids` since we are "inserting" the new commits
+                    // in between the new parents and the new children.
                     if original_parent_commit_ids.contains(old_parent_id) {
                         child_new_parent_ids.extend(new_head_ids.clone());
                     } else {

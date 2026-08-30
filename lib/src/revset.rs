@@ -3241,8 +3241,7 @@ impl VisibilityResolutionContext<'_> {
             },
             RevsetExpression::Filter(_) | RevsetExpression::AsFilter(_) => {
                 // Top-level filter without intersection: e.g. "~author(_)" is
-                // represented as
-                // `AsFilter(NotIn(Filter(Author(_))))`.
+                // represented as `AsFilter(NotIn(Filter(Author(_))))`.
                 ResolvedExpression::FilterWithin {
                     candidates: self.resolve_all().into(),
                     predicate: self.resolve_predicate(expression),

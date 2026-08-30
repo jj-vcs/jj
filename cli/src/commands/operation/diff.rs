@@ -397,8 +397,8 @@ pub async fn show_op_diff(
             with_content_format
                 .write(formatter, async |formatter| {
                     // Usually, there is at most one working copy changed per
-                    // operation, so we put the working copy
-                    // name in the heading.
+                    // operation, so we put the working copy name in the
+                    // heading.
                     write!(formatter, "Changed working copy ")?;
                     write!(formatter.labeled("working_copies"), "{}@", name.as_symbol())?;
                     writeln!(formatter, ":")?;

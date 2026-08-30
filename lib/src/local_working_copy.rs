@@ -898,9 +898,8 @@ fn reject_reserved_existing_file_identity(
             })?
         else {
             // If the existing disk_path pointed to the reserved path, we would
-            // have gotten an identity back. Since we got nothing,
-            // the file does not exist and cannot be a reserved path
-            // name.
+            // have gotten an identity back. Since we got nothing, the file does
+            // not exist and cannot be a reserved path name.
             continue;
         };
 
@@ -1462,8 +1461,7 @@ impl TreeState {
                             .filter_map(|path| RepoPathBuf::from_relative_path(path).ok())
                             .collect_vec();
                         // .gitignore changes require rescanning parent
-                        // directories to pick up newly
-                        // unignored files.
+                        // directories to pick up newly unignored files.
                         let gitignore_prefixes = repo_paths
                             .iter()
                             .filter_map(|repo_path| {
@@ -1837,8 +1835,8 @@ impl FileSnapshotter<'_> {
             }
             Some(current_file_state) => {
                 // If the file's mtime was set at the same time as this state
-                // file's own mtime, then we don't know if the
-                // file was modified before or after this state file.
+                // file's own mtime, then we don't know if the file was modified
+                // before or after this state file.
                 new_file_state.is_clean(current_file_state)
                     && current_file_state.mtime < self.tree_state.own_mtime
             }
@@ -2096,10 +2094,10 @@ impl TreeState {
         set_executable(exec_bit, disk_path)
             .map_err(|err| checkout_error_for_stat_error(err, disk_path))?;
         // Read the file state from the file descriptor. That way, know that the
-        // file exists and is of the expected type, and the stat
-        // information is most likely accurate, except for other
-        // processes modifying the file concurrently (The mtime is set
-        // at write time and won't change when we close the file.)
+        // file exists and is of the expected type, and the stat information is
+        // most likely accurate, except for other processes modifying the file
+        // concurrently (The mtime is set at write time and won't change when
+        // we close the file.)
         let metadata = file
             .metadata()
             .map_err(|err| checkout_error_for_stat_error(err, disk_path))?;
@@ -2265,10 +2263,10 @@ impl TreeState {
             }
 
             // This path and the previous one we did work for may have a common
-            // prefix. We can adjust the "working copy" path to the
-            // parent directory which we know is already created. If
-            // there is no common prefix, this will by default use
-            // RepoPath::root() as the common prefix.
+            // prefix. We can adjust the "working copy" path to the parent
+            // directory which we know is already created. If there is no common
+            // prefix, this will by default use RepoPath::root() as the common
+            // prefix.
             let (common_prefix, adjusted_diff_file_path) =
                 path.split_common_prefix(&prev_created_path);
 
@@ -2284,10 +2282,9 @@ impl TreeState {
                 // "foo/bar"
                 //
                 // This results in a common prefix of "foo/bar" with empty
-                // string for the remainder since its entire
-                // prefix has already been created. This means
-                // that we _dont_ need to create its parent dirs
-                // either.
+                // string for the remainder since its entire prefix has already
+                // been created. This means that we _dont_ need to create its
+                // parent dirs either.
 
                 path.to_fs_path(self.working_copy_path())?
             } else {
@@ -2295,8 +2292,7 @@ impl TreeState {
                     common_prefix.to_fs_path(self.working_copy_path())?;
 
                 // Create parent directories no matter if after.is_present().
-                // This ensures that the path never traverses
-                // symlinks.
+                // This ensures that the path never traverses symlinks.
                 let Some(disk_path) =
                     create_parent_dirs(&adjusted_working_copy_path, adjusted_diff_file_path)?
                 else {
@@ -2358,9 +2354,8 @@ impl TreeState {
             let file_state = match after {
                 MaterializedTreeValue::Absent | MaterializedTreeValue::AccessDenied(_) => {
                     // Reset the previous path to avoid scenarios where this
-                    // path is deleted, then on the next
-                    // iteration recreation is skipped because of this
-                    // optimization.
+                    // path is deleted, then on the next iteration recreation
+                    // is skipped because of this optimization.
                     prev_created_path = RepoPathBuf::root();
 
                     let mut parent_dir = disk_path.parent().unwrap();
@@ -2464,9 +2459,9 @@ impl TreeState {
                 && old_tree.labels() != new_tree.labels()
             {
                 // TODO: it might be better to use an async stream here and
-                // merge it with the other diff stream, but it
-                // could be difficult since the diff stream is not
-                // sorted in the same order as the conflicts iterator.
+                // merge it with the other diff stream, but it could be
+                // difficult since the diff stream is not sorted in the same
+                // order as the conflicts iterator.
                 new_tree
                     .conflicts_matching(matcher)
                     .map(|(path, value)| value.map(|value| (path, value)))

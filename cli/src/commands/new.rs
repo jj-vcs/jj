@@ -228,9 +228,9 @@ pub(crate) async fn cmd_new(
     if !description.is_empty() {
         // The first trailer would become the first line of the description.
         // Also, a commit with no description is treated in a special way in
-        // jujutsu: it can be discarded as soon as it's no longer the
-        // working copy. Adding a trailer to an empty description would
-        // break that logic.
+        // jujutsu: it can be discarded as soon as it's no longer the working
+        // copy. Adding a trailer to an empty description would break that
+        // logic.
         commit_builder.set_description(&description);
         let description = add_trailers(ui, &tx, &commit_builder).await?;
         commit_builder.set_description(&description);
@@ -248,8 +248,7 @@ pub(crate) async fn cmd_new(
         let mut new_parent_ids = IndexSet::new();
         // If the original parents of the children commits are the parents of
         // the new commit, replace them with the new commit since we are
-        // "inserting" the new commit in between the parents and the
-        // children.
+        // "inserting" the new commit in between the parents and the children.
         for old_parent_id in child_commit.parent_ids() {
             if parent_commit_ids_set.contains(old_parent_id) {
                 new_parent_ids.insert(new_commit.id().clone());

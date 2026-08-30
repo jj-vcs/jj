@@ -1019,11 +1019,11 @@ mod tests {
         create_right_tree: impl FnOnce(&Arc<Store>, &RepoPath, bool) -> MergedTree,
     ) {
         // In this test, we create 2 trees that consist of only one file under
-        // the same path. The executable bits are the same. Either of
-        // the left tree and the right tree can be resolved or have
-        // conflicts. Regardless of whether the file is resolved or have
-        // conflicts, the file has the same executable bit in both
-        // trees, so we don't expect a file mode section in the diff.
+        // the same path. The executable bits are the same. Either of the left
+        // tree and the right tree can be resolved or have conflicts.
+        // Regardless of whether the file is resolved or have conflicts, the
+        // file has the same executable bit in both trees, so we don't expect
+        // a file mode section in the diff.
 
         let test_repo = TestRepo::init();
         let store = test_repo.repo.store();
@@ -1928,8 +1928,8 @@ mod tests {
         "#);
         let no_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         // TODO: we should ensure that `jj diffedit` preserves labels when
-        // restoring a conflict. It also should work when restoring
-        // conflicts of differing arities.
+        // restoring a conflict. It also should work when restoring conflicts
+        // of differing arities.
         let left_tree_without_labels = MergedTree::new(
             left_tree.store().clone(),
             left_tree.tree_ids().clone(),
@@ -2342,8 +2342,7 @@ mod tests {
                     }
                     if !did_file_exist && is_anything_selected {
                         // File was created, so if any changes are selected,
-                        // then so must the file
-                        // mode change.
+                        // then so must the file mode change.
                         file.sections[0].set_checked(true);
                     }
                 }
@@ -2392,8 +2391,8 @@ mod tests {
                 file.old_path = None;
 
                 // Only keep sections which weren't selected previously. For
-                // text files, transform additions which have
-                // already been applied into `Unchanged` hunks.
+                // text files, transform additions which have already been
+                // applied into `Unchanged` hunks.
                 file.sections = std::mem::take(&mut file.sections)
                     .into_iter()
                     .flat_map(|sec| {

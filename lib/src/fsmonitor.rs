@@ -249,9 +249,9 @@ pub mod watchman {
             if is_fresh_instance {
                 // The Watchman documentation states that if it was a fresh
                 // instance, we need to delete any tree entries that didn't
-                // appear in the returned list of changed files.
-                // For now, the caller will handle this by
-                // manually crawling the working copy again.
+                // appear in the returned list of changed files. For now, the
+                // caller will handle this by manually crawling the working
+                // copy again.
                 Ok((clock, None))
             } else {
                 let paths = files

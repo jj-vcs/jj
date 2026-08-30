@@ -232,8 +232,8 @@ impl<'a> RevsetGraphWalk<'a> {
                     Some([CommitGraphEdge::missing(parent_position)].into())
                 } else {
                     // The parent is not in the input set but it's somewhere in
-                    // the range where we have commits in
-                    // the input set, so continue searching.
+                    // the range where we have commits in the input set, so
+                    // continue searching.
                     stack.push(parent);
                     None
                 }
@@ -262,8 +262,8 @@ impl<'a> RevsetGraphWalk<'a> {
                         edges.push(CommitGraphEdge::missing(parent_position));
                     } else {
                         // The parent is not in the input set but it's somewhere
-                        // in the range where we have
-                        // commits in the input set, so continue searching.
+                        // in the range where we have commits in the input set,
+                        // so continue searching.
                         stack.push(parent);
                         parents_complete = false;
                     }

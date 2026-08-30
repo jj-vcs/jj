@@ -392,8 +392,8 @@ fn find_lcs(input: &[usize]) -> Vec<(usize, usize)> {
                         global_longest = len;
                         global_longest_right_pos = right_pos;
                         // If this is the longest chain globally so far, we
-                        // cannot find a longer one by
-                        // using a previous value, so break early.
+                        // cannot find a longer one by using a previous value,
+                        // so break early.
                         break;
                     }
                 }
@@ -814,9 +814,9 @@ impl<'input> ContentDiff<'input> {
         for window in self.unchanged_regions.windows(2) {
             let [previous, current]: &[_; 2] = window.try_into().unwrap();
             // For the changed region between the previous region and the
-            // current one, create a new Diff instance. Then adjust
-            // the start positions and offsets to be valid in the
-            // context of the larger Diff instance (`self`).
+            // current one, create a new Diff instance. Then adjust the start
+            // positions and offsets to be valid in the context of the larger
+            // Diff instance (`self`).
             let refined_diff = ContentDiff::for_tokenizer(
                 self.hunk_between(previous, current),
                 &tokenizer,
@@ -1601,12 +1601,11 @@ mod tests {
     #[test]
     fn test_diff_real_case_write_fmt() {
         // This is from src/ui.rs in commit f44d246e3f88 in this repo. It
-        // highlights the need for recursion into the range at the end:
-        // after splitting at "Arguments" and "formatter", the region at
-        // the end has the unique words "write_fmt" and "fmt", but we
-        // forgot to recurse into that region, so we ended up
-        // saying that "write_fmt(fmt).unwrap()" was replaced by
-        // b"write_fmt(fmt)".
+        // highlights the need for recursion into the range at the end: after
+        // splitting at "Arguments" and "formatter", the region at the end has
+        // the unique words "write_fmt" and "fmt", but we forgot to recurse
+        // into that region, so we ended up saying that
+        // "write_fmt(fmt).unwrap()" was replaced by b"write_fmt(fmt)".
         #[rustfmt::skip]
         assert_eq!(
             diff([

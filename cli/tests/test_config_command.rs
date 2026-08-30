@@ -1349,11 +1349,10 @@ fn test_config_get_yields_values_consistent_with_schema_defaults() -> TestResult
         let output_doc = toml_edit::Document::parse(format!("test={}", output.stdout.normalized()))
             .unwrap_or_else(|_| {
                 // Unfortunately for this test, `config get` is "lossy" and does
-                // not print quoted strings. This means that
-                // e.g. `false` and `"false"` are not
-                // distinguishable. If value couldn't be parsed, it's probably a
-                // string, so let's parse its Debug string
-                // instead.
+                // not print quoted strings. This means that e.g. `false` and
+                // `"false"` are not distinguishable. If value couldn't be
+                // parsed, it's probably a string, so let's parse its Debug
+                // string instead.
                 toml_edit::Document::parse(format!("test={:?}", output.stdout.normalized().trim()))
                     .unwrap()
             });

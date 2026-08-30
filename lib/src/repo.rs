@@ -828,8 +828,7 @@ impl RepoLoader {
             assert!(index <= operations.len());
             if index == operations.len() {
                 // We are done processing the operations, but there is more work
-                // on the stack. Commit the transaction and
-                // cache the result.
+                // on the stack. Commit the transaction and cache the result.
                 let tx_description = transaction_description.map_or_else(
                     || format!("merge {} operations", operations.len()),
                     |tx_description| tx_description.to_string(),
@@ -845,8 +844,8 @@ impl RepoLoader {
             let other_op = &operations[index];
 
             // Get the ancestor operations between the operations we have merged
-            // so far (represented by `tx.parent_ops()`) and the
-            // next operation to merge (`other_op`).
+            // so far (represented by `tx.parent_ops()`) and the next operation
+            // to merge (`other_op`).
             let ancestor_ops = match closest_common_ancestors
                 .entry((to_operation_ids(tx.parent_ops()), other_op.id().clone()))
             {
@@ -885,12 +884,11 @@ impl RepoLoader {
 
             // We have to merge the ancestor ops.
             // We first push the current state to the stack so that after we
-            // merge the ancestor ops, we can continue merging the
-            // rest of the operations.
+            // merge the ancestor ops, we can continue merging the rest of the
+            // operations.
             stack.push((index, operations, tx));
             // Then we push the ancestor ops to the stack so that we can merge
-            // them first. We need to start a separate transaction
-            // for this.
+            // them first. We need to start a separate transaction for this.
             let new_tx = self.load_at(&ancestor_ops[0]).await?.start_transaction();
             stack.push((1, ancestor_ops.clone(), new_tx));
         }
@@ -1362,8 +1360,7 @@ impl MutableRepo {
             to_visit.iter().map(|commit| commit.id().clone()).collect();
         let mut visited = HashSet::new();
         // Calculate an order where we rebase parents first, but if the parents
-        // were rewritten, make sure we rebase the rewritten parent
-        // first.
+        // were rewritten, make sure we rebase the rewritten parent first.
         let store = self.store();
         dag_walk_async::topo_order_reverse(
             to_visit.into_iter().map(Ok),
@@ -1471,12 +1468,12 @@ impl MutableRepo {
         }
         self.update_rewritten_references(options).await?;
         // Since we didn't necessarily visit all descendants of rewritten
-        // commits (e.g. if they were rewritten in the callback), there
-        // can still be commits left to rebase, so we don't clear
-        // `parent_mapping` here. TODO: Should we make this stricter? We
-        // could check that there were no rewrites before this function
-        // was called, and we can check that only commits in the
-        // `to_visit` set were added by the callback. Then we
+        // commits (e.g. if they were rewritten in the callback), there can
+        // still be commits left to rebase, so we don't clear `parent_mapping`
+        // here.
+        // TODO: Should we make this stricter? We could check that there were no
+        // rewrites before this function was called, and we can check that only
+        // commits in the `to_visit` set were added by the callback. Then we
         // could clear `parent_mapping` here and not have to scan it again at
         // the end of the transaction when we call `rebase_descendants()`.
 
@@ -1991,12 +1988,12 @@ impl MutableRepo {
         let other_heads = other.heads().iter().cloned().collect_vec();
 
         // HACK: Don't walk long ranges of commits to find rewrites when using
-        // other custom implementations. The only custom index
-        // implementation we're currently aware of is Google's. That
-        // repo has too high commit rate for it to be feasible to walk
-        // all added and removed commits. TODO: Fix this somehow. Maybe
-        // a method on `Index` to find rewritten commits
-        // given `base_heads`, `own_heads` and `other_heads`?
+        // other custom implementations. The only custom index implementation
+        // we're currently aware of is Google's. That repo has too high commit
+        // rate for it to be feasible to walk
+        // all added and removed commits.
+        // TODO: Fix this somehow. Maybe a method on `Index` to find rewritten
+        // commits given `base_heads`, `own_heads` and `other_heads`?
         if self.is_backed_by_default_index() {
             self.record_rewrites(&base_heads, &own_heads).await?;
             self.record_rewrites(&base_heads, &other_heads).await?;

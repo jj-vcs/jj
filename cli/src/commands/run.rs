@@ -524,9 +524,8 @@ async fn rewrite_commit(
     if !output.status.success() {
         // Remove non-ignored untracked files left by the command. Ignored paths
         // are absent from `untracked_paths` and survive for build-artifact
-        // reuse. This keeps the slot free of stale files that would
-        // cause silent `skipped_files` collisions in the next
-        // `check_out`.
+        // reuse. This keeps the slot free of stale files that would cause
+        // silent `skipped_files` collisions in the next `check_out`.
         for path in stats.untracked_paths.keys() {
             let abs = path.to_fs_path_unchecked(&working_copy_dir);
             if let Err(err) = fs::remove_file(&abs)

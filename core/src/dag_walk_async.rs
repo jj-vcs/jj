@@ -1507,8 +1507,7 @@ mod tests {
     fn test_closest_common_nodes_many_paths() {
         // One side has very many possible paths due to repeated forking and
         // merging. We must not walk the exponential number of paths
-        // between A and MN when finding common ancestors between MN and
-        // B.
+        // between A and MN when finding common ancestors between MN and B.
         //
         //  MN
         //  |\

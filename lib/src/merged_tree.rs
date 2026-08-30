@@ -151,18 +151,17 @@ impl MergedTree {
             Merge::resolved(label)
         } else if self.labels.has_labels() {
             // If the merge is conflicted and it already has labels, then we
-            // want to use those labels instead of the provided
-            // label. This ensures that rebasing conflicted commits
-            // keeps meaningful labels.
+            // want to use those labels instead of the provided label. This
+            // ensures that rebasing conflicted commits keeps meaningful labels.
             let labels = self.labels.as_merge();
             assert_eq!(labels.num_sides(), self.tree_ids.num_sides());
             labels.map(|label| label.as_str())
         } else {
             // If the merge is conflicted but it doesn't have labels (e.g.
             // conflicts created before labels were added), then we
-            // use empty strings to indicate missing labels. We
-            // could consider using `label` for all the sides instead, but it
-            // might be confusing.
+            // use empty strings to indicate missing labels. We could
+            // consider using `label` for all the sides instead, but it might
+            // be confusing.
             Merge::repeated("", self.tree_ids.num_sides())
         }
     }
@@ -581,9 +580,8 @@ impl Iterator for ConflictIterator<'_> {
                     }
                     Ok(None) => {
                         // Otherwise this is a conflict between files, trees,
-                        // etc. If they could
-                        // be automatically resolved, they should have been when
-                        // the top-level tree conflict
+                        // etc. If they could be automatically resolved, they
+                        // should have been when the top-level tree conflict
                         // was written, so we assume that they can't be.
                         return Some((path, Ok(tree_values)));
                     }

@@ -227,8 +227,9 @@ fn test_git_push_revert_with_import() {
     ");
 
     // PROBLEM: inserting this import changes the outcome compared to previous
-    // test TODO: decide if this is the better behavior, and whether import
-    // of remote-tracking bookmarks should happen on every operation.
+    // test
+    // TODO: decide if this is the better behavior, and whether import of
+    // remote-tracking bookmarks should happen on every operation.
     work_dir.run_jj(["git", "import"]).success();
     //                     | jj refs | jj's   | git
     //                     |         | git    | repo
@@ -327,8 +328,8 @@ fn test_git_push_revert_colocated() {
     test_env.advance_test_rng_seed_to_multiple_of(100_000);
     work_dir.run_jj(["describe", "-m", "CC"]).success();
     work_dir.run_jj(["git", "fetch"]).success();
-    // We have the same conflict as `test_git_push_revert`. TODO: why did we get
-    // the same result in a seemingly different way?
+    // We have the same conflict as `test_git_push_revert`.
+    // TODO: why did we get the same result in a seemingly different way?
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main (conflicted):
       - qpvuntsm/2 3a44d6c5 (hidden) (empty) AA

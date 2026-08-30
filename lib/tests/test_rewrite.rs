@@ -506,7 +506,8 @@ fn test_restore_tree_with_conflicts() -> TestResult {
     );
 
     // path3 is updated in the existing conflict terms due to
-    // `MergedTree::resolve`. If we implement https://github.com/jj-vcs/jj/issues/4152, the conflict would
+    // `MergedTree::resolve`. If we implement
+    // https://github.com/jj-vcs/jj/issues/4152, the conflict would
     // instead have an extra side showing the diff from the restore.
     let expected_side1 = create_tree(
         repo,
@@ -1864,9 +1865,8 @@ fn test_rebase_descendants_bookmark_delete_modify_abandon(
     let repo = &test_repo.repo;
 
     // Bookmark "main" initially points to commit A. One operation rewrites it
-    // to point to B (child of A). A concurrent operation deletes the
-    // bookmark. That leaves the bookmark pointing to "0-A+B". We now
-    // abandon B.
+    // to point to B (child of A). A concurrent operation deletes the bookmark.
+    // That leaves the bookmark pointing to "0-A+B". We now abandon B.
     //
     // - If delete_abandoned_bookmarks = false, that should result in the
     //   bookmark pointing to "0-A+A=0".
@@ -2249,8 +2249,8 @@ fn test_empty_commit_option(empty_behavior: EmptyBehavior) {
             // The changes in D are included in BD, so D is newly empty.
             assert_abandoned_with_parent(tx.repo_mut(), &rebase_map, &commit_d, commit_bd.id());
             // E was already empty, so F is a merge commit with C and E as
-            // parents. Although it's empty, we still keep it
-            // because we don't want to drop merge commits.
+            // parents. Although it's empty, we still keep it because we
+            // don't want to drop merge commits.
             let new_commit_e =
                 assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_e, &[commit_bd.id()]);
             let new_commit_f = assert_rebased_onto(

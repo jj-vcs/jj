@@ -57,8 +57,8 @@ impl GlobPattern {
     /// Converts this glob pattern to a bytes regex.
     pub fn to_regex(&self) -> regex::bytes::Regex {
         // Based on new_regex() in globset. We don't use
-        // GlobMatcher::is_match(path) because the input string
-        // shouldn't be normalized as path.
+        // GlobMatcher::is_match(path) because the input string shouldn't be
+        // normalized as path.
         regex::bytes::RegexBuilder::new(self.glob.regex())
             .dot_matches_new_line(true)
             .build()
@@ -204,8 +204,8 @@ impl StringPattern {
     /// This can be used to optimize map lookup by exact key.
     pub fn as_exact(&self) -> Option<&str> {
         // TODO: Handle trivial case‐insensitive patterns here? It might make
-        // people expect they can use case‐insensitive patterns in
-        // contexts where they generally can’t.
+        // people expect they can use case‐insensitive patterns in contexts
+        // where they generally can’t.
         match self {
             Self::Exact(literal) => Some(literal),
             _ => None,
@@ -230,8 +230,8 @@ impl StringPattern {
     /// can't be represented as a glob.
     pub fn to_glob(&self) -> Option<Cow<'_, str>> {
         // TODO: Handle trivial case‐insensitive patterns here? It might make
-        // people expect they can use case‐insensitive patterns in
-        // contexts where they generally can’t.
+        // people expect they can use case‐insensitive patterns in contexts
+        // where they generally can’t.
         match self {
             Self::Exact(literal) => Some(globset::escape(literal).into()),
             Self::Substring(needle) => {
@@ -264,9 +264,8 @@ impl StringPattern {
         // standard case‐insensitivity of haystack components (like
         // internationalized domain names in email addresses). The
         // availability of normalization and case folding schemes in database
-        // backends will also need to be considered. A locale‐specific
-        // case folding scheme would likely not be appropriate for
-        // Jujutsu.
+        // backends will also need to be considered. A locale‐specific case
+        // folding scheme would likely not be appropriate for Jujutsu.
         //
         // For some discussion of this topic, see:
         // <https://github.com/unicode-org/icu4x/issues/3151>
