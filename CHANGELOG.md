@@ -25,7 +25,8 @@ and this project adheres to
 ### New features
 
 * `jj git push` can now be configured to ask for confirmation before pushing
-  changes to a remote using `git.confirm-before-push`.
+  changes to a remote using `git.confirm-before-push`. This prompt can be
+  skipped using the `-y`/`--yes` flag.
 
 * New `with(values..., |names...| body)` templating function which allows you to
   assign expressions to name bindings in a lambda. Expressions are re-evaluated

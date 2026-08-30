@@ -238,6 +238,10 @@ pub struct GitPushArgs {
     #[arg(long)]
     dry_run: bool,
 
+    /// Automatically answer all prompts with "yes" and run non-interactively
+    #[arg(long, short)]
+    yes: bool,
+
     /// Git push options
     #[arg(long, short)]
     option: Vec<String>,
@@ -625,11 +629,12 @@ pub async fn cmd_git_push(
 
     // If `git.confirm-before-push` is set to `on-multiple`, we only prompt
     // the user when more than one bookmark or tag are pushed at the same time.
-    let needs_confirm = match tx.settings().get("git.confirm-before-push")? {
-        PushConfirmChoice::Always => true,
-        PushConfirmChoice::Never => false,
-        PushConfirmChoice::OnMultiple => total_ref_updates > 1,
-    };
+    let needs_confirm = !args.yes
+        && match tx.settings().get("git.confirm-before-push")? {
+            PushConfirmChoice::Always => true,
+            PushConfirmChoice::Never => false,
+            PushConfirmChoice::OnMultiple => total_ref_updates > 1,
+        };
 
     if needs_confirm && !ui.prompt_yes_no("Continue?", Some(false))? {
         writeln!(ui.status(), "Aborting; nothing was changed.")?;
