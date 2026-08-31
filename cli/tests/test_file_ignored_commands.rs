@@ -79,14 +79,18 @@ fn test_file_remove_ignored() {
     work_dir.write_file("ignored-root/late.ignored", "content");
 
     // Removal deletes ignored files and directories from the working copy, but
-    // leaves tracked files and .gitignore intact.
+    // leaves tracked files and .gitignore intact. `ignored-root` has no
+    // tracked files underneath, so it's removed as a single collapsed unit
+    // (matching what `file list-ignored` shows), rather than only deleting
+    // its individual contents and leaving an empty directory behind.
     let output = work_dir.run_jj(["file", "remove-ignored"]);
     assert_snapshot!(output, @"
     ------- stderr -------
-    Removed 3 ignored file(s) from the working copy.
+    Removed 2 ignored file(s) from the working copy.
     [EOF]
     ");
     assert!(!work_dir.root().join("root-ignored.ignored").exists());
+    assert!(!work_dir.root().join("ignored-root").exists());
     assert!(!work_dir.root().join("ignored-root/only-ignored").exists());
     assert!(!work_dir.root().join("ignored-root/late.ignored").exists());
     assert!(work_dir.root().join("tracked-file.txt").exists());
@@ -99,4 +103,36 @@ fn test_file_remove_ignored() {
     Removed 0 ignored file(s) from the working copy.
     [EOF]
     ");
+}
+
+#[test]
+fn test_file_remove_ignored_removes_now_empty_directory() {
+    // Regression test: a directory that has no dedicated `.gitignore` pattern
+    // of its own, but ends up containing only individually-ignored files
+    // (e.g. via a `*.log` pattern), should be removed entirely by
+    // `remove-ignored` instead of being left behind as an empty directory.
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file(".gitignore", "*.log\n");
+    work_dir.write_file("tracked-file.txt", "content");
+    work_dir
+        .run_jj(["file", "track", "tracked-file.txt"])
+        .success();
+    work_dir.run_jj(["commit", "-m", "setup"]).success();
+
+    // `logs/` itself doesn't match any ignore pattern, only the files inside
+    // it do.
+    work_dir.write_file("logs/one.log", "content");
+    work_dir.write_file("logs/two.log", "content");
+
+    let output = work_dir.run_jj(["file", "remove-ignored"]);
+    assert_snapshot!(output, @"
+    ------- stderr -------
+    Removed 1 ignored file(s) from the working copy.
+    [EOF]
+    ");
+    assert!(!work_dir.root().join("logs").exists());
+    assert!(work_dir.root().join("tracked-file.txt").exists());
 }
