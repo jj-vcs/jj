@@ -1,6 +1,9 @@
 edition = "2024"
 max_width = 100
-wrap_comments = true
+# TODO: wrap_comments is temporarily disabled due to a large formatting change
+# in rustfmt 1.10.0-nightly (9085017724 2026-08-30). Decide whether to re-enable
+# this option with some adjustments or leave it disabled.
+# wrap_comments = true
 format_strings = true
 error_on_line_overflow = true
 group_imports = "StdExternalCrate"
