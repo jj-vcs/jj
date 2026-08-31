@@ -374,7 +374,10 @@ label("immutable",
     format_short_change_id(root.change_id()),
     label("root", "root()"),
     format_short_commit_id(root.commit_id()),
-    root.bookmarks(),
+    root.local_bookmarks(),
+    root.remote_bookmarks(),
+    root.local_tags(),
+    root.remote_tags(),
   ) ++ "\n"
 )
 '''
