@@ -2095,18 +2095,18 @@
 <h1 id="using-jujutsu-with-gerrit-code-review">Using Jujutsu with Gerrit Code Review<a class="headerlink" href="#using-jujutsu-with-gerrit-code-review" title="Permanent link">&para;</a></h1>
 <p>JJ and Gerrit share the same mental model, which makes Gerrit feel like a
 natural collaboration tool for JJ. JJ tracks a "change identity" across
-rewrites, and Gerrit’s <code>Change-Id</code> tracks the same logical change across patch
-sets. JJ and Gerrit's <code>Change-Id</code>s aren’t natively compatible yet, but they’re
+rewrites, and Gerrit's <code>Change-Id</code> tracks the same logical change across patch
+sets. JJ and Gerrit's <code>Change-Id</code>s aren't natively compatible yet, but they're
 philosophically aligned. <code>jj gerrit upload</code> bridges the gap today by adding a
-Gerrit-style <code>Change-Id</code> while JJ keeps its own notion of change identity on the
-client. In practice, that means small, clean commits that evolve over
-time, exactly how Gerrit wants you to work.</p>
+Gerrit-style <code>Change-Id</code> trailer while JJ keeps its own notion of change
+identity on the client. In practice, that means small, clean commits that evolve
+over time, exactly how Gerrit wants you to work.</p>
 <p>This guide assumes a basic understanding of Git, Gerrit, and Jujutsu.</p>
 <h2 id="set-up-a-gerrit-remote">Set up a Gerrit remote<a class="headerlink" href="#set-up-a-gerrit-remote" title="Permanent link">&para;</a></h2>
 <p>Jujutsu communicates with Gerrit by pushing commits to a Git remote. If you're
 starting from an existing Git repository with Gerrit remotes already configured,
 you can use <code>jj git init</code> to start using JJ in that repo. Otherwise, set up your
-Gerrit remote.</p>
+Gerrit remote:</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># Option 1: Start JJ in an existing Git repo with Gerrit remotes</span>
 $<span class="w"> </span>jj<span class="w"> </span>git<span class="w"> </span>init
 
@@ -2124,27 +2124,28 @@ a specific repo, run <code>jj config edit --repo</code>):</p>
 <span class="n">default-remote-branch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;main&quot;</span><span class="w">  </span><span class="c1"># target branch in Gerrit</span>
 </code></pre></div>
 <h2 id="basic-workflow">Basic workflow<a class="headerlink" href="#basic-workflow" title="Permanent link">&para;</a></h2>
-<p><code>jj gerrit upload</code> takes one or more revsets, and uploads the stack of commits
-ending in them to Gerrit. Each JJ change will map to a single Gerrit change
-based on the JJ change ID. This should be what you want most of the time, but if
-you want to associate a JJ change with a specific change already uploaded to
-Gerrit, you can copy the Change-Id footer from Gerrit to the bottom of the
-commit description in JJ.</p>
+<p><code>jj gerrit upload</code> takes one or more revsets and uploads the stack of commits
+and their ancestors to Gerrit. Each JJ change will map to a single Gerrit change
+by generating a <code>Change-Id</code> based on the JJ change ID (or using the existing
+<code>Change-Id</code> trailer if already present). This should be what you want most of
+the time, but if you want to associate a JJ change with a specific change
+already uploaded to Gerrit, you can copy the <code>Change-Id</code> trailer from Gerrit to
+the bottom of the commit description in JJ.</p>
 <blockquote>
 <p>Note: Gerrit identifies and updates changes by the <code>Change-Id</code> trailer. When
 you re-upload a commit with the same <code>Change-Id</code>, Gerrit creates a new patch
 set.</p>
 </blockquote>
 <h3 id="upload-a-single-change">Upload a single change<a class="headerlink" href="#upload-a-single-change" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><span class="c1"># Upload @ if it has a description, otherwise uploads @-</span>
+<div class="highlight"><pre><span></span><code><span class="c1"># Uploads `@` if it has a description, otherwise uploads `@-`.</span>
 $<span class="w"> </span>jj<span class="w"> </span>gerrit<span class="w"> </span>upload
 
 <span class="c1"># Or explicitly specify a revision to upload.</span>
 $<span class="w"> </span>jj<span class="w"> </span>gerrit<span class="w"> </span>upload<span class="w"> </span>-r<span class="w"> </span>@-
 </code></pre></div>
 <h2 id="selecting-revisions-revsets">Selecting revisions (revsets)<a class="headerlink" href="#selecting-revisions-revsets" title="Permanent link">&para;</a></h2>
-<p><code>jj gerrit upload</code> accepts one or more <code>-r</code>/<code>--revisions</code> arguments. Each argument
-may expand to multiple commits. Common patterns:</p>
+<p><code>jj gerrit upload</code> accepts one or more <code>-r</code>/<code>--revisions</code> arguments. Each
+argument may expand to multiple commits. Common patterns:</p>
 <ul>
 <li><code>-r @-</code>: the commit previous to the one you're currently working on</li>
 <li><code>-r A..B</code>: commits that are ancestors of B but not of A</li>
@@ -2158,18 +2159,24 @@ without changing anything or contacting the remote.</p>
 <h2 id="target-branch-and-remote-selection">Target branch and remote selection<a class="headerlink" href="#target-branch-and-remote-selection" title="Permanent link">&para;</a></h2>
 <p>There are a few way of specifying the target remote for your projects:</p>
 <ul>
-<li>Please run <code>jj config set --user gerrit.default-remote-branch &lt;branch name&gt;</code> to set your
-  default branch across all repos</li>
-<li>Please run <code>jj config set --repo gerrit.default-remote-branch &lt;branch name&gt;</code> to set your
-  default branch for this specific repo.</li>
-<li>Use <code>--remote-branch &lt;branch name&gt;</code> to override this for one specific occasion.</li>
+<li>Run <code>jj config set --user gerrit.default-remote &lt;remote name&gt;</code> to set your
+  default remote across all repos.</li>
+<li>Run <code>jj config set --repo gerrit.default-remote &lt;remote name&gt;</code> to set your
+  default remote for this specific repo.</li>
+<li>Use <code>--remote &lt;remote name&gt;</code> to use a specific remote in one invocation of
+  <code>jj gerrit upload</code>.</li>
+<li>Otherwise, a remote named <code>gerrit</code> will be used. If that doesn't exist, the
+  command will fail, and you will need to use one of the above methods to
+  specify the remote to upload to.</li>
 </ul>
-<p>The remote used to push is determined as follows:</p>
+<p>Additionally, you can specify the target remote branch:</p>
 <ul>
-<li>If you have more than one origin, or the origin isn't called gerrit, run
-  <code>jj config set --repo gerrit.default_remote &lt;gerrit remote name&gt;</code> to set-up a
-  default remote.</li>
-<li>To upload to a specific remote as a one-off thing, use <code>--remote &lt;remote name&gt;</code></li>
+<li>Run <code>jj config set --user gerrit.default-remote-branch &lt;branch name&gt;</code> to set
+  your default branch across all repos.</li>
+<li>Run <code>jj config set --repo gerrit.default-remote-branch &lt;branch name&gt;</code> to set
+  your default branch for this specific repo.</li>
+<li>Use <code>--remote-branch &lt;branch name&gt;</code> to use a specific branch in one invocation
+  of <code>jj gerrit upload</code>.</li>
 </ul>
 <h2 id="updating-changes-after-review">Updating changes after review<a class="headerlink" href="#updating-changes-after-review" title="Permanent link">&para;</a></h2>
 <p>To address review feedback, update your revisions, then run <code>jj gerrit
@@ -2177,26 +2184,26 @@ upload</code> again with the same revsets. Gerrit will add new patch sets to the
 existing changes instead of creating new ones.</p>
 <p>Examples:</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># Edit an earlier commit in the stack</span>
-$<span class="w"> </span>jj<span class="w"> </span>edit<span class="w"> </span>xcv<span class="w">  </span><span class="c1"># position on the stack to edit</span>
+$<span class="w"> </span>jj<span class="w"> </span>edit<span class="w"> </span>xyz<span class="w">  </span><span class="c1"># position on the stack to edit</span>
 <span class="w"> </span>---<span class="w"> </span>Apply<span class="w"> </span>needed<span class="w"> </span>edits<span class="w"> </span>---
-$<span class="w"> </span>jj<span class="w"> </span>gerrit<span class="w"> </span>upload<span class="w"> </span>-r<span class="w"> </span>xcv
+$<span class="w"> </span>jj<span class="w"> </span>gerrit<span class="w"> </span>upload<span class="w"> </span>-r<span class="w"> </span>xyz
 </code></pre></div>
 <h2 id="change-id-management"><code>Change-Id</code> management<a class="headerlink" href="#change-id-management" title="Permanent link">&para;</a></h2>
-<p>If you do not provide an explicit <code>Change-Id</code> footer in your commits,
+<p>If you do not provide an explicit <code>Change-Id</code> trailer in your commits,
 <code>jj gerrit upload</code> will generate a transient one for you based on your JJ
 change ID. This means that as long as the JJ change ID remains the same (and
-you don't add an explicit Change-Id footer), it will upload as a new patch set
-on the existing change.</p>
+you don't add an explicit <code>Change-Id</code> trailer), it will upload as a new patch
+set on the existing change.</p>
 <p>Keep this association in mind when splitting or squashing changes. For example,
 when splitting a change, the portion that you want associated with the
 original Gerrit change should remain in the original JJ change (the first half
 of the split). Similarly, when squashing new changes, you typically want to
 squash into the change that was previously uploaded to Gerrit.</p>
 <p>If your JJ changes no longer align with the desired mapping to Gerrit changes,
-you can manually copy a Gerrit <code>Change-Id</code> footer into your JJ change
+you can manually copy a Gerrit <code>Change-Id</code> trailer into your JJ change
 description to directly assign a JJ change to an exist Gerrit change.</p>
 <p>As an alternative to <code>jj gerrit upload</code>'s automatic <code>Change-Id</code> mapping, you
-can configure JJ to automatically add <code>Change-Id</code> footers to all change
+can configure JJ to automatically add <code>Change-Id</code> trailer to all change
 descriptions:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[templates]</span>
 <span class="n">commit_trailers</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;&#39;</span>
@@ -2207,16 +2214,26 @@ descriptions:</p>
 <span class="s1">&#39;&#39;&#39;</span>
 </code></pre></div>
 <p>In this case, the Gerrit change mapping is defined entirely by the <code>Change-Id</code>
-footers. When splitting or squashing changes, be sure to keep the <code>Change-Id</code>
-footers associated with the desired changes. Be sure not to duplicate the same
+trailer. When splitting or squashing changes, be sure to keep the <code>Change-Id</code>
+trailer associated with the desired changes. Be sure not to duplicate the same
 <code>Change-Id</code> across different changes. Gerrit will reject pushes that contain
 duplicate <code>Change-Id</code>s, but if the uploads are done separately, you may
 unintentionally overwrite an existing change.</p>
+<p>Note that when <code>jj gerrit upload</code> automatically adds a <code>Change-Id</code> trailer
+before pushing to Gerrit, this addition to the commit description will only be
+reflected on the uploaded commit, not your local commit. This means the server
+will have a different commit ID than you do. As a result, you may encounter
+divergence when you fetch a merged change into your local repo. To address this,
+you can abandon your local change or rebase it on top of trunk with
+<code>jj rebase --skip-emptied ...</code>, which will resolve the divergence. Alternatively,
+add the above config so that the <code>Change-Id</code> trailer is automatically added to
+your local commits before <code>jj gerrit upload</code> does.</p>
 <h2 id="alternative-link-trailer">Alternative <code>Link</code> trailer<a class="headerlink" href="#alternative-link-trailer" title="Permanent link">&para;</a></h2>
 <p>Since version 3.3.1 Gerrit supports an alternative to the <code>Change-Id</code> trailer,
-using a <code>Link</code> trailer in the format of <code>&lt;reviewUrl&gt;/id/I&lt;changeid&gt;</code>. It is only
-documented in the <a href="https://gerrit-documentation.storage.googleapis.com/Documentation/3.3.1/cmd-hook-commit-msg.html">commit-msg hook documentation</a>. Jujutsu's <code>jj gerrit upload</code>
-will do the same if you set <code>jj config set --repo gerrit.review-url &lt;reviewUrl&gt;</code>.</p>
+using a <code>Link</code> trailer in the format of <code>&lt;review-url&gt;/id/I&lt;change-id&gt;</code>. It is
+only documented in the <a href="https://gerrit-documentation.storage.googleapis.com/Documentation/3.3.1/cmd-hook-commit-msg.html">commit-msg hook documentation</a>. Jujutsu's
+<code>jj gerrit upload</code> will do the same if you set
+<code>jj config set --repo gerrit.review-url &lt;review-url&gt;</code>.</p>
 
 
 

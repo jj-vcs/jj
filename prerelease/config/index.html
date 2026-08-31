@@ -1765,6 +1765,48 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#gerrit-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      Gerrit settings
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Gerrit settings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#default-remote" class="md-nav__link">
+    <span class="md-ellipsis">
+      Default remote
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#default-remote-branch" class="md-nav__link">
+    <span class="md-ellipsis">
+      Default remote branch
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#link-trailer" class="md-nav__link">
+    <span class="md-ellipsis">
+      Link trailer
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#merge-settings" class="md-nav__link">
     <span class="md-ellipsis">
       Merge settings
@@ -3854,6 +3896,48 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#gerrit-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      Gerrit settings
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Gerrit settings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#default-remote" class="md-nav__link">
+    <span class="md-ellipsis">
+      Default remote
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#default-remote-branch" class="md-nav__link">
+    <span class="md-ellipsis">
+      Default remote branch
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#link-trailer" class="md-nav__link">
+    <span class="md-ellipsis">
+      Link trailer
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#merge-settings" class="md-nav__link">
     <span class="md-ellipsis">
       Merge settings
@@ -5678,6 +5762,31 @@ you can:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[git]</span>
 <span class="n">executable-path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;/path/to/git&quot;</span>
 </code></pre></div>
+<h2 id="gerrit-settings">Gerrit settings<a class="headerlink" href="#gerrit-settings" title="Permanent link">&para;</a></h2>
+<h3 id="default-remote">Default remote<a class="headerlink" href="#default-remote" title="Permanent link">&para;</a></h3>
+<p>To configure the default remote that <code>jj gerrit upload</code> will push to, set
+<code>gerrit.default-remote</code>. This can be overridden with the <code>--remote</code> option.</p>
+<div class="highlight"><pre><span></span><code><span class="k">[gerrit]</span>
+<span class="n">default-remote</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;gerrit&quot;</span>
+</code></pre></div>
+<h3 id="default-remote-branch">Default remote branch<a class="headerlink" href="#default-remote-branch" title="Permanent link">&para;</a></h3>
+<p>To configure the default branch that <code>jj gerrit upload</code> will push to, set
+<code>gerrit.default-remote-branch</code>. This can be overridden with the
+<code>--remote-branch</code> option.</p>
+<div class="highlight"><pre><span></span><code><span class="k">[gerrit]</span>
+<span class="n">default-remote-branch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;main&quot;</span>
+</code></pre></div>
+<h3 id="link-trailer"><code>Link</code> trailer<a class="headerlink" href="#link-trailer" title="Permanent link">&para;</a></h3>
+<p>Since version 3.3.1 Gerrit supports an alternative to the <code>Change-Id</code> trailer,
+using a <a href="https://gerrit-documentation.storage.googleapis.com/Documentation/3.3.1/cmd-hook-commit-msg.html"><code>Link</code> trailer</a> in the format of
+<code>&lt;review-url&gt;/id/I&lt;change-id&gt;</code>. To have <code>jj gerrit upload</code> automatically add a
+<code>Link</code> trailer instead of a <code>Change-Id</code> trailer, set <code>gerrit.review-url</code> to the
+URL preview you'd like to use.</p>
+<div class="highlight"><pre><span></span><code><span class="k">[gerrit]</span>
+<span class="n">review-url</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;https://review.gerrithub.io/your/project&quot;</span>
+</code></pre></div>
+<p>Note that if a <code>Change-Id</code> or <code>Link</code> trailer already exists in a change, then
+<code>jj gerrit upload</code> will not add any trailer.</p>
 <h2 id="merge-settings">Merge settings<a class="headerlink" href="#merge-settings" title="Permanent link">&para;</a></h2>
 <h3 id="granularity-of-hunks">Granularity of hunks<a class="headerlink" href="#granularity-of-hunks" title="Permanent link">&para;</a></h3>
 <p><code>jj</code> by default resolves content conflicts by splitting text into line-level

@@ -3628,9 +3628,12 @@ following template is labeled as <code>op_log operation id short</code> automati
 </code></pre></div>
 <p>The exact names of such labels are often straightforward, but are not currently
 documented. You can discover the actual label names used with the
-<code>--color=debug</code> option, e.g.</p>
+<code>--color=debug</code> option:</p>
 <div class="highlight"><pre><span></span><code>jj<span class="w"> </span>op<span class="w"> </span>log<span class="w"> </span>-T<span class="w"> </span><span class="s1">&#39;self.id().short()&#39;</span><span class="w"> </span>--color<span class="o">=</span>debug
 </code></pre></div>
+<p>This can be useful if you are trying to figure out whether or not a label is
+present or which labels you should define or override colors for to get the
+output that you want.</p>
 <p>Additionally, you can <strong>manually</strong> insert arbitrary labels using the
 <code>label(label, content)</code> function. For example,</p>
 <div class="highlight"><pre><span></span><code>jj<span class="w"> </span>op<span class="w"> </span>log<span class="w"> </span>-T<span class="w"> </span><span class="s1">&#39;&quot;ID: &quot; ++ self.id().short().substr(0, 1) ++ label(&quot;id short&quot;, &quot;&lt;redacted&gt;&quot;)&#39;</span>
@@ -3641,11 +3644,19 @@ arbitrary template instead of the string <code>"&lt;redacted&gt;"</code>, possib
 nested invocations of <code>label()</code>.</p>
 <p>You are free to use custom label names as well. This will only have a visible
 effect if you also <a href="../config/#custom-colors-and-styles">customize their colors</a> explicitly.</p>
+<p>To see all the default colors and what customizations apply from your own
+config, run:</p>
+<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>config<span class="w"> </span>list<span class="w"> </span>--include-defaults<span class="w"> </span>--include-overridden<span class="w"> </span>colors
+</code></pre></div>
+<p>The default colors can be found in [<code>colors.toml</code>], and the default explicitly
+added labels (such as <code>mutable</code> or <code>divergent</code>) can be found in
+[<code>templates.toml</code>]. Labels that appear in <code>colors.toml</code> but that are not
+explicitly present in <code>templates.toml</code> will have been automatically added by
+<code>jj</code> (such as <code>author</code> or <code>change_id</code>).</p>
 <h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
 <p>The default templates and aliases() are defined in the <code>[templates]</code> and
 <code>[template-aliases]</code> sections of the config respectively. The exact definitions
-can be seen in the <a href="https://github.com/jj-vcs/jj/blob/main/cli/src/config/templates.toml"><code>cli/src/config/templates.toml</code></a> file in jj's source
-tree.</p>
+can be seen in the [<code>templates.toml</code>] file.</p>
 <!--- TODO: Find a way to embed the default config files in the docs -->
 
 <p>New keywords, functions, and <code>&lt;name&gt;:&lt;value&gt;</code> patterns can be defined as
