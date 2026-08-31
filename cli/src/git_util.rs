@@ -41,6 +41,8 @@ use jj_lib::git::GitSettings;
 use jj_lib::git::GitSidebandLineTerminator;
 use jj_lib::git::GitSubprocessCallback;
 use jj_lib::git_backend::GitRepoAtWorkdirError;
+use jj_lib::backend::CommitId;
+use jj_lib::merge::Diff;
 use jj_lib::op_store::RemoteRefState;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
@@ -214,7 +216,7 @@ pub fn print_git_import_stats(
     ui: &Ui,
     tx: &WorkspaceCommandTransaction<'_>,
     stats: &GitImportStats,
-    ref_status_template: &TemplateRenderer<'_, RefStatus>,
+    ref_status_template: &TemplateRenderer<'_, RefDiff>,
 ) -> Result<(), CommandError> {
     if let Some(mut formatter) = ui.status_formatter() {
         print_imported_changes(formatter.as_mut(), tx, stats, ref_status_template)?;
@@ -227,7 +229,7 @@ fn print_imported_changes(
     formatter: &mut dyn Formatter,
     tx: &WorkspaceCommandTransaction<'_>,
     stats: &GitImportStats,
-    ref_status_template: &TemplateRenderer<'_, RefStatus>,
+    ref_status_template: &TemplateRenderer<'_, RefDiff>,
 ) -> Result<(), CommandError> {
     for (kind, changes) in [
         (GitRefKind::Bookmark, &stats.changed_remote_bookmarks),
@@ -243,7 +245,7 @@ fn print_imported_changes(
 
         let refs_stats = changes
             .iter()
-            .map(|update| RefStatus::new(kind, update, tx.repo(), max_name_width))
+            .map(|update| RefDiff::from_import(kind, update, tx.repo(), max_name_width))
             .collect_vec();
 
         for status in refs_stats {
@@ -323,15 +325,24 @@ pub fn print_git_import_stats_summary(ui: &Ui, stats: &GitImportStats) -> Result
 
 /// Template for one-line summary of a fetched ref.
 pub fn commit_fetch_template<'a>(
-    tx: &'a WorkspaceCommandTransaction
-) -> TemplateRenderer<'a, RefStatus> {
+    tx: &'a WorkspaceCommandTransaction,
+) -> TemplateRenderer<'a, RefDiff> {
     let language = tx.commit_template_language();
     let helper = tx.base_workspace_helper();
-    let template_text = helper.fetch_summary_template_text();
-
     helper
-        .reparse_valid_template(&language, template_text)
-        .labeled(["ref_status"])
+        .reparse_valid_template(&language, helper.fetch_summary_template_text())
+        .labeled(["ref_diff"])
+}
+
+/// Template for one-line summary of a ref being pushed.
+pub fn commit_push_template<'a>(
+    tx: &'a WorkspaceCommandTransaction,
+) -> TemplateRenderer<'a, RefDiff> {
+    let language = tx.commit_template_language();
+    let helper = tx.base_workspace_helper();
+    helper
+        .reparse_valid_template(&language, helper.push_summary_template_text())
+        .labeled(["ref_diff"])
 }
 
 pub struct Progress {
@@ -419,16 +430,43 @@ fn draw_progress(progress: f32, buffer: &mut String, width: usize) {
 }
 
 #[derive(Clone)]
-pub struct RefStatus {
+pub enum PushMoveDirection {
+    Forward,
+    Backward,
+    Sideways,
+}
+
+#[derive(Clone)]
+pub enum RefDiffDetail {
+    Import {
+        remote_ref_state: RemoteRefState,
+    },
+    Push {
+        // `None` when the ref is being created or deleted.
+        move_direction: Option<PushMoveDirection>,
+    },
+}
+
+#[derive(Clone)]
+pub enum RefChangeType {
+    New,
+    Updated,
+    Deleted,
+}
+
+#[derive(Clone)]
+pub struct RefDiff {
     ref_kind: GitRefKind,
     symbol: String,
-    remote_ref_state: RemoteRefState,
-    import_status: ImportStatus,
+    change_type: RefChangeType,
+    detail: RefDiffDetail,
+    before_commit_id: String,
+    after_commit_id: String,
     max_name_width: usize,
 }
 
-impl RefStatus {
-    fn new(
+impl RefDiff {
+    pub fn from_import(
         ref_kind: GitRefKind,
         update: &GitImportRefUpdate,
         repo: &dyn Repo,
@@ -438,46 +476,54 @@ impl RefStatus {
             GitRefKind::Bookmark => repo.view().get_remote_bookmark(update.symbol.as_ref()),
             GitRefKind::Tag => repo.view().get_remote_tag(update.symbol.as_ref()),
         };
-
-        let import_status = match (
+        let change_type = match (
             update.old_remote_ref.target.is_absent(),
             update.new_target.is_absent(),
         ) {
-            (true, false) => ImportStatus::New,
-            (false, true) => ImportStatus::Deleted,
-            _ => ImportStatus::Updated,
+            (true, false) => RefChangeType::New,
+            (false, true) => RefChangeType::Deleted,
+            _ => RefChangeType::Updated,
         };
-
         Self {
-            symbol: update.symbol.to_string(),
-            remote_ref_state: new_remote_ref.state,
-            import_status,
             ref_kind,
+            symbol: update.symbol.to_string(),
+            change_type,
+            detail: RefDiffDetail::Import {
+                remote_ref_state: new_remote_ref.state,
+            },
+            before_commit_id: String::new(),
+            after_commit_id: String::new(),
+            max_name_width,
+        }
+    }
+
+    pub fn from_push(
+        ref_kind: GitRefKind,
+        symbol: String,
+        diff: &Diff<Option<CommitId>>,
+        move_direction: Option<PushMoveDirection>,
+        before_commit_id: String,
+        after_commit_id: String,
+        max_name_width: usize,
+    ) -> Self {
+        let change_type = match (&diff.before, &diff.after) {
+            (None, Some(_)) => RefChangeType::New,
+            (Some(_), None) => RefChangeType::Deleted,
+            _ => RefChangeType::Updated,
+        };
+        Self {
+            ref_kind,
+            symbol,
+            change_type,
+            detail: RefDiffDetail::Push { move_direction },
+            before_commit_id,
+            after_commit_id,
             max_name_width,
         }
     }
 
     pub fn name(&self) -> &str {
         &self.symbol
-    }
-
-    pub fn is_tracked(&self) -> bool {
-        matches!(self.remote_ref_state, RemoteRefState::Tracked)
-    }
-
-    pub fn remote_ref_state(&self) -> &'static str {
-        match self.remote_ref_state {
-            RemoteRefState::New => "untracked",
-            RemoteRefState::Tracked => "tracked",
-        }
-    }
-
-    pub fn import_status(&self) -> &'static str {
-        match self.import_status {
-            ImportStatus::New => "new",
-            ImportStatus::Deleted => "deleted",
-            ImportStatus::Updated => "updated",
-        }
     }
 
     pub fn kind(&self) -> &'static str {
@@ -487,16 +533,68 @@ impl RefStatus {
         }
     }
 
+    pub fn change_type(&self) -> &'static str {
+        match self.change_type {
+            RefChangeType::New => if self.after_commit_id.is_empty() {
+                "new"
+            } else {
+                "add"
+            },
+            RefChangeType::Updated => if self.before_commit_id.is_empty() {
+                "updated"
+            } else {
+                "move" // "move <direction> from ... to ..."
+            },
+            RefChangeType::Deleted => if self.before_commit_id.is_empty() {
+                "deleted"
+            } else {
+                "delete" // "delete from ..."
+            },
+        }
+    }
+
+    pub fn is_tracked(&self) -> bool {
+        match &self.detail {
+            RefDiffDetail::Import { remote_ref_state } => {
+                matches!(remote_ref_state, RemoteRefState::Tracked)
+            }
+            RefDiffDetail::Push { .. } => false,
+        }
+    }
+
+    pub fn tracking_status(&self) -> &'static str {
+        match &self.detail {
+            RefDiffDetail::Import { remote_ref_state } => match remote_ref_state {
+                RemoteRefState::New => "untracked",
+                RemoteRefState::Tracked => "tracked",
+            },
+            RefDiffDetail::Push { .. } => "",
+        }
+    }
+
+    pub fn move_direction(&self) -> &'static str {
+        match &self.detail {
+            RefDiffDetail::Push { move_direction } => match move_direction {
+                Some(PushMoveDirection::Forward) => "forward",
+                Some(PushMoveDirection::Backward) => "backward",
+                Some(PushMoveDirection::Sideways) => "sideways",
+                None => "",
+            },
+            RefDiffDetail::Import { .. } => "",
+        }
+    }
+
+    pub fn before_commit_id(&self) -> &str {
+        &self.before_commit_id
+    }
+
+    pub fn after_commit_id(&self) -> &str {
+        &self.after_commit_id
+    }
+
     pub fn max_name_width(&self) -> usize {
         self.max_name_width
     }
-}
-
-#[derive(Clone)]
-enum ImportStatus {
-    New,
-    Deleted,
-    Updated,
 }
 
 pub fn print_git_export_stats(ui: &Ui, stats: &GitExportStats) -> Result<(), std::io::Error> {
