@@ -142,9 +142,9 @@ if(commit.root(),
       format_short_change_id_with_change_offset(commit),
       format_short_signature_oneline(commit.author()),
       format_timestamp(commit_timestamp(commit)),
-      commit.bookmarks(),
-      commit.tags(),
-      commit.working_copies(),
+      format_commit_bookmarks(commit),
+      format_commit_tags(commit),
+      format_commit_working_copies(commit),
       format_short_commit_id(commit.commit_id()),
       format_commit_labels(commit),
       if(config("ui.show-cryptographic-signatures").as_boolean(),
@@ -299,10 +299,11 @@ builtin_workspace_list = '''
 concat(
   name,
   ": ",
-  separate(
-    " ",
+  separate(" ",
     if(root, root.relative()),
-    format_commit_summary_with_refs(target, format_commit_ref_names(target.bookmarks())),
+    format_commit_summary_with_refs(target,
+      format_commit_ref_names(target.bookmarks())
+    ),
   ),
   "\n",
 )
@@ -403,6 +404,16 @@ if(ref.remote(),
 )
 '''
 
+'format_commit_ref_redacted(ref, type)' = '''
+concat(
+  type, "-", hash(ref.name()).substr(0, 4),
+  if(ref.remote(),
+    "@remote-" ++ hash(ref.remote()).substr(0, 4),
+    if(!ref.synced(), "*")
+  )
+)
+'''
+
 'format_ref_targets(ref)' = '''
 if(ref.conflict(),
   separate("\n",
@@ -495,6 +506,12 @@ coalesce(
 
 'format_change_offset(commit)' = 'surround(label("change_offset", "/"), "", commit.change_offset())'
 
+'format_commit_bookmarks(commit)' = 'commit.bookmarks()'
+
+'format_commit_tags(commit)' = 'commit.tags()'
+
+'format_commit_working_copies(commit)' = 'commit.working_copies()'
+
 # We have "hidden" override "divergent", since a hidden revision does not cause
 # divergence and is not affected by divergence.
 'format_commit_labels(commit)' = '''
@@ -512,15 +529,27 @@ separate(" ",
   format_short_change_id_with_change_offset(commit),
   format_short_signature(commit.author()),
   format_timestamp(commit_timestamp(commit)),
-  commit.bookmarks(),
-  commit.tags(),
-  commit.working_copies(),
+  format_commit_bookmarks(commit),
+  format_commit_tags(commit),
+  format_commit_working_copies(commit),
   format_short_commit_id(commit.commit_id()),
   format_commit_labels(commit),
   if(config("ui.show-cryptographic-signatures").as_boolean(),
     format_short_cryptographic_signature(commit.signature())
   ),
 )
+'''
+
+'format_commit_bookmarks_redacted(commit)' = '''
+commit.bookmarks().map(|b| format_commit_ref_redacted(b, "bookmark"))
+'''
+
+'format_commit_tags_redacted(commit)' = '''
+commit.tags().map(|tag| format_commit_ref_redacted(tag, "tag"))
+'''
+
+'format_commit_working_copies_redacted(commit)' = '''
+commit.working_copies().map(|workspace| format_workspace_redacted(workspace))
 '''
 
 # TODO: Possibly add some kind of repo-unique salt to the hash methods, if it
@@ -531,15 +560,9 @@ separate(" ",
   format_short_change_id_with_change_offset(commit),
   label("author", format_user_redacted(commit.author())),
   format_timestamp(commit_timestamp(commit)),
-  commit.bookmarks().map(|bookmark| concat(
-    "bookmark-", hash(bookmark.name()).substr(0, 4),
-    if(bookmark.remote(),
-      "@remote-" ++ hash(bookmark.remote()).substr(0, 4),
-      if(!bookmark.synced(), "*")
-    )
-  )),
-  commit.tags().map(|tag| concat("tag-", hash(tag.name()).substr(0, 4))),
-  commit.working_copies().map(|workspace| format_workspace_redacted(workspace)),
+  format_commit_bookmarks_redacted(commit),
+  format_commit_tags_redacted(commit),
+  format_commit_working_copies_redacted(commit),
   format_short_commit_id(commit.commit_id()),
   format_commit_labels(commit),
   if(config("ui.show-cryptographic-signatures").as_boolean(),
