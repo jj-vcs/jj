@@ -195,8 +195,8 @@ fn test_git_fetch_template() {
             " ",
             pad_end(max_name_width, name),
             kind,
-            import_status,
-            remote_ref_state,
+            change_type,
+            tracking_status,
             tracked,
         ) ++ "\n"
     '''
@@ -228,7 +228,7 @@ fn test_git_fetch_template_filter_tracked() {
     let test_env = TestEnvironment::default();
     test_env.add_config("remotes.origin.auto-track-bookmarks = 'main'");
     test_env.add_config(
-        "templates.git_fetch = 'if(tracked, name ++ \" [\" ++ import_status ++ \"]\\n\", \"\")'"
+        "templates.git_fetch = 'if(tracked, name ++ \" [\" ++ change_type ++ \"]\\n\", \"\")'"
     );
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -254,7 +254,7 @@ fn test_git_fetch_template_updates_and_deletes() {
     let test_env = TestEnvironment::default();
     test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     test_env.add_config(
-        "templates.git_fetch = 'name ++ \" [\" ++ import_status ++ \"]\\n\"'"
+        "templates.git_fetch = 'name ++ \" [\" ++ change_type ++ \"]\\n\"'"
     );
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");

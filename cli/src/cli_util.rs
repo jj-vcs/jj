@@ -1238,6 +1238,8 @@ pub struct WorkspaceCommandHelper {
     op_summary_template_text: String,
     #[cfg(feature = "git")]
     fetch_summary_template_text: String,
+    #[cfg(feature = "git")]
+    push_summary_template_text: String,
     may_snapshot_working_copy: bool,
     may_update_working_copy: bool,
 }
@@ -1277,6 +1279,8 @@ impl WorkspaceCommandHelper {
         let op_summary_template_text = settings.get_string("templates.op_summary")?;
         #[cfg(feature = "git")]
         let fetch_summary_template_text = settings.get_string("templates.git_fetch")?;
+        #[cfg(feature = "git")]
+        let push_summary_template_text = settings.get_string("templates.git_push")?;
         let may_update_working_copy =
             may_snapshot_working_copy && env.command.should_commit_transaction();
 
@@ -1287,6 +1291,8 @@ impl WorkspaceCommandHelper {
             commit_summary_template_text,
             #[cfg(feature = "git")]
             fetch_summary_template_text,
+            #[cfg(feature = "git")]
+            push_summary_template_text,
             op_summary_template_text,
             may_snapshot_working_copy,
             may_update_working_copy,
@@ -1296,7 +1302,9 @@ impl WorkspaceCommandHelper {
         helper.parse_operation_template(ui, &helper.op_summary_template_text)?;
         helper.parse_commit_template(ui, &helper.commit_summary_template_text)?;
         #[cfg(feature = "git")]
-        helper.parse_refstatus_template(ui, &helper.fetch_summary_template_text)?;
+        helper.parse_ref_diff_template(ui, &helper.fetch_summary_template_text)?;
+        #[cfg(feature = "git")]
+        helper.parse_ref_diff_template(ui, &helper.push_summary_template_text)?;
         helper.parse_commit_template(ui, SHORT_CHANGE_ID_TEMPLATE_TEXT)?;
         Ok(helper)
     }
@@ -1521,6 +1529,11 @@ impl WorkspaceCommandHelper {
     #[cfg(feature = "git")]
     pub fn fetch_summary_template_text(&self) -> &str {
         &self.fetch_summary_template_text
+    }
+
+    #[cfg(feature = "git")]
+    pub fn push_summary_template_text(&self) -> &str {
+        &self.push_summary_template_text
     }
 
     async fn prepare_working_copy_mutation(&self) -> Result<Commit, CommandError> {
@@ -1972,13 +1985,14 @@ to the current parents may contain changes from multiple commits.
         self.parse_template(ui, &language, template_text)
     }
 
-    /// Parses refstatus template into evaluation tree.
+    /// Parses a `RefDiff` template into evaluation tree (used for both fetch
+    /// and push summaries).
     #[cfg(feature = "git")]
-    pub fn parse_refstatus_template(
+    pub fn parse_ref_diff_template(
         &self,
         ui: &Ui,
         template_text: &str,
-    ) -> Result<TemplateRenderer<'_, crate::git_util::RefStatus>, CommandError> {
+    ) -> Result<TemplateRenderer<'_, crate::git_util::RefDiff>, CommandError> {
         let language = self.commit_template_language();
         self.parse_template(ui, &language, template_text)
     }

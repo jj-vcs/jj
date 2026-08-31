@@ -40,6 +40,7 @@ use crate::command_error::user_error;
 use crate::commands::git::get_single_remote;
 use crate::complete;
 use crate::git_util::GitSubprocessUi;
+use crate::git_util::commit_fetch_template;
 use crate::git_util::load_git_import_options;
 use crate::git_util::print_git_import_stats;
 use crate::revset_util::parse_remote_fetch_bookmarks;
@@ -246,7 +247,7 @@ pub async fn cmd_git_fetch(
 
     let import_stats = git_fetch.import_refs().await?;
     {
-        let template = crate::git_util::commit_fetch_template(&tx);
+        let template = commit_fetch_template(&tx);
         print_git_import_stats(ui, &tx, &import_stats, &template)?;
     }
 

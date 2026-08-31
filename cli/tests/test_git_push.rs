@@ -426,7 +426,7 @@ fn test_git_push_forward_unexpectedly_moved() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      bookmark: bookmark1 [move forward from 9b2e76de3920 to 624f94a35f00]
+      bookmark: [38;5;5mbookmark1[39m [move forward from 9b2e76de3920 to 624f94a35f00]
     [1m[38;5;3mWarning: [39mThe following references unexpectedly moved on the remote:[0m
       [38;5;2mrefs/heads/bookmark1[39m (reason: stale info)
     [1m[38;5;6mHint: [0m[39mTry fetching from the remote, then make the bookmark point to where you want it to be, and push again.[39m
@@ -492,7 +492,7 @@ fn test_git_push_sideways_unexpectedly_moved() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      bookmark: bookmark1 [move sideways from 9b2e76de3920 to 827b8a385853]
+      bookmark: [38;5;5mbookmark1[39m [move sideways from 9b2e76de3920 to 827b8a385853]
     [1m[38;5;3mWarning: [39mThe following references unexpectedly moved on the remote:[0m
       [38;5;2mrefs/heads/bookmark1[39m (reason: stale info)
     [1m[38;5;6mHint: [0m[39mTry fetching from the remote, then make the bookmark point to where you want it to be, and push again.[39m

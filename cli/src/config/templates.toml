@@ -31,8 +31,22 @@ git_fetch = '''
 separate(" ",
   kind ++ ":",
   pad_end(max_name_width, label(kind, name)),
-  "[" ++ import_status ++ "]",
-  remote_ref_state,
+  "[" ++ change_type ++ "]",
+  tracking_status,
+) ++ "\n"
+'''
+# TODO: People on Discord suggest "... forward by n commits",
+# possibly "... sideways (X forward, Y back)".
+git_push = '''
+"  " ++ separate(" ",
+  kind ++ ":",
+  label(kind, name),
+  "[" ++ separate(" ",
+    change_type,
+    if(move_direction, move_direction, ""),
+    surround("from ", "", before_commit_id),
+    surround("to ", "", after_commit_id),
+  ) ++ "]",
 ) ++ "\n"
 '''
 git_push_bookmark = '"push-" ++ change_id.short()'

@@ -98,7 +98,7 @@ use crate::diff_util::DiffStatOptions;
 use crate::diff_util::DiffStats;
 use crate::formatter::Formatter;
 #[cfg(feature = "git")]
-use crate::git_util::RefStatus;
+use crate::git_util::RefDiff;
 use crate::operation_templater;
 use crate::operation_templater::OperationTemplateBuildFnTable;
 use crate::operation_templater::OperationTemplateEnvironment;
@@ -410,8 +410,8 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 build(self, diagnostics, build_ctx, property, function)
             }
             #[cfg(feature = "git")]
-            CommitTemplatePropertyKind::RefStatus(property) => {
-                let table = &self.build_fn_table.ref_status_methods;
+            CommitTemplatePropertyKind::RefDiff(property) => {
+                let table = &self.build_fn_table.ref_diff_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
             }
@@ -483,7 +483,7 @@ pub enum CommitTemplatePropertyKind<'repo> {
     Trailer(BoxedTemplateProperty<'repo, Trailer>),
     TrailerList(BoxedTemplateProperty<'repo, Vec<Trailer>>),
     #[cfg(feature = "git")]
-    RefStatus(BoxedTemplateProperty<'repo, RefStatus>),
+    RefDiff(BoxedTemplateProperty<'repo, RefDiff>),
 }
 
 template_builder::impl_core_property_wrappers!(<'repo> CommitTemplatePropertyKind<'repo> => Core);
@@ -519,7 +519,7 @@ template_builder::impl_property_wrappers!(<'repo> CommitTemplatePropertyKind<'re
     Trailer(Trailer),
     TrailerList(Vec<Trailer>),
     #[cfg(feature = "git")]
-    RefStatus(RefStatus),
+    RefDiff(RefDiff),
 });
 
 impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo> {
@@ -569,7 +569,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::Trailer(_) => "Trailer",
             Self::TrailerList(_) => "List<Trailer>",
             #[cfg(feature = "git")]
-            Self::RefStatus(_) => "RefStatus",
+            Self::RefDiff(_) => "RefDiff",
         }
     }
 
@@ -631,7 +631,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::Trailer(_) => Err(self),
             Self::TrailerList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
             #[cfg(feature = "git")]
-            Self::RefStatus(_) => Err(self),
+            Self::RefDiff(_) => Err(self),
         }
     }
 
@@ -685,7 +685,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::Trailer(_) => None,
             Self::TrailerList(_) => None,
             #[cfg(feature = "git")]
-            Self::RefStatus(_) => None,
+            Self::RefDiff(_) => None,
         }
     }
 
@@ -723,7 +723,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::Trailer(property) => Some(property.into_template()),
             Self::TrailerList(property) => Some(property.into_template()),
             #[cfg(feature = "git")]
-            Self::RefStatus(property) => Some(property.into_template()),
+            Self::RefDiff(property) => Some(property.into_template()),
         }
     }
 
@@ -794,7 +794,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             (Self::Trailer(_), _) => None,
             (Self::TrailerList(_), _) => None,
             #[cfg(feature = "git")]
-            (Self::RefStatus(_), _) => None,
+            (Self::RefDiff(_), _) => None,
         }
     }
 
@@ -838,7 +838,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             (Self::Trailer(_), _) => None,
             (Self::TrailerList(_), _) => None,
             #[cfg(feature = "git")]
-            (Self::RefStatus(_), _) => None,
+            (Self::RefDiff(_), _) => None,
         }
     }
 }
@@ -878,7 +878,7 @@ pub struct CommitTemplateBuildFnTable<'repo> {
     pub trailer_methods: CommitTemplateBuildMethodFnMap<'repo, Trailer>,
     pub trailer_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<Trailer>>,
     #[cfg(feature = "git")]
-    pub ref_status_methods: CommitTemplateBuildMethodFnMap<'repo, RefStatus>,
+    pub ref_diff_methods: CommitTemplateBuildMethodFnMap<'repo, RefDiff>,
 }
 
 impl CommitTemplateBuildFnTable<'_> {
@@ -910,7 +910,7 @@ impl CommitTemplateBuildFnTable<'_> {
             trailer_methods: HashMap::new(),
             trailer_list_methods: HashMap::new(),
             #[cfg(feature = "git")]
-            ref_status_methods: HashMap::new(),
+            ref_diff_methods: HashMap::new(),
         }
     }
 
@@ -942,7 +942,7 @@ impl CommitTemplateBuildFnTable<'_> {
             trailer_methods,
             trailer_list_methods,
             #[cfg(feature = "git")]
-            ref_status_methods,
+            ref_diff_methods,
         } = other;
 
         self.core.merge(core);
@@ -989,7 +989,7 @@ impl CommitTemplateBuildFnTable<'_> {
         merge_fn_map(&mut self.trailer_methods, trailer_methods);
         merge_fn_map(&mut self.trailer_list_methods, trailer_list_methods);
         #[cfg(feature = "git")]
-        merge_fn_map(&mut self.ref_status_methods, ref_status_methods);
+        merge_fn_map(&mut self.ref_diff_methods, ref_diff_methods);
     }
 
     /// Creates new symbol table containing the builtin methods.
@@ -1023,7 +1023,7 @@ impl CommitTemplateBuildFnTable<'_> {
             trailer_methods: builtin_trailer_methods(),
             trailer_list_methods: builtin_trailer_list_methods(),
             #[cfg(feature = "git")]
-            ref_status_methods: builtin_ref_status_methods(),
+            ref_diff_methods: builtin_ref_diff_methods(),
         }
     }
 }
@@ -2095,46 +2095,20 @@ impl Display for RefSymbolBuf {
 }
 
 #[cfg(feature = "git")]
-impl Template for RefStatus {
+impl Template for RefDiff {
     fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
         write!(formatter, "{}", self.name())
     }
 }
 
 #[cfg(feature = "git")]
-fn builtin_ref_status_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, RefStatus> {
-    let mut map = CommitTemplateBuildMethodFnMap::<RefStatus>::new();
+fn builtin_ref_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, RefDiff> {
+    let mut map = CommitTemplateBuildMethodFnMap::<RefDiff>::new();
     map.insert(
         "name",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property = self_property.map(|ref_status| ref_status.name().to_owned());
-            Ok(out_property.into_dyn_wrapped())
-        },
-    );
-    map.insert(
-        "tracked",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
-            function.expect_no_arguments()?;
-            let out_property = self_property.map(|ref_status| ref_status.is_tracked());
-            Ok(out_property.into_dyn_wrapped())
-        },
-    );
-    map.insert(
-        "remote_ref_state",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
-            function.expect_no_arguments()?;
-            let out_property =
-                self_property.map(|ref_status| ref_status.remote_ref_state().to_owned());
-            Ok(out_property.into_dyn_wrapped())
-        },
-    );
-    map.insert(
-        "import_status",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
-            function.expect_no_arguments()?;
-            let out_property =
-                self_property.map(|ref_status| ref_status.import_status().to_owned());
+            let out_property = self_property.map(|d| d.name().to_owned());
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -2142,7 +2116,55 @@ fn builtin_ref_status_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
         "kind",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property = self_property.map(|ref_status| ref_status.kind().to_owned());
+            let out_property = self_property.map(|d| d.kind().to_owned());
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "change_type",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|d| d.change_type().to_owned());
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "tracked",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|d| d.is_tracked());
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "tracking_status",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|d| d.tracking_status().to_owned());
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "move_direction",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|d| d.move_direction().to_owned());
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "before_commit_id",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|d| d.before_commit_id().to_owned());
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "after_commit_id",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|d| d.after_commit_id().to_owned());
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -2150,7 +2172,7 @@ fn builtin_ref_status_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
         "max_name_width",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property = self_property.map(|ref_status| ref_status.max_name_width() as i64);
+            let out_property = self_property.map(|d| d.max_name_width() as i64);
             Ok(out_property.into_dyn_wrapped())
         },
     );

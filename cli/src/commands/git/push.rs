@@ -78,6 +78,12 @@ use crate::commands::git::get_single_remote;
 use crate::complete;
 use crate::formatter::Formatter;
 use crate::git_util::GitSubprocessUi;
+use crate::git_util::PushMoveDirection;
+use crate::git_util::RefDiff;
+use crate::git_util::commit_push_template;
+use crate::templater::TemplateRenderer;
+use jj_lib::git::GitRefKind;
+use unicode_width::UnicodeWidthStr as _;
 use crate::git_util::print_push_stats;
 use crate::progress::ProgressWriter;
 use crate::revset_util::parse_bookmark_name;
@@ -258,13 +264,6 @@ fn make_updates_term(ref_updates: &GitPushRefTargets) -> String {
 const DEFAULT_REMOTE: &RemoteName = RemoteName::new("origin");
 
 const TX_DESC_PUSH: &str = "push ";
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum BookmarkMoveDirection {
-    Forward,
-    Backward,
-    Sideways,
-}
 
 pub async fn cmd_git_push(
     ui: &mut Ui,
@@ -546,7 +545,14 @@ pub async fn cmd_git_push(
             "Changes to push to {remote}:",
             remote = remote.as_symbol()
         )?;
-        print_commits_ready_to_push(formatter.as_mut(), tx.repo(), &ref_updates).await?;
+        let push_template = commit_push_template(&tx);
+        print_ref_diffs_ready_to_push(
+            formatter.as_mut(),
+            tx.repo(),
+            &ref_updates,
+            &push_template,
+        )
+        .await?;
     }
 
     if args.dry_run {
@@ -924,68 +930,50 @@ async fn sign_commits_before_push(
     Ok(ref_updates)
 }
 
-async fn print_commits_ready_to_push(
+async fn print_ref_diffs_ready_to_push(
     formatter: &mut dyn Formatter,
     repo: &dyn Repo,
     ref_updates: &GitPushRefTargets,
+    template: &TemplateRenderer<'_, RefDiff>,
 ) -> Result<(), CommandError> {
-    let to_direction = async |old_target: &CommitId,
-                              new_target: &CommitId|
-           -> IndexResult<BookmarkMoveDirection> {
-        assert_ne!(old_target, new_target);
-        if repo.index().is_ancestor(old_target, new_target).await? {
-            Ok(BookmarkMoveDirection::Forward)
-        } else if repo.index().is_ancestor(new_target, old_target).await? {
-            Ok(BookmarkMoveDirection::Backward)
-        } else {
-            Ok(BookmarkMoveDirection::Sideways)
-        }
-    };
-    let describe_update = async |update: &Diff<Option<CommitId>>| -> IndexResult<String> {
-        let desc = match (&update.before, &update.after) {
-            (Some(old_target), Some(new_target)) => {
-                let old = short_commit_hash(old_target);
-                let new = short_commit_hash(new_target);
-                // TODO: People on Discord suggest "... forward by n commits",
-                // possibly "... sideways (X forward, Y back)".
-                match to_direction(old_target, new_target).await? {
-                    BookmarkMoveDirection::Forward => {
-                        format!("move forward from {old} to {new}")
-                    }
-                    BookmarkMoveDirection::Backward => {
-                        format!("move backward from {old} to {new}")
-                    }
-                    BookmarkMoveDirection::Sideways => {
-                        format!("move sideways from {old} to {new}")
-                    }
-                }
-            }
-            (Some(old_target), None) => {
-                format!("delete from {old}", old = short_commit_hash(old_target))
-            }
-            (None, Some(new_target)) => {
-                format!("add to {new}", new = short_commit_hash(new_target))
-            }
-            (None, None) => {
-                panic!("Not pushing any change");
+    let to_direction =
+        async |old: &CommitId, new: &CommitId| -> IndexResult<PushMoveDirection> {
+            if repo.index().is_ancestor(old, new).await? {
+                Ok(PushMoveDirection::Forward)
+            } else if repo.index().is_ancestor(new, old).await? {
+                Ok(PushMoveDirection::Backward)
+            } else {
+                Ok(PushMoveDirection::Sideways)
             }
         };
-        Ok(desc)
-    };
 
-    // TODO: Add color
-    let kind_updates = [
-        ("bookmark", &ref_updates.bookmarks),
-        ("tag", &ref_updates.tags),
-    ];
-    for (kind, updates) in kind_updates {
-        for (name, update) in updates {
-            let desc = describe_update(update).await?;
-            writeln!(
-                formatter,
-                "  {kind}: {name} [{desc}]",
-                name = name.as_symbol()
-            )?;
+    for (kind, updates) in [
+        (GitRefKind::Bookmark, &ref_updates.bookmarks),
+        (GitRefKind::Tag, &ref_updates.tags),
+    ] {
+        let max_name_width = updates
+            .iter()
+            .map(|(name, _)| name.as_symbol().to_string().width())
+            .max()
+            .unwrap_or(0);
+
+        for (name, diff) in updates {
+            let move_direction = match (&diff.before, &diff.after) {
+                (Some(old), Some(new)) => Some(to_direction(old, new).await?),
+                _ => None,
+            };
+            let before = diff.before.as_ref().map_or_else(String::new, short_commit_hash);
+            let after = diff.after.as_ref().map_or_else(String::new, short_commit_hash);
+            let ref_diff = RefDiff::from_push(
+                kind,
+                name.as_symbol().to_string(),
+                diff,
+                move_direction,
+                before,
+                after,
+                max_name_width,
+            );
+            template.format(&ref_diff, formatter)?;
         }
     }
     Ok(())
