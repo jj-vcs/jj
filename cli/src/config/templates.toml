@@ -151,10 +151,7 @@ if(commit.root(),
         format_short_cryptographic_signature(commit.signature())
       ),
       if(commit.empty(), empty_commit_marker),
-      if(commit.description(),
-        commit.description().first_line(),
-        label(if(commit.empty(), "empty"), description_placeholder),
-      ),
+      format_commit_description_summary(commit),
     ) ++ "\n",
   )
 )
@@ -174,10 +171,7 @@ if(commit.root(),
       format_short_commit_header(commit) ++ "\n",
       separate(" ",
         if(commit.empty(), empty_commit_marker),
-        if(commit.description(),
-          commit.description().first_line(),
-          label(if(commit.empty(), "empty"), description_placeholder),
-        ),
+        format_commit_description_summary(commit),
       ) ++ "\n",
     ),
   )
@@ -221,10 +215,7 @@ if(commit.root(),
       format_short_commit_header(commit) ++ "\n",
       separate(" ",
         if(commit.empty(), empty_commit_marker),
-        if(commit.description(),
-          commit.description().trim_end(),
-          label(if(commit.empty(), "empty"), description_placeholder),
-        ),
+        format_commit_description_full(commit),
       ) ++ "\n",
     ),
   )
@@ -252,12 +243,7 @@ concat(
     )
   ),
   "\n",
-  indent("    ",
-    if(commit.description(),
-      commit.description().trim_end(),
-      label(if(commit.empty(), "empty"), description_placeholder)
-    ) ++ "\n"
-  ),
+  indent("    ", format_commit_description_full(commit) ++ "\n"),
   "\n",
 )
 '''
@@ -358,10 +344,7 @@ label(if(commit.current_working_copy(), "working_copy"),
       separate(" ",
         format_commit_labels(commit),
         if(commit.empty(), empty_commit_marker),
-        if(commit.description(),
-          commit.description().first_line(),
-          label(if(commit.empty(), "empty"), description_placeholder),
-        ),
+        format_commit_description_summary(commit),
       ),
     ),
   ),
@@ -524,6 +507,20 @@ separate(" ",
     if(commit.divergent(), label("divergent", "(divergent)")),
   ),
   if(commit.conflict(), label("conflict", "(conflict)")),
+)
+'''
+
+'format_commit_description_summary(commit)' = '''
+if(commit.description(),
+  commit.description().first_line(),
+  label(if(commit.empty(), "empty"), description_placeholder),
+)
+'''
+
+'format_commit_description_full(commit)' = '''
+if(commit.description(),
+  commit.description().trim_end(),
+  label(if(commit.empty(), "empty"), description_placeholder),
 )
 '''
 
