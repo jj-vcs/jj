@@ -2747,6 +2747,7 @@ fn test_git_push_sign_on_push() {
     signing.backend = "test"
     signing.key = "impeccable"
     git.sign-on-push = true
+    git.confirm-before-push = "always"
     "#,
     );
     let output = work_dir.run_jj(["git", "push", "--dry-run"]);
@@ -2770,15 +2771,46 @@ fn test_git_push_sign_on_push() {
     ◆
     [EOF]
     ");
-    let output = work_dir.run_jj(["git", "push"]);
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["git", "push"])
+            .write_stdin("n\n")
+    });
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Updated signatures of 2 commits.
     Rebased 2 descendant commits.
     Changes to push to origin:
       bookmark: bookmark2 [move forward from 38a204733702 to d45e2adce0ad]
-    Working copy  (@) now at: kmkuslsw 3d5a9465 (empty) commit which should not be signed 2
-    Parent commit (@-)      : kpqxywon 48ea83e9 (empty) commit which should not be signed 1
+    Continue? (Yn): Aborting; nothing was changed.
+    [EOF]
+    ");
+    // There should be no signed commits aborting a push
+    let output = work_dir.run_jj(["log", "-T", template]);
+    insta::assert_snapshot!(output, @"
+    @  commit which should not be signed 2
+    ○  commit which should not be signed 1
+    ○  commit to be signed 2
+    ○  commit to be signed 1
+    ○  description 2
+    │ ○  description 1
+    ├─╯
+    ◆
+    [EOF]
+    ");
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["git", "push"])
+            .write_stdin("y\n")
+    });
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Updated signatures of 2 commits.
+    Rebased 2 descendant commits.
+    Changes to push to origin:
+      bookmark: bookmark2 [move forward from 38a204733702 to 87d9bf2ca4fb]
+    Continue? (Yn): Working copy  (@) now at: kmkuslsw 50a620ed (empty) commit which should not be signed 2
+    Parent commit (@-)      : kpqxywon f4169ad1 (empty) commit which should not be signed 1
     [EOF]
     ");
     // Only commits which are being pushed should be signed
@@ -2801,18 +2833,22 @@ fn test_git_push_sign_on_push() {
     let output = work_dir.run_jj(["bookmark", "move", "bookmark2", "--to", "@-"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Moved 1 bookmarks to kpqxywon 48ea83e9 bookmark2* | (empty) commit which should not be signed 1
+    Moved 1 bookmarks to kpqxywon f4169ad1 bookmark2* | (empty) commit which should not be signed 1
     [EOF]
     ");
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "bookmark2""#);
-    let output = work_dir.run_jj(["git", "push"]);
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["git", "push"])
+            .write_stdin("y\n")
+    });
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Skipped signing 1 immutable commits:
-      kpqxywon 48ea83e9 bookmark2* | (empty) commit which should not be signed 1
+      kpqxywon f4169ad1 bookmark2* | (empty) commit which should not be signed 1
     Changes to push to origin:
-      bookmark: bookmark2 [move forward from d45e2adce0ad to 48ea83e9499c]
-    [EOF]
+      bookmark: bookmark2 [move forward from 87d9bf2ca4fb to f4169ad1a603]
+    Continue? (Yn): [EOF]
     ");
     let output = work_dir.run_jj(["log", "-T", template, "-r", "::"]);
     insta::assert_snapshot!(output, @"
@@ -2860,14 +2896,18 @@ fn test_git_push_sign_on_push() {
     ◆
     [EOF]
     ");
-    let output = work_dir.run_jj(["git", "push"]);
-    insta::assert_snapshot!(output, @"
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["git", "push"])
+            .write_stdin("y\n")
+    });
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Updated signatures of 1 commits.
     Changes to push to origin:
-      bookmark: bookmark1 [move sideways from 9b2e76de3920 to 0617b6813c01]
-    Working copy  (@) now at: pzsxstzt 0617b681 bookmark1 | (empty) commit to be signed 3
-    Parent commit (@-)      : kmkuslsw 5114df95 (empty) commit which should not be signed 2
+      bookmark: bookmark1 [move sideways from 9b2e76de3920 to 14bd874a5304]
+    Continue? (Yn): Working copy  (@) now at: uuuvxpvw 14bd874a bookmark1 | (empty) commit to be signed 3
+    Parent commit (@-)      : kmkuslsw 78f629cb (empty) commit which should not be signed 2
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "-T", template]);
