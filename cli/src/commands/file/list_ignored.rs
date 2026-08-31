@@ -47,7 +47,10 @@ pub(crate) async fn cmd_file_list_ignored(
     visit_collapsed_untracked_files(&snapshot_stats.ignored_paths, tree, |path, is_dir| {
         let mut ui_path = workspace_command.format_file_path(path);
         if is_dir {
-            ui_path.push(std::path::MAIN_SEPARATOR);
+            // Always use '/' regardless of platform, matching jj's other
+            // path output (e.g. `jj status`), rather than
+            // `std::path::MAIN_SEPARATOR` which would be '\' on Windows.
+            ui_path.push('/');
         }
         writeln!(formatter, "{ui_path}")?;
         Ok(())
