@@ -263,6 +263,52 @@ fn test_new_merge_conflicts() {
 }
 
 #[test]
+fn test_new_merge_same_change_of_same_change_merges() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // https://github.com/jj-vcs/jj/issues/6369: "a" and "b" make the same
+    // change, "c" and "d" are two separate merges of them, and merging those
+    // used to resolve cleanly to "original" -- content that neither side has.
+    create_commit_with_files(&work_dir, "base", &[], &[("file", "original\n")]);
+    create_commit_with_files(&work_dir, "a", &["base"], &[("file", "modified\n")]);
+    create_commit_with_files(&work_dir, "b", &["base"], &[("file", "modified\n")]);
+    create_commit_with_files(&work_dir, "c", &["a", "b"], &[]);
+    create_commit_with_files(&work_dir, "d", &["a", "b"], &[]);
+
+    work_dir.run_jj(["new", "c|d"]).success();
+    assert_eq!(work_dir.read_file("file"), "modified\n");
+
+    // With "keep", the merge base of "c" and "d" is the *conflicted* merge of
+    // "a" and "b", so this also covers collapsing a base that cannot be
+    // resolved.
+    work_dir.run_jj(["new", "root()"]).success();
+    work_dir
+        .run_jj(["new", "c|d", "--config=merge.same-change=keep"])
+        .success();
+    assert_eq!(work_dir.read_file("file"), "modified\n");
+
+    // Whatever the merge produced has to survive a working-copy snapshot.
+    // Reducing an unresolvable base by materializing its conflict would leave
+    // conflict markers in the merged file, and those do not always parse back:
+    // the next snapshot would store them as ordinary content, silently turning
+    // a conflict into text that merely looks like one.
+    let commit_id = |work_dir: &TestWorkDir| {
+        work_dir
+            .run_jj(["log", "-r", "@", "--no-graph", "-T", "commit_id"])
+            .success()
+            .stdout
+            .raw()
+            .to_owned()
+    };
+    let before = commit_id(&work_dir);
+    work_dir.run_jj(["status"]).success(); // snapshots the working copy
+    assert_eq!(commit_id(&work_dir), before);
+    assert_eq!(work_dir.read_file("file"), "modified\n");
+}
+
+#[test]
 fn test_new_merge_same_change() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

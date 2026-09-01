@@ -92,14 +92,91 @@ pub async fn merge_commit_trees_no_resolve_without_repo(
         .iter()
         .map(|commit| commit.id().clone())
         .collect_vec();
-    let commit_id_merge = find_recursive_merge_commits(store, index, commit_ids).await?;
-    let tree_merge: Merge<(MergedTree, String)> = commit_id_merge
-        .try_map_async(async |commit_id| {
-            let commit = store.get_commit_async(commit_id).await?;
-            Ok::<_, BackendError>((commit.tree(), commit.conflict_label()))
-        })
+    Box::pin(merge_commit_ids_no_resolve(store, index, &commit_ids)).await
+}
+
+/// Merges the trees of `commit_ids` against their merge bases, without
+/// attempting to resolve the resulting file conflicts.
+///
+/// When two commits have several best common ancestors (a criss-cross
+/// history), those ancestors are merged recursively and the result is
+/// collapsed into a single virtual merge base (see
+/// [`MergedTree::collapse_conflicts`]).
+///
+/// Reducing the base to a single tree is what keeps the merge from losing
+/// content. Flattening an unresolved base merge into the outer term list puts
+/// every side of it on the *remove* side, where the content it carries cancels
+/// against the same content in the parents.
+///
+/// The shape that triggers this is two bugfixes that independently add the
+/// same line, merged together twice:
+///
+/// ```text
+///        base          a file WITHOUT some line
+///        /  \
+///       A    B         two fixes, each independently ADDING that line
+///       |\  /|
+///       | \/ |
+///       | /\ |
+///  AB_for_X  AB_for_Y  two *separate* merges of A and B; both have the line
+///        \    /
+///          XY          merging them loses the line, with no conflict
+/// ```
+///
+/// `AB_for_X` and `AB_for_Y` have two best common ancestors, `A` and `B`, and
+/// both of those carry the line. Merging them recursively and flattening the
+/// result gives:
+///
+/// ```text
+/// adds    [AB_for_X(line), base(no line), AB_for_Y(line)]
+/// removes [A(line), B(line)]
+///
+/// line:    +2 -2 = 0   cancels, and vanishes without a trace
+/// no line: +1          wins, so XY gets base's version of the file
+/// ```
+///
+/// Exactly one value nets +1, which is the "resolved cleanly" case, so no
+/// conflict is recorded. Note that this needs only two parents; the line must
+/// be added *independently* on both sides (if it came from a single ancestor
+/// it would be in the base too, and could only collect +1 votes).
+async fn merge_commit_ids_no_resolve(
+    store: &Arc<Store>,
+    index: &dyn Index,
+    commit_ids: &[CommitId],
+) -> BackendResult<MergedTree> {
+    let commit_tree = async |commit_id: &CommitId| {
+        let commit = store.get_commit_async(commit_id).await?;
+        Ok::<_, BackendError>((commit.tree(), commit.conflict_label()))
+    };
+    let [first_id, other_ids @ ..] = commit_ids else {
+        let (tree, _label) = commit_tree(store.root_commit_id()).await?;
+        return Ok(tree);
+    };
+    let first_term = commit_tree(first_id).await?;
+    if other_ids.is_empty() {
+        return Ok(first_term.0);
+    }
+
+    let mut terms = vec![first_term];
+    for (pos, commit_id) in commit_ids.iter().enumerate().skip(1) {
+        let ancestor_ids = index
+            .common_ancestors(&commit_ids[..pos], slice::from_ref(commit_id))
+            .await
+            // TODO: indexing error shouldn't be a "BackendError"
+            .map_err(|err| BackendError::Other(err.into()))?;
+        let base_tree = Box::pin(merge_commit_ids_no_resolve(store, index, &ancestor_ids)).await?;
+        let base_tree = base_tree.collapse_conflicts().await?;
+        let base_commits: Vec<Commit> = try_join_all(
+            ancestor_ids
+                .iter()
+                .map(|id| store.get_commit_async(id))
+                .collect_vec(),
+        )
         .await?;
-    Ok(MergedTree::merge_no_resolve(tree_merge))
+        terms.push((base_tree, conflict_label_for_commits(&base_commits)));
+        terms.push(commit_tree(commit_id).await?);
+    }
+    Ok(MergedTree::merge_no_resolve(Merge::from_vec(terms)))
 }
 
 /// Find the commits to use as input to the recursive merge algorithm.
