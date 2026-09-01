@@ -113,7 +113,7 @@ pub(crate) async fn cmd_absorb(
     let source = if diff_selector.is_interactive() {
         let parent_tree = source_commit.parent_tree(repo).await?;
         let source_tree = source_commit.tree();
-        let format_instructions = || {
+        let format_instructions = |edit_side| {
             formatdoc! {"
                 You are selecting changes from: {source} to be considered for
                 absorption into ancestors.
@@ -121,7 +121,7 @@ pub(crate) async fn cmd_absorb(
                 The left side of the diff shows the parent commit. The right side
                 initially shows the contents of the commit you're absorbing from.
 
-                Adjust the right side until the diff shows the changes you want to
+                Adjust the {edit_side} side until the diff shows the changes you want to
                 absorb. Selected hunks will be considered for assignment to the
                 closest ancestor where the corresponding lines were last modified
                 (using annotation). Any hunks that cannot be absorbed unambiguously

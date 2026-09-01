@@ -49,6 +49,7 @@ use self::builtin::edit_diff_builtin;
 use self::builtin::edit_merge_builtin;
 use self::diff_working_copies::DiffCheckoutError;
 pub(crate) use self::diff_working_copies::new_utf8_temp_dir;
+pub use self::external::DiffEditSide;
 pub use self::external::DiffToolMode;
 pub use self::external::ExternalMergeTool;
 use self::external::ExternalToolError;
@@ -297,7 +298,7 @@ impl DiffEditor {
         &self,
         trees: Diff<&MergedTree>,
         matcher: &dyn Matcher,
-        format_instructions: impl FnOnce() -> String,
+        format_instructions: impl FnOnce(DiffEditSide) -> String,
     ) -> Result<MergedTree, DiffEditError> {
         match &self.tool {
             DiffEditTool::Builtin => {
@@ -308,7 +309,9 @@ impl DiffEditor {
                 )
             }
             DiffEditTool::External(editor) => {
-                let instructions = self.use_instructions.then(format_instructions);
+                let instructions = self
+                    .use_instructions
+                    .then(|| format_instructions(editor.edit_side));
                 edit_diff_external(
                     editor,
                     trees,
@@ -538,6 +541,7 @@ mod tests {
                     0,
                 ],
                 diff_invocation_mode: Dir,
+                edit_side: Right,
                 diff_do_chdir: true,
                 edit_args: [
                     "$left",
@@ -570,6 +574,7 @@ mod tests {
                     0,
                 ],
                 diff_invocation_mode: Dir,
+                edit_side: Right,
                 diff_do_chdir: true,
                 edit_args: [
                     "--edit",
@@ -618,6 +623,7 @@ mod tests {
                     0,
                 ],
                 diff_invocation_mode: Dir,
+                edit_side: Right,
                 diff_do_chdir: true,
                 edit_args: [
                     "$left",
@@ -646,6 +652,7 @@ mod tests {
                     0,
                 ],
                 diff_invocation_mode: Dir,
+                edit_side: Right,
                 diff_do_chdir: true,
                 edit_args: [
                     "-l",
@@ -676,6 +683,7 @@ mod tests {
                     0,
                 ],
                 diff_invocation_mode: Dir,
+                edit_side: Right,
                 diff_do_chdir: true,
                 edit_args: [
                     "--diff",
@@ -708,6 +716,7 @@ mod tests {
                     0,
                 ],
                 diff_invocation_mode: Dir,
+                edit_side: Right,
                 diff_do_chdir: true,
                 edit_args: [
                     "--edit",
@@ -743,6 +752,7 @@ mod tests {
                     0,
                 ],
                 diff_invocation_mode: Dir,
+                edit_side: Right,
                 diff_do_chdir: true,
                 edit_args: [
                     "$left",
@@ -770,6 +780,7 @@ mod tests {
                     0,
                 ],
                 diff_invocation_mode: Dir,
+                edit_side: Right,
                 diff_do_chdir: true,
                 edit_args: [
                     "$left",
@@ -844,6 +855,7 @@ mod tests {
                     0,
                 ],
                 diff_invocation_mode: Dir,
+                edit_side: Right,
                 diff_do_chdir: true,
                 edit_args: [
                     "$left",
@@ -902,6 +914,7 @@ mod tests {
                     0,
                 ],
                 diff_invocation_mode: Dir,
+                edit_side: Right,
                 diff_do_chdir: true,
                 edit_args: [
                     "$left",
@@ -937,6 +950,7 @@ mod tests {
                     0,
                 ],
                 diff_invocation_mode: Dir,
+                edit_side: Right,
                 diff_do_chdir: true,
                 edit_args: [
                     "$left",
@@ -975,6 +989,7 @@ mod tests {
                     0,
                 ],
                 diff_invocation_mode: Dir,
+                edit_side: Right,
                 diff_do_chdir: true,
                 edit_args: [
                     "$left",
