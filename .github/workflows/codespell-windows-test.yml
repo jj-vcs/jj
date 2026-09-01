@@ -1,0 +1,48 @@
+# Temporary validation of the mise codespell tasks on Windows (run_windows + pwsh).
+# Remove this workflow and its revision once it has run.
+name: codespell-windows-test
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  codespell:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+
+      - name: Configure jj identity
+        shell: pwsh
+        run: |
+          jj config set --user user.name "codespell-ci"
+          jj config set --user user.email "codespell-ci@example.com"
+
+      - name: check:codespell passes on clean repo
+        shell: pwsh
+        run: |
+          jj git init --colocate
+          mise run check:codespell
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: check:codespell fails on planted misspelling
+        shell: pwsh
+        run: |
+          # misspelling assembled at runtime so this file stays clean for codespell
+          Set-Content -Path codespell-test.txt -Value ('This is cal' + 'ulated on Wind' + 'ows.')
+          mise run check:codespell
+          if ($LASTEXITCODE -eq 0) { exit 1 }
+
+      - name: fix:codespell fixes it
+        shell: pwsh
+        run: |
+          mise run fix:codespell
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: check:codespell passes again
+        shell: pwsh
+        run: |
+          mise run check:codespell
+          if ($LASTEXITCODE -ne 0) { exit 1 }
