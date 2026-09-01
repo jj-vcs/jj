@@ -75,6 +75,8 @@ run = "cargo clippy --workspace --all-targets"
 description = "Check code for common misspellings"
 tools.uv = "{{vars.uv_version}}"
 run = "uv run codespell $(jj file list)"
+# Windows commands run through cmd, which cannot expand $(...), so use pwsh
+run_windows = 'pwsh -NoProfile -Command "uv run codespell $(jj file list)"'
 
 [tasks."check:format"]
 description = "Check the code format"
@@ -106,6 +108,8 @@ run = "cargo clippy --fix"
 description = "Fix common code misspellings"
 tools.uv = "{{vars.uv_version}}"
 run = "uv run codespell -w $(jj file list)"
+# Windows commands run through cmd, which cannot expand $(...), so use pwsh
+run_windows = 'pwsh -NoProfile -Command "uv run codespell -w $(jj file list)"'
 
 [tasks."fix:format"]
 description = "Format the code"
