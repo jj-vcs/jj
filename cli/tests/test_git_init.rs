@@ -1258,21 +1258,7 @@ fn test_git_init_colocate_in_git_worktree() {
 
     // Create a Git worktree
     let worktree_path = test_env.env_root().join("worktree");
-    let status = std::process::Command::new("git")
-        .args([
-            "worktree",
-            "add",
-            worktree_path.to_str().unwrap(),
-            "-b",
-            "worktree-branch",
-        ])
-        .current_dir(&main_repo_path)
-        .status()
-        .expect("git worktree add failed to spawn");
-    assert!(status.success(), "git worktree add failed: {status}");
-
-    // Verify .git is a file (gitlink)
-    assert!(worktree_path.join(".git").is_file());
+    git::add_worktree(&main_repo_path, &worktree_path, Some("HEAD"));
 
     // Try to init colocated jj repo - should fail
     let output = test_env.run_jj_in(
