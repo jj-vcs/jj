@@ -12,15 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::ffi::OsStr;
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::Command;
 
+use bstr::BString;
 use gix::date::parse::TimeBuf;
 
 pub const GIT_USER: &str = "Someone";
 pub const GIT_EMAIL: &str = "someone@example.org";
 
-fn git_config() -> Vec<bstr::BString> {
+fn git_config() -> Vec<BString> {
     vec![
         format!("user.name = {GIT_USER}").into(),
         format!("user.email = {GIT_EMAIL}").into(),
@@ -67,7 +70,7 @@ pub fn clone(dest_path: &Path, repo_url: &str, remote_name: Option<&str>) -> gix
     //
     // This, plus the fact that the code to clone a repo in gitoxide is non-trivial,
     // makes it appealing to just spawn a git subprocess
-    let output = std::process::Command::new("git")
+    let output = Command::new("git")
         .args(["clone", repo_url, "--origin", remote_name])
         .arg(dest_path)
         .output()
@@ -76,8 +79,8 @@ pub fn clone(dest_path: &Path, repo_url: &str, remote_name: Option<&str>) -> gix
         output.status.success(),
         "git cloning failed with {}:\n{}\n----- stderr -----\n{}",
         output.status,
-        bstr::BString::from(output.stdout),
-        bstr::BString::from(output.stderr),
+        BString::from(output.stdout),
+        BString::from(output.stderr),
     );
 
     open(dest_path)
@@ -213,8 +216,8 @@ pub fn checkout_tree_index(repo: &gix::Repository, tree_id: gix::ObjectId) {
 
 fn signature() -> gix::actor::Signature {
     gix::actor::Signature {
-        name: bstr::BString::from(GIT_USER),
-        email: bstr::BString::from(GIT_EMAIL),
+        name: BString::from(GIT_USER),
+        email: BString::from(GIT_EMAIL),
         time: gix::date::Time::new(0, 0),
     }
 }
@@ -355,7 +358,7 @@ impl<'a> IndexManager<'a> {
 }
 
 pub fn add_remote(repo_dir: impl AsRef<Path>, remote_name: &str, url: &str) {
-    let output = std::process::Command::new("git")
+    let output = Command::new("git")
         .current_dir(repo_dir)
         .args(["remote", "add", remote_name, url])
         .output()
@@ -364,13 +367,13 @@ pub fn add_remote(repo_dir: impl AsRef<Path>, remote_name: &str, url: &str) {
         output.status.success(),
         "git remote add {remote_name} {url} failed with {}:\n{}\n----- stderr -----\n{}",
         output.status,
-        bstr::BString::from(output.stdout),
-        bstr::BString::from(output.stderr),
+        BString::from(output.stdout),
+        BString::from(output.stderr),
     );
 }
 
 pub fn rename_remote(repo_dir: impl AsRef<Path>, original: &str, new: &str) {
-    let output = std::process::Command::new("git")
+    let output = Command::new("git")
         .current_dir(repo_dir)
         .args(["remote", "rename", original, new])
         .output()
@@ -379,13 +382,13 @@ pub fn rename_remote(repo_dir: impl AsRef<Path>, original: &str, new: &str) {
         output.status.success(),
         "git remote rename failed with {}:\n{}\n----- stderr -----\n{}",
         output.status,
-        bstr::BString::from(output.stdout),
-        bstr::BString::from(output.stderr),
+        BString::from(output.stdout),
+        BString::from(output.stderr),
     );
 }
 
 pub fn fetch(repo_dir: impl AsRef<Path>, remote: &str) {
-    let output = std::process::Command::new("git")
+    let output = Command::new("git")
         .current_dir(repo_dir)
         .args(["fetch", remote])
         .output()
@@ -394,7 +397,31 @@ pub fn fetch(repo_dir: impl AsRef<Path>, remote: &str) {
         output.status.success(),
         "git fetch {remote} failed with {}:\n{}\n----- stderr -----\n{}",
         output.status,
-        bstr::BString::from(output.stdout),
-        bstr::BString::from(output.stderr),
+        BString::from(output.stdout),
+        BString::from(output.stderr),
+    );
+}
+
+pub fn add_worktree(
+    repo_dir: impl AsRef<Path>,
+    worktree_dir: impl AsRef<OsStr>,
+    revision: Option<&str>,
+) {
+    let mut command = Command::new("git");
+    command.current_dir(repo_dir).args(["worktree", "add"]);
+    match revision {
+        Some(_) => command.arg("--detach"),
+        None => command.arg("--orphan"),
+    };
+    command.arg("--");
+    command.arg(worktree_dir);
+    command.args(revision);
+    let output = command.output().unwrap();
+    assert!(
+        output.status.success(),
+        "{command:?} failed with {}:\n{}\n----- stderr -----\n{}",
+        output.status,
+        BString::from(output.stdout),
+        BString::from(output.stderr),
     );
 }

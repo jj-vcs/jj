@@ -21,7 +21,6 @@ use std::io::Write as _;
 use std::iter;
 use std::path::Path;
 use std::path::PathBuf;
-use std::process::Command;
 use std::slice;
 use std::sync::Arc;
 use std::sync::Barrier;
@@ -2581,13 +2580,11 @@ fn test_import_export_head_bare_and_worktree() -> TestResult {
 
     // Create a new colocated workspace
     let workspace_root = test_repo.env.root().join("wt");
-    let output = Command::new("git")
-        .args(["worktree", "add", "--detach"])
-        .arg(&workspace_root)
-        .arg(commit1_oid.to_string())
-        .current_dir(git_repo.path())
-        .output()?;
-    assert!(output.status.success(), "{output:?}");
+    testutils::git::add_worktree(
+        git_repo.path(),
+        &workspace_root,
+        Some(&commit1_oid.to_string()),
+    );
     let (workspace, repo) = Workspace::init_workspace_with_existing_repo(
         &workspace_root,
         test_repo.repo_path(),
@@ -2851,16 +2848,16 @@ fn test_export_refs_worktree_head_changed() -> TestResult {
 
     let worktree_dir = test_workspace.env.root().join("git-wt");
     let git_workdir = git_repo.workdir().expect("git repo must have workdir");
-    let output = std::process::Command::new("git")
-        .args(["worktree", "add", "-b", "wt-branch"])
-        .arg(&worktree_dir)
-        .current_dir(git_workdir)
-        .output()?;
-    assert!(
-        output.status.success(),
-        "Failed to create worktree: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
+    testutils::git::add_worktree(git_workdir, &worktree_dir, Some("HEAD"));
+    let git_repo_wt = testutils::git::open(&worktree_dir);
+    git_repo_wt.reference(
+        "refs/heads/wt-branch",
+        commit1,
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "",
+    )?;
+    testutils::git::set_symbolic_reference(&git_repo_wt, "HEAD", "refs/heads/wt-branch");
+    assert!(!git_repo_wt.head()?.is_detached());
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -2879,7 +2876,6 @@ fn test_export_refs_worktree_head_changed() -> TestResult {
     assert!(stats.failed_bookmarks.is_empty());
     assert!(stats.failed_tags.is_empty());
 
-    let git_repo_wt = gix::open(&worktree_dir)?;
     assert!(git_repo_wt.head()?.is_detached());
     Ok(())
 }
@@ -2895,16 +2891,16 @@ fn test_export_refs_worktree_no_detach() -> TestResult {
 
     let worktree_dir = test_workspace.env.root().join("git-wt");
     let git_workdir = git_repo.workdir().expect("git repo must have workdir");
-    let output = std::process::Command::new("git")
-        .args(["worktree", "add", "-b", "wt-branch"])
-        .arg(&worktree_dir)
-        .current_dir(git_workdir)
-        .output()?;
-    assert!(
-        output.status.success(),
-        "Failed to create worktree: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
+    testutils::git::add_worktree(git_workdir, &worktree_dir, Some("HEAD"));
+    let git_repo_wt = testutils::git::open(&worktree_dir);
+    git_repo_wt.reference(
+        "refs/heads/wt-branch",
+        commit1,
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "",
+    )?;
+    testutils::git::set_symbolic_reference(&git_repo_wt, "HEAD", "refs/heads/wt-branch");
+    assert!(!git_repo_wt.head()?.is_detached());
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -2923,7 +2919,6 @@ fn test_export_refs_worktree_no_detach() -> TestResult {
     assert!(stats.failed_bookmarks.is_empty());
     assert!(stats.failed_tags.is_empty());
 
-    let git_repo_wt = gix::open(&worktree_dir)?;
     assert!(!git_repo_wt.head()?.is_detached());
     assert_eq!(
         git_repo_wt.head_name()?.unwrap().as_bstr(),
