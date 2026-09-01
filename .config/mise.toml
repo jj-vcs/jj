@@ -11,10 +11,6 @@ rust_version = "1.89"
 uv_version = "0.8.13"
 node_version = "24"
 
-[settings]
-# the default cmd doesn't support shell expansion, use PowerShell instead
-windows_default_inline_shell_args = "pwsh -Command"
-
 [tools]
 # We need cargo-binstall so that Mise would download "cargo:" tools instead of building them.
 "cargo-binstall" = "latest"
@@ -79,6 +75,8 @@ run = "cargo clippy --workspace --all-targets"
 description = "Check code for common misspellings"
 tools.uv = "{{vars.uv_version}}"
 run = "uv run codespell $(jj file list)"
+# Windows commands run through cmd, which cannot expand $(...); pwsh can.
+run_windows = 'pwsh -NoProfile -Command "uv run codespell $(jj file list)"'
 
 [tasks."check:format"]
 description = "Check the code format"
@@ -110,6 +108,7 @@ run = "cargo clippy --fix"
 description = "Fix common code misspellings"
 tools.uv = "{{vars.uv_version}}"
 run = "uv run codespell -w $(jj file list)"
+run_windows = 'pwsh -NoProfile -Command "uv run codespell -w $(jj file list)"'
 
 [tasks."fix:format"]
 description = "Format the code"
