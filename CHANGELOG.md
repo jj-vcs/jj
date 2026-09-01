@@ -33,6 +33,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   back to prompting the user if the heuristics are inconclusive. It can also run
   in non-interactive mode, which aborts if prompting would be needed.
 
+* `jj run` has gained the capability to control the sparse patterns inheritance
+  from the parent workspace with the `--sparse-patterns` option, analogous
+  to `jj workspace add`. Sparse patterns inheritance is evaluated per each
+  `jj run` invocation.
+
 ### Fixed bugs
 
 * `jj arrange` now scrolls the viewport to keep the selected commit visible
