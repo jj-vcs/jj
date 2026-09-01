@@ -1260,21 +1260,26 @@ fn test_git_init_colocate_in_git_worktree() {
     let worktree_path = test_env.env_root().join("worktree");
     git::add_worktree(&main_repo_path, &worktree_path, Some("HEAD"));
 
-    // Try to init colocated jj repo - should fail
+    // jj git init --colocate should emit a warning
     let output = test_env.run_jj_in(
         worktree_path.to_str().unwrap(),
         ["git", "init", "--colocate"],
     );
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Cannot create a colocated jj repo inside a Git worktree.
-    Hint: Run `jj git init` in the main Git repository instead, or use `jj workspace add` to create additional jj workspaces.
+    Done importing changes from the underlying Git repo.
+    Warning: Initialized a new colocated jj repo inside a Git worktree.
+    Hint: To add a workspace to an existing repository, use `jj workspace add` instead.
+    Initialized repo in "."
     [EOF]
-    [exit status: 1]
-    ");
+    "#);
 
-    // Verify no .jj directory was created
-    assert!(!worktree_path.join(".jj").exists());
+    let worktree_dir = test_env.work_dir("worktree");
+    insta::assert_snapshot!(get_colocation_status(&worktree_dir), @"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: e80a42cccd069007c7a2bb427ac7f1d10b408633
+    [EOF]
+    ");
 }
 
 #[test]
@@ -1299,7 +1304,7 @@ fn test_git_init_colocate_gitlink_not_worktree() -> TestResult {
     // Verify .git is a file (gitlink)
     assert!(work_dir.join(".git").is_file());
 
-    // jj git init --colocate should succeed (not be blocked as a worktree)
+    // jj git init --colocate should succeed
     let output = test_env.run_jj_in(work_dir.to_str().unwrap(), ["git", "init", "--colocate"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
