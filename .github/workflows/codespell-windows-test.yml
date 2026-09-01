@@ -33,7 +33,10 @@ jobs:
           # misspelling assembled at runtime so this file stays clean for codespell
           Set-Content -Path codespell-test.txt -Value ('This is cal' + 'ulated on Wind' + 'ows.')
           mise run check:codespell
-          if ($LASTEXITCODE -eq 0) { exit 1 }
+          $rc = $LASTEXITCODE
+          # reset exit code: GHA appends `exit $LASTEXITCODE` to pwsh steps
+          $LASTEXITCODE = 0
+          if ($rc -eq 0) { exit 1 }
 
       - name: fix:codespell fixes it
         shell: pwsh
