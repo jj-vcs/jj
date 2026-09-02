@@ -12,17 +12,40 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
-* `jj git import` in non-colocated repositories no longer imports commits from a
-  detached Git HEAD branch.
+### Deprecations
+
+### New features
+
+### Fixed bugs
+
+## [0.45.0] - 2026-09-02
+
+### Release highlights
+
+* A new `jj converge` command was added to help automatically resolve divergent
+  commits by combining them appropriately.
+
+### Breaking changes
 
 * `jj config {edit,set,unset} --user` now targets the first loaded user
   configuration file (e.g. `~/.config/jj/config.toml` or the first file in
   `conf.d/`) instead of prompting interactively when multiple files exist.
   Use `--file <PATH>` to target a specific config file.
 
+* `jj git import` in non-colocated repositories no longer imports commits from a
+  detached Git HEAD branch.
+
 ### Deprecations
 
+None
+
 ### New features
+
+* The new `jj converge` command attempts to automatically resolve divergence by
+  creating a new commit that replaces the divergent commits. It applies
+  heuristics to try to automatically come up with a good solution, and falls
+  back to prompting the user if the heuristics are inconclusive. It can also run
+  in non-interactive mode, which aborts if prompting would be needed.
 
 * `jj bisect` will now mention when it cannot unambiguously find the first bad
   revision due to skips in evaluation.
@@ -32,18 +55,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   jj workspace can have its own Git HEAD. Existing repositories are migrated
   automatically.
 
-* The new `jj converge` command attempts to automatically resolve divergence by
-  creating a new commit that replaces the divergent commits. It applies
-  heuristics to try to automatically come up with a good solution, and falls
-  back to prompting the user if the heuristics are inconclusive. It can also run
-  in non-interactive mode, which aborts if prompting would be needed.
-
 * `jj config {edit,set,unset}` now support a `--file <PATH>` option to
   target a specific configuration file (such as files inside a `conf.d/`
   directory or loaded via `--config-file`). This allows precise file targeting
   and avoids interactive prompts when multiple config files exist.
 
 ### Fixed bugs
+
+* [The default `immutable_heads()` set](docs/config.md#set-of-immutable-commits)
+  now includes `untracked_remote_tags()`.
 
 * `jj arrange` now scrolls the viewport to keep the selected commit visible
   when the commit stack is taller than the terminal.
@@ -52,9 +72,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The default pager flags now include `-K` (`--quit-on-intr`), so pressing
   Ctrl+C in `less` exits cleanly instead of leaving the terminal in a
   corrupted state (raw mode, visible escape sequences, broken input).
-
-* [The default `immutable_heads()` set](docs/config.md#set-of-immutable-commits)
-  now includes `untracked_remote_tags()`.
 
 * A side of a conflict whose contents end with a carriage return no longer loses
   that byte when the materialized conflict is parsed back, such as when a
@@ -78,6 +95,38 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   corrupted this way are not repaired by the fix.
   [#9711](https://github.com/jj-vcs/jj/issues/9711)
   [#8884](https://github.com/jj-vcs/jj/issues/8884)
+
+### Contributors
+
+Thanks to the people who made this release happen!
+
+* Aaron Bies (@slerpyyy)
+* aaronabbott (@aabmass)
+* Alexander Chen (@alexuser)
+* Austin Seipp (@thoughtpolice)
+* Baptiste Girardeau (@baptiste0928)
+* Caleb White (@calebdw)
+* Daniel Danner (@dnnr)
+* David Rieber (@drieber)
+* Gaëtan Lehmann (@glehmann)
+* Gasper Stukelj (@mirkomartn)
+* hexbinoct (@hexbinoct)
+* Joseph Lou (@josephlou5)
+* Keane Nguyen (@keanemind)
+* LOG (@logarithmone1128)
+* Martin von Zweigbergk (@martinvonz)
+* OlshaMB (@OlshaMB)
+* Philip Metzger (@PhilipMetzger)
+* Priyanka Mandloi
+* Remo Senekowitsch (@senekor)
+* Riccardo Mazzarini (@noib3)
+* Scott Sudharsan (@scott2000)
+* sofia (@badp)
+* Stephen Jennings (@jennings)
+* Vaghinak Vardanyan (@vaghinak-vardanyan)
+* Vincent Ging Ho Yim (@cenviity)
+* Wang Yuantao (@0WD0)
+* Yuya Nishihara (@yuja)
 
 ## [0.44.0] - 2026-08-05
 
@@ -5515,7 +5564,8 @@ No changes, only trying to get the automated build to work.
 
 Last release before this changelog started.
 
-[unreleased]: https://github.com/jj-vcs/jj/compare/v0.44.0...HEAD
+[unreleased]: https://github.com/jj-vcs/jj/compare/v0.45.0...HEAD
+[0.45.0]: https://github.com/jj-vcs/jj/compare/v0.44.0...v0.45.0
 [0.44.0]: https://github.com/jj-vcs/jj/compare/v0.43.0...v0.44.0
 [0.43.0]: https://github.com/jj-vcs/jj/compare/v0.42.0...v0.43.0
 [0.42.0]: https://github.com/jj-vcs/jj/compare/v0.41.0...v0.42.0
