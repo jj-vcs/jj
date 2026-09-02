@@ -79,6 +79,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   [#9711](https://github.com/jj-vcs/jj/issues/9711)
   [#8884](https://github.com/jj-vcs/jj/issues/8884)
 
+* Merging no longer silently drops content that both sides of the merge
+  contain. A recursive merge base is now reduced to a single virtual merge
+  base tree -- resolving what can be resolved and taking one side of whatever
+  remains, as Git's "resolve" strategy does when picking among several merge
+  bases -- instead of being flattened into the conflict unresolved, where the
+  content it carried canceled out the parents' copies of it. This affects
+  criss-cross histories, and merges whose base is itself conflicted.
+  [#6369](https://github.com/jj-vcs/jj/issues/6369)
+
 ## [0.44.0] - 2026-08-05
 
 ### Release highlights

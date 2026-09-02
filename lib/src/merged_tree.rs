@@ -52,6 +52,7 @@ use crate::matchers::Matcher;
 use crate::merge::Diff;
 use crate::merge::Merge;
 use crate::merge::MergeBuilder;
+use crate::merged_tree_builder::MergedTreeBuilder;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponent;
@@ -190,6 +191,30 @@ impl MergedTree {
             tree_ids: simplified,
             labels: simplified_labels,
         })
+    }
+
+    /// Collapses any remaining conflicts into a single resolved tree, keeping
+    /// the first side of each conflict that cannot be automatically resolved.
+    ///
+    /// This is lossy and order-dependent: the losing sides are discarded. It
+    /// is intended for constructing the virtual merge base of a recursive
+    /// merge, which must be a single tree; adding a conflicted base to the
+    /// outer merge terms instead would lose content that both sides of the
+    /// merge contain. Keeping the first side is comparable to git's "resolve"
+    /// strategy picking one of several merge bases. The choice of side only
+    /// affects which diffs the outer merge sees, not which content it can
+    /// keep: each side of the outer merge is still present as an add.
+    pub async fn collapse_conflicts(self) -> BackendResult<Self> {
+        let tree = self.resolve().await?;
+        if tree.tree_ids.is_resolved() {
+            return Ok(tree);
+        }
+        let conflicts: Vec<_> = tree.conflicts().collect();
+        let mut builder = MergedTreeBuilder::new(tree);
+        for (path, values) in conflicts {
+            builder.set_or_remove(path, Merge::resolved(values?.first().clone()));
+        }
+        builder.write_tree().await
     }
 
     /// An iterator over the conflicts in this tree, including subtrees.

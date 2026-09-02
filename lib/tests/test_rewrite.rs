@@ -18,6 +18,7 @@ use assert_matches::assert_matches;
 use itertools::Itertools as _;
 use jj_lib::backend::ChangeId;
 use jj_lib::commit::Commit;
+use jj_lib::commit::conflict_label_for_commits;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::matchers::FilesMatcher;
 use jj_lib::merge::Merge;
@@ -117,11 +118,27 @@ fn test_merge_criss_cross() -> TestResult {
         merge_commit_trees(tx.repo_mut(), &[commit_d.clone(), commit_e.clone()]).block_on()?;
     assert_tree_eq!(merged, tree_expected);
 
+    // D and E have two best common ancestors, B and C. They are merged and
+    // resolved into a single virtual merge base, so the unresolved merge has
+    // three sides rather than the five it would have if the base merge were
+    // flattened in unresolved.
+    let ancestor_ids = tx
+        .repo()
+        .index()
+        .common_ancestors(
+            slice::from_ref(commit_d.id()),
+            slice::from_ref(commit_e.id()),
+        )
+        .block_on()?;
+    let ancestor_commits: Vec<Commit> = ancestor_ids
+        .iter()
+        .map(|id| tx.repo().store().get_commit(id))
+        .try_collect()?;
+    assert_eq!(ancestor_commits.len(), 2, "expected a criss-cross history");
+    let tree_base = create_tree(repo, &[(path, "1\n2\n3C\n4\n5\n6\n7\n8B\n9\n")]);
     let tree_unresolved_expected = MergedTree::merge_no_resolve(Merge::from_vec(vec![
         (tree_d, commit_d.conflict_label()),
-        (tree_b, commit_b.conflict_label()),
-        (tree_a, commit_a.conflict_label()),
-        (tree_c, commit_c.conflict_label()),
+        (tree_base, conflict_label_for_commits(&ancestor_commits)),
         (tree_e, commit_e.conflict_label()),
     ]));
     let unresolved_merged =

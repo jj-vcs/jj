@@ -3124,3 +3124,43 @@ fn test_copy_diffstream_double_rename() -> TestResult {
     );
     Ok(())
 }
+
+#[test]
+fn test_collapse_conflicts() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    // The "auto" path is trivially resolvable because the first side is
+    // unchanged from the base, so the second side wins even though it isn't
+    // first. The "conflicted" path cannot be resolved automatically and keeps
+    // the first side.
+    let auto_path = repo_path("auto");
+    let conflicted_path = repo_path("conflicted");
+    let base_tree = create_single_tree(repo, &[(auto_path, "base"), (conflicted_path, "base")]);
+    let side1 = create_single_tree(repo, &[(auto_path, "base"), (conflicted_path, "side1")]);
+    let side2 = create_single_tree(repo, &[(auto_path, "side2"), (conflicted_path, "side2")]);
+    let merged_tree = MergedTree::new(
+        repo.store().clone(),
+        Merge::from_removes_adds(
+            vec![base_tree.id().clone()],
+            vec![side1.id().clone(), side2.id().clone()],
+        ),
+        ConflictLabels::from_vec(vec!["side 1".into(), "base".into(), "side 2".into()]),
+    );
+    assert!(merged_tree.has_conflict());
+
+    let collapsed = merged_tree.collapse_conflicts().block_on()?;
+    assert!(!collapsed.has_conflict());
+    // Automatically resolved: the side that differs from the base wins, even
+    // though it is not the first side.
+    assert_eq!(
+        collapsed.path_value(auto_path).block_on()?,
+        Merge::resolved(side2.path_value(auto_path).block_on()?),
+    );
+    // Not automatically resolvable: the first side of the merge survives.
+    assert_eq!(
+        collapsed.path_value(conflicted_path).block_on()?,
+        Merge::resolved(side1.path_value(conflicted_path).block_on()?),
+    );
+    Ok(())
+}
