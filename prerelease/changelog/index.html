@@ -7490,8 +7490,16 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h3 id="release-highlights">Release highlights<a class="headerlink" href="#release-highlights" title="Permanent link">&para;</a></h3>
 <h3 id="breaking-changes">Breaking changes<a class="headerlink" href="#breaking-changes" title="Permanent link">&para;</a></h3>
 <ul>
-<li><code>jj git import</code> in non-colocated repositories no longer imports commits from a
-  detached Git HEAD branch.</li>
+<li>
+<p><code>jj git import</code> in non-colocated repositories no longer imports commits from a
+  detached Git HEAD branch.</p>
+</li>
+<li>
+<p><code>jj config {edit,set,unset} --user</code> now targets the first loaded user
+  configuration file (e.g. <code>~/.config/jj/config.toml</code> or the first file in
+  <code>conf.d/</code>) instead of prompting interactively when multiple files exist.
+  Use <code>--file &lt;PATH&gt;</code> to target a specific config file.</p>
+</li>
 </ul>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
@@ -7512,6 +7520,12 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   heuristics to try to automatically come up with a good solution, and falls
   back to prompting the user if the heuristics are inconclusive. It can also run
   in non-interactive mode, which aborts if prompting would be needed.</p>
+</li>
+<li>
+<p><code>jj config {edit,set,unset}</code> now support a <code>--file &lt;PATH&gt;</code> option to
+  target a specific configuration file (such as files inside a <code>conf.d/</code>
+  directory or loaded via <code>--config-file</code>). This allows precise file targeting
+  and avoids interactive prompts when multiple config files exist.</p>
 </li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>

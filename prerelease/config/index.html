@@ -4241,6 +4241,8 @@
 <p>These are listed in the order they are loaded; the settings from earlier items
 in the list are overridden by the settings from later items if they disagree.
 Every type of config except for the built-in settings is optional.</p>
+<p>Individual config files can also be targeted with
+<code>jj config {edit,set,unset} --file &lt;PATH&gt;</code>.</p>
 <p>You can enable JSON Schema validation in your editor by adding a <code>#:schema</code>
 reference at the top of your TOML config files. See <a href="#json-schema-support">JSON Schema Support</a> for
 details.</p>
@@ -5960,7 +5962,10 @@ directory shown in the table below. The platform-specific location is
 recommended for better integration with platform services.</p>
 <p>The files in the <code>conf.d</code> directory are loaded in lexicographic order. This
 allows configs to be split across multiple files and combines well with
-<a href="#conditional-variables">Conditional Variables</a>.</p>
+<a href="#conditional-variables">Conditional Variables</a>. Modifying user configuration
+with <code>jj config {edit,set,unset} --user</code> targets the primary user config file
+(or the first loaded file in <code>conf.d/</code>). Individual files in <code>conf.d/</code> can be
+targeted with <code>--file &lt;PATH&gt;</code>.</p>
 <table>
 <thead>
 <tr>
@@ -6010,6 +6015,8 @@ the following precedence order (with later configs overriding earlier ones).</p>
 </ul>
 <p>These configs can be overridden by <a href="#user-config-files">the user config files</a>, and will be disabled
 in favor of the <code>JJ_CONFIG</code> environment variable if it is set.</p>
+<p>Existing system config files loaded by <code>jj</code> can be edited using
+<code>jj config {edit,set,unset} --file &lt;PATH&gt;</code>.</p>
 <h3 id="json-schema-support">JSON Schema Support<a class="headerlink" href="#json-schema-support" title="Permanent link">&para;</a></h3>
 <p>Many popular editors support TOML file syntax highlighting and validation. To
 enable schema validation in your editor, add this line at the top of your TOML
@@ -6128,6 +6135,12 @@ The behavior of conditions are the same as when using <code>[[--scope]]</code> t
 
 <span class="k">[aliases]</span>
 <span class="n">wip</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;log&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;-r&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;work&quot;</span><span class="p">]</span>
+</code></pre></div>
+<p>You can modify specific configuration files such as those in
+<code>conf.d/</code> directly using the <code>--file</code> option (the file will be created if it
+doesn't already exist):</p>
+<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--file<span class="w"> </span>~/.config/jj/conf.d/work.toml<span class="w"> </span>user.email<span class="w"> </span><span class="s2">&quot;YOUR_WORK_EMAIL@workplace.com&quot;</span>
+jj<span class="w"> </span>config<span class="w"> </span>edit<span class="w"> </span>--file<span class="w"> </span>~/.config/jj/conf.d/work.toml
 </code></pre></div>
 <h4 id="available-condition-keys">Available condition keys<a class="headerlink" href="#available-condition-keys" title="Permanent link">&para;</a></h4>
 <ul>

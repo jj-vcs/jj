@@ -8962,13 +8962,19 @@ revision as "good").</p>
 <h2 id="jj-config-edit"><code>jj config edit</code><a class="headerlink" href="#jj-config-edit" title="Permanent link">&para;</a></h2>
 <p>Start an editor on a jj config file.</p>
 <p>Creates the file if it doesn't already exist regardless of what the editor does.</p>
-<p><strong>Usage:</strong> <code>jj config edit &lt;--user|--repo|--workspace&gt;</code></p>
+<p><strong>Usage:</strong> <code>jj config edit &lt;--user|--repo|--workspace|--file &lt;PATH&gt;&gt;</code></p>
 <p><strong>Command Alias:</strong> <code>e</code></p>
 <h6 id="options_14"><strong>Options:</strong><a class="headerlink" href="#options_14" title="Permanent link">&para;</a></h6>
 <ul>
 <li><code>--user</code> — Target the user-level config</li>
 <li><code>--repo</code> — Target the repo-level config</li>
 <li><code>--workspace</code> — Target the workspace-level config</li>
+<li>
+<p><code>--file &lt;PATH&gt;</code> — Target the config file specified by the given path</p>
+<p>The path must point to a valid configuration file location recognized by Jujutsu (such as a user/repo/workspace config, a file inside a <code>conf.d/</code> directory, or any file loaded via system configs, <code>$JJ_CONFIG</code>, or <code>--config-file</code>).</p>
+<p>Unlike the global <code>--config-file</code> option (which loads an extra config file when running commands), this option specifies which file to inspect, edit, or modify on disk.</p>
+<p>If the file does not exist, commands like <code>set</code> and <code>edit</code> will create it and any missing parent directories.</p>
+</li>
 </ul>
 <h2 id="jj-config-gc"><code>jj config gc</code><a class="headerlink" href="#jj-config-gc" title="Permanent link">&para;</a></h2>
 <p>Find and optionally delete repo-level config directories whose repo path no longer exists</p>
@@ -9033,7 +9039,7 @@ Martin von Zweigbergk</p>
 </ul>
 <h2 id="jj-config-set"><code>jj config set</code><a class="headerlink" href="#jj-config-set" title="Permanent link">&para;</a></h2>
 <p>Update a config file to set the given option to a given value</p>
-<p><strong>Usage:</strong> <code>jj config set &lt;--user|--repo|--workspace&gt; &lt;NAME&gt; &lt;VALUE&gt;</code></p>
+<p><strong>Usage:</strong> <code>jj config set &lt;--user|--repo|--workspace|--file &lt;PATH&gt;&gt; &lt;NAME&gt; &lt;VALUE&gt;</code></p>
 <p><strong>Command Alias:</strong> <code>s</code></p>
 <h6 id="arguments_17"><strong>Arguments:</strong><a class="headerlink" href="#arguments_17" title="Permanent link">&para;</a></h6>
 <ul>
@@ -9049,10 +9055,16 @@ Martin von Zweigbergk</p>
 <li><code>--user</code> — Target the user-level config</li>
 <li><code>--repo</code> — Target the repo-level config</li>
 <li><code>--workspace</code> — Target the workspace-level config</li>
+<li>
+<p><code>--file &lt;PATH&gt;</code> — Target the config file specified by the given path</p>
+<p>The path must point to a valid configuration file location recognized by Jujutsu (such as a user/repo/workspace config, a file inside a <code>conf.d/</code> directory, or any file loaded via system configs, <code>$JJ_CONFIG</code>, or <code>--config-file</code>).</p>
+<p>Unlike the global <code>--config-file</code> option (which loads an extra config file when running commands), this option specifies which file to inspect, edit, or modify on disk.</p>
+<p>If the file does not exist, commands like <code>set</code> and <code>edit</code> will create it and any missing parent directories.</p>
+</li>
 </ul>
 <h2 id="jj-config-unset"><code>jj config unset</code><a class="headerlink" href="#jj-config-unset" title="Permanent link">&para;</a></h2>
 <p>Update a config file to unset the given option</p>
-<p><strong>Usage:</strong> <code>jj config unset &lt;--user|--repo|--workspace&gt; &lt;NAME&gt;</code></p>
+<p><strong>Usage:</strong> <code>jj config unset &lt;--user|--repo|--workspace|--file &lt;PATH&gt;&gt; &lt;NAME&gt;</code></p>
 <p><strong>Command Alias:</strong> <code>u</code></p>
 <h6 id="arguments_18"><strong>Arguments:</strong><a class="headerlink" href="#arguments_18" title="Permanent link">&para;</a></h6>
 <ul>
@@ -9063,6 +9075,12 @@ Martin von Zweigbergk</p>
 <li><code>--user</code> — Target the user-level config</li>
 <li><code>--repo</code> — Target the repo-level config</li>
 <li><code>--workspace</code> — Target the workspace-level config</li>
+<li>
+<p><code>--file &lt;PATH&gt;</code> — Target the config file specified by the given path</p>
+<p>The path must point to a valid configuration file location recognized by Jujutsu (such as a user/repo/workspace config, a file inside a <code>conf.d/</code> directory, or any file loaded via system configs, <code>$JJ_CONFIG</code>, or <code>--config-file</code>).</p>
+<p>Unlike the global <code>--config-file</code> option (which loads an extra config file when running commands), this option specifies which file to inspect, edit, or modify on disk.</p>
+<p>If the file does not exist, commands like <code>set</code> and <code>edit</code> will create it and any missing parent directories.</p>
+</li>
 </ul>
 <h2 id="jj-converge"><code>jj converge</code><a class="headerlink" href="#jj-converge" title="Permanent link">&para;</a></h2>
 <p>Converge divergent changes</p>
