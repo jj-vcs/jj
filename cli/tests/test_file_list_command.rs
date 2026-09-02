@@ -108,3 +108,33 @@ fn test_file_list_normal_value() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_file_list_conflicts() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("conflict", "base");
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("conflict", "side1");
+    work_dir
+        .run_jj(["file", "chmod", "x", "conflict"])
+        .success();
+    work_dir.run_jj(["new", "@-"]).success();
+    work_dir.write_file("conflict", "side2");
+    work_dir.run_jj(["new", "visible_heads()"]).success();
+
+    let template = indoc! {r#"
+        separate(" ",
+          path,
+          "removed=[" ++ removed_values.map(|tv| separate(":", tv.file_type(), tv.executable(), tv.object_id())).join(",") ++ "]",
+          "added=[" ++ added_values.map(|tv| separate(":", tv.file_type(), tv.executable(), tv.object_id())).join(",") ++ "]",
+        ) ++ "\n"
+    "#};
+    let output = work_dir.run_jj(["file", "list", "-T", template]);
+    insta::assert_snapshot!(output, @"
+    conflict removed=[file:false:8681f8b8f32615a16703053bc1eaffb3e5e720a5] added=[file:false:3b7ef6b691e8dd4209e1d546c6385a509d307879,file:true:8641a91d3bbcd7ba221c4a586ee6eb41ee46dca2]
+    [EOF]
+    ");
+}

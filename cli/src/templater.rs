@@ -461,6 +461,14 @@ impl<T: NoTemplateBooleanCast> OptionalTemplateValue for T {
     }
 }
 
+impl<T> OptionalTemplateValue for Option<T> {
+    type Optional = Self;
+
+    fn from_option(value: Option<Self>) -> Self::Optional {
+        value.unwrap_or_default()
+    }
+}
+
 impl OptionalTemplateValue for BString {
     type Optional = Self;
 

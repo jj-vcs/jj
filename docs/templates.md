@@ -805,6 +805,10 @@ This type cannot be printed. The following methods are defined.
 * `.normal_value() -> Option<TreeValue>`: The resolved value of the entry, or none
   if the entry is absent or conflicted. Here, "normal" means resolved, not just a
   regular file: symlinks, trees, and Git submodules are also included.
+* `.removed_values() -> List<Option<TreeValue>>`: Negative (`removes`) terms of
+  the entry if conflicted. Absent terms are `none`.
+* `.added_values() -> List<Option<TreeValue>>`: Positive (`adds`) terms of the
+  entry. The list usually contains one resolved value. Absent terms are `none`.
 * `.conflict() -> Boolean`: True if the entry is a merge conflict.
 * `.conflict_side_count() -> Integer`: Number of sides in the merge conflict (1 if not
   conflicted, 2 or more for multi-way merges).
@@ -818,7 +822,13 @@ _Conversion: `Boolean`: no, `Serialize`: no, `Template`: yes_
 
 A file, symlink, tree, or Git submodule value. Its default formatting is
 its full hexadecimal object ID. For a Git submodule, this is the recorded commit
-ID. No methods are defined.
+ID. The following methods are defined.
+
+* `.object_id() -> String`: Full hexadecimal object ID for files (`file_id`),
+  symlinks (`symlink_id`), trees (`tree_id`), or Git submodules (`commit_id`).
+* `.file_type() -> String`: One of `"file"`, `"symlink"`, `"tree"`, or
+  `"git-submodule"`.
+* `.executable() -> Boolean`: True if the value is an executable file.
 
 ### `WorkspaceRef` type
 
