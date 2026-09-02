@@ -163,6 +163,7 @@ use crate::command_error::config_error_with_message;
 use crate::command_error::handle_command_result;
 use crate::command_error::internal_error;
 use crate::command_error::internal_error_with_message;
+use crate::command_error::maybe_add_partial_clone_hint;
 use crate::command_error::print_error_sources;
 use crate::command_error::print_parse_diagnostics;
 use crate::command_error::user_error;
@@ -3093,10 +3094,10 @@ async fn update_stale_working_copy(
         .check_out(new_commit)
         .await
         .map_err(|err| {
-            internal_error_with_message(
+            maybe_add_partial_clone_hint(internal_error_with_message(
                 format!("Failed to check out commit {}", new_commit.id().hex()),
                 err,
-            )
+            ))
         })?;
     locked_ws.finish(op_id).await?;
 
@@ -3422,10 +3423,10 @@ pub async fn update_working_copy(
         .check_out(repo.op_id().clone(), old_tree.as_ref(), new_commit)
         .await
         .map_err(|err| {
-            internal_error_with_message(
+            maybe_add_partial_clone_hint(internal_error_with_message(
                 format!("Failed to check out commit {}", new_commit.id().hex()),
                 err,
-            )
+            ))
         })?;
     Ok(stats)
 }
