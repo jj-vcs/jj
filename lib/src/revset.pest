@@ -111,10 +111,11 @@ primary = {
 neighbors_expression = _{ primary ~ (parents_op | children_op | compat_parents_op)* }
 
 range_expression = _{
-  neighbors_expression ~ range_ops ~ neighbors_expression
-  | neighbors_expression ~ range_post_ops
+  // The alternatives starting with neighbors_expression are factored so that it
+  // is parsed once. Spelling them out separately made a failed match re-parse
+  // the whole operand, which is exponential in the nesting depth.
+  neighbors_expression ~ (range_ops ~ neighbors_expression | range_post_ops)?
   | range_pre_ops ~ neighbors_expression
-  | neighbors_expression
   | range_all_ops
 }
 
