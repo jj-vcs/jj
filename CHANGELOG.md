@@ -55,6 +55,11 @@ and this project adheres to
 * `jj config gc` now also cleans up workspace configs whose paths no longer
   exist.
 
+* The `TreeEntry` template type now has `.removed_values() -> List<Option<TreeValue>>`
+  and `.added_values() -> List<Option<TreeValue>>` methods, and `TreeValue` now
+  exposes `.object_id()`, `.file_type()`, and `.executable()` methods for
+  inspecting each side of a (possibly conflicted) tree entry.
+
 ### Fixed bugs
 
 * Date patterns such as `after:"2024-03-10 03:30"` are now resolved with the
