@@ -648,6 +648,21 @@ This type cannot be printed. The following methods are defined.
 * `.file_type() -> String`: One of `"file"`, `"symlink"`, `"tree"`,
   `"git-submodule"`, or `"conflict"`.
 * `.executable() -> Boolean`: True if the entry is an executable file.
+* `.tree_value() -> List<TreeValue>`: Resolved or conflicted backend values for
+  this entry.
+
+### `TreeValue` type
+
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
+
+This type cannot be printed. The following methods are defined.
+
+* `.object_id() -> Option<String>`: Object ID for files (`file_id`), symlinks
+  (`symlink_id`), or Git submodules (`commit_id`). Absent for trees.
+* `.file_type() -> String`: One of `"file"`, `"symlink"`, `"tree"`, or
+  `"git-submodule"`.
+* `.executable() -> Option<Boolean>`: True if the file is executable. Absent
+  for non-files.
 
 ### `WorkspaceRef` type
 

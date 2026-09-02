@@ -24,6 +24,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   jj workspace can have its own Git HEAD. Existing repositories are migrated
   automatically.
 
+* The `TreeEntry` template type has a new `.tree_value() -> List<TreeValue>`
+  method, exposing the object id, file type, and executable bit of each side
+  of a (possibly conflicted) tree entry.
+
 ### Fixed bugs
 
 * A side of a conflict whose contents end with a carriage return no longer loses

@@ -225,7 +225,9 @@ pub enum CoreTemplatePropertyKind<'a> {
     ByteStringList(BoxedTemplateProperty<'a, Vec<BString>>),
     String(BoxedTemplateProperty<'a, String>),
     StringList(BoxedTemplateProperty<'a, Vec<String>>),
+    StringOpt(BoxedTemplateProperty<'a, Option<String>>),
     Boolean(BoxedTemplateProperty<'a, bool>),
+    BooleanOpt(BoxedTemplateProperty<'a, Option<bool>>),
     Integer(BoxedTemplateProperty<'a, i64>),
     IntegerOpt(BoxedTemplateProperty<'a, Option<i64>>),
     ConfigValue(BoxedTemplateProperty<'a, ConfigValue>),
@@ -265,7 +267,9 @@ macro_rules! impl_core_property_wrappers {
             ByteStringList(Vec<bstr::BString>),
             String(String),
             StringList(Vec<String>),
+            StringOpt(Option<String>),
             Boolean(bool),
+            BooleanOpt(Option<bool>),
             Integer(i64),
             IntegerOpt(Option<i64>),
             ConfigValue(jj_lib::config::ConfigValue),
@@ -305,7 +309,9 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::ByteStringList(_) => "List<ByteString>",
             Self::String(_) => "String",
             Self::StringList(_) => "List<String>",
+            Self::StringOpt(_) => "Option<String>",
             Self::Boolean(_) => "Boolean",
+            Self::BooleanOpt(_) => "Option<Boolean>",
             Self::Integer(_) => "Integer",
             Self::IntegerOpt(_) => "Option<Integer>",
             Self::ConfigValue(_) => "ConfigValue",
@@ -344,7 +350,11 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::ByteStringList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
             Self::String(property) => Ok(property.map(|s| !s.is_empty()).into_dyn()),
             Self::StringList(property) => Ok(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::StringOpt(property) => Ok(property
+                .map(|opt| opt.map_or(false, |s| !s.is_empty()))
+                .into_dyn()),
             Self::Boolean(property) => Ok(property),
+            Self::BooleanOpt(property) => Ok(property.map(|opt| opt.unwrap_or(false)).into_dyn()),
             Self::Integer(_) => Err(self),
             Self::IntegerOpt(property) => Ok(property.map(|opt| opt.is_some()).into_dyn()),
             Self::ConfigValue(_) => Err(self),
@@ -387,7 +397,9 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::ByteStringList(property) => Some(property.into_serialize()),
             Self::String(property) => Some(property.into_serialize()),
             Self::StringList(property) => Some(property.into_serialize()),
+            Self::StringOpt(property) => Some(property.into_serialize()),
             Self::Boolean(property) => Some(property.into_serialize()),
+            Self::BooleanOpt(property) => Some(property.into_serialize()),
             Self::Integer(property) => Some(property.into_serialize()),
             Self::IntegerOpt(property) => Some(property.into_serialize()),
             Self::ConfigValue(property) => {
@@ -418,7 +430,9 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::ByteStringList(property) => Some(property.into_template()),
             Self::String(property) => Some(property.into_template()),
             Self::StringList(property) => Some(property.into_template()),
+            Self::StringOpt(property) => Some(property.into_template()),
             Self::Boolean(property) => Some(property.into_template()),
+            Self::BooleanOpt(property) => Some(property.into_template()),
             Self::Integer(property) => Some(property.into_template()),
             Self::IntegerOpt(property) => Some(property.into_template()),
             Self::ConfigValue(property) => Some(property.into_template()),
@@ -479,7 +493,9 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::ByteStringList(_), _) => None,
             (Self::String(_), _) => None,
             (Self::StringList(_), _) => None,
+            (Self::StringOpt(_), _) => None,
             (Self::Boolean(_), _) => None,
+            (Self::BooleanOpt(_), _) => None,
             (Self::Integer(_), _) => None,
             (Self::IntegerOpt(_), _) => None,
             (Self::ConfigValue(_), _) => None,
@@ -516,7 +532,9 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::ByteStringList(_), _) => None,
             (Self::String(_), _) => None,
             (Self::StringList(_), _) => None,
+            (Self::StringOpt(_), _) => None,
             (Self::Boolean(_), _) => None,
+            (Self::BooleanOpt(_), _) => None,
             (Self::Integer(_), _) => None,
             (Self::IntegerOpt(_), _) => None,
             (Self::ConfigValue(_), _) => None,
@@ -748,10 +766,24 @@ where
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(language, diagnostics, build_ctx, property, function)
             }
+            CoreTemplatePropertyKind::StringOpt(property) => {
+                let type_name = "String";
+                let table = &self.string_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                let inner_property = property.try_unwrap(type_name).into_dyn();
+                build(language, diagnostics, build_ctx, inner_property, function)
+            }
             CoreTemplatePropertyKind::Boolean(property) => {
                 let table = &self.boolean_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(language, diagnostics, build_ctx, property, function)
+            }
+            CoreTemplatePropertyKind::BooleanOpt(property) => {
+                let type_name = "Boolean";
+                let table = &self.boolean_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                let inner_property = property.try_unwrap(type_name).into_dyn();
+                build(language, diagnostics, build_ctx, inner_property, function)
             }
             CoreTemplatePropertyKind::Integer(property) => {
                 let table = &self.integer_methods;

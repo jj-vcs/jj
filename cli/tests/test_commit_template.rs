@@ -1845,7 +1845,6 @@ fn test_log_git_web_url() {
         ])
         .success();
 
-    // Test default remote, explicit remote, and nonexistent remote
     let output = work_dir.run_jj([
         "log",
         "--no-graph",
@@ -1854,4 +1853,143 @@ fn test_log_git_web_url() {
         r#"git_web_url() ++ " " ++ git_web_url(remote="upstream") ++ " " ++ git_web_url(remote="nonexistent")"#,
     ]);
     insta::assert_snapshot!(output, @"https://github.com/owner/repo https://github.com/upstream/repo [EOF]");
+}
+
+#[test]
+fn test_tree_value_file_no_conflicts() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("normal_file.txt", "contents1\n");
+    work_dir.write_file("exec_file.sh", "contents2\n");
+    work_dir
+        .run_jj(["file", "chmod", "x", "exec_file.sh"])
+        .success();
+    work_dir.run_jj(["commit", "-m", "add files"]).success();
+
+    let template = indoc! {r#"
+        self.diff().files().map(|e|
+            e.path() ++ ": " ++ e.target().tree_value().map(|tv| separate(" ",
+                "type=" ++ tv.file_type(),
+                "exec=" ++ tv.executable(),
+                "has_id=" ++ if(tv.object_id(), "true", "false"),
+            )).join("; ")
+        ).join("\n") ++ "\n"
+    "#};
+    let output = work_dir.run_jj(["log", "-r", "@-", "-T", template, "--no-graph"]);
+    insta::assert_snapshot!(output, @"
+    exec_file.sh: type=file exec=true has_id=true
+    normal_file.txt: type=file exec=false has_id=true
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_tree_value_file_with_conflicts_executable() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Base commit
+    work_dir.write_file("conflict.txt", "base\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "base"])
+        .success();
+    work_dir.run_jj(["commit", "-m", "base"]).success();
+
+    // Side 1: modify content & set executable bit
+    work_dir.write_file("conflict.txt", "side_1\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "side_1"])
+        .success();
+    work_dir
+        .run_jj(["file", "chmod", "x", "conflict.txt"])
+        .success();
+    work_dir.run_jj(["commit", "-m", "side_1"]).success();
+
+    // Side 2: modify content without executable bit
+    work_dir.run_jj(["new", "base", "-m", "side_2"]).success();
+    work_dir.write_file("conflict.txt", "side_2\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "side_2"])
+        .success();
+    work_dir.run_jj(["commit", "-m", "side_2"]).success();
+
+    // Merge sides to create conflict
+    work_dir.run_jj(["new", "side_1", "side_2"]).success();
+
+    let template = indoc! {r#"
+        self.conflicted_files().map(|e|
+            e.path() ++ ":\n" ++ e.tree_value().map(|tv| separate(" ",
+                "  type=" ++ tv.file_type(),
+                "exec=" ++ if(tv.executable(), "exec", "noexec"),
+                "has_id=" ++ if(tv.object_id(), "yes", "no"),
+            )).join("\n")
+        ).join("\n") ++ "\n"
+    "#};
+    let output = work_dir.run_jj(["log", "-r", "@", "-T", template, "--no-graph"]);
+    insta::assert_snapshot!(output, @"
+    conflict.txt:
+      type=file exec=exec has_id=yes
+      type=file exec=noexec has_id=yes
+      type=file exec=noexec has_id=yes
+    [EOF]
+    ");
+}
+
+#[cfg(unix)]
+#[test]
+fn test_tree_value_symlink() -> TestResult {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    std::os::unix::fs::symlink("target.txt", work_dir.root().join("symlink.txt"))?;
+    work_dir.run_jj(["commit", "-m", "add symlink"]).success();
+
+    let template = indoc! {r#"
+        self.diff().files().map(|e|
+            e.path() ++ ": " ++ e.target().tree_value().map(|tv| separate(" ",
+                "type=" ++ tv.file_type(),
+                "exec=" ++ tv.executable(),
+                "has_id=" ++ if(tv.object_id(), "yes", "no"),
+            )).join("; ")
+        ).join("\n") ++ "\n"
+    "#};
+    let output = work_dir.run_jj(["log", "-r", "@-", "-T", template, "--no-graph"]);
+    insta::assert_snapshot!(output, @"
+    symlink.txt: type=symlink exec= has_id=yes
+    [EOF]
+    ");
+    Ok(())
+}
+
+#[test]
+fn test_tree_value_tree() {
+    use jj_cli::commit_templater::TreeValue;
+    use jj_lib::backend::TreeId;
+    use jj_lib::backend::TreeValue as BackendTreeValue;
+
+    let tree_id = TreeId::from_hex("0000000000000000000000000000000000000000");
+    let tree_val = TreeValue(BackendTreeValue::Tree(tree_id));
+
+    assert_eq!(tree_val.file_type(), "tree");
+    assert_eq!(tree_val.object_id(), None);
+    assert_eq!(tree_val.executable(), None);
+}
+
+#[test]
+fn test_tree_value_git_submodule() {
+    use jj_cli::commit_templater::TreeValue;
+    use jj_lib::backend::CommitId;
+    use jj_lib::backend::TreeValue as BackendTreeValue;
+
+    let commit_hex = "1111111111111111111111111111111111111111";
+    let commit_id = CommitId::from_hex(commit_hex);
+    let sub_val = TreeValue(BackendTreeValue::GitSubmodule(commit_id));
+
+    assert_eq!(sub_val.file_type(), "git-submodule");
+    assert_eq!(sub_val.object_id(), Some(commit_hex.to_string()));
+    assert_eq!(sub_val.executable(), None);
 }
