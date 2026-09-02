@@ -87,16 +87,27 @@ pub mod watchman {
     use std::path::PathBuf;
 
     use itertools::Itertools as _;
+    use serde::Deserialize;
+    use serde::Serialize;
     use thiserror::Error;
     use tracing::info;
     use tracing::instrument;
+    use tracing::warn;
     use watchman_client::expr;
     use watchman_client::prelude::Clock as InnerClock;
     use watchman_client::prelude::ClockSpec;
     use watchman_client::prelude::NameOnly;
+    use watchman_client::prelude::QueryFieldList as _;
+    use watchman_client::prelude::QueryRequest;
     use watchman_client::prelude::QueryRequestCommon;
     use watchman_client::prelude::QueryResult;
+    use watchman_client::prelude::TriggerCommand;
+    use watchman_client::prelude::TriggerDelCommand;
+    use watchman_client::prelude::TriggerDelResponse;
+    use watchman_client::prelude::TriggerListCommand;
+    use watchman_client::prelude::TriggerListResponse;
     use watchman_client::prelude::TriggerRequest;
+    use watchman_client::prelude::TriggerResponse;
 
     /// Represents an instance in time from the perspective of the filesystem
     /// monitor.
@@ -158,6 +169,9 @@ pub mod watchman {
         #[error("Watchman failed to resolve the working copy root path")]
         ResolveRootError(#[source] watchman_client::Error),
 
+        #[error("Watchman failed to create a watch of the working copy root path")]
+        CreateWatchError(#[source] watchman_client::Error),
+
         #[error("Failed to query Watchman")]
         WatchmanQueryError(#[source] watchman_client::Error),
 
@@ -168,7 +182,12 @@ pub mod watchman {
     /// Handle to the underlying Watchman instance.
     pub struct Fsmonitor {
         client: watchman_client::Client,
-        resolved_root: watchman_client::ResolvedRoot,
+        /// Root directory of the Watchman watch that queries are issued
+        /// against.
+        watch_root: PathBuf,
+        /// Path of the working copy root relative to `watch_root`, or `None`
+        /// if the working copy root is the watch root itself.
+        relative_path: Option<PathBuf>,
     }
 
     impl Fsmonitor {
@@ -188,15 +207,15 @@ pub mod watchman {
                 .await
                 .map_err(Error::WatchmanConnectError)?;
             let working_copy_root = watchman_client::CanonicalPath::canonicalize(working_copy_path)
-                .map_err(Error::CanonicalizeRootError)?;
-            let resolved_root = client
-                .resolve_root(working_copy_root)
-                .await
-                .map_err(Error::ResolveRootError)?;
+                .map_err(Error::CanonicalizeRootError)?
+                .into_path_buf();
+            let (watch_root, relative_path) =
+                resolve_watch_root(&client, working_copy_root).await?;
 
             let monitor = Self {
                 client,
-                resolved_root,
+                watch_root,
+                relative_path,
             };
 
             // Registering the trigger causes an unconditional evaluation of the query, so
@@ -234,14 +253,17 @@ pub mod watchman {
                 debug: _,
             }: QueryResult<NameOnly> = self
                 .client
-                .query(
-                    &self.resolved_root,
+                .generic_request(QueryRequest(
+                    "query",
+                    self.watch_root.clone(),
                     QueryRequestCommon {
                         since: previous_clock.map(|Clock(clock)| clock),
                         expression: Some(self.build_exclude_expr()),
+                        relative_root: self.relative_path.clone(),
+                        fields: NameOnly::field_list(),
                         ..Default::default()
                     },
-                )
+                ))
                 .await
                 .map_err(Error::WatchmanQueryError)?;
 
@@ -266,11 +288,12 @@ pub mod watchman {
         #[instrument(skip(self))]
         pub async fn is_trigger_registered(&self) -> Result<bool, Error> {
             info!("Checking for an existing Watchman trigger...");
-            Ok(self
+            let response: TriggerListResponse = self
                 .client
-                .list_triggers(&self.resolved_root)
+                .generic_request(TriggerListCommand("trigger-list", self.watch_root.clone()))
                 .await
-                .map_err(Error::WatchmanTriggerError)?
+                .map_err(Error::WatchmanTriggerError)?;
+            Ok(response
                 .triggers
                 .iter()
                 .any(|t| t.name == "jj-background-monitor"))
@@ -282,10 +305,14 @@ pub mod watchman {
             info!("Registering Watchman trigger...");
             let null = if cfg!(windows) { ">NUL" } else { ">/dev/null" };
             self.client
-                .register_trigger(
-                    &self.resolved_root,
+                .generic_request::<_, TriggerResponse>(TriggerCommand(
+                    "trigger",
+                    self.watch_root.clone(),
                     TriggerRequest {
                         name: "jj-background-monitor".to_string(),
+                        // Evaluate the trigger (and run the command) relative
+                        // to the working copy, not the enclosing watch root.
+                        relative_root: self.relative_path.clone(),
                         command: vec![
                             "jj".to_string(),
                             "--quiet".to_string(),
@@ -297,7 +324,7 @@ pub mod watchman {
                         stdout: Some(null.into()),
                         ..Default::default()
                     },
-                )
+                ))
                 .await
                 .map_err(Error::WatchmanTriggerError)?;
             Ok(())
@@ -308,7 +335,11 @@ pub mod watchman {
         async fn unregister_trigger(&self) -> Result<(), Error> {
             info!("Unregistering Watchman trigger...");
             self.client
-                .remove_trigger(&self.resolved_root, "jj-background-monitor")
+                .generic_request::<_, TriggerDelResponse>(TriggerDelCommand(
+                    "trigger-del",
+                    self.watch_root.clone(),
+                    "jj-background-monitor".to_string(),
+                ))
                 .await
                 .map_err(Error::WatchmanTriggerError)?;
             Ok(())
@@ -335,5 +366,130 @@ pub mod watchman {
             .collect();
             expr::Expr::Not(Box::new(expr::Expr::Any(excludes)))
         }
+    }
+
+    /// The Watchman `watch` command request, which creates a watch rooted
+    /// exactly at the given directory. `watchman_client` only implements
+    /// `watch-project`, which prefers reusing a watch of an enclosing
+    /// directory.
+    #[derive(Debug, Serialize)]
+    struct WatchRequest(&'static str, PathBuf);
+
+    /// The Watchman `watch` command response.
+    #[derive(Debug, Deserialize)]
+    #[expect(dead_code)]
+    struct WatchResponse {
+        version: String,
+        watch: PathBuf,
+    }
+
+    /// Choose the Watchman watch to issue queries against for the working
+    /// copy at `working_copy_root`, creating one if needed. Returns the watch
+    /// root and the path of the working copy root relative to it (`None` if
+    /// the working copy root is the watch root itself).
+    async fn resolve_watch_root(
+        client: &watchman_client::Client,
+        working_copy_root: PathBuf,
+    ) -> Result<(PathBuf, Option<PathBuf>), Error> {
+        // Fast path: if a watch rooted exactly at the working copy root
+        // already exists (e.g. created by an earlier run of this function),
+        // use it directly. `resolve_root` (`watch-project`) prefers a watch
+        // of an enclosing directory over an exact match, and probing whether
+        // the enclosing watch can actually see the working copy costs a query
+        // against the (potentially huge) enclosing root on every snapshot.
+        let watch_exists = client
+            .watch_list()
+            .await
+            .map_err(Error::WatchmanQueryError)?
+            .roots
+            .contains(&working_copy_root);
+        if watch_exists {
+            return Ok((working_copy_root, None));
+        }
+
+        let resolved_root = client
+            .resolve_root(watchman_client::CanonicalPath::with_canonicalized_path(
+                working_copy_root,
+            ))
+            .await
+            .map_err(Error::ResolveRootError)?;
+        let Some(relative_path) = resolved_root.project_relative_path() else {
+            return Ok((resolved_root.path(), None));
+        };
+
+        // `resolve_root` reuses a watch of an enclosing directory if one
+        // exists. Such a watch may be unable to see the working copy at all
+        // (e.g. because the working copy is inside a directory listed in the
+        // enclosing root's `ignore_dirs` Watchman configuration). Watchman
+        // answers queries about an invisible subtree with an empty file list
+        // and a valid clock, so every snapshot would silently report no
+        // changes. Verify that the watch can see the working copy, and create
+        // a dedicated watch otherwise.
+        let watch_root = resolved_root.project_root();
+        if is_path_visible(client, watch_root, relative_path).await? {
+            return Ok((watch_root.to_owned(), Some(relative_path.to_owned())));
+        }
+
+        let working_copy_root = resolved_root.path();
+        warn!(
+            watch = %watch_root.display(),
+            working_copy = %working_copy_root.display(),
+            "Existing Watchman watch of an enclosing directory cannot see the \
+             working copy (is the working copy inside one of the watch's \
+             `ignore_dirs`?); creating a dedicated watch of the working copy \
+             root (undo with `watchman watch-del <working copy root>`)"
+        );
+        client
+            .generic_request::<_, WatchResponse>(WatchRequest("watch", working_copy_root.clone()))
+            .await
+            .map_err(Error::CreateWatchError)?;
+        Ok((working_copy_root, None))
+    }
+
+    /// Whether the Watchman watch at `watch_root` can see the directory at
+    /// `relative_path` inside it. A directory inside one of the watch's
+    /// `ignore_dirs` is invisible to the watch: queries about it succeed but
+    /// report no files, which must not be mistaken for a clean working copy.
+    ///
+    /// This probe is an optimization, not a safety requirement: callers treat
+    /// "invisible" by creating a dedicated watch of the working copy root,
+    /// which is always correct. Every failure mode here (a path the glob
+    /// pattern cannot express, an unexpected generator behavior) yields
+    /// `false` and thus merely costs a redundant watch; `true` requires
+    /// Watchman to report the exact directory entry, which a blind watch
+    /// cannot do.
+    async fn is_path_visible(
+        client: &watchman_client::Client,
+        watch_root: &Path,
+        relative_path: &Path,
+    ) -> Result<bool, Error> {
+        let result: QueryResult<NameOnly> = client
+            .generic_request(QueryRequest(
+                "query",
+                watch_root.to_owned(),
+                QueryRequestCommon {
+                    // The glob generator resolves the path directly instead of
+                    // filtering every file known to the watch, which matters
+                    // when the watch root is a large tree.
+                    glob: Some(vec![relative_path.to_string_lossy().into_owned()]),
+                    // The motivating layout nests working copies under a
+                    // dot-directory; don't let dotfile-globbing rules hide it.
+                    glob_includedotfiles: true,
+                    fields: NameOnly::field_list(),
+                    ..Default::default()
+                },
+            ))
+            .await
+            .map_err(Error::WatchmanQueryError)?;
+        // The glob pattern is the path as a literal string, so a path
+        // containing glob metacharacters (or one that isn't valid UTF-8) may
+        // match other entries. Only an exact match proves visibility;
+        // treating anything else as invisible merely errs towards creating a
+        // dedicated watch.
+        Ok(result
+            .files
+            .unwrap_or_default()
+            .iter()
+            .any(|NameOnly { name }| name.as_path() == relative_path))
     }
 }
