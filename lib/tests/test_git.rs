@@ -731,7 +731,7 @@ fn test_import_refs_reimport_with_deleted_remote_ref() -> TestResult {
     assert_eq!(view.bookmarks().count(), 3);
     // Even though the git repo does not have a local bookmark for
     // `feature-remote-only`, jj creates one. This follows the model explained
-    // in docs/bookmarks.md.
+    // in docs/concepts/bookmarks.md.
     assert_eq!(
         view.get_local_bookmark("feature-remote-only".as_ref()),
         &RefTarget::normal(jj_id(commit_remote_only))
@@ -857,7 +857,7 @@ fn test_import_refs_reimport_with_moved_remote_ref() -> TestResult {
     assert_eq!(view.bookmarks().count(), 3);
     // Even though the git repo does not have a local bookmark for
     // `feature-remote-only`, jj creates one. This follows the model explained
-    // in docs/bookmarks.md.
+    // in docs/concepts/bookmarks.md.
     assert_eq!(
         view.get_local_bookmark("feature-remote-only".as_ref()),
         &RefTarget::normal(jj_id(commit_remote_only))

@@ -115,7 +115,7 @@
     `jj file untrack filename`
   Notes: >
     File name must match an ignore pattern to remain untracked. See
-    [the documentation for working copies](../working-copy/#introduction) for more.
+    [the documentation for working copies](../concepts/working-copy.md#introduction) for more.
 
 - Use case: Modify a file in the current change
   Git command: >

@@ -68,8 +68,45 @@ plugins:
       # TODO: Arguably, this could be `prerelease` when building prerelease docs.
       canonical_version: latest
   - redirects:
+      # When moving or renaming files, keep the old path here so that URLs don't
+      # break but redirect to the current location.
       redirect_maps:
-        branches.md: bookmarks.md
+        FAQ.md: faq.md
+        bookmarks.md: concepts/bookmarks.md
+        branches.md: concepts/bookmarks.md
+        code-of-conduct.md: contributing/code-of-conduct.md
+        community_tools.md: community-tools.md
+        config.md: reference/config.md
+        conflicts.md: concepts/conflicts.md
+        contributing.md: contributing/guidelines-and-how-to.md
+        core_tenets.md: technical-details/core-tenets.md
+        design_doc_blueprint.md: contributing/design-doc-blueprint.md
+        design_docs.md: contributing/design-docs.md
+        filesets.md: reference/filesets.md
+        gerrit.md: getting-started/gerrit.md
+        git-command-table.md: comparisons/git-command-table.md
+        git-comparison.md: comparisons/git-comparison.md
+        git-compatibility.md: comparisons/git-compatibility.md
+        git-experts.md: comparisons/git-experts.md
+        github.md: getting-started/github.md
+        glossary.md: concepts/glossary.md
+        governance/GOVERNANCE.md: contributing/GOVERNANCE.md
+        governance/temporary-voting.md: contributing/temporary-voting.md
+        install-and-setup.md: getting-started/install-and-setup.md
+        operation-log.md: concepts/operation-log.md
+        related-work.md: comparisons/related-work.md
+        releasing.md: contributing/releasing.md
+        revsets.md: reference/revsets.md
+        sapling-comparison.md: comparisons/sapling-comparison.md
+        style_guide.md: contributing/style-guide.md
+        technical/architecture.md: technical-details/architecture.md
+        technical/concurrency.md: technical-details/concurrency.md
+        technical/conflicts.md: technical-details/conflicts.md
+        technical/revset-evaluation.md: technical-details/revset-evaluation.md
+        templates.md: reference/templates.md
+        tutorial.md: getting-started/tutorial.md
+        windows.md: getting-started/windows.md
+        working-copy.md: concepts/working-copy.md
   - search
   - table-reader:
       data_path: docs
@@ -116,26 +153,26 @@ nav: # This lists all the files that become part of the documentation
   - Home: 'index.md'
 
   - Getting started:
-      - Installation and setup: 'install-and-setup.md'
-      - Tutorial and bird's eye view: 'tutorial.md'
-      - 'Working with Gerrit': 'gerrit.md'
-      - Working with GitHub: 'github.md'
-      - Working on Windows: 'windows.md'
+      - Installation and setup: 'getting-started/install-and-setup.md'
+      - Tutorial and bird's eye view: 'getting-started/tutorial.md'
+      - 'Working with Gerrit': 'getting-started/gerrit.md'
+      - Working with GitHub: 'getting-started/github.md'
+      - Working on Windows: 'getting-started/windows.md'
 
-  - FAQ: 'FAQ.md'
+  - FAQ: 'faq.md'
 
   - CLI reference: 'cli-reference.md'
 
   - Testimonials: 'testimonials.md'
 
-  - Community-built tools: 'community_tools.md'
+  - Community-built tools: 'community-tools.md'
 
   - Concepts:
-      - Working copy: 'working-copy.md'
-      - Bookmarks: 'bookmarks.md'
-      - Conflicts: 'conflicts.md'
-      - Operation log: 'operation-log.md'
-      - Glossary: 'glossary.md'
+      - Working copy: 'concepts/working-copy.md'
+      - Bookmarks: 'concepts/bookmarks.md'
+      - Conflicts: 'concepts/conflicts.md'
+      - Operation log: 'concepts/operation-log.md'
+      - Glossary: 'concepts/glossary.md'
 
   - Guides:
       - CLI options for specifying revisions: 'guides/cli-revision-options.md'
@@ -143,35 +180,35 @@ nav: # This lists all the files that become part of the documentation
       - Multiple remotes: 'guides/multiple-remotes.md'
 
   - Reference:
-      - Configuration: 'config.md'
-      - Fileset language: 'filesets.md'
-      - Revset language: 'revsets.md'
-      - Templating language: 'templates.md'
+      - Configuration: 'reference/config.md'
+      - Fileset language: 'reference/filesets.md'
+      - Revset language: 'reference/revsets.md'
+      - Templating language: 'reference/templates.md'
 
   - Comparisons:
-      - Git comparison: 'git-comparison.md'
-      - Git command table: 'git-command-table.md'
-      - Git compatibility: 'git-compatibility.md'
-      - Jujutsu for Git experts: 'git-experts.md'
-      - Sapling comparison: 'sapling-comparison.md'
-      - Other related work: 'related-work.md'
+      - Git comparison: 'comparisons/git-comparison.md'
+      - Git command table: 'comparisons/git-command-table.md'
+      - Git compatibility: 'comparisons/git-compatibility.md'
+      - Jujutsu for Git experts: 'comparisons/git-experts.md'
+      - Sapling comparison: 'comparisons/sapling-comparison.md'
+      - Other related work: 'comparisons/related-work.md'
 
   - Technical details:
-      - Core tenets: 'core_tenets.md'
-      - Architecture: 'technical/architecture.md'
-      - Concurrency: 'technical/concurrency.md'
-      - Conflicts: 'technical/conflicts.md'
-      - Revset evaluation: "technical/revset-evaluation.md"
+      - Core tenets: 'technical-details/core-tenets.md'
+      - Architecture: 'technical-details/architecture.md'
+      - Concurrency: 'technical-details/concurrency.md'
+      - Conflicts: 'technical-details/conflicts.md'
+      - Revset evaluation: 'technical-details/revset-evaluation.md'
 
   - Contributing:
-      - Guidelines and "How to...?": 'contributing.md'
-      - Code of conduct: 'code-of-conduct.md'
-      - Style guide: 'style_guide.md'
-      - Design docs: 'design_docs.md'
-      - Design doc blueprint: 'design_doc_blueprint.md'
-      - Releasing: 'releasing.md'
-      - Temporary voting for governance: 'governance/temporary-voting.md'
-      - Governance: 'governance/GOVERNANCE.md'
+      - Guidelines and "How to...?": 'contributing/guidelines-and-how-to.md'
+      - Code of conduct: 'contributing/code-of-conduct.md'
+      - Style guide: 'contributing/style-guide.md'
+      - Design docs: 'contributing/design-docs.md'
+      - Design doc blueprint: 'contributing/design-doc-blueprint.md'
+      - Releasing: 'contributing/releasing.md'
+      - Temporary voting for governance: 'contributing/temporary-voting.md'
+      - Governance: 'contributing/GOVERNANCE.md'  # symlink
 
   - Design docs:
       - git-submodules: 'design/git-submodules.md'
@@ -184,7 +221,7 @@ nav: # This lists all the files that become part of the documentation
       - Managed config: 'design/managed-config.md'
       - JJ converge (aka resolve-divergence): 'design/jj-converge-command.md'
 
-  - Development roadmap: 'roadmap.md'
+  - Roadmap: 'roadmap.md'
   - Changelog: 'changelog.md'
 
 # The following follow .gitignore syntax, relative

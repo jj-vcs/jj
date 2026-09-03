@@ -222,7 +222,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
         with:
-          # If you bump the version, also update docs/contributing.md
+          # If you bump the version, also update docs/contributing/guidelines-and-how-to.md
           # and all other workflows that install uv
           version: "0.5.1"
       - name: Run Codespell
@@ -263,7 +263,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
         with:
-          # If you bump the version, also update docs/contributing.md
+          # If you bump the version, also update docs/contributing/guidelines-and-how-to.md
           # and all other workflows that install uv
           version: "0.5.1"
       - name: Check that `mkdocs` can build the docs

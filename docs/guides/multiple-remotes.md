@@ -6,7 +6,7 @@ depends on your workflow and the role each remote plays.
 The setup varies based on whether you are contributing to an upstream project,
 or integrating changes from another repository.
 
-[remote repositories]: ../glossary.md#remote
+[remote repositories]: ../concepts/glossary.md#remote
 
 ## Nomenclature
 

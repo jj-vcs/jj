@@ -25,8 +25,8 @@ The command should produce informative messages to summarize any changes made,
 and will prompt for user input in some situations. The user may of course not
 like the solution. `jj undo` can be used in that case.
 
-[divergent change]: ../glossary.md#divergent-change
-[visible commits]: ../glossary.md#visible-commits
+[divergent change]: ../concepts/glossary.md#divergent-change
+[visible commits]: ../concepts/glossary.md#visible-commits
 [Handling divergent commits]: ../guides/divergence.md
 
 ## Divergent changes

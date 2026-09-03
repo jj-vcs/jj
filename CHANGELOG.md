@@ -77,7 +77,7 @@ None
 
 ### Fixed bugs
 
-* [The default `immutable_heads()` set](docs/config.md#set-of-immutable-commits)
+* [The default `immutable_heads()` set](docs/reference/config.md#set-of-immutable-commits)
   now includes `untracked_remote_tags()`.
 
 * `jj arrange` now scrolls the viewport to keep the selected commit visible
@@ -566,7 +566,7 @@ Thanks to the people who made this release happen!
   `--hashtag` option.
 
 * New `remotes.<name>.fetch-bookmarks`/`fetch-tags` options to [configure
-  default fetch targets.](docs/config.md#default-bookmarks-and-tags-to-fetch)
+  default fetch targets.](docs/reference/config.md#default-bookmarks-and-tags-to-fetch)
 
 * `JJ_PAGER` can now override the `ui.pager` config, matching `JJ_EDITOR` for
   callers that need a jj-specific environment override.
@@ -667,7 +667,7 @@ None
 * In the `jj arrange` TUI, the "swap up/down" actions now move along graph edges
   even if the commit rows are not adjacent.
 
-* [Diff colors](docs/config.md#diff-colors-and-styles) can now be configured
+* [Diff colors](docs/reference/config.md#diff-colors-and-styles) can now be configured
   differently for each format.
 
 * `jj op log` now includes the name of the workspace the operation was created
@@ -769,7 +769,7 @@ Thanks to the people who made this release happen!
 * Revsets and templates now support `name:x` pattern aliases such as `'grep:x' =
   'description(regex:x)'`.
 
-* Filesets now support [user aliases](docs/filesets.md#aliases).
+* Filesets now support [user aliases](docs/reference/filesets.md#aliases).
 
 * `jj workspace add` now links with relative paths. This enables workspaces to work
   inside containers or when moved together. Existing workspaces with absolute paths
@@ -1059,7 +1059,7 @@ Thanks to the people who made this release happen!
 
 ### Breaking changes
 
-* [String patterns](docs/revsets.md#string-patterns) in revsets, command
+* [String patterns](docs/reference/revsets.md#string-patterns) in revsets, command
   arguments, and configuration are now parsed as globs by default. Use
   `substring:` or `exact:` prefix as needed.
 
@@ -1232,17 +1232,17 @@ Thanks to the people who made this release happen!
   [#6830](https://github.com/jj-vcs/jj/issues/6830)
 
 * `jj` now ignores `$PAGER` set in the environment and uses `less -FRX` on most
-  platforms (`:builtin` on Windows). See [the docs](docs/config.md#pager) for
+  platforms (`:builtin` on Windows). See [the docs](docs/reference/config.md#pager) for
   more information, and [#3502](https://github.com/jj-vcs/jj/issues/3502) for
   motivation.
 
 ### Breaking changes
 
-* In [filesets or path patterns](docs/filesets.md#file-patterns), glob matching
+* In [filesets or path patterns](docs/reference/filesets.md#file-patterns), glob matching
   is enabled by default. You can use `cwd:"path"` to match literal paths.
 
 * In the following commands, [string pattern
-  arguments](docs/revsets.md#string-patterns) are now parsed the same way they
+  arguments](docs/reference/revsets.md#string-patterns) are now parsed the same way they
   are in revsets and can be combined with logical operators: `jj bookmark
   delete`/`forget`/`list`/`move`, `jj tag delete`/`list`, `jj git
   clone`/`fetch`/`push`
@@ -1288,7 +1288,7 @@ Thanks to the people who made this release happen!
   ```
 
   For more details, refer to
-  [the docs](docs/config.md#automatic-tracking-of-bookmarks).
+  [the docs](docs/reference/config.md#automatic-tracking-of-bookmarks).
 
 * The flag `--allow-new` on `jj git push` is deprecated. In order to push new
   bookmarks, please track them with `jj bookmark track`. Alternatively, consider
@@ -1301,7 +1301,7 @@ Thanks to the people who made this release happen!
   ```
 
   For more details, refer to
-  [the docs](docs/config.md#automatic-tracking-of-bookmarks).
+  [the docs](docs/reference/config.md#automatic-tracking-of-bookmarks).
 
 ### New features
 
@@ -1335,7 +1335,7 @@ Thanks to the people who made this release happen!
 * A new config option `remotes.<name>.auto-track-bookmarks` can be set to a
   string pattern. New bookmarks matching it will be automatically tracked for
   the specified remote. See
-  [the docs](docs/config.md#automatic-tracking-of-bookmarks).
+  [the docs](docs/reference/config.md#automatic-tracking-of-bookmarks).
 
 * `jj log` now supports a `--count` flag to print the number of commits instead
   of displaying them.
@@ -1907,7 +1907,7 @@ Thanks to the people who made this release happen!
   file to prevent the EOL conversion from changing binary files unexpectedly.
 
 * Add a `.parents()` method to the
-  [`Operation`](docs/templates.md#operation-type) type in the templating
+  [`Operation`](docs/reference/templates.md#operation-type) type in the templating
   language.
 
 * Merge tools config can now explicitly forbid using them as diff editors or
@@ -1990,7 +1990,7 @@ Thanks to the people who made this release happen!
 ### Breaking changes
 
 * Revset expressions like `hidden_id | description(x)` now [search the specified
-  hidden revision and its ancestors](docs/revsets.md#hidden-revisions) as well
+  hidden revision and its ancestors](docs/reference/revsets.md#hidden-revisions) as well
   as all visible revisions.
 
 * Commit templates no longer normalize `description` by appending final newline
@@ -2236,8 +2236,8 @@ Thanks to the people who made this release happen!
 
 * `ui.default-description` has been deprecated, and will be migrated to
   `template-aliases.default_commit_description`. Please also consider using
-  [`templates.draft_commit_description`](docs/config.md#default-description),
-  and/or [`templates.commit_trailers`](docs/config.md#commit-trailers).
+  [`templates.draft_commit_description`](docs/reference/config.md#default-description),
+  and/or [`templates.commit_trailers`](docs/reference/config.md#commit-trailers).
 
 * On macOS, config.toml files in `~/Library/Application Support/jj` are
   deprecated; one should instead use `$XDG_CONFIG_HOME/jj`
@@ -2246,7 +2246,7 @@ Thanks to the people who made this release happen!
 ### New features
 
 * Color-words diff has gained [an option to compare conflict pairs without
-  materializing](docs/config.md#color-words-diff-options).
+  materializing](docs/reference/config.md#color-words-diff-options).
 
 * `jj show` patches can now be suppressed with `--no-patch`.
 
@@ -2260,7 +2260,7 @@ Thanks to the people who made this release happen!
   description. Use cases include DCO Sign Off and Gerrit Change Id.
 
 * Added `duplicate_description` template, which allows [customizing the descriptions
-  of the commits `jj duplicate` creates](docs/config.md#duplicate-commit-description).
+  of the commits `jj duplicate` creates](docs/reference/config.md#duplicate-commit-description).
 
 * `jj absorb` can now squash a deleted file if it was added by one of the
   destination revisions.
@@ -2539,7 +2539,7 @@ Thanks to the people who made this release happen!
 ### Breaking changes
 
 * Bookmark name to be created/updated is now parsed as [a revset
-  symbol](docs/revsets.md#symbols). Quotation may be needed in addition to shell
+  symbol](docs/reference/revsets.md#symbols). Quotation may be needed in addition to shell
   quotes. Example: `jj bookmark create -r@- "'name with space'"`
 
 * `jj bookmark create`, `jj bookmark set` and `jj bookmark move` onto a hidden
@@ -2553,7 +2553,7 @@ Thanks to the people who made this release happen!
   workspace root, instead of the working directory of the `jj fix`.
 
 * The `ui.allow-filesets` configuration option has been removed.
-  [The "fileset" language](docs/filesets.md) has been enabled by default since v0.20.
+  [The "fileset" language](docs/reference/filesets.md) has been enabled by default since v0.20.
 
 * `templates.annotate_commit_summary` is renamed to `templates.file_annotate`,
   and now has an implicit `self` parameter of type `AnnotationLine`, instead of
@@ -2579,7 +2579,7 @@ Thanks to the people who made this release happen!
   `jj sign` supports configuring the default revset through `revsets.sign` when
   no `--revisions` arguments are provided.
 
-* `jj git fetch` now supports [string pattern syntax](docs/revsets.md#string-patterns)
+* `jj git fetch` now supports [string pattern syntax](docs/reference/revsets.md#string-patterns)
   on `--remote` option and `git.fetch` configuration.
 
 * Template functions `truncate_start()` and `truncate_end()` gained an optional
@@ -2820,7 +2820,7 @@ Thanks to the people who made this release happen!
 * The Jujutsu documentation site now publishes a schema for the official
   configuration file, which can be integrated into your editor for autocomplete,
   inline errors, and more.
-  Please [see the documentation](docs/config.md#json-schema-support) for more
+  Please [see the documentation](docs/reference/config.md#json-schema-support) for more
   on this.
 
 ### Fixed bugs
@@ -2891,7 +2891,7 @@ It's the holidays, and this release was overall pretty quiet, without many major
 changes. Two select improvements:
 
 * Improvements to configuration management, including support for [conditional
-  variables](docs/config.md#conditional-variables) in config files.
+  variables](docs/reference/config.md#conditional-variables) in config files.
 
 * Large files in the working copy will no longer cause commands to fail; instead
   the large files will remain intact but untracked in the working copy.
@@ -2912,7 +2912,7 @@ changes. Two select improvements:
 * `jj config list` now prints inline tables `{ key = value, .. }` literally.
   Inner items of inline tables are no longer merged across configuration files.
   See [the table syntax
-  documentation](docs/config.md#dotted-style-and-headings) for
+  documentation](docs/reference/config.md#dotted-style-and-headings) for
   details.
 
 * `jj config edit --user` now opens a file even if `$JJ_CONFIG` points to a
@@ -2943,7 +2943,7 @@ changes. Two select improvements:
   files will be left untracked.
 
 * Configuration files now support [conditional
-  variables](docs/config.md#conditional-variables).
+  variables](docs/reference/config.md#conditional-variables).
 
 * New command options `--config=NAME=VALUE` and `--config-file=PATH` to set
   string value without quoting and to load additional configuration from files.
@@ -3413,7 +3413,7 @@ Thanks to the people who made this release happen!
   includes information about copies and moves.
 
 * Color-words diff has gained [an option to display complex changes as separate
-  lines](docs/config.md#color-words-diff-options). It's enabled by default. To
+  lines](docs/reference/config.md#color-words-diff-options). It's enabled by default. To
   restore the old behavior, set `diff.color-words.max-inline-alternation = -1`.
 
 * A tilde (`~`) at the start of the path will now be expanded to the user's home
@@ -3466,7 +3466,7 @@ Thanks to the people who made this release happen!
 * `jj backout --revision` has been renamed to `jj backout --revisions`.
   The short alias `-r` is still supported.
 
-* [The default `immutable_heads()` set](docs/config.md#set-of-immutable-commits)
+* [The default `immutable_heads()` set](docs/reference/config.md#set-of-immutable-commits)
   now includes `untracked_remote_branches()` with the assumption that untracked
   branches aren't managed by you. Therefore, untracked branches are no longer
   displayed in `jj log` by default.
@@ -3474,7 +3474,7 @@ Thanks to the people who made this release happen!
 * Updated defaults for graph node symbol templates `templates.log_node` and
   `templates.op_log_node`.
 
-* [The "fileset" language](docs/filesets.md) is now enabled by default. It can
+* [The "fileset" language](docs/reference/filesets.md) is now enabled by default. It can
   still be disabled by setting `ui.allow-filesets=false`.
 
 * On `jj git fetch`/`import`, commits referred to by `HEAD@git` are no longer
@@ -3503,7 +3503,7 @@ Thanks to the people who made this release happen!
   `merge-tools.$TOOL.diff-invocation-mode="file-by-file"` in config.toml.
 
 * In git diffs, word-level hunks are now highlighted with underline. See [diff
-  colors and styles](docs/config.md#diff-colors-and-styles) for customization.
+  colors and styles](docs/reference/config.md#diff-colors-and-styles) for customization.
 
 * New `.diff().<format>()` commit template methods are added. They can be used
   in order to show diffs conditionally. For example,
@@ -3546,7 +3546,7 @@ Thanks to the people who made this release happen!
 
 * New config setting `git.private-commits` to prevent commits from being pushed.
 
-* [The default commit description template](docs/config.md#default-description)
+* [The default commit description template](docs/reference/config.md#default-description)
   can now be configured by `templates.draft_commit_description`.
 
 * `jj fix` can now be configured to run different tools on different filesets.
@@ -3665,7 +3665,7 @@ Thanks to the people who made this release happen!
 * New diff option `jj diff --name-only` allows for easier shell scripting.
 
 * In color-words diffs, hunks are now highlighted with underline. See [diff
-  colors and styles](docs/config.md#diff-colors-and-styles) for customization.
+  colors and styles](docs/reference/config.md#diff-colors-and-styles) for customization.
 
 * `jj git push -c <arg>` can now accept revsets that resolve to multiple
   revisions. This means that `jj git push -c xyz -c abc` is now equivalent to
@@ -3889,7 +3889,7 @@ Thanks to the people who made this release happen!
   allow large revsets expressions in some commands, without the `all:` prefix.
 
 * A new config option `ui.allow-filesets` has been added to enable ["fileset"
-  expressions](docs/filesets.md). Note that filesets are currently experimental,
+  expressions](docs/reference/filesets.md). Note that filesets are currently experimental,
   but will be enabled by default in a future release.
 
 * A new global flag `--ignore-immutable` lets you rewrite immutable commits.
@@ -4262,7 +4262,7 @@ Thanks to the people who made this release happen!
 * `jj git push` gained a `--tracked` option, to push all the tracked branches.
 
 * There's now a virtual root operation, similar to the [virtual root
-  commit](docs/glossary.md#root-commit). It appears at the end of `jj op log`.
+  commit](docs/concepts/glossary.md#root-commit). It appears at the end of `jj op log`.
 
 * `jj config list` gained a `--include-overridden` option to allow
   printing overridden config values.
@@ -4468,7 +4468,7 @@ Thanks to the people who made this release happen!
   revsets now support glob matching.
 
 * `jj branch delete`/`forget`/`list`, and `jj git push --branch` now support
-  [string pattern syntax](docs/revsets.md#string-patterns). The `--glob` option
+  [string pattern syntax](docs/reference/revsets.md#string-patterns). The `--glob` option
   is deprecated in favor of `glob:` pattern.
 
 * The `branches`/`tags`/`git_refs`/`git_head` template keywords now return a
@@ -4519,7 +4519,7 @@ Thanks to the people who made this release happen!
   defined
   your own `trunk()` alias it will continue to overwrite the built-in one.
   Check [revsets.toml](docs/revsets.toml)
-  and [revsets.md](docs/revsets.md)
+  and [revsets.md](docs/reference/revsets.md)
   to understand how the function can be adapted.
 
 ### New features
@@ -4656,7 +4656,7 @@ Thanks to the people who made this release happen!
   would show.
 
 * `jj diff`/`log` now supports `--tool <name>` option to generate diffs by
-  external program. For configuration, see [the documentation](docs/config.md).
+  external program. For configuration, see [the documentation](docs/reference/config.md).
   [#1886](https://github.com/jj-vcs/jj/issues/1886)
 
 * A new experimental diff editor `meld-3` is introduced that sets up Meld to
@@ -4766,7 +4766,7 @@ Thanks to the people who made this release happen!
 
 * The `ui.oplog-relative-timestamps` option has been removed. Use the
   `format_time_range()` template alias instead. For details, see
-  [the documentation](docs/config.md).
+  [the documentation](docs/reference/config.md).
 
 * Implicit concatenation of template expressions has been disabled. Use
   `++` operator, `concat()`, or `separate()` function instead.
@@ -4997,7 +4997,7 @@ Thanks to the people who made this release happen!
 
 * The `ui.relative-timestamps` option has been removed. Use the
   `format_timestamp()` template alias instead. For details on showing relative
-  timestamps in `jj log` and `jj show`, see [the documentation](docs/config.md).
+  timestamps in `jj log` and `jj show`, see [the documentation](docs/reference/config.md).
 
 * `jj op log` now shows relative timestamps by default. To disable, set
   `ui.oplog-relative-timestamps` to `false`.
@@ -5069,7 +5069,7 @@ Thanks to the people who made this release happen!
 * `jj log` now highlights the shortest unique prefix of every commit and change
   id and shows the rest in gray. To customize the length and style, use the
   `format_short_id()` template alias. For details, see
-  [the documentation](docs/config.md).
+  [the documentation](docs/reference/config.md).
 
 * `jj print` was renamed to `jj cat`. `jj print` remains as an alias.
 
@@ -5111,7 +5111,7 @@ Thanks to the people who made this release happen!
 
 * It is now possible to change the author format of `jj log` with the
   `format_short_signature()` template alias. For details, see
-  [the documentation](docs/config.md).
+  [the documentation](docs/reference/config.md).
 
 * Added support for template aliases. New symbols and functions can be
   configured by `template-aliases.<name> = <expression>`. Be aware that
@@ -5333,7 +5333,7 @@ No changes (just trying to get automated GitHub release to work).
   branches (plus their closest commit on the remote branch for context). This
   set of commits can be overridden by setting `ui.default-revset`. Use
   `jj log -r 'all()'` for the old behavior. Read more about revsets
-  [here](https://github.com/jj-vcs/jj/blob/main/docs/revsets.md).
+  [here](https://github.com/jj-vcs/jj/blob/main/docs/reference/revsets.md).
   [#250](https://github.com/jj-vcs/jj/issues/250)
 
 * `jj new` now always checks out the new commit (used to be only if the parent

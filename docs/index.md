@@ -24,9 +24,9 @@ You may want to jump to:
 
 - [GitHub repo for `jj`](https://github.com/jj-vcs/jj)
 - Overview of `jj` in the repo's [README](https://github.com/jj-vcs/jj?tab=readme-ov-file#readme)
-- [Installation and setup](install-and-setup.md)
-- [Tutorial and bird's eye view](tutorial.md)
-- [Working with Gerrit](gerrit.md)
-- [Working with GitHub](github.md)
+- [Installation and setup](getting-started/install-and-setup.md)
+- [Tutorial and bird's eye view](getting-started/tutorial.md)
+- [Working with Gerrit](getting-started/gerrit.md)
+- [Working with GitHub](getting-started/github.md)
 - [Development roadmap](roadmap.md)
 - [Changelog](changelog.md)
