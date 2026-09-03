@@ -7630,6 +7630,18 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
+<ul>
+<li>
+<p>Building without <code>Cargo.lock</code> (e.g. <code>cargo install jj-cli</code>) works again
+  after all versions of the <code>bisync</code> crate, a transitive dependency of gix,
+  were yanked.</p>
+</li>
+<li>
+<p>Signatures on commits in SHA-256 Git repositories are now stored under the
+  <code>gpgsig-sha256</code> header, as Git does, so Git recognizes them as signed and
+  jj can read them back.</p>
+</li>
+</ul>
 <h2 id="0450-2026-09-02"><a href="https://github.com/jj-vcs/jj/compare/v0.44.0...v0.45.0">0.45.0</a> - 2026-09-02<a class="headerlink" href="#0450-2026-09-02" title="Permanent link">&para;</a></h2>
 <h3 id="release-highlights_1">Release highlights<a class="headerlink" href="#release-highlights_1" title="Permanent link">&para;</a></h3>
 <ul>
