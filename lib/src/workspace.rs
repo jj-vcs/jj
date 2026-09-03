@@ -107,7 +107,7 @@ pub enum WorkspaceLoadError {
 ///
 /// Represents the combination of a repo and working copy, i.e. what's typically
 /// the .jj/ directory and its parent. See
-/// <https://github.com/jj-vcs/jj/blob/main/docs/working-copy.md#workspaces>
+/// <https://github.com/jj-vcs/jj/blob/main/docs/concepts/working-copy.md#workspaces>
 /// for more information.
 pub struct Workspace {
     // Path to the workspace root (typically the parent of a .jj/ directory), which is where

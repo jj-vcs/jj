@@ -117,12 +117,18 @@ fn test_help_keyword() {
         .run_jj_in(".", ["help", "--keyword", "revsets"])
         .success();
     // It should be equal to the docs
-    assert_eq!(help_cmd.stdout.raw(), include_str!("../../docs/revsets.md"));
+    assert_eq!(
+        help_cmd.stdout.raw(),
+        include_str!("../../docs/reference/revsets.md")
+    );
 
     // It should show help for a certain keyword if the `-k` flag is present
     let help_cmd = test_env.run_jj_in(".", ["help", "-k", "revsets"]).success();
     // It should be equal to the docs
-    assert_eq!(help_cmd.stdout.raw(), include_str!("../../docs/revsets.md"));
+    assert_eq!(
+        help_cmd.stdout.raw(),
+        include_str!("../../docs/reference/revsets.md")
+    );
 
     // It should give hints if a similar keyword is present
     let output = test_env.run_jj_in(".", ["help", "-k", "rev"]);
