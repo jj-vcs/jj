@@ -43,6 +43,7 @@ use gix::objs::CommitRefIter;
 use gix::objs::Exists as _;
 use gix::objs::Write as _;
 use gix::objs::WriteTo as _;
+use gix::objs::commit::signature_field_name;
 use itertools::Itertools as _;
 use once_cell::sync::OnceCell as OnceLock;
 use pollster::FutureExt as _;
@@ -728,8 +729,7 @@ fn commit_from_git_without_root_parent(
     let secure_sig = commit
         .extra_headers
         .iter()
-        // gix does not recognize gpgsig-sha256, but prevent future footguns by checking for it too
-        .any(|(k, _)| *k == "gpgsig" || *k == "gpgsig-sha256")
+        .any(|(k, _)| *k == signature_field_name(git_object.id.kind()))
         .then(|| CommitRefIter::signature(&git_object.data, git_object.id.kind()))
         .transpose()
         .map_err(decode_err)?
@@ -1424,9 +1424,10 @@ impl Backend for GitBackend {
                     object_type: "commit",
                     source: Box::new(err),
                 })?;
+                let field = signature_field_name(git_tree_id.kind());
                 commit
                     .extra_headers
-                    .push(("gpgsig".into(), sig.clone().into()));
+                    .push((field.into(), sig.clone().into()));
                 contents.secure_sig = Some(SecureSig { data, sig });
             }
 
@@ -1986,10 +1987,8 @@ mod tests {
         commit.write_to(&mut commit_buf)?;
         let commit_str = str::from_utf8(&commit_buf)?;
 
-        commit
-            .extra_headers
-            // TODO: should this conditionally become gpgsig-sha256 once gix supports it?
-            .push(("gpgsig".into(), secure_sig.into()));
+        let field = signature_field_name(object_hash);
+        commit.extra_headers.push((field.into(), secure_sig.into()));
 
         let git_commit_id = git_repo.write_object(&commit)?;
 
@@ -2529,7 +2528,7 @@ mod tests {
         author Someone <someone@example.com> 0 +0000
         committer Someone <someone@example.com> 0 +0000
         change-id xpxpxpxpxpxpxpxpxpxpxpxpxpxpxpxp
-        gpgsig test sig
+        gpgsig-sha256 test sig
          hash=d6219e8e5169d409d115848dea4556b3accc76f3cd8dc9b128cc3fe9f71adae275f0e6ce9f98c581a89b960863b61c61b6479cdc20806009d63aecaaa82f4590
 
         initial
