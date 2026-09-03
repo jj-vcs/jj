@@ -20,7 +20,7 @@ readme = "README.md"
 homepage = "https://www.jj-vcs.dev/"
 repository = "https://github.com/jj-vcs/jj"
 documentation = "https://docs.jj-vcs.dev/"
-categories = ["version-control", "development-tools"]
+categories = ["development-tools"]
 keywords = ["VCS", "DVCS", "SCM", "Git", "Mercurial"]
 
 [workspace.dependencies]
