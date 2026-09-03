@@ -21,7 +21,6 @@ eyre = { workspace = true }
 futures = { workspace = true }
 gix = { workspace = true, features = [
     "status",
-    "tree-editor",
     "worktree-mutation",
 ] }
 itertools = { workspace = true }

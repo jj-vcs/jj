@@ -18,6 +18,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* Building without `Cargo.lock` (e.g. `cargo install jj-cli`) works again
+  after all versions of the `bisync` crate, a transitive dependency of gix,
+  were yanked.
+
 ## [0.45.0] - 2026-09-02
 
 ### Release highlights
