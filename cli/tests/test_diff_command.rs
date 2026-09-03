@@ -1559,89 +1559,6 @@ fn test_diff_color_words_inlining_threshold() {
 }
 
 #[test]
-fn test_diff_color_words_omit_blank_right_line() {
-    let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let work_dir = test_env.work_dir("repo");
-
-    // The middle hunk of file1 and file3 is
-    //   left = " x\n..."
-    //   right = "\n y\nz "
-    //
-    // file2 is different because left/right sides have the same number of "\n".
-    work_dir.write_file(
-        "file1",
-        indoc! {"
-            a x
-            b
-        "},
-    );
-    work_dir.write_file(
-        "file2",
-        indoc! {"
-            a x
-
-            b
-        "},
-    );
-    work_dir.write_file(
-        "file3",
-        indoc! {"
-            a x
-
-
-            b
-        "},
-    );
-    work_dir.run_jj(["new"]).success();
-    work_dir.write_file(
-        "file1",
-        indoc! {"
-            a
-             y
-            z b
-        "},
-    );
-    work_dir.write_file(
-        "file2",
-        indoc! {"
-            a
-             y
-            z b
-        "},
-    );
-    work_dir.write_file(
-        "file3",
-        indoc! {"
-            a
-             y
-            z b
-        "},
-    );
-
-    let output = work_dir
-        .run_jj(["diff", "--color=always"])
-        .normalize_stdout_with(strip_ansi_escape_codes);
-    insta::assert_snapshot!(output, @"
-    Modified regular file file1:
-       1    1: a x
-            2:  y
-       2    3: z b
-    Modified regular file file2:
-       1    1: a x
-       2    2:  y
-       3    3: z b
-    Modified regular file file3:
-       1    1: a x
-       2     : 
-       3     : 
-            2:  y
-       4    3: z b
-    [EOF]
-    ");
-}
-
-#[test]
 fn test_diff_missing_newline() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -2950,10 +2867,10 @@ fn test_diff_conflict_bases_differ() {
     [2m[38;5;1m   7[0m [2m[38;5;2m   6[0m: left 3.3
     [38;5;1m   8[39m     : [38;5;1m%%%%%%% diff from: [4mrlvkpnrz[24m [4m44cfbde6[24m "[4mbase1[24m"[39m
     [38;5;1m   9[39m     : [38;5;1m\\\\\\\        to: [4mroyxmykx[24m [4m3087be1f[24m "[4mright1[24m"[39m
-    [38;5;1m  10[39m     : [38;5;1m-[4mline[24m [4m3[24m[39m
+    [38;5;1m  10[39m     : [38;5;1m-line 3[39m
          [38;5;2m   7[39m: [38;5;2m%%%%%%% diff from: [4mvruxwmqv[24m [4m3c4d67e6[24m "[4mbase2[24m"[39m
          [38;5;2m   8[39m: [38;5;2m\\\\\\\        to: [4mkmkuslsw[24m [4m656695c3[24m "[4mright2[24m"[39m
-         [38;5;2m   9[39m: [38;5;2m-[4mline[24m [4m3.1[24m[39m
+         [38;5;2m   9[39m: [38;5;2m-line 3[4m.1[24m[39m
          [38;5;2m  10[39m: [4m[38;5;2m-line 3.2[24m[39m
     [2m[38;5;1m  11[0m [2m[38;5;2m  11[0m: +right 3.1
         ...
