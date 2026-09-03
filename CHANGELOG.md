@@ -22,6 +22,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   after all versions of the `bisync` crate, a transitive dependency of gix,
   were yanked.
 
+* Signatures on commits in SHA-256 Git repositories are now stored under the
+  `gpgsig-sha256` header, as Git does, so Git recognizes them as signed and
+  jj can read them back.
+
 ## [0.45.0] - 2026-09-02
 
 ### Release highlights
