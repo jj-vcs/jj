@@ -114,6 +114,7 @@ markdown_extensions:
 
 nav: # This lists all the files that become part of the documentation
   - Home: 'index.md'
+  - An introduction to Jujutsu: 'jj_first_principles.md'
 
   - Getting started:
       - Installation and setup: 'install-and-setup.md'
