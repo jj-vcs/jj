@@ -523,6 +523,23 @@ invoked. If not set, an error will be reported inline on method call.
 On comparison between two optional values or optional and non-optional values,
 unset value is not an error. Unset value is considered less than any set values.
 
+### `RefStatus` type
+
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: yes_
+
+The following methods are defined.
+
+* `.name() -> String`: Bookmark or tag name.
+* `.tracked() -> Boolean`: True if the ref is tracked by a local ref. The local
+  ref might have been deleted (but not pushed yet.)
+* `.remote_ref_state() -> String`: "tracked" if the ref is tracked by a local
+  ref, otherwise "untracked".
+* `.import_status() -> String`: "new" if the ref has just been fetched,
+  "deleted" if it's just been deleted, or "updated" for changed refs.
+* `.kind() -> String`: "bookmark" or "tag".
+* `.max_name_width() -> Integer`: The length of the longest `name` in the
+  current batch of bookmarks or, separately, the current batch of tags.
+
 ### `RefSymbol` type
 
 _Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_

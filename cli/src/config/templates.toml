@@ -27,6 +27,14 @@ evolog = 'builtin_evolog_compact'
 file_list = 'format_path(path) ++ "\n"'
 file_show = ''
 
+git_fetch = '''
+separate(" ",
+  kind ++ ":",
+  pad_end(max_name_width, label(kind, name)),
+  "[" ++ import_status ++ "]",
+  remote_ref_state,
+) ++ "\n"
+'''
 git_push_bookmark = '"push-" ++ change_id.short()'
 
 log = 'builtin_log_compact'

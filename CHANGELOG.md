@@ -60,6 +60,9 @@ None
   directory or loaded via `--config-file`). This allows precise file targeting
   and avoids interactive prompts when multiple config files exist.
 
+* `jj git fetch`'s output can be customized with `templates.git_fetch` or `-T`
+  [#9311](https://github.com/jj-vcs/jj/pull/9311).
+
 ### Fixed bugs
 
 * [The default `immutable_heads()` set](docs/config.md#set-of-immutable-commits)

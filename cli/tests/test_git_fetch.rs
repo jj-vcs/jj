@@ -187,6 +187,114 @@ fn test_git_fetch_single_remote() {
 }
 
 #[test]
+fn test_git_fetch_template() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("remotes.origin.auto-track-bookmarks = 'main'");
+    test_env.add_config(r#"templates.git_fetch = '''
+        separate(
+            " ",
+            pad_end(max_name_width, name),
+            kind,
+            import_status,
+            remote_ref_state,
+            tracked,
+        ) ++ "\n"
+    '''
+    "#);
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let origin = init_git_remote(&test_env, "origin");
+    add_commit_to_branch(&origin, "main", "on main");
+    add_commit_to_branch(&origin, "feature", "on feature");
+    git::add_commit(&origin, "refs/tags/tag1", "tag1", b"", "tag1", &[]);
+    work_dir
+        .run_jj(["git", "remote", "add", "origin", "../origin"])
+        .success();
+
+    let output = work_dir.run_jj(["git", "fetch"]);
+
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    feature@origin bookmark new untracked false
+    main@origin    bookmark new tracked true
+    origin@origin  bookmark new untracked false
+    tag1@origin tag new tracked true
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_fetch_template_filter_tracked() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("remotes.origin.auto-track-bookmarks = 'main'");
+    test_env.add_config(
+        "templates.git_fetch = 'if(tracked, name ++ \" [\" ++ import_status ++ \"]\\n\", \"\")'"
+    );
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let origin = init_git_remote(&test_env, "origin");
+    add_commit_to_branch(&origin, "main", "on main");
+    add_commit_to_branch(&origin, "feature", "on feature");
+    work_dir
+        .run_jj(["git", "remote", "add", "origin", "../origin"])
+        .success();
+
+    // Only tracked refs should be rendered.
+    let output = work_dir.run_jj(["git", "fetch"]);
+
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    main@origin [new]
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_fetch_template_updates_and_deletes() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
+    test_env.add_config(
+        "templates.git_fetch = 'name ++ \" [\" ++ import_status ++ \"]\\n\"'"
+    );
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let origin = init_git_remote(&test_env, "origin");
+    add_commit_to_branch(&origin, "main", "on main");
+    add_commit_to_branch(&origin, "feature", "on feature");
+    work_dir
+        .run_jj(["git", "remote", "add", "origin", "../origin"])
+        .success();
+
+    // all new
+    let output = work_dir.run_jj(["git", "fetch"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    feature@origin [new]
+    main@origin [new]
+    origin@origin [new]
+    [EOF]
+    ");
+
+    // Update "main" and delete "feature" on the remote.
+    add_commit_to_branch(&origin, "main", "more on main");
+    origin
+        .find_reference("refs/heads/feature")
+        .unwrap()
+        .delete()
+        .unwrap();
+
+    let output = work_dir.run_jj(["git", "fetch"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    feature@origin [deleted]
+    main@origin [updated]
+    Abandoned 1 commits that are no longer reachable:
+      tztyulpn f4fa1124 on feature
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_git_fetch_single_remote_all_remotes_flag() {
     let test_env = TestEnvironment::default();
     test_env.add_config("remotes.rem1.auto-track-bookmarks = '*'");

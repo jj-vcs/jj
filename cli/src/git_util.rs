@@ -57,6 +57,7 @@ use crate::command_error::user_error;
 use crate::formatter::Formatter;
 use crate::formatter::FormatterExt as _;
 use crate::revset_util::parse_remote_auto_track_bookmarks_map;
+use crate::templater::TemplateRenderer;
 use crate::ui::ProgressOutput;
 use crate::ui::Ui;
 
@@ -213,9 +214,10 @@ pub fn print_git_import_stats(
     ui: &Ui,
     tx: &WorkspaceCommandTransaction<'_>,
     stats: &GitImportStats,
+    ref_status_template: &TemplateRenderer<'_, RefStatus>,
 ) -> Result<(), CommandError> {
     if let Some(mut formatter) = ui.status_formatter() {
-        print_imported_changes(formatter.as_mut(), tx, stats)?;
+        print_imported_changes(formatter.as_mut(), tx, stats, ref_status_template)?;
     }
     print_failed_git_import(ui, stats)?;
     Ok(())
@@ -225,20 +227,27 @@ fn print_imported_changes(
     formatter: &mut dyn Formatter,
     tx: &WorkspaceCommandTransaction<'_>,
     stats: &GitImportStats,
+    ref_status_template: &TemplateRenderer<'_, RefStatus>,
 ) -> Result<(), CommandError> {
     for (kind, changes) in [
         (GitRefKind::Bookmark, &stats.changed_remote_bookmarks),
         (GitRefKind::Tag, &stats.changed_remote_tags),
     ] {
-        let refs_stats = changes
+        let Some(max_name_width) = changes
             .iter()
-            .map(|update| RefStatus::new(kind, update, tx.repo()))
-            .collect_vec();
-        let Some(max_width) = refs_stats.iter().map(|x| x.symbol.width()).max() else {
+            .map(|update| update.symbol.to_string().width())
+            .max()
+        else {
             continue;
         };
+
+        let refs_stats = changes
+            .iter()
+            .map(|update| RefStatus::new(kind, update, tx.repo(), max_name_width))
+            .collect_vec();
+
         for status in refs_stats {
-            status.output(max_width, formatter)?;
+            ref_status_template.format(&status, formatter)?;
         }
     }
 
@@ -310,6 +319,19 @@ pub fn print_git_import_stats_summary(ui: &Ui, stats: &GitImportStats) -> Result
     }
     print_failed_git_import(ui, stats)?;
     Ok(())
+}
+
+/// Template for one-line summary of a fetched ref.
+pub fn commit_fetch_template<'a>(
+    tx: &'a WorkspaceCommandTransaction
+) -> TemplateRenderer<'a, RefStatus> {
+    let language = tx.commit_template_language();
+    let helper = tx.base_workspace_helper();
+    let template_text = helper.fetch_summary_template_text();
+
+    helper
+        .reparse_valid_template(&language, template_text)
+        .labeled(["ref_status"])
 }
 
 pub struct Progress {
@@ -396,15 +418,22 @@ fn draw_progress(progress: f32, buffer: &mut String, width: usize) {
     }
 }
 
-struct RefStatus {
+#[derive(Clone)]
+pub struct RefStatus {
     ref_kind: GitRefKind,
     symbol: String,
     remote_ref_state: RemoteRefState,
     import_status: ImportStatus,
+    max_name_width: usize,
 }
 
 impl RefStatus {
-    fn new(ref_kind: GitRefKind, update: &GitImportRefUpdate, repo: &dyn Repo) -> Self {
+    fn new(
+        ref_kind: GitRefKind,
+        update: &GitImportRefUpdate,
+        repo: &dyn Repo,
+        max_name_width: usize,
+    ) -> Self {
         let new_remote_ref = match ref_kind {
             GitRefKind::Bookmark => repo.view().get_remote_bookmark(update.symbol.as_ref()),
             GitRefKind::Tag => repo.view().get_remote_tag(update.symbol.as_ref()),
@@ -424,36 +453,46 @@ impl RefStatus {
             remote_ref_state: new_remote_ref.state,
             import_status,
             ref_kind,
+            max_name_width,
         }
     }
 
-    fn output(&self, max_symbol_width: usize, out: &mut dyn Formatter) -> std::io::Result<()> {
-        let tracking_status = match self.remote_ref_state {
+    pub fn name(&self) -> &str {
+        &self.symbol
+    }
+
+    pub fn is_tracked(&self) -> bool {
+        matches!(self.remote_ref_state, RemoteRefState::Tracked)
+    }
+
+    pub fn remote_ref_state(&self) -> &'static str {
+        match self.remote_ref_state {
             RemoteRefState::New => "untracked",
             RemoteRefState::Tracked => "tracked",
-        };
+        }
+    }
 
-        let import_status = match self.import_status {
+    pub fn import_status(&self) -> &'static str {
+        match self.import_status {
             ImportStatus::New => "new",
             ImportStatus::Deleted => "deleted",
             ImportStatus::Updated => "updated",
-        };
+        }
+    }
 
-        let symbol_width = self.symbol.width();
-        let pad_width = max_symbol_width.saturating_sub(symbol_width);
-        let padded_symbol = format!("{}{:>pad_width$}", self.symbol, "", pad_width = pad_width);
-
-        let label = match self.ref_kind {
+    pub fn kind(&self) -> &'static str {
+        match self.ref_kind {
             GitRefKind::Bookmark => "bookmark",
             GitRefKind::Tag => "tag",
-        };
+        }
+    }
 
-        write!(out, "{label}: ")?;
-        write!(out.labeled(label), "{padded_symbol}")?;
-        writeln!(out, " [{import_status}] {tracking_status}")
+    pub fn max_name_width(&self) -> usize {
+        self.max_name_width
     }
 }
 
+#[derive(Clone)]
 enum ImportStatus {
     New,
     Deleted,
