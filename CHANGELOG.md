@@ -18,6 +18,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+## [0.45.1] - 2026-09-03
+
+This release fixes an error that prevented the new jj-core crate from being
+published.
+
+### Fixed bugs
+
 * Building without `Cargo.lock` (e.g. `cargo install jj-cli`) works again
   after all versions of the `bisync` crate, a transitive dependency of gix,
   were yanked.
@@ -5572,7 +5579,8 @@ No changes, only trying to get the automated build to work.
 
 Last release before this changelog started.
 
-[unreleased]: https://github.com/jj-vcs/jj/compare/v0.45.0...HEAD
+[unreleased]: https://github.com/jj-vcs/jj/compare/v0.45.1...HEAD
+[0.45.1]: https://github.com/jj-vcs/jj/compare/v0.45.0...v0.45.1
 [0.45.0]: https://github.com/jj-vcs/jj/compare/v0.44.0...v0.45.0
 [0.44.0]: https://github.com/jj-vcs/jj/compare/v0.43.0...v0.44.0
 [0.43.0]: https://github.com/jj-vcs/jj/compare/v0.42.0...v0.43.0
