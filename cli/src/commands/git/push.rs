@@ -535,6 +535,13 @@ pub async fn cmd_git_push(
         return Ok(());
     }
 
+    let needs_confirm = !args.dry_run
+        && match tx.settings().get("git.confirm-before-push")? {
+            PushConfirmChoice::Always => true,
+            PushConfirmChoice::Never => false,
+            PushConfirmChoice::Auto => ref_updates.bookmarks.len() + ref_updates.tags.len() > 1,
+        };
+
     if !args.dry_run && tx.settings().get_bool("git.sign-on-push")? {
         let to_push_expr = ready_to_push_revset_expression(&tx, remote, &ref_updates);
         ref_updates = sign_commits_before_push(ui, &mut tx, to_push_expr, ref_updates).await?;
@@ -551,6 +558,11 @@ pub async fn cmd_git_push(
 
     if args.dry_run {
         writeln!(ui.status(), "Dry-run requested, not pushing.")?;
+        return Ok(());
+    }
+
+    if needs_confirm && !ui.prompt_yes_no("Continue?", Some(true))? {
+        writeln!(ui.status(), "Aborting; nothing was changed.")?;
         return Ok(());
     }
 
@@ -599,6 +611,21 @@ pub async fn cmd_git_push(
     } else {
         Err(user_error("Failed to push some bookmarks"))
     }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PushConfirmChoice {
+    /// Always ask for confirmation before pushing
+    Always,
+    /// Never prompt the user before pushing a change
+    Never,
+    /// Only prompt if more than one bookmark/tag is about to be pushed
+    ///
+    /// If more than one bookmark or tag is moved in the same push, it is
+    /// possible that some of them were unintentional, so we should give the
+    /// user a chance to correct their mistake.
+    Auto,
 }
 
 #[derive(Clone, Debug)]
