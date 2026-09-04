@@ -643,6 +643,7 @@ where
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use maplit::hashmap;
     use pollster::FutureExt as _;

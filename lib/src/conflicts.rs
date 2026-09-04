@@ -1133,6 +1133,7 @@ pub async fn update_from_content(
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     #![expect(clippy::too_many_arguments)]
 

@@ -257,6 +257,7 @@ impl<'a, I: AsCompositeIndex> PositionsAccumulator<'a, I> {
     }
 
     #[cfg(test)]
+    #[cfg_attr(coverage_nightly, coverage(off))]
     fn consumed_len(&self) -> usize {
         self.inner.borrow().consumed_positions.len()
     }
@@ -1571,6 +1572,7 @@ async fn to_file_content(
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[rustversion::attr(
     since(1.89),
     expect(clippy::cloned_ref_to_slice_refs, reason = "makes tests more readable")

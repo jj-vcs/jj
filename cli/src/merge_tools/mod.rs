@@ -494,6 +494,7 @@ async fn pick_conflict_side(
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use jj_lib::config::ConfigLayer;
     use jj_lib::config::ConfigSource;

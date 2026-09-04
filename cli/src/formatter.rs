@@ -798,6 +798,7 @@ fn write_sanitized(output: &mut impl Write, buf: &[u8]) -> Result<(), Error> {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use std::error::Error as _;
 

@@ -246,6 +246,7 @@ impl ReadonlyChangedPathIndexSegment {
     }
 
     #[cfg(test)]
+    #[cfg_attr(coverage_nightly, coverage(off))]
     fn paths(&self) -> impl ExactSizeIterator<Item = &RepoPath> {
         (0..self.num_paths).map(|pos| self.path(PathPosition(pos)))
     }
@@ -592,6 +593,7 @@ pub(super) async fn collect_changed_paths(
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use test_case::test_case;
 

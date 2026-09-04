@@ -1175,6 +1175,7 @@ impl TryFrom<Vec<String>> for NonEmptyCommandArgsVec {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use std::env::join_paths;
     use std::fmt::Write as _;

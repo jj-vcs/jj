@@ -3623,6 +3623,7 @@ fn to_remote_tag_ref_update(
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use assert_matches::assert_matches;
 

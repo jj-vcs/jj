@@ -966,6 +966,7 @@ fn trim_sideband_line(line: &[u8]) -> (&[u8], Option<GitSidebandLineTerminator>)
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod test {
     use std::process::ExitStatus;
 

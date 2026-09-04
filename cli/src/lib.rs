@@ -12,6 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Lets items opt out of coverage instrumentation via
+// `#[cfg_attr(coverage_nightly, coverage(off))]`, which we put on every
+// `#[cfg(test)]` module so that reported numbers describe the code we ship
+// rather than the tests exercising it. `coverage_nightly` is set only by
+// cargo-llvm-cov on nightly (see `cargo cov` in .cargo/config.toml), so stable
+// builds never see the unstable feature.
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![deny(unused_must_use)]
 
 pub mod cleanup_guard;

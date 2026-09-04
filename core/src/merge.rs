@@ -711,6 +711,7 @@ impl<T> Merge<Merge<T>> {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use test_case::test_case;
 

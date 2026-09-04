@@ -563,6 +563,7 @@ fn unwrap_as_short_key<const N: usize>(key_bytes: &[u8]) -> &[u8; N] {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
 

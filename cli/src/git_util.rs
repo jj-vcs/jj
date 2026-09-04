@@ -595,6 +595,7 @@ pub fn unlink_git_worktree(
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use std::path::MAIN_SEPARATOR;
 

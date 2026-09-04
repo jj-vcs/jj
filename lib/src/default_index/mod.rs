@@ -44,6 +44,7 @@ pub use self::store::DefaultIndexStoreError;
 pub use self::store::DefaultIndexStoreInitError;
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[rustversion::attr(
     since(1.89),
     expect(clippy::cloned_ref_to_slice_refs, reason = "makes tests more readable")

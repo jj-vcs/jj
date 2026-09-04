@@ -258,6 +258,31 @@ These are listed roughly in order of decreasing importance.
    On Linux, you may be able to speed up `nextest` even further by using
    the `mold` linker, as explained below.
 
+### Measuring code coverage
+
+Install [`cargo-llvm-cov`](https://github.com/taiki-e/cargo-llvm-cov) and
+`cargo-nextest` (see above), then run:
+
+```shell
+cargo +nightly cov          # add --html to get a browsable report
+```
+
+`cov` is an alias defined in `.cargo/config.toml` which enables a consistent
+set of options for all contributors. The nightly Rust toolchain is required (the
+compiler instrumentation feature itself is nightly only).
+
+When you are writing new test modules, make sure to turn coverage off for
+that module so it doesn't skew the resultant accounting; this can be done by
+copy/pasting the following `#[cfg_attr]` after your `#[cfg(test)]` stanza:
+
+```rust
+#[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
+mod tests {
+    // ...
+}
+```
+
 ### Configuring `jj fix` to run `rustfmt`
 
 Run this in the jj repo:

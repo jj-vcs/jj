@@ -352,6 +352,7 @@ async fn visit_collapsed_untracked_files(
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod test {
     use pollster::FutureExt as _;
     use testutils::TestRepo;

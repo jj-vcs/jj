@@ -441,6 +441,7 @@ fn is_safe_identifier(symbol: &str) -> bool {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
 
