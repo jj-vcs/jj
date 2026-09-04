@@ -497,6 +497,8 @@ impl Workspace {
         store_factories: &StoreFactories,
         working_copy_factories: &WorkingCopyFactories,
     ) -> Result<Self, WorkspaceLoadError> {
+        // TODO: XXX:WWWW
+        // let workspace_path = dunce::canonicalize(workspace_path).context(workspace_path)?;
         let loader = workspace_loader_factory.create(workspace_path)?;
         let workspace = loader.load(user_settings, store_factories, working_copy_factories)?;
         Ok(workspace)

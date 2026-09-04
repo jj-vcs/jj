@@ -607,7 +607,7 @@ fn test_broken_repo_structure() {
     ------- stderr -------
     Internal error: The repository appears broken or inaccessible
     Caused by:
-    1: Cannot access $TEST_ENV/repo/.jj/repo/workspace_store
+    1: Cannot access $TEST_ENV/repo/.jj/repo
     [EOF]
     [exit status: 255]
     ");

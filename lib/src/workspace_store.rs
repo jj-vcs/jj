@@ -58,16 +58,10 @@ pub struct WorkspaceMetadata {
 
 impl WorkspaceMetadata {
     /// Creates a new `WorkspaceMetadata` instance.
-    fn new(
-        repo_path: &Path,
-        name: WorkspaceNameBuf,
-        workspace_path: &Path,
-        workspace_type: WorkspaceType,
-    ) -> Self {
-        let workspace_path = Self::to_canonical_workspace_path(repo_path, workspace_path);
+    fn new(name: WorkspaceNameBuf, workspace_path: &Path, workspace_type: WorkspaceType) -> Self {
         Self {
             name,
-            workspace_path,
+            workspace_path: workspace_path.to_path_buf(),
             workspace_type,
         }
     }
@@ -88,7 +82,6 @@ impl WorkspaceMetadata {
     }
 
     fn from_proto(
-        repo_path: &Path,
         workspace_proto: &simple_workspace_store::Workspace,
     ) -> Result<Self, SimpleWorkspaceStoreError> {
         let name = workspace_proto.name.clone().into();
@@ -97,7 +90,7 @@ impl WorkspaceMetadata {
             simple_workspace_store::WorkspaceType::Regular => WorkspaceType::Regular,
             simple_workspace_store::WorkspaceType::Independent => WorkspaceType::Independent,
         };
-        Ok(Self::new(repo_path, name, &path, workspace_type))
+        Ok(Self::new(name, &path, workspace_type))
     }
 
     fn to_proto(&self) -> Result<simple_workspace_store::Workspace, SimpleWorkspaceStoreError> {
@@ -114,12 +107,18 @@ impl WorkspaceMetadata {
         })
     }
 
-    fn to_canonical_workspace_path(repo_path: &Path, workspace_path: &Path) -> PathBuf {
-        let workspace_path = relative_path(repo_path, workspace_path);
+    fn to_canonical_workspace_path(
+        repo_path: &Path,
+        workspace_path: &Path,
+    ) -> Result<PathBuf, SimpleWorkspaceStoreError> {
+        let workspace_path = dunce::canonicalize(workspace_path)
+            .context(workspace_path)
+            .map_err(SimpleWorkspaceStoreError::Path)?;
+        let workspace_path = relative_path(repo_path, &workspace_path);
         if workspace_path.is_relative() {
-            slash_path(&workspace_path).into_owned()
+            Ok(slash_path(&workspace_path).into_owned())
         } else {
-            workspace_path
+            Ok(workspace_path)
         }
     }
 
@@ -235,59 +234,59 @@ pub struct SimpleWorkspaceStore {
 }
 
 impl SimpleWorkspaceStore {
-    /// Initializes a workspace store at the given path, creating it if necessary.
-    fn init(repo_path: &Path) -> Result<Self, WorkspaceStoreError> {
+    fn new(repo_path: &Path, create_if_missing: bool) -> Result<Self, WorkspaceStoreError> {
+        let repo_path = dunce::canonicalize(repo_path)
+            .context(repo_path)
+            .map_err(SimpleWorkspaceStoreError::Path)?;
         let store_dir = repo_path.join("workspace_store");
         let file = store_dir.join("index");
-
         let store = Self {
-            repo_path: repo_path.to_path_buf(),
+            repo_path,
             store_file: file.clone(),
             lock_file: file.with_extension("lock"),
         };
+        if create_if_missing {
+            // Ensure the workspace_store directory exists. We need this
+            // for repos that were created before workspace_store was added.
+            if !store_dir.exists() {
+                fs::create_dir(&store_dir)
+                    .context(store_dir)
+                    .map_err(SimpleWorkspaceStoreError::Path)?;
 
-        // Ensure the workspace_store directory exists. We need this
-        // for repos that were created before workspace_store was added.
-        if !store_dir.exists() {
-            fs::create_dir(&store_dir)
-                .context(store_dir)
-                .map_err(SimpleWorkspaceStoreError::Path)?;
-
-            let _lock = store.lock()?;
-            store.write_store(simple_workspace_store::Workspaces::default())?;
+                let _lock = store.lock()?;
+                store.write_store(simple_workspace_store::Workspaces::default())?;
+            } else {
+                // Make sure we can read the state.
+                let _lock = store.lock()?;
+                let _unused = store.read_store()?;
+            }
         } else {
             // Make sure we can read the state.
+            // TODO: XXX:W The error handling here is a bit weird.
+            if !store_dir
+                .metadata()
+                .context(&store_dir)
+                .map_err(SimpleWorkspaceStoreError::Path)?
+                .is_dir()
+            {
+                return Err(WorkspaceStoreError::StoreNotFound(store_dir));
+            }
             let _lock = store.lock()?;
             let _unused = store.read_store()?;
         }
-
         Ok(store)
+    }
+
+    /// Initializes a workspace store at the given path, creating it if necessary.
+    fn init(repo_path: &Path) -> Result<Self, WorkspaceStoreError> {
+        let create_if_missing = true;
+        Self::new(repo_path, create_if_missing)
     }
 
     /// Loads the workspace store from the given repository path.
     fn load(repo_path: &Path) -> Result<Self, WorkspaceStoreError> {
-        let store_dir = repo_path.join("workspace_store");
-        let file = store_dir.join("index");
-
-        let store = Self {
-            repo_path: repo_path.to_path_buf(),
-            store_file: file.clone(),
-            lock_file: file.with_extension("lock"),
-        };
-        // Make sure we can read the state.
-        // TODO: XXX:W The error handling here is a bit weird.
-        if !store_dir
-            .metadata()
-            .context(&store_dir)
-            .map_err(SimpleWorkspaceStoreError::Path)?
-            .is_dir()
-        {
-            return Err(WorkspaceStoreError::StoreNotFound(store_dir));
-        }
-        let _lock = store.lock()?;
-        let _unused = store.read_store()?;
-
-        Ok(store)
+        let create_if_missing = false;
+        Self::new(repo_path, create_if_missing)
     }
 
     fn get_workspace_metadata_by_workspace_name(
@@ -302,7 +301,7 @@ impl SimpleWorkspaceStore {
         else {
             return Ok(None);
         };
-        let workspace_metadata = WorkspaceMetadata::from_proto(&self.repo_path, workspace_proto)?;
+        let workspace_metadata = WorkspaceMetadata::from_proto(workspace_proto)?;
         Ok(Some(workspace_metadata))
     }
 
@@ -342,6 +341,8 @@ impl WorkspaceStore for SimpleWorkspaceStore {
         "simple"
     }
 
+    // TODO: XXX:W If the add call is adding a workspace that already exists,
+    // make sure the workspace type is the same as the existing record.
     fn add(
         &self,
         workspace_name: &WorkspaceName,
@@ -350,12 +351,9 @@ impl WorkspaceStore for SimpleWorkspaceStore {
     ) -> Result<(), WorkspaceStoreError> {
         let _lock = self.lock()?;
 
-        let workspace_metadata = WorkspaceMetadata::new(
-            &self.repo_path,
-            workspace_name.to_owned(),
-            path,
-            workspace_type,
-        );
+        let workspace_path = WorkspaceMetadata::to_canonical_workspace_path(&self.repo_path, path)?;
+        let workspace_metadata =
+            WorkspaceMetadata::new(workspace_name.to_owned(), &workspace_path, workspace_type);
 
         let mut workspaces_proto = self.read_store()?;
         // Delete any existing entry with the same name
@@ -410,10 +408,10 @@ impl WorkspaceStore for SimpleWorkspaceStore {
         workspace_path: &Path,
     ) -> Result<Option<WorkspaceMetadata>, WorkspaceStoreError> {
         let canonical_workspace_path =
-            WorkspaceMetadata::to_canonical_workspace_path(&self.repo_path, workspace_path);
+            WorkspaceMetadata::to_canonical_workspace_path(&self.repo_path, workspace_path)?;
         let store_proto = self.read_store()?;
         let metadata = store_proto.workspaces.iter().find_map(|workspace_proto| {
-            if let Ok(m) = WorkspaceMetadata::from_proto(&self.repo_path, workspace_proto)
+            if let Ok(m) = WorkspaceMetadata::from_proto(workspace_proto)
                 && m.workspace_path() == canonical_workspace_path
             {
                 Some(m)
@@ -454,7 +452,7 @@ impl WorkspaceStore for SimpleWorkspaceStore {
         let workspaces = workspaces
             .workspaces
             .into_iter()
-            .map(|w| WorkspaceMetadata::from_proto(&self.repo_path, &w))
+            .map(|w| WorkspaceMetadata::from_proto(&w))
             .collect::<Result<Vec<_>, _>>()?;
         Ok(workspaces)
     }
