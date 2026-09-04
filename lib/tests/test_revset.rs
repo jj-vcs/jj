@@ -48,7 +48,7 @@ use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::repo_path::RepoPath;
-use jj_lib::revset::ResolvedRevsetExpression;
+use jj_lib::revset::ResolvedRevset;
 use jj_lib::revset::Revset;
 use jj_lib::revset::RevsetAliasesMap;
 use jj_lib::revset::RevsetDiagnostics;
@@ -110,10 +110,10 @@ fn resolve_symbol(repo: &dyn Repo, symbol: &str) -> Result<Vec<CommitId>, Revset
     let expression = parse(&mut RevsetDiagnostics::new(), symbol, &context).unwrap();
     assert_matches!(*expression, RevsetExpression::CommitRef(_));
     let symbol_resolver = default_symbol_resolver(repo);
-    match expression
+    let (resolved_expression, _other_repos) = expression
         .resolve_user_expression(repo, &symbol_resolver)?
-        .as_ref()
-    {
+        .into_inner();
+    match resolved_expression.as_ref() {
         RevsetExpression::Commits(commits) => Ok(commits.clone()),
         expression => panic!("symbol resolved to compound expression: {expression:?}"),
     }
@@ -127,7 +127,7 @@ fn revset_for_commits<'index>(
     RevsetExpression::commits(commits.iter().map(|commit| commit.id().clone()).collect())
         .resolve_user_expression(repo, &symbol_resolver)
         .unwrap()
-        .evaluate(repo)
+        .evaluate()
         .unwrap()
 }
 
@@ -591,7 +591,7 @@ fn test_resolve_working_copy() -> TestResult {
         RevsetExpression::working_copy(ws1.clone())
             .present()
             .resolve_user_expression(tx.repo(), &symbol_resolver)?
-            .evaluate(tx.repo())?
+            .evaluate()?
             .stream()
             .map(Result::unwrap)
             .collect::<Vec<_>>()
@@ -610,7 +610,7 @@ fn test_resolve_working_copy() -> TestResult {
         RevsetExpression::working_copy(name)
             .resolve_user_expression(tx.repo(), &symbol_resolver)
             .unwrap()
-            .evaluate(tx.repo())
+            .evaluate()
             .unwrap()
             .stream()
             .map(Result::unwrap)
@@ -648,7 +648,7 @@ fn test_resolve_working_copies() -> TestResult {
         RevsetExpression::working_copies()
             .resolve_user_expression(tx.repo(), &symbol_resolver)
             .unwrap()
-            .evaluate(tx.repo())
+            .evaluate()
             .unwrap()
             .stream()
             .map(Result::unwrap)
@@ -1055,10 +1055,10 @@ fn resolve_commit_ids(repo: &dyn Repo, revset_str: &str) -> Vec<CommitId> {
     try_resolve_commit_ids(repo, revset_str).unwrap()
 }
 
-fn try_resolve_expression(
-    repo: &dyn Repo,
+fn try_resolve_expression<'a>(
+    repo: &'a dyn Repo,
     revset_str: &str,
-) -> Result<Arc<ResolvedRevsetExpression>, RevsetResolutionError> {
+) -> Result<ResolvedRevset<'a>, RevsetResolutionError> {
     let settings = testutils::user_settings();
     let context = RevsetParseContext {
         aliases_map: &RevsetAliasesMap::default(),
@@ -1080,7 +1080,7 @@ fn try_resolve_commit_ids(
     revset_str: &str,
 ) -> Result<Vec<CommitId>, RevsetResolutionError> {
     Ok(try_resolve_expression(repo, revset_str)?
-        .evaluate(repo)
+        .evaluate()
         .unwrap()
         .stream()
         .map(Result::unwrap)
@@ -1092,9 +1092,7 @@ fn try_evaluate_expression<'index>(
     repo: &'index dyn Repo,
     revset_str: &str,
 ) -> Result<Box<dyn Revset + 'index>, RevsetEvaluationError> {
-    try_resolve_expression(repo, revset_str)
-        .unwrap()
-        .evaluate(repo)
+    try_resolve_expression(repo, revset_str).unwrap().evaluate()
 }
 
 fn resolve_commit_ids_in_workspace(
@@ -1128,7 +1126,7 @@ fn resolve_commit_ids_in_workspace(
         .resolve_user_expression(repo, &symbol_resolver)
         .unwrap();
     expression
-        .evaluate(repo)
+        .evaluate()
         .unwrap()
         .stream()
         .map(Result::unwrap)
@@ -1251,9 +1249,19 @@ fn test_evaluate_expression_root_and_checkout() -> TestResult {
 
     // Shouldn't panic by unindexed commit ID
     let symbol_resolver = default_symbol_resolver(tx.repo());
-    let expression = RevsetExpression::commit(commit1.id().clone())
-        .resolve_user_expression(tx.repo(), &symbol_resolver)?;
-    assert!(expression.evaluate(tx.base_repo().as_ref()).is_err());
+    let resolve = || -> Vec<CommitId> {
+        RevsetExpression::commit(commit1.id().clone())
+            .resolve_user_expression(tx.repo(), &symbol_resolver)
+            .unwrap()
+            .evaluate()
+            .unwrap()
+            .stream()
+            .map(Result::unwrap)
+            .collect()
+            .block_on()
+    };
+    assert_eq!(resolve(), vec![commit1.id().clone()]);
+
     Ok(())
 }
 
@@ -4320,6 +4328,105 @@ fn test_evaluate_expression_at_operation() -> TestResult {
         try_resolve_commit_ids(repo2.as_ref(), "at_operation(000000000000-, all())"),
         Err(RevsetResolutionError::Other(_))
     );
+    Ok(())
+}
+
+#[test]
+fn test_evaluate_expression_at_operation_that_is_not_ancestor() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo0 = &test_repo.repo;
+    let root_commit = repo0.store().root_commit();
+
+    let mut tx = repo0.start_transaction();
+    let commit1 = create_random_commit(tx.repo_mut())
+        .set_description("commit1@op1")
+        .write_unwrap();
+    let repo1 = tx.commit("op1").block_on()?;
+
+    // Create two sibling operations based on op1, each with its own commit
+    let mut tx = repo1.start_transaction();
+    let commit2_op2 = create_random_commit(tx.repo_mut())
+        .set_description("commit2@op2")
+        .write_unwrap();
+    let repo2 = tx.commit("op2").block_on()?;
+
+    let mut tx = repo1.start_transaction();
+    let commit3_op3 = create_random_commit(tx.repo_mut())
+        .set_description("commit3@op3")
+        .write_unwrap();
+    let repo3 = tx.commit("op3").block_on()?;
+
+    // op3's commit doesn't exist in the index of either repo1 or repo2
+    assert!(!repo1.index().has_id(commit3_op3.id()).block_on()?);
+    assert!(!repo2.index().has_id(commit3_op3.id()).block_on()?);
+    let at_op3 = |expr: &str| format!("at_operation({}, {expr})", repo3.op_id().hex());
+
+    // Commits visible at a child or sibling operation can be resolved and evaluated
+    // even though they don't exist in the repo's index.
+    assert_eq!(
+        resolve_commit_ids(repo1.as_ref(), &at_op3(&commit3_op3.id().hex())),
+        vec![commit3_op3.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(repo2.as_ref(), &at_op3(&commit3_op3.id().hex())),
+        vec![commit3_op3.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(repo1.as_ref(), &at_op3("all()")),
+        vec![
+            commit3_op3.id().clone(),
+            commit1.id().clone(),
+            root_commit.id().clone(),
+        ]
+    );
+    assert_eq!(
+        resolve_commit_ids(repo2.as_ref(), &at_op3("all()")),
+        vec![
+            commit3_op3.id().clone(),
+            commit1.id().clone(),
+            root_commit.id().clone(),
+        ]
+    );
+    // Commits known to the current repo are also found in the merged index.
+    assert_eq!(
+        resolve_commit_ids(
+            repo1.as_ref(),
+            &format!("{} | {}", at_op3("all()"), commit1.id().hex())
+        ),
+        vec![
+            commit3_op3.id().clone(),
+            commit1.id().clone(),
+            root_commit.id().clone(),
+        ]
+    );
+    assert_eq!(
+        resolve_commit_ids(
+            repo2.as_ref(),
+            &format!("{} | {}", at_op3("all()"), commit2_op2.id().hex())
+        ),
+        vec![
+            commit3_op3.id().clone(),
+            commit2_op2.id().clone(),
+            commit1.id().clone(),
+            root_commit.id().clone(),
+        ]
+    );
+    // The child/sibling operation's commits are not visible in the current repo.
+    assert_eq!(
+        resolve_commit_ids(
+            repo1.as_ref(),
+            &format!("::visible_heads() & {}", at_op3("all()"))
+        ),
+        vec![commit1.id().clone(), root_commit.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(
+            repo2.as_ref(),
+            &format!("::visible_heads() & {}", at_op3("all()"))
+        ),
+        vec![commit1.id().clone(), root_commit.id().clone()]
+    );
+
     Ok(())
 }
 

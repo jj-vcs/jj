@@ -34,6 +34,7 @@ use jj_lib::ref_name::RemoteNameBuf;
 use jj_lib::ref_name::RemoteRefSymbolBuf;
 use jj_lib::repo::Repo;
 use jj_lib::revset;
+use jj_lib::revset::ResolvedRevset;
 use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::Revset;
 use jj_lib::revset::RevsetDiagnostics;
@@ -106,7 +107,20 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
     }
 
     /// Resolves user symbols in the expression, returns new expression.
+    ///
+    /// Note that this discards any extra index data needed to evaluate
+    /// `at_operation()` expressions pointing to operations whose commits
+    /// aren't indexed in the current repo. Use [`Self::evaluate()`] if the
+    /// expression is to be evaluated as is.
+    // TODO: migrate most callers to `evaluate()` or to `resolve_revset`, so
+    // callers don't drop the merged_index on the floor when the expression
+    // contains an `at_operation(OP, x)`. This can be done over time.
     pub fn resolve(&self) -> Result<Arc<ResolvedRevsetExpression>, RevsetResolutionError> {
+        let (expression, _other_repos) = self.resolve_revset()?.into_inner();
+        Ok(expression)
+    }
+
+    pub fn resolve_revset(&self) -> Result<ResolvedRevset<'_>, RevsetResolutionError> {
         let symbol_resolver = default_symbol_resolver(
             self.repo,
             self.extensions.symbol_resolvers(),
@@ -118,9 +132,9 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
 
     /// Evaluates the expression.
     pub fn evaluate(&self) -> Result<Box<dyn Revset>, UserRevsetEvaluationError> {
-        self.resolve()
+        self.resolve_revset()
             .map_err(UserRevsetEvaluationError::Resolution)?
-            .evaluate(self.repo)
+            .evaluate()
             .map_err(UserRevsetEvaluationError::Evaluation)
     }
 
@@ -222,7 +236,8 @@ pub(super) fn try_resolve_trunk_alias(
     // prefixes.
     let symbol_resolver = SymbolResolver::new(repo, context.extensions.symbol_resolvers());
     let resolved = expression.resolve_user_expression(repo, &symbol_resolver)?;
-    Ok(Some(resolved))
+    let (expression, _other_repos) = resolved.into_inner();
+    Ok(Some(expression))
 }
 
 /// Error when evaluating a revset into a single commit.

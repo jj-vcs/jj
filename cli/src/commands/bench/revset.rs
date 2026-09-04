@@ -97,7 +97,7 @@ fn bench_revset<M: Measurement>(
         let resolved = expression
             .resolve_user_expression(repo, &symbol_resolver)
             .unwrap();
-        let revset = resolved.evaluate(repo).unwrap();
+        let revset = resolved.evaluate().unwrap();
         revset.stream().count().block_on()
     };
     let before = Instant::now();

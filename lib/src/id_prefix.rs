@@ -70,7 +70,7 @@ impl DisambiguationData {
             let revset = self
                 .expression
                 .resolve_user_expression(repo, &symbol_resolver)?
-                .evaluate(repo)?;
+                .evaluate()?;
 
             let commit_change_ids: Vec<_> = revset.commit_change_ids().try_collect().block_on()?;
             let mut commit_index = IdIndex::with_capacity(commit_change_ids.len());
