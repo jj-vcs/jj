@@ -71,7 +71,10 @@ pub async fn cmd_debug_revset(
         command.revset_extensions().symbol_resolvers(),
         workspace_command.id_prefix_context(),
     );
-    let mut expression = expression.resolve_user_expression(repo, &symbol_resolver)?;
+    let (mut expression, other_repos) = expression
+        .resolve_user_expression(repo, &symbol_resolver)?
+        .into_inner();
+
     writeln!(ui.stdout(), "-- Resolved:")?;
     writeln!(ui.stdout(), "{expression:#?}")?;
     writeln!(ui.stdout())?;
@@ -88,7 +91,7 @@ pub async fn cmd_debug_revset(
     writeln!(ui.stdout(), "{backend_expression:#?}")?;
     writeln!(ui.stdout())?;
 
-    let revset = expression.evaluate_unoptimized(repo)?;
+    let revset = expression.evaluate_unoptimized(repo, &other_repos)?;
     writeln!(ui.stdout(), "-- Evaluated:")?;
     writeln!(ui.stdout(), "{revset:#?}")?;
     writeln!(ui.stdout())?;
