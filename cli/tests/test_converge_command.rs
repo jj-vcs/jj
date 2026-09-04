@@ -890,40 +890,46 @@ fn test_converge_description_changed_inconsistently(invoke_text_editor: bool) ->
     create_commit_with_files(&work_dir, "d", &["b1"], &[("file3", "3")]);
 
     // Test the setup (commit B is duplicated)
-    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
-    @  d  yostqsxw  a906f67a - description: d
-    ○  b1  zsuskuln/0  0ec69b7a - description: bar
-    │ ○  b2  zsuskuln/1  08117b18 - description: foo
-    ├─╯
-    ○  a  rlvkpnrz  e9a731d9 - description: a
-    ◆    zzzzzzzz  00000000
-    [EOF]
-    ");
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+        @  d  yostqsxw  a906f67a - description: d
+        ○  b1  zsuskuln/0  0ec69b7a - description: bar
+        │ ○  b2  zsuskuln/1  08117b18 - description: foo
+        ├─╯
+        ○  a  rlvkpnrz  e9a731d9 - description: a
+        ◆    zzzzzzzz  00000000
+        [EOF]
+        ");
+    }
 
-    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @r"
-    ○  zsuskuln/1 08117b18 (divergent) foo
-    ○  zsuskuln/2 59a77004 (hidden) b2
-    ○  zsuskuln/3 b2852eb2 (hidden) (empty) b2
-    [EOF]
-    ");
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @r"
+        ○  zsuskuln/1 08117b18 (divergent) foo
+        ○  zsuskuln/2 59a77004 (hidden) b2
+        ○  zsuskuln/3 b2852eb2 (hidden) (empty) b2
+        [EOF]
+        ");
+    }
 
     // First check behavior in non-interactive mode.
     let output =
         work_dir.run_jj_with(|cmd| force_interactive(cmd).args(["converge", "--no-interactive"]));
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Found 1 divergent change(s) in the specified revset:
-    - Change: zsuskulnrvyr with 2 commits:
-        zsuskuln/0 0ec69b7a b1 | (divergent) bar
-        zsuskuln/1 08117b18 b2 | (divergent) foo
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(output, @r"
+        ------- stderr -------
+        Found 1 divergent change(s) in the specified revset:
+        - Change: zsuskulnrvyr with 2 commits:
+            zsuskuln/0 0ec69b7a b1 | (divergent) bar
+            zsuskuln/1 08117b18 b2 | (divergent) foo
 
-    Attempting to converge change zsuskulnrvyr...
+        Attempting to converge change zsuskulnrvyr...
 
-    Could not determine which description to use.
-    Error: Could not converge change
-    [EOF]
-    [exit status: 1]
-    ");
+        Could not determine which description to use.
+        Error: Could not converge change
+        [EOF]
+        [exit status: 1]
+        ");
+    }
 
     // Now check behavior in interactive mode.
     if invoke_text_editor {
