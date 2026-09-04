@@ -7675,8 +7675,20 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h2 id="unreleased"><a href="https://github.com/jj-vcs/jj/compare/v0.45.1...HEAD">Unreleased</a><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <h3 id="release-highlights">Release highlights<a class="headerlink" href="#release-highlights" title="Permanent link">&para;</a></h3>
 <h3 id="breaking-changes">Breaking changes<a class="headerlink" href="#breaking-changes" title="Permanent link">&para;</a></h3>
+<ul>
+<li>The minimum supported <code>git</code> command version is now 2.42.0, up from 2.41.0.
+  <code>jj workspace add</code> uses <code>git worktree add --orphan</code>, which was added in
+  2.42.0.</li>
+</ul>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>jj workspace add</code> supports <code>--colocate</code>/<code>--no-colocate</code> flags to control
+  whether a Git worktree is created alongside the workspace. The default
+  colocates when the current workspace is colocated and the <code>git.colocate</code>
+  config is <code>true</code>. <code>jj workspace forget</code> removes the corresponding Git
+  worktree when one exists.</li>
+</ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <h2 id="0451-2026-09-03"><a href="https://github.com/jj-vcs/jj/compare/v0.45.0...v0.45.1">0.45.1</a> - 2026-09-03<a class="headerlink" href="#0451-2026-09-03" title="Permanent link">&para;</a></h2>
 <p>This release fixes an error that prevented the new jj-core crate from being
