@@ -652,3 +652,69 @@ fn test_large_blobs_are_written_to_disk_immediately() -> TestResult {
     assert!(git_object_exists(&git_repo_path, &small_file_id));
     Ok(())
 }
+
+#[test]
+fn test_flush_writes_pack_for_many_objects() -> TestResult {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = test_repo.repo.clone();
+    let store = repo.store();
+    let git_repo_path = get_git_backend(&repo).git_repo_path().to_owned();
+    let objects_path = git_repo_path.join("objects");
+    let pack_path = objects_path.join("pack");
+    let count_loose_objects = || {
+        std::fs::read_dir(&objects_path)
+            .unwrap()
+            .map(|entry| entry.unwrap())
+            .filter(|entry| entry.file_name().len() == 2)
+            .map(|entry| std::fs::read_dir(entry.path()).unwrap().count())
+            .sum::<usize>()
+    };
+    let list_packs = || {
+        list_dir(&pack_path)
+            .into_iter()
+            .filter(|name| name.ends_with(".pack") || name.ends_with(".keep"))
+            .collect_vec()
+    };
+
+    // A few objects are written as loose objects
+    let mut tx = repo.start_transaction();
+    let small_commit = make_commit(
+        &mut tx,
+        vec![store.root_commit_id().clone()],
+        &[(repo_path("file"), "contents\n")],
+    );
+    let repo = tx.commit("test").block_on()?;
+    assert!(git_object_exists(&git_repo_path, small_commit.id()));
+    let num_loose_objects = count_loose_objects();
+    assert_eq!(num_loose_objects, 3); // commit, tree, blob
+    assert!(list_packs().is_empty());
+
+    // Many objects (here 200 blobs + 1 tree + 1 commit) are written to a pack
+    let contents = (0..200)
+        .map(|i| (repo_path_buf(format!("file{i}")), format!("contents {i}\n")))
+        .collect_vec();
+    let contents = contents
+        .iter()
+        .map(|(path, contents)| (path.as_ref(), contents.as_str()))
+        .collect_vec();
+    let mut tx = repo.start_transaction();
+    let large_commit = make_commit(&mut tx, vec![store.root_commit_id().clone()], &contents);
+    let repo = tx.commit("test").block_on()?;
+    assert!(git_object_exists(&git_repo_path, large_commit.id()));
+    assert!(git_object_exists(
+        &git_repo_path,
+        large_commit.tree_ids().first()
+    ));
+    assert_eq!(count_loose_objects(), num_loose_objects);
+    let packs = list_packs();
+    assert_eq!(packs.len(), 1, "{packs:?}");
+    assert!(packs[0].ends_with(".pack"));
+    // The objects can be read by a fresh store
+    let reloaded_repo = test_repo
+        .env
+        .load_repo_at_head(repo.settings(), test_repo.repo_path());
+    let reloaded_commit = reloaded_repo.store().get_commit(large_commit.id())?;
+    let tree = reloaded_commit.tree();
+    assert_eq!(block_on_stream(tree.entries()).count(), 200);
+    Ok(())
+}

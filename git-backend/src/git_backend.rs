@@ -31,6 +31,7 @@ use std::str::Utf8Error;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
+use std::sync::PoisonError;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::time::SystemTime;
@@ -103,6 +104,10 @@ const MAX_IN_MEMORY_BLOB_SIZE: usize = 1024 * 1024;
 /// flushed to disk without waiting for an explicit `flush()`. This bounds
 /// memory usage when e.g. snapshotting many small files.
 const MAX_IN_MEMORY_BYTES: usize = 100 * 1024 * 1024;
+/// If at least this many objects are persisted by one `flush()`, they're
+/// written to a single pack file instead of as loose objects. This is the same
+/// heuristic (and default value) as Git's `transfer.unpackLimit`.
+const MIN_OBJECTS_FOR_PACK: usize = 100;
 
 pub const JJ_CONFLICT_README_FILE_NAME: &str = "JJ-CONFLICT-README";
 
@@ -214,6 +219,9 @@ pub struct GitBackend {
     in_memory_bytes: AtomicUsize,
     // `MAX_IN_MEMORY_BYTES`, except in tests.
     max_in_memory_bytes: usize,
+    // ".keep" files of packs written by `flush()` whose commits aren't
+    // protected from GC by no-gc refs yet.
+    pending_keep_files: Mutex<Vec<PathBuf>>,
     git_executable: PathBuf,
     write_change_id_header: bool,
 }
@@ -243,6 +251,7 @@ impl GitBackend {
             pending_extras: Mutex::new(HashMap::new()),
             in_memory_bytes: AtomicUsize::new(0),
             max_in_memory_bytes: MAX_IN_MEMORY_BYTES,
+            pending_keep_files: Mutex::new(vec![]),
             git_executable: settings.git_executable.clone(),
             write_change_id_header: settings.write_change_id_header,
         }
@@ -1098,34 +1107,117 @@ fn run_git_gc(program: &OsStr, git_dir: &Path, keep_newer: SystemTime) -> Result
 
 /// Writes the in-memory objects to the on-disk object database of `repo`,
 /// removing them from `memory` as they're written.
+///
+/// Returns the path to the pack's ".keep" file if a pack was written. The
+/// caller should remove it once the objects are protected by refs.
 fn persist_objects(
     repo: &gix::Repository,
     memory: &mut gix::odb::memory::Storage,
-) -> BackendResult<()> {
-    fn kind_name(kind: gix::objs::Kind) -> &'static str {
-        match kind {
-            gix::objs::Kind::Tree => "tree",
-            gix::objs::Kind::Blob => "blob",
-            gix::objs::Kind::Commit => "commit",
-            gix::objs::Kind::Tag => "tag",
+) -> BackendResult<Option<PathBuf>> {
+    // Write in a deterministic order to make debugging easier.
+    let to_persist = memory.keys().copied().sorted_unstable().collect_vec();
+
+    let keep_path = if to_persist.len() >= MIN_OBJECTS_FOR_PACK {
+        write_pack(
+            repo,
+            to_persist.iter().map(|oid| {
+                let (kind, data) = memory.get(oid).unwrap();
+                (*oid, *kind, data.as_slice())
+            }),
+        )?
+    } else {
+        for oid in &to_persist {
+            let (kind, data) = memory.get(oid).unwrap();
+            let written_oid = repo
+                .objects
+                .write_buf_with_known_id(*kind, data, *oid)
+                .map_err(|err| BackendError::WriteObject {
+                    object_type: object_kind_name(*kind),
+                    source: err.into(),
+                })?;
+            debug_assert_eq!(written_oid, *oid);
         }
+        None
+    };
+    for oid in &to_persist {
+        memory.remove(oid);
+    }
+    Ok(keep_path)
+}
+
+#[derive(Debug, Error)]
+#[error("Failed to write pack file")]
+struct WritePackError(#[source] Box<dyn std::error::Error + Send + Sync>);
+
+/// Writes the given objects to a new pack file (with index) in `repo`'s object
+/// database. Returns the path to the pack's ".keep" file, if any.
+fn write_pack<'a>(
+    repo: &gix::Repository,
+    objects: impl ExactSizeIterator<Item = (gix::ObjectId, gix::objs::Kind, &'a [u8])>,
+) -> BackendResult<Option<PathBuf>> {
+    use gix::odb::pack::data::output;
+    let pack_err = |err: Box<dyn std::error::Error + Send + Sync>| {
+        BackendError::Other(Box::new(WritePackError(err)))
+    };
+
+    let object_hash = repo.object_hash();
+    let num_objects = objects.len();
+    // We don't bother delta-compressing the objects since Git's GC will repack
+    // them anyway. Like Git does for loose objects, we favor speed over size.
+    let entries: Vec<output::Entry> = objects
+        .map(|(oid, kind, data)| {
+            let count = output::Count::from_data(oid, None);
+            let data = gix::objs::Data::new(data, kind, object_hash);
+            output::Entry::from_data(&count, &data, gix::zlib::Compression::BEST_SPEED)
+        })
+        .try_collect()
+        .map_err(|err| pack_err(err.into()))?;
+    let mut pack_bytes = Vec::new();
+    let entries_iter = std::iter::once(Ok::<_, gix::Error>(entries));
+    for written in output::bytes::FromEntriesIter::new(
+        entries_iter,
+        &mut pack_bytes,
+        u32::try_from(num_objects).unwrap(),
+        gix::odb::pack::data::Version::V2,
+        object_hash,
+    ) {
+        written.map_err(|err| pack_err(err.into()))?;
     }
 
-    // Write in a deterministic order to make debugging easier.
-    let oids = memory.keys().copied().sorted_unstable().collect_vec();
-    for oid in oids {
-        let (kind, data) = memory.get(&oid).unwrap();
-        let written_oid = repo
-            .objects
-            .write_buf_with_known_id(*kind, data, oid)
-            .map_err(|err| BackendError::WriteObject {
-                object_type: kind_name(*kind),
-                source: err.into(),
-            })?;
-        debug_assert_eq!(written_oid, oid);
-        memory.remove(&oid);
+    let pack_dir = repo.objects.store_ref().path().join("pack");
+    let outcome = gix::odb::pack::Bundle::write_to_directory(
+        &mut std::io::Cursor::new(pack_bytes),
+        Some(&pack_dir),
+        &mut gix::progress::Discard,
+        &std::sync::atomic::AtomicBool::new(false),
+        None::<gix::odb::Handle>,
+        object_hash,
+        gix::odb::pack::bundle::write::Options::default(),
+    )
+    .map_err(|err| pack_err(err.into()))?;
+    tracing::debug!(
+        num_objects,
+        data_path = ?outcome.data_path,
+        "wrote pack file"
+    );
+    Ok(outcome.keep_path)
+}
+
+fn remove_keep_files(keep_paths: &mut Vec<PathBuf>) {
+    for keep_path in keep_paths.drain(..) {
+        if let Err(err) = fs::remove_file(&keep_path) {
+            tracing::warn!(?keep_path, ?err, "failed to remove pack .keep file");
+        }
     }
-    Ok(())
+}
+
+fn object_kind_name(kind: gix::objs::Kind) -> &'static str {
+    match kind {
+        gix::objs::Kind::Tree => "tree",
+        gix::objs::Kind::Blob => "blob",
+        gix::objs::Kind::Commit => "commit",
+        gix::objs::Kind::Tag => "tag",
+    }
 }
 
 fn find_git_tree<'repo>(
@@ -1214,6 +1306,18 @@ fn import_extra_metadata_entries_from_heads(
         );
     }
     Ok(())
+}
+
+impl Drop for GitBackend {
+    fn drop(&mut self) {
+        // Packs from a failed flush() only contain objects that nothing
+        // persisted refers to, so there's no need to protect them anymore.
+        let pending_keep_files = self
+            .pending_keep_files
+            .get_mut()
+            .unwrap_or_else(PoisonError::into_inner);
+        remove_keep_files(pending_keep_files);
+    }
 }
 
 impl Debug for GitBackend {
@@ -1709,10 +1813,18 @@ impl Backend for GitBackend {
         let mut memory = locked_repo.objects.take_object_memory().unwrap_or_default();
         let result = persist_objects(&locked_repo, &mut memory);
         locked_repo.objects.set_object_memory(memory);
-        result?;
+        let keep_path = result?;
         self.in_memory_bytes.store(0, Ordering::Relaxed);
 
+        // A pack file written above is protected from GC by a ".keep" file
+        // until the no-gc refs have been created. If creating them fails, the
+        // ".keep" file stays until a later flush succeeds, or until the backend
+        // is dropped.
+        let mut pending_keep_files = self.pending_keep_files.lock().unwrap();
+        pending_keep_files.extend(keep_path);
+
         let Some((table, table_lock)) = table_and_lock else {
+            remove_keep_files(&mut pending_keep_files);
             return Ok(());
         };
         // Everything up to this point had no permanent effect on the repo except
@@ -1720,6 +1832,7 @@ impl Backend for GitBackend {
         locked_repo
             .edit_references(pending_extras.keys().sorted().map(to_no_gc_ref_update))
             .map_err(|err| BackendError::Other(Box::new(err)))?;
+        remove_keep_files(&mut pending_keep_files);
 
         let mut mut_table = table.start_mutation();
         for (id, extras) in pending_extras.iter().sorted() {
@@ -2710,6 +2823,86 @@ mod tests {
             Merge::resolved(TreeId::from_bytes(git_commit.tree_id().unwrap().as_bytes())),
             commit.root_tree
         );
+        Ok(())
+    }
+
+    #[test]
+    fn keep_file_after_failed_flush() -> TestResult {
+        let settings = backend_settings();
+        let temp_dir = new_temp_dir();
+        let backend =
+            GitBackend::init_internal(&settings, temp_dir.path(), gix::hash::Kind::default())?;
+        let git_dir = backend.git_repo_path().to_owned();
+        let pack_dir = git_dir.join("objects").join("pack");
+        let list_keep_files = || {
+            fs::read_dir(&pack_dir)
+                .unwrap()
+                .map(|entry| entry.unwrap().path())
+                .filter(|path| path.extension() == Some("keep".as_ref()))
+                .collect_vec()
+        };
+        // Creating no-gc refs fails while there's a file in place of the
+        // directory they're created in
+        let no_gc_ref_dir = git_dir.join("refs").join("jj").join("keep");
+        fs::create_dir_all(no_gc_ref_dir.parent().unwrap())?;
+        let block_no_gc_refs = || fs::write(&no_gc_ref_dir, "");
+        let write_pack_and_commit = |description: &str| -> TestResult<CommitId> {
+            for i in 0..MIN_OBJECTS_FOR_PACK {
+                backend
+                    .write_file(
+                        RepoPath::root(),
+                        &mut format!("{description} {i}").as_bytes(),
+                    )
+                    .block_on()?;
+            }
+            let signature = Signature {
+                name: "Someone".to_string(),
+                email: "someone@example.com".to_string(),
+                timestamp: Timestamp {
+                    timestamp: MillisSinceEpoch(0),
+                    tz_offset: 0,
+                },
+            };
+            let commit = Commit {
+                parents: vec![backend.root_commit_id().clone()],
+                predecessors: vec![],
+                root_tree: Merge::resolved(backend.empty_tree_id().clone()),
+                conflict_labels: Merge::resolved(String::new()),
+                change_id: ChangeId::new(vec![42; 16]),
+                description: description.to_string(),
+                author: signature.clone(),
+                committer: signature,
+                secure_sig: None,
+            };
+            Ok(backend.write_commit(commit, None).block_on()?.0)
+        };
+
+        // The pack stays protected while the commit has no ref
+        block_no_gc_refs()?;
+        let commit_id = write_pack_and_commit("first")?;
+        assert!(backend.flush().is_err());
+        assert_eq!(list_keep_files().len(), 1);
+
+        // Once a later flush has created the ref, the pack is no longer kept
+        fs::remove_file(&no_gc_ref_dir)?;
+        backend.flush()?;
+        assert!(list_keep_files().is_empty());
+        let git_repo = backend.git_repo();
+        assert!(
+            git_repo
+                .try_find_reference(&to_no_gc_ref_update(&commit_id).name)?
+                .is_some()
+        );
+
+        // If the ref is never created, the pack is no longer kept once the
+        // backend is dropped
+        fs::remove_dir_all(&no_gc_ref_dir)?;
+        block_no_gc_refs()?;
+        write_pack_and_commit("second")?;
+        assert!(backend.flush().is_err());
+        assert_eq!(list_keep_files().len(), 1);
+        drop(backend);
+        assert!(list_keep_files().is_empty());
         Ok(())
     }
 
