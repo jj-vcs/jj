@@ -1554,6 +1554,17 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_deeply_nested_parentheses() {
+        // Each `range_expression` alternative used to start with
+        // `neighbors_expression`, so a failed match re-parsed the whole operand
+        // and parsing cost 3^depth. At this depth that never finishes; the
+        // factored rule parses the operand once.
+        let depth = 32;
+        let text = format!("{}root(){}", "(".repeat(depth), ")".repeat(depth));
+        assert_eq!(parse_normalized(&text), parse_normalized("root()"));
+    }
+
+    #[test]
     fn test_parse_revset_operator_combinations() {
         // Parse repeated "parents" operator
         assert_eq!(parse_normalized("foo---"), parse_normalized("((foo-)-)-"));

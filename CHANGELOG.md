@@ -94,6 +94,10 @@ None
   when the commit stack is taller than the terminal.
   [#9033](https://github.com/jj-vcs/jj/issues/9033).
 
+* Revsets with nested parentheses no longer take exponential time to parse. A
+  revset like `((((...))))` nested about a dozen deep would hang; the operand
+  is now parsed once per level instead of three times.
+
 * The default pager flags now include `-K` (`--quit-on-intr`), so pressing
   Ctrl+C in `less` exits cleanly instead of leaving the terminal in a
   corrupted state (raw mode, visible escape sequences, broken input).
