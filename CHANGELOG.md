@@ -357,6 +357,10 @@ Thanks to the people who made this release happen!
 
 ### New features
 
+* `jj describe`: Add `--append` flag to append the provided message to the end
+  of the current change description.
+  [#7508](https://github.com/jj-vcs/jj/issues/7508)
+
 * `jj show` now supports `--reversed` flag.
 
 * `jj` now looks for config files in `/etc/jj`.
