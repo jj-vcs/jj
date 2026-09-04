@@ -127,14 +127,12 @@ pub async fn cmd_op_diff(
     let graph_style = GraphStyle::from_settings(settings)?;
     let with_content_format = LogContentFormat::new(ui, settings)?;
 
-    let workspace_name = None;
     let transaction_description = None;
     let command_args = [];
     let merged_from_op = merge_operations(
         None,
         repo_loader,
         from_ops.clone(),
-        workspace_name,
         transaction_description,
         &command_args,
     )

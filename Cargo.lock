@@ -4663,6 +4663,7 @@ version = "0.45.1"
 dependencies = [
  "async-trait",
  "bstr",
+ "dunce",
  "eyre",
  "futures 0.3.34",
  "gix",

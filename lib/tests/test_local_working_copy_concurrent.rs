@@ -17,6 +17,7 @@ use std::thread;
 
 use assert_matches::assert_matches;
 use jj_lib::default_backend_factories::default_working_copy_factories;
+use jj_lib::default_backend_factories::default_workspace_loader_factory;
 use jj_lib::repo::Repo as _;
 use jj_lib::working_copy::CheckoutError;
 use jj_lib::workspace::Workspace;
@@ -59,6 +60,7 @@ fn test_concurrent_checkout() -> TestResult {
         let mut ws2 = Workspace::load(
             &settings,
             &workspace1_root,
+            &*default_workspace_loader_factory(),
             &test_workspace1.env.default_backend_factories(),
             &default_working_copy_factories(),
         )?;
@@ -80,6 +82,7 @@ fn test_concurrent_checkout() -> TestResult {
     let ws3 = Workspace::load(
         &settings,
         &workspace1_root,
+        &*default_workspace_loader_factory(),
         &test_workspace1.env.default_backend_factories(),
         &default_working_copy_factories(),
     )?;
@@ -125,6 +128,7 @@ fn test_checkout_parallel() -> TestResult {
                 let mut workspace = Workspace::load(
                     &settings,
                     &workspace_root,
+                    &*default_workspace_loader_factory(),
                     &test_env.default_backend_factories(),
                     &default_working_copy_factories(),
                 )

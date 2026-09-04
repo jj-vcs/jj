@@ -36,6 +36,7 @@ use jj_lib::backend::TreeValue;
 use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::conflicts::ConflictMaterializeOptions;
 use jj_lib::default_backend_factories::default_working_copy_factories;
+use jj_lib::default_backend_factories::default_workspace_loader_factory;
 use jj_lib::file_util;
 use jj_lib::file_util::check_symlink_support;
 use jj_lib::file_util::symlink_dir;
@@ -492,6 +493,7 @@ fn test_acl() -> TestResult {
     let mut ws = Workspace::load(
         &settings,
         &workspace_root,
+        &*default_workspace_loader_factory(),
         &test_workspace.env.default_backend_factories(),
         &default_working_copy_factories(),
     )?;

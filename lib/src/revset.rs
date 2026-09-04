@@ -233,6 +233,7 @@ mod private {
     pub trait ExpressionState {
         type CommitRef: Clone;
         type Operation: Clone;
+        type Workspace: Clone;
     }
 
     // Not constructible because these state types just define associated types.
@@ -249,11 +250,13 @@ use private::UserExpressionState;
 impl ExpressionState for UserExpressionState {
     type CommitRef = RevsetCommitRef;
     type Operation = String;
+    type Workspace = String;
 }
 
 impl ExpressionState for ResolvedExpressionState {
     type CommitRef = Infallible;
     type Operation = Infallible;
+    type Workspace = Infallible;
 }
 
 /// [`RevsetExpression`] that may contain unresolved commit refs.
@@ -333,6 +336,11 @@ pub enum RevsetExpression<St: ExpressionState> {
     /// Resolves symbols and visibility at the specified operation.
     AtOperation {
         operation: St::Operation,
+        candidates: Arc<Self>,
+    },
+    /// Resolves symbols and visibility at the specified workspace.
+    AtWorkspace {
+        workspace: St::Workspace,
         candidates: Arc<Self>,
     },
     /// Makes `All` include the commits and their ancestors in addition to the
@@ -1203,6 +1211,17 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
             candidates,
         }))
     });
+    map.insert("at_workspace", |diagnostics, function, context| {
+        let [ws_arg, cand_arg] = function.expect_exact_arguments()?;
+        let workspace = revset_parser::catch_aliases(diagnostics, ws_arg, |_diagnostics, node| {
+            Ok(node.span.as_str().to_owned())
+        })?;
+        let candidates = lower_expression(diagnostics, cand_arg, context)?;
+        Ok(Arc::new(RevsetExpression::AtWorkspace {
+            workspace,
+            candidates,
+        }))
+    });
     map.insert("coalesce", |diagnostics, function, context| {
         let ([], args) = function.expect_some_arguments()?;
         let expressions: Vec<_> = args
@@ -1635,6 +1654,15 @@ fn try_transform_expression<St: ExpressionState, E>(
                     candidates,
                 }
             }),
+            RevsetExpression::AtWorkspace {
+                workspace,
+                candidates,
+            } => transform_rec(candidates, pre, post)?.map(|candidates| {
+                RevsetExpression::AtWorkspace {
+                    workspace: workspace.clone(),
+                    candidates,
+                }
+            }),
             RevsetExpression::WithinReference {
                 candidates,
                 commits,
@@ -1752,6 +1780,13 @@ trait ExpressionStateFolder<InSt: ExpressionState, OutSt: ExpressionState> {
     fn fold_at_operation(
         &mut self,
         operation: &InSt::Operation,
+        candidates: &RevsetExpression<InSt>,
+    ) -> Result<Arc<RevsetExpression<OutSt>>, Self::Error>;
+
+    /// Transforms `at_workspace(workspace, candidates)` expression.
+    fn fold_at_workspace(
+        &mut self,
+        workspace: &InSt::Workspace,
         candidates: &RevsetExpression<InSt>,
     ) -> Result<Arc<RevsetExpression<OutSt>>, Self::Error>;
 }
@@ -1883,6 +1918,10 @@ where
             operation,
             candidates,
         } => folder.fold_at_operation(operation, candidates)?,
+        RevsetExpression::AtWorkspace {
+            workspace,
+            candidates,
+        } => folder.fold_at_workspace(workspace, candidates)?,
         RevsetExpression::WithinReference {
             candidates,
             commits,
@@ -2645,6 +2684,27 @@ fn reload_repo_at_operation(
         })
 }
 
+fn reload_repo_at_workspace(
+    repo: &dyn Repo,
+    workspace_str: &str,
+) -> Result<Arc<ReadonlyRepo>, RevsetResolutionError> {
+    let base_repo = repo.base_repo();
+    let operation = op_walk::resolve_op_for_workspace(base_repo, workspace_str)
+        .block_on()
+        .map_err(|err| RevsetResolutionError::Other(err.into()))?;
+    base_repo
+        .reload_at(&operation)
+        .block_on()
+        .map_err(|err| match err {
+            RepoLoaderError::Backend(err) => RevsetResolutionError::Backend(err),
+            RepoLoaderError::Index(_)
+            | RepoLoaderError::IndexStore(_)
+            | RepoLoaderError::OpHeadsStoreError(_)
+            | RepoLoaderError::OpStore(_)
+            | RepoLoaderError::TransactionCommit(_) => RevsetResolutionError::Other(err.into()),
+        })
+}
+
 fn resolve_remote_symbol(
     repo: &dyn Repo,
     symbol: RemoteRefSymbol<'_>,
@@ -3107,6 +3167,19 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
         self.repo_stack.pop();
         Ok(expression)
     }
+
+    fn fold_at_workspace(
+        &mut self,
+        workspace: &String,
+        candidates: &UserRevsetExpression,
+    ) -> Result<Arc<ResolvedRevsetExpression>, Self::Error> {
+        let repo = reload_repo_at_workspace(self.repo(), workspace)?;
+        self.repo_stack.push(repo);
+        let candidates = self.fold_expression(candidates)?;
+        let expression = candidates.within_visibility(self.repo());
+        self.repo_stack.pop();
+        Ok(expression)
+    }
 }
 
 fn resolve_symbols(
@@ -3251,6 +3324,7 @@ impl VisibilityResolutionContext<'_> {
                 },
             },
             RevsetExpression::AtOperation { operation, .. } => match *operation {},
+            RevsetExpression::AtWorkspace { workspace, .. } => match *workspace {},
             RevsetExpression::WithinReference {
                 candidates,
                 commits,
@@ -3384,6 +3458,7 @@ impl VisibilityResolutionContext<'_> {
                 visible_heads: self.visible_heads.to_owned(),
             },
             RevsetExpression::AtOperation { operation, .. } => match *operation {},
+            RevsetExpression::AtWorkspace { workspace, .. } => match *workspace {},
             // Filters should be intersected with all() within the at-op repo.
             RevsetExpression::WithinReference { .. }
             | RevsetExpression::WithinVisibility { .. } => {

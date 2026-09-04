@@ -26,10 +26,12 @@ use jj_lib::git::GitImportOptions;
 use jj_lib::git::GitRefKind;
 use jj_lib::git::GitSettings;
 use jj_lib::git::parse_git_ref;
+use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::view::View;
 use jj_lib::workspace::Workspace;
+use jj_lib::workspace::WorkspaceType;
 
 use super::ObjectHash;
 use super::RepoPresets;
@@ -159,10 +161,15 @@ pub async fn cmd_git_init(
         || command.settings().get::<ObjectHash>("git.object-hash"),
         Result::Ok,
     )?;
+    let workspace_name = WorkspaceName::DEFAULT;
+    let workspace_type = WorkspaceType::Regular;
+
     do_init(
         ui,
         command,
         &wc_path,
+        workspace_name,
+        workspace_type,
         colocate,
         object_hash.into(),
         args.git_repo.as_deref(),
@@ -179,10 +186,13 @@ pub async fn cmd_git_init(
     Ok(())
 }
 
+#[expect(clippy::too_many_arguments)]
 async fn do_init(
     ui: &mut Ui,
     command: &CommandHelper,
     workspace_root: &Path,
+    workspace_name: &WorkspaceName,
+    workspace_type: WorkspaceType,
     colocate: bool,
     object_hash: gix::hash::Kind,
     git_repo: Option<&str>,
@@ -236,14 +246,26 @@ async fn do_init(
     let (settings, config_env) = command.settings_for_new_workspace(ui, workspace_root)?;
     match &init_mode {
         GitInitMode::Colocate => {
-            let (workspace, repo) =
-                Workspace::init_colocated_git(&settings, workspace_root, object_hash).await?;
+            let (workspace, repo) = Workspace::init_colocated_git(
+                &settings,
+                workspace_root,
+                workspace_name,
+                workspace_type,
+                object_hash,
+            )
+            .await?;
             let workspace_command = command.for_workable_repo(ui, workspace, repo)?;
             maybe_add_gitignore(&workspace_command)?;
         }
         GitInitMode::External(git_repo_path) => {
-            let (workspace, repo) =
-                Workspace::init_external_git(&settings, workspace_root, git_repo_path).await?;
+            let (workspace, repo) = Workspace::init_external_git(
+                &settings,
+                workspace_root,
+                workspace_name,
+                workspace_type,
+                git_repo_path,
+            )
+            .await?;
             // Import refs first so all the reachable commits are indexed in
             // chronological order.
             let colocated = is_colocated_git_workspace(&workspace)?;
@@ -269,7 +291,14 @@ async fn do_init(
             print_trackable_remote_bookmarks(ui, workspace_command.repo().view())?;
         }
         GitInitMode::Internal => {
-            Workspace::init_internal_git(&settings, workspace_root, object_hash).await?;
+            Workspace::init_internal_git(
+                &settings,
+                workspace_root,
+                workspace_name,
+                workspace_type,
+                object_hash,
+            )
+            .await?;
         }
     }
     Ok(())
