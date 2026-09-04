@@ -981,6 +981,50 @@ fn test_op_abandon_multiple_heads() {
 }
 
 #[test]
+fn test_at_operation_sibling_operation() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m", "initial"]).success();
+    work_dir.run_jj(["new", "-m", "side 1"]).success();
+    let output = work_dir
+        .run_jj(["op", "log", "--no-graph", r#"-Tid.short() ++ "\n""#])
+        .success();
+    let op_a = output.stdout.raw().lines().next().unwrap().to_owned();
+
+    // Create a concurrent operation with its own commit.
+    work_dir
+        .run_jj(["new", "--at-op=@-", "-m", "side 2"])
+        .success();
+    // Find the sibling operation's id in the divergence hint.
+    let output = work_dir.run_jj(["op", "abandon", "@-"]);
+    let (_, candidates) = output.stderr.raw().trim_end().rsplit_once(": ").unwrap();
+    let op_b = candidates
+        .split(", ")
+        .find(|id| *id != op_a)
+        .unwrap()
+        .to_owned();
+
+    // The current operation's index doesn't contain the sibling operation's
+    // commits, but at_operation() can still resolve and evaluate them.
+    let output = work_dir.run_jj([
+        "log",
+        "--ignore-working-copy",
+        &format!("--at-op={op_a}"),
+        "--no-graph",
+        "-T",
+        "description",
+        "-r",
+        &format!("at_operation({op_b}, @)"),
+    ]);
+    insta::assert_snapshot!(output, @"
+    side 2
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_op_recover_from_bad_gc() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env

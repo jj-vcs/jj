@@ -71,24 +71,24 @@ pub async fn cmd_debug_revset(
         command.revset_extensions().symbol_resolvers(),
         workspace_command.id_prefix_context(),
     );
-    let mut expression = expression.resolve_user_expression(repo, &symbol_resolver)?;
+    let mut resolved = expression.resolve_user_expression(repo, &symbol_resolver)?;
     writeln!(ui.stdout(), "-- Resolved:")?;
-    writeln!(ui.stdout(), "{expression:#?}")?;
+    writeln!(ui.stdout(), "{:#?}", resolved.expression())?;
     writeln!(ui.stdout())?;
 
     if !args.no_optimize {
-        expression = revset::optimize(expression);
+        resolved = resolved.optimize();
         writeln!(ui.stdout(), "-- Optimized:")?;
-        writeln!(ui.stdout(), "{expression:#?}")?;
+        writeln!(ui.stdout(), "{:#?}", resolved.expression())?;
         writeln!(ui.stdout())?;
     }
 
-    let backend_expression = expression.to_backend_expression(repo);
+    let backend_expression = resolved.expression().to_backend_expression(repo);
     writeln!(ui.stdout(), "-- Backend:")?;
     writeln!(ui.stdout(), "{backend_expression:#?}")?;
     writeln!(ui.stdout())?;
 
-    let revset = expression.evaluate_unoptimized(repo)?;
+    let revset = resolved.evaluate_unoptimized(repo)?;
     writeln!(ui.stdout(), "-- Evaluated:")?;
     writeln!(ui.stdout(), "{revset:#?}")?;
     writeln!(ui.stdout())?;

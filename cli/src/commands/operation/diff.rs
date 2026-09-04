@@ -250,10 +250,12 @@ fn resolve_op_diff_changes_exprs(
         .symbol_resolvers();
     let from_repo_symbol_resolver = SymbolResolver::new(from_repo, extensions);
     let to_repo_symbol_resolver = SymbolResolver::new(to_repo, extensions);
-    let from_op_diff_changes_expr =
-        op_diff_changes_expr.resolve_user_expression(from_repo, &from_repo_symbol_resolver)?;
-    let to_op_diff_changes_expr =
-        op_diff_changes_expr.resolve_user_expression(to_repo, &to_repo_symbol_resolver)?;
+    let from_op_diff_changes_expr = op_diff_changes_expr
+        .resolve_user_expression(from_repo, &from_repo_symbol_resolver)?
+        .into_expression();
+    let to_op_diff_changes_expr = op_diff_changes_expr
+        .resolve_user_expression(to_repo, &to_repo_symbol_resolver)?
+        .into_expression();
     Ok((from_op_diff_changes_expr, to_op_diff_changes_expr))
 }
 

@@ -34,6 +34,7 @@ use jj_lib::ref_name::RemoteNameBuf;
 use jj_lib::ref_name::RemoteRefSymbolBuf;
 use jj_lib::repo::Repo;
 use jj_lib::revset;
+use jj_lib::revset::ResolvedRevset;
 use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::Revset;
 use jj_lib::revset::RevsetDiagnostics;
@@ -106,7 +107,16 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
     }
 
     /// Resolves user symbols in the expression, returns new expression.
+    ///
+    /// Note that this discards any extra index data needed to evaluate
+    /// `at_operation()` expressions pointing to operations whose commits
+    /// aren't indexed in the current repo. Use [`Self::evaluate()`] if the
+    /// expression is to be evaluated as is.
     pub fn resolve(&self) -> Result<Arc<ResolvedRevsetExpression>, RevsetResolutionError> {
+        Ok(self.resolve_revset()?.into_expression())
+    }
+
+    fn resolve_revset(&self) -> Result<ResolvedRevset, RevsetResolutionError> {
         let symbol_resolver = default_symbol_resolver(
             self.repo,
             self.extensions.symbol_resolvers(),
@@ -118,7 +128,7 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
 
     /// Evaluates the expression.
     pub fn evaluate(&self) -> Result<Box<dyn Revset + 'repo>, UserRevsetEvaluationError> {
-        self.resolve()
+        self.resolve_revset()
             .map_err(UserRevsetEvaluationError::Resolution)?
             .evaluate(self.repo)
             .map_err(UserRevsetEvaluationError::Evaluation)
@@ -222,7 +232,7 @@ pub(super) fn try_resolve_trunk_alias(
     // prefixes.
     let symbol_resolver = SymbolResolver::new(repo, context.extensions.symbol_resolvers());
     let resolved = expression.resolve_user_expression(repo, &symbol_resolver)?;
-    Ok(Some(resolved))
+    Ok(Some(resolved.into_expression()))
 }
 
 /// Error when evaluating a revset into a single commit.

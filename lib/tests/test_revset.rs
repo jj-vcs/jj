@@ -48,7 +48,7 @@ use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::repo_path::RepoPath;
-use jj_lib::revset::ResolvedRevsetExpression;
+use jj_lib::revset::ResolvedRevset;
 use jj_lib::revset::Revset;
 use jj_lib::revset::RevsetAliasesMap;
 use jj_lib::revset::RevsetDiagnostics;
@@ -112,6 +112,7 @@ fn resolve_symbol(repo: &dyn Repo, symbol: &str) -> Result<Vec<CommitId>, Revset
     let symbol_resolver = default_symbol_resolver(repo);
     match expression
         .resolve_user_expression(repo, &symbol_resolver)?
+        .expression()
         .as_ref()
     {
         RevsetExpression::Commits(commits) => Ok(commits.clone()),
@@ -1058,7 +1059,7 @@ fn resolve_commit_ids(repo: &dyn Repo, revset_str: &str) -> Vec<CommitId> {
 fn try_resolve_expression(
     repo: &dyn Repo,
     revset_str: &str,
-) -> Result<Arc<ResolvedRevsetExpression>, RevsetResolutionError> {
+) -> Result<ResolvedRevset, RevsetResolutionError> {
     let settings = testutils::user_settings();
     let context = RevsetParseContext {
         aliases_map: &RevsetAliasesMap::default(),
@@ -4319,6 +4320,73 @@ fn test_evaluate_expression_at_operation() -> TestResult {
     assert_matches!(
         try_resolve_commit_ids(repo2.as_ref(), "at_operation(000000000000-, all())"),
         Err(RevsetResolutionError::Other(_))
+    );
+    Ok(())
+}
+
+#[test]
+fn test_evaluate_expression_at_sibling_operation() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo0 = &test_repo.repo;
+    let root_commit = repo0.store().root_commit();
+
+    let mut tx = repo0.start_transaction();
+    let commit1 = create_random_commit(tx.repo_mut())
+        .set_description("commit1@op1")
+        .write_unwrap();
+    let repo1 = tx.commit("op1").block_on()?;
+
+    // Create two sibling operations based on op1, each with its own commit
+    let mut tx = repo1.start_transaction();
+    let commit2_op2 = create_random_commit(tx.repo_mut())
+        .set_description("commit2@op2")
+        .write_unwrap();
+    let repo2 = tx.commit("op2").block_on()?;
+
+    let mut tx = repo1.start_transaction();
+    let commit3_op3 = create_random_commit(tx.repo_mut())
+        .set_description("commit3@op3")
+        .write_unwrap();
+    let repo3 = tx.commit("op3").block_on()?;
+
+    // op3's commit doesn't exist in repo2's index
+    assert!(!repo2.index().has_id(commit3_op3.id()).block_on()?);
+    let at_op3 = |expr: &str| format!("at_operation({}, {expr})", repo3.op_id().hex());
+
+    // Commits visible at the sibling operation can be resolved and evaluated
+    // even though they don't exist in repo2's index.
+    assert_eq!(
+        resolve_commit_ids(repo2.as_ref(), &at_op3(&commit3_op3.id().hex())),
+        vec![commit3_op3.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(repo2.as_ref(), &at_op3("all()")),
+        vec![
+            commit3_op3.id().clone(),
+            commit1.id().clone(),
+            root_commit.id().clone(),
+        ]
+    );
+    // Commits known to the current repo are also found in the merged index.
+    assert_eq!(
+        resolve_commit_ids(
+            repo2.as_ref(),
+            &format!("{} | {}", at_op3("all()"), commit2_op2.id().hex())
+        ),
+        vec![
+            commit3_op3.id().clone(),
+            commit2_op2.id().clone(),
+            commit1.id().clone(),
+            root_commit.id().clone(),
+        ]
+    );
+    // The sibling operation's commits are not visible in the current repo.
+    assert_eq!(
+        resolve_commit_ids(
+            repo2.as_ref(),
+            &format!("::visible_heads() & {}", at_op3("all()"))
+        ),
+        vec![commit1.id().clone(), root_commit.id().clone()]
     );
     Ok(())
 }

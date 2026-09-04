@@ -28,6 +28,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* `at_operation()` can now be used with operations that are not ancestors of
+  the current operation (e.g. sibling operations created by concurrent
+  commands). Previously, evaluating such expressions failed if they resolved
+  to commits missing from the current operation's index.
+
 ## [0.45.1] - 2026-09-03
 
 This release fixes an error that prevented the new jj-core crate from being

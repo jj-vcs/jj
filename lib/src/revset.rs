@@ -46,6 +46,7 @@ use crate::fileset::FilesetParseContext;
 use crate::graph::GraphNode;
 use crate::id_prefix::IdPrefixContext;
 use crate::id_prefix::IdPrefixIndex;
+use crate::index::MutableIndex;
 use crate::index::ResolvedChangeTargets;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
@@ -687,8 +688,94 @@ impl UserRevsetExpression {
         &self,
         repo: &dyn Repo,
         symbol_resolver: &SymbolResolver,
-    ) -> Result<Arc<ResolvedRevsetExpression>, RevsetResolutionError> {
+    ) -> Result<ResolvedRevset, RevsetResolutionError> {
         resolve_symbols(repo, self, symbol_resolver)
+    }
+}
+
+/// Resolved revset expression, bundled with any extra index data needed to
+/// evaluate it.
+///
+/// An `at_operation()` expression may resolve to commits that don't exist in
+/// the index of the repo the expression will be evaluated against (e.g. if
+/// the operation is a sibling of the current operation, not an ancestor.) In
+/// that case, this type also carries an in-memory index covering those
+/// commits, and evaluation will use that index instead of the repo's.
+pub struct ResolvedRevset {
+    expression: Arc<ResolvedRevsetExpression>,
+    merged_index: Option<Arc<dyn MutableIndex>>,
+}
+
+impl fmt::Debug for ResolvedRevset {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ResolvedRevset")
+            .field("expression", &self.expression)
+            .field("merged_index", &self.merged_index.as_ref().map(|_| ".."))
+            .finish()
+    }
+}
+
+impl ResolvedRevset {
+    /// Returns the resolved expression.
+    pub fn expression(&self) -> &Arc<ResolvedRevsetExpression> {
+        &self.expression
+    }
+
+    /// Discards any extra index data and returns the resolved expression.
+    ///
+    /// Evaluating the returned expression by itself may fail if the
+    /// expression contained `at_operation()` referring to commits that don't
+    /// exist in the index of the repo it's evaluated against.
+    pub fn into_expression(self) -> Arc<ResolvedRevsetExpression> {
+        self.expression
+    }
+
+    /// Optimizes the contained expression.
+    #[must_use]
+    pub fn optimize(self) -> Self {
+        Self {
+            expression: optimize(self.expression),
+            ..self
+        }
+    }
+
+    /// Optimizes and evaluates this expression.
+    pub fn evaluate<'index>(
+        &self,
+        repo: &'index dyn Repo,
+    ) -> Result<Box<dyn Revset + 'index>, RevsetEvaluationError> {
+        let expr = optimize(self.expression.clone()).to_backend_expression(repo);
+        self.evaluate_backend_expression(repo, &expr)
+    }
+
+    /// Evaluates this expression without optimizing it.
+    ///
+    /// Use this function if `self` is already optimized, or to debug
+    /// optimization pass.
+    pub fn evaluate_unoptimized<'index>(
+        &self,
+        repo: &'index dyn Repo,
+    ) -> Result<Box<dyn Revset + 'index>, RevsetEvaluationError> {
+        // Since referenced commits change the evaluation result, they must be
+        // collected no matter if optimization is disabled.
+        let expr = resolve_referenced_commits(&self.expression)
+            .as_ref()
+            .unwrap_or(&self.expression)
+            .to_backend_expression(repo);
+        self.evaluate_backend_expression(repo, &expr)
+    }
+
+    fn evaluate_backend_expression<'index>(
+        &self,
+        repo: &'index dyn Repo,
+        expression: &ResolvedExpression,
+    ) -> Result<Box<dyn Revset + 'index>, RevsetEvaluationError> {
+        match &self.merged_index {
+            Some(index) => index
+                .clone()
+                .evaluate_revset_owned(expression, repo.store()),
+            None => repo.index().evaluate_revset(expression, repo.store()),
+        }
     }
 }
 
@@ -2625,9 +2712,11 @@ fn reload_repo_at_operation(
     repo: &dyn Repo,
     op_str: &str,
 ) -> Result<Arc<ReadonlyRepo>, RevsetResolutionError> {
-    // TODO: Maybe we should ensure that the resolved operation is an ancestor
-    // of the current operation. If it weren't, there might be commits unknown
-    // to the outer repo.
+    // The resolved operation may not be an ancestor of the current operation
+    // (e.g. a sibling operation), in which case the reloaded repo may contain
+    // commits unknown to the outer repo's index. The caller handles that by
+    // merging the indexes as needed. See
+    // ExpressionSymbolResolver::ensure_ids_in_index().
     let base_repo = repo.base_repo();
     let operation = op_walk::resolve_op_with_repo(base_repo, op_str)
         .block_on()
@@ -3037,16 +3126,35 @@ fn resolve_commit_ref(
 /// Resolves symbols and commit refs recursively.
 struct ExpressionSymbolResolver<'a, 'b> {
     base_repo: &'a dyn Repo,
+    /// `base_repo` if it is itself a `ReadonlyRepo`. A merged index can only
+    /// be derived from a `ReadonlyRepo`'s index: if `base_repo` were a
+    /// `MutableRepo`, an index derived from its base repo wouldn't contain
+    /// the in-memory commits created in the transaction.
+    base_readonly_repo: Option<&'a ReadonlyRepo>,
     repo_stack: Vec<Arc<ReadonlyRepo>>,
     symbol_resolver: &'a SymbolResolver<'b>,
+    /// Copy of the base repo's index with indexes of `at_operation()` repos
+    /// merged in, created lazily when an `at_operation()` expression resolves
+    /// to commits that don't exist in the base repo's index.
+    merged_index: Option<Box<dyn MutableIndex>>,
 }
 
 impl<'a, 'b> ExpressionSymbolResolver<'a, 'b> {
     fn new(base_repo: &'a dyn Repo, symbol_resolver: &'a SymbolResolver<'b>) -> Self {
+        let readonly_repo = base_repo.base_repo();
+        // ReadonlyRepo::base_repo() returns self, so compare addresses to
+        // detect whether base_repo is the ReadonlyRepo itself.
+        let base_readonly_repo = std::ptr::addr_eq(
+            std::ptr::from_ref(readonly_repo),
+            std::ptr::from_ref::<dyn Repo>(base_repo),
+        )
+        .then_some(readonly_repo);
         Self {
             base_repo,
+            base_readonly_repo,
             repo_stack: vec![],
             symbol_resolver,
+            merged_index: None,
         }
     }
 
@@ -3054,6 +3162,51 @@ impl<'a, 'b> ExpressionSymbolResolver<'a, 'b> {
         self.repo_stack
             .last()
             .map_or(self.base_repo, |repo| repo.as_ref())
+    }
+
+    /// Ensures that the given `ids` (which exist in `source_repo`'s index)
+    /// will also exist in the index the expression is evaluated with. If some
+    /// of them are missing (e.g. because `source_repo` was loaded at an
+    /// operation which is not an ancestor of the base repo's operation),
+    /// `source_repo`'s index is merged into `self.merged_index`.
+    fn ensure_ids_in_index<'c>(
+        &mut self,
+        source_repo: &ReadonlyRepo,
+        ids: impl IntoIterator<Item = &'c CommitId>,
+    ) -> Result<(), RevsetResolutionError> {
+        let Some(base_repo) = self.base_readonly_repo else {
+            // The base repo is a MutableRepo, and we can't build a merged
+            // index covering its in-memory commits. Evaluation will fail if
+            // some of the ids are actually missing from its index.
+            return Ok(());
+        };
+        let missing = {
+            let index = match &self.merged_index {
+                Some(index) => index.as_index(),
+                None => base_repo.index(),
+            };
+            let mut missing = false;
+            for id in ids {
+                if !index
+                    .has_id(id)
+                    .block_on()
+                    .map_err(|err| RevsetResolutionError::Other(err.into()))?
+                {
+                    missing = true;
+                    break;
+                }
+            }
+            missing
+        };
+        if missing {
+            let merged_index = self
+                .merged_index
+                .get_or_insert_with(|| base_repo.readonly_index().start_modification());
+            merged_index
+                .merge_in(source_repo.readonly_index())
+                .map_err(|err| RevsetResolutionError::Other(err.into()))?;
+        }
+        Ok(())
     }
 }
 
@@ -3092,6 +3245,11 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
         commit_ref: &RevsetCommitRef,
     ) -> Result<Arc<ResolvedRevsetExpression>, Self::Error> {
         let commit_ids = resolve_commit_ref(self.repo(), commit_ref, self.symbol_resolver)?;
+        // A symbol inside at_operation() may resolve to a commit that is
+        // unknown to the base repo (it may even be hidden at that operation.)
+        if let Some(repo) = self.repo_stack.last().cloned() {
+            self.ensure_ids_in_index(&repo, &commit_ids)?;
+        }
         Ok(RevsetExpression::commits(commit_ids))
     }
 
@@ -3101,6 +3259,10 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
         candidates: &UserRevsetExpression,
     ) -> Result<Arc<ResolvedRevsetExpression>, Self::Error> {
         let repo = reload_repo_at_operation(self.repo(), operation)?;
+        // The operation may not be an ancestor of the base repo's operation,
+        // so its visible heads may be missing from the base repo's index.
+        let heads = repo.view().heads().iter().cloned().collect_vec();
+        self.ensure_ids_in_index(&repo, &heads)?;
         self.repo_stack.push(repo);
         let candidates = self.fold_expression(candidates)?;
         let expression = candidates.within_visibility(self.repo());
@@ -3113,9 +3275,13 @@ fn resolve_symbols(
     repo: &dyn Repo,
     expression: &UserRevsetExpression,
     symbol_resolver: &SymbolResolver,
-) -> Result<Arc<ResolvedRevsetExpression>, RevsetResolutionError> {
+) -> Result<ResolvedRevset, RevsetResolutionError> {
     let mut resolver = ExpressionSymbolResolver::new(repo, symbol_resolver);
-    resolver.fold_expression(expression)
+    let expression = resolver.fold_expression(expression)?;
+    Ok(ResolvedRevset {
+        expression,
+        merged_index: resolver.merged_index.map(Arc::from),
+    })
 }
 
 /// Inserts implicit `all()` and `visible_heads()` nodes to the `expression`.
