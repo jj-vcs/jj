@@ -18,6 +18,8 @@ use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
+use jj_lib::commit_builder::DetachedCommitBuilder;
+use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::matchers::Matcher;
 use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
@@ -32,6 +34,7 @@ use jj_lib::rewrite::RebaseOptions;
 use jj_lib::rewrite::RebasedCommit;
 use jj_lib::rewrite::RewriteRefsOptions;
 use jj_lib::rewrite::move_commits;
+use jj_lib::settings::UserSettings;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -42,7 +45,9 @@ use crate::cli_util::WorkspaceCommandTransaction;
 use crate::cli_util::compute_commit_location;
 use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::complete;
+use crate::description_util::TextEditor;
 use crate::description_util::add_trailers;
 use crate::description_util::description_template;
 use crate::description_util::edit_description;
@@ -293,107 +298,116 @@ pub(crate) async fn cmd_split(
     // Prompt the user to select the changes they want for the first commit.
     let target = select_diff(ui, &tx, &target_commit, &matcher, &diff_selector).await?;
 
-    // Create the first commit, which includes the changes selected by the user.
-    let first_commit = {
-        let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
-        commit_builder.set_tree(target.selected_tree.clone());
-        if use_move_flags {
-            commit_builder.clear_rewrite_source();
-            // Generate a new change id so that the commit being split doesn't
-            // become divergent.
-            commit_builder.generate_new_change_id();
-        }
-        let use_editor = args.message_paragraphs.is_none() || args.editor;
-        let description = match &args.message_paragraphs {
-            Some(paragraphs) => join_message_paragraphs(paragraphs),
-            None => commit_builder.description().to_owned(),
-        };
-        // The first trailer would become the first line of the description.
-        // Also, a commit with no description is treated in a special way in
-        // jujutsu: it can be discarded as soon as it's no longer the working
-        // copy. Adding a trailer to an empty description would break that
-        // logic.
-        let description = if !description.is_empty() || use_editor {
-            commit_builder.set_description(description);
-            add_trailers(ui, &tx, &commit_builder).await?
-        } else {
-            description
-        };
-        let description = if use_editor {
-            commit_builder.set_description(description);
-            let temp_commit = commit_builder.write_hidden().await?;
-            let intro = "Enter a description for the selected changes.";
-            let template = description_template(ui, &tx, intro, &temp_commit)?;
-            edit_description(&text_editor, &template)?
-        } else {
-            description
-        };
-        commit_builder.set_description(description);
-        commit_builder.write(tx.repo_mut()).await?
+    let target_tree = target.commit.tree();
+    let second_tree = if parallel {
+        // Merge the original commit tree with its parent using the tree
+        // containing the user selected changes as the base for the merge.
+        // This results in a tree with the changes the user didn't select.
+        let selected_diff = target
+            .diff_with_labels(
+                "parents of split revision",
+                "selected changes for split",
+                "split revision",
+            )
+            .await?;
+        MergedTree::merge(Merge::from_diffs(
+            (
+                target_tree,
+                format!("split revision ({})", target.commit.conflict_label()),
+            ),
+            [selected_diff.invert()],
+        ))
+        .await?
+    } else {
+        target_tree
     };
 
-    // Create the second commit, which includes everything the user didn't
-    // select.
-    let second_commit = {
-        let target_tree = target.commit.tree();
-        let new_tree = if parallel {
-            // Merge the original commit tree with its parent using the tree
-            // containing the user selected changes as the base for the merge.
-            // This results in a tree with the changes the user didn't select.
-            let selected_diff = target
-                .diff_with_labels(
-                    "parents of split revision",
-                    "selected changes for split",
-                    "split revision",
-                )
-                .await?;
-            MergedTree::merge(Merge::from_diffs(
-                (
-                    target_tree,
-                    format!("split revision ({})", target.commit.conflict_label()),
-                ),
-                [selected_diff.invert()],
-            ))
-            .await?
-        } else {
-            target_tree
-        };
-        let parents = if parallel {
-            target.commit.parent_ids().to_vec()
-        } else {
-            vec![first_commit.id().clone()]
-        };
-        let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
-        commit_builder.set_parents(parents).set_tree(new_tree);
-        let mut show_editor = args.editor;
-        if !use_move_flags {
-            commit_builder.clear_rewrite_source();
-            // Generate a new change id so that the commit being split doesn't
-            // become divergent.
-            commit_builder.generate_new_change_id();
-        }
-        let description = if target.commit.description().is_empty() {
-            // If there was no description before, don't ask for one for the
-            // second commit.
-            "".to_string()
-        } else {
-            show_editor = show_editor || args.message_paragraphs.is_none();
-            // Just keep the original message unchanged
-            commit_builder.description().to_owned()
-        };
-        let description = if show_editor {
-            let new_description = add_trailers(ui, &tx, &commit_builder).await?;
-            commit_builder.set_description(new_description);
-            let temp_commit = commit_builder.write_hidden().await?;
-            let intro = "Enter a description for the remaining changes.";
-            let template = description_template(ui, &tx, intro, &temp_commit)?;
-            edit_description(&text_editor, &template)?
-        } else {
-            description
-        };
-        commit_builder.set_description(description);
-        commit_builder.write(tx.repo_mut()).await?
+    // Tentatively determine which commit will inherit the original change ID.
+    // This might change if follow-description is configured, but it prevents us
+    // from showing change IDs in the editor that are guaranteed to be wrong.
+    let strategies = load_identity_strategies(tx.settings())?;
+    let tentative_recipient = find_static_identity_recipient(&strategies);
+
+    let mut first_commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
+    first_commit_builder.set_tree(target.selected_tree.clone());
+    if tentative_recipient == IdentityRecipient::Remaining {
+        first_commit_builder.clear_rewrite_source();
+        // Generate a new change id so that the commit being split doesn't
+        // become divergent.
+        first_commit_builder.generate_new_change_id();
+    }
+    let first_description =
+        resolve_first_description(ui, &mut tx, &text_editor, &mut first_commit_builder, args)
+            .await?;
+    first_commit_builder.set_description(&first_description);
+
+    let parents = if parallel {
+        target.commit.parent_ids().to_vec()
+    } else {
+        let temp_first = first_commit_builder.write_hidden().await?;
+        vec![temp_first.id().clone()]
     };
+    let mut second_commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
+    second_commit_builder
+        .set_parents(parents)
+        .set_tree(second_tree.clone());
+    if tentative_recipient == IdentityRecipient::Selected {
+        second_commit_builder.clear_rewrite_source();
+        // Generate a new change id so that the commit being split doesn't
+        // become divergent.
+        second_commit_builder.generate_new_change_id();
+    }
+    let second_description = resolve_second_description(
+        ui,
+        &mut tx,
+        &text_editor,
+        &mut second_commit_builder,
+        &target.commit,
+        args,
+    )
+    .await?;
+    second_commit_builder.set_description(&second_description);
+
+    let identity_recipient = resolve_identity_recipient(
+        &strategies,
+        &target,
+        &first_description,
+        &second_description,
+    );
+
+    if identity_recipient != tentative_recipient {
+        match identity_recipient {
+            IdentityRecipient::Selected => {
+                first_commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
+                first_commit_builder.set_tree(target.selected_tree.clone());
+                first_commit_builder.set_description(first_description);
+
+                second_commit_builder.clear_rewrite_source();
+                // Generate a new change id so that the commit being split doesn't
+                // become divergent.
+                second_commit_builder.generate_new_change_id();
+            }
+            IdentityRecipient::Remaining => {
+                first_commit_builder.clear_rewrite_source();
+                // Generate a new change id so that the commit being split doesn't
+                // become divergent.
+                first_commit_builder.generate_new_change_id();
+
+                let parents = second_commit_builder.parents().to_vec();
+                second_commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
+                second_commit_builder
+                    .set_parents(parents)
+                    .set_tree(second_tree);
+                second_commit_builder.set_description(second_description);
+            }
+        }
+    }
+
+    let first_commit = first_commit_builder.write(tx.repo_mut()).await?;
+    if !parallel {
+        second_commit_builder.set_parents(vec![first_commit.id().clone()]);
+    }
+    let second_commit = second_commit_builder.write(tx.repo_mut()).await?;
 
     let (first_commit, second_commit, num_rebased) = if use_move_flags {
         move_first_commit(
@@ -406,7 +420,15 @@ pub(crate) async fn cmd_split(
         )
         .await?
     } else {
-        rewrite_descendants(&mut tx, &target, first_commit, second_commit, parallel).await?
+        rewrite_descendants(
+            &mut tx,
+            &target,
+            first_commit,
+            second_commit,
+            parallel,
+            identity_recipient,
+        )
+        .await?
     };
     if let Some(mut formatter) = ui.status_formatter() {
         if num_rebased > 0 {
@@ -501,9 +523,9 @@ async fn rewrite_descendants(
     first_commit: Commit,
     second_commit: Commit,
     parallel: bool,
+    identity_recipient: IdentityRecipient,
 ) -> Result<(Commit, Commit, usize), CommandError> {
-    let legacy_bookmark_behavior = tx.settings().get_bool("split.legacy-bookmark-behavior")?;
-    if legacy_bookmark_behavior {
+    if identity_recipient == IdentityRecipient::Remaining {
         // Mark the commit being split as rewritten to the second commit. This
         // moves any bookmarks pointing to the target commit to the second
         // commit.
@@ -516,7 +538,7 @@ async fn rewrite_descendants(
             vec![target.commit.id().clone()],
             async |mut rewriter: CommitRewriter<'_>| {
                 num_rebased += 1;
-                if parallel && legacy_bookmark_behavior {
+                if parallel && identity_recipient == IdentityRecipient::Remaining {
                     // The old_parent is the second commit due to the rewrite above.
                     rewriter.replace_parent(
                         second_commit.id(),
@@ -598,4 +620,148 @@ The changes that are not selected will replace the original commit.
     }
 
     Ok(selection)
+}
+
+async fn resolve_first_description(
+    ui: &Ui,
+    tx: &mut WorkspaceCommandTransaction<'_>,
+    text_editor: &TextEditor,
+    commit_builder: &mut DetachedCommitBuilder,
+    args: &SplitArgs,
+) -> Result<String, CommandError> {
+    let use_editor = args.message_paragraphs.is_none() || args.editor;
+    let description = match &args.message_paragraphs {
+        Some(paragraphs) => join_message_paragraphs(paragraphs),
+        None => commit_builder.description().to_owned(),
+    };
+    let description = if !description.is_empty() || use_editor {
+        commit_builder.set_description(description);
+        add_trailers(ui, tx, commit_builder).await?
+    } else {
+        description
+    };
+    let description = if use_editor {
+        commit_builder.set_description(&description);
+        let temp_commit = commit_builder.write_hidden().await?;
+        let intro = "Enter a description for the selected changes.";
+        let template = description_template(ui, tx, intro, &temp_commit)?;
+        edit_description(text_editor, &template)?
+    } else {
+        description
+    };
+    Ok(description)
+}
+
+async fn resolve_second_description(
+    ui: &Ui,
+    tx: &mut WorkspaceCommandTransaction<'_>,
+    text_editor: &TextEditor,
+    commit_builder: &mut DetachedCommitBuilder,
+    target_commit: &Commit,
+    args: &SplitArgs,
+) -> Result<String, CommandError> {
+    let mut show_editor = args.editor;
+    let description = if target_commit.description().is_empty() {
+        "".to_string()
+    } else {
+        show_editor = show_editor || args.message_paragraphs.is_none();
+        commit_builder.description().to_owned()
+    };
+    let description = if show_editor {
+        let new_description = if !description.is_empty() {
+            commit_builder.set_description(description);
+            add_trailers(ui, tx, commit_builder).await?
+        } else {
+            description
+        };
+        commit_builder.set_description(new_description);
+        let temp_commit = commit_builder.write_hidden().await?;
+        let intro = "Enter a description for the remaining changes.";
+        let template = description_template(ui, tx, intro, &temp_commit)?;
+        edit_description(text_editor, &template)?
+    } else {
+        description
+    };
+    Ok(description)
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum IdentityRecipient {
+    Selected,
+    Remaining,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum IdentityStrategy {
+    Selected,
+    Remaining,
+    FollowDescription,
+}
+
+impl IdentityStrategy {
+    fn from_str(s: &str) -> Result<Self, CommandError> {
+        match s {
+            "selected" => Ok(Self::Selected),
+            "remaining" => Ok(Self::Remaining),
+            "follow-description" => Ok(Self::FollowDescription),
+            other => Err(user_error(format!("Invalid identity strategy `{other}`."))),
+        }
+    }
+}
+
+fn load_identity_strategies(
+    settings: &UserSettings,
+) -> Result<Vec<IdentityStrategy>, CommandError> {
+    let raw_strategies: Vec<String> =
+        if let Ok(list) = settings.get::<Vec<String>>("split.identity-strategy") {
+            list
+        } else if let Some(single) = settings.get_string("split.identity-strategy").optional()? {
+            vec![single]
+        } else {
+            vec!["remaining".to_string()]
+        };
+
+    raw_strategies
+        .iter()
+        .map(|s| IdentityStrategy::from_str(s))
+        .collect()
+}
+
+fn find_static_identity_recipient(strategies: &[IdentityStrategy]) -> IdentityRecipient {
+    for strategy in strategies {
+        match strategy {
+            IdentityStrategy::Selected => return IdentityRecipient::Selected,
+            IdentityStrategy::Remaining => return IdentityRecipient::Remaining,
+            IdentityStrategy::FollowDescription => {}
+        }
+    }
+    IdentityRecipient::Remaining
+}
+
+fn resolve_identity_recipient(
+    strategies: &[IdentityStrategy],
+    target: &CommitWithSelection,
+    first_description: &str,
+    second_description: &str,
+) -> IdentityRecipient {
+    for strategy in strategies {
+        match strategy {
+            IdentityStrategy::Selected => return IdentityRecipient::Selected,
+            IdentityStrategy::Remaining => return IdentityRecipient::Remaining,
+            IdentityStrategy::FollowDescription => {
+                let orig_desc = target.commit.description();
+                if !orig_desc.is_empty() {
+                    let first_matches = first_description == orig_desc;
+                    let second_matches = second_description == orig_desc;
+                    match (first_matches, second_matches) {
+                        (true, false) => return IdentityRecipient::Selected,
+                        (false, true) => return IdentityRecipient::Remaining,
+                        _ => {} // Ambiguous or both edited; yield to next strategy in chain
+                    }
+                }
+            }
+        }
+    }
+
+    IdentityRecipient::Remaining
 }

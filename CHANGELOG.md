@@ -18,6 +18,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Deprecations
 
+* `split.legacy-bookmark-behavior` is now deprecated in favor of
+  `split.identity-strategy`.
+
 ### New features
 
 * `jj workspace add` supports `--colocate`/`--no-colocate` flags to control
@@ -84,6 +87,11 @@ None
   target a specific configuration file (such as files inside a `conf.d/`
   directory or loaded via `--config-file`). This allows precise file targeting
   and avoids interactive prompts when multiple config files exist.
+
+* Added `split.identity-strategy` configuration setting to control which commit
+  inherits the original Change ID and where bookmarks move after `jj split`.
+  Supported strategies are `"selected"`, `"remaining"` (default), and
+  `"follow-description"`.
 
 ### Fixed bugs
 
