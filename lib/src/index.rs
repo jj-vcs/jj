@@ -201,6 +201,26 @@ pub trait MutableIndex: Any {
     async fn add_commit(&mut self, commit: &Commit) -> IndexResult<()>;
 
     fn merge_in(&mut self, other: &dyn ReadonlyIndex) -> IndexResult<()>;
+
+    /// Resolves the revset `expression` against the index and corresponding
+    /// `store`, transferring ownership of the index to the returned revset.
+    ///
+    /// Unlike [`Index::evaluate_revset()`], the returned revset can outlive
+    /// the caller's reference to the index. This is used to evaluate
+    /// expressions against an in-memory index covering commits that don't
+    /// exist in the index of the repo the expression was resolved against
+    /// (e.g. `at_operation()` expressions targeting an operation that is not
+    /// an ancestor of the current operation.)
+    fn evaluate_revset_owned(
+        self: Arc<Self>,
+        expression: &ResolvedExpression,
+        store: &Arc<Store>,
+    ) -> Result<Box<dyn Revset>, RevsetEvaluationError> {
+        let _ = (expression, store);
+        Err(RevsetEvaluationError::Other(
+            "This index backend doesn't support evaluating revsets against an owned index".into(),
+        ))
+    }
 }
 
 impl dyn MutableIndex {
