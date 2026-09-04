@@ -3347,6 +3347,13 @@ suitable for checks such as these.</p>
 <p><code dir="auto">-m</code>, <code dir="auto">--message &#x3C;MESSAGE></code> — The change description to use</p>
 </li>
 <li>
+<p><code dir="auto">--colocate</code> — Create a corresponding Git worktree for this workspace</p>
+<p>By default, a Git worktree is created when the current workspace is colocated and the <a href="https://docs.jj-vcs.dev/latest/config/#default-colocation">git.colocate config</a> is <code dir="auto">true</code>.</p>
+</li>
+<li>
+<p><code dir="auto">--no-colocate</code> — Do not create a Git worktree for this workspace</p>
+</li>
+<li>
 <p><code dir="auto">--sparse-patterns &#x3C;SPARSE_PATTERNS></code> — How to handle sparse patterns when creating a new workspace</p>
 <p>Default value: <code dir="auto">copy</code></p>
 <p>Possible values:</p>
