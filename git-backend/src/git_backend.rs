@@ -98,6 +98,10 @@ const NO_GC_REF_NAMESPACE: &str = "refs/jj/keep/";
 /// kept in memory until `flush()`, to bound memory usage when snapshotting
 /// large files. (This is also the default `snapshot.max-new-file-size`.)
 const MAX_IN_MEMORY_BLOB_SIZE: usize = 1024 * 1024;
+/// If at least this many objects are persisted by one `flush()`, they're
+/// written to a single pack file instead of as loose objects. This is the same
+/// heuristic (and default value) as Git's `transfer.unpackLimit`.
+const MIN_OBJECTS_FOR_PACK: usize = 100;
 
 pub const JJ_CONFLICT_README_FILE_NAME: &str = "JJ-CONFLICT-README";
 
@@ -1007,34 +1011,109 @@ fn run_git_gc(program: &OsStr, git_dir: &Path, keep_newer: SystemTime) -> Result
 
 /// Writes the in-memory objects to the on-disk object database of `repo`,
 /// removing them from `memory` as they're written.
+///
+/// Returns the path to the pack's ".keep" file if a pack was written. The
+/// caller should remove it once the objects are protected by refs.
 fn persist_objects(
     repo: &gix::Repository,
     memory: &mut gix::odb::memory::Storage,
-) -> BackendResult<()> {
-    fn kind_name(kind: gix::objs::Kind) -> &'static str {
-        match kind {
-            gix::objs::Kind::Tree => "tree",
-            gix::objs::Kind::Blob => "blob",
-            gix::objs::Kind::Commit => "commit",
-            gix::objs::Kind::Tag => "tag",
+) -> BackendResult<Option<PathBuf>> {
+    // Write in a deterministic order to make debugging easier.
+    let to_persist = memory.keys().copied().sorted_unstable().collect_vec();
+
+    let keep_path = if to_persist.len() >= MIN_OBJECTS_FOR_PACK {
+        write_pack(
+            repo,
+            to_persist.iter().map(|oid| {
+                let (kind, data) = memory.get(oid).unwrap();
+                (*oid, *kind, data.as_slice())
+            }),
+        )?
+    } else {
+        for oid in &to_persist {
+            let (kind, data) = memory.get(oid).unwrap();
+            let written_oid = repo
+                .objects
+                .write_buf_with_known_id(*kind, data, *oid)
+                .map_err(|err| BackendError::WriteObject {
+                    object_type: object_kind_name(*kind),
+                    source: err.into(),
+                })?;
+            debug_assert_eq!(written_oid, *oid);
         }
+        None
+    };
+    for oid in &to_persist {
+        memory.remove(oid);
+    }
+    Ok(keep_path)
+}
+
+#[derive(Debug, Error)]
+#[error("Failed to write pack file")]
+struct WritePackError(#[source] Box<dyn std::error::Error + Send + Sync>);
+
+/// Writes the given objects to a new pack file (with index) in `repo`'s object
+/// database. Returns the path to the pack's ".keep" file, if any.
+fn write_pack<'a>(
+    repo: &gix::Repository,
+    objects: impl ExactSizeIterator<Item = (gix::ObjectId, gix::objs::Kind, &'a [u8])>,
+) -> BackendResult<Option<PathBuf>> {
+    use gix::odb::pack::data::output;
+    let pack_err = |err: Box<dyn std::error::Error + Send + Sync>| {
+        BackendError::Other(Box::new(WritePackError(err)))
+    };
+
+    let object_hash = repo.object_hash();
+    let num_objects = objects.len();
+    // We don't bother delta-compressing the objects since Git's GC will repack
+    // them anyway. Like Git does for loose objects, we favor speed over size.
+    let entries: Vec<output::Entry> = objects
+        .map(|(oid, kind, data)| {
+            let count = output::Count::from_data(oid, None);
+            let data = gix::objs::Data::new(data, kind, object_hash);
+            output::Entry::from_data(&count, &data, gix::zlib::Compression::BEST_SPEED)
+        })
+        .try_collect()
+        .map_err(|err| pack_err(err.into()))?;
+    let mut pack_bytes = Vec::new();
+    let entries_iter = std::iter::once(Ok::<_, gix::Error>(entries));
+    for written in output::bytes::FromEntriesIter::new(
+        entries_iter,
+        &mut pack_bytes,
+        u32::try_from(num_objects).unwrap(),
+        gix::odb::pack::data::Version::V2,
+        object_hash,
+    ) {
+        written.map_err(|err| pack_err(err.into()))?;
     }
 
-    // Write in a deterministic order to make debugging easier.
-    let oids = memory.keys().copied().sorted_unstable().collect_vec();
-    for oid in oids {
-        let (kind, data) = memory.get(&oid).unwrap();
-        let written_oid = repo
-            .objects
-            .write_buf_with_known_id(*kind, data, oid)
-            .map_err(|err| BackendError::WriteObject {
-                object_type: kind_name(*kind),
-                source: err.into(),
-            })?;
-        debug_assert_eq!(written_oid, oid);
-        memory.remove(&oid);
+    let pack_dir = repo.objects.store_ref().path().join("pack");
+    let outcome = gix::odb::pack::Bundle::write_to_directory(
+        &mut std::io::Cursor::new(pack_bytes),
+        Some(&pack_dir),
+        &mut gix::progress::Discard,
+        &std::sync::atomic::AtomicBool::new(false),
+        None::<gix::odb::Handle>,
+        object_hash,
+        gix::odb::pack::bundle::write::Options::default(),
+    )
+    .map_err(|err| pack_err(err.into()))?;
+    tracing::debug!(
+        num_objects,
+        data_path = ?outcome.data_path,
+        "wrote pack file"
+    );
+    Ok(outcome.keep_path)
+}
+
+fn object_kind_name(kind: gix::objs::Kind) -> &'static str {
+    match kind {
+        gix::objs::Kind::Tree => "tree",
+        gix::objs::Kind::Blob => "blob",
+        gix::objs::Kind::Commit => "commit",
+        gix::objs::Kind::Tag => "tag",
     }
-    Ok(())
 }
 
 fn find_git_tree<'repo>(
@@ -1650,9 +1729,20 @@ impl Backend for GitBackend {
         let mut memory = locked_repo.objects.take_object_memory().unwrap_or_default();
         let result = persist_objects(&locked_repo, &mut memory);
         locked_repo.objects.set_object_memory(memory);
-        result?;
+        let keep_path = result?;
+
+        // If a pack file was written, it's protected from GC by a ".keep" file
+        // until the no-gc refs have been created.
+        let remove_keep_file = || {
+            if let Some(keep_path) = &keep_path
+                && let Err(err) = fs::remove_file(keep_path)
+            {
+                tracing::warn!(?keep_path, ?err, "failed to remove pack .keep file");
+            }
+        };
 
         let Some((table, table_lock)) = table_and_lock else {
+            remove_keep_file();
             return Ok(());
         };
         // Everything up to this point had no permanent effect on the repo except
@@ -1660,6 +1750,7 @@ impl Backend for GitBackend {
         locked_repo
             .edit_references(pending_extras.keys().sorted().map(to_no_gc_ref_update))
             .map_err(|err| BackendError::Other(Box::new(err)))?;
+        remove_keep_file();
 
         let mut mut_table = table.start_mutation();
         for (id, extras) in pending_extras.iter().sorted() {

@@ -142,7 +142,9 @@ Thanks to the people who made this release happen!
 * The Git backend now keeps objects written during a transaction in memory and
   persists them when the transaction is committed. Commands that fail no longer
   leave stray objects behind in the Git repo, and read-only commands no longer
-  write objects (such as auto-merged parent trees) to disk.
+  write objects (such as auto-merged parent trees) to disk. Transactions that
+  write many objects (such as large rebases) now write a single pack file
+  instead of many loose objects.
 
 ### Fixed bugs
 
