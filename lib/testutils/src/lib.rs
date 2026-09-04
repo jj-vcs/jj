@@ -782,7 +782,11 @@ pub fn commit_with_tree(store: &Arc<Store>, tree: MergedTree) -> Commit {
         committer: signature,
         secure_sig: None,
     };
-    store.write_commit(commit, None).block_on().unwrap()
+    let commit = store.write_commit(commit, None).block_on().unwrap();
+    // Persist the commit so it's visible to other `Store` instances (e.g. from
+    // a reloaded workspace) and to Git.
+    store.flush().unwrap();
+    commit
 }
 
 pub fn dump_tree(merged_tree: &MergedTree) -> String {
