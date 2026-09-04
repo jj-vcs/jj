@@ -264,8 +264,10 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
     let tree = test_workspace.snapshot().unwrap();
     let new_tree = test_workspace.snapshot().unwrap();
     assert_tree_eq!(new_tree, tree, "The working copy should be clean.");
-    // Create the new merge commit with the conflict file appended.
-    let merge_commit = commit_with_tree(test_workspace.repo.store(), tree);
+    // Create the new merge commit with the conflict file appended. The tree was
+    // written through the reloaded workspace's store, so the commit must be
+    // written through the same store.
+    let merge_commit = commit_with_tree(test_workspace.workspace.repo_loader().store(), tree);
 
     // Reload the Workspace with the working-copy.eol-conversion = "none" setting to
     // check the EOL of the file written to the store previously.
