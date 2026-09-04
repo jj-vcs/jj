@@ -1313,6 +1313,9 @@ pub async fn import_head_commit(
 /// Error from exporting refs to Git.
 #[derive(Error, Debug)]
 pub enum GitExportError {
+    /// Error from the backend.
+    #[error(transparent)]
+    Backend(#[from] BackendError),
     /// Error from the Git repo.
     #[error(transparent)]
     Git(Box<dyn std::error::Error + Send + Sync>),
@@ -1458,6 +1461,9 @@ pub fn export_some_refs(
         Ok(())
     };
 
+    // The exported refs will point to commits that may not have been persisted
+    // yet.
+    mut_repo.store().flush()?;
     let git_repo = get_git_repo(mut_repo.store())?;
 
     check_and_detach_head(&git_repo)?;
@@ -2130,6 +2136,9 @@ pub async fn reset_head(
     workspace_root: &Path,
     (old_wc_commit, new_wc_commit): (Option<&Commit>, &Commit),
 ) -> Result<(), GitResetHeadError> {
+    // Git's HEAD and index will refer to objects that may not have been
+    // persisted yet.
+    mut_repo.store().flush()?;
     let git_backend = get_git_backend(mut_repo.store())?;
     let git_repo = git_backend
         .open_git_repo_at_workdir(workspace_root)
@@ -2404,6 +2413,9 @@ pub async fn update_intent_to_add(
     old_tree: &MergedTree,
     new_tree: &MergedTree,
 ) -> Result<(), GitResetHeadError> {
+    // The index entries will refer to objects that may not have been persisted
+    // yet.
+    repo.store().flush()?;
     let git_backend = get_git_backend(repo.store())?;
     let git_repo = git_backend
         .open_git_repo_at_workdir(workspace_root)
@@ -3622,6 +3634,9 @@ pub enum GitPushError {
     /// No remote with the given name exists.
     #[error("No git remote named '{}'", .0.as_symbol())]
     NoSuchRemote(RemoteNameBuf),
+    /// Error from the backend.
+    #[error(transparent)]
+    Backend(#[from] BackendError),
     /// The remote name is not usable by jj.
     #[error(transparent)]
     RemoteName(#[from] GitRemoteNameError),
@@ -3792,6 +3807,8 @@ pub fn push_updates(
         }
     }
 
+    // The pushed commits may not have been persisted yet.
+    repo.store().flush()?;
     let git_backend = get_git_backend(repo.store())?;
     let git_repo = git_backend.git_repo();
     let git_ctx = GitSubprocessContext::from_git_backend(git_backend, subprocess_options);

@@ -893,6 +893,20 @@ pub trait Backend: Any + Send + Sync + Debug {
     /// objects created after `keep_newer` will be preserved. This mitigates a
     /// risk of deleting new commits created concurrently by another process.
     async fn gc(&self, heads: &[CommitId], keep_newer: SystemTime) -> BackendResult<()>;
+
+    /// Persists all objects written since the last flush.
+    ///
+    /// Backends may buffer written objects (e.g. in memory) so that a
+    /// transaction's writes can be persisted as a group and discarded if the
+    /// transaction is dropped. Objects written via the `write_*()` methods
+    /// must be readable through this backend before they have been flushed,
+    /// but they are not guaranteed to be visible to other processes, or to
+    /// other handles to the underlying storage, until `flush()` returns.
+    ///
+    /// This is called by `Transaction::write()` before the operation is
+    /// written, when the working copy saves its state (which refers to tree
+    /// IDs), and by code that hands object IDs to external tools.
+    fn flush(&self) -> BackendResult<()>;
 }
 
 impl dyn Backend {

@@ -239,6 +239,8 @@ async fn snapshot_workspace(
         ))
         .write_hidden()
         .await?;
+    // The caller reads the commit through a different store.
+    repo.store().flush()?;
     writeln!(
         ui.status(),
         "Snapshot commit created for workspace '{name}': {commit_id:.12}",

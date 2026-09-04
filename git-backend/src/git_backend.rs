@@ -1553,6 +1553,11 @@ impl Backend for GitBackend {
         Ok(futures::stream::iter(records).boxed())
     }
 
+    fn flush(&self) -> BackendResult<()> {
+        // Objects are currently written to the Git object store immediately.
+        Ok(())
+    }
+
     /// Perform garbage collection.
     ///
     /// All commits found in the `index` won't be removed. In addition to that,

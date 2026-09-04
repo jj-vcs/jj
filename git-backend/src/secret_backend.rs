@@ -207,4 +207,8 @@ impl Backend for SecretBackend {
     async fn gc(&self, heads: &[CommitId], keep_newer: SystemTime) -> BackendResult<()> {
         self.inner.gc(heads, keep_newer).await
     }
+
+    fn flush(&self) -> BackendResult<()> {
+        self.inner.flush()
+    }
 }

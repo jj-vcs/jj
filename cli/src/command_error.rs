@@ -779,6 +779,7 @@ jj currently does not support partial clones. To use jj with this repository, tr
                 }
                 GitPushError::Subprocess(_) => user_error(err),
                 GitPushError::UnexpectedBackend(_) => user_error(err),
+                GitPushError::Backend(err) => err.into(),
             }
         }
     }
