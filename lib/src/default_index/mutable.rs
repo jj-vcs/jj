@@ -49,6 +49,7 @@ use super::readonly::DefaultReadonlyIndex;
 use super::readonly::FieldLengths;
 use super::readonly::OVERFLOW_FLAG;
 use super::readonly::ReadonlyCommitIndexSegment;
+use super::revset_engine;
 use crate::backend::BackendResult;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
@@ -549,6 +550,12 @@ impl AsCompositeIndex for DefaultMutableIndex {
     }
 }
 
+impl AsCompositeIndex for Arc<DefaultMutableIndex> {
+    fn as_composite(&self) -> &CompositeIndex {
+        (**self).as_composite()
+    }
+}
+
 #[async_trait]
 impl Index for DefaultMutableIndex {
     async fn shortest_unique_commit_id_prefix_len(
@@ -637,6 +644,15 @@ impl MutableIndex for DefaultMutableIndex {
             .expect("index to merge in must be a DefaultReadonlyIndex");
         Self::merge_in(self, other);
         Ok(())
+    }
+
+    fn evaluate_revset_owned(
+        self: Arc<Self>,
+        expression: &ResolvedExpression,
+        store: &Arc<Store>,
+    ) -> Result<Box<dyn Revset>, RevsetEvaluationError> {
+        let revset = revset_engine::evaluate(expression, store, self)?;
+        Ok(Box::new(revset))
     }
 }
 
