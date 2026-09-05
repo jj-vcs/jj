@@ -2773,6 +2773,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "jj-default-index"
+version = "0.46.0"
+dependencies = [
+ "async-trait",
+ "blake2",
+ "bstr",
+ "digest 0.11.3",
+ "either",
+ "eyre",
+ "futures 0.3.34",
+ "indoc",
+ "itertools 0.15.0",
+ "jj-core",
+ "jj-local-util",
+ "maplit",
+ "pollster",
+ "prost",
+ "ref-cast",
+ "rustversion",
+ "smallvec",
+ "tempfile",
+ "test-case",
+ "thiserror 2.0.21",
+ "tracing",
+]
+
+[[package]]
 name = "jj-dsl"
 version = "0.46.0"
 dependencies = [
@@ -2843,6 +2870,7 @@ dependencies = [
  "itertools 0.15.0",
  "jiff",
  "jj-core",
+ "jj-default-index",
  "jj-dsl",
  "jj-git-backend",
  "jj-local-util",

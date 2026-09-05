@@ -291,6 +291,7 @@ impl TracingSubscription {
                     .from_env_lossy()
                     .add_directive("jj_cli=debug".parse().unwrap())
                     .add_directive("jj_core=debug".parse().unwrap())
+                    .add_directive("jj_default_index=debug".parse().unwrap())
                     .add_directive("jj_dsl=debug".parse().unwrap())
                     .add_directive("jj_frontend=debug".parse().unwrap())
                     .add_directive("jj_git_backend=debug".parse().unwrap())

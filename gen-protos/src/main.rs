@@ -23,7 +23,6 @@ const CRATES: &[(&str, &[&str])] = &[
     (
         "lib",
         &[
-            "default_index.proto",
             "local_working_copy.proto",
             "secure_config.proto",
             "simple_op_store.proto",
@@ -31,6 +30,7 @@ const CRATES: &[(&str, &[&str])] = &[
             "simple_workspace_store.proto",
         ],
     ),
+    ("default-index", &["default_index.proto"]),
     ("git-backend", &["git_store.proto"]),
 ];
 

@@ -596,8 +596,8 @@ mod tests {
     use test_case::test_case;
 
     use super::*;
-    use crate::tests::TestResult;
-    use crate::tests::new_temp_dir;
+    use crate::test_util::TestResult;
+    use crate::test_util::new_temp_dir;
 
     fn repo_path(value: &str) -> &RepoPath {
         RepoPath::from_internal_string(value).unwrap()

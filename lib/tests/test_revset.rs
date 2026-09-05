@@ -44,7 +44,7 @@ use jj_core::ref_name::WorkspaceNameBuf;
 use jj_core::repo_path::RepoPath;
 use jj_core::signing::Signer;
 use jj_core::time_util;
-use jj_lib::default_index::DefaultIndexStore;
+use jj_default_index::DefaultIndexStore;
 use jj_lib::fileset::FilesetAliasesMap;
 use jj_lib::fileset::FilesetExpression;
 use jj_lib::git;

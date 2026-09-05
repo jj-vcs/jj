@@ -694,7 +694,7 @@ mod tests {
     use super::super::composite::AsCompositeIndex as _;
     use super::super::mutable::DefaultMutableIndex;
     use super::*;
-    use crate::default_index::readonly::FieldLengths;
+    use crate::readonly::FieldLengths;
 
     const TEST_FIELD_LENGTHS: FieldLengths = FieldLengths {
         // TODO: align with commit_id_generator()?

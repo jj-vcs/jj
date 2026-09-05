@@ -6,6 +6,7 @@ members = [
     "cli",
     "core",
     "core/proc-macros",
+    "default-index",
     "dsl",
     "frontend",
     "gen-protos",
@@ -148,6 +149,7 @@ winreg = "0.56"
 # their own (alphabetically sorted) block
 jj-core = { path = "core", version = "0.46.0" }
 jj-core-proc-macros = { path = "core/proc-macros", version = "0.46.0" }
+jj-default-index = { path = "default-index", version = "0.46.0" }
 jj-dsl = { path = "dsl", version = "0.46.0" }
 jj-frontend = { path = "frontend", version = "0.46.0" }
 jj-git-backend = { path = "git-backend", version = "0.46.0" }
