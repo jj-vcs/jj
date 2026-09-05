@@ -38,6 +38,8 @@ use crate::config::ToConfigNamePath;
 use crate::file_util::expand_home_path;
 use crate::files::MergeOptions;
 use crate::fmt_util::binary_prefix;
+#[cfg(feature = "git")]
+use crate::git_backend::GitBackendSettings;
 use crate::ref_name::RemoteNameBuf;
 use crate::time_util;
 
@@ -212,6 +214,17 @@ impl UserSettings {
 
     pub fn user_email(&self) -> &str {
         &self.data.user_email
+    }
+
+    /// Loads the settings needed by the Git backend.
+    #[cfg(feature = "git")]
+    pub fn git_backend_settings(&self) -> Result<GitBackendSettings, ConfigGetError> {
+        Ok(GitBackendSettings {
+            git_executable: self.get("git.executable-path")?,
+            write_change_id_header: self.get("git.write-change-id-header")?,
+            user_name: self.user_name().to_owned(),
+            user_email: self.user_email().to_owned(),
+        })
     }
 
     pub fn commit_timestamp(&self) -> Option<Timestamp> {
