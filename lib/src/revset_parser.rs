@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![expect(missing_docs)]
+//! Parser for the revset language.
 
 use std::collections::HashSet;
 use std::error;
@@ -26,9 +26,10 @@ use pest::iterators::Pair;
 use pest::pratt_parser::Assoc;
 use pest::pratt_parser::Op;
 use pest::pratt_parser::PrattParser;
-use pest_derive::Parser;
 use thiserror::Error;
 
+use self::private::RevsetParser;
+use self::private::Rule;
 use crate::dsl_util;
 use crate::dsl_util::AliasDeclaration;
 use crate::dsl_util::AliasDeclarationParser;
@@ -47,10 +48,16 @@ use crate::dsl_util::collect_similar;
 use crate::ref_name::RefNameBuf;
 use crate::ref_name::RemoteNameBuf;
 use crate::ref_name::RemoteRefSymbolBuf;
+use crate::symbol_util::format_string;
 
-#[derive(Parser)]
-#[grammar = "revset.pest"]
-struct RevsetParser;
+mod private {
+    use pest_derive::Parser;
+
+    // This generates a `pub enum Rule` type.
+    #[derive(Parser)]
+    #[grammar = "revset.pest"]
+    pub struct RevsetParser;
+}
 
 const STRING_LITERAL_PARSER: StringLiteralParser<Rule> = StringLiteralParser {
     content_rule: Rule::string_content,
@@ -144,6 +151,7 @@ impl Rule {
 /// resolution.
 pub type RevsetDiagnostics = Diagnostics<RevsetParseError>;
 
+/// Error occurred during revset parsing and name resolution.
 #[derive(Debug, Error)]
 #[error("{pest_error}")]
 pub struct RevsetParseError {
@@ -153,6 +161,7 @@ pub struct RevsetParseError {
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
+#[expect(missing_docs)]
 pub enum RevsetParseErrorKind {
     #[error("Syntax error")]
     SyntaxError,
@@ -198,6 +207,7 @@ pub enum RevsetParseErrorKind {
 }
 
 impl RevsetParseError {
+    /// Creates a new error with the given `kind` and `span`.
     pub(super) fn with_span(kind: RevsetParseErrorKind, span: pest::Span<'_>) -> Self {
         let message = kind.to_string();
         let pest_error = Box::new(pest::error::Error::new_from_span(
@@ -211,6 +221,7 @@ impl RevsetParseError {
         }
     }
 
+    /// Attaches the `source` error.
     pub(super) fn with_source(
         mut self,
         source: impl Into<Box<dyn error::Error + Send + Sync>>,
@@ -240,6 +251,7 @@ impl RevsetParseError {
         self
     }
 
+    /// Category of the underlying error.
     pub fn kind(&self) -> &RevsetParseErrorKind {
         &self.kind
     }
@@ -314,6 +326,7 @@ fn rename_rules_in_pest_error(mut err: pest::error::Error<Rule>) -> pest::error:
     })
 }
 
+/// AST expression item.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ExpressionKind<'i> {
     /// Unquoted symbol.
@@ -332,10 +345,13 @@ pub enum ExpressionKind<'i> {
     DagRangeAll,
     /// `..`
     RangeAll,
+    /// `<op> <arg>` or `<arg> <op>`.
     Unary(UnaryOp, Box<ExpressionNode<'i>>),
+    /// `<lhs> <op> <rhs>`.
     Binary(BinaryOp, Box<ExpressionNode<'i>>, Box<ExpressionNode<'i>>),
     /// `x | y | ..`
     UnionAll(Vec<ExpressionNode<'i>>),
+    /// `<name>(<args>..)`
     FunctionCall(Box<FunctionCallNode<'i>>),
     /// Identity node to preserve the span in the source text.
     AliasExpanded(AliasId<'i>, Box<ExpressionNode<'i>>),
@@ -395,6 +411,7 @@ impl<'i> AliasExpandableExpression<'i> for ExpressionKind<'i> {
     }
 }
 
+/// Unary operator.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum UnaryOp {
     /// `~x`
@@ -413,6 +430,7 @@ pub enum UnaryOp {
     Children,
 }
 
+/// Binary operator.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum BinaryOp {
     /// `&`
@@ -425,8 +443,11 @@ pub enum BinaryOp {
     Range,
 }
 
+/// AST node without type or name checking.
 pub type ExpressionNode<'i> = dsl_util::ExpressionNode<'i, ExpressionKind<'i>>;
+/// Function call in AST.
 pub type FunctionCallNode<'i> = dsl_util::FunctionCallNode<'i, ExpressionKind<'i>>;
+/// `<name>:<value>` expression in AST.
 pub type PatternNode<'i> = dsl_util::PatternNode<'i, ExpressionKind<'i>>;
 
 fn union_nodes<'i>(lhs: ExpressionNode<'i>, rhs: ExpressionNode<'i>) -> ExpressionNode<'i> {
@@ -675,8 +696,30 @@ pub fn parse_symbol(text: &str) -> Result<String, RevsetParseError> {
     }
 }
 
+/// Formats a string as symbol by quoting and escaping it if necessary.
+///
+/// Note that symbols may be substituted to user aliases. Use
+/// [`format_string()`] to ensure that the provided string is resolved as a
+/// tag/bookmark name, commit/change ID prefix, etc.
+pub fn format_symbol(literal: &str) -> String {
+    if is_identifier(literal) {
+        literal.to_string()
+    } else {
+        format_string(literal)
+    }
+}
+
+/// Formats a `name@remote` symbol, applies quoting and escaping if necessary.
+pub fn format_remote_symbol(name: &str, remote: &str) -> String {
+    let name = format_symbol(name);
+    let remote = format_symbol(remote);
+    format!("{name}@{remote}")
+}
+
+/// Map of revset aliases.
 pub type RevsetAliasesMap = AliasesMap<RevsetAliasParser, String>;
 
+/// Parser for the revset symbol and function alias declarations.
 #[derive(Clone, Debug, Default)]
 pub struct RevsetAliasParser;
 
@@ -733,6 +776,8 @@ impl AliasDefinitionParser for RevsetAliasParser {
     }
 }
 
+/// Unwraps the inner value if the given `node` is an identifier, string or
+/// string pattern.
 pub(super) fn expect_string_pattern<'a>(
     type_name: &str,
     node: &'a ExpressionNode<'_>,
@@ -751,6 +796,7 @@ pub(super) fn expect_string_pattern<'a>(
     })
 }
 
+/// Parses the inner value if the given `node` is an identifier or string.
 pub fn expect_literal<T: FromStr>(
     type_name: &str,
     node: &ExpressionNode,
@@ -763,6 +809,7 @@ pub fn expect_literal<T: FromStr>(
     })
 }
 
+/// Unwraps the inner value if the given `node` is an identifier or string.
 pub(super) fn expect_string_literal<'a>(
     type_name: &str,
     node: &'a ExpressionNode<'_>,
@@ -1954,6 +2001,42 @@ mod tests {
                 .set_local("A", "a")
                 .parse_normalized("A|B|F(A)"),
             parse_normalized("a|A|(a&A)")
+        );
+    }
+
+    #[test]
+    fn test_escape_string_literal() {
+        // Valid identifiers don't need quoting
+        assert_eq!(format_symbol("foo"), "foo");
+        assert_eq!(format_symbol("foo.bar"), "foo.bar");
+
+        // Invalid identifiers need quoting
+        assert_eq!(format_symbol("foo@bar"), r#""foo@bar""#);
+        assert_eq!(format_symbol("foo bar"), r#""foo bar""#);
+        assert_eq!(format_symbol(" foo "), r#"" foo ""#);
+        assert_eq!(format_symbol("(foo)"), r#""(foo)""#);
+        assert_eq!(format_symbol("all:foo"), r#""all:foo""#);
+
+        // Some characters also need escaping
+        assert_eq!(format_symbol("foo\"bar"), r#""foo\"bar""#);
+        assert_eq!(format_symbol("foo\\bar"), r#""foo\\bar""#);
+        assert_eq!(format_symbol("foo\\\"bar"), r#""foo\\\"bar""#);
+        assert_eq!(format_symbol("foo\nbar"), r#""foo\nbar""#);
+
+        // Some characters don't technically need escaping, but we escape them for
+        // clarity
+        assert_eq!(format_symbol("foo\"bar"), r#""foo\"bar""#);
+        assert_eq!(format_symbol("foo\\bar"), r#""foo\\bar""#);
+        assert_eq!(format_symbol("foo\\\"bar"), r#""foo\\\"bar""#);
+        assert_eq!(format_symbol("foo \x01 bar"), r#""foo \x01 bar""#);
+    }
+
+    #[test]
+    fn test_escape_remote_symbol() {
+        assert_eq!(format_remote_symbol("foo", "bar"), "foo@bar");
+        assert_eq!(
+            format_remote_symbol(" foo ", "bar:baz"),
+            r#"" foo "@"bar:baz""#
         );
     }
 }
