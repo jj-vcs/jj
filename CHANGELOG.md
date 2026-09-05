@@ -85,6 +85,11 @@ None
   directory or loaded via `--config-file`). This allows precise file targeting
   and avoids interactive prompts when multiple config files exist.
 
+* `fill` template function now supports an additional named parameter
+  `break_words`, that allows specifying if the template should break words
+  longer than `width` passed in the input to ensure no words overflow the
+  specified width.
+
 ### Fixed bugs
 
 * [The default `immutable_heads()` set](docs/config.md#set-of-immutable-commits)
