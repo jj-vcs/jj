@@ -78,7 +78,7 @@ fn test_git_clone() {
     let output = clone_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Nothing changed.
+    Fetched from git remote(s) origin: nothing changed.
     [EOF]
     ");
 
@@ -344,7 +344,7 @@ fn test_git_clone_colocate() -> TestResult {
     let output = clone_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Nothing changed.
+    Fetched from git remote(s) origin: nothing changed.
     [EOF]
     ");
 
@@ -1291,7 +1291,7 @@ fn test_git_clone_branch_or_tag() {
     let output = repo_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Nothing changed.
+    Fetched from git remote(s) origin: nothing changed.
     [EOF]
     ");
 
@@ -1324,7 +1324,7 @@ fn test_git_clone_branch_or_tag() {
     let output = repo_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Nothing changed.
+    Fetched from git remote(s) origin: nothing changed.
     [EOF]
     ");
 
@@ -1376,7 +1376,7 @@ fn test_git_clone_branch_or_tag() {
     let output = repo_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Nothing changed.
+    Fetched from git remote(s) origin: nothing changed.
     [EOF]
     ");
 
