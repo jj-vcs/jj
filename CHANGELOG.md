@@ -85,6 +85,10 @@ None
   directory or loaded via `--config-file`). This allows precise file targeting
   and avoids interactive prompts when multiple config files exist.
 
+* `jj git ref fetch` can fetch raw Git refs or full commit IDs from a configured
+  remote. The fetched commits become visible without creating bookmarks or
+  remote-tracking refs.
+
 ### Fixed bugs
 
 * [The default `immutable_heads()` set](docs/config.md#set-of-immutable-commits)
