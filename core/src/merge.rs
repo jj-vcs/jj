@@ -626,7 +626,7 @@ impl<T> Extend<T> for MergeBuilder<T> {
 
 impl<T> Merge<Option<T>> {
     /// Creates a resolved merge with a value of `None`.
-    pub fn absent() -> Self {
+    pub const fn absent() -> Self {
         Self::resolved(None)
     }
 
