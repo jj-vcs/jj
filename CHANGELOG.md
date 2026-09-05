@@ -16,6 +16,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `jj workspace add` uses `git worktree add --orphan`, which was added in
   2.42.0.
 
+* `jj bisect run` now runs some consistency checks before proceeding to bisect.
+  This helps ensure that the command can tell good and bad revisions apart,
+  and that the working copy does go from bad to good over the provided revset.
+  Use the new flag `--trust-endpoints` to disable these checks.
+
 ### Deprecations
 
 ### New features

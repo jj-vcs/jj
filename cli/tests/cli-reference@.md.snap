@@ -363,6 +363,8 @@ cargo test"
 
    Each revision being checked will be directly edited (will become the current working copy) before running this command. The exit status of the command will be used to mark revisions as "good" or "bad": status 0 means "good", 125 means to skip the revision, 127 (command not found) will abort the bisection, and any other non-zero exit status means the revision is "bad".
 
+   In order for bisection to be meaningful, `COMMAND` must succeed for every revision in `heads(REVSETS)`, and it must fail for every revision in `parents(connected(REVSETS)) ~ connected(REVSETS)`; if you are using `--find-good`, these checks are reversed. (Visit <https://docs.jj-vcs.dev/latest/revsets/> for more information about the jj revset language.)
+
    The target's commit ID is available to the command in the `$JJ_BISECT_TARGET` environment variable.
 * `<ARGS>` — Arguments to pass to the command
 
@@ -380,6 +382,9 @@ cargo test"
    The interpretation of exit statuses will be inverted (excluding special exit statuses), so status 0 means bad and other non-zero statuses mean good.
 
   Default value: `false`
+* `--trust-endpoints` — Skip the pre-bisection checks
+
+   By default, `COMMAND` will be run on every revision `jj bisect run` assumes to be good or bad before bisection actually begins, as detailed under the documentation for `COMMAND`. This flag disables these checks.
 
 
 
