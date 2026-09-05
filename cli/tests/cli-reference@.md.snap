@@ -66,6 +66,8 @@ This document contains the help content for the `jj` command-line program.
 * [`jj git import`↴](#jj-git-import)
 * [`jj git init`↴](#jj-git-init)
 * [`jj git push`↴](#jj-git-push)
+* [`jj git ref`↴](#jj-git-ref)
+* [`jj git ref fetch`↴](#jj-git-ref-fetch)
 * [`jj git remote`↴](#jj-git-remote)
 * [`jj git remote add`↴](#jj-git-remote-add)
 * [`jj git remote list`↴](#jj-git-remote-list)
@@ -1658,6 +1660,7 @@ See this [comparison], including a [table of commands].
 * `import` — Update repo with changes made in the underlying Git repo
 * `init` — Create a new Git backed repo
 * `push` — Push to a Git remote
+* `ref` — Manage raw Git refs
 * `remote` — Manage Git remotes
 * `root` — Show the underlying Git directory of a repository using the Git backend
 
@@ -1945,6 +1948,38 @@ Before the command actually moves, creates, or deletes a remote bookmark, it mak
    Automatically tracks the bookmark if it is new.
 * `--dry-run` — Only display what will change on the remote
 * `-o`, `--option <OPTION>` — Git push options
+
+
+
+## `jj git ref`
+
+Manage raw Git refs
+
+**Usage:** `jj git ref <COMMAND>`
+
+###### **Subcommands:**
+
+* `fetch` — Fetch raw refs or full commit IDs from a Git remote
+
+
+
+## `jj git ref fetch`
+
+Fetch raw refs or full commit IDs from a Git remote
+
+Each source can be a fully qualified remote ref such as GitHub's `refs/pull/123/head`, or a full Git commit ID.
+
+**Usage:** `jj git ref fetch [OPTIONS] <REF>...`
+
+###### **Arguments:**
+
+* `<REF>` — The remote refs or full Git commit IDs to fetch
+
+###### **Options:**
+
+* `--remote <REMOTE>` — The remote to fetch from (only named remotes are supported)
+
+   By default, this uses the `git.fetch` setting when it matches exactly one remote. If that is not configured, the only remote or the remote named "origin" is used.
 
 
 
