@@ -70,11 +70,11 @@ rustix = { workspace = true }
 [dev-dependencies]
 assert_matches = { workspace = true }
 eyre = { workspace = true }
+hegeltest = { workspace = true }
 indoc = { workspace = true }
 insta = { workspace = true }
 num_cpus = { workspace = true }
 pretty_assertions = { workspace = true }
-proptest = { workspace = true }
 rustversion = { workspace = true }
 test-case = { workspace = true }
 testutils = { workspace = true }
