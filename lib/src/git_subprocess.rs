@@ -326,6 +326,23 @@ impl GitSubprocessContext {
         parse_git_worktree_output(output)
     }
 
+    /// Fix up the paths Git recorded for the worktree at `worktree_path`,
+    /// after the worktree or the repository has been moved.
+    pub(crate) fn spawn_worktree_repair(
+        &self,
+        worktree_path: &Path,
+    ) -> Result<(), GitSubprocessError> {
+        let mut command = self.create_command();
+        command.stdout(Stdio::null());
+        command.args(["-c", "worktree.useRelativePaths=true"]);
+        command.args(["worktree", "repair", "--"]);
+        command.arg(worktree_path);
+
+        let output = wait_with_output(self.spawn_cmd(command)?)?;
+
+        parse_git_worktree_output(output)
+    }
+
     /// Remove the bookkeeping of worktrees whose directories are gone.
     pub(crate) fn spawn_worktree_prune(&self) -> Result<(), GitSubprocessError> {
         let mut command = self.create_command();

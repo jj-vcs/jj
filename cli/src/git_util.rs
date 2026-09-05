@@ -564,6 +564,18 @@ pub fn print_push_stats(ui: &Ui, stats: &GitPushStats) -> io::Result<()> {
     Ok(())
 }
 
+/// Creates a Git worktree to back a jj workspace.
+pub fn create_git_worktree(
+    ui: &Ui,
+    store: &Store,
+    subprocess_options: GitSubprocessOptions,
+    destination: &Path,
+) -> Result<(), CommandError> {
+    git::create_worktree(store, subprocess_options, destination)?;
+    writeln!(ui.status(), "Created Git worktree for the new workspace.")?;
+    Ok(())
+}
+
 /// Disconnects the Git worktree backing a jj workspace, if there is one.
 ///
 /// The workspace has already been forgotten by the time this runs, and a
