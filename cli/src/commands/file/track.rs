@@ -24,6 +24,7 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::print_large_file_hint;
 use crate::cli_util::print_untracked_files;
 use crate::command_error::CommandError;
+use crate::command_error::cli_error;
 use crate::ui::Ui;
 
 /// Start tracking specified paths in the working copy
@@ -63,6 +64,16 @@ pub(crate) async fn cmd_file_track(
         .to_matcher();
 
     let mut options = workspace_command.snapshot_options_with_start_tracking_matcher(&matcher)?;
+    if options.derive_tracked_from_ignores {
+        let mut err =
+            cli_error("Explicit track not allowed when `derive-tracked-from-ignores` is true");
+        err.extend_hints(Some(
+            "Edit `.gitignore` to not ignore the selected paths and they will be automatically \
+             tracked"
+                .to_string(),
+        ));
+        return Err(err);
+    }
     if args.include_ignored {
         options.force_tracking_matcher = &matcher;
     }
