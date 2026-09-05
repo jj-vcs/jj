@@ -85,6 +85,11 @@ None
   directory or loaded via `--config-file`). This allows precise file targeting
   and avoids interactive prompts when multiple config files exist.
 
+* `jj run` now supports labeled revisions (e.g. `-r before=trunk() -r after=@`).
+  The label is exposed to the executed command via the `$JJ_LABEL` environment
+  variable, and allocates a dedicated workspace slot to preserve build cache
+  affinity.
+
 ### Fixed bugs
 
 * [The default `immutable_heads()` set](docs/config.md#set-of-immutable-commits)

@@ -3089,6 +3089,7 @@ The command is executed with the following environment variables set:
 - JJ_CHANGE_ID
 - JJ_COMMIT_ID
 - JJ_WORKSPACE_ROOT
+- JJ_LABEL (if a label was specified for the revision)
 
 ### Example
 
@@ -3109,6 +3110,15 @@ $ jj run -j 4 -- pre-commit run .github/pre-commit.yaml
 ###### **Options:**
 
 * `-r`, `--revision <REVSETS>` — The revisions to change
+
+   An optional label prefix can be specified, with at most one label per
+   revision (e.g. `-r before=trunk() -r after=@`). If it is specified:
+
+   * It will be exposed to the command in `$JJ_LABEL`, allowing you to
+     store outputs at known paths - for example: `jj run ... bash -c
+     'run_build && cp out/binary /tmp/$JJ_LABEL'`
+   * It will run in a consistent workspace, ensuring cache affinity for
+     incremental builds.
 * `-j`, `--jobs <JOBS>` — How many processes should run in parallel
 
    Overrides the `run.jobs` config setting. Defaults to 1 if neither is set.
