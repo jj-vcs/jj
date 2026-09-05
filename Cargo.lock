@@ -2690,6 +2690,7 @@ dependencies = [
  "assert_matches",
  "blake2",
  "bstr",
+ "clru",
  "criterion",
  "digest 0.10.7",
  "either",
