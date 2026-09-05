@@ -39,7 +39,6 @@ pub use jj_core::diff;
 pub mod diff_presentation;
 pub use jj_dsl::dsl_util;
 pub use jj_dsl::template_parser;
-pub(crate) mod eol;
 pub mod evolution;
 pub mod extensions_map;
 pub use jj_core::files;
@@ -49,7 +48,7 @@ pub use jj_core::filtered_tree_writer;
 use jj_dsl::fileset_parser;
 pub mod fix;
 pub use jj_config::fmt_util;
-pub mod fsmonitor;
+pub use jj_local_working_copy::fsmonitor;
 #[cfg(feature = "git")]
 pub mod git;
 #[cfg(feature = "git")]
@@ -65,7 +64,6 @@ pub mod id_prefix;
 pub use jj_core::index;
 pub use jj_core::index_store;
 pub use jj_core::iter_util;
-pub mod local_working_copy;
 pub use jj_core::matchers;
 pub use jj_core::merge;
 pub use jj_core::merged_tree;
@@ -74,6 +72,7 @@ pub use jj_core::object_id;
 pub use jj_core::op_heads_store;
 pub use jj_core::op_store;
 pub use jj_local_util::lock;
+pub use jj_local_working_copy::local_working_copy;
 pub mod op_walk;
 pub use jj_core::operation;
 #[expect(missing_docs)]
