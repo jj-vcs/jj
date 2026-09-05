@@ -34,6 +34,7 @@ use itertools::Itertools as _;
 use jj_core::backend::CopyId;
 use jj_core::backend::TreeValue;
 use jj_core::conflict_labels::ConflictLabels;
+use jj_core::conflicts::ConflictMaterializeOptions;
 use jj_core::files::FileMergeHunkLevel;
 use jj_core::files::MergeOptions;
 use jj_core::matchers::FilesMatcher;
@@ -46,7 +47,6 @@ use jj_core::ref_name::WorkspaceName;
 use jj_core::repo_path::RepoPath;
 use jj_core::repo_path::RepoPathBuf;
 use jj_git_backend::secret_backend::SecretBackend;
-use jj_lib::conflicts::ConflictMaterializeOptions;
 use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::git::get_git_backend;
 use jj_lib::gitignore::GitIgnoreFile;
@@ -1345,18 +1345,21 @@ fn test_snapshot_modified_materialized_conflict(
         .check_out(test_workspace.repo.op_id().clone(), None, &merge_commit)
         .block_on()?;
     let contents = std::fs::read(&file_disk_path)?;
-    let hunks =
-        jj_lib::conflicts::parse_conflict(&contents, 2, jj_lib::conflicts::MIN_CONFLICT_MARKER_LEN)
-            .unwrap();
+    let hunks = jj_core::conflicts::parse_conflict(
+        &contents,
+        2,
+        jj_core::conflicts::MIN_CONFLICT_MARKER_LEN,
+    )
+    .unwrap();
     let hunks = get_new_merge_hunks(hunks);
     let mut new_contents = vec![];
     for hunk in hunks {
-        jj_lib::conflicts::materialize_merge_result(
+        jj_core::conflicts::materialize_merge_result(
             &hunk,
             &ConflictLabels::unlabeled(),
             &mut new_contents,
             &ConflictMaterializeOptions {
-                marker_style: jj_lib::conflicts::ConflictMarkerStyle::Diff,
+                marker_style: jj_core::conflicts::ConflictMarkerStyle::Diff,
                 marker_len: None,
                 merge: MergeOptions {
                     hunk_level: FileMergeHunkLevel::Line,

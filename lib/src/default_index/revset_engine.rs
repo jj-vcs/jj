@@ -38,6 +38,8 @@ use jj_core::backend::MillisSinceEpoch;
 use jj_core::commit::Commit;
 use jj_core::commit::merge_commit_trees_no_resolve;
 use jj_core::conflict_labels::ConflictLabels;
+use jj_core::conflicts::MaterializedTreeValue;
+use jj_core::conflicts::materialize_tree_value;
 use jj_core::diff::ContentDiff;
 use jj_core::diff::DiffHunkKind;
 use jj_core::files;
@@ -61,6 +63,7 @@ use jj_core::revset_backend::RevsetFilterPredicate;
 use jj_core::store::Store;
 use jj_core::str_util::StringMatcher;
 use jj_core::tree_merge::resolve_file_values;
+use jj_core::union_find;
 use pollster::FutureExt as _;
 
 use super::composite::AsCompositeIndex;
@@ -71,10 +74,7 @@ use super::rev_walk::PeekableRevWalk;
 use super::rev_walk::RevWalk;
 use super::rev_walk::RevWalkBuilder;
 use super::revset_graph_iterator::RevsetGraphWalk;
-use crate::conflicts::MaterializedTreeValue;
-use crate::conflicts::materialize_tree_value;
 use crate::default_index::bit_set::AncestorsBitSet;
-use crate::union_find;
 
 type BoxedPredicateFn<'a> = Box<
     dyn FnMut(&CompositeIndex, GlobalCommitPosition) -> Result<bool, RevsetEvaluationError> + 'a,
