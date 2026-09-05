@@ -85,6 +85,11 @@ None
   directory or loaded via `--config-file`). This allows precise file targeting
   and avoids interactive prompts when multiple config files exist.
 
+* `jj git push` now supports pushing to multiple remotes at the same time.
+  This can be configured via `git.push` set to a string pattern
+  or array of string patterns, or with the repeatable `--remote` flag,
+  which also accepts string patterns.
+
 ### Fixed bugs
 
 * [The default `immutable_heads()` set](docs/config.md#set-of-immutable-commits)
