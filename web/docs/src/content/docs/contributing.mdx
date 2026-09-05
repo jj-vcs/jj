@@ -603,11 +603,11 @@ to adjust the `site_url` to something like `https://jjfan.github.io/jj`.
    protobuf-compiler` or downloading [an official release]. The
    `prost` [library docs] have additional advice.
  - Run `cargo run -p gen-protos` regularly (or after every edit to a `.proto`
-   file). This is the same as running `cargo run` from `lib/gen-protos`. The
+   file). This is the same as running `cargo run` from `gen-protos`. The
    `gen-protos` binary will use the `prost-build` library to compile the
    `.proto` files into `.rs` files.
  - If you are adding a new `.proto` file, you will need to edit the list of
-   these files in `lib/gen-protos/src/main.rs`.
+   these files in `gen-protos/src/main.rs`.
 
 [an official release]: https://github.com/protocolbuffers/protobuf/releases
 [library docs]: https://docs.rs/prost-build/latest/prost_build/#sourcing-protoc
