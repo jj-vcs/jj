@@ -40,7 +40,6 @@ ref-cast = { workspace = true }
 regex = { workspace = true }
 serde = { workspace = true }
 smallvec = { workspace = true }
-tempfile = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 
@@ -52,10 +51,6 @@ maplit = { workspace = true }
 pollster = { workspace = true }
 sapling-renderdag = { workspace = true }
 test-case = { workspace = true }
-
-[target.'cfg(windows)'.dependencies]
-same-file = { workspace = true }
-winreg = { workspace = true }
 
 [lints]
 workspace = true
