@@ -8,8 +8,8 @@ members = [
     "core/proc-macros",
     "dsl",
     "frontend",
+    "gen-protos",
     "lib",
-    "lib/gen-protos",
     "lib/testutils",
 ]
 
