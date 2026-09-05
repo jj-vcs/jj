@@ -31,30 +31,31 @@ use futures::future::try_join_all;
 use futures::stream::BoxStream;
 use futures::try_join;
 use itertools::Itertools as _;
-use jj_core::backend::BackendError;
-use jj_core::backend::BackendResult;
-use jj_core::backend::CommitId;
-use jj_core::backend::CopyId;
-use jj_core::backend::FileId;
-use jj_core::backend::MergedTreeValue;
-use jj_core::backend::MergedTreeValueExt as _;
-use jj_core::backend::SymlinkId;
-use jj_core::backend::TreeId;
-use jj_core::backend::TreeValue;
-use jj_core::conflict_labels::ConflictLabels;
-use jj_core::copies::CopiesTreeDiffEntry;
-use jj_core::copies::CopiesTreeDiffEntryPath;
-use jj_core::diff::ContentDiff;
-use jj_core::diff::DiffHunk;
-use jj_core::diff::DiffHunkKind;
-use jj_core::files;
-use jj_core::files::MergeOptions;
-use jj_core::files::MergeResult;
-use jj_core::merge::Diff;
-use jj_core::merge::Merge;
-use jj_core::merge::SameChange;
-use jj_core::repo_path::RepoPath;
-use jj_core::store::Store;
+
+use crate::backend::BackendError;
+use crate::backend::BackendResult;
+use crate::backend::CommitId;
+use crate::backend::CopyId;
+use crate::backend::FileId;
+use crate::backend::MergedTreeValue;
+use crate::backend::MergedTreeValueExt as _;
+use crate::backend::SymlinkId;
+use crate::backend::TreeId;
+use crate::backend::TreeValue;
+use crate::conflict_labels::ConflictLabels;
+use crate::copies::CopiesTreeDiffEntry;
+use crate::copies::CopiesTreeDiffEntryPath;
+use crate::diff::ContentDiff;
+use crate::diff::DiffHunk;
+use crate::diff::DiffHunkKind;
+use crate::files;
+use crate::files::MergeOptions;
+use crate::files::MergeResult;
+use crate::merge::Diff;
+use crate::merge::Merge;
+use crate::merge::SameChange;
+use crate::repo_path::RepoPath;
+use crate::store::Store;
 
 /// Minimum length of conflict markers.
 pub const MIN_CONFLICT_MARKER_LEN: usize = 7;
@@ -1135,11 +1136,11 @@ pub async fn update_from_content(
 mod tests {
     #![expect(clippy::too_many_arguments)]
 
-    use jj_core::files::FileMergeHunkLevel;
     use test_case::test_case;
     use test_case::test_matrix;
 
     use super::*;
+    use crate::files::FileMergeHunkLevel;
 
     #[test]
     fn test_resolve_file_executable() {

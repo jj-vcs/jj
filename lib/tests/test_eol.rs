@@ -442,9 +442,12 @@ fn test_eol_conversion_update_conflicts(
             expected_eol
         );
     }
-    let hunks =
-        jj_lib::conflicts::parse_conflict(&contents, 2, jj_lib::conflicts::MIN_CONFLICT_MARKER_LEN)
-            .unwrap();
+    let hunks = jj_core::conflicts::parse_conflict(
+        &contents,
+        2,
+        jj_core::conflicts::MIN_CONFLICT_MARKER_LEN,
+    )
+    .unwrap();
     let hunk = &hunks[0];
     assert!(!hunk.is_resolved());
     let sides = hunk.iter().collect::<Vec<_>>();

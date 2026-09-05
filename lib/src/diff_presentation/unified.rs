@@ -20,6 +20,9 @@ use bstr::BStr;
 use bstr::BString;
 use jj_core::backend::BackendError;
 use jj_core::backend::MergedTreeValueExt as _;
+use jj_core::conflicts::ConflictMaterializeOptions;
+use jj_core::conflicts::MaterializedTreeValue;
+use jj_core::conflicts::materialize_merge_result_to_bytes;
 use jj_core::diff::ContentDiff;
 use jj_core::diff::DiffHunkKind;
 use jj_core::merge::Diff;
@@ -34,9 +37,6 @@ use super::LineCompareMode;
 use super::diff_by_line;
 use super::file_content_for_diff;
 use super::unzip_diff_hunks_to_lines;
-use crate::conflicts::ConflictMaterializeOptions;
-use crate::conflicts::MaterializedTreeValue;
-use crate::conflicts::materialize_merge_result_to_bytes;
 
 #[derive(Clone, Debug)]
 pub struct GitDiffPart {

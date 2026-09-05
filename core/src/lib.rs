@@ -31,6 +31,7 @@ pub mod backend;
 mod cached_loader;
 pub mod commit;
 pub mod conflict_labels;
+pub mod conflicts;
 pub mod content_hash;
 pub mod copies;
 pub mod dag_walk;
@@ -64,6 +65,7 @@ pub mod tree;
 pub mod tree_merge;
 mod tree_rewriter;
 mod tree_walk;
+pub mod union_find;
 pub mod view;
 pub mod workspace_store;
 
