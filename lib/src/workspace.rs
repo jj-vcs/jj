@@ -234,11 +234,13 @@ impl Workspace {
             let git_settings = settings
                 .git_backend_settings()
                 .map_err(BackendInitError::new)?;
-            Ok(Box::new(crate::git_backend::GitBackend::init_internal(
-                &git_settings,
-                store_path,
-                object_hash,
-            )?))
+            Ok(Box::new(
+                jj_git_backend::git_backend::GitBackend::init_internal(
+                    &git_settings,
+                    store_path,
+                    object_hash,
+                )?,
+            ))
         };
         let signer = signer_from_settings(user_settings)?;
         Self::init_with_backend(
@@ -275,7 +277,7 @@ impl Workspace {
             let git_settings = settings
                 .git_backend_settings()
                 .map_err(BackendInitError::new)?;
-            let backend = crate::git_backend::GitBackend::init_colocated(
+            let backend = jj_git_backend::git_backend::GitBackend::init_colocated(
                 &git_settings,
                 store_path,
                 &store_relative_workspace_root,
@@ -315,7 +317,7 @@ impl Workspace {
             // Workspace::new(), but it's not yet here.
             let store_relative_git_repo_path = match (
                 dunce::canonicalize(workspace_root),
-                crate::git_backend::canonicalize_git_repo_path(git_repo_path),
+                jj_git_backend::git_backend::canonicalize_git_repo_path(git_repo_path),
             ) {
                 (Ok(workspace_root), Ok(git_repo_path))
                     if git_repo_path.starts_with(&workspace_root) =>
@@ -327,7 +329,7 @@ impl Workspace {
             let git_settings = settings
                 .git_backend_settings()
                 .map_err(BackendInitError::new)?;
-            let backend = crate::git_backend::GitBackend::init_external(
+            let backend = jj_git_backend::git_backend::GitBackend::init_external(
                 &git_settings,
                 store_path,
                 &store_relative_git_repo_path,

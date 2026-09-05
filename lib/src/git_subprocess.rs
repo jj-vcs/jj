@@ -31,6 +31,7 @@ use jj_core::merge::Diff;
 use jj_core::ref_name::GitRefNameBuf;
 use jj_core::ref_name::RefNameBuf;
 use jj_core::ref_name::RemoteName;
+use jj_git_backend::git_backend::GitBackend;
 use jj_local_util::subprocess_util::suppress_console_window;
 use thiserror::Error;
 
@@ -40,7 +41,6 @@ use crate::git::GitSubprocessOptions;
 use crate::git::NegativeRefSpec;
 use crate::git::RefSpec;
 use crate::git::RefToPush;
-use crate::git_backend::GitBackend;
 
 // * 2.29.0 introduced `git fetch --no-write-fetch-head`
 // * 2.40 still receives security patches (latest one was in Jan/2025)

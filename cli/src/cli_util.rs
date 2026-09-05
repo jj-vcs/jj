@@ -293,6 +293,7 @@ impl TracingSubscription {
                     .add_directive("jj_core=debug".parse().unwrap())
                     .add_directive("jj_dsl=debug".parse().unwrap())
                     .add_directive("jj_frontend=debug".parse().unwrap())
+                    .add_directive("jj_git_backend=debug".parse().unwrap())
                     .add_directive("jj_lib=debug".parse().unwrap())
                     .add_directive("jj_local_util=debug".parse().unwrap());
             })

@@ -54,7 +54,7 @@ pub mod fsmonitor;
 #[cfg(feature = "git")]
 pub mod git;
 #[cfg(feature = "git")]
-pub mod git_backend;
+pub use jj_git_backend::git_backend;
 #[cfg(feature = "git")]
 mod git_subprocess;
 pub mod gitignore;
@@ -88,7 +88,7 @@ use jj_core::revset_backend;
 use jj_dsl::revset_parser;
 pub mod rewrite;
 #[cfg(feature = "testing")]
-pub mod secret_backend;
+pub use jj_git_backend::secret_backend;
 pub mod secure_config;
 pub mod settings;
 pub use jj_core::signing;

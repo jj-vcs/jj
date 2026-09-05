@@ -2797,6 +2797,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "jj-git-backend"
+version = "0.46.0"
+dependencies = [
+ "async-trait",
+ "blake2",
+ "bstr",
+ "dunce",
+ "eyre",
+ "futures 0.3.34",
+ "gix",
+ "indoc",
+ "insta",
+ "itertools 0.15.0",
+ "jj-core",
+ "jj-local-util",
+ "once_cell",
+ "pollster",
+ "prost",
+ "smallvec",
+ "tempfile",
+ "test-case",
+ "thiserror 2.0.21",
+ "tracing",
+]
+
+[[package]]
 name = "jj-lib"
 version = "0.46.0"
 dependencies = [
@@ -2818,6 +2844,7 @@ dependencies = [
  "jiff",
  "jj-core",
  "jj-dsl",
+ "jj-git-backend",
  "jj-local-util",
  "maplit",
  "memchr",
@@ -4758,6 +4785,7 @@ dependencies = [
  "gix",
  "itertools 0.15.0",
  "jj-core",
+ "jj-git-backend",
  "jj-lib",
  "pollster",
  "proptest",

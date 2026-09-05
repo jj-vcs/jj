@@ -79,6 +79,7 @@ use jj_core::str_util::StringExpression;
 use jj_core::str_util::StringMatcher;
 use jj_core::str_util::StringPattern;
 use jj_core::view::View;
+use jj_git_backend::git_backend::GitBackend;
 use jj_local_util::file_util::IoResultExt as _;
 use jj_local_util::file_util::PathError;
 use jj_local_util::file_util::is_empty_dir;
@@ -86,7 +87,6 @@ use tempfile::TempDir;
 use thiserror::Error;
 
 use crate::config::ConfigGetError;
-use crate::git_backend::GitBackend;
 use crate::git_subprocess::GitFetchStatus;
 pub use crate::git_subprocess::GitProgress;
 pub use crate::git_subprocess::GitSidebandLineTerminator;

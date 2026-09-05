@@ -41,6 +41,7 @@ itertools = { workspace = true }
 jiff = { workspace = true }
 jj-core = { workspace = true }
 jj-dsl = { workspace = true }
+jj-git-backend = { workspace = true, optional = true }
 jj-local-util = { workspace = true }
 maplit = { workspace = true }
 memchr = { workspace = true }
@@ -78,9 +79,9 @@ nix = { workspace = true, features = [ "fs" ] }
 
 [features]
 default = ["git"]
-git = ["dep:gix"]
+git = ["dep:gix", "dep:jj-git-backend"]
 watchman = ["dep:watchman_client", "dep:tokio"]
-testing = ["git"]
+testing = ["git", "jj-git-backend/testing"]
 
 [lints]
 workspace = true
