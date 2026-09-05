@@ -19,6 +19,7 @@ gix = { workspace = true, features = [
 ] }
 itertools = { workspace = true }
 jj-core = { workspace = true }
+jj-git-backend = { workspace = true, features = ["testing"] }
 jj-lib = { workspace = true, features = ["testing"] }
 pollster = { workspace = true }
 proptest = { workspace = true }

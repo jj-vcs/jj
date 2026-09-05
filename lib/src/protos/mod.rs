@@ -2,9 +2,6 @@
 pub mod default_index {
     include!("default_index.rs");
 }
-pub mod git_store {
-    include!("git_store.rs");
-}
 pub mod local_working_copy {
     include!("local_working_copy.rs");
 }

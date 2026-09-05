@@ -28,6 +28,8 @@ use jj_core::backend::Timestamp;
 use jj_core::files::MergeOptions;
 use jj_core::ref_name::RemoteNameBuf;
 use jj_core::time_util;
+#[cfg(feature = "git")]
+use jj_git_backend::git_backend::GitBackendSettings;
 use jj_local_util::file_util::expand_home_path;
 use rand::prelude::*;
 use rand_chacha::ChaCha20Rng;
@@ -40,8 +42,6 @@ use crate::config::ConfigValue;
 use crate::config::StackedConfig;
 use crate::config::ToConfigNamePath;
 use crate::fmt_util::binary_prefix;
-#[cfg(feature = "git")]
-use crate::git_backend::GitBackendSettings;
 
 #[derive(Debug, Clone)]
 pub struct UserSettings {

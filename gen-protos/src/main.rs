@@ -19,18 +19,20 @@ use itertools::Itertools as _;
 
 /// Crates (as directories relative to the workspace root) with `.proto` files
 /// in their `src/protos/` directory.
-const CRATES: &[(&str, &[&str])] = &[(
-    "lib",
-    &[
-        "default_index.proto",
-        "git_store.proto",
-        "local_working_copy.proto",
-        "secure_config.proto",
-        "simple_op_store.proto",
-        "simple_store.proto",
-        "simple_workspace_store.proto",
-    ],
-)];
+const CRATES: &[(&str, &[&str])] = &[
+    (
+        "lib",
+        &[
+            "default_index.proto",
+            "local_working_copy.proto",
+            "secure_config.proto",
+            "simple_op_store.proto",
+            "simple_store.proto",
+            "simple_workspace_store.proto",
+        ],
+    ),
+    ("git-backend", &["git_store.proto"]),
+];
 
 fn main() -> Result<()> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
