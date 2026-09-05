@@ -87,6 +87,7 @@ use jj_core::store::Store;
 use jj_core::view::RenameWorkspaceError;
 use jj_core::view::View;
 use jj_core::workspace_store::WorkspaceStore;
+use jj_default_index::DefaultMutableIndex;
 use jj_local_util::file_util::IoResultExt as _;
 use jj_local_util::file_util::PathError;
 use once_cell::sync::OnceCell;
@@ -95,7 +96,6 @@ use tracing::instrument;
 
 use crate::commit_builder::CommitBuilder;
 use crate::commit_builder::DetachedCommitBuilder;
-use crate::default_index::DefaultMutableIndex;
 use crate::op_heads_store;
 use crate::op_heads_store::OpHeadsStore;
 use crate::op_heads_store::OpHeadsStoreError;

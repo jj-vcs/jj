@@ -74,7 +74,7 @@ use super::rev_walk::PeekableRevWalk;
 use super::rev_walk::RevWalk;
 use super::rev_walk::RevWalkBuilder;
 use super::revset_graph_iterator::RevsetGraphWalk;
-use crate::default_index::bit_set::AncestorsBitSet;
+use crate::bit_set::AncestorsBitSet;
 
 type BoxedPredicateFn<'a> = Box<
     dyn FnMut(&CompositeIndex, GlobalCommitPosition) -> Result<bool, RevsetEvaluationError> + 'a,
@@ -1567,9 +1567,9 @@ mod tests {
     use jj_core::str_util::StringPattern;
 
     use super::*;
-    use crate::default_index::DefaultMutableIndex;
-    use crate::default_index::readonly::FieldLengths;
-    use crate::tests::TestResult;
+    use crate::DefaultMutableIndex;
+    use crate::readonly::FieldLengths;
+    use crate::test_util::TestResult;
 
     const TEST_FIELD_LENGTHS: FieldLengths = FieldLengths {
         commit_id: 3,

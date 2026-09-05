@@ -208,7 +208,7 @@ mod tests {
     use super::super::mutable::DefaultMutableIndex;
     use super::super::readonly::FieldLengths;
     use super::*;
-    use crate::tests::TestResult;
+    use crate::test_util::TestResult;
 
     /// Generator of unique 16-byte CommitId excluding root id
     fn commit_id_generator() -> impl FnMut() -> CommitId {

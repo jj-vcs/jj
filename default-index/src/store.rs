@@ -43,6 +43,7 @@ use jj_core::index_store::IndexStoreResult;
 use jj_core::object_id::ObjectId as _;
 use jj_core::op_store::OpStoreError;
 use jj_core::op_store::OperationId;
+use jj_core::op_walk;
 use jj_core::operation::Operation;
 use jj_core::store::Store;
 use jj_local_util::file_util;
@@ -64,7 +65,6 @@ use super::readonly::DefaultReadonlyIndex;
 use super::readonly::FieldLengths;
 use super::readonly::ReadonlyCommitIndexSegment;
 use super::readonly::ReadonlyIndexLoadError;
-use crate::op_walk;
 
 // BLAKE2b-512 hash length in hex string
 const SEGMENT_FILE_NAME_LENGTH: usize = 64 * 2;

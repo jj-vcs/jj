@@ -19,6 +19,12 @@
 //! disk and contains an entry for every commit in the repository. See
 //! [`DefaultReadonlyIndex`] and [`DefaultMutableIndex`].
 
+#![warn(missing_docs)]
+#![forbid(unsafe_code)]
+#![deny(unused_must_use)]
+
+mod protos;
+
 mod bit_set;
 mod changed_path;
 mod composite;
@@ -75,11 +81,11 @@ mod tests {
     use super::mutable::MutableCommitIndexSegment;
     use super::readonly::ReadonlyCommitIndexSegment;
     use super::*;
-    use crate::default_index::entry::LocalCommitPosition;
-    use crate::default_index::entry::SmallLocalCommitPositionsVec;
-    use crate::default_index::readonly::FieldLengths;
-    use crate::tests::TestResult;
-    use crate::tests::new_temp_dir;
+    use crate::entry::LocalCommitPosition;
+    use crate::entry::SmallLocalCommitPositionsVec;
+    use crate::readonly::FieldLengths;
+    use crate::test_util::TestResult;
+    use crate::test_util::new_temp_dir;
 
     const TEST_FIELD_LENGTHS: FieldLengths = FieldLengths {
         // TODO: align with commit_id_generator()?
@@ -1437,5 +1443,22 @@ mod tests {
             vec![id_2.clone()]
         );
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test_util {
+    use tempfile::TempDir;
+
+    // Copied from `testutils::TestResult` to remove dependency cycle.
+    pub type TestResult<T = ()> = eyre::Result<T>;
+
+    /// Unlike `testutils::new_temp_dir()`, this function doesn't set up
+    /// hermetic Git environment.
+    pub fn new_temp_dir() -> TempDir {
+        tempfile::Builder::new()
+            .prefix("jj-test-")
+            .tempdir()
+            .unwrap()
     }
 }

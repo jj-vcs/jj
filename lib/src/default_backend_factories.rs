@@ -15,7 +15,8 @@
 //! Provides the default backend factories and initializers, i.e. `GitBackend`
 //! (if the `git` feature is enabled), `SimpleOpStore`, `LocalWorkingCopy`, etc.
 
-use crate::default_index::DefaultIndexStore;
+use jj_default_index::DefaultIndexStore;
+
 use crate::default_submodule_store::DefaultSubmoduleStore;
 use crate::local_working_copy::LocalWorkingCopy;
 use crate::local_working_copy::LocalWorkingCopyFactory;
