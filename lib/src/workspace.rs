@@ -35,6 +35,7 @@ use jj_local_util::file_util;
 use jj_local_util::file_util::BadPathEncoding;
 use jj_local_util::file_util::IoResultExt as _;
 use jj_local_util::file_util::PathError;
+use jj_simple_stores::simple_backend::SimpleBackend;
 use thiserror::Error;
 
 use crate::default_backend_factories::default_index_store_initializer;
@@ -52,7 +53,6 @@ use crate::repo::RepoLoaderError;
 use crate::settings::UserSettings;
 use crate::signing_factory::SignInitError;
 use crate::signing_factory::signer_from_settings;
-use crate::simple_backend::SimpleBackend;
 use crate::store_factories::BackendInitializer;
 use crate::store_factories::IndexStoreInitializer;
 use crate::store_factories::OpHeadsStoreInitializer;

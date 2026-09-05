@@ -81,7 +81,6 @@ use jj_lib::rewrite::RebaseOptions;
 use jj_lib::rewrite::RebasedCommit;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing_factory::signer_from_settings;
-use jj_lib::simple_backend::SimpleBackend;
 use jj_lib::store_factories::StoreFactories;
 use jj_lib::transaction::Transaction;
 use jj_lib::working_copy::SnapshotError;
@@ -89,6 +88,7 @@ use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::SnapshotStats;
 use jj_lib::workspace::Workspace;
 use jj_lib::workspace::WorkspaceLoadError;
+use jj_simple_stores::simple_backend::SimpleBackend;
 use pollster::FutureExt as _;
 use tempfile::TempDir;
 
