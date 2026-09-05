@@ -51,6 +51,7 @@ pub mod merged_tree;
 pub mod merged_tree_builder;
 pub mod object_id;
 pub mod op_store;
+pub mod op_walk;
 pub mod operation;
 pub mod ref_name;
 pub mod refs;

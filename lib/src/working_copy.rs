@@ -29,6 +29,7 @@ use jj_core::matchers::Matcher;
 use jj_core::merged_tree::MergedTree;
 use jj_core::op_store::OpStoreError;
 use jj_core::op_store::OperationId;
+use jj_core::op_walk;
 use jj_core::operation::Operation;
 use jj_core::ref_name::WorkspaceName;
 use jj_core::ref_name::WorkspaceNameBuf;
@@ -41,7 +42,6 @@ use tracing::instrument;
 
 use crate::gitignore::GitIgnoreError;
 use crate::gitignore::GitIgnoreFile;
-use crate::op_walk;
 use crate::repo::ReadonlyRepo;
 use crate::repo::Repo as _;
 use crate::repo::RewriteRootCommit;
