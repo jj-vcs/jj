@@ -19,11 +19,14 @@ use jj_lib::git::GitSubprocessOptions;
 use jj_lib::ref_name::WorkspaceNameBuf;
 #[cfg(feature = "git")]
 use jj_lib::repo::Repo as _;
+#[cfg(feature = "git")]
 use jj_lib::workspace_store::SimpleWorkspaceStore;
+#[cfg(feature = "git")]
 use jj_lib::workspace_store::WorkspaceStore as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
+use crate::cli_util::WorkspaceCommandHelper;
 use crate::command_error::CommandError;
 use crate::complete;
 #[cfg(feature = "git")]
@@ -78,6 +81,43 @@ pub async fn cmd_workspace_forget(
         return Ok(());
     }
 
+    forget_workspaces(
+        ui,
+        &mut workspace_command,
+        &forget_ws,
+        WorkspaceRemoval::Forget,
+    )
+    .await?;
+    Ok(())
+}
+
+/// Which command is removing the workspaces from the repo, used to describe the
+/// resulting operation.
+#[derive(Clone, Copy, Debug)]
+pub(super) enum WorkspaceRemoval {
+    Forget,
+    Remove,
+}
+
+impl WorkspaceRemoval {
+    fn describe(self, forget_ws: &[&WorkspaceNameBuf]) -> String {
+        let names = forget_ws.iter().map(|ws| ws.as_symbol()).join(", ");
+        match (self, forget_ws) {
+            (Self::Forget, [_]) => format!("forget workspace {names}"),
+            (Self::Forget, _) => format!("forget workspaces {names}"),
+            (Self::Remove, [_]) => format!("remove workspace {names}"),
+            (Self::Remove, _) => format!("remove workspaces {names}"),
+        }
+    }
+}
+
+pub(super) async fn forget_workspaces(
+    ui: &mut Ui,
+    workspace_command: &mut WorkspaceCommandHelper,
+    forget_ws: &[&WorkspaceNameBuf],
+    removal: WorkspaceRemoval,
+) -> Result<(), CommandError> {
+    #[cfg(feature = "git")]
     let workspace_store = SimpleWorkspaceStore::load(workspace_command.repo_path())?;
 
     #[cfg(feature = "git")]
@@ -96,22 +136,16 @@ pub async fn cmd_workspace_forget(
     // undo correctly restores all of them at once.
     let mut tx = workspace_command.start_transaction();
 
-    for ws in &forget_ws {
+    // The recorded path is intentionally left in the workspace store. `jj undo`
+    // restores the workspace to the repo view, and it can only be pointed back
+    // at its directory if the path outlived the forget. A stale entry is
+    // harmless: it is ignored for workspaces that aren't in the view, and
+    // overwritten if the name is reused.
+    for ws in forget_ws {
         tx.repo_mut().remove_workspace(ws).await?;
     }
 
-    workspace_store.forget(&forget_ws.iter().map(|x| x.as_ref()).collect::<Vec<_>>())?;
-
-    let description = if let [ws] = forget_ws.as_slice() {
-        format!("forget workspace {}", ws.as_symbol())
-    } else {
-        format!(
-            "forget workspaces {}",
-            forget_ws.iter().map(|ws| ws.as_symbol()).join(", ")
-        )
-    };
-
-    tx.finish(ui, description).await?;
+    tx.finish(ui, removal.describe(forget_ws)).await?;
 
     #[cfg(feature = "git")]
     {

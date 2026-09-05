@@ -115,6 +115,21 @@ pub async fn cmd_undo(
         )?;
         writeln!(ui.hint_default(), "To avoid this, run `jj redo` now.")?;
     }
+    if target_op
+        .metadata()
+        .description
+        .starts_with("remove workspace")
+    {
+        writeln!(
+            ui.warning_default(),
+            "Undoing a workspace removal restores the workspace, but does not restore the \
+             workspace directory."
+        )?;
+        writeln!(
+            ui.hint_default(),
+            "Run `jj workspace forget` then `jj workspace add` to recreate the directory."
+        )?;
+    }
 
     let mut target_op_parent = match target_op.parents().await?.into_iter().at_most_one() {
         Ok(Some(op)) => op,
