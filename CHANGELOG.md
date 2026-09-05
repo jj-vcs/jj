@@ -28,6 +28,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,
+  such as `ssh` asking for a key passphrase or for confirmation of an unknown
+  host key. Subprocesses started from a terminal now inherit its console, rather
+  than being given an invisible one by `CREATE_NO_WINDOW` for the prompt to
+  disappear into.
+  [#6745](https://github.com/jj-vcs/jj/issues/6745)
+  [#8547](https://github.com/jj-vcs/jj/issues/8547)
+
 ## [0.45.1] - 2026-09-03
 
 This release fixes an error that prevented the new jj-core crate from being
