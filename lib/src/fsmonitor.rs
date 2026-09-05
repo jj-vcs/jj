@@ -24,8 +24,8 @@
 
 use std::path::PathBuf;
 
-use crate::config::ConfigGetError;
-use crate::settings::UserSettings;
+use jj_config::config::ConfigGetError;
+use jj_config::settings::UserSettings;
 
 /// Config for Watchman filesystem monitor (<https://facebook.github.io/watchman/>).
 #[derive(Eq, PartialEq, Clone, Debug)]

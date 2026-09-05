@@ -24,16 +24,15 @@ use std::process::ExitStatus;
 use std::process::Stdio;
 
 use either::Either;
+use jj_config::config::ConfigGetError;
+use jj_config::config::ConfigGetResultExt as _;
+use jj_config::settings::UserSettings;
 use jj_core::signing::SigStatus;
 use jj_core::signing::SignError;
 use jj_core::signing::SigningBackend;
 use jj_core::signing::Verification;
 use jj_local_util::subprocess_util::suppress_console_window;
 use thiserror::Error;
-
-use crate::config::ConfigGetError;
-use crate::config::ConfigGetResultExt as _;
-use crate::settings::UserSettings;
 
 /// [`SigningBackend`] that signs and verifies using `ssh-keygen`.
 #[derive(Debug)]

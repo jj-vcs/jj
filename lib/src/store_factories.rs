@@ -22,6 +22,7 @@ use std::io::ErrorKind;
 use std::path::Path;
 use std::sync::Arc;
 
+use jj_config::settings::UserSettings;
 use jj_core::backend::Backend;
 use jj_core::backend::BackendInitError;
 use jj_core::backend::BackendLoadError;
@@ -41,7 +42,6 @@ use thiserror::Error;
 
 use crate::repo::ReadonlyRepo;
 use crate::repo::RepoLoader;
-use crate::settings::UserSettings;
 use crate::signing_factory::SignInitError;
 use crate::signing_factory::signer_from_settings;
 use crate::simple_workspace_store::SimpleWorkspaceStore;

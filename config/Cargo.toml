@@ -1,0 +1,41 @@
+[package]
+name = "jj-config"
+description = "Configuration and user settings for Jujutsu - an experimental version control system"
+
+version.workspace = true
+license.workspace = true
+rust-version.workspace = true
+edition.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+documentation.workspace = true
+categories.workspace = true
+keywords.workspace = true
+
+include = [
+    "/LICENSE",
+    "/src/",
+]
+
+[dependencies]
+itertools = { workspace = true }
+jj-core = { workspace = true }
+jj-local-util = { workspace = true }
+prost = { workspace = true }
+rand = { workspace = true }
+rand_chacha = { workspace = true }
+serde = { workspace = true }
+tempfile = { workspace = true }
+thiserror = { workspace = true }
+toml_edit = { workspace = true }
+
+[dev-dependencies]
+eyre = { workspace = true }
+indoc = { workspace = true }
+insta = { workspace = true }
+pretty_assertions = { workspace = true }
+test-case = { workspace = true }
+
+[lints]
+workspace = true

@@ -16,11 +16,11 @@ use std::fs::File;
 use std::io::Write as _;
 
 use bstr::ByteSlice as _;
-use jj_lib::config::ConfigLayer;
-use jj_lib::config::ConfigSource;
+use jj_config::config::ConfigLayer;
+use jj_config::config::ConfigSource;
+use jj_config::settings::UserSettings;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::merge_commit_trees;
-use jj_lib::settings::UserSettings;
 use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::CommitBuilderExt as _;

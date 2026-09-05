@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use jj_config::config::ConfigLayer;
+use jj_config::config::ConfigSource;
+use jj_config::settings::UserSettings;
 use jj_core::backend::TreeValue;
 use jj_core::conflict_labels::ConflictLabels;
 use jj_core::merge::Merge;
 use jj_core::merge::SameChange;
 use jj_core::merged_tree::MergedTree;
-use jj_lib::config::ConfigLayer;
-use jj_lib::config::ConfigSource;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::rebase_commit;
-use jj_lib::settings::UserSettings;
 use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::CommitBuilderExt as _;

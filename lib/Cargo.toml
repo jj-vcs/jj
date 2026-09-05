@@ -38,6 +38,7 @@ globset = { workspace = true }
 indexmap = { workspace = true }
 itertools = { workspace = true }
 jiff = { workspace = true }
+jj-config = { workspace = true }
 jj-core = { workspace = true }
 jj-default-index = { workspace = true }
 jj-dsl = { workspace = true }
@@ -50,7 +51,6 @@ once_cell = { workspace = true }
 pollster = { workspace = true }
 prost = { workspace = true }
 rand = { workspace = true }
-rand_chacha = { workspace = true }
 rayon = { workspace = true }
 ref-cast = { workspace = true }
 regex = { workspace = true }
@@ -59,7 +59,6 @@ smallvec = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, optional = true }
-toml_edit = { workspace = true }
 tracing = { workspace = true }
 watchman_client = { workspace = true, optional = true }
 
