@@ -75,6 +75,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj git root`↴](#jj-git-root)
 * [`jj git worktree`↴](#jj-git-worktree)
 * [`jj git worktree adopt`↴](#jj-git-worktree-adopt)
+* [`jj git worktree sync`↴](#jj-git-worktree-sync)
 * [`jj help`↴](#jj-help)
 * [`jj interdiff`↴](#jj-interdiff)
 * [`jj log`↴](#jj-log)
@@ -2066,6 +2067,7 @@ Manage Git worktrees
 ###### **Subcommands:**
 
 * `adopt` — Adopt existing Git worktrees as jj workspaces
+* `sync` — Synchronize jj workspaces with Git worktrees
 
 
 
@@ -2084,6 +2086,18 @@ With no arguments, adopts the Git worktree at the current directory. With worktr
 ###### **Options:**
 
 * `--all` — Adopt all unadopted Git worktrees
+
+
+
+## `jj git worktree sync`
+
+Synchronize jj workspaces with Git worktrees
+
+In a colocated Git repository, this command reconciles jj workspace state with Git worktree state. It adopts externally-created Git worktrees as jj workspaces, forgets workspaces whose Git worktrees have been removed, and repairs paths for moved worktrees.
+
+Set `git.auto-sync-worktrees = true` to run this synchronization automatically on every jj invocation.
+
+**Usage:** `jj git worktree sync`
 
 
 

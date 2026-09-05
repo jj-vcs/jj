@@ -14,7 +14,9 @@
 
 //! Git utilities shared by various commands.
 
+use std::collections::HashSet;
 use std::error;
+use std::fs;
 use std::io;
 use std::io::Write as _;
 use std::iter;
@@ -30,6 +32,7 @@ use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
 use indoc::writedoc;
 use itertools::Itertools as _;
+use jj_lib::file_util;
 use jj_lib::git;
 use jj_lib::git::FailedRefExportReason;
 use jj_lib::git::GitExportStats;
@@ -45,11 +48,14 @@ use jj_lib::git::GitSubprocessCallback;
 use jj_lib::git::GitSubprocessOptions;
 use jj_lib::git_backend::GitRepoAtWorkdirError;
 use jj_lib::op_store::RemoteRefState;
+use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::settings::RemoteSettingsMap;
 use jj_lib::store::Store;
 use jj_lib::workspace::Workspace;
+use jj_lib::workspace_store::SimpleWorkspaceStore;
+use jj_lib::workspace_store::WorkspaceStore as _;
 use unicode_width::UnicodeWidthStr as _;
 
 use crate::cleanup_guard::CleanupGuard;
@@ -662,6 +668,94 @@ fn canonicalize_existing(path: &Path) -> Result<Option<PathBuf>, CommandError> {
             err,
         )),
     }
+}
+
+pub(crate) struct GitWorktreeRepoContext {
+    pub(crate) workspace_store: SimpleWorkspaceStore,
+    pub(crate) main_workspace_root: PathBuf,
+    pub(crate) git_settings: GitSettings,
+}
+
+/// Returns whether the repository's Git HEAD points at a commit.
+///
+/// A freshly initialized repository has an unborn HEAD, so there is nothing
+/// for Git to check out yet.
+pub(crate) fn git_head_resolves(git_repo: &gix::Repository) -> bool {
+    git_repo.head_id().is_ok()
+}
+
+pub(crate) fn workspace_abs_path(
+    repo_path: &Path,
+    workspace_store: &SimpleWorkspaceStore,
+    workspace_name: &WorkspaceName,
+) -> Result<Option<PathBuf>, CommandError> {
+    let Some(path) = workspace_store.get_workspace_path(workspace_name)? else {
+        return Ok(None);
+    };
+    let path = if path.is_absolute() {
+        path
+    } else {
+        repo_path.join(path)
+    };
+    match dunce::canonicalize(&path) {
+        Ok(path) => Ok(Some(path)),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(Some(path)),
+        Err(err) => Err(user_error_with_message(
+            format!("Failed to resolve workspace path '{}'", path.display()),
+            err,
+        )),
+    }
+}
+
+pub(crate) fn repair_jj_repo_link(
+    workspace_root: &Path,
+    repo_path: &Path,
+) -> Result<(), CommandError> {
+    let jj_dir = workspace_root.join(".jj");
+    let repo_file_path = jj_dir.join("repo");
+    if !repo_file_path.is_file() {
+        return Ok(());
+    }
+    let jj_dir_abs = dunce::canonicalize(&jj_dir).map_err(|err| {
+        user_error_with_message(format!("Failed to resolve '{}'", jj_dir.display()), err)
+    })?;
+    let repo_dir = dunce::canonicalize(repo_path).map_err(|err| {
+        user_error_with_message(format!("Failed to resolve '{}'", repo_path.display()), err)
+    })?;
+    let path_to_store = file_util::relative_path(&jj_dir_abs, &repo_dir);
+    let path_to_store = if path_to_store.is_relative() {
+        file_util::slash_path(&path_to_store).into_owned()
+    } else {
+        path_to_store
+    };
+    let repo_dir_bytes = file_util::path_to_bytes(&path_to_store)
+        .map_err(|err| user_error_with_message("Failed to encode jj repo path", err))?;
+    if fs::read(&repo_file_path).ok().as_deref() == Some(repo_dir_bytes) {
+        return Ok(());
+    }
+    fs::write(&repo_file_path, repo_dir_bytes)
+        .map_err(|err| user_error_with_message("Failed to repair jj workspace link", err))?;
+    Ok(())
+}
+
+/// Returns the roots of every live Git worktree, including the main one.
+pub(crate) fn git_worktree_paths(
+    git_repo: &gix::Repository,
+) -> Result<HashSet<PathBuf>, CommandError> {
+    let mut paths = HashSet::new();
+    // `worktrees()` lists linked worktrees only, so add the main one.
+    let main_workdir = git_repo.workdir().map(Path::to_owned);
+    let worktree_bases = git_repo
+        .worktrees()
+        .map_err(|err| user_error_with_message("Failed to list Git worktrees", err))?
+        .into_iter()
+        .filter_map(|proxy| proxy.base().ok());
+    for path in main_workdir.into_iter().chain(worktree_bases) {
+        if let Ok(path) = dunce::canonicalize(path) {
+            paths.insert(path);
+        }
+    }
+    Ok(paths)
 }
 
 #[cfg(test)]
