@@ -1,0 +1,29 @@
+[package]
+name = "jj-working-copy"
+description = "Working copy traits for Jujutsu - an experimental version control system"
+
+version.workspace = true
+license.workspace = true
+rust-version.workspace = true
+edition.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+documentation.workspace = true
+categories.workspace = true
+keywords.workspace = true
+
+include = [
+    "/LICENSE",
+    "/src/",
+]
+
+[dependencies]
+async-trait = { workspace = true }
+gix-ignore = { workspace = true }
+jj-config = { workspace = true }
+jj-core = { workspace = true }
+thiserror = { workspace = true }
+
+[lints]
+workspace = true

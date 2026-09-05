@@ -21,6 +21,7 @@ use jj_git_backend::secret_backend::SecretBackend;
 use jj_simple_stores::simple_backend::SimpleBackend;
 use jj_simple_stores::simple_op_heads_store::SimpleOpHeadsStore;
 use jj_simple_stores::simple_op_store::SimpleOpStore;
+use jj_working_copy::working_copy::WorkingCopyFactory;
 
 use crate::default_submodule_store::DefaultSubmoduleStore;
 use crate::local_working_copy::LocalWorkingCopy;
@@ -34,7 +35,6 @@ use crate::store_factories::StoreFactories;
 use crate::store_factories::StoreInitializers;
 use crate::store_factories::SubmoduleStoreInitializer;
 use crate::store_factories::WorkspaceStoreInitializer;
-use crate::working_copy::WorkingCopyFactory;
 use crate::workspace::DefaultWorkspaceLoaderFactory;
 use crate::workspace::WorkingCopyFactories;
 use crate::workspace::WorkspaceLoaderFactory;

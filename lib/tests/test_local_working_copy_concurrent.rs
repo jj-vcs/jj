@@ -17,7 +17,7 @@ use std::cmp::max;
 use std::thread;
 
 use jj_lib::repo::Repo as _;
-use jj_lib::working_copy::CheckoutError;
+use jj_working_copy::working_copy::CheckoutError;
 use pollster::FutureExt as _;
 use testutils::TestResult;
 use testutils::TestWorkspace;

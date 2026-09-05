@@ -56,7 +56,7 @@ pub mod git;
 pub use jj_git_backend::git_backend;
 #[cfg(feature = "git")]
 mod git_subprocess;
-pub mod gitignore;
+pub use jj_working_copy::gitignore;
 pub mod gpg_signing;
 pub use jj_core::graph;
 pub mod graph_dominators;
@@ -114,7 +114,7 @@ pub use jj_core::tree;
 pub mod ui_path;
 pub use jj_core::union_find;
 pub use jj_core::view;
-pub mod working_copy;
+pub use jj_working_copy::working_copy;
 pub mod workspace;
 pub use jj_core::workspace_store;
 
