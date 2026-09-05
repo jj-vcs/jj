@@ -1,0 +1,44 @@
+[package]
+name = "jj-fs-util"
+description = "File system utilities for Jujutsu - an experimental version control system"
+
+version = { workspace = true }
+edition = { workspace = true }
+rust-version = { workspace = true }
+license = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+documentation = { workspace = true }
+readme = { workspace = true }
+
+include = [
+    "/LICENSE",
+    "/src/",
+]
+
+[dependencies]
+blake2 = { workspace = true }
+etcetera = { workspace = true }
+futures = { workspace = true }
+itertools = { workspace = true }
+jj-core = { workspace = true }
+rand = { workspace = true }
+tempfile = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+rustix = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+same-file = { workspace = true }
+winreg = { workspace = true }
+
+[dev-dependencies]
+eyre = { workspace = true }
+num_cpus = { workspace = true }
+pollster = { workspace = true }
+test-case = { workspace = true }
+
+[lints]
+workspace = true
