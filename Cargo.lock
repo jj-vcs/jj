@@ -2917,6 +2917,7 @@ dependencies = [
  "jj-dsl",
  "jj-git-backend",
  "jj-local-util",
+ "jj-local-working-copy",
  "jj-simple-stores",
  "jj-working-copy",
  "maplit",
@@ -2940,7 +2941,6 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "tracing",
- "watchman_client",
 ]
 
 [[package]]
@@ -2964,6 +2964,33 @@ dependencies = [
  "tracing",
  "windows-sys",
  "winreg",
+]
+
+[[package]]
+name = "jj-local-working-copy"
+version = "0.47.1"
+dependencies = [
+ "async-trait",
+ "bstr",
+ "either",
+ "futures 0.3.34",
+ "itertools 0.15.0",
+ "jj-config",
+ "jj-core",
+ "jj-local-util",
+ "jj-working-copy",
+ "maplit",
+ "once_cell",
+ "pollster",
+ "prost",
+ "rayon",
+ "serde",
+ "tempfile",
+ "test-case",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+ "watchman_client",
 ]
 
 [[package]]

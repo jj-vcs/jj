@@ -20,13 +20,11 @@ use itertools::Itertools as _;
 /// Crates (as directories relative to the workspace root) with `.proto` files
 /// in their `src/protos/` directory.
 const CRATES: &[(&str, &[&str])] = &[
-    (
-        "lib",
-        &["local_working_copy.proto", "simple_workspace_store.proto"],
-    ),
+    ("lib", &["simple_workspace_store.proto"]),
     ("config", &["secure_config.proto"]),
     ("default-index", &["default_index.proto"]),
     ("git-backend", &["git_store.proto"]),
+    ("local-working-copy", &["local_working_copy.proto"]),
     (
         "simple-stores",
         &["simple_op_store.proto", "simple_store.proto"],

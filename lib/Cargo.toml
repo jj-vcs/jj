@@ -43,6 +43,7 @@ jj-default-index = { workspace = true }
 jj-dsl = { workspace = true }
 jj-git-backend = { workspace = true, optional = true }
 jj-local-util = { workspace = true }
+jj-local-working-copy = { workspace = true }
 jj-simple-stores = { workspace = true }
 jj-working-copy = { workspace = true }
 maplit = { workspace = true }
@@ -58,9 +59,7 @@ serde = { workspace = true }
 smallvec = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true, optional = true }
 tracing = { workspace = true }
-watchman_client = { workspace = true, optional = true }
 
 [dev-dependencies]
 dunce = { workspace = true }
@@ -81,7 +80,7 @@ nix = { workspace = true, features = [ "fs" ] }
 [features]
 default = ["git"]
 git = ["dep:gix", "jj-simple-stores/git", "dep:jj-git-backend"]
-watchman = ["dep:watchman_client", "dep:tokio"]
+watchman = ["jj-local-working-copy/watchman"]
 testing = ["git", "jj-default-index/testing", "jj-git-backend/testing"]
 
 [lints]

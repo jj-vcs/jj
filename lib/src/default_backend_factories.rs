@@ -18,14 +18,14 @@
 use jj_default_index::DefaultIndexStore;
 #[cfg(feature = "testing")]
 use jj_git_backend::secret_backend::SecretBackend;
+use jj_local_working_copy::local_working_copy::LocalWorkingCopy;
+use jj_local_working_copy::local_working_copy::LocalWorkingCopyFactory;
 use jj_simple_stores::simple_backend::SimpleBackend;
 use jj_simple_stores::simple_op_heads_store::SimpleOpHeadsStore;
 use jj_simple_stores::simple_op_store::SimpleOpStore;
 use jj_working_copy::working_copy::WorkingCopyFactory;
 
 use crate::default_submodule_store::DefaultSubmoduleStore;
-use crate::local_working_copy::LocalWorkingCopy;
-use crate::local_working_copy::LocalWorkingCopyFactory;
 use crate::simple_workspace_store::SimpleWorkspaceStore;
 use crate::store_factories::BackendInitializer;
 use crate::store_factories::IndexStoreInitializer;
