@@ -2755,15 +2755,12 @@ dependencies = [
  "pollster",
  "ref-cast",
  "regex",
- "same-file",
  "sapling-renderdag",
  "serde",
  "smallvec",
- "tempfile",
  "test-case",
  "thiserror 2.0.21",
  "tracing",
- "winreg",
 ]
 
 [[package]]
@@ -2821,6 +2818,7 @@ dependencies = [
  "jiff",
  "jj-core",
  "jj-dsl",
+ "jj-local-util",
  "maplit",
  "memchr",
  "nix 0.31.3",
@@ -2835,7 +2833,6 @@ dependencies = [
  "rayon",
  "ref-cast",
  "regex",
- "rustix",
  "rustversion",
  "serde",
  "smallvec",
@@ -2847,7 +2844,28 @@ dependencies = [
  "toml_edit",
  "tracing",
  "watchman_client",
+]
+
+[[package]]
+name = "jj-local-util"
+version = "0.46.0"
+dependencies = [
+ "blake2",
+ "eyre",
+ "futures 0.3.34",
+ "itertools 0.15.0",
+ "jj-core",
+ "num_cpus",
+ "pollster",
+ "rand 0.10.3",
+ "rustix",
+ "same-file",
+ "tempfile",
+ "test-case",
+ "thiserror 2.0.21",
+ "tracing",
  "windows-sys",
+ "winreg",
 ]
 
 [[package]]
