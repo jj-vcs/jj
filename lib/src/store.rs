@@ -20,7 +20,6 @@ use std::num::NonZeroUsize;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::time::SystemTime;
 
 use clru::CLruCache;
 use futures::AsyncRead;
@@ -38,7 +37,6 @@ use crate::backend::SigningFn;
 use crate::backend::SymlinkId;
 use crate::backend::TreeId;
 use crate::commit::Commit;
-use crate::index::Index;
 use crate::merge::Merge;
 use crate::merged_tree::MergedTree;
 use crate::repo_path::RepoPath;
@@ -250,10 +248,6 @@ impl Store {
 
     pub async fn write_symlink(&self, path: &RepoPath, contents: &str) -> BackendResult<SymlinkId> {
         self.backend.write_symlink(path, contents).await
-    }
-
-    pub fn gc(&self, index: &dyn Index, keep_newer: SystemTime) -> BackendResult<()> {
-        self.backend.gc(index, keep_newer)
     }
 
     /// Clear cached objects. Mainly intended for testing.

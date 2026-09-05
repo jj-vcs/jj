@@ -22,7 +22,6 @@ use std::io::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
 use std::pin::Pin;
-use std::time::SystemTime;
 
 use async_trait::async_trait;
 use blake2::Blake2b512;
@@ -61,7 +60,6 @@ use crate::backend::make_root_commit;
 use crate::conflict_labels::ConflictLabels;
 use crate::content_hash::blake2b_hash;
 use crate::file_util::persist_content_addressed_temp_file;
-use crate::index::Index;
 use crate::merge::MergeBuilder;
 use crate::object_id::ObjectId;
 use crate::repo_path::RepoPath;
@@ -345,10 +343,6 @@ impl Backend for SimpleBackend {
         _head: &CommitId,
     ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
         Ok(stream::empty().boxed())
-    }
-
-    fn gc(&self, _index: &dyn Index, _keep_newer: SystemTime) -> BackendResult<()> {
-        Ok(())
     }
 }
 

@@ -22,7 +22,6 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
-use std::time::SystemTime;
 
 use async_trait::async_trait;
 use futures::AsyncRead;
@@ -50,7 +49,6 @@ use jj_lib::backend::Tree;
 use jj_lib::backend::TreeId;
 use jj_lib::backend::make_root_commit;
 use jj_lib::dag_walk::topo_order_reverse;
-use jj_lib::index::Index;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
@@ -426,10 +424,6 @@ impl Backend for TestBackend {
         _head: &CommitId,
     ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
         Ok(stream::empty().boxed())
-    }
-
-    fn gc(&self, _index: &dyn Index, _keep_newer: SystemTime) -> BackendResult<()> {
-        Ok(())
     }
 }
 
