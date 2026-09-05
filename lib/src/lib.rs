@@ -96,9 +96,9 @@ pub use jj_core::tree_merge;
 // TODO: This file is mostly used for testing, whenever we no longer require it
 // in the lib it should be moved to the examples (e.g
 // "examples/simple-backend/").
-pub mod simple_backend;
-pub mod simple_op_heads_store;
-pub mod simple_op_store;
+pub use jj_simple_stores::simple_backend;
+pub use jj_simple_stores::simple_op_heads_store;
+pub use jj_simple_stores::simple_op_store;
 pub mod simple_workspace_store;
 pub mod ssh_signing;
 pub use jj_core::store;

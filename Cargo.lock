@@ -2872,6 +2872,7 @@ dependencies = [
  "jj-dsl",
  "jj-git-backend",
  "jj-local-util",
+ "jj-simple-stores",
  "maplit",
  "memchr",
  "nix 0.31.3",
@@ -2920,6 +2921,27 @@ dependencies = [
  "tracing",
  "windows-sys",
  "winreg",
+]
+
+[[package]]
+name = "jj-simple-stores"
+version = "0.47.1"
+dependencies = [
+ "async-trait",
+ "blake2",
+ "eyre",
+ "futures 0.3.34",
+ "insta",
+ "itertools 0.15.0",
+ "jj-core",
+ "jj-local-util",
+ "maplit",
+ "pollster",
+ "prost",
+ "smallvec",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tracing",
 ]
 
 [[package]]
@@ -4824,6 +4846,7 @@ dependencies = [
  "jj-core",
  "jj-git-backend",
  "jj-lib",
+ "jj-simple-stores",
  "pollster",
  "proptest",
  "proptest-derive",
