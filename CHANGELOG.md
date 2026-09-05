@@ -19,6 +19,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Deprecations
 
 ### New features
+* Git-format diff hunk headers now include nearby source symbols for many common
+  programming and markup languages.
+
 
 * `jj workspace add` supports `--colocate`/`--no-colocate` flags to control
   whether a Git worktree is created alongside the workspace. The default
