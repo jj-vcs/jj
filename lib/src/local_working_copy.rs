@@ -51,6 +51,8 @@ use futures::TryStreamExt as _;
 use futures::io::AllowStdIo;
 use itertools::EitherOrBoth;
 use itertools::Itertools as _;
+use jj_config::config::ConfigGetError;
+use jj_config::settings::UserSettings;
 use jj_core::backend::BackendError;
 use jj_core::backend::CopyId;
 use jj_core::backend::FileId;
@@ -108,7 +110,6 @@ use thiserror::Error;
 use tracing::instrument;
 use tracing::trace_span;
 
-use crate::config::ConfigGetError;
 pub use crate::eol::EolConversionMode;
 use crate::eol::TargetEolStrategy;
 use crate::fsmonitor::FsmonitorSettings;
@@ -117,7 +118,6 @@ use crate::fsmonitor::WatchmanConfig;
 #[cfg(feature = "watchman")]
 use crate::fsmonitor::watchman;
 use crate::gitignore::GitIgnoreFile;
-use crate::settings::UserSettings;
 use crate::working_copy::CheckoutError;
 use crate::working_copy::CheckoutStats;
 use crate::working_copy::LockedWorkingCopy;

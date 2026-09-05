@@ -13,6 +13,9 @@
 // limitations under the License.
 
 use itertools::Itertools as _;
+use jj_config::config::ConfigLayer;
+use jj_config::config::ConfigSource;
+use jj_config::settings::UserSettings;
 use jj_core::backend::ChangeId;
 use jj_core::backend::CommitId;
 use jj_core::backend::MillisSinceEpoch;
@@ -25,14 +28,11 @@ use jj_core::object_id::PrefixResolution::AmbiguousMatch;
 use jj_core::object_id::PrefixResolution::NoMatch;
 use jj_core::object_id::PrefixResolution::SingleMatch;
 use jj_core::op_store::RefTarget;
-use jj_lib::config::ConfigLayer;
-use jj_lib::config::ConfigSource;
 use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::id_prefix::IdPrefixIndex;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
-use jj_lib::settings::UserSettings;
 use pollster::FutureExt as _;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;

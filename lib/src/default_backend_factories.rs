@@ -178,14 +178,13 @@ pub fn default_workspace_loader_factory() -> Box<dyn WorkspaceLoaderFactory> {
 mod git {
     use std::path::Path;
 
+    use jj_config::config::ConfigGetError;
+    use jj_config::settings::UserSettings;
     use jj_core::backend::Backend;
     use jj_core::backend::BackendInitError;
     use jj_git_backend::git_backend::GitBackend;
     use jj_git_backend::git_backend::GitBackendInitError;
     use jj_git_backend::git_backend::GitBackendSettings;
-
-    use crate::config::ConfigGetError;
-    use crate::settings::UserSettings;
 
     /// Loads the settings needed by the Git backend from the user settings.
     pub fn git_backend_settings(

@@ -4,6 +4,7 @@ cargo-features = []
 resolver = "3"
 members = [
     "cli",
+    "config",
     "core",
     "core/proc-macros",
     "default-index",
@@ -151,6 +152,7 @@ winreg = "0.56"
 
 # put all inter-workspace libraries, i.e. those that use 'path = ...' here in
 # their own (alphabetically sorted) block
+jj-config = { path = "config", version = "0.47.1" }
 jj-core = { path = "core", version = "0.47.1" }
 jj-core-proc-macros = { path = "core/proc-macros", version = "0.47.1" }
 jj-default-index = { path = "default-index", version = "0.47.1" }

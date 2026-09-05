@@ -44,6 +44,8 @@ use futures::TryStreamExt as _;
 use futures::stream;
 use gix::refspec::Instruction;
 use itertools::Itertools as _;
+use jj_config::config::ConfigGetError;
+use jj_config::settings::UserSettings;
 use jj_core::backend::BackendError;
 use jj_core::backend::ChangeId;
 use jj_core::backend::CommitId;
@@ -87,7 +89,6 @@ use jj_local_util::file_util::is_empty_dir;
 use tempfile::TempDir;
 use thiserror::Error;
 
-use crate::config::ConfigGetError;
 use crate::git_subprocess::GitFetchStatus;
 pub use crate::git_subprocess::GitProgress;
 pub use crate::git_subprocess::GitSidebandLineTerminator;
@@ -98,7 +99,6 @@ use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::revset::ResolvedRevsetExpression;
 use crate::revset::RevsetExpression;
-use crate::settings::UserSettings;
 
 /// Git ref prefix that would conflict with the reserved "git" remote.
 pub const RESERVED_REMOTE_REF_NAMESPACE: &str = "refs/remotes/git/";

@@ -2751,6 +2751,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "jj-config"
+version = "0.47.1"
+dependencies = [
+ "eyre",
+ "indoc",
+ "insta",
+ "itertools 0.15.0",
+ "jj-core",
+ "jj-local-util",
+ "pretty_assertions",
+ "prost",
+ "rand 0.10.4",
+ "rand_chacha",
+ "serde",
+ "tempfile",
+ "test-case",
+ "thiserror 2.0.21",
+ "toml_edit",
+]
+
+[[package]]
 name = "jj-core"
 version = "0.47.1"
 dependencies = [
@@ -2891,6 +2912,7 @@ dependencies = [
  "insta",
  "itertools 0.15.0",
  "jiff",
+ "jj-config",
  "jj-core",
  "jj-default-index",
  "jj-dsl",
@@ -2906,7 +2928,6 @@ dependencies = [
  "pretty_assertions",
  "prost",
  "rand 0.10.4",
- "rand_chacha",
  "rayon",
  "ref-cast",
  "regex",
@@ -2918,7 +2939,6 @@ dependencies = [
  "testutils",
  "thiserror 2.0.21",
  "tokio",
- "toml_edit",
  "tracing",
  "watchman_client",
 ]
@@ -4831,6 +4851,7 @@ dependencies = [
  "gix",
  "hegeltest",
  "itertools 0.15.0",
+ "jj-config",
  "jj-core",
  "jj-git-backend",
  "jj-lib",

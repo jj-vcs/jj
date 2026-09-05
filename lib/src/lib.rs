@@ -24,8 +24,7 @@ pub use jj_core::backend;
 pub mod bisect;
 pub use jj_core::commit;
 pub mod commit_builder;
-pub mod config;
-mod config_resolver;
+pub use jj_config::config;
 pub use jj_core::conflict_labels;
 pub use jj_core::conflicts;
 pub use jj_core::content_hash;
@@ -49,7 +48,7 @@ pub mod fileset;
 pub use jj_core::filtered_tree_writer;
 use jj_dsl::fileset_parser;
 pub mod fix;
-pub mod fmt_util;
+pub use jj_config::fmt_util;
 pub mod fsmonitor;
 #[cfg(feature = "git")]
 pub mod git;
@@ -85,13 +84,13 @@ pub mod repo;
 pub use jj_core::repo_path;
 pub mod revset;
 pub mod rewrite;
+pub use jj_config::secure_config;
+pub use jj_config::settings;
+pub use jj_core::signing;
 #[cfg(feature = "testing")]
 pub use jj_git_backend::secret_backend;
-pub mod secure_config;
-pub mod settings;
-pub mod store_factories;
-pub use jj_core::signing;
 pub mod signing_factory;
+pub mod store_factories;
 pub use jj_core::tree_merge;
 // TODO: This file is mostly used for testing, whenever we no longer require it
 // in the lib it should be moved to the examples (e.g

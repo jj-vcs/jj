@@ -1,14 +1,14 @@
+use jj_config::config::ConfigLayer;
+use jj_config::config::ConfigSource;
+use jj_config::settings::SignBehavior;
+use jj_config::settings::UserSettings;
 use jj_core::backend::MillisSinceEpoch;
 use jj_core::backend::Signature;
 use jj_core::backend::Timestamp;
 use jj_core::signing::SigStatus;
 use jj_core::signing::Signer;
 use jj_core::signing::Verification;
-use jj_lib::config::ConfigLayer;
-use jj_lib::config::ConfigSource;
 use jj_lib::repo::Repo as _;
-use jj_lib::settings::SignBehavior;
-use jj_lib::settings::UserSettings;
 use jj_lib::test_signing_backend::TestSigningBackend;
 use pollster::FutureExt as _;
 use test_case::test_case;

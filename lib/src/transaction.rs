@@ -16,6 +16,7 @@
 
 use std::sync::Arc;
 
+use jj_config::settings::UserSettings;
 use jj_core::backend::Timestamp;
 use jj_core::index::IndexError;
 use jj_core::index::ReadonlyIndex;
@@ -36,7 +37,6 @@ use crate::repo::ReadonlyRepo;
 use crate::repo::Repo as _;
 use crate::repo::RepoLoader;
 use crate::repo::RepoLoaderError;
-use crate::settings::UserSettings;
 
 /// Error from attempts to write and publish transaction.
 #[derive(Debug, Error)]

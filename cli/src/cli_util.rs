@@ -294,6 +294,7 @@ impl TracingSubscription {
                     .with_env_var(Self::ENV_VAR_NAME)
                     .from_env_lossy()
                     .add_directive("jj_cli=debug".parse().unwrap())
+                    .add_directive("jj_config=debug".parse().unwrap())
                     .add_directive("jj_core=debug".parse().unwrap())
                     .add_directive("jj_default_index=debug".parse().unwrap())
                     .add_directive("jj_dsl=debug".parse().unwrap())

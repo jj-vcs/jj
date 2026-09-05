@@ -2,9 +2,6 @@
 pub mod local_working_copy {
     include!("local_working_copy.rs");
 }
-pub mod secure_config {
-    include!("secure_config.rs");
-}
 pub mod simple_workspace_store {
     include!("simple_workspace_store.rs");
 }

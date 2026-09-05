@@ -21,6 +21,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use jj_config::settings::UserSettings;
 use jj_core::backend::BackendInitError;
 use jj_core::commit::Commit;
 use jj_core::merged_tree::MergedTree;
@@ -51,7 +52,6 @@ use crate::repo::ReadonlyRepo;
 use crate::repo::Repo as _;
 use crate::repo::RepoLoader;
 use crate::repo::RepoLoaderError;
-use crate::settings::UserSettings;
 use crate::signing_factory::SignInitError;
 use crate::signing_factory::signer_from_settings;
 use crate::store_factories::BackendInitializer;

@@ -23,6 +23,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use jj_config::settings::UserSettings;
 use jj_core::backend::BackendError;
 use jj_core::commit::Commit;
 use jj_core::matchers::Matcher;
@@ -45,7 +46,6 @@ use crate::gitignore::GitIgnoreFile;
 use crate::repo::ReadonlyRepo;
 use crate::repo::Repo as _;
 use crate::repo::RewriteRootCommit;
-use crate::settings::UserSettings;
 use crate::transaction::TransactionCommitError;
 
 /// The trait all working-copy implementations must implement.

@@ -14,14 +14,14 @@
 
 //! Contains helpers to create a [`Signer`] from the given [`UserSettings`].
 
+use jj_config::config::ConfigGetError;
+use jj_config::settings::UserSettings;
 use jj_core::signing::Signer;
 use jj_core::signing::SigningBackend;
 use thiserror::Error;
 
-use crate::config::ConfigGetError;
 use crate::gpg_signing::GpgBackend;
 use crate::gpg_signing::GpgsmBackend;
-use crate::settings::UserSettings;
 use crate::ssh_signing::SshBackend;
 #[cfg(feature = "testing")]
 use crate::test_signing_backend::TestSigningBackend;

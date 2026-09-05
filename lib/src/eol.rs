@@ -16,9 +16,8 @@ use bstr::ByteSlice as _;
 use futures::AsyncRead;
 use futures::AsyncReadExt as _;
 use futures::io::Cursor;
-
-use crate::config::ConfigGetError;
-use crate::settings::UserSettings;
+use jj_config::config::ConfigGetError;
+use jj_config::settings::UserSettings;
 
 fn is_binary(bytes: &[u8]) -> bool {
     // TODO(06393993): align the algorithm with git so that the git config autocrlf

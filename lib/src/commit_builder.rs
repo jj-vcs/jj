@@ -16,6 +16,10 @@
 
 use std::sync::Arc;
 
+use jj_config::settings::JJRng;
+use jj_config::settings::SignBehavior;
+use jj_config::settings::SignSettings;
+use jj_config::settings::UserSettings;
 use jj_core::backend;
 use jj_core::backend::BackendError;
 use jj_core::backend::BackendResult;
@@ -33,10 +37,6 @@ use pollster::FutureExt as _;
 
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
-use crate::settings::JJRng;
-use crate::settings::SignBehavior;
-use crate::settings::SignSettings;
-use crate::settings::UserSettings;
 
 /// Builder for a new or rewritten commit in a [`MutableRepo`].
 ///

@@ -22,12 +22,9 @@ use itertools::Itertools as _;
 const CRATES: &[(&str, &[&str])] = &[
     (
         "lib",
-        &[
-            "local_working_copy.proto",
-            "secure_config.proto",
-            "simple_workspace_store.proto",
-        ],
+        &["local_working_copy.proto", "simple_workspace_store.proto"],
     ),
+    ("config", &["secure_config.proto"]),
     ("default-index", &["default_index.proto"]),
     ("git-backend", &["git_store.proto"]),
     (
