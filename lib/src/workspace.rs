@@ -43,6 +43,13 @@ use jj_local_util::file_util;
 use jj_local_util::file_util::BadPathEncoding;
 use jj_local_util::file_util::IoResultExt as _;
 use jj_local_util::file_util::PathError;
+use jj_working_copy::working_copy::CheckoutError;
+use jj_working_copy::working_copy::CheckoutStats;
+use jj_working_copy::working_copy::LockedWorkingCopy;
+use jj_working_copy::working_copy::ResetError;
+use jj_working_copy::working_copy::WorkingCopy;
+use jj_working_copy::working_copy::WorkingCopyFactory;
+use jj_working_copy::working_copy::WorkingCopyStateError;
 use thiserror::Error;
 use tracing::instrument;
 
@@ -66,13 +73,6 @@ use crate::store_factories::StoreInitializers;
 use crate::store_factories::StoreLoadError;
 use crate::store_factories::read_store_type;
 use crate::transaction::TransactionCommitError;
-use crate::working_copy::CheckoutError;
-use crate::working_copy::CheckoutStats;
-use crate::working_copy::LockedWorkingCopy;
-use crate::working_copy::ResetError;
-use crate::working_copy::WorkingCopy;
-use crate::working_copy::WorkingCopyFactory;
-use crate::working_copy::WorkingCopyStateError;
 
 /// Error from initializing a workspace.
 #[derive(Error, Debug)]

@@ -24,6 +24,7 @@ jj-core = { workspace = true }
 jj-git-backend = { workspace = true, features = ["testing"] }
 jj-lib = { workspace = true, features = ["testing"] }
 jj-simple-stores = { workspace = true }
+jj-working-copy = { workspace = true }
 pollster = { workspace = true }
 rand = { workspace = true }
 tempfile = { workspace = true }

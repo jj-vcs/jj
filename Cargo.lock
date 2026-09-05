@@ -2904,7 +2904,6 @@ dependencies = [
  "eyre",
  "futures 0.3.34",
  "gix",
- "gix-ignore",
  "globset",
  "hegeltest",
  "indexmap",
@@ -2919,6 +2918,7 @@ dependencies = [
  "jj-git-backend",
  "jj-local-util",
  "jj-simple-stores",
+ "jj-working-copy",
  "maplit",
  "memchr",
  "nix 0.32.0",
@@ -2985,6 +2985,17 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.21",
  "tracing",
+]
+
+[[package]]
+name = "jj-working-copy"
+version = "0.47.1"
+dependencies = [
+ "async-trait",
+ "gix-ignore",
+ "jj-config",
+ "jj-core",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -4856,6 +4867,7 @@ dependencies = [
  "jj-git-backend",
  "jj-lib",
  "jj-simple-stores",
+ "jj-working-copy",
  "pollster",
  "rand 0.10.4",
  "tempfile",

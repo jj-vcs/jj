@@ -33,7 +33,6 @@ digest = { workspace = true }
 either = { workspace = true }
 futures = { workspace = true }
 gix = { workspace = true, optional = true }
-gix-ignore = { workspace = true }
 globset = { workspace = true }
 indexmap = { workspace = true }
 itertools = { workspace = true }
@@ -45,6 +44,7 @@ jj-dsl = { workspace = true }
 jj-git-backend = { workspace = true, optional = true }
 jj-local-util = { workspace = true }
 jj-simple-stores = { workspace = true }
+jj-working-copy = { workspace = true }
 maplit = { workspace = true }
 memchr = { workspace = true }
 once_cell = { workspace = true }
