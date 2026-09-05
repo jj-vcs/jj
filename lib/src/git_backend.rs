@@ -74,12 +74,10 @@ use crate::backend::Tree;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::backend::make_root_commit;
-use crate::config::ConfigGetError;
 use crate::file_util;
 use crate::file_util::BadPathEncoding;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
-use crate::git::GitSettings;
 use crate::lock::FileLock;
 use crate::merge::Merge;
 use crate::merge::MergeBuilder;
@@ -87,7 +85,6 @@ use crate::object_id::ObjectId;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponentBuf;
-use crate::settings::UserSettings;
 use crate::stacked_table::MutableTable;
 use crate::stacked_table::ReadonlyTable;
 use crate::stacked_table::TableSegment as _;
@@ -104,6 +101,20 @@ pub const JJ_TREES_COMMIT_HEADER: &str = "jj:trees";
 pub const JJ_CONFLICT_LABELS_COMMIT_HEADER: &str = "jj:conflict-labels";
 pub const CHANGE_ID_COMMIT_HEADER: &str = "change-id";
 
+/// Settings needed by the Git backend.
+#[derive(Clone, Debug)]
+pub struct GitBackendSettings {
+    /// Path to the `git` executable, used for operations that aren't
+    /// implemented with `gix`.
+    pub git_executable: PathBuf,
+    /// Whether to record the change ID in a `change-id` commit header.
+    pub write_change_id_header: bool,
+    /// Name to use as author/committer when writing Git reflogs.
+    pub user_name: String,
+    /// Email to use as author/committer when writing Git reflogs.
+    pub user_email: String,
+}
+
 #[derive(Debug, Error)]
 pub enum GitBackendInitError {
     #[error("Failed to initialize git repository")]
@@ -112,8 +123,6 @@ pub enum GitBackendInitError {
     OpenRepository(#[source] gix::Error),
     #[error("Failed to encode git repository path")]
     EncodeRepositoryPath(#[source] BadPathEncoding),
-    #[error(transparent)]
-    Config(ConfigGetError),
     #[error(transparent)]
     Path(PathError),
 }
@@ -130,8 +139,6 @@ pub enum GitBackendLoadError {
     OpenRepository(#[source] gix::Error),
     #[error("Failed to decode git repository path")]
     DecodeRepositoryPath(#[source] BadPathEncoding),
-    #[error(transparent)]
-    Config(ConfigGetError),
     #[error(transparent)]
     Path(PathError),
 }
@@ -198,7 +205,7 @@ impl GitBackend {
     fn new(
         base_repo: gix::ThreadSafeRepository,
         extra_metadata_store: TableStore,
-        git_settings: GitSettings,
+        settings: &GitBackendSettings,
     ) -> Self {
         let repo = base_repo.to_thread_local();
         let root_commit_id = CommitId::from_bytes(repo.object_hash().null_ref().as_bytes());
@@ -214,13 +221,13 @@ impl GitBackend {
             shallow_root_ids: OnceLock::new(),
             extra_metadata_store,
             cached_extra_metadata: Mutex::new(None),
-            git_executable: git_settings.executable_path,
-            write_change_id_header: git_settings.write_change_id_header,
+            git_executable: settings.git_executable.clone(),
+            write_change_id_header: settings.write_change_id_header,
         }
     }
 
     pub fn init_internal(
-        settings: &UserSettings,
+        settings: &GitBackendSettings,
         store_path: &Path,
         object_hash: gix::hash::Kind,
     ) -> Result<Self, Box<GitBackendInitError>> {
@@ -235,15 +242,13 @@ impl GitBackend {
             gix_open_opts_from_settings(settings),
         )
         .map_err(GitBackendInitError::InitRepository)?;
-        let git_settings =
-            GitSettings::from_settings(settings).map_err(GitBackendInitError::Config)?;
-        Self::init_with_repo(store_path, git_repo_path, git_repo, git_settings)
+        Self::init_with_repo(store_path, git_repo_path, git_repo, settings)
     }
 
     /// Initializes backend by creating a new Git repo at the specified
     /// workspace path. The workspace directory must exist.
     pub fn init_colocated(
-        settings: &UserSettings,
+        settings: &GitBackendSettings,
         store_path: &Path,
         workspace_root: &Path,
         object_hash: gix::hash::Kind,
@@ -265,14 +270,12 @@ impl GitBackend {
         )
         .map_err(GitBackendInitError::InitRepository)?;
         let git_repo_path = workspace_root.join(".git");
-        let git_settings =
-            GitSettings::from_settings(settings).map_err(GitBackendInitError::Config)?;
-        Self::init_with_repo(store_path, &git_repo_path, git_repo, git_settings)
+        Self::init_with_repo(store_path, &git_repo_path, git_repo, settings)
     }
 
     /// Initializes backend with an existing Git repo at the specified path.
     pub fn init_external(
-        settings: &UserSettings,
+        settings: &GitBackendSettings,
         store_path: &Path,
         git_repo_path: &Path,
     ) -> Result<Self, Box<GitBackendInitError>> {
@@ -287,16 +290,14 @@ impl GitBackend {
             gix_open_opts_from_settings(settings),
         )
         .map_err(GitBackendInitError::OpenRepository)?;
-        let git_settings =
-            GitSettings::from_settings(settings).map_err(GitBackendInitError::Config)?;
-        Self::init_with_repo(store_path, git_repo_path, git_repo, git_settings)
+        Self::init_with_repo(store_path, git_repo_path, git_repo, settings)
     }
 
     fn init_with_repo(
         store_path: &Path,
         git_repo_path: &Path,
         repo: gix::ThreadSafeRepository,
-        git_settings: GitSettings,
+        settings: &GitBackendSettings,
     ) -> Result<Self, Box<GitBackendInitError>> {
         let extra_path = store_path.join("extra");
         fs::create_dir(&extra_path)
@@ -323,11 +324,11 @@ impl GitBackend {
             extra_path,
             repo.to_thread_local().object_hash().len_in_bytes(),
         );
-        Ok(Self::new(repo, extra_metadata_store, git_settings))
+        Ok(Self::new(repo, extra_metadata_store, settings))
     }
 
     pub fn load(
-        settings: &UserSettings,
+        settings: &GitBackendSettings,
         store_path: &Path,
     ) -> Result<Self, Box<GitBackendLoadError>> {
         let git_repo_path = {
@@ -351,9 +352,7 @@ impl GitBackend {
             store_path.join("extra"),
             repo.to_thread_local().object_hash().len_in_bytes(),
         );
-        let git_settings =
-            GitSettings::from_settings(settings).map_err(GitBackendLoadError::Config)?;
-        Ok(Self::new(repo, extra_metadata_store, git_settings))
+        Ok(Self::new(repo, extra_metadata_store, settings))
     }
 
     fn lock_git_repo(&self) -> MutexGuard<'_, gix::Repository> {
@@ -616,9 +615,9 @@ pub fn canonicalize_git_repo_path(path: &Path) -> io::Result<PathBuf> {
     }
 }
 
-fn gix_open_opts_from_settings(settings: &UserSettings) -> gix::open::Options {
-    let user_name = settings.user_name();
-    let user_email = settings.user_email();
+fn gix_open_opts_from_settings(settings: &GitBackendSettings) -> gix::open::Options {
+    let user_name = &settings.user_name;
+    let user_email = &settings.user_email;
     gix::open::Options::default()
         .config_overrides([
             // Committer has to be configured to record reflog. Author isn't
@@ -1673,7 +1672,6 @@ mod tests {
     use test_case::test_case;
 
     use super::*;
-    use crate::config::StackedConfig;
     use crate::content_hash::blake2b_hash;
     use crate::hex_util;
     use crate::tests::TestResult;
@@ -1712,7 +1710,7 @@ mod tests {
 
     #[test]
     fn open_git_repo_at_workdir() -> TestResult {
-        let settings = user_settings();
+        let settings = backend_settings();
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path().join("store");
         fs::create_dir(&store_path)?;
@@ -1755,7 +1753,7 @@ mod tests {
     #[test_case(gix::hash::Kind::Sha1 ; "sha1")]
     #[test_case(gix::hash::Kind::Sha256; "sha256")]
     fn read_plain_git_commit(object_hash: gix::hash::Kind) -> TestResult {
-        let settings = user_settings();
+        let settings = backend_settings();
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
         let git_repo_path = temp_dir.path().join("git");
@@ -1920,7 +1918,7 @@ mod tests {
     #[test_case(gix::hash::Kind::Sha1 ; "sha1")]
     #[test_case(gix::hash::Kind::Sha256; "sha256")]
     fn read_git_commit_without_importing(object_hash: gix::hash::Kind) -> TestResult {
-        let settings = user_settings();
+        let settings = backend_settings();
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
         let git_repo_path = temp_dir.path().join("git");
@@ -1964,7 +1962,7 @@ mod tests {
     #[test_case(gix::hash::Kind::Sha1 ; "sha1")]
     #[test_case(gix::hash::Kind::Sha256; "sha256")]
     fn read_signed_git_commit(object_hash: gix::hash::Kind) -> TestResult {
-        let settings = user_settings();
+        let settings = backend_settings();
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
         let git_repo_path = temp_dir.path().join("git");
@@ -2088,7 +2086,7 @@ mod tests {
     #[test_case(gix::hash::Kind::Sha1 ; "sha1")]
     #[test_case(gix::hash::Kind::Sha256; "sha256")]
     fn round_trip_change_id_via_git_header(object_hash: gix::hash::Kind) -> TestResult {
-        let settings = user_settings();
+        let settings = backend_settings();
         let temp_dir = new_temp_dir();
 
         let store_path = temp_dir.path().join("store");
@@ -2137,7 +2135,7 @@ mod tests {
 
     #[test]
     fn read_tree_with_invalid_entry_name() -> TestResult {
-        let settings = user_settings();
+        let settings = backend_settings();
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
         let git_repo_path = temp_dir.path().join("git");
@@ -2164,7 +2162,7 @@ mod tests {
 
     #[test]
     fn copy_records_with_invalid_path() -> TestResult {
-        let settings = user_settings();
+        let settings = backend_settings();
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
         let git_repo_path = temp_dir.path().join("git");
@@ -2277,7 +2275,7 @@ mod tests {
     #[test_case(gix::hash::Kind::Sha1 ; "sha1")]
     #[test_case(gix::hash::Kind::Sha256; "sha256")]
     fn git_commit_parents(object_hash: gix::hash::Kind) -> TestResult {
-        let settings = user_settings();
+        let settings = backend_settings();
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
         let git_repo_path = temp_dir.path().join("git");
@@ -2373,7 +2371,7 @@ mod tests {
     #[test_case(gix::hash::Kind::Sha1 ; "sha1")]
     #[test_case(gix::hash::Kind::Sha256; "sha256")]
     fn write_tree_conflicts(object_hash: gix::hash::Kind) -> TestResult {
-        let settings = user_settings();
+        let settings = backend_settings();
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
         let git_repo_path = temp_dir.path().join("git");
@@ -2491,7 +2489,7 @@ mod tests {
     #[test_case(gix::hash::Kind::Sha1 ; "sha1")]
     #[test_case(gix::hash::Kind::Sha256; "sha256")]
     fn commit_has_ref(object_hash: gix::hash::Kind) -> TestResult {
-        let settings = user_settings();
+        let settings = backend_settings();
         let temp_dir = new_temp_dir();
         let backend = GitBackend::init_internal(&settings, temp_dir.path(), object_hash)?;
         let git_repo = backend.git_repo();
@@ -2540,7 +2538,7 @@ mod tests {
     #[test_case(gix::hash::Kind::Sha1 ; "sha1")]
     #[test_case(gix::hash::Kind::Sha256; "sha256")]
     fn import_head_commits_duplicates(object_hash: gix::hash::Kind) -> TestResult {
-        let settings = user_settings();
+        let settings = backend_settings();
         let temp_dir = new_temp_dir();
         let backend = GitBackend::init_internal(&settings, temp_dir.path(), object_hash)?;
         let git_repo = backend.git_repo();
@@ -2577,7 +2575,7 @@ mod tests {
     #[test_case(gix::hash::Kind::Sha1 ; "sha1")]
     #[test_case(gix::hash::Kind::Sha256; "sha256")]
     fn overlapping_git_commit_id(object_hash: gix::hash::Kind) -> TestResult {
-        let settings = user_settings();
+        let settings = backend_settings();
         let temp_dir = new_temp_dir();
         let backend = GitBackend::init_internal(&settings, temp_dir.path(), object_hash)?;
         let commit1 = Commit {
@@ -2672,7 +2670,7 @@ mod tests {
     }
 
     fn write_signed_commit(object_hash: gix::hash::Kind) -> TestResult<(String, SecureSig)> {
-        let settings = user_settings();
+        let settings = backend_settings();
         let temp_dir = new_temp_dir();
         let backend = GitBackend::init_internal(&settings, temp_dir.path(), object_hash)?;
 
@@ -2722,12 +2720,12 @@ mod tests {
         }
     }
 
-    // Not using testutils::user_settings() because there is a dependency cycle
-    // 'jj_lib (1) -> testutils -> jj_lib (2)' which creates another distinct
-    // UserSettings type. testutils returns jj_lib (2)'s UserSettings, whereas
-    // our UserSettings type comes from jj_lib (1).
-    fn user_settings() -> UserSettings {
-        let config = StackedConfig::with_defaults();
-        UserSettings::from_config_and_home_dir(config, None).unwrap()
+    fn backend_settings() -> GitBackendSettings {
+        GitBackendSettings {
+            git_executable: "git".into(),
+            write_change_id_header: true,
+            user_name: GIT_USER.to_owned(),
+            user_email: GIT_EMAIL.to_owned(),
+        }
     }
 }

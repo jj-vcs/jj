@@ -39,10 +39,10 @@ use crate::backend::SymlinkId;
 use crate::backend::Tree;
 use crate::backend::TreeId;
 use crate::git_backend::GitBackend;
+use crate::git_backend::GitBackendSettings;
 use crate::object_id::ObjectId as _;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
-use crate::settings::UserSettings;
 
 const SECRET_CONTENTS_HEX: [&str; 2] = [
     "d97c5eada5d8c52079031eef0107a4430a9617c5", // "secret\n"
@@ -62,7 +62,10 @@ impl SecretBackend {
     pub const NAME: &str = "secret";
 
     /// Loads the backend from the given path.
-    pub fn load(settings: &UserSettings, store_path: &Path) -> Result<Self, BackendLoadError> {
+    pub fn load(
+        settings: &GitBackendSettings,
+        store_path: &Path,
+    ) -> Result<Self, BackendLoadError> {
         let inner = GitBackend::load(settings, store_path)?;
         Ok(Self { inner })
     }
