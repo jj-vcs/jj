@@ -62,6 +62,9 @@ pub async fn cmd_util_gc(
     repo.op_store()
         .gc(slice::from_ref(repo.op_id()), keep_newer)
         .await?;
-    repo.store().gc(repo.index(), keep_newer)?;
+    #[cfg(feature = "git")]
+    if let Ok(git_backend) = jj_lib::git::get_git_backend(repo.store()) {
+        git_backend.gc(repo.index(), keep_newer)?;
+    }
     Ok(())
 }

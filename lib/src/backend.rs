@@ -22,7 +22,6 @@ use std::fmt::Write as _;
 use std::iter::zip;
 use std::pin::Pin;
 use std::slice;
-use std::time::SystemTime;
 
 use async_trait::async_trait;
 use chrono::TimeZone as _;
@@ -34,7 +33,6 @@ use thiserror::Error;
 use crate::conflict_labels::ConflictLabels;
 use crate::content_hash::ContentHash;
 use crate::hex_util;
-use crate::index::Index;
 use crate::merge::Merge;
 use crate::object_id::ObjectId as _;
 use crate::object_id::id_type;
@@ -873,13 +871,6 @@ pub trait Backend: Any + Send + Sync + Debug {
         root: &CommitId,
         head: &CommitId,
     ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>>;
-
-    /// Perform garbage collection.
-    ///
-    /// All commits found in the `index` won't be removed. In addition to that,
-    /// objects created after `keep_newer` will be preserved. This mitigates a
-    /// risk of deleting new commits created concurrently by another process.
-    fn gc(&self, index: &dyn Index, keep_newer: SystemTime) -> BackendResult<()>;
 }
 
 impl dyn Backend {

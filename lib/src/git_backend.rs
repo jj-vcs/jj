@@ -1553,9 +1553,16 @@ impl Backend for GitBackend {
             .map_err(|err| BackendError::Other(err.into()))?;
         Ok(futures::stream::iter(records).boxed())
     }
+}
 
+impl GitBackend {
+    /// Perform garbage collection.
+    ///
+    /// All commits found in the `index` won't be removed. In addition to that,
+    /// objects created after `keep_newer` will be preserved. This mitigates a
+    /// risk of deleting new commits created concurrently by another process.
     #[tracing::instrument(skip(self, index))]
-    fn gc(&self, index: &dyn Index, keep_newer: SystemTime) -> BackendResult<()> {
+    pub fn gc(&self, index: &dyn Index, keep_newer: SystemTime) -> BackendResult<()> {
         let git_repo = self.lock_git_repo();
         let new_heads = index
             .all_heads_for_gc()

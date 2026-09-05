@@ -16,7 +16,6 @@
 
 use std::path::Path;
 use std::pin::Pin;
-use std::time::SystemTime;
 
 use async_trait::async_trait;
 use futures::AsyncRead;
@@ -39,7 +38,6 @@ use crate::backend::SymlinkId;
 use crate::backend::Tree;
 use crate::backend::TreeId;
 use crate::git_backend::GitBackend;
-use crate::index::Index;
 use crate::object_id::ObjectId as _;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
@@ -202,9 +200,5 @@ impl Backend for SecretBackend {
         head: &CommitId,
     ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
         self.inner.get_copy_records(paths, root, head)
-    }
-
-    fn gc(&self, index: &dyn Index, keep_newer: SystemTime) -> BackendResult<()> {
-        self.inner.gc(index, keep_newer)
     }
 }
