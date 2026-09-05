@@ -40,10 +40,10 @@ use crate::ui::Ui;
 /// details).
 ///
 /// It is assumed that if a given revision is "bad", then all its descendants
-/// in the input range are also "bad".
-///
-/// The target of the bisection can be inverted to look for the first "good"
-/// revision by passing `--find-good`.
+/// in the input range are also "bad". Pass `--find-good` to invert this
+/// assumption: if a given revision is "good", all of its descendants are
+/// assumed to be "good". `jj bisect run` will then look for the first "good"
+/// revision.
 ///
 /// Hint: You can pass your shell as the command, then run manual tests in a
 /// script. When you're done, make sure to exit the shell with an appropriate
@@ -101,9 +101,12 @@ pub(crate) struct BisectRunArgs {
 
     /// Find the first good revision instead
     ///
-    /// The interpretation of exit statuses will be inverted (excluding special
-    /// exit statuses), so status 0 means bad and other non-zero statuses mean
-    /// good.
+    /// Normally, `jj bisect run` looks for a revision in the provided `REVSETS`
+    /// that's bad and whose parents are good. With `--find-good`, `jj
+    /// bisect run` instead finds a commit that's good and whose parents are bad.
+    ///
+    /// `COMMAND` is still expected to exit with code 0 if and only if the
+    /// revision is good.
     #[arg(long, value_name = "TARGET", default_value_t = false)]
     find_good: bool,
 }
