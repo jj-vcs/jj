@@ -2804,6 +2804,73 @@ fn test_fsmonitor() -> TestResult {
     Ok(())
 }
 
+/// A file state left as a placeholder by `reset()` (as importing a moved Git
+/// HEAD does, without touching the working copy) must be re-examined by the
+/// next snapshot even when the filesystem monitor reports no change for it.
+#[test]
+fn test_fsmonitor_reexamines_reset_file_states() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let workspace_root = test_repo.env.root().join("workspace");
+    let state_path = test_repo.env.root().join("state");
+    std::fs::create_dir(&workspace_root)?;
+    std::fs::create_dir(&state_path)?;
+    let tree_state_settings = TreeStateSettings::try_from_user_settings(repo.settings())?;
+    TreeState::init(
+        repo.store().clone(),
+        workspace_root.clone(),
+        state_path.clone(),
+        &tree_state_settings,
+    )?;
+
+    let file_path = repo_path("file");
+    testutils::write_working_copy_file(&workspace_root, file_path, "modified\n");
+
+    let snapshot = |paths: &[&RepoPath]| {
+        let changed_files = paths
+            .iter()
+            .map(|p| p.to_fs_path_unchecked(Path::new("")))
+            .collect();
+        let settings = TreeStateSettings {
+            fsmonitor_settings: FsmonitorSettings::Test { changed_files },
+            ..tree_state_settings.clone()
+        };
+        let mut tree_state = TreeState::load(
+            repo.store().clone(),
+            workspace_root.clone(),
+            state_path.clone(),
+            &settings,
+        )
+        .unwrap();
+        let (is_dirty, _) = tree_state
+            .snapshot(&empty_snapshot_options())
+            .block_on()
+            .unwrap();
+        (is_dirty, tree_state)
+    };
+
+    // The monitor reports the file, so the snapshot records its contents.
+    let (_, mut tree_state) = snapshot(&[file_path]);
+    let tree_with_modification = tree_state.current_tree().clone();
+    assert_tree_eq!(
+        tree_with_modification,
+        create_tree(repo, &[(file_path, "modified\n")])
+    );
+
+    // Reset to a tree with other contents for the file without touching the
+    // working copy, leaving a placeholder file state behind.
+    let committed_tree = create_tree(repo, &[(file_path, "committed\n")]);
+    tree_state.reset(&committed_tree).block_on()?;
+    tree_state.save()?;
+
+    // The monitor has seen no change since its clock, but the reset file
+    // must be stat'ed again, which finds the modification.
+    let (is_dirty, tree_state) = snapshot(&[]);
+    assert!(is_dirty);
+    assert_tree_eq!(*tree_state.current_tree(), tree_with_modification);
+    Ok(())
+}
+
 #[test]
 fn track_ignored_with_flag_and_fsmonitor() -> TestResult {
     let test_repo = TestRepo::init();

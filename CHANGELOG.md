@@ -28,6 +28,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* With `fsmonitor.backend = "watchman"`, local modifications were no longer
+  detected after Git HEAD moved without the working copy being rewritten
+  (for example after `git reset --soft` or `git update-ref HEAD` in a
+  colocated repository). Snapshots now re-examine every file whose recorded
+  state was reset, whether or not the monitor reports it as changed.
+
 ## [0.45.1] - 2026-09-03
 
 This release fixes an error that prevented the new jj-core crate from being
