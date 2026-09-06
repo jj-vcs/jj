@@ -95,6 +95,14 @@ pub enum BookmarkCommand {
     Untrack(BookmarkUntrackArgs),
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum MoveBackwards {
+    Deny,
+    Warn,
+    Allow,
+}
+
 pub async fn cmd_bookmark(
     ui: &mut Ui,
     command: &CommandHelper,

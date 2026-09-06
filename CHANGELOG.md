@@ -32,6 +32,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   removes it, allowing colocation to be toggled after workspace
   creation.
 
+* Added config option `bookmarks.move-backwards = allow/deny/warn`, to control
+  the behavior of `jj bookmark move` & `jj bookmark set` on moving bookmarks
+  backwards.
+
 ### Fixed bugs
 
 ## [0.45.1] - 2026-09-03
