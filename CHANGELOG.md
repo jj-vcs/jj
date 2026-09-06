@@ -28,6 +28,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* In a repository with several colocated workspaces, a `jj` command in one
+  workspace no longer waits for a snapshot or checkout in progress in another
+  workspace. The lock that serializes Git HEAD import/export is now
+  per-workspace, matching the state it guards.
+
 ## [0.45.1] - 2026-09-03
 
 This release fixes an error that prevented the new jj-core crate from being
