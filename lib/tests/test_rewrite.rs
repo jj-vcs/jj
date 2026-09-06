@@ -1889,7 +1889,7 @@ fn test_rebase_descendants_bookmark_delete_modify_abandon(
     let _rebase_map = rebase_descendants_with_options_return_map(tx.repo_mut(), &options);
     assert_eq!(
         tx.repo().get_local_bookmark("main".as_ref()),
-        RefTarget::absent_ref()
+        &RefTarget::absent()
     );
     Ok(())
 }

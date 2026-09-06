@@ -45,6 +45,15 @@ use crate::ref_name::WorkspaceNameBuf;
 id_type!(pub ViewId { hex() });
 id_type!(pub OperationId { hex() });
 
+/// Non-conflicting target pointing to no commit.
+///
+/// This will typically be used in place of `None` returned by a map lookup.
+pub static ABSENT_REF_TARGET: RefTarget = RefTarget::absent();
+/// Remote ref pointing to no commit.
+///
+/// This will typically be used in place of `None` returned by a map lookup.
+pub static ABSENT_REMOTE_REF: RemoteRef = RemoteRef::absent();
+
 #[derive(ContentHash, PartialEq, Eq, Hash, Clone, Debug, serde::Serialize)]
 #[serde(transparent)]
 pub struct RefTarget {
@@ -55,14 +64,6 @@ impl RefTarget {
     /// Creates non-conflicting target pointing to no commit.
     pub const fn absent() -> Self {
         Self::from_merge(Merge::absent())
-    }
-
-    /// Returns non-conflicting target pointing to no commit.
-    ///
-    /// This will typically be used in place of `None` returned by map lookup.
-    pub const fn absent_ref() -> &'static Self {
-        static TARGET: RefTarget = RefTarget::absent();
-        &TARGET
     }
 
     /// Creates non-conflicting target that optionally points to a commit.
@@ -142,14 +143,6 @@ impl RemoteRef {
         }
     }
 
-    /// Returns remote ref pointing to no commit.
-    ///
-    /// This will typically be used in place of `None` returned by map lookup.
-    pub const fn absent_ref() -> &'static Self {
-        static TARGET: RemoteRef = RemoteRef::absent();
-        &TARGET
-    }
-
     /// Returns true if the target points to no commit.
     pub fn is_absent(&self) -> bool {
         self.target.is_absent()
@@ -173,7 +166,7 @@ impl RemoteRef {
         if self.is_tracked() {
             &self.target
         } else {
-            RefTarget::absent_ref()
+            &ABSENT_REF_TARGET
         }
     }
 }
@@ -207,7 +200,7 @@ impl<'a> RefTargetOptionExt for Option<&'a RefTarget> {
     type Value = &'a RefTarget;
 
     fn flatten(self) -> Self::Value {
-        self.unwrap_or_else(|| RefTarget::absent_ref())
+        self.unwrap_or(&ABSENT_REF_TARGET)
     }
 }
 
@@ -223,7 +216,7 @@ impl<'a> RefTargetOptionExt for Option<&'a RemoteRef> {
     type Value = &'a RemoteRef;
 
     fn flatten(self) -> Self::Value {
-        self.unwrap_or_else(|| RemoteRef::absent_ref())
+        self.unwrap_or(&ABSENT_REMOTE_REF)
     }
 }
 
@@ -298,7 +291,7 @@ pub(crate) fn merge_join_ref_views<'a>(
         let (name, local_target) = if let Some((symbol, _)) = remote_refs_iter.peek() {
             local_refs_iter
                 .next_if(|&(local_name, _)| local_name <= symbol.name)
-                .unwrap_or((symbol.name, RefTarget::absent_ref()))
+                .unwrap_or((symbol.name, &ABSENT_REF_TARGET))
         } else {
             local_refs_iter.next()?
         };
@@ -595,7 +588,7 @@ mod tests {
             vec![(
                 "bookmark1".as_ref(),
                 LocalRemoteRefTarget {
-                    local_target: RefTarget::absent_ref(),
+                    local_target: &RefTarget::absent(),
                     remote_refs: vec![("remote1".as_ref(), &remote1_bookmark1_remote_ref)],
                 },
             )],
