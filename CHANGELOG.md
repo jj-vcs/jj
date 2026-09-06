@@ -28,6 +28,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* `jj workspace forget` no longer leaves a workspace without a recorded path
+  when the operation fails to commit (or the process is killed while
+  committing). Such a workspace stayed in `jj workspace list` but
+  `jj workspace root --name` failed with "Workspace has no recorded path".
+
 ## [0.45.1] - 2026-09-03
 
 This release fixes an error that prevented the new jj-core crate from being
