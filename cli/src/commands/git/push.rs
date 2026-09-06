@@ -690,7 +690,7 @@ impl<'repo> CommitsValidator<'repo> {
         let known_heads = repo
             .view()
             .remote_bookmarks(remote)
-            .flat_map(|(_, old_head)| old_head.target.added_ids())
+            .flat_map(|(_, old_head)| old_head.target.present_adds())
             .cloned()
             .collect();
         let immutable_heads = workspace_helper
@@ -796,7 +796,7 @@ fn ready_to_push_revset_expression(
     let old_heads = repo
         .view()
         .remote_bookmarks(remote)
-        .flat_map(|(_, old_head)| old_head.target.added_ids())
+        .flat_map(|(_, old_head)| old_head.target.present_adds())
         .cloned()
         .collect_vec();
     RevsetExpression::commits(old_heads).range(&RevsetExpression::commits(new_heads))
@@ -1373,7 +1373,7 @@ async fn find_target_revisions(
 }
 
 fn matches_local_target(targets: LocalAndRemoteRef<'_>, revisions: &HashSet<CommitId>) -> bool {
-    let mut local_ids = targets.local_target.added_ids();
+    let mut local_ids = targets.local_target.present_adds();
     local_ids.any(|id| revisions.contains(id))
 }
 

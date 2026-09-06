@@ -186,7 +186,7 @@ impl View {
         commit_id: &CommitId,
     ) -> impl Iterator<Item = (&RefName, &RefTarget)> {
         self.local_bookmarks()
-            .filter(|(_, target)| target.added_ids().contains(commit_id))
+            .filter(|(_, target)| target.present_adds().contains(commit_id))
     }
 
     /// Iterates local bookmark `(name, target)`s matching the given pattern.

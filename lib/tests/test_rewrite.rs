@@ -1704,11 +1704,11 @@ fn test_rebase_descendants_update_bookmarks_after_divergent_rewrite() -> TestRes
     // negative terms: { commit_b => 2, commit_b4 => 1 }. Since we flatten
     // intermediate rewrites, commit_b4 doesn't appear in the removed_ids.
     assert_eq!(
-        main_target.removed_ids().counts(),
+        main_target.present_removes().counts(),
         hashmap! { commit_b.id() => 3 },
     );
     assert_eq!(
-        main_target.added_ids().counts(),
+        main_target.present_adds().counts(),
         hashmap! {
             commit_b2.id() => 1,
             commit_b3.id() => 1,
@@ -1782,11 +1782,11 @@ fn test_rebase_descendants_rewrite_updates_bookmark_conflict() -> TestResult {
     let target = tx.repo().get_local_bookmark("main".as_ref());
     assert!(target.has_conflict());
     assert_eq!(
-        target.removed_ids().counts(),
+        target.present_removes().counts(),
         hashmap! { commit_a.id() => 1, commit_b.id() => 1 },
     );
     assert_eq!(
-        target.added_ids().counts(),
+        target.present_adds().counts(),
         hashmap! {
             commit_c.id() => 1,
             commit_b2.id() => 1,

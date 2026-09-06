@@ -644,8 +644,8 @@ async fn import_refs_inner(
         let mut old_heads = Vec::new();
         let mut new_heads = Vec::new();
         for update in iter_changed_refs() {
-            old_heads.extend(update.old_remote_ref.target.added_ids().cloned());
-            new_heads.extend(update.new_target.added_ids().cloned());
+            old_heads.extend(update.old_remote_ref.target.present_adds().cloned());
+            new_heads.extend(update.new_target.present_adds().cloned());
         }
         (old_heads, new_heads)
     };
@@ -687,7 +687,7 @@ async fn import_refs_inner(
     // Uses iter_changed_refs() instead of new_referenced_heads to report error
     // with ref name.
     for update in iter_changed_refs() {
-        for id in update.new_target.added_ids() {
+        for id in update.new_target.present_adds() {
             let commit = get_commit(id, &update.symbol).await?;
             head_commits.push(commit);
         }
@@ -1148,7 +1148,7 @@ fn default_remote_ref_state_for(
 /// tracking remotes, and such mutation isn't applied to `view.git_refs()` yet.
 fn pinned_commit_ids(view: &View) -> Vec<CommitId> {
     itertools::chain(view.local_bookmarks(), view.local_tags())
-        .flat_map(|(_, target)| target.added_ids())
+        .flat_map(|(_, target)| target.present_adds())
         .cloned()
         .collect()
 }
@@ -1163,7 +1163,7 @@ fn remotely_pinned_commit_ids(view: &View) -> Vec<CommitId> {
     itertools::chain(view.all_remote_bookmarks(), view.all_remote_tags())
         .filter(|(_, remote_ref)| !remote_ref.is_tracked())
         .map(|(_, remote_ref)| &remote_ref.target)
-        .flat_map(|target| target.added_ids())
+        .flat_map(|target| target.present_adds())
         .cloned()
         .collect()
 }
