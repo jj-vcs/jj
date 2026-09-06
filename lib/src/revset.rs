@@ -2759,7 +2759,7 @@ fn to_resolved_ref(
         None => Err(RevsetResolutionError::ConflictedRef {
             kind,
             symbol: symbol.to_string(),
-            targets: target.added_ids().cloned().collect(),
+            targets: target.present_adds().cloned().collect(),
         }),
     }
 }
@@ -3071,7 +3071,7 @@ fn resolve_commit_ref(
             let commit_ids = repo
                 .view()
                 .local_bookmarks_matching(&expression.to_matcher())
-                .flat_map(|(_, target)| target.added_ids())
+                .flat_map(|(_, target)| target.present_adds())
                 .cloned()
                 .collect();
             Ok(commit_ids)
@@ -3088,7 +3088,7 @@ fn resolve_commit_ref(
                 .filter(|(_, remote_ref)| {
                     remote_ref_state.is_none_or(|state| remote_ref.state == state)
                 })
-                .flat_map(|(_, remote_ref)| remote_ref.target.added_ids())
+                .flat_map(|(_, remote_ref)| remote_ref.target.present_adds())
                 .cloned()
                 .collect();
             Ok(commit_ids)
@@ -3097,7 +3097,7 @@ fn resolve_commit_ref(
             let commit_ids = repo
                 .view()
                 .local_tags_matching(&expression.to_matcher())
-                .flat_map(|(_, target)| target.added_ids())
+                .flat_map(|(_, target)| target.present_adds())
                 .cloned()
                 .collect();
             Ok(commit_ids)
@@ -3114,7 +3114,7 @@ fn resolve_commit_ref(
                 .filter(|(_, remote_ref)| {
                     remote_ref_state.is_none_or(|state| remote_ref.state == state)
                 })
-                .flat_map(|(_, remote_ref)| remote_ref.target.added_ids())
+                .flat_map(|(_, remote_ref)| remote_ref.target.present_adds())
                 .cloned()
                 .collect();
             Ok(commit_ids)
