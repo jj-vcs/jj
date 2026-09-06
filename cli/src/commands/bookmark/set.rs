@@ -21,6 +21,7 @@ use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::RefTarget;
 use jj_lib::ref_name::RefNameBuf;
 
+use super::MoveBackwards;
 use super::is_fast_forward;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
@@ -80,12 +81,29 @@ pub async fn cmd_bookmark_set(
         } else if old_target.as_normal() != Some(target_commit.id()) {
             moved_bookmark_count += 1;
         }
-        if !args.allow_backwards && !is_fast_forward(repo, old_target, target_commit.id()).await? {
-            return Err(user_error(format!(
-                "Refusing to move bookmark backwards or sideways: {name}",
-                name = name.as_symbol()
-            ))
-            .hinted("Use --allow-backwards to allow it."));
+        if !is_fast_forward(repo, old_target, target_commit.id()).await? {
+            let move_backwards = if args.allow_backwards {
+                MoveBackwards::Always
+            } else {
+                workspace_command
+                    .settings()
+                    .get("bookmarks.move-backwards")?
+            };
+            match move_backwards {
+                MoveBackwards::Never => {
+                    return Err(user_error(format!(
+                        "Refusing to move bookmark backwards or sideways: {name}",
+                        name = name.as_symbol()
+                    ))
+                    .hinted("Use --allow-backwards to allow it."));
+                }
+                MoveBackwards::Warn => writeln!(
+                    ui.warning_default(),
+                    "Moving bookmark backwards or sideways: {name}",
+                    name = name.as_symbol()
+                )?,
+                MoveBackwards::Always => {}
+            }
         }
     }
     if target_commit.is_discardable(repo).await? {

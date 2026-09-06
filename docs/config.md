@@ -1074,6 +1074,23 @@ echo "args: $@"
 > Note: Shebangs (e.g. `#!/usr/bin/env`) aren't necessary since you're already
 > explicitly passing your script into the right shell.
 
+## Bookmarks
+
+Bookmarks can be moved using `jj bookmark set` or `jj bookmark move`.
+The default behavior when moving bookmarks sideways or backwards is controlled
+via `bookmarks.move-backwards`. It defaults to `never`.
+
+```toml
+[bookmarks]
+# Prevent moving backwards or sideways.
+# Can be overridden with `--allow-backwards`.
+move-backwards = "never"
+# Allow moving backwards or sideways, but warn on stderr.
+move-backwards = "warn"
+# Allow moving backwards or sideways.
+move-backwards = "always"
+```
+
 ## Editor
 
 The default editor is set via `ui.editor`, though there are several places to

@@ -162,6 +162,13 @@ met:
 You could describe the updates as following along the change-id of the
 current bookmark commit, even if it isn't entirely accurate.
 
+### Manually moving bookmarks
+
+Bookmarks can be moved using `jj bookmark move foo --to xyz`.
+Moving backwards or sideways is prevented by default - you can either specify
+`jj bookmark move foo --to xyz --allow-backwards` for a one-off command, or set the config
+option `bookmarks.move-backwards` to one of `never`, `warn`, or `always`.
+
 ## Pushing bookmarks: Safety checks
 
 Before `jj git push` actually moves, creates, or deletes a remote bookmark, it

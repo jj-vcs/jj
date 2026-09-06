@@ -1266,6 +1266,22 @@
                 "$comment": "https://json-schema.org/understanding-json-schema/structuring#recursion",
                 "$ref": "#"
             }
+        },
+        "bookmarks": {
+            "type": "object",
+            "description": "Settings related to bookmarks",
+            "properties": {
+                "move-backwards": {
+                    "type": "string",
+                    "description": "Whether to allow moving bookmarks backwards or sideways by default",
+                    "enum": [
+                        "never",
+                        "warn",
+                        "always"
+                    ],
+                    "default": "never"
+                }
+            }
         }
     }
 }
