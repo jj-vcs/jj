@@ -650,6 +650,16 @@ impl<T> Merge<Option<T>> {
         self.as_resolved()?.as_ref()
     }
 
+    /// The removed values, excluding `None` terms.
+    pub fn present_removes(&self) -> impl Iterator<Item = &T> {
+        self.removes().flatten()
+    }
+
+    /// The added values, excluding `None` terms.
+    pub fn present_adds(&self) -> impl Iterator<Item = &T> {
+        self.adds().flatten()
+    }
+
     /// Creates lists of `removes` and `adds` from a `Merge` by dropping
     /// `None` values. Note that the conversion is lossy: the order of `None`
     /// values is not preserved when converting back to a `Merge`.

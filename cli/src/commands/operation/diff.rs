@@ -677,14 +677,14 @@ async fn write_ref_target_summary(
         write_prefix(formatter, added, prefix)?;
         writeln!(formatter, "(absent)")?;
     } else if ref_target.has_conflict() {
-        for commit_id in ref_target.added_ids() {
+        for commit_id in ref_target.present_adds() {
             write_prefix(formatter, added, prefix)?;
             write!(formatter, "(added) ")?;
             let commit = repo.store().get_commit_async(commit_id).await?;
             commit_summary_template.format(&commit, formatter)?;
             writeln!(formatter)?;
         }
-        for commit_id in ref_target.removed_ids() {
+        for commit_id in ref_target.present_removes() {
             write_prefix(formatter, added, prefix)?;
             write!(formatter, "(removed) ")?;
             let commit = repo.store().get_commit_async(commit_id).await?;
