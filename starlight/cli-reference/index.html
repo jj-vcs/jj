@@ -534,9 +534,10 @@ does not match the <code dir="auto">jj help</code> output exactly.</p><p>Run <co
 by running the given command (see the documentation for <code dir="auto">&#x3C;COMMAND></code> for
 details).</p>
 <p>It is assumed that if a given revision is "bad", then all its descendants
-in the input range are also "bad".</p>
-<p>The target of the bisection can be inverted to look for the first "good"
-revision by passing <code dir="auto">--find-good</code>.</p>
+in the input range are also "bad". Pass <code dir="auto">--find-good</code> to invert this
+assumption: if a given revision is "good", all of its descendants are
+assumed to be "good". <code dir="auto">jj bisect run</code> will then look for the first "good"
+revision.</p>
 <p>Hint: You can pass your shell as the command, then run manual tests in a
 script. When you're done, make sure to exit the shell with an appropriate
 error code depending on the desired outcome (e.g., <code dir="auto">exit 0</code> to mark the
@@ -565,7 +566,8 @@ revision as "good").</p>
 </li>
 <li>
 <p><code dir="auto">--find-good</code> — Find the first good revision instead</p>
-<p>The interpretation of exit statuses will be inverted (excluding special exit statuses), so status 0 means bad and other non-zero statuses mean good.</p>
+<p>Normally, <code dir="auto">jj bisect run</code> looks for a revision in the provided <code dir="auto">REVSETS</code> that's bad and whose parents are good. With <code dir="auto">--find-good</code>, <code dir="auto">jj bisect run</code> instead finds a commit that's good and whose parents are bad.</p>
+<p><code dir="auto">COMMAND</code> is still expected to exit with code 0 if and only if the revision is good.</p>
 <p>Default value: <code dir="auto">false</code></p>
 </li>
 </ul>
