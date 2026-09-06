@@ -641,6 +641,34 @@ fn test_log_bookmarks() {
     origin_dir
         .run_jj(["bookmark", "create", "-r@", "bookmark3"])
         .success();
+
+    // Create a divergent change so we have two visible and one hidden
+    // commit for the same change ID to test change ID bookmarks.
+    origin_dir
+        .run_jj(["new", "root()", "-m=divergent-2"])
+        .success();
+    origin_dir.run_jj(["describe", "-m=divergent-1"]).success();
+    origin_dir.run_jj(["describe", "-m=divergent-0"]).success();
+
+    let divergent_change_id = origin_dir
+        .run_jj(["log", "--no-graph", "-r=@", "-T=change_id"])
+        .success()
+        .stdout
+        .raw()
+        .trim()
+        .to_owned();
+
+    for revision in 0..3 {
+        origin_dir
+            .run_jj([
+                "bookmark",
+                "create",
+                &format!("-r={divergent_change_id}/{revision}"),
+                &format!("divergent-{revision}-bookmark"),
+            ])
+            .success();
+    }
+
     origin_dir.run_jj(["git", "export"]).success();
     test_env
         .run_jj_in(
@@ -677,16 +705,26 @@ fn test_log_bookmarks() {
     origin_dir.run_jj(["git", "export"]).success();
     work_dir.run_jj(["git", "fetch"]).success();
 
+    // Abandon divergent-2-bookmark so we can assert bookmarks
+    // pointing to hidden commits are shown.
+    work_dir
+        .run_jj(["abandon", "-r=divergent-2-bookmark"])
+        .success();
+
     let template = r#"commit_id.short() ++ " " ++ if(bookmarks, bookmarks, "(no bookmarks)")"#;
     let output = work_dir.run_jj(["log", "-T", template]);
     insta::assert_snapshot!(output, @"
-    @  4bc3723efff8 bookmark2* new-bookmark
+    @  3cbd8e4b6166 bookmark2* new-bookmark
     ○  38a204733702 bookmark2@origin unchanged
-    │ ○  1c14797dac42 bookmark3?? bookmark3@origin
+    │ ○  8906307e46e3 bookmark3?? bookmark3@origin
     ├─╯
-    │ ○  8223b15ac1f1 bookmark3??
+    │ ○  ac650536ccab bookmark3??
     ├─╯
-    │ ○  a156ef717a61 bookmark1*
+    │ ○  326821eda8e4 bookmark1*
+    ├─╯
+    │ ○  dfab68f8f3c2 divergent-0-bookmark
+    ├─╯
+    │ ○  1df228500f25 divergent-1-bookmark
     ├─╯
     ◆  000000000000 (no bookmarks)
     [EOF]
@@ -703,6 +741,10 @@ fn test_log_bookmarks() {
     ├─╯
     │ ○  bookmark1
     ├─╯
+    │ ○  divergent-0-bookmark
+    ├─╯
+    │ ○  divergent-1-bookmark
+    ├─╯
     ◆
     [EOF]
     ");
@@ -717,6 +759,10 @@ fn test_log_bookmarks() {
     │ ○  L: bookmark3?? R:
     ├─╯
     │ ○  L: bookmark1* R:
+    ├─╯
+    │ ○  L: divergent-0-bookmark R: divergent-0-bookmark@origin
+    ├─╯
+    │ ○  L: divergent-1-bookmark R: divergent-1-bookmark@origin
     ├─╯
     ◆  L: R:
     [EOF]
@@ -733,11 +779,145 @@ fn test_log_bookmarks() {
     let output = work_dir.run_jj(["log", "-r::remote_bookmarks()", "-T", template]);
     insta::assert_snapshot!(output, @"
     ○  bookmark3@origin(+0/-1)
+    │ ○  divergent-0-bookmark@origin(+0/-0)
+    ├─╯
+    │ ○  divergent-1-bookmark@origin(+0/-0)
+    ├─╯
+    │ ○  divergent-2-bookmark@origin(+2/-0)
+    ├─╯
     │ ○  bookmark2@origin(+0/-1) unchanged@origin(+0/-0)
     ├─╯
     │ ○  bookmark1@origin(+1/-1)
     ├─╯
     ◆
+    [EOF]
+    ");
+
+    let template = r#"
+        separate(
+            " ",
+            commit_id.short(),
+            change_id.shortest(),
+            "R:",
+            if(change_id.remote_bookmarks(), change_id.remote_bookmarks(), '(no bookmarks)')
+        )
+    "#;
+    let output = work_dir.run_jj(["log", "-T", template]);
+    insta::assert_snapshot!(output, @"
+    @  3cbd8e4b6166 x R: (no bookmarks)
+    ○  38a204733702 zs R: bookmark2@origin unchanged@origin
+    │ ○  8906307e46e3 r R: bookmark3@origin
+    ├─╯
+    │ ○  ac650536ccab r R: bookmark3@origin
+    ├─╯
+    │ ○  326821eda8e4 q R: bookmark1@origin
+    ├─╯
+    │ ○  dfab68f8f3c2 v R: divergent-0-bookmark@origin divergent-1-bookmark@origin divergent-2-bookmark@origin
+    ├─╯
+    │ ○  1df228500f25 v R: divergent-0-bookmark@origin divergent-1-bookmark@origin divergent-2-bookmark@origin
+    ├─╯
+    ◆  000000000000 zz R: (no bookmarks)
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_change_id_remote_bookmarks_conflict_dedup() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
+
+    test_env.run_jj_in(".", ["git", "init", "origin"]).success();
+    let origin_dir = test_env.work_dir("origin");
+    let origin_git_repo_path = origin_dir
+        .root()
+        .join(".jj")
+        .join("repo")
+        .join("store")
+        .join("git");
+
+    origin_dir.run_jj(["new", "-m=divergent-1"]).success();
+
+    origin_dir.run_jj(["describe", "-m=divergent-0"]).success();
+
+    let change_id = origin_dir
+        .run_jj(["log", "--no-graph", "-r=@", "-T=change_id"])
+        .success()
+        .stdout
+        .raw()
+        .trim()
+        .to_owned();
+
+    origin_dir
+        .run_jj([
+            "bookmark",
+            "create",
+            &format!("-r={change_id}/0"),
+            "conflicting-bookmark",
+        ])
+        .success();
+
+    origin_dir.run_jj(["git", "export"]).success();
+
+    test_env
+        .run_jj_in(
+            ".",
+            [
+                "git",
+                "clone",
+                origin_git_repo_path.to_str().unwrap(),
+                "local",
+            ],
+        )
+        .success();
+
+    let work_dir = test_env.work_dir("local");
+
+    // The local repository now sees `conflict-bookmark` at {change_id}/0. Move it
+    // backwards on the remote to create a conflict, and fetch at an earlier position
+    // in the operation log to simulate a second fetch happening concurrently with the
+    // first. The concurrent fetches to create a conflict on the remote bookmark that
+    // is introduced newly in the fetch. First fetch saw it pointing to /0, and the
+    // second fetch sees it pointing to /1. We're interested in asserting that we don't
+    // see the bookmark twice on the either commit when retrieving the remote bookmarks
+    // through the change ID.
+    work_dir.run_jj(["git", "fetch"]).success();
+    origin_dir
+        .run_jj([
+            "bookmark",
+            "set",
+            "--allow-backwards",
+            &format!("-r={change_id}/1"),
+            "conflicting-bookmark",
+        ])
+        .success();
+    origin_dir.run_jj(["git", "export"]).success();
+    work_dir.run_jj(["git", "fetch", "--at-op=@-"]).success();
+
+    // change_id.remote_bookmarks() should report the conflicted bookmark
+    // once, not once per divergent commit it targets.
+    let template = r#"
+        separate(
+            " ",
+            commit_id.short(),
+            change_id.shortest(),
+            "R:",
+            change_id.remote_bookmarks(),
+            "\n",
+        ) 
+    "#;
+    let output = work_dir.run_jj([
+        "log",
+        "--no-graph",
+        &format!("-r={change_id}/0 | {change_id}/1"),
+        "-T",
+        template,
+    ]);
+    insta::assert_snapshot!(output, @"
+    b3df2ad60e03 r R: conflicting-bookmark@origin?? 
+    33a2f5ef1cd2 r R: conflicting-bookmark@origin?? 
+    [EOF]
+    ------- stderr -------
+    Concurrent modification detected, resolving automatically.
     [EOF]
     ");
 }
