@@ -972,6 +972,35 @@ impl RepoLoader {
         Ok((self.load_at(&merged_operation).await?, num_rebased))
     }
 
+    /// Takes the union of the given operations. If `operations` is empty returns the root repo. If `operations` has a single entry, returns that entry's repo. Otherwise an actual union happens. The new operation is not published.
+    pub async fn union_operations(
+        &self,
+        operations: Vec<Operation>,
+        transaction_description: Option<&str>,
+    ) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+        match &operations[..] {
+            [] => {
+                let root_operation = self.root_operation().await;
+                return self.load_at(&root_operation).await;
+            }
+            [op] => {
+                let repo = self.load_at(op).await?;
+                return Ok(repo);
+            }
+            _ => {}
+        }
+        let repo = self.load_at(&operations[0]).await?;
+        let mut tx = repo.start_transaction();
+        tx.set_workspace_name(repo.loader().workspace_name());
+        for op in operations.iter().skip(1) {
+            tx.union_operation(op).await?;
+        }
+        Ok(tx
+            .write(transaction_description.unwrap_or("union"))
+            .await?
+            .leave_unpublished())
+    }
+
     async fn finish_load(
         &self,
         operation: Operation,
@@ -2116,6 +2145,16 @@ impl MutableRepo {
             self.set_git_head_target(workspace, new_target);
         }
 
+        Ok(())
+    }
+
+    pub async fn union(&mut self, other_repo: &ReadonlyRepo) -> Result<(), RepoLoaderError> {
+        self.index.merge_in(other_repo.readonly_index())?;
+        // TODO: XXX:W What about bookmarks/tags/refs etc?
+        for head in other_repo.view().heads() {
+            self.view.add_head(head);
+        }
+        self.normalize_heads().await?;
         Ok(())
     }
 

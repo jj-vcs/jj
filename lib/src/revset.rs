@@ -50,9 +50,7 @@ use crate::id_prefix::IdPrefixIndex;
 use crate::index::ResolvedChangeTargets;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
-use crate::op_heads_store::OpHeadsStore;
 use crate::op_store::LocalRemoteRefTarget;
-use crate::op_store::OpStore;
 use crate::op_store::OpStoreResult;
 use crate::op_store::RefTarget;
 use crate::op_store::RemoteRefState;
@@ -66,6 +64,7 @@ use crate::ref_name::WorkspaceName;
 use crate::ref_name::WorkspaceNameBuf;
 use crate::repo::ReadonlyRepo;
 use crate::repo::Repo;
+use crate::repo::RepoLoader;
 use crate::repo::RepoLoaderError;
 use crate::revset_parser;
 pub use crate::revset_parser::BinaryOp;
@@ -2693,26 +2692,27 @@ fn reload_repo_at_operation(
 }
 
 async fn resolve_op_heads_for_workspace_from_store(
-    store: &Arc<Store>,
-    op_heads_store: &Arc<dyn OpHeadsStore>,
-    op_store: &Arc<dyn OpStore>,
+    repo_loader: &RepoLoader,
     workspace_name: &WorkspaceName,
     workspace_type: WorkspaceType,
-) -> Result<Vec<Operation>, RevsetResolutionError> {
-    let op_heads = op_heads_store
+) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+    let op_store = repo_loader.op_store();
+    let op_heads = repo_loader
+        .op_heads_store()
         .get_op_heads(workspace_name, workspace_type)
-        .await
-        .map_err(|err| RevsetResolutionError::Other(Box::new(err)))?;
+        .await?;
     let operations = futures::stream::iter(&op_heads)
         .map(async |id| -> OpStoreResult<Operation> {
             let data = op_store.read_operation(id).await?;
             Ok(Operation::new(op_store.clone(), id.clone(), data))
         })
-        .buffered(store.concurrency())
+        .buffered(repo_loader.store().concurrency())
         .try_collect()
+        .await?;
+    let transaction_description = format!("union workspace {}", workspace_name.as_symbol());
+    repo_loader
+        .union_operations(operations, Some(&transaction_description))
         .await
-        .map_err(|err| RevsetResolutionError::Other(err.into()))?;
-    Ok(operations)
 }
 
 fn resolve_remote_symbol(
@@ -3109,6 +3109,7 @@ struct ExpressionSymbolResolver<'a, 'b> {
     base_repo: &'a dyn Repo,
     repo_stack: Vec<Arc<ReadonlyRepo>>,
     symbol_resolver: &'a SymbolResolver<'b>,
+    other_visible_opheads: Vec<Operation>,
 }
 
 impl<'a, 'b> ExpressionSymbolResolver<'a, 'b> {
@@ -3117,6 +3118,7 @@ impl<'a, 'b> ExpressionSymbolResolver<'a, 'b> {
             base_repo,
             repo_stack: vec![],
             symbol_resolver,
+            other_visible_opheads: vec![],
         }
     }
 
@@ -3172,6 +3174,7 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
         candidates: &UserRevsetExpression,
     ) -> Result<Arc<ResolvedRevsetExpression>, Self::Error> {
         let repo = reload_repo_at_operation(self.repo(), operation)?;
+        self.other_visible_opheads.push(repo.operation().clone());
         self.repo_stack.push(repo);
         let candidates = self.fold_expression(candidates)?;
         let expression = candidates.within_visibility(self.repo());
@@ -3184,9 +3187,6 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
         workspace: &String,
         candidates: &UserRevsetExpression,
     ) -> Result<Arc<ResolvedRevsetExpression>, Self::Error> {
-        if workspace == "@" {
-            return self.fold_expression(candidates);
-        }
         let base_repo = self.repo().base_repo();
         let current_workspace = base_repo.loader().workspace_name();
         let current_workspace_type = base_repo.loader().workspace_type();
@@ -3210,31 +3210,24 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
             return self.fold_expression(candidates);
         }
 
-        // TODO: XXX:W Use MutableRepo::merge_index
-        let operations = resolve_op_heads_for_workspace_from_store(
-            base_repo.store(),
-            base_repo.op_heads_store(),
-            base_repo.op_store(),
+        let other_workspace_repo = resolve_op_heads_for_workspace_from_store(
+            base_repo.loader(),
             &workspace_name,
             workspace_type,
         )
         .block_on()
-        .map_err(|err| RevsetResolutionError::Other(err.into()))?;
+        .map_err(|err| match err {
+            RepoLoaderError::Backend(err) => RevsetResolutionError::Backend(err),
+            RepoLoaderError::Index(_)
+            | RepoLoaderError::IndexStore(_)
+            | RepoLoaderError::OpHeadsStoreError(_)
+            | RepoLoaderError::OpStore(_)
+            | RepoLoaderError::TransactionCommit(_) => RevsetResolutionError::Other(err.into()),
+        })?;
 
-        let operation = operations.first().expect("TODO: XXX:W");
-        let union_repo = base_repo
-            .reload_at(operation)
-            .block_on()
-            .map_err(|err| match err {
-                RepoLoaderError::Backend(err) => RevsetResolutionError::Backend(err),
-                RepoLoaderError::Index(_)
-                | RepoLoaderError::IndexStore(_)
-                | RepoLoaderError::OpHeadsStoreError(_)
-                | RepoLoaderError::OpStore(_)
-                | RepoLoaderError::TransactionCommit(_) => RevsetResolutionError::Other(err.into()),
-            })?;
-
-        self.repo_stack.push(union_repo);
+        self.other_visible_opheads
+            .push(other_workspace_repo.operation().clone());
+        self.repo_stack.push(other_workspace_repo);
         let candidates = self.fold_expression(candidates)?;
         let expression = candidates.within_visibility(self.repo());
         self.repo_stack.pop();
