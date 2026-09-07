@@ -2132,6 +2132,26 @@ fn builtin_change_id_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, C
         },
     );
     map.insert(
+        "bookmarks",
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let repo = language.repo;
+            let index = language
+                .keyword_cache
+                .bookmarks_index(language.repo)
+                .clone();
+            let out_property = self_property.and_then(move |change_id| {
+                let maybe_targets = repo.resolve_change_id(&change_id).block_on()?;
+                Ok(maybe_targets
+                    .iter()
+                    .flat_map(|targets| targets.targets.iter())
+                    .flat_map(|(commit_id, _state)| collect_distinct_refs(index.get(commit_id)))
+                    .collect_vec())
+            });
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
         "local_bookmarks",
         |language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;

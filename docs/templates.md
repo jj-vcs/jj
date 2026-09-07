@@ -240,8 +240,11 @@ The following methods are defined.
   canonical "reversed" (z-k) representation.
 * `.short([len: Integer]) -> String`
 * `.shortest([min_len: Integer]) -> ShortestIdPrefix`: Shortest unique prefix.
-* `.local_bookmarks() -> List<CommitRef>`:  All local bookmarks pointing to the change ID.
-* `.remote_bookmarks() -> List<CommitRef>`: All remote bookmarks pointing to the change ID.
+* `.bookmarks() -> List<CommitRef>`: Local and remote tags pointing to the change ID.
+  A tracked remote bookmark will be included only if its target is different from the
+  local one.
+ * `.local_bookmarks() -> List<CommitRef>`: Returns all local bookmarks pointing to the change ID.
+ * `.remote_bookmarks() -> List<CommitRef>`: Returns all remote bookmarks pointing to the change ID.
 
 ### `Commit` type
 

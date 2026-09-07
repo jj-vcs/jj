@@ -798,6 +798,32 @@ fn test_log_bookmarks() {
             " ",
             commit_id.short(),
             change_id.shortest(),
+            if(change_id.bookmarks(), change_id.bookmarks(), '(no bookmarks)'),
+        )
+    "#;
+    let output = work_dir.run_jj(["log", "-T", template]);
+    insta::assert_snapshot!(output, @"
+    @  3cbd8e4b6166 x bookmark2* new-bookmark
+    ○  38a204733702 zs bookmark2@origin unchanged
+    │ ○  8906307e46e3 r bookmark3?? bookmark3@origin bookmark3??
+    ├─╯
+    │ ○  ac650536ccab r bookmark3?? bookmark3@origin bookmark3??
+    ├─╯
+    │ ○  326821eda8e4 q bookmark1* bookmark1@origin
+    ├─╯
+    │ ○  dfab68f8f3c2 v divergent-0-bookmark divergent-1-bookmark divergent-2-bookmark@origin
+    ├─╯
+    │ ○  1df228500f25 v divergent-0-bookmark divergent-1-bookmark divergent-2-bookmark@origin
+    ├─╯
+    ◆  000000000000 zz (no bookmarks)
+    [EOF]
+    ");
+
+    let template = r#"
+        separate(
+            " ",
+            commit_id.short(),
+            change_id.shortest(),
             "L:",
             if(change_id.local_bookmarks(), change_id.local_bookmarks(), '(no bookmarks)'),
             "R:",
