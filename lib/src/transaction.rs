@@ -113,6 +113,15 @@ impl Transaction {
         Ok(())
     }
 
+    /// Takes the union of op's view into this transaction.
+    pub async fn union_operation(&mut self, other_op: &Operation) -> Result<(), RepoLoaderError> {
+        let repo_loader = self.base_repo().loader();
+        let other_repo = repo_loader.load_at(other_op).await?;
+        self.parent_ops.push(other_op.clone());
+        self.repo_mut().union(&other_repo).await?;
+        Ok(())
+    }
+
     pub fn set_is_snapshot(&mut self, is_snapshot: bool) {
         self.op_metadata.is_snapshot = is_snapshot;
     }
