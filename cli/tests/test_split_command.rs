@@ -138,7 +138,7 @@ fn test_split_by_paths() -> TestResult {
     // Insert an empty commit after @- with "split ."
     std::fs::write(&edit_script, "")?;
     let output = work_dir.run_jj(["split", "-r", "@-", "."]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: All changes have been selected, so the original revision will become empty.
     Rebased 1 descendant commits.
@@ -169,7 +169,7 @@ fn test_split_by_paths() -> TestResult {
     // Insert an empty commit before @- with "split nonexistent"
     std::fs::write(&edit_script, "")?;
     let output = work_dir.run_jj(["split", "-r", "@-", "nonexistent"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching entries for paths: nonexistent
     Warning: No changes have been selected, so the new revision will be empty.
@@ -199,7 +199,7 @@ fn test_split_by_paths() -> TestResult {
     // Splitting a commit with deleted files should not show a warning.
     work_dir.remove_file("file1");
     let output = work_dir.run_jj(["split", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: All changes have been selected, so the original revision will become empty.
     Selected changes : uyznsvlq 971ccc0b (no description set)
@@ -367,7 +367,7 @@ fn test_split_with_descendants() -> TestResult {
         .join("\0"),
     )?;
     let output = work_dir.run_jj(["split", "file1", "-r", "qpvu"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 2 descendant commits.
     Selected changes : qpvuntsm 74306e35 Add file1
@@ -484,7 +484,7 @@ fn test_split_with_merge_child() -> TestResult {
         ["write\nAdd file1", "next invocation\n", "write\nAdd file2"].join("\0"),
     )?;
     let output = work_dir.run_jj(["split", "-rsubject(a)", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits.
     Selected changes : kkmpptxz cc199567 Add file1
@@ -648,7 +648,7 @@ fn test_split_parallel_with_descendants() -> TestResult {
         .join("\0"),
     )?;
     let output = work_dir.run_jj(["split", "--parallel", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 2 descendant commits.
     Selected changes : qpvuntsm 18c85f56 Add file1
@@ -727,7 +727,7 @@ fn test_split_parallel_with_merge_child() -> TestResult {
         ["write\nAdd file1", "next invocation\n", "write\nAdd file2"].join("\0"),
     )?;
     let output = work_dir.run_jj(["split", "-rsubject(a)", "--parallel", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits.
     Selected changes : kkmpptxz cc199567 Add file1
@@ -779,7 +779,7 @@ fn test_split_parallel_with_conflict() -> TestResult {
         ["write file\nline 1\nline 2.1\nline 3\n"].join("\0"),
     )?;
     let output = work_dir.run_jj(["split", "--parallel", "-i", "-m="]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits.
     Selected changes : rlvkpnrz abe15fea (no description set)
@@ -852,7 +852,7 @@ fn test_split_empty() -> TestResult {
     work_dir.run_jj(["describe", "--message", "abc"]).success();
 
     let output = work_dir.run_jj(["split"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Hint: Using default editor ':builtin'; run `jj config set --user ui.diff-editor :builtin` to disable this message.
     Warning: Empty diff - won't run diff editor.
@@ -866,7 +866,7 @@ fn test_split_empty() -> TestResult {
 
     // With path argument (user meant to pass revision)
     let output = work_dir.run_jj(["split", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching entries for paths: @
     Warning: All changes have been selected, so the original revision will become empty.
@@ -1337,7 +1337,7 @@ fn test_split_move_first_commit() -> TestResult {
         "qpvuntsmwlqt",
         "file1",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 2 descendant commits.
     Selected changes : vruxwmqv bf94c29a file1
@@ -1373,7 +1373,7 @@ fn test_split_move_first_commit() -> TestResult {
         "qpvuntsmwlqt",
         "file1",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 2 descendant commits.
     Selected changes : kpqxywon 08294e90 file1
@@ -1409,7 +1409,7 @@ fn test_split_move_first_commit() -> TestResult {
         "rlvkpnrzqnoo",
         "file1",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 2 descendant commits.
     Selected changes : lylxulpl b42b2604 file1
@@ -1447,7 +1447,7 @@ fn test_split_move_first_commit() -> TestResult {
         "kkmpptxzrspx",
         "file1",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 2 descendant commits.
     Selected changes : uyznsvlq d0338445 file1
@@ -1483,7 +1483,7 @@ fn test_split_move_first_commit() -> TestResult {
         "@",
         "file1",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 3 descendant commits.
     Selected changes : nmzmmopx 72225233 file1
@@ -1524,7 +1524,7 @@ fn test_split_move_first_commit() -> TestResult {
         "kkmpptxzrspx",
         "file1",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 3 descendant commits.
     Selected changes : nlrtlrxv 1b6975b0 file1

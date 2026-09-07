@@ -349,7 +349,7 @@ fn test_new_description_template() {
     // Test that template can access commit properties
     test_env.add_config(r#"templates.new_description = '"parents: " ++ parents.len() ++ "\n"'"#);
     let output = work_dir.run_jj(["new"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: mzvwutvl 10155342 (empty) parents: 1
     Parent commit (@-)      : zsuskuln 49261437 (empty) (no description set)
@@ -379,7 +379,7 @@ fn test_new_insert_after() {
 
     // --insert-after can be repeated; --after is an alias
     let output = work_dir.run_jj(["new", "-m", "G", "--insert-after", "B", "--after", "D"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 2 descendant commits.
     Working copy  (@) now at: kxryzmor 57acfedf (empty) G
@@ -406,7 +406,7 @@ fn test_new_insert_after() {
     // Inserting a new commit should not change the order of its child commits'
     // parents (i.e. G should have the parents H and D).
     let output = work_dir.run_jj(["new", "-m", "H", "--insert-after", "B"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 3 descendant commits.
     Working copy  (@) now at: uyznsvlq ec395e2e (empty) H
@@ -514,7 +514,7 @@ fn test_new_insert_before() {
         "--insert-before",
         "F",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 2 descendant commits.
     Working copy  (@) now at: kxryzmor 2f16c40d (empty) G
@@ -584,7 +584,7 @@ fn test_new_insert_before_root_successors() {
         "--insert-before",
         "D",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 5 descendant commits.
     Working copy  (@) now at: kxryzmor 8c026b06 (empty) G
@@ -733,7 +733,7 @@ fn test_new_insert_after_before() {
     ");
 
     let output = work_dir.run_jj(["new", "-m", "G", "--after", "C", "--before", "F"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits.
     Working copy  (@) now at: kxryzmor 55a63f47 (empty) G
@@ -756,7 +756,7 @@ fn test_new_insert_after_before() {
     ");
 
     let output = work_dir.run_jj(["new", "-m", "H", "--after", "D", "--before", "B"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 4 descendant commits.
     Working copy  (@) now at: uyznsvlq fd3f1413 (empty) H

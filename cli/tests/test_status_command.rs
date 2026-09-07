@@ -444,7 +444,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
 
     let output = work_dir.run_jj(["status"]);
 
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Working copy changes:
     M conflicted1.txt
     M conflicted2.txt
@@ -700,7 +700,7 @@ fn test_status_no_working_copy() {
     let work_dir = test_env.work_dir("repo");
     work_dir.run_jj(["workspace", "forget"]).success();
 
-    insta::assert_snapshot!(work_dir.run_jj(["status"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["status"]), @"
     No working copy.
     [EOF]
     ");

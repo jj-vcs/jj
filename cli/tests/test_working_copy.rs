@@ -647,7 +647,7 @@ fn test_snapshot_jjconflict_trees() -> TestResult {
 
     // We should see a warning regarding '.jjconflict' trees being checked out.
     let output = work_dir.run_jj(["st"]);
-    insta::assert_snapshot!(output.to_string().replace('\\', "/"), @r"
+    insta::assert_snapshot!(output.to_string().replace('\\', "/"), @"
     Working copy changes:
     A .jjconflict-base-0/file
     A .jjconflict-side-0/file

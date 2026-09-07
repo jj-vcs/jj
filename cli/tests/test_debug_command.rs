@@ -172,7 +172,7 @@ fn test_debug_index() {
 
     // Enable changed-path index, index one commit
     let output = work_dir.run_jj(["debug", "index-changed-paths", "-n1"]);
-    assert_snapshot!(output, @r"
+    assert_snapshot!(output, @"
     ------- stderr -------
     Finished indexing 1..2 commits.
     [EOF]
@@ -229,7 +229,7 @@ fn test_debug_reindex() {
     [EOF]
     ");
     let output = work_dir.run_jj(["debug", "reindex"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Finished indexing 4 commits.
     [EOF]

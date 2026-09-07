@@ -520,7 +520,7 @@ fn test_metaedit_multiple_revisions() {
         "--update-author",
         "kkmpptxz::mzvwutvl",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Modified 2 commits:
       kkmpptxz d84add51 b | (no description set)
@@ -595,7 +595,7 @@ fn test_new_change_id() {
     work_dir.write_file("file1", "c\n");
 
     let output = work_dir.run_jj(["metaedit", "--update-change-id", "kkmpptxzrspx"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Modified 1 commits:
       yqosqzyt 01d6741e b | (no description set)

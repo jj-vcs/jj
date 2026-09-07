@@ -37,7 +37,7 @@ fn test_run_simple() {
     work_dir.run_jj(&["commit", "-m", "B"]).success();
     work_dir.write_file("c.txt", "test to replace");
     work_dir.run_jj(&["commit", "-m", "C"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  zsuskulnrvyrovkzqrwmxqlsskqntxvp
     ○  kkmpptxzrspxrzommnulwmwkkqwworplC
     │
@@ -81,7 +81,7 @@ fn test_run_on_immutable() {
     work_dir.run_jj(&["commit", "-m", "B"]).success();
     work_dir.write_file("c.txt", "test to replace");
     work_dir.run_jj(&["commit", "-m", "C"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  zsuskulnrvyrovkzqrwmxqlsskqntxvp
     ○  kkmpptxzrspxrzommnulwmwkkqwworplC
     │
@@ -100,7 +100,7 @@ fn test_run_on_immutable() {
         &fake_formatter_path,
         "--uppercase",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: The root commit 000000000000 is immutable
     [EOF]
@@ -123,7 +123,7 @@ fn test_run_noop() {
     work_dir.run_jj(&["commit", "-m", "B"]).success();
     work_dir.write_file("c.txt", "test to replace");
     work_dir.run_jj(&["commit", "-m", "C"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  zsuskulnrvyrovkzqrwmxqlsskqntxvp
     ○  kkmpptxzrspxrzommnulwmwkkqwworplC
     │
@@ -151,7 +151,7 @@ fn test_run_noop() {
         ])
         .success();
     insta::assert_snapshot!(output.stdout, @"foofoofoofoo[EOF]");
-    insta::assert_snapshot!(output.stderr, @r"
+    insta::assert_snapshot!(output.stderr, @"
     Nothing changed.
     [EOF]
     ");
@@ -170,7 +170,7 @@ fn test_run_sets_env_vars() {
     let log_template = r#"change_id ++ " " ++ commit_id ++ " " ++ description ++ "\n""#;
     insta::assert_snapshot!(
         work_dir.run_jj(&["log", "-T", log_template]),
-        @r"
+        @"
     @  rlvkpnrzqnoowoytxnquwvuryrwnrmlp fc4c875c9bc90128cbb9e8084dd5f5f336b383d9
     ○  qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu 5fbe90560fed1c39d46a46a672ba98abd53bdc6d seed
     │
@@ -217,7 +217,7 @@ fn test_run_sets_env_vars() {
         work_dir
             .run_jj(&["file", "show", "-r", "@-", "change_id.txt"])
             .normalize_stdout_with(normalize_whitespace),
-        @r"
+        @"
     qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
     [EOF]
     "
@@ -226,7 +226,7 @@ fn test_run_sets_env_vars() {
         work_dir
             .run_jj(&["file", "show", "-r", "@-", "commit_id.txt"])
             .normalize_stdout_with(normalize_whitespace),
-        @r"
+        @"
     5fbe90560fed1c39d46a46a672ba98abd53bdc6d
     [EOF]
     "
@@ -285,7 +285,7 @@ fn test_run_from_subdir_skips_commits_without_it() {
         work_dir
             .run_jj(&["file", "list", "-r", "@-"])
             .normalize_backslash(),
-        @r"
+        @"
     seed.txt
     sub/file.txt
     sub/ran.txt
@@ -327,7 +327,7 @@ fn test_run_root_flag() {
         work_dir
             .run_jj(&["file", "list", "-r", "@-"])
             .normalize_backslash(),
-        @r"
+        @"
     ran.txt
     sub/file.txt
     [EOF]
@@ -374,14 +374,14 @@ fn test_run_uses_revsets_run_as_default() {
 
     insta::assert_snapshot!(
         work_dir.run_jj(["file", "list", "-r", "foo"]),
-        @r"
+        @"
     file
     [EOF]
     "
     );
     insta::assert_snapshot!(
         work_dir.run_jj(["file", "list", "-r", "bar"]),
-        @r"
+        @"
     file
     ran.txt
     [EOF]
@@ -403,7 +403,7 @@ fn test_run_uses_revsets_run_as_default() {
 
     insta::assert_snapshot!(
         work_dir.run_jj(["file", "list", "-r", "foo"]),
-        @r"
+        @"
     file
     ran.txt
     [EOF]
@@ -411,7 +411,7 @@ fn test_run_uses_revsets_run_as_default() {
     );
     insta::assert_snapshot!(
         work_dir.run_jj(["file", "list", "-r", "bar"]),
-        @r"
+        @"
     file
     [EOF]
     "
@@ -428,7 +428,7 @@ fn test_run_failure_rewrites_nothing() {
     work_dir.write_file("b.txt", "b");
     work_dir.run_jj(&["commit", "-m", "B"]).success();
     let log_before = get_log_output(&work_dir);
-    insta::assert_snapshot!(log_before, @r"
+    insta::assert_snapshot!(log_before, @"
     @  kkmpptxzrspxrzommnulwmwkkqwworpl
     ○  rlvkpnrzqnoowoytxnquwvuryrwnrmlpB
     │
@@ -486,7 +486,7 @@ fn test_run_ignore_errors_rewrites_successes() {
     };
     let output = work_dir.run_jj(jj_args);
     assert_snapshot!(
-        output.success(), @r"
+        output.success(), @"
     ------- stderr -------
     Rewrote 1 commits.
     Working copy  (@) now at: zsuskuln 8dcecfe7 b | b
@@ -497,14 +497,14 @@ fn test_run_ignore_errors_rewrites_successes() {
     );
     insta::assert_snapshot!(
         work_dir.run_jj(&["file", "list", "-r=a"]),
-        @r"
+        @"
     a.txt
     [EOF]
     "
     );
     insta::assert_snapshot!(
         work_dir.run_jj(&["file", "list", "-r=b"]),
-        @r"
+        @"
     a.txt
     b.txt
     ran.txt
@@ -536,7 +536,7 @@ fn test_run_ignore_errors_all_fail() {
         "--fail",
     ]);
     assert_snapshot!(
-        output.success(), @r"
+        output.success(), @"
     ------- stderr -------
     Nothing changed.
     [EOF]
@@ -588,7 +588,7 @@ fn test_run_passthrough_stops_after_first_failure() {
             ("exit code", "exit status"), // Windows
         ],
     }, {
-        insta::assert_snapshot!(output, @r"
+        insta::assert_snapshot!(output, @"
         x[EOF]
         ------- stderr -------
         Error: the command '$FAKE_FORMATTER_PATH --stdout x --fail' failed with exit status: 1
@@ -613,7 +613,7 @@ fn test_run_passthrough_stops_after_first_failure() {
         "x",
         "--fail",
     ]);
-    insta::assert_snapshot!(output.success(), @r"
+    insta::assert_snapshot!(output.success(), @"
     xxxx[EOF]
     ------- stderr -------
     Nothing changed.
@@ -732,7 +732,7 @@ fn test_run_recovers_after_failure() {
     // Both commits in `..@` now carry `ran.txt`.
     insta::assert_snapshot!(
         work_dir.run_jj(&["file", "list", "-r", "@-"]),
-        @r"
+        @"
     A.txt
     b.txt
     ran.txt
@@ -741,7 +741,7 @@ fn test_run_recovers_after_failure() {
     );
     insta::assert_snapshot!(
         work_dir.run_jj(&["file", "list", "-r", "@--"]),
-        @r"
+        @"
     A.txt
     ran.txt
     [EOF]
@@ -770,7 +770,7 @@ fn test_run_shell_command() {
     let log_template = r#"change_id ++ " " ++ commit_id ++ " " ++ description ++ "\n""#;
     insta::assert_snapshot!(
         work_dir.run_jj(&["log", "-T", log_template, "-r", "..@"]),
-        @r"
+        @"
     @  zsuskulnrvyrovkzqrwmxqlsskqntxvp 8d0cb96bac2cfefd56a8691b9301ef44cc94a368
     ○  kkmpptxzrspxrzommnulwmwkkqwworpl 3406218c99ce8076f3a28434ebda109cbd84de9e C
     │
@@ -803,7 +803,7 @@ fn test_run_shell_command() {
     let mut lines: Vec<&str> = output.stdout.raw().lines().collect();
     lines.sort_unstable();
     let sorted_stdout = lines.join("\n");
-    insta::assert_snapshot!(sorted_stdout, @r"
+    insta::assert_snapshot!(sorted_stdout, @"
     26d8ff9bba4faa4da6735ced959c57280e49afa7
     3406218c99ce8076f3a28434ebda109cbd84de9e
     8d0cb96bac2cfefd56a8691b9301ef44cc94a368
@@ -862,7 +862,7 @@ fn test_run_sets_workspace_root_env_var() {
         work_dir
             .run_jj(&["file", "show", "-r", "@-", "workspace_root.txt"])
             .normalize_stdout_with(normalize_whitespace),
-        @r"
+        @"
     $TEST_ENV/repo/.jj/run/default/1/working_copy
     [EOF]
     "
@@ -926,7 +926,7 @@ fn test_run_pool_reuses_slot_after_failure() {
         .success();
 
     assert_snapshot!(
-        work_dir.run_jj(&["file", "show", "-r", "@-", "result.txt"]),@r"
+        work_dir.run_jj(&["file", "show", "-r", "@-", "result.txt"]),@"
     artifact
     [EOF]
     "
@@ -934,7 +934,7 @@ fn test_run_pool_reuses_slot_after_failure() {
     assert_snapshot!(
         work_dir
         .run_jj(&["file", "list", "-r", "@-"]),
-        @r"
+        @"
     .gitignore
     result.txt
     seed.txt
@@ -1027,27 +1027,27 @@ fn test_run_pool_size_from_config() {
     );
 
     // All three commits picked up `ran.txt`.
-    assert_snapshot!(work_dir.run_jj(&["file", "list", "-r", "@---"]), @r"
-        a.txt
-        ran-qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu.txt
-        [EOF]
-        ");
-    assert_snapshot!(work_dir.run_jj(&["file", "list", "-r", "@--"]), @r"
-        a.txt
-        b.txt
-        ran-qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu.txt
-        ran-rlvkpnrzqnoowoytxnquwvuryrwnrmlp.txt
-        [EOF]
-        ");
-    assert_snapshot!(work_dir.run_jj(&["file", "list", "-r", "@-"]), @r"
-        a.txt
-        b.txt
-        c.txt
-        ran-kkmpptxzrspxrzommnulwmwkkqwworpl.txt
-        ran-qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu.txt
-        ran-rlvkpnrzqnoowoytxnquwvuryrwnrmlp.txt
-        [EOF]
-        ");
+    assert_snapshot!(work_dir.run_jj(&["file", "list", "-r", "@---"]), @"
+    a.txt
+    ran-qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu.txt
+    [EOF]
+    ");
+    assert_snapshot!(work_dir.run_jj(&["file", "list", "-r", "@--"]), @"
+    a.txt
+    b.txt
+    ran-qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu.txt
+    ran-rlvkpnrzqnoowoytxnquwvuryrwnrmlp.txt
+    [EOF]
+    ");
+    assert_snapshot!(work_dir.run_jj(&["file", "list", "-r", "@-"]), @"
+    a.txt
+    b.txt
+    c.txt
+    ran-kkmpptxzrspxrzommnulwmwkkqwworpl.txt
+    ran-qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu.txt
+    ran-rlvkpnrzqnoowoytxnquwvuryrwnrmlp.txt
+    [EOF]
+    ");
 }
 
 /// `--jobs N` controls pool size when `run.jobs` is not set.
@@ -1126,10 +1126,10 @@ fn test_run_pool_preserves_untracked_artifacts() {
         .run_jj(&["file", "show", "-r", "@-", "result.txt"])
         .success()
         .stdout,
-        @r"
-        run1
-        [EOF]
-        ",
+        @"
+    run1
+    [EOF]
+    ",
     );
 }
 
@@ -1171,11 +1171,11 @@ fn test_run_pool_removes_file_absent_in_next_commit() {
         .run_jj(&["file", "list", "-r", "@--"])
         .success()
         .stdout,
-        @r"
-        only_in_a.txt
-        ran.txt
-        [EOF]
-        ",
+        @"
+    only_in_a.txt
+    ran.txt
+    [EOF]
+    ",
     );
 
     // B's rewrite (@-) must NOT have only_in_a.txt leaked from A's slot.
@@ -1184,10 +1184,10 @@ fn test_run_pool_removes_file_absent_in_next_commit() {
         .run_jj(&["file", "list", "-r", "@-"])
         .success()
         .stdout,
-        @r"
-        ran.txt
-        [EOF]
-        ",
+        @"
+    ran.txt
+    [EOF]
+    ",
     );
 }
 
@@ -1233,7 +1233,7 @@ fn test_run_pool_removes_previously_ignored_files() {
         .success();
     assert_snapshot!(
         work_dir.run_jj(&["file", "list", "-r", "b"]),
-        @r"
+        @"
     .gitignore
     seed.txt
     [EOF]
@@ -1256,7 +1256,7 @@ fn test_run_pool_removes_previously_ignored_files() {
         .success();
     assert_snapshot!(
         work_dir.run_jj(&["file", "list", "-r", "a"]),
-        @r"
+        @"
     .gitignore
     seed.txt
     [EOF]
@@ -1281,7 +1281,7 @@ fn test_run_pool_removes_previously_ignored_files() {
         .success();
     assert_snapshot!(
         work_dir.run_jj(&["file", "list", "-r", "a"]),
-        @r"
+        @"
     .gitignore
     seed.txt
     [EOF]
@@ -1328,11 +1328,11 @@ fn test_run_pool_recovers_from_missing_tree_state() {
 
     assert_snapshot!(
         work_dir.run_jj(&["file", "list", "-r", "@-"]).success().stdout,
-        @r"
-        ran.txt
-        seed.txt
-        [EOF]
-        ",
+        @"
+    ran.txt
+    seed.txt
+    [EOF]
+    ",
     );
 }
 
@@ -1376,11 +1376,11 @@ fn test_run_pool_failed_command_does_not_poison_slot() {
 
     assert_snapshot!(
         work_dir.run_jj(&["file", "list", "-r", "@-"]).success().stdout,
-        @r"
-        ran.txt
-        seed.txt
-        [EOF]
-        ",
+        @"
+    ran.txt
+    seed.txt
+    [EOF]
+    ",
     );
 }
 
@@ -1427,7 +1427,7 @@ fn test_run_restore_descendants_preserves_content() {
         ]
     };
     let output = work_dir.run_jj(args).success();
-    assert_snapshot!(output.stderr, @r"
+    assert_snapshot!(output.stderr, @"
     Rewrote 2 commits.
     Rebased 1 descendant commits (while preserving their content).
     Working copy  (@) now at: royxmykx a741a7d3 c | c
@@ -1440,7 +1440,7 @@ fn test_run_restore_descendants_preserves_content() {
         .run_jj(&["file", "list", "-r", "a"])
         .success()
         .stdout,
-        @r"
+        @"
     file
     ran-rlvkpnrzqnoowoytxnquwvuryrwnrmlp.txt
     [EOF]
@@ -1451,7 +1451,7 @@ fn test_run_restore_descendants_preserves_content() {
         .run_jj(&["file", "list", "-r", "b"])
         .success()
         .stdout,
-        @r"
+        @"
     file
     ran-zsuskulnrvyrovkzqrwmxqlsskqntxvp.txt
     [EOF]
@@ -1462,7 +1462,7 @@ fn test_run_restore_descendants_preserves_content() {
         .run_jj(&["file", "list", "-r", "c"])
         .success()
         .stdout,
-        @r"
+        @"
     file
     [EOF]
     "
@@ -1470,7 +1470,7 @@ fn test_run_restore_descendants_preserves_content() {
 
     assert_snapshot!(
         work_dir.run_jj(&["diff", "--from=a", "--to=b", "--git"]).success().stdout,
-        @r"
+        @"
     diff --git a/file b/file
     index 7898192261..6178079822 100644
     --- a/file
@@ -1489,7 +1489,7 @@ fn test_run_restore_descendants_preserves_content() {
     );
     assert_snapshot!(
         work_dir.run_jj(&["diff", "--from=b", "--to=c", "--git"]).success().stdout,
-        @r"
+        @"
     diff --git a/file b/file
     index 6178079822..f2ad6c76f0 100644
     --- a/file
@@ -1576,19 +1576,19 @@ fn test_run_parallel_changes_propagate_to_descendants() {
         ])
         .success();
 
-    assert_snapshot!(work_dir.run_jj(&["file", "list", "-r=@---"]).success().stdout,@r"
+    assert_snapshot!(work_dir.run_jj(&["file", "list", "-r=@---"]).success().stdout,@"
     a.txt
     newfile-qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu.txt
     [EOF]
     ");
-    assert_snapshot!(work_dir.run_jj(&["file", "list", "-r=@--"]).success().stdout,@r"
+    assert_snapshot!(work_dir.run_jj(&["file", "list", "-r=@--"]).success().stdout,@"
     a.txt
     b.txt
     newfile-qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu.txt
     newfile-rlvkpnrzqnoowoytxnquwvuryrwnrmlp.txt
     [EOF]
     ");
-    assert_snapshot!(work_dir.run_jj(&["file", "list", "-r=@-"]).success().stdout,@r"
+    assert_snapshot!(work_dir.run_jj(&["file", "list", "-r=@-"]).success().stdout,@"
     a.txt
     b.txt
     c.txt
@@ -1630,7 +1630,7 @@ fn test_run_ignore_changes_does_not_rewrite() {
             "touched.txt",
         ])
         .success();
-    insta::assert_snapshot!(output.stderr, @r"
+    insta::assert_snapshot!(output.stderr, @"
     Nothing changed.
     [EOF]
     ");
@@ -1643,7 +1643,7 @@ fn test_run_ignore_changes_does_not_rewrite() {
         work_dir
         .run_jj(&["file", "list", "-r", "a"])
         .success(),
-        @r"
+        @"
     file.txt
     [EOF]
     "
@@ -1763,7 +1763,7 @@ fn test_run_ignore_changes_conflicts_with_restore_descendants() {
         "true",
     ]);
     assert!(!output.status.success());
-    insta::assert_snapshot!(output.stderr, @r"
+    insta::assert_snapshot!(output.stderr, @"
     error: the argument '--ignore-changes' cannot be used with '--restore-descendants'
 
     Usage: jj run --ignore-changes <COMMAND> [ARGS]...
@@ -1819,7 +1819,7 @@ fn test_run_passthrough() {
 
     insta::assert_snapshot!(
         work_dir.run_jj(&["log", "-T", r#"change_id ++ " " ++ description ++ "\n""#, "-r", "..@"]),
-        @r"
+        @"
     @  kkmpptxzrspxrzommnulwmwkkqwworpl
     ○  rlvkpnrzqnoowoytxnquwvuryrwnrmlp B
     │
@@ -1855,11 +1855,12 @@ fn test_run_passthrough() {
         ]
     };
     let output = work_dir.run_jj(jj_args).success();
-    insta::assert_snapshot!(output.stdout, @"hello from passthrough
-hello from passthrough
-hello from passthrough
-[EOF]
-");
+    insta::assert_snapshot!(output.stdout, @"
+    hello from passthrough
+    hello from passthrough
+    hello from passthrough
+    [EOF]
+    ");
 }
 
 #[test]
@@ -1872,7 +1873,7 @@ fn test_run_passthrough_failure_rewrites_nothing() {
     work_dir.write_file("b.txt", "b");
     work_dir.run_jj(&["commit", "-m", "B"]).success();
     let log_before = get_log_output(&work_dir);
-    insta::assert_snapshot!(log_before, @r"
+    insta::assert_snapshot!(log_before, @"
     @  kkmpptxzrspxrzommnulwmwkkqwworpl
     ○  rlvkpnrzqnoowoytxnquwvuryrwnrmlpB
     │
@@ -1905,7 +1906,7 @@ fn test_run_passthrough_rejects_multi_job() {
         "true",
     ]);
     assert!(!output.status.success());
-    insta::assert_snapshot!(output.stderr, @r"
+    insta::assert_snapshot!(output.stderr, @"
     Error: cannot use --passthrough with more than one job
     [EOF]
     ");
@@ -1931,7 +1932,7 @@ fn test_run_on_conflicted_commit() {
     create_commit_with_files(&work_dir, "a", &["base"], &[("file", "a\n")]);
     create_commit_with_files(&work_dir, "b", &["base"], &[("file", "b\n")]);
     create_commit_with_files(&work_dir, "conflict", &["a", "b"], &[]);
-    insta::assert_snapshot!(work_dir.run_jj(&["resolve", "--list"]).success().stdout, @r"
+    insta::assert_snapshot!(work_dir.run_jj(&["resolve", "--list"]).success().stdout, @"
     file    2-sided conflict
     [EOF]
     ");
@@ -1950,7 +1951,7 @@ fn test_run_on_conflicted_commit() {
         "--tee",
         "touched.txt",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     x[EOF]
     ------- stderr -------
     Rewrote 1 commits.
@@ -1972,11 +1973,11 @@ fn test_run_on_conflicted_commit() {
     ");
 
     // The rewritten commit still conflicts in `file` and gained touched.txt.
-    insta::assert_snapshot!(work_dir.run_jj(&["resolve", "--list", "-r", "conflict"]).success().stdout, @r"
+    insta::assert_snapshot!(work_dir.run_jj(&["resolve", "--list", "-r", "conflict"]).success().stdout, @"
     file    2-sided conflict
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(&["file", "list", "-r", "conflict"]).success().stdout, @r"
+    insta::assert_snapshot!(work_dir.run_jj(&["file", "list", "-r", "conflict"]).success().stdout, @"
     file
     touched.txt
     [EOF]
@@ -2002,7 +2003,7 @@ fn test_run_touches_file_without_diff() {
     let output = work_dir
         .run_jj(&["run", "-r", "@-", "--", &fake_editor_path(), "file.txt"])
         .success();
-    insta::assert_snapshot!(output.stderr, @r"
+    insta::assert_snapshot!(output.stderr, @"
     Nothing changed.
     [EOF]
     ");
@@ -2059,7 +2060,7 @@ fn test_run_multi_commit_partial_diff() {
         .success()
         .normalize_backslash();
 
-    insta::assert_snapshot!(output.stderr, @r"
+    insta::assert_snapshot!(output.stderr, @"
     Skipped commit 9c0b665484a6ebf6770a7f72511c1a9c8ea75183: directory does not exist: sub
     Rewrote 1 commits.
     Working copy  (@) now at: kkmpptxz 54d102ff commit_b

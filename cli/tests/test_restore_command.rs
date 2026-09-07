@@ -66,7 +66,7 @@ fn test_restore() {
     [EOF]
     ");
     let output = work_dir.run_jj(["restore", "-c=@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits.
     Working copy  (@) now at: kkmpptxz faa5911c (conflict) (no description set)
@@ -106,7 +106,7 @@ fn test_restore() {
     // Can restore into other revision
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["restore", "--into", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits.
     Working copy  (@) now at: kkmpptxz 5edd8125 (empty) (no description set)
@@ -126,7 +126,7 @@ fn test_restore() {
     // Can combine `--from` and `--into`
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["restore", "--from", "@", "--into", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits.
     Working copy  (@) now at: kkmpptxz 9807d79b (empty) (no description set)
@@ -314,7 +314,7 @@ fn test_restore_restore_descendants() {
     // Commit "b" was not supposed to modify "file", restore it from its parent
     // while preserving its child commit content.
     let output = work_dir.run_jj(["restore", "-c", "b", "file", "--restore-descendants"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits (while preserving their content).
     Working copy  (@) now at: vruxwmqv 14c0c336 ab | ab

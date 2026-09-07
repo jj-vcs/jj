@@ -211,7 +211,7 @@ backend = "test"
         ])
         .success();
     let output = work_dir.run_jj(["sign", "-r", "..@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Signed 3 commits:
       qpvuntsm 2c0b7924 (empty) one
@@ -261,7 +261,7 @@ backend = "test"
     work_dir.run_jj(["desc", "-m", "C"]).success();
 
     let output = work_dir.run_jj(["sign", "-r", "@|@--"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Signed 2 commits:
       qpvuntsm 0e149d92 (empty) A
@@ -349,7 +349,7 @@ backend = "test"
 
     // Unsign a single commit, resigning the descendant
     let output = work_dir.run_jj(["unsign", "-r", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Unsigned 1 commits:
       kkmpptxz 9efcace6 (empty) three
@@ -375,7 +375,7 @@ backend = "test"
 
     // Unsign multiple commits, with both signed and unsigned descendants
     let output = work_dir.run_jj(["unsign", "-r", "..@--"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Unsigned 2 commits:
       qpvuntsm d265d645 (empty) one
@@ -442,7 +442,7 @@ backend = "test"
     };
 
     let (_, stderr) = run_jj_as_someone_else(&["unsign", "-r", "..@"]);
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(stderr, @"
     Unsigned 4 commits:
       qpvuntsm 4430b844 (empty) one
       rlvkpnrz 65d9cdf7 (empty) two

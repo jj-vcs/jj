@@ -124,7 +124,7 @@ fn test_git_init_internal_no_integrate_operation() {
         &workspace_root,
         &["git", "init", "--no-integrate-operation"],
     );
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: --no-integrate-operation is not respected
     [EOF]

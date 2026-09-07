@@ -560,7 +560,7 @@ fn test_show_multiple_revisions() {
             .collect()
     });
 
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:10)
     Committer: Test User <test.user@example.com> (2001-02-03 08:05:10)
 
@@ -571,9 +571,9 @@ fn test_show_multiple_revisions() {
     +++ b/file1
     @@ -1,1 +1,1 @@
     -a
-    \\ No newline at end of file
+    \ No newline at end of file
     +c
-    \\ No newline at end of file
+    \ No newline at end of file
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
     Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
 
@@ -585,7 +585,7 @@ fn test_show_multiple_revisions() {
     +++ b/file2
     @@ -0,0 +1,1 @@
     +b
-    \\ No newline at end of file
+    \ No newline at end of file
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:08)
     Committer: Test User <test.user@example.com> (2001-02-03 08:05:08)
 
@@ -597,7 +597,7 @@ fn test_show_multiple_revisions() {
     +++ b/file1
     @@ -0,0 +1,1 @@
     +a
-    \\ No newline at end of file
+    \ No newline at end of file
     [EOF]
     ");
 }

@@ -344,7 +344,7 @@ fn test_duplicate_destination() {
 
     // Duplicate a single commit onto its descendant.
     let output = work_dir.run_jj(["duplicate", "a1", "-o", "a3"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 5d93a4b8f4bd as a descendant of itself.
     Duplicated 5d93a4b8f4bd as tlkvzzqu 8351ae70 (empty) a1
@@ -513,7 +513,7 @@ fn test_duplicate_insert_after() {
 
     // Duplicate a single commit after a single commit with no direct relationship.
     let output = work_dir.run_jj(["duplicate", "a1", "--after", "b1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Duplicated 5d93a4b8f4bd as nlrtlrxv 52959024 a1
     Rebased 1 commits onto duplicated commits.
@@ -541,7 +541,7 @@ fn test_duplicate_insert_after() {
 
     // Duplicate a single commit after a single ancestor commit.
     let output = work_dir.run_jj(["duplicate", "a3", "--after", "a1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 5fb83d2b58d6 as an ancestor of itself.
     Duplicated 5fb83d2b58d6 as uuuvxpvw f626655e a3
@@ -570,7 +570,7 @@ fn test_duplicate_insert_after() {
 
     // Duplicate a single commit after a single descendant commit.
     let output = work_dir.run_jj(["duplicate", "a1", "--after", "a3"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 5d93a4b8f4bd as a descendant of itself.
     Duplicated 5d93a4b8f4bd as pkstwlsy 610e8ba1 (empty) a1
@@ -600,7 +600,7 @@ fn test_duplicate_insert_after() {
     // Duplicate a single commit after multiple commits with no direct
     // relationship.
     let output = work_dir.run_jj(["duplicate", "a1", "--after", "b1", "--after", "c1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Duplicated 5d93a4b8f4bd as zowrlwsv a78c25cc a1
     Rebased 2 commits onto duplicated commits.
@@ -630,7 +630,7 @@ fn test_duplicate_insert_after() {
 
     // Duplicate a single commit after multiple commits including an ancestor.
     let output = work_dir.run_jj(["duplicate", "a3", "--after", "a2", "--after", "b2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 5fb83d2b58d6 as an ancestor of itself.
     Duplicated 5fb83d2b58d6 as wvmqtotl 0824a995 a3
@@ -660,7 +660,7 @@ fn test_duplicate_insert_after() {
 
     // Duplicate a single commit after multiple commits including a descendant.
     let output = work_dir.run_jj(["duplicate", "a1", "--after", "a3", "--after", "b2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 5d93a4b8f4bd as a descendant of itself.
     Duplicated 5d93a4b8f4bd as opwsxtwu 7548fb00 (empty) a1
@@ -691,7 +691,7 @@ fn test_duplicate_insert_after() {
     // Duplicate multiple commits without a direct ancestry relationship after a
     // single commit without a direct relationship.
     let output = work_dir.run_jj(["duplicate", "a1", "b1", "--after", "c1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Duplicated 5d93a4b8f4bd as ukwxllxp 0cedc1c7 a1
     Duplicated 6a9343b8797a as yrwmsomt 0d18a4ba b1
@@ -724,7 +724,7 @@ fn test_duplicate_insert_after() {
     // Duplicate multiple commits without a direct ancestry relationship after a
     // single commit which is an ancestor of one of the duplicated commits.
     let output = work_dir.run_jj(["duplicate", "a3", "b1", "--after", "a2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 5fb83d2b58d6 as an ancestor of itself.
     Duplicated 5fb83d2b58d6 as szrrkvty 5ea1ddf1 a3
@@ -758,7 +758,7 @@ fn test_duplicate_insert_after() {
     // Duplicate multiple commits without a direct ancestry relationship after a
     // single commit which is a descendant of one of the duplicated commits.
     let output = work_dir.run_jj(["duplicate", "a1", "b1", "--after", "a3"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 5d93a4b8f4bd as a descendant of itself.
     Duplicated 5d93a4b8f4bd as ztnvrxlv 896deede (empty) a1
@@ -792,7 +792,7 @@ fn test_duplicate_insert_after() {
     // Duplicate multiple commits without a direct ancestry relationship after
     // multiple commits without a direct relationship to the duplicated commits.
     let output = work_dir.run_jj(["duplicate", "a1", "b1", "--after", "c1", "--after", "d1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Duplicated 5d93a4b8f4bd as muymlknp 7db83f0f a1
     Duplicated 6a9343b8797a as snrzyvry d10bd4dd b1
@@ -831,7 +831,7 @@ fn test_duplicate_insert_after() {
     // Duplicate multiple commits without a direct ancestry relationship after
     // multiple commits including an ancestor of one of the duplicated commits.
     let output = work_dir.run_jj(["duplicate", "a3", "b1", "--after", "a1", "--after", "c1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 5fb83d2b58d6 as an ancestor of itself.
     Duplicated 5fb83d2b58d6 as vnqwxmpr 749e7782 a3
@@ -867,7 +867,7 @@ fn test_duplicate_insert_after() {
     // Duplicate multiple commits without a direct ancestry relationship after
     // multiple commits including a descendant of one of the duplicated commits.
     let output = work_dir.run_jj(["duplicate", "a1", "b1", "--after", "a3", "--after", "c2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 5d93a4b8f4bd as a descendant of itself.
     Duplicated 5d93a4b8f4bd as qtvkyytt e9ac46df (empty) a1
@@ -932,7 +932,7 @@ fn test_duplicate_insert_after() {
     // Duplicate multiple commits with an ancestry relationship after a single
     // ancestor commit.
     let output = work_dir.run_jj(["duplicate", "a2", "a3", "--after", "a1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 5fb83d2b58d6 as an ancestor of itself.
     Warning: Duplicating commit 7bfd9fbe959c as an ancestor of itself.
@@ -965,7 +965,7 @@ fn test_duplicate_insert_after() {
     // Duplicate multiple commits with an ancestry relationship after a single
     // descendant commit.
     let output = work_dir.run_jj(["duplicate", "a1", "a2", "--after", "a3"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 7bfd9fbe959c as a descendant of itself.
     Warning: Duplicating commit 5d93a4b8f4bd as a descendant of itself.
@@ -1029,7 +1029,7 @@ fn test_duplicate_insert_after() {
     // Duplicate multiple commits with an ancestry relationship after multiple
     // commits including an ancestor of one of the duplicated commits.
     let output = work_dir.run_jj(["duplicate", "a3", "a4", "--after", "a2", "--after", "c2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit e9b68b6313be as an ancestor of itself.
     Warning: Duplicating commit 5fb83d2b58d6 as an ancestor of itself.
@@ -1063,7 +1063,7 @@ fn test_duplicate_insert_after() {
     // Duplicate multiple commits with an ancestry relationship after multiple
     // commits including a descendant of one of the duplicated commits.
     let output = work_dir.run_jj(["duplicate", "a1", "a2", "--after", "a3", "--after", "c2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 7bfd9fbe959c as a descendant of itself.
     Warning: Duplicating commit 5d93a4b8f4bd as a descendant of itself.
@@ -1143,7 +1143,7 @@ fn test_duplicate_insert_before() {
 
     // Duplicate a single commit before a single commit with no direct relationship.
     let output = work_dir.run_jj(["duplicate", "a1", "--before", "b2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Duplicated 5d93a4b8f4bd as nlrtlrxv 52959024 a1
     Rebased 1 commits onto duplicated commits.
@@ -1171,7 +1171,7 @@ fn test_duplicate_insert_before() {
 
     // Duplicate a single commit before a single ancestor commit.
     let output = work_dir.run_jj(["duplicate", "a3", "--before", "a1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 5fb83d2b58d6 as an ancestor of itself.
     Duplicated 5fb83d2b58d6 as uuuvxpvw cbb38dd4 a3
@@ -1200,7 +1200,7 @@ fn test_duplicate_insert_before() {
 
     // Duplicate a single commit before a single descendant commit.
     let output = work_dir.run_jj(["duplicate", "a1", "--before", "a3"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 5d93a4b8f4bd as a descendant of itself.
     Duplicated 5d93a4b8f4bd as pkstwlsy e6dcd064 (empty) a1
@@ -1230,7 +1230,7 @@ fn test_duplicate_insert_before() {
     // Duplicate a single commit before multiple commits with no direct
     // relationship.
     let output = work_dir.run_jj(["duplicate", "a1", "--before", "b2", "--before", "c2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Duplicated 5d93a4b8f4bd as zowrlwsv a78c25cc a1
     Rebased 2 commits onto duplicated commits.
@@ -1260,7 +1260,7 @@ fn test_duplicate_insert_before() {
 
     // Duplicate a single commit before multiple commits including an ancestor.
     let output = work_dir.run_jj(["duplicate", "a3", "--before", "a2", "--before", "b2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 5fb83d2b58d6 as an ancestor of itself.
     Duplicated 5fb83d2b58d6 as wvmqtotl 388c8d9d a3
@@ -1291,7 +1291,7 @@ fn test_duplicate_insert_before() {
 
     // Duplicate a single commit before multiple commits including a descendant.
     let output = work_dir.run_jj(["duplicate", "a1", "--before", "a3", "--before", "b2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 5d93a4b8f4bd as a descendant of itself.
     Duplicated 5d93a4b8f4bd as opwsxtwu 644afaf1 (empty) a1
@@ -1323,7 +1323,7 @@ fn test_duplicate_insert_before() {
     // Duplicate multiple commits without a direct ancestry relationship before a
     // single commit without a direct relationship.
     let output = work_dir.run_jj(["duplicate", "a1", "b1", "--before", "c1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Duplicated 5d93a4b8f4bd as ukwxllxp 3323f9c3 a1
     Duplicated 6a9343b8797a as yrwmsomt a6ef0369 b1
@@ -1356,7 +1356,7 @@ fn test_duplicate_insert_before() {
     // Duplicate multiple commits without a direct ancestry relationship before a
     // single commit which is an ancestor of one of the duplicated commits.
     let output = work_dir.run_jj(["duplicate", "a3", "b1", "--before", "a2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 5fb83d2b58d6 as an ancestor of itself.
     Duplicated 5fb83d2b58d6 as szrrkvty fa34ba15 a3
@@ -1390,7 +1390,7 @@ fn test_duplicate_insert_before() {
     // Duplicate multiple commits without a direct ancestry relationship before a
     // single commit which is a descendant of one of the duplicated commits.
     let output = work_dir.run_jj(["duplicate", "a1", "b1", "--before", "a3"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 5d93a4b8f4bd as a descendant of itself.
     Duplicated 5d93a4b8f4bd as ztnvrxlv 4131a4c1 (empty) a1
@@ -1424,7 +1424,7 @@ fn test_duplicate_insert_before() {
     // Duplicate multiple commits without a direct ancestry relationship before
     // multiple commits without a direct relationship to the duplicated commits.
     let output = work_dir.run_jj(["duplicate", "a1", "b1", "--before", "c1", "--before", "d1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Duplicated 5d93a4b8f4bd as muymlknp 9add628e a1
     Duplicated 6a9343b8797a as snrzyvry b63fdd54 b1
@@ -1460,7 +1460,7 @@ fn test_duplicate_insert_before() {
     // Duplicate multiple commits without a direct ancestry relationship before
     // multiple commits including an ancestor of one of the duplicated commits.
     let output = work_dir.run_jj(["duplicate", "a3", "b1", "--before", "a1", "--before", "c1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 5fb83d2b58d6 as an ancestor of itself.
     Duplicated 5fb83d2b58d6 as vnqwxmpr 73f3594f a3
@@ -1494,7 +1494,7 @@ fn test_duplicate_insert_before() {
     // Duplicate multiple commits without a direct ancestry relationship before
     // multiple commits including a descendant of one of the duplicated commits.
     let output = work_dir.run_jj(["duplicate", "a1", "b1", "--before", "a3", "--before", "c2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 5d93a4b8f4bd as a descendant of itself.
     Duplicated 5d93a4b8f4bd as qtvkyytt 2a37f838 (empty) a1
@@ -1530,7 +1530,7 @@ fn test_duplicate_insert_before() {
     // Duplicate multiple commits with an ancestry relationship before a single
     // commit without a direct relationship.
     let output = work_dir.run_jj(["duplicate", "a1", "a3", "--before", "c2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Duplicated 5d93a4b8f4bd as qowqnpnw 1cd05f49 a1
     Duplicated 5fb83d2b58d6 as mommxqln 51d00be6 a3
@@ -1561,7 +1561,7 @@ fn test_duplicate_insert_before() {
     // Duplicate multiple commits with an ancestry relationship before a single
     // ancestor commit.
     let output = work_dir.run_jj(["duplicate", "a1", "a3", "--before", "a1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 5fb83d2b58d6 as an ancestor of itself.
     Warning: Duplicating commit 5d93a4b8f4bd as an ancestor of itself.
@@ -1594,7 +1594,7 @@ fn test_duplicate_insert_before() {
     // Duplicate multiple commits with an ancestry relationship before a single
     // descendant commit.
     let output = work_dir.run_jj(["duplicate", "a1", "a2", "--before", "a3"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 7bfd9fbe959c as a descendant of itself.
     Warning: Duplicating commit 5d93a4b8f4bd as a descendant of itself.
@@ -1627,7 +1627,7 @@ fn test_duplicate_insert_before() {
     // Duplicate multiple commits with an ancestry relationship before multiple
     // commits without a direct relationship to the duplicated commits.
     let output = work_dir.run_jj(["duplicate", "a1", "a3", "--before", "c2", "--before", "d2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Duplicated 5d93a4b8f4bd as ysllonyo b9b23a94 a1
     Duplicated 5fb83d2b58d6 as kzxwzvzw 22d5f430 a3
@@ -1663,7 +1663,7 @@ fn test_duplicate_insert_before() {
     // Duplicate multiple commits with an ancestry relationship before multiple
     // commits including an ancestor of one of the duplicated commits.
     let output = work_dir.run_jj(["duplicate", "a3", "a4", "--before", "a2", "--before", "c2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit e9b68b6313be as an ancestor of itself.
     Warning: Duplicating commit 5fb83d2b58d6 as an ancestor of itself.
@@ -1698,7 +1698,7 @@ fn test_duplicate_insert_before() {
     // Duplicate multiple commits with an ancestry relationship before multiple
     // commits including a descendant of one of the duplicated commits.
     let output = work_dir.run_jj(["duplicate", "a1", "a2", "--before", "a3", "--before", "c2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 7bfd9fbe959c as a descendant of itself.
     Warning: Duplicating commit 5d93a4b8f4bd as a descendant of itself.
@@ -1779,7 +1779,7 @@ fn test_duplicate_insert_after_before() {
 
     // Duplicate a single commit in between commits with no direct relationship.
     let output = work_dir.run_jj(["duplicate", "a1", "--before", "b2", "--after", "c2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Duplicated 5d93a4b8f4bd as nlrtlrxv 16aac4ae a1
     Rebased 1 commits onto duplicated commits.
@@ -1808,7 +1808,7 @@ fn test_duplicate_insert_after_before() {
 
     // Duplicate a single commit in between ancestor commits.
     let output = work_dir.run_jj(["duplicate", "a3", "--before", "a2", "--after", "a1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 5fb83d2b58d6 as an ancestor of itself.
     Duplicated 5fb83d2b58d6 as uuuvxpvw f626655e a3
@@ -1838,7 +1838,7 @@ fn test_duplicate_insert_after_before() {
     // Duplicate a single commit in between an ancestor commit and a commit with no
     // direct relationship.
     let output = work_dir.run_jj(["duplicate", "a3", "--before", "a2", "--after", "b2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 5fb83d2b58d6 as an ancestor of itself.
     Duplicated 5fb83d2b58d6 as pkstwlsy 99b4ea10 a3
@@ -1868,7 +1868,7 @@ fn test_duplicate_insert_after_before() {
 
     // Duplicate a single commit in between descendant commits.
     let output = work_dir.run_jj(["duplicate", "a1", "--after", "a3", "--before", "a4"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 5d93a4b8f4bd as a descendant of itself.
     Duplicated 5d93a4b8f4bd as zowrlwsv 5ba52649 (empty) a1
@@ -1898,7 +1898,7 @@ fn test_duplicate_insert_after_before() {
     // Duplicate a single commit in between a descendant commit and a commit with no
     // direct relationship.
     let output = work_dir.run_jj(["duplicate", "a1", "--after", "a3", "--before", "b2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 5d93a4b8f4bd as a descendant of itself.
     Duplicated 5d93a4b8f4bd as wvmqtotl ef1e2f46 (empty) a1
@@ -1930,7 +1930,7 @@ fn test_duplicate_insert_after_before() {
     // Duplicate a single commit in between an ancestor commit and a descendant
     // commit.
     let output = work_dir.run_jj(["duplicate", "a2", "--after", "a1", "--before", "a4"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Duplicated 7bfd9fbe959c as opwsxtwu c9d7dee9 a2
     Rebased 1 commits onto duplicated commits.
@@ -1961,7 +1961,7 @@ fn test_duplicate_insert_after_before() {
     // Duplicate multiple commits without a direct ancestry relationship between
     // commits without a direct relationship.
     let output = work_dir.run_jj(["duplicate", "a1", "b1", "--after", "c1", "--before", "d2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Duplicated 5d93a4b8f4bd as ukwxllxp 0cedc1c7 a1
     Duplicated 6a9343b8797a as yrwmsomt 0d18a4ba b1
@@ -2001,7 +2001,7 @@ fn test_duplicate_insert_after_before() {
     // commit which is an ancestor of one of the duplicated commits and a commit
     // with no direct relationship.
     let output = work_dir.run_jj(["duplicate", "a3", "b1", "--after", "a2", "--before", "c2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Duplicated 5fb83d2b58d6 as szrrkvty 5ea1ddf1 a3
     Duplicated 6a9343b8797a as wvmrymqu 8081d164 b1
@@ -2036,7 +2036,7 @@ fn test_duplicate_insert_after_before() {
     // commit which is a descendant of one of the duplicated commits and a
     // commit with no direct relationship.
     let output = work_dir.run_jj(["duplicate", "a1", "b1", "--after", "a3", "--before", "c2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 5d93a4b8f4bd as a descendant of itself.
     Duplicated 5d93a4b8f4bd as ztnvrxlv 896deede (empty) a1
@@ -2071,7 +2071,7 @@ fn test_duplicate_insert_after_before() {
     // Duplicate multiple commits without a direct ancestry relationship between
     // commits without a direct relationship to the duplicated commits.
     let output = work_dir.run_jj(["duplicate", "a1", "b1", "--after", "c1", "--before", "d2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Duplicated 5d93a4b8f4bd as muymlknp e3890eb5 a1
     Duplicated 6a9343b8797a as snrzyvry d3066453 b1
@@ -2110,7 +2110,7 @@ fn test_duplicate_insert_after_before() {
     // Duplicate multiple commits with an ancestry relationship between
     // commits without a direct relationship to the duplicated commits.
     let output = work_dir.run_jj(["duplicate", "a1", "a3", "--after", "c1", "--before", "d2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Duplicated 5d93a4b8f4bd as vnqwxmpr 0a6ab30c a1
     Duplicated 5fb83d2b58d6 as pvqonzsn eb5c8329 a3
@@ -2148,7 +2148,7 @@ fn test_duplicate_insert_after_before() {
     // which is an ancestor of one of the duplicated commits and a commit
     // without a direct relationship.
     let output = work_dir.run_jj(["duplicate", "a3", "a4", "--after", "a2", "--before", "c2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Duplicated 5fb83d2b58d6 as qtvkyytt 92720226 a3
     Duplicated e9b68b6313be as ouvslmur c565fb9e a4
@@ -2182,7 +2182,7 @@ fn test_duplicate_insert_after_before() {
     // which is a a descendant of one of the duplicated commits and a commit
     // with no direct relationship.
     let output = work_dir.run_jj(["duplicate", "a1", "a2", "--before", "a3", "--after", "c2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Duplicated 5d93a4b8f4bd as qowqnpnw 0478473b a1
     Duplicated 7bfd9fbe959c as mommxqln fd58dece a2
@@ -2214,7 +2214,7 @@ fn test_duplicate_insert_after_before() {
     // Duplicate multiple commits with an ancestry relationship between descendant
     // commits.
     let output = work_dir.run_jj(["duplicate", "a3", "a4", "--after", "a1", "--before", "a2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit e9b68b6313be as an ancestor of itself.
     Warning: Duplicating commit 5fb83d2b58d6 as an ancestor of itself.
@@ -2247,7 +2247,7 @@ fn test_duplicate_insert_after_before() {
     // Duplicate multiple commits with an ancestry relationship between ancestor
     // commits.
     let output = work_dir.run_jj(["duplicate", "a1", "a2", "--after", "a3", "--before", "a4"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 7bfd9fbe959c as a descendant of itself.
     Warning: Duplicating commit 5d93a4b8f4bd as a descendant of itself.
@@ -2280,7 +2280,7 @@ fn test_duplicate_insert_after_before() {
     // Duplicate multiple commits with an ancestry relationship between an ancestor
     // commit and a descendant commit.
     let output = work_dir.run_jj(["duplicate", "a2", "a3", "--after", "a1", "--before", "a4"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Duplicated 7bfd9fbe959c as ysllonyo b3b3e9e3 a2
     Duplicated 5fb83d2b58d6 as kzxwzvzw b5e1d0bf a3
@@ -2403,7 +2403,7 @@ fn test_rebase_duplicates() {
     ");
 
     let output = work_dir.run_jj(["rebase", "-s", "b", "-o", "root()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 4 commits to destination.
     Working copy  (@) now at: royxmykx fa60711d c | c
@@ -2457,7 +2457,7 @@ fn test_duplicate_description_template() {
 
     // Test duplicate_commits_onto_parents()
     let output = work_dir.run_jj(["duplicate", "a", "-B", "b"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 7d980be7a1d4 as a descendant of itself.
     Duplicated 7d980be7a1d4 as znkkpsqq fdd77a5e (empty) a

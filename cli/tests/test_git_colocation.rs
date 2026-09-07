@@ -400,21 +400,21 @@ fn test_git_colocation_in_secondary_workspace() {
     let secondary_dir = test_env.work_dir("secondary");
 
     let output = secondary_dir.run_jj(["git", "colocation", "status"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @"
     Workspace 'secondary' is currently not colocated with Git.
     Last imported/exported Git HEAD: (none)
     [EOF]
     ------- stderr -------
     Hint: To enable colocation, run: `jj git colocation enable`
     [EOF]
-    "#);
+    ");
 
     let output = secondary_dir.run_jj(["git", "colocation", "enable"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Workspace successfully converted into a colocated Jujutsu/Git workspace.
     [EOF]
-    "#);
+    ");
     assert!(test_env.env_root().join("secondary/.git").is_file());
 
     let output = secondary_dir.run_jj(["git", "colocation", "disable"]);
@@ -447,21 +447,21 @@ fn test_git_colocation_enable_disable_child_workspace() {
     assert!(!test_env.env_root().join("secondary/.git").exists());
 
     let output = secondary_dir.run_jj(["git", "colocation", "status"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @"
     Workspace 'secondary' is currently not colocated with Git.
     Last imported/exported Git HEAD: (none)
     [EOF]
     ------- stderr -------
     Hint: To enable colocation, run: `jj git colocation enable`
     [EOF]
-    "#);
+    ");
 
     let output = secondary_dir.run_jj(["git", "colocation", "enable"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Workspace successfully converted into a colocated Jujutsu/Git workspace.
     [EOF]
-    "#);
+    ");
     assert!(test_env.env_root().join("secondary/.git").is_file());
 
     // The workspace's .jj directory must be excluded, or Git would report it as
@@ -497,11 +497,11 @@ fn test_git_colocation_enable_disable_child_workspace() {
     "#);
 
     let output = secondary_dir.run_jj(["git", "colocation", "status", "--quiet"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @"
     Workspace 'secondary' is currently colocated with Git.
     Last imported/exported Git HEAD: 7b22a8cbe888adcb4d5ff6dd46a38049e870c6ab
     [EOF]
-    "#);
+    ");
 
     let output = secondary_dir.run_jj(["git", "colocation", "disable"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r#"
@@ -519,11 +519,11 @@ fn test_git_colocation_enable_disable_child_workspace() {
     );
 
     let output = secondary_dir.run_jj(["git", "colocation", "status", "--quiet"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @"
     Workspace 'secondary' is currently not colocated with Git.
     Last imported/exported Git HEAD: (none)
     [EOF]
-    "#);
+    ");
 }
 
 #[test]
@@ -544,12 +544,12 @@ fn test_git_colocation_enable_child_workspace_with_existing_git_dir() -> TestRes
     let worktree_count = main_repo.worktrees()?.len();
 
     let output = secondary_dir.run_jj(["git", "colocation", "enable"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: A .git file or directory already exists in the Git worktree destination
     [EOF]
     [exit status: 1]
-    "#);
+    ");
     assert_eq!(main_repo.worktrees()?.len(), worktree_count);
     Ok(())
 }

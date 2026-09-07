@@ -561,7 +561,7 @@ fn test_git_colocated_rebase_on_import() -> TestResult {
         gix::refs::transaction::PreviousValue::Any,
         "update ref",
     )?;
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  d46583362b91d0e172aec469ea1689995540de81
     ○  cbd6c887108743a4abb0919305646a6a914a665e master add a file
     ◆  0000000000000000000000000000000000000000
@@ -933,7 +933,7 @@ fn test_git_colocated_fetch_deleted_or_moved_bookmark() -> TestResult {
         .run_jj(["describe", "C_to_move", "-m", "moved C"])
         .success();
     let output = clone_dir.run_jj(["git", "fetch"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: B_to_delete@origin [deleted] untracked
     bookmark: C_to_move@origin   [updated] tracked

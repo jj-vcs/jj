@@ -141,7 +141,7 @@ fn test_diffedit() -> TestResult {
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(&edit_script, "write file3\nmodified\n")?;
     let output = work_dir.run_jj(["diffedit", "-r", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits.
     Working copy  (@) now at: kkmpptxz 9f0ebae1 (no description set)
@@ -214,7 +214,7 @@ fn test_diffedit() -> TestResult {
         .join("\0"),
     )?;
     let output = work_dir.run_jj(["diffedit", "--to", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits.
     Working copy  (@) now at: kkmpptxz 9a4e9bcc (no description set)
@@ -271,7 +271,7 @@ fn test_diffedit_file_by_file() -> TestResult {
         .join("\0"),
     )?;
     let output = work_dir.run_jj(["diffedit"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ==
     file1
     --
@@ -478,7 +478,7 @@ fn test_diffedit_external_tool_conflict_marker_style() -> TestResult {
         .join("\0"),
     )?;
     let output = work_dir.run_jj(["diffedit"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: mzvwutvl a2e4617e (conflict) (empty) (no description set)
     Parent commit (@-)      : rlvkpnrz 74e448a1 side-a
@@ -720,7 +720,7 @@ fn test_diffedit_merge() -> TestResult {
         "files-before file1\0files-after JJ-INSTRUCTIONS file1 file3\0rm file1",
     )?;
     let output = work_dir.run_jj(["diffedit", "-r", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits.
     Working copy  (@) now at: yqosqzyt 9fc53f3e (conflict) (empty) (no description set)
@@ -872,7 +872,7 @@ fn test_diffedit_restore_descendants() -> TestResult {
     // Add a ";" after the line with "bar". There should be no conflict.
     std::fs::write(edit_script, "write file\nprintln!(\"bar\");\n")?;
     let output = work_dir.run_jj(["diffedit", "-r", "@-", "--restore-descendants"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits (while preserving their content).
     Working copy  (@) now at: kkmpptxz a35ef1a5 (no description set)

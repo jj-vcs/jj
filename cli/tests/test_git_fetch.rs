@@ -1025,7 +1025,7 @@ fn test_git_fetch_all() {
     [EOF]
     ");
     let output = target_dir.run_jj(["git", "fetch"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: a1@origin     [updated] tracked
     bookmark: a2@origin     [updated] tracked
@@ -1215,7 +1215,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
     [EOF]
     "#);
     let output = target_dir.run_jj(["git", "fetch", "--branch=~(a2 | trunk*)"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: a1@origin [updated] tracked
     bookmark: b@origin  [updated] tracked
@@ -1254,7 +1254,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
     // Now, let's fetch a2 and double-check that fetching a1 and b again doesn't do
     // anything.
     let output = target_dir.run_jj(["git", "fetch", "--branch", "b", "--branch", "a*"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: a2@origin [updated] tracked
     Updated 1 rewritten commits.
@@ -2102,7 +2102,7 @@ fn test_git_fetch_remotely_rewritten() {
 
     // Fetch the rewritten revisions
     let output = local_dir.run_jj(["git", "fetch"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: book@origin [updated] untracked
     Updated 2 rewritten commits.
@@ -2140,7 +2140,7 @@ fn test_git_fetch_remotely_rewritten() {
     // Undo the previous fetch and try again, which unhides abandoned revisions
     local_dir.run_jj(["op", "restore", &setup_op_id]).success();
     let output = local_dir.run_jj(["git", "fetch"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: book@origin [updated] untracked
     Updated 2 rewritten commits.
@@ -2212,7 +2212,7 @@ fn test_git_fetch_remotely_rewritten_no_synthetic_predecessors() {
 
     // Fetch the rewritten revision
     let output = local_dir.run_jj(["git", "fetch"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: book@origin [updated] untracked
     Abandoned 2 commits that are no longer reachable:
@@ -2286,7 +2286,7 @@ fn test_git_fetch_remotely_rewritten_descendants() {
 
     // Fetch one of the rewritten branches
     let output = local_dir.run_jj(["git", "fetch", "--branch=book1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: book1@origin [updated] untracked
     Updated 2 rewritten commits.
@@ -2312,7 +2312,7 @@ fn test_git_fetch_remotely_rewritten_descendants() {
 
     // Fetch the other branch
     let output = local_dir.run_jj(["git", "fetch"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: book2@origin [updated] untracked
     Abandoned 1 commits that are no longer reachable:

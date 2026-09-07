@@ -869,21 +869,21 @@ fn test_aliases_are_completed(shell: Shell) {
         .take_stdout_n_lines(2);
     match shell {
         Shell::Bash => {
-            insta::assert_snapshot!(output, @r"
+            insta::assert_snapshot!(output, @"
             advance
             create
             [EOF]
             ");
         }
         Shell::Zsh => {
-            insta::assert_snapshot!(output, @r"
+            insta::assert_snapshot!(output, @"
             advance:Advance the closest bookmarks to a target revision
             create:Create a new bookmark
             [EOF]
             ");
         }
         Shell::Fish => {
-            insta::assert_snapshot!(output, @r"
+            insta::assert_snapshot!(output, @"
             advance	Advance the closest bookmarks to a target revision
             create	Create a new bookmark
             [EOF]
@@ -1268,8 +1268,7 @@ fn test_revisions_workspace_symbols() {
     // workspace working-copy symbols are not completed when there is only one
     // workspace
     let output = work_dir.complete_fish(["show", "def"]);
-    insta::assert_snapshot!(output, @"
-    ");
+    insta::assert_snapshot!(output, @"");
 
     work_dir
         .run_jj(["workspace", "add", "--name", "secondary", "../secondary"])

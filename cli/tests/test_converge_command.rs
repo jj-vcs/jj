@@ -35,7 +35,7 @@ fn test_converge_no_divergence() {
     create_commit_with_files(&work_dir, "c", &["a"], &[("file3", "c")]);
 
     // Test the setup
-    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @"
     @  c  royxmykx  78dcec21 - description: c
     │ ○  b  zsuskuln  056564da - description: b
     ├─╯
@@ -46,7 +46,7 @@ fn test_converge_no_divergence() {
 
     // Run `jj converge` command and check the output.
     let output = work_dir.run_jj(["converge"]).success();
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     No divergent changes found.
     [EOF]
@@ -72,7 +72,7 @@ fn test_converge_simple() {
     create_commit_with_files(&work_dir, "d", &["b1"], &[("file4", "4")]);
 
     // Test the setup: look at the commit graph, commit B is duplicated
-    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @"
     @  d  znkkpsqq  bf5126ef - description: d
     ○  b1  zsuskuln/1  59a77004 - description: b2
     │ ○  b2  zsuskuln/0  2c2bd25d - description: b2
@@ -84,7 +84,7 @@ fn test_converge_simple() {
     ");
 
     // Test the setup: look at the evolog
-    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @r"
+    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @"
     ○  zsuskuln/0 2c2bd25d (divergent) b2
     ○  zsuskuln/1 59a77004 (divergent) b2
     ○  zsuskuln/2 b2852eb2 (hidden) (empty) b2
@@ -94,7 +94,7 @@ fn test_converge_simple() {
     // Run `jj converge` command and check the output. In this case no user input is
     // needed.
     let output = work_dir.run_jj(["converge"]).success();
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 1 divergent change(s) in the specified revset:
     - Change: zsuskulnrvyr with 2 commits:
@@ -112,7 +112,7 @@ fn test_converge_simple() {
     ");
 
     // Verify the commit graph after converge
-    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @"
     @  d  znkkpsqq  696cf5e0 - description: d
     ○  b1 b2  zsuskuln  6b1ce5bc - description: b2
     ○  c  royxmykx  4343fc61 - description: c
@@ -122,7 +122,7 @@ fn test_converge_simple() {
     ");
 
     // Verify the evolution history after converge
-    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @r"
+    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @"
     ○    zsuskuln 6b1ce5bc b2
     ├─╮
     ○ │  zsuskuln/1 2c2bd25d (hidden) b2
@@ -166,7 +166,7 @@ fn test_converge_two_divergent_changes_in_non_interactive_mode() {
 
     // Test the setup: look at the commit graph (commit B is duplicated and commit E
     // is duplicated)
-    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @"
     @  g  xznxytkn  46658cae - description: g
     ○  e1  kmkuslsw/1  15962bae - description: e2
     │ ○  e2  kmkuslsw/0  b54f15d8 - description: e2
@@ -186,7 +186,7 @@ fn test_converge_two_divergent_changes_in_non_interactive_mode() {
     // Pass --non-interactive to jj converge command.
     let output =
         work_dir.run_jj_with(|cmd| force_interactive(cmd).args(["converge", "--no-interactive"]));
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 2 divergent change(s) in the specified revset:
     - Change: zsuskulnrvyr with 2 commits:
@@ -207,7 +207,7 @@ fn test_converge_two_divergent_changes_in_non_interactive_mode() {
     // by default, so the following also fails but for a different reason: it
     // cannot prompt the user
     let output = work_dir.run_jj(["converge"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 2 divergent change(s) in the specified revset:
     - Change: zsuskulnrvyr with 2 commits:
@@ -229,7 +229,7 @@ fn test_converge_two_divergent_changes_in_non_interactive_mode() {
 
     // Note: the invocation also fails if stdin is not connected to a terminal
     let output = work_dir.run_jj_with(|cmd| force_interactive(cmd).args(["converge"]));
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 2 divergent change(s) in the specified revset:
     - Change: zsuskulnrvyr with 2 commits:
@@ -282,7 +282,7 @@ fn test_converge_two_divergent_changes() {
 
     // Test the setup: look at the commit graph (commit B is duplicated and commit E
     // is duplicated)
-    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @"
     @  g  xznxytkn  46658cae - description: g
     ○  e1  kmkuslsw/1  15962bae - description: e2
     │ ○  e2  kmkuslsw/0  b54f15d8 - description: e2
@@ -300,7 +300,7 @@ fn test_converge_two_divergent_changes() {
     ");
 
     // Test the setup: look at the evolog
-    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @r"
+    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @"
     ○  zsuskuln/0 2c2bd25d (divergent) b2
     ○  zsuskuln/1 59a77004 (divergent) b2
     ○  zsuskuln/2 b2852eb2 (hidden) (empty) b2
@@ -308,7 +308,7 @@ fn test_converge_two_divergent_changes() {
     ");
 
     // Test the setup: look at the evolog
-    insta::assert_snapshot!(get_evolog(&work_dir, "e2"), @r"
+    insta::assert_snapshot!(get_evolog(&work_dir, "e2"), @"
     ○  kmkuslsw/0 b54f15d8 (divergent) e2
     ○  kmkuslsw/1 15962bae (divergent) e2
     ○  kmkuslsw/2 843de29d (hidden) (empty) e2
@@ -320,7 +320,7 @@ fn test_converge_two_divergent_changes() {
         .run_jj_with(|cmd| force_interactive(cmd).args(["converge"]).write_stdin("q\n"))
         .success();
 
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 2 divergent change(s) in the specified revset:
     - Change: zsuskulnrvyr with 2 commits:
@@ -349,7 +349,7 @@ fn test_converge_two_divergent_changes() {
         .run_jj_with(|cmd| force_interactive(cmd).args(["converge"]).write_stdin("1\n"))
         .success();
 
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 2 divergent change(s) in the specified revset:
     - Change: zsuskulnrvyr with 2 commits:
@@ -375,7 +375,7 @@ fn test_converge_two_divergent_changes() {
     ");
 
     // Verify the commit graph after converging the first divergent change
-    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @"
     @  g  xznxytkn  46658cae - description: g
     ○  e1  kmkuslsw/1  15962bae - description: e2
     │ ○  e2  kmkuslsw/0  b54f15d8 - description: e2
@@ -391,7 +391,7 @@ fn test_converge_two_divergent_changes() {
     ");
 
     // Verify the evolution history after converging the first divergent change
-    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @r"
+    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @"
     ○    zsuskuln ba447f02 b2
     ├─╮
     ○ │  zsuskuln/1 2c2bd25d (hidden) b2
@@ -403,7 +403,7 @@ fn test_converge_two_divergent_changes() {
 
     // Run converge a second time to converge the other divergent change
     let output = work_dir.run_jj(["converge"]).success();
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 1 divergent change(s) in the specified revset:
     - Change: kmkuslswpqwq with 2 commits:
@@ -421,7 +421,7 @@ fn test_converge_two_divergent_changes() {
     ");
 
     // Verify the commit graph after converging the second divergent change
-    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @"
     @  g  xznxytkn  f9fd4e7e - description: g
     ○  e1 e2  kmkuslsw  3f08d00a - description: e2
     ○  f  lylxulpl  d50e2761 - description: f
@@ -435,7 +435,7 @@ fn test_converge_two_divergent_changes() {
     ");
 
     // Verify the evolution history after converging the second divergent change
-    insta::assert_snapshot!(get_evolog(&work_dir, "e2"), @r"
+    insta::assert_snapshot!(get_evolog(&work_dir, "e2"), @"
     ○    kmkuslsw 3f08d00a e2
     ├─╮
     ○ │  kmkuslsw/1 b54f15d8 (hidden) e2
@@ -447,7 +447,7 @@ fn test_converge_two_divergent_changes() {
 
     // There are no more divergent changes now
     let output = work_dir.run_jj(["converge"]).success();
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     No divergent changes found.
     [EOF]
@@ -474,7 +474,7 @@ fn test_converge_simple_with_revisions_arg() {
     create_commit_with_files(&work_dir, "d", &["b1"], &[("file4", "4")]);
 
     // Test the setup (commit B is duplicated)
-    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @"
     @  d  znkkpsqq  bf5126ef - description: d
     ○  b1  zsuskuln/1  59a77004 - description: b2
     │ ○  b2  zsuskuln/0  2c2bd25d - description: b2
@@ -485,7 +485,7 @@ fn test_converge_simple_with_revisions_arg() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @r"
+    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @"
     ○  zsuskuln/0 2c2bd25d (divergent) b2
     ○  zsuskuln/1 59a77004 (divergent) b2
     ○  zsuskuln/2 b2852eb2 (hidden) (empty) b2
@@ -496,7 +496,7 @@ fn test_converge_simple_with_revisions_arg() {
     // revset there are no other commits with that change-id, so by design the
     // command does nothing (we could change that in the future).
     let output = work_dir.run_jj(["converge", "-r", "a::d"]).success();
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     No divergence found among the specified revisions.
     [EOF]
@@ -505,7 +505,7 @@ fn test_converge_simple_with_revisions_arg() {
     // `-r a::` resolves to {a, b1, b2, c, d}. Now the command "sees" two commits
     // with the same change-id and converges them.
     let output = work_dir.run_jj(["converge", "-r", "a::"]).success();
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 1 divergent change(s) in the specified revset:
     - Change: zsuskulnrvyr with 2 commits:
@@ -523,7 +523,7 @@ fn test_converge_simple_with_revisions_arg() {
     ");
 
     // Verify the commit graph after converge
-    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @"
     @  d  znkkpsqq  4080edbe - description: d
     ○  b1 b2  zsuskuln  5b9d3249 - description: b2
     ○  c  royxmykx  4343fc61 - description: c
@@ -533,7 +533,7 @@ fn test_converge_simple_with_revisions_arg() {
     ");
 
     // Verify the evolution history after converge
-    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @r"
+    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @"
     ○    zsuskuln 5b9d3249 b2
     ├─╮
     ○ │  zsuskuln/1 2c2bd25d (hidden) b2
@@ -585,7 +585,7 @@ fn test_converge_simple_with_revisions_arg_and_two_divergent_changes() {
 
     // Test the setup: look at the commit graph (commit B is duplicated and commit E
     // is duplicated)
-    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @"
     @  g  nmzmmopx  7e4fac7e - description: g
     ○  e2  kmkuslsw/0  c8976369 - description: blah blah blah
     │ ○  e3  kmkuslsw/1  d34ec64c - description: e3
@@ -605,7 +605,7 @@ fn test_converge_simple_with_revisions_arg_and_two_divergent_changes() {
     ");
 
     // Test the setup: look at the evolog
-    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @r"
+    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @"
     ○  zsuskuln/0 2c2bd25d (divergent) b2
     ○  zsuskuln/1 59a77004 (divergent) b2
     ○  zsuskuln/2 b2852eb2 (hidden) (empty) b2
@@ -613,7 +613,7 @@ fn test_converge_simple_with_revisions_arg_and_two_divergent_changes() {
     ");
 
     // Test the setup: look at the evolog
-    insta::assert_snapshot!(get_evolog(&work_dir, "e3"), @r"
+    insta::assert_snapshot!(get_evolog(&work_dir, "e3"), @"
     ○  kmkuslsw/1 d34ec64c (divergent) e3
     ○  kmkuslsw/2 faebbd68 (divergent) e3
     ○  kmkuslsw/3 8f5eb314 (hidden) (empty) e3
@@ -624,7 +624,7 @@ fn test_converge_simple_with_revisions_arg_and_two_divergent_changes() {
     // revset there are no other commits with that change-id, so by design the
     // command does nothing (we could change that in the future).
     let output = work_dir.run_jj(["converge", "-r", "a::d"]).success();
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     No divergence found among the specified revisions.
     [EOF]
@@ -639,7 +639,7 @@ fn test_converge_simple_with_revisions_arg_and_two_divergent_changes() {
                 .write_stdin("q\n")
         })
         .success();
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 2 divergent change(s) in the specified revset:
     - Change: zsuskulnrvyr with 2 commits:
@@ -671,7 +671,7 @@ fn test_converge_simple_with_revisions_arg_and_two_divergent_changes() {
                 .write_stdin("q\n")
         })
         .success();
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     No divergence found among the specified revisions.
     [EOF]
@@ -686,7 +686,7 @@ fn test_converge_simple_with_revisions_arg_and_two_divergent_changes() {
                 .write_stdin("q\n")
         })
         .success();
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 1 divergent change(s) in the specified revset:
     - Change: zsuskulnrvyr with 2 commits:
@@ -701,7 +701,7 @@ fn test_converge_simple_with_revisions_arg_and_two_divergent_changes() {
     ");
 
     // Look at the resulting commit graph
-    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @"
     @  g  nmzmmopx  7e4fac7e - description: g
     ○  e2  kmkuslsw/0  c8976369 - description: blah blah blah
     │ ○  e3  kmkuslsw/1  d34ec64c - description: e3
@@ -719,7 +719,7 @@ fn test_converge_simple_with_revisions_arg_and_two_divergent_changes() {
     ");
 
     // Verify the evolution history after converge
-    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @r"
+    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @"
     ○    zsuskuln 32d4597c b2
     ├─╮
     ○ │  zsuskuln/1 2c2bd25d (hidden) b2
@@ -741,7 +741,7 @@ fn test_converge_simple_with_revisions_arg_and_two_divergent_changes() {
                 .write_stdin("q\n")
         })
         .success();
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 1 divergent change(s) in the specified revset:
     - Change: kmkuslswpqwq with 2 commits:
@@ -755,7 +755,7 @@ fn test_converge_simple_with_revisions_arg_and_two_divergent_changes() {
     ");
 
     // Look at the resulting commit graph
-    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @"
     @  g  nmzmmopx  7e4fac7e - description: g
     ○  e2  kmkuslsw/1  c8976369 - description: blah blah blah
     │ ○  e1 e3  kmkuslsw/0  b5ce73ed - description: e3
@@ -773,7 +773,7 @@ fn test_converge_simple_with_revisions_arg_and_two_divergent_changes() {
     ");
 
     // Verify the evolution history after converge
-    insta::assert_snapshot!(get_evolog(&work_dir, "e3"), @r"
+    insta::assert_snapshot!(get_evolog(&work_dir, "e3"), @"
     ○    kmkuslsw/0 b5ce73ed (divergent) e3
     ├─╮
     ○ │  kmkuslsw/2 d34ec64c (hidden) e3
@@ -808,7 +808,7 @@ fn test_converge_one_side_rebased_one_side_description_changed() {
     create_commit_with_files(&work_dir, "d", &["b1"], &[("file4", "4")]);
 
     // Test the setup (commit B is duplicated)
-    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @"
     @  d  kpqxywon  16d29671 - description: d
     ○  b1  zsuskuln/0  d471c689 - description: blah blah blah
     │ ○  b2  zsuskuln/1  2c2bd25d - description: b2
@@ -819,7 +819,7 @@ fn test_converge_one_side_rebased_one_side_description_changed() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @r"
+    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @"
     ○  zsuskuln/1 2c2bd25d (divergent) b2
     ○  zsuskuln/2 59a77004 (hidden) b2
     ○  zsuskuln/3 b2852eb2 (hidden) (empty) b2
@@ -827,7 +827,7 @@ fn test_converge_one_side_rebased_one_side_description_changed() {
     ");
 
     let output = work_dir.run_jj(["converge"]).success();
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 1 divergent change(s) in the specified revset:
     - Change: zsuskulnrvyr with 2 commits:
@@ -845,7 +845,7 @@ fn test_converge_one_side_rebased_one_side_description_changed() {
     ");
 
     // Verify the commit graph after converge
-    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @"
     @  d  kpqxywon  405941e7 - description: d
     ○  b1 b2  zsuskuln  65226e3f - description: blah blah blah
     ○  c  royxmykx  4343fc61 - description: c
@@ -855,7 +855,7 @@ fn test_converge_one_side_rebased_one_side_description_changed() {
     ");
 
     // Verify the evolution history after converge
-    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @r"
+    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @"
     ○    zsuskuln 65226e3f blah blah blah
     ├─╮
     │ ○  zsuskuln/2 2c2bd25d (hidden) b2
@@ -891,7 +891,7 @@ fn test_converge_description_changed_inconsistently(invoke_text_editor: bool) ->
 
     // Test the setup (commit B is duplicated)
     insta::allow_duplicates! {
-        insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+        insta::assert_snapshot!(get_long_log_output(&work_dir), @"
         @  d  yostqsxw  a906f67a - description: d
         ○  b1  zsuskuln/0  0ec69b7a - description: bar
         │ ○  b2  zsuskuln/1  08117b18 - description: foo
@@ -903,7 +903,7 @@ fn test_converge_description_changed_inconsistently(invoke_text_editor: bool) ->
     }
 
     insta::allow_duplicates! {
-        insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @r"
+        insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @"
         ○  zsuskuln/1 08117b18 (divergent) foo
         ○  zsuskuln/2 59a77004 (hidden) b2
         ○  zsuskuln/3 b2852eb2 (hidden) (empty) b2
@@ -915,7 +915,7 @@ fn test_converge_description_changed_inconsistently(invoke_text_editor: bool) ->
     let output =
         work_dir.run_jj_with(|cmd| force_interactive(cmd).args(["converge", "--no-interactive"]));
     insta::allow_duplicates! {
-        insta::assert_snapshot!(output, @r"
+        insta::assert_snapshot!(output, @"
         ------- stderr -------
         Found 1 divergent change(s) in the specified revset:
         - Change: zsuskulnrvyr with 2 commits:
@@ -952,7 +952,7 @@ fn test_converge_description_changed_inconsistently(invoke_text_editor: bool) ->
         >>>>>>> conflict 1 of 1 ends
         "#);
         insta::assert_snapshot!(output.stdout.normalized(), @"");
-        insta::assert_snapshot!(output.stderr.normalized(), @r"
+        insta::assert_snapshot!(output.stderr.normalized(), @"
         Found 1 divergent change(s) in the specified revset:
         - Change: zsuskulnrvyr with 2 commits:
             zsuskuln/0 0ec69b7a b1 | (divergent) bar
@@ -971,7 +971,7 @@ fn test_converge_description_changed_inconsistently(invoke_text_editor: bool) ->
         ");
 
         // Verify the commit graph after converge
-        insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+        insta::assert_snapshot!(get_long_log_output(&work_dir), @"
         @  d  yostqsxw  a9dd817f - description: d
         ○  b1 b2  zsuskuln  a393891b - description: my-merged-des...
         ○  a  rlvkpnrz  e9a731d9 - description: a
@@ -980,7 +980,7 @@ fn test_converge_description_changed_inconsistently(invoke_text_editor: bool) ->
         ");
 
         // Verify the evolution history after converge
-        insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @r"
+        insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @"
         ○    zsuskuln a393891b my-merged-description
         ├─╮
         │ ○  zsuskuln/2 08117b18 (hidden) foo
@@ -994,7 +994,7 @@ fn test_converge_description_changed_inconsistently(invoke_text_editor: bool) ->
         let output = work_dir
             .run_jj_with(|cmd| force_interactive(cmd).args(["converge"]).write_stdin("n\n"))
             .success();
-        insta::assert_snapshot!(output, @r"
+        insta::assert_snapshot!(output, @"
         ------- stderr -------
         Found 1 divergent change(s) in the specified revset:
         - Change: zsuskulnrvyr with 2 commits:
@@ -1015,7 +1015,7 @@ fn test_converge_description_changed_inconsistently(invoke_text_editor: bool) ->
         ");
 
         // Verify the commit graph after converge
-        insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+        insta::assert_snapshot!(get_long_log_output(&work_dir), @"
         @  d  yostqsxw  6b108e95 - description: d
         ○  b1 b2  zsuskuln  6fdb1551 - description: <<<<<<< confl...
         ○  a  rlvkpnrz  e9a731d9 - description: a
@@ -1024,7 +1024,7 @@ fn test_converge_description_changed_inconsistently(invoke_text_editor: bool) ->
         ");
 
         // Verify the evolution history after converge
-        insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @r"
+        insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @"
         ○    zsuskuln 6fdb1551 <<<<<<< conflict 1 of 1
         ├─╮
         │ ○  zsuskuln/2 08117b18 (hidden) foo
@@ -1074,7 +1074,7 @@ fn test_converge_with_inconsistent_parents() {
     work_dir.run_jj(["rebase", "-r", "d1", "-o", "c"]).success();
 
     // Test the setup (commit D is duplicated)
-    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @"
     @  d2  vruxwmqv/1  c3de3020 - description: d2
     ○  b  zsuskuln  38bded60 - description: b
     │ ○  d1  vruxwmqv/0  4bcd1134 - description: d2
@@ -1086,14 +1086,14 @@ fn test_converge_with_inconsistent_parents() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_evolog(&work_dir, "d1"), @r"
+    insta::assert_snapshot!(get_evolog(&work_dir, "d1"), @"
     ○  vruxwmqv/0 4bcd1134 (divergent) d2
     ○  vruxwmqv/2 459038a5 (hidden) d2
     ○  vruxwmqv/3 b31c58cf (hidden) (empty) d2
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_evolog(&work_dir, "d2"), @r"
+    insta::assert_snapshot!(get_evolog(&work_dir, "d2"), @"
     @  vruxwmqv/1 c3de3020 (divergent) d2
     ○  vruxwmqv/2 459038a5 (hidden) d2
     ○  vruxwmqv/3 b31c58cf (hidden) (empty) d2
@@ -1104,7 +1104,7 @@ fn test_converge_with_inconsistent_parents() {
     // which parents to use, so it should fail.
     let output =
         work_dir.run_jj_with(|cmd| force_interactive(cmd).args(["converge", "--no-interactive"]));
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 1 divergent change(s) in the specified revset:
     - Change: vruxwmqvtpmx with 2 commits:
@@ -1122,7 +1122,7 @@ fn test_converge_with_inconsistent_parents() {
     // Run the command again, but this time choose to abort at the prompt.
     let output =
         work_dir.run_jj_with(|cmd| force_interactive(cmd).args(["converge"]).write_stdin("q\n"));
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 1 divergent change(s) in the specified revset:
     - Change: vruxwmqvtpmx with 2 commits:
@@ -1147,7 +1147,7 @@ fn test_converge_with_inconsistent_parents() {
     // Run the command one more time, this time the user chooses parents.
     let output =
         work_dir.run_jj_with(|cmd| force_interactive(cmd).args(["converge"]).write_stdin("2\n"));
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 1 divergent change(s) in the specified revset:
     - Change: vruxwmqvtpmx with 2 commits:
@@ -1171,7 +1171,7 @@ fn test_converge_with_inconsistent_parents() {
     ");
 
     // Verify the commit graph after converge
-    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @"
     @  d1 d2  vruxwmqv  5a4258f7 - description: d2
     ○  b  zsuskuln  38bded60 - description: b
     │ ○  c  royxmykx  b616a3ce - description: c
@@ -1183,7 +1183,7 @@ fn test_converge_with_inconsistent_parents() {
     ");
 
     // Verify the evolution history after converge
-    insta::assert_snapshot!(get_evolog(&work_dir, "d2"), @r"
+    insta::assert_snapshot!(get_evolog(&work_dir, "d2"), @"
     @    vruxwmqv 5a4258f7 d2
     ├─╮
     │ ○  vruxwmqv/2 c3de3020 (hidden) d2
@@ -1273,7 +1273,7 @@ fn test_converge_one_divergent_commit_is_a_descendant_of_another_divergent_commi
 
     // Test the setup: look at the commit graph (commit B is duplicated and commit E
     // is duplicated)
-    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @"
     @  b2  qpvuntsm/0  cca75b59 - description: message 2
     ○  b3  qpvuntsm/1  4734557e - description: message 3
     ◆    zzzzzzzz  00000000
@@ -1281,7 +1281,7 @@ fn test_converge_one_divergent_commit_is_a_descendant_of_another_divergent_commi
     ");
 
     // Test the setup: look at the evolog
-    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @r"
+    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @"
     @  qpvuntsm/0 cca75b59 (divergent) (empty) message 2
     ○  qpvuntsm/2 59df0df7 (hidden) (empty) message 2
     ○  qpvuntsm/3 a289638d (hidden) (empty) message 1
@@ -1290,7 +1290,7 @@ fn test_converge_one_divergent_commit_is_a_descendant_of_another_divergent_commi
     ");
 
     // Test the setup: look at the evolog
-    insta::assert_snapshot!(get_evolog(&work_dir, "b3"), @r"
+    insta::assert_snapshot!(get_evolog(&work_dir, "b3"), @"
     ○  qpvuntsm/1 4734557e (divergent) (empty) message 3
     ○  qpvuntsm/3 a289638d (hidden) (empty) message 1
     ○  qpvuntsm/4 e8849ae1 (hidden) (empty) (no description set)
@@ -1319,7 +1319,7 @@ fn test_converge_one_divergent_commit_is_a_descendant_of_another_divergent_commi
     >>>>>>> conflict 1 of 1 ends
     "#);
     insta::assert_snapshot!(output.stdout.normalized(), @"");
-    insta::assert_snapshot!(output.stderr.normalized(), @r"
+    insta::assert_snapshot!(output.stderr.normalized(), @"
     Found 1 divergent change(s) in the specified revset:
     - Change: qpvuntsmwlqt with 2 commits:
         qpvuntsm/0 cca75b59 b2 | (divergent) (empty) message 2
@@ -1337,7 +1337,7 @@ fn test_converge_one_divergent_commit_is_a_descendant_of_another_divergent_commi
     ");
 
     // Verify the commit graph after converge
-    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @"
     @  b2 b3  qpvuntsm  ae6fe4a3 - description: my-merged-des...
     ◆    zzzzzzzz  00000000
     [EOF]
@@ -1367,7 +1367,7 @@ fn test_converge_one_divergent_commit_is_a_descendant_of_another_divergent_commi
     ");
 
     // Verify the evolution history after converge
-    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @r"
+    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @"
     @    qpvuntsm ae6fe4a3 (empty) my-merged-description
     ├─╮
     │ ○  qpvuntsm/2 4734557e (hidden) (empty) message 3
@@ -1461,7 +1461,7 @@ fn test_converge_two_divergent_commits_with_unrelated_commit_in_between() -> Tes
 
     // Test the setup: look at the commit graph (commit B is duplicated and commit E
     // is duplicated)
-    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @"
     @    znkkpsqq  aac9c864 - description: baz
     │ ○    yostqsxw  38a29791 - description: bar
     │ ○  b2  qpvuntsm/0  2a258b0d - description: message 2
@@ -1473,7 +1473,7 @@ fn test_converge_two_divergent_commits_with_unrelated_commit_in_between() -> Tes
     ");
 
     // Test the setup: look at the evolog
-    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @r"
+    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @"
     ○  qpvuntsm/0 2a258b0d (divergent) (empty) message 2
     ○  qpvuntsm/2 59df0df7 (hidden) (empty) message 2
     ○  qpvuntsm/3 a289638d (hidden) (empty) message 1
@@ -1482,7 +1482,7 @@ fn test_converge_two_divergent_commits_with_unrelated_commit_in_between() -> Tes
     ");
 
     // Test the setup: look at the evolog
-    insta::assert_snapshot!(get_evolog(&work_dir, "b3"), @r"
+    insta::assert_snapshot!(get_evolog(&work_dir, "b3"), @"
     ○  qpvuntsm/1 4734557e (divergent) (empty) message 3
     ○  qpvuntsm/3 a289638d (hidden) (empty) message 1
     ○  qpvuntsm/4 e8849ae1 (hidden) (empty) (no description set)
@@ -1511,7 +1511,7 @@ fn test_converge_two_divergent_commits_with_unrelated_commit_in_between() -> Tes
     >>>>>>> conflict 1 of 1 ends
     "#);
     insta::assert_snapshot!(output.stdout.normalized(), @"");
-    insta::assert_snapshot!(output.stderr.normalized(), @r"
+    insta::assert_snapshot!(output.stderr.normalized(), @"
     Found 1 divergent change(s) in the specified revset:
     - Change: qpvuntsmwlqt with 2 commits:
         qpvuntsm/0 2a258b0d b2 | (divergent) (empty) message 2
@@ -1529,7 +1529,7 @@ fn test_converge_two_divergent_commits_with_unrelated_commit_in_between() -> Tes
     Parent commit (@-)      : qpvuntsm 60580828 b2 b3 | (empty) my-merged-description
     ");
 
-    insta::assert_snapshot!(work_dir.run_jj(["op", "show"]).success(), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["op", "show"]).success(), @"
     23ae9388893c test-username@host.example.com default@ 2001-02-03 04:05:21.000 +07:00 - 2001-02-03 04:05:21.000 +07:00
     converge qpvuntsmwlqt with 2 predecessors
     args: jj converge
@@ -1561,7 +1561,7 @@ fn test_converge_two_divergent_commits_with_unrelated_commit_in_between() -> Tes
 
     // Verify the commit graph after converge; notice the commit that was
     // "sandwiched" between b2 and b3 (foo) is now a child of the solution commit.
-    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @"
     @    znkkpsqq  3ea044e0 - description: baz
     │ ○    yostqsxw  a4dd040e - description: bar
     ├─╯
@@ -1602,7 +1602,7 @@ fn test_converge_two_divergent_commits_with_unrelated_commit_in_between() -> Tes
     ");
 
     // Verify the evolution history after converge
-    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @r"
+    insta::assert_snapshot!(get_evolog(&work_dir, "b2"), @"
     ○    qpvuntsm 60580828 (empty) my-merged-description
     ├─╮
     │ ○  qpvuntsm/2 4734557e (hidden) (empty) message 3

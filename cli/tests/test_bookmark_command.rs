@@ -1600,12 +1600,12 @@ fn test_bookmark_forget_untracked_remote_only_bookmark() {
     // Fetch without auto-tracking, so feature1@origin is untracked and there
     // is no local feature1 bookmark.
     let output = work_dir.run_jj(["git", "fetch", "--remote=origin"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: feature1@origin [new] untracked
     [EOF]
     ");
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     feature1@origin: qomsplrm ebeb70d8 message
     [EOF]
     ");
@@ -1614,12 +1614,12 @@ fn test_bookmark_forget_untracked_remote_only_bookmark() {
     // bookmark is a no-op. We should not claim any local bookmarks were
     // forgotten.
     let output = work_dir.run_jj(["bookmark", "forget", "feature1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     feature1@origin: qomsplrm ebeb70d8 message
     [EOF]
     ");
@@ -3453,7 +3453,7 @@ fn test_bookmark_advance_default() -> TestResult {
     work_dir.run_jj(["new", "-m", "e"]).success();
     std::fs::write(work_dir.root().join("file"), "newer_content")?;
 
-    insta::assert_snapshot!(get_log(), @r"
+    insta::assert_snapshot!(get_log(), @"
     @  vruxwmqv e
     ○  yqosqzyt d (empty)
     ○  royxmykx c
@@ -3467,7 +3467,7 @@ fn test_bookmark_advance_default() -> TestResult {
 
     // To default target.
     let output = work_dir.run_jj(["bookmark", "advance"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Advanced 1 bookmarks to vruxwmqv 7753a73e B | e
     [EOF]
@@ -3476,7 +3476,7 @@ fn test_bookmark_advance_default() -> TestResult {
 
     // To target specified by --to.
     let output = work_dir.run_jj(["bookmark", "advance", "--to", "royxmykx"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Advanced 1 bookmarks to royxmykx 26554c67 B | c
     [EOF]
@@ -3485,7 +3485,7 @@ fn test_bookmark_advance_default() -> TestResult {
 
     // A -> default target.
     let output = work_dir.run_jj(["bookmark", "advance", "A"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Advanced 1 bookmarks to vruxwmqv 7753a73e A | e
     [EOF]
@@ -3494,7 +3494,7 @@ fn test_bookmark_advance_default() -> TestResult {
 
     // A -> target specified by --to.
     let output = work_dir.run_jj(["bookmark", "advance", "A", "--to", "zsuskuln"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Advanced 1 bookmarks to zsuskuln 4112c46e A B | b
     [EOF]
@@ -3538,7 +3538,7 @@ fn test_bookmark_advance_default() -> TestResult {
     // At a bookmark.
     work_dir.run_jj(["edit", "zsuskuln"]).success();
     let output = work_dir.run_jj(["bookmark", "advance"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     No bookmarks to update.
     [EOF]
@@ -3560,7 +3560,7 @@ fn test_bookmark_advance_default() -> TestResult {
     std::fs::write(work_dir.root().join("file"), "content")?;
     work_dir.run_jj(["new"]).success();
     let output = work_dir.run_jj(["bookmark", "advance"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     No bookmarks to update.
     [EOF]

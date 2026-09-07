@@ -71,7 +71,7 @@ fn test_gerrit_upload_dryrun() {
 
     test_env.add_config(r#"gerrit.default-remote-branch="main""#);
     let output = work_dir.run_jj(["gerrit", "upload", "-r", "b", "--dry-run"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'.
     Dry-run: Would push zsuskuln 123b4d91 b | b
@@ -79,7 +79,7 @@ fn test_gerrit_upload_dryrun() {
     ");
 
     let output = work_dir.run_jj(["gerrit", "upload", "-r", "b", "--dry-run", "-b", "other"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'other'.
     Dry-run: Would push zsuskuln 123b4d91 b | b
@@ -110,7 +110,7 @@ fn test_gerrit_upload_default_revision() {
         .success();
     work_dir.write_file("parent", "parent");
     let output = work_dir.run_jj(["gerrit", "upload", "--dry-run"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     No revision provided. Defaulting to @
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'.
@@ -120,7 +120,7 @@ fn test_gerrit_upload_default_revision() {
 
     work_dir.run_jj(["new"]).success();
     let output = work_dir.run_jj(["gerrit", "upload", "--dry-run"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     No revision provided and @ has no description. Defaulting to @-
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'.
@@ -130,7 +130,7 @@ fn test_gerrit_upload_default_revision() {
 
     work_dir.run_jj(["new", "@", "@-"]).success();
     let output = work_dir.run_jj(["gerrit", "upload", "--dry-run"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: No revision provided, and @ is a merge commit with no description. Unable to determine a suitable default commit to upload.
     Hint: Explicitly specify a revision to upload with `-r`
@@ -292,7 +292,7 @@ fn test_gerrit_upload_failure() {
         .run_jj(["git", "remote", "set-url", "origin", "nonexistent"])
         .success();
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "d", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'.
     Pushing znkkpsqq 47f1f88c d | d
@@ -344,7 +344,7 @@ fn test_gerrit_upload_local_implicit_change_ids() {
     ");
 
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "c", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'.
     Pushing yqosqzyt f6e97ced c | c
@@ -442,7 +442,7 @@ review-url = "https://gerrit.example.com/"
     ");
 
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "c", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'.
     Pushing yqosqzyt f6e97ced c | c
@@ -466,7 +466,7 @@ review-url = "https://gerrit.example.com/"
     // There's no particular reason to run this with jj util exec, it's just that
     // the infra makes it easier to run this way.
     let output = remote_dir.run_jj(["util", "exec", "--", "git", "log", "refs/for/main"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     commit b2731737e530be944c12679a86dacca2a3d3c6ad
     Author: Test User <test.user@example.com>
     Date:   Sat Feb 3 04:05:13 2001 +0700
@@ -553,7 +553,7 @@ fn test_gerrit_upload_local_explicit_change_ids() {
     ");
 
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "c", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'.
     Pushing vruxwmqv b4124fc9 c | c
@@ -648,7 +648,7 @@ fn test_gerrit_upload_local_mixed_change_ids() {
     ");
 
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "c", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'.
     Pushing yqosqzyt 8d46d915 c | c
@@ -858,7 +858,7 @@ fn test_gerrit_upload_rejected_by_remote() -> TestResult {
     ");
 
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "b", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'.
     Pushing mzvwutvl 887a7016 b | b

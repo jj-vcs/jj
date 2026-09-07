@@ -299,7 +299,7 @@ fn test_describe_multiple_commits() -> TestResult {
 
     // Set the description of multiple commits using `-m` flag
     let output = work_dir.run_jj(["describe", "-r@", "-r@--", "-m", "description from CLI"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Updated 2 commits.
     Rebased 1 descendant commits.
@@ -368,7 +368,7 @@ fn test_describe_multiple_commits() -> TestResult {
         "},
     )?;
     let output = work_dir.run_jj(["describe", "@", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Updated 2 commits.
     Working copy  (@) now at: kkmpptxz 87c0f3c7 (empty) description from editor of @
@@ -529,7 +529,7 @@ fn test_describe_multiple_commits() -> TestResult {
         "},
     )?;
     let output = work_dir.run_jj(["describe", "@-", "@--"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Updated 2 commits.
     Rebased 1 descendant commits.

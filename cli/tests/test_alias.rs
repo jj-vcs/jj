@@ -167,7 +167,7 @@ fn test_alias_cannot_override_builtin() {
     test_env.add_config(r#"aliases.log = ["rebase"]"#);
     // Alias should give a warning
     let output = work_dir.run_jj(["log", "-r", "root()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ------- stderr -------

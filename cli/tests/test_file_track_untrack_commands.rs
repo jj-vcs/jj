@@ -227,7 +227,7 @@ fn test_track_ignored() {
     let output = work_dir.run_jj(["file", "track", "file1"]);
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["file", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     file1
     [EOF]
     ------- stderr -------
@@ -240,7 +240,7 @@ fn test_track_ignored() {
     let output = work_dir.run_jj(["file", "track", "file2"]);
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["file", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     file1
     file2
     [EOF]
@@ -251,7 +251,7 @@ fn test_track_ignored() {
 
     // Now untrack the file; eviction is immediate and affects descendants
     let output = work_dir.run_jj(["file", "untrack", "file2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits.
     [EOF]

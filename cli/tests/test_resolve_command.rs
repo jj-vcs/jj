@@ -571,7 +571,7 @@ fn test_files_still_have_conflicts() -> TestResult {
         "--config",
         "hints.resolving-conflicts=false",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Resolving conflicts in: file1
     Rebased 1 descendant commits.
@@ -593,7 +593,7 @@ fn test_files_still_have_conflicts() -> TestResult {
         "--config",
         "hints.resolving-conflicts=false",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Resolving conflicts in: file1
     Rebased 1 descendant commits.
@@ -1464,7 +1464,7 @@ fn test_resolve_change_delete_executable() -> TestResult {
 
     // Take modified content, the executable bit should be kept as "x"
     let output = work_dir.run_jj(["resolve", "file5", "--tool=:theirs"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: kmkuslsw 7337267a conflict | conflict
     Parent commit (@-)      : mzvwutvl e2d3924b a | a
@@ -2275,7 +2275,7 @@ fn test_resolve_with_contents_of_side() -> TestResult {
     // Check that ":ours" merge tool works correctly
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"");
     let output = work_dir.run_jj(["resolve", "-r", "conflict", "--tool", ":ours"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits.
     Working copy  (@) now at: kmkuslsw 6cca6d79 tip | (empty) tip
@@ -2296,7 +2296,7 @@ fn test_resolve_with_contents_of_side() -> TestResult {
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"");
     let output = work_dir.run_jj(["resolve", "-r", "conflict", "--tool", ":theirs"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits.
     Working copy  (@) now at: kmkuslsw 4a54e224 tip | (empty) tip

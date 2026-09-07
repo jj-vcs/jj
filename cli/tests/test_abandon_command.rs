@@ -44,7 +44,7 @@ fn test_basics() {
     let setup_opid = work_dir.current_operation_id();
 
     let output = work_dir.run_jj(["abandon", "--retain-bookmarks", "d"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Abandoned 1 commits:
       vruxwmqv 636920e4 d | d
@@ -239,7 +239,7 @@ fn test_bug_2600() {
 
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["abandon", "base"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Abandoned 1 commits:
       zsuskuln 67c2f714 base | base
@@ -265,7 +265,7 @@ fn test_bug_2600() {
 
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["abandon", "a"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Abandoned 1 commits:
       royxmykx 183dbbca a | a
@@ -290,7 +290,7 @@ fn test_bug_2600() {
 
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["abandon", "b"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Abandoned 1 commits:
       vruxwmqv cedee197 b | b
@@ -328,7 +328,7 @@ fn test_bug_2600() {
     [EOF]
     ");
     let output = work_dir.run_jj(["abandon", "--retain-bookmarks", "a", "b"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Abandoned 2 commits:
       vruxwmqv cedee197 b | b
@@ -443,7 +443,7 @@ fn test_abandon_restore_descendants() {
 
     // Remove the commit containing "bar"
     let output = work_dir.run_jj(["abandon", "-r@-", "--restore-descendants"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Abandoned 1 commits:
       rlvkpnrz b23f92c3 (no description set)

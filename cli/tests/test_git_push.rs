@@ -2691,7 +2691,7 @@ fn test_git_push_sign_on_push() {
     [EOF]
     ");
     let output = work_dir.run_jj(["git", "push"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Updated signatures of 2 commits.
     Rebased 2 descendant commits.
@@ -2781,7 +2781,7 @@ fn test_git_push_sign_on_push() {
     [EOF]
     ");
     let output = work_dir.run_jj(["git", "push"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Updated signatures of 1 commits.
     Changes to push to origin:

@@ -81,7 +81,7 @@ fn test_config_nonexistent_tool() {
     work_dir.write_file("file", "content\n");
     let output = work_dir.run_jj(["fix"]);
     // We inform the user about the non-existent tool
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Failed to start `nonexistent-fix-tool-binary`.
     Fixed 0 commits of 1 checked.
@@ -1696,42 +1696,42 @@ fn test_fix_with_line_ranges() {
 
     // Check that the formatter was not applied to the first commit.
     let output = work_dir.run_jj(["file", "show", "foo", "-r", "c1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Foo1
     Foo2
     Foo3
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "bar", "-r", "c1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Bar1
     Bar2
     Bar3
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "baz", "-r", "c1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     unmodified
     [EOF]
     ");
 
     // Check that the formatter was applied to the second commit.
     let output = work_dir.run_jj(["file", "show", "foo", "-r", "c2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Foo1
     FOO2-MOD
     Foo3
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "bar", "-r", "c2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     bar1-mod
     Bar2
     Bar3
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "baz", "-r", "c2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     unmodified
     [EOF]
     ");
@@ -1739,7 +1739,7 @@ fn test_fix_with_line_ranges() {
     // Check that the formatter was applied to the third commit but in different
     // line ranges.
     let output = work_dir.run_jj(["file", "show", "foo", "-r", "c3"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Foo1
     Foo2
     FOO3-MOD
@@ -1748,7 +1748,7 @@ fn test_fix_with_line_ranges() {
     let output = work_dir.run_jj(["file", "show", "baz", "-r", "c3"]);
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["file", "show", "qux", "-r", "c3"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     NEWFILE
     [EOF]
     ");
@@ -1816,21 +1816,21 @@ fn test_fix_with_run_tool_if_zero_line_ranges() {
 
     // Check that the formatter was not applied to the first commit.
     let output = work_dir.run_jj(["file", "show", "foo", "-r", "c1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Foo1
     Foo2
     Foo3
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "bar", "-r", "c1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Bar1
     Bar2
     Bar3
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "baz", "-r", "c1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     unmodified
     [EOF]
     ");
@@ -1838,19 +1838,19 @@ fn test_fix_with_run_tool_if_zero_line_ranges() {
     // Check that the formatter was applied to the second commit where
     // run-tool-if-zero-line-ranges is true.
     let output = work_dir.run_jj(["file", "show", "foo", "-r", "c2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     FOO1
     FOO3
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "bar", "-r", "c2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Bar1
     Bar3
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "baz", "-r", "c2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     unmodified
     [EOF]
     ");
@@ -1891,7 +1891,7 @@ fn test_fix_with_run_tool_if_zero_line_ranges() {
 
     // Check that the formatter was not applied to the third commit.
     let output = work_dir.run_jj(["file", "show", "qux", "-r", "c3"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Qux1
     Qux3
     [EOF]
@@ -1952,21 +1952,21 @@ fn test_fix_with_all_lines_arg() {
 
     // Check that the formatter was not applied to the first commit.
     let output = work_dir.run_jj(["file", "show", "foo", "-r", "c1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Foo1
     Foo2
     Foo3
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "bar", "-r", "c1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Bar1
     Bar2
     Bar3
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "baz", "-r", "c1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     unmodified
     [EOF]
     ");
@@ -1975,26 +1975,26 @@ fn test_fix_with_all_lines_arg() {
     // whole-file was formatted for changed files. And whole file was formatted
     // for formatters that don't support line ranges.
     let output = work_dir.run_jj(["file", "show", "foo", "-r", "c2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     FOO1
     FOO2-MOD
     FOO3
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "bar", "-r", "c2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     bar1
     bar2-mod
     bar3
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "baz", "-r", "c2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     unmodified
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "qux", "-r", "c2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     NEWFILE
     [EOF]
     ");
@@ -2049,7 +2049,7 @@ fn test_fix_with_line_ranges_multiple_formatters() {
 
     // Check that the formatter was not applied to the first commit.
     let output = work_dir.run_jj(["file", "show", "foo", "-r", "c1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ab
     cd
     efg
@@ -2059,7 +2059,7 @@ fn test_fix_with_line_ranges_multiple_formatters() {
     // Check that split lines was applied first and then upper was only applied to
     // the second half.
     let output = work_dir.run_jj(["file", "show", "foo", "-r", "c2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ab
     cd
     EF
@@ -2067,7 +2067,7 @@ fn test_fix_with_line_ranges_multiple_formatters() {
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "boo", "-r", "c2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     AB
     CD
     EF
@@ -2132,21 +2132,21 @@ fn test_fix_with_line_ranges_and_include_unchanged_files_all_lines() {
 
     // Check that the formatter was not applied to the first commit.
     let output = work_dir.run_jj(["file", "show", "changed.txt", "-r", "c1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Foo1
     Foo2
     Foo3
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "unchanged.txt", "-r", "c1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     baz1
     baz2
     baz3
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "empty.txt", "-r", "c1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     content
     [EOF]
     ");
@@ -2161,17 +2161,17 @@ fn test_fix_with_line_ranges_and_include_unchanged_files_all_lines() {
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "unchanged.txt", "-r", "c2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     BAZ1
     BAZ2
     BAZ3
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "newfile.txt", "-r", "c2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     NEW
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "empty.txt", "-r", "c2"]);
-    insta::assert_snapshot!(output, @r"");
+    insta::assert_snapshot!(output, @"");
 }

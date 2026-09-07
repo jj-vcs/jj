@@ -204,7 +204,7 @@ fn test_bisect_run_missing_bisector() {
 
     let output = work_dir.run_jj(["bisect", "run", "--range=..", "nonexistent"]);
     if cfg!(unix) {
-        insta::assert_snapshot!(output, @r"
+        insta::assert_snapshot!(output, @"
         Bisecting: 5 revisions left to test after this (roughly 3 steps)
         Now evaluating: royxmykx dffaa0d4 c | c
         [EOF]

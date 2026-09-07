@@ -160,7 +160,7 @@ fn test_no_subcommand() {
 
     // Hint isn't printed for explicit subcommands.
     let output = work_dir.run_jj(["foobar"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: unrecognized subcommand 'foobar'
 
@@ -175,7 +175,7 @@ fn test_no_subcommand() {
 
     // Hint isn't printed for explicit subcommands with spaces.
     let output = work_dir.run_jj(["log -n 10"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: unrecognized subcommand 'log -n 10'
 
@@ -190,7 +190,7 @@ fn test_no_subcommand() {
 
     // While the default command is invalid, explicit subcommands still work.
     let output = work_dir.run_jj(["status"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     The working copy has no changes.
     Working copy  (@) : kxryzmor 8db1ba9a (empty) (no description set)
     Parent commit (@-): lylxulpl 19f3adb2 foo
@@ -734,9 +734,9 @@ fn test_pager_env_config() {
 
     let output = work_dir.run_jj(["config", "list", "ui.pager", "--include-overridden"]);
     insta::assert_snapshot!(output, @r#"
-        # ui.pager = "user"
-        ui.pager = "env-override"
-        [EOF]
+    # ui.pager = "user"
+    ui.pager = "env-override"
+    [EOF]
     "#);
 
     let output = work_dir.run_jj([
@@ -747,10 +747,10 @@ fn test_pager_env_config() {
         "--config=ui.pager=\"command-arg\"",
     ]);
     insta::assert_snapshot!(output, @r#"
-        # ui.pager = "user"
-        # ui.pager = "env-override"
-        ui.pager = "command-arg"
-        [EOF]
+    # ui.pager = "user"
+    # ui.pager = "env-override"
+    ui.pager = "command-arg"
+    [EOF]
     "#);
 }
 
@@ -889,7 +889,7 @@ fn test_repeated_args() {
     // For an option that takes a value, the last occurrence wins.
     work_dir.run_jj(["new", "-m=child"]).success();
     let output = work_dir.run_jj(["log", "--no-graph", "-T=description", "-n=1", "-n=2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     child
     new description
     [EOF]
@@ -910,7 +910,7 @@ fn test_repeated_args() {
     [EOF]
     "#);
     let output = work_dir.run_jj(["log", "--no-graph", "-T=description", "-r=@", "-r=@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     child
     new description
     [EOF]
@@ -1186,7 +1186,7 @@ fn test_conditional_config_environments() {
         &repo_dir,
         ["config", "list", "--include-overridden", "ui.pager"],
     );
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     # ui.pager = 'base'
     # ui.pager = 'kv-match'
     ui.pager = 'key-exists'

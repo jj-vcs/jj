@@ -58,7 +58,7 @@ fn test_absorb_simple() {
     // Modify middle line in hunk
     work_dir.write_file("file1", "1X\n1A\n1b\n2a\n2b\n2Z\n");
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Absorbed changes into 1 revisions:
       kkmpptxz 5810eb0f 1
@@ -175,7 +175,7 @@ fn test_absorb_replace_single_line_hunk() {
     work_dir.run_jj(["new"]).success();
     work_dir.write_file("file1", "2a\n1A\n2b\n");
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Absorbed changes into 1 revisions:
       qpvuntsm 125fba68 (conflict) 1
@@ -262,7 +262,7 @@ fn test_absorb_merge() {
     // Modify first and last lines, absorb from merge
     work_dir.write_file("file1", "1A\n1b\n0a\n2a\n2B\n");
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Absorbed changes into 2 revisions:
       zsuskuln a6fde7ea 2
@@ -362,7 +362,7 @@ fn test_absorb_discardable_merge_with_descendant() {
     work_dir.write_file("file2", "3a\n");
     // Then absorb the merge commit
     let output = work_dir.run_jj(["absorb", "--from=@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Absorbed changes into 2 revisions:
       zsuskuln a6cd8e87 2
@@ -425,7 +425,7 @@ fn test_absorb_conflict() {
     work_dir.run_jj(["new", "root()"]).success();
     work_dir.write_file("file1", "2a\n2b\n");
     let output = work_dir.run_jj(["rebase", "-r@", "-dsubject(1)"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 commits to destination.
     Working copy  (@) now at: kkmpptxz 628e2b00 (conflict) (no description set)
@@ -497,7 +497,7 @@ fn test_absorb_deleted_file() {
     // Since the destinations are chosen based on content diffs, file3 cannot be
     // absorbed.
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Absorbed changes into 1 revisions:
       qpvuntsm 38af7fd3 1
@@ -552,7 +552,7 @@ fn test_absorb_deleted_file_with_multiple_hunks() {
     work_dir.remove_file("file1");
     work_dir.remove_file("file2");
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Absorbed changes into 2 revisions:
       kkmpptxz 3e1b2472 (conflict) 2
@@ -669,7 +669,7 @@ fn test_absorb_file_mode() {
 
     // Mode change shouldn't be absorbed
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Absorbed changes into 1 revisions:
       qpvuntsm 2a0c7f1d 1
@@ -715,7 +715,7 @@ fn test_absorb_from_into() {
     work_dir.run_jj(["new"]).success();
     work_dir.write_file("file1", "1a\nX\n2a\n1b\nY\n1c\n2b\nZ\n");
     let output = work_dir.run_jj(["absorb", "--into=@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Absorbed changes into 1 revisions:
       kkmpptxz cae507ef 2
@@ -760,7 +760,7 @@ fn test_absorb_from_into() {
     // Absorb all lines from the working-copy parent. An empty commit won't be
     // discarded because "absorb" isn't a command to squash commit descriptions.
     let output = work_dir.run_jj(["absorb", "--from=@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Absorbed changes into 1 revisions:
       rlvkpnrz ddaed33d 1
@@ -830,7 +830,7 @@ fn test_absorb_paths() {
     ");
 
     let output = work_dir.run_jj(["absorb", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Absorbed changes into 1 revisions:
       qpvuntsm ca07fabe 1
@@ -891,7 +891,7 @@ fn test_absorb_immutable() {
 
     // Immutable revisions are excluded by default
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Absorbed changes into 1 revisions:
       kkmpptxz e68cc3e2 2

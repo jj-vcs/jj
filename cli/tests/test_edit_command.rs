@@ -74,7 +74,7 @@ fn test_edit() {
     // Changes in the working copy are amended into the commit
     work_dir.write_file("file2", "0");
     let output = get_log_output(&work_dir);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ○  29c4ac30d18f second
     @  b10da1f49611 first
     ◆  000000000000
@@ -106,7 +106,7 @@ fn test_edit_current() {
 
     // Editing the current revision is a no-op
     let output = work_dir.run_jj(["edit", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Already editing that commit.
     [EOF]

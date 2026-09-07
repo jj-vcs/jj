@@ -57,14 +57,14 @@ fn test_config_list_single() {
 fn test_config_list_nonexistent() {
     let test_env = TestEnvironment::default();
     let output = test_env.run_jj_in(".", ["config", "list", "nonexistent-test-key"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching config key for: nonexistent-test-key
     [EOF]
     ");
 
     let output = test_env.run_jj_in(".", ["config", "list", "--repo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No config to list.
     [EOF]
@@ -845,10 +845,10 @@ fn test_config_set_file_with_existing_scopes() -> TestResult {
     insta::assert_snapshot!(
         std::fs::read_to_string(&work_conf)?,
         @r#"
-        --when.repositories = ['some/path']
-        work_user = 'Work User'
-        shared_key = "shared_val"
-        "#
+    --when.repositories = ['some/path']
+    work_user = 'Work User'
+    shared_key = "shared_val"
+    "#
     );
 
     Ok(())
@@ -1595,7 +1595,7 @@ fn test_config_path_syntax() {
 
     // Not a table
     let output = test_env.run_jj_in(".", ["config", "list", "a.'b()'.x"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching config key for: a.'b()'.x
     [EOF]
@@ -2139,7 +2139,7 @@ fn test_config_file_validation() -> TestResult {
 
     // Rejects random non-jj paths
     let output = work_dir.run_jj(["config", "set", "--file", "abc/random/path.toml", "k", "v"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Configuration file '$TEST_ENV/repo/abc/random/path.toml' is not a valid jj configuration file location
     Hint: Valid config locations include user configs (`~/.config/jj/config.toml` or `conf.d/*.toml`), repo/workspace configs, or files loaded with the global flag `--config-file <PATH>`.
@@ -2156,7 +2156,7 @@ fn test_config_file_validation() -> TestResult {
         "k",
         "v",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Configuration file '$TEST_ENV/repo/.config/jj/config.toml' is not a valid jj configuration file location
     Hint: Valid config locations include user configs (`~/.config/jj/config.toml` or `conf.d/*.toml`), repo/workspace configs, or files loaded with the global flag `--config-file <PATH>`.
@@ -2174,7 +2174,7 @@ fn test_config_file_validation() -> TestResult {
         "k",
         "v",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Configuration file '$TEST_ENV/config/notes.txt' is not a valid jj configuration file location
     Hint: Valid config locations include user configs (`~/.config/jj/config.toml` or `conf.d/*.toml`), repo/workspace configs, or files loaded with the global flag `--config-file <PATH>`.
@@ -2208,10 +2208,10 @@ fn test_config_file_validation() -> TestResult {
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.config_path().join("relative.toml"))?,
         @r#"
-        #:schema https://docs.jj-vcs.dev/latest/config-schema.json
+    #:schema https://docs.jj-vcs.dev/latest/config-schema.json
 
-        rel-key = "rel-val"
-        "#
+    rel-key = "rel-val"
+    "#
     );
 
     // Files loaded via the global --config-file option are also recognized as

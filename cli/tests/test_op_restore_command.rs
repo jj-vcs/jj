@@ -39,7 +39,7 @@ fn test_op_restore_to_valid_op_no_warning() {
     // Restore to the current operation (@). This should not emit the
     // missing-workspace warning.
     let output = work_dir.run_jj(["op", "restore", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Restored to operation: f63ee16f9553 (2001-02-03 08:05:07) add workspace 'default'
     Nothing changed.

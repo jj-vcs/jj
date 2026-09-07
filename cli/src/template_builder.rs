@@ -3839,7 +3839,7 @@ mod tests {
         );
         insta::assert_snapshot!(
             env.render_ok("json(fs_path)"),
-            @r#"<Error: path contains invalid UTF-8 characters>"#);
+            @"<Error: path contains invalid UTF-8 characters>");
     }
 
     #[test]
@@ -5451,22 +5451,22 @@ mod tests {
 
         // The else case missing does prevents the resulting Any expression
         // from being serializable.
-        insta::assert_snapshot!(env.parse_err(r#"json(if(true, email))"#), @r###"
+        insta::assert_snapshot!(env.parse_err(r#"json(if(true, email))"#), @"
          --> 1:6
           |
         1 | json(if(true, email))
           |      ^-------------^
           |
           = Expected expression of type `Serialize`, but actual type is `Any`
-        "###);
-        insta::assert_snapshot!(env.parse_err(r#"json(if(false, email))"#), @r###"
+        ");
+        insta::assert_snapshot!(env.parse_err(r#"json(if(false, email))"#), @"
          --> 1:6
           |
         1 | json(if(false, email))
           |      ^--------------^
           |
           = Expected expression of type `Serialize`, but actual type is `Any`
-        "###);
+        ");
     }
 
     #[test]
@@ -5911,7 +5911,7 @@ mod tests {
 
         // dynamic lookup with invalid config path at runtime
         env.add_dynamic_keyword("dyn_bad_path", || "user|name".to_owned());
-        insta::assert_snapshot!(env.render_ok(r#"config(dyn_bad_path)"#), @r"
+        insta::assert_snapshot!(env.render_ok(r#"config(dyn_bad_path)"#), @"
         <Error: TOML parse error at line 1, column 5
           |
         1 | user|name
@@ -5992,14 +5992,14 @@ mod tests {
             @"[[10,null],[10,null]]");
 
         // You cannot use the result if when the trait is not implemented.
-        insta::assert_snapshot!(env.parse_err(r#"words.map(|x| size_hint)"#), @r#"
+        insta::assert_snapshot!(env.parse_err(r#"words.map(|x| size_hint)"#), @"
          --> 1:1
           |
         1 | words.map(|x| size_hint)
           | ^----------------------^
           |
           = Expected expression of type `Template`, but actual type is `AnyList`
-        "#);
+        ");
         insta::assert_snapshot!(env.parse_err(r#"words.map(|x| size_hint).join(",")"#), @r#"
          --> 1:26
           |

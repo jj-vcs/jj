@@ -169,7 +169,7 @@ fn test_builtin_user_redefines_builtin_immutable_heads() {
     test_env.add_config(r#"revset-aliases.'immutable()' = '@'"#);
 
     let output = work_dir.run_jj(["log", "-r", "trunk()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 main 9b2e76de
     │  (empty) description 1
     ~

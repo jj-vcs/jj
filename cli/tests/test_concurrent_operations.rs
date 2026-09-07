@@ -82,7 +82,7 @@ fn test_concurrent_operations_auto_rebase() {
 
     // We should be informed about the concurrent modification
     let output = get_log_output(&work_dir);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ○  new child
     @  rewritten
     ◆
