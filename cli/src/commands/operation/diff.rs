@@ -31,6 +31,7 @@ use jj_lib::matchers::EverythingMatcher;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::op_store::RemoteRefState;
+use jj_lib::operation::Operation;
 use jj_lib::refs::diff_named_commit_ids;
 use jj_lib::refs::diff_named_ref_targets;
 use jj_lib::refs::diff_named_remote_refs;
@@ -126,6 +127,25 @@ pub async fn cmd_op_diff(
     }
     let graph_style = GraphStyle::from_settings(settings)?;
     let with_content_format = LogContentFormat::new(ui, settings)?;
+    let diff_formats = diff_formats_for_log(settings, &args.diff_format, args.patch)?;
+    let op_diff_changes_expr =
+        parse_op_diff_changes_in(ui, settings, workspace_env, args.show_changes_in.as_deref())?;
+
+    // The diff of a merge operation is treated as empty, matching the output
+    // of `op log --op-diff` and `op show` for multi-parent operations
+    // (#4465). The parent operations aren't merged here because that would
+    // re-execute the rebasing of descendants, which would produce commits
+    // different from the ones recorded by the merge operation and write an
+    // unpublished operation to the store.
+    if from_ops.len() > 1 {
+        let op_summary_template = workspace_command
+            .operation_summary_template()
+            .labeled(["op_diff"]);
+        ui.request_pager();
+        let mut formatter = ui.stdout_formatter();
+        write_op_diff_header(&mut *formatter, &op_summary_template, &from_ops, &to_op)?;
+        return Ok(());
+    }
 
     let workspace_name = None;
     let transaction_description = None;
@@ -150,11 +170,16 @@ pub async fn cmd_op_diff(
     let merged_repo = tx.repo();
 
     let diff_renderer = {
-        let formats = diff_formats_for_log(settings, &args.diff_format, args.patch)?;
         let path_converter = workspace_env.path_converter();
         let conflict_marker_style = workspace_env.conflict_marker_style();
-        (!formats.is_empty())
-            .then(|| DiffRenderer::new(merged_repo, path_converter, conflict_marker_style, formats))
+        (!diff_formats.is_empty()).then(|| {
+            DiffRenderer::new(
+                merged_repo,
+                path_converter,
+                conflict_marker_style,
+                diff_formats,
+            )
+        })
     };
     let id_prefix_context = workspace_env.new_id_prefix_context();
     let commit_summary_template = {
@@ -165,23 +190,12 @@ pub async fn cmd_op_diff(
             .labeled(["op_diff", "commit"])
     };
 
-    let op_diff_changes_expr =
-        parse_op_diff_changes_in(ui, settings, workspace_env, args.show_changes_in.as_deref())?;
-
     let op_summary_template = workspace_command
         .operation_summary_template()
         .labeled(["op_diff"]);
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
-    for op in &from_ops {
-        write!(formatter, "From operation: ")?;
-        op_summary_template.format(op, &mut *formatter)?;
-        writeln!(formatter)?;
-    }
-    //                "From operation: "
-    write!(formatter, "  To operation: ")?;
-    op_summary_template.format(&to_op, &mut *formatter)?;
-    writeln!(formatter)?;
+    write_op_diff_header(&mut *formatter, &op_summary_template, &from_ops, &to_op)?;
 
     show_op_diff(
         ui,
@@ -197,6 +211,24 @@ pub async fn cmd_op_diff(
         op_diff_changes_expr,
     )
     .await
+}
+
+fn write_op_diff_header(
+    formatter: &mut dyn Formatter,
+    op_summary_template: &TemplateRenderer<Operation>,
+    from_ops: &[Operation],
+    to_op: &Operation,
+) -> Result<(), CommandError> {
+    for op in from_ops {
+        write!(formatter, "From operation: ")?;
+        op_summary_template.format(op, formatter)?;
+        writeln!(formatter)?;
+    }
+    //                "From operation: "
+    write!(formatter, "  To operation: ")?;
+    op_summary_template.format(to_op, formatter)?;
+    writeln!(formatter)?;
+    Ok(())
 }
 
 /// Parses the revset expression used to filter revisions in operation diffs.
