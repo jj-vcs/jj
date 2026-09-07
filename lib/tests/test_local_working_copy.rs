@@ -3174,6 +3174,7 @@ fn test_always_store_empty_tree() -> TestResult {
     Ok(())
 }
 
+#[cfg(feature = "git")]
 #[test_case(TestRepoBackend::Simple ; "simple backend")]
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn test_gitattributes_ignore_only_on_git_backend(backend: TestRepoBackend) -> TestResult {

@@ -100,12 +100,15 @@ impl From<RunError> for CommandError {
     }
 }
 
-fn default_tree_state_settings(ignore_filters: &HashSet<String>) -> TreeStateSettings {
+fn default_tree_state_settings(
+    #[cfg(feature = "git")] ignore_filters: &HashSet<String>,
+) -> TreeStateSettings {
     TreeStateSettings {
         conflict_marker_style: ConflictMarkerStyle::Snapshot,
         eol_conversion_mode: EolConversionMode::None,
         exec_change_setting: ExecChangeSetting::Auto,
         fsmonitor_settings: FsmonitorSettings::None,
+        #[cfg(feature = "git")]
         ignore_filters: ignore_filters.clone(),
     }
 }
@@ -168,6 +171,7 @@ struct WorkspacePool {
     /// When true, wipe each slot's working copy on acquisition so every commit
     /// starts from a freshly checked-out tree (no artifact reuse).
     clean: bool,
+    #[cfg(feature = "git")]
     ignore_filters: HashSet<String>,
 }
 
@@ -177,7 +181,7 @@ impl WorkspacePool {
         size: NonZeroUsize,
         auto_tracking_matcher: Box<dyn Matcher>,
         clean: bool,
-        ignore_filters: HashSet<String>,
+        #[cfg(feature = "git")] ignore_filters: HashSet<String>,
     ) -> Result<Self, RunError> {
         // The parent() call is needed to not write under `.jj/repo/`.
         let base_path = repo_path.parent().unwrap().join("run").join("default");
@@ -187,6 +191,7 @@ impl WorkspacePool {
             size,
             auto_tracking_matcher,
             clean,
+            #[cfg(feature = "git")]
             ignore_filters,
         })
     }
@@ -214,7 +219,10 @@ impl WorkspacePool {
         let tree_state_path = state_dir.join("tree_state");
 
         let is_reused_workspace = tree_state_path.exists();
-        let settings = default_tree_state_settings(&self.ignore_filters);
+        let settings = default_tree_state_settings(
+            #[cfg(feature = "git")]
+            &self.ignore_filters,
+        );
         let mut tree_state = if !self.clean && is_reused_workspace {
             // Load the persisted tree state so `check_out` below can diff
             // against it, only touching files that changed and removing files
@@ -761,19 +769,13 @@ pub async fn cmd_run(
 
     let store = workspace_command.repo().store().clone();
     let auto_tracking_matcher = workspace_command.auto_tracking_matcher(ui)?;
+    #[cfg(feature = "git")]
     let ignore_filters = {
-        #[cfg(feature = "git")]
-        {
-            use jj_lib::git::GitSettings;
-            GitSettings::from_settings(workspace_command.settings())?
-                .ignore_filters
-                .into_iter()
-                .collect()
-        }
-        #[cfg(not(feature = "git"))]
-        {
-            HashSet::new()
-        }
+        use jj_lib::git::GitSettings;
+        GitSettings::from_settings(workspace_command.settings())?
+            .ignore_filters
+            .into_iter()
+            .collect()
     };
     let mut tx = workspace_command.start_transaction();
 
@@ -791,6 +793,7 @@ pub async fn cmd_run(
         jobs,
         auto_tracking_matcher,
         args.clean,
+        #[cfg(feature = "git")]
         ignore_filters,
     )?);
 

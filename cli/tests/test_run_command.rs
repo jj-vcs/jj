@@ -66,6 +66,7 @@ fn test_run_simple() {
     insta::assert_snapshot!(stdout, @"xxxx[EOF]");
 }
 
+#[cfg(feature = "git")]
 #[test]
 fn test_run_gitattributes_filter_in_temp_snapshot() {
     let test_env = TestEnvironment::default();

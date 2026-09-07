@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+#[cfg(feature = "git")]
 use std::collections::HashSet;
 use std::fs::File;
 use std::io;
@@ -157,7 +158,7 @@ pub(crate) async fn check_out_trees(
     matcher: &dyn Matcher,
     diff_type: DiffType,
     conflict_marker_style: ConflictMarkerStyle,
-    ignore_filters: HashSet<String>,
+    #[cfg(feature = "git")] ignore_filters: HashSet<String>,
 ) -> Result<DiffWorkingCopies, DiffCheckoutError> {
     let store = trees.before.store();
     let changed_files: Vec<_> = trees
@@ -181,6 +182,7 @@ pub(crate) async fn check_out_trees(
             eol_conversion_mode: EolConversionMode::None,
             exec_change_setting: ExecChangeSetting::Auto,
             fsmonitor_settings: FsmonitorSettings::None,
+            #[cfg(feature = "git")]
             ignore_filters: ignore_filters.clone(),
         };
         let mut state = TreeState::init(store.clone(), wc_path, state_dir, &tree_state_settings)?;
@@ -217,13 +219,14 @@ impl DiffEditWorkingCopies {
         diff_type: DiffType,
         instructions: Option<&str>,
         conflict_marker_style: ConflictMarkerStyle,
-        ignore_filters: HashSet<String>,
+        #[cfg(feature = "git")] ignore_filters: HashSet<String>,
     ) -> Result<Self, DiffEditError> {
         let working_copies = check_out_trees(
             trees,
             matcher,
             diff_type,
             conflict_marker_style,
+            #[cfg(feature = "git")]
             ignore_filters,
         )
         .await?;

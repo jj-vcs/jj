@@ -94,9 +94,13 @@ use crate::fsmonitor::WatchmanConfig;
 use crate::fsmonitor::watchman;
 #[cfg(feature = "git")]
 use crate::git::GitSettings;
+#[cfg(feature = "git")]
 use crate::gitattributes::DiskFileLoader;
+#[cfg(feature = "git")]
 use crate::gitattributes::GitAttributes;
+#[cfg(feature = "git")]
 use crate::gitattributes::SearchPriority;
+#[cfg(feature = "git")]
 use crate::gitattributes::TreeFileLoader;
 use crate::gitignore::GitIgnoreFile;
 use crate::lock::FileLock;
@@ -983,6 +987,7 @@ pub struct TreeStateSettings {
 
     /// Names of .gitattributes filters whose matching files should be ignored
     /// in the working copy.
+    #[cfg(feature = "git")]
     pub ignore_filters: HashSet<String>,
 }
 
@@ -994,19 +999,11 @@ impl TreeStateSettings {
             eol_conversion_mode: EolConversionMode::try_from_settings(user_settings)?,
             exec_change_setting: user_settings.get("working-copy.exec-bit-change")?,
             fsmonitor_settings: FsmonitorSettings::from_settings(user_settings)?,
-            ignore_filters: {
-                #[cfg(feature = "git")]
-                {
-                    GitSettings::from_settings(user_settings)?
-                        .ignore_filters
-                        .into_iter()
-                        .collect()
-                }
-                #[cfg(not(feature = "git"))]
-                {
-                    HashSet::new()
-                }
-            },
+            #[cfg(feature = "git")]
+            ignore_filters: GitSettings::from_settings(user_settings)?
+                .ignore_filters
+                .into_iter()
+                .collect(),
         })
     }
 }
@@ -1032,6 +1029,7 @@ pub struct TreeState {
     fsmonitor_settings: FsmonitorSettings,
     target_eol_strategy: TargetEolStrategy,
 
+    #[cfg(feature = "git")]
     ignore_filters: HashSet<String>,
 }
 
@@ -1106,14 +1104,16 @@ impl TreeState {
             eol_conversion_mode,
             exec_change_setting,
             fsmonitor_settings,
-            ignore_filters: settings_ignore_filters,
+            #[cfg(feature = "git")]
+            ignore_filters,
         }: &TreeStateSettings,
     ) -> Self {
         let exec_policy = ExecChangePolicy::new(*exec_change_setting, &state_path);
 
-        // Only enable ignore filters when using Git.
+        // Only enable ignore filters when using Git in the current repo with the Git feature on
+        #[cfg(feature = "git")]
         let ignore_filters = if store.backend().name() == "git" {
-            settings_ignore_filters.clone()
+            ignore_filters.clone()
         } else {
             HashSet::new()
         };
@@ -1132,6 +1132,7 @@ impl TreeState {
             exec_policy,
             fsmonitor_settings: fsmonitor_settings.clone(),
             target_eol_strategy: TargetEolStrategy::new(*eol_conversion_mode),
+            #[cfg(feature = "git")]
             ignore_filters,
         }
     }
@@ -1366,6 +1367,7 @@ impl TreeState {
         let (untracked_paths_tx, untracked_paths_rx) = channel();
         let (invalid_utf8_paths_tx, invalid_utf8_paths_rx) = channel();
         let (deleted_files_tx, deleted_files_rx) = channel();
+        #[cfg(feature = "git")]
         let git_attributes = Arc::new(GitAttributes::new(
             TreeFileLoader::new(self.tree.clone()),
             DiskFileLoader::new(self.working_copy_path.clone()),
@@ -1387,7 +1389,9 @@ impl TreeState {
                 error: OnceLock::new(),
                 progress: *progress,
                 max_new_file_size: *max_new_file_size,
+                #[cfg(feature = "git")]
                 git_attributes,
+                #[cfg(feature = "git")]
                 ignore_filters: self.ignore_filters.clone(),
             };
             let directory_to_visit = DirectoryToVisit {
@@ -1565,7 +1569,9 @@ struct FileSnapshotter<'a> {
     progress: Option<&'a SnapshotProgress<'a>>,
     max_new_file_size: u64,
 
+    #[cfg(feature = "git")]
     git_attributes: Arc<GitAttributes>,
+    #[cfg(feature = "git")]
     ignore_filters: HashSet<String>,
 }
 
@@ -1714,6 +1720,7 @@ impl FileSnapshotter<'_> {
             if let Some(progress) = self.progress {
                 progress(&path);
             }
+            #[cfg(feature = "git")]
             if self
                 .git_attributes
                 .filter_matches(&path, &self.ignore_filters, SearchPriority::Disk)
@@ -1722,8 +1729,9 @@ impl FileSnapshotter<'_> {
                 // Skip gitattributes files that we want to ignore - this
                 // would result in them showing up as deleted, but we also
                 // omit them in `emit_deleted_files` to avoid that.
-                Ok(None)
-            } else if maybe_current_file_state.is_none()
+                return Ok(None);
+            }
+            if maybe_current_file_state.is_none()
                 && (git_ignore.matches_file(path.as_ref())
                     && !self.force_tracking_matcher.matches(&path))
             {
@@ -1784,6 +1792,7 @@ impl FileSnapshotter<'_> {
             if !self.matcher.matches(tracked_path) {
                 continue;
             }
+            #[cfg(feature = "git")]
             if self
                 .git_attributes
                 .filter_matches(tracked_path, &self.ignore_filters, SearchPriority::Disk)
@@ -1877,6 +1886,7 @@ impl FileSnapshotter<'_> {
                 if state.file_type == FileType::GitSubmodule {
                     continue;
                 }
+                #[cfg(feature = "git")]
                 if self
                     .git_attributes
                     .filter_matches(path, &self.ignore_filters, SearchPriority::Disk)

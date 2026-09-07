@@ -51,11 +51,11 @@ use std::sync::Mutex;
 use futures::AsyncRead;
 use futures::AsyncReadExt as _;
 use futures::io::AllowStdIo;
-use gix_attributes::Search;
-use gix_attributes::State;
-use gix_attributes::glob::pattern::Case;
-use gix_attributes::search::MetadataCollection;
-use gix_attributes::search::Outcome;
+use gix::attrs::Search;
+use gix::attrs::State;
+use gix::attrs::glob::pattern::Case;
+use gix::attrs::search::MetadataCollection;
+use gix::attrs::search::Outcome;
 
 use crate::backend::TreeValue;
 use crate::merge::SameChange;
@@ -463,7 +463,7 @@ pub struct GitAttributesError {
 mod tests {
 
     use futures::io::Cursor;
-    use gix_attributes::state::Value;
+    use gix::attrs::state::Value;
     use indoc::indoc;
     use pollster::FutureExt as _;
 

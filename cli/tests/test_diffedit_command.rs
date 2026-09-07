@@ -18,6 +18,7 @@ use testutils::TestResult;
 
 use crate::common::TestEnvironment;
 
+#[cfg(feature = "git")]
 #[test]
 fn test_diffedit_gitattributes_filter_in_temp_snapshot() -> TestResult {
     let mut test_env = TestEnvironment::default();

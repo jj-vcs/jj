@@ -34,6 +34,7 @@ use jj_lib::fileset::FilePatternParseError;
 use jj_lib::fileset::FilesetParseError;
 use jj_lib::fileset::FilesetParseErrorKind;
 use jj_lib::fix::FixError;
+#[cfg(feature = "git")]
 use jj_lib::gitattributes::GitAttributesError;
 use jj_lib::gitignore::GitIgnoreError;
 use jj_lib::index::IndexError;
@@ -714,6 +715,7 @@ impl From<GitIgnoreError> for CommandError {
     }
 }
 
+#[cfg(feature = "git")]
 impl From<GitAttributesError> for CommandError {
     fn from(err: GitAttributesError) -> Self {
         user_error_with_message("Failed to process .gitattributes.", err)

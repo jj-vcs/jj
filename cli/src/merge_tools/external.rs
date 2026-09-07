@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+#[cfg(feature = "git")]
 use std::collections::HashSet;
 use std::io;
 use std::io::Write;
@@ -388,7 +389,7 @@ pub async fn edit_diff_external(
     instructions: Option<&str>,
     base_ignores: Arc<GitIgnoreFile>,
     default_conflict_marker_style: ConflictMarkerStyle,
-    ignore_filters: HashSet<String>,
+    #[cfg(feature = "git")] ignore_filters: HashSet<String>,
 ) -> Result<MergedTree, DiffEditError> {
     let conflict_marker_style = editor
         .conflict_marker_style
@@ -406,6 +407,7 @@ pub async fn edit_diff_external(
         diff_type,
         instructions,
         conflict_marker_style,
+        #[cfg(feature = "git")]
         ignore_filters,
     )
     .await?;
