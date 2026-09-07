@@ -412,6 +412,41 @@ fn test_resolution() -> TestResult {
     [EOF]
     ");
 
+    // Check that we error if the files are unchanged and
+    // `merge-tool-edits-conflict-markers=true`
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"");
+    std::fs::write(&editor_script, "")?;
+    let output = work_dir.run_jj([
+        "resolve",
+        "--config=merge-tools.fake-editor.merge-tool-edits-conflict-markers=true",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Resolving conflicts in: file
+    Error: Failed to resolve conflicts
+    Caused by: The output file is either unchanged or empty after the editor quit (run with --debug to see the exact invocation).
+    [EOF]
+    [exit status: 1]
+    ");
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor1"))?, @r#"
+    <<<<<<< conflict 1 of 1
+    %%%%%%% diff from: rlvkpnrz 1792382a "base"
+    \\\\\\\        to: zsuskuln 45537d53 "a"
+    -base
+    +a
+    +++++++ royxmykx 89d1b299 "b"
+    b
+    >>>>>>> conflict 1 of 1 ends
+    "#);
+    insta::assert_snapshot!(work_dir.run_jj(["op", "restore", &setup_opid]), @"
+    ------- stderr -------
+    Restored to operation: e036363e2dbe (2001-02-03 08:05:15) create bookmark conflict pointing to commit fbebe50eff6c300d0fc9e7c16b45fa9fc0a78ecb
+    Nothing changed.
+    [EOF]
+    ");
+
     // Check that merge tool can leave conflict markers by returning exit code 1
     // when using `merge-conflict-exit-codes = [1]`. The Git "diff3" conflict
     // markers should also be parsed correctly.
@@ -442,14 +477,14 @@ fn test_resolution() -> TestResult {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Resolving conflicts in: file
-    Working copy  (@) now at: vruxwmqv 097d6249 conflict | (conflict) conflict
+    Working copy  (@) now at: vruxwmqv 53e4a6c8 conflict | (conflict) conflict
     Parent commit (@-)      : zsuskuln 45537d53 a | a
     Parent commit (@-)      : royxmykx 89d1b299 b | b
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
     New conflicts appeared in 1 commits:
-      vruxwmqv 097d6249 conflict | (conflict) conflict
+      vruxwmqv 53e4a6c8 conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new vruxwmqv
