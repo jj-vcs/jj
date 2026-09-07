@@ -798,25 +798,27 @@ fn test_log_bookmarks() {
             " ",
             commit_id.short(),
             change_id.shortest(),
+            "L:",
+            if(change_id.local_bookmarks(), change_id.local_bookmarks(), '(no bookmarks)'),
             "R:",
             if(change_id.remote_bookmarks(), change_id.remote_bookmarks(), '(no bookmarks)')
         )
     "#;
     let output = work_dir.run_jj(["log", "-T", template]);
     insta::assert_snapshot!(output, @"
-    @  3cbd8e4b6166 x R: (no bookmarks)
-    ○  38a204733702 zs R: bookmark2@origin unchanged@origin
-    │ ○  8906307e46e3 r R: bookmark3@origin
+    @  3cbd8e4b6166 x L: bookmark2* new-bookmark R: (no bookmarks)
+    ○  38a204733702 zs L: unchanged R: bookmark2@origin unchanged@origin
+    │ ○  8906307e46e3 r L: bookmark3?? bookmark3?? R: bookmark3@origin
     ├─╯
-    │ ○  ac650536ccab r R: bookmark3@origin
+    │ ○  ac650536ccab r L: bookmark3?? bookmark3?? R: bookmark3@origin
     ├─╯
-    │ ○  326821eda8e4 q R: bookmark1@origin
+    │ ○  326821eda8e4 q L: bookmark1* R: bookmark1@origin
     ├─╯
-    │ ○  dfab68f8f3c2 v R: divergent-0-bookmark@origin divergent-1-bookmark@origin divergent-2-bookmark@origin
+    │ ○  dfab68f8f3c2 v L: divergent-0-bookmark divergent-1-bookmark R: divergent-0-bookmark@origin divergent-1-bookmark@origin divergent-2-bookmark@origin
     ├─╯
-    │ ○  1df228500f25 v R: divergent-0-bookmark@origin divergent-1-bookmark@origin divergent-2-bookmark@origin
+    │ ○  1df228500f25 v L: divergent-0-bookmark divergent-1-bookmark R: divergent-0-bookmark@origin divergent-1-bookmark@origin divergent-2-bookmark@origin
     ├─╯
-    ◆  000000000000 zz R: (no bookmarks)
+    ◆  000000000000 zz L: (no bookmarks) R: (no bookmarks)
     [EOF]
     ");
 }
@@ -900,6 +902,8 @@ fn test_change_id_remote_bookmarks_conflict_dedup() {
             " ",
             commit_id.short(),
             change_id.shortest(),
+            "L:",
+            if(change_id.local_bookmarks(), change_id.local_bookmarks(), '(no bookmarks)'),
             "R:",
             change_id.remote_bookmarks(),
             "\n",
@@ -913,8 +917,8 @@ fn test_change_id_remote_bookmarks_conflict_dedup() {
         template,
     ]);
     insta::assert_snapshot!(output, @"
-    b3df2ad60e03 r R: conflicting-bookmark@origin?? 
-    33a2f5ef1cd2 r R: conflicting-bookmark@origin?? 
+    b3df2ad60e03 r L: (no bookmarks) R: conflicting-bookmark@origin?? 
+    33a2f5ef1cd2 r L: (no bookmarks) R: conflicting-bookmark@origin?? 
     [EOF]
     ------- stderr -------
     Concurrent modification detected, resolving automatically.

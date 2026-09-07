@@ -32,8 +32,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   removes it, allowing colocation to be toggled after workspace
   creation.
 
-* The `ChangeId` type in templates now has a `.remote_bookmarks()` method available
-  for listing remote bookmarks pointing any of the change ID's commits.
+* The `ChangeId` type in templates now has `.local_bookmarks()` and `.remote_bookmarks()` 
+  methods available for listing local and remote bookmarks pointing to any of the change 
+  ID's commits.
 
 ### Fixed bugs
 

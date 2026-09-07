@@ -240,6 +240,7 @@ The following methods are defined.
   canonical "reversed" (z-k) representation.
 * `.short([len: Integer]) -> String`
 * `.shortest([min_len: Integer]) -> ShortestIdPrefix`: Shortest unique prefix.
+* `.local_bookmarks() -> List<CommitRef>`:  All local bookmarks pointing to the change ID.
 * `.remote_bookmarks() -> List<CommitRef>`: All remote bookmarks pointing to the change ID.
 
 ### `Commit` type
