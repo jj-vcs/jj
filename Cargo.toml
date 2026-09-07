@@ -29,7 +29,7 @@ anstream = "1.0.0"
 assert_cmd = "2.2.2"
 assert_matches = "1.5.0"
 async-trait = "0.1.89"
-blake2 = "0.10.6"
+blake2 = "0.11.0"
 bstr = { version = "1.12.1", features = ["serde"] }
 chrono = { version = "0.4.44", default-features = false, features = [
     "std",
@@ -76,7 +76,7 @@ indoc = "2.0.7"
 insta = { version = "1.47.2", features = ["filters"] }
 interim = { version = "0.2.1", features = ["chrono_0_4"] }
 itertools = "0.15.0"
-jsonschema = { version = "0.51.0", default-features = false }
+jsonschema = { version = "0.52.1", default-features = false }
 libc = { version = "0.2.186" }
 maplit = "1.0.2"
 memchr = "2.8.2"
