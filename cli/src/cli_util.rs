@@ -194,6 +194,7 @@ use crate::revset_util::RevsetExpressionEvaluator;
 use crate::revset_util::parse_union_name_patterns;
 use crate::template_builder;
 use crate::template_builder::TemplateLanguage;
+use crate::template_parser::ExpressionKind;
 use crate::template_parser::TemplateAliasesMap;
 use crate::template_parser::TemplateDiagnostics;
 use crate::templater::TemplateRenderer;
@@ -1199,6 +1200,33 @@ impl WorkspaceCommandEnvironment {
         Ok(template)
     }
 
+    /// Parses template of the given language into evaluation tree and walks
+    /// the AST using `walker`.
+    pub fn parse_and_walk_template<'a, 'i, C, L, F>(
+        &'i self,
+        ui: &Ui,
+        language: &L,
+        template_text: &'i str,
+        walker: F,
+    ) -> Result<TemplateRenderer<'a, C>, CommandError>
+    where
+        C: Clone + 'a,
+        L: TemplateLanguage<'a> + ?Sized,
+        L::Property: WrapTemplateProperty<'a, C>,
+        F: FnMut(&mut TemplateDiagnostics, &ExpressionKind<'i>, pest::Span<'i>),
+    {
+        let mut diagnostics = TemplateDiagnostics::new();
+        let template = template_builder::parse_and_walk(
+            language,
+            &mut diagnostics,
+            template_text,
+            &self.template_aliases_map,
+            walker,
+        )?;
+        print_parse_diagnostics(ui, "In template expression", &diagnostics)?;
+        Ok(template)
+    }
+
     /// Creates commit template language environment for this workspace and the
     /// given `repo`.
     pub fn commit_template_language<'a>(
@@ -1930,6 +1958,25 @@ to the current parents may contain changes from multiple commits.
         L::Property: WrapTemplateProperty<'a, C>,
     {
         self.env.parse_template(ui, language, template_text)
+    }
+
+    /// Parses template of the given language into evaluation tree and walks
+    /// the AST using `walker`.
+    pub fn parse_and_walk_template<'a, 'i, C, L, F>(
+        &'i self,
+        ui: &Ui,
+        language: &L,
+        template_text: &'i str,
+        walker: F,
+    ) -> Result<TemplateRenderer<'a, C>, CommandError>
+    where
+        C: Clone + 'a,
+        L: TemplateLanguage<'a> + ?Sized,
+        L::Property: WrapTemplateProperty<'a, C>,
+        F: FnMut(&mut TemplateDiagnostics, &ExpressionKind<'i>, pest::Span<'i>),
+    {
+        self.env
+            .parse_and_walk_template(ui, language, template_text, walker)
     }
 
     /// Parses template that is validated by `Self::new()`.

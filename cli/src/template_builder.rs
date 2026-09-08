@@ -28,6 +28,7 @@ use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigValue;
 use jj_lib::content_hash::blake2b_hash;
+use jj_lib::dsl_util::WalkableExpression;
 use jj_lib::file_util;
 use jj_lib::hex_util;
 use jj_lib::op_store::TimestampRange;
@@ -2909,6 +2910,27 @@ where
     L::Property: WrapTemplateProperty<'a, C>,
 {
     let node = template_parser::parse(template_text, aliases_map)?;
+    build(language, diagnostics, &node).map_err(|err| err.extend_alias_candidates(aliases_map))
+}
+
+/// Same as `parse`, but walks the parsed AST with `walker` before building the
+/// template renderer from it.
+pub fn parse_and_walk<'a, 'i, C, L, F>(
+    language: &L,
+    diagnostics: &mut TemplateDiagnostics,
+    template_text: &'i str,
+    aliases_map: &'i TemplateAliasesMap,
+    mut walker: F,
+) -> TemplateParseResult<TemplateRenderer<'a, C>>
+where
+    C: Clone + 'a,
+    L: TemplateLanguage<'a> + ?Sized,
+    L::Property: WrapTemplateProperty<'a, C>,
+    F: FnMut(&mut TemplateDiagnostics, &ExpressionKind<'i>, pest::Span<'i>),
+{
+    let node = template_parser::parse(template_text, aliases_map)?;
+    node.kind
+        .walk(&mut |kind, span| walker(diagnostics, kind, span), node.span);
     build(language, diagnostics, &node).map_err(|err| err.extend_alias_candidates(aliases_map))
 }
 

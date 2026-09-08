@@ -332,6 +332,14 @@ pub struct InvalidArguments<'i> {
     pub span: pest::Span<'i>,
 }
 
+/// Expression item that can be walked recursively and visited by `walker: F`.
+pub trait WalkableExpression<'i>: Sized {
+    /// Walks `self` and calls `walker` on the inner items.
+    fn walk<F>(&self, walker: &mut F, span: pest::Span<'i>)
+    where
+        F: FnMut(&Self, pest::Span<'i>);
+}
+
 /// Expression item that can be transformed recursively by using `folder: F`.
 pub trait FoldableExpression<'i>: Sized {
     /// Transforms `self` by applying the `folder` to inner items.

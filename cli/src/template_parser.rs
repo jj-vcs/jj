@@ -32,6 +32,7 @@ use jj_lib::dsl_util::FoldableExpression;
 use jj_lib::dsl_util::FunctionCallParser;
 use jj_lib::dsl_util::InvalidArguments;
 use jj_lib::dsl_util::StringLiteralParser;
+use jj_lib::dsl_util::WalkableExpression;
 use jj_lib::dsl_util::collect_similar;
 use jj_lib::str_util::StringPattern;
 use pest::Parser as _;
@@ -302,6 +303,44 @@ pub enum ExpressionKind<'i> {
     Lambda(Box<LambdaNode<'i>>),
     /// Identity node to preserve the span in the source template text.
     AliasExpanded(AliasId<'i>, Box<ExpressionNode<'i>>),
+}
+
+impl<'i> WalkableExpression<'i> for ExpressionKind<'i> {
+    fn walk<F>(&self, walker: &mut F, span: pest::Span<'i>)
+    where
+        F: FnMut(&Self, pest::Span<'i>),
+    {
+        walker(self, span);
+        match self {
+            Self::Identifier(_)
+            | Self::Boolean(_)
+            | Self::Integer(_)
+            | Self::String(_)
+            | Self::Pattern(_) => {}
+            Self::Unary(_, arg) => arg.kind.walk(walker, arg.span),
+            Self::Binary(_, lhs, rhs) => {
+                lhs.kind.walk(walker, lhs.span);
+                rhs.kind.walk(walker, rhs.span);
+            }
+            Self::Concat(nodes) => nodes
+                .iter()
+                .for_each(|node| node.kind.walk(walker, node.span)),
+            Self::FunctionCall(function) => function
+                .args
+                .iter()
+                .for_each(|arg| arg.kind.walk(walker, arg.span)),
+            Self::MethodCall(method) => {
+                method.object.kind.walk(walker, method.object.span);
+                method
+                    .function
+                    .args
+                    .iter()
+                    .for_each(|arg| arg.kind.walk(walker, arg.span));
+            }
+            Self::Lambda(lambda) => lambda.body.kind.walk(walker, lambda.body.span),
+            Self::AliasExpanded(_, subst) => subst.kind.walk(walker, subst.span),
+        }
+    }
 }
 
 impl<'i> FoldableExpression<'i> for ExpressionKind<'i> {
