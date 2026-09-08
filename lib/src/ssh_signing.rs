@@ -14,11 +14,11 @@
 
 #![expect(missing_docs)]
 
+use std::ffi::OsStr;
 use std::ffi::OsString;
 use std::fmt::Debug;
 use std::io::Write as _;
 use std::path::Path;
-use std::path::PathBuf;
 use std::process::Command;
 use std::process::ExitStatus;
 use std::process::Stdio;
@@ -40,6 +40,7 @@ pub struct SshBackend {
     program: OsString,
     allowed_signers: Option<OsString>,
     revocation_list: Option<OsString>,
+    default_key: Option<OsString>,
 }
 
 #[derive(Debug, Error)]
@@ -89,12 +90,15 @@ fn run_command(command: &mut Command, stdin: &[u8]) -> SshResult<Vec<u8>> {
 // This attempts to convert given key data into a file and return the filepath.
 // If the given data is actually already a filepath to a key on disk then the
 // key input is returned directly.
-fn ensure_key_as_file(key: &str) -> SshResult<Either<PathBuf, tempfile::TempPath>> {
-    // TODO: "~/" should be expanded when loading a key from the settings.
-    let key_path = crate::file_util::expand_home_path(key, etcetera::home_dir().ok().as_deref());
+fn ensure_key_as_file(key_path_or_data: &OsStr) -> SshResult<Either<&Path, tempfile::TempPath>> {
+    let key_path = Path::new(key_path_or_data);
     if key_path.is_absolute() {
         return Ok(either::Left(key_path));
     }
+    // Configured key value or --key argument must be a UTF-8 string.
+    let Some(key_data) = key_path_or_data.to_str() else {
+        return Ok(either::Left(key_path));
+    };
 
     let mut pub_key_file = tempfile::Builder::new()
         .prefix("jj-signing-key-")
@@ -102,7 +106,7 @@ fn ensure_key_as_file(key: &str) -> SshResult<Either<PathBuf, tempfile::TempPath
         .map_err(SshError::Io)?;
 
     pub_key_file
-        .write_all(key.as_bytes())
+        .write_all(key_data.as_bytes())
         .map_err(SshError::Io)?;
     pub_key_file.flush().map_err(SshError::Io)?;
 
@@ -127,11 +131,13 @@ impl SshBackend {
         program: OsString,
         allowed_signers: Option<OsString>,
         revocation_list: Option<OsString>,
+        default_key: Option<OsString>,
     ) -> Self {
         Self {
             program,
             allowed_signers,
             revocation_list,
+            default_key,
         }
     }
 
@@ -143,11 +149,13 @@ impl SshBackend {
         let revocation_list = settings
             .get_path("signing.backends.ssh.revocation-list")
             .optional()?;
+        let default_key = settings.get_path("signing.key").optional()?;
 
         Ok(Self::new(
             program.into(),
             allowed_signers.map(Into::into),
             revocation_list.map(Into::into),
+            default_key.map(Into::into),
         ))
     }
 
@@ -211,7 +219,7 @@ impl SigningBackend for SshBackend {
     }
 
     fn sign(&self, data: &[u8], key: Option<&str>) -> Result<Vec<u8>, SignError> {
-        let Some(key) = key else {
+        let Some(key) = key.map(OsStr::new).or(self.default_key.as_deref()) else {
             return Err(SshError::MissingKey.into());
         };
 
@@ -313,7 +321,7 @@ mod tests {
     #[test]
     fn test_ssh_key_to_file_conversion_raw_key_data() {
         let keydata = "ssh-ed25519 some-key-data";
-        let path = ensure_key_as_file(keydata).unwrap();
+        let path = ensure_key_as_file(keydata.as_ref()).unwrap();
 
         let mut buf = vec![];
         let mut file = File::open(path.right().unwrap()).unwrap();
@@ -325,7 +333,7 @@ mod tests {
     #[test]
     fn test_ssh_key_to_file_conversion_non_ssh_prefix() {
         let keydata = "ecdsa-sha2-nistp256 some-key-data";
-        let path = ensure_key_as_file(keydata).unwrap();
+        let path = ensure_key_as_file(keydata.as_ref()).unwrap();
 
         let mut buf = vec![];
         let mut file = File::open(path.right().unwrap()).unwrap();
@@ -350,7 +358,7 @@ mod tests {
 
         let file_path = file.into_temp_path();
 
-        let path = ensure_key_as_file(file_path.to_str().unwrap()).unwrap();
+        let path = ensure_key_as_file(file_path.as_ref()).unwrap();
 
         assert_eq!(
             file_path.to_str().unwrap(),

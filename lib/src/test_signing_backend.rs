@@ -15,8 +15,11 @@
 //! Generic APIs to work with cryptographic signatures created and verified by
 //! various backends.
 
+use crate::config::ConfigGetError;
+use crate::config::ConfigGetResultExt as _;
 use crate::content_hash::blake2b_hash;
 use crate::hex_util;
+use crate::settings::UserSettings;
 use crate::signing::SigStatus;
 use crate::signing::SignError;
 use crate::signing::SignResult;
@@ -25,9 +28,19 @@ use crate::signing::Verification;
 
 /// A test signing backend that uses a simple hash-based signature format.
 #[derive(Debug)]
-pub struct TestSigningBackend;
+pub struct TestSigningBackend {
+    default_key: Option<String>,
+}
 
 const PREFIX: &str = "--- JJ-TEST-SIGNATURE ---\nKEY: ";
+
+impl TestSigningBackend {
+    /// Creates a test signing backend from the settings.
+    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
+        let default_key = settings.get_string("signing.key").optional()?;
+        Ok(Self { default_key })
+    }
+}
 
 impl SigningBackend for TestSigningBackend {
     fn name(&self) -> &'static str {
@@ -39,7 +52,7 @@ impl SigningBackend for TestSigningBackend {
     }
 
     fn sign(&self, data: &[u8], key: Option<&str>) -> SignResult<Vec<u8>> {
-        let key = key.unwrap_or_default();
+        let key = key.or(self.default_key.as_deref()).unwrap_or_default();
         let mut body = Vec::with_capacity(data.len() + key.len());
         body.extend_from_slice(key.as_bytes());
         body.extend_from_slice(data);
