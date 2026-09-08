@@ -1270,7 +1270,10 @@ fn get_jj_command() -> Result<(JjBuilder, UserSettings), CommandError> {
         cmd: current_exe,
         args: cmd_args,
     };
-    let settings = UserSettings::from_config(config)?;
+    let settings = UserSettings::from_config_and_home_dir(
+        config,
+        config_env.home_dir().map(ToOwned::to_owned),
+    )?;
 
     Ok((builder, settings))
 }

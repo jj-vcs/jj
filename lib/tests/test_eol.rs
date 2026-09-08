@@ -51,7 +51,7 @@ fn base_user_settings_with_extra_configs(extra_settings: &str) -> UserSettings {
         ConfigLayer::parse(ConfigSource::User, extra_settings)
             .expect("Failed to parse the settings"),
     );
-    UserSettings::from_config(config).expect("Failed to create the UserSettings from the config")
+    testutils::user_settings_from_config(config)
 }
 
 #[test_case(Config {
