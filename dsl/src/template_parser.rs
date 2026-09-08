@@ -429,6 +429,29 @@ pub enum ExpressionKind<'i> {
     AliasExpanded(AliasId<'i>, Box<ExpressionNode<'i>>),
 }
 
+/// Whether there is a top level call to `json` or one in a top-level
+/// concatenation expression.
+///
+/// Only the first occurrence emits a warning.
+pub fn contains_top_level_json_call(kind: &ExpressionKind<'_>) -> bool {
+    let check = |kind: &ExpressionKind<'_>| match kind {
+        ExpressionKind::FunctionCall(function) => function.name == "json",
+        _ => false,
+    };
+
+    match kind {
+        ExpressionKind::Concat(nodes) => {
+            for node in nodes {
+                if check(&node.kind) {
+                    return true;
+                }
+            }
+            false
+        }
+        _ => check(kind),
+    }
+}
+
 impl<'i> FoldableExpression<'i> for ExpressionKind<'i> {
     fn fold<F>(self, folder: &mut F, span: pest::Span<'i>) -> Result<Self, F::Error>
     where

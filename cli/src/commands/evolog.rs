@@ -32,6 +32,7 @@ use tracing::instrument;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::check_json_word_wrap_mangling;
 use crate::cli_util::format_template;
 use crate::command_error::CommandError;
 use crate::complete;
@@ -141,6 +142,9 @@ pub(crate) async fn cmd_evolog(
                     .get_string("templates.log_node")?,
             )?
             .labeled(["evolog", "commit", "node"]);
+        if with_content_format.word_wrap() {
+            check_json_word_wrap_mangling(ui, workspace_command.env(), &template_string)?;
+        }
     }
 
     ui.request_pager();

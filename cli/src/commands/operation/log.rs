@@ -30,6 +30,7 @@ use super::diff::show_op_diff;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
 use crate::cli_util::WorkspaceCommandEnvironment;
+use crate::cli_util::check_json_word_wrap_mangling;
 use crate::cli_util::format_template;
 use crate::cli_util::merge_operations;
 use crate::command_error::CommandError;
@@ -161,6 +162,9 @@ async fn do_op_log(
                 &settings.get_string("templates.op_log_node")?,
             )?
             .labeled(["op_log", "operation", "node"]);
+        if with_content_format.word_wrap() {
+            check_json_word_wrap_mangling(ui, workspace_env, &text)?;
+        }
     }
 
     let diff_formats = diff_formats_for_log(settings, &args.diff_format, args.patch)?;

@@ -37,6 +37,7 @@ use tracing::instrument;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::check_json_word_wrap_mangling;
 use crate::cli_util::format_template;
 use crate::command_error::CommandError;
 use crate::complete;
@@ -218,6 +219,9 @@ pub(crate) async fn cmd_log(
         node_template = workspace_command
             .parse_template(ui, &language, &settings.get_string("templates.log_node")?)?
             .labeled(["log", "commit", "node"]);
+        if with_content_format.word_wrap() {
+            check_json_word_wrap_mangling(ui, workspace_command.env(), &template_string)?;
+        }
     }
 
     let mut unmatched_explicit_paths = fileset_expression.explicit_paths().collect_vec();
