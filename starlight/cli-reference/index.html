@@ -1779,8 +1779,9 @@ All relevant users, including owner, reviewers, cc'd, users that have starred th
 <div class="sl-heading-wrapper level-h6"><h6 id="options-36"><strong>Options:</strong></h6><a class="sl-anchor-link" href="#options-36"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Options:”</span></a></div>
 <ul>
 <li>
-<p><code dir="auto">--remote &#x3C;REMOTE></code> — The remote to push to (only named remotes are supported)</p>
+<p><code dir="auto">--remote &#x3C;REMOTE></code> — The remote(s) to push to (can be repeated)</p>
 <p>This defaults to the <code dir="auto">git.push</code> setting. If that is not configured, and if there are multiple remotes, the remote named "origin" will be used.</p>
+<p>By default, the specified pattern matches remote names with glob syntax, e.g., <code dir="auto">--remote '*'</code>. You can also use other <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">string pattern syntax</a>.</p>
 </li>
 <li>
 <p><code dir="auto">-b</code>, <code dir="auto">--bookmark &#x3C;BOOKMARK></code> — Push only this bookmark, or bookmarks matching a pattern (can be repeated)</p>
