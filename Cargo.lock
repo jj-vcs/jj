@@ -2638,7 +2638,6 @@ dependencies = [
  "digest 0.11.3",
  "dunce",
  "either",
- "etcetera",
  "eyre",
  "futures 0.3.34",
  "gix",

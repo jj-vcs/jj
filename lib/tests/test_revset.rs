@@ -4029,8 +4029,9 @@ fn test_evaluate_expression_mine() {
 
 #[test]
 fn test_evaluate_expression_signed() {
-    let signer = Signer::new(Some(Box::new(TestSigningBackend)), vec![]);
     let settings = testutils::user_settings();
+    let signing_backend = TestSigningBackend::from_settings(&settings).unwrap();
+    let signer = Signer::new(Some(Box::new(signing_backend)), vec![]);
     let test_workspace =
         TestWorkspace::init_with_backend_and_signer(TestRepoBackend::Test, signer, &settings);
     let repo = &test_workspace.repo;

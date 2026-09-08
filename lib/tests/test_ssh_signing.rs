@@ -132,6 +132,7 @@ fn backend(env: &SshEnvironment) -> SshBackend {
         env.revocation_list
             .as_ref()
             .map(|revocation_list| revocation_list.as_os_str().into()),
+        Some(env.private_key_path.clone().into()),
     )
 }
 
@@ -141,7 +142,7 @@ fn ssh_signing_roundtrip() -> TestResult {
     let backend = backend(&env);
     let data = b"hello world";
 
-    let signature = backend.sign(data, Some(env.private_key_path.to_str().unwrap()))?;
+    let signature = backend.sign(data, None)?;
 
     let check = backend.verify(data, &signature)?;
     assert_eq!(check.status, SigStatus::Good);
@@ -162,7 +163,7 @@ fn ssh_signing_bad_allowed_signers() -> TestResult {
     let backend = backend(&env);
     let data = b"hello world";
 
-    let signature = backend.sign(data, Some(env.private_key_path.to_str().unwrap()))?;
+    let signature = backend.sign(data, None)?;
 
     let check = backend.verify(data, &signature)?;
     assert_eq!(check.status, SigStatus::Unknown);
@@ -179,7 +180,7 @@ fn ssh_signing_missing_allowed_signers() -> TestResult {
     let backend = backend(&env);
     let data = b"hello world";
 
-    let signature = backend.sign(data, Some(env.private_key_path.to_str().unwrap()))?;
+    let signature = backend.sign(data, None)?;
 
     let check = backend.verify(data, &signature)?;
     assert_eq!(check.status, SigStatus::Unknown);
@@ -214,7 +215,7 @@ fn ssh_signing_revocation_unrevoked() -> TestResult {
     let backend = backend(&env);
     let data = b"hello world";
 
-    let signature = backend.sign(data, Some(env.private_key_path.to_str().unwrap()))?;
+    let signature = backend.sign(data, None)?;
 
     let check = backend.verify(data, &signature)?;
     assert_eq!(check.status, SigStatus::Good);

@@ -105,8 +105,7 @@ pub trait SigningBackend: Debug + Send + Sync {
 
     /// Create a signature for arbitrary data.
     ///
-    /// The `key` parameter is what `jj sign` receives as key argument, or what
-    /// is configured in the `signing.key` config.
+    /// The `key` parameter is what `jj sign` receives as key argument.
     fn sign(&self, data: &[u8], key: Option<&str>) -> SignResult<Vec<u8>>;
 
     /// Verify a signature. Should be reflexive with `sign`:
@@ -183,7 +182,10 @@ impl Signer {
             Box::new(GpgsmBackend::from_settings(settings).map_err(SignInitError::BackendConfig)?),
             Box::new(SshBackend::from_settings(settings).map_err(SignInitError::BackendConfig)?),
             #[cfg(feature = "testing")]
-            Box::new(TestSigningBackend),
+            Box::new(
+                TestSigningBackend::from_settings(settings)
+                    .map_err(SignInitError::BackendConfig)?,
+            ),
         ];
 
         let main_backend = settings

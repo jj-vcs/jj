@@ -150,13 +150,13 @@ impl CommitBuilder<'_> {
         self
     }
 
-    pub fn set_sign_key(mut self, sign_key: String) -> Self {
-        self.inner.set_sign_key(sign_key);
+    pub fn set_sign_key_override(mut self, sign_key: String) -> Self {
+        self.inner.set_sign_key_override(sign_key);
         self
     }
 
-    pub fn clear_sign_key(mut self) -> Self {
-        self.inner.clear_sign_key();
+    pub fn clear_sign_key_override(mut self) -> Self {
+        self.inner.clear_sign_key_override();
         self
     }
 
@@ -179,6 +179,7 @@ pub struct DetachedCommitBuilder {
     commit: backend::Commit,
     predecessors: Vec<CommitId>,
     rewrite_source: Option<Commit>,
+    sign_key_override: Option<String>,
     sign_settings: SignSettings,
     record_predecessors_in_commit: bool,
 }
@@ -217,6 +218,7 @@ impl DetachedCommitBuilder {
             commit,
             rewrite_source: None,
             predecessors: vec![],
+            sign_key_override: None,
             sign_settings: settings.sign_settings(),
             record_predecessors_in_commit,
         }
@@ -264,6 +266,7 @@ impl DetachedCommitBuilder {
             rng: settings.get_rng(),
             rewrite_source: Some(predecessor.clone()),
             predecessors: vec![predecessor.id().clone()],
+            sign_key_override: None,
             sign_settings: settings.sign_settings(),
             record_predecessors_in_commit,
         }
@@ -384,13 +387,13 @@ impl DetachedCommitBuilder {
         self
     }
 
-    pub fn set_sign_key(&mut self, sign_key: String) -> &mut Self {
-        self.sign_settings.key = Some(sign_key);
+    pub fn set_sign_key_override(&mut self, sign_key: String) -> &mut Self {
+        self.sign_key_override = Some(sign_key);
         self
     }
 
-    pub fn clear_sign_key(&mut self) -> &mut Self {
-        self.sign_settings.key = None;
+    pub fn clear_sign_key_override(&mut self) -> &mut Self {
+        self.sign_key_override = None;
         self
     }
 
@@ -399,7 +402,13 @@ impl DetachedCommitBuilder {
         if self.record_predecessors_in_commit {
             self.commit.predecessors = self.predecessors.clone();
         }
-        let commit = write_to_store(&self.store, self.commit, &self.sign_settings).await?;
+        let commit = write_to_store(
+            &self.store,
+            self.commit,
+            self.sign_key_override.as_deref(),
+            &self.sign_settings,
+        )
+        .await?;
         // FIXME: Google's index.has_id() always returns true.
         if mut_repo.is_backed_by_default_index()
             && mut_repo
@@ -433,7 +442,13 @@ impl DetachedCommitBuilder {
         if self.record_predecessors_in_commit {
             commit.predecessors = self.predecessors.clone();
         }
-        write_to_store(&self.store, commit, &self.sign_settings).await
+        write_to_store(
+            &self.store,
+            commit,
+            self.sign_key_override.as_deref(),
+            &self.sign_settings,
+        )
+        .await
     }
 
     /// Records the old commit as abandoned in the `mut_repo`.
@@ -452,10 +467,11 @@ impl DetachedCommitBuilder {
 async fn write_to_store(
     store: &Arc<Store>,
     mut commit: backend::Commit,
+    sign_key: Option<&str>,
     sign_settings: &SignSettings,
 ) -> BackendResult<Commit> {
     let should_sign = store.signer().can_sign() && sign_settings.should_sign(&commit);
-    let sign_fn = |data: &[u8]| store.signer().sign(data, sign_settings.key.as_deref());
+    let sign_fn = |data: &[u8]| store.signer().sign(data, sign_key);
 
     // Commit backend doesn't use secure_sig for writing and enforces it with an
     // assert, but sign_settings.should_sign check above will want to know

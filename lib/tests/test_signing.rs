@@ -65,8 +65,8 @@ fn good_verification() -> Option<Verification> {
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn manual(backend: TestRepoBackend) -> TestResult {
     let settings = user_settings(SignBehavior::Own);
-
-    let signer = Signer::new(Some(Box::new(TestSigningBackend)), vec![]);
+    let signing_backend = TestSigningBackend::from_settings(&settings).unwrap();
+    let signer = Signer::new(Some(Box::new(signing_backend)), vec![]);
     let test_workspace = TestWorkspace::init_with_backend_and_signer(backend, signer, &settings);
 
     let repo = &test_workspace.repo;
@@ -93,8 +93,8 @@ fn manual(backend: TestRepoBackend) -> TestResult {
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn keep_on_rewrite(backend: TestRepoBackend) -> TestResult {
     let settings = user_settings(SignBehavior::Own);
-
-    let signer = Signer::new(Some(Box::new(TestSigningBackend)), vec![]);
+    let signing_backend = TestSigningBackend::from_settings(&settings).unwrap();
+    let signer = Signer::new(Some(Box::new(signing_backend)), vec![]);
     let test_workspace = TestWorkspace::init_with_backend_and_signer(backend, signer, &settings);
 
     let repo = &test_workspace.repo;
@@ -118,8 +118,8 @@ fn keep_on_rewrite(backend: TestRepoBackend) -> TestResult {
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn manual_drop_on_rewrite(backend: TestRepoBackend) -> TestResult {
     let settings = user_settings(SignBehavior::Own);
-
-    let signer = Signer::new(Some(Box::new(TestSigningBackend)), vec![]);
+    let signing_backend = TestSigningBackend::from_settings(&settings).unwrap();
+    let signer = Signer::new(Some(Box::new(signing_backend)), vec![]);
     let test_workspace = TestWorkspace::init_with_backend_and_signer(backend, signer, &settings);
 
     let repo = &test_workspace.repo;
@@ -146,8 +146,8 @@ fn manual_drop_on_rewrite(backend: TestRepoBackend) -> TestResult {
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn forced(backend: TestRepoBackend) -> TestResult {
     let settings = user_settings(SignBehavior::Force);
-
-    let signer = Signer::new(Some(Box::new(TestSigningBackend)), vec![]);
+    let signing_backend = TestSigningBackend::from_settings(&settings).unwrap();
+    let signer = Signer::new(Some(Box::new(signing_backend)), vec![]);
     let test_workspace = TestWorkspace::init_with_backend_and_signer(backend, signer, &settings);
 
     let repo = &test_workspace.repo;
@@ -167,8 +167,8 @@ fn forced(backend: TestRepoBackend) -> TestResult {
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn configured(backend: TestRepoBackend) -> TestResult {
     let settings = user_settings(SignBehavior::Own);
-
-    let signer = Signer::new(Some(Box::new(TestSigningBackend)), vec![]);
+    let signing_backend = TestSigningBackend::from_settings(&settings).unwrap();
+    let signer = Signer::new(Some(Box::new(signing_backend)), vec![]);
     let test_workspace = TestWorkspace::init_with_backend_and_signer(backend, signer, &settings);
 
     let repo = &test_workspace.repo;
@@ -186,8 +186,8 @@ fn configured(backend: TestRepoBackend) -> TestResult {
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn drop_behavior(backend: TestRepoBackend) -> TestResult {
     let settings = user_settings(SignBehavior::Drop);
-
-    let signer = Signer::new(Some(Box::new(TestSigningBackend)), vec![]);
+    let signing_backend = TestSigningBackend::from_settings(&settings).unwrap();
+    let signer = Signer::new(Some(Box::new(signing_backend)), vec![]);
     let test_workspace = TestWorkspace::init_with_backend_and_signer(backend, signer, &settings);
 
     let repo = &test_workspace.repo;

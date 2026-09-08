@@ -57,7 +57,6 @@ struct UserSettingsData {
     operation_hostname: String,
     operation_username: String,
     signing_behavior: SignBehavior,
-    signing_key: Option<String>,
     // Environment for expanding paths:
     home_dir: Option<PathBuf>,
 }
@@ -101,8 +100,6 @@ pub struct SignSettings {
     /// The email address to compare against the commit author when determining
     /// if the existing signature is "our own" in terms of the sign behavior.
     pub user_email: String,
-    /// The signing backend specific key, to be passed to the signing backend.
-    pub key: Option<String>,
 }
 
 impl SignSettings {
@@ -161,7 +158,6 @@ impl UserSettings {
         let operation_hostname = config.get("operation.hostname")?;
         let operation_username = config.get("operation.username")?;
         let signing_behavior = config.get("signing.behavior")?;
-        let signing_key = config.get("signing.key").optional()?;
         let data = UserSettingsData {
             user_name,
             user_email,
@@ -170,7 +166,6 @@ impl UserSettings {
             operation_hostname,
             operation_username,
             signing_behavior,
-            signing_key,
             home_dir,
         };
         Ok(Self {
@@ -247,7 +242,6 @@ impl UserSettings {
         SignSettings {
             behavior: self.data.signing_behavior,
             user_email: self.data.user_email.clone(),
-            key: self.data.signing_key.clone(),
         }
     }
 }
