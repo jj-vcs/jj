@@ -17,6 +17,9 @@ revert a specific one which isn't the most recent operation (`jj op revert`). It
 also lets you restore the entire repo to the way it looked at an earlier point
 (`jj op restore`).
 
+If you need to share operation-log output in a bug report, see
+[redacted log output for bug reports](templates.md#redacted-log-output-for-bug-reports).
+
 When referring to operations, you can use `@` to represent the current
 operation.
 
