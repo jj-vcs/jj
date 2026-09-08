@@ -44,6 +44,7 @@ use crate::diff_util::DiffFormatArgs;
 use crate::formatter::FormatterExt as _;
 use crate::graphlog::GraphStyle;
 use crate::graphlog::get_graphlog;
+use crate::template_parser;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
 
@@ -212,9 +213,17 @@ pub(crate) async fn cmd_log(
             Some(value) => value.clone(),
             None => settings.get_string("templates.log")?,
         };
-        template = workspace_command
-            .parse_template(ui, &language, &template_string)?
-            .labeled(["log", "commit"]);
+        template = if with_content_format.word_wrap() {
+            workspace_command.parse_and_walk_template(
+                ui,
+                &language,
+                &template_string,
+                template_parser::walk_json_wrapping_warning,
+            )?
+        } else {
+            workspace_command.parse_template(ui, &language, &template_string)?
+        }
+        .labeled(["log", "commit"]);
         node_template = workspace_command
             .parse_template(ui, &language, &settings.get_string("templates.log_node")?)?
             .labeled(["log", "commit", "node"]);

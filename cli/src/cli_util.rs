@@ -3570,6 +3570,11 @@ impl LogContentFormat {
         self.width
     }
 
+    /// Whether word wrapping is enabled.
+    pub fn word_wrap(&self) -> bool {
+        self.word_wrap
+    }
+
     /// Writes content which will optionally be wrapped at the current width.
     pub async fn write<E: From<io::Error>>(
         &self,

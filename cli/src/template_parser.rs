@@ -343,6 +343,25 @@ impl<'i> WalkableExpression<'i> for ExpressionKind<'i> {
     }
 }
 
+/// A walker for the `parse_and_walk_template` function family which emits a
+/// warning about `json` being used with `ui.log-word-wrap`.
+pub fn walk_json_wrapping_warning<'i>(
+    diagnostics: &mut TemplateDiagnostics,
+    kind: &ExpressionKind<'i>,
+    _span: pest::Span<'i>,
+) {
+    let ExpressionKind::FunctionCall(function) = kind else {
+        return;
+    };
+    if function.name != "json" {
+        return;
+    }
+    diagnostics.add_warning(TemplateParseError::expression(
+        "Using `json` with ui.log-word-wrap=true may wrap its output, which might not be desired",
+        function.name_span,
+    ));
+}
+
 impl<'i> FoldableExpression<'i> for ExpressionKind<'i> {
     fn fold<F>(self, folder: &mut F, span: pest::Span<'i>) -> Result<Self, F::Error>
     where

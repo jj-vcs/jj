@@ -38,6 +38,7 @@ use crate::complete;
 use crate::diff_util::DiffFormatArgs;
 use crate::graphlog::GraphStyle;
 use crate::graphlog::get_graphlog;
+use crate::template_parser;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
 
@@ -128,9 +129,17 @@ pub(crate) async fn cmd_evolog(
             Some(value) => value.clone(),
             None => workspace_command.settings().get("templates.evolog")?,
         };
-        template = workspace_command
-            .parse_template(ui, &language, &template_string)?
-            .labeled(["evolog"]); // TODO: add label for the context type?
+        template = if with_content_format.word_wrap() {
+            workspace_command.parse_and_walk_template(
+                ui,
+                &language,
+                &template_string,
+                template_parser::walk_json_wrapping_warning,
+            )?
+        } else {
+            workspace_command.parse_template(ui, &language, &template_string)?
+        }
+        .labeled(["evolog"]); // TODO: add label for the context type?
         node_template = workspace_command
             .parse_template(
                 ui,

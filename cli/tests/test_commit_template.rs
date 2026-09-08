@@ -1855,3 +1855,124 @@ fn test_log_git_web_url() {
     ]);
     insta::assert_snapshot!(output, @"https://github.com/owner/repo https://github.com/upstream/repo [EOF]");
 }
+
+#[test]
+fn test_log_json_word_wrap_warning() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m", "first"]).success();
+    work_dir.run_jj(["new", "-m", "second"]).success();
+
+    // No warning when word wrap is disabled.
+    let output = work_dir.run_jj_with(|cmd| {
+        cmd.args([
+            "log",
+            r#"-Tjson(self) ++ "\n""#,
+            "--config=ui.log-word-wrap=false",
+        ])
+    });
+    insta::assert_snapshot!(output, @r#"
+    @  {"commit_id":"b1cb6b2f9141e6ffee18532a8bf9a2075ca02606","parents":["68a505386f936fff6d718f55005e77ea72589bc1"],"change_id":"kkmpptxzrspxrzommnulwmwkkqwworpl","description":"second\n","author":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:09+07:00"},"committer":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:09+07:00"}}
+    ○  {"commit_id":"68a505386f936fff6d718f55005e77ea72589bc1","parents":["0000000000000000000000000000000000000000"],"change_id":"qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu","description":"first\n","author":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:08+07:00"},"committer":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:08+07:00"}}
+    ◆  {"commit_id":"0000000000000000000000000000000000000000","parents":[],"change_id":"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz","description":"","author":{"name":"","email":"","timestamp":"1970-01-01T00:00:00Z"},"committer":{"name":"","email":"","timestamp":"1970-01-01T00:00:00Z"}}
+    [EOF]
+    "#);
+
+    // Warning when word wrap is enabled.
+    let output = work_dir.run_jj_with(|cmd| {
+        cmd.args([
+            "log",
+            r#"-Tjson(self) ++ "\n""#,
+            "--config=ui.log-word-wrap=true",
+        ])
+    });
+    insta::assert_snapshot!(output, @r#"
+    @  {"commit_id":"b1cb6b2f9141e6ffee18532a8bf9a2075ca02606","parents":["68a505386f936fff6d718f55005e77ea72589bc1"],"change_id":"kkmpptxzrspxrzommnulwmwkkqwworpl","description":"second\n","author":{"name":"Test
+    │  User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:09+07:00"},"committer":{"name":"Test
+    │  User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:09+07:00"}}
+    ○  {"commit_id":"68a505386f936fff6d718f55005e77ea72589bc1","parents":["0000000000000000000000000000000000000000"],"change_id":"qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu","description":"first\n","author":{"name":"Test
+    │  User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:08+07:00"},"committer":{"name":"Test
+    │  User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:08+07:00"}}
+    ◆  {"commit_id":"0000000000000000000000000000000000000000","parents":[],"change_id":"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz","description":"","author":{"name":"","email":"","timestamp":"1970-01-01T00:00:00Z"},"committer":{"name":"","email":"","timestamp":"1970-01-01T00:00:00Z"}}
+    [EOF]
+    ------- stderr -------
+    Warning: In template expression
+     --> 1:1
+      |
+    1 | json(self) ++ "\n"
+      | ^--^
+      |
+      = Using `json` with ui.log-word-wrap=true may wrap its output, which might not be desired
+    [EOF]
+    "#);
+}
+
+#[test]
+fn test_log_json_word_wrap_narrow_terminal() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m", "first"]).success();
+    work_dir.run_jj(["new", "-m", "second"]).success();
+
+    let output = work_dir.run_jj_with(|cmd| {
+        cmd.args([
+            "log",
+            "-r@",
+            r#"-Tjson(self) ++ "\n""#,
+            "--config=ui.log-word-wrap=true",
+        ])
+        .env("COLUMNS", "40")
+    });
+    insta::assert_snapshot!(output, @r#"
+    @  {"commit_id":"b1cb6b2f9141e6ffee18532a8bf9a2075ca02606","parents":["68a505386f936fff6d718f55005e77ea72589bc1"],"change_id":"kkmpptxzrspxrzommnulwmwkkqwworpl","description":"second\n","author":{"name":"Test
+    │  User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:09+07:00"},"committer":{"name":"Test
+    ~  User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:09+07:00"}}
+    [EOF]
+    ------- stderr -------
+    Warning: In template expression
+     --> 1:1
+      |
+    1 | json(self) ++ "\n"
+      | ^--^
+      |
+      = Using `json` with ui.log-word-wrap=true may wrap its output, which might not be desired
+    [EOF]
+    "#);
+}
+
+#[test]
+fn test_show_json_no_warning() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // `jj show` does not respect `ui.log-word-wrap`, so the warning is not
+    // emitted either way.
+    let output = work_dir.run_jj_with(|cmd| {
+        cmd.args([
+            "show",
+            r#"-Tjson(self) ++ "\n""#,
+            "--config=ui.log-word-wrap=false",
+        ])
+    });
+    insta::assert_snapshot!(output, @r#"
+    {"commit_id":"e8849ae12c709f2321908879bc724fdb2ab8a781","parents":["0000000000000000000000000000000000000000"],"change_id":"qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu","description":"","author":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:07+07:00"},"committer":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:07+07:00"}}
+    [EOF]
+    "#);
+
+    let output = work_dir.run_jj_with(|cmd| {
+        cmd.args([
+            "show",
+            r#"-Tjson(self) ++ "\n""#,
+            "--config=ui.log-word-wrap=true",
+        ])
+    });
+    insta::assert_snapshot!(output, @r#"
+    {"commit_id":"e8849ae12c709f2321908879bc724fdb2ab8a781","parents":["0000000000000000000000000000000000000000"],"change_id":"qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu","description":"","author":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:07+07:00"},"committer":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:07+07:00"}}
+    [EOF]
+    "#);
+}
