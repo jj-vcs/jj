@@ -2593,7 +2593,6 @@ dependencies = [
  "criterion",
  "digest 0.11.3",
  "either",
- "etcetera",
  "eyre",
  "futures 0.3.34",
  "globset",

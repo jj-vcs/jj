@@ -21,7 +21,6 @@ blake2 = { workspace = true }
 bstr = { workspace = true }
 digest = { workspace = true }
 either = { workspace = true }
-etcetera = { workspace = true }
 futures = { workspace = true }
 globset = { workspace = true }
 hashbrown = { workspace = true }

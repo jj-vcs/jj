@@ -419,6 +419,10 @@ impl ConfigEnv {
         }
     }
 
+    pub fn home_dir(&self) -> Option<&Path> {
+        self.home_dir.as_deref()
+    }
+
     pub fn set_command_name(&mut self, command: String) {
         self.command = Some(command);
     }

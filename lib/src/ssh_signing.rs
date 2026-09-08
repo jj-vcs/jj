@@ -89,7 +89,8 @@ fn run_command(command: &mut Command, stdin: &[u8]) -> SshResult<Vec<u8>> {
 // If the given data is actually already a filepath to a key on disk then the
 // key input is returned directly.
 fn ensure_key_as_file(key: &str) -> SshResult<Either<PathBuf, tempfile::TempPath>> {
-    let key_path = crate::file_util::expand_home_path(key);
+    // TODO: "~/" should be expanded when loading a key from the settings.
+    let key_path = crate::file_util::expand_home_path(key, etcetera::home_dir().ok().as_deref());
     if key_path.is_absolute() {
         return Ok(either::Left(key_path));
     }
@@ -136,11 +137,13 @@ impl SshBackend {
     pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
         let program = settings.get_string("signing.backends.ssh.program")?;
 
+        // TODO: home_dir shouldn't be resolved here.
+        let home_dir = etcetera::home_dir().ok();
         let get_expanded_path = |name| {
             Ok(settings
                 .get_string(name)
                 .optional()?
-                .map(|v| crate::file_util::expand_home_path(v.as_str())))
+                .map(|v| crate::file_util::expand_home_path(v.as_str(), home_dir.as_deref())))
         };
 
         let allowed_signers = get_expanded_path("signing.backends.ssh.allowed-signers")?;
