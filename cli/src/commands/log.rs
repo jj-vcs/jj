@@ -218,6 +218,9 @@ pub(crate) async fn cmd_log(
         node_template = workspace_command
             .parse_template(ui, &language, &settings.get_string("templates.log_node")?)?
             .labeled(["log", "commit", "node"]);
+        if with_content_format.word_wrap() {
+            workspace_command.check_json_word_wrap_mangling(ui, &template_string)?
+        };
     }
 
     let mut unmatched_explicit_paths = fileset_expression.explicit_paths().collect_vec();

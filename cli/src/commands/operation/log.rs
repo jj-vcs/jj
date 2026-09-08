@@ -161,6 +161,9 @@ async fn do_op_log(
                 &settings.get_string("templates.op_log_node")?,
             )?
             .labeled(["op_log", "operation", "node"]);
+        if with_content_format.word_wrap() {
+            workspace_env.check_json_word_wrap_mangling(ui, &text)?
+        };
     }
 
     let diff_formats = diff_formats_for_log(settings, &args.diff_format, args.patch)?;
