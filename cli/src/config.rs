@@ -963,7 +963,18 @@ fn parse_config_arg_item(item_str: &str) -> Result<(ConfigNamePathBuf, ConfigVal
 
 /// List of rules to migrate deprecated config variables.
 pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
-    vec![]
+    vec![
+        // TODO: Delete in jj 0.50.0+
+        ConfigMigrationRule::rename_update_value(
+            "split.legacy-bookmark-behavior",
+            "split.identity-strategy",
+            |old_value| {
+                let boolean = old_value.as_bool().ok_or("expected a boolean")?;
+                let strategy = if boolean { "remaining" } else { "selected" };
+                Ok(ConfigValue::from_iter([strategy]))
+            },
+        ),
+    ]
 }
 
 /// Command name and arguments specified by config.
