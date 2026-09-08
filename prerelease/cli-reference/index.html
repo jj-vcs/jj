@@ -9850,8 +9850,9 @@ upload</code> does:
 <h6 id="options_36"><strong>Options:</strong><a class="headerlink" href="#options_36" title="Permanent link">&para;</a></h6>
 <ul>
 <li>
-<p><code>--remote &lt;REMOTE&gt;</code> — The remote to push to (only named remotes are supported)</p>
+<p><code>--remote &lt;REMOTE&gt;</code> — The remote(s) to push to (can be repeated)</p>
 <p>This defaults to the <code>git.push</code> setting. If that is not configured, and if there are multiple remotes, the remote named "origin" will be used.</p>
+<p>By default, the specified pattern matches remote names with glob syntax, e.g., <code>--remote '*'</code>. You can also use other <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">string pattern syntax</a>.</p>
 </li>
 <li>
 <p><code>-b</code>, <code>--bookmark &lt;BOOKMARK&gt;</code> — Push only this bookmark, or bookmarks matching a pattern (can be repeated)</p>

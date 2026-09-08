@@ -7761,6 +7761,12 @@ published.</p>
   directory or loaded via <code>--config-file</code>). This allows precise file targeting
   and avoids interactive prompts when multiple config files exist.</p>
 </li>
+<li>
+<p><code>jj git push</code> now supports pushing to multiple remotes at the same time.
+  This can be configured via <code>git.push</code> set to a string pattern
+  or array of string patterns, or with the repeatable <code>--remote</code> flag,
+  which also accepts string patterns.</p>
+</li>
 </ul>
 <h3 id="fixed-bugs_2">Fixed bugs<a class="headerlink" href="#fixed-bugs_2" title="Permanent link">&para;</a></h3>
 <ul>

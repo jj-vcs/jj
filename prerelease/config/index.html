@@ -5630,10 +5630,9 @@ jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</sp
 <p>Similarly, you can also set the variable <code>git.push</code> to cause <code>jj git push</code> to
 push to a different remote:</p>
 <div class="highlight"><pre><span></span><code>jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--repo<span class="w"> </span>git.push<span class="w"> </span><span class="s2">&quot;github&quot;</span>
+jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--repo<span class="w"> </span>git.push<span class="w"> </span><span class="s2">&quot;regex:&#39;^(remote|upstream)&#39;&quot;</span>
+jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--repo<span class="w"> </span>git.push<span class="w"> </span><span class="s1">&#39;[&quot;remote*&quot;, &quot;upstream*&quot;]&#39;</span>
 </code></pre></div>
-<p>Note that unlike <code>git.fetch</code>, <code>git.push</code> can currently only be a single remote.
-This is not a hard limitation, and could be changed in the future if there is
-demand.</p>
 <h3 id="default-bookmarks-and-tags-to-fetch">Default bookmarks and tags to fetch<a class="headerlink" href="#default-bookmarks-and-tags-to-fetch" title="Permanent link">&para;</a></h3>
 <p>You can configure which bookmarks and tags to fetch by default per remote, using
 the <code>remotes.&lt;name&gt;.fetch-bookmarks</code>/<code>fetch-tags</code> config. The value is a <a href="../revsets/#string-patterns">string
