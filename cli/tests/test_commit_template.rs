@@ -935,6 +935,23 @@ fn test_log_contained_in() {
     [EOF]
     ");
 
+    let output = work_dir.run_jj([
+        "log",
+        "-r::",
+        "-T",
+        // Build the revset query dynamically from the current commit.
+        &template_for_revset(r#""++ commit_id ++""#),
+    ]);
+    insta::assert_snapshot!(output, @"
+    @  D [contained_in]
+    │ ○  C [contained_in]
+    │ ○  B main [contained_in]
+    │ ○  A [contained_in]
+    ├─╯
+    ◆  [contained_in]
+    [EOF]
+    ");
+
     // Suppress error that could be detected earlier
     let output = work_dir.run_jj(["log", "-r::", "-T", &template_for_revset("unknown_fn()")]);
     insta::assert_snapshot!(output, @r#"
@@ -993,6 +1010,26 @@ fn test_log_contained_in() {
       = Failed to evaluate revset
     2: Revision `maine` doesn't exist
     Hint: Did you mean `main`?
+    [EOF]
+    [exit status: 1]
+    "#);
+
+    let output = work_dir.run_jj([
+        "log",
+        "-r::",
+        "-T",
+        // Test dynamic query parsing failure
+        &template_for_revset(r#""++ non_existent() ++""#),
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Failed to parse template: Function `non_existent` doesn't exist
+    Caused by:  --> 5:33
+      |
+    5 |       if(self.contained_in(""++ non_existent() ++""), "[contained_in]"),
+      |                                 ^----------^
+      |
+      = Function `non_existent` doesn't exist
     [EOF]
     [exit status: 1]
     "#);

@@ -73,6 +73,7 @@ use jj_lib::revset::Revset;
 use jj_lib::revset::RevsetContainingFn;
 use jj_lib::revset::RevsetDiagnostics;
 use jj_lib::revset::RevsetParseContext;
+use jj_lib::revset::RevsetParseError;
 use jj_lib::revset::UserRevsetExpression;
 use jj_lib::rewrite::rebase_to_dest_parent;
 use jj_lib::settings::UserSettings;
@@ -103,6 +104,7 @@ use crate::operation_templater::OperationTemplateEnvironment;
 use crate::operation_templater::OperationTemplatePropertyKind;
 use crate::operation_templater::OperationTemplatePropertyVar;
 use crate::revset_util;
+use crate::revset_util::UserRevsetEvaluationError;
 use crate::template_builder;
 use crate::template_builder::BuildContext;
 use crate::template_builder::CoreTemplateBuildFnTable;
@@ -1027,6 +1029,88 @@ impl<'repo> CommitKeywordCache<'repo> {
     }
 }
 
+fn user_revset_template_parse_error(
+    err: RevsetParseError,
+    span: pest::Span<'_>,
+) -> TemplateParseError {
+    TemplateParseError::expression("In revset expression", span).with_source(err)
+}
+
+fn user_revset_template_evaluation_error(
+    err: UserRevsetEvaluationError,
+    span: pest::Span<'_>,
+) -> TemplateParseError {
+    TemplateParseError::expression("Failed to evaluate revset", span).with_source(err)
+}
+
+#[derive(Debug, thiserror::Error)]
+enum UserRevsetQueryError {
+    #[error(transparent)]
+    Parse(#[from] RevsetParseError),
+    #[error(transparent)]
+    Evaluation(#[from] UserRevsetEvaluationError),
+}
+
+fn user_revset_template_query_error(
+    err: UserRevsetQueryError,
+    span: pest::Span<'_>,
+) -> TemplateParseError {
+    match err {
+        UserRevsetQueryError::Parse(err) => user_revset_template_parse_error(err, span),
+        UserRevsetQueryError::Evaluation(err) => user_revset_template_evaluation_error(err, span),
+    }
+}
+
+fn extend_user_revset_diagnostics(
+    diagnostics: &mut TemplateDiagnostics,
+    span: pest::Span<'_>,
+    inner_diagnostics: RevsetDiagnostics,
+) {
+    diagnostics.extend_with(inner_diagnostics, |diag| {
+        TemplateParseError::expression("In revset expression", span).with_source(diag)
+    });
+}
+
+fn parse_user_revset_expression(
+    revset_parse_context: &RevsetParseContext<'_>,
+    revset_str: &str,
+) -> Result<(Arc<UserRevsetExpression>, RevsetDiagnostics), RevsetParseError> {
+    let mut diagnostics = RevsetDiagnostics::new();
+    let expression = revset::parse(&mut diagnostics, revset_str, revset_parse_context)?;
+    Ok((expression, diagnostics))
+}
+
+fn evaluate_user_revset_query<'repo>(
+    repo: &'repo dyn Repo,
+    revset_parse_context: &RevsetParseContext<'repo>,
+    id_prefix_context: &'repo IdPrefixContext,
+    expression: &UserRevsetExpression,
+) -> Result<Box<dyn Revset + 'repo>, UserRevsetEvaluationError> {
+    let symbol_resolver = revset_util::default_symbol_resolver(
+        repo,
+        revset_parse_context.extensions.symbol_resolvers(),
+        id_prefix_context,
+    );
+    let revset = expression
+        .resolve_user_expression(repo, &symbol_resolver)
+        .map_err(UserRevsetEvaluationError::Resolution)?
+        .evaluate(repo)
+        .map_err(UserRevsetEvaluationError::Evaluation)?;
+    Ok(revset)
+}
+
+fn resolve_user_revset_query_containing_fn<'repo>(
+    repo: &'repo dyn Repo,
+    revset_parse_context: &RevsetParseContext<'repo>,
+    id_prefix_context: &'repo IdPrefixContext,
+    query: &str,
+) -> Result<(Box<RevsetContainingFn<'repo>>, RevsetDiagnostics), UserRevsetQueryError> {
+    let (expression, diagnostics) = parse_user_revset_expression(revset_parse_context, query)?;
+    let revset =
+        evaluate_user_revset_query(repo, revset_parse_context, id_prefix_context, &expression)?;
+    Ok((revset.containing_fn(), diagnostics))
+}
+
 /// Builtin functions for the commit template language.
 fn builtin_commit_template_functions<'repo>()
 -> TemplateBuildFunctionFnMap<'repo, CommitTemplateLanguage<'repo>> {
@@ -1284,19 +1368,43 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
     );
     map.insert(
         "contained_in",
-        |language, diagnostics, _build_ctx, self_property, function| {
+        |language, diagnostics, build_ctx, self_property, function| {
             let [revset_node] = function.expect_exact_arguments()?;
-
-            let is_contained =
-                template_parser::catch_aliases(diagnostics, revset_node, |diagnostics, node| {
-                    let text = template_parser::expect_string_literal(node)?;
-                    let revset = evaluate_user_revset(language, diagnostics, node.span, text)?;
-                    Ok(revset.containing_fn())
-                })?;
-
-            let out_property =
-                self_property.and_then(move |commit| Ok(is_contained(commit.id()).block_on()?));
-            Ok(out_property.into_dyn_wrapped())
+            let revset_property =
+                expect_stringify_expression(language, diagnostics, build_ctx, revset_node)?;
+            if let Ok(query) = revset_property.extract() {
+                let (is_contained, inner_diagnostics) = resolve_user_revset_query_containing_fn(
+                    language.repo,
+                    &language.revset_parse_context,
+                    language.id_prefix_context,
+                    &query,
+                )
+                .map_err(|err| user_revset_template_query_error(err, revset_node.span))?;
+                extend_user_revset_diagnostics(diagnostics, revset_node.span, inner_diagnostics);
+                let out_property = self_property.and_then(move |commit| {
+                    Ok(is_contained(commit.id())
+                        .block_on()
+                        .map_err(UserRevsetEvaluationError::Evaluation)?)
+                });
+                Ok(out_property.into_dyn_wrapped())
+            } else {
+                let repo = language.repo;
+                let revset_parse_context = language.revset_parse_context.clone();
+                let id_prefix_context = language.id_prefix_context;
+                let out_property =
+                    (self_property, revset_property).and_then(move |(commit, query)| {
+                        let (is_contained, _) = resolve_user_revset_query_containing_fn(
+                            repo,
+                            &revset_parse_context,
+                            id_prefix_context,
+                            &query,
+                        )?;
+                        Ok(is_contained(commit.id())
+                            .block_on()
+                            .map_err(UserRevsetEvaluationError::Evaluation)?)
+                    });
+                Ok(out_property.into_dyn_wrapped())
+            }
         },
     );
     map.insert(
@@ -1437,25 +1545,6 @@ fn evaluate_revset_expression<'repo>(
         .evaluate(repo)
         .map_err(|err| make_error().with_source(err))?;
     Ok(revset)
-}
-
-fn evaluate_user_revset<'repo>(
-    language: &CommitTemplateLanguage<'repo>,
-    diagnostics: &mut TemplateDiagnostics,
-    span: pest::Span<'_>,
-    revset: &str,
-) -> Result<Box<dyn Revset + 'repo>, TemplateParseError> {
-    let mut inner_diagnostics = RevsetDiagnostics::new();
-    let expression = revset::parse(
-        &mut inner_diagnostics,
-        revset,
-        &language.revset_parse_context,
-    )
-    .map_err(|err| TemplateParseError::expression("In revset expression", span).with_source(err))?;
-    diagnostics.extend_with(inner_diagnostics, |diag| {
-        TemplateParseError::expression("In revset expression", span).with_source(diag)
-    });
-    evaluate_revset_expression(language, span, &expression)
 }
 
 fn builtin_commit_evolution_entry_methods<'repo>()
