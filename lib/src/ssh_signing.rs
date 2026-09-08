@@ -136,18 +136,12 @@ impl SshBackend {
 
     pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
         let program = settings.get_string("signing.backends.ssh.program")?;
-
-        // TODO: home_dir shouldn't be resolved here.
-        let home_dir = etcetera::home_dir().ok();
-        let get_expanded_path = |name| {
-            Ok(settings
-                .get_string(name)
-                .optional()?
-                .map(|v| crate::file_util::expand_home_path(v.as_str(), home_dir.as_deref())))
-        };
-
-        let allowed_signers = get_expanded_path("signing.backends.ssh.allowed-signers")?;
-        let revocation_list = get_expanded_path("signing.backends.ssh.revocation-list")?;
+        let allowed_signers = settings
+            .get_path("signing.backends.ssh.allowed-signers")
+            .optional()?;
+        let revocation_list = settings
+            .get_path("signing.backends.ssh.revocation-list")
+            .optional()?;
 
         Ok(Self::new(
             program.into(),

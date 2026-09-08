@@ -6852,7 +6852,7 @@ fn user_settings_without_change_id() -> UserSettings {
         .set_value("git.write-change-id-header", false)
         .unwrap();
     config.add_layer(layer);
-    UserSettings::from_config(config).unwrap()
+    testutils::user_settings_from_config(config)
 }
 
 #[test]
