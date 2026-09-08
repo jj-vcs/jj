@@ -40,6 +40,7 @@ use crate::merge::Diff;
 use crate::ref_name::GitRefNameBuf;
 use crate::ref_name::RefNameBuf;
 use crate::ref_name::RemoteName;
+use crate::subprocess_util::suppress_console_window;
 
 // * 2.29.0 introduced `git fetch --no-write-fetch-head`
 // * 2.40 still receives security patches (latest one was in Jan/2025)
@@ -100,13 +101,7 @@ impl GitSubprocessContext {
     /// Create the Git command
     fn create_command(&self) -> Command {
         let mut git_cmd = Command::new(&self.options.executable_path);
-        // Hide console window on Windows (https://stackoverflow.com/a/60958956)
-        #[cfg(windows)]
-        {
-            use std::os::windows::process::CommandExt as _;
-            const CREATE_NO_WINDOW: u32 = 0x08000000;
-            git_cmd.creation_flags(CREATE_NO_WINDOW);
-        }
+        suppress_console_window(&mut git_cmd);
 
         // TODO: here we are passing the full path to the git_dir, which can lead to UNC
         // bugs in Windows. The ideal way to do this is to pass the workspace
