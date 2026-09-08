@@ -127,6 +127,7 @@ use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
 use jj_lib::str_util::StringExpression;
 use jj_lib::str_util::StringMatcher;
+use jj_lib::template_parser;
 use jj_lib::template_parser::TemplateAliasesMap;
 use jj_lib::template_parser::TemplateDiagnostics;
 use jj_lib::transaction::Transaction;
@@ -1276,6 +1277,25 @@ impl WorkspaceCommandEnvironment {
         Ok(template)
     }
 
+    /// Parses template of the given language into evaluation tree and checks
+    /// whether it is corresponds to a `json(...)` or `... ++ json(...) ++ ...`
+    /// template. Emitting a warning about `ui.log-word-wrap` possibly mangling
+    /// the output if so.
+    ///
+    /// Note that this assumes that `ui.log-word-wrap` is enabled, only use it
+    /// in contexts where this is true.
+    pub fn check_json_word_wrap_mangling<'a, 'i>(
+        &'i self,
+        ui: &Ui,
+        template_text: &'i str,
+    ) -> Result<(), CommandError> {
+        let mut diagnostics = TemplateDiagnostics::new();
+        let node = template_parser::parse(template_text, &self.template_aliases_map)?;
+        template_parser::emit_warning_if_top_level_json_node(&mut diagnostics, &node.kind);
+        print_parse_diagnostics(ui, "In template expression", &diagnostics)?;
+        Ok(())
+    }
+
     /// Creates commit template language environment for this workspace and the
     /// given `repo`.
     pub fn commit_template_language<'a>(
@@ -1949,6 +1969,21 @@ to the current parents may contain changes from multiple commits.
         L::Property: WrapTemplateProperty<'a, C>,
     {
         self.env.parse_template(ui, language, template_text)
+    }
+
+    /// Parses template of the given language into evaluation tree and checks
+    /// whether it is corresponds to a `json(...)` or `... ++ json(...) ++ ...`
+    /// template. Emitting a warning about `ui.log-word-wrap` possibly mangling
+    /// the output if so.
+    ///
+    /// Note that this assumes that `ui.log-word-wrap` is enabled, only use it
+    /// in contexts where this is true.
+    pub fn check_json_word_wrap_mangling<'a, 'i>(
+        &'i self,
+        ui: &Ui,
+        template_text: &'i str,
+    ) -> Result<(), CommandError> {
+        self.env.check_json_word_wrap_mangling(ui, template_text)
     }
 
     /// Parses template that is validated by `Self::new()`.
@@ -3578,6 +3613,11 @@ impl LogContentFormat {
     /// Current width available to content.
     pub fn width(&self) -> usize {
         self.width
+    }
+
+    /// Whether word wrapping is enabled.
+    pub fn word_wrap(&self) -> bool {
+        self.word_wrap
     }
 
     /// Writes content which will optionally be wrapped at the current width.

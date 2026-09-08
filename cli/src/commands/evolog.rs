@@ -141,6 +141,9 @@ pub(crate) async fn cmd_evolog(
                     .get_string("templates.log_node")?,
             )?
             .labeled(["evolog", "commit", "node"]);
+        if with_content_format.word_wrap() {
+            workspace_command.check_json_word_wrap_mangling(ui, &template_string)?
+        };
     }
 
     ui.request_pager();
