@@ -131,6 +131,7 @@ use jj_lib::store_factories::StoreLoadError;
 use jj_lib::store_factories::merge_factories_map;
 use jj_lib::str_util::StringExpression;
 use jj_lib::str_util::StringMatcher;
+use jj_lib::template_parser;
 use jj_lib::template_parser::TemplateAliasesMap;
 use jj_lib::template_parser::TemplateDiagnostics;
 use jj_lib::transaction::Transaction;
@@ -1227,6 +1228,29 @@ impl WorkspaceCommandEnvironment {
     pub fn operation_template_extensions(&self) -> &[Arc<dyn OperationTemplateLanguageExtension>] {
         &self.command.data.operation_template_extensions
     }
+}
+
+/// Parses template of the given language into evaluation tree and checks
+/// whether it is corresponds to a `json(...)` or `... ++ json(...) ++ ...`
+/// template. Emitting a warning about `ui.log-word-wrap` possibly mangling
+/// the output if so.
+///
+/// Note that this assumes that `ui.log-word-wrap` is enabled, only use it
+/// in contexts where this is true.
+pub fn check_json_word_wrap_mangling(
+    ui: &Ui,
+    env: &WorkspaceCommandEnvironment,
+    template_text: &str,
+) -> Result<(), CommandError> {
+    let node = template_parser::parse(template_text, &env.template_aliases_map)?;
+    if template_parser::contains_top_level_json_call(&node.kind) {
+        writeln!(
+            ui.warning_default(),
+            "Using `json` with `ui.log-word-wrap=true` may wrap its output, which might not be \
+             desired",
+        )?;
+    }
+    Ok(())
 }
 
 /// Prints [`RunnerEvent`]s for the CLI.
@@ -3899,6 +3923,11 @@ impl LogContentFormat {
     /// Current width available to content.
     pub fn width(&self) -> usize {
         self.width
+    }
+
+    /// Whether word wrapping is enabled.
+    pub fn word_wrap(&self) -> bool {
+        self.word_wrap
     }
 
     /// Writes content which will optionally be wrapped at the current width.

@@ -650,6 +650,71 @@ fn test_log_evolog_divergence() {
 }
 
 #[test]
+fn test_evolog_json_word_wrap_warning() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m", "first"]).success();
+    work_dir.run_jj(["describe", "-m", "second"]).success();
+    work_dir.run_jj(["describe", "-m", "third"]).success();
+
+    // No word wrap enabled -> no warning.
+    let output = work_dir.run_jj_with(|cmd| {
+        cmd.args([
+            "evolog",
+            r#"-Tjson(self) ++ "\n""#,
+            "--config=ui.log-word-wrap=false",
+        ])
+    });
+    insta::assert_snapshot!(output, @r#"
+    @  {"commit":{"commit_id":"815ae39f75f4b674932b60d0b8bc232550f86837","parents":["0000000000000000000000000000000000000000"],"change_id":"qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu","description":"third\n","author":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:08+07:00"},"committer":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:10+07:00"}},"operation":{"id":"271cc6b3506df05a56b8d227918368386a16041ea384d69e3db3bef7c2de79bf7cf62b07fb7ce903b4e5f7003270a097306c232eab279e48eac8156e737dbf5e","parents":["754568aaa2fcc8c8b8caf02de1a825f52731325b0dd023ee73632fffba843af2402bee1d6f4a9ca731f06f184ecfdef2d41580776a2d5deba2da45bd9c6987d9"],"time":{"start":"2001-02-03T04:05:10+07:00","end":"2001-02-03T04:05:10+07:00"},"description":"describe commit 579039bca0f96bac750a56b5bd2af4ffeebb2e9d","hostname":"host.example.com","username":"test-username","is_snapshot":false,"workspace_name":"default","attributes":{"args":"jj describe -m third"}}}
+    ○  {"commit":{"commit_id":"579039bca0f96bac750a56b5bd2af4ffeebb2e9d","parents":["0000000000000000000000000000000000000000"],"change_id":"qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu","description":"second\n","author":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:08+07:00"},"committer":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:09+07:00"}},"operation":{"id":"754568aaa2fcc8c8b8caf02de1a825f52731325b0dd023ee73632fffba843af2402bee1d6f4a9ca731f06f184ecfdef2d41580776a2d5deba2da45bd9c6987d9","parents":["1e1a8ca9529a609ffc1ae2b4e748ba96efb322b856f87a51efb2bc13aa95bc717c8cd2764c5c5270a9b447a5d2fd7c9cdeaa8314f1eef8410bd220bc45af2c84"],"time":{"start":"2001-02-03T04:05:09+07:00","end":"2001-02-03T04:05:09+07:00"},"description":"describe commit 68a505386f936fff6d718f55005e77ea72589bc1","hostname":"host.example.com","username":"test-username","is_snapshot":false,"workspace_name":"default","attributes":{"args":"jj describe -m second"}}}
+    ○  {"commit":{"commit_id":"68a505386f936fff6d718f55005e77ea72589bc1","parents":["0000000000000000000000000000000000000000"],"change_id":"qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu","description":"first\n","author":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:08+07:00"},"committer":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:08+07:00"}},"operation":{"id":"1e1a8ca9529a609ffc1ae2b4e748ba96efb322b856f87a51efb2bc13aa95bc717c8cd2764c5c5270a9b447a5d2fd7c9cdeaa8314f1eef8410bd220bc45af2c84","parents":["f63ee16f95539ec5bda4a7178aa3ace2bf594719aa2cc3410cfc4d070cb31ae31225bef146eb2428baf760180976c936cd60891e7a9087e6836d3a315fe81030"],"time":{"start":"2001-02-03T04:05:08+07:00","end":"2001-02-03T04:05:08+07:00"},"description":"describe commit e8849ae12c709f2321908879bc724fdb2ab8a781","hostname":"host.example.com","username":"test-username","is_snapshot":false,"workspace_name":"default","attributes":{"args":"jj describe -m first"}}}
+    ○  {"commit":{"commit_id":"e8849ae12c709f2321908879bc724fdb2ab8a781","parents":["0000000000000000000000000000000000000000"],"change_id":"qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu","description":"","author":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:07+07:00"},"committer":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:07+07:00"}},"operation":{"id":"f63ee16f95539ec5bda4a7178aa3ace2bf594719aa2cc3410cfc4d070cb31ae31225bef146eb2428baf760180976c936cd60891e7a9087e6836d3a315fe81030","parents":["00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"],"time":{"start":"2001-02-03T04:05:07+07:00","end":"2001-02-03T04:05:07+07:00"},"description":"add workspace 'default'","hostname":"host.example.com","username":"test-username","is_snapshot":false,"workspace_name":null,"attributes":{}}}
+    [EOF]
+    "#);
+
+    // Word wrap enabled -> warning.
+    let output = work_dir.run_jj_with(|cmd| {
+        cmd.args([
+            "evolog",
+            r#"-Tjson(self) ++ "\n""#,
+            "--config=ui.log-word-wrap=true",
+        ])
+    });
+    insta::assert_snapshot!(output, @r#"
+    @  {"commit":{"commit_id":"815ae39f75f4b674932b60d0b8bc232550f86837","parents":["0000000000000000000000000000000000000000"],"change_id":"qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu","description":"third\n","author":{"name":"Test
+    │  User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:08+07:00"},"committer":{"name":"Test
+    │  User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:10+07:00"}},"operation":{"id":"271cc6b3506df05a56b8d227918368386a16041ea384d69e3db3bef7c2de79bf7cf62b07fb7ce903b4e5f7003270a097306c232eab279e48eac8156e737dbf5e","parents":["754568aaa2fcc8c8b8caf02de1a825f52731325b0dd023ee73632fffba843af2402bee1d6f4a9ca731f06f184ecfdef2d41580776a2d5deba2da45bd9c6987d9"],"time":{"start":"2001-02-03T04:05:10+07:00","end":"2001-02-03T04:05:10+07:00"},"description":"describe
+    │  commit
+    │  579039bca0f96bac750a56b5bd2af4ffeebb2e9d","hostname":"host.example.com","username":"test-username","is_snapshot":false,"workspace_name":"default","attributes":{"args":"jj
+    │  describe -m third"}}}
+    ○  {"commit":{"commit_id":"579039bca0f96bac750a56b5bd2af4ffeebb2e9d","parents":["0000000000000000000000000000000000000000"],"change_id":"qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu","description":"second\n","author":{"name":"Test
+    │  User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:08+07:00"},"committer":{"name":"Test
+    │  User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:09+07:00"}},"operation":{"id":"754568aaa2fcc8c8b8caf02de1a825f52731325b0dd023ee73632fffba843af2402bee1d6f4a9ca731f06f184ecfdef2d41580776a2d5deba2da45bd9c6987d9","parents":["1e1a8ca9529a609ffc1ae2b4e748ba96efb322b856f87a51efb2bc13aa95bc717c8cd2764c5c5270a9b447a5d2fd7c9cdeaa8314f1eef8410bd220bc45af2c84"],"time":{"start":"2001-02-03T04:05:09+07:00","end":"2001-02-03T04:05:09+07:00"},"description":"describe
+    │  commit
+    │  68a505386f936fff6d718f55005e77ea72589bc1","hostname":"host.example.com","username":"test-username","is_snapshot":false,"workspace_name":"default","attributes":{"args":"jj
+    │  describe -m second"}}}
+    ○  {"commit":{"commit_id":"68a505386f936fff6d718f55005e77ea72589bc1","parents":["0000000000000000000000000000000000000000"],"change_id":"qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu","description":"first\n","author":{"name":"Test
+    │  User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:08+07:00"},"committer":{"name":"Test
+    │  User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:08+07:00"}},"operation":{"id":"1e1a8ca9529a609ffc1ae2b4e748ba96efb322b856f87a51efb2bc13aa95bc717c8cd2764c5c5270a9b447a5d2fd7c9cdeaa8314f1eef8410bd220bc45af2c84","parents":["f63ee16f95539ec5bda4a7178aa3ace2bf594719aa2cc3410cfc4d070cb31ae31225bef146eb2428baf760180976c936cd60891e7a9087e6836d3a315fe81030"],"time":{"start":"2001-02-03T04:05:08+07:00","end":"2001-02-03T04:05:08+07:00"},"description":"describe
+    │  commit
+    │  e8849ae12c709f2321908879bc724fdb2ab8a781","hostname":"host.example.com","username":"test-username","is_snapshot":false,"workspace_name":"default","attributes":{"args":"jj
+    │  describe -m first"}}}
+    ○  {"commit":{"commit_id":"e8849ae12c709f2321908879bc724fdb2ab8a781","parents":["0000000000000000000000000000000000000000"],"change_id":"qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu","description":"","author":{"name":"Test
+       User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:07+07:00"},"committer":{"name":"Test
+       User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:07+07:00"}},"operation":{"id":"f63ee16f95539ec5bda4a7178aa3ace2bf594719aa2cc3410cfc4d070cb31ae31225bef146eb2428baf760180976c936cd60891e7a9087e6836d3a315fe81030","parents":["00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"],"time":{"start":"2001-02-03T04:05:07+07:00","end":"2001-02-03T04:05:07+07:00"},"description":"add
+       workspace
+       'default'","hostname":"host.example.com","username":"test-username","is_snapshot":false,"workspace_name":null,"attributes":{}}}
+    [EOF]
+    ------- stderr -------
+    Warning: Using `json` with `ui.log-word-wrap=true` may wrap its output, which might not be desired
+    [EOF]
+    "#);
+}
+
+#[test]
 fn test_log_bookmarks() {
     let test_env = TestEnvironment::default();
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
@@ -2084,4 +2149,182 @@ fn test_log_git_web_url() {
         r#"git_web_url() ++ " " ++ git_web_url(remote="upstream") ++ " " ++ git_web_url(remote="nonexistent")"#,
     ]);
     insta::assert_snapshot!(output, @"https://github.com/owner/repo https://github.com/upstream/repo [EOF]");
+}
+
+#[test]
+fn test_log_json_word_wrap_warning() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m", "first"]).success();
+    work_dir.run_jj(["new", "-m", "second"]).success();
+
+    // No word wrap enabled -> no warning.
+    let output = work_dir.run_jj([
+        "log",
+        r#"-Tjson(self) ++ "\n""#,
+        "--config=ui.log-word-wrap=false",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    @  {"commit_id":"b1cb6b2f9141e6ffee18532a8bf9a2075ca02606","parents":["68a505386f936fff6d718f55005e77ea72589bc1"],"change_id":"kkmpptxzrspxrzommnulwmwkkqwworpl","description":"second\n","author":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:09+07:00"},"committer":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:09+07:00"}}
+    ○  {"commit_id":"68a505386f936fff6d718f55005e77ea72589bc1","parents":["0000000000000000000000000000000000000000"],"change_id":"qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu","description":"first\n","author":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:08+07:00"},"committer":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:08+07:00"}}
+    ◆  {"commit_id":"0000000000000000000000000000000000000000","parents":[],"change_id":"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz","description":"","author":{"name":"","email":"","timestamp":"1970-01-01T00:00:00+00:00"},"committer":{"name":"","email":"","timestamp":"1970-01-01T00:00:00+00:00"}}
+    [EOF]
+    "#);
+
+    // Word wrap enabled -> warning.
+    let output = work_dir.run_jj([
+        "log",
+        r#"-Tjson(self) ++ "\n""#,
+        "--config=ui.log-word-wrap=true",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    @  {"commit_id":"b1cb6b2f9141e6ffee18532a8bf9a2075ca02606","parents":["68a505386f936fff6d718f55005e77ea72589bc1"],"change_id":"kkmpptxzrspxrzommnulwmwkkqwworpl","description":"second\n","author":{"name":"Test
+    │  User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:09+07:00"},"committer":{"name":"Test
+    │  User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:09+07:00"}}
+    ○  {"commit_id":"68a505386f936fff6d718f55005e77ea72589bc1","parents":["0000000000000000000000000000000000000000"],"change_id":"qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu","description":"first\n","author":{"name":"Test
+    │  User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:08+07:00"},"committer":{"name":"Test
+    │  User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:08+07:00"}}
+    ◆  {"commit_id":"0000000000000000000000000000000000000000","parents":[],"change_id":"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz","description":"","author":{"name":"","email":"","timestamp":"1970-01-01T00:00:00+00:00"},"committer":{"name":"","email":"","timestamp":"1970-01-01T00:00:00+00:00"}}
+    [EOF]
+    ------- stderr -------
+    Warning: Using `json` with `ui.log-word-wrap=true` may wrap its output, which might not be desired
+    [EOF]
+    "#);
+
+    // No word wrap enabled and no top level `json` -> no warning.
+    let output = work_dir.run_jj([
+        "log",
+        r#"-Tseparate(" ", json(commit_id), json(change_id))"#,
+        "--config=ui.log-word-wrap=false",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    @  "b1cb6b2f9141e6ffee18532a8bf9a2075ca02606" "kkmpptxzrspxrzommnulwmwkkqwworpl"
+    ○  "68a505386f936fff6d718f55005e77ea72589bc1" "qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu"
+    ◆  "0000000000000000000000000000000000000000" "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+    [EOF]
+    "#);
+
+    // Word wrap enabled, but no top level `json` -> no warning.
+    let output = work_dir.run_jj([
+        "log",
+        r#"-Tseparate(" ", json(commit_id), json(change_id))"#,
+        "--config=ui.log-word-wrap=true",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    @  "b1cb6b2f9141e6ffee18532a8bf9a2075ca02606" "kkmpptxzrspxrzommnulwmwkkqwworpl"
+    ○  "68a505386f936fff6d718f55005e77ea72589bc1" "qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu"
+    ◆  "0000000000000000000000000000000000000000" "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+    [EOF]
+    "#);
+}
+
+#[test]
+fn test_log_json_word_wrap_warning_dedup() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m", "first"]).success();
+    work_dir.run_jj(["new", "-m", "second"]).success();
+
+    // Two top level `json` calls, but only one warning emitted to avoid spam.
+    let output = work_dir.run_jj([
+        "log",
+        r#"-Tjson(commit_id) ++ " " ++ json(change_id)"#,
+        "--config=ui.log-word-wrap=true",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    @  "b1cb6b2f9141e6ffee18532a8bf9a2075ca02606" "kkmpptxzrspxrzommnulwmwkkqwworpl"
+    ○  "68a505386f936fff6d718f55005e77ea72589bc1" "qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu"
+    ◆  "0000000000000000000000000000000000000000" "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+    [EOF]
+    ------- stderr -------
+    Warning: Using `json` with `ui.log-word-wrap=true` may wrap its output, which might not be desired
+    [EOF]
+    "#);
+}
+
+#[test]
+fn test_show_json_no_warning() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // `jj show` does not respect `ui.log-word-wrap`, so the warning is not
+    // emitted either way.
+    let output = work_dir.run_jj([
+        "show",
+        r#"-Tjson(self) ++ "\n""#,
+        "--config=ui.log-word-wrap=false",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    {"commit_id":"e8849ae12c709f2321908879bc724fdb2ab8a781","parents":["0000000000000000000000000000000000000000"],"change_id":"qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu","description":"","author":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:07+07:00"},"committer":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:07+07:00"}}
+    [EOF]
+    "#);
+
+    let output = work_dir.run_jj([
+        "show",
+        r#"-Tjson(self) ++ "\n""#,
+        "--config=ui.log-word-wrap=true",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    {"commit_id":"e8849ae12c709f2321908879bc724fdb2ab8a781","parents":["0000000000000000000000000000000000000000"],"change_id":"qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu","description":"","author":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:07+07:00"},"committer":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:07+07:00"}}
+    [EOF]
+    "#);
+}
+
+#[test]
+fn test_op_log_json_word_wrap_warning() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["commit", "-m", "first"]).success();
+    work_dir.run_jj(["commit", "-m", "second"]).success();
+    work_dir.run_jj(["commit", "-m", "third"]).success();
+
+    // No word wrap enabled -> no warning.
+    let output = work_dir.run_jj([
+        "op",
+        "log",
+        r#"-Tjson(self) ++ "\n""#,
+        "--config=ui.log-word-wrap=false",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    @  {"id":"43503c38c0b136292ee5b67e068cddf23da6805a389518665a83db22eeacd6e4203ff92479527518ba4f329ae59cd43da5ae55c672a187fe2dc0292a8f420989","parents":["e404b54ed415bff2cfcf191f3f314dc3f35981a69a5be029350ead9070873b65665031bf6abfed00caf3512937241ea77ff361fabe464f584f7fddde0f1b52d8"],"time":{"start":"2001-02-03T04:05:10+07:00","end":"2001-02-03T04:05:10+07:00"},"description":"commit 848a549309fd33771bbb9f9ce900e60daf23d9f2","hostname":"host.example.com","username":"test-username","is_snapshot":false,"workspace_name":"default","attributes":{"args":"jj commit -m third"}}
+    ○  {"id":"e404b54ed415bff2cfcf191f3f314dc3f35981a69a5be029350ead9070873b65665031bf6abfed00caf3512937241ea77ff361fabe464f584f7fddde0f1b52d8","parents":["d3314e5ecadc5653bdd56521f4d5a0020536913e450a807d9b47f62ea3ef4716288b6a277c16ad23f94cfc5453b3a64057e5d527accc379164927022f09e7305"],"time":{"start":"2001-02-03T04:05:09+07:00","end":"2001-02-03T04:05:09+07:00"},"description":"commit eb9fd2ab82e77ef1ec8359752554a2ce8d906194","hostname":"host.example.com","username":"test-username","is_snapshot":false,"workspace_name":"default","attributes":{"args":"jj commit -m second"}}
+    ○  {"id":"d3314e5ecadc5653bdd56521f4d5a0020536913e450a807d9b47f62ea3ef4716288b6a277c16ad23f94cfc5453b3a64057e5d527accc379164927022f09e7305","parents":["f63ee16f95539ec5bda4a7178aa3ace2bf594719aa2cc3410cfc4d070cb31ae31225bef146eb2428baf760180976c936cd60891e7a9087e6836d3a315fe81030"],"time":{"start":"2001-02-03T04:05:08+07:00","end":"2001-02-03T04:05:08+07:00"},"description":"commit e8849ae12c709f2321908879bc724fdb2ab8a781","hostname":"host.example.com","username":"test-username","is_snapshot":false,"workspace_name":"default","attributes":{"args":"jj commit -m first"}}
+    ○  {"id":"f63ee16f95539ec5bda4a7178aa3ace2bf594719aa2cc3410cfc4d070cb31ae31225bef146eb2428baf760180976c936cd60891e7a9087e6836d3a315fe81030","parents":["00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"],"time":{"start":"2001-02-03T04:05:07+07:00","end":"2001-02-03T04:05:07+07:00"},"description":"add workspace 'default'","hostname":"host.example.com","username":"test-username","is_snapshot":false,"workspace_name":null,"attributes":{}}
+    ○  {"id":"00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","parents":[],"time":{"start":"1970-01-01T00:00:00+00:00","end":"1970-01-01T00:00:00+00:00"},"description":"","hostname":"","username":"","is_snapshot":false,"workspace_name":null,"attributes":{}}
+    [EOF]
+    "#);
+
+    // Word wrap enabled -> warning.
+    let output = work_dir.run_jj([
+        "op",
+        "log",
+        r#"-Tjson(self) ++ "\n""#,
+        "--config=ui.log-word-wrap=true",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    @  {"id":"43503c38c0b136292ee5b67e068cddf23da6805a389518665a83db22eeacd6e4203ff92479527518ba4f329ae59cd43da5ae55c672a187fe2dc0292a8f420989","parents":["e404b54ed415bff2cfcf191f3f314dc3f35981a69a5be029350ead9070873b65665031bf6abfed00caf3512937241ea77ff361fabe464f584f7fddde0f1b52d8"],"time":{"start":"2001-02-03T04:05:10+07:00","end":"2001-02-03T04:05:10+07:00"},"description":"commit
+    │  848a549309fd33771bbb9f9ce900e60daf23d9f2","hostname":"host.example.com","username":"test-username","is_snapshot":false,"workspace_name":"default","attributes":{"args":"jj
+    │  commit -m third"}}
+    ○  {"id":"e404b54ed415bff2cfcf191f3f314dc3f35981a69a5be029350ead9070873b65665031bf6abfed00caf3512937241ea77ff361fabe464f584f7fddde0f1b52d8","parents":["d3314e5ecadc5653bdd56521f4d5a0020536913e450a807d9b47f62ea3ef4716288b6a277c16ad23f94cfc5453b3a64057e5d527accc379164927022f09e7305"],"time":{"start":"2001-02-03T04:05:09+07:00","end":"2001-02-03T04:05:09+07:00"},"description":"commit
+    │  eb9fd2ab82e77ef1ec8359752554a2ce8d906194","hostname":"host.example.com","username":"test-username","is_snapshot":false,"workspace_name":"default","attributes":{"args":"jj
+    │  commit -m second"}}
+    ○  {"id":"d3314e5ecadc5653bdd56521f4d5a0020536913e450a807d9b47f62ea3ef4716288b6a277c16ad23f94cfc5453b3a64057e5d527accc379164927022f09e7305","parents":["f63ee16f95539ec5bda4a7178aa3ace2bf594719aa2cc3410cfc4d070cb31ae31225bef146eb2428baf760180976c936cd60891e7a9087e6836d3a315fe81030"],"time":{"start":"2001-02-03T04:05:08+07:00","end":"2001-02-03T04:05:08+07:00"},"description":"commit
+    │  e8849ae12c709f2321908879bc724fdb2ab8a781","hostname":"host.example.com","username":"test-username","is_snapshot":false,"workspace_name":"default","attributes":{"args":"jj
+    │  commit -m first"}}
+    ○  {"id":"f63ee16f95539ec5bda4a7178aa3ace2bf594719aa2cc3410cfc4d070cb31ae31225bef146eb2428baf760180976c936cd60891e7a9087e6836d3a315fe81030","parents":["00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"],"time":{"start":"2001-02-03T04:05:07+07:00","end":"2001-02-03T04:05:07+07:00"},"description":"add
+    │  workspace
+    │  'default'","hostname":"host.example.com","username":"test-username","is_snapshot":false,"workspace_name":null,"attributes":{}}
+    ○  {"id":"00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","parents":[],"time":{"start":"1970-01-01T00:00:00+00:00","end":"1970-01-01T00:00:00+00:00"},"description":"","hostname":"","username":"","is_snapshot":false,"workspace_name":null,"attributes":{}}
+    [EOF]
+    ------- stderr -------
+    Warning: Using `json` with `ui.log-word-wrap=true` may wrap its output, which might not be desired
+    [EOF]
+    "#);
 }
