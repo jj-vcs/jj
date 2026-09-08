@@ -29,7 +29,6 @@ use jj_lib::evolution::walk_predecessors;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
-use jj_lib::settings::UserSettings;
 use maplit::btreemap;
 use pollster::FutureExt as _;
 use testutils::CommitBuilderExt as _;
@@ -499,7 +498,7 @@ fn test_accumulate_predecessors() -> TestResult {
     let mut layer = ConfigLayer::empty(ConfigSource::User);
     layer.set_value("debug.commit-timestamp", "2001-02-03T04:05:06+07:00")?;
     config.add_layer(layer);
-    let settings = UserSettings::from_config(config)?;
+    let settings = testutils::user_settings_from_config(config);
 
     let test_repo = TestRepo::init_with_settings(&settings);
     let repo_0 = test_repo.repo;
