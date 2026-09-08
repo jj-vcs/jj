@@ -39,7 +39,7 @@ fn user_settings(behavior: SignBehavior) -> UserSettings {
         )
         .unwrap(),
     );
-    UserSettings::from_config(config).unwrap()
+    testutils::user_settings_from_config(config)
 }
 
 fn someone_else() -> Signature {

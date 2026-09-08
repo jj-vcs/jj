@@ -4688,7 +4688,10 @@ impl<'a> CliRunner<'a> {
             warn_if_args_mismatch(ui, &self.app, &config, &string_args)?;
         }
 
-        let settings = UserSettings::from_config(config)?;
+        let settings = UserSettings::from_config_and_home_dir(
+            config,
+            config_env.home_dir().map(ToOwned::to_owned),
+        )?;
         let command_helper_data = CommandHelperData {
             app: self.app,
             cwd,

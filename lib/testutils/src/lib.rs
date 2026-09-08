@@ -148,7 +148,12 @@ pub fn base_user_config() -> StackedConfig {
 /// Returns new immutable settings object that includes fake user configuration
 /// needed to run basic operations.
 pub fn user_settings() -> UserSettings {
-    UserSettings::from_config(base_user_config()).unwrap()
+    user_settings_from_config(base_user_config())
+}
+
+/// Creates new immutable settings object from the given config.
+pub fn user_settings_from_config(config: StackedConfig) -> UserSettings {
+    UserSettings::from_config_and_home_dir(config, None).unwrap()
 }
 
 /// Creates [`SnapshotOptions`] for use in tests.

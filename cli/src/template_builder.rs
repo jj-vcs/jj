@@ -3129,7 +3129,7 @@ mod tests {
         }
 
         fn with_config_and_current_dir(config: StackedConfig, current_dir: PathBuf) -> Self {
-            let settings = UserSettings::from_config(config).unwrap();
+            let settings = testutils::user_settings_from_config(config);
             Self {
                 language: TestTemplateLanguage::new(&settings, &current_dir),
                 aliases_map: TemplateAliasesMap::new(),
