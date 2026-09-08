@@ -118,7 +118,7 @@ pub async fn cmd_sign(
 
                     if to_sign.contains(&old_commit) {
                         if let Some(key) = &args.key {
-                            commit_builder = commit_builder.set_sign_key(key.clone());
+                            commit_builder = commit_builder.set_sign_key_override(key.clone());
                         }
 
                         let new_commit = commit_builder
