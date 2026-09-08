@@ -74,6 +74,7 @@ use jj_lib::revset::RevsetContainingFn;
 use jj_lib::revset::RevsetDiagnostics;
 use jj_lib::revset::RevsetParseContext;
 use jj_lib::revset::RevsetParseError;
+use jj_lib::revset::RevsetStreamExt as _;
 use jj_lib::revset::UserRevsetExpression;
 use jj_lib::rewrite::rebase_to_dest_parent;
 use jj_lib::settings::UserSettings;
@@ -1099,6 +1100,24 @@ fn evaluate_user_revset_query<'repo>(
     Ok(revset)
 }
 
+fn resolve_user_revset_query_commits<'repo>(
+    repo: &'repo dyn Repo,
+    revset_parse_context: &RevsetParseContext<'repo>,
+    id_prefix_context: &'repo IdPrefixContext,
+    query: &str,
+) -> Result<(Vec<Commit>, RevsetDiagnostics), UserRevsetQueryError> {
+    let (expression, diagnostics) = parse_user_revset_expression(revset_parse_context, query)?;
+    let revset =
+        evaluate_user_revset_query(repo, revset_parse_context, id_prefix_context, &expression)?;
+    let commits: Vec<Commit> = revset
+        .stream()
+        .commits(repo.store())
+        .try_collect()
+        .block_on()
+        .map_err(UserRevsetEvaluationError::Evaluation)?;
+    Ok((commits, diagnostics))
+}
+
 fn resolve_user_revset_query_containing_fn<'repo>(
     repo: &'repo dyn Repo,
     revset_parse_context: &RevsetParseContext<'repo>,
@@ -1115,6 +1134,36 @@ fn resolve_user_revset_query_containing_fn<'repo>(
 fn builtin_commit_template_functions<'repo>()
 -> TemplateBuildFunctionFnMap<'repo, CommitTemplateLanguage<'repo>> {
     let mut map = TemplateBuildFunctionFnMap::<CommitTemplateLanguage>::new();
+    map.insert("revset", |language, diagnostics, build_ctx, function| {
+        let [revset_node] = function.expect_exact_arguments()?;
+        let revset_property =
+            expect_stringify_expression(language, diagnostics, build_ctx, revset_node)?;
+        if let Ok(query) = revset_property.extract() {
+            let (commits, inner_diagnostics) = resolve_user_revset_query_commits(
+                language.repo,
+                &language.revset_parse_context,
+                language.id_prefix_context,
+                &query,
+            )
+            .map_err(|err| user_revset_template_query_error(err, revset_node.span))?;
+            extend_user_revset_diagnostics(diagnostics, revset_node.span, inner_diagnostics);
+            Ok(Literal(commits).into_dyn_wrapped())
+        } else {
+            let repo = language.repo;
+            let revset_parse_context = language.revset_parse_context.clone();
+            let id_prefix_context = language.id_prefix_context;
+            let out_property = revset_property.and_then(move |query| {
+                let (commits, _) = resolve_user_revset_query_commits(
+                    repo,
+                    &revset_parse_context,
+                    id_prefix_context,
+                    &query,
+                )?;
+                Ok(commits)
+            });
+            Ok(out_property.into_dyn_wrapped())
+        }
+    });
     map.insert(
         "git_web_url",
         |language, diagnostics, build_ctx, function| {

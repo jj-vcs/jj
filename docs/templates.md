@@ -79,6 +79,11 @@ The following functions are defined.
   content by adding both leading and trailing fill characters. If an odd number
   of fill characters are needed, the trailing fill will be one longer than the
   leading fill. The `content` shouldn't have newline characters.
+* `revset(revset: Stringify) -> List<Commit>`: Evaluates [a revset](revsets.md).
+
+  The revset is evaluated once during template parsing if its value evaluates to
+  a constant string. Queries built from values that aren't yet known during
+  parsing, for example `self.change_id()`, are evaluated per call at runtime.
 * `truncate_start(width: Integer, content: Template, [ellipsis: Template])`:
   Truncate `content` by removing leading characters. The `content` shouldn't
   have newline character. If `ellipsis` is provided and `content` was truncated,
