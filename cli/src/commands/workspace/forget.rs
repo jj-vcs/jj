@@ -14,8 +14,6 @@
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
-#[cfg(feature = "git")]
-use jj_lib::git::GitSubprocessOptions;
 use jj_lib::ref_name::WorkspaceNameBuf;
 #[cfg(feature = "git")]
 use jj_lib::repo::Repo as _;
@@ -115,10 +113,9 @@ pub async fn cmd_workspace_forget(
 
     #[cfg(feature = "git")]
     {
-        let subprocess_options = GitSubprocessOptions::from_settings(workspace_command.settings())?;
         let store = workspace_command.repo().store();
         for path in &workspace_paths {
-            unlink_git_worktree(ui, store, subprocess_options.clone(), path)?;
+            unlink_git_worktree(ui, store, path)?;
         }
     }
 

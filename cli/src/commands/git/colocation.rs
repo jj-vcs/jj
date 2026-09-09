@@ -242,13 +242,7 @@ async fn cmd_git_colocation_disable(
     let workspace_root = workspace_command.workspace_root();
 
     if is_child_workspace(&workspace_command) {
-        let subprocess_options = GitSubprocessOptions::from_settings(workspace_command.settings())?;
-        unlink_git_worktree(
-            ui,
-            workspace_command.repo().store(),
-            subprocess_options,
-            workspace_root,
-        )?;
+        unlink_git_worktree(ui, workspace_command.repo().store(), workspace_root)?;
     } else {
         let git_store_path = workspace_command.repo_path().join("store").join("git");
         let git_target_path = workspace_command

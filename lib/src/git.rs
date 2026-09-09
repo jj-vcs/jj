@@ -1936,8 +1936,12 @@ fn add_worktree_to_populated_dir(
 pub enum GitUnlinkWorktreeError {
     #[error("Failed to remove .git gitlink file")]
     RemoveGitLink(#[source] PathError),
+    #[error("Failed to remove Git worktree metadata")]
+    RemoveMetadata(#[source] PathError),
+    #[error("{0} is not a linked worktree of this repository")]
+    NotALinkedWorktree(PathBuf),
     #[error(transparent)]
-    Subprocess(#[from] GitSubprocessError),
+    Git(Box<dyn std::error::Error + Send + Sync>),
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
 }
@@ -1947,16 +1951,22 @@ pub enum GitUnlinkWorktreeError {
 /// Returns `false` if there was no Git worktree to disconnect.
 ///
 /// The worktree directory and its contents are left in place: only the `.git`
-/// gitlink and Git's bookkeeping under `.git/worktrees/` are removed. This is
-/// the inverse of [`create_worktree()`], which likewise only sets those up.
+/// gitlink and Git's bookkeeping under `.git/worktrees/<name>` are removed.
+/// This is the inverse of [`create_worktree()`], which likewise only sets those
+/// up.
 ///
-/// The gitlink is removed before the bookkeeping is pruned, so an error means
-/// either that nothing was done, or that the worktree is already disconnected
-/// and only stale metadata remains. Neither is worth failing a command over,
-/// so callers may treat all errors as non-fatal.
+/// Only this worktree's bookkeeping is touched. `git worktree prune` would
+/// remove the metadata of every worktree whose directory happens to be
+/// unreadable at that moment — on a network mount, mid-`chmod`, or being
+/// moved — and those worktrees then silently lose their Git colocation while
+/// jj keeps using them.
+///
+/// The gitlink is removed before the bookkeeping, so an error means either
+/// that nothing was done, or that the worktree is already disconnected and
+/// only stale metadata remains. Neither is worth failing a command over, so
+/// callers may treat all errors as non-fatal.
 pub fn unlink_worktree(
     store: &Store,
-    subprocess_options: GitSubprocessOptions,
     worktree_path: &Path,
 ) -> Result<bool, GitUnlinkWorktreeError> {
     let dot_git = worktree_path.join(".git");
@@ -1964,16 +1974,37 @@ pub fn unlink_worktree(
         return Ok(false);
     }
     let git_backend = get_git_backend(store)?;
+    let worktree_repo = git_backend
+        .open_git_repo_at_workdir(worktree_path)
+        .map_err(|err| GitUnlinkWorktreeError::Git(err.into()))?;
+    // For a linked worktree, gix's `git_dir()` is the admin directory the
+    // gitlink names, `<common_dir>/worktrees/<name>`. Anything else — the main
+    // worktree, a submodule's gitlink — is not ours to disconnect. gix reports
+    // `common_dir()` relative to the admin dir (`worktrees/<name>/../..`), so
+    // both sides are canonicalized before comparing.
+    let metadata_dir = worktree_repo.git_dir().to_owned();
+    let worktrees_dir = worktree_repo.common_dir().join("worktrees");
+    drop(worktree_repo);
+    let is_linked = match (
+        metadata_dir.parent().map(dunce::canonicalize),
+        dunce::canonicalize(&worktrees_dir),
+    ) {
+        (Some(Ok(parent)), Ok(worktrees_dir)) => parent == worktrees_dir,
+        _ => false,
+    };
+    if !is_linked {
+        return Err(GitUnlinkWorktreeError::NotALinkedWorktree(
+            worktree_path.to_owned(),
+        ));
+    }
     // `git worktree remove` isn't used because it deletes the directory
     // contents, and forgetting a workspace should preserve its files.
     std::fs::remove_file(&dot_git)
         .context(&dot_git)
         .map_err(GitUnlinkWorktreeError::RemoveGitLink)?;
-    // TODO: `git worktree prune` removes metadata for all worktrees whose
-    // working directories are missing, not just the one we removed. Ideally
-    // we'd target only the specific worktree.
-    let git_ctx = GitSubprocessContext::from_git_backend(git_backend, subprocess_options);
-    git_ctx.spawn_worktree_prune()?;
+    std::fs::remove_dir_all(&metadata_dir)
+        .context(&metadata_dir)
+        .map_err(GitUnlinkWorktreeError::RemoveMetadata)?;
     Ok(true)
 }
 

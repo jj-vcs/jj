@@ -51,6 +51,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* `jj workspace forget` no longer runs `git worktree prune` on the whole
+  repository, which could unregister another workspace's Git worktree if its
+  directory was unreadable at that moment. Only the forgotten workspace's
+  worktree is removed.
+
 ## [0.45.1] - 2026-09-03
 
 This release fixes an error that prevented the new jj-core crate from being

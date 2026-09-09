@@ -342,17 +342,6 @@ impl GitSubprocessContext {
 
         parse_git_worktree_output(output)
     }
-
-    /// Remove the bookkeeping of worktrees whose directories are gone.
-    pub(crate) fn spawn_worktree_prune(&self) -> Result<(), GitSubprocessError> {
-        let mut command = self.create_command();
-        command.stdout(Stdio::null());
-        command.args(["worktree", "prune"]);
-
-        let output = wait_with_output(self.spawn_cmd(command)?)?;
-
-        parse_git_worktree_output(output)
-    }
 }
 
 /// Generate a GitSubprocessError::ExternalGitError if the stderr output was not
