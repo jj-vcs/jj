@@ -37,6 +37,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   where you need to pass multiple arguments to the tool, such as separate args
   for the range start and range end.
 
+* `change_id()` now accepts an optional `include_hidden` parameter. Hidden commits
+  are included in the output if true.
+
 ### Fixed bugs
 
 ## [0.45.1] - 2026-09-03
