@@ -70,6 +70,9 @@ and this project adheres to
   different than `self.target().current_working_copy()` because multiple
   workspaces can point to the same commit.
 
+* `change_id()` now accepts an optional `include` parameter that selects
+  `visible` (default), `hidden` or `all` commits of the change.
+
 ### Fixed bugs
 
 * The operations created by `jj workspace add` are now attributed to the

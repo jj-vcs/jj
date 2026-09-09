@@ -42,6 +42,7 @@ use crate::fileset::FilesetParseContext;
 use crate::id_prefix::IdPrefixContext;
 use crate::id_prefix::IdPrefixIndex;
 use crate::index::MutableIndex;
+use crate::index::ResolvedChangeState;
 use crate::index::ResolvedChangeTargets;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
@@ -132,7 +133,7 @@ pub enum RevsetCommitRef {
     WorkingCopies,
     Symbol(String),
     RemoteSymbol(RemoteRefSymbolBuf),
-    ChangeId(HexPrefix),
+    ChangeId(HexPrefix, Option<ResolvedChangeState>),
     CommitId(HexPrefix),
     Bookmarks(StringExpression),
     RemoteBookmarks {
@@ -356,8 +357,8 @@ impl<St: ExpressionState<CommitRef = RevsetCommitRef>> RevsetExpression<St> {
         Arc::new(Self::CommitRef(commit_ref))
     }
 
-    pub fn change_id_prefix(prefix: HexPrefix) -> Arc<Self> {
-        let commit_ref = RevsetCommitRef::ChangeId(prefix);
+    pub fn change_id_prefix(prefix: HexPrefix, include: Option<ResolvedChangeState>) -> Arc<Self> {
+        let commit_ref = RevsetCommitRef::ChangeId(prefix, include);
         Arc::new(Self::CommitRef(commit_ref))
     }
 
@@ -853,13 +854,30 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
         Ok(RevsetExpression::root())
     });
     map.insert("change_id", |diagnostics, function, _context| {
-        let [arg] = function.expect_exact_arguments()?;
+        let ([arg], [include_arg]) = function.expect_named_arguments(&["", "include"])?;
         let prefix = revset_parser::catch_aliases(diagnostics, arg, |_diagnostics, arg| {
             let value = revset_parser::expect_string_literal("change ID prefix", arg)?;
             HexPrefix::try_from_reverse_hex(value)
                 .ok_or_else(|| RevsetParseError::expression("Invalid change ID prefix", arg.span))
         })?;
-        Ok(RevsetExpression::change_id_prefix(prefix))
+        Ok(RevsetExpression::change_id_prefix(
+            prefix,
+            if let Some(arg) = include_arg {
+                revset_parser::catch_aliases(diagnostics, arg, |_diagnostics, arg| {
+                    match revset_parser::expect_string_literal("visibility", arg)? {
+                        "all" => Ok(None),
+                        "hidden" => Ok(Some(ResolvedChangeState::Hidden)),
+                        "visible" => Ok(Some(ResolvedChangeState::Visible)),
+                        _ => Err(RevsetParseError::expression(
+                            "Expected one of `all`, `hidden` or `visible`",
+                            arg.span,
+                        )),
+                    }
+                })?
+            } else {
+                Some(ResolvedChangeState::Visible)
+            },
+        ))
     });
     map.insert("commit_id", |diagnostics, function, _context| {
         let [arg] = function.expect_exact_arguments()?;
@@ -2889,12 +2907,15 @@ fn resolve_commit_ref(
             let wc_commits = repo.view().wc_commit_ids().values().cloned().collect_vec();
             Ok(wc_commits)
         }
-        RevsetCommitRef::ChangeId(prefix) => {
+        RevsetCommitRef::ChangeId(prefix, include) => {
             let resolver = &symbol_resolver.change_id_resolver;
             Ok(resolver
                 .try_resolve(repo, prefix)?
-                .and_then(ResolvedChangeTargets::into_visible)
-                .unwrap_or_else(Vec::new))
+                .into_iter()
+                .flat_map(|resolved| resolved.targets)
+                .filter(|(_, target_state)| include.is_none_or(|state| *target_state == state))
+                .map(|(target, _)| target)
+                .collect())
         }
         RevsetCommitRef::CommitId(prefix) => {
             let resolver = &symbol_resolver.commit_id_resolver;
@@ -4160,10 +4181,67 @@ mod tests {
 
         insta::assert_debug_snapshot!(
             parse("change_id(z)")?,
-            @r#"CommitRef(ChangeId(HexPrefix("0")))"#);
+            @r#"
+        CommitRef(
+            ChangeId(
+                HexPrefix("0"),
+                Some(Visible),
+            ),
+        )
+        "#);
         insta::assert_debug_snapshot!(
             parse("change_id('zk')")?,
-            @r#"CommitRef(ChangeId(HexPrefix("0f")))"#);
+            @r#"
+        CommitRef(
+            ChangeId(
+                HexPrefix("0f"),
+                Some(Visible),
+            ),
+        )
+        "#);
+        insta::assert_debug_snapshot!(
+            parse("change_id('zk', include=all)")?,
+            @r#"
+        CommitRef(
+            ChangeId(
+                HexPrefix("0f"),
+                None,
+            ),
+        )
+        "#);
+        insta::assert_debug_snapshot!(
+            parse("change_id('zk', include=hidden)")?,
+            @r#"
+        CommitRef(
+            ChangeId(
+                HexPrefix("0f"),
+                Some(Hidden),
+            ),
+        )
+        "#);
+        insta::assert_debug_snapshot!(
+            parse("change_id('zk', include=visible)")?,
+            @r#"
+        CommitRef(
+            ChangeId(
+                HexPrefix("0f"),
+                Some(Visible),
+            ),
+        )
+        "#);
+        insta::assert_debug_snapshot!(
+            parse("change_id('zk', 'hidden')")?,
+            @r#"
+        CommitRef(
+            ChangeId(
+                HexPrefix("0f"),
+                Some(Hidden),
+            ),
+        )
+        "#);
+        insta::assert_debug_snapshot!(
+            parse("change_id('zk', include=nonsense)").unwrap_err().kind(),
+            @r#"Expression("Expected one of `all`, `hidden` or `visible`")"#);
         insta::assert_debug_snapshot!(
             parse("change_id(01234)").unwrap_err().kind(),
             @r#"Expression("Invalid change ID prefix")"#);
