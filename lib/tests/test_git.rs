@@ -3781,6 +3781,63 @@ fn test_reset_head_detached_out_of_sync() -> TestResult {
     Ok(())
 }
 
+#[test]
+fn test_reset_head_does_not_move_head_when_index_reset_fails() -> TestResult {
+    let test_workspace = TestWorkspace::init_colocated_git();
+    let repo = &test_workspace.repo;
+    let git_repo = get_git_repo(repo);
+    let workspace_root = test_workspace.workspace.workspace_root().to_owned();
+
+    let mut tx = repo.start_transaction();
+    let commit1 = write_random_commit(tx.repo_mut());
+    let commit2 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
+    let commit3 = write_random_commit_with_parents(tx.repo_mut(), &[&commit2]);
+
+    // unborn -> commit1 (= commit2's parent)
+    reset_head(tx.repo_mut(), &test_workspace.workspace, &commit2)?;
+    assert_eq!(
+        tx.repo().git_head(WorkspaceName::DEFAULT),
+        &RefTarget::normal(commit1.id().clone())
+    );
+    assert_eq!(git_repo.head_id()?, git_id(&commit1));
+
+    // Another process holds the index lock, so writing the index fails. The
+    // caller's transaction is discarded on error, taking the view update with
+    // it, so HEAD must not have been written either: a moved HEAD with an
+    // unmoved view makes the next command import the new HEAD and replace the
+    // working-copy commit with a fresh one.
+    let index_lock = git_repo.path().join("index.lock");
+    std::fs::write(&index_lock, b"").unwrap();
+
+    assert_matches!(
+        reset_head(tx.repo_mut(), &test_workspace.workspace, &commit3),
+        Err(GitResetHeadError::Git(_))
+    );
+    assert_eq!(
+        tx.repo().git_head(WorkspaceName::DEFAULT),
+        &RefTarget::normal(commit1.id().clone()),
+        "view shouldn't be updated when the index reset fails"
+    );
+    assert_eq!(
+        gix::open(&workspace_root).unwrap().head_id()?,
+        git_id(&commit1),
+        "on-disk HEAD shouldn't move when the index reset fails"
+    );
+
+    // Once the lock is gone the move goes through as usual.
+    std::fs::remove_file(&index_lock).unwrap();
+    reset_head(tx.repo_mut(), &test_workspace.workspace, &commit3)?;
+    assert_eq!(
+        tx.repo().git_head(WorkspaceName::DEFAULT),
+        &RefTarget::normal(commit2.id().clone())
+    );
+    assert_eq!(
+        gix::open(&workspace_root).unwrap().head_id()?,
+        git_id(&commit2)
+    );
+    Ok(())
+}
+
 fn get_index_state(workspace_root: &Path) -> String {
     let git_repo = gix::open(workspace_root).unwrap();
     let index = git_repo.index().unwrap();

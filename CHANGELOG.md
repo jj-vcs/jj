@@ -39,6 +39,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* In a colocated repository, Git HEAD is no longer moved when resetting the
+  Git index fails (for example because another process holds
+  `.git/index.lock`). Previously the next command could import the moved HEAD
+  and replace the workspace's working-copy commit with a fresh one, leaving the
+  previous commit's description and bookmarks behind on the previous commit.
+  [#7530](https://github.com/jj-vcs/jj/issues/7530)
+
 ## [0.45.1] - 2026-09-03
 
 This release fixes an error that prevented the new jj-core crate from being
