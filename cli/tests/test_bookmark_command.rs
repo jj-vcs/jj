@@ -593,6 +593,92 @@ fn test_bookmark_move_conflicting() {
 }
 
 #[test]
+fn test_bookmark_set_backwards() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["bookmark", "set", "--revision", "@", "foo"])
+        .success();
+
+    let output = work_dir.run_jj(["bookmark", "set", "-r@-", "foo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Refusing to move bookmark backwards or sideways: foo
+    Hint: Use --allow-backwards to allow it.
+    [EOF]
+    [exit status: 1]
+    ");
+
+    test_env.add_config("bookmarks.move-backwards = 'allow'");
+    let output = work_dir.run_jj(["bookmark", "set", "-r@-", "foo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Target revision is empty.
+    Moved 1 bookmarks to qpvuntsm e8849ae1 foo | (empty) (no description set)
+    [EOF]
+    ");
+
+    work_dir
+        .run_jj(["bookmark", "set", "--revision", "@", "foo"])
+        .success();
+    test_env.add_config("bookmarks.move-backwards = 'warn'");
+    let output = work_dir.run_jj(["bookmark", "set", "-r@-", "foo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Moving bookmark backwards or sideways: foo
+    Warning: Target revision is empty.
+    Moved 1 bookmarks to qpvuntsm e8849ae1 foo | (empty) (no description set)
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_bookmark_move_backwards() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["bookmark", "set", "--revision", "@", "foo"])
+        .success();
+
+    let output = work_dir.run_jj(["bookmark", "move", "-t@-", "foo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Refusing to move bookmark backwards or sideways: foo
+    Hint: Use --allow-backwards to allow it.
+    [EOF]
+    [exit status: 1]
+    ");
+
+    test_env.add_config("bookmarks.move-backwards = 'allow'");
+    let output = work_dir.run_jj(["bookmark", "move", "-t@-", "foo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Target revision is empty.
+    Moved 1 bookmarks to qpvuntsm e8849ae1 foo | (empty) (no description set)
+    [EOF]
+    ");
+
+    work_dir
+        .run_jj(["bookmark", "move", "--to", "@", "foo"])
+        .success();
+    test_env.add_config("bookmarks.move-backwards = 'warn'");
+    let output = work_dir.run_jj(["bookmark", "move", "-t@-", "foo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Moving bookmark backwards or sideways: foo
+    Warning: Target revision is empty.
+    Moved 1 bookmarks to qpvuntsm e8849ae1 foo | (empty) (no description set)
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_bookmark_rename() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
