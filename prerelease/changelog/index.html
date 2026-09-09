@@ -7773,6 +7773,11 @@ published.</p>
   or array of string patterns, or with the repeatable <code>--remote</code> flag,
   which also accepts string patterns.</p>
 </li>
+<li>
+<p><code>jj run</code> now uses the sparse patterns from the workspace it's run from.
+  Use the <code>--sparse-patterns</code> option to control this behavior (evaluated
+  per each <code>jj run</code> invocation).</p>
+</li>
 </ul>
 <h3 id="fixed-bugs_2">Fixed bugs<a class="headerlink" href="#fixed-bugs_2" title="Permanent link">&para;</a></h3>
 <ul>

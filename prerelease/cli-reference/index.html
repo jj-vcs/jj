@@ -10900,6 +10900,20 @@ $<span class="w"> </span>jj<span class="w"> </span>run<span class="w"> </span>-j
 <p>Any changes made by a failed command will not be saved, but changes from successful commands are still applied atomically at the end.</p>
 <p>The exit code from any failed command will not impact the exit code of <code>jj run</code> itself.</p>
 </li>
+<li>
+<p><code>--sparse-patterns &lt;SPARSE_PATTERNS&gt;</code> — How to handle sparse patterns when running the command. This is controlled per <code>jj run</code> invocation.</p>
+<p>If sparse patterns were inherited in a run and a subsequent run is passed <code>--sparse-args full</code>, but no <code>--clean</code>, then the command will run in fully materialized workspace together with all artifacts left from the previous run.</p>
+<p>Default value: <code>copy</code></p>
+<p>Possible values:</p>
+<ul>
+<li><code>copy</code>:
+  Copy all sparse patterns from the current workspace</li>
+<li><code>full</code>:
+  Include all files in the new workspace</li>
+<li><code>empty</code>:
+  Clear all files from the workspace (it will be empty)</li>
+</ul>
+</li>
 </ul>
 <h2 id="jj-show"><code>jj show</code><a class="headerlink" href="#jj-show" title="Permanent link">&para;</a></h2>
 <p>Show revision metadata and diff</p>
