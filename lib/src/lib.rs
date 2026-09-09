@@ -96,6 +96,7 @@ pub mod tree_merge;
 pub mod simple_backend;
 pub mod simple_op_heads_store;
 pub mod simple_op_store;
+pub mod simple_workspace_store;
 pub mod ssh_signing;
 pub mod stacked_table;
 pub mod store;
