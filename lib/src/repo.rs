@@ -110,6 +110,7 @@ use crate::signing_factory::SignInitError;
 use crate::signing_factory::signer_from_settings;
 use crate::simple_op_heads_store::SimpleOpHeadsStore;
 use crate::simple_op_store::SimpleOpStore;
+use crate::simple_workspace_store::SimpleWorkspaceStore;
 use crate::store::Store;
 use crate::submodule_store::SubmoduleStore;
 use crate::transaction::Transaction;
@@ -117,6 +118,8 @@ use crate::transaction::TransactionCommitError;
 use crate::tree_merge::MergeOptions;
 use crate::view::RenameWorkspaceError;
 use crate::view::View;
+use crate::workspace_store::WorkspaceStore;
+use crate::workspace_store::WorkspaceStoreError;
 
 #[async_trait(?Send)]
 pub trait Repo {
@@ -180,12 +183,18 @@ pub enum RepoInitError {
     #[error(transparent)]
     Backend(#[from] BackendInitError),
     #[error(transparent)]
+    WorkspaceStoreError(#[from] WorkspaceStoreError),
+    #[error(transparent)]
     OpHeadsStore(#[from] OpHeadsStoreError),
     #[error(transparent)]
     Path(#[from] PathError),
 }
 
 impl ReadonlyRepo {
+    pub fn default_workspace_store_initializer() -> &'static WorkspaceStoreInitializer<'static> {
+        &|repo_path| Ok(Box::new(SimpleWorkspaceStore::load(repo_path)?))
+    }
+
     pub fn default_op_store_initializer() -> &'static OpStoreInitializer<'static> {
         &|_settings, store_path, root_data| {
             Ok(Box::new(SimpleOpStore::init(store_path, root_data)?))
@@ -212,6 +221,7 @@ impl ReadonlyRepo {
         repo_path: &Path,
         backend_initializer: &BackendInitializer<'_>,
         signer: Signer,
+        workspace_store_initializer: &WorkspaceStoreInitializer<'_>,
         op_store_initializer: &OpStoreInitializer<'_>,
         op_heads_store_initializer: &OpHeadsStoreInitializer<'_>,
         index_store_initializer: &IndexStoreInitializer<'_>,
@@ -227,6 +237,8 @@ impl ReadonlyRepo {
         let merge_options =
             MergeOptions::from_settings(settings).map_err(|err| BackendInitError(err.into()))?;
         let store = Store::new(backend, signer, merge_options);
+        let workspace_store: Arc<dyn WorkspaceStore> =
+            Arc::from(workspace_store_initializer(&repo_path)?);
 
         let op_store_path = repo_path.join("op_store");
         fs::create_dir(&op_store_path).context(&op_store_path)?;
@@ -264,6 +276,7 @@ impl ReadonlyRepo {
         let loader = RepoLoader {
             settings: settings.clone(),
             store,
+            workspace_store,
             op_store,
             op_heads_store,
             index_store,
@@ -391,6 +404,8 @@ impl Repo for ReadonlyRepo {
     }
 }
 
+pub type WorkspaceStoreInitializer<'a> =
+    dyn Fn(&Path) -> Result<Box<dyn WorkspaceStore>, WorkspaceStoreError> + 'a;
 pub type BackendInitializer<'a> =
     dyn Fn(&UserSettings, &Path) -> Result<Box<dyn Backend>, BackendInitError> + 'a;
 #[rustfmt::skip] // auto-formatted line would exceed the maximum width
@@ -623,6 +638,7 @@ pub enum RepoLoaderError {
 pub struct RepoLoader {
     settings: UserSettings,
     store: Arc<Store>,
+    workspace_store: Arc<dyn WorkspaceStore>,
     op_store: Arc<dyn OpStore>,
     op_heads_store: Arc<dyn OpHeadsStore>,
     index_store: Arc<dyn IndexStore>,
@@ -633,6 +649,7 @@ impl RepoLoader {
     pub fn new(
         settings: UserSettings,
         store: Arc<Store>,
+        workspace_store: Arc<dyn WorkspaceStore>,
         op_store: Arc<dyn OpStore>,
         op_heads_store: Arc<dyn OpHeadsStore>,
         index_store: Arc<dyn IndexStore>,
@@ -641,6 +658,7 @@ impl RepoLoader {
         Self {
             settings,
             store,
+            workspace_store,
             op_store,
             op_heads_store,
             index_store,
@@ -654,6 +672,7 @@ impl RepoLoader {
     pub fn init_from_file_system(
         settings: &UserSettings,
         repo_path: &Path,
+        workspace_store: Arc<dyn WorkspaceStore>,
         store_factories: &StoreFactories,
     ) -> Result<Self, StoreLoadError> {
         let merge_options =
@@ -681,6 +700,7 @@ impl RepoLoader {
         Ok(Self {
             settings: settings.clone(),
             store,
+            workspace_store,
             op_store,
             op_heads_store,
             index_store,
@@ -690,6 +710,10 @@ impl RepoLoader {
 
     pub fn settings(&self) -> &UserSettings {
         &self.settings
+    }
+
+    pub fn workspace_store(&self) -> &Arc<dyn WorkspaceStore> {
+        &self.workspace_store
     }
 
     pub fn store(&self) -> &Arc<Store> {

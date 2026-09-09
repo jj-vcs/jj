@@ -12,7 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::sync::Arc;
+
+use jj_lib::default_backend_factories::default_workspace_store_factory;
 use jj_lib::repo::RepoLoader;
+use jj_lib::workspace_store::WorkspaceStore;
 use pollster::FutureExt as _;
 use testutils::TestRepo;
 use testutils::TestResult;
@@ -34,9 +38,12 @@ fn test_load_at_operation() -> TestResult {
 
     // If we load the repo at head, we should not see the commit since it was
     // removed
+    let workspace_store: Arc<dyn WorkspaceStore> =
+        Arc::from(default_workspace_store_factory().load(test_repo.repo_path())?);
     let loader = RepoLoader::init_from_file_system(
         &settings,
         test_repo.repo_path(),
+        workspace_store.clone(),
         &test_repo.env.default_backend_factories(),
     )?;
     let head_repo = loader.load_at_head().block_on()?;
@@ -47,6 +54,7 @@ fn test_load_at_operation() -> TestResult {
     let loader = RepoLoader::init_from_file_system(
         &settings,
         test_repo.repo_path(),
+        workspace_store,
         &test_repo.env.default_backend_factories(),
     )?;
     let old_repo = loader.load_at(repo.operation()).block_on()?;

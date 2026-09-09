@@ -46,6 +46,7 @@ use jj_lib::config::ConfigSource;
 use jj_lib::config::StackedConfig;
 use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::default_backend_factories::default_backend_factories;
+use jj_lib::default_backend_factories::default_workspace_store_factory;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::matchers::EverythingMatcher;
@@ -77,6 +78,7 @@ use jj_lib::working_copy::SnapshotError;
 use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::SnapshotStats;
 use jj_lib::workspace::Workspace;
+use jj_lib::workspace_store::WorkspaceStore;
 use pollster::FutureExt as _;
 use tempfile::TempDir;
 
@@ -220,11 +222,18 @@ impl TestEnvironment {
         settings: &UserSettings,
         repo_path: &Path,
     ) -> Arc<ReadonlyRepo> {
-        RepoLoader::init_from_file_system(settings, repo_path, &self.default_backend_factories())
-            .unwrap()
-            .load_at_head()
-            .block_on()
-            .unwrap()
+        let workspace_store: Arc<dyn WorkspaceStore> =
+            Arc::from(default_workspace_store_factory().load(repo_path).unwrap());
+        RepoLoader::init_from_file_system(
+            settings,
+            repo_path,
+            workspace_store,
+            &self.default_backend_factories(),
+        )
+        .unwrap()
+        .load_at_head()
+        .block_on()
+        .unwrap()
     }
 }
 
@@ -287,6 +296,7 @@ impl TestRepo {
             &repo_dir,
             &|settings, store_path| backend.init_backend(&env, settings, store_path),
             signer_from_settings(settings).unwrap(),
+            ReadonlyRepo::default_workspace_store_initializer(),
             ReadonlyRepo::default_op_store_initializer(),
             ReadonlyRepo::default_op_heads_store_initializer(),
             ReadonlyRepo::default_index_store_initializer(),

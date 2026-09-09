@@ -30,6 +30,12 @@ pub enum WorkspaceStoreError {
     Other(#[from] Box<dyn std::error::Error + Send + Sync>),
 }
 
+/// Factory trait to build WorkspaceStore.
+pub trait WorkspaceStoreFactory {
+    /// Loads an existing `WorkspaceStore` for the given repo.
+    fn load(&self, repo_path: &Path) -> Result<Box<dyn WorkspaceStore>, WorkspaceStoreError>;
+}
+
 /// A storage backend for workspace metadata.
 pub trait WorkspaceStore: Send + Sync + Debug {
     /// Returns the name of this workspace store implementation.
