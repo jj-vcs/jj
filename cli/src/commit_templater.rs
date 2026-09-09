@@ -85,8 +85,8 @@ use jj_lib::store::Store;
 use jj_lib::trailer;
 use jj_lib::trailer::Trailer;
 use jj_lib::ui_path::RepoPathUiConverter;
-use jj_lib::workspace_store::SimpleWorkspaceStore;
-use jj_lib::workspace_store::WorkspaceStore as _;
+use jj_lib::workspace_store::DefaultWorkspaceStoreFactory;
+use jj_lib::workspace_store::WorkspaceStoreFactory as _;
 use once_cell::unsync::OnceCell;
 use pollster::FutureExt as _;
 use serde::Serialize as _;
@@ -1770,7 +1770,7 @@ impl WorkspaceRef {
         // decided which object should own the workspace store.
         let workspace_loader = default_workspace_loader_factory().create(base)?;
         let repo_path = workspace_loader.repo_path().to_owned();
-        let workspace_store = SimpleWorkspaceStore::load(&repo_path)?;
+        let workspace_store = DefaultWorkspaceStoreFactory.load(&repo_path)?;
         // Workspaces created before jj 0.38.0 may not have a recorded path. List
         // templates should also keep rendering if a recorded path is stale or
         // unavailable. Use `jj workspace root --name` for strict path diagnostics.
