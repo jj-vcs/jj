@@ -21,6 +21,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Shell completion now suggests tag names for `jj tag track`, `jj tag untrack`,
   `jj tag list`, `jj git fetch --tag`, and `jj git push --tag`.
 
+* In a colocated repository, Git HEAD is no longer moved when resetting the
+  Git index fails (for example because another process holds
+  `.git/index.lock`). Previously the next command could import the moved HEAD
+  and replace the workspace's working-copy commit with a fresh one, leaving the
+  previous commit's description and bookmarks behind on the previous commit.
+  [#7530](https://github.com/jj-vcs/jj/issues/7530)
+
 ## [0.46.0] - 2026-10-07
 
 ### Release highlights
