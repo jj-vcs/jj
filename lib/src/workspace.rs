@@ -26,6 +26,7 @@ use thiserror::Error;
 use crate::backend::BackendInitError;
 use crate::commit::Commit;
 use crate::default_backend_factories::default_working_copy_factory;
+use crate::default_backend_factories::default_workspace_loader_factory;
 use crate::file_util;
 use crate::file_util::BadPathEncoding;
 use crate::file_util::IoResultExt as _;
@@ -414,7 +415,7 @@ impl Workspace {
         store_factories: &StoreFactories,
         working_copy_factories: &WorkingCopyFactories,
     ) -> Result<Self, WorkspaceLoadError> {
-        let loader = DefaultWorkspaceLoader::new(workspace_path)?;
+        let loader = default_workspace_loader_factory().create(workspace_path)?;
         let workspace = loader.load(user_settings, store_factories, working_copy_factories)?;
         Ok(workspace)
     }
