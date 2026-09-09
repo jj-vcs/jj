@@ -110,6 +110,7 @@ use crate::signing_factory::SignInitError;
 use crate::signing_factory::signer_from_settings;
 use crate::simple_op_heads_store::SimpleOpHeadsStore;
 use crate::simple_op_store::SimpleOpStore;
+use crate::simple_workspace_store::SimpleWorkspaceStore;
 use crate::store::Store;
 use crate::submodule_store::SubmoduleStore;
 use crate::transaction::Transaction;
@@ -117,6 +118,7 @@ use crate::transaction::TransactionCommitError;
 use crate::tree_merge::MergeOptions;
 use crate::view::RenameWorkspaceError;
 use crate::view::View;
+use crate::workspace_store::WorkspaceStore;
 
 #[async_trait(?Send)]
 pub trait Repo {
@@ -186,6 +188,10 @@ pub enum RepoInitError {
 }
 
 impl ReadonlyRepo {
+    pub fn default_workspace_store_initializer() -> &'static WorkspaceStoreInitializer<'static> {
+        &|_settings, store_path| Ok(Box::new(SimpleWorkspaceStore::init(store_path)?))
+    }
+
     pub fn default_op_store_initializer() -> &'static OpStoreInitializer<'static> {
         &|_settings, store_path, root_data| {
             Ok(Box::new(SimpleOpStore::init(store_path, root_data)?))
@@ -212,6 +218,7 @@ impl ReadonlyRepo {
         repo_path: &Path,
         backend_initializer: &BackendInitializer<'_>,
         signer: Signer,
+        workspace_store_initializer: &WorkspaceStoreInitializer<'_>,
         op_store_initializer: &OpStoreInitializer<'_>,
         op_heads_store_initializer: &OpHeadsStoreInitializer<'_>,
         index_store_initializer: &IndexStoreInitializer<'_>,
@@ -227,6 +234,14 @@ impl ReadonlyRepo {
         let merge_options =
             MergeOptions::from_settings(settings).map_err(|err| BackendInitError(err.into()))?;
         let store = Store::new(backend, signer, merge_options);
+
+        let workspace_store_path = repo_path.join("workspace_store");
+        fs::create_dir(&workspace_store_path).context(&workspace_store_path)?;
+        let workspace_store = workspace_store_initializer(settings, &workspace_store_path)?;
+        let workspace_store_type_path = workspace_store_path.join("type");
+        fs::write(&workspace_store_type_path, workspace_store.name())
+            .context(&workspace_store_type_path)?;
+        let workspace_store: Arc<dyn WorkspaceStore> = Arc::from(workspace_store);
 
         let op_store_path = repo_path.join("op_store");
         fs::create_dir(&op_store_path).context(&op_store_path)?;
@@ -264,6 +279,7 @@ impl ReadonlyRepo {
         let loader = RepoLoader {
             settings: settings.clone(),
             store,
+            workspace_store,
             op_store,
             op_heads_store,
             index_store,
@@ -393,6 +409,8 @@ impl Repo for ReadonlyRepo {
 
 pub type BackendInitializer<'a> =
     dyn Fn(&UserSettings, &Path) -> Result<Box<dyn Backend>, BackendInitError> + 'a;
+pub type WorkspaceStoreInitializer<'a> =
+    dyn Fn(&UserSettings, &Path) -> Result<Box<dyn WorkspaceStore>, BackendInitError> + 'a;
 #[rustfmt::skip] // auto-formatted line would exceed the maximum width
 pub type OpStoreInitializer<'a> =
     dyn Fn(&UserSettings, &Path, RootOperationData) -> Result<Box<dyn OpStore>, BackendInitError>
@@ -412,6 +430,8 @@ type BackendFactory =
 type OpStoreFactory = Box<
     dyn Fn(&UserSettings, &Path, RootOperationData) -> Result<Box<dyn OpStore>, BackendLoadError>,
 >;
+type WorkspaceStoreFactory =
+    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn WorkspaceStore>, BackendLoadError>>;
 type OpHeadsStoreFactory =
     Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn OpHeadsStore>, BackendLoadError>>;
 type IndexStoreFactory =
@@ -434,6 +454,7 @@ pub fn merge_factories_map<F>(base: &mut HashMap<String, F>, ext: HashMap<String
 
 pub struct StoreFactories {
     backend_factories: HashMap<String, BackendFactory>,
+    workspace_store_factories: HashMap<String, WorkspaceStoreFactory>,
     op_store_factories: HashMap<String, OpStoreFactory>,
     op_heads_store_factories: HashMap<String, OpHeadsStoreFactory>,
     index_store_factories: HashMap<String, IndexStoreFactory>,
@@ -462,6 +483,7 @@ impl StoreFactories {
     pub fn empty() -> Self {
         Self {
             backend_factories: HashMap::new(),
+            workspace_store_factories: HashMap::new(),
             op_store_factories: HashMap::new(),
             op_heads_store_factories: HashMap::new(),
             index_store_factories: HashMap::new(),
@@ -472,6 +494,7 @@ impl StoreFactories {
     pub fn merge(&mut self, ext: Self) {
         let Self {
             backend_factories,
+            workspace_store_factories,
             op_store_factories,
             op_heads_store_factories,
             index_store_factories,
@@ -479,6 +502,10 @@ impl StoreFactories {
         } = ext;
 
         merge_factories_map(&mut self.backend_factories, backend_factories);
+        merge_factories_map(
+            &mut self.workspace_store_factories,
+            workspace_store_factories,
+        );
         merge_factories_map(&mut self.op_store_factories, op_store_factories);
         merge_factories_map(&mut self.op_heads_store_factories, op_heads_store_factories);
         merge_factories_map(&mut self.index_store_factories, index_store_factories);
@@ -505,6 +532,29 @@ impl StoreFactories {
             }
         })?;
         Ok(backend_factory(settings, store_path)?)
+    }
+
+    pub fn add_workspace_store(&mut self, name: &str, factory: WorkspaceStoreFactory) {
+        self.workspace_store_factories
+            .insert(name.to_string(), factory);
+    }
+
+    pub fn load_workspace_store(
+        &self,
+        settings: &UserSettings,
+        store_path: &Path,
+    ) -> Result<Box<dyn WorkspaceStore>, StoreLoadError> {
+        // TODO: the .jj/repo/workspace_store/type file is a recent addition. Older repos do not have this file. After an appropriate waiting period have this fail if the file does not exist.
+        let workspace_store_type = read_store_type("workspace", store_path.join("type"))
+            .unwrap_or(SimpleWorkspaceStore::name().to_string());
+        let workspace_store_factory = self
+            .workspace_store_factories
+            .get(&workspace_store_type)
+            .ok_or_else(|| StoreLoadError::UnsupportedType {
+                store: "workspace",
+                store_type: workspace_store_type.clone(),
+            })?;
+        Ok(workspace_store_factory(settings, store_path)?)
     }
 
     pub fn add_op_store(&mut self, name: &str, factory: OpStoreFactory) {
@@ -623,6 +673,7 @@ pub enum RepoLoaderError {
 pub struct RepoLoader {
     settings: UserSettings,
     store: Arc<Store>,
+    workspace_store: Arc<dyn WorkspaceStore>,
     op_store: Arc<dyn OpStore>,
     op_heads_store: Arc<dyn OpHeadsStore>,
     index_store: Arc<dyn IndexStore>,
@@ -633,6 +684,7 @@ impl RepoLoader {
     pub fn new(
         settings: UserSettings,
         store: Arc<Store>,
+        workspace_store: Arc<dyn WorkspaceStore>,
         op_store: Arc<dyn OpStore>,
         op_heads_store: Arc<dyn OpHeadsStore>,
         index_store: Arc<dyn IndexStore>,
@@ -641,6 +693,7 @@ impl RepoLoader {
         Self {
             settings,
             store,
+            workspace_store,
             op_store,
             op_heads_store,
             index_store,
@@ -663,6 +716,9 @@ impl RepoLoader {
             signer_from_settings(settings)?,
             merge_options,
         );
+        let workspace_store = Arc::from(
+            store_factories.load_workspace_store(settings, &repo_path.join("workspace_store"))?,
+        );
         let root_op_data = RootOperationData {
             root_commit_id: store.root_commit_id().clone(),
         };
@@ -681,6 +737,7 @@ impl RepoLoader {
         Ok(Self {
             settings: settings.clone(),
             store,
+            workspace_store,
             op_store,
             op_heads_store,
             index_store,
@@ -690,6 +747,10 @@ impl RepoLoader {
 
     pub fn settings(&self) -> &UserSettings {
         &self.settings
+    }
+
+    pub fn workspace_store(&self) -> &Arc<dyn WorkspaceStore> {
+        &self.workspace_store
     }
 
     pub fn store(&self) -> &Arc<Store> {

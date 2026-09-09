@@ -287,6 +287,7 @@ impl TestRepo {
             &repo_dir,
             &|settings, store_path| backend.init_backend(&env, settings, store_path),
             signer_from_settings(settings).unwrap(),
+            ReadonlyRepo::default_workspace_store_initializer(),
             ReadonlyRepo::default_op_store_initializer(),
             ReadonlyRepo::default_op_heads_store_initializer(),
             ReadonlyRepo::default_index_store_initializer(),

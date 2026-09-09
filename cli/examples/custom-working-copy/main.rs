@@ -78,6 +78,7 @@ async fn run_custom_command(
                 wc_path,
                 &backend_initializer,
                 signer_from_settings(&settings).map_err(WorkspaceInitError::SignInit)?,
+                &ReadonlyRepo::default_workspace_store_initializer(),
                 &ReadonlyRepo::default_op_store_initializer(),
                 &ReadonlyRepo::default_op_heads_store_initializer(),
                 &ReadonlyRepo::default_index_store_initializer(),
