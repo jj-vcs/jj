@@ -48,13 +48,13 @@ use crate::repo::RepoLoader;
 use crate::repo::StoreFactories;
 use crate::repo::StoreLoadError;
 use crate::repo::SubmoduleStoreInitializer;
+use crate::repo::WorkspaceStoreInitializer;
 use crate::repo::read_store_type;
 use crate::settings::UserSettings;
 use crate::signing::Signer;
 use crate::signing_factory::SignInitError;
 use crate::signing_factory::signer_from_settings;
 use crate::simple_backend::SimpleBackend;
-use crate::simple_workspace_store::SimpleWorkspaceStore;
 use crate::transaction::TransactionCommitError;
 use crate::working_copy::CheckoutError;
 use crate::working_copy::CheckoutStats;
@@ -62,7 +62,6 @@ use crate::working_copy::LockedWorkingCopy;
 use crate::working_copy::WorkingCopy;
 use crate::working_copy::WorkingCopyFactory;
 use crate::working_copy::WorkingCopyStateError;
-use crate::workspace_store::WorkspaceStore as _;
 use crate::workspace_store::WorkspaceStoreError;
 
 #[derive(Error, Debug)]
@@ -299,6 +298,7 @@ impl Workspace {
         workspace_root: &Path,
         backend_initializer: &BackendInitializer<'_>,
         signer: Signer,
+        workspace_store_initializer: &WorkspaceStoreInitializer<'_>,
         op_store_initializer: &OpStoreInitializer<'_>,
         op_heads_store_initializer: &OpHeadsStoreInitializer<'_>,
         index_store_initializer: &IndexStoreInitializer<'_>,
@@ -315,6 +315,7 @@ impl Workspace {
                 &repo_dir,
                 backend_initializer,
                 signer,
+                workspace_store_initializer,
                 op_store_initializer,
                 op_heads_store_initializer,
                 index_store_initializer,
@@ -326,7 +327,6 @@ impl Workspace {
                 RepoInitError::OpHeadsStore(err) => WorkspaceInitError::OpHeadsStore(err),
                 RepoInitError::Path(err) => WorkspaceInitError::Path(err),
             })?;
-            let workspace_store = SimpleWorkspaceStore::load(&repo_dir)?;
             let (working_copy, repo) = init_working_copy(
                 &repo,
                 workspace_root,
@@ -338,7 +338,9 @@ impl Workspace {
             let repo_loader = repo.loader().clone();
             let repo_dir = dunce::canonicalize(&repo_dir).context(&repo_dir)?;
             let workspace = Self::new(workspace_root, repo_dir, working_copy, repo_loader)?;
-            workspace_store.add(workspace.workspace_name(), workspace.workspace_root())?;
+            repo.loader()
+                .workspace_store()
+                .add(workspace.workspace_name(), workspace.workspace_root())?;
             Ok((workspace, repo))
         }
         .await
@@ -358,6 +360,7 @@ impl Workspace {
             workspace_root,
             backend_initializer,
             signer,
+            ReadonlyRepo::default_workspace_store_initializer(),
             ReadonlyRepo::default_op_store_initializer(),
             ReadonlyRepo::default_op_heads_store_initializer(),
             ReadonlyRepo::default_index_store_initializer(),
@@ -390,7 +393,7 @@ impl Workspace {
         let repo_file_path = jj_dir.join("repo");
         fs::write(&repo_file_path, repo_dir_bytes).context(&repo_file_path)?;
 
-        let workspace_store = SimpleWorkspaceStore::load(repo_path)?;
+        let workspace_store = repo.loader().workspace_store();
         let (working_copy, repo) = init_working_copy(
             repo,
             workspace_root,

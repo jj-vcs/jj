@@ -23,6 +23,7 @@ use crate::repo::StoreFactories;
 use crate::simple_backend::SimpleBackend;
 use crate::simple_op_heads_store::SimpleOpHeadsStore;
 use crate::simple_op_store::SimpleOpStore;
+use crate::simple_workspace_store::SimpleWorkspaceStore;
 use crate::working_copy::WorkingCopyFactory;
 use crate::workspace::DefaultWorkspaceLoaderFactory;
 use crate::workspace::WorkingCopyFactories;
@@ -54,6 +55,12 @@ pub fn default_backend_factories() -> StoreFactories {
                 settings, store_path,
             )?))
         }),
+    );
+
+    // WorkspaceStores
+    factories.add_workspace_store(
+        SimpleWorkspaceStore::name(),
+        Box::new(|_settings, store_path| Ok(Box::new(SimpleWorkspaceStore::load(store_path)?))),
     );
 
     // OpStores

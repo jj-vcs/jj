@@ -19,6 +19,8 @@ use std::io::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
 
+use jj_core::backend::BackendInitError;
+use jj_core::backend::BackendLoadError;
 use prost::Message as _;
 use tempfile::NamedTempFile;
 use thiserror::Error;
@@ -64,40 +66,56 @@ impl From<SimpleWorkspaceStoreError> for WorkspaceStoreError {
 /// A simple file-based implementation of `WorkspaceStore`.
 #[derive(Debug)]
 pub struct SimpleWorkspaceStore {
-    repo_path: PathBuf,
+    store_dir: PathBuf,
     store_file: PathBuf,
     lock_file: PathBuf,
 }
 
 impl SimpleWorkspaceStore {
-    /// Loads the workspace store from the given repository path.
-    pub fn load(repo_path: &Path) -> Result<Self, WorkspaceStoreError> {
-        let store_dir = repo_path.join("workspace_store");
-        let file = store_dir.join("index");
+    /// Returns the name of this WorkspaceStore implementation.
+    pub fn name() -> &'static str {
+        "simple_workspace_store"
+    }
 
-        let store = Self {
-            repo_path: repo_path.to_path_buf(),
-            store_file: file.clone(),
-            lock_file: file.with_extension("lock"),
-        };
-
-        // Ensure the workspace_store directory exists. We need this
-        // for repos that were created before workspace_store was added.
-        if !store_dir.exists() {
-            fs::create_dir(&store_dir)
-                .context(store_dir)
-                .map_err(SimpleWorkspaceStoreError::Path)?;
-
-            let _lock = store.lock()?;
-
-            store.write_store(simple_workspace_store::Workspaces::default())?;
+    fn new(store_dir: &Path) -> Self {
+        let store_dir = store_dir.to_path_buf();
+        let store_file = store_dir.join("index");
+        let lock_file = store_file.with_extension("lock");
+        Self {
+            store_dir,
+            store_file,
+            lock_file,
         }
+    }
 
+    /// Loads the workspace store from the given store path and repo.
+    pub fn load(store_dir: &Path) -> Result<Self, BackendLoadError> {
+        let store = Self::new(store_dir);
+        if !store.store_file.exists() {
+            // TODO: Remove this in jj 0.57+: older repos do not have a workspace store index so we initialize it here.
+            store
+                .initialize()
+                .map_err(|err| BackendLoadError(err.into()))?;
+        }
         Ok(store)
     }
 
-    fn lock(&self) -> Result<FileLock, SimpleWorkspaceStoreError> {
-        Ok(FileLock::lock(self.lock_file.clone())?)
+    /// Initializes this SimpleWorkspaceStore with an empty index.
+    pub fn init(store_dir: &Path) -> Result<Self, BackendInitError> {
+        let store = Self::new(store_dir);
+        store.initialize()?;
+        Ok(store)
+    }
+
+    fn initialize(&self) -> Result<(), BackendInitError> {
+        let _lock = self.lock().map_err(|err| BackendInitError(err.into()))?;
+        self.write_store(simple_workspace_store::Workspaces::default())
+            .map_err(|err| BackendInitError(err.into()))?;
+        Ok(())
+    }
+
+    fn lock(&self) -> Result<FileLock, FileLockError> {
+        FileLock::lock(self.lock_file.clone())
     }
 
     fn read_store(&self) -> Result<simple_workspace_store::Workspaces, SimpleWorkspaceStoreError> {
@@ -129,11 +147,11 @@ impl SimpleWorkspaceStore {
 
 impl WorkspaceStore for SimpleWorkspaceStore {
     fn name(&self) -> &'static str {
-        "simple"
+        Self::name()
     }
 
     fn add(&self, workspace_name: &WorkspaceName, path: &Path) -> Result<(), WorkspaceStoreError> {
-        let _lock = self.lock()?;
+        let _lock = self.lock().map_err(SimpleWorkspaceStoreError::Lock)?;
 
         let mut workspaces_proto = self.read_store()?;
 
@@ -142,7 +160,11 @@ impl WorkspaceStore for SimpleWorkspaceStore {
             .workspaces
             .retain(|w| w.name.as_str() != workspace_name.as_str());
 
-        let path_to_store = relative_path(&self.repo_path, path);
+        let repo_path = self
+            .store_dir
+            .parent()
+            .expect("store_dir must be under the repo_path");
+        let path_to_store = relative_path(repo_path, path);
         let path_to_store = if path_to_store.is_relative() {
             slash_path(&path_to_store).into_owned()
         } else {
@@ -163,7 +185,7 @@ impl WorkspaceStore for SimpleWorkspaceStore {
     }
 
     fn forget(&self, workspace_names: &[&WorkspaceName]) -> Result<(), WorkspaceStoreError> {
-        let _lock = self.lock()?;
+        let _lock = self.lock().map_err(SimpleWorkspaceStoreError::Lock)?;
 
         let mut workspaces_proto = self.read_store()?;
 
@@ -183,7 +205,7 @@ impl WorkspaceStore for SimpleWorkspaceStore {
         old_name: &WorkspaceName,
         new_name: &WorkspaceName,
     ) -> Result<(), WorkspaceStoreError> {
-        let _lock = self.lock()?;
+        let _lock = self.lock().map_err(SimpleWorkspaceStoreError::Lock)?;
 
         let mut workspaces_proto = self.read_store()?;
 
