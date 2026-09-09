@@ -2157,7 +2157,7 @@ without changing anything or contacting the remote.</p>
 <div class="highlight"><pre><span></span><code>$<span class="w"> </span>jj<span class="w"> </span>gerrit<span class="w"> </span>upload<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;@-&#39;</span><span class="w"> </span>--remote-branch<span class="w"> </span>main<span class="w"> </span>--dry-run
 </code></pre></div>
 <h2 id="target-branch-and-remote-selection">Target branch and remote selection<a class="headerlink" href="#target-branch-and-remote-selection" title="Permanent link">&para;</a></h2>
-<p>There are a few way of specifying the target remote for your projects:</p>
+<p>There are a few ways of specifying the target remote for your projects:</p>
 <ul>
 <li>Run <code>jj config set --user gerrit.default-remote &lt;remote name&gt;</code> to set your
   default remote across all repos.</li>
@@ -2185,7 +2185,7 @@ existing changes instead of creating new ones.</p>
 <p>Examples:</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># Edit an earlier commit in the stack</span>
 $<span class="w"> </span>jj<span class="w"> </span>edit<span class="w"> </span>xyz<span class="w">  </span><span class="c1"># position on the stack to edit</span>
-<span class="w"> </span>---<span class="w"> </span>Apply<span class="w"> </span>needed<span class="w"> </span>edits<span class="w"> </span>---
+<span class="c1"># Apply needed edits, then upload the updates</span>
 $<span class="w"> </span>jj<span class="w"> </span>gerrit<span class="w"> </span>upload<span class="w"> </span>-r<span class="w"> </span>xyz
 </code></pre></div>
 <h2 id="change-id-management"><code>Change-Id</code> management<a class="headerlink" href="#change-id-management" title="Permanent link">&para;</a></h2>
