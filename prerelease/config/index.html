@@ -5328,49 +5328,50 @@ and without touching on the working copy. The local files are not and must not
 be used.</p>
 <p>The file is only rewritten if the subprocess produces a successful exit code.</p>
 <h3 id="configuration_1">Configuration<a class="headerlink" href="#configuration_1" title="Permanent link">&para;</a></h3>
-<p>Tools are defined in a table where the keys are arbitrary identifiers and
-the values have the following properties:</p>
+<p>Tools are defined in a table where the keys are arbitrary identifiers and the
+values have the following properties:</p>
 <ul>
-<li><code>command</code>: The arguments used to run the tool. The first argument is the
-   path to an executable file. Arguments can contain these variables that will
-   be replaced:<ul>
+<li><code>command</code>: The arguments used to run the tool. The first argument is the path
+  to an executable file. Arguments can contain these variables that will be
+  replaced:<ul>
 <li><code>$root</code> will be replaced with the workspace root path (the directory
-   containing the .jj directory).</li>
+  containing the .jj directory).</li>
 <li><code>$path</code> will be replaced with the repo-relative path of the file being
-   fixed. It is useful to provide the path to tools that include the path
-   in error messages, or behave differently based on the directory or file
-   name.</li>
+  fixed. It is useful to provide the path to tools that include the path in
+  error messages, or behave differently based on the directory or file name.</li>
 </ul>
 </li>
-<li><code>patterns</code>: List of filesets (see: <code>jj help -k filesets</code>), determining
-   which files the tool will affect based on their path. If this list is
-   empty, no files will be affected by the tool. If there are multiple
-   patterns, the tool is applied only once to each file in the union of the
-   patterns.</li>
-<li><code>enabled</code>: Enables or disables the tool. If omitted, the tool is enabled.
-   This is useful for defining disabled tools in user configuration that can
-   be enabled in individual repositories with one config setting.</li>
-<li><code>line-range-arg</code>: An optional template string specifying how to pass a line
-   range to the tool. It may include the variables <code>$first</code> and <code>$last</code>, which
-   will be replaced with the 1-based line numbers of, respectively, the first
-   and last lines inside the modified range. A range containing a single line
-   will have equal values for <code>$first</code> and <code>$last</code>. Empty ranges representing
-   deletions will be skipped because they cannot be represented this way.
-   If the tool does not support formatting specific line ranges, this setting
-   should be omitted, and the tool will always process the entire file.
-   Example: <code>line-range-arg = "--lines=$first:$last"</code>.</li>
+<li><code>patterns</code>: List of filesets (see: <code>jj help -k filesets</code>), determining which
+  files the tool will affect based on their path. If this list is empty, no
+  files will be affected by the tool. If there are multiple patterns, the tool
+  is applied only once to each file in the union of the patterns.</li>
+<li><code>enabled</code>: Enables or disables the tool. If omitted, the tool is enabled. This
+  is useful for defining disabled tools in user configuration that can be
+  enabled in individual repositories with one config setting.</li>
+<li><code>line-range-args</code>: Optional array of template strings specifying how to pass a
+  line range to the tool. It may include the variables <code>$first</code> and <code>$last</code>,
+  which will be replaced with the 1-based line numbers of the first and last
+  lines inside the modified range, respectively. A range containing a single
+  line will have equal values for <code>$first</code> and <code>$last</code>. Empty ranges
+  representing deletions will be skipped because they cannot be represented this
+  way. If the tool does not support formatting specific line ranges, this
+  setting should be omitted, and the tool will always process the entire file.<ul>
+<li>Example: <code>line-range-args = ["--lines=$first:$last"]</code></li>
+<li>Example: <code>line-range-args = ["--line-start=$first", "--line-end=$last"]</code></li>
+</ul>
+</li>
 <li>
-<p><code>run-tool-if-zero-line-ranges</code>: Whether to run the tool invocation for this tool on
-   files that had zero line ranges to format in the revision being fixed.
-   Defaults to <code>false</code>, meaning the tool is skipped for these files. This default
-   behavior serves two main purposes:</p>
+<p><code>run-tool-if-zero-line-ranges</code>: Whether to run the tool invocation for this
+  tool on files that had zero line ranges to format in the revision being fixed.
+  Defaults to <code>false</code>, meaning the tool is skipped for these files. This default
+  behavior serves two main purposes:</p>
 <ul>
 <li>Avoiding unnecessary executions of tools when no line ranges are modified.</li>
-<li>Preventing tools configured with <code>line-range-arg</code> from making overly
-   broad changes (formatting the whole file) when no line ranges are available.</li>
+<li>Preventing tools configured with <code>line-range-args</code> from making overly broad
+  changes (formatting the whole file) when no line ranges are available.</li>
 </ul>
 <p>Setting this to <code>true</code> is useful if the tool should run regardless of diffs
- (e.g., to sort imports, or run with <code>--include-unchanged-files</code>).</p>
+(e.g., to sort imports, or run with <code>--include-unchanged-files</code>).</p>
 </li>
 </ul>
 <p><code>jj fix</code> provides the file content anonymously on standard input, but the name
@@ -5397,9 +5398,9 @@ to keep the file sorted alphabetically and remove any duplicate words.</p>
 <p>You can configure <code>jj fix</code> to run a formatter only on the modified lines of a
 file, rather than formatting the entire file. This is particularly useful for
 avoiding unrelated formatting changes in untouched parts of a file.</p>
-<p>To enable this, specify the <code>line-range-arg</code> configuration to match the line
+<p>To enable this, specify the <code>line-range-args</code> configuration to match the line
 range argument format expected by your tool. The formatter will be invoked with
-this argument repeated for each modified line range (e.g. <code>--lines=10-20
+these arguments repeated for each modified line range (e.g. <code>--lines=10-20
 --lines=30-40</code>).</p>
 <p>Additionally, you can use <code>run-tool-if-zero-line-ranges</code> to control the
 behavior when a diff results in zero line ranges (which can happen when lines
@@ -5415,7 +5416,7 @@ line ranges and format the entire modified file instead.</p>
 <span class="n">patterns</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;glob:&#39;**/*.cc&#39;&quot;</span><span class="p">,</span>
 <span class="w">            </span><span class="s2">&quot;glob:&#39;**/*.h&#39;&quot;</span><span class="p">]</span>
 <span class="n">enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
-<span class="n">line-range-arg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;--lines=$first:$last&quot;</span>
+<span class="n">line-range-args</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;--lines=$first:$last&quot;</span><span class="p">]</span>
 <span class="n">run-tool-if-zero-line-ranges</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span>
 </code></pre></div>
 <h3 id="tools-stored-inside-the-workspace">Tools stored inside the workspace<a class="headerlink" href="#tools-stored-inside-the-workspace" title="Permanent link">&para;</a></h3>
