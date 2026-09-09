@@ -80,13 +80,13 @@ use jj_lib::signing::SigStatus;
 use jj_lib::signing::SignError;
 use jj_lib::signing::SignResult;
 use jj_lib::signing::Verification;
+use jj_lib::simple_workspace_store::SimpleWorkspaceStore;
 use jj_lib::store::Store;
 use jj_lib::trailer;
 use jj_lib::trailer::Trailer;
 use jj_lib::ui_path::RepoPathUiConverter;
 use jj_lib::workspace::DefaultWorkspaceLoaderFactory;
 use jj_lib::workspace::WorkspaceLoaderFactory as _;
-use jj_lib::workspace_store::SimpleWorkspaceStore;
 use jj_lib::workspace_store::WorkspaceStore as _;
 use once_cell::unsync::OnceCell;
 use pollster::FutureExt as _;
@@ -1771,11 +1771,11 @@ impl WorkspaceRef {
         // decided which object should own the workspace store.
         let workspace_loader = DefaultWorkspaceLoaderFactory.create(base)?;
         let repo_path = workspace_loader.repo_path().to_owned();
-        let workspace_store = SimpleWorkspaceStore::load(&repo_path)?;
+        let simple_workspace_store = SimpleWorkspaceStore::load(&repo_path)?;
         // Workspaces created before jj 0.38.0 may not have a recorded path. List
         // templates should also keep rendering if a recorded path is stale or
         // unavailable. Use `jj workspace root --name` for strict path diagnostics.
-        let path = workspace_store
+        let path = simple_workspace_store
             .get_workspace_path(self.name())?
             .map(|workspace_path| repo_path.join(workspace_path))
             .and_then(|path| dunce::canonicalize(path).ok());

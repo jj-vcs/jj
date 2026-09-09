@@ -53,6 +53,7 @@ use crate::signing::Signer;
 use crate::signing_factory::SignInitError;
 use crate::signing_factory::signer_from_settings;
 use crate::simple_backend::SimpleBackend;
+use crate::simple_workspace_store::SimpleWorkspaceStore;
 use crate::transaction::TransactionCommitError;
 use crate::working_copy::CheckoutError;
 use crate::working_copy::CheckoutStats;
@@ -60,7 +61,6 @@ use crate::working_copy::LockedWorkingCopy;
 use crate::working_copy::WorkingCopy;
 use crate::working_copy::WorkingCopyFactory;
 use crate::working_copy::WorkingCopyStateError;
-use crate::workspace_store::SimpleWorkspaceStore;
 use crate::workspace_store::WorkspaceStore as _;
 use crate::workspace_store::WorkspaceStoreError;
 
