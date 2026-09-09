@@ -276,6 +276,14 @@ impl ResolvedChangeTargets {
             .position(|(target, _state)| target == commit_id)
     }
 
+    /// Extracts both hidden and visible commits for this change ID.
+    pub fn all(self) -> Vec<CommitId> {
+        self.targets
+            .into_iter()
+            .map(|(target, _state)| target)
+            .collect_vec()
+    }
+
     /// Extracts the visible commits for this change ID. Returns `None` if there
     /// are no visible commits with this change ID.
     pub fn into_visible(self) -> Option<Vec<CommitId>> {
