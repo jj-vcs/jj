@@ -19,8 +19,6 @@ use jj_lib::git::GitSubprocessOptions;
 use jj_lib::ref_name::WorkspaceNameBuf;
 #[cfg(feature = "git")]
 use jj_lib::repo::Repo as _;
-use jj_lib::simple_workspace_store::SimpleWorkspaceStore;
-use jj_lib::workspace_store::WorkspaceStore as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -78,7 +76,7 @@ pub async fn cmd_workspace_forget(
         return Ok(());
     }
 
-    let simple_workspace_store = SimpleWorkspaceStore::load(workspace_command.repo_path())?;
+    let workspace_store = workspace_command.repo().loader().workspace_store().clone();
 
     #[cfg(feature = "git")]
     let workspace_paths = {
@@ -86,10 +84,7 @@ pub async fn cmd_workspace_forget(
         forget_ws
             .iter()
             .filter_map(|ws| {
-                let rel_path = simple_workspace_store
-                    .get_workspace_path(ws)
-                    .ok()
-                    .flatten()?;
+                let rel_path = workspace_store.get_workspace_path(ws).ok().flatten()?;
                 dunce::canonicalize(repo_path.join(rel_path)).ok()
             })
             .collect_vec()
@@ -103,7 +98,7 @@ pub async fn cmd_workspace_forget(
         tx.repo_mut().remove_workspace(ws).await?;
     }
 
-    simple_workspace_store.forget(&forget_ws.iter().map(|x| x.as_ref()).collect::<Vec<_>>())?;
+    workspace_store.forget(&forget_ws.iter().map(|x| x.as_ref()).collect::<Vec<_>>())?;
 
     let description = if let [ws] = forget_ws.as_slice() {
         format!("forget workspace {}", ws.as_symbol())

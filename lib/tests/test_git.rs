@@ -189,6 +189,7 @@ fn init_external_git_repo(test_repo: &TestRepo, name: &Path) -> TestResult<Arc<R
             Ok(Box::new(backend))
         },
         signer_from_settings(settings).unwrap(),
+        ReadonlyRepo::default_workspace_store_initializer(),
         ReadonlyRepo::default_op_store_initializer(),
         ReadonlyRepo::default_op_heads_store_initializer(),
         ReadonlyRepo::default_index_store_initializer(),
@@ -2434,6 +2435,7 @@ impl GitRepoData {
                 )?))
             },
             signer_from_settings(&settings).unwrap(),
+            ReadonlyRepo::default_workspace_store_initializer(),
             ReadonlyRepo::default_op_store_initializer(),
             ReadonlyRepo::default_op_heads_store_initializer(),
             ReadonlyRepo::default_index_store_initializer(),
@@ -4161,6 +4163,7 @@ fn test_init() -> TestResult {
             )?))
         },
         signer_from_settings(&settings)?,
+        ReadonlyRepo::default_workspace_store_initializer(),
         ReadonlyRepo::default_op_store_initializer(),
         ReadonlyRepo::default_op_heads_store_initializer(),
         ReadonlyRepo::default_index_store_initializer(),
@@ -5086,6 +5089,7 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
             )?))
         },
         signer_from_settings(settings).unwrap(),
+        ReadonlyRepo::default_workspace_store_initializer(),
         ReadonlyRepo::default_op_store_initializer(),
         ReadonlyRepo::default_op_heads_store_initializer(),
         ReadonlyRepo::default_index_store_initializer(),
