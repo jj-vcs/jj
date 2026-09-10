@@ -935,6 +935,23 @@ fn test_log_contained_in() {
     [EOF]
     ");
 
+    let output = work_dir.run_jj([
+        "log",
+        "-r::",
+        "-T",
+        // Build the revset query dynamically from the current commit.
+        &template_for_revset(r#""++ commit_id ++""#),
+    ]);
+    insta::assert_snapshot!(output, @"
+    @  D [contained_in]
+    │ ○  C [contained_in]
+    │ ○  B main [contained_in]
+    │ ○  A [contained_in]
+    ├─╯
+    ◆  [contained_in]
+    [EOF]
+    ");
+
     // Suppress error that could be detected earlier
     let output = work_dir.run_jj(["log", "-r::", "-T", &template_for_revset("unknown_fn()")]);
     insta::assert_snapshot!(output, @r#"
@@ -993,6 +1010,26 @@ fn test_log_contained_in() {
       = Failed to evaluate revset
     2: Revision `maine` doesn't exist
     Hint: Did you mean `main`?
+    [EOF]
+    [exit status: 1]
+    "#);
+
+    let output = work_dir.run_jj([
+        "log",
+        "-r::",
+        "-T",
+        // Test dynamic query parsing failure
+        &template_for_revset(r#""++ non_existent() ++""#),
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Failed to parse template: Function `non_existent` doesn't exist
+    Caused by:  --> 5:33
+      |
+    5 |       if(self.contained_in(""++ non_existent() ++""), "[contained_in]"),
+      |                                 ^----------^
+      |
+      = Function `non_existent` doesn't exist
     [EOF]
     [exit status: 1]
     "#);
@@ -1817,6 +1854,116 @@ fn test_log_format_trailers() {
         "-r@",
     ]);
     insta::assert_snapshot!(output, @"false[EOF]");
+}
+
+#[test]
+fn test_log_revset() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["desc", "-m=first commit"]).success();
+    work_dir.run_jj(["desc", "-m=second commit"]).success();
+    work_dir.run_jj(["desc", "-m=third commit"]).success();
+    let change_id = work_dir
+        .run_jj(["log", "--no-graph", "-r=@", "-T=change_id"])
+        .success()
+        .stdout
+        .raw()
+        .trim()
+        .to_owned();
+
+    for revision in 0..3 {
+        work_dir
+            .run_jj([
+                "bookmark",
+                "create",
+                &format!("-r={change_id}/{revision}"),
+                &format!("bookmark-{revision}"),
+            ])
+            .success();
+    }
+
+    work_dir
+        .run_jj(["abandon", &format!("{change_id}/2")])
+        .success();
+
+    let output = work_dir.run_jj([
+        "log",
+        "-T",
+        r#"
+            separate(
+                " ",
+                commit_id.short(),
+                change_id.short(),
+                "Build-time evaluation: " ++ revset("000000000000").first().change_id().short()
+            ) ++ "\n"
+        "#,
+    ]);
+    insta::assert_snapshot!(output, @"
+    @  776560591705 qpvuntsmwlqt Build-time evaluation: zzzzzzzzzzzz
+    │ ○  6c3346980c51 qpvuntsmwlqt Build-time evaluation: zzzzzzzzzzzz
+    ├─╯
+    ◆  000000000000 zzzzzzzzzzzz Build-time evaluation: zzzzzzzzzzzz
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj([
+        "log",
+        "-T",
+        r#"
+            separate(
+                " ",
+                commit_id.short(),
+                change_id.short(),
+                "Own: " ++ bookmarks,
+                "Others: " ++ revset("change_id(" ++ change_id ++ ")").map(|c| c.bookmarks().map(|b| b.name())).join(", ")
+            ) ++ "\n"
+        "#,
+    ]);
+    insta::assert_snapshot!(output, @"
+    @  776560591705 qpvuntsmwlqt Own: bookmark-0 Others: bookmark-0, bookmark-1
+    │ ○  6c3346980c51 qpvuntsmwlqt Own: bookmark-1 Others: bookmark-0, bookmark-1
+    ├─╯
+    ◆  000000000000 zzzzzzzzzzzz Own:  Others:
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["log", "-T=revset()"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Failed to parse template: Function `revset`: Expected 1 arguments
+    Caused by:  --> 1:8
+      |
+    1 | revset()
+      |        ^
+      |
+      = Function `revset`: Expected 1 arguments
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = work_dir.run_jj(["log", r#"-T=revset("non-existent()")"#]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Failed to parse template: In revset expression
+    Caused by:
+    1:  --> 1:8
+      |
+    1 | revset("non-existent()")
+      |        ^--------------^
+      |
+      = In revset expression
+    2:  --> 1:13
+      |
+    1 | non-existent()
+      |             ^---
+      |
+      = expected <EOI>, `@`, `:`, `-`, `+`, `::`, `..`, `|`, `&`, or `~`
+    Hint: See https://docs.jj-vcs.dev/latest/revsets/ or use `jj help -k revsets` for revsets syntax and how to quote symbols.
+    [EOF]
+    [exit status: 1]
+    "#);
 }
 
 #[test]
