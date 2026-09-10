@@ -51,6 +51,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* Reconciling concurrent operations no longer deletes a workspace's recorded
+  Git HEAD when one operation's view merely lacks the entry (as when written by
+  a tool embedding a jj-lib too old to know per-workspace Git HEADs) while the
+  workspace itself survives. A genuine `jj workspace forget` still removes it.
+
 ## [0.45.1] - 2026-09-03
 
 This release fixes an error that prevented the new jj-core crate from being
