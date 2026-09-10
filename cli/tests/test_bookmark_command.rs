@@ -1504,7 +1504,7 @@ fn test_bookmark_forget_fetched_bookmark() {
     let output = work_dir.run_jj(["git", "fetch", "--remote=origin"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Nothing changed.
+    Fetched from git remote(s) origin: nothing changed.
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
