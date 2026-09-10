@@ -51,6 +51,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* `jj workspace forget` and `jj git colocation disable` now fail when a
+  workspace's Git worktree could not be disconnected (for example because its
+  directory is read-only), instead of printing a warning and continuing with
+  the worktree still registered in Git. For `jj workspace forget` the workspace
+  itself is still forgotten; the error explains how to disconnect the leftover
+  worktree without deleting the workspace's files.
+
 * `jj workspace forget` no longer runs `git worktree prune` on the whole
   repository, which could unregister another workspace's Git worktree if its
   directory was unreadable at that moment. Only the forgotten workspace's

@@ -1934,6 +1934,8 @@ fn add_worktree_to_populated_dir(
 
 #[derive(Debug, Error)]
 pub enum GitUnlinkWorktreeError {
+    #[error("Failed to read .git gitlink file")]
+    ReadGitLink(#[source] PathError),
     #[error("Failed to remove .git gitlink file")]
     RemoveGitLink(#[source] PathError),
     #[error("Failed to remove Git worktree metadata")]
@@ -1963,15 +1965,27 @@ pub enum GitUnlinkWorktreeError {
 ///
 /// The gitlink is removed before the bookkeeping, so an error means either
 /// that nothing was done, or that the worktree is already disconnected and
-/// only stale metadata remains. Neither is worth failing a command over, so
-/// callers may treat all errors as non-fatal.
+/// only stale metadata remains. Git still has the worktree registered in both
+/// cases, so callers must surface the failure rather than report a clean
+/// disconnect.
 pub fn unlink_worktree(
     store: &Store,
     worktree_path: &Path,
 ) -> Result<bool, GitUnlinkWorktreeError> {
     let dot_git = worktree_path.join(".git");
-    if !dot_git.is_file() {
-        return Ok(false);
+    // A missing gitlink means there is no Git worktree to disconnect; any other
+    // failure to look at it (unreadable directory) must surface, not read as
+    // "nothing to do".
+    match std::fs::symlink_metadata(&dot_git) {
+        Ok(metadata) if metadata.is_file() => {}
+        Ok(_) => return Ok(false),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(source) => {
+            return Err(GitUnlinkWorktreeError::ReadGitLink(PathError {
+                path: dot_git,
+                source,
+            }));
+        }
     }
     let git_backend = get_git_backend(store)?;
     let worktree_repo = git_backend
