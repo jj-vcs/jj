@@ -1452,6 +1452,11 @@ values have the following properties:
 
   Setting this to `true` is useful if the tool should run regardless of diffs
   (e.g., to sort imports, or run with `--include-unchanged-files`).
+- `ignore-empty-output`: Allows ignoring a tool that outputs nothing on stdout.
+  For example, the tool may output nothing if no changes are needed instead of
+  passing stdin through. This setting defaults to `true` because it is
+  considered safer to not wipe out files, especially for `jj fix` which may run
+  in revisions that are not the working copy.
 
 `jj fix` provides the file content anonymously on standard input, but the name
 of the file being formatted may be important for include sorting or other output
