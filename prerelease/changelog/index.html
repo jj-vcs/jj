@@ -7707,6 +7707,17 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   where you need to pass multiple arguments to the tool, such as separate args
   for the range start and range end.</p>
 </li>
+<li>
+<p><code>jj git push</code> now supports pushing to multiple remotes at the same time.
+  This can be configured via <code>git.push</code> set to a string pattern
+  or array of string patterns, or with the repeatable <code>--remote</code> flag,
+  which also accepts string patterns.</p>
+</li>
+<li>
+<p><code>jj run</code> now uses the sparse patterns from the workspace it's run from.
+  Use the <code>--sparse-patterns</code> option to control this behavior (evaluated
+  per each <code>jj run</code> invocation).</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <h2 id="0451-2026-09-03"><a href="https://github.com/jj-vcs/jj/compare/v0.45.0...v0.45.1">0.45.1</a> - 2026-09-03<a class="headerlink" href="#0451-2026-09-03" title="Permanent link">&para;</a></h2>
@@ -7770,17 +7781,6 @@ published.</p>
   target a specific configuration file (such as files inside a <code>conf.d/</code>
   directory or loaded via <code>--config-file</code>). This allows precise file targeting
   and avoids interactive prompts when multiple config files exist.</p>
-</li>
-<li>
-<p><code>jj git push</code> now supports pushing to multiple remotes at the same time.
-  This can be configured via <code>git.push</code> set to a string pattern
-  or array of string patterns, or with the repeatable <code>--remote</code> flag,
-  which also accepts string patterns.</p>
-</li>
-<li>
-<p><code>jj run</code> now uses the sparse patterns from the workspace it's run from.
-  Use the <code>--sparse-patterns</code> option to control this behavior (evaluated
-  per each <code>jj run</code> invocation).</p>
 </li>
 </ul>
 <h3 id="fixed-bugs_2">Fixed bugs<a class="headerlink" href="#fixed-bugs_2" title="Permanent link">&para;</a></h3>
