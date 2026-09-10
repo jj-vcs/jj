@@ -2131,9 +2131,39 @@ async fn reset_index(
 
     debug_assert!(index.verify_entries().is_ok());
 
+    write_index(&index)
+}
+
+/// How long a Git index write waits for `.git/index.lock` before failing.
+///
+/// A concurrent Git process may hold the lock briefly (a `git status` run by an
+/// editor or a prompt persists the stat cache it just refreshed, for example).
+/// gix's `File::write()` gives up on the first attempt, which turned each such
+/// moment into a failed `jj` command. A lock nobody releases (left by a killed
+/// process) still fails, after this long.
+const INDEX_LOCK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(1);
+
+/// Writes `index` to its path, waiting up to [`INDEX_LOCK_TIMEOUT`] for the
+/// index lock. Same on-disk result and error types as `File::write()`, whose
+/// lock mode isn't configurable.
+fn write_index(index: &gix::index::File) -> Result<(), GitResetHeadError> {
+    use gix::index::file::write::Error;
+    let lock = gix::lock::File::acquire_to_update_resource(
+        index.path(),
+        gix::lock::acquire::Fail::AfterDurationWithBackoff(INDEX_LOCK_TIMEOUT),
+        None,
+    )
+    .map_err(|err| GitResetHeadError::from_git(Error::AcquireLock(err)))?;
+    let mut out = std::io::BufWriter::with_capacity(64 * 1024, lock);
     index
-        .write(gix::index::write::Options::default())
-        .map_err(GitResetHeadError::from_git)
+        .write_to(&mut out, gix::index::write::Options::default())
+        .map_err(|err| GitResetHeadError::from_git(Error::Io(err)))?;
+    let lock = out
+        .into_inner()
+        .map_err(|err| GitResetHeadError::from_git(Error::Io(err.into_error().into())))?;
+    lock.commit()
+        .map_err(|err| GitResetHeadError::from_git(Error::CommitLock(err)))?;
+    Ok(())
 }
 
 fn build_index_from_merged_tree(
@@ -2272,9 +2302,7 @@ pub async fn update_intent_to_add(
     let mut_index = Arc::make_mut(&mut index);
     update_intent_to_add_impl(&git_repo, mut_index, old_tree, new_tree).await?;
     debug_assert!(mut_index.verify_entries().is_ok());
-    mut_index
-        .write(gix::index::write::Options::default())
-        .map_err(GitResetHeadError::from_git)?;
+    write_index(mut_index)?;
 
     Ok(())
 }
