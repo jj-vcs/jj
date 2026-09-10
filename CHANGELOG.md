@@ -21,6 +21,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Shell completion now suggests tag names for `jj tag track`, `jj tag untrack`,
   `jj tag list`, `jj git fetch --tag`, and `jj git push --tag`.
 
+* Reconciling concurrent operations no longer deletes a workspace's recorded
+  Git HEAD when one operation's view merely lacks the entry (as when written by
+  a tool embedding a jj-lib too old to know per-workspace Git HEADs) while the
+  workspace itself survives. A genuine `jj workspace forget` still removes it.
+
 ## [0.46.0] - 2026-10-07
 
 ### Release highlights
