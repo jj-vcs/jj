@@ -15,8 +15,7 @@
 use std::fs;
 
 use futures::future::try_join_all;
-use itertools::Itertools as _;
-use jj_lib::commit::CommitIteratorExt as _;
+use jj_lib::backend::CommitId;
 use jj_lib::file_util;
 use jj_lib::file_util::IoResultExt as _;
 #[cfg(feature = "git")]
@@ -136,6 +135,34 @@ pub async fn cmd_workspace_add(
             name = workspace_name.as_symbol()
         )));
     }
+    // Resolve the new working copy's parents before creating anything: the
+    // directory, the Git worktree and the workspace registration below are
+    // all committed to disk, and an unresolvable revision must not leave a
+    // half-created workspace behind.
+    //
+    // If no parent revisions are specified, use the parents of the current
+    // workspace's working-copy commit, or the root if there is no working-copy
+    // commit in the current workspace.
+    let parent_ids: Vec<CommitId> = if args.revisions.is_empty() {
+        if let Some(old_wc_commit_id) = repo
+            .view()
+            .get_wc_commit_id(old_workspace_command.workspace_name())
+        {
+            repo.store()
+                .get_commit_async(old_wc_commit_id)
+                .await?
+                .parent_ids()
+                .to_vec()
+        } else {
+            vec![repo.store().root_commit_id().clone()]
+        }
+    } else {
+        old_workspace_command
+            .resolve_some_revsets(ui, &args.revisions)
+            .await?
+            .into_iter()
+            .collect()
+    };
     if !destination_path.exists() {
         fs::create_dir(&destination_path).context(&destination_path)?;
     } else if !file_util::is_empty_dir(&destination_path)? {
@@ -221,38 +248,13 @@ pub async fn cmd_workspace_add(
 
     let mut tx = new_workspace_command.start_transaction();
 
-    // If no parent revisions are specified, create a working-copy commit based
-    // on the parent of the current working-copy commit.
-    let parents = if args.revisions.is_empty() {
-        // Check out parents of the current workspace's working-copy commit, or the
-        // root if there is no working-copy commit in the current workspace.
-        if let Some(old_wc_commit_id) = tx
-            .base_repo()
-            .view()
-            .get_wc_commit_id(old_workspace_command.workspace_name())
-        {
-            tx.repo()
-                .store()
-                .get_commit_async(old_wc_commit_id)
-                .await?
-                .parents()
-                .await?
-        } else {
-            vec![tx.repo().store().root_commit()]
-        }
-    } else {
-        try_join_all(
-            old_workspace_command
-                .resolve_some_revsets(ui, &args.revisions)
-                .await?
-                .iter()
-                .map(|id| tx.repo().store().get_commit_async(id)),
-        )
-        .await?
-    };
-
+    let parents: Vec<_> = try_join_all(
+        parent_ids
+            .iter()
+            .map(|id| tx.repo().store().get_commit_async(id)),
+    )
+    .await?;
     let tree = merge_commit_trees(tx.repo(), &parents).await?;
-    let parent_ids = parents.iter().ids().cloned().collect_vec();
     let mut commit_builder = tx.repo_mut().new_commit(parent_ids, tree).detach();
     let mut description = join_message_paragraphs(&args.message_paragraphs);
     if !description.is_empty() {
