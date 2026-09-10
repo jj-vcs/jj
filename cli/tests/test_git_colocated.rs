@@ -1115,6 +1115,56 @@ fn test_git_colocated_external_checkout() -> TestResult {
 }
 
 #[test]
+fn test_git_colocated_import_after_recorded_head_lost() -> TestResult {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("file", "contents");
+    work_dir.run_jj(["commit", "-m=A"]).success();
+    work_dir.write_file("file2", "more");
+    work_dir
+        .run_jj(["describe", "-m=work in progress"])
+        .success();
+    let before = work_dir
+        .run_jj(["log", "-r@", "--no-graph", "-T", "change_id"])
+        .success();
+
+    // The state left behind when the recorded target is lost while the
+    // workspace and its working-copy commit survive: an operation written by a
+    // client too old to know per-workspace Git HEADs drops every workspace's
+    // entry but the default one, whose target survives through the deprecated
+    // single `git_head` field. On-disk HEAD stays where our own export left
+    // it: at the working-copy commit's parent.
+    testutils::strip_git_heads_from_head_view(&work_dir.root().join(".jj/repo"));
+
+    // Nothing moved, so the import must re-record the target without replacing
+    // the working-copy commit (and without the "Reset the working copy parent"
+    // message a real external checkout prints).
+    let output = work_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output, @"
+    Working copy changes:
+    A file2
+    Working copy  (@) : rlvkpnrz a8691208 work in progress
+    Parent commit (@-): qpvuntsm ff26c357 A
+    [EOF]
+    ");
+    let after = work_dir
+        .run_jj(["log", "-r@", "--no-graph", "-T", "change_id"])
+        .success();
+    assert_eq!(after.stdout.raw(), before.stdout.raw());
+
+    // The recorded target is restored: the next command has nothing to import.
+    let output = work_dir.run_jj(["log", "-r@", "--no-graph", "-T", "description"]);
+    insta::assert_snapshot!(output, @"
+    work in progress
+    [EOF]
+    ");
+    Ok(())
+}
+
+#[test]
 #[cfg_attr(windows, ignore = "uses POSIX sh")]
 fn test_git_colocated_concurrent_checkout() -> TestResult {
     let test_env = TestEnvironment::default();

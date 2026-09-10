@@ -53,6 +53,7 @@ use jj_lib::matchers::NothingMatcher;
 use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
+use jj_lib::op_store::RefTarget;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
@@ -411,6 +412,29 @@ impl TestWorkspace {
         let (tree, _stats) = self.snapshot_with_options(&empty_snapshot_options())?;
         Ok(tree)
     }
+}
+
+/// Commits an operation whose view has no per-workspace Git HEADs, modeling
+/// the loss a jj-lib too old to know the view's `git_heads` field inflicts:
+/// every workspace it cannot round-trip through the deprecated single
+/// `git_head` field (i.e. every workspace but the default one) loses its
+/// recorded target, while `wc_commit_ids` survives.
+///
+/// `repo_path` is the workspace's `.jj/repo` directory.
+pub fn strip_git_heads_from_head_view(repo_path: &Path) {
+    let settings = user_settings();
+    let loader =
+        RepoLoader::init_from_file_system(&settings, repo_path, &default_backend_factories())
+            .unwrap();
+    let repo = loader.load_at_head().block_on().unwrap();
+    let workspaces: Vec<_> = repo.view().wc_commit_ids().keys().cloned().collect();
+    let mut tx = repo.start_transaction();
+    for name in &workspaces {
+        tx.repo_mut().set_git_head_target(name, RefTarget::absent());
+    }
+    tx.commit("strip git heads (simulated old client)")
+        .block_on()
+        .unwrap();
 }
 
 pub fn commit_transactions(txs: Vec<Transaction>) -> Arc<ReadonlyRepo> {
