@@ -241,6 +241,10 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <div class="sl-heading-wrapper level-h3"><h3 id="new-features">New features</h3><a class="sl-anchor-link" href="#new-features"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “New features”</span></a></div>
 <ul>
 <li>
+<p>Git-format diff hunk headers now include nearby source symbols for many common
+programming and markup languages.</p>
+</li>
+<li>
 <p><code dir="auto">jj workspace add</code> supports <code dir="auto">--colocate</code>/<code dir="auto">--no-colocate</code> flags to control
 whether a Git worktree is created alongside the workspace. The default
 colocates when the current workspace is colocated and the <code dir="auto">git.colocate</code>
@@ -259,6 +263,17 @@ creation.</p>
 string template args to pass to the fix tool. This is more flexible in cases
 where you need to pass multiple arguments to the tool, such as separate args
 for the range start and range end.</p>
+</li>
+<li>
+<p><code dir="auto">jj git push</code> now supports pushing to multiple remotes at the same time.
+This can be configured via <code dir="auto">git.push</code> set to a string pattern
+or array of string patterns, or with the repeatable <code dir="auto">--remote</code> flag,
+which also accepts string patterns.</p>
+</li>
+<li>
+<p><code dir="auto">jj run</code> now uses the sparse patterns from the workspace it's run from.
+Use the <code dir="auto">--sparse-patterns</code> option to control this behavior (evaluated
+per each <code dir="auto">jj run</code> invocation).</p>
 </li>
 </ul>
 <div class="sl-heading-wrapper level-h3"><h3 id="fixed-bugs">Fixed bugs</h3><a class="sl-anchor-link" href="#fixed-bugs"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Fixed bugs”</span></a></div>
@@ -323,17 +338,6 @@ automatically.</p>
 target a specific configuration file (such as files inside a <code dir="auto">conf.d/</code>
 directory or loaded via <code dir="auto">--config-file</code>). This allows precise file targeting
 and avoids interactive prompts when multiple config files exist.</p>
-</li>
-<li>
-<p><code dir="auto">jj git push</code> now supports pushing to multiple remotes at the same time.
-This can be configured via <code dir="auto">git.push</code> set to a string pattern
-or array of string patterns, or with the repeatable <code dir="auto">--remote</code> flag,
-which also accepts string patterns.</p>
-</li>
-<li>
-<p><code dir="auto">jj run</code> now uses the sparse patterns from the workspace it's run from.
-Use the <code dir="auto">--sparse-patterns</code> option to control this behavior (evaluated
-per each <code dir="auto">jj run</code> invocation).</p>
 </li>
 </ul>
 <div class="sl-heading-wrapper level-h3"><h3 id="fixed-bugs-2">Fixed bugs</h3><a class="sl-anchor-link" href="#fixed-bugs-2"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Fixed bugs”</span></a></div>
