@@ -1395,17 +1395,33 @@ impl WorkspaceCommandHelper {
         let old_git_head = self.repo().view().git_head(&workspace_name).clone();
         let new_git_head = tx.repo().view().git_head(&workspace_name);
         if let Some(new_git_head_id) = new_git_head.as_normal() {
-            let new_git_head_commit = tx.repo().store().get_commit_async(new_git_head_id).await?;
-            let wc_commit = tx
-                .repo_mut()
-                .check_out(workspace_name, &new_git_head_commit)
-                .await?;
+            // No recorded target, but on-disk HEAD is exactly where our own export
+            // leaves it: at the working-copy commit's parent. The recorded target
+            // was lost (e.g. the view was rewritten by a client too old to know
+            // per-workspace Git HEADs) rather than HEAD having moved. Re-record it
+            // without replacing the working-copy commit, and without touching the
+            // Git index or an operation (such as a merge) in progress.
+            let head_unmoved = match tx.repo().view().get_wc_commit_id(&workspace_name) {
+                Some(wc_commit_id) if old_git_head.is_absent() => {
+                    let wc_commit = tx.repo().store().get_commit_async(wc_commit_id).await?;
+                    wc_commit.parent_ids().first() == Some(new_git_head_id)
+                }
+                _ => false,
+            };
             let mut locked_ws = self.workspace.start_working_copy_mutation().await?;
-            // The working copy was presumably updated by the git command that updated
-            // HEAD, so we just need to reset our working copy
-            // state to it without updating working copy files.
-            locked_ws.locked_wc().reset(&wc_commit).await?;
-            tx.repo_mut().rebase_descendants().await?;
+            if !head_unmoved {
+                let new_git_head_commit =
+                    tx.repo().store().get_commit_async(new_git_head_id).await?;
+                let wc_commit = tx
+                    .repo_mut()
+                    .check_out(workspace_name, &new_git_head_commit)
+                    .await?;
+                // The working copy was presumably updated by the git command that updated
+                // HEAD, so we just need to reset our working copy
+                // state to it without updating working copy files.
+                locked_ws.locked_wc().reset(&wc_commit).await?;
+                tx.repo_mut().rebase_descendants().await?;
+            }
             self.user_repo = ReadonlyUserRepo::new(
                 self.env
                     .command

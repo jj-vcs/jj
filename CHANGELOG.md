@@ -21,6 +21,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Shell completion now suggests tag names for `jj tag track`, `jj tag untrack`,
   `jj tag list`, `jj git fetch --tag`, and `jj git push --tag`.
 
+* In a colocated repository, a `jj` command no longer replaces the working-copy
+  commit when the view's recorded Git HEAD was lost but on-disk HEAD still
+  points at the working-copy commit's parent (as happens when an operation was
+  written by a tool embedding a jj-lib too old to know per-workspace Git
+  HEADs). The target is re-recorded without a checkout.
+
 ## [0.46.0] - 2026-10-07
 
 ### Release highlights
