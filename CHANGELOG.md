@@ -21,6 +21,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Shell completion now suggests tag names for `jj tag track`, `jj tag untrack`,
   `jj tag list`, `jj git fetch --tag`, and `jj git push --tag`.
 
+* In a colocated repository, `jj` no longer fails with `Could not acquire lock
+  for index file` when another process (such as `git status` run by an editor
+  or a prompt) briefly holds `.git/index.lock`. It now waits up to one second
+  for the lock; a lock that is never released still fails.
+  [#7530](https://github.com/jj-vcs/jj/issues/7530)
+
 ## [0.46.0] - 2026-10-07
 
 ### Release highlights
