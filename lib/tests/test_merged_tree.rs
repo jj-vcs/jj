@@ -24,6 +24,7 @@ use jj_lib::backend::MergedTreeValue;
 use jj_lib::backend::MergedTreeValueExt as _;
 use jj_lib::backend::TreeValue;
 use jj_lib::conflict_labels::ConflictLabels;
+use jj_lib::copies;
 use jj_lib::copies::CopiesTreeDiffEntryPath;
 use jj_lib::copies::CopyHistoryDiffTerm;
 use jj_lib::copies::CopyHistorySource;
@@ -2112,10 +2113,14 @@ fn collect_diffs(
     left: &MergedTree,
     right: &MergedTree,
 ) -> Vec<(RepoPathBuf, Merge<CopyHistoryDiffTerm>)> {
-    left.diff_stream_with_copy_history(right, &EverythingMatcher)
-        .map(|diff| (diff.target_path, diff.diffs.unwrap()))
-        .collect()
-        .block_on()
+    left.diff_stream_with_copy_history(
+        right,
+        &EverythingMatcher,
+        copies::RECOMMENDED_CONCURRENCY_BUFFER_SIZE,
+    )
+    .map(|diff| (diff.target_path, diff.diffs.unwrap()))
+    .collect()
+    .block_on()
 }
 
 #[test]
