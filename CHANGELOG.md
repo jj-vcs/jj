@@ -21,6 +21,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Shell completion now suggests tag names for `jj tag track`, `jj tag untrack`,
   `jj tag list`, `jj git fetch --tag`, and `jj git push --tag`.
 
+* `jj workspace add --revision <rev>` no longer creates the workspace when the
+  revision does not resolve. It used to leave a registered workspace whose
+  working-copy commit was parented at the root, along with the new directory
+  and, in a colocated repository, a Git worktree.
+
 ## [0.46.0] - 2026-10-07
 
 ### Release highlights
