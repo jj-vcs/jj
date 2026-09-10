@@ -29,7 +29,7 @@ use tracing::instrument;
 use crate::backend::BackendError;
 use crate::commit::Commit;
 use crate::gitignore::GitIgnoreError;
-use crate::gitignore::GitIgnoreFile;
+use crate::ignore::Ignore;
 use crate::matchers::Matcher;
 use crate::merged_tree::MergedTree;
 use crate::op_store::OpStoreError;
@@ -209,7 +209,7 @@ pub struct SnapshotOptions<'a> {
     // The base_ignores are passed in here rather than being set on the TreeState
     // because the TreeState may be long-lived if the library is used in a
     // long-lived process.
-    pub base_ignores: Arc<GitIgnoreFile>,
+    pub base_ignores: Arc<dyn Ignore>,
     /// A callback for the UI to display progress.
     pub progress: Option<&'a SnapshotProgress<'a>>,
     /// For new files that are not already tracked, start tracking them if they

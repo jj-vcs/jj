@@ -23,6 +23,7 @@ use std::sync::Arc;
 
 use thiserror::Error;
 
+use crate::ignore::Ignore;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 
@@ -138,6 +139,20 @@ impl GitIgnoreFile {
         }
 
         false
+    }
+}
+
+impl Ignore for GitIgnoreFile {
+    fn name(&self) -> &'static str {
+        "gitignore"
+    }
+
+    fn matches_file(&self, path: &RepoPath) -> bool {
+        self.matches_file(path)
+    }
+
+    fn matches_dir(&self, path: &RepoPath) -> bool {
+        self.matches_dir(path)
     }
 }
 
