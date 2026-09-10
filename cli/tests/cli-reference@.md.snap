@@ -3658,7 +3658,7 @@ See also [commit signing] docs.
 
 [commit signing]: https://docs.jj-vcs.dev/latest/config/#commit-signing
 
-**Usage:** `jj unsign [OPTIONS]`
+**Usage:** `jj unsign --revision <REVSETS>`
 
 ###### **Options:**
 
