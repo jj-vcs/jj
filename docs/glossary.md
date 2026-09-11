@@ -116,7 +116,7 @@ directory is a sibling of `.jj/`, we call the workspace colocated. Most
 tools designed for Git can be easily used on such workspaces. `jj` and `git`
 commands can be used interchangeably.
 
-See [here](git-compatibility.md#colocated-jujutsugit-repos) for details.
+See [here](git-compatibility.md#colocated-jujutsugit-workspaces) for details.
 
 ## Conflict
 
