@@ -17,8 +17,6 @@ use std::io::Write as _;
 use clap_complete::ArgValueCandidates;
 use jj_lib::file_util;
 use jj_lib::ref_name::WorkspaceNameBuf;
-use jj_lib::workspace_store::SimpleWorkspaceStore;
-use jj_lib::workspace_store::WorkspaceStore as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -44,7 +42,7 @@ pub async fn cmd_workspace_root(
 ) -> Result<(), CommandError> {
     let path = if let Some(ws_name) = &args.name {
         let workspace_command = command.workspace_helper_no_snapshot(ui).await?;
-        let workspace_store = SimpleWorkspaceStore::load(workspace_command.repo_path())?;
+        let workspace_store = workspace_command.repo().loader().workspace_store().clone();
 
         if workspace_command
             .repo()

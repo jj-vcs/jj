@@ -17,10 +17,13 @@ use std::thread;
 use assert_matches::assert_matches;
 use jj_lib::default_backend_factories::default_working_copy_factories;
 use jj_lib::default_backend_factories::default_working_copy_factory;
+use jj_lib::default_backend_factories::default_workspace_loader_factory;
+use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
 use jj_lib::workspace::Workspace;
 use jj_lib::workspace::WorkspaceLoadError;
+use jj_lib::workspace::WorkspaceType;
 use pollster::FutureExt as _;
 use testutils::TestEnvironment;
 use testutils::TestResult;
@@ -35,6 +38,7 @@ fn test_load_bad_path() {
     let result = Workspace::load(
         &settings,
         &workspace_root,
+        &*default_workspace_loader_factory(),
         &test_env.default_backend_factories(),
         &default_working_copy_factories(),
     );
@@ -59,6 +63,7 @@ fn test_init_additional_workspace() -> TestResult {
         &test_workspace.repo,
         &*default_working_copy_factory(),
         ws2_name.clone(),
+        WorkspaceType::Regular,
     )
     .block_on()?;
     let wc_commit_id = repo.view().get_wc_commit_id(&ws2_name);
@@ -70,6 +75,7 @@ fn test_init_additional_workspace() -> TestResult {
         vec![repo.store().root_commit_id().clone()]
     );
     assert_eq!(ws2.workspace_name(), &ws2_name);
+    assert_eq!(ws2.workspace_type(), WorkspaceType::Regular);
     assert_eq!(
         *ws2.repo_path(),
         dunce::canonicalize(workspace.repo_path())?
@@ -84,11 +90,66 @@ fn test_init_additional_workspace() -> TestResult {
     let same_workspace = Workspace::load(
         &settings,
         &ws2_root,
+        &*default_workspace_loader_factory(),
         &test_workspace.env.default_backend_factories(),
         &default_working_copy_factories(),
+    )?;
+    assert_eq!(same_workspace.workspace_name(), &ws2_name);
+    assert_eq!(
+        *same_workspace.repo_path(),
+        dunce::canonicalize(workspace.repo_path())?
     );
-    assert!(same_workspace.is_ok());
-    let same_workspace = same_workspace?;
+    assert_eq!(same_workspace.workspace_root(), ws2.workspace_root());
+    Ok(())
+}
+
+#[test]
+fn test_init_independent_workspace() -> TestResult {
+    let settings = testutils::user_settings();
+    let test_workspace = TestWorkspace::init_with_settings(&settings);
+    let workspace = &test_workspace.workspace;
+
+    let ws2_name = WorkspaceNameBuf::from("ws2");
+    let ws2_root = test_workspace.root_dir().join("ws2_root");
+    std::fs::create_dir(&ws2_root)?;
+    let (ws2, repo) = Workspace::init_workspace_with_existing_repo(
+        &ws2_root,
+        test_workspace.repo_path(),
+        &test_workspace.repo,
+        &*default_working_copy_factory(),
+        ws2_name.clone(),
+        WorkspaceType::Independent,
+    )
+    .block_on()?;
+    let wc_commit_id = repo.view().get_wc_commit_id(&ws2_name);
+    assert_ne!(wc_commit_id, None);
+    let wc_commit_id = wc_commit_id.unwrap();
+    let wc_commit = repo.store().get_commit(wc_commit_id)?;
+    assert_eq!(
+        wc_commit.parent_ids(),
+        vec![repo.store().root_commit_id().clone()]
+    );
+    assert_eq!(ws2.workspace_name(), &ws2_name);
+    assert_eq!(ws2.workspace_type(), WorkspaceType::Independent);
+    assert_eq!(
+        *ws2.repo_path(),
+        dunce::canonicalize(workspace.repo_path())?
+    );
+    assert_eq!(*ws2.workspace_root(), dunce::canonicalize(&ws2_root)?);
+    let ws2_root = ws2.workspace_root();
+
+    let repo_file_path = ws2_root.join(".jj").join("repo");
+    let repo_file_contents = std::fs::read(&repo_file_path)?;
+    let stored_path = String::from_utf8(repo_file_contents)?;
+    assert_eq!(stored_path, "../../repo/.jj/repo");
+
+    let same_workspace = Workspace::load(
+        &settings,
+        ws2_root,
+        &*default_workspace_loader_factory(),
+        &test_workspace.env.default_backend_factories(),
+        &default_working_copy_factories(),
+    )?;
     assert_eq!(same_workspace.workspace_name(), &ws2_name);
     assert_eq!(
         *same_workspace.repo_path(),
@@ -113,6 +174,7 @@ fn test_init_additional_workspace_absolute_path_compat() -> TestResult {
         &test_workspace.repo,
         &*default_working_copy_factory(),
         ws2_name.clone(),
+        WorkspaceType::Regular,
     )
     .block_on()?;
 
@@ -126,11 +188,10 @@ fn test_init_additional_workspace_absolute_path_compat() -> TestResult {
     let same_workspace = Workspace::load(
         &settings,
         &ws2_root,
+        &*default_workspace_loader_factory(),
         &test_workspace.env.default_backend_factories(),
         &default_working_copy_factories(),
-    );
-    assert!(same_workspace.is_ok());
-    let same_workspace = same_workspace?;
+    )?;
     assert_eq!(same_workspace.workspace_name(), &ws2_name);
     assert_eq!(*same_workspace.repo_path(), abs_repo_path);
     assert_eq!(same_workspace.workspace_root(), ws2.workspace_root());
@@ -157,7 +218,13 @@ fn test_init_additional_workspace_non_utf8_path() -> TestResult {
 
     let ws1_root = test_env.root().join(OsStr::from_bytes(b"ws1_root\xe0"));
     std::fs::create_dir(&ws1_root)?;
-    let (ws1, repo) = Workspace::init_simple(&settings, &ws1_root).block_on()?;
+    let (ws1, repo) = Workspace::init_simple(
+        &settings,
+        &ws1_root,
+        WorkspaceName::DEFAULT,
+        WorkspaceType::Regular,
+    )
+    .block_on()?;
 
     let ws2_name = WorkspaceNameBuf::from("ws2");
     let ws2_root = test_env.root().join(OsStr::from_bytes(b"ws2_root\xe0"));
@@ -168,6 +235,7 @@ fn test_init_additional_workspace_non_utf8_path() -> TestResult {
         &repo,
         &*default_working_copy_factory(),
         ws2_name.clone(),
+        WorkspaceType::Regular,
     )
     .block_on()?;
     assert_eq!(ws2.workspace_name(), &ws2_name);
@@ -176,6 +244,7 @@ fn test_init_additional_workspace_non_utf8_path() -> TestResult {
     let same_workspace = Workspace::load(
         &settings,
         &ws2_root,
+        &*default_workspace_loader_factory(),
         &test_env.default_backend_factories(),
         &default_working_copy_factories(),
     );
