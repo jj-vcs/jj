@@ -1699,16 +1699,16 @@ fn test_rebase_descendants_update_bookmarks_after_divergent_rewrite() -> TestRes
     tx.repo_mut().rebase_descendants().block_on()?;
 
     let main_target = tx.repo().get_local_bookmark("main".as_ref());
-    assert!(main_target.has_conflict());
+    assert!(!main_target.is_resolved());
     // If the bookmark were moved at each rewrite point, there would be separate
     // negative terms: { commit_b => 2, commit_b4 => 1 }. Since we flatten
     // intermediate rewrites, commit_b4 doesn't appear in the removed_ids.
     assert_eq!(
-        main_target.removed_ids().counts(),
+        main_target.present_removes().counts(),
         hashmap! { commit_b.id() => 3 },
     );
     assert_eq!(
-        main_target.added_ids().counts(),
+        main_target.present_adds().counts(),
         hashmap! {
             commit_b2.id() => 1,
             commit_b3.id() => 1,
@@ -1780,13 +1780,13 @@ fn test_rebase_descendants_rewrite_updates_bookmark_conflict() -> TestResult {
     tx.repo_mut().rebase_descendants().block_on()?;
 
     let target = tx.repo().get_local_bookmark("main".as_ref());
-    assert!(target.has_conflict());
+    assert!(!target.is_resolved());
     assert_eq!(
-        target.removed_ids().counts(),
+        target.present_removes().counts(),
         hashmap! { commit_a.id() => 1, commit_b.id() => 1 },
     );
     assert_eq!(
-        target.added_ids().counts(),
+        target.present_adds().counts(),
         hashmap! {
             commit_c.id() => 1,
             commit_b2.id() => 1,
@@ -1889,7 +1889,7 @@ fn test_rebase_descendants_bookmark_delete_modify_abandon(
     let _rebase_map = rebase_descendants_with_options_return_map(tx.repo_mut(), &options);
     assert_eq!(
         tx.repo().get_local_bookmark("main".as_ref()),
-        RefTarget::absent_ref()
+        &RefTarget::absent()
     );
     Ok(())
 }
@@ -1916,11 +1916,11 @@ fn test_rebase_descendants_bookmark_move_forward_abandon(
     let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
     tx.repo_mut().set_local_bookmark_target(
         "main".as_ref(),
-        RefTarget::from_merge(Merge::from_vec(vec![
+        RefTarget::from_vec(vec![
             Some(commit_b.id().clone()),
             Some(commit_a.id().clone()),
             Some(commit_c.id().clone()),
-        ])),
+        ]),
     );
     let repo = tx.commit("test").block_on()?;
 
@@ -1936,11 +1936,11 @@ fn test_rebase_descendants_bookmark_move_forward_abandon(
     assert_eq!(
         *tx.repo().get_local_bookmark("main".as_ref()),
         if delete_abandoned_bookmarks {
-            RefTarget::from_merge(Merge::from_vec(vec![
+            RefTarget::from_vec(vec![
                 None,
                 Some(commit_a.id().clone()),
                 Some(commit_c.id().clone()),
-            ]))
+            ])
         } else {
             RefTarget::normal(commit_c.id().clone())
         }
@@ -1970,11 +1970,11 @@ fn test_rebase_descendants_bookmark_move_sideways_abandon(
     let commit_c = write_random_commit(tx.repo_mut());
     tx.repo_mut().set_local_bookmark_target(
         "main".as_ref(),
-        RefTarget::from_merge(Merge::from_vec(vec![
+        RefTarget::from_vec(vec![
             Some(commit_b.id().clone()),
             Some(commit_a.id().clone()),
             Some(commit_c.id().clone()),
-        ])),
+        ]),
     );
     let repo = tx.commit("test").block_on()?;
 
@@ -1990,17 +1990,17 @@ fn test_rebase_descendants_bookmark_move_sideways_abandon(
     assert_eq!(
         *tx.repo().get_local_bookmark("main".as_ref()),
         if delete_abandoned_bookmarks {
-            RefTarget::from_merge(Merge::from_vec(vec![
+            RefTarget::from_vec(vec![
                 None,
                 Some(commit_a.id().clone()),
                 Some(commit_c.id().clone()),
-            ]))
+            ])
         } else {
-            RefTarget::from_merge(Merge::from_vec(vec![
+            RefTarget::from_vec(vec![
                 Some(repo.store().root_commit_id().clone()),
                 Some(commit_a.id().clone()),
                 Some(commit_c.id().clone()),
-            ]))
+            ])
         }
     );
     Ok(())

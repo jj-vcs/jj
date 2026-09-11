@@ -28,6 +28,7 @@ use std::io;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::iter_util::fallible_any;
+use jj_lib::op_store::ABSENT_REMOTE_REF;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::ref_name::RefName;
@@ -157,7 +158,7 @@ fn trackable_remote_bookmarks_matching<'a>(
             .flat_map(move |(remote, remote_view)| {
                 view.local_bookmarks_matching(bookmark_matcher)
                     .filter(|&(name, _)| !remote_view.bookmarks.contains_key(name))
-                    .map(|(name, _)| (name.to_remote_symbol(remote), RemoteRef::absent_ref()))
+                    .map(|(name, _)| (name.to_remote_symbol(remote), &ABSENT_REMOTE_REF))
             });
     itertools::chain(present_or_tracked_matches, absent_matches)
 }
@@ -171,7 +172,7 @@ async fn is_fast_forward(
         // Strictly speaking, "all" old targets should be ancestors, but we allow
         // conflict resolution by setting bookmark to "any" of the old target
         // descendants.
-        let found = fallible_any(old_target.added_ids(), async |old| {
+        let found = fallible_any(old_target.present_adds(), async |old| {
             repo.index().is_ancestor(old, new_target_id).await
         })
         .await?;

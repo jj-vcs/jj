@@ -106,7 +106,6 @@ async fn cmd_git_colocation_status(
         ui.stdout(),
         "Last imported/exported Git HEAD: {}",
         git_head
-            .as_merge()
             .iter()
             .map(|maybe_id| match maybe_id {
                 Some(id) => id.to_string(),

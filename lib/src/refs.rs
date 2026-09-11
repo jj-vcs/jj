@@ -24,6 +24,8 @@ use crate::merge::Diff;
 use crate::merge::Merge;
 use crate::merge::SameChange;
 use crate::merge::trivial_merge;
+use crate::op_store::ABSENT_REF_TARGET;
+use crate::op_store::ABSENT_REMOTE_REF;
 use crate::op_store::RefTarget;
 use crate::op_store::RemoteRef;
 
@@ -34,13 +36,8 @@ pub fn diff_named_ref_targets<'a, 'b, K: Ord>(
     refs1: impl IntoIterator<Item = (K, &'a RefTarget)>,
     refs2: impl IntoIterator<Item = (K, &'b RefTarget)>,
 ) -> impl Iterator<Item = (K, (&'a RefTarget, &'b RefTarget))> {
-    iter_named_pairs(
-        refs1,
-        refs2,
-        || RefTarget::absent_ref(),
-        || RefTarget::absent_ref(),
-    )
-    .filter(|(_, (target1, target2))| target1 != target2)
+    iter_named_pairs(refs1, refs2, || &ABSENT_REF_TARGET, || &ABSENT_REF_TARGET)
+        .filter(|(_, (target1, target2))| target1 != target2)
 }
 
 /// Compares remote `refs1` and `refs2` pairs, yields entry if they differ.
@@ -50,13 +47,8 @@ pub fn diff_named_remote_refs<'a, 'b, K: Ord>(
     refs1: impl IntoIterator<Item = (K, &'a RemoteRef)>,
     refs2: impl IntoIterator<Item = (K, &'b RemoteRef)>,
 ) -> impl Iterator<Item = (K, (&'a RemoteRef, &'b RemoteRef))> {
-    iter_named_pairs(
-        refs1,
-        refs2,
-        || RemoteRef::absent_ref(),
-        || RemoteRef::absent_ref(),
-    )
-    .filter(|(_, (ref1, ref2))| ref1 != ref2)
+    iter_named_pairs(refs1, refs2, || &ABSENT_REMOTE_REF, || &ABSENT_REMOTE_REF)
+        .filter(|(_, (ref1, ref2))| ref1 != ref2)
 }
 
 /// Iterates local `refs1` and remote `refs2` pairs by name.
@@ -66,12 +58,7 @@ pub fn iter_named_local_remote_refs<'a, 'b, K: Ord>(
     refs1: impl IntoIterator<Item = (K, &'a RefTarget)>,
     refs2: impl IntoIterator<Item = (K, &'b RemoteRef)>,
 ) -> impl Iterator<Item = (K, (&'a RefTarget, &'b RemoteRef))> {
-    iter_named_pairs(
-        refs1,
-        refs2,
-        || RefTarget::absent_ref(),
-        || RemoteRef::absent_ref(),
-    )
+    iter_named_pairs(refs1, refs2, || &ABSENT_REF_TARGET, || &ABSENT_REMOTE_REF)
 }
 
 /// Compares `ids1` and `ids2` commit ids, yields entry if they differ.
@@ -115,13 +102,9 @@ pub async fn merge_ref_targets(
         return Ok(resolved.clone());
     }
 
-    let mut merge = Merge::from_vec(vec![
-        left.as_merge().clone(),
-        base.as_merge().clone(),
-        right.as_merge().clone(),
-    ])
-    .flatten()
-    .simplify();
+    let mut merge = Merge::from_vec(vec![left.clone(), base.clone(), right.clone()])
+        .flatten()
+        .simplify();
     // Suppose left = [A - C + B], base = [B], right = [A], the merge result is
     // [A - C + A], which can now be trivially resolved.
     if let Some(resolved) = merge.resolve_trivial(SameChange::Accept) {
@@ -130,7 +113,7 @@ pub async fn merge_ref_targets(
         merge_ref_targets_non_trivial(index, &mut merge).await?;
         // TODO: Maybe better to try resolve_trivial() again, but the result is
         // unreliable since merge_ref_targets_non_trivial() is order dependent.
-        Ok(RefTarget::from_merge(merge))
+        Ok(merge)
     }
 }
 
@@ -218,9 +201,9 @@ pub fn classify_ref_push_action(targets: LocalAndRemoteRef) -> RefPushAction {
     let remote_target = targets.remote_ref.tracked_target();
     if local_target == remote_target {
         RefPushAction::AlreadyMatches
-    } else if local_target.has_conflict() {
+    } else if !local_target.is_resolved() {
         RefPushAction::LocalConflicted
-    } else if remote_target.has_conflict() {
+    } else if !remote_target.is_resolved() {
         RefPushAction::RemoteConflicted
     } else if targets.remote_ref.is_present() && !targets.remote_ref.is_tracked() {
         RefPushAction::RemoteUntracked
@@ -269,7 +252,7 @@ mod tests {
         let commit_id1 = CommitId::from_hex("11");
         let targets = LocalAndRemoteRef {
             local_target: &RefTarget::normal(commit_id1.clone()),
-            remote_ref: RemoteRef::absent_ref(),
+            remote_ref: &RemoteRef::absent(),
         };
         assert_eq!(
             classify_ref_push_action(targets),
@@ -281,7 +264,7 @@ mod tests {
     fn test_classify_ref_push_action_removed() {
         let commit_id1 = CommitId::from_hex("11");
         let targets = LocalAndRemoteRef {
-            local_target: RefTarget::absent_ref(),
+            local_target: &RefTarget::absent(),
             remote_ref: &tracked_remote_ref(RefTarget::normal(commit_id1.clone())),
         };
         assert_eq!(
@@ -310,7 +293,7 @@ mod tests {
         // have no relation to local refs, and there's nothing to push.
         let commit_id1 = CommitId::from_hex("11");
         let targets = LocalAndRemoteRef {
-            local_target: RefTarget::absent_ref(),
+            local_target: &RefTarget::absent(),
             remote_ref: &new_remote_ref(RefTarget::normal(commit_id1.clone())),
         };
         assert_eq!(

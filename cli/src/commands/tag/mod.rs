@@ -21,6 +21,7 @@ mod untrack;
 use std::io;
 
 use itertools::Itertools as _;
+use jj_lib::op_store::ABSENT_REMOTE_REF;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RemoteName;
@@ -113,7 +114,7 @@ fn trackable_remote_tags_matching<'a>(
             .flat_map(move |(remote, remote_view)| {
                 view.local_tags_matching(tag_matcher)
                     .filter(|&(name, _)| !remote_view.tags.contains_key(name))
-                    .map(|(name, _)| (name.to_remote_symbol(remote), RemoteRef::absent_ref()))
+                    .map(|(name, _)| (name.to_remote_symbol(remote), &ABSENT_REMOTE_REF))
             });
     itertools::chain(present_or_tracked_matches, absent_matches)
 }

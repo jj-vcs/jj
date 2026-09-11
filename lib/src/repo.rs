@@ -1217,7 +1217,7 @@ impl MutableRepo {
             .view()
             .local_bookmarks()
             .flat_map(|(name, target)| {
-                target.added_ids().filter_map(|id| {
+                target.present_adds().filter_map(|id| {
                     let change = rewrite_mapping.get_key_value(id)?;
                     Some((name.to_owned(), change))
                 })
@@ -1235,7 +1235,7 @@ impl MutableRepo {
             } else {
                 let ids = itertools::intersperse(new_commit_ids, old_commit_id)
                     .map(|id| Some(id.clone()));
-                RefTarget::from_merge(MergeBuilder::from_iter(ids).build())
+                MergeBuilder::from_iter(ids).build()
             };
 
             self.merge_local_bookmark(&bookmark_name, &old_target, &new_target)
@@ -1652,8 +1652,9 @@ impl MutableRepo {
                     .filter(|&(name, _)| name != workspace_name)
                     .map(|(_, wc_id)| wc_id),
                 view.local_bookmarks()
-                    .flat_map(|(_, target)| target.added_ids()),
-                view.local_tags().flat_map(|(_, target)| target.added_ids()),
+                    .flat_map(|(_, target)| target.present_adds()),
+                view.local_tags()
+                    .flat_map(|(_, target)| target.present_adds()),
             )
             .any(|id| id == commit_id)
         };
@@ -1784,7 +1785,7 @@ impl MutableRepo {
     }
 
     pub fn set_local_bookmark_target(&mut self, name: &RefName, target: RefTarget) {
-        for id in target.added_ids() {
+        for id in target.present_adds() {
             self.view.add_head(id);
         }
         self.view.set_local_bookmark_target(name, target);

@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use jj_lib::merge::Merge;
 use jj_lib::op_store::RefTarget;
 use jj_lib::refs::merge_ref_targets;
 use jj_lib::repo::Repo as _;
@@ -82,19 +81,19 @@ fn test_merge_ref_targets() -> TestResult {
     assert_eq!(merge(&target4, &target3, &target4), target4);
 
     // Both added same target ("A - B + A" - type conflict)
-    assert_eq!(merge(&target3, RefTarget::absent_ref(), &target3), target3);
+    assert_eq!(merge(&target3, &RefTarget::absent(), &target3), target3);
 
     // Both removed ("A - B + A" - type conflict)
     assert_eq!(
-        merge(RefTarget::absent_ref(), &target3, RefTarget::absent_ref()),
+        merge(&RefTarget::absent(), &target3, &RefTarget::absent()),
         RefTarget::absent()
     );
 
     // Left added target, right added descendant target
-    assert_eq!(merge(&target2, RefTarget::absent_ref(), &target3), target3);
+    assert_eq!(merge(&target2, &RefTarget::absent(), &target3), target3);
 
     // Right added target, left added descendant target
-    assert_eq!(merge(&target3, RefTarget::absent_ref(), &target2), target3);
+    assert_eq!(merge(&target3, &RefTarget::absent(), &target2), target3);
 
     // Both moved forward to same target
     assert_eq!(merge(&target3, &target1, &target3), target3);
@@ -134,34 +133,34 @@ fn test_merge_ref_targets() -> TestResult {
 
     // Left removed
     assert_eq!(
-        merge(RefTarget::absent_ref(), &target3, &target3),
+        merge(&RefTarget::absent(), &target3, &target3),
         RefTarget::absent()
     );
 
     // Right removed
     assert_eq!(
-        merge(&target3, &target3, RefTarget::absent_ref()),
+        merge(&target3, &target3, &RefTarget::absent()),
         RefTarget::absent()
     );
 
     // Left removed, right moved forward
     assert_eq!(
-        merge(RefTarget::absent_ref(), &target1, &target3),
-        RefTarget::from_merge(Merge::from_vec(vec![
+        merge(&RefTarget::absent(), &target1, &target3),
+        RefTarget::from_vec(vec![
             None,
             Some(commit1.id().clone()),
             Some(commit3.id().clone()),
-        ]))
+        ])
     );
 
     // Right removed, left moved forward
     assert_eq!(
-        merge(&target3, &target1, RefTarget::absent_ref()),
-        RefTarget::from_merge(Merge::from_vec(vec![
+        merge(&target3, &target1, &RefTarget::absent()),
+        RefTarget::from_vec(vec![
             Some(commit3.id().clone()),
             Some(commit1.id().clone()),
             None,
-        ]))
+        ])
     );
 
     // Left became conflicted, right moved forward

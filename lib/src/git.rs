@@ -59,6 +59,8 @@ use crate::merge::Diff;
 use crate::merged_tree::MergedTree;
 use crate::merged_tree::TreeDiffEntry;
 use crate::object_id::ObjectId as _;
+use crate::op_store::ABSENT_REF_TARGET;
+use crate::op_store::ABSENT_REMOTE_REF;
 use crate::op_store::RefTarget;
 use crate::op_store::RefTargetOptionExt as _;
 use crate::op_store::RemoteRef;
@@ -646,8 +648,8 @@ async fn import_refs_inner(
         let mut old_heads = Vec::new();
         let mut new_heads = Vec::new();
         for update in iter_changed_refs() {
-            old_heads.extend(update.old_remote_ref.target.added_ids().cloned());
-            new_heads.extend(update.new_target.added_ids().cloned());
+            old_heads.extend(update.old_remote_ref.target.present_adds().cloned());
+            new_heads.extend(update.new_target.present_adds().cloned());
         }
         (old_heads, new_heads)
     };
@@ -689,7 +691,7 @@ async fn import_refs_inner(
     // Uses iter_changed_refs() instead of new_referenced_heads to report error
     // with ref name.
     for update in iter_changed_refs() {
-        for id in update.new_target.added_ids() {
+        for id in update.new_target.present_adds() {
             let commit = get_commit(id, &update.symbol).await?;
             head_commits.push(commit);
         }
@@ -708,7 +710,7 @@ async fn import_refs_inner(
         let base_target = update.old_remote_ref.tracked_target();
         let new_remote_ref = RemoteRef {
             target: update.new_target.clone(),
-            state: if &update.old_remote_ref != RemoteRef::absent_ref() {
+            state: if update.old_remote_ref != ABSENT_REMOTE_REF {
                 update.old_remote_ref.state
             } else {
                 default_remote_ref_state_for(GitRefKind::Bookmark, symbol, options)
@@ -728,7 +730,7 @@ async fn import_refs_inner(
         let base_target = update.old_remote_ref.tracked_target();
         let new_remote_ref = RemoteRef {
             target: update.new_target.clone(),
-            state: if &update.old_remote_ref != RemoteRef::absent_ref() {
+            state: if update.old_remote_ref != ABSENT_REMOTE_REF {
                 update.old_remote_ref.state
             } else {
                 default_remote_ref_state_for(GitRefKind::Tag, symbol, options)
@@ -1061,7 +1063,7 @@ fn collect_changed_refs_to_import(
         // heads here.
         let old_remote_ref = known_remote_refs
             .remove(&symbol)
-            .unwrap_or_else(|| RemoteRef::absent_ref());
+            .unwrap_or(&ABSENT_REMOTE_REF);
         if new_target != old_remote_ref.target {
             changed_remote_refs.push(GitImportRefUpdate::new(
                 symbol.to_owned(),
@@ -1101,7 +1103,7 @@ fn collect_changed_remote_tags_to_import(
         let old_remote_ref = known_remote_refs
             .get(&symbol)
             .copied()
-            .unwrap_or_else(|| RemoteRef::absent_ref());
+            .unwrap_or(&ABSENT_REMOTE_REF);
         let old_git_oid = old_remote_ref.target.as_normal().map(oid_from_commit_id);
         let Some(oid) = resolve_git_ref_to_commit_id(&git_ref, old_git_oid) else {
             // Skip (or remove existing) invalid refs.
@@ -1150,7 +1152,7 @@ fn default_remote_ref_state_for(
 /// tracking remotes, and such mutation isn't applied to `view.git_refs()` yet.
 fn pinned_commit_ids(view: &View) -> Vec<CommitId> {
     itertools::chain(view.local_bookmarks(), view.local_tags())
-        .flat_map(|(_, target)| target.added_ids())
+        .flat_map(|(_, target)| target.present_adds())
         .cloned()
         .collect()
 }
@@ -1165,7 +1167,7 @@ fn remotely_pinned_commit_ids(view: &View) -> Vec<CommitId> {
     itertools::chain(view.all_remote_bookmarks(), view.all_remote_tags())
         .filter(|(_, remote_ref)| !remote_ref.is_tracked())
         .map(|(_, remote_ref)| &remote_ref.target)
-        .flat_map(|target| target.added_ids())
+        .flat_map(|target| target.present_adds())
         .cloned()
         .collect()
 }
@@ -1497,7 +1499,7 @@ fn copy_exportable_local_bookmarks_to_remote_view(
             // bookmarks)
             let old_target = &targets.remote_ref.target;
             let new_target = targets.local_target;
-            (!new_target.has_conflict() && old_target != new_target).then_some((name, new_target))
+            (new_target.is_resolved() && old_target != new_target).then_some((name, new_target))
         })
         .filter(|&(name, _)| name_filter(name))
         .map(|(name, new_target)| (name.to_owned(), new_target.clone()))
@@ -1523,7 +1525,7 @@ fn copy_exportable_local_tags_to_remote_view(
             // TODO: filter out untracked tags (if we add support for untracked @git tags)
             let old_target = &targets.remote_ref.target;
             let new_target = targets.local_target;
-            (!new_target.has_conflict() && old_target != new_target).then_some((name, new_target))
+            (new_target.is_resolved() && old_target != new_target).then_some((name, new_target))
         })
         .filter(|&(name, _)| name_filter(name))
         .map(|(name, new_target)| (name.to_owned(), new_target.clone()))
@@ -1556,7 +1558,7 @@ fn diff_refs_to_export(
                 .map(|(symbol, remote_ref)| (symbol, &remote_ref.target)),
         )
         .filter(|&(symbol, _)| git_ref_filter(GitRefKind::Bookmark, symbol))
-        .map(|(symbol, new_target)| (symbol, (RefTarget::absent_ref(), new_target)))
+        .map(|(symbol, new_target)| (symbol, (&ABSENT_REF_TARGET, new_target)))
         .collect();
     // Remote tags aren't included because Git has no such concept.
     let mut all_tag_targets: HashMap<RemoteRefSymbol, (&RefTarget, &RefTarget)> = view
@@ -1566,7 +1568,7 @@ fn diff_refs_to_export(
             (symbol, target)
         })
         .filter(|&(symbol, _)| git_ref_filter(GitRefKind::Tag, symbol))
-        .map(|(symbol, new_target)| (symbol, (RefTarget::absent_ref(), new_target)))
+        .map(|(symbol, new_target)| (symbol, (&ABSENT_REF_TARGET, new_target)))
         .collect();
     let known_git_refs = view
         .git_refs()
@@ -1588,7 +1590,7 @@ fn diff_refs_to_export(
         ref_targets
             .entry(symbol)
             .and_modify(|(old_target, _)| *old_target = target)
-            .or_insert((target, RefTarget::absent_ref()));
+            .or_insert((target, &ABSENT_REF_TARGET));
     }
 
     let root_commit_target = RefTarget::normal(root_commit_id.clone());
@@ -1615,7 +1617,7 @@ fn collect_changed_refs_to_export(
         }
         let old_oid = if let Some(id) = old_target.as_normal() {
             Some(owned_oid_from_commit_id(id))
-        } else if old_target.has_conflict() {
+        } else if !old_target.is_resolved() {
             // The old git ref should only be a conflict if there were concurrent import
             // operations while the value changed. Don't overwrite these values.
             failed.push((symbol.to_owned(), FailedRefExportReason::ConflictedOldState));
@@ -1627,7 +1629,7 @@ fn collect_changed_refs_to_export(
         if let Some(id) = new_target.as_normal() {
             let new_oid = owned_oid_from_commit_id(id);
             to_update.push((symbol.to_owned(), (old_oid, new_oid)));
-        } else if new_target.has_conflict() {
+        } else if !new_target.is_resolved() {
             // Skip conflicts and leave the old value in git_refs
             continue;
         } else {
