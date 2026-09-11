@@ -454,7 +454,11 @@ fn byte_offset_from(outer: &[u8], inner: &[u8]) -> usize {
     inner_start - outer_start
 }
 
-fn split_byte_line_to_words(line: &[u8]) -> Vec<ByteFragment<'_>> {
+fn split_byte_line_to_words(
+    line: &[u8],
+    max_width: usize,
+    break_words: bool,
+) -> Vec<ByteFragment<'_>> {
     let mut words = Vec::new();
     let mut tail = line;
     while let Some(word_end) = tail.iter().position(|&c| c == b' ') {
@@ -470,7 +474,54 @@ fn split_byte_line_to_words(line: &[u8]) -> Vec<ByteFragment<'_>> {
     if !tail.is_empty() {
         words.push(ByteFragment::new(tail, 0));
     }
+
+    // Split words larger than max_width to ensure no lines exceed max_width
+    if break_words {
+        return words
+            .into_iter()
+            .flat_map(|word| split_word(word, max_width))
+            .collect();
+    }
     words
+}
+
+/// Splits a word that is larger than max_width into a list of words that all
+/// have word_width less than or equal to max_width (if possible)
+fn split_word(word: ByteFragment<'_>, max_width: usize) -> Vec<ByteFragment<'_>> {
+    // Returning the un-split word if the width passed is 0, to not panic when
+    // processing user provided templates.
+    if max_width == 0 || word.word_width <= max_width {
+        return vec![word];
+    }
+
+    let mut split_words = Vec::new();
+    let mut bytes = word.word;
+
+    loop {
+        let (mut end_index, _) = truncate_end_pos_bytes(bytes, max_width);
+
+        // If a single character is wider than max_width, consume at least
+        // one character to guarantee progress and prevent an infinite loop.
+        if end_index == 0 {
+            end_index = bytes
+                .char_indices()
+                .next()
+                .map(|(_, end, _)| end)
+                .unwrap_or(bytes.len());
+        }
+
+        let is_last = end_index == bytes.len();
+        let whitespace_len = if is_last { word.whitespace_len } else { 0 };
+
+        split_words.push(ByteFragment::new(&bytes[..end_index], whitespace_len));
+
+        if is_last {
+            break;
+        }
+        bytes = &bytes[end_index..];
+    }
+
+    split_words
 }
 
 /// Wraps lines at the given width, returns a vector of lines (excluding "\n".)
@@ -484,10 +535,10 @@ fn split_byte_line_to_words(line: &[u8]) -> Vec<ByteFragment<'_>> {
 /// Notably, this doesn't support hyphenation nor unicode line break. The
 /// display width is calculated based on unicode property in the same manner
 /// as `textwrap::wrap()`.
-pub fn wrap_bytes(text: &[u8], width: usize) -> Vec<&[u8]> {
+pub fn wrap_bytes(text: &[u8], width: usize, break_words: bool) -> Vec<&[u8]> {
     let mut split_lines = Vec::new();
     for line in text.split(|&c| c == b'\n') {
-        let words = split_byte_line_to_words(line);
+        let words = split_byte_line_to_words(line, width, break_words);
         let split = textwrap::wrap_algorithms::wrap_first_fit(&words, &[width as f64]);
         split_lines.extend(split.iter().map(|words| match words {
             [] => &line[..0], // Empty line
@@ -512,9 +563,10 @@ pub fn write_wrapped(
     formatter: &mut dyn Formatter,
     recorded_content: &FormatRecorder,
     width: usize,
+    break_words: bool,
 ) -> io::Result<()> {
     let data = recorded_content.data();
-    let mut line_ranges = wrap_bytes(data, width)
+    let mut line_ranges = wrap_bytes(data, width, break_words)
         .into_iter()
         .map(|line| {
             let start = byte_offset_from(data, line);
@@ -1368,10 +1420,153 @@ mod tests {
     }
 
     #[test]
-    fn test_split_byte_line_to_words() {
-        assert_eq!(split_byte_line_to_words(b""), vec![]);
+    fn test_split_word() {
+        // Zero width or smaller word returns un-split
         assert_eq!(
-            split_byte_line_to_words(b"foo"),
+            split_word(ByteFragment::new(b"foo", 1), 0),
+            vec![ByteFragment {
+                word: b"foo",
+                whitespace_len: 1,
+                word_width: 3,
+            }]
+        );
+        assert_eq!(
+            split_word(ByteFragment::new(b"foo", 1), 3),
+            vec![ByteFragment {
+                word: b"foo",
+                whitespace_len: 1,
+                word_width: 3,
+            }]
+        );
+
+        // Basic ASCII split
+        assert_eq!(
+            split_word(ByteFragment::new(b"abcdefghij", 2), 4),
+            vec![
+                ByteFragment {
+                    word: b"abcd",
+                    whitespace_len: 0,
+                    word_width: 4,
+                },
+                ByteFragment {
+                    word: b"efgh",
+                    whitespace_len: 0,
+                    word_width: 4,
+                },
+                ByteFragment {
+                    word: b"ij",
+                    whitespace_len: 2,
+                    word_width: 2,
+                },
+            ]
+        );
+
+        // Multi-byte CJK characters (2 display width per character)
+        assert_eq!(
+            split_word(ByteFragment::new("一二三四五".as_bytes(), 1), 4),
+            vec![
+                ByteFragment {
+                    word: "一二".as_bytes(),
+                    whitespace_len: 0,
+                    word_width: 4,
+                },
+                ByteFragment {
+                    word: "三四".as_bytes(),
+                    whitespace_len: 0,
+                    word_width: 4,
+                },
+                ByteFragment {
+                    word: "五".as_bytes(),
+                    whitespace_len: 1,
+                    word_width: 2,
+                },
+            ]
+        );
+
+        // CJK characters with odd max_width (cannot fit 2 chars into width 3)
+        assert_eq!(
+            split_word(ByteFragment::new("一二三".as_bytes(), 0), 3),
+            vec![
+                ByteFragment {
+                    word: "一".as_bytes(),
+                    whitespace_len: 0,
+                    word_width: 2,
+                },
+                ByteFragment {
+                    word: "二".as_bytes(),
+                    whitespace_len: 0,
+                    word_width: 2,
+                },
+                ByteFragment {
+                    word: "三".as_bytes(),
+                    whitespace_len: 0,
+                    word_width: 2,
+                },
+            ]
+        );
+
+        // Single character exceeds max_width (width 1 with 2-width character)
+        assert_eq!(
+            split_word(ByteFragment::new("一二".as_bytes(), 0), 1),
+            vec![
+                ByteFragment {
+                    word: "一".as_bytes(),
+                    whitespace_len: 0,
+                    word_width: 2,
+                },
+                ByteFragment {
+                    word: "二".as_bytes(),
+                    whitespace_len: 0,
+                    word_width: 2,
+                },
+            ]
+        );
+
+        // Multi-byte Emojis (4 bytes per emoji)
+        assert_eq!(
+            split_word(ByteFragment::new("🦀🦀🦀".as_bytes(), 0), 4),
+            vec![
+                ByteFragment {
+                    word: "🦀🦀".as_bytes(),
+                    whitespace_len: 0,
+                    word_width: 4,
+                },
+                ByteFragment {
+                    word: "🦀".as_bytes(),
+                    whitespace_len: 0,
+                    word_width: 2,
+                },
+            ]
+        );
+
+        // Non-UTF-8 bytes should not cause panic
+        assert_eq!(
+            split_word(ByteFragment::new(b"abc\xff\xfe12", 0), 3),
+            vec![
+                ByteFragment {
+                    word: b"abc",
+                    whitespace_len: 0,
+                    word_width: 3,
+                },
+                ByteFragment {
+                    word: b"\xff\xfe1",
+                    whitespace_len: 0,
+                    word_width: 3,
+                },
+                ByteFragment {
+                    word: b"2",
+                    whitespace_len: 0,
+                    word_width: 1,
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn test_split_byte_line_to_words() {
+        assert_eq!(split_byte_line_to_words(b"", 0, false), vec![]);
+        assert_eq!(
+            split_byte_line_to_words(b"foo", 0, false),
             vec![ByteFragment {
                 word: b"foo",
                 whitespace_len: 0,
@@ -1379,7 +1574,7 @@ mod tests {
             }],
         );
         assert_eq!(
-            split_byte_line_to_words(b"  foo"),
+            split_byte_line_to_words(b"  foo", 0, false),
             vec![
                 ByteFragment {
                     word: b"",
@@ -1394,7 +1589,7 @@ mod tests {
             ],
         );
         assert_eq!(
-            split_byte_line_to_words(b"foo  "),
+            split_byte_line_to_words(b"foo  ", 0, false),
             vec![ByteFragment {
                 word: b"foo",
                 whitespace_len: 2,
@@ -1402,7 +1597,7 @@ mod tests {
             }],
         );
         assert_eq!(
-            split_byte_line_to_words(b"a b  foo bar "),
+            split_byte_line_to_words(b"a b  foo bar ", 0, false),
             vec![
                 ByteFragment {
                     word: b"a",
@@ -1422,6 +1617,38 @@ mod tests {
                 ByteFragment {
                     word: b"bar",
                     whitespace_len: 1,
+                    word_width: 3,
+                },
+            ],
+        );
+
+        // With break_words = true
+        assert_eq!(
+            split_byte_line_to_words(b"hello superlongword bye", 5, true),
+            vec![
+                ByteFragment {
+                    word: b"hello",
+                    whitespace_len: 1,
+                    word_width: 5,
+                },
+                ByteFragment {
+                    word: b"super",
+                    whitespace_len: 0,
+                    word_width: 5,
+                },
+                ByteFragment {
+                    word: b"longw",
+                    whitespace_len: 0,
+                    word_width: 5,
+                },
+                ByteFragment {
+                    word: b"ord",
+                    whitespace_len: 1,
+                    word_width: 3,
+                },
+                ByteFragment {
+                    word: b"bye",
+                    whitespace_len: 0,
                     word_width: 3,
                 },
             ],
@@ -1499,56 +1726,97 @@ mod tests {
 
     #[test]
     fn test_wrap_bytes() {
-        assert_eq!(wrap_bytes(b"foo", 10), [b"foo".as_ref()]);
-        assert_eq!(wrap_bytes(b"foo bar", 10), [b"foo bar".as_ref()]);
+        assert_eq!(wrap_bytes(b"foo", 10, false), [b"foo".as_ref()]);
+        assert_eq!(wrap_bytes(b"foo bar", 10, false), [b"foo bar".as_ref()]);
         assert_eq!(
-            wrap_bytes(b"foo bar baz", 10),
+            wrap_bytes(b"foo bar baz", 10, false),
             [b"foo bar".as_ref(), b"baz".as_ref()],
         );
 
         // Empty text is represented as [""]
-        assert_eq!(wrap_bytes(b"", 10), [b"".as_ref()]);
-        assert_eq!(wrap_bytes(b" ", 10), [b"".as_ref()]);
+        assert_eq!(wrap_bytes(b"", 10, false), [b"".as_ref()]);
+        assert_eq!(wrap_bytes(b" ", 10, false), [b"".as_ref()]);
 
         // Whitespace in the middle should be preserved
         assert_eq!(
-            wrap_bytes(b"foo  bar   baz", 8),
+            wrap_bytes(b"foo  bar   baz", 8, false),
             [b"foo  bar".as_ref(), b"baz".as_ref()],
         );
         assert_eq!(
-            wrap_bytes(b"foo  bar   x", 7),
+            wrap_bytes(b"foo  bar   x", 7, false),
             [b"foo".as_ref(), b"bar   x".as_ref()],
         );
         assert_eq!(
-            wrap_bytes(b"foo bar \nx", 7),
+            wrap_bytes(b"foo bar \nx", 7, false),
             [b"foo bar".as_ref(), b"x".as_ref()],
         );
         assert_eq!(
-            wrap_bytes(b"foo bar\n x", 7),
+            wrap_bytes(b"foo bar\n x", 7, false),
             [b"foo bar".as_ref(), b" x".as_ref()],
         );
         assert_eq!(
-            wrap_bytes(b"foo bar x", 4),
+            wrap_bytes(b"foo bar x", 4, false),
             [b"foo".as_ref(), b"bar".as_ref(), b"x".as_ref()],
         );
 
         // Ends with "\n"
-        assert_eq!(wrap_bytes(b"foo\n", 10), [b"foo".as_ref(), b"".as_ref()]);
-        assert_eq!(wrap_bytes(b"foo\n", 3), [b"foo".as_ref(), b"".as_ref()]);
-        assert_eq!(wrap_bytes(b"\n", 10), [b"".as_ref(), b"".as_ref()]);
+        assert_eq!(
+            wrap_bytes(b"foo\n", 10, false),
+            [b"foo".as_ref(), b"".as_ref()]
+        );
+        assert_eq!(
+            wrap_bytes(b"foo\n", 3, false),
+            [b"foo".as_ref(), b"".as_ref()]
+        );
+        assert_eq!(wrap_bytes(b"\n", 10, false), [b"".as_ref(), b"".as_ref()]);
 
         // Overflow
-        assert_eq!(wrap_bytes(b"foo x", 2), [b"foo".as_ref(), b"x".as_ref()]);
-        assert_eq!(wrap_bytes(b"x y", 0), [b"x".as_ref(), b"y".as_ref()]);
+        assert_eq!(
+            wrap_bytes(b"foo x", 2, false),
+            [b"foo".as_ref(), b"x".as_ref()]
+        );
+        assert_eq!(wrap_bytes(b"x y", 0, false), [b"x".as_ref(), b"y".as_ref()]);
+
+        // Word breaking
+        assert_eq!(
+            wrap_bytes(b"hello superlongwordthatdoesnotfit bye", 10, true),
+            [
+                b"hello".as_ref(),
+                b"superlongw".as_ref(),
+                b"ordthatdoe".as_ref(),
+                b"snotfit".as_ref(),
+                b"bye".as_ref(),
+            ]
+        );
+        assert_eq!(
+            wrap_bytes(b"superlongword", 5, false),
+            [b"superlongword".as_ref()]
+        );
+        assert_eq!(
+            wrap_bytes(b"superlongword", 5, true),
+            [b"super".as_ref(), b"longw".as_ref(), b"ord".as_ref()]
+        );
+        assert_eq!(
+            wrap_bytes("一二三四五".as_bytes(), 4, true),
+            ["一二".as_bytes(), "三四".as_bytes(), "五".as_bytes()]
+        );
+        assert_eq!(
+            wrap_bytes("一二".as_bytes(), 1, true),
+            ["一".as_bytes(), "二".as_bytes()]
+        );
 
         // Invalid UTF-8 bytes should not cause panic
-        assert_eq!(wrap_bytes(b"foo\x80", 10), [b"foo\x80".as_ref()]);
+        assert_eq!(wrap_bytes(b"foo\x80", 10, false), [b"foo\x80".as_ref()]);
+        assert_eq!(
+            wrap_bytes(b"foo\x80\xff123", 3, true),
+            [b"foo".as_ref(), b"\x80\xff1".as_ref(), b"23".as_ref()]
+        );
     }
 
     #[test]
     fn test_wrap_bytes_slice_ptr() {
         let text = b"\nfoo\n\nbar baz\n";
-        let lines = wrap_bytes(text, 10);
+        let lines = wrap_bytes(text, 10, false);
         assert_eq!(
             lines,
             [
@@ -1565,6 +1833,25 @@ mod tests {
         assert_eq!(lines[2].as_ptr(), text[5..].as_ptr());
         assert_eq!(lines[3].as_ptr(), text[6..].as_ptr());
         assert_eq!(lines[4].as_ptr(), text[14..].as_ptr());
+
+        // Sub-slice pointers should be preserved even with broken words
+        let text = b"foo superlongword bar";
+        let lines = wrap_bytes(text, 5, true);
+        assert_eq!(
+            lines,
+            [
+                b"foo".as_ref(),
+                b"super".as_ref(),
+                b"longw".as_ref(),
+                b"ord".as_ref(),
+                b"bar".as_ref(),
+            ]
+        );
+        assert_eq!(lines[0].as_ptr(), text[0..].as_ptr());
+        assert_eq!(lines[1].as_ptr(), text[4..].as_ptr());
+        assert_eq!(lines[2].as_ptr(), text[9..].as_ptr());
+        assert_eq!(lines[3].as_ptr(), text[14..].as_ptr());
+        assert_eq!(lines[4].as_ptr(), text[18..].as_ptr());
     }
 
     #[test]
@@ -1575,7 +1862,7 @@ mod tests {
         write!(recorder, "foo bar baz\nqux quux\n")?;
         recorder.pop_label();
         insta::assert_snapshot!(
-            format_colored(|formatter| write_wrapped(formatter, &recorder, 7)),
+            format_colored(|formatter| write_wrapped(formatter, &recorder, 7, false)),
             @"
         [38;5;1mfoo bar[39m
         [38;5;1mbaz[39m
@@ -1592,7 +1879,7 @@ mod tests {
             recorder.pop_label();
         }
         insta::assert_snapshot!(
-            format_colored(|formatter| write_wrapped(formatter, &recorder, 7)),
+            format_colored(|formatter| write_wrapped(formatter, &recorder, 7, false)),
             @"
         [38;5;1mfoo [38;5;6mbar[39m
         [38;5;1mbaz[39m
@@ -1609,7 +1896,7 @@ mod tests {
             recorder.pop_label();
         }
         insta::assert_snapshot!(
-            format_colored(|formatter| write_wrapped(formatter, &recorder, 10)),
+            format_colored(|formatter| write_wrapped(formatter, &recorder, 10, false)),
             @"
         [38;5;1m[39m
         [38;5;6mfoo[39m
@@ -1629,7 +1916,7 @@ mod tests {
         writeln!(recorder, "baz")?;
         recorder.pop_label();
         insta::assert_snapshot!(
-            format_colored(|formatter| write_wrapped(formatter, &recorder, 10)),
+            format_colored(|formatter| write_wrapped(formatter, &recorder, 10, false)),
             @"
         [38;5;1mfoo bar[39m
         [38;5;6mbaz[39m
@@ -1645,10 +1932,27 @@ mod tests {
         writeln!(recorder, "z")?;
         recorder.pop_label();
         insta::assert_snapshot!(
-            format_colored(|formatter| write_wrapped(formatter, &recorder, 10)),
+            format_colored(|formatter| write_wrapped(formatter, &recorder, 10, false)),
             @"
         [38;5;1mfoo bar[39m
         [38;5;1mba[38;5;6mz[39m
+        "
+        );
+
+        // Word breaking with labels
+        let mut recorder = FormatRecorder::new(false);
+        recorder.push_label("red");
+        write!(recorder, "foobar")?;
+        recorder.pop_label();
+        recorder.push_label("cyan");
+        writeln!(recorder, "bazqux")?;
+        recorder.pop_label();
+        insta::assert_snapshot!(
+            format_colored(|formatter| write_wrapped(formatter, &recorder, 4, true)),
+            @"
+        [38;5;1mfoob[39m
+        [38;5;1mar[38;5;6mba[39m
+        [38;5;6mzqux[39m
         "
         );
         Ok(())
@@ -1662,7 +1966,7 @@ mod tests {
         recorder.pop_label();
         write!(recorder, "foo")?;
         insta::assert_snapshot!(
-            format_colored(|formatter| write_wrapped(formatter, &recorder, 10)),
+            format_colored(|formatter| write_wrapped(formatter, &recorder, 10, false)),
             @"[38;5;1m [39mfoo"
         );
         Ok(())
@@ -1678,7 +1982,7 @@ mod tests {
         write!(recorder, " ")?;
         recorder.pop_label();
         assert_eq!(
-            format_plain_text(|formatter| write_wrapped(formatter, &recorder, 10)),
+            format_plain_text(|formatter| write_wrapped(formatter, &recorder, 10, false)),
             "foo",
         );
 
@@ -1690,7 +1994,7 @@ mod tests {
         writeln!(recorder)?;
         recorder.pop_label();
         assert_eq!(
-            format_plain_text(|formatter| write_wrapped(formatter, &recorder, 10)),
+            format_plain_text(|formatter| write_wrapped(formatter, &recorder, 10, false)),
             "foo\n",
         );
 
@@ -1702,7 +2006,7 @@ mod tests {
         write!(recorder, " ")?;
         recorder.pop_label();
         assert_eq!(
-            format_plain_text(|formatter| write_wrapped(formatter, &recorder, 10)),
+            format_plain_text(|formatter| write_wrapped(formatter, &recorder, 10, false)),
             "foo\n",
         );
         Ok(())
