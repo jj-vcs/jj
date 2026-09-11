@@ -41,6 +41,7 @@ use crate::formatter::Formatter;
 use crate::graphlog::GraphStyle;
 use crate::graphlog::get_graphlog;
 use crate::operation_templater::OperationTemplateLanguage;
+use crate::template_parser;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
 
@@ -151,9 +152,17 @@ async fn do_op_log(
             Some(value) => value.to_owned(),
             None => settings.get_string("templates.op_log")?,
         };
-        template = workspace_env
-            .parse_template(ui, &language, &text)?
-            .labeled(["op_log", "operation"]);
+        template = if with_content_format.word_wrap() {
+            workspace_env.parse_and_walk_template(
+                ui,
+                &language,
+                &text,
+                template_parser::walk_json_wrapping_warning,
+            )?
+        } else {
+            workspace_env.parse_template(ui, &language, &text)?
+        }
+        .labeled(["op_log", "operation"]);
         op_node_template = workspace_env
             .parse_template(
                 ui,

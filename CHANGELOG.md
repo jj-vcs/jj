@@ -49,6 +49,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Use the `--sparse-patterns` option to control this behavior (evaluated
   per each `jj run` invocation).
 
+* Using the `json` template with `ui.log-word-wrap` set to `true` now emits
+  a warning that the output may be broken due to wrapping, regardless of the
+  template content. Users should set the config option to `false` to avoid
+  receiving invalid JSON objects on small terminals.
+
 ### Fixed bugs
 
 ## [0.45.1] - 2026-09-03
