@@ -126,6 +126,13 @@ JJ View is an open-source Visual Studio Code extension that provides a rich, nat
 
 Find it [here][jj-view].
 
+## jj-stack
+
+`jj-stack` turns a linear series of local `jj` changes into a stack of GitHub pull requests.
+Rewrite, split, squash, or reorder your changes with `jj`, then run `jj-stack submit` to update
+GitHub. Existing PRs follow their change IDs, keeping comments and review history together.
+
+Find it [here][jj-stack].
 
 ## Finding other integrations
 
@@ -151,4 +158,5 @@ You can find other community contributed tools and integrations in our
 [visualjj]: https://www.visualjj.com
 [vjj]: https://github.com/noahmayr/vjj
 [jj-view]: https://github.com/brychanrobot/jj-view
+[jj-stack]: https://www.serpentine.com/software/jj-stack
 [Wiki]: https://github.com/jj-vcs/jj/wiki
