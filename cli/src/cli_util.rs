@@ -1656,6 +1656,9 @@ to the current parents may contain changes from multiple commits.
             start_tracking_matcher,
             force_tracking_matcher: &NothingMatcher,
             max_new_file_size,
+            derive_tracked_from_ignores: self
+                .settings()
+                .get_bool("snapshot.derive-tracked-from-ignores")?,
         })
     }
 
@@ -3575,6 +3578,7 @@ impl DiffSelector {
         tree_labels: Diff<String>,
         matcher: &dyn Matcher,
         format_instructions: impl FnOnce() -> String,
+        derive_tracked_from_ignores: bool,
     ) -> Result<MergedTree, CommandError> {
         let selected_tree = restore_tree(
             trees.after,
@@ -3599,6 +3603,7 @@ impl DiffSelector {
                             Diff::new(trees.before, &selected_tree),
                             matcher,
                             format_instructions,
+                            derive_tracked_from_ignores,
                         )
                         .await?)
                 }
