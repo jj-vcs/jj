@@ -2180,3 +2180,211 @@ fn test_run_sparse() {
         [EOF]
         ");
 }
+
+/// `--workspace-strategy=current` runs in the real working copy: the commands
+/// see the workspace's `.jj` directory, and the working copy is put back where
+/// it was when the run finishes.
+#[test]
+fn test_run_current_working_copy() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    create_commit_with_files(&work_dir, "a", &[], &[("a.txt", "a")]);
+    create_commit_with_files(&work_dir, "b", &["a"], &[("b.txt", "b")]);
+    work_dir.run_jj(&["new", "b"]).success();
+    work_dir.write_file("wip.txt", "wip");
+
+    let output = work_dir.run_jj(&[
+        "run",
+        "--workspace-strategy=current",
+        "-r",
+        "a|b",
+        "--",
+        "sh",
+        "-c",
+        "ls *.txt | tr '\\n' ' '; echo; test -d .jj && echo 'has .jj'",
+    ]);
+    insta::assert_snapshot!(output, @"
+    a.txt 
+    has .jj
+    a.txt b.txt 
+    has .jj
+    [EOF]
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
+
+    // The working copy is back on the commit it started on, with the
+    // uncommitted change still there.
+    let output = work_dir.run_jj(&["status"]);
+    insta::assert_snapshot!(output, @"
+    Working copy changes:
+    A wip.txt
+    Working copy  (@) : royxmykx 78245af0 (no description set)
+    Parent commit (@-): zsuskuln d4e688a9 b | b
+    [EOF]
+    ");
+}
+
+/// Changes the command makes in the real working copy are committed back to
+/// the revision it ran on, just like in the isolated case.
+#[test]
+fn test_run_current_working_copy_rewrites_commits() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    create_commit_with_files(&work_dir, "a", &[], &[("a.txt", "a")]);
+    create_commit_with_files(&work_dir, "b", &["a"], &[("b.txt", "b")]);
+
+    let output = work_dir.run_jj(&[
+        "run",
+        "--workspace-strategy=current",
+        "-r",
+        "a",
+        "--",
+        "sh",
+        "-c",
+        "ls *.txt > listing.txt",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Rewrote 1 commits.
+    Rebased 1 descendant commits.
+    Working copy  (@) now at: zsuskuln dbbb5e25 b | b
+    Parent commit (@-)      : rlvkpnrz ea0843ca a | a
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    ");
+
+    // `a` was rewritten with what the command left in the working copy, and the
+    // change propagated to its descendant.
+    insta::assert_snapshot!(
+        work_dir.run_jj(&["file", "show", "-r", "a", "listing.txt"]).success().stdout,
+        @"
+    a.txt
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        work_dir.run_jj(&["file", "show", "-r", "b", "listing.txt"]).success().stdout,
+        @"
+    a.txt
+    [EOF]
+    ");
+}
+
+/// Ignored files and other untracked leftovers stay put between revisions,
+/// which is the reason to use the current working copy in the first place.
+#[test]
+fn test_run_current_working_copy_preserves_untracked_files() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    create_commit_with_files(
+        &work_dir,
+        "a",
+        &[],
+        &[("a.txt", "a"), (".gitignore", "cache/\n")],
+    );
+    create_commit_with_files(&work_dir, "b", &["a"], &[("b.txt", "b")]);
+    work_dir.create_dir("cache");
+    work_dir.write_file("cache/artifact", "expensive");
+
+    let output = work_dir.run_jj(&[
+        "run",
+        "--workspace-strategy=current",
+        "-r",
+        "a|b",
+        "--",
+        "sh",
+        "-c",
+        "cat cache/artifact || echo MISSING",
+    ]);
+    insta::assert_snapshot!(output, @"
+    expensiveexpensive[EOF]
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
+    assert_eq!(work_dir.read_file("cache/artifact"), b"expensive");
+}
+
+/// A failing command leaves the repo alone and puts the working copy back.
+#[test]
+fn test_run_current_working_copy_failure_restores_working_copy() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    create_commit_with_files(&work_dir, "a", &[], &[("a.txt", "a")]);
+    create_commit_with_files(&work_dir, "b", &["a"], &[("b.txt", "b")]);
+    work_dir.run_jj(&["new", "b"]).success();
+    let log_before = get_log_output(&work_dir);
+
+    // Fails on `a`, so `b` is never reached.
+    let output = work_dir.run_jj(&[
+        "run",
+        "--workspace-strategy=current",
+        "-r",
+        "a|b",
+        "--",
+        "sh",
+        "-c",
+        "test -f b.txt",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: the command 'sh -c test -f b.txt' failed with exit status: 1
+    Hint: Failed revision: rlvkpnrz b42c1b2c a | a
+    [EOF]
+    [exit status: 1]
+    ");
+
+    assert_eq!(get_log_output(&work_dir), log_before);
+    let output = work_dir.run_jj(&["status"]);
+    insta::assert_snapshot!(output, @"
+    The working copy has no changes.
+    Working copy  (@) : royxmykx 46f37dc1 (empty) (no description set)
+    Parent commit (@-): zsuskuln d4e688a9 b | b
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_run_current_working_copy_rejects_incompatible_flags() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    create_commit_with_files(&work_dir, "a", &[], &[("a.txt", "a")]);
+
+    let output = work_dir.run_jj(&[
+        "run",
+        "--workspace-strategy=current",
+        "-j2",
+        "-r",
+        "a",
+        "--",
+        "true",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: cannot use --workspace-strategy=current with more than one job
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = work_dir.run_jj(&[
+        "run",
+        "--workspace-strategy=current",
+        "--clean",
+        "-r",
+        "a",
+        "--",
+        "true",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: cannot use --clean with --workspace-strategy=current
+    [EOF]
+    [exit status: 2]
+    ");
+}

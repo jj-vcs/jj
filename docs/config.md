@@ -1597,6 +1597,29 @@ this setting for a single invocation:
 jj run -j 4 -- cargo fmt
 ```
 
+### Running in the current working copy {: #run-workspace-strategy }
+
+The isolated working copies `jj run` uses by default are cheap for most
+commands, but not for all of them: a build run there starts from an empty cache,
+and a script that reads ignored files or expects a `.jj`/`.git` directory won't
+find what it's looking for. Pass `--workspace-strategy=current` to run in the
+current workspace's working copy instead:
+
+```shell
+jj run --workspace-strategy=current -- cargo test
+```
+
+Each revision is checked out in the working copy in turn, and the revision that
+was checked out before the run is restored at the end. Only one revision can be
+processed at a time, so this cannot be combined with `--jobs` greater than 1 or
+with `--clean`.
+
+The working copy is locked for the duration of the run. A `jj` command invoked
+by the command being run will block on that lock unless it is passed
+`--ignore-working-copy`. If `jj run` is interrupted mid-run, the working copy is
+left with the last revision it checked out while the repo still points at the
+original working-copy commit; `jj undo` after the next snapshot restores it.
+
 ## Commit Signing
 
 `jj` can be configured to sign and verify the commits it creates using either

@@ -55,6 +55,8 @@ use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::working_copy::CheckoutError;
+use jj_lib::working_copy::LockedWorkingCopy;
+use jj_lib::working_copy::SnapshotError;
 use jj_lib::working_copy::SnapshotOptions;
 use tokio::runtime::Builder;
 use tokio::sync::mpsc;
@@ -85,6 +87,8 @@ enum RunError {
     PathDeletionFailure(PathBuf, io::Error),
     #[error("failed to load a commit's tree")]
     TreeState(#[from] TreeStateError),
+    #[error("failed to snapshot the working copy")]
+    Snapshot(#[from] SnapshotError),
     #[error(transparent)]
     Backend(#[from] BackendError),
     #[error(transparent)]
@@ -425,11 +429,14 @@ fn resolve_exec_dir(spec: &CommandSpec, working_copy_dir: &Path) -> Option<PathB
 }
 
 /// Spawn `spec` for `commit` and wait for it to exit.
+///
+/// Takes owned arguments so the whole thing can be handed to
+/// `tokio::runtime::Handle::spawn()`, which `tokio::process` requires.
 async fn spawn_command(
-    spec: &CommandSpec,
-    commit: &Commit,
-    working_copy_dir: &Path,
-    exec_dir: &Path,
+    spec: Arc<CommandSpec>,
+    commit: Commit,
+    working_copy_dir: PathBuf,
+    exec_dir: PathBuf,
     passthrough: bool,
 ) -> Result<Output, RunError> {
     // TODO: Later this should take some trait which allows `run` to integrate with
@@ -445,8 +452,8 @@ async fn spawn_command(
     let mut command = tokio::process::Command::new(&spec.program);
     command
         .args(&spec.args)
-        .current_dir(exec_dir)
-        .env("JJ_WORKSPACE_ROOT", working_copy_dir)
+        .current_dir(&exec_dir)
+        .env("JJ_WORKSPACE_ROOT", &working_copy_dir)
         .env("JJ_CHANGE_ID", commit.change_id().reverse_hex())
         .env("JJ_COMMIT_ID", commit.id().hex())
         .stdin(Stdio::null())
@@ -581,7 +588,14 @@ async fn rewrite_commit(
         return Ok(RunJob::skipped(old_id, old_tree));
     };
 
-    let output = spawn_command(&spec, &commit, &working_copy_dir, &exec_dir, passthrough).await?;
+    let output = spawn_command(
+        spec.clone(),
+        commit.clone(),
+        working_copy_dir.clone(),
+        exec_dir,
+        passthrough,
+    )
+    .await?;
 
     let options = pool.snapshot_options(base_ignores);
     tracing::debug!("trying to snapshot the new tree");
@@ -636,6 +650,164 @@ async fn rewrite_commit(
     })
 }
 
+/// Run `spec` against `commit` in the working copy locked by `locked_wc`.
+///
+/// Unlike the pool, there's nothing to clean up between commits: the next
+/// `check_out()` resets whatever the command touched in tracked files, and
+/// untracked files (build artifacts, editor state, ...) are deliberately left
+/// alone. That's the whole point of running here.
+async fn run_commit_in_working_copy(
+    locked_wc: &mut dyn LockedWorkingCopy,
+    handle: &tokio::runtime::Handle,
+    workspace_root: &Path,
+    commit: &Commit,
+    spec: &Arc<CommandSpec>,
+    options: &SnapshotOptions<'_>,
+    passthrough: bool,
+) -> Result<RunJob, RunError> {
+    let old_id = commit.id().clone();
+    let old_tree = commit.tree();
+    locked_wc
+        .check_out(commit)
+        .await
+        .map_err(|err| RunError::FailedCheckout(old_id.clone(), err))?;
+
+    let Some(exec_dir) = resolve_exec_dir(spec, workspace_root) else {
+        tracing::debug!(
+            commit = old_id.hex(),
+            "subdirectory does not exist in commit; skipping"
+        );
+        return Ok(RunJob::skipped(old_id, old_tree));
+    };
+
+    // `tokio::process` needs a Tokio reactor, and the CLI's top-level future
+    // isn't driven by one, so hand the subprocess to the runtime and wait for
+    // the task instead of polling it here.
+    let output = handle
+        .spawn(spawn_command(
+            spec.clone(),
+            commit.clone(),
+            workspace_root.to_owned(),
+            exec_dir,
+            passthrough,
+        ))
+        .await??;
+
+    // Snapshot unconditionally, even when the command failed or its result is
+    // going to be thrown away. The recorded tree state has to match what's on
+    // disk, or the next `check_out()` won't know to reset the files the command
+    // modified and the changes would leak into the following revision.
+    tracing::debug!("trying to snapshot the new tree");
+    let (new_tree, _stats) = locked_wc.snapshot(options).await?;
+
+    Ok(RunJob {
+        old_id,
+        old_tree,
+        new_tree: output.status.success().then_some(new_tree),
+        stdout: output.stdout,
+        stderr: output.stderr,
+        skipped: false,
+        status: Some(output.status),
+    })
+}
+
+/// Run `spec` against each of `commits`, in order, in the current workspace's
+/// working copy.
+///
+/// The working copy is locked for the whole run, so the command must not invoke
+/// `jj` in this workspace (it would block on the lock). In exchange, the
+/// command sees the real workspace: its `.jj` directory, its ignored files and
+/// whatever build artifacts are already there.
+///
+/// The working-copy commit that was checked out before the run is restored
+/// afterwards, whether or not the run succeeded.
+#[allow(clippy::too_many_arguments)]
+async fn run_in_current_working_copy(
+    ui: &Ui,
+    workspace_command: &mut WorkspaceCommandHelper,
+    handle: &tokio::runtime::Handle,
+    commits: &[Commit],
+    spec: &Arc<CommandSpec>,
+    auto_tracking_matcher: &dyn Matcher,
+    passthrough: bool,
+    ignore_errors: bool,
+) -> Result<Vec<RunJob>, CommandError> {
+    let workspace_root = workspace_command.workspace_root().to_owned();
+    // No new operation is created while the commands run, so the working copy
+    // stays associated with the operation it was already at.
+    let op_id = workspace_command.repo().op_id().clone();
+    let options =
+        workspace_command.snapshot_options_with_start_tracking_matcher(auto_tracking_matcher)?;
+    let (mut locked_ws, orig_wc_commit) = workspace_command.start_working_copy_mutation().await?;
+
+    let mut done = Vec::new();
+    let mut result = Ok(());
+    for commit in commits {
+        let job = run_commit_in_working_copy(
+            locked_ws.locked_wc(),
+            handle,
+            &workspace_root,
+            commit,
+            spec,
+            &options,
+            passthrough,
+        )
+        .await;
+        match job {
+            Err(err) => {
+                result = Err(err);
+                break;
+            }
+            Ok(job) => {
+                print_job_output(ui, spec, &job)?;
+                let failed = job.failed();
+                done.push(job);
+                if failed && !ignore_errors {
+                    break;
+                }
+            }
+        }
+    }
+
+    // Put the working copy back where the user left it. This runs even if the
+    // loop above bailed out, so a failing command doesn't strand the user on
+    // some unrelated revision.
+    let restored = locked_ws
+        .locked_wc()
+        .check_out(&orig_wc_commit)
+        .await
+        .map_err(|err| RunError::FailedCheckout(orig_wc_commit.id().clone(), err));
+    let finished = locked_ws.finish(op_id).await;
+
+    // Report the failure that stopped the run first; a restore that then also
+    // failed is a consequence of whatever went wrong there.
+    result?;
+    restored?;
+    finished?;
+    Ok(done)
+}
+
+/// Where `jj run` checks out the revisions it runs the command on.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, clap::ValueEnum)]
+pub enum WorkspaceStrategy {
+    /// Check out each revision in a working copy of its own under `.jj/run/`
+    ///
+    /// The current working copy is untouched, and revisions can be processed in
+    /// parallel.
+    Isolated,
+    /// Check out each revision in the current workspace's working copy
+    ///
+    /// The command sees the real workspace, including its `.jj` directory, its
+    /// ignored files and any build artifacts already there. Only one revision
+    /// can be processed at a time, and the working copy is restored to the
+    /// revision that was checked out before the run.
+    ///
+    /// The working copy is locked while the command runs, so a `jj` command
+    /// invoked by the command will block unless it's passed
+    /// `--ignore-working-copy`.
+    Current,
+}
+
 /// Run a command across a set of revisions.
 ///
 /// Checks out each revision in an isolated working copy, runs the command, then
@@ -643,6 +815,11 @@ async fn rewrite_commit(
 /// are rebased on top of the amended revisions, propagating the diff. Use
 /// `--restore-descendants` to keep descendants' content unchanged instead, or
 /// `--ignore-changes` to run the command without rewriting any commits.
+///
+/// Use `--workspace-strategy=current` to run in the current workspace's working
+/// copy rather than an isolated one, which is what you want when the command
+/// needs the ignored files, build cache or `.jj`/`.git` directory that live
+/// there.
 ///
 /// The command is executed with the following environment variables set:
 ///
@@ -684,6 +861,15 @@ pub struct RunArgs {
     /// set.
     #[arg(long, short)]
     jobs: Option<usize>,
+
+    /// Where to check out the revisions the command runs on
+    ///
+    /// With `current`, the command runs in the current workspace's working
+    /// copy instead of an isolated one, which is what you want if it depends
+    /// on ignored files, on a build cache, or on `.jj`/`.git` being present.
+    /// Only one job can run at a time in that mode.
+    #[arg(long, value_enum, default_value_t = WorkspaceStrategy::Isolated)]
+    workspace_strategy: WorkspaceStrategy,
 
     /// Run the command from the working-copy root in each commit instead of
     /// from the subdirectory `jj run` was invoked from.
@@ -832,6 +1018,24 @@ pub async fn cmd_run(
         ));
     }
 
+    let in_current_working_copy = args.workspace_strategy == WorkspaceStrategy::Current;
+    if in_current_working_copy {
+        if jobs.get() > 1 {
+            return Err(CommandError::new(
+                CommandErrorKind::Cli,
+                "cannot use --workspace-strategy=current with more than one job".to_string(),
+            ));
+        }
+        if args.clean {
+            // `--clean` deletes the working copy it's about to use, which here
+            // is the user's own.
+            return Err(CommandError::new(
+                CommandErrorKind::Cli,
+                "cannot use --clean with --workspace-strategy=current".to_string(),
+            ));
+        }
+    }
+
     tracing::debug!(?jobs, "starting `jj run`");
 
     // Run each command from the subdirectory the user invoked `jj run` from,
@@ -852,33 +1056,6 @@ pub async fn cmd_run(
     let store = workspace_command.repo().store().clone();
     let auto_tracking_matcher = workspace_command.auto_tracking_matcher(ui)?;
 
-    let sparsity = match args.sparse_patterns {
-        SparseInheritance::Full => None,
-        SparseInheritance::Empty => Some(vec![]),
-        SparseInheritance::Copy => {
-            let sparse_patterns = workspace_command.working_copy().sparse_patterns()?.to_vec();
-            Some(sparse_patterns)
-        }
-    };
-
-    let base_ignores = workspace_command.base_ignores()?;
-
-    let rt = {
-        let mut builder = Builder::new_multi_thread();
-        builder.enable_io();
-        builder.enable_time();
-        builder.build().unwrap()
-    };
-    let (sender_tx, mut receiver) = mpsc::channel(jobs.get());
-
-    let pool = Arc::new(WorkspacePool::new(
-        &repo_path,
-        jobs,
-        auto_tracking_matcher,
-        args.clean,
-        sparsity,
-    )?);
-
     let spec = Arc::new(CommandSpec {
         program: args.command.clone(),
         args: args.args.clone(),
@@ -887,33 +1064,76 @@ pub async fn cmd_run(
     let mut rewritten_commits = HashMap::new();
     let mut failed_commit = None;
 
-    // Drive the producer (run_inner) and consumer (receive loop) concurrently
-    // so that each subprocess's output is emitted as soon as it finishes rather
-    // than after all subprocesses complete.
-    futures::try_join!(
-        async {
-            run_inner(
-                base_ignores,
-                sender_tx,
-                rt.handle(),
-                spec.clone(),
-                pool.clone(),
-                &resolved_commits,
-                jobs.get(),
-                args.passthrough,
-                args.ignore_errors,
-            )
-            .await
-            .map_err(CommandError::from)
-        },
-        async {
-            while let Some(res) = receiver.recv().await {
-                print_job_output(ui, &spec, &res)?;
-                record_job(res, &mut rewritten_commits, &mut failed_commit);
+    let rt = {
+        let mut builder = Builder::new_multi_thread();
+        builder.enable_io();
+        builder.enable_time();
+        builder.build().unwrap()
+    };
+
+    if in_current_working_copy {
+        let done = run_in_current_working_copy(
+            ui,
+            &mut workspace_command,
+            rt.handle(),
+            &resolved_commits,
+            &spec,
+            auto_tracking_matcher.as_ref(),
+            args.passthrough,
+            args.ignore_errors,
+        )
+        .await?;
+        for job in done {
+            record_job(job, &mut rewritten_commits, &mut failed_commit);
+        }
+    } else {
+        let sparsity = match args.sparse_patterns {
+            SparseInheritance::Full => None,
+            SparseInheritance::Empty => Some(vec![]),
+            SparseInheritance::Copy => {
+                let sparse_patterns = workspace_command.working_copy().sparse_patterns()?.to_vec();
+                Some(sparse_patterns)
             }
-            Ok::<_, CommandError>(())
-        },
-    )?;
+        };
+        let base_ignores = workspace_command.base_ignores()?;
+        let (sender_tx, mut receiver) = mpsc::channel(jobs.get());
+
+        let pool = Arc::new(WorkspacePool::new(
+            &repo_path,
+            jobs,
+            auto_tracking_matcher,
+            args.clean,
+            sparsity,
+        )?);
+
+        // Drive the producer (run_inner) and consumer (receive loop) concurrently
+        // so that each subprocess's output is emitted as soon as it finishes rather
+        // than after all subprocesses complete.
+        futures::try_join!(
+            async {
+                run_inner(
+                    base_ignores,
+                    sender_tx,
+                    rt.handle(),
+                    spec.clone(),
+                    pool.clone(),
+                    &resolved_commits,
+                    jobs.get(),
+                    args.passthrough,
+                    args.ignore_errors,
+                )
+                .await
+                .map_err(CommandError::from)
+            },
+            async {
+                while let Some(res) = receiver.recv().await {
+                    print_job_output(ui, &spec, &res)?;
+                    record_job(res, &mut rewritten_commits, &mut failed_commit);
+                }
+                Ok::<_, CommandError>(())
+            },
+        )?;
+    }
 
     if let Some((failed_id, status)) = failed_commit
         && !args.ignore_errors

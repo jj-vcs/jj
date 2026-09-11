@@ -3091,6 +3091,11 @@ are rebased on top of the amended revisions, propagating the diff. Use
 `--restore-descendants` to keep descendants' content unchanged instead, or
 `--ignore-changes` to run the command without rewriting any commits.
 
+Use `--workspace-strategy=current` to run in the current workspace's working
+copy rather than an isolated one, which is what you want when the command
+needs the ignored files, build cache or `.jj`/`.git` directory that live
+there.
+
 The command is executed with the following environment variables set:
 
 - JJ_CHANGE_ID
@@ -3119,6 +3124,18 @@ $ jj run -j 4 -- pre-commit run .github/pre-commit.yaml
 * `-j`, `--jobs <JOBS>` — How many processes should run in parallel
 
    Overrides the `run.jobs` config setting. Defaults to 1 if neither is set.
+* `--workspace-strategy <WORKSPACE_STRATEGY>` — Where to check out the revisions the command runs on
+
+   With `current`, the command runs in the current workspace's working copy instead of an isolated one, which is what you want if it depends on ignored files, on a build cache, or on `.jj`/`.git` being present. Only one job can run at a time in that mode.
+
+  Default value: `isolated`
+
+  Possible values:
+  - `isolated`:
+    Check out each revision in a working copy of its own under `.jj/run/`
+  - `current`:
+    Check out each revision in the current workspace's working copy
+
 * `--root` — Run the command from the working-copy root in each commit instead of from the subdirectory `jj run` was invoked from
 * `--clean` — Delete each working copy before running the command
 

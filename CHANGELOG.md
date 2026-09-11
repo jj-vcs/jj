@@ -53,6 +53,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj util diff <path1> <path2>` to compare files on disk.
 
+* `jj run --workspace-strategy=current` runs the command in the current
+  workspace's working copy instead of an isolated one, so the command can see
+  ignored files, a warm build cache, and the `.jj`/`.git` directory. Revisions
+  are checked out one at a time and the original working-copy commit is restored
+  afterwards.
+
 ### Fixed bugs
 
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,
