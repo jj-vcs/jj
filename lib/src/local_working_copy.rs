@@ -1357,7 +1357,7 @@ impl TreeState {
             let directory_to_visit = DirectoryToVisit {
                 dir: RepoPathBuf::root(),
                 disk_dir: self.working_copy_path.clone(),
-                git_ignore: base_ignores.clone(),
+                git_ignore: base_ignores,
                 file_states: self.file_states.all(),
             };
             // Here we use scope as a queue of per-directory jobs.

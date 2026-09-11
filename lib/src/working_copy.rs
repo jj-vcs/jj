@@ -23,13 +23,22 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+pub use jj_core::working_copy::CheckoutError;
+pub use jj_core::working_copy::CheckoutStats;
+pub use jj_core::working_copy::LockedWorkingCopy;
+pub use jj_core::working_copy::ResetError;
+pub use jj_core::working_copy::SnapshotError;
+pub use jj_core::working_copy::SnapshotStats;
+pub use jj_core::working_copy::UntrackedReason;
+pub use jj_core::working_copy::WorkingCopy;
+pub use jj_core::working_copy::WorkingCopyStateError;
 use thiserror::Error;
 use tracing::instrument;
 
 use crate::backend::BackendError;
 use crate::commit::Commit;
 use crate::gitignore::GitIgnoreError;
-use crate::gitignore::GitIgnoreFile;
+use crate::ignore::Ignore;
 use crate::matchers::Matcher;
 use crate::merged_tree::MergedTree;
 use crate::op_store::OpStoreError;
@@ -47,40 +56,6 @@ use crate::repo_path::RepoPathBuf;
 use crate::settings::UserSettings;
 use crate::store::Store;
 use crate::transaction::TransactionCommitError;
-
-/// The trait all working-copy implementations must implement.
-#[async_trait(?Send)]
-pub trait WorkingCopy: Any + Send {
-    /// The name/id of the implementation. Used for choosing the right
-    /// implementation when loading a working copy.
-    fn name(&self) -> &str;
-
-    /// The working copy's workspace name (or identifier.)
-    fn workspace_name(&self) -> &WorkspaceName;
-
-    /// The operation this working copy was most recently updated to.
-    fn operation_id(&self) -> &OperationId;
-
-    /// The tree this working copy was most recently updated to.
-    fn tree(&self) -> Result<&MergedTree, WorkingCopyStateError>;
-
-    /// Patterns that decide which paths from the current tree should be checked
-    /// out in the working copy. An empty list means that no paths should be
-    /// checked out in the working copy. A single `RepoPath::root()` entry means
-    /// that all files should be checked out.
-    fn sparse_patterns(&self) -> Result<&[RepoPathBuf], WorkingCopyStateError>;
-
-    /// Locks the working copy and returns an instance with methods for updating
-    /// the working copy files and state.
-    async fn start_mutation(&self) -> Result<Box<dyn LockedWorkingCopy>, WorkingCopyStateError>;
-}
-
-impl dyn WorkingCopy {
-    /// Returns reference of the implementation type.
-    pub fn downcast_ref<T: WorkingCopy>(&self) -> Option<&T> {
-        (self as &dyn Any).downcast_ref()
-    }
-}
 
 /// The factory which creates and loads a specific type of working copy.
 pub trait WorkingCopyFactory {
@@ -103,241 +78,6 @@ pub trait WorkingCopyFactory {
         state_path: PathBuf,
         settings: &UserSettings,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError>;
-}
-
-/// A working copy that's being modified.
-#[async_trait]
-pub trait LockedWorkingCopy: Any + Send {
-    /// The operation at the time the lock was taken
-    fn old_operation_id(&self) -> &OperationId;
-
-    /// The tree at the time the lock was taken
-    fn old_tree(&self) -> &MergedTree;
-
-    /// Snapshot the working copy. Returns the tree and stats.
-    async fn snapshot(
-        &mut self,
-        options: &SnapshotOptions,
-    ) -> Result<(MergedTree, SnapshotStats), SnapshotError>;
-
-    /// Check out the specified commit in the working copy.
-    async fn check_out(&mut self, commit: &Commit) -> Result<CheckoutStats, CheckoutError>;
-
-    /// Update the workspace name.
-    fn rename_workspace(&mut self, new_workspace_name: WorkspaceNameBuf);
-
-    /// Update to another commit without touching the files in the working copy.
-    async fn reset(&mut self, commit: &Commit) -> Result<(), ResetError>;
-
-    /// Update to another commit without touching the files in the working copy,
-    /// without assuming that the previous tree exists.
-    async fn recover(&mut self, commit: &Commit) -> Result<(), ResetError>;
-
-    /// See `WorkingCopy::sparse_patterns()`
-    fn sparse_patterns(&self) -> Result<&[RepoPathBuf], WorkingCopyStateError>;
-
-    /// Updates the patterns that decide which paths from the current tree
-    /// should be checked out in the working copy.
-    // TODO: Use a different error type here so we can include a
-    // `SparseNotSupported` variants for working copies that don't support sparse
-    // checkouts (e.g. because they use a virtual file system so there's no reason
-    // to use sparse).
-    async fn set_sparse_patterns(
-        &mut self,
-        new_sparse_patterns: Vec<RepoPathBuf>,
-    ) -> Result<CheckoutStats, CheckoutError>;
-
-    /// Finish the modifications to the working copy by writing the updated
-    /// states to disk. Returns the new (unlocked) working copy.
-    async fn finish(
-        self: Box<Self>,
-        operation_id: OperationId,
-    ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError>;
-}
-
-impl dyn LockedWorkingCopy {
-    /// Returns reference of the implementation type.
-    pub fn downcast_ref<T: LockedWorkingCopy>(&self) -> Option<&T> {
-        (self as &dyn Any).downcast_ref()
-    }
-
-    /// Returns mutable reference of the implementation type.
-    pub fn downcast_mut<T: LockedWorkingCopy>(&mut self) -> Option<&mut T> {
-        (self as &mut dyn Any).downcast_mut()
-    }
-}
-
-/// An error while snapshotting the working copy.
-#[derive(Debug, Error)]
-pub enum SnapshotError {
-    /// A tracked path contained invalid component such as `..`.
-    #[error(transparent)]
-    InvalidRepoPath(#[from] InvalidRepoPathError),
-    /// A symlink target in the working copy was not valid UTF-8.
-    #[error("Symlink {path} target is not valid UTF-8")]
-    InvalidUtf8SymlinkTarget {
-        /// The path of the symlink that has a target that's not valid UTF-8.
-        /// This path itself is valid UTF-8.
-        path: PathBuf,
-    },
-    /// Reading or writing from the commit backend failed.
-    #[error(transparent)]
-    BackendError(#[from] BackendError),
-    /// Checking path with ignore patterns failed.
-    #[error(transparent)]
-    GitIgnoreError(#[from] GitIgnoreError),
-    /// Failed to load the working copy state.
-    #[error(transparent)]
-    WorkingCopyStateError(#[from] WorkingCopyStateError),
-    /// Some other error happened while snapshotting the working copy.
-    #[error("{message}")]
-    Other {
-        /// Error message.
-        message: String,
-        /// The underlying error.
-        #[source]
-        err: Box<dyn std::error::Error + Send + Sync>,
-    },
-}
-
-/// Options used when snapshotting the working copy. Some of them may be ignored
-/// by some `WorkingCopy` implementations.
-#[derive(Clone)]
-pub struct SnapshotOptions<'a> {
-    /// The `.gitignore`s to use while snapshotting. The typically come from the
-    /// user's configured patterns combined with per-repo patterns.
-    // The base_ignores are passed in here rather than being set on the TreeState
-    // because the TreeState may be long-lived if the library is used in a
-    // long-lived process.
-    pub base_ignores: Arc<GitIgnoreFile>,
-    /// A callback for the UI to display progress.
-    pub progress: Option<&'a SnapshotProgress<'a>>,
-    /// For new files that are not already tracked, start tracking them if they
-    /// match this.
-    pub start_tracking_matcher: &'a dyn Matcher,
-    /// For files that match the ignore patterns or are too large, start
-    /// tracking them anyway if they match this.
-    pub force_tracking_matcher: &'a dyn Matcher,
-    /// The size of the largest file that should be allowed to become tracked
-    /// (already tracked files are always snapshotted). If there are larger
-    /// files in the working copy, then `LockedWorkingCopy::snapshot()` may
-    /// (depending on implementation)
-    /// return `SnapshotError::NewFileTooLarge`.
-    pub max_new_file_size: u64,
-}
-
-/// A callback for getting progress updates.
-pub type SnapshotProgress<'a> = dyn Fn(&RepoPath) + 'a + Sync;
-
-/// Stats about a snapshot operation on a working copy.
-#[derive(Clone, Debug, Default)]
-pub struct SnapshotStats {
-    /// List of new (previously untracked) files which are still untracked.
-    pub untracked_paths: BTreeMap<RepoPathBuf, UntrackedReason>,
-    /// Paths that were skipped because their file names aren't valid UTF-8,
-    /// as (directory, file name) pairs. These paths cannot be represented as
-    /// `RepoPath`s.
-    pub invalid_utf8_paths: BTreeSet<(RepoPathBuf, OsString)>,
-}
-
-/// Reason why the new path isn't tracked.
-#[derive(Clone, Debug)]
-pub enum UntrackedReason {
-    /// File was larger than the specified maximum file size.
-    FileTooLarge {
-        /// Actual size of the large file.
-        size: u64,
-        /// Maximum allowed size.
-        max_size: u64,
-    },
-    /// File does not match the fileset specified in snapshot.auto-track.
-    FileNotAutoTracked,
-}
-
-/// Stats about a checkout operation on a working copy. All "files" mentioned
-/// below may also be symlinks or materialized conflicts.
-#[derive(Debug, PartialEq, Eq, Clone, Default)]
-pub struct CheckoutStats {
-    /// The number of files that were updated in the working copy.
-    /// These files existed before and after the checkout.
-    pub updated_files: u32,
-    /// The number of files added in the working copy.
-    pub added_files: u32,
-    /// The number of files removed in the working copy.
-    pub removed_files: u32,
-    /// The number of files that were supposed to be updated or added in the
-    /// working copy but were skipped because there was an untracked (probably
-    /// ignored) file in its place.
-    pub skipped_files: u32,
-}
-
-/// The working-copy checkout failed.
-#[derive(Debug, Error)]
-pub enum CheckoutError {
-    /// The current working-copy commit was deleted, maybe by an overly
-    /// aggressive GC that happened while the current process was running.
-    #[error("Current working-copy commit not found")]
-    SourceNotFound {
-        /// The underlying error.
-        source: Box<dyn std::error::Error + Send + Sync>,
-    },
-    /// Another process checked out a commit while the current process was
-    /// running (after the working copy was read by the current process).
-    #[error("Concurrent checkout")]
-    ConcurrentCheckout,
-    /// Path in the commit contained invalid component such as `..`.
-    #[error(transparent)]
-    InvalidRepoPath(#[from] InvalidRepoPathError),
-    /// Path contained reserved name which cannot be checked out to disk.
-    #[error("Reserved path component {name} in {path}")]
-    ReservedPathComponent {
-        /// The file or directory path.
-        path: PathBuf,
-        /// The reserved path component.
-        name: &'static str,
-    },
-    /// Reading or writing from the commit backend failed.
-    #[error("Internal backend error")]
-    InternalBackendError(#[from] BackendError),
-    /// Failed to load the working copy state.
-    #[error(transparent)]
-    WorkingCopyStateError(#[from] WorkingCopyStateError),
-    /// Some other error happened while checking out the working copy.
-    #[error("{message}")]
-    Other {
-        /// Error message.
-        message: String,
-        /// The underlying error.
-        #[source]
-        err: Box<dyn std::error::Error + Send + Sync>,
-    },
-}
-
-/// An error while resetting the working copy.
-#[derive(Debug, Error)]
-pub enum ResetError {
-    /// The current working-copy commit was deleted, maybe by an overly
-    /// aggressive GC that happened while the current process was running.
-    #[error("Current working-copy commit not found")]
-    SourceNotFound {
-        /// The underlying error.
-        source: Box<dyn std::error::Error + Send + Sync>,
-    },
-    /// Reading or writing from the commit backend failed.
-    #[error("Internal error")]
-    InternalBackendError(#[from] BackendError),
-    /// Failed to load the working copy state.
-    #[error(transparent)]
-    WorkingCopyStateError(#[from] WorkingCopyStateError),
-    /// Some other error happened while resetting the working copy.
-    #[error("{message}")]
-    Other {
-        /// Error message.
-        message: String,
-        /// The underlying error.
-        #[source]
-        err: Box<dyn std::error::Error + Send + Sync>,
-    },
 }
 
 /// Whether the working copy is stale or not.
@@ -448,15 +188,4 @@ pub async fn create_and_check_out_recovery_commit(
     locked_wc.recover(&new_commit).await?;
 
     Ok((repo, new_commit))
-}
-
-/// An error while reading the working copy state.
-#[derive(Debug, Error)]
-#[error("{message}")]
-pub struct WorkingCopyStateError {
-    /// Error message.
-    pub message: String,
-    /// The underlying error.
-    #[source]
-    pub err: Box<dyn std::error::Error + Send + Sync>,
 }
