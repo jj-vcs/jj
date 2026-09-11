@@ -54,6 +54,7 @@ use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPathBuf;
+use jj_lib::working_copy::CheckoutError;
 use jj_lib::working_copy::SnapshotOptions;
 use tokio::runtime::Builder;
 use tokio::sync::mpsc;
@@ -73,7 +74,7 @@ use crate::ui::Ui;
 #[derive(Debug, thiserror::Error)]
 enum RunError {
     #[error("failed to checkout the commit {}", .0)]
-    FailedCheckout(CommitId),
+    FailedCheckout(CommitId, #[source] CheckoutError),
     #[error("the command '{}' failed with {}", .0, .1)]
     CommandFailure(String, ExitStatus),
     #[error(transparent)]
@@ -267,18 +268,18 @@ impl WorkspacePool {
         if let Some(sparse_patterns) = &self.sparsity {
             tree_state
                 .set_sparse_patterns(sparse_patterns.clone())
-                .map_err(|_| RunError::FailedCheckout(commit.id().clone()))?;
+                .map_err(|err| RunError::FailedCheckout(commit.id().clone(), err))?;
         } else {
             // Users can specify `--sparse-args full` to materialize whole tree,
             // without having to clear the run "workspace" first with `--clean`.
             tree_state
                 .set_sparse_patterns(vec![RepoPathBuf::root()])
-                .map_err(|_| RunError::FailedCheckout(commit.id().clone()))?;
+                .map_err(|err| RunError::FailedCheckout(commit.id().clone(), err))?;
         }
 
         tree_state
             .check_out(&commit.tree())
-            .map_err(|_| RunError::FailedCheckout(commit.id().clone()))?;
+            .map_err(|err| RunError::FailedCheckout(commit.id().clone(), err))?;
 
         // If we checked out a revision with a completely empty tree,
         // TreeState::check_out() deletes the working_copy directory because it
@@ -321,7 +322,7 @@ impl WorkspacePool {
             if !added_paths.is_empty() {
                 tree_state
                     .check_out(&original_tree)
-                    .map_err(|_| RunError::FailedCheckout(commit.id().clone()))?;
+                    .map_err(|err| RunError::FailedCheckout(commit.id().clone(), err))?;
             }
         }
 
