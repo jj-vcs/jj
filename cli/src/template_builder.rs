@@ -66,6 +66,8 @@ use crate::templater::LabelTemplate;
 use crate::templater::ListMapProperty;
 use crate::templater::ListPropertyTemplate;
 use crate::templater::Literal;
+use crate::templater::NoTemplateBooleanCast;
+use crate::templater::OptionalTemplateValue;
 use crate::templater::PlainTextFormattedProperty;
 use crate::templater::PropertyPlaceholder;
 use crate::templater::RawEscapeSequenceTemplate;
@@ -221,6 +223,15 @@ where
     /// Transforms into a property that will evaluate to an [`Ordering`].
     fn try_into_cmp(self, other: Self) -> Option<BoxedTemplateProperty<'a, Ordering>>;
 }
+
+impl NoTemplateBooleanCast for i64 {}
+impl NoTemplateBooleanCast for ConfigValue {}
+impl NoTemplateBooleanCast for PathBuf {}
+impl NoTemplateBooleanCast for Signature {}
+impl NoTemplateBooleanCast for SizeHint {}
+impl NoTemplateBooleanCast for RegexCaptures {}
+impl NoTemplateBooleanCast for Timestamp {}
+impl NoTemplateBooleanCast for TimestampRange {}
 
 pub enum CoreTemplatePropertyKind<'a> {
     ByteString(BoxedTemplateProperty<'a, BString>),
@@ -2053,8 +2064,10 @@ fn builtin_any_list_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildAnyM
 pub fn builtin_formattable_list_methods<'a, L, O>() -> TemplateBuildMethodFnMap<'a, L, Vec<O>>
 where
     L: TemplateLanguage<'a> + ?Sized,
-    L::Property: WrapTemplateProperty<'a, O> + WrapTemplateProperty<'a, Vec<O>>,
-    O: Template + Clone + 'a,
+    L::Property: WrapTemplateProperty<'a, O>,
+    L::Property: WrapTemplateProperty<'a, Vec<O>>,
+    L::Property: WrapTemplateProperty<'a, O::Optional>,
+    O: OptionalTemplateValue + Template + Clone + 'a,
 {
     let mut map = builtin_unformattable_list_methods::<L, O>();
     map.insert(
@@ -2077,8 +2090,10 @@ where
 pub fn builtin_unformattable_list_methods<'a, L, O>() -> TemplateBuildMethodFnMap<'a, L, Vec<O>>
 where
     L: TemplateLanguage<'a> + ?Sized,
-    L::Property: WrapTemplateProperty<'a, O> + WrapTemplateProperty<'a, Vec<O>>,
-    O: Clone + 'a,
+    L::Property: WrapTemplateProperty<'a, O>,
+    L::Property: WrapTemplateProperty<'a, Vec<O>>,
+    L::Property: WrapTemplateProperty<'a, O::Optional>,
+    O: OptionalTemplateValue + Clone + 'a,
 {
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
@@ -2127,13 +2142,7 @@ where
         "first",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            // TODO: Return `Option<T>` instead of erroring out.
-            let out_property = self_property.and_then(|items| {
-                items
-                    .into_iter()
-                    .next()
-                    .ok_or_else(|| TemplatePropertyError("List is empty".into()))
-            });
+            let out_property = self_property.map(|items| O::from_option(items.into_iter().next()));
             Ok(L::Property::wrap_property(out_property.into_dyn()))
         },
     );
@@ -2141,12 +2150,7 @@ where
         "last",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            // TODO: Return `Option<T>` instead of erroring out.
-            let out_property = self_property.and_then(|mut items| {
-                items
-                    .pop()
-                    .ok_or_else(|| TemplatePropertyError("List is empty".into()))
-            });
+            let out_property = self_property.map(|mut items| O::from_option(items.pop()));
             Ok(L::Property::wrap_property(out_property.into_dyn()))
         },
     );
@@ -2155,15 +2159,8 @@ where
         |language, diagnostics, build_ctx, self_property, function| {
             let [index_node] = function.expect_exact_arguments()?;
             let index = expect_usize_expression(language, diagnostics, build_ctx, index_node)?;
-            // TODO: Return `Option<T>` instead of erroring out.
-            let out_property = (self_property, index).and_then(|(mut items, index)| {
-                if index < items.len() {
-                    Ok(items.remove(index))
-                } else {
-                    Err(TemplatePropertyError(
-                        format!("Index {index} out of bounds").into(),
-                    ))
-                }
+            let out_property = (self_property, index).map(|(mut items, index)| {
+                O::from_option((index < items.len()).then(|| items.remove(index)))
             });
             Ok(L::Property::wrap_property(out_property.into_dyn()))
         },
@@ -4282,18 +4279,18 @@ mod tests {
 
         // List.first()
         insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().first()"#), @"a");
-        insta::assert_snapshot!(env.render_ok(r#""".lines().first()"#), @"<Error: List is empty>");
+        insta::assert_snapshot!(env.render_ok(r#""".lines().first()"#), @"");
 
         // List.last()
         insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().last()"#), @"c");
-        insta::assert_snapshot!(env.render_ok(r#""".lines().last()"#), @"<Error: List is empty>");
+        insta::assert_snapshot!(env.render_ok(r#""".lines().last()"#), @"");
 
         // List.get(index)
         insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().get(0)"#), @"a");
         insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().get(1)"#), @"b");
         insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().get(2)"#), @"c");
-        insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().get(3)"#), @"<Error: Index 3 out of bounds>");
-        insta::assert_snapshot!(env.render_ok(r#""".lines().get(0)"#), @"<Error: Index 0 out of bounds>");
+        insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().get(3)"#), @"");
+        insta::assert_snapshot!(env.render_ok(r#""".lines().get(0)"#), @"");
 
         // List.reverse()
         insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().reverse().join("|")"#), @"c|b|a");

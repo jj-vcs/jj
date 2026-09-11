@@ -469,10 +469,9 @@ defined.
   the predicate `expression`. Example: `parents.any(|c| c.description().contains("fix"))`
 * `.all(|item| expression) -> Boolean`: Returns true if all elements satisfy
   the predicate `expression`. Example: `parents.all(|c| c.mine())`
-* `.first() -> T`: Returns the first element. Errors if the list is empty.
-* `.last() -> T`: Returns the last element. Errors if the list is empty.
-* `.get(index: Integer) -> T`: Returns the element at `index` (0-based). Errors
-  if the index is out of bounds.
+* `.first() -> Option<T>`: Returns the first element.
+* `.last() -> Option<T>`: Returns the last element.
+* `.get(index: Integer) -> Option<T>`: Returns the element at `index` (0-based).
 * `.reverse() -> List`: Returns the list in reverse order.
 * `.skip(count: Integer) -> List`: Skips the first `count` elements and
   returns the rest.
@@ -522,6 +521,11 @@ invoked. If not set, an error will be reported inline on method call.
 
 On comparison between two optional values or optional and non-optional values,
 unset value is not an error. Unset value is considered less than any set values.
+
+Types convertible to `Boolean` (e.g. `String` and `List`) lack support for
+`Option` because the truthy conversion of an unset value would conflict with
+it. Instead, unset values of these types are converted to their empty
+equivalents.
 
 ### `RefSymbol` type
 
@@ -633,7 +637,7 @@ following methods are defined.
   of a UTF-8 codepoint, the codepoint is fully part of the result. If the `end`
   index is in the middle of a UTF-8 codepoint, the codepoint is not part of the
   result. If `end` is not given, returns from `start` to the end of the string.
-* `.first_line() -> String`
+* `.first_line() -> String`: Equivalent to `.lines().first()`.
 * `.lines() -> List<String>`: Split into lines excluding newline characters.
 * `.split(separator: StringPattern, [limit: Integer]) -> List<String>`: Split
   into substrings by the given `separator` pattern. If `limit` is specified, it
