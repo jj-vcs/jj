@@ -182,6 +182,7 @@ impl WorkspacePool {
         sparsity: Option<Vec<RepoPathBuf>>,
     ) -> Result<Self, RunError> {
         // The parent() call is needed to not write under `.jj/repo/`.
+        // TODO: make this configurable instead of hardcoded?
         let base_path = repo_path.parent().unwrap().join("run").join("default");
         fs::create_dir_all(&base_path)?;
         Ok(Self {
@@ -780,10 +781,6 @@ pub async fn cmd_run(
     args: &RunArgs,
 ) -> Result<(), CommandError> {
     let repo_path = command.workspace_loader()?.repo_path().to_path_buf();
-    // TODO: should be stored in a backend and not hardcoded.
-    let base_path = repo_path.parent().unwrap().join("run").join("default");
-    fs::create_dir_all(&base_path)?;
-
     let mut workspace_command = command.workspace_helper(ui).await?;
     let mut resolved_commits: Vec<_> = if args.revisions.is_empty() {
         let revs = workspace_command.settings().get_string("revsets.run")?;
