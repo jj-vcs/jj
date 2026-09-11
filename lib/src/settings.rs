@@ -15,6 +15,7 @@
 #![expect(missing_docs)]
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -35,6 +36,7 @@ use crate::config::ConfigTable;
 use crate::config::ConfigValue;
 use crate::config::StackedConfig;
 use crate::config::ToConfigNamePath;
+use crate::file_util::expand_home_path;
 use crate::fmt_util::binary_prefix;
 use crate::ref_name::RemoteNameBuf;
 use crate::signing::SignBehavior;
@@ -55,7 +57,8 @@ struct UserSettingsData {
     operation_hostname: String,
     operation_username: String,
     signing_behavior: SignBehavior,
-    signing_key: Option<String>,
+    // Environment for expanding paths:
+    home_dir: Option<PathBuf>,
 }
 
 pub type RemoteSettingsMap = HashMap<RemoteNameBuf, RemoteSettings>;
@@ -97,8 +100,6 @@ pub struct SignSettings {
     /// The email address to compare against the commit author when determining
     /// if the existing signature is "our own" in terms of the sign behavior.
     pub user_email: String,
-    /// The signing backend specific key, to be passed to the signing backend.
-    pub key: Option<String>,
 }
 
 impl SignSettings {
@@ -132,12 +133,20 @@ fn to_timestamp(value: ConfigValue) -> Result<Timestamp, Box<dyn std::error::Err
 }
 
 impl UserSettings {
-    pub fn from_config(config: StackedConfig) -> Result<Self, ConfigGetError> {
+    /// Creates new settings from the given config and environment.
+    pub fn from_config_and_home_dir(
+        config: StackedConfig,
+        home_dir: Option<PathBuf>,
+    ) -> Result<Self, ConfigGetError> {
         let rng_seed = config.get::<u64>("debug.randomness-seed").optional()?;
-        Self::from_config_and_rng(config, Arc::new(JJRng::new(rng_seed)))
+        Self::from_inner(config, home_dir, Arc::new(JJRng::new(rng_seed)))
     }
 
-    fn from_config_and_rng(config: StackedConfig, rng: Arc<JJRng>) -> Result<Self, ConfigGetError> {
+    fn from_inner(
+        config: StackedConfig,
+        home_dir: Option<PathBuf>,
+        rng: Arc<JJRng>,
+    ) -> Result<Self, ConfigGetError> {
         let user_name = config.get("user.name")?;
         let user_email = config.get("user.email")?;
         let commit_timestamp = config
@@ -149,7 +158,6 @@ impl UserSettings {
         let operation_hostname = config.get("operation.hostname")?;
         let operation_username = config.get("operation.username")?;
         let signing_behavior = config.get("signing.behavior")?;
-        let signing_key = config.get("signing.key").optional()?;
         let data = UserSettingsData {
             user_name,
             user_email,
@@ -158,7 +166,7 @@ impl UserSettings {
             operation_hostname,
             operation_username,
             signing_behavior,
-            signing_key,
+            home_dir,
         };
         Ok(Self {
             config: Arc::new(config),
@@ -167,12 +175,12 @@ impl UserSettings {
         })
     }
 
-    /// Like [`UserSettings::from_config()`], but retains the internal state.
+    /// Creates settings with a new config while retaining the internal state.
     ///
     /// This ensures that no duplicated change IDs are generated within the
     /// current process. New `debug.randomness-seed` value is ignored.
     pub fn with_new_config(&self, config: StackedConfig) -> Result<Self, ConfigGetError> {
-        Self::from_config_and_rng(config, self.rng.clone())
+        Self::from_inner(config, self.data.home_dir.clone(), self.rng.clone())
     }
 
     pub fn get_rng(&self) -> Arc<JJRng> {
@@ -234,7 +242,6 @@ impl UserSettings {
         SignSettings {
             behavior: self.data.signing_behavior,
             user_email: self.data.user_email.clone(),
-            key: self.data.signing_key.clone(),
         }
     }
 }
@@ -262,6 +269,12 @@ impl UserSettings {
     /// Looks up boolean value by `name`.
     pub fn get_bool(&self, name: impl ToConfigNamePath) -> Result<bool, ConfigGetError> {
         self.get(name)
+    }
+
+    /// Looks up string value by `name`, expands "~/" to the home directory.
+    pub fn get_path(&self, name: impl ToConfigNamePath) -> Result<PathBuf, ConfigGetError> {
+        let value = self.get_string(name)?;
+        Ok(expand_home_path(&value, self.data.home_dir.as_deref()))
     }
 
     /// Looks up generic value by `name`.

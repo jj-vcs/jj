@@ -628,7 +628,7 @@ fn stable_op_id_settings() -> UserSettings {
         )
         .unwrap(),
     );
-    UserSettings::from_config(config).unwrap()
+    testutils::user_settings_from_config(config)
 }
 
 #[test]
