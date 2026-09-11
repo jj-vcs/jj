@@ -406,6 +406,24 @@ mod tests {
     }
 
     #[test]
+    fn gpgsm_verify_unknown_signature_with_issuer() {
+        assert_eq!(
+            parse_gpg_verify_output(
+                b"[GNUPG:] NO_PUBKEY #7C6DDB3D1978999B/CN=JJ,O=X509+Signing+Test\n\
+                  [GNUPG:] ERROR verify.findkey 50331657\n",
+                true,
+            )
+            .unwrap()
+            .unwrap(),
+            Verification::new(
+                SigStatus::Unknown,
+                Some("#7C6DDB3D1978999B/CN=JJ,O=X509+Signing+Test".into()),
+                None,
+            ),
+        );
+    }
+
+    #[test]
     fn gpgsm_verify_invalid_signature_format() {
         assert_matches!(
             parse_gpg_verify_output(b"[GNUPG:] ERROR verify.leave 150995087", true),
