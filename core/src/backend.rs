@@ -43,7 +43,7 @@ use crate::repo_path::RepoPathComponentBuf;
 use crate::signing::SignResult;
 
 id_type!(
-    /// Identifier for a [`Commit`] based on its content. When a commit is
+    /// Identifier for a `Commit` based on its content. When a commit is
     /// rewritten, its `CommitId` changes.
     pub CommitId { hex() }
 );
@@ -587,9 +587,8 @@ where
     }
 }
 
-pub(crate) fn borrow_tree_value<T: Borrow<TreeValue> + ?Sized>(
-    term: Option<&T>,
-) -> Option<&TreeValue> {
+/// Borrow the Option's `TreeValue` if it exists.
+pub fn borrow_tree_value<T: Borrow<TreeValue> + ?Sized>(term: Option<&T>) -> Option<&TreeValue> {
     term.map(|value| value.borrow())
 }
 

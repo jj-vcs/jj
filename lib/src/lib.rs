@@ -20,7 +20,7 @@
 
 pub mod absorb;
 pub mod annotate;
-pub mod backend;
+pub use jj_core::backend;
 pub mod bisect;
 pub mod commit;
 pub mod commit_builder;
@@ -96,6 +96,7 @@ pub mod tree_merge;
 pub mod simple_backend;
 pub mod simple_op_heads_store;
 pub mod simple_op_store;
+pub mod simple_workspace_store;
 pub mod ssh_signing;
 pub mod stacked_table;
 pub mod store;
@@ -113,7 +114,7 @@ pub mod union_find;
 pub mod view;
 pub mod working_copy;
 pub mod workspace;
-pub mod workspace_store;
+pub use jj_core::workspace_store;
 
 #[cfg(test)]
 mod tests {

@@ -27,6 +27,7 @@
 // - https://github.com/rust-lang/rust/issues/54363
 extern crate self as jj_core;
 
+pub mod backend;
 pub mod conflict_labels;
 pub mod content_hash;
 pub mod dag_walk;
@@ -40,8 +41,10 @@ pub mod merge;
 pub mod object_id;
 pub mod ref_name;
 pub mod repo_path;
+pub mod signing;
 pub mod str_util;
 pub mod symbol_util;
+pub mod workspace_store;
 
 #[cfg(test)]
 mod tests {
