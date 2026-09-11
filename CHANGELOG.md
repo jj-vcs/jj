@@ -20,6 +20,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* Added the `TreeEntry.object_id()` template method to access stored object IDs,
+  including Git submodule commit IDs.
+
 * Git-format diff hunk headers now include nearby source symbols for many common
   programming and markup languages.
 

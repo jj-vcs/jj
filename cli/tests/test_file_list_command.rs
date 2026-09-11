@@ -93,3 +93,101 @@ fn test_file_list() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_file_list_object_id() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("file", "content");
+    work_dir.write_file("exec-file", "content");
+    work_dir
+        .run_jj(["file", "chmod", "x", "exec-file"])
+        .success();
+    work_dir.run_jj(["commit", "-m", "base"]).success();
+
+    let git = |args: &[&str]| {
+        work_dir
+            .run_jj(
+                ["util", "exec", "--", "git"]
+                    .into_iter()
+                    .chain(args.iter().copied()),
+            )
+            .success()
+            .stdout
+            .into_raw()
+            .trim()
+            .to_owned()
+    };
+    let file_id = git(&["rev-parse", "HEAD:file"]);
+    let commit_id = git(&["rev-parse", "HEAD"]);
+    // Import a symlink and gitlink without requiring symlink support or a checkout
+    // of the submodule. The symlink's target has the same bytes as the file.
+    git(&[
+        "update-index",
+        "--add",
+        "--cacheinfo",
+        "120000",
+        &file_id,
+        "symlink",
+    ]);
+    git(&[
+        "update-index",
+        "--add",
+        "--cacheinfo",
+        "160000",
+        &commit_id,
+        "submodule",
+    ]);
+    git(&[
+        "-c",
+        "user.name=Test User",
+        "-c",
+        "user.email=test@example.com",
+        "commit",
+        "-m",
+        "add entries",
+    ]);
+    work_dir.run_jj(["git", "import"]).success();
+
+    let template = r#"path ++ " " ++ object_id ++ "\n""#;
+    let output = work_dir
+        .run_jj(["file", "list", "-r@-", "-T", template])
+        .success();
+    assert_eq!(
+        output.stdout.raw(),
+        format!("exec-file {file_id}\nfile {file_id}\nsubmodule {commit_id}\nsymlink {file_id}\n")
+    );
+    let template = r#"files.map(|e| e.path() ++ " " ++ e.object_id() ++ "\n").join("")"#;
+    let output = work_dir
+        .run_jj(["log", "--no-graph", "-r@-", "-T", template])
+        .success();
+    assert_eq!(
+        output.stdout.raw(),
+        format!("exec-file {file_id}\nfile {file_id}\nsubmodule {commit_id}\nsymlink {file_id}\n")
+    );
+    let template =
+        r#"files.filter(|e| e.file_type() == "git-submodule").map(|e| e.object_id()).join("\n")"#;
+    let output = work_dir
+        .run_jj(["log", "--no-graph", "-r@-", "-T", template])
+        .success();
+    assert_eq!(output.stdout.raw(), commit_id);
+
+    let template = r#"diff.files().map(|e| e.path() ++ " " ++ e.source().object_id() ++ ":" ++ e.target().object_id() ++ "\n").join("")"#;
+    let output = work_dir
+        .run_jj(["log", "--no-graph", "-r@-", "-T", template])
+        .success();
+    assert_eq!(
+        output.stdout.raw(),
+        format!("submodule :{commit_id}\nsymlink :{file_id}\n")
+    );
+
+    work_dir.run_jj(["new", "@--"]).success();
+    work_dir.remove_file("file");
+    let output = work_dir
+        .run_jj(["log", "--no-graph", "-r@", "-T", template])
+        .success();
+    assert_eq!(output.stdout.raw(), format!("file {file_id}:\n"));
+}
