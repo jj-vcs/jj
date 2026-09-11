@@ -78,6 +78,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `ui.editor` now supports `$path` and `$line` substitution variables. Example:
   `ui.editor = ["emacs", "+$line", "$path"]`
 
+* `jj workspace add` now has `--adopt` for instantaneous clones of repos when
+  used with a CoW filesystem. For example, by taking a snapshot with
+  `btrfs subvolume snapshot . ../workspace`, removing `../workspace/.jj`, and
+  adopting it with `jj workspace add --adopt ../workspace`.
+
 ### Fixed bugs
 
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,

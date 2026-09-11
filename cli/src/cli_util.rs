@@ -2272,6 +2272,10 @@ to the current parents may contain changes from multiple commits.
         Ok(stats)
     }
 
+    pub fn set_may_update_working_copy(&mut self, may_update: bool) -> bool {
+        std::mem::replace(&mut self.may_update_working_copy, may_update)
+    }
+
     async fn update_working_copy(
         &mut self,
         ui: &Ui,
@@ -2287,6 +2291,19 @@ to the current parents may contain changes from multiple commits.
         )
         .await?;
         self.print_updated_working_copy_stats(ui, maybe_old_commit, new_commit, &stats)
+    }
+
+    pub async fn reset_working_copy(
+        &mut self,
+        ui: &Ui,
+        new_commit: &Commit,
+    ) -> Result<(), CommandError> {
+        assert!(self.may_update_working_copy);
+        self.workspace
+            .reset(self.user_repo.repo.op_id().clone(), new_commit)
+            .await
+            .map_err(|err| internal_error_with_message("Failed to reset working copy", err))?;
+        self.print_updated_working_copy_stats(ui, None, new_commit, &CheckoutStats::default())
     }
 
     fn print_updated_working_copy_stats(
