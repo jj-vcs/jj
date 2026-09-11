@@ -19,7 +19,9 @@ use jj_lib::git::GitSubprocessOptions;
 use jj_lib::ref_name::WorkspaceNameBuf;
 #[cfg(feature = "git")]
 use jj_lib::repo::Repo as _;
+#[cfg(feature = "git")]
 use jj_lib::workspace_store::SimpleWorkspaceStore;
+#[cfg(feature = "git")]
 use jj_lib::workspace_store::WorkspaceStore as _;
 use tracing::instrument;
 
@@ -78,6 +80,7 @@ pub async fn cmd_workspace_forget(
         return Ok(());
     }
 
+    #[cfg(feature = "git")]
     let workspace_store = SimpleWorkspaceStore::load(workspace_command.repo_path())?;
 
     #[cfg(feature = "git")]
@@ -96,21 +99,21 @@ pub async fn cmd_workspace_forget(
     // undo correctly restores all of them at once.
     let mut tx = workspace_command.start_transaction();
 
+    // The recorded path is intentionally left in the workspace store. `jj undo`
+    // restores the workspace to the repo view, and it can only be pointed back
+    // at its directory if the path outlived the forget. A stale entry is
+    // harmless: it is ignored for workspaces that aren't in the view, and
+    // overwritten if the name is reused.
     for ws in &forget_ws {
         tx.repo_mut().remove_workspace(ws).await?;
     }
 
-    workspace_store.forget(&forget_ws.iter().map(|x| x.as_ref()).collect::<Vec<_>>())?;
-
-    let description = if let [ws] = forget_ws.as_slice() {
-        format!("forget workspace {}", ws.as_symbol())
+    let names = forget_ws.iter().map(|ws| ws.as_symbol()).join(", ");
+    let description = if forget_ws.len() == 1 {
+        format!("forget workspace {names}")
     } else {
-        format!(
-            "forget workspaces {}",
-            forget_ws.iter().map(|ws| ws.as_symbol()).join(", ")
-        )
+        format!("forget workspaces {names}")
     };
-
     tx.finish(ui, description).await?;
 
     #[cfg(feature = "git")]

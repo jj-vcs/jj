@@ -86,8 +86,16 @@ while you continue developing in another, for example. If needed,
 `jj workspace root` prints the root path of the current workspace.
 
 When you're done using a workspace, use `jj workspace forget` to make the repo
-forget about it. The files can be deleted from disk separately (either before or
-after).
+forget about it. The workspace directory and files are left on disk. This is
+useful when the workspace path is no longer accessible or when you want to keep
+the files around.
+
+Use `jj workspace remove` to forget a workspace and remove its directory from
+disk. Tracked changes are snapshotted before the directory is removed, but
+ignored files in that directory are deleted. The main workspace cannot be
+removed. Removing the current workspace works on Unix, but Windows won't remove
+a directory that a process is running in; run the command from another directory
+using `jj -R` instead.
 
 ## Stale working copy
 
