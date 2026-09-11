@@ -12,6 +12,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* The minimum supported Rust version (MSRV) is now 1.93.
+
 * The minimum supported `git` command version is now 2.42.0, up from 2.41.0.
   `jj workspace add` uses `git worktree add --orphan`, which was added in
   2.42.0.
