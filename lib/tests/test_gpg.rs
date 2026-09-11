@@ -440,20 +440,16 @@ fn gpgsm_unknown_key() -> TestResult {
     xiNbRmGtEonl9d8JS/IAAAAAAAA=
     -----END SIGNED MESSAGE-----
     ";
-    assert_debug_snapshot!(backend.verify(b"hello world", signature)?, @r#"
-    Verification {
-        status: Unknown,
-        key: None,
-        display: None,
+    for data in ["hello world", "so bad"] {
+        let check = backend.verify(data.as_bytes(), signature)?;
+        assert_eq!(check.status, SigStatus::Unknown);
+        assert_eq!(check.display, None);
+        // GnuPG 2.5.22 added the missing certificate's serial number and issuer.
+        assert_matches!(
+            check.key.as_deref(),
+            None | Some("#7C6DDB3D1978999B/CN=JJ,O=X509+Signing+Test")
+        );
     }
-    "#);
-    assert_debug_snapshot!(backend.verify(b"so bad", signature)?, @r#"
-    Verification {
-        status: Unknown,
-        key: None,
-        display: None,
-    }
-    "#);
     Ok(())
 }
 
