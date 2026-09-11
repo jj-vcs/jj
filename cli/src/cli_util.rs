@@ -1440,8 +1440,14 @@ impl WorkspaceCommandHelper {
             if num_rebased > 0 {
                 writeln!(ui.status(), "Rebased {num_rebased} descendant commits.")?;
             }
-            self.finish_transaction(ui, tx, "import git head", git_import_export_lock)
-                .await?;
+            self.finish_transaction(
+                ui,
+                tx,
+                "import git head",
+                git_import_export_lock,
+                WorkingCopyUpdatePolicy::Checkout,
+            )
+            .await?;
         }
         Ok(())
     }
@@ -1481,8 +1487,14 @@ impl WorkspaceCommandHelper {
                 "Rebased {num_rebased} descendant commits off of commits rewritten from Git."
             )?;
         }
-        self.finish_transaction(ui, tx, "import git refs", git_import_export_lock)
-            .await?;
+        self.finish_transaction(
+            ui,
+            tx,
+            "import git refs",
+            git_import_export_lock,
+            WorkingCopyUpdatePolicy::Checkout,
+        )
+        .await?;
         writeln!(
             ui.status(),
             "Done importing changes from the underlying Git repo."
@@ -2289,6 +2301,19 @@ to the current parents may contain changes from multiple commits.
         self.print_updated_working_copy_stats(ui, maybe_old_commit, new_commit, &stats)
     }
 
+    pub async fn reset_working_copy(
+        &mut self,
+        ui: &Ui,
+        new_commit: &Commit,
+    ) -> Result<(), CommandError> {
+        assert!(self.may_update_working_copy);
+        self.workspace
+            .reset(self.user_repo.repo.op_id().clone(), new_commit)
+            .await
+            .map_err(|err| internal_error_with_message("Failed to reset working copy", err))?;
+        self.print_updated_working_copy_stats(ui, None, new_commit, &CheckoutStats::default())
+    }
+
     fn print_updated_working_copy_stats(
         &self,
         ui: &Ui,
@@ -2345,6 +2370,7 @@ to the current parents may contain changes from multiple commits.
         mut tx: Transaction,
         description: impl Into<String>,
         git_import_export_lock: &GitImportExportLock,
+        working_copy_policy: WorkingCopyUpdatePolicy,
     ) -> Result<(), CommandError> {
         let old_repo = tx.base_repo().clone();
 
@@ -2416,8 +2442,15 @@ to the current parents may contain changes from multiple commits.
         // don't leave the working copy in a stale state.
         if self.may_update_working_copy {
             if let Some(new_commit) = &maybe_new_wc_commit {
-                self.update_working_copy(ui, maybe_old_wc_commit.as_ref(), new_commit)
-                    .await?;
+                match working_copy_policy {
+                    WorkingCopyUpdatePolicy::Checkout => {
+                        self.update_working_copy(ui, maybe_old_wc_commit.as_ref(), new_commit)
+                            .await?;
+                    }
+                    WorkingCopyUpdatePolicy::Reset => {
+                        self.reset_working_copy(ui, new_commit).await?;
+                    }
+                }
             } else {
                 // It seems the workspace was deleted, so we shouldn't try to
                 // update it.
@@ -2696,6 +2729,17 @@ to the current parents may contain changes from multiple commits.
     }
 }
 
+/// Policy for synchronizing the working copy with a new working-copy commit
+/// when finishing a transaction.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub enum WorkingCopyUpdatePolicy {
+    /// Update files in the working directory to match the commit (default).
+    #[default]
+    Checkout,
+    /// Update working-copy tracking state without touching files on disk.
+    Reset,
+}
+
 #[cfg(feature = "git")]
 pub async fn export_working_copy_changes_to_git(
     ui: &Ui,
@@ -2842,6 +2886,16 @@ impl WorkspaceCommandTransaction<'_> {
     }
 
     pub async fn finish(self, ui: &Ui, description: impl Into<String>) -> Result<(), CommandError> {
+        self.finish_with_working_copy_policy(ui, description, WorkingCopyUpdatePolicy::Checkout)
+            .await
+    }
+
+    pub async fn finish_with_working_copy_policy(
+        self,
+        ui: &Ui,
+        description: impl Into<String>,
+        working_copy_policy: WorkingCopyUpdatePolicy,
+    ) -> Result<(), CommandError> {
         let Self { helper, mut tx, .. } = self;
         if !tx.repo().has_changes() {
             writeln!(ui.status(), "Nothing changed.")?;
@@ -2855,7 +2909,13 @@ impl WorkspaceCommandTransaction<'_> {
         // Git HEAD export happens atomically with the transaction commit.
         let git_import_export_lock = helper.lock_git_import_export()?;
         helper
-            .finish_transaction(ui, tx, description, &git_import_export_lock)
+            .finish_transaction(
+                ui,
+                tx,
+                description,
+                &git_import_export_lock,
+                working_copy_policy,
+            )
             .await
     }
 
