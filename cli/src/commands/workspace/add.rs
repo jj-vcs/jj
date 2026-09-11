@@ -68,6 +68,19 @@ pub struct WorkspaceAddArgs {
     #[arg(long)]
     name: Option<WorkspaceNameBuf>,
 
+    /// Adopt an existing directory without checking out files.
+    ///
+    /// The destination directory must already exist and must not contain a .jj
+    /// directory.
+    ///
+    /// Any changes made between the working copy commit and the destination
+    /// directory will be preserved in in the working copy of the new workspace.
+    ///
+    /// This is best used in combination with a CoW filesystem such as btrfs or
+    /// zfs to get instantaneous snapshotting.
+    #[arg(long)]
+    adopt: bool,
+
     /// A list of parent revisions for the working-copy commit of the newly
     /// created workspace. You may specify nothing, or any number of parents.
     ///
@@ -136,7 +149,25 @@ pub async fn cmd_workspace_add(
             name = workspace_name.as_symbol()
         )));
     }
-    if !destination_path.exists() {
+    if args.adopt {
+        if !destination_path.is_dir() {
+            return Err(user_error("Destination path is not a directory"));
+        }
+        // We may want to revisit deleting .jj later, but for now, we shouldn't.
+        // It prevents some really catastrophic things such as:
+        // * Trying to adopt a symlink
+        // * Trying to adopt an independent repo with its own set of commits.
+        // Both of these delete real jj metadata. We could consider backing up .jj.
+        if destination_path.join(".jj").exists() {
+            return Err(
+                user_error("Destination path already contains a .jj directory").hinted(
+                    "If this directory was created by snapshotting an existing workspace, delete \
+                     its copied .jj directory before adopting it.\nDo not delete .jj if this is \
+                     an independent repository containing commits or history you want to keep.",
+                ),
+            );
+        }
+    } else if !destination_path.exists() {
         fs::create_dir(&destination_path).context(&destination_path)?;
     } else if !file_util::is_empty_dir(&destination_path)? {
         return Err(user_error(
@@ -166,12 +197,25 @@ pub async fn cmd_workspace_add(
     let repo_path = old_workspace_command.repo_path();
     // If we add per-workspace configuration, we'll need to reload settings for
     // the new workspace.
-    let (new_workspace, repo) = Workspace::init_workspace_with_existing_repo(
+    let (new_workspace, repo) = Workspace::init_workspace_with_existing_repo_at_commit(
         &destination_path,
         repo_path,
         repo,
         working_copy_factory,
         workspace_name.clone(),
+        &if args.adopt {
+            repo.store()
+                .get_commit_async(
+                    repo.view()
+                        .get_wc_commit_id(old_workspace_command.workspace_name())
+                        .ok_or_else(|| {
+                            user_error("This workspace has no working-copy commit to adopt from")
+                        })?,
+                )
+                .await?
+        } else {
+            repo.store().root_commit()
+        },
     )
     .await?;
     writeln!(
