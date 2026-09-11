@@ -49,6 +49,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Use the `--sparse-patterns` option to control this behavior (evaluated
   per each `jj run` invocation).
 
+* When on `btrfs`, `jj clone` and `jj git init` create a subvolume that it can
+  efficiently snapshot to create copies of instantaneously. If the directory
+  already exists, It will print warnings that certain features will not be
+  available.
+
 ### Fixed bugs
 
 ## [0.45.1] - 2026-09-03

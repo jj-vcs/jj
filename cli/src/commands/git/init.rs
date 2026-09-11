@@ -44,6 +44,7 @@ use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
 use crate::commands::git::maybe_add_gitignore;
 use crate::config::ConfigEnv;
+use crate::cow::create_cow_dir;
 use crate::formatter::FormatterExt as _;
 use crate::git_util::is_colocated_git_workspace;
 use crate::git_util::load_git_import_options;
@@ -145,7 +146,7 @@ pub async fn cmd_git_init(
     }
     let cwd = command.cwd();
     let wc_path = cwd.join(&args.destination);
-    let wc_path = file_util::create_or_reuse_dir(&wc_path)
+    let wc_path = create_cow_dir(ui, &wc_path)
         .and_then(|_| dunce::canonicalize(wc_path))
         .map_err(|e| user_error_with_message("Failed to create workspace", e))?;
 
