@@ -20,6 +20,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* Added the `TreeEntry.normal_value()` template method and the `TreeValue` type
+  to access resolved tree values, formatted as their full object IDs, including
+  Git submodule commit IDs.
+
 * Git-format diff hunk headers now include nearby source symbols for many common
   programming and markup languages.
 

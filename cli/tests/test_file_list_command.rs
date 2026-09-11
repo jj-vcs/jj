@@ -93,3 +93,18 @@ fn test_file_list() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_file_list_normal_value() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("file", "content");
+
+    let template = r#"path ++ " " ++ normal_value ++ "\n""#;
+    let output = work_dir.run_jj(["file", "list", "-T", template]);
+    insta::assert_snapshot!(output, @"
+    file 6b584e8ece562ebffc15d38808cd6b98fc3d97ea
+    [EOF]
+    ");
+}

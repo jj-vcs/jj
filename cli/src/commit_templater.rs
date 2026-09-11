@@ -351,6 +351,15 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
             }
+            CommitTemplatePropertyKind::TreeValue(property) => {
+                let table = &self.build_fn_table.tree_value_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(self, diagnostics, build_ctx, property, function)
+            }
+            CommitTemplatePropertyKind::TreeValueOpt(property) => {
+                let inner_property = property.try_unwrap(type_name).into_dyn_wrapped();
+                self.build_method(diagnostics, build_ctx, inner_property, function)
+            }
             CommitTemplatePropertyKind::DiffStats(property) => {
                 let table = &self.build_fn_table.diff_stats_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
@@ -453,6 +462,8 @@ pub enum CommitTemplatePropertyKind<'repo> {
     TreeDiffEntryList(BoxedTemplateProperty<'repo, Vec<TreeDiffEntry>>),
     TreeEntry(BoxedTemplateProperty<'repo, TreeEntry>),
     TreeEntryList(BoxedTemplateProperty<'repo, Vec<TreeEntry>>),
+    TreeValue(BoxedTemplateProperty<'repo, TreeValue>),
+    TreeValueOpt(BoxedTemplateProperty<'repo, Option<TreeValue>>),
     DiffStats(BoxedTemplateProperty<'repo, DiffStatsFormatted<'repo>>),
     DiffStatEntry(BoxedTemplateProperty<'repo, DiffStatEntry>),
     DiffStatEntryList(BoxedTemplateProperty<'repo, Vec<DiffStatEntry>>),
@@ -488,6 +499,8 @@ template_builder::impl_property_wrappers!(<'repo> CommitTemplatePropertyKind<'re
     TreeDiffEntryList(Vec<TreeDiffEntry>),
     TreeEntry(TreeEntry),
     TreeEntryList(Vec<TreeEntry>),
+    TreeValue(TreeValue),
+    TreeValueOpt(Option<TreeValue>),
     DiffStats(DiffStatsFormatted<'repo>),
     DiffStatEntry(DiffStatEntry),
     DiffStatEntryList(Vec<DiffStatEntry>),
@@ -537,6 +550,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::TreeDiffEntryList(_) => "List<TreeDiffEntry>",
             Self::TreeEntry(_) => "TreeEntry",
             Self::TreeEntryList(_) => "List<TreeEntry>",
+            Self::TreeValue(_) => "TreeValue",
+            Self::TreeValueOpt(_) => "Option<TreeValue>",
             Self::DiffStats(_) => "DiffStats",
             Self::DiffStatEntry(_) => "DiffStatEntry",
             Self::DiffStatEntryList(_) => "List<DiffStatEntry>",
@@ -596,6 +611,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::TreeDiffEntryList(property) => Ok(list_to_boolean(property)),
             Self::TreeEntry(_) => Err(self),
             Self::TreeEntryList(property) => Ok(list_to_boolean(property)),
+            Self::TreeValue(_) => Err(self),
+            Self::TreeValueOpt(property) => Ok(option_to_boolean(property)),
             Self::DiffStats(_) => Err(self),
             Self::DiffStatEntry(_) => Err(self),
             Self::DiffStatEntryList(property) => Ok(list_to_boolean(property)),
@@ -649,6 +666,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::TreeDiffEntryList(_) => None,
             Self::TreeEntry(_) => None,
             Self::TreeEntryList(_) => None,
+            Self::TreeValue(_) => None,
+            Self::TreeValueOpt(_) => None,
             Self::DiffStats(_) => None,
             Self::DiffStatEntry(_) => None,
             Self::DiffStatEntryList(_) => None,
@@ -686,6 +705,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::TreeDiffEntryList(_) => None,
             Self::TreeEntry(_) => None,
             Self::TreeEntryList(_) => None,
+            Self::TreeValue(property) => Some(property.into_template()),
+            Self::TreeValueOpt(property) => Some(property.into_template()),
             Self::DiffStats(property) => Some(property.into_template()),
             Self::DiffStatEntry(_) => None,
             Self::DiffStatEntryList(_) => None,
@@ -756,6 +777,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             (Self::TreeDiffEntryList(_), _) => None,
             (Self::TreeEntry(_), _) => None,
             (Self::TreeEntryList(_), _) => None,
+            (Self::TreeValue(_), _) => None,
+            (Self::TreeValueOpt(_), _) => None,
             (Self::DiffStats(_), _) => None,
             (Self::DiffStatEntry(_), _) => None,
             (Self::DiffStatEntryList(_), _) => None,
@@ -799,6 +822,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             (Self::TreeDiffEntryList(_), _) => None,
             (Self::TreeEntry(_), _) => None,
             (Self::TreeEntryList(_), _) => None,
+            (Self::TreeValue(_), _) => None,
+            (Self::TreeValueOpt(_), _) => None,
             (Self::DiffStats(_), _) => None,
             (Self::DiffStatEntry(_), _) => None,
             (Self::DiffStatEntryList(_), _) => None,
@@ -837,6 +862,7 @@ pub struct CommitTemplateBuildFnTable<'repo> {
     pub tree_diff_entry_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<TreeDiffEntry>>,
     pub tree_entry_methods: CommitTemplateBuildMethodFnMap<'repo, TreeEntry>,
     pub tree_entry_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<TreeEntry>>,
+    pub tree_value_methods: CommitTemplateBuildMethodFnMap<'repo, TreeValue>,
     pub diff_stats_methods: CommitTemplateBuildMethodFnMap<'repo, DiffStats>,
     pub diff_stat_entry_methods: CommitTemplateBuildMethodFnMap<'repo, DiffStatEntry>,
     pub diff_stat_entry_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<DiffStatEntry>>,
@@ -868,6 +894,7 @@ impl CommitTemplateBuildFnTable<'_> {
             tree_diff_entry_list_methods: HashMap::new(),
             tree_entry_methods: HashMap::new(),
             tree_entry_list_methods: HashMap::new(),
+            tree_value_methods: HashMap::new(),
             diff_stats_methods: HashMap::new(),
             diff_stat_entry_methods: HashMap::new(),
             diff_stat_entry_list_methods: HashMap::new(),
@@ -898,6 +925,7 @@ impl CommitTemplateBuildFnTable<'_> {
             tree_diff_entry_list_methods,
             tree_entry_methods,
             tree_entry_list_methods,
+            tree_value_methods,
             diff_stats_methods,
             diff_stat_entry_methods,
             diff_stat_entry_list_methods,
@@ -937,6 +965,7 @@ impl CommitTemplateBuildFnTable<'_> {
         );
         merge_fn_map(&mut self.tree_entry_methods, tree_entry_methods);
         merge_fn_map(&mut self.tree_entry_list_methods, tree_entry_list_methods);
+        merge_fn_map(&mut self.tree_value_methods, tree_value_methods);
         merge_fn_map(&mut self.diff_stats_methods, diff_stats_methods);
         merge_fn_map(&mut self.diff_stat_entry_methods, diff_stat_entry_methods);
         merge_fn_map(
@@ -975,6 +1004,7 @@ impl CommitTemplateBuildFnTable<'_> {
             tree_diff_entry_list_methods: template_builder::builtin_unformattable_list_methods(),
             tree_entry_methods: builtin_tree_entry_methods(),
             tree_entry_list_methods: template_builder::builtin_unformattable_list_methods(),
+            tree_value_methods: HashMap::new(),
             diff_stats_methods: builtin_diff_stats_methods(),
             diff_stat_entry_methods: builtin_diff_stat_entry_methods(),
             diff_stat_entry_list_methods: template_builder::builtin_unformattable_list_methods(),
@@ -2673,6 +2703,14 @@ fn builtin_tree_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
         },
     );
     map.insert(
+        "normal_value",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|entry| entry.value.as_normal().cloned());
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
         "conflict",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
@@ -2708,6 +2746,17 @@ fn builtin_tree_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
         },
     );
     map
+}
+
+impl Template for TreeValue {
+    fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
+        match self {
+            Self::File { id, .. } => write!(formatter, "{id}"),
+            Self::Symlink(id) => write!(formatter, "{id}"),
+            Self::Tree(id) => write!(formatter, "{id}"),
+            Self::GitSubmodule(id) => write!(formatter, "{id}"),
+        }
+    }
 }
 
 fn describe_file_type(value: &MergedTreeValue) -> &'static str {
@@ -3035,6 +3084,9 @@ fn builtin_trailer_list_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo
 mod tests {
     use std::path::Component;
 
+    use jj_lib::backend::CopyId;
+    use jj_lib::backend::FileId;
+    use jj_lib::backend::SymlinkId;
     use jj_lib::config::ConfigLayer;
     use jj_lib::config::ConfigSource;
     use jj_lib::fileset::FilesetAliasesMap;
@@ -3171,6 +3223,45 @@ mod tests {
             .unwrap();
         config.add_layer(layer);
         UserSettings::from_config(config).unwrap()
+    }
+
+    #[test]
+    fn test_tree_entry_normal_value() {
+        let env = CommitTemplateTestEnv::init();
+        let file = TreeValue::File {
+            id: FileId::from_hex("0123456789abcdef"),
+            executable: false,
+            copy_id: CopyId::from_hex("00"),
+        };
+        let mut entry = TreeEntry {
+            path: repo_path_buf("entry"),
+            value: MergedTreeValue::normal(file.clone()),
+        };
+        let template =
+            r#"if(self.normal_value(), "present", "absent") ++ ":" ++ self.normal_value()"#;
+        insta::assert_snapshot!(env.render_ok(template, &entry), @"present:0123456789abcdef");
+
+        entry.value = MergedTreeValue::normal(TreeValue::GitSubmodule(CommitId::from_hex(
+            "0123456789abcdef0123456789abcdef01234567",
+        )));
+        insta::assert_snapshot!(env.render_ok(template, &entry), @"present:0123456789abcdef0123456789abcdef01234567");
+        entry.value = MergedTreeValue::absent();
+        insta::assert_snapshot!(env.render_ok(template, &entry), @"absent:");
+
+        entry.value = MergedTreeValue::from_removes_adds(
+            [None],
+            [
+                Some(file.clone()),
+                Some(TreeValue::Symlink(SymlinkId::from_hex("abcdef"))),
+            ],
+        );
+        insta::assert_snapshot!(env.render_ok(template, &entry), @"absent:");
+
+        // Do not simplify an unresolved value, even if its terms cancel out.
+        entry.value = MergedTreeValue::from_removes_adds([None], [Some(file), None]);
+        insta::assert_snapshot!(env.render_ok(template, &entry), @"absent:");
+
+        assert!(env.parse::<TreeEntry>("self.normal_value(1)").is_err());
     }
 
     #[test]

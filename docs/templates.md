@@ -792,12 +792,23 @@ _Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
 This type cannot be printed. The following methods are defined.
 
 * `.path() -> RepoPath`: Path to the entry.
+* `.normal_value() -> Option<TreeValue>`: The resolved value of the entry, or none
+  if the entry is absent or conflicted. Here, "normal" means resolved, not just a
+  regular file: symlinks, trees, and Git submodules are also included.
 * `.conflict() -> Boolean`: True if the entry is a merge conflict.
 * `.conflict_side_count() -> Integer`: Number of sides in the merge conflict (1 if not
   conflicted, 2 or more for multi-way merges).
 * `.file_type() -> String`: One of `"file"`, `"symlink"`, `"tree"`,
   `"git-submodule"`, or `"conflict"`.
 * `.executable() -> Boolean`: True if the entry is an executable file.
+
+### `TreeValue` type
+
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: yes_
+
+A file, symlink, tree, or Git submodule value. Its default formatting is
+its full hexadecimal object ID. For a Git submodule, this is the recorded commit
+ID. No methods are defined.
 
 ### `WorkspaceRef` type
 
@@ -920,6 +931,12 @@ sh.doc = 'Short commit ID'
 ```
 
 ## Examples
+
+Print the object IDs on both sides of a diff:
+
+```sh
+jj diff -T 'path ++ " " ++ self.source().normal_value() ++ " -> " ++ self.target().normal_value() ++ "\n"'
+```
 
 Get short commit IDs of the working-copy parents:
 
