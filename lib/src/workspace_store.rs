@@ -45,6 +45,15 @@ pub enum WorkspaceStoreError {
     Other(#[from] Box<dyn std::error::Error + Send + Sync>),
 }
 
+/// Factory trait to build WorkspaceStore.
+pub trait WorkspaceStoreFactory {
+    /// Creates a new empty `WorkspaceStore` instance for the given repo. Fails if an instance already exists.
+    fn init(&self, repo_path: &Path) -> Result<Box<dyn WorkspaceStore>, WorkspaceStoreError>;
+
+    /// Loads an existing `WorkspaceStore` for the given repo. Fails if there is no existing instance.
+    fn load(&self, repo_path: &Path) -> Result<Box<dyn WorkspaceStore>, WorkspaceStoreError>;
+}
+
 /// A storage backend for workspace metadata.
 pub trait WorkspaceStore: Send + Sync + Debug {
     /// Returns the name of this workspace store implementation.
@@ -93,9 +102,22 @@ impl From<SimpleWorkspaceStoreError> for WorkspaceStoreError {
     }
 }
 
+/// Builds SimpleWorkspaceStore instances.
+pub struct DefaultWorkspaceStoreFactory;
+
+impl WorkspaceStoreFactory for DefaultWorkspaceStoreFactory {
+    fn init(&self, repo_path: &Path) -> Result<Box<dyn WorkspaceStore>, WorkspaceStoreError> {
+        Ok(Box::new(SimpleWorkspaceStore::load(repo_path)?))
+    }
+
+    fn load(&self, repo_path: &Path) -> Result<Box<dyn WorkspaceStore>, WorkspaceStoreError> {
+        Ok(Box::new(SimpleWorkspaceStore::load(repo_path)?))
+    }
+}
+
 /// A simple file-based implementation of `WorkspaceStore`.
 #[derive(Debug)]
-pub struct SimpleWorkspaceStore {
+struct SimpleWorkspaceStore {
     repo_path: PathBuf,
     store_file: PathBuf,
     lock_file: PathBuf,

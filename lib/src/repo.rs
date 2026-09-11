@@ -116,6 +116,11 @@ use crate::transaction::TransactionCommitError;
 use crate::tree_merge::MergeOptions;
 use crate::view::RenameWorkspaceError;
 use crate::view::View;
+use crate::workspace::WorkspaceLoadError;
+use crate::workspace_store::DefaultWorkspaceStoreFactory;
+use crate::workspace_store::WorkspaceStore;
+use crate::workspace_store::WorkspaceStoreError;
+use crate::workspace_store::WorkspaceStoreFactory as _;
 
 #[async_trait(?Send)]
 pub trait Repo {
@@ -179,6 +184,8 @@ pub enum RepoInitError {
     #[error(transparent)]
     Backend(#[from] BackendInitError),
     #[error(transparent)]
+    WorkspaceStoreError(#[from] WorkspaceStoreError),
+    #[error(transparent)]
     OpHeadsStore(#[from] OpHeadsStoreError),
     #[error(transparent)]
     Path(#[from] PathError),
@@ -226,6 +233,7 @@ impl ReadonlyRepo {
         let merge_options =
             MergeOptions::from_settings(settings).map_err(|err| BackendInitError(err.into()))?;
         let store = Store::new(backend, signer, merge_options);
+        let workspace_store = Arc::from(DefaultWorkspaceStoreFactory.init(&repo_path)?);
 
         let op_store_path = repo_path.join("op_store");
         fs::create_dir(&op_store_path).context(&op_store_path)?;
@@ -263,6 +271,7 @@ impl ReadonlyRepo {
         let loader = RepoLoader {
             settings: settings.clone(),
             store,
+            workspace_store,
             op_store,
             op_heads_store,
             index_store,
@@ -622,6 +631,7 @@ pub enum RepoLoaderError {
 pub struct RepoLoader {
     settings: UserSettings,
     store: Arc<Store>,
+    workspace_store: Arc<dyn WorkspaceStore>,
     op_store: Arc<dyn OpStore>,
     op_heads_store: Arc<dyn OpHeadsStore>,
     index_store: Arc<dyn IndexStore>,
@@ -632,6 +642,7 @@ impl RepoLoader {
     pub fn new(
         settings: UserSettings,
         store: Arc<Store>,
+        workspace_store: Arc<dyn WorkspaceStore>,
         op_store: Arc<dyn OpStore>,
         op_heads_store: Arc<dyn OpHeadsStore>,
         index_store: Arc<dyn IndexStore>,
@@ -640,6 +651,7 @@ impl RepoLoader {
         Self {
             settings,
             store,
+            workspace_store,
             op_store,
             op_heads_store,
             index_store,
@@ -654,9 +666,11 @@ impl RepoLoader {
         settings: &UserSettings,
         repo_path: &Path,
         store_factories: &StoreFactories,
-    ) -> Result<Self, StoreLoadError> {
-        let merge_options =
-            MergeOptions::from_settings(settings).map_err(|err| BackendLoadError(err.into()))?;
+    ) -> Result<Self, WorkspaceLoadError> {
+        // Make sure we are in a workspace registered in the jj repo. A forgotten workspace is not registered.
+        let workspace_store: Arc<dyn WorkspaceStore> =
+            Arc::from(DefaultWorkspaceStoreFactory.load(repo_path)?);
+        let merge_options = MergeOptions::from_settings(settings)?;
         let store = Store::new(
             store_factories.load_backend(settings, &repo_path.join("store"))?,
             Signer::from_settings(settings)?,
@@ -680,6 +694,7 @@ impl RepoLoader {
         Ok(Self {
             settings: settings.clone(),
             store,
+            workspace_store,
             op_store,
             op_heads_store,
             index_store,
@@ -689,6 +704,10 @@ impl RepoLoader {
 
     pub fn settings(&self) -> &UserSettings {
         &self.settings
+    }
+
+    pub fn workspace_store(&self) -> &Arc<dyn WorkspaceStore> {
+        &self.workspace_store
     }
 
     pub fn store(&self) -> &Arc<Store> {

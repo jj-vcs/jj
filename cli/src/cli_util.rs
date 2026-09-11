@@ -74,6 +74,7 @@ use jj_lib::config::StackedConfig;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::default_backend_factories::default_backend_factories;
 use jj_lib::default_backend_factories::default_working_copy_factories;
+use jj_lib::default_backend_factories::default_workspace_loader_factory;
 use jj_lib::fileset;
 use jj_lib::fileset::FilesetAliasesMap;
 use jj_lib::fileset::FilesetDiagnostics;
@@ -144,7 +145,6 @@ use jj_lib::working_copy::UntrackedReason;
 use jj_lib::working_copy::WorkingCopy;
 use jj_lib::working_copy::WorkingCopyFactory;
 use jj_lib::working_copy::WorkingCopyFreshness;
-use jj_lib::workspace::DefaultWorkspaceLoaderFactory;
 use jj_lib::workspace::LockedWorkspace;
 use jj_lib::workspace::WorkingCopyFactories;
 use jj_lib::workspace::Workspace;
@@ -2931,7 +2931,12 @@ jj git init",
             err @ (StoreLoadError::ReadError { .. } | StoreLoadError::Backend(_)),
         ) => internal_error_with_message("The repository appears broken or inaccessible", err),
         WorkspaceLoadError::StoreLoadError(StoreLoadError::Signing(err)) => user_error(err),
+        WorkspaceLoadError::WorkspaceStoreError(err) => {
+            internal_error_with_message("The repository appears broken or inaccessible", err)
+        }
         WorkspaceLoadError::WorkingCopyState(err) => internal_error(err),
+        WorkspaceLoadError::ConfigGetError(_) => internal_error(err),
+        WorkspaceLoadError::SignInitError(_) => internal_error(err),
         WorkspaceLoadError::DecodeRepoPath(_) | WorkspaceLoadError::Path(_) => user_error(err),
     }
 }
@@ -4420,7 +4425,7 @@ impl<'a> CliRunner<'a> {
             config_migrations: crate::config::default_config_migrations(),
             store_factories: default_backend_factories(),
             working_copy_factories: default_working_copy_factories(),
-            workspace_loader_factory: Box::new(DefaultWorkspaceLoaderFactory),
+            workspace_loader_factory: default_workspace_loader_factory(),
             revset_extensions: Default::default(),
             commit_template_extensions: vec![],
             operation_template_extensions: vec![],

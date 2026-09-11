@@ -25,6 +25,7 @@ use thiserror::Error;
 
 use crate::backend::BackendInitError;
 use crate::commit::Commit;
+use crate::config::ConfigGetError;
 use crate::default_backend_factories::default_working_copy_factory;
 use crate::file_util;
 use crate::file_util::BadPathEncoding;
@@ -59,8 +60,6 @@ use crate::working_copy::LockedWorkingCopy;
 use crate::working_copy::WorkingCopy;
 use crate::working_copy::WorkingCopyFactory;
 use crate::working_copy::WorkingCopyStateError;
-use crate::workspace_store::SimpleWorkspaceStore;
-use crate::workspace_store::WorkspaceStore as _;
 use crate::workspace_store::WorkspaceStoreError;
 
 #[derive(Error, Debug)]
@@ -95,10 +94,16 @@ pub enum WorkspaceLoadError {
     NoWorkspaceHere(PathBuf),
     #[error("Cannot read the repo")]
     StoreLoadError(#[from] StoreLoadError),
+    #[error(transparent)]
+    WorkspaceStoreError(#[from] WorkspaceStoreError),
     #[error("Repo path could not be decoded")]
     DecodeRepoPath(#[source] BadPathEncoding),
     #[error(transparent)]
     WorkingCopyState(#[from] WorkingCopyStateError),
+    #[error(transparent)]
+    ConfigGetError(#[from] ConfigGetError),
+    #[error(transparent)]
+    SignInitError(#[from] SignInitError),
     #[error(transparent)]
     Path(#[from] PathError),
 }
@@ -321,10 +326,10 @@ impl Workspace {
             .await
             .map_err(|repo_init_err| match repo_init_err {
                 RepoInitError::Backend(err) => WorkspaceInitError::Backend(err),
+                RepoInitError::WorkspaceStoreError(err) => WorkspaceInitError::WorkspaceStore(err),
                 RepoInitError::OpHeadsStore(err) => WorkspaceInitError::OpHeadsStore(err),
                 RepoInitError::Path(err) => WorkspaceInitError::Path(err),
             })?;
-            let workspace_store = SimpleWorkspaceStore::load(&repo_dir)?;
             let (working_copy, repo) = init_working_copy(
                 &repo,
                 workspace_root,
@@ -336,7 +341,9 @@ impl Workspace {
             let repo_loader = repo.loader().clone();
             let repo_dir = dunce::canonicalize(&repo_dir).context(&repo_dir)?;
             let workspace = Self::new(workspace_root, repo_dir, working_copy, repo_loader)?;
-            workspace_store.add(workspace.workspace_name(), workspace.workspace_root())?;
+            repo.loader()
+                .workspace_store()
+                .add(workspace.workspace_name(), workspace.workspace_root())?;
             Ok((workspace, repo))
         }
         .await
@@ -388,7 +395,7 @@ impl Workspace {
         let repo_file_path = jj_dir.join("repo");
         fs::write(&repo_file_path, repo_dir_bytes).context(&repo_file_path)?;
 
-        let workspace_store = SimpleWorkspaceStore::load(repo_path)?;
+        let workspace_store = repo.loader().workspace_store();
         let (working_copy, repo) = init_working_copy(
             repo,
             workspace_root,
