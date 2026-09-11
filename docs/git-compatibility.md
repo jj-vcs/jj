@@ -97,6 +97,13 @@ into a directory by the same name.
 By default, the remote repository will be named `origin`. You can use a name of
 your choice by adding `--remote <remote name>` to the `jj git clone` command.
 
+## Fetching refs that are not branches or tags
+
+Use `jj git ref fetch --remote <remote> <ref-or-commit-id>...` to fetch raw Git
+refs, such as GitHub pull request refs, or full Git commit IDs. The fetched
+commits become visible without names. The command does not create bookmarks or
+remote-tracking refs.
+
 ## <a name="colocated-jujutsugit-repos"></a>Colocated Jujutsu/Git workspaces
 
 A colocated Jujutsu workspace is a hybrid Jujutsu/Git workspace. This is the
