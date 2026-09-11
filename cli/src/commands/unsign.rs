@@ -20,7 +20,7 @@ use jj_lib::commit::Commit;
 use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetStreamExt as _;
-use jj_lib::signing::SignBehavior;
+use jj_lib::settings::SignBehavior;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;

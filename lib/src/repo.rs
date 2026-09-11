@@ -105,8 +105,9 @@ use crate::rewrite::RewriteRefsOptions;
 use crate::rewrite::merge_commit_trees;
 use crate::rewrite::rebase_commit_with_options;
 use crate::settings::UserSettings;
-use crate::signing::SignInitError;
 use crate::signing::Signer;
+use crate::signing_factory::SignInitError;
+use crate::signing_factory::signer_from_settings;
 use crate::simple_op_heads_store::SimpleOpHeadsStore;
 use crate::simple_op_store::SimpleOpStore;
 use crate::store::Store;
@@ -659,7 +660,7 @@ impl RepoLoader {
             MergeOptions::from_settings(settings).map_err(|err| BackendLoadError(err.into()))?;
         let store = Store::new(
             store_factories.load_backend(settings, &repo_path.join("store"))?,
-            Signer::from_settings(settings)?,
+            signer_from_settings(settings)?,
             merge_options,
         );
         let root_op_data = RootOperationData {

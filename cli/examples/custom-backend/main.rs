@@ -43,7 +43,7 @@ use jj_lib::repo::StoreFactories;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::settings::UserSettings;
-use jj_lib::signing::Signer;
+use jj_lib::signing_factory::signer_from_settings;
 use jj_lib::workspace::Workspace;
 use jj_lib::workspace::WorkspaceInitError;
 
@@ -78,7 +78,7 @@ async fn run_custom_command(
                 &settings,
                 wc_path,
                 &|settings, store_path| Ok(Box::new(JitBackend::init(settings, store_path)?)),
-                Signer::from_settings(&settings).map_err(WorkspaceInitError::SignInit)?,
+                signer_from_settings(&settings).map_err(WorkspaceInitError::SignInit)?,
             )
             .await?;
             Ok(())

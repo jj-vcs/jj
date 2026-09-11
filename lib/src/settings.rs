@@ -37,7 +37,6 @@ use crate::config::StackedConfig;
 use crate::config::ToConfigNamePath;
 use crate::fmt_util::binary_prefix;
 use crate::ref_name::RemoteNameBuf;
-use crate::signing::SignBehavior;
 
 #[derive(Debug, Clone)]
 pub struct UserSettings {
@@ -87,6 +86,26 @@ impl RemoteSettings {
             .map(|name| Ok((name.into(), settings.get(["remotes", name])?)))
             .try_collect()
     }
+}
+
+/// A enum that describes if a created/rewritten commit should be signed or not.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SignBehavior {
+    /// Drop existing signatures.
+    /// This is what jj did before signing support or does now when a signing
+    /// backend is not configured.
+    Drop,
+    /// Only sign commits that were authored by self and already signed,
+    /// "preserving" the signature across rewrites.
+    /// This is what jj does when a signing backend is configured.
+    Keep,
+    /// Sign/re-sign commits that were authored by self and drop them for
+    /// others. This is what jj does when configured to always sign.
+    Own,
+    /// Always sign commits, regardless of who authored or signed them before.
+    /// This is what jj does on `jj sign -f`.
+    Force,
 }
 
 /// Commit signing settings, describes how to and if to sign commits.

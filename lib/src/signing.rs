@@ -23,14 +23,7 @@ use clru::CLruCache;
 use thiserror::Error;
 
 use crate::backend::CommitId;
-use crate::config::ConfigGetError;
-use crate::gpg_signing::GpgBackend;
-use crate::gpg_signing::GpgsmBackend;
-use crate::settings::UserSettings;
-use crate::ssh_signing::SshBackend;
 use crate::store::COMMIT_CACHE_CAPACITY;
-#[cfg(feature = "testing")]
-use crate::test_signing_backend::TestSigningBackend;
 
 /// A status of the signature, part of the [Verification] type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -130,37 +123,6 @@ pub enum SignError {
 /// A result type for the signing/verifying operations
 pub type SignResult<T> = Result<T, SignError>;
 
-/// An error type for the signing backend initialization.
-#[derive(Debug, Error)]
-pub enum SignInitError {
-    /// If the backend name specified in the config is not known.
-    #[error("Unknown signing backend configured: {0}")]
-    UnknownBackend(String),
-    /// Failed to load backend configuration.
-    #[error("Failed to configure signing backend")]
-    BackendConfig(#[source] ConfigGetError),
-}
-
-/// A enum that describes if a created/rewritten commit should be signed or not.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum SignBehavior {
-    /// Drop existing signatures.
-    /// This is what jj did before signing support or does now when a signing
-    /// backend is not configured.
-    Drop,
-    /// Only sign commits that were authored by self and already signed,
-    /// "preserving" the signature across rewrites.
-    /// This is what jj does when a signing backend is configured.
-    Keep,
-    /// Sign/re-sign commits that were authored by self and drop them for
-    /// others. This is what jj does when configured to always sign.
-    Own,
-    /// Always sign commits, regardless of who authored or signed them before.
-    /// This is what jj does on `jj sign -f`.
-    Force,
-}
-
 /// Wraps low-level signing backends and adds caching, similar to `Store`.
 #[derive(Debug)]
 pub struct Signer {
@@ -175,32 +137,6 @@ pub struct Signer {
 }
 
 impl Signer {
-    /// Creates a signer based on user settings. Uses all known backends, and
-    /// chooses one of them to be used for signing depending on the config.
-    pub fn from_settings(settings: &UserSettings) -> Result<Self, SignInitError> {
-        let mut backends: Vec<Box<dyn SigningBackend>> = vec![
-            Box::new(GpgBackend::from_settings(settings).map_err(SignInitError::BackendConfig)?),
-            Box::new(GpgsmBackend::from_settings(settings).map_err(SignInitError::BackendConfig)?),
-            Box::new(SshBackend::from_settings(settings).map_err(SignInitError::BackendConfig)?),
-            #[cfg(feature = "testing")]
-            Box::new(TestSigningBackend),
-        ];
-
-        let main_backend = settings
-            .signing_backend()
-            .map_err(SignInitError::BackendConfig)?
-            .map(|backend| {
-                backends
-                    .iter()
-                    .position(|b| b.name() == backend)
-                    .map(|i| backends.remove(i))
-                    .ok_or(SignInitError::UnknownBackend(backend))
-            })
-            .transpose()?;
-
-        Ok(Self::new(main_backend, backends))
-    }
-
     /// Creates a signer with the given backends.
     pub fn new(
         main_backend: Option<Box<dyn SigningBackend>>,

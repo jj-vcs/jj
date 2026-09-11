@@ -33,9 +33,9 @@ use crate::merged_tree::MergedTree;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::settings::JJRng;
+use crate::settings::SignBehavior;
 use crate::settings::SignSettings;
 use crate::settings::UserSettings;
-use crate::signing::SignBehavior;
 use crate::store::Store;
 
 #[must_use]
