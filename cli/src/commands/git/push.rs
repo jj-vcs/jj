@@ -574,13 +574,7 @@ pub async fn cmd_git_push(
         .await?;
     }
 
-    let git_settings = GitSettings::from_settings(tx.settings())?;
-    let options = GitPushOptions {
-        remote_push_options: args.option.clone(),
-    };
-    let mut all_ok = true;
-    let mut some_exported = false;
-
+    let mut total_ref_updates = 0;
     for (remote, ref_updates) in &by_remote {
         if let Some(mut formatter) = ui.status_formatter() {
             writeln!(
@@ -591,10 +585,35 @@ pub async fn cmd_git_push(
             print_commits_ready_to_push(formatter.as_mut(), tx.repo(), ref_updates).await?;
         }
 
-        if args.dry_run {
-            continue;
-        }
+        total_ref_updates += ref_updates.bookmarks.len();
+        total_ref_updates += ref_updates.tags.len();
+    }
 
+    if args.dry_run {
+        writeln!(ui.status(), "Dry-run requested, not pushing.")?;
+        return Ok(());
+    }
+
+    // If `git.confirm-before-push` is set to `auto`, we only prompt the user
+    // when more than one bookmark or tag are pushed at the same time.
+    let needs_confirm = match tx.settings().get("git.confirm-before-push")? {
+        PushConfirmChoice::Always => true,
+        PushConfirmChoice::Auto => total_ref_updates > 1,
+        PushConfirmChoice::Never => false,
+    };
+
+    if needs_confirm && !ui.prompt_yes_no("Continue?", Some(true))? {
+        writeln!(ui.status(), "Aborting; nothing was changed.")?;
+        return Ok(());
+    }
+
+    let git_settings = GitSettings::from_settings(tx.settings())?;
+    let options = GitPushOptions {
+        remote_push_options: args.option.clone(),
+    };
+    let mut all_ok = true;
+    let mut some_exported = false;
+    for (remote, ref_updates) in &by_remote {
         let push_stats = git::push_refs(
             tx.repo_mut(),
             git_settings.to_subprocess_options(),
@@ -608,11 +627,6 @@ pub async fn cmd_git_push(
 
         all_ok &= push_stats.all_ok();
         some_exported |= push_stats.some_exported();
-    }
-
-    if args.dry_run {
-        writeln!(ui.status(), "Dry-run requested, not pushing.")?;
-        return Ok(());
     }
 
     // TODO: On partial success, locally-created --change/--named bookmarks will
@@ -655,6 +669,21 @@ pub async fn cmd_git_push(
     } else {
         Err(user_error("Failed to push some bookmarks"))
     }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PushConfirmChoice {
+    /// Always ask for confirmation before pushing
+    Always,
+    /// Only prompt if more than one bookmark/tag is about to be pushed
+    ///
+    /// If more than one bookmark or tag is moved in the same push, it is
+    /// possible that some of them were unintentional, so we should give the
+    /// user a chance to correct their mistake.
+    Auto,
+    /// Never prompt the user before pushing a change
+    Never,
 }
 
 #[derive(Debug, Copy, Clone)]
