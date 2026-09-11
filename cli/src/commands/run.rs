@@ -390,6 +390,110 @@ struct RunJob {
     status: Option<ExitStatus>,
 }
 
+impl RunJob {
+    /// A job for a commit the command wasn't run on.
+    fn skipped(old_id: CommitId, old_tree: MergedTree) -> Self {
+        Self {
+            old_id,
+            old_tree,
+            new_tree: None,
+            stdout: Vec::new(),
+            stderr: Vec::new(),
+            skipped: true,
+            status: None,
+        }
+    }
+
+    /// Whether the command ran and reported failure.
+    fn failed(&self) -> bool {
+        self.status.is_some_and(|status| !status.success())
+    }
+}
+
+/// Resolve the directory the command should run in for a checkout rooted at
+/// `working_copy_dir`. Returns `None` if `spec.subdir` doesn't exist there, in
+/// which case the commit is skipped.
+fn resolve_exec_dir(spec: &CommandSpec, working_copy_dir: &Path) -> Option<PathBuf> {
+    match &spec.subdir {
+        Some(subdir) => {
+            let exec_dir = working_copy_dir.join(subdir);
+            exec_dir.is_dir().then_some(exec_dir)
+        }
+        None => Some(working_copy_dir.to_owned()),
+    }
+}
+
+/// Spawn `spec` for `commit` and wait for it to exit.
+async fn spawn_command(
+    spec: &CommandSpec,
+    commit: &Commit,
+    working_copy_dir: &Path,
+    exec_dir: &Path,
+    passthrough: bool,
+) -> Result<Output, RunError> {
+    // TODO: Later this should take some trait which allows `run` to integrate with
+    // something like Bazels RE protocol.
+    // e.g
+    // ```
+    // let mut executor /* Arc<dyn CommandExecutor> */ = store.get_executor();
+    // let command = executor.spawn(...)?; // RE or separate processes depending on impl.
+    // ...
+    // ```
+    tracing::debug!("trying to run command '{}' on commit {}", spec, commit.id());
+
+    let mut command = tokio::process::Command::new(&spec.program);
+    command
+        .args(&spec.args)
+        .current_dir(exec_dir)
+        .env("JJ_WORKSPACE_ROOT", working_copy_dir)
+        .env("JJ_CHANGE_ID", commit.change_id().reverse_hex())
+        .env("JJ_COMMIT_ID", commit.id().hex())
+        .stdin(Stdio::null())
+        .kill_on_drop(true);
+    if passthrough {
+        // Connect stdout/stderr directly to the terminal so TTY-aware
+        // programs work as expected. Capture is not possible; we wait
+        // for the process to exit and return empty stdout/stderr.
+        command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
+        let status = command.status().await?;
+        Ok(Output {
+            status,
+            stdout: Vec::new(),
+            stderr: Vec::new(),
+        })
+    } else {
+        // Pipe and buffer the subprocess's stdout/stderr so we can emit them
+        // atomically to the parent's stdout/stderr after the process exits.
+        // Writing concurrently from multiple jobs would interleave output.
+        command.stdout(Stdio::piped()).stderr(Stdio::piped());
+        Ok(command.spawn()?.wait_with_output().await?)
+    }
+}
+
+/// Emit what a finished job has to say to the user.
+fn print_job_output(ui: &Ui, spec: &CommandSpec, job: &RunJob) -> io::Result<()> {
+    if job.skipped {
+        writeln!(
+            ui.status(),
+            "Skipped commit {}: directory does not exist: {}",
+            job.old_id.hex(),
+            spec.subdir.as_deref().unwrap_or(Path::new("")).display()
+        )?;
+    } else {
+        // Acquiring `ui.stdout()` / `ui.stderr()` for the duration of the write
+        // keeps each commit's output from interleaving with another's.
+        if !job.stdout.is_empty() {
+            let mut out = ui.stdout();
+            out.write_all(&job.stdout)?;
+        }
+        if !job.stderr.is_empty() {
+            let mut err = ui.stderr();
+            err.write_all(&job.stderr)?;
+        }
+    }
+    Ok(())
+}
+
 // TODO: make this more revset/commit stream friendly.
 #[allow(clippy::too_many_arguments)]
 async fn run_inner(
@@ -430,7 +534,7 @@ async fn run_inner(
             Ok(rj) => rj?,
             Err(err) => return Err(RunError::JobFailure(err)),
         };
-        let failed = done.status.is_some_and(|status| !status.success());
+        let failed = done.failed();
         let should_quit = sender.send(done).await.is_err();
         if should_quit {
             tracing::debug!(
@@ -466,69 +570,18 @@ async fn rewrite_commit(
 
     // Resolve where the command should run. If the subdir doesn't exist in this
     // commit's checked-out tree, skip the commit entirely.
-    let exec_dir = if let Some(subdir) = &spec.subdir {
-        let exec_dir = working_copy_dir.join(subdir);
-        if !exec_dir.is_dir() {
-            tracing::debug!(
-                ?exec_dir,
-                commit = old_id.hex(),
-                "subdirectory does not exist in commit; skipping"
-            );
-            // Persist the post-checkout state so the next pool acquisition
-            // can diff from this tree even though no command ran.
-            workspace.persist()?;
-            return Ok(RunJob {
-                old_id,
-                old_tree,
-                new_tree: None,
-                stdout: Vec::new(),
-                stderr: Vec::new(),
-                skipped: true,
-                status: None,
-            });
-        }
-        exec_dir
-    } else {
-        working_copy_dir.clone()
+    let Some(exec_dir) = resolve_exec_dir(&spec, &working_copy_dir) else {
+        tracing::debug!(
+            commit = old_id.hex(),
+            "subdirectory does not exist in commit; skipping"
+        );
+        // Persist the post-checkout state so the next pool acquisition
+        // can diff from this tree even though no command ran.
+        workspace.persist()?;
+        return Ok(RunJob::skipped(old_id, old_tree));
     };
 
-    // TODO: Later this should take some trait which allows `run` to integrate with
-    // something like Bazels RE protocol.
-    // e.g
-    // ```
-    // let mut executor /* Arc<dyn CommandExecutor> */ = store.get_executor();
-    // let command = executor.spawn(...)?; // RE or separate processes depending on impl.
-    // ...
-    // ```
-    tracing::debug!("trying to run command '{}' on commit {}", spec, commit.id());
-
-    let mut command = tokio::process::Command::new(&spec.program);
-    command
-        .args(&spec.args)
-        .current_dir(&exec_dir)
-        .env("JJ_WORKSPACE_ROOT", &working_copy_dir)
-        .env("JJ_CHANGE_ID", commit.change_id().reverse_hex())
-        .env("JJ_COMMIT_ID", commit.id().hex())
-        .stdin(Stdio::null())
-        .kill_on_drop(true);
-    let output = if passthrough {
-        // Connect stdout/stderr directly to the terminal so TTY-aware
-        // programs work as expected. Capture is not possible; we wait
-        // for the process to exit and return empty stdout/stderr.
-        command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
-        let status = command.status().await?;
-        Output {
-            status,
-            stdout: Vec::new(),
-            stderr: Vec::new(),
-        }
-    } else {
-        // Pipe and buffer the subprocess's stdout/stderr so we can emit them
-        // atomically to the parent's stdout/stderr after the process exits.
-        // Writing concurrently from multiple jobs would interleave output.
-        command.stdout(Stdio::piped()).stderr(Stdio::piped());
-        command.spawn()?.wait_with_output().await?
-    };
+    let output = spawn_command(&spec, &commit, &working_copy_dir, &exec_dir, passthrough).await?;
 
     let options = pool.snapshot_options(base_ignores);
     tracing::debug!("trying to snapshot the new tree");
@@ -838,43 +891,27 @@ pub async fn cmd_run(
         },
         async {
             while let Some(res) = receiver.recv().await {
+                print_job_output(ui, &spec, &res)?;
                 if res.skipped {
-                    writeln!(
-                        ui.status(),
-                        "Skipped commit {}: directory does not exist: {}",
-                        res.old_id.hex(),
-                        spec.subdir.as_deref().unwrap_or(Path::new("")).display()
-                    )?;
-                } else {
-                    if let Some(status) = res.status {
-                        // Emit the subprocess's captured streams. Acquiring
-                        // `ui.stdout()` / `ui.stderr()` for the duration of the
-                        // write keeps each commit's output from interleaving with
-                        // another's.
-                        if !res.stdout.is_empty() {
-                            let mut out = ui.stdout();
-                            out.write_all(&res.stdout)?;
-                        }
-                        if !res.stderr.is_empty() {
-                            let mut err = ui.stderr();
-                            err.write_all(&res.stderr)?;
-                        }
-                        if !status.success() && !args.ignore_errors {
-                            let commit = store.get_commit_async(&res.old_id).await?;
-                            let mut error: CommandError =
-                                RunError::CommandFailure(spec.to_string(), status).into();
-                            error.add_formatted_hint_with(|formatter| {
-                                write!(formatter, "Failed revision: ")?;
-                                tx.write_commit_summary(formatter, &commit)
-                            });
-                            return Err(error);
-                        }
-                    }
-                    if let Some(new_tree) = res.new_tree
-                        && new_tree.tree_ids_and_labels() != res.old_tree.tree_ids_and_labels()
-                    {
-                        rewritten_commits.insert(res.old_id.clone(), (res.old_tree, new_tree));
-                    }
+                    continue;
+                }
+                if let Some(status) = res.status
+                    && !status.success()
+                    && !args.ignore_errors
+                {
+                    let commit = store.get_commit_async(&res.old_id).await?;
+                    let mut error: CommandError =
+                        RunError::CommandFailure(spec.to_string(), status).into();
+                    error.add_formatted_hint_with(|formatter| {
+                        write!(formatter, "Failed revision: ")?;
+                        tx.write_commit_summary(formatter, &commit)
+                    });
+                    return Err(error);
+                }
+                if let Some(new_tree) = res.new_tree
+                    && new_tree.tree_ids_and_labels() != res.old_tree.tree_ids_and_labels()
+                {
+                    rewritten_commits.insert(res.old_id.clone(), (res.old_tree, new_tree));
                 }
             }
             Ok::<_, CommandError>(())
