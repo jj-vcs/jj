@@ -23,6 +23,7 @@ use jj_lib::file_util::IoResultExt as _;
 use jj_lib::git::GitSubprocessOptions;
 #[cfg(feature = "git")]
 use jj_lib::git::create_worktree;
+use jj_lib::object_id::ObjectId as _;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::merge_commit_trees;
@@ -67,6 +68,25 @@ pub struct WorkspaceAddArgs {
     /// directory.
     #[arg(long)]
     name: Option<WorkspaceNameBuf>,
+
+    /// Adopt an existing working copy instead of creating a workspace.
+    ///
+    /// The destination directory must already exist and must not contain a .jj
+    /// directory. The contents of the destination directory will be modified
+    /// to match what the output of this command without the `--adopt` flag
+    /// (an empty commit on top of parents).
+    ///
+    /// This is best used in combination with a copy-on-write filesystem such
+    /// as Btrfs or ZFS to get instantaneous workspace creation.
+    ///
+    /// Example:
+    /// ```shell
+    /// btrfs subvolume clone src dst
+    /// rm -rf dst/.jj dst/.git
+    /// jj -R src workspace add dst --adopt [--colocate]
+    /// ```
+    #[arg(long, verbatim_doc_comment)]
+    adopt: bool,
 
     /// A list of parent revisions for the working-copy commit of the newly
     /// created workspace. You may specify nothing, or any number of parents.
@@ -136,7 +156,29 @@ pub async fn cmd_workspace_add(
             name = workspace_name.as_symbol()
         )));
     }
-    if !destination_path.exists() {
+    if args.adopt {
+        if !destination_path.is_dir() {
+            return Err(user_error("Destination path is not a directory"));
+        }
+        // We may want to revisit deleting .jj later, but for now, we shouldn't.
+        // It prevents some really catastrophic things such as:
+        // * Trying to adopt a symlink
+        // * Trying to adopt an independent repo with its own set of commits.
+        // Both of these delete real jj metadata. We could consider backing up .jj.
+        if destination_path.join(".jj").exists() {
+            return Err(
+                user_error("Destination path already contains a .jj directory")
+                    .hinted(
+                        "If this directory was created by snapshotting an existing workspace, \
+                         delete its copied .jj directory before adopting it.",
+                    )
+                    .hinted(
+                        "Do not delete .jj if this is an independent repository containing \
+                         commits or history you want to keep.",
+                    ),
+            );
+        }
+    } else if !destination_path.exists() {
         fs::create_dir(&destination_path).context(&destination_path)?;
     } else if !file_util::is_empty_dir(&destination_path)? {
         return Err(user_error(
@@ -253,7 +295,7 @@ pub async fn cmd_workspace_add(
 
     let tree = merge_commit_trees(tx.repo(), &parents).await?;
     let parent_ids = parents.iter().ids().cloned().collect_vec();
-    let mut commit_builder = tx.repo_mut().new_commit(parent_ids, tree).detach();
+    let mut commit_builder = tx.repo_mut().new_commit(parent_ids, tree.clone()).detach();
     let mut description = join_message_paragraphs(&args.message_paragraphs);
     if !description.is_empty() {
         // The first trailer would become the first line of the description.
@@ -267,13 +309,57 @@ pub async fn cmd_workspace_add(
     let new_wc_commit = commit_builder.write(tx.repo_mut()).await?;
 
     tx.edit(&new_wc_commit)?;
-    tx.finish(
-        ui,
-        format!(
-            "create initial working-copy commit in workspace {name}",
-            name = workspace_name.as_symbol()
-        ),
-    )
-    .await?;
+
+    if args.adopt {
+        tx.finish_with_reset(
+            ui,
+            format!(
+                "create initial working-copy commit in workspace {name}",
+                name = workspace_name.as_symbol()
+            ),
+        )
+        .await?;
+
+        new_workspace_command.maybe_snapshot(ui).await?;
+        let wc_commit_id = new_workspace_command.get_wc_commit_id().unwrap();
+        let current_wc_commit = new_workspace_command
+            .repo()
+            .store()
+            .get_commit_async(wc_commit_id)
+            .await?;
+
+        // If the user attempts to copy and then adopt a repo with a non-empty working copy,
+        // then the contents of the destination will contain that non-empty working copy.
+        // So we now run `jj restore` to ensure that the destination matches what you would
+        // otherwise get without the adopt flag - an empty commit on top of parents.
+        if current_wc_commit.tree_ids() != tree.tree_ids() {
+            let mut tx = new_workspace_command.start_transaction();
+            tx.repo_mut()
+                .rewrite_commit(&current_wc_commit)
+                .set_tree(tree)
+                .write()
+                .await?;
+            tx.finish(
+                ui,
+                format!("restore into commit {}", current_wc_commit.id().hex()),
+            )
+            .await?;
+            writeln!(
+                ui.warning_default(),
+                "Reset files in \"{}\" to match parent commit. To recover the adopted changes, \
+                 run `jj undo`.",
+                file_util::relative_path(command.cwd(), &destination_path).display()
+            )?;
+        }
+    } else {
+        tx.finish(
+            ui,
+            format!(
+                "create initial working-copy commit in workspace {name}",
+                name = workspace_name.as_symbol()
+            ),
+        )
+        .await?;
+    }
     Ok(())
 }

@@ -59,6 +59,7 @@ use crate::transaction::TransactionCommitError;
 use crate::working_copy::CheckoutError;
 use crate::working_copy::CheckoutStats;
 use crate::working_copy::LockedWorkingCopy;
+use crate::working_copy::ResetError;
 use crate::working_copy::WorkingCopy;
 use crate::working_copy::WorkingCopyFactory;
 use crate::working_copy::WorkingCopyStateError;
@@ -484,6 +485,23 @@ impl Workspace {
                 err: err.into(),
             })?;
         Ok(stats)
+    }
+
+    pub async fn reset(
+        &mut self,
+        operation_id: OperationId,
+        commit: &Commit,
+    ) -> Result<(), ResetError> {
+        let mut locked_ws = self.start_working_copy_mutation().await?;
+        locked_ws.locked_wc().reset(commit).await?;
+        locked_ws
+            .finish(operation_id)
+            .await
+            .map_err(|err| ResetError::Other {
+                message: "Failed to save the working copy state".to_string(),
+                err: err.into(),
+            })?;
+        Ok(())
     }
 }
 
