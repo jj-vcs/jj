@@ -20,6 +20,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj squash` includes change IDs in the source and destination description
+  headings shown in the editor when combining descriptions.
+
 * Git-format diff hunk headers now include nearby source symbols for many common
   programming and markup languages.
 

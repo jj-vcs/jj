@@ -24,6 +24,7 @@ use jj_lib::trailer::parse_trailers;
 use thiserror::Error;
 
 use crate::cli_util::WorkspaceCommandTransaction;
+use crate::cli_util::short_change_hash;
 use crate::cli_util::short_commit_hash;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
@@ -323,11 +324,21 @@ pub async fn combine_messages_for_editing(
 ) -> Result<String, CommandError> {
     let mut combined = String::new();
     if let Some(destination) = destination {
-        combined.push_str("JJ: Description from the destination commit:\n");
+        writeln!(
+            combined,
+            "JJ: Description from the destination commit ({}):",
+            short_change_hash(destination.change_id())
+        )
+        .unwrap();
         combined.push_str(destination.description());
     }
     for commit in sources {
-        combined.push_str("\nJJ: Description from source commit:\n");
+        writeln!(
+            combined,
+            "\nJJ: Description from source commit ({}):",
+            short_change_hash(commit.change_id())
+        )
+        .unwrap();
         combined.push_str(commit.description());
     }
 
