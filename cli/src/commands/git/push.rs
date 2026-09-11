@@ -18,6 +18,7 @@ use std::future;
 use std::io;
 use std::io::Write as _;
 use std::iter;
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 use clap::ArgGroup;
@@ -319,6 +320,8 @@ pub async fn cmd_git_push(
         return Err(user_error("No git remotes to push to"));
     }
 
+    let remote_settings = workspace_command.settings().remote_settings()?;
+
     let mut tx = workspace_command.start_transaction();
     let mut by_remote = Vec::with_capacity(matching_remotes.len());
 
@@ -575,9 +578,6 @@ pub async fn cmd_git_push(
     }
 
     let git_settings = GitSettings::from_settings(tx.settings())?;
-    let options = GitPushOptions {
-        remote_push_options: args.option.clone(),
-    };
     let mut all_ok = true;
     let mut some_exported = false;
 
@@ -594,6 +594,15 @@ pub async fn cmd_git_push(
         if args.dry_run {
             continue;
         }
+
+        let ref_push_max_batch_size = remote_settings
+            .get(*remote)
+            .and_then(|s| s.ref_push_max_batch_size)
+            .and_then(NonZeroUsize::new);
+        let options = GitPushOptions {
+            remote_push_options: args.option.clone(),
+            ref_push_max_batch_size,
+        };
 
         let push_stats = git::push_refs(
             tx.repo_mut(),
