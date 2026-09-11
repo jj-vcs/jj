@@ -49,8 +49,9 @@ use crate::repo::StoreLoadError;
 use crate::repo::SubmoduleStoreInitializer;
 use crate::repo::read_store_type;
 use crate::settings::UserSettings;
-use crate::signing::SignInitError;
 use crate::signing::Signer;
+use crate::signing_factory::SignInitError;
+use crate::signing_factory::signer_from_settings;
 use crate::simple_backend::SimpleBackend;
 use crate::transaction::TransactionCommitError;
 use crate::working_copy::CheckoutError;
@@ -196,7 +197,7 @@ impl Workspace {
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let backend_initializer: &BackendInitializer =
             &|_settings, store_path| Ok(Box::new(SimpleBackend::init(store_path)));
-        let signer = Signer::from_settings(user_settings)?;
+        let signer = signer_from_settings(user_settings)?;
         Self::init_with_backend(user_settings, workspace_root, backend_initializer, signer).await
     }
 
@@ -215,7 +216,7 @@ impl Workspace {
                 object_hash,
             )?))
         };
-        let signer = Signer::from_settings(user_settings)?;
+        let signer = signer_from_settings(user_settings)?;
         Self::init_with_backend(user_settings, workspace_root, backend_initializer, signer).await
     }
 
@@ -247,7 +248,7 @@ impl Workspace {
             )?;
             Ok(Box::new(backend))
         };
-        let signer = Signer::from_settings(user_settings)?;
+        let signer = signer_from_settings(user_settings)?;
         Self::init_with_backend(user_settings, workspace_root, &backend_initializer, signer).await
     }
 
@@ -287,7 +288,7 @@ impl Workspace {
             )?;
             Ok(Box::new(backend))
         };
-        let signer = Signer::from_settings(user_settings)?;
+        let signer = signer_from_settings(user_settings)?;
         Self::init_with_backend(user_settings, workspace_root, &backend_initializer, signer).await
     }
 

@@ -62,7 +62,7 @@ use jj_lib::revset::RevsetWorkspaceContext;
 use jj_lib::revset::SymbolResolver;
 use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::revset::parse;
-use jj_lib::signing::SignBehavior;
+use jj_lib::settings::SignBehavior;
 use jj_lib::signing::Signer;
 use jj_lib::test_signing_backend::TestSigningBackend;
 use jj_lib::ui_path::RepoPathUiConverter;

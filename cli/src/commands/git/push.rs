@@ -55,7 +55,7 @@ use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetStreamExt as _;
 use jj_lib::revset::UserRevsetExpression;
 use jj_lib::rewrite::CommitRewriter;
-use jj_lib::signing::SignBehavior;
+use jj_lib::settings::SignBehavior;
 use jj_lib::str_util::StringExpression;
 use jj_lib::view::View;
 

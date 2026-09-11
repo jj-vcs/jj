@@ -35,6 +35,7 @@ use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
+use jj_lib::signing_factory::signer_from_settings;
 use jj_lib::store::Store;
 use jj_lib::working_copy::CheckoutError;
 use jj_lib::working_copy::CheckoutStats;
@@ -77,7 +78,7 @@ async fn run_custom_command(
                 &settings,
                 wc_path,
                 &backend_initializer,
-                Signer::from_settings(&settings).map_err(WorkspaceInitError::SignInit)?,
+                signer_from_settings(&settings).map_err(WorkspaceInitError::SignInit)?,
                 &ReadonlyRepo::default_op_store_initializer(),
                 &ReadonlyRepo::default_op_heads_store_initializer(),
                 &ReadonlyRepo::default_index_store_initializer(),

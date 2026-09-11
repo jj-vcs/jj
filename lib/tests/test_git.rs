@@ -83,7 +83,7 @@ use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::settings::UserSettings;
-use jj_lib::signing::Signer;
+use jj_lib::signing_factory::signer_from_settings;
 use jj_lib::str_util::StringExpression;
 use jj_lib::str_util::StringMatcher;
 use jj_lib::workspace::Workspace;
@@ -188,7 +188,7 @@ fn init_external_git_repo(test_repo: &TestRepo, name: &Path) -> TestResult<Arc<R
             let backend = GitBackend::init_external(settings, store_path, git_repo_path)?;
             Ok(Box::new(backend))
         },
-        Signer::from_settings(settings).unwrap(),
+        signer_from_settings(settings).unwrap(),
         ReadonlyRepo::default_op_store_initializer(),
         ReadonlyRepo::default_op_heads_store_initializer(),
         ReadonlyRepo::default_index_store_initializer(),
@@ -2433,7 +2433,7 @@ impl GitRepoData {
                     git_repo.path(),
                 )?))
             },
-            Signer::from_settings(&settings).unwrap(),
+            signer_from_settings(&settings).unwrap(),
             ReadonlyRepo::default_op_store_initializer(),
             ReadonlyRepo::default_op_heads_store_initializer(),
             ReadonlyRepo::default_index_store_initializer(),
@@ -4160,7 +4160,7 @@ fn test_init() -> TestResult {
                 git_repo.path(),
             )?))
         },
-        Signer::from_settings(&settings)?,
+        signer_from_settings(&settings)?,
         ReadonlyRepo::default_op_store_initializer(),
         ReadonlyRepo::default_op_heads_store_initializer(),
         ReadonlyRepo::default_index_store_initializer(),
@@ -5085,7 +5085,7 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
                 clone_repo.path(),
             )?))
         },
-        Signer::from_settings(settings).unwrap(),
+        signer_from_settings(settings).unwrap(),
         ReadonlyRepo::default_op_store_initializer(),
         ReadonlyRepo::default_op_heads_store_initializer(),
         ReadonlyRepo::default_index_store_initializer(),

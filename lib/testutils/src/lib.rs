@@ -67,6 +67,7 @@ use jj_lib::rewrite::RebasedCommit;
 use jj_lib::secret_backend::SecretBackend;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
+use jj_lib::signing_factory::signer_from_settings;
 use jj_lib::simple_backend::SimpleBackend;
 use jj_lib::store::Store;
 use jj_lib::transaction::Transaction;
@@ -285,7 +286,7 @@ impl TestRepo {
             settings,
             &repo_dir,
             &|settings, store_path| backend.init_backend(&env, settings, store_path),
-            Signer::from_settings(settings).unwrap(),
+            signer_from_settings(settings).unwrap(),
             ReadonlyRepo::default_op_store_initializer(),
             ReadonlyRepo::default_op_heads_store_initializer(),
             ReadonlyRepo::default_index_store_initializer(),
@@ -329,7 +330,7 @@ impl TestWorkspace {
         backend: TestRepoBackend,
         settings: &UserSettings,
     ) -> Self {
-        let signer = Signer::from_settings(settings).unwrap();
+        let signer = signer_from_settings(settings).unwrap();
         Self::init_with_backend_and_signer(backend, signer, settings)
     }
 
