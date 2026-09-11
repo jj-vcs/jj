@@ -65,7 +65,6 @@ use tokio::time::sleep;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::WorkspaceCommandHelper;
-use crate::cli_util::WorkspaceCommandTransaction;
 use crate::command_error::CommandError;
 use crate::command_error::CommandErrorKind;
 use crate::commands::workspace::SparseInheritance;
@@ -498,7 +497,7 @@ fn print_job_output(ui: &Ui, spec: &CommandSpec, job: &RunJob) -> io::Result<()>
 // TODO: make this more revset/commit stream friendly.
 #[allow(clippy::too_many_arguments)]
 async fn run_inner(
-    tx: &WorkspaceCommandTransaction<'_>,
+    base_ignores: Arc<GitIgnoreFile>,
     sender: Sender<RunJob>,
     handle: &tokio::runtime::Handle,
     spec: Arc<CommandSpec>,
@@ -508,7 +507,6 @@ async fn run_inner(
     passthrough: bool,
     ignore_errors: bool,
 ) -> Result<(), RunError> {
-    let base_ignores = tx.base_workspace_helper().base_ignores().unwrap().clone();
     let mut command_futures: JoinSet<Result<RunJob, RunError>> = JoinSet::new();
     let mut commits_iter = commits.iter().fuse();
     loop {
@@ -746,6 +744,26 @@ pub struct RunArgs {
     sparse_patterns: SparseInheritance,
 }
 
+/// Fold a finished job into the accumulated results: remember the tree the
+/// command produced, and the first commit whose command failed.
+fn record_job(
+    job: RunJob,
+    rewritten_commits: &mut HashMap<CommitId, (MergedTree, MergedTree)>,
+    failed_commit: &mut Option<(CommitId, ExitStatus)>,
+) {
+    if job.skipped {
+        return;
+    }
+    if let Some(status) = job.status.filter(|status| !status.success()) {
+        failed_commit.get_or_insert_with(|| (job.old_id.clone(), status));
+    }
+    if let Some(new_tree) = job.new_tree
+        && new_tree.tree_ids_and_labels() != job.old_tree.tree_ids_and_labels()
+    {
+        rewritten_commits.insert(job.old_id, (job.old_tree, new_tree));
+    }
+}
+
 /// Precedence: `--jobs`, `run.jobs` config, 1.
 fn resolve_jobs(
     workspace_command: &WorkspaceCommandHelper,
@@ -842,7 +860,7 @@ pub async fn cmd_run(
         }
     };
 
-    let mut tx = workspace_command.start_transaction();
+    let base_ignores = workspace_command.base_ignores()?;
 
     let rt = {
         let mut builder = Builder::new_multi_thread();
@@ -866,6 +884,7 @@ pub async fn cmd_run(
         subdir,
     });
     let mut rewritten_commits = HashMap::new();
+    let mut failed_commit = None;
 
     // Drive the producer (run_inner) and consumer (receive loop) concurrently
     // so that each subprocess's output is emitted as soon as it finishes rather
@@ -873,7 +892,7 @@ pub async fn cmd_run(
     futures::try_join!(
         async {
             run_inner(
-                &tx,
+                base_ignores,
                 sender_tx,
                 rt.handle(),
                 spec.clone(),
@@ -889,31 +908,25 @@ pub async fn cmd_run(
         async {
             while let Some(res) = receiver.recv().await {
                 print_job_output(ui, &spec, &res)?;
-                if res.skipped {
-                    continue;
-                }
-                if let Some(status) = res.status
-                    && !status.success()
-                    && !args.ignore_errors
-                {
-                    let commit = store.get_commit_async(&res.old_id).await?;
-                    let mut error: CommandError =
-                        RunError::CommandFailure(spec.to_string(), status).into();
-                    error.add_formatted_hint_with(|formatter| {
-                        write!(formatter, "Failed revision: ")?;
-                        tx.write_commit_summary(formatter, &commit)
-                    });
-                    return Err(error);
-                }
-                if let Some(new_tree) = res.new_tree
-                    && new_tree.tree_ids_and_labels() != res.old_tree.tree_ids_and_labels()
-                {
-                    rewritten_commits.insert(res.old_id.clone(), (res.old_tree, new_tree));
-                }
+                record_job(res, &mut rewritten_commits, &mut failed_commit);
             }
             Ok::<_, CommandError>(())
         },
     )?;
+
+    if let Some((failed_id, status)) = failed_commit
+        && !args.ignore_errors
+    {
+        let commit = store.get_commit_async(&failed_id).await?;
+        let mut error: CommandError = RunError::CommandFailure(spec.to_string(), status).into();
+        error.add_formatted_hint_with(|formatter| {
+            write!(formatter, "Failed revision: ")?;
+            workspace_command.write_commit_summary(formatter, &commit)
+        });
+        return Err(error);
+    }
+
+    let mut tx = workspace_command.start_transaction();
 
     // The operation was a no-op, bail.
     if args.ignore_changes || rewritten_commits.is_empty() {
