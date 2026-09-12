@@ -3836,6 +3836,78 @@ fn test_reset_head_with_index() -> TestResult {
 }
 
 #[test]
+fn test_reset_head_waits_for_transient_index_lock() -> TestResult {
+    let test_workspace = TestWorkspace::init_colocated_git();
+    let repo = &test_workspace.repo;
+    let git_repo = get_git_repo(repo);
+    let workspace_root = test_workspace.workspace.workspace_root();
+
+    let mut tx = repo.start_transaction();
+    let commit1 = write_random_commit(tx.repo_mut());
+    let commit2 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
+
+    // Another process holds the index lock briefly. Resetting the index must
+    // wait for its release rather than fail on the first attempt (#7530).
+    let index_lock = git_repo.path().join("index.lock");
+    fs::write(&index_lock, b"")?;
+    let releaser = std::thread::spawn({
+        let index_lock = index_lock.clone();
+        move || {
+            std::thread::sleep(std::time::Duration::from_millis(200));
+            fs::remove_file(&index_lock).unwrap();
+        }
+    });
+    reset_head(tx.repo_mut(), &test_workspace.workspace, &commit2)?;
+    releaser.join().unwrap();
+    assert_eq!(
+        tx.repo().git_head(WorkspaceName::DEFAULT),
+        &RefTarget::normal(commit1.id().clone())
+    );
+    assert_eq!(git_repo.head_id()?, git_id(&commit1));
+    assert!(!index_lock.exists(), "the lock is released after the write");
+    // The index was written: commit1's tree (the new HEAD's tree) plus an
+    // intent-to-add entry for each file commit2 adds on top of it.
+    let index = gix::open(workspace_root)?.open_index()?;
+    let indexed: Vec<_> = index
+        .entries()
+        .iter()
+        .map(|entry| {
+            (
+                entry.path(&index).to_string(),
+                entry
+                    .flags
+                    .contains(gix::index::entry::Flags::INTENT_TO_ADD),
+            )
+        })
+        .collect();
+    let tree_paths = |commit: &Commit| -> HashSet<String> {
+        commit
+            .tree()
+            .entries()
+            .map(|(path, _)| path.as_internal_file_string().to_owned())
+            .collect()
+    };
+    let head_paths = tree_paths(&commit1);
+    let mut expected: Vec<_> = tree_paths(&commit2)
+        .union(&head_paths)
+        .map(|path| (path.clone(), !head_paths.contains(path)))
+        .collect();
+    expected.sort();
+    assert_eq!(indexed, expected);
+
+    // A lock nobody releases is still an error: a stale lock left by a
+    // killed process must surface, not hang the command.
+    fs::write(&index_lock, b"")?;
+    let started = std::time::Instant::now();
+    assert_matches!(
+        reset_head(tx.repo_mut(), &test_workspace.workspace, &commit2),
+        Err(GitResetHeadError::Git(_))
+    );
+    assert!(started.elapsed() < std::time::Duration::from_secs(30));
+    Ok(())
+}
+
+#[test]
 fn test_reset_head_with_index_no_conflict() -> TestResult {
     let test_workspace = TestWorkspace::init_colocated_git();
     let repo = &test_workspace.repo;
