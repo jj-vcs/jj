@@ -369,6 +369,9 @@ impl From<WorkspaceInitError> for CommandError {
             }
             WorkspaceInitError::SignInit(err) => user_error(err),
             WorkspaceInitError::TransactionCommit(err) => err.into(),
+            WorkspaceInitError::Reset(err) => {
+                internal_error_with_message("Failed to reset the working copy", err)
+            }
         }
     }
 }

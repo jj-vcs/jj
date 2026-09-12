@@ -2367,6 +2367,75 @@ fn test_workspaces_add_colocated_unborn_head() {
     assert!(!test_env.env_root().join("tertiary/file").exists());
 }
 
+#[test]
+fn test_workspace_add_adopt() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let repo_dir = test_env.work_dir("main");
+    let ws_dir = test_env.work_dir("workspace");
+
+    repo_dir.write_file("common", "common\n");
+    ws_dir.write_file("common", "common\n");
+    repo_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    // Simulate making a change that isn't yet committed then snapshotting.
+    repo_dir.write_file("repo_only", "repo_only\n");
+    ws_dir.write_file("repo_only", "repo_only\n");
+
+    ws_dir.write_file("ws_only", "ws_only\n");
+
+    let output = repo_dir.run_jj(["workspace", "add", "--adopt", "../workspace"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Created workspace in "../workspace"
+    Working copy  (@) now at: pmmvwywv 2d2aee39 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm fce12334 initial
+    Added 0 files, modified 0 files, removed 1 files
+    [EOF]
+    "#);
+
+    let assert_disk_state_correct = || {
+        assert!(!ws_dir.root().join("repo_only").exists());
+        assert_eq!(repo_dir.read_file("repo_only"), "repo_only\n");
+        assert_eq!(ws_dir.read_file("ws_only"), "ws_only\n");
+        assert!(!repo_dir.root().join("ws_only").exists());
+    };
+    assert_disk_state_correct();
+
+    // Working copy in repo should not have been affected.
+    let output = repo_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output, @r"
+    Working copy changes:
+    A repo_only
+    Working copy  (@) : rlvkpnrz 50d736ff (no description set)
+    Parent commit (@-): qpvuntsm fce12334 initial
+    [EOF]
+    ");
+
+    // Working copy in adopted workspace reflects the untracked file on disk
+    let output = ws_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output, @r"
+    Working copy changes:
+    A ws_only
+    Working copy  (@) : pmmvwywv 0c608046 (no description set)
+    Parent commit (@-): qpvuntsm fce12334 initial
+    [EOF]
+    ");
+
+    assert_disk_state_correct();
+
+    // Tracked modification from main's @ is reverted back to @-
+    // But they shouldn't apply to @
+    insta::assert_snapshot!(get_log_output(&ws_dir), @r#"
+    @  0c608046979f workspace@
+    │ ○  50d736ff960f default@
+    ├─╯
+    ○  fce123340f96 "initial"
+    ◆  000000000000
+    [EOF]
+    "#);
+}
+
 /// Returns the repo's Git HEAD: the ref name if HEAD points at a ref, or the
 /// commit id if HEAD is detached.
 fn git_head(repo: &gix::Repository) -> String {

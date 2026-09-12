@@ -56,6 +56,7 @@ use crate::transaction::TransactionCommitError;
 use crate::working_copy::CheckoutError;
 use crate::working_copy::CheckoutStats;
 use crate::working_copy::LockedWorkingCopy;
+use crate::working_copy::ResetError;
 use crate::working_copy::WorkingCopy;
 use crate::working_copy::WorkingCopyFactory;
 use crate::working_copy::WorkingCopyStateError;
@@ -71,6 +72,8 @@ pub enum WorkspaceInitError {
     EncodeRepoPath(#[source] BadPathEncoding),
     #[error(transparent)]
     CheckOutCommit(#[from] CheckOutCommitError),
+    #[error(transparent)]
+    Reset(#[from] ResetError),
     #[error(transparent)]
     WorkingCopyState(#[from] WorkingCopyStateError),
     #[error(transparent)]
@@ -135,13 +138,14 @@ async fn init_working_copy(
     jj_dir: &Path,
     working_copy_factory: &dyn WorkingCopyFactory,
     workspace_name: WorkspaceNameBuf,
+    first_commit: &Commit,
 ) -> Result<(Box<dyn WorkingCopy>, Arc<ReadonlyRepo>), WorkspaceInitError> {
     let working_copy_state_path = jj_dir.join("working_copy");
     std::fs::create_dir(&working_copy_state_path).context(&working_copy_state_path)?;
 
     let mut tx = repo.start_transaction();
     tx.repo_mut()
-        .check_out(workspace_name.clone(), &repo.store().root_commit())
+        .check_out(workspace_name.clone(), first_commit)
         .await?;
     let repo = tx
         .commit(format!("add workspace '{}'", workspace_name.as_symbol()))
@@ -155,6 +159,13 @@ async fn init_working_copy(
         workspace_name,
         repo.settings(),
     )?;
+    let working_copy = if first_commit.id() != repo.store().root_commit_id() {
+        let mut locked_wc = working_copy.start_mutation().await?;
+        locked_wc.reset(first_commit).await?;
+        locked_wc.finish(repo.op_id().clone()).await?
+    } else {
+        working_copy
+    };
     let working_copy_type_path = working_copy_state_path.join("type");
     fs::write(&working_copy_type_path, working_copy.name()).context(&working_copy_type_path)?;
     Ok((working_copy, repo))
@@ -331,6 +342,7 @@ impl Workspace {
                 &jj_dir,
                 working_copy_factory,
                 workspace_name,
+                &repo.store().root_commit(),
             )
             .await?;
             let repo_loader = repo.loader().clone();
@@ -373,6 +385,25 @@ impl Workspace {
         working_copy_factory: &dyn WorkingCopyFactory,
         workspace_name: WorkspaceNameBuf,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
+        Self::init_workspace_with_existing_repo_at_commit(
+            workspace_root,
+            repo_path,
+            repo,
+            working_copy_factory,
+            workspace_name,
+            &repo.store().root_commit(),
+        )
+        .await
+    }
+
+    pub async fn init_workspace_with_existing_repo_at_commit(
+        workspace_root: &Path,
+        repo_path: &Path,
+        repo: &Arc<ReadonlyRepo>,
+        working_copy_factory: &dyn WorkingCopyFactory,
+        workspace_name: WorkspaceNameBuf,
+        first_commit: &Commit,
+    ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let jj_dir = create_jj_dir(workspace_root)?;
 
         let repo_dir = dunce::canonicalize(repo_path).context(repo_path)?;
@@ -395,6 +426,7 @@ impl Workspace {
             &jj_dir,
             working_copy_factory,
             workspace_name,
+            first_commit,
         )
         .await?;
         let workspace = Self::new(

@@ -49,6 +49,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Use the `--sparse-patterns` option to control this behavior (evaluated
   per each `jj run` invocation).
 
+* `jj workspace add` now has `--adopt` for instantaneous clones of repos when
+  used with a CoW filesystem. For example, by taking a snapshot with
+  `btrfs subvolume snapshot . ../workspace`, removing `../workspace/.jj`, and
+  adopting it with `jj workspace add --adopt ../workspace`.
+
 ### Fixed bugs
 
 ## [0.45.1] - 2026-09-03
