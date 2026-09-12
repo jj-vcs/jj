@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[cfg(feature = "git")]
+use std::error::Error as _;
+
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
-#[cfg(feature = "git")]
-use jj_lib::git::GitSubprocessOptions;
 use jj_lib::ref_name::WorkspaceNameBuf;
 #[cfg(feature = "git")]
 use jj_lib::repo::Repo as _;
@@ -25,6 +26,8 @@ use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
+#[cfg(feature = "git")]
+use crate::command_error::print_error_sources;
 use crate::complete;
 #[cfg(feature = "git")]
 use crate::git_util::unlink_git_worktree;
@@ -115,10 +118,23 @@ pub async fn cmd_workspace_forget(
 
     #[cfg(feature = "git")]
     {
-        let subprocess_options = GitSubprocessOptions::from_settings(workspace_command.settings())?;
+        // Disconnect every worktree before failing on any of them, so one
+        // unreadable directory does not leave the others linked as well. Every
+        // failure is reported; the first one is returned.
         let store = workspace_command.repo().store();
+        let mut first_error = None;
         for path in &workspace_paths {
-            unlink_git_worktree(ui, store, subprocess_options.clone(), path)?;
+            if let Err(err) = unlink_git_worktree(ui, store, path) {
+                if first_error.is_some() {
+                    writeln!(ui.warning_default(), "{}", err.error)?;
+                    print_error_sources(ui, err.error.source())?;
+                } else {
+                    first_error = Some(err);
+                }
+            }
+        }
+        if let Some(err) = first_error {
+            return Err(err);
         }
     }
 

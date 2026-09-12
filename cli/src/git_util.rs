@@ -41,7 +41,6 @@ use jj_lib::git::GitRefKind;
 use jj_lib::git::GitSettings;
 use jj_lib::git::GitSidebandLineTerminator;
 use jj_lib::git::GitSubprocessCallback;
-use jj_lib::git::GitSubprocessOptions;
 use jj_lib::git_backend::GitRepoAtWorkdirError;
 use jj_lib::op_store::RemoteRefState;
 use jj_lib::repo::ReadonlyRepo;
@@ -56,8 +55,8 @@ use crate::cli_util::WorkspaceCommandTransaction;
 use crate::cli_util::print_updated_commits;
 use crate::command_error::CommandError;
 use crate::command_error::cli_error;
-use crate::command_error::print_error_sources;
 use crate::command_error::user_error;
+use crate::command_error::user_error_with_message;
 use crate::formatter::Formatter;
 use crate::formatter::FormatterExt as _;
 use crate::revset_util::parse_remote_auto_track_bookmarks_map;
@@ -566,32 +565,55 @@ pub fn print_push_stats(ui: &Ui, stats: &GitPushStats) -> io::Result<()> {
 
 /// Disconnects the Git worktree backing a jj workspace, if there is one.
 ///
-/// The workspace has already been forgotten by the time this runs, and a
-/// leftover gitlink or stale worktree metadata isn't worth failing the command
-/// over, so errors are reported as warnings.
+/// A worktree that could not be disconnected is an error: Git keeps it
+/// registered, and the caller must not report a clean disconnect. The hint
+/// explains how to finish disconnecting it without deleting the workspace's
+/// files, which `git worktree remove` would do.
 pub fn unlink_git_worktree(
     ui: &Ui,
     store: &Arc<Store>,
-    subprocess_options: GitSubprocessOptions,
     worktree_path: &Path,
 ) -> Result<(), CommandError> {
-    match git::unlink_worktree(store, subprocess_options, worktree_path) {
-        Ok(false) => {}
-        Ok(true) => writeln!(
-            ui.status(),
-            r#"Removed Git worktree for "{}"."#,
-            worktree_path.display()
-        )?,
-        Err(err) => {
+    match git::unlink_worktree(store, worktree_path) {
+        Ok(false) => Ok(()),
+        Ok(true) => {
             writeln!(
-                ui.warning_default(),
-                r#"Failed to remove Git worktree for "{}"."#,
+                ui.status(),
+                r#"Removed Git worktree for "{}"."#,
                 worktree_path.display()
             )?;
-            print_error_sources(ui, Some(&err))?;
+            Ok(())
+        }
+        Err(err) => {
+            let hint = match &err {
+                git::GitUnlinkWorktreeError::ReadGitLink(_)
+                | git::GitUnlinkWorktreeError::RemoveGitLink(_)
+                | git::GitUnlinkWorktreeError::Git(_) => Some(format!(
+                    "Git still has this worktree registered. Delete \"{}\" and run `git worktree \
+                     prune` to disconnect it.",
+                    worktree_path.join(".git").display()
+                )),
+                git::GitUnlinkWorktreeError::RemoveMetadata(_) => Some(
+                    "The gitlink has been removed. Run `git worktree prune` to drop the stale \
+                     worktree metadata."
+                        .to_owned(),
+                ),
+                git::GitUnlinkWorktreeError::NotALinkedWorktree(_)
+                | git::GitUnlinkWorktreeError::UnexpectedBackend(_) => None,
+            };
+            let err = user_error_with_message(
+                format!(
+                    r#"Failed to remove Git worktree for "{}""#,
+                    worktree_path.display()
+                ),
+                err,
+            );
+            Err(match hint {
+                Some(hint) => err.hinted(hint),
+                None => err,
+            })
         }
     }
-    Ok(())
 }
 
 #[cfg(test)]
