@@ -49,6 +49,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Use the `--sparse-patterns` option to control this behavior (evaluated
   per each `jj run` invocation).
 
+* Added `git.ignore-filters` setting to specify what filtered files in
+  `.gitattributes` are ignored by `jj`. Defaults to `["lfs"]`.
 ### Fixed bugs
 
 ## [0.45.1] - 2026-09-03
