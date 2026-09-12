@@ -792,6 +792,8 @@ _Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
 This type cannot be printed. The following methods are defined.
 
 * `.path() -> RepoPath`: Path to the entry.
+* `.object_id() -> String`: Full hexadecimal ID of the stored file, symlink, tree,
+  or Git submodule commit. Empty if the entry is absent or conflicted.
 * `.conflict() -> Boolean`: True if the entry is a merge conflict.
 * `.conflict_side_count() -> Integer`: Number of sides in the merge conflict (1 if not
   conflicted, 2 or more for multi-way merges).

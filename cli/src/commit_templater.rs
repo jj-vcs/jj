@@ -2665,6 +2665,20 @@ fn builtin_tree_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
     // code completion inside macro is quite restricted.
     let mut map = CommitTemplateBuildMethodFnMap::<TreeEntry>::new();
     map.insert(
+        "object_id",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|entry| match entry.value.as_resolved() {
+                Some(Some(TreeValue::File { id, .. })) => id.hex(),
+                Some(Some(TreeValue::Symlink(id))) => id.hex(),
+                Some(Some(TreeValue::Tree(id))) => id.hex(),
+                Some(Some(TreeValue::GitSubmodule(id))) => id.hex(),
+                Some(None) | None => String::new(),
+            });
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
         "path",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
@@ -3035,6 +3049,10 @@ fn builtin_trailer_list_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo
 mod tests {
     use std::path::Component;
 
+    use jj_lib::backend::CopyId;
+    use jj_lib::backend::FileId;
+    use jj_lib::backend::SymlinkId;
+    use jj_lib::backend::TreeId;
     use jj_lib::config::ConfigLayer;
     use jj_lib::config::ConfigSource;
     use jj_lib::fileset::FilesetAliasesMap;
@@ -3171,6 +3189,60 @@ mod tests {
             .unwrap();
         config.add_layer(layer);
         UserSettings::from_config(config).unwrap()
+    }
+
+    #[test]
+    fn test_tree_entry_object_id() {
+        let env = CommitTemplateTestEnv::init();
+        let file = TreeValue::File {
+            id: FileId::from_hex("0123456789abcdef"),
+            executable: false,
+            copy_id: CopyId::from_hex("00"),
+        };
+        for (value, expected) in [
+            (file.clone(), "0123456789abcdef"),
+            (
+                TreeValue::File {
+                    id: FileId::from_hex("0123456789abcdef"),
+                    executable: true,
+                    copy_id: CopyId::from_hex("01"),
+                },
+                "0123456789abcdef",
+            ),
+            (TreeValue::Symlink(SymlinkId::from_hex("abcdef")), "abcdef"),
+            (TreeValue::Tree(TreeId::from_hex("123456")), "123456"),
+            (
+                TreeValue::GitSubmodule(CommitId::from_hex(
+                    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                )),
+                "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            ),
+        ] {
+            let entry = TreeEntry {
+                path: repo_path_buf("entry"),
+                value: MergedTreeValue::resolved(Some(value)),
+            };
+            assert_eq!(env.render_ok("self.object_id()", &entry), expected);
+        }
+
+        for value in [
+            MergedTreeValue::resolved(None),
+            MergedTreeValue::from_removes_adds(
+                [None],
+                [
+                    Some(file.clone()),
+                    Some(TreeValue::Symlink(SymlinkId::from_hex("abcdef"))),
+                ],
+            ),
+            MergedTreeValue::from_removes_adds([Some(file.clone())], [Some(file), None]),
+        ] {
+            let entry = TreeEntry {
+                path: repo_path_buf("entry"),
+                value,
+            };
+            assert_eq!(env.render_ok("self.object_id()", &entry), "");
+        }
+        assert!(env.parse::<TreeEntry>("self.object_id(1)").is_err());
     }
 
     #[test]
