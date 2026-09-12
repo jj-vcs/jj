@@ -573,15 +573,26 @@ impl<'a> DiffRenderer<'a> {
         Ok(())
     }
 
-    fn show_diff_commit_descriptions(
+    /// Generates diff between `contents`.
+    pub fn show_text_diff<T: AsRef<[u8]> + Eq>(
         &self,
         formatter: &mut dyn Formatter,
-        descriptions: Diff<&Merge<&str>>,
-    ) -> Result<(), DiffRenderError> {
-        if !descriptions.is_changed() {
+        paths: Diff<&str>,
+        contents: Diff<&Merge<T>>,
+    ) -> io::Result<()> {
+        let mut formatter = formatter.labeled("diff");
+        self.show_diff_bytes(*formatter, paths, contents)
+    }
+
+    fn show_diff_bytes<T: AsRef<[u8]> + Eq>(
+        &self,
+        formatter: &mut dyn Formatter,
+        paths: Diff<&str>,
+        contents: Diff<&Merge<T>>,
+    ) -> io::Result<()> {
+        if !contents.is_changed() {
             return Ok(());
         }
-        const DUMMY_PATH: &str = "JJ-COMMIT-DESCRIPTION";
         let materialize_options = ConflictMaterializeOptions {
             marker_style: self.conflict_marker_style,
             marker_len: None,
@@ -596,27 +607,29 @@ impl<'a> DiffRenderer<'a> {
                 | DiffFormat::Types
                 | DiffFormat::NameOnly => {}
                 DiffFormat::Git(options) => {
-                    // Git format must be parsable, so use dummy file path.
-                    show_git_diff_texts(
-                        formatter,
-                        Diff::new(DUMMY_PATH, DUMMY_PATH),
-                        descriptions,
-                        options,
-                        &materialize_options,
-                    )?;
+                    show_git_diff_texts(formatter, paths, contents, options, &materialize_options)?;
                 }
                 DiffFormat::ColorWords(options) => {
-                    writeln!(formatter.labeled("header"), "Modified commit description:")?;
+                    if paths.is_changed() {
+                        let Diff { before, after } = paths;
+                        writeln!(
+                            formatter.labeled("header"),
+                            "Modified {after} ({before} => {after}):"
+                        )?;
+                    } else {
+                        let Diff { before: _, after } = paths;
+                        writeln!(formatter.labeled("header"), "Modified {after}:")?;
+                    }
                     show_color_words_diff_hunks(
                         formatter,
-                        descriptions,
+                        contents,
                         Diff::new(&ConflictLabels::unlabeled(), &ConflictLabels::unlabeled()),
                         options,
                         &materialize_options,
                     )?;
                 }
                 DiffFormat::Tool(_) => {
-                    // TODO: materialize commit description as file?
+                    // TODO: materialize contents as files?
                 }
             }
         }
@@ -635,6 +648,7 @@ impl<'a> DiffRenderer<'a> {
         matcher: &dyn Matcher,
         width: usize,
     ) -> Result<(), DiffRenderError> {
+        const DUMMY_DESCRIPTION_PATH: &str = "JJ-COMMIT-DESCRIPTION";
         let mut formatter = formatter.labeled("diff");
         let from_description = if from_commits.is_empty() {
             Merge::resolved("")
@@ -651,8 +665,9 @@ impl<'a> DiffRenderer<'a> {
         let from_tree = rebase_to_dest_parent(self.repo, from_commits, to_commit).await?;
         let to_tree = to_commit.tree();
         let copy_records = CopyRecords::default(); // TODO
-        self.show_diff_commit_descriptions(
+        self.show_diff_bytes(
             *formatter,
+            Diff::new(DUMMY_DESCRIPTION_PATH, DUMMY_DESCRIPTION_PATH),
             Diff::new(&from_description, &to_description),
         )?;
         self.show_diff_trees(
