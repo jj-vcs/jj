@@ -258,7 +258,9 @@ fn test_bookmark_names() {
     insta::assert_snapshot!(output, @"
     aaa-local	x
     aaa-tracked	x
-    aaa-untracked
+    aaa-tracked@origin
+    aaa-tracked@upstream
+    aaa-untracked@origin
     [EOF]
     ");
 
