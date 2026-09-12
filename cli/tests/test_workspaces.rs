@@ -1625,6 +1625,46 @@ fn test_workspaces_forget_multi_transaction() {
     ");
 }
 
+/// Test that a failed `workspace forget` leaves the workspace's path intact
+#[cfg(unix)]
+#[test]
+fn test_workspaces_forget_failed_operation_keeps_path() {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+    main_dir.run_jj(["workspace", "add", "../second"]).success();
+
+    // Make the operation fail to commit
+    let operations_dir = main_dir.root().join(".jj/repo/op_store/operations");
+    let original = std::fs::metadata(&operations_dir).unwrap().permissions();
+    std::fs::set_permissions(&operations_dir, std::fs::Permissions::from_mode(0o500)).unwrap();
+    let output = main_dir.run_jj(["workspace", "forget", "second"]);
+    std::fs::set_permissions(&operations_dir, original).unwrap();
+    assert!(!output.status.success(), "{output}");
+
+    // The workspace is still there and its path still resolves
+    let output = main_dir.run_jj(["workspace", "list"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    default: . qpvuntsm e8849ae1 (empty) (no description set)
+    second: ../second uuqppmxq 94f41578 (empty) (no description set)
+    [EOF]
+    ");
+    let output = main_dir.run_jj(["workspace", "root", "--name", "second"]);
+    assert!(output.status.success(), "{output}");
+
+    // A forget that commits removes it
+    main_dir.run_jj(["workspace", "forget", "second"]).success();
+    let output = main_dir.run_jj(["workspace", "root", "--name", "second"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: No such workspace: second
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
 #[test]
 fn test_workspaces_forget_abandon_commits() {
     let test_env = TestEnvironment::default();

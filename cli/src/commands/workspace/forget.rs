@@ -100,8 +100,6 @@ pub async fn cmd_workspace_forget(
         tx.repo_mut().remove_workspace(ws).await?;
     }
 
-    workspace_store.forget(&forget_ws.iter().map(|x| x.as_ref()).collect::<Vec<_>>())?;
-
     let description = if let [ws] = forget_ws.as_slice() {
         format!("forget workspace {}", ws.as_symbol())
     } else {
@@ -121,6 +119,10 @@ pub async fn cmd_workspace_forget(
             unlink_git_worktree(ui, store, subprocess_options.clone(), path)?;
         }
     }
+
+    // The store isn't part of the operation, so update it only after the
+    // operation has been committed.
+    workspace_store.forget(&forget_ws.iter().map(|x| x.as_ref()).collect::<Vec<_>>())?;
 
     Ok(())
 }
