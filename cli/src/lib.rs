@@ -22,6 +22,7 @@ pub mod commit_ref_list;
 pub mod commit_templater;
 pub mod complete;
 pub mod config;
+pub mod cow;
 pub mod description_util;
 pub mod diff_util;
 pub mod formatter;

@@ -45,6 +45,7 @@ use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
 use crate::commands::git::maybe_add_gitignore;
 use crate::config::ConfigEnv;
+use crate::cow::create_cow_dir;
 use crate::git_util::GitSubprocessUi;
 use crate::git_util::absolute_git_url;
 use crate::git_util::load_git_import_options;
@@ -192,7 +193,12 @@ pub async fn cmd_git_clone(
     }
 
     // will create a tree dir in case if was deleted after last check
-    fs::create_dir_all(&wc_path)
+    if let Some(parent) = wc_path.parent() {
+        fs::create_dir_all(parent).map_err(|err| {
+            user_error_with_message(format!("Failed to create {}", parent.display()), err)
+        })?;
+    }
+    create_cow_dir(ui, &wc_path)
         .map_err(|err| user_error_with_message(format!("Failed to create {wc_path_str}"), err))?;
 
     let colocate = if command.settings().get_bool("git.colocate")? {
