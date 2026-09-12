@@ -407,6 +407,19 @@ backend = "test"
     Nothing changed.
     [EOF]
     ");
+    // but "unsign" without "-r" is an error.
+    let output = work_dir.run_jj(["unsign"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: the following required arguments were not provided:
+      --revision <REVSETS>
+
+    Usage: jj unsign --revision <REVSETS>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
 }
 
 #[test]
