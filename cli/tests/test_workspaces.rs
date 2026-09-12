@@ -2367,6 +2367,85 @@ fn test_workspaces_add_colocated_unborn_head() {
     assert!(!test_env.env_root().join("tertiary/file").exists());
 }
 
+/// The Git import/export lock guards a workspace's own Git HEAD, so a command
+/// holding it in one colocated workspace must not block commands in another.
+#[cfg(unix)]
+#[test]
+fn test_workspaces_colocated_git_lock_is_per_workspace() {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    let mut test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = true");
+
+    // A stand-in `watchman` that blocks until released. The snapshot queries it
+    // while holding the import/export lock, so the lock stays held until then.
+    // Exiting non-zero makes jj fall back to a full scan, so the command still
+    // succeeds. Only the command that opts into `fsmonitor.backend=watchman`
+    // runs it.
+    let started = test_env.env_root().join("watchman-started");
+    let release = test_env.env_root().join("watchman-release");
+    let bin_dir = test_env.env_root().join("bin");
+    std::fs::create_dir(&bin_dir).unwrap();
+    let fake_watchman = bin_dir.join("watchman");
+    std::fs::write(
+        &fake_watchman,
+        format!(
+            "#!/bin/sh\ntouch {started}\nwhile [ ! -e {release} ]; do sleep 0.1; done\nexit 1\n",
+            started = started.display(),
+            release = release.display(),
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(&fake_watchman, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let path = std::env::join_paths(
+        std::iter::once(bin_dir).chain(std::env::split_paths(&std::env::var_os("PATH").unwrap())),
+    )
+    .unwrap();
+    test_env.add_env_var("PATH", path);
+
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "main"])
+        .success();
+    let main_dir = test_env.work_dir("main");
+    main_dir.write_file("file", "contents\n");
+    main_dir.run_jj(["commit", "-m", "one"]).success();
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+    let secondary_dir = test_env.work_dir("secondary");
+
+    let mut stalled = test_env.new_jj_cmd();
+    stalled
+        .current_dir(main_dir.root())
+        .args(["status", "--config=fsmonitor.backend=watchman"]);
+    let stalled = std::thread::spawn(move || stalled.output().unwrap());
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+    while !started.exists() {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "the main workspace never queried watchman"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+
+    // The main workspace now holds its lock. A command in the secondary
+    // workspace must not wait for it.
+    secondary_dir
+        .run_jj_with(|cmd| {
+            cmd.timeout(std::time::Duration::from_secs(10))
+                .args(["status"])
+        })
+        .success();
+
+    std::fs::write(&release, "").unwrap();
+    let output = stalled.join().unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 /// Returns the repo's Git HEAD: the ref name if HEAD points at a ref, or the
 /// commit id if HEAD is detached.
 fn git_head(repo: &gix::Repository) -> String {

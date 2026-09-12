@@ -1013,12 +1013,20 @@ impl WorkspaceCommandEnvironment {
 
     /// Acquires a lock for Git import/export operations if the workspace is
     /// supposed to be colocated.
+    ///
+    /// The lock guards the Git HEAD (and index) of this workspace's worktree,
+    /// which is per-workspace state, so it lives in the workspace's `.jj`
+    /// directory rather than in the shared repo directory. Other Git refs are
+    /// updated concurrently by design.
     fn lock_git_import_export(
         &self,
         workspace: &Workspace,
     ) -> Result<GitImportExportLock, CommandError> {
         let lock = if self.working_copy_shared_with_git {
-            let lock_path = workspace.repo_path().join("git_import_export.lock");
+            let lock_path = workspace
+                .workspace_root()
+                .join(".jj")
+                .join("git_import_export.lock");
             Some(FileLock::lock(lock_path).map_err(|err| {
                 user_error_with_message("Failed to take lock for Git import/export", err)
             })?)
