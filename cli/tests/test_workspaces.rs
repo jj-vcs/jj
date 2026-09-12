@@ -458,6 +458,46 @@ fn test_workspaces_add_workspace_at_revision() {
     "#);
 }
 
+/// A revision that fails to resolve must leave nothing behind: no directory,
+/// no registered workspace, no operation.
+#[test]
+fn test_workspaces_add_workspace_at_unresolvable_revision() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "main"])
+        .success();
+    let main_dir = test_env.work_dir("main");
+    main_dir.write_file("file-1", "contents");
+    main_dir.run_jj(["commit", "-m", "first"]).success();
+    let ops_before = main_dir.run_jj(["op", "log", "--no-graph", "-T", "id"]);
+
+    let output = main_dir.run_jj(["workspace", "add", "-r", "nonexistent", "../secondary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    ------- stderr -------
+    Error: Revision `nonexistent` doesn't exist
+    [EOF]
+    [exit status: 1]
+    ");
+
+    assert!(
+        !test_env.env_root().join("secondary").exists(),
+        "no workspace directory should be created for an unresolvable revision"
+    );
+    let output = main_dir.run_jj(["workspace", "list"]);
+    insta::assert_snapshot!(output, @"
+    default: . rlvkpnrz 274ba245 (empty) (no description set)
+    [EOF]
+    ");
+    let ops_after = main_dir.run_jj(["op", "log", "--no-graph", "-T", "id"]);
+    assert_eq!(ops_after.stdout.raw(), ops_before.stdout.raw());
+    let git_repo = git::open(main_dir.root());
+    assert_eq!(
+        git_repo.worktrees().unwrap().len(),
+        0,
+        "no Git worktree should be created for an unresolvable revision"
+    );
+}
+
 /// Test multiple `-r` flags to `workspace add` to create a workspace
 /// working-copy commit with multiple parents.
 #[test]

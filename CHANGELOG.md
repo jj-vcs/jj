@@ -51,6 +51,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* `jj workspace add --revision <rev>` no longer creates the workspace when the
+  revision does not resolve. It used to leave a registered workspace whose
+  working-copy commit was parented at the root, along with the new directory
+  and, in a colocated repository, a Git worktree.
+
 ## [0.45.1] - 2026-09-03
 
 This release fixes an error that prevented the new jj-core crate from being
