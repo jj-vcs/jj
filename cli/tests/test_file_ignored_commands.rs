@@ -39,6 +39,25 @@ fn test_file_list_ignored() {
 }
 
 #[test]
+fn test_file_list_ignored_empty_directory() {
+    // Regression test: an empty directory that matches a directory-level
+    // `.gitignore` pattern should still be listed, even though it has no
+    // content to recurse into.
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file(".gitignore", "empty-ignored/\n");
+    work_dir.create_dir("empty-ignored");
+
+    let output = work_dir.run_jj(["file", "list-ignored"]);
+    assert_snapshot!(output, @"
+    empty-ignored/
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_file_list_ignored_tracked_files_not_listed() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -111,6 +130,11 @@ fn test_file_remove_ignored_removes_now_empty_directory() {
     // of its own, but ends up containing only individually-ignored files
     // (e.g. via a `*.log` pattern), should be removed entirely by
     // `remove-ignored` instead of being left behind as an empty directory.
+    // The two files are removed individually (not collapsed into a single
+    // `logs` entry, since `logs/` isn't itself covered by a `.gitignore`
+    // pattern and could in principle contain an unrelated, not-yet-ignored
+    // file that must not be touched); the now-empty `logs` directory is then
+    // cleaned up as a safe side effect, without being counted separately.
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -130,9 +154,87 @@ fn test_file_remove_ignored_removes_now_empty_directory() {
     let output = work_dir.run_jj(["file", "remove-ignored"]);
     assert_snapshot!(output, @"
     ------- stderr -------
-    Removed 1 ignored file(s) from the working copy.
+    Removed 2 ignored file(s) from the working copy.
     [EOF]
     ");
     assert!(!work_dir.root().join("logs").exists());
     assert!(work_dir.root().join("tracked-file.txt").exists());
+}
+
+#[test]
+fn test_file_remove_ignored_removes_empty_directory() {
+    // Regression test: an empty directory that matches a directory-level
+    // `.gitignore` pattern should be removed by `remove-ignored`, exactly
+    // like it is listed by `list-ignored`.
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file(".gitignore", "empty-ignored/\n");
+    work_dir.create_dir("empty-ignored");
+
+    let output = work_dir.run_jj(["file", "remove-ignored"]);
+    assert_snapshot!(output, @"
+    ------- stderr -------
+    Removed 1 ignored file(s) from the working copy.
+    [EOF]
+    ");
+    assert!(!work_dir.root().join("empty-ignored").exists());
+}
+
+#[test]
+fn test_file_remove_ignored_does_not_touch_unrelated_file_in_same_directory() {
+    // Safety test: a directory that isn't itself covered by a `.gitignore`
+    // pattern, and that contains both an ignored file and an unrelated file
+    // that isn't ignored, must only have the ignored file removed. The
+    // directory itself must be left behind, since it still has content.
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file(".gitignore", "*.log\n");
+    work_dir.write_file("logs/one.log", "content");
+    work_dir.write_file("logs/keep.txt", "content");
+
+    let output = work_dir.run_jj(["file", "remove-ignored"]);
+    assert_snapshot!(output, @"
+    ------- stderr -------
+    Removed 1 ignored file(s) from the working copy.
+    [EOF]
+    ");
+    assert!(!work_dir.root().join("logs/one.log").exists());
+    assert!(work_dir.root().join("logs/keep.txt").exists());
+    assert!(work_dir.root().join("logs").exists());
+}
+
+#[test]
+fn test_file_remove_ignored_scoped_to_path() {
+    // Passing a path restricts both `list-ignored` and `remove-ignored` to
+    // that subset, leaving other ignored content (e.g. a build directory
+    // you don't want touched yet) completely untouched. Running
+    // `list-ignored` with the same path first lets you preview what
+    // `remove-ignored` would do, without a separate `--dry-run` flag.
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file(".gitignore", "/target/\n/rendered-docs\n");
+    work_dir.write_file("target/some-build-artifact.bin", "content");
+    work_dir.create_dir("rendered-docs");
+
+    let list_output = work_dir.run_jj(["file", "list-ignored", "rendered-docs"]);
+    assert_snapshot!(list_output, @"
+    rendered-docs/
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["file", "remove-ignored", "rendered-docs"]);
+    assert_snapshot!(output, @"
+    ------- stderr -------
+    Removed 1 ignored file(s) from the working copy.
+    [EOF]
+    ");
+    assert!(!work_dir.root().join("rendered-docs").exists());
+    // `target/` was never mentioned, so it's left completely alone.
+    assert!(work_dir.root().join("target/some-build-artifact.bin").exists());
 }

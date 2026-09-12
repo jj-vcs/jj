@@ -120,6 +120,7 @@ use crate::settings::UserSettings;
 use crate::store::Store;
 use crate::working_copy::CheckoutError;
 use crate::working_copy::CheckoutStats;
+use crate::working_copy::IgnoredPath;
 use crate::working_copy::LockedWorkingCopy;
 use crate::working_copy::ResetError;
 use crate::working_copy::SnapshotError;
@@ -1544,7 +1545,7 @@ struct FileSnapshotter<'a> {
     file_states_tx: Sender<(RepoPathBuf, FileState)>,
     untracked_paths_tx: Sender<(RepoPathBuf, UntrackedReason)>,
     invalid_utf8_paths_tx: Sender<(RepoPathBuf, OsString)>,
-    ignored_paths_tx: Sender<RepoPathBuf>,
+    ignored_paths_tx: Sender<IgnoredPath>,
     deleted_files_tx: Sender<RepoPathBuf>,
     error: OnceLock<SnapshotError>,
     progress: Option<&'a SnapshotProgress<'a>>,
@@ -1764,26 +1765,39 @@ impl FileSnapshotter<'_> {
             if git_ignore.matches_dir(&path)
                 && self.force_tracking_matcher.visit(&path).is_nothing()
             {
-                // If the whole directory is ignored by .gitignore, visit all
-                // entries but report individual (new) files as ignored instead
-                // of the whole directory. This is because .gitignore in ignored
-                // directory must be ignored. It's also more efficient to walk
-                // the directory ourselves without re-interpreting .gitignore.
-                let ignored_dir = path.clone();
-                let ignored_disk_dir = disk_dir.clone();
-                self.spawn_ok(scope, move |scope| {
-                    async move {
-                        self.visit_tracked_files(file_states).await?;
-                        self.visit_ignored_dir_entries(
-                            &ignored_dir,
-                            &ignored_disk_dir,
-                            file_states,
-                            scope,
-                        )
-                        .await
-                    }
-                    .block_on()
-                });
+                if file_states.is_empty() {
+                    // No tracked files anywhere underneath this ignored
+                    // directory (this also covers the case where the
+                    // directory is completely empty on disk): report the
+                    // whole directory as a single ignored path instead of
+                    // walking into it. This keeps `ignored_paths` maximally
+                    // collapsed, consistent with how nested ignored
+                    // directories are reported in `visit_ignored_dir_entries`.
+                    self.ignored_paths_tx.send(IgnoredPath::dir(path)).ok();
+                } else {
+                    // If the whole directory is ignored by .gitignore, visit
+                    // all entries but report individual (new) files as
+                    // ignored instead of the whole directory. This is
+                    // because .gitignore in ignored directory must be
+                    // ignored. It's also more efficient to walk the
+                    // directory ourselves without re-interpreting
+                    // .gitignore.
+                    let ignored_dir = path.clone();
+                    let ignored_disk_dir = disk_dir.clone();
+                    self.spawn_ok(scope, move |scope| {
+                        async move {
+                            self.visit_tracked_files(file_states).await?;
+                            self.visit_ignored_dir_entries(
+                                &ignored_dir,
+                                &ignored_disk_dir,
+                                file_states,
+                                scope,
+                            )
+                            .await
+                        }
+                        .block_on()
+                    });
+                }
             } else if !self.matcher.visit(&path).is_nothing() {
                 let directory_to_visit = DirectoryToVisit {
                     dir: path,
@@ -1807,7 +1821,7 @@ impl FileSnapshotter<'_> {
             {
                 // If it wasn't already tracked and it matches
                 // the ignored paths, then ignore it.
-                self.ignored_paths_tx.send(path).ok();
+                self.ignored_paths_tx.send(IgnoredPath::file(path)).ok();
                 Ok(None)
             } else if maybe_current_file_state.is_none()
                 && !self.start_tracking_matcher.matches(&path)
@@ -1911,6 +1925,13 @@ impl FileSnapshotter<'_> {
                 message: format!("Failed to read directory {}", disk_dir.display()),
                 err: err.into(),
             })?;
+        if dir_entries.is_empty() {
+            // The directory has nothing left to recurse into (e.g. it was
+            // concurrently emptied). Report it directly instead of silently
+            // reporting nothing.
+            self.ignored_paths_tx.send(IgnoredPath::dir(dir.to_owned())).ok();
+            return Ok(());
+        }
         for entry in &dir_entries {
             let file_type = entry.file_type().unwrap();
             let file_name = entry.file_name();
@@ -1936,7 +1957,7 @@ impl FileSnapshotter<'_> {
                 let child_file_states = file_states.prefixed_at(dir, name);
                 if child_file_states.is_empty() {
                     // No tracked files underneath → report the directory itself
-                    self.ignored_paths_tx.send(path).ok();
+                    self.ignored_paths_tx.send(IgnoredPath::dir(path)).ok();
                 } else {
                     // Has tracked files → recurse to find individual ignored files
                     let child_disk_dir = entry_disk_dir;
@@ -1953,7 +1974,7 @@ impl FileSnapshotter<'_> {
             } else if file_type.is_file()
                 && file_states.get_at(dir, name).is_none()
             {
-                self.ignored_paths_tx.send(path).ok();
+                self.ignored_paths_tx.send(IgnoredPath::file(path)).ok();
             }
         }
         Ok(())

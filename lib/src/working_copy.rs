@@ -239,7 +239,41 @@ pub struct SnapshotStats {
     /// `RepoPath`s.
     pub invalid_utf8_paths: BTreeSet<(RepoPathBuf, OsString)>,
     /// List of paths that were ignored by .gitignore.
-    pub ignored_paths: BTreeSet<RepoPathBuf>,
+    pub ignored_paths: BTreeSet<IgnoredPath>,
+}
+
+/// A path that was ignored by .gitignore, together with whether it refers to
+/// a directory or an individual file.
+///
+/// When `is_dir` is `true`, the directory (empty or not) has no tracked file
+/// anywhere underneath it, so the whole subtree should be treated as a single
+/// unit: e.g. shown as one collapsed entry, and removed as a whole with a
+/// single recursive delete.
+///
+/// `Ord`/`Eq` are derived from all fields, but in practice a given `path`
+/// will only ever appear once (as either a file or a directory), so ordering
+/// this set effectively sorts by `path`.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct IgnoredPath {
+    /// The ignored path.
+    pub path: RepoPathBuf,
+    /// Whether the path is a directory.
+    pub is_dir: bool,
+}
+
+impl IgnoredPath {
+    /// Creates a new ignored path referring to a directory.
+    pub fn dir(path: RepoPathBuf) -> Self {
+        Self { path, is_dir: true }
+    }
+
+    /// Creates a new ignored path referring to a file.
+    pub fn file(path: RepoPathBuf) -> Self {
+        Self {
+            path,
+            is_dir: false,
+        }
+    }
 }
 
 /// Reason why the new path isn't tracked.
