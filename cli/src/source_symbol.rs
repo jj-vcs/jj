@@ -285,12 +285,151 @@ fn trim_line(line: &[u8]) -> &[u8] {
     strip_line_ending(line).trim_ascii()
 }
 
-fn is_c_style_comment_line(line: &[u8]) -> bool {
-    // A leading `*` can also belong to a pointer-returning function declaration.
-    line.starts_with(b"/*") || line.starts_with(b"//")
+/// A literal that can continue on the next line.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum PendingQuote {
+    /// A `"` or `'` literal, which only continues if the line ends with a
+    /// backslash.
+    Escaped(u8),
+    /// A backtick literal, as in JavaScript templates and Go raw strings.
+    Backtick,
+    /// A Rust raw string, closed by `"` followed by this many `#`.
+    Raw(usize),
 }
 
-fn is_comment_line(line: &[u8], language: SourceLanguage) -> bool {
+/// C-style lexer state that carries over to the next line.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+enum CStyleState {
+    #[default]
+    Code,
+    BlockComment,
+    Quote(PendingQuote),
+}
+
+/// Returns the length of the char literal opened by the quote at `index`, or
+/// `None` if the quote opens something else, such as a Rust lifetime.
+fn char_literal_length(line: &[u8], index: usize) -> Option<usize> {
+    let body = line.get(index + 1..)?;
+    let content_length = if body.first()? == &b'\\' {
+        // Escape sequences vary in length (`\n`, `\x7f`, `\u{1f600}`), so take
+        // the escaped byte and then everything up to the closing quote.
+        2 + body.get(2..)?.find_byte(b'\'')?
+    } else {
+        // A single character, which may be encoded as multiple bytes.
+        let (_, end, _) = body.char_indices().next()?;
+        end
+    };
+    (body.get(content_length) == Some(&b'\'')).then_some(content_length + 2)
+}
+
+/// Returns the number of `#` in a Rust raw string opened by the `"` at `index`,
+/// or `None` if the quote opens an ordinary string.
+fn raw_string_hashes(line: &[u8], index: usize) -> Option<usize> {
+    let hashes = line[..index]
+        .iter()
+        .rev()
+        .take_while(|byte| **byte == b'#')
+        .count();
+    let prefix = line[..index - hashes].strip_suffix(b"r")?;
+    let prefix = prefix.strip_suffix(b"b").unwrap_or(prefix);
+    // The `r` has to start the literal instead of ending an identifier.
+    prefix
+        .last()
+        .is_none_or(|byte| !byte.is_ascii_alphanumeric() && *byte != b'_')
+        .then_some(hashes)
+}
+
+fn opening_quote(line: &[u8], index: usize) -> Option<PendingQuote> {
+    match line[index] {
+        b'`' => Some(PendingQuote::Backtick),
+        b'"' => Some(match raw_string_hashes(line, index) {
+            Some(hashes) => PendingQuote::Raw(hashes),
+            None => PendingQuote::Escaped(b'"'),
+        }),
+        _ => None,
+    }
+}
+
+fn closing_quote_length(quote: PendingQuote, rest: &[u8]) -> Option<usize> {
+    match quote {
+        PendingQuote::Escaped(byte) => (rest[0] == byte).then_some(1),
+        PendingQuote::Backtick => (rest[0] == b'`').then_some(1),
+        PendingQuote::Raw(hashes) => {
+            let closed = rest[0] == b'"'
+                && rest[1..].iter().take_while(|byte| **byte == b'#').count() >= hashes;
+            closed.then_some(1 + hashes)
+        }
+    }
+}
+
+fn update_c_style_state(line: &[u8], state: &mut CStyleState) {
+    let mut escaped = false;
+    let mut index = 0;
+    while index < line.len() {
+        let rest = &line[index..];
+        match *state {
+            CStyleState::BlockComment => {
+                if rest.starts_with(b"*/") {
+                    *state = CStyleState::Code;
+                    index += 2;
+                    continue;
+                }
+            }
+            CStyleState::Quote(quote) => {
+                if escaped {
+                    escaped = false;
+                } else if rest[0] == b'\\' && matches!(quote, PendingQuote::Escaped(_)) {
+                    escaped = true;
+                } else if let Some(length) = closing_quote_length(quote, rest) {
+                    *state = CStyleState::Code;
+                    index += length;
+                    continue;
+                }
+            }
+            CStyleState::Code => {
+                // The rest of the line cannot open a block comment.
+                if rest.starts_with(b"//") {
+                    break;
+                }
+                if rest.starts_with(b"/*") {
+                    *state = CStyleState::BlockComment;
+                    index += 2;
+                    continue;
+                }
+                if rest[0] == b'\'' {
+                    // A quote that does not enclose a single character is a
+                    // Rust lifetime or an apostrophe in prose.
+                    index += char_literal_length(line, index).unwrap_or(1);
+                    continue;
+                }
+                if let Some(quote) = opening_quote(line, index) {
+                    *state = CStyleState::Quote(quote);
+                    escaped = false;
+                    index += 1;
+                    continue;
+                }
+            }
+        }
+        index += 1;
+    }
+    // Treat an unclosed `"` as unbalanced punctuation rather than as a literal
+    // spanning lines, so that it cannot swallow the rest of the file. Literals
+    // that do span lines keep their state.
+    if matches!(*state, CStyleState::Quote(PendingQuote::Escaped(_))) && !escaped {
+        *state = CStyleState::Code;
+    }
+}
+
+fn is_c_style_comment_line(line: &[u8], state: &mut CStyleState) -> bool {
+    // A leading `*` can also belong to a pointer-returning function
+    // declaration, so only the tracked state tells continuation lines apart.
+    let is_comment =
+        *state == CStyleState::BlockComment || line.starts_with(b"/*") || line.starts_with(b"//");
+    update_c_style_state(line, state);
+    is_comment
+}
+
+fn is_comment_line(line: &[u8], language: SourceLanguage, state: &mut CStyleState) -> bool {
     match language {
         SourceLanguage::CLike
         | SourceLanguage::CLikeOrObjC
@@ -301,8 +440,8 @@ fn is_comment_line(line: &[u8], language: SourceLanguage) -> bool {
         | SourceLanguage::Kotlin
         | SourceLanguage::ObjC
         | SourceLanguage::Php
-        | SourceLanguage::Rust => is_c_style_comment_line(line),
-        SourceLanguage::MatlabOrObjC => is_c_style_comment_line(line),
+        | SourceLanguage::Rust => is_c_style_comment_line(line, state),
+        SourceLanguage::MatlabOrObjC => is_c_style_comment_line(line, state),
         SourceLanguage::Elixir
         | SourceLanguage::Perl
         | SourceLanguage::Python
@@ -325,6 +464,7 @@ fn source_symbols(
     content: &BStr,
     language: SourceLanguage,
 ) -> impl Iterator<Item = (usize, &[u8])> {
+    let mut state = CStyleState::default();
     content
         .split_inclusive(|byte| *byte == b'\n')
         .enumerate()
@@ -338,7 +478,10 @@ fn source_symbols(
                 SourceLanguage::CLike | SourceLanguage::CLikeOrObjC => line,
                 _ => trimmed_line,
             };
-            (!is_comment_line(trimmed_line, language) && language.is_source_symbol(line_to_match))
+            // The comment state has to be updated for every line, so it
+            // cannot be short-circuited by the symbol pattern.
+            let is_comment = is_comment_line(trimmed_line, language, &mut state);
+            (!is_comment && language.is_source_symbol(line_to_match))
                 .then_some((line_number, trimmed_line))
         })
 }
@@ -386,6 +529,8 @@ impl<'a> SourceSymbolScanner<'a> {
 
 #[cfg(test)]
 mod tests {
+    use itertools::Itertools as _;
+
     use super::*;
 
     fn collect_source_symbols(content: &BStr, language: SourceLanguage) -> Vec<(usize, &[u8])> {
@@ -704,6 +849,82 @@ mod tests {
             let scanner = SourceSymbolScanner::new(language, content);
             assert_eq!(scanner.find(&(2..3)), Some(&b"*foo(void) {"[..]));
         }
+    }
+
+    #[test]
+    fn test_collect_source_symbols_tracks_block_comments_after_code() {
+        let content = BStr::new(
+            b"int value = 0; /* starts mid-line\nint misleading(comment)\n*/\nconst char *text = \"/* not a comment */\";\nextern int actual(int value);\n",
+        );
+        let symbols = collect_source_symbols(content, SourceLanguage::CLike)
+            .into_iter()
+            .map(|(line, symbol)| (line, BStr::new(symbol)))
+            .collect_vec();
+        insta::assert_debug_snapshot!(symbols, @r#"
+        [
+            (
+                4,
+                "extern int actual(int value);",
+            ),
+        ]
+        "#);
+    }
+
+    #[test]
+    fn test_collect_source_symbols_tracks_comments_after_rust_lifetimes() {
+        let symbols = collect_source_symbols(
+            BStr::new(b"fn outer<'a>() { /*\nfn misleading() {}\n*/\n    changed();\n}\n"),
+            SourceLanguage::Rust,
+        );
+
+        assert_eq!(symbols, vec![(0, &b"fn outer<'a>() { /*"[..])]);
+    }
+
+    #[test]
+    fn test_collect_source_symbols_tracks_comments_after_apostrophes() {
+        let symbols = collect_source_symbols(
+            BStr::new(
+                b"fn outer<'a>(value: &'a str) { /* TODO: it's slow\nfn misleading() {}\n*/\n}\n",
+            ),
+            SourceLanguage::Rust,
+        );
+
+        assert_eq!(
+            symbols,
+            vec![(0, &b"fn outer<'a>(value: &'a str) { /* TODO: it's slow"[..])]
+        );
+    }
+
+    #[test]
+    fn test_collect_source_symbols_tracks_multi_line_literals() {
+        let symbols = collect_source_symbols(
+            BStr::new(b"const text = `\nsee /* here\n`;\nexport function actual() {\n}\n"),
+            SourceLanguage::JavaScript,
+        );
+        assert_eq!(symbols, vec![(3, &b"export function actual() {"[..])]);
+
+        let symbols = collect_source_symbols(
+            BStr::new(b"const TEXT: &str = r#\"\nsee /* here\n\"#;\nfn actual() {\n}\n"),
+            SourceLanguage::Rust,
+        );
+        assert_eq!(symbols, vec![(3, &b"fn actual() {"[..])]);
+    }
+
+    #[test]
+    fn test_collect_source_symbols_tracks_line_continued_strings() {
+        let symbols = collect_source_symbols(
+            BStr::new(b"const char *text = \"start \\\n/* end\";\nextern int actual(int value);\n"),
+            SourceLanguage::CLike,
+        );
+        assert_eq!(symbols, vec![(2, &b"extern int actual(int value);"[..])]);
+
+        // An unclosed quote is unbalanced punctuation, not a literal spanning
+        // lines.
+        let symbols = collect_source_symbols(
+            BStr::new(b"    puts(\"unterminated);\nextern int actual(int value);\n"),
+            SourceLanguage::CLike,
+        );
+        assert_eq!(symbols, vec![(1, &b"extern int actual(int value);"[..])]);
     }
 
     #[test]
