@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use bstr::BString;
 use indoc::indoc;
 use itertools::Itertools as _;
 use jj_lib::backend::FileId;
@@ -24,6 +25,7 @@ use jj_lib::conflicts::extract_as_single_hunk;
 use jj_lib::conflicts::materialize_merge_result_to_bytes;
 use jj_lib::conflicts::parse_conflict;
 use jj_lib::conflicts::update_from_content;
+use jj_lib::conflicts::update_from_materialized_content;
 use jj_lib::files::FileMergeHunkLevel;
 use jj_lib::merge::Merge;
 use jj_lib::merge::SameChange;
@@ -638,6 +640,57 @@ fn test_materialize_update_roundtrip(style: ConflictMarkerStyle) -> TestResult {
     .block_on()?;
 
     assert_eq!(parsed, conflict);
+    Ok(())
+}
+
+#[test_case(ConflictMarkerStyle::Diff)]
+#[test_case(ConflictMarkerStyle::Snapshot)]
+#[test_case(ConflictMarkerStyle::Git)]
+fn test_materialize_update_roundtrip_raw(style: ConflictMarkerStyle) -> TestResult {
+    let test_repo = TestRepo::init();
+    let store = test_repo.repo.store();
+
+    let base_content = indoc! {"
+            line 1
+            line 2 base
+            line 3 base
+            line 4 base
+            line 5
+        "};
+    let a_content = indoc! {"
+            line 1
+            line 2 a.1
+            line 3 a.2
+            line 4 base
+            line 5
+        "};
+    let b_content = indoc! {"
+            line 1
+            line 2 b.1
+            line 3 base
+            line 4 b.2
+            line 5
+        "};
+    let conflict = Merge::from_removes_adds(
+        vec![BString::new(base_content.into())],
+        vec![
+            BString::new(a_content.into()),
+            BString::new(b_content.into()),
+        ],
+    );
+
+    let materialized =
+        materialize_conflict_string_with_labels_raw(&conflict, style, &ConflictLabels::unlabeled());
+    assert_eq!(
+        update_from_materialized_content(
+            &conflict,
+            materialized.as_bytes(),
+            MIN_CONFLICT_MARKER_LEN,
+            store.merge_options(),
+        ),
+        (None, true)
+    );
+
     Ok(())
 }
 
@@ -1806,6 +1859,80 @@ fn test_update_conflict_from_content() -> TestResult {
 }
 
 #[test]
+fn test_update_conflict_from_content_raw() -> TestResult {
+    let test_repo = TestRepo::init();
+    let store = test_repo.repo.store();
+    let base_content = "line 1\nline 2\nline 3\n";
+    let left_content = "left 1\nline 2\nleft 3\n";
+    let right_content = "right 1\nline 2\nright 3\n";
+    let conflict = Merge::from_removes_adds(
+        vec![BString::new(base_content.into())],
+        vec![
+            BString::new(left_content.into()),
+            BString::new(right_content.into()),
+        ],
+    );
+
+    // If the content is unchanged compared to the materialized value, we get the
+    // old conflict back.
+    let materialized = materialize_conflict_string_with_labels_raw(
+        &conflict,
+        ConflictMarkerStyle::Diff,
+        &ConflictLabels::unlabeled(),
+    );
+    assert_eq!(
+        update_from_materialized_content(
+            &conflict,
+            materialized.as_bytes(),
+            MIN_CONFLICT_MARKER_LEN,
+            store.merge_options(),
+        ),
+        (None, true)
+    );
+
+    // If the conflict is resolved, we get None back to indicate that.
+    assert_eq!(
+        update_from_materialized_content(
+            &conflict,
+            b"resolved 1\nline 2\nresolved 3\n",
+            MIN_CONFLICT_MARKER_LEN,
+            store.merge_options(),
+        ),
+        (None, false)
+    );
+
+    // If the conflict is partially resolved, we get a new conflict back.
+    let (new_contents, unchanged) = update_from_materialized_content(
+        &conflict,
+        b"resolved 1\nline 2\n<<<<<<<\n%%%%%%%\n-line 3\n+left 3\n+++++++\nright 3\n>>>>>>>\n",
+        MIN_CONFLICT_MARKER_LEN,
+        store.merge_options(),
+    );
+    assert!(!unchanged);
+    let new_contents = new_contents.unwrap();
+    assert_eq!(new_contents.num_sides(), 2);
+    insta::assert_snapshot!(new_contents.first(), @r"
+        resolved 1
+        line 2
+        left 3
+        "
+    );
+    insta::assert_snapshot!(new_contents.get_remove(0).unwrap(), @r"
+        resolved 1
+        line 2
+        line 3
+        "
+    );
+    insta::assert_snapshot!(new_contents.get_add(1).unwrap(), @r"
+        resolved 1
+        line 2
+        right 3
+        "
+    );
+    Ok(())
+}
+
+#[test]
 fn test_update_conflict_from_content_modify_delete() -> TestResult {
     let test_repo = TestRepo::init();
     let store = test_repo.repo.store();
@@ -1940,6 +2067,103 @@ fn test_update_conflict_from_content_simplified_conflict() -> TestResult {
                 Some(new_right_file_id.clone())
             ]
         )
+    );
+    Ok(())
+}
+
+#[test]
+fn test_update_conflict_from_content_simplified_conflict_raw() -> TestResult {
+    let test_repo = TestRepo::init();
+    let store = test_repo.repo.store();
+
+    let base_content = "line 1\nline 2\nline 3\n";
+    let left_content = "left 1\nline 2\nleft 3\n";
+    let right_content = "right 1\nline 2\nright 3\n";
+    // Conflict: left - base + base - base + right
+    let conflict = Merge::from_removes_adds(
+        vec![
+            BString::new(base_content.into()),
+            BString::new(base_content.into()),
+        ],
+        vec![
+            BString::new(left_content.into()),
+            BString::new(base_content.into()),
+            BString::new(right_content.into()),
+        ],
+    );
+    let simplified_conflict = conflict.simplify();
+
+    // If the content is unchanged compared to the materialized value, we get the
+    // old conflict id back.
+    let materialized = materialize_conflict_string_with_labels_raw(
+        &simplified_conflict,
+        ConflictMarkerStyle::Diff,
+        &ConflictLabels::unlabeled(),
+    );
+
+    insta::assert_snapshot!(
+        materialized,
+        @r"
+    <<<<<<< conflict 1 of 2
+    %%%%%%% diff from: base
+    \\\\\\\        to: side #1
+    -line 1
+    +left 1
+    +++++++ side #2
+    right 1
+    >>>>>>> conflict 1 of 2 ends
+    line 2
+    <<<<<<< conflict 2 of 2
+    %%%%%%% diff from: base
+    \\\\\\\        to: side #1
+    -line 3
+    +left 3
+    +++++++ side #2
+    right 3
+    >>>>>>> conflict 2 of 2 ends
+    "
+    );
+    assert_eq!(
+        update_from_materialized_content(
+            &conflict,
+            materialized.as_bytes(),
+            MIN_CONFLICT_MARKER_LEN,
+            store.merge_options(),
+        ),
+        (None, false)
+    );
+
+    // If the conflict is resolved, we get a normal merge back to indicate that.
+    assert_eq!(
+        update_from_materialized_content(
+            &conflict,
+            b"resolved 1\nline 2\nresolved 3\n",
+            MIN_CONFLICT_MARKER_LEN,
+            store.merge_options(),
+        ),
+        (None, false)
+    );
+
+    // If the conflict is partially resolved, we get a new conflict back.
+    let materialized = indoc! {"
+        resolved 1
+        line 2
+        <<<<<<< conflict 2 of 2
+        %%%%%%% diff from base to side #1
+        -edited line 3
+        +edited left 3
+        +++++++ side #2
+        edited right 3
+        >>>>>>> conflict 2 of 2 ends
+    "};
+    assert_eq!(
+        update_from_materialized_content(
+            &conflict,
+            materialized.as_bytes(),
+            MIN_CONFLICT_MARKER_LEN,
+            store.merge_options(),
+        ),
+        (None, false)
     );
     Ok(())
 }
@@ -2109,19 +2333,252 @@ fn test_update_conflict_from_content_with_long_markers() -> TestResult {
 }
 
 #[test]
+fn test_update_conflict_from_content_with_long_markers_raw() -> TestResult {
+    let test_repo = TestRepo::init();
+    let store = test_repo.repo.store();
+
+    // Create conflicts which contain conflict markers of varying lengths
+    let base_content = indoc! {"
+            line 1
+            line 2
+            line 3
+        "};
+    let left_content = indoc! {"
+            <<<< left 1
+            line 2
+            <<<<<<<<<<<< left 3
+        "};
+    let right_content = indoc! {"
+            >>>>>>> right 1
+            line 2
+            >>>>>>>>>>>> right 3
+        "};
+    let conflict = Merge::from_removes_adds(
+        vec![BString::new(base_content.into())],
+        vec![
+            BString::new(left_content.into()),
+            BString::new(right_content.into()),
+        ],
+    );
+
+    // The conflict should be materialized using long conflict markers
+    let materialized_marker_len = choose_materialized_conflict_marker_len(&conflict);
+    assert!(materialized_marker_len > MIN_CONFLICT_MARKER_LEN);
+    let materialized = materialize_conflict_string_with_labels_raw(
+        &conflict,
+        ConflictMarkerStyle::Snapshot,
+        &ConflictLabels::unlabeled(),
+    );
+    insta::assert_snapshot!(materialized, @"
+    <<<<<<<<<<<<<<<< conflict 1 of 2
+    ++++++++++++++++ side #1
+    <<<< left 1
+    ---------------- base
+    line 1
+    ++++++++++++++++ side #2
+    >>>>>>> right 1
+    >>>>>>>>>>>>>>>> conflict 1 of 2 ends
+    line 2
+    <<<<<<<<<<<<<<<< conflict 2 of 2
+    ++++++++++++++++ side #1
+    <<<<<<<<<<<< left 3
+    ---------------- base
+    line 3
+    ++++++++++++++++ side #2
+    >>>>>>>>>>>> right 3
+    >>>>>>>>>>>>>>>> conflict 2 of 2 ends
+    "
+    );
+
+    assert_eq!(
+        update_from_materialized_content(
+            &conflict,
+            materialized.as_bytes(),
+            materialized_marker_len,
+            store.merge_options(),
+        ),
+        (None, true)
+    );
+
+    // Test resolving the conflict, leaving some fake conflict markers which should
+    // not be parsed since they are too short
+    let resolved_file_contents = indoc! {"
+        <<<<<<<<<<<< not a real conflict!
+        ++++++++++++
+        left
+        ------------
+        base
+        ++++++++++++
+        right
+        >>>>>>>>>>>>
+    "};
+
+    assert_eq!(
+        update_from_materialized_content(
+            &conflict,
+            resolved_file_contents.as_bytes(),
+            materialized_marker_len,
+            store.merge_options(),
+        ),
+        (None, false)
+    );
+
+    // Resolve one of the conflicts, decreasing the minimum conflict marker length
+    let new_conflict_contents = indoc! {"
+        <<<<<<<<<<<<<<<< conflict 1 of 2
+        ++++++++++++++++ side #1
+        <<<< left 1
+        ---------------- base
+        line 1
+        ++++++++++++++++ side #2
+        >>>>>>> right 1
+        >>>>>>>>>>>>>>>> conflict 1 of 2 ends
+        line 2
+        line 3
+    "};
+
+    // Confirm that the new conflict parsed correctly
+    let (new_contents, unchanged) = update_from_materialized_content(
+        &conflict,
+        new_conflict_contents.as_bytes(),
+        materialized_marker_len,
+        store.merge_options(),
+    );
+    assert!(!unchanged);
+
+    let new_base_content = indoc! {"
+            line 1
+            line 2
+            line 3
+        "};
+    let new_left_content = indoc! {"
+            <<<< left 1
+            line 2
+            line 3
+        "};
+    let new_right_content = indoc! {"
+            >>>>>>> right 1
+            line 2
+            line 3
+        "};
+    let new_contents = new_contents.unwrap();
+    assert_eq!(
+        new_contents,
+        Merge::from_removes_adds(
+            vec![BString::new(new_base_content.into())],
+            vec![
+                BString::new(new_left_content.into()),
+                BString::new(new_right_content.into()),
+            ],
+        )
+    );
+
+    // The conflict markers should still parse in future snapshots even though
+    // they're now longer than necessary
+
+    {
+        let (new_contents, unchanged) = update_from_materialized_content(
+            &new_contents,
+            new_conflict_contents.as_bytes(),
+            MIN_CONFLICT_MARKER_LEN,
+            store.merge_options(),
+        );
+        assert!(!unchanged);
+        let new_contents = new_contents.unwrap();
+        assert_eq!(new_contents.num_sides(), 2);
+        insta::assert_snapshot!(new_contents.first(), @r"
+        <<<< left 1
+        >>>>>>>>>>>>>>>> conflict 1 of 2 ends
+        line 2
+        line 3
+        ");
+        insta::assert_snapshot!(new_contents.get_remove(0).unwrap(), @r"
+        line 1
+        >>>>>>>>>>>>>>>> conflict 1 of 2 ends
+        line 2
+        line 3
+        ");
+        insta::assert_snapshot!(new_contents.get_add(1).unwrap(), @r"
+        >>>>>>>>>>>>>>>> conflict 1 of 2 ends
+        line 2
+        line 3
+        ");
+
+        let (new_contents, unchanged) = update_from_materialized_content(
+            &new_contents,
+            materialized.as_bytes(),
+            MIN_CONFLICT_MARKER_LEN,
+            store.merge_options(),
+        );
+        assert!(!unchanged);
+        let new_contents = new_contents.unwrap();
+        assert_eq!(new_contents.num_sides(), 2);
+        insta::assert_snapshot!(new_contents.first(), @r"
+        <<<< left 1
+        >>>>>>>>>>>>>>>> conflict 1 of 2 ends
+        line 2
+        <<<<<<<<<<<<<<<< conflict 2 of 2
+        ++++++++++++++++ side #1
+        <<<<<<<<<<<< left 3
+        ---------------- base
+        line 3
+        ++++++++++++++++ side #2
+        >>>>>>>>>>>> right 3
+        >>>>>>>>>>>>>>>> conflict 2 of 2 ends
+        ");
+        insta::assert_snapshot!(new_contents.get_remove(0).unwrap(), @r"
+        line 1
+        >>>>>>>>>>>>>>>> conflict 1 of 2 ends
+        line 2
+        <<<<<<<<<<<<<<<< conflict 2 of 2
+        ++++++++++++++++ side #1
+        <<<<<<<<<<<< left 3
+        ---------------- base
+        line 3
+        ++++++++++++++++ side #2
+        >>>>>>>>>>>> right 3
+        >>>>>>>>>>>>>>>> conflict 2 of 2 ends
+        ");
+        insta::assert_snapshot!(new_contents.get_add(1).unwrap(), @r"
+        >>>>>>>>>>>>>>>> conflict 1 of 2 ends
+        line 2
+        <<<<<<<<<<<<<<<< conflict 2 of 2
+        ++++++++++++++++ side #1
+        <<<<<<<<<<<< left 3
+        ---------------- base
+        line 3
+        ++++++++++++++++ side #2
+        >>>>>>>>>>>> right 3
+        >>>>>>>>>>>>>>>> conflict 2 of 2 ends
+        ");
+    }
+
+    Ok(())
+}
+
+#[test]
 fn test_update_conflict_from_content_no_eol() -> TestResult {
     let test_repo = TestRepo::init();
     let store = test_repo.repo.store();
 
     let path = repo_path("file");
-    let base_id = testutils::write_file(store, path, "line 1\nline 2\nline 3\nbase");
-    let left_empty_id =
-        testutils::write_file(store, path, "line 1\nline 2 left\nline 3\nbase\nleft\n");
-    let right_id = testutils::write_file(store, path, "line 1\nline 2 right\nline 3\nright");
+    let base_content = "line 1\nline 2\nline 3\nbase";
+    let left_content = "line 1\nline 2 left\nline 3\nbase\nleft\n";
+    let right_content = "line 1\nline 2 right\nline 3\nright";
+    let base_id = testutils::write_file(store, path, base_content);
+    let left_empty_id = testutils::write_file(store, path, left_content);
+    let right_id = testutils::write_file(store, path, right_content);
 
     let conflict = Merge::from_removes_adds(
         vec![Some(base_id)],
         vec![Some(left_empty_id), Some(right_id)],
+    );
+    let conflict_merge = Merge::from_removes_adds(
+        vec![BString::new(base_content.into())],
+        vec![
+            BString::new(left_content.into()),
+            BString::new(right_content.into()),
+        ],
     );
 
     let materialized =
@@ -2159,6 +2616,15 @@ fn test_update_conflict_from_content_no_eol() -> TestResult {
         )
         .block_on()?,
         conflict
+    );
+    assert_eq!(
+        update_from_materialized_content(
+            &conflict_merge,
+            materialized.as_bytes(),
+            MIN_CONFLICT_MARKER_LEN,
+            store.merge_options(),
+        ),
+        (None, true)
     );
 
     let materialized =
@@ -2198,6 +2664,15 @@ fn test_update_conflict_from_content_no_eol() -> TestResult {
         .block_on()?,
         conflict
     );
+    assert_eq!(
+        update_from_materialized_content(
+            &conflict_merge,
+            materialized.as_bytes(),
+            MIN_CONFLICT_MARKER_LEN,
+            store.merge_options(),
+        ),
+        (None, true)
+    );
 
     let materialized =
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Git);
@@ -2234,6 +2709,16 @@ fn test_update_conflict_from_content_no_eol() -> TestResult {
         .block_on()?,
         conflict
     );
+    assert_eq!(
+        update_from_materialized_content(
+            &conflict_merge,
+            materialized.as_bytes(),
+            MIN_CONFLICT_MARKER_LEN,
+            store.merge_options(),
+        ),
+        (None, true)
+    );
+
     Ok(())
 }
 
@@ -2256,17 +2741,32 @@ fn test_update_conflict_from_content_no_eol_in_diff_hunk() -> TestResult {
 
     let conflict = Merge::from_removes_adds(
         vec![
-            Some(base_1_id),
-            Some(base_2_id),
-            Some(base_3_id),
-            Some(base_4_id),
+            Some(base_1_id.clone()),
+            Some(base_2_id.clone()),
+            Some(base_3_id.clone()),
+            Some(base_4_id.clone()),
         ],
         vec![
-            Some(side_1_id),
-            Some(side_2_id),
-            Some(side_3_id),
-            Some(side_4_id),
-            Some(side_5_id),
+            Some(side_1_id.clone()),
+            Some(side_2_id.clone()),
+            Some(side_3_id.clone()),
+            Some(side_4_id.clone()),
+            Some(side_5_id.clone()),
+        ],
+    );
+    let conflict_merge = Merge::from_removes_adds(
+        [
+            BString::new(testutils::read_file(store, path, &base_1_id)),
+            BString::new(testutils::read_file(store, path, &base_2_id)),
+            BString::new(testutils::read_file(store, path, &base_3_id)),
+            BString::new(testutils::read_file(store, path, &base_4_id)),
+        ],
+        [
+            BString::new(testutils::read_file(store, path, &side_1_id)),
+            BString::new(testutils::read_file(store, path, &side_2_id)),
+            BString::new(testutils::read_file(store, path, &side_3_id)),
+            BString::new(testutils::read_file(store, path, &side_4_id)),
+            BString::new(testutils::read_file(store, path, &side_5_id)),
         ],
     );
 
@@ -2313,6 +2813,16 @@ fn test_update_conflict_from_content_no_eol_in_diff_hunk() -> TestResult {
         .block_on()?,
         conflict
     );
+    assert_eq!(
+        update_from_materialized_content(
+            &conflict_merge,
+            materialized.as_bytes(),
+            MIN_CONFLICT_MARKER_LEN,
+            store.merge_options(),
+        ),
+        (None, true)
+    );
+
     Ok(())
 }
 
@@ -2324,12 +2834,22 @@ fn test_update_conflict_from_content_only_no_eol_change() -> TestResult {
     let path = repo_path("file");
     // Create a conflict which would be resolved by the "A-B+A = A" rule if the
     // missing newline is wrongly ignored
-    let left_id = testutils::write_file(store, path, "line 1\nline 2");
-    let base_id = testutils::write_file(store, path, "line 1\n");
-    let right_id = testutils::write_file(store, path, "line 1\nline 2\n");
+    let left_content = "line 1\nline 2";
+    let base_content = "line 1\n";
+    let right_content = "line 1\nline 2\n";
+    let left_id = testutils::write_file(store, path, left_content);
+    let base_id = testutils::write_file(store, path, base_content);
+    let right_id = testutils::write_file(store, path, right_content);
 
     let conflict =
         Merge::from_removes_adds(vec![Some(base_id)], vec![Some(left_id), Some(right_id)]);
+    let conflict_merge = Merge::from_removes_adds(
+        vec![BString::new(base_content.into())],
+        vec![
+            BString::new(left_content.into()),
+            BString::new(right_content.into()),
+        ],
+    );
 
     let materialized =
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff);
@@ -2357,6 +2877,16 @@ fn test_update_conflict_from_content_only_no_eol_change() -> TestResult {
         .block_on()?,
         conflict
     );
+    assert_eq!(
+        update_from_materialized_content(
+            &conflict_merge,
+            materialized.as_bytes(),
+            MIN_CONFLICT_MARKER_LEN,
+            store.merge_options(),
+        ),
+        (None, true)
+    );
+
     Ok(())
 }
 
@@ -2366,42 +2896,40 @@ fn test_update_from_content_malformed_conflict() -> TestResult {
     let store = test_repo.repo.store();
 
     let path = repo_path("dir/file");
-    let base_file_id = testutils::write_file(
-        store,
-        path,
-        indoc! {"
+    let base_content = indoc! {"
             line 1
             line 2
             line 3
             line 4
             line 5
-        "},
-    );
-    let left_file_id = testutils::write_file(
-        store,
-        path,
-        indoc! {"
+        "};
+    let left_content = indoc! {"
             line 1
             line 2 left
             line 3
             line 4 left
             line 5
-        "},
-    );
-    let right_file_id = testutils::write_file(
-        store,
-        path,
-        indoc! {"
+        "};
+    let right_content = indoc! {"
             line 1
             line 2 right
             line 3
             line 4 right
             line 5
-        "},
-    );
+        "};
+    let base_file_id = testutils::write_file(store, path, base_content);
+    let left_file_id = testutils::write_file(store, path, left_content);
+    let right_file_id = testutils::write_file(store, path, right_content);
     let conflict = Merge::from_removes_adds(
         vec![Some(base_file_id.clone())],
         vec![Some(left_file_id.clone()), Some(right_file_id.clone())],
+    );
+    let confict_merge = Merge::from_removes_adds(
+        vec![BString::new(base_content.into())],
+        vec![
+            BString::new(left_content.into()),
+            BString::new(right_content.into()),
+        ],
     );
 
     // The conflict should be materialized with normal markers
@@ -2441,6 +2969,15 @@ fn test_update_from_content_malformed_conflict() -> TestResult {
             .unwrap()
     };
     assert_eq!(parse(&conflict, materialized.as_bytes()), conflict);
+    assert_eq!(
+        update_from_materialized_content(
+            &confict_merge,
+            materialized.as_bytes(),
+            materialized_marker_len,
+            store.merge_options(),
+        ),
+        (None, true)
+    );
 
     // Make a change to the second conflict that causes it to become invalid
     let new_conflict_contents = indoc! {"
@@ -2509,10 +3046,32 @@ fn test_update_from_content_malformed_conflict() -> TestResult {
     line 5
     ");
 
+    let (new_contents, unchanged) = update_from_materialized_content(
+        &confict_merge,
+        new_conflict_contents.as_bytes(),
+        materialized_marker_len,
+        store.merge_options(),
+    );
+    assert!(!unchanged);
+    let new_contents = new_contents.unwrap();
+    assert_eq!(new_contents.num_sides(), 2);
+    assert_eq!(new_contents.first(), new_left_side.as_bytes());
+    assert_eq!(new_contents.get_remove(0).unwrap(), new_base.as_bytes());
+    assert_eq!(new_contents.get_add(1).unwrap(), new_right_side.as_bytes());
+
     // Even though the file now contains markers of length 7, the materialized
     // markers of length 7 are still parsed
     let second_snapshot = parse(&new_conflict, new_conflict_contents.as_bytes());
     assert_eq!(second_snapshot, new_conflict);
+    assert_eq!(
+        update_from_materialized_content(
+            &new_contents,
+            new_conflict_contents.as_bytes(),
+            materialized_marker_len,
+            store.merge_options(),
+        ),
+        (None, true)
+    );
     Ok(())
 }
 
@@ -2541,6 +3100,14 @@ fn materialize_conflict_string_with_labels(
     let contents = extract_as_single_hunk(conflict, store, path)
         .block_on()
         .unwrap();
+    materialize_conflict_string_with_labels_raw(&contents, marker_style, conflict_labels)
+}
+
+fn materialize_conflict_string_with_labels_raw(
+    conflict: &Merge<BString>,
+    marker_style: ConflictMarkerStyle,
+    conflict_labels: &ConflictLabels,
+) -> String {
     let options = ConflictMaterializeOptions {
         marker_style,
         marker_len: None,
@@ -2549,8 +3116,6 @@ fn materialize_conflict_string_with_labels(
             same_change: SameChange::Accept,
         },
     };
-    String::from_utf8(
-        materialize_merge_result_to_bytes(&contents, conflict_labels, &options).into(),
-    )
-    .unwrap()
+    String::from_utf8(materialize_merge_result_to_bytes(conflict, conflict_labels, &options).into())
+        .unwrap()
 }
