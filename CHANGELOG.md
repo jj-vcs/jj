@@ -49,6 +49,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Use the `--sparse-patterns` option to control this behavior (evaluated
   per each `jj run` invocation).
 
+* `jj util diff <path1> <path2>` to compare files on disk.
+
 ### Fixed bugs
 
 ## [0.45.1] - 2026-09-03
