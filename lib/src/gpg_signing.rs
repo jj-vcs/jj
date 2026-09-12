@@ -31,6 +31,7 @@ use crate::signing::SigStatus;
 use crate::signing::SignError;
 use crate::signing::SigningBackend;
 use crate::signing::Verification;
+use crate::subprocess_util::suppress_console_window;
 
 /// Search for one of these in the output from `--status-fd=1`.
 ///
@@ -185,13 +186,7 @@ impl GpgBackend {
 
     fn create_command(&self) -> Command {
         let mut command = Command::new(&self.program);
-        // Hide console window on Windows (https://stackoverflow.com/a/60958956)
-        #[cfg(windows)]
-        {
-            use std::os::windows::process::CommandExt as _;
-            const CREATE_NO_WINDOW: u32 = 0x08000000;
-            command.creation_flags(CREATE_NO_WINDOW);
-        }
+        suppress_console_window(&mut command);
 
         command
             .stdin(Stdio::piped())
@@ -267,13 +262,7 @@ impl GpgsmBackend {
 
     fn create_command(&self) -> Command {
         let mut command = Command::new(&self.program);
-        // Hide console window on Windows (https://stackoverflow.com/a/60958956)
-        #[cfg(windows)]
-        {
-            use std::os::windows::process::CommandExt as _;
-            const CREATE_NO_WINDOW: u32 = 0x08000000;
-            command.creation_flags(CREATE_NO_WINDOW);
-        }
+        suppress_console_window(&mut command);
 
         command
             .stdin(Stdio::piped())

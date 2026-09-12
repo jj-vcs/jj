@@ -16,7 +16,7 @@
 
 #![warn(missing_docs)]
 #![deny(unused_must_use)]
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 
 pub mod absorb;
 pub mod annotate;
@@ -101,6 +101,7 @@ pub mod stacked_table;
 pub mod store;
 pub use jj_core::str_util;
 pub mod submodule_store;
+pub mod subprocess_util;
 #[cfg(feature = "testing")]
 pub mod test_signing_backend;
 pub mod time_util;
