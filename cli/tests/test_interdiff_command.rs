@@ -39,7 +39,7 @@ fn test_interdiff_basic() {
     // implicit --to
     let output = work_dir.run_jj(["interdiff", "--from", "left"]);
     insta::assert_snapshot!(output, @"
-    Modified commit description:
+    Modified JJ-COMMIT-DESCRIPTION:
        1     : add file2 left
             1: add file2 right
     Modified regular file file2:
@@ -52,7 +52,7 @@ fn test_interdiff_basic() {
     work_dir.run_jj(["new", "@-"]).success();
     let output = work_dir.run_jj(["interdiff", "--from", "left", "--to", "right"]);
     insta::assert_snapshot!(output, @"
-    Modified commit description:
+    Modified JJ-COMMIT-DESCRIPTION:
        1     : add file2 left
             1: add file2 right
     Modified regular file file2:

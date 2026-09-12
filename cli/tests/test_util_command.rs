@@ -146,6 +146,41 @@ fn test_shell_completions() {
 }
 
 #[test]
+fn test_util_diff() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // file1 == file2, != file3
+    work_dir.write_file("file1", "foo\nbar\n");
+    work_dir.write_file("file2", "foo\nbar\n");
+    work_dir.write_file("file3", "foo\nbaz\n");
+
+    let output = work_dir.run_jj(["util", "diff", "--git", "file1", "file2"]);
+    insta::assert_snapshot!(output, @"");
+
+    let output = work_dir.run_jj(["util", "diff", "--git", "file1", "file3"]);
+    insta::assert_snapshot!(output, @"
+    diff --git a/file1 b/file3
+    --- file1
+    +++ file3
+    @@ -1,2 +1,2 @@
+     foo
+    -bar
+    +baz
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["util", "diff", "file1", "file3", "--color=debug"]);
+    insta::assert_snapshot!(output, @"
+    [38;5;3m<<diff header::Modified file3 (file1 => file3):>>[39m
+    [2m[38;5;1m<<diff context removed line_number::   1>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   1>>[0m<<diff context::: foo>>
+    [38;5;1m<<diff removed line_number::   2>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   2>>[39m<<diff::: >>[4m[38;5;1m<<diff removed token::bar>>[38;5;2m<<diff added token::baz>>[24m[39m<<diff::>>
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_util_exec() {
     let test_env = TestEnvironment::default();
     let formatter_path = assert_cmd::cargo::cargo_bin!("fake-formatter");

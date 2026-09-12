@@ -15,6 +15,7 @@
 mod backend;
 mod completion;
 mod config_schema;
+mod diff;
 mod exec;
 mod gc;
 mod install_man_pages;
@@ -30,6 +31,8 @@ use self::completion::UtilCompletionArgs;
 use self::completion::cmd_util_completion;
 use self::config_schema::UtilConfigSchemaArgs;
 use self::config_schema::cmd_util_config_schema;
+use self::diff::UtilDiffArgs;
+use self::diff::cmd_util_diff;
 use self::exec::UtilExecArgs;
 use self::exec::cmd_util_exec;
 use self::gc::UtilGcArgs;
@@ -51,6 +54,7 @@ pub(crate) enum UtilCommand {
     Backend(UtilBackendCommand),
     Completion(UtilCompletionArgs),
     ConfigSchema(UtilConfigSchemaArgs),
+    Diff(UtilDiffArgs),
     Exec(UtilExecArgs),
     Gc(UtilGcArgs),
     InstallManPages(UtilInstallManPagesArgs),
@@ -68,6 +72,7 @@ pub(crate) async fn cmd_util(
         UtilCommand::Backend(args) => cmd_util_backend(ui, command, args).await,
         UtilCommand::Completion(args) => cmd_util_completion(ui, command, args).await,
         UtilCommand::ConfigSchema(args) => cmd_util_config_schema(ui, command, args).await,
+        UtilCommand::Diff(args) => cmd_util_diff(ui, command, args).await,
         UtilCommand::Exec(args) => cmd_util_exec(ui, command, args).await,
         UtilCommand::Gc(args) => cmd_util_gc(ui, command, args).await,
         UtilCommand::InstallManPages(args) => cmd_util_install_man_pages(ui, command, args).await,

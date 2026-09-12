@@ -3391,7 +3391,7 @@ fn test_op_immutable_revisions() {
     │  ○  + ztnvrxlv 13887367 (empty) (no description set)
     │  │  - ztnvrxlv/0 41578768 (hidden) (empty) (no description set)
     │  ○  + wqxolloz 4ebd4aa1 (empty) single-2
-    │     Modified commit description:
+    │     Modified JJ-COMMIT-DESCRIPTION:
     │             1: single-2
     │     (Elided 1 newly added revisions)
     │
@@ -3681,7 +3681,7 @@ commit_summary = 'commit_id.short() ++ " " ++ description.first_line()'
     │
     │  Changed commits:
     │  ○  + 6b753f7043b4 new_base
-    │     Modified commit description:
+    │     Modified JJ-COMMIT-DESCRIPTION:
     │             1: new_base
     │
     │  Changed working copy default@:
@@ -3701,7 +3701,7 @@ commit_summary = 'commit_id.short() ++ " " ++ description.first_line()'
     │
     │  Changed commits:
     │  ○  + 5456f1af47ed stack 2
-    │     Modified commit description:
+    │     Modified JJ-COMMIT-DESCRIPTION:
     │             1: stack 2
     │
     │  Changed working copy default@:
@@ -3713,7 +3713,7 @@ commit_summary = 'commit_id.short() ++ " " ++ description.first_line()'
     │
     │  Changed commits:
     │  ○  + 0f12cf5c679b stack 1
-    │     Modified commit description:
+    │     Modified JJ-COMMIT-DESCRIPTION:
     │             1: stack 1
     │
     │  Changed working copy default@:
@@ -3763,7 +3763,7 @@ commit_summary = 'commit_id.short() ++ " " ++ description.first_line()'
     │
     │  Changed commits:
     │  ○  + 6b753f7043b4 new_base
-    │     Modified commit description:
+    │     Modified JJ-COMMIT-DESCRIPTION:
     │             1: new_base
     │
     │  Changed working copy default@:
@@ -3783,7 +3783,7 @@ commit_summary = 'commit_id.short() ++ " " ++ description.first_line()'
     │
     │  Changed commits:
     │  ○  + 5456f1af47ed stack 2
-    │     Modified commit description:
+    │     Modified JJ-COMMIT-DESCRIPTION:
     │             1: stack 2
     │
     │  Changed working copy default@:
@@ -3795,7 +3795,7 @@ commit_summary = 'commit_id.short() ++ " " ++ description.first_line()'
     │
     │  Changed commits:
     │  ○  + 0f12cf5c679b stack 1
-    │     Modified commit description:
+    │     Modified JJ-COMMIT-DESCRIPTION:
     │             1: stack 1
     │
     │  Changed working copy default@:

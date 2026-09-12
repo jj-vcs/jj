@@ -120,6 +120,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj util backend name`↴](#jj-util-backend-name)
 * [`jj util completion`↴](#jj-util-completion)
 * [`jj util config-schema`↴](#jj-util-config-schema)
+* [`jj util diff`↴](#jj-util-diff)
 * [`jj util exec`↴](#jj-util-exec)
 * [`jj util gc`↴](#jj-util-gc)
 * [`jj util install-man-pages`↴](#jj-util-install-man-pages)
@@ -3677,6 +3678,7 @@ Infrequently used commands such as for generating shell completions
 * `backend` — Commands relating to the backend used in the current repo
 * `completion` — Print a command-line-completion script
 * `config-schema` — Print the JSON schema for the jj TOML config format
+* `diff` — Compare two files on disk
 * `exec` — Execute an external command via jj
 * `gc` — Run backend-dependent garbage collection
 * `install-man-pages` — Install Jujutsu's manpages to the provided path
@@ -3746,6 +3748,30 @@ See the docs on [command-line completion] for more details.
 Print the JSON schema for the jj TOML config format
 
 **Usage:** `jj util config-schema`
+
+
+
+## `jj util diff`
+
+Compare two files on disk
+
+**Usage:** `jj util diff [OPTIONS] <PATH1> <PATH2>`
+
+###### **Arguments:**
+
+* `<PATH1>` — First path to compare
+* `<PATH2>` — Second path to compare
+
+###### **Options:**
+
+* `--git` — Show a Git-format diff
+* `--color-words` — Show a word-level diff with changes indicated only by color
+* `--tool <TOOL>` — Generate diff by external command
+
+   A builtin format can also be specified as `:<name>`. For example, `--tool=:git` is equivalent to `--git`.
+* `--context <CONTEXT>` — Number of lines of context to show
+* `-w`, `--ignore-all-space` — Ignore whitespace when comparing lines
+* `-b`, `--ignore-space-change` — Ignore changes in amount of whitespace when comparing lines
 
 
 

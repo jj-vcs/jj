@@ -96,7 +96,7 @@ fn test_evolog_with_or_without_diff() {
     ○  rlvkpnrz/3 test.user@example.com 2001-02-03 08:05:08 b955b72e (hidden)
        (empty) my description
        -- operation 390d0e261e11 new empty commit
-       Modified commit description:
+       Modified JJ-COMMIT-DESCRIPTION:
                1: my description
     [EOF]
     "#);
@@ -420,7 +420,7 @@ fn test_evolog_squash() {
     ○      qpvuntsm test.user@example.com 2001-02-03 08:05:15 5f3281c6
     ├─┬─╮  squashed 3
     │ │ │  -- operation ce2492756a0d squash commits into 5ec0619af5cb4f7707a556a71a6f96af0bc294d2
-    │ │ │  Modified commit description:
+    │ │ │  Modified JJ-COMMIT-DESCRIPTION:
     │ │ │     1     : <<<<<<< conflict 1 of 1
     │ │ │     2     : +++++++ side #1
     │ │ │     3     : squashed 2
@@ -440,7 +440,7 @@ fn test_evolog_squash() {
     │ │ ○  vruxwmqv/1 test.user@example.com 2001-02-03 08:05:14 2e0123d1 (hidden)
     │ │    (empty) fifth
     │ │    -- operation 3906ce22eb5a new empty commit
-    │ │    Modified commit description:
+    │ │    Modified JJ-COMMIT-DESCRIPTION:
     │ │            1: fifth
     │ ○  yqosqzyt/0 test.user@example.com 2001-02-03 08:05:14 ea8161b6 (hidden)
     │ │  fourth
@@ -450,12 +450,12 @@ fn test_evolog_squash() {
     │ ○  yqosqzyt/1 test.user@example.com 2001-02-03 08:05:13 1de5fdb6 (hidden)
     │    (empty) fourth
     │    -- operation 899b98063159 new empty commit
-    │    Modified commit description:
+    │    Modified JJ-COMMIT-DESCRIPTION:
     │            1: fourth
     ○    qpvuntsm/1 test.user@example.com 2001-02-03 08:05:12 5ec0619a (hidden)
     ├─╮  squashed 2
     │ │  -- operation 6fdaa0b09c18 squash commits into 690858846504af0e42fde980fdacf9851559ebb8
-    │ │  Modified commit description:
+    │ │  Modified JJ-COMMIT-DESCRIPTION:
     │ │     1     : <<<<<<< conflict 1 of 1
     │ │     2     : +++++++ side #1
     │ │     3     : squashed 1
@@ -482,7 +482,7 @@ fn test_evolog_squash() {
     │ ○  zsuskuln/4 test.user@example.com 2001-02-03 08:05:11 3a2a4253 (hidden)
     │ │  (empty) third
     │ │  -- operation 33e1d3ed9731 describe commit ebec10f449ad7ab92c7293efab5e3db2d8e9fea1
-    │ │  Modified commit description:
+    │ │  Modified JJ-COMMIT-DESCRIPTION:
     │ │          1: third
     │ ○  zsuskuln/5 test.user@example.com 2001-02-03 08:05:10 ebec10f4 (hidden)
     │    (empty) (no description set)
@@ -490,7 +490,7 @@ fn test_evolog_squash() {
     ○    qpvuntsm/2 test.user@example.com 2001-02-03 08:05:10 69085884 (hidden)
     ├─╮  squashed 1
     │ │  -- operation 5e3953f66df8 squash commits into 5878cbe03cdf599c9353e5a1a52a01f4c5e0e0fa
-    │ │  Modified commit description:
+    │ │  Modified JJ-COMMIT-DESCRIPTION:
     │ │     1     : <<<<<<< conflict 1 of 1
     │ │     2     : %%%%%%% diff from: base
     │ │     3     : \\\\\\\        to: side #1
@@ -508,7 +508,7 @@ fn test_evolog_squash() {
     │ ○  kkmpptxz/1 test.user@example.com 2001-02-03 08:05:09 a5b2f625 (hidden)
     │    (empty) second
     │    -- operation 624750bb3872 new empty commit
-    │    Modified commit description:
+    │    Modified JJ-COMMIT-DESCRIPTION:
     │            1: second
     ○  qpvuntsm/3 test.user@example.com 2001-02-03 08:05:09 5878cbe0 (hidden)
     │  first
@@ -518,7 +518,7 @@ fn test_evolog_squash() {
     ○  qpvuntsm/4 test.user@example.com 2001-02-03 08:05:08 68a50538 (hidden)
     │  (empty) first
     │  -- operation 1e1a8ca9529a describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
-    │  Modified commit description:
+    │  Modified JJ-COMMIT-DESCRIPTION:
     │          1: first
     ○  qpvuntsm/5 test.user@example.com 2001-02-03 08:05:07 e8849ae1 (hidden)
        (empty) (no description set)
