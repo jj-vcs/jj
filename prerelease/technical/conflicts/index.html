@@ -2039,6 +2039,10 @@ in terms of conflict algebra; it means that rebasing a commit onto a commit that
 has the same changes (or a subset thereof) and then rebasing it back will lose
 changes (for a real-life example see <a href="https://github.com/jj-vcs/jj/issues/6369">bug #6369</a>). We do it because it is more
 user-friendly in the vast majority of cases.</p>
+<p>You can configure this with the
+<a href="../../config/#resolution-of-same-change-conflicts"><code>merge.same-change</code></a>
+setting (<code>accept</code> by default, or <code>keep</code> to leave same-change conflicts
+unresolved).</p>
 
 
 
