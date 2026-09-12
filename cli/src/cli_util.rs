@@ -1398,7 +1398,23 @@ impl WorkspaceCommandHelper {
 
         let mut tx = tx.into_inner();
         let old_git_head = self.repo().view().git_head(&workspace_name).clone();
-        let new_git_head = tx.repo().view().git_head(&workspace_name);
+        let new_git_head = tx.repo().view().git_head(&workspace_name).clone();
+        // No recorded target, but on-disk HEAD is exactly where our own export
+        // leaves it: at the working-copy commit's parent. The recorded target
+        // was lost (e.g. the view was rewritten by a client too old to know
+        // per-workspace Git HEADs) rather than HEAD having moved. Re-record it
+        // without replacing the working-copy commit.
+        if old_git_head.is_absent()
+            && let Some(new_git_head_id) = new_git_head.as_normal()
+            && let Some(wc_commit_id) = tx.repo().view().get_wc_commit_id(&workspace_name)
+        {
+            let wc_commit = tx.repo().store().get_commit_async(wc_commit_id).await?;
+            if wc_commit.parent_ids().first() == Some(new_git_head_id) {
+                self.finish_transaction(ui, tx, "import git head", git_import_export_lock)
+                    .await?;
+                return Ok(());
+            }
+        }
         if let Some(new_git_head_id) = new_git_head.as_normal() {
             let new_git_head_commit = tx.repo().store().get_commit_async(new_git_head_id).await?;
             let wc_commit = tx
