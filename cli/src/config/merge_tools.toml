@@ -101,3 +101,15 @@ conflict-marker-style = "git"
 diff-args=["--diff", "$left", "$right", "--wait"]
 diff-invocation-mode="file-by-file"
 edit-args = []
+
+[merge-tools.weave]
+# Entity-level semantic merge driver. Parses code into semantic entities
+# (functions, classes, interfaces, etc.) via tree-sitter and merges at
+# the entity level. Different entities changed = auto-resolved, no conflict.
+# https://github.com/Ataraxy-Labs/weave
+program = "weave-driver"
+merge-args = ["$base", "$left", "$right", "-o", "$output", "-l", "$marker_length", "-p", "$path"]
+merge-conflict-exit-codes = [1]
+# Non-interactive merge tool
+edit-args = []
+diff-args = []
