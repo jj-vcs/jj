@@ -137,6 +137,7 @@ fn parse_trailers_impl(body: &str) -> (Vec<Trailer>, bool, bool, Option<String>)
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use indoc::indoc;
     use pretty_assertions::assert_eq;

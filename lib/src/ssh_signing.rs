@@ -312,6 +312,7 @@ impl SigningBackend for SshBackend {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use std::fs::File;
     use std::io::Read as _;

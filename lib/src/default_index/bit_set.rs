@@ -200,6 +200,7 @@ impl AncestorsBitSet {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::super::composite::AsCompositeIndex as _;
     use super::super::mutable::DefaultMutableIndex;

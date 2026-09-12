@@ -133,6 +133,7 @@ pub fn parse_datetime(s: &str) -> chrono::ParseResult<Timestamp> {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use assert_matches::assert_matches;
 

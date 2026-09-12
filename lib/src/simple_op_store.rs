@@ -888,6 +888,7 @@ fn ref_target_to_proto(value: &RefTarget) -> Option<crate::protos::simple_op_sto
 
 #[expect(deprecated)]
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 fn ref_target_to_proto_legacy(
     value: &RefTarget,
 ) -> Option<crate::protos::simple_op_store::RefTarget> {
@@ -970,6 +971,7 @@ fn remote_ref_state_from_proto(proto_value: i32) -> Result<RemoteRefState, PostD
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use insta::assert_snapshot;
     use maplit::btreemap;

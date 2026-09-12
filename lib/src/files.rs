@@ -488,6 +488,7 @@ fn resolve_diff_hunks<'input>(
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use indoc::indoc;
 

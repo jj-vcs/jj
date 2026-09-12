@@ -387,6 +387,7 @@ fn to_file_value(value: MaterializedTreeValue) -> Result<Option<MaterializedFile
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use maplit::hashmap;
 

@@ -233,6 +233,7 @@ pub fn classify_ref_push_action(targets: LocalAndRemoteRef) -> RefPushAction {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use crate::op_store::RemoteRefState;

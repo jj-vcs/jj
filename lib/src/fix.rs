@@ -505,6 +505,7 @@ pub async fn get_base_commit_map(
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
 

@@ -478,6 +478,7 @@ async fn get_file_contents(
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
 

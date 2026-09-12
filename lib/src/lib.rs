@@ -14,6 +14,13 @@
 
 //! Jujutsu version control system.
 
+// Lets items opt out of coverage instrumentation via
+// `#[cfg_attr(coverage_nightly, coverage(off))]`, which we put on every
+// `#[cfg(test)]` module so that reported numbers describe the code we ship
+// rather than the tests exercising it. `coverage_nightly` is set only by
+// cargo-llvm-cov on nightly (see `cargo cov` in .cargo/config.toml), so stable
+// builds never see the unstable feature.
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![warn(missing_docs)]
 #![deny(unused_must_use)]
 #![forbid(unsafe_code)]
@@ -116,6 +123,7 @@ pub mod workspace;
 pub mod workspace_store;
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use tempfile::TempDir;
 

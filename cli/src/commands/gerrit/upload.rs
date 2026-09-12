@@ -730,6 +730,7 @@ pub async fn cmd_gerrit_upload(
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
 

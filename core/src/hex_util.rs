@@ -113,6 +113,7 @@ pub fn common_hex_len(bytes_a: &[u8], bytes_b: &[u8]) -> usize {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
 

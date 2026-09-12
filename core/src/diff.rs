@@ -1023,6 +1023,7 @@ pub fn diff<'a, T: AsRef<[u8]> + ?Sized + 'a>(
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
 

@@ -1,3 +1,21 @@
+[alias]
+# Measure code coverage with cargo-llvm-cov and nextest. Requires a nightly
+# toolchain.
+#
+# The default test-exclusion heuristics aren't quite enough for us, so we get
+# rid of a few extra things below.
+cov = [
+    "llvm-cov",
+    "--branch",
+    "nextest",
+    "--exclude-from-report",
+    "testutils",
+    "--exclude-from-report",
+    "gen-protos",
+    "--ignore-filename-regex",
+    "(cli/testing/|lib/src/(secret_backend|test_signing_backend)\\.rs|cli/build\\.rs)",
+]
+
 [target.'cfg(all(target_family = "windows", target_env = "msvc"))']
 linker = "rust-lld.exe"
 rustflags = [

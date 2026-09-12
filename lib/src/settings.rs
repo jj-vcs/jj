@@ -384,6 +384,7 @@ fn parse_human_byte_size(v: &str) -> Result<u64, &'static str> {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use assert_matches::assert_matches;
 
