@@ -64,7 +64,13 @@ pub async fn cmd_op_abandon(
     if command.global_args().at_operation.is_some() {
         return Err(cli_error("--at-op is not respected"));
     }
-    let current_head_ops = op_walk::get_current_head_ops(op_store, op_heads_store.as_ref()).await?;
+    let current_head_ops = op_walk::get_current_head_ops(
+        op_store,
+        op_heads_store.as_ref(),
+        repo_loader.workspace_name(),
+        repo_loader.workspace_type(),
+    )
+    .await?;
     let resolve_op = |op_str| op_walk::resolve_op_at(op_store, &current_head_ops, op_str);
     let (abandon_root_op, abandon_head_ops) =
         if let Some((root_op_str, head_op_str)) = args.operation.split_once("..") {
@@ -130,7 +136,12 @@ pub async fn cmd_op_abandon(
     )?;
     for (old, new_id) in reparented_head_ops().filter(|&(old, new_id)| old.id() != new_id) {
         op_heads_store
-            .update_op_heads(slice::from_ref(old.id()), new_id)
+            .update_op_heads(
+                repo_loader.workspace_name(),
+                repo_loader.workspace_type(),
+                slice::from_ref(old.id()),
+                new_id,
+            )
             .await?;
     }
     // Remap the operation id of the current workspace. If there were any

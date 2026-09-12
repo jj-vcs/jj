@@ -389,9 +389,9 @@ fn test_commit_without_working_copy() {
 
     work_dir.run_jj(["workspace", "forget"]).success();
     let output = work_dir.run_jj(["commit", "-m=first"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: This command requires a working copy
+    Error: The workspace at $TEST_ENV/repo has been forgetten
     [EOF]
     [exit status: 1]
     ");

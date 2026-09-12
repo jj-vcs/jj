@@ -45,6 +45,7 @@ pub struct WorkspaceListArgs {
     template: Option<String>,
 }
 
+// TODO: display the workspace type ("dependent" vs "independent") in the workspace list.
 #[instrument(skip_all)]
 pub async fn cmd_workspace_list(
     ui: &mut Ui,

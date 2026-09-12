@@ -26,6 +26,7 @@ use std::sync::LazyLock;
 
 use futures::Stream;
 use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use futures::future::LocalBoxFuture;
 use futures::stream::LocalBoxStream;
 use itertools::Itertools as _;
@@ -49,10 +50,14 @@ use crate::id_prefix::IdPrefixIndex;
 use crate::index::ResolvedChangeTargets;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
+use crate::op_heads_store::OpHeadsStore;
 use crate::op_store::LocalRemoteRefTarget;
+use crate::op_store::OpStore;
+use crate::op_store::OpStoreResult;
 use crate::op_store::RefTarget;
 use crate::op_store::RemoteRefState;
 use crate::op_walk;
+use crate::operation::Operation;
 use crate::ref_name::RefName;
 use crate::ref_name::RemoteName;
 use crate::ref_name::RemoteRefSymbol;
@@ -82,6 +87,7 @@ use crate::symbol_util::format_string;
 use crate::time_util::DatePattern;
 use crate::time_util::DatePatternContext;
 use crate::ui_path::RepoPathUiConverter;
+use crate::workspace::WorkspaceType;
 
 /// Error occurred during symbol resolution.
 #[derive(Debug, Error)]
@@ -110,6 +116,8 @@ pub enum RevsetResolutionError {
         symbol: String,
         targets: Vec<CommitId>,
     },
+    #[error(r#"No workspace name matching "{0}""#)]
+    NoSuchWorkspace(String),
     #[error("Unexpected error from commit backend")]
     Backend(#[source] BackendError),
     #[error(transparent)]
@@ -233,6 +241,7 @@ mod private {
     pub trait ExpressionState {
         type CommitRef: Clone;
         type Operation: Clone;
+        type Workspace: Clone;
     }
 
     // Not constructible because these state types just define associated types.
@@ -249,11 +258,13 @@ use private::UserExpressionState;
 impl ExpressionState for UserExpressionState {
     type CommitRef = RevsetCommitRef;
     type Operation = String;
+    type Workspace = String;
 }
 
 impl ExpressionState for ResolvedExpressionState {
     type CommitRef = Infallible;
     type Operation = Infallible;
+    type Workspace = Infallible;
 }
 
 /// [`RevsetExpression`] that may contain unresolved commit refs.
@@ -333,6 +344,11 @@ pub enum RevsetExpression<St: ExpressionState> {
     /// Resolves symbols and visibility at the specified operation.
     AtOperation {
         operation: St::Operation,
+        candidates: Arc<Self>,
+    },
+    /// Resolves symbols and visibility at the specified workspace.
+    AtWorkspace {
+        workspace: St::Workspace,
         candidates: Arc<Self>,
     },
     /// Makes `All` include the commits and their ancestors in addition to the
@@ -1203,6 +1219,17 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
             candidates,
         }))
     });
+    map.insert("at_workspace", |diagnostics, function, context| {
+        let [ws_arg, cand_arg] = function.expect_exact_arguments()?;
+        let workspace = revset_parser::catch_aliases(diagnostics, ws_arg, |_diagnostics, node| {
+            Ok(node.span.as_str().to_owned())
+        })?;
+        let candidates = lower_expression(diagnostics, cand_arg, context)?;
+        Ok(Arc::new(RevsetExpression::AtWorkspace {
+            workspace,
+            candidates,
+        }))
+    });
     map.insert("coalesce", |diagnostics, function, context| {
         let ([], args) = function.expect_some_arguments()?;
         let expressions: Vec<_> = args
@@ -1635,6 +1662,15 @@ fn try_transform_expression<St: ExpressionState, E>(
                     candidates,
                 }
             }),
+            RevsetExpression::AtWorkspace {
+                workspace,
+                candidates,
+            } => transform_rec(candidates, pre, post)?.map(|candidates| {
+                RevsetExpression::AtWorkspace {
+                    workspace: workspace.clone(),
+                    candidates,
+                }
+            }),
             RevsetExpression::WithinReference {
                 candidates,
                 commits,
@@ -1752,6 +1788,13 @@ trait ExpressionStateFolder<InSt: ExpressionState, OutSt: ExpressionState> {
     fn fold_at_operation(
         &mut self,
         operation: &InSt::Operation,
+        candidates: &RevsetExpression<InSt>,
+    ) -> Result<Arc<RevsetExpression<OutSt>>, Self::Error>;
+
+    /// Transforms `at_workspace(workspace, candidates)` expression.
+    fn fold_at_workspace(
+        &mut self,
+        workspace: &InSt::Workspace,
         candidates: &RevsetExpression<InSt>,
     ) -> Result<Arc<RevsetExpression<OutSt>>, Self::Error>;
 }
@@ -1883,6 +1926,10 @@ where
             operation,
             candidates,
         } => folder.fold_at_operation(operation, candidates)?,
+        RevsetExpression::AtWorkspace {
+            workspace,
+            candidates,
+        } => folder.fold_at_workspace(workspace, candidates)?,
         RevsetExpression::WithinReference {
             candidates,
             commits,
@@ -2645,6 +2692,29 @@ fn reload_repo_at_operation(
         })
 }
 
+async fn resolve_op_heads_for_workspace_from_store(
+    store: &Arc<Store>,
+    op_heads_store: &Arc<dyn OpHeadsStore>,
+    op_store: &Arc<dyn OpStore>,
+    workspace_name: &WorkspaceName,
+    workspace_type: WorkspaceType,
+) -> Result<Vec<Operation>, RevsetResolutionError> {
+    let op_heads = op_heads_store
+        .get_op_heads(workspace_name, workspace_type)
+        .await
+        .map_err(|err| RevsetResolutionError::Other(Box::new(err)))?;
+    let operations = futures::stream::iter(&op_heads)
+        .map(async |id| -> OpStoreResult<Operation> {
+            let data = op_store.read_operation(id).await?;
+            Ok(Operation::new(op_store.clone(), id.clone(), data))
+        })
+        .buffered(store.concurrency())
+        .try_collect()
+        .await
+        .map_err(|err| RevsetResolutionError::Other(err.into()))?;
+    Ok(operations)
+}
+
 fn resolve_remote_symbol(
     repo: &dyn Repo,
     symbol: RemoteRefSymbol<'_>,
@@ -3079,6 +3149,7 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
                     | RevsetResolutionError::AmbiguousChangeIdPrefix(_)
                     | RevsetResolutionError::DivergentChangeId { .. }
                     | RevsetResolutionError::ConflictedRef { .. }
+                    | RevsetResolutionError::NoSuchWorkspace(_)
                     | RevsetResolutionError::Backend(_)
                     | RevsetResolutionError::Other(_) => Err(err),
                 })
@@ -3102,6 +3173,68 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
     ) -> Result<Arc<ResolvedRevsetExpression>, Self::Error> {
         let repo = reload_repo_at_operation(self.repo(), operation)?;
         self.repo_stack.push(repo);
+        let candidates = self.fold_expression(candidates)?;
+        let expression = candidates.within_visibility(self.repo());
+        self.repo_stack.pop();
+        Ok(expression)
+    }
+
+    fn fold_at_workspace(
+        &mut self,
+        workspace: &String,
+        candidates: &UserRevsetExpression,
+    ) -> Result<Arc<ResolvedRevsetExpression>, Self::Error> {
+        if workspace == "@" {
+            return self.fold_expression(candidates);
+        }
+        let base_repo = self.repo().base_repo();
+        let current_workspace = base_repo.loader().workspace_name();
+        let current_workspace_type = base_repo.loader().workspace_type();
+        let workspace_name = WorkspaceNameBuf::from(workspace);
+        if current_workspace == workspace_name {
+            return self.fold_expression(candidates);
+        }
+        let workspace_type = {
+            let maybe_workspace_type = base_repo
+                .loader()
+                .workspace_store()
+                .get_workspace_type(&workspace_name)
+                .map_err(|err| RevsetResolutionError::Other(err.into()))?;
+            maybe_workspace_type.ok_or(RevsetResolutionError::NoSuchWorkspace(
+                workspace_name.as_str().to_string(),
+            ))?
+        };
+        if workspace_type == WorkspaceType::Regular
+            && current_workspace_type == WorkspaceType::Regular
+        {
+            return self.fold_expression(candidates);
+        }
+
+        // TODO: XXX:W Use MutableRepo::merge_index
+        let operations = resolve_op_heads_for_workspace_from_store(
+            base_repo.store(),
+            base_repo.op_heads_store(),
+            base_repo.op_store(),
+            &workspace_name,
+            workspace_type,
+        )
+        .block_on()
+        .map_err(|err| RevsetResolutionError::Other(err.into()))?;
+
+        let operation = operations.first().expect("TODO: XXX:W");
+        let union_repo = base_repo
+            .reload_at(operation)
+            .block_on()
+            .map_err(|err| match err {
+                RepoLoaderError::Backend(err) => RevsetResolutionError::Backend(err),
+                RepoLoaderError::Index(_)
+                | RepoLoaderError::IndexStore(_)
+                | RepoLoaderError::OpHeadsStoreError(_)
+                | RepoLoaderError::OpStore(_)
+                | RepoLoaderError::TransactionCommit(_) => RevsetResolutionError::Other(err.into()),
+            })?;
+
+        self.repo_stack.push(union_repo);
         let candidates = self.fold_expression(candidates)?;
         let expression = candidates.within_visibility(self.repo());
         self.repo_stack.pop();
@@ -3251,6 +3384,7 @@ impl VisibilityResolutionContext<'_> {
                 },
             },
             RevsetExpression::AtOperation { operation, .. } => match *operation {},
+            RevsetExpression::AtWorkspace { workspace, .. } => match *workspace {},
             RevsetExpression::WithinReference {
                 candidates,
                 commits,
@@ -3384,6 +3518,7 @@ impl VisibilityResolutionContext<'_> {
                 visible_heads: self.visible_heads.to_owned(),
             },
             RevsetExpression::AtOperation { operation, .. } => match *operation {},
+            RevsetExpression::AtWorkspace { workspace, .. } => match *workspace {},
             // Filters should be intersected with all() within the at-op repo.
             RevsetExpression::WithinReference { .. }
             | RevsetExpression::WithinVisibility { .. } => {

@@ -22,6 +22,7 @@ use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::Repo as _;
 use jj_lib::settings::UserSettings;
 use jj_lib::workspace::Workspace;
+use jj_lib::workspace::WorkspaceType;
 use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::TestRepoBackend;
@@ -42,7 +43,13 @@ fn test_init_local() -> TestResult {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let (canonical, uncanonical) = canonicalize(temp_dir.path());
-    let (workspace, repo) = Workspace::init_simple(&settings, &uncanonical).block_on()?;
+    let (workspace, repo) = Workspace::init_simple(
+        &settings,
+        &uncanonical,
+        WorkspaceName::DEFAULT,
+        WorkspaceType::Regular,
+    )
+    .block_on()?;
     assert!(repo.store().backend_impl::<GitBackend>().is_none());
     assert_eq!(workspace.workspace_root(), &canonical);
 
@@ -58,8 +65,14 @@ fn test_init_internal_git(object_hash: gix::hash::Kind) -> TestResult {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let (canonical, uncanonical) = canonicalize(temp_dir.path());
-    let (workspace, repo) =
-        Workspace::init_internal_git(&settings, &uncanonical, object_hash).block_on()?;
+    let (workspace, repo) = Workspace::init_internal_git(
+        &settings,
+        &uncanonical,
+        WorkspaceName::DEFAULT,
+        WorkspaceType::Regular,
+        object_hash,
+    )
+    .block_on()?;
     let git_backend: &GitBackend = repo.store().backend_impl().unwrap();
     let repo_path = canonical.join(".jj").join("repo");
     assert_eq!(workspace.workspace_root(), &canonical);
@@ -85,8 +98,14 @@ fn test_init_colocated_git(object_hash: gix::hash::Kind) -> TestResult {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let (canonical, uncanonical) = canonicalize(temp_dir.path());
-    let (workspace, repo) =
-        Workspace::init_colocated_git(&settings, &uncanonical, object_hash).block_on()?;
+    let (workspace, repo) = Workspace::init_colocated_git(
+        &settings,
+        &uncanonical,
+        WorkspaceName::DEFAULT,
+        WorkspaceType::Regular,
+        object_hash,
+    )
+    .block_on()?;
     let git_backend: &GitBackend = repo.store().backend_impl().unwrap();
     let repo_path = canonical.join(".jj").join("repo");
     assert_eq!(workspace.workspace_root(), &canonical);
@@ -114,6 +133,8 @@ fn test_init_external_git() -> TestResult {
     let (workspace, repo) = Workspace::init_external_git(
         &settings,
         &uncanonical.join("jj"),
+        WorkspaceName::DEFAULT,
+        WorkspaceType::Regular,
         &git_repo_path.join(".git"),
     )
     .block_on()?;
@@ -190,6 +211,7 @@ fn test_init_load_non_utf8_path() -> TestResult {
     use std::os::unix::ffi::OsStrExt as _;
 
     use jj_lib::default_backend_factories::default_working_copy_factories;
+    use jj_lib::default_backend_factories::default_workspace_loader_factory;
     use pollster::FutureExt as _;
     use testutils::TestEnvironment;
 
@@ -212,13 +234,20 @@ fn test_init_load_non_utf8_path() -> TestResult {
     // Workspace can be created
     let workspace_root = test_env.root().join(OsStr::from_bytes(b"jj\xe0"));
     std::fs::create_dir(&workspace_root)?;
-    Workspace::init_external_git(&settings, &workspace_root, &git_repo_path.join(".git"))
-        .block_on()?;
+    Workspace::init_external_git(
+        &settings,
+        &workspace_root,
+        WorkspaceName::DEFAULT,
+        WorkspaceType::Regular,
+        &git_repo_path.join(".git"),
+    )
+    .block_on()?;
 
     // Workspace can be loaded
     let workspace = Workspace::load(
         &settings,
         &workspace_root,
+        &*default_workspace_loader_factory(),
         &test_env.default_backend_factories(),
         &default_working_copy_factories(),
     )?;

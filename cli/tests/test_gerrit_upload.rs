@@ -140,10 +140,9 @@ fn test_gerrit_upload_default_revision() {
 
     work_dir.run_jj(["workspace", "forget"]).success();
     let output = work_dir.run_jj(["gerrit", "upload", "--dry-run"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: No revision provided
-    Hint: Explicitly specify a revision to upload with `-r`
+    Error: The workspace at $TEST_ENV/repo has been forgetten
     [EOF]
     [exit status: 1]
     ");
