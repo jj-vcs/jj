@@ -324,6 +324,13 @@ impl FileState {
         }
     }
 
+    /// Whether this state was recorded without inspecting the file on disk
+    /// (see [`FileState::placeholder`] and [`TreeState::reset`]), so the file
+    /// must be re-stat'ed on the next snapshot.
+    fn is_placeholder(&self) -> bool {
+        self.mtime == MillisSinceEpoch(0) && self.size == 0
+    }
+
     fn for_file(
         exec_bit: ExecBit,
         size: u64,
@@ -1313,9 +1320,21 @@ impl TreeState {
         } = self
             .make_fsmonitor_matcher(&self.fsmonitor_settings)
             .await?;
-        let fsmonitor_matcher = match fsmonitor_matcher.as_ref() {
-            None => &EverythingMatcher,
-            Some(fsmonitor_matcher) => fsmonitor_matcher.as_ref(),
+        // A file state recorded as a placeholder was written without looking
+        // at the file (after a reset, or when a checkout skipped the file), so
+        // it must be re-stat'ed even if the monitor has not seen the file
+        // change since its clock.
+        let fsmonitor_matcher: Box<dyn Matcher> = match fsmonitor_matcher {
+            None => Box::new(EverythingMatcher),
+            Some(fsmonitor_matcher) => {
+                let placeholder_matcher = FilesMatcher::new(
+                    self.file_states()
+                        .iter()
+                        .filter(|(_, state)| state.is_placeholder())
+                        .map(|(path, _)| path),
+                );
+                Box::new(UnionMatcher::new(fsmonitor_matcher, placeholder_matcher))
+            }
         };
 
         let matcher = IntersectionMatcher::new(
