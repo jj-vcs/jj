@@ -42,6 +42,7 @@ use jj_lib::commit::Commit;
 use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::conflicts;
 use jj_lib::conflicts::ConflictMarkerStyle;
+use jj_lib::conflicts::ConflictMaterializeOptions;
 use jj_lib::copies::CopiesTreeDiffEntry;
 use jj_lib::copies::CopiesTreeDiffEntryPath;
 use jj_lib::copies::CopyRecords;
@@ -194,6 +195,14 @@ impl<'repo> CommitTemplateLanguage<'repo> {
             build_fn_table,
             keyword_cache: CommitKeywordCache::default(),
             cache_extensions,
+        }
+    }
+
+    fn conflict_materialize_options(&self) -> ConflictMaterializeOptions {
+        ConflictMaterializeOptions {
+            marker_style: self.conflict_marker_style,
+            marker_len: None,
+            merge: self.repo.store().merge_options().clone(),
         }
     }
 
@@ -2409,13 +2418,14 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
                     let message = "Failed to load diff settings";
                     TemplateParseError::expression(message, function.name_span).with_source(err)
                 })?;
-            let conflict_marker_style = language.conflict_marker_style;
+            let materialize_options = language.conflict_materialize_options();
             let template = (self_property, context_property)
                 .map(move |(diff, context)| {
                     let mut options = options.clone();
                     if let Some(context) = context {
                         options.context = context;
                     }
+                    let materialize_options = materialize_options.clone();
                     diff.into_formatted(move |formatter, store, tree_diff, conflict_labels| {
                         diff_util::show_color_words_diff(
                             formatter,
@@ -2424,7 +2434,7 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
                             conflict_labels,
                             path_converter,
                             &options,
-                            conflict_marker_style,
+                            &materialize_options,
                         )
                         .block_on()
                     })
@@ -2452,13 +2462,14 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
                     let message = "Failed to load diff settings";
                     TemplateParseError::expression(message, function.name_span).with_source(err)
                 })?;
-            let conflict_marker_style = language.conflict_marker_style;
+            let materialize_options = language.conflict_materialize_options();
             let template = (self_property, context_property)
                 .map(move |(diff, context)| {
                     let mut options = options.clone();
                     if let Some(context) = context {
                         options.context = context;
                     }
+                    let materialize_options = materialize_options.clone();
                     diff.into_formatted(move |formatter, store, trees, tree_diff| {
                         diff_util::show_git_diff(
                             formatter,
@@ -2466,7 +2477,7 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
                             trees,
                             tree_diff,
                             &options,
-                            conflict_marker_style,
+                            &materialize_options,
                         )
                         .block_on()
                     })
@@ -2506,7 +2517,7 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
                     let message = "Failed to load diff settings";
                     TemplateParseError::expression(message, function.name_span).with_source(err)
                 })?;
-            let conflict_marker_style = language.conflict_marker_style;
+            let materialize_options = language.conflict_materialize_options();
             // TODO: cache and reuse stats within the current evaluation?
             let out_property = (self_property, width_property, max_bar_width_property).and_then(
                 move |(diff, width, max_bar_width)| {
@@ -2517,7 +2528,7 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
                     let store = diff.from_tree.store();
                     let tree_diff = diff.diff_stream();
                     let stats =
-                        DiffStats::calculate(store, tree_diff, &options, conflict_marker_style)
+                        DiffStats::calculate(store, tree_diff, &options, &materialize_options)
                             .block_on()?;
                     Ok(DiffStatsFormatted {
                         stats,
