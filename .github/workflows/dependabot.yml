@@ -11,15 +11,31 @@ permissions: {}
 
 jobs:
   dependabot-auto-merge:
-    name: 'Dependabot auto-merge'
+    name: Dependabot auto-merge
     permissions:
       contents: write
       pull-requests: write
     runs-on: ubuntu-24.04
     if: ${{ github.event.pull_request.user.login == 'dependabot[bot]' }}
+
     steps:
-    - name: Enable auto-merge for Dependabot PRs
-      run: gh pr merge --auto --rebase "$PR_URL"
-      env:
-        PR_URL: ${{github.event.pull_request.html_url}}
-        GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+      - name: Validate commits
+        run: |
+          gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/commits \
+            --jq '.[] | "\(.author.login) \(.commit.verification.verified) \(.commit.verification.reason)"' \
+          | while read -r author verified reason; do
+              if [ "$author" != "dependabot[bot]" ] || [ "$verified" != "true" ] || [ "$reason" != "valid" ]; then
+                echo "Dependabot commit validation failed:"
+                echo "  expected: author=dependabot[bot] verified=true reason=valid"
+                echo "  actual:   author=$author verified=$verified reason=$reason"
+                exit 1
+              fi
+            done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge
+        run: gh pr merge --auto --rebase "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
