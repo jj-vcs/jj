@@ -100,6 +100,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   commands). Previously, evaluating such expressions failed if they resolved
   to commits missing from the current operation's index.
 
+* `.gitignore` files are now respected even if they aren't materialized in the
+  working copy because they are excluded by the sparse patterns. Previously,
+  ignored files could become tracked in a sparse working copy.
+  [#2289](https://github.com/jj-vcs/jj/issues/2289)
+
+* In-tree ignore files (`.gitignore`) are no longer read through symlinks,
+  matching `git` behavior. Such files are now silently skipped instead of having
+  their symlink target applied. `$GIT_DIR/info/exclude` and `core.excludesFile`
+  are unaffected and still follow symlinks, as `git` does.
+  [#7161](https://github.com/jj-vcs/jj/issues/7161)
+
 ## [0.45.1] - 2026-09-03
 
 This release fixes an error that prevented the new jj-core crate from being
