@@ -32,9 +32,18 @@ use crate::ui::Ui;
 /// results. It answers: "How do the modifications introduced by revision A
 /// differ from the modifications introduced by revision B?"
 ///
-/// For example, if two changes both add a feature but implement it
-/// differently, `jj interdiff --from @- --to other` shows what one
-/// implementation adds or removes that the other doesn't.
+/// For example, if two changes (`A` and `B`) both add a feature on top of
+/// the same parent `P` but implement it differently, `jj interdiff --from A
+/// --to B` shows what one implementation adds or removes that the other
+/// doesn't:
+///
+/// ```text
+/// A (from)  B (to)       diff(P -> B)
+///  \       /             :
+///   \     /         =>   : (compare diffs)
+///    \   /               :
+///      P                 diff(P -> A)
+/// ```
 ///
 /// A common use of this command is to compare how a change has changed
 /// since the last push to a remote:
@@ -46,16 +55,25 @@ use crate::ui::Ui;
 /// This command is different from `jj diff --from A --to B`, which compares
 /// file contents directly. `interdiff` compares what the changes do in terms of
 /// their patches, rather than their file contents. This makes a difference when
-/// the two revisions have different parents: `jj diff --from A --to B` will
-/// include the changes between their parents while `jj interdiff --from A --to
-/// B` will not.
+/// the two revisions have different parents (`P` and `Q`): `jj diff --from A
+/// --to B` will include the changes between their parents (`P` to `Q`), while
+/// `jj interdiff --from A --to B` will not.
 ///
-/// Technically, this works by rebasing `--from` onto `--to`'s parents and
-/// comparing the result to `--to`.
+/// Technically, this works by rebasing `--from` (`A`) onto `--to`'s parent
+/// (`Q`) and comparing the rebased revision (`A'`) to `--to` (`B`):
+///
+/// ```text
+/// A (from)  B (to)        B (to)
+/// |         |        =>   : (compare diffs)
+/// P         Q             A' (A rebased onto Q)
+///                         |
+///                         Q
+/// ```
 ///
 /// To see the changes throughout the whole evolution of a change instead of
 /// between just two revisions, use `jj evolog -p` instead.
 #[derive(clap::Args, Clone, Debug)]
+#[command(verbatim_doc_comment)]
 #[command(group(ArgGroup::new("to_diff").args(&["from", "to"]).multiple(true).required(true)))]
 #[command(mut_arg("ignore_all_space", |a| a.short('w')))]
 #[command(mut_arg("ignore_space_change", |a| a.short('b')))]
