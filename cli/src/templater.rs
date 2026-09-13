@@ -436,6 +436,54 @@ where
     }
 }
 
+/// Marker for types that don't support implicit boolean cast.
+pub trait NoTemplateBooleanCast {}
+
+/// Converts a value of the `Option<Self>` type to a template property value.
+///
+/// Types that support implicit boolean conversion should map `Option<T>` to
+/// `T`. Other types should return `Option<T>` transparently.
+#[diagnostic::on_unimplemented(
+    message = "`NoTemplateBooleanCast` not implemented for the template value type `{Self}`"
+)]
+pub trait OptionalTemplateValue: Sized {
+    type Optional;
+
+    fn from_option(value: Option<Self>) -> Self::Optional;
+}
+
+impl<T: NoTemplateBooleanCast> OptionalTemplateValue for T {
+    type Optional = Option<Self>;
+
+    fn from_option(value: Option<Self>) -> Self::Optional {
+        value
+    }
+}
+
+impl OptionalTemplateValue for BString {
+    type Optional = Self;
+
+    fn from_option(value: Option<Self>) -> Self::Optional {
+        value.unwrap_or_default()
+    }
+}
+
+impl OptionalTemplateValue for String {
+    type Optional = Self;
+
+    fn from_option(value: Option<Self>) -> Self::Optional {
+        value.unwrap_or_default()
+    }
+}
+
+impl<T> OptionalTemplateValue for Vec<T> {
+    type Optional = Self;
+
+    fn from_option(value: Option<Self>) -> Self::Optional {
+        value.unwrap_or_default()
+    }
+}
+
 /// Wrapper around an error occurred during template evaluation.
 #[derive(Debug)]
 pub struct TemplatePropertyError(pub Box<dyn error::Error + Send + Sync>);

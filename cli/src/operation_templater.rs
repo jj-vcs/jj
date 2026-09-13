@@ -48,6 +48,7 @@ use crate::template_parser::TemplateParseResult;
 use crate::templater::BoxedAnyProperty;
 use crate::templater::BoxedSerializeProperty;
 use crate::templater::BoxedTemplateProperty;
+use crate::templater::NoTemplateBooleanCast;
 use crate::templater::Template;
 use crate::templater::TemplateFormatter;
 use crate::templater::TemplatePropertyExt as _;
@@ -172,6 +173,9 @@ where
     Self: WrapTemplateProperty<'a, OperationId>,
 {
 }
+
+impl NoTemplateBooleanCast for Operation {}
+impl NoTemplateBooleanCast for OperationId {}
 
 /// Tagged union of the operation template property types.
 pub enum OperationTemplatePropertyKind<'a> {

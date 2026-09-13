@@ -16,6 +16,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `jj workspace add` uses `git worktree add --orphan`, which was added in
   2.42.0.
 
+* The `List.get()`, `.first()`, and `.last()` template functions now return
+  `Option<T>` instead of throwing an error on out-of-bounds access.
+
 ### Deprecations
 
 ### New features
