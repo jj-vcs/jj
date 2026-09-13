@@ -173,9 +173,9 @@ fn test_util_diff() {
 
     let output = work_dir.run_jj(["util", "diff", "file1", "file3", "--color=debug"]);
     insta::assert_snapshot!(output, @"
-    [38;5;3m<<diff header::Modified file3 (file1 => file3):>>[39m
-    [2m[38;5;1m<<diff context removed line_number::   1>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   1>>[0m<<diff context::: foo>>
-    [38;5;1m<<diff removed line_number::   2>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   2>>[39m<<diff::: >>[4m[38;5;1m<<diff removed token::bar>>[38;5;2m<<diff added token::baz>>[24m[39m<<diff::>>
+    [38;5;3m<<diff color_words header::Modified file3 (file1 => file3):>>[39m
+    [2m[38;5;1m<<diff color_words context removed line_number::   1>>[0m<<diff color_words context:: >>[2m[38;5;2m<<diff color_words context added line_number::   1>>[0m<<diff color_words context::: foo>>
+    [38;5;1m<<diff color_words removed line_number::   2>>[39m<<diff color_words:: >>[38;5;2m<<diff color_words added line_number::   2>>[39m<<diff color_words::: >>[4m[38;5;1m<<diff color_words removed token::bar>>[38;5;2m<<diff color_words added token::baz>>[24m[39m<<diff color_words::>>
     [EOF]
     ");
 }

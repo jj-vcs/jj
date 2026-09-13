@@ -707,9 +707,11 @@ pub fn show_diff_bytes<T: AsRef<[u8]> + Eq>(
             | DiffFormat::Types
             | DiffFormat::NameOnly => {}
             DiffFormat::Git(options) => {
-                show_git_diff_texts(formatter, paths, contents, options, materialize_options)?;
+                let mut formatter = formatter.labeled("git");
+                show_git_diff_texts(*formatter, paths, contents, options, materialize_options)?;
             }
             DiffFormat::ColorWords(options) => {
+                let mut formatter = formatter.labeled("color_words");
                 if paths.is_changed() {
                     let Diff { before, after } = paths;
                     writeln!(
@@ -721,7 +723,7 @@ pub fn show_diff_bytes<T: AsRef<[u8]> + Eq>(
                     writeln!(formatter.labeled("header"), "Modified {after}:")?;
                 }
                 show_color_words_diff_hunks(
-                    formatter,
+                    *formatter,
                     contents,
                     Diff::new(&ConflictLabels::unlabeled(), &ConflictLabels::unlabeled()),
                     options,
