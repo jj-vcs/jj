@@ -39,6 +39,7 @@ use crate::ui::Ui;
 pub struct UnsignArgs {
     /// What revision(s) to unsign
     #[arg(long = "revision", short, value_name = "REVSETS", alias = "revisions")]
+    #[arg(required = true)] // default_value = "@" doesn't seem useful
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     revisions: Vec<RevisionArg>,
 }
