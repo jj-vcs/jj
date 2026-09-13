@@ -1342,6 +1342,7 @@ impl TreeState {
                 tree_state: self,
                 current_tree: &self.tree,
                 matcher: &matcher,
+                sparse_matcher: sparse_matcher.as_ref(),
                 start_tracking_matcher,
                 force_tracking_matcher,
                 // Move tx sides so they'll be dropped at the end of the scope.
@@ -1531,6 +1532,7 @@ struct FileSnapshotter<'a> {
     tree_state: &'a TreeState,
     current_tree: &'a MergedTree,
     matcher: &'a dyn Matcher,
+    sparse_matcher: &'a dyn Matcher,
     start_tracking_matcher: &'a dyn Matcher,
     force_tracking_matcher: &'a dyn Matcher,
     tree_entries_tx: Sender<(RepoPathBuf, MergedTreeValue)>,
@@ -1581,7 +1583,9 @@ impl FileSnapshotter<'_> {
             file_states,
         } = directory_to_visit;
 
-        let git_ignore = git_ignore.chain_with_file(&dir, disk_dir.join(".gitignore"))?;
+        let git_ignore = self
+            .chain_gitignore(&dir, &disk_dir, &git_ignore)
+            .block_on()?;
         let dir_entries: Vec<_> = disk_dir
             .read_dir()
             .and_then(|entries| entries.try_collect())
@@ -1608,6 +1612,53 @@ impl FileSnapshotter<'_> {
         let present_entries = PresentDirEntries { dirs, files };
         self.emit_deleted_files(&dir, file_states, &present_entries);
         Ok(())
+    }
+
+    /// Loads the `.gitignore` file of `dir` and chains it to the ignore rules
+    /// inherited from the parent directories.
+    ///
+    /// If the file isn't materialized on disk because it is excluded by the
+    /// sparse patterns, it is read from the current tree instead. Otherwise, a
+    /// sparse working copy would start tracking files that the user has
+    /// explicitly ignored.
+    async fn chain_gitignore(
+        &self,
+        dir: &RepoPath,
+        disk_dir: &Path,
+        git_ignore: &Arc<GitIgnoreFile>,
+    ) -> Result<Arc<GitIgnoreFile>, SnapshotError> {
+        let ignore_disk_path = disk_dir.join(".gitignore");
+        if ignore_disk_path.is_file() {
+            return Ok(git_ignore.chain_with_file(dir, ignore_disk_path)?);
+        }
+        let repo_ignore_path = dir.join(RepoPathComponent::new(".gitignore").unwrap());
+        if self.sparse_matcher.matches(&repo_ignore_path) {
+            // The file should have been materialized, so its absence means it
+            // was deleted from the working copy.
+            return Ok(git_ignore.clone());
+        }
+        let tree_values = self.current_tree.path_value(&repo_ignore_path).await?;
+        let file_id = match tree_values.as_normal() {
+            Some(TreeValue::File { id, .. }) => id,
+            None
+            | Some(TreeValue::Symlink(_) | TreeValue::GitSubmodule(_) | TreeValue::Tree(_)) => {
+                // Conflicted .gitignore files are ignored as we won't be able to read them normally.
+                // Git does not follow symlinks when reading .gitignore files, so we ignore them too.
+                // Submodules and directories are ignored as they can't be .gitignore files either.
+                return Ok(git_ignore.clone());
+            }
+        };
+        let mut buf = vec![];
+        let mut reader = self.store().read_file(&repo_ignore_path, file_id).await?;
+        reader
+            .read_to_end(&mut buf)
+            .await
+            .map_err(|err| BackendError::ReadFile {
+                path: repo_ignore_path.clone(),
+                id: file_id.clone(),
+                source: err.into(),
+            })?;
+        Ok(git_ignore.chain(dir, &ignore_disk_path, &buf)?)
     }
 
     async fn process_dir_entry<'scope>(
