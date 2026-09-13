@@ -585,61 +585,13 @@ impl<'a> DiffRenderer<'a> {
         paths: Diff<&str>,
         contents: Diff<&Merge<T>>,
     ) -> io::Result<()> {
-        let mut formatter = formatter.labeled("diff");
-        self.show_diff_bytes(*formatter, paths, contents)
-    }
-
-    fn show_diff_bytes<T: AsRef<[u8]> + Eq>(
-        &self,
-        formatter: &mut dyn Formatter,
-        paths: Diff<&str>,
-        contents: Diff<&Merge<T>>,
-    ) -> io::Result<()> {
-        if !contents.is_changed() {
-            return Ok(());
-        }
-        for format in &self.formats {
-            match format {
-                // Omit diff from "short" formats. Printing dummy file path
-                // wouldn't be useful.
-                DiffFormat::Summary
-                | DiffFormat::Stat(_)
-                | DiffFormat::Types
-                | DiffFormat::NameOnly => {}
-                DiffFormat::Git(options) => {
-                    show_git_diff_texts(
-                        formatter,
-                        paths,
-                        contents,
-                        options,
-                        &self.materialize_options,
-                    )?;
-                }
-                DiffFormat::ColorWords(options) => {
-                    if paths.is_changed() {
-                        let Diff { before, after } = paths;
-                        writeln!(
-                            formatter.labeled("header"),
-                            "Modified {after} ({before} => {after}):"
-                        )?;
-                    } else {
-                        let Diff { before: _, after } = paths;
-                        writeln!(formatter.labeled("header"), "Modified {after}:")?;
-                    }
-                    show_color_words_diff_hunks(
-                        formatter,
-                        contents,
-                        Diff::new(&ConflictLabels::unlabeled(), &ConflictLabels::unlabeled()),
-                        options,
-                        &self.materialize_options,
-                    )?;
-                }
-                DiffFormat::Tool(_) => {
-                    // TODO: materialize contents as files?
-                }
-            }
-        }
-        Ok(())
+        show_diff_bytes(
+            *formatter.labeled("diff"),
+            &self.formats,
+            paths,
+            contents,
+            &self.materialize_options,
+        )
     }
 
     /// Generates diff between `from_commits` and `to_commit` based off their
@@ -671,10 +623,12 @@ impl<'a> DiffRenderer<'a> {
         let from_tree = rebase_to_dest_parent(self.repo, from_commits, to_commit).await?;
         let to_tree = to_commit.tree();
         let copy_records = CopyRecords::default(); // TODO
-        self.show_diff_bytes(
+        show_diff_bytes(
             *formatter,
+            &self.formats,
             Diff::new(DUMMY_DESCRIPTION_PATH, DUMMY_DESCRIPTION_PATH),
             Diff::new(&from_description, &to_description),
+            &self.materialize_options,
         )?;
         self.show_diff_trees(
             ui,
@@ -729,6 +683,57 @@ pub async fn get_copy_records(
         .try_filter(|record| future::ready(matcher.matches(&record.target)))
         .try_collect()
         .await
+}
+
+/// Renders diffs between `contents` in the specified `formats`.
+///
+/// The `formatter` should usually be labeled by the caller as "diff".
+pub fn show_diff_bytes<T: AsRef<[u8]> + Eq>(
+    formatter: &mut dyn Formatter,
+    formats: &[DiffFormat],
+    paths: Diff<&str>,
+    contents: Diff<&Merge<T>>,
+    materialize_options: &ConflictMaterializeOptions,
+) -> io::Result<()> {
+    if !contents.is_changed() {
+        return Ok(());
+    }
+    for format in formats {
+        match format {
+            // Omit diff from "short" formats. Printing dummy file path wouldn't
+            // be useful.
+            DiffFormat::Summary
+            | DiffFormat::Stat(_)
+            | DiffFormat::Types
+            | DiffFormat::NameOnly => {}
+            DiffFormat::Git(options) => {
+                show_git_diff_texts(formatter, paths, contents, options, materialize_options)?;
+            }
+            DiffFormat::ColorWords(options) => {
+                if paths.is_changed() {
+                    let Diff { before, after } = paths;
+                    writeln!(
+                        formatter.labeled("header"),
+                        "Modified {after} ({before} => {after}):"
+                    )?;
+                } else {
+                    let Diff { before: _, after } = paths;
+                    writeln!(formatter.labeled("header"), "Modified {after}:")?;
+                }
+                show_color_words_diff_hunks(
+                    formatter,
+                    contents,
+                    Diff::new(&ConflictLabels::unlabeled(), &ConflictLabels::unlabeled()),
+                    options,
+                    materialize_options,
+                )?;
+            }
+            DiffFormat::Tool(_) => {
+                // TODO: materialize contents as files?
+            }
+        }
+    }
+    Ok(())
 }
 
 /// How conflicts are processed and rendered in diffs.
