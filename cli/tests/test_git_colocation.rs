@@ -341,6 +341,60 @@ fn test_git_colocation_disable_not_colocated() {
 }
 
 #[test]
+fn test_git_colocation_enable_disable_with_pack_files() {
+    let test_env = TestEnvironment::default();
+
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+    let workspace_root = work_dir.root();
+    let git_store_path = workspace_root
+        .join(".jj")
+        .join("repo")
+        .join("store")
+        .join("git");
+
+    work_dir.write_file("file", "contents\n");
+    work_dir.run_jj(["commit", "-m", "first"]).success();
+
+    // Pack the loose objects. Unlike loose objects, pack files stay open
+    // (memory-mapped) for as long as the Git repository is open, and Windows
+    // refuses to rename a directory that contains an open file. Moving the Git
+    // repository between .git and .jj/repo/store/git used to fail with "Access
+    // is denied" once a pack existed.
+    work_dir.run_jj(["util", "gc"]).success();
+    assert!(has_pack_files(&workspace_root.join(".git")));
+
+    let output = work_dir.run_jj(["git", "colocation", "disable"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Workspace successfully converted into a non-colocated Jujutsu/Git workspace.
+    [EOF]
+    ");
+    assert!(!workspace_root.join(".git").exists());
+    assert_eq!(read_git_target(workspace_root), "git");
+
+    let output = work_dir.run_jj(["git", "colocation", "enable"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Workspace successfully converted into a colocated Jujutsu/Git workspace.
+    [EOF]
+    ");
+    assert!(!git_store_path.exists());
+    assert_eq!(read_git_target(workspace_root), "../../../.git");
+
+    // The repository is still usable afterwards
+    let output = work_dir.run_jj(["log", "-r", "@-", "-T", "description"]);
+    insta::assert_snapshot!(output, @"
+    ○  first
+    │
+    ~
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_git_colocation_status_non_colocated() {
     let test_env = TestEnvironment::default();
 
@@ -552,4 +606,16 @@ fn test_git_colocation_enable_child_workspace_with_existing_git_dir() -> TestRes
     ");
     assert_eq!(main_repo.worktrees()?.len(), worktree_count);
     Ok(())
+}
+
+fn has_pack_files(git_dir: &std::path::Path) -> bool {
+    std::fs::read_dir(git_dir.join("objects").join("pack"))
+        .unwrap()
+        .any(|entry| {
+            entry
+                .unwrap()
+                .path()
+                .extension()
+                .is_some_and(|ext| ext == "pack")
+        })
 }

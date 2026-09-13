@@ -61,6 +61,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   [#6745](https://github.com/jj-vcs/jj/issues/6745)
   [#8547](https://github.com/jj-vcs/jj/issues/8547)
 
+* On Windows, `jj git colocation enable` and `jj git colocation disable` no
+  longer fail with "Access is denied (os error 5)" when the Git repository
+  contains pack files.
+  [#8661](https://github.com/jj-vcs/jj/issues/8661)
+
 ## [0.45.1] - 2026-09-03
 
 This release fixes an error that prevented the new jj-core crate from being

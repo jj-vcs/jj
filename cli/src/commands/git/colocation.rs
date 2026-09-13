@@ -14,14 +14,17 @@
 
 use std::io::ErrorKind;
 use std::io::Write as _;
+use std::path::Path;
 
 use itertools::Itertools as _;
 use jj_lib::commit::Commit;
 use jj_lib::file_util::IoResultExt as _;
 use jj_lib::git;
 use jj_lib::git::GitSubprocessOptions;
+use jj_lib::op_store::OperationId;
 use jj_lib::op_store::RefTarget;
 use jj_lib::repo::Repo as _;
+use jj_lib::settings::UserSettings;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
@@ -163,20 +166,30 @@ async fn cmd_git_colocation_enable(
         .ok_or_else(|| user_error("This command requires a working copy"))?
         .clone();
 
-    let workspace_root = workspace_command.workspace_root();
+    let workspace_root = workspace_command.workspace_root().to_owned();
+    let settings = workspace_command.settings().clone();
+    let op_id = workspace_command.repo().op_id().clone();
 
     if is_child_workspace(&workspace_command) {
         let subprocess_options = GitSubprocessOptions::from_settings(workspace_command.settings())?;
         git::create_worktree(
             workspace_command.repo().store(),
             subprocess_options,
-            workspace_root,
+            &workspace_root,
         )?;
+        drop(workspace_command);
     } else {
         let jj_repo_path = workspace_command.repo_path();
         let git_store_path = jj_repo_path.join("store").join("git");
         let git_target_path = jj_repo_path.join("store").join("git_target");
         let dot_git_path = workspace_root.join(".git");
+        let git_repo_path = git_backend.git_repo_path().to_owned();
+
+        // Release the Git repository before moving it. The workspace helper
+        // keeps it open (gix memory-maps pack files), and Windows refuses to
+        // rename a directory while any file in it is open, failing with
+        // "Access is denied".
+        drop(workspace_command);
 
         // Move the git repository from .jj/repo/store/git to .git
         std::fs::rename(&git_store_path, &dot_git_path).map_err(|err| match err.kind() {
@@ -187,7 +200,7 @@ async fn cmd_git_colocation_enable(
             // --git-repo=<path>`) isn't managed by jj and cannot be moved.
             ErrorKind::NotFound => user_error(format!(
                 "Cannot colocate a workspace backed by an external Git repository at {}",
-                git_backend.git_repo_path().display()
+                git_repo_path.display()
             )),
             _ => user_error_with_message(
                 "Failed to move Git repository from .jj/repo/store/git to workspace root \
@@ -205,7 +218,8 @@ async fn cmd_git_colocation_enable(
     }
 
     // Reload the workspace command helper to ensure it picks up the changes
-    let mut workspace_command = reload_workspace_helper(ui, command, workspace_command).await?;
+    let mut workspace_command =
+        reload_workspace_helper(ui, command, &workspace_root, &settings, &op_id).await?;
 
     // Add .jj/.gitignore to prevent Git from tracking jj's repo
     maybe_add_gitignore(&workspace_command)?;
@@ -239,7 +253,9 @@ async fn cmd_git_colocation_disable(
         return Ok(());
     }
 
-    let workspace_root = workspace_command.workspace_root();
+    let workspace_root = workspace_command.workspace_root().to_owned();
+    let settings = workspace_command.settings().clone();
+    let op_id = workspace_command.repo().op_id().clone();
 
     if is_child_workspace(&workspace_command) {
         let subprocess_options = GitSubprocessOptions::from_settings(workspace_command.settings())?;
@@ -247,8 +263,9 @@ async fn cmd_git_colocation_disable(
             ui,
             workspace_command.repo().store(),
             subprocess_options,
-            workspace_root,
+            &workspace_root,
         )?;
+        drop(workspace_command);
     } else {
         let git_store_path = workspace_command.repo_path().join("store").join("git");
         let git_target_path = workspace_command
@@ -256,6 +273,10 @@ async fn cmd_git_colocation_disable(
             .join("store")
             .join("git_target");
         let dot_git_path = workspace_root.join(".git");
+
+        // Release the Git repository before moving it (see
+        // `cmd_git_colocation_enable`).
+        drop(workspace_command);
 
         // Move the Git repository from .git into .jj/repo/store/git
         std::fs::rename(&dot_git_path, &git_store_path).map_err(|e| {
@@ -274,7 +295,8 @@ async fn cmd_git_colocation_disable(
     std::fs::remove_file(workspace_root.join(".jj").join(".gitignore")).ok();
 
     // Reload the workspace command helper to ensure it picks up the changes
-    let mut workspace_command = reload_workspace_helper(ui, command, workspace_command).await?;
+    let mut workspace_command =
+        reload_workspace_helper(ui, command, &workspace_root, &settings, &op_id).await?;
     remove_git_head(ui, &mut workspace_command).await?;
 
     writeln!(
@@ -345,20 +367,17 @@ async fn remove_git_head(
     Ok(())
 }
 
-/// Gets an up to date workspace helper to pick up changes made to the repo
+/// Loads a fresh workspace helper at the given operation, so that it picks up
+/// changes made to the repository on disk.
 async fn reload_workspace_helper(
     ui: &mut Ui,
     command: &CommandHelper,
-    workspace_command: WorkspaceCommandHelper,
+    workspace_root: &Path,
+    settings: &UserSettings,
+    op_id: &OperationId,
 ) -> Result<WorkspaceCommandHelper, CommandError> {
-    let workspace = command.load_workspace_at(
-        workspace_command.workspace_root(),
-        workspace_command.settings(),
-    )?;
-    let op = workspace
-        .repo_loader()
-        .load_operation(workspace_command.repo().op_id())
-        .await?;
+    let workspace = command.load_workspace_at(workspace_root, settings)?;
+    let op = workspace.repo_loader().load_operation(op_id).await?;
     let repo = workspace.repo_loader().load_at(&op).await?;
     let workspace_command = command.for_workable_repo(ui, workspace, repo)?;
     Ok(workspace_command)
