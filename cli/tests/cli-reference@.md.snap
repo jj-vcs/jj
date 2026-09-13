@@ -2098,19 +2098,50 @@ Print this message or the help of the given subcommand(s)
 
 Show differences between the diffs of two revisions
 
-This is like running `jj diff -r` on each change, then comparing those results. It answers: "How do the modifications introduced by revision A differ from the modifications introduced by revision B?"
+This is like running `jj diff -r` on each change, then comparing those
+results. It answers: "How do the modifications introduced by revision A
+differ from the modifications introduced by revision B?"
 
-For example, if two changes both add a feature but implement it differently, `jj interdiff --from @- --to other` shows what one implementation adds or removes that the other doesn't.
+For example, if two changes `A` and `B` both add a feature on top of
+the same parent `P` but implement it differently, `jj interdiff --from A
+--to B` shows what one implementation adds or removes that the other
+doesn't:
 
-A common use of this command is to compare how a change has changed since the last push to a remote:
+```text
+A(from) B(to)     diff(P -> B)
+ \     /          :
+  \   /       =>  : (compare diffs)
+   \ /            :
+    P             diff(P -> A)
+```
 
-```sh $ jj interdiff --from push-xyz@origin --to push-xyz ```
+A common use of this command is to compare how a change has changed
+since the last push to a remote:
 
-This command is different from `jj diff --from A --to B`, which compares file contents directly. `interdiff` compares what the changes do in terms of their patches, rather than their file contents. This makes a difference when the two revisions have different parents: `jj diff --from A --to B` will include the changes between their parents while `jj interdiff --from A --to B` will not.
+```sh
+$ jj interdiff --from push-xyz@origin --to push-xyz
+```
 
-Technically, this works by rebasing `--from` onto `--to`'s parents and comparing the result to `--to`.
+This command is different from `jj diff --from A --to B`, which compares
+file contents directly. `interdiff` compares what the changes do in terms of
+their patches, rather than their file contents. This makes a difference when
+the two revisions `A` and `B` have different parents `P` and `Q`:
+`jj diff --from A --to B` will include the changes between their parents
+(`P` to `Q`), while `jj interdiff --from A --to B` will not.
 
-To see the changes throughout the whole evolution of a change instead of between just two revisions, use `jj evolog -p` instead.
+Technically, this works by rebasing `A` onto `B`'s parent(s) `Q`
+and comparing the rebased revision `A'` to `B`:
+
+```text
+A(from) B(to)      A'(A rebased onto Q)      diff(Q -> B)
+|       |      =>  |                     =>  :
+P       Q          | B(to)                   : (compare diffs)
+                   |/                        :
+                   Q                         diff(Q -> A')
+```
+
+To see the changes throughout the whole evolution of a change instead of
+between just two revisions, use `jj evolog -p` instead.
 
 **Usage:** `jj interdiff [OPTIONS] <--from <REVSET>|--to <REVSET>> [FILESETS]...`
 
