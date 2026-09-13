@@ -14,13 +14,17 @@
 
 use std::fs;
 
+use jj_lib::conflicts::ConflictMaterializeOptions;
 use jj_lib::file_util::IoResultExt as _;
 use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
+use jj_lib::tree_merge::MergeOptions;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
+use crate::diff_util;
 use crate::diff_util::DiffFormatArgs;
+use crate::formatter::FormatterExt as _;
 use crate::ui::Ui;
 
 /// Compare two files on disk
@@ -51,9 +55,12 @@ pub async fn cmd_util_diff(
     command: &CommandHelper,
     args: &UtilDiffArgs,
 ) -> Result<(), CommandError> {
-    // TODO: Remove repo dependency from DiffRenderer?
-    let workspace_command = command.workspace_helper_no_snapshot(ui).await?;
-    let diff_renderer = workspace_command.diff_renderer_for(&args.format)?;
+    let formats = diff_util::diff_formats_for(command.settings(), &args.format)?;
+    let materialize_options = ConflictMaterializeOptions {
+        marker_style: command.settings().get("ui.conflict-marker-style")?,
+        marker_len: None,
+        merge: MergeOptions::from_settings(command.settings())?,
+    };
 
     let paths: Diff<&str> = Diff::new(&args.path1, &args.path2);
     let content1 = Merge::resolved(fs::read(&args.path1).context(&args.path1)?);
@@ -61,6 +68,12 @@ pub async fn cmd_util_diff(
     let contents = Diff::new(&content1, &content2);
 
     ui.request_pager();
-    diff_renderer.show_text_diff(ui.stdout_formatter().as_mut(), paths, contents)?;
+    diff_util::show_diff_bytes(
+        *ui.stdout_formatter().labeled("diff"),
+        &formats,
+        paths,
+        contents,
+        &materialize_options,
+    )?;
     Ok(())
 }

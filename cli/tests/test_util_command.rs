@@ -148,8 +148,7 @@ fn test_shell_completions() {
 #[test]
 fn test_util_diff() {
     let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let work_dir = test_env.work_dir("repo");
+    let work_dir = test_env.work_dir("").create_dir("work");
 
     // file1 == file2, != file3
     work_dir.write_file("file1", "foo\nbar\n");
