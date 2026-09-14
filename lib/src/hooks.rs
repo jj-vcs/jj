@@ -78,6 +78,10 @@ pub enum HookKind {
 }
 
 impl HookKind {
+    /// Every hook kind, for callers (e.g. `jj hook status`) that need to
+    /// enumerate them.
+    pub const ALL: [Self; 2] = [Self::GitPrePush, Self::GitPostPush];
+
     /// The file name a hook implementing this kind must have on disk, both
     /// under the global hooks directory and under a repository's
     /// `.jj-hooks/`.
