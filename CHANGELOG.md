@@ -29,6 +29,12 @@ and this project adheres to
 * In colocated workspaces, `--ignore-working-copy` and `--at-op` now prevent
   changes from being exported to Git HEAD and refs.
 
+* Re-running a rewriting command right after `jj undo` no longer fails with
+  `Internal error: Newly-created commit <id> already exists`. Commit timestamps
+  have one-second resolution, so retrying within the same second re-created the
+  commits the undone operation had written.
+  [#10189](https://github.com/jj-vcs/jj/issues/10189)
+
 ## [0.47.1] - 2026-11-04
 
 This release fixes a dependency error that broke Linux builds in the 0.47.0
