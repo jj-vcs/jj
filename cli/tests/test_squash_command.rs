@@ -14,6 +14,8 @@
 
 use std::path::PathBuf;
 
+use indoc::formatdoc;
+use test_case::test_case;
 use testutils::TestResult;
 
 use crate::common::CommandOutput;
@@ -1379,10 +1381,10 @@ fn test_squash_description() -> TestResult {
     insta::assert_snapshot!(
         editor0, @r#"
     JJ: Enter a description for the combined commit.
-    JJ: Description from the destination commit:
+    JJ: Description from the destination commit (qpvuntsmwlqt):
     destination
 
-    JJ: Description from source commit:
+    JJ: Description from source commit (rlvkpnrzqnoo):
     source
 
     JJ: Change ID: qpvuntsm
@@ -1452,10 +1454,10 @@ fn test_squash_description() -> TestResult {
     insta::assert_snapshot!(
         editor0, @r#"
     JJ: Enter a description for the combined commit.
-    JJ: Description from the destination commit:
+    JJ: Description from the destination commit (qpvuntsmwlqt):
     destination
 
-    JJ: Description from source commit:
+    JJ: Description from source commit (rlvkpnrzqnoo):
     source
 
     foo: bar
@@ -1487,10 +1489,10 @@ fn test_squash_description() -> TestResult {
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
     JJ: Enter a description for the combined commit.
-    JJ: Description from the destination commit:
+    JJ: Description from the destination commit (qpvuntsmwlqt):
     destination
 
-    JJ: Description from source commit:
+    JJ: Description from source commit (rlvkpnrzqnoo):
     source
 
     foo: bar
@@ -2142,10 +2144,10 @@ fn test_squash_to_new_commit() -> TestResult {
         editor1, @r#"
     JJ: Enter a description for the combined commit.
 
-    JJ: Description from source commit:
+    JJ: Description from source commit (kkmpptxzrspx):
     file3
 
-    JJ: Description from source commit:
+    JJ: Description from source commit (zsuskulnrvyr):
     file4
 
     JJ: Change ID: pkstwlsy
@@ -2443,6 +2445,75 @@ fn test_squash_to_new_commit() -> TestResult {
     Ok(())
 }
 
+#[test_case(false; "default_template")]
+#[test_case(true; "with_diff")]
+fn test_squash_description_identifies_sources(with_diff: bool) -> TestResult {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    if with_diff {
+        test_env.add_config(
+            "templates.draft_commit_description = 'builtin_draft_commit_description_with_diff'",
+        );
+    }
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m", "destination"]).success();
+    work_dir.write_file("destination", "contents\n");
+    for (file, description) in [("first", "same"), ("second", "same"), ("third", "")] {
+        work_dir.run_jj(["new", "-m", description]).success();
+        work_dir.write_file(file, "contents\n");
+    }
+    let ids = ["@---", "@--", "@-", "@"].map(|revision| {
+        work_dir
+            .run_jj([
+                "log",
+                "--no-graph",
+                "-r",
+                revision,
+                "-T",
+                "change_id.short(12)",
+            ])
+            .success()
+            .stdout
+            .into_raw()
+    });
+
+    // Identical and empty descriptions should still identify their source.
+    std::fs::write(&edit_script, "dump editor")?;
+    work_dir
+        .run_jj(["squash", "--from", "@--::@", "--into", "@---"])
+        .success();
+    let editor = std::fs::read_to_string(test_env.env_root().join("editor"))?;
+    let (sections, _) = editor.split_once("JJ: Change ID:").unwrap();
+    assert_eq!(
+        sections,
+        formatdoc! {"
+            JJ: Enter a description for the combined commit.
+            JJ: Description from the destination commit ({}):
+            destination
+
+            JJ: Description from source commit ({}):
+            same
+
+            JJ: Description from source commit ({}):
+            same
+
+            JJ: Description from source commit ({}):
+
+            ", ids[0], ids[1], ids[2], ids[3]
+        }
+    );
+    if with_diff {
+        assert!(editor.contains("\nJJ: ignore-rest\ndiff --git "));
+    }
+    assert_eq!(
+        get_description(&work_dir, "@-").success().stdout.raw(),
+        "destination\n\nsame\n\nsame\n"
+    );
+    Ok(())
+}
+
 #[test]
 fn test_squash_with_editor_combine_messages() -> TestResult {
     let mut test_env = TestEnvironment::default();
@@ -2468,10 +2539,10 @@ fn test_squash_with_editor_combine_messages() -> TestResult {
     insta::assert_snapshot!(
         editor, @r#"
     JJ: Enter a description for the combined commit.
-    JJ: Description from the destination commit:
+    JJ: Description from the destination commit (qpvuntsmwlqt):
     destination
 
-    JJ: Description from source commit:
+    JJ: Description from source commit (kkmpptxzrspx):
     source
 
     JJ: Change ID: qpvuntsm
