@@ -35,6 +35,9 @@ use jj_lib::git;
 use jj_lib::git::GitPushOptions;
 use jj_lib::git::GitPushRefTargets;
 use jj_lib::git::GitSettings;
+use jj_lib::hooks;
+use jj_lib::hooks::HookKind;
+use jj_lib::hooks::HookTrustState;
 use jj_lib::index::IndexResult;
 use jj_lib::merge::Diff;
 use jj_lib::op_store::RefTarget;
@@ -77,6 +80,8 @@ use crate::commands::git::get_single_remote;
 use crate::complete;
 use crate::formatter::Formatter;
 use crate::git_util::GitSubprocessUi;
+use crate::git_util::git_post_push_hook_payload;
+use crate::git_util::git_pre_push_hook_payload;
 use crate::git_util::print_push_stats;
 use crate::progress::ProgressWriter;
 use crate::revset_util::parse_bookmark_name;
@@ -236,6 +241,18 @@ pub struct GitPushArgs {
     /// Only display what will change on the remote
     #[arg(long)]
     dry_run: bool,
+
+    /// Skip git-pre-push/git-post-push hooks for this invocation
+    ///
+    /// Neither hook runs, and neither is even resolved: a repository-scoped
+    /// hook's trust state is left untouched, and no "skipped, untrusted"
+    /// warning is printed, since the skip here is deliberate rather than a
+    /// failed trust check. See [`jj help -k hooks`].
+    ///
+    /// [`jj help -k hooks`]:
+    ///     https://docs.jj-vcs.dev/latest/hooks/
+    #[arg(long)]
+    no_hooks: bool,
 
     /// Git push options
     #[arg(long, short)]
@@ -574,12 +591,17 @@ pub async fn cmd_git_push(
         .await?;
     }
 
+    if !args.dry_run {
+        run_git_pre_push_hook(ui, command, &tx, &by_remote, args.no_hooks)?;
+    }
+
     let git_settings = GitSettings::from_settings(tx.settings())?;
     let options = GitPushOptions {
         remote_push_options: args.option.clone(),
     };
     let mut all_ok = true;
     let mut some_exported = false;
+    let mut push_stats_by_remote = Vec::with_capacity(by_remote.len());
 
     for (remote, ref_updates) in &by_remote {
         if let Some(mut formatter) = ui.status_formatter() {
@@ -608,11 +630,23 @@ pub async fn cmd_git_push(
 
         all_ok &= push_stats.all_ok();
         some_exported |= push_stats.some_exported();
+        push_stats_by_remote.push(push_stats);
     }
 
     if args.dry_run {
         writeln!(ui.status(), "Dry-run requested, not pushing.")?;
         return Ok(());
+    }
+
+    if all_ok {
+        run_git_post_push_hook(
+            ui,
+            command,
+            &tx,
+            &by_remote,
+            &push_stats_by_remote,
+            args.no_hooks,
+        )?;
     }
 
     // TODO: On partial success, locally-created --change/--named bookmarks will
@@ -655,6 +689,87 @@ pub async fn cmd_git_push(
     } else {
         Err(user_error("Failed to push some bookmarks"))
     }
+}
+
+/// Prints the "skipped, untrusted" warning for a repository-scoped hook
+/// whose content no longer matches what `jj hook enable` approved.
+fn warn_if_stale_repo_hook(
+    ui: &Ui,
+    kind: HookKind,
+    outcome: &hooks::HookOutcome,
+) -> io::Result<()> {
+    if outcome.stale_repo_hook {
+        writeln!(
+            ui.warning_default(),
+            "Ignored .jj-hooks/{name}: its content changed since `jj hook enable` was run. Run \
+             `jj hook enable` again to re-approve it.",
+            name = kind.file_name(),
+        )?;
+    }
+    Ok(())
+}
+
+/// Runs `git-pre-push`, if one is configured, trusted, and `no_hooks` isn't
+/// set. A nonzero exit aborts the push before any remote is touched.
+fn run_git_pre_push_hook(
+    ui: &Ui,
+    command: &CommandHelper,
+    tx: &WorkspaceCommandTransaction,
+    by_remote: &[(&RemoteName, GitPushRefTargets)],
+    no_hooks: bool,
+) -> Result<(), CommandError> {
+    let workspace_root = tx.base_workspace_helper().workspace_root();
+    let root_config_dir = command
+        .config_env()
+        .root_config_dir()
+        .ok_or_else(|| user_error("No jj configuration directory found"))?;
+    let trust_state = HookTrustState::from_settings(tx.settings())?;
+    let payload = git_pre_push_hook_payload(by_remote);
+    let outcome = hooks::run_hook(
+        root_config_dir,
+        workspace_root,
+        HookKind::GitPrePush,
+        payload,
+        no_hooks,
+        |path| trust_state.check(path),
+    )
+    .map_err(|err| user_error_with_message("git-pre-push hook failed", err))?;
+    warn_if_stale_repo_hook(ui, HookKind::GitPrePush, &outcome)?;
+    Ok(())
+}
+
+/// Runs `git-post-push`, if one is configured, trusted, and `no_hooks`
+/// isn't set. Only called once every remote in `by_remote` has fully
+/// succeeded. A nonzero exit is reported as a warning, since the push
+/// already happened and cannot be undone by a hook.
+fn run_git_post_push_hook(
+    ui: &Ui,
+    command: &CommandHelper,
+    tx: &WorkspaceCommandTransaction,
+    by_remote: &[(&RemoteName, GitPushRefTargets)],
+    push_stats_by_remote: &[git::GitPushStats],
+    no_hooks: bool,
+) -> Result<(), CommandError> {
+    let workspace_root = tx.base_workspace_helper().workspace_root();
+    let Some(root_config_dir) = command.config_env().root_config_dir() else {
+        // Unlike git-pre-push, a missing config directory shouldn't fail the
+        // command here: the push already succeeded.
+        return Ok(());
+    };
+    let trust_state = HookTrustState::from_settings(tx.settings())?;
+    let payload = git_post_push_hook_payload(by_remote, push_stats_by_remote);
+    match hooks::run_hook(
+        root_config_dir,
+        workspace_root,
+        HookKind::GitPostPush,
+        payload,
+        no_hooks,
+        |path| trust_state.check(path),
+    ) {
+        Ok(outcome) => warn_if_stale_repo_hook(ui, HookKind::GitPostPush, &outcome)?,
+        Err(err) => writeln!(ui.warning_default(), "git-post-push hook failed: {err}")?,
+    }
+    Ok(())
 }
 
 #[derive(Debug, Copy, Clone)]

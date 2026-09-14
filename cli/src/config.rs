@@ -549,6 +549,13 @@ impl ConfigEnv {
             .and_then(|c| c.config_file))
     }
 
+    /// Returns the jj configuration directory (`$config_dir/jj`), the same
+    /// directory the user config file lives in. Used e.g. for global hooks
+    /// (`hooks/<hook-name>`, see `jj_lib::hooks::global_hook_path()`).
+    pub fn root_config_dir(&self) -> Option<&Path> {
+        self.root_config_dir.as_deref()
+    }
+
     /// Returns the directory under which all repo-specific config
     /// subdirectories (one per config ID) are stored.
     pub fn repo_configs_root_dir(&self) -> Option<PathBuf> {
