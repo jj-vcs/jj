@@ -163,10 +163,8 @@ pub(crate) async fn cmd_arrange(
         let rewrites = new_state.to_rewrite_plan();
         rewrites.execute(tx.repo_mut()).await?;
         tx.finish(ui, "arrange revisions").await?;
-        Ok(())
-    } else {
-        Err(user_error("Canceled by user"))
     }
+    Ok(())
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -268,6 +266,13 @@ impl State {
 
     fn is_valid(&self) -> bool {
         true
+    }
+
+    fn has_changes(&self) -> bool {
+        self.commits.iter().any(|(id, state)| {
+            !self.external_parents.contains(id)
+                && (state.action != UiAction::Keep || state.parents != state.commit.parent_ids())
+        })
     }
 
     fn current_id(&self) -> &CommitId {
@@ -495,6 +500,7 @@ fn run_tui<B: ratatui::backend::Backend>(
         help_spans.push(Span::raw(format!(" {desc}")));
     }
     let help_line = Line::from(help_spans);
+    let mut confirming_quit = false;
 
     let render_commit = |commit: &Commit, is_context_node: bool| {
         let mut text_lines = vec![];
@@ -521,35 +527,72 @@ fn run_tui<B: ratatui::backend::Backend>(
                 let help_area = layout[1];
                 state.clamp_scroll(main_area.height);
                 render(&state, render_commit, frame.buffer_mut(), main_area);
-                frame.render_widget(&help_line, help_area);
+                if confirming_quit {
+                    frame.render_widget("Discard changes? [y/N]", help_area);
+                } else {
+                    frame.render_widget(&help_line, help_area);
+                }
             })
             .map_err(|e| internal_error(format!("Failed to draw TUI: {e}")))?;
 
         if let Event::Key(event) =
             event::read().map_err(|e| internal_error(format!("Failed to read TUI events: {e}")))?
         {
-            // On Windows, we get Press and Release (and maybe Repeat) events, but on Linux
-            // we only get Press.
-            if event.is_release() {
-                continue;
+            match handle_tui_key_event(event, &mut state, &mut confirming_quit) {
+                TuiAction::Continue => {}
+                TuiAction::Apply => return Ok(Some(state)),
+                TuiAction::Quit => return Ok(None),
             }
-            match (event.code, event.modifiers) {
-                (KeyCode::Char('q'), KeyModifiers::NONE)
-                | (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
-                    return Ok(None);
-                }
-                (KeyCode::Char('c'), KeyModifiers::NONE) => {
-                    return Ok(Some(state));
-                }
-                _ => {}
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum TuiAction {
+    Continue,
+    Apply,
+    Quit,
+}
+
+fn handle_tui_key_event(
+    event: KeyEvent,
+    state: &mut State,
+    confirming_quit: &mut bool,
+) -> TuiAction {
+    // On Windows, we also get Release events.
+    if event.is_release() {
+        return TuiAction::Continue;
+    }
+    if *confirming_quit {
+        match (event.code, event.modifiers) {
+            (KeyCode::Char('y' | 'Y'), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
+                return TuiAction::Quit;
             }
+            (KeyCode::Char('n' | 'N'), KeyModifiers::NONE | KeyModifiers::SHIFT)
+            | (KeyCode::Esc | KeyCode::Enter, KeyModifiers::NONE) => {
+                *confirming_quit = false;
+            }
+            _ => {}
+        }
+        return TuiAction::Continue;
+    }
+    match (event.code, event.modifiers) {
+        (KeyCode::Char('q'), KeyModifiers::NONE) | (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
+            if !state.has_changes() {
+                return TuiAction::Quit;
+            }
+            *confirming_quit = true;
+        }
+        (KeyCode::Char('c'), KeyModifiers::NONE) => return TuiAction::Apply,
+        _ => {
             let new_state = handle_key_event(event, state.clone());
-            if new_state != state && new_state.is_valid() {
-                state = new_state;
+            if new_state != *state && new_state.is_valid() {
+                *state = new_state;
                 state.update_commit_order();
             }
         }
     }
+    TuiAction::Continue
 }
 
 fn handle_key_event(event: KeyEvent, mut state: State) -> State {
@@ -678,6 +721,185 @@ mod tests {
     use testutils::TestResult;
 
     use super::*;
+
+    fn state_for_key_events(test_repo: &TestRepo) -> State {
+        let store = test_repo.repo.store();
+        let mut tx = test_repo.repo.start_transaction();
+        let mut create_commit = |parents| {
+            tx.repo_mut()
+                .new_commit(parents, store.empty_merged_tree())
+                .write_unwrap()
+        };
+        let a = create_commit(vec![store.root_commit_id().clone()]);
+        let b = create_commit(vec![a.id().clone()]);
+        let c = create_commit(vec![b.id().clone()]);
+        State::new(vec![b, a], vec![c]).block_on().unwrap()
+    }
+
+    #[test]
+    fn test_quit_without_changes() {
+        let test_repo = TestRepo::init();
+        for quit in [
+            KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE),
+            KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL),
+        ] {
+            let mut state = state_for_key_events(&test_repo);
+            let mut confirming_quit = false;
+            // Navigation, scrolling, keeping a commit, and a blocked swap do not edit it.
+            for event in [
+                KeyEvent::new(KeyCode::Down, KeyModifiers::NONE),
+                KeyEvent::new(KeyCode::Char('p'), KeyModifiers::NONE),
+                KeyEvent::new(KeyCode::Down, KeyModifiers::SHIFT),
+            ] {
+                assert_eq!(
+                    handle_tui_key_event(event, &mut state, &mut confirming_quit),
+                    TuiAction::Continue
+                );
+            }
+            state.clamp_scroll(2);
+            assert!(state.scroll_top > 0);
+            assert!(!state.has_changes());
+            assert_eq!(
+                handle_tui_key_event(quit, &mut state, &mut confirming_quit),
+                TuiAction::Quit
+            );
+            assert!(!confirming_quit);
+        }
+    }
+
+    #[test]
+    fn test_quit_after_reverting_edits() {
+        let test_repo = TestRepo::init();
+        for (edit, revert) in [
+            (
+                KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE),
+                KeyEvent::new(KeyCode::Char('p'), KeyModifiers::NONE),
+            ),
+            (
+                KeyEvent::new(KeyCode::Down, KeyModifiers::SHIFT),
+                KeyEvent::new(KeyCode::Up, KeyModifiers::SHIFT),
+            ),
+        ] {
+            let mut state = state_for_key_events(&test_repo);
+            let mut confirming_quit = false;
+            handle_tui_key_event(edit, &mut state, &mut confirming_quit);
+            assert!(state.has_changes());
+            handle_tui_key_event(revert, &mut state, &mut confirming_quit);
+            assert!(!state.has_changes());
+            assert_eq!(
+                handle_tui_key_event(
+                    KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE),
+                    &mut state,
+                    &mut confirming_quit
+                ),
+                TuiAction::Quit
+            );
+        }
+    }
+
+    #[test]
+    fn test_quit_confirmation() {
+        let test_repo = TestRepo::init();
+        for quit in [
+            KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE),
+            KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL),
+        ] {
+            for confirm in [
+                KeyEvent::new(KeyCode::Char('y'), KeyModifiers::NONE),
+                KeyEvent::new(KeyCode::Char('Y'), KeyModifiers::SHIFT),
+            ] {
+                let mut state = state_for_key_events(&test_repo);
+                let mut confirming_quit = false;
+                handle_tui_key_event(
+                    KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE),
+                    &mut state,
+                    &mut confirming_quit,
+                );
+                let edited_state = state.clone();
+                assert_eq!(
+                    handle_tui_key_event(quit, &mut state, &mut confirming_quit),
+                    TuiAction::Continue
+                );
+                assert!(confirming_quit);
+                // The prompt must not apply, edit, or quit without an explicit yes.
+                for event in [
+                    quit,
+                    KeyEvent::new(KeyCode::Char('c'), KeyModifiers::NONE),
+                    KeyEvent::new(KeyCode::Char('p'), KeyModifiers::NONE),
+                    KeyEvent::new(KeyCode::Down, KeyModifiers::NONE),
+                    KeyEvent::new(KeyCode::Down, KeyModifiers::SHIFT),
+                    KeyEvent::new(KeyCode::Char('y'), KeyModifiers::CONTROL),
+                    KeyEvent::new_with_kind(
+                        confirm.code,
+                        confirm.modifiers,
+                        event::KeyEventKind::Release,
+                    ),
+                ] {
+                    assert_eq!(
+                        handle_tui_key_event(event, &mut state, &mut confirming_quit),
+                        TuiAction::Continue
+                    );
+                    assert!(confirming_quit);
+                    assert_eq!(state, edited_state);
+                }
+                assert_eq!(
+                    handle_tui_key_event(confirm, &mut state, &mut confirming_quit),
+                    TuiAction::Quit
+                );
+                assert_eq!(state, edited_state);
+            }
+        }
+    }
+
+    #[test]
+    fn test_reject_quit_then_apply() {
+        let test_repo = TestRepo::init();
+        for reject in [
+            KeyEvent::new(KeyCode::Char('n'), KeyModifiers::NONE),
+            KeyEvent::new(KeyCode::Char('N'), KeyModifiers::SHIFT),
+            KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE),
+            KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE),
+        ] {
+            let mut state = state_for_key_events(&test_repo);
+            let mut confirming_quit = false;
+            handle_tui_key_event(
+                KeyEvent::new(KeyCode::Down, KeyModifiers::SHIFT),
+                &mut state,
+                &mut confirming_quit,
+            );
+            let edited_state = state.clone();
+            handle_tui_key_event(
+                KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE),
+                &mut state,
+                &mut confirming_quit,
+            );
+            assert!(confirming_quit);
+            assert_eq!(
+                handle_tui_key_event(reject, &mut state, &mut confirming_quit),
+                TuiAction::Continue
+            );
+            assert!(!confirming_quit);
+            assert_eq!(state, edited_state);
+            assert_eq!(
+                handle_tui_key_event(
+                    KeyEvent::new(KeyCode::Char('c'), KeyModifiers::NONE),
+                    &mut state,
+                    &mut confirming_quit
+                ),
+                TuiAction::Apply
+            );
+            assert_eq!(state, edited_state);
+        }
+    }
+
+    #[test]
+    fn test_has_changes_in_external_child() {
+        let test_repo = TestRepo::init();
+        let mut state = state_for_key_events(&test_repo);
+        let child = state.external_children[0].clone();
+        state.commits.get_mut(&child).unwrap().parents = vec![state.current_order[1].clone()];
+        assert!(state.has_changes());
+    }
 
     fn no_op_plan(commits: &[&Commit]) -> RewritePlan {
         let rewrites = commits

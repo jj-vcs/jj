@@ -63,6 +63,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   [#6745](https://github.com/jj-vcs/jj/issues/6745)
   [#8547](https://github.com/jj-vcs/jj/issues/8547)
 
+* `jj arrange` exits successfully when quitting and asks for confirmation before
+  discarding changes.
+
 ## [0.45.1] - 2026-09-03
 
 This release fixes an error that prevented the new jj-core crate from being
