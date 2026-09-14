@@ -247,10 +247,10 @@ pub struct GitPushArgs {
     /// Neither hook runs, and neither is even resolved: a repository-scoped
     /// hook's trust state is left untouched, and no "skipped, untrusted"
     /// warning is printed, since the skip here is deliberate rather than a
-    /// failed trust check. See [`jj help -k hooks`].
+    /// failed trust check. See the "Hooks" section of [`jj help -k config`].
     ///
-    /// [`jj help -k hooks`]:
-    ///     https://docs.jj-vcs.dev/latest/hooks/
+    /// [`jj help -k config`]:
+    ///     https://docs.jj-vcs.dev/latest/config/#hooks
     #[arg(long)]
     no_hooks: bool,
 
