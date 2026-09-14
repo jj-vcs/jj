@@ -74,6 +74,10 @@ This document contains the help content for the `jj` command-line program.
 * [`jj git remote set-url`↴](#jj-git-remote-set-url)
 * [`jj git root`↴](#jj-git-root)
 * [`jj help`↴](#jj-help)
+* [`jj hook`↴](#jj-hook)
+* [`jj hook disable`↴](#jj-hook-disable)
+* [`jj hook enable`↴](#jj-hook-enable)
+* [`jj hook status`↴](#jj-hook-status)
 * [`jj interdiff`↴](#jj-interdiff)
 * [`jj log`↴](#jj-log)
 * [`jj metaedit`↴](#jj-metaedit)
@@ -170,6 +174,7 @@ To get started, see the tutorial [`jj help -k tutorial`].
 * `gerrit` — Interact with Gerrit Code Review
 * `git` — Commands for working with Git remotes and the underlying Git repo
 * `help` — Print this message or the help of the given subcommand(s)
+* `hook` — Manage jj hooks
 * `interdiff` — Show differences between the diffs of two revisions
 * `log` — Show revision history
 * `metaedit` — Modify the metadata of a revision without changing its content
@@ -1952,6 +1957,11 @@ Before the command actually moves, creates, or deletes a remote bookmark, it mak
 
    Automatically tracks the bookmark if it is new.
 * `--dry-run` — Only display what will change on the remote
+* `--no-hooks` — Skip git-pre-push/git-post-push hooks for this invocation
+
+   Neither hook runs, and neither is even resolved: a repository-scoped hook's trust state is left untouched, and no "skipped, untrusted" warning is printed, since the skip here is deliberate rather than a failed trust check. See the "Hooks" section of [`jj help -k config`].
+
+   [`jj help -k config`]: https://docs.jj-vcs.dev/latest/config/#hooks
 * `-o`, `--option <OPTION>` — Git push options
 
 
@@ -2092,6 +2102,56 @@ Print this message or the help of the given subcommand(s)
   - `tutorial`:
     Show a tutorial to get started with jj
 
+
+
+
+## `jj hook`
+
+Manage jj hooks
+
+See the "Hooks" section of [`jj help -k config`] for the hook mechanism, hook kinds, and the trust model for repository-scoped hooks.
+
+[`jj help -k config`]: https://docs.jj-vcs.dev/latest/config/#hooks
+
+**Usage:** `jj hook <COMMAND>`
+
+###### **Subcommands:**
+
+* `disable` — Stop trusting the repository-scoped hooks in this checkout
+* `enable` — Trust the repository-scoped hooks under `.jj-hooks/` in this checkout
+* `status` — Show which hooks are configured and which one would run
+
+
+
+## `jj hook disable`
+
+Stop trusting the repository-scoped hooks in this checkout
+
+Clears both the enabled flag and every recorded content hash: this is a clean-slate reset, not a pause. Running `jj hook enable` again always re-lists and re-approves whatever is currently under `.jj-hooks/`, even if it is unchanged since `jj hook disable` was run.
+
+**Usage:** `jj hook disable`
+
+
+
+## `jj hook enable`
+
+Trust the repository-scoped hooks under `.jj-hooks/` in this checkout
+
+Lists every file currently under `.jj-hooks/` and records the enabled flag and each file's content hash in this repository's local, secure config. From then on, jj runs these hooks automatically for this checkout, for every hook name it lists.
+
+This approval is per repository and per clone: cloning a repository that already has `.jj-hooks/` populated does not enable execution by itself. It is also tied to content, not to a one-time decision: if a hook file's content changes afterward (a local edit, or content pulled in by `jj git fetch`, a rebase, or a checkout of a different bookmark), jj treats it as untrusted again until `jj hook enable` is run once more.
+
+**Usage:** `jj hook enable`
+
+
+
+## `jj hook status`
+
+Show which hooks are configured and which one would run
+
+For each hook name, shows whether a global and/or a repository-scoped file exists, whether the repository-scoped one is currently trusted, and which one (if any) jj would actually run.
+
+**Usage:** `jj hook status`
 
 
 
