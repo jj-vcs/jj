@@ -30,11 +30,11 @@ use crate::ui::Ui;
 
 /// Manage jj hooks
 ///
-/// See [`jj help -k hooks`] for the hook mechanism, hook kinds, and the
-/// trust model for repository-scoped hooks.
+/// See the "Hooks" section of [`jj help -k config`] for the hook
+/// mechanism, hook kinds, and the trust model for repository-scoped hooks.
 ///
-/// [`jj help -k hooks`]:
-///     https://docs.jj-vcs.dev/latest/hooks/
+/// [`jj help -k config`]:
+///     https://docs.jj-vcs.dev/latest/config/#hooks
 #[derive(clap::Subcommand, Clone, Debug)]
 pub(crate) enum HookCommand {
     Disable(HookDisableArgs),
