@@ -137,6 +137,12 @@ and this project adheres to
   same commit when there's a merge between them whose parents both lead to
   that commit.
 
+* Re-running a rewriting command right after `jj undo` no longer fails with
+  `Internal error: Newly-created commit <id> already exists`. Commit timestamps
+  have one-second resolution, so retrying within the same second re-created the
+  commits the undone operation had written.
+  [#10189](https://github.com/jj-vcs/jj/issues/10189)
+
 ## [0.46.0] - 2026-10-07
 
 ### Release highlights
