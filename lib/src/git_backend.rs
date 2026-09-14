@@ -2612,6 +2612,6 @@ mod tests {
     // our UserSettings type comes from jj_lib (1).
     fn user_settings() -> UserSettings {
         let config = StackedConfig::with_defaults();
-        UserSettings::from_config(config).unwrap()
+        UserSettings::from_config_and_home_dir(config, None).unwrap()
     }
 }
