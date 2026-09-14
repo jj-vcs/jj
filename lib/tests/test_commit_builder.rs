@@ -403,6 +403,63 @@ fn test_rewrite_to_identical_commit(backend: TestRepoBackend) -> TestResult {
 }
 
 #[test_case(TestRepoBackend::Simple ; "simple backend")]
+#[test_case(TestRepoBackend::Git ; "git backend")]
+fn test_rewrite_to_identical_commit_after_undo(backend: TestRepoBackend) -> TestResult {
+    // The commit timestamp is fixed, so redoing a rewrite re-creates the same
+    // commit. That also happens in practice if a rewrite is undone and retried
+    // within the same second, since the Git backend stores commit timestamps
+    // with one-second resolution.
+    let timestamp = "2001-02-03T04:05:06+07:00";
+    let settings = UserSettings::from_config(config_with_commit_timestamp(timestamp))?;
+    let test_repo = TestRepo::init_with_backend_and_settings(backend, &settings);
+    let repo = test_repo.repo;
+    let store = repo.store();
+
+    let mut tx = repo.start_transaction();
+    let commit1 = tx
+        .repo_mut()
+        .new_commit(
+            vec![store.root_commit_id().clone()],
+            store.empty_merged_tree(),
+        )
+        .write_unwrap();
+    let repo = tx.commit("test").block_on()?;
+    let base_view = repo.operation().view().block_on()?.store_view().clone();
+
+    let mut tx = repo.start_transaction();
+    let rewritten1 = tx
+        .repo_mut()
+        .rewrite_commit(&commit1)
+        .set_description("rewritten")
+        .write_unwrap();
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("test").block_on()?;
+
+    // Undo the rewrite. The rewritten commit is no longer visible, but it is
+    // still known to the index.
+    let mut tx = repo.start_transaction();
+    tx.repo_mut().set_view(base_view);
+    let repo = tx.commit("test").block_on()?;
+    assert!(!repo.view().heads().contains(rewritten1.id()));
+    assert!(repo.index().has_id(rewritten1.id()).block_on().unwrap());
+
+    // Redoing the rewrite re-creates the same commit. That should be allowed
+    // because the operation history already records the same rewrite, so no
+    // edge is added to the predecessors graph.
+    let mut tx = repo.start_transaction();
+    let rewritten2 = tx
+        .repo_mut()
+        .rewrite_commit(&commit1)
+        .set_description("rewritten")
+        .write_unwrap();
+    assert_eq!(rewritten2.id(), rewritten1.id());
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("test").block_on()?;
+    assert!(repo.view().heads().contains(rewritten1.id()));
+    Ok(())
+}
+
+#[test_case(TestRepoBackend::Simple ; "simple backend")]
 // #[test_case(TestRepoBackend::Git ; "git backend")]
 fn test_commit_builder_descendants(backend: TestRepoBackend) -> TestResult {
     let test_repo = TestRepo::init_with_backend(backend);
