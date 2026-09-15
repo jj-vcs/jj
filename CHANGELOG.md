@@ -57,6 +57,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj util diff <path1> <path2>` to compare files on disk.
 
+* `jj workspace remove` removes a workspace and its directory from disk. The
+  working-copy state is snapshotted into a commit before removal.
+
 ### Fixed bugs
 
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,
@@ -66,6 +69,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   disappear into.
   [#6745](https://github.com/jj-vcs/jj/issues/6745)
   [#8547](https://github.com/jj-vcs/jj/issues/8547)
+
+* `jj undo` of `jj workspace forget` now correctly preserves the workspace's
+  recorded path. Previously the path metadata was lost, leaving the workspace
+  in a broken state after undo.
+  [#9991](https://github.com/jj-vcs/jj/issues/9991)
 
 ## [0.45.1] - 2026-09-03
 
